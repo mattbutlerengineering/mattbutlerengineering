@@ -49,6 +49,13 @@ vi.mock("../hooks/useAvailability.js", () => ({
     };
   },
   useSaveAvailabilityConfig: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  AVAILABILITY_CONFIG_QUERY_KEY: "availabilityConfig",
+  AVAILABILITY_DAYS_QUERY_KEY: "availabilityDays",
+}));
+vi.mock("../hooks/useClosures.js", () => ({
+  useClosureImpact: () => ({ data: null, isLoading: false, error: null, refetch: vi.fn() }),
+  useCreateClosure: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useReopenClosure: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 vi.mock("../components/availability/AvailabilityQuickSetup.js", () => ({
   AvailabilityQuickSetup: ({ venueId }: { venueId: string }) => (
@@ -306,6 +313,42 @@ describe("AvailabilityPage", () => {
       fireEvent.click(screen.getByRole("button", { name: "Discard" }));
       expect(screen.getByRole("dialog", { name: /Thursday, October 29/ })).toBeTruthy();
     });
+
+    function closeFromDrawer() {
+      const drawer = screen.getByRole("dialog", { name: /Friday, October 30/ });
+      fireEvent.click(within(drawer).getByRole("button", { name: "Close…" }));
+    }
+
+    it("asks before the drawer's Close… replaces a draft, and Keep editing opens nothing", () => {
+      renderPage();
+      startDraft();
+      closeFromDrawer();
+      expect(
+        screen.getByRole("dialog", { name: /Discard changes to Friday, October 30\?/ })
+      ).toBeTruthy();
+      expect(screen.queryByRole("dialog", { name: "Close" })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+      expect(screen.queryByRole("dialog", { name: "Close" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Save 1 date" })).toBeInTheDocument();
+    });
+
+    it("opens the Close dialog once the draft is discarded", async () => {
+      renderPage();
+      startDraft();
+      closeFromDrawer();
+      fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+      expect(screen.getByRole("dialog", { name: "Close" })).toBeInTheDocument();
+      await waitFor(() =>
+        expect(screen.queryByRole("dialog", { name: /Friday, October 30/ })).not.toBeInTheDocument()
+      );
+    });
+
+    it("opens the Close dialog straight away with no draft", () => {
+      renderPage();
+      openFriday();
+      closeFromDrawer();
+      expect(screen.getByRole("dialog", { name: "Close" })).toBeInTheDocument();
+    });
   });
 
   it("offers Retry when the days fail to load", () => {
@@ -314,6 +357,18 @@ describe("AvailabilityPage", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Couldn't load availability");
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(refetch).toHaveBeenCalled();
+  });
+
+  it("lets a Manager open the Close dialog", () => {
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Close…" }));
+    expect(screen.getByRole("dialog", { name: "Close" })).toBeInTheDocument();
+  });
+
+  it("hides Close from a Host", () => {
+    team.value = { viewerRole: "host" };
+    renderPage();
+    expect(screen.queryByRole("button", { name: "Close…" })).not.toBeInTheDocument();
   });
 
   it("asks for a venue when none is selected", () => {

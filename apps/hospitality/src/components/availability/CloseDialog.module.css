@@ -1,0 +1,61 @@
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-md);
+}
+
+.weekdays {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-sm);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.legend {
+  color: var(--rialto-text-secondary);
+  font-size: var(--rialto-text-sm);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-xs);
+}
+
+.impact {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+  padding-top: var(--rialto-space-sm);
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--rialto-space-sm);
+}
+
+.footerNote {
+  flex: 1 1 12rem;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+}
+
+.bookings {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.preview {
+  margin: 0;
+  white-space: pre-wrap;
+}

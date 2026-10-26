@@ -200,7 +200,7 @@ Drawer overflow → **Copy to other days…** offers weekday toggles, From [date
    - **Preview message ▸** shows the exact email and SMS for the chosen option.
    - **The button names the outcome:** "Close and cancel 14", "Close and move 9", "Close and keep 14". Beside it: "Guests are told right away. This can't be undone."
 8. **Result:**
-   - Toast: "Thu, Dec 24 closed · 14 guests notified".
+   - Toast: "Thu, Dec 24 closed · 14 reservations notified" (it counts reservations told, not the guests booked).
    - The calendar shows the band.
    - The closure's row on Special dates tracks **Sent · Rebooked · Unreachable**, and refund failures appear as "Refund failed: Rivera ($40) · Retry". The row also offers a printable **Call list**: name, party, time and phone for guests not yet confirmed delivered or rebooked.
    - If the save fails, nothing is cancelled or sent, and the `Alert` stays in the dialog.

@@ -12,7 +12,7 @@ import { resolveDay } from "@mbe/availability";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useAvailabilityConfig, useAvailabilityDays } from "../hooks/useAvailability.js";
 import { useNow } from "../hooks/useNow.js";
-import { venueDate } from "../utils/service-day.js";
+import { minutesOfDayIn, venueDate } from "../utils/service-day.js";
 import { useVenueFormat } from "../hooks/useVenueFormat.js";
 import { useVenueTeam } from "../hooks/useVenueTeam.js";
 import { describeApiError } from "../lib/describe-api-error.js";
@@ -30,6 +30,9 @@ import {
   visibleDates,
   type CalendarView,
 } from "../components/availability/calendar-dates.js";
+import { CloseDialog } from "../components/availability/CloseDialog.js";
+import { activeOnlinePause } from "../components/availability/close-draft.js";
+import { OnlinePausedBanner } from "../components/availability/OnlinePausedBanner.js";
 import { DiscardChangesDialog } from "../components/availability/DiscardChangesDialog.js";
 import { LeaveGuard } from "../components/availability/LeaveGuard.js";
 import { useDiscardGuard } from "../components/availability/use-discard-guard.js";
@@ -40,10 +43,20 @@ import styles from "./AvailabilityPage.module.css";
 
 const EMPTY: string[] = [];
 
-/** What the drawer shows: one date, or the dates picked in the selection bar (`fixedDates`). */
+/** The Close dialog (F5): `date` pre-fills "one date"; `pause` starts on pausing online booking. */
+interface Closing {
+  readonly date: string | null;
+  readonly pause: boolean;
+}
+
+/**
+ * What the drawer shows: one date, or the dates picked in the selection bar (`fixedDates`).
+ * A move can carry the Close dialog (`closing`), which opens only once the guard lets it through.
+ */
 interface OpenTarget {
   readonly date: string | null;
   readonly fixedDates?: readonly string[];
+  readonly closing?: Closing;
 }
 const CLOSED: OpenTarget = { date: null };
 
@@ -56,13 +69,15 @@ export function AvailabilityPage() {
   const { t } = useTranslation();
   const { selectedVenueId, selectedVenue } = useVenue();
   const timeZone = selectedVenue?.ianaTimezone ?? "";
-  const today = venueDate(useNow(), timeZone);
+  const now = useNow();
+  const today = venueDate(now, timeZone);
 
   const [view, setView] = useState<CalendarView>("month");
   // `null` follows today until the viewer navigates.
   const [chosenAnchor, setChosenAnchor] = useState<string | null>(null);
   const [target, setTarget] = useState<OpenTarget>(CLOSED);
   const openDate = target.date;
+  const [closing, setClosing] = useState<Closing | null>(null);
   const [tab, setTab] = useState<AvailabilityTab>("calendar");
   const anchor = chosenAnchor ?? today;
   // Picked days belong to one venue; derive "none" on a venue switch rather than clearing in an effect.
@@ -74,9 +89,10 @@ export function AvailabilityPage() {
   const setSelection = (dates: string[]) => setPicked({ venueId: selectedVenueId, dates });
   // Moving off a day with an unsaved draft asks first (ux.md F2 step 6), selection actions included.
   // Opening a single day drops the selection, but only once the guard lets the move happen.
-  const guard = useDiscardGuard<OpenTarget>((next) => {
+  const guard = useDiscardGuard<OpenTarget>(({ closing: nextClosing, ...next }) => {
     setTarget(next);
     if (next.date !== null && !next.fixedDates) setSelection([]);
+    if (nextClosing) setClosing(nextClosing);
   });
   const format = useVenueFormat();
 
@@ -190,6 +206,10 @@ export function AvailabilityPage() {
     );
   }
 
+  const isManager = team?.viewerRole === "manager";
+  const pause = config.data
+    ? activeOnlinePause(config.data.config.dateRules, today, minutesOfDayIn(now, timeZone))
+    : null;
   const failure = days.error ? describeApiError(days.error) : null;
   const drawerFailure = config.error ? describeApiError(config.error).detail : null;
 
@@ -211,6 +231,16 @@ export function AvailabilityPage() {
           trigger={<Button variant="secondary">{t("availability.selection.selectMenu")}</Button>}
           items={selectItems}
         />
+        {isManager && (
+          <Button variant="secondary" onClick={() => setClosing({ date: null, pause: false })}>
+            {t("availability.close.open")}
+          </Button>
+        )}
+        {isManager && !pause && (
+          <Button variant="secondary" onClick={() => setClosing({ date: null, pause: true })}>
+            {t("availability.paused.open")}
+          </Button>
+        )}
         <SegmentedControl
           aria-label={t("availability.toolbar.viewLabel")}
           segments={[
@@ -221,6 +251,9 @@ export function AvailabilityPage() {
           onChange={(id) => setView(id as CalendarView)}
         />
       </div>
+      {pause && (
+        <OnlinePausedBanner venueId={selectedVenueId} ruleId={pause.id} canResume={isManager} />
+      )}
       {failure && (
         <ErrorRetryBanner
           title={t("availability.loadError")}
@@ -265,11 +298,24 @@ export function AvailabilityPage() {
                 onFinished: () => guard.release(CLOSED),
                 fixedDates: target.fixedDates,
                 onStale: () => void config.refetch(),
+                onCloseDay: (date: string) =>
+                  guard.request({ date: null, closing: { date, pause: false } }),
               }
             : undefined
         }
         onClose={() => guard.request(CLOSED)}
       />
+      {closing && config.data && (
+        <CloseDialog
+          venueId={selectedVenueId}
+          state={config.data}
+          timezone={timeZone}
+          today={today}
+          initialDate={closing.date}
+          pauseOnline={closing.pause}
+          onClose={() => setClosing(null)}
+        />
+      )}
       <DiscardChangesDialog
         open={guard.pending !== null}
         date={openDate}

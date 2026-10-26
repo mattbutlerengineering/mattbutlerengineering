@@ -1841,6 +1841,152 @@
       "confirm": "Descartar",
       "keep": "Seguir editando"
     },
+    "close": {
+      "open": "Cerrar…",
+      "title": "Cerrar",
+      "step": "Paso {{step}} de 2",
+      "next": "Siguiente",
+      "back": "Atrás",
+      "cancel": "Cancelar",
+      "saveError": "No se pudo cerrar",
+      "versionConflict": "La disponibilidad cambió desde que abriste esto. Cierra este diálogo e inténtalo de nuevo.",
+      "staffNote": "Nota para el personal",
+      "guestMessage": "Mensaje para los comensales",
+      "guestMessageCount": "{{count}}/{{max}}",
+      "suggestions": {
+        "private": "Cerrado por evento privado",
+        "weather": "Cerrado por clima",
+        "holiday": "Cerrado por el día festivo"
+      },
+      "what": {
+        "label": "Qué",
+        "venue": "Todo el local",
+        "service": "Un servicio",
+        "pickService": "Servicio",
+        "booking": "Solo reservas",
+        "channel": {
+          "online": "En línea",
+          "phone": "Teléfono",
+          "waitlist": "Lista de espera"
+        },
+        "channelRequired": "Elige al menos una forma de reservar."
+      },
+      "when": {
+        "label": "Cuándo",
+        "tonight": "Esta noche",
+        "date": "Una fecha",
+        "range": "Rango de fechas",
+        "repeats": "Se repite",
+        "untilReopen": "Hasta que reabra",
+        "dateLabel": "Fecha",
+        "startingLabel": "A partir de",
+        "fromLabel": "Desde",
+        "toLabel": "Hasta",
+        "weekdays": "Se repite los",
+        "invalid": "Revisa las fechas: el final no puede ser antes del inicio."
+      },
+      "window": {
+        "label": "Desde las",
+        "allDay": "Todo el día",
+        "from": "Desde {{time}}"
+      },
+      "replaces": "El {{date}} tiene horario especial; el cierre lo reemplaza.",
+      "impactLabel": "Reservas en este cierre",
+      "impact_one": "{{count}} reservación · {{guests}} comensales tienen reserva en este cierre",
+      "impact_other": "{{count}} reservaciones · {{guests}} comensales tienen reserva en este cierre",
+      "impact_many": "{{count}} de reservaciones · {{guests}} comensales tienen reserva en este cierre",
+      "impactNone": "No hay reservaciones en este cierre.",
+      "impactError": "No se pudieron revisar las reservaciones existentes. Cambia un campo para reintentar.",
+      "guestsWillSee": "Los comensales verán: {{date}} · Cerrado",
+      "guestsWillSeeMessage": "Los comensales verán: {{date}} · Cerrado · “{{message}}”",
+      "button": {
+        "close": "Cerrar {{date}}",
+        "pause": "Pausar reservas en línea",
+        "cancel_one": "Cerrar y cancelar {{count}}",
+        "cancel_other": "Cerrar y cancelar {{count}}",
+        "cancel_many": "Cerrar y cancelar {{count}}",
+        "move_one": "Cerrar y mover {{count}}",
+        "move_other": "Cerrar y mover {{count}}",
+        "move_many": "Cerrar y mover {{count}}",
+        "keep_notify_one": "Cerrar y mantener {{count}}",
+        "keep_notify_other": "Cerrar y mantener {{count}}",
+        "keep_notify_many": "Cerrar y mantener {{count}}",
+        "keep_silent_one": "Cerrar y mantener {{count}} sin avisar",
+        "keep_silent_other": "Cerrar y mantener {{count}} sin avisar",
+        "keep_silent_many": "Cerrar y mantener {{count}} sin avisar",
+        "mixed": "Cerrar · {{parts}}",
+        "choose": "Elige para cada grupo",
+        "part": {
+          "cancel_one": "cancelar {{count}}",
+          "cancel_other": "cancelar {{count}}",
+          "cancel_many": "cancelar {{count}}",
+          "move_one": "mover {{count}}",
+          "move_other": "mover {{count}}",
+          "move_many": "mover {{count}}",
+          "keep_notify_one": "mantener {{count}}",
+          "keep_notify_other": "mantener {{count}}",
+          "keep_notify_many": "mantener {{count}}",
+          "keep_silent_one": "mantener {{count}} sin avisar",
+          "keep_silent_other": "mantener {{count}} sin avisar",
+          "keep_silent_many": "mantener {{count}} sin avisar"
+        }
+      },
+      "toast": {
+        "closed": "{{date}} cerrado",
+        "paused": "Reservaciones en línea pausadas",
+        "bookingPaused": "Reservaciones pausadas el {{date}}",
+        "notified_one": "{{date}} cerrado · {{count}} reservación avisada",
+        "notified_other": "{{date}} cerrado · {{count}} reservaciones avisadas",
+        "notified_many": "{{date}} cerrado · {{count}} reservaciones avisadas"
+      },
+      "step2": {
+        "urgent": "Urgente: los comensales recibirán un mensaje de texto y un correo",
+        "header_one": "{{count}} reservación · {{guests}} comensales · {{deposits}} depósitos retenidos",
+        "header_other": "{{count}} reservaciones · {{guests}} comensales · {{deposits}} depósitos retenidos",
+        "header_many": "{{count}} de reservaciones · {{guests}} comensales · {{deposits}} depósitos retenidos",
+        "group": {
+          "closed_one": "{{date}} · cerrado · {{count}} reserva",
+          "closed_other": "{{date}} · cerrado · {{count}} reservas",
+          "closed_many": "{{date}} · cerrado · {{count}} reservas",
+          "shortened_one": "{{date}} · horario reducido · {{count}} reserva",
+          "shortened_other": "{{date}} · horario reducido · {{count}} reservas",
+          "shortened_many": "{{date}} · horario reducido · {{count}} reservas"
+        },
+        "booking": "{{time}}  {{name}} · {{size}}",
+        "guestUnnamed": "Comensal",
+        "deposit": "depósito {{amount}}",
+        "runsInto": "se extiende al cierre",
+        "showAll_one": "Mostrar las {{count}}",
+        "showAll_other": "Mostrar las {{count}}",
+        "showAll_many": "Mostrar las {{count}}",
+        "choose": "¿Qué debe pasar con ellas? (obligatorio)",
+        "action": {
+          "cancel": "Cancelar, avisar y reembolsar",
+          "move": "Mover al horario libre más cercano y avisar",
+          "keep_notify": "Mantenerlas y avisar",
+          "keep_silent": "Mantenerlas sin avisar a los comensales"
+        },
+        "cancelHint": "Los comensales reciben hasta 3 horarios libres en los próximos 14 días para reservar de nuevo",
+        "acknowledge_one": "Entiendo que {{count}} comensal no será avisado",
+        "acknowledge_other": "Entiendo que {{count}} comensales no serán avisados",
+        "acknowledge_many": "Entiendo que {{count}} comensales no serán avisados",
+        "preview": "Vista previa del mensaje",
+        "previewText": {
+          "cancel": "Tu reservación del {{date}} fue cancelada. {{message}}\nRecibirás hasta 3 horarios libres para reservar de nuevo y se reembolsará cualquier depósito.",
+          "move": "Cambiamos nuestro horario el {{date}}. {{message}}\nTu mesa se movió al horario libre más cercano. ¿No puedes? Cancela sin costo.",
+          "keep_notify": "Cambiamos nuestro horario el {{date}}. {{message}}\nTu mesa sigue reservada."
+        },
+        "irreversible": "Se avisa a los comensales de inmediato. No se puede deshacer."
+      }
+    },
+    "paused": {
+      "open": "Pausar reservas en línea",
+      "banner": "Reservas en línea en pausa",
+      "resume": "Reanudar",
+      "resumed": "Reservas en línea reanudadas",
+      "resumeError": "No se pudieron reanudar las reservas en línea",
+      "pill": "Reservas en línea en pausa"
+    },
     "selection": {
       "selectColumn": "Seleccionar cada {{weekday}}",
       "selectedName": "{{name}}, seleccionado",
