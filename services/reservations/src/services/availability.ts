@@ -20,6 +20,7 @@ import {
   bookingWindow,
   isSlotInBookingWindow,
   activeHoldWindow,
+  serviceDayConflictWindow,
   NOT_BOOKED_STATUSES,
   type ReservationSlim,
   type HoldSlim,
@@ -239,7 +240,7 @@ export async function fetchConflictData(
     prisma.reservation.findMany({
       where: {
         venueId,
-        date: new Date(date),
+        date: serviceDayConflictWindow(new Date(date)),
         status: { notIn: [...NOT_BOOKED_STATUSES] },
       },
       select: {
@@ -253,7 +254,7 @@ export async function fetchConflictData(
     prisma.reservationHold.findMany({
       where: {
         venueId,
-        date: new Date(date),
+        date: serviceDayConflictWindow(new Date(date)),
         expiresAt: activeHoldWindow(new Date()),
       },
       select: {

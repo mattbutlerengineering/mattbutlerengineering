@@ -42797,7 +42797,7 @@
         prisma.reservation.findMany({
           where: {
             venueId,
-            date: new Date(date),
+            date: serviceDayConflictWindow(new Date(date)),
             status: { notIn: [...NOT_BOOKED_STATUSES] },
           },
           select: {
@@ -42811,7 +42811,7 @@
         prisma.reservationHold.findMany({
           where: {
             venueId,
-            date: new Date(date),
+            date: serviceDayConflictWindow(new Date(date)),
             expiresAt: activeHoldWindow(new Date()),
           },
           select: {
@@ -42907,6 +42907,7 @@
         onUnbookable,
         write,
       } = intent;
+      const serviceDays = serviceDayConflictWindow(date);
     
       return prisma.$transaction(async (tx): Promise<SlotWriteResult<T>> => {
         // This `prisma.$transaction` call bypasses the per-call auto-wrap
@@ -42933,7 +42934,7 @@
         const conflictingReservation = await tx.reservation.findFirst({
           where: {
             tableId,
-            date,
+            date: serviceDays,
             status: { notIn: [...NOT_BOOKED_STATUSES] },
             ...overlapWindow(startTime, endTime),
             ...(excludeReservationId ? { id: { not: excludeReservationId } } : {}),
@@ -42948,7 +42949,7 @@
           const conflictingHold = await tx.reservationHold.findFirst({
             where: {
               tableId,
-              date,
+              date: serviceDays,
               expiresAt: activeHoldWindow(new Date()),
               ...overlapWindow(startTime, endTime),
               ...(excludeHoldId ? { id: { not: excludeHoldId } } : {}),
@@ -42964,13 +42965,13 @@
         if (checkPacing && venueId) {
           const now = new Date();
           const reservations = await tx.reservation.findMany({
-            where: { venueId, date, status: { notIn: [...NOT_BOOKED_STATUSES] } },
+            where: { venueId, date: serviceDays, status: { notIn: [...NOT_BOOKED_STATUSES] } },
             select: { id: true, tableId: true, startTime: true, endTime: true, partySize: true },
           });
           const holds = await tx.reservationHold.findMany({
             where: {
               venueId,
-              date,
+              date: serviceDays,
               expiresAt: activeHoldWindow(now),
               ...(excludeHoldId ? { id: { not: excludeHoldId } } : {}),
               ...(excludeSessionId ? { sessionId: { not: excludeSessionId } } : {}),
@@ -49776,6 +49777,12 @@
       return {
         startTime: { lt: endTime },
         endTime: { gt: startTime },
+      };
+    }
+    export function serviceDayConflictWindow(date: Date): { gte: Date; lte: Date } {
+      return {
+        gte: new Date(date.getTime() - MS_PER_DAY),
+        lte: new Date(date.getTime() + MS_PER_DAY),
       };
     }
     export function activeHoldWindow(now: Date): DateThreshold {
@@ -72636,6 +72643,8 @@
       startHour: number;
       hourWidth: number;
       isMobile: boolean;
+      /** The service day the grid shows (ADR-029: a reservation's `date`). */
+      serviceDate: string;
       /** The venue's IANA zone; positions are venue wall-clock. Omitted: the device clock. */
       timeZone?: string;
     }
@@ -72643,16 +72652,20 @@
       left: number;
       width: number;
     }
+    export function serviceDayMinute(instant: Date, serviceDate: string, timeZone?: string): number {
+      const minute = minutesOfDayIn(instant, timeZone);
+      const day = venueDate(instant, timeZone);
+      if (day === addDays(serviceDate, 1)) return MINUTES_PER_DAY + minute;
+      if (day === addDays(serviceDate, -1)) return minute - MINUTES_PER_DAY;
+      return minute;
+    }
     export function computeReservationLayout(
       startTime: string,
       endTime: string,
-      { startHour, hourWidth, isMobile, timeZone }: ReservationLayoutParams
+      { startHour, hourWidth, isMobile, serviceDate, timeZone }: ReservationLayoutParams
     ): ReservationLayoutResult {
-      const start = new Date(startTime);
-      const end = new Date(endTime);
-    
-      const startMinutes = minutesOfDayIn(start, timeZone);
-      const endMinutes = minutesOfDayIn(end, timeZone);
+      const startMinutes = serviceDayMinute(new Date(startTime), serviceDate, timeZone);
+      const endMinutes = serviceDayMinute(new Date(endTime), serviceDate, timeZone);
       const startOffset = startMinutes - startHour * 60;
       const duration = endMinutes - startMinutes;
     

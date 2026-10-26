@@ -1030,7 +1030,7 @@ describe("fetchConflictData", () => {
     expect(result.holds).toEqual(holds);
   });
 
-  it("filters reservations by venue, date and active status", async () => {
+  it("filters reservations by venue, service days D-1..D+1 and active status", async () => {
     vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce([] as never);
     vi.mocked(prisma.reservationHold.findMany).mockResolvedValueOnce([] as never);
 
@@ -1040,7 +1040,7 @@ describe("fetchConflictData", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           venueId: VENUE_ID,
-          date: new Date("2026-05-05"),
+          date: { gte: new Date("2026-05-04"), lte: new Date("2026-05-06") },
           status: { notIn: ["CANCELLED", "NO_SHOW"] },
         }),
       })
