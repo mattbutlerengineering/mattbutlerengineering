@@ -3243,6 +3243,11 @@
         opts: { isFinalAttempt: boolean }
       ): Promise<void> { /* ... */ }
     </item>
+    <item priority="low">
+      interface RefundLogger {
+        
+      }
+    </item>
     <item priority="high">
       class ClosureRefundEnqueueError {
         
@@ -3250,7 +3255,11 @@
     </item>
     <item priority="high">
       export async function enqueueClosureRefunds(
-        deps: { store: ClosureRefundStore; jobs: Pick<JobScheduler, "schedule"> },
+        deps: {
+          store: ClosureRefundStore;
+          jobs: Pick<JobScheduler, "schedule">;
+          log?: RefundLogger;
+        },
         venueId: string,
         ruleId: string,
         statuses: readonly ClosureRefundStatus[],
@@ -3266,6 +3275,7 @@
       export function createClosureRefunds(deps: {
         store: ClosureRefundStore;
         jobs: Pick<JobScheduler, "schedule">;
+        log?: RefundLogger;
       }): ClosureRefunds { /* ... */ }
     </item>
   </file>

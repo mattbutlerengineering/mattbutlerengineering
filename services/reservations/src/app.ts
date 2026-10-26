@@ -299,6 +299,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
       createClosureRefunds({
         store: closureRefundStore,
         jobs: options.jobs ?? notifierRuntime.scheduler,
+        log: fastify.log,
       })
   );
 

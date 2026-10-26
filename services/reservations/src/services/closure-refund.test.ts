@@ -419,6 +419,30 @@ describe("enqueueClosureRefunds", () => {
     expect(state.row.refund).toBe("failed");
   });
 
+  it("logs, rather than swallows, a failure to restore the row", async () => {
+    const { store } = makeStore({ refund: "failed" });
+    store.markFailed = vi.fn(async () => {
+      throw new Error("db down");
+    });
+    const log = { error: vi.fn() };
+    const schedule = vi.fn(async (..._args: unknown[]) => {
+      throw new Error("redis down");
+    });
+
+    await enqueueClosureRefunds(
+      { store, jobs: { schedule }, log },
+      "venue-1",
+      "rule-1",
+      ["failed"],
+      { retry: true }
+    ).catch(() => undefined);
+
+    expect(log.error).toHaveBeenCalledWith(
+      expect.objectContaining({ venueId: "venue-1", ruleId: "rule-1", outcomeId: "out-1" }),
+      expect.any(String)
+    );
+  });
+
   it("a retry whose schedule fails leaves a row that was only pending pending", async () => {
     const { store, state } = makeStore({ refund: "pending" });
     const schedule = vi.fn(async (..._args: unknown[]) => {

@@ -253,8 +253,9 @@ const EMPTY_SUMMARY = {
 };
 
 /**
- * What a closure refund still owes: the deposit less its own partial refund and anything
- * refunded after capture, as `closure-refund.ts` computes it before calling Stripe.
+ * An estimate of what a closure refund still owes, for the failure line: the deposit less its
+ * planned partial refund (`refundAmountCents`) and anything refunded after capture. The job
+ * itself subtracts the own refund that actually reached Stripe, which can differ.
  */
 function refundOwedCents(deposit: NonNullable<SummaryRow["reservation"]["deposit"]>): number {
   const ownLeg = deposit.status === "partial_refunded" ? (deposit.refundAmountCents ?? 0) : 0;
