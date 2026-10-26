@@ -1,6 +1,7 @@
 import { beforeAll, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
+import userEvent from "@testing-library/user-event";
 import { axe } from "vitest-axe";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import { ApiClientError } from "@mbe/api-client";
@@ -426,6 +427,35 @@ describe("TonightControl", () => {
         );
       }
     );
+  });
+
+  describe("desktop popover selects", () => {
+    it("applies the time the Host clicked with the mouse, not the default", async () => {
+      const user = userEvent.setup();
+      renderControl();
+      await user.click(screen.getByRole("button", { name: /^Tonight/ }));
+      await user.click(screen.getByRole("combobox", { name: "Close early at" }));
+      await user.click(screen.getByRole("option", { name: "9:30 PM" }));
+      expect(screen.getByRole("combobox", { name: "Close early at" })).toHaveTextContent("9:30 PM");
+      await user.click(screen.getAllByRole("button", { name: "Apply" })[0]!);
+      await waitFor(() => expect(setTonight).toHaveBeenCalledOnce());
+      expect(setTonight.mock.calls[0]![0].body.change).toEqual({
+        type: "close_early",
+        closeAt: 1290,
+      });
+    });
+
+    it("keeps the panel open when Enter commits a select option", async () => {
+      const user = userEvent.setup();
+      renderControl();
+      await user.click(screen.getByRole("button", { name: /^Tonight/ }));
+      screen.getByRole("combobox", { name: "Close early at" }).focus();
+      await user.keyboard("{ArrowUp}{ArrowUp}{Enter}");
+      expect(screen.getByTestId("tonight-panel")).toBeInTheDocument();
+      expect(screen.getByRole("combobox", { name: "Close early at" })).not.toHaveTextContent(
+        "10:00 PM"
+      );
+    });
   });
 
   describe("times after midnight", () => {

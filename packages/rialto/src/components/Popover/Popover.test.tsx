@@ -1,11 +1,12 @@
 /**
  * Unit tests for the Popover component.
  */
-import { describe, it, expect, vi } from "vitest";
+import { beforeAll, describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Popover } from "./Popover";
 import { Button } from "../Button/Button";
+import { Select } from "../Select/Select";
 
 const user = userEvent.setup();
 
@@ -315,6 +316,59 @@ describe("Popover", () => {
       btn.focus();
       await user.keyboard("{Enter}");
       expect(onKeyDown).toHaveBeenCalledTimes(1);
+    });
+  });
+  describe("portaled descendants", () => {
+    const options = [
+      { value: "a", label: "Alpha" },
+      { value: "b", label: "Beta" },
+    ];
+
+    beforeAll(() => {
+      Element.prototype.scrollIntoView = vi.fn();
+    });
+
+    function Harness({ onChange }: { onChange: (value: string) => void }) {
+      return (
+        <Popover trigger={<Button>Open</Button>}>
+          <Select aria-label="Pick" options={options} value="a" onChange={onChange} />
+        </Popover>
+      );
+    }
+
+    it("lets a mouse pick in a Select listbox portaled outside the panel", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(<Harness onChange={onChange} />);
+      await user.click(screen.getByRole("button", { name: "Open" }));
+      await user.click(screen.getByRole("combobox", { name: "Pick" }));
+      await user.click(screen.getByRole("option", { name: "Beta" }));
+      expect(onChange).toHaveBeenCalledWith("b");
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+    });
+
+    it("keeps the popover open when Enter commits a Select option", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(<Harness onChange={onChange} />);
+      await user.click(screen.getByRole("button", { name: "Open" }));
+      screen.getByRole("combobox", { name: "Pick" }).focus();
+      await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
+      expect(onChange).toHaveBeenCalledWith("b");
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+    });
+
+    it("still dismisses on a press outside both the panel and its portals", async () => {
+      const user = userEvent.setup();
+      render(
+        <>
+          <Harness onChange={vi.fn()} />
+          <p>Elsewhere</p>
+        </>
+      );
+      await user.click(screen.getByRole("button", { name: "Open" }));
+      await user.click(screen.getByText("Elsewhere"));
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     });
   });
 });

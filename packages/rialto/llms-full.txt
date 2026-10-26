@@ -2767,25 +2767,31 @@
     export interface UseDismissOptions {
       /** Whether the outside-press listener is active (typically the overlay's open state). */
       enabled: boolean;
+      /**
+       * Extra "inside" test for a press whose DOM target is outside `ref`, e.g. a
+       * listbox portaled to `document.body` by a child component. Return true to
+       * ignore the press.
+       */
+      isInside?: (e: MouseEvent) => boolean;
     }
     export function useDismiss<T extends HTMLElement>(
       ref: RefObject<T | null>,
       onClose: () => void,
-      { enabled }: UseDismissOptions
+      { enabled, isInside }: UseDismissOptions
     ): void {
       useEffect(() => {
         if (!enabled) return;
     
         const handleMouseDown = (e: MouseEvent) => {
           const el = ref.current;
-          if (el && !el.contains(e.target as Node)) {
+          if (el && !el.contains(e.target as Node) && !isInside?.(e)) {
             onClose();
           }
         };
     
         document.addEventListener("mousedown", handleMouseDown);
         return () => document.removeEventListener("mousedown", handleMouseDown);
-      }, [enabled, onClose, ref]);
+      }, [enabled, onClose, ref, isInside]);
     }
   </file>
   <file path="src/hooks/useEscapeKey.ts">

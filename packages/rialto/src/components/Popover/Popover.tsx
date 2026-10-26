@@ -97,16 +97,30 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
 
   const close = useCallback(() => setOpen(false), [setOpen]);
 
+  // React synthetic events bubble through portals, so a press inside a
+  // descendant portaled to document.body (e.g. a Select listbox) reaches this
+  // wrapper's onMouseDown even though the DOM node is outside wrapperRef.
+  // Remember that native event so the document-level dismiss can skip it.
+  const insidePressRef = useRef<Event | null>(null);
+  const isPortaledPress = useCallback((e: MouseEvent) => e === insidePressRef.current, []);
+
   useReturnFocus(open);
   useEscapeKey(close, open);
   useFocusTrap(panelRef, open);
 
-  useDismiss(wrapperRef, close, { enabled: open });
+  useDismiss(wrapperRef, close, { enabled: open, isInside: isPortaledPress });
 
   const origin = motionOrigin[placement];
 
   return (
-    <div ref={mergeRefs(ref, wrapperRef)} className={cn(styles.wrapper, className)}>
+    <div
+      role="presentation"
+      ref={mergeRefs(ref, wrapperRef)}
+      className={cn(styles.wrapper, className)}
+      onMouseDown={(e) => {
+        insidePressRef.current = e.nativeEvent;
+      }}
+    >
       {/* Trigger — ARIA attributes injected onto the trigger element itself */}
       <div
         role="presentation"
