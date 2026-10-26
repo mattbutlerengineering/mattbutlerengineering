@@ -4979,15 +4979,20 @@
       return counts;
     }
     export function isUrgent(
-      closure: { readonly startsOn: string; readonly fromMinute: number | null },
+      closure: {
+        readonly startsOn: string;
+        readonly endsOn?: string | null;
+        readonly repeat?: { readonly weekdays: readonly number[] } | null;
+        readonly fromMinute: number | null;
+      },
       today: string,
       nowMinute: number
     ): boolean {
-      if (closure.startsOn < today) return true;
+      const startsOn = firstOccurrenceOnOrAfter(closure, today);
+      if (startsOn === null) return false;
       // Two or more days out is never within 6 hours, whatever the time now.
-      if (closure.startsOn > addDays(today, 1)) return false;
-      const startMinute =
-        (closure.startsOn === today ? 0 : MINUTES_PER_DAY) + (closure.fromMinute ?? 0);
+      if (startsOn > addDays(today, 1)) return false;
+      const startMinute = (startsOn === today ? 0 : MINUTES_PER_DAY) + (closure.fromMinute ?? 0);
       return startMinute - nowMinute <= URGENT_WITHIN_MINUTES;
     }
     export function activeOnlinePause(
@@ -48151,8 +48156,19 @@
       ruleId: string;
       now: Date;
     }
-    export function closureStartsAt(w: ClosureWindow): Date | null {
-      return serviceDayInstant(w.startsOn, w.from ?? 0, w.timezone);
+    function nextClosureDate(w: ClosureWindow, now: Date): string | null {
+      return firstOccurrenceOnOrAfter(
+        {
+          startsOn: w.startsOn,
+          endsOn: w.endsOn,
+          repeat: w.weekdays == null ? null : { weekdays: w.weekdays },
+        },
+        localDateTimeOf(now, w.timezone).date
+      );
+    }
+    export function closureStartsAt(w: ClosureWindow, now: Date): Date | null {
+      const date = nextClosureDate(w, now);
+      return date === null ? null : serviceDayInstant(date, w.from ?? 0, w.timezone);
     }
     export function closureNoticeJobId(outcomeId: string, variant: NoticeVariant): string {
       return variant === "reopened"
@@ -48161,7 +48177,9 @@
     }
     async function isUrgent(store: Store, input: EnqueueInput): Promise<boolean> {
       const w = await store.loadClosureWindow(input.venueId, input.ruleId);
-      const startsAt = w ? closureStartsAt(w) : null;
+      if (!w) return true;
+      if (nextClosureDate(w, input.now) === null) return false;
+      const startsAt = closureStartsAt(w, input.now);
       return startsAt === null || startsAt.getTime() - input.now.getTime() <= URGENT_WINDOW_MS;
     }
     export function createClosureNoticeService(deps: { scheduler: Scheduler; store?: Store }) {
@@ -48204,6 +48222,10 @@
     export interface ClosureWindow {
       /** "YYYY-MM-DD", venue-local. */
       startsOn: string;
+      /** "YYYY-MM-DD", venue-local; `null` = open-ended. */
+      endsOn: string | null;
+      /** Weekdays (0 = Sunday) a repeating rule covers; `null` = not repeating. */
+      weekdays: number[] | null;
       /** Minute of the service day the window opens; `null` = the whole service day. */
       from: number | null;
       timezone: string;
@@ -48212,6 +48234,12 @@
       const from = (window as { from?: unknown } | null)?.from;
       return typeof from === "number" ? from : null;
     }
+    function weekdaysOf(repeat: unknown): number[] | null {
+      const weekdays = (repeat as { weekdays?: unknown } | null)?.weekdays;
+      return Array.isArray(weekdays)
+        ? weekdays.filter((d): d is number => typeof d === "number")
+        : null;
+    }
     export async function loadClosureWindow(
       venueId: string,
       ruleId: string,
@@ -48219,11 +48247,19 @@
     ): Promise<ClosureWindow | null> {
       const rule = await db.dateRule.findFirst({
         where: { id: ruleId, venueId },
-        select: { startsOn: true, window: true, venue: { select: { ianaTimezone: true } } },
+        select: {
+          startsOn: true,
+          endsOn: true,
+          repeat: true,
+          window: true,
+          venue: { select: { ianaTimezone: true } },
+        },
       });
       if (!rule) return null;
       return {
         startsOn: rule.startsOn.toISOString().slice(0, 10),
+        endsOn: rule.endsOn ? rule.endsOn.toISOString().slice(0, 10) : null,
+        weekdays: weekdaysOf(rule.repeat),
         from: windowFrom(rule.window),
         timezone: rule.venue.ianaTimezone,
       };
@@ -69247,6 +69283,27 @@
         const now = minutesOn(after, serviceDate, options);
         return { serviceDate, added: onlyIn(now, was), removed: onlyIn(was, now) };
       });
+    }
+  </file>
+  <file path="packages/availability/src/first-occurrence.ts">
+    export interface OccurrenceRule {
+      readonly startsOn: ServiceDate;
+      readonly endsOn?: ServiceDate | null;
+      readonly repeat?: { readonly weekdays: readonly number[] } | null;
+    }
+    export function firstOccurrenceOnOrAfter(
+      rule: OccurrenceRule,
+      from: ServiceDate
+    ): ServiceDate | null {
+      const start = rule.startsOn > from ? rule.startsOn : from;
+      // A weekly repeat recurs within 7 days; no listed weekday means it never does.
+      const horizon = rule.repeat == null ? 1 : 7;
+      for (let i = 0; i < horizon; i += 1) {
+        const date = addDays(start, i);
+        if (rule.endsOn != null && date > rule.endsOn) return null;
+        if (rule.repeat == null || rule.repeat.weekdays.includes(weekdayIndexOf(date))) return date;
+      }
+      return null;
     }
   </file>
   <file path="packages/availability/src/format-minute.ts">

@@ -188,7 +188,12 @@
     </item>
     <item priority="high">
       export function isUrgent(
-        closure: { readonly startsOn: string; readonly fromMinute: number | null },
+        closure: {
+          readonly startsOn: string;
+          readonly endsOn?: string | null;
+          readonly repeat?: { readonly weekdays: readonly number[] } | null;
+          readonly fromMinute: number | null;
+        },
         today: string,
         nowMinute: number
       ): boolean { /* ... */ }
