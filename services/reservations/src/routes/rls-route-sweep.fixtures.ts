@@ -1041,24 +1041,13 @@ const availabilityFixtures: Record<string, RouteFixture> = {
   // disposable venue, after a config save gives it a week to close. The empty
   // venue has no bookings to decide on. The reopen is the same venue's rule.
   "POST /api/v1/venues/:id/closures": ok(async (ctx) => {
-    const venueId = await createDisposableVenue(ctx);
-    const base = `${AVAILABILITY_CONFIG_PREFIX}/${venueId}`;
-    expectOk(
-      await asAdmin(ctx, {
-        method: "PUT",
-        url: `${base}/availability/config`,
-        payload: {
-          expectedVersion: 0,
-          changes: sweepConfigChanges(),
-          scopeConflicts: "keep",
-        },
-      }),
-      "admin config"
-    );
+    const { base, version } = await closureVenue(ctx);
+    const idempotencyKey = `rls-sweep-1-${randomUUID()}`;
+    const closureRuleId = `rls-sweep-closure-${randomUUID()}`;
     const closure = {
-      expectedVersion: 1,
+      expectedVersion: version,
       rule: {
-        id: "rls-sweep-closure",
+        id: closureRuleId,
         kind: "closure",
         targetKind: "venue",
         startsOn: "2026-12-24",
@@ -1069,14 +1058,14 @@ const availabilityFixtures: Record<string, RouteFixture> = {
     const saved = await asAdmin(ctx, {
       method: "POST",
       url: `${base}/closures`,
-      headers: { "idempotency-key": "rls-sweep-1" },
+      headers: { "idempotency-key": idempotencyKey },
       payload: closure,
     });
     expectOk(saved, "admin closure");
     const replayed = await asAdmin(ctx, {
       method: "POST",
       url: `${base}/closures`,
-      headers: { "idempotency-key": "rls-sweep-1" },
+      headers: { "idempotency-key": idempotencyKey },
       payload: closure,
     });
     expect(JSON.parse(replayed.body), "replay returns the first result").toEqual(
@@ -1086,40 +1075,28 @@ const availabilityFixtures: Record<string, RouteFixture> = {
       await asMember(ctx, {
         method: "POST",
         url: `${AVAILABILITY_CONFIG_PREFIX}/${ctx.venueB.id}/closures`,
-        headers: { "idempotency-key": "rls-sweep-2" },
+        headers: { "idempotency-key": `${idempotencyKey}-b` },
         payload: closure,
       }),
       "member venue B"
     );
   }),
   "DELETE /api/v1/venues/:id/closures/:ruleId": ok(async (ctx) => {
-    const venueId = await createDisposableVenue(ctx);
-    const base = `${AVAILABILITY_CONFIG_PREFIX}/${venueId}`;
-    expectOk(
-      await asAdmin(ctx, {
-        method: "PUT",
-        url: `${base}/availability/config`,
-        payload: {
-          expectedVersion: 0,
-          changes: sweepConfigChanges(),
-          scopeConflicts: "keep",
-        },
-      }),
-      "admin config"
-    );
+    const { base, version } = await closureVenue(ctx);
+    const reopenRuleId = `rls-sweep-reopen-${randomUUID()}`;
     expectOk(
       await asAdmin(ctx, {
         method: "POST",
         url: `${base}/closures`,
-        headers: { "idempotency-key": "rls-sweep-3" },
+        headers: { "idempotency-key": `rls-sweep-3-${randomUUID()}` },
         payload: {
-          expectedVersion: 1,
+          expectedVersion: version,
           rule: {
-            id: "rls-sweep-reopen",
+            id: reopenRuleId,
             kind: "closure",
             targetKind: "venue",
-            startsOn: "2026-12-24",
-            endsOn: "2026-12-24",
+            startsOn: "2026-12-25",
+            endsOn: "2026-12-25",
           },
           decisions: [],
         },
@@ -1129,7 +1106,7 @@ const availabilityFixtures: Record<string, RouteFixture> = {
     expectOk(
       await asAdmin(ctx, {
         method: "DELETE",
-        url: `${base}/closures/rls-sweep-reopen`,
+        url: `${base}/closures/${reopenRuleId}`,
         payload: { tellCancelledGuests: false },
       }),
       "admin reopen"
@@ -1137,7 +1114,7 @@ const availabilityFixtures: Record<string, RouteFixture> = {
     expectDenied(
       await asMember(ctx, {
         method: "DELETE",
-        url: `${AVAILABILITY_CONFIG_PREFIX}/${ctx.venueB.id}/closures/rls-sweep-reopen`,
+        url: `${AVAILABILITY_CONFIG_PREFIX}/${ctx.venueB.id}/closures/${reopenRuleId}`,
         payload: { tellCancelledGuests: false },
       }),
       "member venue B"
@@ -1191,6 +1168,19 @@ const availabilityFixtures: Record<string, RouteFixture> = {
     );
   }),
 };
+
+/**
+ * The venue the closure fixtures write to. `POST /venues` is capped at 5 a
+ * minute per caller, so these share venue C (which no other fixture writes
+ * to) rather than each creating one. Each caller reads the current version,
+ * since a closure bumps it.
+ */
+async function closureVenue(ctx: SweepContext): Promise<{ base: string; version: number }> {
+  const base = `${AVAILABILITY_CONFIG_PREFIX}/${ctx.venueC.id}`;
+  const read = await asAdmin(ctx, { method: "GET", url: `${base}/availability/config` });
+  expectOk(read, "admin config read");
+  return { base, version: JSON.parse(read.body).data.version as number };
+}
 
 /** A one-schedule, one-service week: the smallest config `validateConfig` accepts. Fresh ids per call (they are table-wide keys). */
 function sweepConfigChanges() {
