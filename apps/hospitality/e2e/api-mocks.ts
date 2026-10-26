@@ -618,6 +618,34 @@ export async function mockApi(page: Page): Promise<void> {
       ? jsonOk(route, { version: 1, changeId: "chg_e2e_001" })
       : route.fallback()
   );
+  // Availability page (#7514): the calendar lists `?from&to` as one open
+  // "Regular" day each (two services, no closures), and the drawer reads a
+  // constant one-schedule config. Deterministic so the page renders the same
+  // grid every run.
+  await page.route(/\/api\/v1\/venues\/[^/?]+\/availability\/days(\?|$)/, (route) => {
+    const url = new URL(route.request().url());
+    const from = url.searchParams.get("from");
+    const to = url.searchParams.get("to");
+    const data: Array<Record<string, unknown>> = [];
+    if (from && to) {
+      for (let d = new Date(`${from}T00:00:00Z`); d <= new Date(`${to}T00:00:00Z`);) {
+        data.push({
+          serviceDate: d.toISOString().slice(0, 10),
+          label: "Regular",
+          scheduleId: "sch-regular",
+          serviceCount: 2,
+          closures: [],
+          bookingOpen: { online: true, phone: true, waitlist: true },
+        });
+        d = new Date(d.getTime() + 86_400_000);
+      }
+    }
+    return jsonOk(route, data);
+  });
+  await page.route(/\/api\/v1\/venues\/[^/?]+\/availability\/config$/, (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    return jsonOk(route, buildAvailabilityConfigFixture());
+  });
 
   // Venue Groups
   await page.route("**/api/v1/venues/groups*", (route) => emptyPaginated(route));
@@ -1298,4 +1326,39 @@ export async function mockApi(page: Page): Promise<void> {
   );
 
   await mockMenus(page);
+}
+
+/** One regular schedule, Lunch and Dinner every day, as `GET …/availability/config` returns it. */
+function buildAvailabilityConfigFixture() {
+  const service = (id: string, opensAt: number, lastSeatingAt: number, closesAt: number) => ({
+    id: `ss-${id}`,
+    scheduleId: "sch-regular",
+    venueServiceId: `vs-${id}`,
+    opensAt,
+    lastSeatingAt,
+    closesAt,
+    seating: { version: 1, interval: 15 },
+    bookingTypes: ["online", "phone"],
+  });
+  return {
+    config: {
+      schedules: [{ id: "sch-regular", name: "Regular", kind: "regular", isRegular: true }],
+      venueServices: [
+        { id: "vs-lunch", name: "Lunch", position: 0 },
+        { id: "vs-dinner", name: "Dinner", position: 1 },
+      ],
+      scheduleServices: [service("lunch", 690, 840, 900), service("dinner", 1020, 1290, 1380)],
+      assignments: [
+        {
+          id: "as-regular",
+          scheduleId: "sch-regular",
+          weekdays: [0, 1, 2, 3, 4, 5, 6],
+          precedence: 0,
+        },
+      ],
+      dateRules: [],
+    },
+    version: 1,
+    source: "rows",
+  };
 }
