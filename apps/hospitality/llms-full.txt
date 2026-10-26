@@ -4821,6 +4821,40 @@
       },
     });
   </file>
+  <file path="src/hooks/useAvailabilityPreview.ts">
+    export const AVAILABILITY_PREVIEW_QUERY_KEY = "availabilityPreview" as const;
+    export interface AvailabilityPreviewState {
+      /** The newest result that arrived, kept while a newer request is pending or has failed. */
+      readonly result: PreviewResult | null;
+      /** A request for the current draft is in flight. */
+      readonly isFetching: boolean;
+      /** The request for the current draft failed (the last good `result` is still set). */
+      readonly error: Error | null;
+      readonly retry: () => void;
+    }
+    export function useAvailabilityPreview(
+      venueId: string,
+      body: PreviewAvailabilityBody | null
+    ): AvailabilityPreviewState {
+      const api = useApiClient();
+      const query = useQuery({
+        queryKey: [AVAILABILITY_PREVIEW_QUERY_KEY, venueId, body],
+        queryFn: () => api.availability.previewConfig(venueId, body as PreviewAvailabilityBody),
+        enabled: body !== null,
+        retry: false,
+      });
+      const [lastGood, setLastGood] = useState<PreviewResult | null>(null);
+      // Adjusting state during render (not in an effect) so the kept result is never a frame behind.
+      if (query.data && query.data !== lastGood) setLastGood(query.data);
+    
+      return {
+        result: query.data ?? lastGood,
+        isFetching: query.isFetching,
+        error: query.error ?? null,
+        retry: () => void query.refetch(),
+      };
+    }
+  </file>
   <file path="src/hooks/useBriefing.ts">
     export const BRIEFING_QUERY_KEY = "briefing" as const;
     export type BriefingEntry = ApiBriefingEntry;

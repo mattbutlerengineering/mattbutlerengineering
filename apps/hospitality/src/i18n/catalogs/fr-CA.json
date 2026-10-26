@@ -1663,6 +1663,33 @@
         "yourService": "{{name}} {{from}} – {{to}}"
       }
     },
+    "preview": {
+      "title": "Aperçu pour les clients",
+      "draft": "Brouillon, non enregistré",
+      "summary": "{{added}} · {{removed}}",
+      "addedCount_one": "{{count}} heure ajoutée",
+      "addedCount_many": "{{count}} heures ajoutées",
+      "addedCount_other": "{{count}} heures ajoutées",
+      "removedCount_one": "{{count}} retirée",
+      "removedCount_many": "{{count}} retirées",
+      "removedCount_other": "{{count}} retirées",
+      "added": "{{time}} ajoutée",
+      "removed": "{{time}} retirée",
+      "slow": "L’aperçu prend plus de temps que d’habitude",
+      "unavailable": "Aperçu indisponible",
+      "unavailableHelp": "Vous pouvez quand même enregistrer; la vérification des réservations est refaite à ce moment.",
+      "retry": "Réessayer",
+      "stranded_one": "{{count}} réservation serait hors de ces heures",
+      "stranded_many": "{{count}} réservations seraient hors de ces heures",
+      "stranded_other": "{{count}} réservations seraient hors de ces heures",
+      "strandedItem": "{{date}} · {{time}} · {{size}} personnes · {{reason}}",
+      "strandedMore": "et {{count}} de plus à des dates ultérieures de la portée",
+      "reason": {
+        "closed": "fermé",
+        "outside_service": "hors service",
+        "table_blocked": "table bloquée"
+      }
+    },
     "discard": {
       "title": "Abandonner les changements du {{date}} ?",
       "description": "Vos changements non enregistrés à ces heures seront perdus.",

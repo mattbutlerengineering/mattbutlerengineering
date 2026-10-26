@@ -20,6 +20,7 @@ import {
 import { useSaveAvailabilityConfig } from "../../hooks/useAvailability.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
+import { AvailabilityGuestPreview } from "./AvailabilityGuestPreview.js";
 import { ConflictDialog } from "./ConflictDialog.js";
 import {
   buildDraftChanges,
@@ -103,6 +104,17 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
     [scope, config, timezone, today]
   );
   const own = useMemo(() => ownChangeDates(config, dates, null), [config, dates]);
+  // The preview only needs the shape of the rows, so its new-row ids need not be real ones.
+  const previewChanges = useMemo(() => {
+    if (!edit || !isDirty(edit)) return null;
+    let n = 0;
+    return buildDraftChanges({
+      config,
+      scope: edit.scope,
+      services: edit.services,
+      makeId: () => `preview-${n++}`,
+    });
+  }, [edit, config]);
   // Under Keep theirs the dates with their own changes are left alone, so they are not written.
   const writtenCount =
     edit?.mode === "keep" && dates.length > 1 ? dates.length - own.length : dates.length;
@@ -303,6 +315,15 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
         date={date}
         onChange={(services) => update({ ...edit, services })}
       />
+      {previewChanges && (
+        <AvailabilityGuestPreview
+          venueId={venueId}
+          changes={previewChanges}
+          scopeConflicts={dates.length > 1 ? edit.mode : "replace"}
+          dates={dates}
+          focusDate={date}
+        />
+      )}
       {dates.length > 1 && own.length > 0 && (
         <Stack gap="xs">
           <Text variant="body" color="primary" id={choiceLabelId}>

@@ -1634,6 +1634,30 @@
         "yourService": "{{name}} {{from}} – {{to}}"
       }
     },
+    "preview": {
+      "title": "Guest preview",
+      "draft": "Draft, not saved",
+      "summary": "{{added}} · {{removed}}",
+      "addedCount_one": "{{count}} time added",
+      "addedCount_other": "{{count}} times added",
+      "removedCount_one": "{{count}} removed",
+      "removedCount_other": "{{count}} removed",
+      "added": "{{time}} added",
+      "removed": "{{time}} removed",
+      "slow": "Preview is taking longer than usual",
+      "unavailable": "Preview unavailable",
+      "unavailableHelp": "You can still save; the bookings check runs again when you do.",
+      "retry": "Retry",
+      "stranded_one": "{{count}} booking would fall outside these hours",
+      "stranded_other": "{{count}} bookings would fall outside these hours",
+      "strandedItem": "{{date}} · {{time}} · party of {{size}} · {{reason}}",
+      "strandedMore": "plus {{count}} more on later dates in scope",
+      "reason": {
+        "closed": "closed",
+        "outside_service": "outside service",
+        "table_blocked": "table blocked"
+      }
+    },
     "discard": {
       "title": "Discard changes to {{date}}?",
       "description": "Your unsaved changes to these hours will be lost.",
