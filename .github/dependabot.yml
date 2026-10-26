@@ -42,6 +42,24 @@ updates:
       # (rialto lib build) and typescript-eslint. Remove once #3253 lands.
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
+      # OpenTelemetry JS 3.0 needs Node >=22.15 (images are pinned at 22.12)
+      # and @langfuse/otel / @fastify/otel support. The 0.x packages ship
+      # breaking changes as minors, and api 1.10 is outside the 2.x peer
+      # ranges (<1.10.0). Remove once #7715 lands.
+      - dependency-name: "@opentelemetry/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@opentelemetry/api"
+        versions: [">=1.10.0"]
+      - dependency-name: "@opentelemetry/sdk-node"
+        versions: [">=0.300.0"]
+      - dependency-name: "@opentelemetry/exporter-trace-otlp-http"
+        versions: [">=0.300.0"]
+      - dependency-name: "@opentelemetry/exporter-metrics-otlp-http"
+        versions: [">=0.300.0"]
+      - dependency-name: "@opentelemetry/instrumentation-http"
+        versions: [">=0.300.0"]
+      - dependency-name: "@opentelemetry/instrumentation-pino"
+        versions: [">=0.70.0"]
     open-pull-requests-limit: 10
     labels:
       - "dependencies"
