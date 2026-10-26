@@ -3175,6 +3175,7 @@
         startHour: number;
         hourWidth: number;
         isMobile: boolean;
+        serviceDate: string;
         timeZone?: string;
       }
     </item>
@@ -3185,10 +3186,13 @@
       }
     </item>
     <item priority="high">
+      export function serviceDayMinute(instant: Date, serviceDate: string, timeZone?: string): number { /* ... */ }
+    </item>
+    <item priority="high">
       export function computeReservationLayout(
         startTime: string,
         endTime: string,
-        { startHour, hourWidth, isMobile, timeZone }: ReservationLayoutParams
+        { startHour, hourWidth, isMobile, serviceDate, timeZone }: ReservationLayoutParams
       ): ReservationLayoutResult { /* ... */ }
     </item>
   </file>

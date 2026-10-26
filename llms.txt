@@ -14001,6 +14001,9 @@
       ): { startTime: DateThreshold; endTime: DateThreshold } { /* ... */ }
     </item>
     <item priority="high">
+      export function serviceDayConflictWindow(date: Date): { gte: Date; lte: Date } { /* ... */ }
+    </item>
+    <item priority="high">
       export function activeHoldWindow(now: Date): DateThreshold { /* ... */ }
     </item>
     <item priority="high">
@@ -21765,6 +21768,7 @@
         startHour: number;
         hourWidth: number;
         isMobile: boolean;
+        serviceDate: string;
         timeZone?: string;
       }
     </item>
@@ -21775,10 +21779,13 @@
       }
     </item>
     <item priority="high">
+      export function serviceDayMinute(instant: Date, serviceDate: string, timeZone?: string): number { /* ... */ }
+    </item>
+    <item priority="high">
       export function computeReservationLayout(
         startTime: string,
         endTime: string,
-        { startHour, hourWidth, isMobile, timeZone }: ReservationLayoutParams
+        { startHour, hourWidth, isMobile, serviceDate, timeZone }: ReservationLayoutParams
       ): ReservationLayoutResult { /* ... */ }
     </item>
   </file>

@@ -11,6 +11,7 @@ import {
   checkPacingForSlot,
   overlapWindow,
   activeHoldWindow,
+  serviceDayConflictWindow,
   NOT_BOOKED_STATUSES,
   type ReservationSlim,
   type HoldSlim,
@@ -564,5 +565,63 @@ describe("filterSuitableTables: null maxCovers falls back to capacity", () => {
     };
     expect(filterSuitableTables([twoTop], 12)).toEqual([]);
     expect(filterSuitableTables([twoTop], 2)).toEqual([twoTop]);
+  });
+});
+
+describe("serviceDayConflictWindow (shared declaration)", () => {
+  it("spans service days D-1 through D+1, inclusive", () => {
+    expect(serviceDayConflictWindow(new Date("2026-05-05"))).toEqual({
+      gte: new Date("2026-05-04"),
+      lte: new Date("2026-05-06"),
+    });
+  });
+
+  it("crosses month and year boundaries", () => {
+    expect(serviceDayConflictWindow(new Date("2026-01-01"))).toEqual({
+      gte: new Date("2025-12-31"),
+      lte: new Date("2026-01-02"),
+    });
+  });
+});
+
+describe("conflict and pacing across midnight (service-day neighbours)", () => {
+  // Friday's late service seats at 00:30 Saturday; the row's service day is Friday.
+  const fridayLate: ReservationSlim = {
+    id: "res-fri-late",
+    tableId: "table-1",
+    startTime: new Date("2026-05-09T00:30:00Z"),
+    endTime: new Date("2026-05-09T02:00:00Z"),
+    partySize: 4,
+  };
+
+  it("conflicts with Saturday's early seating that overlaps the past-midnight booking", () => {
+    expect(
+      checkTableConflict(
+        "table-1",
+        new Date("2026-05-09T01:00:00Z"),
+        new Date("2026-05-09T02:30:00Z"),
+        [fridayLate],
+        []
+      )
+    ).toBe(true);
+  });
+
+  it("does not conflict once Saturday's seating starts after the past-midnight booking ends", () => {
+    expect(
+      checkTableConflict(
+        "table-1",
+        new Date("2026-05-09T02:00:00Z"),
+        new Date("2026-05-09T03:30:00Z"),
+        [fridayLate],
+        []
+      )
+    ).toBe(false);
+  });
+
+  it("counts the past-midnight booking toward pacing for a seating in the same window", () => {
+    const settings = { pacingRules: [{ maxCoversPerSlot: 6, timeWindowMinutes: 30 }] } as never;
+    const start = new Date("2026-05-09T00:15:00Z");
+    expect(checkPacingForSlot(start, 2, settings, [fridayLate], [])).toBe(true);
+    expect(checkPacingForSlot(start, 3, settings, [fridayLate], [])).toBe(false);
   });
 });

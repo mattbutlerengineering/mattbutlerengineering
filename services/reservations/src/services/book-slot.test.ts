@@ -30,6 +30,7 @@ import {
   checkPacingForSlot,
   overlapWindow,
   activeHoldWindow,
+  serviceDayConflictWindow,
   NOT_BOOKED_STATUSES,
 } from "./slot-rules.js";
 
@@ -201,6 +202,23 @@ describe("bookSlot", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("reads service days D-1 through D+1 in every conflict and pacing query", async () => {
+    const tx = makeTx();
+    useTxOnce(tx);
+
+    await bookSlot(baseIntent({ checkHoldConflict: true, checkPacing: true }));
+
+    const window = serviceDayConflictWindow(DATE);
+    expect(window).toEqual({ gte: new Date("2026-05-04"), lte: new Date("2026-05-06") });
+    const dates = [
+      tx.reservation.findFirst,
+      tx.reservation.findMany,
+      tx.reservationHold.findFirst,
+      tx.reservationHold.findMany,
+    ].map((fn) => (vi.mocked(fn).mock.calls[0]?.[0] as { where: { date: unknown } }).where.date);
+    expect(dates).toEqual([window, window, window, window]);
   });
 
   it("re-checks pacing under the lock and returns PACING_EXCEEDED when the limit is hit", async () => {

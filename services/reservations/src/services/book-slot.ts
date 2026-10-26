@@ -4,6 +4,7 @@ import { prisma } from "./database.js";
 import {
   checkPacingForSlot,
   overlapWindow,
+  serviceDayConflictWindow,
   activeHoldWindow,
   NOT_BOOKED_STATUSES,
 } from "./slot-rules.js";
@@ -125,6 +126,7 @@ export async function bookSlot<T>(intent: BookSlotIntent<T>): Promise<SlotWriteR
     onUnbookable,
     write,
   } = intent;
+  const serviceDays = serviceDayConflictWindow(date);
 
   return prisma.$transaction(async (tx): Promise<SlotWriteResult<T>> => {
     // This `prisma.$transaction` call bypasses the per-call auto-wrap
@@ -151,7 +153,7 @@ export async function bookSlot<T>(intent: BookSlotIntent<T>): Promise<SlotWriteR
     const conflictingReservation = await tx.reservation.findFirst({
       where: {
         tableId,
-        date,
+        date: serviceDays,
         status: { notIn: [...NOT_BOOKED_STATUSES] },
         ...overlapWindow(startTime, endTime),
         ...(excludeReservationId ? { id: { not: excludeReservationId } } : {}),
@@ -166,7 +168,7 @@ export async function bookSlot<T>(intent: BookSlotIntent<T>): Promise<SlotWriteR
       const conflictingHold = await tx.reservationHold.findFirst({
         where: {
           tableId,
-          date,
+          date: serviceDays,
           expiresAt: activeHoldWindow(new Date()),
           ...overlapWindow(startTime, endTime),
           ...(excludeHoldId ? { id: { not: excludeHoldId } } : {}),
@@ -182,13 +184,13 @@ export async function bookSlot<T>(intent: BookSlotIntent<T>): Promise<SlotWriteR
     if (checkPacing && venueId) {
       const now = new Date();
       const reservations = await tx.reservation.findMany({
-        where: { venueId, date, status: { notIn: [...NOT_BOOKED_STATUSES] } },
+        where: { venueId, date: serviceDays, status: { notIn: [...NOT_BOOKED_STATUSES] } },
         select: { id: true, tableId: true, startTime: true, endTime: true, partySize: true },
       });
       const holds = await tx.reservationHold.findMany({
         where: {
           venueId,
-          date,
+          date: serviceDays,
           expiresAt: activeHoldWindow(now),
           ...(excludeHoldId ? { id: { not: excludeHoldId } } : {}),
           ...(excludeSessionId ? { sessionId: { not: excludeSessionId } } : {}),
