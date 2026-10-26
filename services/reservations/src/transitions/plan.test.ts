@@ -58,8 +58,8 @@ describe("planEffects — the effects table", () => {
       "%s: cancel both reminders, cancelled email (propagates), reservation:cancelled",
       (door) => {
         expect(view(plan(fact(door)))).toEqual([
-          "jobs:cancel booking-reminder:res-1 [await/log]",
-          "jobs:cancel day-of-reminder:res-1 [await/log]",
+          "jobs:cancel booking-reminder_res-1 [await/log]",
+          "jobs:cancel day-of-reminder_res-1 [await/log]",
           "messaging:booking-cancelled [await/propagate]",
           "events:reservation:cancelled [await/log]",
         ]);
@@ -115,8 +115,8 @@ describe("planEffects — the effects table", () => {
     it("time change: replace-if-present both reminders at the new time, never schedule (D8)", () => {
       const planned = plan(fact({ startTime: at(96) }, { startTime: at(96) }));
       expect(view(planned)).toEqual([
-        "jobs:replace-if-present booking-reminder:res-1 @72h [background/log]",
-        "jobs:replace-if-present day-of-reminder:res-1 @94h [background/log]",
+        "jobs:replace-if-present booking-reminder_res-1 @72h [background/log]",
+        "jobs:replace-if-present day-of-reminder_res-1 @94h [background/log]",
         "events:reservation:updated [await/log]",
       ]);
       expect(planned[0]!.effect).toMatchObject({
@@ -126,8 +126,8 @@ describe("planEffects — the effects table", () => {
 
     it("time change into the next 24h: day-of replaced, the stale day-before reminder cancelled", () => {
       expect(view(plan(fact({ startTime: at(5) }, { startTime: at(5) })))).toEqual([
-        "jobs:cancel booking-reminder:res-1 [background/log]",
-        "jobs:replace-if-present day-of-reminder:res-1 @3h [background/log]",
+        "jobs:cancel booking-reminder_res-1 [background/log]",
+        "jobs:replace-if-present day-of-reminder_res-1 @3h [background/log]",
         "events:reservation:updated [await/log]",
       ]);
     });
@@ -166,11 +166,11 @@ describe("planEffects — the effects table", () => {
 
     it("time change: one background chain — cancel ×2, confirmation, reschedule — then the modified email", () => {
       expect(view(plan(fact(true, { startTime: at(96) })))).toEqual([
-        "jobs:cancel booking-reminder:res-1 [background/log]",
-        "jobs:cancel day-of-reminder:res-1 [background/log]",
+        "jobs:cancel booking-reminder_res-1 [background/log]",
+        "jobs:cancel day-of-reminder_res-1 [background/log]",
         "messaging:booking-confirmation [background/propagate]",
-        "jobs:schedule booking-reminder:res-1 @72h [background/propagate]",
-        "jobs:schedule day-of-reminder:res-1 @94h [background/propagate]",
+        "jobs:schedule booking-reminder_res-1 @72h [background/propagate]",
+        "jobs:schedule day-of-reminder_res-1 @94h [background/propagate]",
         "messaging:booking-modified [await/log]",
         "events:reservation:updated [await/log]",
       ]);
@@ -198,8 +198,8 @@ describe("planEffects — the effects table", () => {
     it("public-booking: confirmation then reminders in one background chain, hold:confirmed (D5)", () => {
       expect(view(plan(fact("public-booking")))).toEqual([
         "messaging:booking-confirmation [background/propagate]",
-        "jobs:schedule booking-reminder:res-1 @48h [background/propagate]",
-        "jobs:schedule day-of-reminder:res-1 @70h [background/propagate]",
+        "jobs:schedule booking-reminder_res-1 @48h [background/propagate]",
+        "jobs:schedule day-of-reminder_res-1 @70h [background/propagate]",
         "events:hold:confirmed [await/log]",
       ]);
     });
@@ -220,7 +220,7 @@ describe("planEffects — the effects table", () => {
     it("public-booking starting within 24h schedules only the day-of reminder", () => {
       expect(view(plan(fact("public-booking", { startTime: at(5) })))).toEqual([
         "messaging:booking-confirmation [background/propagate]",
-        "jobs:schedule day-of-reminder:res-1 @3h [background/propagate]",
+        "jobs:schedule day-of-reminder_res-1 @3h [background/propagate]",
         "events:hold:confirmed [await/log]",
       ]);
     });

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { formatVenueOpenLabel, WEEKDAY_LABEL } from "./venueOpenLabel.js";
+import type { TFunction } from "i18next";
+import { formatVenueOpenLabel } from "./venueOpenLabel.js";
 
 describe("formatVenueOpenLabel", () => {
   it("names the closing time when open", () => {
@@ -33,16 +34,11 @@ describe("formatVenueOpenLabel", () => {
   });
 });
 
-describe("WEEKDAY_LABEL", () => {
-  it("covers all seven weekdays with capitalised names", () => {
-    expect(WEEKDAY_LABEL).toEqual({
-      monday: "Monday",
-      tuesday: "Tuesday",
-      wednesday: "Wednesday",
-      thursday: "Thursday",
-      friday: "Friday",
-      saturday: "Saturday",
-      sunday: "Sunday",
-    });
+describe("formatVenueOpenLabel localization", () => {
+  it("renders through the supplied translator, not hardcoded English", () => {
+    const t = ((key: string) => `<${key}>`) as unknown as TFunction;
+    expect(
+      formatVenueOpenLabel({ state: "closed", opensAt: "17:00", opensOn: null }, undefined, t)
+    ).toBe("<home.openSign.closedToday>");
   });
 });
