@@ -21,8 +21,11 @@ vi.mock("../../hooks/useClosures.js", () => ({
   useReopenClosure: () => ({ mutateAsync: reopen, isPending: false }),
   useRetryClosureRefunds: () => ({ mutateAsync: retry, isPending: false }),
 }));
+const revertChange = vi.hoisted(() => vi.fn());
+
 vi.mock("../../hooks/useAvailability.js", () => ({
   useSaveAvailabilityConfig: () => ({ mutateAsync: saveConfig, isPending: false }),
+  useRevertAvailabilityChange: () => ({ mutateAsync: revertChange, isPending: false }),
 }));
 vi.mock("../../contexts/VenueContext.js", () => ({
   useVenue: () => ({
@@ -149,12 +152,271 @@ describe("SpecialDatesTab", () => {
     const dialog = screen.getByRole("dialog");
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Skip this date" }));
-    expect(
-      within(dialog).getByText("This date already has its own change. Remove it first.")
-    ).toBeTruthy();
+    expect(within(dialog).getByText("This date is already skipped.")).toBeTruthy();
     fireEvent.click(within(dialog).getByRole("button", { name: "Edit this date…" }));
     expect(screen.getByRole("dialog", { name: "Edit dates" })).toBeTruthy();
     expect(saveConfig).not.toHaveBeenCalled();
+  });
+
+  describe("restoring a skipped date", () => {
+    const skip = {
+      id: "skip-1",
+      kind: "skip",
+      targetKind: "venue",
+      startsOn: "2027-01-11",
+      endsOn: "2027-01-11",
+      seriesId: "mondays",
+    } as DateRule;
+    const skipped = {
+      ...STATE,
+      config: { ...STATE.config, dateRules: [...RULES, skip] },
+    } as AvailabilityConfigState;
+
+    it("removes the skip row from the series row, against the loaded version", async () => {
+      saveConfig.mockResolvedValue({ version: 8, changeId: "c" });
+      renderTab(true, skipped);
+      fireEvent.click(screen.getByRole("button", { name: "Restore Mon, Jan 11" }));
+
+      await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(1));
+      const { body } = saveConfig.mock.calls[0]![0];
+      expect(body.expectedVersion).toBe(7);
+      expect(body.changes).toEqual({ upsert: {}, remove: { dateRules: ["skip-1"] } });
+      expect(
+        await screen.findByText("Mon, Jan 11 restored. The series closes it again.")
+      ).toBeTruthy();
+    });
+
+    it("is offered in the Edit dates dialog when the date is already skipped", async () => {
+      saveConfig.mockResolvedValue({ version: 8, changeId: "c" });
+      renderTab(true, skipped);
+      fireEvent.click(screen.getByRole("button", { name: "Edit dates…" }));
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("button", { name: "Skip this date" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Restore this date" }));
+
+      await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(1));
+      expect(saveConfig.mock.calls[0]![0].body.changes.remove).toEqual({ dateRules: ["skip-1"] });
+    });
+
+    it("shows the stranded refusal and restores nothing", async () => {
+      saveConfig.mockRejectedValue({
+        problemDetails: {
+          type: "about:blank",
+          title: "Conflict",
+          status: 409,
+          detail: "x",
+          code: "stranded-bookings",
+          reservations: [
+            { id: "r1", startTime: "2027-01-11T18:00:00Z", partySize: 2, reason: "closed" },
+          ],
+        },
+      });
+      renderTab(true, skipped);
+      fireEvent.click(screen.getByRole("button", { name: "Restore Mon, Jan 11" }));
+
+      expect(await screen.findByText(/would be left without service/)).toBeTruthy();
+      expect(screen.queryByText(/restored/)).toBeNull();
+    });
+
+    it("drops the skipped-date alert when the date changes, so a one-date edit is never deleted", () => {
+      const oneDateEdit = {
+        id: "edit-1",
+        kind: "closure",
+        targetKind: "venue",
+        startsOn: "2027-01-18",
+        endsOn: "2027-01-18",
+        seriesId: "mondays",
+      } as DateRule;
+      const both = {
+        ...STATE,
+        config: { ...STATE.config, dateRules: [...RULES, skip, oneDateEdit] },
+      } as AvailabilityConfigState;
+      renderTab(true, both);
+      fireEvent.click(screen.getByRole("button", { name: "Edit dates…" }));
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("button", { name: "Skip this date" }));
+      expect(within(dialog).getByRole("button", { name: "Restore this date" })).toBeTruthy();
+
+      fireEvent.click(within(dialog).getByRole("combobox"));
+      fireEvent.click(document.querySelector('[data-date="2027-01-18"]')!);
+
+      expect(within(dialog).queryByRole("button", { name: "Restore this date" })).toBeNull();
+      expect(within(dialog).queryByText("This date is already skipped.")).toBeNull();
+      expect(saveConfig).not.toHaveBeenCalled();
+    });
+
+    it("is hidden from a Host", () => {
+      renderTab(false, skipped);
+      expect(screen.queryByRole("button", { name: /Restore/ })).toBeNull();
+    });
+  });
+
+  describe("special-hours rows", () => {
+    const hours = {
+      id: "nye",
+      kind: "special_hours",
+      targetKind: "venue",
+      startsOn: "2026-12-31",
+      endsOn: "2026-12-31",
+      payload: { version: 1, services: [] },
+    } as unknown as DateRule;
+    const withHours = {
+      ...STATE,
+      config: { ...STATE.config, dateRules: [...RULES, hours] },
+    } as AvailabilityConfigState;
+
+    const removeHours = () => {
+      fireEvent.click(screen.getByRole("button", { name: "Remove special hours for Thu, Dec 31" }));
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
+    };
+
+    it("removes through the config save and offers Undo of that change", async () => {
+      saveConfig.mockResolvedValue({ version: 8, changeId: "chg-8" });
+      revertChange.mockResolvedValue({ version: 9, changeId: "chg-9" });
+      renderTab(true, withHours);
+      removeHours();
+
+      await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(1));
+      const { body } = saveConfig.mock.calls[0]![0];
+      expect(body.expectedVersion).toBe(7);
+      expect(body.changes).toEqual({ upsert: {}, remove: { dateRules: ["nye"] } });
+
+      fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+      await waitFor(() =>
+        expect(revertChange).toHaveBeenCalledWith({
+          venueId: "venue-1",
+          changeId: "chg-8",
+          expectedVersion: 8,
+        })
+      );
+    });
+
+    it("refuses a removal that would strand bookings, with no Undo and no cancels", async () => {
+      saveConfig.mockRejectedValue({
+        problemDetails: {
+          type: "about:blank",
+          title: "Conflict",
+          status: 409,
+          detail: "x",
+          code: "stranded-bookings",
+          reservations: [
+            { id: "r1", startTime: "2026-12-31T18:00:00Z", partySize: 2, reason: "closed" },
+          ],
+        },
+      });
+      renderTab(true, withHours);
+      removeHours();
+
+      expect(await screen.findByText(/would be left without service/)).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+    });
+
+    it("edits the hours in the day editor", () => {
+      renderTab(true, withHours);
+      fireEvent.click(screen.getByRole("button", { name: "Edit hours for Thu, Dec 31" }));
+      expect(screen.getByRole("dialog", { name: /Thursday, December 31/ })).toBeTruthy();
+    });
+
+    describe("rows that cover more than one date", () => {
+      const rangeRule = {
+        id: "holidays",
+        kind: "special_hours",
+        targetKind: "venue",
+        startsOn: "2026-12-20",
+        endsOn: "2027-01-01",
+        payload: { version: 1, services: [] },
+      } as unknown as DateRule;
+      const fridays = {
+        id: "fridays",
+        kind: "special_hours",
+        targetKind: "venue",
+        startsOn: "2026-09-04",
+        endsOn: null,
+        repeat: { version: 1, weekdays: [5] },
+        payload: { version: 1, services: [] },
+      } as unknown as DateRule;
+      const stateWith = (rule: DateRule) =>
+        ({
+          ...STATE,
+          config: { ...STATE.config, dateRules: [rule] },
+        }) as AvailabilityConfigState;
+
+      it("says Edit reaches one date, and names the range when removing it", async () => {
+        saveConfig.mockResolvedValue({ version: 8, changeId: "chg-8" });
+        renderTab(true, stateWith(rangeRule));
+        fireEvent.click(screen.getByRole("button", { name: "Edit Sun, Dec 20 only" }));
+        expect(screen.getByRole("dialog", { name: /Sunday, December 20/ })).toBeTruthy();
+        fireEvent.click(screen.getByRole("button", { name: "Close" }));
+
+        fireEvent.click(
+          screen.getByRole("button", { name: "Remove special hours for Sun, Dec 20 to Fri, Jan 1" })
+        );
+        const dialog = screen.getByRole("dialog");
+        expect(
+          within(dialog).getByText("Remove special hours for Sun, Dec 20 to Fri, Jan 1?")
+        ).toBeTruthy();
+        expect(within(dialog).getByText(/every date of it/)).toBeTruthy();
+        fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
+
+        await waitFor(() =>
+          expect(saveConfig.mock.calls[0]![0].body.changes.remove).toEqual({
+            dateRules: ["holidays"],
+          })
+        );
+        expect(
+          await screen.findByText("Special hours removed for Sun, Dec 20 to Fri, Jan 1")
+        ).toBeTruthy();
+      });
+
+      it("names the series when removing a repeating rule, and edits its next date only", async () => {
+        saveConfig.mockResolvedValue({ version: 8, changeId: "chg-8" });
+        renderTab(true, stateWith(fridays));
+        expect(screen.getByRole("button", { name: "Edit Fri, Dec 4 only" })).toBeTruthy();
+
+        fireEvent.click(screen.getByRole("button", { name: "Remove special hours every Friday" }));
+        const dialog = screen.getByRole("dialog");
+        expect(within(dialog).getByText("Remove special hours every Friday?")).toBeTruthy();
+        fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
+
+        expect(await screen.findByText("Special hours removed every Friday")).toBeTruthy();
+      });
+    });
+
+    it("hides Edit and Remove from a Host", () => {
+      renderTab(false, withHours);
+      expect(screen.queryByRole("button", { name: /Edit hours/ })).toBeNull();
+      expect(screen.queryByRole("button", { name: /Remove special hours/ })).toBeNull();
+    });
+  });
+
+  describe("reopening", () => {
+    it("offers Undo when no guests were told", async () => {
+      revertChange.mockResolvedValue({ version: 8, changeId: "c9" });
+      renderTab();
+      fireEvent.click(screen.getAllByRole("button", { name: "Remove" })[0]!);
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("checkbox"));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Reopen" }));
+
+      fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+      await waitFor(() =>
+        expect(revertChange).toHaveBeenCalledWith({
+          venueId: "venue-1",
+          changeId: "c",
+          expectedVersion: 6,
+        })
+      );
+    });
+
+    it("offers no Undo once the cancelled guests were told", async () => {
+      renderTab();
+      fireEvent.click(screen.getAllByRole("button", { name: "Remove" })[0]!);
+      fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Reopen" }));
+
+      expect(await screen.findByText("Thu, Dec 24 reopened")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+    });
   });
 
   it("names the closure, not the hours, when a series edit would strand bookings", async () => {

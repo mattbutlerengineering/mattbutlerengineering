@@ -18,6 +18,7 @@ import {
   dateOverride,
   editSeriesDates,
   nextOccurrence,
+  restoreDate,
   skipDate,
   type SeriesScope,
 } from "./series-edit.js";
@@ -61,7 +62,7 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
   const [date, setDate] = useState(() => nextOccurrence(series, today));
   const [weekdays, setWeekdays] = useState<readonly number[]>(series.repeat?.weekdays ?? []);
   const [endsOn, setEndsOn] = useState<string | null>(series.endsOn ?? null);
-  const [invalid, setInvalid] = useState<"date" | "edit" | "taken" | null>(null);
+  const [invalid, setInvalid] = useState<"date" | "edit" | "taken" | "skipped" | null>(null);
 
   const label = (d: string) =>
     format.formatCalendarDate(d, { weekday: "short", month: "short", day: "numeric" });
@@ -74,9 +75,24 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
   };
   const makeId = () => crypto.randomUUID();
 
+  const override = dateOverride(state.config.dateRules, series.id, date);
+  const refuseOverridden = (): boolean => {
+    if (!override) return false;
+    setInvalid(override.kind === "skip" ? "skipped" : "taken");
+    return true;
+  };
+  const restore = async () => {
+    // Only a skip is restored; a one-date edit on this date is the Manager's change to keep.
+    if (override?.kind !== "skip") return;
+    await commit(
+      restoreDate(override),
+      t("availabilitySpecial.series.restoredToast", { date: label(date) })
+    );
+  };
+
   const skip = () => {
     if (!coversDate(series, date)) return setInvalid("date");
-    if (dateOverride(state.config.dateRules, series.id, date)) return setInvalid("taken");
+    if (refuseOverridden()) return;
     setInvalid(null);
     void commit(
       skipDate(series, date, makeId),
@@ -85,7 +101,7 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
   };
   const editThis = () => {
     if (!coversDate(series, date)) return setInvalid("date");
-    if (dateOverride(state.config.dateRules, series.id, date)) return setInvalid("taken");
+    if (refuseOverridden()) return;
     onEditDate(series, date);
   };
   const saveSeries = () => {
@@ -153,7 +169,28 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
           ))}
         </Alert>
       )}
-      {dateField(date, setDate, t("availabilitySpecial.series.dateLabel"))}
+      {dateField(
+        date,
+        (next) => {
+          // Every alert above was about the previous date.
+          setInvalid(null);
+          setDate(next);
+        },
+        t("availabilitySpecial.series.dateLabel")
+      )}
+      {invalid === "skipped" && (
+        <Alert variant="warning">
+          <div>{t("availabilitySpecial.series.alreadySkipped")}</div>
+          <Button
+            variant="secondary"
+            size="sm"
+            isLoading={isPending}
+            onClick={() => void restore()}
+          >
+            {t("availabilitySpecial.series.restore")}
+          </Button>
+        </Alert>
+      )}
       {invalid === "taken" && (
         <Alert variant="warning">{t("availabilitySpecial.series.dateChanged")}</Alert>
       )}

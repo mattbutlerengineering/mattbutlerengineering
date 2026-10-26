@@ -1613,7 +1613,27 @@
       "stranded_one": "{{count}} reservación quedaría sin servicio con este cambio. Cierra la fecha desde Editar esta fecha… para elegir qué pasa con ella.",
       "stranded_other": "{{count}} reservaciones quedarían sin servicio con este cambio. Cierra la fecha desde Editar esta fecha… para elegir qué pasa con ellas.",
       "stranded_many": "{{count}} de reservaciones quedarían sin servicio con este cambio. Cierra la fecha desde Editar esta fecha… para elegir qué pasa con ellas.",
-      "dateChanged": "Esta fecha ya tiene su propio cambio. Quítalo primero."
+      "dateChanged": "Esta fecha ya tiene su propio cambio. Quítalo primero.",
+      "alreadySkipped": "Esta fecha ya está omitida.",
+      "restore": "Restablecer esta fecha",
+      "restoreDate": "Restablecer {{date}}",
+      "restoredToast": "{{date}} restablecida. La serie la cierra de nuevo."
+    },
+    "rowStranded_one": "{{count}} reservación quedaría sin servicio con este cambio. No se canceló nada.",
+    "rowStranded_other": "{{count}} reservaciones quedarían sin servicio con este cambio. No se canceló nada.",
+    "rowStranded_many": "{{count}} de reservaciones quedarían sin servicio con este cambio. No se canceló nada.",
+    "hours": {
+      "edit": "Editar",
+      "editFor": "Editar horario del {{date}}",
+      "editOnly": "Editar solo el {{date}}",
+      "subjectDates": "de {{dates}}",
+      "subjectRepeat": "de cada {{days}}",
+      "removeFor": "Quitar horario especial {{subject}}",
+      "removeTitle": "¿Quitar el horario especial {{subject}}?",
+      "removeDescription": "La fecha vuelve a su horario habitual. Este cambio nunca cancela reservaciones.",
+      "removeDescriptionMany": "Esto quita el horario especial de todas sus fechas, no solo de una. Este cambio nunca cancela reservaciones.",
+      "keep": "Conservar horario",
+      "removedToast": "Horario especial quitado {{subject}}"
     },
     "callList": {
       "title": "Lista de llamadas",

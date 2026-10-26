@@ -1,4 +1,5 @@
 import type { ClosureSummary, DateRule } from "@mbe/types";
+import { nextOccurrence } from "./series-edit.js";
 
 export type SpecialDatesFilter = "all" | "closures" | "special_hours" | "repeating" | "past";
 
@@ -49,6 +50,16 @@ export function specialDateRows(
     a.rule.startsOn.localeCompare(b.rule.startsOn);
   return [...rows].sort(filter === "past" ? (a, b) => byStart(b, a) : byStart);
 }
+
+/** The date the day editor opens on for a special-hours row: its first date not yet past. */
+export function hoursEditDate(rule: DateRule, today: string): string {
+  if (rule.repeat != null) return nextOccurrence(rule, today);
+  return rule.startsOn > today ? rule.startsOn : today;
+}
+
+/** Whether a row stands for more than one date: a range, an open-ended rule, or a repeat. */
+export const coversManyDates = (rule: DateRule): boolean =>
+  rule.repeat != null || rule.endsOn !== rule.startsOn;
 
 /**
  * Outcomes whose refunds a retry can still touch (`failed` or `pending`) but whose rule

@@ -1,6 +1,30 @@
 import { describe, expect, it } from "vitest";
 import type { ClosureSummary, DateRule } from "@mbe/types";
-import { orphanRefundRules, specialDateRows } from "./special-dates.js";
+import { hoursEditDate, orphanRefundRules, specialDateRows } from "./special-dates.js";
+
+describe("hoursEditDate", () => {
+  const range = (startsOn: string, endsOn: string | null) =>
+    ({ id: "r", kind: "special_hours", targetKind: "venue", startsOn, endsOn }) as DateRule;
+
+  it("is the rule's own date for a single date", () => {
+    expect(hoursEditDate(range("2026-12-31", "2026-12-31"), "2026-12-01")).toBe("2026-12-31");
+  });
+
+  it("is the next covered weekday for a repeating rule that started in the past", () => {
+    const fridays = {
+      ...range("2026-09-04", null),
+      repeat: { version: 1, weekdays: [5] },
+    } as DateRule;
+    // 2026-10-26 is a Monday; the rule's first date is a Friday long gone.
+    expect(hoursEditDate(fridays, "2026-10-26")).toBe("2026-10-30");
+    expect(hoursEditDate(fridays, "2026-09-01")).toBe("2026-09-04");
+  });
+
+  it("is the first date not yet past for a range already under way", () => {
+    expect(hoursEditDate(range("2026-12-01", "2026-12-31"), "2026-12-10")).toBe("2026-12-10");
+    expect(hoursEditDate(range("2026-12-20", null), "2026-12-10")).toBe("2026-12-20");
+  });
+});
 
 const closure = (id: string, startsOn: string, over: Partial<DateRule> = {}) =>
   ({ id, kind: "closure", targetKind: "venue", startsOn, endsOn: startsOn, ...over }) as DateRule;
