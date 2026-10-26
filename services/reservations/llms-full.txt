@@ -14273,8 +14273,19 @@
       ruleId: string;
       now: Date;
     }
-    export function closureStartsAt(w: ClosureWindow): Date | null {
-      return serviceDayInstant(w.startsOn, w.from ?? 0, w.timezone);
+    function nextClosureDate(w: ClosureWindow, now: Date): string | null {
+      return firstOccurrenceOnOrAfter(
+        {
+          startsOn: w.startsOn,
+          endsOn: w.endsOn,
+          repeat: w.weekdays == null ? null : { weekdays: w.weekdays },
+        },
+        localDateTimeOf(now, w.timezone).date
+      );
+    }
+    export function closureStartsAt(w: ClosureWindow, now: Date): Date | null {
+      const date = nextClosureDate(w, now);
+      return date === null ? null : serviceDayInstant(date, w.from ?? 0, w.timezone);
     }
     export function closureNoticeJobId(outcomeId: string, variant: NoticeVariant): string {
       return variant === "reopened"
@@ -14283,7 +14294,9 @@
     }
     async function isUrgent(store: Store, input: EnqueueInput): Promise<boolean> {
       const w = await store.loadClosureWindow(input.venueId, input.ruleId);
-      const startsAt = w ? closureStartsAt(w) : null;
+      if (!w) return true;
+      if (nextClosureDate(w, input.now) === null) return false;
+      const startsAt = closureStartsAt(w, input.now);
       return startsAt === null || startsAt.getTime() - input.now.getTime() <= URGENT_WINDOW_MS;
     }
     export function createClosureNoticeService(deps: { scheduler: Scheduler; store?: Store }) {
@@ -14326,6 +14339,10 @@
     export interface ClosureWindow {
       /** "YYYY-MM-DD", venue-local. */
       startsOn: string;
+      /** "YYYY-MM-DD", venue-local; `null` = open-ended. */
+      endsOn: string | null;
+      /** Weekdays (0 = Sunday) a repeating rule covers; `null` = not repeating. */
+      weekdays: number[] | null;
       /** Minute of the service day the window opens; `null` = the whole service day. */
       from: number | null;
       timezone: string;
@@ -14334,6 +14351,12 @@
       const from = (window as { from?: unknown } | null)?.from;
       return typeof from === "number" ? from : null;
     }
+    function weekdaysOf(repeat: unknown): number[] | null {
+      const weekdays = (repeat as { weekdays?: unknown } | null)?.weekdays;
+      return Array.isArray(weekdays)
+        ? weekdays.filter((d): d is number => typeof d === "number")
+        : null;
+    }
     export async function loadClosureWindow(
       venueId: string,
       ruleId: string,
@@ -14341,11 +14364,19 @@
     ): Promise<ClosureWindow | null> {
       const rule = await db.dateRule.findFirst({
         where: { id: ruleId, venueId },
-        select: { startsOn: true, window: true, venue: { select: { ianaTimezone: true } } },
+        select: {
+          startsOn: true,
+          endsOn: true,
+          repeat: true,
+          window: true,
+          venue: { select: { ianaTimezone: true } },
+        },
       });
       if (!rule) return null;
       return {
         startsOn: rule.startsOn.toISOString().slice(0, 10),
+        endsOn: rule.endsOn ? rule.endsOn.toISOString().slice(0, 10) : null,
+        weekdays: weekdaysOf(rule.repeat),
         from: windowFrom(rule.window),
         timezone: rule.venue.ianaTimezone,
       };

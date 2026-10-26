@@ -1575,7 +1575,12 @@
     </item>
     <item priority="high">
       export function isUrgent(
-        closure: { readonly startsOn: string; readonly fromMinute: number | null },
+        closure: {
+          readonly startsOn: string;
+          readonly endsOn?: string | null;
+          readonly repeat?: { readonly weekdays: readonly number[] } | null;
+          readonly fromMinute: number | null;
+        },
         today: string,
         nowMinute: number
       ): boolean { /* ... */ }
@@ -14437,8 +14442,11 @@
         now: Date;
       }
     </item>
+    <item priority="medium">
+      function nextClosureDate(w: ClosureWindow, now: Date): string | null { /* ... */ }
+    </item>
     <item priority="high">
-      export function closureStartsAt(w: ClosureWindow): Date | null { /* ... */ }
+      export function closureStartsAt(w: ClosureWindow, now: Date): Date | null { /* ... */ }
     </item>
     <item priority="high">
       export function closureNoticeJobId(outcomeId: string, variant: NoticeVariant): string { /* ... */ }
@@ -14463,12 +14471,17 @@
     <item priority="low">
       interface ClosureWindow {
         startsOn: string;
+        endsOn: string | null;
+        weekdays: number[] | null;
         from: number | null;
         timezone: string;
       }
     </item>
     <item priority="medium">
       function windowFrom(window: unknown): number | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function weekdaysOf(repeat: unknown): number[] | null { /* ... */ }
     </item>
     <item priority="high">
       export async function loadClosureWindow(
@@ -19880,6 +19893,21 @@
         dates: readonly ServiceDate[],
         options: DiffDaysOptions
       ): DayDiff[] { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/first-occurrence.ts">
+    <item priority="low">
+      interface OccurrenceRule {
+        startsOn: ServiceDate;
+        endsOn?: ServiceDate | null;
+        repeat?: { readonly weekdays: readonly number[] } | null;
+      }
+    </item>
+    <item priority="high">
+      export function firstOccurrenceOnOrAfter(
+        rule: OccurrenceRule,
+        from: ServiceDate
+      ): ServiceDate | null { /* ... */ }
     </item>
   </file>
   <file path="packages/availability/src/format-minute.ts">

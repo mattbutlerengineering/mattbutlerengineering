@@ -3060,8 +3060,11 @@
         now: Date;
       }
     </item>
+    <item priority="medium">
+      function nextClosureDate(w: ClosureWindow, now: Date): string | null { /* ... */ }
+    </item>
     <item priority="high">
-      export function closureStartsAt(w: ClosureWindow): Date | null { /* ... */ }
+      export function closureStartsAt(w: ClosureWindow, now: Date): Date | null { /* ... */ }
     </item>
     <item priority="high">
       export function closureNoticeJobId(outcomeId: string, variant: NoticeVariant): string { /* ... */ }
@@ -3086,12 +3089,17 @@
     <item priority="low">
       interface ClosureWindow {
         startsOn: string;
+        endsOn: string | null;
+        weekdays: number[] | null;
         from: number | null;
         timezone: string;
       }
     </item>
     <item priority="medium">
       function windowFrom(window: unknown): number | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function weekdaysOf(repeat: unknown): number[] | null { /* ... */ }
     </item>
     <item priority="high">
       export async function loadClosureWindow(
