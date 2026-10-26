@@ -4346,3 +4346,39 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 **Skill proposals:** 0 — today is Sunday, not the Friday extraction day
 **Sentry triage:** skipped — stored MCP access token expired, needs re-auth
 **Threshold notes:** auto-tuner raised acmm threshold 1.29 → 1.315 (headroom); fix-effectiveness rate 76.5% (13/17 decided, last 30d) — healthy, no fix-strategy review needed; false-positive proxy (AI issue feedback rejection) well under 30% across every category — no threshold loosening indicated
+
+## 2026-10-26 — mbe-evening
+
+### Metrics
+
+| Metric                         | Value                                                                                                                                                                                                                                                             |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Created (7d, audit+ci-fix)     | 26 (15 audit + 11 ci-fix)                                                                                                                                                                                                                                         |
+| Closed (7d, audit+ci-fix)      | 26 (15 audit + 11 ci-fix)                                                                                                                                                                                                                                         |
+| Closure Rate                   | 100%                                                                                                                                                                                                                                                              |
+| Time-to-Close                  | mean 5.9h (26 issues closed in the 7d window)                                                                                                                                                                                                                     |
+| Agent Success (queue snapshot) | has-pr open: 0, agent-failed open: 0 — no current numerator/denominator; over this run's own iteration, 1/1 claimed issues (#7603) reached a merged PR                                                                                                            |
+| CI Pass (main, last 20 runs)   | 19/19 completed = 100%, excluding 1 `queued`/in-flight run from the denominator                                                                                                                                                                                   |
+| Queue (ready, open)            | 3 (#7602, #7376, #7609) — #7376 also carries `ready-for-human` (Auth0 E2E creds this session type lacks, per 2026-10-24's finding), not agent-eligible                                                                                                            |
+| Stale (ready > 7d)             | 0 (oldest is #7376 at ~1.6 days)                                                                                                                                                                                                                                  |
+| Blocked (agent-failed)         | 0                                                                                                                                                                                                                                                                 |
+| Skipped (agent-skip)           | 0                                                                                                                                                                                                                                                                 |
+| Daily / 7d Spend               | unknown, not $0 — `.claude/agent-spend/sessions.jsonl` carries 0 attributed sessions in the 7d window; `metrics/queue-telemetry.jsonl`'s `agentCost` sensor reports 2 queue-worker sessions (7d) totaling 982,008 tokens, `cost_usd` null on both (no ledger row) |
+| Cost/Issue                     | unknown, same reason — token-only proxy: ~982,008 tokens / 26 closed (audit+ci-fix) ≈ 37.8k tokens/issue, dollar cost not computable                                                                                                                              |
+
+### Patterns
+
+- This run's own `/idea-to-prod:implement-queue` iteration (mbe-evening step 1) claimed 1 of 2 eligible `ready` candidates (#7603, #7602): the `compose` hook's zone-spread selector resolved both to the `null` (global) zone under `strictMain: true`, which admits at most one global per batch, so #7602 was deferred rather than co-scheduled. #7376 was correctly excluded (`ready-for-human` + `Parallel-safe: no`).
+- #7603's worker PR (#7608) passed the universal reviewer gate at 8/10 with one minor, concrete finding (a declined/`not_planned` finding could still become the routine's single fix-PR candidate) — filed as a new `ready` issue (#7609) rather than blocking the merge, since the verdict was `pass` not `flag`.
+- A pre-existing open PR (#7596, from an earlier iteration) cleared the gate (reviewer pass 8/10 + 2 specialists pass) and merged at the start of this run's Phase 0.
+- A second pre-existing open PR (#7600) is stuck `gate-missing`: its last push came from a Claude session via `GITHUB_TOKEN`, which never fires `ci.yml` (gotchas § CI, the anti-recursion gap), and this session has no `actions: write` to dispatch CI itself (`403 Resource not accessible by integration`) — left for a human to dispatch or re-push with normal auth.
+- Zero reverts in the last 7 days (`git log --grep="Revert" --since="7 days ago"` on `origin/main`).
+- Both `gh issue list`/`gh pr list` are GraphQL-blocked in this session type (consistent with gotchas § Claude Code Remote); every query above used `gh api` REST or the `mcp__github__*` MCP tools instead.
+
+### Recommendations
+
+- None rising to a 3-day-consistent pattern yet. Today's "queue 3, claimed 1" is a single data point after yesterday's "queue 0" — the zone-spread global-limit deferral (#7602 held back) is worth re-checking tomorrow: if it recurs 3 days running, consider whether the global-zone cap of 1/batch is leaving real throughput on the table.
+
+### Skipped Issues
+
+0 `agent-skip` issues open — nothing to manually review.
