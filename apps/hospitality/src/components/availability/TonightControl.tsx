@@ -272,6 +272,15 @@ export function TonightControl(props: TonightControlProps) {
     setNeedsDecisions(null);
   };
 
+  const failure = (error || conflict) && (
+    <Text variant="caption" color="secondary" role="alert">
+      {error ??
+        (conflict?.code === "version-conflict"
+          ? winnerText
+          : t("availability.tonight.alreadyApplied"))}
+    </Text>
+  );
+
   const end = (ruleId: string) =>
     run(`end:${ruleId}`, "", () => endTonight.mutateAsync({ venueId, ruleId }));
 
@@ -414,14 +423,7 @@ export function TonightControl(props: TonightControlProps) {
             {t("availability.tonight.apply")}
           </Button>
         </div>
-        {(error || conflict) && (
-          <Text variant="caption" color="secondary" role="alert">
-            {error ??
-              (conflict?.code === "version-conflict"
-                ? winnerText
-                : t("availability.tonight.alreadyApplied"))}
-          </Text>
-        )}
+        {failure}
         {endsAt && (
           <Text variant="caption" color="secondary">
             {t("availability.tonight.ends", {
@@ -486,6 +488,8 @@ export function TonightControl(props: TonightControlProps) {
           ))}
         </ul>
       )}
+      {/* A chip ✕ works with the panel closed, so its failure can't live only inside the panel. */}
+      {!open && failure}
       {isSheet ? (
         <>
           {trigger}
