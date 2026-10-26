@@ -96,7 +96,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [x] **AvailabilityCalendar and day drawer (read)** — an app-local month and week grid with per-day labels and closure bands, and a drawer showing the plain summary plus "Why this day" from `explanation`. Hosts get a view-only drawer (F-HOST). (tracker: #7514)
   - Accept: component tests render the layer stack and removal results, and the Host view shows no edit controls. The `e2e-selector-drift-reviewer` passes any E2E spec.
   - Blocked by: Config API
-- [ ] **Drawer editing** — a scope select chosen before editing, the services editor, keep or replace for dates that already have their own changes, a save naming the result, a concurrency 409 dialog, a discard guard, and the draft dot. (tracker: #7515)
+- [x] **Drawer editing** — a scope select chosen before editing, the services editor, keep or replace for dates that already have their own changes, a save naming the result, a concurrency 409 dialog, a discard guard, and the draft dot. (tracker: #7515)
   - Accept: tests cover this date only, every Friday from a date, and everywhere a schedule is used. Each saves the right rows, and a conflicting save shows Review, Overwrite and Discard.
   - Blocked by: AvailabilityCalendar and day drawer (read)
 - [ ] **Guest preview panel** — calls the preview endpoint with the debounced draft, showing added and removed marks, the summary line, the stranded list, and the slow-preview fallback. (tracker: #7516)

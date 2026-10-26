@@ -1411,6 +1411,20 @@
       export function shiftAnchor(view: CalendarView, anchor: string, direction: 1 | -1): string { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/clock-minutes.ts">
+    <item priority="high">
+      export function toClock(minute: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function openFromClock(clock: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closeFromClock(clock: string, opensAt: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function lastSeatingFromClock(clock: string, opensAt: number): number { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/closure-band.ts">
     <item priority="high">
       type Closure = AvailabilityDaySummary["closures"][number];
@@ -1454,6 +1468,60 @@
         t: TFunction,
         format: VenueFormat
       ): DayPresentation { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/draft-changes.ts">
+    <item priority="low">
+      type EditScope = { readonly kind: "date"; reado | { readonly kind: "weekday"; re | { readonly kind: "schedule"; r;
+    </item>
+    <item priority="low">
+      interface DraftService {
+        key: string;
+        venueServiceId: string | null;
+        scheduleServiceId: string | null;
+        name: string;
+        opensAt: number;
+      }
+    </item>
+    <item priority="high">
+      type SeedService = Pick<
+        DraftService,
+        "opensAt" | "lastSeatingAt" | "cl...;
+    </item>
+    <item priority="high">
+      export function seedServices(
+        config: AvailabilityConfig,
+        day: Pick<ResolvedDaySummary, "services">,
+        scope: EditScope
+      ): DraftService[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function servicesEqual(a: readonly DraftService[], b: readonly DraftService[]): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      interface BuildInput {
+        config: AvailabilityConfig;
+        scope: EditScope;
+        services: readonly DraftService[];
+        makeId: () => string;
+      }
+    </item>
+    <item priority="medium">
+      function ownDateRule(config: AvailabilityConfig, date: string): DateRule | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function specialHoursRule(base: Partial<DateRule>, id: string, services: SpecialHoursService[]) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function scheduleServiceRows(
+        config: AvailabilityConfig,
+        scheduleId: string,
+        services: readonly (DraftService & { venueServiceId: string })[],
+        makeId: () => string
+      ): { upsert: ScheduleService[]; removed: string[] } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildDraftChanges(input: BuildInput): AvailabilityConfigChanges { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/quick-setup-draft.ts">
@@ -1656,6 +1724,9 @@
       export const TONIGHT_PACING: DateRule;
     </item>
     <item priority="high">
+      export function fixtureConfig(...rules: DateRule[]): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="high">
       export function resolveFixtureDay(...rules: DateRule[]): ResolvedDay { /* ... */ }
     </item>
     <item priority="high">
@@ -1672,6 +1743,39 @@
     </item>
     <item priority="high">
       export const SKIP_WEEKLY: DateRule;
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/scope-dates.ts">
+    <item priority="high">
+      export const SCOPE_HORIZON_DAYS: unknown;
+    </item>
+    <item priority="high">
+      interface ScopeContext {
+        config: AvailabilityConfig;
+        timezone: string;
+        today: string;
+      }
+    </item>
+    <item priority="medium">
+      function eachDate(from: string, to: string, step: number): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function scopeDates(scope: EditScope, context: ScopeContext): string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function coversDate(rule: DateRule, date: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function ownChangeDates(
+        config: AvailabilityConfig,
+        dates: readonly string[],
+        ignoreRuleId: string | null
+      ): string[] { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/use-discard-guard.ts">
+    <item priority="high">
+      export function useDiscardGuard<T>(apply: (next: T) => void) { /* ... */ }
     </item>
   </file>
   </section>
@@ -4863,6 +4967,11 @@
     </item>
     <item priority="high">
       export const useAvailabilityConfig: unknown;
+    </item>
+    <item priority="low">
+      type SaveAvailabilityConfigVariables = {
+        venueId: string;
+        body: Omit<PutAvailabilityConfigBo...;
     </item>
     <item priority="high">
       export const useSaveAvailabilityConfig: unknown;

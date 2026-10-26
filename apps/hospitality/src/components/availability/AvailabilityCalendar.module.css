@@ -23,6 +23,7 @@
 }
 
 .cell {
+  position: relative;
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -93,4 +94,14 @@
   border-inline-start: 3px solid var(--rialto-text-secondary);
   font-size: var(--rialto-text-xs);
   color: var(--rialto-text-primary);
+}
+
+.draftDot {
+  position: absolute;
+  inset-block-start: var(--rialto-space-xs);
+  inset-inline-end: var(--rialto-space-xs);
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--rialto-accent);
 }
