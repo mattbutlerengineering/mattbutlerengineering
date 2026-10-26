@@ -1934,6 +1934,7 @@
       "toast": {
         "closed": "{{date}} cerrado",
         "paused": "Reservaciones en línea pausadas",
+        "bookingPaused": "Reservaciones pausadas el {{date}}",
         "notified_one": "{{date}} cerrado · {{count}} reservación avisada",
         "notified_other": "{{date}} cerrado · {{count}} reservaciones avisadas",
         "notified_many": "{{date}} cerrado · {{count}} reservaciones avisadas"
@@ -1985,6 +1986,19 @@
       "resumed": "Reservas en línea reanudadas",
       "resumeError": "No se pudieron reanudar las reservas en línea",
       "pill": "Reservas en línea en pausa"
+    },
+    "selection": {
+      "selectColumn": "Seleccionar cada {{weekday}}",
+      "selectedName": "{{name}}, seleccionado",
+      "barLabel": "Fechas seleccionadas",
+      "count_one": "{{count}} fecha seleccionada",
+      "count_other": "{{count}} fechas seleccionadas",
+      "count_many": "{{count}} fechas seleccionadas",
+      "editHours": "Editar horario",
+      "clear": "Borrar selección",
+      "selectMenu": "Seleccionar…",
+      "weekdayInMonth": "Cada {{weekday}} de {{month}}",
+      "usingSchedule": "Todas las fechas con {{schedule}}"
     }
   },
   "setup": {
