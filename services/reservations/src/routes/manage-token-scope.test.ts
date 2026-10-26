@@ -110,6 +110,26 @@ describe("manageTokenScoped", () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
+  it("admits a phone-only guest: a token signed with '' matches a reservation with no email", async () => {
+    getByIdMock.mockResolvedValue({ ...reservation, guestEmail: null } as never);
+    const response = await get(generateManageToken("res_1", ""));
+    expect(response.statusCode).toBe(200);
+    expect(handler).toHaveBeenCalledOnce();
+  });
+
+  it("still 403s a '' token against a reservation that has an email", async () => {
+    const response = await get(generateManageToken("res_1", ""));
+    expect(response.statusCode).toBe(403);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("still 403s a non-empty token email against a phone-only reservation", async () => {
+    getByIdMock.mockResolvedValue({ ...reservation, guestEmail: null } as never);
+    const response = await get(goodToken());
+    expect(response.statusCode).toBe(403);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
   it("stamps a descriptor so the venue-scope registry sees the route", () => {
     const wrapped = manageTokenScoped({ missing: (reply) => reply }, async () => undefined);
     expect(venueScopeOf(wrapped)).toBe("token:manage/public");

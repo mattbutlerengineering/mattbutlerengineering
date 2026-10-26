@@ -17,7 +17,7 @@ import { venueService } from "./venue.js";
  */
 export async function rebookRequiresDeposit(
   venueId: string,
-  reservation: Reservation
+  reservation: Pick<Reservation, "guestEmail" | "guestPhone">
 ): Promise<boolean> {
   const policy = await venueService.getPolicyById(venueId);
   if (!policy || policy.depositAmountCents == null) return false;

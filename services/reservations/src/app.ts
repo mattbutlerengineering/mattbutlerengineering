@@ -46,6 +46,8 @@ import {
 import { createDefaultPostVisitNotifier } from "./services/post-visit-notifier.js";
 import { createNotifierRuntime } from "./services/notifier-runtime.js";
 import { createLapsedGuestMonitor } from "./services/lapsed-guest-cron.js";
+import { createClosureNoticeService } from "./services/closure-notice-service.js";
+import { createClosureNoticeDeps } from "./services/closure-notice-runtime.js";
 import { createReservationJobHandlers, createReservationJobWorker } from "./services/job-worker.js";
 import {
   createClosureRefunds,
@@ -256,6 +258,9 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
     ...defaultDomainServices,
     ...options.services,
     depositService: options.services?.depositService ?? new DepositService(payments),
+    closureNoticeService:
+      options.services?.closureNoticeService ??
+      createClosureNoticeService({ scheduler: options.jobs ?? notifierRuntime.scheduler }),
   };
   fastify.decorate("services", services);
 
@@ -374,6 +379,12 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
           getVenue: (id) => services.venueService.getById(id),
           dispatcher: notificationPort,
           generateManageToken,
+          closureNotice: createClosureNoticeDeps({
+            dispatcher: notificationPort,
+            generateManageToken,
+            manageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
+            logger: fastify.log,
+          }),
           handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),
           logger: fastify.log,
           runClosureRefund: (payload, opts) =>
