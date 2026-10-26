@@ -28,7 +28,13 @@ import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js"
 import { CloseDialog } from "./CloseDialog.js";
 import { minuteText } from "./closure-band.js";
 import { TonightDecisionsDialog } from "./TonightDecisionsDialog.js";
-import { activeTonightChanges, type TonightChange } from "./tonight-state.js";
+import {
+  activeTonightChanges,
+  tonightDefaults,
+  tonightTimeMinutes,
+  type TonightChange,
+} from "./tonight-state.js";
+import { currentServiceDate } from "../../utils/current-service-date.js";
 import { minutesOfDayIn, venueDate } from "../../utils/service-day.js";
 import styles from "./TonightControl.module.css";
 
@@ -36,8 +42,6 @@ export interface TonightControlProps {
   readonly venueId: string;
   readonly state: AvailabilityConfigState;
   readonly timezone: string;
-  /** Today on the venue clock. */
-  readonly today: string;
   readonly now: Date;
   readonly viewerRole: "manager" | "host";
   /** `Venue.hostEmergencyClose`: whether a Host may close the whole venue for tonight. */
@@ -47,18 +51,13 @@ export interface TonightControlProps {
 
 type TonightBody = SetTonightRequest["change"];
 
-const STEP_MINUTES = 30;
-const LAST_EVENING_MINUTE = 23 * 60 + STEP_MINUTES;
-/** `MinuteSchema` allows a service day up to two days of minutes (ADR-029). */
+/**`MinuteSchema` allows a service day up to two days of minutes (ADR-029). */
 const MAX_MINUTE = 2880;
 const MINUTES_PER_DAY = 1440;
 const ALL_TABLES = "all";
 const PICK_TABLES = "pick";
 const UNSET = "unset";
 const LOCATION_PREFIX = "location:";
-const DEFAULT_CLOSE_AT = 22 * 60;
-const DEFAULT_STOP_FROM = 19 * 60 + 30;
-const DEFAULT_STOP_TO = 20 * 60;
 const DEFAULT_PACING = 10;
 
 function chipText(change: TonightChange, t: TFunction, format: VenueFormat): string {
@@ -92,18 +91,6 @@ function chipText(change: TonightChange, t: TFunction, format: VenueFormat): str
     case "pacing":
       return t("availability.tonight.chip.pacing", { count: change.covers });
   }
-}
-
-/** Half-hour minutes from midnight to the venue's last close, so 1:00 AM is offered after a 2 AM close. */
-function timeMinutes(state: AvailabilityConfigState): readonly number[] {
-  const closes = [
-    ...state.config.scheduleServices.map((s) => s.closesAt),
-    ...state.config.dateRules.flatMap((r) =>
-      r.kind === "special_hours" ? r.payload.services.map((s) => s.closesAt) : []
-    ),
-  ];
-  const last = Math.min(MAX_MINUTE, Math.max(LAST_EVENING_MINUTE, ...closes));
-  return Array.from({ length: Math.floor(last / STEP_MINUTES) + 1 }, (_, i) => i * STEP_MINUTES);
 }
 
 function isDecisionRequired(error: unknown): boolean {
@@ -143,7 +130,9 @@ function tableTargets(
  * When locked; a Host without it sees why not, as text.
  */
 export function TonightControl(props: TonightControlProps) {
-  const { venueId, state, timezone, today, now, viewerRole, hostEmergencyClose, tables } = props;
+  const { venueId, state, timezone, now, viewerRole, hostEmergencyClose, tables } = props;
+  // Tonight is the service day, which stays on yesterday's date until a late service closes.
+  const today = currentServiceDate(state.config, timezone, now);
   const { t } = useTranslation();
   const format = useVenueFormat();
   const viewport = useViewport();
@@ -158,9 +147,10 @@ export function TonightControl(props: TonightControlProps) {
   } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [closeAt, setCloseAt] = useState(DEFAULT_CLOSE_AT);
-  const [stopFrom, setStopFrom] = useState(DEFAULT_STOP_FROM);
-  const [stopTo, setStopTo] = useState(DEFAULT_STOP_TO);
+  // Null until picked: the shown value is then the default clamped into tonight's options.
+  const [closeAtPick, setCloseAt] = useState<number | null>(null);
+  const [stopFromPick, setStopFrom] = useState<number | null>(null);
+  const [stopToPick, setStopTo] = useState<number | null>(null);
   const [blockTarget, setBlockTarget] = useState(ALL_TABLES);
   const [pickedTables, setPickedTables] = useState<readonly string[]>([]);
   const [blockFrom, setBlockFrom] = useState<number | null>(null);
@@ -197,7 +187,12 @@ export function TonightControl(props: TonightControlProps) {
     minutesOfDayIn(now, timezone) + (venueDate(now, timezone) > today ? MINUTES_PER_DAY : 0);
   const effectiveFrom = blockFrom ?? nowServiceMinute;
   const blockWindowInvalid = blockTo !== null && blockTo <= effectiveFrom;
-  const timeOptions = timeMinutes(state).map((m) => ({
+  const tonightMinutes = tonightTimeMinutes(state.config, timezone, today);
+  const defaults = tonightDefaults(tonightMinutes);
+  const closeAt = closeAtPick ?? defaults.closeAt;
+  const stopFrom = stopFromPick ?? defaults.stopFrom;
+  const stopTo = stopToPick ?? defaults.stopTo;
+  const timeOptions = tonightMinutes.map((m) => ({
     value: String(m),
     label: minuteText(m, t, format),
   }));
@@ -493,7 +488,7 @@ export function TonightControl(props: TonightControlProps) {
           rule={closeEarlyRule(needsDecisions.ruleId, today, needsDecisions.closeAt)}
           today={today}
           closeAt={needsDecisions.closeAt}
-          nowMinute={minutesOfDayIn(now, timezone)}
+          nowMinute={nowServiceMinute}
           onConfirm={confirmDecisions}
           onClose={() => setNeedsDecisions(null)}
         />
