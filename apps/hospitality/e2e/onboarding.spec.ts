@@ -174,20 +174,11 @@ test.describe("Venue onboarding wizard", () => {
     await mockedPage.getByRole("option", { name: "Eastern Time (America/New_York)" }).click();
     await mockedPage.getByRole("button", { name: "Next" }).click();
 
-    // Step 3 (Operating Hours) requires at least one day to be open.
-    // Rialto's Checkbox renders the native input with an sr-only clip-rect
-    // (1px, clipped) with the visible decorative box positioned on top of
-    // its hit-rect — Playwright's actionability check on the input's own
-    // geometry gets intercepted by that box. Force the click (real users
-    // toggle via the visible label/box, which is unaffected) and assert the
-    // toggle actually landed instead of just that the call didn't throw.
-    // Scoped by role (not getByLabel) because once monday is enabled, its
-    // time inputs render with aria-labels containing "monday" too, which
-    // would make a plain getByLabel("monday") match 3 elements.
-    const mondayCheckbox = mockedPage.getByRole("checkbox", { name: "monday", exact: true });
-    await mondayCheckbox.check({ force: true });
-    await expect(mondayCheckbox).toBeChecked();
-    await expect(mockedPage.getByLabel("monday opening time")).toBeVisible();
+    // Step 3 (Operating Hours) is the quick-setup card (F-ONB): a service and at
+    // least one day are required before Next lets the wizard advance.
+    await mockedPage.getByRole("button", { name: "Dinner" }).click();
+    await mockedPage.getByRole("button", { name: "Weekdays" }).click();
+    await expect(mockedPage.getByRole("checkbox", { name: "Monday" })).toBeChecked();
 
     await mockedPage.getByRole("button", { name: "Next" }).click();
 

@@ -279,14 +279,14 @@ describe("SettingsPage", () => {
     });
   });
 
-  it("navigates to /setup/hours when Operating Hours is clicked (#4982)", async () => {
+  it("navigates to /availability when Operating Hours is clicked (#4982)", async () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByText("Venue")).toBeDefined();
     });
 
     fireEvent.click(screen.getByText("Operating Hours"));
-    expect(mockNavigate).toHaveBeenCalledWith("/setup/hours");
+    expect(mockNavigate).toHaveBeenCalledWith("/availability");
   });
 
   it("links to the Friday-night rehearsal from the venue card", async () => {

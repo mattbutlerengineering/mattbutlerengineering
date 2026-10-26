@@ -375,7 +375,7 @@ export function SettingsPage() {
                 <Text variant="caption" color="secondary">
                   {t("settings.venue.description")}
                 </Text>
-                <Button variant="secondary" onClick={() => navigate("/setup/hours")}>
+                <Button variant="secondary" onClick={() => navigate("/availability")}>
                   {t("settings.venue.operatingHours")}
                 </Button>
                 <Button variant="secondary" onClick={() => navigate("/timeline?rehearsal=true")}>

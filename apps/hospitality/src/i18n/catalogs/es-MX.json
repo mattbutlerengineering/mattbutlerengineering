@@ -1543,14 +1543,53 @@
         "pacingSet": "ritmo de {{covers}} cubiertos por turno de asientos"
       },
       "loadError": "No se pudo cargar por qué este día es así"
+    },
+    "quickSetup": {
+      "title": "Define tu semana regular",
+      "intro": "Dile a tus invitados cuándo aceptas reservaciones. Puedes cambiar cualquier día después.",
+      "serviceN": "Servicio {{n}}",
+      "presetsLabel": "Nombres de servicio",
+      "presets": {
+        "lunch": "Comida",
+        "brunch": "Brunch",
+        "dinner": "Cena",
+        "late": "Nocturno"
+      },
+      "nameLabel": "Nombre del servicio",
+      "opens": "Abre",
+      "lastSeating": "Última mesa",
+      "closes": "Cierra",
+      "lastSeatingHint": "Última mesa a las {{time}}, 45 min antes del cierre",
+      "days": "Días",
+      "shortcuts": {
+        "weekdays": "Entre semana",
+        "weekends": "Fines de semana",
+        "everyDay": "Todos los días"
+      },
+      "addService": "Agregar otro servicio",
+      "serviceAdded": "Servicio {{n}} agregado",
+      "removeService": "Quitar servicio {{n}}",
+      "previewTitle": "Vista previa para invitados",
+      "previewEmpty": "Agrega un servicio para ver los horarios que verán tus invitados.",
+      "previewLine": "{{name}}: primera mesa {{first}}, última mesa {{last}}",
+      "save": "Guardar y abrir reservaciones",
+      "saving": "Guardando…",
+      "retry": "Reintentar",
+      "saveErrorTitle": "No se pudo guardar tu semana",
+      "savedToast": "Las reservaciones están abiertas {{days}}",
+      "versionConflict": "Alguien más acaba de cambiar la disponibilidad. Intenta guardar de nuevo para conservar tu semana.",
+      "hostEmpty": "Aún no hay horarios. Un gerente define la semana regular aquí.",
+      "wizardIntro": "Dile a tus invitados cuándo aceptas reservaciones.",
+      "issues": {
+        "name_required": "Ponle un nombre a este servicio.",
+        "time_required": "Elige una hora.",
+        "close_after_open": "El cierre debe ser distinto de la apertura.",
+        "last_seating_after_close": "La última mesa debe ser antes del cierre.",
+        "last_seating_before_open": "La última mesa debe ser después de la apertura.",
+        "overlap": "Este servicio se traslapa con otro.",
+        "days_required": "Elige al menos un día."
+      }
     }
-  },
-  "setupHours": {
-    "title": "Horario de atención",
-    "description": "Define los días y horas en que tu local acepta reservas.",
-    "cancel": "Cancelar",
-    "saving": "Guardando...",
-    "save": "Guardar horario"
   },
   "setup": {
     "yourVenue": "tu local",

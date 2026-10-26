@@ -64,13 +64,16 @@ describe("hospitality adapter", () => {
     expect(byRoute["callback"].kind).toBe("redirect");
     expect(byRoute["*"].kind).toBe("not-found");
     expect(byRoute["timeline"].kind).toBe("page");
-    expect(rows.filter((r) => r.kind === "page")).toHaveLength(24);
+    expect(rows.filter((r) => r.kind === "page")).toHaveLength(23);
+    // /setup/hours moved to the Availability page (#7513); the old path stays as a <Navigate>.
+    expect(byRoute["setup/hours"].kind).toBe("redirect");
   });
 
   it("names the page module and main.tsx in every row's source_files", () => {
     for (const row of rows) {
       expect(row.source_files.at(-1)).toBe("apps/hospitality/src/main.tsx");
-      expect(row.source_files.length).toBeGreaterThanOrEqual(2);
+      // A bare <Navigate> has no page module of its own.
+      expect(row.source_files.length).toBeGreaterThanOrEqual(row.kind === "redirect" ? 1 : 2);
     }
     expect(byRoute["book/:venueSlug"].source_files).toEqual([
       "apps/hospitality/src/pages/PublicBookingPage.tsx",

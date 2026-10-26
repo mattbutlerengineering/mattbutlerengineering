@@ -90,7 +90,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
   - Accept: a 30-day draft on the seeded 250-seat venue has p95 ≤1s including the stranded list (SC Preview speed). The stranded list includes bookings beyond the focus window.
   - Blocked by: Config API
   - Decided: body `{draft: {changes, scopeConflicts}, scope: dates[] | {from, to?}, focusDate, strandedOffset}`; `days` covers 30 days from `focusDate` as seating minutes added/removed (times listed, not table availability); `focusDay` is the day summary plus its services; stranded bookings are filtered to `scope` by service date, sorted by start time, 50 per page from `strandedOffset`. Manager-only, like the save. `applyChanges` moved into the engine as `applyDraft`'s core; the save and the preview share `settleDraft`, so a preview never accepts what a save refuses. Speed is pinned by `availability-preview.speed.test.ts` (p95 over 14,319 future reservations).
-- [ ] **Quick setup and onboarding** — the S1 card, onboarding hours step reuse (F-ONB), and the five entry points repointed from `/setup/hours`. (tracker: #7513)
+- [x] **Quick setup and onboarding** — the S1 card, onboarding hours step reuse (F-ONB), and the five entry points repointed from `/setup/hours`. (tracker: #7513)
   - Accept: component tests cover valid, invalid and server-error states. An E2E test sets up the bistro week from an empty venue, and the setup checklist marks availability as done.
   - Blocked by: Config API
 - [x] **AvailabilityCalendar and day drawer (read)** — an app-local month and week grid with per-day labels and closure bands, and a drawer showing the plain summary plus "Why this day" from `explanation`. Hosts get a view-only drawer (F-HOST). (tracker: #7514)

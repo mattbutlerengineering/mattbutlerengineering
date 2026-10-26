@@ -365,7 +365,7 @@ describe("BookingWidgetDemoPage", () => {
     });
   });
 
-  it("navigates to /setup/hours when the widget's set-hours prompt is triggered", async () => {
+  it("navigates to /availability when the widget's set-hours prompt is triggered", async () => {
     renderPage();
 
     await waitFor(() => {
@@ -373,7 +373,7 @@ describe("BookingWidgetDemoPage", () => {
     });
 
     lastOnSetHours?.();
-    expect(mockNavigate).toHaveBeenCalledWith("/setup/hours");
+    expect(mockNavigate).toHaveBeenCalledWith("/availability");
   });
 
   it("embed code example contains the selected venue ID", async () => {

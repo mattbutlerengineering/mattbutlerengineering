@@ -14,6 +14,7 @@ const daysQuery = vi.hoisted(() => ({
 const daysHook = vi.hoisted(() => vi.fn());
 const configHook = vi.hoisted(() => vi.fn());
 const refetch = vi.hoisted(() => vi.fn());
+const configSource = vi.hoisted(() => ({ value: "rows" as "rows" | "empty" }));
 const team = vi.hoisted(() => ({ value: undefined as Partial<VenueTeam> | undefined }));
 const venue = vi.hoisted(() => ({
   selectedVenueId: "venue-1" as string | null,
@@ -27,8 +28,18 @@ vi.mock("../hooks/useAvailability.js", () => ({
   },
   useAvailabilityConfig: (params: unknown) => {
     configHook(params);
-    return { data: { config: {}, version: 1, source: "rows" }, isLoading: false, error: null };
+    return {
+      data: { config: {}, version: 1, source: configSource.value },
+      isLoading: false,
+      error: null,
+      refetch,
+    };
   },
+}));
+vi.mock("../components/availability/AvailabilityQuickSetup.js", () => ({
+  AvailabilityQuickSetup: ({ venueId }: { venueId: string }) => (
+    <section aria-label="Quick setup">{venueId}</section>
+  ),
 }));
 vi.mock("../hooks/useVenueTeam.js", () => ({
   useVenueTeam: () => ({ data: team.value, isLoading: false, error: null }),
@@ -75,6 +86,7 @@ describe("AvailabilityPage", () => {
     vi.clearAllMocks();
     vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-10-28T20:00:00Z") });
     venue.selectedVenueId = "venue-1";
+    configSource.value = "rows";
     team.value = { viewerRole: "manager" };
     daysQuery.value = {
       data: ["2026-10-29", "2026-10-30"].map(summaryFor),
@@ -113,13 +125,48 @@ describe("AvailabilityPage", () => {
     expect(daysHook).toHaveBeenLastCalledWith(expect.objectContaining({ from: "2026-09-28" }));
   });
 
-  it("opens the day drawer from a cell and loads the config only then", () => {
+  it("opens the day drawer from a cell", () => {
     renderPage();
-    expect(configHook).toHaveBeenLastCalledWith(expect.objectContaining({ enabled: false }));
     fireEvent.click(screen.getByRole("button", { name: /Friday, October 30/ }));
     const dialog = screen.getByRole("dialog", { name: /Friday, October 30/ });
     expect(within(dialog).getByText(/Closed\./)).toBeInTheDocument();
-    expect(configHook).toHaveBeenLastCalledWith(expect.objectContaining({ enabled: true }));
+  });
+
+  describe("a venue with no hours", () => {
+    beforeEach(() => {
+      configSource.value = "empty";
+    });
+
+    it("shows a Manager the quick-setup card instead of the calendar", () => {
+      renderPage();
+      expect(screen.getByRole("region", { name: "Quick setup" })).toHaveTextContent("venue-1");
+      expect(screen.queryByRole("grid")).not.toBeInTheDocument();
+    });
+
+    it("tells a Host a manager sets the week, with no card", () => {
+      team.value = { viewerRole: "host" };
+      renderPage();
+      expect(screen.getByText(/A manager sets the regular week here/)).toBeInTheDocument();
+      expect(screen.queryByRole("region", { name: "Quick setup" })).not.toBeInTheDocument();
+    });
+
+    it("waits for the viewer's role rather than flashing the Host note", () => {
+      team.value = undefined;
+      renderPage();
+      expect(screen.queryByRole("region", { name: "Quick setup" })).not.toBeInTheDocument();
+      expect(screen.queryByText(/A manager sets the regular week here/)).not.toBeInTheDocument();
+    });
+
+    it("has no axe violations", async () => {
+      const { container } = renderPage();
+      expect((await axe(container, AXE_OPTIONS)).violations).toEqual([]);
+    });
+  });
+
+  it("keeps the calendar, with no card, once the venue has hours", () => {
+    renderPage();
+    expect(screen.queryByRole("region", { name: "Quick setup" })).not.toBeInTheDocument();
+    expect(screen.getByRole("grid")).toBeInTheDocument();
   });
 
   it("shows a Host the view-only note and a Manager nothing extra", () => {

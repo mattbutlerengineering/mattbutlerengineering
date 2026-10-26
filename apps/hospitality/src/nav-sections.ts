@@ -84,7 +84,7 @@ function buildSetupSections(
 
   const STEP_PATHS: Record<SetupStep, string> = {
     onboarding: "/onboarding",
-    "operating-hours": "/setup/hours",
+    "operating-hours": "/availability",
     "floor-plan": "/floor-plans",
   };
 

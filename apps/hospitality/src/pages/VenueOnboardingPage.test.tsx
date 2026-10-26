@@ -172,7 +172,10 @@ vi.mock("../components/venue-onboarding/LaunchStep", () => ({
 }));
 
 // Mock Rialto components to simplify testing
-vi.mock("@mattbutlerengineering/rialto", () => ({
+import type * as Rialto from "@mattbutlerengineering/rialto";
+vi.mock("@mattbutlerengineering/rialto", async (importOriginal) => ({
+  // The quick-setup card (Tag, TimePicker, Heading, Checkbox) renders for real.
+  ...(await importOriginal<typeof Rialto>()),
   useToast: () => ({ toast: mockToast, dismiss: vi.fn() }),
   Button: ({
     children,
@@ -394,6 +397,12 @@ function renderPage() {
 }
 
 /** Fills steps 1-4 with minimal valid data, landing on step 5 (floor plan). */
+/** The hours step is the quick-setup card: a Dinner chip and the Weekdays shortcut. */
+function fillRegularWeek() {
+  fireEvent.click(screen.getByRole("button", { name: "Dinner" }));
+  fireEvent.click(screen.getByRole("button", { name: "Weekdays" }));
+}
+
 function advanceToFloorPlanStep(name = "My Venue") {
   const nameInput = screen.getByLabelText("Venue Name") as HTMLInputElement;
   fireEvent.change(nameInput, { target: { value: name } });
@@ -403,7 +412,7 @@ function advanceToFloorPlanStep(name = "My Venue") {
   fireEvent.change(timezoneSelect, { target: { value: "America/New_York" } });
   fireEvent.click(screen.getByText("Next"));
 
-  fireEvent.click(screen.getByLabelText("monday open"));
+  fillRegularWeek();
   fireEvent.click(screen.getByText("Next"));
 
   fireEvent.click(screen.getByText("Next")); // skip settings
@@ -598,8 +607,7 @@ describe("VenueOnboardingPage", () => {
 
     // Step 3 — operating hours (must toggle at least one day)
     expect(screen.getByText("Operating Hours")).toBeTruthy();
-    const mondayToggle = screen.getByLabelText("monday open") as HTMLInputElement;
-    fireEvent.click(mondayToggle);
+    fillRegularWeek();
     fireEvent.click(screen.getByText("Next"));
 
     // Step 4 — settings (optional, just proceed)
@@ -615,6 +623,22 @@ describe("VenueOnboardingPage", () => {
     expect(screen.getByTestId("launch-step")).toBeTruthy();
     expect(screen.getByText("My Venue")).toBeTruthy();
     expect(screen.getByText("Launch Venue")).toBeTruthy();
+  });
+
+  it("keeps Next gated while the quick-setup card is invalid, and says why", () => {
+    renderPage();
+    const nameInput = screen.getByLabelText("Venue Name") as HTMLInputElement;
+    fireEvent.change(nameInput, { target: { value: "My Venue" } });
+    fireEvent.click(screen.getByText("Next"));
+    const tz = screen.getByLabelText("Timezone") as HTMLSelectElement;
+    fireEvent.change(tz, { target: { value: "America/New_York" } });
+    fireEvent.click(screen.getByText("Next"));
+
+    // Times chosen but no days: the card flags the days and Next refuses.
+    fireEvent.click(screen.getByRole("button", { name: "Dinner" }));
+    expect(screen.getByText("Choose at least one day.")).toBeTruthy();
+    fireEvent.click(screen.getByText("Next"));
+    expect(screen.getByText("At least one day must be open")).toBeTruthy();
   });
 
   it("should show validation error on step 3 when no days are open", () => {
@@ -647,8 +671,7 @@ describe("VenueOnboardingPage", () => {
     fireEvent.click(screen.getByText("Next"));
 
     // Step 3 — toggle a day then proceed
-    const mondayToggle = screen.getByLabelText("monday open") as HTMLInputElement;
-    fireEvent.click(mondayToggle);
+    fillRegularWeek();
     fireEvent.click(screen.getByText("Next"));
 
     // Step 4 — enter invalid data
@@ -686,7 +709,7 @@ describe("VenueOnboardingPage", () => {
     const tz = screen.getByLabelText("Timezone") as HTMLSelectElement;
     fireEvent.change(tz, { target: { value: "America/New_York" } });
     fireEvent.click(screen.getByText("Next"));
-    fireEvent.click(screen.getByLabelText("monday open"));
+    fillRegularWeek();
     fireEvent.click(screen.getByText("Next"));
 
     expect(wrapper.className).not.toContain("wizardContainerWide"); // step 4
@@ -984,8 +1007,7 @@ describe("VenueOnboardingPage", () => {
     fireEvent.click(screen.getByText("Next"));
 
     // Step 3 — toggle monday on
-    const mondayToggle = screen.getByLabelText("monday open") as HTMLInputElement;
-    fireEvent.click(mondayToggle);
+    fillRegularWeek();
     fireEvent.click(screen.getByText("Next"));
 
     // Step 4 — add settings
@@ -1013,9 +1035,10 @@ describe("VenueOnboardingPage", () => {
     expect(payload.currencyCode).toBe("GBP");
     expect(payload.operatingHours).toBeDefined();
     expect(payload.operatingHours.monday).toEqual({
-      open: "09:00",
+      open: "17:00",
       close: "22:00",
     });
+    expect(payload.operatingHours.saturday).toBeUndefined();
     expect(payload.settings).toBeDefined();
     expect(payload.settings.defaultReservationDuration).toBe(60);
     expect(payload.settings.maxPartySize).toBe(8);

@@ -65,11 +65,10 @@ test("venue onboarding journey against the live site", async ({ page }) => {
   });
 
   await journey.step("Step 3 — operating hours", async () => {
-    // Rialto's Checkbox hides the native input behind a decorative box, so the
-    // click must be forced and the resulting state asserted (see onboarding.spec.ts).
-    const monday = page.getByRole("checkbox", { name: "monday", exact: true });
-    await monday.check({ force: true });
-    await expect(monday).toBeChecked();
+    // The quick-setup card (F-ONB): a Dinner service on weekdays.
+    await page.getByRole("button", { name: "Dinner" }).click();
+    await page.getByRole("button", { name: "Weekdays" }).click();
+    await expect(page.getByRole("checkbox", { name: "Monday" })).toBeChecked();
     await page.getByRole("button", { name: "Next" }).click();
   });
 

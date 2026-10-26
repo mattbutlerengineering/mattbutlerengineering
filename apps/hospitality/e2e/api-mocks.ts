@@ -23,7 +23,7 @@ import { createProblemDetails } from "@mbe/types";
 
 const FIXTURES_DIR = join(import.meta.dirname, "fixtures");
 
-function loadFixture(name: string): string {
+export function loadFixture(name: string): string {
   return readFileSync(join(FIXTURES_DIR, `${name}.json`), "utf-8");
 }
 
