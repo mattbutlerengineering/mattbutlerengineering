@@ -1123,7 +1123,7 @@ const availabilityFixtures: Record<string, RouteFixture> = {
   // Tonight writes the current service day's rule on the same disposable
   // venue C as the closures (no extra POST /venues, which is capped at 5/min).
   "POST /api/v1/venues/:id/tonight": ok(async (ctx) => {
-    const { base, version } = await closureVenue(ctx);
+    const { base, version } = await sharedAvailabilityVenue(ctx);
     const tonight = {
       expectedVersion: version,
       ruleId: `rls-sweep-tonight-${randomUUID()}`,
@@ -1149,7 +1149,7 @@ const availabilityFixtures: Record<string, RouteFixture> = {
     );
   }),
   "DELETE /api/v1/venues/:id/tonight/:ruleId": ok(async (ctx) => {
-    const { base, version } = await closureVenue(ctx);
+    const { base, version } = await sharedAvailabilityVenue(ctx);
     const ruleId = `rls-sweep-tonight-end-${randomUUID()}`;
     expectOk(
       await asAdmin(ctx, {
