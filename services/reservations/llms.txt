@@ -305,6 +305,9 @@
       }
     </item>
     <item priority="high">
+      export function toGsm(text: string): string { /* ... */ }
+    </item>
+    <item priority="high">
       export function smsSegments(body: string): number { /* ... */ }
     </item>
     <item priority="medium">
@@ -342,6 +345,9 @@
     </item>
     <item priority="medium">
       function smsCandidates(c: ClosureNoticeContent): string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function venueNameVariants(name: string): string[] { /* ... */ }
     </item>
     <item priority="high">
       export function buildClosureSms(c: ClosureNoticeContent): string { /* ... */ }
@@ -2835,7 +2841,7 @@
       export const URGENT_WINDOW_MS: unknown;
     </item>
     <item priority="high">
-      type Store = Pick<typeof defaultStore, "listNotifiable" | "listCallList">;
+      type Store = Pick<typeof defaultStore, "listNotifiable" | "listCallLis...;
     </item>
     <item priority="high">
       type Scheduler = Pick<JobsPort, "schedule">;
@@ -2848,6 +2854,15 @@
       }
     </item>
     <item priority="high">
+      export function closureStartsAt(w: ClosureWindow): Date | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closureNoticeJobId(outcomeId: string, variant: NoticeVariant): string { /* ... */ }
+    </item>
+    <item priority="low">
+      async function isUrgent(store: Store, input: EnqueueInput): Promise<boolean> { /* ... */ }
+    </item>
+    <item priority="high">
       export function createClosureNoticeService(deps: { scheduler: Scheduler; store?: Store }) { /* ... */ }
     </item>
     <item priority="low">
@@ -2858,10 +2873,29 @@
     <item priority="high">
       type Db = Pick<PrismaClient, "closureOutcome">;
     </item>
+    <item priority="high">
+      type RuleDb = Pick<PrismaClient, "dateRule">;
+    </item>
+    <item priority="low">
+      interface ClosureWindow {
+        startsOn: string;
+        from: number | null;
+        timezone: string;
+      }
+    </item>
+    <item priority="medium">
+      function windowFrom(window: unknown): number | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function loadClosureWindow(
+        venueId: string,
+        ruleId: string,
+        db: RuleDb = prisma
+      ): Promise<ClosureWindow | null> { /* ... */ }
+    </item>
     <item priority="low">
       interface NotifiableOutcome {
         outcomeId: string;
-        startTime: Date;
       }
     </item>
     <item priority="low">

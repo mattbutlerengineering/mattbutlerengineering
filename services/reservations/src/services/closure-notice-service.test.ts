@@ -1,3 +1,4 @@
+import { Job } from "bullmq";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { JOB_TYPES, DEFAULT_JOB_OPTIONS, dispatchJob } from "../jobs/index.js";
 import type { ClosureNoticePayload } from "../jobs/index.js";
@@ -7,7 +8,12 @@ import {
   type Deliveries,
   type NoticeOutcome,
 } from "./closure-notice.js";
-import { createClosureNoticeService, URGENT_WINDOW_MS } from "./closure-notice-service.js";
+import {
+  closureStartsAt,
+  createClosureNoticeService,
+  URGENT_WINDOW_MS,
+} from "./closure-notice-service.js";
+import { loadClosureWindow } from "./closure-notice-store.js";
 
 const NOW = new Date("2026-12-24T15:00:00.000Z");
 const MINUTE = 60_000;
@@ -34,6 +40,28 @@ function fakeScheduler() {
   };
 }
 
+/** A whole-day closure two days after NOW: never urgent. */
+const laterClosure = {
+  loadClosureWindow: async () => ({ startsOn: "2026-12-26", from: null, timezone: "UTC" }),
+};
+
+/**
+ * Runs a job through BullMQ's real `Job#validateOptions` with the options
+ * `JobScheduler.schedule` sends, without Redis: `Queue.add` calls exactly
+ * this before it writes, and throws on an id it will never accept.
+ */
+class ValidatingJob extends Job {
+  validate(): void {
+    this.validateOptions(this.asJSON());
+  }
+}
+
+function validateWithBullmq(jobType: string, payload: unknown, jobId: string): void {
+  const queue = { toKey: (k: string) => k, qualifiedName: "bull:test", backend: {} };
+  const opts = { ...DEFAULT_JOB_OPTIONS, jobId };
+  new ValidatingJob(queue as never, jobType, payload, opts, jobId).validate();
+}
+
 const notifiable = (n: number, hoursAhead: number) =>
   Array.from({ length: n }, (_, i) => ({
     outcomeId: `o${i}`,
@@ -45,14 +73,14 @@ describe("closure notice service: enqueue", () => {
     const scheduler = fakeScheduler();
     const service = createClosureNoticeService({
       scheduler: scheduler as never,
-      store: { listNotifiable: async () => notifiable(3, 30) } as never,
+      store: { ...laterClosure, listNotifiable: async () => notifiable(3, 30) } as never,
     });
     const count = await service.enqueueForClosure({ venueId: "v1", ruleId: "r1", now: NOW });
     expect(count).toBe(3);
     expect(scheduler.jobs.map((j) => j.jobId)).toEqual([
-      "closure-notice:o0",
-      "closure-notice:o1",
-      "closure-notice:o2",
+      "closure-notice_o0",
+      "closure-notice_o1",
+      "closure-notice_o2",
     ]);
     expect(scheduler.jobs.every((j) => j.jobType === JOB_TYPES.CLOSURE_NOTICE)).toBe(true);
     expect(scheduler.jobs.every((j) => j.delayMs === 0)).toBe(true);
@@ -63,21 +91,65 @@ describe("closure notice service: enqueue", () => {
     });
   });
 
-  it("marks a booking within 6 hours urgent", async () => {
+  it("urgency is the closure's: one starting within 6 hours makes every outcome urgent", async () => {
+    // ux.md scenario (b): close tonight from 3 PM (venue time), it is 1 PM now,
+    // and the booking is at 9:30 PM — 8.5 h away, but the closure starts in 2 h.
+    const now = new Date("2026-12-24T21:00:00.000Z"); // 1:00 PM in Los Angeles
     const scheduler = fakeScheduler();
     const service = createClosureNoticeService({
       scheduler: scheduler as never,
-      store: { listNotifiable: async () => notifiable(1, URGENT_WINDOW_MS / 3_600_000) } as never,
+      store: {
+        loadClosureWindow: async () => ({
+          startsOn: "2026-12-24",
+          from: 15 * 60,
+          timezone: "America/Los_Angeles",
+        }),
+        listNotifiable: async () => [
+          { outcomeId: "o0", startTime: new Date("2026-12-25T05:30:00.000Z") }, // 9:30 PM
+          { outcomeId: "o1", startTime: new Date("2026-12-26T03:00:00.000Z") }, // next day
+        ],
+      } as never,
+    });
+    await service.enqueueForClosure({ venueId: "v1", ruleId: "r1", now });
+    expect(scheduler.jobs.map((j) => j.payload.urgent)).toEqual([true, true]);
+  });
+
+  it("a closure starting more than 6 hours out is not urgent, even for a booking within 6 hours", async () => {
+    const scheduler = fakeScheduler();
+    const service = createClosureNoticeService({
+      scheduler: scheduler as never,
+      store: {
+        ...laterClosure,
+        listNotifiable: async () => notifiable(1, URGENT_WINDOW_MS / 3_600_000 / 2),
+      } as never,
     });
     await service.enqueueForClosure({ venueId: "v1", ruleId: "r1", now: NOW });
-    expect(scheduler.jobs[0]!.payload.urgent).toBe(true);
+    expect(scheduler.jobs[0]!.payload.urgent).toBe(false);
+  });
+
+  it("job ids pass BullMQ's own option validation (no ':' outside its 3-part form)", async () => {
+    const scheduler = fakeScheduler();
+    const service = createClosureNoticeService({
+      scheduler: scheduler as never,
+      store: { ...laterClosure, listNotifiable: async () => notifiable(1, 30) } as never,
+    });
+    await service.enqueueForClosure({ venueId: "v1", ruleId: "r1", now: NOW });
+    await service.enqueueForReopen({ venueId: "v1", ruleId: "r1", now: NOW });
+    expect(scheduler.jobs).toHaveLength(2);
+    for (const job of scheduler.jobs) {
+      expect(() => validateWithBullmq(job.jobType, job.payload, job.jobId)).not.toThrow();
+    }
+    // The check is real: the id shape that shipped first is rejected.
+    expect(() => validateWithBullmq(JOB_TYPES.CLOSURE_NOTICE, {}, "closure-notice:o0")).toThrow(
+      "Custom Id cannot contain :"
+    );
   });
 
   it("a replayed enqueue adds no duplicate job", async () => {
     const scheduler = fakeScheduler();
     const service = createClosureNoticeService({
       scheduler: scheduler as never,
-      store: { listNotifiable: async () => notifiable(2, 30) } as never,
+      store: { ...laterClosure, listNotifiable: async () => notifiable(2, 30) } as never,
     });
     await service.enqueueForClosure({ venueId: "v1", ruleId: "r1", now: NOW });
     await service.enqueueForClosure({ venueId: "v1", ruleId: "r1", now: NOW });
@@ -88,13 +160,49 @@ describe("closure notice service: enqueue", () => {
     const scheduler = fakeScheduler();
     const service = createClosureNoticeService({
       scheduler: scheduler as never,
-      store: { listNotifiable: async () => notifiable(1, 30) } as never,
+      store: { ...laterClosure, listNotifiable: async () => notifiable(1, 30) } as never,
     });
     await service.enqueueForReopen({ venueId: "v1", ruleId: "r1", now: NOW });
     expect(scheduler.jobs[0]).toMatchObject({
-      jobId: "closure-notice:o0:reopened",
+      jobId: "closure-notice_o0_reopened",
       payload: { variant: "reopened", urgent: false },
     });
+  });
+});
+
+describe("closure start", () => {
+  const ruleDb = (row: object | null) => ({ dateRule: { findFirst: async () => row } }) as never;
+
+  it("reads a windowed closure's first date and window start in the venue's zone", async () => {
+    const w = await loadClosureWindow(
+      "v1",
+      "r1",
+      ruleDb({
+        startsOn: new Date("2026-12-24T00:00:00.000Z"),
+        window: { version: 1, from: 900, to: 1440 },
+        venue: { ianaTimezone: "America/Los_Angeles" },
+      })
+    );
+    expect(w).toEqual({ startsOn: "2026-12-24", from: 900, timezone: "America/Los_Angeles" });
+    expect(closureStartsAt(w!)).toEqual(new Date("2026-12-24T23:00:00.000Z")); // 3 PM PST
+  });
+
+  it("a whole-day closure starts at the service day's start", async () => {
+    const w = await loadClosureWindow(
+      "v1",
+      "r1",
+      ruleDb({
+        startsOn: new Date("2026-12-24T00:00:00.000Z"),
+        window: null,
+        venue: { ianaTimezone: "America/Los_Angeles" },
+      })
+    );
+    expect(w!.from).toBeNull();
+    expect(closureStartsAt(w!)).toEqual(new Date("2026-12-24T08:00:00.000Z"));
+  });
+
+  it("an unknown rule has no window", async () => {
+    expect(await loadClosureWindow("v1", "r1", ruleDb(null))).toBeNull();
   });
 });
 
@@ -160,6 +268,7 @@ describe("closure notices settle within 2 minutes (time-advanced)", () => {
     const service = createClosureNoticeService({
       scheduler: scheduler as never,
       store: {
+        loadClosureWindow: async () => ({ startsOn: "2026-12-24", from: 15 * 60, timezone: "UTC" }),
         listNotifiable: async () =>
           [...store.values()].map((o) => ({ outcomeId: o.outcomeId, startTime: o.startTime })),
       } as never,
@@ -221,7 +330,7 @@ describe("closure notices settle within 2 minutes (time-advanced)", () => {
     };
     await runJob(handlers, {
       jobType: JOB_TYPES.CLOSURE_NOTICE,
-      jobId: "closure-notice:o9",
+      jobId: "closure-notice_o9",
       delayMs: 0,
       payload: { outcomeId: "o9", venueId: "v1" },
     });

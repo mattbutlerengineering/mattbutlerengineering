@@ -21170,6 +21170,9 @@
       manageUrl: string;
       offers: readonly ClosureOffer[];
     }
+    export function toGsm(text: string): string {
+      return text.replace(LOOKALIKE, (ch) => GSM_LOOKALIKES[ch]!);
+    }
     export function smsSegments(body: string): number {
       let septets = 0;
       let gsm = true;
@@ -21253,8 +21256,19 @@
           return [reopenedSms(c)];
       }
     }
+    function venueNameVariants(name: string): string[] {
+      const gsm = toGsm(name);
+      const stripped = [...gsm].filter(isGsm).join("").replace(/ {2,}/g, " ").trim();
+      const short = stripped.slice(0, SHORT_VENUE_NAME).trim();
+      return [...new Set([gsm, stripped, short])].filter((n, i) => i === 0 || n !== "");
+    }
     export function buildClosureSms(c: ClosureNoticeContent): string {
-      const candidates = smsCandidates(c);
+      const content = { ...c, message: c.message === null ? null : toGsm(c.message) };
+      const perName = venueNameVariants(c.venueName).map((venueName) =>
+        smsCandidates({ ...content, venueName })
+      );
+      // Each richer form is tried with every name before a poorer form is.
+      const candidates = perName[0]!.flatMap((_, i) => perName.map((bodies) => bodies[i]!));
       return (
         candidates.find((body) => smsSegments(body) <= MAX_SMS_SEGMENTS) ??
         candidates[candidates.length - 1]!
@@ -30837,7 +30851,10 @@
         return runWithVenueContext(venueId, async () => {
           const reservation = await request.server.services.reservationService.getById(reservationId);
           if (!reservation) return spec.missing(reply, request);
-          if (reservation.guestEmail !== result.guestEmail) {
+          // A phone-only reservation stores no email and its token is signed with
+          // "": treat the two as equal. The reservation id is HMAC-signed, so this
+          // admits nothing the token's signer did not.
+          if ((reservation.guestEmail ?? "") !== (result.guestEmail ?? "")) {
             return deny(reply, 403, "Forbidden", "Token does not match reservation");
           }
           return handler(request, reply, { venueId, reservation, token });
@@ -45261,19 +45278,33 @@
   </file>
   <file path="services/reservations/src/services/closure-notice-service.ts">
     export const URGENT_WINDOW_MS = 6 * 60 * 60 * 1000;
-    type Store = Pick<typeof defaultStore, "listNotifiable" | "listCallList">;
+    type Store = Pick<typeof defaultStore, "listNotifiable" | "listCallList" | "loadClosureWindow">;
     type Scheduler = Pick<JobsPort, "schedule">;
     interface EnqueueInput {
       venueId: string;
       ruleId: string;
       now: Date;
     }
+    export function closureStartsAt(w: ClosureWindow): Date | null {
+      return serviceDayInstant(w.startsOn, w.from ?? 0, w.timezone);
+    }
+    export function closureNoticeJobId(outcomeId: string, variant: NoticeVariant): string {
+      return variant === "reopened"
+        ? `closure-notice_${outcomeId}_reopened`
+        : `closure-notice_${outcomeId}`;
+    }
+    async function isUrgent(store: Store, input: EnqueueInput): Promise<boolean> {
+      const w = await store.loadClosureWindow(input.venueId, input.ruleId);
+      const startsAt = w ? closureStartsAt(w) : null;
+      return startsAt === null || startsAt.getTime() - input.now.getTime() <= URGENT_WINDOW_MS;
+    }
     export function createClosureNoticeService(deps: { scheduler: Scheduler; store?: Store }) {
       const store = deps.store ?? defaultStore;
     
       async function enqueue(variant: NoticeVariant, input: EnqueueInput): Promise<number> {
         const outcomes = await store.listNotifiable(input.venueId, input.ruleId, variant);
-        const suffix = variant === "reopened" ? ":reopened" : "";
+        if (outcomes.length === 0) return 0;
+        const urgent = await isUrgent(store, input);
         await Promise.all(
           outcomes.map((o) =>
             deps.scheduler.schedule(
@@ -45282,10 +45313,10 @@
                 outcomeId: o.outcomeId,
                 venueId: input.venueId,
                 variant,
-                urgent: o.startTime.getTime() - input.now.getTime() <= URGENT_WINDOW_MS,
+                urgent,
               },
               0,
-              `closure-notice:${o.outcomeId}${suffix}`
+              closureNoticeJobId(o.outcomeId, variant)
             )
           )
         );
@@ -45302,10 +45333,36 @@
   </file>
   <file path="services/reservations/src/services/closure-notice-store.ts">
     type Db = Pick<PrismaClient, "closureOutcome">;
+    type RuleDb = Pick<PrismaClient, "dateRule">;
+    export interface ClosureWindow {
+      /** "YYYY-MM-DD", venue-local. */
+      startsOn: string;
+      /** Minute of the service day the window opens; `null` = the whole service day. */
+      from: number | null;
+      timezone: string;
+    }
+    function windowFrom(window: unknown): number | null {
+      const from = (window as { from?: unknown } | null)?.from;
+      return typeof from === "number" ? from : null;
+    }
+    export async function loadClosureWindow(
+      venueId: string,
+      ruleId: string,
+      db: RuleDb = prisma
+    ): Promise<ClosureWindow | null> {
+      const rule = await db.dateRule.findFirst({
+        where: { id: ruleId, venueId },
+        select: { startsOn: true, window: true, venue: { select: { ianaTimezone: true } } },
+      });
+      if (!rule) return null;
+      return {
+        startsOn: rule.startsOn.toISOString().slice(0, 10),
+        from: windowFrom(rule.window),
+        timezone: rule.venue.ianaTimezone,
+      };
+    }
     export interface NotifiableOutcome {
       outcomeId: string;
-      /** The booking's start as it stands now. */
-      startTime: Date;
     }
     export type NoticeVariant = "closure" | "reopened";
     export async function listNotifiable(
@@ -45320,9 +45377,9 @@
           dateRuleId: ruleId,
           action: variant === "reopened" ? "cancel" : { not: "keep_silent" },
         },
-        select: { id: true, reservation: { select: { startTime: true } } },
+        select: { id: true },
       });
-      return rows.map((r) => ({ outcomeId: r.id, startTime: r.reservation.startTime }));
+      return rows.map((r) => ({ outcomeId: r.id }));
     }
     export async function loadNoticeOutcome(
       outcomeId: string,

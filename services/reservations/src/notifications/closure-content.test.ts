@@ -56,6 +56,37 @@ describe("buildClosureSms", () => {
     }
   );
 
+  it.each(["cancelled", "moved", "kept", "reopened"] as const)(
+    "%s keeps GSM-7 (≤ 3 segments) for a curly-apostrophe venue name and typographic message",
+    (kind) => {
+      const body = buildClosureSms({
+        ...base,
+        kind,
+        venueName: "Joe’s Diner",
+        message: "We’re closed — “private event”… sorry all.",
+      });
+      expect(smsSegments(body)).toBeLessThanOrEqual(3);
+      expect(body).toContain("Joe's Diner");
+      expect(body).toContain(MANAGE);
+      if (kind === "kept") expect(body).toContain(`We're closed - "private event"... sorry all.`);
+    }
+  );
+
+  it.each(["cancelled", "moved", "kept", "reopened"] as const)(
+    "%s stays within 3 segments when the venue message or name has an unavoidable non-GSM character",
+    (kind) => {
+      const body = buildClosureSms({
+        ...base,
+        kind,
+        venueName: "Lune \u{1F319} Bistro",
+        message: "Closed for a private event \u{1F389}",
+      });
+      expect(smsSegments(body)).toBeLessThanOrEqual(3);
+      expect(body).toContain(MANAGE);
+      expect(body).not.toContain("\u{1F389}");
+    }
+  );
+
   it("cancelled lists every rebook time with its own link, then other times, when they fit", () => {
     const short = "https://x.co/m?token=abc";
     const body = buildClosureSms({

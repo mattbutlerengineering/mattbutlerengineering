@@ -42,6 +42,28 @@ const GSM_BASIC = new Set(
 );
 const GSM_EXTENSION = new Set("^{}\\[~]|€\f");
 
+// Typographic punctuation venues paste in, mapped to GSM-7 look-alikes. One of
+// these left in flips the whole body to UCS-2 (70/67 per segment).
+const GSM_LOOKALIKES: Readonly<Record<string, string>> = {
+  "\u2018": "'",
+  "\u2019": "'",
+  "\u201C": '"',
+  "\u201D": '"',
+  "\u2013": "-",
+  "\u2014": "-",
+  "\u2026": "...",
+  "\u00A0": " ",
+  "\u202F": " ",
+};
+const LOOKALIKE = /[\u2018\u2019\u201C\u201D\u2013\u2014\u2026\u00A0\u202F]/g;
+
+/** Replaces common typographic punctuation with its GSM-7 equivalent. */
+export function toGsm(text: string): string {
+  return text.replace(LOOKALIKE, (ch) => GSM_LOOKALIKES[ch]!);
+}
+
+const isGsm = (ch: string): boolean => GSM_BASIC.has(ch) || GSM_EXTENSION.has(ch);
+
 /** Billable SMS segments for a body: GSM-7 (160/153) or UCS-2 (70/67). */
 export function smsSegments(body: string): number {
   let septets = 0;
@@ -145,13 +167,32 @@ function smsCandidates(c: ClosureNoticeContent): string[] {
   }
 }
 
+const SHORT_VENUE_NAME = 20;
+
+/**
+ * The venue name as sent, best first: typographic punctuation made GSM, then
+ * any remaining non-GSM character (an emoji) dropped, then shortened.
+ */
+function venueNameVariants(name: string): string[] {
+  const gsm = toGsm(name);
+  const stripped = [...gsm].filter(isGsm).join("").replace(/ {2,}/g, " ").trim();
+  const short = stripped.slice(0, SHORT_VENUE_NAME).trim();
+  return [...new Set([gsm, stripped, short])].filter((n, i) => i === 0 || n !== "");
+}
+
 /**
  * The SMS body. The links are never cut (a cut link is a dead link): an
- * over-long body falls back to fewer offers or a dropped message, and the
- * shortest form is sent whole if even that overflows.
+ * over-long body falls back to fewer offers or a dropped venue message, then
+ * a GSM-only or shortened venue name, and the shortest form is sent whole if
+ * even that overflows.
  */
 export function buildClosureSms(c: ClosureNoticeContent): string {
-  const candidates = smsCandidates(c);
+  const content = { ...c, message: c.message === null ? null : toGsm(c.message) };
+  const perName = venueNameVariants(c.venueName).map((venueName) =>
+    smsCandidates({ ...content, venueName })
+  );
+  // Each richer form is tried with every name before a poorer form is.
+  const candidates = perName[0]!.flatMap((_, i) => perName.map((bodies) => bodies[i]!));
   return (
     candidates.find((body) => smsSegments(body) <= MAX_SMS_SEGMENTS) ??
     candidates[candidates.length - 1]!

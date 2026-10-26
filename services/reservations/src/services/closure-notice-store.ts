@@ -13,11 +13,42 @@ import { prisma } from "./database.js";
  */
 
 type Db = Pick<PrismaClient, "closureOutcome">;
+type RuleDb = Pick<PrismaClient, "dateRule">;
+
+/** Where a closure begins, as stored: its first date and its window's start minute. */
+export interface ClosureWindow {
+  /** "YYYY-MM-DD", venue-local. */
+  startsOn: string;
+  /** Minute of the service day the window opens; `null` = the whole service day. */
+  from: number | null;
+  timezone: string;
+}
+
+function windowFrom(window: unknown): number | null {
+  const from = (window as { from?: unknown } | null)?.from;
+  return typeof from === "number" ? from : null;
+}
+
+/** The closure's start, for the per-closure urgency decision. A reopened rule is still read. */
+export async function loadClosureWindow(
+  venueId: string,
+  ruleId: string,
+  db: RuleDb = prisma
+): Promise<ClosureWindow | null> {
+  const rule = await db.dateRule.findFirst({
+    where: { id: ruleId, venueId },
+    select: { startsOn: true, window: true, venue: { select: { ianaTimezone: true } } },
+  });
+  if (!rule) return null;
+  return {
+    startsOn: rule.startsOn.toISOString().slice(0, 10),
+    from: windowFrom(rule.window),
+    timezone: rule.venue.ianaTimezone,
+  };
+}
 
 export interface NotifiableOutcome {
   outcomeId: string;
-  /** The booking's start as it stands now. */
-  startTime: Date;
 }
 
 export type NoticeVariant = "closure" | "reopened";
@@ -35,9 +66,9 @@ export async function listNotifiable(
       dateRuleId: ruleId,
       action: variant === "reopened" ? "cancel" : { not: "keep_silent" },
     },
-    select: { id: true, reservation: { select: { startTime: true } } },
+    select: { id: true },
   });
-  return rows.map((r) => ({ outcomeId: r.id, startTime: r.reservation.startTime }));
+  return rows.map((r) => ({ outcomeId: r.id }));
 }
 
 export async function loadNoticeOutcome(
