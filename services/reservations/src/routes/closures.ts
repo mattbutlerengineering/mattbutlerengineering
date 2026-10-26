@@ -132,7 +132,7 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
       summary: "Save a closure with a decision for every affected group",
       operationId: "createClosure",
       description:
-        "Writes the date rule (kind `closure` or `special_hours`), one outcome per affected reservation, the cancels and moves with their reservation events, and the audit row in one transaction, so no active booking overlaps a saved closure unless its outcome is keep. A cancelled booking's deposit stays held with the outcome's refund pending for the refund job; no Stripe call is made and no guest is notified here. Requires an `Idempotency-Key` header; a replay returns the stored result and changes nothing. Manager, or a Host for the emergency whole-venue close of the current service day when the venue grants it.",
+        "Writes the date rule (kind `closure` or `special_hours`), one outcome per affected reservation, the cancels and moves with their reservation events, and the audit row in one transaction, so no active booking overlaps a saved closure unless its outcome is keep. A cancelled booking's deposit stays held with the outcome's refund pending for the refund job; no Stripe call is made here. After the commit, one CLOSURE_NOTICE job is enqueued per notified outcome; an enqueue failure is logged, not returned. Requires an `Idempotency-Key` header; a replay returns the stored result and changes nothing. Manager, or a Host for the emergency whole-venue close of the current service day when the venue grants it.",
       tags: ["Availability"],
       security: [{ bearerAuth: [] }],
     },

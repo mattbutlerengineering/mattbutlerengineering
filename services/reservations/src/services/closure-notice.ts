@@ -1,3 +1,4 @@
+import { rebookOfferId } from "@mbe/availability";
 import type { CommunicationPreference } from "@mbe/types";
 import type { ClosureNoticePayload, JobContext } from "../jobs/index.js";
 import {
@@ -105,7 +106,7 @@ async function contentFor(
     manageUrl: deps.manageUrl(o),
     offers: slots.map((s) => ({
       label: offerLabel(s, o.timezone),
-      url: deps.manageUrl(o, s.toISOString()),
+      url: deps.manageUrl(o, rebookOfferId(s)),
     })),
   };
 }

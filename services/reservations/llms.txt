@@ -3614,7 +3614,7 @@
     <item priority="high">
       export async function rebookRequiresDeposit(
         venueId: string,
-        reservation: Reservation
+        reservation: Pick<Reservation, "guestEmail" | "guestPhone">
       ): Promise<boolean> { /* ... */ }
     </item>
     <item priority="high">

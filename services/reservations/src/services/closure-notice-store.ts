@@ -4,6 +4,7 @@ import { loadAvailabilitySnapshot } from "./availability-snapshot.js";
 import { civilDateIn } from "./availability-migration.js";
 import { isOnCallList, type Deliveries, type NoticeOutcome } from "./closure-notice.js";
 import { prisma } from "./database.js";
+import { rebookRequiresDeposit } from "./manage-rebook-deps.js";
 
 /**
  * Reads and writes behind CLOSURE_NOTICE. Every function runs through the
@@ -137,9 +138,13 @@ export async function recordDeliveries(
 /**
  * Up to 3 open online slots in the next 14 days (SC Rebooking offer), computed
  * when the notice is sent so they are still open as the message goes out.
- * The original start is excluded by `rebookOffers`.
+ * The original start is excluded by `rebookOffers`. None where the rebook
+ * would need a deposit: `/manage/rebook` refuses those (422), so the notice
+ * links the full picker instead.
  */
 export async function loadRebookSlots(o: NoticeOutcome, now: Date): Promise<Date[]> {
+  const contact = { guestEmail: o.guestEmail, guestPhone: o.guestPhone };
+  if (await rebookRequiresDeposit(o.venueId, contact)) return [];
   const today = civilDateIn(now, o.timezone);
   const { snapshot } = await loadAvailabilitySnapshot(o.venueId, today, addDays(today, 14), now);
   const result = rebookOffers(snapshot, { startTime: o.startTime, partySize: o.partySize }, now);
