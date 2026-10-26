@@ -95,6 +95,11 @@ interface BuildInput {
   readonly services: readonly DraftService[];
   /** Ids for rows this draft creates. */
   readonly makeId: () => string;
+  /**
+   * Dates left out of a dates save: under "Keep theirs" the ones with their own hours change,
+   * since the server treats a changed rule as incoming and would overwrite it.
+   */
+  readonly leaveOut?: readonly string[];
 }
 
 /** The venue's own single-date special-hours rule for `date`, which a date edit changes in place. */
@@ -186,7 +191,9 @@ export function buildDraftChanges(input: BuildInput): AvailabilityConfigChanges 
     venueServiceId: s.venueServiceId,
   }));
   if (scope.kind === "dates" || scope.kind === "date") {
-    const singles = scope.kind === "date" ? [scope.date] : scope.dates;
+    const picked = scope.kind === "date" ? [scope.date] : scope.dates;
+    const skipped = new Set(input.leaveOut ?? []);
+    const singles = picked.filter((d) => !skipped.has(d));
     const dateRules = singles.map((d) => dateRule(config, d, payload, makeId));
     return { upsert: { ...venueServices, dateRules }, remove: {} };
   }

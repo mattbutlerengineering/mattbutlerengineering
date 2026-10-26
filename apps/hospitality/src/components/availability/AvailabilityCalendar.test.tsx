@@ -369,11 +369,21 @@ describe("AvailabilityCalendar multi-select", () => {
     expect(picked()).toBe("");
   });
 
-  it("a plain click still opens the day and clears the selection", () => {
+  it("a plain click opens the day and leaves dropping the selection to the opener", () => {
     render(<Harness />);
     fireEvent.click(cell(/Tuesday, October 27/), { ctrlKey: true });
     fireEvent.click(cell(/Friday, October 30/));
     expect(onOpenDayMock).toHaveBeenCalledWith("2026-10-30");
+    expect(picked()).toBe("2026-10-27");
+  });
+
+  it("Space toggles the focused day in the selection without opening the drawer", () => {
+    render(<Harness />);
+    const friday = cell(/Friday, October 30/);
+    fireEvent.keyDown(friday, { key: " " });
+    expect(picked()).toBe("2026-10-30");
+    fireEvent.keyDown(friday, { key: " " });
     expect(picked()).toBe("");
+    expect(onOpenDayMock).not.toHaveBeenCalled();
   });
 });

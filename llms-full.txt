@@ -4841,6 +4841,11 @@
       readonly services: readonly DraftService[];
       /** Ids for rows this draft creates. */
       readonly makeId: () => string;
+      /**
+       * Dates left out of a dates save: under "Keep theirs" the ones with their own hours change,
+       * since the server treats a changed rule as incoming and would overwrite it.
+       */
+      readonly leaveOut?: readonly string[];
     }
     function ownDateRule(config: AvailabilityConfig, date: string): DateRule | undefined {
       return config.dateRules.find(
@@ -4924,7 +4929,9 @@
         venueServiceId: s.venueServiceId,
       }));
       if (scope.kind === "dates" || scope.kind === "date") {
-        const singles = scope.kind === "date" ? [scope.date] : scope.dates;
+        const picked = scope.kind === "date" ? [scope.date] : scope.dates;
+        const skipped = new Set(input.leaveOut ?? []);
+        const singles = picked.filter((d) => !skipped.has(d));
         const dateRules = singles.map((d) => dateRule(config, d, payload, makeId));
         return { upsert: { ...venueServices, dateRules }, remove: {} };
       }
@@ -5676,6 +5683,12 @@
         onSelectionChange(dateRange(from, to));
       };
     
+      /** Add or remove one day, and make it the pivot a later Shift-click or Shift+Arrow grows from. */
+      const toggleSelected = (date: string) => {
+        pivot.current = date;
+        onSelectionChange(toggleDate(selection, date));
+      };
+    
       const handlersFor = (date: string): DateGestureHandlers => ({
         onMouseDown: (event) => {
           if (event.button === 0 && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
@@ -5693,12 +5706,10 @@
           if (event.shiftKey) {
             onSelectionChange(dateRange(pivot.current ?? date, date));
           } else if (event.ctrlKey || event.metaKey || (touchMode.current && selection.length > 0)) {
-            pivot.current = date;
-            onSelectionChange(toggleDate(selection, date));
+            toggleSelected(date);
           } else {
             pivot.current = date;
             touchMode.current = false;
-            if (selection.length > 0) onSelectionChange([]);
             onOpenDay(date);
           }
         },
@@ -5724,7 +5735,7 @@
         },
       });
     
-      return { handlersFor, extendSelection, pivot };
+      return { handlersFor, extendSelection, toggleSelected, pivot };
     }
   </file>
   </section>

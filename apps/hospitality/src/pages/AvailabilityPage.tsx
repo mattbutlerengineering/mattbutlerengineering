@@ -59,8 +59,6 @@ export function AvailabilityPage() {
   const [target, setTarget] = useState<OpenTarget>(CLOSED);
   const openDate = target.date;
   const anchor = chosenAnchor ?? today;
-  // Moving off a day with an unsaved draft asks first (ux.md F2 step 6), selection actions included.
-  const guard = useDiscardGuard<OpenTarget>(setTarget);
   // Picked days belong to one venue; derive "none" on a venue switch rather than clearing in an effect.
   const [picked, setPicked] = useState<{ venueId: string | null; dates: string[] }>({
     venueId: selectedVenueId,
@@ -68,6 +66,12 @@ export function AvailabilityPage() {
   });
   const selection = picked.venueId === selectedVenueId ? picked.dates : EMPTY;
   const setSelection = (dates: string[]) => setPicked({ venueId: selectedVenueId, dates });
+  // Moving off a day with an unsaved draft asks first (ux.md F2 step 6), selection actions included.
+  // Opening a single day drops the selection, but only once the guard lets the move happen.
+  const guard = useDiscardGuard<OpenTarget>((next) => {
+    setTarget(next);
+    if (next.date !== null && !next.fixedDates) setSelection([]);
+  });
   const format = useVenueFormat();
 
   const dates = useMemo(() => visibleDates(view, anchor), [view, anchor]);
@@ -122,6 +126,7 @@ export function AvailabilityPage() {
 
   const openDay = (date: string) => {
     if (date !== openDate || target.fixedDates) guard.request({ date });
+    else if (selection.length > 0) setSelection([]);
   };
   const editSelection = (dates: readonly string[]) =>
     guard.request({ date: dates[0] ?? null, fixedDates: dates });

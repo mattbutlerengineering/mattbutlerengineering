@@ -15,6 +15,7 @@ vi.mock("../../contexts/VenueContext.js", () => ({
   }),
 }));
 
+import { AvailabilityDayDrawer } from "./AvailabilityDayDrawer.js";
 import { AvailabilityDayEditor } from "./AvailabilityDayEditor.js";
 import {
   EARLY_DINNER,
@@ -343,6 +344,64 @@ describe("AvailabilityDayEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(onCancel).toHaveBeenCalled();
+  });
+
+  describe("inside the drawer, when the picked dates change for the same date", () => {
+    const PICKED = [FIXTURE_DATE, "2026-11-02", "2026-11-03"];
+
+    function drawerFor(fixedDates?: readonly string[]) {
+      const state: AvailabilityConfigState = {
+        config: fixtureConfig(),
+        version: 4,
+        source: "rows",
+      };
+      return (
+        <ToastProvider>
+          <main>
+            <AvailabilityDayDrawer
+              date={FIXTURE_DATE}
+              day={resolveFixtureDay()}
+              isLoading={false}
+              error={null}
+              viewerRole="manager"
+              onClose={vi.fn()}
+              editing={{
+                venueId: "venue-1",
+                state,
+                timezone: FIXTURE_TIMEZONE,
+                today: "2026-10-28",
+                onDirtyChange: vi.fn(),
+                onFinished: vi.fn(),
+                fixedDates,
+              }}
+            />
+          </main>
+        </ToastProvider>
+      );
+    }
+
+    it("a draft begun on one date then picked for three saves all three", async () => {
+      const { rerender } = render(drawerFor());
+      fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+      rerender(drawerFor(PICKED));
+      // A new pick is a new draft: the editor is back to reading, so Edit starts it afresh.
+      fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+      fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save 3 dates" }));
+      await waitFor(() => expect(save).toHaveBeenCalled());
+      expect(sentBody().body.changes.upsert.dateRules).toHaveLength(3);
+    });
+
+    it("a draft begun on three dates then a plain click returns to this date only", () => {
+      const { rerender } = render(drawerFor(PICKED));
+      fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+      rerender(drawerFor());
+      fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+      expect(screen.getByRole("combobox", { name: "You’re changing" })).toHaveTextContent(
+        "This date only"
+      );
+      expect(screen.getByRole("button", { name: "Save 1 date" })).toBeInTheDocument();
+    });
   });
 
   it("has no axe violations reading or editing", async () => {

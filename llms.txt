@@ -1504,6 +1504,7 @@
         scope: EditScope;
         services: readonly DraftService[];
         makeId: () => string;
+        leaveOut?: readonly string[];
       }
     </item>
     <item priority="medium">

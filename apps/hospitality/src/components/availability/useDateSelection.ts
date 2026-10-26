@@ -23,7 +23,7 @@ export interface DateGestureHandlers {
 /**
  * The pointer gestures that build a multi-day selection (ux.md F-MS): click-drag a range,
  * Shift-click to extend, Ctrl/Cmd-click to add or remove, long-press on touch and then tap
- * more. A plain click is still "open this day" and drops any selection.
+ * more. A plain click is still "open this day"; the opener decides when that drops the selection.
  */
 export function useDateSelection(options: DateSelectionOptions) {
   const { selection, onSelectionChange, onOpenDay } = options;
@@ -60,6 +60,12 @@ export function useDateSelection(options: DateSelectionOptions) {
     onSelectionChange(dateRange(from, to));
   };
 
+  /** Add or remove one day, and make it the pivot a later Shift-click or Shift+Arrow grows from. */
+  const toggleSelected = (date: string) => {
+    pivot.current = date;
+    onSelectionChange(toggleDate(selection, date));
+  };
+
   const handlersFor = (date: string): DateGestureHandlers => ({
     onMouseDown: (event) => {
       if (event.button === 0 && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
@@ -77,12 +83,10 @@ export function useDateSelection(options: DateSelectionOptions) {
       if (event.shiftKey) {
         onSelectionChange(dateRange(pivot.current ?? date, date));
       } else if (event.ctrlKey || event.metaKey || (touchMode.current && selection.length > 0)) {
-        pivot.current = date;
-        onSelectionChange(toggleDate(selection, date));
+        toggleSelected(date);
       } else {
         pivot.current = date;
         touchMode.current = false;
-        if (selection.length > 0) onSelectionChange([]);
         onOpenDay(date);
       }
     },
@@ -108,5 +112,5 @@ export function useDateSelection(options: DateSelectionOptions) {
     },
   });
 
-  return { handlersFor, extendSelection, pivot };
+  return { handlersFor, extendSelection, toggleSelected, pivot };
 }

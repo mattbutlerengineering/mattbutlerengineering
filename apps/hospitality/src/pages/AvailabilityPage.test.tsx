@@ -350,6 +350,38 @@ describe("AvailabilityPage", () => {
       );
     });
 
+    it("keeps the selection when Keep editing answers the discard prompt of a plain click", () => {
+      resolved.services = [
+        {
+          venueServiceId: "vs1",
+          name: "Dinner",
+          opensAt: 1020,
+          lastSeatingAt: 1260,
+          closesAt: 1320,
+          seating: { version: 1, interval: 15 },
+          bookingTypes: ["online"],
+          scheduleServiceId: null,
+        },
+      ];
+      window.HTMLElement.prototype.scrollIntoView = vi.fn();
+      renderPage();
+      pick(/Friday, October 30/);
+      pick(/Thursday, October 29/);
+      fireEvent.click(screen.getByRole("button", { name: "Edit hours" }));
+      fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
+      fireEvent.click(screen.getByRole("button", { name: "Remove Dinner" }));
+      fireEvent.click(screen.getByRole("button", { name: /Wednesday, October 28/ }));
+      fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+      expect(screen.getByRole("status")).toHaveTextContent("2 dates selected");
+    });
+
+    it("clears the selection once a plain click is allowed to open the day", () => {
+      renderPage();
+      pick(/Friday, October 30/);
+      fireEvent.click(screen.getByRole("button", { name: /Wednesday, October 28/ }));
+      expect(screen.queryByRole("button", { name: "Edit hours" })).not.toBeInTheDocument();
+    });
+
     it("clears the selection", () => {
       renderPage();
       pick(/Friday, October 30/);

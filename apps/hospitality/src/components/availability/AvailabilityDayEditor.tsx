@@ -155,6 +155,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
       scope: edit.scope,
       services: edit.services,
       makeId: () => crypto.randomUUID(),
+      leaveOut: edit.mode === "keep" && dates.length > 1 ? own : [],
     });
     try {
       await mutateAsync({

@@ -80,6 +80,10 @@ function Cell(props: CellProps) {
         }
         {...handlers}
         onKeyDown={(event) => props.onKeyDown(event, date)}
+        // Firefox clicks a button on Space keyup; Space toggles selection, so it must not open the day.
+        onKeyUp={(event) => {
+          if (event.key === " ") event.preventDefault();
+        }}
       >
         {isDraft && <span className={styles.draftDot} data-draft-dot aria-hidden="true" />}
         <span className={styles.dayNumber} aria-hidden="true">
@@ -156,10 +160,16 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
   }, [anchor, view]);
 
   const isMobile = useViewport() !== "desktop";
-  const { handlersFor, extendSelection, pivot } = useDateSelection(props);
+  const { handlersFor, extendSelection, toggleSelected, pivot } = useDateSelection(props);
   const picked = useMemo(() => new Set(selection), [selection]);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>, date: string) => {
+    // Enter opens the day; Space toggles it in the selection (ux.md S2).
+    if (event.key === " ") {
+      event.preventDefault();
+      toggleSelected(date);
+      return;
+    }
     const next = targetFor(event.key, date);
     if (!next) return;
     event.preventDefault();

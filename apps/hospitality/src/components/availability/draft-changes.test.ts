@@ -8,6 +8,7 @@ import {
   type DraftService,
   type EditScope,
 } from "./draft-changes.js";
+import { ownChangeDates } from "./scope-dates.js";
 import {
   EARLY_DINNER,
   FIXTURE_DATE,
@@ -149,6 +150,24 @@ describe("buildDraftChanges", () => {
     ]);
     expect(changes.remove.scheduleServices).toEqual(["ss-lunch"]);
     expect(parses(changes)).toBe(true);
+  });
+
+  it("picked dates: keep leaves out a date with its own rule, replace updates it in place", () => {
+    const dates = [FIXTURE_DATE, "2026-11-02", "2026-11-03"];
+    const scope: EditScope = { kind: "dates", dates };
+    const { config, services } = seeded(scope, EARLY_DINNER);
+    const kept = buildDraftChanges({
+      config,
+      scope,
+      services,
+      makeId: counter(),
+      leaveOut: ownChangeDates(config, dates, null),
+    });
+    expect(kept.upsert.dateRules?.map((r) => r.id)).not.toContain(EARLY_DINNER.id);
+    expect(kept.upsert.dateRules).toHaveLength(2);
+    const replaced = buildDraftChanges({ config, scope, services, makeId: counter() });
+    expect(replaced.upsert.dateRules).toHaveLength(3);
+    expect(replaced.upsert.dateRules?.map((r) => r.id)).toContain(EARLY_DINNER.id);
   });
 
   it("creates a venue service for a service the venue has not had before", () => {

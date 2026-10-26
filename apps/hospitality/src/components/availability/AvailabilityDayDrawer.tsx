@@ -139,8 +139,8 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
         <DayBody day={day} date={date} />
         {viewerRole === "manager" && editing && (
           <AvailabilityDayEditor
-            // A new date is a new draft.
-            key={date}
+            // A new date, or a new pick for the same date, is a new draft.
+            key={`${date}|${editing.fixedDates?.join(",") ?? ""}`}
             {...editing}
             date={date}
             day={day}
