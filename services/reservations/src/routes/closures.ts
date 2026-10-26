@@ -37,7 +37,7 @@ function problem(
   };
 }
 
-function sendRefusal(reply: FastifyReply, outcome: Refusal) {
+export function sendRefusal(reply: FastifyReply, outcome: Refusal) {
   switch (outcome.kind) {
     case "not_found":
       return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
@@ -136,6 +136,18 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
         now: new Date(),
       });
       if (outcome.kind !== "saved") return sendRefusal(reply, outcome);
+      // After the commit. A failed enqueue must not undo or hide the save: the
+      // outcomes stay `refund: pending` and `closureRefunds.retry` picks them up.
+      if (outcome.result.outcomes.cancel > 0) {
+        try {
+          await fastify.closureRefunds.enqueue(venueId, outcome.result.ruleId);
+        } catch (err) {
+          request.log.error(
+            { err, venueId, ruleId: outcome.result.ruleId },
+            "Failed to enqueue closure refund jobs"
+          );
+        }
+      }
       return { data: outcome.result };
     }),
   });

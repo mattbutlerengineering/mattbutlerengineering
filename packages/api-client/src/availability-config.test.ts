@@ -172,6 +172,40 @@ describe("AvailabilityClient config API", () => {
     expect(JSON.parse(String(init?.body))).toEqual({ tellCancelledGuests: true });
   });
 
+  it("setTonight POSTs the change to /tonight", async () => {
+    const result = {
+      ruleId: "t-1",
+      version: 5,
+      changeId: "chg-1",
+      serviceDate: "2026-10-25",
+      expiresAt: "2026-10-26T11:00:00.000Z",
+      outcomes: { cancel: 0, move: 0, keep_notify: 0, keep_silent: 0 },
+    };
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: result }));
+    const body = {
+      expectedVersion: 4,
+      ruleId: "t-1",
+      change: { type: "pause_online" as const },
+    };
+
+    expect(await client().setTonight("v1", body)).toEqual(result);
+
+    const [url, init] = mockFetch.mock.calls[0]!;
+    expect(url).toBe("https://api.test.com/api/v1/venues/v1/tonight");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual(body);
+  });
+
+  it("endTonight DELETEs /tonight/:ruleId", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: { version: 6, changeId: "chg-2" } }));
+
+    expect(await client().endTonight("v1", "t-1")).toEqual({ version: 6, changeId: "chg-2" });
+
+    const [url, init] = mockFetch.mock.calls[0]!;
+    expect(url).toBe("https://api.test.com/api/v1/venues/v1/tonight/t-1");
+    expect(init?.method).toBe("DELETE");
+  });
+
   it("checkBooking posts the phone booking to the check endpoint and returns the verdict", async () => {
     const verdict = { kind: "soft", limits: ["pacing"], message: "This booking is over." };
     mockFetch.mockResolvedValueOnce(jsonResponse({ data: verdict }));

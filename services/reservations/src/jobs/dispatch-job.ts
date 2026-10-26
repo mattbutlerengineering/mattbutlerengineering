@@ -21,7 +21,13 @@ export class UnknownJobTypeError extends UnrecoverableError {
 
 export async function dispatchJob(
   handlers: JobHandlerMap,
-  job: { name: string; data: unknown; updateData?: (data: never) => Promise<void> }
+  job: {
+    name: string;
+    data: unknown;
+    updateData?: (data: never) => Promise<void>;
+    attemptsMade?: number;
+    opts?: { attempts?: number };
+  }
 ): Promise<void> {
   if (!JOB_TYPE_SET.has(job.name)) {
     throw new UnknownJobTypeError(job.name);
@@ -35,6 +41,7 @@ export async function dispatchJob(
     throw new UnknownJobTypeError(jobType, "no-handler");
   }
   const ctx: JobContext = {
+    isFinalAttempt: (job.attemptsMade ?? 0) + 1 >= (job.opts?.attempts ?? 1),
     updateData: async (patch) => {
       await (job.updateData as ((d: object) => Promise<void>) | undefined)?.({
         ...(job.data as object),

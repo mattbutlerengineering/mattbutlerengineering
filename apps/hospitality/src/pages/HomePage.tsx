@@ -80,7 +80,7 @@ export function HomePage() {
           openState && (
             <NeonSign
               state={openState.state}
-              aria-label={formatVenueOpenLabel(openState, fmt.formatLocalTime)}
+              aria-label={formatVenueOpenLabel(openState, fmt.formatLocalTime, t)}
             />
           )
         }

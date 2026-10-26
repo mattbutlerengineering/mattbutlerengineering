@@ -99,7 +99,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [x] **Drawer editing** — a scope select chosen before editing, the services editor, keep or replace for dates that already have their own changes, a save naming the result, a concurrency 409 dialog, a discard guard, and the draft dot. (tracker: #7515)
   - Accept: tests cover this date only, every Friday from a date, and everywhere a schedule is used. Each saves the right rows, and a conflicting save shows Review, Overwrite and Discard.
   - Blocked by: AvailabilityCalendar and day drawer (read)
-- [ ] **Guest preview panel** — calls the preview endpoint with the debounced draft, showing added and removed marks, the summary line, the stranded list, and the slow-preview fallback. (tracker: #7516)
+- [x] **Guest preview panel** — calls the preview endpoint with the debounced draft, showing added and removed marks, the summary line, the stranded list, and the slow-preview fallback. (tracker: #7516)
   - Accept: a component test covers updates on edit, keeping the last good result on 503, and a stranded list that spans the whole scope.
   - Blocked by: Preview endpoint, Drawer editing
 - [x] **Schedules, Compare and copy** — the Schedules tab (new, duplicate, edit, delete-when-unused), Change regular week (F-UW, including overlap precedence), Compare services (F-X), copy a day (F4), and the discovery nudge. (tracker: #7517)
@@ -126,7 +126,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [ ] **Closure notices** — a `CLOSURE_NOTICE` job, email and SMS templates (cancelled, moved, kept, reopened; SMS at most 3 segments), urgent dual-channel delivery within 6 hours, the contact policy, and delivery status on the outcome. (tracker: #7523)
   - Accept: tests show every guest the Manager chose to notify gets a job, delivered within 2 minutes in a time-advanced test, with SMS and email when urgent (SC Closure integrity, notice half). A failed delivery lands on the call list.
   - Blocked by: Closure command, Rebook offers, manageUrl builder
-- [ ] **Closure refunds** — a `CLOSURE_REFUND` job through `DepositService` with the idempotency key `closure:<ruleId>:<reservationId>`, plus failure state and retry. (tracker: #7524)
+- [x] **Closure refunds** — a `CLOSURE_REFUND` job through `DepositService` with the idempotency key `closure:<ruleId>:<reservationId>`, plus failure state and retry. (tracker: #7524)
   - Accept: refunds on venue-cancelled bookings are full, a retried job never double-refunds, and a failure shows as `refund=failed`. The `stripe-flow-reviewer` subagent passes.
   - Blocked by: Closure command
 - [ ] **Close dialog** — F5 Step 1 (what, when, messages, live impact, conflicts) and Step 2 (a required choice per group, a keep-silently acknowledgement, the urgent header, a message preview, a button naming the outcome). Also handles pausing online booking until reopened, with a banner and header pill. (tracker: #7526)
@@ -141,7 +141,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 
 ## Milestone 6: Tonight, staff and guest surfaces
 
-- [ ] **Tonight API** — `POST` and `DELETE …/tonight`: Tonight DateRules (pause online, close early, stop window, table blocks through DateRuleTable, pacing) with a server-computed `expiresAt`. Close-early with bookings routes to the closure command. (tracker: #7529)
+- [x] **Tonight API** — `POST` and `DELETE …/tonight`: Tonight DateRules (pause online, close early, stop window, table blocks through DateRuleTable, pacing) with a server-computed `expiresAt`. Close-early with bookings routes to the closure command. (tracker: #7529)
   - Accept: a clock-advance test shows every Tonight change gone at the service-day boundary, with schedules untouched (SC Night-of expiry). Blocked tables stop being offered on every booking path.
   - Blocked by: Booking gate, Closure command
 - [ ] **Tonight panel** — the F7 popover or sheet, header chips, the emergency close (What and When locked for Hosts with the grant), and the footer link. (tracker: #7530)
