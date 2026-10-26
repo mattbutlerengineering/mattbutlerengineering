@@ -2,6 +2,7 @@ import { retry } from "./retry.js";
 import { toVenueLocalTime } from "./venue-time.js";
 import { buildManageUrl } from "./manage-url.js";
 import type {
+  ClosureSmsInput,
   SmsPort,
   SmsNotificationInput,
   WaitlistUpdateInput,
@@ -84,6 +85,11 @@ export class TwilioSmsAdapter implements SmsPort {
         `${input.venueName} ${dateStr} ${when.display}: ${manageUrl}`,
       ])
     );
+  }
+
+  async sendClosureNotice(input: ClosureSmsInput): Promise<void> {
+    if (!this.client) return;
+    await this.sendWithRetry(input.to, input.body);
   }
 
   async sendWaitlistUpdate(input: WaitlistUpdateInput): Promise<void> {

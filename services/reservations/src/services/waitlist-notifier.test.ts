@@ -21,6 +21,7 @@ function buildDeps(overrides: Partial<WaitlistNotifierDeps> = {}): WaitlistNotif
       sendWaitlistPositionUpdate: mockSendWaitlistPositionUpdate,
       sendWaitlistTableReady: mockSendWaitlistTableReady,
       sendBookingReminder: vi.fn(),
+      sendClosureNotice: vi.fn(),
       sendWaitlistUpdate: vi.fn(),
       sendWinbackMessage: vi.fn(),
     },

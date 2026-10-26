@@ -7,6 +7,7 @@ import { reservationRoutes } from "./routes/reservations.js";
 import { venueRoutes } from "./routes/venues.js";
 import { venueTeamRoutes } from "./routes/venue-team.js";
 import { availabilityConfigRoutes } from "./routes/availability-config.js";
+import { availabilityChangesRoutes } from "./routes/availability-changes.js";
 import { closureRoutes } from "./routes/closures.js";
 import { tonightRoutes } from "./routes/tonight.js";
 import { AVAILABILITY_CONFIG_PREFIX } from "@mbe/types";
@@ -46,6 +47,8 @@ import {
 import { createDefaultPostVisitNotifier } from "./services/post-visit-notifier.js";
 import { createNotifierRuntime } from "./services/notifier-runtime.js";
 import { createLapsedGuestMonitor } from "./services/lapsed-guest-cron.js";
+import { createClosureNoticeService } from "./services/closure-notice-service.js";
+import { createClosureNoticeDeps } from "./services/closure-notice-runtime.js";
 import { createReservationJobHandlers, createReservationJobWorker } from "./services/job-worker.js";
 import {
   createClosureRefunds,
@@ -256,6 +259,9 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
     ...defaultDomainServices,
     ...options.services,
     depositService: options.services?.depositService ?? new DepositService(payments),
+    closureNoticeService:
+      options.services?.closureNoticeService ??
+      createClosureNoticeService({ scheduler: options.jobs ?? notifierRuntime.scheduler }),
   };
   fastify.decorate("services", services);
 
@@ -304,6 +310,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   await fastify.register(venueRoutes, { prefix: venuesPrefix });
   await fastify.register(venueTeamRoutes, { prefix: venuesPrefix });
   await fastify.register(availabilityConfigRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
+  await fastify.register(availabilityChangesRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
   await fastify.register(closureRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
   await fastify.register(tonightRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
   await fastify.register(availabilityRoutes, {
@@ -374,6 +381,12 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
           getVenue: (id) => services.venueService.getById(id),
           dispatcher: notificationPort,
           generateManageToken,
+          closureNotice: createClosureNoticeDeps({
+            dispatcher: notificationPort,
+            generateManageToken,
+            manageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
+            logger: fastify.log,
+          }),
           handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),
           logger: fastify.log,
           runClosureRefund: (payload, opts) =>

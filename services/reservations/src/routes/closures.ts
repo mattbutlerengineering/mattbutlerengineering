@@ -9,6 +9,7 @@ import { registerEndpoint } from "@mbe/service-bootstrap";
 import { SCOPE_CONFLICT_HORIZON_DAYS } from "../services/availability-config-plan.js";
 import type { CreateClosureOutcome } from "../services/closure-command.js";
 import { CLOSURE_FORBIDDEN, closureCaller } from "./closure-caller.js";
+import { enqueueClosureJobs, enqueueNotices } from "./closure-post-commit.js";
 import { venueScoped } from "./venue-scope.js";
 
 /**
@@ -108,14 +109,14 @@ export function sendRefusal(reply: FastifyReply, outcome: Refusal) {
 }
 
 export const closureRoutes: FastifyPluginAsync = async (fastify) => {
-  const { closureCommandService } = fastify.services;
+  const { closureCommandService, closureNoticeService } = fastify.services;
 
   registerEndpoint(fastify, availabilityConfigEndpoints.createClosure, {
     docs: {
       summary: "Save a closure with a decision for every affected group",
       operationId: "createClosure",
       description:
-        "Writes the date rule (kind `closure` or `special_hours`), one outcome per affected reservation, the cancels and moves with their reservation events, and the audit row in one transaction, so no active booking overlaps a saved closure unless its outcome is keep. A cancelled booking's deposit stays held with the outcome's refund pending for the refund job; no Stripe call is made and no guest is notified here. Requires an `Idempotency-Key` header; a replay returns the stored result and changes nothing. Manager, or a Host for the emergency whole-venue close of the current service day when the venue grants it.",
+        "Writes the date rule (kind `closure` or `special_hours`), one outcome per affected reservation, the cancels and moves with their reservation events, and the audit row in one transaction, so no active booking overlaps a saved closure unless its outcome is keep. A cancelled booking's deposit stays held with the outcome's refund pending for the refund job; no Stripe call is made here. After the commit, one CLOSURE_NOTICE job is enqueued per notified outcome; an enqueue failure is logged, not returned. Requires an `Idempotency-Key` header; a replay returns the stored result and changes nothing. Manager, or a Host for the emergency whole-venue close of the current service day when the venue grants it.",
       tags: ["Availability"],
       security: [{ bearerAuth: [] }],
     },
@@ -136,18 +137,12 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
         now: new Date(),
       });
       if (outcome.kind !== "saved") return sendRefusal(reply, outcome);
-      // After the commit. A failed enqueue must not undo or hide the save: the
-      // outcomes stay `refund: pending` and `closureRefunds.retry` picks them up.
-      if (outcome.result.outcomes.cancel > 0) {
-        try {
-          await fastify.closureRefunds.enqueue(venueId, outcome.result.ruleId);
-        } catch (err) {
-          request.log.error(
-            { err, venueId, ruleId: outcome.result.ruleId },
-            "Failed to enqueue closure refund jobs"
-          );
-        }
-      }
+      // After the commit; failures are logged, never returned.
+      await enqueueClosureJobs(fastify, request.log, {
+        venueId,
+        ruleId: outcome.result.ruleId,
+        cancelled: outcome.result.outcomes.cancel,
+      });
       return { data: outcome.result };
     }),
   });
@@ -171,7 +166,16 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
         tellCancelledGuests: request.body.tellCancelledGuests,
         now: new Date(),
       });
-      if (outcome.kind === "reopened") return { data: outcome.result };
+      if (outcome.kind === "reopened") {
+        if (request.body.tellCancelledGuests) {
+          await enqueueNotices(
+            closureNoticeService.enqueueForReopen,
+            { venueId, ruleId: request.params.ruleId },
+            request.log
+          );
+        }
+        return { data: outcome.result };
+      }
       return sendRefusal(reply, outcome);
     }),
   });

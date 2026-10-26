@@ -63,3 +63,44 @@ export function canContact(state: ContactState, messageClass: MessageClass): boo
   }
   return resolveChannel(state.communicationPreference) !== "transactional_only";
 }
+
+export type NoticeChannel = "email" | "sms";
+
+/** Which contacts the guest has and the venue can use (an SMS adapter is configured). */
+export interface NoticeContacts {
+  hasEmail: boolean;
+  hasSms: boolean;
+}
+
+function preferredChannels(preference: CommunicationPreference): NoticeChannel[] {
+  switch (preference) {
+    case "sms_only":
+      return ["sms"];
+    case "both":
+      return ["email", "sms"];
+    default:
+      return ["email"];
+  }
+}
+
+/**
+ * Channels a closure notice goes out on. A closure notice is transactional
+ * (`canContact(…, "transactional")` is always true), so the inputs are the
+ * guest's preference, the contacts they have, and urgency:
+ *   - urgent (closure within 6 hours): SMS and email wherever the guest has them;
+ *   - otherwise the preferred channel(s), falling back to whichever contact
+ *     exists so a reachable guest is never left unnotified.
+ */
+export function closureNoticeChannels(
+  preference: CommunicationPreference | null | undefined,
+  contacts: NoticeContacts,
+  urgent: boolean
+): NoticeChannel[] {
+  const has: Record<NoticeChannel, boolean> = { email: contacts.hasEmail, sms: contacts.hasSms };
+  const preferred: NoticeChannel[] = urgent
+    ? ["email", "sms"]
+    : preferredChannels(resolveChannel(preference));
+  const usable = preferred.filter((c) => has[c]);
+  if (usable.length > 0) return usable;
+  return (["email", "sms"] as const).filter((c) => has[c]);
+}

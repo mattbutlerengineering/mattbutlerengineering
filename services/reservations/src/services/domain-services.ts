@@ -1,6 +1,8 @@
 import { availabilityService } from "./availability.js";
 import { availabilityConfigService } from "./availability-config.js";
+import { availabilityChangesService } from "./availability-changes.js";
 import { closureImpactService } from "./closure-impact-store.js";
+import type { ClosureNoticeService } from "./closure-notice-service.js";
 import { closureCommandService } from "./closure-command.js";
 import { tonightCommandService } from "./tonight-command.js";
 import { venueService, venueGroupService } from "./venue.js";
@@ -39,8 +41,11 @@ import { venueTeamService } from "./venue-team.js";
 export interface DomainServices {
   availabilityService: typeof availabilityService;
   availabilityConfigService: typeof availabilityConfigService;
+  availabilityChangesService: typeof availabilityChangesService;
   closureImpactService: typeof closureImpactService;
   closureCommandService: typeof closureCommandService;
+  /** Built in `buildApp` over the notifier scheduler — never a module singleton. */
+  closureNoticeService: ClosureNoticeService;
   tonightCommandService: typeof tonightCommandService;
   venueService: typeof venueService;
   venueGroupService: typeof venueGroupService;
@@ -63,9 +68,13 @@ export interface DomainServices {
  * spreads any `options.services` overrides on top of this, so callers that pass
  * nothing get identical runtime behaviour.
  */
-export const defaultDomainServices: Omit<DomainServices, "depositService"> = {
+export const defaultDomainServices: Omit<
+  DomainServices,
+  "depositService" | "closureNoticeService"
+> = {
   availabilityService,
   availabilityConfigService,
+  availabilityChangesService,
   closureImpactService,
   closureCommandService,
   tonightCommandService,

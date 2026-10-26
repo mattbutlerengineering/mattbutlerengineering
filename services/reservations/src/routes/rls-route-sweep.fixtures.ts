@@ -1041,7 +1041,7 @@ const availabilityFixtures: Record<string, RouteFixture> = {
   // disposable venue, after a config save gives it a week to close. The empty
   // venue has no bookings to decide on. The reopen is the same venue's rule.
   "POST /api/v1/venues/:id/closures": ok(async (ctx) => {
-    const { base, version } = await closureVenue(ctx);
+    const { base, version } = await sharedAvailabilityVenue(ctx);
     const idempotencyKey = `rls-sweep-1-${randomUUID()}`;
     const closureRuleId = `rls-sweep-closure-${randomUUID()}`;
     const closure = {
@@ -1082,7 +1082,7 @@ const availabilityFixtures: Record<string, RouteFixture> = {
     );
   }),
   "DELETE /api/v1/venues/:id/closures/:ruleId": ok(async (ctx) => {
-    const { base, version } = await closureVenue(ctx);
+    const { base, version } = await sharedAvailabilityVenue(ctx);
     const reopenRuleId = `rls-sweep-reopen-${randomUUID()}`;
     expectOk(
       await asAdmin(ctx, {
@@ -1123,7 +1123,7 @@ const availabilityFixtures: Record<string, RouteFixture> = {
   // Tonight writes the current service day's rule on the same disposable
   // venue C as the closures (no extra POST /venues, which is capped at 5/min).
   "POST /api/v1/venues/:id/tonight": ok(async (ctx) => {
-    const { base, version } = await closureVenue(ctx);
+    const { base, version } = await sharedAvailabilityVenue(ctx);
     const tonight = {
       expectedVersion: version,
       ruleId: `rls-sweep-tonight-${randomUUID()}`,
@@ -1149,7 +1149,7 @@ const availabilityFixtures: Record<string, RouteFixture> = {
     );
   }),
   "DELETE /api/v1/venues/:id/tonight/:ruleId": ok(async (ctx) => {
-    const { base, version } = await closureVenue(ctx);
+    const { base, version } = await sharedAvailabilityVenue(ctx);
     const ruleId = `rls-sweep-tonight-end-${randomUUID()}`;
     expectOk(
       await asAdmin(ctx, {
@@ -1249,28 +1249,99 @@ const availabilityFixtures: Record<string, RouteFixture> = {
       "member venue B"
     );
   }),
+  "GET /api/v1/venues/:id/availability/changes": okAvailabilityByParam(
+    (venueId) => `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/availability/changes`
+  ),
+  // Like the save, the write lands off venue A (on shared venue C). The second
+  // save is the change to undo (undo is offered on the newest change only).
+  "POST /api/v1/venues/:id/availability/changes/:changeId/revert": ok(async (ctx) => {
+    const { base: venueBase, version } = await sharedAvailabilityVenue(ctx);
+    const base = `${venueBase}/availability`;
+    expectOk(
+      await asAdmin(ctx, {
+        method: "PUT",
+        url: `${base}/config`,
+        payload: {
+          expectedVersion: version,
+          changes: sweepConfigChanges({ alternate: true }),
+          scopeConflicts: "keep",
+        },
+      }),
+      "admin first save"
+    );
+    const extra = `rls-sweep-vs-${randomUUID()}`;
+    const second = await asAdmin(ctx, {
+      method: "PUT",
+      url: `${base}/config`,
+      payload: {
+        expectedVersion: version + 1,
+        changes: {
+          upsert: { venueServices: [{ id: extra, name: "Brunch", position: 1 }] },
+          remove: {},
+        },
+        scopeConflicts: "keep",
+      },
+    });
+    expectOk(second, "admin second save");
+    const changeId = JSON.parse(second.body).data.changeId as string;
+    const revert = (expectedVersion: number) => ({
+      method: "POST" as const,
+      url: `${base}/changes/${changeId}/revert`,
+      payload: { expectedVersion },
+    });
+    const reverted = await asAdmin(ctx, revert(version + 2));
+    expect(reverted.statusCode, reverted.body).toBe(200);
+    expect(JSON.parse(reverted.body).data.version).toBe(version + 3);
+    // The inverse landed as rows under RLS, and the original now points at the revert.
+    const history = await asAdmin(ctx, { method: "GET", url: `${base}/changes` });
+    const items = JSON.parse(history.body).data.items as {
+      id: string;
+      revertedById: string | null;
+    }[];
+    expect(items.find((i) => i.id === changeId)?.revertedById).toBe(
+      JSON.parse(reverted.body).data.changeId
+    );
+    const again = await asAdmin(ctx, revert(version + 3));
+    expect(again.statusCode).toBe(409);
+    expect(JSON.parse(again.body).code).toBe("already-reverted");
+    expectDenied(
+      await asMember(ctx, {
+        method: "POST",
+        url: `${AVAILABILITY_CONFIG_PREFIX}/${ctx.venueB.id}/availability/changes/nope/revert`,
+        payload: { expectedVersion: 0 },
+      }),
+      "member venue B"
+    );
+  }),
 };
 
 /**
- * The venue the closure fixtures write to. `POST /venues` is capped at 5 a
- * minute per caller, so these share venue C (which no other fixture writes
- * to) rather than each creating one. Each caller reads the current version,
- * since a closure bumps it.
+ * A venue fixtures can write availability rows to without creating one.
+ * `POST /venues` is capped at 5 a minute per caller and the sweep already uses
+ * all 5, so these share venue C (which no other fixture writes to). Each
+ * caller reads the current version, since every save (and closure) bumps it.
  */
-async function closureVenue(ctx: SweepContext): Promise<{ base: string; version: number }> {
+async function sharedAvailabilityVenue(
+  ctx: SweepContext
+): Promise<{ base: string; version: number }> {
   const base = `${AVAILABILITY_CONFIG_PREFIX}/${ctx.venueC.id}`;
   const read = await asAdmin(ctx, { method: "GET", url: `${base}/availability/config` });
   expectOk(read, "admin config read");
   return { base, version: JSON.parse(read.body).data.version as number };
 }
 
-/** A one-schedule, one-service week: the smallest config `validateConfig` accepts. Fresh ids per call (they are table-wide keys). */
-function sweepConfigChanges() {
+/** A one-schedule, one-service week: the smallest config `validateConfig` accepts. Fresh ids per call (they are table-wide keys). `alternate` adds it as a non-regular schedule for a venue that already has a regular week. */
+function sweepConfigChanges(options: { alternate?: boolean } = {}) {
+  const alternate = options.alternate === true;
   const id = (row: string) => `rls-sweep-${row}-${randomUUID()}`;
   const [schedule, service] = [id("sch"), id("vs")];
   return {
     upsert: {
-      schedules: [{ id: schedule, name: "Regular", kind: "regular", isRegular: true }],
+      schedules: [
+        alternate
+          ? { id: schedule, name: "Alternate", kind: "alternate", isRegular: false }
+          : { id: schedule, name: "Regular", kind: "regular", isRegular: true },
+      ],
       venueServices: [{ id: service, name: "Dinner", position: 0 }],
       scheduleServices: [
         {
@@ -1285,7 +1356,12 @@ function sweepConfigChanges() {
         },
       ],
       assignments: [
-        { id: id("as"), scheduleId: schedule, weekdays: [0, 1, 2, 3, 4, 5, 6], precedence: 0 },
+        {
+          id: id("as"),
+          scheduleId: schedule,
+          weekdays: [0, 1, 2, 3, 4, 5, 6],
+          precedence: alternate ? 1 : 0,
+        },
       ],
     },
     remove: {},
