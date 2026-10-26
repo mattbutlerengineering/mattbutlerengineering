@@ -707,7 +707,13 @@
       ): DateRule | undefined { /* ... */ }
     </item>
     <item priority="high">
+      export function skipRows(rules: readonly DateRule[], seriesId: string): DateRule[] { /* ... */ }
+    </item>
+    <item priority="high">
       export function skippedDates(rules: readonly DateRule[], seriesId: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function restoreDate(skip: DateRule): AvailabilityConfigChanges { /* ... */ }
     </item>
     <item priority="high">
       export function skipDate(
@@ -748,6 +754,9 @@
       ): SpecialDateRow[] { /* ... */ }
     </item>
     <item priority="high">
+      export function hoursEditDate(rule: DateRule, today: string): string { /* ... */ }
+    </item>
+    <item priority="high">
       export function orphanRefundRules(
         summaries: readonly ClosureSummary[],
         listedRuleIds: readonly string[]
@@ -784,7 +793,8 @@
         onStale: () => void,
         strandedKey:
           | "availabilitySchedules.stranded"
-          | "availabilitySpecial.series.stranded" = "availabilitySchedules.stranded"
+          | "availabilitySpecial.series.stranded"
+          | "availabilitySpecial.rowStranded" = "availabilitySchedules.stranded"
       ) { /* ... */ }
     </item>
   </file>

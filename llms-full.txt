@@ -6218,11 +6218,16 @@
     ): DateRule | undefined {
       return rules.find((r) => r.seriesId === seriesId && r.startsOn === date);
     }
-    export function skippedDates(rules: readonly DateRule[], seriesId: string): string[] {
+    export function skipRows(rules: readonly DateRule[], seriesId: string): DateRule[] {
       return rules
         .filter((r) => r.kind === "skip" && r.seriesId === seriesId)
-        .map((r) => r.startsOn)
-        .sort();
+        .sort((a, b) => a.startsOn.localeCompare(b.startsOn));
+    }
+    export function skippedDates(rules: readonly DateRule[], seriesId: string): string[] {
+      return skipRows(rules, seriesId).map((r) => r.startsOn);
+    }
+    export function restoreDate(skip: DateRule): AvailabilityConfigChanges {
+      return { upsert: {}, remove: { dateRules: [skip.id] } };
     }
     export function skipDate(
       series: DateRule,
@@ -6277,6 +6282,9 @@
       const byStart = (a: SpecialDateRow, b: SpecialDateRow) =>
         a.rule.startsOn.localeCompare(b.rule.startsOn);
       return [...rows].sort(filter === "past" ? (a, b) => byStart(b, a) : byStart);
+    }
+    export function hoursEditDate(rule: DateRule, today: string): string {
+      return rule.startsOn > today ? rule.startsOn : today;
     }
     export function orphanRefundRules(
       summaries: readonly ClosureSummary[],
@@ -6354,7 +6362,8 @@
       onStale: () => void,
       strandedKey:
         | "availabilitySchedules.stranded"
-        | "availabilitySpecial.series.stranded" = "availabilitySchedules.stranded"
+        | "availabilitySpecial.series.stranded"
+        | "availabilitySpecial.rowStranded" = "availabilitySchedules.stranded"
     ) {
       const { t } = useTranslation();
       const { mutateAsync, isPending } = useSaveAvailabilityConfig();
@@ -6376,23 +6385,22 @@
         }
       };
     
-      /** Resolves `true` when the change was saved. */
+      /** Resolves the save result (truthy) when the change was saved, `null` when it was refused. */
       const save = async (
         venueId: string,
         state: AvailabilityConfigState,
         changes: AvailabilityConfigChanges,
         scopeConflicts: ScopeConflictMode
-      ): Promise<boolean> => {
+      ): Promise<AvailabilityConfigSaveResult | null> => {
         setFailure([]);
         try {
-          await mutateAsync({
+          return await mutateAsync({
             venueId,
             body: { expectedVersion: state.version, changes, scopeConflicts },
           });
-          return true;
         } catch (error) {
           reject(error);
-          return false;
+          return null;
         }
       };
     

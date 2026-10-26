@@ -1613,7 +1613,23 @@
       "stranded_one": "{{count}} réservation resterait sans service avec ce changement. Fermez la date depuis Modifier cette date… pour choisir ce qui arrive.",
       "stranded_other": "{{count}} réservations resteraient sans service avec ce changement. Fermez la date depuis Modifier cette date… pour choisir ce qui arrive.",
       "stranded_many": "{{count}} réservations resteraient sans service avec ce changement. Fermez la date depuis Modifier cette date… pour choisir ce qui arrive.",
-      "dateChanged": "Cette date a déjà son propre changement. Retirez-le d’abord."
+      "dateChanged": "Cette date a déjà son propre changement. Retirez-le d’abord.",
+      "alreadySkipped": "Cette date est déjà ignorée.",
+      "restore": "Rétablir cette date",
+      "restoreDate": "Rétablir le {{date}}",
+      "restoredToast": "{{date}} rétablie. La série la ferme de nouveau."
+    },
+    "rowStranded_one": "{{count}} réservation resterait sans service avec ce changement. Rien n’a été annulé.",
+    "rowStranded_other": "{{count}} réservations resteraient sans service avec ce changement. Rien n’a été annulé.",
+    "rowStranded_many": "{{count}} réservations resteraient sans service avec ce changement. Rien n’a été annulé.",
+    "hours": {
+      "edit": "Modifier",
+      "editFor": "Modifier l’horaire du {{date}}",
+      "removeFor": "Retirer l’horaire spécial du {{date}}",
+      "removeTitle": "Retirer l’horaire spécial du {{date}} ?",
+      "removeDescription": "La date reprend son horaire habituel. Aucune réservation n’est annulée par ce changement.",
+      "keep": "Garder l’horaire",
+      "removedToast": "Horaire spécial retiré pour le {{date}}"
     },
     "callList": {
       "title": "Liste d'appels",

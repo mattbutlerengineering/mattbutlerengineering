@@ -13,7 +13,9 @@ import {
   editSeriesDates,
   isSeries,
   nextOccurrence,
+  restoreDate,
   skipDate,
+  skipRows,
   skippedDates,
 } from "./series-edit.js";
 
@@ -158,6 +160,27 @@ describe("nextOccurrence", () => {
     expect(coversDate(WEEKLY_CLOSURE, "2026-10-31")).toBe(false);
     expect(nextOccurrence(WEEKLY_CLOSURE, "2026-10-31")).toBe(NEXT_FRIDAY);
     expect(nextOccurrence(WEEKLY_CLOSURE, "2026-09-01")).toBe("2026-10-02");
+  });
+});
+
+describe("restoreDate", () => {
+  it("removes the skip row so the series closes the date again", () => {
+    const skip = skipDate(WEEKLY_CLOSURE, FIXTURE_DATE, makeId).upsert.dateRules![0]!;
+    const config = { ...fixtureConfig(), dateRules: [WEEKLY_CLOSURE, skip] };
+    const changes = restoreDate(skip);
+    expect(changes).toEqual({ upsert: {}, remove: { dateRules: [skip.id] } });
+
+    const after = applyChanges(config, changes, NOW);
+    expect(skippedDates(after.dateRules, WEEKLY_CLOSURE.id)).toEqual([]);
+    expect(closuresOn(after, FIXTURE_DATE)).toHaveLength(1);
+  });
+});
+
+describe("skipRows", () => {
+  it("lists a series' skip rows in date order", () => {
+    const a = skipDate(WEEKLY_CLOSURE, NEXT_FRIDAY, makeId).upsert.dateRules![0]!;
+    const b = skipDate(WEEKLY_CLOSURE, FIXTURE_DATE, makeId).upsert.dateRules![0]!;
+    expect(skipRows([WEEKLY_CLOSURE, a, b], WEEKLY_CLOSURE.id)).toEqual([b, a]);
   });
 });
 

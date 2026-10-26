@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import {
   AvailabilityConfigProblemSchema,
   type AvailabilityConfigChanges,
+  type AvailabilityConfigSaveResult,
   type AvailabilityConfigState,
   type ScopeConflictMode,
 } from "@mbe/types";
@@ -18,7 +19,8 @@ export function useScheduleSave(
   onStale: () => void,
   strandedKey:
     | "availabilitySchedules.stranded"
-    | "availabilitySpecial.series.stranded" = "availabilitySchedules.stranded"
+    | "availabilitySpecial.series.stranded"
+    | "availabilitySpecial.rowStranded" = "availabilitySchedules.stranded"
 ) {
   const { t } = useTranslation();
   const { mutateAsync, isPending } = useSaveAvailabilityConfig();
@@ -40,23 +42,22 @@ export function useScheduleSave(
     }
   };
 
-  /** Resolves `true` when the change was saved. */
+  /** Resolves the save result (truthy) when the change was saved, `null` when it was refused. */
   const save = async (
     venueId: string,
     state: AvailabilityConfigState,
     changes: AvailabilityConfigChanges,
     scopeConflicts: ScopeConflictMode
-  ): Promise<boolean> => {
+  ): Promise<AvailabilityConfigSaveResult | null> => {
     setFailure([]);
     try {
-      await mutateAsync({
+      return await mutateAsync({
         venueId,
         body: { expectedVersion: state.version, changes, scopeConflicts },
       });
-      return true;
     } catch (error) {
       reject(error);
-      return false;
+      return null;
     }
   };
 

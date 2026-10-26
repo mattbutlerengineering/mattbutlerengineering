@@ -1586,7 +1586,22 @@
       "skipped": "Skipped {{dates}}",
       "stranded_one": "{{count}} booking would be left without service by this change. Close the date from Edit this date… to choose what happens to them.",
       "stranded_other": "{{count}} bookings would be left without service by this change. Close the date from Edit this date… to choose what happens to them.",
-      "dateChanged": "This date already has its own change. Remove it first."
+      "dateChanged": "This date already has its own change. Remove it first.",
+      "alreadySkipped": "This date is already skipped.",
+      "restore": "Restore this date",
+      "restoreDate": "Restore {{date}}",
+      "restoredToast": "{{date}} restored. The series closes it again."
+    },
+    "rowStranded_one": "{{count}} booking would be left without service by this change. Nothing was cancelled.",
+    "rowStranded_other": "{{count}} bookings would be left without service by this change. Nothing was cancelled.",
+    "hours": {
+      "edit": "Edit",
+      "editFor": "Edit hours for {{date}}",
+      "removeFor": "Remove special hours for {{date}}",
+      "removeTitle": "Remove special hours for {{date}}?",
+      "removeDescription": "The date goes back to its regular hours. Bookings are never cancelled by this.",
+      "keep": "Keep hours",
+      "removedToast": "Special hours removed for {{date}}"
     },
     "callList": {
       "title": "Call list",

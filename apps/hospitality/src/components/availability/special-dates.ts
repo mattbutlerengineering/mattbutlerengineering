@@ -50,6 +50,11 @@ export function specialDateRows(
   return [...rows].sort(filter === "past" ? (a, b) => byStart(b, a) : byStart);
 }
 
+/** The date the day editor opens on for a special-hours row: its first date not yet past. */
+export function hoursEditDate(rule: DateRule, today: string): string {
+  return rule.startsOn > today ? rule.startsOn : today;
+}
+
 /**
  * Outcomes whose refunds a retry can still touch (`failed` or `pending`) but whose rule
  * has no row: a reopened closure, or a Tonight close-early that ended. They keep a retry

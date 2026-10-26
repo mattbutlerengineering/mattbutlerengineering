@@ -52,12 +52,21 @@ export function dateOverride(
   return rules.find((r) => r.seriesId === seriesId && r.startsOn === date);
 }
 
-/** Dates already skipped out of a series, in order. */
-export function skippedDates(rules: readonly DateRule[], seriesId: string): string[] {
+/** The skip rows of a series, in date order. */
+export function skipRows(rules: readonly DateRule[], seriesId: string): DateRule[] {
   return rules
     .filter((r) => r.kind === "skip" && r.seriesId === seriesId)
-    .map((r) => r.startsOn)
-    .sort();
+    .sort((a, b) => a.startsOn.localeCompare(b.startsOn));
+}
+
+/** Dates already skipped out of a series, in order. */
+export function skippedDates(rules: readonly DateRule[], seriesId: string): string[] {
+  return skipRows(rules, seriesId).map((r) => r.startsOn);
+}
+
+/** Restore a skipped date: drop the skip row, so the series closes it again. */
+export function restoreDate(skip: DateRule): AvailabilityConfigChanges {
+  return { upsert: {}, remove: { dateRules: [skip.id] } };
 }
 
 /** Skip one date: the series stays, and that date is bookable as usual. */

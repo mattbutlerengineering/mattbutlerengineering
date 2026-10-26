@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Button, Checkbox, Dialog, useToast } from "@mattbutlerengineering/rialto";
+import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useReopenClosure } from "../../hooks/useClosures.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 
@@ -22,6 +23,7 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
   const { venueId, ruleId, dateLabel, cancelled, onClose } = props;
   const { t } = useTranslation();
   const { toast } = useToast();
+  const offerUndo = useAvailabilityUndo();
   const { mutateAsync, isPending } = useReopenClosure();
   const [tell, setTell] = useState(true);
   const [failure, setFailure] = useState<string | null>(null);
@@ -29,11 +31,12 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
   const reopen = async () => {
     setFailure(null);
     try {
-      await mutateAsync({ venueId, ruleId, tellCancelledGuests: cancelled > 0 && tell });
-      toast({
-        title: t("availabilitySpecial.reopen.done", { date: dateLabel }),
-        variant: "success",
-      });
+      const told = cancelled > 0 && tell;
+      const saved = await mutateAsync({ venueId, ruleId, tellCancelledGuests: told });
+      const title = t("availabilitySpecial.reopen.done", { date: dateLabel });
+      // A reopen that told guests cannot be reverted (ux.md F6 step 3); one that told none can.
+      if (told) toast({ title, variant: "success" });
+      else offerUndo({ venueId, title, saved });
       onClose();
     } catch (error) {
       setFailure(describeApiError(error).detail);

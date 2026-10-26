@@ -4,6 +4,7 @@ import type { TFunction } from "i18next";
 import {
   Alert,
   Button,
+  ConfirmDialog,
   EmptyState,
   SegmentedControl,
   Skeleton,
@@ -12,6 +13,7 @@ import {
   useToast,
 } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState, ClosureSummary, DateRule } from "@mbe/types";
+import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useClosureSummaries, useRetryClosureRefunds } from "../../hooks/useClosures.js";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
@@ -19,8 +21,11 @@ import { CallListDialog } from "./CallListDialog.js";
 import { CloseDialog } from "./CloseDialog.js";
 import { ReopenClosureDialog } from "./ReopenClosureDialog.js";
 import { SeriesEditDialog } from "./SeriesEditDialog.js";
-import { isSeries, skippedDates } from "./series-edit.js";
+import { isSeries, restoreDate, skipRows } from "./series-edit.js";
+import { SpecialHoursEditDrawer } from "./SpecialHoursEditDrawer.js";
+import { useScheduleSave } from "./use-schedule-save.js";
 import {
+  hoursEditDate,
   orphanRefundRules,
   specialDateRows,
   type SpecialDateRule,
@@ -75,6 +80,15 @@ interface RowProps {
   readonly onRemove?: () => void;
   /** Present on a repeating closure: Edit dates… (ux.md F-SER). */
   readonly onEditDates?: () => void;
+  /** Skipped dates of a repeating closure, each with a Restore. */
+  readonly skips?: readonly { readonly id: string; readonly label: string }[];
+  readonly onRestore?: (skipId: string) => void;
+  /** Present on an upcoming special-hours row: Edit hours / Remove (ux.md F6 step 1). */
+  readonly hours?: {
+    readonly label: string;
+    readonly onEdit: () => void;
+    readonly onRemove: () => void;
+  };
 }
 
 function SpecialDateItem(props: RowProps) {
@@ -126,6 +140,30 @@ function SpecialDateItem(props: RowProps) {
             {t("availabilitySpecial.series.editDates")}
           </Button>
         )}
+        {isManager &&
+          props.skips?.map((skip) => (
+            <Button key={skip.id} variant="ghost" onClick={() => props.onRestore?.(skip.id)}>
+              {t("availabilitySpecial.series.restoreDate", { date: skip.label })}
+            </Button>
+          ))}
+        {isManager && props.hours && (
+          <>
+            <Button
+              variant="ghost"
+              aria-label={t("availabilitySpecial.hours.editFor", { date: props.hours.label })}
+              onClick={props.hours.onEdit}
+            >
+              {t("availabilitySpecial.hours.edit")}
+            </Button>
+            <Button
+              variant="ghost"
+              aria-label={t("availabilitySpecial.hours.removeFor", { date: props.hours.label })}
+              onClick={props.hours.onRemove}
+            >
+              {t("availabilitySpecial.remove")}
+            </Button>
+          </>
+        )}
         {isManager && props.onRemove && (
           <Button variant="ghost" onClick={props.onRemove}>
             {t("availabilitySpecial.remove")}
@@ -154,6 +192,10 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
   const [editingSeries, setEditingSeries] = useState<DateRule | null>(null);
   const [editingDate, setEditingDate] = useState<{ series: DateRule; date: string } | null>(null);
   const [retryingId, setRetryingId] = useState<string | null>(null);
+  const [editingHours, setEditingHours] = useState<string | null>(null);
+  const [removingHours, setRemovingHours] = useState<SpecialDateRule | null>(null);
+  const offerUndo = useAvailabilityUndo();
+  const rowSave = useScheduleSave(onStale, "availabilitySpecial.rowStranded");
 
   const rows = specialDateRows(rules, today, filter);
   const summaryOf = (ruleId: string) => summaries.data?.find((s) => s.ruleId === ruleId);
@@ -181,13 +223,36 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
     }
   };
 
+  const skipsOf = (seriesId: string) =>
+    skipRows(rules, seriesId).map((r) => ({
+      id: r.id,
+      label: format.formatCalendarDate(r.startsOn, DATE_FORMAT),
+    }));
   const skippedLabel = (seriesId: string): string | null => {
-    const dates = skippedDates(rules, seriesId);
-    return dates.length === 0
+    const skips = skipsOf(seriesId);
+    return skips.length === 0
       ? null
-      : t("availabilitySpecial.series.skipped", {
-          dates: dates.map((d) => format.formatCalendarDate(d, DATE_FORMAT)).join(", "),
-        });
+      : t("availabilitySpecial.series.skipped", { dates: skips.map((s) => s.label).join(", ") });
+  };
+
+  // Restoring re-closes the date and removing hours changes it, so the server's
+  // stranded-bookings check guards both: a refusal shows above the list and nothing is cancelled.
+  const restoreSkip = async (skipId: string) => {
+    const skip = rules.find((r) => r.id === skipId);
+    if (!skip) return;
+    if (await rowSave.save(venueId, state, restoreDate(skip), "keep")) {
+      const date = format.formatCalendarDate(skip.startsOn, DATE_FORMAT);
+      toast({ title: t("availabilitySpecial.series.restoredToast", { date }), variant: "success" });
+    }
+  };
+  const removeHours = async (rule: SpecialDateRule) => {
+    setRemovingHours(null);
+    const changes = { upsert: {}, remove: { dateRules: [rule.id] } };
+    const saved = await rowSave.save(venueId, state, changes, "keep");
+    if (saved) {
+      const date = format.formatCalendarDate(hoursEditDate(rule, today), DATE_FORMAT);
+      offerUndo({ venueId, saved, title: t("availabilitySpecial.hours.removedToast", { date }) });
+    }
   };
 
   const shared = {
@@ -207,6 +272,13 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
         value={filter}
         onChange={(id) => setFilter(id as SpecialDatesFilter)}
       />
+      {rowSave.failure.length > 0 && (
+        <Alert variant="error">
+          {rowSave.failure.map((message) => (
+            <div key={message}>{message}</div>
+          ))}
+        </Alert>
+      )}
       {summaries.error && <Alert variant="error">{describeApiError(summaries.error).detail}</Alert>}
       {summaries.isLoading ? (
         <Skeleton variant="text" lines={3} />
@@ -218,7 +290,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
         />
       ) : (
         <ul className={styles.list}>
-          {rows.map(({ rule }) => (
+          {rows.map(({ rule, past }) => (
             <SpecialDateItem
               key={rule.id}
               {...shared}
@@ -238,6 +310,17 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
               retrying={retryingId === rule.id}
               onRemove={rule.kind === "closure" ? () => setReopening(rule) : undefined}
               onEditDates={isSeries(rule) ? () => setEditingSeries(rule) : undefined}
+              skips={isSeries(rule) ? skipsOf(rule.id) : undefined}
+              onRestore={(skipId) => void restoreSkip(skipId)}
+              hours={
+                rule.kind === "special_hours" && !past
+                  ? {
+                      label: format.formatCalendarDate(hoursEditDate(rule, today), DATE_FORMAT),
+                      onEdit: () => setEditingHours(hoursEditDate(rule, today)),
+                      onRemove: () => setRemovingHours(rule),
+                    }
+                  : undefined
+              }
             />
           ))}
           {orphans.map((summary) => (
@@ -283,6 +366,31 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           initialDate={editingDate.date}
           series={editingDate.series}
           onClose={() => setEditingDate(null)}
+        />
+      )}
+      {editingHours && (
+        <SpecialHoursEditDrawer
+          venueId={venueId}
+          state={state}
+          timezone={timezone}
+          today={today}
+          date={editingHours}
+          onStale={onStale}
+          onClose={() => setEditingHours(null)}
+        />
+      )}
+      {removingHours && (
+        <ConfirmDialog
+          open
+          variant="destructive"
+          title={t("availabilitySpecial.hours.removeTitle", {
+            date: format.formatCalendarDate(hoursEditDate(removingHours, today), DATE_FORMAT),
+          })}
+          description={t("availabilitySpecial.hours.removeDescription")}
+          confirmLabel={t("availabilitySpecial.remove")}
+          cancelLabel={t("availabilitySpecial.hours.keep")}
+          onConfirm={() => void removeHours(removingHours)}
+          onCancel={() => setRemovingHours(null)}
         />
       )}
       {reopening && (
