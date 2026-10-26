@@ -67847,7 +67847,8 @@
         const method = options.method ?? "GET";
     
         const headers: Record<string, string> = {
-          "Content-Type": "application/json",
+          // Only with a body: Fastify 400s an empty body under a JSON content type.
+          ...(options.body != null ? { "Content-Type": "application/json" } : {}),
           ...(options.headers as Record<string, string>),
           ...override?.headers,
         };

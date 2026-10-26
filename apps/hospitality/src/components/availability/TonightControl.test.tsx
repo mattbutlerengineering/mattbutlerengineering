@@ -211,6 +211,16 @@ describe("TonightControl", () => {
     });
   });
 
+  describe("Ending a change from its chip", () => {
+    it("shows an error beside the chips when ending fails with the panel closed", async () => {
+      endTonight.mockRejectedValueOnce(new Error("boom"));
+      renderControl({ state: stateWith(PAUSE_RULE) });
+      const chips = screen.getByRole("list", { name: /./ });
+      fireEvent.click(within(chips).getByRole("button", { name: /^Remove/ }));
+      expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't apply that change");
+    });
+  });
+
   describe("Manager", () => {
     it("opens the Close dialog unlocked and links the footer to Settings", () => {
       renderControl({ viewerRole: "manager" });
