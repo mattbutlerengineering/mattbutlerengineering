@@ -4896,7 +4896,8 @@
               const { id, guestEmail } = result.reservation;
               return reply.status(201).send({
                 data: { reservationId: id, startTime: result.reservation.startTime },
-                manageToken: guestEmail ? generateManageToken(id, guestEmail) : undefined,
+                // A phone-only guest signs with "", like the closure notice runtime.
+                manageToken: generateManageToken(id, guestEmail ?? ""),
               });
             }
             if (result.reason === "rejected") {
@@ -4955,20 +4956,20 @@
           async (_request, reply, { venueId, reservation }) => {
             const venue = await venueService.getById(venueId);
             const loaded = await loadVenueCancellation(reservation, venueId);
-            // The new booking belongs to the same guest, so the same email signs its token.
-            const venueCancellation =
-              loaded?.rebooked && reservation.guestEmail
-                ? {
-                    ...loaded,
-                    rebooked: {
-                      startTime: loaded.rebooked.startTime,
-                      manageToken: generateManageToken(
-                        loaded.rebooked.reservationId,
-                        reservation.guestEmail
-                      ),
-                    },
-                  }
-                : loaded;
+            // The new booking belongs to the same guest, so the same email signs its
+            // token ("" for a phone-only guest, like the closure notice runtime).
+            const venueCancellation = loaded?.rebooked
+              ? {
+                  ...loaded,
+                  rebooked: {
+                    startTime: loaded.rebooked.startTime,
+                    manageToken: generateManageToken(
+                      loaded.rebooked.reservationId,
+                      reservation.guestEmail ?? ""
+                    ),
+                  },
+                }
+              : loaded;
     
             return reply.status(200).send({
               data: {
