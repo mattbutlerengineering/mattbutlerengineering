@@ -736,7 +736,9 @@
     "visitOrdinalOther": "{{count}}.ª visita",
     "block": {
       "title": "{{guest}} - {{party}} a las {{time}}",
-      "seatedWord": "sentados"
+      "seatedWord": "sentados",
+      "overrideTag": "Excepción",
+      "overrideLabel": "Excepción: {{reason}}"
     },
     "grid": {
       "label": "Cronograma de reservaciones",
@@ -1002,7 +1004,27 @@
     "needContact": "Proporciona un correo o un número de teléfono del cliente.",
     "cancel": "Cancelar",
     "create": "Crear reserva",
-    "creating": "Creando…"
+    "creating": "Creando…",
+    "check": {
+      "checking": "Comprobando…",
+      "failed": "No se pudo comprobar la disponibilidad; la comprobaremos al reservar.",
+      "softHeading_one": "Supera {{count}} límite: {{limits}}. Agrega un motivo para reservar de todos modos.",
+      "softHeading_many": "Supera {{count}} de límites: {{limits}}. Agrega un motivo para reservar de todos modos.",
+      "softHeading_other": "Supera {{count}} límites: {{limits}}. Agrega un motivo para reservar de todos modos.",
+      "limit": {
+        "after_last_seating": "después del último turno",
+        "pacing": "por encima del ritmo permitido",
+        "party_size": "por encima del tamaño máximo del grupo"
+      },
+      "hardHeading": "No se puede reservar: {{message}}",
+      "reasonLabel": "Motivo (obligatorio)",
+      "reasonPlaceholder": "p. ej., cliente frecuente, la cocina estuvo de acuerdo",
+      "bookWithOverride": "Reservar con excepción",
+      "openTimes": "Horarios disponibles",
+      "openTimesNone_one": "No hay horarios disponibles para {{count}} persona en esta fecha.",
+      "openTimesNone_many": "No hay horarios disponibles para {{count}} de personas en esta fecha.",
+      "openTimesNone_other": "No hay horarios disponibles para {{count}} personas en esta fecha."
+    }
   },
   "crm": {
     "clear": "Quitar",
@@ -1517,6 +1539,61 @@
       }
     }
   },
+  "availabilitySpecial": {
+    "tab": "Fechas especiales",
+    "filterLabel": "Filtrar fechas especiales",
+    "filter": {
+      "all": "Todas",
+      "closures": "Cierres",
+      "special_hours": "Horario especial",
+      "repeating": "Recurrentes",
+      "past": "Pasadas"
+    },
+    "empty": {
+      "title": "Sin fechas especiales",
+      "description": "Agrega un cierre o un horario distinto para una fecha."
+    },
+    "kind": {
+      "closure": "Cerrado",
+      "specialHours": "Horario especial"
+    },
+    "repeating": "Recurrente",
+    "range": "{{from}} al {{to}}",
+    "untilReopened": "{{from}} hasta reabrir",
+    "counts": "Enviados {{sent}} · Reagendados {{rebooked}} · Sin contacto {{unreachable}}",
+    "refundFailed": "Reembolso fallido ({{count}})",
+    "refundPending": "Reembolsos pendientes ({{count}})",
+    "retry": "Reintentar reembolsos",
+    "retried": "Reembolsos en cola de nuevo ({{count}})",
+    "retryError": "No se pudieron poner en cola los reembolsos",
+    "callListOpen": "Lista de llamadas",
+    "remove": "Quitar",
+    "ended": {
+      "title": "Cierre anterior",
+      "detail": "Ya no está activo y aún tiene reembolsos abiertos"
+    },
+    "reopen": {
+      "title": "¿Reabrir el {{date}}?",
+      "description": "Los clientes podrán reservar de nuevo.",
+      "descriptionCancelled": "Los clientes podrán reservar de nuevo. Las reservaciones que cancelaste siguen canceladas.",
+      "tell": "Avisar a los clientes cancelados que reabrimos, con un enlace para reservar ({{count}})",
+      "confirm": "Reabrir",
+      "keep": "Mantener cerrado",
+      "done": "{{date}} reabierto"
+    },
+    "callList": {
+      "title": "Lista de llamadas",
+      "description": "Clientes que no confirmaron un aviso ni reagendaron.",
+      "empty": "Todos los clientes fueron contactados o reagendaron.",
+      "name": "Cliente",
+      "party": "Personas",
+      "time": "Hora",
+      "phone": "Teléfono",
+      "unnamed": "Cliente sin nombre",
+      "print": "Imprimir",
+      "close": "Cerrar"
+    }
+  },
   "availabilitySchedules": {
     "tabsLabel": "Vista de disponibilidad",
     "tabCalendar": "Calendario",
@@ -1776,6 +1853,9 @@
       "typeLabel": "Tipo",
       "typeAll": "Todos los cambios",
       "typeConfig": "Cambios de horario",
+      "typeClosure": "Cierres",
+      "typeReopen": "Reaperturas",
+      "typeTonight": "Cambios de esta noche",
       "typeRevert": "Deshacer",
       "personLabel": "Persona",
       "personAll": "Todos",

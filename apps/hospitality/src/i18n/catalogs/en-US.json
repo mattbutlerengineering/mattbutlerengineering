@@ -722,7 +722,9 @@
     "visitOrdinalOther": "{{count}}th visit",
     "block": {
       "title": "{{guest}} - {{party}} at {{time}}",
-      "seatedWord": "seated"
+      "seatedWord": "seated",
+      "overrideTag": "Override",
+      "overrideLabel": "Override: {{reason}}"
     },
     "grid": {
       "label": "Reservation timeline",
@@ -987,7 +989,25 @@
     "needContact": "Please provide a guest email or phone number.",
     "cancel": "Cancel",
     "create": "Create Reservation",
-    "creating": "Creating…"
+    "creating": "Creating…",
+    "check": {
+      "checking": "Checking…",
+      "failed": "Couldn't check availability; we'll check when you book.",
+      "softHeading_one": "Past {{count}} limit: {{limits}}. Add a reason to book anyway.",
+      "softHeading_other": "Past {{count}} limits: {{limits}}. Add a reason to book anyway.",
+      "limit": {
+        "after_last_seating": "after last seating",
+        "pacing": "over the pacing limit",
+        "party_size": "over the maximum party size"
+      },
+      "hardHeading": "Can't book: {{message}}",
+      "reasonLabel": "Reason (required)",
+      "reasonPlaceholder": "e.g. Regular, kitchen agreed",
+      "bookWithOverride": "Book with override",
+      "openTimes": "Open times",
+      "openTimesNone_one": "No open times for {{count}} guest on this date.",
+      "openTimesNone_other": "No open times for {{count}} guests on this date."
+    }
   },
   "crm": {
     "clear": "Clear",
@@ -1493,6 +1513,61 @@
       }
     }
   },
+  "availabilitySpecial": {
+    "tab": "Special dates",
+    "filterLabel": "Filter special dates",
+    "filter": {
+      "all": "All",
+      "closures": "Closures",
+      "special_hours": "Special hours",
+      "repeating": "Repeating",
+      "past": "Past"
+    },
+    "empty": {
+      "title": "No special dates",
+      "description": "Add a closure or different hours for a date."
+    },
+    "kind": {
+      "closure": "Closed",
+      "specialHours": "Special hours"
+    },
+    "repeating": "Repeating",
+    "range": "{{from}} to {{to}}",
+    "untilReopened": "{{from}} until reopened",
+    "counts": "Sent {{sent}} · Rebooked {{rebooked}} · Unreachable {{unreachable}}",
+    "refundFailed": "Refund failed ({{count}})",
+    "refundPending": "Refunds pending ({{count}})",
+    "retry": "Retry refunds",
+    "retried": "Refunds queued again ({{count}})",
+    "retryError": "Couldn't queue the refunds",
+    "callListOpen": "Call list",
+    "remove": "Remove",
+    "ended": {
+      "title": "Earlier closure",
+      "detail": "No longer active, with refunds still open"
+    },
+    "reopen": {
+      "title": "Reopen {{date}}?",
+      "description": "Guests can book again.",
+      "descriptionCancelled": "Guests can book again. The reservations you cancelled stay cancelled.",
+      "tell": "Tell the cancelled guests we've reopened, with a link to rebook ({{count}})",
+      "confirm": "Reopen",
+      "keep": "Keep closed",
+      "done": "{{date}} reopened"
+    },
+    "callList": {
+      "title": "Call list",
+      "description": "Guests who haven't confirmed a notice or rebooked.",
+      "empty": "Every guest was reached or rebooked.",
+      "name": "Guest",
+      "party": "Party",
+      "time": "Time",
+      "phone": "Phone",
+      "unnamed": "Unnamed guest",
+      "print": "Print",
+      "close": "Close"
+    }
+  },
   "availabilitySchedules": {
     "tabsLabel": "Availability view",
     "tabCalendar": "Calendar",
@@ -1742,6 +1817,9 @@
       "typeLabel": "Type",
       "typeAll": "All changes",
       "typeConfig": "Hours changes",
+      "typeClosure": "Closures",
+      "typeReopen": "Reopenings",
+      "typeTonight": "Tonight changes",
       "typeRevert": "Undos",
       "personLabel": "Person",
       "personAll": "Everyone",

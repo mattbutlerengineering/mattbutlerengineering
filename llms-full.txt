@@ -6186,6 +6186,35 @@
       return normalizeDates(days.filter((d) => d.scheduleId === scheduleId).map((d) => d.serviceDate));
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/special-dates.ts">
+    export type SpecialDatesFilter = "all" | "closures" | "special_hours" | "repeating" | "past";
+    export type SpecialDateRule = Extract<DateRule, { kind: "closure" | "special_hours" }>;
+    export interface SpecialDateRow {
+      readonly rule: SpecialDateRule;
+      readonly past: boolean;
+    }
+    export function specialDateRows(
+      rules: readonly DateRule[],
+      today: string,
+      filter: SpecialDatesFilter
+    ): SpecialDateRow[] {
+      const rows = rules
+        .filter(isSpecialDate)
+        .map((rule) => ({ rule, past: isPast(rule, today) }))
+        .filter((row) => matches(row, filter));
+      const byStart = (a: SpecialDateRow, b: SpecialDateRow) =>
+        a.rule.startsOn.localeCompare(b.rule.startsOn);
+      return [...rows].sort(filter === "past" ? (a, b) => byStart(b, a) : byStart);
+    }
+    export function orphanRefundRules(
+      summaries: readonly ClosureSummary[],
+      listedRuleIds: readonly string[]
+    ): ClosureSummary[] {
+      return summaries.filter(
+        (s) => s.refundFailed + s.refundPending > 0 && !listedRuleIds.includes(s.ruleId)
+      );
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/tonight-state.ts">
     export type TonightChange =
       | { readonly ruleId: string; readonly kind: "pause_online" }
@@ -11022,6 +11051,15 @@
         return jsonOk(route, buildAvailabilityConfigFixture());
       });
     
+      // Special dates tab (#7527): no closures have outcomes yet. Only GET; the Close dialog's POST
+      // (and each spec's own stateful mock) falls through.
+      await page.route(/\/api\/v1\/venues\/[^/?]+\/closures$/, (route) =>
+        route.request().method() === "GET" ? jsonOk(route, []) : route.fallback()
+      );
+      await page.route(/\/api\/v1\/venues\/[^/?]+\/closures\/[^/?]+\/call-list$/, (route) =>
+        jsonOk(route, [])
+      );
+    
       // Venue Groups
       await page.route("**/api/v1/venues/groups*", (route) => emptyPaginated(route));
     
@@ -12061,6 +12099,54 @@
             description: "`preview-timeout`: the preview took longer than 5 seconds; retry is safe",
             body: AvailabilityConfigProblemSchema,
           },
+        },
+      }),
+      listClosures: defineEndpoint({
+        method: "GET",
+        path: `${AVAILABILITY_CONFIG_PREFIX}/:id/closures`,
+        params: VenueParamsSchema,
+        responses: {
+          200: {
+            description:
+              "One summary per date rule that produced closure outcomes (closures and Tonight close-early, reopened or ended ones included): Sent / Rebooked / Unreachable and refund counts",
+            body: z.object({ data: ClosureSummariesSchema }),
+          },
+          401: authRequired,
+          403: notMember,
+          404: venueNotFound,
+        },
+      }),
+      closureCallList: defineEndpoint({
+        method: "GET",
+        path: `${AVAILABILITY_CONFIG_PREFIX}/:id/closures/:ruleId/call-list`,
+        params: ClosureParamsSchema,
+        responses: {
+          200: {
+            description:
+              "Guests the closure told but without a confirmed delivery or a rebooking: name, party, time and phone",
+            body: z.object({ data: z.array(CallListEntrySchema) }),
+          },
+          401: authRequired,
+          403: notMember,
+          404: venueNotFound,
+        },
+      }),
+      retryClosureRefunds: defineEndpoint({
+        method: "POST",
+        path: `${AVAILABILITY_CONFIG_PREFIX}/:id/closures/:ruleId/refunds/retry`,
+        params: ClosureParamsSchema,
+        responses: {
+          200: {
+            description:
+              "Re-enqueued the closure's refunds that are `pending` or `failed` (never `done` or `none`, so nothing is refunded twice); works for a reopened closure or an ended Tonight change",
+            body: z.object({ data: RetryRefundsResultSchema }),
+          },
+          401: authRequired,
+          403: notClosureCaller,
+          404: venueNotFound,
+          503: problem(
+            "The job queue failed partway; the detail says how many refunds were already queued. A row is only reset once its job exists, so retrying is safe"
+          ),
         },
       }),
       reopenClosure: defineEndpoint({
@@ -16741,13 +16827,47 @@
       mutationFn: (api, { venueId, body, idempotencyKey }) =>
         api.availability.createClosure(venueId, body, idempotencyKey),
     });
+    export const CLOSURE_SUMMARIES_QUERY_KEY = "closureSummaries" as const;
+    export const CLOSURE_CALL_LIST_QUERY_KEY = "closureCallList" as const;
+    export const useClosureSummaries = createQueryHook<
+      ClosureSummary[] | null,
+      { venueId: string | null }
+    >({
+      key: CLOSURE_SUMMARIES_QUERY_KEY,
+      fetcher: async (params, api) =>
+        params?.venueId ? api.availability.listClosures(params.venueId) : null,
+      getEnabled: (params) => !!params?.venueId && params.enabled !== false,
+    });
+    export const useClosureCallList = createQueryHook<
+      ClosureCallListEntry[] | null,
+      { venueId: string | null; ruleId: string | null }
+    >({
+      key: CLOSURE_CALL_LIST_QUERY_KEY,
+      fetcher: async (params, api) =>
+        params?.venueId && params.ruleId
+          ? api.availability.closureCallList(params.venueId, params.ruleId)
+          : null,
+      getEnabled: (params) => !!params?.venueId && !!params.ruleId && params.enabled !== false,
+    });
+    export type RetryClosureRefundsVariables = { venueId: string; ruleId: string };
+    export const useRetryClosureRefunds = createMutationHook<
+      RetryClosureRefundsVariables,
+      RetryRefundsResult
+    >({
+      invalidateKeys: [CLOSURE_SUMMARIES_QUERY_KEY],
+      mutationFn: (api, { venueId, ruleId }) => api.availability.retryClosureRefunds(venueId, ruleId),
+    });
     export type ReopenClosureVariables = {
       venueId: string;
       ruleId: string;
       tellCancelledGuests: boolean;
     };
     export const useReopenClosure = createMutationHook<ReopenClosureVariables, ReopenResult>({
-      invalidateKeys: [AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY],
+      invalidateKeys: [
+        AVAILABILITY_CONFIG_QUERY_KEY,
+        AVAILABILITY_DAYS_QUERY_KEY,
+        CLOSURE_SUMMARIES_QUERY_KEY,
+      ],
       mutationFn: (api, { venueId, ruleId, tellCancelledGuests }) =>
         api.availability.reopenClosure(venueId, ruleId, tellCancelledGuests),
     });
@@ -17666,6 +17786,26 @@
       return now;
     }
   </file>
+  <file path="apps/hospitality/src/hooks/useOpenTimes.ts">
+    export const OPEN_TIMES_QUERY_KEY = "staffOpenTimes" as const;
+    export const useOpenTimes = createQueryHook<
+      TimeSlot[] | null,
+      { venueId: string | null | undefined; date: string; partySize: number },
+      TimeSlot[]
+    >({
+      key: OPEN_TIMES_QUERY_KEY,
+      fetcher: async (params, api) =>
+        params?.venueId
+          ? api.availability.getTimeSlots({
+              venueId: params.venueId,
+              date: params.date,
+              partySize: params.partySize,
+            })
+          : null,
+      getEnabled: (params) => !!params?.venueId && !!params.date && params.enabled !== false,
+      select: (data) => (data ?? []).filter((slot) => slot.available),
+    });
+  </file>
   <file path="apps/hospitality/src/hooks/usePublicApiClient.ts">
     export interface UsePublicApiClientOptions {
       baseUrl?: string;
@@ -17926,6 +18066,73 @@
     
       const remainingMs = Math.max(0, expiresAt * 1000 - now);
       return { remainingMs, phase: classifySessionPhase(remainingMs) };
+    }
+  </file>
+  <file path="apps/hospitality/src/hooks/useStaffBookingCheck.ts">
+    export const STAFF_BOOKING_CHECK_QUERY_KEY = "staffBookingCheck" as const;
+    type BookingWindow = { start: string; end: string };
+    export interface StaffCheckParams {
+      venueId: string | null | undefined;
+      /** The booking's real start and end (ISO); null until date and time are both entered. */
+      window: BookingWindow | null;
+      partySize: number;
+      /** The table the form has selected; empty means nothing to check. */
+      selectedTableId: string;
+    }
+    export interface StaffCheckResult {
+      /** `idle`: nothing to ask yet. `failed`: the check errored, so the server decides. */
+      phase: "idle" | "checking" | "done" | "failed";
+      verdict: AvailabilityCheckResult | null;
+    }
+    export function useStaffBookingCheck({
+      venueId,
+      window,
+      partySize,
+      selectedTableId,
+    }: StaffCheckParams): StaffCheckResult {
+      const api = useApiClient();
+      const [settled, setSettled] = useState<BookingWindow | null>(null);
+      const startKey = window?.start;
+      const endKey = window?.end;
+    
+      useEffect(() => {
+        const timer = setTimeout(
+          () => setSettled(startKey && endKey ? { start: startKey, end: endKey } : null),
+          DEBOUNCE_MS
+        );
+        return () => clearTimeout(timer);
+      }, [startKey, endKey]);
+    
+      const enabled = !!venueId && !!selectedTableId && settled !== null && window !== null;
+      const query = useQuery({
+        queryKey: [
+          STAFF_BOOKING_CHECK_QUERY_KEY,
+          venueId,
+          settled?.start,
+          settled?.end,
+          partySize,
+          selectedTableId,
+        ],
+        queryFn: () =>
+          api.availability.checkBooking(venueId as string, {
+            start: (settled as BookingWindow).start,
+            end: (settled as BookingWindow).end,
+            partySize,
+            channel: "phone",
+            tableId: selectedTableId,
+          }),
+        enabled,
+        retry: false,
+      });
+    
+      if (window === null || !venueId || !selectedTableId) return { phase: "idle", verdict: null };
+      // Still inside the pause: the answer on hand (if any) is for an earlier window.
+      if (settled === null || settled.start !== window.start || settled.end !== window.end) {
+        return { phase: "checking", verdict: null };
+      }
+      if (query.isError) return { phase: "failed", verdict: null };
+      if (query.data === undefined) return { phase: "checking", verdict: null };
+      return { phase: "done", verdict: query.data };
     }
   </file>
   <file path="apps/hospitality/src/hooks/useStatusMessage.ts">
@@ -30312,6 +30519,71 @@
         }),
       });
     
+      registerEndpoint(fastify, availabilityConfigEndpoints.listClosures, {
+        docs: {
+          summary: "Outcome counts for every closure",
+          operationId: "listClosures",
+          description:
+            "Sent / Rebooked / Unreachable and refund counts per date rule that produced closure outcomes, for the Special dates tab. Includes reopened closures and ended Tonight close-early rules. Any venue member.",
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(VENUE_FROM_ID, async (_request, _reply, { venueId }) => ({
+          data: await closureNoticeService.summaries(venueId),
+        })),
+      });
+    
+      registerEndpoint(fastify, availabilityConfigEndpoints.closureCallList, {
+        docs: {
+          summary: "Call list for one closure",
+          operationId: "closureCallList",
+          description:
+            "Guests the closure told but without a confirmed delivery or a rebooking: name, party, time and phone. Any venue member (a Host who made the emergency close needs it).",
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(VENUE_FROM_ID, async (request, _reply, { venueId }) => {
+          const entries = await closureNoticeService.callList(venueId, request.params.ruleId);
+          return { data: entries.map((e) => ({ ...e, startTime: e.startTime.toISOString() })) };
+        }),
+      });
+    
+      registerEndpoint(fastify, availabilityConfigEndpoints.retryClosureRefunds, {
+        docs: {
+          summary: "Retry a closure's refunds",
+          operationId: "retryClosureRefunds",
+          description:
+            "Re-enqueues the refund job for outcomes still `pending` or `failed` through `closureRefunds.retry`; settled outcomes are never touched and the Stripe idempotency keys are unchanged, so a guest is never refunded twice. Covers Tonight close-early rules too (keyed by date rule id, even after the rule ended). Manager only.",
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(VENUE_FROM_ID, async (request, reply, { venueId, isAdmin }) => {
+          const caller = await closureCaller(request, venueId, isAdmin);
+          if (!caller.isManager) {
+            return reply.code(403).send(createProblemDetails(403, "Forbidden", CLOSURE_FORBIDDEN));
+          }
+          try {
+            const enqueued = await fastify.closureRefunds.retry(venueId, request.params.ruleId);
+            return { data: { enqueued } };
+          } catch (err) {
+            request.log.error({ err, venueId, ruleId: request.params.ruleId }, "refund retry failed");
+            const queued = err instanceof ClosureRefundEnqueueError ? err.enqueued : 0;
+            return reply
+              .code(503)
+              .send(
+                createProblemDetails(
+                  503,
+                  "Service Unavailable",
+                  `Couldn't queue every refund (${queued} queued before the failure). Retry to finish the rest.`
+                )
+              );
+          }
+        }),
+      });
+    
       registerEndpoint(fastify, availabilityConfigEndpoints.reopenClosure, {
         docs: {
           summary: "Reopen a closure",
@@ -38319,6 +38591,34 @@
       outcomes: ClosureOutcomeCountsSchema,
     });
     export const ReopenResultSchema = z.object({ version: z.number().int(), changeId: z.string() });
+    export const ClosureSummarySchema = z.object({
+      ruleId: z.string(),
+      /** Outcomes the closure produced. */
+      total: z.number().int(),
+      /** Bookings the closure cancelled (the guests a reopen notice would go to). */
+      cancelled: z.number().int(),
+      /** Guests with a confirmed email or SMS delivery. */
+      sent: z.number().int(),
+      /** Guests who rebooked after the cancel. */
+      rebooked: z.number().int(),
+      /** Told but with no confirmed delivery and no rebooking: the call list. */
+      unreachable: z.number().int(),
+      /** Deposit refunds the refund job gave up on. */
+      refundFailed: z.number().int(),
+      /** Deposit refunds not yet settled (also retried: the enqueue itself may have been lost). */
+      refundPending: z.number().int(),
+    });
+    export const ClosureSummariesSchema = z.array(ClosureSummarySchema);
+    export const RetryRefundsResultSchema = z.object({ enqueued: z.number().int() });
+    export const CallListEntrySchema = z.object({
+      outcomeId: z.string(),
+      reservationId: z.string(),
+      guestName: z.string().nullable(),
+      partySize: z.number().int(),
+      /** ISO instant of the reservation's start. */
+      startTime: z.string(),
+      guestPhone: z.string().nullable(),
+    });
     export const TonightChangeSchema = z.discriminatedUnion("type", [
       z.strictObject({ type: z.literal("pause_online") }),
       z.strictObject({
@@ -38358,6 +38658,9 @@
     export type ReopenClosureBody = z.infer<typeof ReopenClosureBodySchema>;
     export type ClosureResult = z.infer<typeof ClosureResultSchema>;
     export type ReopenResult = z.infer<typeof ReopenResultSchema>;
+    export type ClosureSummary = z.infer<typeof ClosureSummarySchema>;
+    export type RetryRefundsResult = z.infer<typeof RetryRefundsResultSchema>;
+    export type ClosureCallListEntry = z.infer<typeof CallListEntrySchema>;
     export type AvailabilityCheckBody = z.infer<typeof AvailabilityCheckBodySchema>;
     export type AvailabilityCheckResult = z.infer<typeof AvailabilityCheckResultSchema>;
   </file>
@@ -39565,6 +39868,8 @@
       guestPhone: z.string().nullable(),
       guestId: z.string().nullable(),
       userId: z.string().nullable(),
+      /** Why staff booked past a soft availability limit; absent or null for an ordinary booking. */
+      overrideReason: z.string().nullable().optional(),
       tableId: z.string(),
       table: TableSchema.optional(),
       guest: z
@@ -46985,7 +47290,10 @@
   </file>
   <file path="services/reservations/src/services/closure-notice-service.ts">
     export const URGENT_WINDOW_MS = 6 * 60 * 60 * 1000;
-    type Store = Pick<typeof defaultStore, "listNotifiable" | "listCallList" | "loadClosureWindow">;
+    type Store = Pick<
+      typeof defaultStore,
+      "listNotifiable" | "listCallList" | "listSummaries" | "loadClosureWindow"
+    >;
     type Scheduler = Pick<JobsPort, "schedule">;
     interface EnqueueInput {
       venueId: string;
@@ -47034,6 +47342,7 @@
         enqueueForClosure: (input: EnqueueInput) => enqueue("closure", input),
         enqueueForReopen: (input: EnqueueInput) => enqueue("reopened", input),
         callList: (venueId: string, ruleId: string) => store.listCallList(venueId, ruleId),
+        summaries: (venueId: string) => store.listSummaries(venueId),
       };
     }
     export type ClosureNoticeService = ReturnType<typeof createClosureNoticeService>;
@@ -47201,6 +47510,58 @@
           guestPhone: row.reservation.guestPhone,
         }));
     }
+    export interface ClosureSummary {
+      ruleId: string;
+      total: number;
+      cancelled: number;
+      sent: number;
+      rebooked: number;
+      unreachable: number;
+      refundFailed: number;
+      refundPending: number;
+    }
+    interface SummaryRow {
+      dateRuleId: string;
+      action: NoticeOutcome["action"];
+      deliveries: unknown;
+      rebookedReservationId: string | null;
+      refund: string;
+    }
+    export function summarizeOutcomes(rows: readonly SummaryRow[]): ClosureSummary[] {
+      const byRule = new Map<string, ClosureSummary>();
+      for (const row of rows) {
+        const deliveries = row.deliveries as Deliveries;
+        const rebooked = row.rebookedReservationId !== null;
+        const prev = byRule.get(row.dateRuleId) ?? { ruleId: row.dateRuleId, ...EMPTY_SUMMARY };
+        const confirmed = deliveries.email === "sent" || deliveries.sms === "sent";
+        byRule.set(row.dateRuleId, {
+          ...prev,
+          total: prev.total + 1,
+          cancelled: prev.cancelled + (row.action === "cancel" ? 1 : 0),
+          sent: prev.sent + (confirmed ? 1 : 0),
+          rebooked: prev.rebooked + (rebooked ? 1 : 0),
+          unreachable:
+            prev.unreachable + (isOnCallList({ action: row.action, deliveries, rebooked }) ? 1 : 0),
+          refundFailed: prev.refundFailed + (row.refund === "failed" ? 1 : 0),
+          refundPending: prev.refundPending + (row.refund === "pending" ? 1 : 0),
+        });
+      }
+      return [...byRule.values()];
+    }
+    export async function listSummaries(venueId: string, db: Db = prisma): Promise<ClosureSummary[]> {
+      const rows = await db.closureOutcome.findMany({
+        where: { venueId },
+        orderBy: { createdAt: "asc" },
+        select: {
+          dateRuleId: true,
+          action: true,
+          deliveries: true,
+          rebookedReservationId: true,
+          refund: true,
+        },
+      });
+      return summarizeOutcomes(rows);
+    }
   </file>
   <file path="services/reservations/src/services/closure-notice.ts">
     export type DeliveryStatus = "sent" | "failed" | "skipped";
@@ -47354,6 +47715,12 @@
         setRefund: async (outcomeId, refund) => {
           await prisma.closureOutcome.update({ where: { id: outcomeId }, data: { refund } });
         },
+        resetToPending: async (outcomeId) => {
+          await prisma.closureOutcome.updateMany({
+            where: { id: outcomeId, refund: { in: ["failed", "pending"] } },
+            data: { refund: "pending" },
+          });
+        },
         markFailed: async (outcomeId) => {
           await prisma.closureOutcome.updateMany({
             where: { id: outcomeId, refund: { notIn: ["done", "none"] } },
@@ -47380,6 +47747,11 @@
     export interface ClosureRefundStore {
       load(outcomeId: string): Promise<ClosureRefundRow | null>;
       setRefund(outcomeId: string, refund: ClosureRefundStatus): Promise<void>;
+      /**
+       * Returns a `failed` outcome to `pending` once its retry job exists. Conditional: a row
+       * that settled (`done` / `none`) in the meantime is left alone.
+       */
+      resetToPending(outcomeId: string): Promise<void>;
       /** Records `failed`, leaving an outcome a concurrent run already settled (`done` / `none`). */
       markFailed(outcomeId: string): Promise<void>;
       /** Outcomes of one closure whose refund is in one of `statuses`. */
@@ -47529,6 +47901,15 @@
         throw error;
       }
     }
+    export class ClosureRefundEnqueueError extends Error {
+      constructor(
+        readonly enqueued: number,
+        cause: unknown
+      ) {
+        super(`Scheduled ${enqueued} closure refund job(s) before the queue failed`, { cause });
+        this.name = "ClosureRefundEnqueueError";
+      }
+    }
     export async function enqueueClosureRefunds(
       deps: { store: ClosureRefundStore; jobs: Pick<JobScheduler, "schedule"> },
       venueId: string,
@@ -47537,18 +47918,24 @@
       opts: { retry?: boolean; now?: () => number } = {}
     ): Promise<number> {
       const outcomes = await deps.store.listByRule(venueId, ruleId, statuses);
+      let enqueued = 0;
       for (const outcome of outcomes) {
-        if (opts.retry) await deps.store.setRefund(outcome.id, "pending");
         const base = closureRefundJobId(ruleId, outcome.reservationId);
         const jobId = opts.retry ? `${base}_retry_${(opts.now ?? Date.now)()}` : base;
-        await deps.jobs.schedule(
-          JOB_TYPES.CLOSURE_REFUND,
-          { outcomeId: outcome.id, venueId },
-          0,
-          jobId
-        );
+        try {
+          await deps.jobs.schedule(
+            JOB_TYPES.CLOSURE_REFUND,
+            { outcomeId: outcome.id, venueId },
+            0,
+            jobId
+          );
+          if (opts.retry) await deps.store.resetToPending(outcome.id);
+        } catch (error) {
+          throw new ClosureRefundEnqueueError(enqueued, error);
+        }
+        enqueued += 1;
       }
-      return outcomes.length;
+      return enqueued;
     }
     export interface ClosureRefunds {
       enqueue(venueId: string, ruleId: string): Promise<number>;
@@ -53986,6 +54373,8 @@
       guestPhone: string | null;
       guestId: string | null;
       userId: string | null;
+      /** Staff override reason; selected rows predating the column or partial selects omit it. */
+      overrideReason?: string | null;
       tableId: string;
       table?: PrismaTableRow | null;
       guest?: {
@@ -54042,7 +54431,7 @@
       };
     }
     export function withoutGuestLink(reservation: Reservation): Reservation {
-      return { ...reservation, guestId: null, guest: null };
+      return { ...reservation, guestId: null, guest: null, overrideReason: null };
     }
     export function toReservation(row: PrismaReservationRow): Reservation {
       return {
@@ -54062,6 +54451,7 @@
         guestPhone: row.guestPhone,
         guestId: row.guestId,
         userId: row.userId,
+        overrideReason: row.overrideReason ?? null,
         tableId: row.tableId,
         table: row.table ? toTable(row.table) : undefined,
         guest: row.guest ?? null,
@@ -65617,6 +66007,30 @@
         return response.data;
       }
     
+      /** Sent / Rebooked / Unreachable and refund counts per closure (Special dates tab). */
+      async listClosures(venueId: string): Promise<ClosureSummary[]> {
+        const response = await this.client.call(availabilityConfigEndpoints.listClosures, {
+          params: { id: venueId },
+        });
+        return response.data;
+      }
+    
+      /** Guests a closure told without a confirmed delivery or rebooking. */
+      async closureCallList(venueId: string, ruleId: string): Promise<ClosureCallListEntry[]> {
+        const response = await this.client.call(availabilityConfigEndpoints.closureCallList, {
+          params: { id: venueId, ruleId },
+        });
+        return response.data;
+      }
+    
+      /** Re-enqueues a closure's `pending` / `failed` refunds (Manager). */
+      async retryClosureRefunds(venueId: string, ruleId: string): Promise<RetryRefundsResult> {
+        const response = await this.client.call(availabilityConfigEndpoints.retryClosureRefunds, {
+          params: { id: venueId, ruleId },
+        });
+        return response.data;
+      }
+    
       /** Reopens a closure; guests it cancelled stay cancelled. */
       async reopenClosure(
         venueId: string,
@@ -73518,6 +73932,8 @@
       userId: string | null;
       occasion: Occasion | null;
       seatingPreference: SeatingPreference | null;
+      /** Why staff booked past a soft availability limit; absent or null for an ordinary booking. */
+      overrideReason?: string | null;
       tableId: string;
       table?: Table;
       guest?: {

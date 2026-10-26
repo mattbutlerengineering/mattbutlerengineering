@@ -147,7 +147,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [ ] **Tonight panel** — the F7 popover or sheet, header chips, the emergency close (What and When locked for Hosts with the grant), and the footer link. (tracker: #7530)
   - Accept: component tests cover the Host with and without the grant and the Manager. 44 px targets on mobile.
   - Blocked by: Tonight API, Close dialog
-- [ ] **Staff form live check** — `NewReservationDialog` calls the check endpoint, with soft-limit warnings, a required reason, "Book with override", hard blocks, an open-times strip, the waitlist-closed state, and blocked tables greyed out. Adds the Override tag on the timeline. (tracker: #7531)
+- [x] **Staff form live check** — `NewReservationDialog` calls the check endpoint, with soft-limit warnings, a required reason, "Book with override", hard blocks, an open-times strip, the waitlist-closed state, and blocked tables greyed out. Adds the Override tag on the timeline. (tracker: #7531)
   - Accept: tests show staff can book past a soft limit only with a reason, the reason is shown on the timeline, and staff can't book inside a closure (SC Staff override, UI half). If the check fails, the form falls back to the server.
   - Blocked by: Staff override and check endpoint, Tonight API
 - [x] **Widget and rialto date labels** — an optional `getDateLabel(iso)` on rialto `Calendar` (with a changeset). The widget date step moves to `Calendar` with closed dates disabled and labelled. The time step carries closure and pause messages. Adds the nothing-configured state, a closure landing mid-booking at confirm, and Late Night grouping. (tracker: #7532)

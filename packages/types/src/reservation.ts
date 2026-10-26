@@ -62,6 +62,8 @@ export interface Reservation {
   userId: string | null;
   occasion: Occasion | null;
   seatingPreference: SeatingPreference | null;
+  /** Why staff booked past a soft availability limit; absent or null for an ordinary booking. */
+  overrideReason?: string | null;
   tableId: string;
   table?: Table;
   guest?: {

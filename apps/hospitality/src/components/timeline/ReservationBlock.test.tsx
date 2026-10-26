@@ -39,6 +39,24 @@ describe("ReservationBlock", () => {
     expect(screen.getByText(/4/)).toBeDefined();
   });
 
+  it("tags an override booking and speaks its reason", () => {
+    render(
+      <ReservationBlock
+        reservation={makeReservation({ overrideReason: "Regulars, kitchen agreed" })}
+        style={defaultStyle}
+      />
+    );
+    expect(screen.getByText("Override")).toBeDefined();
+    expect(screen.getByRole("button").getAttribute("aria-label")).toContain(
+      "Override: Regulars, kitchen agreed"
+    );
+  });
+
+  it("shows no Override tag on an ordinary booking", () => {
+    render(<ReservationBlock reservation={makeReservation()} style={defaultStyle} />);
+    expect(screen.queryByText("Override")).toBeNull();
+  });
+
   it("renders fallback text when guest name is null", () => {
     render(
       <ReservationBlock reservation={makeReservation({ guestName: null })} style={defaultStyle} />

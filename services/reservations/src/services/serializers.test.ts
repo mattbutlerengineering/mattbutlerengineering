@@ -138,6 +138,12 @@ describe("toReservation", () => {
     expect(result.createdAt).toBe(NOW.toISOString());
   });
 
+  it("carries the staff override reason, and null for an ordinary booking", () => {
+    const overridden = toReservation(makePrismaReservation({ overrideReason: "Regulars" }));
+    expect(overridden.overrideReason).toBe("Regulars");
+    expect(toReservation(makePrismaReservation()).overrideReason).toBeNull();
+  });
+
   it("includes mapped table when present", () => {
     const result = toReservation(makePrismaReservation());
 

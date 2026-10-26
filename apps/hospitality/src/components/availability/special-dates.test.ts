@@ -1,0 +1,78 @@
+import { describe, expect, it } from "vitest";
+import type { ClosureSummary, DateRule } from "@mbe/types";
+import { orphanRefundRules, specialDateRows } from "./special-dates.js";
+
+const closure = (id: string, startsOn: string, over: Partial<DateRule> = {}) =>
+  ({ id, kind: "closure", targetKind: "venue", startsOn, endsOn: startsOn, ...over }) as DateRule;
+
+const hours = (id: string, startsOn: string) =>
+  ({
+    id,
+    kind: "special_hours",
+    targetKind: "venue",
+    startsOn,
+    endsOn: startsOn,
+    payload: { version: 1, services: [] },
+  }) as unknown as DateRule;
+
+const summary = (ruleId: string, over: Partial<ClosureSummary> = {}): ClosureSummary => ({
+  ruleId,
+  total: 0,
+  cancelled: 0,
+  sent: 0,
+  rebooked: 0,
+  unreachable: 0,
+  refundFailed: 0,
+  refundPending: 0,
+  ...over,
+});
+
+const TODAY = "2026-12-01";
+const RULES: DateRule[] = [
+  closure("past", "2026-11-20"),
+  hours("hours", "2026-12-31"),
+  closure("xmas", "2026-12-24"),
+  closure("mondays", "2027-01-05", {
+    repeat: { version: 1, weekdays: [1] },
+    endsOn: "2027-03-30",
+  }),
+  { id: "tonight", kind: "tonight", targetKind: "venue", startsOn: TODAY } as unknown as DateRule,
+  { id: "skip", kind: "skip", targetKind: "venue", startsOn: "2026-12-10" } as DateRule,
+];
+
+const ids = (filter: Parameters<typeof specialDateRows>[2]) =>
+  specialDateRows(RULES, TODAY, filter).map((r) => r.rule.id);
+
+describe("specialDateRows", () => {
+  it("lists closures and special hours, upcoming first, without past or non-closure rules", () => {
+    expect(ids("all")).toEqual(["xmas", "hours", "mondays"]);
+  });
+
+  it("filters to closures, special hours, repeating or past", () => {
+    expect(ids("closures")).toEqual(["xmas", "mondays"]);
+    expect(ids("special_hours")).toEqual(["hours"]);
+    expect(ids("repeating")).toEqual(["mondays"]);
+    expect(ids("past")).toEqual(["past"]);
+  });
+
+  it("keeps an open-ended closure upcoming", () => {
+    const open = closure("open", "2026-11-01", { endsOn: null });
+    expect(specialDateRows([open], TODAY, "all")).toHaveLength(1);
+  });
+});
+
+describe("orphanRefundRules", () => {
+  it("returns outcomes with refunds a retry can touch whose rule is not listed", () => {
+    const summaries = [
+      summary("xmas", { refundFailed: 1 }),
+      summary("tonight", { refundPending: 2 }),
+      summary("reopened", { refundFailed: 1 }),
+      summary("settled", { total: 3 }),
+    ];
+
+    expect(orphanRefundRules(summaries, ["xmas"]).map((s) => s.ruleId)).toEqual([
+      "tonight",
+      "reopened",
+    ]);
+  });
+});

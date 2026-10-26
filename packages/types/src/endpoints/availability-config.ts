@@ -16,6 +16,8 @@ import {
   AvailabilityConfigStateSchema,
   AvailabilityDaySummarySchema,
   AvailabilityDaysQuerySchema,
+  CallListEntrySchema,
+  ClosureSummariesSchema,
   ClosureImpactBodySchema,
   ClosureImpactSchema,
   ClosureResultSchema,
@@ -23,6 +25,7 @@ import {
   PreviewAvailabilityBodySchema,
   PreviewResultSchema,
   PutAvailabilityConfigBodySchema,
+  RetryRefundsResultSchema,
   RevertAvailabilityChangeBodySchema,
   ReopenClosureBodySchema,
   ReopenResultSchema,
@@ -159,6 +162,54 @@ export const availabilityConfigEndpoints = {
         description: "`preview-timeout`: the preview took longer than 5 seconds; retry is safe",
         body: AvailabilityConfigProblemSchema,
       },
+    },
+  }),
+  listClosures: defineEndpoint({
+    method: "GET",
+    path: `${AVAILABILITY_CONFIG_PREFIX}/:id/closures`,
+    params: VenueParamsSchema,
+    responses: {
+      200: {
+        description:
+          "One summary per date rule that produced closure outcomes (closures and Tonight close-early, reopened or ended ones included): Sent / Rebooked / Unreachable and refund counts",
+        body: z.object({ data: ClosureSummariesSchema }),
+      },
+      401: authRequired,
+      403: notMember,
+      404: venueNotFound,
+    },
+  }),
+  closureCallList: defineEndpoint({
+    method: "GET",
+    path: `${AVAILABILITY_CONFIG_PREFIX}/:id/closures/:ruleId/call-list`,
+    params: ClosureParamsSchema,
+    responses: {
+      200: {
+        description:
+          "Guests the closure told but without a confirmed delivery or a rebooking: name, party, time and phone",
+        body: z.object({ data: z.array(CallListEntrySchema) }),
+      },
+      401: authRequired,
+      403: notMember,
+      404: venueNotFound,
+    },
+  }),
+  retryClosureRefunds: defineEndpoint({
+    method: "POST",
+    path: `${AVAILABILITY_CONFIG_PREFIX}/:id/closures/:ruleId/refunds/retry`,
+    params: ClosureParamsSchema,
+    responses: {
+      200: {
+        description:
+          "Re-enqueued the closure's refunds that are `pending` or `failed` (never `done` or `none`, so nothing is refunded twice); works for a reopened closure or an ended Tonight change",
+        body: z.object({ data: RetryRefundsResultSchema }),
+      },
+      401: authRequired,
+      403: notClosureCaller,
+      404: venueNotFound,
+      503: problem(
+        "The job queue failed partway; the detail says how many refunds were already queued. A row is only reset once its job exists, so retrying is safe"
+      ),
     },
   }),
   reopenClosure: defineEndpoint({

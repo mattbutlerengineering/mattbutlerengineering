@@ -2067,6 +2067,33 @@
       ): string[] { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/special-dates.ts">
+    <item priority="low">
+      type SpecialDatesFilter = "all" | "closures" | "special_hours" | "repeating" | "past";
+    </item>
+    <item priority="low">
+      type SpecialDateRule = Extract<DateRule, { kind: "closure" | "special_hours" }>;
+    </item>
+    <item priority="low">
+      interface SpecialDateRow {
+        rule: SpecialDateRule;
+        past: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function specialDateRows(
+        rules: readonly DateRule[],
+        today: string,
+        filter: SpecialDatesFilter
+      ): SpecialDateRow[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function orphanRefundRules(
+        summaries: readonly ClosureSummary[],
+        listedRuleIds: readonly string[]
+      ): ClosureSummary[] { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/tonight-state.ts">
     <item priority="low">
       type TonightChange = { readonly ruleId: string; rea | { readonly ruleId: string; rea | {
@@ -5468,6 +5495,24 @@
     <item priority="high">
       export const useCreateClosure: unknown;
     </item>
+    <item priority="high">
+      export const CLOSURE_SUMMARIES_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const CLOSURE_CALL_LIST_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const useClosureSummaries: unknown;
+    </item>
+    <item priority="high">
+      export const useClosureCallList: unknown;
+    </item>
+    <item priority="low">
+      type RetryClosureRefundsVariables = { venueId: string; ruleId: string };
+    </item>
+    <item priority="high">
+      export const useRetryClosureRefunds: unknown;
+    </item>
     <item priority="low">
       type ReopenClosureVariables = {
         venueId: string;
@@ -5919,6 +5964,14 @@
       export function useNow(intervalMs = DEFAULT_INTERVAL_MS): Date { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useOpenTimes.ts">
+    <item priority="high">
+      export const OPEN_TIMES_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const useOpenTimes: unknown;
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/usePublicApiClient.ts">
     <item priority="low">
       interface UsePublicApiClientOptions {
@@ -6032,6 +6085,36 @@
     </item>
     <item priority="high">
       export function useSessionClock(expiresAt: number | undefined): SessionClock { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useStaffBookingCheck.ts">
+    <item priority="high">
+      export const STAFF_BOOKING_CHECK_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      type BookingWindow = { start: string; end: string };
+    </item>
+    <item priority="low">
+      interface StaffCheckParams {
+        venueId: string | null | undefined;
+        window: BookingWindow | null;
+        partySize: number;
+        selectedTableId: string;
+      }
+    </item>
+    <item priority="low">
+      interface StaffCheckResult {
+        phase: "idle" | "checking" | "done" | "failed";
+        verdict: AvailabilityCheckResult | null;
+      }
+    </item>
+    <item priority="high">
+      export function useStaffBookingCheck({
+        venueId,
+        window,
+        partySize,
+        selectedTableId,
+      }: StaffCheckParams): StaffCheckResult { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useStatusMessage.ts">
@@ -10523,6 +10606,18 @@
       export const ReopenResultSchema: unknown;
     </item>
     <item priority="high">
+      export const ClosureSummarySchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureSummariesSchema: unknown;
+    </item>
+    <item priority="high">
+      export const RetryRefundsResultSchema: unknown;
+    </item>
+    <item priority="high">
+      export const CallListEntrySchema: unknown;
+    </item>
+    <item priority="high">
       export const TonightChangeSchema: unknown;
     </item>
     <item priority="high">
@@ -10554,6 +10649,15 @@
     </item>
     <item priority="low">
       type ReopenResult = z.infer<typeof ReopenResultSchema>;
+    </item>
+    <item priority="low">
+      type ClosureSummary = z.infer<typeof ClosureSummarySchema>;
+    </item>
+    <item priority="low">
+      type RetryRefundsResult = z.infer<typeof RetryRefundsResultSchema>;
+    </item>
+    <item priority="low">
+      type ClosureCallListEntry = z.infer<typeof CallListEntrySchema>;
     </item>
     <item priority="low">
       type AvailabilityCheckBody = z.infer<typeof AvailabilityCheckBodySchema>;
@@ -13980,7 +14084,9 @@
       export const URGENT_WINDOW_MS: unknown;
     </item>
     <item priority="high">
-      type Store = Pick<typeof defaultStore, "listNotifiable" | "listCallLis...;
+      type Store = Pick<
+        typeof defaultStore,
+        "listNotifiable" | "listCa...;
     </item>
     <item priority="high">
       type Scheduler = Pick<JobsPort, "schedule">;
@@ -14079,6 +14185,30 @@
         ruleId: string,
         db: Db = prisma
       ): Promise<CallListEntry[]> { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ClosureSummary {
+        ruleId: string;
+        total: number;
+        cancelled: number;
+        sent: number;
+        rebooked: number;
+      }
+    </item>
+    <item priority="high">
+      interface SummaryRow {
+        dateRuleId: string;
+        action: NoticeOutcome["action"];
+        deliveries: unknown;
+        rebookedReservationId: string | null;
+        refund: string;
+      }
+    </item>
+    <item priority="high">
+      export function summarizeOutcomes(rows: readonly SummaryRow[]): ClosureSummary[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function listSummaries(venueId: string, db: Db = prisma): Promise<ClosureSummary[]> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/closure-notice.ts">
@@ -14209,6 +14339,11 @@
         payload: ClosureRefundPayload,
         opts: { isFinalAttempt: boolean }
       ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      class ClosureRefundEnqueueError {
+        
+      }
     </item>
     <item priority="high">
       export async function enqueueClosureRefunds(

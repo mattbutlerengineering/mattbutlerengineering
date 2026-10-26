@@ -203,6 +203,9 @@ export function AvailabilityHistoryDrawer(props: AvailabilityHistoryDrawerProps)
             options={[
               { value: ALL, label: t("availability.history.typeAll") },
               { value: "config", label: t("availability.history.typeConfig") },
+              { value: "closure", label: t("availability.history.typeClosure") },
+              { value: "reopen", label: t("availability.history.typeReopen") },
+              { value: "tonight", label: t("availability.history.typeTonight") },
               { value: "revert", label: t("availability.history.typeRevert") },
             ]}
           />

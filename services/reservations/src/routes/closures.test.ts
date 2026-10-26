@@ -4,9 +4,12 @@ import {
   AVAILABILITY_CONFIG_PREFIX,
   AvailabilityConfigProblemSchema,
   ClosureResultSchema,
+  ClosureSummariesSchema,
   ReopenResultSchema,
 } from "@mbe/types";
 import { buildApp } from "../app.js";
+import { ClosureRefundEnqueueError } from "../services/closure-refund.js";
+import { jwtVerify } from "jose";
 
 vi.mock("../services/database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
@@ -21,7 +24,12 @@ vi.mock("jose", () => ({
 const URL = `${AVAILABILITY_CONFIG_PREFIX}/venue-1/closures`;
 const ADMIN = { "x-auth-bypass": "true" };
 const commandSvc = { mayClose: vi.fn(), create: vi.fn(), reopen: vi.fn() };
-const noticeSvc = { enqueueForClosure: vi.fn(), enqueueForReopen: vi.fn(), callList: vi.fn() };
+const noticeSvc = {
+  enqueueForClosure: vi.fn(),
+  enqueueForReopen: vi.fn(),
+  callList: vi.fn(),
+  summaries: vi.fn(),
+};
 const closureRefunds = { enqueue: vi.fn(), retry: vi.fn() };
 
 const rule = {
@@ -171,6 +179,122 @@ describe("closure routes", () => {
 
       expect(res.statusCode).toBe(status);
       if (code) expect(AvailabilityConfigProblemSchema.parse(res.json()).code).toBe(code);
+    });
+  });
+
+  describe("GET /closures", () => {
+    it("lists the outcome summary of every closure", async () => {
+      const summary = {
+        ruleId: "dr-new",
+        total: 14,
+        cancelled: 14,
+        sent: 11,
+        rebooked: 1,
+        unreachable: 2,
+        refundFailed: 1,
+        refundPending: 0,
+      };
+      noticeSvc.summaries.mockResolvedValueOnce([summary]);
+
+      const res = await app.inject({ method: "GET", url: URL, headers: ADMIN });
+
+      expect(res.statusCode).toBe(200);
+      expect(ClosureSummariesSchema.parse(res.json().data)).toEqual([summary]);
+      expect(noticeSvc.summaries).toHaveBeenCalledWith("venue-1");
+    });
+  });
+
+  describe("GET /closures/:ruleId/call-list", () => {
+    it("returns only the guests the service puts on the call list", async () => {
+      noticeSvc.callList.mockResolvedValueOnce([
+        {
+          outcomeId: "o-1",
+          reservationId: "r-1",
+          guestName: "Rivera",
+          partySize: 4,
+          startTime: new Date("2026-12-24T22:30:00Z"),
+          guestPhone: "+15555550100",
+        },
+      ]);
+
+      const res = await app.inject({
+        method: "GET",
+        url: `${URL}/dr-new/call-list`,
+        headers: ADMIN,
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json().data).toEqual([
+        {
+          outcomeId: "o-1",
+          reservationId: "r-1",
+          guestName: "Rivera",
+          partySize: 4,
+          startTime: "2026-12-24T22:30:00.000Z",
+          guestPhone: "+15555550100",
+        },
+      ]);
+      expect(noticeSvc.callList).toHaveBeenCalledWith("venue-1", "dr-new");
+    });
+  });
+
+  describe("POST /closures/:ruleId/refunds/retry", () => {
+    const retry = () =>
+      app.inject({ method: "POST", url: `${URL}/dr-new/refunds/retry`, headers: ADMIN });
+
+    it("re-enqueues through closureRefunds.retry, which only takes pending and failed rows", async () => {
+      closureRefunds.retry.mockResolvedValueOnce(2);
+
+      const res = await retry();
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json().data).toEqual({ enqueued: 2 });
+      expect(closureRefunds.retry).toHaveBeenCalledWith("venue-1", "dr-new");
+    });
+
+    it("answers 503 saying how many were queued before the queue failed", async () => {
+      closureRefunds.retry.mockRejectedValueOnce(new ClosureRefundEnqueueError(2, new Error("x")));
+
+      const res = await retry();
+
+      expect(res.statusCode).toBe(503);
+      expect(res.json().detail).toContain("2 queued");
+    });
+
+    it("answers 503 when the queue fails before anything was queued", async () => {
+      closureRefunds.retry.mockRejectedValueOnce(new Error("redis down"));
+      expect((await retry()).statusCode).toBe(503);
+    });
+
+    it("403s a Host without calling closureRefunds.retry", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: {
+          sub: "auth0|host",
+          iss: "https://test.auth0.com/",
+          aud: "https://api.example.com",
+          permissions: [],
+        },
+        protectedHeader: { alg: "RS256" },
+      } as never);
+      const scoped = await buildApp({
+        logger: false,
+        services: { closureCommandService: commandSvc as never },
+        closureRefunds,
+        venueMembershipLookup: vi.fn(async () => true),
+        venueRoleLookup: vi.fn(async () => "staff" as const),
+      });
+      await scoped.ready();
+
+      const res = await scoped.inject({
+        method: "POST",
+        url: `${URL}/dr-new/refunds/retry`,
+        headers: { authorization: "Bearer host" },
+      });
+
+      expect(res.body).toContain("Manager");
+      expect(res.statusCode).toBe(403);
+      expect(closureRefunds.retry).not.toHaveBeenCalled();
+      await scoped.close();
     });
   });
 
