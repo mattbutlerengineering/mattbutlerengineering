@@ -307,7 +307,11 @@ describe("DatePartySelector", () => {
       expect(closed.getAttribute("aria-label")).toMatch(/closed.*Closed for a private event/);
       fireEvent.click(closed);
       expect(onDateChange).not.toHaveBeenCalled();
-      expect(dayCell("2026-12-23").getAttribute("aria-label")).toBeNull();
+    });
+
+    it("gives an open date its full weekday and month as its accessible name", () => {
+      render(<DatePartySelector {...closedProps} />);
+      expect(dayCell("2026-12-23").getAttribute("aria-label")).toBe("Wednesday, December 23");
     });
 
     it("shows the guest message below the calendar while a closed date is focused", () => {

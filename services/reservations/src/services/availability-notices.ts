@@ -51,7 +51,10 @@ export function dayNotices(
       },
     };
   }
-  const closedByRule = day.closures.some((band) => band.targetKind !== "tables");
+  // A day the resolved config runs no service on (a closed regular weekday that no
+  // special date reopens) is closed too, so the guest calendar can disable it.
+  const closedByRule =
+    day.services.length === 0 || day.closures.some((band) => band.targetKind !== "tables");
   if (!closedByRule) return {};
   // Any seating left on the online channel means the date is open, if shorter.
   if (seatingCount > 0) return {};

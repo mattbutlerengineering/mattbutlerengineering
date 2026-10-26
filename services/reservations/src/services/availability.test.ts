@@ -893,7 +893,7 @@ describe("availabilityService.getDayAvailability", () => {
       logger,
     });
 
-    expect(day).toEqual({ slots: [] });
+    expect(day).toEqual({ slots: [], closure: { message: "Closed on this date." } });
     expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({ table: "venues", id: VENUE_ID }),
       "availability_snapshot_row_invalid"

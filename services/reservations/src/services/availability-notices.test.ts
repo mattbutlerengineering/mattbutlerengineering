@@ -65,13 +65,15 @@ describe("dayNotices", () => {
     expect(dayNotices(snapshot([]), DATE, null)).toEqual({});
   });
 
-  it("says nothing on a weekday the schedule simply does not cover", () => {
+  it("reports a weekday the regular week does not cover as closed", () => {
     const s = snapshot([]);
     const closedThursday = {
       ...s,
       config: { ...s.config, assignments: [{ ...s.config.assignments[0]!, weekdays: [0] }] },
     };
-    expect(dayNotices(closedThursday, DATE, null)).toEqual({});
+    expect(dayNotices(closedThursday, DATE, null)).toEqual({
+      closure: { message: DEFAULT_CLOSURE_MESSAGE },
+    });
   });
 
   it("carries the closure's guest message on a closed date", () => {
