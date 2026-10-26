@@ -3,6 +3,7 @@ import { availabilityConfigEndpoints, createProblemDetails } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
 import { registerEndpoint } from "@mbe/service-bootstrap";
 import { closureCaller } from "./closure-caller.js";
+import { enqueueClosureJobs } from "./closure-post-commit.js";
 import { sendRefusal } from "./closures.js";
 import { venueScoped } from "./venue-scope.js";
 
@@ -37,7 +38,21 @@ export const tonightRoutes: FastifyPluginAsync = async (fastify) => {
         body: request.body,
         now: new Date(),
       });
-      if (outcome.kind === "saved") return { data: outcome.result };
+      if (outcome.kind === "saved") {
+        const { outcomes, ruleId } = outcome.result;
+        const affected =
+          outcomes.cancel + outcomes.move + outcomes.keep_notify + outcomes.keep_silent;
+        // Only a close-early runs the closure command, so only it owes the
+        // closure's post-commit refunds and notices.
+        if (request.body.change.type === "close_early" && affected > 0) {
+          await enqueueClosureJobs(fastify, request.log, {
+            venueId,
+            ruleId,
+            cancelled: outcomes.cancel,
+          });
+        }
+        return { data: outcome.result };
+      }
       return sendRefusal(
         reply,
         outcome.kind === "rule_exists" ? { kind: "closure_exists" } : outcome

@@ -21,6 +21,8 @@ vi.mock("jose", () => ({
 const URL = `${AVAILABILITY_CONFIG_PREFIX}/venue-1/tonight`;
 const ADMIN = { "x-auth-bypass": "true" };
 const tonightSvc = { set: vi.fn(), end: vi.fn() };
+const noticeSvc = { enqueueForClosure: vi.fn(), enqueueForReopen: vi.fn(), callList: vi.fn() };
+const closureRefunds = { enqueue: vi.fn(), retry: vi.fn() };
 
 const BODY = { expectedVersion: 4, ruleId: "t-new", change: { type: "pause_online" } };
 const RESULT = {
@@ -45,7 +47,11 @@ describe("tonight routes", () => {
     };
     app = await buildApp({
       logger: false,
-      services: { tonightCommandService: tonightSvc as never },
+      services: {
+        tonightCommandService: tonightSvc as never,
+        closureNoticeService: noticeSvc as never,
+      },
+      closureRefunds,
     });
     await app.ready();
   });
@@ -74,6 +80,52 @@ describe("tonight routes", () => {
           body: { ...BODY, decisions: [] },
         })
       );
+    });
+
+    describe("post-commit closure jobs", () => {
+      const CLOSE_BODY = { ...BODY, change: { type: "close_early", closeAt: 1260 } };
+      const WITH_OUTCOMES = {
+        ...RESULT,
+        outcomes: { cancel: 2, move: 0, keep_notify: 1, keep_silent: 0 },
+      };
+
+      it("enqueues refunds and notices for a close-early with outcomes", async () => {
+        tonightSvc.set.mockResolvedValueOnce({ kind: "saved", result: WITH_OUTCOMES });
+
+        expect((await post(CLOSE_BODY)).statusCode).toBe(200);
+
+        expect(closureRefunds.enqueue).toHaveBeenCalledWith("venue-1", "t-new");
+        expect(noticeSvc.enqueueForClosure).toHaveBeenCalledWith(
+          expect.objectContaining({ venueId: "venue-1", ruleId: "t-new" })
+        );
+      });
+
+      it("enqueues nothing for a close-early with no outcomes", async () => {
+        tonightSvc.set.mockResolvedValueOnce({ kind: "saved", result: RESULT });
+
+        await post(CLOSE_BODY);
+
+        expect(closureRefunds.enqueue).not.toHaveBeenCalled();
+        expect(noticeSvc.enqueueForClosure).not.toHaveBeenCalled();
+      });
+
+      it("enqueues nothing for other Tonight kinds", async () => {
+        tonightSvc.set.mockResolvedValueOnce({ kind: "saved", result: WITH_OUTCOMES });
+
+        await post();
+
+        expect(closureRefunds.enqueue).not.toHaveBeenCalled();
+        expect(noticeSvc.enqueueForClosure).not.toHaveBeenCalled();
+      });
+
+      it("still answers 200, and still enqueues notices, when the refund enqueue fails", async () => {
+        tonightSvc.set.mockResolvedValueOnce({ kind: "saved", result: WITH_OUTCOMES });
+        closureRefunds.enqueue.mockRejectedValueOnce(new Error("redis down"));
+        noticeSvc.enqueueForClosure.mockRejectedValueOnce(new Error("redis down"));
+
+        expect((await post(CLOSE_BODY)).statusCode).toBe(200);
+        expect(noticeSvc.enqueueForClosure).toHaveBeenCalled();
+      });
     });
 
     it.each([

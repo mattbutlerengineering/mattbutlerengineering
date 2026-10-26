@@ -778,6 +778,22 @@
       export const CLOSURE_FORBIDDEN: unknown;
     </item>
   </file>
+  <file path="src/routes/closure-post-commit.ts">
+    <item priority="high">
+      export async function enqueueNotices(
+        enqueue: FastifyInstance["services"]["closureNoticeService"]["enqueueForClosure"],
+        input: { venueId: string; ruleId: string },
+        log: FastifyBaseLogger
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function enqueueClosureJobs(
+        fastify: FastifyInstance,
+        log: FastifyBaseLogger,
+        saved: { venueId: string; ruleId: string; cancelled: number }
+      ): Promise<void> { /* ... */ }
+    </item>
+  </file>
   <file path="src/routes/closures.ts">
     <item priority="high">
       type Refusal = Exclude<CreateClosureOutcome, { kind: "saved" }>;
