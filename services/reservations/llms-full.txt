@@ -10833,6 +10833,8 @@
           return {
             changes: { upsert: restore, remove: inverse.remove },
             scopeConflicts: "keep",
+            // The inverse is the exact prior state: no scope-conflict skips on top.
+            exact: true,
             kind: REVERT_KIND,
             summary: `Reverted: ${change.summary}`,
             // The column exactly as it was (null included), so undoing a venue's first
@@ -11248,6 +11250,12 @@
       snapshot: { timezone: string; config: AvailabilityConfig };
       changes: AvailabilityConfigChanges;
       scopeConflicts: ScopeConflictMode;
+      /**
+       * A revert: the rows are an exact prior state, so scope conflicts are not
+       * settled (they were settled when that state was first made) and the
+       * restored rows must not count as incoming.
+       */
+      exact?: boolean;
       tableIds: ReadonlySet<string>;
       now: Date;
       today: string;
@@ -11255,13 +11263,15 @@
     }): { next: AvailabilityConfig; issues: (ConfigIssue | ReferenceIssue)[] } {
       const { snapshot, now } = input;
       const applied = applyDraft(snapshot, input.changes, now.toISOString()).config;
-      const next = resolveScopeConflicts(
-        snapshot.config,
-        applied,
-        input.scopeConflicts,
-        input.newId,
-        input.today
-      );
+      const next = input.exact
+        ? applied
+        : resolveScopeConflicts(
+            snapshot.config,
+            applied,
+            input.scopeConflicts,
+            input.newId,
+            input.today
+          );
       return {
         next,
         issues: [...validateConfig(next), ...referenceIssues(next, input.tableIds)],
@@ -11584,12 +11594,15 @@
       newId?: () => string;
       /** Undoing a venue's first save returns it to no hours at all, which is not an error. */
       allowNoHours?: boolean;
+      /** A revert: apply the rows exactly, without settling scope conflicts. */
+      exact?: boolean;
     }): SavePlan {
       const { state, body, bookings, now } = input;
       const { next, issues: allIssues } = settleDraft({
         snapshot: { timezone: state.timezone, config: state.effective },
         changes: body.changes,
         scopeConflicts: body.scopeConflicts,
+        ...(input.exact ? { exact: true } : {}),
         tableIds: input.tableIds,
         now,
         today: civilDateIn(now, state.timezone),
@@ -11692,6 +11705,8 @@
       operatingHours?: Prisma.InputJsonValue | typeof Prisma.DbNull;
       /** Permit the result to have no live schedule (an undone first save). */
       allowNoHours?: boolean;
+      /** Apply the rows exactly, without settling scope conflicts (a revert). */
+      exact?: boolean;
       /** Date rules to bring back from soft-deletion instead of creating. */
       revive?: ReadonlySet<string>;
       /** Runs in the save transaction once the audit row exists. */
@@ -11744,6 +11759,7 @@
         tableIds,
         now,
         ...(request.allowNoHours ? { allowNoHours: true } : {}),
+        ...(request.exact ? { exact: true } : {}),
       });
       if (plan.kind !== "write") throw new SaveRefused(plan);
     
