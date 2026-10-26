@@ -92,7 +92,7 @@ describe("NewReservationDialog blocked tables (ux.md F8)", () => {
   });
 
   it("blocks an after-midnight time that still belongs to tonight's service", () => {
-    render(<NewReservationDialog {...props} defaultDate="2026-04-11" />);
+    render(<NewReservationDialog {...props} />);
     openPickerAt("00:30");
 
     expect(screen.getByRole("option", { name: /Table t2.*Blocked tonight/ })).toBeInTheDocument();

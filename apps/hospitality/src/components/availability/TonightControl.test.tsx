@@ -16,6 +16,9 @@ vi.mock("../../hooks/useTonight.js", () => ({
   useSetTonight: () => ({ mutateAsync: setTonight, isPending: false }),
   useEndTonight: () => ({ mutateAsync: endTonight, isPending: false }),
 }));
+const refresh = vi.hoisted(() => vi.fn());
+vi.mock("../../hooks/useRefreshAvailability.js", () => ({ useRefreshAvailability: () => refresh }));
+vi.mock("@mbe/auth/react", () => ({ useAuth: () => ({ user: { id: "auth0|me" } }) }));
 vi.mock("../../hooks/useViewport.js", () => ({ useViewport: () => viewport.value }));
 vi.mock("../../hooks/useClosures.js", () => ({
   useClosureImpact: (args: unknown) => ({
@@ -92,6 +95,21 @@ function decisionRequired() {
       detail: "Every affected group needs a choice",
       code: "decision-required",
       groupKeys: [`${TODAY}:shortened`],
+    } as never,
+    "POST",
+    "tonight"
+  );
+}
+
+function conflict(code: "version-conflict" | "closure-exists", winningChange?: unknown) {
+  return new ApiClientError(
+    {
+      type: "about:blank",
+      title: "Conflict",
+      status: 409,
+      detail: "conflict",
+      code,
+      ...(winningChange ? { winningChange } : {}),
     } as never,
     "POST",
     "tonight"
@@ -296,6 +314,63 @@ describe("TonightControl", () => {
       open();
       fireEvent.click(screen.getByRole("switch", { name: "Pause online booking" }));
       expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't apply that change");
+    });
+  });
+
+  describe("conflicts", () => {
+    it("names the change that won on a version conflict and refreshes", async () => {
+      setTonight.mockRejectedValueOnce(
+        conflict("version-conflict", {
+          id: "c1",
+          actorId: "auth0|ana",
+          at: "2026-10-30T20:15:00Z",
+          kind: "tonight",
+          summary: "Paused online booking",
+        })
+      );
+      renderControl();
+      open();
+      fireEvent.click(screen.getAllByRole("button", { name: "Apply" })[0]!);
+      const alert = await screen.findByRole("alert");
+      expect(alert).toHaveTextContent(/changed first by a teammate/i);
+      expect(alert).toHaveTextContent("Paused online booking");
+      expect(refresh).toHaveBeenCalled();
+    });
+
+    it("refreshes instead of looping when the attempt already committed", async () => {
+      setTonight.mockRejectedValueOnce(conflict("closure-exists"));
+      renderControl();
+      open();
+      fireEvent.click(screen.getAllByRole("button", { name: "Apply" })[0]!);
+      expect(await screen.findByRole("alert")).toHaveTextContent(/already applied/i);
+      expect(refresh).toHaveBeenCalled();
+      // The next apply is a new attempt, not a replay of the committed id.
+      fireEvent.click(screen.getAllByRole("button", { name: "Apply" })[0]!);
+      await waitFor(() => expect(setTonight).toHaveBeenCalledTimes(2));
+      const [first, second] = setTonight.mock.calls.map((c) => c[0].body);
+      expect(second.ruleId).not.toBe(first.ruleId);
+    });
+
+    it("keeps the attempt id for a retry of the same change, and mints a new one when it changes", async () => {
+      setTonight.mockRejectedValue(new Error("lost"));
+      renderControl({ state: lateState() });
+      open();
+      const apply = () => fireEvent.click(screen.getAllByRole("button", { name: "Apply" })[0]!);
+      apply();
+      await waitFor(() => expect(setTonight).toHaveBeenCalledTimes(1));
+      await screen.findByRole("alert");
+      apply();
+      await waitFor(() => expect(setTonight).toHaveBeenCalledTimes(2));
+      await waitFor(() =>
+        expect(screen.getAllByRole("button", { name: "Apply" })[0]).toBeEnabled()
+      );
+      fireEvent.click(screen.getByRole("combobox", { name: "Close early at" }));
+      fireEvent.click(screen.getByRole("option", { name: "1:00 AM (next day)" }));
+      apply();
+      await waitFor(() => expect(setTonight).toHaveBeenCalledTimes(3));
+      const [first, second, third] = setTonight.mock.calls.map((c) => c[0].body);
+      expect(second.ruleId).toBe(first.ruleId);
+      expect(third.ruleId).not.toBe(first.ruleId);
     });
   });
 

@@ -464,6 +464,66 @@ describe("createClosure", () => {
     expect(w.reservations[0]!.startTime).toEqual(new Date("2026-12-25T03:00:00.000Z"));
   });
 
+  it("never moves a booking into the past: a close-early with no later fit refuses the move", async () => {
+    const closeEarly = {
+      ...SHORTENED,
+      startsOn: "2026-10-25",
+      endsOn: "2026-10-25",
+      payload: {
+        version: 1,
+        services: [
+          {
+            venueServiceId: "vs-dinner",
+            opensAt: 1020,
+            lastSeatingAt: 1260,
+            closesAt: 1260, // closes at 9:00 PM
+            seating: { version: 1, interval: 15 },
+            bookingTypes: ["online", "phone"],
+          },
+        ],
+      },
+    } as DateRule;
+    const w = world({
+      reservations: [
+        // 8:00-10:00 PM PDT on Oct 25
+        res("res-1", "2026-10-25", "2026-10-26T03:00:00.000Z", "2026-10-26T05:00:00.000Z"),
+      ],
+    });
+    const { outcome } = await run(
+      w,
+      body({
+        rule: closeEarly,
+        decisions: [{ groupKey: "2026-10-25:shortened", action: "move" }],
+      }),
+      { now: new Date("2026-10-26T02:45:00.000Z") } // 7:45 PM PDT
+    );
+    expect(outcome).toEqual({ kind: "move_unavailable", reservationIds: ["res-1"] });
+    expect(w.reservations[0]!.startTime).toEqual(new Date("2026-10-26T03:00:00.000Z"));
+  });
+
+  it("moves a booking out of a closure window so it ends where the window starts", async () => {
+    const w = world({
+      service: { opensAt: 1020, lastSeatingAt: 1350, closesAt: 1380 },
+      reservations: [
+        // 10:15-11:45 PM PST on Dec 24
+        res("res-1", "2026-12-24", "2026-12-25T06:15:00.000Z", "2026-12-25T07:45:00.000Z"),
+      ],
+    });
+    const windowed = closure({
+      targetKind: "venue",
+      window: { version: 1, from: 1320, to: 1380 }, // 10:00-11:00 PM
+    });
+    const { outcome } = await run(
+      w,
+      body({ rule: windowed, decisions: [{ groupKey: "2026-12-24:shortened", action: "move" }] })
+    );
+    expect(outcome).toMatchObject({ kind: "saved", result: { outcomes: { move: 1 } } });
+    expect(w.reservations[0]).toMatchObject({
+      startTime: new Date("2026-12-25T04:30:00.000Z"), // 8:30 PM, ends 10:00 PM
+      endTime: new Date("2026-12-25T06:00:00.000Z"),
+    });
+  });
+
   it("takes the table's advisory lock before a move's clash check", async () => {
     const w = world({
       reservations: [

@@ -24,6 +24,14 @@ const today = new Date().toLocaleDateString("en-CA");
 vi.mock("../contexts/VenueContext.js", () => ({ useVenue: vi.fn() }));
 vi.mock("../hooks/useReservationDisplay.js", () => ({ useReservationDisplay: vi.fn() }));
 vi.mock("../hooks/useTables.js", () => ({ useTables: vi.fn() }));
+vi.mock("../hooks/useStaffTonight.js", () => ({
+  useStaffTonight: () => ({
+    serviceDate: "2026-05-14",
+    config: null,
+    rules: [],
+    waitlistClosed: false,
+  }),
+}));
 vi.mock("../hooks/useReservations.js", () => ({ useCreateReservation: vi.fn() }));
 
 vi.mock("../components/PageHeader", () => ({
@@ -69,13 +77,15 @@ const NEW_RESERVATION_PAYLOAD: CreateReservationRequest = {
 
 vi.mock("../components/reservations/NewReservationDialog.js", () => ({
   NewReservationDialog: ({
+    defaultDate,
     onConfirm,
     onClose,
   }: {
+    defaultDate: string;
     onConfirm: (data: CreateReservationRequest) => Promise<void>;
     onClose: () => void;
   }) => (
-    <div data-testid="new-reservation-dialog">
+    <div data-testid="new-reservation-dialog" data-default-date={defaultDate}>
       {/* Mirrors the real dialog's onFormSubmit: catch so a rejected
           onConfirm doesn't surface as an unhandled rejection in this stub —
           the real error-banner display is covered by
@@ -878,6 +888,20 @@ describe("ReservationsPage", () => {
       renderPage();
 
       expect(screen.getByText("New reservation").closest("button")).toBeDisabled();
+    });
+  });
+
+  describe("New reservation default date", () => {
+    it("defaults to the current service day, not the calendar date, when the URL has no date", async () => {
+      renderAt("/reservations?new=true");
+      const dialog = await screen.findByTestId("new-reservation-dialog");
+      expect(dialog).toHaveAttribute("data-default-date", "2026-05-14");
+    });
+
+    it("keeps the date the URL names", async () => {
+      renderAt("/reservations?new=true&date=2026-06-01");
+      const dialog = await screen.findByTestId("new-reservation-dialog");
+      expect(dialog).toHaveAttribute("data-default-date", "2026-06-01");
     });
   });
 

@@ -260,6 +260,14 @@
       ): AvailabilityConfigChanges { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/conflict-problem.ts">
+    <item priority="low">
+      type Conflict = { readonly code: "version-conf | { readonly code: "closure-exis;
+    </item>
+    <item priority="high">
+      export function conflictOf(error: unknown): Conflict | null { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/copy-day.ts">
     <item priority="low">
       interface CopyTarget {
@@ -932,6 +940,11 @@
           | "availabilitySpecial.series.stranded"
           | "availabilitySpecial.rowStranded" = "availabilitySchedules.stranded"
       ) { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/use-winning-change-text.ts">
+    <item priority="high">
+      export function useWinningChangeText(winningChange: AvailabilityChangeSummary | null): string { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/useDateSelection.ts">
@@ -2836,6 +2849,11 @@
       export function usePublicApiClient(options: UsePublicApiClientOptions = {}) { /* ... */ }
     </item>
   </file>
+  <file path="src/hooks/useRefreshAvailability.ts">
+    <item priority="high">
+      export function useRefreshAvailability(): () => void { /* ... */ }
+    </item>
+  </file>
   <file path="src/hooks/useReservationDisplay.ts">
     <item priority="low">
       type StatusFilter = "all" | ReservationStatus;
@@ -4428,6 +4446,24 @@
       export function tablesThatFit<
         T extends Pick<Table, "status" | "capacity" | "minCovers" | "maxCovers">,
       >(tables: readonly T[], partySize: number): T[] { /* ... */ }
+    </item>
+  </file>
+  <file path="src/utils/service-day-start.ts">
+    <item priority="high">
+      export function serviceDayCalendarDate(
+        config: AvailabilityConfig | null | undefined,
+        timeZone: string,
+        serviceDate: string,
+        hhmm: string
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function serviceDayStartInstant(
+        config: AvailabilityConfig | null | undefined,
+        timeZone: string,
+        serviceDate: string,
+        hhmm: string
+      ): Date { /* ... */ }
     </item>
   </file>
   <file path="src/utils/service-day.ts">
