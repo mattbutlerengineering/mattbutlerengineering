@@ -37,7 +37,7 @@ function problem(
   };
 }
 
-function sendRefusal(reply: FastifyReply, outcome: Refusal) {
+export function sendRefusal(reply: FastifyReply, outcome: Refusal) {
   switch (outcome.kind) {
     case "not_found":
       return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));

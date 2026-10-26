@@ -62,6 +62,7 @@ interface World {
     inverse: unknown;
     kind: string;
     notifiedGuests: boolean;
+    summary: string;
   }[];
   outcomes: Record<string, unknown>[];
   events: { reservationId: string; kind: string; actorId: string }[];
@@ -791,5 +792,74 @@ describe("reopenClosure", () => {
 
     const author = await reopen(w, HOST);
     expect(author.outcome.kind).toBe("reopened");
+  });
+});
+
+describe("createClosure for a Tonight close-early (#7529)", () => {
+  const TONIGHT_KINDS = new Set(["tonight"]);
+  const closeEarly = {
+    id: "t-new",
+    kind: "tonight",
+    targetKind: "venue",
+    startsOn: "2026-10-25",
+    endsOn: "2026-10-25",
+    payload: { version: 1, closeAt: 1260 },
+    expiresAt: "2026-10-26T07:00:00.000Z",
+  } as DateRule;
+  const tonightWorld = () =>
+    world({
+      reservations: [
+        res("res-t", "2026-10-25", "2026-10-26T04:30:00.000Z", "2026-10-26T06:00:00.000Z"),
+      ],
+    });
+  const tonightBody = (patch: Partial<CreateClosureBody> = {}) =>
+    body({
+      rule: closeEarly,
+      decisions: [{ groupKey: "2026-10-25:shortened", action: "cancel" }],
+      ...patch,
+    });
+  const runTonight = async (w: World, b: CreateClosureBody, caller = MANAGER) => {
+    const { client } = fakeClient(w);
+    return createClosure(
+      {
+        venueId: "v",
+        caller,
+        body: b,
+        idempotencyKey: "tonight:t-new",
+        now: NOW,
+        ruleKinds: TONIGHT_KINDS,
+      },
+      client
+    );
+  };
+
+  it("lets a Host close early tonight, without the emergency grant, and cancels the late booking", async () => {
+    const w = tonightWorld();
+    const outcome = await runTonight(w, tonightBody(), HOST);
+
+    expect(outcome).toMatchObject({ kind: "saved", result: { outcomes: { cancel: 1 } } });
+    expect(w.reservations[0]!.status).toBe("CANCELLED");
+    expect(w.events).toEqual([
+      expect.objectContaining({ reservationId: "res-t", kind: "cancelled" }),
+    ]);
+    expect(w.changes[0]!.summary).toMatch(/^Closing early 2026-10-25/);
+  });
+
+  it("asks for a decision for the bookings after the new close", async () => {
+    const w = tonightWorld();
+    const outcome = await runTonight(w, tonightBody({ decisions: [] }), HOST);
+    expect(outcome).toEqual({ kind: "decision_required", groupKeys: ["2026-10-25:shortened"] });
+    expect(w.reservations[0]!.status).toBe("CONFIRMED");
+  });
+
+  it("refuses a Host a close-early dated another day", async () => {
+    const other = { ...closeEarly, startsOn: "2026-10-27", endsOn: "2026-10-27" } as DateRule;
+    const outcome = await runTonight(tonightWorld(), tonightBody({ rule: other }), HOST);
+    expect(outcome).toEqual({ kind: "forbidden" });
+  });
+
+  it("is not a closure: POST /closures (default kinds) refuses a Tonight rule", async () => {
+    const { outcome } = await run(tonightWorld(), tonightBody());
+    expect(outcome).toMatchObject({ kind: "invalid", issues: [{ code: "unsupported_kind" }] });
   });
 });

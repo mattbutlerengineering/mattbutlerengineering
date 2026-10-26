@@ -16,6 +16,8 @@ import type {
   CreateClosureBodySchema,
   DateRule,
   ReopenResult,
+  SetTonightBodySchema,
+  TonightResult,
   AvailabilityCheckBody,
   AvailabilityCheckResult,
   PreviewAvailabilityBody,
@@ -49,6 +51,9 @@ export type SaveAvailabilityConfigRequest = z.input<typeof PutAvailabilityConfig
 
 /** What `createClosure` sends; `decisions` defaults to none. */
 export type CreateClosureRequest = z.input<typeof CreateClosureBodySchema>;
+
+/** What `setTonight` sends; `decisions` defaults to none. */
+export type SetTonightRequest = z.input<typeof SetTonightBodySchema>;
 
 export class AvailabilityClient {
   constructor(private client: ApiClient) {}
@@ -200,6 +205,30 @@ export class AvailabilityClient {
     const response = await this.client.call(availabilityConfigEndpoints.reopenClosure, {
       params: { id: venueId, ruleId },
       body: { tellCancelledGuests },
+    });
+    return response.data;
+  }
+
+  /**
+   * Applies one Tonight change (pause online, close early, stop a window,
+   * block tables, pacing) for the current service day; it ends at the day's
+   * boundary on its own. `body.ruleId` makes a retry safe. A close-early with
+   * bookings rejects with `decision-required` until `decisions` answer each
+   * affected group.
+   */
+  async setTonight(venueId: string, body: SetTonightRequest): Promise<TonightResult> {
+    const response = await this.client.call(
+      availabilityConfigEndpoints.setTonight,
+      { params: { id: venueId }, body },
+      { idempotentRetry: true }
+    );
+    return response.data;
+  }
+
+  /** Ends a Tonight change early; bookings a close-early cancelled stay cancelled. */
+  async endTonight(venueId: string, ruleId: string): Promise<ReopenResult> {
+    const response = await this.client.call(availabilityConfigEndpoints.endTonight, {
+      params: { id: venueId, ruleId },
     });
     return response.data;
   }
