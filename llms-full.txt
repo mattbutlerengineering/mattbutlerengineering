@@ -47739,8 +47739,9 @@
       async function deliverReminder(payload: ReminderPayload, ctx: JobContext): Promise<void> {
         return runWithVenueContext(payload.venueId, async () => {
           const reservation = await deps.getReservation(payload.reservationId);
-          // Only a live booking is reminded: a venue-cancelled (closure) one must not be.
-          if (!reservation || reservation.status !== "CONFIRMED") return;
+          // Only a live booking (PENDING or CONFIRMED) is reminded: a venue-cancelled
+          // (closure) one must not be.
+          if (!reservation || !LIVE_REMINDER_STATUSES.has(reservation.status)) return;
     
           const venue = await deps.getVenue(payload.venueId);
           // No email or missing venue → nothing deliverable; return (no retry).

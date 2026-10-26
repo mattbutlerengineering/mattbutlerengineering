@@ -397,6 +397,22 @@ describe("reservations JobWorker wiring — schedule → dequeue → deliver", (
     }
   );
 
+  it.each(["PENDING", "CONFIRMED"] as const)(
+    "reminder handler still delivers for a live %s reservation",
+    async (status) => {
+      const deps = makeDeps();
+      deps.getReservation.mockResolvedValueOnce(makeReservation({ status }));
+      new JobWorker({
+        redisUrl: "redis://localhost:6379",
+        handlers: createReservationJobHandlers(deps),
+      });
+
+      await bus.processor!({ name: JOB_TYPES.BOOKING_REMINDER, data: reminderPayload });
+
+      expect(deps.dispatcher.sendBookingReminder).toHaveBeenCalledTimes(1);
+    }
+  );
+
   it("reminder handler skips delivery when the guest has no email", async () => {
     const deps = makeDeps();
     deps.getReservation.mockResolvedValueOnce(makeReservation({ guestEmail: null }));
