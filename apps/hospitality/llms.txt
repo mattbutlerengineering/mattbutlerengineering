@@ -675,6 +675,33 @@
       ): string[] { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/special-dates.ts">
+    <item priority="low">
+      type SpecialDatesFilter = "all" | "closures" | "special_hours" | "repeating" | "past";
+    </item>
+    <item priority="low">
+      type SpecialDateRule = Extract<DateRule, { kind: "closure" | "special_hours" }>;
+    </item>
+    <item priority="low">
+      interface SpecialDateRow {
+        rule: SpecialDateRule;
+        past: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function specialDateRows(
+        rules: readonly DateRule[],
+        today: string,
+        filter: SpecialDatesFilter
+      ): SpecialDateRow[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function orphanRefundRules(
+        summaries: readonly ClosureSummary[],
+        listedRuleIds: readonly string[]
+      ): ClosureSummary[] { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/use-discard-guard.ts">
     <item priority="high">
       export function useDiscardGuard<T>(apply: (next: T) => void) { /* ... */ }
@@ -2058,6 +2085,24 @@
     </item>
     <item priority="high">
       export const useCreateClosure: unknown;
+    </item>
+    <item priority="high">
+      export const CLOSURE_SUMMARIES_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const CLOSURE_CALL_LIST_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const useClosureSummaries: unknown;
+    </item>
+    <item priority="high">
+      export const useClosureCallList: unknown;
+    </item>
+    <item priority="low">
+      type RetryClosureRefundsVariables = { venueId: string; ruleId: string };
+    </item>
+    <item priority="high">
+      export const useRetryClosureRefunds: unknown;
     </item>
     <item priority="low">
       type ReopenClosureVariables = {

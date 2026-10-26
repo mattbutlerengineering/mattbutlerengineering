@@ -15,6 +15,9 @@ import type {
   AvailabilityDaySummary,
   ClosureImpact,
   ClosureResult,
+  ClosureSummary,
+  ClosureCallListEntry,
+  RetryRefundsResult,
   CreateClosureBodySchema,
   DateRule,
   ReopenResult,
@@ -227,6 +230,30 @@ export class AvailabilityClient {
     const response = await this.client.call(availabilityConfigEndpoints.revertChange, {
       params: { id: venueId, changeId },
       body: { expectedVersion },
+    });
+    return response.data;
+  }
+
+  /** Sent / Rebooked / Unreachable and refund counts per closure (Special dates tab). */
+  async listClosures(venueId: string): Promise<ClosureSummary[]> {
+    const response = await this.client.call(availabilityConfigEndpoints.listClosures, {
+      params: { id: venueId },
+    });
+    return response.data;
+  }
+
+  /** Guests a closure told without a confirmed delivery or rebooking. */
+  async closureCallList(venueId: string, ruleId: string): Promise<ClosureCallListEntry[]> {
+    const response = await this.client.call(availabilityConfigEndpoints.closureCallList, {
+      params: { id: venueId, ruleId },
+    });
+    return response.data;
+  }
+
+  /** Re-enqueues a closure's `pending` / `failed` refunds (Manager). */
+  async retryClosureRefunds(venueId: string, ruleId: string): Promise<RetryRefundsResult> {
+    const response = await this.client.call(availabilityConfigEndpoints.retryClosureRefunds, {
+      params: { id: venueId, ruleId },
     });
     return response.data;
   }

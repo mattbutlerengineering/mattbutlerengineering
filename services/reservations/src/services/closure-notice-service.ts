@@ -7,7 +7,10 @@ import type { ClosureWindow, NoticeVariant } from "./closure-notice-store.js";
 /** A closure that starts within this long is urgent (ux.md F5: 6 hours). */
 export const URGENT_WINDOW_MS = 6 * 60 * 60 * 1000;
 
-type Store = Pick<typeof defaultStore, "listNotifiable" | "listCallList" | "loadClosureWindow">;
+type Store = Pick<
+  typeof defaultStore,
+  "listNotifiable" | "listCallList" | "listSummaries" | "loadClosureWindow"
+>;
 type Scheduler = Pick<JobsPort, "schedule">;
 
 interface EnqueueInput {
@@ -82,6 +85,7 @@ export function createClosureNoticeService(deps: { scheduler: Scheduler; store?:
     enqueueForClosure: (input: EnqueueInput) => enqueue("closure", input),
     enqueueForReopen: (input: EnqueueInput) => enqueue("reopened", input),
     callList: (venueId: string, ruleId: string) => store.listCallList(venueId, ruleId),
+    summaries: (venueId: string) => store.listSummaries(venueId),
   };
 }
 

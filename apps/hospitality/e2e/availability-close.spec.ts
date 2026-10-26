@@ -129,6 +129,8 @@ async function mockAvailability(page: Page, closeDate: string) {
     );
   });
   await page.route(`${base}/closures`, (route) => {
+    // The Special dates tab lists closure outcomes; none exist in this flow.
+    if (route.request().method() === "GET") return route.fulfill(json([]));
     saved = route.request().postDataJSON() as Record<string, unknown>;
     version += 1;
     return route.fulfill(

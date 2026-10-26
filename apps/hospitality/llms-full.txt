@@ -1538,6 +1538,35 @@
       return normalizeDates(days.filter((d) => d.scheduleId === scheduleId).map((d) => d.serviceDate));
     }
   </file>
+  <file path="src/components/availability/special-dates.ts">
+    export type SpecialDatesFilter = "all" | "closures" | "special_hours" | "repeating" | "past";
+    export type SpecialDateRule = Extract<DateRule, { kind: "closure" | "special_hours" }>;
+    export interface SpecialDateRow {
+      readonly rule: SpecialDateRule;
+      readonly past: boolean;
+    }
+    export function specialDateRows(
+      rules: readonly DateRule[],
+      today: string,
+      filter: SpecialDatesFilter
+    ): SpecialDateRow[] {
+      const rows = rules
+        .filter(isSpecialDate)
+        .map((rule) => ({ rule, past: isPast(rule, today) }))
+        .filter((row) => matches(row, filter));
+      const byStart = (a: SpecialDateRow, b: SpecialDateRow) =>
+        a.rule.startsOn.localeCompare(b.rule.startsOn);
+      return [...rows].sort(filter === "past" ? (a, b) => byStart(b, a) : byStart);
+    }
+    export function orphanRefundRules(
+      summaries: readonly ClosureSummary[],
+      listedRuleIds: readonly string[]
+    ): ClosureSummary[] {
+      return summaries.filter(
+        (s) => s.refundFailed + s.refundPending > 0 && !listedRuleIds.includes(s.ruleId)
+      );
+    }
+  </file>
   <file path="src/components/availability/use-discard-guard.ts">
     export function useDiscardGuard<T>(apply: (next: T) => void) {
       const [dirty, setDirty] = useState(false);
@@ -3362,6 +3391,15 @@
         if (route.request().method() !== "GET") return route.fallback();
         return jsonOk(route, buildAvailabilityConfigFixture());
       });
+    
+      // Special dates tab (#7527): no closures have outcomes yet. Only GET; the Close dialog's POST
+      // (and each spec's own stateful mock) falls through.
+      await page.route(/\/api\/v1\/venues\/[^/?]+\/closures$/, (route) =>
+        route.request().method() === "GET" ? jsonOk(route, []) : route.fallback()
+      );
+      await page.route(/\/api\/v1\/venues\/[^/?]+\/closures\/[^/?]+\/call-list$/, (route) =>
+        jsonOk(route, [])
+      );
     
       // Venue Groups
       await page.route("**/api/v1/venues/groups*", (route) => emptyPaginated(route));
@@ -5969,13 +6007,47 @@
       mutationFn: (api, { venueId, body, idempotencyKey }) =>
         api.availability.createClosure(venueId, body, idempotencyKey),
     });
+    export const CLOSURE_SUMMARIES_QUERY_KEY = "closureSummaries" as const;
+    export const CLOSURE_CALL_LIST_QUERY_KEY = "closureCallList" as const;
+    export const useClosureSummaries = createQueryHook<
+      ClosureSummary[] | null,
+      { venueId: string | null }
+    >({
+      key: CLOSURE_SUMMARIES_QUERY_KEY,
+      fetcher: async (params, api) =>
+        params?.venueId ? api.availability.listClosures(params.venueId) : null,
+      getEnabled: (params) => !!params?.venueId && params.enabled !== false,
+    });
+    export const useClosureCallList = createQueryHook<
+      ClosureCallListEntry[] | null,
+      { venueId: string | null; ruleId: string | null }
+    >({
+      key: CLOSURE_CALL_LIST_QUERY_KEY,
+      fetcher: async (params, api) =>
+        params?.venueId && params.ruleId
+          ? api.availability.closureCallList(params.venueId, params.ruleId)
+          : null,
+      getEnabled: (params) => !!params?.venueId && !!params.ruleId && params.enabled !== false,
+    });
+    export type RetryClosureRefundsVariables = { venueId: string; ruleId: string };
+    export const useRetryClosureRefunds = createMutationHook<
+      RetryClosureRefundsVariables,
+      RetryRefundsResult
+    >({
+      invalidateKeys: [CLOSURE_SUMMARIES_QUERY_KEY],
+      mutationFn: (api, { venueId, ruleId }) => api.availability.retryClosureRefunds(venueId, ruleId),
+    });
     export type ReopenClosureVariables = {
       venueId: string;
       ruleId: string;
       tellCancelledGuests: boolean;
     };
     export const useReopenClosure = createMutationHook<ReopenClosureVariables, ReopenResult>({
-      invalidateKeys: [AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY],
+      invalidateKeys: [
+        AVAILABILITY_CONFIG_QUERY_KEY,
+        AVAILABILITY_DAYS_QUERY_KEY,
+        CLOSURE_SUMMARIES_QUERY_KEY,
+      ],
       mutationFn: (api, { venueId, ruleId, tellCancelledGuests }) =>
         api.availability.reopenClosure(venueId, ruleId, tellCancelledGuests),
     });

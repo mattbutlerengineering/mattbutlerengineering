@@ -201,3 +201,75 @@ export async function listCallList(
       guestPhone: row.reservation.guestPhone,
     }));
 }
+
+export interface ClosureSummary {
+  ruleId: string;
+  total: number;
+  cancelled: number;
+  sent: number;
+  rebooked: number;
+  unreachable: number;
+  refundFailed: number;
+  refundPending: number;
+}
+
+interface SummaryRow {
+  dateRuleId: string;
+  action: NoticeOutcome["action"];
+  deliveries: unknown;
+  rebookedReservationId: string | null;
+  refund: string;
+}
+
+const EMPTY_SUMMARY = {
+  total: 0,
+  cancelled: 0,
+  sent: 0,
+  rebooked: 0,
+  unreachable: 0,
+  refundFailed: 0,
+  refundPending: 0,
+};
+
+/** Folds outcome rows into one summary per date rule, in first-seen order. */
+export function summarizeOutcomes(rows: readonly SummaryRow[]): ClosureSummary[] {
+  const byRule = new Map<string, ClosureSummary>();
+  for (const row of rows) {
+    const deliveries = row.deliveries as Deliveries;
+    const rebooked = row.rebookedReservationId !== null;
+    const prev = byRule.get(row.dateRuleId) ?? { ruleId: row.dateRuleId, ...EMPTY_SUMMARY };
+    const confirmed = deliveries.email === "sent" || deliveries.sms === "sent";
+    byRule.set(row.dateRuleId, {
+      ...prev,
+      total: prev.total + 1,
+      cancelled: prev.cancelled + (row.action === "cancel" ? 1 : 0),
+      sent: prev.sent + (confirmed ? 1 : 0),
+      rebooked: prev.rebooked + (rebooked ? 1 : 0),
+      unreachable:
+        prev.unreachable + (isOnCallList({ action: row.action, deliveries, rebooked }) ? 1 : 0),
+      refundFailed: prev.refundFailed + (row.refund === "failed" ? 1 : 0),
+      refundPending: prev.refundPending + (row.refund === "pending" ? 1 : 0),
+    });
+  }
+  return [...byRule.values()];
+}
+
+/**
+ * Sent / Rebooked / Unreachable and refund counts per closure, for the Special
+ * dates tab. Keyed by the outcome's `dateRuleId`, so a reopened closure and an
+ * ended (soft-deleted) Tonight close-early are still counted.
+ */
+export async function listSummaries(venueId: string, db: Db = prisma): Promise<ClosureSummary[]> {
+  const rows = await db.closureOutcome.findMany({
+    where: { venueId },
+    orderBy: { createdAt: "asc" },
+    select: {
+      dateRuleId: true,
+      action: true,
+      deliveries: true,
+      rebookedReservationId: true,
+      refund: true,
+    },
+  });
+  return summarizeOutcomes(rows);
+}

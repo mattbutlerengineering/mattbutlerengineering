@@ -1,4 +1,12 @@
-import type { ClosureImpact, ClosureResult, DateRule, ReopenResult } from "@mbe/types";
+import type {
+  ClosureCallListEntry,
+  ClosureImpact,
+  ClosureResult,
+  ClosureSummary,
+  DateRule,
+  ReopenResult,
+  RetryRefundsResult,
+} from "@mbe/types";
 import type { AvailabilityClient } from "@mbe/api-client";
 import { AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY } from "./useAvailability.js";
 import { createMutationHook } from "./create-mutation-hook.js";
@@ -35,15 +43,57 @@ export const useCreateClosure = createMutationHook<CreateClosureVariables, Closu
     api.availability.createClosure(venueId, body, idempotencyKey),
 });
 
+export const CLOSURE_SUMMARIES_QUERY_KEY = "closureSummaries" as const;
+export const CLOSURE_CALL_LIST_QUERY_KEY = "closureCallList" as const;
+
+/** Sent / Rebooked / Unreachable and refund counts per closure (Special dates tab). */
+export const useClosureSummaries = createQueryHook<
+  ClosureSummary[] | null,
+  { venueId: string | null }
+>({
+  key: CLOSURE_SUMMARIES_QUERY_KEY,
+  fetcher: async (params, api) =>
+    params?.venueId ? api.availability.listClosures(params.venueId) : null,
+  getEnabled: (params) => !!params?.venueId && params.enabled !== false,
+});
+
+/** One closure's call list: guests told without a confirmed delivery or rebooking. */
+export const useClosureCallList = createQueryHook<
+  ClosureCallListEntry[] | null,
+  { venueId: string | null; ruleId: string | null }
+>({
+  key: CLOSURE_CALL_LIST_QUERY_KEY,
+  fetcher: async (params, api) =>
+    params?.venueId && params.ruleId
+      ? api.availability.closureCallList(params.venueId, params.ruleId)
+      : null,
+  getEnabled: (params) => !!params?.venueId && !!params.ruleId && params.enabled !== false,
+});
+
+export type RetryClosureRefundsVariables = { venueId: string; ruleId: string };
+
+/** Re-enqueues a closure's pending / failed refunds (Manager). */
+export const useRetryClosureRefunds = createMutationHook<
+  RetryClosureRefundsVariables,
+  RetryRefundsResult
+>({
+  invalidateKeys: [CLOSURE_SUMMARIES_QUERY_KEY],
+  mutationFn: (api, { venueId, ruleId }) => api.availability.retryClosureRefunds(venueId, ruleId),
+});
+
 export type ReopenClosureVariables = {
   venueId: string;
   ruleId: string;
   tellCancelledGuests: boolean;
 };
 
-/** Reopens a closure (Resume on the paused-online banner). */
+/** Reopens a closure (Resume on the paused-online banner; Remove on Special dates). */
 export const useReopenClosure = createMutationHook<ReopenClosureVariables, ReopenResult>({
-  invalidateKeys: [AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY],
+  invalidateKeys: [
+    AVAILABILITY_CONFIG_QUERY_KEY,
+    AVAILABILITY_DAYS_QUERY_KEY,
+    CLOSURE_SUMMARIES_QUERY_KEY,
+  ],
   mutationFn: (api, { venueId, ruleId, tellCancelledGuests }) =>
     api.availability.reopenClosure(venueId, ruleId, tellCancelledGuests),
 });

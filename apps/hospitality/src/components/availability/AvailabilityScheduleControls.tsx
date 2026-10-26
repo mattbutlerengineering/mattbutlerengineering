@@ -5,10 +5,12 @@ import type { AvailabilityConfigState } from "@mbe/types";
 import { ChangeRegularWeekDrawer } from "./ChangeRegularWeekDrawer.js";
 import styles from "./AvailabilityScheduleControls.module.css";
 
-export type AvailabilityTab = "calendar" | "schedules";
+export type AvailabilityTab = "calendar" | "special" | "schedules";
 
 export interface AvailabilityScheduleControlsProps {
   readonly venueId: string;
+  /** A Manager also gets the schedule features; a Host sees Calendar and Special dates only. */
+  readonly isManager: boolean;
   readonly state: AvailabilityConfigState;
   /** Today on the venue clock. */
   readonly today: string;
@@ -23,35 +25,37 @@ export interface AvailabilityScheduleControlsProps {
  * regular week… beside the calendar.
  */
 export function AvailabilityScheduleControls(props: AvailabilityScheduleControlsProps) {
-  const { venueId, state, today, tab, onTabChange, onStale } = props;
+  const { venueId, isManager, state, today, tab, onTabChange, onStale } = props;
   const { t } = useTranslation();
   const [changing, setChanging] = useState(false);
   const scheduleCount = state.config.schedules.filter((s) => !s.archivedAt).length;
-  const showTabs = scheduleCount >= 2 || tab === "schedules";
+  const showSchedules = isManager && (scheduleCount >= 2 || tab === "schedules");
 
   return (
     <div className={styles.controls}>
-      {showTabs ? (
-        <SegmentedControl
-          aria-label={t("availabilitySchedules.tabsLabel")}
-          segments={[
-            { id: "calendar", label: t("availabilitySchedules.tabCalendar") },
-            { id: "schedules", label: t("availabilitySchedules.tabSchedules") },
-          ]}
-          value={tab}
-          onChange={(id) => onTabChange(id as AvailabilityTab)}
-        />
-      ) : (
+      <SegmentedControl
+        aria-label={t("availabilitySchedules.tabsLabel")}
+        segments={[
+          { id: "calendar", label: t("availabilitySchedules.tabCalendar") },
+          { id: "special", label: t("availabilitySpecial.tab") },
+          ...(showSchedules
+            ? [{ id: "schedules", label: t("availabilitySchedules.tabSchedules") }]
+            : []),
+        ]}
+        value={tab}
+        onChange={(id) => onTabChange(id as AvailabilityTab)}
+      />
+      {isManager && !showSchedules && (
         <Button variant="ghost" onClick={() => onTabChange("schedules")}>
           {t("availabilitySchedules.createAnother")}
         </Button>
       )}
-      {tab === "calendar" && (
+      {isManager && tab === "calendar" && (
         <Button variant="secondary" onClick={() => setChanging(true)}>
           {t("availabilitySchedules.regularWeek.open")}
         </Button>
       )}
-      {changing && (
+      {isManager && changing && (
         <ChangeRegularWeekDrawer
           venueId={venueId}
           state={state}
