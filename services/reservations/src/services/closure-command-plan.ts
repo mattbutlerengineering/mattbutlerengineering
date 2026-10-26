@@ -75,23 +75,52 @@ function wallMinutes(instant: Date, serviceDate: string, tz: string): number {
   );
 }
 
+type StartRange = readonly [lo: number, hi: number];
+
+/** The ranges left of `ranges` once starts whose booking would touch the band are removed. */
+function clearOfBand(
+  ranges: readonly StartRange[],
+  band: { from: number; to: number },
+  durationMin: number
+): StartRange[] {
+  const lastBefore = band.from - durationMin; // starts at or before this end by the band
+  return ranges.flatMap(([lo, hi]) => [
+    ...(lo <= lastBefore ? [[lo, Math.min(hi, lastBefore)] as const] : []),
+    ...(hi >= band.to ? [[Math.max(lo, band.to), hi] as const] : []),
+  ]);
+}
+
 /**
  * The start closest to the booking's own that the changed day still serves
  * with the booking's length: inside one service, no later than its last
- * seating, and finishing by its close. Null when no service can hold it.
+ * seating, finishing by its close, not before `now`, and clear of every
+ * closure band that covers the service (a windowed closure is a band, not a
+ * trimmed service). Null when nothing fits, or the booking already sits there.
  */
 export function moveTarget(
   after: AvailabilitySnapshot,
   serviceDate: string,
-  booking: Pick<ClosureImpactReservation, "startTime" | "endTime">
+  booking: Pick<ClosureImpactReservation, "startTime" | "endTime">,
+  now: Date
 ): { startTime: Date; endTime: Date } | null {
   const start = new Date(booking.startTime);
   const durationMin = (Date.parse(booking.endTime) - start.getTime()) / MS_PER_MINUTE;
   const startMin = wallMinutes(start, serviceDate, after.timezone);
-  const candidates = resolveDay(after, serviceDate).services.flatMap((s) => {
-    const latest = Math.min(s.lastSeatingAt, s.closesAt - durationMin);
-    if (latest < s.opensAt) return [];
-    return [Math.min(Math.max(startMin, s.opensAt), latest)];
+  const nowMin = wallMinutes(now, serviceDate, after.timezone);
+  const day = resolveDay(after, serviceDate);
+  const candidates = day.services.flatMap((s) => {
+    const bands = day.closures.filter(
+      (c) =>
+        c.targetKind === "venue" ||
+        (c.targetKind === "service" && c.venueServiceId === s.venueServiceId)
+    );
+    const open: StartRange[] = [
+      [Math.max(s.opensAt, nowMin), Math.min(s.lastSeatingAt, s.closesAt - durationMin)],
+    ];
+    const free = bands
+      .reduce((ranges, band) => clearOfBand(ranges, band, durationMin), open)
+      .filter(([lo, hi]) => lo <= hi);
+    return free.map(([lo, hi]) => Math.min(Math.max(startMin, lo), hi));
   });
   const best = candidates.sort((a, b) => Math.abs(a - startMin) - Math.abs(b - startMin))[0];
   if (best === undefined || best === startMin) return null;
