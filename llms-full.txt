@@ -44412,7 +44412,9 @@
     }
     export type GateRejection =
       | { code: "outside-availability"; reason: HardReason; message?: string }
-      | { code: "soft-limit"; limits: SoftLimit[] };
+      | { code: "soft-limit"; limits: SoftLimit[] }
+      /** The client's `date` is not the service day that owns `start` (ADR-029). */
+      | { code: "date-mismatch"; serviceDate: string };
     export type GateOutcome =
       | { kind: "ok"; overrideLimits?: SoftLimit[] }
       | { kind: "conflict" }
@@ -44422,6 +44424,12 @@
       /** Omit to ask whether any table is free (the staff check endpoint). */
       tableId?: string;
       start: Date;
+      /**
+       * The date the client sent with `start`. When given, it must be the service
+       * day that owns `start` (a past-midnight seating belongs to the previous
+       * day), else the row would hide from every conflict read keyed on its date.
+       */
+      serviceDate?: string;
       /** The booking's real end. Without it the engine estimates one from the party size. */
       end?: Date;
       partySize: number;
@@ -44490,8 +44498,20 @@
         request.channel === "phone" &&
         verdict.kind === "hard" &&
         verdict.reason === "outside_service";
-      if (!staffOnUnsetHours) return outcomeOf(verdict);
-      return unsetHoursStaffOutcome(snapshot, request, logger);
+      const outcome = staffOnUnsetHours
+        ? unsetHoursStaffOutcome(snapshot, request, logger)
+        : outcomeOf(verdict);
+      if (outcome.kind === "rejected") return outcome;
+      return dateMismatch(snapshot, request) ?? outcome;
+    }
+    function dateMismatch(snapshot: BookingSnapshot, request: GateRequest): GateOutcome | null {
+      if (request.serviceDate === undefined) return null;
+      const local = localDateTimeOf(request.start, snapshot.timezone).date;
+      // With no hours configured no service owns the time; accept the local day or the one before.
+      const owner = owningServiceDate(snapshot, request.start);
+      const accepted = owner === undefined ? [local, addDays(local, -1)] : [owner];
+      if (accepted.includes(request.serviceDate)) return null;
+      return { kind: "rejected", rejection: { code: "date-mismatch", serviceDate: owner ?? local } };
     }
     function outcomeOf(verdict: Verdict): GateOutcome {
       switch (verdict.kind) {
@@ -44563,6 +44583,9 @@
       if (rejection.code === "outside-availability") {
         return rejection.message ?? OUTSIDE_AVAILABILITY_DETAIL[rejection.reason];
       }
+      if (rejection.code === "date-mismatch") {
+        return `The date does not match the requested time, which falls on the ${rejection.serviceDate} service day.`;
+      }
       return `This booking is ${rejection.limits.map((l) => SOFT_LIMIT_DETAIL[l]).join(" and ")}.`;
     }
     export function gateProblem(rejection: GateRejection): ProblemDetails {
@@ -44571,6 +44594,12 @@
         return createProblemDetails(422, "Outside Availability", detail, "about:blank", undefined, {
           code: rejection.code,
           reason: rejection.reason,
+        });
+      }
+      if (rejection.code === "date-mismatch") {
+        return createProblemDetails(422, "Date Mismatch", detail, "about:blank", undefined, {
+          code: rejection.code,
+          serviceDate: rejection.serviceDate,
         });
       }
       return createProblemDetails(422, "Soft Limit", detail, "about:blank", undefined, {
@@ -44743,9 +44772,13 @@
         case "rejected": {
           const { rejection } = outcome;
           const message = rejectionDetail(rejection);
-          return rejection.code === "soft-limit"
-            ? { kind: "soft", limits: rejection.limits, message }
-            : { kind: "hard", reason: rejection.reason, message };
+          if (rejection.code === "soft-limit") {
+            return { kind: "soft", limits: rejection.limits, message };
+          }
+          // The check endpoint sends no date, so it never yields `date-mismatch`.
+          const reason =
+            rejection.code === "outside-availability" ? rejection.reason : "outside_service";
+          return { kind: "hard", reason, message };
         }
       }
     }
@@ -46774,6 +46807,7 @@
         venueId: intent.venueId,
         tableId: intent.tableId,
         start: intent.window.startTime,
+        serviceDate: Number.isNaN(intent.date.getTime()) ? "invalid" : toDateString(intent.date),
         end: intent.window.endTime,
         partySize: intent.partySize,
         channel: gate.channel,
@@ -70463,6 +70497,12 @@
         const planned = plannedDay(snapshot, serviceDate).services.find(containing(minute));
         return planned ? [{ serviceDate, minute, planned }] : [];
       })[0];
+    }
+    export function owningServiceDate(
+      snapshot: AvailabilitySnapshot,
+      start: Date
+    ): ServiceDate | undefined {
+      return owningServiceDay(snapshot, start)?.serviceDate;
     }
     function hard(reason: HardReason, message?: string): Verdict {
       return message ? { kind: "hard", reason, message } : { kind: "hard", reason };

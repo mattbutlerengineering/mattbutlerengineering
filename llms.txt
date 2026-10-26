@@ -13068,7 +13068,7 @@
       export function assertBookable(opts: AssertBookableOptions): BookableError | undefined { /* ... */ }
     </item>
     <item priority="low">
-      type GateRejection = { code: "outside-availability" | { code: "soft-limit"; limits: ;
+      type GateRejection = { code: "outside-availability" | { code: "soft-limit"; limits:  | { code: "date-mismatch"; servi;
     </item>
     <item priority="low">
       type GateOutcome = { kind: "ok"; overrideLimits?: | { kind: "conflict" } | { kind: "rejected"; rejection:;
@@ -13078,8 +13078,8 @@
         venueId: string;
         tableId?: string;
         start: Date;
+        serviceDate?: string;
         end?: Date;
-        partySize: number;
       }
     </item>
     <item priority="high">
@@ -13102,6 +13102,9 @@
         now: Date = new Date(),
         logger: SnapshotLogger = CONSOLE_LOGGER
       ): Promise<GateOutcome> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function dateMismatch(snapshot: BookingSnapshot, request: GateRequest): GateOutcome | null { /* ... */ }
     </item>
     <item priority="medium">
       function outcomeOf(verdict: Verdict): GateOutcome { /* ... */ }
@@ -20464,6 +20467,12 @@
     </item>
     <item priority="medium">
       function owningServiceDay(snapshot: AvailabilitySnapshot, start: Date) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function owningServiceDate(
+        snapshot: AvailabilitySnapshot,
+        start: Date
+      ): ServiceDate | undefined { /* ... */ }
     </item>
     <item priority="medium">
       function hard(reason: HardReason, message?: string): Verdict { /* ... */ }
