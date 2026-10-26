@@ -169,6 +169,23 @@ describe("AvailabilityClient config API", () => {
     expect(JSON.parse(String(init?.body))).toEqual({ rule });
   });
 
+  it("getClosureImpact sends the rows a series edit replaces", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ data: { reservations: 0, covers: 0, depositsHeld: 0, groups: [] } })
+    );
+    const rule = {
+      id: "s2",
+      kind: "closure",
+      targetKind: "venue",
+      startsOn: "2026-12-10",
+    } as const;
+    const alongside = { upsert: [], remove: ["s1"] };
+
+    await client().getClosureImpact("v1", rule, alongside);
+
+    expect(JSON.parse(String(mockFetch.mock.calls[0]![1]?.body))).toEqual({ rule, alongside });
+  });
+
   it("createClosure POSTs the body with the Idempotency-Key header", async () => {
     const result = {
       ruleId: "dr-new",

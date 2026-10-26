@@ -1,7 +1,7 @@
 import { projectLegacyOperatingHours } from "@mbe/availability";
 import type {
   AvailabilityChangeSummary,
-  AvailabilityConfig,
+  ClosureAlongside,
   ClosureAction,
   ClosureImpact,
   ClosureResult,
@@ -14,8 +14,10 @@ import type {
 import type { Prisma, PrismaClient } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
 import { affectedRange, diffConfig, inverseOf } from "./availability-config-plan.js";
+import { findStrandedReservations } from "./availability-config-checks.js";
 import {
   conflictIssue,
+  futureBookings,
   loadConfigState,
   refuseStale,
   toDbDate,
@@ -33,6 +35,8 @@ import {
   isHostEmergencyClose,
   moveTarget,
 } from "./closure-command-plan.js";
+import { checkAlongside } from "./closure-alongside.js";
+import { withAlongside, withClosure } from "./closure-impact.js";
 import { impactInTransaction } from "./closure-impact-store.js";
 import { prisma } from "./database.js";
 
@@ -172,10 +176,6 @@ async function storedResult(
   };
 }
 
-function withRule(config: AvailabilityConfig, rule: DateRule): AvailabilityConfig {
-  return { ...config, dateRules: [...config.dateRules.filter((r) => r.id !== rule.id), rule] };
-}
-
 interface Plan {
   rows: Prisma.ClosureOutcomeCreateManyInput[];
   counts: Record<ClosureAction, number>;
@@ -188,10 +188,11 @@ function planOutcomes(
   actorId: string,
   state: ConfigState,
   rule: DateRule,
+  alongside: ClosureAlongside | undefined,
   impact: ClosureImpact,
   actions: ReadonlyMap<string, { action: ClosureAction }>
 ): Plan | Refusal {
-  const after = { timezone: state.timezone, config: withRule(state.effective, rule) };
+  const after = { timezone: state.timezone, config: withClosure(state.effective, rule, alongside) };
   const rows: Prisma.ClosureOutcomeCreateManyInput[] = [];
   const stuck: string[] = [];
   for (const group of impact.groups) {
@@ -263,6 +264,37 @@ async function replayOf(tx: Db, input: CommitInput): Promise<ClosureResult | nul
   return storedResult(tx, venueId, replay);
 }
 
+/**
+ * A series edit's `alongside` is a Manager's, and is limited to shortening or removing the one
+ * series it replaces and moving that series' skips (`closure-alongside.ts`). As a second guard it
+ * must strand no booking by itself: the draft rule's dates are decided in Step 2, anything else
+ * the rows change is not.
+ */
+async function refuseBadAlongside(tx: Db, input: CommitInput, state: ConfigState): Promise<void> {
+  const { body, caller, venueId, now } = input;
+  const { alongside, rule } = body;
+  if (!alongside) return;
+  if (!caller.isManager) throw new Refused({ kind: "forbidden" });
+  const issue = checkAlongside(state.stored.dateRules, rule, alongside);
+  if (issue) throw new Refused({ kind: "invalid", issues: [issue] });
+  const today = civilDateIn(now, state.timezone);
+  const stranded = findStrandedReservations(
+    { timezone: state.timezone, config: state.effective },
+    { timezone: state.timezone, config: withAlongside(state.effective, alongside) },
+    await futureBookings(tx, venueId, today, now)
+  );
+  if (stranded.length > 0) {
+    throw new Refused({
+      kind: "invalid",
+      issues: stranded.map((r) => ({
+        path: `reservations.${r.id}`,
+        code: "strands_booking",
+        message: "The rows replaced beside the closure would leave this booking without service.",
+      })),
+    });
+  }
+}
+
 /** Refuses what cannot become a clean closure before anything is written. */
 async function preflight(tx: Db, input: CommitInput): Promise<void> {
   const { venueId, caller, body, now } = input;
@@ -305,7 +337,8 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
   if (state.stored.dateRules.some((r) => r.id === rule.id)) {
     throw new Refused({ kind: "closure_exists" });
   }
-  const found = await impactInTransaction(tx, venueId, state, rule, now);
+  await refuseBadAlongside(tx, input, state);
+  const found = await impactInTransaction(tx, venueId, state, rule, now, body.alongside);
   if (found.kind !== "ok") throw new Refused(found);
   const checked = checkDecisions(found.impact, body.decisions);
   if (checked.kind === "decision-required") {
@@ -314,10 +347,18 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
   if (checked.kind === "invalid-decision") {
     throw new Refused({ kind: "invalid_decision", groupKeys: checked.groupKeys });
   }
-  const plan = planOutcomes(venueId, caller.actorId, state, rule, found.impact, checked.actions);
+  const plan = planOutcomes(
+    venueId,
+    caller.actorId,
+    state,
+    rule,
+    body.alongside,
+    found.impact,
+    checked.actions
+  );
   if (isRefusal(plan)) throw new Refused(plan);
 
-  const next = withRule(state.effective, rule);
+  const next = withClosure(state.effective, rule, body.alongside);
   const diff = diffConfig(state.stored, next);
   await writeConfigDiff(tx, venueId, diff, { actorId: caller.actorId, now }).catch((e: unknown) => {
     throw e instanceof ConfigRowConflict ? new Refused(conflictIssue(e, next) as Refusal) : e;

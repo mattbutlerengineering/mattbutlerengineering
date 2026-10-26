@@ -14,12 +14,16 @@ const callList = vi.hoisted(() => ({ value: [] as ClosureCallListEntry[] }));
 const reopen = vi.hoisted(() => vi.fn());
 const retry = vi.hoisted(() => vi.fn());
 const saveConfig = vi.hoisted(() => vi.fn());
+const previewImpact = vi.hoisted(() => vi.fn());
+const createClosure = vi.hoisted(() => vi.fn());
 
 vi.mock("../../hooks/useClosures.js", () => ({
   useClosureSummaries: () => ({ data: summaries.value, isLoading: false, error: null }),
   useClosureCallList: () => ({ data: callList.value, isLoading: false, error: null }),
   useReopenClosure: () => ({ mutateAsync: reopen, isPending: false }),
   useRetryClosureRefunds: () => ({ mutateAsync: retry, isPending: false }),
+  usePreviewClosureImpact: () => ({ mutateAsync: previewImpact, isPending: false }),
+  useCreateClosure: () => ({ mutateAsync: createClosure, isPending: false }),
 }));
 const revertChange = vi.hoisted(() => vi.fn());
 
@@ -476,6 +480,109 @@ describe("SpecialDatesTab", () => {
     expect(rows.find((r) => r.id !== "mondays")).toMatchObject({
       kind: "closure",
       startsOn: "2027-01-11",
+    });
+  });
+
+  describe("a series edit that closes new dates", () => {
+    const DATE = "2027-01-12";
+    const impact = {
+      reservations: 2,
+      covers: 6,
+      depositsHeld: 0,
+      groups: [
+        {
+          groupKey: `${DATE}:closed`,
+          date: DATE,
+          kind: "closed",
+          covers: 6,
+          depositsHeld: 0,
+          reservations: ["r1", "r2"].map((id) => ({
+            id,
+            startTime: `${DATE}T18:00:00Z`,
+            endTime: `${DATE}T19:30:00Z`,
+            partySize: 3,
+            guestName: id,
+            deposit: null,
+            runsIntoClosure: false,
+          })),
+        },
+      ],
+    };
+    const addTuesdayFromHere = () => {
+      fireEvent.click(screen.getByRole("button", { name: "Edit dates…" }));
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("radio", { name: "This and following" }));
+      fireEvent.click(within(dialog).getByRole("checkbox", { name: "Tue" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    };
+
+    it("shows Step 2 for the bookings it would strand, then saves through the closure command", async () => {
+      previewImpact.mockResolvedValue(impact);
+      createClosure.mockResolvedValue({
+        ruleId: "new",
+        version: 8,
+        changeId: "c",
+        outcomes: { cancel: 2, move: 0, keep_notify: 0, keep_silent: 0 },
+      });
+      renderTab();
+      addTuesdayFromHere();
+
+      await screen.findByText(/2 reservations/);
+      const dialog = screen.getByRole("dialog");
+      expect(saveConfig).not.toHaveBeenCalled();
+      fireEvent.click(within(dialog).getByRole("radio", { name: /Cancel, notify & refund/ }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 2" }));
+
+      await waitFor(() => expect(createClosure).toHaveBeenCalledTimes(1));
+      const { body } = createClosure.mock.calls[0]![0];
+      expect(body.decisions).toEqual([{ groupKey: `${DATE}:closed`, action: "cancel" }]);
+      expect(body.rule).toMatchObject({
+        kind: "closure",
+        startsOn: "2027-01-11",
+        endsOn: "2027-03-30",
+      });
+      expect(body.rule.repeat.weekdays).toEqual([1, 2]);
+      expect(body.alongside.upsert.find((r: DateRule) => r.id === "mondays")?.endsOn).toBe(
+        "2027-01-10"
+      );
+      expect(previewImpact.mock.calls[0]![0]).toMatchObject({
+        venueId: "venue-1",
+        rule: body.rule,
+        alongside: body.alongside,
+      });
+      expect(saveConfig).not.toHaveBeenCalled();
+    });
+
+    it("saves as a plain config save when no booking is affected", async () => {
+      previewImpact.mockResolvedValue({ reservations: 0, covers: 0, depositsHeld: 0, groups: [] });
+      saveConfig.mockResolvedValue({ version: 8, changeId: "c" });
+      renderTab();
+      addTuesdayFromHere();
+
+      await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(1));
+      expect(createClosure).not.toHaveBeenCalled();
+    });
+
+    it("does not ask Step 2 for an edit that only shrinks the series", async () => {
+      saveConfig.mockResolvedValue({ version: 8, changeId: "c" });
+      const weekends = {
+        id: "weekends",
+        kind: "closure",
+        targetKind: "venue",
+        startsOn: "2027-01-02",
+        endsOn: "2027-03-30",
+        repeat: { version: 1, weekdays: [5, 6] },
+      } as DateRule;
+      renderTab(true, { ...STATE, config: { ...STATE.config, dateRules: [weekends] } });
+      fireEvent.click(screen.getByRole("button", { name: "Edit dates…" }));
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("radio", { name: "All dates in the series" }));
+      fireEvent.click(within(dialog).getByRole("checkbox", { name: "Sat" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+
+      await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(1));
+      expect(previewImpact).not.toHaveBeenCalled();
+      expect(createClosure).not.toHaveBeenCalled();
     });
   });
 

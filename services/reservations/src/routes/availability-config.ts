@@ -200,9 +200,17 @@ export const availabilityConfigRoutes: FastifyPluginAsync = async (fastify) => {
       if (allowed === null) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
       }
-      if (!allowed)
+      // A series edit's replaced rows are a Manager's change, as in the closure command.
+      if (!allowed || (request.body.alongside && !caller.isManager)) {
         return reply.code(403).send(createProblemDetails(403, "Forbidden", CLOSURE_FORBIDDEN));
-      const outcome = await closureImpactService.impact(venueId, request.body.rule, now);
+      }
+      const outcome = await closureImpactService.impact(
+        venueId,
+        request.body.rule,
+        now,
+        undefined,
+        request.body.alongside
+      );
       switch (outcome.kind) {
         case "not_found":
           return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));

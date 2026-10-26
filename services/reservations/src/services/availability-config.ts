@@ -269,7 +269,7 @@ class SaveRefused extends Error {
 }
 
 /** Future, still-booked reservations: the ones a change could strand. */
-async function futureBookings(
+export async function futureBookings(
   db: StoreDb,
   venueId: string,
   today: string,

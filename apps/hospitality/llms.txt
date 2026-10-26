@@ -793,6 +793,19 @@
       ): AvailabilityConfigChanges { /* ... */ }
     </item>
     <item priority="high">
+      export function growsSeries(series: DateRule, edit: SeriesEdit): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function growthClosure(
+        config: AvailabilityConfig,
+        series: DateRule,
+        scope: SeriesScope,
+        date: string,
+        edit: SeriesEdit,
+        makeId: () => string
+      ): { rule: DateRule; alongside: ClosureAlongside } { /* ... */ }
+    </item>
+    <item priority="high">
       export function editSeriesDates(
         config: AvailabilityConfig,
         series: DateRule,
@@ -2260,6 +2273,15 @@
     </item>
     <item priority="high">
       export const useClosureImpact: unknown;
+    </item>
+    <item priority="low">
+      type PreviewClosureImpactVariables = {
+        venueId: string;
+        rule: DateRule;
+        alongside: Closu...;
+    </item>
+    <item priority="high">
+      export const usePreviewClosureImpact: unknown;
     </item>
     <item priority="high">
       type CreateClosureRequest = Parameters<AvailabilityClient["createClosure"]>[1];

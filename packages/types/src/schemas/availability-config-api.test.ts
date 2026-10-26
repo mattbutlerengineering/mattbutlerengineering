@@ -44,6 +44,24 @@ describe("ClosureImpactBodySchema", () => {
   });
 });
 
+describe("alongside (series growth edits)", () => {
+  const rule = { id: "r2", kind: "closure", targetKind: "venue", startsOn: "2026-12-24" };
+
+  it("is optional, and defaults its two lists when given", () => {
+    expect(ClosureImpactBodySchema.parse({ rule }).alongside).toBeUndefined();
+    expect(ClosureImpactBodySchema.parse({ rule, alongside: {} }).alongside).toEqual({
+      upsert: [],
+      remove: [],
+    });
+    const body = CreateClosureBodySchema.parse({
+      expectedVersion: 0,
+      rule,
+      alongside: { upsert: [{ ...rule, id: "r1" }], remove: ["r0"] },
+    });
+    expect(body.alongside?.remove).toEqual(["r0"]);
+  });
+});
+
 describe("ClosureImpactSchema", () => {
   it("accepts an empty impact (a booking-only closure has no groups)", () => {
     expect(

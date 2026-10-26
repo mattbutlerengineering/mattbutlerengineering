@@ -2115,8 +2115,8 @@
         
       }
     </item>
-    <item priority="low">
-      async function futureBookings(
+    <item priority="high">
+      export async function futureBookings(
         db: StoreDb,
         venueId: string,
         today: string,
@@ -2613,6 +2613,31 @@
       export const briefingService: unknown;
     </item>
   </file>
+  <file path="src/services/closure-alongside.ts">
+    <item priority="low">
+      interface AlongsideIssue {
+        path: string;
+        code: string;
+        message: string;
+      }
+    </item>
+    <item priority="medium">
+      function canonical(value: unknown): unknown { /* ... */ }
+    </item>
+    <item priority="medium">
+      function onlyShortened(edited: DateRule, stored: DateRule): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function onlyMoved(edited: DateRule, stored: DateRule, seriesId: string, draftId: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function checkAlongside(
+        stored: readonly DateRule[],
+        draft: DateRule,
+        alongside: ClosureAlongside
+      ): AlongsideIssue | null { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/closure-apply.ts">
     <item priority="high">
       type Tx = Pick<
@@ -2773,9 +2798,6 @@
         replay: { id: string; closure: ClosureMeta }
       ): Promise<ClosureResult> { /* ... */ }
     </item>
-    <item priority="medium">
-      function withRule(config: AvailabilityConfig, rule: DateRule): AvailabilityConfig { /* ... */ }
-    </item>
     <item priority="high">
       interface Plan {
         rows: Prisma.ClosureOutcomeCreateManyInput[];
@@ -2789,6 +2811,7 @@
         actorId: string,
         state: ConfigState,
         rule: DateRule,
+        alongside: ClosureAlongside | undefined,
         impact: ClosureImpact,
         actions: ReadonlyMap<string, { action: ClosureAction }>
       ): Plan | Refusal { /* ... */ }
@@ -2810,6 +2833,9 @@
     </item>
     <item priority="low">
       async function replayOf(tx: Db, input: CommitInput): Promise<ClosureResult | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function refuseBadAlongside(tx: Db, input: CommitInput, state: ConfigState): Promise<void> { /* ... */ }
     </item>
     <item priority="low">
       async function preflight(tx: Db, input: CommitInput): Promise<void> { /* ... */ }
@@ -2884,9 +2910,6 @@
       type ClosureImpactOutcome = { kind: "ok"; impact: ClosureI | { kind: "not_found" } | { kind: "too_long" } | { kind: "invalid"; issues: { p;
     </item>
     <item priority="medium">
-      function withDraft(config: AvailabilityConfig, rule: DateRule): AvailabilityConfig { /* ... */ }
-    </item>
-    <item priority="medium">
       function scanRange(rule: DateRule, today: string): { from: string; to: string } | null { /* ... */ }
     </item>
     <item priority="high">
@@ -2895,7 +2918,8 @@
         venueId: string,
         state: ConfigState,
         rule: DateRule,
-        now: Date
+        now: Date,
+        alongside?: ClosureAlongside
       ): Promise<ClosureImpactOutcome> { /* ... */ }
     </item>
     <item priority="high">
@@ -2903,7 +2927,8 @@
         venueId: string,
         rule: DateRule,
         now: Date,
-        client: StoreClient = prisma
+        client: StoreClient = prisma,
+        alongside?: ClosureAlongside
       ): Promise<ClosureImpactOutcome> { /* ... */ }
     </item>
     <item priority="high">
@@ -2926,6 +2951,19 @@
     <item priority="medium">
       function withDraft(config: AvailabilityConfig, rule: DateRule): AvailabilityConfig { /* ... */ }
     </item>
+    <item priority="high">
+      export function withAlongside(
+        config: AvailabilityConfig,
+        alongside: ClosureAlongside | undefined
+      ): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      export function withClosure(
+        config: AvailabilityConfig,
+        rule: DateRule,
+        alongside?: ClosureAlongside
+      ): AvailabilityConfig { /* ... */ }
+    </item>
     <item priority="medium">
       function wallMinutes(instant: Date, serviceDate: string, tz: string): number { /* ... */ }
     </item>
@@ -2947,7 +2985,8 @@
         before: AvailabilitySnapshot,
         after: AvailabilitySnapshot,
         rule: DateRule,
-        booking: ImpactBooking
+        booking: ImpactBooking,
+        replaced: ReadonlySet<string>
       ): Verdicts | null { /* ... */ }
     </item>
     <item priority="medium">
@@ -2965,6 +3004,7 @@
         timezone: string;
         config: AvailabilityConfig;
         rule: DateRule;
+        alongside?: ClosureAlongside;
         bookings: readonly ImpactBooking[];
       }): ClosureImpact { /* ... */ }
     </item>
