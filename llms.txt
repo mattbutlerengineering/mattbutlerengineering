@@ -2154,6 +2154,13 @@
       function describe(rule: TonightRule): TonightChange | null { /* ... */ }
     </item>
     <item priority="high">
+      export function tonightTimeMinutes(
+        config: AvailabilityConfig,
+        timezone: string,
+        serviceDate: string
+      ): readonly number[] { /* ... */ }
+    </item>
+    <item priority="high">
       export function activeTonightChanges(
         rules: readonly DateRule[],
         today: string,

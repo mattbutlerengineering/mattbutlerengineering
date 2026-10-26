@@ -6323,6 +6323,29 @@
       }
       return { ruleId, kind: "stop_window", from: payload.stop.from, to: payload.stop.to };
     }
+    export function tonightTimeMinutes(
+      config: AvailabilityConfig,
+      timezone: string,
+      serviceDate: string
+    ): readonly number[] {
+      const { services } = resolveDay(
+        {
+          timezone,
+          config: { ...config, dateRules: config.dateRules.filter((r) => r.kind !== "tonight") },
+        },
+        serviceDate
+      );
+      const first = services.length ? Math.min(...services.map((s) => s.opensAt)) : 0;
+      const last = services.length
+        ? Math.max(...services.map((s) => s.closesAt))
+        : FALLBACK_LAST_MINUTE;
+      const start = Math.floor(first / STEP_MINUTES) * STEP_MINUTES;
+      const end = Math.min(MAX_MINUTE, last);
+      return Array.from(
+        { length: Math.max(0, Math.floor((end - start) / STEP_MINUTES)) + 1 },
+        (_, i) => start + i * STEP_MINUTES
+      );
+    }
     export function activeTonightChanges(
       rules: readonly DateRule[],
       today: string,
