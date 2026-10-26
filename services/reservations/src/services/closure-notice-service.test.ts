@@ -114,6 +114,55 @@ describe("closure notice service: enqueue", () => {
     expect(scheduler.jobs.map((j) => j.payload.urgent)).toEqual([true, true]);
   });
 
+  describe("a repeating closure that started in the past", () => {
+    // NOW is Thursday 2026-12-24 15:00 UTC.
+    const urgentFor = async (weekdays: number[], from: number | null) => {
+      const scheduler = fakeScheduler();
+      const service = createClosureNoticeService({
+        scheduler: scheduler as never,
+        store: {
+          loadClosureWindow: async () => ({
+            startsOn: "2026-10-01",
+            endsOn: null,
+            weekdays,
+            from,
+            timezone: "UTC",
+          }),
+          listNotifiable: async () => notifiable(1, 30),
+        } as never,
+      });
+      await service.enqueueForClosure({ venueId: "v1", ruleId: "r1", now: NOW });
+      return scheduler.jobs[0]!.payload.urgent;
+    };
+
+    it("is urgent when its next occurrence is tonight, within 6 hours", async () => {
+      expect(await urgentFor([4], 20 * 60)).toBe(true);
+    });
+
+    it("is not urgent when its next occurrence is days away", async () => {
+      expect(await urgentFor([0], null)).toBe(false); // next Sunday
+    });
+  });
+
+  it("a closure with no occurrence left is not urgent", async () => {
+    const scheduler = fakeScheduler();
+    const service = createClosureNoticeService({
+      scheduler: scheduler as never,
+      store: {
+        loadClosureWindow: async () => ({
+          startsOn: "2026-10-01",
+          endsOn: "2026-12-01",
+          weekdays: null,
+          from: null,
+          timezone: "UTC",
+        }),
+        listNotifiable: async () => notifiable(1, 30),
+      } as never,
+    });
+    await service.enqueueForReopen({ venueId: "v1", ruleId: "r1", now: NOW });
+    expect(scheduler.jobs[0]!.payload.urgent).toBe(false);
+  });
+
   it("a closure starting more than 6 hours out is not urgent, even for a booking within 6 hours", async () => {
     const scheduler = fakeScheduler();
     const service = createClosureNoticeService({
@@ -183,8 +232,14 @@ describe("closure start", () => {
         venue: { ianaTimezone: "America/Los_Angeles" },
       })
     );
-    expect(w).toEqual({ startsOn: "2026-12-24", from: 900, timezone: "America/Los_Angeles" });
-    expect(closureStartsAt(w!)).toEqual(new Date("2026-12-24T23:00:00.000Z")); // 3 PM PST
+    expect(w).toEqual({
+      startsOn: "2026-12-24",
+      endsOn: null,
+      weekdays: null,
+      from: 900,
+      timezone: "America/Los_Angeles",
+    });
+    expect(closureStartsAt(w!, NOW)).toEqual(new Date("2026-12-24T23:00:00.000Z")); // 3 PM PST
   });
 
   it("a whole-day closure starts at the service day's start", async () => {
@@ -198,7 +253,7 @@ describe("closure start", () => {
       })
     );
     expect(w!.from).toBeNull();
-    expect(closureStartsAt(w!)).toEqual(new Date("2026-12-24T08:00:00.000Z"));
+    expect(closureStartsAt(w!, NOW)).toEqual(new Date("2026-12-24T08:00:00.000Z"));
   });
 
   it("an unknown rule has no window", async () => {

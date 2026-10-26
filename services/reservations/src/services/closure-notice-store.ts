@@ -20,6 +20,10 @@ type RuleDb = Pick<PrismaClient, "dateRule">;
 export interface ClosureWindow {
   /** "YYYY-MM-DD", venue-local. */
   startsOn: string;
+  /** "YYYY-MM-DD", venue-local; `null` = open-ended. */
+  endsOn: string | null;
+  /** Weekdays (0 = Sunday) a repeating rule covers; `null` = not repeating. */
+  weekdays: number[] | null;
   /** Minute of the service day the window opens; `null` = the whole service day. */
   from: number | null;
   timezone: string;
@@ -30,6 +34,13 @@ function windowFrom(window: unknown): number | null {
   return typeof from === "number" ? from : null;
 }
 
+function weekdaysOf(repeat: unknown): number[] | null {
+  const weekdays = (repeat as { weekdays?: unknown } | null)?.weekdays;
+  return Array.isArray(weekdays)
+    ? weekdays.filter((d): d is number => typeof d === "number")
+    : null;
+}
+
 /** The closure's start, for the per-closure urgency decision. A reopened rule is still read. */
 export async function loadClosureWindow(
   venueId: string,
@@ -38,11 +49,19 @@ export async function loadClosureWindow(
 ): Promise<ClosureWindow | null> {
   const rule = await db.dateRule.findFirst({
     where: { id: ruleId, venueId },
-    select: { startsOn: true, window: true, venue: { select: { ianaTimezone: true } } },
+    select: {
+      startsOn: true,
+      endsOn: true,
+      repeat: true,
+      window: true,
+      venue: { select: { ianaTimezone: true } },
+    },
   });
   if (!rule) return null;
   return {
     startsOn: rule.startsOn.toISOString().slice(0, 10),
+    endsOn: rule.endsOn ? rule.endsOn.toISOString().slice(0, 10) : null,
+    weekdays: weekdaysOf(rule.repeat),
     from: windowFrom(rule.window),
     timezone: rule.venue.ianaTimezone,
   };

@@ -227,6 +227,14 @@ function owningServiceDay(snapshot: AvailabilitySnapshot, start: Date) {
   })[0];
 }
 
+/** The service date that owns an instant, or undefined when no planned service covers it. */
+export function owningServiceDate(
+  snapshot: AvailabilitySnapshot,
+  start: Date
+): ServiceDate | undefined {
+  return owningServiceDay(snapshot, start)?.serviceDate;
+}
+
 function hard(reason: HardReason, message?: string): Verdict {
   return message ? { kind: "hard", reason, message } : { kind: "hard", reason };
 }

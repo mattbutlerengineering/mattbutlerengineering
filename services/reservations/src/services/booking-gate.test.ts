@@ -236,6 +236,56 @@ describe("judgeBooking", () => {
   });
 });
 
+describe("judgeBooking service date", () => {
+  it("refuses a client date that is not the time's service day (#7677)", async () => {
+    // 19:00 PT on Nov 5 sent with date Nov 20.
+    const outcome = await judgeBooking(fakeDb(), request({ serviceDate: "2026-11-20" }), NOW);
+    expect(outcome).toEqual({
+      kind: "rejected",
+      rejection: { code: "date-mismatch", serviceDate: "2026-11-05" },
+    });
+  });
+
+  it("accepts the time's own service day", async () => {
+    const outcome = await judgeBooking(fakeDb(), request({ serviceDate: "2026-11-05" }), NOW);
+    expect(outcome).toEqual({ kind: "ok" });
+  });
+
+  it("gives an after-midnight seating to the previous service day", async () => {
+    const late = { ...dinner, opensAt: 1200, lastSeatingAt: 1530, closesAt: 1560 };
+    const db = () => fakeDb({ scheduleServices: [late] });
+    const start = at("2026-11-06T01:00:00");
+    expect(await judgeBooking(db(), request({ start, serviceDate: "2026-11-05" }), NOW)).toEqual({
+      kind: "ok",
+    });
+    expect(await judgeBooking(db(), request({ start, serviceDate: "2026-11-06" }), NOW)).toEqual({
+      kind: "rejected",
+      rejection: { code: "date-mismatch", serviceDate: "2026-11-05" },
+    });
+  });
+
+  it("refuses an unparseable date", async () => {
+    const outcome = await judgeBooking(fakeDb(), request({ serviceDate: "x" }), NOW);
+    expect(outcome).toMatchObject({ kind: "rejected", rejection: { code: "date-mismatch" } });
+  });
+
+  it("on a venue with no hours, accepts the local day or the day before", async () => {
+    const log = { warn: vi.fn() };
+    const phone = (serviceDate: string) =>
+      judgeBooking(
+        fakeDb({ legacyHours: null }),
+        request({ channel: "phone", serviceDate }),
+        NOW,
+        log
+      );
+    expect(await phone("2026-11-05")).toEqual({ kind: "ok" });
+    expect(await phone("2026-11-20")).toMatchObject({
+      kind: "rejected",
+      rejection: { code: "date-mismatch" },
+    });
+  });
+});
+
 describe("judgeBooking on a venue that never set hours", () => {
   const logger = () => ({ warn: vi.fn() });
 
@@ -333,6 +383,19 @@ describe("judgeBooking staff override", () => {
       NOW
     );
     expect(outcome).toEqual({ kind: "ok" });
+  });
+});
+
+describe("gateProblem date-mismatch", () => {
+  it("renders a 422 naming the service day", () => {
+    const problem = gateProblem({ code: "date-mismatch", serviceDate: "2026-11-05" });
+    expect(problem).toMatchObject({
+      status: 422,
+      title: "Date Mismatch",
+      code: "date-mismatch",
+      serviceDate: "2026-11-05",
+    });
+    expect(problem.detail).toContain("2026-11-05");
   });
 });
 
