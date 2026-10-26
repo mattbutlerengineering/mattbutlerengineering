@@ -4729,6 +4729,120 @@
       };
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/compare-changes.ts">
+    type Hours = Pick<
+      ScheduleService,
+      "opensAt" | "lastSeatingAt" | "closesAt" | "seating" | "bookingTypes"
+    >;
+    export interface CompareRow extends Hours {
+      readonly scheduleServiceId: string;
+      readonly scheduleId: string;
+      readonly scheduleName: string;
+    }
+    export function compareServiceOptions(config: AvailabilityConfig) {
+      const live = liveScheduleIds(config);
+      return config.venueServices
+        .filter((v) => !v.archivedAt)
+        .filter(
+          (v) =>
+            config.scheduleServices.filter((s) => s.venueServiceId === v.id && live.has(s.scheduleId))
+              .length > 1
+        )
+        .sort((a, b) => a.position - b.position);
+    }
+    export function compareRows(config: AvailabilityConfig, venueServiceId: string): CompareRow[] {
+      const names = new Map(config.schedules.filter((s) => !s.archivedAt).map((s) => [s.id, s.name]));
+      return config.scheduleServices
+        .filter((s) => s.venueServiceId === venueServiceId && names.has(s.scheduleId))
+        .map((s) => ({
+          scheduleServiceId: s.id,
+          scheduleId: s.scheduleId,
+          scheduleName: names.get(s.scheduleId) ?? s.scheduleId,
+          opensAt: s.opensAt,
+          lastSeatingAt: s.lastSeatingAt,
+          closesAt: s.closesAt,
+          seating: s.seating,
+          bookingTypes: s.bookingTypes,
+        }));
+    }
+    export function changedRows(config: AvailabilityConfig, rows: readonly CompareRow[]): CompareRow[] {
+      const stored = new Map(config.scheduleServices.map((s) => [s.id, s]));
+      return rows.filter((r) => {
+        const was = stored.get(r.scheduleServiceId);
+        return was !== undefined && hoursOf(was) !== hoursOf(r);
+      });
+    }
+    export function buildCompareChanges(
+      config: AvailabilityConfig,
+      rows: readonly CompareRow[]
+    ): AvailabilityConfigChanges {
+      const stored = new Map(config.scheduleServices.map((s) => [s.id, s]));
+      const scheduleServices = changedRows(config, rows).map((r) => ({
+        ...stored.get(r.scheduleServiceId)!,
+        opensAt: r.opensAt,
+        lastSeatingAt: r.lastSeatingAt,
+        closesAt: r.closesAt,
+        seating: r.seating,
+        bookingTypes: [...r.bookingTypes],
+      }));
+      return { upsert: scheduleServices.length > 0 ? { scheduleServices } : {}, remove: {} };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/copy-day.ts">
+    export interface CopyTarget {
+      readonly weekdays: readonly number[];
+      readonly from: string;
+      /** `null`: until changed again. */
+      readonly until: string | null;
+    }
+    export function copyDayDates(target: CopyTarget): string[] {
+      const last = addDays(target.from, SCOPE_HORIZON_DAYS - 1);
+      const end = target.until !== null && target.until < last ? target.until : last;
+      const dates: string[] = [];
+      for (let d = target.from; d <= end; d = addDays(d, 1)) {
+        if (target.weekdays.includes(weekdayIndexOf(d))) dates.push(d);
+      }
+      return dates;
+    }
+    export function buildCopyDayChanges(
+      input: CopyTarget & {
+        readonly config: AvailabilityConfig;
+        readonly services: readonly DraftService[];
+        readonly makeId: () => string;
+      }
+    ): AvailabilityConfigChanges {
+      const base = buildDraftChanges({
+        config: input.config,
+        scope: { kind: "weekday", from: input.from, until: input.until },
+        services: input.services,
+        makeId: input.makeId,
+      });
+      const weekdays = [...input.weekdays].sort((a, b) => a - b);
+      return {
+        ...base,
+        upsert: {
+          ...base.upsert,
+          dateRules: base.upsert.dateRules?.map((rule) => ({
+            ...rule,
+            repeat: { version: 1 as const, weekdays },
+          })),
+        },
+      };
+    }
+    export function singleDateChangeCount(config: AvailabilityConfig, weekday: number): number {
+      return config.dateRules.filter(
+        (r) =>
+          r.kind === "special_hours" &&
+          r.targetKind === "venue" &&
+          r.endsOn === r.startsOn &&
+          r.repeat == null &&
+          r.window == null &&
+          r.seriesId == null &&
+          weekdayIndexOf(r.startsOn) === weekday
+      ).length;
+    }
+    export const NUDGE_THRESHOLD = 3;
+  </file>
   <file path="apps/hospitality/src/components/availability/day-summary.ts">
     export interface DayPresentation {
       readonly bands: readonly ClosureBandText[];
@@ -4948,6 +5062,7 @@
       readonly days: readonly number[];
     }
     export const LAST_SEATING_LEAD_MINUTES = 45;
+    export const SERVICE_NAME_MAX_LENGTH = 40;
     export const WEEK_DISPLAY_ORDER: readonly number[] = [1, 2, 3, 4, 5, 6, 0];
     export const WEEKDAY_SHORTCUT: readonly number[] = [1, 2, 3, 4, 5];
     export const WEEKEND_SHORTCUT: readonly number[] = [6, 0];
@@ -5016,10 +5131,11 @@
     export type QuickSetupField = "name" | "opens" | "lastSeating" | "closes";
     export type QuickSetupIssueCode =
       | "name_required"
+      | "name_too_long"
       | "time_required"
       | "close_after_open"
       | "last_seating_after_close"
-      | "last_seating_before_open"
+      | "span_too_long"
       | "overlap"
       | "days_required";
     export interface QuickSetupIssue {
@@ -5061,10 +5177,13 @@
           code: "time_required",
         })
       );
+      const name = service.name.trim();
       const unnamed: QuickSetupIssue[] =
-        service.name.trim() === ""
+        name === ""
           ? [{ serviceId: service.id, field: "name", code: "name_required" }]
-          : [];
+          : name.length > SERVICE_NAME_MAX_LENGTH
+            ? [{ serviceId: service.id, field: "name", code: "name_too_long" }]
+            : [];
       return [...unnamed, ...missing];
     }
     function orderIssues(service: ServiceDraft, m: ServiceMinutes): QuickSetupIssue[] {
@@ -5094,7 +5213,23 @@
           const service = draft.services[index];
           return service ? [{ serviceId: service.id, field: "opens", code: "overlap" }] : [];
         });
-      return [...overlaps, ...daysIssue];
+      return [...overlaps, ...spanIssues(draft), ...daysIssue];
+    }
+    function spanIssues(draft: QuickSetupDraft): QuickSetupIssue[] {
+      const read = normalizeLegacyHours(draftToLegacyHours(draft));
+      const tooLong =
+        read.ok &&
+        WEEKDAYS.some((day) =>
+          read.hours.weekly[day].some(
+            (w) => w.wrapped === true && w.close - w.open > MAX_PAST_MIDNIGHT_SPAN
+          )
+        );
+      if (!tooLong) return [];
+      const latest = draft.services.reduce<{ id: string; closesAt: number } | null>((acc, s) => {
+        const m = minutesOf(s);
+        return m && (!acc || m.closesAt > acc.closesAt) ? { id: s.id, closesAt: m.closesAt } : acc;
+      }, null);
+      return latest ? [{ serviceId: latest.id, field: "closes", code: "span_too_long" }] : [];
     }
     export function draftToConfig(
       draft: QuickSetupDraft,
@@ -5168,6 +5303,12 @@
           assignments: stored.assignments.filter((a) => a.scheduleId === scheduleId).map((a) => a.id),
         },
       };
+    }
+    export function validateQuickSetupHours(
+      hours: OperatingHours,
+      t: TFunction = localeRuntime.i18n.t
+    ): OperatingHoursValidationErrors | null {
+      return Object.keys(hours).length === 0 ? { global: t("onboarding.hours.atLeastOne") } : null;
     }
     export function draftToLegacyHours(draft: QuickSetupDraft): OperatingHours {
       const projected = projectLegacyOperatingHours(draftToConfig(draft, () => "wizard"));
@@ -5509,6 +5650,249 @@
       return known ? t(`availability.undo.errors.${known}`) : describeApiError(error).detail;
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/schedule-changes.ts">
+    export interface UseOn {
+      readonly weekdays: readonly number[];
+      readonly startsOn?: string | null;
+      readonly endsOn?: string | null;
+    }
+    export type Winner = "new" | "existing";
+    export function weekdayRuns(weekdays: readonly number[]): [number, number][] {
+      const positions = MONDAY_FIRST.flatMap((d, i) => (weekdays.includes(d) ? [i] : []));
+      const runs: [number, number][] = [];
+      let start = -1;
+      positions.forEach((p, i) => {
+        if (start < 0) start = p;
+        if (positions[i + 1] !== p + 1) {
+          runs.push([MONDAY_FIRST[start]!, MONDAY_FIRST[p]!]);
+          start = -1;
+        }
+      });
+      return runs;
+    }
+    export function isScheduleUnused(config: AvailabilityConfig, scheduleId: string): boolean {
+      const schedule = config.schedules.find((s) => s.id === scheduleId);
+      if (!schedule || schedule.isRegular) return false;
+      return (
+        !config.assignments.some((a) => a.scheduleId === scheduleId) &&
+        !config.dateRules.some((r) => r.kind === "use_schedule" && r.useScheduleId === scheduleId)
+      );
+    }
+    export function buildDeleteScheduleChanges(scheduleId: string): AvailabilityConfigChanges {
+      return { upsert: {}, remove: { schedules: [scheduleId] } };
+    }
+    function meets(a: UseOn, b: UseOn): boolean {
+      const shared = a.weekdays.filter((d) => b.weekdays.includes(d));
+      if (shared.length === 0) return false;
+      const from = [a.startsOn, b.startsOn]
+        .filter((d): d is string => d != null)
+        .sort()
+        .at(-1);
+      const to = [a.endsOn, b.endsOn].filter((d): d is string => d != null).sort()[0];
+      if (from == null && to == null) return true;
+      if (from != null && to != null && from > to) return false;
+      // Open ends are unbounded; a week of the common range holds every weekday it can.
+      const lo = from ?? addDays(to!, -6);
+      const hi = to ?? addDays(from!, 6);
+      for (let d = lo, n = 0; d <= hi && n < 7; d = addDays(d, 1), n += 1) {
+        if (shared.includes(weekdayIndexOf(d))) return true;
+      }
+      return false;
+    }
+    function rankedAssignments(
+      config: AvailabilityConfig,
+      ignoreScheduleId?: string
+    ): ScheduleAssignment[] {
+      const live = new Set(
+        liveSchedules(config)
+          .filter((s) => !s.isRegular)
+          .map((s) => s.id)
+      );
+      return config.assignments
+        .filter((a) => live.has(a.scheduleId) && a.scheduleId !== ignoreScheduleId)
+        .sort((a, b) => a.precedence - b.precedence);
+    }
+    export function overlappingSchedules(
+      config: AvailabilityConfig,
+      useOn: UseOn,
+      ignoreScheduleId?: string
+    ): Schedule[] {
+      const ids = new Set(
+        rankedAssignments(config, ignoreScheduleId)
+          .filter((a) => meets(a, useOn))
+          .map((a) => a.scheduleId)
+      );
+      return liveSchedules(config).filter((s) => ids.has(s.id));
+    }
+    function placeAssignment(
+      config: AvailabilityConfig,
+      mine: ScheduleAssignment,
+      winner: Winner
+    ): ScheduleAssignment[] {
+      const existing = rankedAssignments(config);
+      const lowestMeeting = existing.findIndex((a) => meets(a, mine));
+      const at = winner === "existing" && lowestMeeting >= 0 ? lowestMeeting : existing.length;
+      const order = [...existing.slice(0, at), mine, ...existing.slice(at)];
+      return order
+        .map((a, i) => ({ ...a, precedence: i + 1 }))
+        .filter(
+          (a) =>
+            a.id === mine.id ||
+            a.precedence !== config.assignments.find((x) => x.id === a.id)?.precedence
+        );
+    }
+    function mergeChanges(
+      a: AvailabilityConfigChanges,
+      b: AvailabilityConfigChanges
+    ): AvailabilityConfigChanges {
+      const tables = [
+        "schedules",
+        "venueServices",
+        "scheduleServices",
+        "assignments",
+        "dateRules",
+      ] as const;
+      const join = <T>(x: T[] | undefined, y: T[] | undefined) => [...(x ?? []), ...(y ?? [])];
+      const pick = <K extends "upsert" | "remove">(side: K) =>
+        Object.fromEntries(
+          tables.flatMap((t) => {
+            const rows = join<unknown>(
+              (a[side] as Record<string, unknown[] | undefined>)[t],
+              (b[side] as Record<string, unknown[] | undefined>)[t]
+            );
+            return rows.length > 0 ? [[t, rows]] : [];
+          })
+        );
+      return { upsert: pick("upsert"), remove: pick("remove") } as AvailabilityConfigChanges;
+    }
+    interface NewScheduleInput {
+      readonly config: AvailabilityConfig;
+      readonly name: string;
+      /** Rows for the new schedule; a copy's rows must have `scheduleServiceId: null`. */
+      readonly services: readonly DraftService[];
+      readonly useOn: UseOn;
+      readonly winner: Winner;
+      readonly makeId: () => string;
+    }
+    export function buildNewScheduleChanges(input: NewScheduleInput): AvailabilityConfigChanges {
+      const { config, name, useOn, winner, makeId } = input;
+      const scheduleId = makeId();
+      const schedule: Schedule = { id: scheduleId, name, kind: "alternate", isRegular: false };
+      const rows = buildDraftChanges({
+        config,
+        scope: { kind: "schedule", scheduleId },
+        services: freshRows(input.services),
+        makeId,
+      });
+      const assignments =
+        useOn.weekdays.length === 0
+          ? []
+          : placeAssignment(
+              config,
+              {
+                id: makeId(),
+                scheduleId,
+                weekdays: [...useOn.weekdays].sort((x, y) => x - y),
+                startsOn: useOn.startsOn ?? null,
+                endsOn: useOn.endsOn ?? null,
+                precedence: 0,
+              },
+              winner
+            );
+      return mergeChanges(rows, {
+        upsert: { schedules: [schedule], ...(assignments.length > 0 ? { assignments } : {}) },
+        remove: {},
+      });
+    }
+    interface RegularWeekInput extends Omit<NewScheduleInput, "useOn"> {
+      readonly startsOn: string;
+      readonly endsOn: string | null;
+    }
+    export function buildRegularWeekChanges(input: RegularWeekInput): AvailabilityConfigChanges {
+      const { config, startsOn, endsOn } = input;
+      if (endsOn !== null) {
+        return buildNewScheduleChanges({
+          ...input,
+          useOn: { weekdays: EVERY_DAY, startsOn, endsOn },
+        });
+      }
+      const scheduleId = input.makeId();
+      const schedule: Schedule = { id: scheduleId, name: input.name, kind: "regular", isRegular: true };
+      const rows = buildDraftChanges({
+        config,
+        scope: { kind: "schedule", scheduleId },
+        services: freshRows(input.services),
+        makeId: input.makeId,
+      });
+      const old = liveSchedules(config).find((s) => s.isRegular);
+      const oldAssignments = config.assignments.filter((a) => a.scheduleId === old?.id);
+      const dropped = oldAssignments.filter((a) => a.startsOn != null && a.startsOn >= startsOn);
+      const truncated = oldAssignments
+        .filter((a) => !dropped.includes(a) && (a.endsOn == null || a.endsOn >= startsOn))
+        .map((a) => ({ ...a, endsOn: addDays(startsOn, -1) }));
+      // The new week sits at 0, so every dated schedule must rank above it to keep winning its days
+      // (legacy venues store every assignment at 0, which would tie).
+      const renumbered = rankedAssignments(config)
+        .map((a, i) => ({ ...a, precedence: i + 1 }))
+        .filter((a) => a.precedence !== config.assignments.find((x) => x.id === a.id)?.precedence);
+      return mergeChanges(rows, {
+        upsert: {
+          schedules: [
+            schedule,
+            ...(old ? [{ ...old, isRegular: false, kind: "alternate" as const }] : []),
+          ],
+          assignments: [
+            {
+              id: input.makeId(),
+              scheduleId,
+              weekdays: EVERY_DAY,
+              startsOn,
+              endsOn: null,
+              precedence: 0,
+            },
+            ...truncated,
+            ...renumbered,
+          ],
+        },
+        remove: { assignments: dropped.map((a) => a.id) },
+      });
+    }
+    export function buildEditScheduleChanges(input: {
+      readonly config: AvailabilityConfig;
+      readonly scheduleId: string;
+      readonly name: string;
+      readonly services: readonly DraftService[];
+      readonly makeId: () => string;
+    }): AvailabilityConfigChanges {
+      const { config, scheduleId, name, makeId } = input;
+      const rows = buildDraftChanges({
+        config,
+        scope: { kind: "schedule", scheduleId },
+        services: input.services,
+        makeId,
+      });
+      const stored = config.schedules.find((s) => s.id === scheduleId);
+      const rename = stored && stored.name !== name ? { schedules: [{ ...stored, name }] } : {};
+      return mergeChanges(rows, { upsert: rename, remove: {} });
+    }
+    function freshRows(services: readonly DraftService[]): DraftService[] {
+      return services.map((s) => ({ ...s, scheduleServiceId: null }));
+    }
+    export function datesOfUse(useOn: UseOn, today: string): string[] {
+      const dates: string[] = [];
+      for (let i = 0; i < SCOPE_HORIZON_DAYS; i += 1) {
+        const d = addDays(today, i);
+        if (useOn.endsOn != null && d > useOn.endsOn) break;
+        if (
+          (useOn.startsOn == null || d >= useOn.startsOn) &&
+          useOn.weekdays.includes(weekdayIndexOf(d))
+        ) {
+          dates.push(d);
+        }
+      }
+      return dates;
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/scope-dates.ts">
     export const SCOPE_HORIZON_DAYS = 366;
     interface ScopeContext {
@@ -5581,6 +5965,53 @@
           if (pending) release(pending.next);
         },
       };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/use-schedule-save.ts">
+    export function useScheduleSave(onStale: () => void) {
+      const { t } = useTranslation();
+      const { mutateAsync, isPending } = useSaveAvailabilityConfig();
+      const [failure, setFailure] = useState<readonly string[]>([]);
+    
+      const reject = (error: unknown) => {
+        const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
+        const parsed = AvailabilityConfigProblemSchema.safeParse(details);
+        const problem = parsed.success ? parsed.data : null;
+        if (problem?.code === "version-conflict") {
+          onStale();
+          setFailure([t("availabilitySchedules.conflict")]);
+        } else if (problem?.code === "invalid-config" && problem.issues?.length) {
+          setFailure(problem.issues.map((i) => i.message));
+        } else if (problem?.code === "stranded-bookings") {
+          setFailure([
+            t("availabilitySchedules.stranded", { count: problem.reservations?.length ?? 0 }),
+          ]);
+        } else {
+          setFailure([describeApiError(error).detail]);
+        }
+      };
+    
+      /** Resolves `true` when the change was saved. */
+      const save = async (
+        venueId: string,
+        state: AvailabilityConfigState,
+        changes: AvailabilityConfigChanges,
+        scopeConflicts: ScopeConflictMode
+      ): Promise<boolean> => {
+        setFailure([]);
+        try {
+          await mutateAsync({
+            venueId,
+            body: { expectedVersion: state.version, changes, scopeConflicts },
+          });
+          return true;
+        } catch (error) {
+          reject(error);
+          return false;
+        }
+      };
+    
+      return { save, isPending, failure, clearFailure: () => setFailure([]) };
     }
   </file>
   </section>
@@ -10171,6 +10602,38 @@
           ? jsonOk(route, { version: 1, changeId: "chg_e2e_001" })
           : route.fallback()
       );
+      // Availability page (#7514): the calendar lists `?from&to` as one open
+      // "Regular" day each (two services, no closures), and the drawer reads a
+      // constant one-schedule config. Deterministic so the page renders the same
+      // grid every run.
+      await page.route(/\/api\/v1\/venues\/[^/?]+\/availability\/days(\?|$)/, (route) => {
+        const url = new URL(route.request().url());
+        const from = url.searchParams.get("from");
+        const to = url.searchParams.get("to");
+        const data: Array<Record<string, unknown>> = [];
+        if (from && to) {
+          // Civil-date stepping: the query's dates are service dates, not instants.
+          const pad = (n: number) => String(n).padStart(2, "0");
+          const civil = (t: Date) =>
+            `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())}`;
+          for (let d = new Date(`${from}T00:00:00Z`); d <= new Date(`${to}T00:00:00Z`);) {
+            data.push({
+              serviceDate: civil(d),
+              label: "Regular",
+              scheduleId: "sch-regular",
+              serviceCount: 2,
+              closures: [],
+              bookingOpen: { online: true, phone: true, waitlist: true },
+            });
+            d = new Date(d.getTime() + 86_400_000);
+          }
+        }
+        return jsonOk(route, data);
+      });
+      await page.route(/\/api\/v1\/venues\/[^/?]+\/availability\/config$/, (route) => {
+        if (route.request().method() !== "GET") return route.fallback();
+        return jsonOk(route, buildAvailabilityConfigFixture());
+      });
     
       // Venue Groups
       await page.route("**/api/v1/venues/groups*", (route) => emptyPaginated(route));
@@ -10851,6 +11314,39 @@
       );
     
       await mockMenus(page);
+    }
+    function buildAvailabilityConfigFixture() {
+      const service = (id: string, opensAt: number, lastSeatingAt: number, closesAt: number) => ({
+        id: `ss-${id}`,
+        scheduleId: "sch-regular",
+        venueServiceId: `vs-${id}`,
+        opensAt,
+        lastSeatingAt,
+        closesAt,
+        seating: { version: 1, interval: 15 },
+        bookingTypes: ["online", "phone"],
+      });
+      return {
+        config: {
+          schedules: [{ id: "sch-regular", name: "Regular", kind: "regular", isRegular: true }],
+          venueServices: [
+            { id: "vs-lunch", name: "Lunch", position: 0 },
+            { id: "vs-dinner", name: "Dinner", position: 1 },
+          ],
+          scheduleServices: [service("lunch", 690, 840, 900), service("dinner", 1020, 1290, 1380)],
+          assignments: [
+            {
+              id: "as-regular",
+              scheduleId: "sch-regular",
+              weekdays: [0, 1, 2, 3, 4, 5, 6],
+              precedence: 0,
+            },
+          ],
+          dateRules: [],
+        },
+        version: 1,
+        source: "rows",
+      };
     }
   </file>
   <file path="apps/hospitality/e2e/auth-helpers.ts">
@@ -30662,6 +31158,84 @@
       return problemFromMessage(preamble.status, ACTION_MESSAGES[action][preamble.reason]);
     }
   </file>
+  <file path="services/reservations/src/routes/manage-rebook.ts">
+    export const manageRebookRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.post<{ Body: { offerId: string } }>(
+        "/public/v1/reservations/manage/rebook",
+        {
+          schema: { body: bodySchema },
+          config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+        },
+        manageTokenScoped(
+          { missing: (reply) => reply.status(404).send(reservationNotFoundProblem()) },
+          async (request, reply, { venueId, reservation }) => {
+            const deps: RebookDeps = {
+              ...defaultRebookDeps,
+              confirmHold: (input) =>
+                fastify.transitions.confirmHold(
+                  { ...input, actor: guestActor(reservation.guestId) },
+                  {
+                    door: "public-hold",
+                    manageToken: (created) =>
+                      created.guestEmail
+                        ? generateManageToken(created.id, created.guestEmail)
+                        : undefined,
+                  }
+                ),
+            };
+            const result = await rebookVenueCancelled(
+              reservation,
+              venueId,
+              request.body.offerId,
+              new Date(),
+              deps
+            );
+    
+            if (result.ok) {
+              const { id, guestEmail } = result.reservation;
+              return reply.status(201).send({
+                data: { reservationId: id, startTime: result.reservation.startTime },
+                manageToken: guestEmail ? generateManageToken(id, guestEmail) : undefined,
+              });
+            }
+            if (result.reason === "rejected") {
+              return reply.status(422).send(gateProblem(result.rejection));
+            }
+            if (result.reason === "deposit-required") {
+              return reply
+                .status(422)
+                .send(
+                  createProblemDetails(
+                    422,
+                    "Deposit Required",
+                    "This venue takes a deposit for new bookings, so please choose another date and time."
+                  )
+                );
+            }
+            if (result.reason === "already-rebooked") {
+              return reply.status(409).send({
+                ...createProblemDetails(
+                  409,
+                  "Already Rebooked",
+                  "This booking has already been rebooked."
+                ),
+                code: "ALREADY_REBOOKED",
+              });
+            }
+            return reply
+              .status(409)
+              .send(
+                createProblemDetails(
+                  409,
+                  "Slot Unavailable",
+                  "That time is no longer available. Please choose another."
+                )
+              );
+          }
+        )
+      );
+    };
+  </file>
   <file path="services/reservations/src/routes/manage-reservation.ts">
     export const manageReservationRoutes: FastifyPluginAsync = async (fastify) => {
       const { venueService } = fastify.services;
@@ -30679,10 +31253,26 @@
           { missing: (reply) => reply.status(404).send(reservationNotFoundProblem()) },
           async (_request, reply, { venueId, reservation }) => {
             const venue = await venueService.getById(venueId);
+            const loaded = await loadVenueCancellation(reservation, venueId);
+            // The new booking belongs to the same guest, so the same email signs its token.
+            const venueCancellation =
+              loaded?.rebooked && reservation.guestEmail
+                ? {
+                    ...loaded,
+                    rebooked: {
+                      startTime: loaded.rebooked.startTime,
+                      manageToken: generateManageToken(
+                        loaded.rebooked.reservationId,
+                        reservation.guestEmail
+                      ),
+                    },
+                  }
+                : loaded;
     
             return reply.status(200).send({
               data: {
                 reservation: serializeManagedReservation(reservation),
+                venueCancellation,
                 venue: venue
                   ? {
                       id: venue.id,
@@ -45427,6 +46017,11 @@
       venueId?: string;
       /** Who confirmed; recorded on the `created` event. Defaults to {@link SYSTEM_ACTOR}. */
       actor?: ReservationEventActor;
+      /**
+       * Runs inside the confirm transaction, after the reservation insert. Throwing
+       * rolls the whole confirm back (the hold survives for the caller to release).
+       */
+      inTransaction?: (tx: Prisma.TransactionClient, reservationId: string) => Promise<void>;
     }
     export type ConfirmHoldResult =
       | { success: true; reservation: Reservation }
@@ -45557,6 +46152,8 @@
     
           // Delete the hold in the same transaction as the reservation insert.
           await tx.reservationHold.delete({ where: { id: holdId } });
+    
+          await input.inTransaction?.(tx, reservation.id);
     
           return reservation;
         },
@@ -48777,6 +49374,220 @@
       }
     
       return lapsing;
+    }
+  </file>
+  <file path="services/reservations/src/services/manage-rebook-deps.ts">
+    export async function rebookRequiresDeposit(
+      venueId: string,
+      reservation: Reservation
+    ): Promise<boolean> {
+      const policy = await venueService.getPolicyById(venueId);
+      if (!policy || policy.depositAmountCents == null) return false;
+      if (policy.depositEnabled) return true;
+    
+      const venue = await venueService.getById(venueId);
+      const settings = venue?.settings ?? null;
+      const guest = reservation.guestEmail
+        ? await guestService.findByEmail(venueId, reservation.guestEmail)
+        : reservation.guestPhone
+          ? await guestService.findByPhone(venueId, reservation.guestPhone)
+          : null;
+      return guest !== null && assessGuestReliability(guest, settings) === "risky";
+    }
+    export const defaultRebookDeps: RebookDeps = {
+      findCancelOutcome: (reservationId, venueId) =>
+        prisma.closureOutcome.findFirst({
+          where: { reservationId, venueId, action: "cancel" },
+          select: { id: true, refund: true, rebookedReservationId: true },
+        }),
+      findRebooked: (reservationId) =>
+        prisma.reservation.findUnique({
+          where: { id: reservationId },
+          select: { id: true, startTime: true },
+        }),
+      requiresDeposit: rebookRequiresDeposit,
+      loadSnapshot: (venueId, from, to, now) => loadAvailabilitySnapshot(venueId, from, to, now),
+      createHold: (data, sessionId) => holdService.create(data, sessionId),
+      confirmHold,
+      releaseHold: (holdId, sessionId) => holdService.release(holdId, sessionId),
+      linkOutcome: async (tx, outcomeId, reservationId) => {
+        const { count } = await tx.closureOutcome.updateMany({
+          where: { id: outcomeId, rebookedReservationId: null },
+          data: { rebookedReservationId: reservationId },
+        });
+        return count === 1;
+      },
+    };
+  </file>
+  <file path="services/reservations/src/services/manage-rebook-types.ts">
+    export type GuestRefundStatus = "none" | "pending" | "done" | "failed";
+    export interface CancelOutcome {
+      id: string;
+      refund: GuestRefundStatus;
+      rebookedReservationId: string | null;
+    }
+    export interface RebookDeps {
+      findCancelOutcome(reservationId: string, venueId: string): Promise<CancelOutcome | null>;
+      findRebooked(reservationId: string): Promise<{ id: string; startTime: Date } | null>;
+      /** Whether a new booking for this guest would need a deposit (fails closed). */
+      requiresDeposit(venueId: string, reservation: Reservation): Promise<boolean>;
+      loadSnapshot(
+        venueId: string,
+        from: string,
+        to: string,
+        now: Date
+      ): Promise<{ snapshot: BookingSnapshot }>;
+      createHold(data: CreateHoldRequest, sessionId: string): Promise<CreateHoldResult>;
+      confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldResult>;
+      releaseHold(holdId: string, sessionId: string): Promise<boolean>;
+      /** Sets `rebookedReservationId` if still unset; false when another rebook won. */
+      linkOutcome(
+        tx: Prisma.TransactionClient,
+        outcomeId: string,
+        reservationId: string
+      ): Promise<boolean>;
+    }
+    export type VenueCancellationDeps = Pick<
+      RebookDeps,
+      "findCancelOutcome" | "findRebooked" | "requiresDeposit" | "loadSnapshot"
+    >;
+  </file>
+  <file path="services/reservations/src/services/manage-rebook.ts">
+    export interface RebookOffer {
+      id: string;
+      date: string;
+      startTime: string;
+    }
+    export interface VenueCancellation {
+      refundStatus: GuestRefundStatus;
+      offers: RebookOffer[];
+      /** Set once the guest has rebooked; offers are then always empty. */
+      rebooked: { reservationId: string; startTime: string } | null;
+    }
+    async function currentOffers(
+      reservation: Reservation,
+      venueId: string,
+      now: Date,
+      deps: Pick<RebookDeps, "loadSnapshot">
+    ): Promise<RebookOffer[]> {
+      // Probe the timezone-free window generously; the engine applies the exact 14-day rule.
+      const today = now.toISOString().slice(0, 10);
+      const { snapshot } = await deps.loadSnapshot(
+        venueId,
+        addDays(today, -1),
+        addDays(today, REBOOK_WINDOW_DAYS + 1),
+        now
+      );
+      const result = rebookOffers(
+        snapshot,
+        { startTime: new Date(reservation.startTime), partySize: reservation.partySize },
+        now
+      );
+      return result.kind === "offers"
+        ? result.slots.map((slot) => ({
+            id: rebookOfferId(slot.start),
+            date: slot.serviceDate,
+            startTime: slot.start.toISOString(),
+          }))
+        : [];
+    }
+    export async function loadVenueCancellation(
+      reservation: Reservation,
+      venueId: string,
+      now: Date = new Date(),
+      deps: VenueCancellationDeps = defaultRebookDeps
+    ): Promise<VenueCancellation | null> {
+      if (reservation.status !== "CANCELLED") return null;
+      const outcome = await deps.findCancelOutcome(reservation.id, venueId);
+      if (!outcome) return null;
+      const { refund: refundStatus } = outcome;
+    
+      if (outcome.rebookedReservationId) {
+        const rebooked = await deps.findRebooked(outcome.rebookedReservationId);
+        return {
+          refundStatus,
+          offers: [],
+          rebooked: rebooked
+            ? { reservationId: rebooked.id, startTime: rebooked.startTime.toISOString() }
+            : null,
+        };
+      }
+    
+      // A deposit venue gets no one-tap offers: the guest goes through the widget's payment step.
+      if (await deps.requiresDeposit(venueId, reservation)) {
+        return { refundStatus, offers: [], rebooked: null };
+      }
+      const offers = await currentOffers(reservation, venueId, now, deps);
+      return { refundStatus, offers, rebooked: null };
+    }
+    export type RebookResult =
+      | { ok: true; reservation: Reservation }
+      | {
+          ok: false;
+          reason:
+            | "not-rebookable"
+            | "already-rebooked"
+            | "deposit-required"
+            | "offer-unavailable"
+            | "slot-taken";
+        }
+      | { ok: false; reason: "rejected"; rejection: GateRejection };
+    class AlreadyRebookedError extends Error {}
+    export async function rebookVenueCancelled(
+      reservation: Reservation,
+      venueId: string,
+      offerId: string,
+      now: Date,
+      deps: RebookDeps = defaultRebookDeps
+    ): Promise<RebookResult> {
+      if (reservation.status !== "CANCELLED") return { ok: false, reason: "not-rebookable" };
+      const outcome = await deps.findCancelOutcome(reservation.id, venueId);
+      if (!outcome) return { ok: false, reason: "not-rebookable" };
+      if (outcome.rebookedReservationId) return { ok: false, reason: "already-rebooked" };
+      if (await deps.requiresDeposit(venueId, reservation)) {
+        return { ok: false, reason: "deposit-required" };
+      }
+    
+      const offers = await currentOffers(reservation, venueId, now, deps);
+      const offer = offers.find((o) => o.id === offerId);
+      if (!offer) return { ok: false, reason: "offer-unavailable" };
+    
+      const sessionId = randomUUID();
+      const held = await deps.createHold(
+        { venueId, date: offer.date, time: offer.startTime, partySize: reservation.partySize },
+        sessionId
+      );
+      if (held.rejection) return { ok: false, reason: "rejected", rejection: held.rejection };
+      if (!held.success || !held.hold) return { ok: false, reason: "slot-taken" };
+    
+      try {
+        const confirmed = await deps.confirmHold({
+          holdId: held.hold.id,
+          sessionId,
+          venueId,
+          guestDetails: {
+            guestName: reservation.guestName ?? undefined,
+            guestEmail: reservation.guestEmail ?? undefined,
+            guestPhone: reservation.guestPhone ?? undefined,
+            guestId: reservation.guestId ?? undefined,
+          },
+          inTransaction: async (tx, newReservationId) => {
+            if (!(await deps.linkOutcome(tx, outcome.id, newReservationId))) {
+              throw new AlreadyRebookedError();
+            }
+          },
+        });
+        if (confirmed.success) return { ok: true, reservation: confirmed.reservation };
+        if (confirmed.rejection) {
+          return { ok: false, reason: "rejected", rejection: confirmed.rejection };
+        }
+        return { ok: false, reason: "slot-taken" };
+      } catch (err) {
+        // The transaction rolled back, so the hold survives; free it.
+        await deps.releaseHold(held.hold.id, sessionId);
+        if (err instanceof AlreadyRebookedError) return { ok: false, reason: "already-rebooked" };
+        throw err;
+      }
     }
   </file>
   <file path="services/reservations/src/services/member-venues.ts">
@@ -64191,9 +65002,29 @@
       partySize?: number;
       specialRequests?: string;
     }
+    export interface ManagedRebookOffer {
+      id: string;
+      /** Service date the slot belongs to (differs from the local date for after-midnight times). */
+      date: string;
+      /** ISO instant the slot starts. */
+      startTime: string;
+    }
+    export interface ManagedVenueCancellation {
+      refundStatus: "none" | "pending" | "done" | "failed";
+      /** Empty once rebooked, and where the new booking would need a deposit (the guest uses the full picker). */
+      offers: ManagedRebookOffer[];
+      /** Set once the guest has rebooked; `manageToken` opens the new reservation. */
+      rebooked: { startTime: string; manageToken: string } | null;
+    }
+    export interface RebookedReservation {
+      reservationId: string;
+      startTime: string;
+      manageToken: string;
+    }
     export interface ManageReservationData {
       reservation: ManagedReservation;
       venue: ManagedReservationVenue | null;
+      venueCancellation?: ManagedVenueCancellation | null;
     }
     export class ReservationsClient {
       constructor(private client: ApiClient) {}
@@ -64335,6 +65166,32 @@
           z.object({ data: schema })
         );
         return response.data;
+      }
+    
+      /**
+       * Rebook a venue-cancelled reservation into one of its offers (public,
+       * token-authenticated). `offerId` is the offer's `id`. Refusals surface as
+       * `ApiClientError`: 409 (already rebooked / slot gone) and 422 (the venue
+       * takes a deposit, or the booking gate refuses the time).
+       */
+      async rebookManaged(token: string, offerId: string): Promise<RebookedReservation> {
+        const schema = z.object({
+          data: z.object({ reservationId: z.string(), startTime: z.string() }),
+          manageToken: z.string(),
+        });
+        const response = await this.client.request<{
+          data: { reservationId: string; startTime: string };
+          manageToken: string;
+        }>(
+          "/public/v1/reservations/manage/rebook",
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ offerId }),
+          },
+          schema
+        );
+        return { ...response.data, manageToken: response.manageToken };
       }
     
       /**
@@ -65330,6 +66187,7 @@
   </file>
   <file path="packages/availability/src/legacy-migration.ts">
     export const DEFAULT_LAST_SEATING_BUFFER = 90;
+    export const MAX_PAST_MIDNIGHT_SPAN = 16 * 60;
     export interface LegacyMigrationInput {
       hours: LegacyHours;
       /** `settings.slotIntervalMinutes`; absent means the legacy default (15). */
@@ -65628,6 +66486,9 @@
   <file path="packages/availability/src/rebook.ts">
     export const MAX_REBOOK_OFFERS = 3;
     export const REBOOK_WINDOW_DAYS = 14;
+    export function rebookOfferId(start: Date): string {
+      return start.toISOString();
+    }
     export interface RebookReservation {
       startTime: Date;
       partySize: number;
@@ -71775,6 +72636,7 @@
       await fastify.register(publicWaitlistRoutes, { prefix: "/public/v1/venues" });
       await fastify.register(confirmAttendanceRoutes);
       await fastify.register(manageReservationRoutes);
+      await fastify.register(manageRebookRoutes);
       await fastify.register(cancelReservationRoutes);
       await fastify.register(modifyReservationRoutes);
       await fastify.register(publicUnsubscribeRoutes);
@@ -78047,7 +78909,7 @@
           };
         }
         case 3: {
-          const errors = validateOperatingHours(state.data.operatingHours);
+          const errors = validateQuickSetupHours(state.data.operatingHours);
           return {
             state: { ...state, errors: { ...state.errors, operatingHours: errors } },
             valid: errors === null,

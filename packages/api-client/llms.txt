@@ -381,9 +381,31 @@
       }
     </item>
     <item priority="low">
+      interface ManagedRebookOffer {
+        id: string;
+        date: string;
+        startTime: string;
+      }
+    </item>
+    <item priority="low">
+      interface ManagedVenueCancellation {
+        refundStatus: "none" | "pending" | "done" | "failed";
+        offers: ManagedRebookOffer[];
+        rebooked: { startTime: string; manageToken: string } | null;
+      }
+    </item>
+    <item priority="low">
+      interface RebookedReservation {
+        reservationId: string;
+        startTime: string;
+        manageToken: string;
+      }
+    </item>
+    <item priority="low">
       interface ManageReservationData {
         reservation: ManagedReservation;
         venue: ManagedReservationVenue | null;
+        venueCancellation?: ManagedVenueCancellation | null;
       }
     </item>
     <item priority="high">

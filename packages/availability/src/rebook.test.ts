@@ -1,6 +1,6 @@
 import type { AvailabilityConfig, DateRule } from "@mbe/types";
 import { describe, expect, it } from "vitest";
-import { rebookOffers, type RebookResult } from "./rebook.js";
+import { rebookOfferId, rebookOffers, type RebookResult } from "./rebook.js";
 import type { BookingSnapshot, EngineTable } from "./slots.js";
 
 const TZ = "America/Los_Angeles";
@@ -144,5 +144,17 @@ describe("rebookOffers", () => {
     const original = { startTime: at("2026-11-04", "01:00"), partySize: 2 };
     const result = rebookOffers({ ...snapshot(), config: late }, original, lateNow);
     expect(starts(result)[0]).toBe(at("2026-11-06", "01:00").toISOString());
+  });
+});
+
+describe("rebookOfferId", () => {
+  it("is the slot's start instant as an ISO string, the value a rebook= link carries", () => {
+    expect(rebookOfferId(new Date("2026-11-05T01:30:00Z"))).toBe("2026-11-05T01:30:00.000Z");
+  });
+
+  it("names every offer rebookOffers returns", () => {
+    const result = rebookOffers(snapshot(), ORIGINAL, NOW);
+    const ids = result.kind === "offers" ? result.slots.map((s) => rebookOfferId(s.start)) : [];
+    expect(ids).toEqual(starts(result));
   });
 });
