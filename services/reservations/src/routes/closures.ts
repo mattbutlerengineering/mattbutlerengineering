@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync, FastifyReply } from "fastify";
+import type { FastifyBaseLogger, FastifyPluginAsync, FastifyReply } from "fastify";
 import {
   availabilityConfigEndpoints,
   createProblemDetails,
@@ -108,7 +108,24 @@ function sendRefusal(reply: FastifyReply, outcome: Refusal) {
 }
 
 export const closureRoutes: FastifyPluginAsync = async (fastify) => {
-  const { closureCommandService } = fastify.services;
+  const { closureCommandService, closureNoticeService } = fastify.services;
+
+  /**
+   * The closure is already committed, so a queue outage must not turn the
+   * answer into an error: log it. Guests with no confirmed delivery are on
+   * the call list, and a replay of the same Idempotency-Key enqueues again.
+   */
+  async function enqueueNotices(
+    enqueue: typeof closureNoticeService.enqueueForClosure,
+    input: { venueId: string; ruleId: string },
+    log: FastifyBaseLogger
+  ): Promise<void> {
+    try {
+      await enqueue({ ...input, now: new Date() });
+    } catch (error) {
+      log.error({ err: error, ...input }, "closure notices were not enqueued");
+    }
+  }
 
   registerEndpoint(fastify, availabilityConfigEndpoints.createClosure, {
     docs: {
@@ -136,6 +153,11 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
         now: new Date(),
       });
       if (outcome.kind !== "saved") return sendRefusal(reply, outcome);
+      await enqueueNotices(
+        closureNoticeService.enqueueForClosure,
+        { venueId, ruleId: outcome.result.ruleId },
+        request.log
+      );
       return { data: outcome.result };
     }),
   });
@@ -159,7 +181,16 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
         tellCancelledGuests: request.body.tellCancelledGuests,
         now: new Date(),
       });
-      if (outcome.kind === "reopened") return { data: outcome.result };
+      if (outcome.kind === "reopened") {
+        if (request.body.tellCancelledGuests) {
+          await enqueueNotices(
+            closureNoticeService.enqueueForReopen,
+            { venueId, ruleId: request.params.ruleId },
+            request.log
+          );
+        }
+        return { data: outcome.result };
+      }
       return sendRefusal(reply, outcome);
     }),
   });

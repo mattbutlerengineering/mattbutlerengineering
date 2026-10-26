@@ -21,6 +21,7 @@ vi.mock("jose", () => ({
 const URL = `${AVAILABILITY_CONFIG_PREFIX}/venue-1/closures`;
 const ADMIN = { "x-auth-bypass": "true" };
 const commandSvc = { mayClose: vi.fn(), create: vi.fn(), reopen: vi.fn() };
+const noticeSvc = { enqueueForClosure: vi.fn(), enqueueForReopen: vi.fn(), callList: vi.fn() };
 
 const rule = {
   id: "dr-new",
@@ -54,7 +55,10 @@ describe("closure routes", () => {
     };
     app = await buildApp({
       logger: false,
-      services: { closureCommandService: commandSvc as never },
+      services: {
+        closureCommandService: commandSvc as never,
+        closureNoticeService: noticeSvc as never,
+      },
     });
     await app.ready();
   });
@@ -86,6 +90,26 @@ describe("closure routes", () => {
           body: BODY,
         })
       );
+    });
+
+    it("enqueues the notices for the saved closure, replays included", async () => {
+      commandSvc.create.mockResolvedValueOnce({ kind: "saved", result: RESULT });
+      await post();
+      expect(noticeSvc.enqueueForClosure).toHaveBeenCalledWith(
+        expect.objectContaining({ venueId: "venue-1", ruleId: "dr-new" })
+      );
+    });
+
+    it("enqueues nothing for a refused closure", async () => {
+      commandSvc.create.mockResolvedValueOnce({ kind: "forbidden" });
+      await post();
+      expect(noticeSvc.enqueueForClosure).not.toHaveBeenCalled();
+    });
+
+    it("still answers 200 when the queue is down (the closure is committed)", async () => {
+      commandSvc.create.mockResolvedValueOnce({ kind: "saved", result: RESULT });
+      noticeSvc.enqueueForClosure.mockRejectedValueOnce(new Error("redis down"));
+      expect((await post()).statusCode).toBe(200);
     });
 
     it("400s without an Idempotency-Key", async () => {
@@ -142,6 +166,19 @@ describe("closure routes", () => {
       expect(commandSvc.reopen).toHaveBeenCalledWith(
         expect.objectContaining({ venueId: "venue-1", ruleId: "dr-new", tellCancelledGuests: true })
       );
+    });
+
+    it("enqueues reopen notices only when the Manager chose to tell cancelled guests", async () => {
+      const reopened = { kind: "reopened", result: { version: 6, changeId: "chg-2" } };
+      commandSvc.reopen.mockResolvedValueOnce(reopened);
+      await del({ tellCancelledGuests: true });
+      expect(noticeSvc.enqueueForReopen).toHaveBeenCalledWith(
+        expect.objectContaining({ venueId: "venue-1", ruleId: "dr-new" })
+      );
+      noticeSvc.enqueueForReopen.mockClear();
+      commandSvc.reopen.mockResolvedValueOnce(reopened);
+      await del({ tellCancelledGuests: false });
+      expect(noticeSvc.enqueueForReopen).not.toHaveBeenCalled();
     });
 
     it("404s an unknown closure and 403s a Host outside the limits", async () => {

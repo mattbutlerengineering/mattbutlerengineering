@@ -1,4 +1,5 @@
 import type {
+  ClosureEmailInput,
   NotificationPort,
   BookingNotificationInput,
   WinBackNotificationInput,
@@ -64,6 +65,15 @@ export class ResendNotificationAdapter implements NotificationPort {
         `Resend send failed${error.name ? ` (${error.name})` : ""}: ${error.message}`
       );
     }
+  }
+
+  async sendClosureNotice(input: ClosureEmailInput): Promise<void> {
+    await this.send({
+      from: this.fromAddress,
+      to: input.to,
+      subject: input.subject,
+      html: input.html,
+    });
   }
 
   async sendBookingConfirmation(input: BookingNotificationInput): Promise<void> {

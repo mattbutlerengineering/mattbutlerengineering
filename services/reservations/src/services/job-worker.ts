@@ -14,6 +14,7 @@ import type {
 } from "../notifications/index.js";
 import type { CommunicationPreference, Reservation, Venue } from "@mbe/types";
 import { resolveChannel } from "./contact-policy.js";
+import { createClosureNoticeHandler, type ClosureNoticeDeps } from "./closure-notice.js";
 import { runWithVenueContext } from "./venue-context-store.js";
 
 const LIVE_REMINDER_STATUSES: ReadonlySet<Reservation["status"]> = new Set([
@@ -53,6 +54,8 @@ export interface ReservationJobHandlerDeps {
   generateManageToken(reservationId: string, guestEmail: string): string;
   /** Waitlist re-notify path — expires the entry and notifies the next guest. */
   handleWaitlistExpiry(input: { waitlistEntryId: string }): Promise<void>;
+  /** CLOSURE_NOTICE delivery; the job type is registered only when given. */
+  closureNotice?: ClosureNoticeDeps;
   /** Logs the WAITLIST_EXPIRY legacy-payload fallback (see handleWaitlistExpiryJob below). */
   logger: JobWorkerLogger;
 }
@@ -164,6 +167,9 @@ export function createReservationJobHandlers(deps: ReservationJobHandlerDeps): J
     [JOB_TYPES.BOOKING_REMINDER]: deliverReminder,
     [JOB_TYPES.DAY_OF_REMINDER]: deliverReminder,
     [JOB_TYPES.WAITLIST_EXPIRY]: handleWaitlistExpiryJob,
+    ...(deps.closureNotice
+      ? { [JOB_TYPES.CLOSURE_NOTICE]: createClosureNoticeHandler(deps.closureNotice) }
+      : {}),
   };
 }
 

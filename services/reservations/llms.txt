@@ -148,9 +148,18 @@
       }
     </item>
     <item priority="low">
+      interface ClosureNoticePayload {
+        outcomeId: string;
+        venueId: string;
+        variant?: "closure" | "reopened";
+        urgent?: boolean;
+        attempt?: number;
+      }
+    </item>
+    <item priority="low">
       type JobPayloadMap = {
-        [JOB_TYPES.BOOKING_REMINDER]: ReminderPayload;
-        [JOB...;
+        [JOB_TYPES.CLOSURE_NOTICE]: ClosureNoticePayload;
+        [...;
     </item>
     <item priority="low">
       type JobHandlerMap = Partial<{
@@ -276,6 +285,80 @@
       ): BookingEmailContent { /* ... */ }
     </item>
   </file>
+  <file path="src/notifications/closure-content.ts">
+    <item priority="low">
+      type ClosureNoticeKind = "cancelled" | "moved" | "kept" | "reopened";
+    </item>
+    <item priority="low">
+      interface ClosureOffer {
+        label: string;
+        url: string;
+      }
+    </item>
+    <item priority="low">
+      interface ClosureNoticeContent {
+        kind: ClosureNoticeKind;
+        venueName: string;
+        guestName: string | null;
+        closureDate: string;
+        startTime: string;
+      }
+    </item>
+    <item priority="high">
+      export function smsSegments(body: string): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function civilParts(date: string): { weekday: string; month: string; day: number } { /* ... */ }
+    </item>
+    <item priority="medium">
+      function shortDate(date: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function emailDate(date: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function offerLabel(start: Date, timezone: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function money(refund: { amountCents: number; currency: string }): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function timeOf(c: ClosureNoticeContent): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function firstName(name: string | null): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function cancelledSms(c: ClosureNoticeContent, offers: readonly ClosureOffer[]): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function movedSms(c: ClosureNoticeContent): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function keptSms(c: ClosureNoticeContent, withMessage: boolean): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function reopenedSms(c: ClosureNoticeContent): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function smsCandidates(c: ClosureNoticeContent): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildClosureSms(c: ClosureNoticeContent): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function emailSubject(c: ClosureNoticeContent): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function link(url: string, text: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function emailLines(c: ClosureNoticeContent): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildClosureEmail(c: ClosureNoticeContent): { subject: string; html: string } { /* ... */ }
+    </item>
+  </file>
   <file path="src/notifications/email-content.ts">
     <item priority="low">
       type NotificationEventType = "confirmation" | "reminder" | "modified" | "cancelled";
@@ -379,7 +462,6 @@
         emailAdapter: NotificationPort;
         smsAdapter: SmsPort | null;
         smsManageBaseUrl: string;
-        async toSmsInput(): Promise<unknown>;
       }
     </item>
   </file>
@@ -407,6 +489,13 @@
         venueName: string;
         visitDate: string;
         feedbackUrl: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface ClosureEmailInput {
+        to: string;
+        subject: string;
+        html: string;
       }
     </item>
     <item priority="low">
@@ -513,6 +602,12 @@
       interface WaitlistTableReadyInput {
         guestPhone: string;
         guestName: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface ClosureSmsInput {
+        to: string;
+        body: string;
       }
     </item>
     <item priority="low">
@@ -2724,6 +2819,144 @@
       }): ClosureImpact { /* ... */ }
     </item>
   </file>
+  <file path="src/services/closure-notice-runtime.ts">
+    <item priority="high">
+      export function createClosureNoticeDeps(input: {
+        dispatcher: Pick<NotificationDispatcher, "sendClosureEmail" | "sendClosureSms" | "smsEnabled">;
+        generateManageToken(reservationId: string, guestEmail: string): string;
+        manageBaseUrl: string;
+        logger: ClosureNoticeDeps["logger"];
+        now?: () => Date;
+      }): ClosureNoticeDeps { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/closure-notice-service.ts">
+    <item priority="high">
+      export const URGENT_WINDOW_MS: unknown;
+    </item>
+    <item priority="high">
+      type Store = Pick<typeof defaultStore, "listNotifiable" | "listCallList">;
+    </item>
+    <item priority="high">
+      type Scheduler = Pick<JobsPort, "schedule">;
+    </item>
+    <item priority="high">
+      interface EnqueueInput {
+        venueId: string;
+        ruleId: string;
+        now: Date;
+      }
+    </item>
+    <item priority="high">
+      export function createClosureNoticeService(deps: { scheduler: Scheduler; store?: Store }) { /* ... */ }
+    </item>
+    <item priority="low">
+      type ClosureNoticeService = ReturnType<typeof createClosureNoticeService>;
+    </item>
+  </file>
+  <file path="src/services/closure-notice-store.ts">
+    <item priority="high">
+      type Db = Pick<PrismaClient, "closureOutcome">;
+    </item>
+    <item priority="low">
+      interface NotifiableOutcome {
+        outcomeId: string;
+        startTime: Date;
+      }
+    </item>
+    <item priority="low">
+      type NoticeVariant = "closure" | "reopened";
+    </item>
+    <item priority="high">
+      export async function listNotifiable(
+        venueId: string,
+        ruleId: string,
+        variant: NoticeVariant,
+        db: Db = prisma
+      ): Promise<NotifiableOutcome[]> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function loadNoticeOutcome(
+        outcomeId: string,
+        db: Db = prisma
+      ): Promise<NoticeOutcome | null> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function recordDeliveries(
+        outcomeId: string,
+        deliveries: Deliveries,
+        db: Db = prisma
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function loadRebookSlots(o: NoticeOutcome, now: Date): Promise<Date[]> { /* ... */ }
+    </item>
+    <item priority="low">
+      interface CallListEntry {
+        outcomeId: string;
+        reservationId: string;
+        guestName: string | null;
+        partySize: number;
+        startTime: Date;
+      }
+    </item>
+    <item priority="high">
+      export async function listCallList(
+        venueId: string,
+        ruleId: string,
+        db: Db = prisma
+      ): Promise<CallListEntry[]> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/closure-notice.ts">
+    <item priority="low">
+      type DeliveryStatus = "sent" | "failed" | "skipped";
+    </item>
+    <item priority="low">
+      type ChannelStatuses = Partial<Record<NoticeChannel, DeliveryStatus>>;
+    </item>
+    <item priority="low">
+      type Deliveries = ChannelStatuses & { reopen?: ChannelStatuses };
+    </item>
+    <item priority="low">
+      interface NoticeOutcome {
+        outcomeId: string;
+        venueId: string;
+        reservationId: string;
+        action: "cancel" | "move" | "keep_notify" | "keep_silent";
+        deliveries: Deliveries;
+      }
+    </item>
+    <item priority="low">
+      interface ClosureNoticeDeps {
+        smsEnabled: boolean;
+        logger: { warn(details: object, msg: string): void };
+      }
+    </item>
+    <item priority="high">
+      export function isOnCallList(
+        o: Pick<NoticeOutcome, "action" | "deliveries" | "rebooked">
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="low">
+      async function contentFor(
+        o: NoticeOutcome,
+        kind: ClosureNoticeKind,
+        deps: ClosureNoticeDeps
+      ): Promise<ClosureNoticeContent> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function send(
+        channel: NoticeChannel,
+        o: NoticeOutcome,
+        content: ClosureNoticeContent,
+        deps: ClosureNoticeDeps
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createClosureNoticeHandler(deps: ClosureNoticeDeps) { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/confirm-hold.ts">
     <item priority="high">
       type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED" | "NOT_BOOKABLE";
@@ -2763,6 +2996,25 @@
     </item>
     <item priority="high">
       export function canContact(state: ContactState, messageClass: MessageClass): boolean { /* ... */ }
+    </item>
+    <item priority="low">
+      type NoticeChannel = "email" | "sms";
+    </item>
+    <item priority="low">
+      interface NoticeContacts {
+        hasEmail: boolean;
+        hasSms: boolean;
+      }
+    </item>
+    <item priority="medium">
+      function preferredChannels(preference: CommunicationPreference): NoticeChannel[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closureNoticeChannels(
+        preference: CommunicationPreference | null | undefined,
+        contacts: NoticeContacts,
+        urgent: boolean
+      ): NoticeChannel[] { /* ... */ }
     </item>
   </file>
   <file path="src/services/database.ts">
@@ -2866,11 +3118,13 @@
         availabilityConfigService: typeof availabilityConfigService;
         closureImpactService: typeof closureImpactService;
         closureCommandService: typeof closureCommandService;
-        venueService: typeof venueService;
+        closureNoticeService: ClosureNoticeService;
       }
     </item>
     <item priority="high">
-      export const defaultDomainServices: Omit<DomainServices, "depositService">;
+      export const defaultDomainServices: Omit<
+        DomainServices,
+        "depositService" | "closureNoti...;
     </item>
   </file>
   <file path="src/services/events.ts">
@@ -3093,6 +3347,7 @@
     <item priority="low">
       interface ReservationJobHandlerDeps {
         dispatcher: ReminderDispatcher;
+        closureNotice?: ClosureNoticeDeps;
         logger: JobWorkerLogger;
       }
     </item>

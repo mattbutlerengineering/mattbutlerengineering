@@ -48,7 +48,15 @@ export interface WaitlistTableReadyInput {
   guestName: string | null;
 }
 
+export interface ClosureSmsInput {
+  to: string;
+  /** The whole body: a link is never truncated. */
+  body: string;
+}
+
 export interface SmsPort {
+  /** A closure notice, already rendered (see closure-content.ts). */
+  sendClosureNotice(input: ClosureSmsInput): Promise<void>;
   sendBookingReminder(input: SmsNotificationInput): Promise<void>;
   sendWaitlistUpdate(input: WaitlistUpdateInput): Promise<void>;
   sendWinbackMessage(input: WinbackMessageInput): Promise<void>;
