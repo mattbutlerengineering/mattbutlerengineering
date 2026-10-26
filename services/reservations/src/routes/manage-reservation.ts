@@ -22,20 +22,20 @@ export const manageReservationRoutes: FastifyPluginAsync = async (fastify) => {
       async (_request, reply, { venueId, reservation }) => {
         const venue = await venueService.getById(venueId);
         const loaded = await loadVenueCancellation(reservation, venueId);
-        // The new booking belongs to the same guest, so the same email signs its token.
-        const venueCancellation =
-          loaded?.rebooked && reservation.guestEmail
-            ? {
-                ...loaded,
-                rebooked: {
-                  startTime: loaded.rebooked.startTime,
-                  manageToken: generateManageToken(
-                    loaded.rebooked.reservationId,
-                    reservation.guestEmail
-                  ),
-                },
-              }
-            : loaded;
+        // The new booking belongs to the same guest, so the same email signs its
+        // token ("" for a phone-only guest, like the closure notice runtime).
+        const venueCancellation = loaded?.rebooked
+          ? {
+              ...loaded,
+              rebooked: {
+                startTime: loaded.rebooked.startTime,
+                manageToken: generateManageToken(
+                  loaded.rebooked.reservationId,
+                  reservation.guestEmail ?? ""
+                ),
+              },
+            }
+          : loaded;
 
         return reply.status(200).send({
           data: {
