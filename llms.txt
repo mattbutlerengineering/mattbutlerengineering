@@ -1575,7 +1575,12 @@
     </item>
     <item priority="high">
       export function isUrgent(
-        closure: { readonly startsOn: string; readonly fromMinute: number | null },
+        closure: {
+          readonly startsOn: string;
+          readonly endsOn?: string | null;
+          readonly repeat?: { readonly weekdays: readonly number[] } | null;
+          readonly fromMinute: number | null;
+        },
         today: string,
         nowMinute: number
       ): boolean { /* ... */ }
@@ -4622,6 +4627,16 @@
     </item>
     <item priority="high">
       export function getAuthPluginOptionsFromEnv(): AuthPluginOptions { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="fixtures">
+  <file path="apps/hospitality/e2e/fixtures/locale-sweep-readable.ts">
+    <item priority="high">
+      export const MIN_LITERAL_LETTERS: unknown;
+    </item>
+    <item priority="high">
+      export function hasReadableLiteral(value: string): boolean { /* ... */ }
     </item>
   </file>
   </section>
@@ -13068,7 +13083,7 @@
       export function assertBookable(opts: AssertBookableOptions): BookableError | undefined { /* ... */ }
     </item>
     <item priority="low">
-      type GateRejection = { code: "outside-availability" | { code: "soft-limit"; limits: ;
+      type GateRejection = { code: "outside-availability" | { code: "soft-limit"; limits:  | { code: "date-mismatch"; servi;
     </item>
     <item priority="low">
       type GateOutcome = { kind: "ok"; overrideLimits?: | { kind: "conflict" } | { kind: "rejected"; rejection:;
@@ -13078,8 +13093,8 @@
         venueId: string;
         tableId?: string;
         start: Date;
+        serviceDate?: string;
         end?: Date;
-        partySize: number;
       }
     </item>
     <item priority="high">
@@ -13102,6 +13117,9 @@
         now: Date = new Date(),
         logger: SnapshotLogger = CONSOLE_LOGGER
       ): Promise<GateOutcome> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function dateMismatch(snapshot: BookingSnapshot, request: GateRequest): GateOutcome | null { /* ... */ }
     </item>
     <item priority="medium">
       function outcomeOf(verdict: Verdict): GateOutcome { /* ... */ }
@@ -14437,8 +14455,11 @@
         now: Date;
       }
     </item>
+    <item priority="medium">
+      function nextClosureDate(w: ClosureWindow, now: Date): string | null { /* ... */ }
+    </item>
     <item priority="high">
-      export function closureStartsAt(w: ClosureWindow): Date | null { /* ... */ }
+      export function closureStartsAt(w: ClosureWindow, now: Date): Date | null { /* ... */ }
     </item>
     <item priority="high">
       export function closureNoticeJobId(outcomeId: string, variant: NoticeVariant): string { /* ... */ }
@@ -14463,12 +14484,17 @@
     <item priority="low">
       interface ClosureWindow {
         startsOn: string;
+        endsOn: string | null;
+        weekdays: number[] | null;
         from: number | null;
         timezone: string;
       }
     </item>
     <item priority="medium">
       function windowFrom(window: unknown): number | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function weekdaysOf(repeat: unknown): number[] | null { /* ... */ }
     </item>
     <item priority="high">
       export async function loadClosureWindow(
@@ -19963,6 +19989,21 @@
       ): DayDiff[] { /* ... */ }
     </item>
   </file>
+  <file path="packages/availability/src/first-occurrence.ts">
+    <item priority="low">
+      interface OccurrenceRule {
+        startsOn: ServiceDate;
+        endsOn?: ServiceDate | null;
+        repeat?: { readonly weekdays: readonly number[] } | null;
+      }
+    </item>
+    <item priority="high">
+      export function firstOccurrenceOnOrAfter(
+        rule: OccurrenceRule,
+        from: ServiceDate
+      ): ServiceDate | null { /* ... */ }
+    </item>
+  </file>
   <file path="packages/availability/src/format-minute.ts">
     <item priority="high">
       export function formatMinute(minute: number): string { /* ... */ }
@@ -20545,6 +20586,12 @@
     </item>
     <item priority="medium">
       function owningServiceDay(snapshot: AvailabilitySnapshot, start: Date) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function owningServiceDate(
+        snapshot: AvailabilitySnapshot,
+        start: Date
+      ): ServiceDate | undefined { /* ... */ }
     </item>
     <item priority="medium">
       function hard(reason: HardReason, message?: string): Verdict { /* ... */ }

@@ -15,9 +15,13 @@ function resultOf(outcome: GateOutcome): AvailabilityCheckResult {
     case "rejected": {
       const { rejection } = outcome;
       const message = rejectionDetail(rejection);
-      return rejection.code === "soft-limit"
-        ? { kind: "soft", limits: rejection.limits, message }
-        : { kind: "hard", reason: rejection.reason, message };
+      if (rejection.code === "soft-limit") {
+        return { kind: "soft", limits: rejection.limits, message };
+      }
+      // The check endpoint sends no date, so it never yields `date-mismatch`.
+      const reason =
+        rejection.code === "outside-availability" ? rejection.reason : "outside_service";
+      return { kind: "hard", reason, message };
     }
   }
 }
