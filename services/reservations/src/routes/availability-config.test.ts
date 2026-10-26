@@ -50,11 +50,21 @@ const svc = {
   preview: vi.fn(),
 };
 const impactSvc = { impact: vi.fn() };
+const commandSvc = { mayClose: vi.fn(), create: vi.fn(), reopen: vi.fn() };
 
-async function appWith(options: { venueRoleLookup?: VenueRoleLookup } = {}) {
+async function appWith(
+  options: {
+    venueRoleLookup?: VenueRoleLookup;
+    venueMembershipLookup?: () => Promise<boolean>;
+  } = {}
+) {
   const app = await buildApp({
     logger: false,
-    services: { availabilityConfigService: svc as never, closureImpactService: impactSvc as never },
+    services: {
+      availabilityConfigService: svc as never,
+      closureImpactService: impactSvc as never,
+      closureCommandService: commandSvc as never,
+    },
     ...options,
   });
   await app.ready();
@@ -257,6 +267,8 @@ describe("availability config routes", () => {
         payload: payload as object,
       });
 
+    beforeEach(() => commandSvc.mayClose.mockResolvedValue(true));
+
     it("returns the affected bookings", async () => {
       const impact = { reservations: 0, covers: 0, depositsHeld: 0, groups: [] };
       impactSvc.impact.mockResolvedValueOnce({ kind: "ok", impact });
@@ -294,7 +306,7 @@ describe("availability config routes", () => {
       expect(impactSvc.impact).not.toHaveBeenCalled();
     });
 
-    it("refuses a staff (Host) member with 403", async () => {
+    const asHost = async () => {
       vi.mocked(jwtVerify).mockResolvedValueOnce({
         payload: {
           sub: "auth0|host",
@@ -304,12 +316,40 @@ describe("availability config routes", () => {
         },
         protectedHeader: { alg: "RS256" },
       } as never);
-      const scoped = await appWith({ venueRoleLookup: vi.fn(async () => "staff" as const) });
+      return appWith({
+        venueRoleLookup: vi.fn(async () => "staff" as const),
+        venueMembershipLookup: vi.fn(async () => true),
+      });
+    };
+
+    it("refuses a Host outside the emergency-close limits with 403", async () => {
+      commandSvc.mayClose.mockResolvedValueOnce(false);
+      const scoped = await asHost();
 
       const res = await post(scoped, { rule }, { authorization: "Bearer host" } as never);
 
       expect(res.statusCode).toBe(403);
+      expect(commandSvc.mayClose).toHaveBeenCalledWith(
+        "venue-1",
+        false,
+        expect.anything(),
+        expect.any(Date)
+      );
       expect(impactSvc.impact).not.toHaveBeenCalled();
+      await scoped.close();
+    });
+
+    it("lets a Host preview the emergency close the venue allows", async () => {
+      commandSvc.mayClose.mockResolvedValueOnce(true);
+      impactSvc.impact.mockResolvedValueOnce({
+        kind: "ok",
+        impact: { reservations: 0, covers: 0, depositsHeld: 0, groups: [] },
+      });
+      const scoped = await asHost();
+
+      const res = await post(scoped, { rule }, { authorization: "Bearer host" } as never);
+
+      expect(res.statusCode).toBe(200);
       await scoped.close();
     });
   });

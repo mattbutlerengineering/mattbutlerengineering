@@ -5,9 +5,28 @@ import {
   AvailabilityConfigProblemSchema,
   ClosureImpactBodySchema,
   ClosureImpactSchema,
+  CreateClosureBodySchema,
   PreviewAvailabilityBodySchema,
   PutAvailabilityConfigBodySchema,
 } from "./availability-config-api.js";
+
+describe("CreateClosureBodySchema", () => {
+  const rule = { id: "r1", kind: "closure", targetKind: "venue", startsOn: "2026-12-24" };
+  const parse = (decisions: unknown) =>
+    CreateClosureBodySchema.safeParse({ expectedVersion: 0, rule, decisions });
+
+  it("defaults to no decisions and requires the version", () => {
+    expect(CreateClosureBodySchema.parse({ expectedVersion: 0, rule }).decisions).toEqual([]);
+    expect(CreateClosureBodySchema.safeParse({ rule }).success).toBe(false);
+  });
+
+  it("accepts the four actions and nothing else", () => {
+    for (const action of ["cancel", "move", "keep_notify", "keep_silent"]) {
+      expect(parse([{ groupKey: "2026-12-24:closed", action }]).success).toBe(true);
+    }
+    expect(parse([{ groupKey: "2026-12-24:closed", action: "delete" }]).success).toBe(false);
+  });
+});
 
 describe("ClosureImpactBodySchema", () => {
   const closure = { id: "r1", kind: "closure", targetKind: "venue", startsOn: "2026-12-24" };
