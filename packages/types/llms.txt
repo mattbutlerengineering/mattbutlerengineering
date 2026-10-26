@@ -217,6 +217,9 @@
       export const AvailabilityDaySummarySchema: unknown;
     </item>
     <item priority="high">
+      export const ClosureAlongsideSchema: unknown;
+    </item>
+    <item priority="high">
       export const ClosureImpactBodySchema: unknown;
     </item>
     <item priority="high">
@@ -233,6 +236,9 @@
     </item>
     <item priority="high">
       export const ClosureImpactSchema: unknown;
+    </item>
+    <item priority="low">
+      type ClosureAlongside = z.infer<typeof ClosureAlongsideSchema>;
     </item>
     <item priority="low">
       type ClosureImpactBody = z.infer<typeof ClosureImpactBodySchema>;

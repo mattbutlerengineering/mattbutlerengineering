@@ -1,12 +1,18 @@
 import { addDays, weekdayIndexOf } from "@mbe/availability";
-import type { AvailabilityConfig, AvailabilityConfigChanges, DateRule } from "@mbe/types";
+import type {
+  AvailabilityConfig,
+  AvailabilityConfigChanges,
+  ClosureAlongside,
+  DateRule,
+} from "@mbe/types";
 
 /**
  * F-SER (ux.md): changing one date of something that repeats, or the series itself. Pure: each
  * function returns the row operations a config save sends, reusing the engine's own model. A
  * skipped date is a `skip` row pointing at its series (`seriesId`); the series row is never
  * rewritten for a single date. The server's stranded-bookings check still guards every save,
- * and a one-date edit that closes something new goes through the closure command.
+ * and an edit that closes something new (one date, or a series that grows) goes through the
+ * closure command.
  */
 
 /** Which dates of the series an edit reaches (ux.md F-SER step 2). */
@@ -91,6 +97,40 @@ const withEdit = (series: DateRule, edit: SeriesEdit): DateRule => ({
   endsOn: edit.endsOn,
   repeat: { version: 1, weekdays: [...edit.weekdays] },
 });
+
+/**
+ * Whether the edit can close a date the series did not: a weekday added, or an end moved later
+ * (or removed). Only these go through the closure flow; the rest can only reopen dates.
+ */
+export function growsSeries(series: DateRule, edit: SeriesEdit): boolean {
+  const had = series.repeat?.weekdays ?? [];
+  const later = series.endsOn != null && (edit.endsOn == null || edit.endsOn > series.endsOn);
+  return edit.weekdays.some((d) => !had.includes(d)) || later;
+}
+
+/**
+ * A growth edit as a closure: the edited series is the draft rule, and the rows it replaces go
+ * `alongside` so the server saves both in one transaction. "This and following" ends the original
+ * the day before `date`; from the first date (or "All dates") the original is removed and the new
+ * series, under a new id, takes over. Later skips and one-date edits move onto the new series.
+ */
+export function growthClosure(
+  config: AvailabilityConfig,
+  series: DateRule,
+  scope: SeriesScope,
+  date: string,
+  edit: SeriesEdit,
+  makeId: () => string
+): { rule: DateRule; alongside: ClosureAlongside } {
+  const from = scope === "all" || date <= series.startsOn ? series.startsOn : date;
+  const rule: DateRule = { ...withEdit(series, edit), id: makeId(), startsOn: from };
+  const moved = config.dateRules
+    .filter((r) => r.seriesId === series.id && r.startsOn >= from)
+    .map((r) => ({ ...r, seriesId: rule.id }));
+  if (from === series.startsOn) return { rule, alongside: { upsert: moved, remove: [series.id] } };
+  const ended: DateRule = { ...series, endsOn: addDays(from, -1) };
+  return { rule, alongside: { upsert: [ended, ...moved], remove: [] } };
+}
 
 /**
  * Change the series' weekdays and end. "This and following" ends the original the day before

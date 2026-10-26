@@ -630,6 +630,116 @@ describe("createClosure", () => {
     expect(w.dateRules).toHaveLength(0);
   });
 
+  describe("a series growth edit (alongside)", () => {
+    /** Thursdays from Dec 1, as the stored row; the edit adds Fridays from Dec 10. */
+    const storedSeries = {
+      id: "s1",
+      venueId: "v",
+      kind: "closure",
+      targetKind: "venue",
+      venueServiceId: null,
+      bookingTypes: [],
+      startsOn: new Date("2026-12-01T00:00:00.000Z"),
+      endsOn: null,
+      repeat: { version: 1, weekdays: [4] },
+      window: null,
+      payload: null,
+      useScheduleId: null,
+      seriesId: null,
+      guestMessage: null,
+      staffNote: null,
+      expiresAt: null,
+      deletedAt: null,
+      tables: [],
+    };
+    const friday = (id: string) =>
+      res(id, "2026-12-25", "2026-12-26T03:00:00.000Z", "2026-12-26T04:30:00.000Z");
+    const growth = (): World =>
+      world({ dateRules: [storedSeries], reservations: [friday("res-1"), friday("res-2")] });
+    const split = (): Partial<CreateClosureBody> => ({
+      rule: closure({
+        id: "s2",
+        startsOn: "2026-12-10",
+        endsOn: null,
+        repeat: { version: 1, weekdays: [4, 5] },
+      }),
+      alongside: {
+        upsert: [
+          {
+            id: "s1",
+            kind: "closure",
+            targetKind: "venue",
+            startsOn: "2026-12-01",
+            endsOn: "2026-12-09",
+            repeat: { version: 1, weekdays: [4] },
+          },
+        ],
+        remove: [],
+      },
+      decisions: [{ groupKey: "2026-12-25:closed", action: "cancel" }],
+    });
+
+    it("cancels the newly closed dates and splits the series in one save", async () => {
+      const w = growth();
+      const { outcome, tx } = await run(w, body(split()));
+
+      expect(outcome).toMatchObject({
+        kind: "saved",
+        result: { ruleId: "s2", outcomes: { cancel: 2 } },
+      });
+      expect(w.reservations.map((r) => r.status)).toEqual(["CANCELLED", "CANCELLED"]);
+      expect(tx.dateRule.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ id: "s2" }) })
+      );
+      expect(tx.dateRule.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "s1" },
+          data: expect.objectContaining({ endsOn: new Date("2026-12-09T00:00:00.000Z") }),
+        })
+      );
+    });
+
+    it("asks for the decision first and writes neither the series nor a cancel without it", async () => {
+      const w = growth();
+      const { outcome, tx } = await run(w, body({ ...split(), decisions: [] }));
+
+      expect(outcome).toEqual({ kind: "decision_required", groupKeys: ["2026-12-25:closed"] });
+      expect(w.reservations.map((r) => r.status)).toEqual(["CONFIRMED", "CONFIRMED"]);
+      expect(tx.dateRule.create).not.toHaveBeenCalled();
+      expect(tx.dateRule.update).not.toHaveBeenCalled();
+      expect(w.version).toBe(4);
+    });
+
+    it("leaves a date the replaced series already closed out of the decisions", async () => {
+      const w = world({
+        dateRules: [storedSeries],
+        reservations: [
+          res("thu", "2026-12-24", "2026-12-25T03:00:00.000Z", "2026-12-25T04:30:00.000Z"),
+        ],
+      });
+      const { outcome } = await run(w, body({ ...split(), decisions: [] }));
+      expect(outcome.kind).toBe("saved");
+      expect(w.reservations[0]!.status).toBe("CONFIRMED");
+    });
+
+    it("is a Manager's change", async () => {
+      const { outcome } = await run(growth(), body(split()), { caller: HOST });
+      expect(outcome).toEqual({ kind: "forbidden" });
+    });
+
+    it("refuses to write anything but closures and skips beside the closure", async () => {
+      const bad = split();
+      const { outcome } = await run(
+        growth(),
+        body({
+          ...bad,
+          alongside: { upsert: [{ ...SHORTENED, id: "sh-1" }], remove: [] },
+        })
+      );
+      expect(outcome).toMatchObject({ kind: "invalid" });
+    });
+  });
+
   describe("Host emergency limits", () => {
     const tonight = closure({ id: "dr-tonight", startsOn: "2026-10-25", endsOn: "2026-10-25" });
     const none = { reservations: [] };

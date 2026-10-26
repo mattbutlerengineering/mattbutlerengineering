@@ -2,6 +2,7 @@ import { MINUTES_PER_DAY, localDateTimeOf, resolveDay } from "@mbe/availability"
 import type { AvailabilitySnapshot, ResolvedClosure } from "@mbe/availability";
 import type {
   AvailabilityConfig,
+  ClosureAlongside,
   ClosureImpact,
   ClosureImpactGroup,
   ClosureImpactKind,
@@ -39,6 +40,30 @@ function kindOf(rule: DateRule): ClosureImpactKind {
 /** The config as it would be with the draft saved: a rule with the same id is replaced. */
 function withDraft(config: AvailabilityConfig, rule: DateRule): AvailabilityConfig {
   return { ...config, dateRules: [...config.dateRules.filter((r) => r.id !== rule.id), rule] };
+}
+
+/**
+ * The config with a series edit's other row changes applied (rows removed, then upserted by id),
+ * before the draft goes in. Shared by the preview and the closure command so both see one config.
+ */
+export function withAlongside(
+  config: AvailabilityConfig,
+  alongside: ClosureAlongside | undefined
+): AvailabilityConfig {
+  if (!alongside) return config;
+  const upserted = new Set(alongside.upsert.map((r) => r.id));
+  const removed = new Set(alongside.remove);
+  const kept = config.dateRules.filter((r) => !removed.has(r.id) && !upserted.has(r.id));
+  return { ...config, dateRules: [...kept, ...alongside.upsert] };
+}
+
+/** The config as it will be once the closure (and what it replaces) is saved. */
+export function withClosure(
+  config: AvailabilityConfig,
+  rule: DateRule,
+  alongside?: ClosureAlongside
+): AvailabilityConfig {
+  return withDraft(withAlongside(config, alongside), rule);
 }
 
 const MS_PER_DAY = 86_400_000;
@@ -149,11 +174,12 @@ export function computeClosureImpact(input: {
   timezone: string;
   config: AvailabilityConfig;
   rule: DateRule;
+  alongside?: ClosureAlongside;
   bookings: readonly ImpactBooking[];
 }): ClosureImpact {
-  const { timezone, config, rule, bookings } = input;
+  const { timezone, config, rule, bookings, alongside } = input;
   const before = { timezone, config };
-  const after = { timezone, config: withDraft(config, rule) };
+  const after = { timezone, config: withClosure(config, rule, alongside) };
   const kind = kindOf(rule);
 
   const byDate = new Map<string, ClosureImpactReservation[]>();

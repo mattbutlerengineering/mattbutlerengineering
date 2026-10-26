@@ -2504,9 +2504,17 @@
           if (allowed === null) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
           }
-          if (!allowed)
+          // A series edit's replaced rows are a Manager's change, as in the closure command.
+          if (!allowed || (request.body.alongside && !caller.isManager)) {
             return reply.code(403).send(createProblemDetails(403, "Forbidden", CLOSURE_FORBIDDEN));
-          const outcome = await closureImpactService.impact(venueId, request.body.rule, now);
+          }
+          const outcome = await closureImpactService.impact(
+            venueId,
+            request.body.rule,
+            now,
+            undefined,
+            request.body.alongside
+          );
           switch (outcome.kind) {
             case "not_found":
               return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
@@ -13447,9 +13455,6 @@
         outcomes: countActions(rows.map((r) => r.action)),
       };
     }
-    function withRule(config: AvailabilityConfig, rule: DateRule): AvailabilityConfig {
-      return { ...config, dateRules: [...config.dateRules.filter((r) => r.id !== rule.id), rule] };
-    }
     interface Plan {
       rows: Prisma.ClosureOutcomeCreateManyInput[];
       counts: Record<ClosureAction, number>;
@@ -13460,10 +13465,11 @@
       actorId: string,
       state: ConfigState,
       rule: DateRule,
+      alongside: ClosureAlongside | undefined,
       impact: ClosureImpact,
       actions: ReadonlyMap<string, { action: ClosureAction }>
     ): Plan | Refusal {
-      const after = { timezone: state.timezone, config: withRule(state.effective, rule) };
+      const after = { timezone: state.timezone, config: withClosure(state.effective, rule, alongside) };
       const rows: Prisma.ClosureOutcomeCreateManyInput[] = [];
       const stuck: string[] = [];
       for (const group of impact.groups) {
@@ -13523,10 +13529,27 @@
       }
       return storedResult(tx, venueId, replay);
     }
+    function checkAlongside(alongside: ClosureAlongside | undefined, caller: ClosureCaller): void {
+      if (!alongside) return;
+      if (!caller.isManager) throw new Refused({ kind: "forbidden" });
+      if (alongside.upsert.some((r) => !ALONGSIDE_KINDS.has(r.kind))) {
+        throw new Refused({
+          kind: "invalid",
+          issues: [
+            {
+              path: "alongside.upsert",
+              code: "unsupported_kind",
+              message: "A series edit changes closures and skipped dates only.",
+            },
+          ],
+        });
+      }
+    }
     async function preflight(tx: Db, input: CommitInput): Promise<void> {
       const { venueId, caller, body, now } = input;
       const { rule } = body;
       await guard(tx, { venueId, caller, rule, now });
+      checkAlongside(body.alongside, caller);
       if (!input.ruleKinds.has(rule.kind)) {
         throw new Refused({
           kind: "invalid",
@@ -13563,7 +13586,7 @@
       if (state.stored.dateRules.some((r) => r.id === rule.id)) {
         throw new Refused({ kind: "closure_exists" });
       }
-      const found = await impactInTransaction(tx, venueId, state, rule, now);
+      const found = await impactInTransaction(tx, venueId, state, rule, now, body.alongside);
       if (found.kind !== "ok") throw new Refused(found);
       const checked = checkDecisions(found.impact, body.decisions);
       if (checked.kind === "decision-required") {
@@ -13572,10 +13595,18 @@
       if (checked.kind === "invalid-decision") {
         throw new Refused({ kind: "invalid_decision", groupKeys: checked.groupKeys });
       }
-      const plan = planOutcomes(venueId, caller.actorId, state, rule, found.impact, checked.actions);
+      const plan = planOutcomes(
+        venueId,
+        caller.actorId,
+        state,
+        rule,
+        body.alongside,
+        found.impact,
+        checked.actions
+      );
       if (isRefusal(plan)) throw new Refused(plan);
     
-      const next = withRule(state.effective, rule);
+      const next = withClosure(state.effective, rule, body.alongside);
       const diff = diffConfig(state.stored, next);
       await writeConfigDiff(tx, venueId, diff, { actorId: caller.actorId, now }).catch((e: unknown) => {
         throw e instanceof ConfigRowConflict ? new Refused(conflictIssue(e, next) as Refusal) : e;
@@ -13746,9 +13777,6 @@
       | { kind: "not_found" }
       | { kind: "too_long" }
       | { kind: "invalid"; issues: { path: string; code: string; message: string }[] };
-    function withDraft(config: AvailabilityConfig, rule: DateRule): AvailabilityConfig {
-      return { ...config, dateRules: [...config.dateRules.filter((r) => r.id !== rule.id), rule] };
-    }
     function scanRange(rule: DateRule, today: string): { from: string; to: string } | null {
       const horizon = addDays(rule.startsOn, SCOPE_CONFLICT_HORIZON_DAYS);
       if (rule.endsOn && rule.endsOn > horizon) return null;
@@ -13761,10 +13789,11 @@
       venueId: string,
       state: ConfigState,
       rule: DateRule,
-      now: Date
+      now: Date,
+      alongside?: ClosureAlongside
     ): Promise<ClosureImpactOutcome> {
       const tables = await tx.table.findMany({ where: { venueId }, select: { id: true } });
-      const next = withDraft(state.effective, rule);
+      const next = withClosure(state.effective, rule, alongside);
       const issues = [
         ...validateConfig(next),
         ...referenceIssues(next, new Set(tables.map((t) => t.id))),
@@ -13803,6 +13832,7 @@
         timezone: state.timezone,
         config: state.effective,
         rule,
+        alongside,
         bookings,
       });
       return { kind: "ok", impact };
@@ -13811,13 +13841,14 @@
       venueId: string,
       rule: DateRule,
       now: Date,
-      client: StoreClient = prisma
+      client: StoreClient = prisma,
+      alongside?: ClosureAlongside
     ): Promise<ClosureImpactOutcome> {
       return client.$transaction(async (tx) => {
         await setVenueContext(tx, venueId);
         const state = await loadConfigState(tx, venueId, now);
         if (!state) return { kind: "not_found" as const };
-        return impactInTransaction(tx, venueId, state, rule, now);
+        return impactInTransaction(tx, venueId, state, rule, now, alongside);
       });
     }
     export const closureImpactService = { impact: getClosureImpact };
@@ -13840,6 +13871,23 @@
     }
     function withDraft(config: AvailabilityConfig, rule: DateRule): AvailabilityConfig {
       return { ...config, dateRules: [...config.dateRules.filter((r) => r.id !== rule.id), rule] };
+    }
+    export function withAlongside(
+      config: AvailabilityConfig,
+      alongside: ClosureAlongside | undefined
+    ): AvailabilityConfig {
+      if (!alongside) return config;
+      const upserted = new Set(alongside.upsert.map((r) => r.id));
+      const removed = new Set(alongside.remove);
+      const kept = config.dateRules.filter((r) => !removed.has(r.id) && !upserted.has(r.id));
+      return { ...config, dateRules: [...kept, ...alongside.upsert] };
+    }
+    export function withClosure(
+      config: AvailabilityConfig,
+      rule: DateRule,
+      alongside?: ClosureAlongside
+    ): AvailabilityConfig {
+      return withDraft(withAlongside(config, alongside), rule);
     }
     function wallMinutes(instant: Date, serviceDate: string, tz: string): number {
       const local = localDateTimeOf(instant, tz);
@@ -13933,11 +13981,12 @@
       timezone: string;
       config: AvailabilityConfig;
       rule: DateRule;
+      alongside?: ClosureAlongside;
       bookings: readonly ImpactBooking[];
     }): ClosureImpact {
-      const { timezone, config, rule, bookings } = input;
+      const { timezone, config, rule, bookings, alongside } = input;
       const before = { timezone, config };
-      const after = { timezone, config: withDraft(config, rule) };
+      const after = { timezone, config: withClosure(config, rule, alongside) };
       const kind = kindOf(rule);
     
       const byDate = new Map<string, ClosureImpactReservation[]>();

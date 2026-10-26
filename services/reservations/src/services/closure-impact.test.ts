@@ -178,6 +178,41 @@ describe("computeClosureImpact", () => {
     expect(result.reservations).toBe(0);
   });
 
+  it("counts only the dates a series edit newly closes, with the replaced series and its skips applied", () => {
+    // Thursdays, with Dec 24 skipped; the edit adds Fridays.
+    const series: DateRule = {
+      id: "s1",
+      kind: "closure",
+      targetKind: "venue",
+      startsOn: "2026-12-01",
+      endsOn: null,
+      repeat: { version: 1, weekdays: [4] },
+    };
+    const skip: DateRule = {
+      id: "k1",
+      kind: "skip",
+      targetKind: "venue",
+      startsOn: "2026-12-24",
+      endsOn: "2026-12-24",
+      seriesId: "s1",
+    };
+    const edited: DateRule = { ...series, id: "s2", repeat: { version: 1, weekdays: [4, 5] } };
+    const bookings = [booking("thu", "2026-12-24", 19, 0), booking("fri", "2026-12-25", 19, 0)];
+    const config = { ...CONFIG, dateRules: [series, skip] };
+
+    const result = computeClosureImpact({
+      timezone: TZ,
+      config,
+      rule: edited,
+      bookings,
+      alongside: { upsert: [{ ...skip, seriesId: "s2" }], remove: ["s1"] },
+    });
+
+    expect(result.groups.map((g) => [g.groupKey, g.reservations.map((r) => r.id)])).toEqual([
+      ["2026-12-25:closed", ["fri"]],
+    ]);
+  });
+
   /** A booking from explicit instants, for dates where the UTC offset is not -8. */
   const at = (date: string, startIso: string, endIso: string): ImpactBooking => ({
     ...booking("x", date, 0, 0),

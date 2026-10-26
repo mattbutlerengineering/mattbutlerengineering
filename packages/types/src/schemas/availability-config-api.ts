@@ -214,8 +214,23 @@ export const AvailabilityDaySummarySchema = z.object({
   guestMessage: z.string().optional(),
 });
 
+/**
+ * Date-rule rows a closure replaces in the same save (ux.md F-SER: a series edit that closes new
+ * dates). Applied to the config before the draft `rule` is added, in the preview and in the
+ * closure command's one transaction; Manager only.
+ */
+export const ClosureAlongsideSchema = z.object({
+  /** Rows to write: the ended original series, and skips or one-date edits re-pointed. */
+  upsert: z.array(DateRuleSchema).default([]),
+  /** Rule ids to remove (soft delete): the series the draft replaces. */
+  remove: IdListSchema.default([]),
+});
+
 /** `POST …/closures/impact`: the draft date rule whose effect on bookings is asked about. */
-export const ClosureImpactBodySchema = z.object({ rule: DateRuleSchema });
+export const ClosureImpactBodySchema = z.object({
+  rule: DateRuleSchema,
+  alongside: ClosureAlongsideSchema.optional(),
+});
 
 /** `closed`: the booking's time is gone; `shortened`: hours or a window changed. */
 export const CLOSURE_IMPACT_KINDS = ["closed", "shortened"] as const;
@@ -253,6 +268,7 @@ export const ClosureImpactSchema = z.object({
   groups: z.array(ClosureImpactGroupSchema),
 });
 
+export type ClosureAlongside = z.infer<typeof ClosureAlongsideSchema>;
 export type ClosureImpactBody = z.infer<typeof ClosureImpactBodySchema>;
 export type ClosureImpactKind = z.infer<typeof ClosureImpactKindSchema>;
 export type ClosureImpactReservation = z.infer<typeof ClosureImpactReservationSchema>;
@@ -391,6 +407,7 @@ export const ClosureDecisionSchema = z.object({
 export const CreateClosureBodySchema = z.object({
   expectedVersion: z.number().int().min(0),
   rule: DateRuleSchema,
+  alongside: ClosureAlongsideSchema.optional(),
   decisions: z.array(ClosureDecisionSchema).default([]),
 });
 

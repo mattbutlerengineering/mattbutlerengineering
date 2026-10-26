@@ -385,6 +385,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           venueId={venueId}
           state={state}
           series={editingSeries}
+          timezone={timezone}
           today={today}
           onStale={onStale}
           onEditDate={(series, date) => {

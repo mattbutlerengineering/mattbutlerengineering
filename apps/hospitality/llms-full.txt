@@ -1614,6 +1614,28 @@
       };
       return { upsert: { dateRules: [skip] }, remove: {} };
     }
+    export function growsSeries(series: DateRule, edit: SeriesEdit): boolean {
+      const had = series.repeat?.weekdays ?? [];
+      const later = series.endsOn != null && (edit.endsOn == null || edit.endsOn > series.endsOn);
+      return edit.weekdays.some((d) => !had.includes(d)) || later;
+    }
+    export function growthClosure(
+      config: AvailabilityConfig,
+      series: DateRule,
+      scope: SeriesScope,
+      date: string,
+      edit: SeriesEdit,
+      makeId: () => string
+    ): { rule: DateRule; alongside: ClosureAlongside } {
+      const from = scope === "all" || date <= series.startsOn ? series.startsOn : date;
+      const rule: DateRule = { ...withEdit(series, edit), id: makeId(), startsOn: from };
+      const moved = config.dateRules
+        .filter((r) => r.seriesId === series.id && r.startsOn >= from)
+        .map((r) => ({ ...r, seriesId: rule.id }));
+      if (from === series.startsOn) return { rule, alongside: { upsert: moved, remove: [series.id] } };
+      const ended: DateRule = { ...series, endsOn: addDays(from, -1) };
+      return { rule, alongside: { upsert: [ended, ...moved], remove: [] } };
+    }
     export function editSeriesDates(
       config: AvailabilityConfig,
       series: DateRule,
@@ -6147,6 +6169,19 @@
           ? api.availability.getClosureImpact(params.venueId, params.rule)
           : null,
       getEnabled: (params) => !!params?.venueId && !!params.rule && params.enabled !== false,
+    });
+    export type PreviewClosureImpactVariables = {
+      venueId: string;
+      rule: DateRule;
+      alongside: ClosureAlongside;
+    };
+    export const usePreviewClosureImpact = createMutationHook<
+      PreviewClosureImpactVariables,
+      ClosureImpact
+    >({
+      invalidateKeys: [],
+      mutationFn: (api, { venueId, rule, alongside }) =>
+        api.availability.getClosureImpact(venueId, rule, alongside),
     });
     type CreateClosureRequest = Parameters<AvailabilityClient["createClosure"]>[1];
     export type CreateClosureVariables = {

@@ -13,6 +13,7 @@ import type {
   AvailabilityChangesPage,
   AvailabilityChangesQuery,
   AvailabilityDaySummary,
+  ClosureAlongside,
   ClosureImpact,
   ClosureResult,
   ClosureSummary,
@@ -157,10 +158,14 @@ export class AvailabilityClient {
    * special hours or Tonight change) would affect, grouped by date and kind.
    * Requires a Manager.
    */
-  async getClosureImpact(venueId: string, rule: DateRule): Promise<ClosureImpact> {
+  async getClosureImpact(
+    venueId: string,
+    rule: DateRule,
+    alongside?: ClosureAlongside
+  ): Promise<ClosureImpact> {
     const response = await this.client.call(availabilityConfigEndpoints.closureImpact, {
       params: { id: venueId },
-      body: { rule },
+      body: alongside ? { rule, alongside } : { rule },
     });
     return response.data;
   }

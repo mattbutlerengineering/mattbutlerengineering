@@ -280,8 +280,40 @@ describe("availability config routes", () => {
       expect(impactSvc.impact).toHaveBeenCalledWith(
         "venue-1",
         expect.objectContaining(rule),
-        expect.any(Date)
+        expect.any(Date),
+        undefined,
+        undefined
       );
+    });
+
+    it("previews a series edit against the rows it replaces", async () => {
+      const impact = { reservations: 0, covers: 0, depositsHeld: 0, groups: [] };
+      impactSvc.impact.mockResolvedValueOnce({ kind: "ok", impact });
+      const alongside = { upsert: [], remove: ["dr-old"] };
+
+      const res = await post(app, { rule, alongside });
+
+      expect(res.statusCode).toBe(200);
+      expect(impactSvc.impact).toHaveBeenCalledWith(
+        "venue-1",
+        expect.objectContaining(rule),
+        expect.any(Date),
+        undefined,
+        alongside
+      );
+    });
+
+    it("refuses a Host a series edit, even when the draft is an emergency close", async () => {
+      commandSvc.mayClose.mockResolvedValueOnce(true);
+      const scoped = await asHost();
+
+      const res = await post(scoped, { rule, alongside: { upsert: [], remove: ["dr-old"] } }, {
+        authorization: "Bearer host",
+      } as never);
+
+      expect(res.statusCode).toBe(403);
+      expect(impactSvc.impact).not.toHaveBeenCalled();
+      await scoped.close();
     });
 
     it("answers a draft that does not validate with 422 invalid-config", async () => {

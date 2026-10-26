@@ -1,7 +1,7 @@
 import { projectLegacyOperatingHours } from "@mbe/availability";
 import type {
   AvailabilityChangeSummary,
-  AvailabilityConfig,
+  ClosureAlongside,
   ClosureAction,
   ClosureImpact,
   ClosureResult,
@@ -31,6 +31,7 @@ import {
   isHostEmergencyClose,
   moveTarget,
 } from "./closure-command-plan.js";
+import { withClosure } from "./closure-impact.js";
 import { impactInTransaction } from "./closure-impact-store.js";
 import { prisma } from "./database.js";
 
@@ -170,10 +171,6 @@ async function storedResult(
   };
 }
 
-function withRule(config: AvailabilityConfig, rule: DateRule): AvailabilityConfig {
-  return { ...config, dateRules: [...config.dateRules.filter((r) => r.id !== rule.id), rule] };
-}
-
 interface Plan {
   rows: Prisma.ClosureOutcomeCreateManyInput[];
   counts: Record<ClosureAction, number>;
@@ -186,10 +183,11 @@ function planOutcomes(
   actorId: string,
   state: ConfigState,
   rule: DateRule,
+  alongside: ClosureAlongside | undefined,
   impact: ClosureImpact,
   actions: ReadonlyMap<string, { action: ClosureAction }>
 ): Plan | Refusal {
-  const after = { timezone: state.timezone, config: withRule(state.effective, rule) };
+  const after = { timezone: state.timezone, config: withClosure(state.effective, rule, alongside) };
   const rows: Prisma.ClosureOutcomeCreateManyInput[] = [];
   const stuck: string[] = [];
   for (const group of impact.groups) {
@@ -261,11 +259,33 @@ async function replayOf(tx: Db, input: CommitInput): Promise<ClosureResult | nul
   return storedResult(tx, venueId, replay);
 }
 
+/** What a series edit may write beside its closure: closure rows and the skips that point at them. */
+const ALONGSIDE_KINDS: ReadonlySet<string> = new Set(["closure", "skip"]);
+
+/** The rows a closure replaces are a Manager's series edit, and only closures and skips. */
+function checkAlongside(alongside: ClosureAlongside | undefined, caller: ClosureCaller): void {
+  if (!alongside) return;
+  if (!caller.isManager) throw new Refused({ kind: "forbidden" });
+  if (alongside.upsert.some((r) => !ALONGSIDE_KINDS.has(r.kind))) {
+    throw new Refused({
+      kind: "invalid",
+      issues: [
+        {
+          path: "alongside.upsert",
+          code: "unsupported_kind",
+          message: "A series edit changes closures and skipped dates only.",
+        },
+      ],
+    });
+  }
+}
+
 /** Refuses what cannot become a clean closure before anything is written. */
 async function preflight(tx: Db, input: CommitInput): Promise<void> {
   const { venueId, caller, body, now } = input;
   const { rule } = body;
   await guard(tx, { venueId, caller, rule, now });
+  checkAlongside(body.alongside, caller);
   if (!input.ruleKinds.has(rule.kind)) {
     throw new Refused({
       kind: "invalid",
@@ -303,7 +323,7 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
   if (state.stored.dateRules.some((r) => r.id === rule.id)) {
     throw new Refused({ kind: "closure_exists" });
   }
-  const found = await impactInTransaction(tx, venueId, state, rule, now);
+  const found = await impactInTransaction(tx, venueId, state, rule, now, body.alongside);
   if (found.kind !== "ok") throw new Refused(found);
   const checked = checkDecisions(found.impact, body.decisions);
   if (checked.kind === "decision-required") {
@@ -312,10 +332,18 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
   if (checked.kind === "invalid-decision") {
     throw new Refused({ kind: "invalid_decision", groupKeys: checked.groupKeys });
   }
-  const plan = planOutcomes(venueId, caller.actorId, state, rule, found.impact, checked.actions);
+  const plan = planOutcomes(
+    venueId,
+    caller.actorId,
+    state,
+    rule,
+    body.alongside,
+    found.impact,
+    checked.actions
+  );
   if (isRefusal(plan)) throw new Refused(plan);
 
-  const next = withRule(state.effective, rule);
+  const next = withClosure(state.effective, rule, body.alongside);
   const diff = diffConfig(state.stored, next);
   await writeConfigDiff(tx, venueId, diff, { actorId: caller.actorId, now }).catch((e: unknown) => {
     throw e instanceof ConfigRowConflict ? new Refused(conflictIssue(e, next) as Refusal) : e;
