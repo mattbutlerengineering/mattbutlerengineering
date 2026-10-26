@@ -49,6 +49,8 @@ export interface AvailabilityDayEditorProps {
   readonly onCancel: () => void;
   /** The draft was saved or thrown away; the drawer closes without a prompt. */
   readonly onFinished: () => void;
+  /** Dates picked in the multi-select bar: the edit applies to exactly these, with no scope choice. */
+  readonly fixedDates?: readonly string[];
 }
 
 interface EditState {
@@ -85,7 +87,7 @@ function problemOf(error: unknown) {
  */
 export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   const { venueId, date, day, state, timezone, today } = props;
-  const { onDirtyChange, onCancel, onFinished } = props;
+  const { onDirtyChange, onCancel, onFinished, fixedDates } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const offerUndo = useAvailabilityUndo();
@@ -130,10 +132,13 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   };
 
   const begin = () => {
-    const seed = seedServices(config, day, { kind: "date", date });
+    const first: EditScope = fixedDates
+      ? { kind: "dates", dates: fixedDates }
+      : { kind: "date", date };
+    const seed = seedServices(config, day, first);
     setEdit({
       base: state,
-      scope: { kind: "date", date },
+      scope: first,
       services: seed,
       baseline: seed,
       mode: "keep",
@@ -165,6 +170,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
       scope: edit.scope,
       services: edit.services,
       makeId: () => crypto.randomUUID(),
+      leaveOut: edit.mode === "keep" && dates.length > 1 ? own : [],
     });
     let saved: AvailabilityConfigSaveResult;
     try {
@@ -283,12 +289,14 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
           ))}
         </Alert>
       )}
-      <Select
-        label={t("availability.editor.scope.label")}
-        options={scopeOptions}
-        value={edit.scope.kind}
-        onChange={chooseScope}
-      />
+      {!fixedDates && (
+        <Select
+          label={t("availability.editor.scope.label")}
+          options={scopeOptions}
+          value={edit.scope.kind}
+          onChange={chooseScope}
+        />
+      )}
       {edit.scope.kind === "weekday" && (
         <div className={styles.until}>
           <DatePicker

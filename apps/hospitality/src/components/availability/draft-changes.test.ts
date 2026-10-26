@@ -8,6 +8,7 @@ import {
   type DraftService,
   type EditScope,
 } from "./draft-changes.js";
+import { ownChangeDates } from "./scope-dates.js";
 import {
   EARLY_DINNER,
   FIXTURE_DATE,
@@ -85,6 +86,24 @@ describe("buildDraftChanges", () => {
     expect(changes.upsert.dateRules?.[0]?.id).toBe(EARLY_DINNER.id);
   });
 
+  it("selected dates: one single-date special-hours rule per date, like this date only", () => {
+    const { config, services } = seeded();
+    const dates = ["2026-10-30", "2026-11-02", "2026-11-05"];
+    const changes = buildDraftChanges({
+      config,
+      scope: { kind: "dates", dates },
+      services,
+      makeId: counter(),
+    });
+    const rules = changes.upsert.dateRules ?? [];
+    expect(rules.map((r) => [r.startsOn, r.endsOn, r.kind])).toEqual(
+      dates.map((d) => [d, d, "special_hours"])
+    );
+    expect(new Set(rules.map((r) => r.id)).size).toBe(3);
+    expect(changes.remove).toEqual({});
+    expect(parses(changes)).toBe(true);
+  });
+
   it("every Friday from a date: one repeating rule from that date, open-ended or until a date", () => {
     const { config, services } = seeded();
     const open = buildDraftChanges({
@@ -131,6 +150,24 @@ describe("buildDraftChanges", () => {
     ]);
     expect(changes.remove.scheduleServices).toEqual(["ss-lunch"]);
     expect(parses(changes)).toBe(true);
+  });
+
+  it("picked dates: keep leaves out a date with its own rule, replace updates it in place", () => {
+    const dates = [FIXTURE_DATE, "2026-11-02", "2026-11-03"];
+    const scope: EditScope = { kind: "dates", dates };
+    const { config, services } = seeded(scope, EARLY_DINNER);
+    const kept = buildDraftChanges({
+      config,
+      scope,
+      services,
+      makeId: counter(),
+      leaveOut: ownChangeDates(config, dates, null),
+    });
+    expect(kept.upsert.dateRules?.map((r) => r.id)).not.toContain(EARLY_DINNER.id);
+    expect(kept.upsert.dateRules).toHaveLength(2);
+    const replaced = buildDraftChanges({ config, scope, services, makeId: counter() });
+    expect(replaced.upsert.dateRules).toHaveLength(3);
+    expect(replaced.upsert.dateRules?.map((r) => r.id)).toContain(EARLY_DINNER.id);
   });
 
   it("creates a venue service for a service the venue has not had before", () => {

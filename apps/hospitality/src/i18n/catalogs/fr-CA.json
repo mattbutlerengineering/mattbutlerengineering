@@ -1879,6 +1879,165 @@
       "description": "Vos changements non enregistrés à ces heures seront perdus.",
       "confirm": "Abandonner",
       "keep": "Continuer à modifier"
+    },
+    "close": {
+      "open": "Fermer…",
+      "title": "Fermer",
+      "step": "Étape {{step}} sur 2",
+      "next": "Suivant",
+      "back": "Retour",
+      "cancel": "Annuler",
+      "saveError": "Impossible de fermer",
+      "versionConflict": "Les disponibilités ont changé depuis l'ouverture de cette fenêtre. Fermez-la et réessayez.",
+      "staffNote": "Note pour le personnel",
+      "guestMessage": "Message pour les clients",
+      "guestMessageCount": "{{count}}/{{max}}",
+      "suggestions": {
+        "private": "Fermé pour un événement privé",
+        "weather": "Fermé en raison de la météo",
+        "holiday": "Fermé pour le congé"
+      },
+      "what": {
+        "label": "Quoi",
+        "venue": "Tout l'établissement",
+        "service": "Un service",
+        "pickService": "Service",
+        "booking": "Réservations seulement",
+        "channel": {
+          "online": "En ligne",
+          "phone": "Téléphone",
+          "waitlist": "Liste d'attente"
+        },
+        "channelRequired": "Choisissez au moins un mode de réservation."
+      },
+      "when": {
+        "label": "Quand",
+        "tonight": "Ce soir",
+        "date": "Une date",
+        "range": "Plage de dates",
+        "repeats": "Se répète",
+        "untilReopen": "Jusqu'à la réouverture",
+        "dateLabel": "Date",
+        "startingLabel": "À partir du",
+        "fromLabel": "Du",
+        "toLabel": "Au",
+        "weekdays": "Se répète le",
+        "invalid": "Vérifiez les dates : la fin ne peut pas précéder le début."
+      },
+      "window": {
+        "label": "À partir de",
+        "allDay": "Toute la journée",
+        "from": "À partir de {{time}}"
+      },
+      "replaces": "Le {{date}} a des heures spéciales; la fermeture les remplace.",
+      "impactLabel": "Réservations touchées par cette fermeture",
+      "impact_one": "{{count}} réservation · {{guests}} personnes sont réservées durant cette fermeture",
+      "impact_other": "{{count}} réservations · {{guests}} personnes sont réservées durant cette fermeture",
+      "impact_many": "{{count}} de réservations · {{guests}} personnes sont réservées durant cette fermeture",
+      "impactNone": "Aucune réservation durant cette fermeture.",
+      "impactError": "Impossible de vérifier les réservations existantes. Modifiez un champ pour réessayer.",
+      "guestsWillSee": "Les clients verront : {{date}} · Fermé",
+      "guestsWillSeeMessage": "Les clients verront : {{date}} · Fermé · « {{message}} »",
+      "button": {
+        "close": "Fermer le {{date}}",
+        "pause": "Suspendre les réservations en ligne",
+        "cancel_one": "Fermer et annuler {{count}}",
+        "cancel_other": "Fermer et annuler {{count}}",
+        "cancel_many": "Fermer et annuler {{count}}",
+        "move_one": "Fermer et déplacer {{count}}",
+        "move_other": "Fermer et déplacer {{count}}",
+        "move_many": "Fermer et déplacer {{count}}",
+        "keep_notify_one": "Fermer et garder {{count}}",
+        "keep_notify_other": "Fermer et garder {{count}}",
+        "keep_notify_many": "Fermer et garder {{count}}",
+        "keep_silent_one": "Fermer et garder {{count}} sans aviser",
+        "keep_silent_other": "Fermer et garder {{count}} sans aviser",
+        "keep_silent_many": "Fermer et garder {{count}} sans aviser",
+        "mixed": "Fermer · {{parts}}",
+        "choose": "Choisissez pour chaque groupe",
+        "part": {
+          "cancel_one": "annuler {{count}}",
+          "cancel_other": "annuler {{count}}",
+          "cancel_many": "annuler {{count}}",
+          "move_one": "déplacer {{count}}",
+          "move_other": "déplacer {{count}}",
+          "move_many": "déplacer {{count}}",
+          "keep_notify_one": "garder {{count}}",
+          "keep_notify_other": "garder {{count}}",
+          "keep_notify_many": "garder {{count}}",
+          "keep_silent_one": "garder {{count}} sans aviser",
+          "keep_silent_other": "garder {{count}} sans aviser",
+          "keep_silent_many": "garder {{count}} sans aviser"
+        }
+      },
+      "toast": {
+        "closed": "{{date}} fermé",
+        "paused": "Réservations en ligne en pause",
+        "bookingPaused": "Réservations en pause le {{date}}",
+        "notified_one": "{{date}} fermé · {{count}} réservation avisée",
+        "notified_other": "{{date}} fermé · {{count}} réservations avisées",
+        "notified_many": "{{date}} fermé · {{count}} réservations avisées"
+      },
+      "step2": {
+        "urgent": "Urgent : les clients recevront un texto et un courriel",
+        "header_one": "{{count}} réservation · {{guests}} personnes · {{deposits}} dépôts retenus",
+        "header_other": "{{count}} réservations · {{guests}} personnes · {{deposits}} dépôts retenus",
+        "header_many": "{{count}} de réservations · {{guests}} personnes · {{deposits}} dépôts retenus",
+        "group": {
+          "closed_one": "{{date}} · fermé · {{count}} réservation",
+          "closed_other": "{{date}} · fermé · {{count}} réservations",
+          "closed_many": "{{date}} · fermé · {{count}} réservations",
+          "shortened_one": "{{date}} · heures réduites · {{count}} réservation",
+          "shortened_other": "{{date}} · heures réduites · {{count}} réservations",
+          "shortened_many": "{{date}} · heures réduites · {{count}} réservations"
+        },
+        "booking": "{{time}}  {{name}} · {{size}}",
+        "guestUnnamed": "Client",
+        "deposit": "dépôt {{amount}}",
+        "runsInto": "chevauche la fermeture",
+        "showAll_one": "Tout afficher ({{count}})",
+        "showAll_other": "Tout afficher ({{count}})",
+        "showAll_many": "Tout afficher ({{count}})",
+        "choose": "Que faire de ces réservations? (obligatoire)",
+        "action": {
+          "cancel": "Annuler, aviser et rembourser",
+          "move": "Déplacer à l'heure libre la plus proche et aviser",
+          "keep_notify": "Les garder et aviser",
+          "keep_silent": "Les garder sans aviser les clients"
+        },
+        "cancelHint": "Les clients reçoivent jusqu'à 3 heures libres dans les 14 prochains jours pour reprendre une réservation",
+        "acknowledge_one": "Je comprends que {{count}} client ne sera pas avisé",
+        "acknowledge_other": "Je comprends que {{count}} clients ne seront pas avisés",
+        "acknowledge_many": "Je comprends que {{count}} clients ne seront pas avisés",
+        "preview": "Aperçu du message",
+        "previewText": {
+          "cancel": "Votre réservation du {{date}} est annulée. {{message}}\nVous recevrez jusqu'à 3 heures libres pour réserver de nouveau, et tout dépôt est remboursé.",
+          "move": "Nous avons modifié nos heures le {{date}}. {{message}}\nVotre table est déplacée à l'heure libre la plus proche. Vous ne pouvez pas venir? Annulez sans frais.",
+          "keep_notify": "Nous avons modifié nos heures le {{date}}. {{message}}\nVotre table est toujours réservée."
+        },
+        "irreversible": "Les clients sont avisés immédiatement. Cette action est irréversible."
+      }
+    },
+    "paused": {
+      "open": "Suspendre les réservations en ligne",
+      "banner": "Réservations en ligne suspendues",
+      "resume": "Reprendre",
+      "resumed": "Réservations en ligne reprises",
+      "resumeError": "Impossible de reprendre les réservations en ligne",
+      "pill": "Réservations en ligne suspendues"
+    },
+    "selection": {
+      "selectColumn": "Sélectionner chaque {{weekday}}",
+      "selectedName": "{{name}}, sélectionné",
+      "barLabel": "Dates sélectionnées",
+      "count_one": "{{count}} date sélectionnée",
+      "count_other": "{{count}} dates sélectionnées",
+      "count_many": "{{count}} dates sélectionnées",
+      "editHours": "Modifier les heures",
+      "clear": "Effacer la sélection",
+      "selectMenu": "Sélectionner…",
+      "weekdayInMonth": "Chaque {{weekday}} de {{month}}",
+      "usingSchedule": "Toutes les dates avec {{schedule}}"
     }
   },
   "setup": {

@@ -1,6 +1,14 @@
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import { Alert, Drawer, Heading, Skeleton, Stack, Text } from "@mattbutlerengineering/rialto";
+import {
+  Alert,
+  Button,
+  Drawer,
+  Heading,
+  Skeleton,
+  Stack,
+  Text,
+} from "@mattbutlerengineering/rialto";
 import type { Layer, ResolvedDay, ResolvedDaySummary } from "@mbe/availability";
 import type { AvailabilityConfigState, TeamRole } from "@mbe/types";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
@@ -20,8 +28,15 @@ export interface DayEditing {
   readonly onDirtyChange: (dirty: boolean) => void;
   /** The draft was saved or discarded; close without asking. */
   readonly onFinished: () => void;
+  /**
+   * Set when the drawer was opened from the multi-select bar: the dates the edit applies to.
+   * It replaces the scope choice ("Applies to 6 dates") and the editor writes exactly these.
+   */
+  readonly fixedDates?: readonly string[];
   /** Reload the config after a schedule save was refused as out of date. */
   readonly onStale?: () => void;
+  /** "Close…" (F5): open the Close dialog for this date. */
+  readonly onCloseDay?: (date: string) => void;
 }
 
 export interface AvailabilityDayDrawerProps {
@@ -140,18 +155,24 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
         <DayBody day={day} date={date} />
         {viewerRole === "manager" && editing && (
           <AvailabilityDayEditor
-            // A new date is a new draft.
-            key={date}
+            // A new date, or a new pick for the same date, is a new draft.
+            key={`${date}|${editing.fixedDates?.join(",") ?? ""}`}
             venueId={editing.venueId}
             state={editing.state}
             timezone={editing.timezone}
             today={editing.today}
             onDirtyChange={editing.onDirtyChange}
             onFinished={editing.onFinished}
+            fixedDates={editing.fixedDates}
             date={date}
             day={day}
             onCancel={onClose}
           />
+        )}
+        {viewerRole === "manager" && editing?.onCloseDay && (
+          <Button variant="secondary" onClick={() => editing.onCloseDay?.(date)}>
+            {t("availability.close.open")}
+          </Button>
         )}
         {viewerRole === "manager" && editing && (
           <>
