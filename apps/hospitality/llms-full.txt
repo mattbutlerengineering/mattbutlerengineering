@@ -99,6 +99,120 @@
       };
     }
   </file>
+  <file path="src/components/availability/compare-changes.ts">
+    type Hours = Pick<
+      ScheduleService,
+      "opensAt" | "lastSeatingAt" | "closesAt" | "seating" | "bookingTypes"
+    >;
+    export interface CompareRow extends Hours {
+      readonly scheduleServiceId: string;
+      readonly scheduleId: string;
+      readonly scheduleName: string;
+    }
+    export function compareServiceOptions(config: AvailabilityConfig) {
+      const live = liveScheduleIds(config);
+      return config.venueServices
+        .filter((v) => !v.archivedAt)
+        .filter(
+          (v) =>
+            config.scheduleServices.filter((s) => s.venueServiceId === v.id && live.has(s.scheduleId))
+              .length > 1
+        )
+        .sort((a, b) => a.position - b.position);
+    }
+    export function compareRows(config: AvailabilityConfig, venueServiceId: string): CompareRow[] {
+      const names = new Map(config.schedules.filter((s) => !s.archivedAt).map((s) => [s.id, s.name]));
+      return config.scheduleServices
+        .filter((s) => s.venueServiceId === venueServiceId && names.has(s.scheduleId))
+        .map((s) => ({
+          scheduleServiceId: s.id,
+          scheduleId: s.scheduleId,
+          scheduleName: names.get(s.scheduleId) ?? s.scheduleId,
+          opensAt: s.opensAt,
+          lastSeatingAt: s.lastSeatingAt,
+          closesAt: s.closesAt,
+          seating: s.seating,
+          bookingTypes: s.bookingTypes,
+        }));
+    }
+    export function changedRows(config: AvailabilityConfig, rows: readonly CompareRow[]): CompareRow[] {
+      const stored = new Map(config.scheduleServices.map((s) => [s.id, s]));
+      return rows.filter((r) => {
+        const was = stored.get(r.scheduleServiceId);
+        return was !== undefined && hoursOf(was) !== hoursOf(r);
+      });
+    }
+    export function buildCompareChanges(
+      config: AvailabilityConfig,
+      rows: readonly CompareRow[]
+    ): AvailabilityConfigChanges {
+      const stored = new Map(config.scheduleServices.map((s) => [s.id, s]));
+      const scheduleServices = changedRows(config, rows).map((r) => ({
+        ...stored.get(r.scheduleServiceId)!,
+        opensAt: r.opensAt,
+        lastSeatingAt: r.lastSeatingAt,
+        closesAt: r.closesAt,
+        seating: r.seating,
+        bookingTypes: [...r.bookingTypes],
+      }));
+      return { upsert: scheduleServices.length > 0 ? { scheduleServices } : {}, remove: {} };
+    }
+  </file>
+  <file path="src/components/availability/copy-day.ts">
+    export interface CopyTarget {
+      readonly weekdays: readonly number[];
+      readonly from: string;
+      /** `null`: until changed again. */
+      readonly until: string | null;
+    }
+    export function copyDayDates(target: CopyTarget): string[] {
+      const last = addDays(target.from, SCOPE_HORIZON_DAYS - 1);
+      const end = target.until !== null && target.until < last ? target.until : last;
+      const dates: string[] = [];
+      for (let d = target.from; d <= end; d = addDays(d, 1)) {
+        if (target.weekdays.includes(weekdayIndexOf(d))) dates.push(d);
+      }
+      return dates;
+    }
+    export function buildCopyDayChanges(
+      input: CopyTarget & {
+        readonly config: AvailabilityConfig;
+        readonly services: readonly DraftService[];
+        readonly makeId: () => string;
+      }
+    ): AvailabilityConfigChanges {
+      const base = buildDraftChanges({
+        config: input.config,
+        scope: { kind: "weekday", from: input.from, until: input.until },
+        services: input.services,
+        makeId: input.makeId,
+      });
+      const weekdays = [...input.weekdays].sort((a, b) => a - b);
+      return {
+        ...base,
+        upsert: {
+          ...base.upsert,
+          dateRules: base.upsert.dateRules?.map((rule) => ({
+            ...rule,
+            repeat: { version: 1 as const, weekdays },
+          })),
+        },
+      };
+    }
+    export function singleDateChangeCount(config: AvailabilityConfig, weekday: number): number {
+      return config.dateRules.filter(
+        (r) =>
+          r.kind === "special_hours" &&
+          r.targetKind === "venue" &&
+          r.endsOn === r.startsOn &&
+          r.repeat == null &&
+          r.window == null &&
+          r.seriesId == null &&
+          weekdayIndexOf(r.startsOn) === weekday
+      ).length;
+    }
+    export const NUDGE_THRESHOLD = 3;
+  </file>
   <file path="src/components/availability/day-summary.ts">
     export interface DayPresentation {
       readonly bands: readonly ClosureBandText[];
@@ -899,6 +1013,249 @@
       seriesId: "r-series",
     };
   </file>
+  <file path="src/components/availability/schedule-changes.ts">
+    export interface UseOn {
+      readonly weekdays: readonly number[];
+      readonly startsOn?: string | null;
+      readonly endsOn?: string | null;
+    }
+    export type Winner = "new" | "existing";
+    export function weekdayRuns(weekdays: readonly number[]): [number, number][] {
+      const positions = MONDAY_FIRST.flatMap((d, i) => (weekdays.includes(d) ? [i] : []));
+      const runs: [number, number][] = [];
+      let start = -1;
+      positions.forEach((p, i) => {
+        if (start < 0) start = p;
+        if (positions[i + 1] !== p + 1) {
+          runs.push([MONDAY_FIRST[start]!, MONDAY_FIRST[p]!]);
+          start = -1;
+        }
+      });
+      return runs;
+    }
+    export function isScheduleUnused(config: AvailabilityConfig, scheduleId: string): boolean {
+      const schedule = config.schedules.find((s) => s.id === scheduleId);
+      if (!schedule || schedule.isRegular) return false;
+      return (
+        !config.assignments.some((a) => a.scheduleId === scheduleId) &&
+        !config.dateRules.some((r) => r.kind === "use_schedule" && r.useScheduleId === scheduleId)
+      );
+    }
+    export function buildDeleteScheduleChanges(scheduleId: string): AvailabilityConfigChanges {
+      return { upsert: {}, remove: { schedules: [scheduleId] } };
+    }
+    function meets(a: UseOn, b: UseOn): boolean {
+      const shared = a.weekdays.filter((d) => b.weekdays.includes(d));
+      if (shared.length === 0) return false;
+      const from = [a.startsOn, b.startsOn]
+        .filter((d): d is string => d != null)
+        .sort()
+        .at(-1);
+      const to = [a.endsOn, b.endsOn].filter((d): d is string => d != null).sort()[0];
+      if (from == null && to == null) return true;
+      if (from != null && to != null && from > to) return false;
+      // Open ends are unbounded; a week of the common range holds every weekday it can.
+      const lo = from ?? addDays(to!, -6);
+      const hi = to ?? addDays(from!, 6);
+      for (let d = lo, n = 0; d <= hi && n < 7; d = addDays(d, 1), n += 1) {
+        if (shared.includes(weekdayIndexOf(d))) return true;
+      }
+      return false;
+    }
+    function rankedAssignments(
+      config: AvailabilityConfig,
+      ignoreScheduleId?: string
+    ): ScheduleAssignment[] {
+      const live = new Set(
+        liveSchedules(config)
+          .filter((s) => !s.isRegular)
+          .map((s) => s.id)
+      );
+      return config.assignments
+        .filter((a) => live.has(a.scheduleId) && a.scheduleId !== ignoreScheduleId)
+        .sort((a, b) => a.precedence - b.precedence);
+    }
+    export function overlappingSchedules(
+      config: AvailabilityConfig,
+      useOn: UseOn,
+      ignoreScheduleId?: string
+    ): Schedule[] {
+      const ids = new Set(
+        rankedAssignments(config, ignoreScheduleId)
+          .filter((a) => meets(a, useOn))
+          .map((a) => a.scheduleId)
+      );
+      return liveSchedules(config).filter((s) => ids.has(s.id));
+    }
+    function placeAssignment(
+      config: AvailabilityConfig,
+      mine: ScheduleAssignment,
+      winner: Winner
+    ): ScheduleAssignment[] {
+      const existing = rankedAssignments(config);
+      const lowestMeeting = existing.findIndex((a) => meets(a, mine));
+      const at = winner === "existing" && lowestMeeting >= 0 ? lowestMeeting : existing.length;
+      const order = [...existing.slice(0, at), mine, ...existing.slice(at)];
+      return order
+        .map((a, i) => ({ ...a, precedence: i + 1 }))
+        .filter(
+          (a) =>
+            a.id === mine.id ||
+            a.precedence !== config.assignments.find((x) => x.id === a.id)?.precedence
+        );
+    }
+    function mergeChanges(
+      a: AvailabilityConfigChanges,
+      b: AvailabilityConfigChanges
+    ): AvailabilityConfigChanges {
+      const tables = [
+        "schedules",
+        "venueServices",
+        "scheduleServices",
+        "assignments",
+        "dateRules",
+      ] as const;
+      const join = <T>(x: T[] | undefined, y: T[] | undefined) => [...(x ?? []), ...(y ?? [])];
+      const pick = <K extends "upsert" | "remove">(side: K) =>
+        Object.fromEntries(
+          tables.flatMap((t) => {
+            const rows = join<unknown>(
+              (a[side] as Record<string, unknown[] | undefined>)[t],
+              (b[side] as Record<string, unknown[] | undefined>)[t]
+            );
+            return rows.length > 0 ? [[t, rows]] : [];
+          })
+        );
+      return { upsert: pick("upsert"), remove: pick("remove") } as AvailabilityConfigChanges;
+    }
+    interface NewScheduleInput {
+      readonly config: AvailabilityConfig;
+      readonly name: string;
+      /** Rows for the new schedule; a copy's rows must have `scheduleServiceId: null`. */
+      readonly services: readonly DraftService[];
+      readonly useOn: UseOn;
+      readonly winner: Winner;
+      readonly makeId: () => string;
+    }
+    export function buildNewScheduleChanges(input: NewScheduleInput): AvailabilityConfigChanges {
+      const { config, name, useOn, winner, makeId } = input;
+      const scheduleId = makeId();
+      const schedule: Schedule = { id: scheduleId, name, kind: "alternate", isRegular: false };
+      const rows = buildDraftChanges({
+        config,
+        scope: { kind: "schedule", scheduleId },
+        services: freshRows(input.services),
+        makeId,
+      });
+      const assignments =
+        useOn.weekdays.length === 0
+          ? []
+          : placeAssignment(
+              config,
+              {
+                id: makeId(),
+                scheduleId,
+                weekdays: [...useOn.weekdays].sort((x, y) => x - y),
+                startsOn: useOn.startsOn ?? null,
+                endsOn: useOn.endsOn ?? null,
+                precedence: 0,
+              },
+              winner
+            );
+      return mergeChanges(rows, {
+        upsert: { schedules: [schedule], ...(assignments.length > 0 ? { assignments } : {}) },
+        remove: {},
+      });
+    }
+    interface RegularWeekInput extends Omit<NewScheduleInput, "useOn"> {
+      readonly startsOn: string;
+      readonly endsOn: string | null;
+    }
+    export function buildRegularWeekChanges(input: RegularWeekInput): AvailabilityConfigChanges {
+      const { config, startsOn, endsOn } = input;
+      if (endsOn !== null) {
+        return buildNewScheduleChanges({
+          ...input,
+          useOn: { weekdays: EVERY_DAY, startsOn, endsOn },
+        });
+      }
+      const scheduleId = input.makeId();
+      const schedule: Schedule = { id: scheduleId, name: input.name, kind: "regular", isRegular: true };
+      const rows = buildDraftChanges({
+        config,
+        scope: { kind: "schedule", scheduleId },
+        services: freshRows(input.services),
+        makeId: input.makeId,
+      });
+      const old = liveSchedules(config).find((s) => s.isRegular);
+      const oldAssignments = config.assignments.filter((a) => a.scheduleId === old?.id);
+      const dropped = oldAssignments.filter((a) => a.startsOn != null && a.startsOn >= startsOn);
+      const truncated = oldAssignments
+        .filter((a) => !dropped.includes(a) && (a.endsOn == null || a.endsOn >= startsOn))
+        .map((a) => ({ ...a, endsOn: addDays(startsOn, -1) }));
+      // The new week sits at 0, so every dated schedule must rank above it to keep winning its days
+      // (legacy venues store every assignment at 0, which would tie).
+      const renumbered = rankedAssignments(config)
+        .map((a, i) => ({ ...a, precedence: i + 1 }))
+        .filter((a) => a.precedence !== config.assignments.find((x) => x.id === a.id)?.precedence);
+      return mergeChanges(rows, {
+        upsert: {
+          schedules: [
+            schedule,
+            ...(old ? [{ ...old, isRegular: false, kind: "alternate" as const }] : []),
+          ],
+          assignments: [
+            {
+              id: input.makeId(),
+              scheduleId,
+              weekdays: EVERY_DAY,
+              startsOn,
+              endsOn: null,
+              precedence: 0,
+            },
+            ...truncated,
+            ...renumbered,
+          ],
+        },
+        remove: { assignments: dropped.map((a) => a.id) },
+      });
+    }
+    export function buildEditScheduleChanges(input: {
+      readonly config: AvailabilityConfig;
+      readonly scheduleId: string;
+      readonly name: string;
+      readonly services: readonly DraftService[];
+      readonly makeId: () => string;
+    }): AvailabilityConfigChanges {
+      const { config, scheduleId, name, makeId } = input;
+      const rows = buildDraftChanges({
+        config,
+        scope: { kind: "schedule", scheduleId },
+        services: input.services,
+        makeId,
+      });
+      const stored = config.schedules.find((s) => s.id === scheduleId);
+      const rename = stored && stored.name !== name ? { schedules: [{ ...stored, name }] } : {};
+      return mergeChanges(rows, { upsert: rename, remove: {} });
+    }
+    function freshRows(services: readonly DraftService[]): DraftService[] {
+      return services.map((s) => ({ ...s, scheduleServiceId: null }));
+    }
+    export function datesOfUse(useOn: UseOn, today: string): string[] {
+      const dates: string[] = [];
+      for (let i = 0; i < SCOPE_HORIZON_DAYS; i += 1) {
+        const d = addDays(today, i);
+        if (useOn.endsOn != null && d > useOn.endsOn) break;
+        if (
+          (useOn.startsOn == null || d >= useOn.startsOn) &&
+          useOn.weekdays.includes(weekdayIndexOf(d))
+        ) {
+          dates.push(d);
+        }
+      }
+      return dates;
+    }
+  </file>
   <file path="src/components/availability/scope-dates.ts">
     export const SCOPE_HORIZON_DAYS = 366;
     interface ScopeContext {
@@ -971,6 +1328,53 @@
           if (pending) release(pending.next);
         },
       };
+    }
+  </file>
+  <file path="src/components/availability/use-schedule-save.ts">
+    export function useScheduleSave(onStale: () => void) {
+      const { t } = useTranslation();
+      const { mutateAsync, isPending } = useSaveAvailabilityConfig();
+      const [failure, setFailure] = useState<readonly string[]>([]);
+    
+      const reject = (error: unknown) => {
+        const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
+        const parsed = AvailabilityConfigProblemSchema.safeParse(details);
+        const problem = parsed.success ? parsed.data : null;
+        if (problem?.code === "version-conflict") {
+          onStale();
+          setFailure([t("availabilitySchedules.conflict")]);
+        } else if (problem?.code === "invalid-config" && problem.issues?.length) {
+          setFailure(problem.issues.map((i) => i.message));
+        } else if (problem?.code === "stranded-bookings") {
+          setFailure([
+            t("availabilitySchedules.stranded", { count: problem.reservations?.length ?? 0 }),
+          ]);
+        } else {
+          setFailure([describeApiError(error).detail]);
+        }
+      };
+    
+      /** Resolves `true` when the change was saved. */
+      const save = async (
+        venueId: string,
+        state: AvailabilityConfigState,
+        changes: AvailabilityConfigChanges,
+        scopeConflicts: ScopeConflictMode
+      ): Promise<boolean> => {
+        setFailure([]);
+        try {
+          await mutateAsync({
+            venueId,
+            body: { expectedVersion: state.version, changes, scopeConflicts },
+          });
+          return true;
+        } catch (error) {
+          reject(error);
+          return false;
+        }
+      };
+    
+      return { save, isPending, failure, clearFailure: () => setFailure([]) };
     }
   </file>
   </section>

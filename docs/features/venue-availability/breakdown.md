@@ -102,7 +102,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [ ] **Guest preview panel** — calls the preview endpoint with the debounced draft, showing added and removed marks, the summary line, the stranded list, and the slow-preview fallback. (tracker: #7516)
   - Accept: a component test covers updates on edit, keeping the last good result on 503, and a stranded list that spans the whole scope.
   - Blocked by: Preview endpoint, Drawer editing
-- [ ] **Schedules, Compare and copy** — the Schedules tab (new, duplicate, edit, delete-when-unused), Change regular week (F-UW, including overlap precedence), Compare services (F-X), copy a day (F4), and the discovery nudge. (tracker: #7517)
+- [x] **Schedules, Compare and copy** — the Schedules tab (new, duplicate, edit, delete-when-unused), Change regular week (F-UW, including overlap precedence), Compare services (F-X), copy a day (F4), and the discovery nudge. (tracker: #7517)
   - Accept: tests cover a dated schedule reverting after its end date, overlap choices setting precedence, and a Compare edit saving every schedule with one impact line.
   - Blocked by: Drawer editing
 - [ ] **Multi-select** — F-MS: drag, shift, cmd, weekday column, the Select… menu, touch long-press, and the selection bar opening the drawer with a fixed scope. (tracker: #7518)
