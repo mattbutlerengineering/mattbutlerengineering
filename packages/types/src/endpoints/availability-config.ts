@@ -207,7 +207,9 @@ export const availabilityConfigEndpoints = {
       401: authRequired,
       403: notClosureCaller,
       404: venueNotFound,
-      503: problem("The job queue is unavailable; nothing was changed, try again"),
+      503: problem(
+        "The job queue failed partway; the detail says how many refunds were already queued. A row is only reset once its job exists, so retrying is safe"
+      ),
     },
   }),
   reopenClosure: defineEndpoint({

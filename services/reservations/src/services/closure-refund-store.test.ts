@@ -5,6 +5,17 @@ vi.mock("./database.js", () => ({ prisma: { closureOutcome: { updateMany } } }))
 
 const { createPrismaClosureRefundStore } = await import("./closure-refund-store.js");
 
+describe("createPrismaClosureRefundStore.resetToPending", () => {
+  it("only moves a failed or pending outcome, never a settled one", async () => {
+    await createPrismaClosureRefundStore().resetToPending("out-1");
+
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: "out-1", refund: { in: ["failed", "pending"] } },
+      data: { refund: "pending" },
+    });
+  });
+});
+
 describe("createPrismaClosureRefundStore.markFailed", () => {
   it("records failed only on an outcome not already settled", async () => {
     await createPrismaClosureRefundStore().markFailed("out-1");

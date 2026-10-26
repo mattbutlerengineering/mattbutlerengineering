@@ -50,6 +50,11 @@ export interface ClosureRefundRow {
 export interface ClosureRefundStore {
   load(outcomeId: string): Promise<ClosureRefundRow | null>;
   setRefund(outcomeId: string, refund: ClosureRefundStatus): Promise<void>;
+  /**
+   * Returns a `failed` outcome to `pending` once its retry job exists. Conditional: a row
+   * that settled (`done` / `none`) in the meantime is left alone.
+   */
+  resetToPending(outcomeId: string): Promise<void>;
   /** Records `failed`, leaving an outcome a concurrent run already settled (`done` / `none`). */
   markFailed(outcomeId: string): Promise<void>;
   /** Outcomes of one closure whose refund is in one of `statuses`. */
@@ -242,11 +247,24 @@ export async function runClosureRefundJob(
   }
 }
 
+/** A job could not be scheduled partway through; `enqueued` outcomes already have theirs. */
+export class ClosureRefundEnqueueError extends Error {
+  constructor(
+    readonly enqueued: number,
+    cause: unknown
+  ) {
+    super(`Scheduled ${enqueued} closure refund job(s) before the queue failed`, { cause });
+    this.name = "ClosureRefundEnqueueError";
+  }
+}
+
 /**
  * Enqueues one job per outcome of the closure whose refund is in `statuses`,
- * after the closure's transaction committed. A retry first returns the
- * outcomes to `pending` and uses a fresh job id: BullMQ keeps a failed job
- * under its old id and would silently ignore a re-add.
+ * after the closure's transaction committed. A retry uses a fresh job id (BullMQ
+ * keeps a failed job under its old id and would silently ignore a re-add) and
+ * schedules BEFORE touching the row: a queue failure then leaves that row as it
+ * was, and the conditional reset never overwrites an outcome that settled meanwhile.
+ * A failure partway throws `ClosureRefundEnqueueError` with the count already scheduled.
  */
 export async function enqueueClosureRefunds(
   deps: { store: ClosureRefundStore; jobs: Pick<JobScheduler, "schedule"> },
@@ -256,18 +274,24 @@ export async function enqueueClosureRefunds(
   opts: { retry?: boolean; now?: () => number } = {}
 ): Promise<number> {
   const outcomes = await deps.store.listByRule(venueId, ruleId, statuses);
+  let enqueued = 0;
   for (const outcome of outcomes) {
-    if (opts.retry) await deps.store.setRefund(outcome.id, "pending");
     const base = closureRefundJobId(ruleId, outcome.reservationId);
     const jobId = opts.retry ? `${base}_retry_${(opts.now ?? Date.now)()}` : base;
-    await deps.jobs.schedule(
-      JOB_TYPES.CLOSURE_REFUND,
-      { outcomeId: outcome.id, venueId },
-      0,
-      jobId
-    );
+    try {
+      await deps.jobs.schedule(
+        JOB_TYPES.CLOSURE_REFUND,
+        { outcomeId: outcome.id, venueId },
+        0,
+        jobId
+      );
+      if (opts.retry) await deps.store.resetToPending(outcome.id);
+    } catch (error) {
+      throw new ClosureRefundEnqueueError(enqueued, error);
+    }
+    enqueued += 1;
   }
-  return outcomes.length;
+  return enqueued;
 }
 
 /**

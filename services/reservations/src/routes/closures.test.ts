@@ -8,6 +8,8 @@ import {
   ReopenResultSchema,
 } from "@mbe/types";
 import { buildApp } from "../app.js";
+import { ClosureRefundEnqueueError } from "../services/closure-refund.js";
+import { jwtVerify } from "jose";
 
 vi.mock("../services/database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
@@ -250,9 +252,49 @@ describe("closure routes", () => {
       expect(closureRefunds.retry).toHaveBeenCalledWith("venue-1", "dr-new");
     });
 
-    it("answers 503 when the queue is down, leaving the rows as they were", async () => {
+    it("answers 503 saying how many were queued before the queue failed", async () => {
+      closureRefunds.retry.mockRejectedValueOnce(new ClosureRefundEnqueueError(2, new Error("x")));
+
+      const res = await retry();
+
+      expect(res.statusCode).toBe(503);
+      expect(res.json().detail).toContain("2 queued");
+    });
+
+    it("answers 503 when the queue fails before anything was queued", async () => {
       closureRefunds.retry.mockRejectedValueOnce(new Error("redis down"));
       expect((await retry()).statusCode).toBe(503);
+    });
+
+    it("403s a Host without calling closureRefunds.retry", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: {
+          sub: "auth0|host",
+          iss: "https://test.auth0.com/",
+          aud: "https://api.example.com",
+          permissions: [],
+        },
+        protectedHeader: { alg: "RS256" },
+      } as never);
+      const scoped = await buildApp({
+        logger: false,
+        services: { closureCommandService: commandSvc as never },
+        closureRefunds,
+        venueMembershipLookup: vi.fn(async () => true),
+        venueRoleLookup: vi.fn(async () => "staff" as const),
+      });
+      await scoped.ready();
+
+      const res = await scoped.inject({
+        method: "POST",
+        url: `${URL}/dr-new/refunds/retry`,
+        headers: { authorization: "Bearer host" },
+      });
+
+      expect(res.body).toContain("Manager");
+      expect(res.statusCode).toBe(403);
+      expect(closureRefunds.retry).not.toHaveBeenCalled();
+      await scoped.close();
     });
   });
 

@@ -3126,9 +3126,16 @@
             return { data: { enqueued } };
           } catch (err) {
             request.log.error({ err, venueId, ruleId: request.params.ruleId }, "refund retry failed");
+            const queued = err instanceof ClosureRefundEnqueueError ? err.enqueued : 0;
             return reply
               .code(503)
-              .send(createProblemDetails(503, "Service Unavailable", "Couldn't queue the refunds."));
+              .send(
+                createProblemDetails(
+                  503,
+                  "Service Unavailable",
+                  `Couldn't queue every refund (${queued} queued before the failure). Retry to finish the rest.`
+                )
+              );
           }
         }),
       });
@@ -14406,6 +14413,12 @@
         setRefund: async (outcomeId, refund) => {
           await prisma.closureOutcome.update({ where: { id: outcomeId }, data: { refund } });
         },
+        resetToPending: async (outcomeId) => {
+          await prisma.closureOutcome.updateMany({
+            where: { id: outcomeId, refund: { in: ["failed", "pending"] } },
+            data: { refund: "pending" },
+          });
+        },
         markFailed: async (outcomeId) => {
           await prisma.closureOutcome.updateMany({
             where: { id: outcomeId, refund: { notIn: ["done", "none"] } },
@@ -14432,6 +14445,11 @@
     export interface ClosureRefundStore {
       load(outcomeId: string): Promise<ClosureRefundRow | null>;
       setRefund(outcomeId: string, refund: ClosureRefundStatus): Promise<void>;
+      /**
+       * Returns a `failed` outcome to `pending` once its retry job exists. Conditional: a row
+       * that settled (`done` / `none`) in the meantime is left alone.
+       */
+      resetToPending(outcomeId: string): Promise<void>;
       /** Records `failed`, leaving an outcome a concurrent run already settled (`done` / `none`). */
       markFailed(outcomeId: string): Promise<void>;
       /** Outcomes of one closure whose refund is in one of `statuses`. */
@@ -14581,6 +14599,15 @@
         throw error;
       }
     }
+    export class ClosureRefundEnqueueError extends Error {
+      constructor(
+        readonly enqueued: number,
+        cause: unknown
+      ) {
+        super(`Scheduled ${enqueued} closure refund job(s) before the queue failed`, { cause });
+        this.name = "ClosureRefundEnqueueError";
+      }
+    }
     export async function enqueueClosureRefunds(
       deps: { store: ClosureRefundStore; jobs: Pick<JobScheduler, "schedule"> },
       venueId: string,
@@ -14589,18 +14616,24 @@
       opts: { retry?: boolean; now?: () => number } = {}
     ): Promise<number> {
       const outcomes = await deps.store.listByRule(venueId, ruleId, statuses);
+      let enqueued = 0;
       for (const outcome of outcomes) {
-        if (opts.retry) await deps.store.setRefund(outcome.id, "pending");
         const base = closureRefundJobId(ruleId, outcome.reservationId);
         const jobId = opts.retry ? `${base}_retry_${(opts.now ?? Date.now)()}` : base;
-        await deps.jobs.schedule(
-          JOB_TYPES.CLOSURE_REFUND,
-          { outcomeId: outcome.id, venueId },
-          0,
-          jobId
-        );
+        try {
+          await deps.jobs.schedule(
+            JOB_TYPES.CLOSURE_REFUND,
+            { outcomeId: outcome.id, venueId },
+            0,
+            jobId
+          );
+          if (opts.retry) await deps.store.resetToPending(outcome.id);
+        } catch (error) {
+          throw new ClosureRefundEnqueueError(enqueued, error);
+        }
+        enqueued += 1;
       }
-      return outcomes.length;
+      return enqueued;
     }
     export interface ClosureRefunds {
       enqueue(venueId: string, ruleId: string): Promise<number>;

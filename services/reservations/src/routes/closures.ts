@@ -8,6 +8,7 @@ import { requireAuth } from "@mbe/auth/fastify";
 import { registerEndpoint } from "@mbe/service-bootstrap";
 import { SCOPE_CONFLICT_HORIZON_DAYS } from "../services/availability-config-plan.js";
 import type { CreateClosureOutcome } from "../services/closure-command.js";
+import { ClosureRefundEnqueueError } from "../services/closure-refund.js";
 import { CLOSURE_FORBIDDEN, closureCaller } from "./closure-caller.js";
 import { enqueueClosureJobs, enqueueNotices } from "./closure-post-commit.js";
 import { venueScoped } from "./venue-scope.js";
@@ -198,9 +199,16 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
         return { data: { enqueued } };
       } catch (err) {
         request.log.error({ err, venueId, ruleId: request.params.ruleId }, "refund retry failed");
+        const queued = err instanceof ClosureRefundEnqueueError ? err.enqueued : 0;
         return reply
           .code(503)
-          .send(createProblemDetails(503, "Service Unavailable", "Couldn't queue the refunds."));
+          .send(
+            createProblemDetails(
+              503,
+              "Service Unavailable",
+              `Couldn't queue every refund (${queued} queued before the failure). Retry to finish the rest.`
+            )
+          );
       }
     }),
   });
