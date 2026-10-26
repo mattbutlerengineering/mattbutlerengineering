@@ -1744,6 +1744,45 @@
         "days_required": "Choisissez au moins un jour."
       }
     },
+    "migrationBanner": "Vos heures ont été reprises. Rien n’a changé pour les clients.",
+    "historyButton": "Historique",
+    "undo": {
+      "action": "Annuler",
+      "done": "Modification annulée",
+      "errors": {
+        "guests-notified": "Cette modification a averti les clients; elle ne peut pas être annulée.",
+        "already-reverted": "Cette modification a déjà été annulée.",
+        "superseded": "Une modification plus récente existe. Seule la dernière peut être annulée.",
+        "not-revertable": "Cette modification ne peut pas être annulée.",
+        "version-conflict": "Quelqu’un vient de modifier les disponibilités. Rechargez et réessayez.",
+        "stranded-bookings": "L’annuler laisserait des réservations existantes sans service.",
+        "invalid-config": "Cette modification ne peut plus être annulée avec vos heures actuelles."
+      }
+    },
+    "history": {
+      "title": "Historique",
+      "byWhen": "par {{who}} · {{when}}",
+      "you": "vous",
+      "teammate": "un collègue",
+      "guestsTold": "Les clients ont été avertis",
+      "undone": "Annulée",
+      "viewDay": "Voir le jour",
+      "revert": "Annuler",
+      "empty": "Aucune modification pour l’instant.",
+      "noMatch": "Aucune modification ne correspond à ces filtres.",
+      "loadError": "Impossible de charger l’historique",
+      "retry": "Réessayer",
+      "showMore": "Afficher plus",
+      "typeLabel": "Type",
+      "typeAll": "Toutes les modifications",
+      "typeConfig": "Changements d’heures",
+      "typeRevert": "Annulations",
+      "personLabel": "Personne",
+      "personAll": "Tout le monde",
+      "personMe": "Moi seulement",
+      "rangeLabel": "Faites entre",
+      "rangePlaceholder": "Toutes les dates"
+    },
     "editor": {
       "edit": "Modifier {{name}}",
       "addService": "Ajouter un service",

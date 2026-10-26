@@ -109,6 +109,46 @@ describe("AvailabilityClient config API", () => {
     );
   });
 
+  it("listChanges reads a filtered page of the history endpoint", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: { total: 0, offset: 0, items: [] } }));
+
+    const page = await client().listChanges("v1", { kind: "config", limit: 10, offset: 20 });
+
+    expect(page).toEqual({ total: 0, offset: 0, items: [] });
+    expect(mockFetch.mock.calls[0]?.[0]).toBe(
+      "https://api.test.com/api/v1/venues/v1/availability/changes?kind=config&limit=10&offset=20"
+    );
+  });
+
+  it("revertChange POSTs the expected version and surfaces guests-notified", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: { version: 5, changeId: "chg-2" } }));
+
+    const saved = await client().revertChange("v1", "chg-1", 4);
+
+    expect(saved).toEqual({ version: 5, changeId: "chg-2" });
+    const [url, init] = mockFetch.mock.calls[0]!;
+    expect(url).toBe("https://api.test.com/api/v1/venues/v1/availability/changes/chg-1/revert");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual({ expectedVersion: 4 });
+
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse(
+        {
+          type: "about:blank",
+          title: "Conflict",
+          status: 409,
+          detail: "x",
+          code: "guests-notified",
+        },
+        409
+      )
+    );
+    const error = await client()
+      .revertChange("v1", "chg-1", 5)
+      .catch((e: unknown) => e);
+    expect((error as ApiClientError).problemDetails).toMatchObject({ code: "guests-notified" });
+  });
+
   it("getClosureImpact POSTs the draft rule to /closures/impact", async () => {
     const impact = { reservations: 0, covers: 0, depositsHeld: 0, groups: [] };
     mockFetch.mockResolvedValueOnce(jsonResponse({ data: impact }));

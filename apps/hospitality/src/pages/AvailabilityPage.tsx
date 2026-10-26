@@ -17,6 +17,8 @@ import { useVenueFormat } from "../hooks/useVenueFormat.js";
 import { useVenueTeam } from "../hooks/useVenueTeam.js";
 import { describeApiError } from "../lib/describe-api-error.js";
 import { AvailabilityCalendar } from "../components/availability/AvailabilityCalendar.js";
+import { AvailabilityHistoryDrawer } from "../components/availability/AvailabilityHistoryDrawer.js";
+import { AvailabilityMigrationBanner } from "../components/availability/AvailabilityMigrationBanner.js";
 import { AvailabilityQuickSetup } from "../components/availability/AvailabilityQuickSetup.js";
 import { AvailabilitySelectionBar } from "../components/availability/AvailabilitySelectionBar.js";
 import { AvailabilityDayDrawer } from "../components/availability/AvailabilityDayDrawer.js";
@@ -78,6 +80,7 @@ export function AvailabilityPage() {
   const [target, setTarget] = useState<OpenTarget>(CLOSED);
   const openDate = target.date;
   const [closing, setClosing] = useState<Closing | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [tab, setTab] = useState<AvailabilityTab>("calendar");
   const anchor = chosenAnchor ?? today;
   // Picked days belong to one venue; derive "none" on a venue switch rather than clearing in an effect.
@@ -227,6 +230,9 @@ export function AvailabilityPage() {
         <Button variant="secondary" onClick={() => setChosenAnchor(null)}>
           {t("availability.toolbar.today")}
         </Button>
+        <Button variant="secondary" onClick={() => setHistoryOpen(true)}>
+          {t("availability.historyButton")}
+        </Button>
         <DropdownMenu
           trigger={<Button variant="secondary">{t("availability.selection.selectMenu")}</Button>}
           items={selectItems}
@@ -251,6 +257,9 @@ export function AvailabilityPage() {
           onChange={(id) => setView(id as CalendarView)}
         />
       </div>
+      {config.data?.source === "legacy" && (
+        <AvailabilityMigrationBanner key={selectedVenueId} venueId={selectedVenueId} />
+      )}
       {pause && (
         <OnlinePausedBanner venueId={selectedVenueId} ruleId={pause.id} canResume={isManager} />
       )}
@@ -304,6 +313,17 @@ export function AvailabilityPage() {
             : undefined
         }
         onClose={() => guard.request(CLOSED)}
+      />
+      <AvailabilityHistoryDrawer
+        open={historyOpen}
+        venueId={selectedVenueId}
+        viewerRole={team?.viewerRole}
+        onClose={() => setHistoryOpen(false)}
+        onOpenDay={(date) => {
+          setHistoryOpen(false);
+          guard.request({ date });
+          setChosenAnchor(date);
+        }}
       />
       {closing && config.data && (
         <CloseDialog

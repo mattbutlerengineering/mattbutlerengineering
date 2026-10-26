@@ -7,6 +7,8 @@
 import { z } from "zod";
 import { defineEndpoint, problem } from "./define.js";
 import {
+  AvailabilityChangesPageSchema,
+  AvailabilityChangesQuerySchema,
   AvailabilityCheckBodySchema,
   AvailabilityCheckResultSchema,
   AvailabilityConfigProblemSchema,
@@ -21,6 +23,7 @@ import {
   PreviewAvailabilityBodySchema,
   PreviewResultSchema,
   PutAvailabilityConfigBodySchema,
+  RevertAvailabilityChangeBodySchema,
   ReopenClosureBodySchema,
   ReopenResultSchema,
   SetTonightBodySchema,
@@ -242,6 +245,45 @@ export const availabilityConfigEndpoints = {
       401: authRequired,
       403: notMember,
       404: venueNotFound,
+    },
+  }),
+  listChanges: defineEndpoint({
+    method: "GET",
+    path: `${AVAILABILITY_CONFIG_PREFIX}/:id/availability/changes`,
+    params: VenueParamsSchema,
+    query: AvailabilityChangesQuerySchema,
+    responses: {
+      200: {
+        description: "A page of the venue's availability history, newest first",
+        body: z.object({ data: AvailabilityChangesPageSchema }),
+      },
+      401: authRequired,
+      403: notMember,
+      404: venueNotFound,
+    },
+  }),
+  revertChange: defineEndpoint({
+    method: "POST",
+    path: `${AVAILABILITY_CONFIG_PREFIX}/:id/availability/changes/:changeId/revert`,
+    params: VenueParamsSchema.extend({ changeId: z.string().describe("Availability change ID") }),
+    body: RevertAvailabilityChangeBodySchema,
+    responses: {
+      200: {
+        description: "Reverted as a new save; the new version and the revert's audit row id",
+        body: z.object({ data: AvailabilityConfigSaveResultSchema }),
+      },
+      401: authRequired,
+      403: problem("Caller is not a Manager of this venue"),
+      404: problem("Venue or change not found"),
+      409: {
+        description:
+          "`version-conflict`, `stranded-bookings`, `guests-notified`, `already-reverted`, `superseded` or `not-revertable`",
+        body: AvailabilityConfigProblemSchema,
+      },
+      422: {
+        description: "`invalid-config`: the stored inverse no longer validates",
+        body: AvailabilityConfigProblemSchema,
+      },
     },
   }),
 };

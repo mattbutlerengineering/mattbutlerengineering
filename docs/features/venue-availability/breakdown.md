@@ -108,7 +108,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [ ] **Multi-select** — F-MS: drag, shift, cmd, weekday column, the Select… menu, touch long-press, and the selection bar opening the drawer with a fixed scope. (tracker: #7518)
   - Accept: component tests for each gesture, and the selection count is announced politely.
   - Blocked by: AvailabilityCalendar and day drawer (read)
-- [ ] **History and undo** — `GET …/availability/changes` and revert, the History drawer (F12), the undo toast, and the F11 migration banner. (tracker: #7519)
+- [x] **History and undo** — `GET …/availability/changes` and revert, the History drawer (F12), the undo toast, and the F11 migration banner. (tracker: #7519)
   - Accept: reverting a change that told no guests restores the prior rows. A change with `notifiedGuests` returns 409 `guests-notified`.
   - Blocked by: Config API
 

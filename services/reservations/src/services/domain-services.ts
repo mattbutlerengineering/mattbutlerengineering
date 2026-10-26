@@ -1,5 +1,6 @@
 import { availabilityService } from "./availability.js";
 import { availabilityConfigService } from "./availability-config.js";
+import { availabilityChangesService } from "./availability-changes.js";
 import { closureImpactService } from "./closure-impact-store.js";
 import type { ClosureNoticeService } from "./closure-notice-service.js";
 import { closureCommandService } from "./closure-command.js";
@@ -40,6 +41,7 @@ import { venueTeamService } from "./venue-team.js";
 export interface DomainServices {
   availabilityService: typeof availabilityService;
   availabilityConfigService: typeof availabilityConfigService;
+  availabilityChangesService: typeof availabilityChangesService;
   closureImpactService: typeof closureImpactService;
   closureCommandService: typeof closureCommandService;
   /** Built in `buildApp` over the notifier scheduler — never a module singleton. */
@@ -72,6 +74,7 @@ export const defaultDomainServices: Omit<
 > = {
   availabilityService,
   availabilityConfigService,
+  availabilityChangesService,
   closureImpactService,
   closureCommandService,
   tonightCommandService,

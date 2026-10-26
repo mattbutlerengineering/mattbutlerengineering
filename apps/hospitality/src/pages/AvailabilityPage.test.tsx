@@ -16,7 +16,7 @@ const daysQuery = vi.hoisted(() => ({
 const daysHook = vi.hoisted(() => vi.fn());
 const configHook = vi.hoisted(() => vi.fn());
 const refetch = vi.hoisted(() => vi.fn());
-const configSource = vi.hoisted(() => ({ value: "rows" as "rows" | "empty" }));
+const configSource = vi.hoisted(() => ({ value: "rows" as "rows" | "empty" | "legacy" }));
 const team = vi.hoisted(() => ({ value: undefined as Partial<VenueTeam> | undefined }));
 const resolved = vi.hoisted(() => ({ services: [] as unknown[] }));
 const venue = vi.hoisted(() => ({
@@ -49,6 +49,7 @@ vi.mock("../hooks/useAvailability.js", () => ({
     };
   },
   useSaveAvailabilityConfig: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useRevertAvailabilityChange: () => ({ mutateAsync: vi.fn() }),
   AVAILABILITY_CONFIG_QUERY_KEY: "availabilityConfig",
   AVAILABILITY_DAYS_QUERY_KEY: "availabilityDays",
 }));
@@ -61,6 +62,22 @@ vi.mock("../components/availability/AvailabilityQuickSetup.js", () => ({
   AvailabilityQuickSetup: ({ venueId }: { venueId: string }) => (
     <section aria-label="Quick setup">{venueId}</section>
   ),
+}));
+vi.mock("../components/availability/AvailabilityHistoryDrawer.js", () => ({
+  AvailabilityHistoryDrawer: ({
+    open,
+    onOpenDay,
+  }: {
+    open: boolean;
+    onOpenDay: (date: string) => void;
+  }) =>
+    open ? (
+      <section aria-label="History drawer">
+        <button type="button" onClick={() => onOpenDay("2026-10-30")}>
+          Go to day
+        </button>
+      </section>
+    ) : null,
 }));
 const drawerProps = vi.hoisted(() => vi.fn());
 vi.mock("../components/availability/AvailabilityDayDrawer.js", async (importOriginal) => {
@@ -218,6 +235,31 @@ describe("AvailabilityPage", () => {
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: /Friday, October 30/ }));
     expect(screen.queryByText(/Only managers change hours/)).not.toBeInTheDocument();
+  });
+
+  it("opens History from the toolbar and lets an entry open its day", () => {
+    renderPage();
+    expect(screen.queryByRole("region", { name: "History drawer" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "History" }));
+    fireEvent.click(
+      within(screen.getByRole("region", { name: "History drawer" })).getByRole("button", {
+        name: "Go to day",
+      })
+    );
+    expect(screen.queryByRole("region", { name: "History drawer" })).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: /Friday, October 30/ })).toBeInTheDocument();
+  });
+
+  it("tells a migrated venue its hours were carried over, and no one else", () => {
+    window.localStorage.clear();
+    configSource.value = "legacy";
+    const legacy = renderPage();
+    expect(screen.getByText(/Your hours were carried over/)).toBeInTheDocument();
+    legacy.unmount();
+
+    configSource.value = "rows";
+    renderPage();
+    expect(screen.queryByText(/Your hours were carried over/)).not.toBeInTheDocument();
   });
 
   describe("editing", () => {

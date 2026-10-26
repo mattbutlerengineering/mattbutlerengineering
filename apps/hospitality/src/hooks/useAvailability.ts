@@ -1,4 +1,6 @@
 import type {
+  AvailabilityChangesPage,
+  AvailabilityChangesQuery,
   AvailabilityConfigSaveResult,
   AvailabilityConfigState,
   AvailabilityDaySummary,
@@ -11,6 +13,7 @@ import { VENUES_QUERY_KEY } from "./useVenues.js";
 
 export const AVAILABILITY_DAYS_QUERY_KEY = "availabilityDays" as const;
 export const AVAILABILITY_CONFIG_QUERY_KEY = "availabilityConfig" as const;
+export const AVAILABILITY_CHANGES_QUERY_KEY = "availabilityChanges" as const;
 
 /** Calendar cells: one summary per service date from `from` to `to` (<= 62 days). */
 export const useAvailabilityDays = createQueryHook<
@@ -36,7 +39,6 @@ export const useAvailabilityConfig = createQueryHook<
   getEnabled: (params) => !!params?.venueId && params.enabled !== false,
 });
 
-/**
 /** What the editors send; `scopeConflicts` defaults to `keep` on the server (quick setup omits it). */
 export type SaveAvailabilityConfigVariables = {
   venueId: string;
@@ -56,11 +58,45 @@ export const useSaveAvailabilityConfig = createMutationHook<
   SaveAvailabilityConfigVariables,
   AvailabilityConfigSaveResult
 >({
-  invalidateKeys: [AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY, VENUES_QUERY_KEY],
+  invalidateKeys: [
+    AVAILABILITY_CONFIG_QUERY_KEY,
+    AVAILABILITY_DAYS_QUERY_KEY,
+    AVAILABILITY_CHANGES_QUERY_KEY,
+    VENUES_QUERY_KEY,
+  ],
   mutationFn: async (api, { venueId, body, overwrite }) => {
     const expectedVersion = overwrite
       ? (await api.availability.getConfig(venueId)).version
       : body.expectedVersion;
     return api.availability.saveConfig(venueId, { ...body, expectedVersion });
   },
+});
+
+/** The History drawer (F12): who changed availability, newest first. */
+export const useAvailabilityChanges = createQueryHook<
+  AvailabilityChangesPage | null,
+  { venueId: string | null; query: AvailabilityChangesQuery }
+>({
+  key: AVAILABILITY_CHANGES_QUERY_KEY,
+  fetcher: async (params, api) =>
+    params?.venueId ? api.availability.listChanges(params.venueId, params.query) : null,
+  getEnabled: (params) => !!params?.venueId && params.enabled !== false,
+});
+
+/**
+ * Undoes a change (Manager only): the server applies its stored inverse as a new save, so
+ * everything a save refreshes refreshes here too.
+ */
+export const useRevertAvailabilityChange = createMutationHook<
+  { venueId: string; changeId: string; expectedVersion: number },
+  AvailabilityConfigSaveResult
+>({
+  invalidateKeys: [
+    AVAILABILITY_CONFIG_QUERY_KEY,
+    AVAILABILITY_DAYS_QUERY_KEY,
+    AVAILABILITY_CHANGES_QUERY_KEY,
+    VENUES_QUERY_KEY,
+  ],
+  mutationFn: (api, { venueId, changeId, expectedVersion }) =>
+    api.availability.revertChange(venueId, changeId, expectedVersion),
 });

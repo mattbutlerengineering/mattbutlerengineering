@@ -8,16 +8,17 @@ import {
   SegmentedControl,
   Stack,
   Text,
-  useToast,
 } from "@mattbutlerengineering/rialto";
 import type { ResolvedDay } from "@mbe/availability";
 import {
   AvailabilityConfigProblemSchema,
   type AvailabilityChangeSummary,
+  type AvailabilityConfigSaveResult,
   type AvailabilityConfigState,
   type ScopeConflictMode,
 } from "@mbe/types";
 import { useSaveAvailabilityConfig } from "../../hooks/useAvailability.js";
+import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import { AvailabilityGuestPreview } from "./AvailabilityGuestPreview.js";
@@ -89,7 +90,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   const { onDirtyChange, onCancel, onFinished, fixedDates } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
-  const { toast } = useToast();
+  const offerUndo = useAvailabilityUndo();
   const { mutateAsync, isPending } = useSaveAvailabilityConfig();
   const choiceLabelId = useId();
 
@@ -171,8 +172,9 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
       makeId: () => crypto.randomUUID(),
       leaveOut: edit.mode === "keep" && dates.length > 1 ? own : [],
     });
+    let saved: AvailabilityConfigSaveResult;
     try {
-      await mutateAsync({
+      saved = await mutateAsync({
         venueId,
         overwrite,
         body: {
@@ -186,8 +188,9 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
       rejectSave(error);
       return;
     }
-    toast({
-      variant: "success",
+    offerUndo({
+      venueId,
+      saved,
       title:
         dates.length > 1
           ? t("availability.editor.savedMany", { count: writtenCount })
