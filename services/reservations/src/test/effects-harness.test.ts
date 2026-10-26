@@ -40,19 +40,19 @@ describe("effects harness (smoke)", () => {
   it("records reminder job operations, keeps the store, and reports removals", async () => {
     const rec = createEffectsRecorder();
     const jobs = rec.appOptions.jobs!;
-    await jobs.schedule("booking-reminder", payload, 5, "booking-reminder:res-1");
-    expect(rec.scheduledJobs.get("booking-reminder:res-1")).toEqual({
+    await jobs.schedule("booking-reminder", payload, 5, "booking-reminder_res-1");
+    expect(rec.scheduledJobs.get("booking-reminder_res-1")).toEqual({
       jobType: "booking-reminder",
       delayMs: 5,
       payload,
     });
-    expect(await jobs.cancel("booking-reminder:res-1")).toBe(true);
-    expect(await jobs.cancel("booking-reminder:res-1")).toBe(false);
+    expect(await jobs.cancel("booking-reminder_res-1")).toBe(true);
+    expect(await jobs.cancel("booking-reminder_res-1")).toBe(false);
     expect(rec.effects.jobs.map((j) => j.op)).toEqual(["schedule", "cancel", "cancel"]);
     rec.seedReminders("res-1", "venue-1");
     expect([...rec.scheduledJobs.keys()].sort()).toEqual([
-      "booking-reminder:res-1",
-      "day-of-reminder:res-1",
+      "booking-reminder_res-1",
+      "day-of-reminder_res-1",
     ]);
   });
 
