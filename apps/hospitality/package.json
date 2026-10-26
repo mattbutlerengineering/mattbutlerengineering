@@ -55,6 +55,11 @@
       "limit": "5.5 kB"
     },
     {
+      "name": "Service-day helpers (shared by the timeline's Tonight panel and the staff waitlist/booking form)",
+      "path": "dist/assets/current-service-date-*.js",
+      "limit": "3.5 kB"
+    },
+    {
       "name": "Venue Onboarding (lazy chunk)",
       "path": "dist/assets/VenueOnboardingPage-*.js",
       "limit": "7.5 kB"
