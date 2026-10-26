@@ -98,8 +98,18 @@ export function VenueCancelledCard({
           {t("manageReservation.venueCancelled.heading")}
         </Text>
         <Text variant="body" color="secondary">
-          {t("manageReservation.venueCancelled.intro", { venue: venue.name })}
+          {t("manageReservation.venueCancelled.closedOn", {
+            venue: venue.name,
+            date: format.formatCalendarDate(cancellation.closureDate, DATE_FIELDS),
+          })}
         </Text>
+        {cancellation.closureMessage && (
+          <Text variant="body" dir="auto">
+            {t("manageReservation.venueCancelled.message", {
+              message: cancellation.closureMessage,
+            })}
+          </Text>
+        )}
         {refundStatus !== "none" && (
           <Text variant="body">
             {t(`manageReservation.venueCancelled.refund.${refundStatus}`, { venue: venue.name })}

@@ -1473,7 +1473,8 @@
     },
     "venueCancelled": {
       "heading": "Votre réservation a été annulée",
-      "intro": "{{venue}} a dû annuler cette réservation.",
+      "closedOn": "{{venue}} est fermé le {{date}}",
+      "message": "« {{message}} »",
       "refund": {
         "pending": "Le remboursement de votre dépôt est en cours.",
         "done": "Votre dépôt a été remboursé.",

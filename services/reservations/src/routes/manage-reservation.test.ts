@@ -199,6 +199,8 @@ describe("GET /public/v1/reservations/manage", () => {
     const cancelled = { ...mockReservation, status: "CANCELLED" };
     const venueCancellation = {
       refundStatus: "done",
+      closureDate: "2026-11-05",
+      closureMessage: "Closed for a private event",
       offers: [
         {
           id: "2026-11-05T01:30:00.000Z",

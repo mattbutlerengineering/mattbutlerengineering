@@ -10,6 +10,8 @@ export interface CancelOutcome {
   id: string;
   refund: GuestRefundStatus;
   rebookedReservationId: string | null;
+  /** The closure rule's guest-facing message (never the staff note). */
+  guestMessage: string | null;
 }
 
 export interface RebookDeps {

@@ -34,6 +34,10 @@ export interface RebookOffer {
 
 export interface VenueCancellation {
   refundStatus: GuestRefundStatus;
+  /** The reservation's service date (YYYY-MM-DD): the day the venue was closed for this guest. */
+  closureDate: string;
+  /** The Manager's guest message for the closure; shown to the guest as plain text. */
+  closureMessage: string | null;
   offers: RebookOffer[];
   /** Set once the guest has rebooked; offers are then always empty. */
   rebooked: { reservationId: string; startTime: string } | null;
@@ -77,11 +81,16 @@ export async function loadVenueCancellation(
   const outcome = await deps.findCancelOutcome(reservation.id, venueId);
   if (!outcome) return null;
   const { refund: refundStatus } = outcome;
+  const closure = {
+    refundStatus,
+    closureDate: reservation.date,
+    closureMessage: outcome.guestMessage,
+  };
 
   if (outcome.rebookedReservationId) {
     const rebooked = await deps.findRebooked(outcome.rebookedReservationId);
     return {
-      refundStatus,
+      ...closure,
       offers: [],
       rebooked: rebooked
         ? { reservationId: rebooked.id, startTime: rebooked.startTime.toISOString() }
@@ -91,10 +100,10 @@ export async function loadVenueCancellation(
 
   // A deposit venue gets no one-tap offers: the guest goes through the widget's payment step.
   if (await deps.requiresDeposit(venueId, reservation)) {
-    return { refundStatus, offers: [], rebooked: null };
+    return { ...closure, offers: [], rebooked: null };
   }
   const offers = await currentOffers(reservation, venueId, now, deps);
-  return { refundStatus, offers, rebooked: null };
+  return { ...closure, offers, rebooked: null };
 }
 
 export type RebookResult =

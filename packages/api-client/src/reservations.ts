@@ -74,6 +74,10 @@ export interface ManagedRebookOffer {
 /** Present only when a venue closure cancelled the booking. */
 export interface ManagedVenueCancellation {
   refundStatus: "none" | "pending" | "done" | "failed";
+  /** The service date (YYYY-MM-DD) the venue was closed for this booking. */
+  closureDate: string;
+  /** The venue's guest message for the closure; free text, render as text only. */
+  closureMessage: string | null;
   /** Empty once rebooked, and where the new booking would need a deposit (the guest uses the full picker). */
   offers: ManagedRebookOffer[];
   /** Set once the guest has rebooked; `manageToken` opens the new reservation. */
@@ -121,6 +125,8 @@ const manageReservationDataSchema: z.ZodSchema<ManageReservationData> = z.object
   venueCancellation: z
     .object({
       refundStatus: z.enum(["none", "pending", "done", "failed"]),
+      closureDate: z.string(),
+      closureMessage: z.string().nullable(),
       offers: z.array(z.object({ id: z.string(), date: z.string(), startTime: z.string() })),
       rebooked: z.object({ startTime: z.string(), manageToken: z.string() }).nullable(),
     })
