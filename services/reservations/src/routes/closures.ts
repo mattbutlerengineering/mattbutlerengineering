@@ -147,6 +147,64 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
     }),
   });
 
+  registerEndpoint(fastify, availabilityConfigEndpoints.listClosures, {
+    docs: {
+      summary: "Outcome counts for every closure",
+      operationId: "listClosures",
+      description:
+        "Sent / Rebooked / Unreachable and refund counts per date rule that produced closure outcomes, for the Special dates tab. Includes reopened closures and ended Tonight close-early rules. Any venue member.",
+      tags: ["Availability"],
+      security: [{ bearerAuth: [] }],
+    },
+    preHandler: requireAuth,
+    handler: venueScoped(VENUE_FROM_ID, async (_request, _reply, { venueId }) => ({
+      data: await closureNoticeService.summaries(venueId),
+    })),
+  });
+
+  registerEndpoint(fastify, availabilityConfigEndpoints.closureCallList, {
+    docs: {
+      summary: "Call list for one closure",
+      operationId: "closureCallList",
+      description:
+        "Guests the closure told but without a confirmed delivery or a rebooking: name, party, time and phone. Any venue member (a Host who made the emergency close needs it).",
+      tags: ["Availability"],
+      security: [{ bearerAuth: [] }],
+    },
+    preHandler: requireAuth,
+    handler: venueScoped(VENUE_FROM_ID, async (request, _reply, { venueId }) => {
+      const entries = await closureNoticeService.callList(venueId, request.params.ruleId);
+      return { data: entries.map((e) => ({ ...e, startTime: e.startTime.toISOString() })) };
+    }),
+  });
+
+  registerEndpoint(fastify, availabilityConfigEndpoints.retryClosureRefunds, {
+    docs: {
+      summary: "Retry a closure's refunds",
+      operationId: "retryClosureRefunds",
+      description:
+        "Re-enqueues the refund job for outcomes still `pending` or `failed` through `closureRefunds.retry`; settled outcomes are never touched and the Stripe idempotency keys are unchanged, so a guest is never refunded twice. Covers Tonight close-early rules too (keyed by date rule id, even after the rule ended). Manager only.",
+      tags: ["Availability"],
+      security: [{ bearerAuth: [] }],
+    },
+    preHandler: requireAuth,
+    handler: venueScoped(VENUE_FROM_ID, async (request, reply, { venueId, isAdmin }) => {
+      const caller = await closureCaller(request, venueId, isAdmin);
+      if (!caller.isManager) {
+        return reply.code(403).send(createProblemDetails(403, "Forbidden", CLOSURE_FORBIDDEN));
+      }
+      try {
+        const enqueued = await fastify.closureRefunds.retry(venueId, request.params.ruleId);
+        return { data: { enqueued } };
+      } catch (err) {
+        request.log.error({ err, venueId, ruleId: request.params.ruleId }, "refund retry failed");
+        return reply
+          .code(503)
+          .send(createProblemDetails(503, "Service Unavailable", "Couldn't queue the refunds."));
+      }
+    }),
+  });
+
   registerEndpoint(fastify, availabilityConfigEndpoints.reopenClosure, {
     docs: {
       summary: "Reopen a closure",

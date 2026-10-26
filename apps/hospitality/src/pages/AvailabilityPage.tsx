@@ -27,6 +27,7 @@ import {
   type AvailabilityTab,
 } from "../components/availability/AvailabilityScheduleControls.js";
 import { SchedulesTab } from "../components/availability/SchedulesTab.js";
+import { SpecialDatesTab } from "../components/availability/SpecialDatesTab.js";
 import {
   shiftAnchor,
   visibleDates,
@@ -181,9 +182,10 @@ export function AvailabilityPage() {
   ];
 
   const scheduleControls =
-    team?.viewerRole === "manager" && config.data ? (
+    team?.viewerRole && config.data ? (
       <AvailabilityScheduleControls
         venueId={selectedVenueId}
+        isManager={team.viewerRole === "manager"}
         state={config.data}
         today={today}
         tab={tab}
@@ -204,6 +206,21 @@ export function AvailabilityPage() {
           timezone={timeZone}
           today={today}
           onStale={() => void config.refetch()}
+        />
+      </Stack>
+    );
+  }
+
+  if (tab === "special" && scheduleControls && config.data) {
+    return (
+      <Stack gap="md">
+        <PageHeader title={t("availability.title")} description={t("availability.description")} />
+        {scheduleControls}
+        <SpecialDatesTab
+          venueId={selectedVenueId}
+          rules={config.data.config.dateRules}
+          today={today}
+          isManager={team?.viewerRole === "manager"}
         />
       </Stack>
     );

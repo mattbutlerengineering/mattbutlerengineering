@@ -414,6 +414,43 @@ export const ClosureResultSchema = z.object({
 
 export const ReopenResultSchema = z.object({ version: z.number().int(), changeId: z.string() });
 
+/**
+ * What became of the reservations one closure (or Tonight close-early) touched,
+ * keyed by the date rule that made it. Rows exist even after the rule is gone
+ * (a reopened closure, an ended Tonight change), so refunds can still be retried.
+ */
+export const ClosureSummarySchema = z.object({
+  ruleId: z.string(),
+  /** Outcomes the closure produced. */
+  total: z.number().int(),
+  /** Bookings the closure cancelled (the guests a reopen notice would go to). */
+  cancelled: z.number().int(),
+  /** Guests with a confirmed email or SMS delivery. */
+  sent: z.number().int(),
+  /** Guests who rebooked after the cancel. */
+  rebooked: z.number().int(),
+  /** Told but with no confirmed delivery and no rebooking: the call list. */
+  unreachable: z.number().int(),
+  /** Deposit refunds the refund job gave up on. */
+  refundFailed: z.number().int(),
+  /** Deposit refunds not yet settled (also retried: the enqueue itself may have been lost). */
+  refundPending: z.number().int(),
+});
+
+export const ClosureSummariesSchema = z.array(ClosureSummarySchema);
+
+export const RetryRefundsResultSchema = z.object({ enqueued: z.number().int() });
+
+export const CallListEntrySchema = z.object({
+  outcomeId: z.string(),
+  reservationId: z.string(),
+  guestName: z.string().nullable(),
+  partySize: z.number().int(),
+  /** ISO instant of the reservation's start. */
+  startTime: z.string(),
+  guestPhone: z.string().nullable(),
+});
+
 // ── Tonight ─────────────────────────────────────────────────────────────────
 
 const TonightIdSchema = z.string().min(1);
@@ -472,5 +509,8 @@ export type CreateClosureBody = z.infer<typeof CreateClosureBodySchema>;
 export type ReopenClosureBody = z.infer<typeof ReopenClosureBodySchema>;
 export type ClosureResult = z.infer<typeof ClosureResultSchema>;
 export type ReopenResult = z.infer<typeof ReopenResultSchema>;
+export type ClosureSummary = z.infer<typeof ClosureSummarySchema>;
+export type RetryRefundsResult = z.infer<typeof RetryRefundsResultSchema>;
+export type ClosureCallListEntry = z.infer<typeof CallListEntrySchema>;
 export type AvailabilityCheckBody = z.infer<typeof AvailabilityCheckBodySchema>;
 export type AvailabilityCheckResult = z.infer<typeof AvailabilityCheckResultSchema>;

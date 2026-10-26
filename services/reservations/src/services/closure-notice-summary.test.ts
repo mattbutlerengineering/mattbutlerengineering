@@ -1,0 +1,107 @@
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("./database.js", () => ({ prisma: {} }));
+
+import { listCallList, summarizeOutcomes } from "./closure-notice-store.js";
+
+const row = (over: Record<string, unknown> = {}) => ({
+  dateRuleId: "dr-1",
+  action: "cancel" as const,
+  deliveries: {},
+  rebookedReservationId: null,
+  refund: "none",
+  ...over,
+});
+
+describe("summarizeOutcomes", () => {
+  it("counts Sent, Rebooked and Unreachable per rule, keeping rules apart", () => {
+    const summaries = summarizeOutcomes([
+      row({ deliveries: { email: "sent" } }),
+      row({ deliveries: { sms: "sent" }, rebookedReservationId: "r-2" }),
+      row({ deliveries: { email: "failed", sms: "skipped" } }),
+      row({ action: "keep_silent" }),
+      row({ dateRuleId: "tonight-1", refund: "pending" }),
+    ]);
+
+    expect(summaries).toEqual([
+      {
+        ruleId: "dr-1",
+        total: 4,
+        cancelled: 3,
+        sent: 2,
+        rebooked: 1,
+        unreachable: 1,
+        refundFailed: 0,
+        refundPending: 0,
+      },
+      {
+        ruleId: "tonight-1",
+        total: 1,
+        cancelled: 1,
+        sent: 0,
+        rebooked: 0,
+        unreachable: 1,
+        refundFailed: 0,
+        refundPending: 1,
+      },
+    ]);
+  });
+
+  it("counts failed and pending refunds, the rows a retry may touch", () => {
+    const [summary] = summarizeOutcomes([
+      row({ refund: "failed" }),
+      row({ refund: "pending" }),
+      row({ refund: "done" }),
+    ]);
+
+    expect(summary).toMatchObject({ refundFailed: 1, refundPending: 1 });
+  });
+});
+
+describe("listCallList", () => {
+  it("lists only guests with no confirmed delivery and no rebooking", async () => {
+    const reservation = { guestName: "G", partySize: 2, startTime: new Date(), guestPhone: "1" };
+    const db = {
+      closureOutcome: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: "o1",
+            reservationId: "r1",
+            action: "cancel",
+            deliveries: { email: "sent" },
+            rebookedReservationId: null,
+            reservation,
+          },
+          {
+            id: "o2",
+            reservationId: "r2",
+            action: "cancel",
+            deliveries: { email: "failed" },
+            rebookedReservationId: null,
+            reservation,
+          },
+          {
+            id: "o3",
+            reservationId: "r3",
+            action: "cancel",
+            deliveries: {},
+            rebookedReservationId: "r9",
+            reservation,
+          },
+          {
+            id: "o4",
+            reservationId: "r4",
+            action: "keep_silent",
+            deliveries: {},
+            rebookedReservationId: null,
+            reservation,
+          },
+        ]),
+      },
+    };
+
+    const list = await listCallList("v1", "dr-1", db as never);
+
+    expect(list.map((e) => e.outcomeId)).toEqual(["o2"]);
+  });
+});

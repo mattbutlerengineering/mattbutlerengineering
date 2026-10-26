@@ -1120,6 +1120,34 @@ const availabilityFixtures: Record<string, RouteFixture> = {
       "member venue B"
     );
   }),
+  // Read-only listings and a retry of a rule with no outcomes (enqueues
+  // nothing), so they run against the shared venues; the member leg proves the
+  // cross-venue denial.
+  "GET /api/v1/venues/:id/closures": ok(async (ctx) => {
+    const list = (venueId: string) => ({
+      method: "GET" as const,
+      url: `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/closures`,
+    });
+    expectOk(await asAdmin(ctx, list(ctx.venueA.id)), "admin venue A");
+    expectOk(await asAdmin(ctx, list(ctx.venueB.id)), "admin venue B");
+    expectDenied(await asMember(ctx, list(ctx.venueB.id)), "member venue B");
+  }),
+  "GET /api/v1/venues/:id/closures/:ruleId/call-list": ok(async (ctx) => {
+    const list = (venueId: string) => ({
+      method: "GET" as const,
+      url: `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/closures/rls-sweep-none/call-list`,
+    });
+    expectOk(await asAdmin(ctx, list(ctx.venueA.id)), "admin venue A");
+    expectDenied(await asMember(ctx, list(ctx.venueB.id)), "member venue B");
+  }),
+  "POST /api/v1/venues/:id/closures/:ruleId/refunds/retry": ok(async (ctx) => {
+    const retry = (venueId: string) => ({
+      method: "POST" as const,
+      url: `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/closures/rls-sweep-none/refunds/retry`,
+    });
+    expectOk(await asAdmin(ctx, retry(ctx.venueA.id)), "admin venue A");
+    expectDenied(await asMember(ctx, retry(ctx.venueB.id)), "member venue B");
+  }),
   // Tonight writes the current service day's rule on the same disposable
   // venue C as the closures (no extra POST /venues, which is capped at 5/min).
   "POST /api/v1/venues/:id/tonight": ok(async (ctx) => {

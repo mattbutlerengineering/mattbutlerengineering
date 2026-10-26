@@ -3075,6 +3075,64 @@
         }),
       });
     
+      registerEndpoint(fastify, availabilityConfigEndpoints.listClosures, {
+        docs: {
+          summary: "Outcome counts for every closure",
+          operationId: "listClosures",
+          description:
+            "Sent / Rebooked / Unreachable and refund counts per date rule that produced closure outcomes, for the Special dates tab. Includes reopened closures and ended Tonight close-early rules. Any venue member.",
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(VENUE_FROM_ID, async (_request, _reply, { venueId }) => ({
+          data: await closureNoticeService.summaries(venueId),
+        })),
+      });
+    
+      registerEndpoint(fastify, availabilityConfigEndpoints.closureCallList, {
+        docs: {
+          summary: "Call list for one closure",
+          operationId: "closureCallList",
+          description:
+            "Guests the closure told but without a confirmed delivery or a rebooking: name, party, time and phone. Any venue member (a Host who made the emergency close needs it).",
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(VENUE_FROM_ID, async (request, _reply, { venueId }) => {
+          const entries = await closureNoticeService.callList(venueId, request.params.ruleId);
+          return { data: entries.map((e) => ({ ...e, startTime: e.startTime.toISOString() })) };
+        }),
+      });
+    
+      registerEndpoint(fastify, availabilityConfigEndpoints.retryClosureRefunds, {
+        docs: {
+          summary: "Retry a closure's refunds",
+          operationId: "retryClosureRefunds",
+          description:
+            "Re-enqueues the refund job for outcomes still `pending` or `failed` through `closureRefunds.retry`; settled outcomes are never touched and the Stripe idempotency keys are unchanged, so a guest is never refunded twice. Covers Tonight close-early rules too (keyed by date rule id, even after the rule ended). Manager only.",
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(VENUE_FROM_ID, async (request, reply, { venueId, isAdmin }) => {
+          const caller = await closureCaller(request, venueId, isAdmin);
+          if (!caller.isManager) {
+            return reply.code(403).send(createProblemDetails(403, "Forbidden", CLOSURE_FORBIDDEN));
+          }
+          try {
+            const enqueued = await fastify.closureRefunds.retry(venueId, request.params.ruleId);
+            return { data: { enqueued } };
+          } catch (err) {
+            request.log.error({ err, venueId, ruleId: request.params.ruleId }, "refund retry failed");
+            return reply
+              .code(503)
+              .send(createProblemDetails(503, "Service Unavailable", "Couldn't queue the refunds."));
+          }
+        }),
+      });
+    
       registerEndpoint(fastify, availabilityConfigEndpoints.reopenClosure, {
         docs: {
           summary: "Reopen a closure",
@@ -13923,7 +13981,10 @@
   </file>
   <file path="src/services/closure-notice-service.ts">
     export const URGENT_WINDOW_MS = 6 * 60 * 60 * 1000;
-    type Store = Pick<typeof defaultStore, "listNotifiable" | "listCallList" | "loadClosureWindow">;
+    type Store = Pick<
+      typeof defaultStore,
+      "listNotifiable" | "listCallList" | "listSummaries" | "loadClosureWindow"
+    >;
     type Scheduler = Pick<JobsPort, "schedule">;
     interface EnqueueInput {
       venueId: string;
@@ -13972,6 +14033,7 @@
         enqueueForClosure: (input: EnqueueInput) => enqueue("closure", input),
         enqueueForReopen: (input: EnqueueInput) => enqueue("reopened", input),
         callList: (venueId: string, ruleId: string) => store.listCallList(venueId, ruleId),
+        summaries: (venueId: string) => store.listSummaries(venueId),
       };
     }
     export type ClosureNoticeService = ReturnType<typeof createClosureNoticeService>;
@@ -14138,6 +14200,58 @@
           startTime: row.reservation.startTime,
           guestPhone: row.reservation.guestPhone,
         }));
+    }
+    export interface ClosureSummary {
+      ruleId: string;
+      total: number;
+      cancelled: number;
+      sent: number;
+      rebooked: number;
+      unreachable: number;
+      refundFailed: number;
+      refundPending: number;
+    }
+    interface SummaryRow {
+      dateRuleId: string;
+      action: NoticeOutcome["action"];
+      deliveries: unknown;
+      rebookedReservationId: string | null;
+      refund: string;
+    }
+    export function summarizeOutcomes(rows: readonly SummaryRow[]): ClosureSummary[] {
+      const byRule = new Map<string, ClosureSummary>();
+      for (const row of rows) {
+        const deliveries = row.deliveries as Deliveries;
+        const rebooked = row.rebookedReservationId !== null;
+        const prev = byRule.get(row.dateRuleId) ?? { ruleId: row.dateRuleId, ...EMPTY_SUMMARY };
+        const confirmed = deliveries.email === "sent" || deliveries.sms === "sent";
+        byRule.set(row.dateRuleId, {
+          ...prev,
+          total: prev.total + 1,
+          cancelled: prev.cancelled + (row.action === "cancel" ? 1 : 0),
+          sent: prev.sent + (confirmed ? 1 : 0),
+          rebooked: prev.rebooked + (rebooked ? 1 : 0),
+          unreachable:
+            prev.unreachable + (isOnCallList({ action: row.action, deliveries, rebooked }) ? 1 : 0),
+          refundFailed: prev.refundFailed + (row.refund === "failed" ? 1 : 0),
+          refundPending: prev.refundPending + (row.refund === "pending" ? 1 : 0),
+        });
+      }
+      return [...byRule.values()];
+    }
+    export async function listSummaries(venueId: string, db: Db = prisma): Promise<ClosureSummary[]> {
+      const rows = await db.closureOutcome.findMany({
+        where: { venueId },
+        orderBy: { createdAt: "asc" },
+        select: {
+          dateRuleId: true,
+          action: true,
+          deliveries: true,
+          rebookedReservationId: true,
+          refund: true,
+        },
+      });
+      return summarizeOutcomes(rows);
     }
   </file>
   <file path="src/services/closure-notice.ts">

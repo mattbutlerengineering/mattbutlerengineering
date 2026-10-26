@@ -2970,7 +2970,9 @@
       export const URGENT_WINDOW_MS: unknown;
     </item>
     <item priority="high">
-      type Store = Pick<typeof defaultStore, "listNotifiable" | "listCallLis...;
+      type Store = Pick<
+        typeof defaultStore,
+        "listNotifiable" | "listCa...;
     </item>
     <item priority="high">
       type Scheduler = Pick<JobsPort, "schedule">;
@@ -3069,6 +3071,30 @@
         ruleId: string,
         db: Db = prisma
       ): Promise<CallListEntry[]> { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ClosureSummary {
+        ruleId: string;
+        total: number;
+        cancelled: number;
+        sent: number;
+        rebooked: number;
+      }
+    </item>
+    <item priority="high">
+      interface SummaryRow {
+        dateRuleId: string;
+        action: NoticeOutcome["action"];
+        deliveries: unknown;
+        rebookedReservationId: string | null;
+        refund: string;
+      }
+    </item>
+    <item priority="high">
+      export function summarizeOutcomes(rows: readonly SummaryRow[]): ClosureSummary[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function listSummaries(venueId: string, db: Db = prisma): Promise<ClosureSummary[]> { /* ... */ }
     </item>
   </file>
   <file path="src/services/closure-notice.ts">

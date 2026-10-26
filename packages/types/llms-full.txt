@@ -113,6 +113,52 @@
           },
         },
       }),
+      listClosures: defineEndpoint({
+        method: "GET",
+        path: `${AVAILABILITY_CONFIG_PREFIX}/:id/closures`,
+        params: VenueParamsSchema,
+        responses: {
+          200: {
+            description:
+              "One summary per date rule that produced closure outcomes (closures and Tonight close-early, reopened or ended ones included): Sent / Rebooked / Unreachable and refund counts",
+            body: z.object({ data: ClosureSummariesSchema }),
+          },
+          401: authRequired,
+          403: notMember,
+          404: venueNotFound,
+        },
+      }),
+      closureCallList: defineEndpoint({
+        method: "GET",
+        path: `${AVAILABILITY_CONFIG_PREFIX}/:id/closures/:ruleId/call-list`,
+        params: ClosureParamsSchema,
+        responses: {
+          200: {
+            description:
+              "Guests the closure told but without a confirmed delivery or a rebooking: name, party, time and phone",
+            body: z.object({ data: z.array(CallListEntrySchema) }),
+          },
+          401: authRequired,
+          403: notMember,
+          404: venueNotFound,
+        },
+      }),
+      retryClosureRefunds: defineEndpoint({
+        method: "POST",
+        path: `${AVAILABILITY_CONFIG_PREFIX}/:id/closures/:ruleId/refunds/retry`,
+        params: ClosureParamsSchema,
+        responses: {
+          200: {
+            description:
+              "Re-enqueued the closure's refunds that are `pending` or `failed` (never `done` or `none`, so nothing is refunded twice); works for a reopened closure or an ended Tonight change",
+            body: z.object({ data: RetryRefundsResultSchema }),
+          },
+          401: authRequired,
+          403: notClosureCaller,
+          404: venueNotFound,
+          503: problem("The job queue is unavailable; nothing was changed, try again"),
+        },
+      }),
       reopenClosure: defineEndpoint({
         method: "DELETE",
         path: `${AVAILABILITY_CONFIG_PREFIX}/:id/closures/:ruleId`,
@@ -832,6 +878,34 @@
       outcomes: ClosureOutcomeCountsSchema,
     });
     export const ReopenResultSchema = z.object({ version: z.number().int(), changeId: z.string() });
+    export const ClosureSummarySchema = z.object({
+      ruleId: z.string(),
+      /** Outcomes the closure produced. */
+      total: z.number().int(),
+      /** Bookings the closure cancelled (the guests a reopen notice would go to). */
+      cancelled: z.number().int(),
+      /** Guests with a confirmed email or SMS delivery. */
+      sent: z.number().int(),
+      /** Guests who rebooked after the cancel. */
+      rebooked: z.number().int(),
+      /** Told but with no confirmed delivery and no rebooking: the call list. */
+      unreachable: z.number().int(),
+      /** Deposit refunds the refund job gave up on. */
+      refundFailed: z.number().int(),
+      /** Deposit refunds not yet settled (also retried: the enqueue itself may have been lost). */
+      refundPending: z.number().int(),
+    });
+    export const ClosureSummariesSchema = z.array(ClosureSummarySchema);
+    export const RetryRefundsResultSchema = z.object({ enqueued: z.number().int() });
+    export const CallListEntrySchema = z.object({
+      outcomeId: z.string(),
+      reservationId: z.string(),
+      guestName: z.string().nullable(),
+      partySize: z.number().int(),
+      /** ISO instant of the reservation's start. */
+      startTime: z.string(),
+      guestPhone: z.string().nullable(),
+    });
     export const TonightChangeSchema = z.discriminatedUnion("type", [
       z.strictObject({ type: z.literal("pause_online") }),
       z.strictObject({
@@ -871,6 +945,9 @@
     export type ReopenClosureBody = z.infer<typeof ReopenClosureBodySchema>;
     export type ClosureResult = z.infer<typeof ClosureResultSchema>;
     export type ReopenResult = z.infer<typeof ReopenResultSchema>;
+    export type ClosureSummary = z.infer<typeof ClosureSummarySchema>;
+    export type RetryRefundsResult = z.infer<typeof RetryRefundsResultSchema>;
+    export type ClosureCallListEntry = z.infer<typeof CallListEntrySchema>;
     export type AvailabilityCheckBody = z.infer<typeof AvailabilityCheckBodySchema>;
     export type AvailabilityCheckResult = z.infer<typeof AvailabilityCheckResultSchema>;
   </file>

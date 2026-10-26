@@ -1517,6 +1517,61 @@
       }
     }
   },
+  "availabilitySpecial": {
+    "tab": "Dates spéciales",
+    "filterLabel": "Filtrer les dates spéciales",
+    "filter": {
+      "all": "Toutes",
+      "closures": "Fermetures",
+      "special_hours": "Horaire spécial",
+      "repeating": "Récurrentes",
+      "past": "Passées"
+    },
+    "empty": {
+      "title": "Aucune date spéciale",
+      "description": "Ajoutez une fermeture ou un horaire différent pour une date."
+    },
+    "kind": {
+      "closure": "Fermé",
+      "specialHours": "Horaire spécial"
+    },
+    "repeating": "Récurrente",
+    "range": "Du {{from}} au {{to}}",
+    "untilReopened": "{{from}} jusqu'à la réouverture",
+    "counts": "Envoyés {{sent}} · Réservés de nouveau {{rebooked}} · Injoignables {{unreachable}}",
+    "refundFailed": "Remboursement échoué ({{count}})",
+    "refundPending": "Remboursements en attente ({{count}})",
+    "retry": "Réessayer les remboursements",
+    "retried": "Remboursements remis en file ({{count}})",
+    "retryError": "Impossible de mettre les remboursements en file",
+    "callListOpen": "Liste d'appels",
+    "remove": "Retirer",
+    "ended": {
+      "title": "Fermeture antérieure",
+      "detail": "N'est plus active, des remboursements restent ouverts"
+    },
+    "reopen": {
+      "title": "Rouvrir le {{date}} ?",
+      "description": "Les clients pourront de nouveau réserver.",
+      "descriptionCancelled": "Les clients pourront de nouveau réserver. Les réservations que vous avez annulées restent annulées.",
+      "tell": "Informer les clients annulés de la réouverture, avec un lien pour réserver ({{count}})",
+      "confirm": "Rouvrir",
+      "keep": "Garder fermé",
+      "done": "{{date}} rouvert"
+    },
+    "callList": {
+      "title": "Liste d'appels",
+      "description": "Clients qui n'ont pas confirmé un avis ni réservé de nouveau.",
+      "empty": "Tous les clients ont été joints ou ont réservé de nouveau.",
+      "name": "Client",
+      "party": "Personnes",
+      "time": "Heure",
+      "phone": "Téléphone",
+      "unnamed": "Client sans nom",
+      "print": "Imprimer",
+      "close": "Fermer"
+    }
+  },
   "availabilitySchedules": {
     "tabsLabel": "Vue des disponibilités",
     "tabCalendar": "Calendrier",

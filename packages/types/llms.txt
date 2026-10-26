@@ -364,6 +364,18 @@
       export const ReopenResultSchema: unknown;
     </item>
     <item priority="high">
+      export const ClosureSummarySchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureSummariesSchema: unknown;
+    </item>
+    <item priority="high">
+      export const RetryRefundsResultSchema: unknown;
+    </item>
+    <item priority="high">
+      export const CallListEntrySchema: unknown;
+    </item>
+    <item priority="high">
       export const TonightChangeSchema: unknown;
     </item>
     <item priority="high">
@@ -395,6 +407,15 @@
     </item>
     <item priority="low">
       type ReopenResult = z.infer<typeof ReopenResultSchema>;
+    </item>
+    <item priority="low">
+      type ClosureSummary = z.infer<typeof ClosureSummarySchema>;
+    </item>
+    <item priority="low">
+      type RetryRefundsResult = z.infer<typeof RetryRefundsResultSchema>;
+    </item>
+    <item priority="low">
+      type ClosureCallListEntry = z.infer<typeof CallListEntrySchema>;
     </item>
     <item priority="low">
       type AvailabilityCheckBody = z.infer<typeof AvailabilityCheckBodySchema>;

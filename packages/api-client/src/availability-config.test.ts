@@ -212,6 +212,42 @@ describe("AvailabilityClient config API", () => {
     expect(JSON.parse(String(init?.body))).toEqual({ tellCancelledGuests: true });
   });
 
+  it("listClosures GETs the per-closure summaries", async () => {
+    const summary = {
+      ruleId: "dr-1",
+      total: 3,
+      cancelled: 3,
+      sent: 2,
+      rebooked: 1,
+      unreachable: 0,
+      refundFailed: 1,
+      refundPending: 0,
+    };
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: [summary] }));
+
+    expect(await client().listClosures("v1")).toEqual([summary]);
+    expect(mockFetch.mock.calls[0]![0]).toBe("https://api.test.com/api/v1/venues/v1/closures");
+  });
+
+  it("closureCallList GETs one closure's call list", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: [] }));
+
+    expect(await client().closureCallList("v1", "dr-1")).toEqual([]);
+    expect(mockFetch.mock.calls[0]![0]).toBe(
+      "https://api.test.com/api/v1/venues/v1/closures/dr-1/call-list"
+    );
+  });
+
+  it("retryClosureRefunds POSTs to the refund retry route", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: { enqueued: 2 } }));
+
+    expect(await client().retryClosureRefunds("v1", "dr-1")).toEqual({ enqueued: 2 });
+
+    const [url, init] = mockFetch.mock.calls[0]!;
+    expect(url).toBe("https://api.test.com/api/v1/venues/v1/closures/dr-1/refunds/retry");
+    expect(init?.method).toBe("POST");
+  });
+
   it("setTonight POSTs the change to /tonight", async () => {
     const result = {
       ruleId: "t-1",

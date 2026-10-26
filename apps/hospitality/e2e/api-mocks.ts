@@ -651,6 +651,15 @@ export async function mockApi(page: Page): Promise<void> {
     return jsonOk(route, buildAvailabilityConfigFixture());
   });
 
+  // Special dates tab (#7527): no closures have outcomes yet. Only GET; the Close dialog's POST
+  // (and each spec's own stateful mock) falls through.
+  await page.route(/\/api\/v1\/venues\/[^/?]+\/closures$/, (route) =>
+    route.request().method() === "GET" ? jsonOk(route, []) : route.fallback()
+  );
+  await page.route(/\/api\/v1\/venues\/[^/?]+\/closures\/[^/?]+\/call-list$/, (route) =>
+    jsonOk(route, [])
+  );
+
   // Venue Groups
   await page.route("**/api/v1/venues/groups*", (route) => emptyPaginated(route));
 
