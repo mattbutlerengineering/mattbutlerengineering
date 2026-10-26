@@ -5115,6 +5115,22 @@
       return { upsert: scheduleServices.length > 0 ? { scheduleServices } : {}, remove: {} };
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/conflict-problem.ts">
+    export type Conflict =
+      /** Someone saved first; `winningChange` is `null` when the server recorded none. */
+      | { readonly code: "version-conflict"; readonly winningChange: AvailabilityChangeSummary | null }
+      /** This attempt id already committed (a response was lost). */
+      | { readonly code: "closure-exists" };
+    export function conflictOf(error: unknown): Conflict | null {
+      const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
+      const problem = AvailabilityConfigProblemSchema.safeParse(details);
+      if (!problem.success) return null;
+      if (problem.data.code === "version-conflict") {
+        return { code: "version-conflict", winningChange: problem.data.winningChange ?? null };
+      }
+      return problem.data.code === "closure-exists" ? { code: "closure-exists" } : null;
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/copy-day.ts">
     export interface CopyTarget {
       readonly weekdays: readonly number[];
@@ -6719,6 +6735,22 @@
       };
     
       return { save, isPending, failure, clearFailure: () => setFailure([]) };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/use-winning-change-text.ts">
+    export function useWinningChangeText(winningChange: AvailabilityChangeSummary | null): string {
+      const { t } = useTranslation();
+      const format = useVenueFormat();
+      const { user } = useAuth();
+      if (!winningChange) return t("availability.conflict.unknown");
+      return t("availability.conflict.winning", {
+        who:
+          user?.id === winningChange.actorId
+            ? t("availability.history.you")
+            : t("availability.history.teammate"),
+        summary: winningChange.summary,
+        when: format.formatInstant(winningChange.at, { hour: "numeric", minute: "2-digit" }),
+      });
     }
   </file>
   <file path="apps/hospitality/src/components/availability/useDateSelection.ts">
@@ -18295,6 +18327,15 @@
       );
     }
   </file>
+  <file path="apps/hospitality/src/hooks/useRefreshAvailability.ts">
+    export function useRefreshAvailability(): () => void {
+      const queryClient = useQueryClient();
+      return useCallback(() => {
+        void queryClient.invalidateQueries({ queryKey: [AVAILABILITY_CONFIG_QUERY_KEY] });
+        void queryClient.invalidateQueries({ queryKey: [AVAILABILITY_DAYS_QUERY_KEY] });
+      }, [queryClient]);
+    }
+  </file>
   <file path="apps/hospitality/src/hooks/useReservationDisplay.ts">
     export type StatusFilter = "all" | ReservationStatus;
     export interface UseReservationDisplayParams {
@@ -20988,6 +21029,33 @@
           ...(jobId !== undefined ? { jobId } : {}),
         });
         return job.id as string;
+      }
+    
+      /**
+       * Make sure a runnable job exists under `jobId`, for a caller that knows the
+       * work is still owed (the closure outcome sweeper). BullMQ treats an id held
+       * in ANY state, including retained failed / completed jobs, as a duplicate,
+       * so a plain `schedule` would silently do nothing. Here:
+       *  - no job → add it (`added`);
+       *  - failed or completed → remove it and add it again under the same id
+       *    (`requeued`), so replicas still dedupe on that id;
+       *  - waiting / delayed / active / etc. → leave it (`live`).
+       */
+      async requeue<T extends JobType>(
+        jobType: T,
+        payload: JobPayloadMap[T],
+        jobId: string
+      ): Promise<"added" | "requeued" | "live"> {
+        const existing = await this.queue.getJob(jobId);
+        if (!existing) {
+          await this.schedule(jobType, payload, 0, jobId);
+          return "added";
+        }
+        const state = await existing.getState();
+        if (state !== "failed" && state !== "completed") return "live";
+        await existing.remove();
+        await this.schedule(jobType, payload, 0, jobId);
+        return "requeued";
       }
     
       /**
@@ -27751,7 +27819,7 @@
         "Use render_component only for structured data such as lists of reservations, tables, or time slots. Never use it to repeat a sentence. Keep component titles under 60 characters.",
         "Pick the element that fits the data, one shape per line below.",
         "Reservations from list_today_reservations or lookup_reservation: show them as ReservationList, in arrival order, with each row's localTime as the time, its status copied as is, and its guestName as the guest (leave guest out for a walk-in). For tonight questions, leave cancelled and no-show rows out. When the rows span more than one date, write each row's date and time together as its time, in the user's language and their usual clock.",
-        "Open slots from check_availability: show them as TimeSlots, with open times only, as their localTime values. Say a closed or fully booked day in words instead, never as an empty element.",
+        "Open slots from check_availability: show them as TimeSlots, with open times only, as their localTime values. Say a closed or fully booked day in words instead, never as an empty element. check_availability lists online slots only, so no slots does not mean the day is fully booked: ask the user for a time and check it with check_booking_time before saying it can't be booked.",
         "Guests from search_guests: show them as GuestCards, each card with the guest's name, its visitCount as visits, its riskScore copied as is as risk, and its tags; at most five cards, then say in a sentence how many more matched. Never put a guest's email, phone, notes or spend on a card.",
         "A guest's visit history: show it as a Timeline.",
         "Table statuses from get_table_status: show them as StatusLED, one per table with a label.",
@@ -27812,6 +27880,126 @@
       return localTime ? { ...item, localTime } : item;
     }
     type PublicAvailability = Awaited<ReturnType<ApiClient["availability"]["getPublicAvailability"]>>;
+    interface Refusal {
+      readonly status: number;
+      readonly detail: string;
+      readonly code?: string;
+      readonly reason?: string;
+    }
+    function refusalOf(err: unknown): Refusal | undefined {
+      const problem = (err as { problemDetails?: Record<string, unknown> } | null)?.problemDetails;
+      const status = problem?.["status"];
+      if (typeof status !== "number" || status < 400 || status >= 500) return undefined;
+      if (status === 408 || status === 429) return undefined;
+      const { detail, code, reason } = problem as Record<string, unknown>;
+      return {
+        status,
+        detail: typeof detail === "string" && detail ? detail : `The request was refused (${status}).`,
+        ...(typeof code === "string" ? { code } : {}),
+        ...(typeof reason === "string" ? { reason } : {}),
+      };
+    }
+    function rejectedResult(refusal: Refusal) {
+      return { rejected: true, error: refusal.detail } as const;
+    }
+    export function localToInstant(
+      date: string,
+      time: string,
+      timeZone: string | undefined
+    ): string | undefined {
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+      const clock = /^(\d{1,2}):(\d{2})$/.exec(time);
+      if (!match || !clock) return undefined;
+      const year = Number(match[1]);
+      const month = Number(match[2]);
+      const day = Number(match[3]);
+      const hour = Number(clock[1]);
+      const minute = Number(clock[2]);
+      const wall = Date.UTC(year, month - 1, day, hour, minute);
+      // Date.UTC rolls 2026-02-30 to March 2: reject anything that doesn't read back as given.
+      const readBack = new Date(wall);
+      if (
+        readBack.getUTCFullYear() !== year ||
+        readBack.getUTCMonth() !== month - 1 ||
+        readBack.getUTCDate() !== day ||
+        hour > 23 ||
+        minute > 59
+      ) {
+        return undefined;
+      }
+      try {
+        const offsetAt = (instant: number): number => {
+          const parts = new Intl.DateTimeFormat("en-US", {
+            timeZone: timeZone ?? "UTC",
+            hourCycle: "h23",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+          }).formatToParts(new Date(instant));
+          const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+          const shown = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"));
+          return shown - Math.floor(instant / 60000) * 60000;
+        };
+        const first = wall - offsetAt(wall);
+        return new Date(wall - offsetAt(first)).toISOString();
+      } catch {
+        return undefined; // unknown time zone (RangeError)
+      }
+    }
+    function nextDay(date: string): string | undefined {
+      const instant = localToInstant(date, "12:00", undefined);
+      return instant
+        ? new Date(Date.parse(instant) + 86_400_000).toISOString().slice(0, 10)
+        : undefined;
+    }
+    function reservationWindow(
+      date: string,
+      startTime: string,
+      endTime: string,
+      timeZone: string | undefined
+    ): { start: string; end: string } | undefined {
+      const start = localToInstant(date, startTime, timeZone);
+      const sameDayEnd = localToInstant(date, endTime, timeZone);
+      if (!start || !sameDayEnd) return undefined;
+      if (sameDayEnd > start) return { start, end: sameDayEnd };
+      const following = nextDay(date);
+      const end = following ? localToInstant(following, endTime, timeZone) : undefined;
+      return end ? { start, end } : undefined;
+    }
+    function createFailureResult(err: unknown) {
+      const refusal = refusalOf(err);
+      if (!refusal) return { error: "Failed to create reservation. Please try again." };
+      if (!FINAL_REFUSAL_STATUSES.has(refusal.status)) {
+        // e.g. a 400 from our own malformed request: not the venue's decision.
+        return { error: `Failed to create reservation: ${refusal.detail}` };
+      }
+      return {
+        refused: true,
+        error: refusal.detail,
+        ...(refusal.code ? { code: refusal.code } : {}),
+        ...(refusal.reason ? { reason: refusal.reason } : {}),
+        note: "The venue refused this booking and nothing was created. Tell the user the reason; do not retry the same booking.",
+      };
+    }
+    type BookingVerdict = Awaited<ReturnType<ApiClient["availability"]["checkBooking"]>>;
+    function bookingVerdictResult(
+      verdict: BookingVerdict,
+      judged: { readonly date: string; readonly startTime: string }
+    ) {
+      if (verdict.kind === "ok") return { bookable: true, judged } as const;
+      if (verdict.kind === "soft") {
+        return {
+          bookable: false,
+          softLimit: true,
+          message: verdict.message,
+          judged,
+          note: "This time needs a staff override of a venue limit. You cannot override it: tell the user the limit and that staff can book it from the reservation form.",
+        } as const;
+      }
+      return { bookable: false, reason: verdict.reason, message: verdict.message, judged } as const;
+    }
     function availabilityResult(
       response: PublicAvailability,
       date: string,
@@ -27821,6 +28009,11 @@
       const { closure, bookingPaused } = response;
       return {
         slots,
+        ...(slots.length === 0 && !closure && !bookingPaused
+          ? {
+              note: "This online list is empty, but that is not the staff verdict: a service that takes phone bookings only shows no online slots. Do not say the day is full. Ask the user which time they want and check it with check_booking_time.",
+            }
+          : {}),
         ...(closure
           ? {
               closed: true,
@@ -27913,7 +28106,8 @@
         // ── Read tools (instant, no confirmation) ──────────────
         // venueId never comes from the model: it is the app's selected venue.
         check_availability: tool({
-          description: "Check available time slots on a specific date",
+          description:
+            "List the time slots open to ONLINE guests on a date. This is the online booking widget's view only: a service that takes phone bookings only shows no slots here. Before telling staff a time can or cannot be booked, confirm it with check_booking_time, the same check create_reservation is judged by.",
           inputSchema: z.object({
             date: z.string().describe("Date in YYYY-MM-DD format"),
             partySize: z.number().describe("Number of guests"),
@@ -27927,9 +28121,43 @@
               const response = await api.availability.getPublicAvailability(slug, { date, partySize });
               return availabilityResult(response, date, timeZone);
             } catch (err) {
-              // Timeout, 5xx or network failure: unknown, never "closed".
               log.error({ err, venueId, date, partySize }, "check_availability failed");
+              const refusal = refusalOf(err);
+              if (refusal) return rejectedResult(refusal);
+              // Timeout, 5xx or network failure: unknown, never "closed".
               return AVAILABILITY_UNKNOWN;
+            }
+          },
+        }),
+    
+        check_booking_time: tool({
+          description:
+            "Check whether staff can book a specific start time, judged on the phone channel exactly as create_reservation will judge it (closures, service hours, party-size and pacing limits, table conflicts).",
+          inputSchema: z.object({
+            date: z.string().describe("Date in YYYY-MM-DD format"),
+            startTime: z.string().describe("Start time in HH:MM format, venue-local"),
+            partySize: z.number().describe("Number of guests"),
+            tableId: z.string().optional().describe("Table ID to check; omit to ask if any is free"),
+          }),
+          execute: async ({ date, startTime, partySize, tableId }) => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId, date, startTime, partySize }, "check_booking_time tool called");
+            const start = localToInstant(date, startTime, timeZone);
+            if (!start) {
+              return { rejected: true, error: UNREADABLE_TIME };
+            }
+            try {
+              const verdict = await api.availability.checkBooking(venueId, {
+                start,
+                partySize,
+                channel: "phone",
+                ...(tableId ? { tableId } : {}),
+              });
+              return bookingVerdictResult(verdict, { date, startTime });
+            } catch (err) {
+              log.error({ err, venueId, date, startTime, partySize }, "check_booking_time failed");
+              const refusal = refusalOf(err);
+              return refusal ? rejectedResult(refusal) : AVAILABILITY_UNKNOWN;
             }
           },
         }),
@@ -28073,21 +28301,25 @@
             notes: z.string().optional().describe("Reservation notes"),
           }),
           execute: async ({ guestName, date, startTime, endTime, partySize, tableId, notes }) => {
+            if (!venueId) return NO_VENUE;
             log.info({ guestName, date, startTime, partySize }, "create_reservation tool called");
+            const window = reservationWindow(date, startTime, endTime, timeZone);
+            if (!window) return { error: UNREADABLE_TIME };
             try {
               const reservation = await api.reservations.create({
                 guestName,
                 date,
-                startTime,
-                endTime,
+                startTime: window.start,
+                endTime: window.end,
                 partySize,
                 tableId,
+                venueId,
                 ...(notes ? { notes } : {}),
               });
               return { reservation };
             } catch (err) {
               log.error({ err, guestName, date }, "create_reservation failed");
-              return { error: "Failed to create reservation. Please try again." };
+              return createFailureResult(err);
             }
           },
         }),
@@ -46643,6 +46875,9 @@
     export function tableAdvisoryLockSql(tableId: string): Prisma.Sql {
       return Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${tableId})::bigint)`;
     }
+    export function venueShareLockSql(venueId: string): Prisma.Sql {
+      return Prisma.sql`SELECT 1 FROM venues WHERE id = ${venueId} FOR SHARE`;
+    }
     export type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED" | "NOT_BOOKABLE";
     export type SlotConflict =
       | { code: Exclude<SlotConflictCode, "NOT_BOOKABLE">; message: string }
@@ -46719,6 +46954,10 @@
         // app.venue_id on THIS transaction's own `tx` explicitly (ADR-026 part
         // 6), using the intent's own (already-resolved) venueId.
         await setVenueContext(tx, venueId);
+    
+        // Gated writes take the venue row first (share), the order the closure command uses
+        // (venue row, then table locks), so the two can never wait on each other in a cycle.
+        if (gate && venueId) await tx.$executeRaw(venueShareLockSql(venueId));
     
         // Serialize conflict-checked writes per table BEFORE any conflict check so
         // concurrent slot writes cannot both pass and double-book. Released
@@ -47303,18 +47542,47 @@
         local.minute
       );
     }
+    type StartRange = readonly [lo: number, hi: number];
+    function clearOfBand(
+      ranges: readonly StartRange[],
+      band: { from: number; to: number },
+      span: number
+    ): StartRange[] {
+      const lastBefore = band.from - span; // latest start that clears the band
+      return ranges.flatMap(([lo, hi]) => [
+        ...(lo <= lastBefore ? [[lo, Math.min(hi, lastBefore)] as const] : []),
+        ...(hi >= band.to ? [[Math.max(lo, band.to), hi] as const] : []),
+      ]);
+    }
     export function moveTarget(
       after: AvailabilitySnapshot,
       serviceDate: string,
-      booking: Pick<ClosureImpactReservation, "startTime" | "endTime">
+      booking: Pick<ClosureImpactReservation, "startTime" | "endTime">,
+      now: Date
     ): { startTime: Date; endTime: Date } | null {
       const start = new Date(booking.startTime);
       const durationMin = (Date.parse(booking.endTime) - start.getTime()) / MS_PER_MINUTE;
       const startMin = wallMinutes(start, serviceDate, after.timezone);
-      const candidates = resolveDay(after, serviceDate).services.flatMap((s) => {
-        const latest = Math.min(s.lastSeatingAt, s.closesAt - durationMin);
-        if (latest < s.opensAt) return [];
-        return [Math.min(Math.max(startMin, s.opensAt), latest)];
+      const nowMin = wallMinutes(now, serviceDate, after.timezone);
+      const day = resolveDay(after, serviceDate);
+      const stopRuleIds = new Set(
+        after.config.dateRules.filter((r) => r.kind === "tonight").map((r) => r.id)
+      );
+      const spanOf = (band: { ruleId: string }): number =>
+        stopRuleIds.has(band.ruleId) ? 1 : durationMin;
+      const candidates = day.services.flatMap((s) => {
+        const bands = day.closures.filter(
+          (c) =>
+            c.targetKind === "venue" ||
+            (c.targetKind === "service" && c.venueServiceId === s.venueServiceId)
+        );
+        const open: StartRange[] = [
+          [Math.max(s.opensAt, nowMin), Math.min(s.lastSeatingAt, s.closesAt - durationMin)],
+        ];
+        const free = bands
+          .reduce((ranges, band) => clearOfBand(ranges, band, spanOf(band)), open)
+          .filter(([lo, hi]) => lo <= hi);
+        return free.map(([lo, hi]) => Math.min(Math.max(startMin, lo), hi));
       });
       const best = candidates.sort((a, b) => Math.abs(a - startMin) - Math.abs(b - startMin))[0];
       if (best === undefined || best === startMin) return null;
@@ -47489,7 +47757,8 @@
       rule: DateRule,
       alongside: ClosureAlongside | undefined,
       impact: ClosureImpact,
-      actions: ReadonlyMap<string, { action: ClosureAction }>
+      actions: ReadonlyMap<string, { action: ClosureAction }>,
+      now: Date
     ): Plan | Refusal {
       const after = { timezone: state.timezone, config: withClosure(state.effective, rule, alongside) };
       const rows: Prisma.ClosureOutcomeCreateManyInput[] = [];
@@ -47497,7 +47766,7 @@
       for (const group of impact.groups) {
         const action = actions.get(group.groupKey)!.action; // checkDecisions answered every group
         for (const r of group.reservations) {
-          const target = action === "move" ? moveTarget(after, group.date, r) : null;
+          const target = action === "move" ? moveTarget(after, group.date, r, now) : null;
           if (action === "move" && !target) stuck.push(r.id);
           rows.push({
             venueId,
@@ -47633,7 +47902,8 @@
         rule,
         body.alongside,
         found.impact,
-        checked.actions
+        checked.actions,
+        now
       );
       if (isRefusal(plan)) throw new Refused(plan);
     
@@ -48210,6 +48480,8 @@
       return {
         enqueueForClosure: (input: EnqueueInput) => enqueue("closure", input),
         enqueueForReopen: (input: EnqueueInput) => enqueue("reopened", input),
+        /** The per-closure urgency decision, for callers that enqueue single outcomes. */
+        isUrgent: (input: EnqueueInput) => isUrgent(store, input),
         callList: (venueId: string, ruleId: string) => store.listCallList(venueId, ruleId),
         summaries: (venueId: string) => store.listSummaries(venueId),
       };
@@ -48633,6 +48905,205 @@
     
       return (payload: ClosureNoticePayload, ctx: JobContext): Promise<void> =>
         runWithVenueContext(payload.venueId, () => deliver(payload, ctx));
+    }
+  </file>
+  <file path="services/reservations/src/services/closure-outcome-sweep-store.ts">
+    export function createPrismaClosureOutcomeSweepStore(): ClosureOutcomeSweepStore {
+      return {
+        listStuckRefunds: (venueId, olderThan, limit) =>
+          prisma.closureOutcome.findMany({
+            where: { venueId, refund: "pending", updatedAt: { lt: olderThan } },
+            orderBy: { createdAt: "asc" },
+            take: limit,
+            select: SELECT,
+          }),
+        listStuckNotices: (venueId, olderThan, limit) =>
+          prisma.closureOutcome.findMany({
+            where: {
+              venueId,
+              action: { not: "keep_silent" },
+              deliveries: { equals: {} },
+              createdAt: { lt: olderThan },
+            },
+            orderBy: { createdAt: "asc" },
+            take: limit,
+            select: SELECT,
+          }),
+      };
+    }
+  </file>
+  <file path="services/reservations/src/services/closure-outcome-sweeper.ts">
+    export const DEFAULT_GRACE_MS = 5 * 60 * 1000;
+    export const DEFAULT_BATCH_SIZE = 50;
+    export const DEFAULT_SWEEP_INTERVAL_MS = 2 * 60 * 1000;
+    export interface StuckOutcome {
+      id: string;
+      dateRuleId: string;
+      reservationId: string;
+    }
+    export interface ClosureOutcomeSweepStore {
+      /** `refund = pending`, last touched before `olderThan`. Venue-scoped; oldest first. */
+      listStuckRefunds(venueId: string, olderThan: Date, limit: number): Promise<StuckOutcome[]>;
+      /** Notifiable outcomes with no delivery recorded, created before `olderThan`. */
+      listStuckNotices(venueId: string, olderThan: Date, limit: number): Promise<StuckOutcome[]>;
+    }
+    export interface ClosureOutcomeSweeperDeps {
+      getVenueIds(): Promise<string[]>;
+      store: ClosureOutcomeSweepStore;
+      jobs: Pick<JobScheduler, "requeue">;
+      notices: Pick<ClosureNoticeService, "isUrgent">;
+      log: Pick<FastifyBaseLogger, "error" | "info">;
+      now?: () => Date;
+      graceMs?: number;
+      batchSize?: number;
+    }
+    export interface KindResult {
+      requeued: number;
+      live: number;
+    }
+    export interface SweepResult {
+      refunds: KindResult;
+      notices: KindResult;
+    }
+    async function sweepRefunds(
+      deps: ClosureOutcomeSweeperDeps,
+      venueId: string,
+      stuck: readonly StuckOutcome[]
+    ): Promise<KindResult> {
+      let result = EMPTY;
+      for (const o of stuck) {
+        try {
+          const outcome = await deps.jobs.requeue(
+            JOB_TYPES.CLOSURE_REFUND,
+            { outcomeId: o.id, venueId },
+            closureRefundJobId(o.dateRuleId, o.reservationId)
+          );
+          if (outcome === "live") {
+            deps.log.info(
+              { venueId, outcomeId: o.id },
+              "closure sweeper: refund job still live in the queue"
+            );
+          }
+          result = add(
+            result,
+            outcome === "live" ? { requeued: 0, live: 1 } : { requeued: 1, live: 0 }
+          );
+        } catch (err) {
+          deps.log.error({ err, venueId, outcomeId: o.id }, "closure sweeper: refund requeue failed");
+        }
+      }
+      return result;
+    }
+    async function sweepNotices(
+      deps: ClosureOutcomeSweeperDeps,
+      venueId: string,
+      stuck: readonly StuckOutcome[],
+      now: Date
+    ): Promise<KindResult> {
+      const urgencyByRule = new Map<string, boolean>();
+      let result = EMPTY;
+      for (const o of stuck) {
+        try {
+          let urgent = urgencyByRule.get(o.dateRuleId);
+          if (urgent === undefined) {
+            urgent = await deps.notices.isUrgent({ venueId, ruleId: o.dateRuleId, now });
+            urgencyByRule.set(o.dateRuleId, urgent);
+          }
+          const outcome = await deps.jobs.requeue(
+            JOB_TYPES.CLOSURE_NOTICE,
+            { outcomeId: o.id, venueId, variant: "closure", urgent },
+            closureNoticeJobId(o.id, "closure")
+          );
+          if (outcome === "live") {
+            deps.log.info(
+              { venueId, outcomeId: o.id },
+              "closure sweeper: notice job still live in the queue"
+            );
+          }
+          result = add(
+            result,
+            outcome === "live" ? { requeued: 0, live: 1 } : { requeued: 1, live: 0 }
+          );
+        } catch (err) {
+          deps.log.error({ err, venueId, outcomeId: o.id }, "closure sweeper: notice requeue failed");
+        }
+      }
+      return result;
+    }
+    async function sweepVenue(deps: ClosureOutcomeSweeperDeps, venueId: string): Promise<SweepResult> {
+      const now = (deps.now ?? (() => new Date()))();
+      const cutoff = new Date(now.getTime() - (deps.graceMs ?? DEFAULT_GRACE_MS));
+      const limit = deps.batchSize ?? DEFAULT_BATCH_SIZE;
+      return runWithVenueContext(venueId, async () => {
+        const refunds = await sweepRefunds(
+          deps,
+          venueId,
+          await deps.store.listStuckRefunds(venueId, cutoff, limit)
+        );
+        const notices = await sweepNotices(
+          deps,
+          venueId,
+          await deps.store.listStuckNotices(venueId, cutoff, limit),
+          now
+        );
+        return { refunds, notices };
+      });
+    }
+    export async function sweepClosureOutcomes(deps: ClosureOutcomeSweeperDeps): Promise<SweepResult> {
+      let total: SweepResult = { refunds: EMPTY, notices: EMPTY };
+      for (const venueId of await deps.getVenueIds()) {
+        try {
+          const result = await sweepVenue(deps, venueId);
+          total = {
+            refunds: add(total.refunds, result.refunds),
+            notices: add(total.notices, result.notices),
+          };
+        } catch (err) {
+          deps.log.error({ err, venueId }, "closure sweeper: venue sweep failed");
+        }
+      }
+      return total;
+    }
+    export interface ClosureOutcomeSweeper {
+      start(): void;
+      stop(): void;
+    }
+    export function createClosureOutcomeSweeper(
+      deps: ClosureOutcomeSweeperDeps,
+      opts: { intervalMs?: number; startupDelayMs?: number } = {}
+    ): ClosureOutcomeSweeper {
+      const { intervalMs = DEFAULT_SWEEP_INTERVAL_MS, startupDelayMs = DEFAULT_STARTUP_DELAY_MS } =
+        opts;
+      let startup: ReturnType<typeof setTimeout> | null = null;
+      let interval: ReturnType<typeof setInterval> | null = null;
+      let running = false;
+    
+      const tick = async (): Promise<void> => {
+        if (running) return;
+        running = true;
+        try {
+          await sweepClosureOutcomes(deps);
+        } catch (err) {
+          deps.log.error({ err }, "closure sweeper: sweep failed");
+        } finally {
+          running = false;
+        }
+      };
+    
+      return {
+        start() {
+          startup = setTimeout(() => {
+            void tick();
+            interval = setInterval(() => void tick(), intervalMs);
+          }, startupDelayMs);
+        },
+        stop() {
+          if (startup !== null) clearTimeout(startup);
+          if (interval !== null) clearInterval(interval);
+          startup = null;
+          interval = null;
+        },
+      };
     }
   </file>
   <file path="services/reservations/src/services/closure-refund-store.ts">
@@ -53019,7 +53490,7 @@
     }
   </file>
   <file path="services/reservations/src/services/notifier-runtime.ts">
-    export type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel">;
+    export type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel" | "requeue">;
     export interface NotifierRuntime {
       /**
        * Redis URL — the single source for the scheduler AND the in-process worker.
@@ -53102,6 +53573,9 @@
         },
         async cancel(jobId: string): Promise<boolean> {
           return connect().cancel(jobId);
+        },
+        async requeue<T extends JobType>(jobType: T, payload: JobPayloadMap[T], jobId: string) {
+          return connect().requeue(jobType, payload, jobId);
         },
       };
     
@@ -70626,6 +71100,17 @@
         .find(containing(minute));
       if (!service) return hard("closed", message);
       if (!service.bookingTypes.includes(request.channel)) return hard("booking_closed", message);
+      // Online guests only book the exact instants listSlots offers (a seating minute, at
+      // second 0, first occurrence of a repeated hour); staff on the phone may book off-grid.
+      if (request.channel === "online") {
+        const offered = serviceDayInstant(serviceDate, minute, snapshot.timezone);
+        if (
+          !seatingMinutes(service).includes(minute) ||
+          offered?.getTime() !== request.start.getTime()
+        ) {
+          return hard("outside_service");
+        }
+      }
     
       const tableIssue = tableVerdict(snapshot, day, minute, request, now);
       if (tableIssue) return tableIssue;
@@ -76138,6 +76623,17 @@
           });
           fastify.addHook("onReady", async () => jobWorker.start(fastify.log));
           fastify.addHook("onClose", async () => jobWorker.stop());
+    
+          // Re-enqueues closure refunds/notices lost after commit (#7681).
+          const closureOutcomeSweeper = createClosureOutcomeSweeper({
+            getVenueIds: () => getAllVenueIds(prisma),
+            store: createPrismaClosureOutcomeSweepStore(),
+            jobs: notifierRuntime.scheduler,
+            notices: services.closureNoticeService,
+            log: fastify.log,
+          });
+          fastify.addHook("onReady", async () => closureOutcomeSweeper.start());
+          fastify.addHook("onClose", async () => closureOutcomeSweeper.stop());
         }
       }
     
@@ -81217,6 +81713,37 @@
       return tables
         .filter((table) => tableAcceptsParty(table) && partyFitsTable(table, partySize))
         .sort((a, b) => a.capacity - b.capacity);
+    }
+  </file>
+  <file path="apps/hospitality/src/utils/service-day-start.ts">
+    export function serviceDayCalendarDate(
+      config: AvailabilityConfig | null | undefined,
+      timeZone: string,
+      serviceDate: string,
+      hhmm: string
+    ): string {
+      const match = /^(\d{2}):(\d{2})$/.exec(hhmm);
+      if (!config || !match) return serviceDate;
+      const minute = Number(match[1]) * 60 + Number(match[2]);
+      // The planned day (closures and Tonight changes stripped), as the engine's `judge` owns it.
+      const planned: AvailabilityConfig = {
+        ...config,
+        dateRules: config.dateRules.filter((r) => r.kind !== "closure" && r.kind !== "tonight"),
+      };
+      const { services } = resolveDay({ timezone: timeZone, config: planned }, serviceDate);
+      const isOpen = (at: number): boolean => services.some((s) => s.opensAt <= at && at < s.closesAt);
+      return !isOpen(minute) && isOpen(minute + MINUTES_PER_DAY)
+        ? addDays(serviceDate, 1)
+        : serviceDate;
+    }
+    export function serviceDayStartInstant(
+      config: AvailabilityConfig | null | undefined,
+      timeZone: string,
+      serviceDate: string,
+      hhmm: string
+    ): Date {
+      const calendarDate = serviceDayCalendarDate(config, timeZone, serviceDate, hhmm);
+      return venueWallTimeToInstant(calendarDate, hhmm, timeZone);
     }
   </file>
   <file path="apps/hospitality/src/utils/service-day.ts">

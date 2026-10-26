@@ -86,6 +86,159 @@ const AVAILABILITY_UNKNOWN = {
     "Couldn't check availability right now. Tell the user you couldn't check and to try again shortly; do not say the venue is closed or fully booked.",
 } as const;
 
+/** A 4xx the server answered on purpose: what the caller sent was refused, so retrying cannot help. */
+interface Refusal {
+  readonly status: number;
+  readonly detail: string;
+  readonly code?: string;
+  readonly reason?: string;
+}
+
+/**
+ * The RFC 7807 refusal inside an `ApiClientError`, or undefined for anything
+ * transient (timeout, network, 5xx, 408, 429) and for non-API errors. Duck-typed
+ * on `problemDetails` so the agent need not import the client's runtime.
+ */
+function refusalOf(err: unknown): Refusal | undefined {
+  const problem = (err as { problemDetails?: Record<string, unknown> } | null)?.problemDetails;
+  const status = problem?.["status"];
+  if (typeof status !== "number" || status < 400 || status >= 500) return undefined;
+  if (status === 408 || status === 429) return undefined;
+  const { detail, code, reason } = problem as Record<string, unknown>;
+  return {
+    status,
+    detail: typeof detail === "string" && detail ? detail : `The request was refused (${status}).`,
+    ...(typeof code === "string" ? { code } : {}),
+    ...(typeof reason === "string" ? { reason } : {}),
+  };
+}
+
+/** A read the server refused (for example an invalid party size): not "couldn't check". */
+function rejectedResult(refusal: Refusal) {
+  return { rejected: true, error: refusal.detail } as const;
+}
+
+/**
+ * The UTC instant (ISO) of venue-local `date` + `HH:mm` in `timeZone` (UTC when
+ * absent); undefined when either is unreadable. The offset is solved twice so a
+ * time near a DST change still lands on the right side.
+ */
+export function localToInstant(
+  date: string,
+  time: string,
+  timeZone: string | undefined
+): string | undefined {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  const clock = /^(\d{1,2}):(\d{2})$/.exec(time);
+  if (!match || !clock) return undefined;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(clock[1]);
+  const minute = Number(clock[2]);
+  const wall = Date.UTC(year, month - 1, day, hour, minute);
+  // Date.UTC rolls 2026-02-30 to March 2: reject anything that doesn't read back as given.
+  const readBack = new Date(wall);
+  if (
+    readBack.getUTCFullYear() !== year ||
+    readBack.getUTCMonth() !== month - 1 ||
+    readBack.getUTCDate() !== day ||
+    hour > 23 ||
+    minute > 59
+  ) {
+    return undefined;
+  }
+  try {
+    const offsetAt = (instant: number): number => {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: timeZone ?? "UTC",
+        hourCycle: "h23",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).formatToParts(new Date(instant));
+      const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+      const shown = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"));
+      return shown - Math.floor(instant / 60000) * 60000;
+    };
+    const first = wall - offsetAt(wall);
+    return new Date(wall - offsetAt(first)).toISOString();
+  } catch {
+    return undefined; // unknown time zone (RangeError)
+  }
+}
+
+const UNREADABLE_TIME =
+  "The date or time can't be read. Use a real date as YYYY-MM-DD and a 24-hour time as HH:MM.";
+
+/** The day after a YYYY-MM-DD date, or undefined when it isn't one. */
+function nextDay(date: string): string | undefined {
+  const instant = localToInstant(date, "12:00", undefined);
+  return instant
+    ? new Date(Date.parse(instant) + 86_400_000).toISOString().slice(0, 10)
+    : undefined;
+}
+
+/**
+ * ISO start and end for a booking given venue-local `HH:mm` times; an end at or
+ * before the start is the next day. Undefined when any part is unreadable.
+ */
+function reservationWindow(
+  date: string,
+  startTime: string,
+  endTime: string,
+  timeZone: string | undefined
+): { start: string; end: string } | undefined {
+  const start = localToInstant(date, startTime, timeZone);
+  const sameDayEnd = localToInstant(date, endTime, timeZone);
+  if (!start || !sameDayEnd) return undefined;
+  if (sameDayEnd > start) return { start, end: sameDayEnd };
+  const following = nextDay(date);
+  const end = following ? localToInstant(following, endTime, timeZone) : undefined;
+  return end ? { start, end } : undefined;
+}
+
+/** Only a 422 gate refusal or 409 conflict is a final venue answer; anything else is an error to report. */
+const FINAL_REFUSAL_STATUSES: ReadonlySet<number> = new Set([409, 422]);
+
+function createFailureResult(err: unknown) {
+  const refusal = refusalOf(err);
+  if (!refusal) return { error: "Failed to create reservation. Please try again." };
+  if (!FINAL_REFUSAL_STATUSES.has(refusal.status)) {
+    // e.g. a 400 from our own malformed request: not the venue's decision.
+    return { error: `Failed to create reservation: ${refusal.detail}` };
+  }
+  return {
+    refused: true,
+    error: refusal.detail,
+    ...(refusal.code ? { code: refusal.code } : {}),
+    ...(refusal.reason ? { reason: refusal.reason } : {}),
+    note: "The venue refused this booking and nothing was created. Tell the user the reason; do not retry the same booking.",
+  };
+}
+
+type BookingVerdict = Awaited<ReturnType<ApiClient["availability"]["checkBooking"]>>;
+
+/** The phone-channel verdict as a tool result the model can state truthfully, echoing what was judged. */
+function bookingVerdictResult(
+  verdict: BookingVerdict,
+  judged: { readonly date: string; readonly startTime: string }
+) {
+  if (verdict.kind === "ok") return { bookable: true, judged } as const;
+  if (verdict.kind === "soft") {
+    return {
+      bookable: false,
+      softLimit: true,
+      message: verdict.message,
+      judged,
+      note: "This time needs a staff override of a venue limit. You cannot override it: tell the user the limit and that staff can book it from the reservation form.",
+    } as const;
+  }
+  return { bookable: false, reason: verdict.reason, message: verdict.message, judged } as const;
+}
+
 /** The tool result for one date: the slots, plus the closure or pause the endpoint reported. */
 function availabilityResult(
   response: PublicAvailability,
@@ -96,6 +249,11 @@ function availabilityResult(
   const { closure, bookingPaused } = response;
   return {
     slots,
+    ...(slots.length === 0 && !closure && !bookingPaused
+      ? {
+          note: "This online list is empty, but that is not the staff verdict: a service that takes phone bookings only shows no online slots. Do not say the day is full. Ask the user which time they want and check it with check_booking_time.",
+        }
+      : {}),
     ...(closure
       ? {
           closed: true,
@@ -212,7 +370,8 @@ export function createAgentTools(
     // ── Read tools (instant, no confirmation) ──────────────
     // venueId never comes from the model: it is the app's selected venue.
     check_availability: tool({
-      description: "Check available time slots on a specific date",
+      description:
+        "List the time slots open to ONLINE guests on a date. This is the online booking widget's view only: a service that takes phone bookings only shows no slots here. Before telling staff a time can or cannot be booked, confirm it with check_booking_time, the same check create_reservation is judged by.",
       inputSchema: z.object({
         date: z.string().describe("Date in YYYY-MM-DD format"),
         partySize: z.number().describe("Number of guests"),
@@ -226,9 +385,43 @@ export function createAgentTools(
           const response = await api.availability.getPublicAvailability(slug, { date, partySize });
           return availabilityResult(response, date, timeZone);
         } catch (err) {
-          // Timeout, 5xx or network failure: unknown, never "closed".
           log.error({ err, venueId, date, partySize }, "check_availability failed");
+          const refusal = refusalOf(err);
+          if (refusal) return rejectedResult(refusal);
+          // Timeout, 5xx or network failure: unknown, never "closed".
           return AVAILABILITY_UNKNOWN;
+        }
+      },
+    }),
+
+    check_booking_time: tool({
+      description:
+        "Check whether staff can book a specific start time, judged on the phone channel exactly as create_reservation will judge it (closures, service hours, party-size and pacing limits, table conflicts).",
+      inputSchema: z.object({
+        date: z.string().describe("Date in YYYY-MM-DD format"),
+        startTime: z.string().describe("Start time in HH:MM format, venue-local"),
+        partySize: z.number().describe("Number of guests"),
+        tableId: z.string().optional().describe("Table ID to check; omit to ask if any is free"),
+      }),
+      execute: async ({ date, startTime, partySize, tableId }) => {
+        if (!venueId) return NO_VENUE;
+        log.info({ venueId, date, startTime, partySize }, "check_booking_time tool called");
+        const start = localToInstant(date, startTime, timeZone);
+        if (!start) {
+          return { rejected: true, error: UNREADABLE_TIME };
+        }
+        try {
+          const verdict = await api.availability.checkBooking(venueId, {
+            start,
+            partySize,
+            channel: "phone",
+            ...(tableId ? { tableId } : {}),
+          });
+          return bookingVerdictResult(verdict, { date, startTime });
+        } catch (err) {
+          log.error({ err, venueId, date, startTime, partySize }, "check_booking_time failed");
+          const refusal = refusalOf(err);
+          return refusal ? rejectedResult(refusal) : AVAILABILITY_UNKNOWN;
         }
       },
     }),
@@ -372,21 +565,25 @@ export function createAgentTools(
         notes: z.string().optional().describe("Reservation notes"),
       }),
       execute: async ({ guestName, date, startTime, endTime, partySize, tableId, notes }) => {
+        if (!venueId) return NO_VENUE;
         log.info({ guestName, date, startTime, partySize }, "create_reservation tool called");
+        const window = reservationWindow(date, startTime, endTime, timeZone);
+        if (!window) return { error: UNREADABLE_TIME };
         try {
           const reservation = await api.reservations.create({
             guestName,
             date,
-            startTime,
-            endTime,
+            startTime: window.start,
+            endTime: window.end,
             partySize,
             tableId,
+            venueId,
             ...(notes ? { notes } : {}),
           });
           return { reservation };
         } catch (err) {
           log.error({ err, guestName, date }, "create_reservation failed");
-          return { error: "Failed to create reservation. Please try again." };
+          return createFailureResult(err);
         }
       },
     }),

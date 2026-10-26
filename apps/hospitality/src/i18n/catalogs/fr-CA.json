@@ -996,6 +996,7 @@
     "dateRequired": "La date est obligatoire.",
     "startTime": "Heure de début",
     "startTimeRequired": "L’heure de début est obligatoire.",
+    "calendarHint": "Réservé pour {{when}}",
     "partySize": "Convives",
     "noTables": "Aucune table disponible pour {{size}} convives.",
     "table": "Table",
@@ -1931,6 +1932,10 @@
         "invalid-config": "Cette modification ne peut plus être annulée avec vos heures actuelles."
       }
     },
+    "conflict": {
+      "winning": "Modifié d'abord par {{who}} : {{summary}} · {{when}}",
+      "unknown": "Quelqu'un d'autre a modifié la disponibilité en premier."
+    },
     "history": {
       "title": "Historique",
       "byWhen": "par {{who}} · {{when}}",
@@ -2249,6 +2254,7 @@
       "hostGranted": "Les hôtes peuvent fermer tout l'établissement pour ce soir. Plus longtemps, il faut un gérant.",
       "hostNotGranted": "Seuls les gérants peuvent fermer en cas d'urgence. Demandez à un gérant de l'autoriser pour les hôtes dans les paramètres.",
       "error": "Impossible d'appliquer ce changement. Réessayez.",
+      "alreadyApplied": "Ce changement était déjà appliqué. Voici ce qui est en vigueur maintenant.",
       "chip": {
         "pause": "Réservations en ligne suspendues · reste de la soirée",
         "closeEarly": "Fermeture hâtive · {{time}}",

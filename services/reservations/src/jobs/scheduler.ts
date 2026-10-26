@@ -52,6 +52,33 @@ export class JobScheduler {
   }
 
   /**
+   * Make sure a runnable job exists under `jobId`, for a caller that knows the
+   * work is still owed (the closure outcome sweeper). BullMQ treats an id held
+   * in ANY state, including retained failed / completed jobs, as a duplicate,
+   * so a plain `schedule` would silently do nothing. Here:
+   *  - no job → add it (`added`);
+   *  - failed or completed → remove it and add it again under the same id
+   *    (`requeued`), so replicas still dedupe on that id;
+   *  - waiting / delayed / active / etc. → leave it (`live`).
+   */
+  async requeue<T extends JobType>(
+    jobType: T,
+    payload: JobPayloadMap[T],
+    jobId: string
+  ): Promise<"added" | "requeued" | "live"> {
+    const existing = await this.queue.getJob(jobId);
+    if (!existing) {
+      await this.schedule(jobType, payload, 0, jobId);
+      return "added";
+    }
+    const state = await existing.getState();
+    if (state !== "failed" && state !== "completed") return "live";
+    await existing.remove();
+    await this.schedule(jobType, payload, 0, jobId);
+    return "requeued";
+  }
+
+  /**
    * Schedule a recurring cron job.
    * @param jobType        The type of job to run.
    * @param payload        Typed payload for the job.

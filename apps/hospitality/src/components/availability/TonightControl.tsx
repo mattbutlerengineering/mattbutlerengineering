@@ -23,9 +23,12 @@ import {
   type Table,
 } from "@mbe/types";
 import { useEndTonight, useSetTonight, type SetTonightRequest } from "../../hooks/useTonight.js";
+import { useRefreshAvailability } from "../../hooks/useRefreshAvailability.js";
 import { useViewport } from "../../hooks/useViewport.js";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
 import { CloseDialog } from "./CloseDialog.js";
+import { conflictOf, type Conflict } from "./conflict-problem.js";
+import { useWinningChangeText } from "./use-winning-change-text.js";
 import { minuteText } from "./closure-band.js";
 import { TonightDecisionsDialog } from "./TonightDecisionsDialog.js";
 import {
@@ -138,6 +141,7 @@ export function TonightControl(props: TonightControlProps) {
   const viewport = useViewport();
   const setTonight = useSetTonight();
   const endTonight = useEndTonight();
+  const refresh = useRefreshAvailability();
 
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -147,6 +151,10 @@ export function TonightControl(props: TonightControlProps) {
   } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [conflict, setConflict] = useState<Conflict | null>(null);
+  const winnerText = useWinningChangeText(
+    conflict?.code === "version-conflict" ? conflict.winningChange : null
+  );
   // Null until picked: the shown value is then the default clamped into tonight's options.
   const [closeAtPick, setCloseAt] = useState<number | null>(null);
   const [stopFromPick, setStopFrom] = useState<number | null>(null);
@@ -156,8 +164,9 @@ export function TonightControl(props: TonightControlProps) {
   const [blockFrom, setBlockFrom] = useState<number | null>(null);
   const [blockTo, setBlockTo] = useState<number | null>(null);
   const [pacing, setPacing] = useState(DEFAULT_PACING);
-  // One id per attempt, kept until it succeeds, so a retry replays the first result.
-  const attemptIdsRef = useRef<Record<string, string>>({});
+  // One id per attempt, kept until it succeeds, so a retry of the same change replays the first
+  // result. A different change (its fingerprint) is a new attempt with a new id.
+  const attemptIdsRef = useRef<Record<string, { fingerprint: string; id: string }>>({});
 
   const rules = state.config.dateRules;
   const changes = activeTonightChanges(rules, today, now);
@@ -199,18 +208,32 @@ export function TonightControl(props: TonightControlProps) {
 
   const run = async (
     key: string,
+    fingerprint: string,
     action: (ruleId: string) => Promise<unknown>,
     // Returns true when the failure was a question for the user rather than an error.
     askUser?: (error: unknown, ruleId: string) => boolean
   ) => {
-    const ruleId = (attemptIdsRef.current[key] ??= crypto.randomUUID());
+    const previous = attemptIdsRef.current[key];
+    const ruleId = previous?.fingerprint === fingerprint ? previous.id : crypto.randomUUID();
+    attemptIdsRef.current[key] = { fingerprint, id: ruleId };
     setBusy(key);
     setError(null);
+    setConflict(null);
     try {
       await action(ruleId);
       delete attemptIdsRef.current[key];
     } catch (failure) {
-      if (!askUser?.(failure, ruleId)) setError(t("availability.tonight.error"));
+      if (askUser?.(failure, ruleId)) return;
+      const lost = conflictOf(failure);
+      if (lost) {
+        // Someone else's change won, or this attempt already committed: its id is spent, and the
+        // screen must show the state that is now true rather than loop on it.
+        delete attemptIdsRef.current[key];
+        setConflict(lost);
+        refresh();
+      } else {
+        setError(t("availability.tonight.error"));
+      }
     } finally {
       setBusy(null);
     }
@@ -219,6 +242,7 @@ export function TonightControl(props: TonightControlProps) {
   const apply = (key: string, change: TonightBody) =>
     run(
       key,
+      JSON.stringify(change),
       (ruleId) =>
         setTonight.mutateAsync({
           venueId,
@@ -249,7 +273,7 @@ export function TonightControl(props: TonightControlProps) {
   };
 
   const end = (ruleId: string) =>
-    run(`end:${ruleId}`, () => endTonight.mutateAsync({ venueId, ruleId }));
+    run(`end:${ruleId}`, "", () => endTonight.mutateAsync({ venueId, ruleId }));
 
   const time = (label: string, value: number, set: (m: number) => void) => (
     <Select
@@ -390,9 +414,12 @@ export function TonightControl(props: TonightControlProps) {
             {t("availability.tonight.apply")}
           </Button>
         </div>
-        {error && (
+        {(error || conflict) && (
           <Text variant="caption" color="secondary" role="alert">
-            {error}
+            {error ??
+              (conflict?.code === "version-conflict"
+                ? winnerText
+                : t("availability.tonight.alreadyApplied"))}
           </Text>
         )}
         {endsAt && (

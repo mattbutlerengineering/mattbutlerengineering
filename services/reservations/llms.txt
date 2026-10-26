@@ -189,7 +189,7 @@
         queue: Queue;
         redis: Redis;
         async schedule(): Promise<unknown>;
-        async scheduleCron(): Promise<unknown>;
+        async requeue(): Promise<unknown>;
       }
     </item>
   </file>
@@ -2522,6 +2522,9 @@
     <item priority="high">
       export function tableAdvisoryLockSql(tableId: string): Prisma.Sql { /* ... */ }
     </item>
+    <item priority="high">
+      export function venueShareLockSql(venueId: string): Prisma.Sql { /* ... */ }
+    </item>
     <item priority="low">
       type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED" | "NOT_BOOKABLE";
     </item>
@@ -2729,10 +2732,21 @@
       function wallMinutes(instant: Date, serviceDate: string, tz: string): number { /* ... */ }
     </item>
     <item priority="high">
+      type StartRange = readonly [lo: number, hi: number];
+    </item>
+    <item priority="medium">
+      function clearOfBand(
+        ranges: readonly StartRange[],
+        band: { from: number; to: number },
+        span: number
+      ): StartRange[] { /* ... */ }
+    </item>
+    <item priority="high">
       export function moveTarget(
         after: AvailabilitySnapshot,
         serviceDate: string,
-        booking: Pick<ClosureImpactReservation, "startTime" | "endTime">
+        booking: Pick<ClosureImpactReservation, "startTime" | "endTime">,
+        now: Date
       ): { startTime: Date; endTime: Date } | null { /* ... */ }
     </item>
     <item priority="high">
@@ -2837,7 +2851,8 @@
         rule: DateRule,
         alongside: ClosureAlongside | undefined,
         impact: ClosureImpact,
-        actions: ReadonlyMap<string, { action: ClosureAction }>
+        actions: ReadonlyMap<string, { action: ClosureAction }>,
+        now: Date
       ): Plan | Refusal { /* ... */ }
     </item>
     <item priority="medium">
@@ -3248,6 +3263,87 @@
     </item>
     <item priority="high">
       export function createClosureNoticeHandler(deps: ClosureNoticeDeps) { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/closure-outcome-sweep-store.ts">
+    <item priority="high">
+      export function createPrismaClosureOutcomeSweepStore(): ClosureOutcomeSweepStore { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/closure-outcome-sweeper.ts">
+    <item priority="high">
+      export const DEFAULT_GRACE_MS: unknown;
+    </item>
+    <item priority="high">
+      export const DEFAULT_BATCH_SIZE: unknown;
+    </item>
+    <item priority="high">
+      export const DEFAULT_SWEEP_INTERVAL_MS: unknown;
+    </item>
+    <item priority="low">
+      interface StuckOutcome {
+        id: string;
+        dateRuleId: string;
+        reservationId: string;
+      }
+    </item>
+    <item priority="low">
+      interface ClosureOutcomeSweepStore {
+        
+      }
+    </item>
+    <item priority="low">
+      interface ClosureOutcomeSweeperDeps {
+        store: ClosureOutcomeSweepStore;
+        jobs: Pick<JobScheduler, "requeue">;
+        notices: Pick<ClosureNoticeService, "isUrgent">;
+        log: Pick<FastifyBaseLogger, "error" | "info">;
+        now?: () => Date;
+      }
+    </item>
+    <item priority="low">
+      interface KindResult {
+        requeued: number;
+        live: number;
+      }
+    </item>
+    <item priority="low">
+      interface SweepResult {
+        refunds: KindResult;
+        notices: KindResult;
+      }
+    </item>
+    <item priority="low">
+      async function sweepRefunds(
+        deps: ClosureOutcomeSweeperDeps,
+        venueId: string,
+        stuck: readonly StuckOutcome[]
+      ): Promise<KindResult> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function sweepNotices(
+        deps: ClosureOutcomeSweeperDeps,
+        venueId: string,
+        stuck: readonly StuckOutcome[],
+        now: Date
+      ): Promise<KindResult> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function sweepVenue(deps: ClosureOutcomeSweeperDeps, venueId: string): Promise<SweepResult> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function sweepClosureOutcomes(deps: ClosureOutcomeSweeperDeps): Promise<SweepResult> { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ClosureOutcomeSweeper {
+        
+      }
+    </item>
+    <item priority="high">
+      export function createClosureOutcomeSweeper(
+        deps: ClosureOutcomeSweeperDeps,
+        opts: { intervalMs?: number; startupDelayMs?: number } = {}
+      ): ClosureOutcomeSweeper { /* ... */ }
     </item>
   </file>
   <file path="src/services/closure-refund-store.ts">
@@ -4022,7 +4118,7 @@
   </file>
   <file path="src/services/notifier-runtime.ts">
     <item priority="low">
-      type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel">;
+      type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel" | "requeue">;
     </item>
     <item priority="low">
       interface NotifierRuntime {
