@@ -1086,13 +1086,14 @@
     <item priority="low">
       interface UseDismissOptions {
         enabled: boolean;
+        isInside?: (e: MouseEvent) => boolean;
       }
     </item>
     <item priority="high">
       export function useDismiss<T extends HTMLElement>(
         ref: RefObject<T | null>,
         onClose: () => void,
-        { enabled }: UseDismissOptions
+        { enabled, isInside }: UseDismissOptions
       ): void { /* ... */ }
     </item>
   </file>
