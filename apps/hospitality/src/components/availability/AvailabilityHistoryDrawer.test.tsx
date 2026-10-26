@@ -199,6 +199,19 @@ describe("AvailabilityHistoryDrawer", () => {
     );
   });
 
+  it.each([
+    ["Closures", "closure"],
+    ["Reopenings", "reopen"],
+    ["Tonight changes", "tonight"],
+  ])("asks for kind %s when the Type filter picks it", (label, kind) => {
+    renderDrawer();
+    fireEvent.click(screen.getByRole("combobox", { name: "Type" }));
+    fireEvent.click(screen.getByRole("option", { name: label }));
+    expect(changes).toHaveBeenLastCalledWith(
+      expect.objectContaining({ query: expect.objectContaining({ kind }) })
+    );
+  });
+
   it("has no axe violations", async () => {
     renderDrawer();
     expect((await axe(document.body, AXE_OPTIONS)).violations).toEqual([]);
