@@ -218,7 +218,84 @@ describe("TonightControl", () => {
       expect(setTonight.mock.calls[0]![0].body.change).toEqual({
         type: "block_tables",
         tableIds: ["t1", "t2"],
+        from: 780,
       });
+    });
+
+    it("blocks the individual tables picked", async () => {
+      renderControl();
+      open();
+      fireEvent.click(screen.getByRole("combobox", { name: "Block tables" }));
+      fireEvent.click(screen.getByRole("option", { name: "Choose tables…" }));
+      expect(screen.getByRole("button", { name: "Block" })).toBeDisabled();
+      fireEvent.click(screen.getByRole("checkbox", { name: /P2/ }));
+      fireEvent.click(screen.getByRole("checkbox", { name: /B1/ }));
+      fireEvent.click(screen.getByRole("button", { name: "Block" }));
+      await waitFor(() => expect(setTonight).toHaveBeenCalledOnce());
+      expect(setTonight.mock.calls[0]![0].body.change).toEqual({
+        type: "block_tables",
+        tableIds: ["t2", "t3"],
+        from: 780,
+      });
+    });
+
+    it("blocks for a window that crosses midnight", async () => {
+      renderControl({ state: lateState() });
+      open();
+      fireEvent.click(screen.getByRole("combobox", { name: "Block from" }));
+      fireEvent.click(screen.getByRole("option", { name: "11:30 PM" }));
+      fireEvent.click(screen.getByRole("combobox", { name: "Block until" }));
+      fireEvent.click(screen.getAllByRole("option", { name: "1:00 AM (next day)" }).at(-1)!);
+      fireEvent.click(screen.getByRole("button", { name: "Block" }));
+      await waitFor(() => expect(setTonight).toHaveBeenCalledOnce());
+      expect(setTonight.mock.calls[0]![0].body.change).toEqual({
+        type: "block_tables",
+        tableIds: ["t1", "t2", "t3"],
+        from: 1410,
+        to: 1500,
+      });
+    });
+
+    it("sends the current minute of the service day for Now, past midnight too", async () => {
+      renderControl({ now: new Date("2026-10-30T08:30:00Z") });
+      open();
+      fireEvent.click(screen.getByRole("button", { name: "Block" }));
+      await waitFor(() => expect(setTonight).toHaveBeenCalledOnce());
+      expect(setTonight.mock.calls[0]![0].body.change).toMatchObject({ from: 1530 });
+    });
+
+    it("refuses an until that is not after the effective from", () => {
+      renderControl({ state: lateState() });
+      open();
+      fireEvent.click(screen.getByRole("combobox", { name: "Block until" }));
+      fireEvent.click(screen.getAllByRole("option", { name: "12:00 AM" }).at(-1)!);
+      expect(screen.getByRole("button", { name: "Block" })).toBeDisabled();
+    });
+
+    it("says from when only the start was set", () => {
+      renderControl({
+        state: stateWith({
+          ...PAUSE_RULE,
+          id: "r-from",
+          targetKind: "tables",
+          tableIds: ["t1"],
+          payload: { version: 1, stop: { from: 1170, to: 2880 } },
+        } as DateRule),
+      });
+      expect(screen.getByText("1 table blocked · from 7:30 PM")).toBeInTheDocument();
+    });
+
+    it("shows the window on the chip", () => {
+      renderControl({
+        state: stateWith({
+          ...PAUSE_RULE,
+          id: "r-block",
+          targetKind: "tables",
+          tableIds: ["t1"],
+          payload: { version: 1, stop: { from: 1410, to: 1500 } },
+        } as DateRule),
+      });
+      expect(screen.getByText("1 table blocked · 11:30 PM–1:00 AM (next day)")).toBeInTheDocument();
     });
 
     it("shows the failure inline and keeps the control usable", async () => {

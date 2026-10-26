@@ -766,7 +766,8 @@
   <file path="src/components/availability/tonight-state.ts">
     <item priority="low">
       type TonightChange = { readonly ruleId: string; rea | { readonly ruleId: string; rea | {
-            readonly ruleId: strin | { readonly ruleId: string; rea | { readonly ruleId: string; rea;
+            readonly ruleId: strin | {
+            readonly ruleId: strin | { readonly ruleId: string; rea;
     </item>
     <item priority="high">
       type TonightRule = Extract<DateRule, { kind: "tonight" }>;
