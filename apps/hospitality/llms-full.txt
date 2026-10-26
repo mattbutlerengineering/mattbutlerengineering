@@ -79,6 +79,279 @@
       };
     }
   </file>
+  <file path="src/components/availability/day-summary.ts">
+    export interface DayPresentation {
+      readonly bands: readonly ClosureBandText[];
+      /** "2 services", or `null` when the count is not worth showing. */
+      readonly count: string | null;
+      readonly onlineOff: boolean;
+      /** The spoken details after the date: "Special hours, 2 services, closed 10:00 PM – 11:00 PM". */
+      readonly accessibleDetails: string;
+      /** The button's accessible name: "Friday, October 30: …". */
+      readonly accessibleName: string;
+    }
+    export function presentDay(
+      date: string,
+      summary: AvailabilityDaySummary | undefined,
+      detailed: boolean,
+      t: TFunction,
+      format: VenueFormat
+    ): DayPresentation {
+      const bands = (summary?.closures ?? []).map((c) => closureBandText(c, t, format));
+      const showCount = summary !== undefined && (detailed || summary.serviceCount >= 2);
+      const count = showCount
+        ? t("availability.calendar.services", { count: summary.serviceCount })
+        : null;
+      const onlineOff = summary !== undefined && !summary.bookingOpen.online;
+    
+      const parts = summary
+        ? [
+            summary.label,
+            ...(count ? [count] : []),
+            ...bands.map((b) => b.name),
+            ...(onlineOff ? [t("availability.calendar.onlineOffName")] : []),
+          ]
+        : [t("availability.calendar.loadingDay")];
+      const accessibleDetails = parts.join(", ");
+      const fullDate = format.formatCalendarDate(date, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      });
+      return {
+        bands,
+        count,
+        onlineOff,
+        accessibleDetails,
+        accessibleName: t("availability.calendar.cellName", {
+          date: fullDate,
+          details: accessibleDetails,
+        }),
+      };
+    }
+  </file>
+  <file path="src/components/availability/removal-diff.ts">
+    type Channel = keyof BookingOpen;
+    export type RemovalChange =
+      | { kind: "serviceOpens"; name: string; opensAt: number; closesAt: number }
+      | { kind: "serviceCloses"; name: string }
+      | { kind: "opensAtChanges"; name: string; minute: number }
+      | { kind: "closesAtChanges"; name: string; minute: number; later: boolean }
+      | { kind: "lastSeatingChanges"; name: string; minute: number }
+      | { kind: "closureLifted"; closure: ResolvedClosure }
+      | { kind: "closureApplies"; closure: ResolvedClosure }
+      | { kind: "bookingOn"; channel: Channel }
+      | { kind: "bookingOff"; channel: Channel }
+      | { kind: "pacingLifted" }
+      | { kind: "pacingSet"; covers: number };
+    function serviceChanges(
+      current: readonly ResolvedService[],
+      removed: readonly ResolvedService[]
+    ): RemovalChange[] {
+      const now = new Map(current.map((s) => [s.venueServiceId, s]));
+      const then = new Map(removed.map((s) => [s.venueServiceId, s]));
+      const opening = removed
+        .filter((s) => !now.has(s.venueServiceId))
+        .map((s): RemovalChange => ({
+          kind: "serviceOpens",
+          name: s.name,
+          opensAt: s.opensAt,
+          closesAt: s.closesAt,
+        }));
+      const closing = current
+        .filter((s) => !then.has(s.venueServiceId))
+        .map((s): RemovalChange => ({ kind: "serviceCloses", name: s.name }));
+      const adjusted = removed.flatMap((after): RemovalChange[] => {
+        const before = now.get(after.venueServiceId);
+        if (!before) return [];
+        return [
+          ...(before.opensAt !== after.opensAt
+            ? [{ kind: "opensAtChanges" as const, name: after.name, minute: after.opensAt }]
+            : []),
+          ...(before.closesAt !== after.closesAt
+            ? [
+                {
+                  kind: "closesAtChanges" as const,
+                  name: after.name,
+                  minute: after.closesAt,
+                  later: after.closesAt > before.closesAt,
+                },
+              ]
+            : []),
+          ...(before.lastSeatingAt !== after.lastSeatingAt
+            ? [
+                {
+                  kind: "lastSeatingChanges" as const,
+                  name: after.name,
+                  minute: after.lastSeatingAt,
+                },
+              ]
+            : []),
+        ];
+      });
+      return [...opening, ...closing, ...adjusted];
+    }
+    function closureChanges(
+      current: readonly ResolvedClosure[],
+      removed: readonly ResolvedClosure[]
+    ): RemovalChange[] {
+      // A whole-day closure of services or booking channels already shows up as those changes.
+      const worthSaying = (c: ResolvedClosure) => !isWholeDay(c) || c.targetKind === "tables";
+      return [
+        ...current
+          .filter((c) => !removed.some((r) => sameClosure(r, c)) && worthSaying(c))
+          .map((closure): RemovalChange => ({ kind: "closureLifted", closure })),
+        ...removed
+          .filter((c) => !current.some((r) => sameClosure(r, c)) && worthSaying(c))
+          .map((closure): RemovalChange => ({ kind: "closureApplies", closure })),
+      ];
+    }
+    function bookingChanges(current: BookingOpen, removed: BookingOpen): RemovalChange[] {
+      return CHANNELS.flatMap((channel): RemovalChange[] => {
+        if (current[channel] === removed[channel]) return [];
+        return [{ kind: removed[channel] ? "bookingOn" : "bookingOff", channel }];
+      });
+    }
+    function pacingChanges(current: ResolvedDaySummary, removed: ResolvedDaySummary): RemovalChange[] {
+      if (current.pacingCovers === removed.pacingCovers) return [];
+      return removed.pacingCovers === undefined
+        ? [{ kind: "pacingLifted" }]
+        : [{ kind: "pacingSet", covers: removed.pacingCovers }];
+    }
+    export function diffRemoval(
+      current: ResolvedDaySummary,
+      removed: ResolvedDaySummary
+    ): RemovalChange[] {
+      return [
+        ...serviceChanges(current.services, removed.services),
+        ...closureChanges(current.closures, removed.closures),
+        ...bookingChanges(current.bookingOpen, removed.bookingOpen),
+        ...pacingChanges(current, removed),
+      ];
+    }
+    export function removalChangeText(
+      change: RemovalChange,
+      t: TFunction,
+      format: VenueFormat
+    ): string {
+      const at = (minute: number) => minuteText(minute, t, format);
+      switch (change.kind) {
+        case "serviceOpens":
+          return t("availability.drawer.removal.serviceOpens", {
+            name: change.name,
+            from: at(change.opensAt),
+            to: at(change.closesAt),
+          });
+        case "serviceCloses":
+          return t("availability.drawer.removal.serviceCloses", { name: change.name });
+        case "opensAtChanges":
+          return t("availability.drawer.removal.opensAt", {
+            name: change.name,
+            time: at(change.minute),
+          });
+        case "closesAtChanges":
+          return t(
+            change.later
+              ? "availability.drawer.removal.closesLater"
+              : "availability.drawer.removal.closesEarlier",
+            { name: change.name, time: at(change.minute) }
+          );
+        case "lastSeatingChanges":
+          return t("availability.drawer.removal.lastSeating", {
+            name: change.name,
+            time: at(change.minute),
+          });
+        case "closureLifted":
+          return isWholeDay(change.closure)
+            ? t("availability.drawer.removal.reopensAllDay")
+            : t("availability.drawer.removal.reopens", {
+                from: at(change.closure.from),
+                to: at(change.closure.to),
+              });
+        case "closureApplies":
+          return closureBandText(change.closure, t, format).text;
+        case "bookingOn":
+          return t(`availability.drawer.removal.bookingOn.${change.channel}`);
+        case "bookingOff":
+          return t(`availability.drawer.removal.bookingOff.${change.channel}`);
+        case "pacingLifted":
+          return t("availability.drawer.removal.pacingLifted");
+        case "pacingSet":
+          return t("availability.drawer.removal.pacingSet", { covers: change.covers });
+      }
+    }
+  </file>
+  <file path="src/components/availability/resolved-day-fixtures.ts">
+    export const FIXTURE_DATE = "2026-10-30";
+    export const FIXTURE_TIMEZONE = "America/Los_Angeles";
+    export const EARLY_DINNER: DateRule = {
+      ...ON_DAY,
+      id: "r-special",
+      kind: "special_hours",
+      targetKind: "venue",
+      payload: {
+        version: 1,
+        services: [
+          { venueServiceId: "vs-lunch", ...LUNCH_HOURS },
+          { venueServiceId: "vs-dinner", ...DINNER_HOURS, lastSeatingAt: 1200, closesAt: 1320 },
+        ],
+      },
+    };
+    export const PARTY_CLOSURE: DateRule = {
+      ...ON_DAY,
+      id: "r-party",
+      kind: "closure",
+      targetKind: "venue",
+      window: { version: 1, from: 1320, to: 1380 },
+    };
+    export const ONLINE_CLOSURE: DateRule = {
+      ...ON_DAY,
+      id: "r-online",
+      kind: "closure",
+      targetKind: "booking",
+      bookingTypes: ["online"],
+    };
+    export const LUNCH_CLOSURE: DateRule = {
+      ...ON_DAY,
+      id: "r-lunch",
+      kind: "closure",
+      targetKind: "service",
+      venueServiceId: "vs-lunch",
+    };
+    export const VENUE_CLOSURE: DateRule = {
+      ...ON_DAY,
+      id: "r-venue",
+      kind: "closure",
+      targetKind: "venue",
+    };
+    export const TONIGHT_STOP: DateRule = {
+      ...ON_DAY,
+      id: "r-stop",
+      kind: "tonight",
+      targetKind: "venue",
+      payload: { version: 1, stop: { from: 1260, to: 1290 } },
+    };
+    export const TONIGHT_CLOSE: DateRule = {
+      ...ON_DAY,
+      id: "r-close",
+      kind: "tonight",
+      targetKind: "venue",
+      payload: { version: 1, closeAt: 1260 },
+    };
+    export const TONIGHT_PACING: DateRule = {
+      ...ON_DAY,
+      id: "r-pacing",
+      kind: "tonight",
+      targetKind: "venue",
+      payload: { version: 1, pacing: { covers: 6 } },
+    };
+    export function resolveFixtureDay(...rules: DateRule[]): ResolvedDay {
+      return resolveDay(
+        { timezone: FIXTURE_TIMEZONE, config: { ...BASE_CONFIG, dateRules: rules } },
+        FIXTURE_DATE
+      );
+    }
+  </file>
   </section>
   <section priority="medium" role="booking-widget">
   <file path="src/components/booking-widget/effectiveDepositPolicy.ts">

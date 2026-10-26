@@ -1,9 +1,10 @@
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Alert, Drawer, Heading, Skeleton, Stack, Text } from "@mattbutlerengineering/rialto";
-import type { ResolvedDay, ResolvedDaySummary } from "@mbe/availability";
+import type { Layer, ResolvedDay, ResolvedDaySummary } from "@mbe/availability";
 import type { TeamRole } from "@mbe/types";
-import { useVenueFormat } from "../../hooks/useVenueFormat.js";
+import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
+import { diffRemoval, removalChangeText } from "./removal-diff.js";
 import styles from "./AvailabilityDayDrawer.module.css";
 
 export interface AvailabilityDayDrawerProps {
@@ -24,11 +25,12 @@ function serviceNames(day: ResolvedDaySummary, locale: string): string {
   );
 }
 
-/** "open for Lunch and Dinner" / "closed": what a day looks like with a layer removed. */
-function removalText(day: ResolvedDaySummary, locale: string, t: TFunction): string {
-  return day.services.length === 0
-    ? t("availability.drawer.removalClosed")
-    : t("availability.drawer.removalOpen", { services: serviceNames(day, locale) });
+/** What removing a layer would change, as one phrase: "reopens 10:00 PM – 11:00 PM". */
+function removalText(day: ResolvedDay, layer: Layer, format: VenueFormat, t: TFunction): string {
+  const changes = diffRemoval(day, layer.removalResult).map((c) => removalChangeText(c, t, format));
+  return changes.length === 0
+    ? t("availability.drawer.removalNone")
+    : new Intl.ListFormat(format.locale, { type: "conjunction" }).format(changes);
 }
 
 function summaryText(day: ResolvedDay, weekday: string, locale: string, t: TFunction): string[] {
@@ -78,7 +80,7 @@ function DayBody({ day, date }: { readonly day: ResolvedDay; readonly date: stri
                 </Text>
                 <Text as="span" variant="caption" color="secondary">
                   {t("availability.drawer.ifRemoved", {
-                    result: removalText(layer.removalResult, format.locale, t),
+                    result: removalText(day, layer, format, t),
                   })}
                 </Text>
               </li>
@@ -104,7 +106,11 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
   if (date === null) {
     body = null;
   } else if (error) {
-    body = <Alert variant="error">{error}</Alert>;
+    body = (
+      <Alert variant="error" title={t("availability.drawer.loadError")}>
+        {error}
+      </Alert>
+    );
   } else if (isLoading || !day) {
     body = <Skeleton variant="text" width="100%" height={96} />;
   } else {

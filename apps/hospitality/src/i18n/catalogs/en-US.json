@@ -1495,8 +1495,29 @@
       "changes_many": "{{count}} changes from your regular {{weekday}}.",
       "whyTitle": "Why this day",
       "ifRemoved": "If removed: {{result}}",
-      "removalOpen": "open for {{services}}",
-      "removalClosed": "closed",
+      "removalNone": "no change to this day",
+      "removal": {
+        "serviceOpens": "{{name}} opens {{from}} – {{to}}",
+        "serviceCloses": "{{name}} no longer open",
+        "opensAt": "{{name}} opens at {{time}}",
+        "closesLater": "{{name}} back to {{time}}",
+        "closesEarlier": "{{name}} closes at {{time}}",
+        "lastSeating": "{{name}} last seating {{time}}",
+        "reopens": "reopens {{from}} – {{to}}",
+        "reopensAllDay": "reopens all day",
+        "bookingOn": {
+          "online": "online booking back on",
+          "phone": "phone booking back on",
+          "waitlist": "waitlist back on"
+        },
+        "bookingOff": {
+          "online": "online booking off",
+          "phone": "phone booking off",
+          "waitlist": "waitlist off"
+        },
+        "pacingLifted": "pacing limit lifted",
+        "pacingSet": "pacing {{covers}} covers per seating"
+      },
       "loadError": "Couldn't load why this day looks this way"
     }
   },

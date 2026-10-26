@@ -4,8 +4,10 @@ import { Skeleton } from "@mattbutlerengineering/rialto";
 import { addDays } from "@mbe/availability";
 import type { AvailabilityDaySummary } from "@mbe/types";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
+import { useViewport } from "../../hooks/useViewport.js";
 import { shiftAnchor, visibleDates, type CalendarView } from "./calendar-dates.js";
-import { closureBandText } from "./closure-band.js";
+import { presentDay } from "./day-summary.js";
+import { AvailabilityAgenda } from "./AvailabilityAgenda.js";
 import styles from "./AvailabilityCalendar.module.css";
 
 export interface AvailabilityCalendarProps {
@@ -41,24 +43,7 @@ function Cell(props: CellProps) {
   const { t } = useTranslation();
   const { format } = props;
 
-  const bands = (summary?.closures ?? []).map((c) => closureBandText(c, t, format));
-  const showCount = summary !== undefined && (detailed || summary.serviceCount >= 2);
-  const onlineOff = summary !== undefined && !summary.bookingOpen.online;
-  const count = summary ? t("availability.calendar.services", { count: summary.serviceCount }) : "";
-
-  const nameParts = summary
-    ? [
-        summary.label,
-        ...(showCount ? [count] : []),
-        ...bands.map((b) => b.name),
-        ...(onlineOff ? [t("availability.calendar.onlineOffName")] : []),
-      ]
-    : [t("availability.calendar.loadingDay")];
-  const fullDate = format.formatCalendarDate(date, {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
+  const view = presentDay(date, summary, detailed, t, format);
 
   const className = [
     styles.cell,
@@ -77,10 +62,7 @@ function Cell(props: CellProps) {
         data-date={date}
         tabIndex={isTabStop ? 0 : -1}
         aria-current={isToday ? "date" : undefined}
-        aria-label={t("availability.calendar.cellName", {
-          date: fullDate,
-          details: nameParts.join(", "),
-        })}
+        aria-label={view.accessibleName}
         onClick={() => props.onOpen(date)}
         onKeyDown={(event) => props.onKeyDown(event, date)}
       >
@@ -92,13 +74,13 @@ function Cell(props: CellProps) {
         ) : (
           <span className={styles.details} aria-hidden="true">
             <span className={styles.label}>{summary.label}</span>
-            {showCount && <span className={styles.meta}>{count}</span>}
-            {bands.map((b) => (
+            {view.count && <span className={styles.meta}>{view.count}</span>}
+            {view.bands.map((b) => (
               <span key={b.key} className={styles.band}>
                 {b.text}
               </span>
             ))}
-            {onlineOff && (
+            {view.onlineOff && (
               <span className={styles.meta}>{t("availability.calendar.onlineOff")}</span>
             )}
           </span>
@@ -156,6 +138,8 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
     gridRef.current?.querySelector<HTMLElement>(`[data-date="${anchor}"]`)?.focus();
   }, [anchor, view]);
 
+  const isMobile = useViewport() !== "desktop";
+
   const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>, date: string) => {
     const next = targetFor(event.key, date);
     if (!next) return;
@@ -167,6 +151,21 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
   const weeks = Array.from({ length: Math.ceil(dates.length / 7) }, (_, i) =>
     dates.slice(i * 7, i * 7 + 7)
   );
+
+  if (isMobile) {
+    // Phone and tablet: a one-row-per-day list of the anchor month (a week view lists its week).
+    const listed = view === "month" ? dates.filter((d) => d.startsWith(anchorMonth)) : dates;
+    return (
+      <AvailabilityAgenda
+        dates={listed}
+        byDate={byDate}
+        today={today}
+        selectedDate={selectedDate}
+        isLoading={isLoading}
+        onOpenDay={onOpenDay}
+      />
+    );
+  }
 
   return (
     <div

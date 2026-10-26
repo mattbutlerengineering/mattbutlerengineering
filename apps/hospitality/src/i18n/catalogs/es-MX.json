@@ -1519,8 +1519,29 @@
       "changes_many": "{{count}} cambios respecto a tu {{weekday}} habitual.",
       "whyTitle": "Por qué este día",
       "ifRemoved": "Si se quita: {{result}}",
-      "removalOpen": "abierto para {{services}}",
-      "removalClosed": "cerrado",
+      "removalNone": "sin cambios en este día",
+      "removal": {
+        "serviceOpens": "{{name}} abre {{from}} – {{to}}",
+        "serviceCloses": "{{name}} ya no abre",
+        "opensAt": "{{name}} abre a las {{time}}",
+        "closesLater": "{{name}} vuelve a cerrar a las {{time}}",
+        "closesEarlier": "{{name}} cierra a las {{time}}",
+        "lastSeating": "{{name}}, última mesa a las {{time}}",
+        "reopens": "reabre {{from}} – {{to}}",
+        "reopensAllDay": "reabre todo el día",
+        "bookingOn": {
+          "online": "las reservas en línea se reactivan",
+          "phone": "las reservas por teléfono se reactivan",
+          "waitlist": "la lista de espera se reactiva"
+        },
+        "bookingOff": {
+          "online": "reservas en línea desactivadas",
+          "phone": "reservas por teléfono desactivadas",
+          "waitlist": "lista de espera desactivada"
+        },
+        "pacingLifted": "se quita el límite de ritmo",
+        "pacingSet": "ritmo de {{covers}} cubiertos por turno de asientos"
+      },
       "loadError": "No se pudo cargar por qué este día es así"
     }
   },

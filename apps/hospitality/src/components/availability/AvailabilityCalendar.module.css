@@ -94,21 +94,3 @@
   font-size: var(--rialto-text-xs);
   color: var(--rialto-text-primary);
 }
-
-@media (max-width: 640px) {
-  .calendar,
-  .row {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .row:first-child {
-    display: none;
-  }
-
-  .cell {
-    min-height: 0;
-    flex-direction: row;
-    align-items: center;
-  }
-}

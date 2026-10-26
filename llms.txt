@@ -1436,6 +1436,100 @@
       ): ClosureBandText { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/day-summary.ts">
+    <item priority="low">
+      interface DayPresentation {
+        bands: readonly ClosureBandText[];
+        count: string | null;
+        onlineOff: boolean;
+        accessibleDetails: string;
+        accessibleName: string;
+      }
+    </item>
+    <item priority="high">
+      export function presentDay(
+        date: string,
+        summary: AvailabilityDaySummary | undefined,
+        detailed: boolean,
+        t: TFunction,
+        format: VenueFormat
+      ): DayPresentation { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/removal-diff.ts">
+    <item priority="high">
+      type Channel = keyof BookingOpen;
+    </item>
+    <item priority="low">
+      type RemovalChange = { kind: "serviceOpens"; name:  | { kind: "serviceCloses"; name: | { kind: "opensAtChanges"; name | { kind: "closesAtChanges"; nam | { kind: "lastSeatingChanges";  | { kind: "closureLifted"; closu | { kind: "closureApplies"; clos | { kind: "bookingOn"; channel:  | { kind: "bookingOff"; channel: | { kind: "pacingLifted" } | { kind: "pacingSet"; covers: n;
+    </item>
+    <item priority="medium">
+      function serviceChanges(
+        current: readonly ResolvedService[],
+        removed: readonly ResolvedService[]
+      ): RemovalChange[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closureChanges(
+        current: readonly ResolvedClosure[],
+        removed: readonly ResolvedClosure[]
+      ): RemovalChange[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function bookingChanges(current: BookingOpen, removed: BookingOpen): RemovalChange[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function pacingChanges(current: ResolvedDaySummary, removed: ResolvedDaySummary): RemovalChange[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function diffRemoval(
+        current: ResolvedDaySummary,
+        removed: ResolvedDaySummary
+      ): RemovalChange[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function removalChangeText(
+        change: RemovalChange,
+        t: TFunction,
+        format: VenueFormat
+      ): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/resolved-day-fixtures.ts">
+    <item priority="high">
+      export const FIXTURE_DATE: unknown;
+    </item>
+    <item priority="high">
+      export const FIXTURE_TIMEZONE: unknown;
+    </item>
+    <item priority="high">
+      export const EARLY_DINNER: DateRule;
+    </item>
+    <item priority="high">
+      export const PARTY_CLOSURE: DateRule;
+    </item>
+    <item priority="high">
+      export const ONLINE_CLOSURE: DateRule;
+    </item>
+    <item priority="high">
+      export const LUNCH_CLOSURE: DateRule;
+    </item>
+    <item priority="high">
+      export const VENUE_CLOSURE: DateRule;
+    </item>
+    <item priority="high">
+      export const TONIGHT_STOP: DateRule;
+    </item>
+    <item priority="high">
+      export const TONIGHT_CLOSE: DateRule;
+    </item>
+    <item priority="high">
+      export const TONIGHT_PACING: DateRule;
+    </item>
+    <item priority="high">
+      export function resolveFixtureDay(...rules: DateRule[]): ResolvedDay { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="booking-widget">
   <file path="apps/hospitality/src/components/booking-widget/effectiveDepositPolicy.ts">
