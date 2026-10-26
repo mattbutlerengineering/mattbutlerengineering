@@ -215,8 +215,8 @@ describe("reservation transitions — effects per entry point", () => {
     }
 
     const reminderCancels = [
-      { op: "cancel", jobId: `booking-reminder:${RES_ID}` },
-      { op: "cancel", jobId: `day-of-reminder:${RES_ID}` },
+      { op: "cancel", jobId: `booking-reminder_${RES_ID}` },
+      { op: "cancel", jobId: `day-of-reminder_${RES_ID}` },
     ];
 
     it("staff-patch (admin): full refund, cancelled email, both reminders cancelled", async () => {
@@ -473,8 +473,8 @@ describe("reservation transitions — effects per entry point", () => {
       arrangeUpdate(newTime);
       await send(patch(newTime));
       expect(Object.fromEntries(rec.scheduledJobs)).toEqual({
-        [`booking-reminder:${RES_ID}`]: expect.objectContaining({ delayMs: (96 - 24) * HOUR }),
-        [`day-of-reminder:${RES_ID}`]: expect.objectContaining({ delayMs: (96 - 2) * HOUR }),
+        [`booking-reminder_${RES_ID}`]: expect.objectContaining({ delayMs: (96 - 24) * HOUR }),
+        [`day-of-reminder_${RES_ID}`]: expect.objectContaining({ delayMs: (96 - 2) * HOUR }),
       });
     });
 
@@ -564,18 +564,18 @@ describe("reservation transitions — effects per entry point", () => {
       expect(response.statusCode).toBe(200);
       expect(kinds()).toEqual(["booking-confirmation", "booking-modified"]);
       expect(rec.effects.jobs).toEqual([
-        { op: "cancel", jobId: `booking-reminder:${RES_ID}` },
-        { op: "cancel", jobId: `day-of-reminder:${RES_ID}` },
+        { op: "cancel", jobId: `booking-reminder_${RES_ID}` },
+        { op: "cancel", jobId: `day-of-reminder_${RES_ID}` },
         {
           op: "schedule",
           jobType: "booking-reminder",
-          jobId: `booking-reminder:${RES_ID}`,
+          jobId: `booking-reminder_${RES_ID}`,
           delayMs: (96 - 24) * HOUR,
         },
         {
           op: "schedule",
           jobType: "day-of-reminder",
-          jobId: `day-of-reminder:${RES_ID}`,
+          jobId: `day-of-reminder_${RES_ID}`,
           delayMs: (96 - 2) * HOUR,
         },
       ]);
@@ -640,13 +640,13 @@ describe("reservation transitions — effects per entry point", () => {
         {
           op: "schedule",
           jobType: "booking-reminder",
-          jobId: `booking-reminder:${RES_ID}`,
+          jobId: `booking-reminder_${RES_ID}`,
           delayMs: (72 - 24) * HOUR,
         },
         {
           op: "schedule",
           jobType: "day-of-reminder",
-          jobId: `day-of-reminder:${RES_ID}`,
+          jobId: `day-of-reminder_${RES_ID}`,
           delayMs: (72 - 2) * HOUR,
         },
       ]);
@@ -659,7 +659,7 @@ describe("reservation transitions — effects per entry point", () => {
         {
           op: "schedule",
           jobType: "day-of-reminder",
-          jobId: `day-of-reminder:${RES_ID}`,
+          jobId: `day-of-reminder_${RES_ID}`,
           delayMs: 3 * HOUR,
         },
       ]);

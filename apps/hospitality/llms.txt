@@ -1815,6 +1815,25 @@
       export const useSaveAvailabilityConfig: unknown;
     </item>
   </file>
+  <file path="src/hooks/useAvailabilityPreview.ts">
+    <item priority="high">
+      export const AVAILABILITY_PREVIEW_QUERY_KEY: unknown;
+    </item>
+    <item priority="low">
+      interface AvailabilityPreviewState {
+        result: PreviewResult | null;
+        isFetching: boolean;
+        error: Error | null;
+        retry: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function useAvailabilityPreview(
+        venueId: string,
+        body: PreviewAvailabilityBody | null
+      ): AvailabilityPreviewState { /* ... */ }
+    </item>
+  </file>
   <file path="src/hooks/useBriefing.ts">
     <item priority="high">
       export const BRIEFING_QUERY_KEY: unknown;
@@ -3960,12 +3979,10 @@
   </file>
   <file path="src/utils/venueOpenLabel.ts">
     <item priority="high">
-      export const WEEKDAY_LABEL: Readonly<Record<Weekday, string>>;
-    </item>
-    <item priority="high">
       export function formatVenueOpenLabel(
         s: VenueOpenState,
-        formatClock: (hhmm: string) => string = formatLocalTime
+        formatClock: (hhmm: string) => string = formatLocalTime,
+        t: TFunction = defaultT
       ): string { /* ... */ }
     </item>
   </file>

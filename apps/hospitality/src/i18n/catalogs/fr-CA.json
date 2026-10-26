@@ -596,6 +596,22 @@
   },
   "home": {
     "title": "Tableau de bord",
+    "openSign": {
+      "open": "Ouvert jusqu'à {{time}}",
+      "openingSoon": "Ouvre à {{time}}",
+      "closedToday": "Fermé, ouvre à {{time}}",
+      "closedOn": "Fermé, ouvre {{weekday}} à {{time}}",
+      "unset": "Aucun horaire d'ouverture défini",
+      "weekdays": {
+        "monday": "lundi",
+        "tuesday": "mardi",
+        "wednesday": "mercredi",
+        "thursday": "jeudi",
+        "friday": "vendredi",
+        "saturday": "samedi",
+        "sunday": "dimanche"
+      }
+    },
     "welcome": "Bon retour",
     "welcomeNamed": "Bon retour, {{name}}",
     "loadFailed": "Impossible de charger le tableau de bord.",
@@ -1790,6 +1806,33 @@
         "theirsHeading": "Son changement",
         "yoursHeading": "Votre brouillon",
         "yourService": "{{name}} {{from}} – {{to}}"
+      }
+    },
+    "preview": {
+      "title": "Aperçu pour les clients",
+      "draft": "Brouillon, non enregistré",
+      "summary": "{{added}} · {{removed}}",
+      "addedCount_one": "{{count}} heure ajoutée",
+      "addedCount_many": "{{count}} heures ajoutées",
+      "addedCount_other": "{{count}} heures ajoutées",
+      "removedCount_one": "{{count}} retirée",
+      "removedCount_many": "{{count}} retirées",
+      "removedCount_other": "{{count}} retirées",
+      "added": "{{time}} ajoutée",
+      "removed": "{{time}} retirée",
+      "slow": "L’aperçu prend plus de temps que d’habitude",
+      "unavailable": "Aperçu indisponible",
+      "unavailableHelp": "Vous pouvez quand même enregistrer; la vérification des réservations est refaite à ce moment.",
+      "retry": "Réessayer",
+      "stranded_one": "{{count}} réservation serait hors de ces heures",
+      "stranded_many": "{{count}} réservations seraient hors de ces heures",
+      "stranded_other": "{{count}} réservations seraient hors de ces heures",
+      "strandedItem": "{{date}} · {{time}} · {{size}} personnes · {{reason}}",
+      "strandedMore": "et {{count}} de plus à des dates ultérieures de la portée",
+      "reason": {
+        "closed": "fermé",
+        "outside_service": "hors service",
+        "table_blocked": "table bloquée"
       }
     },
     "discard": {

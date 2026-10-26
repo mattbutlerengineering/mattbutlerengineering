@@ -149,7 +149,7 @@ describe("reservation transitions — verbs", () => {
       "booking-reminder",
       { reservationId: "res-1", venueId: "venue-1" },
       1,
-      "booking-reminder:res-1"
+      "booking-reminder_res-1"
     );
     vi.mocked(cancelReservationWithDeposit).mockResolvedValue({
       success: true,

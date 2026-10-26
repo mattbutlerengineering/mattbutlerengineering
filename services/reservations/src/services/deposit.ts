@@ -410,6 +410,27 @@ export class DepositService {
   }
 
   /**
+   * Writes off a deposit recorded as captured (`applied` / `forfeited` /
+   * `partial_refunded`) whose capture never landed and whose intent the caller
+   * has already cancelled: nothing was charged and nothing ever will be. The
+   * same write-off `refundPartial` does for an intent it finds `canceled`.
+   * Compare-and-swap on `fromStatus`; returns the CAS count (0 = the row moved).
+   */
+  async writeOffUncaptured(
+    depositId: string,
+    fromStatus: "applied" | "forfeited" | "partial_refunded"
+  ): Promise<number> {
+    const timestampField = (
+      {
+        applied: "appliedAt",
+        forfeited: "forfeitedAt",
+        partial_refunded: "refundedAt",
+      } as const
+    )[fromStatus];
+    return this._writeOffUncollectable(depositId, fromStatus, timestampField);
+  }
+
+  /**
    * Transitions deposit from `held` → `uncollectable` when Stripe cancels the
    * authorization itself — a Stripe-internal cancellation such as the ~7-day
    * hold expiring (`cancellation_reason` other than a human/API-chosen one; see

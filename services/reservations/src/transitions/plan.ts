@@ -76,7 +76,7 @@ const REMINDERS: readonly { jobType: ReminderJobType; leadMs: number }[] = [
 ];
 
 export function reminderJobId(jobType: string, reservationId: string): string {
-  return `${jobType}:${reservationId}`;
+  return `${jobType}_${reservationId}`;
 }
 
 // ─── Effect builders ─────────────────────────────────────────────────────────
