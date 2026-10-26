@@ -90,6 +90,11 @@
       "limit": "33 kB"
     },
     {
+      "name": "Quick-setup draft + legacy-hours reader (shared by onboarding and the Availability page)",
+      "path": "dist/assets/quick-setup-draft-*.js",
+      "limit": "8 kB"
+    },
+    {
       "name": "Copilot context + catalog registry (shared by dashboard drawer and chat page)",
       "path": "dist/assets/copilotContext-*.js",
       "limit": "11 kB"
