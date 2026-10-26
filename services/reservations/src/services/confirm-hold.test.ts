@@ -386,6 +386,7 @@ describe("confirmHold", () => {
         // set_config call (ADR-026 part 6) as its first invocation — only
         // the advisory-lock call itself is asserted/ordered here.
         const sqlText = sql.sql ?? String(sql);
+        if (sqlText.includes("FOR SHARE")) callOrder.push("venue-lock");
         if (sqlText.includes("pg_advisory_xact_lock")) {
           callOrder.push("lock");
           // The SQL must take the advisory lock keyed on the table id, and must
@@ -430,10 +431,11 @@ describe("confirmHold", () => {
 
       expect(result.success).toBe(true);
       // Three $executeRaw calls: setVenueContext's set_config (ADR-026 part 6),
-      // the advisory lock — acquired before BOTH conflict checks — then the
-      // gate's venue-row share lock (#7679).
+      // the gate's venue-row share lock, then the advisory lock — acquired
+      // before BOTH conflict checks (#7679).
       expect(executeRaw).toHaveBeenCalledTimes(3);
-      expect(callOrder[0]).toBe("lock");
+      // Venue row before table lock: the closure command's order (#7679).
+      expect(callOrder.slice(0, 2)).toEqual(["venue-lock", "lock"]);
       expect(callOrder.indexOf("lock")).toBeLessThan(callOrder.indexOf("reservation.findFirst"));
       expect(callOrder.indexOf("lock")).toBeLessThan(callOrder.indexOf("hold.findFirst"));
     });

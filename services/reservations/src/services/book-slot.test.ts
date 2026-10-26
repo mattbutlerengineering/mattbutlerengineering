@@ -289,7 +289,7 @@ describe("bookSlot", () => {
     });
   });
 
-  it("share-locks the venue row, after the table lock and before the gate reads config", async () => {
+  it("share-locks the venue row first, then the table lock, then the gate reads config", async () => {
     // A closure commit CASes the venue row; sharing it makes an in-flight booking and the
     // closure serialise, so a booking cannot land under a closure it never saw (#7679).
     const tx = makeTx();
@@ -300,11 +300,14 @@ describe("bookSlot", () => {
     const statements = vi.mocked(tx.$executeRaw).mock.calls.map((call) => sqlOf(call[0]));
     const tableLock = statements.findIndex((s) => s.sql.includes("pg_advisory_xact_lock"));
     const venueLock = statements.findIndex((s) => s.sql.includes("FOR SHARE"));
-    expect(venueLock).toBeGreaterThan(tableLock);
+    expect(venueLock).toBeGreaterThanOrEqual(0);
+    expect(venueLock).toBeLessThan(tableLock);
     expect(statements[venueLock]?.sql).toContain("venues");
     expect(statements[venueLock]?.values).toContain("venue-1");
     const lockOrder = vi.mocked(tx.$executeRaw).mock.invocationCallOrder[venueLock] ?? 0;
-    expect(lockOrder).toBeLessThan(vi.mocked(judgeBooking).mock.invocationCallOrder[0] ?? 0);
+    const tableOrder = vi.mocked(tx.$executeRaw).mock.invocationCallOrder[tableLock] ?? 0;
+    expect(lockOrder).toBeLessThan(tableOrder);
+    expect(tableOrder).toBeLessThan(vi.mocked(judgeBooking).mock.invocationCallOrder[0] ?? 0);
   });
 
   it("does not share-lock the venue row when the intent skips the gate", async () => {

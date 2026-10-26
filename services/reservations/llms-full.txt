@@ -12841,6 +12841,10 @@
         // 6), using the intent's own (already-resolved) venueId.
         await setVenueContext(tx, venueId);
     
+        // Gated writes take the venue row first (share), the order the closure command uses
+        // (venue row, then table locks), so the two can never wait on each other in a cycle.
+        if (gate && venueId) await tx.$executeRaw(venueShareLockSql(venueId));
+    
         // Serialize conflict-checked writes per table BEFORE any conflict check so
         // concurrent slot writes cannot both pass and double-book. Released
         // automatically when the transaction ends.
@@ -12939,7 +12943,6 @@
       intent: BookSlotIntent<unknown> & { venueId: string },
       gate: NonNullable<BookSlotIntent<unknown>["gate"]>
     ): Promise<{ conflict?: SlotConflict; overrideLimits?: SoftLimit[] }> {
-      await tx.$executeRaw(venueShareLockSql(intent.venueId));
       const outcome = await judgeBooking(tx, {
         venueId: intent.venueId,
         tableId: intent.tableId,
