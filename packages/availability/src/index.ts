@@ -1,6 +1,7 @@
 export { addDays, weekdayIndexOf, weekdayOf } from "./civil-date.js";
 export { ARCHIVED_ON_REMOVE, applyChanges, applyDraft } from "./apply-draft.js";
 export { activeRules } from "./date-rules.js";
+export { firstOccurrenceOnOrAfter, type OccurrenceRule } from "./first-occurrence.js";
 export { diffDays, type DayDiff, type DiffDaysOptions } from "./diff-days.js";
 export { localDateTimeOf, serviceDayInstant } from "./instant.js";
 export {
@@ -58,6 +59,7 @@ export {
 export {
   judge,
   listSlots,
+  owningServiceDate,
   type BookingChannel,
   type BookingRequest,
   type BookingSnapshot,

@@ -1,4 +1,4 @@
-import type { VenueSettings } from "@mbe/types";
+import { toDateString, type VenueSettings } from "@mbe/types";
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import {
@@ -261,6 +261,7 @@ async function availabilityVerdict(
     venueId: intent.venueId,
     tableId: intent.tableId,
     start: intent.window.startTime,
+    serviceDate: Number.isNaN(intent.date.getTime()) ? "invalid" : toDateString(intent.date),
     end: intent.window.endTime,
     partySize: intent.partySize,
     channel: gate.channel,

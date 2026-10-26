@@ -280,6 +280,7 @@ describe("bookSlot", () => {
       venueId: "venue-1",
       tableId: "table-1",
       start: START,
+      serviceDate: "2026-05-05",
       end: END,
       partySize: 2,
       channel: "phone",
