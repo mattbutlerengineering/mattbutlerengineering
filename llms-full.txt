@@ -14745,6 +14745,15 @@
     }
   </file>
   </section>
+  <section priority="medium" role="fixtures">
+  <file path="apps/hospitality/e2e/fixtures/locale-sweep-readable.ts">
+    export const MIN_LITERAL_LETTERS = 3;
+    export function hasReadableLiteral(value: string): boolean {
+      const letters = value.replace(PLACEHOLDER, "").match(/\p{L}/gu);
+      return (letters?.length ?? 0) >= MIN_LITERAL_LETTERS;
+    }
+  </file>
+  </section>
   <section priority="medium" role="floor-plan">
   <file path="apps/hospitality/src/components/floor-plan/apply-room-template.ts">
     export interface RoomTemplateApi {
