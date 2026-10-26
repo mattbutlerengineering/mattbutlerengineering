@@ -226,7 +226,13 @@ interface SummaryRow {
   id: string;
   reservation: {
     guestName: string | null;
-    deposit: { amountCents: number; currency: string } | null;
+    deposit: {
+      amountCents: number;
+      currency: string;
+      status: string;
+      refundAmountCents: number | null;
+      postCaptureRefundCents: number | null;
+    } | null;
   };
   dateRuleId: string;
   action: NoticeOutcome["action"];
@@ -246,12 +252,21 @@ const EMPTY_SUMMARY = {
   refundPending: 0,
 };
 
+/**
+ * What a closure refund still owes: the deposit less its own partial refund and anything
+ * refunded after capture, as `closure-refund.ts` computes it before calling Stripe.
+ */
+function refundOwedCents(deposit: NonNullable<SummaryRow["reservation"]["deposit"]>): number {
+  const ownLeg = deposit.status === "partial_refunded" ? (deposit.refundAmountCents ?? 0) : 0;
+  return Math.max(0, deposit.amountCents - ownLeg - (deposit.postCaptureRefundCents ?? 0));
+}
+
 function refundFailureOf(row: SummaryRow): RefundFailure {
   const { guestName, deposit } = row.reservation;
   return {
     outcomeId: row.id,
     guestName,
-    amountCents: deposit?.amountCents ?? null,
+    amountCents: deposit ? refundOwedCents(deposit) : null,
     currency: deposit?.currency ?? null,
   };
 }
@@ -300,7 +315,18 @@ export async function listSummaries(venueId: string, db: Db = prisma): Promise<C
       rebookedReservationId: true,
       refund: true,
       reservation: {
-        select: { guestName: true, deposit: { select: { amountCents: true, currency: true } } },
+        select: {
+          guestName: true,
+          deposit: {
+            select: {
+              amountCents: true,
+              currency: true,
+              status: true,
+              refundAmountCents: true,
+              postCaptureRefundCents: true,
+            },
+          },
+        },
       },
     },
   });

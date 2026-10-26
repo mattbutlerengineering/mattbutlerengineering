@@ -3094,11 +3094,15 @@
         id: string;
         reservation: {
           guestName: string | null;
-          deposit: { amountCent...;
+          deposit: {
+            amou...;
         dateRuleId: string;
         action: NoticeOutcome["action"];
         deliveries: unknown;
       }
+    </item>
+    <item priority="medium">
+      function refundOwedCents(deposit: NonNullable<SummaryRow["reservation"]["deposit"]>): number { /* ... */ }
     </item>
     <item priority="medium">
       function refundFailureOf(row: SummaryRow): RefundFailure { /* ... */ }

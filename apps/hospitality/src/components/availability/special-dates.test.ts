@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { ClosureSummary, DateRule } from "@mbe/types";
-import { hoursEditDate, orphanRefundRules, specialDateRows } from "./special-dates.js";
+import {
+  hoursEditDate,
+  orphanRefundRules,
+  refundFailureLabel,
+  specialDateRows,
+} from "./special-dates.js";
 
 describe("hoursEditDate", () => {
   const range = (startsOn: string, endsOn: string | null) =>
@@ -109,5 +114,19 @@ describe("orphanRefundRules", () => {
       "tonight",
       "reopened",
     ]);
+  });
+});
+
+describe("refundFailureLabel", () => {
+  const format = (cents: number, currency: string) => `${currency}:${cents}`;
+
+  it("formats the amount in the deposit's own currency", () => {
+    const failure = { outcomeId: "o", guestName: "Rivera", amountCents: 4000, currency: "cad" };
+    expect(refundFailureLabel(failure, format, "Unnamed")).toBe("Rivera (cad:4000)");
+  });
+
+  it("drops the amount when it or its currency is unknown", () => {
+    const failure = { outcomeId: "o", guestName: null, amountCents: 4000, currency: null };
+    expect(refundFailureLabel(failure, format, "Unnamed")).toBe("Unnamed");
   });
 });

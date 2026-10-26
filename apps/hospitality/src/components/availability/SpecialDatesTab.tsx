@@ -16,6 +16,7 @@ import type { AvailabilityConfigState, ClosureSummary, DateRule } from "@mbe/typ
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useClosureSummaries, useRetryClosureRefunds } from "../../hooks/useClosures.js";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
+import { formatCurrencyFromCents } from "../../utils/format.js";
 import { addDays } from "../../utils/service-day.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import { CallListDialog } from "./CallListDialog.js";
@@ -153,7 +154,8 @@ function SpecialDateItem(props: RowProps) {
                     .map((f) =>
                       refundFailureLabel(
                         f,
-                        format.formatMoney,
+                        (cents, currency) =>
+                          formatCurrencyFromCents(cents, currency, format.locale),
                         t("availabilitySpecial.callList.unnamed")
                       )
                     )

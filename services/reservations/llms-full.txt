@@ -14230,7 +14230,13 @@
       id: string;
       reservation: {
         guestName: string | null;
-        deposit: { amountCents: number; currency: string } | null;
+        deposit: {
+          amountCents: number;
+          currency: string;
+          status: string;
+          refundAmountCents: number | null;
+          postCaptureRefundCents: number | null;
+        } | null;
       };
       dateRuleId: string;
       action: NoticeOutcome["action"];
@@ -14238,12 +14244,16 @@
       rebookedReservationId: string | null;
       refund: string;
     }
+    function refundOwedCents(deposit: NonNullable<SummaryRow["reservation"]["deposit"]>): number {
+      const ownLeg = deposit.status === "partial_refunded" ? (deposit.refundAmountCents ?? 0) : 0;
+      return Math.max(0, deposit.amountCents - ownLeg - (deposit.postCaptureRefundCents ?? 0));
+    }
     function refundFailureOf(row: SummaryRow): RefundFailure {
       const { guestName, deposit } = row.reservation;
       return {
         outcomeId: row.id,
         guestName,
-        amountCents: deposit?.amountCents ?? null,
+        amountCents: deposit ? refundOwedCents(deposit) : null,
         currency: deposit?.currency ?? null,
       };
     }
@@ -14284,7 +14294,18 @@
           rebookedReservationId: true,
           refund: true,
           reservation: {
-            select: { guestName: true, deposit: { select: { amountCents: true, currency: true } } },
+            select: {
+              guestName: true,
+              deposit: {
+                select: {
+                  amountCents: true,
+                  currency: true,
+                  status: true,
+                  refundAmountCents: true,
+                  postCaptureRefundCents: true,
+                },
+              },
+            },
           },
         },
       });
@@ -14458,7 +14479,7 @@
         listByRule: (venueId, ruleId, statuses) =>
           prisma.closureOutcome.findMany({
             where: { venueId, dateRuleId: ruleId, refund: { in: [...statuses] } },
-            select: { id: true, reservationId: true },
+            select: { id: true, reservationId: true, refund: true },
           }),
       };
     }
@@ -14476,8 +14497,10 @@
       load(outcomeId: string): Promise<ClosureRefundRow | null>;
       setRefund(outcomeId: string, refund: ClosureRefundStatus): Promise<void>;
       /**
-       * Returns a `failed` outcome to `pending` once its retry job exists. Conditional on
-       * `failed`: a row that settled (`done` / `none`) or already failed again is left alone.
+       * Returns a `failed` outcome to `pending` BEFORE its retry job is scheduled. Conditional on
+       * `failed`: a row that settled (`done` / `none`) or is already `pending` is left alone.
+       * Resetting first means a job that fails permanently always runs `markFailed` after the
+       * reset, so the failure is never overwritten.
        */
       resetToPending(outcomeId: string): Promise<void>;
       /** Records `failed`, leaving an outcome a concurrent run already settled (`done` / `none`). */
@@ -14487,7 +14510,7 @@
         venueId: string,
         ruleId: string,
         statuses: readonly ClosureRefundStatus[]
-      ): Promise<{ id: string; reservationId: string }[]>;
+      ): Promise<{ id: string; reservationId: string; refund: ClosureRefundStatus }[]>;
     }
     export interface ClosureRefundDeps {
       deposits: Pick<DepositService, "getByReservationId" | "hold" | "refund" | "writeOffUncaptured">;
@@ -14651,6 +14674,7 @@
         const base = closureRefundJobId(ruleId, outcome.reservationId);
         const jobId = opts.retry ? `${base}_retry_${(opts.now ?? Date.now)()}` : base;
         try {
+          if (opts.retry) await deps.store.resetToPending(outcome.id);
           await deps.jobs.schedule(
             JOB_TYPES.CLOSURE_REFUND,
             { outcomeId: outcome.id, venueId },
@@ -14658,17 +14682,12 @@
             jobId
           );
         } catch (error) {
+          if (opts.retry && outcome.refund === "failed") {
+            await deps.store.markFailed(outcome.id).catch(() => undefined);
+          }
           throw new ClosureRefundEnqueueError(enqueued, error);
         }
-        // The job exists from here on, so it counts even if the reset below throws.
         enqueued += 1;
-        if (opts.retry) {
-          try {
-            await deps.store.resetToPending(outcome.id);
-          } catch (error) {
-            throw new ClosureRefundEnqueueError(enqueued, error);
-          }
-        }
       }
       return enqueued;
     }

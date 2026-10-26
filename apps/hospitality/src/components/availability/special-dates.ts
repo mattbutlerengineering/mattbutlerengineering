@@ -68,14 +68,19 @@ export function hoursEditDate(rule: DateRule, today: string): string | null {
 export const coversManyDates = (rule: DateRule): boolean =>
   rule.repeat != null || rule.endsOn !== rule.startsOn;
 
-/** "Rivera ($40.00)": a failed refund's guest and amount; the amount is omitted when unknown. */
+/**
+ * "Rivera ($40.00)": a failed refund's guest and amount, in the deposit's own currency (which can
+ * differ from the venue's); the amount is omitted when unknown.
+ */
 export function refundFailureLabel(
   failure: RefundFailure,
-  formatMoney: (cents: number) => string,
+  formatMoney: (cents: number, currency: string) => string,
   unnamed: string
 ): string {
   const name = failure.guestName ?? unnamed;
-  return failure.amountCents == null ? name : `${name} (${formatMoney(failure.amountCents)})`;
+  return failure.amountCents == null || failure.currency == null
+    ? name
+    : `${name} (${formatMoney(failure.amountCents, failure.currency)})`;
 }
 
 /**

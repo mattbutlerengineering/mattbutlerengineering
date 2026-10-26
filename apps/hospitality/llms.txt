@@ -762,7 +762,7 @@
     <item priority="high">
       export function refundFailureLabel(
         failure: RefundFailure,
-        formatMoney: (cents: number) => string,
+        formatMoney: (cents: number, currency: string) => string,
         unnamed: string
       ): string { /* ... */ }
     </item>

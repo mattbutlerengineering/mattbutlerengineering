@@ -11,7 +11,16 @@ const row = (over: Record<string, unknown> = {}) => ({
   deliveries: {},
   rebookedReservationId: null,
   refund: "none",
-  reservation: { guestName: "Rivera", deposit: { amountCents: 4000, currency: "usd" } },
+  reservation: {
+    guestName: "Rivera",
+    deposit: {
+      amountCents: 4000,
+      currency: "usd",
+      status: "applied",
+      refundAmountCents: null,
+      postCaptureRefundCents: null,
+    },
+  },
   ...over,
 });
 
@@ -59,6 +68,28 @@ describe("summarizeOutcomes", () => {
     ]);
 
     expect(summary).toMatchObject({ refundFailed: 1, refundPending: 1 });
+  });
+
+  it("reports the amount still owed on a partially refunded deposit", () => {
+    const deposit = (over: Record<string, unknown>) => ({
+      guestName: "Rivera",
+      deposit: {
+        amountCents: 4000,
+        currency: "usd",
+        status: "partial_refunded",
+        refundAmountCents: 1500,
+        postCaptureRefundCents: 500,
+        ...over,
+      },
+    });
+    const [summary] = summarizeOutcomes([
+      row({ refund: "failed", id: "o-1", reservation: deposit({}) }),
+      row({ refund: "failed", id: "o-2", reservation: deposit({ status: "applied" }) }),
+      row({ refund: "failed", id: "o-3", reservation: deposit({ postCaptureRefundCents: 9000 }) }),
+    ]);
+
+    // own leg 1500 + post-capture 500 come off; a non-partial deposit has no own leg; never negative.
+    expect(summary?.refundFailures.map((f) => f.amountCents)).toEqual([2000, 3500, 0]);
   });
 
   it("names each failed refund with the guest and the amount in minor units, and no contact details", () => {

@@ -34,7 +34,7 @@ export function createPrismaClosureRefundStore(): ClosureRefundStore {
     listByRule: (venueId, ruleId, statuses) =>
       prisma.closureOutcome.findMany({
         where: { venueId, dateRuleId: ruleId, refund: { in: [...statuses] } },
-        select: { id: true, reservationId: true },
+        select: { id: true, reservationId: true, refund: true },
       }),
   };
 }

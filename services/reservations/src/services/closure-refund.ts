@@ -51,8 +51,10 @@ export interface ClosureRefundStore {
   load(outcomeId: string): Promise<ClosureRefundRow | null>;
   setRefund(outcomeId: string, refund: ClosureRefundStatus): Promise<void>;
   /**
-   * Returns a `failed` outcome to `pending` once its retry job exists. Conditional on
-   * `failed`: a row that settled (`done` / `none`) or already failed again is left alone.
+   * Returns a `failed` outcome to `pending` BEFORE its retry job is scheduled. Conditional on
+   * `failed`: a row that settled (`done` / `none`) or is already `pending` is left alone.
+   * Resetting first means a job that fails permanently always runs `markFailed` after the
+   * reset, so the failure is never overwritten.
    */
   resetToPending(outcomeId: string): Promise<void>;
   /** Records `failed`, leaving an outcome a concurrent run already settled (`done` / `none`). */
@@ -62,7 +64,7 @@ export interface ClosureRefundStore {
     venueId: string,
     ruleId: string,
     statuses: readonly ClosureRefundStatus[]
-  ): Promise<{ id: string; reservationId: string }[]>;
+  ): Promise<{ id: string; reservationId: string; refund: ClosureRefundStatus }[]>;
 }
 
 export interface ClosureRefundDeps {
@@ -262,8 +264,9 @@ export class ClosureRefundEnqueueError extends Error {
  * Enqueues one job per outcome of the closure whose refund is in `statuses`,
  * after the closure's transaction committed. A retry uses a fresh job id (BullMQ
  * keeps a failed job under its old id and would silently ignore a re-add) and
- * schedules BEFORE touching the row: a queue failure then leaves that row as it
- * was, and the conditional reset never overwrites an outcome that settled meanwhile.
+ * resets a `failed` row to `pending` BEFORE scheduling, so the job's own `markFailed` always
+ * lands after the reset. If scheduling fails, a row that was `failed` is put back to `failed`
+ * (the same conditional update, so a settled row is untouched).
  * A failure partway throws `ClosureRefundEnqueueError` with the count already scheduled.
  */
 export async function enqueueClosureRefunds(
@@ -279,6 +282,7 @@ export async function enqueueClosureRefunds(
     const base = closureRefundJobId(ruleId, outcome.reservationId);
     const jobId = opts.retry ? `${base}_retry_${(opts.now ?? Date.now)()}` : base;
     try {
+      if (opts.retry) await deps.store.resetToPending(outcome.id);
       await deps.jobs.schedule(
         JOB_TYPES.CLOSURE_REFUND,
         { outcomeId: outcome.id, venueId },
@@ -286,17 +290,12 @@ export async function enqueueClosureRefunds(
         jobId
       );
     } catch (error) {
+      if (opts.retry && outcome.refund === "failed") {
+        await deps.store.markFailed(outcome.id).catch(() => undefined);
+      }
       throw new ClosureRefundEnqueueError(enqueued, error);
     }
-    // The job exists from here on, so it counts even if the reset below throws.
     enqueued += 1;
-    if (opts.retry) {
-      try {
-        await deps.store.resetToPending(outcome.id);
-      } catch (error) {
-        throw new ClosureRefundEnqueueError(enqueued, error);
-      }
-    }
   }
   return enqueued;
 }
