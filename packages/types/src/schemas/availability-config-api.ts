@@ -436,6 +436,15 @@ export const ReopenResultSchema = z.object({ version: z.number().int(), changeId
  * keyed by the date rule that made it. Rows exist even after the rule is gone
  * (a reopened closure, an ended Tonight change), so refunds can still be retried.
  */
+export const RefundFailureSchema = z.object({
+  outcomeId: z.string(),
+  /** The guest's name as booked; no email or phone travels here. */
+  guestName: z.string().nullable(),
+  /** The deposit being refunded, in integer minor units; null when no deposit is on file. */
+  amountCents: z.number().int().nullable(),
+  currency: z.string().nullable(),
+});
+
 export const ClosureSummarySchema = z.object({
   ruleId: z.string(),
   /** Outcomes the closure produced. */
@@ -450,6 +459,8 @@ export const ClosureSummarySchema = z.object({
   unreachable: z.number().int(),
   /** Deposit refunds the refund job gave up on. */
   refundFailed: z.number().int(),
+  /** The failed refunds, named, for "Refund failed: Rivera ($40)". */
+  refundFailures: z.array(RefundFailureSchema),
   /** Deposit refunds not yet settled (also retried: the enqueue itself may have been lost). */
   refundPending: z.number().int(),
 });
@@ -526,6 +537,7 @@ export type CreateClosureBody = z.infer<typeof CreateClosureBodySchema>;
 export type ReopenClosureBody = z.infer<typeof ReopenClosureBodySchema>;
 export type ClosureResult = z.infer<typeof ClosureResultSchema>;
 export type ReopenResult = z.infer<typeof ReopenResultSchema>;
+export type RefundFailure = z.infer<typeof RefundFailureSchema>;
 export type ClosureSummary = z.infer<typeof ClosureSummarySchema>;
 export type RetryRefundsResult = z.infer<typeof RetryRefundsResultSchema>;
 export type ClosureCallListEntry = z.infer<typeof CallListEntrySchema>;

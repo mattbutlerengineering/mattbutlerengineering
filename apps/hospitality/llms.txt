@@ -767,10 +767,17 @@
       ): SpecialDateRow[] { /* ... */ }
     </item>
     <item priority="high">
-      export function hoursEditDate(rule: DateRule, today: string): string { /* ... */ }
+      export function hoursEditDate(rule: DateRule, today: string): string | null { /* ... */ }
     </item>
     <item priority="high">
       export const coversManyDates: unknown;
+    </item>
+    <item priority="high">
+      export function refundFailureLabel(
+        failure: RefundFailure,
+        formatMoney: (cents: number, currency: string) => string,
+        unnamed: string
+      ): string { /* ... */ }
     </item>
     <item priority="high">
       export function orphanRefundRules(

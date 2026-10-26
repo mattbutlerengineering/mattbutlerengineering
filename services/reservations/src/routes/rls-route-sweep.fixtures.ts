@@ -1,7 +1,7 @@
 import { expect } from "vitest";
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance, InjectOptions, LightMyRequestResponse } from "fastify";
-import { AVAILABILITY_CONFIG_PREFIX } from "@mbe/types";
+import { AVAILABILITY_CONFIG_PREFIX, ClosureSummariesSchema } from "@mbe/types";
 
 /**
  * #5369 PR 2 — the route-sweep completeness data. Kept out of the `.test.ts`
@@ -1128,7 +1128,10 @@ const availabilityFixtures: Record<string, RouteFixture> = {
       method: "GET" as const,
       url: `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/closures`,
     });
-    expectOk(await asAdmin(ctx, list(ctx.venueA.id)), "admin venue A");
+    const listed = await asAdmin(ctx, list(ctx.venueA.id));
+    expectOk(listed, "admin venue A");
+    // The named-refund join (reservation + deposit) must still satisfy the response schema.
+    expect(() => ClosureSummariesSchema.parse(JSON.parse(listed.body).data)).not.toThrow();
     expectOk(await asAdmin(ctx, list(ctx.venueB.id)), "admin venue B");
     expectDenied(await asMember(ctx, list(ctx.venueB.id)), "member venue B");
   }),

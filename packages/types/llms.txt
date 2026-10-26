@@ -370,6 +370,9 @@
       export const ReopenResultSchema: unknown;
     </item>
     <item priority="high">
+      export const RefundFailureSchema: unknown;
+    </item>
+    <item priority="high">
       export const ClosureSummarySchema: unknown;
     </item>
     <item priority="high">
@@ -413,6 +416,9 @@
     </item>
     <item priority="low">
       type ReopenResult = z.infer<typeof ReopenResultSchema>;
+    </item>
+    <item priority="low">
+      type RefundFailure = z.infer<typeof RefundFailureSchema>;
     </item>
     <item priority="low">
       type ClosureSummary = z.infer<typeof ClosureSummarySchema>;

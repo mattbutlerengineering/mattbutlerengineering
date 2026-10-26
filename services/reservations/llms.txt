@@ -3121,14 +3121,31 @@
         rebooked: number;
       }
     </item>
+    <item priority="low">
+      interface RefundFailure {
+        outcomeId: string;
+        guestName: string | null;
+        amountCents: number | null;
+        currency: string | null;
+      }
+    </item>
     <item priority="high">
       interface SummaryRow {
+        id: string;
+        reservation: {
+          guestName: string | null;
+          deposit: {
+            amou...;
         dateRuleId: string;
         action: NoticeOutcome["action"];
         deliveries: unknown;
-        rebookedReservationId: string | null;
-        refund: string;
       }
+    </item>
+    <item priority="medium">
+      function refundOwedCents(deposit: NonNullable<SummaryRow["reservation"]["deposit"]>): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function refundFailureOf(row: SummaryRow): RefundFailure { /* ... */ }
     </item>
     <item priority="high">
       export function summarizeOutcomes(rows: readonly SummaryRow[]): ClosureSummary[] { /* ... */ }
@@ -3266,6 +3283,11 @@
         opts: { isFinalAttempt: boolean }
       ): Promise<void> { /* ... */ }
     </item>
+    <item priority="low">
+      interface RefundLogger {
+        
+      }
+    </item>
     <item priority="high">
       class ClosureRefundEnqueueError {
         
@@ -3273,7 +3295,11 @@
     </item>
     <item priority="high">
       export async function enqueueClosureRefunds(
-        deps: { store: ClosureRefundStore; jobs: Pick<JobScheduler, "schedule"> },
+        deps: {
+          store: ClosureRefundStore;
+          jobs: Pick<JobScheduler, "schedule">;
+          log?: RefundLogger;
+        },
         venueId: string,
         ruleId: string,
         statuses: readonly ClosureRefundStatus[],
@@ -3289,6 +3315,7 @@
       export function createClosureRefunds(deps: {
         store: ClosureRefundStore;
         jobs: Pick<JobScheduler, "schedule">;
+        log?: RefundLogger;
       }): ClosureRefunds { /* ... */ }
     </item>
   </file>
