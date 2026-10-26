@@ -480,6 +480,22 @@
       return { upsert: scheduleServices.length > 0 ? { scheduleServices } : {}, remove: {} };
     }
   </file>
+  <file path="src/components/availability/conflict-problem.ts">
+    export type Conflict =
+      /** Someone saved first; `winningChange` is `null` when the server recorded none. */
+      | { readonly code: "version-conflict"; readonly winningChange: AvailabilityChangeSummary | null }
+      /** This attempt id already committed (a response was lost). */
+      | { readonly code: "closure-exists" };
+    export function conflictOf(error: unknown): Conflict | null {
+      const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
+      const problem = AvailabilityConfigProblemSchema.safeParse(details);
+      if (!problem.success) return null;
+      if (problem.data.code === "version-conflict") {
+        return { code: "version-conflict", winningChange: problem.data.winningChange ?? null };
+      }
+      return problem.data.code === "closure-exists" ? { code: "closure-exists" } : null;
+    }
+  </file>
   <file path="src/components/availability/copy-day.ts">
     export interface CopyTarget {
       readonly weekdays: readonly number[];
@@ -2084,6 +2100,22 @@
       };
     
       return { save, isPending, failure, clearFailure: () => setFailure([]) };
+    }
+  </file>
+  <file path="src/components/availability/use-winning-change-text.ts">
+    export function useWinningChangeText(winningChange: AvailabilityChangeSummary | null): string {
+      const { t } = useTranslation();
+      const format = useVenueFormat();
+      const { user } = useAuth();
+      if (!winningChange) return t("availability.conflict.unknown");
+      return t("availability.conflict.winning", {
+        who:
+          user?.id === winningChange.actorId
+            ? t("availability.history.you")
+            : t("availability.history.teammate"),
+        summary: winningChange.summary,
+        when: format.formatInstant(winningChange.at, { hour: "numeric", minute: "2-digit" }),
+      });
     }
   </file>
   <file path="src/components/availability/useDateSelection.ts">
@@ -7487,6 +7519,15 @@
         () => createApiClient({ baseUrl, getAccessToken: () => null, maxRetries }),
         [baseUrl, maxRetries]
       );
+    }
+  </file>
+  <file path="src/hooks/useRefreshAvailability.ts">
+    export function useRefreshAvailability(): () => void {
+      const queryClient = useQueryClient();
+      return useCallback(() => {
+        void queryClient.invalidateQueries({ queryKey: [AVAILABILITY_CONFIG_QUERY_KEY] });
+        void queryClient.invalidateQueries({ queryKey: [AVAILABILITY_DAYS_QUERY_KEY] });
+      }, [queryClient]);
     }
   </file>
   <file path="src/hooks/useReservationDisplay.ts">

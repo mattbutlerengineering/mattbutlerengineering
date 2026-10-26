@@ -255,6 +255,14 @@
       ): AvailabilityConfigChanges { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/conflict-problem.ts">
+    <item priority="low">
+      type Conflict = { readonly code: "version-conf | { readonly code: "closure-exis;
+    </item>
+    <item priority="high">
+      export function conflictOf(error: unknown): Conflict | null { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/copy-day.ts">
     <item priority="low">
       interface CopyTarget {
@@ -927,6 +935,11 @@
           | "availabilitySpecial.series.stranded"
           | "availabilitySpecial.rowStranded" = "availabilitySchedules.stranded"
       ) { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/use-winning-change-text.ts">
+    <item priority="high">
+      export function useWinningChangeText(winningChange: AvailabilityChangeSummary | null): string { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/useDateSelection.ts">
@@ -2819,6 +2832,11 @@
     </item>
     <item priority="high">
       export function usePublicApiClient(options: UsePublicApiClientOptions = {}) { /* ... */ }
+    </item>
+  </file>
+  <file path="src/hooks/useRefreshAvailability.ts">
+    <item priority="high">
+      export function useRefreshAvailability(): () => void { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useReservationDisplay.ts">
