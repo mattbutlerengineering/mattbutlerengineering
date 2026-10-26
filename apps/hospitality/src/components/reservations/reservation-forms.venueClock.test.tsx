@@ -15,7 +15,7 @@ vi.mock("../../contexts/venue-context-object.js", () => ({
 }));
 
 vi.mock("../../hooks/useStaffBookingCheck.js", () => ({
-  useStaffBookingCheck: () => ({ phase: "idle", verdict: null, blockedTableIds: new Set() }),
+  useStaffBookingCheck: () => ({ phase: "idle", verdict: null }),
 }));
 vi.mock("../../hooks/useOpenTimes.js", () => ({
   useOpenTimes: () => ({ data: [], isLoading: false, error: null }),

@@ -17421,68 +17421,69 @@
   </file>
   <file path="apps/hospitality/src/hooks/useStaffBookingCheck.ts">
     export const STAFF_BOOKING_CHECK_QUERY_KEY = "staffBookingCheck" as const;
+    type BookingWindow = { start: string; end: string };
     export interface StaffCheckParams {
       venueId: string | null | undefined;
       /** The booking's real start and end (ISO); null until date and time are both entered. */
-      window: { start: string; end: string } | null;
+      window: BookingWindow | null;
       partySize: number;
-      /** Every table the form offers; each is checked so blocked ones can be greyed out. */
-      tableIds: readonly string[];
+      /** The table the form has selected; empty means nothing to check. */
       selectedTableId: string;
     }
     export interface StaffCheckResult {
-      /** `idle`: nothing to ask yet. `failed`: the selected table's check errored, so the server decides. */
+      /** `idle`: nothing to ask yet. `failed`: the check errored, so the server decides. */
       phase: "idle" | "checking" | "done" | "failed";
-      /** The selected table's verdict, once known. */
       verdict: AvailabilityCheckResult | null;
-      /** Tables the check refuses outright at this time (`table_blocked`). */
-      blockedTableIds: ReadonlySet<string>;
     }
     export function useStaffBookingCheck({
       venueId,
       window,
       partySize,
-      tableIds,
       selectedTableId,
     }: StaffCheckParams): StaffCheckResult {
       const api = useApiClient();
-      const enabled = !!venueId && window !== null;
-      const results = useQueries({
-        queries: tableIds.map((tableId) => ({
-          queryKey: [
-            STAFF_BOOKING_CHECK_QUERY_KEY,
-            venueId,
-            window?.start,
-            window?.end,
+      const [settled, setSettled] = useState<BookingWindow | null>(null);
+      const startKey = window?.start;
+      const endKey = window?.end;
+    
+      useEffect(() => {
+        const timer = setTimeout(
+          () => setSettled(startKey && endKey ? { start: startKey, end: endKey } : null),
+          DEBOUNCE_MS
+        );
+        return () => clearTimeout(timer);
+      }, [startKey, endKey]);
+    
+      const enabled = !!venueId && !!selectedTableId && settled !== null && window !== null;
+      const query = useQuery({
+        queryKey: [
+          STAFF_BOOKING_CHECK_QUERY_KEY,
+          venueId,
+          settled?.start,
+          settled?.end,
+          partySize,
+          selectedTableId,
+        ],
+        queryFn: () =>
+          api.availability.checkBooking(venueId as string, {
+            start: (settled as BookingWindow).start,
+            end: (settled as BookingWindow).end,
             partySize,
-            tableId,
-          ],
-          queryFn: () =>
-            api.availability.checkBooking(venueId as string, {
-              start: (window as { start: string }).start,
-              end: (window as { end: string }).end,
-              partySize,
-              channel: "phone",
-              tableId,
-            }),
-          enabled,
-          retry: false,
-        })),
+            channel: "phone",
+            tableId: selectedTableId,
+          }),
+        enabled,
+        retry: false,
       });
     
-      const blockedTableIds = new Set<string>();
-      tableIds.forEach((id, index) => {
-        const data = results[index]?.data;
-        if (data?.kind === "hard" && data.reason === "table_blocked") blockedTableIds.add(id);
-      });
-    
-      const selected = results[tableIds.indexOf(selectedTableId)];
-      if (!enabled || selected === undefined) {
-        return { phase: "idle", verdict: null, blockedTableIds };
+      if (window === null || !venueId || !selectedTableId) return { phase: "idle", verdict: null };
+      // Still inside the pause: the answer on hand (if any) is for an earlier window.
+      if (settled === null || settled.start !== window.start || settled.end !== window.end) {
+        return { phase: "checking", verdict: null };
       }
-      if (selected.isError) return { phase: "failed", verdict: null, blockedTableIds };
-      if (selected.data === undefined) return { phase: "checking", verdict: null, blockedTableIds };
-      return { phase: "done", verdict: selected.data, blockedTableIds };
+      if (query.isError) return { phase: "failed", verdict: null };
+      if (query.data === undefined) return { phase: "checking", verdict: null };
+      return { phase: "done", verdict: query.data };
     }
   </file>
   <file path="apps/hospitality/src/hooks/useStatusMessage.ts">
@@ -52469,6 +52470,8 @@
       guestPhone: string | null;
       guestId: string | null;
       userId: string | null;
+      /** Staff override reason; selected rows predating the column or partial selects omit it. */
+      overrideReason?: string | null;
       tableId: string;
       table?: PrismaTableRow | null;
       guest?: {
@@ -52525,7 +52528,7 @@
       };
     }
     export function withoutGuestLink(reservation: Reservation): Reservation {
-      return { ...reservation, guestId: null, guest: null };
+      return { ...reservation, guestId: null, guest: null, overrideReason: null };
     }
     export function toReservation(row: PrismaReservationRow): Reservation {
       return {
@@ -52545,6 +52548,7 @@
         guestPhone: row.guestPhone,
         guestId: row.guestId,
         userId: row.userId,
+        overrideReason: row.overrideReason ?? null,
         tableId: row.tableId,
         table: row.table ? toTable(row.table) : undefined,
         guest: row.guest ?? null,

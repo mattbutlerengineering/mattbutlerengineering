@@ -1023,8 +1023,7 @@
       "openTimes": "Heures disponibles",
       "openTimesNone_one": "Aucune heure disponible pour {{count}} personne à cette date.",
       "openTimesNone_many": "Aucune heure disponible pour {{count}} de personnes à cette date.",
-      "openTimesNone_other": "Aucune heure disponible pour {{count}} personnes à cette date.",
-      "tableBlocked": "{{label}} · Bloquée à cette heure"
+      "openTimesNone_other": "Aucune heure disponible pour {{count}} personnes à cette date."
     }
   },
   "crm": {

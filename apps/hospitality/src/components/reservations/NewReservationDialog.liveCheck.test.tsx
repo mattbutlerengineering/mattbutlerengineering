@@ -39,11 +39,10 @@ function makeTable(id: string, capacity: number): Table {
   };
 }
 
-const IDLE: StaffCheckResult = { phase: "idle", verdict: null, blockedTableIds: new Set() };
+const IDLE: StaffCheckResult = { phase: "idle", verdict: null };
 const SOFT: StaffCheckResult = {
   phase: "done",
   verdict: { kind: "soft", limits: ["after_last_seating"], message: "x" },
-  blockedTableIds: new Set(),
 };
 const CLOSED: StaffCheckResult = {
   phase: "done",
@@ -52,7 +51,6 @@ const CLOSED: StaffCheckResult = {
     reason: "closed",
     message: "Closed 10:00-11:00 PM, 'burst pipe'.",
   },
-  blockedTableIds: new Set(),
 };
 
 describe("NewReservationDialog live availability check", () => {
@@ -150,13 +148,19 @@ describe("NewReservationDialog live availability check", () => {
     expect(screen.getByText(/no open times for 2/i)).toBeInTheDocument();
   });
 
-  it("greys out tables blocked at that time", () => {
-    mockCheck.mockReturnValue({ ...IDLE, blockedTableIds: new Set(["t2"]) });
+  it("checks the selected table only", () => {
     render(<NewReservationDialog {...props} />);
+    expect(mockCheck).toHaveBeenLastCalledWith(expect.objectContaining({ selectedTableId: "t1" }));
+  });
 
-    fireEvent.click(screen.getByRole("combobox", { name: /table/i }));
-    const blocked = screen.getByRole("option", { name: /Table t2/ });
-    expect(blocked).toHaveAttribute("aria-disabled", "true");
-    expect(blocked).toHaveTextContent(/blocked/i);
+  it("blocks booking when the selected table is blocked at that time", () => {
+    mockCheck.mockReturnValue({
+      phase: "done",
+      verdict: { kind: "hard", reason: "table_blocked", message: "This table is not available." },
+    });
+    render(<NewReservationDialog {...props} />);
+    fill();
+    expect(screen.getByText(/not available/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create Reservation" })).toBeDisabled();
   });
 });

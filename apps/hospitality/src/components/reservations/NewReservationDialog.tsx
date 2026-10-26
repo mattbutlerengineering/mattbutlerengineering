@@ -159,7 +159,6 @@ export function NewReservationDialog({
     venueId,
     window: bookingWindow,
     partySize,
-    tableIds: availableTables.map((table) => table.id),
     selectedTableId: tableId,
   });
   const openTimes = useOpenTimes({ venueId, date, partySize });
@@ -167,15 +166,10 @@ export function NewReservationDialog({
   const needsOverride = check.verdict?.kind === "soft";
   const trimmedReason = overrideReason.trim();
 
-  const tableOptions = availableTables.map((table) => {
-    const label = t("newReservation.tableOption", { name: table.name, capacity: table.capacity });
-    const blocked = check.blockedTableIds.has(table.id);
-    return {
-      value: table.id,
-      label: blocked ? t("newReservation.check.tableBlocked", { label }) : label,
-      disabled: blocked,
-    };
-  });
+  const tableOptions = availableTables.map((table) => ({
+    value: table.id,
+    label: t("newReservation.tableOption", { name: table.name, capacity: table.capacity }),
+  }));
 
   const handlePartySizeChange = useCallback(
     (size: number) => {

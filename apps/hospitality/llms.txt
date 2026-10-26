@@ -2432,12 +2432,14 @@
     <item priority="high">
       export const STAFF_BOOKING_CHECK_QUERY_KEY: unknown;
     </item>
+    <item priority="high">
+      type BookingWindow = { start: string; end: string };
+    </item>
     <item priority="low">
       interface StaffCheckParams {
         venueId: string | null | undefined;
-        window: { start: string; end: string } | null;
+        window: BookingWindow | null;
         partySize: number;
-        tableIds: readonly string[];
         selectedTableId: string;
       }
     </item>
@@ -2445,7 +2447,6 @@
       interface StaffCheckResult {
         phase: "idle" | "checking" | "done" | "failed";
         verdict: AvailabilityCheckResult | null;
-        blockedTableIds: ReadonlySet<string>;
       }
     </item>
     <item priority="high">
@@ -2453,7 +2454,6 @@
         venueId,
         window,
         partySize,
-        tableIds,
         selectedTableId,
       }: StaffCheckParams): StaffCheckResult { /* ... */ }
     </item>

@@ -1006,8 +1006,7 @@
       "bookWithOverride": "Book with override",
       "openTimes": "Open times",
       "openTimesNone_one": "No open times for {{count}} guest on this date.",
-      "openTimesNone_other": "No open times for {{count}} guests on this date.",
-      "tableBlocked": "{{label}} · Blocked at this time"
+      "openTimesNone_other": "No open times for {{count}} guests on this date."
     }
   },
   "crm": {
