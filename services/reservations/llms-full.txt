@@ -2599,7 +2599,7 @@
         ...extension,
       };
     }
-    function sendRefusal(reply: FastifyReply, outcome: Refusal) {
+    export function sendRefusal(reply: FastifyReply, outcome: Refusal) {
       switch (outcome.kind) {
         case "not_found":
           return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
@@ -8436,6 +8436,62 @@
       );
     };
   </file>
+  <file path="src/routes/tonight.ts">
+    export const tonightRoutes: FastifyPluginAsync = async (fastify) => {
+      const { tonightCommandService } = fastify.services;
+    
+      registerEndpoint(fastify, availabilityConfigEndpoints.setTonight, {
+        docs: {
+          summary: "Apply a Tonight change for the current service day",
+          operationId: "setTonight",
+          description:
+            "Pause online booking, close early, stop a time window, block tables or lower pacing for the venue's current service day. The server writes a `tonight` date rule that ends at the service-day boundary (`expiresAt`); schedules are never touched. A close-early with bookings after the new close runs the closure command: answer `decision-required` with `decisions`. The client-chosen `ruleId` makes a retry safe. Host or Manager.",
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(VENUE_FROM_ID, async (request, reply, { venueId, isAdmin }) => {
+          const caller = await closureCaller(request, venueId, isAdmin);
+          const outcome = await tonightCommandService.set({
+            venueId,
+            caller,
+            body: request.body,
+            now: new Date(),
+          });
+          if (outcome.kind === "saved") return { data: outcome.result };
+          return sendRefusal(
+            reply,
+            outcome.kind === "rule_exists" ? { kind: "closure_exists" } : outcome
+          );
+        }),
+      });
+    
+      registerEndpoint(fastify, availabilityConfigEndpoints.endTonight, {
+        docs: {
+          summary: "End a Tonight change early",
+          operationId: "endTonight",
+          description:
+            "Removes a Tonight change before its service day ends so its slots and tables return. Bookings a close-early cancelled stay cancelled. Host or Manager.",
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(VENUE_FROM_ID, async (request, reply, { venueId, isAdmin }) => {
+          const caller = await closureCaller(request, venueId, isAdmin);
+          const outcome = await tonightCommandService.end({
+            venueId,
+            ruleId: request.params.ruleId,
+            caller,
+            now: new Date(),
+          });
+          if (outcome.kind === "ended") return { data: outcome.result };
+          return reply
+            .code(404)
+            .send(createProblemDetails(404, "Not Found", "Tonight change not found"));
+        }),
+      });
+    };
+  </file>
   <file path="src/routes/venue-scope.ts">
     type Handler<RG extends RouteGenericInterface> = RouteHandlerMethod<
       RawServerDefault,
@@ -12597,6 +12653,21 @@
       const yesterday = addDays(today, -1);
       return isOpen(yesterday) ? yesterday : today;
     }
+    export function closesAllOfTonight(snapshot: AvailabilitySnapshot, rule: DateRule): boolean {
+      if (rule.kind !== "tonight" || !("closeAt" in rule.payload)) return false;
+      const { closeAt } = rule.payload;
+      const planned = {
+        ...snapshot,
+        config: {
+          ...snapshot.config,
+          dateRules: snapshot.config.dateRules.filter((r) => r.kind !== "tonight"),
+        },
+      };
+      const targeted = resolveDay(planned, rule.startsOn).services.filter(
+        (s) => rule.targetKind === "venue" || s.venueServiceId === rule.venueServiceId
+      );
+      return targeted.length > 0 && targeted.every((s) => s.opensAt >= closeAt);
+    }
     export function isHostEmergencyClose(rule: DateRule, serviceDate: string): boolean {
       return (
         rule.kind === "closure" &&
@@ -12612,6 +12683,7 @@
     type StoreClient = Pick<PrismaClient, "$transaction">;
     type Db = StoreDb &
       Pick<PrismaClient, "closureOutcome" | "reservationEvent" | "reservationHold" | "$executeRaw">;
+    export const TONIGHT_RULE_KINDS: ReadonlySet<string> = new Set(["tonight"]);
     export interface ClosureCaller {
       /** Owner, manager or platform admin. Anyone else is a Host. */
       isManager: boolean;
@@ -12653,14 +12725,16 @@
       });
       if (!venue) return null;
       if (caller.isManager) return true;
-      if (!venue.hostEmergencyClose) return false;
+      // Tonight changes are a Host's own job, so only the emergency close needs the grant.
+      if (rule.kind !== "tonight" && !venue.hostEmergencyClose) return false;
       const state = await loadConfigState(db, venueId, now);
       if (!state) return null;
-      const serviceDate = currentServiceDate(
-        { timezone: state.timezone, config: state.effective },
-        now
-      );
-      return isHostEmergencyClose(rule, serviceDate);
+      const snapshot = { timezone: state.timezone, config: state.effective };
+      const serviceDate = currentServiceDate(snapshot, now);
+      if (rule.kind !== "tonight") return isHostEmergencyClose(rule, serviceDate);
+      if (rule.startsOn !== serviceDate) return false;
+      // A close-early that leaves no targeted service tonight is the emergency close in effect.
+      return venue.hostEmergencyClose || !closesAllOfTonight(snapshot, rule);
     }
     export function mayClose(
       venueId: string,
@@ -12753,7 +12827,8 @@
           ? `${rule.startsOn} to ${rule.endsOn}`
           : rule.startsOn;
       const kept = counts.keep_notify + counts.keep_silent;
-      return `Closure saved for ${span}: ${counts.cancel} cancelled, ${counts.move} moved, ${kept} kept`;
+      const what = rule.kind === "tonight" ? "Closing early" : "Closure saved for";
+      return `${what} ${span}: ${counts.cancel} cancelled, ${counts.move} moved, ${kept} kept`;
     }
     async function guard(
       tx: Db,
@@ -12769,6 +12844,7 @@
       body: CreateClosureBody;
       key: string;
       now: Date;
+      ruleKinds: ReadonlySet<string>;
     };
     async function replayOf(tx: Db, input: CommitInput): Promise<ClosureResult | null> {
       const { venueId, caller, body, key } = input;
@@ -12784,7 +12860,7 @@
       const { venueId, caller, body, now } = input;
       const { rule } = body;
       await guard(tx, { venueId, caller, rule, now });
-      if (!CLOSURE_RULE_KINDS.has(rule.kind)) {
+      if (!input.ruleKinds.has(rule.kind)) {
         throw new Refused({
           kind: "invalid",
           issues: [
@@ -12894,14 +12970,17 @@
         body: CreateClosureBody;
         idempotencyKey: string;
         now: Date;
+        /** Rule kinds this call may save; the Tonight API widens it to `tonight`. */
+        ruleKinds?: ReadonlySet<string>;
       },
       client: StoreClient = prisma
     ): Promise<CreateClosureOutcome> {
       const { venueId, caller, body, idempotencyKey: key, now } = input;
+      const ruleKinds = input.ruleKinds ?? CLOSURE_RULE_KINDS;
       try {
         const result = await client.$transaction(async (tx) => {
           await setVenueContext(tx, venueId);
-          return commit(tx, { venueId, caller, body, key, now });
+          return commit(tx, { venueId, caller, body, key, now, ruleKinds });
         });
         return { kind: "saved", result };
       } catch (error) {
@@ -14847,6 +14926,7 @@
       availabilityConfigService: typeof availabilityConfigService;
       closureImpactService: typeof closureImpactService;
       closureCommandService: typeof closureCommandService;
+      tonightCommandService: typeof tonightCommandService;
       venueService: typeof venueService;
       venueGroupService: typeof venueGroupService;
       tableService: typeof tableService;
@@ -14867,6 +14947,7 @@
       availabilityConfigService,
       closureImpactService,
       closureCommandService,
+      tonightCommandService,
       venueService,
       venueGroupService,
       tableService,
@@ -20994,6 +21075,332 @@
       },
     };
   </file>
+  <file path="src/services/tonight-command.ts">
+    type StoreClient = Pick<PrismaClient, "$transaction">;
+    type Db = StoreDb;
+    export type SetTonightOutcome =
+      | { kind: "saved"; result: TonightResult }
+      | Exclude<CreateClosureOutcome, { kind: "saved" }>
+      | { kind: "rule_exists" };
+    type Refusal = Exclude<SetTonightOutcome, { kind: "saved" }>;
+    class Refused extends Error {
+      constructor(readonly outcome: Refusal) {
+        super(outcome.kind);
+      }
+    }
+    interface TonightDeps {
+      createClosure: typeof createClosure;
+    }
+    function dayBoundary(state: ConfigState, serviceDate: string): Date {
+      const planned: AvailabilityConfig = {
+        ...state.effective,
+        dateRules: state.effective.dateRules.filter((r) => r.kind !== "tonight"),
+      };
+      const closes = resolveDay(
+        { timezone: state.timezone, config: planned },
+        serviceDate
+      ).services.map((s) => s.closesAt);
+      const end = Math.max(MINUTES_PER_DAY, ...closes);
+      return (
+        serviceDayInstant(serviceDate, end, state.timezone) ??
+        serviceDayInstant(serviceDate, end + 60, state.timezone) ??
+        new Date(`${addDays(serviceDate, 1)}T00:00:00.000Z`)
+      );
+    }
+    type RuleShape = Pick<
+      Extract<DateRule, { kind: "tonight" }>,
+      "targetKind" | "payload" | "venueServiceId" | "bookingTypes" | "tableIds"
+    >;
+    function shapeOf(change: TonightChange): RuleShape {
+      switch (change.type) {
+        case "pause_online":
+          return {
+            targetKind: "booking",
+            bookingTypes: ["online"],
+            payload: { version: 1, stop: { from: 0, to: REST_OF_TONIGHT } },
+          };
+        case "close_early":
+          return change.venueServiceId
+            ? {
+                targetKind: "service",
+                venueServiceId: change.venueServiceId,
+                payload: { version: 1, closeAt: change.closeAt },
+              }
+            : { targetKind: "venue", payload: { version: 1, closeAt: change.closeAt } };
+        case "stop_window":
+          return {
+            targetKind: "venue",
+            payload: { version: 1, stop: { from: change.from, to: change.to } },
+          };
+        case "block_tables":
+          return {
+            targetKind: "tables",
+            tableIds: change.tableIds,
+            payload: {
+              version: 1,
+              stop: { from: change.from ?? 0, to: change.to ?? REST_OF_TONIGHT },
+            },
+          };
+        case "pacing":
+          return { targetKind: "venue", payload: { version: 1, pacing: { covers: change.covers } } };
+      }
+    }
+    function buildRule(
+      body: SetTonightBody,
+      serviceDate: string,
+      expiresAt: Date
+    ): Extract<DateRule, { kind: "tonight" }> {
+      return {
+        id: body.ruleId,
+        kind: "tonight",
+        ...shapeOf(body.change),
+        startsOn: serviceDate,
+        endsOn: serviceDate,
+        expiresAt: expiresAt.toISOString(),
+        ...(body.guestMessage ? { guestMessage: body.guestMessage } : {}),
+        ...(body.staffNote ? { staffNote: body.staffNote } : {}),
+      };
+    }
+    function describeChange(change: TonightChange): string {
+      switch (change.type) {
+        case "pause_online":
+          return "Tonight: online booking paused";
+        case "close_early":
+          return "Tonight: closing early";
+        case "stop_window":
+          return "Tonight: booking stopped for a window";
+        case "block_tables":
+          return `Tonight: ${change.tableIds.length} table(s) blocked`;
+        case "pacing":
+          return `Tonight: pacing lowered to ${change.covers} covers`;
+      }
+    }
+    function fingerprint(rule: DateRule): string {
+      return JSON.stringify(
+        sortKeys({
+          kind: rule.kind,
+          targetKind: rule.targetKind,
+          venueServiceId: rule.venueServiceId ?? null,
+          bookingTypes: rule.bookingTypes ?? [],
+          tableIds: [...(rule.tableIds ?? [])].sort(),
+          payload: "payload" in rule ? rule.payload : null,
+        })
+      );
+    }
+    function storedSame(
+      state: ConfigState,
+      rule: DateRule
+    ): Extract<DateRule, { kind: "tonight" }> | null {
+      const existing = state.stored.dateRules.find((r) => r.id === rule.id);
+      if (!existing) return null;
+      if (existing.kind !== "tonight" || fingerprint(existing) !== fingerprint(rule)) {
+        throw new Refused({ kind: "rule_exists" });
+      }
+      return existing;
+    }
+    function closeEarlyKey(rule: DateRule): string {
+      const digest = createHash("sha256").update(fingerprint(rule)).digest("hex").slice(0, 16);
+      return `tonight:${rule.id}:${digest}`;
+    }
+    interface TonightMeta {
+      ruleId: string;
+      version: number;
+    }
+    async function replayOf(
+      tx: Db,
+      venueId: string,
+      rule: Extract<DateRule, { kind: "tonight" }>,
+      state: ConfigState
+    ): Promise<TonightResult | null> {
+      const existing = storedSame(state, rule);
+      if (!existing) return null;
+      const saved = await tx.availabilityChange.findFirst({
+        where: { venueId, kind: "tonight", inverse: { path: ["tonight", "ruleId"], equals: rule.id } },
+        select: { id: true, inverse: true },
+      });
+      const meta = (saved?.inverse as { tonight?: TonightMeta } | null | undefined)?.tonight;
+      return {
+        ruleId: rule.id,
+        version: meta?.version ?? state.version,
+        changeId: saved?.id ?? "",
+        serviceDate: existing.startsOn,
+        expiresAt: existing.expiresAt ?? rule.expiresAt ?? "",
+        outcomes: ZERO_OUTCOMES,
+      };
+    }
+    async function checkRule(
+      tx: Db,
+      venueId: string,
+      state: ConfigState,
+      rule: DateRule
+    ): Promise<AvailabilityConfig> {
+      const next: AvailabilityConfig = {
+        ...state.effective,
+        dateRules: [...state.effective.dateRules.filter((r) => r.id !== rule.id), rule],
+      };
+      const tables = await tx.table.findMany({ where: { venueId }, select: { id: true } });
+      const issues = [
+        ...validateConfig(next),
+        ...referenceIssues(next, new Set(tables.map((t) => t.id))),
+      ];
+      if (issues.length > 0) throw new Refused({ kind: "invalid", issues });
+      return next;
+    }
+    async function writeChange(
+      tx: Db,
+      input: { venueId: string; actorId: string; now: Date; body: SetTonightBody },
+      state: ConfigState,
+      rule: Extract<DateRule, { kind: "tonight" }>
+    ): Promise<TonightResult> {
+      const { venueId, actorId, now, body } = input;
+      const cas = await tx.venue.updateMany({
+        where: { id: venueId, availabilityVersion: body.expectedVersion },
+        data: { availabilityVersion: { increment: 1 } },
+      });
+      if (cas.count === 0) throw new Refused((await refuseStale(tx, venueId)) as Refusal);
+    
+      const next = await checkRule(tx, venueId, state, rule);
+      const diff = diffConfig(state.stored, next);
+      await writeConfigDiff(tx, venueId, diff, { actorId, now }).catch((e: unknown) => {
+        throw e instanceof ConfigRowConflict ? new Refused(conflictIssue(e, next) as Refusal) : e;
+      });
+      const version = body.expectedVersion + 1;
+      const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
+      const meta: TonightMeta = { ruleId: rule.id, version };
+      const change = await tx.availabilityChange.create({
+        data: {
+          venueId,
+          actorId,
+          at: now,
+          kind: "tonight",
+          summary: describeChange(body.change),
+          affectedFrom: toDbDate(range.from),
+          affectedTo: toDbDate(range.to),
+          inverse: {
+            ...inverseOf(state.stored, diff, state.operatingHours),
+            tonight: meta,
+          } as unknown as Prisma.InputJsonValue,
+        },
+        select: { id: true },
+      });
+      await tx.venue.update({
+        where: { id: venueId },
+        data: { operatingHours: projectLegacyOperatingHours(next) },
+      });
+      return {
+        ruleId: rule.id,
+        version,
+        changeId: change.id,
+        serviceDate: rule.startsOn,
+        expiresAt: rule.expiresAt ?? "",
+        outcomes: ZERO_OUTCOMES,
+      };
+    }
+    type Prepared =
+      | { kind: "saved"; result: TonightResult }
+      | { kind: "delegate"; rule: Extract<DateRule, { kind: "tonight" }> };
+    export async function setTonight(
+      input: { venueId: string; caller: ClosureCaller; body: SetTonightBody; now: Date },
+      client: StoreClient = prisma,
+      deps: TonightDeps = { createClosure }
+    ): Promise<SetTonightOutcome> {
+      const { venueId, caller, body, now } = input;
+      try {
+        const prepared = await client.$transaction(async (tx): Promise<Prepared> => {
+          await setVenueContext(tx, venueId);
+          const state = await loadConfigState(tx, venueId, now);
+          if (!state) throw new Refused({ kind: "not_found" });
+          const serviceDate = currentServiceDate(
+            { timezone: state.timezone, config: state.effective },
+            now
+          );
+          const rule = buildRule(body, serviceDate, dayBoundary(state, serviceDate));
+          if (body.change.type === "close_early") {
+            storedSame(state, rule);
+            return { kind: "delegate", rule };
+          }
+          const replayed = await replayOf(tx, venueId, rule, state);
+          if (replayed) return { kind: "saved", result: replayed };
+          const result = await writeChange(
+            tx,
+            { venueId, actorId: caller.actorId, now, body },
+            state,
+            rule
+          );
+          return { kind: "saved", result };
+        });
+        if (prepared.kind === "saved") return prepared;
+        const { rule } = prepared;
+        const closed = await deps.createClosure({
+          venueId,
+          caller,
+          body: { expectedVersion: body.expectedVersion, rule, decisions: body.decisions },
+          idempotencyKey: closeEarlyKey(rule),
+          now,
+          ruleKinds: TONIGHT_RULE_KINDS,
+        });
+        if (closed.kind !== "saved") return closed;
+        return {
+          kind: "saved",
+          result: { ...closed.result, serviceDate: rule.startsOn, expiresAt: rule.expiresAt ?? "" },
+        };
+      } catch (error) {
+        if (error instanceof Refused) return error.outcome;
+        throw error;
+      }
+    }
+    export type EndTonightOutcome = { kind: "ended"; result: ReopenResult } | { kind: "not_found" };
+    export async function endTonight(
+      input: { venueId: string; ruleId: string; caller: Pick<ClosureCaller, "actorId">; now: Date },
+      client: StoreClient = prisma
+    ): Promise<EndTonightOutcome> {
+      const { venueId, ruleId, caller, now } = input;
+      return client.$transaction(async (tx): Promise<EndTonightOutcome> => {
+        await setVenueContext(tx, venueId);
+        const state = await loadConfigState(tx, venueId, now);
+        const rule = state?.stored.dateRules.find((r) => r.id === ruleId);
+        if (!state || !rule || rule.kind !== "tonight") return { kind: "not_found" };
+    
+        const next = {
+          ...state.stored,
+          dateRules: state.stored.dateRules.filter((r) => r.id !== ruleId),
+        };
+        const diff = diffConfig(state.stored, next);
+        await writeConfigDiff(tx, venueId, diff, { actorId: caller.actorId, now });
+        const bumped = await tx.venue.update({
+          where: { id: venueId },
+          data: {
+            availabilityVersion: { increment: 1 },
+            operatingHours: projectLegacyOperatingHours(next),
+          },
+          select: { availabilityVersion: true },
+        });
+        const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
+        const change = await tx.availabilityChange.create({
+          data: {
+            venueId,
+            actorId: caller.actorId,
+            at: now,
+            kind: "tonight_end",
+            summary: "Tonight change ended",
+            affectedFrom: toDbDate(range.from),
+            affectedTo: toDbDate(range.to),
+            inverse: inverseOf(
+              state.stored,
+              diff,
+              state.operatingHours
+            ) as unknown as Prisma.InputJsonValue,
+          },
+          select: { id: true },
+        });
+        return {
+          kind: "ended",
+          result: { version: bumped.availabilityVersion, changeId: change.id },
+        };
+      });
+    }
+    export const tonightCommandService = { set: setTonight, end: endTonight };
+  </file>
   <file path="src/services/venue-context-store.ts">
     export function runWithVenueContext<T>(venueId: string, fn: () => Promise<T>): Promise<T> {
       return venueContextStorage.run(venueId, fn);
@@ -22641,6 +23048,7 @@
       await fastify.register(venueTeamRoutes, { prefix: venuesPrefix });
       await fastify.register(availabilityConfigRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
       await fastify.register(closureRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
+      await fastify.register(tonightRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
       await fastify.register(availabilityRoutes, {
         prefix: "/api/v1/availability",
       });
