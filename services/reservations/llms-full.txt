@@ -11053,6 +11053,11 @@
       }
       return dates;
     }
+    function newlyCoveredShared(rule: DateRule, prior: DateRule | undefined, theirs: DateRule) {
+      const shared = sharedDates(rule, theirs);
+      if (!prior || !sameRow(withoutRange(prior), withoutRange(rule))) return shared;
+      return shared.filter((date) => !coversDate(prior, date));
+    }
     type Skip = { seriesId: string; date: string };
     function editedSchedules(before: AvailabilityConfig, next: AvailabilityConfig): Set<string> {
       const touched = new Set<string>();
@@ -11118,7 +11123,7 @@
       const skips: Skip[] = [
         ...incoming.flatMap((rule) =>
           untouched.flatMap((theirs) =>
-            sharedDates(rule, theirs).map((date) => ({
+            newlyCoveredShared(rule, stored.get(rule.id), theirs).map((date) => ({
               seriesId: mode === "keep" ? rule.id : theirs.id,
               date,
             }))

@@ -81,6 +81,20 @@ function sharedDates(a: DateRule, b: DateRule): string[] {
   return dates;
 }
 
+const withoutRange = (r: DateRule) => ({ ...r, startsOn: "", endsOn: null });
+
+/**
+ * The dates an incoming rule meets `theirs` on. A stored rule whose only change is its range
+ * (a This and following split trims the original) is not in conflict on the dates it already
+ * covered: only the dates its range newly covers are. A new rule, or one whose hours or repeat
+ * changed, meets `theirs` on every shared date.
+ */
+function newlyCoveredShared(rule: DateRule, prior: DateRule | undefined, theirs: DateRule) {
+  const shared = sharedDates(rule, theirs);
+  if (!prior || !sameRow(withoutRange(prior), withoutRange(rule))) return shared;
+  return shared.filter((date) => !coversDate(prior, date));
+}
+
 type Skip = { seriesId: string; date: string };
 
 /** Schedules whose services or assignments this change touches. */
@@ -167,7 +181,7 @@ export function resolveScopeConflicts(
   const skips: Skip[] = [
     ...incoming.flatMap((rule) =>
       untouched.flatMap((theirs) =>
-        sharedDates(rule, theirs).map((date) => ({
+        newlyCoveredShared(rule, stored.get(rule.id), theirs).map((date) => ({
           seriesId: mode === "keep" ? rule.id : theirs.id,
           date,
         }))

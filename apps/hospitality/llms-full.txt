@@ -593,7 +593,14 @@
       | { readonly kind: "weekday"; readonly from: string; readonly until: string | null }
       | { readonly kind: "schedule"; readonly scheduleId: string }
       /** Exactly these dates, picked in the multi-select bar (ux.md F-MS). */
-      | { readonly kind: "dates"; readonly dates: readonly string[] };
+      | { readonly kind: "dates"; readonly dates: readonly string[] }
+      /** A range or repeating special-hours rule, from `from` on ("following") or whole ("all"). */
+      | {
+          readonly kind: "rule";
+          readonly ruleId: string;
+          readonly mode: SeriesScope;
+          readonly from: string;
+        };
     export interface DraftService {
       /** React key; stable across edits. */
       readonly key: string;
@@ -612,11 +619,28 @@
       DraftService,
       "opensAt" | "lastSeatingAt" | "closesAt" | "seating" | "bookingTypes"
     >;
+    function hoursRuleOf(config: AvailabilityConfig, ruleId: string): SpecialHoursRule | undefined {
+      return config.dateRules.find(
+        (r): r is SpecialHoursRule => r.id === ruleId && r.kind === "special_hours"
+      );
+    }
     export function seedServices(
       config: AvailabilityConfig,
       day: Pick<ResolvedDaySummary, "services">,
       scope: EditScope
     ): DraftService[] {
+      const names = new Map(config.venueServices.map((v) => [v.id, v.name]));
+      if (scope.kind === "rule") {
+        return [...(hoursRuleOf(config, scope.ruleId)?.payload.services ?? [])]
+          .sort((a, b) => a.opensAt - b.opensAt)
+          .map((s) => ({
+            ...hoursOf(s),
+            key: s.venueServiceId,
+            venueServiceId: s.venueServiceId,
+            scheduleServiceId: null,
+            name: names.get(s.venueServiceId) ?? s.venueServiceId,
+          }));
+      }
       if (scope.kind !== "schedule") {
         return day.services.map((s) => ({
           ...hoursOf(s),
@@ -626,7 +650,6 @@
           name: s.name,
         }));
       }
-      const names = new Map(config.venueServices.map((v) => [v.id, v.name]));
       return config.scheduleServices
         .filter((s) => s.scheduleId === scope.scheduleId)
         .sort((a, b) => a.opensAt - b.opensAt)
@@ -652,6 +675,8 @@
        * since the server treats a changed rule as incoming and would overwrite it.
        */
       readonly leaveOut?: readonly string[];
+      /** Today on the venue clock: a rule edit's "All dates" starts here, so past dates keep their hours. */
+      readonly today?: string;
     }
     function ownDateRule(config: AvailabilityConfig, date: string): DateRule | undefined {
       return config.dateRules.find(
@@ -734,6 +759,19 @@
         bookingTypes: [...s.bookingTypes],
         venueServiceId: s.venueServiceId,
       }));
+      if (scope.kind === "rule") {
+        const rule = hoursRuleOf(config, scope.ruleId);
+        if (!rule) return { upsert: venueServices, remove: {} };
+        const changes = editHoursRule(
+          rule,
+          scope.mode,
+          scope.from,
+          { version: 1, services: payload },
+          makeId,
+          input.today
+        );
+        return { upsert: { ...venueServices, ...changes.upsert }, remove: {} };
+      }
       if (scope.kind === "dates" || scope.kind === "date") {
         const picked = scope.kind === "date" ? [scope.date] : scope.dates;
         const skipped = new Set(input.leaveOut ?? []);
@@ -1639,6 +1677,15 @@
         const last = scope.until !== null && scope.until < horizon ? scope.until : horizon;
         return eachDate(scope.from, last, 7);
       }
+      if (scope.kind === "rule") {
+        const rule = context.config.dateRules.find((r) => r.id === scope.ruleId);
+        if (!rule) return [];
+        // A past date is not edited: "all dates" reaches the rule's dates still ahead.
+        const first = scope.mode === "following" ? scope.from : maxDate(rule.startsOn, context.today);
+        const horizon = addDays(first, SCOPE_HORIZON_DAYS - 1);
+        const last = rule.endsOn != null && rule.endsOn < horizon ? rule.endsOn : horizon;
+        return eachDate(first, last, 1).filter((d) => coversDate(rule, d));
+      }
       const week = {
         timezone: context.timezone,
         config: { ...context.config, dateRules: [] },
@@ -1647,7 +1694,7 @@
         (d) => resolveDay(week, d).scheduleId === scope.scheduleId
       );
     }
-    function coversDate(rule: DateRule, date: string): boolean {
+    export function coversDate(rule: DateRule, date: string): boolean {
       return (
         rule.startsOn <= date &&
         (rule.endsOn == null || date <= rule.endsOn) &&
@@ -1715,6 +1762,7 @@
       /** `null`: until reopened. */
       readonly endsOn: string | null;
     }
+    export type SpecialHoursRule = Extract<DateRule, { kind: "special_hours" }>;
     export function isSeries(rule: DateRule): boolean {
       return rule.kind === "closure" && rule.repeat != null && rule.seriesId == null;
     }
@@ -1787,6 +1835,24 @@
       if (from === series.startsOn) return { rule, alongside: { upsert: moved, remove: [series.id] } };
       const ended: DateRule = { ...series, endsOn: addDays(from, -1) };
       return { rule, alongside: { upsert: [ended, ...moved], remove: [] } };
+    }
+    export function editHoursRule(
+      rule: SpecialHoursRule,
+      scope: SeriesScope,
+      date: string,
+      payload: SpecialHoursRule["payload"],
+      makeId: () => string,
+      today = ""
+    ): AvailabilityConfigChanges {
+      const edited: SpecialHoursRule = { ...rule, payload };
+      // "All dates" reaches the dates still ahead: dates already past keep their hours.
+      const from = scope === "all" ? (today > rule.startsOn ? today : rule.startsOn) : date;
+      if (from <= rule.startsOn) {
+        return { upsert: { dateRules: [edited] }, remove: {} };
+      }
+      const created: SpecialHoursRule = { ...edited, id: makeId(), startsOn: from };
+      const ended: SpecialHoursRule = { ...rule, endsOn: addDays(from, -1) };
+      return { upsert: { dateRules: [ended, created] }, remove: {} };
     }
     export function editSeriesDates(
       config: AvailabilityConfig,

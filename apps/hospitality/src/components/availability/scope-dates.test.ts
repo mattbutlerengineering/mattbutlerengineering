@@ -44,6 +44,34 @@ describe("scopeDates", () => {
     expect(run).toHaveLength(52);
   });
 
+  describe("a special-hours rule", () => {
+    const fridays = {
+      ...EARLY_DINNER,
+      id: "fridays",
+      startsOn: "2026-10-02",
+      endsOn: "2026-11-27",
+      repeat: { version: 1, weekdays: [5] },
+    } as DateRule;
+    const ruleDates = (mode: "following" | "all", from: string) =>
+      scopeDates(
+        { kind: "rule", ruleId: "fridays", mode, from },
+        { config: fixtureConfig(fridays), timezone: FIXTURE_TIMEZONE, today: TODAY }
+      );
+
+    it("this and following covers the rule's dates from the picked one to its end", () => {
+      expect(ruleDates("following", "2026-11-06")).toEqual([
+        "2026-11-06",
+        "2026-11-13",
+        "2026-11-20",
+        "2026-11-27",
+      ]);
+    });
+
+    it("all dates covers the rule's dates that are still ahead", () => {
+      expect(ruleDates("all", "2026-11-06")[0]).toBe("2026-10-30");
+    });
+  });
+
   it("a schedule that runs nowhere has no dates", () => {
     expect(dates({ kind: "schedule", scheduleId: "unused" })).toEqual([]);
   });

@@ -1691,7 +1691,8 @@
   </file>
   <file path="apps/hospitality/src/components/availability/draft-changes.ts">
     <item priority="low">
-      type EditScope = { readonly kind: "date"; reado | { readonly kind: "weekday"; re | { readonly kind: "schedule"; r | { readonly kind: "dates"; read;
+      type EditScope = { readonly kind: "date"; reado | { readonly kind: "weekday"; re | { readonly kind: "schedule"; r | { readonly kind: "dates"; read | {
+            readonly kind: "rule";;
     </item>
     <item priority="low">
       interface DraftService {
@@ -1706,6 +1707,9 @@
       type SeedService = Pick<
         DraftService,
         "opensAt" | "lastSeatingAt" | "cl...;
+    </item>
+    <item priority="medium">
+      function hoursRuleOf(config: AvailabilityConfig, ruleId: string): SpecialHoursRule | undefined { /* ... */ }
     </item>
     <item priority="high">
       export function seedServices(
@@ -2098,8 +2102,8 @@
     <item priority="high">
       export function scopeDates(scope: EditScope, context: ScopeContext): string[] { /* ... */ }
     </item>
-    <item priority="medium">
-      function coversDate(rule: DateRule, date: string): boolean { /* ... */ }
+    <item priority="high">
+      export function coversDate(rule: DateRule, date: string): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function ownChangeDates(
@@ -2147,6 +2151,9 @@
         endsOn: string | null;
       }
     </item>
+    <item priority="low">
+      type SpecialHoursRule = Extract<DateRule, { kind: "special_hours" }>;
+    </item>
     <item priority="high">
       export function isSeries(rule: DateRule): boolean { /* ... */ }
     </item>
@@ -2191,6 +2198,16 @@
         edit: SeriesEdit,
         makeId: () => string
       ): { rule: DateRule; alongside: ClosureAlongside } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function editHoursRule(
+        rule: SpecialHoursRule,
+        scope: SeriesScope,
+        date: string,
+        payload: SpecialHoursRule["payload"],
+        makeId: () => string,
+        today = ""
+      ): AvailabilityConfigChanges { /* ... */ }
     </item>
     <item priority="high">
       export function editSeriesDates(
@@ -13250,6 +13267,9 @@
     </item>
     <item priority="medium">
       function sharedDates(a: DateRule, b: DateRule): string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function newlyCoveredShared(rule: DateRule, prior: DateRule | undefined, theirs: DateRule) { /* ... */ }
     </item>
     <item priority="high">
       type Skip = { seriesId: string; date: string };

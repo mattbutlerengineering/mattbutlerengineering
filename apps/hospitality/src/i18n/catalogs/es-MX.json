@@ -1627,7 +1627,14 @@
     "hours": {
       "edit": "Editar",
       "editFor": "Editar horario del {{date}}",
-      "editOnly": "Editar solo el {{date}}",
+      "editMany": "Editar…",
+      "editRule": "Editar horarios especiales {{subject}}",
+      "scope": {
+        "title": "Editar horarios especiales",
+        "following": "Esta y las siguientes desde el {{date}}",
+        "all": "Todas las fechas",
+        "continue": "Continuar"
+      },
       "subjectDates": "de {{dates}}",
       "subjectRepeat": "de cada {{days}}",
       "removeFor": "Quitar horario especial {{subject}}",
@@ -2004,6 +2011,9 @@
       "stranded_one": "{{count}} reserva quedaría fuera de estos horarios. Cambia los horarios o atiende primero la reserva.",
       "stranded_other": "{{count}} reservas quedarían fuera de estos horarios. Cambia los horarios o atiende primero las reservas.",
       "stranded_many": "{{count}} reservas quedarían fuera de estos horarios. Cambia los horarios o atiende primero las reservas.",
+      "strandedRule_one": "{{count}} reserva quedaría fuera del nuevo horario. No se canceló nada. Cambia los horarios o atiende primero la reserva.",
+      "strandedRule_other": "{{count}} reservas quedarían fuera del nuevo horario. No se canceló nada. Cambia los horarios o atiende primero las reservas.",
+      "strandedRule_many": "{{count}} de reservas quedarían fuera del nuevo horario. No se canceló nada. Cambia los horarios o atiende primero las reservas.",
       "conflict": {
         "title": "Alguien cambió la disponibilidad primero",
         "theirs": "{{summary}} (guardado a las {{time}}).",
