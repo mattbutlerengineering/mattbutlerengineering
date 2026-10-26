@@ -10,22 +10,33 @@ import {
   RadioGroup,
   useToast,
 } from "@mattbutlerengineering/rialto";
-import type { AvailabilityConfigChanges, AvailabilityConfigState, DateRule } from "@mbe/types";
+import type {
+  AvailabilityConfigChanges,
+  AvailabilityConfigState,
+  ClosureImpact,
+  DateRule,
+} from "@mbe/types";
+import { usePreviewClosureImpact } from "../../hooks/useClosures.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
+import { describeApiError } from "../../lib/describe-api-error.js";
 import { addDays } from "../../utils/service-day.js";
 import {
   coversDate,
   dateOverride,
   editSeriesDates,
+  growsSeries,
+  growthClosure,
   nextOccurrence,
   restoreDate,
   skipDate,
   type SeriesScope,
 } from "./series-edit.js";
+import { SeriesGrowthStepTwo } from "./SeriesGrowthStepTwo.js";
 import { useScheduleSave } from "./use-schedule-save.js";
 import styles from "./CloseDialog.module.css";
 
 type Scope = "only" | SeriesScope;
+type GrowthPlan = ReturnType<typeof growthClosure>;
 
 /** 2026-01-04 is a Sunday; weekday index n is that date plus n days. */
 const SUNDAY = "2026-01-04";
@@ -35,6 +46,7 @@ export interface SeriesEditDialogProps {
   readonly venueId: string;
   readonly state: AvailabilityConfigState;
   readonly series: DateRule;
+  readonly timezone: string;
   /** Today on the venue clock. */
   readonly today: string;
   readonly onStale: () => void;
@@ -50,7 +62,7 @@ export interface SeriesEditDialogProps {
  * stranded; editing one date to something else goes through the closure flow.
  */
 export function SeriesEditDialog(props: SeriesEditDialogProps) {
-  const { venueId, state, series, today, onStale, onEditDate, onClose } = props;
+  const { venueId, state, series, timezone, today, onStale, onEditDate, onClose } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const { toast } = useToast();
@@ -63,6 +75,9 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
   const [weekdays, setWeekdays] = useState<readonly number[]>(series.repeat?.weekdays ?? []);
   const [endsOn, setEndsOn] = useState<string | null>(series.endsOn ?? null);
   const [invalid, setInvalid] = useState<"date" | "edit" | "taken" | "skipped" | null>(null);
+  const previewImpact = usePreviewClosureImpact();
+  const [previewFailure, setPreviewFailure] = useState<string | null>(null);
+  const [growth, setGrowth] = useState<(GrowthPlan & { impact: ClosureImpact }) | null>(null);
 
   const label = (d: string) =>
     format.formatCalendarDate(d, { weekday: "short", month: "short", day: "numeric" });
@@ -112,18 +127,45 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
       return setInvalid(bad ? "edit" : "date");
     }
     setInvalid(null);
-    void commit(
-      editSeriesDates(
-        state.config,
-        series,
-        scope as SeriesScope,
-        date,
-        { weekdays, endsOn },
-        makeId
-      ),
-      t("availabilitySpecial.series.savedToast")
-    );
+    const edit = { weekdays, endsOn };
+    const seriesScope = scope as SeriesScope;
+    const saveAsConfig = () =>
+      commit(
+        editSeriesDates(state.config, series, seriesScope, date, edit, makeId),
+        t("availabilitySpecial.series.savedToast")
+      );
+    if (!growsSeries(series, edit)) return void saveAsConfig();
+    void review(growthClosure(state.config, series, seriesScope, date, edit, makeId), saveAsConfig);
   };
+
+  /**
+   * An edit that can close new dates asks the closure command's impact first (ux.md F-SER step
+   * 4): bookings on those dates go to Step 2; with none, it is the plain config save.
+   */
+  const review = async (plan: GrowthPlan, saveAsConfig: () => Promise<void>) => {
+    setPreviewFailure(null);
+    try {
+      const impact = await previewImpact.mutateAsync({ venueId, ...plan });
+      if (impact.groups.length === 0) return await saveAsConfig();
+      setGrowth({ ...plan, impact });
+    } catch (error) {
+      setPreviewFailure(describeApiError(error).detail);
+    }
+  };
+
+  if (growth) {
+    return (
+      <SeriesGrowthStepTwo
+        venueId={venueId}
+        state={state}
+        timezone={timezone}
+        today={today}
+        {...growth}
+        onBack={() => setGrowth(null)}
+        onClose={onClose}
+      />
+    );
+  }
 
   const dateField = (value: string, onChange: (v: string) => void, text: string, min?: string) => (
     <DatePicker
@@ -155,16 +197,20 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
               </Button>
             </>
           ) : (
-            <Button variant="primary" isLoading={isPending} onClick={saveSeries}>
+            <Button
+              variant="primary"
+              isLoading={isPending || previewImpact.isPending}
+              onClick={saveSeries}
+            >
               {t("availabilitySpecial.series.save")}
             </Button>
           )}
         </div>
       }
     >
-      {failure.length > 0 && (
+      {(failure.length > 0 || previewFailure) && (
         <Alert variant="error">
-          {failure.map((message) => (
+          {[...failure, ...(previewFailure ? [previewFailure] : [])].map((message) => (
             <div key={message}>{message}</div>
           ))}
         </Alert>

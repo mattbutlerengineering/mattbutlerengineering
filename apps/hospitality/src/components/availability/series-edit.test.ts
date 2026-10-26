@@ -11,6 +11,8 @@ import {
   coversDate,
   dateOverride,
   editSeriesDates,
+  growsSeries,
+  growthClosure,
   isSeries,
   nextOccurrence,
   restoreDate,
@@ -151,6 +153,93 @@ describe("editSeriesDates", () => {
     expect(after.dateRules[0]!.repeat?.weekdays).toEqual([4]);
     expect(closuresOn(after, FIXTURE_DATE)).toHaveLength(0);
     expect(closuresOn(after, "2026-10-29")).toHaveLength(1);
+  });
+});
+
+describe("growsSeries", () => {
+  const SERIES: DateRule = { ...WEEKLY_CLOSURE, repeat: { version: 1, weekdays: [5] } };
+
+  it("is true when a weekday is added or the end moves later", () => {
+    expect(growsSeries(SERIES, { weekdays: [5, 6], endsOn: "2026-12-31" })).toBe(true);
+    expect(growsSeries(SERIES, { weekdays: [5], endsOn: "2027-01-31" })).toBe(true);
+    expect(growsSeries(SERIES, { weekdays: [5], endsOn: null })).toBe(true);
+  });
+
+  it("is false when the edit only removes weekdays or ends sooner", () => {
+    expect(growsSeries(SERIES, { weekdays: [], endsOn: "2026-12-31" })).toBe(false);
+    expect(growsSeries(SERIES, { weekdays: [5], endsOn: "2026-11-30" })).toBe(false);
+    expect(growsSeries({ ...SERIES, endsOn: null }, { weekdays: [5], endsOn: null })).toBe(false);
+  });
+});
+
+describe("growthClosure", () => {
+  const SERIES: DateRule = { ...WEEKLY_CLOSURE, repeat: { version: 1, weekdays: [5] } };
+  const apply = (config: AvailabilityConfig, plan: ReturnType<typeof growthClosure>) =>
+    applyChanges(
+      config,
+      {
+        upsert: { dateRules: [plan.rule, ...plan.alongside.upsert] },
+        remove: { dateRules: plan.alongside.remove },
+      },
+      NOW
+    );
+
+  it("this and following: the new series is the draft and the original ends the day before", () => {
+    const late = skipDate(SERIES, "2026-11-13", makeId).upsert.dateRules![0]!;
+    const config = fixtureConfig(SERIES, late);
+    const plan = growthClosure(
+      config,
+      SERIES,
+      "following",
+      NEXT_FRIDAY,
+      { weekdays: [5, 6], endsOn: null },
+      makeId
+    );
+
+    expect(plan.rule).toMatchObject({ startsOn: NEXT_FRIDAY, endsOn: null });
+    expect(plan.rule.repeat?.weekdays).toEqual([5, 6]);
+    expect(plan.alongside.remove).toEqual([]);
+    expect(plan.alongside.upsert.find((r) => r.id === SERIES.id)?.endsOn).toBe("2026-11-05");
+    expect(plan.alongside.upsert.find((r) => r.id === late.id)?.seriesId).toBe(plan.rule.id);
+
+    // The same split the config save makes.
+    const saved = applyChanges(
+      config,
+      editSeriesDates(
+        config,
+        SERIES,
+        "following",
+        NEXT_FRIDAY,
+        { weekdays: [5, 6], endsOn: null },
+        makeId
+      ),
+      NOW
+    );
+    const after = apply(config, plan);
+    expect(closuresOn(after, "2026-11-14")).toHaveLength(1);
+    expect(closuresOn(after, "2026-11-13")).toHaveLength(0);
+    expect(closuresOn(after, "2026-11-14")).toHaveLength(closuresOn(saved, "2026-11-14").length);
+  });
+
+  it("all dates: replaces the series with a new one and carries every skip over", () => {
+    const early = skipDate(SERIES, FIXTURE_DATE, makeId).upsert.dateRules![0]!;
+    const config = fixtureConfig(SERIES, early);
+    const plan = growthClosure(
+      config,
+      SERIES,
+      "all",
+      NEXT_FRIDAY,
+      { weekdays: [5, 6], endsOn: "2026-12-31" },
+      makeId
+    );
+
+    expect(plan.alongside.remove).toEqual([SERIES.id]);
+    expect(plan.rule).toMatchObject({ startsOn: SERIES.startsOn, endsOn: "2026-12-31" });
+    expect(plan.alongside.upsert).toEqual([{ ...early, seriesId: plan.rule.id }]);
+    const after = apply(config, plan);
+    expect(after.dateRules.find((r) => r.id === SERIES.id)).toBeUndefined();
+    expect(closuresOn(after, FIXTURE_DATE)).toHaveLength(0);
+    expect(closuresOn(after, "2026-10-03")).toHaveLength(1);
   });
 });
 

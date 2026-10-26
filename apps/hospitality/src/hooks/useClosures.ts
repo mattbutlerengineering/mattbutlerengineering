@@ -1,4 +1,5 @@
 import type {
+  ClosureAlongside,
   ClosureCallListEntry,
   ClosureImpact,
   ClosureResult,
@@ -25,6 +26,25 @@ export const useClosureImpact = createQueryHook<
       ? api.availability.getClosureImpact(params.venueId, params.rule)
       : null,
   getEnabled: (params) => !!params?.venueId && !!params.rule && params.enabled !== false,
+});
+
+export type PreviewClosureImpactVariables = {
+  venueId: string;
+  rule: DateRule;
+  alongside: ClosureAlongside;
+};
+
+/**
+ * The same impact, asked when a Manager saves (not on every render): a series edit that may
+ * close new dates needs to know whether Step 2 is due before it picks a save path.
+ */
+export const usePreviewClosureImpact = createMutationHook<
+  PreviewClosureImpactVariables,
+  ClosureImpact
+>({
+  invalidateKeys: [],
+  mutationFn: (api, { venueId, rule, alongside }) =>
+    api.availability.getClosureImpact(venueId, rule, alongside),
 });
 
 type CreateClosureRequest = Parameters<AvailabilityClient["createClosure"]>[1];

@@ -2,6 +2,7 @@ import { MINUTES_PER_DAY, localDateTimeOf, resolveDay } from "@mbe/availability"
 import type { AvailabilitySnapshot, ResolvedClosure } from "@mbe/availability";
 import type {
   AvailabilityConfig,
+  ClosureAlongside,
   ClosureImpact,
   ClosureImpactGroup,
   ClosureImpactKind,
@@ -39,6 +40,30 @@ function kindOf(rule: DateRule): ClosureImpactKind {
 /** The config as it would be with the draft saved: a rule with the same id is replaced. */
 function withDraft(config: AvailabilityConfig, rule: DateRule): AvailabilityConfig {
   return { ...config, dateRules: [...config.dateRules.filter((r) => r.id !== rule.id), rule] };
+}
+
+/**
+ * The config with a series edit's other row changes applied (rows removed, then upserted by id),
+ * before the draft goes in. Shared by the preview and the closure command so both see one config.
+ */
+export function withAlongside(
+  config: AvailabilityConfig,
+  alongside: ClosureAlongside | undefined
+): AvailabilityConfig {
+  if (!alongside) return config;
+  const upserted = new Set(alongside.upsert.map((r) => r.id));
+  const removed = new Set(alongside.remove);
+  const kept = config.dateRules.filter((r) => !removed.has(r.id) && !upserted.has(r.id));
+  return { ...config, dateRules: [...kept, ...alongside.upsert] };
+}
+
+/** The config as it will be once the closure (and what it replaces) is saved. */
+export function withClosure(
+  config: AvailabilityConfig,
+  rule: DateRule,
+  alongside?: ClosureAlongside
+): AvailabilityConfig {
+  return withDraft(withAlongside(config, alongside), rule);
 }
 
 const MS_PER_DAY = 86_400_000;
@@ -79,7 +104,8 @@ function assess(
   before: AvailabilitySnapshot,
   after: AvailabilitySnapshot,
   rule: DateRule,
-  booking: ImpactBooking
+  booking: ImpactBooking,
+  replaced: ReadonlySet<string>
 ): Verdicts | null {
   if (strandReason(before, booking) !== null) return null; // already unserved: not this change's doing
   if (strandReason(after, booking) !== null) return { runsInto: false };
@@ -88,13 +114,25 @@ function assess(
   const startMin = wallMinutes(booking.startTime, date, after.timezone);
   const endMin = wallMinutes(booking.endTime, date, after.timezone);
   const dayAfter = resolveDay(after, date);
-  const servedBefore = resolveDay(before, date).services.filter(
+  const dayBefore = resolveDay(before, date);
+  const servedBefore = dayBefore.services.filter(
     (s) => s.opensAt <= startMin && startMin < s.closesAt
   );
 
   const servedIds = new Set(servedBefore.map((s) => s.venueServiceId));
-  const bandRunsInto = dayAfter.closures.some(
+  const draftBands = dayAfter.closures.filter(
     (band) => band.ruleId === rule.id && runsIntoBand(band, startMin, endMin, servedIds)
+  );
+  // Only the series being replaced counts as already decided: its band, no later than the
+  // draft's, cut into this booking before and the Manager chose then. Any other closure is news.
+  const bandRunsInto = draftBands.some(
+    (draft) =>
+      !dayBefore.closures.some(
+        (band) =>
+          replaced.has(band.ruleId) &&
+          band.from <= draft.from &&
+          runsIntoBand(band, startMin, endMin, servedIds)
+      )
   );
   const hours = servedBefore.map((was) => ({
     was,
@@ -149,16 +187,21 @@ export function computeClosureImpact(input: {
   timezone: string;
   config: AvailabilityConfig;
   rule: DateRule;
+  alongside?: ClosureAlongside;
   bookings: readonly ImpactBooking[];
 }): ClosureImpact {
-  const { timezone, config, rule, bookings } = input;
+  const { timezone, config, rule, bookings, alongside } = input;
   const before = { timezone, config };
-  const after = { timezone, config: withDraft(config, rule) };
+  const after = { timezone, config: withClosure(config, rule, alongside) };
   const kind = kindOf(rule);
+  const replaced = new Set([
+    ...(alongside?.remove ?? []),
+    ...(alongside?.upsert.map((r) => r.id) ?? []),
+  ]);
 
   const byDate = new Map<string, ClosureImpactReservation[]>();
   for (const booking of bookings) {
-    const verdict = assess(before, after, rule, booking);
+    const verdict = assess(before, after, rule, booking, replaced);
     if (!verdict) continue;
     const date = booking.date.toISOString().slice(0, 10);
     byDate.set(date, [...(byDate.get(date) ?? []), toReservation(booking, verdict.runsInto)]);

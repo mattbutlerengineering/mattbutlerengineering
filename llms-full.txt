@@ -6244,6 +6244,28 @@
       };
       return { upsert: { dateRules: [skip] }, remove: {} };
     }
+    export function growsSeries(series: DateRule, edit: SeriesEdit): boolean {
+      const had = series.repeat?.weekdays ?? [];
+      const later = series.endsOn != null && (edit.endsOn == null || edit.endsOn > series.endsOn);
+      return edit.weekdays.some((d) => !had.includes(d)) || later;
+    }
+    export function growthClosure(
+      config: AvailabilityConfig,
+      series: DateRule,
+      scope: SeriesScope,
+      date: string,
+      edit: SeriesEdit,
+      makeId: () => string
+    ): { rule: DateRule; alongside: ClosureAlongside } {
+      const from = scope === "all" || date <= series.startsOn ? series.startsOn : date;
+      const rule: DateRule = { ...withEdit(series, edit), id: makeId(), startsOn: from };
+      const moved = config.dateRules
+        .filter((r) => r.seriesId === series.id && r.startsOn >= from)
+        .map((r) => ({ ...r, seriesId: rule.id }));
+      if (from === series.startsOn) return { rule, alongside: { upsert: moved, remove: [series.id] } };
+      const ended: DateRule = { ...series, endsOn: addDays(from, -1) };
+      return { rule, alongside: { upsert: [ended, ...moved], remove: [] } };
+    }
     export function editSeriesDates(
       config: AvailabilityConfig,
       series: DateRule,
@@ -16966,6 +16988,19 @@
           ? api.availability.getClosureImpact(params.venueId, params.rule)
           : null,
       getEnabled: (params) => !!params?.venueId && !!params.rule && params.enabled !== false,
+    });
+    export type PreviewClosureImpactVariables = {
+      venueId: string;
+      rule: DateRule;
+      alongside: ClosureAlongside;
+    };
+    export const usePreviewClosureImpact = createMutationHook<
+      PreviewClosureImpactVariables,
+      ClosureImpact
+    >({
+      invalidateKeys: [],
+      mutationFn: (api, { venueId, rule, alongside }) =>
+        api.availability.getClosureImpact(venueId, rule, alongside),
     });
     type CreateClosureRequest = Parameters<AvailabilityClient["createClosure"]>[1];
     export type CreateClosureVariables = {
@@ -30132,9 +30167,17 @@
           if (allowed === null) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
           }
-          if (!allowed)
+          // A series edit's replaced rows are a Manager's change, as in the closure command.
+          if (!allowed || (request.body.alongside && !caller.isManager)) {
             return reply.code(403).send(createProblemDetails(403, "Forbidden", CLOSURE_FORBIDDEN));
-          const outcome = await closureImpactService.impact(venueId, request.body.rule, now);
+          }
+          const outcome = await closureImpactService.impact(
+            venueId,
+            request.body.rule,
+            now,
+            undefined,
+            request.body.alongside
+          );
           switch (outcome.kind) {
             case "not_found":
               return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
@@ -38622,7 +38665,16 @@
       bookingOpen: z.object({ online: z.boolean(), phone: z.boolean(), waitlist: z.boolean() }),
       guestMessage: z.string().optional(),
     });
-    export const ClosureImpactBodySchema = z.object({ rule: DateRuleSchema });
+    export const ClosureAlongsideSchema = z.object({
+      /** Rows to write: the ended original series, and skips or one-date edits re-pointed. */
+      upsert: z.array(DateRuleSchema).default([]),
+      /** Rule ids to remove (soft delete): the series the draft replaces. */
+      remove: IdListSchema.default([]),
+    });
+    export const ClosureImpactBodySchema = z.object({
+      rule: DateRuleSchema,
+      alongside: ClosureAlongsideSchema.optional(),
+    });
     export const CLOSURE_IMPACT_KINDS = ["closed", "shortened"] as const;
     export const ClosureImpactKindSchema = z.enum(CLOSURE_IMPACT_KINDS);
     export const ClosureImpactReservationSchema = z.object({
@@ -38653,6 +38705,7 @@
       /** By date, then kind. Empty when no booking is affected (e.g. a booking-only closure). */
       groups: z.array(ClosureImpactGroupSchema),
     });
+    export type ClosureAlongside = z.infer<typeof ClosureAlongsideSchema>;
     export type ClosureImpactBody = z.infer<typeof ClosureImpactBodySchema>;
     export type ClosureImpactKind = z.infer<typeof ClosureImpactKindSchema>;
     export type ClosureImpactReservation = z.infer<typeof ClosureImpactReservationSchema>;
@@ -38758,6 +38811,7 @@
     export const CreateClosureBodySchema = z.object({
       expectedVersion: z.number().int().min(0),
       rule: DateRuleSchema,
+      alongside: ClosureAlongsideSchema.optional(),
       decisions: z.array(ClosureDecisionSchema).default([]),
     });
     export const ReopenClosureBodySchema = z.object({ tellCancelledGuests: z.boolean() });
@@ -45113,7 +45167,7 @@
         super(outcome.kind);
       }
     }
-    async function futureBookings(
+    export async function futureBookings(
       db: StoreDb,
       venueId: string,
       today: string,
@@ -46588,6 +46642,71 @@
     }
     export const briefingService = { getBriefing };
   </file>
+  <file path="services/reservations/src/services/closure-alongside.ts">
+    export interface AlongsideIssue {
+      path: string;
+      code: string;
+      message: string;
+    }
+    function canonical(value: unknown): unknown {
+      if (Array.isArray(value)) return value.map(canonical);
+      if (value === null || typeof value !== "object") return value;
+      return Object.fromEntries(
+        Object.entries(value)
+          .filter(([, v]) => v != null && !(Array.isArray(v) && v.length === 0))
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([k, v]) => [k, canonical(v)])
+      );
+    }
+    function onlyShortened(edited: DateRule, stored: DateRule): boolean {
+      return (
+        edited.endsOn != null &&
+        (stored.endsOn == null || edited.endsOn < stored.endsOn) &&
+        same({ ...edited, endsOn: stored.endsOn }, stored)
+      );
+    }
+    function onlyMoved(edited: DateRule, stored: DateRule, seriesId: string, draftId: string) {
+      return (
+        stored.seriesId === seriesId &&
+        (edited.seriesId === seriesId || edited.seriesId === draftId) &&
+        same({ ...edited, seriesId: stored.seriesId }, stored)
+      );
+    }
+    export function checkAlongside(
+      stored: readonly DateRule[],
+      draft: DateRule,
+      alongside: ClosureAlongside
+    ): AlongsideIssue | null {
+      const byId = new Map(stored.map((r) => [r.id, r]));
+      const touched = new Set([
+        ...alongside.remove,
+        ...alongside.upsert
+          .filter((u) => byId.has(u.id) && isSeriesRow(byId.get(u.id)!))
+          .map((u) => u.id),
+      ]);
+      const [seriesId] = [...touched];
+      const series = seriesId ? byId.get(seriesId) : undefined;
+      if (touched.size !== 1 || !series || !isSeriesRow(series) || series.id === draft.id) {
+        return refuse("alongside", "A series edit replaces exactly one stored repeating closure.");
+      }
+      if (alongside.remove.some((id) => id !== series.id)) {
+        return refuse("alongside.remove", "Only the replaced series can be removed.");
+      }
+      for (const edited of alongside.upsert) {
+        const row = byId.get(edited.id);
+        const path = `alongside.upsert.${edited.id}`;
+        if (!row) return refuse(path, "A series edit adds no rows beside the new series.");
+        if (edited.id === series.id) {
+          if (alongside.remove.length > 0 || !onlyShortened(edited, row)) {
+            return refuse(path, "The replaced series can only end earlier.");
+          }
+        } else if (!onlyMoved(edited, row, series.id, draft.id)) {
+          return refuse(path, "Only the series' own skips and edited dates move, unchanged.");
+        }
+      }
+      return null;
+    }
+  </file>
   <file path="services/reservations/src/services/closure-apply.ts">
     type Tx = Pick<
       PrismaClient,
@@ -46944,9 +47063,6 @@
         outcomes: countActions(rows.map((r) => r.action)),
       };
     }
-    function withRule(config: AvailabilityConfig, rule: DateRule): AvailabilityConfig {
-      return { ...config, dateRules: [...config.dateRules.filter((r) => r.id !== rule.id), rule] };
-    }
     interface Plan {
       rows: Prisma.ClosureOutcomeCreateManyInput[];
       counts: Record<ClosureAction, number>;
@@ -46957,10 +47073,11 @@
       actorId: string,
       state: ConfigState,
       rule: DateRule,
+      alongside: ClosureAlongside | undefined,
       impact: ClosureImpact,
       actions: ReadonlyMap<string, { action: ClosureAction }>
     ): Plan | Refusal {
-      const after = { timezone: state.timezone, config: withRule(state.effective, rule) };
+      const after = { timezone: state.timezone, config: withClosure(state.effective, rule, alongside) };
       const rows: Prisma.ClosureOutcomeCreateManyInput[] = [];
       const stuck: string[] = [];
       for (const group of impact.groups) {
@@ -47020,6 +47137,30 @@
       }
       return storedResult(tx, venueId, replay);
     }
+    async function refuseBadAlongside(tx: Db, input: CommitInput, state: ConfigState): Promise<void> {
+      const { body, caller, venueId, now } = input;
+      const { alongside, rule } = body;
+      if (!alongside) return;
+      if (!caller.isManager) throw new Refused({ kind: "forbidden" });
+      const issue = checkAlongside(state.stored.dateRules, rule, alongside);
+      if (issue) throw new Refused({ kind: "invalid", issues: [issue] });
+      const today = civilDateIn(now, state.timezone);
+      const stranded = findStrandedReservations(
+        { timezone: state.timezone, config: state.effective },
+        { timezone: state.timezone, config: withAlongside(state.effective, alongside) },
+        await futureBookings(tx, venueId, today, now)
+      );
+      if (stranded.length > 0) {
+        throw new Refused({
+          kind: "invalid",
+          issues: stranded.map((r) => ({
+            path: `reservations.${r.id}`,
+            code: "strands_booking",
+            message: "The rows replaced beside the closure would leave this booking without service.",
+          })),
+        });
+      }
+    }
     async function preflight(tx: Db, input: CommitInput): Promise<void> {
       const { venueId, caller, body, now } = input;
       const { rule } = body;
@@ -47060,7 +47201,8 @@
       if (state.stored.dateRules.some((r) => r.id === rule.id)) {
         throw new Refused({ kind: "closure_exists" });
       }
-      const found = await impactInTransaction(tx, venueId, state, rule, now);
+      await refuseBadAlongside(tx, input, state);
+      const found = await impactInTransaction(tx, venueId, state, rule, now, body.alongside);
       if (found.kind !== "ok") throw new Refused(found);
       const checked = checkDecisions(found.impact, body.decisions);
       if (checked.kind === "decision-required") {
@@ -47069,10 +47211,18 @@
       if (checked.kind === "invalid-decision") {
         throw new Refused({ kind: "invalid_decision", groupKeys: checked.groupKeys });
       }
-      const plan = planOutcomes(venueId, caller.actorId, state, rule, found.impact, checked.actions);
+      const plan = planOutcomes(
+        venueId,
+        caller.actorId,
+        state,
+        rule,
+        body.alongside,
+        found.impact,
+        checked.actions
+      );
       if (isRefusal(plan)) throw new Refused(plan);
     
-      const next = withRule(state.effective, rule);
+      const next = withClosure(state.effective, rule, body.alongside);
       const diff = diffConfig(state.stored, next);
       await writeConfigDiff(tx, venueId, diff, { actorId: caller.actorId, now }).catch((e: unknown) => {
         throw e instanceof ConfigRowConflict ? new Refused(conflictIssue(e, next) as Refusal) : e;
@@ -47243,14 +47393,12 @@
       | { kind: "not_found" }
       | { kind: "too_long" }
       | { kind: "invalid"; issues: { path: string; code: string; message: string }[] };
-    function withDraft(config: AvailabilityConfig, rule: DateRule): AvailabilityConfig {
-      return { ...config, dateRules: [...config.dateRules.filter((r) => r.id !== rule.id), rule] };
-    }
     function scanRange(rule: DateRule, today: string): { from: string; to: string } | null {
-      const horizon = addDays(rule.startsOn, SCOPE_CONFLICT_HORIZON_DAYS);
-      if (rule.endsOn && rule.endsOn > horizon) return null;
       const earliest = addDays(today, -1);
       const from = rule.startsOn > earliest ? rule.startsOn : earliest;
+      // The year is counted from the first date that can hold a booking, so a series that began long
+      // ago (an "All dates" edit keeps its start) is not "too long".
+      if (rule.endsOn && rule.endsOn > addDays(from, SCOPE_CONFLICT_HORIZON_DAYS)) return null;
       return { from, to: rule.endsOn ?? addDays(from, SCOPE_CONFLICT_HORIZON_DAYS) };
     }
     export async function impactInTransaction(
@@ -47258,10 +47406,11 @@
       venueId: string,
       state: ConfigState,
       rule: DateRule,
-      now: Date
+      now: Date,
+      alongside?: ClosureAlongside
     ): Promise<ClosureImpactOutcome> {
       const tables = await tx.table.findMany({ where: { venueId }, select: { id: true } });
-      const next = withDraft(state.effective, rule);
+      const next = withClosure(state.effective, rule, alongside);
       const issues = [
         ...validateConfig(next),
         ...referenceIssues(next, new Set(tables.map((t) => t.id))),
@@ -47300,6 +47449,7 @@
         timezone: state.timezone,
         config: state.effective,
         rule,
+        alongside,
         bookings,
       });
       return { kind: "ok", impact };
@@ -47308,13 +47458,14 @@
       venueId: string,
       rule: DateRule,
       now: Date,
-      client: StoreClient = prisma
+      client: StoreClient = prisma,
+      alongside?: ClosureAlongside
     ): Promise<ClosureImpactOutcome> {
       return client.$transaction(async (tx) => {
         await setVenueContext(tx, venueId);
         const state = await loadConfigState(tx, venueId, now);
         if (!state) return { kind: "not_found" as const };
-        return impactInTransaction(tx, venueId, state, rule, now);
+        return impactInTransaction(tx, venueId, state, rule, now, alongside);
       });
     }
     export const closureImpactService = { impact: getClosureImpact };
@@ -47337,6 +47488,23 @@
     }
     function withDraft(config: AvailabilityConfig, rule: DateRule): AvailabilityConfig {
       return { ...config, dateRules: [...config.dateRules.filter((r) => r.id !== rule.id), rule] };
+    }
+    export function withAlongside(
+      config: AvailabilityConfig,
+      alongside: ClosureAlongside | undefined
+    ): AvailabilityConfig {
+      if (!alongside) return config;
+      const upserted = new Set(alongside.upsert.map((r) => r.id));
+      const removed = new Set(alongside.remove);
+      const kept = config.dateRules.filter((r) => !removed.has(r.id) && !upserted.has(r.id));
+      return { ...config, dateRules: [...kept, ...alongside.upsert] };
+    }
+    export function withClosure(
+      config: AvailabilityConfig,
+      rule: DateRule,
+      alongside?: ClosureAlongside
+    ): AvailabilityConfig {
+      return withDraft(withAlongside(config, alongside), rule);
     }
     function wallMinutes(instant: Date, serviceDate: string, tz: string): number {
       const local = localDateTimeOf(instant, tz);
@@ -47363,7 +47531,8 @@
       before: AvailabilitySnapshot,
       after: AvailabilitySnapshot,
       rule: DateRule,
-      booking: ImpactBooking
+      booking: ImpactBooking,
+      replaced: ReadonlySet<string>
     ): Verdicts | null {
       if (strandReason(before, booking) !== null) return null; // already unserved: not this change's doing
       if (strandReason(after, booking) !== null) return { runsInto: false };
@@ -47372,13 +47541,25 @@
       const startMin = wallMinutes(booking.startTime, date, after.timezone);
       const endMin = wallMinutes(booking.endTime, date, after.timezone);
       const dayAfter = resolveDay(after, date);
-      const servedBefore = resolveDay(before, date).services.filter(
+      const dayBefore = resolveDay(before, date);
+      const servedBefore = dayBefore.services.filter(
         (s) => s.opensAt <= startMin && startMin < s.closesAt
       );
     
       const servedIds = new Set(servedBefore.map((s) => s.venueServiceId));
-      const bandRunsInto = dayAfter.closures.some(
+      const draftBands = dayAfter.closures.filter(
         (band) => band.ruleId === rule.id && runsIntoBand(band, startMin, endMin, servedIds)
+      );
+      // Only the series being replaced counts as already decided: its band, no later than the
+      // draft's, cut into this booking before and the Manager chose then. Any other closure is news.
+      const bandRunsInto = draftBands.some(
+        (draft) =>
+          !dayBefore.closures.some(
+            (band) =>
+              replaced.has(band.ruleId) &&
+              band.from <= draft.from &&
+              runsIntoBand(band, startMin, endMin, servedIds)
+          )
       );
       const hours = servedBefore.map((was) => ({
         was,
@@ -47430,16 +47611,21 @@
       timezone: string;
       config: AvailabilityConfig;
       rule: DateRule;
+      alongside?: ClosureAlongside;
       bookings: readonly ImpactBooking[];
     }): ClosureImpact {
-      const { timezone, config, rule, bookings } = input;
+      const { timezone, config, rule, bookings, alongside } = input;
       const before = { timezone, config };
-      const after = { timezone, config: withDraft(config, rule) };
+      const after = { timezone, config: withClosure(config, rule, alongside) };
       const kind = kindOf(rule);
+      const replaced = new Set([
+        ...(alongside?.remove ?? []),
+        ...(alongside?.upsert.map((r) => r.id) ?? []),
+      ]);
     
       const byDate = new Map<string, ClosureImpactReservation[]>();
       for (const booking of bookings) {
-        const verdict = assess(before, after, rule, booking);
+        const verdict = assess(before, after, rule, booking, replaced);
         if (!verdict) continue;
         const date = booking.date.toISOString().slice(0, 10);
         byDate.set(date, [...(byDate.get(date) ?? []), toReservation(booking, verdict.runsInto)]);
@@ -66195,10 +66381,14 @@
        * special hours or Tonight change) would affect, grouped by date and kind.
        * Requires a Manager.
        */
-      async getClosureImpact(venueId: string, rule: DateRule): Promise<ClosureImpact> {
+      async getClosureImpact(
+        venueId: string,
+        rule: DateRule,
+        alongside?: ClosureAlongside
+      ): Promise<ClosureImpact> {
         const response = await this.client.call(availabilityConfigEndpoints.closureImpact, {
           params: { id: venueId },
-          body: { rule },
+          body: alongside ? { rule, alongside } : { rule },
         });
         return response.data;
       }
