@@ -1599,7 +1599,14 @@
     "hours": {
       "edit": "Edit",
       "editFor": "Edit hours for {{date}}",
-      "editOnly": "Edit {{date}} only",
+      "editMany": "Edit…",
+      "editRule": "Edit special hours {{subject}}",
+      "scope": {
+        "title": "Edit special hours",
+        "following": "This and following from {{date}}",
+        "all": "All dates",
+        "continue": "Continue"
+      },
       "subjectDates": "for {{dates}}",
       "subjectRepeat": "every {{days}}",
       "removeFor": "Remove special hours {{subject}}",
@@ -1929,6 +1936,8 @@
       "saveError": "Couldn’t save these hours",
       "stranded_one": "{{count}} booking would fall outside these hours. Change the hours, or deal with the booking first.",
       "stranded_other": "{{count}} bookings would fall outside these hours. Change the hours, or deal with the bookings first.",
+      "strandedRule_one": "{{count}} booking would fall outside the new hours. Nothing was cancelled. Change the hours, or deal with the booking first.",
+      "strandedRule_other": "{{count}} bookings would fall outside the new hours. Nothing was cancelled. Change the hours, or deal with the bookings first.",
       "conflict": {
         "title": "Someone changed availability first",
         "theirs": "{{summary}} (saved at {{time}}).",

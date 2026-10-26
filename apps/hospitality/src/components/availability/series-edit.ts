@@ -25,6 +25,9 @@ export interface SeriesEdit {
   readonly endsOn: string | null;
 }
 
+/** A special-hours rule: one date, a range, or a repeat. */
+export type SpecialHoursRule = Extract<DateRule, { kind: "special_hours" }>;
+
 /** A repeating closure that is a series in its own right, not an edit of another one. */
 export function isSeries(rule: DateRule): boolean {
   return rule.kind === "closure" && rule.repeat != null && rule.seriesId == null;
@@ -130,6 +133,28 @@ export function growthClosure(
   if (from === series.startsOn) return { rule, alongside: { upsert: moved, remove: [series.id] } };
   const ended: DateRule = { ...series, endsOn: addDays(from, -1) };
   return { rule, alongside: { upsert: [ended, ...moved], remove: [] } };
+}
+
+/**
+ * Change the hours of a range or repeating special-hours rule (ux.md F-SER). "All dates" edits
+ * the rule itself. "This and following" ends it the day before `date` and starts a new rule on
+ * `date` with the edited hours; from the rule's first date it is the same as "All dates". The
+ * server's stranded-bookings check guards the save, so no booking is cancelled silently.
+ */
+export function editHoursRule(
+  rule: SpecialHoursRule,
+  scope: SeriesScope,
+  date: string,
+  payload: SpecialHoursRule["payload"],
+  makeId: () => string
+): AvailabilityConfigChanges {
+  const edited: SpecialHoursRule = { ...rule, payload };
+  if (scope === "all" || date <= rule.startsOn) {
+    return { upsert: { dateRules: [edited] }, remove: {} };
+  }
+  const created: SpecialHoursRule = { ...edited, id: makeId(), startsOn: date };
+  const ended: SpecialHoursRule = { ...rule, endsOn: addDays(date, -1) };
+  return { upsert: { dateRules: [ended, created] }, remove: {} };
 }
 
 /**
