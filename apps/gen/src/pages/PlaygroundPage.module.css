@@ -30,30 +30,9 @@
   overflow: hidden;
 }
 
-/* ── Tablet: 2-column default ─────────────────── */
+/* ── Tablet and mobile: panels are overlays, so one column always ── */
 
-@media (min-width: 768px) and (max-width: 1024px) {
-  .layout {
-    grid-template-columns: 1fr;
-  }
-
-  .layout[data-inspector="true"] {
-    grid-template-columns: 1.5fr minmax(240px, 1fr);
-  }
-
-  /* When inspector is showing as overlay, keep single column */
-  .layout[data-history="true"] {
-    grid-template-columns: 1fr;
-  }
-
-  .layout[data-history="true"][data-inspector="true"] {
-    grid-template-columns: 1.5fr minmax(240px, 1fr);
-  }
-}
-
-/* ── Mobile: single column always ─────────────── */
-
-@media (max-width: 767px) {
+@media (max-width: 1024px) {
   .layout {
     grid-template-columns: 1fr;
   }

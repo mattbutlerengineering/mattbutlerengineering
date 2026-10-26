@@ -13,10 +13,11 @@
   inset-block-start: var(--rialto-space-md);
 }
 
+/* Fixed to the viewport so the preview scrolls and the prompt bar stays in view. */
 .shell {
   display: flex;
   flex-direction: column;
-  min-block-size: 100dvh;
+  block-size: 100dvh;
   background-color: var(--rialto-surface);
 }
 
@@ -38,6 +39,12 @@
   cursor: pointer;
   color: inherit;
   font: inherit;
+}
+
+.logoButton > span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--rialto-space-xs);
 }
 
 .logoButton:hover .logoText {
@@ -123,10 +130,12 @@
   overflow: hidden;
 }
 
-/* ── Responsive: hide shortcut on small screens ── */
+/* ── Responsive: phones keep only the header controls that fit ── */
 
 @media (max-width: 767px) {
-  .shortcutHint {
+  .shortcutHint,
+  .logoText,
+  .avatar {
     display: none;
   }
 }

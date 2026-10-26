@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { AppShell, useAppShellPanels } from "./AppShell.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
@@ -168,6 +168,22 @@ describe("AppShell", () => {
     render(<AppShell onTemplatesOpen={onTemplatesOpen}>{child}</AppShell>);
     fireEvent.click(screen.getByRole("button", { name: /templates/i }));
     expect(onTemplatesOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides the shortcuts button when onShortcutsOpen is not provided", () => {
+    render(<AppShell>{child}</AppShell>);
+    expect(screen.queryByRole("button", { name: /keyboard shortcuts/i })).toBeNull();
+  });
+
+  it("calls onShortcutsOpen from the header shortcuts button", () => {
+    const onShortcutsOpen = vi.fn();
+    render(<AppShell onShortcutsOpen={onShortcutsOpen}>{child}</AppShell>);
+    fireEvent.click(
+      within(screen.getByTestId("appbar-actions")).getByRole("button", {
+        name: /keyboard shortcuts/i,
+      })
+    );
+    expect(onShortcutsOpen).toHaveBeenCalledTimes(1);
   });
 
   it("calls onLogoClick when the logo is clicked", () => {

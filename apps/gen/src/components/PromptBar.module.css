@@ -21,6 +21,8 @@
 }
 
 .input {
+  /* Block, so the inline baseline gap doesn't push Generate below the field. */
+  display: block;
   width: 100%;
   box-sizing: border-box;
   resize: none;

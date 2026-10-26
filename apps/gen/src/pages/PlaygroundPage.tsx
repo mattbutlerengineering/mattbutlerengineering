@@ -7,7 +7,7 @@ import { NodeInspector } from "../components/NodeInspector.js";
 import { JsonInspector } from "../components/JsonInspector.js";
 import { PromptBar } from "../components/PromptBar.js";
 import { TemplateGallery } from "../components/TemplateGallery.js";
-import { KeyboardShortcuts, HelpButton } from "../components/KeyboardShortcuts.js";
+import { KeyboardShortcuts } from "../components/KeyboardShortcuts.js";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard.js";
 import { useShortcuts } from "../hooks/useShortcuts.js";
 import { usePlayground, buildPlaygroundCommandItems } from "../hooks/usePlayground.js";
@@ -46,6 +46,7 @@ export function PlaygroundPage() {
       onSignOut={onSignOut}
       onLogoClick={onLogoClick}
       onTemplatesOpen={onTemplatesOpen}
+      onShortcutsOpen={session.openShortcuts}
     >
       <PlaygroundBody session={session} onSignOut={onSignOut} toggleTheme={toggleTheme} />
     </AppShell>
@@ -312,7 +313,6 @@ export function PlaygroundBody({ session, onSignOut, toggleTheme }: PlaygroundBo
       />
       <TemplateGallery open={galleryOpen} onClose={closeGallery} onSelect={handleTemplateSelect} />
       <KeyboardShortcuts open={shortcutsOpen} onClose={closeShortcuts} />
-      <HelpButton onClick={openShortcuts} />
       <AppShell.CommandPalette items={commandItems} />
     </>
   );
