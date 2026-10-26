@@ -95,8 +95,11 @@ function writeWork(root, file, value) {
 }
 
 /**
- * `--labelled-issues`: a JSON array of `{ number, title, state }` (routine
- * step 6b's `search_issues` result, reduced); anything else throws (exit 2).
+ * `--labelled-issues`: a JSON array of `{ number, title, state, state_reason? }`
+ * (routine step 6b's `search_issues` result, reduced); anything else throws
+ * (exit 2). `state_reason` is optional — a missing/unknown value on a closed
+ * issue falls back to today's blocking behaviour (#7603) rather than being
+ * assumed a human's `not_planned` decision.
  */
 function readLabelledIssues(file) {
   if (!file) {
@@ -114,7 +117,8 @@ function readLabelledIssues(file) {
     Number.isInteger(i?.number) &&
     i.number > 0 &&
     typeof i.title === "string" &&
-    typeof i.state === "string";
+    typeof i.state === "string" &&
+    (i.state_reason === undefined || i.state_reason === null || typeof i.state_reason === "string");
   if (!Array.isArray(value) || !value.every(isIssue)) {
     throw new Error(
       `--labelled-issues ${file} is not a JSON array of { number, title, state } issues`
@@ -154,6 +158,14 @@ function plan(ctx, argv) {
   for (const a of reconciled.adopted) {
     ctx.stderr(`findings.mjs plan: adopted #${a.issue} under ${a.key}\n`);
   }
+  for (const d of reconciled.declined) {
+    ctx.stderr(`findings.mjs plan: declined #${d.issue} under ${d.key}\n`);
+  }
+  for (const n of reconciled.ignored) {
+    ctx.stderr(
+      `findings.mjs plan: #${n} is closed not_planned with no resolvable finding key — ignored\n`
+    );
+  }
   const adoptedLedger = Object.fromEntries(
     reconciled.adopted.map((a) => [
       a.key,
@@ -161,6 +173,12 @@ function plan(ctx, argv) {
     ])
   );
   const adoptedStates = Object.fromEntries(reconciled.adopted.map((a) => [a.issue, a.state]));
+  const declinedLedger = Object.fromEntries(
+    reconciled.declined.map((d) => [
+      d.key,
+      { issue: d.issue, carrier: "issue", state: "declined", severity: d.severity },
+    ])
+  );
   const blocked = unmigratedKeys(ledger, rubric);
   if (blocked.length > 0) {
     ctx.stderr(
@@ -182,12 +200,13 @@ function plan(ctx, argv) {
   }
   const result = planFindings({
     sources,
-    ledger: { ...ledger, ...adoptedLedger },
+    ledger: { ...ledger, ...adoptedLedger, ...declinedLedger },
     states: { ...readJson(statesFile), ...adoptedStates },
     rubric,
     calibrationStatus,
     backlogLines: readBacklogLines(ctx.root),
     adopted: reconciled.adopted,
+    declined: reconciled.declined,
   });
   if (result.dropped.length > 0) {
     ctx.stderr(
