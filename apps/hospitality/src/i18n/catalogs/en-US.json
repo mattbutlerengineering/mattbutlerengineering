@@ -1161,6 +1161,7 @@
       "message": "Waitlist closed tonight.",
       "withNote": "Waitlist closed tonight: {{note}}",
       "reopen": "Reopen waitlist",
+      "manage": "Manage this closure in Availability, Special dates",
       "reopening": "Reopening…",
       "reopened": "Waitlist reopened.",
       "reopenError": "Couldn't reopen the waitlist."

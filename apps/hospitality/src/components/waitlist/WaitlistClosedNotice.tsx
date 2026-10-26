@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Button, Card, Stack, Text, useToast } from "@mattbutlerengineering/rialto";
 import { useReopenClosure } from "../../hooks/useClosures.js";
@@ -9,19 +10,22 @@ export interface WaitlistClosedNoticeProps {
   readonly note: string | null;
   /** The closure that closed the waitlist; without it there is nothing to reopen. */
   readonly ruleId: string | null;
-  /** Only a Manager can reopen; a Host sees the message alone. */
+  /** Show Reopen waitlist: a Manager, and a closure that covers only the waitlist and tonight. */
   readonly canReopen: boolean;
+  /** Reopen would delete more than tonight's waitlist closure, so point a Manager to Special dates. */
+  readonly manageInAvailability: boolean;
 }
 
 /**
  * Takes the place of the waitlist's Add form while the waitlist is closed (ux.md F8):
- * "Waitlist closed tonight: <note>", with Reopen waitlist for a Manager.
+ * "Waitlist closed tonight: <note>", with Reopen waitlist for a Manager when reopening is safe.
  */
 export function WaitlistClosedNotice({
   venueId,
   note,
   ruleId,
   canReopen,
+  manageInAvailability,
 }: WaitlistClosedNoticeProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -59,6 +63,7 @@ export function WaitlistClosedNotice({
             {t("waitlist.closed.reopen")}
           </Button>
         )}
+        {manageInAvailability && <Link to="/availability">{t("waitlist.closed.manage")}</Link>}
       </Stack>
     </Card>
   );

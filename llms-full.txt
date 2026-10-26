@@ -18084,6 +18084,8 @@
     export interface StaffTonight {
       /** The service day "tonight" means now; `null` until the venue's config has loaded. */
       readonly serviceDate: string | null;
+      /** The venue's whole config, to place a typed time on its service day; `null` until loaded. */
+      readonly config: AvailabilityConfig | null;
       /** Every date rule of the venue, for the staff surfaces that read Tonight changes. */
       readonly rules: readonly DateRule[];
       /** The service day's waitlist is closed (`bookingOpen.waitlist`); false until known. */
@@ -18104,6 +18106,7 @@
       const summary = days.data?.find((day) => day.serviceDate === serviceDate);
       return {
         serviceDate,
+        config: state?.config ?? null,
         rules: state?.config.dateRules ?? NO_RULES,
         waitlistClosed: summary ? !summary.bookingOpen.waitlist : false,
       };
@@ -79808,6 +79811,27 @@
       return isOpen(yesterday, local.minute + MINUTES_PER_DAY) ? yesterday : local.date;
     }
   </file>
+  <file path="apps/hospitality/src/utils/dinner-config.fixture.ts">
+    export const DINNER_CONFIG: AvailabilityConfig = {
+      schedules: [{ id: "s1", name: "Regular", kind: "regular", isRegular: true }],
+      venueServices: [{ id: "v1", name: "Dinner", position: 0 }],
+      scheduleServices: [
+        {
+          id: "ss1",
+          scheduleId: "s1",
+          venueServiceId: "v1",
+          opensAt: 1020,
+          lastSeatingAt: 1380,
+          closesAt: 1560,
+          seating: { version: 1, interval: 15 },
+          bookingTypes: ["online", "phone"],
+        },
+      ],
+      assignments: [{ id: "a1", scheduleId: "s1", weekdays: [0, 1, 2, 3, 4, 5, 6], precedence: 0 }],
+      dateRules: [],
+    };
+    export const DINNER_TZ = "America/Los_Angeles";
+  </file>
   <file path="apps/hospitality/src/utils/format.ts">
     function defaultReport(timeZone: string): void {
       console.warn(`Invalid IANA time zone "${timeZone}"; falling back to the device zone.`);
@@ -80246,33 +80270,44 @@
   </file>
   <file path="apps/hospitality/src/utils/tonight-blocks.ts">
     export function bookingMinuteOnServiceDay(
+      config: AvailabilityConfig,
+      timeZone: string,
       serviceDate: string,
       date: string,
       time: string
     ): number | null {
       const match = /^(\d{2}):(\d{2})$/.exec(time);
-      if (!match) return null;
+      if (!match || !date) return null;
       const minute = Number(match[1]) * 60 + Number(match[2]);
-      if (date === serviceDate) return minute;
-      if (date === addDays(serviceDate, 1)) return minute + MINUTES_PER_DAY;
-      return null;
+      const planned: AvailabilityConfig = {
+        ...config,
+        dateRules: config.dateRules.filter((r) => r.kind !== "closure" && r.kind !== "tonight"),
+      };
+      const isOpen = (day: string, at: number): boolean =>
+        resolveDay({ timezone: timeZone, config: planned }, day).services.some(
+          (s) => s.opensAt <= at && at < s.closesAt
+        );
+      const owner =
+        [
+          { day: date, at: minute },
+          { day: addDays(date, -1), at: minute + MINUTES_PER_DAY },
+        ].find((c) => isOpen(c.day, c.at)) ?? null;
+      return owner && owner.day === serviceDate ? owner.at : null;
     }
     export function blockedTableIds(
       rules: readonly DateRule[],
       serviceDate: string,
-      startMinute: number | null,
-      durationMinutes: number
+      startMinute: number | null
     ): ReadonlySet<string> {
       const blocked = new Set<string>();
       if (startMinute === null) return blocked;
-      const end = startMinute + durationMinutes;
       for (const rule of rules) {
         if (rule.kind !== "tonight" || rule.targetKind !== "tables" || rule.startsOn !== serviceDate) {
           continue;
         }
         if (!("stop" in rule.payload)) continue;
         const { from, to } = rule.payload.stop;
-        if (from < end && startMinute < to) {
+        if (from <= startMinute && startMinute < to) {
           for (const id of rule.tableIds ?? []) blocked.add(id);
         }
       }
@@ -80283,14 +80318,19 @@
       serviceDate: string
     ): DateRule | null {
       return (
-        rules.find(
+        activeRules(rules, serviceDate).find(
           (rule) =>
             rule.kind === "closure" &&
             rule.targetKind === "booking" &&
-            (rule.bookingTypes ?? []).includes("waitlist") &&
-            rule.startsOn <= serviceDate &&
-            (!rule.endsOn || serviceDate <= rule.endsOn)
+            !rule.window &&
+            (rule.bookingTypes ?? []).includes("waitlist")
         ) ?? null
+      );
+    }
+    export function isTonightOnlyWaitlistClosure(rule: DateRule): boolean {
+      const types = rule.bookingTypes ?? [];
+      return (
+        types.length === 1 && types[0] === "waitlist" && !rule.repeat && rule.endsOn === rule.startsOn
       );
     }
   </file>

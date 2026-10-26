@@ -1183,6 +1183,7 @@
       "message": "Liste d’attente fermée ce soir.",
       "withNote": "Liste d’attente fermée ce soir : {{note}}",
       "reopen": "Rouvrir la liste d’attente",
+      "manage": "Gérer cette fermeture dans Disponibilités, Dates spéciales",
       "reopening": "Réouverture…",
       "reopened": "Liste d’attente rouverte.",
       "reopenError": "Impossible de rouvrir la liste d’attente."

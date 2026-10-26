@@ -174,15 +174,20 @@ export function NewReservationDialog({
   // Blocked tables come from the Tonight rules the app already holds, never a per-table check.
   const blockedIds = useMemo(
     () =>
-      tonight.serviceDate
+      tonight.serviceDate && tonight.config
         ? blockedTableIds(
             tonight.rules,
             tonight.serviceDate,
-            bookingMinuteOnServiceDay(tonight.serviceDate, date, startTime),
-            DEFAULT_DURATION_MINUTES
+            bookingMinuteOnServiceDay(
+              tonight.config,
+              timeZone,
+              tonight.serviceDate,
+              date,
+              startTime
+            )
           )
         : NO_BLOCKED,
-    [tonight.serviceDate, tonight.rules, date, startTime]
+    [tonight.serviceDate, tonight.config, tonight.rules, timeZone, date, startTime]
   );
   const isTableBlocked = blockedIds.has(tableId);
 

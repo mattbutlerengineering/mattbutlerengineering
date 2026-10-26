@@ -1,4 +1,4 @@
-import type { DateRule } from "@mbe/types";
+import type { AvailabilityConfig, DateRule } from "@mbe/types";
 import { useAvailabilityConfig, useAvailabilityDays } from "./useAvailability.js";
 import { useNow } from "./useNow.js";
 import { useVenueFormat } from "./useVenueFormat.js";
@@ -9,6 +9,8 @@ const NO_RULES: readonly DateRule[] = [];
 export interface StaffTonight {
   /** The service day "tonight" means now; `null` until the venue's config has loaded. */
   readonly serviceDate: string | null;
+  /** The venue's whole config, to place a typed time on its service day; `null` until loaded. */
+  readonly config: AvailabilityConfig | null;
   /** Every date rule of the venue, for the staff surfaces that read Tonight changes. */
   readonly rules: readonly DateRule[];
   /** The service day's waitlist is closed (`bookingOpen.waitlist`); false until known. */
@@ -36,6 +38,7 @@ export function useStaffTonight(venueId: string | null | undefined): StaffTonigh
   const summary = days.data?.find((day) => day.serviceDate === serviceDate);
   return {
     serviceDate,
+    config: state?.config ?? null,
     rules: state?.config.dateRules ?? NO_RULES,
     waitlistClosed: summary ? !summary.bookingOpen.waitlist : false,
   };

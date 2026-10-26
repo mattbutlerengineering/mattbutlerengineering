@@ -1183,6 +1183,7 @@
       "message": "Lista de espera cerrada esta noche.",
       "withNote": "Lista de espera cerrada esta noche: {{note}}",
       "reopen": "Reabrir lista de espera",
+      "manage": "Administrar este cierre en Disponibilidad, Fechas especiales",
       "reopening": "Reabriendo…",
       "reopened": "Lista de espera reabierta.",
       "reopenError": "No se pudo reabrir la lista de espera."

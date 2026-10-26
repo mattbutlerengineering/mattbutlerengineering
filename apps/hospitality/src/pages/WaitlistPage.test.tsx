@@ -315,7 +315,12 @@ const makeTable = (overrides: Partial<Table> = {}): Table => ({
   ...overrides,
 });
 
-const OPEN_TONIGHT: StaffTonight = { serviceDate: "2026-10-23", waitlistClosed: false, rules: [] };
+const OPEN_TONIGHT: StaffTonight = {
+  serviceDate: "2026-10-23",
+  waitlistClosed: false,
+  config: null,
+  rules: [],
+};
 
 function teamResult(viewerRole: "manager" | "host"): ReturnType<typeof useVenueTeam> {
   return {
@@ -405,9 +410,10 @@ describe("WaitlistPage", () => {
   });
 
   describe("waitlist closed tonight (ux.md F8)", () => {
-    const closedTonight: StaffTonight = {
+    const tonightWith = (over: Record<string, unknown>): StaffTonight => ({
       serviceDate: "2026-10-23",
       waitlistClosed: true,
+      config: null,
       rules: [
         {
           id: "rule-wl",
@@ -415,10 +421,46 @@ describe("WaitlistPage", () => {
           targetKind: "booking",
           bookingTypes: ["waitlist"],
           startsOn: "2026-10-23",
+          endsOn: "2026-10-23",
           staffNote: "kitchen backed up",
+          ...over,
         } as DateRule,
       ],
-    };
+    });
+    const closedTonight = tonightWith({});
+
+    it("sends a Manager to Special dates instead of Reopen when the closure is wider than tonight", () => {
+      vi.mocked(useStaffTonight).mockReturnValue(
+        tonightWith({ bookingTypes: ["waitlist", "online"] })
+      );
+      vi.mocked(useWaitlist).mockReturnValue({
+        data: [],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+      renderPage();
+
+      expect(screen.queryByRole("button", { name: "Reopen waitlist" })).not.toBeInTheDocument();
+      expect(screen.getByRole("link", { name: /Special dates/ })).toHaveAttribute(
+        "href",
+        "/availability"
+      );
+    });
+
+    it("does the same for an open-ended closure", () => {
+      vi.mocked(useStaffTonight).mockReturnValue(tonightWith({ endsOn: null }));
+      vi.mocked(useWaitlist).mockReturnValue({
+        data: [],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+      renderPage();
+
+      expect(screen.queryByRole("button", { name: "Reopen waitlist" })).not.toBeInTheDocument();
+      expect(screen.getByRole("link", { name: /Special dates/ })).toBeInTheDocument();
+    });
 
     it("replaces Add with the closed message and the staff note", () => {
       vi.mocked(useStaffTonight).mockReturnValue(closedTonight);

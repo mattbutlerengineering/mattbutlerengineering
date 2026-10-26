@@ -6097,6 +6097,7 @@
     <item priority="low">
       interface StaffTonight {
         serviceDate: string | null;
+        config: AvailabilityConfig | null;
         rules: readonly DateRule[];
         waitlistClosed: boolean;
       }
@@ -24284,6 +24285,14 @@
       ): string { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/utils/dinner-config.fixture.ts">
+    <item priority="high">
+      export const DINNER_CONFIG: AvailabilityConfig;
+    </item>
+    <item priority="high">
+      export const DINNER_TZ: unknown;
+    </item>
+  </file>
   <file path="apps/hospitality/src/utils/format.ts">
     <item priority="medium">
       function defaultReport(timeZone: string): void { /* ... */ }
@@ -24544,6 +24553,8 @@
   <file path="apps/hospitality/src/utils/tonight-blocks.ts">
     <item priority="high">
       export function bookingMinuteOnServiceDay(
+        config: AvailabilityConfig,
+        timeZone: string,
         serviceDate: string,
         date: string,
         time: string
@@ -24553,8 +24564,7 @@
       export function blockedTableIds(
         rules: readonly DateRule[],
         serviceDate: string,
-        startMinute: number | null,
-        durationMinutes: number
+        startMinute: number | null
       ): ReadonlySet<string> { /* ... */ }
     </item>
     <item priority="high">
@@ -24562,6 +24572,9 @@
         rules: readonly DateRule[],
         serviceDate: string
       ): DateRule | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isTonightOnlyWaitlistClosure(rule: DateRule): boolean { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/utils/venue-wall-time.ts">

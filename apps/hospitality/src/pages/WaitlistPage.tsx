@@ -31,7 +31,7 @@ import { useApiClient } from "../hooks/useApiClient.js";
 import { useStaffTonight } from "../hooks/useStaffTonight.js";
 import { useVenueTeam } from "../hooks/useVenueTeam.js";
 import { WaitlistClosedNotice } from "../components/waitlist/WaitlistClosedNotice.js";
-import { waitlistClosingRule } from "../utils/tonight-blocks.js";
+import { isTonightOnlyWaitlistClosure, waitlistClosingRule } from "../utils/tonight-blocks.js";
 import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import { LiveStatus } from "../components/LiveStatus.js";
@@ -477,6 +477,7 @@ export function WaitlistPage() {
 
   const tonight = useStaffTonight(selectedVenueId);
   const { data: team } = useVenueTeam({ venueId: selectedVenueId });
+  const isManager = team?.viewerRole === "manager";
   const closingRule = tonight.serviceDate
     ? waitlistClosingRule(tonight.rules, tonight.serviceDate)
     : null;
@@ -561,7 +562,10 @@ export function WaitlistPage() {
                 venueId={selectedVenueId}
                 note={closingRule?.staffNote?.trim() || null}
                 ruleId={closingRule?.id ?? null}
-                canReopen={team?.viewerRole === "manager"}
+                canReopen={isManager && !!closingRule && isTonightOnlyWaitlistClosure(closingRule)}
+                manageInAvailability={
+                  isManager && !!closingRule && !isTonightOnlyWaitlistClosure(closingRule)
+                }
               />
             ) : (
               <AddToWaitlistForm
