@@ -23,7 +23,11 @@ vi.mock("../../contexts/VenueContext.js", () => ({
 import { AddSpecialDatesSheet } from "./AddSpecialDatesSheet.js";
 import { fixtureConfig } from "./resolved-day-fixtures.js";
 
-const impact = (date: string, count: number): ClosureImpact => ({
+const impact = (
+  date: string,
+  count: number,
+  kind: "closed" | "shortened" = "closed"
+): ClosureImpact => ({
   reservations: count,
   covers: count * 2,
   depositsHeld: 0,
@@ -32,9 +36,9 @@ const impact = (date: string, count: number): ClosureImpact => ({
       ? []
       : [
           {
-            groupKey: `${date}:closed`,
+            groupKey: `${date}:${kind}`,
             date,
-            kind: "closed",
+            kind,
             covers: count * 2,
             depositsHeld: 0,
             reservations: Array.from({ length: count }, (_, i) => ({
@@ -58,6 +62,7 @@ const result = (ruleId: string, cancel: number, keep: number) => ({
 });
 
 function renderSheet() {
+  const onStale = vi.fn();
   const state: AvailabilityConfigState = { config: fixtureConfig(), version: 7, source: "rows" };
   const onClose = vi.fn();
   render(
@@ -68,13 +73,13 @@ function renderSheet() {
           state={state}
           timezone="America/Los_Angeles"
           today="2026-12-01"
-          onStale={vi.fn()}
+          onStale={onStale}
           onClose={onClose}
         />
       </main>
     </ToastProvider>
   );
-  return { onClose };
+  return { onClose, onStale };
 }
 
 /** Picks `iso` in the nth row's date picker (the calendar opens on the mocked December). */
@@ -153,11 +158,55 @@ describe("AddSpecialDatesSheet", () => {
     expect(saveConfig).not.toHaveBeenCalled();
   });
 
-  it("saves a Special hours row through the config save, then the closure with that version", async () => {
-    preview.mockResolvedValue([impact("2026-12-26", 0)]);
-    saveConfig.mockResolvedValue({ version: 8, changeId: "chg-hours" });
-    create.mockResolvedValue({ version: 9, results: [result("b", 0, 0)] });
+  it("shows a shortened-hours group beside a closed one in the same Step 2, and names move and cancel", async () => {
+    preview.mockResolvedValue([impact("2026-12-25", 2, "shortened"), impact("2026-12-26", 3)]);
+    create.mockResolvedValue({
+      version: 9,
+      results: [
+        { ...result("h", 0, 0), outcomes: { cancel: 0, move: 2, keep_notify: 0, keep_silent: 0 } },
+        result("c", 3, 0),
+      ],
+    });
     renderSheet();
+    await pickDate(0, "2026-12-25");
+    fireEvent.click(screen.getByRole("radio", { name: "Special hours" }));
+    addRow();
+    await pickDate(1, "2026-12-26");
+
+    expect(primary().textContent).toBe("Next");
+    fireEvent.click(primary());
+
+    await screen.findByText(/shortened · 2 bookings/);
+    expect(screen.getByText(/closed · 3 bookings/)).toBeTruthy();
+    const groups = screen.getAllByRole("radiogroup", { name: /What should happen/ });
+    expect(groups).toHaveLength(2);
+    fireEvent.click(
+      within(groups[0]!).getByRole("radio", { name: /Move to the nearest open time/ })
+    );
+    fireEvent.click(within(groups[1]!).getByRole("radio", { name: /Cancel, notify & refund/ }));
+    expect(primary().textContent).toBe("Save 2 dates · cancel 3 · move 2");
+
+    fireEvent.click(primary());
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+    const { body } = create.mock.calls[0]![0];
+    expect(body.expectedVersion).toBe(7);
+    expect(body.items).toHaveLength(2);
+    expect(body.items[0]).toMatchObject({
+      rule: { kind: "special_hours", startsOn: "2026-12-25", endsOn: "2026-12-25" },
+      decisions: [{ groupKey: "2026-12-25:shortened", action: "move" }],
+    });
+    expect(body.items[1]).toMatchObject({
+      rule: { kind: "closure", startsOn: "2026-12-26" },
+      decisions: [{ groupKey: "2026-12-26:closed", action: "cancel" }],
+    });
+    // Everything goes in the one batch; no separate config save.
+    expect(saveConfig).not.toHaveBeenCalled();
+  });
+
+  it("saves a Special hours row with no affected bookings in the batch", async () => {
+    preview.mockResolvedValue([impact("2026-12-25", 0), impact("2026-12-26", 0)]);
+    create.mockResolvedValue({ version: 9, results: [result("h", 0, 0), result("c", 0, 0)] });
+    const { onClose } = renderSheet();
     await pickDate(0, "2026-12-25");
     fireEvent.click(screen.getByRole("radio", { name: "Special hours" }));
     addRow();
@@ -166,44 +215,35 @@ describe("AddSpecialDatesSheet", () => {
     fireEvent.change(screen.getAllByLabelText(/Message for guests/)[1]!, {
       target: { value: "Closed for the holiday" },
     });
-
-    expect(primary().textContent).toBe("Next");
     fireEvent.click(primary());
 
     await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
-    const config = saveConfig.mock.calls[0]![0];
-    expect(config.body.expectedVersion).toBe(7);
-    expect(config.body.changes.upsert.dateRules).toHaveLength(1);
-    expect(config.body.changes.upsert.dateRules[0]).toMatchObject({
-      kind: "special_hours",
-      startsOn: "2026-12-25",
-      endsOn: "2026-12-25",
-    });
-    const closures = create.mock.calls[0]![0].body;
-    expect(closures.expectedVersion).toBe(8);
-    expect(closures.items).toHaveLength(1);
-    expect(closures.items[0].rule).toMatchObject({
+    const { items } = create.mock.calls[0]![0].body;
+    expect(items[0].rule).toMatchObject({ kind: "special_hours", startsOn: "2026-12-25" });
+    expect(items[1].rule).toMatchObject({
+      kind: "closure",
       startsOn: "2026-12-26",
       guestMessage: "Closed for the holiday",
     });
+    expect(saveConfig).not.toHaveBeenCalled();
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 
   it("copies the regular Friday's hours for a Same as Friday row", async () => {
-    saveConfig.mockResolvedValue({ version: 8, changeId: "chg-same" });
+    preview.mockResolvedValue([impact("2026-12-31", 0)]);
+    create.mockResolvedValue({ version: 8, results: [result("s", 0, 0)] });
     const { onClose } = renderSheet();
     await pickDate(0, "2026-12-31"); // a Thursday
     fireEvent.click(screen.getByRole("radio", { name: "Same as another day" }));
     fireEvent.click(screen.getByRole("combobox", { name: "Copy hours from" }));
     fireEvent.click(await screen.findByRole("option", { name: "Same as Friday" }));
-
-    expect(primary().textContent).toBe("Save 1 date");
     fireEvent.click(primary());
 
-    await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(1));
-    const [rule] = saveConfig.mock.calls[0]![0].body.changes.upsert.dateRules;
-    expect(rule).toMatchObject({ kind: "special_hours", startsOn: "2026-12-31" });
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+    const [item] = create.mock.calls[0]![0].body.items;
+    expect(item.rule).toMatchObject({ kind: "special_hours", startsOn: "2026-12-31" });
     expect(
-      rule.payload.services.map((s: { venueServiceId: string; opensAt: number }) => [
+      item.rule.payload.services.map((s: { venueServiceId: string; opensAt: number }) => [
         s.venueServiceId,
         s.opensAt,
       ])
@@ -211,7 +251,7 @@ describe("AddSpecialDatesSheet", () => {
       ["vs-lunch", 690],
       ["vs-dinner", 1020],
     ]);
-    expect(create).not.toHaveBeenCalled();
+    expect(saveConfig).not.toHaveBeenCalled();
     await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 
@@ -236,31 +276,27 @@ describe("AddSpecialDatesSheet", () => {
     ]);
   });
 
-  it("keeps the saved hours when the closures are refused, and does not save them twice", async () => {
-    preview.mockResolvedValue([impact("2026-12-26", 0)]);
-    saveConfig.mockResolvedValue({ version: 8, changeId: "chg-hours" });
-    create.mockRejectedValueOnce(new Error("version moved")).mockResolvedValueOnce({
-      version: 9,
-      results: [result("b", 0, 0)],
+  it("reloads the config on a version conflict and asks again before a retry", async () => {
+    preview.mockResolvedValue([impact("2026-12-24", 0)]);
+    create.mockRejectedValueOnce({
+      message: "conflict",
+      problemDetails: {
+        type: "about:blank",
+        title: "Conflict",
+        status: 409,
+        detail: "Availability changed since you loaded it.",
+        code: "version-conflict",
+      },
     });
-    renderSheet();
-    await pickDate(0, "2026-12-25");
-    fireEvent.click(screen.getByRole("radio", { name: "Special hours" }));
-    addRow();
-    await pickDate(1, "2026-12-26");
+    const { onStale } = renderSheet();
+    await pickDate(0, "2026-12-24");
     fireEvent.click(primary());
 
-    await screen.findByText(/The special hours were saved, but the closures were not/);
-    expect(screen.getByText(/No booking was cancelled/)).toBeTruthy();
-
-    fireEvent.click(primary());
-    await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
-    expect(saveConfig).toHaveBeenCalledTimes(1);
-    // Retried under the same key and rule id, from the version the hours left.
-    expect(create.mock.calls[1]![0].idempotencyKey).toBe(create.mock.calls[0]![0].idempotencyKey);
-    expect(create.mock.calls[1]![0].body.items[0].rule.id).toBe(
-      create.mock.calls[0]![0].body.items[0].rule.id
-    );
+    await screen.findByText(/No booking was cancelled/);
+    expect(onStale).toHaveBeenCalledTimes(1);
+    // Back on Step 1 with a fresh preview due, not a retry of the stale save.
+    expect(primary().textContent).toBe("Next");
+    expect(create).toHaveBeenCalledTimes(1);
   });
 
   it("blocks Next on a missing date", () => {

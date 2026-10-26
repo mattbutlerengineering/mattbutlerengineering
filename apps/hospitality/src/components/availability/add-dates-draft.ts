@@ -2,14 +2,14 @@ import { addDays, resolveDay, weekdayIndexOf } from "@mbe/availability";
 import {
   GUEST_MESSAGE_MAX_LENGTH,
   type AvailabilityConfig,
-  type AvailabilityConfigChanges,
+  type SpecialHoursService,
   type ClosureAction,
   type ClosureDecision,
   type ClosureImpact,
   type DateRule,
 } from "@mbe/types";
 import { buildCloseRule, toDecisions, type ChoiceMap, type OutcomeCounts } from "./close-draft.js";
-import { buildDraftChanges, seedServices, type DraftService } from "./draft-changes.js";
+import { seedServices, type DraftService } from "./draft-changes.js";
 
 /**
  * The Add special date sheet's draft (ux.md F6): rows of one date each, Closed, Special hours
@@ -53,19 +53,33 @@ export const emptyRow = (key: string, date: string): DateRow => ({
 const messageOf = (form: AddDatesForm, row: DateRow): string =>
   (form.shareMessage ? form.sharedMessage : row.message).trim();
 
+/** The date already has special hours of its own, which a new row cannot replace. */
+function hasOwnHours(config: AvailabilityConfig, date: string): boolean {
+  return config.dateRules.some(
+    (r) => r.kind === "special_hours" && r.startsOn <= date && (r.endsOn ?? date) >= date
+  );
+}
+
 /** The first row field that blocks Next, or `null` when every row can be saved. */
 export function validateRows(
   form: AddDatesForm,
+  config: AvailabilityConfig,
   today: string
 ): { readonly key: string; readonly field: RowField } | null {
   const seen = new Set<string>();
   for (const row of form.rows) {
-    if (row.date === "" || row.date < today || seen.has(row.date)) {
+    if (
+      row.date === "" ||
+      row.date < today ||
+      seen.has(row.date) ||
+      (row.kind !== "closed" && hasOwnHours(config, row.date))
+    ) {
       return { key: row.key, field: "date" };
     }
     seen.add(row.date);
-    const unnamed = row.services.some((s) => s.venueServiceId === null && !s.name.trim());
-    if (row.kind !== "closed" && (row.services.length === 0 || unnamed)) {
+    // The closure command saves a rule against the venue's existing services only.
+    const unknown = row.services.some((s) => s.venueServiceId === null);
+    if (row.kind !== "closed" && (row.services.length === 0 || unknown)) {
       return { key: row.key, field: "hours" };
     }
     if (messageOf(form, row).length > GUEST_MESSAGE_MAX_LENGTH) {
@@ -75,27 +89,53 @@ export function validateRows(
   return null;
 }
 
-/** One whole-day venue closure per Closed row, keyed by the row so its impact can be matched. */
-export function closureItems(
+/**
+ * The rule each row saves, in row order, keyed by the row so its impact can be matched: a
+ * whole-day venue closure for Closed, a single-date special-hours rule for the other two.
+ */
+export function ruleItems(
   form: AddDatesForm,
   today: string,
   idFor: (rowKey: string) => string
 ): { readonly rowKey: string; readonly rule: DateRule }[] {
   return form.rows.flatMap((row) => {
-    if (row.kind !== "closed") return [];
-    const rule = buildCloseRule(
-      {
-        what: { kind: "venue" },
-        when: { kind: "date", date: row.date },
-        fromMinute: null,
-        staffNote: "",
-        guestMessage: messageOf(form, row),
-      },
-      idFor(row.key),
-      today
-    );
+    const message = messageOf(form, row);
+    const rule =
+      row.kind === "closed"
+        ? buildCloseRule(
+            {
+              what: { kind: "venue" },
+              when: { kind: "date", date: row.date },
+              fromMinute: null,
+              staffNote: "",
+              guestMessage: message,
+            },
+            idFor(row.key),
+            today
+          )
+        : hoursRule(row, idFor(row.key), message);
     return rule ? [{ rowKey: row.key, rule }] : [];
   });
+}
+
+function hoursRule(row: DateRow, id: string, message: string): DateRule {
+  const services: SpecialHoursService[] = row.services.map((s) => ({
+    venueServiceId: s.venueServiceId!, // validateRows refuses a row with a new service
+    opensAt: s.opensAt,
+    lastSeatingAt: s.lastSeatingAt,
+    closesAt: s.closesAt,
+    seating: s.seating,
+    bookingTypes: [...s.bookingTypes],
+  }));
+  return {
+    id,
+    kind: "special_hours",
+    targetKind: "venue",
+    startsOn: row.date,
+    endsOn: row.date,
+    payload: { version: 1, services },
+    ...(message ? { guestMessage: message } : {}),
+  };
 }
 
 /** The regular week's hours for a weekday, ignoring any date's own changes. */
@@ -110,44 +150,6 @@ export function regularServices(
   const regular = { ...config, dateRules: [] };
   const day = resolveDay({ timezone, config: regular }, date);
   return seedServices(regular, day, { kind: "date", date });
-}
-
-/**
- * The config save for the Special hours and Same as rows: one single-date special-hours rule
- * each, carrying the row's message. `null` when no row writes hours.
- */
-export function hoursChanges(
-  form: AddDatesForm,
-  config: AvailabilityConfig,
-  makeId: () => string
-): AvailabilityConfigChanges | null {
-  const parts = form.rows
-    .filter((row) => row.kind !== "closed")
-    .map((row) => {
-      const built = buildDraftChanges({
-        config,
-        scope: { kind: "date", date: row.date },
-        services: row.services,
-        makeId,
-      });
-      const message = messageOf(form, row);
-      return {
-        venueServices: built.upsert.venueServices ?? [],
-        dateRules: (built.upsert.dateRules ?? []).map((rule) =>
-          message ? { ...rule, guestMessage: message } : rule
-        ),
-      };
-    });
-  if (parts.length === 0) return null;
-  return {
-    upsert: {
-      ...(parts.some((p) => p.venueServices.length > 0)
-        ? { venueServices: parts.flatMap((p) => p.venueServices) }
-        : {}),
-      dateRules: parts.flatMap((p) => p.dateRules),
-    },
-    remove: {},
-  };
 }
 
 /** One impact for the combined Step 2: every row's groups by date, with the totals summed. */

@@ -14,7 +14,6 @@ import {
 import {
   AvailabilityConfigProblemSchema,
   GUEST_MESSAGE_MAX_LENGTH,
-  type AvailabilityConfigSaveResult,
   type AvailabilityConfigState,
   type ClosureImpact,
 } from "@mbe/types";
@@ -23,11 +22,10 @@ import { useNow } from "../../hooks/useNow.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import { minutesOfDayIn } from "../../utils/service-day.js";
 import {
-  closureItems,
   combineImpacts,
   decisionsFor,
   emptyRow,
-  hoursChanges,
+  ruleItems,
   saveLabelParts,
   validateRows,
   type AddDatesForm,
@@ -37,7 +35,6 @@ import {
 import { AddDateRow } from "./AddDateRow.js";
 import { decisionsReady, isUrgent, outcomeCounts, type ChoiceMap } from "./close-draft.js";
 import { CloseStepTwo } from "./CloseStepTwo.js";
-import { useScheduleSave } from "./use-schedule-save.js";
 import styles from "./AddSpecialDatesSheet.module.css";
 
 export interface AddSpecialDatesSheetProps {
@@ -50,26 +47,29 @@ export interface AddSpecialDatesSheetProps {
   readonly onClose: () => void;
 }
 
-function closureFailure(error: unknown, t: TFunction): string {
+function isVersionConflict(error: unknown): boolean {
   const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
   const problem = AvailabilityConfigProblemSchema.safeParse(details);
-  return problem.success && problem.data.code === "version-conflict"
+  return problem.success && problem.data.code === "version-conflict";
+}
+
+function closureFailure(error: unknown, t: TFunction): string {
+  return isVersionConflict(error)
     ? t("availability.close.versionConflict")
     : describeApiError(error).detail;
 }
 
 /**
  * + Add special date (ux.md F6, S7 "Several dates"): rows of Closed, Special hours or Same as a
- * day, then one Step 2 with a choice per group from every closure. Hours save first through the
- * config save, which cancels nothing; the closures then save together in one transaction, so a
- * booking is never cancelled for one date while another fails. Manager only.
+ * day, then one Step 2 with a choice per group from every row (a closed day, or hours that
+ * shorten a service). The rows save together in one transaction, so a booking is never cancelled
+ * for one date while another fails. Manager only.
  */
 export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
   const { venueId, state, timezone, today, onStale, onClose } = props;
   const { t } = useTranslation();
   const { toast } = useToast();
   const now = useNow();
-  const hoursSave = useScheduleSave(onStale, "availabilitySpecial.rowStranded");
   const previewImpacts = usePreviewClosureImpacts();
   const createClosures = useCreateClosures();
 
@@ -83,10 +83,7 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
   const [choices, setChoices] = useState<ChoiceMap>({});
   const [invalid, setInvalid] = useState<{ key: string; field: RowField } | null>(null);
   const [failure, setFailure] = useState<readonly string[]>([]);
-  // Once the hours are saved they stay saved: a retry of the closures does not write them again.
-  const [hoursSaved, setHoursSaved] = useState<AvailabilityConfigSaveResult | null>(null);
-  // One rule id per row and one key per sheet: a retried save never creates a closure twice.
-  const [hoursCount, setHoursCount] = useState(0);
+  // One rule id per row and one key per sheet: a retried save never creates a rule twice.
   const [ruleIds] = useState(() => new Map<string, string>());
   const [idempotencyKey] = useState(() => crypto.randomUUID());
 
@@ -94,16 +91,16 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
     if (!ruleIds.has(key)) ruleIds.set(key, crypto.randomUUID());
     return ruleIds.get(key)!;
   };
-  const items = closureItems(form, today, idFor);
+  const items = ruleItems(form, today, idFor);
   const combined = combineImpacts(impacts);
-  const dateCount = form.rows.length + hoursCount;
+  const dateCount = form.rows.length;
   const firstDate = combined.groups[0]?.date ?? items[0]?.rule.startsOn ?? today;
   const urgent = isUrgent(
     { startsOn: firstDate, fromMinute: null },
     today,
     minutesOfDayIn(now, timezone)
   );
-  const busy = hoursSave.isPending || previewImpacts.isPending || createClosures.isPending;
+  const busy = previewImpacts.isPending || createClosures.isPending;
 
   const patchRow = (next: DateRow) => {
     setForm({ ...form, rows: form.rows.map((r) => (r.key === next.key ? next : r)) });
@@ -115,33 +112,13 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
 
   const save = async (found: readonly ClosureImpact[]) => {
     setFailure([]);
-    let version = state.version;
-    let hoursDone = hoursSaved;
-    const changes = hoursDone ? null : hoursChanges(form, state.config, () => crypto.randomUUID());
-    if (changes) {
-      hoursDone = await hoursSave.save(venueId, state, changes, "replace");
-      if (!hoursDone) return; // the saver shows why; nothing was cancelled
-      setHoursSaved(hoursDone);
-      // Saved hours leave the sheet: only the closures remain to save or retry.
-      setHoursCount(form.rows.length - items.length);
-      setForm({ ...form, rows: form.rows.filter((r) => r.kind === "closed") });
-    }
-    if (hoursDone) version = Math.max(version, hoursDone.version);
-    if (items.length === 0) {
-      toast({
-        title: t("availabilitySpecial.add.saved", { count: dateCount }),
-        variant: "success",
-      });
-      onClose();
-      return;
-    }
     const decisions = decisionsFor(found, choices);
     try {
       const result = await createClosures.mutateAsync({
         venueId,
         idempotencyKey,
         body: {
-          expectedVersion: version,
+          expectedVersion: state.version,
           items: items.map((item, i) => ({ rule: item.rule, decisions: decisions[i] ?? [] })),
         },
       });
@@ -152,28 +129,27 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
       toast({
         title: t(
           notified > 0 ? "availabilitySpecial.add.savedNotified" : "availabilitySpecial.add.saved",
-          {
-            count: dateCount,
-            notified,
-          }
+          { count: dateCount, notified }
         ),
         variant: "success",
       });
       onClose();
     } catch (error) {
-      const detail = closureFailure(error, t);
-      setFailure([
-        hoursDone ? t("availabilitySpecial.add.hoursKept", { detail }) : detail,
-        t("availabilitySpecial.add.nothingCancelled"),
-      ]);
+      setFailure([closureFailure(error, t), t("availabilitySpecial.add.nothingCancelled")]);
+      if (isVersionConflict(error)) {
+        // Reload the config, and ask again from it: the impact and the version are both stale.
+        onStale();
+        setStep(1);
+        setImpacts([]);
+        setChoices({});
+      }
     }
   };
 
   const next = async () => {
-    const problem = validateRows(form, today);
+    const problem = validateRows(form, state.config, today);
     setInvalid(problem);
     if (problem) return;
-    if (items.length === 0) return save([]);
     try {
       const found = await previewImpacts.mutateAsync({
         venueId,
@@ -190,11 +166,7 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
 
   const counts = outcomeCounts(combined.groups, choices);
   const label = (() => {
-    if (step === 1) {
-      return items.length === 0
-        ? t("availabilitySpecial.add.save", { count: dateCount })
-        : t("availabilitySpecial.add.next");
-    }
+    if (step === 1) return t("availabilitySpecial.add.next");
     const { dates, parts } = saveLabelParts(dateCount, counts);
     if (parts.length === 0) return t("availability.close.button.choose");
     return t("availabilitySpecial.add.saveMixed", {
@@ -237,9 +209,9 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
         <Text variant="caption" color="secondary">
           {t("availability.close.step", { step })}
         </Text>
-        {hoursSave.failure.length + failure.length > 0 && (
+        {failure.length > 0 && (
           <Alert variant="error" title={t("availability.close.saveError")}>
-            {[...hoursSave.failure, ...failure].map((message) => (
+            {failure.map((message) => (
               <div key={message}>{message}</div>
             ))}
           </Alert>

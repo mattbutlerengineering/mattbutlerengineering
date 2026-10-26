@@ -4667,18 +4667,30 @@
       services: [],
       message: "",
     });
+    function hasOwnHours(config: AvailabilityConfig, date: string): boolean {
+      return config.dateRules.some(
+        (r) => r.kind === "special_hours" && r.startsOn <= date && (r.endsOn ?? date) >= date
+      );
+    }
     export function validateRows(
       form: AddDatesForm,
+      config: AvailabilityConfig,
       today: string
     ): { readonly key: string; readonly field: RowField } | null {
       const seen = new Set<string>();
       for (const row of form.rows) {
-        if (row.date === "" || row.date < today || seen.has(row.date)) {
+        if (
+          row.date === "" ||
+          row.date < today ||
+          seen.has(row.date) ||
+          (row.kind !== "closed" && hasOwnHours(config, row.date))
+        ) {
           return { key: row.key, field: "date" };
         }
         seen.add(row.date);
-        const unnamed = row.services.some((s) => s.venueServiceId === null && !s.name.trim());
-        if (row.kind !== "closed" && (row.services.length === 0 || unnamed)) {
+        // The closure command saves a rule against the venue's existing services only.
+        const unknown = row.services.some((s) => s.venueServiceId === null);
+        if (row.kind !== "closed" && (row.services.length === 0 || unknown)) {
           return { key: row.key, field: "hours" };
         }
         if (messageOf(form, row).length > GUEST_MESSAGE_MAX_LENGTH) {
@@ -4687,26 +4699,48 @@
       }
       return null;
     }
-    export function closureItems(
+    export function ruleItems(
       form: AddDatesForm,
       today: string,
       idFor: (rowKey: string) => string
     ): { readonly rowKey: string; readonly rule: DateRule }[] {
       return form.rows.flatMap((row) => {
-        if (row.kind !== "closed") return [];
-        const rule = buildCloseRule(
-          {
-            what: { kind: "venue" },
-            when: { kind: "date", date: row.date },
-            fromMinute: null,
-            staffNote: "",
-            guestMessage: messageOf(form, row),
-          },
-          idFor(row.key),
-          today
-        );
+        const message = messageOf(form, row);
+        const rule =
+          row.kind === "closed"
+            ? buildCloseRule(
+                {
+                  what: { kind: "venue" },
+                  when: { kind: "date", date: row.date },
+                  fromMinute: null,
+                  staffNote: "",
+                  guestMessage: message,
+                },
+                idFor(row.key),
+                today
+              )
+            : hoursRule(row, idFor(row.key), message);
         return rule ? [{ rowKey: row.key, rule }] : [];
       });
+    }
+    function hoursRule(row: DateRow, id: string, message: string): DateRule {
+      const services: SpecialHoursService[] = row.services.map((s) => ({
+        venueServiceId: s.venueServiceId!, // validateRows refuses a row with a new service
+        opensAt: s.opensAt,
+        lastSeatingAt: s.lastSeatingAt,
+        closesAt: s.closesAt,
+        seating: s.seating,
+        bookingTypes: [...s.bookingTypes],
+      }));
+      return {
+        id,
+        kind: "special_hours",
+        targetKind: "venue",
+        startsOn: row.date,
+        endsOn: row.date,
+        payload: { version: 1, services },
+        ...(message ? { guestMessage: message } : {}),
+      };
     }
     export function regularServices(
       config: AvailabilityConfig,
@@ -4719,39 +4753,6 @@
       const regular = { ...config, dateRules: [] };
       const day = resolveDay({ timezone, config: regular }, date);
       return seedServices(regular, day, { kind: "date", date });
-    }
-    export function hoursChanges(
-      form: AddDatesForm,
-      config: AvailabilityConfig,
-      makeId: () => string
-    ): AvailabilityConfigChanges | null {
-      const parts = form.rows
-        .filter((row) => row.kind !== "closed")
-        .map((row) => {
-          const built = buildDraftChanges({
-            config,
-            scope: { kind: "date", date: row.date },
-            services: row.services,
-            makeId,
-          });
-          const message = messageOf(form, row);
-          return {
-            venueServices: built.upsert.venueServices ?? [],
-            dateRules: (built.upsert.dateRules ?? []).map((rule) =>
-              message ? { ...rule, guestMessage: message } : rule
-            ),
-          };
-        });
-      if (parts.length === 0) return null;
-      return {
-        upsert: {
-          ...(parts.some((p) => p.venueServices.length > 0)
-            ? { venueServices: parts.flatMap((p) => p.venueServices) }
-            : {}),
-          dateRules: parts.flatMap((p) => p.dateRules),
-        },
-        remove: {},
-      };
     }
     export function combineImpacts(impacts: readonly ClosureImpact[]): ClosureImpact {
       const sum = (pick: (i: ClosureImpact) => number) =>
@@ -47251,6 +47252,12 @@
       ruleId: string;
       idempotencyKey: string;
       version: number;
+      /** Set on every item of a batch save: what the whole batch was, so a reused key can be told apart. */
+      batch?: BatchShape;
+    }
+    interface BatchShape {
+      count: number;
+      ruleIds: string[];
     }
     export async function mayCloseFor(
       db: StoreDb,
@@ -47383,6 +47390,7 @@
       key: string;
       now: Date;
       ruleKinds: ReadonlySet<string>;
+      batch?: BatchShape;
     };
     async function replayOf(tx: Db, input: CommitInput): Promise<ClosureResult | null> {
       const { venueId, caller, body, key } = input;
@@ -47486,7 +47494,12 @@
       });
       const version = body.expectedVersion + 1;
       const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
-      const meta: ClosureMeta = { ruleId: rule.id, idempotencyKey: key, version };
+      const meta: ClosureMeta = {
+        ruleId: rule.id,
+        idempotencyKey: key,
+        version,
+        ...(input.batch ? { batch: input.batch } : {}),
+      };
       const inverse = { ...inverseOf(state.stored, diff, state.operatingHours), closure: meta };
       const change = await tx.availabilityChange.create({
         data: {
@@ -47577,6 +47590,16 @@
         const results = await client.$transaction(async (tx) => {
           await setVenueContext(tx, venueId);
           const saved: ClosureResult[] = [];
+          const batch: BatchShape = {
+            count: body.items.length,
+            ruleIds: body.items.map((i) => i.rule.id),
+          };
+          // A key already used for a batch answers only to that same batch: never a subset of it,
+          // and never a longer one whose appended items would commit beside the replayed ones.
+          const first = await findReplay(tx, venueId, `${key}#0`);
+          if (first && JSON.stringify(first.closure.batch) !== JSON.stringify(batch)) {
+            throw new Refused({ kind: "key_reused" });
+          }
           let expectedVersion = body.expectedVersion;
           for (const [i, item] of body.items.entries()) {
             const result = await commit(tx, {
@@ -47586,6 +47609,7 @@
               key: `${key}#${i}`,
               now,
               ruleKinds: CLOSURE_RULE_KINDS,
+              batch,
             });
             saved.push(result);
             expectedVersion = result.version;

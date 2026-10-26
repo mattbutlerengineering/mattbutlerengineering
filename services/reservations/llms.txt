@@ -2764,6 +2764,13 @@
         ruleId: string;
         idempotencyKey: string;
         version: number;
+        batch?: BatchShape;
+      }
+    </item>
+    <item priority="high">
+      interface BatchShape {
+        count: number;
+        ruleIds: string[];
       }
     </item>
     <item priority="high">

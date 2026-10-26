@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { applyChanges, resolveDay } from "@mbe/availability";
+import { resolveDay, validateConfig } from "@mbe/availability";
 import type { ClosureImpact } from "@mbe/types";
 import {
-  closureItems,
   combineImpacts,
   decisionsFor,
   emptyRow,
-  hoursChanges,
   regularServices,
+  ruleItems,
   saveLabelParts,
   validateRows,
   type AddDatesForm,
@@ -28,22 +27,52 @@ const form = (rows: DateRow[], patch: Partial<AddDatesForm> = {}): AddDatesForm 
 
 describe("validateRows", () => {
   it("needs a date on every row, today or later, and no date twice", () => {
-    expect(validateRows(form([row({ key: "a", date: "" })]), TODAY)).toEqual({
+    expect(validateRows(form([row({ key: "a", date: "" })]), config, TODAY)).toEqual({
       key: "a",
       field: "date",
     });
-    expect(validateRows(form([row({ key: "a", date: "2026-10-25" })]), TODAY)?.field).toBe("date");
+    expect(validateRows(form([row({ key: "a", date: "2026-10-25" })]), config, TODAY)?.field).toBe(
+      "date"
+    );
     const dup = form([
       row({ key: "a", date: "2026-12-24" }),
       row({ key: "b", date: "2026-12-24" }),
     ]);
-    expect(validateRows(dup, TODAY)).toEqual({ key: "b", field: "date" });
-    expect(validateRows(form([row({ key: "a", date: "2026-12-24" })]), TODAY)).toBeNull();
+    expect(validateRows(dup, config, TODAY)).toEqual({ key: "b", field: "date" });
+    expect(validateRows(form([row({ key: "a", date: "2026-12-24" })]), config, TODAY)).toBeNull();
   });
 
   it("holds a special-hours row to at least one service", () => {
     const hours = row({ key: "a", date: "2026-12-24", kind: "hours", services: [] });
-    expect(validateRows(form([hours]), TODAY)).toEqual({ key: "a", field: "hours" });
+    expect(validateRows(form([hours]), config, TODAY)).toEqual({ key: "a", field: "hours" });
+  });
+
+  it("refuses a service the venue does not have yet, and a date with hours of its own", () => {
+    const [fridayLunch] = regularServices(config, FIXTURE_TIMEZONE, 5, TODAY);
+    const brandNew = row({
+      key: "a",
+      date: "2026-12-24",
+      kind: "hours",
+      services: [{ ...fridayLunch!, venueServiceId: null, name: "Brunch" }],
+    });
+    expect(validateRows(form([brandNew]), config, TODAY)).toEqual({ key: "a", field: "hours" });
+
+    const owned = fixtureConfig({
+      id: "own",
+      kind: "special_hours",
+      targetKind: "venue",
+      startsOn: "2026-12-24",
+      endsOn: "2026-12-24",
+      payload: { version: 1, services: [] },
+    });
+    const same = row({
+      key: "b",
+      date: "2026-12-24",
+      kind: "same",
+      sameAs: 5,
+      services: [fridayLunch!],
+    });
+    expect(validateRows(form([same]), owned, TODAY)).toEqual({ key: "b", field: "date" });
   });
 });
 
@@ -55,13 +84,13 @@ describe("rows to saves", () => {
   ];
 
   it("makes a closure for each Closed row, with its own message or the shared one", () => {
-    const own = closureItems(form(rows), TODAY, (k) => `id-${k}`);
+    const own = ruleItems(form(rows.slice(0, 2)), TODAY, (k) => `id-${k}`);
     expect(own.map((i) => [i.rowKey, i.rule.id, i.rule.guestMessage])).toEqual([
       ["a", "id-a", "Private party"],
       ["b", "id-b", undefined],
     ]);
-    const shared = closureItems(
-      form(rows, { shareMessage: true, sharedMessage: "Closed for the holiday" }),
+    const shared = ruleItems(
+      form(rows.slice(0, 2), { shareMessage: true, sharedMessage: "Closed for the holiday" }),
       TODAY,
       (k) => `id-${k}`
     );
@@ -79,16 +108,15 @@ describe("rows to saves", () => {
     ]);
   });
 
-  it("writes Special hours and Same as rows as special-hours rules, one per date", () => {
+  it("writes Special hours and Same as rows as special-hours rules, in row order with the closures", () => {
     const hoursRow = row({
       key: "h",
       date: "2026-12-24",
       kind: "hours",
       message: "Early dinner",
-      services: regularServices(config, FIXTURE_TIMEZONE, 5, TODAY).map((s) => ({
-        ...s,
-        closesAt: 1200,
-      })),
+      services: regularServices(config, FIXTURE_TIMEZONE, 5, TODAY).map((s, i, all) =>
+        i === all.length - 1 ? { ...s, lastSeatingAt: 1140, closesAt: 1200 } : s
+      ),
     });
     const same = row({
       key: "c",
@@ -97,20 +125,19 @@ describe("rows to saves", () => {
       sameAs: 5,
       services: regularServices(config, FIXTURE_TIMEZONE, 5, TODAY),
     });
-    let n = 0;
-    const changes = hoursChanges(form([hoursRow, same, rows[0]!]), config, () => `new-${n++}`);
-    expect(changes?.upsert.dateRules?.map((r) => [r.kind, r.startsOn, r.guestMessage])).toEqual([
-      ["special_hours", "2026-12-24", "Early dinner"],
-      ["special_hours", "2026-12-31", undefined],
-    ]);
-    const next = applyChanges(config, changes!, "2026-10-26T00:00:00.000Z");
+    const items = ruleItems(form([hoursRow, rows[1]!, same]), TODAY, (k) => `id-${k}`);
+    expect(items.map((i) => [i.rowKey, i.rule.kind, i.rule.startsOn, i.rule.guestMessage])).toEqual(
+      [
+        ["h", "special_hours", "2026-12-24", "Early dinner"],
+        ["b", "closure", "2026-12-25", undefined],
+        ["c", "special_hours", "2026-12-31", undefined],
+      ]
+    );
+    const next = { ...config, dateRules: items.map((i) => i.rule) };
+    expect(validateConfig(next)).toEqual([]);
     const at = (date: string) => resolveDay({ timezone: FIXTURE_TIMEZONE, config: next }, date);
     expect(at("2026-12-24").services.at(-1)?.closesAt).toBe(1200);
     expect(at("2026-12-31").services.at(-1)?.closesAt).toBe(1380);
-  });
-
-  it("has no config change when every row is a closure", () => {
-    expect(hoursChanges(form(rows.slice(0, 2)), config, () => "x")).toBeNull();
   });
 });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { CreateClosureBody, DateRule } from "@mbe/types";
+import type { CreateClosureBody, CreateClosuresBody, DateRule } from "@mbe/types";
 
 vi.mock("./database.js", () => ({ prisma: {} }));
 
@@ -947,7 +947,7 @@ describe("createClosures (several dates in one save)", () => {
   ];
   const runBatch = (
     w: World,
-    batch: typeof items,
+    batch: CreateClosuresBody["items"],
     opts: { key?: string; caller?: typeof MANAGER } = {}
   ) => {
     const { client } = fakeClient(w);
@@ -1008,6 +1008,61 @@ describe("createClosures (several dates in one save)", () => {
     expect(await runBatch(w, items, { caller: HOST })).toEqual({ kind: "forbidden" });
     expect(await runBatch(w, [items[0]!, items[0]!])).toEqual({ kind: "closure_exists" });
     expect(w.version).toBe(4);
+  });
+
+  it("refuses a key reused for a different batch, replaying neither a subset nor appended items", async () => {
+    const w = twoDays();
+    await runBatch(w, items);
+    const extra = {
+      rule: closure({ id: "dr-26", startsOn: "2026-12-26", endsOn: "2026-12-26" }),
+      decisions: [],
+    };
+
+    expect(await runBatch(w, [items[0]!])).toEqual({ kind: "key_reused" });
+    expect(await runBatch(w, [...items, extra])).toEqual({ kind: "key_reused" });
+    expect(w.dateRules).toHaveLength(2);
+    expect(w.version).toBe(6);
+  });
+
+  it("decides special hours beside a closure: the shortened group moves, the closed one cancels", async () => {
+    const w = world({
+      reservations: [
+        res("res-1", "2026-12-24", "2026-12-25T03:00:00.000Z", "2026-12-25T04:30:00.000Z"),
+        res("res-3", "2026-12-25", "2026-12-26T03:00:00.000Z", "2026-12-26T04:30:00.000Z", false),
+      ],
+    });
+    const outcome = await runBatch(w, [
+      {
+        rule: SHORTENED,
+        decisions: [{ groupKey: "2026-12-24:shortened", action: "move" as const }],
+      },
+      {
+        rule: christmas,
+        decisions: [{ groupKey: "2026-12-25:closed", action: "cancel" as const }],
+      },
+    ]);
+
+    expect(outcome).toMatchObject({
+      kind: "saved",
+      result: {
+        results: [{ outcomes: { move: 1 } }, { outcomes: { cancel: 1 } }],
+      },
+    });
+    expect(w.reservations.map((r) => r.status)).toEqual(["CONFIRMED", "CANCELLED"]);
+  });
+
+  it("gives a booking under two overlapping items exactly one outcome and one refund", async () => {
+    const w = world({
+      reservations: [
+        res("res-1", "2026-12-24", "2026-12-25T03:00:00.000Z", "2026-12-25T04:30:00.000Z"),
+      ],
+    });
+    const range = closure({ id: "dr-range", startsOn: "2026-12-24", endsOn: "2026-12-25" });
+    const outcome = await runBatch(w, [items[0]!, { rule: range, decisions: [] }]);
+
+    expect(outcome.kind).toBe("saved");
+    const rows = w.outcomes.filter((o) => o.reservationId === "res-1");
+    expect(rows).toEqual([expect.objectContaining({ action: "cancel", refund: "pending" })]);
   });
 });
 

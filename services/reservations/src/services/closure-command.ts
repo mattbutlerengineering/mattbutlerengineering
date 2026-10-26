@@ -96,6 +96,14 @@ interface ClosureMeta {
   ruleId: string;
   idempotencyKey: string;
   version: number;
+  /** Set on every item of a batch save: what the whole batch was, so a reused key can be told apart. */
+  batch?: BatchShape;
+}
+
+/** A batch's identity under its Idempotency-Key: how many items, and which rules, in order. */
+interface BatchShape {
+  count: number;
+  ruleIds: string[];
 }
 
 /**
@@ -246,6 +254,7 @@ type CommitInput = {
   key: string;
   now: Date;
   ruleKinds: ReadonlySet<string>;
+  batch?: BatchShape;
 };
 
 /**
@@ -365,7 +374,12 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
   });
   const version = body.expectedVersion + 1;
   const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
-  const meta: ClosureMeta = { ruleId: rule.id, idempotencyKey: key, version };
+  const meta: ClosureMeta = {
+    ruleId: rule.id,
+    idempotencyKey: key,
+    version,
+    ...(input.batch ? { batch: input.batch } : {}),
+  };
   const inverse = { ...inverseOf(state.stored, diff, state.operatingHours), closure: meta };
   const change = await tx.availabilityChange.create({
     data: {
@@ -466,6 +480,16 @@ export async function createClosures(
     const results = await client.$transaction(async (tx) => {
       await setVenueContext(tx, venueId);
       const saved: ClosureResult[] = [];
+      const batch: BatchShape = {
+        count: body.items.length,
+        ruleIds: body.items.map((i) => i.rule.id),
+      };
+      // A key already used for a batch answers only to that same batch: never a subset of it,
+      // and never a longer one whose appended items would commit beside the replayed ones.
+      const first = await findReplay(tx, venueId, `${key}#0`);
+      if (first && JSON.stringify(first.closure.batch) !== JSON.stringify(batch)) {
+        throw new Refused({ kind: "key_reused" });
+      }
       let expectedVersion = body.expectedVersion;
       for (const [i, item] of body.items.entries()) {
         const result = await commit(tx, {
@@ -475,6 +499,7 @@ export async function createClosures(
           key: `${key}#${i}`,
           now,
           ruleKinds: CLOSURE_RULE_KINDS,
+          batch,
         });
         saved.push(result);
         expectedVersion = result.version;

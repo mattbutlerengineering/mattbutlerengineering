@@ -33,18 +33,25 @@
     <item priority="high">
       export const emptyRow: unknown;
     </item>
+    <item priority="medium">
+      function hasOwnHours(config: AvailabilityConfig, date: string): boolean { /* ... */ }
+    </item>
     <item priority="high">
       export function validateRows(
         form: AddDatesForm,
+        config: AvailabilityConfig,
         today: string
       ): { readonly key: string; readonly field: RowField } | null { /* ... */ }
     </item>
     <item priority="high">
-      export function closureItems(
+      export function ruleItems(
         form: AddDatesForm,
         today: string,
         idFor: (rowKey: string) => string
       ): { readonly rowKey: string; readonly rule: DateRule }[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function hoursRule(row: DateRow, id: string, message: string): DateRule { /* ... */ }
     </item>
     <item priority="high">
       export function regularServices(
@@ -53,13 +60,6 @@
         weekday: number,
         today: string
       ): DraftService[] { /* ... */ }
-    </item>
-    <item priority="high">
-      export function hoursChanges(
-        form: AddDatesForm,
-        config: AvailabilityConfig,
-        makeId: () => string
-      ): AvailabilityConfigChanges | null { /* ... */ }
     </item>
     <item priority="high">
       export function combineImpacts(impacts: readonly ClosureImpact[]): ClosureImpact { /* ... */ }
