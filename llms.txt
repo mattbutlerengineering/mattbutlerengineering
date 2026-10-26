@@ -13162,6 +13162,9 @@
     <item priority="medium">
       function sharedDates(a: DateRule, b: DateRule): string[] { /* ... */ }
     </item>
+    <item priority="medium">
+      function newlyCoveredShared(rule: DateRule, prior: DateRule | undefined, theirs: DateRule) { /* ... */ }
+    </item>
     <item priority="high">
       type Skip = { seriesId: string; date: string };
     </item>
