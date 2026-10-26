@@ -1627,6 +1627,9 @@
     <item priority="high">
       export function validateDraft(draft: QuickSetupDraft): QuickSetupIssue[] { /* ... */ }
     </item>
+    <item priority="medium">
+      function spanIssues(draft: QuickSetupDraft): QuickSetupIssue[] { /* ... */ }
+    </item>
     <item priority="high">
       export function draftToConfig(
         draft: QuickSetupDraft,

@@ -1,8 +1,10 @@
 import type { TFunction } from "i18next";
 import {
   MAX_PAST_MIDNIGHT_SPAN,
+  normalizeLegacyHours,
   projectLegacyOperatingHours,
   validateConfig,
+  WEEKDAYS,
 } from "@mbe/availability";
 import { localeRuntime } from "../../i18n/runtime.js";
 import type { OperatingHoursValidationErrors } from "../venue-onboarding/OperatingHoursStep.js";
@@ -205,9 +207,6 @@ function orderIssues(service: ServiceDraft, m: ServiceMinutes): QuickSetupIssue[
     code,
   });
   if (service.opens === service.closes) return [at("closes", "close_after_open")];
-  // The server's legacy reader drops a past-midnight span longer than this (legacy-migration.ts).
-  if (m.closesAt > MINUTES_PER_DAY && m.closesAt - m.opensAt > MAX_PAST_MIDNIGHT_SPAN)
-    return [at("closes", "span_too_long")];
   return m.lastSeatingAt > m.closesAt ? [at("lastSeating", "last_seating_after_close")] : [];
 }
 
@@ -233,7 +232,30 @@ export function validateDraft(draft: QuickSetupDraft): QuickSetupIssue[] {
       const service = draft.services[index];
       return service ? [{ serviceId: service.id, field: "opens", code: "overlap" }] : [];
     });
-  return [...overlaps, ...daysIssue];
+  return [...overlaps, ...spanIssues(draft), ...daysIssue];
+}
+
+/**
+ * The server stores the day as one legacy window (earliest open, latest close) and its
+ * reader drops a past-midnight window longer than MAX_PAST_MIDNIGHT_SPAN, so the venue
+ * would show closed. Read the projection with the server's own reader; blame the
+ * latest-closing service.
+ */
+function spanIssues(draft: QuickSetupDraft): QuickSetupIssue[] {
+  const read = normalizeLegacyHours(draftToLegacyHours(draft));
+  const tooLong =
+    read.ok &&
+    WEEKDAYS.some((day) =>
+      read.hours.weekly[day].some(
+        (w) => w.wrapped === true && w.close - w.open > MAX_PAST_MIDNIGHT_SPAN
+      )
+    );
+  if (!tooLong) return [];
+  const latest = draft.services.reduce<{ id: string; closesAt: number } | null>((acc, s) => {
+    const m = minutesOf(s);
+    return m && (!acc || m.closesAt > acc.closesAt) ? { id: s.id, closesAt: m.closesAt } : acc;
+  }, null);
+  return latest ? [{ serviceId: latest.id, field: "closes", code: "span_too_long" }] : [];
 }
 
 // ── To the stored model ───────────────────────────────────────────────────

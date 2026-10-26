@@ -103,6 +103,30 @@ describe("quick setup draft", () => {
       { serviceId: "s1", field: "closes", code: "span_too_long" },
     ]);
     expect(validateDraft(at("10:00", "01:15", "02:00"))).toEqual([]);
+    // A midnight close is past midnight to the server's reader too: 07:00 -> 00:00 is 17 hours.
+    expect(validateDraft(at("07:00", "22:30", "00:00"))).toEqual([
+      { serviceId: "s1", field: "closes", code: "span_too_long" },
+    ]);
+  });
+
+  it("flags a day whose services together span past midnight for more than 16 hours", () => {
+    const timed = (id: string, opens: string, lastSeating: string, closes: string) =>
+      setServiceTime(
+        setServiceTime(
+          setServiceTime({ ...emptyDraft(id).services[0]!, name: id }, "opens", opens),
+          "lastSeating",
+          lastSeating
+        ),
+        "closes",
+        closes
+      );
+    const draft: QuickSetupDraft = {
+      services: [timed("b", "07:00", "09:30", "10:30"), timed("d", "17:00", "23:00", "00:30")],
+      days: WEEKDAY_SHORTCUT,
+    };
+    expect(validateDraft(draft)).toEqual([
+      { serviceId: "d", field: "closes", code: "span_too_long" },
+    ]);
   });
 
   it("flags a service name over 40 characters", () => {
