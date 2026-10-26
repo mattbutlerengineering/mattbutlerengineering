@@ -1306,6 +1306,58 @@ describe("createClosure for a Tonight close-early (#7529)", () => {
       expect(w.changes).toEqual([]);
     });
 
+    describe("what is left bookable from now decides, whatever the payload kind (#7687)", () => {
+      // 17:20 in Los Angeles, twenty minutes into dinner (opens 17:00 = 1020).
+      const LATE = new Date("2026-10-26T00:20:00.000Z");
+      const stop = (from: number, to: number, patch: Partial<DateRule> = {}) =>
+        ({
+          ...closeEarly,
+          id: "t-stop",
+          ...patch,
+          payload: { version: 1, stop: { from, to } },
+        }) as DateRule;
+      const runAt = async (rule: DateRule, now: Date, w = tonightWorld()) => {
+        const { client } = fakeClient(w);
+        return createClosure(
+          {
+            venueId: "v",
+            caller: HOST,
+            body: tonightBody({ rule, decisions: rule.id === "t-stop" ? [] : closed }),
+            idempotencyKey: "tonight:t-new",
+            now,
+            ruleKinds: TONIGHT_KINDS,
+          },
+          client
+        );
+      };
+
+      it.each([
+        ["a close-early 15 minutes after open, past by now", at(1035)],
+        ["a stop window covering the whole service", stop(1020, 1380)],
+        ["a stop window covering what is left of the service", stop(1000, 1380)],
+        [
+          "a stop window over the whole of dinner",
+          stop(1020, 1380, { targetKind: "service", venueServiceId: "vs-dinner" }),
+        ],
+      ])("refuses a Host without the grant: %s", async (_label, rule) => {
+        expect(await runAt(rule, LATE)).toEqual({ kind: "forbidden" });
+      });
+
+      it("allows a partial close-early that leaves bookable minutes", async () => {
+        expect((await runAt(at(1200), LATE)).kind).toBe("saved");
+      });
+
+      it("allows a stop window that leaves bookable minutes", async () => {
+        expect((await runAt(stop(1100, 1200), LATE)).kind).toBe("saved");
+      });
+
+      it("allows the same change for a Host with the grant", async () => {
+        const w = { ...tonightWorld(), hostEmergencyClose: true };
+        // Past the permission guard: it now asks for the bookings' decisions instead.
+        expect((await runAt(stop(1020, 1380), LATE, w)).kind).not.toBe("forbidden");
+      });
+    });
+
     it("lets a Host with the grant close all of tonight early", async () => {
       const w = { ...tonightWorld(), hostEmergencyClose: true };
       const outcome = await runTonight(w, tonightBody({ rule: at(0), decisions: closed }), HOST);

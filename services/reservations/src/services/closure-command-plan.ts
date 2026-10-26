@@ -159,25 +159,46 @@ export function currentServiceDate(snapshot: AvailabilitySnapshot, now: Date): s
 }
 
 /**
- * Whether a Tonight close-early takes away every service it targets on the
- * planned day (Tonight changes stripped): a close at or before the earliest
- * open drops them all (resolve-day `closeEarly`), which is a closure, not a
- * shortened night. A target with no service tonight removes nothing.
+ * Whether a Tonight change leaves no seating minute bookable, from `now`, on
+ * the services it targets (other Tonight changes stripped): a close-early at
+ * or before the open or already past, or a stop window over what is left of
+ * the service, closes the night in effect whatever the payload kind. Only
+ * venue and service targets have seatings; a target with no service tonight
+ * removes nothing.
  */
-export function closesAllOfTonight(snapshot: AvailabilitySnapshot, rule: DateRule): boolean {
-  if (rule.kind !== "tonight" || !("closeAt" in rule.payload)) return false;
-  const { closeAt } = rule.payload;
-  const planned = {
+export function leavesNothingBookable(
+  snapshot: AvailabilitySnapshot,
+  rule: DateRule,
+  now: Date
+): boolean {
+  if (rule.kind !== "tonight") return false;
+  if (rule.targetKind !== "venue" && rule.targetKind !== "service") return false;
+  const rules = snapshot.config.dateRules.filter((r) => r.kind !== "tonight");
+  const withRules = (dateRules: DateRule[]): AvailabilitySnapshot => ({
     ...snapshot,
-    config: {
-      ...snapshot.config,
-      dateRules: snapshot.config.dateRules.filter((r) => r.kind !== "tonight"),
-    },
-  };
-  const targeted = resolveDay(planned, rule.startsOn).services.filter(
+    config: { ...snapshot.config, dateRules },
+  });
+  const targeted = resolveDay(withRules(rules), rule.startsOn).services.filter(
     (s) => rule.targetKind === "venue" || s.venueServiceId === rule.venueServiceId
   );
-  return targeted.length > 0 && targeted.every((s) => s.opensAt >= closeAt);
+  const after = resolveDay(withRules([...rules, rule]), rule.startsOn);
+  const nowMin = wallMinutes(now, rule.startsOn, snapshot.timezone);
+  return (
+    targeted.length > 0 &&
+    targeted.every((planned) => {
+      const s = after.services.find((d) => d.venueServiceId === planned.venueServiceId);
+      if (!s) return true;
+      const bands = after.closures.filter(
+        (c) =>
+          c.targetKind === "venue" ||
+          (c.targetKind === "service" && c.venueServiceId === s.venueServiceId)
+      );
+      const open: StartRange[] = [[Math.max(s.opensAt, nowMin), s.lastSeatingAt]];
+      return bands
+        .reduce((ranges, band) => clearOfBand(ranges, band, 1), open)
+        .every(([lo, hi]) => lo > hi);
+    })
+  );
 }
 
 /**

@@ -29,10 +29,10 @@ import { civilDateIn } from "./availability-migration.js";
 import { applyTransitions } from "./closure-apply.js";
 import {
   checkDecisions,
-  closesAllOfTonight,
   countActions,
   currentServiceDate,
   isHostEmergencyClose,
+  leavesNothingBookable,
   moveTarget,
 } from "./closure-command-plan.js";
 import { checkAlongside } from "./closure-alongside.js";
@@ -142,8 +142,8 @@ export async function mayCloseFor(
   const serviceDate = currentServiceDate(snapshot, now);
   if (rule.kind !== "tonight") return isHostEmergencyClose(rule, serviceDate);
   if (rule.startsOn !== serviceDate) return false;
-  // A close-early that leaves no targeted service tonight is the emergency close in effect.
-  return venue.hostEmergencyClose || !closesAllOfTonight(snapshot, rule);
+  // A Tonight change that leaves nothing bookable on its targets is the emergency close in effect.
+  return venue.hostEmergencyClose || !leavesNothingBookable(snapshot, rule, now);
 }
 
 /** Read-only form of the same limits, for the impact preview: `null` for an unknown venue. */

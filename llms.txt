@@ -14207,7 +14207,11 @@
       export function currentServiceDate(snapshot: AvailabilitySnapshot, now: Date): string { /* ... */ }
     </item>
     <item priority="high">
-      export function closesAllOfTonight(snapshot: AvailabilitySnapshot, rule: DateRule): boolean { /* ... */ }
+      export function leavesNothingBookable(
+        snapshot: AvailabilitySnapshot,
+        rule: DateRule,
+        now: Date
+      ): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function isHostEmergencyClose(rule: DateRule, serviceDate: string): boolean { /* ... */ }
