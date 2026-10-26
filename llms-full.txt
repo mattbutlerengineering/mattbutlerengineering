@@ -5796,6 +5796,11 @@
       const truncated = oldAssignments
         .filter((a) => !dropped.includes(a) && (a.endsOn == null || a.endsOn >= startsOn))
         .map((a) => ({ ...a, endsOn: addDays(startsOn, -1) }));
+      // The new week sits at 0, so every dated schedule must rank above it to keep winning its days
+      // (legacy venues store every assignment at 0, which would tie).
+      const renumbered = rankedAssignments(config)
+        .map((a, i) => ({ ...a, precedence: i + 1 }))
+        .filter((a) => a.precedence !== config.assignments.find((x) => x.id === a.id)?.precedence);
       return mergeChanges(rows, {
         upsert: {
           schedules: [
@@ -5812,6 +5817,7 @@
               precedence: 0,
             },
             ...truncated,
+            ...renumbered,
           ],
         },
         remove: { assignments: dropped.map((a) => a.id) },

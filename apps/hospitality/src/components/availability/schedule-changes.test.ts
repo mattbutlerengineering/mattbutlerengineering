@@ -245,6 +245,54 @@ describe("Change regular week", () => {
     expect(resolve(next, "2026-10-30").services.at(-1)?.closesAt).toBe(1380);
   });
 
+  it("no end date on a legacy venue: an open-ended alternate at precedence 0 still wins its days", () => {
+    // Legacy migration gives every hours group's assignment precedence 0.
+    const base = fixtureConfig();
+    const alternate: Schedule = {
+      id: "alt-1",
+      name: "Alternate week 1",
+      kind: "alternate",
+      isRegular: false,
+    };
+    const config: AvailabilityConfig = {
+      ...base,
+      schedules: [...base.schedules, alternate],
+      scheduleServices: [
+        ...base.scheduleServices,
+        ...base.scheduleServices
+          .filter((s) => s.scheduleId === "regular")
+          .map((s) => ({ ...s, id: `${s.id}-alt`, scheduleId: "alt-1" })),
+      ],
+      assignments: [
+        { id: "as-regular", scheduleId: "regular", weekdays: [1, 2, 3, 4, 5], precedence: 0 },
+        { id: "as-alt", scheduleId: "alt-1", weekdays: [0, 6], precedence: 0 },
+      ],
+    };
+    expect(validateConfig(config)).toEqual([]);
+    const next = applyChanges(
+      config,
+      buildRegularWeekChanges({
+        config,
+        name: "Winter hours",
+        services: draftOf(config),
+        startsOn: "2026-12-01",
+        endsOn: null,
+        winner: "new",
+        makeId: counter(),
+      }),
+      NOW
+    );
+    expect(validateConfig(next)).toEqual([]);
+    expect(next.schedules.find((s) => s.isRegular)?.id).toBe("new-1");
+    // Sat Dec 5 and Sun Dec 6 still read the alternate; weekdays read the new regular week.
+    expect(resolve(next, "2026-12-05").scheduleId).toBe("alt-1");
+    expect(resolve(next, "2026-12-06").scheduleId).toBe("alt-1");
+    expect(resolve(next, "2026-12-04").scheduleId).toBe("new-1");
+    // Before the start date: the old weekdays and the alternate weekend are unchanged.
+    expect(resolve(next, "2026-11-27").scheduleId).toBe("regular");
+    expect(resolve(next, "2026-11-28").scheduleId).toBe("alt-1");
+  });
+
   it("an overlap with another dated schedule can go either way", () => {
     const config = withPatio();
     const make = (winner: "new" | "existing") =>
