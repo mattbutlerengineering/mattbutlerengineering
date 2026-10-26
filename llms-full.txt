@@ -81510,6 +81510,37 @@
         .sort((a, b) => a.capacity - b.capacity);
     }
   </file>
+  <file path="apps/hospitality/src/utils/service-day-start.ts">
+    export function serviceDayCalendarDate(
+      config: AvailabilityConfig | null | undefined,
+      timeZone: string,
+      serviceDate: string,
+      hhmm: string
+    ): string {
+      const match = /^(\d{2}):(\d{2})$/.exec(hhmm);
+      if (!config || !match) return serviceDate;
+      const minute = Number(match[1]) * 60 + Number(match[2]);
+      // The planned day (closures and Tonight changes stripped), as the engine's `judge` owns it.
+      const planned: AvailabilityConfig = {
+        ...config,
+        dateRules: config.dateRules.filter((r) => r.kind !== "closure" && r.kind !== "tonight"),
+      };
+      const { services } = resolveDay({ timezone: timeZone, config: planned }, serviceDate);
+      const isOpen = (at: number): boolean => services.some((s) => s.opensAt <= at && at < s.closesAt);
+      return !isOpen(minute) && isOpen(minute + MINUTES_PER_DAY)
+        ? addDays(serviceDate, 1)
+        : serviceDate;
+    }
+    export function serviceDayStartInstant(
+      config: AvailabilityConfig | null | undefined,
+      timeZone: string,
+      serviceDate: string,
+      hhmm: string
+    ): Date {
+      const calendarDate = serviceDayCalendarDate(config, timeZone, serviceDate, hhmm);
+      return venueWallTimeToInstant(calendarDate, hhmm, timeZone);
+    }
+  </file>
   <file path="apps/hospitality/src/utils/service-day.ts">
     export function deviceDate(now: Date): string {
       return Number.isNaN(now.getTime()) ? "" : now.toLocaleDateString(DAY_LOCALE);

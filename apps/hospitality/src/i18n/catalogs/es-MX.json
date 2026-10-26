@@ -996,6 +996,7 @@
     "dateRequired": "La fecha es obligatoria.",
     "startTime": "Hora de inicio",
     "startTimeRequired": "La hora de inicio es obligatoria.",
+    "calendarHint": "Se reserva para {{when}}",
     "partySize": "Comensales",
     "noTables": "No hay mesas disponibles para {{size}} comensales.",
     "table": "Mesa",

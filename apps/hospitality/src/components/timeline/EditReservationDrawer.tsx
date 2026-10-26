@@ -11,6 +11,7 @@ import {
   Divider,
 } from "@mattbutlerengineering/rialto";
 import type {
+  AvailabilityConfig,
   Occasion,
   Reservation,
   SeatingPreference,
@@ -24,11 +25,14 @@ import { useFocusAfter } from "../../hooks/useFocusAfter.js";
 import { describeApiError, type ApiErrorDescription } from "../../lib/describe-api-error.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { venueWallTimeToInstant, wallTimeInputValue } from "../../utils/venue-wall-time.js";
+import { serviceDayCalendarDate } from "../../utils/service-day-start.js";
 import styles from "./EditReservationDrawer.module.css";
 
 interface EditReservationDrawerProps {
   reservation: Reservation;
   tables: Table[];
+  /** The venue config, to place an after-midnight time on its next calendar date; optional. */
+  config?: AvailabilityConfig | null;
   /** Rejects on failure — the drawer owns showing it (architecture § Dialog contracts). */
   onSave: (id: string, data: UpdateReservationRequest) => Promise<void>;
   onClose: () => void;
@@ -49,6 +53,7 @@ interface EditReservationFormData {
 export function EditReservationDrawer({
   reservation,
   tables,
+  config,
   onSave,
   onClose,
 }: EditReservationDrawerProps) {
@@ -89,10 +94,12 @@ export function EditReservationDrawer({
   const onFormSubmit = async (data: EditReservationFormData) => {
     const parsedPartySize = parseInt(data.partySize, 10);
 
-    const date = reservation.date.split("T")[0];
+    const serviceDate = reservation.date.split("T")[0]!;
+    // A past-midnight seating's calendar date is the day after its service day (ADR-029).
+    const date = serviceDayCalendarDate(config, timeZone, serviceDate, data.startTime);
     const payload: UpdateReservationRequest = {
-      startTime: venueWallTimeToInstant(date!, data.startTime, timeZone).toISOString(),
-      endTime: venueWallTimeToInstant(date!, data.endTime, timeZone).toISOString(),
+      startTime: venueWallTimeToInstant(date, data.startTime, timeZone).toISOString(),
+      endTime: venueWallTimeToInstant(date, data.endTime, timeZone).toISOString(),
       partySize: parsedPartySize,
       tableId,
       notes: data.notes.trim() || undefined,

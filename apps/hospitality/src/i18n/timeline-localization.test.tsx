@@ -60,6 +60,9 @@ vi.mock("../hooks/useSSESync.js", () => ({
   useSSEEventFeed: () => [],
   useSSESync: () => ({ reconnect: vi.fn() }),
 }));
+vi.mock("../hooks/useAvailability.js", () => ({
+  useAvailabilityConfig: () => ({ data: null }),
+}));
 vi.mock("../hooks/useGuests.js", () => ({
   useLapsingGuests: () => ({ data: [] }),
   useSendWinBack: () => ({ mutate: vi.fn() }),
