@@ -48,6 +48,7 @@ vi.mock("../hooks/useAvailability.js", () => ({
     };
   },
   useSaveAvailabilityConfig: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useRevertAvailabilityChange: () => ({ mutateAsync: vi.fn() }),
 }));
 vi.mock("../components/availability/AvailabilityQuickSetup.js", () => ({
   AvailabilityQuickSetup: ({ venueId }: { venueId: string }) => (

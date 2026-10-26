@@ -6,8 +6,10 @@ import type { AvailabilityConfigState, DateRule } from "@mbe/types";
 import { ApiClientError } from "@mbe/api-client";
 
 const save = vi.hoisted(() => vi.fn());
+const revertAsync = vi.hoisted(() => vi.fn());
 vi.mock("../../hooks/useAvailability.js", () => ({
   useSaveAvailabilityConfig: () => ({ mutateAsync: save, isPending: false }),
+  useRevertAvailabilityChange: () => ({ mutateAsync: revertAsync }),
 }));
 vi.mock("./AvailabilityGuestPreview.js", () => ({
   AvailabilityGuestPreview: (props: { dates: string[]; focusDate: string }) => (
@@ -177,6 +179,23 @@ describe("AvailabilityDayEditor", () => {
       repeat: { version: 1, weekdays: [5] },
     });
     expect(await screen.findByText("53 dates updated")).toBeInTheDocument();
+  });
+
+  it("offers Undo on the save toast, reverting that save against the version it produced", async () => {
+    revertAsync.mockResolvedValue({ version: 6, changeId: "chg-2" });
+    renderEditor();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+    await waitFor(() =>
+      expect(revertAsync).toHaveBeenCalledWith({
+        venueId: "venue-1",
+        changeId: "chg-1",
+        expectedVersion: 5,
+      })
+    );
   });
 
   it("everywhere the schedule is used: rewrites the schedule's services", async () => {
