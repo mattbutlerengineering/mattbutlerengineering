@@ -20271,6 +20271,9 @@
       function seat(windows: readonly LegacyWindow[], buffer: number): SeatedWindow[] { /* ... */ }
     </item>
     <item priority="medium">
+      function weekdayRangeLabel(storedDays: readonly number[]): string { /* ... */ }
+    </item>
+    <item priority="medium">
       function nameWindows(windows: readonly SeatedWindow[], multiple: boolean): NamedWindow[] { /* ... */ }
     </item>
     <item priority="medium">
