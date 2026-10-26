@@ -41,6 +41,7 @@ test.describe("Playground layout (desktop)", () => {
     await openPlayground(authPage);
     const inspector = await box(authPage.getByRole("complementary").filter({ hasText: "JSON" }));
     const cards = authPage.getByRole("button", { name: /Dashboard|Landing Page|E-commerce/ });
+    await expect(cards).toHaveCount(3);
     for (const card of await cards.all()) {
       const c = await box(card);
       expect(c.x + c.width).toBeLessThanOrEqual(inspector.x);
