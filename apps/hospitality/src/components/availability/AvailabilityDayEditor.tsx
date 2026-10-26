@@ -328,7 +328,8 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
         date={date}
         onChange={(services) => update({ ...edit, services })}
       />
-      {previewChanges && (
+      {/* A scope that reaches no dates (a schedule used only by a use_schedule rule) has nothing to preview; the server refuses an empty scope. */}
+      {previewChanges && dates.length > 0 && (
         <AvailabilityGuestPreview
           venueId={venueId}
           changes={previewChanges}
