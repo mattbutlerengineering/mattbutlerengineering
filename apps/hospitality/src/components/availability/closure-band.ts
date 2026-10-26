@@ -27,25 +27,69 @@ export function isWholeDay(closure: Pick<Closure, "from" | "to">): boolean {
   return closure.from === 0 && closure.to >= 2 * MINUTES_PER_DAY;
 }
 
+/** Each closure target says what it closes; only a venue closure reads "Closed" (ux.md S2). */
+const COPY: Record<
+  Closure["targetKind"],
+  {
+    allDay: (t: TFunction) => readonly [text: string, name: string];
+    band: (t: TFunction, v: { from: string; to: string }) => readonly [text: string, name: string];
+  }
+> = {
+  venue: {
+    allDay: (t) => [
+      t("availability.calendar.closedAllDay"),
+      t("availability.calendar.closedAllDayName"),
+    ],
+    band: (t, v) => [
+      t("availability.calendar.closedBand", v),
+      t("availability.calendar.closedBandName", v),
+    ],
+  },
+  booking: {
+    allDay: (t) => [
+      t("availability.calendar.bookingOffAllDay"),
+      t("availability.calendar.bookingOffAllDayName"),
+    ],
+    band: (t, v) => [
+      t("availability.calendar.bookingOffBand", v),
+      t("availability.calendar.bookingOffBandName", v),
+    ],
+  },
+  service: {
+    allDay: (t) => [
+      t("availability.calendar.serviceClosedAllDay"),
+      t("availability.calendar.serviceClosedAllDayName"),
+    ],
+    band: (t, v) => [
+      t("availability.calendar.serviceClosedBand", v),
+      t("availability.calendar.serviceClosedBandName", v),
+    ],
+  },
+  tables: {
+    allDay: (t) => [
+      t("availability.calendar.tablesBlockedAllDay"),
+      t("availability.calendar.tablesBlockedAllDayName"),
+    ],
+    band: (t, v) => [
+      t("availability.calendar.tablesBlockedBand", v),
+      t("availability.calendar.tablesBlockedBandName", v),
+    ],
+  },
+};
+
 export function closureBandText(
   closure: Closure,
   t: TFunction,
   format: VenueFormat
 ): ClosureBandText {
+  const copy = COPY[closure.targetKind];
   if (isWholeDay(closure)) {
-    return {
-      key: closure.ruleId,
-      text: t("availability.calendar.closedAllDay"),
-      name: t("availability.calendar.closedAllDayName"),
-    };
+    const [text, name] = copy.allDay(t);
+    return { key: closure.ruleId, text, name };
   }
-  const values = {
+  const [text, name] = copy.band(t, {
     from: minuteText(closure.from, t, format),
     to: minuteText(closure.to, t, format),
-  };
-  return {
-    key: closure.ruleId,
-    text: t("availability.calendar.closedBand", values),
-    name: t("availability.calendar.closedBandName", values),
-  };
+  });
+  return { key: closure.ruleId, text, name };
 }

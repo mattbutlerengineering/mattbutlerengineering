@@ -408,22 +408,16 @@
       t: TFunction,
       format: VenueFormat
     ): ClosureBandText {
+      const copy = COPY[closure.targetKind];
       if (isWholeDay(closure)) {
-        return {
-          key: closure.ruleId,
-          text: t("availability.calendar.closedAllDay"),
-          name: t("availability.calendar.closedAllDayName"),
-        };
+        const [text, name] = copy.allDay(t);
+        return { key: closure.ruleId, text, name };
       }
-      const values = {
+      const [text, name] = copy.band(t, {
         from: minuteText(closure.from, t, format),
         to: minuteText(closure.to, t, format),
-      };
-      return {
-        key: closure.ruleId,
-        text: t("availability.calendar.closedBand", values),
-        name: t("availability.calendar.closedBandName", values),
-      };
+      });
+      return { key: closure.ruleId, text, name };
     }
   </file>
   <file path="src/components/availability/compare-changes.ts">

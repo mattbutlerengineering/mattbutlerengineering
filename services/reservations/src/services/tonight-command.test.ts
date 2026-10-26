@@ -464,6 +464,19 @@ describe("setTonight", () => {
   });
 });
 
+describe("Tonight pause_online and the day summary", () => {
+  it("turns bookingOpen.online off for tonight and leaves phone and waitlist open", async () => {
+    const w = world();
+    const outcome = await run(w, body({ type: "pause_online" }));
+    expect(outcome.kind).toBe("saved");
+    const { client } = fakeClient(w);
+    const config = (await getAvailabilityConfig("v", NOW, client))!.config;
+
+    const tonight = resolveDay({ timezone: TZ, config }, TODAY);
+    expect(tonight.bookingOpen).toEqual({ online: false, phone: true, waitlist: true });
+  });
+});
+
 describe("Tonight at the service-day boundary (SC Night-of expiry)", () => {
   it("is gone the next service day, with schedules untouched", async () => {
     const w = world();

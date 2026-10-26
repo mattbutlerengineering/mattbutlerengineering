@@ -218,7 +218,12 @@ function applyTonight(day: ResolvedDaySummary, rule: RuleOf<"tonight">): Resolve
     };
   }
   if ("stop" in payload) {
-    return { ...day, closures: [...day.closures, closureOf(rule, payload.stop)] };
+    const closures = [...day.closures, closureOf(rule, payload.stop)];
+    // A whole-day booking stop (Pause online) turns those channels off; a windowed one only records its band.
+    const wholeDay = payload.stop.from === 0 && payload.stop.to >= WHOLE_DAY.to;
+    return rule.targetKind === "booking" && wholeDay
+      ? { ...day, closures, bookingOpen: closeBookingTypes(day.bookingOpen, rule) }
+      : { ...day, closures };
   }
   return {
     ...day,
