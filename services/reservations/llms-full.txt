@@ -7449,6 +7449,12 @@
         );
       });
     }
+    async function closureVenue(ctx: SweepContext): Promise<{ base: string; version: number }> {
+      const base = `${AVAILABILITY_CONFIG_PREFIX}/${ctx.venueC.id}`;
+      const read = await asAdmin(ctx, { method: "GET", url: `${base}/availability/config` });
+      expectOk(read, "admin config read");
+      return { base, version: JSON.parse(read.body).data.version as number };
+    }
     function sweepConfigChanges() {
       const id = (row: string) => `rls-sweep-${row}-${randomUUID()}`;
       const [schedule, service] = [id("sch"), id("vs")];

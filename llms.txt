@@ -9056,6 +9056,9 @@
     <item priority="medium">
       function okAvailabilityByParam(urlFor: (venueId: string) => string): RouteFixture { /* ... */ }
     </item>
+    <item priority="low">
+      async function closureVenue(ctx: SweepContext): Promise<{ base: string; version: number }> { /* ... */ }
+    </item>
     <item priority="medium">
       function sweepConfigChanges() { /* ... */ }
     </item>
