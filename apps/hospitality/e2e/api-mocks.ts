@@ -628,9 +628,13 @@ export async function mockApi(page: Page): Promise<void> {
     const to = url.searchParams.get("to");
     const data: Array<Record<string, unknown>> = [];
     if (from && to) {
+      // Civil-date stepping: the query's dates are service dates, not instants.
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const civil = (t: Date) =>
+        `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())}`;
       for (let d = new Date(`${from}T00:00:00Z`); d <= new Date(`${to}T00:00:00Z`);) {
         data.push({
-          serviceDate: d.toISOString().slice(0, 10),
+          serviceDate: civil(d),
           label: "Regular",
           scheduleId: "sch-regular",
           serviceCount: 2,
