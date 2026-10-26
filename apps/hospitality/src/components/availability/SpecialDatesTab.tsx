@@ -16,6 +16,7 @@ import type { AvailabilityConfigState, ClosureSummary, DateRule } from "@mbe/typ
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useClosureSummaries, useRetryClosureRefunds } from "../../hooks/useClosures.js";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
+import { addDays } from "../../utils/service-day.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import { CallListDialog } from "./CallListDialog.js";
 import { CloseDialog } from "./CloseDialog.js";
@@ -25,6 +26,7 @@ import { isSeries, restoreDate, skipRows } from "./series-edit.js";
 import { SpecialHoursEditDrawer } from "./SpecialHoursEditDrawer.js";
 import { useScheduleSave } from "./use-schedule-save.js";
 import {
+  coversManyDates,
   hoursEditDate,
   orphanRefundRules,
   specialDateRows,
@@ -66,6 +68,22 @@ function rangeLabel(rule: SpecialDateRule, format: VenueFormat, t: TFunction): s
   });
 }
 
+/** 2026-01-04 is a Sunday; weekday index n is that date plus n days. */
+const SUNDAY = "2026-01-04";
+
+/** What removing a special-hours rule takes away, named whole: "for Thu, Dec 31", a range, or a repeat. */
+function hoursSubject(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string {
+  if (rule.repeat != null) {
+    const days = rule.repeat.weekdays.map((d) =>
+      format.formatCalendarDate(addDays(SUNDAY, d), { weekday: "long" })
+    );
+    return t("availabilitySpecial.hours.subjectRepeat", {
+      days: new Intl.ListFormat(format.locale, { type: "conjunction" }).format(days),
+    });
+  }
+  return t("availabilitySpecial.hours.subjectDates", { dates: rangeLabel(rule, format, t) });
+}
+
 interface RowProps {
   readonly title: string;
   readonly detail: string;
@@ -85,7 +103,12 @@ interface RowProps {
   readonly onRestore?: (skipId: string) => void;
   /** Present on an upcoming special-hours row: Edit hours / Remove (ux.md F6 step 1). */
   readonly hours?: {
+    /** The one date Edit opens on, formatted. */
     readonly label: string;
+    /** The whole rule, named: "for Thu, Dec 31", "for A to B", "every Friday". */
+    readonly subject: string;
+    /** The rule covers more than one date, so Edit says it reaches only `label`. */
+    readonly many: boolean;
     readonly onEdit: () => void;
     readonly onRemove: () => void;
   };
@@ -150,14 +173,22 @@ function SpecialDateItem(props: RowProps) {
           <>
             <Button
               variant="ghost"
-              aria-label={t("availabilitySpecial.hours.editFor", { date: props.hours.label })}
+              aria-label={
+                props.hours.many
+                  ? undefined
+                  : t("availabilitySpecial.hours.editFor", { date: props.hours.label })
+              }
               onClick={props.hours.onEdit}
             >
-              {t("availabilitySpecial.hours.edit")}
+              {props.hours.many
+                ? t("availabilitySpecial.hours.editOnly", { date: props.hours.label })
+                : t("availabilitySpecial.hours.edit")}
             </Button>
             <Button
               variant="ghost"
-              aria-label={t("availabilitySpecial.hours.removeFor", { date: props.hours.label })}
+              aria-label={t("availabilitySpecial.hours.removeFor", {
+                subject: props.hours.subject,
+              })}
               onClick={props.hours.onRemove}
             >
               {t("availabilitySpecial.remove")}
@@ -250,8 +281,12 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
     const changes = { upsert: {}, remove: { dateRules: [rule.id] } };
     const saved = await rowSave.save(venueId, state, changes, "keep");
     if (saved) {
-      const date = format.formatCalendarDate(hoursEditDate(rule, today), DATE_FORMAT);
-      offerUndo({ venueId, saved, title: t("availabilitySpecial.hours.removedToast", { date }) });
+      const subject = hoursSubject(rule, format, t);
+      offerUndo({
+        venueId,
+        saved,
+        title: t("availabilitySpecial.hours.removedToast", { subject }),
+      });
     }
   };
 
@@ -316,6 +351,8 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
                 rule.kind === "special_hours" && !past
                   ? {
                       label: format.formatCalendarDate(hoursEditDate(rule, today), DATE_FORMAT),
+                      subject: hoursSubject(rule, format, t),
+                      many: coversManyDates(rule),
                       onEdit: () => setEditingHours(hoursEditDate(rule, today)),
                       onRemove: () => setRemovingHours(rule),
                     }
@@ -384,9 +421,13 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           open
           variant="destructive"
           title={t("availabilitySpecial.hours.removeTitle", {
-            date: format.formatCalendarDate(hoursEditDate(removingHours, today), DATE_FORMAT),
+            subject: hoursSubject(removingHours, format, t),
           })}
-          description={t("availabilitySpecial.hours.removeDescription")}
+          description={t(
+            coversManyDates(removingHours)
+              ? "availabilitySpecial.hours.removeDescriptionMany"
+              : "availabilitySpecial.hours.removeDescription"
+          )}
           confirmLabel={t("availabilitySpecial.remove")}
           cancelLabel={t("availabilitySpecial.hours.keep")}
           onConfirm={() => void removeHours(removingHours)}

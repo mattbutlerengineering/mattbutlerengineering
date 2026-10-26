@@ -1597,11 +1597,15 @@
     "hours": {
       "edit": "Edit",
       "editFor": "Edit hours for {{date}}",
-      "removeFor": "Remove special hours for {{date}}",
-      "removeTitle": "Remove special hours for {{date}}?",
+      "editOnly": "Edit {{date}} only",
+      "subjectDates": "for {{dates}}",
+      "subjectRepeat": "every {{days}}",
+      "removeFor": "Remove special hours {{subject}}",
+      "removeTitle": "Remove special hours {{subject}}?",
       "removeDescription": "The date goes back to its regular hours. Bookings are never cancelled by this.",
+      "removeDescriptionMany": "This removes the special hours from every date of it, not just one. Bookings are never cancelled by this.",
       "keep": "Keep hours",
-      "removedToast": "Special hours removed for {{date}}"
+      "removedToast": "Special hours removed {{subject}}"
     },
     "callList": {
       "title": "Call list",

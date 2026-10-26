@@ -757,6 +757,9 @@
       export function hoursEditDate(rule: DateRule, today: string): string { /* ... */ }
     </item>
     <item priority="high">
+      export const coversManyDates: unknown;
+    </item>
+    <item priority="high">
       export function orphanRefundRules(
         summaries: readonly ClosureSummary[],
         listedRuleIds: readonly string[]

@@ -82,7 +82,8 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
     return true;
   };
   const restore = async () => {
-    if (!override) return;
+    // Only a skip is restored; a one-date edit on this date is the Manager's change to keep.
+    if (override?.kind !== "skip") return;
     await commit(
       restoreDate(override),
       t("availabilitySpecial.series.restoredToast", { date: label(date) })
@@ -168,7 +169,15 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
           ))}
         </Alert>
       )}
-      {dateField(date, setDate, t("availabilitySpecial.series.dateLabel"))}
+      {dateField(
+        date,
+        (next) => {
+          // Every alert above was about the previous date.
+          setInvalid(null);
+          setDate(next);
+        },
+        t("availabilitySpecial.series.dateLabel")
+      )}
       {invalid === "skipped" && (
         <Alert variant="warning">
           <div>{t("availabilitySpecial.series.alreadySkipped")}</div>

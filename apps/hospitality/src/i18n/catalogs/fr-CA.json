@@ -1625,11 +1625,15 @@
     "hours": {
       "edit": "Modifier",
       "editFor": "Modifier l’horaire du {{date}}",
-      "removeFor": "Retirer l’horaire spécial du {{date}}",
-      "removeTitle": "Retirer l’horaire spécial du {{date}} ?",
+      "editOnly": "Modifier le {{date}} seulement",
+      "subjectDates": "pour {{dates}}",
+      "subjectRepeat": "chaque {{days}}",
+      "removeFor": "Retirer l’horaire spécial {{subject}}",
+      "removeTitle": "Retirer l’horaire spécial {{subject}} ?",
       "removeDescription": "La date reprend son horaire habituel. Aucune réservation n’est annulée par ce changement.",
+      "removeDescriptionMany": "Cela retire l’horaire spécial de toutes ses dates, pas d’une seule. Aucune réservation n’est annulée par ce changement.",
       "keep": "Garder l’horaire",
-      "removedToast": "Horaire spécial retiré pour le {{date}}"
+      "removedToast": "Horaire spécial retiré {{subject}}"
     },
     "callList": {
       "title": "Liste d'appels",

@@ -1654,8 +1654,11 @@
       return [...rows].sort(filter === "past" ? (a, b) => byStart(b, a) : byStart);
     }
     export function hoursEditDate(rule: DateRule, today: string): string {
+      if (rule.repeat != null) return nextOccurrence(rule, today);
       return rule.startsOn > today ? rule.startsOn : today;
     }
+    export const coversManyDates = (rule: DateRule): boolean =>
+      rule.repeat != null || rule.endsOn !== rule.startsOn;
     export function orphanRefundRules(
       summaries: readonly ClosureSummary[],
       listedRuleIds: readonly string[]

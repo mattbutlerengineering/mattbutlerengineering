@@ -1625,11 +1625,15 @@
     "hours": {
       "edit": "Editar",
       "editFor": "Editar horario del {{date}}",
-      "removeFor": "Quitar horario especial del {{date}}",
-      "removeTitle": "¿Quitar el horario especial del {{date}}?",
+      "editOnly": "Editar solo el {{date}}",
+      "subjectDates": "de {{dates}}",
+      "subjectRepeat": "de cada {{days}}",
+      "removeFor": "Quitar horario especial {{subject}}",
+      "removeTitle": "¿Quitar el horario especial {{subject}}?",
       "removeDescription": "La fecha vuelve a su horario habitual. Este cambio nunca cancela reservaciones.",
+      "removeDescriptionMany": "Esto quita el horario especial de todas sus fechas, no solo de una. Este cambio nunca cancela reservaciones.",
       "keep": "Conservar horario",
-      "removedToast": "Horario especial quitado para el {{date}}"
+      "removedToast": "Horario especial quitado {{subject}}"
     },
     "callList": {
       "title": "Lista de llamadas",
