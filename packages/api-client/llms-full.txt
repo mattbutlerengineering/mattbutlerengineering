@@ -79,6 +79,7 @@
       partySize: number;
     }
     export type SaveAvailabilityConfigRequest = z.input<typeof PutAvailabilityConfigBodySchema>;
+    export type CreateClosureRequest = z.input<typeof CreateClosureBodySchema>;
     export class AvailabilityClient {
       constructor(private client: ApiClient) {}
     
@@ -185,6 +186,26 @@
       }
     
       /**
+       * Saves a closure (or special hours / Tonight change) with one decision per
+       * affected group. `idempotencyKey` makes a retry safe: a replay returns the
+       * first result, so the call is retried on a network error. Rejects with a
+       * problem `code` of `version-conflict`, `decision-required`,
+       * `invalid-decision`, `move-unavailable` or `invalid-config`.
+       */
+      async createClosure(
+        venueId: string,
+        body: CreateClosureRequest,
+        idempotencyKey: string
+      ): Promise<ClosureResult> {
+        const response = await this.client.call(
+          availabilityConfigEndpoints.createClosure,
+          { params: { id: venueId }, body },
+          { headers: { "Idempotency-Key": idempotencyKey }, idempotentRetry: true }
+        );
+        return response.data;
+      }
+    
+      /**
        * What an unsaved draft changes: per-date added/removed times for 30 days
        * from `focusDate`, the focus day, and a page of the future bookings in
        * `scope` it would strand. Read-only, so a gateway failure is retried. A
@@ -197,6 +218,19 @@
           { params: { id: venueId }, body },
           { idempotentRetry: true }
         );
+        return response.data;
+      }
+    
+      /** Reopens a closure; guests it cancelled stay cancelled. */
+      async reopenClosure(
+        venueId: string,
+        ruleId: string,
+        tellCancelledGuests: boolean
+      ): Promise<ReopenResult> {
+        const response = await this.client.call(availabilityConfigEndpoints.reopenClosure, {
+          params: { id: venueId, ruleId },
+          body: { tellCancelledGuests },
+        });
         return response.data;
       }
     
@@ -1553,9 +1587,29 @@
       partySize?: number;
       specialRequests?: string;
     }
+    export interface ManagedRebookOffer {
+      id: string;
+      /** Service date the slot belongs to (differs from the local date for after-midnight times). */
+      date: string;
+      /** ISO instant the slot starts. */
+      startTime: string;
+    }
+    export interface ManagedVenueCancellation {
+      refundStatus: "none" | "pending" | "done" | "failed";
+      /** Empty once rebooked, and where the new booking would need a deposit (the guest uses the full picker). */
+      offers: ManagedRebookOffer[];
+      /** Set once the guest has rebooked; `manageToken` opens the new reservation. */
+      rebooked: { startTime: string; manageToken: string } | null;
+    }
+    export interface RebookedReservation {
+      reservationId: string;
+      startTime: string;
+      manageToken: string;
+    }
     export interface ManageReservationData {
       reservation: ManagedReservation;
       venue: ManagedReservationVenue | null;
+      venueCancellation?: ManagedVenueCancellation | null;
     }
     export class ReservationsClient {
       constructor(private client: ApiClient) {}
@@ -1697,6 +1751,32 @@
           z.object({ data: schema })
         );
         return response.data;
+      }
+    
+      /**
+       * Rebook a venue-cancelled reservation into one of its offers (public,
+       * token-authenticated). `offerId` is the offer's `id`. Refusals surface as
+       * `ApiClientError`: 409 (already rebooked / slot gone) and 422 (the venue
+       * takes a deposit, or the booking gate refuses the time).
+       */
+      async rebookManaged(token: string, offerId: string): Promise<RebookedReservation> {
+        const schema = z.object({
+          data: z.object({ reservationId: z.string(), startTime: z.string() }),
+          manageToken: z.string(),
+        });
+        const response = await this.client.request<{
+          data: { reservationId: string; startTime: string };
+          manageToken: string;
+        }>(
+          "/public/v1/reservations/manage/rebook",
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ offerId }),
+          },
+          schema
+        );
+        return { ...response.data, manageToken: response.manageToken };
       }
     
       /**

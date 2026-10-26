@@ -54,10 +54,37 @@
           },
           400: problem("Date range too long to evaluate"),
           401: authRequired,
-          403: problem("Caller is not a Manager of this venue"),
+          403: notClosureCaller,
           404: venueNotFound,
           422: {
             description: "`invalid-config`: the draft rule does not validate against the config",
+            body: AvailabilityConfigProblemSchema,
+          },
+        },
+      }),
+      createClosure: defineEndpoint({
+        method: "POST",
+        path: `${AVAILABILITY_CONFIG_PREFIX}/:id/closures`,
+        params: VenueParamsSchema,
+        body: CreateClosureBodySchema,
+        responses: {
+          200: {
+            description:
+              "Saved atomically with its cancels and moves (or replayed from the same `Idempotency-Key`): the rule, the version and outcome counts",
+            body: z.object({ data: ClosureResultSchema }),
+          },
+          400: problem("Missing `Idempotency-Key` header, or a date range too long to evaluate"),
+          401: authRequired,
+          403: notClosureCaller,
+          404: venueNotFound,
+          409: {
+            description:
+              "`version-conflict`, `idempotency-key-reused` (a different rule) or `closure-exists` (this rule id was already saved)",
+            body: AvailabilityConfigProblemSchema,
+          },
+          422: {
+            description:
+              "`invalid-config`, `decision-required`, `invalid-decision` or `move-unavailable`",
             body: AvailabilityConfigProblemSchema,
           },
         },
@@ -84,6 +111,21 @@
             description: "`preview-timeout`: the preview took longer than 5 seconds; retry is safe",
             body: AvailabilityConfigProblemSchema,
           },
+        },
+      }),
+      reopenClosure: defineEndpoint({
+        method: "DELETE",
+        path: `${AVAILABILITY_CONFIG_PREFIX}/:id/closures/:ruleId`,
+        params: ClosureParamsSchema,
+        body: ReopenClosureBodySchema,
+        responses: {
+          200: {
+            description: "Reopened; guests the closure cancelled stay cancelled",
+            body: z.object({ data: ReopenResultSchema }),
+          },
+          401: authRequired,
+          403: notClosureCaller,
+          404: problem("Venue or closure not found"),
         },
       }),
       listDays: defineEndpoint({
@@ -477,6 +519,11 @@
       "version-conflict",
       "invalid-config",
       "stranded-bookings",
+      "decision-required",
+      "invalid-decision",
+      "move-unavailable",
+      "idempotency-key-reused",
+      "closure-exists",
       "preview-timeout",
     ] as const;
     export const AvailabilityConfigProblemSchema = z.object({
@@ -491,6 +538,10 @@
       issues: z.array(z.object({ path: z.string(), code: z.string(), message: z.string() })).optional(),
       /** stranded-bookings: future reservations the change would leave outside service. */
       reservations: z.array(StrandedReservationSchema).optional(),
+      /** decision-required / invalid-decision: the impact groups at fault. */
+      groupKeys: z.array(z.string()).optional(),
+      /** move-unavailable: bookings with no open time to move to. */
+      reservationIds: z.array(z.string()).optional(),
     });
     export const AVAILABILITY_DAYS_MAX_RANGE = 62;
     export const AvailabilityDaysQuerySchema = z.object({
@@ -636,6 +687,37 @@
     export type StrandedReservation = z.infer<typeof StrandedReservationSchema>;
     export type AvailabilityConfigProblem = z.infer<typeof AvailabilityConfigProblemSchema>;
     export type AvailabilityDaySummary = z.infer<typeof AvailabilityDaySummarySchema>;
+    export const ClosureDecisionSchema = z.object({
+      /** The impact group's `groupKey` (`<date>:<kind>`). */
+      groupKey: z.string().min(1),
+      action: ClosureActionSchema,
+      acknowledged: z.boolean().optional(),
+    });
+    export const CreateClosureBodySchema = z.object({
+      expectedVersion: z.number().int().min(0),
+      rule: DateRuleSchema,
+      decisions: z.array(ClosureDecisionSchema).default([]),
+    });
+    export const ReopenClosureBodySchema = z.object({ tellCancelledGuests: z.boolean() });
+    export const ClosureOutcomeCountsSchema = z.object({
+      cancel: z.number().int(),
+      move: z.number().int(),
+      keep_notify: z.number().int(),
+      keep_silent: z.number().int(),
+    });
+    export const ClosureResultSchema = z.object({
+      ruleId: z.string(),
+      /** `Venue.availabilityVersion` after the save. */
+      version: z.number().int(),
+      changeId: z.string(),
+      outcomes: ClosureOutcomeCountsSchema,
+    });
+    export const ReopenResultSchema = z.object({ version: z.number().int(), changeId: z.string() });
+    export type ClosureDecision = z.infer<typeof ClosureDecisionSchema>;
+    export type CreateClosureBody = z.infer<typeof CreateClosureBodySchema>;
+    export type ReopenClosureBody = z.infer<typeof ReopenClosureBodySchema>;
+    export type ClosureResult = z.infer<typeof ClosureResultSchema>;
+    export type ReopenResult = z.infer<typeof ReopenResultSchema>;
     export type AvailabilityCheckBody = z.infer<typeof AvailabilityCheckBodySchema>;
     export type AvailabilityCheckResult = z.infer<typeof AvailabilityCheckResultSchema>;
   </file>

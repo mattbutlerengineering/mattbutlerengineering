@@ -27,7 +27,7 @@ export interface ImpactBooking {
   endTime: Date;
   partySize: number;
   guestName: string | null;
-  /** Set only for a deposit in the `held` state. */
+  /** Set for a non-terminal deposit (`pending` or `held`). Named for the common case. */
   heldDeposit: { amountCents: number; currency: string } | null;
 }
 

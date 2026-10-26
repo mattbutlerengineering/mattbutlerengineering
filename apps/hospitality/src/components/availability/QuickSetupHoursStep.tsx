@@ -38,10 +38,13 @@ export function QuickSetupHoursStep({ data, errors, onChange }: QuickSetupHoursS
 
   return (
     <>
-      {errors?.global && (
-        <Text variant="caption" color="error" role="alert">
-          {errors.global}
-        </Text>
+      {[errors?.global, ...Object.values(errors?.days ?? {})].map(
+        (message) =>
+          message && (
+            <Text key={message} variant="caption" color="error" role="alert">
+              {message}
+            </Text>
+          )
       )}
       <QuickSetupForm draft={draft} onChange={handleChange} issues={touched ? issues : []} />
     </>

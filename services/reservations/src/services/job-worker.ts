@@ -16,6 +16,11 @@ import type { CommunicationPreference, Reservation, Venue } from "@mbe/types";
 import { resolveChannel } from "./contact-policy.js";
 import { runWithVenueContext } from "./venue-context-store.js";
 
+const LIVE_REMINDER_STATUSES: ReadonlySet<Reservation["status"]> = new Set([
+  "PENDING",
+  "CONFIRMED",
+]);
+
 /**
  * Minimal slice of NotificationDispatcher the reminder handlers depend on.
  * Kept narrow so tests can inject a fake without a Resend/Twilio client.
@@ -78,7 +83,9 @@ export function createReservationJobHandlers(deps: ReservationJobHandlerDeps): J
   async function deliverReminder(payload: ReminderPayload, ctx: JobContext): Promise<void> {
     return runWithVenueContext(payload.venueId, async () => {
       const reservation = await deps.getReservation(payload.reservationId);
-      if (!reservation) return;
+      // Only a live booking (PENDING or CONFIRMED) is reminded: a venue-cancelled
+      // (closure) one must not be.
+      if (!reservation || !LIVE_REMINDER_STATUSES.has(reservation.status)) return;
 
       const venue = await deps.getVenue(payload.venueId);
       // No email or missing venue → nothing deliverable; return (no retry).

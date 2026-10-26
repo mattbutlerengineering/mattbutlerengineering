@@ -7,6 +7,7 @@ import { reservationRoutes } from "./routes/reservations.js";
 import { venueRoutes } from "./routes/venues.js";
 import { venueTeamRoutes } from "./routes/venue-team.js";
 import { availabilityConfigRoutes } from "./routes/availability-config.js";
+import { closureRoutes } from "./routes/closures.js";
 import { AVAILABILITY_CONFIG_PREFIX } from "@mbe/types";
 import { availabilityRoutes } from "./routes/availability.js";
 import { holdRoutes } from "./routes/holds.js";
@@ -25,6 +26,7 @@ import { publicGuestRiskRoutes } from "./routes/public-guest-risk.js";
 import { publicWaitlistRoutes } from "./routes/public-waitlist.js";
 import { confirmAttendanceRoutes } from "./routes/confirm-attendance.js";
 import { manageReservationRoutes } from "./routes/manage-reservation.js";
+import { manageRebookRoutes } from "./routes/manage-rebook.js";
 import { cancelReservationRoutes } from "./routes/cancel-reservation.js";
 import { modifyReservationRoutes } from "./routes/modify-reservation.js";
 import { depositRoutes } from "./routes/deposits.js";
@@ -281,6 +283,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   await fastify.register(venueRoutes, { prefix: venuesPrefix });
   await fastify.register(venueTeamRoutes, { prefix: venuesPrefix });
   await fastify.register(availabilityConfigRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
+  await fastify.register(closureRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
   await fastify.register(availabilityRoutes, {
     prefix: "/api/v1/availability",
   });
@@ -311,6 +314,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   await fastify.register(publicWaitlistRoutes, { prefix: "/public/v1/venues" });
   await fastify.register(confirmAttendanceRoutes);
   await fastify.register(manageReservationRoutes);
+  await fastify.register(manageRebookRoutes);
   await fastify.register(cancelReservationRoutes);
   await fastify.register(modifyReservationRoutes);
   await fastify.register(publicUnsubscribeRoutes);

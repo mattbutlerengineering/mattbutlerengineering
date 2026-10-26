@@ -445,6 +445,50 @@ describe("ReservationsClient.manageReservation", () => {
     expect(result).toEqual(managedPayload);
   });
 
+  it("carries the venue cancellation (refund status and rebook offers) through", async () => {
+    const venueCancellation = {
+      refundStatus: "done",
+      offers: [
+        {
+          id: "2026-11-05T01:30:00.000Z",
+          date: "2026-11-04",
+          startTime: "2026-11-05T01:30:00.000Z",
+        },
+      ],
+      rebooked: null,
+    };
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ data: { ...managedPayload, venueCancellation } })
+    );
+
+    const result = await makeClient().manageReservation("tok");
+    expect(result.venueCancellation).toEqual(venueCancellation);
+  });
+
+  it("carries the rebooked state (new start and manage token) through", async () => {
+    const venueCancellation = {
+      refundStatus: "done",
+      offers: [],
+      rebooked: { startTime: "2026-11-08T02:00:00.000Z", manageToken: "tok-new" },
+    };
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ data: { ...managedPayload, venueCancellation } })
+    );
+
+    const result = await makeClient().manageReservation("tok");
+    expect(result.venueCancellation).toEqual(venueCancellation);
+  });
+
+  it("rejects an unknown refund status", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({
+        data: { ...managedPayload, venueCancellation: { refundStatus: "weird", offers: [] } },
+      })
+    );
+
+    await expect(makeClient().manageReservation("tok")).rejects.toBeInstanceOf(ApiValidationError);
+  });
+
   it("accepts a null venue", async () => {
     mockFetch.mockResolvedValueOnce(jsonResponse({ data: { ...managedPayload, venue: null } }));
 
@@ -510,6 +554,45 @@ describe("ReservationsClient.cancelManaged", () => {
       cancellationReason: "guest_cancelled",
       cancellationNote: "Change of plans",
     });
+  });
+});
+
+describe("ReservationsClient.rebookManaged", () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+  });
+
+  it("POSTs the offer id with the token as a Bearer header and returns the new manage token", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse(
+        {
+          data: { reservationId: "res_2", startTime: "2026-11-06T02:00:00.000Z" },
+          manageToken: "tok-new",
+        },
+        201
+      )
+    );
+
+    const result = await makeClient().rebookManaged("tok-abc", "2026-11-06T02:00:00.000Z");
+
+    const [url, options] = mockFetch.mock.calls[0]!;
+    expect(new URL(url as string).pathname).toBe("/public/v1/reservations/manage/rebook");
+    expect(options?.method).toBe("POST");
+    expect((options?.headers as Record<string, string>).Authorization).toBe("Bearer tok-abc");
+    expect(JSON.parse(options?.body as string)).toEqual({ offerId: "2026-11-06T02:00:00.000Z" });
+    expect(result).toEqual({
+      reservationId: "res_2",
+      startTime: "2026-11-06T02:00:00.000Z",
+      manageToken: "tok-new",
+    });
+  });
+
+  it("rejects a response without a manage token", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ data: { reservationId: "res_2", startTime: "2026-11-06T02:00:00.000Z" } }, 201)
+    );
+
+    await expect(makeClient().rebookManaged("tok", "x")).rejects.toBeInstanceOf(ApiValidationError);
   });
 });
 

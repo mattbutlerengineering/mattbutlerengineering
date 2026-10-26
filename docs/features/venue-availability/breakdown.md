@@ -117,7 +117,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [x] **Closure impact** — `POST …/closures/impact`: affected reservations grouped by date and kind, with covers, deposits held, and runs-into-closure flags. (tracker: #7520)
   - Accept: tests cover a whole-day, a shortened-service, a booking-only (no groups) and a multi-date closure, plus a booking that starts before the closure and runs into it.
   - Blocked by: Config API
-- [ ] **Closure command** — `POST /closures` and `DELETE /closures/:id`. Writes the rule, the outcomes and the transitions (cancel through `cancelReservationWithDeposit` as staff, move, keep) in one transaction, with an `Idempotency-Key` and Host emergency limits. (tracker: #7521)
+- [x] **Closure command** — `POST /closures` and `DELETE /closures/:id`. Writes the rule, the outcomes and the transitions (cancel through `cancelReservationWithDeposit` as staff, move, keep) in one transaction, with an `Idempotency-Key` and Host emergency limits. (tracker: #7521)
   - Accept: an invariant test confirms that after any saved closure no active reservation overlaps it unless the outcome is keep, with who and when recorded (SC Closure integrity, data half). A replayed key returns the first result. A Host without the grant gets 403.
   - Blocked by: Closure impact, Venue roles
 - [x] **Rebook offers** — `rebookOffers` in the engine: up to 3 open slots, same party size, within 14 days, nearest the original time of day. (tracker: #7522)
@@ -135,7 +135,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [ ] **Special dates tab** — F6 list and filters, the add special date sheet (several rows, one Step 2), reopen with tell-cancelled-guests, Sent/Rebooked/Unreachable counts, refund retry, the printable call list, and F-SER series edits. (tracker: #7527)
   - Accept: tests cover reopening a closure (slots return, the opt-in notice is sent), skipping one date of a repeating closure, and a call list with only unconfirmed guests.
   - Blocked by: Close dialog, Closure notices
-- [ ] **Manage page rebook** — the cancelled-by-venue state on `/reservations/manage`, with the refund status, up to 3 one-tap rebooks re-checked on tap, and "Other dates". (tracker: #7528)
+- [x] **Manage page rebook** — the cancelled-by-venue state on `/reservations/manage`, with the refund status, up to 3 one-tap rebooks re-checked on tap, and "Other dates". (tracker: #7528)
   - Accept: tests cover a successful rebook, a taken slot refreshing the list, and no offers showing only the picker link.
   - Blocked by: Rebook offers, manageUrl builder
 

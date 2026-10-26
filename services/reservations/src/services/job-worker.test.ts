@@ -379,6 +379,40 @@ describe("reservations JobWorker wiring — schedule → dequeue → deliver", (
     expect(deps.dispatcher.sendBookingReminder).not.toHaveBeenCalled();
   });
 
+  it.each(["CANCELLED", "NO_SHOW", "COMPLETED"] as const)(
+    "reminder handler skips delivery for a %s reservation (a closure cancel must not be reminded)",
+    async (status) => {
+      for (const type of [JOB_TYPES.BOOKING_REMINDER, JOB_TYPES.DAY_OF_REMINDER]) {
+        const deps = makeDeps();
+        deps.getReservation.mockResolvedValueOnce(makeReservation({ status }));
+        new JobWorker({
+          redisUrl: "redis://localhost:6379",
+          handlers: createReservationJobHandlers(deps),
+        });
+
+        await bus.processor!({ name: type, data: reminderPayload });
+
+        expect(deps.dispatcher.sendBookingReminder).not.toHaveBeenCalled();
+      }
+    }
+  );
+
+  it.each(["PENDING", "CONFIRMED"] as const)(
+    "reminder handler still delivers for a live %s reservation",
+    async (status) => {
+      const deps = makeDeps();
+      deps.getReservation.mockResolvedValueOnce(makeReservation({ status }));
+      new JobWorker({
+        redisUrl: "redis://localhost:6379",
+        handlers: createReservationJobHandlers(deps),
+      });
+
+      await bus.processor!({ name: JOB_TYPES.BOOKING_REMINDER, data: reminderPayload });
+
+      expect(deps.dispatcher.sendBookingReminder).toHaveBeenCalledTimes(1);
+    }
+  );
+
   it("reminder handler skips delivery when the guest has no email", async () => {
     const deps = makeDeps();
     deps.getReservation.mockResolvedValueOnce(makeReservation({ guestEmail: null }));
