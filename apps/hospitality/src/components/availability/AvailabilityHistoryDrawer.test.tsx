@@ -203,6 +203,7 @@ describe("AvailabilityHistoryDrawer", () => {
     ["Closures", "closure"],
     ["Reopenings", "reopen"],
     ["Tonight changes", "tonight"],
+    ["Tonight ended", "tonight_end"],
   ])("asks for kind %s when the Type filter picks it", (label, kind) => {
     renderDrawer();
     fireEvent.click(screen.getByRole("combobox", { name: "Type" }));

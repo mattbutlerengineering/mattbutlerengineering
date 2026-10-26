@@ -10,7 +10,13 @@ export type TonightChange =
       readonly from: number;
       readonly to: number;
     }
-  | { readonly ruleId: string; readonly kind: "block_tables"; readonly tableCount: number }
+  | {
+      readonly ruleId: string;
+      readonly kind: "block_tables";
+      readonly tableCount: number;
+      readonly from: number;
+      readonly to: number;
+    }
   | { readonly ruleId: string; readonly kind: "pacing"; readonly covers: number };
 
 type TonightRule = Extract<DateRule, { kind: "tonight" }>;
@@ -22,7 +28,13 @@ function describe(rule: TonightRule): TonightChange | null {
   if ("pacing" in payload) return { ruleId, kind: "pacing", covers: payload.pacing.covers };
   if (rule.targetKind === "booking") return { ruleId, kind: "pause_online" };
   if (rule.targetKind === "tables") {
-    return { ruleId, kind: "block_tables", tableCount: rule.tableIds?.length ?? 0 };
+    return {
+      ruleId,
+      kind: "block_tables",
+      tableCount: rule.tableIds?.length ?? 0,
+      from: payload.stop.from,
+      to: payload.stop.to,
+    };
   }
   return { ruleId, kind: "stop_window", from: payload.stop.from, to: payload.stop.to };
 }

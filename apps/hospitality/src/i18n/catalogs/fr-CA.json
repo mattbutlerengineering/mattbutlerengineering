@@ -1856,6 +1856,7 @@
       "typeClosure": "Fermetures",
       "typeReopen": "Réouvertures",
       "typeTonight": "Changements de ce soir",
+      "typeTonightEnded": "Soirée terminée",
       "typeRevert": "Annulations",
       "personLabel": "Personne",
       "personAll": "Tout le monde",
@@ -2135,7 +2136,13 @@
         "label": "Bloquer des tables",
         "all": "Toutes les tables",
         "location": "Toutes les tables : {{location}}",
-        "button": "Bloquer"
+        "button": "Bloquer",
+        "pick": "Choisir des tables…",
+        "pickLabel": "Tables à bloquer",
+        "from": "Bloquer à partir de",
+        "until": "Bloquer jusqu’à",
+        "now": "Maintenant",
+        "endOfTonight": "Fin de la soirée"
       },
       "pacing": "Cadence de ce soir (couverts par plage)",
       "ends": "Se termine {{time}} (fin du service de ce soir)",
@@ -2151,6 +2158,9 @@
         "blocked_one": "{{count}} table bloquée · reste de la soirée",
         "blocked_other": "{{count}} tables bloquées · reste de la soirée",
         "blocked_many": "{{count}} tables bloquées · reste de la soirée",
+        "blockedWindow_one": "{{count}} table bloquée · {{from}}–{{to}}",
+        "blockedWindow_other": "{{count}} tables bloquées · {{from}}–{{to}}",
+        "blockedWindow_many": "{{count}} tables bloquées · {{from}}–{{to}}",
         "pacing_one": "Cadence de {{count}} couvert",
         "pacing_other": "Cadence de {{count}} couverts",
         "pacing_many": "Cadence de {{count}} couverts"

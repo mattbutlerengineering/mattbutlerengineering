@@ -221,6 +221,52 @@ describe("TonightControl", () => {
       });
     });
 
+    it("blocks the individual tables picked", async () => {
+      renderControl();
+      open();
+      fireEvent.click(screen.getByRole("combobox", { name: "Block tables" }));
+      fireEvent.click(screen.getByRole("option", { name: "Choose tables…" }));
+      expect(screen.getByRole("button", { name: "Block" })).toBeDisabled();
+      fireEvent.click(screen.getByRole("checkbox", { name: /P2/ }));
+      fireEvent.click(screen.getByRole("checkbox", { name: /B1/ }));
+      fireEvent.click(screen.getByRole("button", { name: "Block" }));
+      await waitFor(() => expect(setTonight).toHaveBeenCalledOnce());
+      expect(setTonight.mock.calls[0]![0].body.change).toEqual({
+        type: "block_tables",
+        tableIds: ["t2", "t3"],
+      });
+    });
+
+    it("blocks for a window that crosses midnight", async () => {
+      renderControl({ state: lateState() });
+      open();
+      fireEvent.click(screen.getByRole("combobox", { name: "Block from" }));
+      fireEvent.click(screen.getByRole("option", { name: "11:30 PM" }));
+      fireEvent.click(screen.getByRole("combobox", { name: "Block until" }));
+      fireEvent.click(screen.getAllByRole("option", { name: "1:00 AM (next day)" }).at(-1)!);
+      fireEvent.click(screen.getByRole("button", { name: "Block" }));
+      await waitFor(() => expect(setTonight).toHaveBeenCalledOnce());
+      expect(setTonight.mock.calls[0]![0].body.change).toEqual({
+        type: "block_tables",
+        tableIds: ["t1", "t2", "t3"],
+        from: 1410,
+        to: 1500,
+      });
+    });
+
+    it("shows the window on the chip", () => {
+      renderControl({
+        state: stateWith({
+          ...PAUSE_RULE,
+          id: "r-block",
+          targetKind: "tables",
+          tableIds: ["t1"],
+          payload: { version: 1, stop: { from: 1410, to: 1500 } },
+        } as DateRule),
+      });
+      expect(screen.getByText("1 table blocked · 11:30 PM–1:00 AM (next day)")).toBeInTheDocument();
+    });
+
     it("shows the failure inline and keeps the control usable", async () => {
       setTonight.mockRejectedValueOnce(new Error("boom"));
       renderControl();

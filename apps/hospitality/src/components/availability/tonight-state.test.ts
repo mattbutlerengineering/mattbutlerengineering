@@ -40,7 +40,7 @@ describe("activeTonightChanges", () => {
       { ruleId: "a", kind: "pause_online" },
       { ruleId: "b", kind: "close_early", closeAt: 1290 },
       { ruleId: "c", kind: "stop_window", from: 1170, to: 1200 },
-      { ruleId: "d", kind: "block_tables", tableCount: 2 },
+      { ruleId: "d", kind: "block_tables", tableCount: 2, from: 0, to: 2880 },
       { ruleId: "e", kind: "pacing", covers: 8 },
     ]);
   });

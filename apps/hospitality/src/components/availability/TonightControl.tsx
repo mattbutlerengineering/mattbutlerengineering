@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import type { TFunction } from "i18next";
 import {
   Button,
+  Checkbox,
   Divider,
   Drawer,
   NumberInput,
@@ -51,6 +52,8 @@ const LAST_EVENING_MINUTE = 23 * 60 + STEP_MINUTES;
 /** `MinuteSchema` allows a service day up to two days of minutes (ADR-029). */
 const MAX_MINUTE = 2880;
 const ALL_TABLES = "all";
+const PICK_TABLES = "pick";
+const UNSET = "unset";
 const LOCATION_PREFIX = "location:";
 const DEFAULT_CLOSE_AT = 22 * 60;
 const DEFAULT_STOP_FROM = 19 * 60 + 30;
@@ -71,7 +74,15 @@ function chipText(change: TonightChange, t: TFunction, format: VenueFormat): str
         to: minuteText(change.to, t, format),
       });
     case "block_tables":
-      return t("availability.tonight.chip.blocked", { count: change.tableCount });
+      // The server stores "rest of tonight" as 0 to the two-day maximum.
+      if (change.from === 0 && change.to >= MAX_MINUTE) {
+        return t("availability.tonight.chip.blocked", { count: change.tableCount });
+      }
+      return t("availability.tonight.chip.blockedWindow", {
+        count: change.tableCount,
+        from: minuteText(change.from, t, format),
+        to: minuteText(change.to, t, format),
+      });
     case "pacing":
       return t("availability.tonight.chip.pacing", { count: change.covers });
   }
@@ -107,7 +118,12 @@ function closeEarlyRule(id: string, today: string, closeAt: number): DateRule {
   };
 }
 
-function tableTargets(tables: readonly Table[], target: string): readonly string[] {
+function tableTargets(
+  tables: readonly Table[],
+  target: string,
+  picked: readonly string[]
+): readonly string[] {
+  if (target === PICK_TABLES) return picked;
   const active = tables.filter((table) => table.isActive);
   const chosen = target.startsWith(LOCATION_PREFIX)
     ? active.filter((table) => table.location === target.slice(LOCATION_PREFIX.length))
@@ -140,6 +156,9 @@ export function TonightControl(props: TonightControlProps) {
   const [stopFrom, setStopFrom] = useState(DEFAULT_STOP_FROM);
   const [stopTo, setStopTo] = useState(DEFAULT_STOP_TO);
   const [blockTarget, setBlockTarget] = useState(ALL_TABLES);
+  const [pickedTables, setPickedTables] = useState<readonly string[]>([]);
+  const [blockFrom, setBlockFrom] = useState<number | null>(null);
+  const [blockTo, setBlockTo] = useState<number | null>(null);
   const [pacing, setPacing] = useState(DEFAULT_PACING);
   // One id per attempt, kept until it succeeds, so a retry replays the first result.
   const attemptIdsRef = useRef<Record<string, string>>({});
@@ -163,7 +182,11 @@ export function TonightControl(props: TonightControlProps) {
       value: `${LOCATION_PREFIX}${location}`,
       label: t("availability.tonight.block.location", { location }),
     })),
+    { value: PICK_TABLES, label: t("availability.tonight.block.pick") },
   ];
+  const activeTables = tables.filter((tb) => tb.isActive);
+  const blockIds = tableTargets(tables, blockTarget, pickedTables);
+  const blockWindowInvalid = blockFrom !== null && blockTo !== null && blockTo <= blockFrom;
   const timeOptions = timeMinutes(state).map((m) => ({
     value: String(m),
     label: minuteText(m, t, format),
@@ -233,6 +256,25 @@ export function TonightControl(props: TonightControlProps) {
     />
   );
 
+  // Optional bound: the first option leaves it unset, so the server keeps the whole night.
+  const blockTime = (
+    label: string,
+    unsetLabel: string,
+    value: number | null,
+    set: (m: number | null) => void
+  ) => (
+    <Select
+      label={label}
+      value={value === null ? UNSET : String(value)}
+      options={[{ value: UNSET, label: unsetLabel }, ...timeOptions]}
+      disabled={busy !== null}
+      onChange={(v) => set(v === UNSET ? null : Number(v))}
+    />
+  );
+
+  const togglePicked = (id: string, on: boolean) =>
+    setPickedTables(on ? [...pickedTables, id] : pickedTables.filter((p) => p !== id));
+
   const panel = (
     <div
       className={styles.panel}
@@ -281,17 +323,50 @@ export function TonightControl(props: TonightControlProps) {
           />
           <Button
             variant="secondary"
-            disabled={busy !== null || tableTargets(tables, blockTarget).length === 0}
+            disabled={busy !== null || blockIds.length === 0 || blockWindowInvalid}
             isLoading={busy === "block"}
             onClick={() =>
               void apply("block", {
                 type: "block_tables",
-                tableIds: [...tableTargets(tables, blockTarget)],
+                tableIds: [...blockIds],
+                ...(blockFrom !== null ? { from: blockFrom } : {}),
+                ...(blockTo !== null ? { to: blockTo } : {}),
               })
             }
           >
             {t("availability.tonight.block.button")}
           </Button>
+        </div>
+        {blockTarget === PICK_TABLES && (
+          <div
+            role="group"
+            aria-label={t("availability.tonight.block.pickLabel")}
+            className={styles.tablePicker}
+          >
+            {activeTables.map((table) => (
+              <Checkbox
+                key={table.id}
+                label={table.location ? `${table.name} · ${table.location}` : table.name}
+                checked={pickedTables.includes(table.id)}
+                disabled={busy !== null}
+                onCheckedChange={(on) => togglePicked(table.id, on)}
+              />
+            ))}
+          </div>
+        )}
+        <div className={styles.row}>
+          {blockTime(
+            t("availability.tonight.block.from"),
+            t("availability.tonight.block.now"),
+            blockFrom,
+            setBlockFrom
+          )}
+          {blockTime(
+            t("availability.tonight.block.until"),
+            t("availability.tonight.block.endOfTonight"),
+            blockTo,
+            setBlockTo
+          )}
         </div>
         <div className={styles.row}>
           <NumberInput

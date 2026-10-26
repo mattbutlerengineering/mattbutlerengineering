@@ -206,6 +206,7 @@ export function AvailabilityHistoryDrawer(props: AvailabilityHistoryDrawerProps)
               { value: "closure", label: t("availability.history.typeClosure") },
               { value: "reopen", label: t("availability.history.typeReopen") },
               { value: "tonight", label: t("availability.history.typeTonight") },
+              { value: "tonight_end", label: t("availability.history.typeTonightEnded") },
               { value: "revert", label: t("availability.history.typeRevert") },
             ]}
           />
