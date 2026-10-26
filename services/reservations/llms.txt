@@ -2970,7 +2970,8 @@
         before: AvailabilitySnapshot,
         after: AvailabilitySnapshot,
         rule: DateRule,
-        booking: ImpactBooking
+        booking: ImpactBooking,
+        replaced: ReadonlySet<string>
       ): Verdicts | null { /* ... */ }
     </item>
     <item priority="medium">

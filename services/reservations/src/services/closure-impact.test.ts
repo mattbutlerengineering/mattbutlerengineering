@@ -213,6 +213,20 @@ describe("computeClosureImpact", () => {
     ]);
   });
 
+  it("still offers a booking an unrelated earlier closure already cut into, when a new one cuts earlier", () => {
+    const existing = closure({
+      id: "c1",
+      window: { version: 1, from: 1290, to: 1440 }, // closed from 9:30 PM
+    });
+    const result = computeClosureImpact({
+      timezone: TZ,
+      config: { ...CONFIG, dateRules: [existing] },
+      rule: closure({ id: "c2", window: { version: 1, from: 1260, to: 1440 } }), // from 9:00 PM
+      bookings: [booking("b", "2026-12-24", 20, 30)], // 8:30 to 10:00 PM
+    });
+    expect(result.reservations).toBe(1);
+  });
+
   it("does not offer again a booking the replaced series' window already cut into", () => {
     const window = { version: 1 as const, from: 1320, to: 1440 }; // closed from 10:00 PM
     const series: DateRule = {
