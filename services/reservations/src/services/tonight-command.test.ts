@@ -281,7 +281,7 @@ describe("setTonight", () => {
     expect(outcome.kind).toBe("rule_exists");
   });
 
-  it("routes a close-early through the closure command, as tonight's date, with the ruleId as its key", async () => {
+  it("routes a close-early through the closure command, as tonight's date, keyed by the ruleId and the change", async () => {
     const w = world();
     const createClosure = vi.fn(async (_input: Record<string, unknown>) => ({
       kind: "saved",
@@ -306,7 +306,7 @@ describe("setTonight", () => {
     expect(call).toMatchObject({
       venueId: "v",
       caller: HOST,
-      idempotencyKey: "tonight:t-new",
+      idempotencyKey: expect.stringMatching(/^tonight:t-new:[0-9a-f]{16}$/),
       body: {
         expectedVersion: 4,
         decisions,
@@ -332,6 +332,67 @@ describe("setTonight", () => {
     });
     expect(createClosure.mock.calls[0]![0]).toMatchObject({
       body: { rule: { targetKind: "service", venueServiceId: "vs-dinner" } },
+    });
+  });
+
+  describe("a close-early retried under the same ruleId", () => {
+    const storedCloseEarly = (closeAt: number) => ({
+      id: "t-new",
+      kind: "tonight",
+      source: "tonight",
+      targetKind: "venue",
+      venueServiceId: null,
+      useScheduleId: null,
+      bookingTypes: [],
+      startsOn: new Date(`${TODAY}T00:00:00.000Z`),
+      endsOn: new Date(`${TODAY}T00:00:00.000Z`),
+      repeat: null,
+      window: null,
+      payload: { version: 1, closeAt },
+      seriesId: null,
+      guestMessage: null,
+      staffNote: null,
+      expiresAt: new Date(MIDNIGHT_AFTER),
+      deletedAt: null,
+    });
+    const saved = () =>
+      vi.fn(async (_input: Record<string, unknown>) => ({
+        kind: "saved",
+        result: { ruleId: "t-new", version: 5, changeId: "chg-1", outcomes: ZERO },
+      }));
+    const ZERO = { cancel: 0, move: 0, keep_notify: 0, keep_silent: 0 };
+
+    it("refuses a different closeAt as an id clash (409 closure-exists), not a replay", async () => {
+      const w = world();
+      w.dateRules = [storedCloseEarly(1260)];
+      const createClosure = saved();
+      const outcome = await run(w, body({ type: "close_early", closeAt: 1200 }), {
+        createClosure,
+      });
+      expect(outcome).toEqual({ kind: "rule_exists" });
+      expect(createClosure).not.toHaveBeenCalled();
+    });
+
+    it("hands the same change to the closure command to replay", async () => {
+      const w = world();
+      w.dateRules = [storedCloseEarly(1260)];
+      const createClosure = saved();
+      const outcome = await run(w, body({ type: "close_early", closeAt: 1260 }), {
+        createClosure,
+      });
+      expect(outcome.kind).toBe("saved");
+      expect(createClosure).toHaveBeenCalledTimes(1);
+    });
+
+    it("keys the closure command by the change, so an ended close-early never replays a different one", async () => {
+      const createClosure = saved();
+      await run(world(), body({ type: "close_early", closeAt: 1260 }), { createClosure });
+      await run(world(), body({ type: "close_early", closeAt: 1260 }), { createClosure });
+      await run(world(), body({ type: "close_early", closeAt: 1200 }), { createClosure });
+      const keys = createClosure.mock.calls.map((c) => c[0]!["idempotencyKey"] as string);
+      expect(keys[0]).toBe(keys[1]);
+      expect(keys[2]).not.toBe(keys[0]);
+      expect(keys.every((k) => k.startsWith("tonight:t-new:"))).toBe(true);
     });
   });
 

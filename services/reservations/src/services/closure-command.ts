@@ -25,6 +25,7 @@ import { civilDateIn } from "./availability-migration.js";
 import { applyTransitions } from "./closure-apply.js";
 import {
   checkDecisions,
+  closesAllOfTonight,
   countActions,
   currentServiceDate,
   isHostEmergencyClose,
@@ -112,12 +113,12 @@ export async function mayCloseFor(
   if (rule.kind !== "tonight" && !venue.hostEmergencyClose) return false;
   const state = await loadConfigState(db, venueId, now);
   if (!state) return null;
-  const serviceDate = currentServiceDate(
-    { timezone: state.timezone, config: state.effective },
-    now
-  );
-  if (rule.kind === "tonight") return rule.startsOn === serviceDate;
-  return isHostEmergencyClose(rule, serviceDate);
+  const snapshot = { timezone: state.timezone, config: state.effective };
+  const serviceDate = currentServiceDate(snapshot, now);
+  if (rule.kind !== "tonight") return isHostEmergencyClose(rule, serviceDate);
+  if (rule.startsOn !== serviceDate) return false;
+  // A close-early that leaves no targeted service tonight is the emergency close in effect.
+  return venue.hostEmergencyClose || !closesAllOfTonight(snapshot, rule);
 }
 
 /** Read-only form of the same limits, for the impact preview: `null` for an unknown venue. */

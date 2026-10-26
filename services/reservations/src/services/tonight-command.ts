@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   MINUTES_PER_DAY,
   projectLegacyOperatingHours,
@@ -197,6 +198,29 @@ function fingerprint(rule: DateRule): string {
   );
 }
 
+/** The stored rule with this id, refusing it when it is a different change. */
+function storedSame(
+  state: ConfigState,
+  rule: DateRule
+): Extract<DateRule, { kind: "tonight" }> | null {
+  const existing = state.stored.dateRules.find((r) => r.id === rule.id);
+  if (!existing) return null;
+  if (existing.kind !== "tonight" || fingerprint(existing) !== fingerprint(rule)) {
+    throw new Refused({ kind: "rule_exists" });
+  }
+  return existing;
+}
+
+/**
+ * The closure command's replay key for a close-early: the id and the change,
+ * so the same id with another `closeAt` never replays the first result, even
+ * after that close-early was ended and its rule is gone.
+ */
+function closeEarlyKey(rule: DateRule): string {
+  const digest = createHash("sha256").update(fingerprint(rule)).digest("hex").slice(0, 16);
+  return `tonight:${rule.id}:${digest}`;
+}
+
 interface TonightMeta {
   ruleId: string;
   version: number;
@@ -210,11 +234,8 @@ async function replayOf(
   rule: Extract<DateRule, { kind: "tonight" }>,
   state: ConfigState
 ): Promise<TonightResult | null> {
-  const existing = state.stored.dateRules.find((r) => r.id === rule.id);
+  const existing = storedSame(state, rule);
   if (!existing) return null;
-  if (existing.kind !== "tonight" || fingerprint(existing) !== fingerprint(rule)) {
-    throw new Refused({ kind: "rule_exists" });
-  }
   const saved = await tx.availabilityChange.findFirst({
     where: { venueId, kind: "tonight", inverse: { path: ["tonight", "ruleId"], equals: rule.id } },
     select: { id: true, inverse: true },
@@ -325,7 +346,10 @@ export async function setTonight(
         now
       );
       const rule = buildRule(body, serviceDate, dayBoundary(state, serviceDate));
-      if (body.change.type === "close_early") return { kind: "delegate", rule };
+      if (body.change.type === "close_early") {
+        storedSame(state, rule);
+        return { kind: "delegate", rule };
+      }
       const replayed = await replayOf(tx, venueId, rule, state);
       if (replayed) return { kind: "saved", result: replayed };
       const result = await writeChange(
@@ -342,7 +366,7 @@ export async function setTonight(
       venueId,
       caller,
       body: { expectedVersion: body.expectedVersion, rule, decisions: body.decisions },
-      idempotencyKey: `tonight:${rule.id}`,
+      idempotencyKey: closeEarlyKey(rule),
       now,
       ruleKinds: TONIGHT_RULE_KINDS,
     });

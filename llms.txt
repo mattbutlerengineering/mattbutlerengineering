@@ -13042,6 +13042,9 @@
       export function currentServiceDate(snapshot: AvailabilitySnapshot, now: Date): string { /* ... */ }
     </item>
     <item priority="high">
+      export function closesAllOfTonight(snapshot: AvailabilitySnapshot, rule: DateRule): boolean { /* ... */ }
+    </item>
+    <item priority="high">
       export function isHostEmergencyClose(rule: DateRule, serviceDate: string): boolean { /* ... */ }
     </item>
   </file>
@@ -14748,6 +14751,15 @@
     </item>
     <item priority="medium">
       function fingerprint(rule: DateRule): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function storedSame(
+        state: ConfigState,
+        rule: DateRule
+      ): Extract<DateRule, { kind: "tonight" }> | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closeEarlyKey(rule: DateRule): string { /* ... */ }
     </item>
     <item priority="high">
       interface TonightMeta {

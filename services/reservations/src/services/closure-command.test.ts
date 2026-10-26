@@ -858,6 +858,42 @@ describe("createClosure for a Tonight close-early (#7529)", () => {
     expect(outcome).toEqual({ kind: "forbidden" });
   });
 
+  describe("a close-early that removes the whole of tonight is the emergency close", () => {
+    const at = (closeAt: number, patch: Partial<DateRule> = {}) =>
+      ({ ...closeEarly, ...patch, payload: { version: 1, closeAt } }) as DateRule;
+    const closed = [{ groupKey: "2026-10-25:shortened", action: "cancel" as const }];
+
+    it.each([
+      ["closeAt 0 for the venue", at(0)],
+      ["a close before dinner opens", at(1000)],
+      ["a close exactly at dinner's open", at(1020)],
+      [
+        "dinner's own close-early before it opens",
+        at(1000, { targetKind: "service", venueServiceId: "vs-dinner" }),
+      ],
+    ])("refuses a Host without the grant: %s", async (_label, rule) => {
+      const w = tonightWorld();
+      const outcome = await runTonight(w, tonightBody({ rule, decisions: closed }), HOST);
+      expect(outcome).toEqual({ kind: "forbidden" });
+      expect(w.reservations[0]!.status).toBe("CONFIRMED");
+      expect(w.changes).toEqual([]);
+    });
+
+    it("lets a Host with the grant close all of tonight early", async () => {
+      const w = { ...tonightWorld(), hostEmergencyClose: true };
+      const outcome = await runTonight(w, tonightBody({ rule: at(0), decisions: closed }), HOST);
+      expect(outcome).toMatchObject({ kind: "saved", result: { outcomes: { cancel: 1 } } });
+    });
+
+    it("guards the impact preview the same way", async () => {
+      const { client } = fakeClient(tonightWorld());
+      expect(await mayClose("v", false, at(0), NOW, client)).toBe(false);
+      expect(await mayClose("v", false, at(1260), NOW, client)).toBe(true);
+      const granted = fakeClient({ ...tonightWorld(), hostEmergencyClose: true }).client;
+      expect(await mayClose("v", false, at(0), NOW, granted)).toBe(true);
+    });
+  });
+
   it("is not a closure: POST /closures (default kinds) refuses a Tonight rule", async () => {
     const { outcome } = await run(tonightWorld(), tonightBody());
     expect(outcome).toMatchObject({ kind: "invalid", issues: [{ code: "unsupported_kind" }] });

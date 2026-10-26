@@ -12528,6 +12528,21 @@
       const yesterday = addDays(today, -1);
       return isOpen(yesterday) ? yesterday : today;
     }
+    export function closesAllOfTonight(snapshot: AvailabilitySnapshot, rule: DateRule): boolean {
+      if (rule.kind !== "tonight" || !("closeAt" in rule.payload)) return false;
+      const { closeAt } = rule.payload;
+      const planned = {
+        ...snapshot,
+        config: {
+          ...snapshot.config,
+          dateRules: snapshot.config.dateRules.filter((r) => r.kind !== "tonight"),
+        },
+      };
+      const targeted = resolveDay(planned, rule.startsOn).services.filter(
+        (s) => rule.targetKind === "venue" || s.venueServiceId === rule.venueServiceId
+      );
+      return targeted.length > 0 && targeted.every((s) => s.opensAt >= closeAt);
+    }
     export function isHostEmergencyClose(rule: DateRule, serviceDate: string): boolean {
       return (
         rule.kind === "closure" &&
@@ -12589,12 +12604,12 @@
       if (rule.kind !== "tonight" && !venue.hostEmergencyClose) return false;
       const state = await loadConfigState(db, venueId, now);
       if (!state) return null;
-      const serviceDate = currentServiceDate(
-        { timezone: state.timezone, config: state.effective },
-        now
-      );
-      if (rule.kind === "tonight") return rule.startsOn === serviceDate;
-      return isHostEmergencyClose(rule, serviceDate);
+      const snapshot = { timezone: state.timezone, config: state.effective };
+      const serviceDate = currentServiceDate(snapshot, now);
+      if (rule.kind !== "tonight") return isHostEmergencyClose(rule, serviceDate);
+      if (rule.startsOn !== serviceDate) return false;
+      // A close-early that leaves no targeted service tonight is the emergency close in effect.
+      return venue.hostEmergencyClose || !closesAllOfTonight(snapshot, rule);
     }
     export function mayClose(
       venueId: string,
@@ -20549,6 +20564,21 @@
         })
       );
     }
+    function storedSame(
+      state: ConfigState,
+      rule: DateRule
+    ): Extract<DateRule, { kind: "tonight" }> | null {
+      const existing = state.stored.dateRules.find((r) => r.id === rule.id);
+      if (!existing) return null;
+      if (existing.kind !== "tonight" || fingerprint(existing) !== fingerprint(rule)) {
+        throw new Refused({ kind: "rule_exists" });
+      }
+      return existing;
+    }
+    function closeEarlyKey(rule: DateRule): string {
+      const digest = createHash("sha256").update(fingerprint(rule)).digest("hex").slice(0, 16);
+      return `tonight:${rule.id}:${digest}`;
+    }
     interface TonightMeta {
       ruleId: string;
       version: number;
@@ -20559,11 +20589,8 @@
       rule: Extract<DateRule, { kind: "tonight" }>,
       state: ConfigState
     ): Promise<TonightResult | null> {
-      const existing = state.stored.dateRules.find((r) => r.id === rule.id);
+      const existing = storedSame(state, rule);
       if (!existing) return null;
-      if (existing.kind !== "tonight" || fingerprint(existing) !== fingerprint(rule)) {
-        throw new Refused({ kind: "rule_exists" });
-      }
       const saved = await tx.availabilityChange.findFirst({
         where: { venueId, kind: "tonight", inverse: { path: ["tonight", "ruleId"], equals: rule.id } },
         select: { id: true, inverse: true },
@@ -20665,7 +20692,10 @@
             now
           );
           const rule = buildRule(body, serviceDate, dayBoundary(state, serviceDate));
-          if (body.change.type === "close_early") return { kind: "delegate", rule };
+          if (body.change.type === "close_early") {
+            storedSame(state, rule);
+            return { kind: "delegate", rule };
+          }
           const replayed = await replayOf(tx, venueId, rule, state);
           if (replayed) return { kind: "saved", result: replayed };
           const result = await writeChange(
@@ -20682,7 +20712,7 @@
           venueId,
           caller,
           body: { expectedVersion: body.expectedVersion, rule, decisions: body.decisions },
-          idempotencyKey: `tonight:${rule.id}`,
+          idempotencyKey: closeEarlyKey(rule),
           now,
           ruleKinds: TONIGHT_RULE_KINDS,
         });
