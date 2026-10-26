@@ -51,8 +51,8 @@ export interface ClosureRefundStore {
   load(outcomeId: string): Promise<ClosureRefundRow | null>;
   setRefund(outcomeId: string, refund: ClosureRefundStatus): Promise<void>;
   /**
-   * Returns a `failed` outcome to `pending` once its retry job exists. Conditional: a row
-   * that settled (`done` / `none`) in the meantime is left alone.
+   * Returns a `failed` outcome to `pending` once its retry job exists. Conditional on
+   * `failed`: a row that settled (`done` / `none`) or already failed again is left alone.
    */
   resetToPending(outcomeId: string): Promise<void>;
   /** Records `failed`, leaving an outcome a concurrent run already settled (`done` / `none`). */
@@ -285,11 +285,18 @@ export async function enqueueClosureRefunds(
         0,
         jobId
       );
-      if (opts.retry) await deps.store.resetToPending(outcome.id);
     } catch (error) {
       throw new ClosureRefundEnqueueError(enqueued, error);
     }
+    // The job exists from here on, so it counts even if the reset below throws.
     enqueued += 1;
+    if (opts.retry) {
+      try {
+        await deps.store.resetToPending(outcome.id);
+      } catch (error) {
+        throw new ClosureRefundEnqueueError(enqueued, error);
+      }
+    }
   }
   return enqueued;
 }

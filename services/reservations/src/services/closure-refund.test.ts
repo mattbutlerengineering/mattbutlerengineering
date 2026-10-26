@@ -72,7 +72,7 @@ function makeStore(overrides: Partial<ClosureRefundRow> = {}) {
       state.row = { ...state.row, refund };
     }),
     resetToPending: vi.fn(async () => {
-      if (state.row.refund === "failed" || state.row.refund === "pending") {
+      if (state.row.refund === "failed") {
         state.row = { ...state.row, refund: "pending" };
       }
     }),
@@ -417,6 +417,25 @@ describe("enqueueClosureRefunds", () => {
     expect(store.resetToPending).toHaveBeenCalledWith("out-0");
     expect(store.resetToPending).not.toHaveBeenCalledWith("out-1");
     expect(store.setRefund).not.toHaveBeenCalled();
+  });
+
+  it("counts an outcome whose job exists even when its reset throws", async () => {
+    const { store } = makeStore({ refund: "failed" });
+    store.resetToPending = vi.fn(async () => {
+      throw new Error("db down");
+    });
+    const schedule = vi.fn(async (..._args: unknown[]) => "id");
+
+    const error = await enqueueClosureRefunds(
+      { store, jobs: { schedule } },
+      "venue-1",
+      "rule-1",
+      ["failed"],
+      { retry: true }
+    ).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ClosureRefundEnqueueError);
+    expect((error as ClosureRefundEnqueueError).enqueued).toBe(1);
   });
 
   it("the reset never turns a row that settled meanwhile back into pending", async () => {

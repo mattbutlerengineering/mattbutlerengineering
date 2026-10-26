@@ -29,6 +29,7 @@ import {
   coversManyDates,
   hoursEditDate,
   orphanRefundRules,
+  refundFailureLabel,
   specialDateRows,
   type SpecialDateRule,
   type SpecialDatesFilter,
@@ -60,7 +61,13 @@ const DATE_FORMAT = { weekday: "short", month: "short", day: "numeric" } as cons
 
 function rangeLabel(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string {
   const from = format.formatCalendarDate(rule.startsOn, DATE_FORMAT);
-  if (rule.endsOn == null) return t("availabilitySpecial.untilReopened", { from });
+  if (rule.endsOn == null) {
+    // Hours are not "reopened": an open-ended hours rule just runs from its start on.
+    return t(
+      rule.kind === "closure" ? "availabilitySpecial.untilReopened" : "availabilitySpecial.fromOn",
+      { from }
+    );
+  }
   if (rule.endsOn === rule.startsOn) return from;
   return t("availabilitySpecial.range", {
     from,
@@ -103,8 +110,8 @@ interface RowProps {
   readonly onRestore?: (skipId: string) => void;
   /** Present on an upcoming special-hours row: Edit hours / Remove (ux.md F6 step 1). */
   readonly hours?: {
-    /** The one date Edit opens on, formatted. */
-    readonly label: string;
+    /** The one date Edit opens on, formatted; null when no covered date is left (no Edit). */
+    readonly label: string | null;
     /** The whole rule, named: "for Thu, Dec 31", "for A to B", "every Friday". */
     readonly subject: string;
     /** The rule covers more than one date, so Edit says it reaches only `label`. */
@@ -118,6 +125,8 @@ function SpecialDateItem(props: RowProps) {
   const { title, detail, message, summary, isManager, retrying, ruleId } = props;
   const { t } = useTranslation();
   const refundCount = (summary?.refundFailed ?? 0) + (summary?.refundPending ?? 0);
+  const format = useVenueFormat();
+  const failures = summary?.refundFailures ?? [];
 
   return (
     <li className={styles.item}>
@@ -138,7 +147,19 @@ function SpecialDateItem(props: RowProps) {
         )}
         {summary && summary.refundFailed > 0 && (
           <Text variant="caption" color="error">
-            {t("availabilitySpecial.refundFailed", { count: summary.refundFailed })}
+            {failures.length > 0
+              ? t("availabilitySpecial.refundFailedNamed", {
+                  names: failures
+                    .map((f) =>
+                      refundFailureLabel(
+                        f,
+                        format.formatMoney,
+                        t("availabilitySpecial.callList.unnamed")
+                      )
+                    )
+                    .join(", "),
+                })
+              : t("availabilitySpecial.refundFailed", { count: summary.refundFailed })}
           </Text>
         )}
         {summary && summary.refundFailed === 0 && summary.refundPending > 0 && (
@@ -171,19 +192,21 @@ function SpecialDateItem(props: RowProps) {
           ))}
         {isManager && props.hours && (
           <>
-            <Button
-              variant="ghost"
-              aria-label={
-                props.hours.many
-                  ? undefined
-                  : t("availabilitySpecial.hours.editFor", { date: props.hours.label })
-              }
-              onClick={props.hours.onEdit}
-            >
-              {props.hours.many
-                ? t("availabilitySpecial.hours.editOnly", { date: props.hours.label })
-                : t("availabilitySpecial.hours.edit")}
-            </Button>
+            {props.hours.label != null && (
+              <Button
+                variant="ghost"
+                aria-label={
+                  props.hours.many
+                    ? undefined
+                    : t("availabilitySpecial.hours.editFor", { date: props.hours.label })
+                }
+                onClick={props.hours.onEdit}
+              >
+                {props.hours.many
+                  ? t("availabilitySpecial.hours.editOnly", { date: props.hours.label })
+                  : t("availabilitySpecial.hours.edit")}
+              </Button>
+            )}
             <Button
               variant="ghost"
               aria-label={t("availabilitySpecial.hours.removeFor", {
@@ -229,6 +252,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
   const rowSave = useScheduleSave(onStale, "availabilitySpecial.rowStranded");
 
   const rows = specialDateRows(rules, today, filter);
+  const editDateOf = (rule: DateRule) => hoursEditDate(rule, today);
   const summaryOf = (ruleId: string) => summaries.data?.find((s) => s.ruleId === ruleId);
   const orphans =
     filter === "all"
@@ -350,10 +374,15 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
               hours={
                 rule.kind === "special_hours" && !past
                   ? {
-                      label: format.formatCalendarDate(hoursEditDate(rule, today), DATE_FORMAT),
+                      label:
+                        editDateOf(rule) &&
+                        format.formatCalendarDate(editDateOf(rule)!, DATE_FORMAT),
                       subject: hoursSubject(rule, format, t),
                       many: coversManyDates(rule),
-                      onEdit: () => setEditingHours(hoursEditDate(rule, today)),
+                      onEdit: () => {
+                        const date = editDateOf(rule);
+                        if (date) setEditingHours(date);
+                      },
                       onRemove: () => setRemovingHours(rule),
                     }
                   : undefined

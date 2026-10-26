@@ -3081,14 +3081,27 @@
         rebooked: number;
       }
     </item>
+    <item priority="low">
+      interface RefundFailure {
+        outcomeId: string;
+        guestName: string | null;
+        amountCents: number | null;
+        currency: string | null;
+      }
+    </item>
     <item priority="high">
       interface SummaryRow {
+        id: string;
+        reservation: {
+          guestName: string | null;
+          deposit: { amountCent...;
         dateRuleId: string;
         action: NoticeOutcome["action"];
         deliveries: unknown;
-        rebookedReservationId: string | null;
-        refund: string;
       }
+    </item>
+    <item priority="medium">
+      function refundFailureOf(row: SummaryRow): RefundFailure { /* ... */ }
     </item>
     <item priority="high">
       export function summarizeOutcomes(rows: readonly SummaryRow[]): ClosureSummary[] { /* ... */ }

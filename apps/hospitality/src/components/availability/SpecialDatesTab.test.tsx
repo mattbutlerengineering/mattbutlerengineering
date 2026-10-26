@@ -43,6 +43,7 @@ const summary = (ruleId: string, over: Partial<ClosureSummary> = {}): ClosureSum
   rebooked: 1,
   unreachable: 2,
   refundFailed: 0,
+  refundFailures: [],
   refundPending: 0,
   ...over,
 });
@@ -369,6 +370,19 @@ describe("SpecialDatesTab", () => {
         ).toBeTruthy();
       });
 
+      it("words an open-ended hours rule as 'from <date> on', not 'until reopened'", () => {
+        renderTab(true, stateWith(fridays));
+        expect(screen.getByText("From Fri, Sep 4 on")).toBeTruthy();
+        expect(screen.queryByText(/until reopened/)).toBeNull();
+      });
+
+      it("offers no Edit, only Remove, when no covered date is left before the rule ends", () => {
+        const ended = { ...fridays, startsOn: "2026-11-27", endsOn: "2026-12-02" } as DateRule;
+        renderTab(true, stateWith(ended));
+        expect(screen.queryByRole("button", { name: /^Edit/ })).toBeNull();
+        expect(screen.getByRole("button", { name: /Remove special hours/ })).toBeTruthy();
+      });
+
       it("names the series when removing a repeating rule, and edits its next date only", async () => {
         saveConfig.mockResolvedValue({ version: 8, changeId: "chg-8" });
         renderTab(true, stateWith(fridays));
@@ -511,6 +525,21 @@ describe("SpecialDatesTab", () => {
     await waitFor(() => expect(retry).toHaveBeenCalledWith({ venueId: "venue-1", ruleId: "xmas" }));
   });
 
+  it("names each failed refund with its guest and amount beside Retry", () => {
+    summaries.value = [
+      summary("xmas", {
+        refundFailed: 2,
+        refundFailures: [
+          { outcomeId: "o-1", guestName: "Rivera", amountCents: 4000, currency: "usd" },
+          { outcomeId: "o-2", guestName: null, amountCents: null, currency: null },
+        ],
+      }),
+    ];
+    renderTab();
+    expect(screen.getByText("Refund failed: Rivera ($40.00), Unnamed guest")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Retry refunds" })).toBeTruthy();
+  });
+
   it("keeps a retry for a Tonight close-early whose rule ended", async () => {
     summaries.value = [summary("tonight-1", { refundPending: 2 })];
     renderTab();
@@ -545,6 +574,33 @@ describe("SpecialDatesTab", () => {
     expect(within(dialog).getByText("Rivera")).toBeTruthy();
     expect(within(dialog).getByText("+15555550100")).toBeTruthy();
     expect(within(dialog).getAllByRole("row")).toHaveLength(2);
+  });
+
+  it("prints the call list from a chrome-free copy, only while the dialog is open", () => {
+    summaries.value = [summary("xmas", { unreachable: 1 })];
+    callList.value = [
+      {
+        outcomeId: "o-2",
+        reservationId: "r-2",
+        guestName: "Rivera",
+        partySize: 4,
+        startTime: "2026-12-25T01:30:00.000Z",
+        guestPhone: "+15555550100",
+      },
+    ];
+    renderTab();
+    expect(document.querySelector("[data-call-list-print]")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Call list" }));
+
+    const printCopy = document.querySelector("[data-call-list-print]")!;
+    expect(printCopy.parentElement).toBe(document.body);
+    expect(within(printCopy as HTMLElement).getByText("Rivera")).toBeTruthy();
+    expect(document.body.hasAttribute("data-printing-call-list")).toBe(true);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Close" })[0]!);
+    expect(document.querySelector("[data-call-list-print]")).toBeNull();
+    expect(document.body.hasAttribute("data-printing-call-list")).toBe(false);
   });
 
   it("hides Remove and Retry from a Host but keeps the call list", () => {

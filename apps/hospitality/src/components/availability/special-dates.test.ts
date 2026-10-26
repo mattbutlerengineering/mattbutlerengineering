@@ -20,6 +20,16 @@ describe("hoursEditDate", () => {
     expect(hoursEditDate(fridays, "2026-09-01")).toBe("2026-09-04");
   });
 
+  it("is null for a repeating rule with no covered date left before it ends", () => {
+    const fridays = {
+      ...range("2026-10-02", "2026-10-28"),
+      repeat: { version: 1, weekdays: [5] },
+    } as DateRule;
+    // 2026-10-26 is a Monday; the last Friday covered was Oct 23.
+    expect(hoursEditDate(fridays, "2026-10-26")).toBeNull();
+    expect(hoursEditDate(fridays, "2026-10-20")).toBe("2026-10-23");
+  });
+
   it("is the first date not yet past for a range already under way", () => {
     expect(hoursEditDate(range("2026-12-01", "2026-12-31"), "2026-12-10")).toBe("2026-12-10");
     expect(hoursEditDate(range("2026-12-20", null), "2026-12-10")).toBe("2026-12-20");
@@ -47,6 +57,7 @@ const summary = (ruleId: string, over: Partial<ClosureSummary> = {}): ClosureSum
   rebooked: 0,
   unreachable: 0,
   refundFailed: 0,
+  refundFailures: [],
   refundPending: 0,
   ...over,
 });

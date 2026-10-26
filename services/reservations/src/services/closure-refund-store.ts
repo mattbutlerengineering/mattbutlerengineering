@@ -21,7 +21,7 @@ export function createPrismaClosureRefundStore(): ClosureRefundStore {
     },
     resetToPending: async (outcomeId) => {
       await prisma.closureOutcome.updateMany({
-        where: { id: outcomeId, refund: { in: ["failed", "pending"] } },
+        where: { id: outcomeId, refund: "failed" },
         data: { refund: "pending" },
       });
     },

@@ -6283,12 +6283,24 @@
         a.rule.startsOn.localeCompare(b.rule.startsOn);
       return [...rows].sort(filter === "past" ? (a, b) => byStart(b, a) : byStart);
     }
-    export function hoursEditDate(rule: DateRule, today: string): string {
-      if (rule.repeat != null) return nextOccurrence(rule, today);
+    export function hoursEditDate(rule: DateRule, today: string): string | null {
+      if (rule.repeat != null) {
+        // `nextOccurrence` falls back to the rule's start when nothing is covered ahead.
+        const next = nextOccurrence(rule, today);
+        return next >= today && coversDate(rule, next) ? next : null;
+      }
       return rule.startsOn > today ? rule.startsOn : today;
     }
     export const coversManyDates = (rule: DateRule): boolean =>
       rule.repeat != null || rule.endsOn !== rule.startsOn;
+    export function refundFailureLabel(
+      failure: RefundFailure,
+      formatMoney: (cents: number) => string,
+      unnamed: string
+    ): string {
+      const name = failure.guestName ?? unnamed;
+      return failure.amountCents == null ? name : `${name} (${formatMoney(failure.amountCents)})`;
+    }
     export function orphanRefundRules(
       summaries: readonly ClosureSummary[],
       listedRuleIds: readonly string[]
@@ -38721,6 +38733,14 @@
       outcomes: ClosureOutcomeCountsSchema,
     });
     export const ReopenResultSchema = z.object({ version: z.number().int(), changeId: z.string() });
+    export const RefundFailureSchema = z.object({
+      outcomeId: z.string(),
+      /** The guest's name as booked; no email or phone travels here. */
+      guestName: z.string().nullable(),
+      /** The deposit being refunded, in integer minor units; null when no deposit is on file. */
+      amountCents: z.number().int().nullable(),
+      currency: z.string().nullable(),
+    });
     export const ClosureSummarySchema = z.object({
       ruleId: z.string(),
       /** Outcomes the closure produced. */
@@ -38735,6 +38755,8 @@
       unreachable: z.number().int(),
       /** Deposit refunds the refund job gave up on. */
       refundFailed: z.number().int(),
+      /** The failed refunds, named, for "Refund failed: Rivera ($40)". */
+      refundFailures: z.array(RefundFailureSchema),
       /** Deposit refunds not yet settled (also retried: the enqueue itself may have been lost). */
       refundPending: z.number().int(),
     });
@@ -38788,6 +38810,7 @@
     export type ReopenClosureBody = z.infer<typeof ReopenClosureBodySchema>;
     export type ClosureResult = z.infer<typeof ClosureResultSchema>;
     export type ReopenResult = z.infer<typeof ReopenResultSchema>;
+    export type RefundFailure = z.infer<typeof RefundFailureSchema>;
     export type ClosureSummary = z.infer<typeof ClosureSummarySchema>;
     export type RetryRefundsResult = z.infer<typeof RetryRefundsResultSchema>;
     export type ClosureCallListEntry = z.infer<typeof CallListEntrySchema>;
@@ -47648,14 +47671,36 @@
       rebooked: number;
       unreachable: number;
       refundFailed: number;
+      /** The failed refunds by guest and amount; no contact details. */
+      refundFailures: RefundFailure[];
       refundPending: number;
     }
+    export interface RefundFailure {
+      outcomeId: string;
+      guestName: string | null;
+      amountCents: number | null;
+      currency: string | null;
+    }
     interface SummaryRow {
+      id: string;
+      reservation: {
+        guestName: string | null;
+        deposit: { amountCents: number; currency: string } | null;
+      };
       dateRuleId: string;
       action: NoticeOutcome["action"];
       deliveries: unknown;
       rebookedReservationId: string | null;
       refund: string;
+    }
+    function refundFailureOf(row: SummaryRow): RefundFailure {
+      const { guestName, deposit } = row.reservation;
+      return {
+        outcomeId: row.id,
+        guestName,
+        amountCents: deposit?.amountCents ?? null,
+        currency: deposit?.currency ?? null,
+      };
     }
     export function summarizeOutcomes(rows: readonly SummaryRow[]): ClosureSummary[] {
       const byRule = new Map<string, ClosureSummary>();
@@ -47673,6 +47718,10 @@
           unreachable:
             prev.unreachable + (isOnCallList({ action: row.action, deliveries, rebooked }) ? 1 : 0),
           refundFailed: prev.refundFailed + (row.refund === "failed" ? 1 : 0),
+          refundFailures:
+            row.refund === "failed"
+              ? [...prev.refundFailures, refundFailureOf(row)]
+              : prev.refundFailures,
           refundPending: prev.refundPending + (row.refund === "pending" ? 1 : 0),
         });
       }
@@ -47683,11 +47732,15 @@
         where: { venueId },
         orderBy: { createdAt: "asc" },
         select: {
+          id: true,
           dateRuleId: true,
           action: true,
           deliveries: true,
           rebookedReservationId: true,
           refund: true,
+          reservation: {
+            select: { guestName: true, deposit: { select: { amountCents: true, currency: true } } },
+          },
         },
       });
       return summarizeOutcomes(rows);
@@ -47847,7 +47900,7 @@
         },
         resetToPending: async (outcomeId) => {
           await prisma.closureOutcome.updateMany({
-            where: { id: outcomeId, refund: { in: ["failed", "pending"] } },
+            where: { id: outcomeId, refund: "failed" },
             data: { refund: "pending" },
           });
         },
@@ -47878,8 +47931,8 @@
       load(outcomeId: string): Promise<ClosureRefundRow | null>;
       setRefund(outcomeId: string, refund: ClosureRefundStatus): Promise<void>;
       /**
-       * Returns a `failed` outcome to `pending` once its retry job exists. Conditional: a row
-       * that settled (`done` / `none`) in the meantime is left alone.
+       * Returns a `failed` outcome to `pending` once its retry job exists. Conditional on
+       * `failed`: a row that settled (`done` / `none`) or already failed again is left alone.
        */
       resetToPending(outcomeId: string): Promise<void>;
       /** Records `failed`, leaving an outcome a concurrent run already settled (`done` / `none`). */
@@ -48059,11 +48112,18 @@
             0,
             jobId
           );
-          if (opts.retry) await deps.store.resetToPending(outcome.id);
         } catch (error) {
           throw new ClosureRefundEnqueueError(enqueued, error);
         }
+        // The job exists from here on, so it counts even if the reset below throws.
         enqueued += 1;
+        if (opts.retry) {
+          try {
+            await deps.store.resetToPending(outcome.id);
+          } catch (error) {
+            throw new ClosureRefundEnqueueError(enqueued, error);
+          }
+        }
       }
       return enqueued;
     }

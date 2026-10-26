@@ -6,11 +6,11 @@ vi.mock("./database.js", () => ({ prisma: { closureOutcome: { updateMany } } }))
 const { createPrismaClosureRefundStore } = await import("./closure-refund-store.js");
 
 describe("createPrismaClosureRefundStore.resetToPending", () => {
-  it("only moves a failed or pending outcome, never a settled one", async () => {
+  it("only moves a failed outcome, never a pending or settled one", async () => {
     await createPrismaClosureRefundStore().resetToPending("out-1");
 
     expect(updateMany).toHaveBeenCalledWith({
-      where: { id: "out-1", refund: { in: ["failed", "pending"] } },
+      where: { id: "out-1", refund: "failed" },
       data: { refund: "pending" },
     });
   });
