@@ -2,7 +2,7 @@ import "@mattbutlerengineering/rialto/styles";
 import "./index.css";
 import { StrictMode, Suspense, lazy, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
-import { createBrowserRouter, RouterProvider } from "react-router";
+import { createBrowserRouter, Navigate, RouterProvider } from "react-router";
 import { RialtoProvider, ErrorBoundary } from "@mattbutlerengineering/rialto";
 import { AuthProvider } from "@mbe/auth/react";
 import { QueryProvider } from "./providers/QueryProvider.js";
@@ -67,6 +67,9 @@ const BookingWidgetDemoPage = lazy(() =>
     default: m.BookingWidgetDemoPage,
   }))
 );
+const AvailabilityPage = lazy(() =>
+  import("./pages/AvailabilityPage.js").then((m) => ({ default: m.AvailabilityPage }))
+);
 const ProfilePage = lazy(() =>
   import("./pages/ProfilePage.js").then((m) => ({ default: m.ProfilePage }))
 );
@@ -83,11 +86,6 @@ const VenueOnboardingPage = lazy(() =>
 );
 const SetupPage = lazy(() =>
   import("./pages/SetupPage.js").then((m) => ({ default: m.SetupPage }))
-);
-const SetupHoursPage = lazy(() =>
-  import("./pages/SetupHoursPage.js").then((m) => ({
-    default: m.SetupHoursPage,
-  }))
 );
 const PublicBookingPage = lazy(() =>
   import("./pages/PublicBookingPage.js").then((m) => ({
@@ -135,7 +133,7 @@ const authConfigResult = validateAuthConfig();
  *
  * Index route: TimelinePage (was HomePage/Dashboard).
  * Dashboard moves to /dashboard.
- * Setup pages: /setup, /setup/hours.
+ * Setup pages: /setup. (/setup/hours redirects to /availability.)
  */
 const router = createBrowserRouter(
   [
@@ -277,6 +275,14 @@ const router = createBrowserRouter(
               ),
             },
             {
+              path: "availability",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <AvailabilityPage />
+                </Suspense>
+              ),
+            },
+            {
               path: "menus",
               element: (
                 <Suspense fallback={<LoadingPage />}>
@@ -344,11 +350,7 @@ const router = createBrowserRouter(
             },
             {
               path: "setup/hours",
-              element: (
-                <Suspense fallback={<LoadingPage />}>
-                  <SetupHoursPage />
-                </Suspense>
-              ),
+              element: <Navigate to="/availability" replace />,
             },
             {
               path: "*",

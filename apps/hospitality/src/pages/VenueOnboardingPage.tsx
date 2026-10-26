@@ -9,7 +9,7 @@ import { StepIndicator } from "../components/venue-onboarding/StepIndicator";
 import { isValidSlug } from "../components/venue-onboarding/BasicInfoStep";
 import { WelcomeStep } from "../components/venue-onboarding/WelcomeStep";
 import { LocationTimeStep } from "../components/venue-onboarding/LocationTimeStep";
-import { OperatingHoursStep } from "../components/venue-onboarding/OperatingHoursStep";
+import { QuickSetupHoursStep } from "../components/availability/QuickSetupHoursStep.js";
 import { SettingsStep } from "../components/venue-onboarding/SettingsStep";
 import { FloorPlanStep } from "../components/venue-onboarding/FloorPlanStep";
 import { LaunchStep } from "../components/venue-onboarding/LaunchStep";
@@ -215,7 +215,7 @@ export function VenueOnboardingPage() {
               <Text variant="caption" color="secondary">
                 {t("onboarding.hours.intro")}
               </Text>
-              <OperatingHoursStep
+              <QuickSetupHoursStep
                 data={data.operatingHours}
                 errors={errors.operatingHours ?? undefined}
                 onChange={(operatingHours) => actions.setStepData("operatingHours", operatingHours)}

@@ -1,0 +1,14 @@
+.layers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+  margin: var(--rialto-space-sm) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.layer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-2xs);
+}

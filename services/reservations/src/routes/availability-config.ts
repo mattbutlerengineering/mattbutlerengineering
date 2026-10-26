@@ -9,8 +9,8 @@ import { addDays } from "@mbe/availability";
 import { requireAuth } from "@mbe/auth/fastify";
 import { registerEndpoint } from "@mbe/service-bootstrap";
 import { SCOPE_CONFLICT_HORIZON_DAYS } from "../services/availability-config-plan.js";
-import type { SaveOutcome } from "../services/availability-config.js";
 import { CLOSURE_FORBIDDEN, closureCaller } from "./closure-caller.js";
+import type { PreviewOutcome, SaveOutcome } from "../services/availability-config.js";
 import { venueScoped } from "./venue-scope.js";
 
 /**
@@ -25,7 +25,7 @@ const VENUE_NOT_FOUND = "Venue not found";
 const VENUE_FROM_ID = { venue: { from: "params", field: "id" } } as const;
 
 function configProblem(
-  status: 409 | 422,
+  status: 409 | 422 | 503,
   title: string,
   detail: string,
   extension: Omit<AvailabilityConfigProblem, "type" | "title" | "status" | "detail">
@@ -35,7 +35,10 @@ function configProblem(
 
 type ConfigReply = FastifyReply;
 
-function sendRefusal(reply: ConfigReply, outcome: Exclude<SaveOutcome, { kind: "saved" }>) {
+function sendRefusal(
+  reply: ConfigReply,
+  outcome: Exclude<SaveOutcome | PreviewOutcome, { kind: "saved" | "ok" }>
+) {
   switch (outcome.kind) {
     case "not_found":
       return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
@@ -51,6 +54,12 @@ function sendRefusal(reply: ConfigReply, outcome: Exclude<SaveOutcome, { kind: "
         configProblem(422, "Unprocessable Entity", "The availability config is not valid.", {
           code: "invalid-config",
           issues: outcome.issues,
+        })
+      );
+    case "timeout":
+      return reply.code(503).send(
+        configProblem(503, "Service Unavailable", "The preview took too long; try again.", {
+          code: "preview-timeout",
         })
       );
     case "stranded":
@@ -111,6 +120,30 @@ export const availabilityConfigRoutes: FastifyPluginAsync = async (fastify) => {
         });
         if (outcome.kind !== "saved") return sendRefusal(reply, outcome);
         return { data: { version: outcome.version, changeId: outcome.changeId } };
+      }
+    ),
+  });
+
+  registerEndpoint(fastify, availabilityConfigEndpoints.previewAvailability, {
+    docs: {
+      summary: "Preview an unsaved availability draft",
+      operationId: "previewAvailability",
+      description:
+        "What the draft changes for guests over 30 days from `focusDate`, how the focus date resolves, and the future bookings in `scope` it would strand (a page of 50 from `strandedOffset`). Read-only and safe to retry; answers 503 `preview-timeout` after 5 seconds. Requires a Manager (owner or manager) membership, or the admin role.",
+      tags: ["Availability"],
+      security: [{ bearerAuth: [] }],
+    },
+    preHandler: requireAuth,
+    handler: venueScoped(
+      { ...VENUE_FROM_ID, access: "manager" },
+      async (request, reply, { venueId }) => {
+        const outcome = await availabilityConfigService.preview({
+          venueId,
+          body: request.body,
+          now: new Date(),
+        });
+        if (outcome.kind !== "ok") return sendRefusal(reply, outcome);
+        return { data: outcome.result };
       }
     ),
   });
@@ -194,5 +227,20 @@ export const availabilityConfigRoutes: FastifyPluginAsync = async (fastify) => {
           return { data: outcome.impact };
       }
     }),
+  });
+
+  registerEndpoint(fastify, availabilityConfigEndpoints.check, {
+    docs: {
+      summary: "Check a staff booking against availability",
+      operationId: "checkAvailability",
+      description:
+        "The booking gate's verdict on a phone booking (`ok`, `soft` with the limits and a message, or `hard` with the reason and a message), for the staff form. Read-only; the booking write still passes the gate, where a `soft` limit yields to `override.reason` and a `hard` one never does.",
+      tags: ["Availability"],
+      security: [{ bearerAuth: [] }],
+    },
+    preHandler: requireAuth,
+    handler: venueScoped(VENUE_FROM_ID, async (request, _reply, { venueId }) => ({
+      data: await availabilityConfigService.check(venueId, request.body, new Date()),
+    })),
   });
 };

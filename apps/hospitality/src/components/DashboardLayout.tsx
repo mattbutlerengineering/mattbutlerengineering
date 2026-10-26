@@ -54,6 +54,7 @@ const ROUTE_LABEL_KEYS = {
   waitlist: "layout.routes.waitlist",
   briefing: "layout.routes.briefing",
   "floor-plans": "layout.routes.floorPlans",
+  availability: "layout.routes.availability",
   menus: "layout.routes.menus",
   "booking-widget": "layout.routes.bookingWidget",
   onboarding: "layout.routes.onboarding",

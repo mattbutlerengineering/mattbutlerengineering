@@ -45,6 +45,11 @@
       "limit": "4 kB"
     },
     {
+      "name": "Quick Setup Form (shared by the availability page and onboarding)",
+      "path": "dist/assets/QuickSetupForm-*.js",
+      "limit": "8 kB"
+    },
+    {
       "name": "Venue Onboarding (lazy chunk)",
       "path": "dist/assets/VenueOnboardingPage-*.js",
       "limit": "7.5 kB"
@@ -94,6 +99,7 @@
     "@json-render/react": "^0.21.1",
     "@mattbutlerengineering/rialto": "workspace:*",
     "@mbe/api-client": "workspace:*",
+    "@mbe/availability": "workspace:*",
     "@mbe/auth": "workspace:*",
     "@mbe/cancellation-policy": "workspace:*",
     "@mbe/rialto-catalog": "workspace:*",

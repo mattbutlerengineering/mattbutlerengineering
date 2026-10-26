@@ -74,6 +74,14 @@ export const WalkInBodySchema = z
   })
   .describe("Walk-in reservation payload");
 
+/**
+ * A staff override of a soft availability limit (after last seating, pacing,
+ * party size). Closures are never overridable. A blank reason does not override.
+ */
+export const StaffOverrideSchema = z
+  .object({ reason: z.string().describe("Why the limit is being overridden") })
+  .describe("Override a soft availability limit");
+
 export const CreateReservationBodySchema = z
   .object({
     date: z.iso.date().describe("Reservation date (YYYY-MM-DD)"),
@@ -92,6 +100,7 @@ export const CreateReservationBodySchema = z
     venueId: z.string().describe("ID of the venue for this reservation").optional(),
     occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
     seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
+    override: StaffOverrideSchema.optional(),
   })
   .describe("Reservation creation payload");
 
@@ -114,6 +123,7 @@ export const UpdateReservationBodySchema = z
       .optional(),
     occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
     seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
+    override: StaffOverrideSchema.optional(),
   })
   .describe("Fields to update");
 
@@ -434,6 +444,11 @@ export const ListWaitlistQuerySchema = z.object({
 export const PublicAvailabilityQuerySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   partySize: z.string(),
+});
+
+export const PublicAvailabilityDatesQuerySchema = z.object({
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
 
 export const PublicDepositBodySchema = z.object({

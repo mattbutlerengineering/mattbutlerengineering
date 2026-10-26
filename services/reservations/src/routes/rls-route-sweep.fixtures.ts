@@ -1120,6 +1120,37 @@ const availabilityFixtures: Record<string, RouteFixture> = {
       "member venue B"
     );
   }),
+  // A read-only verdict over POST: members of the venue are admitted, other
+  // venues are denied, exactly like the GET availability reads.
+  "POST /api/v1/venues/:id/availability/check": ok(async (ctx) => {
+    const check = (venueId: string) => ({
+      method: "POST" as const,
+      url: `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/availability/check`,
+      payload: { start: "2026-10-01T19:00:00.000Z", partySize: 2, channel: "phone" },
+    });
+    expectOk(await asAdmin(ctx, check(ctx.venueA.id)), "admin venue A");
+    expectOk(await asAdmin(ctx, check(ctx.venueB.id)), "admin venue B");
+    expectOk(await asMember(ctx, check(ctx.venueA.id)), "member venue A");
+    expectDenied(await asMember(ctx, check(ctx.venueB.id)), "member venue B");
+  }),
+  // Read-only, but Manager-gated like the save: the member leg proves the
+  // denial. Its stranded scan reads reservations under RLS.
+  "POST /api/v1/venues/:id/availability/preview": ok(async (ctx) => {
+    const request = (venueId: string) => ({
+      method: "POST" as const,
+      url: `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/availability/preview`,
+      payload: {
+        draft: { changes: { upsert: {}, remove: {} }, scopeConflicts: "keep" },
+        scope: { from: "2026-10-01" },
+        focusDate: "2026-10-01",
+      },
+    });
+    const preview = await asAdmin(ctx, request(ctx.venueA.id));
+    expectOk(preview, "admin venue A");
+    expect(JSON.parse(preview.body).data.days).toHaveLength(30);
+    expectOk(await asAdmin(ctx, request(ctx.venueB.id)), "admin venue B");
+    expectDenied(await asMember(ctx, request(ctx.venueB.id)), "member venue B (not a member)");
+  }),
   // The write lands only on a disposable venue: venue A's operating hours feed
   // the hold and availability fixtures, and a save rewrites them. The member
   // leg proves the denial; the Manager-role admission is pinned by

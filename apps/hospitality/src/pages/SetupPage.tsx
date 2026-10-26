@@ -23,9 +23,9 @@ const STEP_CONFIG = [
     id: "operating-hours" as const,
     labelKey: "setup.steps.hours.label" as const,
     descriptionKey: "setup.steps.hours.description" as const,
-    path: "/setup/hours",
+    path: "/availability",
     ctaKey: "setup.steps.hours.cta" as const,
-    reviewPath: "/setup/hours",
+    reviewPath: "/availability",
   },
   {
     id: "floor-plan" as const,

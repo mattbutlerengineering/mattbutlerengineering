@@ -84,7 +84,7 @@ function buildSetupSections(
 
   const STEP_PATHS: Record<SetupStep, string> = {
     onboarding: "/onboarding",
-    "operating-hours": "/setup/hours",
+    "operating-hours": "/availability",
     "floor-plan": "/floor-plans",
   };
 
@@ -137,6 +137,7 @@ function buildOperationalSections(isAdmin: boolean, t: TFunction): readonly NavS
     label: t("nav.sections.manage"),
     items: [
       route("floor-plans", t("nav.items.floorPlans"), "/floor-plans"),
+      route("availability", t("nav.items.availability"), "/availability"),
       route("menus", t("nav.items.menus"), "/menus"),
       route("booking-widget", t("nav.items.bookingWidget"), "/booking-widget"),
     ],

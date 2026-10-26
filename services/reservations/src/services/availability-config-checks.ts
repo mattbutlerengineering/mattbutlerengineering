@@ -17,6 +17,8 @@ export interface BookedReservation {
   tableId: string | null;
   startTime: Date;
   partySize: number;
+  /** The service date it belongs to; set where a scope needs it. */
+  date?: Date;
 }
 
 type StrandReason = StrandedReservation["reason"];

@@ -119,7 +119,7 @@
       name: "Calendar",
       include: false,
       description:
-        "Inline, locale-aware month grid for single-date selection. Controlled via value (yyyy-mm-dd ISO string) and onChange; supports min/max bounds, an isDateDisabled predicate, locale, and weekStartsOn. Keyboard-navigable ARIA grid.",
+        "Inline, locale-aware month grid for single-date selection. Controlled via value (yyyy-mm-dd ISO string) and onChange; supports min/max bounds, an isDateDisabled predicate, an optional getDateLabel(iso) accessible-name callback, locale, and weekStartsOn. Keyboard-navigable ARIA grid.",
     } satisfies CatalogMeta;
   </file>
   <file path="packages/rialto/src/components/Calendar/date-grid.ts">
@@ -4637,6 +4637,627 @@
     }
   </file>
   </section>
+  <section priority="medium" role="availability">
+  <file path="apps/hospitality/src/components/availability/calendar-dates.ts">
+    export type CalendarView = "month" | "week";
+    function daysSinceMonday(date: string): number {
+      return (weekdayIndexOf(date) + 6) % 7;
+    }
+    function daysInMonth(year: number, month: number): number {
+      return new Date(Date.UTC(year, month, 0)).getUTCDate();
+    }
+    export function visibleDates(view: CalendarView, anchor: string): string[] {
+      const first = view === "week" ? anchor : `${anchor.slice(0, 8)}01`;
+      const start = addDays(first, -daysSinceMonday(first));
+      let end =
+        view === "week"
+          ? anchor
+          : `${anchor.slice(0, 8)}${daysInMonth(Number(anchor.slice(0, 4)), Number(anchor.slice(5, 7)))}`;
+      end = addDays(end, 6 - daysSinceMonday(end));
+      const dates: string[] = [];
+      for (let d = start; d <= end; d = addDays(d, 1)) dates.push(d);
+      return dates;
+    }
+    export function shiftAnchor(view: CalendarView, anchor: string, direction: 1 | -1): string {
+      if (view === "week") return addDays(anchor, 7 * direction);
+      const monthIndex = Number(anchor.slice(0, 4)) * 12 + Number(anchor.slice(5, 7)) - 1 + direction;
+      const year = Math.floor(monthIndex / 12);
+      const month = (monthIndex % 12) + 1;
+      const day = Math.min(Number(anchor.slice(8, 10)), daysInMonth(year, month));
+      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/closure-band.ts">
+    type Closure = AvailabilityDaySummary["closures"][number];
+    export interface ClosureBandText {
+      readonly key: string;
+      /** Visible text: "Closed 10:00 PM – 11:00 PM". */
+      readonly text: string;
+      /** Spoken in a cell's name: "closed 10:00 PM – 11:00 PM". */
+      readonly name: string;
+    }
+    export function minuteText(minute: number, t: TFunction, format: VenueFormat): string {
+      const wrapped = minute % MINUTES_PER_DAY;
+      const hh = String(Math.floor(wrapped / 60)).padStart(2, "0");
+      const mm = String(wrapped % 60).padStart(2, "0");
+      const time = format.formatLocalTime(`${hh}:${mm}`);
+      return minute >= MINUTES_PER_DAY ? t("availability.calendar.nextDay", { time }) : time;
+    }
+    export function isWholeDay(closure: Pick<Closure, "from" | "to">): boolean {
+      return closure.from === 0 && closure.to >= 2 * MINUTES_PER_DAY;
+    }
+    export function closureBandText(
+      closure: Closure,
+      t: TFunction,
+      format: VenueFormat
+    ): ClosureBandText {
+      if (isWholeDay(closure)) {
+        return {
+          key: closure.ruleId,
+          text: t("availability.calendar.closedAllDay"),
+          name: t("availability.calendar.closedAllDayName"),
+        };
+      }
+      const values = {
+        from: minuteText(closure.from, t, format),
+        to: minuteText(closure.to, t, format),
+      };
+      return {
+        key: closure.ruleId,
+        text: t("availability.calendar.closedBand", values),
+        name: t("availability.calendar.closedBandName", values),
+      };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/day-summary.ts">
+    export interface DayPresentation {
+      readonly bands: readonly ClosureBandText[];
+      /** "2 services", or `null` when the count is not worth showing. */
+      readonly count: string | null;
+      readonly onlineOff: boolean;
+      /** The spoken details after the date: "Special hours, 2 services, closed 10:00 PM – 11:00 PM". */
+      readonly accessibleDetails: string;
+      /** The button's accessible name: "Friday, October 30: …". */
+      readonly accessibleName: string;
+    }
+    export function presentDay(
+      date: string,
+      summary: AvailabilityDaySummary | undefined,
+      detailed: boolean,
+      t: TFunction,
+      format: VenueFormat
+    ): DayPresentation {
+      const bands = (summary?.closures ?? []).map((c) => closureBandText(c, t, format));
+      const showCount = summary !== undefined && (detailed || summary.serviceCount >= 2);
+      const count = showCount
+        ? t("availability.calendar.services", { count: summary.serviceCount })
+        : null;
+      const onlineOff = summary !== undefined && !summary.bookingOpen.online;
+    
+      const parts = summary
+        ? [
+            summary.label,
+            ...(count ? [count] : []),
+            ...bands.map((b) => b.name),
+            ...(onlineOff ? [t("availability.calendar.onlineOffName")] : []),
+          ]
+        : [t("availability.calendar.loadingDay")];
+      const accessibleDetails = parts.join(", ");
+      const fullDate = format.formatCalendarDate(date, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      });
+      return {
+        bands,
+        count,
+        onlineOff,
+        accessibleDetails,
+        accessibleName: t("availability.calendar.cellName", {
+          date: fullDate,
+          details: accessibleDetails,
+        }),
+      };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/quick-setup-draft.ts">
+    export interface ServiceDraft {
+      readonly id: string;
+      readonly name: string;
+      readonly opens: string | null;
+      readonly lastSeating: string | null;
+      readonly closes: string | null;
+      /** While true, last seating follows close minus {@link LAST_SEATING_LEAD_MINUTES}. */
+      readonly lastSeatingLinked: boolean;
+    }
+    export interface QuickSetupDraft {
+      readonly services: readonly ServiceDraft[];
+      /** Stored weekday indexes, 0 = Sunday … 6 = Saturday. */
+      readonly days: readonly number[];
+    }
+    export const LAST_SEATING_LEAD_MINUTES = 45;
+    export const WEEK_DISPLAY_ORDER: readonly number[] = [1, 2, 3, 4, 5, 6, 0];
+    export const WEEKDAY_SHORTCUT: readonly number[] = [1, 2, 3, 4, 5];
+    export const WEEKEND_SHORTCUT: readonly number[] = [6, 0];
+    export const SERVICE_PRESETS = {
+      lunch: { opens: "11:30", closes: "14:30" },
+      brunch: { opens: "10:00", closes: "14:00" },
+      dinner: { opens: "17:00", closes: "22:00" },
+      late: { opens: "22:00", closes: "01:00" },
+    } as const;
+    export type ServicePresetId = keyof typeof SERVICE_PRESETS;
+    export const SERVICE_PRESET_IDS = Object.keys(SERVICE_PRESETS) as ServicePresetId[];
+    export function emptyService(id: string): ServiceDraft {
+      return { id, name: "", opens: null, lastSeating: null, closes: null, lastSeatingLinked: true };
+    }
+    export function emptyDraft(firstServiceId: string): QuickSetupDraft {
+      return { services: [emptyService(firstServiceId)], days: [] };
+    }
+    function toMinutes(hhmm: string): number {
+      const [h = 0, m = 0] = hhmm.split(":").map(Number);
+      return h * 60 + m;
+    }
+    export function toClock(minutes: number): string {
+      const wrapped = ((minutes % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
+      const hh = String(Math.floor(wrapped / 60)).padStart(2, "0");
+      const mm = String(wrapped % 60).padStart(2, "0");
+      return `${hh}:${mm}`;
+    }
+    export function autoLastSeating(closes: string): string {
+      return toClock(toMinutes(closes) - LAST_SEATING_LEAD_MINUTES);
+    }
+    export function applyPreset(service: ServiceDraft, preset: ServicePresetId, name: string) {
+      const { opens, closes } = SERVICE_PRESETS[preset];
+      return {
+        ...service,
+        name,
+        opens,
+        closes,
+        lastSeating: autoLastSeating(closes),
+        lastSeatingLinked: true,
+      };
+    }
+    export function setServiceTime(
+      service: ServiceDraft,
+      field: "opens" | "lastSeating" | "closes",
+      value: string | null
+    ): ServiceDraft {
+      if (field === "lastSeating") return { ...service, lastSeating: value, lastSeatingLinked: false };
+      if (field === "closes" && service.lastSeatingLinked) {
+        return {
+          ...service,
+          closes: value,
+          lastSeating: value === null ? null : autoLastSeating(value),
+        };
+      }
+      return { ...service, [field]: value };
+    }
+    export function replaceService(draft: QuickSetupDraft, next: ServiceDraft): QuickSetupDraft {
+      return { ...draft, services: draft.services.map((s) => (s.id === next.id ? next : s)) };
+    }
+    export function toggleDay(draft: QuickSetupDraft, day: number): QuickSetupDraft {
+      const days = draft.days.includes(day)
+        ? draft.days.filter((d) => d !== day)
+        : [...draft.days, day];
+      return { ...draft, days };
+    }
+    export type QuickSetupField = "name" | "opens" | "lastSeating" | "closes";
+    export type QuickSetupIssueCode =
+      | "name_required"
+      | "time_required"
+      | "close_after_open"
+      | "last_seating_after_close"
+      | "last_seating_before_open"
+      | "overlap"
+      | "days_required";
+    export interface QuickSetupIssue {
+      /** `null` for the whole card (days). */
+      readonly serviceId: string | null;
+      readonly field: QuickSetupField | "days";
+      readonly code: QuickSetupIssueCode;
+    }
+    interface ServiceMinutes {
+      readonly opensAt: number;
+      readonly lastSeatingAt: number;
+      readonly closesAt: number;
+    }
+    function minutesOf(service: ServiceDraft): ServiceMinutes | null {
+      if (service.opens === null || service.lastSeating === null || service.closes === null)
+        return null;
+      const opensAt = toMinutes(service.opens);
+      const afterOpen = (hhmm: string, strict: boolean) => {
+        const m = toMinutes(hhmm);
+        return strict
+          ? m <= opensAt
+            ? m + MINUTES_PER_DAY
+            : m
+          : m < opensAt
+            ? m + MINUTES_PER_DAY
+            : m;
+      };
+      return {
+        opensAt,
+        closesAt: afterOpen(service.closes, true),
+        lastSeatingAt: afterOpen(service.lastSeating, false),
+      };
+    }
+    function completenessIssues(service: ServiceDraft): QuickSetupIssue[] {
+      const missing = TIME_FIELDS.filter(([key]) => service[key] === null).map(
+        ([, field]): QuickSetupIssue => ({
+          serviceId: service.id,
+          field,
+          code: "time_required",
+        })
+      );
+      const unnamed: QuickSetupIssue[] =
+        service.name.trim() === ""
+          ? [{ serviceId: service.id, field: "name", code: "name_required" }]
+          : [];
+      return [...unnamed, ...missing];
+    }
+    function orderIssues(service: ServiceDraft, m: ServiceMinutes): QuickSetupIssue[] {
+      const at = (field: QuickSetupField, code: QuickSetupIssueCode): QuickSetupIssue => ({
+        serviceId: service.id,
+        field,
+        code,
+      });
+      if (service.opens === service.closes) return [at("closes", "close_after_open")];
+      return m.lastSeatingAt > m.closesAt ? [at("lastSeating", "last_seating_after_close")] : [];
+    }
+    export function validateDraft(draft: QuickSetupDraft): QuickSetupIssue[] {
+      const perService = draft.services.flatMap((service) => {
+        const missing = completenessIssues(service);
+        const minutes = minutesOf(service);
+        return missing.length > 0 || minutes === null ? missing : orderIssues(service, minutes);
+      });
+      const daysIssue: QuickSetupIssue[] =
+        draft.days.length === 0 ? [{ serviceId: null, field: "days", code: "days_required" }] : [];
+      if (perService.length > 0) return [...perService, ...daysIssue];
+    
+      const config = draftToConfig(draft, () => "check");
+      const overlaps = validateConfig(config)
+        .filter((issue) => issue.code === "overlap")
+        .flatMap((issue): QuickSetupIssue[] => {
+          const index = Number(/scheduleServices\[(\d+)\]/.exec(issue.path)?.[1]);
+          const service = draft.services[index];
+          return service ? [{ serviceId: service.id, field: "opens", code: "overlap" }] : [];
+        });
+      return [...overlaps, ...daysIssue];
+    }
+    export function draftToConfig(
+      draft: QuickSetupDraft,
+      newId: () => string,
+      existing?: { regularScheduleId?: string; venueServiceIds?: Readonly<Record<string, string>> }
+    ): AvailabilityConfig {
+      const scheduleId = existing?.regularScheduleId ?? newId();
+      const schedule: Schedule = {
+        id: scheduleId,
+        name: "Regular week",
+        kind: "regular",
+        isRegular: true,
+      };
+      const venueServices: VenueService[] = [];
+      const scheduleServices: ScheduleService[] = [];
+      draft.services.forEach((service, position) => {
+        const m = minutesOf(service);
+        if (m === null) return;
+        const name = service.name.trim();
+        const venueServiceId = existing?.venueServiceIds?.[name.toLowerCase()] ?? newId();
+        venueServices.push({ id: venueServiceId, name, position });
+        scheduleServices.push({
+          id: newId(),
+          scheduleId,
+          venueServiceId,
+          ...m,
+          seating: { version: 1, interval: SEATING_INTERVAL_MINUTES },
+          bookingTypes: ["online", "phone"],
+        });
+      });
+      const assignment: ScheduleAssignment = {
+        id: newId(),
+        scheduleId,
+        weekdays: [...draft.days].sort((a, b) => a - b),
+        precedence: 0,
+      };
+      return {
+        schedules: [schedule],
+        venueServices,
+        scheduleServices,
+        assignments: [assignment],
+        dateRules: [],
+      };
+    }
+    export function draftToChanges(
+      draft: QuickSetupDraft,
+      stored: AvailabilityConfig,
+      newId: () => string
+    ): AvailabilityConfigChanges {
+      const regular = stored.schedules.find((s) => s.isRegular);
+      const venueServiceIds = Object.fromEntries(
+        stored.venueServices.filter((s) => !s.archivedAt).map((s) => [s.name.toLowerCase(), s.id])
+      );
+      const next = draftToConfig(draft, newId, {
+        ...(regular ? { regularScheduleId: regular.id } : {}),
+        venueServiceIds,
+      });
+      const scheduleId = next.schedules[0]?.id;
+      const storedServiceIds = new Set(stored.venueServices.map((s) => s.id));
+      return {
+        upsert: {
+          schedules: next.schedules,
+          venueServices: next.venueServices.filter((s) => !storedServiceIds.has(s.id)),
+          scheduleServices: next.scheduleServices,
+          assignments: next.assignments,
+        },
+        remove: {
+          scheduleServices: stored.scheduleServices
+            .filter((s) => s.scheduleId === scheduleId)
+            .map((s) => s.id),
+          assignments: stored.assignments.filter((a) => a.scheduleId === scheduleId).map((a) => a.id),
+        },
+      };
+    }
+    export function draftToLegacyHours(draft: QuickSetupDraft): OperatingHours {
+      const projected = projectLegacyOperatingHours(draftToConfig(draft, () => "wizard"));
+      const hours: OperatingHours = {};
+      for (const [day, value] of Object.entries(projected)) {
+        if (!value.closed)
+          hours[day as keyof OperatingHours] = { open: value.open, close: value.close };
+      }
+      return hours;
+    }
+    export function draftFromLegacyHours(hours: OperatingHours, serviceId: string): QuickSetupDraft {
+      const order = [
+        "sunday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+      ] as const;
+      const open = order.flatMap((day, index) => {
+        const value = hours[day];
+        return value && !value.closed ? [{ index, value }] : [];
+      });
+      const first = open[0]?.value;
+      if (!first) return emptyDraft(serviceId);
+      return {
+        services: [
+          {
+            ...emptyService(serviceId),
+            opens: first.open,
+            closes: first.close,
+            lastSeating: autoLastSeating(first.close),
+          },
+        ],
+        days: open.map((o) => o.index),
+      };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/removal-diff.ts">
+    type Channel = keyof BookingOpen;
+    export type RemovalChange =
+      | { kind: "serviceOpens"; name: string; opensAt: number; closesAt: number }
+      | { kind: "serviceCloses"; name: string }
+      | { kind: "opensAtChanges"; name: string; minute: number }
+      | { kind: "closesAtChanges"; name: string; minute: number; later: boolean }
+      | { kind: "lastSeatingChanges"; name: string; minute: number }
+      | { kind: "closureLifted"; closure: ResolvedClosure }
+      | { kind: "closureApplies"; closure: ResolvedClosure }
+      | { kind: "bookingOn"; channel: Channel }
+      | { kind: "bookingOff"; channel: Channel }
+      | { kind: "pacingLifted" }
+      | { kind: "pacingSet"; covers: number };
+    function serviceChanges(
+      current: readonly ResolvedService[],
+      removed: readonly ResolvedService[]
+    ): RemovalChange[] {
+      const now = new Map(current.map((s) => [s.venueServiceId, s]));
+      const then = new Map(removed.map((s) => [s.venueServiceId, s]));
+      const opening = removed
+        .filter((s) => !now.has(s.venueServiceId))
+        .map((s): RemovalChange => ({
+          kind: "serviceOpens",
+          name: s.name,
+          opensAt: s.opensAt,
+          closesAt: s.closesAt,
+        }));
+      const closing = current
+        .filter((s) => !then.has(s.venueServiceId))
+        .map((s): RemovalChange => ({ kind: "serviceCloses", name: s.name }));
+      const adjusted = removed.flatMap((after): RemovalChange[] => {
+        const before = now.get(after.venueServiceId);
+        if (!before) return [];
+        return [
+          ...(before.opensAt !== after.opensAt
+            ? [{ kind: "opensAtChanges" as const, name: after.name, minute: after.opensAt }]
+            : []),
+          ...(before.closesAt !== after.closesAt
+            ? [
+                {
+                  kind: "closesAtChanges" as const,
+                  name: after.name,
+                  minute: after.closesAt,
+                  later: after.closesAt > before.closesAt,
+                },
+              ]
+            : []),
+          ...(before.lastSeatingAt !== after.lastSeatingAt
+            ? [
+                {
+                  kind: "lastSeatingChanges" as const,
+                  name: after.name,
+                  minute: after.lastSeatingAt,
+                },
+              ]
+            : []),
+        ];
+      });
+      return [...opening, ...closing, ...adjusted];
+    }
+    function closureChanges(
+      current: readonly ResolvedClosure[],
+      removed: readonly ResolvedClosure[]
+    ): RemovalChange[] {
+      // A whole-day closure of services or booking channels already shows up as those changes.
+      const worthSaying = (c: ResolvedClosure) => !isWholeDay(c) || c.targetKind === "tables";
+      return [
+        ...current
+          .filter((c) => !removed.some((r) => sameClosure(r, c)) && worthSaying(c))
+          .map((closure): RemovalChange => ({ kind: "closureLifted", closure })),
+        ...removed
+          .filter((c) => !current.some((r) => sameClosure(r, c)) && worthSaying(c))
+          .map((closure): RemovalChange => ({ kind: "closureApplies", closure })),
+      ];
+    }
+    function bookingChanges(current: BookingOpen, removed: BookingOpen): RemovalChange[] {
+      return CHANNELS.flatMap((channel): RemovalChange[] => {
+        if (current[channel] === removed[channel]) return [];
+        return [{ kind: removed[channel] ? "bookingOn" : "bookingOff", channel }];
+      });
+    }
+    function pacingChanges(current: ResolvedDaySummary, removed: ResolvedDaySummary): RemovalChange[] {
+      if (current.pacingCovers === removed.pacingCovers) return [];
+      return removed.pacingCovers === undefined
+        ? [{ kind: "pacingLifted" }]
+        : [{ kind: "pacingSet", covers: removed.pacingCovers }];
+    }
+    export function diffRemoval(
+      current: ResolvedDaySummary,
+      removed: ResolvedDaySummary
+    ): RemovalChange[] {
+      return [
+        ...serviceChanges(current.services, removed.services),
+        ...closureChanges(current.closures, removed.closures),
+        ...bookingChanges(current.bookingOpen, removed.bookingOpen),
+        ...pacingChanges(current, removed),
+      ];
+    }
+    export function removalChangeText(
+      change: RemovalChange,
+      t: TFunction,
+      format: VenueFormat
+    ): string {
+      const at = (minute: number) => minuteText(minute, t, format);
+      switch (change.kind) {
+        case "serviceOpens":
+          return t("availability.drawer.removal.serviceOpens", {
+            name: change.name,
+            from: at(change.opensAt),
+            to: at(change.closesAt),
+          });
+        case "serviceCloses":
+          return t("availability.drawer.removal.serviceCloses", { name: change.name });
+        case "opensAtChanges":
+          return t("availability.drawer.removal.opensAt", {
+            name: change.name,
+            time: at(change.minute),
+          });
+        case "closesAtChanges":
+          return t(
+            change.later
+              ? "availability.drawer.removal.closesLater"
+              : "availability.drawer.removal.closesEarlier",
+            { name: change.name, time: at(change.minute) }
+          );
+        case "lastSeatingChanges":
+          return t("availability.drawer.removal.lastSeating", {
+            name: change.name,
+            time: at(change.minute),
+          });
+        case "closureLifted":
+          return isWholeDay(change.closure)
+            ? t("availability.drawer.removal.reopensAllDay")
+            : t("availability.drawer.removal.reopens", {
+                from: at(change.closure.from),
+                to: at(change.closure.to),
+              });
+        case "closureApplies":
+          return closureBandText(change.closure, t, format).text;
+        case "bookingOn":
+          return t(`availability.drawer.removal.bookingOn.${change.channel}`);
+        case "bookingOff":
+          return t(`availability.drawer.removal.bookingOff.${change.channel}`);
+        case "pacingLifted":
+          return t("availability.drawer.removal.pacingLifted");
+        case "pacingSet":
+          return t("availability.drawer.removal.pacingSet", { covers: change.covers });
+      }
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/resolved-day-fixtures.ts">
+    export const FIXTURE_DATE = "2026-10-30";
+    export const FIXTURE_TIMEZONE = "America/Los_Angeles";
+    export const EARLY_DINNER: DateRule = {
+      ...ON_DAY,
+      id: "r-special",
+      kind: "special_hours",
+      targetKind: "venue",
+      payload: {
+        version: 1,
+        services: [
+          { venueServiceId: "vs-lunch", ...LUNCH_HOURS },
+          { venueServiceId: "vs-dinner", ...DINNER_HOURS, lastSeatingAt: 1200, closesAt: 1320 },
+        ],
+      },
+    };
+    export const PARTY_CLOSURE: DateRule = {
+      ...ON_DAY,
+      id: "r-party",
+      kind: "closure",
+      targetKind: "venue",
+      window: { version: 1, from: 1320, to: 1380 },
+    };
+    export const ONLINE_CLOSURE: DateRule = {
+      ...ON_DAY,
+      id: "r-online",
+      kind: "closure",
+      targetKind: "booking",
+      bookingTypes: ["online"],
+    };
+    export const LUNCH_CLOSURE: DateRule = {
+      ...ON_DAY,
+      id: "r-lunch",
+      kind: "closure",
+      targetKind: "service",
+      venueServiceId: "vs-lunch",
+    };
+    export const VENUE_CLOSURE: DateRule = {
+      ...ON_DAY,
+      id: "r-venue",
+      kind: "closure",
+      targetKind: "venue",
+    };
+    export const TONIGHT_STOP: DateRule = {
+      ...ON_DAY,
+      id: "r-stop",
+      kind: "tonight",
+      targetKind: "venue",
+      payload: { version: 1, stop: { from: 1260, to: 1290 } },
+    };
+    export const TONIGHT_CLOSE: DateRule = {
+      ...ON_DAY,
+      id: "r-close",
+      kind: "tonight",
+      targetKind: "venue",
+      payload: { version: 1, closeAt: 1260 },
+    };
+    export const TONIGHT_PACING: DateRule = {
+      ...ON_DAY,
+      id: "r-pacing",
+      kind: "tonight",
+      targetKind: "venue",
+      payload: { version: 1, pacing: { covers: 6 } },
+    };
+    export function resolveFixtureDay(...rules: DateRule[]): ResolvedDay {
+      return resolveDay(
+        { timezone: FIXTURE_TIMEZONE, config: { ...BASE_CONFIG, dateRules: rules } },
+        FIXTURE_DATE
+      );
+    }
+  </file>
+  </section>
   <section priority="medium" role="booking-widget">
   <file path="apps/hospitality/src/components/booking-widget/effectiveDepositPolicy.ts">
     export interface EffectiveDepositPolicyParams {
@@ -4735,6 +5356,17 @@
       position: number;
       estimatedWaitMinutes: number | null;
     }
+    export interface ClosedMidBooking {
+      /** The venue's guest message for the closure. */
+      message: string;
+      /** The time the guest had chosen, so alternatives can be offered near it. */
+      lostTime: string;
+    }
+    export interface SlotListing {
+      slots: TimeSlot[];
+      closure?: { message: string };
+      bookingPaused?: BookingPaused;
+    }
     export interface BookingFlowData {
       selectedDate: string | null;
       selectedEndDate: string | null;
@@ -4743,6 +5375,15 @@
       selectedSlot: TimeSlot | null;
       slotsLoading: boolean;
       slotsError: string | null;
+      /**
+       * Closed dates learned from listings, date to guest message. The public
+       * API has no range listing, so the date step only knows a date is closed
+       * after a listing for it has come back.
+       */
+      closures: Record<string, string>;
+      /** Online booking is paused venue-wide; from the latest listing. */
+      bookingPaused: BookingPaused | null;
+      closedMidBooking: ClosedMidBooking | null;
       hold: ReservationHold | null;
       holdLoading: boolean;
       holdError: string | null;
@@ -4792,7 +5433,9 @@
       | { type: "SET_PARTY_SIZE"; size: number }
       | { type: "GO_TO_TIME_SLOT" }
       | { type: "GO_TO_DATE_PARTY" }
-      | { type: "SET_SLOTS"; slots: TimeSlot[] }
+      | { type: "SET_SLOTS"; listing: SlotListing }
+      | { type: "CLOSED_MID_BOOKING"; message: string }
+      | { type: "SET_CLOSED_DATES"; closures: Record<string, string> }
       | { type: "SET_SLOTS_ERROR"; error: string }
       | { type: "HOLD_START"; slot: TimeSlot }
       | { type: "HOLD_SUCCESS"; hold: ReservationHold; slot: TimeSlot }
@@ -4826,6 +5469,17 @@
     export function deriveStepKeys(depositRequired: boolean): BookingStep[] {
       return depositRequired ? STEP_KEYS_WITH_DEPOSIT : STEP_KEYS_NO_DEPOSIT;
     }
+    function outsideAvailabilityMessage(error: unknown): string | null {
+      if (typeof error !== "object" || error === null || !("problemDetails" in error)) return null;
+      const problem = (
+        error as { problemDetails: { code?: unknown; reason?: unknown; detail?: unknown } }
+      ).problemDetails;
+      if (problem.code !== "outside-availability") return null;
+      // Only a closed venue makes "this time just closed" true; a blocked table or
+      // a closed booking type is an ordinary refusal and keeps its own message.
+      if (!CLOSURE_REASONS.has(String(problem.reason))) return null;
+      return typeof problem.detail === "string" ? problem.detail : "";
+    }
     function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlowState {
       switch (action.type) {
         case "SET_DATE":
@@ -4847,6 +5501,7 @@
               slotsLoading: true,
               slotsError: null,
               holdError: null,
+              closedMidBooking: null,
             },
           };
     
@@ -4858,13 +5513,53 @@
               selectedSlot: null,
               slots: [],
               hold: null,
+              closedMidBooking: null,
             },
           };
     
-        case "SET_SLOTS":
+        case "SET_SLOTS": {
+          const { listing } = action;
+          const date = state.data.selectedDate;
+          const { [date ?? ""]: _previous, ...otherClosures } = state.data.closures;
+          const closures =
+            date && listing.closure
+              ? { ...otherClosures, [date]: listing.closure.message }
+              : otherClosures;
           return {
             ...state,
-            data: { ...state.data, slots: action.slots, slotsLoading: false, slotsError: null },
+            data: {
+              ...state.data,
+              slots: listing.slots,
+              closures,
+              bookingPaused: listing.bookingPaused ?? null,
+              slotsLoading: false,
+              slotsError: null,
+            },
+          };
+        }
+    
+        case "SET_CLOSED_DATES":
+          // What a listing already learned about a date wins over the upfront list.
+          return {
+            ...state,
+            data: { ...state.data, closures: { ...action.closures, ...state.data.closures } },
+          };
+    
+        case "CLOSED_MID_BOOKING":
+          return {
+            step: "time-slot",
+            data: {
+              ...state.data,
+              hold: null,
+              selectedSlot: null,
+              confirmLoading: false,
+              confirmError: null,
+              slotsLoading: true,
+              closedMidBooking: {
+                message: action.message,
+                lostTime: state.data.selectedSlot?.time ?? "",
+              },
+            },
           };
     
         case "SET_SLOTS_ERROR":
@@ -5098,13 +5793,17 @@
       // tokenless, so the staff /api/v1/availability route would 401 every guest.
       // goToTimeSlot reports the missing-slug dead end before calling this, so the
       // slug guard is just for the type.
-      const fetchSlots = useCallback(async (): Promise<TimeSlot[]> => {
-        if (!flowState.data.selectedDate || !venueSlug) return [];
-        const response = await api.availability.getTimeSlotsForVenue(venueSlug, {
+      const fetchSlots = useCallback(async (): Promise<SlotListing> => {
+        if (!flowState.data.selectedDate || !venueSlug) return { slots: [] };
+        const response = await api.availability.getPublicAvailability(venueSlug, {
           date: flowState.data.selectedDate,
           partySize: flowState.data.partySize,
         });
-        return response.filter((slot) => slot.available);
+        return {
+          slots: response.data.filter((slot) => slot.available),
+          closure: response.closure,
+          bookingPaused: response.bookingPaused,
+        };
       }, [api, venueSlug, flowState.data.selectedDate, flowState.data.partySize]);
     
       // Release a hold by ID — errors are ignored, the hold expires anyway.
@@ -5180,6 +5879,23 @@
         fetchDepositConfig();
       }, [venueSlug, stripePublishableKey, api]);
     
+      // Closed dates for the booking window, fetched once so the calendar can
+      // disable and name them before a guest picks one. A failure is non-fatal:
+      // the per-date listing still reports a closure when a date is opened.
+      useEffect(() => {
+        if (!venueSlug) return;
+        const from = venueDate(new Date(), venueTimezone);
+        api.availability
+          .getClosedDates(venueSlug, { from, to: addDays(from, CLOSED_DATES_LOOKAHEAD_DAYS) })
+          .then((dates) =>
+            dispatch({
+              type: "SET_CLOSED_DATES",
+              closures: Object.fromEntries(dates.map(({ date, closure }) => [date, closure.message])),
+            })
+          )
+          .catch(() => undefined);
+      }, [api, venueSlug, venueTimezone]);
+    
       const goToTimeSlot = useCallback(() => {
         const holdId = flowState.data.hold?.id;
         if (holdId) {
@@ -5191,7 +5907,7 @@
           return;
         }
         fetchSlots()
-          .then((slots) => dispatch({ type: "SET_SLOTS", slots }))
+          .then((listing) => dispatch({ type: "SET_SLOTS", listing }))
           .catch((err: unknown) => {
             dispatch({ type: "SET_SLOTS_ERROR", error: describeApiError(err).detail });
           });
@@ -5286,11 +6002,30 @@
               });
             }
           } catch (err) {
-            dispatch({ type: "CONFIRM_ERROR", error: describeApiError(err).detail });
+            const closure = outsideAvailabilityMessage(err);
+            if (closure === null) {
+              dispatch({ type: "CONFIRM_ERROR", error: describeApiError(err).detail });
+              return;
+            }
+            // A closure saved after the hold was made (ux.md F9.5): the hold is
+            // dead, so release it and show what is still open that day.
+            void releaseHold(flowState.data.hold.id);
+            dispatch({ type: "CLOSED_MID_BOOKING", message: closure });
+            fetchSlots()
+              .then((listing) => dispatch({ type: "SET_SLOTS", listing }))
+              .catch(() =>
+                dispatch({
+                  type: "SET_SLOTS_ERROR",
+                  error: i18n.t("bookingWidget.errors.reloadFailed"),
+                })
+              );
           }
         },
         [
           api,
+          releaseHold,
+          fetchSlots,
+          i18n,
           flowState.data.hold,
           flowState.data.depositConfig,
           venueSlug,
@@ -5330,7 +6065,7 @@
           if (new Date() >= new Date(capturedHold.expiresAt)) {
             dispatch({ type: "EXPIRE_HOLD", error: i18n.t("bookingWidget.errors.holdExpired") });
             fetchSlots()
-              .then((slots) => dispatch({ type: "SET_SLOTS", slots }))
+              .then((listing) => dispatch({ type: "SET_SLOTS", listing }))
               .catch(() =>
                 dispatch({
                   type: "SET_SLOTS_ERROR",
@@ -8636,7 +9371,7 @@
     }
   </file>
   <file path="apps/hospitality/e2e/api-mocks.ts">
-    function loadFixture(name: string): string {
+    export function loadFixture(name: string): string {
       return readFileSync(join(FIXTURES_DIR, `${name}.json`), "utf-8");
     }
     function loadStaffVenues(): {
@@ -9660,6 +10395,15 @@
       // (the staff route above 401s for guests). The `**/public/v1/venues/*`
       // config glob below never reaches it (`*` never crosses `/`).
       await page.route("**/public/v1/venues/*/availability*", slotsResponse);
+      // Closed dates for the calendar. The glob above never reaches this path
+      // (`*` does not cross `/`); no closures by default.
+      await page.route("**/public/v1/venues/*/availability/dates*", (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ data: [] }),
+        })
+      );
     
       // Holds
       await page.route("**/api/v1/holds/*/confirm", (route) => {
@@ -9942,6 +10686,12 @@
       await page.reload();
     }
   </file>
+  <file path="apps/hospitality/e2e/booking-date.ts">
+    export async function pickBookingDate(page: Page, isoDate: string): Promise<void> {
+      await expect(page.getByRole("grid")).toBeVisible();
+      await page.locator(`[role="gridcell"][data-date="${isoDate}"]`).click();
+    }
+  </file>
   <file path="apps/hospitality/e2e/fixtures.ts">
     export const test = base.extend<{ authPage: Page; mockedPage: Page }>({
       authPage: async ({ page }, use) => {
@@ -10071,6 +10821,30 @@
           },
         },
       }),
+      previewAvailability: defineEndpoint({
+        method: "POST",
+        path: `${AVAILABILITY_CONFIG_PREFIX}/:id/availability/preview`,
+        params: VenueParamsSchema,
+        body: PreviewAvailabilityBodySchema,
+        responses: {
+          200: {
+            description:
+              "The draft's effect: per-date added/removed times, the focus day, and a page of stranded reservations",
+            body: z.object({ data: PreviewResultSchema }),
+          },
+          401: authRequired,
+          403: problem("Caller is not a Manager of this venue"),
+          404: venueNotFound,
+          422: {
+            description: "`invalid-config`, with path-addressed issues",
+            body: AvailabilityConfigProblemSchema,
+          },
+          503: {
+            description: "`preview-timeout`: the preview took longer than 5 seconds; retry is safe",
+            body: AvailabilityConfigProblemSchema,
+          },
+        },
+      }),
       reopenClosure: defineEndpoint({
         method: "DELETE",
         path: `${AVAILABILITY_CONFIG_PREFIX}/:id/closures/:ruleId`,
@@ -10097,6 +10871,21 @@
             body: z.object({ data: z.array(AvailabilityDaySummarySchema) }),
           },
           400: problem("Invalid or too long date range"),
+          401: authRequired,
+          403: notMember,
+          404: venueNotFound,
+        },
+      }),
+      check: defineEndpoint({
+        method: "POST",
+        path: `${AVAILABILITY_CONFIG_PREFIX}/:id/availability/check`,
+        params: VenueParamsSchema,
+        body: AvailabilityCheckBodySchema,
+        responses: {
+          200: {
+            description: "The booking gate's verdict on this staff booking, with a human message",
+            body: z.object({ data: AvailabilityCheckResultSchema }),
+          },
           401: authRequired,
           403: notMember,
           404: venueNotFound,
@@ -14297,6 +15086,39 @@
         [accessToken]
       );
     }
+  </file>
+  <file path="apps/hospitality/src/hooks/useAvailability.ts">
+    export const AVAILABILITY_DAYS_QUERY_KEY = "availabilityDays" as const;
+    export const AVAILABILITY_CONFIG_QUERY_KEY = "availabilityConfig" as const;
+    export const useAvailabilityDays = createQueryHook<
+      AvailabilityDaySummary[] | null,
+      { venueId: string | null; from: string; to: string }
+    >({
+      key: AVAILABILITY_DAYS_QUERY_KEY,
+      fetcher: async (params, api) =>
+        params?.venueId
+          ? api.availability.listDays(params.venueId, { from: params.from, to: params.to })
+          : null,
+      getEnabled: (params) => !!params?.venueId && params.enabled !== false,
+    });
+    export const useAvailabilityConfig = createQueryHook<
+      AvailabilityConfigState | null,
+      { venueId: string | null }
+    >({
+      key: AVAILABILITY_CONFIG_QUERY_KEY,
+      fetcher: async (params, api) =>
+        params?.venueId ? api.availability.getConfig(params.venueId) : null,
+      getEnabled: (params) => !!params?.venueId && params.enabled !== false,
+    });
+    export const useSaveAvailabilityConfig = createMutationHook<{
+      venueId: string;
+      expectedVersion: number;
+      changes: AvailabilityConfigChanges;
+    }>({
+      invalidateKeys: [AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY, VENUES_QUERY_KEY],
+      mutationFn: (api, { venueId, expectedVersion, changes }) =>
+        api.availability.saveConfig(venueId, { expectedVersion, changes }),
+    });
   </file>
   <file path="apps/hospitality/src/hooks/useBriefing.ts">
     export const BRIEFING_QUERY_KEY = "briefing" as const;
@@ -26940,7 +27762,7 @@
   </file>
   <file path="services/reservations/src/routes/availability-config.ts">
     function configProblem(
-      status: 409 | 422,
+      status: 409 | 422 | 503,
       title: string,
       detail: string,
       extension: Omit<AvailabilityConfigProblem, "type" | "title" | "status" | "detail">
@@ -26948,7 +27770,10 @@
       return { type: "about:blank", title, status, detail, ...extension };
     }
     type ConfigReply = FastifyReply;
-    function sendRefusal(reply: ConfigReply, outcome: Exclude<SaveOutcome, { kind: "saved" }>) {
+    function sendRefusal(
+      reply: ConfigReply,
+      outcome: Exclude<SaveOutcome | PreviewOutcome, { kind: "saved" | "ok" }>
+    ) {
       switch (outcome.kind) {
         case "not_found":
           return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
@@ -26964,6 +27789,12 @@
             configProblem(422, "Unprocessable Entity", "The availability config is not valid.", {
               code: "invalid-config",
               issues: outcome.issues,
+            })
+          );
+        case "timeout":
+          return reply.code(503).send(
+            configProblem(503, "Service Unavailable", "The preview took too long; try again.", {
+              code: "preview-timeout",
             })
           );
         case "stranded":
@@ -27023,6 +27854,30 @@
             });
             if (outcome.kind !== "saved") return sendRefusal(reply, outcome);
             return { data: { version: outcome.version, changeId: outcome.changeId } };
+          }
+        ),
+      });
+    
+      registerEndpoint(fastify, availabilityConfigEndpoints.previewAvailability, {
+        docs: {
+          summary: "Preview an unsaved availability draft",
+          operationId: "previewAvailability",
+          description:
+            "What the draft changes for guests over 30 days from `focusDate`, how the focus date resolves, and the future bookings in `scope` it would strand (a page of 50 from `strandedOffset`). Read-only and safe to retry; answers 503 `preview-timeout` after 5 seconds. Requires a Manager (owner or manager) membership, or the admin role.",
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(
+          { ...VENUE_FROM_ID, access: "manager" },
+          async (request, reply, { venueId }) => {
+            const outcome = await availabilityConfigService.preview({
+              venueId,
+              body: request.body,
+              now: new Date(),
+            });
+            if (outcome.kind !== "ok") return sendRefusal(reply, outcome);
+            return { data: outcome.result };
           }
         ),
       });
@@ -27106,6 +27961,21 @@
               return { data: outcome.impact };
           }
         }),
+      });
+    
+      registerEndpoint(fastify, availabilityConfigEndpoints.check, {
+        docs: {
+          summary: "Check a staff booking against availability",
+          operationId: "checkAvailability",
+          description:
+            "The booking gate's verdict on a phone booking (`ok`, `soft` with the limits and a message, or `hard` with the reason and a message), for the staff form. Read-only; the booking write still passes the gate, where a `soft` limit yields to `override.reason` and a `hard` one never does.",
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(VENUE_FROM_ID, async (request, _reply, { venueId }) => ({
+          data: await availabilityConfigService.check(venueId, request.body, new Date()),
+        })),
       });
     };
   </file>
@@ -29881,6 +30751,71 @@
           }
         )
       );
+    
+      fastify.get<{
+        Params: { slug: string };
+        Querystring: { from: string; to: string };
+        Reply: PublicAvailabilityDatesResponse | ReturnType<typeof createProblemDetails>;
+      }>(
+        "/:slug/availability/dates",
+        {
+          preHandler: publicRateLimitHook,
+          schema: {
+            summary: "List closed dates in a range (public)",
+            description:
+              "The dates in the range the venue is closed, each with the guest message. Lets the booking calendar disable them before a guest picks one.",
+            tags: ["Public"],
+            params: {
+              type: "object",
+              properties: { slug: { type: "string" } },
+              required: ["slug"],
+            },
+            querystring: publicAvailabilityDatesQueryJsonSchema,
+            response: { 200: publicAvailabilityDatesResponseJsonSchema },
+          },
+        },
+        publicVenueScoped(
+          {
+            slug: (request) => request.params.slug,
+            notFound: (slug) => ({
+              title: "Venue Not Found",
+              detail: `No venue found with slug '${slug}'.`,
+            }),
+          },
+          async (request, reply) => {
+            const { slug } = request.params;
+            const { from, to } = request.query;
+    
+            const venue = await venueService.getBySlug(slug);
+            if (!venue) {
+              return reply
+                .status(404)
+                .send(
+                  createProblemDetails(404, "Venue Not Found", `No venue found with slug '${slug}'.`)
+                );
+            }
+    
+            const rangeResult = validateDateRange(from, to, MAX_DATES_RANGE_DAYS);
+            if (!rangeResult.valid) {
+              return reply
+                .status(400)
+                .send(createProblemDetails(400, "Invalid Date Range", rangeResult.error ?? ""));
+            }
+    
+            const dates = await availabilityService.getAvailableDates(
+              venue.id,
+              from,
+              to,
+              DATES_LISTING_PARTY_SIZE,
+              { logger: request.log }
+            );
+    
+            return reply.send({
+              data: dates.flatMap(({ date, closure }) => (closure ? [{ date, closure }] : [])),
+            });
+          }
+        )
+      );
     };
   </file>
   <file path="services/reservations/src/routes/public-deposits.ts">
@@ -31541,8 +32476,7 @@
                 },
               },
               400: {
-                description:
-                  "Invalid request body, unknown guest for this venue, or pacing limit exceeded",
+                description: "Invalid request body, unknown guest for this venue",
                 $ref: "Error#",
               },
               401: {
@@ -35123,6 +36057,7 @@
       "move-unavailable",
       "idempotency-key-reused",
       "closure-exists",
+      "preview-timeout",
     ] as const;
     export const AvailabilityConfigProblemSchema = z.object({
       type: z.string(),
@@ -35199,6 +36134,82 @@
     export type ClosureImpactReservation = z.infer<typeof ClosureImpactReservationSchema>;
     export type ClosureImpactGroup = z.infer<typeof ClosureImpactGroupSchema>;
     export type ClosureImpact = z.infer<typeof ClosureImpactSchema>;
+    export const SOFT_LIMITS = ["after_last_seating", "pacing", "party_size"] as const;
+    export const SoftLimitSchema = z.enum(SOFT_LIMITS);
+    export const HARD_REASONS = [
+      "closed",
+      "booking_closed",
+      "outside_service",
+      "table_blocked",
+      "conflict",
+    ] as const;
+    export const HardReasonSchema = z.enum(HARD_REASONS);
+    export const AvailabilityCheckBodySchema = z.object({
+      start: z.iso.datetime({ offset: true }).describe("Start time (ISO 8601)"),
+      end: z.iso
+        .datetime({ offset: true })
+        .describe("End time (ISO 8601); send the booking's real end, omit to estimate from party size")
+        .optional(),
+      partySize: z.number().int().min(1).describe("Number of guests"),
+      channel: z.literal("phone").describe("Staff checks are phone bookings"),
+      tableId: z.string().describe("Table to check; omit to ask whether any table is free").optional(),
+    });
+    export const AvailabilityCheckResultSchema = z.discriminatedUnion("kind", [
+      z.object({ kind: z.literal("ok") }),
+      z.object({ kind: z.literal("soft"), limits: z.array(SoftLimitSchema), message: z.string() }),
+      z.object({ kind: z.literal("hard"), reason: HardReasonSchema, message: z.string() }),
+    ]);
+    export const PREVIEW_WINDOW_DAYS = 30;
+    export const PREVIEW_STRANDED_PAGE_SIZE = 50;
+    export const PREVIEW_SCOPE_MAX_DATES = 366;
+    export const PreviewScopeSchema = z.union([
+      z.array(ServiceDateSchema).min(1).max(PREVIEW_SCOPE_MAX_DATES),
+      z.object({ from: ServiceDateSchema, to: ServiceDateSchema.optional() }),
+    ]);
+    export const PreviewAvailabilityBodySchema = z.object({
+      /** The unsaved edit: the rows a save would send. */
+      draft: z.object({
+        changes: AvailabilityConfigChangesSchema,
+        scopeConflicts: ScopeConflictModeSchema.default("keep"),
+      }),
+      scope: PreviewScopeSchema,
+      /** First date of the per-date window, and the date resolved in full. */
+      focusDate: ServiceDateSchema,
+      /** Index of the first stranded reservation to return (a page is 50). */
+      strandedOffset: z.number().int().min(0).default(0),
+    });
+    export const PreviewDaySchema = z.object({
+      serviceDate: ServiceDateSchema,
+      added: z.array(z.number().int()),
+      removed: z.array(z.number().int()),
+    });
+    export const PreviewResultSchema = z.object({
+      /** `Venue.availabilityVersion` the preview was computed against. */
+      version: z.number().int(),
+      days: z.array(PreviewDaySchema),
+      /** The focus date under the draft: its summary and the services that run. */
+      focusDay: AvailabilityDaySummarySchema.extend({
+        services: z.array(
+          z.object({
+            venueServiceId: z.string(),
+            name: z.string(),
+            opensAt: z.number().int(),
+            lastSeatingAt: z.number().int(),
+            closesAt: z.number().int(),
+          })
+        ),
+      }),
+      /** Future bookings in scope the draft would leave unserved, by start time. */
+      stranded: z.object({
+        total: z.number().int(),
+        offset: z.number().int(),
+        items: z.array(StrandedReservationSchema),
+      }),
+    });
+    export type PreviewAvailabilityBody = z.input<typeof PreviewAvailabilityBodySchema>;
+    export type PreviewAvailabilityParsed = z.infer<typeof PreviewAvailabilityBodySchema>;
+    export type PreviewResult = z.infer<typeof PreviewResultSchema>;
+    export type PreviewScope = z.infer<typeof PreviewScopeSchema>;
     export type AvailabilityConfigChanges = z.infer<typeof AvailabilityConfigChangesSchema>;
     export type ScopeConflictMode = z.infer<typeof ScopeConflictModeSchema>;
     export type PutAvailabilityConfigBody = z.infer<typeof PutAvailabilityConfigBodySchema>;
@@ -35240,6 +36251,8 @@
     export type ReopenClosureBody = z.infer<typeof ReopenClosureBodySchema>;
     export type ClosureResult = z.infer<typeof ClosureResultSchema>;
     export type ReopenResult = z.infer<typeof ReopenResultSchema>;
+    export type AvailabilityCheckBody = z.infer<typeof AvailabilityCheckBodySchema>;
+    export type AvailabilityCheckResult = z.infer<typeof AvailabilityCheckResultSchema>;
   </file>
   <file path="packages/types/src/schemas/availability-config.ts">
     export const SCHEDULE_KINDS = ["regular", "alternate", "holiday"] as const;
@@ -35386,11 +36399,20 @@
       slotCount: z.number().int().optional(),
       closure: AvailabilityClosureSchema.optional(),
     });
+    export const PublicClosedDateSchema = z.object({
+      date: z.string(),
+      closure: AvailabilityClosureSchema,
+    });
+    export const PublicAvailabilityDatesResponseSchema = z.object({
+      data: z.array(PublicClosedDateSchema),
+    });
     export const PublicAvailabilityResponseSchema = z.object({
       data: z.array(TimeSlotSchema),
       closure: AvailabilityClosureSchema.optional(),
       bookingPaused: BookingPausedSchema.optional(),
     });
+    export type PublicClosedDate = z.infer<typeof PublicClosedDateSchema>;
+    export type PublicAvailabilityDatesResponse = z.infer<typeof PublicAvailabilityDatesResponseSchema>;
     export type AvailabilityClosure = z.infer<typeof AvailabilityClosureSchema>;
     export type BookingPaused = z.infer<typeof BookingPausedSchema>;
     export type PublicAvailabilityResponse = z.infer<typeof PublicAvailabilityResponseSchema>;
@@ -35863,6 +36885,12 @@
     export const createWaitlistBodyJsonSchema = toRequestJsonSchema(CreateWaitlistBodySchema);
     export const listWaitlistQueryJsonSchema = toRequestJsonSchema(ListWaitlistQuerySchema);
     export const publicAvailabilityQueryJsonSchema = toRequestJsonSchema(PublicAvailabilityQuerySchema);
+    export const publicAvailabilityDatesQueryJsonSchema = toRequestJsonSchema(
+      PublicAvailabilityDatesQuerySchema
+    );
+    export const publicAvailabilityDatesResponseJsonSchema = toResponseJsonSchema(
+      PublicAvailabilityDatesResponseSchema
+    );
     export const publicAvailabilityResponseJsonSchema = toResponseJsonSchema(
       PublicAvailabilityResponseSchema
     );
@@ -36009,6 +37037,9 @@
         seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
       })
       .describe("Walk-in reservation payload");
+    export const StaffOverrideSchema = z
+      .object({ reason: z.string().describe("Why the limit is being overridden") })
+      .describe("Override a soft availability limit");
     export const CreateReservationBodySchema = z
       .object({
         date: z.iso.date().describe("Reservation date (YYYY-MM-DD)"),
@@ -36027,6 +37058,7 @@
         venueId: z.string().describe("ID of the venue for this reservation").optional(),
         occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
         seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
+        override: StaffOverrideSchema.optional(),
       })
       .describe("Reservation creation payload");
     export const UpdateReservationBodySchema = z
@@ -36048,6 +37080,7 @@
           .optional(),
         occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
         seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
+        override: StaffOverrideSchema.optional(),
       })
       .describe("Fields to update");
     export const AvailabilityQuerySchema = z.object({
@@ -36311,6 +37344,10 @@
     export const PublicAvailabilityQuerySchema = z.object({
       date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
       partySize: z.string(),
+    });
+    export const PublicAvailabilityDatesQuerySchema = z.object({
+      from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     });
     export const PublicDepositBodySchema = z.object({
       reservationId: z.string().min(1),
@@ -40387,16 +41424,21 @@
       | { code: "outside-availability"; reason: HardReason; message?: string }
       | { code: "soft-limit"; limits: SoftLimit[] };
     export type GateOutcome =
-      { kind: "ok" } | { kind: "conflict" } | { kind: "rejected"; rejection: GateRejection };
+      | { kind: "ok"; overrideLimits?: SoftLimit[] }
+      | { kind: "conflict" }
+      | { kind: "rejected"; rejection: GateRejection };
     export interface GateRequest {
       venueId: string;
-      tableId: string;
+      /** Omit to ask whether any table is free (the staff check endpoint). */
+      tableId?: string;
       start: Date;
       /** The booking's real end. Without it the engine estimates one from the party size. */
       end?: Date;
       partySize: number;
       /** Guests book `online`; staff create and update are `phone`. Walk-ins are never gated. */
       channel: BookingChannel;
+      /** A staff reason to pass a soft limit. Honoured on the phone channel only; closures never yield. */
+      override?: { reason: string };
       /** The reservation being moved; it must not conflict or pace against itself. */
       excludeReservationId?: string;
       /** The hold being confirmed or moved onto. */
@@ -40449,6 +41491,7 @@
           partySize: request.partySize,
           channel: request.channel,
           tableId: request.tableId,
+          override: request.override,
         },
         now
       );
@@ -40463,8 +41506,9 @@
     function outcomeOf(verdict: Verdict): GateOutcome {
       switch (verdict.kind) {
         case "ok":
-        case "ok_with_override":
           return { kind: "ok" };
+        case "ok_with_override":
+          return { kind: "ok", overrideLimits: verdict.limits };
         case "soft":
           return { kind: "rejected", rejection: { code: "soft-limit", limits: verdict.limits } };
         case "hard":
@@ -40482,7 +41526,7 @@
       snapshot: BookingSnapshot,
       serviceDate: string,
       minute: number,
-      tableId: string
+      tableId: string | undefined
     ): { reason: HardReason; message?: string } | null {
       const day = resolveDay(snapshot, serviceDate);
       const band = day.closures.find(
@@ -40491,7 +41535,9 @@
           minute < b.to &&
           (b.targetKind === "venue" ||
             (b.targetKind === "booking" && (b.bookingTypes ?? []).includes("phone")) ||
-            (b.targetKind === "tables" && (b.tableIds ?? []).includes(tableId)))
+            (b.targetKind === "tables" &&
+              tableId !== undefined &&
+              (b.tableIds ?? []).includes(tableId)))
       );
       if (!band) return null;
       const reason: HardReason =
@@ -40523,15 +41569,20 @@
       );
       return { kind: "ok" };
     }
-    export function gateProblem(rejection: GateRejection): ProblemDetails {
+    export function rejectionDetail(rejection: GateRejection): string {
       if (rejection.code === "outside-availability") {
-        const detail = rejection.message ?? OUTSIDE_AVAILABILITY_DETAIL[rejection.reason];
+        return rejection.message ?? OUTSIDE_AVAILABILITY_DETAIL[rejection.reason];
+      }
+      return `This booking is ${rejection.limits.map((l) => SOFT_LIMIT_DETAIL[l]).join(" and ")}.`;
+    }
+    export function gateProblem(rejection: GateRejection): ProblemDetails {
+      const detail = rejectionDetail(rejection);
+      if (rejection.code === "outside-availability") {
         return createProblemDetails(422, "Outside Availability", detail, "about:blank", undefined, {
           code: rejection.code,
           reason: rejection.reason,
         });
       }
-      const detail = `This booking is ${rejection.limits.map((l) => SOFT_LIMIT_DETAIL[l]).join(" and ")}.`;
       return createProblemDetails(422, "Soft Limit", detail, "about:blank", undefined, {
         code: rejection.code,
         limits: rejection.limits,
@@ -40553,12 +41604,54 @@
       await tx.$executeRawUnsafe(appRoleSetStatement());
     }
   </file>
+  <file path="services/reservations/src/services/availability-check.ts">
+    function resultOf(outcome: GateOutcome): AvailabilityCheckResult {
+      switch (outcome.kind) {
+        case "ok":
+          return { kind: "ok" };
+        case "conflict":
+          return {
+            kind: "hard",
+            reason: "conflict",
+            message: rejectionDetail({ code: "outside-availability", reason: "conflict" }),
+          };
+        case "rejected": {
+          const { rejection } = outcome;
+          const message = rejectionDetail(rejection);
+          return rejection.code === "soft-limit"
+            ? { kind: "soft", limits: rejection.limits, message }
+            : { kind: "hard", reason: rejection.reason, message };
+        }
+      }
+    }
+    export async function checkAvailability(
+      venueId: string,
+      body: AvailabilityCheckBody,
+      now: Date
+    ): Promise<AvailabilityCheckResult> {
+      const outcome = await judgeBooking(
+        prisma,
+        {
+          venueId,
+          tableId: body.tableId,
+          start: new Date(body.start),
+          end: body.end === undefined ? undefined : new Date(body.end),
+          partySize: body.partySize,
+          channel: body.channel,
+        },
+        now
+      );
+      return resultOf(outcome);
+    }
+  </file>
   <file path="services/reservations/src/services/availability-config-checks.ts">
     export interface BookedReservation {
       id: string;
       tableId: string | null;
       startTime: Date;
       partySize: number;
+      /** The service date it belongs to; set where a scope needs it. */
+      date?: Date;
     }
     type StrandReason = StrandedReservation["reason"];
     export function strandReason(
@@ -40653,37 +41746,6 @@
         return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(",")}}`;
       }
       return JSON.stringify(value);
-    }
-    function applyTable<T extends ConfigTable>(
-      table: T,
-      rows: AvailabilityConfig[T],
-      changes: AvailabilityConfigChanges,
-      nowIso: string
-    ): AvailabilityConfig[T] {
-      const upserts = (changes.upsert[table] ?? []) as Row<T>[];
-      const removed = new Set(changes.remove[table] ?? []);
-      const byId = new Map(upserts.map((r) => [r.id, r]));
-      const kept = (rows as Row<T>[]).flatMap((row): Row<T>[] => {
-        const replaced = byId.get(row.id) ?? row;
-        if (!removed.has(row.id)) return [replaced];
-        return ARCHIVED_ON_REMOVE.has(table) ? [{ ...replaced, archivedAt: nowIso }] : [];
-      });
-      const known = new Set((rows as Row<T>[]).map((r) => r.id));
-      const added = upserts.filter((r) => !known.has(r.id) && !removed.has(r.id));
-      return [...kept, ...added] as AvailabilityConfig[T];
-    }
-    export function applyChanges(
-      config: AvailabilityConfig,
-      changes: AvailabilityConfigChanges,
-      nowIso: string
-    ): AvailabilityConfig {
-      return {
-        schedules: applyTable("schedules", config.schedules, changes, nowIso),
-        venueServices: applyTable("venueServices", config.venueServices, changes, nowIso),
-        scheduleServices: applyTable("scheduleServices", config.scheduleServices, changes, nowIso),
-        assignments: applyTable("assignments", config.assignments, changes, nowIso),
-        dateRules: applyTable("dateRules", config.dateRules, changes, nowIso),
-      };
     }
     function coversDate(rule: DateRule, date: string): boolean {
       return (
@@ -40926,6 +41988,29 @@
         ]),
       ];
     }
+    export function settleDraft(input: {
+      snapshot: { timezone: string; config: AvailabilityConfig };
+      changes: AvailabilityConfigChanges;
+      scopeConflicts: ScopeConflictMode;
+      tableIds: ReadonlySet<string>;
+      now: Date;
+      today: string;
+      newId: () => string;
+    }): { next: AvailabilityConfig; issues: (ConfigIssue | ReferenceIssue)[] } {
+      const { snapshot, now } = input;
+      const applied = applyDraft(snapshot, input.changes, now.toISOString()).config;
+      const next = resolveScopeConflicts(
+        snapshot.config,
+        applied,
+        input.scopeConflicts,
+        input.newId,
+        input.today
+      );
+      return {
+        next,
+        issues: [...validateConfig(next), ...referenceIssues(next, input.tableIds)],
+      };
+    }
   </file>
   <file path="services/reservations/src/services/availability-config-rows.ts">
     export type ConfigRowDb = Pick<
@@ -41075,10 +42160,7 @@
       }
     }
   </file>
-  <file path="services/reservations/src/services/availability-config.ts">
-    export type StoreDb = ConfigRowDb &
-      Pick<PrismaClient, "venue" | "reservation" | "availabilityChange" | "table">;
-    type StoreClient = Pick<PrismaClient, "$transaction">;
+  <file path="services/reservations/src/services/availability-config-state.ts">
     export interface ConfigState {
       /** The rows as stored (empty for a venue with none). */
       stored: AvailabilityConfig;
@@ -41097,6 +42179,11 @@
       unreadableDays: string[];
       coercions: string[];
     }
+  </file>
+  <file path="services/reservations/src/services/availability-config.ts">
+    export type StoreDb = ConfigRowDb &
+      Pick<PrismaClient, "venue" | "reservation" | "availabilityChange" | "table">;
+    type StoreClient = Pick<PrismaClient, "$transaction">;
     function withStored(legacy: AvailabilityConfig, stored: AvailabilityConfig): AvailabilityConfig {
       return {
         schedules: [...legacy.schedules, ...stored.schedules],
@@ -41231,15 +42318,15 @@
       newId?: () => string;
     }): SavePlan {
       const { state, body, bookings, now } = input;
-      const applied = applyChanges(state.effective, body.changes, now.toISOString());
-      const next = resolveScopeConflicts(
-        state.effective,
-        applied,
-        body.scopeConflicts,
-        input.newId ?? randomUUID,
-        civilDateIn(now, state.timezone)
-      );
-      const issues = [...validateConfig(next), ...referenceIssues(next, input.tableIds)];
+      const { next, issues } = settleDraft({
+        snapshot: { timezone: state.timezone, config: state.effective },
+        changes: body.changes,
+        scopeConflicts: body.scopeConflicts,
+        tableIds: input.tableIds,
+        now,
+        today: civilDateIn(now, state.timezone),
+        newId: input.newId ?? randomUUID,
+      });
       if (issues.length > 0) return { kind: "invalid", issues };
     
       const reservations = findStrandedReservations(
@@ -41284,7 +42371,7 @@
           startTime: { gte: now },
           status: { notIn: [...NOT_BOOKED_STATUSES] },
         },
-        select: { id: true, tableId: true, startTime: true, partySize: true },
+        select: { id: true, tableId: true, startTime: true, partySize: true, date: true },
       });
     }
     export async function refuseStale(db: StoreDb, venueId: string): Promise<SaveOutcome> {
@@ -41377,10 +42464,52 @@
         throw error;
       }
     }
+    export const PREVIEW_TIMEOUT_MS = 5000;
+    export type PreviewOutcome = { kind: "not_found" } | { kind: "timeout" } | PreviewPlan;
+    export async function previewAvailabilityConfig(
+      input: {
+        venueId: string;
+        body: PreviewAvailabilityParsed;
+        now: Date;
+        timeoutMs?: number;
+      },
+      client: StoreClient = prisma
+    ): Promise<PreviewOutcome> {
+      const { venueId, body, now } = input;
+      const run = client.$transaction(async (tx): Promise<PreviewOutcome> => {
+        await setVenueContext(tx, venueId);
+        const state = await loadConfigState(tx, venueId, now);
+        if (!state) return { kind: "not_found" };
+        const [bookings, tables] = await Promise.all([
+          futureBookings(tx, venueId, civilDateIn(now, state.timezone), now),
+          tx.table.findMany({ where: { venueId }, select: { id: true } }),
+        ]);
+        return planPreview({
+          state,
+          body,
+          bookings,
+          tableIds: new Set(tables.map((t) => t.id)),
+          now,
+        });
+      });
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const timeout = new Promise<PreviewOutcome>((resolve) => {
+        timer = setTimeout(() => resolve({ kind: "timeout" }), input.timeoutMs ?? PREVIEW_TIMEOUT_MS);
+      });
+      try {
+        return await Promise.race([run, timeout]);
+      } finally {
+        clearTimeout(timer);
+        // A preview that lost the race still settles; its failure has no reader.
+        run.catch(() => undefined);
+      }
+    }
     export const availabilityConfigService = {
+      check: checkAvailability,
       get: getAvailabilityConfig,
       listDays: listAvailabilityDays,
       save: saveAvailabilityConfig,
+      preview: previewAvailabilityConfig,
     };
   </file>
   <file path="services/reservations/src/services/availability-migration.ts">
@@ -41617,6 +42746,78 @@
       // Any seating left on the online channel means the date is open, if shorter.
       if (seatingCount > 0) return {};
       return { closure: { message: day.guestMessage ?? DEFAULT_CLOSURE_MESSAGE } };
+    }
+  </file>
+  <file path="services/reservations/src/services/availability-preview.ts">
+    export interface PreviewInput {
+      state: ConfigState;
+      body: PreviewAvailabilityParsed;
+      /** Future, still-booked reservations, each with its service date. */
+      bookings: readonly BookedReservation[];
+      tableIds: ReadonlySet<string>;
+      now: Date;
+      newId?: () => string;
+    }
+    export type PreviewPlan =
+      | { kind: "invalid"; issues: (ConfigIssue | ReferenceIssue)[] }
+      | { kind: "ok"; result: PreviewResult };
+    export function scopeIncludes(scope: PreviewScope, date: string): boolean {
+      if (Array.isArray(scope)) return scope.includes(date);
+      return scope.from <= date && (scope.to === undefined || date <= scope.to);
+    }
+    export function planPreview(input: PreviewInput): PreviewPlan {
+      const { state, body, now } = input;
+      const { draft, scope, focusDate, strandedOffset } = body;
+      const { next, issues } = settleDraft({
+        snapshot: { timezone: state.timezone, config: state.effective },
+        changes: draft.changes,
+        scopeConflicts: draft.scopeConflicts,
+        tableIds: input.tableIds,
+        now,
+        today: civilDateIn(now, state.timezone),
+        newId: input.newId ?? randomUUID,
+      });
+      if (issues.length > 0) return { kind: "invalid", issues };
+    
+      const before = structural(state.timezone, state.effective);
+      const after = structural(state.timezone, next);
+      const dates = Array.from({ length: PREVIEW_WINDOW_DAYS }, (_, i) => addDays(focusDate, i));
+      const days = diffDays(before, after, dates, {
+        partySize: PREVIEW_PARTY_SIZE,
+        channel: "online",
+        now,
+      });
+    
+      const focus = resolveDay(after, focusDate);
+      const stranded = findStrandedReservations(
+        before,
+        after,
+        input.bookings.filter((b) => b.date && scopeIncludes(scope, toServiceDate(b.date)))
+      ).sort((a, b) => a.startTime.localeCompare(b.startTime) || a.id.localeCompare(b.id));
+    
+      const names = new Map(next.venueServices.map((s) => [s.id, s.name]));
+      return {
+        kind: "ok",
+        result: {
+          version: state.version,
+          days,
+          focusDay: {
+            ...summarizeDay(next, focus),
+            services: focus.services.map((s) => ({
+              venueServiceId: s.venueServiceId,
+              name: names.get(s.venueServiceId) ?? s.name,
+              opensAt: s.opensAt,
+              lastSeatingAt: s.lastSeatingAt,
+              closesAt: s.closesAt,
+            })),
+          },
+          stranded: {
+            total: stranded.length,
+            offset: strandedOffset,
+            items: stranded.slice(strandedOffset, strandedOffset + PREVIEW_STRANDED_PAGE_SIZE),
+          },
+        },
+      };
     }
   </file>
   <file path="services/reservations/src/services/availability-snapshot.ts">
@@ -42212,7 +43413,7 @@
        * reading the committed configuration through this transaction
        * ({@link judgeBooking}). Requires venueId. Walk-ins never set it.
        */
-      gate?: { channel: BookingChannel };
+      gate?: { channel: BookingChannel; override?: { reason: string } };
       /**
        * Runs immediately after the lock, before the conflict re-check. Returning a
        * {@link SlotConflict} short-circuits the write (e.g. a hold that expired
@@ -42225,8 +43426,12 @@
        * hold that could not be confirmed.
        */
       onUnbookable?: (tx: Prisma.TransactionClient, conflict: SlotConflict) => Promise<void>;
-      /** Performs the actual mutation once the slot is confirmed bookable. */
-      write: (tx: Prisma.TransactionClient) => Promise<T>;
+      /**
+       * Performs the actual mutation once the slot is confirmed bookable.
+       * `gated.overrideLimits` lists the soft limits a staff override passed, so
+       * the write can store them with the booking.
+       */
+      write: (tx: Prisma.TransactionClient, gated: { overrideLimits?: SoftLimit[] }) => Promise<T>;
     }
     export async function bookSlot<T>(intent: BookSlotIntent<T>): Promise<SlotWriteResult<T>> {
       const {
@@ -42335,38 +43540,43 @@
           }
         }
     
+        let gated: { overrideLimits?: SoftLimit[] } = {};
         if (gate && venueId) {
-          const gateConflict = await availabilityConflict(tx, { ...intent, venueId }, gate.channel);
-          if (gateConflict) return fail(gateConflict);
+          const verdict = await availabilityVerdict(tx, { ...intent, venueId }, gate);
+          if (verdict.conflict) return fail(verdict.conflict);
+          gated = { overrideLimits: verdict.overrideLimits };
         }
     
-        const value = await write(tx);
+        const value = await write(tx, gated);
         return { ok: true, value };
       });
     }
-    async function availabilityConflict(
+    async function availabilityVerdict(
       tx: Prisma.TransactionClient,
       intent: BookSlotIntent<unknown> & { venueId: string },
-      channel: BookingChannel
-    ): Promise<SlotConflict | undefined> {
+      gate: NonNullable<BookSlotIntent<unknown>["gate"]>
+    ): Promise<{ conflict?: SlotConflict; overrideLimits?: SoftLimit[] }> {
       const outcome = await judgeBooking(tx, {
         venueId: intent.venueId,
         tableId: intent.tableId,
         start: intent.window.startTime,
         end: intent.window.endTime,
         partySize: intent.partySize,
-        channel,
+        channel: gate.channel,
+        override: gate.override,
         excludeReservationId: intent.excludeReservationId,
         excludeHoldId: intent.excludeHoldId,
         excludeSessionId: intent.excludeSessionId,
       });
       if (outcome.kind === "conflict") {
-        return { code: "CONFLICT", message: "Table is not available for this time slot" };
+        return { conflict: { code: "CONFLICT", message: "Table is not available for this time slot" } };
       }
       if (outcome.kind === "rejected") {
-        return { code: "NOT_BOOKABLE", message: GATE_MESSAGE, rejection: outcome.rejection };
+        return {
+          conflict: { code: "NOT_BOOKABLE", message: GATE_MESSAGE, rejection: outcome.rejection },
+        };
       }
-      return undefined;
+      return { overrideLimits: outcome.overrideLimits };
     }
   </file>
   <file path="services/reservations/src/services/booking-metrics.ts">
@@ -47755,6 +48965,8 @@
       startTime: string;
       endTime: string;
       partySize: number;
+      /** Present when a staff override passed a soft limit to book this slot. */
+      override?: { reason: string; limits: string[] };
     };
     export type DepositEventState = { depositStatus: string };
     export function toEventState(row: {
@@ -47764,6 +48976,8 @@
       startTime: Date;
       endTime: Date;
       partySize: number;
+      overrideReason?: string | null;
+      overrideLimits?: string[];
     }): EventState {
       return {
         status: row.status,
@@ -47772,6 +48986,9 @@
         startTime: row.startTime.toISOString(),
         endTime: row.endTime.toISOString(),
         partySize: row.partySize,
+        ...(row.overrideReason
+          ? { override: { reason: row.overrideReason, limits: row.overrideLimits ?? [] } }
+          : {}),
       };
     }
     export async function recordReservationEvent(
@@ -48523,6 +49740,10 @@
       /** The availability gate refused the slot (route answers 422 via `gateProblem`). */
       rejection?: GateRejection;
     }
+    function overrideColumns(override: { reason: string } | undefined, limits: string[] | undefined) {
+      if (!override || !limits || limits.length === 0) return {};
+      return { overrideReason: override.reason.trim(), overrideLimits: limits };
+    }
     function staffSlotFailure(conflict: SlotConflict) {
       if (conflict.code === "NOT_BOOKABLE") {
         return { success: false, error: conflict.message, rejection: conflict.rejection } as const;
@@ -48733,11 +49954,10 @@
     
         if (venueId) {
           // Fetch venue settings + conflict slices once, then evaluate the single
-          // canonical booking invariant (conflict + pacing) through assertBookable —
-          // the same seam confirmHold and createWalkIn cross, so staff direct
-          // bookings can never apply a different rule than guest bookings.
-          const venue = await prisma.venue.findUnique({ where: { id: venueId } });
-          const settings = (venue?.settings ?? null) as VenueSettings | null;
+          // canonical booking invariant (party fit + conflict) through assertBookable —
+          // the same seam confirmHold and createWalkIn cross. Pacing is NOT checked
+          // here (settings: null): it is a soft limit the booking gate judges below,
+          // so a staff override with a reason can pass it.
           const { reservations, holds } = await availabilityService.fetchConflictData(
             venueId,
             data.date
@@ -48748,7 +49968,7 @@
             table: await loadTableFit(data.tableId),
             window: { startTime, endTime },
             partySize: data.partySize,
-            settings,
+            settings: null,
             reservations,
             holds,
           });
@@ -48763,14 +49983,6 @@
               conflict: { hasConflict: true },
             };
           }
-          if (bookingError?.code === "PACING_EXCEEDED") {
-            const maxCovers = settings?.pacingRules?.[0]?.maxCoversPerSlot ?? Infinity;
-            return {
-              success: false,
-              error: bookingError.message,
-              pacing: { withinLimit: false, currentCovers: 0, maxCovers },
-            };
-          }
         }
     
         // Restore the advisory-lock + transaction this staff-booking path silently
@@ -48783,8 +49995,8 @@
           window: { startTime, endTime },
           partySize: data.partySize,
           checkHoldConflict: true,
-          gate: { channel: "phone" },
-          write: async (tx) => {
+          gate: { channel: "phone", override: data.override },
+          write: async (tx, gated) => {
             const created = await tx.reservation.create({
               data: {
                 date: new Date(data.date),
@@ -48801,6 +50013,7 @@
                 guestId: data.guestId ?? null,
                 userId: userId ?? null,
                 venueId: data.venueId ?? null,
+                ...overrideColumns(data.override, gated.overrideLimits),
               },
               include: {
                 table: true,
@@ -49089,13 +50302,11 @@
     
         if (venueId) {
           // Fetch venue settings + conflict slices once, then evaluate the single
-          // canonical booking invariant (conflict + pacing) through assertBookable —
-          // the same seam every other write path crosses. Exclude the current
-          // reservation from the slices so a move doesn't conflict or pace against
-          // itself. This closes the pacing gap: moves previously checked conflict
-          // only, so a slot move could push a window over its cover limit.
-          const venue = await prisma.venue.findUnique({ where: { id: venueId } });
-          const settings = (venue?.settings ?? null) as VenueSettings | null;
+          // canonical booking invariant (conflict) through assertBookable — the same
+          // seam every other write path crosses. Exclude the current reservation
+          // from the slices so a move doesn't conflict against itself. Pacing is a
+          // soft limit judged by the booking gate below (settings: null here), so a
+          // staff override with a reason can pass it.
           const { reservations, holds } = await availabilityService.fetchConflictData(venueId, date);
           const filteredReservations = reservations.filter((r) => r.id !== id);
     
@@ -49103,7 +50314,7 @@
             tableId,
             window: { startTime, endTime },
             partySize: data.partySize ?? existing.partySize,
-            settings,
+            settings: null,
             reservations: filteredReservations,
             holds,
           });
@@ -49113,12 +50324,6 @@
               success: false,
               error: "Time slot has a conflict with an existing reservation or hold",
               conflict: { hasConflict: true },
-            };
-          }
-          if (bookingError?.code === "PACING_EXCEEDED") {
-            return {
-              success: false,
-              error: bookingError.message,
             };
           }
         }
@@ -49148,12 +50353,19 @@
           partySize: data.partySize ?? existing.partySize,
           excludeReservationId: id,
           checkHoldConflict: true,
-          gate: { channel: "phone" },
-          write: async (tx) => {
+          gate: { channel: "phone", override: data.override },
+          write: async (tx, gated) => {
             try {
               const moved = await tx.reservation.update({
                 where: { id },
-                data: updateData,
+                // A re-judged slot replaces any earlier override: it stays only if
+                // this move needed one.
+                data: {
+                  ...updateData,
+                  overrideReason: null,
+                  overrideLimits: [],
+                  ...overrideColumns(data.override, gated.overrideLimits),
+                },
                 include: { table: true },
               });
               await recordReservationEvent(tx, {
@@ -52733,7 +53945,7 @@
     
       const STEP_PATHS: Record<SetupStep, string> = {
         onboarding: "/onboarding",
-        "operating-hours": "/setup/hours",
+        "operating-hours": "/availability",
         "floor-plan": "/floor-plans",
       };
     
@@ -52783,6 +53995,7 @@
         label: t("nav.sections.manage"),
         items: [
           route("floor-plans", t("nav.items.floorPlans"), "/floor-plans"),
+          route("availability", t("nav.items.availability"), "/availability"),
           route("menus", t("nav.items.menus"), "/menus"),
           route("booking-widget", t("nav.items.bookingWidget"), "/booking-widget"),
         ],
@@ -60656,6 +61869,21 @@
       }
     
       /**
+       * The dates in `from`..`to` (at most 60 days) the venue is closed, each with
+       * its guest message, from the public route — so a calendar can disable them
+       * before a guest picks one.
+       */
+      async getClosedDates(
+        slug: string,
+        range: { from: string; to: string }
+      ): Promise<PublicClosedDate[]> {
+        return this.client.getOne<PublicClosedDate[]>(`${publicAvailabilityPath(slug)}/dates`, {
+          from: range.from,
+          to: range.to,
+        });
+      }
+    
+      /**
        * Get dates with availability in a range
        */
       async getDates(params: GetDatesParams): Promise<DateAvailability[]> {
@@ -60725,6 +61953,22 @@
         return response.data;
       }
     
+      /**
+       * What an unsaved draft changes: per-date added/removed times for 30 days
+       * from `focusDate`, the focus day, and a page of the future bookings in
+       * `scope` it would strand. Read-only, so a gateway failure is retried. A
+       * 503 `preview-timeout` rejects with an `ApiClientError`; keep the last
+       * good preview.
+       */
+      async previewConfig(venueId: string, body: PreviewAvailabilityBody): Promise<PreviewResult> {
+        const response = await this.client.call(
+          availabilityConfigEndpoints.previewAvailability,
+          { params: { id: venueId }, body },
+          { idempotentRetry: true }
+        );
+        return response.data;
+      }
+    
       /** Reopens a closure; guests it cancelled stay cancelled. */
       async reopenClosure(
         venueId: string,
@@ -60746,6 +61990,22 @@
         const response = await this.client.call(availabilityConfigEndpoints.listDays, {
           params: { id: venueId },
           query: { from: range.from, to: range.to },
+        });
+        return response.data;
+      }
+    
+      /**
+       * Ask the booking gate whether it would take a staff (phone) booking:
+       * `ok`, `soft` (limits a reason can override), or `hard` (closures, never
+       * overridable), each with a human message.
+       */
+      async checkBooking(
+        venueId: string,
+        body: AvailabilityCheckBody
+      ): Promise<AvailabilityCheckResult> {
+        const response = await this.client.call(availabilityConfigEndpoints.check, {
+          params: { id: venueId },
+          body,
         });
         return response.data;
       }
@@ -62755,6 +64015,52 @@
       }
     }
   </file>
+  <file path="packages/availability/src/apply-draft.ts">
+    type ConfigTable = keyof AvailabilityConfig;
+    type Row<T extends ConfigTable> = AvailabilityConfig[T][number];
+    export const ARCHIVED_ON_REMOVE: ReadonlySet<ConfigTable> = new Set<ConfigTable>([
+      "schedules",
+      "venueServices",
+    ]);
+    function applyTable<T extends ConfigTable>(
+      table: T,
+      rows: AvailabilityConfig[T],
+      changes: AvailabilityConfigChanges,
+      nowIso: string
+    ): AvailabilityConfig[T] {
+      const upserts = (changes.upsert[table] ?? []) as Row<T>[];
+      const removed = new Set(changes.remove[table] ?? []);
+      const byId = new Map(upserts.map((r) => [r.id, r]));
+      const kept = (rows as Row<T>[]).flatMap((row): Row<T>[] => {
+        const replaced = byId.get(row.id) ?? row;
+        if (!removed.has(row.id)) return [replaced];
+        return ARCHIVED_ON_REMOVE.has(table) ? [{ ...replaced, archivedAt: nowIso }] : [];
+      });
+      const known = new Set((rows as Row<T>[]).map((r) => r.id));
+      const added = upserts.filter((r) => !known.has(r.id) && !removed.has(r.id));
+      return [...kept, ...added] as AvailabilityConfig[T];
+    }
+    export function applyChanges(
+      config: AvailabilityConfig,
+      changes: AvailabilityConfigChanges,
+      nowIso: string
+    ): AvailabilityConfig {
+      return {
+        schedules: applyTable("schedules", config.schedules, changes, nowIso),
+        venueServices: applyTable("venueServices", config.venueServices, changes, nowIso),
+        scheduleServices: applyTable("scheduleServices", config.scheduleServices, changes, nowIso),
+        assignments: applyTable("assignments", config.assignments, changes, nowIso),
+        dateRules: applyTable("dateRules", config.dateRules, changes, nowIso),
+      };
+    }
+    export function applyDraft<S extends AvailabilitySnapshot>(
+      snapshot: S,
+      changes: AvailabilityConfigChanges,
+      nowIso: string
+    ): S {
+      return { ...snapshot, config: applyChanges(snapshot.config, changes, nowIso) };
+    }
+  </file>
   <file path="packages/availability/src/civil-date.ts">
     function toUtcMs(date: ServiceDate): number {
       const y = Number(date.slice(0, 4));
@@ -62840,6 +64146,32 @@
       return services.length === 0
         ? "Closed"
         : services.map((s) => `${s.name} ${timeRange(s.opensAt, s.closesAt)}`).join(", ");
+    }
+  </file>
+  <file path="packages/availability/src/diff-days.ts">
+    export interface DayDiff {
+      serviceDate: ServiceDate;
+      /** Seating minutes (past the service day's midnight) guests gain, ascending. */
+      added: number[];
+      /** Seating minutes guests lose, ascending. */
+      removed: number[];
+    }
+    export interface DiffDaysOptions {
+      partySize: number;
+      channel: BookingChannel;
+      now: Date;
+    }
+    export function diffDays(
+      before: BookingSnapshot,
+      after: BookingSnapshot,
+      dates: readonly ServiceDate[],
+      options: DiffDaysOptions
+    ): DayDiff[] {
+      return dates.map((serviceDate) => {
+        const was = minutesOn(before, serviceDate, options);
+        const now = minutesOn(after, serviceDate, options);
+        return { serviceDate, added: onlyIn(now, was), removed: onlyIn(was, now) };
+      });
     }
   </file>
   <file path="packages/availability/src/format-minute.ts">
@@ -66399,7 +67731,7 @@
         name: "Calendar",
         include: false,
         description:
-          "Inline, locale-aware month grid for single-date selection. Controlled via value (yyyy-mm-dd ISO string) and onChange; supports min/max bounds, an isDateDisabled predicate, locale, and weekStartsOn. Keyboard-navigable ARIA grid.",
+          "Inline, locale-aware month grid for single-date selection. Controlled via value (yyyy-mm-dd ISO string) and onChange; supports min/max bounds, an isDateDisabled predicate, an optional getDateLabel(iso) accessible-name callback, locale, and weekStartsOn. Keyboard-navigable ARIA grid.",
       },
       Card: {
         name: "Card",
@@ -68489,6 +69821,8 @@
       guestPhone?: string;
       guestId?: string;
       venueId?: string;
+      /** Staff override of a soft availability limit; stored with the booking. */
+      override?: { reason: string };
     }
     export interface UpdateReservationRequest {
       date?: string;
@@ -68502,6 +69836,8 @@
       seatingPreference?: SeatingPreference;
       cancellationReason?: string;
       cancellationNote?: string;
+      /** Staff override of a soft availability limit on a time or table move. */
+      override?: { reason: string };
     }
     export interface UpdateTableStatusRequest {
       status: TableStatus;

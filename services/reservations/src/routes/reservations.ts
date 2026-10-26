@@ -396,8 +396,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
             },
           },
           400: {
-            description:
-              "Invalid request body, unknown guest for this venue, or pacing limit exceeded",
+            description: "Invalid request body, unknown guest for this venue",
             $ref: "Error#",
           },
           401: {

@@ -1,4 +1,4 @@
-import type { TimeSlot } from "@mbe/types";
+import type { TimeSlot, BookingPaused } from "@mbe/types";
 import {
   Button,
   Alert,
@@ -11,8 +11,9 @@ import {
 import { useTranslation } from "react-i18next";
 import { getHourIn } from "../../utils/format.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { venueDate } from "../../utils/service-day.js";
+import { addDays, venueDate } from "../../utils/service-day.js";
 import { TimeSlotListbox } from "./TimeSlotListbox.js";
+import type { ClosedMidBooking } from "./useBookingFlow.js";
 import styles from "./TimeSlotPicker.module.css";
 
 export interface TimeSlotPickerProps {
@@ -45,9 +46,34 @@ export interface TimeSlotPickerProps {
    * back to device-local.
    */
   venueTimezone?: string;
+  /** The venue's message when this date is closed (ux.md F9.2). */
+  closure?: string;
+  /** Online booking is paused venue-wide (ux.md F9.3). */
+  bookingPaused?: BookingPaused | null;
+  /** A closure landed after the guest chose a time (ux.md F9.5). */
+  closedMidBooking?: ClosedMidBooking | null;
+  /** Venue contact phone, offered when nothing is configured online. */
+  phone?: string;
 }
 
 const SKELETON_SLOT_COUNT = 8;
+/** How many nearby times a mid-booking closure offers (ux.md F9.5). */
+const MAX_ALTERNATIVES = 3;
+
+type Period = "lunch" | "dinner" | "late" | "afterMidnight";
+
+/** The `max` slots nearest `lostTime`, back in time order. */
+function nearestSlots(slots: TimeSlot[], lostTime: string, max: number): TimeSlot[] {
+  const target = new Date(lostTime).getTime();
+  return [...slots]
+    .sort(
+      (a, b) =>
+        Math.abs(new Date(a.time).getTime() - target) -
+        Math.abs(new Date(b.time).getTime() - target)
+    )
+    .slice(0, max)
+    .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+}
 
 export function TimeSlotPicker({
   slots: allSlots,
@@ -64,6 +90,10 @@ export function TimeSlotPicker({
   audience = "guest",
   onSetHours,
   venueTimezone,
+  closure,
+  bookingPaused,
+  closedMidBooking,
+  phone,
 }: TimeSlotPickerProps) {
   const { t } = useTranslation();
   const format = useVenueFormat({ ianaTimezone: venueTimezone ?? "", currencyCode: "USD" });
@@ -87,24 +117,26 @@ export function TimeSlotPicker({
     return venueTimezone ? getHourIn(isoTime, venueTimezone) : new Date(isoTime).getHours();
   };
 
-  // Group slots by meal period
+  // A slot on the venue's next calendar day is after midnight and belongs
+  // with Late Night, not lunch (ux.md F9.6).
+  const periodOf = (isoTime: string): Period => {
+    if (venueDate(new Date(isoTime), venueTimezone) > date) return "afterMidnight";
+    const hour = getHour(isoTime);
+    if (hour < 15) return "lunch";
+    return hour < 20 ? "dinner" : "late";
+  };
+
   const groupedSlots = slots.reduce(
     (groups, slot) => {
-      const hour = getHour(slot.time);
-      let period: "lunch" | "dinner" | "late";
-      if (hour < 15) {
-        period = "lunch";
-      } else if (hour < 20) {
-        period = "dinner";
-      } else {
-        period = "late";
-      }
-      return {
-        ...groups,
-        [period]: [...groups[period], slot],
-      };
+      const period = periodOf(slot.time);
+      return { ...groups, [period]: [...groups[period], slot] };
     },
-    { lunch: [] as TimeSlot[], dinner: [] as TimeSlot[], late: [] as TimeSlot[] }
+    {
+      lunch: [] as TimeSlot[],
+      dinner: [] as TimeSlot[],
+      late: [] as TimeSlot[],
+      afterMidnight: [] as TimeSlot[],
+    }
   );
 
   if (isLoading) {
@@ -136,6 +168,162 @@ export function TimeSlotPicker({
     );
   }
 
+  const renderListbox = (periodSlots: TimeSlot[], label: string) => (
+    <TimeSlotListbox
+      slots={periodSlots}
+      selectedSlot={selectedSlot}
+      onSelectSlot={onSelectSlot}
+      label={label}
+      venueTimezone={venueTimezone}
+    />
+  );
+
+  const renderEmpty = () => {
+    if (bookingPaused) {
+      return (
+        <EmptyState
+          heading={t("bookingWidget.timeSlot.pausedHeading")}
+          description={
+            bookingPaused.phone
+              ? `${bookingPaused.message} ${t("bookingWidget.timeSlot.pausedCall", { phone: bookingPaused.phone })}`
+              : bookingPaused.message
+          }
+        />
+      );
+    }
+    if (closure) {
+      return (
+        <EmptyState
+          heading={t("bookingWidget.timeSlot.closedHeading", { date: formattedDate })}
+          description={closure}
+          action={
+            <Button variant="primary" onClick={onBack} type="button">
+              {t("bookingWidget.timeSlot.seeOtherDates")}
+            </Button>
+          }
+        />
+      );
+    }
+    if (!hasOperatingHours) {
+      return audience === "staff" ? (
+        <EmptyState
+          heading={t("bookingWidget.timeSlot.noHoursStaffHeading")}
+          description={t("bookingWidget.timeSlot.noHoursStaffDescription")}
+          action={
+            <Button variant="primary" onClick={onSetHours} type="button">
+              {t("bookingWidget.timeSlot.setHours")}
+            </Button>
+          }
+        />
+      ) : (
+        <EmptyState
+          heading={t("bookingWidget.timeSlot.noHoursGuestHeading")}
+          description={
+            phone
+              ? t("bookingWidget.timeSlot.noHoursGuestCall", { phone })
+              : t("bookingWidget.timeSlot.noHoursGuestDescription")
+          }
+        />
+      );
+    }
+    if (onJoinWaitlist) {
+      return (
+        <div className={styles.noAvailabilityContainer}>
+          <EmptyState
+            heading={t("bookingWidget.timeSlot.noTimesHeading")}
+            description={
+              estimatedWaitMinutes != null && !isFutureDate
+                ? t("bookingWidget.estimatedWait", { minutes: estimatedWaitMinutes })
+                : t("bookingWidget.timeSlot.tryDifferent")
+            }
+          />
+          <Button variant="primary" onClick={onJoinWaitlist} type="button">
+            {t("bookingWidget.timeSlot.joinWaitlist")}
+          </Button>
+        </div>
+      );
+    }
+    return (
+      <EmptyState
+        heading={t("bookingWidget.timeSlot.noTimesHeading")}
+        description={t("bookingWidget.timeSlot.tryDifferent")}
+      />
+    );
+  };
+
+  const renderMidBooking = (notice: ClosedMidBooking) => {
+    const alternatives = nearestSlots(slots, notice.lostTime, MAX_ALTERNATIVES);
+    return (
+      <div className={styles.periods}>
+        <Alert variant="warning">
+          <strong>{t("bookingWidget.timeSlot.justClosed")}</strong> {notice.message}
+        </Alert>
+        {alternatives.length > 0 && (
+          <div>
+            <Heading className={styles.periodLabel}>
+              {t("bookingWidget.timeSlot.otherTimes")}
+            </Heading>
+            {renderListbox(alternatives, t("bookingWidget.timeSlot.otherTimes"))}
+          </div>
+        )}
+        <Button variant="secondary" onClick={onBack} type="button">
+          {t("bookingWidget.timeSlot.pickAnotherDate")}
+        </Button>
+      </div>
+    );
+  };
+
+  const renderPeriods = () => {
+    const showLate = groupedSlots.late.length > 0 || groupedSlots.afterMidnight.length > 0;
+    const sections: Array<{
+      key: string;
+      heading: Exclude<Period, "afterMidnight">;
+      lists: Array<[TimeSlot[], string]>;
+    }> = [
+      {
+        key: "lunch",
+        heading: "lunch",
+        lists: [[groupedSlots.lunch, t("bookingWidget.timeSlot.periodTimes.lunch")]],
+      },
+      {
+        key: "dinner",
+        heading: "dinner",
+        lists: [[groupedSlots.dinner, t("bookingWidget.timeSlot.periodTimes.dinner")]],
+      },
+      {
+        key: "late",
+        heading: "late",
+        lists: [
+          [groupedSlots.late, t("bookingWidget.timeSlot.periodTimes.late")],
+          [
+            groupedSlots.afterMidnight,
+            t("bookingWidget.timeSlot.periodTimes.lateAfterMidnight", {
+              date: format.formatLongDate(addDays(date, 1)),
+            }),
+          ],
+        ],
+      },
+    ];
+    return (
+      <div className={styles.periods}>
+        {sections.map(({ key, heading, lists }) => {
+          const visible = lists.filter(([periodSlots]) => periodSlots.length > 0);
+          if (visible.length === 0 || (key === "late" && !showLate)) return null;
+          return (
+            <div key={key}>
+              <Heading className={styles.periodLabel}>
+                {t(`bookingWidget.timeSlot.periods.${heading}`)}
+              </Heading>
+              {visible.map(([periodSlots, label]) => (
+                <div key={label}>{renderListbox(periodSlots, label)}</div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.topBar}>
@@ -150,67 +338,11 @@ export function TimeSlotPicker({
         </div>
       </div>
 
-      {slots.length === 0 ? (
-        !hasOperatingHours ? (
-          audience === "staff" ? (
-            <EmptyState
-              heading={t("bookingWidget.timeSlot.noHoursStaffHeading")}
-              description={t("bookingWidget.timeSlot.noHoursStaffDescription")}
-              action={
-                <Button variant="primary" onClick={onSetHours} type="button">
-                  {t("bookingWidget.timeSlot.setHours")}
-                </Button>
-              }
-            />
-          ) : (
-            <EmptyState
-              heading={t("bookingWidget.timeSlot.noHoursGuestHeading")}
-              description={t("bookingWidget.timeSlot.noHoursGuestDescription")}
-            />
-          )
-        ) : onJoinWaitlist ? (
-          <div className={styles.noAvailabilityContainer}>
-            <EmptyState
-              heading={t("bookingWidget.timeSlot.noTimesHeading")}
-              description={
-                estimatedWaitMinutes != null && !isFutureDate
-                  ? t("bookingWidget.estimatedWait", { minutes: estimatedWaitMinutes })
-                  : t("bookingWidget.timeSlot.tryDifferent")
-              }
-            />
-            <Button variant="primary" onClick={onJoinWaitlist} type="button">
-              {t("bookingWidget.timeSlot.joinWaitlist")}
-            </Button>
-          </div>
-        ) : (
-          <EmptyState
-            heading={t("bookingWidget.timeSlot.noTimesHeading")}
-            description={t("bookingWidget.timeSlot.tryDifferent")}
-          />
-        )
-      ) : (
-        <div className={styles.periods}>
-          {(["lunch", "dinner", "late"] as const).map((period) => {
-            const periodSlots = groupedSlots[period];
-            if (periodSlots.length === 0) return null;
-
-            return (
-              <div key={period}>
-                <Heading className={styles.periodLabel}>
-                  {t(`bookingWidget.timeSlot.periods.${period}`)}
-                </Heading>
-                <TimeSlotListbox
-                  slots={periodSlots}
-                  selectedSlot={selectedSlot}
-                  onSelectSlot={onSelectSlot}
-                  label={t(`bookingWidget.timeSlot.periodTimes.${period}`)}
-                  venueTimezone={venueTimezone}
-                />
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {closedMidBooking
+        ? renderMidBooking(closedMidBooking)
+        : slots.length === 0
+          ? renderEmpty()
+          : renderPeriods()}
 
       {selectedSlot && (
         <div className={styles.selectedSummary}>

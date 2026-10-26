@@ -282,6 +282,21 @@ describe("bookSlot", () => {
     expect(intent.write).not.toHaveBeenCalled();
   });
 
+  it("passes the staff override to the gate and hands the overridden limits to write", async () => {
+    vi.mocked(judgeBooking).mockResolvedValueOnce({ kind: "ok", overrideLimits: ["pacing"] });
+    useTxOnce(makeTx());
+    const intent = baseIntent({ gate: { channel: "phone", override: { reason: "VIP" } } });
+
+    const result = await bookSlot(intent);
+
+    expect(result.ok).toBe(true);
+    expect(judgeBooking).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ override: { reason: "VIP" } })
+    );
+    expect(intent.write).toHaveBeenCalledWith(expect.anything(), { overrideLimits: ["pacing"] });
+  });
+
   it("reports a gate conflict as CONFLICT", async () => {
     vi.mocked(judgeBooking).mockResolvedValueOnce({ kind: "conflict" });
     useTxOnce(makeTx());

@@ -98,6 +98,15 @@ export interface UpdateReservationResult {
   rejection?: GateRejection;
 }
 
+/**
+ * The columns that record a staff override. Only the limits the gate actually
+ * passed count: an override sent for a slot that needed none is not stored.
+ */
+function overrideColumns(override: { reason: string } | undefined, limits: string[] | undefined) {
+  if (!override || !limits || limits.length === 0) return {};
+  return { overrideReason: override.reason.trim(), overrideLimits: limits };
+}
+
 /** A staff create or move that {@link bookSlot} refused: the gate's verdict, else a conflict. */
 function staffSlotFailure(conflict: SlotConflict) {
   if (conflict.code === "NOT_BOOKABLE") {
@@ -316,11 +325,10 @@ export const reservationService = {
 
     if (venueId) {
       // Fetch venue settings + conflict slices once, then evaluate the single
-      // canonical booking invariant (conflict + pacing) through assertBookable —
-      // the same seam confirmHold and createWalkIn cross, so staff direct
-      // bookings can never apply a different rule than guest bookings.
-      const venue = await prisma.venue.findUnique({ where: { id: venueId } });
-      const settings = (venue?.settings ?? null) as VenueSettings | null;
+      // canonical booking invariant (party fit + conflict) through assertBookable —
+      // the same seam confirmHold and createWalkIn cross. Pacing is NOT checked
+      // here (settings: null): it is a soft limit the booking gate judges below,
+      // so a staff override with a reason can pass it.
       const { reservations, holds } = await availabilityService.fetchConflictData(
         venueId,
         data.date
@@ -331,7 +339,7 @@ export const reservationService = {
         table: await loadTableFit(data.tableId),
         window: { startTime, endTime },
         partySize: data.partySize,
-        settings,
+        settings: null,
         reservations,
         holds,
       });
@@ -346,14 +354,6 @@ export const reservationService = {
           conflict: { hasConflict: true },
         };
       }
-      if (bookingError?.code === "PACING_EXCEEDED") {
-        const maxCovers = settings?.pacingRules?.[0]?.maxCoversPerSlot ?? Infinity;
-        return {
-          success: false,
-          error: bookingError.message,
-          pacing: { withinLimit: false, currentCovers: 0, maxCovers },
-        };
-      }
     }
 
     // Restore the advisory-lock + transaction this staff-booking path silently
@@ -366,8 +366,8 @@ export const reservationService = {
       window: { startTime, endTime },
       partySize: data.partySize,
       checkHoldConflict: true,
-      gate: { channel: "phone" },
-      write: async (tx) => {
+      gate: { channel: "phone", override: data.override },
+      write: async (tx, gated) => {
         const created = await tx.reservation.create({
           data: {
             date: new Date(data.date),
@@ -384,6 +384,7 @@ export const reservationService = {
             guestId: data.guestId ?? null,
             userId: userId ?? null,
             venueId: data.venueId ?? null,
+            ...overrideColumns(data.override, gated.overrideLimits),
           },
           include: {
             table: true,
@@ -672,13 +673,11 @@ export const reservationService = {
 
     if (venueId) {
       // Fetch venue settings + conflict slices once, then evaluate the single
-      // canonical booking invariant (conflict + pacing) through assertBookable —
-      // the same seam every other write path crosses. Exclude the current
-      // reservation from the slices so a move doesn't conflict or pace against
-      // itself. This closes the pacing gap: moves previously checked conflict
-      // only, so a slot move could push a window over its cover limit.
-      const venue = await prisma.venue.findUnique({ where: { id: venueId } });
-      const settings = (venue?.settings ?? null) as VenueSettings | null;
+      // canonical booking invariant (conflict) through assertBookable — the same
+      // seam every other write path crosses. Exclude the current reservation
+      // from the slices so a move doesn't conflict against itself. Pacing is a
+      // soft limit judged by the booking gate below (settings: null here), so a
+      // staff override with a reason can pass it.
       const { reservations, holds } = await availabilityService.fetchConflictData(venueId, date);
       const filteredReservations = reservations.filter((r) => r.id !== id);
 
@@ -686,7 +685,7 @@ export const reservationService = {
         tableId,
         window: { startTime, endTime },
         partySize: data.partySize ?? existing.partySize,
-        settings,
+        settings: null,
         reservations: filteredReservations,
         holds,
       });
@@ -696,12 +695,6 @@ export const reservationService = {
           success: false,
           error: "Time slot has a conflict with an existing reservation or hold",
           conflict: { hasConflict: true },
-        };
-      }
-      if (bookingError?.code === "PACING_EXCEEDED") {
-        return {
-          success: false,
-          error: bookingError.message,
         };
       }
     }
@@ -731,12 +724,19 @@ export const reservationService = {
       partySize: data.partySize ?? existing.partySize,
       excludeReservationId: id,
       checkHoldConflict: true,
-      gate: { channel: "phone" },
-      write: async (tx) => {
+      gate: { channel: "phone", override: data.override },
+      write: async (tx, gated) => {
         try {
           const moved = await tx.reservation.update({
             where: { id },
-            data: updateData,
+            // A re-judged slot replaces any earlier override: it stays only if
+            // this move needed one.
+            data: {
+              ...updateData,
+              overrideReason: null,
+              overrideLimits: [],
+              ...overrideColumns(data.override, gated.overrideLimits),
+            },
             include: { table: true },
           });
           await recordReservationEvent(tx, {

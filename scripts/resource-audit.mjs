@@ -376,6 +376,35 @@ export function refreshTrackedCount(ghClient, issueNumber, priorTitle, title, bo
   );
 }
 
+/**
+ * Brings a just-reopened tracker up to date (#7602). A reopen is itself the
+ * event a human needs explained, so unlike `refreshTrackedCount` the comment is
+ * posted even when the count has not moved.
+ */
+export function refreshReopenedIssue(
+  ghClient,
+  issueNumber,
+  priorTitle,
+  title,
+  body,
+  totalOrphaned
+) {
+  const match = /\((\d+)\)\s*$/.exec(priorTitle ?? "");
+  const was = match ? match[1] : "an unrecorded count";
+  const note = [
+    `Reopened by \`scripts/resource-audit.mjs\`: **${totalOrphaned}** orphaned resource(s) measured, was ${was}.`,
+    "",
+    "The title and body above have been updated to this run's numbers.",
+  ].join("\n");
+
+  try {
+    ghClient.issue.edit(issueNumber, ["--title", title, "--body", body]);
+  } catch (err) {
+    console.error(`[resource-audit] could not edit issue #${issueNumber}: ${err.message}`);
+  }
+  ghClient.issue.comment(issueNumber, note);
+}
+
 function createGitHubIssue(ghClient, title, body, totalOrphaned) {
   try {
     // A failed search fails open: it must not swallow a genuine finding.
@@ -409,6 +438,14 @@ function createGitHubIssue(ghClient, title, body, totalOrphaned) {
     } else if (result.action === "skipped-error") {
       console.log(`Could not read state of issue #${result.issueNumber} — not filing: ${title}`);
     } else if (result.action === "reopen") {
+      refreshReopenedIssue(
+        ghClient,
+        result.issueNumber,
+        result.prior?.title,
+        title,
+        body,
+        totalOrphaned
+      );
       console.log(`Reopened issue #${result.issueNumber}: ${title}`);
     } else {
       console.log(`Created issue #${result.issueNumber}: ${title}`);

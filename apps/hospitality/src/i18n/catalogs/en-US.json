@@ -326,7 +326,8 @@
       "bookingWidget": "Booking Widget",
       "signOut": "Sign Out",
       "chat": "Chat",
-      "menus": "Menus"
+      "menus": "Menus",
+      "availability": "Availability"
     }
   },
   "layout": {
@@ -350,6 +351,7 @@
       "setup": "Setup",
       "hours": "Operating Hours",
       "menus": "Menus",
+      "availability": "Availability",
       "chat": "Chat"
     },
     "venuesNotLoaded": "Venues not loaded.",
@@ -1197,6 +1199,7 @@
       "partySize": "Party Size",
       "largePartyCall": "For parties larger than {{max}}, call us at <phoneLink>{{phone}}</phoneLink>.",
       "largePartyContact": "For parties larger than {{max}}, please contact the venue directly.",
+      "dateClosedLabel": "{{date}}, closed. {{message}}",
       "findTimes": "Find Available Times",
       "dateHint": "Choose a date from today onward to see available times."
     },
@@ -1205,11 +1208,19 @@
       "noHoursStaffHeading": "No operating hours set",
       "noHoursStaffDescription": "This venue doesn't have any operating hours configured yet, so guests can't see availability or book a table.",
       "setHours": "Set Operating Hours",
-      "noHoursGuestHeading": "Online booking isn't available yet",
+      "noHoursGuestHeading": "Not taking online bookings yet",
       "noHoursGuestDescription": "This venue hasn't set up online reservations yet. Please contact them directly to book a table.",
       "noTimesHeading": "No available times",
       "tryDifferent": "Try a different date or party size.",
       "joinWaitlist": "Join Waitlist",
+      "closedHeading": "Closed on {{date}}",
+      "seeOtherDates": "See other dates",
+      "pausedHeading": "Online booking is paused right now",
+      "pausedCall": "Call {{phone}}",
+      "justClosed": "This time just closed",
+      "otherTimes": "Other times that day",
+      "pickAnotherDate": "Pick another date",
+      "noHoursGuestCall": "Call {{phone}} to book a table.",
       "periods": {
         "lunch": "Lunch",
         "dinner": "Dinner",
@@ -1218,7 +1229,8 @@
       "periodTimes": {
         "lunch": "Available lunch times",
         "dinner": "Available dinner times",
-        "late": "Available late night times"
+        "late": "Available late night times",
+        "lateAfterMidnight": "Available late night times, after midnight on {{date}}"
       },
       "selected": "Selected:",
       "tablesAvailable_one": "{{count}} table available",
@@ -1445,12 +1457,115 @@
       }
     }
   },
-  "setupHours": {
-    "title": "Operating Hours",
-    "description": "Set the days and times your venue is open for reservations.",
-    "cancel": "Cancel",
-    "saving": "Saving...",
-    "save": "Save Hours"
+  "availability": {
+    "title": "Availability",
+    "description": "What governs each day, and why.",
+    "hostNote": "Only managers change hours. For tonight, use the Tonight panel.",
+    "loadError": "Couldn't load availability",
+    "noVenue": "Select a venue to see its availability.",
+    "toolbar": {
+      "viewLabel": "Calendar view",
+      "month": "Month",
+      "week": "Week",
+      "previous": "Previous",
+      "next": "Next",
+      "today": "Today"
+    },
+    "calendar": {
+      "label": "Availability calendar",
+      "cellName": "{{date}}: {{details}}",
+      "loadingDay": "loading",
+      "services_one": "{{count}} service",
+      "services_other": "{{count}} services",
+      "services_many": "{{count}} services",
+      "onlineOff": "Online booking off",
+      "onlineOffName": "online booking off",
+      "closedAllDay": "Closed all day",
+      "closedAllDayName": "closed all day",
+      "closedBand": "Closed {{from}} – {{to}}",
+      "closedBandName": "closed {{from}} – {{to}}",
+      "nextDay": "{{time}} (next day)"
+    },
+    "drawer": {
+      "summaryOpen": "Open for {{services}}.",
+      "summaryClosed": "Closed.",
+      "closedRegular": "Closed. Your regular week has no hours on {{weekday}}.",
+      "changes_one": "One change from your regular {{weekday}}.",
+      "changes_other": "{{count}} changes from your regular {{weekday}}.",
+      "changes_many": "{{count}} changes from your regular {{weekday}}.",
+      "whyTitle": "Why this day",
+      "ifRemoved": "If removed: {{result}}",
+      "removalNone": "no change to this day",
+      "removal": {
+        "serviceOpens": "{{name}} opens {{from}} – {{to}}",
+        "serviceCloses": "{{name}} no longer open",
+        "opensAt": "{{name}} opens at {{time}}",
+        "closesLater": "{{name}} back to {{time}}",
+        "closesEarlier": "{{name}} closes at {{time}}",
+        "lastSeating": "{{name}} last seating {{time}}",
+        "reopens": "reopens {{from}} – {{to}}",
+        "reopensAllDay": "reopens all day",
+        "bookingOn": {
+          "online": "online booking back on",
+          "phone": "phone booking back on",
+          "waitlist": "waitlist back on"
+        },
+        "bookingOff": {
+          "online": "online booking off",
+          "phone": "phone booking off",
+          "waitlist": "waitlist off"
+        },
+        "pacingLifted": "pacing limit lifted",
+        "pacingSet": "pacing {{covers}} covers per seating"
+      },
+      "loadError": "Couldn't load why this day looks this way"
+    },
+    "quickSetup": {
+      "title": "Set your regular week",
+      "intro": "Tell guests when you take bookings. You can change any day later.",
+      "serviceN": "Service {{n}}",
+      "presetsLabel": "Service names",
+      "presets": {
+        "lunch": "Lunch",
+        "brunch": "Brunch",
+        "dinner": "Dinner",
+        "late": "Late"
+      },
+      "nameLabel": "Service name",
+      "opens": "Opens",
+      "lastSeating": "Last seating",
+      "closes": "Closes",
+      "lastSeatingHint": "Last seating {{time}}, 45 min before close",
+      "days": "Days",
+      "shortcuts": {
+        "weekdays": "Weekdays",
+        "weekends": "Weekends",
+        "everyDay": "Every day"
+      },
+      "addService": "Add another service",
+      "serviceAdded": "Service {{n}} added",
+      "removeService": "Remove service {{n}}",
+      "previewTitle": "Guest preview",
+      "previewEmpty": "Add a service to see the times guests get.",
+      "previewLine": "{{name}}: first seating {{first}}, last seating {{last}}",
+      "save": "Save and open bookings",
+      "saving": "Saving…",
+      "retry": "Retry",
+      "saveErrorTitle": "Couldn't save your week",
+      "savedToast": "Bookings are open {{days}}",
+      "versionConflict": "Someone else just changed availability. Try saving again to keep your week.",
+      "hostEmpty": "No hours are set yet. A manager sets the regular week here.",
+      "wizardIntro": "Tell guests when you take bookings.",
+      "issues": {
+        "name_required": "Give this service a name.",
+        "time_required": "Choose a time.",
+        "close_after_open": "Closing must be different from opening.",
+        "last_seating_after_close": "Last seating must be before closing.",
+        "last_seating_before_open": "Last seating must be after opening.",
+        "overlap": "This service overlaps another one.",
+        "days_required": "Choose at least one day."
+      }
+    }
   },
   "setup": {
     "yourVenue": "your venue",

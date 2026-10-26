@@ -140,17 +140,22 @@ export type GateRejection =
  * how a double-booking is reported.
  */
 export type GateOutcome =
-  { kind: "ok" } | { kind: "conflict" } | { kind: "rejected"; rejection: GateRejection };
+  | { kind: "ok"; overrideLimits?: SoftLimit[] }
+  | { kind: "conflict" }
+  | { kind: "rejected"; rejection: GateRejection };
 
 export interface GateRequest {
   venueId: string;
-  tableId: string;
+  /** Omit to ask whether any table is free (the staff check endpoint). */
+  tableId?: string;
   start: Date;
   /** The booking's real end. Without it the engine estimates one from the party size. */
   end?: Date;
   partySize: number;
   /** Guests book `online`; staff create and update are `phone`. Walk-ins are never gated. */
   channel: BookingChannel;
+  /** A staff reason to pass a soft limit. Honoured on the phone channel only; closures never yield. */
+  override?: { reason: string };
   /** The reservation being moved; it must not conflict or pace against itself. */
   excludeReservationId?: string;
   /** The hold being confirmed or moved onto. */
@@ -218,6 +223,7 @@ export async function judgeBooking(
       partySize: request.partySize,
       channel: request.channel,
       tableId: request.tableId,
+      override: request.override,
     },
     now
   );
@@ -233,8 +239,9 @@ export async function judgeBooking(
 function outcomeOf(verdict: Verdict): GateOutcome {
   switch (verdict.kind) {
     case "ok":
-    case "ok_with_override":
       return { kind: "ok" };
+    case "ok_with_override":
+      return { kind: "ok", overrideLimits: verdict.limits };
     case "soft":
       return { kind: "rejected", rejection: { code: "soft-limit", limits: verdict.limits } };
     case "hard":
@@ -259,7 +266,7 @@ function blockingBand(
   snapshot: BookingSnapshot,
   serviceDate: string,
   minute: number,
-  tableId: string
+  tableId: string | undefined
 ): { reason: HardReason; message?: string } | null {
   const day = resolveDay(snapshot, serviceDate);
   const band = day.closures.find(
@@ -268,7 +275,9 @@ function blockingBand(
       minute < b.to &&
       (b.targetKind === "venue" ||
         (b.targetKind === "booking" && (b.bookingTypes ?? []).includes("phone")) ||
-        (b.targetKind === "tables" && (b.tableIds ?? []).includes(tableId)))
+        (b.targetKind === "tables" &&
+          tableId !== undefined &&
+          (b.tableIds ?? []).includes(tableId)))
   );
   if (!band) return null;
   const reason: HardReason =
@@ -322,16 +331,23 @@ const SOFT_LIMIT_DETAIL: Record<SoftLimit, string> = {
   party_size: "over the maximum party size",
 };
 
+/** The human sentence for a {@link GateRejection}, shared by the 422 and the check endpoint. */
+export function rejectionDetail(rejection: GateRejection): string {
+  if (rejection.code === "outside-availability") {
+    return rejection.message ?? OUTSIDE_AVAILABILITY_DETAIL[rejection.reason];
+  }
+  return `This booking is ${rejection.limits.map((l) => SOFT_LIMIT_DETAIL[l]).join(" and ")}.`;
+}
+
 /** The 422 ProblemDetails (ADR-008) a route sends for a {@link GateRejection}. */
 export function gateProblem(rejection: GateRejection): ProblemDetails {
+  const detail = rejectionDetail(rejection);
   if (rejection.code === "outside-availability") {
-    const detail = rejection.message ?? OUTSIDE_AVAILABILITY_DETAIL[rejection.reason];
     return createProblemDetails(422, "Outside Availability", detail, "about:blank", undefined, {
       code: rejection.code,
       reason: rejection.reason,
     });
   }
-  const detail = `This booking is ${rejection.limits.map((l) => SOFT_LIMIT_DETAIL[l]).join(" and ")}.`;
   return createProblemDetails(422, "Soft Limit", detail, "about:blank", undefined, {
     code: rejection.code,
     limits: rejection.limits,
