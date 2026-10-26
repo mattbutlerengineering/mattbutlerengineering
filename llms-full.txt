@@ -4948,6 +4948,7 @@
       readonly days: readonly number[];
     }
     export const LAST_SEATING_LEAD_MINUTES = 45;
+    export const SERVICE_NAME_MAX_LENGTH = 40;
     export const WEEK_DISPLAY_ORDER: readonly number[] = [1, 2, 3, 4, 5, 6, 0];
     export const WEEKDAY_SHORTCUT: readonly number[] = [1, 2, 3, 4, 5];
     export const WEEKEND_SHORTCUT: readonly number[] = [6, 0];
@@ -5016,10 +5017,11 @@
     export type QuickSetupField = "name" | "opens" | "lastSeating" | "closes";
     export type QuickSetupIssueCode =
       | "name_required"
+      | "name_too_long"
       | "time_required"
       | "close_after_open"
       | "last_seating_after_close"
-      | "last_seating_before_open"
+      | "span_too_long"
       | "overlap"
       | "days_required";
     export interface QuickSetupIssue {
@@ -5061,10 +5063,13 @@
           code: "time_required",
         })
       );
+      const name = service.name.trim();
       const unnamed: QuickSetupIssue[] =
-        service.name.trim() === ""
+        name === ""
           ? [{ serviceId: service.id, field: "name", code: "name_required" }]
-          : [];
+          : name.length > SERVICE_NAME_MAX_LENGTH
+            ? [{ serviceId: service.id, field: "name", code: "name_too_long" }]
+            : [];
       return [...unnamed, ...missing];
     }
     function orderIssues(service: ServiceDraft, m: ServiceMinutes): QuickSetupIssue[] {
@@ -5094,7 +5099,23 @@
           const service = draft.services[index];
           return service ? [{ serviceId: service.id, field: "opens", code: "overlap" }] : [];
         });
-      return [...overlaps, ...daysIssue];
+      return [...overlaps, ...spanIssues(draft), ...daysIssue];
+    }
+    function spanIssues(draft: QuickSetupDraft): QuickSetupIssue[] {
+      const read = normalizeLegacyHours(draftToLegacyHours(draft));
+      const tooLong =
+        read.ok &&
+        WEEKDAYS.some((day) =>
+          read.hours.weekly[day].some(
+            (w) => w.wrapped === true && w.close - w.open > MAX_PAST_MIDNIGHT_SPAN
+          )
+        );
+      if (!tooLong) return [];
+      const latest = draft.services.reduce<{ id: string; closesAt: number } | null>((acc, s) => {
+        const m = minutesOf(s);
+        return m && (!acc || m.closesAt > acc.closesAt) ? { id: s.id, closesAt: m.closesAt } : acc;
+      }, null);
+      return latest ? [{ serviceId: latest.id, field: "closes", code: "span_too_long" }] : [];
     }
     export function draftToConfig(
       draft: QuickSetupDraft,
@@ -5168,6 +5189,12 @@
           assignments: stored.assignments.filter((a) => a.scheduleId === scheduleId).map((a) => a.id),
         },
       };
+    }
+    export function validateQuickSetupHours(
+      hours: OperatingHours,
+      t: TFunction = localeRuntime.i18n.t
+    ): OperatingHoursValidationErrors | null {
+      return Object.keys(hours).length === 0 ? { global: t("onboarding.hours.atLeastOne") } : null;
     }
     export function draftToLegacyHours(draft: QuickSetupDraft): OperatingHours {
       const projected = projectLegacyOperatingHours(draftToConfig(draft, () => "wizard"));
@@ -10164,6 +10191,38 @@
           ? jsonOk(route, { version: 1, changeId: "chg_e2e_001" })
           : route.fallback()
       );
+      // Availability page (#7514): the calendar lists `?from&to` as one open
+      // "Regular" day each (two services, no closures), and the drawer reads a
+      // constant one-schedule config. Deterministic so the page renders the same
+      // grid every run.
+      await page.route(/\/api\/v1\/venues\/[^/?]+\/availability\/days(\?|$)/, (route) => {
+        const url = new URL(route.request().url());
+        const from = url.searchParams.get("from");
+        const to = url.searchParams.get("to");
+        const data: Array<Record<string, unknown>> = [];
+        if (from && to) {
+          // Civil-date stepping: the query's dates are service dates, not instants.
+          const pad = (n: number) => String(n).padStart(2, "0");
+          const civil = (t: Date) =>
+            `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())}`;
+          for (let d = new Date(`${from}T00:00:00Z`); d <= new Date(`${to}T00:00:00Z`);) {
+            data.push({
+              serviceDate: civil(d),
+              label: "Regular",
+              scheduleId: "sch-regular",
+              serviceCount: 2,
+              closures: [],
+              bookingOpen: { online: true, phone: true, waitlist: true },
+            });
+            d = new Date(d.getTime() + 86_400_000);
+          }
+        }
+        return jsonOk(route, data);
+      });
+      await page.route(/\/api\/v1\/venues\/[^/?]+\/availability\/config$/, (route) => {
+        if (route.request().method() !== "GET") return route.fallback();
+        return jsonOk(route, buildAvailabilityConfigFixture());
+      });
     
       // Venue Groups
       await page.route("**/api/v1/venues/groups*", (route) => emptyPaginated(route));
@@ -10844,6 +10903,39 @@
       );
     
       await mockMenus(page);
+    }
+    function buildAvailabilityConfigFixture() {
+      const service = (id: string, opensAt: number, lastSeatingAt: number, closesAt: number) => ({
+        id: `ss-${id}`,
+        scheduleId: "sch-regular",
+        venueServiceId: `vs-${id}`,
+        opensAt,
+        lastSeatingAt,
+        closesAt,
+        seating: { version: 1, interval: 15 },
+        bookingTypes: ["online", "phone"],
+      });
+      return {
+        config: {
+          schedules: [{ id: "sch-regular", name: "Regular", kind: "regular", isRegular: true }],
+          venueServices: [
+            { id: "vs-lunch", name: "Lunch", position: 0 },
+            { id: "vs-dinner", name: "Dinner", position: 1 },
+          ],
+          scheduleServices: [service("lunch", 690, 840, 900), service("dinner", 1020, 1290, 1380)],
+          assignments: [
+            {
+              id: "as-regular",
+              scheduleId: "sch-regular",
+              weekdays: [0, 1, 2, 3, 4, 5, 6],
+              precedence: 0,
+            },
+          ],
+          dateRules: [],
+        },
+        version: 1,
+        source: "rows",
+      };
     }
   </file>
   <file path="apps/hospitality/e2e/auth-helpers.ts">
@@ -30470,6 +30562,84 @@
       return problemFromMessage(preamble.status, ACTION_MESSAGES[action][preamble.reason]);
     }
   </file>
+  <file path="services/reservations/src/routes/manage-rebook.ts">
+    export const manageRebookRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.post<{ Body: { offerId: string } }>(
+        "/public/v1/reservations/manage/rebook",
+        {
+          schema: { body: bodySchema },
+          config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+        },
+        manageTokenScoped(
+          { missing: (reply) => reply.status(404).send(reservationNotFoundProblem()) },
+          async (request, reply, { venueId, reservation }) => {
+            const deps: RebookDeps = {
+              ...defaultRebookDeps,
+              confirmHold: (input) =>
+                fastify.transitions.confirmHold(
+                  { ...input, actor: guestActor(reservation.guestId) },
+                  {
+                    door: "public-hold",
+                    manageToken: (created) =>
+                      created.guestEmail
+                        ? generateManageToken(created.id, created.guestEmail)
+                        : undefined,
+                  }
+                ),
+            };
+            const result = await rebookVenueCancelled(
+              reservation,
+              venueId,
+              request.body.offerId,
+              new Date(),
+              deps
+            );
+    
+            if (result.ok) {
+              const { id, guestEmail } = result.reservation;
+              return reply.status(201).send({
+                data: { reservationId: id, startTime: result.reservation.startTime },
+                manageToken: guestEmail ? generateManageToken(id, guestEmail) : undefined,
+              });
+            }
+            if (result.reason === "rejected") {
+              return reply.status(422).send(gateProblem(result.rejection));
+            }
+            if (result.reason === "deposit-required") {
+              return reply
+                .status(422)
+                .send(
+                  createProblemDetails(
+                    422,
+                    "Deposit Required",
+                    "This venue takes a deposit for new bookings, so please choose another date and time."
+                  )
+                );
+            }
+            if (result.reason === "already-rebooked") {
+              return reply.status(409).send({
+                ...createProblemDetails(
+                  409,
+                  "Already Rebooked",
+                  "This booking has already been rebooked."
+                ),
+                code: "ALREADY_REBOOKED",
+              });
+            }
+            return reply
+              .status(409)
+              .send(
+                createProblemDetails(
+                  409,
+                  "Slot Unavailable",
+                  "That time is no longer available. Please choose another."
+                )
+              );
+          }
+        )
+      );
+    };
+  </file>
   <file path="services/reservations/src/routes/manage-reservation.ts">
     export const manageReservationRoutes: FastifyPluginAsync = async (fastify) => {
       const { venueService } = fastify.services;
@@ -30487,10 +30657,26 @@
           { missing: (reply) => reply.status(404).send(reservationNotFoundProblem()) },
           async (_request, reply, { venueId, reservation }) => {
             const venue = await venueService.getById(venueId);
+            const loaded = await loadVenueCancellation(reservation, venueId);
+            // The new booking belongs to the same guest, so the same email signs its token.
+            const venueCancellation =
+              loaded?.rebooked && reservation.guestEmail
+                ? {
+                    ...loaded,
+                    rebooked: {
+                      startTime: loaded.rebooked.startTime,
+                      manageToken: generateManageToken(
+                        loaded.rebooked.reservationId,
+                        reservation.guestEmail
+                      ),
+                    },
+                  }
+                : loaded;
     
             return reply.status(200).send({
               data: {
                 reservation: serializeManagedReservation(reservation),
+                venueCancellation,
                 venue: venue
                   ? {
                       id: venue.id,
@@ -44981,6 +45167,11 @@
       venueId?: string;
       /** Who confirmed; recorded on the `created` event. Defaults to {@link SYSTEM_ACTOR}. */
       actor?: ReservationEventActor;
+      /**
+       * Runs inside the confirm transaction, after the reservation insert. Throwing
+       * rolls the whole confirm back (the hold survives for the caller to release).
+       */
+      inTransaction?: (tx: Prisma.TransactionClient, reservationId: string) => Promise<void>;
     }
     export type ConfirmHoldResult =
       | { success: true; reservation: Reservation }
@@ -45111,6 +45302,8 @@
     
           // Delete the hold in the same transaction as the reservation insert.
           await tx.reservationHold.delete({ where: { id: holdId } });
+    
+          await input.inTransaction?.(tx, reservation.id);
     
           return reservation;
         },
@@ -48329,6 +48522,220 @@
       }
     
       return lapsing;
+    }
+  </file>
+  <file path="services/reservations/src/services/manage-rebook-deps.ts">
+    export async function rebookRequiresDeposit(
+      venueId: string,
+      reservation: Reservation
+    ): Promise<boolean> {
+      const policy = await venueService.getPolicyById(venueId);
+      if (!policy || policy.depositAmountCents == null) return false;
+      if (policy.depositEnabled) return true;
+    
+      const venue = await venueService.getById(venueId);
+      const settings = venue?.settings ?? null;
+      const guest = reservation.guestEmail
+        ? await guestService.findByEmail(venueId, reservation.guestEmail)
+        : reservation.guestPhone
+          ? await guestService.findByPhone(venueId, reservation.guestPhone)
+          : null;
+      return guest !== null && assessGuestReliability(guest, settings) === "risky";
+    }
+    export const defaultRebookDeps: RebookDeps = {
+      findCancelOutcome: (reservationId, venueId) =>
+        prisma.closureOutcome.findFirst({
+          where: { reservationId, venueId, action: "cancel" },
+          select: { id: true, refund: true, rebookedReservationId: true },
+        }),
+      findRebooked: (reservationId) =>
+        prisma.reservation.findUnique({
+          where: { id: reservationId },
+          select: { id: true, startTime: true },
+        }),
+      requiresDeposit: rebookRequiresDeposit,
+      loadSnapshot: (venueId, from, to, now) => loadAvailabilitySnapshot(venueId, from, to, now),
+      createHold: (data, sessionId) => holdService.create(data, sessionId),
+      confirmHold,
+      releaseHold: (holdId, sessionId) => holdService.release(holdId, sessionId),
+      linkOutcome: async (tx, outcomeId, reservationId) => {
+        const { count } = await tx.closureOutcome.updateMany({
+          where: { id: outcomeId, rebookedReservationId: null },
+          data: { rebookedReservationId: reservationId },
+        });
+        return count === 1;
+      },
+    };
+  </file>
+  <file path="services/reservations/src/services/manage-rebook-types.ts">
+    export type GuestRefundStatus = "none" | "pending" | "done" | "failed";
+    export interface CancelOutcome {
+      id: string;
+      refund: GuestRefundStatus;
+      rebookedReservationId: string | null;
+    }
+    export interface RebookDeps {
+      findCancelOutcome(reservationId: string, venueId: string): Promise<CancelOutcome | null>;
+      findRebooked(reservationId: string): Promise<{ id: string; startTime: Date } | null>;
+      /** Whether a new booking for this guest would need a deposit (fails closed). */
+      requiresDeposit(venueId: string, reservation: Reservation): Promise<boolean>;
+      loadSnapshot(
+        venueId: string,
+        from: string,
+        to: string,
+        now: Date
+      ): Promise<{ snapshot: BookingSnapshot }>;
+      createHold(data: CreateHoldRequest, sessionId: string): Promise<CreateHoldResult>;
+      confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldResult>;
+      releaseHold(holdId: string, sessionId: string): Promise<boolean>;
+      /** Sets `rebookedReservationId` if still unset; false when another rebook won. */
+      linkOutcome(
+        tx: Prisma.TransactionClient,
+        outcomeId: string,
+        reservationId: string
+      ): Promise<boolean>;
+    }
+    export type VenueCancellationDeps = Pick<
+      RebookDeps,
+      "findCancelOutcome" | "findRebooked" | "requiresDeposit" | "loadSnapshot"
+    >;
+  </file>
+  <file path="services/reservations/src/services/manage-rebook.ts">
+    export interface RebookOffer {
+      id: string;
+      date: string;
+      startTime: string;
+    }
+    export interface VenueCancellation {
+      refundStatus: GuestRefundStatus;
+      offers: RebookOffer[];
+      /** Set once the guest has rebooked; offers are then always empty. */
+      rebooked: { reservationId: string; startTime: string } | null;
+    }
+    async function currentOffers(
+      reservation: Reservation,
+      venueId: string,
+      now: Date,
+      deps: Pick<RebookDeps, "loadSnapshot">
+    ): Promise<RebookOffer[]> {
+      // Probe the timezone-free window generously; the engine applies the exact 14-day rule.
+      const today = now.toISOString().slice(0, 10);
+      const { snapshot } = await deps.loadSnapshot(
+        venueId,
+        addDays(today, -1),
+        addDays(today, REBOOK_WINDOW_DAYS + 1),
+        now
+      );
+      const result = rebookOffers(
+        snapshot,
+        { startTime: new Date(reservation.startTime), partySize: reservation.partySize },
+        now
+      );
+      return result.kind === "offers"
+        ? result.slots.map((slot) => ({
+            id: rebookOfferId(slot.start),
+            date: slot.serviceDate,
+            startTime: slot.start.toISOString(),
+          }))
+        : [];
+    }
+    export async function loadVenueCancellation(
+      reservation: Reservation,
+      venueId: string,
+      now: Date = new Date(),
+      deps: VenueCancellationDeps = defaultRebookDeps
+    ): Promise<VenueCancellation | null> {
+      if (reservation.status !== "CANCELLED") return null;
+      const outcome = await deps.findCancelOutcome(reservation.id, venueId);
+      if (!outcome) return null;
+      const { refund: refundStatus } = outcome;
+    
+      if (outcome.rebookedReservationId) {
+        const rebooked = await deps.findRebooked(outcome.rebookedReservationId);
+        return {
+          refundStatus,
+          offers: [],
+          rebooked: rebooked
+            ? { reservationId: rebooked.id, startTime: rebooked.startTime.toISOString() }
+            : null,
+        };
+      }
+    
+      // A deposit venue gets no one-tap offers: the guest goes through the widget's payment step.
+      if (await deps.requiresDeposit(venueId, reservation)) {
+        return { refundStatus, offers: [], rebooked: null };
+      }
+      const offers = await currentOffers(reservation, venueId, now, deps);
+      return { refundStatus, offers, rebooked: null };
+    }
+    export type RebookResult =
+      | { ok: true; reservation: Reservation }
+      | {
+          ok: false;
+          reason:
+            | "not-rebookable"
+            | "already-rebooked"
+            | "deposit-required"
+            | "offer-unavailable"
+            | "slot-taken";
+        }
+      | { ok: false; reason: "rejected"; rejection: GateRejection };
+    class AlreadyRebookedError extends Error {}
+    export async function rebookVenueCancelled(
+      reservation: Reservation,
+      venueId: string,
+      offerId: string,
+      now: Date,
+      deps: RebookDeps = defaultRebookDeps
+    ): Promise<RebookResult> {
+      if (reservation.status !== "CANCELLED") return { ok: false, reason: "not-rebookable" };
+      const outcome = await deps.findCancelOutcome(reservation.id, venueId);
+      if (!outcome) return { ok: false, reason: "not-rebookable" };
+      if (outcome.rebookedReservationId) return { ok: false, reason: "already-rebooked" };
+      if (await deps.requiresDeposit(venueId, reservation)) {
+        return { ok: false, reason: "deposit-required" };
+      }
+    
+      const offers = await currentOffers(reservation, venueId, now, deps);
+      const offer = offers.find((o) => o.id === offerId);
+      if (!offer) return { ok: false, reason: "offer-unavailable" };
+    
+      const sessionId = randomUUID();
+      const held = await deps.createHold(
+        { venueId, date: offer.date, time: offer.startTime, partySize: reservation.partySize },
+        sessionId
+      );
+      if (held.rejection) return { ok: false, reason: "rejected", rejection: held.rejection };
+      if (!held.success || !held.hold) return { ok: false, reason: "slot-taken" };
+    
+      try {
+        const confirmed = await deps.confirmHold({
+          holdId: held.hold.id,
+          sessionId,
+          venueId,
+          guestDetails: {
+            guestName: reservation.guestName ?? undefined,
+            guestEmail: reservation.guestEmail ?? undefined,
+            guestPhone: reservation.guestPhone ?? undefined,
+            guestId: reservation.guestId ?? undefined,
+          },
+          inTransaction: async (tx, newReservationId) => {
+            if (!(await deps.linkOutcome(tx, outcome.id, newReservationId))) {
+              throw new AlreadyRebookedError();
+            }
+          },
+        });
+        if (confirmed.success) return { ok: true, reservation: confirmed.reservation };
+        if (confirmed.rejection) {
+          return { ok: false, reason: "rejected", rejection: confirmed.rejection };
+        }
+        return { ok: false, reason: "slot-taken" };
+      } catch (err) {
+        // The transaction rolled back, so the hold survives; free it.
+        await deps.releaseHold(held.hold.id, sessionId);
+        if (err instanceof AlreadyRebookedError) return { ok: false, reason: "already-rebooked" };
+        throw err;
+      }
     }
   </file>
   <file path="services/reservations/src/services/member-venues.ts">
@@ -63710,9 +64117,29 @@
       partySize?: number;
       specialRequests?: string;
     }
+    export interface ManagedRebookOffer {
+      id: string;
+      /** Service date the slot belongs to (differs from the local date for after-midnight times). */
+      date: string;
+      /** ISO instant the slot starts. */
+      startTime: string;
+    }
+    export interface ManagedVenueCancellation {
+      refundStatus: "none" | "pending" | "done" | "failed";
+      /** Empty once rebooked, and where the new booking would need a deposit (the guest uses the full picker). */
+      offers: ManagedRebookOffer[];
+      /** Set once the guest has rebooked; `manageToken` opens the new reservation. */
+      rebooked: { startTime: string; manageToken: string } | null;
+    }
+    export interface RebookedReservation {
+      reservationId: string;
+      startTime: string;
+      manageToken: string;
+    }
     export interface ManageReservationData {
       reservation: ManagedReservation;
       venue: ManagedReservationVenue | null;
+      venueCancellation?: ManagedVenueCancellation | null;
     }
     export class ReservationsClient {
       constructor(private client: ApiClient) {}
@@ -63854,6 +64281,32 @@
           z.object({ data: schema })
         );
         return response.data;
+      }
+    
+      /**
+       * Rebook a venue-cancelled reservation into one of its offers (public,
+       * token-authenticated). `offerId` is the offer's `id`. Refusals surface as
+       * `ApiClientError`: 409 (already rebooked / slot gone) and 422 (the venue
+       * takes a deposit, or the booking gate refuses the time).
+       */
+      async rebookManaged(token: string, offerId: string): Promise<RebookedReservation> {
+        const schema = z.object({
+          data: z.object({ reservationId: z.string(), startTime: z.string() }),
+          manageToken: z.string(),
+        });
+        const response = await this.client.request<{
+          data: { reservationId: string; startTime: string };
+          manageToken: string;
+        }>(
+          "/public/v1/reservations/manage/rebook",
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ offerId }),
+          },
+          schema
+        );
+        return { ...response.data, manageToken: response.manageToken };
       }
     
       /**
@@ -64849,6 +65302,7 @@
   </file>
   <file path="packages/availability/src/legacy-migration.ts">
     export const DEFAULT_LAST_SEATING_BUFFER = 90;
+    export const MAX_PAST_MIDNIGHT_SPAN = 16 * 60;
     export interface LegacyMigrationInput {
       hours: LegacyHours;
       /** `settings.slotIntervalMinutes`; absent means the legacy default (15). */
@@ -65147,6 +65601,9 @@
   <file path="packages/availability/src/rebook.ts">
     export const MAX_REBOOK_OFFERS = 3;
     export const REBOOK_WINDOW_DAYS = 14;
+    export function rebookOfferId(start: Date): string {
+      return start.toISOString();
+    }
     export interface RebookReservation {
       startTime: Date;
       partySize: number;
@@ -71293,6 +71750,7 @@
       await fastify.register(publicWaitlistRoutes, { prefix: "/public/v1/venues" });
       await fastify.register(confirmAttendanceRoutes);
       await fastify.register(manageReservationRoutes);
+      await fastify.register(manageRebookRoutes);
       await fastify.register(cancelReservationRoutes);
       await fastify.register(modifyReservationRoutes);
       await fastify.register(publicUnsubscribeRoutes);
@@ -77560,7 +78018,7 @@
           };
         }
         case 3: {
-          const errors = validateOperatingHours(state.data.operatingHours);
+          const errors = validateQuickSetupHours(state.data.operatingHours);
           return {
             state: { ...state, errors: { ...state.errors, operatingHours: errors } },
             valid: errors === null,

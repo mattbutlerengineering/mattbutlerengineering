@@ -178,7 +178,8 @@ test.describe("Venue onboarding wizard", () => {
 
     // Step 3 (Operating Hours) is the quick-setup card (F-ONB): a service and at
     // least one day are required before Next lets the wizard advance.
-    await mockedPage.getByRole("button", { name: "Dinner" }).click();
+    // "Late" closes at 1:00 AM, after midnight: Next must still advance.
+    await mockedPage.getByRole("button", { name: "Late" }).click();
     await mockedPage.getByRole("button", { name: "Weekdays" }).click();
     await expect(mockedPage.getByRole("checkbox", { name: "Monday" })).toBeChecked();
 

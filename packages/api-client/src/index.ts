@@ -47,6 +47,9 @@ export type { SystemHealth, ServiceHealth } from "./health.js";
 export { HealthClient } from "./health.js";
 export type {
   ManageReservationData,
+  ManagedRebookOffer,
+  ManagedVenueCancellation,
+  RebookedReservation,
   ManagedReservation,
   ManagedReservationChanges,
   ManagedReservationVenue,

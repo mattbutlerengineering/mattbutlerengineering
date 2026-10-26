@@ -1544,6 +1544,9 @@
       export const LAST_SEATING_LEAD_MINUTES: unknown;
     </item>
     <item priority="high">
+      export const SERVICE_NAME_MAX_LENGTH: unknown;
+    </item>
+    <item priority="high">
       export const WEEK_DISPLAY_ORDER: readonly number[];
     </item>
     <item priority="high">
@@ -1596,7 +1599,7 @@
       type QuickSetupField = "name" | "opens" | "lastSeating" | "closes";
     </item>
     <item priority="low">
-      type QuickSetupIssueCode = "name_required" | "time_required" | "close_after_open" | "last_seating_after_close" | "last_seating_before_open" | "overlap" | "days_required";
+      type QuickSetupIssueCode = "name_required" | "name_too_long" | "time_required" | "close_after_open" | "last_seating_after_close" | "span_too_long" | "overlap" | "days_required";
     </item>
     <item priority="low">
       interface QuickSetupIssue {
@@ -1624,6 +1627,9 @@
     <item priority="high">
       export function validateDraft(draft: QuickSetupDraft): QuickSetupIssue[] { /* ... */ }
     </item>
+    <item priority="medium">
+      function spanIssues(draft: QuickSetupDraft): QuickSetupIssue[] { /* ... */ }
+    </item>
     <item priority="high">
       export function draftToConfig(
         draft: QuickSetupDraft,
@@ -1637,6 +1643,12 @@
         stored: AvailabilityConfig,
         newId: () => string
       ): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="high">
+      export function validateQuickSetupHours(
+        hours: OperatingHours,
+        t: TFunction = localeRuntime.i18n.t
+      ): OperatingHoursValidationErrors | null { /* ... */ }
     </item>
     <item priority="high">
       export function draftToLegacyHours(draft: QuickSetupDraft): OperatingHours { /* ... */ }
@@ -3173,6 +3185,9 @@
     </item>
     <item priority="high">
       export async function mockApi(page: Page): Promise<void> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildAvailabilityConfigFixture() { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/e2e/auth-helpers.ts">
@@ -9062,6 +9077,11 @@
       ): ReturnType<typeof createProblemDetails> { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/routes/manage-rebook.ts">
+    <item priority="high">
+      export const manageRebookRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="services/reservations/src/routes/manage-reservation.ts">
     <item priority="high">
       export const manageReservationRoutes: FastifyPluginAsync;
@@ -13742,6 +13762,90 @@
       ): Promise<LapsingGuest[]> { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/services/manage-rebook-deps.ts">
+    <item priority="high">
+      export async function rebookRequiresDeposit(
+        venueId: string,
+        reservation: Reservation
+      ): Promise<boolean> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const defaultRebookDeps: RebookDeps;
+    </item>
+  </file>
+  <file path="services/reservations/src/services/manage-rebook-types.ts">
+    <item priority="low">
+      type GuestRefundStatus = "none" | "pending" | "done" | "failed";
+    </item>
+    <item priority="low">
+      interface CancelOutcome {
+        id: string;
+        refund: GuestRefundStatus;
+        rebookedReservationId: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface RebookDeps {
+        
+      }
+    </item>
+    <item priority="low">
+      type VenueCancellationDeps = Pick<
+        RebookDeps,
+        "findCancelOutcome" | "findRebooked...;
+    </item>
+  </file>
+  <file path="services/reservations/src/services/manage-rebook.ts">
+    <item priority="low">
+      interface RebookOffer {
+        id: string;
+        date: string;
+        startTime: string;
+      }
+    </item>
+    <item priority="low">
+      interface VenueCancellation {
+        refundStatus: GuestRefundStatus;
+        offers: RebookOffer[];
+        rebooked: { reservationId: string; startTime: string } | null;
+      }
+    </item>
+    <item priority="low">
+      async function currentOffers(
+        reservation: Reservation,
+        venueId: string,
+        now: Date,
+        deps: Pick<RebookDeps, "loadSnapshot">
+      ): Promise<RebookOffer[]> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function loadVenueCancellation(
+        reservation: Reservation,
+        venueId: string,
+        now: Date = new Date(),
+        deps: VenueCancellationDeps = defaultRebookDeps
+      ): Promise<VenueCancellation | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      type RebookResult = { ok: true; reservation: Reser | {
+            ok: false;
+            reaso | { ok: false; reason: "rejected;
+    </item>
+    <item priority="medium">
+      class AlreadyRebookedError {
+        
+      }
+    </item>
+    <item priority="high">
+      export async function rebookVenueCancelled(
+        reservation: Reservation,
+        venueId: string,
+        offerId: string,
+        now: Date,
+        deps: RebookDeps = defaultRebookDeps
+      ): Promise<RebookResult> { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/member-venues.ts">
     <item priority="high">
       export async function getMemberVenueIds(
@@ -17931,9 +18035,31 @@
       }
     </item>
     <item priority="low">
+      interface ManagedRebookOffer {
+        id: string;
+        date: string;
+        startTime: string;
+      }
+    </item>
+    <item priority="low">
+      interface ManagedVenueCancellation {
+        refundStatus: "none" | "pending" | "done" | "failed";
+        offers: ManagedRebookOffer[];
+        rebooked: { startTime: string; manageToken: string } | null;
+      }
+    </item>
+    <item priority="low">
+      interface RebookedReservation {
+        reservationId: string;
+        startTime: string;
+        manageToken: string;
+      }
+    </item>
+    <item priority="low">
       interface ManageReservationData {
         reservation: ManagedReservation;
         venue: ManagedReservationVenue | null;
+        venueCancellation?: ManagedVenueCancellation | null;
       }
     </item>
     <item priority="high">
@@ -18305,6 +18431,9 @@
     <item priority="high">
       export const DEFAULT_LAST_SEATING_BUFFER: unknown;
     </item>
+    <item priority="high">
+      export const MAX_PAST_MIDNIGHT_SPAN: unknown;
+    </item>
     <item priority="low">
       interface LegacyMigrationInput {
         hours: LegacyHours;
@@ -18406,6 +18535,9 @@
     </item>
     <item priority="high">
       export const REBOOK_WINDOW_DAYS: unknown;
+    </item>
+    <item priority="high">
+      export function rebookOfferId(start: Date): string { /* ... */ }
     </item>
     <item priority="low">
       interface RebookReservation {

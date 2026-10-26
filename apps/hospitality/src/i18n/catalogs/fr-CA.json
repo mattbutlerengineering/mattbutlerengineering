@@ -1437,6 +1437,26 @@
       "action": "Modifier la réservation",
       "cutoff": "Les modifications ferment {{hours}} heures avant votre visite. Appelez {{venue}} pour modifier cette réservation.",
       "success": "Votre réservation a été mise à jour."
+    },
+    "venueCancelled": {
+      "heading": "Votre réservation a été annulée",
+      "intro": "{{venue}} a dû annuler cette réservation.",
+      "refund": {
+        "pending": "Le remboursement de votre dépôt est en cours.",
+        "done": "Votre dépôt a été remboursé.",
+        "failed": "Nous n'avons pas pu rembourser votre dépôt automatiquement. {{venue}} communiquera avec vous, ou vous pouvez l'appeler."
+      },
+      "rebookHeading": "Réservez de nouveau en un geste",
+      "rebook": "Réserver le {{date}} à {{time}}",
+      "rebooking": "Réservation en cours…",
+      "rebooked": "Votre réservation est confirmée pour le {{when}}.",
+      "viewRebooked": "Voir votre nouvelle réservation",
+      "noOffers": "Aucune heure n'est disponible dans les 14 prochains jours pour votre groupe. Choisissez une autre date.",
+      "otherDates": "Autres dates et heures",
+      "notice": {
+        "taken": "Cette heure vient d'être prise. Voici les heures encore disponibles.",
+        "failed": "Nous n'avons pas pu réserver cette heure. Veuillez réessayer."
+      }
     }
   },
   "offlineBanner": {
@@ -1610,7 +1630,8 @@
         "time_required": "Choisissez une heure.",
         "close_after_open": "La fermeture doit être différente de l'ouverture.",
         "last_seating_after_close": "La dernière table doit précéder la fermeture.",
-        "last_seating_before_open": "La dernière table doit suivre l'ouverture.",
+        "span_too_long": "Un service qui dépasse minuit peut durer au plus 16 heures.",
+        "name_too_long": "Utilisez 40 caractères ou moins pour le nom du service.",
         "overlap": "Ce service chevauche un autre service.",
         "days_required": "Choisissez au moins un jour."
       }
