@@ -29,7 +29,7 @@ import { CloseDialog } from "./CloseDialog.js";
 import { minuteText } from "./closure-band.js";
 import { TonightDecisionsDialog } from "./TonightDecisionsDialog.js";
 import { activeTonightChanges, type TonightChange } from "./tonight-state.js";
-import { minutesOfDayIn } from "../../utils/service-day.js";
+import { minutesOfDayIn, venueDate } from "../../utils/service-day.js";
 import styles from "./TonightControl.module.css";
 
 export interface TonightControlProps {
@@ -51,6 +51,7 @@ const STEP_MINUTES = 30;
 const LAST_EVENING_MINUTE = 23 * 60 + STEP_MINUTES;
 /** `MinuteSchema` allows a service day up to two days of minutes (ADR-029). */
 const MAX_MINUTE = 2880;
+const MINUTES_PER_DAY = 1440;
 const ALL_TABLES = "all";
 const PICK_TABLES = "pick";
 const UNSET = "unset";
@@ -75,8 +76,13 @@ function chipText(change: TonightChange, t: TFunction, format: VenueFormat): str
       });
     case "block_tables":
       // The server stores "rest of tonight" as 0 to the two-day maximum.
-      if (change.from === 0 && change.to >= MAX_MINUTE) {
-        return t("availability.tonight.chip.blocked", { count: change.tableCount });
+      if (change.to >= MAX_MINUTE) {
+        return change.from === 0
+          ? t("availability.tonight.chip.blocked", { count: change.tableCount })
+          : t("availability.tonight.chip.blockedFrom", {
+              count: change.tableCount,
+              from: minuteText(change.from, t, format),
+            });
       }
       return t("availability.tonight.chip.blockedWindow", {
         count: change.tableCount,
@@ -186,7 +192,11 @@ export function TonightControl(props: TonightControlProps) {
   ];
   const activeTables = tables.filter((tb) => tb.isActive);
   const blockIds = tableTargets(tables, blockTarget, pickedTables);
-  const blockWindowInvalid = blockFrom !== null && blockTo !== null && blockTo <= blockFrom;
+  // "Now" is the current minute of the service day; past midnight on the same service day it is 1440+.
+  const nowServiceMinute =
+    minutesOfDayIn(now, timezone) + (venueDate(now, timezone) > today ? MINUTES_PER_DAY : 0);
+  const effectiveFrom = blockFrom ?? nowServiceMinute;
+  const blockWindowInvalid = blockTo !== null && blockTo <= effectiveFrom;
   const timeOptions = timeMinutes(state).map((m) => ({
     value: String(m),
     label: minuteText(m, t, format),
@@ -329,7 +339,7 @@ export function TonightControl(props: TonightControlProps) {
               void apply("block", {
                 type: "block_tables",
                 tableIds: [...blockIds],
-                ...(blockFrom !== null ? { from: blockFrom } : {}),
+                from: effectiveFrom,
                 ...(blockTo !== null ? { to: blockTo } : {}),
               })
             }

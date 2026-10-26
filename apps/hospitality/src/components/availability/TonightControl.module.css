@@ -48,3 +48,10 @@
   display: inline-flex;
   align-items: center;
 }
+
+/* The rialto Checkbox input is visually hidden, so its label is the touch target. */
+.panel[data-layout="sheet"] .tablePicker label {
+  display: flex;
+  align-items: center;
+  min-block-size: 44px;
+}

@@ -2161,6 +2161,9 @@
         "blockedWindow_one": "{{count}} mesa bloqueada · {{from}}–{{to}}",
         "blockedWindow_other": "{{count}} mesas bloqueadas · {{from}}–{{to}}",
         "blockedWindow_many": "{{count}} mesas bloqueadas · {{from}}–{{to}}",
+        "blockedFrom_one": "{{count}} mesa bloqueada · desde {{from}}",
+        "blockedFrom_other": "{{count}} mesas bloqueadas · desde {{from}}",
+        "blockedFrom_many": "{{count}} mesas bloqueadas · desde {{from}}",
         "pacing_one": "Ritmo de {{count}} cubierto",
         "pacing_other": "Ritmo de {{count}} cubiertos",
         "pacing_many": "Ritmo de {{count}} cubiertos"

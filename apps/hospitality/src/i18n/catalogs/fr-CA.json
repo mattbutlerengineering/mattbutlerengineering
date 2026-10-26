@@ -2161,6 +2161,9 @@
         "blockedWindow_one": "{{count}} table bloquée · {{from}}–{{to}}",
         "blockedWindow_other": "{{count}} tables bloquées · {{from}}–{{to}}",
         "blockedWindow_many": "{{count}} tables bloquées · {{from}}–{{to}}",
+        "blockedFrom_one": "{{count}} table bloquée · à partir de {{from}}",
+        "blockedFrom_other": "{{count}} tables bloquées · à partir de {{from}}",
+        "blockedFrom_many": "{{count}} tables bloquées · à partir de {{from}}",
         "pacing_one": "Cadence de {{count}} couvert",
         "pacing_other": "Cadence de {{count}} couverts",
         "pacing_many": "Cadence de {{count}} couverts"

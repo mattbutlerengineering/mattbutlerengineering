@@ -2117,6 +2117,9 @@
         "blockedWindow_one": "{{count}} table blocked · {{from}}–{{to}}",
         "blockedWindow_other": "{{count}} tables blocked · {{from}}–{{to}}",
         "blockedWindow_many": "{{count}} tables blocked · {{from}}–{{to}}",
+        "blockedFrom_one": "{{count}} table blocked · from {{from}}",
+        "blockedFrom_other": "{{count}} tables blocked · from {{from}}",
+        "blockedFrom_many": "{{count}} tables blocked · from {{from}}",
         "pacing_one": "Pacing {{count}} cover",
         "pacing_other": "Pacing {{count}} covers",
         "pacing_many": "Pacing {{count}} covers"
