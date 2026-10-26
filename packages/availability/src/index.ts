@@ -25,6 +25,7 @@ export {
 } from "./legacy-hours.js";
 export {
   DEFAULT_LAST_SEATING_BUFFER,
+  MAX_PAST_MIDNIGHT_SPAN,
   buildLegacyConfig,
   type LegacyMigrationInput,
   type LegacyMigrationNotes,

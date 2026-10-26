@@ -1594,6 +1594,7 @@
         "time_required": "Choisissez une heure.",
         "close_after_open": "La fermeture doit être différente de l'ouverture.",
         "last_seating_after_close": "La dernière table doit précéder la fermeture.",
+        "span_too_long": "Un service qui dépasse minuit peut durer au plus 16 heures.",
         "name_too_long": "Utilisez 40 caractères ou moins pour le nom du service.",
         "overlap": "Ce service chevauche un autre service.",
         "days_required": "Choisissez au moins un jour."

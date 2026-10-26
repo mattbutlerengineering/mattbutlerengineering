@@ -86,6 +86,25 @@ describe("quick setup draft", () => {
     ]);
   });
 
+  it("flags a past-midnight service longer than the server reads (16 hours)", () => {
+    const draft = dinnerWeekdays();
+    const at = (opens: string, lastSeating: string, closes: string) => {
+      const s = draft.services[0]!;
+      return replaceService(
+        draft,
+        setServiceTime(
+          setServiceTime(setServiceTime(s, "opens", opens), "lastSeating", lastSeating),
+          "closes",
+          closes
+        )
+      );
+    };
+    expect(validateDraft(at("10:00", "02:15", "03:00"))).toEqual([
+      { serviceId: "s1", field: "closes", code: "span_too_long" },
+    ]);
+    expect(validateDraft(at("10:00", "01:15", "02:00"))).toEqual([]);
+  });
+
   it("flags a service name over 40 characters", () => {
     const draft = dinnerWeekdays();
     const long = replaceService(draft, { ...draft.services[0]!, name: "D".repeat(41) });

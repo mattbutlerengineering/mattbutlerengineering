@@ -1,5 +1,9 @@
 import type { TFunction } from "i18next";
-import { projectLegacyOperatingHours, validateConfig } from "@mbe/availability";
+import {
+  MAX_PAST_MIDNIGHT_SPAN,
+  projectLegacyOperatingHours,
+  validateConfig,
+} from "@mbe/availability";
 import { localeRuntime } from "../../i18n/runtime.js";
 import type { OperatingHoursValidationErrors } from "../venue-onboarding/OperatingHoursStep.js";
 import type {
@@ -131,6 +135,7 @@ export type QuickSetupIssueCode =
   | "time_required"
   | "close_after_open"
   | "last_seating_after_close"
+  | "span_too_long"
   | "overlap"
   | "days_required";
 
@@ -200,6 +205,9 @@ function orderIssues(service: ServiceDraft, m: ServiceMinutes): QuickSetupIssue[
     code,
   });
   if (service.opens === service.closes) return [at("closes", "close_after_open")];
+  // The server's legacy reader drops a past-midnight span longer than this (legacy-migration.ts).
+  if (m.closesAt > MINUTES_PER_DAY && m.closesAt - m.opensAt > MAX_PAST_MIDNIGHT_SPAN)
+    return [at("closes", "span_too_long")];
   return m.lastSeatingAt > m.closesAt ? [at("lastSeating", "last_seating_after_close")] : [];
 }
 

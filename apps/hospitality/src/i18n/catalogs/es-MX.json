@@ -1594,6 +1594,7 @@
         "time_required": "Elige una hora.",
         "close_after_open": "El cierre debe ser distinto de la apertura.",
         "last_seating_after_close": "La última mesa debe ser antes del cierre.",
+        "span_too_long": "Un servicio que pasa de la medianoche puede durar como máximo 16 horas.",
         "name_too_long": "Usa 40 caracteres o menos para el nombre del servicio.",
         "overlap": "Este servicio se traslapa con otro.",
         "days_required": "Elige al menos un día."
