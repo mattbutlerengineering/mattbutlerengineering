@@ -13896,6 +13896,9 @@
     <item priority="high">
       export function tableAdvisoryLockSql(tableId: string): Prisma.Sql { /* ... */ }
     </item>
+    <item priority="high">
+      export function venueShareLockSql(venueId: string): Prisma.Sql { /* ... */ }
+    </item>
     <item priority="low">
       type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED" | "NOT_BOOKABLE";
     </item>

@@ -30,6 +30,19 @@ export function tableAdvisoryLockSql(tableId: string): Prisma.Sql {
   return Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${tableId})::bigint)`;
 }
 
+/**
+ * Share-locks the venue row for the rest of the transaction, before the gate reads config.
+ *
+ * A closure or config save compare-and-sets (`UPDATE`) that row, then scans bookings. Sharing it
+ * makes an in-flight booking and that save serialise: either the save waits for this commit and
+ * its scan sees the booking, or this waits for the save and the gate reads the new config. Lock
+ * order is table advisory lock -> venue row; the save takes only the venue row and never an
+ * advisory lock, and share locks do not conflict with each other, so it cannot deadlock (#7679).
+ */
+export function venueShareLockSql(venueId: string): Prisma.Sql {
+  return Prisma.sql`SELECT 1 FROM venues WHERE id = ${venueId} FOR SHARE`;
+}
+
 /** Why a slot could not be written. */
 export type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED" | "NOT_BOOKABLE";
 
@@ -237,6 +250,7 @@ async function availabilityVerdict(
   intent: BookSlotIntent<unknown> & { venueId: string },
   gate: NonNullable<BookSlotIntent<unknown>["gate"]>
 ): Promise<{ conflict?: SlotConflict; overrideLimits?: SoftLimit[] }> {
+  await tx.$executeRaw(venueShareLockSql(intent.venueId));
   const outcome = await judgeBooking(tx, {
     venueId: intent.venueId,
     tableId: intent.tableId,

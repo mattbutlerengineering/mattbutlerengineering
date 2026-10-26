@@ -429,9 +429,10 @@ describe("confirmHold", () => {
       });
 
       expect(result.success).toBe(true);
-      // Two $executeRaw calls: setVenueContext's set_config (ADR-026 part 6)
-      // first, then the advisory lock — acquired before BOTH conflict checks.
-      expect(executeRaw).toHaveBeenCalledTimes(2);
+      // Three $executeRaw calls: setVenueContext's set_config (ADR-026 part 6),
+      // the advisory lock — acquired before BOTH conflict checks — then the
+      // gate's venue-row share lock (#7679).
+      expect(executeRaw).toHaveBeenCalledTimes(3);
       expect(callOrder[0]).toBe("lock");
       expect(callOrder.indexOf("lock")).toBeLessThan(callOrder.indexOf("reservation.findFirst"));
       expect(callOrder.indexOf("lock")).toBeLessThan(callOrder.indexOf("hold.findFirst"));

@@ -46595,6 +46595,9 @@
     export function tableAdvisoryLockSql(tableId: string): Prisma.Sql {
       return Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${tableId})::bigint)`;
     }
+    export function venueShareLockSql(venueId: string): Prisma.Sql {
+      return Prisma.sql`SELECT 1 FROM venues WHERE id = ${venueId} FOR SHARE`;
+    }
     export type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED" | "NOT_BOOKABLE";
     export type SlotConflict =
       | { code: Exclude<SlotConflictCode, "NOT_BOOKABLE">; message: string }
@@ -46770,6 +46773,7 @@
       intent: BookSlotIntent<unknown> & { venueId: string },
       gate: NonNullable<BookSlotIntent<unknown>["gate"]>
     ): Promise<{ conflict?: SlotConflict; overrideLimits?: SoftLimit[] }> {
+      await tx.$executeRaw(venueShareLockSql(intent.venueId));
       const outcome = await judgeBooking(tx, {
         venueId: intent.venueId,
         tableId: intent.tableId,
