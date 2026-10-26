@@ -351,13 +351,14 @@ export async function setTonight(
         storedSame(state, rule);
         return { kind: "delegate", rule };
       }
+      const replayed = await replayOf(tx, venueId, rule, state);
+      if (replayed) return { kind: "saved", result: replayed };
       if (body.change.type === "stop_window") {
         // A stop over what is left of the service closes the night like a close-early does.
+        // After the replay check: a saved stop's retry is not a new close.
         const allowed = await mayCloseFor(tx, venueId, caller, rule, now);
         if (!allowed) throw new Refused({ kind: allowed === null ? "not_found" : "forbidden" });
       }
-      const replayed = await replayOf(tx, venueId, rule, state);
-      if (replayed) return { kind: "saved", result: replayed };
       const result = await writeChange(
         tx,
         { venueId, actorId: caller.actorId, now, body },

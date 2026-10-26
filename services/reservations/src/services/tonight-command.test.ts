@@ -277,6 +277,17 @@ describe("setTonight", () => {
       expect((await run(world(), wholeNight, { caller: MANAGER })).kind).toBe("saved");
     });
 
+    it("answers a Host's retry of a saved stop with the replay, even once it covers the rest of the night", async () => {
+      const w = world();
+      const stop = body({ type: "stop_window", from: 1100, to: 1440 });
+      const first = await run(w, stop); // noon: seatings until 18:15 remain, so it is allowed
+      expect(first.kind).toBe("saved");
+      const later = new Date("2026-10-26T01:31:00.000Z"); // 18:31 in Los Angeles
+      const retry = await run(w, { ...stop, expectedVersion: 5 }, { now: later });
+      expect(retry).toMatchObject({ kind: "saved", result: { ruleId: "t-new" } });
+      expect(w.dateRules).toHaveLength(1);
+    });
+
     it("still lets a Host stop a window that leaves the service bookable", async () => {
       const w = world();
       expect((await run(w, body({ type: "stop_window", from: 1170, to: 1200 }))).kind).toBe(

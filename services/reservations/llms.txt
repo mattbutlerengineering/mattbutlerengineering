@@ -2759,7 +2759,7 @@
       type DayServices = ReturnType<typeof resolveDay>;
     </item>
     <item priority="medium">
-      function seatingRanges(day: DayServices, venueServiceId: string, fromMin: number): StartRange[] { /* ... */ }
+      function seatingStarts(day: DayServices, venueServiceId: string, fromMin: number): number[] { /* ... */ }
     </item>
     <item priority="high">
       export function isEmergencyTonightClose(

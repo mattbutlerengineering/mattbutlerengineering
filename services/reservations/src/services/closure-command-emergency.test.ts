@@ -85,6 +85,34 @@ describe("isEmergencyTonightClose (#7687)", () => {
     expect(check(tonight("n", { closeAt: 1320 }), at("16:00"), { stored: [same] })).toBe(false);
   });
 
+  describe("counts seating slots on the service grid, not minutes (now 18:31, 15-minute grid)", () => {
+    // Dinner 17:00-22:00 (1020-1320 last seating): the next grid slot after 18:31 is 18:45.
+    const hours = { opensAt: 1020, lastSeatingAt: 1320, closesAt: 1380 };
+    const now = at("18:31");
+    it.each([
+      ["a stop from the minute after now", { stop: { from: 1112, to: 1400 } }],
+      ["a stop from the next slot", { stop: { from: 1125, to: 1400 } }],
+      ["a close-early at now", { closeAt: 1111 }],
+      ["a close-early before the next slot", { closeAt: 1124 }],
+      ["a close-early at 18:40", { closeAt: 1120 }],
+    ])("treats %s as the emergency close", (_label, payload) => {
+      expect(check(tonight("n", payload), now, { hours })).toBe(true);
+    });
+
+    it("allows a close-early that keeps the 18:45 slot but cuts the service short", () => {
+      // 18:45 is still bookable, so it is not empty; seatings from open 17:00-19:15 span 135 min.
+      expect(check(tonight("n", { closeAt: 1155 }), now, { hours })).toBe(false);
+    });
+
+    it("treats a close-early at the next slot as the emergency close: nothing seats at close", () => {
+      expect(check(tonight("n", { closeAt: 1125 }), now, { hours })).toBe(true);
+    });
+
+    it("allows a stop that leaves a later slot", () => {
+      expect(check(tonight("n", { stop: { from: 1126, to: 1400 } }), now, { hours })).toBe(false);
+    });
+  });
+
   it("follows a service that runs past midnight", () => {
     const hours = { opensAt: 1320, lastSeatingAt: 1500, closesAt: 1560 };
     expect(check(tonight("n", { closeAt: 1340 }), at("22:30"), { hours })).toBe(true);

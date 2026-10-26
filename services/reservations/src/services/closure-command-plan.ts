@@ -163,29 +163,43 @@ export const MIN_SERVICE_MINUTES = 60;
 
 type DayServices = ReturnType<typeof resolveDay>;
 
-/** The seating-start ranges of one service on a resolved day, from `fromMin`, with stop bands cut out. */
-function seatingRanges(day: DayServices, venueServiceId: string, fromMin: number): StartRange[] {
+/**
+ * The seating starts a service still offers on a resolved day from `fromMin`: its own grid
+ * (every interval from the open, or its fixed times), up to the last seating and before close,
+ * not inside a stop band that covers it. The engine books these and nothing between them.
+ */
+function seatingStarts(day: DayServices, venueServiceId: string, fromMin: number): number[] {
   const s = day.services.find((d) => d.venueServiceId === venueServiceId);
   if (!s) return [];
+  const grid =
+    "interval" in s.seating
+      ? Array.from(
+          {
+            length: Math.max(Math.floor((s.lastSeatingAt - s.opensAt) / s.seating.interval) + 1, 0),
+          },
+          (_, k) => s.opensAt + k * (s.seating as { interval: number }).interval
+        )
+      : [...new Set(s.seating.fixed)];
   const bands = day.closures.filter(
     (c) =>
       c.targetKind === "venue" ||
       (c.targetKind === "service" && c.venueServiceId === s.venueServiceId)
   );
-  const open: StartRange[] = [[Math.max(s.opensAt, fromMin), s.lastSeatingAt]];
-  return bands
-    .reduce((ranges, band) => clearOfBand(ranges, band, 1), open)
-    .filter(([lo, hi]) => lo <= hi);
+  return grid
+    .filter((m) => m >= Math.max(s.opensAt, fromMin) && m <= s.lastSeatingAt && m < s.closesAt)
+    .filter((m) => !bands.some((band) => band.from <= m && m < band.to))
+    .sort((x, y) => x - y);
 }
 
-const minutesIn = (ranges: readonly StartRange[]): number =>
-  ranges.reduce((sum, [lo, hi]) => sum + (hi - lo + 1), 0);
+/** First seating to last seating, in minutes: how long the service is still taking bookings. */
+const spanOf = (starts: readonly number[]): number =>
+  starts.length === 0 ? 0 : starts[starts.length - 1]! - starts[0]!;
 
 /**
  * Whether a Tonight change is the emergency close in effect (#7687): on a
  * targeted service that is still bookable from `now` before the change, the
  * change leaves nothing bookable from `now`, or leaves less than
- * MIN_SERVICE_MINUTES of seatings counted from the service's planned open.
+ * MIN_SERVICE_MINUTES between its first and last seating, counted from the planned open.
  * "Before" keeps the other active Tonight rules, so closing the night in steps
  * is judged on its last step. A service already past its last seating has
  * nothing left to close. Only venue and service targets have seatings.
@@ -208,14 +222,14 @@ export function isEmergencyTonightClose(
   const nowMin = wallMinutes(now, rule.startsOn, snapshot.timezone);
   const live = before.services
     .filter((s) => rule.targetKind === "venue" || s.venueServiceId === rule.venueServiceId)
-    .filter((s) => seatingRanges(before, s.venueServiceId, nowMin).length > 0);
+    .filter((s) => seatingStarts(before, s.venueServiceId, nowMin).length > 0);
   return (
     live.length > 0 &&
     live.every((s) => {
-      if (seatingRanges(after, s.venueServiceId, nowMin).length === 0) return true;
+      if (seatingStarts(after, s.venueServiceId, nowMin).length === 0) return true;
       const plannedOpen = planned.services.find((p) => p.venueServiceId === s.venueServiceId);
-      const fromOpen = seatingRanges(after, s.venueServiceId, plannedOpen?.opensAt ?? s.opensAt);
-      return minutesIn(fromOpen) < MIN_SERVICE_MINUTES;
+      const fromOpen = seatingStarts(after, s.venueServiceId, plannedOpen?.opensAt ?? s.opensAt);
+      return spanOf(fromOpen) < MIN_SERVICE_MINUTES;
     })
   );
 }
