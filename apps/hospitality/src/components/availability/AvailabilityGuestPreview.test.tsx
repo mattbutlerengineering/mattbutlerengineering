@@ -9,8 +9,10 @@ const previewConfig = vi.hoisted(() => vi.fn());
 vi.mock("../../hooks/useApiClient.js", () => ({
   useApiClient: () => ({ availability: { previewConfig } }),
 }));
-vi.mock("../../contexts/VenueContext.js", () => ({
-  useVenue: () => ({
+// useVenueFormat reads the venue through useOptionalVenue; without it times fall back to the
+// machine's zone, which passes on a Pacific laptop and fails on a UTC runner.
+vi.mock("../../contexts/venue-context-object.js", () => ({
+  useOptionalVenue: () => ({
     selectedVenue: { id: "venue-1", ianaTimezone: "America/Los_Angeles", currencyCode: "USD" },
   }),
 }));
