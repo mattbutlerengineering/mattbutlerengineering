@@ -36,7 +36,15 @@ export interface ThankYouEmailInput {
   unsubscribeToken: string;
 }
 
+export interface ClosureEmailInput {
+  to: string;
+  subject: string;
+  html: string;
+}
+
 export interface NotificationPort {
+  /** A closure notice, already rendered (see closure-content.ts). */
+  sendClosureNotice(input: ClosureEmailInput): Promise<void>;
   sendBookingConfirmation(input: BookingNotificationInput): Promise<void>;
   sendBookingReminder(input: BookingNotificationInput): Promise<void>;
   sendBookingModified(input: BookingNotificationInput): Promise<void>;

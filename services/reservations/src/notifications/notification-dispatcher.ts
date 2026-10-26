@@ -1,10 +1,11 @@
 import type {
+  ClosureEmailInput,
   NotificationPort,
   BookingNotificationInput,
   WinBackNotificationInput,
   ThankYouEmailInput,
 } from "./port.js";
-import type { SmsPort, SmsNotificationInput } from "./sms-port.js";
+import type { ClosureSmsInput, SmsPort, SmsNotificationInput } from "./sms-port.js";
 import type { CommunicationPreference } from "@mbe/types";
 
 export interface NotificationDispatcherConfig {
@@ -62,6 +63,22 @@ export class NotificationDispatcher {
     this.emailAdapter = config.emailAdapter;
     this.smsAdapter = config.smsAdapter;
     this.smsManageBaseUrl = config.smsManageBaseUrl ?? "";
+  }
+
+  /** Whether an SMS adapter is configured (closure notices skip SMS when not). */
+  get smsEnabled(): boolean {
+    return this.smsAdapter !== null;
+  }
+
+  /** Closure notice by email: transactional, channel already chosen by the caller. */
+  async sendClosureEmail(input: ClosureEmailInput): Promise<void> {
+    await this.emailAdapter.sendClosureNotice(input);
+  }
+
+  /** Closure notice by SMS. Rejects when no SMS adapter is configured. */
+  async sendClosureSms(input: ClosureSmsInput): Promise<void> {
+    if (!this.smsAdapter) throw new Error("SMS is not configured");
+    await this.smsAdapter.sendClosureNotice(input);
   }
 
   private toSmsInput(input: BookingNotificationInput): SmsNotificationInput {

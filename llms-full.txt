@@ -20082,6 +20082,7 @@
     } as const;
     export const JOB_TYPES = {
       BOOKING_REMINDER: "booking-reminder",
+      CLOSURE_NOTICE: "closure-notice",
       DAY_OF_REMINDER: "day-of-reminder",
       POST_VISIT_FOLLOWUP: "post-visit-followup",
       WAITLIST_EXPIRY: "waitlist-expiry",
@@ -20135,11 +20136,20 @@
       // have drained by then.
       venueId?: string;
     }
+    export interface ClosureNoticePayload {
+      outcomeId: string;
+      venueId: string;
+      /** `reopened` is the opt-in "we've reopened" notice; default is the closure notice. */
+      variant?: "closure" | "reopened";
+      /** The booking starts within 6 hours: SMS and email wherever the guest has them. */
+      urgent?: boolean;
+    }
     export interface ClosureRefundPayload {
       outcomeId: string;
       venueId: string;
     }
     export type JobPayloadMap = {
+      [JOB_TYPES.CLOSURE_NOTICE]: ClosureNoticePayload;
       [JOB_TYPES.BOOKING_REMINDER]: ReminderPayload;
       [JOB_TYPES.DAY_OF_REMINDER]: ReminderPayload;
       [JOB_TYPES.POST_VISIT_FOLLOWUP]: PostVisitFollowupPayload;
@@ -22196,6 +22206,202 @@
       }
     }
   </file>
+  <file path="services/reservations/src/notifications/closure-content.ts">
+    export type ClosureNoticeKind = "cancelled" | "moved" | "kept" | "reopened";
+    export interface ClosureOffer {
+      /** Guest-facing label, e.g. "Wed 23 7:00 PM". */
+      label: string;
+      /** One-tap rebook link for this time. */
+      url: string;
+    }
+    export interface ClosureNoticeContent {
+      kind: ClosureNoticeKind;
+      venueName: string;
+      guestName: string | null;
+      /** Venue-local service date the closure affects, "YYYY-MM-DD". */
+      closureDate: string;
+      /** ISO instant of the booking as it stands now (the new time, for a move). */
+      startTime: string;
+      timezone: string;
+      partySize: number;
+      /** The venue's guest message for the closure. */
+      message: string | null;
+      /** The deposit a cancel refunds. */
+      refund: { amountCents: number; currency: string } | null;
+      manageUrl: string;
+      offers: readonly ClosureOffer[];
+    }
+    export function toGsm(text: string): string {
+      return text.replace(LOOKALIKE, (ch) => GSM_LOOKALIKES[ch]!);
+    }
+    export function smsSegments(body: string): number {
+      let septets = 0;
+      let gsm = true;
+      for (const ch of body) {
+        if (GSM_BASIC.has(ch)) septets += 1;
+        else if (GSM_EXTENSION.has(ch)) septets += 2;
+        else {
+          gsm = false;
+          break;
+        }
+      }
+      const units = gsm ? septets : body.length;
+      const [single, multi] = gsm ? [160, 153] : [70, 67];
+      return units <= single ? 1 : Math.ceil(units / multi);
+    }
+    function civilParts(date: string): { weekday: string; month: string; day: number } {
+      const instant = new Date(`${date}T12:00:00.000Z`);
+      const part = (opts: Intl.DateTimeFormatOptions) =>
+        new Intl.DateTimeFormat("en-US", { timeZone: "UTC", ...opts }).format(instant);
+      return {
+        weekday: part({ weekday: "short" }),
+        month: part({ month: "short" }),
+        day: instant.getUTCDate(),
+      };
+    }
+    function shortDate(date: string): string {
+      const p = civilParts(date);
+      return `${p.weekday} ${p.month} ${p.day}`;
+    }
+    function emailDate(date: string): string {
+      const p = civilParts(date);
+      return `${p.weekday}, ${p.month} ${p.day}`;
+    }
+    export function offerLabel(start: Date, timezone: string): string {
+      const when = toVenueLocalTime(start.toISOString(), timezone, "");
+      const p = civilParts(when.date);
+      return `${p.weekday} ${p.day} ${when.display}`;
+    }
+    function money(refund: { amountCents: number; currency: string }): string {
+      const whole = refund.amountCents % 100 === 0;
+      return new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: refund.currency.toUpperCase(),
+        minimumFractionDigits: whole ? 0 : 2,
+        maximumFractionDigits: whole ? 0 : 2,
+      }).format(refund.amountCents / 100);
+    }
+    function timeOf(c: ClosureNoticeContent): string {
+      return toVenueLocalTime(c.startTime, c.timezone, c.closureDate).display;
+    }
+    function firstName(name: string | null): string {
+      return name?.trim().split(/\s+/)[0] ?? "";
+    }
+    function cancelledSms(c: ClosureNoticeContent, offers: readonly ClosureOffer[]): string {
+      const refund = c.refund ? ` ${money(c.refund)} deposit will be refunded.` : "";
+      const head = `${c.venueName} is closed ${shortDate(c.closureDate)}. Your ${timeOf(c)} table for ${c.partySize} is cancelled.${refund}`;
+      const times = offers.map((o) => `${o.label} ${o.url}`);
+      if (times.length === 0) return `${head} Rebook: ${c.manageUrl}`;
+      if (times.length === 1) return `${head} Rebook ${times[0]}`;
+      return `${head} Rebook in one tap:\n${[...times, `Other times ${c.manageUrl}`].join("\n")}`;
+    }
+    function movedSms(c: ClosureNoticeContent): string {
+      return `${c.venueName} has changed its hours on ${shortDate(c.closureDate)}. Your table for ${c.partySize} is now at ${timeOf(c)}. Can't make it? Cancel free: ${c.manageUrl}`;
+    }
+    function keptSms(c: ClosureNoticeContent, withMessage: boolean): string {
+      const note = withMessage && c.message ? `: ${c.message}` : "";
+      return `${c.venueName} has changed its hours on ${shortDate(c.closureDate)}${note}. Your ${timeOf(c)} table is still booked. Manage: ${c.manageUrl}`;
+    }
+    function reopenedSms(c: ClosureNoticeContent): string {
+      return `We've reopened ${shortDate(c.closureDate)} at ${c.venueName}. Rebook: ${c.manageUrl}`;
+    }
+    function smsCandidates(c: ClosureNoticeContent): string[] {
+      switch (c.kind) {
+        case "cancelled":
+          return [3, 2, 1, 0].map((n) => cancelledSms(c, c.offers.slice(0, n)));
+        case "moved":
+          return [movedSms(c)];
+        case "kept":
+          return [keptSms(c, true), keptSms(c, false)];
+        case "reopened":
+          return [reopenedSms(c)];
+      }
+    }
+    function venueNameVariants(name: string): string[] {
+      const gsm = toGsm(name);
+      const stripped = [...gsm].filter(isGsm).join("").replace(/ {2,}/g, " ").trim();
+      const short = stripped.slice(0, SHORT_VENUE_NAME).trim();
+      return [...new Set([gsm, stripped, short])].filter((n, i) => i === 0 || n !== "");
+    }
+    export function buildClosureSms(c: ClosureNoticeContent): string {
+      const content = { ...c, message: c.message === null ? null : toGsm(c.message) };
+      const perName = venueNameVariants(c.venueName).map((venueName) =>
+        smsCandidates({ ...content, venueName })
+      );
+      // Each richer form is tried with every name before a poorer form is.
+      const candidates = perName[0]!.flatMap((_, i) => perName.map((bodies) => bodies[i]!));
+      return (
+        candidates.find((body) => smsSegments(body) <= MAX_SMS_SEGMENTS) ??
+        candidates[candidates.length - 1]!
+      );
+    }
+    function emailSubject(c: ClosureNoticeContent): string {
+      const date = emailDate(c.closureDate);
+      switch (c.kind) {
+        case "cancelled":
+          return `Your reservation at ${c.venueName} on ${date} is cancelled`;
+        case "moved":
+          return `Your reservation at ${c.venueName} on ${date} has moved`;
+        case "kept":
+          return `Update about your reservation at ${c.venueName} on ${date}`;
+        case "reopened":
+          return `${c.venueName} has reopened on ${date}`;
+      }
+    }
+    function link(url: string, text: string): string {
+      const safe = sanitizeUrl(url);
+      return safe ? `<a href="${escapeHtml(safe)}">${escapeHtml(text)}</a>` : "";
+    }
+    function emailLines(c: ClosureNoticeContent): string[] {
+      const venue = escapeHtml(c.venueName);
+      const date = emailDate(c.closureDate);
+      const message = c.message ? [`<p>${escapeHtml(c.message)}</p>`] : [];
+      switch (c.kind) {
+        case "cancelled": {
+          const refund = c.refund
+            ? [`<p>Your ${escapeHtml(money(c.refund))} deposit will be refunded.</p>`]
+            : [];
+          const offers = c.offers.map((o) => `<p>${link(o.url, `Rebook ${o.label}`)}</p>`);
+          return [
+            `<h1>Your reservation is cancelled</h1>`,
+            `<p>${venue} is closed on ${date}. Your ${timeOf(c)} table for ${c.partySize} is cancelled.</p>`,
+            ...message,
+            ...refund,
+            ...offers,
+            `<p>${link(c.manageUrl, "Other dates and times")}</p>`,
+          ];
+        }
+        case "moved":
+          return [
+            `<h1>Your reservation has moved</h1>`,
+            `<p>${venue} has changed its hours on ${date}. Your table for ${c.partySize} is now at ${timeOf(c)}.</p>`,
+            ...message,
+            `<p>Can't make it? ${link(c.manageUrl, "Cancel free")}</p>`,
+          ];
+        case "kept":
+          return [
+            `<h1>Your reservation is still on</h1>`,
+            `<p>${venue} has changed its hours on ${date}. Your ${timeOf(c)} table is still booked.</p>`,
+            ...message,
+            `<p>${link(c.manageUrl, "Manage your reservation")}</p>`,
+          ];
+        case "reopened":
+          return [
+            `<h1>We've reopened</h1>`,
+            `<p>${venue} has reopened on ${date}.</p>`,
+            `<p>${link(c.manageUrl, "Rebook")}</p>`,
+          ];
+      }
+    }
+    export function buildClosureEmail(c: ClosureNoticeContent): { subject: string; html: string } {
+      const greeting = firstName(c.guestName);
+      const hello = greeting ? [`<p>Hi ${escapeHtml(greeting)},</p>`] : [];
+      return {
+        subject: emailSubject(c),
+        html: [...hello, ...emailLines(c)].join("\n"),
+      };
+    }
+  </file>
   <file path="services/reservations/src/notifications/email-content.ts">
     export type NotificationEventType = "confirmation" | "reminder" | "modified" | "cancelled";
     export interface BookingEmailTemplateInput extends BookingNotificationInput {
@@ -22404,6 +22610,22 @@
         this.smsManageBaseUrl = config.smsManageBaseUrl ?? "";
       }
     
+      /** Whether an SMS adapter is configured (closure notices skip SMS when not). */
+      get smsEnabled(): boolean {
+        return this.smsAdapter !== null;
+      }
+    
+      /** Closure notice by email: transactional, channel already chosen by the caller. */
+      async sendClosureEmail(input: ClosureEmailInput): Promise<void> {
+        await this.emailAdapter.sendClosureNotice(input);
+      }
+    
+      /** Closure notice by SMS. Rejects when no SMS adapter is configured. */
+      async sendClosureSms(input: ClosureSmsInput): Promise<void> {
+        if (!this.smsAdapter) throw new Error("SMS is not configured");
+        await this.smsAdapter.sendClosureNotice(input);
+      }
+    
       private toSmsInput(input: BookingNotificationInput): SmsNotificationInput {
         return {
           reservationId: input.reservationId,
@@ -22576,7 +22798,14 @@
       feedbackUrl: string | null;
       unsubscribeToken: string;
     }
+    export interface ClosureEmailInput {
+      to: string;
+      subject: string;
+      html: string;
+    }
     export interface NotificationPort {
+      /** A closure notice, already rendered (see closure-content.ts). */
+      sendClosureNotice(input: ClosureEmailInput): Promise<void>;
       sendBookingConfirmation(input: BookingNotificationInput): Promise<void>;
       sendBookingReminder(input: BookingNotificationInput): Promise<void>;
       sendBookingModified(input: BookingNotificationInput): Promise<void>;
@@ -22641,6 +22870,15 @@
             `Resend send failed${error.name ? ` (${error.name})` : ""}: ${error.message}`
           );
         }
+      }
+    
+      async sendClosureNotice(input: ClosureEmailInput): Promise<void> {
+        await this.send({
+          from: this.fromAddress,
+          to: input.to,
+          subject: input.subject,
+          html: input.html,
+        });
       }
     
       async sendBookingConfirmation(input: BookingNotificationInput): Promise<void> {
@@ -22887,7 +23125,14 @@
       guestPhone: string;
       guestName: string | null;
     }
+    export interface ClosureSmsInput {
+      to: string;
+      /** The whole body: a link is never truncated. */
+      body: string;
+    }
     export interface SmsPort {
+      /** A closure notice, already rendered (see closure-content.ts). */
+      sendClosureNotice(input: ClosureSmsInput): Promise<void>;
       sendBookingReminder(input: SmsNotificationInput): Promise<void>;
       sendWaitlistUpdate(input: WaitlistUpdateInput): Promise<void>;
       sendWinbackMessage(input: WinbackMessageInput): Promise<void>;
@@ -22954,6 +23199,11 @@
             `${input.venueName} ${dateStr} ${when.display}: ${manageUrl}`,
           ])
         );
+      }
+    
+      async sendClosureNotice(input: ClosureSmsInput): Promise<void> {
+        if (!this.client) return;
+        await this.sendWithRetry(input.to, input.body);
       }
     
       async sendWaitlistUpdate(input: WaitlistUpdateInput): Promise<void> {
@@ -29923,14 +30173,31 @@
       }
     }
     export const closureRoutes: FastifyPluginAsync = async (fastify) => {
-      const { closureCommandService } = fastify.services;
+      const { closureCommandService, closureNoticeService } = fastify.services;
+    
+      /**
+       * The closure is already committed, so a queue outage must not turn the
+       * answer into an error: log it. Guests with no confirmed delivery are on
+       * the call list, and a replay of the same Idempotency-Key enqueues again.
+       */
+      async function enqueueNotices(
+        enqueue: typeof closureNoticeService.enqueueForClosure,
+        input: { venueId: string; ruleId: string },
+        log: FastifyBaseLogger
+      ): Promise<void> {
+        try {
+          await enqueue({ ...input, now: new Date() });
+        } catch (error) {
+          log.error({ err: error, ...input }, "closure notices were not enqueued");
+        }
+      }
     
       registerEndpoint(fastify, availabilityConfigEndpoints.createClosure, {
         docs: {
           summary: "Save a closure with a decision for every affected group",
           operationId: "createClosure",
           description:
-            "Writes the date rule (kind `closure` or `special_hours`), one outcome per affected reservation, the cancels and moves with their reservation events, and the audit row in one transaction, so no active booking overlaps a saved closure unless its outcome is keep. A cancelled booking's deposit stays held with the outcome's refund pending for the refund job; no Stripe call is made and no guest is notified here. Requires an `Idempotency-Key` header; a replay returns the stored result and changes nothing. Manager, or a Host for the emergency whole-venue close of the current service day when the venue grants it.",
+            "Writes the date rule (kind `closure` or `special_hours`), one outcome per affected reservation, the cancels and moves with their reservation events, and the audit row in one transaction, so no active booking overlaps a saved closure unless its outcome is keep. A cancelled booking's deposit stays held with the outcome's refund pending for the refund job; no Stripe call is made here. After the commit, one CLOSURE_NOTICE job is enqueued per notified outcome; an enqueue failure is logged, not returned. Requires an `Idempotency-Key` header; a replay returns the stored result and changes nothing. Manager, or a Host for the emergency whole-venue close of the current service day when the venue grants it.",
           tags: ["Availability"],
           security: [{ bearerAuth: [] }],
         },
@@ -29963,6 +30230,12 @@
               );
             }
           }
+          // Independent of the refund enqueue above: each logs its own failure.
+          await enqueueNotices(
+            closureNoticeService.enqueueForClosure,
+            { venueId, ruleId: outcome.result.ruleId },
+            request.log
+          );
           return { data: outcome.result };
         }),
       });
@@ -29986,7 +30259,16 @@
             tellCancelledGuests: request.body.tellCancelledGuests,
             now: new Date(),
           });
-          if (outcome.kind === "reopened") return { data: outcome.result };
+          if (outcome.kind === "reopened") {
+            if (request.body.tellCancelledGuests) {
+              await enqueueNotices(
+                closureNoticeService.enqueueForReopen,
+                { venueId, ruleId: request.params.ruleId },
+                request.log
+              );
+            }
+            return { data: outcome.result };
+          }
           return sendRefusal(reply, outcome);
         }),
       });
@@ -31823,7 +32105,10 @@
         return runWithVenueContext(venueId, async () => {
           const reservation = await request.server.services.reservationService.getById(reservationId);
           if (!reservation) return spec.missing(reply, request);
-          if (reservation.guestEmail !== result.guestEmail) {
+          // A phone-only reservation stores no email and its token is signed with
+          // "": treat the two as equal. The reservation id is HMAC-signed, so this
+          // admits nothing the token's signer did not.
+          if ((reservation.guestEmail ?? "") !== (result.guestEmail ?? "")) {
             return deny(reply, 403, "Forbidden", "Token does not match reservation");
           }
           return handler(request, reply, { venueId, reservation, token });
@@ -46585,6 +46870,386 @@
       };
     }
   </file>
+  <file path="services/reservations/src/services/closure-notice-runtime.ts">
+    export function createClosureNoticeDeps(input: {
+      dispatcher: Pick<NotificationDispatcher, "sendClosureEmail" | "sendClosureSms" | "smsEnabled">;
+      generateManageToken(reservationId: string, guestEmail: string): string;
+      manageBaseUrl: string;
+      logger: ClosureNoticeDeps["logger"];
+      now?: () => Date;
+    }): ClosureNoticeDeps {
+      const now = input.now ?? (() => new Date());
+      return {
+        load: loadNoticeOutcome,
+        offers: (o) => loadRebookSlots(o, now()),
+        // The signed email is checked on the manage page; a phone-only guest has none.
+        manageUrl: (o, rebook) =>
+          buildManageUrl(
+            input.manageBaseUrl,
+            input.generateManageToken(o.reservationId, o.guestEmail ?? ""),
+            rebook
+          ),
+        record: recordDeliveries,
+        sendEmail: (m) => input.dispatcher.sendClosureEmail(m),
+        sendSms: (m) => input.dispatcher.sendClosureSms(m),
+        smsEnabled: input.dispatcher.smsEnabled,
+        logger: input.logger,
+      };
+    }
+  </file>
+  <file path="services/reservations/src/services/closure-notice-service.ts">
+    export const URGENT_WINDOW_MS = 6 * 60 * 60 * 1000;
+    type Store = Pick<typeof defaultStore, "listNotifiable" | "listCallList" | "loadClosureWindow">;
+    type Scheduler = Pick<JobsPort, "schedule">;
+    interface EnqueueInput {
+      venueId: string;
+      ruleId: string;
+      now: Date;
+    }
+    export function closureStartsAt(w: ClosureWindow): Date | null {
+      return serviceDayInstant(w.startsOn, w.from ?? 0, w.timezone);
+    }
+    export function closureNoticeJobId(outcomeId: string, variant: NoticeVariant): string {
+      return variant === "reopened"
+        ? `closure-notice_${outcomeId}_reopened`
+        : `closure-notice_${outcomeId}`;
+    }
+    async function isUrgent(store: Store, input: EnqueueInput): Promise<boolean> {
+      const w = await store.loadClosureWindow(input.venueId, input.ruleId);
+      const startsAt = w ? closureStartsAt(w) : null;
+      return startsAt === null || startsAt.getTime() - input.now.getTime() <= URGENT_WINDOW_MS;
+    }
+    export function createClosureNoticeService(deps: { scheduler: Scheduler; store?: Store }) {
+      const store = deps.store ?? defaultStore;
+    
+      async function enqueue(variant: NoticeVariant, input: EnqueueInput): Promise<number> {
+        const outcomes = await store.listNotifiable(input.venueId, input.ruleId, variant);
+        if (outcomes.length === 0) return 0;
+        const urgent = await isUrgent(store, input);
+        await Promise.all(
+          outcomes.map((o) =>
+            deps.scheduler.schedule(
+              JOB_TYPES.CLOSURE_NOTICE,
+              {
+                outcomeId: o.outcomeId,
+                venueId: input.venueId,
+                variant,
+                urgent,
+              },
+              0,
+              closureNoticeJobId(o.outcomeId, variant)
+            )
+          )
+        );
+        return outcomes.length;
+      }
+    
+      return {
+        enqueueForClosure: (input: EnqueueInput) => enqueue("closure", input),
+        enqueueForReopen: (input: EnqueueInput) => enqueue("reopened", input),
+        callList: (venueId: string, ruleId: string) => store.listCallList(venueId, ruleId),
+      };
+    }
+    export type ClosureNoticeService = ReturnType<typeof createClosureNoticeService>;
+  </file>
+  <file path="services/reservations/src/services/closure-notice-store.ts">
+    type Db = Pick<PrismaClient, "closureOutcome">;
+    type RuleDb = Pick<PrismaClient, "dateRule">;
+    export interface ClosureWindow {
+      /** "YYYY-MM-DD", venue-local. */
+      startsOn: string;
+      /** Minute of the service day the window opens; `null` = the whole service day. */
+      from: number | null;
+      timezone: string;
+    }
+    function windowFrom(window: unknown): number | null {
+      const from = (window as { from?: unknown } | null)?.from;
+      return typeof from === "number" ? from : null;
+    }
+    export async function loadClosureWindow(
+      venueId: string,
+      ruleId: string,
+      db: RuleDb = prisma
+    ): Promise<ClosureWindow | null> {
+      const rule = await db.dateRule.findFirst({
+        where: { id: ruleId, venueId },
+        select: { startsOn: true, window: true, venue: { select: { ianaTimezone: true } } },
+      });
+      if (!rule) return null;
+      return {
+        startsOn: rule.startsOn.toISOString().slice(0, 10),
+        from: windowFrom(rule.window),
+        timezone: rule.venue.ianaTimezone,
+      };
+    }
+    export interface NotifiableOutcome {
+      outcomeId: string;
+    }
+    export type NoticeVariant = "closure" | "reopened";
+    export async function listNotifiable(
+      venueId: string,
+      ruleId: string,
+      variant: NoticeVariant,
+      db: Db = prisma
+    ): Promise<NotifiableOutcome[]> {
+      const rows = await db.closureOutcome.findMany({
+        where: {
+          venueId,
+          dateRuleId: ruleId,
+          action: variant === "reopened" ? "cancel" : { not: "keep_silent" },
+        },
+        select: { id: true },
+      });
+      return rows.map((r) => ({ outcomeId: r.id }));
+    }
+    export async function loadNoticeOutcome(
+      outcomeId: string,
+      db: Db = prisma
+    ): Promise<NoticeOutcome | null> {
+      const row = await db.closureOutcome.findUnique({
+        where: { id: outcomeId },
+        select: {
+          id: true,
+          venueId: true,
+          reservationId: true,
+          action: true,
+          deliveries: true,
+          rebookedReservationId: true,
+          dateRule: { select: { guestMessage: true } },
+          venue: { select: { name: true, ianaTimezone: true } },
+          reservation: {
+            select: {
+              date: true,
+              startTime: true,
+              partySize: true,
+              guestName: true,
+              guestEmail: true,
+              guestPhone: true,
+              guest: { select: { communicationPreference: true } },
+              deposit: { select: { amountCents: true, currency: true } },
+            },
+          },
+        },
+      });
+      if (!row) return null;
+      const r = row.reservation;
+      return {
+        outcomeId: row.id,
+        venueId: row.venueId,
+        reservationId: row.reservationId,
+        action: row.action,
+        deliveries: row.deliveries as Deliveries,
+        rebooked: row.rebookedReservationId !== null,
+        closureDate: r.date.toISOString().slice(0, 10),
+        message: row.dateRule.guestMessage,
+        startTime: r.startTime,
+        partySize: r.partySize,
+        guestName: r.guestName,
+        guestEmail: r.guestEmail,
+        guestPhone: r.guestPhone,
+        preference: r.guest?.communicationPreference ?? null,
+        refund: r.deposit ? { amountCents: r.deposit.amountCents, currency: r.deposit.currency } : null,
+        venueName: row.venue.name,
+        timezone: row.venue.ianaTimezone,
+      };
+    }
+    export async function recordDeliveries(
+      outcomeId: string,
+      deliveries: Deliveries,
+      db: Db = prisma
+    ): Promise<void> {
+      await db.closureOutcome.update({
+        where: { id: outcomeId },
+        data: { deliveries },
+      });
+    }
+    export async function loadRebookSlots(o: NoticeOutcome, now: Date): Promise<Date[]> {
+      const contact = { guestEmail: o.guestEmail, guestPhone: o.guestPhone };
+      if (await rebookRequiresDeposit(o.venueId, contact)) return [];
+      const today = civilDateIn(now, o.timezone);
+      const { snapshot } = await loadAvailabilitySnapshot(o.venueId, today, addDays(today, 14), now);
+      const result = rebookOffers(snapshot, { startTime: o.startTime, partySize: o.partySize }, now);
+      return result.kind === "offers" ? result.slots.map((s) => s.start) : [];
+    }
+    export interface CallListEntry {
+      outcomeId: string;
+      reservationId: string;
+      guestName: string | null;
+      partySize: number;
+      startTime: Date;
+      guestPhone: string | null;
+    }
+    export async function listCallList(
+      venueId: string,
+      ruleId: string,
+      db: Db = prisma
+    ): Promise<CallListEntry[]> {
+      const rows = await db.closureOutcome.findMany({
+        where: { venueId, dateRuleId: ruleId },
+        orderBy: { reservation: { startTime: "asc" } },
+        select: {
+          id: true,
+          reservationId: true,
+          action: true,
+          deliveries: true,
+          rebookedReservationId: true,
+          reservation: {
+            select: { guestName: true, partySize: true, startTime: true, guestPhone: true },
+          },
+        },
+      });
+      return rows
+        .filter((row) =>
+          isOnCallList({
+            action: row.action,
+            deliveries: row.deliveries as Deliveries,
+            rebooked: row.rebookedReservationId !== null,
+          })
+        )
+        .map((row) => ({
+          outcomeId: row.id,
+          reservationId: row.reservationId,
+          guestName: row.reservation.guestName,
+          partySize: row.reservation.partySize,
+          startTime: row.reservation.startTime,
+          guestPhone: row.reservation.guestPhone,
+        }));
+    }
+  </file>
+  <file path="services/reservations/src/services/closure-notice.ts">
+    export type DeliveryStatus = "sent" | "failed" | "skipped";
+    export type ChannelStatuses = Partial<Record<NoticeChannel, DeliveryStatus>>;
+    export type Deliveries = ChannelStatuses & { reopen?: ChannelStatuses };
+    export interface NoticeOutcome {
+      outcomeId: string;
+      venueId: string;
+      reservationId: string;
+      action: "cancel" | "move" | "keep_notify" | "keep_silent";
+      deliveries: Deliveries;
+      /** The guest rebooked after the cancel. */
+      rebooked: boolean;
+      /** Venue-local service date the closure affects, "YYYY-MM-DD". */
+      closureDate: string;
+      message: string | null;
+      /** The reservation's start as it stands now (the new time, for a move). */
+      startTime: Date;
+      partySize: number;
+      guestName: string | null;
+      guestEmail: string | null;
+      guestPhone: string | null;
+      preference: CommunicationPreference | null;
+      refund: { amountCents: number; currency: string } | null;
+      venueName: string;
+      timezone: string;
+    }
+    export interface ClosureNoticeDeps {
+      load(outcomeId: string): Promise<NoticeOutcome | null>;
+      /** Open rebook times, computed now so they are still open when the message goes out. */
+      offers(outcome: NoticeOutcome): Promise<Date[]>;
+      /** The guest's manage link (a fresh token), with an optional one-tap rebook slot. */
+      manageUrl(outcome: NoticeOutcome, rebook?: string): string;
+      record(outcomeId: string, deliveries: Deliveries): Promise<void>;
+      sendEmail(input: ClosureEmailInput): Promise<void>;
+      sendSms(input: ClosureSmsInput): Promise<void>;
+      smsEnabled: boolean;
+      logger: { warn(details: object, msg: string): void };
+    }
+    export function isOnCallList(
+      o: Pick<NoticeOutcome, "action" | "deliveries" | "rebooked">
+    ): boolean {
+      if (o.action === "keep_silent" || o.rebooked) return false;
+      return o.deliveries.email !== "sent" && o.deliveries.sms !== "sent";
+    }
+    async function contentFor(
+      o: NoticeOutcome,
+      kind: ClosureNoticeKind,
+      deps: ClosureNoticeDeps
+    ): Promise<ClosureNoticeContent> {
+      let slots: Date[] = [];
+      if (kind === "cancelled") {
+        try {
+          slots = await deps.offers(o);
+        } catch (error) {
+          // The notice must still go out: link the full picker instead of offers.
+          deps.logger.warn({ err: error, outcomeId: o.outcomeId }, "closure rebook offers failed");
+        }
+      }
+      return {
+        kind,
+        venueName: o.venueName,
+        guestName: o.guestName,
+        closureDate: o.closureDate,
+        startTime: o.startTime.toISOString(),
+        timezone: o.timezone,
+        partySize: o.partySize,
+        message: o.message,
+        refund: kind === "cancelled" ? o.refund : null,
+        manageUrl: deps.manageUrl(o),
+        offers: slots.map((s) => ({
+          label: offerLabel(s, o.timezone),
+          url: deps.manageUrl(o, rebookOfferId(s)),
+        })),
+      };
+    }
+    async function send(
+      channel: NoticeChannel,
+      o: NoticeOutcome,
+      content: ClosureNoticeContent,
+      deps: ClosureNoticeDeps
+    ): Promise<void> {
+      if (channel === "email") {
+        const { subject, html } = buildClosureEmail(content);
+        return deps.sendEmail({ to: o.guestEmail!, subject, html });
+      }
+      return deps.sendSms({ to: o.guestPhone!, body: buildClosureSms(content) });
+    }
+    export function createClosureNoticeHandler(deps: ClosureNoticeDeps) {
+      async function deliver(payload: ClosureNoticePayload, ctx: JobContext): Promise<void> {
+        const o = await deps.load(payload.outcomeId);
+        if (!o) return;
+        const reopened = payload.variant === "reopened";
+        // A reopen notice goes only to guests the closure cancelled.
+        const kind = reopened ? (o.action === "cancel" ? "reopened" : null) : KIND_OF_ACTION[o.action];
+        if (!kind) return;
+    
+        const prior: ChannelStatuses = (reopened ? o.deliveries.reopen : o.deliveries) ?? {};
+        const contacts = {
+          hasEmail: Boolean(o.guestEmail?.trim()),
+          hasSms: deps.smsEnabled && Boolean(o.guestPhone?.trim()),
+        };
+        const chosen = closureNoticeChannels(o.preference, contacts, payload.urgent ?? false);
+        const todo = chosen.filter((c) => prior[c] !== "sent");
+        const next: ChannelStatuses = { ...prior };
+        for (const c of ["email", "sms"] as const) {
+          if (!chosen.includes(c) && prior[c] !== "sent") next[c] = "skipped";
+        }
+    
+        const content = todo.length > 0 ? await contentFor(o, kind, deps) : null;
+        const results = await Promise.allSettled(todo.map((c) => send(c, o, content!, deps)));
+        const failures: unknown[] = [];
+        todo.forEach((channel, i) => {
+          const result = results[i]!;
+          if (result.status === "fulfilled") next[channel] = "sent";
+          else {
+            failures.push(result.reason);
+            // Only the last attempt may call a channel failed; earlier ones retry.
+            if (ctx.isFinalAttempt) next[channel] = "failed";
+          }
+        });
+    
+        await deps.record(
+          o.outcomeId,
+          reopened
+            ? { ...o.deliveries, reopen: next }
+            : { ...next, ...(o.deliveries.reopen ? { reopen: o.deliveries.reopen } : {}) }
+        );
+        if (failures.length > 0) throw failures[0];
+      }
+    
+      return (payload: ClosureNoticePayload, ctx: JobContext): Promise<void> =>
+        runWithVenueContext(payload.venueId, () => deliver(payload, ctx));
+    }
+  </file>
   <file path="services/reservations/src/services/closure-refund-store.ts">
     export function createPrismaClosureRefundStore(): ClosureRefundStore {
       return {
@@ -47025,6 +47690,34 @@
         return false;
       }
       return resolveChannel(state.communicationPreference) !== "transactional_only";
+    }
+    export type NoticeChannel = "email" | "sms";
+    export interface NoticeContacts {
+      hasEmail: boolean;
+      hasSms: boolean;
+    }
+    function preferredChannels(preference: CommunicationPreference): NoticeChannel[] {
+      switch (preference) {
+        case "sms_only":
+          return ["sms"];
+        case "both":
+          return ["email", "sms"];
+        default:
+          return ["email"];
+      }
+    }
+    export function closureNoticeChannels(
+      preference: CommunicationPreference | null | undefined,
+      contacts: NoticeContacts,
+      urgent: boolean
+    ): NoticeChannel[] {
+      const has: Record<NoticeChannel, boolean> = { email: contacts.hasEmail, sms: contacts.hasSms };
+      const preferred: NoticeChannel[] = urgent
+        ? ["email", "sms"]
+        : preferredChannels(resolveChannel(preference));
+      const usable = preferred.filter((c) => has[c]);
+      if (usable.length > 0) return usable;
+      return (["email", "sms"] as const).filter((c) => has[c]);
     }
   </file>
   <file path="services/reservations/src/services/database.ts">
@@ -48220,6 +48913,8 @@
       availabilityChangesService: typeof availabilityChangesService;
       closureImpactService: typeof closureImpactService;
       closureCommandService: typeof closureCommandService;
+      /** Built in `buildApp` over the notifier scheduler — never a module singleton. */
+      closureNoticeService: ClosureNoticeService;
       tonightCommandService: typeof tonightCommandService;
       venueService: typeof venueService;
       venueGroupService: typeof venueGroupService;
@@ -48236,7 +48931,10 @@
       briefingService: typeof briefingService;
       venueTeamService: typeof venueTeamService;
     }
-    export const defaultDomainServices: Omit<DomainServices, "depositService"> = {
+    export const defaultDomainServices: Omit<
+      DomainServices,
+      "depositService" | "closureNoticeService"
+    > = {
       availabilityService,
       availabilityConfigService,
       availabilityChangesService,
@@ -49881,6 +50579,8 @@
       generateManageToken(reservationId: string, guestEmail: string): string;
       /** Waitlist re-notify path — expires the entry and notifies the next guest. */
       handleWaitlistExpiry(input: { waitlistEntryId: string }): Promise<void>;
+      /** CLOSURE_NOTICE delivery; the job type is registered only when given. */
+      closureNotice?: ClosureNoticeDeps;
       /** Logs the WAITLIST_EXPIRY legacy-payload fallback (see handleWaitlistExpiryJob below). */
       logger: JobWorkerLogger;
       /** Settles one closure outcome's deposit (closure-refund.ts). Absent = CLOSURE_REFUND is unhandled. */
@@ -49992,6 +50692,9 @@
         [JOB_TYPES.BOOKING_REMINDER]: deliverReminder,
         [JOB_TYPES.DAY_OF_REMINDER]: deliverReminder,
         [JOB_TYPES.WAITLIST_EXPIRY]: handleWaitlistExpiryJob,
+        ...(deps.closureNotice
+          ? { [JOB_TYPES.CLOSURE_NOTICE]: createClosureNoticeHandler(deps.closureNotice) }
+          : {}),
         ...(runClosureRefund ? { [JOB_TYPES.CLOSURE_REFUND]: closureRefundJob } : {}),
       };
     }
@@ -50241,7 +50944,7 @@
   <file path="services/reservations/src/services/manage-rebook-deps.ts">
     export async function rebookRequiresDeposit(
       venueId: string,
-      reservation: Reservation
+      reservation: Pick<Reservation, "guestEmail" | "guestPhone">
     ): Promise<boolean> {
       const policy = await venueService.getPolicyById(venueId);
       if (!policy || policy.depositAmountCents == null) return false;
@@ -73786,6 +74489,9 @@
         ...defaultDomainServices,
         ...options.services,
         depositService: options.services?.depositService ?? new DepositService(payments),
+        closureNoticeService:
+          options.services?.closureNoticeService ??
+          createClosureNoticeService({ scheduler: options.jobs ?? notifierRuntime.scheduler }),
       };
       fastify.decorate("services", services);
     
@@ -73905,6 +74611,12 @@
               getVenue: (id) => services.venueService.getById(id),
               dispatcher: notificationPort,
               generateManageToken,
+              closureNotice: createClosureNoticeDeps({
+                dispatcher: notificationPort,
+                generateManageToken,
+                manageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
+                logger: fastify.log,
+              }),
               handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),
               logger: fastify.log,
               runClosureRefund: (payload, opts) =>

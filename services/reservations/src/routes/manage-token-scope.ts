@@ -100,7 +100,10 @@ export function manageTokenScoped<RG extends RouteGenericInterface = RouteGeneri
     return runWithVenueContext(venueId, async () => {
       const reservation = await request.server.services.reservationService.getById(reservationId);
       if (!reservation) return spec.missing(reply, request);
-      if (reservation.guestEmail !== result.guestEmail) {
+      // A phone-only reservation stores no email and its token is signed with
+      // "": treat the two as equal. The reservation id is HMAC-signed, so this
+      // admits nothing the token's signer did not.
+      if ((reservation.guestEmail ?? "") !== (result.guestEmail ?? "")) {
         return deny(reply, 403, "Forbidden", "Token does not match reservation");
       }
       return handler(request, reply, { venueId, reservation, token });
