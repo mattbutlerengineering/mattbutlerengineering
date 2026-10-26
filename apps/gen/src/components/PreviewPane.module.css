@@ -43,8 +43,6 @@
 .welcomeState {
   flex: 1;
   display: flex;
-  align-items: center;
-  justify-content: center;
   block-size: 100%;
 }
 
@@ -53,8 +51,13 @@
   flex-direction: column;
   align-items: center;
   gap: var(--rialto-space-md);
+  inline-size: 100%;
   max-inline-size: 720px;
+  box-sizing: border-box;
+  /* Auto margins center it but, unlike align-items, never push overflow above the scroll origin. */
+  margin: auto;
   padding: var(--rialto-space-lg);
+  container-type: inline-size;
 }
 
 .welcomeHeading {
@@ -72,20 +75,21 @@
 
 .suggestionsGrid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--rialto-space-md);
   inline-size: 100%;
 }
 
-@media (max-width: 900px) {
+/* The preview column is narrower than the viewport, so size to it. */
+@container (max-width: 600px) {
   .suggestionsGrid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 560px) {
+@container (max-width: 360px) {
   .suggestionsGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -100,6 +104,8 @@
   border-radius: var(--rialto-radius-soft);
   cursor: pointer;
   text-align: start;
+  /* Rialto Button is nowrap; card descriptions must wrap inside the card. */
+  white-space: normal;
   font-family: var(--rialto-font-sans);
   transition:
     transform 0.15s ease,

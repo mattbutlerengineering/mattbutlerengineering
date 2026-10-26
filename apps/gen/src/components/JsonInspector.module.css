@@ -1,6 +1,7 @@
+/* Width comes from the playground grid column or the mobile overlay. */
 .inspector {
-  inline-size: 30%;
-  min-inline-size: 240px;
+  flex: 1;
+  min-block-size: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -11,6 +12,7 @@
 
 .toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--rialto-space-xs);
   padding: var(--rialto-space-xs) var(--rialto-space-sm);
@@ -40,29 +42,20 @@
   align-items: center;
   gap: var(--rialto-space-xs);
   flex: 1;
-  min-inline-size: 0;
+  min-inline-size: 80px;
 }
 
+/* Rialto Input puts className on its wrapper; size the inner <input> to the toolbar. */
 .searchInput {
   flex: 1;
   min-inline-size: 80px;
   max-inline-size: 200px;
+}
+
+.searchInput input {
   padding: 2px var(--rialto-space-xs);
   font-family: monospace;
   font-size: var(--rialto-text-xs);
-  color: var(--rialto-text-primary);
-  background-color: var(--rialto-surface-recessed);
-  border: 1px solid var(--rialto-border);
-  border-radius: var(--rialto-radius-default);
-  outline: none;
-}
-
-.searchInput::placeholder {
-  color: var(--rialto-text-tertiary);
-}
-
-.searchInput:focus {
-  border-color: var(--rialto-accent);
 }
 
 .matchCount {

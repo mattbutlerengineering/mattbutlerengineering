@@ -53,7 +53,8 @@ describe("usePanelLayout — mobile defaults", () => {
 });
 
 describe("usePanelLayout — tablet defaults", () => {
-  it("defaults to tablet breakpoint with inspector visible, history hidden", () => {
+  // Tablet panels are overlays with a backdrop, so opening one on load hides the empty state.
+  it("defaults to tablet breakpoint with both overlay panels closed", () => {
     Object.defineProperty(window, "matchMedia", {
       writable: true,
       value: makeMockMatchMedia(false, true),
@@ -61,7 +62,7 @@ describe("usePanelLayout — tablet defaults", () => {
     const { result } = renderHook(() => usePanelLayout());
     expect(result.current.breakpoint).toBe("tablet");
     expect(result.current.historyVisible).toBe(false);
-    expect(result.current.inspectorVisible).toBe(true);
+    expect(result.current.inspectorVisible).toBe(false);
   });
 });
 

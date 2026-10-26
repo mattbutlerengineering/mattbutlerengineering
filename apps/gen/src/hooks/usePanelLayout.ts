@@ -30,7 +30,7 @@ function getDefaults(bp: Breakpoint): PanelState {
     case "mobile":
       return { historyVisible: false, inspectorVisible: false };
     case "tablet":
-      return { historyVisible: false, inspectorVisible: true };
+      return { historyVisible: false, inspectorVisible: false };
     case "desktop":
       return { historyVisible: true, inspectorVisible: true };
   }

@@ -144,12 +144,9 @@
   margin: 0;
 }
 
-/* ── Help button (fixed bottom-right) ── */
+/* ── Help button (header action, sized like the panel toggles) ── */
 
 .helpButton {
-  position: fixed;
-  inset-block-end: var(--rialto-space-lg);
-  inset-inline-end: var(--rialto-space-lg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -157,26 +154,22 @@
   block-size: 32px;
   padding: 0;
   border: 1px solid var(--rialto-border);
-  border-radius: var(--rialto-radius-round);
-  background: var(--rialto-surface-elevated);
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-surface);
   color: var(--rialto-text-secondary);
   font-family: var(--rialto-font-sans);
   font-size: var(--rialto-text-sm);
   font-weight: 500;
   cursor: pointer;
-  box-shadow: var(--rialto-shadow-sm);
-  z-index: 50;
   transition:
     background-color 150ms var(--rialto-ease-precision),
     color 150ms var(--rialto-ease-precision),
-    border-color 150ms var(--rialto-ease-precision),
-    box-shadow 150ms var(--rialto-ease-precision);
+    border-color 150ms var(--rialto-ease-precision);
 }
 
 .helpButton:hover {
-  background-color: var(--rialto-surface-recessed);
+  background-color: var(--rialto-surface-elevated);
   color: var(--rialto-text-primary);
-  box-shadow: var(--rialto-shadow-md);
 }
 
 .helpButton:focus-visible {
