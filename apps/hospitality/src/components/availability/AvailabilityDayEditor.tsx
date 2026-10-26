@@ -103,6 +103,9 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
     [scope, config, timezone, today]
   );
   const own = useMemo(() => ownChangeDates(config, dates, null), [config, dates]);
+  // Under Keep theirs the dates with their own changes are left alone, so they are not written.
+  const writtenCount =
+    edit?.mode === "keep" && dates.length > 1 ? dates.length - own.length : dates.length;
   const schedule = config.schedules.find((s) => s.id === day.scheduleId);
   const scheduleCount = config.schedules.filter((s) => !s.archivedAt).length;
 
@@ -167,7 +170,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
       variant: "success",
       title:
         dates.length > 1
-          ? t("availability.editor.savedMany", { count: dates.length })
+          ? t("availability.editor.savedMany", { count: writtenCount })
           : t("availability.editor.savedOne", {
               date: format.formatCalendarDate(date, {
                 weekday: "long",
@@ -326,7 +329,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
           isLoading={isPending && !conflict}
           onClick={() => void submit(false)}
         >
-          {t("availability.editor.save", { count: dates.length })}
+          {t("availability.editor.save", { count: writtenCount })}
         </Button>
       </div>
       {conflict && (

@@ -188,6 +188,44 @@ describe("AvailabilityDayEditor", () => {
     expect(sentBody().body.scopeConflicts).toBe("replace");
   });
 
+  it("under Keep theirs counts only the dates that will change, in the label and the toast", async () => {
+    renderEditor([EARLY_DINNER]);
+    fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+    chooseScope(/Every Friday from/);
+    fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+    expect(screen.getByRole("button", { name: "Save 52 dates" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save 52 dates" }));
+    expect(await screen.findByText("52 dates updated")).toBeInTheDocument();
+  });
+
+  it("saves against the version the draft began on, not one a background refetch brought in", async () => {
+    const { rerender } = renderEditor();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+    rerender(
+      <ToastProvider>
+        <main>
+          <AvailabilityDayEditor
+            venueId="venue-1"
+            date={FIXTURE_DATE}
+            day={resolveFixtureDay()}
+            state={{ config: fixtureConfig(), version: 9, source: "rows" }}
+            timezone={FIXTURE_TIMEZONE}
+            today="2026-10-28"
+            onDirtyChange={vi.fn()}
+            onCancel={vi.fn()}
+            onFinished={vi.fn()}
+          />
+        </main>
+      </ToastProvider>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
+
+    await waitFor(() => expect(save).toHaveBeenCalled());
+    expect(sentBody().body.expectedVersion).toBe(4);
+  });
+
   it("keeps the draft open with an alert when the server rejects the hours", async () => {
     save.mockRejectedValueOnce(
       conflict("invalid-config", {

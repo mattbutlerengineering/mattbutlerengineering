@@ -64,4 +64,3 @@ export const useSaveAvailabilityConfig = createMutationHook<
     return api.availability.saveConfig(venueId, { ...body, expectedVersion });
   },
 });
-});

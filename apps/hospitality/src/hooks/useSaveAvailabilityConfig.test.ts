@@ -31,14 +31,16 @@ describe("useSaveAvailabilityConfig", () => {
     mockSave.mockResolvedValue({ version: 4, changeId: "chg-1" });
   });
 
-  it("saves against the version the draft was made on, then refreshes the calendar and config", async () => {
+  it("saves against the version the draft was made on, then refreshes the calendar, config and venues", async () => {
     const { result, invalidate } = setup();
     await act(() => result.current.mutateAsync({ venueId: "v1", body: BODY }));
 
     expect(mockGet).not.toHaveBeenCalled();
     expect(mockSave).toHaveBeenCalledWith("v1", BODY);
     const keys = invalidate.mock.calls.map(([filter]) => filter?.queryKey?.[0]);
-    expect(keys).toEqual(expect.arrayContaining(["availabilityDays", "availabilityConfig"]));
+    expect(keys).toEqual(
+      expect.arrayContaining(["availabilityDays", "availabilityConfig", "venues"])
+    );
   });
 
   it("overwrite saves against the version the server holds now", async () => {
