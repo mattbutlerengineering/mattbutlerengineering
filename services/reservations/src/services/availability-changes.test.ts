@@ -408,4 +408,53 @@ describe("revertAvailabilityChange", () => {
       data: { operatingHours: Prisma.DbNull },
     });
   });
+
+  it("revives a date rule the change soft-deleted instead of creating it again", async () => {
+    const removed = {
+      id: "dr-gone",
+      kind: "closure",
+      targetKind: "venue",
+      startsOn: "2026-12-24",
+      endsOn: "2026-12-24",
+    };
+    const tx = revertingTx({
+      change: row({
+        id: "chg-5",
+        inverse: inverse({
+          restore: {
+            schedules: [],
+            venueServices: [],
+            scheduleServices: [],
+            assignments: [],
+            dateRules: [removed],
+          },
+        }),
+      }),
+    });
+    // The rule is soft-deleted, so the live read (deletedAt: null) does not return it.
+    const dateRule = {
+      findMany: vi.fn(async () => []),
+      update: vi.fn(async () => ({})),
+      create: vi.fn(async () => ({})),
+    };
+    const dateRuleTable = {
+      deleteMany: vi.fn(async () => ({})),
+      createMany: vi.fn(async () => ({})),
+    };
+
+    const outcome = await revertAvailabilityChange(
+      { ...request, expectedVersion: 5 },
+      fakeClient({ ...tx, dateRule, dateRuleTable })
+    );
+
+    expect(outcome).toEqual({ kind: "saved", version: 6, changeId: "chg-6" });
+    expect(dateRule.update).toHaveBeenCalledWith({
+      where: { id: "dr-gone" },
+      data: expect.objectContaining({ kind: "closure", deletedAt: null }),
+    });
+    expect(dateRule.create).not.toHaveBeenCalled();
+    expect(dateRuleTable.deleteMany).toHaveBeenCalledWith({
+      where: { venueId: "venue-1", dateRuleId: "dr-gone" },
+    });
+  });
 });
