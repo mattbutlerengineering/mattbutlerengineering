@@ -1000,6 +1000,7 @@
     "noTables": "Aucune table disponible pour {{size}} convives.",
     "table": "Table",
     "tableOption": "{{name}} ({{capacity}} places)",
+    "tableOptionBlocked": "{{name}} ({{capacity}} places) – Bloquée ce soir",
     "selectTable": "Veuillez sélectionner une table.",
     "needContact": "Veuillez fournir un courriel ou un numéro de téléphone du client.",
     "cancel": "Annuler",
@@ -1178,6 +1179,15 @@
   "waitlist": {
     "title": "Liste d’attente",
     "description": "Clients en attente d’une table",
+    "closed": {
+      "message": "Liste d’attente fermée ce soir.",
+      "withNote": "Liste d’attente fermée ce soir : {{note}}",
+      "reopen": "Rouvrir la liste d’attente",
+      "manage": "Gérer cette fermeture dans Disponibilités, Dates spéciales",
+      "reopening": "Réouverture…",
+      "reopened": "Liste d’attente rouverte.",
+      "reopenError": "Impossible de rouvrir la liste d’attente."
+    },
     "loadFailed": "Impossible de charger la liste d’attente.",
     "empty": {
       "heading": "Personne en attente",

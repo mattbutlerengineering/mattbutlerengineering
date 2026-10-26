@@ -102,6 +102,14 @@ vi.mock("../hooks/useApiClient.js", () => ({ useApiClient: () => ({ reservations
 vi.mock("../hooks/useStaffBookingCheck.js", () => ({
   useStaffBookingCheck: () => ({ phase: "idle", verdict: null }),
 }));
+const TONIGHT_RESULT = { serviceDate: null, rules: [], waitlistClosed: false };
+vi.mock("../hooks/useStaffTonight.js", () => ({ useStaffTonight: () => TONIGHT_RESULT }));
+vi.mock("../hooks/useVenueTeam.js", () => ({
+  useVenueTeam: () => ({ data: null, isLoading: false, error: null }),
+}));
+vi.mock("../hooks/useClosures.js", () => ({
+  useReopenClosure: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
 vi.mock("../hooks/useOpenTimes.js", () => ({
   useOpenTimes: () => ({ data: [], isLoading: false, error: null }),
 }));

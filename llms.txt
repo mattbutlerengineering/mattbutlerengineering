@@ -6117,6 +6117,19 @@
       }: StaffCheckParams): StaffCheckResult { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useStaffTonight.ts">
+    <item priority="low">
+      interface StaffTonight {
+        serviceDate: string | null;
+        config: AvailabilityConfig | null;
+        rules: readonly DateRule[];
+        waitlistClosed: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function useStaffTonight(venueId: string | null | undefined): StaffTonight { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useStatusMessage.ts">
     <item priority="low">
       interface StatusMessage {
@@ -24298,6 +24311,23 @@
       ): string { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/utils/current-service-date.ts">
+    <item priority="high">
+      export function currentServiceDate(
+        config: AvailabilityConfig,
+        timeZone: string,
+        now: Date
+      ): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/utils/dinner-config.fixture.ts">
+    <item priority="high">
+      export const DINNER_CONFIG: AvailabilityConfig;
+    </item>
+    <item priority="high">
+      export const DINNER_TZ: unknown;
+    </item>
+  </file>
   <file path="apps/hospitality/src/utils/format.ts">
     <item priority="medium">
       function defaultReport(timeZone: string): void { /* ... */ }
@@ -24553,6 +24583,33 @@
     </item>
     <item priority="high">
       export function stripReservationsIntent(params: URLSearchParams): URLSearchParams { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/utils/tonight-blocks.ts">
+    <item priority="high">
+      export function bookingMinuteOnServiceDay(
+        config: AvailabilityConfig,
+        timeZone: string,
+        serviceDate: string,
+        date: string,
+        time: string
+      ): number | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function blockedTableIds(
+        rules: readonly DateRule[],
+        serviceDate: string,
+        startMinute: number | null
+      ): ReadonlySet<string> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function waitlistClosingRule(
+        rules: readonly DateRule[],
+        serviceDate: string
+      ): DateRule | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isTonightOnlyWaitlistClosure(rule: DateRule): boolean { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/utils/venue-wall-time.ts">

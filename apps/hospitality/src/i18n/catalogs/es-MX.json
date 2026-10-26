@@ -1000,6 +1000,7 @@
     "noTables": "No hay mesas disponibles para {{size}} comensales.",
     "table": "Mesa",
     "tableOption": "{{name}} (capacidad: {{capacity}})",
+    "tableOptionBlocked": "{{name}} (capacidad: {{capacity}}) – Bloqueada esta noche",
     "selectTable": "Selecciona una mesa.",
     "needContact": "Proporciona un correo o un número de teléfono del cliente.",
     "cancel": "Cancelar",
@@ -1178,6 +1179,15 @@
   "waitlist": {
     "title": "Lista de espera",
     "description": "Clientes que esperan una mesa",
+    "closed": {
+      "message": "Lista de espera cerrada esta noche.",
+      "withNote": "Lista de espera cerrada esta noche: {{note}}",
+      "reopen": "Reabrir lista de espera",
+      "manage": "Administrar este cierre en Disponibilidad, Fechas especiales",
+      "reopening": "Reabriendo…",
+      "reopened": "Lista de espera reabierta.",
+      "reopenError": "No se pudo reabrir la lista de espera."
+    },
     "loadFailed": "No se pudo cargar la lista de espera.",
     "empty": {
       "heading": "Nadie en espera",

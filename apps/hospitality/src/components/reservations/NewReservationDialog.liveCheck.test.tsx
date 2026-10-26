@@ -13,6 +13,9 @@ vi.mock("../../hooks/useStaffBookingCheck.js", () => ({
 vi.mock("../../hooks/useOpenTimes.js", () => ({
   useOpenTimes: (params: unknown) => mockOpenTimes(params),
 }));
+vi.mock("../../hooks/useStaffTonight.js", () => ({
+  useStaffTonight: () => ({ serviceDate: null, rules: [], waitlistClosed: false }),
+}));
 vi.mock("../../hooks/useGuestLookup.js", () => ({
   useGuestLookup: () => ({ rows: [], hasMore: false, isLoading: false, failed: false, query: "" }),
 }));

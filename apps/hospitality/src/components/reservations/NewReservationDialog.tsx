@@ -21,6 +21,8 @@ import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { venueWallTimeToInstant } from "../../utils/venue-wall-time.js";
 import { useStaffBookingCheck } from "../../hooks/useStaffBookingCheck.js";
 import { useOpenTimes } from "../../hooks/useOpenTimes.js";
+import { useStaffTonight } from "../../hooks/useStaffTonight.js";
+import { blockedTableIds, bookingMinuteOnServiceDay } from "../../utils/tonight-blocks.js";
 import { OccasionSeatingFields } from "./OccasionSeatingFields.js";
 import { OpenTimesStrip } from "./OpenTimesStrip.js";
 import { StaffCheckNotice } from "./StaffCheckNotice.js";
@@ -53,6 +55,8 @@ interface GuestLink {
 // No duration control in this minimal form — 90 minutes matches the
 // walk-in route's server-side default (see reservationRoutes "/walk-in").
 const DEFAULT_DURATION_MINUTES = 90;
+
+const NO_BLOCKED: ReadonlySet<string> = new Set();
 
 function findBestTable(tables: Table[], partySize: number): string {
   const eligible = tables
@@ -162,13 +166,38 @@ export function NewReservationDialog({
     selectedTableId: tableId,
   });
   const openTimes = useOpenTimes({ venueId, date, partySize });
+  const tonight = useStaffTonight(venueId);
   const isHardBlocked = check.verdict?.kind === "hard";
   const needsOverride = check.verdict?.kind === "soft";
   const trimmedReason = overrideReason.trim();
 
+  // Blocked tables come from the Tonight rules the app already holds, never a per-table check.
+  const blockedIds = useMemo(
+    () =>
+      tonight.serviceDate && tonight.config
+        ? blockedTableIds(
+            tonight.rules,
+            tonight.serviceDate,
+            bookingMinuteOnServiceDay(
+              tonight.config,
+              timeZone,
+              tonight.serviceDate,
+              date,
+              startTime
+            )
+          )
+        : NO_BLOCKED,
+    [tonight.serviceDate, tonight.config, tonight.rules, timeZone, date, startTime]
+  );
+  const isTableBlocked = blockedIds.has(tableId);
+
   const tableOptions = availableTables.map((table) => ({
     value: table.id,
-    label: t("newReservation.tableOption", { name: table.name, capacity: table.capacity }),
+    label: t(
+      blockedIds.has(table.id) ? "newReservation.tableOptionBlocked" : "newReservation.tableOption",
+      { name: table.name, capacity: table.capacity }
+    ),
+    disabled: blockedIds.has(table.id),
   }));
 
   const handlePartySizeChange = useCallback(
@@ -192,7 +221,7 @@ export function NewReservationDialog({
       return;
     }
 
-    if (isHardBlocked) return;
+    if (isHardBlocked || isTableBlocked) return;
     if (needsOverride && !trimmedReason) {
       setError(t("newReservation.check.reasonLabel"));
       return;
@@ -382,7 +411,10 @@ export function NewReservationDialog({
                 type="submit"
                 isLoading={isLoading}
                 disabled={
-                  availableTables.length === 0 || isHardBlocked || (needsOverride && !trimmedReason)
+                  availableTables.length === 0 ||
+                  isHardBlocked ||
+                  isTableBlocked ||
+                  (needsOverride && !trimmedReason)
                 }
                 loadingText={t("newReservation.creating")}
               >
