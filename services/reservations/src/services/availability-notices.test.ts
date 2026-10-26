@@ -76,6 +76,45 @@ describe("dayNotices", () => {
     });
   });
 
+  it("says nothing for a venue that never set hours (staff may take phone bookings)", () => {
+    const s = snapshot([]);
+    const empty = {
+      ...s,
+      config: { ...s.config, scheduleServices: [], assignments: [] },
+    };
+    expect(noticesFor(empty, DATE, null, 0, true)).toEqual({});
+  });
+
+  it("keeps a closed weekday selectable when a special-hours date opens it", () => {
+    const s = snapshot([
+      {
+        kind: "special_hours",
+        id: "sh1",
+        targetKind: "venue",
+        startsOn: DATE,
+        endsOn: DATE,
+        payload: {
+          version: 1,
+          services: [
+            {
+              venueServiceId: "vs1",
+              opensAt: 1020,
+              lastSeatingAt: 1230,
+              closesAt: 1320,
+              seating: { version: 1, interval: 30 },
+              bookingTypes: ["online", "phone"],
+            },
+          ],
+        },
+      } as DateRule,
+    ]);
+    const closedThursday = {
+      ...s,
+      config: { ...s.config, assignments: [{ ...s.config.assignments[0]!, weekdays: [0] }] },
+    };
+    expect(dayNotices(closedThursday, DATE, null)).toEqual({});
+  });
+
   it("carries the closure's guest message on a closed date", () => {
     const notices = dayNotices(
       snapshot([closure({ guestMessage: "Closed for a private event" })]),

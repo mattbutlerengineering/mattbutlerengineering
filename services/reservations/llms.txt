@@ -2283,7 +2283,9 @@
         serviceDate: ServiceDate,
         phone: string | null,
         /** Online seatings `listSlots` found for the date, booked or not. */
-        seatingCount: number
+        seatingCount: number,
+        /** The venue never set hours: no services is "not set up", not "closed" (staff may still book by phone). */
+        unconfigured = false
       ): DayNotices { /* ... */ }
     </item>
   </file>
