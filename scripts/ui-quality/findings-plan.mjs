@@ -348,7 +348,8 @@ function isFixCandidate(finding, record) {
     typeof file === "string" &&
     file.length > 0 &&
     !FIX_PR_EXCLUDED_PREFIXES.some((p) => file.startsWith(p)) &&
-    !String(record?.carrier ?? "").startsWith("fix-pr:")
+    !String(record?.carrier ?? "").startsWith("fix-pr:") &&
+    record?.state !== "declined"
   );
 }
 

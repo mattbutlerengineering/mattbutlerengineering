@@ -646,6 +646,21 @@ describe("findings.mjs plan — carrier rules", () => {
     expect(p.fix_pr_candidate).toBeNull();
   });
 
+  it("never marks a declined (not_planned) finding as the fix-PR candidate", () => {
+    const alt = finding("marketing", "acmm", "accessibility/non-descriptive-alt", "P2", {
+      evidence: { message: 'alt="image"', file: "apps/marketing/src/pages/AcmmPage.tsx" },
+    });
+    const { plan: p } = plan([[alt]], {}, PASS, [
+      labelledIssue(777, titleFor(alt, 1), "closed", "not_planned"),
+    ]);
+    expect(p.actions.find((a) => a.key === findingKey(alt, 1))).toMatchObject({
+      action: "skip-vetoed",
+      state: "declined",
+    });
+    expect(p.fix_pr_candidate).toBeNull();
+    expect(p.actions.some((a) => a.fix_pr_candidate)).toBe(false);
+  });
+
   it("calibration failed removes agent-built findings only; pass keeps them", () => {
     const grad = finding("marketing", "/", "agent-built/gradient-background");
     const all = [grad, ALT, DEAD];
