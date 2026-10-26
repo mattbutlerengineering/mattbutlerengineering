@@ -10,7 +10,6 @@ import type {
 } from "./manage-rebook-types.js";
 
 export type {
-  CancelOutcome,
   GuestRefundStatus,
   RebookDeps,
   VenueCancellationDeps,
