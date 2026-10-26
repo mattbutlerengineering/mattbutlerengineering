@@ -84,6 +84,8 @@ export function createClosureNoticeService(deps: { scheduler: Scheduler; store?:
   return {
     enqueueForClosure: (input: EnqueueInput) => enqueue("closure", input),
     enqueueForReopen: (input: EnqueueInput) => enqueue("reopened", input),
+    /** The per-closure urgency decision, for callers that enqueue single outcomes. */
+    isUrgent: (input: EnqueueInput) => isUrgent(store, input),
     callList: (venueId: string, ruleId: string) => store.listCallList(venueId, ruleId),
     summaries: (venueId: string) => store.listSummaries(venueId),
   };

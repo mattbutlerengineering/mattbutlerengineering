@@ -189,7 +189,7 @@
         queue: Queue;
         redis: Redis;
         async schedule(): Promise<unknown>;
-        async scheduleCron(): Promise<unknown>;
+        async requeue(): Promise<unknown>;
       }
     </item>
   </file>
@@ -3269,16 +3269,22 @@
     <item priority="low">
       interface ClosureOutcomeSweeperDeps {
         store: ClosureOutcomeSweepStore;
-        jobs: Pick<JobsPort, "schedule">;
-        notices: Pick<ClosureNoticeService, "enqueueForClosure">;
-        log: Pick<FastifyBaseLogger, "error">;
+        jobs: Pick<JobScheduler, "requeue">;
+        notices: Pick<ClosureNoticeService, "isUrgent">;
+        log: Pick<FastifyBaseLogger, "error" | "info">;
         now?: () => Date;
       }
     </item>
     <item priority="low">
+      interface KindResult {
+        requeued: number;
+        live: number;
+      }
+    </item>
+    <item priority="low">
       interface SweepResult {
-        refunds: number;
-        notices: number;
+        refunds: KindResult;
+        notices: KindResult;
       }
     </item>
     <item priority="low">
@@ -3286,7 +3292,7 @@
         deps: ClosureOutcomeSweeperDeps,
         venueId: string,
         stuck: readonly StuckOutcome[]
-      ): Promise<number> { /* ... */ }
+      ): Promise<KindResult> { /* ... */ }
     </item>
     <item priority="low">
       async function sweepNotices(
@@ -3294,7 +3300,7 @@
         venueId: string,
         stuck: readonly StuckOutcome[],
         now: Date
-      ): Promise<number> { /* ... */ }
+      ): Promise<KindResult> { /* ... */ }
     </item>
     <item priority="low">
       async function sweepVenue(deps: ClosureOutcomeSweeperDeps, venueId: string): Promise<SweepResult> { /* ... */ }
@@ -4086,7 +4092,7 @@
   </file>
   <file path="src/services/notifier-runtime.ts">
     <item priority="low">
-      type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel">;
+      type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel" | "requeue">;
     </item>
     <item priority="low">
       interface NotifierRuntime {

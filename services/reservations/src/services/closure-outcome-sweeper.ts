@@ -1,22 +1,28 @@
 import type { FastifyBaseLogger } from "fastify";
 import { JOB_TYPES } from "../jobs/index.js";
-import type { JobsPort } from "../transitions/ports.js";
-import type { ClosureNoticeService } from "./closure-notice-service.js";
+import type { JobScheduler } from "../jobs/index.js";
+import { closureNoticeJobId, type ClosureNoticeService } from "./closure-notice-service.js";
 import { closureRefundJobId } from "./closure-refund.js";
 import { runWithVenueContext } from "./venue-context-store.js";
 
 /**
  * Re-enqueues closure refunds and notices lost after the closure committed
  * (#7681, review finding R6). `closure-post-commit.ts` only logs an enqueue
- * failure, so a process death, a Redis outage or a stalled job leaves an
- * outcome at `refund: pending` or with no delivery recorded.
+ * failure, so a process death, a Redis outage, a stalled or failed job, or an
+ * old replica rejecting the job type leaves an outcome at `refund: pending`
+ * or with no delivery recorded.
  *
  * The sweeper never settles anything itself and makes no Stripe call: it only
- * schedules the existing jobs under the SAME stable job ids as the original
- * enqueue (`closureRefundJobId`, `closureNoticeJobId` via the notice service).
- * BullMQ ignores a second add of a live id, `settleClosureRefund` skips
- * `done` / `none`, and the notice job skips channels already `sent`, so a
- * sweep can never refund or notify twice.
+ * makes the existing jobs runnable again under the SAME stable job ids as the
+ * original enqueue (`closureRefundJobId`, `closureNoticeJobId`). BullMQ treats
+ * a retained failed or completed job as a duplicate, so the sweep goes through
+ * `JobScheduler.requeue`, which removes a retained failed / completed job and
+ * re-adds it under that id, and leaves a live (waiting / active / delayed) job
+ * alone. Money safety does not depend on the job id: `settleClosureRefund`
+ * skips `done` / `none`, the deposit CAS and the Stripe keys
+ * (`${depositId}:refund`, `:closureRefund`) make a second run a no-op, and the
+ * notice job skips channels already `sent`. Notices are requeued per STUCK
+ * outcome only, never per closure, so a delivered sibling is never touched.
  *
  * Every read and enqueue for a venue runs inside `runWithVenueContext(venueId,
  * …)` (ADR-026); venues are enumerated through `getAllVenueIds`
@@ -45,39 +51,60 @@ export interface ClosureOutcomeSweepStore {
 export interface ClosureOutcomeSweeperDeps {
   getVenueIds(): Promise<string[]>;
   store: ClosureOutcomeSweepStore;
-  jobs: Pick<JobsPort, "schedule">;
-  notices: Pick<ClosureNoticeService, "enqueueForClosure">;
-  log: Pick<FastifyBaseLogger, "error">;
+  jobs: Pick<JobScheduler, "requeue">;
+  notices: Pick<ClosureNoticeService, "isUrgent">;
+  log: Pick<FastifyBaseLogger, "error" | "info">;
   now?: () => Date;
   graceMs?: number;
   batchSize?: number;
 }
 
-export interface SweepResult {
-  refunds: number;
-  notices: number;
+/** `requeued`: a runnable job was (re)created. `live`: one was already in the queue. */
+export interface KindResult {
+  requeued: number;
+  live: number;
 }
+
+export interface SweepResult {
+  refunds: KindResult;
+  notices: KindResult;
+}
+
+const EMPTY: KindResult = { requeued: 0, live: 0 };
+
+const add = (a: KindResult, b: KindResult): KindResult => ({
+  requeued: a.requeued + b.requeued,
+  live: a.live + b.live,
+});
 
 async function sweepRefunds(
   deps: ClosureOutcomeSweeperDeps,
   venueId: string,
   stuck: readonly StuckOutcome[]
-): Promise<number> {
-  let enqueued = 0;
+): Promise<KindResult> {
+  let result = EMPTY;
   for (const o of stuck) {
     try {
-      await deps.jobs.schedule(
+      const outcome = await deps.jobs.requeue(
         JOB_TYPES.CLOSURE_REFUND,
         { outcomeId: o.id, venueId },
-        0,
         closureRefundJobId(o.dateRuleId, o.reservationId)
       );
-      enqueued += 1;
+      if (outcome === "live") {
+        deps.log.info(
+          { venueId, outcomeId: o.id },
+          "closure sweeper: refund job still live in the queue"
+        );
+      }
+      result = add(
+        result,
+        outcome === "live" ? { requeued: 0, live: 1 } : { requeued: 1, live: 0 }
+      );
     } catch (err) {
-      deps.log.error({ err, venueId, outcomeId: o.id }, "closure sweeper: refund enqueue failed");
+      deps.log.error({ err, venueId, outcomeId: o.id }, "closure sweeper: refund requeue failed");
     }
   }
-  return enqueued;
+  return result;
 }
 
 async function sweepNotices(
@@ -85,19 +112,36 @@ async function sweepNotices(
   venueId: string,
   stuck: readonly StuckOutcome[],
   now: Date
-): Promise<number> {
-  const counts = new Map<string, number>();
-  for (const o of stuck) counts.set(o.dateRuleId, (counts.get(o.dateRuleId) ?? 0) + 1);
-  let enqueued = 0;
-  for (const [ruleId, count] of counts) {
+): Promise<KindResult> {
+  const urgencyByRule = new Map<string, boolean>();
+  let result = EMPTY;
+  for (const o of stuck) {
     try {
-      await deps.notices.enqueueForClosure({ venueId, ruleId, now });
-      enqueued += count;
+      let urgent = urgencyByRule.get(o.dateRuleId);
+      if (urgent === undefined) {
+        urgent = await deps.notices.isUrgent({ venueId, ruleId: o.dateRuleId, now });
+        urgencyByRule.set(o.dateRuleId, urgent);
+      }
+      const outcome = await deps.jobs.requeue(
+        JOB_TYPES.CLOSURE_NOTICE,
+        { outcomeId: o.id, venueId, variant: "closure", urgent },
+        closureNoticeJobId(o.id, "closure")
+      );
+      if (outcome === "live") {
+        deps.log.info(
+          { venueId, outcomeId: o.id },
+          "closure sweeper: notice job still live in the queue"
+        );
+      }
+      result = add(
+        result,
+        outcome === "live" ? { requeued: 0, live: 1 } : { requeued: 1, live: 0 }
+      );
     } catch (err) {
-      deps.log.error({ err, venueId, ruleId }, "closure sweeper: notice enqueue failed");
+      deps.log.error({ err, venueId, outcomeId: o.id }, "closure sweeper: notice requeue failed");
     }
   }
-  return enqueued;
+  return result;
 }
 
 async function sweepVenue(deps: ClosureOutcomeSweeperDeps, venueId: string): Promise<SweepResult> {
@@ -122,12 +166,14 @@ async function sweepVenue(deps: ClosureOutcomeSweeperDeps, venueId: string): Pro
 
 /** One sweep over every venue. A failing venue is logged and does not stop the others. */
 export async function sweepClosureOutcomes(deps: ClosureOutcomeSweeperDeps): Promise<SweepResult> {
-  const total = { refunds: 0, notices: 0 };
+  let total: SweepResult = { refunds: EMPTY, notices: EMPTY };
   for (const venueId of await deps.getVenueIds()) {
     try {
       const result = await sweepVenue(deps, venueId);
-      total.refunds += result.refunds;
-      total.notices += result.notices;
+      total = {
+        refunds: add(total.refunds, result.refunds),
+        notices: add(total.notices, result.notices),
+      };
     } catch (err) {
       deps.log.error({ err, venueId }, "closure sweeper: venue sweep failed");
     }

@@ -11,7 +11,7 @@ import type { SmsPort } from "../notifications/index.js";
  * re-declaring a narrower, untyped `{ schedule(jobType: string, payload: unknown) }`
  * and casting back to the typed shape at the call site.
  */
-export type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel">;
+export type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel" | "requeue">;
 
 /**
  * Single owner of the reservations notifier infrastructure. Reads the env vars
@@ -107,6 +107,9 @@ export function createNotifierRuntime(): NotifierRuntime {
     },
     async cancel(jobId: string): Promise<boolean> {
       return connect().cancel(jobId);
+    },
+    async requeue<T extends JobType>(jobType: T, payload: JobPayloadMap[T], jobId: string) {
+      return connect().requeue(jobType, payload, jobId);
     },
   };
 

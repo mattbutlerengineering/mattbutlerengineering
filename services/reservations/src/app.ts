@@ -407,7 +407,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
       const closureOutcomeSweeper = createClosureOutcomeSweeper({
         getVenueIds: () => getAllVenueIds(prisma),
         store: createPrismaClosureOutcomeSweepStore(),
-        jobs: options.jobs ?? notifierRuntime.scheduler,
+        jobs: notifierRuntime.scheduler,
         notices: services.closureNoticeService,
         log: fastify.log,
       });

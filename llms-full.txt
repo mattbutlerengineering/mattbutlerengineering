@@ -20977,6 +20977,33 @@
       }
     
       /**
+       * Make sure a runnable job exists under `jobId`, for a caller that knows the
+       * work is still owed (the closure outcome sweeper). BullMQ treats an id held
+       * in ANY state, including retained failed / completed jobs, as a duplicate,
+       * so a plain `schedule` would silently do nothing. Here:
+       *  - no job → add it (`added`);
+       *  - failed or completed → remove it and add it again under the same id
+       *    (`requeued`), so replicas still dedupe on that id;
+       *  - waiting / delayed / active / etc. → leave it (`live`).
+       */
+      async requeue<T extends JobType>(
+        jobType: T,
+        payload: JobPayloadMap[T],
+        jobId: string
+      ): Promise<"added" | "requeued" | "live"> {
+        const existing = await this.queue.getJob(jobId);
+        if (!existing) {
+          await this.schedule(jobType, payload, 0, jobId);
+          return "added";
+        }
+        const state = await existing.getState();
+        if (state !== "failed" && state !== "completed") return "live";
+        await existing.remove();
+        await this.schedule(jobType, payload, 0, jobId);
+        return "requeued";
+      }
+    
+      /**
        * Schedule a recurring cron job.
        * @param jobType        The type of job to run.
        * @param payload        Typed payload for the job.
@@ -48148,6 +48175,8 @@
       return {
         enqueueForClosure: (input: EnqueueInput) => enqueue("closure", input),
         enqueueForReopen: (input: EnqueueInput) => enqueue("reopened", input),
+        /** The per-closure urgency decision, for callers that enqueue single outcomes. */
+        isUrgent: (input: EnqueueInput) => isUrgent(store, input),
         callList: (venueId: string, ruleId: string) => store.listCallList(venueId, ruleId),
         summaries: (venueId: string) => store.listSummaries(venueId),
       };
@@ -48598,56 +48627,85 @@
     export interface ClosureOutcomeSweeperDeps {
       getVenueIds(): Promise<string[]>;
       store: ClosureOutcomeSweepStore;
-      jobs: Pick<JobsPort, "schedule">;
-      notices: Pick<ClosureNoticeService, "enqueueForClosure">;
-      log: Pick<FastifyBaseLogger, "error">;
+      jobs: Pick<JobScheduler, "requeue">;
+      notices: Pick<ClosureNoticeService, "isUrgent">;
+      log: Pick<FastifyBaseLogger, "error" | "info">;
       now?: () => Date;
       graceMs?: number;
       batchSize?: number;
     }
+    export interface KindResult {
+      requeued: number;
+      live: number;
+    }
     export interface SweepResult {
-      refunds: number;
-      notices: number;
+      refunds: KindResult;
+      notices: KindResult;
     }
     async function sweepRefunds(
       deps: ClosureOutcomeSweeperDeps,
       venueId: string,
       stuck: readonly StuckOutcome[]
-    ): Promise<number> {
-      let enqueued = 0;
+    ): Promise<KindResult> {
+      let result = EMPTY;
       for (const o of stuck) {
         try {
-          await deps.jobs.schedule(
+          const outcome = await deps.jobs.requeue(
             JOB_TYPES.CLOSURE_REFUND,
             { outcomeId: o.id, venueId },
-            0,
             closureRefundJobId(o.dateRuleId, o.reservationId)
           );
-          enqueued += 1;
+          if (outcome === "live") {
+            deps.log.info(
+              { venueId, outcomeId: o.id },
+              "closure sweeper: refund job still live in the queue"
+            );
+          }
+          result = add(
+            result,
+            outcome === "live" ? { requeued: 0, live: 1 } : { requeued: 1, live: 0 }
+          );
         } catch (err) {
-          deps.log.error({ err, venueId, outcomeId: o.id }, "closure sweeper: refund enqueue failed");
+          deps.log.error({ err, venueId, outcomeId: o.id }, "closure sweeper: refund requeue failed");
         }
       }
-      return enqueued;
+      return result;
     }
     async function sweepNotices(
       deps: ClosureOutcomeSweeperDeps,
       venueId: string,
       stuck: readonly StuckOutcome[],
       now: Date
-    ): Promise<number> {
-      const counts = new Map<string, number>();
-      for (const o of stuck) counts.set(o.dateRuleId, (counts.get(o.dateRuleId) ?? 0) + 1);
-      let enqueued = 0;
-      for (const [ruleId, count] of counts) {
+    ): Promise<KindResult> {
+      const urgencyByRule = new Map<string, boolean>();
+      let result = EMPTY;
+      for (const o of stuck) {
         try {
-          await deps.notices.enqueueForClosure({ venueId, ruleId, now });
-          enqueued += count;
+          let urgent = urgencyByRule.get(o.dateRuleId);
+          if (urgent === undefined) {
+            urgent = await deps.notices.isUrgent({ venueId, ruleId: o.dateRuleId, now });
+            urgencyByRule.set(o.dateRuleId, urgent);
+          }
+          const outcome = await deps.jobs.requeue(
+            JOB_TYPES.CLOSURE_NOTICE,
+            { outcomeId: o.id, venueId, variant: "closure", urgent },
+            closureNoticeJobId(o.id, "closure")
+          );
+          if (outcome === "live") {
+            deps.log.info(
+              { venueId, outcomeId: o.id },
+              "closure sweeper: notice job still live in the queue"
+            );
+          }
+          result = add(
+            result,
+            outcome === "live" ? { requeued: 0, live: 1 } : { requeued: 1, live: 0 }
+          );
         } catch (err) {
-          deps.log.error({ err, venueId, ruleId }, "closure sweeper: notice enqueue failed");
+          deps.log.error({ err, venueId, outcomeId: o.id }, "closure sweeper: notice requeue failed");
         }
       }
-      return enqueued;
+      return result;
     }
     async function sweepVenue(deps: ClosureOutcomeSweeperDeps, venueId: string): Promise<SweepResult> {
       const now = (deps.now ?? (() => new Date()))();
@@ -48669,12 +48727,14 @@
       });
     }
     export async function sweepClosureOutcomes(deps: ClosureOutcomeSweeperDeps): Promise<SweepResult> {
-      const total = { refunds: 0, notices: 0 };
+      let total: SweepResult = { refunds: EMPTY, notices: EMPTY };
       for (const venueId of await deps.getVenueIds()) {
         try {
           const result = await sweepVenue(deps, venueId);
-          total.refunds += result.refunds;
-          total.notices += result.notices;
+          total = {
+            refunds: add(total.refunds, result.refunds),
+            notices: add(total.notices, result.notices),
+          };
         } catch (err) {
           deps.log.error({ err, venueId }, "closure sweeper: venue sweep failed");
         }
@@ -53107,7 +53167,7 @@
     }
   </file>
   <file path="services/reservations/src/services/notifier-runtime.ts">
-    export type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel">;
+    export type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel" | "requeue">;
     export interface NotifierRuntime {
       /**
        * Redis URL — the single source for the scheduler AND the in-process worker.
@@ -53190,6 +53250,9 @@
         },
         async cancel(jobId: string): Promise<boolean> {
           return connect().cancel(jobId);
+        },
+        async requeue<T extends JobType>(jobType: T, payload: JobPayloadMap[T], jobId: string) {
+          return connect().requeue(jobType, payload, jobId);
         },
       };
     
@@ -76204,7 +76267,7 @@
           const closureOutcomeSweeper = createClosureOutcomeSweeper({
             getVenueIds: () => getAllVenueIds(prisma),
             store: createPrismaClosureOutcomeSweepStore(),
-            jobs: options.jobs ?? notifierRuntime.scheduler,
+            jobs: notifierRuntime.scheduler,
             notices: services.closureNoticeService,
             log: fastify.log,
           });
