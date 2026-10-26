@@ -5,7 +5,10 @@ import { isEmergencyTonightClose } from "./closure-command-plan.js";
 
 const DEFAULT_HOURS = { opensAt: 1020, lastSeatingAt: 1320, closesAt: 1380 };
 
-const dinner = (hours: typeof DEFAULT_HOURS): DateRule =>
+type Hours = { opensAt: number; lastSeatingAt: number; closesAt: number };
+type Seating = { version: 1; interval: number } | { version: 1; fixed: number[] };
+
+const dinner = (hours: Hours, seating: Seating = { version: 1, interval: 15 }): DateRule =>
   ({
     id: "sh",
     kind: "special_hours",
@@ -18,7 +21,7 @@ const dinner = (hours: typeof DEFAULT_HOURS): DateRule =>
         {
           ...hours,
           venueServiceId: "vs",
-          seating: { version: 1, interval: 15 },
+          seating,
           bookingTypes: ["online"],
         },
       ],
@@ -40,7 +43,7 @@ const at = (hhmm: string) => new Date(`2026-12-24T${hhmm}:00.000Z`);
 function check(
   rule: DateRule,
   now: Date,
-  opts: { stored?: DateRule[]; hours?: typeof DEFAULT_HOURS } = {}
+  opts: { stored?: DateRule[]; hours?: Hours; seating?: Seating } = {}
 ): boolean {
   const snapshot = {
     timezone: "UTC",
@@ -49,7 +52,7 @@ function check(
       schedules: [],
       scheduleServices: [],
       assignments: [],
-      dateRules: [dinner(opts.hours ?? DEFAULT_HOURS), ...(opts.stored ?? [])],
+      dateRules: [dinner(opts.hours ?? DEFAULT_HOURS, opts.seating), ...(opts.stored ?? [])],
     },
   } as unknown as AvailabilitySnapshot;
   return isEmergencyTonightClose(snapshot, rule, now);
@@ -87,7 +90,7 @@ describe("isEmergencyTonightClose (#7687)", () => {
 
   describe("counts seating slots on the service grid, not minutes (now 18:31, 15-minute grid)", () => {
     // Dinner 17:00-22:00 (1020-1320 last seating): the next grid slot after 18:31 is 18:45.
-    const hours = { opensAt: 1020, lastSeatingAt: 1320, closesAt: 1380 };
+    const hours = DEFAULT_HOURS;
     const now = at("18:31");
     it.each([
       ["a stop from the minute after now", { stop: { from: 1112, to: 1400 } }],
@@ -110,6 +113,33 @@ describe("isEmergencyTonightClose (#7687)", () => {
 
     it("allows a stop that leaves a later slot", () => {
       expect(check(tonight("n", { stop: { from: 1126, to: 1400 } }), now, { hours })).toBe(false);
+    });
+  });
+
+  describe("a service already shorter than the floor (#7687)", () => {
+    const single = {
+      hours: { opensAt: 1140, lastSeatingAt: 1140, closesAt: 1380 },
+      seating: { version: 1 as const, fixed: [1140] },
+    };
+    const lunch = { hours: { opensAt: 690, lastSeatingAt: 735, closesAt: 810 } };
+
+    it("allows a change that removes no seating from a single-seating service", () => {
+      expect(check(tonight("n", { closeAt: 1320 }), at("16:00"), single)).toBe(false);
+      expect(check(tonight("n", { stop: { from: 1300, to: 1380 } }), at("16:00"), single)).toBe(
+        false
+      );
+    });
+
+    it("allows a change that removes no seating from a short lunch", () => {
+      expect(check(tonight("n", { closeAt: 800 }), at("10:00"), lunch)).toBe(false);
+    });
+
+    it("refuses a change that removes the only seating", () => {
+      expect(check(tonight("n", { closeAt: 1140 }), at("16:00"), single)).toBe(true);
+    });
+
+    it("refuses cutting a short lunch below its own length", () => {
+      expect(check(tonight("n", { closeAt: 700 }), at("10:00"), lunch)).toBe(true);
     });
   });
 

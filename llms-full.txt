@@ -47649,10 +47649,18 @@
       return (
         live.length > 0 &&
         live.every((s) => {
-          if (seatingStarts(after, s.venueServiceId, nowMin).length === 0) return true;
+          const remaining = seatingStarts(after, s.venueServiceId, nowMin);
+          if (remaining.length === 0) return true;
+          // A change that takes no seating away closes nothing, however short the service already is.
+          const current = seatingStarts(before, s.venueServiceId, nowMin);
+          if (remaining.length === current.length) return false;
           const plannedOpen = planned.services.find((p) => p.venueServiceId === s.venueServiceId);
-          const fromOpen = seatingStarts(after, s.venueServiceId, plannedOpen?.opensAt ?? s.opensAt);
-          return spanOf(fromOpen) < MIN_SERVICE_MINUTES;
+          const openAt = plannedOpen?.opensAt ?? s.opensAt;
+          const floor = Math.min(
+            MIN_SERVICE_MINUTES,
+            spanOf(seatingStarts(planned, s.venueServiceId, openAt))
+          );
+          return spanOf(seatingStarts(after, s.venueServiceId, openAt)) < floor;
         })
       );
     }
