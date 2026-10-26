@@ -93,6 +93,23 @@ describe("NewReservationDialog past-midnight seatings", () => {
     );
   });
 
+  it("shows the calendar date it will book when it differs from the service day", () => {
+    render(
+      <NewReservationDialog
+        tables={[TABLE]}
+        venueId="venue-1"
+        defaultDate="2026-05-10"
+        onConfirm={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+    expect(screen.queryByTestId("calendar-date-hint")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/start time/i), { target: { value: "19:00" } });
+    expect(screen.queryByTestId("calendar-date-hint")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/start time/i), { target: { value: "00:45" } });
+    expect(screen.getByTestId("calendar-date-hint")).toHaveTextContent(/Mon.*May 11.*12:45/);
+  });
+
   it("leaves an ordinary 19:00 booking on the picked calendar date", async () => {
     const onConfirm = createWith("2026-05-10", "19:00");
     await waitFor(() => expect(onConfirm).toHaveBeenCalledOnce());

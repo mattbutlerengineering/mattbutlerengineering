@@ -73,7 +73,7 @@ export function NewReservationDialog({
   onClose,
 }: NewReservationDialogProps) {
   const { t } = useTranslation();
-  const { timeZone } = useVenueFormat();
+  const { timeZone, formatCalendarDate, formatLocalTime } = useVenueFormat();
   const [partySize, setPartySize] = useState(2);
   const [tableId, setTableId] = useState<string>(() => findBestTable(tables, 2));
   const [occasion, setOccasion] = useState<Occasion>("none");
@@ -161,6 +161,17 @@ export function NewReservationDialog({
   const availableTables = tables
     .filter((table) => table.isActive && table.capacity >= partySize)
     .sort((a, b) => a.capacity - b.capacity);
+
+  // What the booking will land on when an after-midnight time puts it past the service day.
+  const calendarDate = startTime
+    ? serviceDayCalendarDate(tonight.config, timeZone, date, startTime)
+    : date;
+  const calendarHint =
+    date && startTime && calendarDate !== date
+      ? t("newReservation.calendarHint", {
+          when: `${formatCalendarDate(calendarDate, { weekday: "short", day: "numeric", month: "short" })}, ${formatLocalTime(startTime)}`,
+        })
+      : null;
 
   const check = useStaffBookingCheck({
     venueId,
@@ -344,6 +355,12 @@ export function NewReservationDialog({
                   {...register("startTime", { required: t("newReservation.startTimeRequired") })}
                 />
               </div>
+
+              {calendarHint && (
+                <Text color="secondary" data-testid="calendar-date-hint">
+                  {calendarHint}
+                </Text>
+              )}
 
               <OpenTimesStrip
                 slots={openTimes.data ?? []}

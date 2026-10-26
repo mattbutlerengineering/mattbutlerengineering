@@ -19,6 +19,7 @@ import {
 import { useVenue } from "../contexts/VenueContext.js";
 import { useReservationDisplay } from "../hooks/useReservationDisplay.js";
 import { useTables } from "../hooks/useTables.js";
+import { useStaffTonight } from "../hooks/useStaffTonight.js";
 import { useCreateReservation } from "../hooks/useReservations.js";
 import { useFocusAfter } from "../hooks/useFocusAfter.js";
 import { useStatusMessage } from "../hooks/useStatusMessage.js";
@@ -122,6 +123,12 @@ export function ReservationsPage() {
   // intent is derived on render — no state, no effect — and stripped when the dialog closes.
   const [searchParams, setSearchParams] = useSearchParams();
   const intent = parseReservationsIntent(searchParams);
+  // The dialog's date is a service day: with no `?date`, "today" is the service running now
+  // (00:30 Friday is still Thursday's), not the calendar date the list defaults to.
+  const tonight = useStaffTonight(selectedVenueId);
+  const dialogDate = searchParams.has("date")
+    ? selectedDate
+    : (tonight.serviceDate ?? selectedDate);
   const newReservationButtonRef = useRef<HTMLButtonElement>(null);
   const { status, announce } = useStatusMessage();
   const { focusAfter } = useFocusAfter();
@@ -388,7 +395,7 @@ export function ReservationsPage() {
         <NewReservationDialog
           tables={tables ?? []}
           venueId={selectedVenueId}
-          defaultDate={selectedDate}
+          defaultDate={dialogDate}
           onConfirm={handleCreateReservation}
           onClose={handleCloseNewReservation}
         />

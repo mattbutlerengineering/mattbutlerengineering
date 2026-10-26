@@ -981,6 +981,7 @@
     "dateRequired": "Date is required.",
     "startTime": "Start Time",
     "startTimeRequired": "Start time is required.",
+    "calendarHint": "Books {{when}}",
     "partySize": "Party Size",
     "noTables": "No tables available for a party of {{size}}.",
     "table": "Table",
