@@ -277,6 +277,35 @@ describe("judge", () => {
     expect(judge(snapshot(), { ...request, override: { reason: "  " } }, NOW).kind).toBe("soft");
   });
 
+  it("is hard online for a minute the listing never offers, but not for phone", () => {
+    const off = { start: at("17:10"), partySize: 2 };
+    expect(judge(snapshot(), { ...off, channel: "online" }, NOW)).toEqual({
+      kind: "hard",
+      reason: "outside_service",
+    });
+    expect(judge(snapshot(), { ...off, channel: "phone" }, NOW)).toEqual({ kind: "ok" });
+  });
+
+  it("does not let an online off-grid start step past a pacing window", () => {
+    const busy = snapshot({
+      settings: { pacingRules: [{ maxCoversPerSlot: 1 }] },
+      reservations: [
+        {
+          id: "r1",
+          tableId: "t-4",
+          partySize: 2,
+          status: "confirmed",
+          reservationTime: at("17:00"),
+          duration: 90,
+        } as never,
+      ],
+    });
+    expect(judge(busy, { start: at("17:01"), partySize: 2, channel: "online" }, NOW)).toEqual({
+      kind: "hard",
+      reason: "outside_service",
+    });
+  });
+
   it("never lets an override past a closure", () => {
     const closed = withRules({ id: "c", kind: "closure", targetKind: "venue", startsOn: DATE });
     expect(

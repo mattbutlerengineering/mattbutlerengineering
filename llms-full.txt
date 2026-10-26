@@ -70519,6 +70519,10 @@
         .find(containing(minute));
       if (!service) return hard("closed", message);
       if (!service.bookingTypes.includes(request.channel)) return hard("booking_closed", message);
+      // Online guests only book what listSlots offers; staff on the phone may book off-grid.
+      if (request.channel === "online" && !seatingMinutes(service).includes(minute)) {
+        return hard("outside_service");
+      }
     
       const tableIssue = tableVerdict(snapshot, day, minute, request, now);
       if (tableIssue) return tableIssue;

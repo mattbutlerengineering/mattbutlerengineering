@@ -164,15 +164,27 @@ describe("judgeBooking", () => {
     });
   });
 
-  it("reports a seating after last seating as a soft limit", async () => {
+  it("reports a phone seating after last seating as a soft limit", async () => {
     const outcome = await judgeBooking(
       fakeDb(),
-      request({ start: at("2026-11-05T21:30:00") }),
+      request({ channel: "phone", start: at("2026-11-05T21:30:00") }),
       NOW
     );
     expect(outcome).toEqual({
       kind: "rejected",
       rejection: { code: "soft-limit", limits: ["after_last_seating"] },
+    });
+  });
+
+  it("refuses an online start the listing never offers as outside availability", async () => {
+    const outcome = await judgeBooking(
+      fakeDb(),
+      request({ channel: "online", start: at("2026-11-05T21:30:00") }),
+      NOW
+    );
+    expect(outcome).toEqual({
+      kind: "rejected",
+      rejection: { code: "outside-availability", reason: "outside_service" },
     });
   });
 
