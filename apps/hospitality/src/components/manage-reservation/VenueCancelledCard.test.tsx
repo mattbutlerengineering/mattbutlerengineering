@@ -5,10 +5,9 @@ import { ApiClientError } from "@mbe/api-client";
 import type { ManagedVenueCancellation } from "@mbe/api-client";
 import { VenueCancelledCard } from "./VenueCancelledCard.js";
 
-const createForVenue = vi.fn();
-const confirmForVenue = vi.fn();
+const rebookManaged = vi.fn();
 vi.mock("../../hooks/usePublicApiClient.js", () => ({
-  usePublicApiClient: () => ({ holds: { createForVenue, confirmForVenue } }),
+  usePublicApiClient: () => ({ reservations: { rebookManaged } }),
 }));
 
 const AXE_OPTIONS = { rules: { "color-contrast": { enabled: false } } };
@@ -22,6 +21,7 @@ const OFFERS: ManagedVenueCancellation["offers"] = [
 const format = {
   formatTime: (iso: string) => `T(${iso})`,
   formatCalendarDate: (d: string) => `D(${d})`,
+  formatInstant: (v: string | number | Date) => `I(${String(v)})`,
 };
 
 function renderCard(
@@ -34,7 +34,7 @@ function renderCard(
     <main>
       <VenueCancelledCard
         venue={{ name: "The Oak Table", slug: "the-oak-table", phone: "+15035551234" }}
-        reservation={{ guestName: "Jane Doe", guestEmail: "jane@example.com", partySize: 2 }}
+        token="old-token"
         cancellation={cancellation}
         format={format}
         onRefresh={onRefresh}
@@ -55,71 +55,69 @@ beforeEach(() => {
 
 describe("VenueCancelledCard", () => {
   it("shows the cancelled heading, the refund status and one button per offer", () => {
-    renderCard({ refundStatus: "done", offers: OFFERS });
+    renderCard({ refundStatus: "done", offers: OFFERS, rebooked: null });
     expect(screen.getByText("Your reservation was cancelled")).toBeDefined();
     expect(screen.getByText(/deposit has been refunded/i)).toBeDefined();
     expect(screen.getAllByRole("button", { name: /^Rebook/ })).toHaveLength(3);
   });
 
   it("says nothing about a refund when none applies", () => {
-    renderCard({ refundStatus: "none", offers: OFFERS });
+    renderCard({ refundStatus: "none", offers: OFFERS, rebooked: null });
     expect(screen.queryByText(/refund/i)).toBeNull();
   });
 
   it("shows the failed-refund line with a way to reach the venue", () => {
-    renderCard({ refundStatus: "failed", offers: OFFERS });
+    renderCard({ refundStatus: "failed", offers: OFFERS, rebooked: null });
     expect(screen.getByText(/couldn.t refund your deposit automatically/i)).toBeDefined();
   });
 
   it("with no offers shows only the picker link", () => {
-    renderCard({ refundStatus: "none", offers: [] });
+    renderCard({ refundStatus: "none", offers: [], rebooked: null });
     expect(screen.queryByRole("button", { name: /^Rebook/ })).toBeNull();
     const link = screen.getByRole("link", { name: /other dates and times/i });
     expect(link.getAttribute("href")).toBe(`${import.meta.env.BASE_URL}book/the-oak-table`);
   });
 
   it("always offers Other dates alongside offers", () => {
-    renderCard({ refundStatus: "none", offers: OFFERS });
+    renderCard({ refundStatus: "none", offers: OFFERS, rebooked: null });
     expect(screen.getByRole("link", { name: /other dates and times/i })).toBeDefined();
   });
 
-  it("rebooks on tap: holds the slot, confirms with the guest, hands over the new token", async () => {
-    createForVenue.mockResolvedValue({ hold: { id: "hold_1" }, sessionId: "s" });
-    confirmForVenue.mockResolvedValue({ reservation: { id: "res_2" }, manageToken: "new-token" });
-    const { onRebooked } = renderCard({ refundStatus: "none", offers: OFFERS });
+  it("rebooks on tap through the server and hands over the new token", async () => {
+    rebookManaged.mockResolvedValue({
+      reservationId: "res_2",
+      startTime: "2026-11-08T02:00:00.000Z",
+      manageToken: "new-token",
+    });
+    const { onRebooked } = renderCard({ refundStatus: "none", offers: OFFERS, rebooked: null });
 
     fireEvent.click(screen.getAllByRole("button", { name: /^Rebook/ })[1]!);
 
     await waitFor(() => expect(onRebooked).toHaveBeenCalledWith("new-token"));
-    expect(createForVenue).toHaveBeenCalledWith("the-oak-table", {
-      date: "2026-11-07",
-      startTime: "2026-11-08T02:00:00.000Z",
-      partySize: 2,
-    });
-    expect(confirmForVenue).toHaveBeenCalledWith("the-oak-table", "hold_1", {
-      guestName: "Jane Doe",
-      guestEmail: "jane@example.com",
-    });
+    expect(rebookManaged).toHaveBeenCalledWith("old-token", "2026-11-08T02:00:00.000Z");
   });
 
   it.each([409, 422])(
-    "a %s on the hold says the time was taken and refreshes the offers",
+    "a %s on the rebook says the time was taken and refreshes the offers",
     async (status) => {
-      createForVenue.mockRejectedValue(problem(status));
-      const { onRefresh, onRebooked } = renderCard({ refundStatus: "none", offers: OFFERS });
+      rebookManaged.mockRejectedValue(problem(status));
+      const { onRefresh, onRebooked } = renderCard({
+        refundStatus: "none",
+        offers: OFFERS,
+        rebooked: null,
+      });
 
       fireEvent.click(screen.getAllByRole("button", { name: /^Rebook/ })[0]!);
 
       await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
       expect(screen.getByRole("alert").textContent).toMatch(/that time was just taken/i);
       expect(onRebooked).not.toHaveBeenCalled();
-      expect(confirmForVenue).not.toHaveBeenCalled();
     }
   );
 
   it("any other failure shows a retryable error and does not refresh", async () => {
-    createForVenue.mockRejectedValue(problem(500));
-    const { onRefresh } = renderCard({ refundStatus: "none", offers: OFFERS });
+    rebookManaged.mockRejectedValue(problem(500));
+    const { onRefresh } = renderCard({ refundStatus: "none", offers: OFFERS, rebooked: null });
 
     fireEvent.click(screen.getAllByRole("button", { name: /^Rebook/ })[0]!);
 
@@ -129,12 +127,35 @@ describe("VenueCancelledCard", () => {
   });
 
   it("tells the guest when the time from their link is no longer offered", () => {
-    renderCard({ refundStatus: "none", offers: OFFERS }, { preferredOfferId: "gone" });
+    renderCard(
+      { refundStatus: "none", offers: OFFERS, rebooked: null },
+      { preferredOfferId: "gone" }
+    );
     expect(screen.getByRole("alert").textContent).toMatch(/that time was just taken/i);
   });
 
+  it("names the venue in the failed-refund line", () => {
+    renderCard({ refundStatus: "failed", offers: [], rebooked: null });
+    expect(screen.getByText(/The Oak Table will be in touch/)).toBeDefined();
+    expect(screen.queryByText(/\{\{venue\}\}/)).toBeNull();
+  });
+
+  it("when already rebooked shows the new time with a link, and no offers", () => {
+    renderCard({
+      refundStatus: "done",
+      offers: [],
+      rebooked: { startTime: "2026-11-08T02:00:00.000Z", manageToken: "new tok" },
+    });
+    expect(screen.getByText(/you.re rebooked for/i).textContent).toContain(
+      "I(2026-11-08T02:00:00.000Z)"
+    );
+    expect(screen.queryByRole("button", { name: /^Rebook/ })).toBeNull();
+    const link = screen.getByRole("link", { name: /view your new reservation/i });
+    expect(link.getAttribute("href")).toBe("?token=new%20tok");
+  });
+
   it("has no axe violations", async () => {
-    const { container } = renderCard({ refundStatus: "failed", offers: OFFERS });
+    const { container } = renderCard({ refundStatus: "failed", offers: OFFERS, rebooked: null });
     expect((await axe(container, AXE_OPTIONS)).violations).toEqual([]);
   });
 });

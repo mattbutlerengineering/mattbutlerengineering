@@ -274,6 +274,7 @@ describe("ManageReservationPage", () => {
           startTime: "2026-06-20T02:00:00.000Z",
         },
       ],
+      rebooked: null,
     };
 
     function payload(cancellation: unknown) {
@@ -296,7 +297,7 @@ describe("ManageReservationPage", () => {
     it("with no offers shows only the picker link", async () => {
       mockSearchParams.set("token", "valid-token-abc");
       mockFetch.mockResolvedValueOnce(
-        makeOkResponse(payload({ refundStatus: "none", offers: [] }))
+        makeOkResponse(payload({ refundStatus: "none", offers: [], rebooked: null }))
       );
 
       renderPage();
@@ -304,6 +305,26 @@ describe("ManageReservationPage", () => {
       await waitFor(() => expect(screen.getByText("Your reservation was cancelled")).toBeDefined());
       expect(screen.queryByRole("button", { name: /^Rebook/ })).toBeNull();
       expect(screen.getByRole("link", { name: /other dates and times/i })).toBeDefined();
+    });
+
+    it("shows a rebooked state linking to the new reservation, with no offers", async () => {
+      mockSearchParams.set("token", "valid-token-abc");
+      mockFetch.mockResolvedValueOnce(
+        makeOkResponse(
+          payload({
+            refundStatus: "none",
+            offers: [],
+            rebooked: { startTime: "2026-06-20T02:00:00.000Z", manageToken: "new-tok" },
+          })
+        )
+      );
+
+      renderPage();
+
+      await waitFor(() => expect(screen.getByText(/you.re rebooked for/i)).toBeDefined());
+      expect(screen.queryByRole("button", { name: /^Rebook/ })).toBeNull();
+      const link = screen.getByRole("link", { name: /view your new reservation/i });
+      expect(link.getAttribute("href")).toContain("token=new-tok");
     });
 
     it("a booking cancelled by the guest keeps the plain cancelled line", async () => {

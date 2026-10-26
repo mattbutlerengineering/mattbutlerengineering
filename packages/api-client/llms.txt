@@ -388,6 +388,14 @@
       interface ManagedVenueCancellation {
         refundStatus: "none" | "pending" | "done" | "failed";
         offers: ManagedRebookOffer[];
+        rebooked: { startTime: string; manageToken: string } | null;
+      }
+    </item>
+    <item priority="low">
+      interface RebookedReservation {
+        reservationId: string;
+        startTime: string;
+        manageToken: string;
       }
     </item>
     <item priority="low">

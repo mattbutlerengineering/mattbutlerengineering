@@ -49,6 +49,7 @@ export type {
   ManageReservationData,
   ManagedRebookOffer,
   ManagedVenueCancellation,
+  RebookedReservation,
   ManagedReservation,
   ManagedReservationChanges,
   ManagedReservationVenue,

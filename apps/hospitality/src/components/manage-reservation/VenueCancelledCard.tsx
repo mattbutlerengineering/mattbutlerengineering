@@ -7,18 +7,20 @@ import styles from "./VenueCancelledCard.module.css";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
-/** The hold route answers 409 for a taken table and 422 when the booking gate refuses the time. */
+/** The rebook route answers 409 for a taken or already-rebooked slot, 422 when the gate or a deposit refuses. */
 const TAKEN_STATUSES = new Set([409, 422]);
 
-type Notice = "taken" | "failed" | "rebookedNoLink" | null;
+type Notice = "taken" | "failed" | null;
 
 export interface VenueCancelledCardProps {
   venue: { name: string; slug: string; phone?: string };
-  reservation: { guestName: string | null; guestEmail: string | null; partySize: number };
+  /** The manage token the page was opened with; authorises the rebook. */
+  token: string;
   cancellation: ManagedVenueCancellation;
   format: {
     formatTime(isoString: string): string;
     formatCalendarDate(dateStr: string, options: Intl.DateTimeFormatOptions): string;
+    formatInstant(value: string, options: Intl.DateTimeFormatOptions): string;
   };
   /** Re-reads the manage payload so the offers reflect what is open now. */
   onRefresh(): Promise<unknown>;
@@ -34,15 +36,22 @@ const DATE_FIELDS: Intl.DateTimeFormatOptions = {
   day: "numeric",
 };
 
+const DATE_TIME_FIELDS: Intl.DateTimeFormatOptions = {
+  ...DATE_FIELDS,
+  hour: "numeric",
+  minute: "2-digit",
+};
+
 /**
  * The manage page for a booking a venue closure cancelled: what happened to the
- * deposit, up to 3 one-tap rebooks, and a way to the full picker. A tap holds the
- * slot (re-checked by the booking gate) and confirms it with the guest's own
- * details; a refused or taken slot refreshes the list instead.
+ * deposit, up to 3 one-tap rebooks, and a way to the full picker. A tap asks the
+ * server to rebook (it re-checks the slot through the booking gate and keeps the
+ * guest's own details); a refused or taken slot refreshes the list instead. Once
+ * rebooked the card links to the new reservation and offers nothing more.
  */
 export function VenueCancelledCard({
   venue,
-  reservation,
+  token,
   cancellation,
   format,
   onRefresh,
@@ -54,10 +63,11 @@ export function VenueCancelledCard({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
 
-  const { offers, refundStatus } = cancellation;
+  const { offers, refundStatus, rebooked } = cancellation;
   const preferredMissing =
     preferredOfferId !== undefined &&
     preferredOfferId !== "" &&
+    !rebooked &&
     !offers.some((o) => o.id === preferredOfferId);
   const shownNotice: Notice = notice ?? (preferredMissing ? "taken" : null);
 
@@ -65,20 +75,8 @@ export function VenueCancelledCard({
     setBusyId(offer.id);
     setNotice(null);
     try {
-      const { hold } = await api.holds.createForVenue(venue.slug, {
-        date: offer.date,
-        startTime: offer.startTime,
-        partySize: reservation.partySize,
-      });
-      const { manageToken } = await api.holds.confirmForVenue(venue.slug, hold.id, {
-        guestName: reservation.guestName ?? undefined,
-        guestEmail: reservation.guestEmail ?? undefined,
-      });
-      if (manageToken) {
-        onRebooked(manageToken);
-      } else {
-        setNotice("rebookedNoLink");
-      }
+      const result = await api.reservations.rebookManaged(token, offer.id);
+      onRebooked(result.manageToken);
     } catch (err) {
       if (err instanceof ApiClientError && TAKEN_STATUSES.has(err.statusCode)) {
         setNotice("taken");
@@ -103,16 +101,32 @@ export function VenueCancelledCard({
           {t("manageReservation.venueCancelled.intro", { venue: venue.name })}
         </Text>
         {refundStatus !== "none" && (
-          <Text variant="body">{t(`manageReservation.venueCancelled.refund.${refundStatus}`)}</Text>
+          <Text variant="body">
+            {t(`manageReservation.venueCancelled.refund.${refundStatus}`, { venue: venue.name })}
+          </Text>
         )}
 
         {shownNotice !== null && (
-          <Alert variant={shownNotice === "rebookedNoLink" ? "success" : "warning"}>
+          <Alert variant="warning">
             {t(`manageReservation.venueCancelled.notice.${shownNotice}`)}
           </Alert>
         )}
 
-        {offers.length > 0 ? (
+        {rebooked ? (
+          <Stack gap="sm">
+            <Text variant="body">
+              {t("manageReservation.venueCancelled.rebooked", {
+                when: format.formatInstant(rebooked.startTime, DATE_TIME_FIELDS),
+              })}
+            </Text>
+            <a
+              className={styles.otherDates}
+              href={`?token=${encodeURIComponent(rebooked.manageToken)}`}
+            >
+              {t("manageReservation.venueCancelled.viewRebooked")}
+            </a>
+          </Stack>
+        ) : offers.length > 0 ? (
           <Stack gap="sm">
             <Text as="h3" variant="label" color="secondary">
               {t("manageReservation.venueCancelled.rebookHeading")}
@@ -139,9 +153,11 @@ export function VenueCancelledCard({
           </Text>
         )}
 
-        <a className={styles.otherDates} href={pickerHref}>
-          {t("manageReservation.venueCancelled.otherDates")}
-        </a>
+        {!rebooked && (
+          <a className={styles.otherDates} href={pickerHref}>
+            {t("manageReservation.venueCancelled.otherDates")}
+          </a>
+        )}
       </Stack>
     </Card>
   );

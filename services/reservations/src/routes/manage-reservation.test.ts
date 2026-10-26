@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import { buildApp } from "../app.js";
 import type { DomainServices } from "../services/domain-services.js";
 import type { FastifyInstance } from "fastify";
-import { generateManageToken } from "./public-reservations.js";
+import { generateManageToken, verifyManageToken } from "./public-reservations.js";
 
 vi.mock("../notifications/index.js", () => {
   class MockResendNotificationAdapter {
@@ -221,6 +221,34 @@ describe("GET /public/v1/reservations/manage", () => {
       expect.objectContaining({ id: "res_1" }),
       "venue_1"
     );
+  });
+
+  it("hands a rebooked booking's manage token to the guest once they have rebooked", async () => {
+    const token = generateManageToken("res_1", "jane@example.com");
+    vi.mocked(reservationService.getById).mockResolvedValueOnce({
+      ...mockReservation,
+      status: "CANCELLED",
+    } as never);
+    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+    vi.mocked(loadVenueCancellation).mockResolvedValueOnce({
+      refundStatus: "done",
+      offers: [],
+      rebooked: { reservationId: "res_2", startTime: "2026-11-08T02:00:00.000Z" },
+    } as never);
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/public/v1/reservations/manage?token=${token}`,
+    });
+
+    const { rebooked, offers } = response.json().data.venueCancellation;
+    expect(offers).toEqual([]);
+    expect(rebooked.startTime).toBe("2026-11-08T02:00:00.000Z");
+    expect(verifyManageToken(rebooked.manageToken)).toMatchObject({
+      valid: true,
+      reservationId: "res_2",
+      guestEmail: "jane@example.com",
+    });
   });
 
   it("sends venueCancellation as null when the venue did not cancel", async () => {

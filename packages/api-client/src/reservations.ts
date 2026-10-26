@@ -74,7 +74,17 @@ export interface ManagedRebookOffer {
 /** Present only when a venue closure cancelled the booking. */
 export interface ManagedVenueCancellation {
   refundStatus: "none" | "pending" | "done" | "failed";
+  /** Empty once rebooked, and where the new booking would need a deposit (the guest uses the full picker). */
   offers: ManagedRebookOffer[];
+  /** Set once the guest has rebooked; `manageToken` opens the new reservation. */
+  rebooked: { startTime: string; manageToken: string } | null;
+}
+
+/** The outcome of a one-tap rebook. */
+export interface RebookedReservation {
+  reservationId: string;
+  startTime: string;
+  manageToken: string;
 }
 
 export interface ManageReservationData {
@@ -112,6 +122,7 @@ const manageReservationDataSchema: z.ZodSchema<ManageReservationData> = z.object
     .object({
       refundStatus: z.enum(["none", "pending", "done", "failed"]),
       offers: z.array(z.object({ id: z.string(), date: z.string(), startTime: z.string() })),
+      rebooked: z.object({ startTime: z.string(), manageToken: z.string() }).nullable(),
     })
     .nullable()
     .optional(),
@@ -259,6 +270,32 @@ export class ReservationsClient {
       z.object({ data: schema })
     );
     return response.data;
+  }
+
+  /**
+   * Rebook a venue-cancelled reservation into one of its offers (public,
+   * token-authenticated). `offerId` is the offer's `id`. Refusals surface as
+   * `ApiClientError`: 409 (already rebooked / slot gone) and 422 (the venue
+   * takes a deposit, or the booking gate refuses the time).
+   */
+  async rebookManaged(token: string, offerId: string): Promise<RebookedReservation> {
+    const schema = z.object({
+      data: z.object({ reservationId: z.string(), startTime: z.string() }),
+      manageToken: z.string(),
+    });
+    const response = await this.client.request<{
+      data: { reservationId: string; startTime: string };
+      manageToken: string;
+    }>(
+      "/public/v1/reservations/manage/rebook",
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ offerId }),
+      },
+      schema
+    );
+    return { ...response.data, manageToken: response.manageToken };
   }
 
   /**

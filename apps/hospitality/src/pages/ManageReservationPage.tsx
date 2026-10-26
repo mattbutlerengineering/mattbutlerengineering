@@ -204,7 +204,7 @@ function ManageReservationPageContent() {
           {venue && data.venueCancellation && (
             <VenueCancelledCard
               venue={venue}
-              reservation={reservation}
+              token={token}
               cancellation={data.venueCancellation}
               format={format}
               preferredOfferId={params.rebook}

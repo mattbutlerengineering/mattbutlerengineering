@@ -25,6 +25,7 @@ import { publicGuestRiskRoutes } from "./routes/public-guest-risk.js";
 import { publicWaitlistRoutes } from "./routes/public-waitlist.js";
 import { confirmAttendanceRoutes } from "./routes/confirm-attendance.js";
 import { manageReservationRoutes } from "./routes/manage-reservation.js";
+import { manageRebookRoutes } from "./routes/manage-rebook.js";
 import { cancelReservationRoutes } from "./routes/cancel-reservation.js";
 import { modifyReservationRoutes } from "./routes/modify-reservation.js";
 import { depositRoutes } from "./routes/deposits.js";
@@ -311,6 +312,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   await fastify.register(publicWaitlistRoutes, { prefix: "/public/v1/venues" });
   await fastify.register(confirmAttendanceRoutes);
   await fastify.register(manageReservationRoutes);
+  await fastify.register(manageRebookRoutes);
   await fastify.register(cancelReservationRoutes);
   await fastify.register(modifyReservationRoutes);
   await fastify.register(publicUnsubscribeRoutes);

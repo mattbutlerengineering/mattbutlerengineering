@@ -4162,6 +4162,84 @@
       return problemFromMessage(preamble.status, ACTION_MESSAGES[action][preamble.reason]);
     }
   </file>
+  <file path="src/routes/manage-rebook.ts">
+    export const manageRebookRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.post<{ Body: { offerId: string } }>(
+        "/public/v1/reservations/manage/rebook",
+        {
+          schema: { body: bodySchema },
+          config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+        },
+        manageTokenScoped(
+          { missing: (reply) => reply.status(404).send(reservationNotFoundProblem()) },
+          async (request, reply, { venueId, reservation }) => {
+            const deps: RebookDeps = {
+              ...defaultRebookDeps,
+              confirmHold: (input) =>
+                fastify.transitions.confirmHold(
+                  { ...input, actor: guestActor(reservation.guestId) },
+                  {
+                    door: "public-hold",
+                    manageToken: (created) =>
+                      created.guestEmail
+                        ? generateManageToken(created.id, created.guestEmail)
+                        : undefined,
+                  }
+                ),
+            };
+            const result = await rebookVenueCancelled(
+              reservation,
+              venueId,
+              request.body.offerId,
+              new Date(),
+              deps
+            );
+    
+            if (result.ok) {
+              const { id, guestEmail } = result.reservation;
+              return reply.status(201).send({
+                data: { reservationId: id, startTime: result.reservation.startTime },
+                manageToken: guestEmail ? generateManageToken(id, guestEmail) : undefined,
+              });
+            }
+            if (result.reason === "rejected") {
+              return reply.status(422).send(gateProblem(result.rejection));
+            }
+            if (result.reason === "deposit-required") {
+              return reply
+                .status(422)
+                .send(
+                  createProblemDetails(
+                    422,
+                    "Deposit Required",
+                    "This venue takes a deposit for new bookings, so please choose another date and time."
+                  )
+                );
+            }
+            if (result.reason === "already-rebooked") {
+              return reply.status(409).send({
+                ...createProblemDetails(
+                  409,
+                  "Already Rebooked",
+                  "This booking has already been rebooked."
+                ),
+                code: "ALREADY_REBOOKED",
+              });
+            }
+            return reply
+              .status(409)
+              .send(
+                createProblemDetails(
+                  409,
+                  "Slot Unavailable",
+                  "That time is no longer available. Please choose another."
+                )
+              );
+          }
+        )
+      );
+    };
+  </file>
   <file path="src/routes/manage-reservation.ts">
     export const manageReservationRoutes: FastifyPluginAsync = async (fastify) => {
       const { venueService } = fastify.services;
@@ -4179,7 +4257,21 @@
           { missing: (reply) => reply.status(404).send(reservationNotFoundProblem()) },
           async (_request, reply, { venueId, reservation }) => {
             const venue = await venueService.getById(venueId);
-            const venueCancellation = await loadVenueCancellation(reservation, venueId);
+            const loaded = await loadVenueCancellation(reservation, venueId);
+            // The new booking belongs to the same guest, so the same email signs its token.
+            const venueCancellation =
+              loaded?.rebooked && reservation.guestEmail
+                ? {
+                    ...loaded,
+                    rebooked: {
+                      startTime: loaded.rebooked.startTime,
+                      manageToken: generateManageToken(
+                        loaded.rebooked.reservationId,
+                        reservation.guestEmail
+                      ),
+                    },
+                  }
+                : loaded;
     
             return reply.status(200).send({
               data: {
@@ -12219,6 +12311,11 @@
       venueId?: string;
       /** Who confirmed; recorded on the `created` event. Defaults to {@link SYSTEM_ACTOR}. */
       actor?: ReservationEventActor;
+      /**
+       * Runs inside the confirm transaction, after the reservation insert. Throwing
+       * rolls the whole confirm back (the hold survives for the caller to release).
+       */
+      inTransaction?: (tx: Prisma.TransactionClient, reservationId: string) => Promise<void>;
     }
     export type ConfirmHoldResult =
       | { success: true; reservation: Reservation }
@@ -12349,6 +12446,8 @@
     
           // Delete the hold in the same transaction as the reservation insert.
           await tx.reservationHold.delete({ where: { id: holdId } });
+    
+          await input.inTransaction?.(tx, reservation.id);
     
           return reservation;
         },
@@ -15565,8 +15664,83 @@
       return lapsing;
     }
   </file>
-  <file path="src/services/manage-rebook.ts">
+  <file path="src/services/manage-rebook-deps.ts">
+    export async function rebookRequiresDeposit(
+      venueId: string,
+      reservation: Reservation
+    ): Promise<boolean> {
+      const policy = await venueService.getPolicyById(venueId);
+      if (!policy || policy.depositAmountCents == null) return false;
+      if (policy.depositEnabled) return true;
+    
+      const venue = await venueService.getById(venueId);
+      const settings = venue?.settings ?? null;
+      const guest = reservation.guestEmail
+        ? await guestService.findByEmail(venueId, reservation.guestEmail)
+        : reservation.guestPhone
+          ? await guestService.findByPhone(venueId, reservation.guestPhone)
+          : null;
+      return guest !== null && assessGuestReliability(guest, settings) === "risky";
+    }
+    export const defaultRebookDeps: RebookDeps = {
+      findCancelOutcome: (reservationId, venueId) =>
+        prisma.closureOutcome.findFirst({
+          where: { reservationId, venueId, action: "cancel" },
+          select: { id: true, refund: true, rebookedReservationId: true },
+        }),
+      findRebooked: (reservationId) =>
+        prisma.reservation.findUnique({
+          where: { id: reservationId },
+          select: { id: true, startTime: true },
+        }),
+      requiresDeposit: rebookRequiresDeposit,
+      loadSnapshot: (venueId, from, to, now) => loadAvailabilitySnapshot(venueId, from, to, now),
+      createHold: (data, sessionId) => holdService.create(data, sessionId),
+      confirmHold,
+      releaseHold: (holdId, sessionId) => holdService.release(holdId, sessionId),
+      linkOutcome: async (tx, outcomeId, reservationId) => {
+        const { count } = await tx.closureOutcome.updateMany({
+          where: { id: outcomeId, rebookedReservationId: null },
+          data: { rebookedReservationId: reservationId },
+        });
+        return count === 1;
+      },
+    };
+  </file>
+  <file path="src/services/manage-rebook-types.ts">
     export type GuestRefundStatus = "none" | "pending" | "done" | "failed";
+    export interface CancelOutcome {
+      id: string;
+      refund: GuestRefundStatus;
+      rebookedReservationId: string | null;
+    }
+    export interface RebookDeps {
+      findCancelOutcome(reservationId: string, venueId: string): Promise<CancelOutcome | null>;
+      findRebooked(reservationId: string): Promise<{ id: string; startTime: Date } | null>;
+      /** Whether a new booking for this guest would need a deposit (fails closed). */
+      requiresDeposit(venueId: string, reservation: Reservation): Promise<boolean>;
+      loadSnapshot(
+        venueId: string,
+        from: string,
+        to: string,
+        now: Date
+      ): Promise<{ snapshot: BookingSnapshot }>;
+      createHold(data: CreateHoldRequest, sessionId: string): Promise<CreateHoldResult>;
+      confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldResult>;
+      releaseHold(holdId: string, sessionId: string): Promise<boolean>;
+      /** Sets `rebookedReservationId` if still unset; false when another rebook won. */
+      linkOutcome(
+        tx: Prisma.TransactionClient,
+        outcomeId: string,
+        reservationId: string
+      ): Promise<boolean>;
+    }
+    export type VenueCancellationDeps = Pick<
+      RebookDeps,
+      "findCancelOutcome" | "findRebooked" | "requiresDeposit" | "loadSnapshot"
+    >;
+  </file>
+  <file path="src/services/manage-rebook.ts">
     export interface RebookOffer {
       id: string;
       date: string;
@@ -15575,29 +15749,15 @@
     export interface VenueCancellation {
       refundStatus: GuestRefundStatus;
       offers: RebookOffer[];
+      /** Set once the guest has rebooked; offers are then always empty. */
+      rebooked: { reservationId: string; startTime: string } | null;
     }
-    export interface VenueCancellationDeps {
-      findCancelOutcome(
-        reservationId: string,
-        venueId: string
-      ): Promise<{ refund: GuestRefundStatus } | null>;
-      loadSnapshot(
-        venueId: string,
-        from: string,
-        to: string,
-        now: Date
-      ): Promise<{ snapshot: BookingSnapshot }>;
-    }
-    export async function loadVenueCancellation(
+    async function currentOffers(
       reservation: Reservation,
       venueId: string,
-      now: Date = new Date(),
-      deps: VenueCancellationDeps = defaultDeps
-    ): Promise<VenueCancellation | null> {
-      if (reservation.status !== "CANCELLED") return null;
-      const outcome = await deps.findCancelOutcome(reservation.id, venueId);
-      if (!outcome) return null;
-    
+      now: Date,
+      deps: Pick<RebookDeps, "loadSnapshot">
+    ): Promise<RebookOffer[]> {
       // Probe the timezone-free window generously; the engine applies the exact 14-day rule.
       const today = now.toISOString().slice(0, 10);
       const { snapshot } = await deps.loadSnapshot(
@@ -15611,15 +15771,111 @@
         { startTime: new Date(reservation.startTime), partySize: reservation.partySize },
         now
       );
-      const offers =
-        result.kind === "offers"
-          ? result.slots.map((slot) => ({
-              id: slot.start.toISOString(),
-              date: slot.serviceDate,
-              startTime: slot.start.toISOString(),
-            }))
-          : [];
-      return { refundStatus: outcome.refund, offers };
+      return result.kind === "offers"
+        ? result.slots.map((slot) => ({
+            id: rebookOfferId(slot.start),
+            date: slot.serviceDate,
+            startTime: slot.start.toISOString(),
+          }))
+        : [];
+    }
+    export async function loadVenueCancellation(
+      reservation: Reservation,
+      venueId: string,
+      now: Date = new Date(),
+      deps: VenueCancellationDeps = defaultRebookDeps
+    ): Promise<VenueCancellation | null> {
+      if (reservation.status !== "CANCELLED") return null;
+      const outcome = await deps.findCancelOutcome(reservation.id, venueId);
+      if (!outcome) return null;
+      const { refund: refundStatus } = outcome;
+    
+      if (outcome.rebookedReservationId) {
+        const rebooked = await deps.findRebooked(outcome.rebookedReservationId);
+        return {
+          refundStatus,
+          offers: [],
+          rebooked: rebooked
+            ? { reservationId: rebooked.id, startTime: rebooked.startTime.toISOString() }
+            : null,
+        };
+      }
+    
+      // A deposit venue gets no one-tap offers: the guest goes through the widget's payment step.
+      if (await deps.requiresDeposit(venueId, reservation)) {
+        return { refundStatus, offers: [], rebooked: null };
+      }
+      const offers = await currentOffers(reservation, venueId, now, deps);
+      return { refundStatus, offers, rebooked: null };
+    }
+    export type RebookResult =
+      | { ok: true; reservation: Reservation }
+      | {
+          ok: false;
+          reason:
+            | "not-rebookable"
+            | "already-rebooked"
+            | "deposit-required"
+            | "offer-unavailable"
+            | "slot-taken";
+        }
+      | { ok: false; reason: "rejected"; rejection: GateRejection };
+    class AlreadyRebookedError extends Error {}
+    export async function rebookVenueCancelled(
+      reservation: Reservation,
+      venueId: string,
+      offerId: string,
+      now: Date,
+      deps: RebookDeps = defaultRebookDeps
+    ): Promise<RebookResult> {
+      if (reservation.status !== "CANCELLED") return { ok: false, reason: "not-rebookable" };
+      const outcome = await deps.findCancelOutcome(reservation.id, venueId);
+      if (!outcome) return { ok: false, reason: "not-rebookable" };
+      if (outcome.rebookedReservationId) return { ok: false, reason: "already-rebooked" };
+      if (await deps.requiresDeposit(venueId, reservation)) {
+        return { ok: false, reason: "deposit-required" };
+      }
+    
+      const offers = await currentOffers(reservation, venueId, now, deps);
+      const offer = offers.find((o) => o.id === offerId);
+      if (!offer) return { ok: false, reason: "offer-unavailable" };
+    
+      const sessionId = randomUUID();
+      const held = await deps.createHold(
+        { venueId, date: offer.date, time: offer.startTime, partySize: reservation.partySize },
+        sessionId
+      );
+      if (held.rejection) return { ok: false, reason: "rejected", rejection: held.rejection };
+      if (!held.success || !held.hold) return { ok: false, reason: "slot-taken" };
+    
+      try {
+        const confirmed = await deps.confirmHold({
+          holdId: held.hold.id,
+          sessionId,
+          venueId,
+          guestDetails: {
+            guestName: reservation.guestName ?? undefined,
+            guestEmail: reservation.guestEmail ?? undefined,
+            guestPhone: reservation.guestPhone ?? undefined,
+            guestId: reservation.guestId ?? undefined,
+          },
+          inTransaction: async (tx, newReservationId) => {
+            if (!(await deps.linkOutcome(tx, outcome.id, newReservationId))) {
+              throw new AlreadyRebookedError();
+            }
+          },
+        });
+        if (confirmed.success) return { ok: true, reservation: confirmed.reservation };
+        if (confirmed.rejection) {
+          return { ok: false, reason: "rejected", rejection: confirmed.rejection };
+        }
+        return { ok: false, reason: "slot-taken" };
+      } catch (err) {
+        // The transaction rolled back, so the hold survives; free it.
+        await deps.releaseHold(held.hold.id, sessionId);
+        if (err instanceof AlreadyRebookedError) return { ok: false, reason: "already-rebooked" };
+        throw err;
+      }
     }
   </file>
   <file path="src/services/member-venues.ts">
@@ -21191,6 +21447,7 @@
       await fastify.register(publicWaitlistRoutes, { prefix: "/public/v1/venues" });
       await fastify.register(confirmAttendanceRoutes);
       await fastify.register(manageReservationRoutes);
+      await fastify.register(manageRebookRoutes);
       await fastify.register(cancelReservationRoutes);
       await fastify.register(modifyReservationRoutes);
       await fastify.register(publicUnsubscribeRoutes);

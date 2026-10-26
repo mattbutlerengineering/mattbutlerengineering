@@ -1433,12 +1433,13 @@
       "rebookHeading": "Réservez de nouveau en un geste",
       "rebook": "Réserver le {{date}} à {{time}}",
       "rebooking": "Réservation en cours…",
+      "rebooked": "Votre réservation est confirmée pour le {{when}}.",
+      "viewRebooked": "Voir votre nouvelle réservation",
       "noOffers": "Aucune heure n'est disponible dans les 14 prochains jours pour votre groupe. Choisissez une autre date.",
       "otherDates": "Autres dates et heures",
       "notice": {
         "taken": "Cette heure vient d'être prise. Voici les heures encore disponibles.",
-        "failed": "Nous n'avons pas pu réserver cette heure. Veuillez réessayer.",
-        "rebookedNoLink": "Votre réservation est confirmée. Consultez votre confirmation pour les détails."
+        "failed": "Nous n'avons pas pu réserver cette heure. Veuillez réessayer."
       }
     }
   },

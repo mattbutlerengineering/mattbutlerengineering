@@ -1409,12 +1409,13 @@
       "rebookHeading": "Rebook in one tap",
       "rebook": "Rebook {{date}} at {{time}}",
       "rebooking": "Rebooking…",
+      "rebooked": "You're rebooked for {{when}}.",
+      "viewRebooked": "View your new reservation",
       "noOffers": "There are no open times in the next 14 days for your party. Pick another date.",
       "otherDates": "Other dates and times",
       "notice": {
         "taken": "That time was just taken. Here are the times still open.",
-        "failed": "We couldn't rebook that time. Please try again.",
-        "rebookedNoLink": "You're rebooked. Check your confirmation for the details."
+        "failed": "We couldn't rebook that time. Please try again."
       }
     }
   },

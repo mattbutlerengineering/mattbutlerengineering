@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AvailabilityConfig, DateRule, Reservation } from "@mbe/types";
 import type { BookingSnapshot } from "@mbe/availability";
+import { rebookOfferId } from "@mbe/availability";
 import { loadVenueCancellation } from "./manage-rebook.js";
 
 vi.mock("./database.js", () => ({ prisma: {} }));
@@ -67,8 +68,17 @@ const reservation = (overrides: Partial<Reservation> = {}): Reservation =>
     ...overrides,
   }) as Reservation;
 
-const deps = (outcome: { refund: string } | null, snap = snapshot()) => ({
-  findCancelOutcome: vi.fn().mockResolvedValue(outcome),
+type Outcome = { refund: string; rebookedReservationId?: string | null };
+
+const deps = (outcome: Outcome | null, snap = snapshot(), depositRequired = false) => ({
+  findCancelOutcome: vi
+    .fn()
+    .mockResolvedValue(outcome && { id: "co_1", rebookedReservationId: null, ...outcome }),
+  findRebooked: vi.fn().mockResolvedValue({
+    id: "res_2",
+    startTime: new Date("2026-11-08T02:00:00.000Z"),
+  }),
+  requiresDeposit: vi.fn().mockResolvedValue(depositRequired),
   loadSnapshot: vi.fn().mockResolvedValue({ snapshot: snap }),
 });
 
@@ -92,7 +102,7 @@ describe("loadVenueCancellation", () => {
     expect(result?.refundStatus).toBe("done");
     expect(result?.offers).toHaveLength(3);
     for (const offer of result?.offers ?? []) {
-      expect(offer.id).toBe(offer.startTime);
+      expect(offer.id).toBe(rebookOfferId(new Date(offer.startTime)));
       expect(offer.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     }
   });
@@ -104,6 +114,24 @@ describe("loadVenueCancellation", () => {
       NOW,
       deps({ refund: "pending" }, snapshot([closedAlways]))
     );
-    expect(result).toEqual({ refundStatus: "pending", offers: [] });
+    expect(result).toEqual({ refundStatus: "pending", offers: [], rebooked: null });
+  });
+
+  it("reports a rebooked state with no offers once the guest has rebooked", async () => {
+    const d = deps({ refund: "done", rebookedReservationId: "res_2" });
+    const result = await loadVenueCancellation(reservation(), "v1", NOW, d);
+    expect(result).toEqual({
+      refundStatus: "done",
+      offers: [],
+      rebooked: { reservationId: "res_2", startTime: "2026-11-08T02:00:00.000Z" },
+    });
+    expect(d.loadSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("offers nothing where the new booking would need a deposit, leaving the full widget flow", async () => {
+    const d = deps({ refund: "done" }, snapshot(), true);
+    const result = await loadVenueCancellation(reservation(), "v1", NOW, d);
+    expect(result).toEqual({ refundStatus: "done", offers: [], rebooked: null });
+    expect(d.loadSnapshot).not.toHaveBeenCalled();
   });
 });

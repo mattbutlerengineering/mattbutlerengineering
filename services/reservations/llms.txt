@@ -777,6 +777,11 @@
       ): ReturnType<typeof createProblemDetails> { /* ... */ }
     </item>
   </file>
+  <file path="src/routes/manage-rebook.ts">
+    <item priority="high">
+      export const manageRebookRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="src/routes/manage-reservation.ts">
     <item priority="high">
       export const manageReservationRoutes: FastifyPluginAsync;
@@ -2901,10 +2906,40 @@
       ): Promise<LapsingGuest[]> { /* ... */ }
     </item>
   </file>
-  <file path="src/services/manage-rebook.ts">
+  <file path="src/services/manage-rebook-deps.ts">
+    <item priority="high">
+      export async function rebookRequiresDeposit(
+        venueId: string,
+        reservation: Reservation
+      ): Promise<boolean> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const defaultRebookDeps: RebookDeps;
+    </item>
+  </file>
+  <file path="src/services/manage-rebook-types.ts">
     <item priority="low">
       type GuestRefundStatus = "none" | "pending" | "done" | "failed";
     </item>
+    <item priority="low">
+      interface CancelOutcome {
+        id: string;
+        refund: GuestRefundStatus;
+        rebookedReservationId: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface RebookDeps {
+        
+      }
+    </item>
+    <item priority="low">
+      type VenueCancellationDeps = Pick<
+        RebookDeps,
+        "findCancelOutcome" | "findRebooked...;
+    </item>
+  </file>
+  <file path="src/services/manage-rebook.ts">
     <item priority="low">
       interface RebookOffer {
         id: string;
@@ -2916,20 +2951,43 @@
       interface VenueCancellation {
         refundStatus: GuestRefundStatus;
         offers: RebookOffer[];
+        rebooked: { reservationId: string; startTime: string } | null;
       }
     </item>
     <item priority="low">
-      interface VenueCancellationDeps {
-        
-      }
+      async function currentOffers(
+        reservation: Reservation,
+        venueId: string,
+        now: Date,
+        deps: Pick<RebookDeps, "loadSnapshot">
+      ): Promise<RebookOffer[]> { /* ... */ }
     </item>
     <item priority="high">
       export async function loadVenueCancellation(
         reservation: Reservation,
         venueId: string,
         now: Date = new Date(),
-        deps: VenueCancellationDeps = defaultDeps
+        deps: VenueCancellationDeps = defaultRebookDeps
       ): Promise<VenueCancellation | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      type RebookResult = { ok: true; reservation: Reser | {
+            ok: false;
+            reaso | { ok: false; reason: "rejected;
+    </item>
+    <item priority="medium">
+      class AlreadyRebookedError {
+        
+      }
+    </item>
+    <item priority="high">
+      export async function rebookVenueCancelled(
+        reservation: Reservation,
+        venueId: string,
+        offerId: string,
+        now: Date,
+        deps: RebookDeps = defaultRebookDeps
+      ): Promise<RebookResult> { /* ... */ }
     </item>
   </file>
   <file path="src/services/member-venues.ts">

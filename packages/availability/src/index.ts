@@ -68,6 +68,7 @@ export {
 export {
   MAX_REBOOK_OFFERS,
   REBOOK_WINDOW_DAYS,
+  rebookOfferId,
   rebookOffers,
   type RebookReservation,
   type RebookResult,
