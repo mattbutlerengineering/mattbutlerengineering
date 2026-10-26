@@ -209,7 +209,8 @@ function planOutcomes(
   rule: DateRule,
   alongside: ClosureAlongside | undefined,
   impact: ClosureImpact,
-  actions: ReadonlyMap<string, { action: ClosureAction }>
+  actions: ReadonlyMap<string, { action: ClosureAction }>,
+  now: Date
 ): Plan | Refusal {
   const after = { timezone: state.timezone, config: withClosure(state.effective, rule, alongside) };
   const rows: Prisma.ClosureOutcomeCreateManyInput[] = [];
@@ -217,7 +218,7 @@ function planOutcomes(
   for (const group of impact.groups) {
     const action = actions.get(group.groupKey)!.action; // checkDecisions answered every group
     for (const r of group.reservations) {
-      const target = action === "move" ? moveTarget(after, group.date, r) : null;
+      const target = action === "move" ? moveTarget(after, group.date, r, now) : null;
       if (action === "move" && !target) stuck.push(r.id);
       rows.push({
         venueId,
@@ -374,7 +375,8 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
     rule,
     body.alongside,
     found.impact,
-    checked.actions
+    checked.actions,
+    now
   );
   if (isRefusal(plan)) throw new Refused(plan);
 

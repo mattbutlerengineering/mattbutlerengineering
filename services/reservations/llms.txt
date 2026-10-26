@@ -2729,10 +2729,21 @@
       function wallMinutes(instant: Date, serviceDate: string, tz: string): number { /* ... */ }
     </item>
     <item priority="high">
+      type StartRange = readonly [lo: number, hi: number];
+    </item>
+    <item priority="medium">
+      function clearOfBand(
+        ranges: readonly StartRange[],
+        band: { from: number; to: number },
+        span: number
+      ): StartRange[] { /* ... */ }
+    </item>
+    <item priority="high">
       export function moveTarget(
         after: AvailabilitySnapshot,
         serviceDate: string,
-        booking: Pick<ClosureImpactReservation, "startTime" | "endTime">
+        booking: Pick<ClosureImpactReservation, "startTime" | "endTime">,
+        now: Date
       ): { startTime: Date; endTime: Date } | null { /* ... */ }
     </item>
     <item priority="high">
@@ -2837,7 +2848,8 @@
         rule: DateRule,
         alongside: ClosureAlongside | undefined,
         impact: ClosureImpact,
-        actions: ReadonlyMap<string, { action: ClosureAction }>
+        actions: ReadonlyMap<string, { action: ClosureAction }>,
+        now: Date
       ): Plan | Refusal { /* ... */ }
     </item>
     <item priority="medium">

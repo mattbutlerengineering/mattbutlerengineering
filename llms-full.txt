@@ -47303,18 +47303,47 @@
         local.minute
       );
     }
+    type StartRange = readonly [lo: number, hi: number];
+    function clearOfBand(
+      ranges: readonly StartRange[],
+      band: { from: number; to: number },
+      span: number
+    ): StartRange[] {
+      const lastBefore = band.from - span; // latest start that clears the band
+      return ranges.flatMap(([lo, hi]) => [
+        ...(lo <= lastBefore ? [[lo, Math.min(hi, lastBefore)] as const] : []),
+        ...(hi >= band.to ? [[Math.max(lo, band.to), hi] as const] : []),
+      ]);
+    }
     export function moveTarget(
       after: AvailabilitySnapshot,
       serviceDate: string,
-      booking: Pick<ClosureImpactReservation, "startTime" | "endTime">
+      booking: Pick<ClosureImpactReservation, "startTime" | "endTime">,
+      now: Date
     ): { startTime: Date; endTime: Date } | null {
       const start = new Date(booking.startTime);
       const durationMin = (Date.parse(booking.endTime) - start.getTime()) / MS_PER_MINUTE;
       const startMin = wallMinutes(start, serviceDate, after.timezone);
-      const candidates = resolveDay(after, serviceDate).services.flatMap((s) => {
-        const latest = Math.min(s.lastSeatingAt, s.closesAt - durationMin);
-        if (latest < s.opensAt) return [];
-        return [Math.min(Math.max(startMin, s.opensAt), latest)];
+      const nowMin = wallMinutes(now, serviceDate, after.timezone);
+      const day = resolveDay(after, serviceDate);
+      const stopRuleIds = new Set(
+        after.config.dateRules.filter((r) => r.kind === "tonight").map((r) => r.id)
+      );
+      const spanOf = (band: { ruleId: string }): number =>
+        stopRuleIds.has(band.ruleId) ? 1 : durationMin;
+      const candidates = day.services.flatMap((s) => {
+        const bands = day.closures.filter(
+          (c) =>
+            c.targetKind === "venue" ||
+            (c.targetKind === "service" && c.venueServiceId === s.venueServiceId)
+        );
+        const open: StartRange[] = [
+          [Math.max(s.opensAt, nowMin), Math.min(s.lastSeatingAt, s.closesAt - durationMin)],
+        ];
+        const free = bands
+          .reduce((ranges, band) => clearOfBand(ranges, band, spanOf(band)), open)
+          .filter(([lo, hi]) => lo <= hi);
+        return free.map(([lo, hi]) => Math.min(Math.max(startMin, lo), hi));
       });
       const best = candidates.sort((a, b) => Math.abs(a - startMin) - Math.abs(b - startMin))[0];
       if (best === undefined || best === startMin) return null;
@@ -47489,7 +47518,8 @@
       rule: DateRule,
       alongside: ClosureAlongside | undefined,
       impact: ClosureImpact,
-      actions: ReadonlyMap<string, { action: ClosureAction }>
+      actions: ReadonlyMap<string, { action: ClosureAction }>,
+      now: Date
     ): Plan | Refusal {
       const after = { timezone: state.timezone, config: withClosure(state.effective, rule, alongside) };
       const rows: Prisma.ClosureOutcomeCreateManyInput[] = [];
@@ -47497,7 +47527,7 @@
       for (const group of impact.groups) {
         const action = actions.get(group.groupKey)!.action; // checkDecisions answered every group
         for (const r of group.reservations) {
-          const target = action === "move" ? moveTarget(after, group.date, r) : null;
+          const target = action === "move" ? moveTarget(after, group.date, r, now) : null;
           if (action === "move" && !target) stuck.push(r.id);
           rows.push({
             venueId,
@@ -47633,7 +47663,8 @@
         rule,
         body.alongside,
         found.impact,
-        checked.actions
+        checked.actions,
+        now
       );
       if (isRefusal(plan)) throw new Refused(plan);
     
