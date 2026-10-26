@@ -58,6 +58,7 @@ export {
 export {
   judge,
   listSlots,
+  owningServiceDate,
   type BookingChannel,
   type BookingRequest,
   type BookingSnapshot,
