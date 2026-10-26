@@ -125,6 +125,8 @@ interface BuildInput {
    * since the server treats a changed rule as incoming and would overwrite it.
    */
   readonly leaveOut?: readonly string[];
+  /** Today on the venue clock: a rule edit's "All dates" starts here, so past dates keep their hours. */
+  readonly today?: string;
 }
 
 /** The venue's own single-date special-hours rule for `date`, which a date edit changes in place. */
@@ -223,7 +225,8 @@ export function buildDraftChanges(input: BuildInput): AvailabilityConfigChanges 
       scope.mode,
       scope.from,
       { version: 1, services: payload },
-      makeId
+      makeId,
+      input.today
     );
     return { upsert: { ...venueServices, ...changes.upsert }, remove: {} };
   }

@@ -523,6 +523,8 @@
        * since the server treats a changed rule as incoming and would overwrite it.
        */
       readonly leaveOut?: readonly string[];
+      /** Today on the venue clock: a rule edit's "All dates" starts here, so past dates keep their hours. */
+      readonly today?: string;
     }
     function ownDateRule(config: AvailabilityConfig, date: string): DateRule | undefined {
       return config.dateRules.find(
@@ -613,7 +615,8 @@
           scope.mode,
           scope.from,
           { version: 1, services: payload },
-          makeId
+          makeId,
+          input.today
         );
         return { upsert: { ...venueServices, ...changes.upsert }, remove: {} };
       }
@@ -1539,7 +1542,7 @@
         (d) => resolveDay(week, d).scheduleId === scope.scheduleId
       );
     }
-    function coversDate(rule: DateRule, date: string): boolean {
+    export function coversDate(rule: DateRule, date: string): boolean {
       return (
         rule.startsOn <= date &&
         (rule.endsOn == null || date <= rule.endsOn) &&
@@ -1686,14 +1689,17 @@
       scope: SeriesScope,
       date: string,
       payload: SpecialHoursRule["payload"],
-      makeId: () => string
+      makeId: () => string,
+      today = ""
     ): AvailabilityConfigChanges {
       const edited: SpecialHoursRule = { ...rule, payload };
-      if (scope === "all" || date <= rule.startsOn) {
+      // "All dates" reaches the dates still ahead: dates already past keep their hours.
+      const from = scope === "all" ? (today > rule.startsOn ? today : rule.startsOn) : date;
+      if (from <= rule.startsOn) {
         return { upsert: { dateRules: [edited] }, remove: {} };
       }
-      const created: SpecialHoursRule = { ...edited, id: makeId(), startsOn: date };
-      const ended: SpecialHoursRule = { ...rule, endsOn: addDays(date, -1) };
+      const created: SpecialHoursRule = { ...edited, id: makeId(), startsOn: from };
+      const ended: SpecialHoursRule = { ...rule, endsOn: addDays(from, -1) };
       return { upsert: { dateRules: [ended, created] }, remove: {} };
     }
     export function editSeriesDates(

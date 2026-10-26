@@ -55,7 +55,8 @@ export function scopeDates(scope: EditScope, context: ScopeContext): string[] {
 const isHoursRule = (rule: DateRule): boolean =>
   (rule.kind === "special_hours" || rule.kind === "use_schedule") && rule.seriesId == null;
 
-function coversDate(rule: DateRule, date: string): boolean {
+/** Whether the rule's range and repeat reach `date`. */
+export function coversDate(rule: DateRule, date: string): boolean {
   return (
     rule.startsOn <= date &&
     (rule.endsOn == null || date <= rule.endsOn) &&

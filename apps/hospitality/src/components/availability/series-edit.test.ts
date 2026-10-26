@@ -348,6 +348,27 @@ describe("editHoursRule (special-hours scope)", () => {
     expect(after.dateRules.find((r) => r.id === "range")?.endsOn).toBe("2026-11-05");
   });
 
+  it("all dates leaves dates before today with their hours when the rule has begun", () => {
+    const range = {
+      ...EARLY_DINNER,
+      id: "range",
+      startsOn: "2026-10-20",
+      endsOn: "2026-11-08",
+    } as SpecialHoursRule;
+    const changes = editHoursRule(range, "all", FIXTURE_DATE, LATE, makeId, "2026-10-28");
+    const [ended, created] = changes.upsert.dateRules!;
+    expect(ended).toEqual({ ...range, endsOn: "2026-10-27" });
+    expect(created).toMatchObject({ startsOn: "2026-10-28", endsOn: "2026-11-08", payload: LATE });
+    const after = applyChanges(fixtureConfig(range), changes, NOW);
+    expect(dinnerClose(after, "2026-10-23")).toBe(1320);
+    expect(dinnerClose(after, FIXTURE_DATE)).toBe(1200);
+  });
+
+  it("all dates edits a rule that starts today or later in place", () => {
+    const changes = editHoursRule(FRIDAYS, "all", FIXTURE_DATE, LATE, makeId, "2026-10-01");
+    expect(changes.upsert.dateRules).toEqual([{ ...FRIDAYS, payload: LATE }]);
+  });
+
   it("from the rule's first date it is the same as all dates", () => {
     expect(editHoursRule(FRIDAYS, "following", FRIDAYS.startsOn, LATE, makeId)).toEqual(
       editHoursRule(FRIDAYS, "all", FRIDAYS.startsOn, LATE, makeId)

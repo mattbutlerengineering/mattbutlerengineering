@@ -258,6 +258,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
   const offerUndo = useAvailabilityUndo();
   const rowSave = useScheduleSave(onStale, "availabilitySpecial.rowStranded");
 
+  const scopingRule = scopingHours ? rules.find((r) => r.id === scopingHours.ruleId) : undefined;
   const rows = specialDateRows(rules, today, filter);
   const editDateOf = (rule: DateRule) => hoursEditDate(rule, today);
   const summaryOf = (ruleId: string) => summaries.data?.find((s) => s.ruleId === ruleId);
@@ -444,16 +445,17 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           onClose={() => setEditingDate(null)}
         />
       )}
-      {scopingHours && (
+      {scopingHours && scopingRule && (
         <SpecialHoursScopeDialog
-          dateLabel={format.formatCalendarDate(scopingHours.date, DATE_FORMAT)}
+          rule={scopingRule}
+          today={today}
+          initialDate={scopingHours.date}
           onClose={() => setScopingHours(null)}
-          onChoose={(scope) => {
-            const { ruleId, date } = scopingHours;
+          onChoose={(scope, date) => {
             setScopingHours(null);
             setEditingHours({
               date,
-              ruleScope: scope === "only" ? undefined : { ruleId, mode: scope },
+              ruleScope: scope === "only" ? undefined : { ruleId: scopingRule.id, mode: scope },
             });
           }}
         />

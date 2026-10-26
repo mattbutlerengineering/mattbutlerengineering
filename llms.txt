@@ -2032,8 +2032,8 @@
     <item priority="high">
       export function scopeDates(scope: EditScope, context: ScopeContext): string[] { /* ... */ }
     </item>
-    <item priority="medium">
-      function coversDate(rule: DateRule, date: string): boolean { /* ... */ }
+    <item priority="high">
+      export function coversDate(rule: DateRule, date: string): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function ownChangeDates(
@@ -2135,7 +2135,8 @@
         scope: SeriesScope,
         date: string,
         payload: SpecialHoursRule["payload"],
-        makeId: () => string
+        makeId: () => string,
+        today = ""
       ): AvailabilityConfigChanges { /* ... */ }
     </item>
     <item priority="high">

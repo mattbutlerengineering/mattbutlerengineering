@@ -146,14 +146,17 @@ export function editHoursRule(
   scope: SeriesScope,
   date: string,
   payload: SpecialHoursRule["payload"],
-  makeId: () => string
+  makeId: () => string,
+  today = ""
 ): AvailabilityConfigChanges {
   const edited: SpecialHoursRule = { ...rule, payload };
-  if (scope === "all" || date <= rule.startsOn) {
+  // "All dates" reaches the dates still ahead: dates already past keep their hours.
+  const from = scope === "all" ? (today > rule.startsOn ? today : rule.startsOn) : date;
+  if (from <= rule.startsOn) {
     return { upsert: { dateRules: [edited] }, remove: {} };
   }
-  const created: SpecialHoursRule = { ...edited, id: makeId(), startsOn: date };
-  const ended: SpecialHoursRule = { ...rule, endsOn: addDays(date, -1) };
+  const created: SpecialHoursRule = { ...edited, id: makeId(), startsOn: from };
+  const ended: SpecialHoursRule = { ...rule, endsOn: addDays(from, -1) };
   return { upsert: { dateRules: [ended, created] }, remove: {} };
 }
 

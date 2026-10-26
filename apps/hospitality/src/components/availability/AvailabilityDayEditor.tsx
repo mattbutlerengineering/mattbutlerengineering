@@ -124,14 +124,13 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
       scope: edit.scope,
       services: edit.services,
       makeId: () => `preview-${n++}`,
+      today,
     });
-  }, [edit, config]);
+  }, [edit, config, today]);
   // Under Keep theirs the dates with their own changes are left alone, so they are not written.
   const writtenCount =
-    edit?.mode === "keep" && dates.length > 1 && !ruleScope
-      ? dates.length - own.length
-      : dates.length;
-  // A rule edit always keeps the dates that have their own change (a one-date edit of it).
+    edit?.mode === "keep" && dates.length > 1 ? dates.length - own.length : dates.length;
+  // A rule edit goes through the server's keep/replace for its dates that have their own change.
   const conflictMode: ScopeConflictMode =
     ruleScope || dates.length > 1 ? (edit?.mode ?? "keep") : "replace";
   const schedule = config.schedules.find((s) => s.id === day.scheduleId);
@@ -183,7 +182,9 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
       scope: edit.scope,
       services: edit.services,
       makeId: () => crypto.randomUUID(),
+      // A rule edit leaves its own-change dates to the server's keep/replace.
       leaveOut: edit.mode === "keep" && dates.length > 1 && !ruleScope ? own : [],
+      today,
     });
     let saved: AvailabilityConfigSaveResult;
     try {
@@ -355,7 +356,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
           focusDate={date}
         />
       )}
-      {dates.length > 1 && own.length > 0 && !ruleScope && (
+      {dates.length > 1 && own.length > 0 && (
         <Stack gap="xs">
           <Text variant="body" color="primary" id={choiceLabelId}>
             {t("availability.editor.ownChanges", { count: own.length })}

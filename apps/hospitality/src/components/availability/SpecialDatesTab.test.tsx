@@ -457,7 +457,7 @@ describe("SpecialDatesTab", () => {
           expect(screen.queryByRole("button", { name: /Edit special hours/ })).toBeNull();
         });
 
-        it("all dates edits a repeating rule itself, against the loaded version", async () => {
+        it("all dates leaves the past as it was and edits the rest, against the loaded version", async () => {
           renderTab(true, repeating);
           fireEvent.click(screen.getByRole("button", { name: "Edit special hours every Friday" }));
           pickScope("All dates");
@@ -466,12 +466,98 @@ describe("SpecialDatesTab", () => {
           await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(1));
           expect(sent().expectedVersion).toBe(7);
           expect(sent().scopeConflicts).toBe("keep");
-          const [row, ...rest] = sent().changes.upsert.dateRules;
-          expect(rest).toEqual([]);
-          expect(row).toMatchObject({ id: "fridays", startsOn: "2026-09-04", endsOn: null });
+          const [ended, created] = sent().changes.upsert.dateRules;
+          // Today is Dec 1: the dates before it keep their hours.
+          expect(ended).toMatchObject({
+            id: "fridays",
+            startsOn: "2026-09-04",
+            endsOn: "2026-11-30",
+          });
+          expect(created).toMatchObject({ startsOn: "2026-12-01", endsOn: null });
           expect(
-            row.payload.services.map((s: { venueServiceId: string }) => s.venueServiceId)
+            created.payload.services.map((s: { venueServiceId: string }) => s.venueServiceId)
           ).toEqual(["vs-dinner"]);
+        });
+
+        it("all dates edits a rule that has not started yet in place", async () => {
+          renderTab(true, realRule(rangeRule));
+          fireEvent.click(
+            screen.getByRole("button", {
+              name: "Edit special hours for Sun, Dec 20 to Fri, Jan 1",
+            })
+          );
+          pickScope("All dates");
+          shortenAndSave();
+
+          await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(1));
+          const rows = sent().changes.upsert.dateRules;
+          expect(rows).toHaveLength(1);
+          expect(rows[0]).toMatchObject({
+            id: "holidays",
+            startsOn: "2026-12-20",
+            endsOn: "2027-01-01",
+          });
+        });
+
+        it("asks for a date on Only and This and following, not on All dates", () => {
+          renderTab(true, repeating);
+          fireEvent.click(screen.getByRole("button", { name: "Edit special hours every Friday" }));
+          const dialog = screen.getByRole("dialog", { name: "Edit special hours" });
+          expect(within(dialog).getByText("Date")).toBeTruthy();
+          fireEvent.click(within(dialog).getByRole("radio", { name: "All dates" }));
+          expect(within(dialog).queryByText("Date")).toBeNull();
+        });
+
+        describe("a date inside the range with its own hours", () => {
+          const override = {
+            ...(EARLY_DINNER as object),
+            id: "dec25",
+            startsOn: "2026-12-25",
+            endsOn: "2026-12-25",
+          } as DateRule;
+          const withOverride = {
+            version: 7,
+            source: "rows",
+            config: fixtureConfig(
+              {
+                ...rangeRule,
+                endsOn: "2027-01-02",
+                payload: (EARLY_DINNER as never)["payload"],
+              } as DateRule,
+              override
+            ),
+          } as AvailabilityConfigState;
+          const openRange = () => {
+            renderTab(true, withOverride);
+            fireEvent.click(
+              screen.getByRole("button", {
+                name: "Edit special hours for Sun, Dec 20 to Sat, Jan 2",
+              })
+            );
+            pickScope("All dates");
+            fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+            fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+          };
+
+          it("tells the Manager, counts only the dates that change, and keeps theirs", async () => {
+            openRange();
+            expect(
+              screen.getByText("1 date in this scope already has its own changes")
+            ).toBeTruthy();
+            fireEvent.click(screen.getByRole("button", { name: "Save 13 dates" }));
+
+            await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(1));
+            expect(sent().scopeConflicts).toBe("keep");
+          });
+
+          it("replaces them when asked, counting every date", async () => {
+            openRange();
+            fireEvent.click(screen.getByRole("radio", { name: "Replace them" }));
+            fireEvent.click(screen.getByRole("button", { name: "Save 14 dates" }));
+
+            await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(1));
+            expect(sent().scopeConflicts).toBe("replace");
+          });
         });
 
         it("this and following ends a repeating rule the day before and starts a new one", async () => {
@@ -514,19 +600,20 @@ describe("SpecialDatesTab", () => {
           expect(created).toMatchObject({ startsOn: "2026-12-01", endsOn: "2026-12-20" });
         });
 
-        it("all dates edits a range rule itself", async () => {
+        it("all dates on a range that has begun keeps its past dates as they were", async () => {
           renderTab(true, ranged);
           editRange();
           pickScope("All dates");
           shortenAndSave();
 
           await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(1));
-          expect(sent().changes.upsert.dateRules).toHaveLength(1);
-          expect(sent().changes.upsert.dateRules[0]).toMatchObject({
+          const [ended, created] = sent().changes.upsert.dateRules;
+          expect(ended).toMatchObject({
             id: "holidays",
             startsOn: "2026-11-20",
-            endsOn: "2026-12-20",
+            endsOn: "2026-11-30",
           });
+          expect(created).toMatchObject({ startsOn: "2026-12-01", endsOn: "2026-12-20" });
         });
 
         it("only this date leaves the rule alone and writes a one-date rule", async () => {

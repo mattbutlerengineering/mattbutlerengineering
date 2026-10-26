@@ -1,6 +1,16 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button, Dialog, Radio, RadioGroup } from "@mattbutlerengineering/rialto";
+import {
+  Alert,
+  Button,
+  DatePicker,
+  Dialog,
+  Radio,
+  RadioGroup,
+} from "@mattbutlerengineering/rialto";
+import type { DateRule } from "@mbe/types";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
+import { coversDate } from "./scope-dates.js";
 import type { SeriesScope } from "./series-edit.js";
 import styles from "./CloseDialog.module.css";
 
@@ -8,17 +18,34 @@ import styles from "./CloseDialog.module.css";
 export type HoursScope = "only" | SeriesScope;
 
 export interface SpecialHoursScopeDialogProps {
-  /** The date "Only this date" and "This and following" start from, formatted. */
-  readonly dateLabel: string;
-  readonly onChoose: (scope: HoursScope) => void;
+  readonly rule: DateRule;
+  /** Today on the venue clock: no earlier date can be picked. */
+  readonly today: string;
+  /** The date the question opens on: the rule's next date. */
+  readonly initialDate: string;
+  readonly onChoose: (scope: HoursScope, date: string) => void;
   readonly onClose: () => void;
 }
 
 /** Edit on a range or repeating special-hours row asks first, as the closure series dialog does. */
 export function SpecialHoursScopeDialog(props: SpecialHoursScopeDialogProps) {
-  const { dateLabel, onChoose, onClose } = props;
+  const { rule, today, initialDate, onChoose, onClose } = props;
   const { t } = useTranslation();
+  const format = useVenueFormat();
   const [scope, setScope] = useState<HoursScope>("only");
+  const [date, setDate] = useState(initialDate);
+  const [invalid, setInvalid] = useState(false);
+  const dateLabel = format.formatCalendarDate(date, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+
+  const proceed = () => {
+    // "All dates" needs no date; the others start from one the rule covers.
+    if (scope !== "all" && (date < today || !coversDate(rule, date))) return setInvalid(true);
+    onChoose(scope, date);
+  };
 
   return (
     <Dialog
@@ -30,12 +57,25 @@ export function SpecialHoursScopeDialog(props: SpecialHoursScopeDialogProps) {
           <Button variant="secondary" onClick={onClose}>
             {t("availabilitySpecial.series.cancel")}
           </Button>
-          <Button variant="primary" onClick={() => onChoose(scope)}>
+          <Button variant="primary" onClick={proceed}>
             {t("availabilitySpecial.hours.scope.continue")}
           </Button>
         </div>
       }
     >
+      {scope !== "all" && (
+        <DatePicker
+          label={t("availabilitySpecial.series.dateLabel")}
+          value={date || null}
+          min={today}
+          locale={format.locale}
+          onChange={(v) => {
+            setInvalid(false);
+            setDate(v ?? "");
+          }}
+        />
+      )}
+      {invalid && <Alert variant="warning">{t("availabilitySpecial.series.invalidDate")}</Alert>}
       <RadioGroup
         label={t("availabilitySpecial.series.scopeLabel")}
         name="hours-scope"
