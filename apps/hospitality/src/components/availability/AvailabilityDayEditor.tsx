@@ -107,6 +107,8 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   // The preview only needs the shape of the rows, so its new-row ids need not be real ones.
   const previewChanges = useMemo(() => {
     if (!edit || !isDirty(edit)) return null;
+    // A new service with no name yet fails the server's schema: hold the preview until it has one.
+    if (edit.services.some((s) => s.venueServiceId === null && !s.name.trim())) return null;
     let n = 0;
     return buildDraftChanges({
       config,
