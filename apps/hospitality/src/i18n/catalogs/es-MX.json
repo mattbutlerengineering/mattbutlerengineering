@@ -1932,6 +1932,10 @@
         "invalid-config": "Este cambio ya no se puede deshacer con tus horarios actuales."
       }
     },
+    "conflict": {
+      "winning": "Cambiado antes por {{who}}: {{summary}} · {{when}}",
+      "unknown": "Alguien más cambió la disponibilidad antes."
+    },
     "history": {
       "title": "Historial",
       "byWhen": "por {{who}} · {{when}}",
@@ -2250,6 +2254,7 @@
       "hostGranted": "Los anfitriones pueden cerrar todo el local esta noche. Por más tiempo se necesita un gerente.",
       "hostNotGranted": "Solo los gerentes pueden cerrar en una emergencia. Pide a un gerente que lo permita para los anfitriones en Configuración.",
       "error": "No se pudo aplicar el cambio. Inténtalo de nuevo.",
+      "alreadyApplied": "Ese cambio ya se aplicó. Mostramos lo que está vigente ahora.",
       "chip": {
         "pause": "Reservas en línea en pausa · el resto de la noche",
         "closeEarly": "Cierre anticipado · {{time}}",

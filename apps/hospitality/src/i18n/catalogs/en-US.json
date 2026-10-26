@@ -1894,6 +1894,10 @@
         "invalid-config": "This change can no longer be undone against your current hours."
       }
     },
+    "conflict": {
+      "winning": "Changed first by {{who}}: {{summary}} · {{when}}",
+      "unknown": "Someone else changed availability first."
+    },
     "history": {
       "title": "History",
       "byWhen": "by {{who}} · {{when}}",
@@ -2203,6 +2207,7 @@
       "hostGranted": "Hosts can close the whole venue for tonight. Anything longer needs a manager.",
       "hostNotGranted": "Only managers can close in an emergency. Ask a manager to allow it for hosts in Settings.",
       "error": "Couldn't apply that change. Try again.",
+      "alreadyApplied": "That change was already applied. Showing what is in force now.",
       "chip": {
         "pause": "Online paused · rest of tonight",
         "closeEarly": "Closing early · {{time}}",
