@@ -12825,7 +12825,9 @@
   </file>
   <file path="services/reservations/src/services/closure-apply.ts">
     <item priority="high">
-      type Tx = Pick<PrismaClient, "reservation" | "reservationEvent">;
+      type Tx = Pick<
+        PrismaClient,
+        "reservation" | "reservationEvent...;
     </item>
     <item priority="low">
       interface PlannedTransition {
@@ -12853,6 +12855,15 @@
         actorId: string,
         r: Existing
       ): Promise<ApplyResult> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function targetTaken(
+        tx: Tx,
+        venueId: string,
+        r: Existing,
+        startTime: Date,
+        endTime: Date
+      ): Promise<boolean> { /* ... */ }
     </item>
     <item priority="low">
       async function moveInTx(
@@ -12907,7 +12918,8 @@
       type StoreClient = Pick<PrismaClient, "$transaction">;
     </item>
     <item priority="high">
-      type Db = StoreDb & Pick<PrismaClient, "closureOutcome" | "reservat...;
+      type Db = StoreDb &
+        Pick<PrismaClient, "closureOutcome" | "reserv...;
     </item>
     <item priority="low">
       interface ClosureCaller {

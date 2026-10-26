@@ -12244,7 +12244,10 @@
     export const briefingService = { getBriefing };
   </file>
   <file path="src/services/closure-apply.ts">
-    type Tx = Pick<PrismaClient, "reservation" | "reservationEvent">;
+    type Tx = Pick<
+      PrismaClient,
+      "reservation" | "reservationEvent" | "reservationHold" | "$executeRaw"
+    >;
     export interface PlannedTransition {
       reservationId: string;
       action: ClosureAction;
@@ -12298,6 +12301,37 @@
       });
       return { kind: "ok" };
     }
+    async function targetTaken(
+      tx: Tx,
+      venueId: string,
+      r: Existing,
+      startTime: Date,
+      endTime: Date
+    ): Promise<boolean> {
+      const tableId = r.tableId as string;
+      await tx.$executeRaw(tableAdvisoryLockSql(tableId));
+      const clash = await tx.reservation.findFirst({
+        where: {
+          venueId,
+          tableId,
+          id: { not: r.id },
+          status: { notIn: [...NOT_BOOKED_STATUSES] },
+          ...overlapWindow(startTime, endTime),
+        },
+        select: { id: true },
+      });
+      if (clash) return true;
+      const hold = await tx.reservationHold.findFirst({
+        where: {
+          tableId,
+          date: serviceDayConflictWindow(r.date),
+          expiresAt: activeHoldWindow(new Date()),
+          ...overlapWindow(startTime, endTime),
+        },
+        select: { id: true },
+      });
+      return hold !== null;
+    }
     async function moveInTx(
       tx: Tx,
       venueId: string,
@@ -12306,20 +12340,7 @@
       startTime: Date
     ): Promise<boolean> {
       const endTime = new Date(startTime.getTime() + (r.endTime.getTime() - r.startTime.getTime()));
-      if (r.tableId) {
-        const clash = await tx.reservation.findFirst({
-          where: {
-            venueId,
-            tableId: r.tableId,
-            id: { not: r.id },
-            status: { notIn: [...NOT_BOOKED_STATUSES] },
-            startTime: { lt: endTime },
-            endTime: { gt: startTime },
-          },
-          select: { id: true },
-        });
-        if (clash) return false;
-      }
+      if (r.tableId && (await targetTaken(tx, venueId, r, startTime, endTime))) return false;
       const { count } = await tx.reservation.updateMany({
         where: { id: r.id, venueId, status: r.status as never },
         data: { startTime, endTime },
@@ -12464,7 +12485,8 @@
   </file>
   <file path="src/services/closure-command.ts">
     type StoreClient = Pick<PrismaClient, "$transaction">;
-    type Db = StoreDb & Pick<PrismaClient, "closureOutcome" | "reservationEvent">;
+    type Db = StoreDb &
+      Pick<PrismaClient, "closureOutcome" | "reservationEvent" | "reservationHold" | "$executeRaw">;
     export interface ClosureCaller {
       /** Owner, manager or platform admin. Anyone else is a Host. */
       isManager: boolean;
@@ -12668,6 +12690,11 @@
     
       const state = await loadConfigState(tx, venueId, now);
       if (!state) throw new Refused({ kind: "not_found" });
+      // A day with no bookings leaves no outcome rows, so the stored rule is the
+      // other witness that this id was already saved.
+      if (state.stored.dateRules.some((r) => r.id === rule.id)) {
+        throw new Refused({ kind: "closure_exists" });
+      }
       const found = await impactInTransaction(tx, venueId, state, rule, now);
       if (found.kind !== "ok") throw new Refused(found);
       const checked = checkDecisions(found.impact, body.decisions);
@@ -12897,7 +12924,7 @@
       const bookings: ImpactBooking[] = rows.map(({ deposit, ...row }) => ({
         ...row,
         heldDeposit:
-          deposit?.status === "held"
+          deposit && LIVE_DEPOSIT_STATUSES.has(deposit.status)
             ? { amountCents: deposit.amountCents, currency: deposit.currency }
             : null,
       }));
@@ -12934,7 +12961,7 @@
       endTime: Date;
       partySize: number;
       guestName: string | null;
-      /** Set only for a deposit in the `held` state. */
+      /** Set for a non-terminal deposit (`pending` or `held`). Named for the common case. */
       heldDeposit: { amountCents: number; currency: string } | null;
     }
     function kindOf(rule: DateRule): ClosureImpactKind {
@@ -16103,7 +16130,8 @@
       async function deliverReminder(payload: ReminderPayload, ctx: JobContext): Promise<void> {
         return runWithVenueContext(payload.venueId, async () => {
           const reservation = await deps.getReservation(payload.reservationId);
-          if (!reservation) return;
+          // Only a live booking is reminded: a venue-cancelled (closure) one must not be.
+          if (!reservation || reservation.status !== "CONFIRMED") return;
     
           const venue = await deps.getVenue(payload.venueId);
           // No email or missing venue → nothing deliverable; return (no retry).

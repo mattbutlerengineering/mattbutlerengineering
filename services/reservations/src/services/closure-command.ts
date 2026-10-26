@@ -47,7 +47,8 @@ import { prisma } from "./database.js";
  */
 
 type StoreClient = Pick<PrismaClient, "$transaction">;
-type Db = StoreDb & Pick<PrismaClient, "closureOutcome" | "reservationEvent">;
+type Db = StoreDb &
+  Pick<PrismaClient, "closureOutcome" | "reservationEvent" | "reservationHold" | "$executeRaw">;
 
 /** Rule kinds `POST /closures` saves (and `DELETE` reopens); Tonight has its own endpoints. */
 const CLOSURE_RULE_KINDS: ReadonlySet<string> = new Set(["closure", "special_hours"]);
@@ -289,6 +290,11 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
 
   const state = await loadConfigState(tx, venueId, now);
   if (!state) throw new Refused({ kind: "not_found" });
+  // A day with no bookings leaves no outcome rows, so the stored rule is the
+  // other witness that this id was already saved.
+  if (state.stored.dateRules.some((r) => r.id === rule.id)) {
+    throw new Refused({ kind: "closure_exists" });
+  }
   const found = await impactInTransaction(tx, venueId, state, rule, now);
   if (found.kind !== "ok") throw new Refused(found);
   const checked = checkDecisions(found.impact, body.decisions);

@@ -24,6 +24,9 @@ export type ClosureImpactOutcome =
   | { kind: "too_long" }
   | { kind: "invalid"; issues: { path: string; code: string; message: string }[] };
 
+/** Deposits that still hold or await the guest's money: a cancel owes them a refund or void. */
+const LIVE_DEPOSIT_STATUSES: ReadonlySet<string> = new Set(["pending", "held"]);
+
 const toDbDate = (d: string): Date => new Date(`${d}T00:00:00.000Z`);
 
 /** Replaces a rule with the same id, as the closure will when it is saved. */
@@ -89,7 +92,7 @@ export async function impactInTransaction(
   const bookings: ImpactBooking[] = rows.map(({ deposit, ...row }) => ({
     ...row,
     heldDeposit:
-      deposit?.status === "held"
+      deposit && LIVE_DEPOSIT_STATUSES.has(deposit.status)
         ? { amountCents: deposit.amountCents, currency: deposit.currency }
         : null,
   }));

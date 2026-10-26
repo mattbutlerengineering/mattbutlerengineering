@@ -22,6 +22,13 @@ interface Res {
   deposit: { amountCents: number; currency: string; status: string } | null;
 }
 
+interface Hold {
+  tableId: string;
+  startTime: Date;
+  endTime: Date;
+  expiresAt: Date;
+}
+
 const res = (
   id: string,
   date: string,
@@ -47,6 +54,7 @@ interface World {
   /** The one service every day runs, in minutes from the service day's midnight. */
   service: { opensAt: number; lastSeatingAt: number; closesAt: number };
   reservations: Res[];
+  holds: Hold[];
   dateRules: Record<string, unknown>[];
   changes: {
     id: string;
@@ -70,6 +78,7 @@ function world(patch: Partial<World> = {}): World {
       res("res-1", "2026-12-24", "2026-12-25T03:00:00.000Z", "2026-12-25T04:30:00.000Z"),
       res("res-2", "2026-12-24", "2026-12-25T03:30:00.000Z", "2026-12-25T05:00:00.000Z", false),
     ],
+    holds: [],
     dateRules: [],
     changes: [],
     outcomes: [],
@@ -89,6 +98,13 @@ interface Where {
   endTime: { gt: Date };
   dateRuleId: string;
   inverse: { path: string[]; equals: unknown };
+}
+
+interface HoldWhere {
+  tableId: string;
+  expiresAt: { gt: Date };
+  startTime: { lt: Date };
+  endTime: { gt: Date };
 }
 
 function reservationDelegate(w: World) {
@@ -162,7 +178,7 @@ function changeDelegate(w: World) {
 /** A client whose transactions read and write one in-memory world. */
 function fakeClient(w: World) {
   const tx = {
-    $executeRaw: vi.fn(async () => 0),
+    $executeRaw: vi.fn(async (..._args: unknown[]) => 0),
     $executeRawUnsafe: vi.fn(async () => 0),
     schedule: {
       findMany: vi.fn(async () => [
@@ -210,7 +226,7 @@ function fakeClient(w: World) {
     dateRule: {
       findMany: vi.fn(async () => w.dateRules),
       create: vi.fn(async ({ data }: { data: { id: string } & Record<string, unknown> }) => {
-        w.dateRules = [...w.dateRules, { venueId: "v", deletedAt: null, ...data }];
+        w.dateRules = [...w.dateRules, { venueId: "v", deletedAt: null, tables: [], ...data }];
       }),
       updateMany: vi.fn(async () => ({ count: 1 })),
       update: vi.fn(async () => ({})),
@@ -236,6 +252,18 @@ function fakeClient(w: World) {
     },
     table: { findMany: vi.fn(async () => [{ id: "t-1" }]) },
     reservation: reservationDelegate(w),
+    reservationHold: {
+      findFirst: vi.fn(async ({ where }: { where: HoldWhere }) => {
+        const hold = w.holds.find(
+          (h) =>
+            h.tableId === where.tableId &&
+            h.expiresAt > where.expiresAt.gt &&
+            h.startTime < where.startTime.lt &&
+            h.endTime > where.endTime.gt
+        );
+        return hold ? { id: "hold-1" } : null;
+      }),
+    },
     reservationEvent: {
       create: vi.fn(
         async ({ data }: { data: { reservationId: string; kind: string; actorId: string } }) => {
@@ -434,6 +462,51 @@ describe("createClosure", () => {
     expect(w.reservations[0]!.startTime).toEqual(new Date("2026-12-25T03:00:00.000Z"));
   });
 
+  it("takes the table's advisory lock before a move's clash check", async () => {
+    const w = world({
+      reservations: [
+        res("res-1", "2026-12-24", "2026-12-25T03:00:00.000Z", "2026-12-25T04:30:00.000Z"),
+      ],
+    });
+    const { outcome, tx } = await run(
+      w,
+      body({ rule: SHORTENED, decisions: [{ groupKey: "2026-12-24:shortened", action: "move" }] })
+    );
+    expect(outcome).toMatchObject({ kind: "saved" });
+    const lockCall = tx.$executeRaw.mock.calls.findIndex((c) =>
+      JSON.stringify(c[0]).includes("pg_advisory_xact_lock")
+    );
+    expect(lockCall).toBeGreaterThanOrEqual(0);
+    expect(tx.$executeRaw.mock.invocationCallOrder[lockCall]!).toBeLessThan(
+      tx.reservation.findFirst.mock.invocationCallOrder[0]!
+    );
+  });
+
+  it("refuses a move onto a table held for another guest, saving nothing", async () => {
+    const w = world({
+      reservations: [
+        res("res-1", "2026-12-24", "2026-12-25T03:00:00.000Z", "2026-12-25T04:30:00.000Z"),
+      ],
+      holds: [
+        {
+          tableId: "t-1",
+          startTime: new Date("2026-12-25T02:30:00.000Z"),
+          endTime: new Date("2026-12-25T03:15:00.000Z"),
+          expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+        },
+      ],
+    });
+    const { outcome } = await run(
+      w,
+      body({ rule: SHORTENED, decisions: [{ groupKey: "2026-12-24:shortened", action: "move" }] })
+    );
+    expect(outcome).toEqual({ kind: "move_unavailable", reservationIds: ["res-1"] });
+    expect(w.version).toBe(4);
+    expect(w.outcomes).toHaveLength(0);
+    expect(w.events).toHaveLength(0);
+    expect(w.reservations[0]!.startTime).toEqual(new Date("2026-12-25T03:00:00.000Z"));
+  });
+
   it("refuses a move on a closed day", async () => {
     const { outcome } = await run(
       world(),
@@ -478,9 +551,15 @@ describe("createClosure", () => {
       result: { outcomes: { cancel: 1, keep_notify: 1 } },
     });
     expect(w.outcomes).toHaveLength(2);
-    for (const o of w.outcomes) {
-      const r = w.reservations.find((x) => x.id === o.reservationId)!;
-      expect(r.status === "CANCELLED" || String(o.action).startsWith("keep_")).toBe(true);
+    const ruleStart = new Date("2026-12-24T00:00:00.000Z").getTime();
+    const ruleEnd = new Date("2026-12-26T08:00:00.000Z").getTime();
+    const overlapping = w.reservations.filter(
+      (r) => r.startTime.getTime() < ruleEnd && r.endTime.getTime() > ruleStart
+    );
+    expect(overlapping.length).toBeGreaterThanOrEqual(2);
+    for (const r of overlapping) {
+      const o = w.outcomes.find((x) => x.reservationId === r.id);
+      expect(r.status === "CANCELLED" || String(o?.action).startsWith("keep_")).toBe(true);
     }
     expect(w.deposits.writes).toBe(0);
   });
@@ -520,6 +599,27 @@ describe("createClosure", () => {
     const { outcome } = await run(w, body({ expectedVersion: 5 }), { key: "key-2" });
     expect(outcome).toEqual({ kind: "closure_exists" });
     expect(w.version).toBe(5);
+  });
+
+  it("refuses the same rule id under a new key as already saved when the day had no bookings", async () => {
+    const w = world({ reservations: [] });
+    const first = await run(w, body({ decisions: [] }));
+    expect(first.outcome.kind).toBe("saved");
+    const { outcome } = await run(w, body({ expectedVersion: 5, decisions: [] }), {
+      key: "key-2",
+    });
+    expect(outcome).toEqual({ kind: "closure_exists" });
+    expect(w.version).toBe(5);
+  });
+
+  it("marks a cancelled booking's pending deposit for refund, like a held one", async () => {
+    const w = world();
+    w.reservations[0]!.deposit = { amountCents: 4000, currency: "usd", status: "pending" };
+    const { tx } = await run(w, body());
+    expect(tx.closureOutcome.createMany.mock.calls[0]![0].data[0]).toMatchObject({
+      reservationId: "res-1",
+      refund: "pending",
+    });
   });
 
   it("answers a stale version with the winning change", async () => {

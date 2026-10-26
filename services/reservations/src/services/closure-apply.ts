@@ -6,8 +6,14 @@ import {
   toEventState,
   type EventState,
 } from "./reservation-events.js";
+import { tableAdvisoryLockSql } from "./book-slot.js";
 import { ReservationTransitionError, transitionReservation } from "./reservation-state-machine.js";
-import { NOT_BOOKED_STATUSES } from "./slot-rules.js";
+import {
+  activeHoldWindow,
+  NOT_BOOKED_STATUSES,
+  overlapWindow,
+  serviceDayConflictWindow,
+} from "./slot-rules.js";
 
 /**
  * The reservation transitions of a closure, applied inside the closure's own
@@ -19,7 +25,10 @@ import { NOT_BOOKED_STATUSES } from "./slot-rules.js";
  * No guest notice either (#7523).
  */
 
-type Tx = Pick<PrismaClient, "reservation" | "reservationEvent">;
+type Tx = Pick<
+  PrismaClient,
+  "reservation" | "reservationEvent" | "reservationHold" | "$executeRaw"
+>;
 
 export interface PlannedTransition {
   reservationId: string;
@@ -82,6 +91,44 @@ async function cancelInTx(
   return { kind: "ok" };
 }
 
+/**
+ * Whether the move's target window is taken on the table. Takes bookSlot's
+ * per-table advisory lock first, so a concurrent booking cannot slip in
+ * between this check and the write, then applies bookSlot's two checks: an
+ * overlapping booking, and an unexpired hold (`checkHoldConflict`).
+ */
+async function targetTaken(
+  tx: Tx,
+  venueId: string,
+  r: Existing,
+  startTime: Date,
+  endTime: Date
+): Promise<boolean> {
+  const tableId = r.tableId as string;
+  await tx.$executeRaw(tableAdvisoryLockSql(tableId));
+  const clash = await tx.reservation.findFirst({
+    where: {
+      venueId,
+      tableId,
+      id: { not: r.id },
+      status: { notIn: [...NOT_BOOKED_STATUSES] },
+      ...overlapWindow(startTime, endTime),
+    },
+    select: { id: true },
+  });
+  if (clash) return true;
+  const hold = await tx.reservationHold.findFirst({
+    where: {
+      tableId,
+      date: serviceDayConflictWindow(r.date),
+      expiresAt: activeHoldWindow(new Date()),
+      ...overlapWindow(startTime, endTime),
+    },
+    select: { id: true },
+  });
+  return hold !== null;
+}
+
 /** Move to the planned start, keeping the length; false when the table is taken then. */
 async function moveInTx(
   tx: Tx,
@@ -91,20 +138,7 @@ async function moveInTx(
   startTime: Date
 ): Promise<boolean> {
   const endTime = new Date(startTime.getTime() + (r.endTime.getTime() - r.startTime.getTime()));
-  if (r.tableId) {
-    const clash = await tx.reservation.findFirst({
-      where: {
-        venueId,
-        tableId: r.tableId,
-        id: { not: r.id },
-        status: { notIn: [...NOT_BOOKED_STATUSES] },
-        startTime: { lt: endTime },
-        endTime: { gt: startTime },
-      },
-      select: { id: true },
-    });
-    if (clash) return false;
-  }
+  if (r.tableId && (await targetTaken(tx, venueId, r, startTime, endTime))) return false;
   const { count } = await tx.reservation.updateMany({
     where: { id: r.id, venueId, status: r.status as never },
     data: { startTime, endTime },
