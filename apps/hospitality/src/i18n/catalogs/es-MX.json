@@ -1530,7 +1530,7 @@
         "reopens": "reabre {{from}} – {{to}}",
         "reopensAllDay": "reabre todo el día",
         "serviceReopens": "{{name}} reabre {{from}} – {{to}}",
-        "channelBackOn": "{{channels}} se reactiva {{from}} – {{to}}",
+        "channelBackOn": "reapertura: {{channels}}, {{from}} – {{to}}",
         "channel": {
           "online": "las reservas en línea",
           "phone": "las reservas por teléfono",
