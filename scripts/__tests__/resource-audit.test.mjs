@@ -8,6 +8,7 @@ import {
   RESOURCE_AUDIT_TITLE_PATTERN,
   decideOrphanCountRefresh,
   refreshTrackedCount,
+  refreshReopenedIssue,
   extractZoneId,
 } from "../resource-audit.mjs";
 
@@ -285,5 +286,55 @@ describe("refreshTrackedCount", () => {
     refreshTrackedCount(gh, 4670, "Orphaned resources found (165)", "t", "b", 12);
     expect(gh.calls.comment).toHaveLength(1);
     expect(gh.calls.comment[0][1]).toContain("**12**");
+  });
+});
+
+describe("refreshReopenedIssue", () => {
+  function fakeGhClient() {
+    const calls = { edit: [], comment: [] };
+    return {
+      calls,
+      issue: {
+        edit: (number, args) => calls.edit.push([number, args]),
+        comment: (number, body) => calls.comment.push([number, body]),
+      },
+    };
+  }
+
+  test("edits the issue and comments that it was reopened, naming the delta", () => {
+    const gh = fakeGhClient();
+    refreshReopenedIssue(
+      gh,
+      4670,
+      "Orphaned resources found (1)",
+      "Orphaned resources found (15)",
+      "body",
+      15
+    );
+    expect(gh.calls.edit).toEqual([
+      [4670, ["--title", "Orphaned resources found (15)", "--body", "body"]],
+    ]);
+    expect(gh.calls.comment).toHaveLength(1);
+    expect(gh.calls.comment[0][1]).toContain("Reopened");
+    expect(gh.calls.comment[0][1]).toContain("**15**");
+    expect(gh.calls.comment[0][1]).toContain("was 1");
+  });
+
+  test("still comments when the count has not moved", () => {
+    const gh = fakeGhClient();
+    refreshReopenedIssue(gh, 4670, "Orphaned resources found (15)", "t", "b", 15);
+    expect(gh.calls.comment).toHaveLength(1);
+    expect(gh.calls.comment[0][1]).toContain("Reopened");
+    expect(gh.calls.comment[0][1]).toContain("**15**");
+  });
+
+  test("still comments when the edit throws", () => {
+    const gh = fakeGhClient();
+    gh.issue.edit = () => {
+      throw new Error("edit failed");
+    };
+    refreshReopenedIssue(gh, 4670, "Orphaned resources found (1)", "t", "b", 15);
+    expect(gh.calls.comment).toHaveLength(1);
+    expect(gh.calls.comment[0][1]).toContain("**15**");
   });
 });
