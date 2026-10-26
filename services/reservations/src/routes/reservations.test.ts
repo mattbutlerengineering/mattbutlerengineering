@@ -426,6 +426,7 @@ describe("Reservation Routes", () => {
       });
 
       expect(response.statusCode).toBe(400);
+      expect(response.json()).toMatchObject({ type: expect.any(String), status: 400 });
       expect(reservationService.createWithConflictCheck).not.toHaveBeenCalled();
     });
 

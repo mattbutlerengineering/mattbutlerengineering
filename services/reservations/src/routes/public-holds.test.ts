@@ -255,6 +255,8 @@ describe("POST /public/v1/venues/:slug/holds", () => {
     });
 
     expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({ type: expect.any(String), status: 400 });
+    expect(holdService.create).not.toHaveBeenCalled();
   });
 
   it("rejects a payload missing partySize with 400", async () => {
