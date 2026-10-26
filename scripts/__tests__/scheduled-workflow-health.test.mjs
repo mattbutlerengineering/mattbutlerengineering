@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync, readFileSync } from "node:fs";
+import { load as loadYaml } from "js-yaml";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { COORDINATION_LABELS } from "@mbe/gh-client";
@@ -1241,7 +1242,18 @@ describe("main-push workflow arm (#6955)", () => {
       "apps-visual.yml",
       "e2e-screenshots.yml",
       "rialto-visual.yml",
+      "rialto-web-e2e.yml",
     ]);
+  });
+
+  it("every listed workflow pushes on main, has no schedule trigger, and is not a deploy workflow (#7601)", () => {
+    const workflowsDir = join(import.meta.dirname, "..", "..", ".github", "workflows");
+    for (const file of MAIN_PUSH_WORKFLOW_FILES) {
+      const on = loadYaml(readFileSync(join(workflowsDir, file), "utf8")).on;
+      expect(on.push.branches, file).toContain("main");
+      expect(on, file).not.toHaveProperty("schedule");
+      expect(DEPLOY_WORKFLOW_FILES, file).not.toContain(file);
+    }
   });
 
   it("every listed file exists in the real repo", () => {

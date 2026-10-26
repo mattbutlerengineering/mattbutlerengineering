@@ -113,6 +113,76 @@ describe("TimeSlotPicker", () => {
     expect(screen.getByText("Late Night")).toBeDefined();
   });
 
+  it("groups after-midnight times under Late Night, named for the next day", () => {
+    const slots = [makeSlot("2026-05-20T22:00:00"), makeSlot("2026-05-21T00:30:00")];
+    render(<TimeSlotPicker {...defaultProps} slots={slots} />);
+    expect(screen.getAllByText("Late Night")).toHaveLength(1);
+    expect(screen.queryByText("Lunch")).toBeNull();
+    const afterMidnight = screen.getByRole("listbox", { name: /after midnight on .*May 21/i });
+    expect(afterMidnight.textContent).toContain("12:30 AM");
+    expect(screen.getByRole("listbox", { name: "Available late night times" })).toBeDefined();
+  });
+
+  it("shows the closure message and a way to other dates when the date is closed", () => {
+    const onBack = vi.fn();
+    render(
+      <TimeSlotPicker {...defaultProps} onBack={onBack} closure="Closed for a private event" />
+    );
+    expect(screen.getByText("Closed for a private event")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "See other dates" }));
+    expect(onBack).toHaveBeenCalled();
+    expect(screen.queryByText("No available times")).toBeNull();
+  });
+
+  it("shows the paused state with the phone only when one is given", () => {
+    const { rerender } = render(
+      <TimeSlotPicker
+        {...defaultProps}
+        bookingPaused={{ message: "Back at nine.", phone: "(555) 123-4567" }}
+      />
+    );
+    expect(screen.getByText("Online booking is paused right now")).toBeDefined();
+    expect(screen.getByText(/Back at nine\./)).toBeDefined();
+    expect(screen.getByText(/Call \(555\) 123-4567/)).toBeDefined();
+
+    rerender(<TimeSlotPicker {...defaultProps} bookingPaused={{ message: "Back at nine." }} />);
+    expect(screen.queryByText(/Call/)).toBeNull();
+  });
+
+  it("shows the not-configured state with the venue phone", () => {
+    render(<TimeSlotPicker {...defaultProps} hasOperatingHours={false} phone="(555) 987-6543" />);
+    expect(screen.getByText("Not taking online bookings yet")).toBeDefined();
+    expect(screen.getByText(/Call \(555\) 987-6543/)).toBeDefined();
+  });
+
+  it("after a mid-booking closure offers up to three nearby times and another date", () => {
+    const onBack = vi.fn();
+    const slots = [
+      makeSlot("2026-05-20T17:00:00"),
+      makeSlot("2026-05-20T18:30:00"),
+      makeSlot("2026-05-20T19:00:00"),
+      makeSlot("2026-05-20T19:30:00"),
+      makeSlot("2026-05-20T21:30:00"),
+    ];
+    render(
+      <TimeSlotPicker
+        {...defaultProps}
+        slots={slots}
+        onBack={onBack}
+        closedMidBooking={{
+          message: "Closed for a private event",
+          lostTime: "2026-05-20T19:00:00",
+        }}
+      />
+    );
+    expect(screen.getByText("This time just closed")).toBeDefined();
+    expect(screen.getByText("Closed for a private event")).toBeDefined();
+    const options = screen.getAllByRole("option");
+    expect(options.map((o) => o.textContent)).toEqual(["6:30 PM", "7:00 PM", "7:30 PM"]);
+    fireEvent.click(screen.getByRole("button", { name: "Pick another date" }));
+    expect(onBack).toHaveBeenCalled();
+  });
+
   it("calls onSelectSlot when a time slot is clicked", () => {
     const onSelectSlot = vi.fn();
     const slots = [makeSlot("2026-05-20T18:00:00")];
@@ -327,7 +397,12 @@ describe("TimeSlotPicker", () => {
         // the latter with no indication a timezone was in play.
         const slot = makeSlot("2026-05-21T17:00:00Z");
         render(
-          <TimeSlotPicker {...defaultProps} slots={[slot]} venueTimezone="America/New_York" />
+          <TimeSlotPicker
+            {...defaultProps}
+            slots={[slot]}
+            date="2026-05-21"
+            venueTimezone="America/New_York"
+          />
         );
         expect(screen.getByText("Lunch")).toBeDefined();
         expect(screen.getByText("1:00 PM")).toBeDefined();

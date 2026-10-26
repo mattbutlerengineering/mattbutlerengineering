@@ -3,7 +3,7 @@ import type { AvailabilityConfig, PutAvailabilityConfigBody } from "@mbe/types";
 
 vi.mock("./database.js", () => ({ prisma: {} }));
 
-const { planSave, saveAvailabilityConfig, getAvailabilityConfig } =
+const { planSave, saveAvailabilityConfig, getAvailabilityConfig, previewAvailabilityConfig } =
   await import("./availability-config.js");
 type ConfigState = Parameters<typeof planSave>[0]["state"];
 
@@ -453,5 +453,54 @@ describe("a venue whose legacy hours the strict reader rejects", () => {
       source: "unreadable",
       legacyProblem: { reason: "unknown_version" },
     });
+  });
+});
+
+describe("previewAvailabilityConfig", () => {
+  const PREVIEW_BODY = {
+    draft: {
+      changes: { upsert: { ...CONFIG, dateRules: [] }, remove: {} },
+      scopeConflicts: "keep" as const,
+    },
+    scope: { from: "2026-11-01" },
+    focusDate: "2026-11-02",
+    strandedOffset: 0,
+  };
+
+  const previewTx = (venue: object | null, reservations: () => Promise<unknown[]>) => ({
+    ...emptyRows(),
+    venue: { findUnique: vi.fn(async () => venue) },
+    reservation: { findMany: vi.fn(reservations) },
+    table: { findMany: vi.fn(async () => []) },
+  });
+
+  it("answers an unknown venue as not found", async () => {
+    const outcome = await previewAvailabilityConfig(
+      { venueId: "venue-1", body: PREVIEW_BODY, now: NOW },
+      fakeClient(previewTx(null, async () => []))
+    );
+    expect(outcome).toEqual({ kind: "not_found" });
+  });
+
+  it("previews the draft at the stored version, writing nothing", async () => {
+    const venue = { ianaTimezone: TZ, settings: {}, operatingHours: null, availabilityVersion: 4 };
+    const outcome = await previewAvailabilityConfig(
+      { venueId: "venue-1", body: PREVIEW_BODY, now: NOW },
+      fakeClient(previewTx(venue, async () => []))
+    );
+    expect(outcome.kind).toBe("ok");
+    if (outcome.kind !== "ok") return;
+    expect(outcome.result.version).toBe(4);
+    expect(outcome.result.days).toHaveLength(30);
+    expect(outcome.result.days[0]?.added.length).toBeGreaterThan(0);
+  });
+
+  it("gives up after the timeout with preview-timeout", async () => {
+    const venue = { ianaTimezone: TZ, settings: {}, operatingHours: null, availabilityVersion: 4 };
+    const outcome = await previewAvailabilityConfig(
+      { venueId: "venue-1", body: PREVIEW_BODY, now: NOW, timeoutMs: 20 },
+      fakeClient(previewTx(venue, () => new Promise(() => {})))
+    );
+    expect(outcome).toEqual({ kind: "timeout" });
   });
 });

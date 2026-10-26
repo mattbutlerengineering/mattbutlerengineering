@@ -52,6 +52,7 @@ flowchart TD
   gen --> config
   hospitality --> rialto
   hospitality --> api_client
+  hospitality --> availability
   hospitality --> auth
   hospitality --> cancellation_policy
   hospitality --> rialto_catalog

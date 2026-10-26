@@ -14,6 +14,8 @@ src/
 ├── date-rules.ts       # which date rules apply to a day (range, repeat, skips, Tonight) and their labels
 ├── format-minute.ts    # "10:30 PM" for a service-day minute
 ├── resolve-day.ts      # resolveDay — the layer stack for one service day, with "Why this day"
+├── apply-draft.ts      # applyDraft / applyChanges — a config save's row operations applied purely, for the preview and the save
+├── diff-days.ts        # diffDays — per-date seating minutes added/removed between two snapshots (preview)
 ├── slot-rules.ts       # duration, table fit, conflict, pacing — moved from the reservations service
 ├── slots.ts            # listSlots and judge (ok / soft / hard) over a BookingSnapshot
 ├── rebook.ts           # rebookOffers — ≤3 open slots in 14 days nearest the original time, else picker

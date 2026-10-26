@@ -333,7 +333,8 @@
       "bookingWidget": "Widget de reservas",
       "signOut": "Cerrar sesión",
       "chat": "Chat",
-      "menus": "Menús"
+      "menus": "Menús",
+      "availability": "Disponibilidad"
     }
   },
   "layout": {
@@ -357,6 +358,7 @@
       "setup": "Configuración inicial",
       "hours": "Horario de operación",
       "menus": "Menús",
+      "availability": "Disponibilidad",
       "chat": "Chat"
     },
     "venuesNotLoaded": "No se cargaron los locales.",
@@ -1218,6 +1220,7 @@
       "partySize": "Número de personas",
       "largePartyCall": "Para grupos de más de {{max}}, llámanos al <phoneLink>{{phone}}</phoneLink>.",
       "largePartyContact": "Para grupos de más de {{max}}, comunícate directamente con el restaurante.",
+      "dateClosedLabel": "{{date}}, cerrado. {{message}}",
       "findTimes": "Buscar horarios disponibles",
       "dateHint": "Elige una fecha a partir de hoy para ver los horarios disponibles."
     },
@@ -1226,11 +1229,19 @@
       "noHoursStaffHeading": "No hay horario de atención configurado",
       "noHoursStaffDescription": "Este restaurante aún no tiene horario de atención configurado, así que los clientes no pueden ver disponibilidad ni reservar una mesa.",
       "setHours": "Configurar horario de atención",
-      "noHoursGuestHeading": "Las reservas en línea aún no están disponibles",
+      "noHoursGuestHeading": "Aún no aceptamos reservas en línea",
       "noHoursGuestDescription": "Este restaurante aún no ha configurado las reservas en línea. Comunícate directamente con ellos para reservar una mesa.",
       "noTimesHeading": "No hay horarios disponibles",
       "tryDifferent": "Prueba con otra fecha u otro número de personas.",
       "joinWaitlist": "Unirse a la lista de espera",
+      "closedHeading": "Cerrado el {{date}}",
+      "seeOtherDates": "Ver otras fechas",
+      "pausedHeading": "Las reservas en línea están en pausa por ahora",
+      "pausedCall": "Llama al {{phone}}",
+      "justClosed": "Este horario acaba de cerrarse",
+      "otherTimes": "Otros horarios ese día",
+      "pickAnotherDate": "Elegir otra fecha",
+      "noHoursGuestCall": "Llama al {{phone}} para reservar una mesa.",
       "periods": {
         "lunch": "Comida",
         "dinner": "Cena",
@@ -1239,7 +1250,8 @@
       "periodTimes": {
         "lunch": "Horarios disponibles para comida",
         "dinner": "Horarios disponibles para cena",
-        "late": "Horarios disponibles por la noche"
+        "late": "Horarios disponibles por la noche",
+        "lateAfterMidnight": "Horarios disponibles por la noche, después de medianoche del {{date}}"
       },
       "selected": "Seleccionado:",
       "tablesAvailable_one": "{{count}} mesa disponible",
@@ -1467,6 +1479,49 @@
         "notes": "Notas",
         "reservationId": "Reserva"
       }
+    }
+  },
+  "availability": {
+    "title": "Disponibilidad",
+    "description": "Qué rige cada día y por qué.",
+    "hostNote": "Solo los gerentes cambian los horarios. Para esta noche, usa el panel Esta noche.",
+    "loadError": "No se pudo cargar la disponibilidad",
+    "noVenue": "Selecciona un local para ver su disponibilidad.",
+    "toolbar": {
+      "viewLabel": "Vista del calendario",
+      "month": "Mes",
+      "week": "Semana",
+      "previous": "Anterior",
+      "next": "Siguiente",
+      "today": "Hoy"
+    },
+    "calendar": {
+      "label": "Calendario de disponibilidad",
+      "cellName": "{{date}}: {{details}}",
+      "loadingDay": "cargando",
+      "services_one": "{{count}} servicio",
+      "services_other": "{{count}} servicios",
+      "services_many": "{{count}} servicios",
+      "onlineOff": "Reservas en línea desactivadas",
+      "onlineOffName": "reservas en línea desactivadas",
+      "closedAllDay": "Cerrado todo el día",
+      "closedAllDayName": "cerrado todo el día",
+      "closedBand": "Cerrado {{from}} – {{to}}",
+      "closedBandName": "cerrado {{from}} – {{to}}",
+      "nextDay": "{{time}} (día siguiente)"
+    },
+    "drawer": {
+      "summaryOpen": "Abierto para {{services}}.",
+      "summaryClosed": "Cerrado.",
+      "closedRegular": "Cerrado. Tu semana habitual no tiene horario el {{weekday}}.",
+      "changes_one": "{{count}} cambio respecto a tu {{weekday}} habitual.",
+      "changes_other": "{{count}} cambios respecto a tu {{weekday}} habitual.",
+      "changes_many": "{{count}} cambios respecto a tu {{weekday}} habitual.",
+      "whyTitle": "Por qué este día",
+      "ifRemoved": "Si se quita: {{result}}",
+      "removalOpen": "abierto para {{services}}",
+      "removalClosed": "cerrado",
+      "loadError": "No se pudo cargar por qué este día es así"
     }
   },
   "setupHours": {

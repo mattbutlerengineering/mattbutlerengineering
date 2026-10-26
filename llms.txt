@@ -1393,6 +1393,50 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="availability">
+  <file path="apps/hospitality/src/components/availability/calendar-dates.ts">
+    <item priority="low">
+      type CalendarView = "month" | "week";
+    </item>
+    <item priority="medium">
+      function daysSinceMonday(date: string): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function daysInMonth(year: number, month: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function visibleDates(view: CalendarView, anchor: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function shiftAnchor(view: CalendarView, anchor: string, direction: 1 | -1): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/closure-band.ts">
+    <item priority="high">
+      type Closure = AvailabilityDaySummary["closures"][number];
+    </item>
+    <item priority="low">
+      interface ClosureBandText {
+        key: string;
+        text: string;
+        name: string;
+      }
+    </item>
+    <item priority="high">
+      export function minuteText(minute: number, t: TFunction, format: VenueFormat): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isWholeDay(closure: Pick<Closure, "from" | "to">): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closureBandText(
+        closure: Closure,
+        t: TFunction,
+        format: VenueFormat
+      ): ClosureBandText { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="booking-widget">
   <file path="apps/hospitality/src/components/booking-widget/effectiveDepositPolicy.ts">
     <item priority="low">
@@ -1460,6 +1504,19 @@
       }
     </item>
     <item priority="low">
+      interface ClosedMidBooking {
+        message: string;
+        lostTime: string;
+      }
+    </item>
+    <item priority="low">
+      interface SlotListing {
+        slots: TimeSlot[];
+        closure?: { message: string };
+        bookingPaused?: BookingPaused;
+      }
+    </item>
+    <item priority="low">
       interface BookingFlowData {
         selectedDate: string | null;
         selectedEndDate: string | null;
@@ -1475,7 +1532,7 @@
       }
     </item>
     <item priority="high">
-      type BookingFlowAction = { type: "SET_DATE"; date: stri | { type: "SET_END_DATE"; date:  | { type: "SET_PARTY_SIZE"; size | { type: "GO_TO_TIME_SLOT" } | { type: "GO_TO_DATE_PARTY" } | { type: "SET_SLOTS"; slots: Ti | { type: "SET_SLOTS_ERROR"; err | { type: "HOLD_START"; slot: Ti | { type: "HOLD_SUCCESS"; hold:  | { type: "HOLD_ERROR"; error: s | { type: "CONFIRM_START" } | { type: "CONFIRM_SUCCESS_NO_DE | { type: "CONFIRM_SUCCESS_WITH_ | { type: "CONFIRM_ERROR"; error | { type: "DEPOSIT_SUCCESS"; pay | { type: "EXPIRE_HOLD"; error:  | { type: "RESET"; selectedDate: | { type: "SET_DEPOSIT_CONFIG";  | { type: "SET_VENUE_CONFIG"; co | { type: "GO_TO_WAITLIST_JOIN"  | { type: "WAITLIST_JOINED"; res | { type: "SET_GUEST_DETAILS"; d;
+      type BookingFlowAction = { type: "SET_DATE"; date: stri | { type: "SET_END_DATE"; date:  | { type: "SET_PARTY_SIZE"; size | { type: "GO_TO_TIME_SLOT" } | { type: "GO_TO_DATE_PARTY" } | { type: "SET_SLOTS"; listing:  | { type: "CLOSED_MID_BOOKING";  | { type: "SET_CLOSED_DATES"; cl | { type: "SET_SLOTS_ERROR"; err | { type: "HOLD_START"; slot: Ti | { type: "HOLD_SUCCESS"; hold:  | { type: "HOLD_ERROR"; error: s | { type: "CONFIRM_START" } | { type: "CONFIRM_SUCCESS_NO_DE | { type: "CONFIRM_SUCCESS_WITH_ | { type: "CONFIRM_ERROR"; error | { type: "DEPOSIT_SUCCESS"; pay | { type: "EXPIRE_HOLD"; error:  | { type: "RESET"; selectedDate: | { type: "SET_DEPOSIT_CONFIG";  | { type: "SET_VENUE_CONFIG"; co | { type: "GO_TO_WAITLIST_JOIN"  | { type: "WAITLIST_JOINED"; res | { type: "SET_GUEST_DETAILS"; d;
     </item>
     <item priority="medium">
       function createInitialState(venueTimezone?: string): BookingFlowState { /* ... */ }
@@ -1491,6 +1548,9 @@
     </item>
     <item priority="high">
       export function deriveStepKeys(depositRequired: boolean): BookingStep[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function outsideAvailabilityMessage(error: unknown): string | null { /* ... */ }
     </item>
     <item priority="medium">
       function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlowState { /* ... */ }
@@ -2833,6 +2893,11 @@
     </item>
     <item priority="high">
       export async function injectAuth0Session(page: Page): Promise<void> { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/e2e/booking-date.ts">
+    <item priority="high">
+      export async function pickBookingDate(page: Page, isoDate: string): Promise<void> { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/e2e/fixtures.ts">
@@ -4546,6 +4611,20 @@
   <file path="apps/hospitality/src/hooks/useApiClient.ts">
     <item priority="high">
       export function useApiClient() { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useAvailability.ts">
+    <item priority="high">
+      export const AVAILABILITY_DAYS_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const AVAILABILITY_CONFIG_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const useAvailabilityDays: unknown;
+    </item>
+    <item priority="high">
+      export const useAvailabilityConfig: unknown;
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useBriefing.ts">
@@ -8428,7 +8507,7 @@
   <file path="services/reservations/src/routes/availability-config.ts">
     <item priority="medium">
       function configProblem(
-        status: 409 | 422,
+        status: 409 | 422 | 503,
         title: string,
         detail: string,
         extension: Omit<AvailabilityConfigProblem, "type" | "title" | "status" | "detail">
@@ -8438,7 +8517,10 @@
       type ConfigReply = FastifyReply;
     </item>
     <item priority="medium">
-      function sendRefusal(reply: ConfigReply, outcome: Exclude<SaveOutcome, { kind: "saved" }>) { /* ... */ }
+      function sendRefusal(
+        reply: ConfigReply,
+        outcome: Exclude<SaveOutcome | PreviewOutcome, { kind: "saved" | "ok" }>
+      ) { /* ... */ }
     </item>
     <item priority="high">
       export const availabilityConfigRoutes: FastifyPluginAsync;
@@ -9380,6 +9462,39 @@
     <item priority="high">
       export const AvailabilityCheckResultSchema: unknown;
     </item>
+    <item priority="high">
+      export const PREVIEW_WINDOW_DAYS: unknown;
+    </item>
+    <item priority="high">
+      export const PREVIEW_STRANDED_PAGE_SIZE: unknown;
+    </item>
+    <item priority="high">
+      export const PREVIEW_SCOPE_MAX_DATES: unknown;
+    </item>
+    <item priority="high">
+      export const PreviewScopeSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PreviewAvailabilityBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PreviewDaySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PreviewResultSchema: unknown;
+    </item>
+    <item priority="low">
+      type PreviewAvailabilityBody = z.input<typeof PreviewAvailabilityBodySchema>;
+    </item>
+    <item priority="low">
+      type PreviewAvailabilityParsed = z.infer<typeof PreviewAvailabilityBodySchema>;
+    </item>
+    <item priority="low">
+      type PreviewResult = z.infer<typeof PreviewResultSchema>;
+    </item>
+    <item priority="low">
+      type PreviewScope = z.infer<typeof PreviewScopeSchema>;
+    </item>
     <item priority="low">
       type AvailabilityConfigChanges = z.infer<typeof AvailabilityConfigChangesSchema>;
     </item>
@@ -9562,7 +9677,19 @@
       export const DateAvailabilitySchema: unknown;
     </item>
     <item priority="high">
+      export const PublicClosedDateSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicAvailabilityDatesResponseSchema: unknown;
+    </item>
+    <item priority="high">
       export const PublicAvailabilityResponseSchema: unknown;
+    </item>
+    <item priority="low">
+      type PublicClosedDate = z.infer<typeof PublicClosedDateSchema>;
+    </item>
+    <item priority="low">
+      type PublicAvailabilityDatesResponse = z.infer<typeof PublicAvailabilityDatesResponseSchema>;
     </item>
     <item priority="low">
       type AvailabilityClosure = z.infer<typeof AvailabilityClosureSchema>;
@@ -10008,6 +10135,12 @@
       export const publicAvailabilityQueryJsonSchema: unknown;
     </item>
     <item priority="high">
+      export const publicAvailabilityDatesQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const publicAvailabilityDatesResponseJsonSchema: unknown;
+    </item>
+    <item priority="high">
       export const publicAvailabilityResponseJsonSchema: unknown;
     </item>
     <item priority="high">
@@ -10262,6 +10395,9 @@
     </item>
     <item priority="high">
       export const PublicAvailabilityQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicAvailabilityDatesQuerySchema: unknown;
     </item>
     <item priority="high">
       export const PublicDepositBodySchema: unknown;
@@ -11633,6 +11769,7 @@
         tableId: string | null;
         startTime: Date;
         partySize: number;
+        date?: Date;
       }
     </item>
     <item priority="high">
@@ -11679,21 +11816,6 @@
     </item>
     <item priority="medium">
       function canonical(value: unknown): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function applyTable<T extends ConfigTable>(
-        table: T,
-        rows: AvailabilityConfig[T],
-        changes: AvailabilityConfigChanges,
-        nowIso: string
-      ): AvailabilityConfig[T] { /* ... */ }
-    </item>
-    <item priority="high">
-      export function applyChanges(
-        config: AvailabilityConfig,
-        changes: AvailabilityConfigChanges,
-        nowIso: string
-      ): AvailabilityConfig { /* ... */ }
     </item>
     <item priority="medium">
       function coversDate(rule: DateRule, date: string): boolean { /* ... */ }
@@ -11775,6 +11897,17 @@
         venueTableIds: ReadonlySet<string>
       ): ReferenceIssue[] { /* ... */ }
     </item>
+    <item priority="high">
+      export function settleDraft(input: {
+        snapshot: { timezone: string; config: AvailabilityConfig };
+        changes: AvailabilityConfigChanges;
+        scopeConflicts: ScopeConflictMode;
+        tableIds: ReadonlySet<string>;
+        now: Date;
+        today: string;
+        newId: () => string;
+      }): { next: AvailabilityConfig; issues: (ConfigIssue | ReferenceIssue)[] } { /* ... */ }
+    </item>
   </file>
   <file path="services/reservations/src/services/availability-config-rows.ts">
     <item priority="low">
@@ -11821,14 +11954,7 @@
       ): Promise<void> { /* ... */ }
     </item>
   </file>
-  <file path="services/reservations/src/services/availability-config.ts">
-    <item priority="high">
-      type StoreDb = ConfigRowDb &
-        Pick<PrismaClient, "venue" | "reservation...;
-    </item>
-    <item priority="high">
-      type StoreClient = Pick<PrismaClient, "$transaction">;
-    </item>
+  <file path="services/reservations/src/services/availability-config-state.ts">
     <item priority="low">
       interface ConfigState {
         stored: AvailabilityConfig;
@@ -11843,6 +11969,15 @@
         unreadableDays: string[];
         coercions: string[];
       }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/availability-config.ts">
+    <item priority="high">
+      type StoreDb = ConfigRowDb &
+        Pick<PrismaClient, "venue" | "reservation...;
+    </item>
+    <item priority="high">
+      type StoreClient = Pick<PrismaClient, "$transaction">;
     </item>
     <item priority="medium">
       function withStored(legacy: AvailabilityConfig, stored: AvailabilityConfig): AvailabilityConfig { /* ... */ }
@@ -11928,6 +12063,23 @@
         input: { venueId: string; actorId: string; body: PutAvailabilityConfigBody; now: Date },
         client: StoreClient = prisma
       ): Promise<SaveOutcome> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const PREVIEW_TIMEOUT_MS: unknown;
+    </item>
+    <item priority="low">
+      type PreviewOutcome = { kind: "not_found" } | { kind: "timeout" } | PreviewPlan;
+    </item>
+    <item priority="high">
+      export async function previewAvailabilityConfig(
+        input: {
+          venueId: string;
+          body: PreviewAvailabilityParsed;
+          now: Date;
+          timeoutMs?: number;
+        },
+        client: StoreClient = prisma
+      ): Promise<PreviewOutcome> { /* ... */ }
     </item>
     <item priority="high">
       export const availabilityConfigService: unknown;
@@ -12019,6 +12171,26 @@
         /** Online seatings `listSlots` found for the date, booked or not. */
         seatingCount: number
       ): DayNotices { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/availability-preview.ts">
+    <item priority="low">
+      interface PreviewInput {
+        state: ConfigState;
+        body: PreviewAvailabilityParsed;
+        bookings: readonly BookedReservation[];
+        tableIds: ReadonlySet<string>;
+        now: Date;
+      }
+    </item>
+    <item priority="low">
+      type PreviewPlan = { kind: "invalid"; issues: (Co | { kind: "ok"; result: PreviewR;
+    </item>
+    <item priority="high">
+      export function scopeIncludes(scope: PreviewScope, date: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function planPreview(input: PreviewInput): PreviewPlan { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/availability-snapshot.ts">
@@ -16785,7 +16957,7 @@
         async getTimeSlots(): Promise<unknown>;
         async getTimeSlotsForVenue(): Promise<unknown>;
         async getPublicAvailability(): Promise<unknown>;
-        async getDates(): Promise<unknown>;
+        async getClosedDates(): Promise<unknown>;
       }
     </item>
     <item priority="high">
@@ -17206,6 +17378,39 @@
       }
     </item>
   </file>
+  <file path="packages/availability/src/apply-draft.ts">
+    <item priority="high">
+      type ConfigTable = keyof AvailabilityConfig;
+    </item>
+    <item priority="high">
+      type Row = AvailabilityConfig[T][number];
+    </item>
+    <item priority="high">
+      export const ARCHIVED_ON_REMOVE: ReadonlySet<ConfigTable>;
+    </item>
+    <item priority="medium">
+      function applyTable<T extends ConfigTable>(
+        table: T,
+        rows: AvailabilityConfig[T],
+        changes: AvailabilityConfigChanges,
+        nowIso: string
+      ): AvailabilityConfig[T] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function applyChanges(
+        config: AvailabilityConfig,
+        changes: AvailabilityConfigChanges,
+        nowIso: string
+      ): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      export function applyDraft<S extends AvailabilitySnapshot>(
+        snapshot: S,
+        changes: AvailabilityConfigChanges,
+        nowIso: string
+      ): S { /* ... */ }
+    </item>
+  </file>
   <file path="packages/availability/src/civil-date.ts">
     <item priority="medium">
       function toUtcMs(date: ServiceDate): number { /* ... */ }
@@ -17261,6 +17466,30 @@
       export function hoursEffect(
         services: readonly { name: string; opensAt: number; closesAt: number }[]
       ): string { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/diff-days.ts">
+    <item priority="low">
+      interface DayDiff {
+        serviceDate: ServiceDate;
+        added: number[];
+        removed: number[];
+      }
+    </item>
+    <item priority="low">
+      interface DiffDaysOptions {
+        partySize: number;
+        channel: BookingChannel;
+        now: Date;
+      }
+    </item>
+    <item priority="high">
+      export function diffDays(
+        before: BookingSnapshot,
+        after: BookingSnapshot,
+        dates: readonly ServiceDate[],
+        options: DiffDaysOptions
+      ): DayDiff[] { /* ... */ }
     </item>
   </file>
   <file path="packages/availability/src/format-minute.ts">

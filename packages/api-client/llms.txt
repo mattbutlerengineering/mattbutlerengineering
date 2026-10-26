@@ -78,7 +78,7 @@
         async getTimeSlots(): Promise<unknown>;
         async getTimeSlotsForVenue(): Promise<unknown>;
         async getPublicAvailability(): Promise<unknown>;
-        async getDates(): Promise<unknown>;
+        async getClosedDates(): Promise<unknown>;
       }
     </item>
     <item priority="high">

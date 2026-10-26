@@ -263,6 +263,9 @@ importers:
       '@mbe/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@mbe/availability':
+        specifier: workspace:*
+        version: link:../../packages/availability
       '@mbe/cancellation-policy':
         specifier: workspace:*
         version: link:../../packages/cancellation-policy

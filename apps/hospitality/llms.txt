@@ -6,6 +6,50 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="availability">
+  <file path="src/components/availability/calendar-dates.ts">
+    <item priority="low">
+      type CalendarView = "month" | "week";
+    </item>
+    <item priority="medium">
+      function daysSinceMonday(date: string): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function daysInMonth(year: number, month: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function visibleDates(view: CalendarView, anchor: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function shiftAnchor(view: CalendarView, anchor: string, direction: 1 | -1): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/closure-band.ts">
+    <item priority="high">
+      type Closure = AvailabilityDaySummary["closures"][number];
+    </item>
+    <item priority="low">
+      interface ClosureBandText {
+        key: string;
+        text: string;
+        name: string;
+      }
+    </item>
+    <item priority="high">
+      export function minuteText(minute: number, t: TFunction, format: VenueFormat): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isWholeDay(closure: Pick<Closure, "from" | "to">): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closureBandText(
+        closure: Closure,
+        t: TFunction,
+        format: VenueFormat
+      ): ClosureBandText { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="booking-widget">
   <file path="src/components/booking-widget/effectiveDepositPolicy.ts">
     <item priority="low">
@@ -73,6 +117,19 @@
       }
     </item>
     <item priority="low">
+      interface ClosedMidBooking {
+        message: string;
+        lostTime: string;
+      }
+    </item>
+    <item priority="low">
+      interface SlotListing {
+        slots: TimeSlot[];
+        closure?: { message: string };
+        bookingPaused?: BookingPaused;
+      }
+    </item>
+    <item priority="low">
       interface BookingFlowData {
         selectedDate: string | null;
         selectedEndDate: string | null;
@@ -88,7 +145,7 @@
       }
     </item>
     <item priority="high">
-      type BookingFlowAction = { type: "SET_DATE"; date: stri | { type: "SET_END_DATE"; date:  | { type: "SET_PARTY_SIZE"; size | { type: "GO_TO_TIME_SLOT" } | { type: "GO_TO_DATE_PARTY" } | { type: "SET_SLOTS"; slots: Ti | { type: "SET_SLOTS_ERROR"; err | { type: "HOLD_START"; slot: Ti | { type: "HOLD_SUCCESS"; hold:  | { type: "HOLD_ERROR"; error: s | { type: "CONFIRM_START" } | { type: "CONFIRM_SUCCESS_NO_DE | { type: "CONFIRM_SUCCESS_WITH_ | { type: "CONFIRM_ERROR"; error | { type: "DEPOSIT_SUCCESS"; pay | { type: "EXPIRE_HOLD"; error:  | { type: "RESET"; selectedDate: | { type: "SET_DEPOSIT_CONFIG";  | { type: "SET_VENUE_CONFIG"; co | { type: "GO_TO_WAITLIST_JOIN"  | { type: "WAITLIST_JOINED"; res | { type: "SET_GUEST_DETAILS"; d;
+      type BookingFlowAction = { type: "SET_DATE"; date: stri | { type: "SET_END_DATE"; date:  | { type: "SET_PARTY_SIZE"; size | { type: "GO_TO_TIME_SLOT" } | { type: "GO_TO_DATE_PARTY" } | { type: "SET_SLOTS"; listing:  | { type: "CLOSED_MID_BOOKING";  | { type: "SET_CLOSED_DATES"; cl | { type: "SET_SLOTS_ERROR"; err | { type: "HOLD_START"; slot: Ti | { type: "HOLD_SUCCESS"; hold:  | { type: "HOLD_ERROR"; error: s | { type: "CONFIRM_START" } | { type: "CONFIRM_SUCCESS_NO_DE | { type: "CONFIRM_SUCCESS_WITH_ | { type: "CONFIRM_ERROR"; error | { type: "DEPOSIT_SUCCESS"; pay | { type: "EXPIRE_HOLD"; error:  | { type: "RESET"; selectedDate: | { type: "SET_DEPOSIT_CONFIG";  | { type: "SET_VENUE_CONFIG"; co | { type: "GO_TO_WAITLIST_JOIN"  | { type: "WAITLIST_JOINED"; res | { type: "SET_GUEST_DETAILS"; d;
     </item>
     <item priority="medium">
       function createInitialState(venueTimezone?: string): BookingFlowState { /* ... */ }
@@ -104,6 +161,9 @@
     </item>
     <item priority="high">
       export function deriveStepKeys(depositRequired: boolean): BookingStep[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function outsideAvailabilityMessage(error: unknown): string | null { /* ... */ }
     </item>
     <item priority="medium">
       function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlowState { /* ... */ }
@@ -447,6 +507,11 @@
     </item>
     <item priority="high">
       export async function injectAuth0Session(page: Page): Promise<void> { /* ... */ }
+    </item>
+  </file>
+  <file path="e2e/booking-date.ts">
+    <item priority="high">
+      export async function pickBookingDate(page: Page, isoDate: string): Promise<void> { /* ... */ }
     </item>
   </file>
   <file path="e2e/fixtures.ts">
@@ -1161,6 +1226,20 @@
   <file path="src/hooks/useApiClient.ts">
     <item priority="high">
       export function useApiClient() { /* ... */ }
+    </item>
+  </file>
+  <file path="src/hooks/useAvailability.ts">
+    <item priority="high">
+      export const AVAILABILITY_DAYS_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const AVAILABILITY_CONFIG_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const useAvailabilityDays: unknown;
+    </item>
+    <item priority="high">
+      export const useAvailabilityConfig: unknown;
     </item>
   </file>
   <file path="src/hooks/useBriefing.ts">

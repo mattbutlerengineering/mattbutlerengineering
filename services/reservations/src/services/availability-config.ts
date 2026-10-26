@@ -3,7 +3,6 @@ import {
   addDays,
   projectLegacyOperatingHours,
   resolveDay,
-  validateConfig,
   type ConfigIssue,
 } from "@mbe/availability";
 import type {
@@ -11,6 +10,7 @@ import type {
   AvailabilityConfig,
   AvailabilityConfigSource,
   AvailabilityDaySummary,
+  PreviewAvailabilityParsed,
   PutAvailabilityConfigBody,
   StrandedReservation,
 } from "@mbe/types";
@@ -18,11 +18,9 @@ import type { Prisma, PrismaClient } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
 import {
   affectedRange,
-  applyChanges,
   diffConfig,
   inverseOf,
-  referenceIssues,
-  resolveScopeConflicts,
+  settleDraft,
   type ConfigDiff,
   type ConfigInverse,
   type ReferenceIssue,
@@ -40,6 +38,8 @@ import {
   type ConfigRowDb,
 } from "./availability-config-rows.js";
 import { civilDateIn, planVenueMigration } from "./availability-migration.js";
+import { planPreview, type PreviewPlan } from "./availability-preview.js";
+import type { ConfigState, LegacyNotes } from "./availability-config-state.js";
 import { prisma } from "./database.js";
 import { NOT_BOOKED_STATUSES } from "./slot-rules.js";
 
@@ -66,25 +66,7 @@ type StoreDb = ConfigRowDb &
   Pick<PrismaClient, "venue" | "reservation" | "availabilityChange" | "table">;
 type StoreClient = Pick<PrismaClient, "$transaction">;
 
-export interface ConfigState {
-  /** The rows as stored (empty for a venue with none). */
-  stored: AvailabilityConfig;
-  /** What the venue runs on: the rows, or the legacy-derived config. */
-  effective: AvailabilityConfig;
-  source: AvailabilityConfigSource;
-  /** `legacy` only: days the lenient reader closed, and values it coerced. */
-  legacyNotes?: LegacyNotes;
-  /** `unreadable` only: why even the lenient reader could not read the hours. */
-  legacyProblem?: { reason: string; detail: string };
-  version: number;
-  timezone: string;
-  operatingHours: unknown;
-}
-
-export interface LegacyNotes {
-  unreadableDays: string[];
-  coercions: string[];
-}
+export type { ConfigState, LegacyNotes } from "./availability-config-state.js";
 
 const hasRegularSchedule = (config: AvailabilityConfig): boolean =>
   config.schedules.some((s) => s.isRegular && !s.archivedAt);
@@ -237,15 +219,15 @@ export function planSave(input: {
   newId?: () => string;
 }): SavePlan {
   const { state, body, bookings, now } = input;
-  const applied = applyChanges(state.effective, body.changes, now.toISOString());
-  const next = resolveScopeConflicts(
-    state.effective,
-    applied,
-    body.scopeConflicts,
-    input.newId ?? randomUUID,
-    civilDateIn(now, state.timezone)
-  );
-  const issues = [...validateConfig(next), ...referenceIssues(next, input.tableIds)];
+  const { next, issues } = settleDraft({
+    snapshot: { timezone: state.timezone, config: state.effective },
+    changes: body.changes,
+    scopeConflicts: body.scopeConflicts,
+    tableIds: input.tableIds,
+    now,
+    today: civilDateIn(now, state.timezone),
+    newId: input.newId ?? randomUUID,
+  });
   if (issues.length > 0) return { kind: "invalid", issues };
 
   const reservations = findStrandedReservations(
@@ -295,7 +277,7 @@ async function futureBookings(
       startTime: { gte: now },
       status: { notIn: [...NOT_BOOKED_STATUSES] },
     },
-    select: { id: true, tableId: true, startTime: true, partySize: true },
+    select: { id: true, tableId: true, startTime: true, partySize: true, date: true },
   });
 }
 
@@ -393,10 +375,62 @@ export async function saveAvailabilityConfig(
   }
 }
 
+// ── Preview ─────────────────────────────────────────────────────────────────
+
+/** The server gives up on a preview after this long (architecture § Reservations HTTP). */
+export const PREVIEW_TIMEOUT_MS = 5000;
+
+export type PreviewOutcome = { kind: "not_found" } | { kind: "timeout" } | PreviewPlan;
+
+/**
+ * Read-only: loads the config and every future booking once, with no version
+ * bump and no lock, then lets the pure planner compute the rest. Anything
+ * that outlives the timeout is answered `timeout` (the caller returns 503).
+ */
+export async function previewAvailabilityConfig(
+  input: {
+    venueId: string;
+    body: PreviewAvailabilityParsed;
+    now: Date;
+    timeoutMs?: number;
+  },
+  client: StoreClient = prisma
+): Promise<PreviewOutcome> {
+  const { venueId, body, now } = input;
+  const run = client.$transaction(async (tx): Promise<PreviewOutcome> => {
+    await setVenueContext(tx, venueId);
+    const state = await loadConfigState(tx, venueId, now);
+    if (!state) return { kind: "not_found" };
+    const [bookings, tables] = await Promise.all([
+      futureBookings(tx, venueId, civilDateIn(now, state.timezone), now),
+      tx.table.findMany({ where: { venueId }, select: { id: true } }),
+    ]);
+    return planPreview({
+      state,
+      body,
+      bookings,
+      tableIds: new Set(tables.map((t) => t.id)),
+      now,
+    });
+  });
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<PreviewOutcome>((resolve) => {
+    timer = setTimeout(() => resolve({ kind: "timeout" }), input.timeoutMs ?? PREVIEW_TIMEOUT_MS);
+  });
+  try {
+    return await Promise.race([run, timeout]);
+  } finally {
+    clearTimeout(timer);
+    // A preview that lost the race still settles; its failure has no reader.
+    run.catch(() => undefined);
+  }
+}
+
 /** The store as a domain-service record, for the `buildApp({ services })` seam. */
 export const availabilityConfigService = {
   check: checkAvailability,
   get: getAvailabilityConfig,
   listDays: listAvailabilityDays,
   save: saveAvailabilityConfig,
+  preview: previewAvailabilityConfig,
 };

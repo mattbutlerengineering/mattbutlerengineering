@@ -120,6 +120,21 @@
       }
     
       /**
+       * The dates in `from`..`to` (at most 60 days) the venue is closed, each with
+       * its guest message, from the public route — so a calendar can disable them
+       * before a guest picks one.
+       */
+      async getClosedDates(
+        slug: string,
+        range: { from: string; to: string }
+      ): Promise<PublicClosedDate[]> {
+        return this.client.getOne<PublicClosedDate[]>(`${publicAvailabilityPath(slug)}/dates`, {
+          from: range.from,
+          to: range.to,
+        });
+      }
+    
+      /**
        * Get dates with availability in a range
        */
       async getDates(params: GetDatesParams): Promise<DateAvailability[]> {
@@ -166,6 +181,22 @@
           params: { id: venueId },
           body: { rule },
         });
+        return response.data;
+      }
+    
+      /**
+       * What an unsaved draft changes: per-date added/removed times for 30 days
+       * from `focusDate`, the focus day, and a page of the future bookings in
+       * `scope` it would strand. Read-only, so a gateway failure is retried. A
+       * 503 `preview-timeout` rejects with an `ApiClientError`; keep the last
+       * good preview.
+       */
+      async previewConfig(venueId: string, body: PreviewAvailabilityBody): Promise<PreviewResult> {
+        const response = await this.client.call(
+          availabilityConfigEndpoints.previewAvailability,
+          { params: { id: venueId }, body },
+          { idempotentRetry: true }
+        );
         return response.data;
       }
     

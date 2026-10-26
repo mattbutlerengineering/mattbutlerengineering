@@ -326,7 +326,8 @@
       "bookingWidget": "Booking Widget",
       "signOut": "Sign Out",
       "chat": "Chat",
-      "menus": "Menus"
+      "menus": "Menus",
+      "availability": "Availability"
     }
   },
   "layout": {
@@ -350,6 +351,7 @@
       "setup": "Setup",
       "hours": "Operating Hours",
       "menus": "Menus",
+      "availability": "Availability",
       "chat": "Chat"
     },
     "venuesNotLoaded": "Venues not loaded.",
@@ -1197,6 +1199,7 @@
       "partySize": "Party Size",
       "largePartyCall": "For parties larger than {{max}}, call us at <phoneLink>{{phone}}</phoneLink>.",
       "largePartyContact": "For parties larger than {{max}}, please contact the venue directly.",
+      "dateClosedLabel": "{{date}}, closed. {{message}}",
       "findTimes": "Find Available Times",
       "dateHint": "Choose a date from today onward to see available times."
     },
@@ -1205,11 +1208,19 @@
       "noHoursStaffHeading": "No operating hours set",
       "noHoursStaffDescription": "This venue doesn't have any operating hours configured yet, so guests can't see availability or book a table.",
       "setHours": "Set Operating Hours",
-      "noHoursGuestHeading": "Online booking isn't available yet",
+      "noHoursGuestHeading": "Not taking online bookings yet",
       "noHoursGuestDescription": "This venue hasn't set up online reservations yet. Please contact them directly to book a table.",
       "noTimesHeading": "No available times",
       "tryDifferent": "Try a different date or party size.",
       "joinWaitlist": "Join Waitlist",
+      "closedHeading": "Closed on {{date}}",
+      "seeOtherDates": "See other dates",
+      "pausedHeading": "Online booking is paused right now",
+      "pausedCall": "Call {{phone}}",
+      "justClosed": "This time just closed",
+      "otherTimes": "Other times that day",
+      "pickAnotherDate": "Pick another date",
+      "noHoursGuestCall": "Call {{phone}} to book a table.",
       "periods": {
         "lunch": "Lunch",
         "dinner": "Dinner",
@@ -1218,7 +1229,8 @@
       "periodTimes": {
         "lunch": "Available lunch times",
         "dinner": "Available dinner times",
-        "late": "Available late night times"
+        "late": "Available late night times",
+        "lateAfterMidnight": "Available late night times, after midnight on {{date}}"
       },
       "selected": "Selected:",
       "tablesAvailable_one": "{{count}} table available",
@@ -1443,6 +1455,49 @@
         "notes": "Notes",
         "reservationId": "Reservation"
       }
+    }
+  },
+  "availability": {
+    "title": "Availability",
+    "description": "What governs each day, and why.",
+    "hostNote": "Only managers change hours. For tonight, use the Tonight panel.",
+    "loadError": "Couldn't load availability",
+    "noVenue": "Select a venue to see its availability.",
+    "toolbar": {
+      "viewLabel": "Calendar view",
+      "month": "Month",
+      "week": "Week",
+      "previous": "Previous",
+      "next": "Next",
+      "today": "Today"
+    },
+    "calendar": {
+      "label": "Availability calendar",
+      "cellName": "{{date}}: {{details}}",
+      "loadingDay": "loading",
+      "services_one": "{{count}} service",
+      "services_other": "{{count}} services",
+      "services_many": "{{count}} services",
+      "onlineOff": "Online booking off",
+      "onlineOffName": "online booking off",
+      "closedAllDay": "Closed all day",
+      "closedAllDayName": "closed all day",
+      "closedBand": "Closed {{from}} – {{to}}",
+      "closedBandName": "closed {{from}} – {{to}}",
+      "nextDay": "{{time}} (next day)"
+    },
+    "drawer": {
+      "summaryOpen": "Open for {{services}}.",
+      "summaryClosed": "Closed.",
+      "closedRegular": "Closed. Your regular week has no hours on {{weekday}}.",
+      "changes_one": "One change from your regular {{weekday}}.",
+      "changes_other": "{{count}} changes from your regular {{weekday}}.",
+      "changes_many": "{{count}} changes from your regular {{weekday}}.",
+      "whyTitle": "Why this day",
+      "ifRemoved": "If removed: {{result}}",
+      "removalOpen": "open for {{services}}",
+      "removalClosed": "closed",
+      "loadError": "Couldn't load why this day looks this way"
     }
   },
   "setupHours": {

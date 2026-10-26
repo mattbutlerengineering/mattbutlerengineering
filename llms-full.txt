@@ -119,7 +119,7 @@
       name: "Calendar",
       include: false,
       description:
-        "Inline, locale-aware month grid for single-date selection. Controlled via value (yyyy-mm-dd ISO string) and onChange; supports min/max bounds, an isDateDisabled predicate, locale, and weekStartsOn. Keyboard-navigable ARIA grid.",
+        "Inline, locale-aware month grid for single-date selection. Controlled via value (yyyy-mm-dd ISO string) and onChange; supports min/max bounds, an isDateDisabled predicate, an optional getDateLabel(iso) accessible-name callback, locale, and weekStartsOn. Keyboard-navigable ARIA grid.",
     } satisfies CatalogMeta;
   </file>
   <file path="packages/rialto/src/components/Calendar/date-grid.ts">
@@ -4637,6 +4637,79 @@
     }
   </file>
   </section>
+  <section priority="medium" role="availability">
+  <file path="apps/hospitality/src/components/availability/calendar-dates.ts">
+    export type CalendarView = "month" | "week";
+    function daysSinceMonday(date: string): number {
+      return (weekdayIndexOf(date) + 6) % 7;
+    }
+    function daysInMonth(year: number, month: number): number {
+      return new Date(Date.UTC(year, month, 0)).getUTCDate();
+    }
+    export function visibleDates(view: CalendarView, anchor: string): string[] {
+      const first = view === "week" ? anchor : `${anchor.slice(0, 8)}01`;
+      const start = addDays(first, -daysSinceMonday(first));
+      let end =
+        view === "week"
+          ? anchor
+          : `${anchor.slice(0, 8)}${daysInMonth(Number(anchor.slice(0, 4)), Number(anchor.slice(5, 7)))}`;
+      end = addDays(end, 6 - daysSinceMonday(end));
+      const dates: string[] = [];
+      for (let d = start; d <= end; d = addDays(d, 1)) dates.push(d);
+      return dates;
+    }
+    export function shiftAnchor(view: CalendarView, anchor: string, direction: 1 | -1): string {
+      if (view === "week") return addDays(anchor, 7 * direction);
+      const monthIndex = Number(anchor.slice(0, 4)) * 12 + Number(anchor.slice(5, 7)) - 1 + direction;
+      const year = Math.floor(monthIndex / 12);
+      const month = (monthIndex % 12) + 1;
+      const day = Math.min(Number(anchor.slice(8, 10)), daysInMonth(year, month));
+      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/closure-band.ts">
+    type Closure = AvailabilityDaySummary["closures"][number];
+    export interface ClosureBandText {
+      readonly key: string;
+      /** Visible text: "Closed 10:00 PM – 11:00 PM". */
+      readonly text: string;
+      /** Spoken in a cell's name: "closed 10:00 PM – 11:00 PM". */
+      readonly name: string;
+    }
+    export function minuteText(minute: number, t: TFunction, format: VenueFormat): string {
+      const wrapped = minute % MINUTES_PER_DAY;
+      const hh = String(Math.floor(wrapped / 60)).padStart(2, "0");
+      const mm = String(wrapped % 60).padStart(2, "0");
+      const time = format.formatLocalTime(`${hh}:${mm}`);
+      return minute >= MINUTES_PER_DAY ? t("availability.calendar.nextDay", { time }) : time;
+    }
+    export function isWholeDay(closure: Pick<Closure, "from" | "to">): boolean {
+      return closure.from === 0 && closure.to >= 2 * MINUTES_PER_DAY;
+    }
+    export function closureBandText(
+      closure: Closure,
+      t: TFunction,
+      format: VenueFormat
+    ): ClosureBandText {
+      if (isWholeDay(closure)) {
+        return {
+          key: closure.ruleId,
+          text: t("availability.calendar.closedAllDay"),
+          name: t("availability.calendar.closedAllDayName"),
+        };
+      }
+      const values = {
+        from: minuteText(closure.from, t, format),
+        to: minuteText(closure.to, t, format),
+      };
+      return {
+        key: closure.ruleId,
+        text: t("availability.calendar.closedBand", values),
+        name: t("availability.calendar.closedBandName", values),
+      };
+    }
+  </file>
+  </section>
   <section priority="medium" role="booking-widget">
   <file path="apps/hospitality/src/components/booking-widget/effectiveDepositPolicy.ts">
     export interface EffectiveDepositPolicyParams {
@@ -4735,6 +4808,17 @@
       position: number;
       estimatedWaitMinutes: number | null;
     }
+    export interface ClosedMidBooking {
+      /** The venue's guest message for the closure. */
+      message: string;
+      /** The time the guest had chosen, so alternatives can be offered near it. */
+      lostTime: string;
+    }
+    export interface SlotListing {
+      slots: TimeSlot[];
+      closure?: { message: string };
+      bookingPaused?: BookingPaused;
+    }
     export interface BookingFlowData {
       selectedDate: string | null;
       selectedEndDate: string | null;
@@ -4743,6 +4827,15 @@
       selectedSlot: TimeSlot | null;
       slotsLoading: boolean;
       slotsError: string | null;
+      /**
+       * Closed dates learned from listings, date to guest message. The public
+       * API has no range listing, so the date step only knows a date is closed
+       * after a listing for it has come back.
+       */
+      closures: Record<string, string>;
+      /** Online booking is paused venue-wide; from the latest listing. */
+      bookingPaused: BookingPaused | null;
+      closedMidBooking: ClosedMidBooking | null;
       hold: ReservationHold | null;
       holdLoading: boolean;
       holdError: string | null;
@@ -4792,7 +4885,9 @@
       | { type: "SET_PARTY_SIZE"; size: number }
       | { type: "GO_TO_TIME_SLOT" }
       | { type: "GO_TO_DATE_PARTY" }
-      | { type: "SET_SLOTS"; slots: TimeSlot[] }
+      | { type: "SET_SLOTS"; listing: SlotListing }
+      | { type: "CLOSED_MID_BOOKING"; message: string }
+      | { type: "SET_CLOSED_DATES"; closures: Record<string, string> }
       | { type: "SET_SLOTS_ERROR"; error: string }
       | { type: "HOLD_START"; slot: TimeSlot }
       | { type: "HOLD_SUCCESS"; hold: ReservationHold; slot: TimeSlot }
@@ -4826,6 +4921,17 @@
     export function deriveStepKeys(depositRequired: boolean): BookingStep[] {
       return depositRequired ? STEP_KEYS_WITH_DEPOSIT : STEP_KEYS_NO_DEPOSIT;
     }
+    function outsideAvailabilityMessage(error: unknown): string | null {
+      if (typeof error !== "object" || error === null || !("problemDetails" in error)) return null;
+      const problem = (
+        error as { problemDetails: { code?: unknown; reason?: unknown; detail?: unknown } }
+      ).problemDetails;
+      if (problem.code !== "outside-availability") return null;
+      // Only a closed venue makes "this time just closed" true; a blocked table or
+      // a closed booking type is an ordinary refusal and keeps its own message.
+      if (!CLOSURE_REASONS.has(String(problem.reason))) return null;
+      return typeof problem.detail === "string" ? problem.detail : "";
+    }
     function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlowState {
       switch (action.type) {
         case "SET_DATE":
@@ -4847,6 +4953,7 @@
               slotsLoading: true,
               slotsError: null,
               holdError: null,
+              closedMidBooking: null,
             },
           };
     
@@ -4858,13 +4965,53 @@
               selectedSlot: null,
               slots: [],
               hold: null,
+              closedMidBooking: null,
             },
           };
     
-        case "SET_SLOTS":
+        case "SET_SLOTS": {
+          const { listing } = action;
+          const date = state.data.selectedDate;
+          const { [date ?? ""]: _previous, ...otherClosures } = state.data.closures;
+          const closures =
+            date && listing.closure
+              ? { ...otherClosures, [date]: listing.closure.message }
+              : otherClosures;
           return {
             ...state,
-            data: { ...state.data, slots: action.slots, slotsLoading: false, slotsError: null },
+            data: {
+              ...state.data,
+              slots: listing.slots,
+              closures,
+              bookingPaused: listing.bookingPaused ?? null,
+              slotsLoading: false,
+              slotsError: null,
+            },
+          };
+        }
+    
+        case "SET_CLOSED_DATES":
+          // What a listing already learned about a date wins over the upfront list.
+          return {
+            ...state,
+            data: { ...state.data, closures: { ...action.closures, ...state.data.closures } },
+          };
+    
+        case "CLOSED_MID_BOOKING":
+          return {
+            step: "time-slot",
+            data: {
+              ...state.data,
+              hold: null,
+              selectedSlot: null,
+              confirmLoading: false,
+              confirmError: null,
+              slotsLoading: true,
+              closedMidBooking: {
+                message: action.message,
+                lostTime: state.data.selectedSlot?.time ?? "",
+              },
+            },
           };
     
         case "SET_SLOTS_ERROR":
@@ -5098,13 +5245,17 @@
       // tokenless, so the staff /api/v1/availability route would 401 every guest.
       // goToTimeSlot reports the missing-slug dead end before calling this, so the
       // slug guard is just for the type.
-      const fetchSlots = useCallback(async (): Promise<TimeSlot[]> => {
-        if (!flowState.data.selectedDate || !venueSlug) return [];
-        const response = await api.availability.getTimeSlotsForVenue(venueSlug, {
+      const fetchSlots = useCallback(async (): Promise<SlotListing> => {
+        if (!flowState.data.selectedDate || !venueSlug) return { slots: [] };
+        const response = await api.availability.getPublicAvailability(venueSlug, {
           date: flowState.data.selectedDate,
           partySize: flowState.data.partySize,
         });
-        return response.filter((slot) => slot.available);
+        return {
+          slots: response.data.filter((slot) => slot.available),
+          closure: response.closure,
+          bookingPaused: response.bookingPaused,
+        };
       }, [api, venueSlug, flowState.data.selectedDate, flowState.data.partySize]);
     
       // Release a hold by ID — errors are ignored, the hold expires anyway.
@@ -5180,6 +5331,23 @@
         fetchDepositConfig();
       }, [venueSlug, stripePublishableKey, api]);
     
+      // Closed dates for the booking window, fetched once so the calendar can
+      // disable and name them before a guest picks one. A failure is non-fatal:
+      // the per-date listing still reports a closure when a date is opened.
+      useEffect(() => {
+        if (!venueSlug) return;
+        const from = venueDate(new Date(), venueTimezone);
+        api.availability
+          .getClosedDates(venueSlug, { from, to: addDays(from, CLOSED_DATES_LOOKAHEAD_DAYS) })
+          .then((dates) =>
+            dispatch({
+              type: "SET_CLOSED_DATES",
+              closures: Object.fromEntries(dates.map(({ date, closure }) => [date, closure.message])),
+            })
+          )
+          .catch(() => undefined);
+      }, [api, venueSlug, venueTimezone]);
+    
       const goToTimeSlot = useCallback(() => {
         const holdId = flowState.data.hold?.id;
         if (holdId) {
@@ -5191,7 +5359,7 @@
           return;
         }
         fetchSlots()
-          .then((slots) => dispatch({ type: "SET_SLOTS", slots }))
+          .then((listing) => dispatch({ type: "SET_SLOTS", listing }))
           .catch((err: unknown) => {
             dispatch({ type: "SET_SLOTS_ERROR", error: describeApiError(err).detail });
           });
@@ -5286,11 +5454,30 @@
               });
             }
           } catch (err) {
-            dispatch({ type: "CONFIRM_ERROR", error: describeApiError(err).detail });
+            const closure = outsideAvailabilityMessage(err);
+            if (closure === null) {
+              dispatch({ type: "CONFIRM_ERROR", error: describeApiError(err).detail });
+              return;
+            }
+            // A closure saved after the hold was made (ux.md F9.5): the hold is
+            // dead, so release it and show what is still open that day.
+            void releaseHold(flowState.data.hold.id);
+            dispatch({ type: "CLOSED_MID_BOOKING", message: closure });
+            fetchSlots()
+              .then((listing) => dispatch({ type: "SET_SLOTS", listing }))
+              .catch(() =>
+                dispatch({
+                  type: "SET_SLOTS_ERROR",
+                  error: i18n.t("bookingWidget.errors.reloadFailed"),
+                })
+              );
           }
         },
         [
           api,
+          releaseHold,
+          fetchSlots,
+          i18n,
           flowState.data.hold,
           flowState.data.depositConfig,
           venueSlug,
@@ -5330,7 +5517,7 @@
           if (new Date() >= new Date(capturedHold.expiresAt)) {
             dispatch({ type: "EXPIRE_HOLD", error: i18n.t("bookingWidget.errors.holdExpired") });
             fetchSlots()
-              .then((slots) => dispatch({ type: "SET_SLOTS", slots }))
+              .then((listing) => dispatch({ type: "SET_SLOTS", listing }))
               .catch(() =>
                 dispatch({
                   type: "SET_SLOTS_ERROR",
@@ -9660,6 +9847,15 @@
       // (the staff route above 401s for guests). The `**/public/v1/venues/*`
       // config glob below never reaches it (`*` never crosses `/`).
       await page.route("**/public/v1/venues/*/availability*", slotsResponse);
+      // Closed dates for the calendar. The glob above never reaches this path
+      // (`*` does not cross `/`); no closures by default.
+      await page.route("**/public/v1/venues/*/availability/dates*", (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ data: [] }),
+        })
+      );
     
       // Holds
       await page.route("**/api/v1/holds/*/confirm", (route) => {
@@ -9942,6 +10138,12 @@
       await page.reload();
     }
   </file>
+  <file path="apps/hospitality/e2e/booking-date.ts">
+    export async function pickBookingDate(page: Page, isoDate: string): Promise<void> {
+      await expect(page.getByRole("grid")).toBeVisible();
+      await page.locator(`[role="gridcell"][data-date="${isoDate}"]`).click();
+    }
+  </file>
   <file path="apps/hospitality/e2e/fixtures.ts">
     export const test = base.extend<{ authPage: Page; mockedPage: Page }>({
       authPage: async ({ page }, use) => {
@@ -10040,6 +10242,30 @@
           404: venueNotFound,
           422: {
             description: "`invalid-config`: the draft rule does not validate against the config",
+            body: AvailabilityConfigProblemSchema,
+          },
+        },
+      }),
+      previewAvailability: defineEndpoint({
+        method: "POST",
+        path: `${AVAILABILITY_CONFIG_PREFIX}/:id/availability/preview`,
+        params: VenueParamsSchema,
+        body: PreviewAvailabilityBodySchema,
+        responses: {
+          200: {
+            description:
+              "The draft's effect: per-date added/removed times, the focus day, and a page of stranded reservations",
+            body: z.object({ data: PreviewResultSchema }),
+          },
+          401: authRequired,
+          403: problem("Caller is not a Manager of this venue"),
+          404: venueNotFound,
+          422: {
+            description: "`invalid-config`, with path-addressed issues",
+            body: AvailabilityConfigProblemSchema,
+          },
+          503: {
+            description: "`preview-timeout`: the preview took longer than 5 seconds; retry is safe",
             body: AvailabilityConfigProblemSchema,
           },
         },
@@ -14270,6 +14496,30 @@
         [accessToken]
       );
     }
+  </file>
+  <file path="apps/hospitality/src/hooks/useAvailability.ts">
+    export const AVAILABILITY_DAYS_QUERY_KEY = "availabilityDays" as const;
+    export const AVAILABILITY_CONFIG_QUERY_KEY = "availabilityConfig" as const;
+    export const useAvailabilityDays = createQueryHook<
+      AvailabilityDaySummary[] | null,
+      { venueId: string | null; from: string; to: string }
+    >({
+      key: AVAILABILITY_DAYS_QUERY_KEY,
+      fetcher: async (params, api) =>
+        params?.venueId
+          ? api.availability.listDays(params.venueId, { from: params.from, to: params.to })
+          : null,
+      getEnabled: (params) => !!params?.venueId && params.enabled !== false,
+    });
+    export const useAvailabilityConfig = createQueryHook<
+      AvailabilityConfigState | null,
+      { venueId: string | null }
+    >({
+      key: AVAILABILITY_CONFIG_QUERY_KEY,
+      fetcher: async (params, api) =>
+        params?.venueId ? api.availability.getConfig(params.venueId) : null,
+      getEnabled: (params) => !!params?.venueId && params.enabled !== false,
+    });
   </file>
   <file path="apps/hospitality/src/hooks/useBriefing.ts">
     export const BRIEFING_QUERY_KEY = "briefing" as const;
@@ -26913,7 +27163,7 @@
   </file>
   <file path="services/reservations/src/routes/availability-config.ts">
     function configProblem(
-      status: 409 | 422,
+      status: 409 | 422 | 503,
       title: string,
       detail: string,
       extension: Omit<AvailabilityConfigProblem, "type" | "title" | "status" | "detail">
@@ -26921,7 +27171,10 @@
       return { type: "about:blank", title, status, detail, ...extension };
     }
     type ConfigReply = FastifyReply;
-    function sendRefusal(reply: ConfigReply, outcome: Exclude<SaveOutcome, { kind: "saved" }>) {
+    function sendRefusal(
+      reply: ConfigReply,
+      outcome: Exclude<SaveOutcome | PreviewOutcome, { kind: "saved" | "ok" }>
+    ) {
       switch (outcome.kind) {
         case "not_found":
           return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
@@ -26937,6 +27190,12 @@
             configProblem(422, "Unprocessable Entity", "The availability config is not valid.", {
               code: "invalid-config",
               issues: outcome.issues,
+            })
+          );
+        case "timeout":
+          return reply.code(503).send(
+            configProblem(503, "Service Unavailable", "The preview took too long; try again.", {
+              code: "preview-timeout",
             })
           );
         case "stranded":
@@ -26995,6 +27254,30 @@
             });
             if (outcome.kind !== "saved") return sendRefusal(reply, outcome);
             return { data: { version: outcome.version, changeId: outcome.changeId } };
+          }
+        ),
+      });
+    
+      registerEndpoint(fastify, availabilityConfigEndpoints.previewAvailability, {
+        docs: {
+          summary: "Preview an unsaved availability draft",
+          operationId: "previewAvailability",
+          description:
+            "What the draft changes for guests over 30 days from `focusDate`, how the focus date resolves, and the future bookings in `scope` it would strand (a page of 50 from `strandedOffset`). Read-only and safe to retry; answers 503 `preview-timeout` after 5 seconds. Requires a Manager (owner or manager) membership, or the admin role.",
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(
+          { ...VENUE_FROM_ID, access: "manager" },
+          async (request, reply, { venueId }) => {
+            const outcome = await availabilityConfigService.preview({
+              venueId,
+              body: request.body,
+              now: new Date(),
+            });
+            if (outcome.kind !== "ok") return sendRefusal(reply, outcome);
+            return { data: outcome.result };
           }
         ),
       });
@@ -29697,6 +29980,71 @@
             );
     
             return reply.send({ data: slots.filter((s) => s.available), ...notices });
+          }
+        )
+      );
+    
+      fastify.get<{
+        Params: { slug: string };
+        Querystring: { from: string; to: string };
+        Reply: PublicAvailabilityDatesResponse | ReturnType<typeof createProblemDetails>;
+      }>(
+        "/:slug/availability/dates",
+        {
+          preHandler: publicRateLimitHook,
+          schema: {
+            summary: "List closed dates in a range (public)",
+            description:
+              "The dates in the range the venue is closed, each with the guest message. Lets the booking calendar disable them before a guest picks one.",
+            tags: ["Public"],
+            params: {
+              type: "object",
+              properties: { slug: { type: "string" } },
+              required: ["slug"],
+            },
+            querystring: publicAvailabilityDatesQueryJsonSchema,
+            response: { 200: publicAvailabilityDatesResponseJsonSchema },
+          },
+        },
+        publicVenueScoped(
+          {
+            slug: (request) => request.params.slug,
+            notFound: (slug) => ({
+              title: "Venue Not Found",
+              detail: `No venue found with slug '${slug}'.`,
+            }),
+          },
+          async (request, reply) => {
+            const { slug } = request.params;
+            const { from, to } = request.query;
+    
+            const venue = await venueService.getBySlug(slug);
+            if (!venue) {
+              return reply
+                .status(404)
+                .send(
+                  createProblemDetails(404, "Venue Not Found", `No venue found with slug '${slug}'.`)
+                );
+            }
+    
+            const rangeResult = validateDateRange(from, to, MAX_DATES_RANGE_DAYS);
+            if (!rangeResult.valid) {
+              return reply
+                .status(400)
+                .send(createProblemDetails(400, "Invalid Date Range", rangeResult.error ?? ""));
+            }
+    
+            const dates = await availabilityService.getAvailableDates(
+              venue.id,
+              from,
+              to,
+              DATES_LISTING_PARTY_SIZE,
+              { logger: request.log }
+            );
+    
+            return reply.send({
+              data: dates.flatMap(({ date, closure }) => (closure ? [{ date, closure }] : [])),
+            });
           }
         )
       );
@@ -34930,6 +35278,7 @@
       "version-conflict",
       "invalid-config",
       "stranded-bookings",
+      "preview-timeout",
     ] as const;
     export const AvailabilityConfigProblemSchema = z.object({
       type: z.string(),
@@ -35027,6 +35376,57 @@
       z.object({ kind: z.literal("soft"), limits: z.array(SoftLimitSchema), message: z.string() }),
       z.object({ kind: z.literal("hard"), reason: HardReasonSchema, message: z.string() }),
     ]);
+    export const PREVIEW_WINDOW_DAYS = 30;
+    export const PREVIEW_STRANDED_PAGE_SIZE = 50;
+    export const PREVIEW_SCOPE_MAX_DATES = 366;
+    export const PreviewScopeSchema = z.union([
+      z.array(ServiceDateSchema).min(1).max(PREVIEW_SCOPE_MAX_DATES),
+      z.object({ from: ServiceDateSchema, to: ServiceDateSchema.optional() }),
+    ]);
+    export const PreviewAvailabilityBodySchema = z.object({
+      /** The unsaved edit: the rows a save would send. */
+      draft: z.object({
+        changes: AvailabilityConfigChangesSchema,
+        scopeConflicts: ScopeConflictModeSchema.default("keep"),
+      }),
+      scope: PreviewScopeSchema,
+      /** First date of the per-date window, and the date resolved in full. */
+      focusDate: ServiceDateSchema,
+      /** Index of the first stranded reservation to return (a page is 50). */
+      strandedOffset: z.number().int().min(0).default(0),
+    });
+    export const PreviewDaySchema = z.object({
+      serviceDate: ServiceDateSchema,
+      added: z.array(z.number().int()),
+      removed: z.array(z.number().int()),
+    });
+    export const PreviewResultSchema = z.object({
+      /** `Venue.availabilityVersion` the preview was computed against. */
+      version: z.number().int(),
+      days: z.array(PreviewDaySchema),
+      /** The focus date under the draft: its summary and the services that run. */
+      focusDay: AvailabilityDaySummarySchema.extend({
+        services: z.array(
+          z.object({
+            venueServiceId: z.string(),
+            name: z.string(),
+            opensAt: z.number().int(),
+            lastSeatingAt: z.number().int(),
+            closesAt: z.number().int(),
+          })
+        ),
+      }),
+      /** Future bookings in scope the draft would leave unserved, by start time. */
+      stranded: z.object({
+        total: z.number().int(),
+        offset: z.number().int(),
+        items: z.array(StrandedReservationSchema),
+      }),
+    });
+    export type PreviewAvailabilityBody = z.input<typeof PreviewAvailabilityBodySchema>;
+    export type PreviewAvailabilityParsed = z.infer<typeof PreviewAvailabilityBodySchema>;
+    export type PreviewResult = z.infer<typeof PreviewResultSchema>;
+    export type PreviewScope = z.infer<typeof PreviewScopeSchema>;
     export type AvailabilityConfigChanges = z.infer<typeof AvailabilityConfigChangesSchema>;
     export type ScopeConflictMode = z.infer<typeof ScopeConflictModeSchema>;
     export type PutAvailabilityConfigBody = z.infer<typeof PutAvailabilityConfigBodySchema>;
@@ -35185,11 +35585,20 @@
       slotCount: z.number().int().optional(),
       closure: AvailabilityClosureSchema.optional(),
     });
+    export const PublicClosedDateSchema = z.object({
+      date: z.string(),
+      closure: AvailabilityClosureSchema,
+    });
+    export const PublicAvailabilityDatesResponseSchema = z.object({
+      data: z.array(PublicClosedDateSchema),
+    });
     export const PublicAvailabilityResponseSchema = z.object({
       data: z.array(TimeSlotSchema),
       closure: AvailabilityClosureSchema.optional(),
       bookingPaused: BookingPausedSchema.optional(),
     });
+    export type PublicClosedDate = z.infer<typeof PublicClosedDateSchema>;
+    export type PublicAvailabilityDatesResponse = z.infer<typeof PublicAvailabilityDatesResponseSchema>;
     export type AvailabilityClosure = z.infer<typeof AvailabilityClosureSchema>;
     export type BookingPaused = z.infer<typeof BookingPausedSchema>;
     export type PublicAvailabilityResponse = z.infer<typeof PublicAvailabilityResponseSchema>;
@@ -35662,6 +36071,12 @@
     export const createWaitlistBodyJsonSchema = toRequestJsonSchema(CreateWaitlistBodySchema);
     export const listWaitlistQueryJsonSchema = toRequestJsonSchema(ListWaitlistQuerySchema);
     export const publicAvailabilityQueryJsonSchema = toRequestJsonSchema(PublicAvailabilityQuerySchema);
+    export const publicAvailabilityDatesQueryJsonSchema = toRequestJsonSchema(
+      PublicAvailabilityDatesQuerySchema
+    );
+    export const publicAvailabilityDatesResponseJsonSchema = toResponseJsonSchema(
+      PublicAvailabilityDatesResponseSchema
+    );
     export const publicAvailabilityResponseJsonSchema = toResponseJsonSchema(
       PublicAvailabilityResponseSchema
     );
@@ -36115,6 +36530,10 @@
     export const PublicAvailabilityQuerySchema = z.object({
       date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
       partySize: z.string(),
+    });
+    export const PublicAvailabilityDatesQuerySchema = z.object({
+      from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     });
     export const PublicDepositBodySchema = z.object({
       reservationId: z.string().min(1),
@@ -40417,6 +40836,8 @@
       tableId: string | null;
       startTime: Date;
       partySize: number;
+      /** The service date it belongs to; set where a scope needs it. */
+      date?: Date;
     }
     type StrandReason = StrandedReservation["reason"];
     export function strandReason(
@@ -40511,37 +40932,6 @@
         return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(",")}}`;
       }
       return JSON.stringify(value);
-    }
-    function applyTable<T extends ConfigTable>(
-      table: T,
-      rows: AvailabilityConfig[T],
-      changes: AvailabilityConfigChanges,
-      nowIso: string
-    ): AvailabilityConfig[T] {
-      const upserts = (changes.upsert[table] ?? []) as Row<T>[];
-      const removed = new Set(changes.remove[table] ?? []);
-      const byId = new Map(upserts.map((r) => [r.id, r]));
-      const kept = (rows as Row<T>[]).flatMap((row): Row<T>[] => {
-        const replaced = byId.get(row.id) ?? row;
-        if (!removed.has(row.id)) return [replaced];
-        return ARCHIVED_ON_REMOVE.has(table) ? [{ ...replaced, archivedAt: nowIso }] : [];
-      });
-      const known = new Set((rows as Row<T>[]).map((r) => r.id));
-      const added = upserts.filter((r) => !known.has(r.id) && !removed.has(r.id));
-      return [...kept, ...added] as AvailabilityConfig[T];
-    }
-    export function applyChanges(
-      config: AvailabilityConfig,
-      changes: AvailabilityConfigChanges,
-      nowIso: string
-    ): AvailabilityConfig {
-      return {
-        schedules: applyTable("schedules", config.schedules, changes, nowIso),
-        venueServices: applyTable("venueServices", config.venueServices, changes, nowIso),
-        scheduleServices: applyTable("scheduleServices", config.scheduleServices, changes, nowIso),
-        assignments: applyTable("assignments", config.assignments, changes, nowIso),
-        dateRules: applyTable("dateRules", config.dateRules, changes, nowIso),
-      };
     }
     function coversDate(rule: DateRule, date: string): boolean {
       return (
@@ -40784,6 +41174,29 @@
         ]),
       ];
     }
+    export function settleDraft(input: {
+      snapshot: { timezone: string; config: AvailabilityConfig };
+      changes: AvailabilityConfigChanges;
+      scopeConflicts: ScopeConflictMode;
+      tableIds: ReadonlySet<string>;
+      now: Date;
+      today: string;
+      newId: () => string;
+    }): { next: AvailabilityConfig; issues: (ConfigIssue | ReferenceIssue)[] } {
+      const { snapshot, now } = input;
+      const applied = applyDraft(snapshot, input.changes, now.toISOString()).config;
+      const next = resolveScopeConflicts(
+        snapshot.config,
+        applied,
+        input.scopeConflicts,
+        input.newId,
+        input.today
+      );
+      return {
+        next,
+        issues: [...validateConfig(next), ...referenceIssues(next, input.tableIds)],
+      };
+    }
   </file>
   <file path="services/reservations/src/services/availability-config-rows.ts">
     export type ConfigRowDb = Pick<
@@ -40933,10 +41346,7 @@
       }
     }
   </file>
-  <file path="services/reservations/src/services/availability-config.ts">
-    type StoreDb = ConfigRowDb &
-      Pick<PrismaClient, "venue" | "reservation" | "availabilityChange" | "table">;
-    type StoreClient = Pick<PrismaClient, "$transaction">;
+  <file path="services/reservations/src/services/availability-config-state.ts">
     export interface ConfigState {
       /** The rows as stored (empty for a venue with none). */
       stored: AvailabilityConfig;
@@ -40955,6 +41365,11 @@
       unreadableDays: string[];
       coercions: string[];
     }
+  </file>
+  <file path="services/reservations/src/services/availability-config.ts">
+    type StoreDb = ConfigRowDb &
+      Pick<PrismaClient, "venue" | "reservation" | "availabilityChange" | "table">;
+    type StoreClient = Pick<PrismaClient, "$transaction">;
     function withStored(legacy: AvailabilityConfig, stored: AvailabilityConfig): AvailabilityConfig {
       return {
         schedules: [...legacy.schedules, ...stored.schedules],
@@ -41089,15 +41504,15 @@
       newId?: () => string;
     }): SavePlan {
       const { state, body, bookings, now } = input;
-      const applied = applyChanges(state.effective, body.changes, now.toISOString());
-      const next = resolveScopeConflicts(
-        state.effective,
-        applied,
-        body.scopeConflicts,
-        input.newId ?? randomUUID,
-        civilDateIn(now, state.timezone)
-      );
-      const issues = [...validateConfig(next), ...referenceIssues(next, input.tableIds)];
+      const { next, issues } = settleDraft({
+        snapshot: { timezone: state.timezone, config: state.effective },
+        changes: body.changes,
+        scopeConflicts: body.scopeConflicts,
+        tableIds: input.tableIds,
+        now,
+        today: civilDateIn(now, state.timezone),
+        newId: input.newId ?? randomUUID,
+      });
       if (issues.length > 0) return { kind: "invalid", issues };
     
       const reservations = findStrandedReservations(
@@ -41142,7 +41557,7 @@
           startTime: { gte: now },
           status: { notIn: [...NOT_BOOKED_STATUSES] },
         },
-        select: { id: true, tableId: true, startTime: true, partySize: true },
+        select: { id: true, tableId: true, startTime: true, partySize: true, date: true },
       });
     }
     async function refuseStale(db: StoreDb, venueId: string): Promise<SaveOutcome> {
@@ -41233,11 +41648,52 @@
         throw error;
       }
     }
+    export const PREVIEW_TIMEOUT_MS = 5000;
+    export type PreviewOutcome = { kind: "not_found" } | { kind: "timeout" } | PreviewPlan;
+    export async function previewAvailabilityConfig(
+      input: {
+        venueId: string;
+        body: PreviewAvailabilityParsed;
+        now: Date;
+        timeoutMs?: number;
+      },
+      client: StoreClient = prisma
+    ): Promise<PreviewOutcome> {
+      const { venueId, body, now } = input;
+      const run = client.$transaction(async (tx): Promise<PreviewOutcome> => {
+        await setVenueContext(tx, venueId);
+        const state = await loadConfigState(tx, venueId, now);
+        if (!state) return { kind: "not_found" };
+        const [bookings, tables] = await Promise.all([
+          futureBookings(tx, venueId, civilDateIn(now, state.timezone), now),
+          tx.table.findMany({ where: { venueId }, select: { id: true } }),
+        ]);
+        return planPreview({
+          state,
+          body,
+          bookings,
+          tableIds: new Set(tables.map((t) => t.id)),
+          now,
+        });
+      });
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const timeout = new Promise<PreviewOutcome>((resolve) => {
+        timer = setTimeout(() => resolve({ kind: "timeout" }), input.timeoutMs ?? PREVIEW_TIMEOUT_MS);
+      });
+      try {
+        return await Promise.race([run, timeout]);
+      } finally {
+        clearTimeout(timer);
+        // A preview that lost the race still settles; its failure has no reader.
+        run.catch(() => undefined);
+      }
+    }
     export const availabilityConfigService = {
       check: checkAvailability,
       get: getAvailabilityConfig,
       listDays: listAvailabilityDays,
       save: saveAvailabilityConfig,
+      preview: previewAvailabilityConfig,
     };
   </file>
   <file path="services/reservations/src/services/availability-migration.ts">
@@ -41474,6 +41930,78 @@
       // Any seating left on the online channel means the date is open, if shorter.
       if (seatingCount > 0) return {};
       return { closure: { message: day.guestMessage ?? DEFAULT_CLOSURE_MESSAGE } };
+    }
+  </file>
+  <file path="services/reservations/src/services/availability-preview.ts">
+    export interface PreviewInput {
+      state: ConfigState;
+      body: PreviewAvailabilityParsed;
+      /** Future, still-booked reservations, each with its service date. */
+      bookings: readonly BookedReservation[];
+      tableIds: ReadonlySet<string>;
+      now: Date;
+      newId?: () => string;
+    }
+    export type PreviewPlan =
+      | { kind: "invalid"; issues: (ConfigIssue | ReferenceIssue)[] }
+      | { kind: "ok"; result: PreviewResult };
+    export function scopeIncludes(scope: PreviewScope, date: string): boolean {
+      if (Array.isArray(scope)) return scope.includes(date);
+      return scope.from <= date && (scope.to === undefined || date <= scope.to);
+    }
+    export function planPreview(input: PreviewInput): PreviewPlan {
+      const { state, body, now } = input;
+      const { draft, scope, focusDate, strandedOffset } = body;
+      const { next, issues } = settleDraft({
+        snapshot: { timezone: state.timezone, config: state.effective },
+        changes: draft.changes,
+        scopeConflicts: draft.scopeConflicts,
+        tableIds: input.tableIds,
+        now,
+        today: civilDateIn(now, state.timezone),
+        newId: input.newId ?? randomUUID,
+      });
+      if (issues.length > 0) return { kind: "invalid", issues };
+    
+      const before = structural(state.timezone, state.effective);
+      const after = structural(state.timezone, next);
+      const dates = Array.from({ length: PREVIEW_WINDOW_DAYS }, (_, i) => addDays(focusDate, i));
+      const days = diffDays(before, after, dates, {
+        partySize: PREVIEW_PARTY_SIZE,
+        channel: "online",
+        now,
+      });
+    
+      const focus = resolveDay(after, focusDate);
+      const stranded = findStrandedReservations(
+        before,
+        after,
+        input.bookings.filter((b) => b.date && scopeIncludes(scope, toServiceDate(b.date)))
+      ).sort((a, b) => a.startTime.localeCompare(b.startTime) || a.id.localeCompare(b.id));
+    
+      const names = new Map(next.venueServices.map((s) => [s.id, s.name]));
+      return {
+        kind: "ok",
+        result: {
+          version: state.version,
+          days,
+          focusDay: {
+            ...summarizeDay(next, focus),
+            services: focus.services.map((s) => ({
+              venueServiceId: s.venueServiceId,
+              name: names.get(s.venueServiceId) ?? s.name,
+              opensAt: s.opensAt,
+              lastSeatingAt: s.lastSeatingAt,
+              closesAt: s.closesAt,
+            })),
+          },
+          stranded: {
+            total: stranded.length,
+            offset: strandedOffset,
+            items: stranded.slice(strandedOffset, strandedOffset + PREVIEW_STRANDED_PAGE_SIZE),
+          },
+        },
+      };
     }
   </file>
   <file path="services/reservations/src/services/availability-snapshot.ts">
@@ -52043,6 +52571,7 @@
         label: t("nav.sections.manage"),
         items: [
           route("floor-plans", t("nav.items.floorPlans"), "/floor-plans"),
+          route("availability", t("nav.items.availability"), "/availability"),
           route("menus", t("nav.items.menus"), "/menus"),
           route("booking-widget", t("nav.items.bookingWidget"), "/booking-widget"),
         ],
@@ -59915,6 +60444,21 @@
       }
     
       /**
+       * The dates in `from`..`to` (at most 60 days) the venue is closed, each with
+       * its guest message, from the public route — so a calendar can disable them
+       * before a guest picks one.
+       */
+      async getClosedDates(
+        slug: string,
+        range: { from: string; to: string }
+      ): Promise<PublicClosedDate[]> {
+        return this.client.getOne<PublicClosedDate[]>(`${publicAvailabilityPath(slug)}/dates`, {
+          from: range.from,
+          to: range.to,
+        });
+      }
+    
+      /**
        * Get dates with availability in a range
        */
       async getDates(params: GetDatesParams): Promise<DateAvailability[]> {
@@ -59961,6 +60505,22 @@
           params: { id: venueId },
           body: { rule },
         });
+        return response.data;
+      }
+    
+      /**
+       * What an unsaved draft changes: per-date added/removed times for 30 days
+       * from `focusDate`, the focus day, and a page of the future bookings in
+       * `scope` it would strand. Read-only, so a gateway failure is retried. A
+       * 503 `preview-timeout` rejects with an `ApiClientError`; keep the last
+       * good preview.
+       */
+      async previewConfig(venueId: string, body: PreviewAvailabilityBody): Promise<PreviewResult> {
+        const response = await this.client.call(
+          availabilityConfigEndpoints.previewAvailability,
+          { params: { id: venueId }, body },
+          { idempotentRetry: true }
+        );
         return response.data;
       }
     
@@ -61997,6 +62557,52 @@
       }
     }
   </file>
+  <file path="packages/availability/src/apply-draft.ts">
+    type ConfigTable = keyof AvailabilityConfig;
+    type Row<T extends ConfigTable> = AvailabilityConfig[T][number];
+    export const ARCHIVED_ON_REMOVE: ReadonlySet<ConfigTable> = new Set<ConfigTable>([
+      "schedules",
+      "venueServices",
+    ]);
+    function applyTable<T extends ConfigTable>(
+      table: T,
+      rows: AvailabilityConfig[T],
+      changes: AvailabilityConfigChanges,
+      nowIso: string
+    ): AvailabilityConfig[T] {
+      const upserts = (changes.upsert[table] ?? []) as Row<T>[];
+      const removed = new Set(changes.remove[table] ?? []);
+      const byId = new Map(upserts.map((r) => [r.id, r]));
+      const kept = (rows as Row<T>[]).flatMap((row): Row<T>[] => {
+        const replaced = byId.get(row.id) ?? row;
+        if (!removed.has(row.id)) return [replaced];
+        return ARCHIVED_ON_REMOVE.has(table) ? [{ ...replaced, archivedAt: nowIso }] : [];
+      });
+      const known = new Set((rows as Row<T>[]).map((r) => r.id));
+      const added = upserts.filter((r) => !known.has(r.id) && !removed.has(r.id));
+      return [...kept, ...added] as AvailabilityConfig[T];
+    }
+    export function applyChanges(
+      config: AvailabilityConfig,
+      changes: AvailabilityConfigChanges,
+      nowIso: string
+    ): AvailabilityConfig {
+      return {
+        schedules: applyTable("schedules", config.schedules, changes, nowIso),
+        venueServices: applyTable("venueServices", config.venueServices, changes, nowIso),
+        scheduleServices: applyTable("scheduleServices", config.scheduleServices, changes, nowIso),
+        assignments: applyTable("assignments", config.assignments, changes, nowIso),
+        dateRules: applyTable("dateRules", config.dateRules, changes, nowIso),
+      };
+    }
+    export function applyDraft<S extends AvailabilitySnapshot>(
+      snapshot: S,
+      changes: AvailabilityConfigChanges,
+      nowIso: string
+    ): S {
+      return { ...snapshot, config: applyChanges(snapshot.config, changes, nowIso) };
+    }
+  </file>
   <file path="packages/availability/src/civil-date.ts">
     function toUtcMs(date: ServiceDate): number {
       const y = Number(date.slice(0, 4));
@@ -62082,6 +62688,32 @@
       return services.length === 0
         ? "Closed"
         : services.map((s) => `${s.name} ${timeRange(s.opensAt, s.closesAt)}`).join(", ");
+    }
+  </file>
+  <file path="packages/availability/src/diff-days.ts">
+    export interface DayDiff {
+      serviceDate: ServiceDate;
+      /** Seating minutes (past the service day's midnight) guests gain, ascending. */
+      added: number[];
+      /** Seating minutes guests lose, ascending. */
+      removed: number[];
+    }
+    export interface DiffDaysOptions {
+      partySize: number;
+      channel: BookingChannel;
+      now: Date;
+    }
+    export function diffDays(
+      before: BookingSnapshot,
+      after: BookingSnapshot,
+      dates: readonly ServiceDate[],
+      options: DiffDaysOptions
+    ): DayDiff[] {
+      return dates.map((serviceDate) => {
+        const was = minutesOn(before, serviceDate, options);
+        const now = minutesOn(after, serviceDate, options);
+        return { serviceDate, added: onlyIn(now, was), removed: onlyIn(was, now) };
+      });
     }
   </file>
   <file path="packages/availability/src/format-minute.ts">
@@ -65641,7 +66273,7 @@
         name: "Calendar",
         include: false,
         description:
-          "Inline, locale-aware month grid for single-date selection. Controlled via value (yyyy-mm-dd ISO string) and onChange; supports min/max bounds, an isDateDisabled predicate, locale, and weekStartsOn. Keyboard-navigable ARIA grid.",
+          "Inline, locale-aware month grid for single-date selection. Controlled via value (yyyy-mm-dd ISO string) and onChange; supports min/max bounds, an isDateDisabled predicate, an optional getDateLabel(iso) accessible-name callback, locale, and weekStartsOn. Keyboard-navigable ARIA grid.",
       },
       Card: {
         name: "Card",

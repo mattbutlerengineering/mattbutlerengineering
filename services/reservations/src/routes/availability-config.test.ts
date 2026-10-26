@@ -9,6 +9,7 @@ import {
   AvailabilityConfigStateSchema,
   AvailabilityDaySummarySchema,
   ClosureImpactSchema,
+  PreviewResultSchema,
 } from "@mbe/types";
 import { buildApp } from "../app.js";
 
@@ -41,7 +42,13 @@ const PUT_BODY = {
   scopeConflicts: "keep",
 };
 
-const svc = { get: vi.fn(), listDays: vi.fn(), save: vi.fn(), check: vi.fn() };
+const svc = {
+  get: vi.fn(),
+  listDays: vi.fn(),
+  save: vi.fn(),
+  check: vi.fn(),
+  preview: vi.fn(),
+};
 const impactSvc = { impact: vi.fn() };
 
 async function appWith(options: { venueRoleLookup?: VenueRoleLookup } = {}) {
@@ -342,6 +349,76 @@ describe("availability config routes", () => {
       const res = await post(CHECK_BODY, {});
       expect(res.statusCode).toBe(401);
       expect(svc.check).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("POST /preview", () => {
+    const PREVIEW = {
+      draft: { changes: { upsert: {}, remove: {} } },
+      scope: { from: "2026-11-01" },
+      focusDate: "2026-11-02",
+    };
+    const result = {
+      version: 3,
+      days: [{ serviceDate: "2026-11-02", added: [1050], removed: [] }],
+      focusDay: {
+        serviceDate: "2026-11-02",
+        label: "Regular",
+        scheduleId: "sch-1",
+        serviceCount: 0,
+        closures: [],
+        bookingOpen: { online: true, phone: true, waitlist: true },
+        services: [],
+      },
+      stranded: { total: 0, offset: 0, items: [] },
+    };
+    const post = (a: FastifyInstance, payload: unknown = PREVIEW) =>
+      a.inject({
+        method: "POST",
+        url: `${BASE}/preview`,
+        headers: ADMIN,
+        payload: payload as never,
+      });
+
+    it("returns the preview, defaulting the scope conflict mode and page offset", async () => {
+      svc.preview.mockResolvedValueOnce({ kind: "ok", result });
+
+      const res = await post(app);
+
+      expect(res.statusCode).toBe(200);
+      expect(PreviewResultSchema.parse(res.json().data)).toEqual(result);
+      expect(svc.preview).toHaveBeenCalledWith({
+        venueId: "venue-1",
+        body: expect.objectContaining({ strandedOffset: 0 }),
+        now: expect.any(Date),
+      });
+      expect(svc.preview.mock.calls[0]?.[0].body.draft.scopeConflicts).toBe("keep");
+    });
+
+    it("answers a timeout with 503 preview-timeout", async () => {
+      svc.preview.mockResolvedValueOnce({ kind: "timeout" });
+      const res = await post(app);
+      expect(res.statusCode).toBe(503);
+      expect(res.json()).toMatchObject({ code: "preview-timeout" });
+    });
+
+    it("answers an invalid draft with 422 and the issue paths", async () => {
+      const issues = [{ path: "schedules[0]", code: "x", message: "m" }];
+      svc.preview.mockResolvedValueOnce({ kind: "invalid", issues });
+      const res = await post(app);
+      expect(res.statusCode).toBe(422);
+      expect(res.json()).toMatchObject({ code: "invalid-config", issues });
+    });
+
+    it("answers an unknown venue with 404", async () => {
+      svc.preview.mockResolvedValueOnce({ kind: "not_found" });
+      expect((await post(app)).statusCode).toBe(404);
+    });
+
+    it("rejects a malformed body before the store", async () => {
+      const res = await post(app, { ...PREVIEW, scope: [] });
+      expect(res.statusCode).toBe(400);
+      expect(svc.preview).not.toHaveBeenCalled();
     });
   });
 });
