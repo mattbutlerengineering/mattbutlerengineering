@@ -3875,6 +3875,9 @@
       ): { startTime: DateThreshold; endTime: DateThreshold } { /* ... */ }
     </item>
     <item priority="high">
+      export function serviceDayConflictWindow(date: Date): { gte: Date; lte: Date } { /* ... */ }
+    </item>
+    <item priority="high">
       export function activeHoldWindow(now: Date): DateThreshold { /* ... */ }
     </item>
     <item priority="high">

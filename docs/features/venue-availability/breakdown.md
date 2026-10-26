@@ -61,7 +61,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [x] **Staff override and check endpoint** — `override: {reason}` on staff create and update, persisted to `Reservation.overrideReason` and `overrideLimits`. Adds `POST …/availability/check`, the api-client method and a contract-test entry. (tracker: #7505)
   - Accept: a soft limit with no reason or a blank reason returns 422; with a reason it books, and the reason is stored and logged as a ReservationEvent. Inside a closure it is always 422, even with a reason. This covers SC Staff override, server half.
   - Blocked by: Booking gate
-- [ ] **Service-day conflicts and timeline** — conflict and pacing queries read service days D−1 through D+1. Ports the prior art's after-midnight timeline layout (`reservationLayout.ts`, V5). (tracker: #7506)
+- [x] **Service-day conflicts and timeline** — conflict and pacing queries read service days D−1 through D+1. Ports the prior art's after-midnight timeline layout (`reservationLayout.ts`, V5). (tracker: #7506)
   - Accept: tests show a 00:30 seating from Friday's late service conflicts correctly with Saturday's early seating, and renders on Friday's timeline.
   - Blocked by: Booking gate
 - [x] **Agent tools via availability endpoint** — `services/agent/src/routes/gen-agent-tools.ts` stops reading `operatingHours` and calls the public availability endpoint. A timeout or 5xx reports "couldn't check". (tracker: #7507)

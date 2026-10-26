@@ -165,12 +165,13 @@ export function TimelineGrid({
           startHour,
           hourWidth,
           isMobile,
+          serviceDate: date,
           timeZone,
         })
       );
     }
     return map;
-  }, [reservations, startHour, hourWidth, isMobile, timeZone]);
+  }, [reservations, startHour, hourWidth, isMobile, date, timeZone]);
 
   const [currentTime, setCurrentTime] = useState(() => new Date());
   const lastMinuteRef = useRef(currentTime.getMinutes());

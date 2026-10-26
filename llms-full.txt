@@ -5043,7 +5043,7 @@
       | { kind: "opensAtChanges"; name: string; minute: number }
       | { kind: "closesAtChanges"; name: string; minute: number; later: boolean }
       | { kind: "lastSeatingChanges"; name: string; minute: number }
-      | { kind: "closureLifted"; closure: ResolvedClosure }
+      | { kind: "closureLifted"; closure: ResolvedClosure; serviceName?: string }
       | { kind: "closureApplies"; closure: ResolvedClosure }
       | { kind: "bookingOn"; channel: Channel }
       | { kind: "bookingOff"; channel: Channel }
@@ -5098,14 +5098,23 @@
     }
     function closureChanges(
       current: readonly ResolvedClosure[],
-      removed: readonly ResolvedClosure[]
+      removed: readonly ResolvedClosure[],
+      services: readonly ResolvedService[]
     ): RemovalChange[] {
+      const nameOf = (c: ResolvedClosure) =>
+        c.targetKind === "service"
+          ? services.find((s) => s.venueServiceId === c.venueServiceId)?.name
+          : undefined;
       // A whole-day closure of services or booking channels already shows up as those changes.
       const worthSaying = (c: ResolvedClosure) => !isWholeDay(c) || c.targetKind === "tables";
       return [
         ...current
           .filter((c) => !removed.some((r) => sameClosure(r, c)) && worthSaying(c))
-          .map((closure): RemovalChange => ({ kind: "closureLifted", closure })),
+          .map((closure): RemovalChange => ({
+            kind: "closureLifted",
+            closure,
+            serviceName: nameOf(closure),
+          })),
         ...removed
           .filter((c) => !current.some((r) => sameClosure(r, c)) && worthSaying(c))
           .map((closure): RemovalChange => ({ kind: "closureApplies", closure })),
@@ -5129,10 +5138,35 @@
     ): RemovalChange[] {
       return [
         ...serviceChanges(current.services, removed.services),
-        ...closureChanges(current.closures, removed.closures),
+        ...closureChanges(current.closures, removed.closures, current.services),
         ...bookingChanges(current.bookingOpen, removed.bookingOpen),
         ...pacingChanges(current, removed),
       ];
+    }
+    function liftedText(
+      change: Extract<RemovalChange, { kind: "closureLifted" }>,
+      t: TFunction,
+      format: VenueFormat
+    ): string {
+      const { closure } = change;
+      if (isWholeDay(closure)) return t("availability.drawer.removal.reopensAllDay");
+      const range = {
+        from: minuteText(closure.from, t, format),
+        to: minuteText(closure.to, t, format),
+      };
+      if (closure.targetKind === "booking") {
+        const channels = (closure.bookingTypes ?? []).map((c) =>
+          t(`availability.drawer.removal.channel.${c}`)
+        );
+        return t("availability.drawer.removal.channelBackOn", {
+          ...range,
+          channels: new Intl.ListFormat(format.locale, { type: "conjunction" }).format(channels),
+        });
+      }
+      if (closure.targetKind === "service" && change.serviceName) {
+        return t("availability.drawer.removal.serviceReopens", { ...range, name: change.serviceName });
+      }
+      return t("availability.drawer.removal.reopens", range);
     }
     export function removalChangeText(
       change: RemovalChange,
@@ -5167,14 +5201,14 @@
             time: at(change.minute),
           });
         case "closureLifted":
+          return liftedText(change, t, format);
+        case "closureApplies":
           return isWholeDay(change.closure)
-            ? t("availability.drawer.removal.reopensAllDay")
-            : t("availability.drawer.removal.reopens", {
+            ? t("availability.calendar.closedAllDayName")
+            : t("availability.drawer.removal.closes", {
                 from: at(change.closure.from),
                 to: at(change.closure.to),
               });
-        case "closureApplies":
-          return closureBandText(change.closure, t, format).text;
         case "bookingOn":
           return t(`availability.drawer.removal.bookingOn.${change.channel}`);
         case "bookingOff":
@@ -5256,6 +5290,45 @@
         FIXTURE_DATE
       );
     }
+    export const ONLINE_WINDOW: DateRule = {
+      ...ON_DAY,
+      id: "r-online-window",
+      kind: "closure",
+      targetKind: "booking",
+      bookingTypes: ["online"],
+      window: { version: 1, from: 1080, to: 1140 },
+    };
+    export const LUNCH_WINDOW: DateRule = {
+      ...ON_DAY,
+      id: "r-lunch-window",
+      kind: "closure",
+      targetKind: "service",
+      venueServiceId: "vs-lunch",
+      window: { version: 1, from: 720, to: 780 },
+    };
+    export const LATE_CLOSURE: DateRule = {
+      ...ON_DAY,
+      id: "r-late",
+      kind: "closure",
+      targetKind: "venue",
+      window: { version: 1, from: 1380, to: 1500 },
+    };
+    export const WEEKLY_CLOSURE: DateRule = {
+      id: "r-series",
+      kind: "closure",
+      targetKind: "venue",
+      startsOn: "2026-10-01",
+      endsOn: "2026-12-31",
+      repeat: { version: 1, weekdays: [5] },
+      window: { version: 1, from: 1320, to: 1380 },
+    };
+    export const SKIP_WEEKLY: DateRule = {
+      ...ON_DAY,
+      id: "r-skip",
+      kind: "skip",
+      targetKind: "venue",
+      seriesId: "r-series",
+    };
   </file>
   </section>
   <section priority="medium" role="booking-widget">
@@ -43340,7 +43413,7 @@
         prisma.reservation.findMany({
           where: {
             venueId,
-            date: new Date(date),
+            date: serviceDayConflictWindow(new Date(date)),
             status: { notIn: [...NOT_BOOKED_STATUSES] },
           },
           select: {
@@ -43354,7 +43427,7 @@
         prisma.reservationHold.findMany({
           where: {
             venueId,
-            date: new Date(date),
+            date: serviceDayConflictWindow(new Date(date)),
             expiresAt: activeHoldWindow(new Date()),
           },
           select: {
@@ -43450,6 +43523,7 @@
         onUnbookable,
         write,
       } = intent;
+      const serviceDays = serviceDayConflictWindow(date);
     
       return prisma.$transaction(async (tx): Promise<SlotWriteResult<T>> => {
         // This `prisma.$transaction` call bypasses the per-call auto-wrap
@@ -43476,7 +43550,7 @@
         const conflictingReservation = await tx.reservation.findFirst({
           where: {
             tableId,
-            date,
+            date: serviceDays,
             status: { notIn: [...NOT_BOOKED_STATUSES] },
             ...overlapWindow(startTime, endTime),
             ...(excludeReservationId ? { id: { not: excludeReservationId } } : {}),
@@ -43491,7 +43565,7 @@
           const conflictingHold = await tx.reservationHold.findFirst({
             where: {
               tableId,
-              date,
+              date: serviceDays,
               expiresAt: activeHoldWindow(new Date()),
               ...overlapWindow(startTime, endTime),
               ...(excludeHoldId ? { id: { not: excludeHoldId } } : {}),
@@ -43507,13 +43581,13 @@
         if (checkPacing && venueId) {
           const now = new Date();
           const reservations = await tx.reservation.findMany({
-            where: { venueId, date, status: { notIn: [...NOT_BOOKED_STATUSES] } },
+            where: { venueId, date: serviceDays, status: { notIn: [...NOT_BOOKED_STATUSES] } },
             select: { id: true, tableId: true, startTime: true, endTime: true, partySize: true },
           });
           const holds = await tx.reservationHold.findMany({
             where: {
               venueId,
-              date,
+              date: serviceDays,
               expiresAt: activeHoldWindow(now),
               ...(excludeHoldId ? { id: { not: excludeHoldId } } : {}),
               ...(excludeSessionId ? { sessionId: { not: excludeSessionId } } : {}),
@@ -50927,6 +51001,12 @@
       return {
         startTime: { lt: endTime },
         endTime: { gt: startTime },
+      };
+    }
+    export function serviceDayConflictWindow(date: Date): { gte: Date; lte: Date } {
+      return {
+        gte: new Date(date.getTime() - MS_PER_DAY),
+        lte: new Date(date.getTime() + MS_PER_DAY),
       };
     }
     export function activeHoldWindow(now: Date): DateThreshold {
@@ -73822,6 +73902,8 @@
       startHour: number;
       hourWidth: number;
       isMobile: boolean;
+      /** The service day the grid shows (ADR-029: a reservation's `date`). */
+      serviceDate: string;
       /** The venue's IANA zone; positions are venue wall-clock. Omitted: the device clock. */
       timeZone?: string;
     }
@@ -73829,16 +73911,20 @@
       left: number;
       width: number;
     }
+    export function serviceDayMinute(instant: Date, serviceDate: string, timeZone?: string): number {
+      const minute = minutesOfDayIn(instant, timeZone);
+      const day = venueDate(instant, timeZone);
+      if (day === addDays(serviceDate, 1)) return MINUTES_PER_DAY + minute;
+      if (day === addDays(serviceDate, -1)) return minute - MINUTES_PER_DAY;
+      return minute;
+    }
     export function computeReservationLayout(
       startTime: string,
       endTime: string,
-      { startHour, hourWidth, isMobile, timeZone }: ReservationLayoutParams
+      { startHour, hourWidth, isMobile, serviceDate, timeZone }: ReservationLayoutParams
     ): ReservationLayoutResult {
-      const start = new Date(startTime);
-      const end = new Date(endTime);
-    
-      const startMinutes = minutesOfDayIn(start, timeZone);
-      const endMinutes = minutesOfDayIn(end, timeZone);
+      const startMinutes = serviceDayMinute(new Date(startTime), serviceDate, timeZone);
+      const endMinutes = serviceDayMinute(new Date(endTime), serviceDate, timeZone);
       const startOffset = startMinutes - startHour * 60;
       const duration = endMinutes - startMinutes;
     

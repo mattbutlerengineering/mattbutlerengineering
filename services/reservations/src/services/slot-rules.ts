@@ -232,6 +232,24 @@ export function overlapWindow(
   };
 }
 
+const MS_PER_DAY = 86_400_000;
+
+/**
+ * The service days whose rows can overlap service day `date`'s instants,
+ * declared once (ADR-029): D-1 through D+1. A booking's `date` is the service
+ * day it opened on, so one starting 01:00 belongs to D-1 yet conflicts with
+ * D's early seatings, and vice versa. `date` is a date-only (UTC-midnight)
+ * value; the overlap itself stays exact to the instant via
+ * {@link overlapWindow} / the pacing window, so widening never adds a false
+ * conflict. Spread into a Prisma `where.date`.
+ */
+export function serviceDayConflictWindow(date: Date): { gte: Date; lte: Date } {
+  return {
+    gte: new Date(date.getTime() - MS_PER_DAY),
+    lte: new Date(date.getTime() + MS_PER_DAY),
+  };
+}
+
 /**
  * The hold-expiry rule, declared once: a hold guards its slot only while
  * still active (`expiresAt` in the future). Shared by the pure re-check, the

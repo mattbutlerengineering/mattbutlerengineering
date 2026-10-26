@@ -1593,7 +1593,8 @@
     <item priority="medium">
       function closureChanges(
         current: readonly ResolvedClosure[],
-        removed: readonly ResolvedClosure[]
+        removed: readonly ResolvedClosure[],
+        services: readonly ResolvedService[]
       ): RemovalChange[] { /* ... */ }
     </item>
     <item priority="medium">
@@ -1607,6 +1608,13 @@
         current: ResolvedDaySummary,
         removed: ResolvedDaySummary
       ): RemovalChange[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function liftedText(
+        change: Extract<RemovalChange, { kind: "closureLifted" }>,
+        t: TFunction,
+        format: VenueFormat
+      ): string { /* ... */ }
     </item>
     <item priority="high">
       export function removalChangeText(
@@ -1649,6 +1657,21 @@
     </item>
     <item priority="high">
       export function resolveFixtureDay(...rules: DateRule[]): ResolvedDay { /* ... */ }
+    </item>
+    <item priority="high">
+      export const ONLINE_WINDOW: DateRule;
+    </item>
+    <item priority="high">
+      export const LUNCH_WINDOW: DateRule;
+    </item>
+    <item priority="high">
+      export const LATE_CLOSURE: DateRule;
+    </item>
+    <item priority="high">
+      export const WEEKLY_CLOSURE: DateRule;
+    </item>
+    <item priority="high">
+      export const SKIP_WEEKLY: DateRule;
     </item>
   </file>
   </section>
@@ -14284,6 +14307,9 @@
       ): { startTime: DateThreshold; endTime: DateThreshold } { /* ... */ }
     </item>
     <item priority="high">
+      export function serviceDayConflictWindow(date: Date): { gte: Date; lte: Date } { /* ... */ }
+    </item>
+    <item priority="high">
       export function activeHoldWindow(now: Date): DateThreshold { /* ... */ }
     </item>
     <item priority="high">
@@ -22051,6 +22077,7 @@
         startHour: number;
         hourWidth: number;
         isMobile: boolean;
+        serviceDate: string;
         timeZone?: string;
       }
     </item>
@@ -22061,10 +22088,13 @@
       }
     </item>
     <item priority="high">
+      export function serviceDayMinute(instant: Date, serviceDate: string, timeZone?: string): number { /* ... */ }
+    </item>
+    <item priority="high">
       export function computeReservationLayout(
         startTime: string,
         endTime: string,
-        { startHour, hourWidth, isMobile, timeZone }: ReservationLayoutParams
+        { startHour, hourWidth, isMobile, serviceDate, timeZone }: ReservationLayoutParams
       ): ReservationLayoutResult { /* ... */ }
     </item>
   </file>
