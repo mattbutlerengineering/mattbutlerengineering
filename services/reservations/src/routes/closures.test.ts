@@ -22,6 +22,7 @@ const URL = `${AVAILABILITY_CONFIG_PREFIX}/venue-1/closures`;
 const ADMIN = { "x-auth-bypass": "true" };
 const commandSvc = { mayClose: vi.fn(), create: vi.fn(), reopen: vi.fn() };
 const noticeSvc = { enqueueForClosure: vi.fn(), enqueueForReopen: vi.fn(), callList: vi.fn() };
+const closureRefunds = { enqueue: vi.fn(), retry: vi.fn() };
 
 const rule = {
   id: "dr-new",
@@ -59,6 +60,7 @@ describe("closure routes", () => {
         closureCommandService: commandSvc as never,
         closureNoticeService: noticeSvc as never,
       },
+      closureRefunds,
     });
     await app.ready();
   });
@@ -100,16 +102,44 @@ describe("closure routes", () => {
       );
     });
 
-    it("enqueues nothing for a refused closure", async () => {
-      commandSvc.create.mockResolvedValueOnce({ kind: "forbidden" });
-      await post();
-      expect(noticeSvc.enqueueForClosure).not.toHaveBeenCalled();
-    });
-
     it("still answers 200 when the queue is down (the closure is committed)", async () => {
       commandSvc.create.mockResolvedValueOnce({ kind: "saved", result: RESULT });
       noticeSvc.enqueueForClosure.mockRejectedValueOnce(new Error("redis down"));
       expect((await post()).statusCode).toBe(200);
+    });
+
+    it("a failed refund enqueue does not skip the notices", async () => {
+      commandSvc.create.mockResolvedValueOnce({ kind: "saved", result: RESULT });
+      closureRefunds.enqueue.mockRejectedValueOnce(new Error("redis down"));
+      expect((await post()).statusCode).toBe(200);
+      expect(noticeSvc.enqueueForClosure).toHaveBeenCalledWith(
+        expect.objectContaining({ venueId: "venue-1", ruleId: "dr-new" })
+      );
+    });
+
+    it("enqueues the closure's refund jobs after the save commits", async () => {
+      commandSvc.create.mockResolvedValueOnce({ kind: "saved", result: RESULT });
+      closureRefunds.enqueue.mockResolvedValueOnce(1);
+
+      await post();
+
+      expect(closureRefunds.enqueue).toHaveBeenCalledWith("venue-1", "dr-new");
+    });
+
+    it("still answers 200 when enqueueing fails; the outcomes stay pending for a retry", async () => {
+      commandSvc.create.mockResolvedValueOnce({ kind: "saved", result: RESULT });
+      closureRefunds.enqueue.mockRejectedValueOnce(new Error("redis down"));
+
+      const res = await post();
+
+      expect(res.statusCode).toBe(200);
+    });
+
+    it("enqueues nothing for a refusal", async () => {
+      commandSvc.create.mockResolvedValueOnce({ kind: "forbidden" });
+      await post();
+      expect(closureRefunds.enqueue).not.toHaveBeenCalled();
+      expect(noticeSvc.enqueueForClosure).not.toHaveBeenCalled();
     });
 
     it("400s without an Idempotency-Key", async () => {

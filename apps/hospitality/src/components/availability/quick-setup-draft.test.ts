@@ -11,6 +11,7 @@ import {
   setServiceTime,
   toggleDay,
   validateDraft,
+  validateQuickSetupHours,
   WEEKDAY_SHORTCUT,
   WEEK_DISPLAY_ORDER,
   type QuickSetupDraft,
@@ -83,6 +84,67 @@ describe("quick setup draft", () => {
     expect(validateDraft(bad)).toEqual([
       { serviceId: "s1", field: "lastSeating", code: "last_seating_after_close" },
     ]);
+  });
+
+  it("flags a past-midnight service longer than the server reads (16 hours)", () => {
+    const draft = dinnerWeekdays();
+    const at = (opens: string, lastSeating: string, closes: string) => {
+      const s = draft.services[0]!;
+      return replaceService(
+        draft,
+        setServiceTime(
+          setServiceTime(setServiceTime(s, "opens", opens), "lastSeating", lastSeating),
+          "closes",
+          closes
+        )
+      );
+    };
+    expect(validateDraft(at("10:00", "02:15", "03:00"))).toEqual([
+      { serviceId: "s1", field: "closes", code: "span_too_long" },
+    ]);
+    expect(validateDraft(at("10:00", "01:15", "02:00"))).toEqual([]);
+    // A midnight close is past midnight to the server's reader too: 07:00 -> 00:00 is 17 hours.
+    expect(validateDraft(at("07:00", "22:30", "00:00"))).toEqual([
+      { serviceId: "s1", field: "closes", code: "span_too_long" },
+    ]);
+  });
+
+  it("flags a day whose services together span past midnight for more than 16 hours", () => {
+    const timed = (id: string, opens: string, lastSeating: string, closes: string) =>
+      setServiceTime(
+        setServiceTime(
+          setServiceTime({ ...emptyDraft(id).services[0]!, name: id }, "opens", opens),
+          "lastSeating",
+          lastSeating
+        ),
+        "closes",
+        closes
+      );
+    const draft: QuickSetupDraft = {
+      services: [timed("b", "07:00", "09:30", "10:30"), timed("d", "17:00", "23:00", "00:30")],
+      days: WEEKDAY_SHORTCUT,
+    };
+    expect(validateDraft(draft)).toEqual([
+      { serviceId: "d", field: "closes", code: "span_too_long" },
+    ]);
+  });
+
+  it("flags a service name over 40 characters", () => {
+    const draft = dinnerWeekdays();
+    const long = replaceService(draft, { ...draft.services[0]!, name: "D".repeat(41) });
+    expect(validateDraft(long)).toEqual([
+      { serviceId: "s1", field: "name", code: "name_too_long" },
+    ]);
+    const ok = replaceService(draft, { ...draft.services[0]!, name: "D".repeat(40) });
+    expect(validateDraft(ok)).toEqual([]);
+  });
+
+  it("gates wizard hours on at least one open day, accepting past-midnight closes", () => {
+    const late = applyPreset(emptyDraft("s1").services[0]!, "late", "Late");
+    const hours = draftToLegacyHours({ services: [late], days: WEEK_DISPLAY_ORDER });
+    expect(hours.monday).toEqual({ open: "22:00", close: "01:00" });
+    expect(validateQuickSetupHours(hours)).toBeNull();
+    expect(validateQuickSetupHours({})?.global).toBe("At least one day must be open");
   });
 
   it("flags services that overlap", () => {

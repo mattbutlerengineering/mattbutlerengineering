@@ -102,7 +102,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [ ] **Guest preview panel** — calls the preview endpoint with the debounced draft, showing added and removed marks, the summary line, the stranded list, and the slow-preview fallback. (tracker: #7516)
   - Accept: a component test covers updates on edit, keeping the last good result on 503, and a stranded list that spans the whole scope.
   - Blocked by: Preview endpoint, Drawer editing
-- [ ] **Schedules, Compare and copy** — the Schedules tab (new, duplicate, edit, delete-when-unused), Change regular week (F-UW, including overlap precedence), Compare services (F-X), copy a day (F4), and the discovery nudge. (tracker: #7517)
+- [x] **Schedules, Compare and copy** — the Schedules tab (new, duplicate, edit, delete-when-unused), Change regular week (F-UW, including overlap precedence), Compare services (F-X), copy a day (F4), and the discovery nudge. (tracker: #7517)
   - Accept: tests cover a dated schedule reverting after its end date, overlap choices setting precedence, and a Compare edit saving every schedule with one impact line.
   - Blocked by: Drawer editing
 - [ ] **Multi-select** — F-MS: drag, shift, cmd, weekday column, the Select… menu, touch long-press, and the selection bar opening the drawer with a fixed scope. (tracker: #7518)
@@ -126,7 +126,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [ ] **Closure notices** — a `CLOSURE_NOTICE` job, email and SMS templates (cancelled, moved, kept, reopened; SMS at most 3 segments), urgent dual-channel delivery within 6 hours, the contact policy, and delivery status on the outcome. (tracker: #7523)
   - Accept: tests show every guest the Manager chose to notify gets a job, delivered within 2 minutes in a time-advanced test, with SMS and email when urgent (SC Closure integrity, notice half). A failed delivery lands on the call list.
   - Blocked by: Closure command, Rebook offers, manageUrl builder
-- [ ] **Closure refunds** — a `CLOSURE_REFUND` job through `DepositService` with the idempotency key `closure:<ruleId>:<reservationId>`, plus failure state and retry. (tracker: #7524)
+- [x] **Closure refunds** — a `CLOSURE_REFUND` job through `DepositService` with the idempotency key `closure:<ruleId>:<reservationId>`, plus failure state and retry. (tracker: #7524)
   - Accept: refunds on venue-cancelled bookings are full, a retried job never double-refunds, and a failure shows as `refund=failed`. The `stripe-flow-reviewer` subagent passes.
   - Blocked by: Closure command
 - [ ] **Close dialog** — F5 Step 1 (what, when, messages, live impact, conflicts) and Step 2 (a required choice per group, a keep-silently acknowledgement, the urgent header, a message preview, a button naming the outcome). Also handles pausing online booking until reopened, with a banner and header pill. (tracker: #7526)
@@ -135,7 +135,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [ ] **Special dates tab** — F6 list and filters, the add special date sheet (several rows, one Step 2), reopen with tell-cancelled-guests, Sent/Rebooked/Unreachable counts, refund retry, the printable call list, and F-SER series edits. (tracker: #7527)
   - Accept: tests cover reopening a closure (slots return, the opt-in notice is sent), skipping one date of a repeating closure, and a call list with only unconfirmed guests.
   - Blocked by: Close dialog, Closure notices
-- [ ] **Manage page rebook** — the cancelled-by-venue state on `/reservations/manage`, with the refund status, up to 3 one-tap rebooks re-checked on tap, and "Other dates". (tracker: #7528)
+- [x] **Manage page rebook** — the cancelled-by-venue state on `/reservations/manage`, with the refund status, up to 3 one-tap rebooks re-checked on tap, and "Other dates". (tracker: #7528)
   - Accept: tests cover a successful rebook, a taken slot refreshing the list, and no offers showing only the picker link.
   - Blocked by: Rebook offers, manageUrl builder
 

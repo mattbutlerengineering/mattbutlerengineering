@@ -101,7 +101,13 @@
     <item priority="high">
       export async function dispatchJob(
         handlers: JobHandlerMap,
-        job: { name: string; data: unknown; updateData?: (data: never) => Promise<void> }
+        job: {
+          name: string;
+          data: unknown;
+          updateData?: (data: never) => Promise<void>;
+          attemptsMade?: number;
+          opts?: { attempts?: number };
+        }
       ): Promise<void> { /* ... */ }
     </item>
   </file>
@@ -127,7 +133,7 @@
     </item>
     <item priority="low">
       interface JobContext {
-        
+        isFinalAttempt: boolean;
       }
     </item>
     <item priority="low">
@@ -153,7 +159,12 @@
         venueId: string;
         variant?: "closure" | "reopened";
         urgent?: boolean;
-        attempt?: number;
+      }
+    </item>
+    <item priority="low">
+      interface ClosureRefundPayload {
+        outcomeId: string;
+        venueId: string;
       }
     </item>
     <item priority="low">
@@ -906,6 +917,11 @@
         preamble: Extract<ManagePreambleResult, { ok: false }>,
         action: ManageAction
       ): ReturnType<typeof createProblemDetails> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/routes/manage-rebook.ts">
+    <item priority="high">
+      export const manageRebookRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="src/routes/manage-reservation.ts">
@@ -2991,6 +3007,107 @@
       export function createClosureNoticeHandler(deps: ClosureNoticeDeps) { /* ... */ }
     </item>
   </file>
+  <file path="src/services/closure-refund-store.ts">
+    <item priority="high">
+      export function createPrismaClosureRefundStore(): ClosureRefundStore { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/closure-refund.ts">
+    <item priority="low">
+      interface ClosureRefundRow {
+        id: string;
+        venueId: string;
+        reservationId: string;
+        dateRuleId: string;
+        refund: ClosureRefundStatus;
+      }
+    </item>
+    <item priority="low">
+      interface ClosureRefundStore {
+        
+      }
+    </item>
+    <item priority="low">
+      interface ClosureRefundDeps {
+        deposits: Pick<DepositService, "getByReservationId" | "hold" | "ref...;
+        payments: PaymentsPort;
+        store: ClosureRefundStore;
+      }
+    </item>
+    <item priority="high">
+      class ClosureRefundPermanentError {
+        
+      }
+    </item>
+    <item priority="high">
+      export const closureRefundKey: unknown;
+    </item>
+    <item priority="high">
+      export const closureRefundJobId: unknown;
+    </item>
+    <item priority="high">
+      type Settled = ClosureRefundStatus;
+    </item>
+    <item priority="high">
+      type CapturedStatus = "forfeited" | "applied" | "partial_refunded";
+    </item>
+    <item priority="low">
+      async function writeOff(
+        deps: ClosureRefundDeps,
+        deposit: Deposit,
+        settled: Settled
+      ): Promise<Settled | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function refundCaptured(
+        deps: ClosureRefundDeps,
+        deposit: Deposit,
+        row: ClosureRefundRow
+      ): Promise<Settled | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function resolvePending(deps: ClosureRefundDeps, deposit: Deposit): Promise<Settled | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function settleOnce(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<Settled | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function settleDeposit(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<Settled> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function settleClosureRefund(
+        deps: ClosureRefundDeps,
+        payload: ClosureRefundPayload
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function runClosureRefundJob(
+        deps: ClosureRefundDeps,
+        payload: ClosureRefundPayload,
+        opts: { isFinalAttempt: boolean }
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function enqueueClosureRefunds(
+        deps: { store: ClosureRefundStore; jobs: Pick<JobScheduler, "schedule"> },
+        venueId: string,
+        ruleId: string,
+        statuses: readonly ClosureRefundStatus[],
+        opts: { retry?: boolean; now?: () => number } = {}
+      ): Promise<number> { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ClosureRefunds {
+        
+      }
+    </item>
+    <item priority="high">
+      export function createClosureRefunds(deps: {
+        store: ClosureRefundStore;
+        jobs: Pick<JobScheduler, "schedule">;
+      }): ClosureRefunds { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/confirm-hold.ts">
     <item priority="high">
       type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED" | "NOT_BOOKABLE";
@@ -3383,6 +3500,9 @@
         dispatcher: ReminderDispatcher;
         closureNotice?: ClosureNoticeDeps;
         logger: JobWorkerLogger;
+        runClosureRefund?: (
+          payload: ClosureRefundPayload,
+          opts: { isFinalA...;
       }
     </item>
     <item priority="high">
@@ -3488,6 +3608,90 @@
         venueId: string,
         deps: LapsedGuestScanDeps
       ): Promise<LapsingGuest[]> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/manage-rebook-deps.ts">
+    <item priority="high">
+      export async function rebookRequiresDeposit(
+        venueId: string,
+        reservation: Reservation
+      ): Promise<boolean> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const defaultRebookDeps: RebookDeps;
+    </item>
+  </file>
+  <file path="src/services/manage-rebook-types.ts">
+    <item priority="low">
+      type GuestRefundStatus = "none" | "pending" | "done" | "failed";
+    </item>
+    <item priority="low">
+      interface CancelOutcome {
+        id: string;
+        refund: GuestRefundStatus;
+        rebookedReservationId: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface RebookDeps {
+        
+      }
+    </item>
+    <item priority="low">
+      type VenueCancellationDeps = Pick<
+        RebookDeps,
+        "findCancelOutcome" | "findRebooked...;
+    </item>
+  </file>
+  <file path="src/services/manage-rebook.ts">
+    <item priority="low">
+      interface RebookOffer {
+        id: string;
+        date: string;
+        startTime: string;
+      }
+    </item>
+    <item priority="low">
+      interface VenueCancellation {
+        refundStatus: GuestRefundStatus;
+        offers: RebookOffer[];
+        rebooked: { reservationId: string; startTime: string } | null;
+      }
+    </item>
+    <item priority="low">
+      async function currentOffers(
+        reservation: Reservation,
+        venueId: string,
+        now: Date,
+        deps: Pick<RebookDeps, "loadSnapshot">
+      ): Promise<RebookOffer[]> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function loadVenueCancellation(
+        reservation: Reservation,
+        venueId: string,
+        now: Date = new Date(),
+        deps: VenueCancellationDeps = defaultRebookDeps
+      ): Promise<VenueCancellation | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      type RebookResult = { ok: true; reservation: Reser | {
+            ok: false;
+            reaso | { ok: false; reason: "rejected;
+    </item>
+    <item priority="medium">
+      class AlreadyRebookedError {
+        
+      }
+    </item>
+    <item priority="high">
+      export async function rebookVenueCancelled(
+        reservation: Reservation,
+        venueId: string,
+        offerId: string,
+        now: Date,
+        deps: RebookDeps = defaultRebookDeps
+      ): Promise<RebookResult> { /* ... */ }
     </item>
   </file>
   <file path="src/services/member-venues.ts">
@@ -4346,6 +4550,9 @@
         webhookSecret: string
       ): Stripe.Event { /* ... */ }
     </item>
+    <item priority="low">
+      type DepositRefundLeg = "refundPartial" | "closureRefund";
+    </item>
     <item priority="high">
       class StripeService {
         stripe: Stripe;
@@ -4779,8 +4986,8 @@
         notificationPort?: NotificationDispatcher;
         jobs?: JobsPort;
         payments?: PaymentsPort;
+        closureRefunds?: ClosureRefunds;
         reservationEvents?: ReservationEventEmitter;
-        waitlistNotifier?: WaitlistNotifier;
       }
     </item>
     <item priority="medium">

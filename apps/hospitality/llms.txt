@@ -63,6 +63,62 @@
       ): ClosureBandText { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/compare-changes.ts">
+    <item priority="high">
+      type Hours = Pick<
+        ScheduleService,
+        "opensAt" | "lastSeatingAt" | ...;
+    </item>
+    <item priority="low">
+      interface CompareRow {
+        scheduleServiceId: string;
+        scheduleId: string;
+        scheduleName: string;
+      }
+    </item>
+    <item priority="high">
+      export function compareServiceOptions(config: AvailabilityConfig) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function compareRows(config: AvailabilityConfig, venueServiceId: string): CompareRow[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function changedRows(config: AvailabilityConfig, rows: readonly CompareRow[]): CompareRow[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildCompareChanges(
+        config: AvailabilityConfig,
+        rows: readonly CompareRow[]
+      ): AvailabilityConfigChanges { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/copy-day.ts">
+    <item priority="low">
+      interface CopyTarget {
+        weekdays: readonly number[];
+        from: string;
+        until: string | null;
+      }
+    </item>
+    <item priority="high">
+      export function copyDayDates(target: CopyTarget): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildCopyDayChanges(
+        input: CopyTarget & {
+          readonly config: AvailabilityConfig;
+          readonly services: readonly DraftService[];
+          readonly makeId: () => string;
+        }
+      ): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="high">
+      export function singleDateChangeCount(config: AvailabilityConfig, weekday: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export const NUDGE_THRESHOLD: unknown;
+    </item>
+  </file>
   <file path="src/components/availability/day-summary.ts">
     <item priority="low">
       interface DayPresentation {
@@ -157,6 +213,9 @@
       export const LAST_SEATING_LEAD_MINUTES: unknown;
     </item>
     <item priority="high">
+      export const SERVICE_NAME_MAX_LENGTH: unknown;
+    </item>
+    <item priority="high">
       export const WEEK_DISPLAY_ORDER: readonly number[];
     </item>
     <item priority="high">
@@ -209,7 +268,7 @@
       type QuickSetupField = "name" | "opens" | "lastSeating" | "closes";
     </item>
     <item priority="low">
-      type QuickSetupIssueCode = "name_required" | "time_required" | "close_after_open" | "last_seating_after_close" | "last_seating_before_open" | "overlap" | "days_required";
+      type QuickSetupIssueCode = "name_required" | "name_too_long" | "time_required" | "close_after_open" | "last_seating_after_close" | "span_too_long" | "overlap" | "days_required";
     </item>
     <item priority="low">
       interface QuickSetupIssue {
@@ -237,6 +296,9 @@
     <item priority="high">
       export function validateDraft(draft: QuickSetupDraft): QuickSetupIssue[] { /* ... */ }
     </item>
+    <item priority="medium">
+      function spanIssues(draft: QuickSetupDraft): QuickSetupIssue[] { /* ... */ }
+    </item>
     <item priority="high">
       export function draftToConfig(
         draft: QuickSetupDraft,
@@ -250,6 +312,12 @@
         stored: AvailabilityConfig,
         newId: () => string
       ): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="high">
+      export function validateQuickSetupHours(
+        hours: OperatingHours,
+        t: TFunction = localeRuntime.i18n.t
+      ): OperatingHoursValidationErrors | null { /* ... */ }
     </item>
     <item priority="high">
       export function draftToLegacyHours(draft: QuickSetupDraft): OperatingHours { /* ... */ }
@@ -358,6 +426,92 @@
       export const SKIP_WEEKLY: DateRule;
     </item>
   </file>
+  <file path="src/components/availability/schedule-changes.ts">
+    <item priority="low">
+      interface UseOn {
+        weekdays: readonly number[];
+        startsOn?: string | null;
+        endsOn?: string | null;
+      }
+    </item>
+    <item priority="low">
+      type Winner = "new" | "existing";
+    </item>
+    <item priority="high">
+      export function weekdayRuns(weekdays: readonly number[]): [number, number][] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isScheduleUnused(config: AvailabilityConfig, scheduleId: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildDeleteScheduleChanges(scheduleId: string): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="medium">
+      function meets(a: UseOn, b: UseOn): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function rankedAssignments(
+        config: AvailabilityConfig,
+        ignoreScheduleId?: string
+      ): ScheduleAssignment[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function overlappingSchedules(
+        config: AvailabilityConfig,
+        useOn: UseOn,
+        ignoreScheduleId?: string
+      ): Schedule[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function placeAssignment(
+        config: AvailabilityConfig,
+        mine: ScheduleAssignment,
+        winner: Winner
+      ): ScheduleAssignment[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function mergeChanges(
+        a: AvailabilityConfigChanges,
+        b: AvailabilityConfigChanges
+      ): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="high">
+      interface NewScheduleInput {
+        config: AvailabilityConfig;
+        name: string;
+        services: readonly DraftService[];
+        useOn: UseOn;
+        winner: Winner;
+      }
+    </item>
+    <item priority="high">
+      export function buildNewScheduleChanges(input: NewScheduleInput): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="high">
+      interface RegularWeekInput {
+        startsOn: string;
+        endsOn: string | null;
+      }
+    </item>
+    <item priority="high">
+      export function buildRegularWeekChanges(input: RegularWeekInput): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildEditScheduleChanges(input: {
+        readonly config: AvailabilityConfig;
+        readonly scheduleId: string;
+        readonly name: string;
+        readonly services: readonly DraftService[];
+        readonly makeId: () => string;
+      }): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="medium">
+      function freshRows(services: readonly DraftService[]): DraftService[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function datesOfUse(useOn: UseOn, today: string): string[] { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/scope-dates.ts">
     <item priority="high">
       export const SCOPE_HORIZON_DAYS: unknown;
@@ -389,6 +543,11 @@
   <file path="src/components/availability/use-discard-guard.ts">
     <item priority="high">
       export function useDiscardGuard<T>(apply: (next: T) => void) { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/use-schedule-save.ts">
+    <item priority="high">
+      export function useScheduleSave(onStale: () => void) { /* ... */ }
     </item>
   </file>
   </section>
@@ -787,6 +946,9 @@
     </item>
     <item priority="high">
       export async function mockApi(page: Page): Promise<void> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildAvailabilityConfigFixture() { /* ... */ }
     </item>
   </file>
   <file path="e2e/auth-helpers.ts">

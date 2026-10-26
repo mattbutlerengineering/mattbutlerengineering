@@ -46,12 +46,12 @@ function setup(found: NoticeOutcome | null, over: Partial<ClosureNoticeDeps> = {
     logger: { warn: vi.fn() },
     ...over,
   };
-  const updateData = vi.fn().mockResolvedValue(undefined);
-  const ctx: JobContext = { updateData };
   const handler = createClosureNoticeHandler(deps);
-  const run = (payload: object = {}) =>
-    handler({ outcomeId: "o1", venueId: "v1", ...payload }, ctx);
-  return { run, sendEmail, sendSms, recorded, updateData };
+  const run = (payload: object = {}, isFinalAttempt = false) => {
+    const ctx: JobContext = { updateData: vi.fn().mockResolvedValue(undefined), isFinalAttempt };
+    return handler({ outcomeId: "o1", venueId: "v1", ...payload }, ctx);
+  };
+  return { run, sendEmail, sendSms, recorded };
 }
 
 describe("CLOSURE_NOTICE handler", () => {
@@ -121,14 +121,13 @@ describe("CLOSURE_NOTICE handler", () => {
     const t = setup(outcome());
     t.sendEmail.mockRejectedValueOnce(new Error("resend down"));
     await expect(t.run()).rejects.toThrow("resend down");
-    expect(t.updateData).toHaveBeenCalledWith({ attempt: 1 });
     expect(t.recorded.at(-1)?.email).toBeUndefined();
   });
 
   it("records failed once the last attempt fails", async () => {
     const t = setup(outcome());
     t.sendEmail.mockRejectedValue(new Error("resend down"));
-    await expect(t.run({ attempt: 2 })).rejects.toThrow("resend down");
+    await expect(t.run({}, true)).rejects.toThrow("resend down");
     expect(t.recorded.at(-1)).toMatchObject({ email: "failed" });
   });
 

@@ -12,4 +12,5 @@ export type {
   ClosureNoticePayload,
   PostVisitFollowupPayload,
   WaitlistExpiryPayload,
+  ClosureRefundPayload,
 } from "./job-types.js";

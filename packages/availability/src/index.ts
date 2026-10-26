@@ -25,6 +25,7 @@ export {
 } from "./legacy-hours.js";
 export {
   DEFAULT_LAST_SEATING_BUFFER,
+  MAX_PAST_MIDNIGHT_SPAN,
   buildLegacyConfig,
   type LegacyMigrationInput,
   type LegacyMigrationNotes,
@@ -68,6 +69,7 @@ export {
 export {
   MAX_REBOOK_OFFERS,
   REBOOK_WINDOW_DAYS,
+  rebookOfferId,
   rebookOffers,
   type RebookReservation,
   type RebookResult,

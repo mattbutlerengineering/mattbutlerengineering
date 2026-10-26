@@ -252,6 +252,8 @@ describe("closure notices settle within 2 minutes (time-advanced)", () => {
           updateData: async (d) => {
             data = d;
           },
+          attemptsMade: attempt - 1,
+          opts: { attempts: DEFAULT_JOB_OPTIONS.attempts },
         });
         return;
       } catch {

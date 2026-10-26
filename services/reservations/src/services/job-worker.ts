@@ -1,6 +1,8 @@
 import type { FastifyBaseLogger } from "fastify";
+import { UnrecoverableError } from "bullmq";
 import { JobWorker, JOB_TYPES } from "../jobs/index.js";
 import type {
+  ClosureRefundPayload,
   JobContext,
   JobHandlerMap,
   ReminderPayload,
@@ -13,6 +15,7 @@ import type {
   ReminderOptions,
 } from "../notifications/index.js";
 import type { CommunicationPreference, Reservation, Venue } from "@mbe/types";
+import { ClosureRefundPermanentError } from "./closure-refund.js";
 import { resolveChannel } from "./contact-policy.js";
 import { createClosureNoticeHandler, type ClosureNoticeDeps } from "./closure-notice.js";
 import { runWithVenueContext } from "./venue-context-store.js";
@@ -58,6 +61,11 @@ export interface ReservationJobHandlerDeps {
   closureNotice?: ClosureNoticeDeps;
   /** Logs the WAITLIST_EXPIRY legacy-payload fallback (see handleWaitlistExpiryJob below). */
   logger: JobWorkerLogger;
+  /** Settles one closure outcome's deposit (closure-refund.ts). Absent = CLOSURE_REFUND is unhandled. */
+  runClosureRefund?: (
+    payload: ClosureRefundPayload,
+    opts: { isFinalAttempt: boolean }
+  ) => Promise<void>;
 }
 
 /**
@@ -163,6 +171,24 @@ export function createReservationJobHandlers(deps: ReservationJobHandlerDeps): J
     return deps.handleWaitlistExpiry({ waitlistEntryId: payload.waitlistEntryId });
   }
 
+  /**
+   * CLOSURE_REFUND runs inside `runWithVenueContext(payload.venueId, …)` (the
+   * deposit, outcome and reservation reads and CASes are RLS-scoped). A
+   * permanent failure becomes an UnrecoverableError so BullMQ does not retry it.
+   */
+  const { runClosureRefund } = deps;
+  async function closureRefundJob(payload: ClosureRefundPayload, ctx: JobContext): Promise<void> {
+    if (!runClosureRefund) return;
+    return runWithVenueContext(payload.venueId, async () => {
+      try {
+        await runClosureRefund(payload, { isFinalAttempt: ctx.isFinalAttempt });
+      } catch (err) {
+        if (err instanceof ClosureRefundPermanentError) throw new UnrecoverableError(err.message);
+        throw err;
+      }
+    });
+  }
+
   return {
     [JOB_TYPES.BOOKING_REMINDER]: deliverReminder,
     [JOB_TYPES.DAY_OF_REMINDER]: deliverReminder,
@@ -170,6 +196,7 @@ export function createReservationJobHandlers(deps: ReservationJobHandlerDeps): J
     ...(deps.closureNotice
       ? { [JOB_TYPES.CLOSURE_NOTICE]: createClosureNoticeHandler(deps.closureNotice) }
       : {}),
+    ...(runClosureRefund ? { [JOB_TYPES.CLOSURE_REFUND]: closureRefundJob } : {}),
   };
 }
 

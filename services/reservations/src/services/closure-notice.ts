@@ -1,5 +1,4 @@
 import type { CommunicationPreference } from "@mbe/types";
-import { DEFAULT_JOB_OPTIONS } from "../jobs/index.js";
 import type { ClosureNoticePayload, JobContext } from "../jobs/index.js";
 import {
   buildClosureEmail,
@@ -145,10 +144,6 @@ export function createClosureNoticeHandler(deps: ClosureNoticeDeps) {
       if (!chosen.includes(c) && prior[c] !== "sent") next[c] = "skipped";
     }
 
-    const attempt = (payload.attempt ?? 0) + 1;
-    const isFinal = attempt >= DEFAULT_JOB_OPTIONS.attempts;
-    if (todo.length > 0) await ctx.updateData({ attempt });
-
     const content = todo.length > 0 ? await contentFor(o, kind, deps) : null;
     const results = await Promise.allSettled(todo.map((c) => send(c, o, content!, deps)));
     const failures: unknown[] = [];
@@ -158,7 +153,7 @@ export function createClosureNoticeHandler(deps: ClosureNoticeDeps) {
       else {
         failures.push(result.reason);
         // Only the last attempt may call a channel failed; earlier ones retry.
-        if (isFinal) next[channel] = "failed";
+        if (ctx.isFinalAttempt) next[channel] = "failed";
       }
     });
 

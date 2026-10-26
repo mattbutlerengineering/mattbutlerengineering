@@ -23,7 +23,7 @@ export const DEFAULT_LAST_SEATING_BUFFER = 90;
 
 const MAX_INTERVAL = 240;
 /** A longer service is more likely a typo (09:00 -> 08:00) than a real opening. */
-const MAX_PAST_MIDNIGHT_SPAN = 16 * 60;
+export const MAX_PAST_MIDNIGHT_SPAN = 16 * 60;
 const MAX_STAFF_NOTE = 500;
 const CHANNELS = ["online", "phone"] as const;
 

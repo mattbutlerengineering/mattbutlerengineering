@@ -1397,6 +1397,26 @@
       "action": "Change booking",
       "cutoff": "Changes close {{hours}} hours before your visit. Call {{venue}} to change this booking.",
       "success": "Your booking has been updated."
+    },
+    "venueCancelled": {
+      "heading": "Your reservation was cancelled",
+      "intro": "{{venue}} had to cancel this reservation.",
+      "refund": {
+        "pending": "Your deposit refund is on its way.",
+        "done": "Your deposit has been refunded.",
+        "failed": "We couldn't refund your deposit automatically. {{venue}} will be in touch, or you can call them."
+      },
+      "rebookHeading": "Rebook in one tap",
+      "rebook": "Rebook {{date}} at {{time}}",
+      "rebooking": "Rebooking…",
+      "rebooked": "You're rebooked for {{when}}.",
+      "viewRebooked": "View your new reservation",
+      "noOffers": "There are no open times in the next 14 days for your party. Pick another date.",
+      "otherDates": "Other dates and times",
+      "notice": {
+        "taken": "That time was just taken. Here are the times still open.",
+        "failed": "We couldn't rebook that time. Please try again."
+      }
     }
   },
   "offlineBanner": {
@@ -1455,6 +1475,104 @@
         "notes": "Notes",
         "reservationId": "Reservation"
       }
+    }
+  },
+  "availabilitySchedules": {
+    "tabsLabel": "Availability view",
+    "tabCalendar": "Calendar",
+    "tabSchedules": "Schedules",
+    "createAnother": "Create another schedule…",
+    "title": "Schedules",
+    "regularMarker": "Regular week",
+    "new": "New schedule",
+    "newTitle": "New schedule",
+    "duplicateTitle": "Duplicate schedule",
+    "editTitle": "Edit {{name}}",
+    "editNamed": "Edit {{name}}",
+    "duplicateNamed": "Duplicate {{name}}",
+    "deleteNamed": "Delete {{name}}",
+    "delete": "Delete",
+    "deleteTitle": "Delete {{name}}?",
+    "deleteDescription": "No date uses this schedule, so nothing changes for guests. This can't be undone.",
+    "deleteBlocked": "Used on {{where}}; move those days to another schedule first",
+    "notUsed": "Not used yet",
+    "everyDay": "every day",
+    "usageRange": "{{from}} – {{to}}, {{days}}",
+    "usageFrom": "From {{from}}, {{days}}",
+    "usageUntil": "Until {{to}}, {{days}}",
+    "copyName": "{{name}} (copy)",
+    "name": "Schedule name",
+    "useOn": "Use on",
+    "startsOn": "Starting",
+    "endsOn": "Ending",
+    "noStart": "Right away",
+    "noEnd": "No end",
+    "thisSchedule": "This schedule",
+    "impactNone": "Not used on any date yet",
+    "overlap": "{{name}} overlaps {{other}}.",
+    "overlapNewWins": "{{name}} wins",
+    "overlapExistingWins": "{{name}} wins",
+    "keepTheirs": "Keep theirs",
+    "replaceThem": "Replace them",
+    "save": "Save",
+    "cancel": "Cancel",
+    "saved": "{{name}} saved",
+    "deleted": "{{name}} deleted",
+    "saveError": "Couldn’t save",
+    "conflict": "Someone changed availability first. The latest version is loading. Check it, then try again.",
+    "impact_one": "Applies to {{count}} future date",
+    "impact_other": "Applies to {{count}} future dates",
+    "ownChanges_one": "{{count}} date already has its own changes",
+    "ownChanges_other": "{{count}} dates already have their own changes",
+    "stranded_one": "{{count}} upcoming booking would fall outside the new hours.",
+    "stranded_other": "{{count}} upcoming bookings would fall outside the new hours.",
+    "regularWeek": {
+      "open": "Change regular week…",
+      "title": "Change regular week",
+      "noEnd": "No end — this becomes the new regular week",
+      "save": "Save hours from {{date}}",
+      "saved": "{{name}} from {{date}}"
+    },
+    "compare": {
+      "open": "Compare services",
+      "title": "Compare services",
+      "service": "Service",
+      "opens": "Opens",
+      "lastSeating": "Last seating",
+      "closes": "Closes",
+      "booking": "Booking",
+      "select": "Select {{name}}",
+      "setSelected": "Set selected to…",
+      "leaveAsIs": "Leave as is",
+      "nothing": "Compare needs a service that two or more schedules run.",
+      "impact": "Changes {{schedules}} · {{dates}}",
+      "apply_one": "Apply to {{count}} selected",
+      "apply_other": "Apply to {{count}} selected",
+      "impactSchedules_one": "{{count}} schedule",
+      "impactSchedules_other": "{{count}} schedules",
+      "impactDates_one": "{{count}} future date",
+      "impactDates_other": "{{count}} future dates",
+      "save_one": "Save {{count}} schedule",
+      "save_other": "Save {{count}} schedules",
+      "saved_one": "{{count}} schedule updated",
+      "saved_other": "{{count}} schedules updated"
+    },
+    "copy": {
+      "action": "Copy to other days…",
+      "title": "Copy {{date}} to other days",
+      "days": "Days",
+      "from": "From",
+      "until": "Until",
+      "save_one": "Copy to {{count}} date",
+      "save_other": "Copy to {{count}} dates",
+      "saved_one": "Copied to {{count}} date",
+      "saved_other": "Copied to {{count}} dates"
+    },
+    "nudge": {
+      "label": "Suggestion",
+      "text": "{{weekday}} has had {{count}} one-off changes.",
+      "make": "Make a {{weekday}} schedule",
+      "created": "{{weekday}} schedule created"
     }
   },
   "availability": {
@@ -1570,7 +1688,8 @@
         "time_required": "Choose a time.",
         "close_after_open": "Closing must be different from opening.",
         "last_seating_after_close": "Last seating must be before closing.",
-        "last_seating_before_open": "Last seating must be after opening.",
+        "span_too_long": "A service that runs past midnight can be at most 16 hours long.",
+        "name_too_long": "Use 40 characters or fewer for the service name.",
         "overlap": "This service overlaps another one.",
         "days_required": "Choose at least one day."
       }
