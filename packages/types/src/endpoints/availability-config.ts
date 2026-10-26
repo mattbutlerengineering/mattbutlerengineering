@@ -21,7 +21,9 @@ import {
   ClosureImpactBodySchema,
   ClosureImpactSchema,
   ClosureResultSchema,
+  ClosuresResultSchema,
   CreateClosureBodySchema,
+  CreateClosuresBodySchema,
   PreviewAvailabilityBodySchema,
   PreviewResultSchema,
   PutAvailabilityConfigBodySchema,
@@ -136,6 +138,33 @@ export const availabilityConfigEndpoints = {
       422: {
         description:
           "`invalid-config`, `decision-required`, `invalid-decision` or `move-unavailable`",
+        body: AvailabilityConfigProblemSchema,
+      },
+    },
+  }),
+  createClosures: defineEndpoint({
+    method: "POST",
+    path: `${AVAILABILITY_CONFIG_PREFIX}/:id/closures/batch`,
+    params: VenueParamsSchema,
+    body: CreateClosuresBodySchema,
+    responses: {
+      200: {
+        description:
+          "Every closure saved in one transaction (or replayed from the same `Idempotency-Key`): the version and one result per item, in order",
+        body: z.object({ data: ClosuresResultSchema }),
+      },
+      400: problem("Missing `Idempotency-Key` header, or a date range too long to evaluate"),
+      401: authRequired,
+      403: problem("Caller is not a Manager of this venue"),
+      404: venueNotFound,
+      409: {
+        description:
+          "`version-conflict`, `idempotency-key-reused` or `closure-exists` (a rule id was already saved, or appears twice)",
+        body: AvailabilityConfigProblemSchema,
+      },
+      422: {
+        description:
+          "`invalid-config`, `decision-required`, `invalid-decision` or `move-unavailable`; none of the items is saved",
         body: AvailabilityConfigProblemSchema,
       },
     },

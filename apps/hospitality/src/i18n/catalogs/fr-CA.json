@@ -1655,6 +1655,38 @@
       "unnamed": "Client sans nom",
       "print": "Imprimer",
       "close": "Fermer"
+    },
+    "add": {
+      "open": "Ajouter une date spéciale",
+      "title": "Ajouter des dates spéciales",
+      "rowLegend": "Date {{n}}",
+      "date": "Date",
+      "dateInvalid": "Choisissez une date d’aujourd’hui ou plus tard, une seule fois et sans horaire spécial déjà défini.",
+      "kindLabel": "Ce qui se passe à la date {{n}}",
+      "kind": {
+        "closed": "Fermé",
+        "hours": "Horaire spécial",
+        "same": "Comme un autre jour"
+      },
+      "sameAs": "Copier l’horaire de",
+      "sameAsDay": "Comme le {{day}}",
+      "sameEmpty": "La semaine habituelle n’a pas d’horaire le {{day}}. Choisissez un autre jour ou utilisez Fermé.",
+      "hoursInvalid": "Ajoutez au moins un des services existants du lieu. Les nouveaux services s’ajoutent depuis l’éditeur de la journée.",
+      "removeRow": "Retirer la date {{n}}",
+      "addRow": "Ajouter une autre date",
+      "shareMessage": "Utiliser un seul message pour toutes les dates",
+      "sharedMessage": "Message aux clients (toutes les dates)",
+      "next": "Suivant",
+      "saveMixed_one": "Enregistrer {{count}} date · {{parts}}",
+      "saveMixed_other": "Enregistrer {{count}} dates · {{parts}}",
+      "saveMixed_many": "Enregistrer {{count}} dates · {{parts}}",
+      "saved_one": "{{count}} date spéciale enregistrée",
+      "saved_other": "{{count}} dates spéciales enregistrées",
+      "saved_many": "{{count}} dates spéciales enregistrées",
+      "savedNotified_one": "{{count}} date spéciale enregistrée · {{notified}} avisés",
+      "savedNotified_other": "{{count}} dates spéciales enregistrées · {{notified}} avisés",
+      "savedNotified_many": "{{count}} dates spéciales enregistrées · {{notified}} avisés",
+      "nothingCancelled": "Aucune réservation n’a été annulée et aucun client n’a été avisé. Corrigez et enregistrez à nouveau."
     }
   },
   "availabilitySchedules": {

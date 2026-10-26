@@ -19,6 +19,7 @@ import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js"
 import { formatCurrencyFromCents } from "../../utils/format.js";
 import { addDays } from "../../utils/service-day.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
+import { AddSpecialDatesSheet } from "./AddSpecialDatesSheet.js";
 import { CallListDialog } from "./CallListDialog.js";
 import { CloseDialog } from "./CloseDialog.js";
 import { ReopenClosureDialog } from "./ReopenClosureDialog.js";
@@ -248,6 +249,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
   const [reopening, setReopening] = useState<SpecialDateRule | null>(null);
   const [editingSeries, setEditingSeries] = useState<DateRule | null>(null);
   const [editingDate, setEditingDate] = useState<{ series: DateRule; date: string } | null>(null);
+  const [adding, setAdding] = useState(false);
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const [editingHours, setEditingHours] = useState<{
     date: string;
@@ -330,15 +332,22 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
 
   return (
     <Stack gap="md">
-      <SegmentedControl
-        aria-label={t("availabilitySpecial.filterLabel")}
-        segments={FILTERS.map((id) => ({
-          id,
-          label: t(`availabilitySpecial.filter.${id}`),
-        }))}
-        value={filter}
-        onChange={(id) => setFilter(id as SpecialDatesFilter)}
-      />
+      <div className={styles.toolbar}>
+        <SegmentedControl
+          aria-label={t("availabilitySpecial.filterLabel")}
+          segments={FILTERS.map((id) => ({
+            id,
+            label: t(`availabilitySpecial.filter.${id}`),
+          }))}
+          value={filter}
+          onChange={(id) => setFilter(id as SpecialDatesFilter)}
+        />
+        {isManager && (
+          <Button variant="primary" onClick={() => setAdding(true)}>
+            {t("availabilitySpecial.add.open")}
+          </Button>
+        )}
+      </div>
       {rowSave.failure.length > 0 && (
         <Alert variant="error">
           {rowSave.failure.map((message) => (
@@ -411,6 +420,16 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
             />
           ))}
         </ul>
+      )}
+      {adding && (
+        <AddSpecialDatesSheet
+          venueId={venueId}
+          state={state}
+          timezone={timezone}
+          today={today}
+          onStale={onStale}
+          onClose={() => setAdding(false)}
+        />
       )}
       {callListFor && (
         <CallListDialog

@@ -1,3 +1,11 @@
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-sm);
+  align-items: center;
+  justify-content: space-between;
+}
+
 .list {
   display: flex;
   flex-direction: column;

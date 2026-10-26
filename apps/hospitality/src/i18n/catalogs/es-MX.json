@@ -1655,6 +1655,38 @@
       "unnamed": "Cliente sin nombre",
       "print": "Imprimir",
       "close": "Cerrar"
+    },
+    "add": {
+      "open": "Agregar fecha especial",
+      "title": "Agregar fechas especiales",
+      "rowLegend": "Fecha {{n}}",
+      "date": "Fecha",
+      "dateInvalid": "Elige una fecha de hoy en adelante, una sola vez y sin horario especial ya definido.",
+      "kindLabel": "Qué pasa en la fecha {{n}}",
+      "kind": {
+        "closed": "Cerrado",
+        "hours": "Horario especial",
+        "same": "Igual que otro día"
+      },
+      "sameAs": "Copiar horario de",
+      "sameAsDay": "Igual que el {{day}}",
+      "sameEmpty": "La semana regular no tiene horario el {{day}}. Elige otro día o usa Cerrado.",
+      "hoursInvalid": "Agrega al menos uno de los servicios existentes del local. Los servicios nuevos se agregan desde el editor del día.",
+      "removeRow": "Quitar la fecha {{n}}",
+      "addRow": "Agregar otra fecha",
+      "shareMessage": "Usar un solo mensaje para todas las fechas",
+      "sharedMessage": "Mensaje para los invitados (todas las fechas)",
+      "next": "Siguiente",
+      "saveMixed_one": "Guardar {{count}} fecha · {{parts}}",
+      "saveMixed_other": "Guardar {{count}} fechas · {{parts}}",
+      "saveMixed_many": "Guardar {{count}} fechas · {{parts}}",
+      "saved_one": "{{count}} fecha especial guardada",
+      "saved_other": "{{count}} fechas especiales guardadas",
+      "saved_many": "{{count}} fechas especiales guardadas",
+      "savedNotified_one": "{{count}} fecha especial guardada · {{notified}} avisados",
+      "savedNotified_other": "{{count}} fechas especiales guardadas · {{notified}} avisados",
+      "savedNotified_many": "{{count}} fechas especiales guardadas · {{notified}} avisados",
+      "nothingCancelled": "No se canceló ninguna reservación ni se avisó a ningún invitado. Corrige esto y guarda de nuevo."
     }
   },
   "availabilitySchedules": {

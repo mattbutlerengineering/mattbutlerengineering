@@ -80,6 +80,7 @@
     }
     export type SaveAvailabilityConfigRequest = z.input<typeof PutAvailabilityConfigBodySchema>;
     export type CreateClosureRequest = z.input<typeof CreateClosureBodySchema>;
+    export type CreateClosuresRequest = z.input<typeof CreateClosuresBodySchema>;
     export type SetTonightRequest = z.input<typeof SetTonightBodySchema>;
     export class AvailabilityClient {
       constructor(private client: ApiClient) {}
@@ -204,6 +205,23 @@
       ): Promise<ClosureResult> {
         const response = await this.client.call(
           availabilityConfigEndpoints.createClosure,
+          { params: { id: venueId }, body },
+          { headers: { "Idempotency-Key": idempotencyKey }, idempotentRetry: true }
+        );
+        return response.data;
+      }
+    
+      /**
+       * Saves several closures in one transaction (the Add special date sheet): all or none, each
+       * with its own decisions. `idempotencyKey` makes a retry replay the first results.
+       */
+      async createClosures(
+        venueId: string,
+        body: CreateClosuresRequest,
+        idempotencyKey: string
+      ): Promise<ClosuresResult> {
+        const response = await this.client.call(
+          availabilityConfigEndpoints.createClosures,
           { params: { id: venueId }, body },
           { headers: { "Idempotency-Key": idempotencyKey }, idempotentRetry: true }
         );

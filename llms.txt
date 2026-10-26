@@ -1394,6 +1394,76 @@
   </file>
   </section>
   <section priority="medium" role="availability">
+  <file path="apps/hospitality/src/components/availability/add-dates-draft.ts">
+    <item priority="low">
+      type RowKind = "closed" | "hours" | "same";
+    </item>
+    <item priority="low">
+      interface DateRow {
+        key: string;
+        date: string;
+        kind: RowKind;
+        sameAs: number;
+        services: readonly DraftService[];
+      }
+    </item>
+    <item priority="low">
+      interface AddDatesForm {
+        rows: readonly DateRow[];
+        shareMessage: boolean;
+        sharedMessage: string;
+      }
+    </item>
+    <item priority="low">
+      type RowField = "date" | "hours" | "message";
+    </item>
+    <item priority="high">
+      export const emptyRow: unknown;
+    </item>
+    <item priority="medium">
+      function hasOwnHours(config: AvailabilityConfig, date: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function validateRows(
+        form: AddDatesForm,
+        config: AvailabilityConfig,
+        today: string
+      ): { readonly key: string; readonly field: RowField } | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function ruleItems(
+        form: AddDatesForm,
+        today: string,
+        idFor: (rowKey: string) => string
+      ): { readonly rowKey: string; readonly rule: DateRule }[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function hoursRule(row: DateRow, id: string, message: string): DateRule { /* ... */ }
+    </item>
+    <item priority="high">
+      export function regularServices(
+        config: AvailabilityConfig,
+        timezone: string,
+        weekday: number,
+        today: string
+      ): DraftService[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function combineImpacts(impacts: readonly ClosureImpact[]): ClosureImpact { /* ... */ }
+    </item>
+    <item priority="high">
+      export function decisionsFor(
+        impacts: readonly ClosureImpact[],
+        choices: ChoiceMap
+      ): ClosureDecision[][] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function saveLabelParts(
+        dates: number,
+        counts: OutcomeCounts
+      ): { dates: number; parts: { action: ClosureAction; count: number }[] } { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/calendar-dates.ts">
     <item priority="low">
       type CalendarView = "month" | "week";
@@ -5653,6 +5723,27 @@
     </item>
     <item priority="high">
       export const useReopenClosure: unknown;
+    </item>
+    <item priority="low">
+      type PreviewClosureImpactsVariables = {
+        venueId: string;
+        rules: readonly DateRule[];
+      };
+    </item>
+    <item priority="high">
+      export const usePreviewClosureImpacts: unknown;
+    </item>
+    <item priority="high">
+      type CreateClosuresRequest = Parameters<AvailabilityClient["createClosures"]>[1];
+    </item>
+    <item priority="low">
+      type CreateClosuresVariables = {
+        venueId: string;
+        body: CreateClosuresRequest;
+        /**...;
+    </item>
+    <item priority="high">
+      export const useCreateClosures: unknown;
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useDashboardStatsQuery.ts">
@@ -10745,6 +10836,12 @@
       export const CreateClosureBodySchema: unknown;
     </item>
     <item priority="high">
+      export const MAX_CLOSURE_BATCH: unknown;
+    </item>
+    <item priority="high">
+      export const CreateClosuresBodySchema: unknown;
+    </item>
+    <item priority="high">
       export const ReopenClosureBodySchema: unknown;
     </item>
     <item priority="high">
@@ -10752,6 +10849,9 @@
     </item>
     <item priority="high">
       export const ClosureResultSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosuresResultSchema: unknown;
     </item>
     <item priority="high">
       export const ReopenResultSchema: unknown;
@@ -10800,6 +10900,12 @@
     </item>
     <item priority="low">
       type ClosureResult = z.infer<typeof ClosureResultSchema>;
+    </item>
+    <item priority="low">
+      type CreateClosuresBody = z.infer<typeof CreateClosuresBodySchema>;
+    </item>
+    <item priority="low">
+      type ClosuresResult = z.infer<typeof ClosuresResultSchema>;
     </item>
     <item priority="low">
       type ReopenResult = z.infer<typeof ReopenResultSchema>;
@@ -14046,7 +14152,17 @@
         ruleId: string;
         idempotencyKey: string;
         version: number;
+        batch?: BatchShape;
       }
+    </item>
+    <item priority="high">
+      interface BatchShape {
+        count: number;
+        ruleIds: string[];
+      }
+    </item>
+    <item priority="medium">
+      function sameBatch(stored: BatchShape | undefined, now: BatchShape): boolean { /* ... */ }
     </item>
     <item priority="high">
       export async function mayCloseFor(
@@ -14138,6 +14254,21 @@
         },
         client: StoreClient = prisma
       ): Promise<CreateClosureOutcome> { /* ... */ }
+    </item>
+    <item priority="low">
+      type CreateClosuresOutcome = { kind: "saved"; result: Closu | Exclude<CreateClosureOutcome, ;
+    </item>
+    <item priority="high">
+      export async function createClosures(
+        input: {
+          venueId: string;
+          caller: ClosureCaller;
+          body: CreateClosuresBody;
+          idempotencyKey: string;
+          now: Date;
+        },
+        client: StoreClient = prisma
+      ): Promise<CreateClosuresOutcome> { /* ... */ }
     </item>
     <item priority="low">
       async function requireAuthor(
@@ -19182,6 +19313,9 @@
     </item>
     <item priority="low">
       type CreateClosureRequest = z.input<typeof CreateClosureBodySchema>;
+    </item>
+    <item priority="low">
+      type CreateClosuresRequest = z.input<typeof CreateClosuresBodySchema>;
     </item>
     <item priority="low">
       type SetTonightRequest = z.input<typeof SetTonightBodySchema>;

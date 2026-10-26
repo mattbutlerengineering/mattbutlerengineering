@@ -411,6 +411,24 @@ export const CreateClosureBodySchema = z.object({
   decisions: z.array(ClosureDecisionSchema).default([]),
 });
 
+/** Most closures one batch save carries (the Add special date sheet's rows). */
+export const MAX_CLOSURE_BATCH = 20;
+
+/**
+ * `POST …/closures/batch`: several closures saved in one transaction (ux.md F6 "Add special
+ * date"). Each item is a `POST …/closures` body without its own version; the items commit in
+ * order from `expectedVersion`, and any refusal saves none of them.
+ */
+export const CreateClosuresBodySchema = z.object({
+  expectedVersion: z.number().int().min(0),
+  items: z
+    .array(
+      z.object({ rule: DateRuleSchema, decisions: z.array(ClosureDecisionSchema).default([]) })
+    )
+    .min(1)
+    .max(MAX_CLOSURE_BATCH),
+});
+
 /** `DELETE …/closures/:ruleId`. */
 export const ReopenClosureBodySchema = z.object({ tellCancelledGuests: z.boolean() });
 
@@ -427,6 +445,13 @@ export const ClosureResultSchema = z.object({
   version: z.number().int(),
   changeId: z.string(),
   outcomes: ClosureOutcomeCountsSchema,
+});
+
+export const ClosuresResultSchema = z.object({
+  /** `Venue.availabilityVersion` after the last item. */
+  version: z.number().int(),
+  /** One result per item, in the order sent. */
+  results: z.array(ClosureResultSchema),
 });
 
 export const ReopenResultSchema = z.object({ version: z.number().int(), changeId: z.string() });
@@ -536,6 +561,8 @@ export type ClosureDecision = z.infer<typeof ClosureDecisionSchema>;
 export type CreateClosureBody = z.infer<typeof CreateClosureBodySchema>;
 export type ReopenClosureBody = z.infer<typeof ReopenClosureBodySchema>;
 export type ClosureResult = z.infer<typeof ClosureResultSchema>;
+export type CreateClosuresBody = z.infer<typeof CreateClosuresBodySchema>;
+export type ClosuresResult = z.infer<typeof ClosuresResultSchema>;
 export type ReopenResult = z.infer<typeof ReopenResultSchema>;
 export type RefundFailure = z.infer<typeof RefundFailureSchema>;
 export type ClosureSummary = z.infer<typeof ClosureSummarySchema>;

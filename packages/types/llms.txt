@@ -358,6 +358,12 @@
       export const CreateClosureBodySchema: unknown;
     </item>
     <item priority="high">
+      export const MAX_CLOSURE_BATCH: unknown;
+    </item>
+    <item priority="high">
+      export const CreateClosuresBodySchema: unknown;
+    </item>
+    <item priority="high">
       export const ReopenClosureBodySchema: unknown;
     </item>
     <item priority="high">
@@ -365,6 +371,9 @@
     </item>
     <item priority="high">
       export const ClosureResultSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosuresResultSchema: unknown;
     </item>
     <item priority="high">
       export const ReopenResultSchema: unknown;
@@ -413,6 +422,12 @@
     </item>
     <item priority="low">
       type ClosureResult = z.infer<typeof ClosureResultSchema>;
+    </item>
+    <item priority="low">
+      type CreateClosuresBody = z.infer<typeof CreateClosuresBodySchema>;
+    </item>
+    <item priority="low">
+      type ClosuresResult = z.infer<typeof ClosuresResultSchema>;
     </item>
     <item priority="low">
       type ReopenResult = z.infer<typeof ReopenResultSchema>;

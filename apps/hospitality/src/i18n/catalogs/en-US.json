@@ -1627,6 +1627,38 @@
       "unnamed": "Unnamed guest",
       "print": "Print",
       "close": "Close"
+    },
+    "add": {
+      "open": "Add special date",
+      "title": "Add special dates",
+      "rowLegend": "Date {{n}}",
+      "date": "Date",
+      "dateInvalid": "Pick a date that is today or later, once, and without special hours already set.",
+      "kindLabel": "What happens on date {{n}}",
+      "kind": {
+        "closed": "Closed",
+        "hours": "Special hours",
+        "same": "Same as another day"
+      },
+      "sameAs": "Copy hours from",
+      "sameAsDay": "Same as {{day}}",
+      "sameEmpty": "The regular week has no hours on {{day}}. Choose another day or use Closed.",
+      "hoursInvalid": "Add at least one of the venue's existing services. New services are added from the day editor.",
+      "removeRow": "Remove date {{n}}",
+      "addRow": "Add another date",
+      "shareMessage": "Use one message for every date",
+      "sharedMessage": "Message for guests (every date)",
+      "next": "Next",
+      "saveMixed_one": "Save {{count}} date · {{parts}}",
+      "saveMixed_other": "Save {{count}} dates · {{parts}}",
+      "saveMixed_many": "Save {{count}} dates · {{parts}}",
+      "saved_one": "{{count}} special date saved",
+      "saved_other": "{{count}} special dates saved",
+      "saved_many": "{{count}} special dates saved",
+      "savedNotified_one": "{{count}} special date saved · {{notified}} notified",
+      "savedNotified_other": "{{count}} special dates saved · {{notified}} notified",
+      "savedNotified_many": "{{count}} special dates saved · {{notified}} notified",
+      "nothingCancelled": "No booking was cancelled and no guest was told. Fix this and save again."
     }
   },
   "availabilitySchedules": {

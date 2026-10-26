@@ -5,7 +5,9 @@ import type {
   ClosureAction,
   ClosureImpact,
   ClosureResult,
+  ClosuresResult,
   CreateClosureBody,
+  CreateClosuresBody,
   DateRule,
   ReopenResult,
 } from "@mbe/types";
@@ -94,6 +96,25 @@ interface ClosureMeta {
   ruleId: string;
   idempotencyKey: string;
   version: number;
+  /** Set on every item of a batch save: what the whole batch was, so a reused key can be told apart. */
+  batch?: BatchShape;
+}
+
+/** A batch's identity under its Idempotency-Key: how many items, and which rules, in order. */
+interface BatchShape {
+  count: number;
+  ruleIds: string[];
+}
+
+/** Field-wise, so the order jsonb stores object keys in cannot make a replay look different. */
+function sameBatch(stored: BatchShape | undefined, now: BatchShape): boolean {
+  return (
+    stored !== undefined &&
+    stored.count === now.count &&
+    Array.isArray(stored.ruleIds) &&
+    stored.ruleIds.length === now.ruleIds.length &&
+    stored.ruleIds.every((id, i) => id === now.ruleIds[i])
+  );
 }
 
 /**
@@ -244,6 +265,7 @@ type CommitInput = {
   key: string;
   now: Date;
   ruleKinds: ReadonlySet<string>;
+  batch?: BatchShape;
 };
 
 /**
@@ -363,7 +385,12 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
   });
   const version = body.expectedVersion + 1;
   const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
-  const meta: ClosureMeta = { ruleId: rule.id, idempotencyKey: key, version };
+  const meta: ClosureMeta = {
+    ruleId: rule.id,
+    idempotencyKey: key,
+    version,
+    ...(input.batch ? { batch: input.batch } : {}),
+  };
   const inverse = { ...inverseOf(state.stored, diff, state.operatingHours), closure: meta };
   const change = await tx.availabilityChange.create({
     data: {
@@ -432,6 +459,65 @@ export async function createClosure(
       return commit(tx, { venueId, caller, body, key, now, ruleKinds });
     });
     return { kind: "saved", result };
+  } catch (error) {
+    if (error instanceof Refused) return error.outcome;
+    throw error;
+  }
+}
+
+export type CreateClosuresOutcome =
+  { kind: "saved"; result: ClosuresResult } | Exclude<CreateClosureOutcome, { kind: "saved" }>;
+
+/**
+ * Several closures in one transaction (ux.md F6, "Add special date"). Each item commits exactly
+ * as `createClosure` would, in order, from the version the one before it left, so a booking's
+ * outcome, its notice and its refund stay keyed to its own rule. Any refusal rolls back every
+ * item: no booking is cancelled for one date while another date fails. Item `i` replays under
+ * `<key>#i`. Manager only; a Host's emergency close is a single `createClosure`.
+ */
+export async function createClosures(
+  input: {
+    venueId: string;
+    caller: ClosureCaller;
+    body: CreateClosuresBody;
+    idempotencyKey: string;
+    now: Date;
+  },
+  client: StoreClient = prisma
+): Promise<CreateClosuresOutcome> {
+  const { venueId, caller, body, idempotencyKey: key, now } = input;
+  if (!caller.isManager) return { kind: "forbidden" };
+  try {
+    const results = await client.$transaction(async (tx) => {
+      await setVenueContext(tx, venueId);
+      const saved: ClosureResult[] = [];
+      const batch: BatchShape = {
+        count: body.items.length,
+        ruleIds: body.items.map((i) => i.rule.id),
+      };
+      // A key already used for a batch answers only to that same batch: never a subset of it,
+      // and never a longer one whose appended items would commit beside the replayed ones.
+      const first = await findReplay(tx, venueId, `${key}#0`);
+      if (first && !sameBatch(first.closure.batch, batch)) {
+        throw new Refused({ kind: "key_reused" });
+      }
+      let expectedVersion = body.expectedVersion;
+      for (const [i, item] of body.items.entries()) {
+        const result = await commit(tx, {
+          venueId,
+          caller,
+          body: { expectedVersion, rule: item.rule, decisions: item.decisions },
+          key: `${key}#${i}`,
+          now,
+          ruleKinds: CLOSURE_RULE_KINDS,
+          batch,
+        });
+        saved.push(result);
+        expectedVersion = result.version;
+      }
+      return saved;
+    });
+    return { kind: "saved", result: { version: results.at(-1)!.version, results } };
   } catch (error) {
     if (error instanceof Refused) return error.outcome;
     throw error;
@@ -531,4 +617,9 @@ export async function reopenClosure(
 }
 
 /** The store as a domain-service record, for the `buildApp({ services })` seam. */
-export const closureCommandService = { create: createClosure, reopen: reopenClosure, mayClose };
+export const closureCommandService = {
+  create: createClosure,
+  createMany: createClosures,
+  reopen: reopenClosure,
+  mayClose,
+};

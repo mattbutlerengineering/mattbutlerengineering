@@ -126,6 +126,14 @@ describe("SpecialDatesTab", () => {
     expect(screen.getByText("Closed · Repeating")).toBeTruthy();
   });
 
+  it("offers Add special date to a Manager only", () => {
+    const { unmount } = renderTab(true);
+    expect(screen.getByRole("button", { name: "Add special date" })).toBeTruthy();
+    unmount();
+    renderTab(false);
+    expect(screen.queryByRole("button", { name: "Add special date" })).toBeNull();
+  });
+
   it("skips one date of a repeating closure and leaves the series alone", async () => {
     saveConfig.mockResolvedValue({ version: 8, changeId: "c" });
     renderTab();
