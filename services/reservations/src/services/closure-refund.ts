@@ -2,7 +2,7 @@ import type { ClosureRefundPayload, JobScheduler } from "../jobs/index.js";
 import { JOB_TYPES } from "../jobs/index.js";
 import type { PaymentsPort } from "../transitions/ports.js";
 import type { ClosureRefundStatus, Deposit } from "../generated/prisma/index.js";
-import type { DepositService } from "./deposit.js";
+import { DepositConcurrentUpdateError, type DepositService } from "./deposit.js";
 import type { ReservationEventActor } from "./reservation-events.js";
 import { TransitionError } from "./state-machine.js";
 
@@ -21,7 +21,13 @@ import { TransitionError } from "./state-machine.js";
  *  - `forfeited` / `applied` / `partial_refunded` (the late-cancel race) on a
  *    `venue_closure` reservation → what was captured goes back through
  *    Stripe's refund API, tagged `closureRefund` so a retry finds its own
- *    refund at Stripe past the idempotency key's ~24h TTL.
+ *    refund at Stripe past the idempotency key's ~24h TTL. If the capture never
+ *    landed, the intent is cancelled and the row written off as `uncollectable`.
+ *
+ * The deposit can move between this job's read and the service's own re-read
+ * (a late-cancel forfeit, the authorization webhook). A `TransitionError` or
+ * lost compare-and-swap from that race re-reads and decides again; if the row
+ * keeps moving, a plain error lets BullMQ retry.
  *
  * The job key `closure:<ruleId>:<reservationId>` dedupes the JOB only. Stripe
  * idempotency keys stay `DepositService`'s own (`${depositId}:refund`) and
@@ -44,6 +50,8 @@ export interface ClosureRefundRow {
 export interface ClosureRefundStore {
   load(outcomeId: string): Promise<ClosureRefundRow | null>;
   setRefund(outcomeId: string, refund: ClosureRefundStatus): Promise<void>;
+  /** Records `failed`, leaving an outcome a concurrent run already settled (`done` / `none`). */
+  markFailed(outcomeId: string): Promise<void>;
   /** Outcomes of one closure whose refund is in one of `statuses`. */
   listByRule(
     venueId: string,
@@ -53,7 +61,7 @@ export interface ClosureRefundStore {
 }
 
 export interface ClosureRefundDeps {
-  deposits: Pick<DepositService, "getByReservationId" | "hold" | "refund">;
+  deposits: Pick<DepositService, "getByReservationId" | "hold" | "refund" | "writeOffUncaptured">;
   payments: PaymentsPort;
   store: ClosureRefundStore;
 }
@@ -79,13 +87,33 @@ const MAX_REREADS = 3;
 const REFUND_ACTOR: ReservationEventActor = { type: "system", id: "closure-refund" };
 
 type Settled = ClosureRefundStatus;
+type CapturedStatus = "forfeited" | "applied" | "partial_refunded";
 
-/** Refund what a captured deposit still owes the guest, through Stripe's refund API. */
+/**
+ * The intent is (now) cancelled, so nothing was charged: write the row off.
+ * `null` = the row moved before the write; read it again.
+ */
+async function writeOff(
+  deps: ClosureRefundDeps,
+  deposit: Deposit,
+  settled: Settled
+): Promise<Settled | null> {
+  const count = await deps.deposits.writeOffUncaptured(
+    deposit.id,
+    deposit.status as CapturedStatus
+  );
+  return count > 0 ? settled : null;
+}
+
+/**
+ * Refund what a captured deposit still owes the guest, through Stripe's refund
+ * API. `null` = the row moved; read it again.
+ */
 async function refundCaptured(
   deps: ClosureRefundDeps,
   deposit: Deposit,
   row: ClosureRefundRow
-): Promise<Settled> {
+): Promise<Settled | null> {
   if (row.reservation?.cancellationReason !== "venue_closure") return "none";
   const pi = deposit.stripePaymentIntentId;
   if (!pi) {
@@ -94,11 +122,11 @@ async function refundCaptured(
     );
   }
   const intent = await deps.payments.retrievePaymentIntent(pi);
-  if (intent.status === "canceled") return "none";
+  if (intent.status === "canceled") return writeOff(deps, deposit, "none");
   if (intent.status === "requires_capture") {
     // The recorded capture never landed: release the hold, there is nothing to refund.
     await deps.payments.cancelPaymentIntent(pi, `${deposit.id}:refund`);
-    return "done";
+    return writeOff(deps, deposit, "done");
   }
   if (intent.status !== "succeeded") {
     throw new Error(`Payment ${pi} is ${intent.status}; cannot tell whether it was captured`);
@@ -147,22 +175,36 @@ async function resolvePending(deps: ClosureRefundDeps, deposit: Deposit): Promis
   }
 }
 
+/** One decision on one read of the deposit. `null` = read it again. */
+async function settleOnce(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<Settled | null> {
+  const deposit = await deps.deposits.getByReservationId(row.reservationId);
+  if (!deposit) return "none";
+  if (deposit.status === "refunded") return "done";
+  if (deposit.status === "uncollectable") return "none";
+  if (deposit.status === "held") {
+    await deps.deposits.refund(deposit.id);
+    return "done";
+  }
+  if (CAPTURED.has(deposit.status)) return refundCaptured(deps, deposit, row);
+  if (deposit.status === "pending") return resolvePending(deps, deposit);
+  return null;
+}
+
+/** The row moved between our read and the service's re-read or its CAS. */
+const isRace = (error: unknown): boolean =>
+  error instanceof TransitionError || error instanceof DepositConcurrentUpdateError;
+
 async function settleDeposit(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<Settled> {
   for (let read = 0; read < MAX_REREADS; read += 1) {
-    const deposit = await deps.deposits.getByReservationId(row.reservationId);
-    if (!deposit) return "none";
-    if (deposit.status === "refunded") return "done";
-    if (deposit.status === "uncollectable") return "none";
-    if (deposit.status === "held") {
-      await deps.deposits.refund(deposit.id);
-      return "done";
-    }
-    if (CAPTURED.has(deposit.status)) return refundCaptured(deps, deposit, row);
-    if (deposit.status === "pending") {
-      const resolved = await resolvePending(deps, deposit);
-      if (resolved) return resolved;
+    try {
+      const settled = await settleOnce(deps, row);
+      if (settled) return settled;
+    } catch (error) {
+      if (!isRace(error)) throw error;
     }
   }
+  // Retriable on purpose: BullMQ's bounded attempts re-run the job, and the
+  // final attempt records `failed`.
   throw new Error(`Deposit for ${row.reservationId} kept changing; try again`);
 }
 
@@ -177,16 +219,7 @@ export async function settleClosureRefund(
   const row = await deps.store.load(payload.outcomeId);
   if (!row) throw new ClosureRefundPermanentError(`Closure outcome ${payload.outcomeId} not found`);
   if (row.refund === "done" || row.refund === "none") return;
-  try {
-    await deps.store.setRefund(row.id, await settleDeposit(deps, row));
-  } catch (error) {
-    // The row moved on between our read and the write; retrying the same
-    // transition cannot succeed, and the next job run re-reads it anyway.
-    if (error instanceof TransitionError) {
-      throw new ClosureRefundPermanentError(error.message);
-    }
-    throw error;
-  }
+  await deps.store.setRefund(row.id, await settleDeposit(deps, row));
 }
 
 /**
@@ -203,7 +236,7 @@ export async function runClosureRefundJob(
     await settleClosureRefund(deps, payload);
   } catch (error) {
     if (error instanceof ClosureRefundPermanentError || opts.isFinalAttempt) {
-      await deps.store.setRefund(payload.outcomeId, "failed").catch(() => undefined);
+      await deps.store.markFailed(payload.outcomeId).catch(() => undefined);
     }
     throw error;
   }

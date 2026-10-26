@@ -2777,15 +2777,28 @@
     <item priority="high">
       type Settled = ClosureRefundStatus;
     </item>
+    <item priority="high">
+      type CapturedStatus = "forfeited" | "applied" | "partial_refunded";
+    </item>
+    <item priority="low">
+      async function writeOff(
+        deps: ClosureRefundDeps,
+        deposit: Deposit,
+        settled: Settled
+      ): Promise<Settled | null> { /* ... */ }
+    </item>
     <item priority="low">
       async function refundCaptured(
         deps: ClosureRefundDeps,
         deposit: Deposit,
         row: ClosureRefundRow
-      ): Promise<Settled> { /* ... */ }
+      ): Promise<Settled | null> { /* ... */ }
     </item>
     <item priority="low">
       async function resolvePending(deps: ClosureRefundDeps, deposit: Deposit): Promise<Settled | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function settleOnce(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<Settled | null> { /* ... */ }
     </item>
     <item priority="low">
       async function settleDeposit(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<Settled> { /* ... */ }

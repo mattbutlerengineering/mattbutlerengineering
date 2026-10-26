@@ -45012,6 +45012,12 @@
         setRefund: async (outcomeId, refund) => {
           await prisma.closureOutcome.update({ where: { id: outcomeId }, data: { refund } });
         },
+        markFailed: async (outcomeId) => {
+          await prisma.closureOutcome.updateMany({
+            where: { id: outcomeId, refund: { notIn: ["done", "none"] } },
+            data: { refund: "failed" },
+          });
+        },
         listByRule: (venueId, ruleId, statuses) =>
           prisma.closureOutcome.findMany({
             where: { venueId, dateRuleId: ruleId, refund: { in: [...statuses] } },
@@ -45032,6 +45038,8 @@
     export interface ClosureRefundStore {
       load(outcomeId: string): Promise<ClosureRefundRow | null>;
       setRefund(outcomeId: string, refund: ClosureRefundStatus): Promise<void>;
+      /** Records `failed`, leaving an outcome a concurrent run already settled (`done` / `none`). */
+      markFailed(outcomeId: string): Promise<void>;
       /** Outcomes of one closure whose refund is in one of `statuses`. */
       listByRule(
         venueId: string,
@@ -45040,7 +45048,7 @@
       ): Promise<{ id: string; reservationId: string }[]>;
     }
     export interface ClosureRefundDeps {
-      deposits: Pick<DepositService, "getByReservationId" | "hold" | "refund">;
+      deposits: Pick<DepositService, "getByReservationId" | "hold" | "refund" | "writeOffUncaptured">;
       payments: PaymentsPort;
       store: ClosureRefundStore;
     }
@@ -45055,11 +45063,23 @@
     export const closureRefundJobId = (ruleId: string, reservationId: string): string =>
       closureRefundKey(ruleId, reservationId).replaceAll(":", "_");
     type Settled = ClosureRefundStatus;
+    type CapturedStatus = "forfeited" | "applied" | "partial_refunded";
+    async function writeOff(
+      deps: ClosureRefundDeps,
+      deposit: Deposit,
+      settled: Settled
+    ): Promise<Settled | null> {
+      const count = await deps.deposits.writeOffUncaptured(
+        deposit.id,
+        deposit.status as CapturedStatus
+      );
+      return count > 0 ? settled : null;
+    }
     async function refundCaptured(
       deps: ClosureRefundDeps,
       deposit: Deposit,
       row: ClosureRefundRow
-    ): Promise<Settled> {
+    ): Promise<Settled | null> {
       if (row.reservation?.cancellationReason !== "venue_closure") return "none";
       const pi = deposit.stripePaymentIntentId;
       if (!pi) {
@@ -45068,11 +45088,11 @@
         );
       }
       const intent = await deps.payments.retrievePaymentIntent(pi);
-      if (intent.status === "canceled") return "none";
+      if (intent.status === "canceled") return writeOff(deps, deposit, "none");
       if (intent.status === "requires_capture") {
         // The recorded capture never landed: release the hold, there is nothing to refund.
         await deps.payments.cancelPaymentIntent(pi, `${deposit.id}:refund`);
-        return "done";
+        return writeOff(deps, deposit, "done");
       }
       if (intent.status !== "succeeded") {
         throw new Error(`Payment ${pi} is ${intent.status}; cannot tell whether it was captured`);
@@ -45118,22 +45138,30 @@
           throw new Error(`Payment ${pi} is ${intent.status}; try again`);
       }
     }
+    async function settleOnce(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<Settled | null> {
+      const deposit = await deps.deposits.getByReservationId(row.reservationId);
+      if (!deposit) return "none";
+      if (deposit.status === "refunded") return "done";
+      if (deposit.status === "uncollectable") return "none";
+      if (deposit.status === "held") {
+        await deps.deposits.refund(deposit.id);
+        return "done";
+      }
+      if (CAPTURED.has(deposit.status)) return refundCaptured(deps, deposit, row);
+      if (deposit.status === "pending") return resolvePending(deps, deposit);
+      return null;
+    }
     async function settleDeposit(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<Settled> {
       for (let read = 0; read < MAX_REREADS; read += 1) {
-        const deposit = await deps.deposits.getByReservationId(row.reservationId);
-        if (!deposit) return "none";
-        if (deposit.status === "refunded") return "done";
-        if (deposit.status === "uncollectable") return "none";
-        if (deposit.status === "held") {
-          await deps.deposits.refund(deposit.id);
-          return "done";
-        }
-        if (CAPTURED.has(deposit.status)) return refundCaptured(deps, deposit, row);
-        if (deposit.status === "pending") {
-          const resolved = await resolvePending(deps, deposit);
-          if (resolved) return resolved;
+        try {
+          const settled = await settleOnce(deps, row);
+          if (settled) return settled;
+        } catch (error) {
+          if (!isRace(error)) throw error;
         }
       }
+      // Retriable on purpose: BullMQ's bounded attempts re-run the job, and the
+      // final attempt records `failed`.
       throw new Error(`Deposit for ${row.reservationId} kept changing; try again`);
     }
     export async function settleClosureRefund(
@@ -45143,16 +45171,7 @@
       const row = await deps.store.load(payload.outcomeId);
       if (!row) throw new ClosureRefundPermanentError(`Closure outcome ${payload.outcomeId} not found`);
       if (row.refund === "done" || row.refund === "none") return;
-      try {
-        await deps.store.setRefund(row.id, await settleDeposit(deps, row));
-      } catch (error) {
-        // The row moved on between our read and the write; retrying the same
-        // transition cannot succeed, and the next job run re-reads it anyway.
-        if (error instanceof TransitionError) {
-          throw new ClosureRefundPermanentError(error.message);
-        }
-        throw error;
-      }
+      await deps.store.setRefund(row.id, await settleDeposit(deps, row));
     }
     export async function runClosureRefundJob(
       deps: ClosureRefundDeps,
@@ -45163,7 +45182,7 @@
         await settleClosureRefund(deps, payload);
       } catch (error) {
         if (error instanceof ClosureRefundPermanentError || opts.isFinalAttempt) {
-          await deps.store.setRefund(payload.outcomeId, "failed").catch(() => undefined);
+          await deps.store.markFailed(payload.outcomeId).catch(() => undefined);
         }
         throw error;
       }
@@ -45693,6 +45712,27 @@
         }
     
         return updated;
+      }
+    
+      /**
+       * Writes off a deposit recorded as captured (`applied` / `forfeited` /
+       * `partial_refunded`) whose capture never landed and whose intent the caller
+       * has already cancelled: nothing was charged and nothing ever will be. The
+       * same write-off `refundPartial` does for an intent it finds `canceled`.
+       * Compare-and-swap on `fromStatus`; returns the CAS count (0 = the row moved).
+       */
+      async writeOffUncaptured(
+        depositId: string,
+        fromStatus: "applied" | "forfeited" | "partial_refunded"
+      ): Promise<number> {
+        const timestampField = (
+          {
+            applied: "appliedAt",
+            forfeited: "forfeitedAt",
+            partial_refunded: "refundedAt",
+          } as const
+        )[fromStatus];
+        return this._writeOffUncollectable(depositId, fromStatus, timestampField);
       }
     
       /**

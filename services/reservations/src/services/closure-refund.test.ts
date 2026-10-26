@@ -70,6 +70,10 @@ function makeStore(overrides: Partial<ClosureRefundRow> = {}) {
     setRefund: vi.fn(async (_id, refund) => {
       state.row = { ...state.row, refund };
     }),
+    markFailed: vi.fn(async () => {
+      if (state.row.refund === "done" || state.row.refund === "none") return;
+      state.row = { ...state.row, refund: "failed" };
+    }),
     listByRule: vi.fn(async () => [{ id: "out-1", reservationId: "res-1" }]),
   };
   return { store, state };
@@ -204,13 +208,73 @@ describe("settleClosureRefund", () => {
     expect(state.row.refund).toBe("done");
   });
 
-  it("releases the hold instead of refunding when a forfeited capture never landed", async () => {
+  it.each(["forfeited", "applied", "partial_refunded"])(
+    "releases the hold and writes a %s deposit off as uncollectable when its capture never landed",
+    async (status) => {
+      seedDeposit({ status, refundAmountCents: status === "partial_refunded" ? 2000 : null });
+      const { deps, payments, state } = setup();
+
+      await settleClosureRefund(deps, PAYLOAD);
+
+      expect(stripeOps(payments).map((c) => c.op)).toEqual(["cancelPaymentIntent"]);
+      expect(depositRows.get("dep-1")?.status).toBe("uncollectable");
+      expect(state.row.refund).toBe("done");
+    }
+  );
+
+  it("writes off a forfeited deposit whose intent is already canceled (a retry after the cancel)", async () => {
     seedDeposit({ status: "forfeited" });
-    const { deps, payments } = setup();
+    const { deps, payments, state } = setup();
+    payments.respond("retrievePaymentIntent", (id) => ({ id, status: "canceled" }));
 
     await settleClosureRefund(deps, PAYLOAD);
 
-    expect(stripeOps(payments).map((c) => c.op)).toEqual(["cancelPaymentIntent"]);
+    expect(stripeOps(payments)).toEqual([]);
+    expect(depositRows.get("dep-1")?.status).toBe("uncollectable");
+    expect(state.row.refund).toBe("none");
+  });
+
+  it("re-reads and refunds the captured money when a late-cancel forfeits a held deposit mid-job", async () => {
+    seedDeposit({ status: "held" });
+    const { deps, payments, state } = setup();
+    payments.respond("retrievePaymentIntent", (id) => ({ id, status: "succeeded" }));
+    const read = deps.deposits.getByReservationId.bind(deps.deposits);
+    vi.spyOn(deps.deposits, "getByReservationId").mockImplementationOnce(async (id) => {
+      const seen = await read(id);
+      // The guest's late-cancel lands between the job's read and refund()'s re-read.
+      depositRows.set("dep-1", { ...depositRows.get("dep-1"), status: "forfeited" });
+      return seen;
+    });
+
+    await settleClosureRefund(deps, PAYLOAD);
+
+    expect(stripeOps(payments)).toEqual([
+      {
+        op: "createPartialRefund",
+        args: ["pi_1", 5000, "dep-1", "dep-1:closureRefund", "closureRefund"],
+      },
+    ]);
+    expect(state.row.refund).toBe("done");
+  });
+
+  it("re-reads and refunds when the authorization webhook holds a pending deposit mid-job", async () => {
+    seedDeposit({ status: "pending" });
+    const { deps, payments, state } = setup();
+    const read = deps.deposits.getByReservationId.bind(deps.deposits);
+    vi.spyOn(deps.deposits, "getByReservationId").mockImplementationOnce(async (id) => {
+      const seen = await read(id);
+      // amount_capturable_updated lands between the job's read and hold()'s re-read.
+      depositRows.set("dep-1", { ...depositRows.get("dep-1"), status: "held" });
+      return seen;
+    });
+
+    await settleClosureRefund(deps, PAYLOAD);
+
+    expect(depositRows.get("dep-1")?.status).toBe("refunded");
+    expect(stripeOps(payments)).toEqual([
+      { op: "cancelPaymentIntent", args: ["pi_1", "dep-1:refund"] },
+    ]);
+    expect(state.row.refund).toBe("done");
   });
 
   it("leaves a captured deposit on a reservation the closure did not cancel alone", async () => {
@@ -260,17 +324,35 @@ describe("runClosureRefundJob", () => {
     expect(depositRows.get("dep-1")?.status).toBe("refunded");
   });
 
-  it("fails permanently, with no retry, when the deposit cannot transition", async () => {
+  it("retries, never fails permanently, when the deposit keeps moving under it", async () => {
     seedDeposit({ status: "held" });
     const { deps, state } = setup();
-    vi.spyOn(deps.deposits, "refund").mockRejectedValueOnce(
+    vi.spyOn(deps.deposits, "refund").mockRejectedValue(
       new DepositTransitionError("applied", "refunded", [], "deposit")
     );
 
-    await expect(
-      runClosureRefundJob(deps, PAYLOAD, { isFinalAttempt: false })
-    ).rejects.toMatchObject({ name: "ClosureRefundPermanentError" });
-    expect(state.row.refund).toBe("failed");
+    const run = runClosureRefundJob(deps, PAYLOAD, { isFinalAttempt: false });
+
+    await expect(run).rejects.toThrow(/kept changing/);
+    await expect(run).rejects.not.toMatchObject({ name: "ClosureRefundPermanentError" });
+    expect(deps.deposits.refund).toHaveBeenCalledTimes(3);
+    expect(state.row.refund).toBe("pending");
+  });
+
+  it("does not overwrite an outcome a concurrent run already marked done", async () => {
+    seedDeposit();
+    const { deps, payments, state, store } = setup();
+    payments.failNext("cancelPaymentIntent", "StripeConnectionError");
+    vi.mocked(store.load).mockImplementationOnce(async () => {
+      const seen = state.row;
+      state.row = { ...state.row, refund: "done" }; // the other run finishes first
+      return seen;
+    });
+
+    await expect(runClosureRefundJob(deps, PAYLOAD, { isFinalAttempt: true })).rejects.toThrow();
+
+    expect(store.setRefund).not.toHaveBeenCalledWith("out-1", "failed");
+    expect(state.row.refund).toBe("done");
   });
 });
 

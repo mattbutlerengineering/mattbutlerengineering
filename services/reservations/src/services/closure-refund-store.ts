@@ -19,6 +19,12 @@ export function createPrismaClosureRefundStore(): ClosureRefundStore {
     setRefund: async (outcomeId, refund) => {
       await prisma.closureOutcome.update({ where: { id: outcomeId }, data: { refund } });
     },
+    markFailed: async (outcomeId) => {
+      await prisma.closureOutcome.updateMany({
+        where: { id: outcomeId, refund: { notIn: ["done", "none"] } },
+        data: { refund: "failed" },
+      });
+    },
     listByRule: (venueId, ruleId, statuses) =>
       prisma.closureOutcome.findMany({
         where: { venueId, dateRuleId: ruleId, refund: { in: [...statuses] } },
