@@ -16,6 +16,9 @@ import {
   visibleDates,
   type CalendarView,
 } from "../components/availability/calendar-dates.js";
+import { CloseDialog } from "../components/availability/CloseDialog.js";
+import { activeOnlinePause } from "../components/availability/close-draft.js";
+import { OnlinePausedBanner } from "../components/availability/OnlinePausedBanner.js";
 import { DiscardChangesDialog } from "../components/availability/DiscardChangesDialog.js";
 import { LeaveGuard } from "../components/availability/LeaveGuard.js";
 import { useDiscardGuard } from "../components/availability/use-discard-guard.js";
@@ -38,6 +41,8 @@ export function AvailabilityPage() {
   // `null` follows today until the viewer navigates.
   const [chosenAnchor, setChosenAnchor] = useState<string | null>(null);
   const [openDate, setOpenDate] = useState<string | null>(null);
+  // The Close dialog (F5): `date` pre-fills "one date"; `pause` starts on pausing online booking.
+  const [closing, setClosing] = useState<{ date: string | null; pause: boolean } | null>(null);
   const anchor = chosenAnchor ?? today;
   // Moving off a day with an unsaved draft asks first (ux.md F2 step 6).
   const guard = useDiscardGuard<string | null>(setOpenDate);
@@ -92,6 +97,8 @@ export function AvailabilityPage() {
     );
   }
 
+  const isManager = team?.viewerRole === "manager";
+  const pause = config.data ? activeOnlinePause(config.data.config.dateRules, today) : null;
   const failure = days.error ? describeApiError(days.error) : null;
   const drawerFailure = config.error ? describeApiError(config.error).detail : null;
 
@@ -108,6 +115,16 @@ export function AvailabilityPage() {
         <Button variant="secondary" onClick={() => setChosenAnchor(null)}>
           {t("availability.toolbar.today")}
         </Button>
+        {isManager && (
+          <Button variant="secondary" onClick={() => setClosing({ date: null, pause: false })}>
+            {t("availability.close.open")}
+          </Button>
+        )}
+        {isManager && !pause && (
+          <Button variant="secondary" onClick={() => setClosing({ date: null, pause: true })}>
+            {t("availability.paused.open")}
+          </Button>
+        )}
         <SegmentedControl
           aria-label={t("availability.toolbar.viewLabel")}
           segments={[
@@ -118,6 +135,9 @@ export function AvailabilityPage() {
           onChange={(id) => setView(id as CalendarView)}
         />
       </div>
+      {pause && (
+        <OnlinePausedBanner venueId={selectedVenueId} ruleId={pause.id} canResume={isManager} />
+      )}
       {failure && (
         <ErrorRetryBanner
           title={t("availability.loadError")}
@@ -152,11 +172,26 @@ export function AvailabilityPage() {
                 today,
                 onDirtyChange: guard.setDirty,
                 onFinished: () => guard.release(null),
+                onCloseDay: (date: string) => {
+                  guard.request(null);
+                  setClosing({ date, pause: false });
+                },
               }
             : undefined
         }
         onClose={() => guard.request(null)}
       />
+      {closing && config.data && (
+        <CloseDialog
+          venueId={selectedVenueId}
+          state={config.data}
+          timezone={timeZone}
+          today={today}
+          initialDate={closing.date}
+          pauseOnline={closing.pause}
+          onClose={() => setClosing(null)}
+        />
+      )}
       <DiscardChangesDialog
         open={guard.pending !== null}
         date={openDate}

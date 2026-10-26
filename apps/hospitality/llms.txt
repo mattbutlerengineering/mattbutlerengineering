@@ -38,6 +38,95 @@
       export function lastSeatingFromClock(clock: string, opensAt: number): number { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/close-draft.ts">
+    <item priority="low">
+      type BookingChannel = "online" | "phone" | "waitlist";
+    </item>
+    <item priority="low">
+      type CloseWhat = { readonly kind: "venue" } | { readonly kind: "service"; re | { readonly kind: "booking"; re;
+    </item>
+    <item priority="low">
+      type CloseWhen = { readonly kind: "tonight" } | { readonly kind: "date"; reado | { readonly kind: "range"; read | {
+            readonly kind: "repeat | { readonly kind: "until-reopen;
+    </item>
+    <item priority="low">
+      interface CloseForm {
+        what: CloseWhat;
+        when: CloseWhen;
+        fromMinute: number | null;
+        staffNote: string;
+        guestMessage: string;
+      }
+    </item>
+    <item priority="low">
+      type CloseField = "what" | "when" | "guestMessage";
+    </item>
+    <item priority="low">
+      interface GroupChoice {
+        action?: ClosureAction;
+        acknowledged: boolean;
+      }
+    </item>
+    <item priority="low">
+      type ChoiceMap = Readonly<Record<string, GroupChoice>>;
+    </item>
+    <item priority="low">
+      type OutcomeCounts = Readonly<Record<ClosureAction, number>>;
+    </item>
+    <item priority="high">
+      interface Span {
+        startsOn: string;
+        endsOn: string | null;
+        weekdays?: readonly number[];
+      }
+    </item>
+    <item priority="medium">
+      function spanOf(when: CloseWhen, today: string): Span { /* ... */ }
+    </item>
+    <item priority="medium">
+      function whatIsComplete(what: CloseWhat): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function whenIsComplete(when: CloseWhen, today: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function validateClose(form: CloseForm, today: string): CloseField | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function targetOf(what: CloseWhat) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildCloseRule(form: CloseForm, id: string, today: string): DateRule | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function actionsFor(kind: ClosureImpactKind): readonly ClosureAction[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function decisionsReady(groups: readonly ClosureImpactGroup[], choices: ChoiceMap): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function toDecisions(
+        groups: readonly ClosureImpactGroup[],
+        choices: ChoiceMap
+      ): ClosureDecision[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function outcomeCounts(
+        groups: readonly ClosureImpactGroup[],
+        choices: ChoiceMap
+      ): OutcomeCounts { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isUrgent(
+        closure: { readonly startsOn: string; readonly fromMinute: number | null },
+        today: string,
+        nowMinute: number
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function activeOnlinePause(rules: readonly DateRule[], today: string): DateRule | null { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/closure-band.ts">
     <item priority="high">
       type Closure = AvailabilityDaySummary["closures"][number];
@@ -1681,6 +1770,35 @@
     </item>
     <item priority="high">
       export function useChangeBooking({ token, venueSlug }: UseChangeBookingOptions) { /* ... */ }
+    </item>
+  </file>
+  <file path="src/hooks/useClosures.ts">
+    <item priority="high">
+      export const CLOSURE_IMPACT_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const useClosureImpact: unknown;
+    </item>
+    <item priority="high">
+      type CreateClosureRequest = Parameters<AvailabilityClient["createClosure"]>[1];
+    </item>
+    <item priority="low">
+      type CreateClosureVariables = {
+        venueId: string;
+        body: CreateClosureRequest;
+        /** ...;
+    </item>
+    <item priority="high">
+      export const useCreateClosure: unknown;
+    </item>
+    <item priority="low">
+      type ReopenClosureVariables = {
+        venueId: string;
+        ruleId: string;
+        tellCancelledGue...;
+    </item>
+    <item priority="high">
+      export const useReopenClosure: unknown;
     </item>
   </file>
   <file path="src/hooks/useDashboardStatsQuery.ts">

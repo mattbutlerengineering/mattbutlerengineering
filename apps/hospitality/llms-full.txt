@@ -57,6 +57,168 @@
       return minute < opensAt ? minute + MINUTES_PER_DAY : minute;
     }
   </file>
+  <file path="src/components/availability/close-draft.ts">
+    export type BookingChannel = "online" | "phone" | "waitlist";
+    export type CloseWhat =
+      | { readonly kind: "venue" }
+      | { readonly kind: "service"; readonly serviceId: string }
+      | { readonly kind: "booking"; readonly types: readonly BookingChannel[] };
+    export type CloseWhen =
+      | { readonly kind: "tonight" }
+      | { readonly kind: "date"; readonly date: string }
+      | { readonly kind: "range"; readonly from: string; readonly to: string }
+      | {
+          readonly kind: "repeats";
+          readonly weekdays: readonly number[];
+          readonly from: string;
+          readonly to: string;
+        }
+      | { readonly kind: "until-reopen"; readonly from: string };
+    export interface CloseForm {
+      readonly what: CloseWhat;
+      readonly when: CloseWhen;
+      /** Minute of the service day the closure starts; `null` closes all day. */
+      readonly fromMinute: number | null;
+      readonly staffNote: string;
+      readonly guestMessage: string;
+    }
+    export type CloseField = "what" | "when" | "guestMessage";
+    export interface GroupChoice {
+      readonly action?: ClosureAction;
+      readonly acknowledged: boolean;
+    }
+    export type ChoiceMap = Readonly<Record<string, GroupChoice>>;
+    export type OutcomeCounts = Readonly<Record<ClosureAction, number>>;
+    interface Span {
+      readonly startsOn: string;
+      readonly endsOn: string | null;
+      readonly weekdays?: readonly number[];
+    }
+    function spanOf(when: CloseWhen, today: string): Span {
+      switch (when.kind) {
+        case "tonight":
+          return { startsOn: today, endsOn: today };
+        case "date":
+          return { startsOn: when.date, endsOn: when.date };
+        case "range":
+          return { startsOn: when.from, endsOn: when.to };
+        case "repeats":
+          return { startsOn: when.from, endsOn: when.to, weekdays: when.weekdays };
+        case "until-reopen":
+          return { startsOn: when.from, endsOn: null };
+      }
+    }
+    function whatIsComplete(what: CloseWhat): boolean {
+      if (what.kind === "service") return what.serviceId !== "";
+      if (what.kind === "booking") return what.types.length > 0;
+      return true;
+    }
+    function whenIsComplete(when: CloseWhen, today: string): boolean {
+      const span = spanOf(when, today);
+      if (span.startsOn === "") return false;
+      if (span.endsOn !== null && (span.endsOn === "" || span.endsOn < span.startsOn)) return false;
+      return span.weekdays === undefined || span.weekdays.length > 0;
+    }
+    export function validateClose(form: CloseForm, today: string): CloseField | null {
+      if (!whatIsComplete(form.what)) return "what";
+      if (!whenIsComplete(form.when, today)) return "when";
+      if (form.guestMessage.trim().length > GUEST_MESSAGE_MAX_LENGTH) return "guestMessage";
+      return null;
+    }
+    function targetOf(what: CloseWhat) {
+      switch (what.kind) {
+        case "venue":
+          return { targetKind: "venue" as const };
+        case "service":
+          return { targetKind: "service" as const, venueServiceId: what.serviceId };
+        case "booking":
+          return { targetKind: "booking" as const, bookingTypes: [...what.types] };
+      }
+    }
+    export function buildCloseRule(form: CloseForm, id: string, today: string): DateRule | null {
+      if (validateClose(form, today) !== null) return null;
+      const span = spanOf(form.when, today);
+      const note = form.staffNote.trim();
+      const message = form.guestMessage.trim();
+      return {
+        id,
+        kind: "closure",
+        ...targetOf(form.what),
+        startsOn: span.startsOn,
+        endsOn: span.endsOn,
+        ...(span.weekdays ? { repeat: { version: 1 as const, weekdays: [...span.weekdays] } } : {}),
+        window:
+          form.fromMinute === null
+            ? null
+            : { version: 1 as const, from: form.fromMinute, to: END_OF_SERVICE_DAY },
+        ...(note ? { staffNote: note } : {}),
+        ...(message ? { guestMessage: message } : {}),
+      };
+    }
+    export function actionsFor(kind: ClosureImpactKind): readonly ClosureAction[] {
+      return kind === "shortened"
+        ? ["cancel", "move", "keep_notify", "keep_silent"]
+        : ["cancel", "keep_notify", "keep_silent"];
+    }
+    export function decisionsReady(groups: readonly ClosureImpactGroup[], choices: ChoiceMap): boolean {
+      return groups.every((g) => {
+        const choice = choices[g.groupKey];
+        return choice?.action !== undefined && (choice.action !== "keep_silent" || choice.acknowledged);
+      });
+    }
+    export function toDecisions(
+      groups: readonly ClosureImpactGroup[],
+      choices: ChoiceMap
+    ): ClosureDecision[] {
+      return groups.flatMap((g) => {
+        const action = choices[g.groupKey]?.action;
+        if (action === undefined) return [];
+        return [
+          action === "keep_silent"
+            ? { groupKey: g.groupKey, action, acknowledged: true }
+            : { groupKey: g.groupKey, action },
+        ];
+      });
+    }
+    export function outcomeCounts(
+      groups: readonly ClosureImpactGroup[],
+      choices: ChoiceMap
+    ): OutcomeCounts {
+      const counts: Record<ClosureAction, number> = {
+        cancel: 0,
+        move: 0,
+        keep_notify: 0,
+        keep_silent: 0,
+      };
+      for (const g of groups) {
+        const action = choices[g.groupKey]?.action;
+        if (action !== undefined) counts[action] += g.reservations.length;
+      }
+      return counts;
+    }
+    export function isUrgent(
+      closure: { readonly startsOn: string; readonly fromMinute: number | null },
+      today: string,
+      nowMinute: number
+    ): boolean {
+      if (closure.startsOn < today) return true;
+      const startMinute =
+        (closure.startsOn === today ? 0 : MINUTES_PER_DAY) + (closure.fromMinute ?? 0);
+      return startMinute - nowMinute <= URGENT_WITHIN_MINUTES;
+    }
+    export function activeOnlinePause(rules: readonly DateRule[], today: string): DateRule | null {
+      return (
+        rules.find(
+          (r) =>
+            r.kind === "closure" &&
+            r.targetKind === "booking" &&
+            (r.bookingTypes ?? []).includes("online") &&
+            r.startsOn <= today &&
+            (r.endsOn === null || r.endsOn === undefined || r.endsOn >= today)
+        ) ?? null
+      );
+    }
+  </file>
   <file path="src/components/availability/closure-band.ts">
     type Closure = AvailabilityDaySummary["closures"][number];
     export interface ClosureBandText {
@@ -5014,6 +5176,42 @@
     
       return { status, error, selectSlot, confirm, abandon };
     }
+  </file>
+  <file path="src/hooks/useClosures.ts">
+    export const CLOSURE_IMPACT_QUERY_KEY = "closureImpact" as const;
+    export const useClosureImpact = createQueryHook<
+      ClosureImpact | null,
+      { venueId: string | null; rule: DateRule | null }
+    >({
+      key: CLOSURE_IMPACT_QUERY_KEY,
+      fetcher: async (params, api) =>
+        params?.venueId && params.rule
+          ? api.availability.getClosureImpact(params.venueId, params.rule)
+          : null,
+      getEnabled: (params) => !!params?.venueId && !!params.rule && params.enabled !== false,
+    });
+    type CreateClosureRequest = Parameters<AvailabilityClient["createClosure"]>[1];
+    export type CreateClosureVariables = {
+      venueId: string;
+      body: CreateClosureRequest;
+      /** One key per attempt: a retry of the same attempt replays the first result. */
+      idempotencyKey: string;
+    };
+    export const useCreateClosure = createMutationHook<CreateClosureVariables, ClosureResult>({
+      invalidateKeys: [AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY],
+      mutationFn: (api, { venueId, body, idempotencyKey }) =>
+        api.availability.createClosure(venueId, body, idempotencyKey),
+    });
+    export type ReopenClosureVariables = {
+      venueId: string;
+      ruleId: string;
+      tellCancelledGuests: boolean;
+    };
+    export const useReopenClosure = createMutationHook<ReopenClosureVariables, ReopenResult>({
+      invalidateKeys: [AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY],
+      mutationFn: (api, { venueId, ruleId, tellCancelledGuests }) =>
+        api.availability.reopenClosure(venueId, ruleId, tellCancelledGuests),
+    });
   </file>
   <file path="src/hooks/useDashboardStatsQuery.ts">
     export interface DashboardStats {

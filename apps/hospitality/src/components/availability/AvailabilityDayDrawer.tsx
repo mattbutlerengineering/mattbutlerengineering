@@ -1,6 +1,14 @@
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import { Alert, Drawer, Heading, Skeleton, Stack, Text } from "@mattbutlerengineering/rialto";
+import {
+  Alert,
+  Button,
+  Drawer,
+  Heading,
+  Skeleton,
+  Stack,
+  Text,
+} from "@mattbutlerengineering/rialto";
 import type { Layer, ResolvedDay, ResolvedDaySummary } from "@mbe/availability";
 import type { AvailabilityConfigState, TeamRole } from "@mbe/types";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
@@ -18,6 +26,8 @@ export interface DayEditing {
   readonly onDirtyChange: (dirty: boolean) => void;
   /** The draft was saved or discarded; close without asking. */
   readonly onFinished: () => void;
+  /** "Close…" (F5): open the Close dialog for this date. */
+  readonly onCloseDay?: (date: string) => void;
 }
 
 export interface AvailabilityDayDrawerProps {
@@ -141,6 +151,11 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
             day={day}
             onCancel={onClose}
           />
+        )}
+        {viewerRole === "manager" && editing?.onCloseDay && (
+          <Button variant="secondary" onClick={() => editing.onCloseDay?.(date)}>
+            {t("availability.close.open")}
+          </Button>
         )}
       </>
     );

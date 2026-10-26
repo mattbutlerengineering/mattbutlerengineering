@@ -1639,6 +1639,149 @@
       "description": "Your unsaved changes to these hours will be lost.",
       "confirm": "Discard",
       "keep": "Keep editing"
+    },
+    "close": {
+      "open": "Close…",
+      "title": "Close",
+      "step": "Step {{step}} of 2",
+      "next": "Next",
+      "back": "Back",
+      "cancel": "Cancel",
+      "saveError": "Couldn't close",
+      "versionConflict": "Availability changed since you opened this. Close this dialog and try again.",
+      "staffNote": "Note for staff",
+      "guestMessage": "Message for guests",
+      "guestMessageCount": "{{count}}/{{max}}",
+      "suggestions": {
+        "private": "Closed for a private event",
+        "weather": "Closed due to weather",
+        "holiday": "Closed for the holiday"
+      },
+      "what": {
+        "label": "What",
+        "venue": "Whole venue",
+        "service": "One service",
+        "pickService": "Service",
+        "booking": "Booking only",
+        "channel": {
+          "online": "Online",
+          "phone": "Phone",
+          "waitlist": "Waitlist"
+        },
+        "channelRequired": "Choose at least one way of booking."
+      },
+      "when": {
+        "label": "When",
+        "tonight": "Tonight",
+        "date": "One date",
+        "range": "Date range",
+        "repeats": "Repeats",
+        "untilReopen": "Until I reopen",
+        "dateLabel": "Date",
+        "startingLabel": "Starting",
+        "fromLabel": "From",
+        "toLabel": "To",
+        "weekdays": "Repeats on",
+        "invalid": "Check the dates: the end can't be before the start."
+      },
+      "window": {
+        "label": "Starting at",
+        "allDay": "All day",
+        "from": "From {{time}}"
+      },
+      "replaces": "{{date}} has special hours; the closure replaces them.",
+      "impactLabel": "Bookings in this closure",
+      "impact_one": "{{count}} reservation · {{guests}} guests are booked in this closure",
+      "impact_other": "{{count}} reservations · {{guests}} guests are booked in this closure",
+      "impact_many": "{{count}} reservations · {{guests}} guests are booked in this closure",
+      "impactNone": "No reservations are booked in this closure.",
+      "impactError": "Couldn't check existing reservations. Change a field to try again.",
+      "guestsWillSee": "Guests will see: {{date}} · Closed",
+      "guestsWillSeeMessage": "Guests will see: {{date}} · Closed · “{{message}}”",
+      "button": {
+        "close": "Close {{date}}",
+        "pause": "Pause online booking",
+        "cancel_one": "Close and cancel {{count}}",
+        "cancel_other": "Close and cancel {{count}}",
+        "cancel_many": "Close and cancel {{count}}",
+        "move_one": "Close and move {{count}}",
+        "move_other": "Close and move {{count}}",
+        "move_many": "Close and move {{count}}",
+        "keep_notify_one": "Close and keep {{count}}",
+        "keep_notify_other": "Close and keep {{count}}",
+        "keep_notify_many": "Close and keep {{count}}",
+        "keep_silent_one": "Close and keep {{count}} silently",
+        "keep_silent_other": "Close and keep {{count}} silently",
+        "keep_silent_many": "Close and keep {{count}} silently",
+        "mixed": "Close · {{parts}}",
+        "part": {
+          "cancel_one": "cancel {{count}}",
+          "cancel_other": "cancel {{count}}",
+          "cancel_many": "cancel {{count}}",
+          "move_one": "move {{count}}",
+          "move_other": "move {{count}}",
+          "move_many": "move {{count}}",
+          "keep_notify_one": "keep {{count}}",
+          "keep_notify_other": "keep {{count}}",
+          "keep_notify_many": "keep {{count}}",
+          "keep_silent_one": "keep {{count}} silently",
+          "keep_silent_other": "keep {{count}} silently",
+          "keep_silent_many": "keep {{count}} silently"
+        }
+      },
+      "toast": {
+        "closed": "{{date}} closed",
+        "notified_one": "{{date}} closed · {{count}} guest notified",
+        "notified_other": "{{date}} closed · {{count}} guests notified",
+        "notified_many": "{{date}} closed · {{count}} guests notified"
+      },
+      "step2": {
+        "urgent": "Urgent: guests will get a text and an email",
+        "header_one": "{{count}} reservation · {{guests}} guests · {{deposits}} deposits held",
+        "header_other": "{{count}} reservations · {{guests}} guests · {{deposits}} deposits held",
+        "header_many": "{{count}} reservations · {{guests}} guests · {{deposits}} deposits held",
+        "group": {
+          "closed_one": "{{date}} · closed · {{count}} booking",
+          "closed_other": "{{date}} · closed · {{count}} bookings",
+          "closed_many": "{{date}} · closed · {{count}} bookings",
+          "shortened_one": "{{date}} · shortened · {{count}} booking",
+          "shortened_other": "{{date}} · shortened · {{count}} bookings",
+          "shortened_many": "{{date}} · shortened · {{count}} bookings"
+        },
+        "booking": "{{time}}  {{name}} · {{size}}",
+        "guestUnnamed": "Guest",
+        "deposit": "deposit {{amount}}",
+        "runsInto": "runs into closure",
+        "showAll_one": "Show all {{count}}",
+        "showAll_other": "Show all {{count}}",
+        "showAll_many": "Show all {{count}}",
+        "choose": "What should happen to them? (required)",
+        "action": {
+          "cancel": "Cancel, notify & refund",
+          "move": "Move to the nearest open time and notify",
+          "keep_notify": "Keep them and notify",
+          "keep_silent": "Keep, don't tell guests"
+        },
+        "cancelHint": "Guests get up to 3 open times in the next 14 days to rebook",
+        "acknowledge_one": "I understand {{count}} guest won't be told",
+        "acknowledge_other": "I understand {{count}} guests won't be told",
+        "acknowledge_many": "I understand {{count}} guests won't be told",
+        "preview": "Preview message",
+        "previewText": {
+          "cancel": "Your reservation on {{date}} is cancelled. {{message}}\nYou'll get up to 3 open times to rebook, and any deposit is refunded.",
+          "move": "We've changed our hours on {{date}}. {{message}}\nYour table is moved to the nearest open time. Can't make it? Cancel free.",
+          "keep_notify": "We've changed our hours on {{date}}. {{message}}\nYour table is still booked."
+        },
+        "irreversible": "Guests are told right away. This can't be undone."
+      }
+    },
+    "paused": {
+      "open": "Pause online booking",
+      "banner": "Online booking paused",
+      "resume": "Resume",
+      "resumed": "Online booking resumed",
+      "resumeError": "Couldn't resume online booking",
+      "pill": "Online booking paused"
     }
   },
   "setup": {
