@@ -38,6 +38,8 @@ export interface ServicesEditorProps {
   readonly venueServices: readonly VenueService[];
   /** The date being looked at, for the "next day" hint. */
   readonly date: string;
+  /** Offer "New service…" (default). Off where only the venue's existing services can be saved. */
+  readonly allowNew?: boolean;
   readonly onChange: (services: DraftService[]) => void;
 }
 
@@ -195,7 +197,9 @@ export function ServicesEditor(props: ServicesEditorProps) {
         value=""
         options={[
           ...addable.map((v) => ({ value: v.id, label: v.name })),
-          { value: NEW_SERVICE, label: t("availability.editor.newService") },
+          ...(props.allowNew === false
+            ? []
+            : [{ value: NEW_SERVICE, label: t("availability.editor.newService") }]),
         ]}
         onChange={add}
       />

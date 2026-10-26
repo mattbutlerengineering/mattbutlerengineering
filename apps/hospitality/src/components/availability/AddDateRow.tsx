@@ -138,6 +138,7 @@ export function AddDateRow(props: AddDateRowProps) {
             services={row.services}
             venueServices={config.venueServices}
             date={row.date || today}
+            allowNew={false}
             onChange={(services) => onChange({ ...row, services })}
           />
           {invalid === "hours" && (

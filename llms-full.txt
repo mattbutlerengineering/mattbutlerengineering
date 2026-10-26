@@ -4669,7 +4669,12 @@
     });
     function hasOwnHours(config: AvailabilityConfig, date: string): boolean {
       return config.dateRules.some(
-        (r) => r.kind === "special_hours" && r.startsOn <= date && (r.endsOn ?? date) >= date
+        (r) =>
+          r.kind === "special_hours" &&
+          r.seriesId == null &&
+          r.startsOn <= date &&
+          (r.endsOn ?? date) >= date &&
+          (r.repeat == null || r.repeat.weekdays.includes(weekdayIndexOf(date)))
       );
     }
     export function validateRows(
@@ -47259,6 +47264,15 @@
       count: number;
       ruleIds: string[];
     }
+    function sameBatch(stored: BatchShape | undefined, now: BatchShape): boolean {
+      return (
+        stored !== undefined &&
+        stored.count === now.count &&
+        Array.isArray(stored.ruleIds) &&
+        stored.ruleIds.length === now.ruleIds.length &&
+        stored.ruleIds.every((id, i) => id === now.ruleIds[i])
+      );
+    }
     export async function mayCloseFor(
       db: StoreDb,
       venueId: string,
@@ -47597,7 +47611,7 @@
           // A key already used for a batch answers only to that same batch: never a subset of it,
           // and never a longer one whose appended items would commit beside the replayed ones.
           const first = await findReplay(tx, venueId, `${key}#0`);
-          if (first && JSON.stringify(first.closure.batch) !== JSON.stringify(batch)) {
+          if (first && !sameBatch(first.closure.batch, batch)) {
             throw new Refused({ kind: "key_reused" });
           }
           let expectedVersion = body.expectedVersion;

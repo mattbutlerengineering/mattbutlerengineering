@@ -47,6 +47,27 @@ describe("validateRows", () => {
     expect(validateRows(form([hours]), config, TODAY)).toEqual({ key: "a", field: "hours" });
   });
 
+  it("only counts a repeating hours rule on the weekdays it covers", () => {
+    const [fridayLunch] = regularServices(config, FIXTURE_TIMEZONE, 5, TODAY);
+    const fridays = fixtureConfig({
+      id: "fridays",
+      kind: "special_hours",
+      targetKind: "venue",
+      startsOn: "2026-12-01",
+      endsOn: null,
+      repeat: { version: 1, weekdays: [5] },
+      payload: { version: 1, services: [] },
+    });
+    const hoursOn = (date: string) =>
+      form([row({ key: "a", date, kind: "same", sameAs: 5, services: [fridayLunch!] })]);
+    // 2026-12-22 is a Tuesday, 2026-12-25 a Friday.
+    expect(validateRows(hoursOn("2026-12-22"), fridays, TODAY)).toBeNull();
+    expect(validateRows(hoursOn("2026-12-25"), fridays, TODAY)).toEqual({
+      key: "a",
+      field: "date",
+    });
+  });
+
   it("refuses a service the venue does not have yet, and a date with hours of its own", () => {
     const [fridayLunch] = regularServices(config, FIXTURE_TIMEZONE, 5, TODAY);
     const brandNew = row({

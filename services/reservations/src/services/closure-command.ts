@@ -106,6 +106,17 @@ interface BatchShape {
   ruleIds: string[];
 }
 
+/** Field-wise, so the order jsonb stores object keys in cannot make a replay look different. */
+function sameBatch(stored: BatchShape | undefined, now: BatchShape): boolean {
+  return (
+    stored !== undefined &&
+    stored.count === now.count &&
+    Array.isArray(stored.ruleIds) &&
+    stored.ruleIds.length === now.ruleIds.length &&
+    stored.ruleIds.every((id, i) => id === now.ruleIds[i])
+  );
+}
+
 /**
  * A Host may only make the emergency whole-venue close for the current
  * service day (ADR-029), and only with the grant.
@@ -487,7 +498,7 @@ export async function createClosures(
       // A key already used for a batch answers only to that same batch: never a subset of it,
       // and never a longer one whose appended items would commit beside the replayed ones.
       const first = await findReplay(tx, venueId, `${key}#0`);
-      if (first && JSON.stringify(first.closure.batch) !== JSON.stringify(batch)) {
+      if (first && !sameBatch(first.closure.batch, batch)) {
         throw new Refused({ kind: "key_reused" });
       }
       let expectedVersion = body.expectedVersion;

@@ -56,7 +56,12 @@ const messageOf = (form: AddDatesForm, row: DateRow): string =>
 /** The date already has special hours of its own, which a new row cannot replace. */
 function hasOwnHours(config: AvailabilityConfig, date: string): boolean {
   return config.dateRules.some(
-    (r) => r.kind === "special_hours" && r.startsOn <= date && (r.endsOn ?? date) >= date
+    (r) =>
+      r.kind === "special_hours" &&
+      r.seriesId == null &&
+      r.startsOn <= date &&
+      (r.endsOn ?? date) >= date &&
+      (r.repeat == null || r.repeat.weekdays.includes(weekdayIndexOf(date)))
   );
 }
 

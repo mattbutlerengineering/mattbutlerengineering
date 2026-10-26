@@ -14133,6 +14133,9 @@
         ruleIds: string[];
       }
     </item>
+    <item priority="medium">
+      function sameBatch(stored: BatchShape | undefined, now: BatchShape): boolean { /* ... */ }
+    </item>
     <item priority="high">
       export async function mayCloseFor(
         db: StoreDb,
