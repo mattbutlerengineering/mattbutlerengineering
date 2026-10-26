@@ -99,6 +99,12 @@ vi.mock("../hooks/useWaitlist.js", () => ({
   useSeatWaitlistEntry: () => ({ mutateAsync: vi.fn() }),
 }));
 vi.mock("../hooks/useApiClient.js", () => ({ useApiClient: () => ({ reservations: {} }) }));
+vi.mock("../hooks/useStaffBookingCheck.js", () => ({
+  useStaffBookingCheck: () => ({ phase: "idle", verdict: null, blockedTableIds: new Set() }),
+}));
+vi.mock("../hooks/useOpenTimes.js", () => ({
+  useOpenTimes: () => ({ data: [], isLoading: false, error: null }),
+}));
 vi.mock("../hooks/useGuestLookup.js", () => ({
   useGuestLookup: () => ({ rows: [], hasMore: false, isLoading: false, failed: false, query: "" }),
 }));

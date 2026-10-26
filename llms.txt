@@ -5690,6 +5690,14 @@
       export function useNow(intervalMs = DEFAULT_INTERVAL_MS): Date { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useOpenTimes.ts">
+    <item priority="high">
+      export const OPEN_TIMES_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const useOpenTimes: unknown;
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/usePublicApiClient.ts">
     <item priority="low">
       interface UsePublicApiClientOptions {
@@ -5803,6 +5811,36 @@
     </item>
     <item priority="high">
       export function useSessionClock(expiresAt: number | undefined): SessionClock { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useStaffBookingCheck.ts">
+    <item priority="high">
+      export const STAFF_BOOKING_CHECK_QUERY_KEY: unknown;
+    </item>
+    <item priority="low">
+      interface StaffCheckParams {
+        venueId: string | null | undefined;
+        window: { start: string; end: string } | null;
+        partySize: number;
+        tableIds: readonly string[];
+        selectedTableId: string;
+      }
+    </item>
+    <item priority="low">
+      interface StaffCheckResult {
+        phase: "idle" | "checking" | "done" | "failed";
+        verdict: AvailabilityCheckResult | null;
+        blockedTableIds: ReadonlySet<string>;
+      }
+    </item>
+    <item priority="high">
+      export function useStaffBookingCheck({
+        venueId,
+        window,
+        partySize,
+        tableIds,
+        selectedTableId,
+      }: StaffCheckParams): StaffCheckResult { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useStatusMessage.ts">

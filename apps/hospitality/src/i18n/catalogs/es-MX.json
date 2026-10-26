@@ -736,7 +736,9 @@
     "visitOrdinalOther": "{{count}}.ª visita",
     "block": {
       "title": "{{guest}} - {{party}} a las {{time}}",
-      "seatedWord": "sentados"
+      "seatedWord": "sentados",
+      "overrideTag": "Excepción",
+      "overrideLabel": "Excepción: {{reason}}"
     },
     "grid": {
       "label": "Cronograma de reservaciones",
@@ -1002,7 +1004,28 @@
     "needContact": "Proporciona un correo o un número de teléfono del cliente.",
     "cancel": "Cancelar",
     "create": "Crear reserva",
-    "creating": "Creando…"
+    "creating": "Creando…",
+    "check": {
+      "checking": "Comprobando…",
+      "failed": "No se pudo comprobar la disponibilidad; la comprobaremos al reservar.",
+      "softHeading_one": "Supera {{count}} límite: {{limits}}. Agrega un motivo para reservar de todos modos.",
+      "softHeading_many": "Supera {{count}} de límites: {{limits}}. Agrega un motivo para reservar de todos modos.",
+      "softHeading_other": "Supera {{count}} límites: {{limits}}. Agrega un motivo para reservar de todos modos.",
+      "limit": {
+        "after_last_seating": "después del último turno",
+        "pacing": "por encima del ritmo permitido",
+        "party_size": "por encima del tamaño máximo del grupo"
+      },
+      "hardHeading": "No se puede reservar: {{message}}",
+      "reasonLabel": "Motivo (obligatorio)",
+      "reasonPlaceholder": "p. ej., cliente frecuente, la cocina estuvo de acuerdo",
+      "bookWithOverride": "Reservar con excepción",
+      "openTimes": "Horarios disponibles",
+      "openTimesNone_one": "No hay horarios disponibles para {{count}} persona en esta fecha.",
+      "openTimesNone_many": "No hay horarios disponibles para {{count}} de personas en esta fecha.",
+      "openTimesNone_other": "No hay horarios disponibles para {{count}} personas en esta fecha.",
+      "tableBlocked": "{{label}} · Bloqueada a esta hora"
+    }
   },
   "crm": {
     "clear": "Quitar",

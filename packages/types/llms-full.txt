@@ -1999,6 +1999,8 @@
       guestPhone: z.string().nullable(),
       guestId: z.string().nullable(),
       userId: z.string().nullable(),
+      /** Why staff booked past a soft availability limit; absent or null for an ordinary booking. */
+      overrideReason: z.string().nullable().optional(),
       tableId: z.string(),
       table: TableSchema.optional(),
       guest: z
@@ -2675,6 +2677,8 @@
       userId: string | null;
       occasion: Occasion | null;
       seatingPreference: SeatingPreference | null;
+      /** Why staff booked past a soft availability limit; absent or null for an ordinary booking. */
+      overrideReason?: string | null;
       tableId: string;
       table?: Table;
       guest?: {

@@ -52,6 +52,7 @@ function ReservationBlockComponent({
   ]
     .filter(Boolean)
     .join(" · ");
+  const overrideReason = reservation.overrideReason?.trim() || null;
   const spokenLabel = [
     guestName,
     t("timeline.partyOf", { count: reservation.partySize }),
@@ -59,6 +60,7 @@ function ReservationBlockComponent({
     t(RESERVATION_STATUS_KEYS[reservation.status]).toLocaleLowerCase(fmt.locale),
     isSeated ? t("timeline.block.seatedWord") : null,
     visitText,
+    overrideReason ? t("timeline.block.overrideLabel", { reason: overrideReason }) : null,
   ]
     .filter(Boolean)
     .join(", ");
@@ -93,6 +95,11 @@ function ReservationBlockComponent({
           {reservation.partySize} · {startTime}
           {visitText !== null && ` · ${visitText}`}
         </div>
+        {overrideReason !== null && (
+          <div className={styles.overrideTag} data-truncate title={overrideReason}>
+            {t("timeline.block.overrideTag")}
+          </div>
+        )}
       </div>
     </button>
     /* eslint-enable mbe-local/prefer-rialto-components */
