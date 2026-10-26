@@ -19495,7 +19495,13 @@
     }
     export async function dispatchJob(
       handlers: JobHandlerMap,
-      job: { name: string; data: unknown; updateData?: (data: never) => Promise<void> }
+      job: {
+        name: string;
+        data: unknown;
+        updateData?: (data: never) => Promise<void>;
+        attemptsMade?: number;
+        opts?: { attempts?: number };
+      }
     ): Promise<void> {
       if (!JOB_TYPE_SET.has(job.name)) {
         throw new UnknownJobTypeError(job.name);
@@ -19509,6 +19515,7 @@
         throw new UnknownJobTypeError(jobType, "no-handler");
       }
       const ctx: JobContext = {
+        isFinalAttempt: (job.attemptsMade ?? 0) + 1 >= (job.opts?.attempts ?? 1),
         updateData: async (patch) => {
           await (job.updateData as ((d: object) => Promise<void>) | undefined)?.({
             ...(job.data as object),
@@ -19530,6 +19537,7 @@
       DAY_OF_REMINDER: "day-of-reminder",
       POST_VISIT_FOLLOWUP: "post-visit-followup",
       WAITLIST_EXPIRY: "waitlist-expiry",
+      CLOSURE_REFUND: "closure-refund",
     } as const;
     export type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
     export interface ReminderPayload {
@@ -19545,6 +19553,12 @@
     export interface JobContext {
       /** Persist a patch of new job data (shallow-merged over the current payload) for the retry. */
       updateData(patch: object): Promise<void>;
+      /**
+       * True when a failure now will not be retried (the last of the job's
+       * attempts, or a job whose attempt count is unknown). A handler that must
+       * record a terminal failure does so only when this is set.
+       */
+      isFinalAttempt: boolean;
     }
     export interface PostVisitFollowupPayload {
       reservationId: string;
@@ -19573,11 +19587,16 @@
       // have drained by then.
       venueId?: string;
     }
+    export interface ClosureRefundPayload {
+      outcomeId: string;
+      venueId: string;
+    }
     export type JobPayloadMap = {
       [JOB_TYPES.BOOKING_REMINDER]: ReminderPayload;
       [JOB_TYPES.DAY_OF_REMINDER]: ReminderPayload;
       [JOB_TYPES.POST_VISIT_FOLLOWUP]: PostVisitFollowupPayload;
       [JOB_TYPES.WAITLIST_EXPIRY]: WaitlistExpiryPayload;
+      [JOB_TYPES.CLOSURE_REFUND]: ClosureRefundPayload;
     };
     export type JobHandlerMap = Partial<{
       [K in JobType]: (payload: JobPayloadMap[K], ctx: JobContext) => Promise<void>;
@@ -29298,6 +29317,18 @@
             now: new Date(),
           });
           if (outcome.kind !== "saved") return sendRefusal(reply, outcome);
+          // After the commit. A failed enqueue must not undo or hide the save: the
+          // outcomes stay `refund: pending` and `closureRefunds.retry` picks them up.
+          if (outcome.result.outcomes.cancel > 0) {
+            try {
+              await fastify.closureRefunds.enqueue(venueId, outcome.result.ruleId);
+            } catch (err) {
+              request.log.error(
+                { err, venueId, ruleId: outcome.result.ruleId },
+                "Failed to enqueue closure refund jobs"
+              );
+            }
+          }
           return { data: outcome.result };
         }),
       });
@@ -45553,6 +45584,235 @@
       };
     }
   </file>
+  <file path="services/reservations/src/services/closure-refund-store.ts">
+    export function createPrismaClosureRefundStore(): ClosureRefundStore {
+      return {
+        load: (outcomeId) =>
+          prisma.closureOutcome.findUnique({
+            where: { id: outcomeId },
+            select: {
+              id: true,
+              venueId: true,
+              reservationId: true,
+              dateRuleId: true,
+              refund: true,
+              reservation: { select: { status: true, cancellationReason: true } },
+            },
+          }),
+        setRefund: async (outcomeId, refund) => {
+          await prisma.closureOutcome.update({ where: { id: outcomeId }, data: { refund } });
+        },
+        markFailed: async (outcomeId) => {
+          await prisma.closureOutcome.updateMany({
+            where: { id: outcomeId, refund: { notIn: ["done", "none"] } },
+            data: { refund: "failed" },
+          });
+        },
+        listByRule: (venueId, ruleId, statuses) =>
+          prisma.closureOutcome.findMany({
+            where: { venueId, dateRuleId: ruleId, refund: { in: [...statuses] } },
+            select: { id: true, reservationId: true },
+          }),
+      };
+    }
+  </file>
+  <file path="services/reservations/src/services/closure-refund.ts">
+    export interface ClosureRefundRow {
+      id: string;
+      venueId: string;
+      reservationId: string;
+      dateRuleId: string;
+      refund: ClosureRefundStatus;
+      reservation: { status: string; cancellationReason: string | null } | null;
+    }
+    export interface ClosureRefundStore {
+      load(outcomeId: string): Promise<ClosureRefundRow | null>;
+      setRefund(outcomeId: string, refund: ClosureRefundStatus): Promise<void>;
+      /** Records `failed`, leaving an outcome a concurrent run already settled (`done` / `none`). */
+      markFailed(outcomeId: string): Promise<void>;
+      /** Outcomes of one closure whose refund is in one of `statuses`. */
+      listByRule(
+        venueId: string,
+        ruleId: string,
+        statuses: readonly ClosureRefundStatus[]
+      ): Promise<{ id: string; reservationId: string }[]>;
+    }
+    export interface ClosureRefundDeps {
+      deposits: Pick<DepositService, "getByReservationId" | "hold" | "refund" | "writeOffUncaptured">;
+      payments: PaymentsPort;
+      store: ClosureRefundStore;
+    }
+    export class ClosureRefundPermanentError extends Error {
+      constructor(message: string) {
+        super(message);
+        this.name = "ClosureRefundPermanentError";
+      }
+    }
+    export const closureRefundKey = (ruleId: string, reservationId: string): string =>
+      `closure:${ruleId}:${reservationId}`;
+    export const closureRefundJobId = (ruleId: string, reservationId: string): string =>
+      closureRefundKey(ruleId, reservationId).replaceAll(":", "_");
+    type Settled = ClosureRefundStatus;
+    type CapturedStatus = "forfeited" | "applied" | "partial_refunded";
+    async function writeOff(
+      deps: ClosureRefundDeps,
+      deposit: Deposit,
+      settled: Settled
+    ): Promise<Settled | null> {
+      const count = await deps.deposits.writeOffUncaptured(
+        deposit.id,
+        deposit.status as CapturedStatus
+      );
+      return count > 0 ? settled : null;
+    }
+    async function refundCaptured(
+      deps: ClosureRefundDeps,
+      deposit: Deposit,
+      row: ClosureRefundRow
+    ): Promise<Settled | null> {
+      if (row.reservation?.cancellationReason !== "venue_closure") return "none";
+      const pi = deposit.stripePaymentIntentId;
+      if (!pi) {
+        throw new ClosureRefundPermanentError(
+          `Deposit ${deposit.id} has no Stripe payment; refund it by hand`
+        );
+      }
+      const intent = await deps.payments.retrievePaymentIntent(pi);
+      if (intent.status === "canceled") return writeOff(deps, deposit, "none");
+      if (intent.status === "requires_capture") {
+        // The recorded capture never landed: release the hold, there is nothing to refund.
+        await deps.payments.cancelPaymentIntent(pi, `${deposit.id}:refund`);
+        return writeOff(deps, deposit, "done");
+      }
+      if (intent.status !== "succeeded") {
+        throw new Error(`Payment ${pi} is ${intent.status}; cannot tell whether it was captured`);
+      }
+      if (await deps.payments.findDepositRefund(pi, deposit.id, "closureRefund")) return "done";
+    
+      const ownLeg =
+        deposit.status === "partial_refunded"
+          ? ((await deps.payments.findDepositRefund(pi, deposit.id, "refundPartial"))?.amount ?? 0)
+          : 0;
+      const owed = deposit.amountCents - ownLeg - (deposit.postCaptureRefundCents ?? 0);
+      if (owed <= 0) return "done";
+      await deps.payments.createPartialRefund(
+        pi,
+        owed,
+        deposit.id,
+        `${deposit.id}:closureRefund`,
+        "closureRefund"
+      );
+      return "done";
+    }
+    async function resolvePending(deps: ClosureRefundDeps, deposit: Deposit): Promise<Settled | null> {
+      const pi = deposit.stripePaymentIntentId;
+      if (!pi) return "none"; // never reached Stripe; nothing was authorized
+      const intent = await deps.payments.retrievePaymentIntent(pi);
+      switch (intent.status) {
+        case "canceled":
+          return "none";
+        case "requires_capture":
+          await deps.deposits.hold(deposit.id, pi, REFUND_ACTOR);
+          return null;
+        case "requires_payment_method":
+        case "requires_confirmation":
+        case "requires_action":
+          // Not authorized: cancel the intent so it can never be paid for a cancelled booking.
+          await deps.payments.cancelPaymentIntent(pi, `${deposit.id}:refund`);
+          return "none";
+        case "succeeded":
+          throw new ClosureRefundPermanentError(
+            `Deposit ${deposit.id} was captured while still pending; reconcile it by hand`
+          );
+        default:
+          throw new Error(`Payment ${pi} is ${intent.status}; try again`);
+      }
+    }
+    async function settleOnce(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<Settled | null> {
+      const deposit = await deps.deposits.getByReservationId(row.reservationId);
+      if (!deposit) return "none";
+      if (deposit.status === "refunded") return "done";
+      if (deposit.status === "uncollectable") return "none";
+      if (deposit.status === "held") {
+        await deps.deposits.refund(deposit.id);
+        return "done";
+      }
+      if (CAPTURED.has(deposit.status)) return refundCaptured(deps, deposit, row);
+      if (deposit.status === "pending") return resolvePending(deps, deposit);
+      return null;
+    }
+    async function settleDeposit(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<Settled> {
+      for (let read = 0; read < MAX_REREADS; read += 1) {
+        try {
+          const settled = await settleOnce(deps, row);
+          if (settled) return settled;
+        } catch (error) {
+          if (!isRace(error)) throw error;
+        }
+      }
+      // Retriable on purpose: BullMQ's bounded attempts re-run the job, and the
+      // final attempt records `failed`.
+      throw new Error(`Deposit for ${row.reservationId} kept changing; try again`);
+    }
+    export async function settleClosureRefund(
+      deps: ClosureRefundDeps,
+      payload: ClosureRefundPayload
+    ): Promise<void> {
+      const row = await deps.store.load(payload.outcomeId);
+      if (!row) throw new ClosureRefundPermanentError(`Closure outcome ${payload.outcomeId} not found`);
+      if (row.refund === "done" || row.refund === "none") return;
+      await deps.store.setRefund(row.id, await settleDeposit(deps, row));
+    }
+    export async function runClosureRefundJob(
+      deps: ClosureRefundDeps,
+      payload: ClosureRefundPayload,
+      opts: { isFinalAttempt: boolean }
+    ): Promise<void> {
+      try {
+        await settleClosureRefund(deps, payload);
+      } catch (error) {
+        if (error instanceof ClosureRefundPermanentError || opts.isFinalAttempt) {
+          await deps.store.markFailed(payload.outcomeId).catch(() => undefined);
+        }
+        throw error;
+      }
+    }
+    export async function enqueueClosureRefunds(
+      deps: { store: ClosureRefundStore; jobs: Pick<JobScheduler, "schedule"> },
+      venueId: string,
+      ruleId: string,
+      statuses: readonly ClosureRefundStatus[],
+      opts: { retry?: boolean; now?: () => number } = {}
+    ): Promise<number> {
+      const outcomes = await deps.store.listByRule(venueId, ruleId, statuses);
+      for (const outcome of outcomes) {
+        if (opts.retry) await deps.store.setRefund(outcome.id, "pending");
+        const base = closureRefundJobId(ruleId, outcome.reservationId);
+        const jobId = opts.retry ? `${base}_retry_${(opts.now ?? Date.now)()}` : base;
+        await deps.jobs.schedule(
+          JOB_TYPES.CLOSURE_REFUND,
+          { outcomeId: outcome.id, venueId },
+          0,
+          jobId
+        );
+      }
+      return outcomes.length;
+    }
+    export interface ClosureRefunds {
+      enqueue(venueId: string, ruleId: string): Promise<number>;
+      retry(venueId: string, ruleId: string): Promise<number>;
+    }
+    export function createClosureRefunds(deps: {
+      store: ClosureRefundStore;
+      jobs: Pick<JobScheduler, "schedule">;
+    }): ClosureRefunds {
+      return {
+        enqueue: (venueId, ruleId) => enqueueClosureRefunds(deps, venueId, ruleId, ["pending"]),
+        retry: (venueId, ruleId) =>
+          enqueueClosureRefunds(deps, venueId, ruleId, ["failed", "pending"], { retry: true }),
+      };
+    }
+  </file>
   <file path="services/reservations/src/services/confirm-hold.ts">
     type ConfirmHoldErrorCode =
       "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED" | "NOT_BOOKABLE";
@@ -46049,6 +46309,27 @@
         }
     
         return updated;
+      }
+    
+      /**
+       * Writes off a deposit recorded as captured (`applied` / `forfeited` /
+       * `partial_refunded`) whose capture never landed and whose intent the caller
+       * has already cancelled: nothing was charged and nothing ever will be. The
+       * same write-off `refundPartial` does for an intent it finds `canceled`.
+       * Compare-and-swap on `fromStatus`; returns the CAS count (0 = the row moved).
+       */
+      async writeOffUncaptured(
+        depositId: string,
+        fromStatus: "applied" | "forfeited" | "partial_refunded"
+      ): Promise<number> {
+        const timestampField = (
+          {
+            applied: "appliedAt",
+            forfeited: "forfeitedAt",
+            partial_refunded: "refundedAt",
+          } as const
+        )[fromStatus];
+        return this._writeOffUncollectable(depositId, fromStatus, timestampField);
       }
     
       /**
@@ -48597,6 +48878,11 @@
       handleWaitlistExpiry(input: { waitlistEntryId: string }): Promise<void>;
       /** Logs the WAITLIST_EXPIRY legacy-payload fallback (see handleWaitlistExpiryJob below). */
       logger: JobWorkerLogger;
+      /** Settles one closure outcome's deposit (closure-refund.ts). Absent = CLOSURE_REFUND is unhandled. */
+      runClosureRefund?: (
+        payload: ClosureRefundPayload,
+        opts: { isFinalAttempt: boolean }
+      ) => Promise<void>;
     }
     export function createReservationJobHandlers(deps: ReservationJobHandlerDeps): JobHandlerMap {
       async function deliverReminder(payload: ReminderPayload, ctx: JobContext): Promise<void> {
@@ -48679,10 +48965,29 @@
         return deps.handleWaitlistExpiry({ waitlistEntryId: payload.waitlistEntryId });
       }
     
+      /**
+       * CLOSURE_REFUND runs inside `runWithVenueContext(payload.venueId, …)` (the
+       * deposit, outcome and reservation reads and CASes are RLS-scoped). A
+       * permanent failure becomes an UnrecoverableError so BullMQ does not retry it.
+       */
+      const { runClosureRefund } = deps;
+      async function closureRefundJob(payload: ClosureRefundPayload, ctx: JobContext): Promise<void> {
+        if (!runClosureRefund) return;
+        return runWithVenueContext(payload.venueId, async () => {
+          try {
+            await runClosureRefund(payload, { isFinalAttempt: ctx.isFinalAttempt });
+          } catch (err) {
+            if (err instanceof ClosureRefundPermanentError) throw new UnrecoverableError(err.message);
+            throw err;
+          }
+        });
+      }
+    
       return {
         [JOB_TYPES.BOOKING_REMINDER]: deliverReminder,
         [JOB_TYPES.DAY_OF_REMINDER]: deliverReminder,
         [JOB_TYPES.WAITLIST_EXPIRY]: handleWaitlistExpiryJob,
+        ...(runClosureRefund ? { [JOB_TYPES.CLOSURE_REFUND]: closureRefundJob } : {}),
       };
     }
     export interface ReservationJobWorkerConfig {
@@ -52582,6 +52887,7 @@
     ): Stripe.Event {
       return Stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
     }
+    export type DepositRefundLeg = "refundPartial" | "closureRefund";
     export class StripeService {
       private readonly stripe: Stripe;
     
@@ -52671,7 +52977,8 @@
         paymentIntentId: string,
         refundAmountCents: number,
         depositId: string,
-        idempotencyKey?: string
+        idempotencyKey?: string,
+        leg: DepositRefundLeg = "refundPartial"
       ): Promise<{ id: string; status: string; amount: number }> {
         try {
           const intent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
@@ -52693,7 +53000,7 @@
               // Tags this refund as OURS so a retry can find it specifically via
               // findDepositRefund, rather than reading the charge's aggregate
               // amount_refunded — which includes unrelated refunds (#5722 MED-2).
-              metadata: { depositId, leg: "refundPartial" },
+              metadata: { depositId, leg },
             },
             idempotencyKey ? { idempotencyKey } : undefined
           );
@@ -52742,7 +53049,8 @@
        */
       async findDepositRefund(
         paymentIntentId: string,
-        depositId: string
+        depositId: string,
+        leg: DepositRefundLeg = "refundPartial"
       ): Promise<{ id: string; amount: number } | null> {
         try {
           const refunds = await this.stripe.refunds.list({
@@ -52752,7 +53060,7 @@
           const ours = refunds.data.find(
             (refund) =>
               refund.metadata?.depositId === depositId &&
-              refund.metadata?.leg === "refundPartial" &&
+              refund.metadata?.leg === leg &&
               (refund.status === "succeeded" ||
                 refund.status === "pending" ||
                 refund.status === "requires_action")
@@ -71931,6 +72239,8 @@
        * `STRIPE_SECRET_KEY`; tests inject `createInMemoryPayments`.
        */
       payments?: PaymentsPort;
+      /** Closure refund enqueue/retry. Defaults to the Prisma store over the job scheduler. */
+      closureRefunds?: ClosureRefunds;
       reservationEvents?: ReservationEventEmitter;
       waitlistNotifier?: WaitlistNotifier;
       venueMembershipLookup?: VenueMembershipLookup;
@@ -72115,6 +72425,18 @@
       });
       fastify.decorate("transitions", transitions);
     
+      // CLOSURE_REFUND (#7524): the closure route enqueues after commit; the worker
+      // below settles each deposit through DepositService.
+      const closureRefundStore = createPrismaClosureRefundStore();
+      fastify.decorate(
+        "closureRefunds",
+        options.closureRefunds ??
+          createClosureRefunds({
+            store: closureRefundStore,
+            jobs: options.jobs ?? notifierRuntime.scheduler,
+          })
+      );
+    
       // Register routes
       await fastify.register(tableRoutes, { prefix: "/api/v1/tables" });
       await fastify.register(reservationRoutes, { prefix: "/api/v1/reservations" });
@@ -72194,6 +72516,12 @@
               generateManageToken,
               handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),
               logger: fastify.log,
+              runClosureRefund: (payload, opts) =>
+                runClosureRefundJob(
+                  { deposits: services.depositService, payments, store: closureRefundStore },
+                  payload,
+                  opts
+                ),
             }),
           });
           fastify.addHook("onReady", async () => jobWorker.start(fastify.log));

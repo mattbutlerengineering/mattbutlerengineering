@@ -46,6 +46,12 @@ import { createDefaultPostVisitNotifier } from "./services/post-visit-notifier.j
 import { createNotifierRuntime } from "./services/notifier-runtime.js";
 import { createLapsedGuestMonitor } from "./services/lapsed-guest-cron.js";
 import { createReservationJobHandlers, createReservationJobWorker } from "./services/job-worker.js";
+import {
+  createClosureRefunds,
+  runClosureRefundJob,
+  type ClosureRefunds,
+} from "./services/closure-refund.js";
+import { createPrismaClosureRefundStore } from "./services/closure-refund-store.js";
 import { defaultDomainServices, type DomainServices } from "./services/domain-services.js";
 import { generateManageToken } from "./routes/public-reservations.js";
 import { db, prisma } from "./services/database.js";
@@ -85,6 +91,8 @@ export interface ReservationsAppOptions extends AppOptions {
    * `STRIPE_SECRET_KEY`; tests inject `createInMemoryPayments`.
    */
   payments?: PaymentsPort;
+  /** Closure refund enqueue/retry. Defaults to the Prisma store over the job scheduler. */
+  closureRefunds?: ClosureRefunds;
   reservationEvents?: ReservationEventEmitter;
   waitlistNotifier?: WaitlistNotifier;
   venueMembershipLookup?: VenueMembershipLookup;
@@ -275,6 +283,18 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   });
   fastify.decorate("transitions", transitions);
 
+  // CLOSURE_REFUND (#7524): the closure route enqueues after commit; the worker
+  // below settles each deposit through DepositService.
+  const closureRefundStore = createPrismaClosureRefundStore();
+  fastify.decorate(
+    "closureRefunds",
+    options.closureRefunds ??
+      createClosureRefunds({
+        store: closureRefundStore,
+        jobs: options.jobs ?? notifierRuntime.scheduler,
+      })
+  );
+
   // Register routes
   await fastify.register(tableRoutes, { prefix: "/api/v1/tables" });
   await fastify.register(reservationRoutes, { prefix: "/api/v1/reservations" });
@@ -354,6 +374,12 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
           generateManageToken,
           handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),
           logger: fastify.log,
+          runClosureRefund: (payload, opts) =>
+            runClosureRefundJob(
+              { deposits: services.depositService, payments, store: closureRefundStore },
+              payload,
+              opts
+            ),
         }),
       });
       fastify.addHook("onReady", async () => jobWorker.start(fastify.log));
@@ -377,6 +403,8 @@ declare module "fastify" {
     payments: PaymentsPort;
     /** Reservation transitions — one verb per transition, effects planned in one table. */
     transitions: ReservationTransitions;
+    /** Enqueues/retries a closure's refund jobs (services/closure-refund.ts). */
+    closureRefunds: ClosureRefunds;
     venueMembershipLookup: VenueMembershipLookup;
     venueRoleLookup: VenueRoleLookup;
     hasAnyVenueMembership: HasAnyVenueMembership;
