@@ -152,7 +152,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
   const [callListFor, setCallListFor] = useState<string | null>(null);
   const [reopening, setReopening] = useState<SpecialDateRule | null>(null);
   const [editingSeries, setEditingSeries] = useState<DateRule | null>(null);
-  const [editingDate, setEditingDate] = useState<{ seriesId: string; date: string } | null>(null);
+  const [editingDate, setEditingDate] = useState<{ series: DateRule; date: string } | null>(null);
   const [retryingId, setRetryingId] = useState<string | null>(null);
 
   const rows = specialDateRows(rules, today, filter);
@@ -269,7 +269,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           onStale={onStale}
           onEditDate={(series, date) => {
             setEditingSeries(null);
-            setEditingDate({ seriesId: series.id, date });
+            setEditingDate({ series, date });
           }}
           onClose={() => setEditingSeries(null)}
         />
@@ -281,7 +281,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           timezone={timezone}
           today={today}
           initialDate={editingDate.date}
-          seriesId={editingDate.seriesId}
+          series={editingDate.series}
           onClose={() => setEditingDate(null)}
         />
       )}

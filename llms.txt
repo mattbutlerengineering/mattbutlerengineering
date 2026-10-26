@@ -1682,6 +1682,11 @@
       export function buildDraftChanges(input: BuildInput): AvailabilityConfigChanges { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/outcome-label.ts">
+    <item priority="high">
+      export function outcomeLabel(counts: OutcomeCounts, t: TFunction): string { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/quick-setup-draft.ts">
     <item priority="low">
       interface ServiceDraft {
@@ -2082,6 +2087,13 @@
       export function nextOccurrence(series: DateRule, from: string): string { /* ... */ }
     </item>
     <item priority="high">
+      export function dateOverride(
+        rules: readonly DateRule[],
+        seriesId: string,
+        date: string
+      ): DateRule | undefined { /* ... */ }
+    </item>
+    <item priority="high">
       export function skippedDates(rules: readonly DateRule[], seriesId: string): string[] { /* ... */ }
     </item>
     <item priority="high">
@@ -2129,6 +2141,25 @@
       ): ClosureSummary[] { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/tonight-state.ts">
+    <item priority="low">
+      type TonightChange = { readonly ruleId: string; rea | { readonly ruleId: string; rea | {
+            readonly ruleId: strin | { readonly ruleId: string; rea | { readonly ruleId: string; rea;
+    </item>
+    <item priority="high">
+      type TonightRule = Extract<DateRule, { kind: "tonight" }>;
+    </item>
+    <item priority="medium">
+      function describe(rule: TonightRule): TonightChange | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function activeTonightChanges(
+        rules: readonly DateRule[],
+        today: string,
+        now: Date
+      ): readonly TonightChange[] { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/use-discard-guard.ts">
     <item priority="high">
       export function useDiscardGuard<T>(apply: (next: T) => void) { /* ... */ }
@@ -2136,7 +2167,12 @@
   </file>
   <file path="apps/hospitality/src/components/availability/use-schedule-save.ts">
     <item priority="high">
-      export function useScheduleSave(onStale: () => void) { /* ... */ }
+      export function useScheduleSave(
+        onStale: () => void,
+        strandedKey:
+          | "availabilitySchedules.stranded"
+          | "availabilitySpecial.series.stranded" = "availabilitySchedules.stranded"
+      ) { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/useDateSelection.ts">
@@ -6223,6 +6259,17 @@
         entries,
         onActivate,
       }: UseTimelineKeyboardParams): UseTimelineKeyboardResult { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useTonight.ts">
+    <item priority="low">
+      type SetTonightRequest = Parameters<AvailabilityClient["setTonight"]>[1];
+    </item>
+    <item priority="high">
+      export const useSetTonight: unknown;
+    </item>
+    <item priority="high">
+      export const useEndTonight: unknown;
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useUsers.ts">

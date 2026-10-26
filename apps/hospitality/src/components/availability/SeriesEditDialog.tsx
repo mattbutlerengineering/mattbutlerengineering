@@ -15,6 +15,7 @@ import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { addDays } from "../../utils/service-day.js";
 import {
   coversDate,
+  dateOverride,
   editSeriesDates,
   nextOccurrence,
   skipDate,
@@ -52,12 +53,15 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
   const { t } = useTranslation();
   const format = useVenueFormat();
   const { toast } = useToast();
-  const { save, isPending, failure } = useScheduleSave(onStale);
+  const { save, isPending, failure } = useScheduleSave(
+    onStale,
+    "availabilitySpecial.series.stranded"
+  );
   const [scope, setScope] = useState<Scope>("only");
   const [date, setDate] = useState(() => nextOccurrence(series, today));
   const [weekdays, setWeekdays] = useState<readonly number[]>(series.repeat?.weekdays ?? []);
   const [endsOn, setEndsOn] = useState<string | null>(series.endsOn ?? null);
-  const [invalid, setInvalid] = useState<"date" | "edit" | null>(null);
+  const [invalid, setInvalid] = useState<"date" | "edit" | "taken" | null>(null);
 
   const label = (d: string) =>
     format.formatCalendarDate(d, { weekday: "short", month: "short", day: "numeric" });
@@ -72,6 +76,7 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
 
   const skip = () => {
     if (!coversDate(series, date)) return setInvalid("date");
+    if (dateOverride(state.config.dateRules, series.id, date)) return setInvalid("taken");
     setInvalid(null);
     void commit(
       skipDate(series, date, makeId),
@@ -80,6 +85,7 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
   };
   const editThis = () => {
     if (!coversDate(series, date)) return setInvalid("date");
+    if (dateOverride(state.config.dateRules, series.id, date)) return setInvalid("taken");
     onEditDate(series, date);
   };
   const saveSeries = () => {
@@ -148,6 +154,9 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
         </Alert>
       )}
       {dateField(date, setDate, t("availabilitySpecial.series.dateLabel"))}
+      {invalid === "taken" && (
+        <Alert variant="warning">{t("availabilitySpecial.series.dateChanged")}</Alert>
+      )}
       {invalid === "date" && (
         <Alert variant="warning">{t("availabilitySpecial.series.invalidDate")}</Alert>
       )}

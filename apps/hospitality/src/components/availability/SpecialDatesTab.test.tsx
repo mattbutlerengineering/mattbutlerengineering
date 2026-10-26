@@ -74,13 +74,13 @@ const STATE = {
   },
 } as unknown as AvailabilityConfigState;
 
-function renderTab(isManager = true) {
+function renderTab(isManager = true, state: AvailabilityConfigState = STATE) {
   return render(
     <ToastProvider>
       <main>
         <SpecialDatesTab
           venueId="venue-1"
-          state={STATE}
+          state={state}
           timezone="America/Los_Angeles"
           today="2026-12-01"
           onStale={vi.fn()}
@@ -128,6 +128,54 @@ describe("SpecialDatesTab", () => {
       startsOn: "2027-01-11",
       endsOn: "2027-01-11",
     });
+  });
+
+  it("refuses to skip a date that is already skipped, or to edit one that has its own change", () => {
+    const skip = {
+      id: "skip-1",
+      kind: "skip",
+      targetKind: "venue",
+      startsOn: "2027-01-11",
+      endsOn: "2027-01-11",
+      seriesId: "mondays",
+    } as DateRule;
+    const state = {
+      ...STATE,
+      config: { ...STATE.config, dateRules: [...RULES, skip] },
+    } as AvailabilityConfigState;
+    renderTab(true, state);
+    expect(screen.getByText(/Skipped/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Edit dates…" }));
+    const dialog = screen.getByRole("dialog");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Skip this date" }));
+    expect(
+      within(dialog).getByText("This date already has its own change. Remove it first.")
+    ).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Edit this date…" }));
+    expect(screen.getByRole("dialog", { name: "Edit dates" })).toBeTruthy();
+    expect(saveConfig).not.toHaveBeenCalled();
+  });
+
+  it("names the closure, not the hours, when a series edit would strand bookings", async () => {
+    saveConfig.mockRejectedValue({
+      problemDetails: {
+        type: "about:blank",
+        title: "Conflict",
+        status: 409,
+        detail: "x",
+        code: "stranded-bookings",
+        reservations: [
+          { id: "r1", startTime: "2027-01-11T18:00:00Z", partySize: 2, reason: "closed" },
+        ],
+      },
+    });
+    renderTab();
+    fireEvent.click(screen.getByRole("button", { name: "Edit dates…" }));
+    fireEvent.click(screen.getByRole("button", { name: "Skip this date" }));
+
+    expect(await screen.findByText(/would be left without service by this change/)).toBeTruthy();
+    expect(screen.queryByText(/outside the new hours/)).toBeNull();
   });
 
   it("this and following ends the series before the date and starts a new one", async () => {

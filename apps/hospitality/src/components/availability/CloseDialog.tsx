@@ -23,10 +23,10 @@ import {
   type ChoiceMap,
   type CloseField,
   type CloseForm,
-  type OutcomeCounts,
 } from "./close-draft.js";
 import { CloseStepOne } from "./CloseStepOne.js";
 import { CloseStepTwo } from "./CloseStepTwo.js";
+import { outcomeLabel } from "./outcome-label.js";
 import styles from "./CloseDialog.module.css";
 
 export interface CloseDialogProps {
@@ -39,13 +39,28 @@ export interface CloseDialogProps {
   readonly initialDate: string | null;
   /** Start with "Booking only: online" and "Until I reopen" (pause online booking). */
   readonly pauseOnline?: boolean;
-  /** Makes the closure an edit of one date of this series (ux.md F-SER "Edit this date"). */
-  readonly seriesId?: string;
+  /**
+   * Makes the closure an edit of the one date `initialDate` of this series (ux.md F-SER "Edit
+   * this date"): What and the window start as the series has them, and When is fixed to that date.
+   */
+  readonly series?: DateRule;
+  /** A Host's emergency close (ux.md F7): Whole venue and Tonight, shown as text and not editable. */
+  readonly hostLocked?: boolean;
   readonly onClose: () => void;
 }
 
 function initialForm(props: CloseDialogProps): CloseForm {
-  const { initialDate, pauseOnline, today } = props;
+  const { initialDate, pauseOnline, hostLocked, series, today } = props;
+  if (series && initialDate) return seriesForm(series, initialDate);
+  if (hostLocked) {
+    return {
+      what: { kind: "venue" },
+      when: { kind: "tonight" },
+      fromMinute: null,
+      staffNote: "",
+      guestMessage: "",
+    };
+  }
   return {
     what: pauseOnline ? { kind: "booking", types: ["online"] } : { kind: "venue" },
     when: pauseOnline
@@ -59,26 +74,34 @@ function initialForm(props: CloseDialogProps): CloseForm {
   };
 }
 
-/** The button that names the result (ux.md F5 step 7): "Close and cancel 14". */
-function outcomeLabel(counts: OutcomeCounts, t: TFunction): string {
-  const parts = (["cancel", "move", "keep_notify", "keep_silent"] as const)
-    .filter((a) => counts[a] > 0)
-    .map((a) => ({ a, count: counts[a] }));
-  // Nothing chosen yet: ask for a choice rather than render an empty "Close · ".
-  if (parts.length === 0) return t("availability.close.button.choose");
-  if (parts.length === 1) {
-    const [only] = parts;
-    return t(`availability.close.button.${only!.a}`, { count: only!.count });
+function whatOf(series: DateRule): CloseForm["what"] {
+  if (series.targetKind === "service" && series.venueServiceId) {
+    return { kind: "service", serviceId: series.venueServiceId };
   }
-  return t("availability.close.button.mixed", {
-    parts: parts
-      .map((p) => t(`availability.close.button.part.${p.a}`, { count: p.count }))
-      .join(" · "),
-  });
+  if (series.targetKind === "booking" && series.bookingTypes?.length) {
+    return { kind: "booking", types: [...series.bookingTypes] };
+  }
+  return { kind: "venue" };
 }
 
-function inSeries(rule: DateRule | null, seriesId: string | undefined): DateRule | null {
-  return rule && seriesId ? { ...rule, seriesId } : rule;
+/** The form for editing one date of `series`: the series' target and start time, on that date. */
+function seriesForm(series: DateRule, date: string): CloseForm {
+  return {
+    what: whatOf(series),
+    when: { kind: "date", date },
+    fromMinute: series.window?.from ?? null,
+    staffNote: "",
+    guestMessage: "",
+  };
+}
+
+/**
+ * An edit of one date of a series. The engine applies a rule with a `seriesId` on its start date
+ * only, so the rule is pinned to that single date whatever the form says.
+ */
+function inSeries(rule: DateRule | null, series: DateRule | undefined): DateRule | null {
+  if (!rule || !series) return rule;
+  return { ...rule, seriesId: series.id, endsOn: rule.startsOn, repeat: null };
 }
 
 function failureText(error: unknown, t: TFunction): string {
@@ -111,19 +134,16 @@ export function CloseDialog(props: CloseDialogProps) {
   // One id per dialog: the rule is created at most once, whatever the Manager retries.
   const [ruleId] = useState(() => crypto.randomUUID());
 
-  const { seriesId } = props;
+  const { series } = props;
   const impactRule = useMemo(
     () =>
-      inSeries(
-        buildCloseRule({ ...form, staffNote: "", guestMessage: "" }, ruleId, today),
-        seriesId
-      ),
-    [form, ruleId, today, seriesId]
+      inSeries(buildCloseRule({ ...form, staffNote: "", guestMessage: "" }, ruleId, today), series),
+    [form, ruleId, today, series]
   );
   const impactQuery = useClosureImpact({ venueId, rule: impactRule });
   const impact: ClosureImpact | null | undefined = impactRule ? impactQuery.data : null;
   const groups = impact?.groups ?? [];
-  const rule = inSeries(buildCloseRule(form, ruleId, today), seriesId);
+  const rule = inSeries(buildCloseRule(form, ruleId, today), series);
   const services = state.config.venueServices.filter((s) => !s.archivedAt);
 
   const startsOn = rule?.startsOn ?? today;
@@ -240,6 +260,8 @@ export function CloseDialog(props: CloseDialogProps) {
           impactFailed={impactQuery.error !== null}
           replacedDate={replacedDate}
           invalid={invalid}
+          locked={props.hostLocked}
+          dateLocked={series !== undefined}
         />
       ) : (
         impact && (

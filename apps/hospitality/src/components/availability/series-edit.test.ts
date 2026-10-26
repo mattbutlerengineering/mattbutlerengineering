@@ -9,6 +9,7 @@ import {
 } from "./resolved-day-fixtures.js";
 import {
   coversDate,
+  dateOverride,
   editSeriesDates,
   isSeries,
   nextOccurrence,
@@ -157,5 +158,14 @@ describe("nextOccurrence", () => {
     expect(coversDate(WEEKLY_CLOSURE, "2026-10-31")).toBe(false);
     expect(nextOccurrence(WEEKLY_CLOSURE, "2026-10-31")).toBe(NEXT_FRIDAY);
     expect(nextOccurrence(WEEKLY_CLOSURE, "2026-09-01")).toBe("2026-10-02");
+  });
+});
+
+describe("dateOverride", () => {
+  it("finds the skip or one-date edit that already replaces the series on a date", () => {
+    const skip = skipDate(WEEKLY_CLOSURE, FIXTURE_DATE, makeId).upsert.dateRules![0]!;
+    const rules = [WEEKLY_CLOSURE, skip];
+    expect(dateOverride(rules, WEEKLY_CLOSURE.id, FIXTURE_DATE)).toBe(skip);
+    expect(dateOverride(rules, WEEKLY_CLOSURE.id, NEXT_FRIDAY)).toBeUndefined();
   });
 });

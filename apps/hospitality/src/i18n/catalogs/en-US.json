@@ -1573,7 +1573,10 @@
       "invalid": "Pick at least one weekday and an end date on or after the start.",
       "skippedToast": "{{date}} skipped. The rest of the series is unchanged.",
       "savedToast": "Series updated",
-      "skipped": "Skipped {{dates}}"
+      "skipped": "Skipped {{dates}}",
+      "stranded_one": "{{count}} booking would be left without service by this change. Close the date from Edit this date… to choose what happens to them.",
+      "stranded_other": "{{count}} bookings would be left without service by this change. Close the date from Edit this date… to choose what happens to them.",
+      "dateChanged": "This date already has its own change. Remove it first."
     },
     "callList": {
       "title": "Call list",
@@ -2094,6 +2097,43 @@
       "selectMenu": "Select…",
       "weekdayInMonth": "Every {{weekday}} in {{month}}",
       "usingSchedule": "All dates using {{schedule}}"
+    },
+    "tonight": {
+      "title": "Tonight",
+      "decisions": {
+        "title": "Bookings after the new close"
+      },
+      "open": "Tonight",
+      "chips": "Tonight's changes",
+      "pause": "Pause online booking",
+      "closeEarly": "Close early at",
+      "stopFrom": "Stop booking from",
+      "stopTo": "to",
+      "apply": "Apply",
+      "block": {
+        "label": "Block tables",
+        "all": "All tables",
+        "location": "All tables in {{location}}",
+        "button": "Block"
+      },
+      "pacing": "Pacing tonight (covers per slot)",
+      "ends": "Ends {{time}} (end of tonight's service)",
+      "emergency": "Emergency: close tonight…",
+      "whoCanClose": "Who can close in an emergency?",
+      "hostGranted": "Hosts can close the whole venue for tonight. Anything longer needs a manager.",
+      "hostNotGranted": "Only managers can close in an emergency. Ask a manager to allow it for hosts in Settings.",
+      "error": "Couldn't apply that change. Try again.",
+      "chip": {
+        "pause": "Online paused · rest of tonight",
+        "closeEarly": "Closing early · {{time}}",
+        "stopWindow": "No bookings {{from}}–{{to}}",
+        "blocked_one": "{{count}} table blocked · rest of tonight",
+        "blocked_other": "{{count}} tables blocked · rest of tonight",
+        "blocked_many": "{{count}} tables blocked · rest of tonight",
+        "pacing_one": "Pacing {{count}} cover",
+        "pacing_other": "Pacing {{count}} covers",
+        "pacing_many": "Pacing {{count}} covers"
+      }
     }
   },
   "setup": {

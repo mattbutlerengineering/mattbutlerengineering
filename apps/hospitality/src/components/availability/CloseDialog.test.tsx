@@ -2,7 +2,7 @@ import { beforeAll, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, within, fireEvent, waitFor } from "@testing-library/react";
 import { axe } from "vitest-axe";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
-import type { AvailabilityConfigState, ClosureImpact } from "@mbe/types";
+import type { AvailabilityConfigState, ClosureImpact, DateRule } from "@mbe/types";
 
 const create = vi.hoisted(() => vi.fn());
 const impactState = vi.hoisted(() => ({ value: null as unknown }));
@@ -26,6 +26,18 @@ import { fixtureConfig } from "./resolved-day-fixtures.js";
 
 const AXE_OPTIONS = { rules: { "color-contrast": { enabled: false } } };
 const DATE = "2026-12-24";
+
+/** A weekly dinner-only closure from 10:00 PM: the series whose one date is being edited. */
+const DINNER_SERIES: DateRule = {
+  id: "series-1",
+  kind: "closure",
+  targetKind: "service",
+  venueServiceId: "vs-dinner",
+  startsOn: "2026-10-01",
+  endsOn: "2027-03-31",
+  repeat: { version: 1, weekdays: [4] },
+  window: { version: 1, from: 1320, to: 2880 },
+};
 
 const IMPACT: ClosureImpact = {
   reservations: 14,
@@ -51,7 +63,7 @@ const IMPACT: ClosureImpact = {
   ],
 };
 
-function renderDialog(seriesId?: string) {
+function renderDialog(extra: Partial<React.ComponentProps<typeof CloseDialog>> = {}) {
   const state: AvailabilityConfigState = { config: fixtureConfig(), version: 7, source: "rows" };
   const onClose = vi.fn();
   const utils = render(
@@ -63,8 +75,8 @@ function renderDialog(seriesId?: string) {
           timezone="America/Los_Angeles"
           today="2026-12-01"
           initialDate={DATE}
-          seriesId={seriesId}
           onClose={onClose}
+          {...extra}
         />
       </main>
     </ToastProvider>
@@ -81,22 +93,41 @@ describe("CloseDialog", () => {
     impactState.value = IMPACT;
   });
 
-  it("saves an edit of one date of a series with the series id, after the impact decisions", async () => {
+  it("edits one date of a series: When is fixed to that date and What starts as the series", async () => {
     create.mockResolvedValue({
       ruleId: "rule",
       version: 8,
       changeId: "c",
       outcomes: { cancel: 14, move: 0, keep_notify: 0, keep_silent: 0 },
     });
-    renderDialog("series-1");
+    renderDialog({ series: DINNER_SERIES });
     const dialog = screen.getByRole("dialog");
+
+    // No range, repeat or until-reopen can be typed: the engine applies the edit on its start only.
+    expect(within(dialog).queryByRole("radio", { name: "Date range" })).toBeNull();
+    expect(within(dialog).queryByRole("radio", { name: "Repeats" })).toBeNull();
+    expect(within(dialog).queryByRole("radio", { name: "Until I reopen" })).toBeNull();
+    expect(within(dialog).getByRole("radio", { name: "One service" })).toHaveProperty(
+      "checked",
+      true
+    );
+
     fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
     fireEvent.click(within(dialog).getByRole("radio", { name: /Cancel, notify & refund/ }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
 
     await waitFor(() => expect(create).toHaveBeenCalled());
     const { body } = create.mock.calls[0]![0];
-    expect(body.rule).toMatchObject({ kind: "closure", startsOn: DATE, seriesId: "series-1" });
+    expect(body.rule).toMatchObject({
+      kind: "closure",
+      seriesId: "series-1",
+      targetKind: "service",
+      venueServiceId: "vs-dinner",
+      startsOn: DATE,
+      endsOn: DATE,
+      repeat: null,
+      window: { from: 1320 },
+    });
     expect(body.decisions).toHaveLength(1);
   });
 
@@ -241,6 +272,32 @@ describe("CloseDialog", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Close and keep 14" }));
     expect(await within(dialog).findByText("Couldn't close")).toBeTruthy();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("locks What and When to the whole venue tonight for a Host, as text", async () => {
+    create.mockResolvedValue({
+      ruleId: "rule",
+      version: 8,
+      changeId: "c",
+      outcomes: { cancel: 14, move: 0, keep_notify: 0, keep_silent: 0 },
+    });
+    renderDialog({ hostLocked: true, initialDate: null });
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).queryByRole("radio")).toBeNull();
+    expect(within(dialog).getByText("Whole venue")).toBeTruthy();
+    expect(within(dialog).getByText("Tonight")).toBeTruthy();
+    // Step 2 is still required: the Host decides what happens to each booking.
+    fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+    fireEvent.click(within(dialog).getByRole("radio", { name: /Cancel, notify & refund/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+    await waitFor(() => expect(create).toHaveBeenCalled());
+    const call = create.mock.calls[0]?.[0] as { body: { rule: Record<string, unknown> } };
+    expect(call.body.rule).toMatchObject({
+      kind: "closure",
+      targetKind: "venue",
+      startsOn: "2026-12-01",
+      endsOn: "2026-12-01",
+    });
   });
 
   it("has no axe violations on either step", async () => {

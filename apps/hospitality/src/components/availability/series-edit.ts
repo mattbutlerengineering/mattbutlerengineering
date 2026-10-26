@@ -43,6 +43,15 @@ export function nextOccurrence(series: DateRule, from: string): string {
   return series.startsOn;
 }
 
+/** The skip or one-date edit that already replaces the series on `date`, if any. */
+export function dateOverride(
+  rules: readonly DateRule[],
+  seriesId: string,
+  date: string
+): DateRule | undefined {
+  return rules.find((r) => r.seriesId === seriesId && r.startsOn === date);
+}
+
 /** Dates already skipped out of a series, in order. */
 export function skippedDates(rules: readonly DateRule[], seriesId: string): string[] {
   return rules
