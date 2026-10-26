@@ -1581,6 +1581,26 @@
       "keep": "Garder fermé",
       "done": "{{date}} rouvert"
     },
+    "series": {
+      "editDates": "Modifier les dates…",
+      "title": "Modifier les dates",
+      "dateLabel": "Date",
+      "scopeLabel": "Modifier",
+      "scopeOnly": "Seulement le {{date}}",
+      "scopeFollowing": "Celle-ci et les suivantes",
+      "scopeAll": "Toutes les dates de la série",
+      "skip": "Ignorer cette date",
+      "editThis": "Modifier cette date…",
+      "save": "Enregistrer",
+      "cancel": "Annuler",
+      "weekdays": "Se répète le",
+      "endsLabel": "Se termine le",
+      "invalidDate": "Choisissez une date couverte par la série.",
+      "invalid": "Choisissez au moins un jour de la semaine et une date de fin égale ou postérieure au début.",
+      "skippedToast": "{{date}} ignoré. Le reste de la série reste inchangé.",
+      "savedToast": "Série mise à jour",
+      "skipped": "Ignoré : {{dates}}"
+    },
     "callList": {
       "title": "Liste d'appels",
       "description": "Clients qui n'ont pas confirmé un avis ni réservé de nouveau.",

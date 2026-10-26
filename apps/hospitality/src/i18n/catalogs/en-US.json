@@ -1555,6 +1555,26 @@
       "keep": "Keep closed",
       "done": "{{date}} reopened"
     },
+    "series": {
+      "editDates": "Edit dates…",
+      "title": "Edit dates",
+      "dateLabel": "Date",
+      "scopeLabel": "Change",
+      "scopeOnly": "Only {{date}}",
+      "scopeFollowing": "This and following",
+      "scopeAll": "All dates in the series",
+      "skip": "Skip this date",
+      "editThis": "Edit this date…",
+      "save": "Save",
+      "cancel": "Cancel",
+      "weekdays": "Repeats on",
+      "endsLabel": "Ends on",
+      "invalidDate": "Pick a date the series covers.",
+      "invalid": "Pick at least one weekday and an end date on or after the start.",
+      "skippedToast": "{{date}} skipped. The rest of the series is unchanged.",
+      "savedToast": "Series updated",
+      "skipped": "Skipped {{dates}}"
+    },
     "callList": {
       "title": "Call list",
       "description": "Guests who haven't confirmed a notice or rebooked.",

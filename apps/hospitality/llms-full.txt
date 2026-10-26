@@ -1538,6 +1538,71 @@
       return normalizeDates(days.filter((d) => d.scheduleId === scheduleId).map((d) => d.serviceDate));
     }
   </file>
+  <file path="src/components/availability/series-edit.ts">
+    export type SeriesScope = "following" | "all";
+    export interface SeriesEdit {
+      readonly weekdays: readonly number[];
+      /** `null`: until reopened. */
+      readonly endsOn: string | null;
+    }
+    export function isSeries(rule: DateRule): boolean {
+      return rule.kind === "closure" && rule.repeat != null && rule.seriesId == null;
+    }
+    export function coversDate(series: DateRule, date: string): boolean {
+      return (
+        series.startsOn <= date &&
+        (series.endsOn == null || date <= series.endsOn) &&
+        (series.repeat?.weekdays.includes(weekdayIndexOf(date)) ?? false)
+      );
+    }
+    export function nextOccurrence(series: DateRule, from: string): string {
+      const start = from > series.startsOn ? from : series.startsOn;
+      for (let i = 0; i < 7; i += 1) {
+        const date = addDays(start, i);
+        if (coversDate(series, date)) return date;
+      }
+      return series.startsOn;
+    }
+    export function skippedDates(rules: readonly DateRule[], seriesId: string): string[] {
+      return rules
+        .filter((r) => r.kind === "skip" && r.seriesId === seriesId)
+        .map((r) => r.startsOn)
+        .sort();
+    }
+    export function skipDate(
+      series: DateRule,
+      date: string,
+      makeId: () => string
+    ): AvailabilityConfigChanges {
+      const skip: DateRule = {
+        id: makeId(),
+        kind: "skip",
+        targetKind: "venue",
+        startsOn: date,
+        endsOn: date,
+        seriesId: series.id,
+      };
+      return { upsert: { dateRules: [skip] }, remove: {} };
+    }
+    export function editSeriesDates(
+      config: AvailabilityConfig,
+      series: DateRule,
+      scope: SeriesScope,
+      date: string,
+      edit: SeriesEdit,
+      makeId: () => string
+    ): AvailabilityConfigChanges {
+      if (scope === "all" || date <= series.startsOn) {
+        return { upsert: { dateRules: [withEdit(series, edit)] }, remove: {} };
+      }
+      const created: DateRule = { ...withEdit(series, edit), id: makeId(), startsOn: date };
+      const moved = config.dateRules
+        .filter((r) => r.seriesId === series.id && r.startsOn >= date)
+        .map((r) => ({ ...r, seriesId: created.id }));
+      const ended: DateRule = { ...series, endsOn: addDays(date, -1) };
+      return { upsert: { dateRules: [ended, created, ...moved] }, remove: {} };
+    }
+  </file>
   <file path="src/components/availability/special-dates.ts">
     export type SpecialDatesFilter = "all" | "closures" | "special_hours" | "repeating" | "past";
     export type SpecialDateRule = Extract<DateRule, { kind: "closure" | "special_hours" }>;

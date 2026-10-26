@@ -2,18 +2,27 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { axe } from "vitest-axe";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
-import type { ClosureCallListEntry, ClosureSummary, DateRule } from "@mbe/types";
+import type {
+  AvailabilityConfigState,
+  ClosureCallListEntry,
+  ClosureSummary,
+  DateRule,
+} from "@mbe/types";
 
 const summaries = vi.hoisted(() => ({ value: [] as ClosureSummary[] }));
 const callList = vi.hoisted(() => ({ value: [] as ClosureCallListEntry[] }));
 const reopen = vi.hoisted(() => vi.fn());
 const retry = vi.hoisted(() => vi.fn());
+const saveConfig = vi.hoisted(() => vi.fn());
 
 vi.mock("../../hooks/useClosures.js", () => ({
   useClosureSummaries: () => ({ data: summaries.value, isLoading: false, error: null }),
   useClosureCallList: () => ({ data: callList.value, isLoading: false, error: null }),
   useReopenClosure: () => ({ mutateAsync: reopen, isPending: false }),
   useRetryClosureRefunds: () => ({ mutateAsync: retry, isPending: false }),
+}));
+vi.mock("../../hooks/useAvailability.js", () => ({
+  useSaveAvailabilityConfig: () => ({ mutateAsync: saveConfig, isPending: false }),
 }));
 vi.mock("../../contexts/VenueContext.js", () => ({
   useVenue: () => ({
@@ -54,11 +63,29 @@ const RULES = [
   },
 ] as DateRule[];
 
+const STATE = {
+  version: 7,
+  config: {
+    schedules: [],
+    venueServices: [],
+    scheduleServices: [],
+    assignments: [],
+    dateRules: RULES,
+  },
+} as unknown as AvailabilityConfigState;
+
 function renderTab(isManager = true) {
   return render(
     <ToastProvider>
       <main>
-        <SpecialDatesTab venueId="venue-1" rules={RULES} today="2026-12-01" isManager={isManager} />
+        <SpecialDatesTab
+          venueId="venue-1"
+          state={STATE}
+          timezone="America/Los_Angeles"
+          today="2026-12-01"
+          onStale={vi.fn()}
+          isManager={isManager}
+        />
       </main>
     </ToastProvider>
   );
@@ -78,6 +105,46 @@ describe("SpecialDatesTab", () => {
     expect(screen.getByText("Closed for a private event.", { exact: false })).toBeTruthy();
     expect(screen.getByText("Sent 11 · Rebooked 1 · Unreachable 2")).toBeTruthy();
     expect(screen.getByText("Closed · Repeating")).toBeTruthy();
+  });
+
+  it("skips one date of a repeating closure and leaves the series alone", async () => {
+    saveConfig.mockResolvedValue({ version: 8, changeId: "c" });
+    renderTab();
+    fireEvent.click(screen.getByRole("button", { name: "Edit dates…" }));
+
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("radio", { name: "This and following" })).toBeTruthy();
+    expect(within(dialog).getByRole("radio", { name: "All dates in the series" })).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Skip this date" }));
+
+    await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(1));
+    const { body } = saveConfig.mock.calls[0]![0];
+    expect(body.expectedVersion).toBe(7);
+    expect(body.changes.remove).toEqual({});
+    expect(body.changes.upsert.dateRules).toHaveLength(1);
+    expect(body.changes.upsert.dateRules[0]).toMatchObject({
+      kind: "skip",
+      seriesId: "mondays",
+      startsOn: "2027-01-11",
+      endsOn: "2027-01-11",
+    });
+  });
+
+  it("this and following ends the series before the date and starts a new one", async () => {
+    saveConfig.mockResolvedValue({ version: 8, changeId: "c" });
+    renderTab();
+    fireEvent.click(screen.getByRole("button", { name: "Edit dates…" }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("radio", { name: "This and following" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(1));
+    const rows = saveConfig.mock.calls[0]![0].body.changes.upsert.dateRules as DateRule[];
+    expect(rows.find((r) => r.id === "mondays")?.endsOn).toBe("2027-01-10");
+    expect(rows.find((r) => r.id !== "mondays")).toMatchObject({
+      kind: "closure",
+      startsOn: "2027-01-11",
+    });
   });
 
   it("filters to repeating closures", () => {

@@ -1581,6 +1581,26 @@
       "keep": "Mantener cerrado",
       "done": "{{date}} reabierto"
     },
+    "series": {
+      "editDates": "Editar fechas…",
+      "title": "Editar fechas",
+      "dateLabel": "Fecha",
+      "scopeLabel": "Cambiar",
+      "scopeOnly": "Solo el {{date}}",
+      "scopeFollowing": "Esta y las siguientes",
+      "scopeAll": "Todas las fechas de la serie",
+      "skip": "Omitir esta fecha",
+      "editThis": "Editar esta fecha…",
+      "save": "Guardar",
+      "cancel": "Cancelar",
+      "weekdays": "Se repite el",
+      "endsLabel": "Termina el",
+      "invalidDate": "Elige una fecha que cubra la serie.",
+      "invalid": "Elige al menos un día de la semana y una fecha final igual o posterior al inicio.",
+      "skippedToast": "{{date}} omitido. El resto de la serie no cambia.",
+      "savedToast": "Serie actualizada",
+      "skipped": "Omitido: {{dates}}"
+    },
     "callList": {
       "title": "Lista de llamadas",
       "description": "Clientes que no confirmaron un aviso ni reagendaron.",

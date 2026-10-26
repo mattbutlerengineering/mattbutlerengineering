@@ -51,7 +51,7 @@ const IMPACT: ClosureImpact = {
   ],
 };
 
-function renderDialog() {
+function renderDialog(seriesId?: string) {
   const state: AvailabilityConfigState = { config: fixtureConfig(), version: 7, source: "rows" };
   const onClose = vi.fn();
   const utils = render(
@@ -63,6 +63,7 @@ function renderDialog() {
           timezone="America/Los_Angeles"
           today="2026-12-01"
           initialDate={DATE}
+          seriesId={seriesId}
           onClose={onClose}
         />
       </main>
@@ -78,6 +79,25 @@ describe("CloseDialog", () => {
   beforeEach(() => {
     create.mockReset();
     impactState.value = IMPACT;
+  });
+
+  it("saves an edit of one date of a series with the series id, after the impact decisions", async () => {
+    create.mockResolvedValue({
+      ruleId: "rule",
+      version: 8,
+      changeId: "c",
+      outcomes: { cancel: 14, move: 0, keep_notify: 0, keep_silent: 0 },
+    });
+    renderDialog("series-1");
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+    fireEvent.click(within(dialog).getByRole("radio", { name: /Cancel, notify & refund/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+
+    await waitFor(() => expect(create).toHaveBeenCalled());
+    const { body } = create.mock.calls[0]![0];
+    expect(body.rule).toMatchObject({ kind: "closure", startsOn: DATE, seriesId: "series-1" });
+    expect(body.decisions).toHaveLength(1);
   });
 
   it("shows the live count, then requires a choice before it will save", async () => {

@@ -675,6 +675,46 @@
       ): string[] { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/series-edit.ts">
+    <item priority="low">
+      type SeriesScope = "following" | "all";
+    </item>
+    <item priority="low">
+      interface SeriesEdit {
+        weekdays: readonly number[];
+        endsOn: string | null;
+      }
+    </item>
+    <item priority="high">
+      export function isSeries(rule: DateRule): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function coversDate(series: DateRule, date: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function nextOccurrence(series: DateRule, from: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function skippedDates(rules: readonly DateRule[], seriesId: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function skipDate(
+        series: DateRule,
+        date: string,
+        makeId: () => string
+      ): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="high">
+      export function editSeriesDates(
+        config: AvailabilityConfig,
+        series: DateRule,
+        scope: SeriesScope,
+        date: string,
+        edit: SeriesEdit,
+        makeId: () => string
+      ): AvailabilityConfigChanges { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/special-dates.ts">
     <item priority="low">
       type SpecialDatesFilter = "all" | "closures" | "special_hours" | "repeating" | "past";

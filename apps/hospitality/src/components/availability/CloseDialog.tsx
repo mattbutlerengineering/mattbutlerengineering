@@ -6,6 +6,7 @@ import {
   AvailabilityConfigProblemSchema,
   type AvailabilityConfigState,
   type ClosureImpact,
+  type DateRule,
 } from "@mbe/types";
 import { useClosureImpact, useCreateClosure } from "../../hooks/useClosures.js";
 import { useNow } from "../../hooks/useNow.js";
@@ -38,6 +39,8 @@ export interface CloseDialogProps {
   readonly initialDate: string | null;
   /** Start with "Booking only: online" and "Until I reopen" (pause online booking). */
   readonly pauseOnline?: boolean;
+  /** Makes the closure an edit of one date of this series (ux.md F-SER "Edit this date"). */
+  readonly seriesId?: string;
   readonly onClose: () => void;
 }
 
@@ -74,6 +77,10 @@ function outcomeLabel(counts: OutcomeCounts, t: TFunction): string {
   });
 }
 
+function inSeries(rule: DateRule | null, seriesId: string | undefined): DateRule | null {
+  return rule && seriesId ? { ...rule, seriesId } : rule;
+}
+
 function failureText(error: unknown, t: TFunction): string {
   const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
   const problem = AvailabilityConfigProblemSchema.safeParse(details);
@@ -104,14 +111,19 @@ export function CloseDialog(props: CloseDialogProps) {
   // One id per dialog: the rule is created at most once, whatever the Manager retries.
   const [ruleId] = useState(() => crypto.randomUUID());
 
+  const { seriesId } = props;
   const impactRule = useMemo(
-    () => buildCloseRule({ ...form, staffNote: "", guestMessage: "" }, ruleId, today),
-    [form, ruleId, today]
+    () =>
+      inSeries(
+        buildCloseRule({ ...form, staffNote: "", guestMessage: "" }, ruleId, today),
+        seriesId
+      ),
+    [form, ruleId, today, seriesId]
   );
   const impactQuery = useClosureImpact({ venueId, rule: impactRule });
   const impact: ClosureImpact | null | undefined = impactRule ? impactQuery.data : null;
   const groups = impact?.groups ?? [];
-  const rule = buildCloseRule(form, ruleId, today);
+  const rule = inSeries(buildCloseRule(form, ruleId, today), seriesId);
   const services = state.config.venueServices.filter((s) => !s.archivedAt);
 
   const startsOn = rule?.startsOn ?? today;
