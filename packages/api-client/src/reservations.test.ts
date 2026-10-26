@@ -445,6 +445,35 @@ describe("ReservationsClient.manageReservation", () => {
     expect(result).toEqual(managedPayload);
   });
 
+  it("carries the venue cancellation (refund status and rebook offers) through", async () => {
+    const venueCancellation = {
+      refundStatus: "done",
+      offers: [
+        {
+          id: "2026-11-05T01:30:00.000Z",
+          date: "2026-11-04",
+          startTime: "2026-11-05T01:30:00.000Z",
+        },
+      ],
+    };
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ data: { ...managedPayload, venueCancellation } })
+    );
+
+    const result = await makeClient().manageReservation("tok");
+    expect(result.venueCancellation).toEqual(venueCancellation);
+  });
+
+  it("rejects an unknown refund status", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({
+        data: { ...managedPayload, venueCancellation: { refundStatus: "weird", offers: [] } },
+      })
+    );
+
+    await expect(makeClient().manageReservation("tok")).rejects.toBeInstanceOf(ApiValidationError);
+  });
+
   it("accepts a null venue", async () => {
     mockFetch.mockResolvedValueOnce(jsonResponse({ data: { ...managedPayload, venue: null } }));
 

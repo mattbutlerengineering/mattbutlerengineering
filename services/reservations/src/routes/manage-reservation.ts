@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { serializeManagedReservation } from "../services/serializers.js";
+import { loadVenueCancellation } from "../services/manage-rebook.js";
 import { manageTokenScoped } from "./manage-token-scope.js";
 import { reservationNotFoundProblem } from "./load-reservation-for-manage.js";
 
@@ -19,10 +20,12 @@ export const manageReservationRoutes: FastifyPluginAsync = async (fastify) => {
       { missing: (reply) => reply.status(404).send(reservationNotFoundProblem()) },
       async (_request, reply, { venueId, reservation }) => {
         const venue = await venueService.getById(venueId);
+        const venueCancellation = await loadVenueCancellation(reservation, venueId);
 
         return reply.status(200).send({
           data: {
             reservation: serializeManagedReservation(reservation),
+            venueCancellation,
             venue: venue
               ? {
                   id: venue.id,

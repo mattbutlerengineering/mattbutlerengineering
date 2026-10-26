@@ -135,7 +135,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [ ] **Special dates tab** — F6 list and filters, the add special date sheet (several rows, one Step 2), reopen with tell-cancelled-guests, Sent/Rebooked/Unreachable counts, refund retry, the printable call list, and F-SER series edits. (tracker: #7527)
   - Accept: tests cover reopening a closure (slots return, the opt-in notice is sent), skipping one date of a repeating closure, and a call list with only unconfirmed guests.
   - Blocked by: Close dialog, Closure notices
-- [ ] **Manage page rebook** — the cancelled-by-venue state on `/reservations/manage`, with the refund status, up to 3 one-tap rebooks re-checked on tap, and "Other dates". (tracker: #7528)
+- [x] **Manage page rebook** — the cancelled-by-venue state on `/reservations/manage`, with the refund status, up to 3 one-tap rebooks re-checked on tap, and "Other dates". (tracker: #7528)
   - Accept: tests cover a successful rebook, a taken slot refreshing the list, and no offers showing only the picker link.
   - Blocked by: Rebook offers, manageUrl builder
 

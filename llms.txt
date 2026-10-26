@@ -13032,6 +13032,37 @@
       ): Promise<LapsingGuest[]> { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/services/manage-rebook.ts">
+    <item priority="low">
+      type GuestRefundStatus = "none" | "pending" | "done" | "failed";
+    </item>
+    <item priority="low">
+      interface RebookOffer {
+        id: string;
+        date: string;
+        startTime: string;
+      }
+    </item>
+    <item priority="low">
+      interface VenueCancellation {
+        refundStatus: GuestRefundStatus;
+        offers: RebookOffer[];
+      }
+    </item>
+    <item priority="low">
+      interface VenueCancellationDeps {
+        
+      }
+    </item>
+    <item priority="high">
+      export async function loadVenueCancellation(
+        reservation: Reservation,
+        venueId: string,
+        now: Date = new Date(),
+        deps: VenueCancellationDeps = defaultDeps
+      ): Promise<VenueCancellation | null> { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/member-venues.ts">
     <item priority="high">
       export async function getMemberVenueIds(
@@ -17210,9 +17241,23 @@
       }
     </item>
     <item priority="low">
+      interface ManagedRebookOffer {
+        id: string;
+        date: string;
+        startTime: string;
+      }
+    </item>
+    <item priority="low">
+      interface ManagedVenueCancellation {
+        refundStatus: "none" | "pending" | "done" | "failed";
+        offers: ManagedRebookOffer[];
+      }
+    </item>
+    <item priority="low">
       interface ManageReservationData {
         reservation: ManagedReservation;
         venue: ManagedReservationVenue | null;
+        venueCancellation?: ManagedVenueCancellation | null;
       }
     </item>
     <item priority="high">

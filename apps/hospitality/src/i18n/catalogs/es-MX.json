@@ -1421,6 +1421,25 @@
       "action": "Cambiar reservación",
       "cutoff": "Los cambios se cierran {{hours}} horas antes de tu visita. Llama a {{venue}} para cambiar esta reservación.",
       "success": "Tu reservación se actualizó."
+    },
+    "venueCancelled": {
+      "heading": "Tu reservación fue cancelada",
+      "intro": "{{venue}} tuvo que cancelar esta reservación.",
+      "refund": {
+        "pending": "El reembolso de tu depósito está en camino.",
+        "done": "Tu depósito fue reembolsado.",
+        "failed": "No pudimos reembolsar tu depósito automáticamente. {{venue}} se pondrá en contacto contigo, o puedes llamar al restaurante."
+      },
+      "rebookHeading": "Reserva de nuevo con un toque",
+      "rebook": "Reservar {{date}} a las {{time}}",
+      "rebooking": "Reservando…",
+      "noOffers": "No hay horarios disponibles en los próximos 14 días para tu grupo. Elige otra fecha.",
+      "otherDates": "Otras fechas y horarios",
+      "notice": {
+        "taken": "Ese horario acaba de ocuparse. Estos son los horarios que siguen disponibles.",
+        "failed": "No pudimos reservar ese horario. Inténtalo de nuevo.",
+        "rebookedNoLink": "Tu reservación está lista. Revisa tu confirmación para ver los detalles."
+      }
     }
   },
   "offlineBanner": {

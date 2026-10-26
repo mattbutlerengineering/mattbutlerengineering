@@ -1537,9 +1537,21 @@
       partySize?: number;
       specialRequests?: string;
     }
+    export interface ManagedRebookOffer {
+      id: string;
+      /** Service date the slot belongs to (differs from the local date for after-midnight times). */
+      date: string;
+      /** ISO instant the slot starts. */
+      startTime: string;
+    }
+    export interface ManagedVenueCancellation {
+      refundStatus: "none" | "pending" | "done" | "failed";
+      offers: ManagedRebookOffer[];
+    }
     export interface ManageReservationData {
       reservation: ManagedReservation;
       venue: ManagedReservationVenue | null;
+      venueCancellation?: ManagedVenueCancellation | null;
     }
     export class ReservationsClient {
       constructor(private client: ApiClient) {}

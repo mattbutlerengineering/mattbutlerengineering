@@ -29350,10 +29350,12 @@
           { missing: (reply) => reply.status(404).send(reservationNotFoundProblem()) },
           async (_request, reply, { venueId, reservation }) => {
             const venue = await venueService.getById(venueId);
+            const venueCancellation = await loadVenueCancellation(reservation, venueId);
     
             return reply.status(200).send({
               data: {
                 reservation: serializeManagedReservation(reservation),
+                venueCancellation,
                 venue: venue
                   ? {
                       id: venue.id,
@@ -46413,6 +46415,63 @@
       return lapsing;
     }
   </file>
+  <file path="services/reservations/src/services/manage-rebook.ts">
+    export type GuestRefundStatus = "none" | "pending" | "done" | "failed";
+    export interface RebookOffer {
+      id: string;
+      date: string;
+      startTime: string;
+    }
+    export interface VenueCancellation {
+      refundStatus: GuestRefundStatus;
+      offers: RebookOffer[];
+    }
+    export interface VenueCancellationDeps {
+      findCancelOutcome(
+        reservationId: string,
+        venueId: string
+      ): Promise<{ refund: GuestRefundStatus } | null>;
+      loadSnapshot(
+        venueId: string,
+        from: string,
+        to: string,
+        now: Date
+      ): Promise<{ snapshot: BookingSnapshot }>;
+    }
+    export async function loadVenueCancellation(
+      reservation: Reservation,
+      venueId: string,
+      now: Date = new Date(),
+      deps: VenueCancellationDeps = defaultDeps
+    ): Promise<VenueCancellation | null> {
+      if (reservation.status !== "CANCELLED") return null;
+      const outcome = await deps.findCancelOutcome(reservation.id, venueId);
+      if (!outcome) return null;
+    
+      // Probe the timezone-free window generously; the engine applies the exact 14-day rule.
+      const today = now.toISOString().slice(0, 10);
+      const { snapshot } = await deps.loadSnapshot(
+        venueId,
+        addDays(today, -1),
+        addDays(today, REBOOK_WINDOW_DAYS + 1),
+        now
+      );
+      const result = rebookOffers(
+        snapshot,
+        { startTime: new Date(reservation.startTime), partySize: reservation.partySize },
+        now
+      );
+      const offers =
+        result.kind === "offers"
+          ? result.slots.map((slot) => ({
+              id: slot.start.toISOString(),
+              date: slot.serviceDate,
+              startTime: slot.start.toISOString(),
+            }))
+          : [];
+      return { refundStatus: outcome.refund, offers };
+    }
+  </file>
   <file path="services/reservations/src/services/member-venues.ts">
     export async function getMemberVenueIds(
       userSub: string,
@@ -61734,9 +61793,21 @@
       partySize?: number;
       specialRequests?: string;
     }
+    export interface ManagedRebookOffer {
+      id: string;
+      /** Service date the slot belongs to (differs from the local date for after-midnight times). */
+      date: string;
+      /** ISO instant the slot starts. */
+      startTime: string;
+    }
+    export interface ManagedVenueCancellation {
+      refundStatus: "none" | "pending" | "done" | "failed";
+      offers: ManagedRebookOffer[];
+    }
     export interface ManageReservationData {
       reservation: ManagedReservation;
       venue: ManagedReservationVenue | null;
+      venueCancellation?: ManagedVenueCancellation | null;
     }
     export class ReservationsClient {
       constructor(private client: ApiClient) {}

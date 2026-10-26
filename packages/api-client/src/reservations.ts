@@ -62,9 +62,25 @@ export interface ManagedReservationChanges {
   specialRequests?: string;
 }
 
+/** One open time offered to a guest whose booking the venue cancelled. `id` is the slot's start instant. */
+export interface ManagedRebookOffer {
+  id: string;
+  /** Service date the slot belongs to (differs from the local date for after-midnight times). */
+  date: string;
+  /** ISO instant the slot starts. */
+  startTime: string;
+}
+
+/** Present only when a venue closure cancelled the booking. */
+export interface ManagedVenueCancellation {
+  refundStatus: "none" | "pending" | "done" | "failed";
+  offers: ManagedRebookOffer[];
+}
+
 export interface ManageReservationData {
   reservation: ManagedReservation;
   venue: ManagedReservationVenue | null;
+  venueCancellation?: ManagedVenueCancellation | null;
 }
 
 const managedReservationSchema: z.ZodSchema<ManagedReservation> = z.object({
@@ -92,6 +108,13 @@ const manageReservationDataSchema: z.ZodSchema<ManageReservationData> = z.object
       maxPartySizeChange: z.number().nullable().optional(),
     })
     .nullable(),
+  venueCancellation: z
+    .object({
+      refundStatus: z.enum(["none", "pending", "done", "failed"]),
+      offers: z.array(z.object({ id: z.string(), date: z.string(), startTime: z.string() })),
+    })
+    .nullable()
+    .optional(),
 });
 
 const RESERVATION_BASE_PATH = "/api/v1/reservations";

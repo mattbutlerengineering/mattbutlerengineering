@@ -9,6 +9,7 @@ import { ApiClientError, type ManageReservationData } from "@mbe/api-client";
 import { usePublicApiClient } from "../hooks/usePublicApiClient.js";
 import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 import { ChangeBookingDialog } from "../components/manage-reservation/ChangeBookingDialog.js";
+import { VenueCancelledCard } from "../components/manage-reservation/VenueCancelledCard.js";
 import { CancelReservationDialog } from "../components/timeline/CancelReservationDialog.js";
 import { buildReservationIcs, downloadIcsFile } from "../utils/ics.js";
 import { buildGoogleCalendarUrl, buildOutlookCalendarUrl } from "../utils/calendarLinks.js";
@@ -42,6 +43,8 @@ class ManageTokenError extends Error {
 
 const manageParamsSchema = z.object({
   token: z.string().default(""),
+  /** A rebook offer's id (its start instant), from the one-tap links in a closure message. */
+  rebook: z.string().default(""),
 });
 
 const MANAGE_DEFAULTS = manageParamsSchema.parse({});
@@ -82,7 +85,7 @@ export function ManageReservationPage() {
 
 function ManageReservationPageContent() {
   const { t } = useTranslation();
-  const { params } = useUrlParams(manageParamsSchema, MANAGE_DEFAULTS);
+  const { params, setParam } = useUrlParams(manageParamsSchema, MANAGE_DEFAULTS);
   const token = params.token || null;
   const publicApiClient = usePublicApiClient({ baseUrl: API_BASE, maxRetries: 3 });
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -197,6 +200,18 @@ function ManageReservationPageContent() {
           <Text as="h1" variant="display">
             {venue ? venue.name : t("manageReservation.fallbackTitle")}
           </Text>
+
+          {venue && data.venueCancellation && (
+            <VenueCancelledCard
+              venue={venue}
+              reservation={reservation}
+              cancellation={data.venueCancellation}
+              format={format}
+              preferredOfferId={params.rebook}
+              onRefresh={refetch}
+              onRebooked={(newToken) => setParam("token", newToken)}
+            />
+          )}
 
           <Card>
             <Stack gap="md" style={{ padding: "1.5rem" }}>
@@ -321,7 +336,8 @@ function ManageReservationPageContent() {
                 {t("manageReservation.cancel")}
               </Button>
             ) : (
-              reservation.status === "CANCELLED" && (
+              reservation.status === "CANCELLED" &&
+              !data.venueCancellation && (
                 <Text variant="caption" color="secondary" align="center">
                   {t("manageReservation.cancelled")}
                 </Text>

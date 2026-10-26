@@ -37,8 +37,9 @@ vi.mock("../utils/ics.js", async (importOriginal) => {
 });
 
 const mockSearchParams = new URLSearchParams();
+const mockSetSearchParams = vi.fn();
 vi.mock("react-router", () => ({
-  useSearchParams: () => [mockSearchParams],
+  useSearchParams: () => [mockSearchParams, mockSetSearchParams],
 }));
 
 // ApiClient uses fetch internally. Stub it so we control responses and can
@@ -115,6 +116,7 @@ function renderPage() {
 beforeEach(() => {
   vi.clearAllMocks();
   mockSearchParams.delete("token");
+  mockSearchParams.delete("rebook");
 });
 
 describe("ManageReservationPage", () => {
@@ -262,6 +264,61 @@ describe("ManageReservationPage", () => {
       expect(screen.getByRole("link", { name: /matt butler engineering/i })).toBeDefined();
     });
   });
+  describe("cancelled by the venue", () => {
+    const venueCancellation = {
+      refundStatus: "done",
+      offers: [
+        {
+          id: "2026-06-20T02:00:00.000Z",
+          date: "2026-06-19",
+          startTime: "2026-06-20T02:00:00.000Z",
+        },
+      ],
+    };
+
+    function payload(cancellation: unknown) {
+      const base = makeManagedPayload({ reservation: { status: "CANCELLED" } });
+      return { data: { ...base.data, venueCancellation: cancellation } };
+    }
+
+    it("shows the refund status and rebook offers instead of the generic cancelled line", async () => {
+      mockSearchParams.set("token", "valid-token-abc");
+      mockFetch.mockResolvedValueOnce(makeOkResponse(payload(venueCancellation)));
+
+      renderPage();
+
+      await waitFor(() => expect(screen.getByText("Your reservation was cancelled")).toBeDefined());
+      expect(screen.getByText(/deposit has been refunded/i)).toBeDefined();
+      expect(screen.getAllByRole("button", { name: /^Rebook/ })).toHaveLength(1);
+      expect(screen.queryByText("This reservation has been cancelled.")).toBeNull();
+    });
+
+    it("with no offers shows only the picker link", async () => {
+      mockSearchParams.set("token", "valid-token-abc");
+      mockFetch.mockResolvedValueOnce(
+        makeOkResponse(payload({ refundStatus: "none", offers: [] }))
+      );
+
+      renderPage();
+
+      await waitFor(() => expect(screen.getByText("Your reservation was cancelled")).toBeDefined());
+      expect(screen.queryByRole("button", { name: /^Rebook/ })).toBeNull();
+      expect(screen.getByRole("link", { name: /other dates and times/i })).toBeDefined();
+    });
+
+    it("a booking cancelled by the guest keeps the plain cancelled line", async () => {
+      mockSearchParams.set("token", "valid-token-abc");
+      mockFetch.mockResolvedValueOnce(makeOkResponse(payload(null)));
+
+      renderPage();
+
+      await waitFor(() =>
+        expect(screen.getByText("This reservation has been cancelled.")).toBeDefined()
+      );
+      expect(screen.queryByText("Your reservation was cancelled")).toBeNull();
+    });
+  });
+
   describe("landmarks (axe landmark-one-main / page-has-heading-one)", () => {
     function landmarks() {
       return {
