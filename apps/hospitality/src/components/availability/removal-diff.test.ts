@@ -3,7 +3,12 @@ import type { ResolvedDay } from "@mbe/availability";
 import { diffRemoval } from "./removal-diff.js";
 import {
   EARLY_DINNER,
+  LATE_CLOSURE,
   LUNCH_CLOSURE,
+  LUNCH_WINDOW,
+  ONLINE_WINDOW,
+  SKIP_WEEKLY,
+  WEEKLY_CLOSURE,
   ONLINE_CLOSURE,
   PARTY_CLOSURE,
   TONIGHT_CLOSE,
@@ -88,5 +93,35 @@ describe("diffRemoval (from real resolveDay output)", () => {
   it("reports nothing when removal changes nothing", () => {
     const day = resolveFixtureDay(PARTY_CLOSURE);
     expect(diffRemoval(day, day)).toEqual([]);
+  });
+});
+
+describe("diffRemoval windowed closures", () => {
+  it("keeps the booking target on a windowed booking closure", () => {
+    const day = resolveFixtureDay(ONLINE_WINDOW);
+    expect(changesFor(day, "r-online-window")).toEqual([
+      { kind: "closureLifted", closure: expect.objectContaining({ targetKind: "booking" }) },
+    ]);
+  });
+
+  it("re-applies a skipped series closure", () => {
+    const day = resolveFixtureDay(WEEKLY_CLOSURE, SKIP_WEEKLY);
+    expect(changesFor(day, "r-skip")).toEqual([
+      { kind: "closureApplies", closure: expect.objectContaining({ from: 1320, to: 1380 }) },
+    ]);
+  });
+
+  it("carries the service name of a windowed service closure", () => {
+    const day = resolveFixtureDay(LUNCH_WINDOW);
+    expect(changesFor(day, "r-lunch-window")).toEqual([
+      expect.objectContaining({ kind: "closureLifted", serviceName: "Lunch" }),
+    ]);
+  });
+
+  it("reports a closure that runs past midnight", () => {
+    const day = resolveFixtureDay(LATE_CLOSURE);
+    expect(changesFor(day, "r-late")).toEqual([
+      { kind: "closureLifted", closure: expect.objectContaining({ from: 1380, to: 1500 }) },
+    ]);
   });
 });

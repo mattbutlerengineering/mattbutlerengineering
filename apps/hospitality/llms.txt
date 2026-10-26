@@ -206,7 +206,8 @@
     <item priority="medium">
       function closureChanges(
         current: readonly ResolvedClosure[],
-        removed: readonly ResolvedClosure[]
+        removed: readonly ResolvedClosure[],
+        services: readonly ResolvedService[]
       ): RemovalChange[] { /* ... */ }
     </item>
     <item priority="medium">
@@ -220,6 +221,13 @@
         current: ResolvedDaySummary,
         removed: ResolvedDaySummary
       ): RemovalChange[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function liftedText(
+        change: Extract<RemovalChange, { kind: "closureLifted" }>,
+        t: TFunction,
+        format: VenueFormat
+      ): string { /* ... */ }
     </item>
     <item priority="high">
       export function removalChangeText(
@@ -262,6 +270,21 @@
     </item>
     <item priority="high">
       export function resolveFixtureDay(...rules: DateRule[]): ResolvedDay { /* ... */ }
+    </item>
+    <item priority="high">
+      export const ONLINE_WINDOW: DateRule;
+    </item>
+    <item priority="high">
+      export const LUNCH_WINDOW: DateRule;
+    </item>
+    <item priority="high">
+      export const LATE_CLOSURE: DateRule;
+    </item>
+    <item priority="high">
+      export const WEEKLY_CLOSURE: DateRule;
+    </item>
+    <item priority="high">
+      export const SKIP_WEEKLY: DateRule;
     </item>
   </file>
   </section>
