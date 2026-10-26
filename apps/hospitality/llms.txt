@@ -786,6 +786,26 @@
       function describe(rule: TonightRule): TonightChange | null { /* ... */ }
     </item>
     <item priority="high">
+      export function tonightTimeMinutes(
+        config: AvailabilityConfig,
+        timezone: string,
+        serviceDate: string
+      ): readonly number[] { /* ... */ }
+    </item>
+    <item priority="low">
+      interface TonightDefaults {
+        closeAt: number;
+        stopFrom: number;
+        stopTo: number;
+      }
+    </item>
+    <item priority="medium">
+      function nearestAtOrBefore(options: readonly number[], target: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function tonightDefaults(options: readonly number[]): TonightDefaults { /* ... */ }
+    </item>
+    <item priority="high">
       export function activeTonightChanges(
         rules: readonly DateRule[],
         today: string,

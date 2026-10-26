@@ -3,7 +3,6 @@ import { useAvailabilityConfig } from "../../hooks/useAvailability.js";
 import { useNow } from "../../hooks/useNow.js";
 import { useTables } from "../../hooks/useTables.js";
 import { useVenueTeam } from "../../hooks/useVenueTeam.js";
-import { venueDate } from "../../utils/service-day.js";
 import { TonightControl } from "./TonightControl.js";
 
 /**
@@ -22,7 +21,6 @@ export function TimelineTonight() {
       venueId={selectedVenueId}
       state={config.data}
       timezone={selectedVenue.ianaTimezone}
-      today={venueDate(now, selectedVenue.ianaTimezone)}
       now={now}
       viewerRole={team.data.viewerRole}
       hostEmergencyClose={team.data.hostEmergencyClose}
