@@ -105,7 +105,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [x] **Schedules, Compare and copy** — the Schedules tab (new, duplicate, edit, delete-when-unused), Change regular week (F-UW, including overlap precedence), Compare services (F-X), copy a day (F4), and the discovery nudge. (tracker: #7517)
   - Accept: tests cover a dated schedule reverting after its end date, overlap choices setting precedence, and a Compare edit saving every schedule with one impact line.
   - Blocked by: Drawer editing
-- [ ] **Multi-select** — F-MS: drag, shift, cmd, weekday column, the Select… menu, touch long-press, and the selection bar opening the drawer with a fixed scope. (tracker: #7518)
+- [x] **Multi-select** — F-MS: drag, shift, cmd, weekday column, the Select… menu, touch long-press, and the selection bar opening the drawer with a fixed scope. (tracker: #7518)
   - Accept: component tests for each gesture, and the selection count is announced politely.
   - Blocked by: AvailabilityCalendar and day drawer (read)
 - [x] **History and undo** — `GET …/availability/changes` and revert, the History drawer (F12), the undo toast, and the F11 migration banner. (tracker: #7519)
@@ -123,16 +123,16 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [x] **Rebook offers** — `rebookOffers` in the engine: up to 3 open slots, same party size, within 14 days, nearest the original time of day. (tracker: #7522)
   - Accept: unit tests cover the 3-offer, fewer-offer and none cases (none falls back to a picker link). This covers SC Rebooking offer.
   - Blocked by: listSlots and judge
-- [ ] **Closure notices** — a `CLOSURE_NOTICE` job, email and SMS templates (cancelled, moved, kept, reopened; SMS at most 3 segments), urgent dual-channel delivery within 6 hours, the contact policy, and delivery status on the outcome. (tracker: #7523)
+- [x] **Closure notices** — a `CLOSURE_NOTICE` job, email and SMS templates (cancelled, moved, kept, reopened; SMS at most 3 segments), urgent dual-channel delivery within 6 hours, the contact policy, and delivery status on the outcome. (tracker: #7523)
   - Accept: tests show every guest the Manager chose to notify gets a job, delivered within 2 minutes in a time-advanced test, with SMS and email when urgent (SC Closure integrity, notice half). A failed delivery lands on the call list.
   - Blocked by: Closure command, Rebook offers, manageUrl builder
 - [x] **Closure refunds** — a `CLOSURE_REFUND` job through `DepositService` with the idempotency key `closure:<ruleId>:<reservationId>`, plus failure state and retry. (tracker: #7524)
   - Accept: refunds on venue-cancelled bookings are full, a retried job never double-refunds, and a failure shows as `refund=failed`. The `stripe-flow-reviewer` subagent passes.
   - Blocked by: Closure command
-- [ ] **Close dialog** — F5 Step 1 (what, when, messages, live impact, conflicts) and Step 2 (a required choice per group, a keep-silently acknowledgement, the urgent header, a message preview, a button naming the outcome). Also handles pausing online booking until reopened, with a banner and header pill. (tracker: #7526)
+- [x] **Close dialog** — F5 Step 1 (what, when, messages, live impact, conflicts) and Step 2 (a required choice per group, a keep-silently acknowledgement, the urgent header, a message preview, a button naming the outcome). Also handles pausing online booking until reopened, with a banner and header pill. (tracker: #7526)
   - Accept: an E2E test runs the PRD demo: close 24 December with 14 bookings, cancel and notify, and see the calendar band plus the outcome counts.
   - Blocked by: Closure command, AvailabilityCalendar and day drawer (read)
-- [ ] **Special dates tab** — F6 list and filters, the add special date sheet (several rows, one Step 2), reopen with tell-cancelled-guests, Sent/Rebooked/Unreachable counts, refund retry, the printable call list, and F-SER series edits. (tracker: #7527)
+- [x] **Special dates tab** — F6 list and filters, the add special date sheet (several rows, one Step 2), reopen with tell-cancelled-guests, Sent/Rebooked/Unreachable counts, refund retry, the printable call list, and F-SER series edits. (tracker: #7527)
   - Accept: tests cover reopening a closure (slots return, the opt-in notice is sent), skipping one date of a repeating closure, and a call list with only unconfirmed guests.
   - Blocked by: Close dialog, Closure notices
 - [x] **Manage page rebook** — the cancelled-by-venue state on `/reservations/manage`, with the refund status, up to 3 one-tap rebooks re-checked on tap, and "Other dates". (tracker: #7528)
@@ -144,7 +144,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [x] **Tonight API** — `POST` and `DELETE …/tonight`: Tonight DateRules (pause online, close early, stop window, table blocks through DateRuleTable, pacing) with a server-computed `expiresAt`. Close-early with bookings routes to the closure command. (tracker: #7529)
   - Accept: a clock-advance test shows every Tonight change gone at the service-day boundary, with schedules untouched (SC Night-of expiry). Blocked tables stop being offered on every booking path.
   - Blocked by: Booking gate, Closure command
-- [ ] **Tonight panel** — the F7 popover or sheet, header chips, the emergency close (What and When locked for Hosts with the grant), and the footer link. (tracker: #7530)
+- [x] **Tonight panel** — the F7 popover or sheet, header chips, the emergency close (What and When locked for Hosts with the grant), and the footer link. (tracker: #7530)
   - Accept: component tests cover the Host with and without the grant and the Manager. 44 px targets on mobile.
   - Blocked by: Tonight API, Close dialog
 - [x] **Staff form live check** — `NewReservationDialog` calls the check endpoint, with soft-limit warnings, a required reason, "Book with override", hard blocks, an open-times strip, the waitlist-closed state, and blocked tables greyed out. Adds the Override tag on the timeline. (tracker: #7531)
