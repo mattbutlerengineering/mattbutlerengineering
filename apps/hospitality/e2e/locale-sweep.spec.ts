@@ -36,6 +36,7 @@ import { frCA as rialtoFrCA } from "@mattbutlerengineering/rialto/locales/fr-CA"
 import { atLocal, localDay } from "./local-day.js";
 import { test, expect } from "./fixtures.js";
 import { pickBookingDate } from "./booking-date.js";
+import { hasReadableLiteral } from "./fixtures/locale-sweep-readable.js";
 
 const VENUE_SLUG = "e2e-test-bistro";
 const VENUE_NAME = "E2E Test Bistro";
@@ -128,8 +129,9 @@ function forbiddenEnglish(
   return sources.flatMap(([english, translated, checkReverts]) => {
     return Object.entries(english)
       .filter(([key, value]) => {
-        // Nothing to read once the placeholders are gone (a time range, a bare number).
-        if (!/\p{L}/u.test(value.replace(/\{\{\w+\}\}/g, ""))) return false;
+        // Nothing to read once the placeholders are gone (a time range, a bare number),
+        // or only a short connector ("{{from}} to {{to}}") that matches any prose.
+        if (!hasReadableLiteral(value)) return false;
         // Differs here, unless the same words are another key's correct translation ("Table").
         if (translated[key] !== value) return !spoken.has(normalize(value));
         return (

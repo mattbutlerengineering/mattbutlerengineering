@@ -1691,7 +1691,7 @@
       export function assertBookable(opts: AssertBookableOptions): BookableError | undefined { /* ... */ }
     </item>
     <item priority="low">
-      type GateRejection = { code: "outside-availability" | { code: "soft-limit"; limits: ;
+      type GateRejection = { code: "outside-availability" | { code: "soft-limit"; limits:  | { code: "date-mismatch"; servi;
     </item>
     <item priority="low">
       type GateOutcome = { kind: "ok"; overrideLimits?: | { kind: "conflict" } | { kind: "rejected"; rejection:;
@@ -1701,8 +1701,8 @@
         venueId: string;
         tableId?: string;
         start: Date;
+        serviceDate?: string;
         end?: Date;
-        partySize: number;
       }
     </item>
     <item priority="high">
@@ -1725,6 +1725,9 @@
         now: Date = new Date(),
         logger: SnapshotLogger = CONSOLE_LOGGER
       ): Promise<GateOutcome> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function dateMismatch(snapshot: BookingSnapshot, request: GateRequest): GateOutcome | null { /* ... */ }
     </item>
     <item priority="medium">
       function outcomeOf(verdict: Verdict): GateOutcome { /* ... */ }
@@ -3072,8 +3075,11 @@
         now: Date;
       }
     </item>
+    <item priority="medium">
+      function nextClosureDate(w: ClosureWindow, now: Date): string | null { /* ... */ }
+    </item>
     <item priority="high">
-      export function closureStartsAt(w: ClosureWindow): Date | null { /* ... */ }
+      export function closureStartsAt(w: ClosureWindow, now: Date): Date | null { /* ... */ }
     </item>
     <item priority="high">
       export function closureNoticeJobId(outcomeId: string, variant: NoticeVariant): string { /* ... */ }
@@ -3098,12 +3104,17 @@
     <item priority="low">
       interface ClosureWindow {
         startsOn: string;
+        endsOn: string | null;
+        weekdays: number[] | null;
         from: number | null;
         timezone: string;
       }
     </item>
     <item priority="medium">
       function windowFrom(window: unknown): number | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function weekdaysOf(repeat: unknown): number[] | null { /* ... */ }
     </item>
     <item priority="high">
       export async function loadClosureWindow(
