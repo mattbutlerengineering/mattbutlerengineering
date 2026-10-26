@@ -55,8 +55,8 @@
       "limit": "5.5 kB"
     },
     {
-      "name": "Service-day helpers (shared by the timeline's Tonight panel and the staff waitlist/booking form)",
-      "path": "dist/assets/current-service-date-*.js",
+      "name": "Service-day helpers (current-service-date, service-day-start and tonight-blocks, shared by the timeline's Tonight panel and the staff waitlist/booking form)",
+      "path": "dist/assets/tonight-blocks-*.js",
       "limit": "3.5 kB"
     },
     {
