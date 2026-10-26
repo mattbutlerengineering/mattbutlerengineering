@@ -85,7 +85,7 @@
   </file>
   <file path="src/components/availability/draft-changes.ts">
     <item priority="low">
-      type EditScope = { readonly kind: "date"; reado | { readonly kind: "weekday"; re | { readonly kind: "schedule"; r;
+      type EditScope = { readonly kind: "date"; reado | { readonly kind: "weekday"; re | { readonly kind: "schedule"; r | { readonly kind: "dates"; read;
     </item>
     <item priority="low">
       interface DraftService {
@@ -124,6 +124,14 @@
     </item>
     <item priority="medium">
       function specialHoursRule(base: Partial<DateRule>, id: string, services: SpecialHoursService[]) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function dateRule(
+        config: AvailabilityConfig,
+        date: string,
+        services: SpecialHoursService[],
+        makeId: () => string
+      ): DateRule { /* ... */ }
     </item>
     <item priority="medium">
       function scheduleServiceRows(
@@ -386,11 +394,6 @@
       ): string[] { /* ... */ }
     </item>
   </file>
-  <file path="src/components/availability/use-discard-guard.ts">
-    <item priority="high">
-      export function useDiscardGuard<T>(apply: (next: T) => void) { /* ... */ }
-    </item>
-  </file>
   <file path="src/components/availability/selection.ts">
     <item priority="high">
       export function normalizeDates(dates: readonly string[]): string[] { /* ... */ }
@@ -417,6 +420,11 @@
         days: readonly { readonly serviceDate: string; readonly scheduleId: string | null }[],
         scheduleId: string
       ): string[] { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/use-discard-guard.ts">
+    <item priority="high">
+      export function useDiscardGuard<T>(apply: (next: T) => void) { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/useDateSelection.ts">
