@@ -122,6 +122,96 @@ describe("resolveScopeConflicts", () => {
     ]);
   });
 
+  describe("a rule trimmed by a This and following split", () => {
+    const dec = (d: number) => `2026-12-${String(d).padStart(2, "0")}`;
+    const edited = (rule: DateRule) =>
+      ({
+        ...rule,
+        payload: {
+          version: 1,
+          services: [
+            {
+              ...(rule as { payload: { services: object[] } }).payload.services[0]!,
+              closesAt: 1200,
+            },
+          ],
+        },
+      }) as DateRule;
+    const split = (rule: DateRule, from: number) => {
+      const ended = { ...rule, endsOn: dec(from - 1) } as DateRule;
+      const created = { ...edited(rule), id: `${rule.id}-2`, startsOn: dec(from) } as DateRule;
+      return { ended, created };
+    };
+    const skipsOf = (config: AvailabilityConfig) =>
+      config.dateRules.filter((r) => r.kind === "skip").map((s) => [s.seriesId, s.startsOn]);
+    const ids = () => {
+      let n = 0;
+      return () => `skip-${++n}`;
+    };
+
+    it("does not treat the trimmed half as incoming: a one-date edit of an earlier date keeps its hours (Replace)", () => {
+      const rangeA = special("A", dec(1), dec(31));
+      const overrideX = special("X", dec(15), dec(15));
+      const skipA = {
+        id: "sk",
+        kind: "skip",
+        targetKind: "venue",
+        startsOn: dec(15),
+        endsOn: dec(15),
+        seriesId: "A",
+      } as DateRule;
+      const stored = { ...BASE, dateRules: [rangeA, overrideX, skipA] };
+      const { ended, created } = split(rangeA, 20);
+      const next = { ...stored, dateRules: [ended, created, overrideX, skipA] };
+
+      const resolved = resolveScopeConflicts(stored, next, "replace", ids(), "2026-12-10");
+
+      expect(skipsOf(resolved)).toEqual([["A", dec(15)]]);
+    });
+
+    it("does not flip the dates before the split to an older rule (Keep)", () => {
+      const fridaysB = special("B", "2026-11-01", null, { repeat: { version: 1, weekdays: [5] } });
+      const rangeA = special("A", dec(1), dec(31));
+      const stored = { ...BASE, dateRules: [fridaysB, rangeA] };
+      const { ended, created } = split(rangeA, 20);
+      const next = { ...stored, dateRules: [fridaysB, ended, created] };
+
+      const resolved = resolveScopeConflicts(stored, next, "keep", ids(), "2026-12-10");
+
+      // Only the new half meets B, on the one Friday it covers; Dec 4, 11 and 18 stay A's.
+      expect(skipsOf(resolved)).toEqual([["A-2", dec(25)]]);
+    });
+
+    it("still settles the dates a longer range newly covers", () => {
+      const rangeA = special("A", dec(1), dec(10));
+      const other = special("O", dec(12), dec(12));
+      const stored = { ...BASE, dateRules: [rangeA, other] };
+      const next = { ...stored, dateRules: [{ ...rangeA, endsOn: dec(20) } as DateRule, other] };
+
+      const resolved = resolveScopeConflicts(stored, next, "keep", ids(), "2026-12-01");
+
+      expect(skipsOf(resolved)).toEqual([["A", dec(12)]]);
+    });
+
+    it("ignores closure series edits, which are not hours rules", () => {
+      const closure = {
+        id: "C",
+        kind: "closure",
+        targetKind: "venue",
+        startsOn: dec(1),
+        endsOn: dec(31),
+        repeat: { version: 1, weekdays: [1] },
+      } as DateRule;
+      const other = special("O", dec(7), dec(7));
+      const stored = { ...BASE, dateRules: [closure, other] };
+      const next = {
+        ...stored,
+        dateRules: [{ ...closure, endsOn: dec(13) } as DateRule, other],
+      };
+      expect(resolveScopeConflicts(stored, next, "replace", ids(), "2026-12-01")).toBe(next);
+    });
+  });
+
   it("leaves a change with no dated hours rules alone", () => {
     expect(resolveScopeConflicts(before, before, "replace", ids(), TODAY)).toBe(before);
   });

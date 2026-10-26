@@ -23,8 +23,9 @@ import { CallListDialog } from "./CallListDialog.js";
 import { CloseDialog } from "./CloseDialog.js";
 import { ReopenClosureDialog } from "./ReopenClosureDialog.js";
 import { SeriesEditDialog } from "./SeriesEditDialog.js";
-import { isSeries, restoreDate, skipRows } from "./series-edit.js";
+import { isSeries, restoreDate, skipRows, type SeriesScope } from "./series-edit.js";
 import { SpecialHoursEditDrawer } from "./SpecialHoursEditDrawer.js";
+import { SpecialHoursScopeDialog } from "./SpecialHoursScopeDialog.js";
 import { useScheduleSave } from "./use-schedule-save.js";
 import {
   coversManyDates,
@@ -115,7 +116,7 @@ interface RowProps {
     readonly label: string | null;
     /** The whole rule, named: "for Thu, Dec 31", "for A to B", "every Friday". */
     readonly subject: string;
-    /** The rule covers more than one date, so Edit says it reaches only `label`. */
+    /** The rule covers more than one date, so Edit asks which dates it reaches. */
     readonly many: boolean;
     readonly onEdit: () => void;
     readonly onRemove: () => void;
@@ -199,13 +200,13 @@ function SpecialDateItem(props: RowProps) {
                 variant="ghost"
                 aria-label={
                   props.hours.many
-                    ? undefined
+                    ? t("availabilitySpecial.hours.editRule", { subject: props.hours.subject })
                     : t("availabilitySpecial.hours.editFor", { date: props.hours.label })
                 }
                 onClick={props.hours.onEdit}
               >
                 {props.hours.many
-                  ? t("availabilitySpecial.hours.editOnly", { date: props.hours.label })
+                  ? t("availabilitySpecial.hours.editMany")
                   : t("availabilitySpecial.hours.edit")}
               </Button>
             )}
@@ -248,11 +249,16 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
   const [editingSeries, setEditingSeries] = useState<DateRule | null>(null);
   const [editingDate, setEditingDate] = useState<{ series: DateRule; date: string } | null>(null);
   const [retryingId, setRetryingId] = useState<string | null>(null);
-  const [editingHours, setEditingHours] = useState<string | null>(null);
+  const [editingHours, setEditingHours] = useState<{
+    date: string;
+    ruleScope?: { ruleId: string; mode: SeriesScope };
+  } | null>(null);
+  const [scopingHours, setScopingHours] = useState<{ ruleId: string; date: string } | null>(null);
   const [removingHours, setRemovingHours] = useState<SpecialDateRule | null>(null);
   const offerUndo = useAvailabilityUndo();
   const rowSave = useScheduleSave(onStale, "availabilitySpecial.rowStranded");
 
+  const scopingRule = scopingHours ? rules.find((r) => r.id === scopingHours.ruleId) : undefined;
   const rows = specialDateRows(rules, today, filter);
   const editDateOf = (rule: DateRule) => hoursEditDate(rule, today);
   const summaryOf = (ruleId: string) => summaries.data?.find((s) => s.ruleId === ruleId);
@@ -383,7 +389,9 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
                       many: coversManyDates(rule),
                       onEdit: () => {
                         const date = editDateOf(rule);
-                        if (date) setEditingHours(date);
+                        if (!date) return;
+                        if (coversManyDates(rule)) setScopingHours({ ruleId: rule.id, date });
+                        else setEditingHours({ date });
                       },
                       onRemove: () => setRemovingHours(rule),
                     }
@@ -437,13 +445,29 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           onClose={() => setEditingDate(null)}
         />
       )}
+      {scopingHours && scopingRule && (
+        <SpecialHoursScopeDialog
+          rule={scopingRule}
+          today={today}
+          initialDate={scopingHours.date}
+          onClose={() => setScopingHours(null)}
+          onChoose={(scope, date) => {
+            setScopingHours(null);
+            setEditingHours({
+              date,
+              ruleScope: scope === "only" ? undefined : { ruleId: scopingRule.id, mode: scope },
+            });
+          }}
+        />
+      )}
       {editingHours && (
         <SpecialHoursEditDrawer
           venueId={venueId}
           state={state}
           timezone={timezone}
           today={today}
-          date={editingHours}
+          date={editingHours.date}
+          ruleScope={editingHours.ruleScope}
           onStale={onStale}
           onClose={() => setEditingHours(null)}
         />

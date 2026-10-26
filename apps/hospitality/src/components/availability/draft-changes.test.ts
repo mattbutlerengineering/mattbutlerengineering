@@ -34,6 +34,40 @@ function parses(changes: unknown) {
   return PutAvailabilityConfigBodySchema.safeParse({ expectedVersion: 1, changes }).success;
 }
 
+describe("a special-hours rule scope", () => {
+  const rule = {
+    ...EARLY_DINNER,
+    id: "fridays",
+    startsOn: "2026-10-02",
+    endsOn: null,
+    repeat: { version: 1, weekdays: [5] },
+  } as DateRule;
+  const scope: EditScope = {
+    kind: "rule",
+    ruleId: "fridays",
+    mode: "following",
+    from: FIXTURE_DATE,
+  };
+
+  it("seeds the rule's own hours, not the resolved day's", () => {
+    const { services } = seeded(scope, rule);
+    expect(services.map((s) => [s.name, s.closesAt])).toEqual([
+      ["Lunch", 900],
+      ["Dinner", 1320],
+    ]);
+  });
+
+  it("builds the split rows, and stays a valid wire body", () => {
+    const { config, services } = seeded(scope, rule);
+    const edited = services.map((s) => (s.name === "Dinner" ? { ...s, closesAt: 1200 } : s));
+    const changes = buildDraftChanges({ config, scope, services: edited, makeId: counter() });
+    const [ended, created] = changes.upsert.dateRules!;
+    expect(ended).toMatchObject({ id: "fridays", endsOn: "2026-10-29" });
+    expect(created).toMatchObject({ id: "new-1", startsOn: FIXTURE_DATE, repeat: rule.repeat });
+    expect(parses(changes)).toBe(true);
+  });
+});
+
 describe("seedServices", () => {
   it("copies the resolved day's services for a date scope", () => {
     const { services } = seeded();

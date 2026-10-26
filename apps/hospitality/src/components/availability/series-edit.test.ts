@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { applyChanges, resolveDay } from "@mbe/availability";
-import type { AvailabilityConfig, DateRule } from "@mbe/types";
+import type { AvailabilityConfig, DateRule, SpecialHoursPayload } from "@mbe/types";
 import {
+  EARLY_DINNER,
   FIXTURE_DATE,
   FIXTURE_TIMEZONE,
   WEEKLY_CLOSURE,
@@ -10,6 +11,7 @@ import {
 import {
   coversDate,
   dateOverride,
+  editHoursRule,
   editSeriesDates,
   growsSeries,
   growthClosure,
@@ -19,6 +21,7 @@ import {
   skipDate,
   skipRows,
   skippedDates,
+  type SpecialHoursRule,
 } from "./series-edit.js";
 
 const NEXT_FRIDAY = "2026-11-06";
@@ -279,5 +282,96 @@ describe("dateOverride", () => {
     const rules = [WEEKLY_CLOSURE, skip];
     expect(dateOverride(rules, WEEKLY_CLOSURE.id, FIXTURE_DATE)).toBe(skip);
     expect(dateOverride(rules, WEEKLY_CLOSURE.id, NEXT_FRIDAY)).toBeUndefined();
+  });
+});
+
+describe("editHoursRule (special-hours scope)", () => {
+  const EARLY = (EARLY_DINNER as SpecialHoursRule).payload;
+  const LATE: SpecialHoursPayload = {
+    version: 1,
+    services: EARLY.services.map((s) =>
+      s.venueServiceId === "vs-dinner" ? { ...s, closesAt: 1200 } : s
+    ),
+  };
+  const FRIDAYS = {
+    ...EARLY_DINNER,
+    id: "fridays",
+    startsOn: "2026-10-02",
+    endsOn: null,
+    repeat: { version: 1, weekdays: [5] },
+  } as SpecialHoursRule;
+  const dinnerClose = (config: AvailabilityConfig, date: string) =>
+    resolved(config, date).services.find((s) => s.venueServiceId === "vs-dinner")?.closesAt;
+
+  it("all dates edits the rule itself, keeping its id", () => {
+    const config = fixtureConfig(FRIDAYS);
+    const changes = editHoursRule(FRIDAYS, "all", FIXTURE_DATE, LATE, makeId);
+    expect(changes.upsert.dateRules).toEqual([{ ...FRIDAYS, payload: LATE }]);
+    const after = applyChanges(config, changes, NOW);
+    expect(dinnerClose(after, "2026-10-09")).toBe(1200);
+    expect(dinnerClose(after, NEXT_FRIDAY)).toBe(1200);
+  });
+
+  it("this and following ends a repeating rule the day before and starts a new one", () => {
+    const config = fixtureConfig(FRIDAYS);
+    const changes = editHoursRule(FRIDAYS, "following", FIXTURE_DATE, LATE, makeId);
+    const [ended, created] = changes.upsert.dateRules!;
+    expect(ended).toEqual({ ...FRIDAYS, endsOn: "2026-10-29" });
+    expect(created).toMatchObject({
+      kind: "special_hours",
+      startsOn: FIXTURE_DATE,
+      endsOn: null,
+      repeat: FRIDAYS.repeat,
+      payload: LATE,
+    });
+    expect(created!.id).not.toBe(FRIDAYS.id);
+    const after = applyChanges(config, changes, NOW);
+    expect(dinnerClose(after, "2026-10-23")).toBe(1320);
+    expect(dinnerClose(after, FIXTURE_DATE)).toBe(1200);
+    expect(dinnerClose(after, NEXT_FRIDAY)).toBe(1200);
+  });
+
+  it("this and following on a range splits it at the date", () => {
+    const range = {
+      ...EARLY_DINNER,
+      id: "range",
+      startsOn: "2026-10-26",
+      endsOn: "2026-11-08",
+    } as SpecialHoursRule;
+    const after = applyChanges(
+      fixtureConfig(range),
+      editHoursRule(range, "following", NEXT_FRIDAY, LATE, makeId),
+      NOW
+    );
+    expect(dinnerClose(after, FIXTURE_DATE)).toBe(1320);
+    expect(dinnerClose(after, NEXT_FRIDAY)).toBe(1200);
+    expect(after.dateRules.find((r) => r.id === "range")?.endsOn).toBe("2026-11-05");
+  });
+
+  it("all dates leaves dates before today with their hours when the rule has begun", () => {
+    const range = {
+      ...EARLY_DINNER,
+      id: "range",
+      startsOn: "2026-10-20",
+      endsOn: "2026-11-08",
+    } as SpecialHoursRule;
+    const changes = editHoursRule(range, "all", FIXTURE_DATE, LATE, makeId, "2026-10-28");
+    const [ended, created] = changes.upsert.dateRules!;
+    expect(ended).toEqual({ ...range, endsOn: "2026-10-27" });
+    expect(created).toMatchObject({ startsOn: "2026-10-28", endsOn: "2026-11-08", payload: LATE });
+    const after = applyChanges(fixtureConfig(range), changes, NOW);
+    expect(dinnerClose(after, "2026-10-23")).toBe(1320);
+    expect(dinnerClose(after, FIXTURE_DATE)).toBe(1200);
+  });
+
+  it("all dates edits a rule that starts today or later in place", () => {
+    const changes = editHoursRule(FRIDAYS, "all", FIXTURE_DATE, LATE, makeId, "2026-10-01");
+    expect(changes.upsert.dateRules).toEqual([{ ...FRIDAYS, payload: LATE }]);
+  });
+
+  it("from the rule's first date it is the same as all dates", () => {
+    expect(editHoursRule(FRIDAYS, "following", FRIDAYS.startsOn, LATE, makeId)).toEqual(
+      editHoursRule(FRIDAYS, "all", FRIDAYS.startsOn, LATE, makeId)
+    );
   });
 });

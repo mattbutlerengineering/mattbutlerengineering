@@ -24,6 +24,8 @@ function eachDate(from: string, to: string, step: number): string[] {
   return dates;
 }
 
+const maxDate = (a: string, b: string): string => (a > b ? a : b);
+
 export function scopeDates(scope: EditScope, context: ScopeContext): string[] {
   if (scope.kind === "date") return [scope.date];
   if (scope.kind === "dates") return [...scope.dates];
@@ -31,6 +33,15 @@ export function scopeDates(scope: EditScope, context: ScopeContext): string[] {
     const horizon = addDays(scope.from, SCOPE_HORIZON_DAYS - 1);
     const last = scope.until !== null && scope.until < horizon ? scope.until : horizon;
     return eachDate(scope.from, last, 7);
+  }
+  if (scope.kind === "rule") {
+    const rule = context.config.dateRules.find((r) => r.id === scope.ruleId);
+    if (!rule) return [];
+    // A past date is not edited: "all dates" reaches the rule's dates still ahead.
+    const first = scope.mode === "following" ? scope.from : maxDate(rule.startsOn, context.today);
+    const horizon = addDays(first, SCOPE_HORIZON_DAYS - 1);
+    const last = rule.endsOn != null && rule.endsOn < horizon ? rule.endsOn : horizon;
+    return eachDate(first, last, 1).filter((d) => coversDate(rule, d));
   }
   const week = {
     timezone: context.timezone,
@@ -44,7 +55,8 @@ export function scopeDates(scope: EditScope, context: ScopeContext): string[] {
 const isHoursRule = (rule: DateRule): boolean =>
   (rule.kind === "special_hours" || rule.kind === "use_schedule") && rule.seriesId == null;
 
-function coversDate(rule: DateRule, date: string): boolean {
+/** Whether the rule's range and repeat reach `date`. */
+export function coversDate(rule: DateRule, date: string): boolean {
   return (
     rule.startsOn <= date &&
     (rule.endsOn == null || date <= rule.endsOn) &&

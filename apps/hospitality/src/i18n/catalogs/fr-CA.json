@@ -1627,7 +1627,14 @@
     "hours": {
       "edit": "Modifier",
       "editFor": "Modifier l’horaire du {{date}}",
-      "editOnly": "Modifier le {{date}} seulement",
+      "editMany": "Modifier…",
+      "editRule": "Modifier les heures spéciales {{subject}}",
+      "scope": {
+        "title": "Modifier les heures spéciales",
+        "following": "Cette date et les suivantes à partir du {{date}}",
+        "all": "Toutes les dates",
+        "continue": "Continuer"
+      },
       "subjectDates": "pour {{dates}}",
       "subjectRepeat": "chaque {{days}}",
       "removeFor": "Retirer l’horaire spécial {{subject}}",
@@ -1972,6 +1979,9 @@
       "stranded_one": "{{count}} réservation serait hors de ces heures. Modifiez les heures ou réglez d’abord la réservation.",
       "stranded_other": "{{count}} réservations seraient hors de ces heures. Modifiez les heures ou réglez d’abord les réservations.",
       "stranded_many": "{{count}} réservations seraient hors de ces heures. Modifiez les heures ou réglez d’abord les réservations.",
+      "strandedRule_one": "{{count}} réservation serait hors des nouvelles heures. Rien n’a été annulé. Modifiez les heures ou réglez d’abord la réservation.",
+      "strandedRule_other": "{{count}} réservations seraient hors des nouvelles heures. Rien n’a été annulé. Modifiez les heures ou réglez d’abord les réservations.",
+      "strandedRule_many": "{{count}} réservations seraient hors des nouvelles heures. Rien n’a été annulé. Modifiez les heures ou réglez d’abord les réservations.",
       "conflict": {
         "title": "Quelqu’un a modifié la disponibilité avant vous",
         "theirs": "{{summary}} (enregistré à {{time}}).",

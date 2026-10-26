@@ -31,6 +31,9 @@ vi.mock("../../hooks/useAvailability.js", () => ({
   useSaveAvailabilityConfig: () => ({ mutateAsync: saveConfig, isPending: false }),
   useRevertAvailabilityChange: () => ({ mutateAsync: revertChange, isPending: false }),
 }));
+vi.mock("./AvailabilityGuestPreview.js", () => ({
+  AvailabilityGuestPreview: () => <div data-testid="guest-preview" />,
+}));
 vi.mock("../../contexts/VenueContext.js", () => ({
   useVenue: () => ({
     selectedVenue: { id: "venue-1", ianaTimezone: "America/Los_Angeles", currencyCode: "USD" },
@@ -38,6 +41,7 @@ vi.mock("../../contexts/VenueContext.js", () => ({
 }));
 
 import { SpecialDatesTab } from "./SpecialDatesTab.js";
+import { EARLY_DINNER, fixtureConfig } from "./resolved-day-fixtures.js";
 
 const summary = (ruleId: string, over: Partial<ClosureSummary> = {}): ClosureSummary => ({
   ruleId,
@@ -97,6 +101,13 @@ function renderTab(isManager = true, state: AvailabilityConfigState = STATE) {
       </main>
     </ToastProvider>
   );
+}
+
+/** Answer the "which dates" question that Edit asks on a range or repeating special-hours row. */
+function pickScope(choice: string) {
+  const dialog = screen.getByRole("dialog", { name: "Edit special hours" });
+  fireEvent.click(within(dialog).getByRole("radio", { name: choice }));
+  fireEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
 }
 
 describe("SpecialDatesTab", () => {
@@ -347,10 +358,13 @@ describe("SpecialDatesTab", () => {
           config: { ...STATE.config, dateRules: [rule] },
         }) as AvailabilityConfigState;
 
-      it("says Edit reaches one date, and names the range when removing it", async () => {
+      it("asks which dates Edit reaches, and names the range when removing it", async () => {
         saveConfig.mockResolvedValue({ version: 8, changeId: "chg-8" });
         renderTab(true, stateWith(rangeRule));
-        fireEvent.click(screen.getByRole("button", { name: "Edit Sun, Dec 20 only" }));
+        fireEvent.click(
+          screen.getByRole("button", { name: "Edit special hours for Sun, Dec 20 to Fri, Jan 1" })
+        );
+        pickScope("Only Sun, Dec 20");
         expect(screen.getByRole("dialog", { name: /Sunday, December 20/ })).toBeTruthy();
         fireEvent.click(screen.getByRole("button", { name: "Close" }));
 
@@ -387,10 +401,12 @@ describe("SpecialDatesTab", () => {
         expect(screen.getByRole("button", { name: /Remove special hours/ })).toBeTruthy();
       });
 
-      it("names the series when removing a repeating rule, and edits its next date only", async () => {
+      it("names the series when removing a repeating rule", async () => {
         saveConfig.mockResolvedValue({ version: 8, changeId: "chg-8" });
         renderTab(true, stateWith(fridays));
-        expect(screen.getByRole("button", { name: "Edit Fri, Dec 4 only" })).toBeTruthy();
+        expect(
+          screen.getByRole("button", { name: "Edit special hours every Friday" })
+        ).toBeTruthy();
 
         fireEvent.click(screen.getByRole("button", { name: "Remove special hours every Friday" }));
         const dialog = screen.getByRole("dialog");
@@ -398,6 +414,246 @@ describe("SpecialDatesTab", () => {
         fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
 
         expect(await screen.findByText("Special hours removed every Friday")).toBeTruthy();
+      });
+
+      describe("scope choice (F-SER)", () => {
+        // The same rules with real services, so the day editor has hours to change.
+        const realRule = (rule: DateRule) =>
+          ({
+            version: 7,
+            source: "rows",
+            config: fixtureConfig({
+              ...rule,
+              payload: (EARLY_DINNER as never)["payload"],
+            } as DateRule),
+          }) as AvailabilityConfigState;
+        const repeating = realRule(fridays);
+        const ranged = realRule({
+          ...rangeRule,
+          startsOn: "2026-11-20",
+          endsOn: "2026-12-20",
+        } as DateRule);
+
+        /** Edit the hours in the opened day drawer (Lunch removed) and save. */
+        const shortenAndSave = () => {
+          fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+          fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+          fireEvent.click(screen.getByRole("button", { name: /^Save \d+ dates?$/ }));
+        };
+        const sent = () => saveConfig.mock.calls.at(-1)![0].body;
+
+        beforeEach(() => {
+          saveConfig.mockResolvedValue({ version: 8, changeId: "chg-8" });
+        });
+
+        it("keeps plain Edit on a single-date row", () => {
+          renderTab(true, realRule(hours));
+          fireEvent.click(screen.getByRole("button", { name: "Edit hours for Thu, Dec 31" }));
+          expect(screen.queryByRole("dialog", { name: "Edit special hours" })).toBeNull();
+        });
+
+        it("hides the choice from a Host", () => {
+          renderTab(false, repeating);
+          expect(screen.queryByRole("button", { name: /Edit special hours/ })).toBeNull();
+        });
+
+        it("all dates leaves the past as it was and edits the rest, against the loaded version", async () => {
+          renderTab(true, repeating);
+          fireEvent.click(screen.getByRole("button", { name: "Edit special hours every Friday" }));
+          pickScope("All dates");
+          shortenAndSave();
+
+          await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(1));
+          expect(sent().expectedVersion).toBe(7);
+          expect(sent().scopeConflicts).toBe("keep");
+          const [ended, created] = sent().changes.upsert.dateRules;
+          // Today is Dec 1: the dates before it keep their hours.
+          expect(ended).toMatchObject({
+            id: "fridays",
+            startsOn: "2026-09-04",
+            endsOn: "2026-11-30",
+          });
+          expect(created).toMatchObject({ startsOn: "2026-12-01", endsOn: null });
+          expect(
+            created.payload.services.map((s: { venueServiceId: string }) => s.venueServiceId)
+          ).toEqual(["vs-dinner"]);
+        });
+
+        it("all dates edits a rule that has not started yet in place", async () => {
+          renderTab(true, realRule(rangeRule));
+          fireEvent.click(
+            screen.getByRole("button", {
+              name: "Edit special hours for Sun, Dec 20 to Fri, Jan 1",
+            })
+          );
+          pickScope("All dates");
+          shortenAndSave();
+
+          await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(1));
+          const rows = sent().changes.upsert.dateRules;
+          expect(rows).toHaveLength(1);
+          expect(rows[0]).toMatchObject({
+            id: "holidays",
+            startsOn: "2026-12-20",
+            endsOn: "2027-01-01",
+          });
+        });
+
+        it("asks for a date on Only and This and following, not on All dates", () => {
+          renderTab(true, repeating);
+          fireEvent.click(screen.getByRole("button", { name: "Edit special hours every Friday" }));
+          const dialog = screen.getByRole("dialog", { name: "Edit special hours" });
+          expect(within(dialog).getByText("Date")).toBeTruthy();
+          fireEvent.click(within(dialog).getByRole("radio", { name: "All dates" }));
+          expect(within(dialog).queryByText("Date")).toBeNull();
+        });
+
+        describe("a date inside the range with its own hours", () => {
+          const override = {
+            ...(EARLY_DINNER as object),
+            id: "dec25",
+            startsOn: "2026-12-25",
+            endsOn: "2026-12-25",
+          } as DateRule;
+          const withOverride = {
+            version: 7,
+            source: "rows",
+            config: fixtureConfig(
+              {
+                ...rangeRule,
+                endsOn: "2027-01-02",
+                payload: (EARLY_DINNER as never)["payload"],
+              } as DateRule,
+              override
+            ),
+          } as AvailabilityConfigState;
+          const openRange = () => {
+            renderTab(true, withOverride);
+            fireEvent.click(
+              screen.getByRole("button", {
+                name: "Edit special hours for Sun, Dec 20 to Sat, Jan 2",
+              })
+            );
+            pickScope("All dates");
+            fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+            fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+          };
+
+          it("tells the Manager, counts only the dates that change, and keeps theirs", async () => {
+            openRange();
+            expect(
+              screen.getByText("1 date in this scope already has its own changes")
+            ).toBeTruthy();
+            fireEvent.click(screen.getByRole("button", { name: "Save 13 dates" }));
+
+            await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(1));
+            expect(sent().scopeConflicts).toBe("keep");
+          });
+
+          it("replaces them when asked, counting every date", async () => {
+            openRange();
+            fireEvent.click(screen.getByRole("radio", { name: "Replace them" }));
+            fireEvent.click(screen.getByRole("button", { name: "Save 14 dates" }));
+
+            await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(1));
+            expect(sent().scopeConflicts).toBe("replace");
+          });
+        });
+
+        it("this and following ends a repeating rule the day before and starts a new one", async () => {
+          renderTab(true, repeating);
+          fireEvent.click(screen.getByRole("button", { name: "Edit special hours every Friday" }));
+          pickScope("This and following from Fri, Dec 4");
+          shortenAndSave();
+
+          await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(1));
+          const [ended, created] = sent().changes.upsert.dateRules;
+          expect(ended).toMatchObject({ id: "fridays", endsOn: "2026-12-03" });
+          expect(created).toMatchObject({
+            startsOn: "2026-12-04",
+            endsOn: null,
+            repeat: fridays.repeat,
+          });
+          expect(created.id).not.toBe("fridays");
+        });
+
+        const editRange = () =>
+          fireEvent.click(
+            screen.getByRole("button", {
+              name: "Edit special hours for Fri, Nov 20 to Sun, Dec 20",
+            })
+          );
+
+        it("this and following on a range ends it the day before and starts the rest", async () => {
+          renderTab(true, ranged);
+          editRange();
+          pickScope("This and following from Tue, Dec 1");
+          shortenAndSave();
+
+          await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(1));
+          const [ended, created] = sent().changes.upsert.dateRules;
+          expect(ended).toMatchObject({
+            id: "holidays",
+            startsOn: "2026-11-20",
+            endsOn: "2026-11-30",
+          });
+          expect(created).toMatchObject({ startsOn: "2026-12-01", endsOn: "2026-12-20" });
+        });
+
+        it("all dates on a range that has begun keeps its past dates as they were", async () => {
+          renderTab(true, ranged);
+          editRange();
+          pickScope("All dates");
+          shortenAndSave();
+
+          await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(1));
+          const [ended, created] = sent().changes.upsert.dateRules;
+          expect(ended).toMatchObject({
+            id: "holidays",
+            startsOn: "2026-11-20",
+            endsOn: "2026-11-30",
+          });
+          expect(created).toMatchObject({ startsOn: "2026-12-01", endsOn: "2026-12-20" });
+        });
+
+        it("only this date leaves the rule alone and writes a one-date rule", async () => {
+          renderTab(true, repeating);
+          fireEvent.click(screen.getByRole("button", { name: "Edit special hours every Friday" }));
+          pickScope("Only Fri, Dec 4");
+          shortenAndSave();
+
+          await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(1));
+          const rows = sent().changes.upsert.dateRules;
+          expect(rows).toHaveLength(1);
+          expect(rows[0]).toMatchObject({ startsOn: "2026-12-04", endsOn: "2026-12-04" });
+          expect(rows[0].id).not.toBe("fridays");
+        });
+
+        it("refuses an edit that would strand bookings, naming the cost and cancelling nothing", async () => {
+          saveConfig.mockRejectedValue({
+            problemDetails: {
+              type: "about:blank",
+              title: "Conflict",
+              status: 409,
+              detail: "x",
+              code: "stranded-bookings",
+              reservations: [
+                { id: "r1", startTime: "2026-12-04T18:00:00Z", partySize: 2, reason: "closed" },
+              ],
+            },
+          });
+          renderTab(true, repeating);
+          fireEvent.click(screen.getByRole("button", { name: "Edit special hours every Friday" }));
+          pickScope("All dates");
+          shortenAndSave();
+
+          expect(
+            await screen.findByText(
+              /1 booking would fall outside the new hours.*Nothing was cancelled/
+            )
+          ).toBeTruthy();
+          expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+        });
       });
     });
 

@@ -15,6 +15,7 @@ import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js"
 import { AvailabilityDayEditor } from "./AvailabilityDayEditor.js";
 import { CopyDayAction } from "./CopyDayAction.js";
 import { ScheduleNudge } from "./ScheduleNudge.js";
+import type { SeriesScope } from "./series-edit.js";
 import { diffRemoval, removalChangeText } from "./removal-diff.js";
 import styles from "./AvailabilityDayDrawer.module.css";
 
@@ -33,6 +34,8 @@ export interface DayEditing {
    * It replaces the scope choice ("Applies to 6 dates") and the editor writes exactly these.
    */
   readonly fixedDates?: readonly string[];
+  /** Set when a range or repeating special-hours rule is edited (F-SER): the scope is already chosen. */
+  readonly ruleScope?: { readonly ruleId: string; readonly mode: SeriesScope };
   /** Reload the config after a schedule save was refused as out of date. */
   readonly onStale?: () => void;
   /** "Close…" (F5): open the Close dialog for this date. */
@@ -164,6 +167,7 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
             onDirtyChange={editing.onDirtyChange}
             onFinished={editing.onFinished}
             fixedDates={editing.fixedDates}
+            ruleScope={editing.ruleScope}
             date={date}
             day={day}
             onCancel={onClose}

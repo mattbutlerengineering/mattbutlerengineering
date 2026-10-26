@@ -31,6 +31,7 @@ import {
   type EditScope,
 } from "./draft-changes.js";
 import { ownChangeDates, scopeDates } from "./scope-dates.js";
+import type { SeriesScope } from "./series-edit.js";
 import { ServicesEditor } from "./ServicesEditor.js";
 import { minuteText } from "./closure-band.js";
 import styles from "./AvailabilityDayEditor.module.css";
@@ -51,6 +52,8 @@ export interface AvailabilityDayEditorProps {
   readonly onFinished: () => void;
   /** Dates picked in the multi-select bar: the edit applies to exactly these, with no scope choice. */
   readonly fixedDates?: readonly string[];
+  /** A range or repeating special-hours rule is being edited (F-SER); its scope is already chosen. */
+  readonly ruleScope?: { readonly ruleId: string; readonly mode: SeriesScope };
 }
 
 interface EditState {
@@ -87,7 +90,7 @@ function problemOf(error: unknown) {
  */
 export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   const { venueId, date, day, state, timezone, today } = props;
-  const { onDirtyChange, onCancel, onFinished, fixedDates } = props;
+  const { onDirtyChange, onCancel, onFinished, fixedDates, ruleScope } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const offerUndo = useAvailabilityUndo();
@@ -106,7 +109,10 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
     () => (scope ? scopeDates(scope, { config, timezone, today }) : []),
     [scope, config, timezone, today]
   );
-  const own = useMemo(() => ownChangeDates(config, dates, null), [config, dates]);
+  const own = useMemo(
+    () => ownChangeDates(config, dates, scope?.kind === "rule" ? scope.ruleId : null),
+    [config, dates, scope]
+  );
   // The preview only needs the shape of the rows, so its new-row ids need not be real ones.
   const previewChanges = useMemo(() => {
     if (!edit || !isDirty(edit)) return null;
@@ -118,11 +124,15 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
       scope: edit.scope,
       services: edit.services,
       makeId: () => `preview-${n++}`,
+      today,
     });
-  }, [edit, config]);
+  }, [edit, config, today]);
   // Under Keep theirs the dates with their own changes are left alone, so they are not written.
   const writtenCount =
     edit?.mode === "keep" && dates.length > 1 ? dates.length - own.length : dates.length;
+  // A rule edit goes through the server's keep/replace for its dates that have their own change.
+  const conflictMode: ScopeConflictMode =
+    ruleScope || dates.length > 1 ? (edit?.mode ?? "keep") : "replace";
   const schedule = config.schedules.find((s) => s.id === day.scheduleId);
   const scheduleCount = config.schedules.filter((s) => !s.archivedAt).length;
 
@@ -134,7 +144,9 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   const begin = () => {
     const first: EditScope = fixedDates
       ? { kind: "dates", dates: fixedDates }
-      : { kind: "date", date };
+      : ruleScope
+        ? { kind: "rule", ...ruleScope, from: date }
+        : { kind: "date", date };
     const seed = seedServices(config, day, first);
     setEdit({
       base: state,
@@ -170,7 +182,9 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
       scope: edit.scope,
       services: edit.services,
       makeId: () => crypto.randomUUID(),
-      leaveOut: edit.mode === "keep" && dates.length > 1 ? own : [],
+      // A rule edit leaves its own-change dates to the server's keep/replace.
+      leaveOut: edit.mode === "keep" && dates.length > 1 && !ruleScope ? own : [],
+      today,
     });
     let saved: AvailabilityConfigSaveResult;
     try {
@@ -181,7 +195,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
           expectedVersion: edit.base.version,
           changes,
           // A single date is an explicit choice; there is nothing to keep or replace.
-          scopeConflicts: dates.length > 1 ? edit.mode : "replace",
+          scopeConflicts: conflictMode,
         },
       });
     } catch (error) {
@@ -214,7 +228,11 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
       setFailure({ messages: problem.issues.map((i) => i.message) });
     } else if (problem?.code === "stranded-bookings") {
       setFailure({
-        messages: [t("availability.editor.stranded", { count: problem.reservations?.length ?? 0 })],
+        messages: [
+          t(ruleScope ? "availability.editor.strandedRule" : "availability.editor.stranded", {
+            count: problem.reservations?.length ?? 0,
+          }),
+        ],
       });
     } else {
       setFailure({ messages: [describeApiError(error).detail] });
@@ -289,7 +307,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
           ))}
         </Alert>
       )}
-      {!fixedDates && (
+      {!fixedDates && !ruleScope && (
         <Select
           label={t("availability.editor.scope.label")}
           options={scopeOptions}
@@ -333,7 +351,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
         <AvailabilityGuestPreview
           venueId={venueId}
           changes={previewChanges}
-          scopeConflicts={dates.length > 1 ? edit.mode : "replace"}
+          scopeConflicts={conflictMode}
           dates={dates}
           focusDate={date}
         />
