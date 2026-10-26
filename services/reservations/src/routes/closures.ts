@@ -148,6 +148,44 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
     }),
   });
 
+  registerEndpoint(fastify, availabilityConfigEndpoints.createClosures, {
+    docs: {
+      summary: "Save several closures in one transaction",
+      operationId: "createClosures",
+      description:
+        "Each item is a `POST …/closures` body; the items commit in order inside one transaction, so a refusal (a missing decision, a move with no open time, a stale version) saves none of them and cancels no booking. Every item keeps its own rule, outcomes, audit row, refund job and notices. Requires an `Idempotency-Key` header; a replay returns the stored results. Manager only.",
+      tags: ["Availability"],
+      security: [{ bearerAuth: [] }],
+    },
+    preHandler: requireAuth,
+    handler: venueScoped(VENUE_FROM_ID, async (request, reply, { venueId, isAdmin }) => {
+      const key = request.headers["idempotency-key"];
+      if (typeof key !== "string" || key.trim() === "") {
+        return reply
+          .code(400)
+          .send(createProblemDetails(400, "Bad Request", "Idempotency-Key header is required"));
+      }
+      const caller = await closureCaller(request, venueId, isAdmin);
+      const outcome = await closureCommandService.createMany({
+        venueId,
+        caller,
+        body: request.body,
+        idempotencyKey: key,
+        now: new Date(),
+      });
+      if (outcome.kind !== "saved") return sendRefusal(reply, outcome);
+      // After the commit; failures are logged, never returned.
+      for (const saved of outcome.result.results) {
+        await enqueueClosureJobs(fastify, request.log, {
+          venueId,
+          ruleId: saved.ruleId,
+          cancelled: saved.outcomes.cancel,
+        });
+      }
+      return { data: outcome.result };
+    }),
+  });
+
   registerEndpoint(fastify, availabilityConfigEndpoints.listClosures, {
     docs: {
       summary: "Outcome counts for every closure",

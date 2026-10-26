@@ -2832,6 +2832,21 @@
       ): Promise<CreateClosureOutcome> { /* ... */ }
     </item>
     <item priority="low">
+      type CreateClosuresOutcome = { kind: "saved"; result: Closu | Exclude<CreateClosureOutcome, ;
+    </item>
+    <item priority="high">
+      export async function createClosures(
+        input: {
+          venueId: string;
+          caller: ClosureCaller;
+          body: CreateClosuresBody;
+          idempotencyKey: string;
+          now: Date;
+        },
+        client: StoreClient = prisma
+      ): Promise<CreateClosuresOutcome> { /* ... */ }
+    </item>
+    <item priority="low">
       async function requireAuthor(
         db: Pick<PrismaClient, "availabilityChange">,
         venueId: string,

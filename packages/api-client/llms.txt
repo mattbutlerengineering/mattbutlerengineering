@@ -77,6 +77,9 @@
       type CreateClosureRequest = z.input<typeof CreateClosureBodySchema>;
     </item>
     <item priority="low">
+      type CreateClosuresRequest = z.input<typeof CreateClosuresBodySchema>;
+    </item>
+    <item priority="low">
       type SetTonightRequest = z.input<typeof SetTonightBodySchema>;
     </item>
     <item priority="high">

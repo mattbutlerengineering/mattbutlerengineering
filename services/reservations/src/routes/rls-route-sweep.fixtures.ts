@@ -1081,6 +1081,39 @@ const availabilityFixtures: Record<string, RouteFixture> = {
       "member venue B"
     );
   }),
+  // The batch save is the same transaction repeated per item, on the same disposable venue.
+  "POST /api/v1/venues/:id/closures/batch": ok(async (ctx) => {
+    const { base, version } = await sharedAvailabilityVenue(ctx);
+    const item = (date: string) => ({
+      rule: {
+        id: `rls-sweep-batch-${randomUUID()}`,
+        kind: "closure",
+        targetKind: "venue",
+        startsOn: date,
+        endsOn: date,
+      },
+      decisions: [],
+    });
+    const batch = { expectedVersion: version, items: [item("2026-12-26"), item("2026-12-27")] };
+    expectOk(
+      await asAdmin(ctx, {
+        method: "POST",
+        url: `${base}/closures/batch`,
+        headers: { "idempotency-key": `rls-sweep-4-${randomUUID()}` },
+        payload: batch,
+      }),
+      "admin batch"
+    );
+    expectDenied(
+      await asMember(ctx, {
+        method: "POST",
+        url: `${AVAILABILITY_CONFIG_PREFIX}/${ctx.venueB.id}/closures/batch`,
+        headers: { "idempotency-key": `rls-sweep-4b-${randomUUID()}` },
+        payload: batch,
+      }),
+      "member venue B"
+    );
+  }),
   "DELETE /api/v1/venues/:id/closures/:ruleId": ok(async (ctx) => {
     const { base, version } = await sharedAvailabilityVenue(ctx);
     const reopenRuleId = `rls-sweep-reopen-${randomUUID()}`;

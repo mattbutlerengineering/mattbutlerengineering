@@ -5,7 +5,9 @@ import type {
   ClosureAction,
   ClosureImpact,
   ClosureResult,
+  ClosuresResult,
   CreateClosureBody,
+  CreateClosuresBody,
   DateRule,
   ReopenResult,
 } from "@mbe/types";
@@ -397,6 +399,54 @@ export async function createClosure(
   }
 }
 
+export type CreateClosuresOutcome =
+  { kind: "saved"; result: ClosuresResult } | Exclude<CreateClosureOutcome, { kind: "saved" }>;
+
+/**
+ * Several closures in one transaction (ux.md F6, "Add special date"). Each item commits exactly
+ * as `createClosure` would, in order, from the version the one before it left, so a booking's
+ * outcome, its notice and its refund stay keyed to its own rule. Any refusal rolls back every
+ * item: no booking is cancelled for one date while another date fails. Item `i` replays under
+ * `<key>#i`. Manager only; a Host's emergency close is a single `createClosure`.
+ */
+export async function createClosures(
+  input: {
+    venueId: string;
+    caller: ClosureCaller;
+    body: CreateClosuresBody;
+    idempotencyKey: string;
+    now: Date;
+  },
+  client: StoreClient = prisma
+): Promise<CreateClosuresOutcome> {
+  const { venueId, caller, body, idempotencyKey: key, now } = input;
+  if (!caller.isManager) return { kind: "forbidden" };
+  try {
+    const results = await client.$transaction(async (tx) => {
+      await setVenueContext(tx, venueId);
+      const saved: ClosureResult[] = [];
+      let expectedVersion = body.expectedVersion;
+      for (const [i, item] of body.items.entries()) {
+        const result = await commit(tx, {
+          venueId,
+          caller,
+          body: { expectedVersion, rule: item.rule, decisions: item.decisions },
+          key: `${key}#${i}`,
+          now,
+          ruleKinds: CLOSURE_RULE_KINDS,
+        });
+        saved.push(result);
+        expectedVersion = result.version;
+      }
+      return saved;
+    });
+    return { kind: "saved", result: { version: results.at(-1)!.version, results } };
+  } catch (error) {
+    if (error instanceof Refused) return error.outcome;
+    throw error;
+  }
+}
+
 // ── Reopen ──────────────────────────────────────────────────────────────────
 
 /** A Host may only reopen a closure they made themselves (the actor on its audit row). */
@@ -490,4 +540,9 @@ export async function reopenClosure(
 }
 
 /** The store as a domain-service record, for the `buildApp({ services })` seam. */
-export const closureCommandService = { create: createClosure, reopen: reopenClosure, mayClose };
+export const closureCommandService = {
+  create: createClosure,
+  createMany: createClosures,
+  reopen: reopenClosure,
+  mayClose,
+};

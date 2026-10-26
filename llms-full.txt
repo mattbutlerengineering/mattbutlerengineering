@@ -4638,6 +4638,152 @@
   </file>
   </section>
   <section priority="medium" role="availability">
+  <file path="apps/hospitality/src/components/availability/add-dates-draft.ts">
+    export type RowKind = "closed" | "hours" | "same";
+    export interface DateRow {
+      /** React key and id seed; stable across edits. */
+      readonly key: string;
+      /** `""` until picked. */
+      readonly date: string;
+      readonly kind: RowKind;
+      /** The weekday a "Same as" row copies (0 = Sunday). */
+      readonly sameAs: number;
+      /** The hours a Special hours or Same as row writes. */
+      readonly services: readonly DraftService[];
+      /** This row's message for guests; the shared one wins while `shareMessage` is on. */
+      readonly message: string;
+    }
+    export interface AddDatesForm {
+      readonly rows: readonly DateRow[];
+      readonly shareMessage: boolean;
+      readonly sharedMessage: string;
+    }
+    export type RowField = "date" | "hours" | "message";
+    export const emptyRow = (key: string, date: string): DateRow => ({
+      key,
+      date,
+      kind: "closed",
+      sameAs: date ? weekdayIndexOf(date) : 0,
+      services: [],
+      message: "",
+    });
+    export function validateRows(
+      form: AddDatesForm,
+      today: string
+    ): { readonly key: string; readonly field: RowField } | null {
+      const seen = new Set<string>();
+      for (const row of form.rows) {
+        if (row.date === "" || row.date < today || seen.has(row.date)) {
+          return { key: row.key, field: "date" };
+        }
+        seen.add(row.date);
+        const unnamed = row.services.some((s) => s.venueServiceId === null && !s.name.trim());
+        if (row.kind !== "closed" && (row.services.length === 0 || unnamed)) {
+          return { key: row.key, field: "hours" };
+        }
+        if (messageOf(form, row).length > GUEST_MESSAGE_MAX_LENGTH) {
+          return { key: row.key, field: "message" };
+        }
+      }
+      return null;
+    }
+    export function closureItems(
+      form: AddDatesForm,
+      today: string,
+      idFor: (rowKey: string) => string
+    ): { readonly rowKey: string; readonly rule: DateRule }[] {
+      return form.rows.flatMap((row) => {
+        if (row.kind !== "closed") return [];
+        const rule = buildCloseRule(
+          {
+            what: { kind: "venue" },
+            when: { kind: "date", date: row.date },
+            fromMinute: null,
+            staffNote: "",
+            guestMessage: messageOf(form, row),
+          },
+          idFor(row.key),
+          today
+        );
+        return rule ? [{ rowKey: row.key, rule }] : [];
+      });
+    }
+    export function regularServices(
+      config: AvailabilityConfig,
+      timezone: string,
+      weekday: number,
+      today: string
+    ): DraftService[] {
+      let date = today;
+      while (weekdayIndexOf(date) !== weekday) date = addDays(date, 1);
+      const regular = { ...config, dateRules: [] };
+      const day = resolveDay({ timezone, config: regular }, date);
+      return seedServices(regular, day, { kind: "date", date });
+    }
+    export function hoursChanges(
+      form: AddDatesForm,
+      config: AvailabilityConfig,
+      makeId: () => string
+    ): AvailabilityConfigChanges | null {
+      const parts = form.rows
+        .filter((row) => row.kind !== "closed")
+        .map((row) => {
+          const built = buildDraftChanges({
+            config,
+            scope: { kind: "date", date: row.date },
+            services: row.services,
+            makeId,
+          });
+          const message = messageOf(form, row);
+          return {
+            venueServices: built.upsert.venueServices ?? [],
+            dateRules: (built.upsert.dateRules ?? []).map((rule) =>
+              message ? { ...rule, guestMessage: message } : rule
+            ),
+          };
+        });
+      if (parts.length === 0) return null;
+      return {
+        upsert: {
+          ...(parts.some((p) => p.venueServices.length > 0)
+            ? { venueServices: parts.flatMap((p) => p.venueServices) }
+            : {}),
+          dateRules: parts.flatMap((p) => p.dateRules),
+        },
+        remove: {},
+      };
+    }
+    export function combineImpacts(impacts: readonly ClosureImpact[]): ClosureImpact {
+      const sum = (pick: (i: ClosureImpact) => number) =>
+        impacts.reduce((total, i) => total + pick(i), 0);
+      return {
+        reservations: sum((i) => i.reservations),
+        covers: sum((i) => i.covers),
+        depositsHeld: sum((i) => i.depositsHeld),
+        groups: impacts
+          .flatMap((i) => i.groups)
+          .sort((a, b) => a.date.localeCompare(b.date) || a.groupKey.localeCompare(b.groupKey)),
+      };
+    }
+    export function decisionsFor(
+      impacts: readonly ClosureImpact[],
+      choices: ChoiceMap
+    ): ClosureDecision[][] {
+      return impacts.map((impact) => toDecisions(impact.groups, choices));
+    }
+    export function saveLabelParts(
+      dates: number,
+      counts: OutcomeCounts
+    ): { dates: number; parts: { action: ClosureAction; count: number }[] } {
+      const actions = ["cancel", "move", "keep_notify", "keep_silent"] as const;
+      return {
+        dates,
+        parts: actions
+          .filter((a) => counts[a] > 0)
+          .map((action) => ({ action, count: counts[action] })),
+      };
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/calendar-dates.ts">
     export type CalendarView = "month" | "week";
     function daysSinceMonday(date: string): number {
@@ -12229,6 +12375,33 @@
           },
         },
       }),
+      createClosures: defineEndpoint({
+        method: "POST",
+        path: `${AVAILABILITY_CONFIG_PREFIX}/:id/closures/batch`,
+        params: VenueParamsSchema,
+        body: CreateClosuresBodySchema,
+        responses: {
+          200: {
+            description:
+              "Every closure saved in one transaction (or replayed from the same `Idempotency-Key`): the version and one result per item, in order",
+            body: z.object({ data: ClosuresResultSchema }),
+          },
+          400: problem("Missing `Idempotency-Key` header, or a date range too long to evaluate"),
+          401: authRequired,
+          403: problem("Caller is not a Manager of this venue"),
+          404: venueNotFound,
+          409: {
+            description:
+              "`version-conflict`, `idempotency-key-reused` or `closure-exists` (a rule id was already saved, or appears twice)",
+            body: AvailabilityConfigProblemSchema,
+          },
+          422: {
+            description:
+              "`invalid-config`, `decision-required`, `invalid-decision` or `move-unavailable`; none of the items is saved",
+            body: AvailabilityConfigProblemSchema,
+          },
+        },
+      }),
       previewAvailability: defineEndpoint({
         method: "POST",
         path: `${AVAILABILITY_CONFIG_PREFIX}/:id/availability/preview`,
@@ -17022,6 +17195,34 @@
       ],
       mutationFn: (api, { venueId, ruleId, tellCancelledGuests }) =>
         api.availability.reopenClosure(venueId, ruleId, tellCancelledGuests),
+    });
+    export type PreviewClosureImpactsVariables = {
+      venueId: string;
+      rules: readonly DateRule[];
+    };
+    export const usePreviewClosureImpacts = createMutationHook<
+      PreviewClosureImpactsVariables,
+      ClosureImpact[]
+    >({
+      invalidateKeys: [],
+      mutationFn: (api, { venueId, rules }) =>
+        Promise.all(rules.map((rule) => api.availability.getClosureImpact(venueId, rule))),
+    });
+    type CreateClosuresRequest = Parameters<AvailabilityClient["createClosures"]>[1];
+    export type CreateClosuresVariables = {
+      venueId: string;
+      body: CreateClosuresRequest;
+      /** One key per attempt: a retry of the same attempt replays the first results. */
+      idempotencyKey: string;
+    };
+    export const useCreateClosures = createMutationHook<CreateClosuresVariables, ClosuresResult>({
+      invalidateKeys: [
+        AVAILABILITY_CONFIG_QUERY_KEY,
+        AVAILABILITY_DAYS_QUERY_KEY,
+        CLOSURE_SUMMARIES_QUERY_KEY,
+      ],
+      mutationFn: (api, { venueId, body, idempotencyKey }) =>
+        api.availability.createClosures(venueId, body, idempotencyKey),
     });
   </file>
   <file path="apps/hospitality/src/hooks/useDashboardStatsQuery.ts">
@@ -30703,6 +30904,44 @@
         }),
       });
     
+      registerEndpoint(fastify, availabilityConfigEndpoints.createClosures, {
+        docs: {
+          summary: "Save several closures in one transaction",
+          operationId: "createClosures",
+          description:
+            "Each item is a `POST …/closures` body; the items commit in order inside one transaction, so a refusal (a missing decision, a move with no open time, a stale version) saves none of them and cancels no booking. Every item keeps its own rule, outcomes, audit row, refund job and notices. Requires an `Idempotency-Key` header; a replay returns the stored results. Manager only.",
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(VENUE_FROM_ID, async (request, reply, { venueId, isAdmin }) => {
+          const key = request.headers["idempotency-key"];
+          if (typeof key !== "string" || key.trim() === "") {
+            return reply
+              .code(400)
+              .send(createProblemDetails(400, "Bad Request", "Idempotency-Key header is required"));
+          }
+          const caller = await closureCaller(request, venueId, isAdmin);
+          const outcome = await closureCommandService.createMany({
+            venueId,
+            caller,
+            body: request.body,
+            idempotencyKey: key,
+            now: new Date(),
+          });
+          if (outcome.kind !== "saved") return sendRefusal(reply, outcome);
+          // After the commit; failures are logged, never returned.
+          for (const saved of outcome.result.results) {
+            await enqueueClosureJobs(fastify, request.log, {
+              venueId,
+              ruleId: saved.ruleId,
+              cancelled: saved.outcomes.cancel,
+            });
+          }
+          return { data: outcome.result };
+        }),
+      });
+    
       registerEndpoint(fastify, availabilityConfigEndpoints.listClosures, {
         docs: {
           summary: "Outcome counts for every closure",
@@ -38760,6 +38999,16 @@
       rule: DateRuleSchema,
       decisions: z.array(ClosureDecisionSchema).default([]),
     });
+    export const MAX_CLOSURE_BATCH = 20;
+    export const CreateClosuresBodySchema = z.object({
+      expectedVersion: z.number().int().min(0),
+      items: z
+        .array(
+          z.object({ rule: DateRuleSchema, decisions: z.array(ClosureDecisionSchema).default([]) })
+        )
+        .min(1)
+        .max(MAX_CLOSURE_BATCH),
+    });
     export const ReopenClosureBodySchema = z.object({ tellCancelledGuests: z.boolean() });
     export const ClosureOutcomeCountsSchema = z.object({
       cancel: z.number().int(),
@@ -38773,6 +39022,12 @@
       version: z.number().int(),
       changeId: z.string(),
       outcomes: ClosureOutcomeCountsSchema,
+    });
+    export const ClosuresResultSchema = z.object({
+      /** `Venue.availabilityVersion` after the last item. */
+      version: z.number().int(),
+      /** One result per item, in the order sent. */
+      results: z.array(ClosureResultSchema),
     });
     export const ReopenResultSchema = z.object({ version: z.number().int(), changeId: z.string() });
     export const RefundFailureSchema = z.object({
@@ -38851,6 +39106,8 @@
     export type CreateClosureBody = z.infer<typeof CreateClosureBodySchema>;
     export type ReopenClosureBody = z.infer<typeof ReopenClosureBodySchema>;
     export type ClosureResult = z.infer<typeof ClosureResultSchema>;
+    export type CreateClosuresBody = z.infer<typeof CreateClosuresBodySchema>;
+    export type ClosuresResult = z.infer<typeof ClosuresResultSchema>;
     export type ReopenResult = z.infer<typeof ReopenResultSchema>;
     export type RefundFailure = z.infer<typeof RefundFailureSchema>;
     export type ClosureSummary = z.infer<typeof ClosureSummarySchema>;
@@ -47152,6 +47409,45 @@
         throw error;
       }
     }
+    export type CreateClosuresOutcome =
+      { kind: "saved"; result: ClosuresResult } | Exclude<CreateClosureOutcome, { kind: "saved" }>;
+    export async function createClosures(
+      input: {
+        venueId: string;
+        caller: ClosureCaller;
+        body: CreateClosuresBody;
+        idempotencyKey: string;
+        now: Date;
+      },
+      client: StoreClient = prisma
+    ): Promise<CreateClosuresOutcome> {
+      const { venueId, caller, body, idempotencyKey: key, now } = input;
+      if (!caller.isManager) return { kind: "forbidden" };
+      try {
+        const results = await client.$transaction(async (tx) => {
+          await setVenueContext(tx, venueId);
+          const saved: ClosureResult[] = [];
+          let expectedVersion = body.expectedVersion;
+          for (const [i, item] of body.items.entries()) {
+            const result = await commit(tx, {
+              venueId,
+              caller,
+              body: { expectedVersion, rule: item.rule, decisions: item.decisions },
+              key: `${key}#${i}`,
+              now,
+              ruleKinds: CLOSURE_RULE_KINDS,
+            });
+            saved.push(result);
+            expectedVersion = result.version;
+          }
+          return saved;
+        });
+        return { kind: "saved", result: { version: results.at(-1)!.version, results } };
+      } catch (error) {
+        if (error instanceof Refused) return error.outcome;
+        throw error;
+      }
+    }
     async function requireAuthor(
       db: Pick<PrismaClient, "availabilityChange">,
       venueId: string,
@@ -47233,7 +47529,12 @@
         throw error;
       }
     }
-    export const closureCommandService = { create: createClosure, reopen: reopenClosure, mayClose };
+    export const closureCommandService = {
+      create: createClosure,
+      createMany: createClosures,
+      reopen: reopenClosure,
+      mayClose,
+    };
   </file>
   <file path="services/reservations/src/services/closure-impact-store.ts">
     type StoreClient = Pick<PrismaClient, "$transaction">;
@@ -66097,6 +66398,7 @@
     }
     export type SaveAvailabilityConfigRequest = z.input<typeof PutAvailabilityConfigBodySchema>;
     export type CreateClosureRequest = z.input<typeof CreateClosureBodySchema>;
+    export type CreateClosuresRequest = z.input<typeof CreateClosuresBodySchema>;
     export type SetTonightRequest = z.input<typeof SetTonightBodySchema>;
     export class AvailabilityClient {
       constructor(private client: ApiClient) {}
@@ -66217,6 +66519,23 @@
       ): Promise<ClosureResult> {
         const response = await this.client.call(
           availabilityConfigEndpoints.createClosure,
+          { params: { id: venueId }, body },
+          { headers: { "Idempotency-Key": idempotencyKey }, idempotentRetry: true }
+        );
+        return response.data;
+      }
+    
+      /**
+       * Saves several closures in one transaction (the Add special date sheet): all or none, each
+       * with its own decisions. `idempotencyKey` makes a retry replay the first results.
+       */
+      async createClosures(
+        venueId: string,
+        body: CreateClosuresRequest,
+        idempotencyKey: string
+      ): Promise<ClosuresResult> {
+        const response = await this.client.call(
+          availabilityConfigEndpoints.createClosures,
           { params: { id: venueId }, body },
           { headers: { "Idempotency-Key": idempotencyKey }, idempotentRetry: true }
         );

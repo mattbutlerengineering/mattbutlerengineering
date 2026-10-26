@@ -89,6 +89,33 @@
           },
         },
       }),
+      createClosures: defineEndpoint({
+        method: "POST",
+        path: `${AVAILABILITY_CONFIG_PREFIX}/:id/closures/batch`,
+        params: VenueParamsSchema,
+        body: CreateClosuresBodySchema,
+        responses: {
+          200: {
+            description:
+              "Every closure saved in one transaction (or replayed from the same `Idempotency-Key`): the version and one result per item, in order",
+            body: z.object({ data: ClosuresResultSchema }),
+          },
+          400: problem("Missing `Idempotency-Key` header, or a date range too long to evaluate"),
+          401: authRequired,
+          403: problem("Caller is not a Manager of this venue"),
+          404: venueNotFound,
+          409: {
+            description:
+              "`version-conflict`, `idempotency-key-reused` or `closure-exists` (a rule id was already saved, or appears twice)",
+            body: AvailabilityConfigProblemSchema,
+          },
+          422: {
+            description:
+              "`invalid-config`, `decision-required`, `invalid-decision` or `move-unavailable`; none of the items is saved",
+            body: AvailabilityConfigProblemSchema,
+          },
+        },
+      }),
       previewAvailability: defineEndpoint({
         method: "POST",
         path: `${AVAILABILITY_CONFIG_PREFIX}/:id/availability/preview`,
@@ -865,6 +892,16 @@
       rule: DateRuleSchema,
       decisions: z.array(ClosureDecisionSchema).default([]),
     });
+    export const MAX_CLOSURE_BATCH = 20;
+    export const CreateClosuresBodySchema = z.object({
+      expectedVersion: z.number().int().min(0),
+      items: z
+        .array(
+          z.object({ rule: DateRuleSchema, decisions: z.array(ClosureDecisionSchema).default([]) })
+        )
+        .min(1)
+        .max(MAX_CLOSURE_BATCH),
+    });
     export const ReopenClosureBodySchema = z.object({ tellCancelledGuests: z.boolean() });
     export const ClosureOutcomeCountsSchema = z.object({
       cancel: z.number().int(),
@@ -878,6 +915,12 @@
       version: z.number().int(),
       changeId: z.string(),
       outcomes: ClosureOutcomeCountsSchema,
+    });
+    export const ClosuresResultSchema = z.object({
+      /** `Venue.availabilityVersion` after the last item. */
+      version: z.number().int(),
+      /** One result per item, in the order sent. */
+      results: z.array(ClosureResultSchema),
     });
     export const ReopenResultSchema = z.object({ version: z.number().int(), changeId: z.string() });
     export const RefundFailureSchema = z.object({
@@ -956,6 +999,8 @@
     export type CreateClosureBody = z.infer<typeof CreateClosureBodySchema>;
     export type ReopenClosureBody = z.infer<typeof ReopenClosureBodySchema>;
     export type ClosureResult = z.infer<typeof ClosureResultSchema>;
+    export type CreateClosuresBody = z.infer<typeof CreateClosuresBodySchema>;
+    export type ClosuresResult = z.infer<typeof ClosuresResultSchema>;
     export type ReopenResult = z.infer<typeof ReopenResultSchema>;
     export type RefundFailure = z.infer<typeof RefundFailureSchema>;
     export type ClosureSummary = z.infer<typeof ClosureSummarySchema>;

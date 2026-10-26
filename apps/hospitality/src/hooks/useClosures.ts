@@ -2,6 +2,7 @@ import type {
   ClosureCallListEntry,
   ClosureImpact,
   ClosureResult,
+  ClosuresResult,
   ClosureSummary,
   DateRule,
   ReopenResult,
@@ -96,4 +97,43 @@ export const useReopenClosure = createMutationHook<ReopenClosureVariables, Reope
   ],
   mutationFn: (api, { venueId, ruleId, tellCancelledGuests }) =>
     api.availability.reopenClosure(venueId, ruleId, tellCancelledGuests),
+});
+
+export type PreviewClosureImpactsVariables = {
+  venueId: string;
+  rules: readonly DateRule[];
+};
+
+/**
+ * Which bookings each draft closure would affect, asked when the Manager moves on (not on every
+ * render): the Add special date sheet needs every row's answer to know whether Step 2 is due.
+ * Results are in the order of `rules`.
+ */
+export const usePreviewClosureImpacts = createMutationHook<
+  PreviewClosureImpactsVariables,
+  ClosureImpact[]
+>({
+  invalidateKeys: [],
+  mutationFn: (api, { venueId, rules }) =>
+    Promise.all(rules.map((rule) => api.availability.getClosureImpact(venueId, rule))),
+});
+
+type CreateClosuresRequest = Parameters<AvailabilityClient["createClosures"]>[1];
+
+export type CreateClosuresVariables = {
+  venueId: string;
+  body: CreateClosuresRequest;
+  /** One key per attempt: a retry of the same attempt replays the first results. */
+  idempotencyKey: string;
+};
+
+/** Saves several closures, all or none, each with its decisions. */
+export const useCreateClosures = createMutationHook<CreateClosuresVariables, ClosuresResult>({
+  invalidateKeys: [
+    AVAILABILITY_CONFIG_QUERY_KEY,
+    AVAILABILITY_DAYS_QUERY_KEY,
+    CLOSURE_SUMMARIES_QUERY_KEY,
+  ],
+  mutationFn: (api, { venueId, body, idempotencyKey }) =>
+    api.availability.createClosures(venueId, body, idempotencyKey),
 });

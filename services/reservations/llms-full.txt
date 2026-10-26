@@ -3075,6 +3075,44 @@
         }),
       });
     
+      registerEndpoint(fastify, availabilityConfigEndpoints.createClosures, {
+        docs: {
+          summary: "Save several closures in one transaction",
+          operationId: "createClosures",
+          description:
+            "Each item is a `POST …/closures` body; the items commit in order inside one transaction, so a refusal (a missing decision, a move with no open time, a stale version) saves none of them and cancels no booking. Every item keeps its own rule, outcomes, audit row, refund job and notices. Requires an `Idempotency-Key` header; a replay returns the stored results. Manager only.",
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(VENUE_FROM_ID, async (request, reply, { venueId, isAdmin }) => {
+          const key = request.headers["idempotency-key"];
+          if (typeof key !== "string" || key.trim() === "") {
+            return reply
+              .code(400)
+              .send(createProblemDetails(400, "Bad Request", "Idempotency-Key header is required"));
+          }
+          const caller = await closureCaller(request, venueId, isAdmin);
+          const outcome = await closureCommandService.createMany({
+            venueId,
+            caller,
+            body: request.body,
+            idempotencyKey: key,
+            now: new Date(),
+          });
+          if (outcome.kind !== "saved") return sendRefusal(reply, outcome);
+          // After the commit; failures are logged, never returned.
+          for (const saved of outcome.result.results) {
+            await enqueueClosureJobs(fastify, request.log, {
+              venueId,
+              ruleId: saved.ruleId,
+              cancelled: saved.outcomes.cancel,
+            });
+          }
+          return { data: outcome.result };
+        }),
+      });
+    
       registerEndpoint(fastify, availabilityConfigEndpoints.listClosures, {
         docs: {
           summary: "Outcome counts for every closure",
@@ -13655,6 +13693,45 @@
         throw error;
       }
     }
+    export type CreateClosuresOutcome =
+      { kind: "saved"; result: ClosuresResult } | Exclude<CreateClosureOutcome, { kind: "saved" }>;
+    export async function createClosures(
+      input: {
+        venueId: string;
+        caller: ClosureCaller;
+        body: CreateClosuresBody;
+        idempotencyKey: string;
+        now: Date;
+      },
+      client: StoreClient = prisma
+    ): Promise<CreateClosuresOutcome> {
+      const { venueId, caller, body, idempotencyKey: key, now } = input;
+      if (!caller.isManager) return { kind: "forbidden" };
+      try {
+        const results = await client.$transaction(async (tx) => {
+          await setVenueContext(tx, venueId);
+          const saved: ClosureResult[] = [];
+          let expectedVersion = body.expectedVersion;
+          for (const [i, item] of body.items.entries()) {
+            const result = await commit(tx, {
+              venueId,
+              caller,
+              body: { expectedVersion, rule: item.rule, decisions: item.decisions },
+              key: `${key}#${i}`,
+              now,
+              ruleKinds: CLOSURE_RULE_KINDS,
+            });
+            saved.push(result);
+            expectedVersion = result.version;
+          }
+          return saved;
+        });
+        return { kind: "saved", result: { version: results.at(-1)!.version, results } };
+      } catch (error) {
+        if (error instanceof Refused) return error.outcome;
+        throw error;
+      }
+    }
     async function requireAuthor(
       db: Pick<PrismaClient, "availabilityChange">,
       venueId: string,
@@ -13736,7 +13813,12 @@
         throw error;
       }
     }
-    export const closureCommandService = { create: createClosure, reopen: reopenClosure, mayClose };
+    export const closureCommandService = {
+      create: createClosure,
+      createMany: createClosures,
+      reopen: reopenClosure,
+      mayClose,
+    };
   </file>
   <file path="src/services/closure-impact-store.ts">
     type StoreClient = Pick<PrismaClient, "$transaction">;
