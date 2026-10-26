@@ -93,9 +93,32 @@ function seat(windows: readonly LegacyWindow[], buffer: number): SeatedWindow[] 
   return windows.map((w) => ({ ...w, last: w.close - buffer })).filter((w) => w.last >= w.open);
 }
 
+/** Stored stable data, so not localised: Monday-first abbreviations. */
+const WEEKDAY_ABBREVIATIONS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+
+/**
+ * "Thu–Fri", "Sat", "Mon, Wed": a contiguous Monday-first run joins with an en
+ * dash (two or more days), gaps are comma-separated. Takes stored indexes (0 = Sunday).
+ */
+function weekdayRangeLabel(storedDays: readonly number[]): string {
+  const positions = storedDays.map((d) => (d + 6) % 7).sort((a, b) => a - b);
+  const runs = positions.reduce<number[][]>((acc, p) => {
+    const last = acc[acc.length - 1];
+    return last && last[last.length - 1] === p - 1
+      ? [...acc.slice(0, -1), [...last, p]]
+      : [...acc, [p]];
+  }, []);
+  return runs
+    .map((run) => {
+      const first = WEEKDAY_ABBREVIATIONS[run[0]!];
+      return run.length === 1 ? first : `${first}–${WEEKDAY_ABBREVIATIONS[run[run.length - 1]!]}`;
+    })
+    .join(", ");
+}
+
 /** Names a day's windows; unnamed or clashing names fall back to their order. */
 function nameWindows(windows: readonly SeatedWindow[], multiple: boolean): NamedWindow[] {
-  const fallback = (i: number) => (multiple ? `Service ${i + 1}` : "Open hours");
+  const fallback = (i: number) => (multiple ? `Service ${i + 1}` : "Service");
   const names = windows.map((w, i) => w.name ?? fallback(i));
   const clash = new Set(names).size < names.length;
   return windows.map((w, i) => ({ ...w, serviceName: clash ? `Service ${i + 1}` : names[i]! }));
@@ -255,7 +278,7 @@ export function buildLegacyConfig(input: LegacyMigrationInput): LegacyMigrationR
     const id = newId();
     const schedule = {
       id,
-      name: index === 0 ? "Regular week" : `Alternate week ${index}`,
+      name: index === 0 || !group ? "Regular week" : `${weekdayRangeLabel(group.days)} hours`,
       kind: index === 0 ? ("regular" as const) : ("alternate" as const),
       isRegular: index === 0,
     };

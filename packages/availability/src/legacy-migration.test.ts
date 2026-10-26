@@ -196,6 +196,37 @@ describe("buildLegacyConfig", () => {
     expect(regular.weekdays).toEqual([1, 2, 3]);
   });
 
+  it("names the regular week and names other schedules from their days, never 'Alternate week N'", () => {
+    const result = build({ ...WEEKDAY_SHAPE, sunday: { open: "10:00", close: "21:00" } });
+    if (!result.ok) throw new Error(result.detail);
+    expect(result.config.schedules.map((s) => s.name)).toEqual([
+      "Regular week",
+      "Thu–Fri hours",
+      "Sat hours",
+      "Sun hours",
+    ]);
+  });
+
+  it("joins a contiguous run with an en dash and comma-separates gaps", () => {
+    const result = build({
+      monday: { open: "10:00", close: "20:00" },
+      tuesday: { open: "11:00", close: "22:00" },
+      wednesday: { open: "10:00", close: "20:00" },
+      thursday: { open: "11:00", close: "22:00" },
+      friday: { open: "11:00", close: "22:00" },
+      saturday: { open: "11:00", close: "22:00" },
+      sunday: { open: "11:00", close: "22:00" },
+    });
+    if (!result.ok) throw new Error(result.detail);
+    expect(result.config.schedules.map((s) => s.name)).toEqual(["Regular week", "Mon, Wed hours"]);
+  });
+
+  it("names a lone unnamed service 'Service' so the day reads 'Open for Service.'", () => {
+    const result = build(WEEKDAY_SHAPE);
+    if (!result.ok) throw new Error(result.detail);
+    expect(result.config.venueServices.map((s) => s.name)).toEqual(["Service"]);
+  });
+
   it("gives an all-closed venue a regular schedule with no services or assignments", () => {
     const result = build({ monday: { open: "09:00", close: "17:00", closed: true } });
     if (!result.ok) throw new Error(result.detail);
