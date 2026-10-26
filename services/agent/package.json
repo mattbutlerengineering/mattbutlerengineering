@@ -23,9 +23,9 @@
     "db:studio": "prisma studio"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^4.0.81",
+    "@ai-sdk/anthropic": "^4.0.87",
     "@fastify/rate-limit": "^11.2.1",
-    "@json-render/core": "^0.21.1",
+    "@json-render/core": "^0.21.2",
     "@mbe/agent-core": "workspace:*",
     "@mbe/api-client": "workspace:^",
     "@mbe/auth": "workspace:^",
@@ -37,7 +37,7 @@
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
     "@prisma/client-runtime-utils": "^7.10.1",
-    "ai": "^7.0.142",
+    "ai": "^7.0.151",
     "fastify": "catalog:",
     "pg": "^8.23.1",
     "zod": "catalog:"
@@ -46,7 +46,7 @@
     "seed": "tsx prisma/seed.ts"
   },
   "devDependencies": {
-    "@json-render/react": "^0.21.1",
+    "@json-render/react": "^0.21.2",
     "@mbe/config": "workspace:*",
     "@types/node": "catalog:",
     "@types/pg": "^8.23.1",
