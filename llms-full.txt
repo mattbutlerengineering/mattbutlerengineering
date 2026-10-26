@@ -27778,7 +27778,7 @@
         "Use render_component only for structured data such as lists of reservations, tables, or time slots. Never use it to repeat a sentence. Keep component titles under 60 characters.",
         "Pick the element that fits the data, one shape per line below.",
         "Reservations from list_today_reservations or lookup_reservation: show them as ReservationList, in arrival order, with each row's localTime as the time, its status copied as is, and its guestName as the guest (leave guest out for a walk-in). For tonight questions, leave cancelled and no-show rows out. When the rows span more than one date, write each row's date and time together as its time, in the user's language and their usual clock.",
-        "Open slots from check_availability: show them as TimeSlots, with open times only, as their localTime values. Say a closed or fully booked day in words instead, never as an empty element.",
+        "Open slots from check_availability: show them as TimeSlots, with open times only, as their localTime values. Say a closed or fully booked day in words instead, never as an empty element. check_availability lists online slots only, so no slots does not mean the day is fully booked: ask the user for a time and check it with check_booking_time before saying it can't be booked.",
         "Guests from search_guests: show them as GuestCards, each card with the guest's name, its visitCount as visits, its riskScore copied as is as risk, and its tags; at most five cards, then say in a sentence how many more matched. Never put a guest's email, phone, notes or spend on a card.",
         "A guest's visit history: show it as a Timeline.",
         "Table statuses from get_table_status: show them as StatusLED, one per table with a label.",
@@ -27839,6 +27839,126 @@
       return localTime ? { ...item, localTime } : item;
     }
     type PublicAvailability = Awaited<ReturnType<ApiClient["availability"]["getPublicAvailability"]>>;
+    interface Refusal {
+      readonly status: number;
+      readonly detail: string;
+      readonly code?: string;
+      readonly reason?: string;
+    }
+    function refusalOf(err: unknown): Refusal | undefined {
+      const problem = (err as { problemDetails?: Record<string, unknown> } | null)?.problemDetails;
+      const status = problem?.["status"];
+      if (typeof status !== "number" || status < 400 || status >= 500) return undefined;
+      if (status === 408 || status === 429) return undefined;
+      const { detail, code, reason } = problem as Record<string, unknown>;
+      return {
+        status,
+        detail: typeof detail === "string" && detail ? detail : `The request was refused (${status}).`,
+        ...(typeof code === "string" ? { code } : {}),
+        ...(typeof reason === "string" ? { reason } : {}),
+      };
+    }
+    function rejectedResult(refusal: Refusal) {
+      return { rejected: true, error: refusal.detail } as const;
+    }
+    export function localToInstant(
+      date: string,
+      time: string,
+      timeZone: string | undefined
+    ): string | undefined {
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+      const clock = /^(\d{1,2}):(\d{2})$/.exec(time);
+      if (!match || !clock) return undefined;
+      const year = Number(match[1]);
+      const month = Number(match[2]);
+      const day = Number(match[3]);
+      const hour = Number(clock[1]);
+      const minute = Number(clock[2]);
+      const wall = Date.UTC(year, month - 1, day, hour, minute);
+      // Date.UTC rolls 2026-02-30 to March 2: reject anything that doesn't read back as given.
+      const readBack = new Date(wall);
+      if (
+        readBack.getUTCFullYear() !== year ||
+        readBack.getUTCMonth() !== month - 1 ||
+        readBack.getUTCDate() !== day ||
+        hour > 23 ||
+        minute > 59
+      ) {
+        return undefined;
+      }
+      try {
+        const offsetAt = (instant: number): number => {
+          const parts = new Intl.DateTimeFormat("en-US", {
+            timeZone: timeZone ?? "UTC",
+            hourCycle: "h23",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+          }).formatToParts(new Date(instant));
+          const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+          const shown = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"));
+          return shown - Math.floor(instant / 60000) * 60000;
+        };
+        const first = wall - offsetAt(wall);
+        return new Date(wall - offsetAt(first)).toISOString();
+      } catch {
+        return undefined; // unknown time zone (RangeError)
+      }
+    }
+    function nextDay(date: string): string | undefined {
+      const instant = localToInstant(date, "12:00", undefined);
+      return instant
+        ? new Date(Date.parse(instant) + 86_400_000).toISOString().slice(0, 10)
+        : undefined;
+    }
+    function reservationWindow(
+      date: string,
+      startTime: string,
+      endTime: string,
+      timeZone: string | undefined
+    ): { start: string; end: string } | undefined {
+      const start = localToInstant(date, startTime, timeZone);
+      const sameDayEnd = localToInstant(date, endTime, timeZone);
+      if (!start || !sameDayEnd) return undefined;
+      if (sameDayEnd > start) return { start, end: sameDayEnd };
+      const following = nextDay(date);
+      const end = following ? localToInstant(following, endTime, timeZone) : undefined;
+      return end ? { start, end } : undefined;
+    }
+    function createFailureResult(err: unknown) {
+      const refusal = refusalOf(err);
+      if (!refusal) return { error: "Failed to create reservation. Please try again." };
+      if (!FINAL_REFUSAL_STATUSES.has(refusal.status)) {
+        // e.g. a 400 from our own malformed request: not the venue's decision.
+        return { error: `Failed to create reservation: ${refusal.detail}` };
+      }
+      return {
+        refused: true,
+        error: refusal.detail,
+        ...(refusal.code ? { code: refusal.code } : {}),
+        ...(refusal.reason ? { reason: refusal.reason } : {}),
+        note: "The venue refused this booking and nothing was created. Tell the user the reason; do not retry the same booking.",
+      };
+    }
+    type BookingVerdict = Awaited<ReturnType<ApiClient["availability"]["checkBooking"]>>;
+    function bookingVerdictResult(
+      verdict: BookingVerdict,
+      judged: { readonly date: string; readonly startTime: string }
+    ) {
+      if (verdict.kind === "ok") return { bookable: true, judged } as const;
+      if (verdict.kind === "soft") {
+        return {
+          bookable: false,
+          softLimit: true,
+          message: verdict.message,
+          judged,
+          note: "This time needs a staff override of a venue limit. You cannot override it: tell the user the limit and that staff can book it from the reservation form.",
+        } as const;
+      }
+      return { bookable: false, reason: verdict.reason, message: verdict.message, judged } as const;
+    }
     function availabilityResult(
       response: PublicAvailability,
       date: string,
@@ -27848,6 +27968,11 @@
       const { closure, bookingPaused } = response;
       return {
         slots,
+        ...(slots.length === 0 && !closure && !bookingPaused
+          ? {
+              note: "This online list is empty, but that is not the staff verdict: a service that takes phone bookings only shows no online slots. Do not say the day is full. Ask the user which time they want and check it with check_booking_time.",
+            }
+          : {}),
         ...(closure
           ? {
               closed: true,
@@ -27940,7 +28065,8 @@
         // ── Read tools (instant, no confirmation) ──────────────
         // venueId never comes from the model: it is the app's selected venue.
         check_availability: tool({
-          description: "Check available time slots on a specific date",
+          description:
+            "List the time slots open to ONLINE guests on a date. This is the online booking widget's view only: a service that takes phone bookings only shows no slots here. Before telling staff a time can or cannot be booked, confirm it with check_booking_time, the same check create_reservation is judged by.",
           inputSchema: z.object({
             date: z.string().describe("Date in YYYY-MM-DD format"),
             partySize: z.number().describe("Number of guests"),
@@ -27954,9 +28080,43 @@
               const response = await api.availability.getPublicAvailability(slug, { date, partySize });
               return availabilityResult(response, date, timeZone);
             } catch (err) {
-              // Timeout, 5xx or network failure: unknown, never "closed".
               log.error({ err, venueId, date, partySize }, "check_availability failed");
+              const refusal = refusalOf(err);
+              if (refusal) return rejectedResult(refusal);
+              // Timeout, 5xx or network failure: unknown, never "closed".
               return AVAILABILITY_UNKNOWN;
+            }
+          },
+        }),
+    
+        check_booking_time: tool({
+          description:
+            "Check whether staff can book a specific start time, judged on the phone channel exactly as create_reservation will judge it (closures, service hours, party-size and pacing limits, table conflicts).",
+          inputSchema: z.object({
+            date: z.string().describe("Date in YYYY-MM-DD format"),
+            startTime: z.string().describe("Start time in HH:MM format, venue-local"),
+            partySize: z.number().describe("Number of guests"),
+            tableId: z.string().optional().describe("Table ID to check; omit to ask if any is free"),
+          }),
+          execute: async ({ date, startTime, partySize, tableId }) => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId, date, startTime, partySize }, "check_booking_time tool called");
+            const start = localToInstant(date, startTime, timeZone);
+            if (!start) {
+              return { rejected: true, error: UNREADABLE_TIME };
+            }
+            try {
+              const verdict = await api.availability.checkBooking(venueId, {
+                start,
+                partySize,
+                channel: "phone",
+                ...(tableId ? { tableId } : {}),
+              });
+              return bookingVerdictResult(verdict, { date, startTime });
+            } catch (err) {
+              log.error({ err, venueId, date, startTime, partySize }, "check_booking_time failed");
+              const refusal = refusalOf(err);
+              return refusal ? rejectedResult(refusal) : AVAILABILITY_UNKNOWN;
             }
           },
         }),
@@ -28100,21 +28260,25 @@
             notes: z.string().optional().describe("Reservation notes"),
           }),
           execute: async ({ guestName, date, startTime, endTime, partySize, tableId, notes }) => {
+            if (!venueId) return NO_VENUE;
             log.info({ guestName, date, startTime, partySize }, "create_reservation tool called");
+            const window = reservationWindow(date, startTime, endTime, timeZone);
+            if (!window) return { error: UNREADABLE_TIME };
             try {
               const reservation = await api.reservations.create({
                 guestName,
                 date,
-                startTime,
-                endTime,
+                startTime: window.start,
+                endTime: window.end,
                 partySize,
                 tableId,
+                venueId,
                 ...(notes ? { notes } : {}),
               });
               return { reservation };
             } catch (err) {
               log.error({ err, guestName, date }, "create_reservation failed");
-              return { error: "Failed to create reservation. Please try again." };
+              return createFailureResult(err);
             }
           },
         }),

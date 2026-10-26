@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { FastifyBaseLogger } from "fastify";
-import { createAgentTools } from "./gen-agent-tools.js";
+import { CreateReservationBodySchema } from "@mbe/types";
+import { createAgentTools, localToInstant } from "./gen-agent-tools.js";
 
 function createMockLogger(): FastifyBaseLogger {
   return {
@@ -61,9 +62,14 @@ describe("createAgentTools", () => {
   };
 
   /** Write tools only execute a user-confirmed action; build tools with that confirmation. */
-  function createConfirmedTools(toolName: string, toolInput: Record<string, unknown>) {
+  function createConfirmedTools(
+    toolName: string,
+    toolInput: Record<string, unknown>,
+    timeZone?: string
+  ) {
     return createAgentTools(log, api as never, {
       venueId: "v1",
+      ...(timeZone ? { timeZone } : {}),
       confirmedAction: { actionId: "call-1", toolName, toolInput },
     });
   }
@@ -126,10 +132,15 @@ describe("createAgentTools", () => {
       expect(result).not.toHaveProperty("closed");
     });
 
-    it("returns the empty slots unchanged when the venue is open but full", async () => {
+    it("says an empty online list is not the staff verdict, with no closure or pause", async () => {
       api.availability.getPublicAvailability.mockResolvedValue({ data: [] });
 
-      expect(await checkAvailability()).toEqual({ slots: [] });
+      const result = await checkAvailability();
+
+      expect(result).toEqual({
+        slots: [],
+        note: expect.stringMatching(/online list.*not the staff verdict.*check_booking_time/i),
+      });
     });
 
     it("reports availability unknown, never closed, on a 5xx", async () => {
@@ -163,6 +174,230 @@ describe("createAgentTools", () => {
       expect(result).toMatchObject({ unknown: true });
       expect(result).not.toHaveProperty("closed");
       expect(api.availability.getPublicAvailability).not.toHaveBeenCalled();
+    });
+  });
+
+  /** What `ApiClientError` looks like to the tools: a status-bearing ProblemDetails. */
+  function problem(status: number, extra: Record<string, unknown> = {}) {
+    return Object.assign(new Error(`${status} refused`), {
+      problemDetails: {
+        type: "about:blank",
+        title: "Refused",
+        status,
+        detail: "Refused.",
+        ...extra,
+      },
+    });
+  }
+
+  describe("check_availability error handling", () => {
+    beforeEach(() => {
+      api.venues.get.mockResolvedValue({ id: "v1", slug: "joes-bistro" });
+    });
+
+    it("names the online channel so the model does not read it as the staff verdict", async () => {
+      api.availability.getPublicAvailability.mockResolvedValue({ data: [] });
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
+      expect(tools.check_availability!.description).toMatch(/online/i);
+      expect(tools.check_availability!.description).toMatch(/check_booking_time/);
+    });
+
+    it("reports a 400 as a rejected request, not as 'couldn't check'", async () => {
+      api.availability.getPublicAvailability.mockRejectedValue(
+        problem(400, { detail: "partySize must be at least 1" })
+      );
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
+
+      const result = await tools.check_availability!.execute!(
+        { date: "2026-10-29", partySize: 0 },
+        toolCtx
+      );
+
+      expect(result).toEqual({ rejected: true, error: "partySize must be at least 1" });
+      expect(result).not.toHaveProperty("unknown");
+    });
+
+    it("keeps the unknown fallback for a 5xx ProblemDetails", async () => {
+      api.availability.getPublicAvailability.mockRejectedValue(problem(503));
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
+
+      const result = await tools.check_availability!.execute!(
+        { date: "2026-10-29", partySize: 2 },
+        toolCtx
+      );
+
+      expect(result).toMatchObject({ unknown: true });
+    });
+  });
+
+  describe("check_booking_time", () => {
+    function checkBookingTime(input: Record<string, unknown> = {}) {
+      const tools = createAgentTools(log, api as never, {
+        venueId: "v1",
+        timeZone: "America/Los_Angeles",
+      });
+      return tools.check_booking_time!.execute!(
+        { date: "2026-10-29", startTime: "19:00", partySize: 2, ...input },
+        toolCtx
+      );
+    }
+
+    beforeEach(() => {
+      (api.availability as Record<string, unknown>).checkBooking = vi.fn();
+    });
+
+    it("asks the phone-channel gate, the one create_reservation is judged by", async () => {
+      const checkBooking = vi.fn().mockResolvedValue({ kind: "ok" });
+      (api.availability as Record<string, unknown>).checkBooking = checkBooking;
+
+      const result = await checkBookingTime({ tableId: "t1" });
+
+      expect(checkBooking).toHaveBeenCalledWith("v1", {
+        start: "2026-10-30T02:00:00.000Z",
+        partySize: 2,
+        channel: "phone",
+        tableId: "t1",
+      });
+      expect(result).toEqual({
+        bookable: true,
+        judged: { date: "2026-10-29", startTime: "19:00" },
+      });
+    });
+
+    it("returns a hard refusal with the reason and message", async () => {
+      (api.availability as Record<string, unknown>).checkBooking = vi.fn().mockResolvedValue({
+        kind: "hard",
+        reason: "closed",
+        message: "Closed for a private event",
+      });
+
+      expect(await checkBookingTime()).toMatchObject({
+        bookable: false,
+        reason: "closed",
+        message: "Closed for a private event",
+      });
+    });
+
+    it("sends a soft limit to staff's reservation form, never offering an override", async () => {
+      (api.availability as Record<string, unknown>).checkBooking = vi
+        .fn()
+        .mockResolvedValue({ kind: "soft", limits: [], message: "Over the party-size limit" });
+
+      const result = await checkBookingTime();
+
+      expect(result).toMatchObject({
+        bookable: false,
+        softLimit: true,
+        message: "Over the party-size limit",
+        note: expect.stringMatching(/staff override.*reservation form/i),
+      });
+      expect(JSON.stringify(result)).not.toMatch(/book anyway/i);
+    });
+
+    it.each([
+      ["2026-02-30", "19:00"],
+      ["2026-13-01", "19:00"],
+      ["2026-10-29", "99:99"],
+      ["2026-10-29", "24:00"],
+    ])("rejects out-of-range %s %s without calling the API", async (date, startTime) => {
+      const checkBooking = vi.fn();
+      (api.availability as Record<string, unknown>).checkBooking = checkBooking;
+
+      expect(await checkBookingTime({ date, startTime })).toMatchObject({ rejected: true });
+      expect(checkBooking).not.toHaveBeenCalled();
+    });
+
+    it("localToInstant returns undefined for impossible calendar values", () => {
+      expect(localToInstant("2026-02-30", "10:00", undefined)).toBeUndefined();
+      expect(localToInstant("2026-02-28", "10:60", undefined)).toBeUndefined();
+      expect(localToInstant("2026-02-28", "10:00", undefined)).toBe("2026-02-28T10:00:00.000Z");
+    });
+
+    it("reports unknown on a 5xx", async () => {
+      (api.availability as Record<string, unknown>).checkBooking = vi
+        .fn()
+        .mockRejectedValue(problem(502));
+
+      expect(await checkBookingTime()).toMatchObject({ unknown: true });
+    });
+
+    it("reports a 400 as rejected with the server's detail", async () => {
+      (api.availability as Record<string, unknown>).checkBooking = vi
+        .fn()
+        .mockRejectedValue(problem(400, { detail: "bad start" }));
+
+      expect(await checkBookingTime()).toEqual({ rejected: true, error: "bad start" });
+    });
+
+    it("rejects an unreadable time without calling the API", async () => {
+      const result = await checkBookingTime({ startTime: "late" });
+
+      expect(result).toMatchObject({ rejected: true });
+    });
+  });
+
+  describe("create_reservation gate refusals", () => {
+    const input = {
+      guestName: "Smith",
+      date: "2026-05-18",
+      startTime: "19:00",
+      endTime: "21:00",
+      partySize: 4,
+      tableId: "t1",
+    };
+
+    it("passes a 422 outside-availability detail and code through, and says not to retry", async () => {
+      api.reservations.create.mockRejectedValue(
+        problem(422, {
+          code: "outside-availability",
+          reason: "closed",
+          detail: "The venue is closed on 2026-05-18.",
+        })
+      );
+      const tools = createConfirmedTools("create_reservation", input);
+
+      const result = await tools.create_reservation!.execute!(input, toolCtx);
+
+      expect(result).toMatchObject({
+        refused: true,
+        code: "outside-availability",
+        reason: "closed",
+        error: "The venue is closed on 2026-05-18.",
+        note: expect.stringMatching(/do not retry/i),
+      });
+      expect(JSON.stringify(result)).not.toMatch(/try again/i);
+    });
+
+    it("still says to try again for a 5xx", async () => {
+      api.reservations.create.mockRejectedValue(problem(503));
+      const tools = createConfirmedTools("create_reservation", input);
+
+      expect(await tools.create_reservation!.execute!(input, toolCtx)).toEqual({
+        error: "Failed to create reservation. Please try again.",
+      });
+    });
+
+    it("treats a 409 conflict as a final refusal", async () => {
+      api.reservations.create.mockRejectedValue(problem(409, { detail: "Table already booked." }));
+      const tools = createConfirmedTools("create_reservation", input);
+
+      expect(await tools.create_reservation!.execute!(input, toolCtx)).toMatchObject({
+        refused: true,
+        error: "Table already booked.",
+        note: expect.stringMatching(/do not retry/i),
+      });
+    });
+
+    it("does not relay a 400 from our own malformed request as a venue refusal", async () => {
+      api.reservations.create.mockRejectedValue(problem(400, { detail: "body/startTime invalid" }));
+      const tools = createConfirmedTools("create_reservation", input);
+
+      const result = await tools.create_reservation!.execute!(input, toolCtx);
+
+      expect(result).toEqual({
+        error: "Failed to create reservation: body/startTime invalid",
+      });
+      expect(result).not.toHaveProperty("refused");
     });
   });
 
@@ -386,15 +621,81 @@ describe("createAgentTools", () => {
         toolCtx
       );
 
+      // ISO instants in the UTC fallback zone, plus the session venue (requireVenueAccess).
       expect(api.reservations.create).toHaveBeenCalledWith({
         guestName: "Smith",
         date: "2026-05-18",
+        startTime: "2026-05-18T19:00:00.000Z",
+        endTime: "2026-05-18T21:00:00.000Z",
+        partySize: 4,
+        tableId: "t1",
+        venueId: "v1",
+      });
+      expect(result).toEqual({ reservation: mockReservation });
+    });
+
+    it("sends the exact body CreateReservationBodySchema accepts, in the venue's zone", async () => {
+      api.reservations.create.mockResolvedValue({ id: "r1" });
+      const input = {
+        guestName: "Smith",
+        date: "2026-10-29",
         startTime: "19:00",
         endTime: "21:00",
         partySize: 4,
         tableId: "t1",
+      };
+      const tools = createConfirmedTools("create_reservation", input, "America/Los_Angeles");
+
+      await tools.create_reservation!.execute!(input, toolCtx);
+
+      const body = api.reservations.create.mock.calls[0]![0];
+      expect(body).toEqual({
+        guestName: "Smith",
+        date: "2026-10-29",
+        startTime: "2026-10-30T02:00:00.000Z",
+        endTime: "2026-10-30T04:00:00.000Z",
+        partySize: 4,
+        tableId: "t1",
+        venueId: "v1",
       });
-      expect(result).toEqual({ reservation: mockReservation });
+      expect(CreateReservationBodySchema.safeParse(body).success).toBe(true);
+    });
+
+    it("rolls an end at or before the start to the next day", async () => {
+      api.reservations.create.mockResolvedValue({ id: "r1" });
+      const input = {
+        guestName: "Smith",
+        date: "2026-10-29",
+        startTime: "23:00",
+        endTime: "01:00",
+        partySize: 2,
+        tableId: "t1",
+      };
+      const tools = createConfirmedTools("create_reservation", input, "America/Los_Angeles");
+
+      await tools.create_reservation!.execute!(input, toolCtx);
+
+      expect(api.reservations.create.mock.calls[0]![0]).toMatchObject({
+        startTime: "2026-10-30T06:00:00.000Z",
+        endTime: "2026-10-30T08:00:00.000Z",
+      });
+    });
+
+    it("refuses an unreadable date or time without calling the API", async () => {
+      const input = {
+        guestName: "Smith",
+        date: "2026-02-30",
+        startTime: "19:00",
+        endTime: "21:00",
+        partySize: 2,
+        tableId: "t1",
+      };
+      const tools = createConfirmedTools("create_reservation", input);
+
+      const result = await tools.create_reservation!.execute!(input, toolCtx);
+
+      expect(result).toMatchObject({ error: expect.stringMatching(/YYYY-MM-DD/) });
+      expect(api.reservations.create).not.toHaveBeenCalled();
     });
 
     it("passes optional notes", async () => {

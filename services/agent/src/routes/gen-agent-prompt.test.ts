@@ -109,6 +109,12 @@ describe("buildAgentSystemPrompt", () => {
       expect(line).toMatch(/closed or fully booked day .*in words/i);
     });
 
+    it("tells the model an empty online list is not proof of a full day", () => {
+      const line = lineFor("TimeSlots");
+      expect(line).toMatch(/online/i);
+      expect(line).toMatch(/check_booking_time/);
+    });
+
     it("guests from search_guests as GuestCards, at most five, without private details", () => {
       const line = lineFor("GuestCards");
       expect(line).toMatch(/search_guests/);
