@@ -2141,10 +2141,17 @@
       ): SpecialDateRow[] { /* ... */ }
     </item>
     <item priority="high">
-      export function hoursEditDate(rule: DateRule, today: string): string { /* ... */ }
+      export function hoursEditDate(rule: DateRule, today: string): string | null { /* ... */ }
     </item>
     <item priority="high">
       export const coversManyDates: unknown;
+    </item>
+    <item priority="high">
+      export function refundFailureLabel(
+        failure: RefundFailure,
+        formatMoney: (cents: number, currency: string) => string,
+        unnamed: string
+      ): string { /* ... */ }
     </item>
     <item priority="high">
       export function orphanRefundRules(
@@ -10705,6 +10712,9 @@
       export const ReopenResultSchema: unknown;
     </item>
     <item priority="high">
+      export const RefundFailureSchema: unknown;
+    </item>
+    <item priority="high">
       export const ClosureSummarySchema: unknown;
     </item>
     <item priority="high">
@@ -10748,6 +10758,9 @@
     </item>
     <item priority="low">
       type ReopenResult = z.infer<typeof ReopenResultSchema>;
+    </item>
+    <item priority="low">
+      type RefundFailure = z.infer<typeof RefundFailureSchema>;
     </item>
     <item priority="low">
       type ClosureSummary = z.infer<typeof ClosureSummarySchema>;
@@ -14294,14 +14307,31 @@
         rebooked: number;
       }
     </item>
+    <item priority="low">
+      interface RefundFailure {
+        outcomeId: string;
+        guestName: string | null;
+        amountCents: number | null;
+        currency: string | null;
+      }
+    </item>
     <item priority="high">
       interface SummaryRow {
+        id: string;
+        reservation: {
+          guestName: string | null;
+          deposit: {
+            amou...;
         dateRuleId: string;
         action: NoticeOutcome["action"];
         deliveries: unknown;
-        rebookedReservationId: string | null;
-        refund: string;
       }
+    </item>
+    <item priority="medium">
+      function refundOwedCents(deposit: NonNullable<SummaryRow["reservation"]["deposit"]>): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function refundFailureOf(row: SummaryRow): RefundFailure { /* ... */ }
     </item>
     <item priority="high">
       export function summarizeOutcomes(rows: readonly SummaryRow[]): ClosureSummary[] { /* ... */ }
@@ -14439,6 +14469,11 @@
         opts: { isFinalAttempt: boolean }
       ): Promise<void> { /* ... */ }
     </item>
+    <item priority="low">
+      interface RefundLogger {
+        
+      }
+    </item>
     <item priority="high">
       class ClosureRefundEnqueueError {
         
@@ -14446,7 +14481,11 @@
     </item>
     <item priority="high">
       export async function enqueueClosureRefunds(
-        deps: { store: ClosureRefundStore; jobs: Pick<JobScheduler, "schedule"> },
+        deps: {
+          store: ClosureRefundStore;
+          jobs: Pick<JobScheduler, "schedule">;
+          log?: RefundLogger;
+        },
         venueId: string,
         ruleId: string,
         statuses: readonly ClosureRefundStatus[],
@@ -14462,6 +14501,7 @@
       export function createClosureRefunds(deps: {
         store: ClosureRefundStore;
         jobs: Pick<JobScheduler, "schedule">;
+        log?: RefundLogger;
       }): ClosureRefunds { /* ... */ }
     </item>
   </file>

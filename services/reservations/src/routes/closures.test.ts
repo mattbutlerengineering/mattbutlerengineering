@@ -192,6 +192,9 @@ describe("closure routes", () => {
         rebooked: 1,
         unreachable: 2,
         refundFailed: 1,
+        refundFailures: [
+          { outcomeId: "o-1", guestName: "Rivera", amountCents: 4000, currency: "usd" },
+        ],
         refundPending: 0,
       };
       noticeSvc.summaries.mockResolvedValueOnce([summary]);

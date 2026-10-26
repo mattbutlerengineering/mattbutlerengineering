@@ -5,11 +5,22 @@ vi.mock("./database.js", () => ({ prisma: {} }));
 import { listCallList, summarizeOutcomes } from "./closure-notice-store.js";
 
 const row = (over: Record<string, unknown> = {}) => ({
+  id: "o-0",
   dateRuleId: "dr-1",
   action: "cancel" as const,
   deliveries: {},
   rebookedReservationId: null,
   refund: "none",
+  reservation: {
+    guestName: "Rivera",
+    deposit: {
+      amountCents: 4000,
+      currency: "usd",
+      status: "applied",
+      refundAmountCents: null,
+      postCaptureRefundCents: null,
+    },
+  },
   ...over,
 });
 
@@ -32,6 +43,7 @@ describe("summarizeOutcomes", () => {
         rebooked: 1,
         unreachable: 1,
         refundFailed: 0,
+        refundFailures: [],
         refundPending: 0,
       },
       {
@@ -42,6 +54,7 @@ describe("summarizeOutcomes", () => {
         rebooked: 0,
         unreachable: 1,
         refundFailed: 0,
+        refundFailures: [],
         refundPending: 1,
       },
     ]);
@@ -55,6 +68,41 @@ describe("summarizeOutcomes", () => {
     ]);
 
     expect(summary).toMatchObject({ refundFailed: 1, refundPending: 1 });
+  });
+
+  it("reports the amount still owed on a partially refunded deposit", () => {
+    const deposit = (over: Record<string, unknown>) => ({
+      guestName: "Rivera",
+      deposit: {
+        amountCents: 4000,
+        currency: "usd",
+        status: "partial_refunded",
+        refundAmountCents: 1500,
+        postCaptureRefundCents: 500,
+        ...over,
+      },
+    });
+    const [summary] = summarizeOutcomes([
+      row({ refund: "failed", id: "o-1", reservation: deposit({}) }),
+      row({ refund: "failed", id: "o-2", reservation: deposit({ status: "applied" }) }),
+      row({ refund: "failed", id: "o-3", reservation: deposit({ postCaptureRefundCents: 9000 }) }),
+    ]);
+
+    // own leg 1500 + post-capture 500 come off; a non-partial deposit has no own leg; never negative.
+    expect(summary?.refundFailures.map((f) => f.amountCents)).toEqual([2000, 3500, 0]);
+  });
+
+  it("names each failed refund with the guest and the amount in minor units, and no contact details", () => {
+    const [summary] = summarizeOutcomes([
+      row({ refund: "failed", id: "o-1" }),
+      row({ refund: "pending" }),
+      row({ refund: "failed", id: "o-2", reservation: { guestName: null, deposit: null } }),
+    ]);
+
+    expect(summary?.refundFailures).toEqual([
+      { outcomeId: "o-1", guestName: "Rivera", amountCents: 4000, currency: "usd" },
+      { outcomeId: "o-2", guestName: null, amountCents: null, currency: null },
+    ]);
   });
 });
 

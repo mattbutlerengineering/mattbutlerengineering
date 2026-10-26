@@ -222,6 +222,9 @@ describe("AvailabilityClient config API", () => {
       unreachable: 0,
       refundFailed: 1,
       refundPending: 0,
+      refundFailures: [
+        { outcomeId: "out-1", guestName: "Rivera", amountCents: 4000, currency: "usd" },
+      ],
     };
     mockFetch.mockResolvedValueOnce(jsonResponse({ data: [summary] }));
 
