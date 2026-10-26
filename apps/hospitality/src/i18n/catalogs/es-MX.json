@@ -2041,6 +2041,9 @@
     },
     "tonight": {
       "title": "Esta noche",
+      "decisions": {
+        "title": "Reservas después del nuevo cierre"
+      },
       "open": "Esta noche",
       "chips": "Cambios de esta noche",
       "pause": "Pausar reservas en línea",

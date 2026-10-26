@@ -3,10 +3,12 @@ import { render, screen, fireEvent, waitFor, within } from "@testing-library/rea
 import { MemoryRouter } from "react-router";
 import { axe } from "vitest-axe";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
-import type { AvailabilityConfigState, DateRule, Table } from "@mbe/types";
+import { ApiClientError } from "@mbe/api-client";
+import type { AvailabilityConfigState, ClosureImpact, DateRule, Table } from "@mbe/types";
 
 const setTonight = vi.hoisted(() => vi.fn());
 const endTonight = vi.hoisted(() => vi.fn());
+const impactState = vi.hoisted(() => ({ value: null as unknown }));
 const viewport = vi.hoisted(() => ({ value: "desktop" as "desktop" | "phone" }));
 
 vi.mock("../../hooks/useTonight.js", () => ({
@@ -14,6 +16,14 @@ vi.mock("../../hooks/useTonight.js", () => ({
   useEndTonight: () => ({ mutateAsync: endTonight, isPending: false }),
 }));
 vi.mock("../../hooks/useViewport.js", () => ({ useViewport: () => viewport.value }));
+vi.mock("../../hooks/useClosures.js", () => ({
+  useClosureImpact: () => ({
+    data: impactState.value,
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(),
+  }),
+}));
 vi.mock("./CloseDialog.js", () => ({
   CloseDialog: (props: { hostLocked?: boolean; onClose: () => void }) => (
     <div role="dialog" aria-label="Close dialog" data-host-locked={String(!!props.hostLocked)}>
@@ -47,6 +57,57 @@ const PAUSE_RULE = {
   expiresAt: "2026-10-30T11:00:00.000Z",
   payload: { version: 1, stop: { from: 0, to: 2880 } },
 } as DateRule;
+
+const IMPACT: ClosureImpact = {
+  reservations: 2,
+  covers: 6,
+  depositsHeld: 0,
+  groups: [
+    {
+      groupKey: `${TODAY}:shortened`,
+      date: TODAY,
+      kind: "shortened",
+      covers: 6,
+      depositsHeld: 0,
+      reservations: [1, 2].map((n) => ({
+        id: `r${n}`,
+        startTime: `${TODAY}T05:30:00Z`,
+        endTime: `${TODAY}T06:30:00Z`,
+        partySize: 3,
+        guestName: `Guest ${n}`,
+        deposit: null,
+        runsIntoClosure: false,
+      })),
+    },
+  ],
+};
+
+function decisionRequired() {
+  return new ApiClientError(
+    {
+      type: "about:blank",
+      title: "decision-required",
+      status: 422,
+      detail: "Every affected group needs a choice",
+      code: "decision-required",
+      groupKeys: [`${TODAY}:shortened`],
+    } as never,
+    "POST",
+    "tonight"
+  );
+}
+
+/** A venue that closes at 2:00 AM (minute 1560 of its service day). */
+function lateState(): AvailabilityConfigState {
+  const base = stateWith();
+  return {
+    ...base,
+    config: {
+      ...base.config,
+      scheduleServices: base.config.scheduleServices.map((s) => ({ ...s, closesAt: 1560 })),
+    },
+  };
+}
 
 function stateWith(...rules: DateRule[]): AvailabilityConfigState {
   return { config: fixtureConfig(...rules), version: 7, source: "rows" };
@@ -84,6 +145,7 @@ describe("TonightControl", () => {
   });
   beforeEach(() => {
     vi.clearAllMocks();
+    impactState.value = null;
     viewport.value = "desktop";
     setTonight.mockResolvedValue({
       outcomes: { cancel: 0, move: 0, keep_notify: 0, keep_silent: 0 },
@@ -165,6 +227,81 @@ describe("TonightControl", () => {
       open();
       fireEvent.click(screen.getByRole("switch", { name: "Pause online booking" }));
       expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't apply that change");
+    });
+  });
+
+  describe("close early", () => {
+    it("applies directly when no booking is left after the new close", async () => {
+      renderControl();
+      open();
+      fireEvent.click(screen.getAllByRole("button", { name: "Apply" })[0]!);
+      await waitFor(() => expect(setTonight).toHaveBeenCalledOnce());
+      expect(setTonight.mock.calls[0]![0].body).toMatchObject({
+        change: { type: "close_early", closeAt: 1320 },
+      });
+      expect(setTonight.mock.calls[0]![0].body.decisions).toBeUndefined();
+      expect(screen.queryByText("Step 2 of 2")).toBeNull();
+    });
+
+    it.each([
+      ["a Manager", { viewerRole: "manager", hostEmergencyClose: false }],
+      ["a Host without the grant", { viewerRole: "host", hostEmergencyClose: false }],
+      ["a Host with the grant", { viewerRole: "host", hostEmergencyClose: true }],
+    ] as const)(
+      "asks what to do with the bookings after the close, then resends with decisions (%s)",
+      async (_who, role) => {
+        impactState.value = IMPACT;
+        setTonight.mockRejectedValueOnce(decisionRequired());
+        renderControl(role);
+        open();
+        fireEvent.click(screen.getAllByRole("button", { name: "Apply" })[0]!);
+
+        const step2 = await screen.findByRole("dialog", { name: "Bookings after the new close" });
+        expect(within(step2).getByText(/Guest 1/)).toBeInTheDocument();
+        fireEvent.click(within(step2).getByRole("radio", { name: /Cancel, notify & refund/ }));
+        fireEvent.click(within(step2).getByRole("button", { name: "Close and cancel 2" }));
+
+        await waitFor(() => expect(setTonight).toHaveBeenCalledTimes(2));
+        const [first, second] = setTonight.mock.calls.map((c) => c[0].body);
+        expect(second.change).toEqual({ type: "close_early", closeAt: 1320 });
+        expect(second.decisions).toEqual([{ groupKey: `${TODAY}:shortened`, action: "cancel" }]);
+        // The retry replays the first attempt's id.
+        expect(second.ruleId).toBe(first.ruleId);
+        await waitFor(() =>
+          expect(screen.queryByRole("dialog", { name: "Bookings after the new close" })).toBeNull()
+        );
+      }
+    );
+  });
+
+  describe("times after midnight", () => {
+    it("offers the service's late minutes, labelled as the next day", async () => {
+      renderControl({ state: lateState() });
+      open();
+      fireEvent.click(screen.getByRole("combobox", { name: "Close early at" }));
+      fireEvent.click(screen.getByRole("option", { name: "1:00 AM (next day)" }));
+      fireEvent.click(screen.getAllByRole("button", { name: "Apply" })[0]!);
+      await waitFor(() => expect(setTonight).toHaveBeenCalledOnce());
+      expect(setTonight.mock.calls[0]![0].body.change).toEqual({
+        type: "close_early",
+        closeAt: 1500,
+      });
+    });
+
+    it("stops booking across midnight", async () => {
+      renderControl({ state: lateState() });
+      open();
+      fireEvent.click(screen.getByRole("combobox", { name: "Stop booking from" }));
+      fireEvent.click(screen.getByRole("option", { name: "11:30 PM" }));
+      fireEvent.click(screen.getByRole("combobox", { name: "to" }));
+      fireEvent.click(screen.getAllByRole("option", { name: "1:00 AM (next day)" }).at(-1)!);
+      fireEvent.click(screen.getAllByRole("button", { name: "Apply" })[1]!);
+      await waitFor(() => expect(setTonight).toHaveBeenCalledOnce());
+      expect(setTonight.mock.calls[0]![0].body.change).toEqual({
+        type: "stop_window",
+        from: 1410,
+        to: 1500,
+      });
     });
   });
 

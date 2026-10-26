@@ -14,13 +14,21 @@ import {
   Text,
   Toggle,
 } from "@mattbutlerengineering/rialto";
-import type { AvailabilityConfigState, Table } from "@mbe/types";
+import {
+  AvailabilityConfigProblemSchema,
+  type AvailabilityConfigState,
+  type ClosureDecision,
+  type DateRule,
+  type Table,
+} from "@mbe/types";
 import { useEndTonight, useSetTonight, type SetTonightRequest } from "../../hooks/useTonight.js";
 import { useViewport } from "../../hooks/useViewport.js";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
 import { CloseDialog } from "./CloseDialog.js";
 import { minuteText } from "./closure-band.js";
+import { TonightDecisionsDialog } from "./TonightDecisionsDialog.js";
 import { activeTonightChanges, type TonightChange } from "./tonight-state.js";
+import { minutesOfDayIn } from "../../utils/service-day.js";
 import styles from "./TonightControl.module.css";
 
 export interface TonightControlProps {
@@ -38,7 +46,10 @@ export interface TonightControlProps {
 
 type TonightBody = SetTonightRequest["change"];
 
-const HALF_HOURS = Array.from({ length: 48 }, (_, i) => i * 30);
+const STEP_MINUTES = 30;
+const LAST_EVENING_MINUTE = 23 * 60 + STEP_MINUTES;
+/** `MinuteSchema` allows a service day up to two days of minutes (ADR-029). */
+const MAX_MINUTE = 2880;
 const ALL_TABLES = "all";
 const LOCATION_PREFIX = "location:";
 const DEFAULT_CLOSE_AT = 22 * 60;
@@ -66,6 +77,36 @@ function chipText(change: TonightChange, t: TFunction, format: VenueFormat): str
   }
 }
 
+/** Half-hour minutes from midnight to the venue's last close, so 1:00 AM is offered after a 2 AM close. */
+function timeMinutes(state: AvailabilityConfigState): readonly number[] {
+  const closes = [
+    ...state.config.scheduleServices.map((s) => s.closesAt),
+    ...state.config.dateRules.flatMap((r) =>
+      r.kind === "special_hours" ? r.payload.services.map((s) => s.closesAt) : []
+    ),
+  ];
+  const last = Math.min(MAX_MINUTE, Math.max(LAST_EVENING_MINUTE, ...closes));
+  return Array.from({ length: Math.floor(last / STEP_MINUTES) + 1 }, (_, i) => i * STEP_MINUTES);
+}
+
+function isDecisionRequired(error: unknown): boolean {
+  const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
+  const problem = AvailabilityConfigProblemSchema.safeParse(details);
+  return problem.success && problem.data.code === "decision-required";
+}
+
+/** The Tonight rule the server builds for a close-early, for the impact preview. */
+function closeEarlyRule(id: string, today: string, closeAt: number): DateRule {
+  return {
+    id,
+    kind: "tonight",
+    targetKind: "venue",
+    startsOn: today,
+    endsOn: today,
+    payload: { version: 1, closeAt },
+  };
+}
+
 function tableTargets(tables: readonly Table[], target: string): readonly string[] {
   const active = tables.filter((table) => table.isActive);
   const chosen = target.startsWith(LOCATION_PREFIX)
@@ -89,6 +130,10 @@ export function TonightControl(props: TonightControlProps) {
 
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [needsDecisions, setNeedsDecisions] = useState<{
+    readonly ruleId: string;
+    readonly closeAt: number;
+  } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [closeAt, setCloseAt] = useState(DEFAULT_CLOSE_AT);
@@ -119,32 +164,61 @@ export function TonightControl(props: TonightControlProps) {
       label: t("availability.tonight.block.location", { location }),
     })),
   ];
-  const timeOptions = HALF_HOURS.map((m) => ({
+  const timeOptions = timeMinutes(state).map((m) => ({
     value: String(m),
     label: minuteText(m, t, format),
   }));
 
-  const run = async (key: string, action: (ruleId: string) => Promise<unknown>) => {
+  const run = async (
+    key: string,
+    action: (ruleId: string) => Promise<unknown>,
+    // Returns true when the failure was a question for the user rather than an error.
+    askUser?: (error: unknown, ruleId: string) => boolean
+  ) => {
     const ruleId = (attemptIdsRef.current[key] ??= crypto.randomUUID());
     setBusy(key);
     setError(null);
     try {
       await action(ruleId);
       delete attemptIdsRef.current[key];
-    } catch {
-      setError(t("availability.tonight.error"));
+    } catch (failure) {
+      if (!askUser?.(failure, ruleId)) setError(t("availability.tonight.error"));
     } finally {
       setBusy(null);
     }
   };
 
   const apply = (key: string, change: TonightBody) =>
-    run(key, (ruleId) =>
-      setTonight.mutateAsync({
-        venueId,
-        body: { expectedVersion: state.version, ruleId, change },
-      })
+    run(
+      key,
+      (ruleId) =>
+        setTonight.mutateAsync({
+          venueId,
+          body: { expectedVersion: state.version, ruleId, change },
+        }),
+      (failure, ruleId) => {
+        // A close-early with bookings after the new close needs a decision per group (F7.3).
+        if (change.type !== "close_early" || !isDecisionRequired(failure)) return false;
+        setOpen(false);
+        setNeedsDecisions({ ruleId, closeAt: change.closeAt });
+        return true;
+      }
     );
+
+  const confirmDecisions = async (decisions: ClosureDecision[]) => {
+    if (!needsDecisions) return;
+    await setTonight.mutateAsync({
+      venueId,
+      body: {
+        expectedVersion: state.version,
+        ruleId: needsDecisions.ruleId,
+        change: { type: "close_early", closeAt: needsDecisions.closeAt },
+        decisions,
+      },
+    });
+    delete attemptIdsRef.current.closeAt;
+    setNeedsDecisions(null);
+  };
 
   const end = (ruleId: string) =>
     run(`end:${ruleId}`, () => endTonight.mutateAsync({ venueId, ruleId }));
@@ -327,6 +401,17 @@ export function TonightControl(props: TonightControlProps) {
         >
           {panel}
         </Popover>
+      )}
+      {needsDecisions && (
+        <TonightDecisionsDialog
+          venueId={venueId}
+          rule={closeEarlyRule(needsDecisions.ruleId, today, needsDecisions.closeAt)}
+          today={today}
+          closeAt={needsDecisions.closeAt}
+          nowMinute={minutesOfDayIn(now, timezone)}
+          onConfirm={confirmDecisions}
+          onClose={() => setNeedsDecisions(null)}
+        />
       )}
       {closing && (
         <CloseDialog

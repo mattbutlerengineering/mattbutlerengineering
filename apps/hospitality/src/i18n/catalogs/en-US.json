@@ -1999,6 +1999,9 @@
     },
     "tonight": {
       "title": "Tonight",
+      "decisions": {
+        "title": "Bookings after the new close"
+      },
       "open": "Tonight",
       "chips": "Tonight's changes",
       "pause": "Pause online booking",

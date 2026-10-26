@@ -295,6 +295,11 @@
       export function buildDraftChanges(input: BuildInput): AvailabilityConfigChanges { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/outcome-label.ts">
+    <item priority="high">
+      export function outcomeLabel(counts: OutcomeCounts, t: TFunction): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/quick-setup-draft.ts">
     <item priority="low">
       interface ServiceDraft {
