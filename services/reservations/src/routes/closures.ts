@@ -1,4 +1,4 @@
-import type { FastifyBaseLogger, FastifyPluginAsync, FastifyReply } from "fastify";
+import type { FastifyPluginAsync, FastifyReply } from "fastify";
 import {
   availabilityConfigEndpoints,
   createProblemDetails,
@@ -9,6 +9,7 @@ import { registerEndpoint } from "@mbe/service-bootstrap";
 import { SCOPE_CONFLICT_HORIZON_DAYS } from "../services/availability-config-plan.js";
 import type { CreateClosureOutcome } from "../services/closure-command.js";
 import { CLOSURE_FORBIDDEN, closureCaller } from "./closure-caller.js";
+import { enqueueClosureJobs, enqueueNotices } from "./closure-post-commit.js";
 import { venueScoped } from "./venue-scope.js";
 
 /**
@@ -110,23 +111,6 @@ export function sendRefusal(reply: FastifyReply, outcome: Refusal) {
 export const closureRoutes: FastifyPluginAsync = async (fastify) => {
   const { closureCommandService, closureNoticeService } = fastify.services;
 
-  /**
-   * The closure is already committed, so a queue outage must not turn the
-   * answer into an error: log it. Guests with no confirmed delivery are on
-   * the call list, and a replay of the same Idempotency-Key enqueues again.
-   */
-  async function enqueueNotices(
-    enqueue: typeof closureNoticeService.enqueueForClosure,
-    input: { venueId: string; ruleId: string },
-    log: FastifyBaseLogger
-  ): Promise<void> {
-    try {
-      await enqueue({ ...input, now: new Date() });
-    } catch (error) {
-      log.error({ err: error, ...input }, "closure notices were not enqueued");
-    }
-  }
-
   registerEndpoint(fastify, availabilityConfigEndpoints.createClosure, {
     docs: {
       summary: "Save a closure with a decision for every affected group",
@@ -153,24 +137,12 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
         now: new Date(),
       });
       if (outcome.kind !== "saved") return sendRefusal(reply, outcome);
-      // After the commit. A failed enqueue must not undo or hide the save: the
-      // outcomes stay `refund: pending` and `closureRefunds.retry` picks them up.
-      if (outcome.result.outcomes.cancel > 0) {
-        try {
-          await fastify.closureRefunds.enqueue(venueId, outcome.result.ruleId);
-        } catch (err) {
-          request.log.error(
-            { err, venueId, ruleId: outcome.result.ruleId },
-            "Failed to enqueue closure refund jobs"
-          );
-        }
-      }
-      // Independent of the refund enqueue above: each logs its own failure.
-      await enqueueNotices(
-        closureNoticeService.enqueueForClosure,
-        { venueId, ruleId: outcome.result.ruleId },
-        request.log
-      );
+      // After the commit; failures are logged, never returned.
+      await enqueueClosureJobs(fastify, request.log, {
+        venueId,
+        ruleId: outcome.result.ruleId,
+        cancelled: outcome.result.outcomes.cancel,
+      });
       return { data: outcome.result };
     }),
   });

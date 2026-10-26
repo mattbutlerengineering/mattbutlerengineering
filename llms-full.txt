@@ -29896,6 +29896,38 @@
     export const CLOSURE_FORBIDDEN =
       "Only a Manager can do this. A Host may close the whole venue for tonight, and only when the venue allows it.";
   </file>
+  <file path="services/reservations/src/routes/closure-post-commit.ts">
+    export async function enqueueNotices(
+      enqueue: FastifyInstance["services"]["closureNoticeService"]["enqueueForClosure"],
+      input: { venueId: string; ruleId: string },
+      log: FastifyBaseLogger
+    ): Promise<void> {
+      try {
+        await enqueue({ ...input, now: new Date() });
+      } catch (error) {
+        log.error({ err: error, ...input }, "closure notices were not enqueued");
+      }
+    }
+    export async function enqueueClosureJobs(
+      fastify: FastifyInstance,
+      log: FastifyBaseLogger,
+      saved: { venueId: string; ruleId: string; cancelled: number }
+    ): Promise<void> {
+      const { venueId, ruleId, cancelled } = saved;
+      if (cancelled > 0) {
+        try {
+          await fastify.closureRefunds.enqueue(venueId, ruleId);
+        } catch (err) {
+          log.error({ err, venueId, ruleId }, "Failed to enqueue closure refund jobs");
+        }
+      }
+      await enqueueNotices(
+        fastify.services.closureNoticeService.enqueueForClosure,
+        { venueId, ruleId },
+        log
+      );
+    }
+  </file>
   <file path="services/reservations/src/routes/closures.ts">
     type Refusal = Exclude<CreateClosureOutcome, { kind: "saved" }>;
     function problem(
@@ -29983,23 +30015,6 @@
     export const closureRoutes: FastifyPluginAsync = async (fastify) => {
       const { closureCommandService, closureNoticeService } = fastify.services;
     
-      /**
-       * The closure is already committed, so a queue outage must not turn the
-       * answer into an error: log it. Guests with no confirmed delivery are on
-       * the call list, and a replay of the same Idempotency-Key enqueues again.
-       */
-      async function enqueueNotices(
-        enqueue: typeof closureNoticeService.enqueueForClosure,
-        input: { venueId: string; ruleId: string },
-        log: FastifyBaseLogger
-      ): Promise<void> {
-        try {
-          await enqueue({ ...input, now: new Date() });
-        } catch (error) {
-          log.error({ err: error, ...input }, "closure notices were not enqueued");
-        }
-      }
-    
       registerEndpoint(fastify, availabilityConfigEndpoints.createClosure, {
         docs: {
           summary: "Save a closure with a decision for every affected group",
@@ -30026,24 +30041,12 @@
             now: new Date(),
           });
           if (outcome.kind !== "saved") return sendRefusal(reply, outcome);
-          // After the commit. A failed enqueue must not undo or hide the save: the
-          // outcomes stay `refund: pending` and `closureRefunds.retry` picks them up.
-          if (outcome.result.outcomes.cancel > 0) {
-            try {
-              await fastify.closureRefunds.enqueue(venueId, outcome.result.ruleId);
-            } catch (err) {
-              request.log.error(
-                { err, venueId, ruleId: outcome.result.ruleId },
-                "Failed to enqueue closure refund jobs"
-              );
-            }
-          }
-          // Independent of the refund enqueue above: each logs its own failure.
-          await enqueueNotices(
-            closureNoticeService.enqueueForClosure,
-            { venueId, ruleId: outcome.result.ruleId },
-            request.log
-          );
+          // After the commit; failures are logged, never returned.
+          await enqueueClosureJobs(fastify, request.log, {
+            venueId,
+            ruleId: outcome.result.ruleId,
+            cancelled: outcome.result.outcomes.cancel,
+          });
           return { data: outcome.result };
         }),
       });
@@ -35805,7 +35808,21 @@
             body: request.body,
             now: new Date(),
           });
-          if (outcome.kind === "saved") return { data: outcome.result };
+          if (outcome.kind === "saved") {
+            const { outcomes, ruleId } = outcome.result;
+            const affected =
+              outcomes.cancel + outcomes.move + outcomes.keep_notify + outcomes.keep_silent;
+            // Only a close-early runs the closure command, so only it owes the
+            // closure's post-commit refunds and notices.
+            if (request.body.change.type === "close_early" && affected > 0) {
+              await enqueueClosureJobs(fastify, request.log, {
+                venueId,
+                ruleId,
+                cancelled: outcomes.cancel,
+              });
+            }
+            return { data: outcome.result };
+          }
           return sendRefusal(
             reply,
             outcome.kind === "rule_exists" ? { kind: "closure_exists" } : outcome
