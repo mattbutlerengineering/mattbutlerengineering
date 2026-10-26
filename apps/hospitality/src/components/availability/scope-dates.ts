@@ -26,6 +26,7 @@ function eachDate(from: string, to: string, step: number): string[] {
 
 export function scopeDates(scope: EditScope, context: ScopeContext): string[] {
   if (scope.kind === "date") return [scope.date];
+  if (scope.kind === "dates") return [...scope.dates];
   if (scope.kind === "weekday") {
     const horizon = addDays(scope.from, SCOPE_HORIZON_DAYS - 1);
     const last = scope.until !== null && scope.until < horizon ? scope.until : horizon;

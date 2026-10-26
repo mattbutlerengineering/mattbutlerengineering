@@ -1528,7 +1528,7 @@
   </file>
   <file path="apps/hospitality/src/components/availability/draft-changes.ts">
     <item priority="low">
-      type EditScope = { readonly kind: "date"; reado | { readonly kind: "weekday"; re | { readonly kind: "schedule"; r;
+      type EditScope = { readonly kind: "date"; reado | { readonly kind: "weekday"; re | { readonly kind: "schedule"; r | { readonly kind: "dates"; read;
     </item>
     <item priority="low">
       interface DraftService {
@@ -1560,6 +1560,7 @@
         scope: EditScope;
         services: readonly DraftService[];
         makeId: () => string;
+        leaveOut?: readonly string[];
       }
     </item>
     <item priority="medium">
@@ -1567,6 +1568,14 @@
     </item>
     <item priority="medium">
       function specialHoursRule(base: Partial<DateRule>, id: string, services: SpecialHoursService[]) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function dateRule(
+        config: AvailabilityConfig,
+        date: string,
+        services: SpecialHoursService[],
+        makeId: () => string
+      ): DateRule { /* ... */ }
     </item>
     <item priority="medium">
       function scheduleServiceRows(
@@ -1927,6 +1936,34 @@
       ): string[] { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/selection.ts">
+    <item priority="high">
+      export function normalizeDates(dates: readonly string[]): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function dateRange(a: string, b: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function toggleDate(selection: readonly string[], date: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function columnDates(
+        grid: readonly string[],
+        column: number,
+        view: CalendarView,
+        anchor: string
+      ): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function weekdayDatesInMonth(anchor: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function datesUsingSchedule(
+        days: readonly { readonly serviceDate: string; readonly scheduleId: string | null }[],
+        scheduleId: string
+      ): string[] { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/use-discard-guard.ts">
     <item priority="high">
       export function useDiscardGuard<T>(apply: (next: T) => void) { /* ... */ }
@@ -1935,6 +1972,30 @@
   <file path="apps/hospitality/src/components/availability/use-schedule-save.ts">
     <item priority="high">
       export function useScheduleSave(onStale: () => void) { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/useDateSelection.ts">
+    <item priority="high">
+      export const LONG_PRESS_MS: unknown;
+    </item>
+    <item priority="low">
+      interface DateSelectionOptions {
+        selection: readonly string[];
+        onSelectionChange: (dates: string[]) => void;
+        onOpenDay: (date: string) => void;
+      }
+    </item>
+    <item priority="low">
+      interface DateGestureHandlers {
+        onClick: (event: MouseEvent) => void;
+        onMouseDown: (event: MouseEvent) => void;
+        onMouseEnter: () => void;
+        onTouchStart: () => void;
+        onTouchMove: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function useDateSelection(options: DateSelectionOptions) { /* ... */ }
     </item>
   </file>
   </section>

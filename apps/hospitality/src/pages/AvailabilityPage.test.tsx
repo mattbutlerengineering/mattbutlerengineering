@@ -3,6 +3,7 @@ import { render, screen, within, fireEvent, waitFor } from "@testing-library/rea
 import { axe } from "vitest-axe";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type * as Engine from "@mbe/availability";
+import type * as Drawer from "../components/availability/AvailabilityDayDrawer.js";
 import type { AvailabilityDaySummary, VenueTeam } from "@mbe/types";
 
 const daysQuery = vi.hoisted(() => ({
@@ -54,6 +55,16 @@ vi.mock("../components/availability/AvailabilityQuickSetup.js", () => ({
     <section aria-label="Quick setup">{venueId}</section>
   ),
 }));
+const drawerProps = vi.hoisted(() => vi.fn());
+vi.mock("../components/availability/AvailabilityDayDrawer.js", async (importOriginal) => {
+  const real = await importOriginal<typeof Drawer>();
+  return {
+    AvailabilityDayDrawer: (props: Parameters<typeof real.AvailabilityDayDrawer>[0]) => {
+      drawerProps(props);
+      return real.AvailabilityDayDrawer(props);
+    },
+  };
+});
 vi.mock("../hooks/useVenueTeam.js", () => ({
   useVenueTeam: () => ({ data: team.value, isLoading: false, error: null }),
 }));
@@ -309,6 +320,160 @@ describe("AvailabilityPage", () => {
     venue.selectedVenueId = null;
     renderPage();
     expect(screen.getByText("Select a venue to see its availability.")).toBeInTheDocument();
+  });
+
+  describe("multi-select", () => {
+    const pick = (re: RegExp) =>
+      fireEvent.click(screen.getByRole("button", { name: re }), { ctrlKey: true });
+
+    it("announces the count and opens the drawer for the first date with a fixed scope", () => {
+      renderPage();
+      pick(/Friday, October 30/);
+      pick(/Thursday, October 29/);
+      expect(screen.getByRole("status")).toHaveTextContent("2 dates selected");
+      fireEvent.click(screen.getByRole("button", { name: "Edit hours" }));
+      expect(screen.getByRole("dialog", { name: /Thursday, October 29/ })).toBeInTheDocument();
+      expect(drawerProps).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          date: "2026-10-29",
+          editing: expect.objectContaining({ fixedDates: ["2026-10-29", "2026-10-30"] }),
+        })
+      );
+    });
+
+    it("drops the fixed scope when a single day is opened afterwards", () => {
+      renderPage();
+      pick(/Friday, October 30/);
+      fireEvent.click(screen.getByRole("button", { name: "Edit hours" }));
+      fireEvent.click(screen.getByRole("button", { name: /Thursday, October 29/ }));
+      expect(drawerProps).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          date: "2026-10-29",
+          editing: expect.objectContaining({ fixedDates: undefined }),
+        })
+      );
+    });
+
+    it("keeps the selection when Keep editing answers the discard prompt of a plain click", () => {
+      resolved.services = [
+        {
+          venueServiceId: "vs1",
+          name: "Dinner",
+          opensAt: 1020,
+          lastSeatingAt: 1260,
+          closesAt: 1320,
+          seating: { version: 1, interval: 15 },
+          bookingTypes: ["online"],
+          scheduleServiceId: null,
+        },
+      ];
+      window.HTMLElement.prototype.scrollIntoView = vi.fn();
+      renderPage();
+      pick(/Friday, October 30/);
+      pick(/Thursday, October 29/);
+      fireEvent.click(screen.getByRole("button", { name: "Edit hours" }));
+      fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
+      fireEvent.click(screen.getByRole("button", { name: "Remove Dinner" }));
+      fireEvent.click(screen.getByRole("button", { name: /Wednesday, October 28/ }));
+      fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+      expect(screen.getByRole("status")).toHaveTextContent("2 dates selected");
+    });
+
+    it("clears the selection once a plain click is allowed to open the day", () => {
+      renderPage();
+      pick(/Friday, October 30/);
+      fireEvent.click(screen.getByRole("button", { name: /Wednesday, October 28/ }));
+      expect(screen.queryByRole("button", { name: "Edit hours" })).not.toBeInTheDocument();
+    });
+
+    it("clears the selection", () => {
+      renderPage();
+      pick(/Friday, October 30/);
+      fireEvent.click(screen.getByRole("button", { name: "Clear selection" }));
+      expect(screen.queryByRole("button", { name: "Edit hours" })).not.toBeInTheDocument();
+    });
+
+    it("selects every weekday of the month from the Select… menu", () => {
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "Select…" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: "Every Wednesday in October" }));
+      expect(screen.getByRole("status")).toHaveTextContent("4 dates selected");
+    });
+
+    it("selects the loaded dates that use the anchor day's schedule", () => {
+      daysQuery.value = {
+        data: ["2026-10-28", "2026-10-29", "2026-10-30"].map(summaryFor),
+        isLoading: false,
+        error: null,
+      };
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "Select…" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: "All dates using Weeknight" }));
+      expect(screen.getByRole("status")).toHaveTextContent("3 dates selected");
+    });
+
+    it("names the schedule from the config, not the day's label", () => {
+      daysQuery.value = {
+        data: ["2026-10-28", "2026-10-29"].map((d) => ({ ...summaryFor(d), label: "Closed" })),
+        isLoading: false,
+        error: null,
+      };
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "Select…" }));
+      expect(screen.getByRole("menuitem", { name: "All dates using Weeknight" })).toBeTruthy();
+      expect(screen.queryByRole("menuitem", { name: /Closed/ })).not.toBeInTheDocument();
+    });
+
+    it("hides the schedule item when the schedule is not in the loaded config", () => {
+      daysQuery.value = {
+        data: ["2026-10-28", "2026-10-29"].map((d) => ({ ...summaryFor(d), scheduleId: "gone" })),
+        isLoading: false,
+        error: null,
+      };
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "Select…" }));
+      expect(screen.queryByRole("menuitem", { name: /All dates using/ })).not.toBeInTheDocument();
+    });
+
+    it("asks before Edit hours replaces a dirty draft", () => {
+      daysQuery.value = {
+        data: ["2026-10-29", "2026-10-30"].map(summaryFor),
+        isLoading: false,
+        error: null,
+      };
+      resolved.services = [
+        {
+          venueServiceId: "vs1",
+          name: "Dinner",
+          opensAt: 1020,
+          lastSeatingAt: 1260,
+          closesAt: 1320,
+          seating: { version: 1, interval: 15 },
+          bookingTypes: ["online"],
+          scheduleServiceId: null,
+        },
+      ];
+      window.HTMLElement.prototype.scrollIntoView = vi.fn();
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: /Friday, October 30/ }));
+      fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
+      fireEvent.click(screen.getByRole("button", { name: "Remove Dinner" }));
+      pick(/Thursday, October 29/);
+      fireEvent.click(screen.getByRole("button", { name: "Edit hours" }));
+      expect(
+        screen.getByRole("dialog", { name: /Discard changes to Friday, October 30\?/ })
+      ).toBeTruthy();
+      // The draft is still the open one until the Manager answers.
+      expect(drawerProps).toHaveBeenLastCalledWith(expect.objectContaining({ date: "2026-10-30" }));
+    });
+
+    it("gives a Host selection but no Edit hours", () => {
+      team.value = { viewerRole: "host" };
+      renderPage();
+      pick(/Friday, October 30/);
+      expect(screen.getByRole("status")).toHaveTextContent("1 date selected");
+      expect(screen.queryByRole("button", { name: "Edit hours" })).not.toBeInTheDocument();
+    });
   });
 
   it("has no axe violations", async () => {
