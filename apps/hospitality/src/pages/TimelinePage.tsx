@@ -35,6 +35,7 @@ import { useTimelineData } from "../hooks/useTimelineData.js";
 import { useCancellationQuote } from "../hooks/useCancellationQuote.js";
 import { useFocusAfter } from "../hooks/useFocusAfter.js";
 import { useNow } from "../hooks/useNow.js";
+import { useStaffTonight } from "../hooks/useStaffTonight.js";
 import { useAvailabilityConfig } from "../hooks/useAvailability.js";
 import { useStatusMessage } from "../hooks/useStatusMessage.js";
 import { useViewport } from "../hooks/useViewport.js";
@@ -167,8 +168,11 @@ function LiveTimelinePage() {
   // `?walkin=true` / `?selected=<id>`: derived on render, stripped on every close or success.
   const [searchParams, setSearchParams] = useSearchParams();
   const intent = parseTimelineIntent(searchParams);
-  const todayStr = deviceDate(now);
-  const selectedDate = params.date;
+  // "Today" is the service day, which trails the calendar date after midnight; the device date
+  // only stands in until the venue's config has loaded.
+  const tonight = useStaffTonight(selectedVenueId);
+  const todayStr = tonight.serviceDate ?? deviceDate(now);
+  const selectedDate = searchParams.has("date") ? params.date : todayStr;
 
   const [selectedIdState, setSelectedIdState] = useState<string | null>(null);
   // The tablet sheet's More ▾, keyed by reservation so a new selection opens collapsed.

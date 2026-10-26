@@ -62,6 +62,7 @@ vi.mock("../hooks/useSSESync.js", () => ({
 }));
 vi.mock("../hooks/useAvailability.js", () => ({
   useAvailabilityConfig: () => ({ data: null }),
+  useAvailabilityDays: () => ({ data: undefined }),
 }));
 vi.mock("../hooks/useGuests.js", () => ({
   useLapsingGuests: () => ({ data: [] }),

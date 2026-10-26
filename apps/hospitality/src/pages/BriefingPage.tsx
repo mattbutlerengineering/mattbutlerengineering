@@ -16,6 +16,7 @@ import {
   Text,
 } from "@mattbutlerengineering/rialto";
 import { useVenue } from "../contexts/VenueContext.js";
+import { useStaffTonight } from "../hooks/useStaffTonight.js";
 import { useBriefing, type BriefingEntry } from "../hooks/useBriefing.js";
 import { useSSEEventFeed } from "../hooks/useSSESync.js";
 import { useStatusMessage } from "../hooks/useStatusMessage.js";
@@ -221,7 +222,9 @@ export function BriefingPage() {
   const fmt = useVenueFormat();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const selectedDate = searchParams.get("date") ?? deviceDate(new Date());
+  const tonight = useStaffTonight(selectedVenueId);
+  // No ?date: the current service day, which trails the calendar date after midnight.
+  const selectedDate = searchParams.get("date") ?? tonight.serviceDate ?? deviceDate(new Date());
   const [timeSlot, setTimeSlot] = useState<TimeSegmentId>("all");
   const { status, announce } = useStatusMessage();
 

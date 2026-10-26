@@ -11,6 +11,7 @@ import { useVenue } from "../contexts/VenueContext.js";
 import type { VenueContextValue } from "../contexts/VenueContext.js";
 import { useSSEStatus } from "../hooks/useSSESync.js";
 import { useTimelineData } from "../hooks/useTimelineData.js";
+import { useStaffTonight } from "../hooks/useStaffTonight.js";
 import { useTables } from "../hooks/useTables.js";
 import type { UseTimelineDataResult } from "../hooks/useTimelineData.js";
 import type { Reservation, Table } from "@mbe/types";
@@ -23,6 +24,7 @@ vi.mock("../hooks/useSSESync.js", () => ({
   useSSEEventFeed: vi.fn(() => []),
 }));
 vi.mock("../hooks/useTimelineData.js", () => ({ useTimelineData: vi.fn() }));
+vi.mock("../hooks/useStaffTonight.js", () => ({ useStaffTonight: vi.fn() }));
 vi.mock("../hooks/useCancellationQuote.js", () => ({
   useCancellationQuote: vi.fn().mockReturnValue({ quote: null, isLoading: false }),
 }));
@@ -622,6 +624,38 @@ describe("TimelinePage", () => {
 
     vi.mocked(useSSEStatus).mockReturnValue({ isConnected: true, error: null });
     vi.mocked(useTimelineData).mockReturnValue(makeTimelineData());
+    vi.mocked(useStaffTonight).mockReturnValue({
+      serviceDate: null,
+      config: null,
+      rules: [],
+      waitlistClosed: false,
+    });
+  });
+
+  it("opens on the current service date, not the calendar date, with no ?date", async () => {
+    vi.mocked(useStaffTonight).mockReturnValue({
+      serviceDate: "2020-01-01",
+      config: null,
+      rules: [],
+      waitlistClosed: false,
+    });
+    renderPage();
+    expect(vi.mocked(useTimelineData)).toHaveBeenCalledWith(
+      expect.objectContaining({ venueId: "venue-1", date: "2020-01-01" })
+    );
+  });
+
+  it("keeps an explicit ?date over the service date", async () => {
+    vi.mocked(useStaffTonight).mockReturnValue({
+      serviceDate: "2020-01-01",
+      config: null,
+      rules: [],
+      waitlistClosed: false,
+    });
+    renderPage(["/timeline?date=2020-02-02"]);
+    expect(vi.mocked(useTimelineData)).toHaveBeenCalledWith(
+      expect.objectContaining({ date: "2020-02-02" })
+    );
   });
 
   it("renders the timeline page header", async () => {
