@@ -46,7 +46,9 @@ import {
 } from "./services/waitlist-notifier.js";
 import { createDefaultPostVisitNotifier } from "./services/post-visit-notifier.js";
 import { createNotifierRuntime } from "./services/notifier-runtime.js";
-import { createLapsedGuestMonitor } from "./services/lapsed-guest-cron.js";
+import { createLapsedGuestMonitor, getAllVenueIds } from "./services/lapsed-guest-cron.js";
+import { createClosureOutcomeSweeper } from "./services/closure-outcome-sweeper.js";
+import { createPrismaClosureOutcomeSweepStore } from "./services/closure-outcome-sweep-store.js";
 import { createClosureNoticeService } from "./services/closure-notice-service.js";
 import { createClosureNoticeDeps } from "./services/closure-notice-runtime.js";
 import { createReservationJobHandlers, createReservationJobWorker } from "./services/job-worker.js";
@@ -400,6 +402,17 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
       });
       fastify.addHook("onReady", async () => jobWorker.start(fastify.log));
       fastify.addHook("onClose", async () => jobWorker.stop());
+
+      // Re-enqueues closure refunds/notices lost after commit (#7681).
+      const closureOutcomeSweeper = createClosureOutcomeSweeper({
+        getVenueIds: () => getAllVenueIds(prisma),
+        store: createPrismaClosureOutcomeSweepStore(),
+        jobs: options.jobs ?? notifierRuntime.scheduler,
+        notices: services.closureNoticeService,
+        log: fastify.log,
+      });
+      fastify.addHook("onReady", async () => closureOutcomeSweeper.start());
+      fastify.addHook("onClose", async () => closureOutcomeSweeper.stop());
     }
   }
 

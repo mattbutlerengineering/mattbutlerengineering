@@ -48555,6 +48555,174 @@
         runWithVenueContext(payload.venueId, () => deliver(payload, ctx));
     }
   </file>
+  <file path="services/reservations/src/services/closure-outcome-sweep-store.ts">
+    export function createPrismaClosureOutcomeSweepStore(): ClosureOutcomeSweepStore {
+      return {
+        listStuckRefunds: (venueId, olderThan, limit) =>
+          prisma.closureOutcome.findMany({
+            where: { venueId, refund: "pending", updatedAt: { lt: olderThan } },
+            orderBy: { createdAt: "asc" },
+            take: limit,
+            select: SELECT,
+          }),
+        listStuckNotices: (venueId, olderThan, limit) =>
+          prisma.closureOutcome.findMany({
+            where: {
+              venueId,
+              action: { not: "keep_silent" },
+              deliveries: { equals: {} },
+              createdAt: { lt: olderThan },
+            },
+            orderBy: { createdAt: "asc" },
+            take: limit,
+            select: SELECT,
+          }),
+      };
+    }
+  </file>
+  <file path="services/reservations/src/services/closure-outcome-sweeper.ts">
+    export const DEFAULT_GRACE_MS = 5 * 60 * 1000;
+    export const DEFAULT_BATCH_SIZE = 50;
+    export const DEFAULT_SWEEP_INTERVAL_MS = 2 * 60 * 1000;
+    export interface StuckOutcome {
+      id: string;
+      dateRuleId: string;
+      reservationId: string;
+    }
+    export interface ClosureOutcomeSweepStore {
+      /** `refund = pending`, last touched before `olderThan`. Venue-scoped; oldest first. */
+      listStuckRefunds(venueId: string, olderThan: Date, limit: number): Promise<StuckOutcome[]>;
+      /** Notifiable outcomes with no delivery recorded, created before `olderThan`. */
+      listStuckNotices(venueId: string, olderThan: Date, limit: number): Promise<StuckOutcome[]>;
+    }
+    export interface ClosureOutcomeSweeperDeps {
+      getVenueIds(): Promise<string[]>;
+      store: ClosureOutcomeSweepStore;
+      jobs: Pick<JobsPort, "schedule">;
+      notices: Pick<ClosureNoticeService, "enqueueForClosure">;
+      log: Pick<FastifyBaseLogger, "error">;
+      now?: () => Date;
+      graceMs?: number;
+      batchSize?: number;
+    }
+    export interface SweepResult {
+      refunds: number;
+      notices: number;
+    }
+    async function sweepRefunds(
+      deps: ClosureOutcomeSweeperDeps,
+      venueId: string,
+      stuck: readonly StuckOutcome[]
+    ): Promise<number> {
+      let enqueued = 0;
+      for (const o of stuck) {
+        try {
+          await deps.jobs.schedule(
+            JOB_TYPES.CLOSURE_REFUND,
+            { outcomeId: o.id, venueId },
+            0,
+            closureRefundJobId(o.dateRuleId, o.reservationId)
+          );
+          enqueued += 1;
+        } catch (err) {
+          deps.log.error({ err, venueId, outcomeId: o.id }, "closure sweeper: refund enqueue failed");
+        }
+      }
+      return enqueued;
+    }
+    async function sweepNotices(
+      deps: ClosureOutcomeSweeperDeps,
+      venueId: string,
+      stuck: readonly StuckOutcome[],
+      now: Date
+    ): Promise<number> {
+      const counts = new Map<string, number>();
+      for (const o of stuck) counts.set(o.dateRuleId, (counts.get(o.dateRuleId) ?? 0) + 1);
+      let enqueued = 0;
+      for (const [ruleId, count] of counts) {
+        try {
+          await deps.notices.enqueueForClosure({ venueId, ruleId, now });
+          enqueued += count;
+        } catch (err) {
+          deps.log.error({ err, venueId, ruleId }, "closure sweeper: notice enqueue failed");
+        }
+      }
+      return enqueued;
+    }
+    async function sweepVenue(deps: ClosureOutcomeSweeperDeps, venueId: string): Promise<SweepResult> {
+      const now = (deps.now ?? (() => new Date()))();
+      const cutoff = new Date(now.getTime() - (deps.graceMs ?? DEFAULT_GRACE_MS));
+      const limit = deps.batchSize ?? DEFAULT_BATCH_SIZE;
+      return runWithVenueContext(venueId, async () => {
+        const refunds = await sweepRefunds(
+          deps,
+          venueId,
+          await deps.store.listStuckRefunds(venueId, cutoff, limit)
+        );
+        const notices = await sweepNotices(
+          deps,
+          venueId,
+          await deps.store.listStuckNotices(venueId, cutoff, limit),
+          now
+        );
+        return { refunds, notices };
+      });
+    }
+    export async function sweepClosureOutcomes(deps: ClosureOutcomeSweeperDeps): Promise<SweepResult> {
+      const total = { refunds: 0, notices: 0 };
+      for (const venueId of await deps.getVenueIds()) {
+        try {
+          const result = await sweepVenue(deps, venueId);
+          total.refunds += result.refunds;
+          total.notices += result.notices;
+        } catch (err) {
+          deps.log.error({ err, venueId }, "closure sweeper: venue sweep failed");
+        }
+      }
+      return total;
+    }
+    export interface ClosureOutcomeSweeper {
+      start(): void;
+      stop(): void;
+    }
+    export function createClosureOutcomeSweeper(
+      deps: ClosureOutcomeSweeperDeps,
+      opts: { intervalMs?: number; startupDelayMs?: number } = {}
+    ): ClosureOutcomeSweeper {
+      const { intervalMs = DEFAULT_SWEEP_INTERVAL_MS, startupDelayMs = DEFAULT_STARTUP_DELAY_MS } =
+        opts;
+      let startup: ReturnType<typeof setTimeout> | null = null;
+      let interval: ReturnType<typeof setInterval> | null = null;
+      let running = false;
+    
+      const tick = async (): Promise<void> => {
+        if (running) return;
+        running = true;
+        try {
+          await sweepClosureOutcomes(deps);
+        } catch (err) {
+          deps.log.error({ err }, "closure sweeper: sweep failed");
+        } finally {
+          running = false;
+        }
+      };
+    
+      return {
+        start() {
+          startup = setTimeout(() => {
+            void tick();
+            interval = setInterval(() => void tick(), intervalMs);
+          }, startupDelayMs);
+        },
+        stop() {
+          if (startup !== null) clearTimeout(startup);
+          if (interval !== null) clearInterval(interval);
+          startup = null;
+          interval = null;
+        },
+      };
+    }
+  </file>
   <file path="services/reservations/src/services/closure-refund-store.ts">
     export function createPrismaClosureRefundStore(): ClosureRefundStore {
       return {
@@ -76031,6 +76199,17 @@
           });
           fastify.addHook("onReady", async () => jobWorker.start(fastify.log));
           fastify.addHook("onClose", async () => jobWorker.stop());
+    
+          // Re-enqueues closure refunds/notices lost after commit (#7681).
+          const closureOutcomeSweeper = createClosureOutcomeSweeper({
+            getVenueIds: () => getAllVenueIds(prisma),
+            store: createPrismaClosureOutcomeSweepStore(),
+            jobs: options.jobs ?? notifierRuntime.scheduler,
+            notices: services.closureNoticeService,
+            log: fastify.log,
+          });
+          fastify.addHook("onReady", async () => closureOutcomeSweeper.start());
+          fastify.addHook("onClose", async () => closureOutcomeSweeper.stop());
         }
       }
     

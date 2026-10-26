@@ -3239,6 +3239,81 @@
       export function createClosureNoticeHandler(deps: ClosureNoticeDeps) { /* ... */ }
     </item>
   </file>
+  <file path="src/services/closure-outcome-sweep-store.ts">
+    <item priority="high">
+      export function createPrismaClosureOutcomeSweepStore(): ClosureOutcomeSweepStore { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/closure-outcome-sweeper.ts">
+    <item priority="high">
+      export const DEFAULT_GRACE_MS: unknown;
+    </item>
+    <item priority="high">
+      export const DEFAULT_BATCH_SIZE: unknown;
+    </item>
+    <item priority="high">
+      export const DEFAULT_SWEEP_INTERVAL_MS: unknown;
+    </item>
+    <item priority="low">
+      interface StuckOutcome {
+        id: string;
+        dateRuleId: string;
+        reservationId: string;
+      }
+    </item>
+    <item priority="low">
+      interface ClosureOutcomeSweepStore {
+        
+      }
+    </item>
+    <item priority="low">
+      interface ClosureOutcomeSweeperDeps {
+        store: ClosureOutcomeSweepStore;
+        jobs: Pick<JobsPort, "schedule">;
+        notices: Pick<ClosureNoticeService, "enqueueForClosure">;
+        log: Pick<FastifyBaseLogger, "error">;
+        now?: () => Date;
+      }
+    </item>
+    <item priority="low">
+      interface SweepResult {
+        refunds: number;
+        notices: number;
+      }
+    </item>
+    <item priority="low">
+      async function sweepRefunds(
+        deps: ClosureOutcomeSweeperDeps,
+        venueId: string,
+        stuck: readonly StuckOutcome[]
+      ): Promise<number> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function sweepNotices(
+        deps: ClosureOutcomeSweeperDeps,
+        venueId: string,
+        stuck: readonly StuckOutcome[],
+        now: Date
+      ): Promise<number> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function sweepVenue(deps: ClosureOutcomeSweeperDeps, venueId: string): Promise<SweepResult> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function sweepClosureOutcomes(deps: ClosureOutcomeSweeperDeps): Promise<SweepResult> { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ClosureOutcomeSweeper {
+        
+      }
+    </item>
+    <item priority="high">
+      export function createClosureOutcomeSweeper(
+        deps: ClosureOutcomeSweeperDeps,
+        opts: { intervalMs?: number; startupDelayMs?: number } = {}
+      ): ClosureOutcomeSweeper { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/closure-refund-store.ts">
     <item priority="high">
       export function createPrismaClosureRefundStore(): ClosureRefundStore { /* ... */ }
