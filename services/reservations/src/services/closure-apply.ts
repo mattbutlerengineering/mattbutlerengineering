@@ -1,105 +1,163 @@
-import type { ClosureAction, ClosureResult } from "@mbe/types";
+import type { ClosureAction } from "@mbe/types";
 import type { PrismaClient } from "../generated/prisma/index.js";
-import { setVenueContext } from "../middleware/venue-context.js";
-import { countActions } from "./closure-command-plan.js";
+import {
+  recordReservationEvent,
+  staffActor,
+  toEventState,
+  type EventState,
+} from "./reservation-events.js";
+import { ReservationTransitionError, transitionReservation } from "./reservation-state-machine.js";
+import { NOT_BOOKED_STATUSES } from "./slot-rules.js";
 
 /**
- * The second half of the closure command: the reservation transitions the
- * saved outcomes call for. They run after the rule and the outcome rows have
- * committed, because a cancel moves money through Stripe
- * (`cancelReservationWithDeposit`) and writes in its own transactions, so it
- * cannot join the rule's. The outcome rows are the work list: a transition
- * already applied is skipped, so running this again (a replay of the same
- * `Idempotency-Key`) finishes what failed and never cancels twice.
+ * The reservation transitions of a closure, applied inside the closure's own
+ * transaction (architecture.md § Closure command), so a saved closure implies
+ * "no active reservation overlaps it unless the outcome is keep" by
+ * construction. No Stripe call is made here: a cancelled booking's deposit
+ * stays `held` and its outcome `refund: pending` for the CLOSURE_REFUND job
+ * (#7524) to settle through `DepositService`, keyed `closure:<ruleId>:<reservationId>`.
+ * No guest notice either (#7523).
  */
 
-type ApplyClient = Pick<PrismaClient, "$transaction">;
-export type TransitionResult = { ok: true } | { ok: false; reason: string };
+type Tx = Pick<PrismaClient, "reservation" | "reservationEvent">;
 
-export interface ClosureTransitions {
-  /** Staff-initiated cancel: full refund of a held deposit, event recorded. */
-  cancel(reservationId: string): Promise<TransitionResult>;
-  move(reservationId: string, to: { startTime: Date; endTime: Date }): Promise<TransitionResult>;
-}
-
-interface OutcomeWork {
-  id: string;
-  action: ClosureAction;
+export interface PlannedTransition {
   reservationId: string;
+  action: ClosureAction;
   movedTo: Date | null;
-  refund: string;
-  reservation: { status: string; startTime: Date; endTime: Date };
 }
 
-function isApplied(o: OutcomeWork): boolean {
-  if (o.action === "cancel") return o.reservation.status === "CANCELLED";
-  if (o.action === "move")
-    return o.movedTo !== null && o.reservation.startTime.getTime() === o.movedTo.getTime();
+export type ApplyResult =
+  | { kind: "ok" }
+  | { kind: "move_conflict"; reservationIds: string[] }
+  | { kind: "cannot_cancel"; reservationId: string; detail: string };
+
+interface Existing {
+  id: string;
+  status: string;
+  tableId: string | null;
+  date: Date;
+  startTime: Date;
+  endTime: Date;
+  partySize: number;
+}
+
+const stateOf = (r: Existing, patch: Partial<Existing> = {}): EventState =>
+  toEventState({ ...r, ...patch, tableId: patch.tableId ?? r.tableId ?? "" });
+
+/** Cancel by the venue: the status CAS plus the event, no money moved. */
+async function cancelInTx(
+  tx: Tx,
+  venueId: string,
+  actorId: string,
+  r: Existing
+): Promise<ApplyResult> {
+  try {
+    transitionReservation(r.status as never, "CANCELLED");
+  } catch (error) {
+    if (error instanceof ReservationTransitionError) {
+      return { kind: "cannot_cancel", reservationId: r.id, detail: error.message };
+    }
+    throw error;
+  }
+  const { count } = await tx.reservation.updateMany({
+    where: { id: r.id, venueId, status: r.status as never },
+    data: {
+      status: "CANCELLED",
+      cancellationReason: "venue_closure",
+      cancellationNote: "Cancelled by the venue: closure",
+    },
+  });
+  if (count === 0) {
+    return { kind: "cannot_cancel", reservationId: r.id, detail: "Reservation changed meanwhile" };
+  }
+  await recordReservationEvent(tx as never, {
+    reservationId: r.id,
+    venueId,
+    kind: "cancelled",
+    actor: staffActor(actorId),
+    from: stateOf(r),
+    to: stateOf(r, { status: "CANCELLED" }),
+  });
+  return { kind: "ok" };
+}
+
+/** Move to the planned start, keeping the length; false when the table is taken then. */
+async function moveInTx(
+  tx: Tx,
+  venueId: string,
+  actorId: string,
+  r: Existing,
+  startTime: Date
+): Promise<boolean> {
+  const endTime = new Date(startTime.getTime() + (r.endTime.getTime() - r.startTime.getTime()));
+  if (r.tableId) {
+    const clash = await tx.reservation.findFirst({
+      where: {
+        venueId,
+        tableId: r.tableId,
+        id: { not: r.id },
+        status: { notIn: [...NOT_BOOKED_STATUSES] },
+        startTime: { lt: endTime },
+        endTime: { gt: startTime },
+      },
+      select: { id: true },
+    });
+    if (clash) return false;
+  }
+  const { count } = await tx.reservation.updateMany({
+    where: { id: r.id, venueId, status: r.status as never },
+    data: { startTime, endTime },
+  });
+  if (count === 0) return false;
+  await recordReservationEvent(tx as never, {
+    reservationId: r.id,
+    venueId,
+    kind: "moved",
+    actor: staffActor(actorId),
+    from: stateOf(r),
+    to: stateOf(r, { startTime, endTime }),
+  });
   return true;
 }
 
-function loadOutcomes(
-  client: ApplyClient,
+/** Cancels first (they free tables), then moves; a move that cannot land refuses the lot. */
+export async function applyTransitions(
+  tx: Tx,
   venueId: string,
-  ruleId: string
-): Promise<OutcomeWork[]> {
-  return client.$transaction(async (tx) => {
-    await setVenueContext(tx, venueId);
-    return tx.closureOutcome.findMany({
-      where: { venueId, dateRuleId: ruleId },
-      orderBy: { createdAt: "asc" },
-      select: {
-        id: true,
-        action: true,
-        reservationId: true,
-        movedTo: true,
-        refund: true,
-        reservation: { select: { status: true, startTime: true, endTime: true } },
-      },
-    });
+  actorId: string,
+  planned: readonly PlannedTransition[]
+): Promise<ApplyResult> {
+  const work = planned.filter((p) => p.action === "cancel" || p.action === "move");
+  if (work.length === 0) return { kind: "ok" };
+  const rows = await tx.reservation.findMany({
+    where: { venueId, id: { in: work.map((p) => p.reservationId) } },
+    select: {
+      id: true,
+      status: true,
+      tableId: true,
+      date: true,
+      startTime: true,
+      endTime: true,
+      partySize: true,
+    },
   });
-}
-
-async function applyOne(
-  o: OutcomeWork,
-  transitions: ClosureTransitions
-): Promise<TransitionResult> {
-  if (o.action === "cancel") return transitions.cancel(o.reservationId);
-  const to = o.movedTo as Date; // invariant: a `move` outcome is written with its target
-  const length = o.reservation.endTime.getTime() - o.reservation.startTime.getTime();
-  return transitions.move(o.reservationId, {
-    startTime: to,
-    endTime: new Date(to.getTime() + length),
-  });
-}
-
-/** A cancelled booking's held deposit was refunded in full by the cancel itself. */
-function markRefunded(client: ApplyClient, venueId: string, outcomeId: string): Promise<unknown> {
-  return client.$transaction(async (tx) => {
-    await setVenueContext(tx, venueId);
-    return tx.closureOutcome.updateMany({
-      where: { id: outcomeId, venueId, refund: "pending" },
-      data: { refund: "done" },
-    });
-  });
-}
-
-export async function applyClosureOutcomes(
-  client: ApplyClient,
-  venueId: string,
-  ruleId: string,
-  transitions: ClosureTransitions
-): Promise<Pick<ClosureResult, "outcomes" | "unapplied">> {
-  const outcomes = await loadOutcomes(client, venueId, ruleId);
-  const unapplied: ClosureResult["unapplied"] = [];
-  for (const o of outcomes) {
-    if (o.action === "keep_notify" || o.action === "keep_silent" || isApplied(o)) continue;
-    const result = await applyOne(o, transitions);
-    if (!result.ok) {
-      unapplied.push({ reservationId: o.reservationId, action: o.action, reason: result.reason });
-    } else if (o.action === "cancel") {
-      await markRefunded(client, venueId, o.id);
+  const byId = new Map<string, Existing>(rows.map((r) => [r.id, r as Existing]));
+  const ordered = [...work].sort(
+    (a, b) => Number(a.action === "move") - Number(b.action === "move")
+  );
+  const conflicts: string[] = [];
+  for (const p of ordered) {
+    const r = byId.get(p.reservationId);
+    if (!r) continue;
+    if (p.action === "cancel") {
+      const result = await cancelInTx(tx, venueId, actorId, r);
+      if (result.kind !== "ok") return result;
+    } else if (!(await moveInTx(tx, venueId, actorId, r, p.movedTo as Date))) {
+      conflicts.push(r.id);
     }
   }
-  return { outcomes: countActions(outcomes.map((o) => o.action)), unapplied };
+  return conflicts.length > 0
+    ? { kind: "move_conflict", reservationIds: conflicts }
+    : { kind: "ok" };
 }

@@ -39,7 +39,6 @@ const RESULT = {
   version: 5,
   changeId: "chg-1",
   outcomes: { cancel: 2, move: 0, keep_notify: 0, keep_silent: 0 },
-  unapplied: [],
 };
 
 describe("closure routes", () => {
@@ -85,8 +84,7 @@ describe("closure routes", () => {
           idempotencyKey: "k-1",
           caller: expect.objectContaining({ isManager: true }),
           body: BODY,
-        }),
-        expect.anything()
+        })
       );
     });
 
@@ -107,6 +105,7 @@ describe("closure routes", () => {
       [{ kind: "too_long" }, 400, undefined],
       [{ kind: "version_conflict", winningChange: null }, 409, "version-conflict"],
       [{ kind: "key_reused" }, 409, "idempotency-key-reused"],
+      [{ kind: "closure_exists" }, 409, "closure-exists"],
       [{ kind: "decision_required", groupKeys: ["g"] }, 422, "decision-required"],
       [{ kind: "invalid_decision", groupKeys: ["g"] }, 422, "invalid-decision"],
       [{ kind: "move_unavailable", reservationIds: ["r"] }, 422, "move-unavailable"],

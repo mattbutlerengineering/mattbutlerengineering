@@ -8,7 +8,6 @@ import { requireAuth } from "@mbe/auth/fastify";
 import { registerEndpoint } from "@mbe/service-bootstrap";
 import { SCOPE_CONFLICT_HORIZON_DAYS } from "../services/availability-config-plan.js";
 import type { CreateClosureOutcome } from "../services/closure-command.js";
-import { createClosureTransitions } from "../services/closure-transitions.js";
 import { CLOSURE_FORBIDDEN, closureCaller } from "./closure-caller.js";
 import { venueScoped } from "./venue-scope.js";
 
@@ -61,6 +60,12 @@ function sendRefusal(reply: FastifyReply, outcome: Refusal) {
           winningChange: outcome.winningChange,
         })
       );
+    case "closure_exists":
+      return reply.code(409).send(
+        problem(409, "This closure was already saved; reopen it or use a new rule id.", {
+          code: "closure-exists",
+        })
+      );
     case "key_reused":
       return reply.code(409).send(
         problem(409, "This Idempotency-Key was already used for a different closure.", {
@@ -103,14 +108,14 @@ function sendRefusal(reply: FastifyReply, outcome: Refusal) {
 }
 
 export const closureRoutes: FastifyPluginAsync = async (fastify) => {
-  const { closureCommandService, reservationService, depositService } = fastify.services;
+  const { closureCommandService } = fastify.services;
 
   registerEndpoint(fastify, availabilityConfigEndpoints.createClosure, {
     docs: {
       summary: "Save a closure with a decision for every affected group",
       operationId: "createClosure",
       description:
-        "Writes the date rule, one outcome per affected reservation and the audit row in one transaction, then cancels (staff-initiated, deposit refunded in full) or moves the guests the Manager chose. Requires an `Idempotency-Key` header; a replay returns the first result and finishes any cancel or move that had not applied. Manager, or a Host for the emergency whole-venue close tonight when the venue grants it.",
+        "Writes the date rule (kind `closure` or `special_hours`), one outcome per affected reservation, the cancels and moves with their reservation events, and the audit row in one transaction, so no active booking overlaps a saved closure unless its outcome is keep. A cancelled booking's deposit stays held with the outcome's refund pending for the refund job; no Stripe call is made and no guest is notified here. Requires an `Idempotency-Key` header; a replay returns the stored result and changes nothing. Manager, or a Host for the emergency whole-venue close of the current service day when the venue grants it.",
       tags: ["Availability"],
       security: [{ bearerAuth: [] }],
     },
@@ -123,15 +128,13 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
           .send(createProblemDetails(400, "Bad Request", "Idempotency-Key header is required"));
       }
       const caller = await closureCaller(request, venueId, isAdmin);
-      const outcome = await closureCommandService.create(
-        { venueId, caller, body: request.body, idempotencyKey: key, now: new Date() },
-        createClosureTransitions({
-          reservationService,
-          deposits: depositService,
-          logger: request.log,
-          actorId: request.user?.id,
-        })
-      );
+      const outcome = await closureCommandService.create({
+        venueId,
+        caller,
+        body: request.body,
+        idempotencyKey: key,
+        now: new Date(),
+      });
       if (outcome.kind !== "saved") return sendRefusal(reply, outcome);
       return { data: outcome.result };
     }),
@@ -142,7 +145,7 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
       summary: "Reopen a closure",
       operationId: "reopenClosure",
       description:
-        "Removes the closure so its slots return. Guests it cancelled stay cancelled. Manager, or a Host for the emergency close it made tonight when the venue grants it.",
+        "Removes a closure (or special hours) saved through `POST …/closures` so its slots return. Guests it cancelled stay cancelled. Manager, or a Host for the emergency close they made themselves on the current service day when the venue grants it.",
       tags: ["Availability"],
       security: [{ bearerAuth: [] }],
     },

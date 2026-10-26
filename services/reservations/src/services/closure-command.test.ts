@@ -10,9 +10,29 @@ const TZ = "America/Los_Angeles";
 const MANAGER = { isManager: true, actorId: "user-1" };
 const HOST = { isManager: false, actorId: "host-1" };
 
-const res = (id: string, date: string, startIso: string, endIso: string, deposit = true) => ({
+interface Res {
+  id: string;
+  status: string;
+  tableId: string;
+  date: Date;
+  startTime: Date;
+  endTime: Date;
+  partySize: number;
+  guestName: string;
+  deposit: { amountCents: number; currency: string; status: string } | null;
+}
+
+const res = (
+  id: string,
+  date: string,
+  startIso: string,
+  endIso: string,
+  deposit = true,
+  tableId = "t-1"
+): Res => ({
   id,
-  tableId: "t-1",
+  status: "CONFIRMED",
+  tableId,
   date: new Date(`${date}T00:00:00.000Z`),
   startTime: new Date(startIso),
   endTime: new Date(endIso),
@@ -24,18 +44,28 @@ const res = (id: string, date: string, startIso: string, endIso: string, deposit
 interface World {
   version: number;
   hostEmergencyClose: boolean;
-  reservations: ReturnType<typeof res>[];
+  /** The one service every day runs, in minutes from the service day's midnight. */
+  service: { opensAt: number; lastSeatingAt: number; closesAt: number };
+  reservations: Res[];
   dateRules: Record<string, unknown>[];
-  changes: { id: string; inverse: unknown; kind: string; notifiedGuests: boolean }[];
+  changes: {
+    id: string;
+    actorId: string;
+    inverse: unknown;
+    kind: string;
+    notifiedGuests: boolean;
+  }[];
   outcomes: Record<string, unknown>[];
-  /** Reservation ids the transition port has already cancelled. */
-  cancelled: Set<string>;
+  events: { reservationId: string; kind: string; actorId: string }[];
+  /** Counts every write that would have moved money; the closure must make none. */
+  deposits: { writes: number };
 }
 
 function world(patch: Partial<World> = {}): World {
   return {
     version: 4,
     hostEmergencyClose: false,
+    service: { opensAt: 1020, lastSeatingAt: 1260, closesAt: 1380 },
     reservations: [
       res("res-1", "2026-12-24", "2026-12-25T03:00:00.000Z", "2026-12-25T04:30:00.000Z"),
       res("res-2", "2026-12-24", "2026-12-25T03:30:00.000Z", "2026-12-25T05:00:00.000Z", false),
@@ -43,8 +73,89 @@ function world(patch: Partial<World> = {}): World {
     dateRules: [],
     changes: [],
     outcomes: [],
-    cancelled: new Set(),
+    events: [],
+    deposits: { writes: 0 },
     ...patch,
+  };
+}
+
+/** The query shapes the closure store sends, as far as the fake reads them. */
+interface Where {
+  /** A plain id in one query, `{ in }` / `{ not }` in others. */
+  id: string & { in: string[]; not: string };
+  tableId: string;
+  status: string;
+  startTime: { lt: Date };
+  endTime: { gt: Date };
+  dateRuleId: string;
+  inverse: { path: string[]; equals: unknown };
+}
+
+function reservationDelegate(w: World) {
+  return {
+    findMany: vi.fn(async ({ where }: { where: Where }) =>
+      w.reservations.filter((r) =>
+        where.id?.in ? where.id.in.includes(r.id) : r.status !== "CANCELLED"
+      )
+    ),
+    findFirst: vi.fn(async ({ where }: { where: Where }) => {
+      const clash = w.reservations.find(
+        (r) =>
+          r.id !== where.id.not &&
+          r.tableId === where.tableId &&
+          r.status !== "CANCELLED" &&
+          r.startTime < where.startTime.lt &&
+          r.endTime > where.endTime.gt
+      );
+      return clash ? { id: clash.id } : null;
+    }),
+    updateMany: vi.fn(async ({ where, data }: { where: Where; data: Partial<Res> }) => {
+      const r = w.reservations.find((x) => x.id === where.id && x.status === where.status);
+      if (!r) return { count: 0 };
+      Object.assign(r, data);
+      return { count: 1 };
+    }),
+  };
+}
+
+function outcomeDelegate(w: World) {
+  return {
+    count: vi.fn(
+      async ({ where }: { where: Where }) =>
+        w.outcomes.filter((o) => o.dateRuleId === where.dateRuleId).length
+    ),
+    createMany: vi.fn(async ({ data }: { data: Record<string, unknown>[] }) => {
+      w.outcomes = [
+        ...w.outcomes,
+        ...data.map((d, i) => ({ id: `o-${w.outcomes.length + i}`, ...d })),
+      ];
+    }),
+    findMany: vi.fn(async ({ where }: { where: Where }) =>
+      w.outcomes.filter((o) => o.dateRuleId === where.dateRuleId)
+    ),
+  };
+}
+
+function changeDelegate(w: World) {
+  return {
+    findFirst: vi.fn(async ({ where }: { where: Where }) => {
+      const path = where.inverse?.path as string[] | undefined;
+      if (!path) return w.changes.at(-1) ?? null;
+      const wanted = where.inverse.equals;
+      return (
+        [...w.changes]
+          .reverse()
+          .find(
+            (c) =>
+              (c.inverse as { closure?: Record<string, unknown> }).closure?.[path[1]!] === wanted
+          ) ?? null
+      );
+    }),
+    create: vi.fn(async ({ data }: { data: World["changes"][number] }) => {
+      const change = { ...data, id: `chg-${w.changes.length + 1}` };
+      w.changes = [...w.changes, change];
+      return { id: change.id };
+    }),
   };
 }
 
@@ -77,9 +188,7 @@ function fakeClient(w: World) {
           venueId: "v",
           scheduleId: "sch-1",
           venueServiceId: "vs-dinner",
-          opensAt: 1020,
-          lastSeatingAt: 1260,
-          closesAt: 1380,
+          ...w.service,
           seating: { version: 1, interval: 15 },
           bookingTypes: ["online", "phone"],
         },
@@ -120,58 +229,35 @@ function fakeClient(w: World) {
         w.version += 1;
         return { count: 1 };
       }),
-      update: vi.fn(async () => {
+      update: vi.fn(async ({ data }: { data?: { availabilityVersion?: unknown } } = {}) => {
+        if (data?.availabilityVersion) w.version += 1; // only the reopen bumps here
         return { availabilityVersion: w.version };
       }),
     },
     table: { findMany: vi.fn(async () => [{ id: "t-1" }]) },
-    reservation: { findMany: vi.fn(async () => w.reservations) },
-    availabilityChange: {
-      findFirst: vi.fn(async ({ where }: { where: { inverse?: { equals?: string } } }) => {
-        const key = where.inverse?.equals;
-        if (key === undefined) return w.changes.at(-1) ?? null;
-        return (
-          w.changes.find(
-            (c) =>
-              (c.inverse as { closure?: { idempotencyKey?: string } }).closure?.idempotencyKey ===
-              key
-          ) ?? null
-        );
-      }),
+    reservation: reservationDelegate(w),
+    reservationEvent: {
       create: vi.fn(
-        async ({ data }: { data: { inverse: unknown; kind: string; notifiedGuests: boolean } }) => {
-          const change = { id: `chg-${w.changes.length + 1}`, ...data };
-          w.changes = [...w.changes, change];
-          return { id: change.id };
+        async ({ data }: { data: { reservationId: string; kind: string; actorId: string } }) => {
+          w.events = [...w.events, data];
         }
       ),
     },
-    closureOutcome: {
-      createMany: vi.fn(async ({ data }: { data: Record<string, unknown>[] }) => {
-        w.outcomes = [
-          ...w.outcomes,
-          ...data.map((d, i) => ({ id: `o-${w.outcomes.length + i}`, ...d })),
-        ];
-      }),
-      findMany: vi.fn(async () =>
-        w.outcomes.map((o) => {
-          const r = w.reservations.find((x) => x.id === o.reservationId)!;
-          return {
-            ...o,
-            reservation: {
-              status: w.cancelled.has(r.id) ? "CANCELLED" : "CONFIRMED",
-              startTime: r.startTime,
-              endTime: r.endTime,
-            },
-          };
-        })
-      ),
-      updateMany: vi.fn(async () => ({ count: 1 })),
-    },
+    // Stripe is down for the whole suite: a deposit write would be a failure.
+    deposit: { updateMany: vi.fn(async () => (w.deposits.writes++, { count: 0 })) },
+    availabilityChange: changeDelegate(w),
+    closureOutcome: outcomeDelegate(w),
   };
   const client = {
     $transaction: vi.fn(async (work: (t: unknown) => Promise<unknown>) => {
-      const snapshot = { ...w, dateRules: w.dateRules, changes: w.changes, outcomes: w.outcomes };
+      const snapshot = {
+        version: w.version,
+        reservations: w.reservations.map((r) => ({ ...r })),
+        dateRules: w.dateRules,
+        changes: w.changes,
+        outcomes: w.outcomes,
+        events: w.events,
+      };
       try {
         return await work(tx);
       } catch (error) {
@@ -181,16 +267,6 @@ function fakeClient(w: World) {
     }),
   } as never;
   return { client, tx };
-}
-
-function transitions(w: World) {
-  return {
-    cancel: vi.fn(async (id: string) => {
-      w.cancelled.add(id);
-      return { ok: true as const };
-    }),
-    move: vi.fn(async () => ({ ok: true as const })),
-  };
 }
 
 const closure = (patch: Partial<DateRule> = {}) =>
@@ -210,30 +286,52 @@ const body = (patch: Partial<CreateClosureBody> = {}): CreateClosureBody => ({
   ...patch,
 });
 
-const run = (
+const run = async (
   w: World,
   b: CreateClosureBody,
-  opts: { key?: string; caller?: typeof MANAGER; t?: ReturnType<typeof transitions> } = {}
+  opts: { key?: string; caller?: typeof MANAGER; now?: Date } = {}
 ) => {
   const { client, tx } = fakeClient(w);
-  const t = opts.t ?? transitions(w);
-  return createClosure(
+  const outcome = await createClosure(
     {
       venueId: "v",
       caller: opts.caller ?? MANAGER,
       body: b,
       idempotencyKey: opts.key ?? "key-1",
-      now: NOW,
+      now: opts.now ?? NOW,
     },
-    t,
     client
-  ).then((outcome) => ({ outcome, tx, t }));
+  );
+  return { outcome, tx };
 };
 
+const active = (w: World) => w.reservations.filter((r) => r.status !== "CANCELLED");
+
+const SHORTENED = {
+  id: "dr-new",
+  kind: "special_hours",
+  targetKind: "venue",
+  startsOn: "2026-12-24",
+  endsOn: "2026-12-24",
+  payload: {
+    version: 1,
+    services: [
+      {
+        venueServiceId: "vs-dinner",
+        opensAt: 960,
+        lastSeatingAt: 1080,
+        closesAt: 1200,
+        seating: { version: 1, interval: 15 },
+        bookingTypes: ["online", "phone"],
+      },
+    ],
+  },
+} as DateRule;
+
 describe("createClosure", () => {
-  it("cancels the group through the transition, recording a pending refund for a held deposit", async () => {
+  it("cancels the group in the transaction, with events, leaving the deposit held for the refund job", async () => {
     const w = world();
-    const { outcome, tx, t } = await run(w, body());
+    const { outcome, tx } = await run(w, body());
 
     expect(outcome).toMatchObject({
       kind: "saved",
@@ -241,28 +339,31 @@ describe("createClosure", () => {
         ruleId: "dr-new",
         version: 5,
         outcomes: { cancel: 2, move: 0, keep_notify: 0, keep_silent: 0 },
-        unapplied: [],
       },
     });
-    expect(t.cancel).toHaveBeenCalledTimes(2);
+    expect(w.reservations.map((r) => r.status)).toEqual(["CANCELLED", "CANCELLED"]);
+    expect(w.events).toEqual([
+      expect.objectContaining({ reservationId: "res-1", kind: "cancelled", actorId: "user-1" }),
+      expect.objectContaining({ reservationId: "res-2", kind: "cancelled", actorId: "user-1" }),
+    ]);
     const rows = tx.closureOutcome.createMany.mock.calls[0]![0].data;
     expect(rows).toEqual([
       expect.objectContaining({ reservationId: "res-1", action: "cancel", refund: "pending" }),
       expect.objectContaining({ reservationId: "res-2", action: "cancel", refund: "none" }),
     ]);
-    expect(w.dateRules).toHaveLength(1);
+    expect(w.deposits.writes).toBe(0);
     expect(w.changes[0]).toMatchObject({ kind: "closure", notifiedGuests: true });
   });
 
   it("keeps and notifies without touching the reservations", async () => {
     const w = world();
-    const { outcome, t } = await run(
+    const { outcome } = await run(
       w,
       body({ decisions: [{ groupKey: "2026-12-24:closed", action: "keep_notify" }] })
     );
     expect(outcome).toMatchObject({ kind: "saved", result: { outcomes: { keep_notify: 2 } } });
-    expect(t.cancel).not.toHaveBeenCalled();
-    expect(t.move).not.toHaveBeenCalled();
+    expect(active(w)).toHaveLength(2);
+    expect(w.events).toEqual([]);
   });
 
   it("keeps silently only with the acknowledgement, recording who and notifying nobody", async () => {
@@ -290,35 +391,15 @@ describe("createClosure", () => {
     expect(w.changes[0]!.notifiedGuests).toBe(false);
   });
 
-  it("moves a shortened group to the nearest open time", async () => {
-    const shortened = {
-      id: "dr-new",
-      kind: "special_hours",
-      targetKind: "venue",
-      startsOn: "2026-12-24",
-      endsOn: "2026-12-24",
-      payload: {
-        version: 1,
-        services: [
-          {
-            venueServiceId: "vs-dinner",
-            opensAt: 960,
-            lastSeatingAt: 1080,
-            closesAt: 1200,
-            seating: { version: 1, interval: 15 },
-            bookingTypes: ["online", "phone"],
-          },
-        ],
-      },
-    } as DateRule;
+  it("moves a shortened group to the nearest open time, with an event", async () => {
     const w = world({
       reservations: [
         res("res-1", "2026-12-24", "2026-12-25T03:00:00.000Z", "2026-12-25T04:30:00.000Z"),
       ],
     });
-    const { outcome, tx, t } = await run(
+    const { outcome, tx } = await run(
       w,
-      body({ rule: shortened, decisions: [{ groupKey: "2026-12-24:shortened", action: "move" }] })
+      body({ rule: SHORTENED, decisions: [{ groupKey: "2026-12-24:shortened", action: "move" }] })
     );
 
     expect(outcome).toMatchObject({ kind: "saved", result: { outcomes: { move: 1 } } });
@@ -326,10 +407,31 @@ describe("createClosure", () => {
       action: "move",
       movedTo: new Date("2026-12-25T02:00:00.000Z"), // 6:00 PM in Los Angeles
     });
-    expect(t.move).toHaveBeenCalledWith("res-1", {
+    expect(w.reservations[0]).toMatchObject({
       startTime: new Date("2026-12-25T02:00:00.000Z"),
       endTime: new Date("2026-12-25T03:30:00.000Z"),
     });
+    expect(w.events).toEqual([expect.objectContaining({ kind: "moved" })]);
+  });
+
+  it("refuses the whole request when a move lands on a taken table, saving nothing", async () => {
+    const w = world({
+      reservations: [
+        res("res-1", "2026-12-24", "2026-12-25T03:00:00.000Z", "2026-12-25T04:30:00.000Z"),
+        res("res-9", "2026-12-24", "2026-12-25T01:30:00.000Z", "2026-12-25T03:00:00.000Z", false),
+      ],
+    });
+    const { outcome } = await run(
+      w,
+      body({ rule: SHORTENED, decisions: [{ groupKey: "2026-12-24:shortened", action: "move" }] })
+    );
+
+    expect(outcome).toEqual({ kind: "move_unavailable", reservationIds: ["res-1"] });
+    expect(w.version).toBe(4);
+    expect(w.dateRules).toHaveLength(0);
+    expect(w.outcomes).toHaveLength(0);
+    expect(w.events).toHaveLength(0);
+    expect(w.reservations[0]!.startTime).toEqual(new Date("2026-12-25T03:00:00.000Z"));
   });
 
   it("refuses a move on a closed day", async () => {
@@ -340,29 +442,17 @@ describe("createClosure", () => {
     expect(outcome).toEqual({ kind: "invalid_decision", groupKeys: ["2026-12-24:closed"] });
   });
 
-  it("handles mixed groups, one decision each", async () => {
-    const w = world({
-      reservations: [
-        res("res-1", "2026-12-24", "2026-12-25T03:00:00.000Z", "2026-12-25T04:30:00.000Z"),
-        res("res-3", "2026-12-25", "2026-12-26T03:00:00.000Z", "2026-12-26T04:30:00.000Z"),
-      ],
-    });
-    const { outcome, t } = await run(
-      w,
-      body({
-        rule: closure({ endsOn: "2026-12-25" }),
-        decisions: [
-          { groupKey: "2026-12-24:closed", action: "cancel" },
-          { groupKey: "2026-12-25:closed", action: "keep_notify" },
-        ],
-      })
-    );
-    expect(outcome).toMatchObject({
-      kind: "saved",
-      result: { outcomes: { cancel: 1, keep_notify: 1 } },
-    });
-    expect(t.cancel).toHaveBeenCalledTimes(1);
-    expect(t.cancel).toHaveBeenCalledWith("res-1");
+  it("refuses a rule kind the command does not save", async () => {
+    const tonight = {
+      id: "dr-new",
+      kind: "tonight",
+      targetKind: "venue",
+      startsOn: "2026-12-24",
+      endsOn: "2026-12-24",
+      payload: { version: 1, closeAt: 1300 },
+    } as unknown as DateRule;
+    const { outcome } = await run(world(), body({ rule: tonight, decisions: [] }));
+    expect(outcome).toMatchObject({ kind: "invalid", issues: [{ code: "unsupported_kind" }] });
   });
 
   it("leaves no active reservation under the closure unless its outcome is keep", async () => {
@@ -372,7 +462,7 @@ describe("createClosure", () => {
         res("res-3", "2026-12-25", "2026-12-26T03:00:00.000Z", "2026-12-26T04:30:00.000Z"),
       ],
     });
-    await run(
+    const { outcome } = await run(
       w,
       body({
         rule: closure({ endsOn: "2026-12-25" }),
@@ -383,11 +473,16 @@ describe("createClosure", () => {
       })
     );
 
-    expect(w.outcomes).toHaveLength(w.reservations.length);
+    expect(outcome).toMatchObject({
+      kind: "saved",
+      result: { outcomes: { cancel: 1, keep_notify: 1 } },
+    });
+    expect(w.outcomes).toHaveLength(2);
     for (const o of w.outcomes) {
-      const active = !w.cancelled.has(o.reservationId as string);
-      expect(!active || String(o.action).startsWith("keep_")).toBe(true);
+      const r = w.reservations.find((x) => x.id === o.reservationId)!;
+      expect(r.status === "CANCELLED" || String(o.action).startsWith("keep_")).toBe(true);
     }
+    expect(w.deposits.writes).toBe(0);
   });
 
   it("saves nothing when a group has no decision", async () => {
@@ -399,39 +494,17 @@ describe("createClosure", () => {
     expect(w.outcomes).toHaveLength(0);
   });
 
-  it("replays the same key to the first result without cancelling twice", async () => {
+  it("replays the same key to the stored result, changing nothing", async () => {
     const w = world();
     const first = await run(w, body());
+    const events = w.events.length;
     const second = await run(w, body());
 
     expect(second.outcome).toEqual(first.outcome);
     expect(w.version).toBe(5);
     expect(w.dateRules).toHaveLength(1);
     expect(w.outcomes).toHaveLength(2);
-    expect(second.t.cancel).not.toHaveBeenCalled();
-  });
-
-  it("finishes a cancel that failed the first time when the key is replayed", async () => {
-    const w = world();
-    const flaky = {
-      cancel: vi.fn(async (id: string) => {
-        if (id === "res-1") return { ok: false as const, reason: "Stripe unavailable" };
-        w.cancelled.add(id);
-        return { ok: true as const };
-      }),
-      move: vi.fn(),
-    };
-    const first = await run(w, body(), { t: flaky as never });
-    expect(first.outcome).toMatchObject({
-      result: {
-        unapplied: [{ reservationId: "res-1", action: "cancel", reason: "Stripe unavailable" }],
-      },
-    });
-
-    const second = await run(w, body());
-    expect(second.outcome).toMatchObject({ result: { unapplied: [] } });
-    expect(second.t.cancel).toHaveBeenCalledTimes(1);
-    expect(second.t.cancel).toHaveBeenCalledWith("res-1");
+    expect(w.events).toHaveLength(events);
   });
 
   it("refuses a key reused for a different closure", async () => {
@@ -439,6 +512,14 @@ describe("createClosure", () => {
     await run(w, body());
     const { outcome } = await run(w, body({ rule: closure({ id: "dr-other" }) }));
     expect(outcome).toEqual({ kind: "key_reused" });
+  });
+
+  it("refuses the same rule id again under a new key as already saved, not a 500", async () => {
+    const w = world();
+    await run(w, body());
+    const { outcome } = await run(w, body({ expectedVersion: 5 }), { key: "key-2" });
+    expect(outcome).toEqual({ kind: "closure_exists" });
+    expect(w.version).toBe(5);
   });
 
   it("answers a stale version with the winning change", async () => {
@@ -475,6 +556,45 @@ describe("createClosure", () => {
       expect(outcome).toEqual({ kind: "forbidden" });
       expect(w.version).toBe(4);
     });
+
+    it("treats a Friday 22:00-02:00 service as Friday's at Saturday 00:30", async () => {
+      const overnight = { opensAt: 1320, lastSeatingAt: 1500, closesAt: 1560 };
+      const satHalfPast12 = new Date("2026-10-31T07:30:00.000Z"); // Sat 00:30 PDT
+      const friday = closure({ id: "dr-fri", startsOn: "2026-10-30", endsOn: "2026-10-30" });
+      const saturday = closure({ id: "dr-sat", startsOn: "2026-10-31", endsOn: "2026-10-31" });
+
+      const ok = world({ hostEmergencyClose: true, service: overnight, ...none });
+      const fri = await run(ok, body({ rule: friday, decisions: [] }), {
+        caller: HOST,
+        now: satHalfPast12,
+      });
+      expect(fri.outcome.kind).toBe("saved");
+
+      const no = world({ hostEmergencyClose: true, service: overnight, ...none });
+      const sat = await run(no, body({ rule: saturday, decisions: [] }), {
+        caller: HOST,
+        now: satHalfPast12,
+      });
+      expect(sat.outcome).toEqual({ kind: "forbidden" });
+    });
+
+    it("lets the Host who saved the close replay it after the day has passed, and no other Host", async () => {
+      const w = world({ hostEmergencyClose: true, ...none });
+      const first = await run(w, body({ rule: tonight, decisions: [] }), { caller: HOST });
+      const nextWeek = new Date("2026-11-02T19:00:00.000Z");
+
+      const same = await run(w, body({ rule: tonight, decisions: [] }), {
+        caller: HOST,
+        now: nextWeek,
+      });
+      expect(same.outcome).toEqual(first.outcome);
+
+      const other = await run(w, body({ rule: tonight, decisions: [] }), {
+        caller: { isManager: false, actorId: "host-2" },
+        now: nextWeek,
+      });
+      expect(other.outcome).toEqual({ kind: "forbidden" });
+    });
   });
 });
 
@@ -490,55 +610,86 @@ describe("mayClose", () => {
 });
 
 describe("reopenClosure", () => {
+  const rowFor = (kind: string) => ({
+    id: "dr-new",
+    venueId: "v",
+    kind,
+    targetKind: "venue",
+    bookingTypes: [],
+    tables: [],
+    startsOn: new Date("2026-12-24T00:00:00.000Z"),
+    endsOn: new Date("2026-12-24T00:00:00.000Z"),
+    payload: {},
+    source: "manual",
+    deletedAt: null,
+    venueServiceId: null,
+    useScheduleId: null,
+    expiresAt: null,
+    repeat: null,
+    window: null,
+    seriesId: null,
+    guestMessage: null,
+    staffNote: null,
+  });
+  const reopen = (w: World, caller = MANAGER, ruleId = "dr-new") => {
+    const { client, tx } = fakeClient(w);
+    return reopenClosure(
+      { venueId: "v", ruleId, caller, tellCancelledGuests: true, now: NOW },
+      client
+    ).then((outcome) => ({ outcome, tx }));
+  };
+
   it("soft-deletes the rule and bumps the version, leaving cancelled guests cancelled", async () => {
     const w = world();
-    const saved = await run(w, body());
-    expect(saved.outcome.kind).toBe("saved");
-    // The in-memory dateRule row, as the reader maps it back.
-    w.dateRules = [
-      {
-        id: "dr-new",
-        venueId: "v",
-        kind: "closure",
-        targetKind: "venue",
-        bookingTypes: [],
-        tables: [],
-        startsOn: new Date("2026-12-24T00:00:00.000Z"),
-        endsOn: new Date("2026-12-24T00:00:00.000Z"),
-        payload: {},
-        source: "manual",
-        deletedAt: null,
-        venueServiceId: null,
-        useScheduleId: null,
-        expiresAt: null,
-        repeat: null,
-        window: null,
-        seriesId: null,
-        guestMessage: null,
-        staffNote: null,
-      },
-    ];
-    const { client, tx } = fakeClient(w);
+    await run(w, body());
+    w.dateRules = [rowFor("closure")];
 
-    const outcome = await reopenClosure(
-      { venueId: "v", ruleId: "dr-new", caller: MANAGER, tellCancelledGuests: true, now: NOW },
-      client
-    );
+    const { outcome, tx } = await reopen(w);
 
     expect(outcome).toMatchObject({ kind: "reopened", result: { changeId: expect.any(String) } });
     expect(tx.dateRule.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ data: { deletedAt: NOW } })
     );
-    expect(w.cancelled.size).toBe(2);
+    expect(active(w)).toHaveLength(0);
     expect(w.changes.at(-1)).toMatchObject({ kind: "reopen", notifiedGuests: true });
   });
 
-  it("is not found for an unknown rule", async () => {
-    const { client } = fakeClient(world());
-    const outcome = await reopenClosure(
-      { venueId: "v", ruleId: "nope", caller: MANAGER, tellCancelledGuests: false, now: NOW },
-      client
-    );
-    expect(outcome).toEqual({ kind: "not_found" });
+  it("answers a replay of the original key after the reopen with the stored result, changing nothing", async () => {
+    const w = world();
+    const first = await run(w, body());
+    w.dateRules = [rowFor("closure")];
+    await reopen(w);
+    const [events, changes, version] = [w.events.length, w.changes.length, w.version];
+
+    const replay = await run(w, body());
+
+    expect(replay.outcome).toEqual(first.outcome);
+    expect([w.events.length, w.changes.length, w.version]).toEqual([events, changes, version]);
+  });
+
+  it("is not found for an unknown rule or a kind the command does not save", async () => {
+    const w = world();
+    w.dateRules = [{ ...rowFor("tonight"), payload: { version: 1, closeAt: 1300 } }];
+    expect((await reopen(w)).outcome).toEqual({ kind: "not_found" });
+    expect((await reopen(world(), MANAGER, "nope")).outcome).toEqual({ kind: "not_found" });
+  });
+
+  it("lets a Host reopen only the emergency close they made", async () => {
+    const w = world({ hostEmergencyClose: true, reservations: [] });
+    const tonight = closure({ startsOn: "2026-10-25", endsOn: "2026-10-25" });
+    await run(w, body({ rule: tonight, decisions: [] }), { caller: HOST });
+    w.dateRules = [
+      {
+        ...rowFor("closure"),
+        startsOn: new Date("2026-10-25T00:00:00.000Z"),
+        endsOn: new Date("2026-10-25T00:00:00.000Z"),
+      },
+    ];
+
+    const other = await reopen(w, { isManager: false, actorId: "host-2" });
+    expect(other.outcome).toEqual({ kind: "forbidden" });
+
+    const author = await reopen(w, HOST);
+    expect(author.outcome.kind).toBe("reopened");
   });
 });

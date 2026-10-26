@@ -22,8 +22,14 @@ import {
 } from "./availability-config.js";
 import { ConfigRowConflict, writeConfigDiff } from "./availability-config-rows.js";
 import { civilDateIn } from "./availability-migration.js";
-import { applyClosureOutcomes, type ClosureTransitions } from "./closure-apply.js";
-import { checkDecisions, isHostEmergencyClose, moveTarget } from "./closure-command-plan.js";
+import { applyTransitions } from "./closure-apply.js";
+import {
+  checkDecisions,
+  countActions,
+  currentServiceDate,
+  isHostEmergencyClose,
+  moveTarget,
+} from "./closure-command-plan.js";
 import { impactInTransaction } from "./closure-impact-store.js";
 import { prisma } from "./database.js";
 
@@ -32,15 +38,19 @@ import { prisma } from "./database.js";
  * § Closure command). One transaction compare-and-sets the venue's
  * `availabilityVersion`, writes the date rule (through the same row writer as a
  * config save, with the legacy `operatingHours` projection), one
- * `ClosureOutcome` per affected reservation and the audit row. The cancels and
- * moves then run from the outcome rows (`closure-apply.ts`).
+ * `ClosureOutcome` per affected reservation, the cancels and moves
+ * (`closure-apply.ts`, with their reservation events) and the audit row.
  *
  * Not in this file, by design (#7523, #7524): the guest notices and the refund
- * jobs. Outcome rows carry what they consume (`action`, `refund: pending`).
+ * jobs. A cancelled booking's deposit stays `held` and its outcome
+ * `refund: pending` for the CLOSURE_REFUND job; no Stripe call is made here.
  */
 
 type StoreClient = Pick<PrismaClient, "$transaction">;
-type Db = StoreDb & Pick<PrismaClient, "closureOutcome">;
+type Db = StoreDb & Pick<PrismaClient, "closureOutcome" | "reservationEvent">;
+
+/** Rule kinds `POST /closures` saves (and `DELETE` reopens); Tonight has its own endpoints. */
+const CLOSURE_RULE_KINDS: ReadonlySet<string> = new Set(["closure", "special_hours"]);
 
 export interface ClosureCaller {
   /** Owner, manager or platform admin. Anyone else is a Host. */
@@ -55,6 +65,7 @@ export type CreateClosureOutcome =
   | { kind: "too_long" }
   | { kind: "version_conflict"; winningChange: AvailabilityChangeSummary | null }
   | { kind: "key_reused" }
+  | { kind: "closure_exists" }
   | { kind: "invalid"; issues: { path: string; code: string; message: string }[] }
   | { kind: "decision_required"; groupKeys: string[] }
   | { kind: "invalid_decision"; groupKeys: string[] }
@@ -76,11 +87,12 @@ interface ClosureMeta {
   version: number;
 }
 
-type Committed = { ruleId: string; version: number; changeId: string };
-
-/** A Host may only make the emergency whole-venue close for tonight, and only with the grant. */
+/**
+ * A Host may only make the emergency whole-venue close for the current
+ * service day (ADR-029), and only with the grant.
+ */
 export async function mayCloseFor(
-  db: Pick<PrismaClient, "venue">,
+  db: StoreDb,
   venueId: string,
   caller: Pick<ClosureCaller, "isManager">,
   rule: DateRule,
@@ -88,13 +100,18 @@ export async function mayCloseFor(
 ): Promise<boolean | null> {
   const venue = await db.venue.findUnique({
     where: { id: venueId },
-    select: { hostEmergencyClose: true, ianaTimezone: true },
+    select: { hostEmergencyClose: true },
   });
   if (!venue) return null;
   if (caller.isManager) return true;
-  return (
-    venue.hostEmergencyClose && isHostEmergencyClose(rule, civilDateIn(now, venue.ianaTimezone))
+  if (!venue.hostEmergencyClose) return false;
+  const state = await loadConfigState(db, venueId, now);
+  if (!state) return null;
+  const serviceDate = currentServiceDate(
+    { timezone: state.timezone, config: state.effective },
+    now
   );
+  return isHostEmergencyClose(rule, serviceDate);
 }
 
 /** Read-only form of the same limits, for the impact preview: `null` for an unknown venue. */
@@ -115,17 +132,35 @@ async function findReplay(
   db: Pick<PrismaClient, "availabilityChange">,
   venueId: string,
   key: string
-): Promise<{ id: string; closure: ClosureMeta } | null> {
+): Promise<{ id: string; actorId: string; closure: ClosureMeta } | null> {
   const change = await db.availabilityChange.findFirst({
     where: {
       venueId,
       kind: "closure",
       inverse: { path: ["closure", "idempotencyKey"], equals: key },
     },
-    select: { id: true, inverse: true },
+    select: { id: true, actorId: true, inverse: true },
   });
   const closure = (change?.inverse as { closure?: ClosureMeta } | null | undefined)?.closure;
-  return change && closure ? { id: change.id, closure } : null;
+  return change && closure ? { id: change.id, actorId: change.actorId, closure } : null;
+}
+
+/** The result a saved closure answers a replay with, counted from its outcome rows. */
+async function storedResult(
+  tx: Pick<PrismaClient, "closureOutcome">,
+  venueId: string,
+  replay: { id: string; closure: ClosureMeta }
+): Promise<ClosureResult> {
+  const rows = await tx.closureOutcome.findMany({
+    where: { venueId, dateRuleId: replay.closure.ruleId },
+    select: { action: true },
+  });
+  return {
+    ruleId: replay.closure.ruleId,
+    version: replay.closure.version,
+    changeId: replay.id,
+    outcomes: countActions(rows.map((r) => r.action)),
+  };
 }
 
 function withRule(config: AvailabilityConfig, rule: DateRule): AvailabilityConfig {
@@ -193,26 +228,64 @@ async function guard(
   if (!allowed) throw new Refused({ kind: "forbidden" });
 }
 
-async function commit(
-  tx: Db,
-  input: { venueId: string; caller: ClosureCaller; body: CreateClosureBody; key: string; now: Date }
-): Promise<Committed> {
-  const { venueId, caller, body, key, now } = input;
+type CommitInput = {
+  venueId: string;
+  caller: ClosureCaller;
+  body: CreateClosureBody;
+  key: string;
+  now: Date;
+};
+
+/**
+ * A known key answers with the stored result and changes nothing, even after
+ * the rule was reopened. It is authorised against the original save, not
+ * today's date: a Manager always, a Host only for a closure they made.
+ */
+async function replayOf(tx: Db, input: CommitInput): Promise<ClosureResult | null> {
+  const { venueId, caller, body, key } = input;
+  const replay = await findReplay(tx, venueId, key);
+  if (!replay) return null;
+  if (replay.closure.ruleId !== body.rule.id) throw new Refused({ kind: "key_reused" });
+  if (!caller.isManager && replay.actorId !== caller.actorId) {
+    throw new Refused({ kind: "forbidden" });
+  }
+  return storedResult(tx, venueId, replay);
+}
+
+/** Refuses what cannot become a clean closure before anything is written. */
+async function preflight(tx: Db, input: CommitInput): Promise<void> {
+  const { venueId, caller, body, now } = input;
   const { rule } = body;
   await guard(tx, { venueId, caller, rule, now });
+  if (!CLOSURE_RULE_KINDS.has(rule.kind)) {
+    throw new Refused({
+      kind: "invalid",
+      issues: [
+        {
+          path: "rule.kind",
+          code: "unsupported_kind",
+          message: "A closure is saved as a closure or special hours.",
+        },
+      ],
+    });
+  }
+  // The same rule id again, under a new key or version, is a second save of a
+  // closure that already has its outcomes, not a new one.
+  const existing = await tx.closureOutcome.count({ where: { venueId, dateRuleId: rule.id } });
+  if (existing > 0) throw new Refused({ kind: "closure_exists" });
+}
+
+async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
+  const { venueId, caller, body, key, now } = input;
+  const { rule } = body;
+  const replayed = await replayOf(tx, input);
+  if (replayed) return replayed;
+  await preflight(tx, input);
   const cas = await tx.venue.updateMany({
     where: { id: venueId, availabilityVersion: body.expectedVersion },
     data: { availabilityVersion: { increment: 1 } },
   });
-  if (cas.count === 0) {
-    const replay = await findReplay(tx, venueId, key);
-    if (replay) {
-      if (replay.closure.ruleId !== rule.id) throw new Refused({ kind: "key_reused" });
-      return { ruleId: rule.id, version: replay.closure.version, changeId: replay.id };
-    }
-    const stale = await refuseStale(tx, venueId);
-    throw new Refused(stale as Refusal);
-  }
+  if (cas.count === 0) throw new Refused((await refuseStale(tx, venueId)) as Refusal);
 
   const state = await loadConfigState(tx, venueId, now);
   if (!state) throw new Refused({ kind: "not_found" });
@@ -256,7 +329,32 @@ async function commit(
     data: { operatingHours: projectLegacyOperatingHours(next) },
   });
   if (plan.rows.length > 0) await tx.closureOutcome.createMany({ data: plan.rows });
-  return { ruleId: rule.id, version, changeId: change.id };
+  const applied = await applyTransitions(
+    tx,
+    venueId,
+    caller.actorId,
+    plan.rows.map((r) => ({
+      reservationId: r.reservationId,
+      action: r.action,
+      movedTo: r.movedTo as Date | null,
+    }))
+  );
+  if (applied.kind === "move_conflict") {
+    throw new Refused({ kind: "move_unavailable", reservationIds: applied.reservationIds });
+  }
+  if (applied.kind === "cannot_cancel") {
+    throw new Refused({
+      kind: "invalid",
+      issues: [
+        {
+          path: `reservations.${applied.reservationId}`,
+          code: "cannot_cancel",
+          message: applied.detail,
+        },
+      ],
+    });
+  }
+  return { ruleId: rule.id, version, changeId: change.id, outcomes: plan.counts };
 }
 
 export async function createClosure(
@@ -267,25 +365,37 @@ export async function createClosure(
     idempotencyKey: string;
     now: Date;
   },
-  transitions: ClosureTransitions,
   client: StoreClient = prisma
 ): Promise<CreateClosureOutcome> {
   const { venueId, caller, body, idempotencyKey: key, now } = input;
-  let committed: Committed;
   try {
-    committed = await client.$transaction(async (tx) => {
+    const result = await client.$transaction(async (tx) => {
       await setVenueContext(tx, venueId);
       return commit(tx, { venueId, caller, body, key, now });
     });
+    return { kind: "saved", result };
   } catch (error) {
     if (error instanceof Refused) return error.outcome;
     throw error;
   }
-  const applied = await applyClosureOutcomes(client, venueId, committed.ruleId, transitions);
-  return { kind: "saved", result: { ...committed, ...applied } };
 }
 
 // ── Reopen ──────────────────────────────────────────────────────────────────
+
+/** A Host may only reopen a closure they made themselves (the actor on its audit row). */
+async function requireAuthor(
+  db: Pick<PrismaClient, "availabilityChange">,
+  venueId: string,
+  ruleId: string,
+  actorId: string
+): Promise<void> {
+  const saved = await db.availabilityChange.findFirst({
+    where: { venueId, kind: "closure", inverse: { path: ["closure", "ruleId"], equals: ruleId } },
+    orderBy: { at: "desc" },
+    select: { actorId: true },
+  });
+  if (saved?.actorId !== actorId) throw new Refused({ kind: "forbidden" });
+}
 
 export type ReopenOutcome =
   { kind: "reopened"; result: ReopenResult } | { kind: "not_found" } | { kind: "forbidden" };
@@ -312,8 +422,11 @@ export async function reopenClosure(
       const db = tx as unknown as Db;
       const state = await loadConfigState(db, venueId, now);
       const rule = state?.stored.dateRules.find((r) => r.id === ruleId);
-      if (!state || !rule) throw new Refused({ kind: "not_found" });
+      if (!state || !rule || !CLOSURE_RULE_KINDS.has(rule.kind)) {
+        throw new Refused({ kind: "not_found" });
+      }
       await guard(db, { venueId, caller, rule, now });
+      if (!caller.isManager) await requireAuthor(db, venueId, ruleId, caller.actorId);
 
       const next = {
         ...state.stored,

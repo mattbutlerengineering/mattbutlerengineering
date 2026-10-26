@@ -119,6 +119,7 @@ export const AVAILABILITY_CONFIG_PROBLEM_CODES = [
   "invalid-decision",
   "move-unavailable",
   "idempotency-key-reused",
+  "closure-exists",
 ] as const;
 
 /** RFC 9457 problem with the config API's extension members. */
@@ -253,24 +254,12 @@ export const ClosureOutcomeCountsSchema = z.object({
   keep_silent: z.number().int(),
 });
 
-export const ClosureUnappliedSchema = z.object({
-  reservationId: z.string(),
-  action: z.enum(["cancel", "move"]),
-  reason: z.string(),
-});
-
 export const ClosureResultSchema = z.object({
   ruleId: z.string(),
   /** `Venue.availabilityVersion` after the save. */
   version: z.number().int(),
   changeId: z.string(),
   outcomes: ClosureOutcomeCountsSchema,
-  /**
-   * Cancels and moves that did not apply yet (a Stripe or table-conflict
-   * failure). The closure is saved; a retry with the same `Idempotency-Key`
-   * applies them again.
-   */
-  unapplied: z.array(ClosureUnappliedSchema),
 });
 
 export const ReopenResultSchema = z.object({ version: z.number().int(), changeId: z.string() });

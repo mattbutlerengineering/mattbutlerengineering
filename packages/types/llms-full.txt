@@ -70,7 +70,7 @@
         responses: {
           200: {
             description:
-              "Saved (or replayed from the same `Idempotency-Key`): the rule, the version and outcome counts",
+              "Saved atomically with its cancels and moves (or replayed from the same `Idempotency-Key`): the rule, the version and outcome counts",
             body: z.object({ data: ClosureResultSchema }),
           },
           400: problem("Missing `Idempotency-Key` header, or a date range too long to evaluate"),
@@ -78,7 +78,8 @@
           403: notClosureCaller,
           404: venueNotFound,
           409: {
-            description: "`version-conflict`, or `idempotency-key-reused` for a different rule",
+            description:
+              "`version-conflict`, `idempotency-key-reused` (a different rule) or `closure-exists` (this rule id was already saved)",
             body: AvailabilityConfigProblemSchema,
           },
           422: {
@@ -483,6 +484,7 @@
       "invalid-decision",
       "move-unavailable",
       "idempotency-key-reused",
+      "closure-exists",
     ] as const;
     export const AvailabilityConfigProblemSchema = z.object({
       type: z.string(),
@@ -587,23 +589,12 @@
       keep_notify: z.number().int(),
       keep_silent: z.number().int(),
     });
-    export const ClosureUnappliedSchema = z.object({
-      reservationId: z.string(),
-      action: z.enum(["cancel", "move"]),
-      reason: z.string(),
-    });
     export const ClosureResultSchema = z.object({
       ruleId: z.string(),
       /** `Venue.availabilityVersion` after the save. */
       version: z.number().int(),
       changeId: z.string(),
       outcomes: ClosureOutcomeCountsSchema,
-      /**
-       * Cancels and moves that did not apply yet (a Stripe or table-conflict
-       * failure). The closure is saved; a retry with the same `Idempotency-Key`
-       * applies them again.
-       */
-      unapplied: z.array(ClosureUnappliedSchema),
     });
     export const ReopenResultSchema = z.object({ version: z.number().int(), changeId: z.string() });
     export type ClosureDecision = z.infer<typeof ClosureDecisionSchema>;

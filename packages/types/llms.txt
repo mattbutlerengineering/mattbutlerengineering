@@ -277,9 +277,6 @@
       export const ClosureOutcomeCountsSchema: unknown;
     </item>
     <item priority="high">
-      export const ClosureUnappliedSchema: unknown;
-    </item>
-    <item priority="high">
       export const ClosureResultSchema: unknown;
     </item>
     <item priority="high">

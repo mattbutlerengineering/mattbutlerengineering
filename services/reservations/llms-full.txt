@@ -2555,6 +2555,12 @@
               winningChange: outcome.winningChange,
             })
           );
+        case "closure_exists":
+          return reply.code(409).send(
+            problem(409, "This closure was already saved; reopen it or use a new rule id.", {
+              code: "closure-exists",
+            })
+          );
         case "key_reused":
           return reply.code(409).send(
             problem(409, "This Idempotency-Key was already used for a different closure.", {
@@ -2596,14 +2602,14 @@
       }
     }
     export const closureRoutes: FastifyPluginAsync = async (fastify) => {
-      const { closureCommandService, reservationService, depositService } = fastify.services;
+      const { closureCommandService } = fastify.services;
     
       registerEndpoint(fastify, availabilityConfigEndpoints.createClosure, {
         docs: {
           summary: "Save a closure with a decision for every affected group",
           operationId: "createClosure",
           description:
-            "Writes the date rule, one outcome per affected reservation and the audit row in one transaction, then cancels (staff-initiated, deposit refunded in full) or moves the guests the Manager chose. Requires an `Idempotency-Key` header; a replay returns the first result and finishes any cancel or move that had not applied. Manager, or a Host for the emergency whole-venue close tonight when the venue grants it.",
+            "Writes the date rule (kind `closure` or `special_hours`), one outcome per affected reservation, the cancels and moves with their reservation events, and the audit row in one transaction, so no active booking overlaps a saved closure unless its outcome is keep. A cancelled booking's deposit stays held with the outcome's refund pending for the refund job; no Stripe call is made and no guest is notified here. Requires an `Idempotency-Key` header; a replay returns the stored result and changes nothing. Manager, or a Host for the emergency whole-venue close of the current service day when the venue grants it.",
           tags: ["Availability"],
           security: [{ bearerAuth: [] }],
         },
@@ -2616,15 +2622,13 @@
               .send(createProblemDetails(400, "Bad Request", "Idempotency-Key header is required"));
           }
           const caller = await closureCaller(request, venueId, isAdmin);
-          const outcome = await closureCommandService.create(
-            { venueId, caller, body: request.body, idempotencyKey: key, now: new Date() },
-            createClosureTransitions({
-              reservationService,
-              deposits: depositService,
-              logger: request.log,
-              actorId: request.user?.id,
-            })
-          );
+          const outcome = await closureCommandService.create({
+            venueId,
+            caller,
+            body: request.body,
+            idempotencyKey: key,
+            now: new Date(),
+          });
           if (outcome.kind !== "saved") return sendRefusal(reply, outcome);
           return { data: outcome.result };
         }),
@@ -2635,7 +2639,7 @@
           summary: "Reopen a closure",
           operationId: "reopenClosure",
           description:
-            "Removes the closure so its slots return. Guests it cancelled stay cancelled. Manager, or a Host for the emergency close it made tonight when the venue grants it.",
+            "Removes a closure (or special hours) saved through `POST …/closures` so its slots return. Guests it cancelled stay cancelled. Manager, or a Host for the emergency close they made themselves on the current service day when the venue grants it.",
           tags: ["Availability"],
           security: [{ bearerAuth: [] }],
         },
@@ -11948,87 +11952,135 @@
     export const briefingService = { getBriefing };
   </file>
   <file path="src/services/closure-apply.ts">
-    type ApplyClient = Pick<PrismaClient, "$transaction">;
-    export type TransitionResult = { ok: true } | { ok: false; reason: string };
-    export interface ClosureTransitions {
-      /** Staff-initiated cancel: full refund of a held deposit, event recorded. */
-      cancel(reservationId: string): Promise<TransitionResult>;
-      move(reservationId: string, to: { startTime: Date; endTime: Date }): Promise<TransitionResult>;
-    }
-    interface OutcomeWork {
-      id: string;
-      action: ClosureAction;
+    type Tx = Pick<PrismaClient, "reservation" | "reservationEvent">;
+    export interface PlannedTransition {
       reservationId: string;
+      action: ClosureAction;
       movedTo: Date | null;
-      refund: string;
-      reservation: { status: string; startTime: Date; endTime: Date };
     }
-    function isApplied(o: OutcomeWork): boolean {
-      if (o.action === "cancel") return o.reservation.status === "CANCELLED";
-      if (o.action === "move")
-        return o.movedTo !== null && o.reservation.startTime.getTime() === o.movedTo.getTime();
+    export type ApplyResult =
+      | { kind: "ok" }
+      | { kind: "move_conflict"; reservationIds: string[] }
+      | { kind: "cannot_cancel"; reservationId: string; detail: string };
+    interface Existing {
+      id: string;
+      status: string;
+      tableId: string | null;
+      date: Date;
+      startTime: Date;
+      endTime: Date;
+      partySize: number;
+    }
+    async function cancelInTx(
+      tx: Tx,
+      venueId: string,
+      actorId: string,
+      r: Existing
+    ): Promise<ApplyResult> {
+      try {
+        transitionReservation(r.status as never, "CANCELLED");
+      } catch (error) {
+        if (error instanceof ReservationTransitionError) {
+          return { kind: "cannot_cancel", reservationId: r.id, detail: error.message };
+        }
+        throw error;
+      }
+      const { count } = await tx.reservation.updateMany({
+        where: { id: r.id, venueId, status: r.status as never },
+        data: {
+          status: "CANCELLED",
+          cancellationReason: "venue_closure",
+          cancellationNote: "Cancelled by the venue: closure",
+        },
+      });
+      if (count === 0) {
+        return { kind: "cannot_cancel", reservationId: r.id, detail: "Reservation changed meanwhile" };
+      }
+      await recordReservationEvent(tx as never, {
+        reservationId: r.id,
+        venueId,
+        kind: "cancelled",
+        actor: staffActor(actorId),
+        from: stateOf(r),
+        to: stateOf(r, { status: "CANCELLED" }),
+      });
+      return { kind: "ok" };
+    }
+    async function moveInTx(
+      tx: Tx,
+      venueId: string,
+      actorId: string,
+      r: Existing,
+      startTime: Date
+    ): Promise<boolean> {
+      const endTime = new Date(startTime.getTime() + (r.endTime.getTime() - r.startTime.getTime()));
+      if (r.tableId) {
+        const clash = await tx.reservation.findFirst({
+          where: {
+            venueId,
+            tableId: r.tableId,
+            id: { not: r.id },
+            status: { notIn: [...NOT_BOOKED_STATUSES] },
+            startTime: { lt: endTime },
+            endTime: { gt: startTime },
+          },
+          select: { id: true },
+        });
+        if (clash) return false;
+      }
+      const { count } = await tx.reservation.updateMany({
+        where: { id: r.id, venueId, status: r.status as never },
+        data: { startTime, endTime },
+      });
+      if (count === 0) return false;
+      await recordReservationEvent(tx as never, {
+        reservationId: r.id,
+        venueId,
+        kind: "moved",
+        actor: staffActor(actorId),
+        from: stateOf(r),
+        to: stateOf(r, { startTime, endTime }),
+      });
       return true;
     }
-    function loadOutcomes(
-      client: ApplyClient,
+    export async function applyTransitions(
+      tx: Tx,
       venueId: string,
-      ruleId: string
-    ): Promise<OutcomeWork[]> {
-      return client.$transaction(async (tx) => {
-        await setVenueContext(tx, venueId);
-        return tx.closureOutcome.findMany({
-          where: { venueId, dateRuleId: ruleId },
-          orderBy: { createdAt: "asc" },
-          select: {
-            id: true,
-            action: true,
-            reservationId: true,
-            movedTo: true,
-            refund: true,
-            reservation: { select: { status: true, startTime: true, endTime: true } },
-          },
-        });
+      actorId: string,
+      planned: readonly PlannedTransition[]
+    ): Promise<ApplyResult> {
+      const work = planned.filter((p) => p.action === "cancel" || p.action === "move");
+      if (work.length === 0) return { kind: "ok" };
+      const rows = await tx.reservation.findMany({
+        where: { venueId, id: { in: work.map((p) => p.reservationId) } },
+        select: {
+          id: true,
+          status: true,
+          tableId: true,
+          date: true,
+          startTime: true,
+          endTime: true,
+          partySize: true,
+        },
       });
-    }
-    async function applyOne(
-      o: OutcomeWork,
-      transitions: ClosureTransitions
-    ): Promise<TransitionResult> {
-      if (o.action === "cancel") return transitions.cancel(o.reservationId);
-      const to = o.movedTo as Date; // invariant: a `move` outcome is written with its target
-      const length = o.reservation.endTime.getTime() - o.reservation.startTime.getTime();
-      return transitions.move(o.reservationId, {
-        startTime: to,
-        endTime: new Date(to.getTime() + length),
-      });
-    }
-    function markRefunded(client: ApplyClient, venueId: string, outcomeId: string): Promise<unknown> {
-      return client.$transaction(async (tx) => {
-        await setVenueContext(tx, venueId);
-        return tx.closureOutcome.updateMany({
-          where: { id: outcomeId, venueId, refund: "pending" },
-          data: { refund: "done" },
-        });
-      });
-    }
-    export async function applyClosureOutcomes(
-      client: ApplyClient,
-      venueId: string,
-      ruleId: string,
-      transitions: ClosureTransitions
-    ): Promise<Pick<ClosureResult, "outcomes" | "unapplied">> {
-      const outcomes = await loadOutcomes(client, venueId, ruleId);
-      const unapplied: ClosureResult["unapplied"] = [];
-      for (const o of outcomes) {
-        if (o.action === "keep_notify" || o.action === "keep_silent" || isApplied(o)) continue;
-        const result = await applyOne(o, transitions);
-        if (!result.ok) {
-          unapplied.push({ reservationId: o.reservationId, action: o.action, reason: result.reason });
-        } else if (o.action === "cancel") {
-          await markRefunded(client, venueId, o.id);
+      const byId = new Map<string, Existing>(rows.map((r) => [r.id, r as Existing]));
+      const ordered = [...work].sort(
+        (a, b) => Number(a.action === "move") - Number(b.action === "move")
+      );
+      const conflicts: string[] = [];
+      for (const p of ordered) {
+        const r = byId.get(p.reservationId);
+        if (!r) continue;
+        if (p.action === "cancel") {
+          const result = await cancelInTx(tx, venueId, actorId, r);
+          if (result.kind !== "ok") return result;
+        } else if (!(await moveInTx(tx, venueId, actorId, r, p.movedTo as Date))) {
+          conflicts.push(r.id);
         }
       }
-      return { outcomes: countActions(outcomes.map((o) => o.action)), unapplied };
+      return conflicts.length > 0
+        ? { kind: "move_conflict", reservationIds: conflicts }
+        : { kind: "ok" };
     }
   </file>
   <file path="src/services/closure-command-plan.ts">
@@ -12095,20 +12147,32 @@
         ? { startTime, endTime: new Date(startTime.getTime() + durationMin * MS_PER_MINUTE) }
         : null;
     }
-    export function isHostEmergencyClose(rule: DateRule, today: string): boolean {
+    export function currentServiceDate(snapshot: AvailabilitySnapshot, now: Date): string {
+      const today = localDateTimeOf(now, snapshot.timezone).date;
+      const isOpen = (date: string): boolean => {
+        const minute = wallMinutes(now, date, snapshot.timezone);
+        return resolveDay(snapshot, date).services.some(
+          (s) => s.opensAt <= minute && minute < s.closesAt
+        );
+      };
+      if (isOpen(today)) return today;
+      const yesterday = addDays(today, -1);
+      return isOpen(yesterday) ? yesterday : today;
+    }
+    export function isHostEmergencyClose(rule: DateRule, serviceDate: string): boolean {
       return (
         rule.kind === "closure" &&
         rule.targetKind === "venue" &&
         !rule.window &&
         !rule.repeat &&
-        rule.startsOn === today &&
-        rule.endsOn === today
+        rule.startsOn === serviceDate &&
+        rule.endsOn === serviceDate
       );
     }
   </file>
   <file path="src/services/closure-command.ts">
     type StoreClient = Pick<PrismaClient, "$transaction">;
-    type Db = StoreDb & Pick<PrismaClient, "closureOutcome">;
+    type Db = StoreDb & Pick<PrismaClient, "closureOutcome" | "reservationEvent">;
     export interface ClosureCaller {
       /** Owner, manager or platform admin. Anyone else is a Host. */
       isManager: boolean;
@@ -12121,6 +12185,7 @@
       | { kind: "too_long" }
       | { kind: "version_conflict"; winningChange: AvailabilityChangeSummary | null }
       | { kind: "key_reused" }
+      | { kind: "closure_exists" }
       | { kind: "invalid"; issues: { path: string; code: string; message: string }[] }
       | { kind: "decision_required"; groupKeys: string[] }
       | { kind: "invalid_decision"; groupKeys: string[] }
@@ -12136,9 +12201,8 @@
       idempotencyKey: string;
       version: number;
     }
-    type Committed = { ruleId: string; version: number; changeId: string };
     export async function mayCloseFor(
-      db: Pick<PrismaClient, "venue">,
+      db: StoreDb,
       venueId: string,
       caller: Pick<ClosureCaller, "isManager">,
       rule: DateRule,
@@ -12146,13 +12210,18 @@
     ): Promise<boolean | null> {
       const venue = await db.venue.findUnique({
         where: { id: venueId },
-        select: { hostEmergencyClose: true, ianaTimezone: true },
+        select: { hostEmergencyClose: true },
       });
       if (!venue) return null;
       if (caller.isManager) return true;
-      return (
-        venue.hostEmergencyClose && isHostEmergencyClose(rule, civilDateIn(now, venue.ianaTimezone))
+      if (!venue.hostEmergencyClose) return false;
+      const state = await loadConfigState(db, venueId, now);
+      if (!state) return null;
+      const serviceDate = currentServiceDate(
+        { timezone: state.timezone, config: state.effective },
+        now
       );
+      return isHostEmergencyClose(rule, serviceDate);
     }
     export function mayClose(
       venueId: string,
@@ -12170,17 +12239,33 @@
       db: Pick<PrismaClient, "availabilityChange">,
       venueId: string,
       key: string
-    ): Promise<{ id: string; closure: ClosureMeta } | null> {
+    ): Promise<{ id: string; actorId: string; closure: ClosureMeta } | null> {
       const change = await db.availabilityChange.findFirst({
         where: {
           venueId,
           kind: "closure",
           inverse: { path: ["closure", "idempotencyKey"], equals: key },
         },
-        select: { id: true, inverse: true },
+        select: { id: true, actorId: true, inverse: true },
       });
       const closure = (change?.inverse as { closure?: ClosureMeta } | null | undefined)?.closure;
-      return change && closure ? { id: change.id, closure } : null;
+      return change && closure ? { id: change.id, actorId: change.actorId, closure } : null;
+    }
+    async function storedResult(
+      tx: Pick<PrismaClient, "closureOutcome">,
+      venueId: string,
+      replay: { id: string; closure: ClosureMeta }
+    ): Promise<ClosureResult> {
+      const rows = await tx.closureOutcome.findMany({
+        where: { venueId, dateRuleId: replay.closure.ruleId },
+        select: { action: true },
+      });
+      return {
+        ruleId: replay.closure.ruleId,
+        version: replay.closure.version,
+        changeId: replay.id,
+        outcomes: countActions(rows.map((r) => r.action)),
+      };
     }
     function withRule(config: AvailabilityConfig, rule: DateRule): AvailabilityConfig {
       return { ...config, dateRules: [...config.dateRules.filter((r) => r.id !== rule.id), rule] };
@@ -12239,26 +12324,55 @@
       if (allowed === null) throw new Refused({ kind: "not_found" });
       if (!allowed) throw new Refused({ kind: "forbidden" });
     }
-    async function commit(
-      tx: Db,
-      input: { venueId: string; caller: ClosureCaller; body: CreateClosureBody; key: string; now: Date }
-    ): Promise<Committed> {
-      const { venueId, caller, body, key, now } = input;
+    type CommitInput = {
+      venueId: string;
+      caller: ClosureCaller;
+      body: CreateClosureBody;
+      key: string;
+      now: Date;
+    };
+    async function replayOf(tx: Db, input: CommitInput): Promise<ClosureResult | null> {
+      const { venueId, caller, body, key } = input;
+      const replay = await findReplay(tx, venueId, key);
+      if (!replay) return null;
+      if (replay.closure.ruleId !== body.rule.id) throw new Refused({ kind: "key_reused" });
+      if (!caller.isManager && replay.actorId !== caller.actorId) {
+        throw new Refused({ kind: "forbidden" });
+      }
+      return storedResult(tx, venueId, replay);
+    }
+    async function preflight(tx: Db, input: CommitInput): Promise<void> {
+      const { venueId, caller, body, now } = input;
       const { rule } = body;
       await guard(tx, { venueId, caller, rule, now });
+      if (!CLOSURE_RULE_KINDS.has(rule.kind)) {
+        throw new Refused({
+          kind: "invalid",
+          issues: [
+            {
+              path: "rule.kind",
+              code: "unsupported_kind",
+              message: "A closure is saved as a closure or special hours.",
+            },
+          ],
+        });
+      }
+      // The same rule id again, under a new key or version, is a second save of a
+      // closure that already has its outcomes, not a new one.
+      const existing = await tx.closureOutcome.count({ where: { venueId, dateRuleId: rule.id } });
+      if (existing > 0) throw new Refused({ kind: "closure_exists" });
+    }
+    async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
+      const { venueId, caller, body, key, now } = input;
+      const { rule } = body;
+      const replayed = await replayOf(tx, input);
+      if (replayed) return replayed;
+      await preflight(tx, input);
       const cas = await tx.venue.updateMany({
         where: { id: venueId, availabilityVersion: body.expectedVersion },
         data: { availabilityVersion: { increment: 1 } },
       });
-      if (cas.count === 0) {
-        const replay = await findReplay(tx, venueId, key);
-        if (replay) {
-          if (replay.closure.ruleId !== rule.id) throw new Refused({ kind: "key_reused" });
-          return { ruleId: rule.id, version: replay.closure.version, changeId: replay.id };
-        }
-        const stale = await refuseStale(tx, venueId);
-        throw new Refused(stale as Refusal);
-      }
+      if (cas.count === 0) throw new Refused((await refuseStale(tx, venueId)) as Refusal);
     
       const state = await loadConfigState(tx, venueId, now);
       if (!state) throw new Refused({ kind: "not_found" });
@@ -12302,7 +12416,32 @@
         data: { operatingHours: projectLegacyOperatingHours(next) },
       });
       if (plan.rows.length > 0) await tx.closureOutcome.createMany({ data: plan.rows });
-      return { ruleId: rule.id, version, changeId: change.id };
+      const applied = await applyTransitions(
+        tx,
+        venueId,
+        caller.actorId,
+        plan.rows.map((r) => ({
+          reservationId: r.reservationId,
+          action: r.action,
+          movedTo: r.movedTo as Date | null,
+        }))
+      );
+      if (applied.kind === "move_conflict") {
+        throw new Refused({ kind: "move_unavailable", reservationIds: applied.reservationIds });
+      }
+      if (applied.kind === "cannot_cancel") {
+        throw new Refused({
+          kind: "invalid",
+          issues: [
+            {
+              path: `reservations.${applied.reservationId}`,
+              code: "cannot_cancel",
+              message: applied.detail,
+            },
+          ],
+        });
+      }
+      return { ruleId: rule.id, version, changeId: change.id, outcomes: plan.counts };
     }
     export async function createClosure(
       input: {
@@ -12312,22 +12451,32 @@
         idempotencyKey: string;
         now: Date;
       },
-      transitions: ClosureTransitions,
       client: StoreClient = prisma
     ): Promise<CreateClosureOutcome> {
       const { venueId, caller, body, idempotencyKey: key, now } = input;
-      let committed: Committed;
       try {
-        committed = await client.$transaction(async (tx) => {
+        const result = await client.$transaction(async (tx) => {
           await setVenueContext(tx, venueId);
           return commit(tx, { venueId, caller, body, key, now });
         });
+        return { kind: "saved", result };
       } catch (error) {
         if (error instanceof Refused) return error.outcome;
         throw error;
       }
-      const applied = await applyClosureOutcomes(client, venueId, committed.ruleId, transitions);
-      return { kind: "saved", result: { ...committed, ...applied } };
+    }
+    async function requireAuthor(
+      db: Pick<PrismaClient, "availabilityChange">,
+      venueId: string,
+      ruleId: string,
+      actorId: string
+    ): Promise<void> {
+      const saved = await db.availabilityChange.findFirst({
+        where: { venueId, kind: "closure", inverse: { path: ["closure", "ruleId"], equals: ruleId } },
+        orderBy: { at: "desc" },
+        select: { actorId: true },
+      });
+      if (saved?.actorId !== actorId) throw new Refused({ kind: "forbidden" });
     }
     export type ReopenOutcome =
       { kind: "reopened"; result: ReopenResult } | { kind: "not_found" } | { kind: "forbidden" };
@@ -12348,8 +12497,11 @@
           const db = tx as unknown as Db;
           const state = await loadConfigState(db, venueId, now);
           const rule = state?.stored.dateRules.find((r) => r.id === ruleId);
-          if (!state || !rule) throw new Refused({ kind: "not_found" });
+          if (!state || !rule || !CLOSURE_RULE_KINDS.has(rule.kind)) {
+            throw new Refused({ kind: "not_found" });
+          }
           await guard(db, { venueId, caller, rule, now });
+          if (!caller.isManager) await requireAuthor(db, venueId, ruleId, caller.actorId);
     
           const next = {
             ...state.stored,
@@ -12614,49 +12766,6 @@
         covers: groups.reduce((n, g) => n + g.covers, 0),
         depositsHeld: groups.reduce((n, g) => n + g.depositsHeld, 0),
         groups,
-      };
-    }
-  </file>
-  <file path="src/services/closure-transitions.ts">
-    export function createClosureTransitions(deps: {
-      reservationService: typeof ReservationService;
-      deposits: DepositService;
-      logger: FastifyBaseLogger;
-      actorId: string | undefined;
-    }): ClosureTransitions {
-      const { reservationService, deposits, logger } = deps;
-      const actor = staffActor(deps.actorId);
-      return {
-        async cancel(reservationId) {
-          const reservation = await reservationService.getById(reservationId);
-          if (!reservation) return { ok: false, reason: "Reservation not found" };
-          const result = await cancelReservationWithDeposit(
-            reservation,
-            "",
-            { logger, deposits },
-            {
-              initiator: "staff",
-              cancellationReason: "venue_closure",
-              cancellationNote: "Cancelled by the venue: closure",
-              actor,
-            }
-          );
-          return result.success ? { ok: true } : { ok: false, reason: result.detail };
-        },
-    
-        async move(reservationId, to) {
-          const result = await reservationService.updateWithConflictCheck(
-            reservationId,
-            { startTime: to.startTime.toISOString(), endTime: to.endTime.toISOString() },
-            actor
-          );
-          if (result.success) return { ok: true };
-          return {
-            ok: false,
-            reason:
-              result.error ?? (result.rejection ? "The new time is not bookable" : "Could not move"),
-          };
-        },
       };
     }
   </file>

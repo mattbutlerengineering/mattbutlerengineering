@@ -120,7 +120,6 @@ describe("AvailabilityClient config API", () => {
       version: 5,
       changeId: "chg-1",
       outcomes: { cancel: 1, move: 0, keep_notify: 0, keep_silent: 0 },
-      unapplied: [],
     };
     mockFetch.mockResolvedValueOnce(jsonResponse({ data: result }));
     const body = {

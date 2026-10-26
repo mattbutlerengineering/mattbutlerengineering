@@ -1,4 +1,10 @@
-import { MINUTES_PER_DAY, localDateTimeOf, resolveDay, serviceDayInstant } from "@mbe/availability";
+import {
+  MINUTES_PER_DAY,
+  addDays,
+  localDateTimeOf,
+  resolveDay,
+  serviceDayInstant,
+} from "@mbe/availability";
 import type { AvailabilitySnapshot } from "@mbe/availability";
 import type {
   ClosureAction,
@@ -96,16 +102,35 @@ export function moveTarget(
 }
 
 /**
- * The Host's one allowed closure: the whole venue, the whole of tonight's
- * service date, and nothing narrower or wider (architecture.md § Venue roles).
+ * The service day "tonight" means right now (ADR-029): today's civil date when
+ * one of its services is open, else yesterday's when its service runs past
+ * midnight and is still open, else today's. A Fri 22:00-02:00 service at Sat
+ * 00:30 is still Friday's.
  */
-export function isHostEmergencyClose(rule: DateRule, today: string): boolean {
+export function currentServiceDate(snapshot: AvailabilitySnapshot, now: Date): string {
+  const today = localDateTimeOf(now, snapshot.timezone).date;
+  const isOpen = (date: string): boolean => {
+    const minute = wallMinutes(now, date, snapshot.timezone);
+    return resolveDay(snapshot, date).services.some(
+      (s) => s.opensAt <= minute && minute < s.closesAt
+    );
+  };
+  if (isOpen(today)) return today;
+  const yesterday = addDays(today, -1);
+  return isOpen(yesterday) ? yesterday : today;
+}
+
+/**
+ * The Host's one allowed closure: the whole venue, the whole of the current
+ * service day, and nothing narrower or wider (architecture.md § Venue roles).
+ */
+export function isHostEmergencyClose(rule: DateRule, serviceDate: string): boolean {
   return (
     rule.kind === "closure" &&
     rule.targetKind === "venue" &&
     !rule.window &&
     !rule.repeat &&
-    rule.startsOn === today &&
-    rule.endsOn === today
+    rule.startsOn === serviceDate &&
+    rule.endsOn === serviceDate
   );
 }

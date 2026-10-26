@@ -107,7 +107,7 @@ export const availabilityConfigEndpoints = {
     responses: {
       200: {
         description:
-          "Saved (or replayed from the same `Idempotency-Key`): the rule, the version and outcome counts",
+          "Saved atomically with its cancels and moves (or replayed from the same `Idempotency-Key`): the rule, the version and outcome counts",
         body: z.object({ data: ClosureResultSchema }),
       },
       400: problem("Missing `Idempotency-Key` header, or a date range too long to evaluate"),
@@ -115,7 +115,8 @@ export const availabilityConfigEndpoints = {
       403: notClosureCaller,
       404: venueNotFound,
       409: {
-        description: "`version-conflict`, or `idempotency-key-reused` for a different rule",
+        description:
+          "`version-conflict`, `idempotency-key-reused` (a different rule) or `closure-exists` (this rule id was already saved)",
         body: AvailabilityConfigProblemSchema,
       },
       422: {
