@@ -1544,6 +1544,9 @@
       export const LAST_SEATING_LEAD_MINUTES: unknown;
     </item>
     <item priority="high">
+      export const SERVICE_NAME_MAX_LENGTH: unknown;
+    </item>
+    <item priority="high">
       export const WEEK_DISPLAY_ORDER: readonly number[];
     </item>
     <item priority="high">
@@ -1596,7 +1599,7 @@
       type QuickSetupField = "name" | "opens" | "lastSeating" | "closes";
     </item>
     <item priority="low">
-      type QuickSetupIssueCode = "name_required" | "time_required" | "close_after_open" | "last_seating_after_close" | "last_seating_before_open" | "overlap" | "days_required";
+      type QuickSetupIssueCode = "name_required" | "name_too_long" | "time_required" | "close_after_open" | "last_seating_after_close" | "span_too_long" | "overlap" | "days_required";
     </item>
     <item priority="low">
       interface QuickSetupIssue {
@@ -1624,6 +1627,9 @@
     <item priority="high">
       export function validateDraft(draft: QuickSetupDraft): QuickSetupIssue[] { /* ... */ }
     </item>
+    <item priority="medium">
+      function spanIssues(draft: QuickSetupDraft): QuickSetupIssue[] { /* ... */ }
+    </item>
     <item priority="high">
       export function draftToConfig(
         draft: QuickSetupDraft,
@@ -1637,6 +1643,12 @@
         stored: AvailabilityConfig,
         newId: () => string
       ): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="high">
+      export function validateQuickSetupHours(
+        hours: OperatingHours,
+        t: TFunction = localeRuntime.i18n.t
+      ): OperatingHoursValidationErrors | null { /* ... */ }
     </item>
     <item priority="high">
       export function draftToLegacyHours(draft: QuickSetupDraft): OperatingHours { /* ... */ }
@@ -18418,6 +18430,9 @@
   <file path="packages/availability/src/legacy-migration.ts">
     <item priority="high">
       export const DEFAULT_LAST_SEATING_BUFFER: unknown;
+    </item>
+    <item priority="high">
+      export const MAX_PAST_MIDNIGHT_SPAN: unknown;
     </item>
     <item priority="low">
       interface LegacyMigrationInput {

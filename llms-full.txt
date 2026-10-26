@@ -4948,6 +4948,7 @@
       readonly days: readonly number[];
     }
     export const LAST_SEATING_LEAD_MINUTES = 45;
+    export const SERVICE_NAME_MAX_LENGTH = 40;
     export const WEEK_DISPLAY_ORDER: readonly number[] = [1, 2, 3, 4, 5, 6, 0];
     export const WEEKDAY_SHORTCUT: readonly number[] = [1, 2, 3, 4, 5];
     export const WEEKEND_SHORTCUT: readonly number[] = [6, 0];
@@ -5016,10 +5017,11 @@
     export type QuickSetupField = "name" | "opens" | "lastSeating" | "closes";
     export type QuickSetupIssueCode =
       | "name_required"
+      | "name_too_long"
       | "time_required"
       | "close_after_open"
       | "last_seating_after_close"
-      | "last_seating_before_open"
+      | "span_too_long"
       | "overlap"
       | "days_required";
     export interface QuickSetupIssue {
@@ -5061,10 +5063,13 @@
           code: "time_required",
         })
       );
+      const name = service.name.trim();
       const unnamed: QuickSetupIssue[] =
-        service.name.trim() === ""
+        name === ""
           ? [{ serviceId: service.id, field: "name", code: "name_required" }]
-          : [];
+          : name.length > SERVICE_NAME_MAX_LENGTH
+            ? [{ serviceId: service.id, field: "name", code: "name_too_long" }]
+            : [];
       return [...unnamed, ...missing];
     }
     function orderIssues(service: ServiceDraft, m: ServiceMinutes): QuickSetupIssue[] {
@@ -5094,7 +5099,23 @@
           const service = draft.services[index];
           return service ? [{ serviceId: service.id, field: "opens", code: "overlap" }] : [];
         });
-      return [...overlaps, ...daysIssue];
+      return [...overlaps, ...spanIssues(draft), ...daysIssue];
+    }
+    function spanIssues(draft: QuickSetupDraft): QuickSetupIssue[] {
+      const read = normalizeLegacyHours(draftToLegacyHours(draft));
+      const tooLong =
+        read.ok &&
+        WEEKDAYS.some((day) =>
+          read.hours.weekly[day].some(
+            (w) => w.wrapped === true && w.close - w.open > MAX_PAST_MIDNIGHT_SPAN
+          )
+        );
+      if (!tooLong) return [];
+      const latest = draft.services.reduce<{ id: string; closesAt: number } | null>((acc, s) => {
+        const m = minutesOf(s);
+        return m && (!acc || m.closesAt > acc.closesAt) ? { id: s.id, closesAt: m.closesAt } : acc;
+      }, null);
+      return latest ? [{ serviceId: latest.id, field: "closes", code: "span_too_long" }] : [];
     }
     export function draftToConfig(
       draft: QuickSetupDraft,
@@ -5168,6 +5189,12 @@
           assignments: stored.assignments.filter((a) => a.scheduleId === scheduleId).map((a) => a.id),
         },
       };
+    }
+    export function validateQuickSetupHours(
+      hours: OperatingHours,
+      t: TFunction = localeRuntime.i18n.t
+    ): OperatingHoursValidationErrors | null {
+      return Object.keys(hours).length === 0 ? { global: t("onboarding.hours.atLeastOne") } : null;
     }
     export function draftToLegacyHours(draft: QuickSetupDraft): OperatingHours {
       const projected = projectLegacyOperatingHours(draftToConfig(draft, () => "wizard"));
@@ -65275,6 +65302,7 @@
   </file>
   <file path="packages/availability/src/legacy-migration.ts">
     export const DEFAULT_LAST_SEATING_BUFFER = 90;
+    export const MAX_PAST_MIDNIGHT_SPAN = 16 * 60;
     export interface LegacyMigrationInput {
       hours: LegacyHours;
       /** `settings.slotIntervalMinutes`; absent means the legacy default (15). */
@@ -77995,7 +78023,7 @@
           };
         }
         case 3: {
-          const errors = validateOperatingHours(state.data.operatingHours);
+          const errors = validateQuickSetupHours(state.data.operatingHours);
           return {
             state: { ...state, errors: { ...state.errors, operatingHours: errors } },
             valid: errors === null,

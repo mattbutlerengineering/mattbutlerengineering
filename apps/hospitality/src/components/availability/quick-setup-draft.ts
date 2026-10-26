@@ -1,4 +1,13 @@
-import { projectLegacyOperatingHours, validateConfig } from "@mbe/availability";
+import type { TFunction } from "i18next";
+import {
+  MAX_PAST_MIDNIGHT_SPAN,
+  normalizeLegacyHours,
+  projectLegacyOperatingHours,
+  validateConfig,
+  WEEKDAYS,
+} from "@mbe/availability";
+import { localeRuntime } from "../../i18n/runtime.js";
+import type { OperatingHoursValidationErrors } from "../venue-onboarding/OperatingHoursStep.js";
 import type {
   AvailabilityConfig,
   AvailabilityConfigChanges,
@@ -32,6 +41,8 @@ export interface QuickSetupDraft {
 }
 
 export const LAST_SEATING_LEAD_MINUTES = 45;
+/** `VenueServiceSchema.name` max; the server refuses a longer name. */
+export const SERVICE_NAME_MAX_LENGTH = 40;
 const MINUTES_PER_DAY = 1440;
 const SEATING_INTERVAL_MINUTES = 15;
 
@@ -122,10 +133,11 @@ export function toggleDay(draft: QuickSetupDraft, day: number): QuickSetupDraft 
 export type QuickSetupField = "name" | "opens" | "lastSeating" | "closes";
 export type QuickSetupIssueCode =
   | "name_required"
+  | "name_too_long"
   | "time_required"
   | "close_after_open"
   | "last_seating_after_close"
-  | "last_seating_before_open"
+  | "span_too_long"
   | "overlap"
   | "days_required";
 
@@ -178,10 +190,13 @@ function completenessIssues(service: ServiceDraft): QuickSetupIssue[] {
       code: "time_required",
     })
   );
+  const name = service.name.trim();
   const unnamed: QuickSetupIssue[] =
-    service.name.trim() === ""
+    name === ""
       ? [{ serviceId: service.id, field: "name", code: "name_required" }]
-      : [];
+      : name.length > SERVICE_NAME_MAX_LENGTH
+        ? [{ serviceId: service.id, field: "name", code: "name_too_long" }]
+        : [];
   return [...unnamed, ...missing];
 }
 
@@ -217,7 +232,30 @@ export function validateDraft(draft: QuickSetupDraft): QuickSetupIssue[] {
       const service = draft.services[index];
       return service ? [{ serviceId: service.id, field: "opens", code: "overlap" }] : [];
     });
-  return [...overlaps, ...daysIssue];
+  return [...overlaps, ...spanIssues(draft), ...daysIssue];
+}
+
+/**
+ * The server stores the day as one legacy window (earliest open, latest close) and its
+ * reader drops a past-midnight window longer than MAX_PAST_MIDNIGHT_SPAN, so the venue
+ * would show closed. Read the projection with the server's own reader; blame the
+ * latest-closing service.
+ */
+function spanIssues(draft: QuickSetupDraft): QuickSetupIssue[] {
+  const read = normalizeLegacyHours(draftToLegacyHours(draft));
+  const tooLong =
+    read.ok &&
+    WEEKDAYS.some((day) =>
+      read.hours.weekly[day].some(
+        (w) => w.wrapped === true && w.close - w.open > MAX_PAST_MIDNIGHT_SPAN
+      )
+    );
+  if (!tooLong) return [];
+  const latest = draft.services.reduce<{ id: string; closesAt: number } | null>((acc, s) => {
+    const m = minutesOf(s);
+    return m && (!acc || m.closesAt > acc.closesAt) ? { id: s.id, closesAt: m.closesAt } : acc;
+  }, null);
+  return latest ? [{ serviceId: latest.id, field: "closes", code: "span_too_long" }] : [];
 }
 
 // ── To the stored model ───────────────────────────────────────────────────
@@ -301,6 +339,18 @@ export function draftToChanges(
       assignments: stored.assignments.filter((a) => a.scheduleId === scheduleId).map((a) => a.id),
     },
   };
+}
+
+/**
+ * The wizard's step-3 gate for hours that came from the card. The card has already validated
+ * its times, and a close earlier than the open is a legitimate past-midnight service that the
+ * old per-day string compare would refuse, so only "at least one day open" remains.
+ */
+export function validateQuickSetupHours(
+  hours: OperatingHours,
+  t: TFunction = localeRuntime.i18n.t
+): OperatingHoursValidationErrors | null {
+  return Object.keys(hours).length === 0 ? { global: t("onboarding.hours.atLeastOne") } : null;
 }
 
 /** The legacy shape the new-venue wizard sends (the venue has no config rows until it exists). */

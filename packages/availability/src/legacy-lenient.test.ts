@@ -158,3 +158,16 @@ describe("normalizeLegacyHours, lenient: a stray version 1 key", () => {
     expect(normalizeLegacyHours(v9, { lenient: true }).ok).toBe(false);
   });
 });
+
+describe("normalizeLegacyHours: the onboarding wizard's past-midnight close", () => {
+  it("reads { open: 22:00, close: 01:00 } as an overnight service closing at minute 1500", () => {
+    for (const lenient of [false, true]) {
+      const result = normalizeLegacyHours(
+        { monday: { open: "22:00", close: "01:00" } },
+        { lenient }
+      );
+      if (!result.ok) throw new Error(result.reason);
+      expect(result.hours.weekly.monday).toEqual([{ open: 1320, close: 1500, wrapped: true }]);
+    }
+  });
+});
