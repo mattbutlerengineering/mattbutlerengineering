@@ -70626,6 +70626,17 @@
         .find(containing(minute));
       if (!service) return hard("closed", message);
       if (!service.bookingTypes.includes(request.channel)) return hard("booking_closed", message);
+      // Online guests only book the exact instants listSlots offers (a seating minute, at
+      // second 0, first occurrence of a repeated hour); staff on the phone may book off-grid.
+      if (request.channel === "online") {
+        const offered = serviceDayInstant(serviceDate, minute, snapshot.timezone);
+        if (
+          !seatingMinutes(service).includes(minute) ||
+          offered?.getTime() !== request.start.getTime()
+        ) {
+          return hard("outside_service");
+        }
+      }
     
       const tableIssue = tableVerdict(snapshot, day, minute, request, now);
       if (tableIssue) return tableIssue;

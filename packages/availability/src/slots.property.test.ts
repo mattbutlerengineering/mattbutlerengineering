@@ -1,6 +1,7 @@
 import type { AvailabilityConfig, DateRule, ScheduleService } from "@mbe/types";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
+import { addDays } from "./civil-date.js";
 import { serviceDayInstant } from "./instant.js";
 import { validateConfig } from "./validate-config.js";
 import { resolveDay } from "./resolve-day.js";
@@ -205,6 +206,34 @@ describe("engine correctness (property)", () => {
       { numRuns: 300 }
     );
   });
+
+  it("never accepts an online start the listing does not offer", () => {
+    fc.assert(
+      fc.property(scenarioArb, ({ date, snapshot }) => {
+        // Instants before this date's midnight+24h belong to this date's services
+        // or to the previous date's past-midnight service.
+        const listed = new Set(
+          [addDays(date, -1), date].flatMap((d) =>
+            listSlots(snapshot, d, 2, "online", NOW).map((s) => s.start.getTime())
+          )
+        );
+        // Absolute 5-minute steps (so a repeated fall-back hour is probed twice), each
+        // also nudged by a millisecond and by 30 s: none of those may be accepted unless listed.
+        const base = serviceDayInstant(date, 0, snapshot.timezone)?.getTime();
+        if (base === undefined) return;
+        for (let step = 0; step < 288; step++) {
+          for (const nudge of [0, 1, 30_000]) {
+            const start = new Date(base + step * 300_000 + nudge);
+            const verdict = judge(snapshot, { start, partySize: 2, channel: "online" }, NOW);
+            if (verdict.kind === "ok") {
+              expect(listed.has(start.getTime()), `${start.toISOString()}`).toBe(true);
+            }
+          }
+        }
+      }),
+      { numRuns: 100 }
+    );
+  }, 30_000);
 
   it("judges every instant inside a closure as hard", () => {
     fc.assert(
