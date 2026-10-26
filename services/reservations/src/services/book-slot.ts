@@ -8,7 +8,7 @@ import {
   NOT_BOOKED_STATUSES,
 } from "./slot-rules.js";
 import { setVenueContext } from "../middleware/venue-context.js";
-import type { BookingChannel } from "@mbe/availability";
+import type { BookingChannel, SoftLimit } from "@mbe/availability";
 import { judgeBooking, type GateRejection } from "./assert-bookable.js";
 
 /**
@@ -69,7 +69,7 @@ export interface BookSlotIntent<T> {
    * reading the committed configuration through this transaction
    * ({@link judgeBooking}). Requires venueId. Walk-ins never set it.
    */
-  gate?: { channel: BookingChannel };
+  gate?: { channel: BookingChannel; override?: { reason: string } };
   /**
    * Runs immediately after the lock, before the conflict re-check. Returning a
    * {@link SlotConflict} short-circuits the write (e.g. a hold that expired
@@ -82,8 +82,12 @@ export interface BookSlotIntent<T> {
    * hold that could not be confirmed.
    */
   onUnbookable?: (tx: Prisma.TransactionClient, conflict: SlotConflict) => Promise<void>;
-  /** Performs the actual mutation once the slot is confirmed bookable. */
-  write: (tx: Prisma.TransactionClient) => Promise<T>;
+  /**
+   * Performs the actual mutation once the slot is confirmed bookable.
+   * `gated.overrideLimits` lists the soft limits a staff override passed, so
+   * the write can store them with the booking.
+   */
+  write: (tx: Prisma.TransactionClient, gated: { overrideLimits?: SoftLimit[] }) => Promise<T>;
 }
 
 /**
@@ -211,40 +215,45 @@ export async function bookSlot<T>(intent: BookSlotIntent<T>): Promise<SlotWriteR
       }
     }
 
+    let gated: { overrideLimits?: SoftLimit[] } = {};
     if (gate && venueId) {
-      const gateConflict = await availabilityConflict(tx, { ...intent, venueId }, gate.channel);
-      if (gateConflict) return fail(gateConflict);
+      const verdict = await availabilityVerdict(tx, { ...intent, venueId }, gate);
+      if (verdict.conflict) return fail(verdict.conflict);
+      gated = { overrideLimits: verdict.overrideLimits };
     }
 
-    const value = await write(tx);
+    const value = await write(tx, gated);
     return { ok: true, value };
   });
 }
 
 const GATE_MESSAGE = "Requested time is outside the venue's availability";
 
-/** The availability gate's verdict on this intent's slot, as a {@link SlotConflict}. */
-async function availabilityConflict(
+/** The availability gate's verdict on this intent's slot: a {@link SlotConflict}, or the limits a staff override passed. */
+async function availabilityVerdict(
   tx: Prisma.TransactionClient,
   intent: BookSlotIntent<unknown> & { venueId: string },
-  channel: BookingChannel
-): Promise<SlotConflict | undefined> {
+  gate: NonNullable<BookSlotIntent<unknown>["gate"]>
+): Promise<{ conflict?: SlotConflict; overrideLimits?: SoftLimit[] }> {
   const outcome = await judgeBooking(tx, {
     venueId: intent.venueId,
     tableId: intent.tableId,
     start: intent.window.startTime,
     end: intent.window.endTime,
     partySize: intent.partySize,
-    channel,
+    channel: gate.channel,
+    override: gate.override,
     excludeReservationId: intent.excludeReservationId,
     excludeHoldId: intent.excludeHoldId,
     excludeSessionId: intent.excludeSessionId,
   });
   if (outcome.kind === "conflict") {
-    return { code: "CONFLICT", message: "Table is not available for this time slot" };
+    return { conflict: { code: "CONFLICT", message: "Table is not available for this time slot" } };
   }
   if (outcome.kind === "rejected") {
-    return { code: "NOT_BOOKABLE", message: GATE_MESSAGE, rejection: outcome.rejection };
+    return {
+      conflict: { code: "NOT_BOOKABLE", message: GATE_MESSAGE, rejection: outcome.rejection },
+    };
   }
-  return undefined;
+  return { overrideLimits: outcome.overrideLimits };
 }

@@ -33,7 +33,10 @@ export const guestActor = (guestId: string | null | undefined): ReservationEvent
 export const staffActor = (userId: string | null | undefined): ReservationEventActor =>
   userId ? { type: "staff", id: userId } : SYSTEM_ACTOR;
 
-/** Non-PII scheduling snapshot stored in `from_state` / `to_state`. */
+/**
+ * Scheduling snapshot stored in `from_state` / `to_state`. No guest PII; the one
+ * free-text field is `override.reason`, which is staff-written operational text.
+ */
 export type EventState = {
   status: string;
   tableId: string;
@@ -41,6 +44,8 @@ export type EventState = {
   startTime: string;
   endTime: string;
   partySize: number;
+  /** Present when a staff override passed a soft limit to book this slot. */
+  override?: { reason: string; limits: string[] };
 };
 
 /** Deposit status snapshot stored in `from_state` / `to_state` of a `deposit_transition` event. */
@@ -53,6 +58,8 @@ export function toEventState(row: {
   startTime: Date;
   endTime: Date;
   partySize: number;
+  overrideReason?: string | null;
+  overrideLimits?: string[];
 }): EventState {
   return {
     status: row.status,
@@ -61,6 +68,9 @@ export function toEventState(row: {
     startTime: row.startTime.toISOString(),
     endTime: row.endTime.toISOString(),
     partySize: row.partySize,
+    ...(row.overrideReason
+      ? { override: { reason: row.overrideReason, limits: row.overrideLimits ?? [] } }
+      : {}),
   };
 }
 

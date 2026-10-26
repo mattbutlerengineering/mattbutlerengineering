@@ -203,6 +203,38 @@ export type ClosureImpactKind = z.infer<typeof ClosureImpactKindSchema>;
 export type ClosureImpactReservation = z.infer<typeof ClosureImpactReservationSchema>;
 export type ClosureImpactGroup = z.infer<typeof ClosureImpactGroupSchema>;
 export type ClosureImpact = z.infer<typeof ClosureImpactSchema>;
+/** Soft limits the engine reports; a staff override with a reason can pass them. */
+export const SOFT_LIMITS = ["after_last_seating", "pacing", "party_size"] as const;
+export const SoftLimitSchema = z.enum(SOFT_LIMITS);
+
+/** Why a booking is refused outright; no override passes these. */
+export const HARD_REASONS = [
+  "closed",
+  "booking_closed",
+  "outside_service",
+  "table_blocked",
+  "conflict",
+] as const;
+export const HardReasonSchema = z.enum(HARD_REASONS);
+
+/** `POST …/availability/check`: would the booking gate take this staff (phone) booking? */
+export const AvailabilityCheckBodySchema = z.object({
+  start: z.iso.datetime({ offset: true }).describe("Start time (ISO 8601)"),
+  end: z.iso
+    .datetime({ offset: true })
+    .describe("End time (ISO 8601); send the booking's real end, omit to estimate from party size")
+    .optional(),
+  partySize: z.number().int().min(1).describe("Number of guests"),
+  channel: z.literal("phone").describe("Staff checks are phone bookings"),
+  tableId: z.string().describe("Table to check; omit to ask whether any table is free").optional(),
+});
+
+/** The engine's verdict, with the human message the staff form shows. */
+export const AvailabilityCheckResultSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("ok") }),
+  z.object({ kind: z.literal("soft"), limits: z.array(SoftLimitSchema), message: z.string() }),
+  z.object({ kind: z.literal("hard"), reason: HardReasonSchema, message: z.string() }),
+]);
 
 // ── Preview ─────────────────────────────────────────────────────────────────
 
@@ -280,3 +312,5 @@ export type AvailabilityChangeSummary = z.infer<typeof AvailabilityChangeSummary
 export type StrandedReservation = z.infer<typeof StrandedReservationSchema>;
 export type AvailabilityConfigProblem = z.infer<typeof AvailabilityConfigProblemSchema>;
 export type AvailabilityDaySummary = z.infer<typeof AvailabilityDaySummarySchema>;
+export type AvailabilityCheckBody = z.infer<typeof AvailabilityCheckBodySchema>;
+export type AvailabilityCheckResult = z.infer<typeof AvailabilityCheckResultSchema>;

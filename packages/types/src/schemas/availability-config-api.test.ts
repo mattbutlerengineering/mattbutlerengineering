@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  AvailabilityCheckBodySchema,
+  AvailabilityCheckResultSchema,
   AvailabilityConfigProblemSchema,
   ClosureImpactBodySchema,
   ClosureImpactSchema,
@@ -68,6 +70,55 @@ describe("AvailabilityConfigProblemSchema", () => {
         winningChange: null,
       }).success
     ).toBe(true);
+  });
+});
+
+describe("AvailabilityCheckBodySchema", () => {
+  const body = { start: "2026-11-06T19:00:00.000Z", partySize: 4, channel: "phone" };
+
+  it("accepts a phone check with an optional table", () => {
+    expect(AvailabilityCheckBodySchema.safeParse(body).success).toBe(true);
+    expect(AvailabilityCheckBodySchema.safeParse({ ...body, tableId: "t1" }).success).toBe(true);
+  });
+
+  it("is staff-only: the online channel is refused", () => {
+    expect(AvailabilityCheckBodySchema.safeParse({ ...body, channel: "online" }).success).toBe(
+      false
+    );
+  });
+
+  it("accepts an optional end and rejects a malformed one", () => {
+    expect(
+      AvailabilityCheckBodySchema.safeParse({ ...body, end: "2026-11-06T20:30:00.000Z" }).success
+    ).toBe(true);
+    expect(AvailabilityCheckBodySchema.safeParse({ ...body, end: "later" }).success).toBe(false);
+  });
+
+  it("requires a positive party size", () => {
+    expect(AvailabilityCheckBodySchema.safeParse({ ...body, partySize: 0 }).success).toBe(false);
+  });
+});
+
+describe("AvailabilityCheckResultSchema", () => {
+  it("carries limits for a soft verdict and a reason for a hard one", () => {
+    expect(AvailabilityCheckResultSchema.safeParse({ kind: "ok" }).success).toBe(true);
+    expect(
+      AvailabilityCheckResultSchema.safeParse({
+        kind: "soft",
+        limits: ["pacing"],
+        message: "This booking is over the pacing limit.",
+      }).success
+    ).toBe(true);
+    expect(
+      AvailabilityCheckResultSchema.safeParse({
+        kind: "hard",
+        reason: "closed",
+        message: "The venue is closed at this time.",
+      }).success
+    ).toBe(true);
+    expect(AvailabilityCheckResultSchema.safeParse({ kind: "soft", message: "x" }).success).toBe(
+      false
+    );
   });
 });
 

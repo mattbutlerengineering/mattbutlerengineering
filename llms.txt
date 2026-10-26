@@ -9539,6 +9539,24 @@
       type ClosureImpact = z.infer<typeof ClosureImpactSchema>;
     </item>
     <item priority="high">
+      export const SOFT_LIMITS: unknown;
+    </item>
+    <item priority="high">
+      export const SoftLimitSchema: unknown;
+    </item>
+    <item priority="high">
+      export const HARD_REASONS: unknown;
+    </item>
+    <item priority="high">
+      export const HardReasonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityCheckBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityCheckResultSchema: unknown;
+    </item>
+    <item priority="high">
       export const PREVIEW_WINDOW_DAYS: unknown;
     </item>
     <item priority="high">
@@ -9600,6 +9618,12 @@
     </item>
     <item priority="low">
       type AvailabilityDaySummary = z.infer<typeof AvailabilityDaySummarySchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityCheckBody = z.infer<typeof AvailabilityCheckBodySchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityCheckResult = z.infer<typeof AvailabilityCheckResultSchema>;
     </item>
   </file>
   <file path="packages/types/src/schemas/availability-config.ts">
@@ -10354,6 +10378,9 @@
     </item>
     <item priority="high">
       export const WalkInBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const StaffOverrideSchema: unknown;
     </item>
     <item priority="high">
       export const CreateReservationBodySchema: unknown;
@@ -11741,12 +11768,12 @@
       type GateRejection = { code: "outside-availability" | { code: "soft-limit"; limits: ;
     </item>
     <item priority="low">
-      type GateOutcome = { kind: "ok" } | { kind: "conflict" } | { kind: "rejected"; rejection:;
+      type GateOutcome = { kind: "ok"; overrideLimits?: | { kind: "conflict" } | { kind: "rejected"; rejection:;
     </item>
     <item priority="low">
       interface GateRequest {
         venueId: string;
-        tableId: string;
+        tableId?: string;
         start: Date;
         end?: Date;
         partySize: number;
@@ -11784,7 +11811,7 @@
         snapshot: BookingSnapshot,
         serviceDate: string,
         minute: number,
-        tableId: string
+        tableId: string | undefined
       ): { reason: HardReason; message?: string } | null { /* ... */ }
     </item>
     <item priority="medium">
@@ -11793,6 +11820,9 @@
         request: GateRequest,
         logger: SnapshotLogger
       ): GateOutcome { /* ... */ }
+    </item>
+    <item priority="high">
+      export function rejectionDetail(rejection: GateRejection): string { /* ... */ }
     </item>
     <item priority="high">
       export function gateProblem(rejection: GateRejection): ProblemDetails { /* ... */ }
@@ -11812,6 +11842,18 @@
     </item>
     <item priority="high">
       export async function assumeAppRole(tx: AppRoleClient): Promise<void> { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/availability-check.ts">
+    <item priority="medium">
+      function resultOf(outcome: GateOutcome): AvailabilityCheckResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function checkAvailability(
+        venueId: string,
+        body: AvailabilityCheckBody,
+        now: Date
+      ): Promise<AvailabilityCheckResult> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/availability-config-checks.ts">
@@ -12482,11 +12524,11 @@
       export async function bookSlot<T>(intent: BookSlotIntent<T>): Promise<SlotWriteResult<T>> { /* ... */ }
     </item>
     <item priority="low">
-      async function availabilityConflict(
+      async function availabilityVerdict(
         tx: Prisma.TransactionClient,
         intent: BookSlotIntent<unknown> & { venueId: string },
-        channel: BookingChannel
-      ): Promise<SlotConflict | undefined> { /* ... */ }
+        gate: NonNullable<BookSlotIntent<unknown>["gate"]>
+      ): Promise<{ conflict?: SlotConflict; overrideLimits?: SoftLimit[] }> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/booking-metrics.ts">
@@ -13348,6 +13390,8 @@
         startTime: Date;
         endTime: Date;
         partySize: number;
+        overrideReason?: string | null;
+        overrideLimits?: string[];
       }): EventState { /* ... */ }
     </item>
     <item priority="high">
@@ -13566,6 +13610,9 @@
         conflict?: ConflictCheckResult;
         capacityExceeded?: boolean;
       }
+    </item>
+    <item priority="medium">
+      function overrideColumns(override: { reason: string } | undefined, limits: string[] | undefined) { /* ... */ }
     </item>
     <item priority="medium">
       function staffSlotFailure(conflict: SlotConflict) { /* ... */ }

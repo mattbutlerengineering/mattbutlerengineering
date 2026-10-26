@@ -280,6 +280,50 @@ describe("judgeBooking on a venue that never set hours", () => {
   });
 });
 
+describe("judgeBooking staff override", () => {
+  const afterLast = (overrides: Partial<GateRequest> = {}) =>
+    request({ start: at("2026-11-05T21:30:00"), channel: "phone", ...overrides });
+
+  it("passes a soft limit for a phone booking with a reason, reporting what it overrode", async () => {
+    const outcome = await judgeBooking(
+      fakeDb(),
+      afterLast({ override: { reason: "Regular, owner approved" } }),
+      NOW
+    );
+    expect(outcome).toEqual({ kind: "ok", overrideLimits: ["after_last_seating"] });
+  });
+
+  it.each(["", "   "])("keeps a soft limit refused for the blank reason %j", async (reason) => {
+    const outcome = await judgeBooking(fakeDb(), afterLast({ override: { reason } }), NOW);
+    expect(outcome).toEqual({
+      kind: "rejected",
+      rejection: { code: "soft-limit", limits: ["after_last_seating"] },
+    });
+  });
+
+  it("never overrides a closure, even with a reason", async () => {
+    const db = fakeDb({ dateRules: [closureOn("2026-11-05")] });
+    const outcome = await judgeBooking(
+      db,
+      request({ channel: "phone", override: { reason: "Please" } }),
+      NOW
+    );
+    expect(outcome).toMatchObject({
+      kind: "rejected",
+      rejection: { code: "outside-availability", reason: "closed" },
+    });
+  });
+
+  it("reports no overridden limits when nothing needed overriding", async () => {
+    const outcome = await judgeBooking(
+      fakeDb(),
+      request({ channel: "phone", override: { reason: "Just in case" } }),
+      NOW
+    );
+    expect(outcome).toEqual({ kind: "ok" });
+  });
+});
+
 describe("gateProblem", () => {
   it("renders outside-availability as a 422 ProblemDetails with the reason", () => {
     const problem = gateProblem({
