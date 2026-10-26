@@ -147,7 +147,9 @@ export function CloseDialog(props: CloseDialogProps) {
         notified > 0
           ? t("availability.close.toast.notified", { date: fullDate(startsOn), count: notified })
           : form.what.kind === "booking"
-            ? t("availability.close.toast.paused")
+            ? form.what.types.length === 1 && form.what.types[0] === "online"
+              ? t("availability.close.toast.paused")
+              : t("availability.close.toast.bookingPaused", { date: fullDate(startsOn) })
             : t("availability.close.toast.closed", { date: fullDate(startsOn) });
       toast({ title, variant: "success" });
       onClose();
