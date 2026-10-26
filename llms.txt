@@ -23215,12 +23215,10 @@
   </file>
   <file path="apps/hospitality/src/utils/venueOpenLabel.ts">
     <item priority="high">
-      export const WEEKDAY_LABEL: Readonly<Record<Weekday, string>>;
-    </item>
-    <item priority="high">
       export function formatVenueOpenLabel(
         s: VenueOpenState,
-        formatClock: (hhmm: string) => string = formatLocalTime
+        formatClock: (hhmm: string) => string = formatLocalTime,
+        t: TFunction = defaultT
       ): string { /* ... */ }
     </item>
   </file>

@@ -1,19 +1,7 @@
+import type { TFunction } from "i18next";
+import { defaultT } from "../i18n/default-t.js";
 import { formatLocalTime } from "./format.js";
-import type { VenueOpenState, Weekday } from "./venueOpenState.js";
-
-/** Capitalised en-US weekday names, as `formatLongDate` prints them. */
-export const WEEKDAY_LABEL: Readonly<Record<Weekday, string>> = {
-  monday: "Monday",
-  tuesday: "Tuesday",
-  wednesday: "Wednesday",
-  thursday: "Thursday",
-  friday: "Friday",
-  saturday: "Saturday",
-  sunday: "Sunday",
-};
-
-/** Same phrase as LaunchStep and TimeSlotPicker use for missing hours. */
-const UNSET_LABEL = "No operating hours set";
+import type { VenueOpenState } from "./venueOpenState.js";
 
 /**
  * The neon sign's caption and accessible name — one string per state, in the
@@ -22,18 +10,22 @@ const UNSET_LABEL = "No operating hours set";
  */
 export function formatVenueOpenLabel(
   s: VenueOpenState,
-  formatClock: (hhmm: string) => string = formatLocalTime
+  formatClock: (hhmm: string) => string = formatLocalTime,
+  t: TFunction = defaultT
 ): string {
   switch (s.state) {
     case "open":
-      return `Open until ${formatClock(s.closesAt)}`;
+      return t("home.openSign.open", { time: formatClock(s.closesAt) });
     case "opening-soon":
-      return `Opens at ${formatClock(s.opensAt)}`;
+      return t("home.openSign.openingSoon", { time: formatClock(s.opensAt) });
     case "closed":
       return s.opensOn === null
-        ? `Closed, opens at ${formatClock(s.opensAt)}`
-        : `Closed, opens ${WEEKDAY_LABEL[s.opensOn]} at ${formatClock(s.opensAt)}`;
+        ? t("home.openSign.closedToday", { time: formatClock(s.opensAt) })
+        : t("home.openSign.closedOn", {
+            weekday: t(`home.openSign.weekdays.${s.opensOn}`),
+            time: formatClock(s.opensAt),
+          });
     case "unset":
-      return UNSET_LABEL;
+      return t("home.openSign.unset");
   }
 }

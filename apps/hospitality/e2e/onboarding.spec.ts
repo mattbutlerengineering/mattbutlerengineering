@@ -23,9 +23,11 @@ async function advanceToLaunchReview(page: Page, templateName: string, venueName
   await page.getByRole("option", { name: "Eastern Time (America/New_York)" }).click();
   await page.getByRole("button", { name: "Next" }).click();
 
-  const mondayCheckbox = page.getByRole("checkbox", { name: "monday", exact: true });
-  await mondayCheckbox.check({ force: true });
-  await expect(mondayCheckbox).toBeChecked();
+  // Step 3 (Operating Hours) is the availability quick-setup card: pick a
+  // service and a day preset; Next stays refused until both are chosen.
+  await page.getByRole("button", { name: "Dinner" }).click();
+  await page.getByRole("button", { name: "Weekdays" }).click();
+  await expect(page.getByRole("checkbox", { name: "Monday" })).toBeChecked();
   await page.getByRole("button", { name: "Next" }).click();
 
   // Step 4 (Settings) — all fields optional, defaults apply.

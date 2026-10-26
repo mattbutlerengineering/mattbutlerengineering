@@ -596,6 +596,22 @@
   },
   "home": {
     "title": "Tableau de bord",
+    "openSign": {
+      "open": "Ouvert jusqu'à {{time}}",
+      "openingSoon": "Ouvre à {{time}}",
+      "closedToday": "Fermé, ouvre à {{time}}",
+      "closedOn": "Fermé, ouvre {{weekday}} à {{time}}",
+      "unset": "Aucun horaire d'ouverture défini",
+      "weekdays": {
+        "monday": "lundi",
+        "tuesday": "mardi",
+        "wednesday": "mercredi",
+        "thursday": "jeudi",
+        "friday": "vendredi",
+        "saturday": "samedi",
+        "sunday": "dimanche"
+      }
+    },
     "welcome": "Bon retour",
     "welcomeNamed": "Bon retour, {{name}}",
     "loadFailed": "Impossible de charger le tableau de bord.",

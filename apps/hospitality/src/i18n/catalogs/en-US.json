@@ -585,6 +585,22 @@
   },
   "home": {
     "title": "Dashboard",
+    "openSign": {
+      "open": "Open until {{time}}",
+      "openingSoon": "Opens at {{time}}",
+      "closedToday": "Closed, opens at {{time}}",
+      "closedOn": "Closed, opens {{weekday}} at {{time}}",
+      "unset": "No operating hours set",
+      "weekdays": {
+        "monday": "Monday",
+        "tuesday": "Tuesday",
+        "wednesday": "Wednesday",
+        "thursday": "Thursday",
+        "friday": "Friday",
+        "saturday": "Saturday",
+        "sunday": "Sunday"
+      }
+    },
     "welcome": "Welcome back",
     "welcomeNamed": "Welcome back, {{name}}",
     "loadFailed": "Couldn't load the dashboard.",
