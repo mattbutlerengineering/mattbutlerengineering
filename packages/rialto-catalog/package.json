@@ -29,8 +29,8 @@
     "size:check": "size-limit"
   },
   "dependencies": {
-    "@json-render/core": "^0.21.1",
-    "@json-render/react": "^0.21.1",
+    "@json-render/core": "^0.21.2",
+    "@json-render/react": "^0.21.2",
     "@mattbutlerengineering/rialto": "workspace:*",
     "zod": "catalog:"
   },
