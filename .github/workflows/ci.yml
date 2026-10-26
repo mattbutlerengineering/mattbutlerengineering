@@ -95,7 +95,7 @@ jobs:
 
       - name: Cache for Turbo
         # #6665: see the Typecheck job's identical step for rationale.
-        uses: rharkor/caching-for-turbo@2238fae6eb9a9936f92356f54cb3660200d105e7 # v2.5.1
+        uses: rharkor/caching-for-turbo@760158c05c47e7a764f78e9a22ca3b5a6ed8c52e # v2.5.2
 
       - name: Restore turbo local cache
         # #6665: Prepare is the one job that saves this key now. Typecheck and
@@ -259,7 +259,7 @@ jobs:
 
       - name: Cache for Turbo
         # #3388: see the Typecheck job's identical step for rationale.
-        uses: rharkor/caching-for-turbo@2238fae6eb9a9936f92356f54cb3660200d105e7 # v2.5.1
+        uses: rharkor/caching-for-turbo@760158c05c47e7a764f78e9a22ca3b5a6ed8c52e # v2.5.2
 
       - run: pnpm lint
 
@@ -294,7 +294,7 @@ jobs:
         # setup-workspace action, so jobs with no turbo task (integrity,
         # docs-format, migrations, etc.) don't pay for a cache server they'd
         # never use. Pinned by commit SHA per repo convention.
-        uses: rharkor/caching-for-turbo@2238fae6eb9a9936f92356f54cb3660200d105e7 # v2.5.1
+        uses: rharkor/caching-for-turbo@760158c05c47e7a764f78e9a22ca3b5a6ed8c52e # v2.5.2
 
       - name: Restore Prisma clients
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -389,7 +389,7 @@ jobs:
 
       - name: Cache for Turbo
         # #3388: see the Typecheck job's identical step for rationale.
-        uses: rharkor/caching-for-turbo@2238fae6eb9a9936f92356f54cb3660200d105e7 # v2.5.1
+        uses: rharkor/caching-for-turbo@760158c05c47e7a764f78e9a22ca3b5a6ed8c52e # v2.5.2
 
       - name: Restore Prisma clients
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -578,7 +578,7 @@ jobs:
 
       - name: Cache for Turbo
         # #3388: see the Typecheck job's identical step for rationale.
-        uses: rharkor/caching-for-turbo@2238fae6eb9a9936f92356f54cb3660200d105e7 # v2.5.1
+        uses: rharkor/caching-for-turbo@760158c05c47e7a764f78e9a22ca3b5a6ed8c52e # v2.5.2
 
       - name: Restore Prisma clients
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
