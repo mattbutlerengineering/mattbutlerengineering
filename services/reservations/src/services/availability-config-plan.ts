@@ -378,6 +378,12 @@ export function settleDraft(input: {
   snapshot: { timezone: string; config: AvailabilityConfig };
   changes: AvailabilityConfigChanges;
   scopeConflicts: ScopeConflictMode;
+  /**
+   * A revert: the rows are an exact prior state, so scope conflicts are not
+   * settled (they were settled when that state was first made) and the
+   * restored rows must not count as incoming.
+   */
+  exact?: boolean;
   tableIds: ReadonlySet<string>;
   now: Date;
   today: string;
@@ -385,13 +391,15 @@ export function settleDraft(input: {
 }): { next: AvailabilityConfig; issues: (ConfigIssue | ReferenceIssue)[] } {
   const { snapshot, now } = input;
   const applied = applyDraft(snapshot, input.changes, now.toISOString()).config;
-  const next = resolveScopeConflicts(
-    snapshot.config,
-    applied,
-    input.scopeConflicts,
-    input.newId,
-    input.today
-  );
+  const next = input.exact
+    ? applied
+    : resolveScopeConflicts(
+        snapshot.config,
+        applied,
+        input.scopeConflicts,
+        input.newId,
+        input.today
+      );
   return {
     next,
     issues: [...validateConfig(next), ...referenceIssues(next, input.tableIds)],

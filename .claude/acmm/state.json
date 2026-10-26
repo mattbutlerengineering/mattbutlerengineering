@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-10-25T09:03:05.676Z",
+  "lastRun": "2026-10-26T09:53:08.337Z",
   "currentLevel": 5,
   "checks": {
     "acmm:prereq-test-suite": {
@@ -172,7 +172,7 @@
     },
     "acmm:evidence-antipatterns": {
       "passed": true,
-      "evidence": "112 distinct issue/PR citations found in gotchas.md",
+      "evidence": "40 distinct issue/PR citations found in gotchas.md",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -255,11 +255,11 @@
       "substanceEvidence": null
     },
     "acmm:session-continuity": {
-      "passed": false,
+      "passed": true,
       "evidence": ".claude/session-summary.md contains: \\d{4}-\\d{2}-\\d{2}",
-      "verdict": "hollow",
-      "substantive": false,
-      "substanceEvidence": "no dated record with forward context under Next steps / Continuity notes"
+      "verdict": "pass",
+      "substantive": true,
+      "substanceEvidence": null
     },
     "acmm:instruction-sync-gate": {
       "passed": true,
@@ -550,7 +550,7 @@
     },
     "meta:threshold-tuning": {
       "passed": true,
-      "evidence": "13 threshold adjustment(s) in last 30 days",
+      "evidence": "14 threshold adjustment(s) in last 30 days",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -1131,6 +1131,12 @@
       "level": 5,
       "detected": 72,
       "total": 84
+    },
+    {
+      "date": "2026-10-26",
+      "level": 5,
+      "detected": 73,
+      "total": 84
     }
   ],
   "issuesCreated": {
@@ -1183,6 +1189,7 @@
     "acmm:security-ai-md",
     "acmm:multi-perspective-review",
     "acmm:idempotent-workflows",
+    "acmm:session-continuity",
     "acmm:instruction-sync-gate",
     "acmm:instruction-rot-detection",
     "acmm:feedback-loops",
@@ -1323,33 +1330,33 @@
         "name": "ci-flake-rate",
         "description": "CI flake rate must be below 20%",
         "passed": true,
-        "value": 0.014120667522464698,
+        "value": 0.015063731170336037,
         "threshold": 0.2,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 779
+        "sampleSize": 863
       },
       {
         "level": 4,
         "name": "agent-pr-acceptance",
         "description": "Agent PR acceptance rate must exceed 50%",
         "passed": true,
-        "value": 0.9927007299270073,
+        "value": 0.9925742574257426,
         "threshold": 0.5,
         "direction": "above",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 411
+        "sampleSize": 404
       },
       {
         "level": 5,
         "name": "auto-qa-tuning-history",
         "description": "Auto-QA tuning history must have more than 1 entry",
         "passed": true,
-        "value": 34,
+        "value": 36,
         "threshold": 1,
         "direction": "above",
         "strict": true,
@@ -1362,64 +1369,108 @@
         "name": "agent-pr-revert-rate",
         "description": "Agent PR revert rate must be below 10%",
         "passed": true,
-        "value": 0.0024509803921568627,
+        "value": 0,
         "threshold": 0.1,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 411
+        "sampleSize": 404
       },
       {
         "level": 6,
         "name": "human-touch-ratio",
         "description": "Human-touch ratio must be below 50% (merged agent PRs requiring non-author commits, 30-day window)",
         "passed": true,
-        "value": 0.0196078431372549,
+        "value": 0.014962593516209476,
         "threshold": 0.5,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 411
+        "sampleSize": 404
       }
     ],
     "capped": false
   },
   "behavioral": {
     "flake": {
-      "rate_30d": 0.014120667522464698,
-      "sample_size": 779,
+      "rate_30d": 0.015063731170336037,
+      "sample_size": 863,
       "flaky_shas": [
         "19b39178d7f04bfb702895a86a0bf2866f70c559",
         "2b2af184d05e2f27dd83bac1504abad173bda939",
         "2fae56f4b395055276cb1028092c613beed6185f",
         "4150f46c4085354805add0c707c7f3e1318d5cf5",
+        "5355e3ba9efc33e60f986184993f8bc9117a663a",
         "539a571fb724e6aad2c072d430d904c7c7765136",
         "571dd99ecc0bc94857b0e3886370507c6b26c308",
         "75f231cd981ccac1476f79b938ca28d7acbb5203",
         "857e0688e9a04a5d6e653146e56049386a6a6867",
         "897ef11bc3d946e07ce870874610007555c476c6",
         "8f0ff88d87c92c613375b44fb3fa0822abfc4a39",
-        "a4b17fbe87b67f763889fa10ce106ecb9fc921d0"
+        "a4b17fbe87b67f763889fa10ce106ecb9fc921d0",
+        "bb2d7ab591982f783b0c16b5443e67627cf0af72"
       ],
       "insufficient_data": false,
-      "oldest_record_at": "2026-09-25T02:04:55.000Z",
-      "measured_at": "2026-10-25T09:03:05.675Z"
+      "oldest_record_at": "2026-09-27T00:15:55.000Z",
+      "measured_at": "2026-10-26T09:53:08.336Z"
     },
     "agent_pr": {
-      "sample_size": 411,
-      "merged_count": 408,
+      "sample_size": 404,
+      "merged_count": 401,
       "closed_unmerged_count": 3,
       "open_count": 0,
-      "acceptance_rate_30d": 0.9927007299270073,
-      "revert_rate_30d": 0.0024509803921568627,
+      "acceptance_rate_30d": 0.9925742574257426,
+      "revert_rate_30d": 0,
       "revert_detection_unavailable_reason": null,
-      "median_time_to_merge_hours": 0.19208333333333333,
-      "human_touch_ratio": 0.0196078431372549,
+      "median_time_to_merge_hours": 0.18333333333333332,
+      "human_touch_ratio": 0.014962593516209476,
       "insufficient_data": false,
-      "oldest_record_at": "2026-09-30T06:12:37.000Z",
+      "oldest_record_at": "2026-10-06T05:24:15.000Z",
       "recent_changes": [
+        {
+          "number": 7614,
+          "title": "fix(scripts): resource-audit refreshes and comments on reopen (mbe-feature-drain #7602)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7614",
+          "mergedAt": "2026-10-26T01:22:18Z"
+        },
+        {
+          "number": 7613,
+          "title": "fix(ui-quality): exclude declined findings from fix-PR candidate (mbe-feature-drain #7609)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7613",
+          "mergedAt": "2026-10-26T01:15:47Z"
+        },
+        {
+          "number": 7608,
+          "title": "fix(ui-quality): a closed not_planned issue no longer blocks findings filing",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7608",
+          "mergedAt": "2026-10-26T00:41:27Z"
+        },
+        {
+          "number": 7605,
+          "title": "fix(metrics): watch rialto-web-e2e.yml for red on main (mbe-feature-drain #7601)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7605",
+          "mergedAt": "2026-10-25T23:47:17Z"
+        },
+        {
+          "number": 7491,
+          "title": "fix(agent): start a later step's text on a new paragraph",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7491",
+          "mergedAt": "2026-10-25T15:19:36Z"
+        },
+        {
+          "number": 7486,
+          "title": "fix(ci): archive session summary verbatim so session-archive test passes (mbe-feature-drain #7484)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7486",
+          "mergedAt": "2026-10-25T14:11:40Z"
+        },
+        {
+          "number": 7483,
+          "title": "docs(acmm): record forward context in session summary (mbe-feature-drain #7480)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7483",
+          "mergedAt": "2026-10-25T13:46:17Z"
+        },
         {
           "number": 7476,
           "title": "feat(agent): map each read tool's data to its chat element",
@@ -1497,51 +1548,9 @@
           "title": "fix(rialto): selected Tag text meets 4.5:1 contrast (mbe-feature-drain #7404)",
           "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7411",
           "mergedAt": "2026-10-24T15:47:10Z"
-        },
-        {
-          "number": 7410,
-          "title": "fix(rialto-web): kanban move button name contains its visible text (mbe-feature-drain #7403)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7410",
-          "mergedAt": "2026-10-24T15:34:27Z"
-        },
-        {
-          "number": 7407,
-          "title": "fix(rialto): TapeChart bar accessible name contains its visible text (mbe-feature-drain #7402)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7407",
-          "mergedAt": "2026-10-24T15:24:37Z"
-        },
-        {
-          "number": 7401,
-          "title": "test(scripts): scenario and workflow tests for revert-reopens-issues (mbe-feature-drain #7394)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7401",
-          "mergedAt": "2026-10-24T15:11:09Z"
-        },
-        {
-          "number": 7400,
-          "title": "docs(rca): record revert-reopens-issues as live (mbe-feature-drain #7395)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7400",
-          "mergedAt": "2026-10-24T15:04:49Z"
-        },
-        {
-          "number": 7399,
-          "title": "feat(scripts): reopen issues closed by a reverted PR (mbe-feature-drain #7393)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7399",
-          "mergedAt": "2026-10-24T15:02:14Z"
-        },
-        {
-          "number": 7397,
-          "title": "feat(scripts): extract closed issue numbers from a PR body (mbe-feature-drain #7392)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7397",
-          "mergedAt": "2026-10-24T14:45:47Z"
-        },
-        {
-          "number": 7391,
-          "title": "fix(marketing): answer /status probes in the ui-quality capture (mbe-feature-drain #7385)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7391",
-          "mergedAt": "2026-10-24T14:15:01Z"
         }
       ],
-      "measured_at": "2026-10-25T09:03:05.675Z"
+      "measured_at": "2026-10-26T09:53:08.336Z"
     },
     "evals": {
       "n": 37,
@@ -1562,8 +1571,8 @@
       "measured_at": "2026-05-30T17:04:57.036Z"
     },
     "auto_qa_tuning": {
-      "history_count": 34,
-      "measured_at": "2026-10-25T09:03:05.675Z"
+      "history_count": 36,
+      "measured_at": "2026-10-26T09:53:08.336Z"
     }
   },
   "honestAuditNote": "Verified 2026-05-23: Level cap removed. All 3 original concerns addressed: (1) Strategic Dashboard updated with real autonomous activity audit log (PR #1688). (2) Auto-rollback drill mechanism implemented (PR #1678) — trigger with `gh workflow run auto-rollback.yml -f drill=true`. (3) llms.txt integrity fixed — root cause was Node version mismatch + stale api-versioning refs. Substance checks 5/5, behavioral gates all pass (91% acceptance, 0% reverts). Computed level 6."
