@@ -1,5 +1,15 @@
 # @mattbutlerengineering/rialto
 
+## 0.9.0
+
+### Minor Changes
+
+- [#7598](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7598) [`36f7c91`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/36f7c91380c1fc3440d80dc12c9fcb5245b2bde9) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - `Calendar` takes an optional `getDateLabel(iso)` that supplies a day's accessible name (for example why a date is closed). Days it returns nothing for keep their number as the name.
+
+### Patch Changes
+
+- [#7538](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7538) [`0e9fb02`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/0e9fb02122d6525af5ed77bc64334709c31cbf91) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - ReservationList and TimeSlots catalog descriptions tell a generating model to copy the venue-local `HH:mm` time as is, since the element now writes it in the locale's clock. ReservationList's rows now share one subgrid, so a dated time such as "Fri Oct 16, 7:30 PM" stays on one line and every row stays aligned.
+
 ## 0.8.7
 
 ### Patch Changes
