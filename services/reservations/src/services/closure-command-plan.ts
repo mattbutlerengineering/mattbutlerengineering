@@ -158,45 +158,64 @@ export function currentServiceDate(snapshot: AvailabilitySnapshot, now: Date): s
   return isOpen(yesterday) ? yesterday : today;
 }
 
+/** A service a Tonight change leaves open for less than this is closed in effect (#7687). */
+export const MIN_SERVICE_MINUTES = 60;
+
+type DayServices = ReturnType<typeof resolveDay>;
+
+/** The seating-start ranges of one service on a resolved day, from `fromMin`, with stop bands cut out. */
+function seatingRanges(day: DayServices, venueServiceId: string, fromMin: number): StartRange[] {
+  const s = day.services.find((d) => d.venueServiceId === venueServiceId);
+  if (!s) return [];
+  const bands = day.closures.filter(
+    (c) =>
+      c.targetKind === "venue" ||
+      (c.targetKind === "service" && c.venueServiceId === s.venueServiceId)
+  );
+  const open: StartRange[] = [[Math.max(s.opensAt, fromMin), s.lastSeatingAt]];
+  return bands
+    .reduce((ranges, band) => clearOfBand(ranges, band, 1), open)
+    .filter(([lo, hi]) => lo <= hi);
+}
+
+const minutesIn = (ranges: readonly StartRange[]): number =>
+  ranges.reduce((sum, [lo, hi]) => sum + (hi - lo + 1), 0);
+
 /**
- * Whether a Tonight change leaves no seating minute bookable, from `now`, on
- * the services it targets (other Tonight changes stripped): a close-early at
- * or before the open or already past, or a stop window over what is left of
- * the service, closes the night in effect whatever the payload kind. Only
- * venue and service targets have seatings; a target with no service tonight
- * removes nothing.
+ * Whether a Tonight change is the emergency close in effect (#7687): on a
+ * targeted service that is still bookable from `now` before the change, the
+ * change leaves nothing bookable from `now`, or leaves less than
+ * MIN_SERVICE_MINUTES of seatings counted from the service's planned open.
+ * "Before" keeps the other active Tonight rules, so closing the night in steps
+ * is judged on its last step. A service already past its last seating has
+ * nothing left to close. Only venue and service targets have seatings.
  */
-export function leavesNothingBookable(
+export function isEmergencyTonightClose(
   snapshot: AvailabilitySnapshot,
   rule: DateRule,
   now: Date
 ): boolean {
   if (rule.kind !== "tonight") return false;
   if (rule.targetKind !== "venue" && rule.targetKind !== "service") return false;
-  const rules = snapshot.config.dateRules.filter((r) => r.kind !== "tonight");
+  const others = snapshot.config.dateRules.filter((r) => r.id !== rule.id);
   const withRules = (dateRules: DateRule[]): AvailabilitySnapshot => ({
     ...snapshot,
     config: { ...snapshot.config, dateRules },
   });
-  const targeted = resolveDay(withRules(rules), rule.startsOn).services.filter(
-    (s) => rule.targetKind === "venue" || s.venueServiceId === rule.venueServiceId
-  );
-  const after = resolveDay(withRules([...rules, rule]), rule.startsOn);
+  const planned = resolveDay(withRules(others.filter((r) => r.kind !== "tonight")), rule.startsOn);
+  const before = resolveDay(withRules(others), rule.startsOn);
+  const after = resolveDay(withRules([...others, rule]), rule.startsOn);
   const nowMin = wallMinutes(now, rule.startsOn, snapshot.timezone);
+  const live = before.services
+    .filter((s) => rule.targetKind === "venue" || s.venueServiceId === rule.venueServiceId)
+    .filter((s) => seatingRanges(before, s.venueServiceId, nowMin).length > 0);
   return (
-    targeted.length > 0 &&
-    targeted.every((planned) => {
-      const s = after.services.find((d) => d.venueServiceId === planned.venueServiceId);
-      if (!s) return true;
-      const bands = after.closures.filter(
-        (c) =>
-          c.targetKind === "venue" ||
-          (c.targetKind === "service" && c.venueServiceId === s.venueServiceId)
-      );
-      const open: StartRange[] = [[Math.max(s.opensAt, nowMin), s.lastSeatingAt]];
-      return bands
-        .reduce((ranges, band) => clearOfBand(ranges, band, 1), open)
-        .every(([lo, hi]) => lo > hi);
+    live.length > 0 &&
+    live.every((s) => {
+      if (seatingRanges(after, s.venueServiceId, nowMin).length === 0) return true;
+      const plannedOpen = planned.services.find((p) => p.venueServiceId === s.venueServiceId);
+      const fromOpen = seatingRanges(after, s.venueServiceId, plannedOpen?.opensAt ?? s.opensAt);
+      return minutesIn(fromOpen) < MIN_SERVICE_MINUTES;
     })
   );
 }

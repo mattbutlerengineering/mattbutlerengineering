@@ -32,7 +32,7 @@ import {
   countActions,
   currentServiceDate,
   isHostEmergencyClose,
-  leavesNothingBookable,
+  isEmergencyTonightClose,
   moveTarget,
 } from "./closure-command-plan.js";
 import { checkAlongside } from "./closure-alongside.js";
@@ -143,7 +143,7 @@ export async function mayCloseFor(
   if (rule.kind !== "tonight") return isHostEmergencyClose(rule, serviceDate);
   if (rule.startsOn !== serviceDate) return false;
   // A Tonight change that leaves nothing bookable on its targets is the emergency close in effect.
-  return venue.hostEmergencyClose || !leavesNothingBookable(snapshot, rule, now);
+  return venue.hostEmergencyClose || !isEmergencyTonightClose(snapshot, rule, now);
 }
 
 /** Read-only form of the same limits, for the impact preview: `null` for an unknown venue. */

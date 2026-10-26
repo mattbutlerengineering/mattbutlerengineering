@@ -14207,7 +14207,16 @@
       export function currentServiceDate(snapshot: AvailabilitySnapshot, now: Date): string { /* ... */ }
     </item>
     <item priority="high">
-      export function leavesNothingBookable(
+      export const MIN_SERVICE_MINUTES: unknown;
+    </item>
+    <item priority="high">
+      type DayServices = ReturnType<typeof resolveDay>;
+    </item>
+    <item priority="medium">
+      function seatingRanges(day: DayServices, venueServiceId: string, fromMin: number): StartRange[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isEmergencyTonightClose(
         snapshot: AvailabilitySnapshot,
         rule: DateRule,
         now: Date

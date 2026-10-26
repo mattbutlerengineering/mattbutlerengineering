@@ -17,6 +17,7 @@ const MANAGER = { isManager: true, actorId: "mgr-1" };
 
 interface World {
   version: number;
+  hostEmergencyClose: boolean;
   dateRules: Record<string, unknown>[];
   ruleTables: { dateRuleId: string; tableId: string }[];
   changes: { id: string; actorId: string; kind: string; summary: string; inverse: unknown }[];
@@ -26,6 +27,7 @@ interface World {
 
 const world = (): World => ({
   version: 4,
+  hostEmergencyClose: false,
   dateRules: [],
   ruleTables: [],
   changes: [],
@@ -123,7 +125,7 @@ function fakeClient(w: World) {
         settings: {},
         operatingHours: null,
         availabilityVersion: w.version,
-        hostEmergencyClose: false,
+        hostEmergencyClose: w.hostEmergencyClose,
       })),
       updateMany: vi.fn(async ({ where }: { where: { availabilityVersion: number } }) => {
         if (where.availabilityVersion !== w.version) return { count: 0 };
@@ -250,6 +252,37 @@ describe("setTonight", () => {
       ["venue", { version: 1, stop: { from: 1170, to: 1200 } }],
       ["venue", { version: 1, pacing: { covers: 12 } }],
     ]);
+  });
+
+  describe("a stop window over the rest of the service is the emergency close (#7687)", () => {
+    const wholeNight = body({ type: "stop_window", from: 1020, to: 1440 });
+
+    it("refuses a Host without the grant and writes nothing", async () => {
+      const w = world();
+      expect(await run(w, wholeNight)).toEqual({ kind: "forbidden" });
+      expect(w.dateRules).toEqual([]);
+      expect(w.version).toBe(4);
+    });
+
+    it("refuses a Host a stop over what is left of the service, mid-service", async () => {
+      const w = world();
+      const midService = new Date("2026-10-26T01:30:00.000Z"); // 18:30 in Los Angeles
+      const rest = body({ type: "stop_window", from: 1100, to: 1440 });
+      expect(await run(w, rest, { now: midService })).toEqual({ kind: "forbidden" });
+    });
+
+    it("lets a Host with the grant, and a Manager, through the permission check", async () => {
+      const granted = { ...world(), hostEmergencyClose: true };
+      expect((await run(granted, wholeNight)).kind).toBe("saved");
+      expect((await run(world(), wholeNight, { caller: MANAGER })).kind).toBe("saved");
+    });
+
+    it("still lets a Host stop a window that leaves the service bookable", async () => {
+      const w = world();
+      expect((await run(w, body({ type: "stop_window", from: 1170, to: 1200 }))).kind).toBe(
+        "saved"
+      );
+    });
   });
 
   it("refuses a stop window that ends before it starts", async () => {

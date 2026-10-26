@@ -35,6 +35,7 @@ import { ConfigRowConflict, writeConfigDiff } from "./availability-config-rows.j
 import { civilDateIn } from "./availability-migration.js";
 import {
   createClosure,
+  mayCloseFor,
   TONIGHT_RULE_KINDS,
   type ClosureCaller,
   type CreateClosureOutcome,
@@ -349,6 +350,11 @@ export async function setTonight(
       if (body.change.type === "close_early") {
         storedSame(state, rule);
         return { kind: "delegate", rule };
+      }
+      if (body.change.type === "stop_window") {
+        // A stop over what is left of the service closes the night like a close-early does.
+        const allowed = await mayCloseFor(tx, venueId, caller, rule, now);
+        if (!allowed) throw new Refused({ kind: allowed === null ? "not_found" : "forbidden" });
       }
       const replayed = await replayOf(tx, venueId, rule, state);
       if (replayed) return { kind: "saved", result: replayed };
