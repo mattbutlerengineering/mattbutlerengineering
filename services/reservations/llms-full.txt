@@ -22538,7 +22538,7 @@
       settle(): Promise<void>;
     }
     function reminderJobId(jobType: string, reservationId: string): string {
-      return `${jobType}:${reservationId}`;
+      return `${jobType}_${reservationId}`;
     }
     function createRecordingDispatcher(messages: RecordedMessage[]): NotificationDispatcher {
       return new Proxy({} as NotificationDispatcher, {
@@ -23264,7 +23264,7 @@
         }
       | { kind: "attendance-confirmed"; reservation: Reservation };
     export function reminderJobId(jobType: string, reservationId: string): string {
-      return `${jobType}:${reservationId}`;
+      return `${jobType}_${reservationId}`;
     }
     function reservationEvent(
       type: "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:confirmed",
