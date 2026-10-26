@@ -21,6 +21,7 @@ import { z } from "zod";
 import { OccasionSchema, SeatingPreferenceSchema, ReservationStatusSchema } from "./reservation.js";
 import { TableStatusSchema, TableShapeMetadataSchema } from "./floor-plan.js";
 import { VenueProfileSchema } from "./venue.js";
+import { ServiceDateSchema } from "./availability-config.js";
 
 /** Arbitrary JSON object payload (derives to a bare `{ type: "object" }`). */
 const JsonObjectSchema = z.record(z.string(), z.unknown());
@@ -467,7 +468,7 @@ export const PublicGuestRiskQuerySchema = z.object({
 });
 
 export const PublicHoldBodySchema = z.object({
-  date: z.string().min(1),
+  date: ServiceDateSchema,
   startTime: z.string().min(1),
   // Optional because the hold's end is always derived server-side from the
   // venue's turn-time rules (`estimateDuration`); the public create handler has

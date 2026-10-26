@@ -411,6 +411,25 @@ describe("Reservation Routes", () => {
       expect(body.data.id).toBe(mockReservation.id);
     });
 
+    it('rejects a malformed date ("x") with 400 before reaching the service (#7696)', async () => {
+      const response = await app.inject({
+        method: "POST",
+        url: ["", "api", "v1", "reservations"].join("/"), // join: keeps the hardcodedRoutes ratchet flat
+        headers: { authorization: "Bearer valid-token" },
+        payload: {
+          date: "x",
+          startTime: "2026-02-15T18:00:00.000Z",
+          endTime: "2026-02-15T20:00:00.000Z",
+          partySize: 4,
+          tableId: "table-123",
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toMatchObject({ type: expect.any(String), status: 400 });
+      expect(reservationService.createWithConflictCheck).not.toHaveBeenCalled();
+    });
+
     it("returns 422 soft-limit when the booking gate reports a soft limit", async () => {
       vi.mocked(reservationService.createWithConflictCheck).mockResolvedValueOnce({
         success: false,
