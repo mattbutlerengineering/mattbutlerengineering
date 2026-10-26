@@ -79,6 +79,33 @@
     <item priority="high">
       type PublicAvailability = Awaited<ReturnType<ApiClient["availability"]["getPublicAv...;
     </item>
+    <item priority="high">
+      interface Refusal {
+        status: number;
+        detail: string;
+        code?: string;
+        reason?: string;
+      }
+    </item>
+    <item priority="medium">
+      function refusalOf(err: unknown): Refusal | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function rejectedResult(refusal: Refusal) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function localToInstant(
+        date: string,
+        time: string,
+        timeZone: string | undefined
+      ): string | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      type BookingVerdict = Awaited<ReturnType<ApiClient["availability"]["checkBookin...;
+    </item>
+    <item priority="medium">
+      function bookingVerdictResult(verdict: BookingVerdict) { /* ... */ }
+    </item>
     <item priority="medium">
       function availabilityResult(
         response: PublicAvailability,
