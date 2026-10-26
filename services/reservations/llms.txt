@@ -1973,6 +1973,12 @@
         snapshot: { timezone: string; config: AvailabilityConfig };
         changes: AvailabilityConfigChanges;
         scopeConflicts: ScopeConflictMode;
+        /**
+         * A revert: the rows are an exact prior state, so scope conflicts are not
+         * settled (they were settled when that state was first made) and the
+         * restored rows must not count as incoming.
+         */
+        exact?: boolean;
         tableIds: ReadonlySet<string>;
         now: Date;
         today: string;
@@ -2108,6 +2114,8 @@
         newId?: () => string;
         /** Undoing a venue's first save returns it to no hours at all, which is not an error. */
         allowNoHours?: boolean;
+        /** A revert: apply the rows exactly, without settling scope conflicts. */
+        exact?: boolean;
       }): SavePlan { /* ... */ }
     </item>
     <item priority="low">

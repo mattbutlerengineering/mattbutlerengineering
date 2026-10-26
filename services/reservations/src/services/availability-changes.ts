@@ -154,6 +154,8 @@ export async function revertAvailabilityChange(
       return {
         changes: { upsert: restore, remove: inverse.remove },
         scopeConflicts: "keep",
+        // The inverse is the exact prior state: no scope-conflict skips on top.
+        exact: true,
         kind: REVERT_KIND,
         summary: `Reverted: ${change.summary}`,
         // The column exactly as it was (null included), so undoing a venue's first
