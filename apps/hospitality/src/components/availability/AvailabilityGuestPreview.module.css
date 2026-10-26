@@ -1,0 +1,19 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-xs);
+}
+
+/* The previous result stays visible, dimmed, while a newer one is on its way. */
+.stale {
+  opacity: 0.6;
+}

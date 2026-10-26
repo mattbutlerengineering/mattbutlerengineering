@@ -1120,6 +1120,57 @@ const availabilityFixtures: Record<string, RouteFixture> = {
       "member venue B"
     );
   }),
+  // Tonight writes the current service day's rule on the same disposable
+  // venue C as the closures (no extra POST /venues, which is capped at 5/min).
+  "POST /api/v1/venues/:id/tonight": ok(async (ctx) => {
+    const { base, version } = await closureVenue(ctx);
+    const tonight = {
+      expectedVersion: version,
+      ruleId: `rls-sweep-tonight-${randomUUID()}`,
+      change: { type: "pause_online" },
+    };
+    const saved = await asAdmin(ctx, { method: "POST", url: `${base}/tonight`, payload: tonight });
+    expectOk(saved, "admin tonight");
+    const replayed = await asAdmin(ctx, {
+      method: "POST",
+      url: `${base}/tonight`,
+      payload: tonight,
+    });
+    expect(JSON.parse(replayed.body), "replay returns the first result").toEqual(
+      JSON.parse(saved.body)
+    );
+    expectDenied(
+      await asMember(ctx, {
+        method: "POST",
+        url: `${AVAILABILITY_CONFIG_PREFIX}/${ctx.venueB.id}/tonight`,
+        payload: tonight,
+      }),
+      "member venue B"
+    );
+  }),
+  "DELETE /api/v1/venues/:id/tonight/:ruleId": ok(async (ctx) => {
+    const { base, version } = await closureVenue(ctx);
+    const ruleId = `rls-sweep-tonight-end-${randomUUID()}`;
+    expectOk(
+      await asAdmin(ctx, {
+        method: "POST",
+        url: `${base}/tonight`,
+        payload: { expectedVersion: version, ruleId, change: { type: "pacing", covers: 20 } },
+      }),
+      "admin tonight"
+    );
+    expectOk(
+      await asAdmin(ctx, { method: "DELETE", url: `${base}/tonight/${ruleId}` }),
+      "admin end"
+    );
+    expectDenied(
+      await asMember(ctx, {
+        method: "DELETE",
+        url: `${AVAILABILITY_CONFIG_PREFIX}/${ctx.venueB.id}/tonight/${ruleId}`,
+      }),
+      "member venue B"
+    );
+  }),
   // A read-only verdict over POST: members of the venue are admitted, other
   // venues are denied, exactly like the GET availability reads.
   "POST /api/v1/venues/:id/availability/check": ok(async (ctx) => {

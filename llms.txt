@@ -5153,6 +5153,25 @@
       export const useRevertAvailabilityChange: unknown;
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useAvailabilityPreview.ts">
+    <item priority="high">
+      export const AVAILABILITY_PREVIEW_QUERY_KEY: unknown;
+    </item>
+    <item priority="low">
+      interface AvailabilityPreviewState {
+        result: PreviewResult | null;
+        isFetching: boolean;
+        error: Error | null;
+        retry: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function useAvailabilityPreview(
+        venueId: string,
+        body: PreviewAvailabilityBody | null
+      ): AvailabilityPreviewState { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useAvailabilityUndo.ts">
     <item priority="high">
       export const UNDO_TOAST_MS: unknown;
@@ -6493,7 +6512,13 @@
     <item priority="high">
       export async function dispatchJob(
         handlers: JobHandlerMap,
-        job: { name: string; data: unknown; updateData?: (data: never) => Promise<void> }
+        job: {
+          name: string;
+          data: unknown;
+          updateData?: (data: never) => Promise<void>;
+          attemptsMade?: number;
+          opts?: { attempts?: number };
+        }
       ): Promise<void> { /* ... */ }
     </item>
   </file>
@@ -6519,7 +6544,7 @@
     </item>
     <item priority="low">
       interface JobContext {
-        
+        isFinalAttempt: boolean;
       }
     </item>
     <item priority="low">
@@ -6537,6 +6562,12 @@
         guestPhone?: string | null;
         guestEmail?: string | null;
         venueId?: string;
+      }
+    </item>
+    <item priority="low">
+      interface ClosureRefundPayload {
+        outcomeId: string;
+        venueId: string;
       }
     </item>
     <item priority="low">
@@ -9121,8 +9152,8 @@
         extension: Omit<AvailabilityConfigProblem, "type" | "title" | "status" | "detail">
       ): AvailabilityConfigProblem { /* ... */ }
     </item>
-    <item priority="medium">
-      function sendRefusal(reply: FastifyReply, outcome: Refusal) { /* ... */ }
+    <item priority="high">
+      export function sendRefusal(reply: FastifyReply, outcome: Refusal) { /* ... */ }
     </item>
     <item priority="high">
       export const closureRoutes: FastifyPluginAsync;
@@ -9786,6 +9817,11 @@
       export const tableRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="services/reservations/src/routes/tonight.ts">
+    <item priority="high">
+      export const tonightRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="services/reservations/src/routes/venue-scope.ts">
     <item priority="high">
       type Handler = RouteHandlerMethod<
@@ -10151,6 +10187,24 @@
     </item>
     <item priority="high">
       export const ReopenResultSchema: unknown;
+    </item>
+    <item priority="high">
+      export const TonightChangeSchema: unknown;
+    </item>
+    <item priority="high">
+      export const SetTonightBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const TonightResultSchema: unknown;
+    </item>
+    <item priority="low">
+      type TonightChange = z.infer<typeof TonightChangeSchema>;
+    </item>
+    <item priority="low">
+      type SetTonightBody = z.infer<typeof SetTonightBodySchema>;
+    </item>
+    <item priority="low">
+      type TonightResult = z.infer<typeof TonightResultSchema>;
     </item>
     <item priority="low">
       type ClosureDecision = z.infer<typeof ClosureDecisionSchema>;
@@ -13322,6 +13376,9 @@
       export function currentServiceDate(snapshot: AvailabilitySnapshot, now: Date): string { /* ... */ }
     </item>
     <item priority="high">
+      export function closesAllOfTonight(snapshot: AvailabilitySnapshot, rule: DateRule): boolean { /* ... */ }
+    </item>
+    <item priority="high">
       export function isHostEmergencyClose(rule: DateRule, serviceDate: string): boolean { /* ... */ }
     </item>
   </file>
@@ -13332,6 +13389,9 @@
     <item priority="high">
       type Db = StoreDb &
         Pick<PrismaClient, "closureOutcome" | "reserv...;
+    </item>
+    <item priority="high">
+      export const TONIGHT_RULE_KINDS: ReadonlySet<string>;
     </item>
     <item priority="low">
       interface ClosureCaller {
@@ -13441,6 +13501,8 @@
           body: CreateClosureBody;
           idempotencyKey: string;
           now: Date;
+          /** Rule kinds this call may save; the Tonight API widens it to `tonight`. */
+          ruleKinds?: ReadonlySet<string>;
         },
         client: StoreClient = prisma
       ): Promise<CreateClosureOutcome> { /* ... */ }
@@ -13566,6 +13628,107 @@
         rule: DateRule;
         bookings: readonly ImpactBooking[];
       }): ClosureImpact { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/closure-refund-store.ts">
+    <item priority="high">
+      export function createPrismaClosureRefundStore(): ClosureRefundStore { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/closure-refund.ts">
+    <item priority="low">
+      interface ClosureRefundRow {
+        id: string;
+        venueId: string;
+        reservationId: string;
+        dateRuleId: string;
+        refund: ClosureRefundStatus;
+      }
+    </item>
+    <item priority="low">
+      interface ClosureRefundStore {
+        
+      }
+    </item>
+    <item priority="low">
+      interface ClosureRefundDeps {
+        deposits: Pick<DepositService, "getByReservationId" | "hold" | "ref...;
+        payments: PaymentsPort;
+        store: ClosureRefundStore;
+      }
+    </item>
+    <item priority="high">
+      class ClosureRefundPermanentError {
+        
+      }
+    </item>
+    <item priority="high">
+      export const closureRefundKey: unknown;
+    </item>
+    <item priority="high">
+      export const closureRefundJobId: unknown;
+    </item>
+    <item priority="high">
+      type Settled = ClosureRefundStatus;
+    </item>
+    <item priority="high">
+      type CapturedStatus = "forfeited" | "applied" | "partial_refunded";
+    </item>
+    <item priority="low">
+      async function writeOff(
+        deps: ClosureRefundDeps,
+        deposit: Deposit,
+        settled: Settled
+      ): Promise<Settled | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function refundCaptured(
+        deps: ClosureRefundDeps,
+        deposit: Deposit,
+        row: ClosureRefundRow
+      ): Promise<Settled | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function resolvePending(deps: ClosureRefundDeps, deposit: Deposit): Promise<Settled | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function settleOnce(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<Settled | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function settleDeposit(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<Settled> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function settleClosureRefund(
+        deps: ClosureRefundDeps,
+        payload: ClosureRefundPayload
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function runClosureRefundJob(
+        deps: ClosureRefundDeps,
+        payload: ClosureRefundPayload,
+        opts: { isFinalAttempt: boolean }
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function enqueueClosureRefunds(
+        deps: { store: ClosureRefundStore; jobs: Pick<JobScheduler, "schedule"> },
+        venueId: string,
+        ruleId: string,
+        statuses: readonly ClosureRefundStatus[],
+        opts: { retry?: boolean; now?: () => number } = {}
+      ): Promise<number> { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ClosureRefunds {
+        
+      }
+    </item>
+    <item priority="high">
+      export function createClosureRefunds(deps: {
+        store: ClosureRefundStore;
+        jobs: Pick<JobScheduler, "schedule">;
+      }): ClosureRefunds { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/confirm-hold.ts">
@@ -13938,6 +14101,9 @@
       interface ReservationJobHandlerDeps {
         dispatcher: ReminderDispatcher;
         logger: JobWorkerLogger;
+        runClosureRefund?: (
+          payload: ClosureRefundPayload,
+          opts: { isFinalA...;
       }
     </item>
     <item priority="high">
@@ -14985,6 +15151,9 @@
         webhookSecret: string
       ): Stripe.Event { /* ... */ }
     </item>
+    <item priority="low">
+      type DepositRefundLeg = "refundPartial" | "closureRefund";
+    </item>
     <item priority="high">
       class StripeService {
         stripe: Stripe;
@@ -15059,6 +15228,115 @@
     </item>
     <item priority="high">
       export const tableService: unknown;
+    </item>
+  </file>
+  <file path="services/reservations/src/services/tonight-command.ts">
+    <item priority="high">
+      type StoreClient = Pick<PrismaClient, "$transaction">;
+    </item>
+    <item priority="high">
+      type Db = StoreDb;
+    </item>
+    <item priority="low">
+      type SetTonightOutcome = { kind: "saved"; result: Tonig | Exclude<CreateClosureOutcome,  | { kind: "rule_exists" };
+    </item>
+    <item priority="high">
+      type Refusal = Exclude<SetTonightOutcome, { kind: "saved" }>;
+    </item>
+    <item priority="medium">
+      class Refused {
+        
+      }
+    </item>
+    <item priority="high">
+      interface TonightDeps {
+        createClosure: typeof createClosure;
+      }
+    </item>
+    <item priority="medium">
+      function dayBoundary(state: ConfigState, serviceDate: string): Date { /* ... */ }
+    </item>
+    <item priority="high">
+      type RuleShape = Pick<
+        Extract<DateRule, { kind: "tonight" }>,
+        "target...;
+    </item>
+    <item priority="medium">
+      function shapeOf(change: TonightChange): RuleShape { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildRule(
+        body: SetTonightBody,
+        serviceDate: string,
+        expiresAt: Date
+      ): Extract<DateRule, { kind: "tonight" }> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function describeChange(change: TonightChange): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function fingerprint(rule: DateRule): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function storedSame(
+        state: ConfigState,
+        rule: DateRule
+      ): Extract<DateRule, { kind: "tonight" }> | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closeEarlyKey(rule: DateRule): string { /* ... */ }
+    </item>
+    <item priority="high">
+      interface TonightMeta {
+        ruleId: string;
+        version: number;
+      }
+    </item>
+    <item priority="low">
+      async function replayOf(
+        tx: Db,
+        venueId: string,
+        rule: Extract<DateRule, { kind: "tonight" }>,
+        state: ConfigState
+      ): Promise<TonightResult | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function checkRule(
+        tx: Db,
+        venueId: string,
+        state: ConfigState,
+        rule: DateRule
+      ): Promise<AvailabilityConfig> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function writeChange(
+        tx: Db,
+        input: { venueId: string; actorId: string; now: Date; body: SetTonightBody },
+        state: ConfigState,
+        rule: Extract<DateRule, { kind: "tonight" }>
+      ): Promise<TonightResult> { /* ... */ }
+    </item>
+    <item priority="high">
+      type Prepared = { kind: "saved"; result: Tonig | { kind: "delegate"; rule: Extr;
+    </item>
+    <item priority="high">
+      export async function setTonight(
+        input: { venueId: string; caller: ClosureCaller; body: SetTonightBody; now: Date },
+        client: StoreClient = prisma,
+        deps: TonightDeps = { createClosure }
+      ): Promise<SetTonightOutcome> { /* ... */ }
+    </item>
+    <item priority="low">
+      type EndTonightOutcome = { kind: "ended"; result: Reope | { kind: "not_found" };
+    </item>
+    <item priority="high">
+      export async function endTonight(
+        input: { venueId: string; ruleId: string; caller: Pick<ClosureCaller, "actorId">; now: Date },
+        client: StoreClient = prisma
+      ): Promise<EndTonightOutcome> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const tonightCommandService: unknown;
     </item>
   </file>
   <file path="services/reservations/src/services/venue-context-store.ts">
@@ -18012,6 +18290,9 @@
     </item>
     <item priority="low">
       type CreateClosureRequest = z.input<typeof CreateClosureBodySchema>;
+    </item>
+    <item priority="low">
+      type SetTonightRequest = z.input<typeof SetTonightBodySchema>;
     </item>
     <item priority="high">
       class AvailabilityClient {
@@ -21512,8 +21793,8 @@
         notificationPort?: NotificationDispatcher;
         jobs?: JobsPort;
         payments?: PaymentsPort;
+        closureRefunds?: ClosureRefunds;
         reservationEvents?: ReservationEventEmitter;
-        waitlistNotifier?: WaitlistNotifier;
       }
     </item>
     <item priority="medium">
@@ -23630,12 +23911,10 @@
   </file>
   <file path="apps/hospitality/src/utils/venueOpenLabel.ts">
     <item priority="high">
-      export const WEEKDAY_LABEL: Readonly<Record<Weekday, string>>;
-    </item>
-    <item priority="high">
       export function formatVenueOpenLabel(
         s: VenueOpenState,
-        formatClock: (hhmm: string) => string = formatLocalTime
+        formatClock: (hhmm: string) => string = formatLocalTime,
+        t: TFunction = defaultT
       ): string { /* ... */ }
     </item>
   </file>

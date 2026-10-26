@@ -11691,6 +11691,46 @@
           404: problem("Venue or closure not found"),
         },
       }),
+      setTonight: defineEndpoint({
+        method: "POST",
+        path: `${AVAILABILITY_CONFIG_PREFIX}/:id/tonight`,
+        params: VenueParamsSchema,
+        body: SetTonightBodySchema,
+        responses: {
+          200: {
+            description:
+              "Saved for the current service day, ending at its boundary (or replayed from the same `ruleId`): the rule, the version, the day, `expiresAt` and outcome counts (all zero unless a close-early cancelled or moved bookings)",
+            body: z.object({ data: TonightResultSchema }),
+          },
+          401: authRequired,
+          403: notMember,
+          404: venueNotFound,
+          409: {
+            description:
+              "`version-conflict`, or `closure-exists` (this rule id was already used with a different change)",
+            body: AvailabilityConfigProblemSchema,
+          },
+          422: {
+            description:
+              "`invalid-config`, or for a close-early with bookings `decision-required`, `invalid-decision` or `move-unavailable`",
+            body: AvailabilityConfigProblemSchema,
+          },
+        },
+      }),
+      endTonight: defineEndpoint({
+        method: "DELETE",
+        path: `${AVAILABILITY_CONFIG_PREFIX}/:id/tonight/:ruleId`,
+        params: TonightParamsSchema,
+        responses: {
+          200: {
+            description: "Ended; bookings a close-early cancelled stay cancelled",
+            body: z.object({ data: ReopenResultSchema }),
+          },
+          401: authRequired,
+          403: notMember,
+          404: problem("Venue or Tonight change not found"),
+        },
+      }),
       listDays: defineEndpoint({
         method: "GET",
         path: `${AVAILABILITY_CONFIG_PREFIX}/:id/availability/days`,
@@ -16029,6 +16069,40 @@
         api.availability.revertChange(venueId, changeId, expectedVersion),
     });
   </file>
+  <file path="apps/hospitality/src/hooks/useAvailabilityPreview.ts">
+    export const AVAILABILITY_PREVIEW_QUERY_KEY = "availabilityPreview" as const;
+    export interface AvailabilityPreviewState {
+      /** The newest result that arrived, kept while a newer request is pending or has failed. */
+      readonly result: PreviewResult | null;
+      /** A request for the current draft is in flight. */
+      readonly isFetching: boolean;
+      /** The request for the current draft failed (the last good `result` is still set). */
+      readonly error: Error | null;
+      readonly retry: () => void;
+    }
+    export function useAvailabilityPreview(
+      venueId: string,
+      body: PreviewAvailabilityBody | null
+    ): AvailabilityPreviewState {
+      const api = useApiClient();
+      const query = useQuery({
+        queryKey: [AVAILABILITY_PREVIEW_QUERY_KEY, venueId, body],
+        queryFn: () => api.availability.previewConfig(venueId, body as PreviewAvailabilityBody),
+        enabled: body !== null,
+        retry: false,
+      });
+      const [lastGood, setLastGood] = useState<PreviewResult | null>(null);
+      // Adjusting state during render (not in an effect) so the kept result is never a frame behind.
+      if (query.data && query.data !== lastGood) setLastGood(query.data);
+    
+      return {
+        result: query.data ?? lastGood,
+        isFetching: query.isFetching,
+        error: query.error ?? null,
+        retry: () => void query.refetch(),
+      };
+    }
+  </file>
   <file path="apps/hospitality/src/hooks/useAvailabilityUndo.ts">
     export const UNDO_TOAST_MS = 10_000;
     export function useAvailabilityUndo() {
@@ -19601,7 +19675,13 @@
     }
     export async function dispatchJob(
       handlers: JobHandlerMap,
-      job: { name: string; data: unknown; updateData?: (data: never) => Promise<void> }
+      job: {
+        name: string;
+        data: unknown;
+        updateData?: (data: never) => Promise<void>;
+        attemptsMade?: number;
+        opts?: { attempts?: number };
+      }
     ): Promise<void> {
       if (!JOB_TYPE_SET.has(job.name)) {
         throw new UnknownJobTypeError(job.name);
@@ -19615,6 +19695,7 @@
         throw new UnknownJobTypeError(jobType, "no-handler");
       }
       const ctx: JobContext = {
+        isFinalAttempt: (job.attemptsMade ?? 0) + 1 >= (job.opts?.attempts ?? 1),
         updateData: async (patch) => {
           await (job.updateData as ((d: object) => Promise<void>) | undefined)?.({
             ...(job.data as object),
@@ -19636,6 +19717,7 @@
       DAY_OF_REMINDER: "day-of-reminder",
       POST_VISIT_FOLLOWUP: "post-visit-followup",
       WAITLIST_EXPIRY: "waitlist-expiry",
+      CLOSURE_REFUND: "closure-refund",
     } as const;
     export type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
     export interface ReminderPayload {
@@ -19651,6 +19733,12 @@
     export interface JobContext {
       /** Persist a patch of new job data (shallow-merged over the current payload) for the retry. */
       updateData(patch: object): Promise<void>;
+      /**
+       * True when a failure now will not be retried (the last of the job's
+       * attempts, or a job whose attempt count is unknown). A handler that must
+       * record a terminal failure does so only when this is set.
+       */
+      isFinalAttempt: boolean;
     }
     export interface PostVisitFollowupPayload {
       reservationId: string;
@@ -19679,11 +19767,16 @@
       // have drained by then.
       venueId?: string;
     }
+    export interface ClosureRefundPayload {
+      outcomeId: string;
+      venueId: string;
+    }
     export type JobPayloadMap = {
       [JOB_TYPES.BOOKING_REMINDER]: ReminderPayload;
       [JOB_TYPES.DAY_OF_REMINDER]: ReminderPayload;
       [JOB_TYPES.POST_VISIT_FOLLOWUP]: PostVisitFollowupPayload;
       [JOB_TYPES.WAITLIST_EXPIRY]: WaitlistExpiryPayload;
+      [JOB_TYPES.CLOSURE_REFUND]: ClosureRefundPayload;
     };
     export type JobHandlerMap = Partial<{
       [K in JobType]: (payload: JobPayloadMap[K], ctx: JobContext) => Promise<void>;
@@ -29392,7 +29485,7 @@
         ...extension,
       };
     }
-    function sendRefusal(reply: FastifyReply, outcome: Refusal) {
+    export function sendRefusal(reply: FastifyReply, outcome: Refusal) {
       switch (outcome.kind) {
         case "not_found":
           return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
@@ -29490,6 +29583,18 @@
             now: new Date(),
           });
           if (outcome.kind !== "saved") return sendRefusal(reply, outcome);
+          // After the commit. A failed enqueue must not undo or hide the save: the
+          // outcomes stay `refund: pending` and `closureRefunds.retry` picks them up.
+          if (outcome.result.outcomes.cancel > 0) {
+            try {
+              await fastify.closureRefunds.enqueue(venueId, outcome.result.ruleId);
+            } catch (err) {
+              request.log.error(
+                { err, venueId, ruleId: outcome.result.ruleId },
+                "Failed to enqueue closure refund jobs"
+              );
+            }
+          }
           return { data: outcome.result };
         }),
       });
@@ -35229,6 +35334,62 @@
       );
     };
   </file>
+  <file path="services/reservations/src/routes/tonight.ts">
+    export const tonightRoutes: FastifyPluginAsync = async (fastify) => {
+      const { tonightCommandService } = fastify.services;
+    
+      registerEndpoint(fastify, availabilityConfigEndpoints.setTonight, {
+        docs: {
+          summary: "Apply a Tonight change for the current service day",
+          operationId: "setTonight",
+          description:
+            "Pause online booking, close early, stop a time window, block tables or lower pacing for the venue's current service day. The server writes a `tonight` date rule that ends at the service-day boundary (`expiresAt`); schedules are never touched. A close-early with bookings after the new close runs the closure command: answer `decision-required` with `decisions`. The client-chosen `ruleId` makes a retry safe. Host or Manager.",
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(VENUE_FROM_ID, async (request, reply, { venueId, isAdmin }) => {
+          const caller = await closureCaller(request, venueId, isAdmin);
+          const outcome = await tonightCommandService.set({
+            venueId,
+            caller,
+            body: request.body,
+            now: new Date(),
+          });
+          if (outcome.kind === "saved") return { data: outcome.result };
+          return sendRefusal(
+            reply,
+            outcome.kind === "rule_exists" ? { kind: "closure_exists" } : outcome
+          );
+        }),
+      });
+    
+      registerEndpoint(fastify, availabilityConfigEndpoints.endTonight, {
+        docs: {
+          summary: "End a Tonight change early",
+          operationId: "endTonight",
+          description:
+            "Removes a Tonight change before its service day ends so its slots and tables return. Bookings a close-early cancelled stay cancelled. Host or Manager.",
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(VENUE_FROM_ID, async (request, reply, { venueId, isAdmin }) => {
+          const caller = await closureCaller(request, venueId, isAdmin);
+          const outcome = await tonightCommandService.end({
+            venueId,
+            ruleId: request.params.ruleId,
+            caller,
+            now: new Date(),
+          });
+          if (outcome.kind === "ended") return { data: outcome.result };
+          return reply
+            .code(404)
+            .send(createProblemDetails(404, "Not Found", "Tonight change not found"));
+        }),
+      });
+    };
+  </file>
   <file path="services/reservations/src/routes/venue-scope.ts">
     type Handler<RG extends RouteGenericInterface> = RouteHandlerMethod<
       RawServerDefault,
@@ -37419,6 +37580,40 @@
       outcomes: ClosureOutcomeCountsSchema,
     });
     export const ReopenResultSchema = z.object({ version: z.number().int(), changeId: z.string() });
+    export const TonightChangeSchema = z.discriminatedUnion("type", [
+      z.strictObject({ type: z.literal("pause_online") }),
+      z.strictObject({
+        type: z.literal("close_early"),
+        closeAt: MinuteSchema,
+        /** Close one service early; omitted closes every service. */
+        venueServiceId: TonightIdSchema.optional(),
+      }),
+      z.strictObject({ type: z.literal("stop_window"), from: MinuteSchema, to: MinuteSchema }),
+      z.strictObject({
+        type: z.literal("block_tables"),
+        tableIds: z.array(TonightIdSchema).min(1),
+        from: MinuteSchema.optional(),
+        to: MinuteSchema.optional(),
+      }),
+      z.strictObject({ type: z.literal("pacing"), covers: z.number().int().min(1) }),
+    ]);
+    export const SetTonightBodySchema = z.object({
+      expectedVersion: z.number().int().min(0),
+      ruleId: TonightIdSchema,
+      change: TonightChangeSchema,
+      guestMessage: z.string().max(GUEST_MESSAGE_MAX_LENGTH).optional(),
+      staffNote: z.string().max(500).optional(),
+      decisions: z.array(ClosureDecisionSchema).default([]),
+    });
+    export const TonightResultSchema = ClosureResultSchema.extend({
+      /** The service day the change applies to. */
+      serviceDate: ServiceDateSchema,
+      /** When it ends: the service day's boundary, as an ISO instant. */
+      expiresAt: z.string(),
+    });
+    export type TonightChange = z.infer<typeof TonightChangeSchema>;
+    export type SetTonightBody = z.infer<typeof SetTonightBodySchema>;
+    export type TonightResult = z.infer<typeof TonightResultSchema>;
     export type ClosureDecision = z.infer<typeof ClosureDecisionSchema>;
     export type CreateClosureBody = z.infer<typeof CreateClosureBodySchema>;
     export type ReopenClosureBody = z.infer<typeof ReopenClosureBodySchema>;
@@ -45383,6 +45578,21 @@
       const yesterday = addDays(today, -1);
       return isOpen(yesterday) ? yesterday : today;
     }
+    export function closesAllOfTonight(snapshot: AvailabilitySnapshot, rule: DateRule): boolean {
+      if (rule.kind !== "tonight" || !("closeAt" in rule.payload)) return false;
+      const { closeAt } = rule.payload;
+      const planned = {
+        ...snapshot,
+        config: {
+          ...snapshot.config,
+          dateRules: snapshot.config.dateRules.filter((r) => r.kind !== "tonight"),
+        },
+      };
+      const targeted = resolveDay(planned, rule.startsOn).services.filter(
+        (s) => rule.targetKind === "venue" || s.venueServiceId === rule.venueServiceId
+      );
+      return targeted.length > 0 && targeted.every((s) => s.opensAt >= closeAt);
+    }
     export function isHostEmergencyClose(rule: DateRule, serviceDate: string): boolean {
       return (
         rule.kind === "closure" &&
@@ -45398,6 +45608,7 @@
     type StoreClient = Pick<PrismaClient, "$transaction">;
     type Db = StoreDb &
       Pick<PrismaClient, "closureOutcome" | "reservationEvent" | "reservationHold" | "$executeRaw">;
+    export const TONIGHT_RULE_KINDS: ReadonlySet<string> = new Set(["tonight"]);
     export interface ClosureCaller {
       /** Owner, manager or platform admin. Anyone else is a Host. */
       isManager: boolean;
@@ -45439,14 +45650,16 @@
       });
       if (!venue) return null;
       if (caller.isManager) return true;
-      if (!venue.hostEmergencyClose) return false;
+      // Tonight changes are a Host's own job, so only the emergency close needs the grant.
+      if (rule.kind !== "tonight" && !venue.hostEmergencyClose) return false;
       const state = await loadConfigState(db, venueId, now);
       if (!state) return null;
-      const serviceDate = currentServiceDate(
-        { timezone: state.timezone, config: state.effective },
-        now
-      );
-      return isHostEmergencyClose(rule, serviceDate);
+      const snapshot = { timezone: state.timezone, config: state.effective };
+      const serviceDate = currentServiceDate(snapshot, now);
+      if (rule.kind !== "tonight") return isHostEmergencyClose(rule, serviceDate);
+      if (rule.startsOn !== serviceDate) return false;
+      // A close-early that leaves no targeted service tonight is the emergency close in effect.
+      return venue.hostEmergencyClose || !closesAllOfTonight(snapshot, rule);
     }
     export function mayClose(
       venueId: string,
@@ -45539,7 +45752,8 @@
           ? `${rule.startsOn} to ${rule.endsOn}`
           : rule.startsOn;
       const kept = counts.keep_notify + counts.keep_silent;
-      return `Closure saved for ${span}: ${counts.cancel} cancelled, ${counts.move} moved, ${kept} kept`;
+      const what = rule.kind === "tonight" ? "Closing early" : "Closure saved for";
+      return `${what} ${span}: ${counts.cancel} cancelled, ${counts.move} moved, ${kept} kept`;
     }
     async function guard(
       tx: Db,
@@ -45555,6 +45769,7 @@
       body: CreateClosureBody;
       key: string;
       now: Date;
+      ruleKinds: ReadonlySet<string>;
     };
     async function replayOf(tx: Db, input: CommitInput): Promise<ClosureResult | null> {
       const { venueId, caller, body, key } = input;
@@ -45570,7 +45785,7 @@
       const { venueId, caller, body, now } = input;
       const { rule } = body;
       await guard(tx, { venueId, caller, rule, now });
-      if (!CLOSURE_RULE_KINDS.has(rule.kind)) {
+      if (!input.ruleKinds.has(rule.kind)) {
         throw new Refused({
           kind: "invalid",
           issues: [
@@ -45680,14 +45895,17 @@
         body: CreateClosureBody;
         idempotencyKey: string;
         now: Date;
+        /** Rule kinds this call may save; the Tonight API widens it to `tonight`. */
+        ruleKinds?: ReadonlySet<string>;
       },
       client: StoreClient = prisma
     ): Promise<CreateClosureOutcome> {
       const { venueId, caller, body, idempotencyKey: key, now } = input;
+      const ruleKinds = input.ruleKinds ?? CLOSURE_RULE_KINDS;
       try {
         const result = await client.$transaction(async (tx) => {
           await setVenueContext(tx, venueId);
-          return commit(tx, { venueId, caller, body, key, now });
+          return commit(tx, { venueId, caller, body, key, now, ruleKinds });
         });
         return { kind: "saved", result };
       } catch (error) {
@@ -45996,6 +46214,235 @@
         covers: groups.reduce((n, g) => n + g.covers, 0),
         depositsHeld: groups.reduce((n, g) => n + g.depositsHeld, 0),
         groups,
+      };
+    }
+  </file>
+  <file path="services/reservations/src/services/closure-refund-store.ts">
+    export function createPrismaClosureRefundStore(): ClosureRefundStore {
+      return {
+        load: (outcomeId) =>
+          prisma.closureOutcome.findUnique({
+            where: { id: outcomeId },
+            select: {
+              id: true,
+              venueId: true,
+              reservationId: true,
+              dateRuleId: true,
+              refund: true,
+              reservation: { select: { status: true, cancellationReason: true } },
+            },
+          }),
+        setRefund: async (outcomeId, refund) => {
+          await prisma.closureOutcome.update({ where: { id: outcomeId }, data: { refund } });
+        },
+        markFailed: async (outcomeId) => {
+          await prisma.closureOutcome.updateMany({
+            where: { id: outcomeId, refund: { notIn: ["done", "none"] } },
+            data: { refund: "failed" },
+          });
+        },
+        listByRule: (venueId, ruleId, statuses) =>
+          prisma.closureOutcome.findMany({
+            where: { venueId, dateRuleId: ruleId, refund: { in: [...statuses] } },
+            select: { id: true, reservationId: true },
+          }),
+      };
+    }
+  </file>
+  <file path="services/reservations/src/services/closure-refund.ts">
+    export interface ClosureRefundRow {
+      id: string;
+      venueId: string;
+      reservationId: string;
+      dateRuleId: string;
+      refund: ClosureRefundStatus;
+      reservation: { status: string; cancellationReason: string | null } | null;
+    }
+    export interface ClosureRefundStore {
+      load(outcomeId: string): Promise<ClosureRefundRow | null>;
+      setRefund(outcomeId: string, refund: ClosureRefundStatus): Promise<void>;
+      /** Records `failed`, leaving an outcome a concurrent run already settled (`done` / `none`). */
+      markFailed(outcomeId: string): Promise<void>;
+      /** Outcomes of one closure whose refund is in one of `statuses`. */
+      listByRule(
+        venueId: string,
+        ruleId: string,
+        statuses: readonly ClosureRefundStatus[]
+      ): Promise<{ id: string; reservationId: string }[]>;
+    }
+    export interface ClosureRefundDeps {
+      deposits: Pick<DepositService, "getByReservationId" | "hold" | "refund" | "writeOffUncaptured">;
+      payments: PaymentsPort;
+      store: ClosureRefundStore;
+    }
+    export class ClosureRefundPermanentError extends Error {
+      constructor(message: string) {
+        super(message);
+        this.name = "ClosureRefundPermanentError";
+      }
+    }
+    export const closureRefundKey = (ruleId: string, reservationId: string): string =>
+      `closure:${ruleId}:${reservationId}`;
+    export const closureRefundJobId = (ruleId: string, reservationId: string): string =>
+      closureRefundKey(ruleId, reservationId).replaceAll(":", "_");
+    type Settled = ClosureRefundStatus;
+    type CapturedStatus = "forfeited" | "applied" | "partial_refunded";
+    async function writeOff(
+      deps: ClosureRefundDeps,
+      deposit: Deposit,
+      settled: Settled
+    ): Promise<Settled | null> {
+      const count = await deps.deposits.writeOffUncaptured(
+        deposit.id,
+        deposit.status as CapturedStatus
+      );
+      return count > 0 ? settled : null;
+    }
+    async function refundCaptured(
+      deps: ClosureRefundDeps,
+      deposit: Deposit,
+      row: ClosureRefundRow
+    ): Promise<Settled | null> {
+      if (row.reservation?.cancellationReason !== "venue_closure") return "none";
+      const pi = deposit.stripePaymentIntentId;
+      if (!pi) {
+        throw new ClosureRefundPermanentError(
+          `Deposit ${deposit.id} has no Stripe payment; refund it by hand`
+        );
+      }
+      const intent = await deps.payments.retrievePaymentIntent(pi);
+      if (intent.status === "canceled") return writeOff(deps, deposit, "none");
+      if (intent.status === "requires_capture") {
+        // The recorded capture never landed: release the hold, there is nothing to refund.
+        await deps.payments.cancelPaymentIntent(pi, `${deposit.id}:refund`);
+        return writeOff(deps, deposit, "done");
+      }
+      if (intent.status !== "succeeded") {
+        throw new Error(`Payment ${pi} is ${intent.status}; cannot tell whether it was captured`);
+      }
+      if (await deps.payments.findDepositRefund(pi, deposit.id, "closureRefund")) return "done";
+    
+      const ownLeg =
+        deposit.status === "partial_refunded"
+          ? ((await deps.payments.findDepositRefund(pi, deposit.id, "refundPartial"))?.amount ?? 0)
+          : 0;
+      const owed = deposit.amountCents - ownLeg - (deposit.postCaptureRefundCents ?? 0);
+      if (owed <= 0) return "done";
+      await deps.payments.createPartialRefund(
+        pi,
+        owed,
+        deposit.id,
+        `${deposit.id}:closureRefund`,
+        "closureRefund"
+      );
+      return "done";
+    }
+    async function resolvePending(deps: ClosureRefundDeps, deposit: Deposit): Promise<Settled | null> {
+      const pi = deposit.stripePaymentIntentId;
+      if (!pi) return "none"; // never reached Stripe; nothing was authorized
+      const intent = await deps.payments.retrievePaymentIntent(pi);
+      switch (intent.status) {
+        case "canceled":
+          return "none";
+        case "requires_capture":
+          await deps.deposits.hold(deposit.id, pi, REFUND_ACTOR);
+          return null;
+        case "requires_payment_method":
+        case "requires_confirmation":
+        case "requires_action":
+          // Not authorized: cancel the intent so it can never be paid for a cancelled booking.
+          await deps.payments.cancelPaymentIntent(pi, `${deposit.id}:refund`);
+          return "none";
+        case "succeeded":
+          throw new ClosureRefundPermanentError(
+            `Deposit ${deposit.id} was captured while still pending; reconcile it by hand`
+          );
+        default:
+          throw new Error(`Payment ${pi} is ${intent.status}; try again`);
+      }
+    }
+    async function settleOnce(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<Settled | null> {
+      const deposit = await deps.deposits.getByReservationId(row.reservationId);
+      if (!deposit) return "none";
+      if (deposit.status === "refunded") return "done";
+      if (deposit.status === "uncollectable") return "none";
+      if (deposit.status === "held") {
+        await deps.deposits.refund(deposit.id);
+        return "done";
+      }
+      if (CAPTURED.has(deposit.status)) return refundCaptured(deps, deposit, row);
+      if (deposit.status === "pending") return resolvePending(deps, deposit);
+      return null;
+    }
+    async function settleDeposit(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<Settled> {
+      for (let read = 0; read < MAX_REREADS; read += 1) {
+        try {
+          const settled = await settleOnce(deps, row);
+          if (settled) return settled;
+        } catch (error) {
+          if (!isRace(error)) throw error;
+        }
+      }
+      // Retriable on purpose: BullMQ's bounded attempts re-run the job, and the
+      // final attempt records `failed`.
+      throw new Error(`Deposit for ${row.reservationId} kept changing; try again`);
+    }
+    export async function settleClosureRefund(
+      deps: ClosureRefundDeps,
+      payload: ClosureRefundPayload
+    ): Promise<void> {
+      const row = await deps.store.load(payload.outcomeId);
+      if (!row) throw new ClosureRefundPermanentError(`Closure outcome ${payload.outcomeId} not found`);
+      if (row.refund === "done" || row.refund === "none") return;
+      await deps.store.setRefund(row.id, await settleDeposit(deps, row));
+    }
+    export async function runClosureRefundJob(
+      deps: ClosureRefundDeps,
+      payload: ClosureRefundPayload,
+      opts: { isFinalAttempt: boolean }
+    ): Promise<void> {
+      try {
+        await settleClosureRefund(deps, payload);
+      } catch (error) {
+        if (error instanceof ClosureRefundPermanentError || opts.isFinalAttempt) {
+          await deps.store.markFailed(payload.outcomeId).catch(() => undefined);
+        }
+        throw error;
+      }
+    }
+    export async function enqueueClosureRefunds(
+      deps: { store: ClosureRefundStore; jobs: Pick<JobScheduler, "schedule"> },
+      venueId: string,
+      ruleId: string,
+      statuses: readonly ClosureRefundStatus[],
+      opts: { retry?: boolean; now?: () => number } = {}
+    ): Promise<number> {
+      const outcomes = await deps.store.listByRule(venueId, ruleId, statuses);
+      for (const outcome of outcomes) {
+        if (opts.retry) await deps.store.setRefund(outcome.id, "pending");
+        const base = closureRefundJobId(ruleId, outcome.reservationId);
+        const jobId = opts.retry ? `${base}_retry_${(opts.now ?? Date.now)()}` : base;
+        await deps.jobs.schedule(
+          JOB_TYPES.CLOSURE_REFUND,
+          { outcomeId: outcome.id, venueId },
+          0,
+          jobId
+        );
+      }
+      return outcomes.length;
+    }
+    export interface ClosureRefunds {
+      enqueue(venueId: string, ruleId: string): Promise<number>;
+      retry(venueId: string, ruleId: string): Promise<number>;
+    }
+    export function createClosureRefunds(deps: {
+      store: ClosureRefundStore;
+      jobs: Pick<JobScheduler, "schedule">;
+    }): ClosureRefunds {
+      return {
+        enqueue: (venueId, ruleId) => enqueueClosureRefunds(deps, venueId, ruleId, ["pending"]),
+        retry: (venueId, ruleId) =>
+          enqueueClosureRefunds(deps, venueId, ruleId, ["failed", "pending"], { retry: true }),
       };
     }
   </file>
@@ -46495,6 +46942,27 @@
         }
     
         return updated;
+      }
+    
+      /**
+       * Writes off a deposit recorded as captured (`applied` / `forfeited` /
+       * `partial_refunded`) whose capture never landed and whose intent the caller
+       * has already cancelled: nothing was charged and nothing ever will be. The
+       * same write-off `refundPartial` does for an intent it finds `canceled`.
+       * Compare-and-swap on `fromStatus`; returns the CAS count (0 = the row moved).
+       */
+      async writeOffUncaptured(
+        depositId: string,
+        fromStatus: "applied" | "forfeited" | "partial_refunded"
+      ): Promise<number> {
+        const timestampField = (
+          {
+            applied: "appliedAt",
+            forfeited: "forfeitedAt",
+            partial_refunded: "refundedAt",
+          } as const
+        )[fromStatus];
+        return this._writeOffUncollectable(depositId, fromStatus, timestampField);
       }
     
       /**
@@ -47384,6 +47852,7 @@
       availabilityChangesService: typeof availabilityChangesService;
       closureImpactService: typeof closureImpactService;
       closureCommandService: typeof closureCommandService;
+      tonightCommandService: typeof tonightCommandService;
       venueService: typeof venueService;
       venueGroupService: typeof venueGroupService;
       tableService: typeof tableService;
@@ -47405,6 +47874,7 @@
       availabilityChangesService,
       closureImpactService,
       closureCommandService,
+      tonightCommandService,
       venueService,
       venueGroupService,
       tableService,
@@ -49045,6 +49515,11 @@
       handleWaitlistExpiry(input: { waitlistEntryId: string }): Promise<void>;
       /** Logs the WAITLIST_EXPIRY legacy-payload fallback (see handleWaitlistExpiryJob below). */
       logger: JobWorkerLogger;
+      /** Settles one closure outcome's deposit (closure-refund.ts). Absent = CLOSURE_REFUND is unhandled. */
+      runClosureRefund?: (
+        payload: ClosureRefundPayload,
+        opts: { isFinalAttempt: boolean }
+      ) => Promise<void>;
     }
     export function createReservationJobHandlers(deps: ReservationJobHandlerDeps): JobHandlerMap {
       async function deliverReminder(payload: ReminderPayload, ctx: JobContext): Promise<void> {
@@ -49127,10 +49602,29 @@
         return deps.handleWaitlistExpiry({ waitlistEntryId: payload.waitlistEntryId });
       }
     
+      /**
+       * CLOSURE_REFUND runs inside `runWithVenueContext(payload.venueId, …)` (the
+       * deposit, outcome and reservation reads and CASes are RLS-scoped). A
+       * permanent failure becomes an UnrecoverableError so BullMQ does not retry it.
+       */
+      const { runClosureRefund } = deps;
+      async function closureRefundJob(payload: ClosureRefundPayload, ctx: JobContext): Promise<void> {
+        if (!runClosureRefund) return;
+        return runWithVenueContext(payload.venueId, async () => {
+          try {
+            await runClosureRefund(payload, { isFinalAttempt: ctx.isFinalAttempt });
+          } catch (err) {
+            if (err instanceof ClosureRefundPermanentError) throw new UnrecoverableError(err.message);
+            throw err;
+          }
+        });
+      }
+    
       return {
         [JOB_TYPES.BOOKING_REMINDER]: deliverReminder,
         [JOB_TYPES.DAY_OF_REMINDER]: deliverReminder,
         [JOB_TYPES.WAITLIST_EXPIRY]: handleWaitlistExpiryJob,
+        ...(runClosureRefund ? { [JOB_TYPES.CLOSURE_REFUND]: closureRefundJob } : {}),
       };
     }
     export interface ReservationJobWorkerConfig {
@@ -53030,6 +53524,7 @@
     ): Stripe.Event {
       return Stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
     }
+    export type DepositRefundLeg = "refundPartial" | "closureRefund";
     export class StripeService {
       private readonly stripe: Stripe;
     
@@ -53119,7 +53614,8 @@
         paymentIntentId: string,
         refundAmountCents: number,
         depositId: string,
-        idempotencyKey?: string
+        idempotencyKey?: string,
+        leg: DepositRefundLeg = "refundPartial"
       ): Promise<{ id: string; status: string; amount: number }> {
         try {
           const intent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
@@ -53141,7 +53637,7 @@
               // Tags this refund as OURS so a retry can find it specifically via
               // findDepositRefund, rather than reading the charge's aggregate
               // amount_refunded — which includes unrelated refunds (#5722 MED-2).
-              metadata: { depositId, leg: "refundPartial" },
+              metadata: { depositId, leg },
             },
             idempotencyKey ? { idempotencyKey } : undefined
           );
@@ -53190,7 +53686,8 @@
        */
       async findDepositRefund(
         paymentIntentId: string,
-        depositId: string
+        depositId: string,
+        leg: DepositRefundLeg = "refundPartial"
       ): Promise<{ id: string; amount: number } | null> {
         try {
           const refunds = await this.stripe.refunds.list({
@@ -53200,7 +53697,7 @@
           const ours = refunds.data.find(
             (refund) =>
               refund.metadata?.depositId === depositId &&
-              refund.metadata?.leg === "refundPartial" &&
+              refund.metadata?.leg === leg &&
               (refund.status === "succeeded" ||
                 refund.status === "pending" ||
                 refund.status === "requires_action")
@@ -53504,6 +54001,332 @@
         }
       },
     };
+  </file>
+  <file path="services/reservations/src/services/tonight-command.ts">
+    type StoreClient = Pick<PrismaClient, "$transaction">;
+    type Db = StoreDb;
+    export type SetTonightOutcome =
+      | { kind: "saved"; result: TonightResult }
+      | Exclude<CreateClosureOutcome, { kind: "saved" }>
+      | { kind: "rule_exists" };
+    type Refusal = Exclude<SetTonightOutcome, { kind: "saved" }>;
+    class Refused extends Error {
+      constructor(readonly outcome: Refusal) {
+        super(outcome.kind);
+      }
+    }
+    interface TonightDeps {
+      createClosure: typeof createClosure;
+    }
+    function dayBoundary(state: ConfigState, serviceDate: string): Date {
+      const planned: AvailabilityConfig = {
+        ...state.effective,
+        dateRules: state.effective.dateRules.filter((r) => r.kind !== "tonight"),
+      };
+      const closes = resolveDay(
+        { timezone: state.timezone, config: planned },
+        serviceDate
+      ).services.map((s) => s.closesAt);
+      const end = Math.max(MINUTES_PER_DAY, ...closes);
+      return (
+        serviceDayInstant(serviceDate, end, state.timezone) ??
+        serviceDayInstant(serviceDate, end + 60, state.timezone) ??
+        new Date(`${addDays(serviceDate, 1)}T00:00:00.000Z`)
+      );
+    }
+    type RuleShape = Pick<
+      Extract<DateRule, { kind: "tonight" }>,
+      "targetKind" | "payload" | "venueServiceId" | "bookingTypes" | "tableIds"
+    >;
+    function shapeOf(change: TonightChange): RuleShape {
+      switch (change.type) {
+        case "pause_online":
+          return {
+            targetKind: "booking",
+            bookingTypes: ["online"],
+            payload: { version: 1, stop: { from: 0, to: REST_OF_TONIGHT } },
+          };
+        case "close_early":
+          return change.venueServiceId
+            ? {
+                targetKind: "service",
+                venueServiceId: change.venueServiceId,
+                payload: { version: 1, closeAt: change.closeAt },
+              }
+            : { targetKind: "venue", payload: { version: 1, closeAt: change.closeAt } };
+        case "stop_window":
+          return {
+            targetKind: "venue",
+            payload: { version: 1, stop: { from: change.from, to: change.to } },
+          };
+        case "block_tables":
+          return {
+            targetKind: "tables",
+            tableIds: change.tableIds,
+            payload: {
+              version: 1,
+              stop: { from: change.from ?? 0, to: change.to ?? REST_OF_TONIGHT },
+            },
+          };
+        case "pacing":
+          return { targetKind: "venue", payload: { version: 1, pacing: { covers: change.covers } } };
+      }
+    }
+    function buildRule(
+      body: SetTonightBody,
+      serviceDate: string,
+      expiresAt: Date
+    ): Extract<DateRule, { kind: "tonight" }> {
+      return {
+        id: body.ruleId,
+        kind: "tonight",
+        ...shapeOf(body.change),
+        startsOn: serviceDate,
+        endsOn: serviceDate,
+        expiresAt: expiresAt.toISOString(),
+        ...(body.guestMessage ? { guestMessage: body.guestMessage } : {}),
+        ...(body.staffNote ? { staffNote: body.staffNote } : {}),
+      };
+    }
+    function describeChange(change: TonightChange): string {
+      switch (change.type) {
+        case "pause_online":
+          return "Tonight: online booking paused";
+        case "close_early":
+          return "Tonight: closing early";
+        case "stop_window":
+          return "Tonight: booking stopped for a window";
+        case "block_tables":
+          return `Tonight: ${change.tableIds.length} table(s) blocked`;
+        case "pacing":
+          return `Tonight: pacing lowered to ${change.covers} covers`;
+      }
+    }
+    function fingerprint(rule: DateRule): string {
+      return JSON.stringify(
+        sortKeys({
+          kind: rule.kind,
+          targetKind: rule.targetKind,
+          venueServiceId: rule.venueServiceId ?? null,
+          bookingTypes: rule.bookingTypes ?? [],
+          tableIds: [...(rule.tableIds ?? [])].sort(),
+          payload: "payload" in rule ? rule.payload : null,
+        })
+      );
+    }
+    function storedSame(
+      state: ConfigState,
+      rule: DateRule
+    ): Extract<DateRule, { kind: "tonight" }> | null {
+      const existing = state.stored.dateRules.find((r) => r.id === rule.id);
+      if (!existing) return null;
+      if (existing.kind !== "tonight" || fingerprint(existing) !== fingerprint(rule)) {
+        throw new Refused({ kind: "rule_exists" });
+      }
+      return existing;
+    }
+    function closeEarlyKey(rule: DateRule): string {
+      const digest = createHash("sha256").update(fingerprint(rule)).digest("hex").slice(0, 16);
+      return `tonight:${rule.id}:${digest}`;
+    }
+    interface TonightMeta {
+      ruleId: string;
+      version: number;
+    }
+    async function replayOf(
+      tx: Db,
+      venueId: string,
+      rule: Extract<DateRule, { kind: "tonight" }>,
+      state: ConfigState
+    ): Promise<TonightResult | null> {
+      const existing = storedSame(state, rule);
+      if (!existing) return null;
+      const saved = await tx.availabilityChange.findFirst({
+        where: { venueId, kind: "tonight", inverse: { path: ["tonight", "ruleId"], equals: rule.id } },
+        select: { id: true, inverse: true },
+      });
+      const meta = (saved?.inverse as { tonight?: TonightMeta } | null | undefined)?.tonight;
+      return {
+        ruleId: rule.id,
+        version: meta?.version ?? state.version,
+        changeId: saved?.id ?? "",
+        serviceDate: existing.startsOn,
+        expiresAt: existing.expiresAt ?? rule.expiresAt ?? "",
+        outcomes: ZERO_OUTCOMES,
+      };
+    }
+    async function checkRule(
+      tx: Db,
+      venueId: string,
+      state: ConfigState,
+      rule: DateRule
+    ): Promise<AvailabilityConfig> {
+      const next: AvailabilityConfig = {
+        ...state.effective,
+        dateRules: [...state.effective.dateRules.filter((r) => r.id !== rule.id), rule],
+      };
+      const tables = await tx.table.findMany({ where: { venueId }, select: { id: true } });
+      const issues = [
+        ...validateConfig(next),
+        ...referenceIssues(next, new Set(tables.map((t) => t.id))),
+      ];
+      if (issues.length > 0) throw new Refused({ kind: "invalid", issues });
+      return next;
+    }
+    async function writeChange(
+      tx: Db,
+      input: { venueId: string; actorId: string; now: Date; body: SetTonightBody },
+      state: ConfigState,
+      rule: Extract<DateRule, { kind: "tonight" }>
+    ): Promise<TonightResult> {
+      const { venueId, actorId, now, body } = input;
+      const cas = await tx.venue.updateMany({
+        where: { id: venueId, availabilityVersion: body.expectedVersion },
+        data: { availabilityVersion: { increment: 1 } },
+      });
+      if (cas.count === 0) throw new Refused((await refuseStale(tx, venueId)) as Refusal);
+    
+      const next = await checkRule(tx, venueId, state, rule);
+      const diff = diffConfig(state.stored, next);
+      await writeConfigDiff(tx, venueId, diff, { actorId, now }).catch((e: unknown) => {
+        throw e instanceof ConfigRowConflict ? new Refused(conflictIssue(e, next) as Refusal) : e;
+      });
+      const version = body.expectedVersion + 1;
+      const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
+      const meta: TonightMeta = { ruleId: rule.id, version };
+      const change = await tx.availabilityChange.create({
+        data: {
+          venueId,
+          actorId,
+          at: now,
+          kind: "tonight",
+          summary: describeChange(body.change),
+          affectedFrom: toDbDate(range.from),
+          affectedTo: toDbDate(range.to),
+          inverse: {
+            ...inverseOf(state.stored, diff, state.operatingHours),
+            tonight: meta,
+          } as unknown as Prisma.InputJsonValue,
+        },
+        select: { id: true },
+      });
+      await tx.venue.update({
+        where: { id: venueId },
+        data: { operatingHours: projectLegacyOperatingHours(next) },
+      });
+      return {
+        ruleId: rule.id,
+        version,
+        changeId: change.id,
+        serviceDate: rule.startsOn,
+        expiresAt: rule.expiresAt ?? "",
+        outcomes: ZERO_OUTCOMES,
+      };
+    }
+    type Prepared =
+      | { kind: "saved"; result: TonightResult }
+      | { kind: "delegate"; rule: Extract<DateRule, { kind: "tonight" }> };
+    export async function setTonight(
+      input: { venueId: string; caller: ClosureCaller; body: SetTonightBody; now: Date },
+      client: StoreClient = prisma,
+      deps: TonightDeps = { createClosure }
+    ): Promise<SetTonightOutcome> {
+      const { venueId, caller, body, now } = input;
+      try {
+        const prepared = await client.$transaction(async (tx): Promise<Prepared> => {
+          await setVenueContext(tx, venueId);
+          const state = await loadConfigState(tx, venueId, now);
+          if (!state) throw new Refused({ kind: "not_found" });
+          const serviceDate = currentServiceDate(
+            { timezone: state.timezone, config: state.effective },
+            now
+          );
+          const rule = buildRule(body, serviceDate, dayBoundary(state, serviceDate));
+          if (body.change.type === "close_early") {
+            storedSame(state, rule);
+            return { kind: "delegate", rule };
+          }
+          const replayed = await replayOf(tx, venueId, rule, state);
+          if (replayed) return { kind: "saved", result: replayed };
+          const result = await writeChange(
+            tx,
+            { venueId, actorId: caller.actorId, now, body },
+            state,
+            rule
+          );
+          return { kind: "saved", result };
+        });
+        if (prepared.kind === "saved") return prepared;
+        const { rule } = prepared;
+        const closed = await deps.createClosure({
+          venueId,
+          caller,
+          body: { expectedVersion: body.expectedVersion, rule, decisions: body.decisions },
+          idempotencyKey: closeEarlyKey(rule),
+          now,
+          ruleKinds: TONIGHT_RULE_KINDS,
+        });
+        if (closed.kind !== "saved") return closed;
+        return {
+          kind: "saved",
+          result: { ...closed.result, serviceDate: rule.startsOn, expiresAt: rule.expiresAt ?? "" },
+        };
+      } catch (error) {
+        if (error instanceof Refused) return error.outcome;
+        throw error;
+      }
+    }
+    export type EndTonightOutcome = { kind: "ended"; result: ReopenResult } | { kind: "not_found" };
+    export async function endTonight(
+      input: { venueId: string; ruleId: string; caller: Pick<ClosureCaller, "actorId">; now: Date },
+      client: StoreClient = prisma
+    ): Promise<EndTonightOutcome> {
+      const { venueId, ruleId, caller, now } = input;
+      return client.$transaction(async (tx): Promise<EndTonightOutcome> => {
+        await setVenueContext(tx, venueId);
+        const state = await loadConfigState(tx, venueId, now);
+        const rule = state?.stored.dateRules.find((r) => r.id === ruleId);
+        if (!state || !rule || rule.kind !== "tonight") return { kind: "not_found" };
+    
+        const next = {
+          ...state.stored,
+          dateRules: state.stored.dateRules.filter((r) => r.id !== ruleId),
+        };
+        const diff = diffConfig(state.stored, next);
+        await writeConfigDiff(tx, venueId, diff, { actorId: caller.actorId, now });
+        const bumped = await tx.venue.update({
+          where: { id: venueId },
+          data: {
+            availabilityVersion: { increment: 1 },
+            operatingHours: projectLegacyOperatingHours(next),
+          },
+          select: { availabilityVersion: true },
+        });
+        const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
+        const change = await tx.availabilityChange.create({
+          data: {
+            venueId,
+            actorId: caller.actorId,
+            at: now,
+            kind: "tonight_end",
+            summary: "Tonight change ended",
+            affectedFrom: toDbDate(range.from),
+            affectedTo: toDbDate(range.to),
+            inverse: inverseOf(
+              state.stored,
+              diff,
+              state.operatingHours
+            ) as unknown as Prisma.InputJsonValue,
+          },
+          select: { id: true },
+        });
+        return {
+          kind: "ended",
+          result: { version: bumped.availabilityVersion, changeId: change.id },
+        };
+      });
+    }
+    export const tonightCommandService = { set: setTonight, end: endTonight };
   </file>
   <file path="services/reservations/src/services/venue-context-store.ts">
     export function runWithVenueContext<T>(venueId: string, fn: () => Promise<T>): Promise<T> {
@@ -63462,6 +64285,7 @@
     }
     export type SaveAvailabilityConfigRequest = z.input<typeof PutAvailabilityConfigBodySchema>;
     export type CreateClosureRequest = z.input<typeof CreateClosureBodySchema>;
+    export type SetTonightRequest = z.input<typeof SetTonightBodySchema>;
     export class AvailabilityClient {
       constructor(private client: ApiClient) {}
     
@@ -63645,6 +64469,30 @@
         const response = await this.client.call(availabilityConfigEndpoints.reopenClosure, {
           params: { id: venueId, ruleId },
           body: { tellCancelledGuests },
+        });
+        return response.data;
+      }
+    
+      /**
+       * Applies one Tonight change (pause online, close early, stop a window,
+       * block tables, pacing) for the current service day; it ends at the day's
+       * boundary on its own. `body.ruleId` makes a retry safe. A close-early with
+       * bookings rejects with `decision-required` until `decisions` answer each
+       * affected group.
+       */
+      async setTonight(venueId: string, body: SetTonightRequest): Promise<TonightResult> {
+        const response = await this.client.call(
+          availabilityConfigEndpoints.setTonight,
+          { params: { id: venueId }, body },
+          { idempotentRetry: true }
+        );
+        return response.data;
+      }
+    
+      /** Ends a Tonight change early; bookings a close-early cancelled stay cancelled. */
+      async endTonight(venueId: string, ruleId: string): Promise<ReopenResult> {
+        const response = await this.client.call(availabilityConfigEndpoints.endTonight, {
+          params: { id: venueId, ruleId },
         });
         return response.data;
       }
@@ -72412,6 +73260,8 @@
        * `STRIPE_SECRET_KEY`; tests inject `createInMemoryPayments`.
        */
       payments?: PaymentsPort;
+      /** Closure refund enqueue/retry. Defaults to the Prisma store over the job scheduler. */
+      closureRefunds?: ClosureRefunds;
       reservationEvents?: ReservationEventEmitter;
       waitlistNotifier?: WaitlistNotifier;
       venueMembershipLookup?: VenueMembershipLookup;
@@ -72596,6 +73446,18 @@
       });
       fastify.decorate("transitions", transitions);
     
+      // CLOSURE_REFUND (#7524): the closure route enqueues after commit; the worker
+      // below settles each deposit through DepositService.
+      const closureRefundStore = createPrismaClosureRefundStore();
+      fastify.decorate(
+        "closureRefunds",
+        options.closureRefunds ??
+          createClosureRefunds({
+            store: closureRefundStore,
+            jobs: options.jobs ?? notifierRuntime.scheduler,
+          })
+      );
+    
       // Register routes
       await fastify.register(tableRoutes, { prefix: "/api/v1/tables" });
       await fastify.register(reservationRoutes, { prefix: "/api/v1/reservations" });
@@ -72606,6 +73468,7 @@
       await fastify.register(availabilityConfigRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
       await fastify.register(availabilityChangesRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
       await fastify.register(closureRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
+      await fastify.register(tonightRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
       await fastify.register(availabilityRoutes, {
         prefix: "/api/v1/availability",
       });
@@ -72676,6 +73539,12 @@
               generateManageToken,
               handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),
               logger: fastify.log,
+              runClosureRefund: (payload, opts) =>
+                runClosureRefundJob(
+                  { deposits: services.depositService, payments, store: closureRefundStore },
+                  payload,
+                  opts
+                ),
             }),
           });
           fastify.addHook("onReady", async () => jobWorker.start(fastify.log));
@@ -74851,7 +75720,7 @@
       settle(): Promise<void>;
     }
     function reminderJobId(jobType: string, reservationId: string): string {
-      return `${jobType}:${reservationId}`;
+      return `${jobType}_${reservationId}`;
     }
     function createRecordingDispatcher(messages: RecordedMessage[]): NotificationDispatcher {
       return new Proxy({} as NotificationDispatcher, {
@@ -76794,7 +77663,7 @@
         }
       | { kind: "attendance-confirmed"; reservation: Reservation };
     export function reminderJobId(jobType: string, reservationId: string): string {
-      return `${jobType}:${reservationId}`;
+      return `${jobType}_${reservationId}`;
     }
     function reservationEvent(
       type: "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:confirmed",
@@ -77856,30 +78725,25 @@
     }
   </file>
   <file path="apps/hospitality/src/utils/venueOpenLabel.ts">
-    export const WEEKDAY_LABEL: Readonly<Record<Weekday, string>> = {
-      monday: "Monday",
-      tuesday: "Tuesday",
-      wednesday: "Wednesday",
-      thursday: "Thursday",
-      friday: "Friday",
-      saturday: "Saturday",
-      sunday: "Sunday",
-    };
     export function formatVenueOpenLabel(
       s: VenueOpenState,
-      formatClock: (hhmm: string) => string = formatLocalTime
+      formatClock: (hhmm: string) => string = formatLocalTime,
+      t: TFunction = defaultT
     ): string {
       switch (s.state) {
         case "open":
-          return `Open until ${formatClock(s.closesAt)}`;
+          return t("home.openSign.open", { time: formatClock(s.closesAt) });
         case "opening-soon":
-          return `Opens at ${formatClock(s.opensAt)}`;
+          return t("home.openSign.openingSoon", { time: formatClock(s.opensAt) });
         case "closed":
           return s.opensOn === null
-            ? `Closed, opens at ${formatClock(s.opensAt)}`
-            : `Closed, opens ${WEEKDAY_LABEL[s.opensOn]} at ${formatClock(s.opensAt)}`;
+            ? t("home.openSign.closedToday", { time: formatClock(s.opensAt) })
+            : t("home.openSign.closedOn", {
+                weekday: t(`home.openSign.weekdays.${s.opensOn}`),
+                time: formatClock(s.opensAt),
+              });
         case "unset":
-          return UNSET_LABEL;
+          return t("home.openSign.unset");
       }
     }
   </file>

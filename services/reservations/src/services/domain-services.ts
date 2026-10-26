@@ -3,6 +3,7 @@ import { availabilityConfigService } from "./availability-config.js";
 import { availabilityChangesService } from "./availability-changes.js";
 import { closureImpactService } from "./closure-impact-store.js";
 import { closureCommandService } from "./closure-command.js";
+import { tonightCommandService } from "./tonight-command.js";
 import { venueService, venueGroupService } from "./venue.js";
 import { tableService } from "./table.js";
 import { reservationService } from "./reservation.js";
@@ -42,6 +43,7 @@ export interface DomainServices {
   availabilityChangesService: typeof availabilityChangesService;
   closureImpactService: typeof closureImpactService;
   closureCommandService: typeof closureCommandService;
+  tonightCommandService: typeof tonightCommandService;
   venueService: typeof venueService;
   venueGroupService: typeof venueGroupService;
   tableService: typeof tableService;
@@ -69,6 +71,7 @@ export const defaultDomainServices: Omit<DomainServices, "depositService"> = {
   availabilityChangesService,
   closureImpactService,
   closureCommandService,
+  tonightCommandService,
   venueService,
   venueGroupService,
   tableService,

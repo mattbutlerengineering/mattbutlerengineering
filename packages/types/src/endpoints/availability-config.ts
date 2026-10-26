@@ -26,6 +26,8 @@ import {
   RevertAvailabilityChangeBodySchema,
   ReopenClosureBodySchema,
   ReopenResultSchema,
+  SetTonightBodySchema,
+  TonightResultSchema,
 } from "../schemas/availability-config-api.js";
 
 /** Mounted under the venues prefix by the reservations service. */
@@ -37,6 +39,8 @@ const ClosureParamsSchema = z.object({
   id: z.string().describe("Venue ID"),
   ruleId: z.string().describe("Date rule ID"),
 });
+
+const TonightParamsSchema = ClosureParamsSchema;
 
 const notClosureCaller = problem(
   "Caller is not a Manager, or a Host outside the emergency-close limits (whole venue, tonight, grant on)"
@@ -170,6 +174,46 @@ export const availabilityConfigEndpoints = {
       401: authRequired,
       403: notClosureCaller,
       404: problem("Venue or closure not found"),
+    },
+  }),
+  setTonight: defineEndpoint({
+    method: "POST",
+    path: `${AVAILABILITY_CONFIG_PREFIX}/:id/tonight`,
+    params: VenueParamsSchema,
+    body: SetTonightBodySchema,
+    responses: {
+      200: {
+        description:
+          "Saved for the current service day, ending at its boundary (or replayed from the same `ruleId`): the rule, the version, the day, `expiresAt` and outcome counts (all zero unless a close-early cancelled or moved bookings)",
+        body: z.object({ data: TonightResultSchema }),
+      },
+      401: authRequired,
+      403: notMember,
+      404: venueNotFound,
+      409: {
+        description:
+          "`version-conflict`, or `closure-exists` (this rule id was already used with a different change)",
+        body: AvailabilityConfigProblemSchema,
+      },
+      422: {
+        description:
+          "`invalid-config`, or for a close-early with bookings `decision-required`, `invalid-decision` or `move-unavailable`",
+        body: AvailabilityConfigProblemSchema,
+      },
+    },
+  }),
+  endTonight: defineEndpoint({
+    method: "DELETE",
+    path: `${AVAILABILITY_CONFIG_PREFIX}/:id/tonight/:ruleId`,
+    params: TonightParamsSchema,
+    responses: {
+      200: {
+        description: "Ended; bookings a close-early cancelled stay cancelled",
+        body: z.object({ data: ReopenResultSchema }),
+      },
+      401: authRequired,
+      403: notMember,
+      404: problem("Venue or Tonight change not found"),
     },
   }),
   listDays: defineEndpoint({

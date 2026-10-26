@@ -363,6 +363,24 @@
     <item priority="high">
       export const ReopenResultSchema: unknown;
     </item>
+    <item priority="high">
+      export const TonightChangeSchema: unknown;
+    </item>
+    <item priority="high">
+      export const SetTonightBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const TonightResultSchema: unknown;
+    </item>
+    <item priority="low">
+      type TonightChange = z.infer<typeof TonightChangeSchema>;
+    </item>
+    <item priority="low">
+      type SetTonightBody = z.infer<typeof SetTonightBodySchema>;
+    </item>
+    <item priority="low">
+      type TonightResult = z.infer<typeof TonightResultSchema>;
+    </item>
     <item priority="low">
       type ClosureDecision = z.infer<typeof ClosureDecisionSchema>;
     </item>

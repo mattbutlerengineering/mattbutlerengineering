@@ -49,7 +49,7 @@ const schedule = (
     op: {
       op: "schedule",
       jobType: "booking-reminder",
-      jobId: "booking-reminder:res-1",
+      jobId: "booking-reminder_res-1",
       delayMs: 7,
       payload,
     },
@@ -63,7 +63,7 @@ const replace: PlannedEffect = {
     op: {
       op: "replace-if-present",
       jobType: "booking-reminder",
-      jobId: "booking-reminder:res-1",
+      jobId: "booking-reminder_res-1",
       delayMs: 9,
       payload,
     },
@@ -77,7 +77,7 @@ describe("runEffects — executor", () => {
     const { ports, logger, messaging, events, jobs } = setup();
     await runEffects([modified("await", "log"), schedule("await", "log"), evt], ports, logger);
     expect(messaging.sent).toHaveLength(1);
-    expect(jobs.jobs.has("booking-reminder:res-1")).toBe(true);
+    expect(jobs.jobs.has("booking-reminder_res-1")).toBe(true);
     expect(events.published).toHaveLength(1);
   });
 
@@ -142,9 +142,9 @@ describe("runEffects — executor", () => {
     await runEffects([replace], ports, logger);
     expect(jobs.jobs.size).toBe(0);
 
-    await jobs.schedule("booking-reminder", payload, 1, "booking-reminder:res-1");
+    await jobs.schedule("booking-reminder", payload, 1, "booking-reminder_res-1");
     await runEffects([replace], ports, logger);
-    expect(jobs.jobs.get("booking-reminder:res-1")?.delayMs).toBe(9);
+    expect(jobs.jobs.get("booking-reminder_res-1")?.delayMs).toBe(9);
   });
 });
 
@@ -169,12 +169,12 @@ describe("D8 staff time-change chain (Review ruling 2026-10-05)", () => {
     );
 
     const { ports, logger, jobs } = setup();
-    await jobs.schedule("booking-reminder", payload, 1, "booking-reminder:res-1");
-    await jobs.schedule("day-of-reminder", payload, 1, "day-of-reminder:res-1");
+    await jobs.schedule("booking-reminder", payload, 1, "booking-reminder_res-1");
+    await jobs.schedule("day-of-reminder", payload, 1, "day-of-reminder_res-1");
     const flakyJobs: EffectPorts["jobs"] = {
       schedule: (...args) => jobs.schedule(...args),
       cancel: async (jobId) => {
-        if (jobId === "booking-reminder:res-1") throw new Error("redis down");
+        if (jobId === "booking-reminder_res-1") throw new Error("redis down");
         return jobs.cancel(jobId);
       },
     };
@@ -182,7 +182,7 @@ describe("D8 staff time-change chain (Review ruling 2026-10-05)", () => {
     await runEffects(planned, { ...ports, jobs: flakyJobs }, logger);
     await flush();
 
-    expect(jobs.jobs.get("day-of-reminder:res-1")?.delayMs).toBe(94 * HOUR);
+    expect(jobs.jobs.get("day-of-reminder_res-1")?.delayMs).toBe(94 * HOUR);
     expect(logger.error).toHaveBeenCalledTimes(1);
   });
 });

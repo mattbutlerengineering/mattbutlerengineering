@@ -4,6 +4,8 @@ import {
   ClosureActionSchema,
   DateRuleSchema,
   DateRuleTargetKindSchema,
+  GUEST_MESSAGE_MAX_LENGTH,
+  MinuteSchema,
   ScheduleAssignmentSchema,
   ScheduleSchema,
   ScheduleServiceSchema,
@@ -411,6 +413,59 @@ export const ClosureResultSchema = z.object({
 });
 
 export const ReopenResultSchema = z.object({ version: z.number().int(), changeId: z.string() });
+
+// ── Tonight ─────────────────────────────────────────────────────────────────
+
+const TonightIdSchema = z.string().min(1);
+
+/**
+ * One Tonight change a Host or Manager makes (ux.md F7). The server turns it
+ * into a `tonight` date rule for the current service day: pause online is a
+ * whole-day stop on the online channel, a table block is a stop on `tableIds`
+ * (to the end of tonight when `to` is omitted).
+ */
+export const TonightChangeSchema = z.discriminatedUnion("type", [
+  z.strictObject({ type: z.literal("pause_online") }),
+  z.strictObject({
+    type: z.literal("close_early"),
+    closeAt: MinuteSchema,
+    /** Close one service early; omitted closes every service. */
+    venueServiceId: TonightIdSchema.optional(),
+  }),
+  z.strictObject({ type: z.literal("stop_window"), from: MinuteSchema, to: MinuteSchema }),
+  z.strictObject({
+    type: z.literal("block_tables"),
+    tableIds: z.array(TonightIdSchema).min(1),
+    from: MinuteSchema.optional(),
+    to: MinuteSchema.optional(),
+  }),
+  z.strictObject({ type: z.literal("pacing"), covers: z.number().int().min(1) }),
+]);
+
+/**
+ * `POST …/tonight`. `ruleId` is chosen by the client and doubles as the
+ * idempotency handle: sending the same id again replays the first result.
+ * `decisions` answer a close-early's affected groups, as for a closure.
+ */
+export const SetTonightBodySchema = z.object({
+  expectedVersion: z.number().int().min(0),
+  ruleId: TonightIdSchema,
+  change: TonightChangeSchema,
+  guestMessage: z.string().max(GUEST_MESSAGE_MAX_LENGTH).optional(),
+  staffNote: z.string().max(500).optional(),
+  decisions: z.array(ClosureDecisionSchema).default([]),
+});
+
+export const TonightResultSchema = ClosureResultSchema.extend({
+  /** The service day the change applies to. */
+  serviceDate: ServiceDateSchema,
+  /** When it ends: the service day's boundary, as an ISO instant. */
+  expiresAt: z.string(),
+});
+
+export type TonightChange = z.infer<typeof TonightChangeSchema>;
+export type SetTonightBody = z.infer<typeof SetTonightBodySchema>;
+export type TonightResult = z.infer<typeof TonightResultSchema>;
 
 export type ClosureDecision = z.infer<typeof ClosureDecisionSchema>;
 export type CreateClosureBody = z.infer<typeof CreateClosureBodySchema>;

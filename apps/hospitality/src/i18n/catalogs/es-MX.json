@@ -596,6 +596,22 @@
   },
   "home": {
     "title": "Panel",
+    "openSign": {
+      "open": "Abierto hasta las {{time}}",
+      "openingSoon": "Abre a las {{time}}",
+      "closedToday": "Cerrado, abre a las {{time}}",
+      "closedOn": "Cerrado, abre el {{weekday}} a las {{time}}",
+      "unset": "Sin horario de operación definido",
+      "weekdays": {
+        "monday": "lunes",
+        "tuesday": "martes",
+        "wednesday": "miércoles",
+        "thursday": "jueves",
+        "friday": "viernes",
+        "saturday": "sábado",
+        "sunday": "domingo"
+      }
+    },
     "welcome": "Bienvenido de nuevo",
     "welcomeNamed": "Bienvenido de nuevo, {{name}}",
     "loadFailed": "No se pudo cargar el panel.",
@@ -1829,6 +1845,33 @@
         "theirsHeading": "Su cambio",
         "yoursHeading": "Tu borrador",
         "yourService": "{{name}} {{from}} – {{to}}"
+      }
+    },
+    "preview": {
+      "title": "Vista previa del huésped",
+      "draft": "Borrador, sin guardar",
+      "summary": "{{added}} · {{removed}}",
+      "addedCount_one": "{{count}} horario agregado",
+      "addedCount_many": "{{count}} horarios agregados",
+      "addedCount_other": "{{count}} horarios agregados",
+      "removedCount_one": "{{count}} quitado",
+      "removedCount_many": "{{count}} quitados",
+      "removedCount_other": "{{count}} quitados",
+      "added": "{{time}} agregado",
+      "removed": "{{time}} quitado",
+      "slow": "La vista previa tarda más de lo normal",
+      "unavailable": "Vista previa no disponible",
+      "unavailableHelp": "Aún puedes guardar; la revisión de reservaciones se vuelve a hacer al guardar.",
+      "retry": "Reintentar",
+      "stranded_one": "{{count}} reservación quedaría fuera de este horario",
+      "stranded_many": "{{count}} reservaciones quedarían fuera de este horario",
+      "stranded_other": "{{count}} reservaciones quedarían fuera de este horario",
+      "strandedItem": "{{date}} · {{time}} · {{size}} personas · {{reason}}",
+      "strandedMore": "y {{count}} más en fechas posteriores del alcance",
+      "reason": {
+        "closed": "cerrado",
+        "outside_service": "fuera de servicio",
+        "table_blocked": "mesa bloqueada"
       }
     },
     "discard": {

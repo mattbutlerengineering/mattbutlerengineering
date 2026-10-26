@@ -674,7 +674,7 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
       // waitlistService.expire.
       await handlers[JOB_TYPES.WAITLIST_EXPIRY]!(
         { waitlistEntryId: ctx.waitlistA, venueId: ctx.venueA.id },
-        { updateData: async () => undefined }
+        { updateData: async () => undefined, isFinalAttempt: true }
       );
 
       // Read it back through the SAME production scoping helper the app
@@ -718,7 +718,7 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
           reservationId: ctx.reservationA,
           venueId: ctx.venueA.id,
         },
-        { updateData: async () => undefined }
+        { updateData: async () => undefined, isFinalAttempt: true }
       );
       expect(sendBookingReminder).toHaveBeenCalledTimes(1);
 
@@ -733,7 +733,7 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
           reservationId: ctx.reservationA,
           venueId: ctx.venueB.id,
         },
-        { updateData: async () => undefined }
+        { updateData: async () => undefined, isFinalAttempt: true }
       );
       expect(sendBookingReminder).not.toHaveBeenCalled();
     });

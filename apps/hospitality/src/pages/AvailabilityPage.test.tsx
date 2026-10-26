@@ -73,6 +73,10 @@ vi.mock("../components/availability/AvailabilityHistoryDrawer.js", () => ({
 vi.mock("../hooks/useVenueTeam.js", () => ({
   useVenueTeam: () => ({ data: team.value, isLoading: false, error: null }),
 }));
+// The drawer's guest preview has its own suite (AvailabilityGuestPreview.test.tsx); here it idles.
+vi.mock("../hooks/useAvailabilityPreview.js", () => ({
+  useAvailabilityPreview: () => ({ result: null, isFetching: false, error: null, retry: vi.fn() }),
+}));
 vi.mock("../contexts/VenueContext.js", () => ({ useVenue: () => venue }));
 vi.mock("@mbe/availability", async (importOriginal) => ({
   ...(await importOriginal<typeof Engine>()),
