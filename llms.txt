@@ -6093,6 +6093,18 @@
       }: StaffCheckParams): StaffCheckResult { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useStaffTonight.ts">
+    <item priority="low">
+      interface StaffTonight {
+        serviceDate: string | null;
+        rules: readonly DateRule[];
+        waitlistClosed: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function useStaffTonight(venueId: string | null | undefined): StaffTonight { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useStatusMessage.ts">
     <item priority="low">
       interface StatusMessage {
@@ -24263,6 +24275,15 @@
       ): string { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/utils/current-service-date.ts">
+    <item priority="high">
+      export function currentServiceDate(
+        config: AvailabilityConfig,
+        timeZone: string,
+        now: Date
+      ): string { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/utils/format.ts">
     <item priority="medium">
       function defaultReport(timeZone: string): void { /* ... */ }
@@ -24518,6 +24539,29 @@
     </item>
     <item priority="high">
       export function stripReservationsIntent(params: URLSearchParams): URLSearchParams { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/utils/tonight-blocks.ts">
+    <item priority="high">
+      export function bookingMinuteOnServiceDay(
+        serviceDate: string,
+        date: string,
+        time: string
+      ): number | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function blockedTableIds(
+        rules: readonly DateRule[],
+        serviceDate: string,
+        startMinute: number | null,
+        durationMinutes: number
+      ): ReadonlySet<string> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function waitlistClosingRule(
+        rules: readonly DateRule[],
+        serviceDate: string
+      ): DateRule | null { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/utils/venue-wall-time.ts">

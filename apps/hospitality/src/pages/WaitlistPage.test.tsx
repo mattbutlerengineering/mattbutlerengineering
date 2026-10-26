@@ -16,7 +16,10 @@ import {
 } from "../hooks/useWaitlist.js";
 import { useTables } from "../hooks/useTables.js";
 import { useApiClient } from "../hooks/useApiClient.js";
-import type { Guest, Table, WaitlistEntry } from "@mbe/types";
+import { useStaffTonight, type StaffTonight } from "../hooks/useStaffTonight.js";
+import { useVenueTeam } from "../hooks/useVenueTeam.js";
+import { useReopenClosure } from "../hooks/useClosures.js";
+import type { DateRule, Guest, Table, WaitlistEntry } from "@mbe/types";
 import type { UseGuestLookupParams, UseGuestLookupResult } from "../hooks/useGuestLookup.js";
 import { pickAnnouncement } from "../components/crm/guest-lookup-rows.js";
 import React from "react";
@@ -49,6 +52,9 @@ vi.mock("../hooks/useWaitlist.js", () => ({
 }));
 vi.mock("../hooks/useTables.js", () => ({ useTables: vi.fn() }));
 vi.mock("../hooks/useApiClient.js", () => ({ useApiClient: vi.fn() }));
+vi.mock("../hooks/useStaffTonight.js", () => ({ useStaffTonight: vi.fn() }));
+vi.mock("../hooks/useVenueTeam.js", () => ({ useVenueTeam: vi.fn() }));
+vi.mock("../hooks/useClosures.js", () => ({ useReopenClosure: vi.fn() }));
 
 vi.mock("../components/PageHeader", () => ({
   // tabIndex={-1} like the real one: useFocusAfter's pageHeading target lands here.
@@ -309,6 +315,26 @@ const makeTable = (overrides: Partial<Table> = {}): Table => ({
   ...overrides,
 });
 
+const OPEN_TONIGHT: StaffTonight = { serviceDate: "2026-10-23", waitlistClosed: false, rules: [] };
+
+function teamResult(viewerRole: "manager" | "host"): ReturnType<typeof useVenueTeam> {
+  return {
+    data: { viewerRole } as ReturnType<typeof useVenueTeam>["data"],
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(),
+  };
+}
+
+const reopenMock = {
+  mutate: vi.fn(),
+  mutateAsync: vi.fn().mockResolvedValue({}),
+  isPending: false,
+  isSuccess: false,
+  isError: false,
+  error: null,
+} as unknown as ReturnType<typeof useReopenClosure>;
+
 function mockMutationHooks(
   overrides: {
     create?: Partial<ReturnType<typeof useCreateWaitlistEntry>>;
@@ -373,6 +399,92 @@ describe("WaitlistPage", () => {
       reservations: { walkIn: vi.fn().mockResolvedValue({ id: "res-1" }) },
     } as unknown as ReturnType<typeof useApiClient>);
     mockMutationHooks();
+    vi.mocked(useStaffTonight).mockReturnValue(OPEN_TONIGHT);
+    vi.mocked(useVenueTeam).mockReturnValue(teamResult("manager"));
+    vi.mocked(useReopenClosure).mockReturnValue(reopenMock);
+  });
+
+  describe("waitlist closed tonight (ux.md F8)", () => {
+    const closedTonight: StaffTonight = {
+      serviceDate: "2026-10-23",
+      waitlistClosed: true,
+      rules: [
+        {
+          id: "rule-wl",
+          kind: "closure",
+          targetKind: "booking",
+          bookingTypes: ["waitlist"],
+          startsOn: "2026-10-23",
+          staffNote: "kitchen backed up",
+        } as DateRule,
+      ],
+    };
+
+    it("replaces Add with the closed message and the staff note", () => {
+      vi.mocked(useStaffTonight).mockReturnValue(closedTonight);
+      vi.mocked(useWaitlist).mockReturnValue({
+        data: [],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+      renderPage();
+
+      expect(screen.getByTestId("waitlist-closed")).toHaveTextContent(
+        "Waitlist closed tonight: kitchen backed up"
+      );
+      expect(screen.queryByRole("button", { name: "Add to Waitlist" })).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Guest Name")).not.toBeInTheDocument();
+    });
+
+    it("offers Reopen waitlist to a Manager, who reopens the closing rule", async () => {
+      vi.mocked(useStaffTonight).mockReturnValue(closedTonight);
+      vi.mocked(useWaitlist).mockReturnValue({
+        data: [],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+      renderPage();
+
+      fireEvent.click(screen.getByRole("button", { name: "Reopen waitlist" }));
+
+      await waitFor(() => {
+        expect(reopenMock.mutateAsync).toHaveBeenCalledWith({
+          venueId: "venue-abc",
+          ruleId: "rule-wl",
+          tellCancelledGuests: false,
+        });
+      });
+    });
+
+    it("does not offer Reopen waitlist to a Host", () => {
+      vi.mocked(useStaffTonight).mockReturnValue(closedTonight);
+      vi.mocked(useVenueTeam).mockReturnValue(teamResult("host"));
+      vi.mocked(useWaitlist).mockReturnValue({
+        data: [],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+      renderPage();
+
+      expect(screen.getByTestId("waitlist-closed")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Reopen waitlist" })).not.toBeInTheDocument();
+    });
+
+    it("keeps the Add form when the waitlist is open", () => {
+      vi.mocked(useWaitlist).mockReturnValue({
+        data: [],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+      renderPage();
+
+      expect(screen.queryByTestId("waitlist-closed")).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Guest Name")).toBeInTheDocument();
+    });
   });
 
   describe("venue scoping of the tables query", () => {

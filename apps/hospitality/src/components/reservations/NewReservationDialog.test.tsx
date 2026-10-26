@@ -21,6 +21,10 @@ vi.mock("../../hooks/useStaffBookingCheck.js", () => ({
 vi.mock("../../hooks/useOpenTimes.js", () => ({
   useOpenTimes: () => ({ data: [], isLoading: false, error: null }),
 }));
+// Blocked tables have their own suite (NewReservationDialog.blockedTables.test.tsx).
+vi.mock("../../hooks/useStaffTonight.js", () => ({
+  useStaffTonight: () => ({ serviceDate: null, rules: [], waitlistClosed: false }),
+}));
 
 const idleLookup: UseGuestLookupResult = {
   rows: [],

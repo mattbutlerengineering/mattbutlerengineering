@@ -985,6 +985,7 @@
     "noTables": "No tables available for a party of {{size}}.",
     "table": "Table",
     "tableOption": "{{name}} (seats {{capacity}})",
+    "tableOptionBlocked": "{{name}} (seats {{capacity}}) – Blocked tonight",
     "selectTable": "Please select a table.",
     "needContact": "Please provide a guest email or phone number.",
     "cancel": "Cancel",
@@ -1156,6 +1157,14 @@
   "waitlist": {
     "title": "Waitlist",
     "description": "Guests waiting for a table",
+    "closed": {
+      "message": "Waitlist closed tonight.",
+      "withNote": "Waitlist closed tonight: {{note}}",
+      "reopen": "Reopen waitlist",
+      "reopening": "Reopening…",
+      "reopened": "Waitlist reopened.",
+      "reopenError": "Couldn't reopen the waitlist."
+    },
     "loadFailed": "Couldn't load the waitlist.",
     "empty": {
       "heading": "No one waiting",

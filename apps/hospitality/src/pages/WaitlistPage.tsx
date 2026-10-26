@@ -28,6 +28,10 @@ import {
 } from "../hooks/useWaitlist.js";
 import { useTables } from "../hooks/useTables.js";
 import { useApiClient } from "../hooks/useApiClient.js";
+import { useStaffTonight } from "../hooks/useStaffTonight.js";
+import { useVenueTeam } from "../hooks/useVenueTeam.js";
+import { WaitlistClosedNotice } from "../components/waitlist/WaitlistClosedNotice.js";
+import { waitlistClosingRule } from "../utils/tonight-blocks.js";
 import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import { LiveStatus } from "../components/LiveStatus.js";
@@ -471,6 +475,12 @@ export function WaitlistPage() {
     enabled: !!selectedVenueId,
   });
 
+  const tonight = useStaffTonight(selectedVenueId);
+  const { data: team } = useVenueTeam({ venueId: selectedVenueId });
+  const closingRule = tonight.serviceDate
+    ? waitlistClosingRule(tonight.rules, tonight.serviceDate)
+    : null;
+
   const loadFailure = queryError ? describeApiError(queryError) : null;
   const displayEntries = [...(entries ?? [])].sort((a, b) => a.position - b.position);
 
@@ -546,11 +556,20 @@ export function WaitlistPage() {
 
         {selectedVenueId && (
           <div ref={addToWaitlistFormRef} style={{ marginBlock: "var(--rialto-space-md)" }}>
-            <AddToWaitlistForm
-              venueId={selectedVenueId}
-              onAdded={handleAdded}
-              announce={announce}
-            />
+            {tonight.waitlistClosed ? (
+              <WaitlistClosedNotice
+                venueId={selectedVenueId}
+                note={closingRule?.staffNote?.trim() || null}
+                ruleId={closingRule?.id ?? null}
+                canReopen={team?.viewerRole === "manager"}
+              />
+            ) : (
+              <AddToWaitlistForm
+                venueId={selectedVenueId}
+                onAdded={handleAdded}
+                announce={announce}
+              />
+            )}
           </div>
         )}
 
@@ -561,9 +580,11 @@ export function WaitlistPage() {
               heading={t("waitlist.empty.heading")}
               description={t("waitlist.empty.description")}
               action={
-                <Button variant="primary" onClick={focusAddToWaitlistForm}>
-                  {t("waitlist.empty.add")}
-                </Button>
+                tonight.waitlistClosed ? undefined : (
+                  <Button variant="primary" onClick={focusAddToWaitlistForm}>
+                    {t("waitlist.empty.add")}
+                  </Button>
+                )
               }
             />
           </div>
