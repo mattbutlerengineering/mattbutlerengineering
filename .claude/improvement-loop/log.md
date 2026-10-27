@@ -4454,3 +4454,14 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 **queueEfficiency:** composite 0.957 (baseline n/a) — healthy
 **Difficulty distribution:** size:s:31, size:xs:33, size:m:14, size:l:6, size:xl:10
 **Issues filed:** 0
+
+## 2026-10-27 — mbe-ui-quality
+
+- **State:** `state.mjs checkout` → `source: branch`, head `bbf9795`, merged `origin/main` `5d28872`, `resolved: []`. All four builds (CLI, rialto, three apps) green — no `unreachable:build` rows.
+- **Routes:** 1 due (`hospitality reservations/manage`), 1 captured, 1 audited. 20 rows `unreachable:auth`. Marketing and rialto-web had nothing due; both capture runs skipped with "no routes planned".
+- **Unjudged:** 0. **Dropped tells:** 0. Both viewports of `reservations/manage` read cleanly and judged clean (`tells: []`).
+- **Calibration stamp:** `stale`. `calibration-status` exited 3; the single calibration attempt failed at `rate.mjs pairs --calibration` exit 2 — `docs/ui-quality/calibration.json` still has no labelled pairs (Matt's Verify-stage task, ≥ 10 pairs). Not retried. Re-query still `stale`, so rating ran anyway: 2 pairs recorded against the medusa references (both verdicts favour the reference), agent-built findings stay suppressed.
+- **Findings:** 0 mechanical, 0 judged.
+- **Filing: stopped.** `findings.mjs plan` exited 2 — 7 `ui-quality`-labelled issues the findings ledger does not reference and whose titles are no current finding title: **#7385, #7386, #7387, #7388, #7389, #7603, #7609**. This fire read incomplete state, so it planned nothing. No escalation issue written: open escalation **#7477** already tracks it. Recovery is a human's, per #7477's body — retitle each listed issue to its finding title or remove its `ui-quality` label, then close #7477. Steps (6d)–(6h) skipped as a consequence: no issues created, reopened or commented, no seeds, **no fix PR** (filing stopped before any candidate could exist), **no P1 SLA sweep**.
+- **Coverage before this fire:** 100% (135/135, provisional; first run 2026-10-01).
+- No `blocker: no-browser` — Chromium resolved at `/opt/pw-browsers/chromium_headless_shell-1243/…`. No pipeline bug.
