@@ -18,7 +18,10 @@ const device = vi.hoisted(() => ({ zone: "America/Los_Angeles" }));
 const daysHook = vi.hoisted(() => vi.fn());
 const configHook = vi.hoisted(() => vi.fn());
 const refetch = vi.hoisted(() => vi.fn());
-const configSource = vi.hoisted(() => ({ value: "rows" as "rows" | "empty" | "legacy" }));
+const configSource = vi.hoisted(() => ({
+  value: "rows" as "rows" | "empty" | "legacy",
+  migrated: false,
+}));
 const team = vi.hoisted(() => ({ value: undefined as Partial<VenueTeam> | undefined }));
 const resolved = vi.hoisted(() => ({ services: [] as unknown[] }));
 const venue = vi.hoisted(() => ({
@@ -44,6 +47,7 @@ vi.mock("../hooks/useAvailability.js", () => ({
         },
         version: 1,
         source: configSource.value,
+        ...(configSource.migrated ? { migrated: true } : {}),
       },
       isLoading: false,
       error: null,
@@ -150,6 +154,7 @@ describe("AvailabilityPage", () => {
     vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-10-28T20:00:00Z") });
     venue.selectedVenueId = "venue-1";
     configSource.value = "rows";
+    configSource.migrated = false;
     team.value = { viewerRole: "manager" };
     resolved.services = [];
     daysQuery.value = {
@@ -321,7 +326,14 @@ describe("AvailabilityPage", () => {
     expect(screen.getByText(/Your hours were carried over/)).toBeInTheDocument();
     legacy.unmount();
 
+    // After the backfill the venue reads rows; the server marks them as not yet saved over.
     configSource.value = "rows";
+    configSource.migrated = true;
+    const backfilled = renderPage();
+    expect(screen.getByText(/Your hours were carried over/)).toBeInTheDocument();
+    backfilled.unmount();
+
+    configSource.migrated = false;
     renderPage();
     expect(screen.queryByText(/Your hours were carried over/)).not.toBeInTheDocument();
   });

@@ -85,6 +85,8 @@ export const AvailabilityConfigStateSchema = z.object({
   /** `Venue.availabilityVersion`; send it back as `expectedVersion`. */
   version: z.number().int(),
   source: AvailabilityConfigSourceSchema,
+  /** `rows` the backfill wrote that no one has saved over yet (F11's "carried over" banner); absent otherwise. */
+  migrated: z.literal(true).optional(),
   /** `legacy` only: days the lenient reader closed, and values it coerced. */
   legacyNotes: z
     .object({ unreadableDays: z.array(z.string()), coercions: z.array(z.string()) })
