@@ -77,6 +77,53 @@
   border-radius: var(--rialto-radius-round);
 }
 
+/* ── Dropdown ───────────────────────────────────── */
+
+.dropdown {
+  position: relative;
+}
+
+.trigger {
+  border: none;
+  background: transparent;
+  padding-inline: 0;
+  cursor: pointer;
+}
+
+.dropdownList {
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline-start: 0;
+  z-index: var(--rialto-z-dropdown);
+  min-inline-size: 11rem;
+  margin: var(--rialto-space-xs) 0 0;
+  padding: var(--rialto-space-xs);
+  list-style: none;
+  background: var(--rialto-surface-elevated);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+}
+
+.dropdownLink {
+  display: block;
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+  text-decoration: none;
+  padding: var(--rialto-space-sm);
+  border-radius: var(--rialto-radius-default);
+}
+
+.dropdownLink:hover {
+  background: var(--rialto-surface);
+  color: var(--rialto-text-primary);
+}
+
+.dropdownLink.active {
+  color: var(--rialto-text-primary);
+  font-weight: var(--rialto-weight-medium);
+}
+
 /* ── Actions (theme toggle + hamburger) ────────── */
 
 .actions {
@@ -169,6 +216,13 @@
   padding-inline: var(--rialto-space-sm);
   border-radius: var(--rialto-radius-default);
   transition: background 0.15s var(--rialto-ease-precision);
+}
+
+.mobileGroup {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  padding-inline-start: var(--rialto-space-md);
 }
 
 .mobileLink:hover {

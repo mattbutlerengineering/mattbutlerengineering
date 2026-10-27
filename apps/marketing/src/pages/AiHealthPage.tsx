@@ -22,6 +22,7 @@ import {
 import { normalizeHealthTrends } from "../data/ai-health-trends.js";
 import { TrendChart } from "../components/TrendChart.js";
 import styles from "./AiHealthPage.module.css";
+import { DashboardPurpose } from "../components/DashboardPurpose";
 
 const PLACEHOLDER = "—";
 
@@ -366,6 +367,7 @@ export function AiHealthPage() {
         <Text className={styles.subtitle}>
           Live metrics for the AI agent system — sensors, CI, PRs, and issue pipeline
         </Text>
+        <DashboardPurpose current="/ai-health" />
         <Text className={styles.meta}>
           As of {formatTimestamp(metrics.timestamp)}
           {" · "}

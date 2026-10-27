@@ -259,6 +259,20 @@
       export function normalizeSensorReport(report: unknown): HealthMetrics { /* ... */ }
     </item>
   </file>
+  <file path="src/data/engineering-menu.ts">
+    <item priority="low">
+      interface EngineeringPage {
+        label: string;
+        href: string;
+      }
+    </item>
+    <item priority="high">
+      export const ENGINEERING_PAGES: readonly EngineeringPage[];
+    </item>
+    <item priority="high">
+      export function isEngineeringPageCurrent(pathname: string, href: string): boolean { /* ... */ }
+    </item>
+  </file>
   <file path="src/data/measurement-date.ts">
     <item priority="high">
       export const MEASUREMENT_DATE: string;

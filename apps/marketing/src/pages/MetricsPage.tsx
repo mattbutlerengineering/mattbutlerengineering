@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, Badge, Heading, Text, Spinner, Banner } from "@mattbutlerengineering/rialto";
 import { formatRatio, formatDate, isStale } from "../utils/formatters.js";
 import styles from "./MetricsPage.module.css";
+import { DashboardPurpose } from "../components/DashboardPurpose";
 
 interface BehavioralGate {
   readonly level: number;
@@ -129,6 +130,7 @@ export function MetricsPage() {
         <Text className={styles.subtitle}>
           AI Codebase Maturity Model — public metrics for mattbutlerengineering
         </Text>
+        <DashboardPurpose current="/metrics" />
         <Text className={styles.meta}>
           Last updated: {formatDate(metrics.generatedAt)}
           {" · "}

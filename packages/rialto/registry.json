@@ -2186,8 +2186,21 @@
           "type": "Partial<Record<\"marketing\" | \"hospitality\" | \"rialto\", string>> | undefined",
           "required": false,
           "description": "Link labels per app, for consumers that localize them. Omitted apps keep the English defaults."
+        },
+        {
+          "name": "menu",
+          "type": "GlobalNavMenu | undefined",
+          "required": false,
+          "description": "Optional dropdown after the app links. The trigger is marked current when any item is."
         }
       ],
+      "slots": []
+    },
+    {
+      "name": "GlobalNavMenu",
+      "description": "A dropdown of same-site links that sits after the app links (a group in the mobile menu).",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
       "slots": []
     },
     {
