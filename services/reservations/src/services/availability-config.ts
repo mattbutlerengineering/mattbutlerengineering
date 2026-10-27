@@ -14,7 +14,7 @@ import type {
   PutAvailabilityConfigBody,
   StrandedReservation,
 } from "@mbe/types";
-import type { Prisma, PrismaClient } from "../generated/prisma/index.js";
+import type { Prisma, PrismaClient, ReservationStatus } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
 import {
   affectedRange,
@@ -147,6 +147,19 @@ function readState(client: StoreClient, venueId: string, now: Date): Promise<Con
   });
 }
 
+/**
+ * Rows the backfill wrote and nobody has saved over: the backfill writes no
+ * audit row and every save writes one, so "rows, and no change yet" is the
+ * state F11's "Your hours were carried over" banner is for. No new column.
+ */
+async function isCarriedOver(db: StoreDb, venueId: string): Promise<boolean> {
+  const saved = await db.availabilityChange.findFirst({
+    where: { venueId },
+    select: { id: true },
+  });
+  return saved === null;
+}
+
 export async function getAvailabilityConfig(
   venueId: string,
   now: Date,
@@ -155,16 +168,24 @@ export async function getAvailabilityConfig(
   config: AvailabilityConfig;
   version: number;
   source: AvailabilityConfigSource;
+  migrated?: true;
   legacyNotes?: LegacyNotes;
   legacyProblem?: { reason: string; detail: string };
 } | null> {
-  const state = await readState(client, venueId, now);
+  const read = await client.$transaction(async (tx) => {
+    await setVenueContext(tx, venueId);
+    const loaded = await loadConfigState(tx, venueId, now);
+    const migrated = loaded?.source === "rows" && (await isCarriedOver(tx, venueId));
+    return { loaded, migrated };
+  });
+  const state = read.loaded;
   if (!state) return null;
   const { effective: config, version, source, legacyNotes, legacyProblem } = state;
   return {
     config,
     version,
     source,
+    ...(read.migrated ? { migrated: true as const } : {}),
     ...(legacyNotes ? { legacyNotes } : {}),
     ...(legacyProblem ? { legacyProblem } : {}),
   };
@@ -271,6 +292,31 @@ class SaveRefused extends Error {
   }
 }
 
+/**
+ * How long after its start a PENDING/CONFIRMED booking still counts as a late guest rather than
+ * a seated party. A reservation has no seated state, so a party that started longer ago than
+ * this is treated as seated and left out (Owner decision on #7685, "late guests only").
+ */
+export const LATE_GUEST_GRACE_MINUTES = 30;
+
+/**
+ * Bookings a change can still affect at `now`: those starting later, and late guests: PENDING or
+ * CONFIRMED bookings that started within the grace window and have not ended.
+ */
+export function stillToServeWhere(now: Date) {
+  const graceStart = new Date(now.getTime() - LATE_GUEST_GRACE_MINUTES * 60_000);
+  return {
+    OR: [
+      { startTime: { gte: now } },
+      {
+        status: { in: ["PENDING", "CONFIRMED"] as ReservationStatus[] },
+        startTime: { gte: graceStart },
+        endTime: { gt: now },
+      },
+    ],
+  };
+}
+
 /** Future, still-booked reservations: the ones a change could strand. */
 export async function futureBookings(
   db: StoreDb,
@@ -282,9 +328,9 @@ export async function futureBookings(
     where: {
       venueId,
       // From yesterday's service day: a service running past midnight is still
-      // yesterday's (ADR-029), and `startTime >= now` keeps the scan to the future.
+      // yesterday's (ADR-029), and `stillToServeWhere` keeps the scan to bookings not yet over.
       date: { gte: new Date(`${addDays(today, -1)}T00:00:00.000Z`) },
-      startTime: { gte: now },
+      ...stillToServeWhere(now),
       status: { notIn: [...NOT_BOOKED_STATUSES] },
     },
     select: { id: true, tableId: true, startTime: true, partySize: true, date: true },
@@ -486,13 +532,25 @@ export async function previewAvailabilityConfig(
     if (!state) return { kind: "not_found" };
     const [bookings, tables] = await Promise.all([
       futureBookings(tx, venueId, civilDateIn(now, state.timezone), now),
-      tx.table.findMany({ where: { venueId }, select: { id: true } }),
+      tx.table.findMany({
+        where: { venueId },
+        select: {
+          id: true,
+          name: true,
+          capacity: true,
+          minCovers: true,
+          maxCovers: true,
+          isActive: true,
+          priority: true,
+        },
+      }),
     ]);
     return planPreview({
       state,
       body,
       bookings,
       tableIds: new Set(tables.map((t) => t.id)),
+      tables,
       now,
     });
   });

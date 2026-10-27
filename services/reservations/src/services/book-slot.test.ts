@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type * as SlotRules from "./slot-rules.js";
 
 vi.mock("./database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
@@ -14,11 +13,6 @@ vi.mock("./database.js", async () => {
   });
 });
 
-vi.mock("./slot-rules.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof SlotRules>();
-  return { ...actual, checkPacingForSlot: vi.fn().mockReturnValue(true) };
-});
-
 vi.mock("./assert-bookable.js", () => ({
   judgeBooking: vi.fn().mockResolvedValue({ kind: "ok" }),
 }));
@@ -27,7 +21,6 @@ import { bookSlot, tableAdvisoryLockSql } from "./book-slot.js";
 import { prisma } from "./database.js";
 import { judgeBooking } from "./assert-bookable.js";
 import {
-  checkPacingForSlot,
   overlapWindow,
   activeHoldWindow,
   serviceDayConflictWindow,
@@ -85,7 +78,6 @@ function sqlOf(arg: unknown): { sql: string; values: unknown[] } {
 describe("bookSlot", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(checkPacingForSlot).mockReturnValue(true);
     vi.mocked(judgeBooking).mockResolvedValue({ kind: "ok" });
   });
 
@@ -210,33 +202,33 @@ describe("bookSlot", () => {
     }
   });
 
-  it("reads service days D-1 through D+1 in every conflict and pacing query", async () => {
+  it("reads service days D-1 through D+1 in every conflict query", async () => {
     const tx = makeTx();
     useTxOnce(tx);
 
-    await bookSlot(baseIntent({ checkHoldConflict: true, checkPacing: true }));
+    await bookSlot(baseIntent({ checkHoldConflict: true }));
 
     const window = serviceDayConflictWindow(DATE);
     expect(window).toEqual({ gte: new Date("2026-05-04"), lte: new Date("2026-05-06") });
-    const dates = [
-      tx.reservation.findFirst,
-      tx.reservation.findMany,
-      tx.reservationHold.findFirst,
-      tx.reservationHold.findMany,
-    ].map((fn) => (vi.mocked(fn).mock.calls[0]?.[0] as { where: { date: unknown } }).where.date);
-    expect(dates).toEqual([window, window, window, window]);
+    const dates = [tx.reservation.findFirst, tx.reservationHold.findFirst].map(
+      (fn) => (vi.mocked(fn).mock.calls[0]?.[0] as { where: { date: unknown } }).where.date
+    );
+    expect(dates).toEqual([window, window]);
   });
 
-  it("re-checks pacing under the lock and returns PACING_EXCEEDED when the limit is hit", async () => {
-    vi.mocked(checkPacingForSlot).mockReturnValueOnce(false);
+  it("leaves pacing to the availability gate: no pacing queries, a gate refusal is NOT_BOOKABLE", async () => {
+    const rejection = { kind: "soft-limit", limits: ["pacing"] } as never;
+    vi.mocked(judgeBooking).mockResolvedValueOnce({ kind: "rejected", rejection } as never);
     const tx = makeTx();
     useTxOnce(tx);
-    const intent = baseIntent({ checkPacing: true });
+    const intent = baseIntent({ gate: { channel: "online" } });
 
     const result = await bookSlot(intent);
 
+    expect(tx.reservation.findMany).not.toHaveBeenCalled();
+    expect(tx.reservationHold.findMany).not.toHaveBeenCalled();
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.conflict.code).toBe("PACING_EXCEEDED");
+    if (!result.ok) expect(result.conflict.code).toBe("NOT_BOOKABLE");
     expect(intent.write).not.toHaveBeenCalled();
   });
 

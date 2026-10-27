@@ -19,6 +19,8 @@ import {
   type TableFilter,
 } from "./slot-rules.js";
 
+const now = new Date();
+
 describe("estimateDuration", () => {
   it("returns 75 minutes for party of 1-2 (default rules)", () => {
     expect(estimateDuration(1)).toBe(75);
@@ -243,16 +245,16 @@ describe("checkTableConflict (pure)", () => {
   }
 
   it("returns false when no reservations or holds", () => {
-    expect(checkTableConflict("table-1", start, end, [], [])).toBe(false);
+    expect(checkTableConflict("table-1", start, end, [], [], now)).toBe(false);
   });
 
   it("returns true for an overlapping reservation on the same table", () => {
-    expect(checkTableConflict("table-1", start, end, [makeReservation()], [])).toBe(true);
+    expect(checkTableConflict("table-1", start, end, [makeReservation()], [], now)).toBe(true);
   });
 
   it("ignores reservations on a different table", () => {
     expect(
-      checkTableConflict("table-1", start, end, [makeReservation({ tableId: "table-2" })], [])
+      checkTableConflict("table-1", start, end, [makeReservation({ tableId: "table-2" })], [], now)
     ).toBe(false);
   });
 
@@ -261,7 +263,7 @@ describe("checkTableConflict (pure)", () => {
       startTime: new Date("2026-05-05T16:00:00Z"),
       endTime: start,
     });
-    expect(checkTableConflict("table-1", start, end, [res], [])).toBe(false);
+    expect(checkTableConflict("table-1", start, end, [res], [], now)).toBe(false);
   });
 
   it("treats reservation that starts exactly at end as no conflict (boundary)", () => {
@@ -269,22 +271,22 @@ describe("checkTableConflict (pure)", () => {
       startTime: end,
       endTime: new Date("2026-05-05T21:00:00Z"),
     });
-    expect(checkTableConflict("table-1", start, end, [res], [])).toBe(false);
+    expect(checkTableConflict("table-1", start, end, [res], [], now)).toBe(false);
   });
 
   it("returns true for an overlapping active hold", () => {
-    expect(checkTableConflict("table-1", start, end, [], [makeHold()])).toBe(true);
+    expect(checkTableConflict("table-1", start, end, [], [makeHold()], now)).toBe(true);
   });
 
   it("ignores an expired hold even when it overlaps", () => {
     const expired = makeHold({ expiresAt: new Date(Date.now() - 1000) });
-    expect(checkTableConflict("table-1", start, end, [], [expired])).toBe(false);
+    expect(checkTableConflict("table-1", start, end, [], [expired], now)).toBe(false);
   });
 
   it("ignores a hold on a different table", () => {
-    expect(checkTableConflict("table-1", start, end, [], [makeHold({ tableId: "table-2" })])).toBe(
-      false
-    );
+    expect(
+      checkTableConflict("table-1", start, end, [], [makeHold({ tableId: "table-2" })], now)
+    ).toBe(false);
   });
 });
 
@@ -316,30 +318,34 @@ describe("checkPacingForSlot (pure)", () => {
   }
 
   it("returns true when no pacing rules configured", () => {
-    expect(checkPacingForSlot(start, 4, null, [makeReservation()], [])).toBe(true);
-    expect(checkPacingForSlot(start, 4, undefined, [makeReservation()], [])).toBe(true);
-    expect(checkPacingForSlot(start, 4, { pacingRules: [] }, [makeReservation()], [])).toBe(true);
+    expect(checkPacingForSlot(start, 4, null, [makeReservation()], [], now)).toBe(true);
+    expect(checkPacingForSlot(start, 4, undefined, [makeReservation()], [], now)).toBe(true);
+    expect(checkPacingForSlot(start, 4, { pacingRules: [] }, [makeReservation()], [], now)).toBe(
+      true
+    );
   });
 
   it("returns true when covers within limit", () => {
     const settings = { pacingRules: [{ maxCoversPerSlot: 10 }] };
-    expect(checkPacingForSlot(start, 2, settings, [makeReservation()], [])).toBe(true);
+    expect(checkPacingForSlot(start, 2, settings, [makeReservation()], [], now)).toBe(true);
   });
 
   it("returns false when covers exceed limit", () => {
     const settings = { pacingRules: [{ maxCoversPerSlot: 4 }] };
-    expect(checkPacingForSlot(start, 2, settings, [makeReservation()], [])).toBe(false);
+    expect(checkPacingForSlot(start, 2, settings, [makeReservation()], [], now)).toBe(false);
   });
 
   it("counts active holds toward the pacing total", () => {
     const settings = { pacingRules: [{ maxCoversPerSlot: 5 }] };
-    expect(checkPacingForSlot(start, 1, settings, [makeReservation()], [makeHold()])).toBe(false);
+    expect(checkPacingForSlot(start, 1, settings, [makeReservation()], [makeHold()], now)).toBe(
+      false
+    );
   });
 
   it("excludes expired holds from the pacing total", () => {
     const settings = { pacingRules: [{ maxCoversPerSlot: 5 }] };
     const expired = makeHold({ expiresAt: new Date(Date.now() - 1000), partySize: 4 });
-    expect(checkPacingForSlot(start, 1, settings, [makeReservation()], [expired])).toBe(true);
+    expect(checkPacingForSlot(start, 1, settings, [makeReservation()], [expired], now)).toBe(true);
   });
 
   it("only counts reservations starting within the time window", () => {
@@ -348,13 +354,13 @@ describe("checkPacingForSlot (pure)", () => {
       startTime: new Date("2026-05-05T18:30:00Z"),
       partySize: 4,
     });
-    expect(checkPacingForSlot(start, 2, settings, [outside], [])).toBe(true);
+    expect(checkPacingForSlot(start, 2, settings, [outside], [], now)).toBe(true);
   });
 
   it("counts a reservation starting exactly at window start (inclusive lower bound)", () => {
     const settings = { pacingRules: [{ maxCoversPerSlot: 4, timeWindowMinutes: 15 }] };
     const atStart = makeReservation({ startTime: start, partySize: 4 });
-    expect(checkPacingForSlot(start, 1, settings, [atStart], [])).toBe(false);
+    expect(checkPacingForSlot(start, 1, settings, [atStart], [], now)).toBe(false);
   });
 
   it("excludes a reservation starting exactly at window end (exclusive upper bound)", () => {
@@ -363,7 +369,7 @@ describe("checkPacingForSlot (pure)", () => {
       startTime: new Date(start.getTime() + 15 * 60 * 1000),
       partySize: 4,
     });
-    expect(checkPacingForSlot(start, 2, settings, [atEnd], [])).toBe(true);
+    expect(checkPacingForSlot(start, 2, settings, [atEnd], [], now)).toBe(true);
   });
 });
 
@@ -400,43 +406,43 @@ describe("selectBestTable (pure)", () => {
   }
 
   it("returns null when no candidates provided", () => {
-    expect(selectBestTable([], start, end, [], [])).toBeNull();
+    expect(selectBestTable([], start, end, [], [], now)).toBeNull();
   });
 
   it("returns the single candidate when it has no conflicts", () => {
     const table = makeCandidate({ id: "t-1" });
-    expect(selectBestTable([table], start, end, [], [])).toBe(table);
+    expect(selectBestTable([table], start, end, [], [], now)).toBe(table);
   });
 
   it("returns null when only candidate has a conflicting reservation", () => {
     const table = makeCandidate({ id: "table-1" });
     const res = makeReservation({ tableId: "table-1" });
-    expect(selectBestTable([table], start, end, [res], [])).toBeNull();
+    expect(selectBestTable([table], start, end, [res], [], now)).toBeNull();
   });
 
   it("returns null when only candidate has a conflicting active hold", () => {
     const table = makeCandidate({ id: "table-1" });
     const hold = makeHold({ tableId: "table-1" });
-    expect(selectBestTable([table], start, end, [], [hold])).toBeNull();
+    expect(selectBestTable([table], start, end, [], [hold], now)).toBeNull();
   });
 
   it("priority tie: when two tables have same priority, selects smaller capacity first", () => {
     const small = makeCandidate({ id: "t-small", capacity: 2, priority: 5 });
     const large = makeCandidate({ id: "t-large", capacity: 8, priority: 5 });
-    expect(selectBestTable([small, large], start, end, [], [])!.id).toBe("t-small");
+    expect(selectBestTable([small, large], start, end, [], [], now)!.id).toBe("t-small");
   });
 
   it("capacity tie: when two tables have same capacity, selects higher priority first", () => {
     const high = makeCandidate({ id: "t-high", capacity: 4, priority: 10 });
     const low = makeCandidate({ id: "t-low", capacity: 4, priority: 3 });
-    expect(selectBestTable([high, low], start, end, [], [])!.id).toBe("t-high");
+    expect(selectBestTable([high, low], start, end, [], [], now)!.id).toBe("t-high");
   });
 
   it("skips booked tables and returns the next conflict-free one", () => {
     const booked = makeCandidate({ id: "table-1", priority: 10 });
     const free = makeCandidate({ id: "t-free", priority: 5 });
     const res = makeReservation({ tableId: "table-1" });
-    expect(selectBestTable([booked, free], start, end, [res], [])!.id).toBe("t-free");
+    expect(selectBestTable([booked, free], start, end, [res], [], now)!.id).toBe("t-free");
   });
 
   it("no-fit: returns null when all candidates conflict", () => {
@@ -444,13 +450,13 @@ describe("selectBestTable (pure)", () => {
     const t2 = makeCandidate({ id: "table-2" });
     const res1 = makeReservation({ tableId: "table-1" });
     const res2 = makeReservation({ id: "res-2", tableId: "table-2" });
-    expect(selectBestTable([t1, t2], start, end, [res1, res2], [])).toBeNull();
+    expect(selectBestTable([t1, t2], start, end, [res1, res2], [], now)).toBeNull();
   });
 
   it("ignores expired holds — expired-hold table is still selectable", () => {
     const table = makeCandidate({ id: "table-1" });
     const expiredHold = makeHold({ expiresAt: new Date(Date.now() - 1000) });
-    expect(selectBestTable([table], start, end, [], [expiredHold])).toBe(table);
+    expect(selectBestTable([table], start, end, [], [expiredHold], now)).toBe(table);
   });
 });
 
@@ -601,7 +607,8 @@ describe("conflict and pacing across midnight (service-day neighbours)", () => {
         new Date("2026-05-09T01:00:00Z"),
         new Date("2026-05-09T02:30:00Z"),
         [fridayLate],
-        []
+        [],
+        now
       )
     ).toBe(true);
   });
@@ -613,7 +620,8 @@ describe("conflict and pacing across midnight (service-day neighbours)", () => {
         new Date("2026-05-09T02:00:00Z"),
         new Date("2026-05-09T03:30:00Z"),
         [fridayLate],
-        []
+        [],
+        now
       )
     ).toBe(false);
   });
@@ -621,7 +629,7 @@ describe("conflict and pacing across midnight (service-day neighbours)", () => {
   it("counts the past-midnight booking toward pacing for a seating in the same window", () => {
     const settings = { pacingRules: [{ maxCoversPerSlot: 6, timeWindowMinutes: 30 }] } as never;
     const start = new Date("2026-05-09T00:15:00Z");
-    expect(checkPacingForSlot(start, 2, settings, [fridayLate], [])).toBe(true);
-    expect(checkPacingForSlot(start, 3, settings, [fridayLate], [])).toBe(false);
+    expect(checkPacingForSlot(start, 2, settings, [fridayLate], [], now)).toBe(true);
+    expect(checkPacingForSlot(start, 3, settings, [fridayLate], [], now)).toBe(false);
   });
 });

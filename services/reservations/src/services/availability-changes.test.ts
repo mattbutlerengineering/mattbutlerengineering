@@ -52,7 +52,7 @@ describe("listAvailabilityChanges", () => {
     });
     const old = row({ id: "chg-1", kind: "closure", inverse: { closure: { ruleId: "r" } } });
     const client = fakeClient({
-      venue: { findUnique: vi.fn(async () => ({ id: "venue-1" })) },
+      venue: { findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: TZ })) },
       availabilityChange: {
         findMany: vi.fn(async () => [withOutcome, old]),
         count: vi.fn(async () => 2),
@@ -79,7 +79,7 @@ describe("listAvailabilityChanges", () => {
     const older = row({ id: "chg-2" });
     const findMany = vi.fn(async () => [newest, older]);
     const client = fakeClient({
-      venue: { findUnique: vi.fn(async () => ({ id: "venue-1" })) },
+      venue: { findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: TZ })) },
       availabilityChange: {
         findMany,
         count: vi.fn(async () => 7),
@@ -119,7 +119,7 @@ describe("listAvailabilityChanges", () => {
       row({ id: "c", kind: "revert" }),
     ];
     const client = fakeClient({
-      venue: { findUnique: vi.fn(async () => ({ id: "venue-1" })) },
+      venue: { findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: TZ })) },
       availabilityChange: {
         findMany: vi.fn(async () => rows),
         count: vi.fn(async () => 3),
@@ -132,10 +132,10 @@ describe("listAvailabilityChanges", () => {
     expect(page?.items.map((i) => i.revertible)).toEqual([false, false, false]);
   });
 
-  it("filters by made-on dates, person and type", async () => {
+  it("filters by made-on dates as the venue's local days, person and type", async () => {
     const findMany = vi.fn(async () => []);
     const client = fakeClient({
-      venue: { findUnique: vi.fn(async () => ({ id: "venue-1" })) },
+      venue: { findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: TZ })) },
       availabilityChange: {
         findMany,
         count: vi.fn(async () => 0),
@@ -149,6 +149,8 @@ describe("listAvailabilityChanges", () => {
       client
     );
 
+    // Los Angeles: Oct 1 starts 07:00Z (PDT); Oct 31 ends at Nov 1 00:00 local, which is
+    // 07:00Z (PDT) -- a 23:30 PDT change on Oct 30 lands inside, not on Oct 31.
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
@@ -156,8 +158,74 @@ describe("listAvailabilityChanges", () => {
           actorId: "auth0|ana",
           kind: "revert",
           at: {
-            gte: new Date("2026-10-01T00:00:00.000Z"),
-            lt: new Date("2026-11-01T00:00:00.000Z"),
+            gte: new Date("2026-10-01T07:00:00.000Z"),
+            lt: new Date("2026-11-01T07:00:00.000Z"),
+          },
+        },
+      })
+    );
+  });
+
+  it("spans a daylight-saving change with the offset in force on each boundary", async () => {
+    const findMany = vi.fn(async () => []);
+    const client = fakeClient({
+      venue: { findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: TZ })) },
+      availabilityChange: {
+        findMany,
+        count: vi.fn(async () => 0),
+        findFirst: vi.fn(async () => null),
+      },
+    });
+
+    // Nov 1 2026 is the fall-back day: starts PDT (07:00Z), Nov 2 starts PST (08:00Z).
+    await listAvailabilityChanges(
+      "venue-1",
+      { ...query, from: "2026-11-01", to: "2026-11-01" },
+      client
+    );
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          venueId: "venue-1",
+          at: {
+            gte: new Date("2026-11-01T07:00:00.000Z"),
+            lt: new Date("2026-11-02T08:00:00.000Z"),
+          },
+        },
+      })
+    );
+  });
+});
+
+describe("listAvailabilityChanges in a zone whose local midnight does not exist", () => {
+  it("begins the day at the first real instant, so the previous day owns late changes", async () => {
+    const findMany = vi.fn(async () => []);
+    const client = fakeClient({
+      venue: {
+        findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: "America/Santiago" })),
+      },
+      availabilityChange: {
+        findMany,
+        count: vi.fn(async () => 0),
+        findFirst: vi.fn(async () => null),
+      },
+    });
+
+    // Santiago springs forward 00:00 -> 01:00 on 2026-09-06; the day begins at 04:00Z.
+    await listAvailabilityChanges(
+      "venue-1",
+      { limit: 25, offset: 0, from: "2026-09-05", to: "2026-09-05" },
+      client
+    );
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          venueId: "venue-1",
+          at: {
+            gte: new Date("2026-09-05T04:00:00.000Z"),
+            lt: new Date("2026-09-06T04:00:00.000Z"),
           },
         },
       })
@@ -486,5 +554,30 @@ describe("revertAvailabilityChange", () => {
     expect(dateRuleTable.deleteMany).toHaveBeenCalledWith({
       where: { venueId: "venue-1", dateRuleId: "dr-gone" },
     });
+  });
+
+  // Characterization (#7635): the rows are harmless and are kept on purpose, so this pins the
+  // decision. A revertible closure told no guest, so every row is `keep_silent` (no refund, no
+  // notice); a later close of the date saves under a fresh rule id; the sweeper, notice jobs and
+  // Special dates tab never act on or show such a row. The rows still back an idempotent replay.
+  it("leaves a reverted closure's outcome rows alone", async () => {
+    const tx = revertingTx({
+      change: row({ id: "chg-5", kind: "closure", notifiedGuests: false, inverse: inverse() }),
+    });
+    const closureOutcome = {
+      delete: vi.fn(),
+      deleteMany: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+      findMany: vi.fn(),
+    };
+
+    const outcome = await revertAvailabilityChange(
+      { ...request, expectedVersion: 5 },
+      fakeClient({ ...tx, closureOutcome })
+    );
+
+    expect(outcome).toEqual({ kind: "saved", version: 6, changeId: "chg-6" });
+    for (const fn of Object.values(closureOutcome)) expect(fn).not.toHaveBeenCalled();
   });
 });

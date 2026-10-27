@@ -355,6 +355,11 @@
       CLOSURE_REFUND: "closure-refund",
     } as const;
     export type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
+    export function jobOptionsFor(
+      jobType: JobType
+    ): typeof DEFAULT_JOB_OPTIONS | typeof CLOSURE_REFUND_JOB_OPTIONS {
+      return jobType === JOB_TYPES.CLOSURE_REFUND ? CLOSURE_REFUND_JOB_OPTIONS : DEFAULT_JOB_OPTIONS;
+    }
     export interface ReminderPayload {
       reservationId: string;
       venueId: string;
@@ -466,7 +471,7 @@
       ): Promise<string> {
         const job = await this.queue.add(jobType, payload, {
           delay: delayMs,
-          ...DEFAULT_JOB_OPTIONS,
+          ...jobOptionsFor(jobType),
           removeOnComplete: { count: 100 },
           removeOnFail: { count: 50 },
           ...(jobId !== undefined ? { jobId } : {}),
@@ -521,7 +526,7 @@
           {
             name: jobType,
             data: payload,
-            opts: { ...DEFAULT_JOB_OPTIONS },
+            opts: { ...jobOptionsFor(jobType) },
           }
         );
       }
@@ -2956,6 +2961,18 @@
       "Only a Manager can do this. A Host may close the whole venue for tonight, and only when the venue allows it.";
   </file>
   <file path="src/routes/closure-post-commit.ts">
+    export async function publishClosureChanges(
+      fastify: FastifyInstance,
+      log: FastifyBaseLogger,
+      saved: { venueId: string; ruleId: string }
+    ): Promise<void> {
+      const { venueId, ruleId } = saved;
+      try {
+        await fastify.transitions.settleClosure(venueId, await loadClosureChanges(venueId, ruleId));
+      } catch (err) {
+        log.error({ err, venueId, ruleId }, "closure SSE events were not published");
+      }
+    }
     export async function enqueueNotices(
       enqueue: FastifyInstance["services"]["closureNoticeService"]["enqueueForClosure"],
       input: { venueId: string; ruleId: string },
@@ -2973,6 +2990,7 @@
       saved: { venueId: string; ruleId: string; cancelled: number }
     ): Promise<void> {
       const { venueId, ruleId, cancelled } = saved;
+      await publishClosureChanges(fastify, log, { venueId, ruleId });
       if (cancelled > 0) {
         try {
           await fastify.closureRefunds.enqueue(venueId, ruleId);
@@ -8497,6 +8515,35 @@
         }
       });
     }
+    async function onChargeRefundUpdated(event: Stripe.Event, deps: WebhookDeps): Promise<void> {
+      const refund = event.data.object as Stripe.Refund;
+      if (refund.status !== "failed" && refund.status !== "canceled") return;
+      const depositId = refund.metadata?.depositId;
+      if (refund.metadata?.leg !== "closureRefund" || !depositId) return;
+      const paymentIntentId =
+        typeof refund.payment_intent === "string" ? refund.payment_intent : refund.payment_intent?.id;
+      if (!paymentIntentId) return;
+    
+      await withDepositVenueContext(paymentIntentId, event.type, async () => {
+        const deposit = await deps.deposits.getByPaymentIntentId(paymentIntentId);
+        if (!deposit || deposit.id !== depositId) return;
+        logger.info(
+          { depositId, paymentIntentId, refundId: refund.id, status: refund.status },
+          "closure refund failed at Stripe; marking its outcome failed"
+        );
+        // A newer live closure refund (a retry after this one failed) means this event is stale:
+        // the outcome's `done` belongs to the newer refund, so leave it alone.
+        const live = await deps.payments.findDepositRefund(paymentIntentId, depositId, "closureRefund");
+        if (live && live.id !== refund.id) return;
+        const result = await markDoneRefundFailed(deposit.reservationId);
+        // Still `pending`: the job is between createPartialRefund and recording `done`. Throw so
+        // the route answers 500 and Stripe redelivers (it stops after ~3 days), by which time
+        // the outcome is `done` and the redelivery flips it.
+        if (result === "pending") {
+          throw new Error(`closure refund ${refund.id} failed before its outcome was recorded done`);
+        }
+      });
+    }
     function createWebhookRouter(deps: WebhookDeps): WebhookEventRouter {
       return new WebhookEventRouter()
         .register("payment_intent.succeeded", (event) => onPaymentIntentSucceeded(event, deps))
@@ -8504,7 +8551,8 @@
           onPaymentIntentAmountCapturableUpdated(event, deps)
         )
         .register("payment_intent.canceled", (event) => onPaymentIntentCanceled(event, deps))
-        .register("charge.refunded", (event) => onChargeRefunded(event, deps));
+        .register("charge.refunded", (event) => onChargeRefunded(event, deps))
+        .register("charge.refund.updated", (event) => onChargeRefundUpdated(event, deps));
     }
     export const stripeWebhookRoutes: FastifyPluginAsync = async (fastify) => {
       // Scoped to this plugin's routes only (fastify.register encapsulation) — captures
@@ -10546,6 +10594,8 @@
       excludeHoldId?: string;
       /** Exclude this session ID's holds from conflict checks (used during hold create). */
       excludeSessionId?: string;
+      /** The instant hold expiry is judged against. Defaults to the wall clock. */
+      now?: Date;
     }
     export function assertBookable(opts: AssertBookableOptions): BookableError | undefined {
       const {
@@ -10556,6 +10606,7 @@
         holds,
         excludeHoldId,
         excludeSessionId,
+        now = new Date(),
       } = opts;
     
       if (opts.table && !partyFitsTable(opts.table, partySize)) {
@@ -10581,7 +10632,8 @@
         startTime,
         endTime,
         opts.reservations,
-        filteredHolds
+        filteredHolds,
+        now
       );
       if (hasConflict) {
         return { code: "CONFLICT", message: "Table is not available for this time slot" };
@@ -10592,7 +10644,8 @@
         partySize,
         settings,
         opts.reservations,
-        filteredHolds
+        filteredHolds,
+        now
       );
       if (!pacingOk) {
         const maxCovers = settings?.pacingRules?.[0]?.maxCoversPerSlot;
@@ -10631,6 +10684,8 @@
       channel: BookingChannel;
       /** A staff reason to pass a soft limit. Honoured on the phone channel only; closures never yield. */
       override?: { reason: string };
+      /** Where the reservation being moved starts now; lets a booking kept through a closure move within its date. */
+      movingFrom?: Date;
       /** The reservation being moved; it must not conflict or pace against itself. */
       excludeReservationId?: string;
       /** The hold being confirmed or moved onto. */
@@ -10684,6 +10739,7 @@
           channel: request.channel,
           tableId: request.tableId,
           override: request.override,
+          movingFrom: request.movingFrom,
         },
         now
       );
@@ -10819,6 +10875,13 @@
   </file>
   <file path="src/services/availability-changes.ts">
     export const REVERT_KIND = "revert";
+    function dayStart(d: string, timezone: string): Date {
+      return (
+        serviceDayInstant(d, 0, timezone) ??
+        serviceDayInstant(d, 60, timezone) ??
+        new Date(`${d}T00:00:00.000Z`)
+      );
+    }
     function outcomeOf(kind: string, inverse: unknown): AvailabilityChangeOutcome | null {
       if (kind !== "closure") return null;
       const meta = (inverse as { closure?: { outcome?: AvailabilityChangeOutcome } } | null)?.closure;
@@ -10826,7 +10889,8 @@
     }
     function whereOf(
       venueId: string,
-      query: AvailabilityChangesParsed
+      query: AvailabilityChangesParsed,
+      timezone: string
     ): Prisma.AvailabilityChangeWhereInput {
       return {
         venueId,
@@ -10835,8 +10899,8 @@
         ...(query.from || query.to
           ? {
               at: {
-                ...(query.from ? { gte: dayStart(query.from) } : {}),
-                ...(query.to ? { lt: dayStart(addDays(query.to, 1)) } : {}),
+                ...(query.from ? { gte: dayStart(query.from, timezone) } : {}),
+                ...(query.to ? { lt: dayStart(addDays(query.to, 1), timezone) } : {}),
               },
             }
           : {}),
@@ -10858,9 +10922,12 @@
       return client.$transaction(async (tx) => {
         await setVenueContext(tx, venueId);
         const db = tx as unknown as StoreTx;
-        const venue = await db.venue.findUnique({ where: { id: venueId }, select: { id: true } });
+        const venue = await db.venue.findUnique({
+          where: { id: venueId },
+          select: { id: true, ianaTimezone: true },
+        });
         if (!venue) return null;
-        const where = whereOf(venueId, query);
+        const where = whereOf(venueId, query, venue.ianaTimezone);
         const [rows, total, newest] = await Promise.all([
           db.availabilityChange.findMany({
             where,
@@ -11654,6 +11721,13 @@
         return loadConfigState(tx, venueId, now);
       });
     }
+    async function isCarriedOver(db: StoreDb, venueId: string): Promise<boolean> {
+      const saved = await db.availabilityChange.findFirst({
+        where: { venueId },
+        select: { id: true },
+      });
+      return saved === null;
+    }
     export async function getAvailabilityConfig(
       venueId: string,
       now: Date,
@@ -11662,16 +11736,24 @@
       config: AvailabilityConfig;
       version: number;
       source: AvailabilityConfigSource;
+      migrated?: true;
       legacyNotes?: LegacyNotes;
       legacyProblem?: { reason: string; detail: string };
     } | null> {
-      const state = await readState(client, venueId, now);
+      const read = await client.$transaction(async (tx) => {
+        await setVenueContext(tx, venueId);
+        const loaded = await loadConfigState(tx, venueId, now);
+        const migrated = loaded?.source === "rows" && (await isCarriedOver(tx, venueId));
+        return { loaded, migrated };
+      });
+      const state = read.loaded;
       if (!state) return null;
       const { effective: config, version, source, legacyNotes, legacyProblem } = state;
       return {
         config,
         version,
         source,
+        ...(read.migrated ? { migrated: true as const } : {}),
         ...(legacyNotes ? { legacyNotes } : {}),
         ...(legacyProblem ? { legacyProblem } : {}),
       };
@@ -11766,6 +11848,20 @@
         super(outcome.kind);
       }
     }
+    export const LATE_GUEST_GRACE_MINUTES = 30;
+    export function stillToServeWhere(now: Date) {
+      const graceStart = new Date(now.getTime() - LATE_GUEST_GRACE_MINUTES * 60_000);
+      return {
+        OR: [
+          { startTime: { gte: now } },
+          {
+            status: { in: ["PENDING", "CONFIRMED"] as ReservationStatus[] },
+            startTime: { gte: graceStart },
+            endTime: { gt: now },
+          },
+        ],
+      };
+    }
     export async function futureBookings(
       db: StoreDb,
       venueId: string,
@@ -11776,9 +11872,9 @@
         where: {
           venueId,
           // From yesterday's service day: a service running past midnight is still
-          // yesterday's (ADR-029), and `startTime >= now` keeps the scan to the future.
+          // yesterday's (ADR-029), and `stillToServeWhere` keeps the scan to bookings not yet over.
           date: { gte: new Date(`${addDays(today, -1)}T00:00:00.000Z`) },
-          startTime: { gte: now },
+          ...stillToServeWhere(now),
           status: { notIn: [...NOT_BOOKED_STATUSES] },
         },
         select: { id: true, tableId: true, startTime: true, partySize: true, date: true },
@@ -11947,13 +12043,25 @@
         if (!state) return { kind: "not_found" };
         const [bookings, tables] = await Promise.all([
           futureBookings(tx, venueId, civilDateIn(now, state.timezone), now),
-          tx.table.findMany({ where: { venueId }, select: { id: true } }),
+          tx.table.findMany({
+            where: { venueId },
+            select: {
+              id: true,
+              name: true,
+              capacity: true,
+              minCovers: true,
+              maxCovers: true,
+              isActive: true,
+              priority: true,
+            },
+          }),
         ]);
         return planPreview({
           state,
           body,
           bookings,
           tableIds: new Set(tables.map((t) => t.id)),
+          tables,
           now,
         });
       });
@@ -12226,6 +12334,8 @@
       /** Future, still-booked reservations, each with its service date. */
       bookings: readonly BookedReservation[];
       tableIds: ReadonlySet<string>;
+      /** The venue's tables, so a party size narrows the times to those a table fits. */
+      tables?: readonly EngineTable[];
       now: Date;
       newId?: () => string;
     }
@@ -12238,7 +12348,7 @@
     }
     export function planPreview(input: PreviewInput): PreviewPlan {
       const { state, body, now } = input;
-      const { draft, scope, focusDate, strandedOffset } = body;
+      const { draft, scope, focusDate, strandedOffset, compareWith, partySize } = body;
       const { next, issues } = settleDraft({
         snapshot: { timezone: state.timezone, config: state.effective },
         changes: draft.changes,
@@ -12250,13 +12360,30 @@
       });
       if (issues.length > 0) return { kind: "invalid", issues };
     
-      const before = structural(state.timezone, state.effective);
-      const after = structural(state.timezone, next);
+      // Inactive tables never seat anyone, so they do not make the venue "have tables".
+      const tables = (input.tables ?? []).filter((t) => t.isActive);
+      const before = structural(state.timezone, state.effective, tables);
+      const after = structural(state.timezone, next, tables);
+      // The regular week is what the venue normally does each weekday: undated assignments only,
+      // no date rules (no closures, special hours or seasons).
+      const base =
+        compareWith === "regularWeek"
+          ? structural(
+              state.timezone,
+              {
+                ...state.effective,
+                dateRules: [],
+                assignments: state.effective.assignments.filter((a) => !a.startsOn && !a.endsOn),
+              },
+              tables
+            )
+          : before;
       const dates = Array.from({ length: PREVIEW_WINDOW_DAYS }, (_, i) => addDays(focusDate, i));
-      const days = diffDays(before, after, dates, {
-        partySize: PREVIEW_PARTY_SIZE,
+      const days = diffDays(base, after, dates, {
+        partySize,
         channel: "online",
         now,
+        bookableOnly: tables.length > 0,
       });
     
       const focus = resolveDay(after, focusDate);
@@ -12787,7 +12914,7 @@
     
       const { reservations, holds } = await fetchConflictData(venueId, date);
     
-      return selectBestTable(tables, startTime, endTime, reservations, holds) as Table | null;
+      return selectBestTable(tables, startTime, endTime, reservations, holds, new Date());
     }
     async function findSuitableTables(venueId: string, partySize: number): Promise<Table[]> {
       // The party-fits rule (maxCovers ?? capacity as the ceiling) lives in one
@@ -12852,7 +12979,7 @@
     export function venueShareLockSql(venueId: string): Prisma.Sql {
       return Prisma.sql`SELECT 1 FROM venues WHERE id = ${venueId} FOR SHARE`;
     }
-    export type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED" | "NOT_BOOKABLE";
+    export type SlotConflictCode = "CONFLICT" | "EXPIRED" | "NOT_BOOKABLE";
     export type SlotConflict =
       | { code: Exclude<SlotConflictCode, "NOT_BOOKABLE">; message: string }
       | { code: "NOT_BOOKABLE"; message: string; rejection: GateRejection };
@@ -12860,30 +12987,28 @@
     export interface BookSlotIntent<T> {
       /** Table whose slot is written; keys the advisory lock and conflict re-check. */
       tableId: string;
-      /** Venue for the pacing re-check; null/undefined skips pacing. */
+      /** Venue the availability gate judges; null/undefined skips the gate. */
       venueId?: string | null;
-      /** Date-only used by the in-transaction conflict/pacing queries. */
+      /** Date-only used by the in-transaction conflict queries. */
       date: Date;
       /** Slot window — [startTime, endTime). */
       window: { startTime: Date; endTime: Date };
-      /** Party size added when computing the pacing re-check. */
+      /** Party size being booked. */
       partySize: number;
       /** Reservation excluded from the conflict re-check (moving an existing reservation). */
       excludeReservationId?: string;
-      /** Hold excluded from the conflict/pacing re-check (confirming that hold). */
+      /** Hold excluded from the conflict re-check (confirming that hold). */
       excludeHoldId?: string;
       /** Session whose holds are excluded from the re-check (own session's holds during hold-create). */
       excludeSessionId?: string;
       /** Also re-check conflicting holds (not just reservations). */
       checkHoldConflict?: boolean;
-      /** Re-check pacing under the lock. Requires venueId. */
-      checkPacing?: boolean;
       /**
        * Judge the slot against the venue's resolved availability under the lock,
        * reading the committed configuration through this transaction
        * ({@link judgeBooking}). Requires venueId. Walk-ins never set it.
        */
-      gate?: { channel: BookingChannel; override?: { reason: string } };
+      gate?: { channel: BookingChannel; override?: { reason: string }; movingFrom?: Date };
       /**
        * Runs immediately after the lock, before the conflict re-check. Returning a
        * {@link SlotConflict} short-circuits the write (e.g. a hold that expired
@@ -12892,7 +13017,7 @@
       guard?: (tx: Prisma.TransactionClient) => Promise<SlotConflict | undefined>;
       /**
        * Runs inside the transaction whenever the slot is unbookable (guard,
-       * conflict, or pacing), before {@link bookSlot} returns — e.g. deleting the
+       * conflict, or gate refusal), before {@link bookSlot} returns — e.g. deleting the
        * hold that could not be confirmed.
        */
       onUnbookable?: (tx: Prisma.TransactionClient, conflict: SlotConflict) => Promise<void>;
@@ -12909,12 +13034,10 @@
         venueId,
         date,
         window: { startTime, endTime },
-        partySize,
         excludeReservationId,
         excludeHoldId,
         excludeSessionId,
         checkHoldConflict = false,
-        checkPacing = false,
         gate,
         guard,
         onUnbookable,
@@ -12979,42 +13102,6 @@
           }
         }
     
-        if (checkPacing && venueId) {
-          const now = new Date();
-          const reservations = await tx.reservation.findMany({
-            where: { venueId, date: serviceDays, status: { notIn: [...NOT_BOOKED_STATUSES] } },
-            select: { id: true, tableId: true, startTime: true, endTime: true, partySize: true },
-          });
-          const holds = await tx.reservationHold.findMany({
-            where: {
-              venueId,
-              date: serviceDays,
-              expiresAt: activeHoldWindow(now),
-              ...(excludeHoldId ? { id: { not: excludeHoldId } } : {}),
-              ...(excludeSessionId ? { sessionId: { not: excludeSessionId } } : {}),
-            },
-            select: {
-              id: true,
-              tableId: true,
-              startTime: true,
-              endTime: true,
-              partySize: true,
-              expiresAt: true,
-            },
-          });
-          const settings = (
-            await tx.venue.findUnique({ where: { id: venueId }, select: { settings: true } })
-          )?.settings as VenueSettings | null | undefined;
-    
-          const pacingOk = checkPacingForSlot(startTime, partySize, settings, reservations, holds);
-          if (!pacingOk) {
-            return fail({
-              code: "PACING_EXCEEDED",
-              message: "Pacing limit reached for this time slot",
-            });
-          }
-        }
-    
         let gated: { overrideLimits?: SoftLimit[] } = {};
         if (gate && venueId) {
           const verdict = await availabilityVerdict(tx, { ...intent, venueId }, gate);
@@ -13040,6 +13127,7 @@
         partySize: intent.partySize,
         channel: gate.channel,
         override: gate.override,
+        movingFrom: gate.movingFrom,
         excludeReservationId: intent.excludeReservationId,
         excludeHoldId: intent.excludeHoldId,
         excludeSessionId: intent.excludeSessionId,
@@ -13328,6 +13416,8 @@
       reservationId: string;
       action: ClosureAction;
       movedTo: Date | null;
+      /** The start the impact was computed from; a booking a staff edit moved since is not ours to touch. */
+      expectedStartTime: Date;
     }
     export type ApplyResult =
       | { kind: "ok" }
@@ -13346,7 +13436,8 @@
       tx: Tx,
       venueId: string,
       actorId: string,
-      r: Existing
+      r: Existing,
+      expectedStartTime: Date
     ): Promise<ApplyResult> {
       try {
         transitionReservation(r.status as never, "CANCELLED");
@@ -13357,7 +13448,7 @@
         throw error;
       }
       const { count } = await tx.reservation.updateMany({
-        where: { id: r.id, venueId, status: r.status as never },
+        where: { id: r.id, venueId, status: r.status as never, startTime: expectedStartTime },
         data: {
           status: "CANCELLED",
           cancellationReason: "venue_closure",
@@ -13413,12 +13504,13 @@
       venueId: string,
       actorId: string,
       r: Existing,
-      startTime: Date
+      startTime: Date,
+      expectedStartTime: Date
     ): Promise<boolean> {
       const endTime = new Date(startTime.getTime() + (r.endTime.getTime() - r.startTime.getTime()));
       if (r.tableId && (await targetTaken(tx, venueId, r, startTime, endTime))) return false;
       const { count } = await tx.reservation.updateMany({
-        where: { id: r.id, venueId, status: r.status as never },
+        where: { id: r.id, venueId, status: r.status as never, startTime: expectedStartTime },
         data: { startTime, endTime },
       });
       if (count === 0) return false;
@@ -13461,9 +13553,9 @@
         const r = byId.get(p.reservationId);
         if (!r) continue;
         if (p.action === "cancel") {
-          const result = await cancelInTx(tx, venueId, actorId, r);
+          const result = await cancelInTx(tx, venueId, actorId, r, p.expectedStartTime);
           if (result.kind !== "ok") return result;
-        } else if (!(await moveInTx(tx, venueId, actorId, r, p.movedTo as Date))) {
+        } else if (!(await moveInTx(tx, venueId, actorId, r, p.movedTo as Date, p.expectedStartTime))) {
           conflicts.push(r.id);
         }
       }
@@ -13472,11 +13564,35 @@
         : { kind: "ok" };
     }
   </file>
+  <file path="src/services/closure-changes.ts">
+    export interface ClosureChanges {
+      cancelled: Reservation[];
+      moved: Reservation[];
+    }
+    export async function loadClosureChanges(venueId: string, ruleId: string): Promise<ClosureChanges> {
+      const outcomes = await runWithVenueContext(venueId, () =>
+        prisma.closureOutcome.findMany({
+          where: { venueId, dateRuleId: ruleId, action: { in: ["cancel", "move"] } },
+          select: { action: true, reservation: { include: { table: true } } },
+        })
+      );
+      const pick = (action: string, cancelled: boolean): Reservation[] =>
+        outcomes
+          .filter((o) => o.action === action && (o.reservation.status === "CANCELLED") === cancelled)
+          .map((o) => toReservation(o.reservation));
+      return { cancelled: pick("cancel", true), moved: pick("move", false) };
+    }
+  </file>
   <file path="src/services/closure-command-plan.ts">
     export type DecisionCheck =
       | { kind: "ok"; actions: ReadonlyMap<string, ClosureDecision> }
       | { kind: "decision-required"; groupKeys: string[] }
       | { kind: "invalid-decision"; groupKeys: string[] };
+    function membershipChanged(group: ClosureImpactGroup, decision: ClosureDecision): boolean {
+      if (decision.reservationIds === undefined) return false;
+      const seen = new Set(decision.reservationIds);
+      return seen.size !== group.reservations.length || group.reservations.some((r) => !seen.has(r.id));
+    }
     export function checkDecisions(
       impact: ClosureImpact,
       decisions: readonly ClosureDecision[]
@@ -13484,8 +13600,16 @@
       const groups = new Map(impact.groups.map((g) => [g.groupKey, g]));
       const seen = new Set<string>();
       const invalid: string[] = [];
+      const vanished: string[] = [];
       for (const d of decisions) {
         const group = groups.get(d.groupKey);
+        // A group the Manager saw (the decision names its bookings) that is gone now is stale, not
+        // invalid: every booking in it was cancelled or moved since the preview.
+        if (!group && d.reservationIds !== undefined && !seen.has(d.groupKey)) {
+          vanished.push(d.groupKey);
+          seen.add(d.groupKey);
+          continue;
+        }
         const bad =
           !group || seen.has(d.groupKey) || (d.action === "move" && group.kind !== "shortened");
         if (bad) invalid.push(d.groupKey);
@@ -13498,10 +13622,15 @@
         .map((g) => g.groupKey)
         .filter((key) => {
           const d = answered.get(key);
-          return !d || (d.action === "keep_silent" && d.acknowledged !== true);
+          return (
+            !d ||
+            (d.action === "keep_silent" && d.acknowledged !== true) ||
+            membershipChanged(groups.get(key)!, d)
+          );
         });
-      return missing.length > 0
-        ? { kind: "decision-required", groupKeys: missing }
+      const stale = [...missing, ...vanished];
+      return stale.length > 0
+        ? { kind: "decision-required", groupKeys: stale }
         : { kind: "ok", actions: answered };
     }
     export function countActions(actions: readonly ClosureAction[]): Record<ClosureAction, number> {
@@ -13809,6 +13938,8 @@
       rows: Prisma.ClosureOutcomeCreateManyInput[];
       counts: Record<ClosureAction, number>;
       notifiedGuests: boolean;
+      /** Each reservation's start when the impact was computed, for the apply step's CAS. */
+      starts: ReadonlyMap<string, Date>;
     }
     function planOutcomes(
       venueId: string,
@@ -13823,11 +13954,13 @@
       const after = { timezone: state.timezone, config: withClosure(state.effective, rule, alongside) };
       const rows: Prisma.ClosureOutcomeCreateManyInput[] = [];
       const stuck: string[] = [];
+      const starts = new Map<string, Date>();
       for (const group of impact.groups) {
         const action = actions.get(group.groupKey)!.action; // checkDecisions answered every group
         for (const r of group.reservations) {
           const target = action === "move" ? moveTarget(after, group.date, r, now) : null;
           if (action === "move" && !target) stuck.push(r.id);
+          starts.set(r.id, new Date(r.startTime));
           rows.push({
             venueId,
             dateRuleId: rule.id,
@@ -13843,7 +13976,7 @@
       const counts = { cancel: 0, move: 0, keep_notify: 0, keep_silent: 0 };
       for (const row of rows) counts[row.action] += 1;
       const notifiedGuests = [...actions.values()].some((d) => d.action !== "keep_silent");
-      return { rows, counts, notifiedGuests };
+      return { rows, counts, notifiedGuests, starts };
     }
     function describe(rule: DateRule, counts: Record<ClosureAction, number>): string {
       const span =
@@ -14016,6 +14149,7 @@
           reservationId: r.reservationId,
           action: r.action,
           movedTo: r.movedTo as Date | null,
+          expectedStartTime: plan.starts.get(r.reservationId) as Date,
         }))
       );
       if (applied.kind === "move_conflict") {
@@ -14237,7 +14371,7 @@
         where: {
           venueId,
           date: { gte: toDbDate(range.from), lte: toDbDate(range.to) },
-          startTime: { gte: now },
+          ...stillToServeWhere(now),
           status: { notIn: [...NOT_BOOKED_STATUSES] },
         },
         select: {
@@ -14248,13 +14382,20 @@
           endTime: true,
           partySize: true,
           guestName: true,
-          deposit: { select: { amountCents: true, currency: true, status: true } },
+          deposit: {
+            select: {
+              amountCents: true,
+              currency: true,
+              status: true,
+              stripePaymentIntentId: true,
+            },
+          },
         },
       });
       const bookings: ImpactBooking[] = rows.map(({ deposit, ...row }) => ({
         ...row,
         heldDeposit:
-          deposit && LIVE_DEPOSIT_STATUSES.has(deposit.status)
+          deposit && owesRefund(deposit)
             ? { amountCents: deposit.amountCents, currency: deposit.currency }
             : null,
       }));
@@ -14293,7 +14434,7 @@
       endTime: Date;
       partySize: number;
       guestName: string | null;
-      /** Set for a non-terminal deposit (`pending` or `held`). Named for the common case. */
+      /** Set for a deposit a cancel owes a refund or void on: live (`pending`/`held`) or captured with a payment intent. Named for the common case. */
       heldDeposit: { amountCents: number; currency: string } | null;
     }
     function kindOf(rule: DateRule): ClosureImpactKind {
@@ -15198,6 +15339,12 @@
             data: { refund: "pending" },
           });
         },
+        reopenDone: async (outcomeId) => {
+          await prisma.closureOutcome.updateMany({
+            where: { id: outcomeId, refund: "done" },
+            data: { refund: "pending" },
+          });
+        },
         markFailed: async (outcomeId) => {
           await prisma.closureOutcome.updateMany({
             where: { id: outcomeId, refund: { notIn: ["done", "none"] } },
@@ -15210,6 +15357,20 @@
             select: { id: true, reservationId: true, refund: true },
           }),
       };
+    }
+    export async function markDoneRefundFailed(
+      reservationId: string
+    ): Promise<"flipped" | "pending" | "unchanged"> {
+      const { count } = await prisma.closureOutcome.updateMany({
+        where: { reservationId, refund: "done" },
+        data: { refund: "failed" },
+      });
+      if (count > 0) return "flipped";
+      const pending = await prisma.closureOutcome.findFirst({
+        where: { reservationId, refund: "pending" },
+        select: { id: true },
+      });
+      return pending ? "pending" : "unchanged";
     }
   </file>
   <file path="src/services/closure-refund.ts">
@@ -15231,6 +15392,12 @@
        * reset, so the failure is never overwritten.
        */
       resetToPending(outcomeId: string): Promise<void>;
+      /**
+       * Returns a `done` outcome to `pending`. Conditional on `done`. Used when the live deposit
+       * contradicts `done`, so a failed re-run is recorded as `failed` (which Manager Retry can
+       * re-run) instead of the no-op `markFailed` leaves on a settled row.
+       */
+      reopenDone(outcomeId: string): Promise<void>;
       /** Records `failed`, leaving an outcome a concurrent run already settled (`done` / `none`). */
       markFailed(outcomeId: string): Promise<void>;
       /** Outcomes of one closure whose refund is in one of `statuses`. */
@@ -15292,19 +15459,19 @@
       }
       if (await deps.payments.findDepositRefund(pi, deposit.id, "closureRefund")) return "done";
     
-      const ownLeg =
-        deposit.status === "partial_refunded"
-          ? ((await deps.payments.findDepositRefund(pi, deposit.id, "refundPartial"))?.amount ?? 0)
-          : 0;
-      const owed = deposit.amountCents - ownLeg - (deposit.postCaptureRefundCents ?? 0);
+      // Stripe's own totals on the charge (refunded = succeeded + pending refunds, never failed
+      // ones). They already include the deposit's own refundPartial leg and any dashboard refund,
+      // so they replace both the leg lookup and the webhook-fed postCaptureRefundCents, which only
+      // ever grows and so kept counting a closure refund that later failed (#7790). A dashboard
+      // capture can be smaller than the deposit, so cap at what was captured.
+      const { capturedCents, refundedCents } = await deps.payments.getChargeAmounts(pi);
+      const owed = Math.min(deposit.amountCents, capturedCents) - refundedCents;
       if (owed <= 0) return "done";
-      await deps.payments.createPartialRefund(
-        pi,
-        owed,
-        deposit.id,
-        `${deposit.id}:closureRefund`,
-        "closureRefund"
-      );
+      // An earlier attempt at this amount that failed at Stripe would be replayed from the
+      // idempotency cache under the same key, so each failure moves the key on.
+      const failed = await deps.payments.countFailedDepositRefunds(pi, deposit.id, "closureRefund");
+      const key = `${deposit.id}:closureRefund:${owed}${failed > 0 ? `:${failed}` : ""}`;
+      await deps.payments.createPartialRefund(pi, owed, deposit.id, key, "closureRefund");
       return "done";
     }
     async function resolvePending(deps: ClosureRefundDeps, deposit: Deposit): Promise<Settled | null> {
@@ -15331,18 +15498,66 @@
           throw new Error(`Payment ${pi} is ${intent.status}; try again`);
       }
     }
+    async function confirmRefundedIntentVoid(deps: ClosureRefundDeps, deposit: Deposit): Promise<void> {
+      const pi = deposit.stripePaymentIntentId;
+      if (!pi) return;
+      const intent = await deps.payments.retrievePaymentIntent(pi);
+      if (intent.status === "requires_capture") {
+        await deps.payments.cancelPaymentIntent(pi, `${deposit.id}:refund`);
+      } else if (intent.status === "succeeded" || intent.status === "processing") {
+        // The rollback to `held` failed after a capture; the row lies. Never record `done`.
+        throw new ClosureRefundPermanentError(
+          `Deposit ${deposit.id} is refunded but its payment ${pi} is ${intent.status}; refund it by hand`
+        );
+      }
+    }
+    async function refundHeld(deps: ClosureRefundDeps, deposit: Deposit): Promise<void> {
+      try {
+        await deps.deposits.refund(deposit.id);
+      } catch (error) {
+        // Also thrown when the intent is `processing`, not only `succeeded`.
+        if (error instanceof DepositAlreadyCapturedError) {
+          throw new ClosureRefundPermanentError(
+            `Deposit ${deposit.id} was captured outside the app; refund it by hand`
+          );
+        }
+        throw error;
+      }
+    }
     async function settleOnce(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<Settled | null> {
       const deposit = await deps.deposits.getByReservationId(row.reservationId);
       if (!deposit) return "none";
-      if (deposit.status === "refunded") return "done";
+      if (deposit.status === "refunded") {
+        await confirmRefundedIntentVoid(deps, deposit);
+        return "done";
+      }
       if (deposit.status === "uncollectable") return "none";
       if (deposit.status === "held") {
-        await deps.deposits.refund(deposit.id);
+        await refundHeld(deps, deposit);
         return "done";
       }
       if (CAPTURED.has(deposit.status)) return refundCaptured(deps, deposit, row);
       if (deposit.status === "pending") return resolvePending(deps, deposit);
       return null;
+    }
+    function isAmountRejection(error: StripeOperationError): boolean {
+      if (error.stripeType !== "StripeInvalidRequestError") return false;
+      return (
+        (error.code !== undefined && RETRIABLE_AMOUNT_CODES.has(error.code)) ||
+        UNREFUNDED_AMOUNT_MESSAGE.test(error.message)
+      );
+    }
+    function asPermanentIfStripeRejection(error: unknown): unknown {
+      if (
+        error instanceof StripeOperationError &&
+        PERMANENT_STRIPE_TYPES.has(error.stripeType) &&
+        !isAmountRejection(error)
+      ) {
+        return new ClosureRefundPermanentError(
+          `Stripe rejected the refund (${error.stripeType}: ${error.message}); refund it by hand`
+        );
+      }
+      return error;
     }
     async function settleDeposit(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<Settled> {
       for (let read = 0; read < MAX_REREADS; read += 1) {
@@ -15350,12 +15565,16 @@
           const settled = await settleOnce(deps, row);
           if (settled) return settled;
         } catch (error) {
-          if (!isRace(error)) throw error;
+          if (!isRace(error)) throw asPermanentIfStripeRejection(error);
         }
       }
       // Retriable on purpose: BullMQ's bounded attempts re-run the job, and the
       // final attempt records `failed`.
       throw new Error(`Deposit for ${row.reservationId} kept changing; try again`);
+    }
+    async function needsRelease(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<boolean> {
+      const deposit = await deps.deposits.getByReservationId(row.reservationId);
+      return deposit?.status === "held" || deposit?.status === "pending";
     }
     export async function settleClosureRefund(
       deps: ClosureRefundDeps,
@@ -15363,7 +15582,16 @@
     ): Promise<void> {
       const row = await deps.store.load(payload.outcomeId);
       if (!row) throw new ClosureRefundPermanentError(`Closure outcome ${payload.outcomeId} not found`);
-      if (row.refund === "done" || row.refund === "none") return;
+      if (row.refund === "none") return;
+      // `done` is a hint, not the truth: Runner B can record it from a `refunded` read, then
+      // Runner A's failed Stripe cancel rolls the deposit back to `held` (#7789). A deposit
+      // still waiting on a release is never settled, so re-run the decision.
+      if (row.refund === "done") {
+        if (!(await needsRelease(deps, row))) return;
+        // Reopen first: markFailed leaves a `done` row alone, so a failed re-run would stay
+        // `done` over a live authorization and nothing would ever pick it up again.
+        await deps.store.reopenDone(row.id);
+      }
       await deps.store.setRefund(row.id, await settleDeposit(deps, row));
     }
     export async function runClosureRefundJob(
@@ -15507,41 +15735,6 @@
         };
       }
     
-      // Step 2.5: Pacing pre-check — runs outside the transaction so pacing is
-      // enforced on every confirm path, not just hold create. Fetch venue settings
-      // and conflict slices once; pass to assertBookable (pure rule, no DB access).
-      if (hold.venueId) {
-        // ADR-026 §3.3 (sweep-discovered gap, #5369 PR 5): `venues` is RLS-scoped,
-        // and `hold.venueId` is already a known, trusted scalar (the hold's own
-        // column, not caller-supplied) — no ambiguity to resolve, so this reads
-        // it inside that venue's own context rather than through `resolveVenueId`.
-        const venue = await runWithVenueContext(hold.venueId, () =>
-          prisma.venue.findUnique({ where: { id: hold.venueId } })
-        );
-        const settings = (venue?.settings ?? null) as VenueSettings | null;
-        const dateStr = hold.date.toISOString().slice(0, 10);
-        const { reservations, holds: holdSlices } = await availabilityService.fetchConflictData(
-          hold.venueId,
-          dateStr
-        );
-    
-        const bookingError = assertBookable({
-          tableId: hold.tableId,
-          window: { startTime: hold.startTime, endTime: hold.endTime },
-          partySize: hold.partySize,
-          settings,
-          reservations,
-          holds: holdSlices,
-          excludeHoldId: holdId,
-        });
-    
-        if (bookingError?.code === "PACING_EXCEEDED") {
-          return { success: false, error: bookingError.message, errorCode: "PACING_EXCEEDED" };
-        }
-        // CONFLICT from assertBookable is a pre-check only; bookSlot re-checks under
-        // the advisory lock, which is the authoritative gate.
-      }
-    
       // Step 3: Atomic slot write under the advisory lock + transaction.
       const result = await bookSlot({
         tableId: hold.tableId,
@@ -15551,7 +15744,6 @@
         partySize: hold.partySize,
         excludeHoldId: holdId,
         checkHoldConflict: true,
-        checkPacing: hold.venueId != null,
         // Re-judge the slot against the committed availability, so a closure saved
         // after the hold was created wins over the hold.
         gate: { channel: "online" },
@@ -15559,7 +15751,7 @@
         // reservation, even if it expired between the lookup and acquiring the lock.
         guard: async () =>
           hold.expiresAt < new Date() ? { code: "EXPIRED", message: "Hold has expired" } : undefined,
-        // Every unbookable outcome (expired, conflict, pacing) consumes the hold.
+        // Every unbookable outcome (expired, conflict, gate refusal) consumes the hold.
         onUnbookable: async (tx) => {
           await tx.reservationHold.delete({ where: { id: holdId } });
         },
@@ -15616,13 +15808,6 @@
         }
         if (conflict.code === "EXPIRED") {
           return { success: false, error: "Hold has expired", errorCode: "EXPIRED" };
-        }
-        if (conflict.code === "PACING_EXCEEDED") {
-          return {
-            success: false,
-            error: "Pacing limit reached for this time slot",
-            errorCode: "PACING_EXCEEDED",
-          };
         }
         return { success: false, error: "Time slot is no longer available", errorCode: "CONFLICT" };
       }
@@ -18366,13 +18551,15 @@
           }
           selectedTableId = table.id;
         } else {
-          // Pre-check: verify provided table is available and pacing is not exceeded.
+          // Pre-check: verify the provided table fits and is free. Pacing is the
+          // availability gate's call (judgeBooking below), so `settings: null`
+          // skips the legacy pacing rule here.
           const bookingError = assertBookable({
             tableId: selectedTableId,
             table: await loadTableFit(selectedTableId),
             window: { startTime, endTime },
             partySize,
-            settings,
+            settings: null,
             reservations,
             holds,
             excludeSessionId: sessionId,
@@ -18981,7 +19168,7 @@
         from: string,
         to: string,
         now: Date
-      ): Promise<{ snapshot: BookingSnapshot }>;
+      ): Promise<{ snapshot: BookingSnapshot; venueSettings?: VenueSettings | null }>;
       createHold(data: CreateHoldRequest, sessionId: string): Promise<CreateHoldResult>;
       confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldResult>;
       releaseHold(holdId: string, sessionId: string): Promise<boolean>;
@@ -19021,16 +19208,20 @@
     ): Promise<RebookOffer[]> {
       // Probe the timezone-free window generously; the engine applies the exact 14-day rule.
       const today = now.toISOString().slice(0, 10);
-      const { snapshot } = await deps.loadSnapshot(
+      const { snapshot, venueSettings } = await deps.loadSnapshot(
         venueId,
         addDays(today, -1),
         addDays(today, REBOOK_WINDOW_DAYS + 1),
         now
       );
+      const window = bookingWindow(venueSettings, now, snapshot.timezone);
       const result = rebookOffers(
         snapshot,
         { startTime: new Date(reservation.startTime), partySize: reservation.partySize },
-        now
+        now,
+        // The engine leaves advance limits to the caller; an offer outside the window would
+        // fail the hold with BOOKING_WINDOW_ERROR, which the guest sees as slot-taken.
+        (start) => isSlotInBookingWindow(start, window)
       );
       return result.kind === "offers"
         ? result.slots.map((slot) => ({
@@ -19517,7 +19708,6 @@
         excludeReservationId: reservation.id,
         excludeHoldId: holdId,
         checkHoldConflict: true,
-        checkPacing: true,
         gate: { channel: "online" },
         guard: async () =>
           hold.expiresAt < new Date() ? { code: "EXPIRED", message: "Hold has expired" } : undefined,
@@ -19563,13 +19753,6 @@
         }
         if (conflict.code === "EXPIRED") {
           return { success: false, error: "Hold has expired", errorCode: "EXPIRED" };
-        }
-        if (conflict.code === "PACING_EXCEEDED") {
-          return {
-            success: false,
-            error: "Pacing limit reached for this time slot",
-            errorCode: "PACING_EXCEEDED",
-          };
         }
         return { success: false, error: "Time slot is no longer available", errorCode: "CONFLICT" };
       }
@@ -21426,6 +21609,12 @@
           };
         }
     
+        // A cancelled (e.g. by a venue closure) or no-show booking holds no slot:
+        // a time/table edit would resurrect its window under a dead status.
+        if (isSlotMove(data) && NOT_BOOKED_STATUSES.includes(existing.status)) {
+          return { success: false, error: CHANGED_MEANWHILE, conflict: { hasConflict: true } };
+        }
+    
         // A move onto another venue's table is refused before the capacity and
         // conflict checks, either of which would reveal that table's size or
         // bookings. (A reservation with no venueId never reaches this through a
@@ -21459,11 +21648,17 @@
           }
         }
     
-        // Determine if we need to check for conflicts
-        const timeOrTableChanged = isSlotMove(data);
+        // A slot move, or a party-size increase, changes what the slot must hold, so
+        // both cross the booking gate (max party, pacing). A status payload never
+        // reaches the gated write (it writes no status), so it keeps the plain path.
+        const needsGate =
+          isSlotMove(data) ||
+          (data.status === undefined &&
+            data.partySize !== undefined &&
+            data.partySize > existing.partySize);
     
-        // Notes / party-size / preference edits are not slot moves — no lock needed.
-        if (!timeOrTableChanged) {
+        // Notes / preference / party-size-decrease edits need no gate or lock.
+        if (!needsGate) {
           const reservation = await this.update(id, data, actor);
           if (!reservation) {
             return { success: false, error: "Failed to update reservation" };
@@ -21538,11 +21733,14 @@
           partySize: data.partySize ?? existing.partySize,
           excludeReservationId: id,
           checkHoldConflict: true,
-          gate: { channel: "phone", override: data.override },
+          gate: { channel: "phone", override: data.override, movingFrom: existing.startTime },
           write: async (tx, gated) => {
             try {
               const moved = await tx.reservation.update({
-                where: { id },
+                // Status + start CAS: a closure that cancelled or moved this booking
+                // since `existing` was read makes this miss (P2025 -> null below)
+                // instead of overwriting the closure's outcome.
+                where: { id, status: existing.status, startTime: existing.startTime },
                 // A re-judged slot replaces any earlier override: it stays only if
                 // this move needed one.
                 data: {
@@ -21556,7 +21754,7 @@
               await recordReservationEvent(tx, {
                 reservationId: id,
                 venueId: existing.venueId,
-                kind: "moved",
+                kind: isSlotMove(data) ? "moved" : "updated",
                 actor,
                 from: toEventState(existing),
                 to: toEventState(moved),
@@ -21572,7 +21770,8 @@
         if (!result.ok) return staffSlotFailure(result.conflict);
     
         if (!result.value) {
-          return { success: false, error: "Failed to update reservation" };
+          // The status/start CAS missed (or the row vanished): a closure or another edit got there first.
+          return { success: false, error: CHANGED_MEANWHILE, conflict: { hasConflict: true } };
         }
     
         return { success: true, reservation: toReservation(result.value) };
@@ -21593,6 +21792,10 @@
           return TABLE_NOT_IN_VENUE;
         }
     
+        // Walk-ins deliberately skip the availability gate: they are counted, never
+        // refused (venue-availability breakdown § Booking gate), so Tonight's
+        // coverCap does not apply here (#7765). The venue's own pacing rule below is
+        // the pre-existing behaviour and stays.
         // Pre-check for conflicts and pacing before the transaction (which re-checks
         // to prevent TOCTOU races). Fetch the conflict slices once and use the
         // canonical assertBookable predicate (conflict + pacing in one call).
@@ -22104,95 +22307,11 @@
     export function venueLocalDateString(instant: Date, ianaTimezone: string): string {
       return new Intl.DateTimeFormat("en-CA", { timeZone: ianaTimezone }).format(instant);
     }
-    type DateThreshold = { lt: Date } | { gt: Date };
-    function passesThreshold(value: Date, threshold: DateThreshold): boolean {
-      return "lt" in threshold ? value < threshold.lt : value > threshold.gt;
-    }
-    export function overlapWindow(
-      startTime: Date,
-      endTime: Date
-    ): { startTime: DateThreshold; endTime: DateThreshold } {
-      return {
-        startTime: { lt: endTime },
-        endTime: { gt: startTime },
-      };
-    }
     export function serviceDayConflictWindow(date: Date): { gte: Date; lte: Date } {
       return {
         gte: new Date(date.getTime() - MS_PER_DAY),
         lte: new Date(date.getTime() + MS_PER_DAY),
       };
-    }
-    export function activeHoldWindow(now: Date): DateThreshold {
-      return { gt: now };
-    }
-    export function checkTableConflict(
-      tableId: string,
-      startTime: Date,
-      endTime: Date,
-      reservations: ReservationSlim[],
-      holds: HoldSlim[]
-    ): boolean {
-      const window = overlapWindow(startTime, endTime);
-    
-      const hasReservationConflict = reservations.some(
-        (r) =>
-          r.tableId === tableId &&
-          passesThreshold(r.startTime, window.startTime) &&
-          passesThreshold(r.endTime, window.endTime)
-      );
-    
-      if (hasReservationConflict) return true;
-    
-      const activeWindow = activeHoldWindow(new Date());
-      return holds.some(
-        (h) =>
-          h.tableId === tableId &&
-          passesThreshold(h.expiresAt, activeWindow) &&
-          passesThreshold(h.startTime, window.startTime) &&
-          passesThreshold(h.endTime, window.endTime)
-      );
-    }
-    export function checkPacingForSlot(
-      startTime: Date,
-      partySize: number,
-      settings: VenueSettings | null | undefined,
-      reservations: ReservationSlim[],
-      holds: HoldSlim[]
-    ): boolean {
-      const pacingRules = settings?.pacingRules;
-    
-      if (!pacingRules || pacingRules.length === 0) return true;
-    
-      const rule = pacingRules[0];
-      if (!rule) return true;
-      const windowMinutes =
-        rule.timeWindowMinutes ?? settings?.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
-      const windowEnd = new Date(startTime.getTime() + windowMinutes * 60 * 1000);
-    
-      const reservationCovers = reservations
-        .filter((r) => r.startTime >= startTime && r.startTime < windowEnd)
-        .reduce((sum, r) => sum + r.partySize, 0);
-    
-      const holdCovers = holds
-        .filter((h) => h.expiresAt > new Date() && h.startTime >= startTime && h.startTime < windowEnd)
-        .reduce((sum, h) => sum + h.partySize, 0);
-    
-      return reservationCovers + holdCovers + partySize <= rule.maxCoversPerSlot;
-    }
-    export function selectBestTable(
-      candidates: TableCandidate[],
-      startTime: Date,
-      endTime: Date,
-      reservations: ReservationSlim[],
-      holds: HoldSlim[]
-    ): TableCandidate | null {
-      for (const table of candidates) {
-        if (!checkTableConflict(table.id, startTime, endTime, reservations, holds)) {
-          return table;
-        }
-      }
-      return null;
     }
   </file>
   <file path="src/services/sse-connection-manager.ts">
@@ -22528,6 +22647,8 @@
     export class StripeOperationError extends Error {
       readonly isRetriable: boolean;
       readonly stripeType: string;
+      /** Stripe's machine-readable error `code` (e.g. `amount_too_large`), when it sent one. */
+      readonly code: string | undefined;
       override readonly cause: unknown;
     
       constructor(cause: unknown, stripeType: string, isRetriable: boolean) {
@@ -22536,6 +22657,8 @@
         this.name = "StripeOperationError";
         this.cause = cause;
         this.stripeType = stripeType;
+        const code = (cause as { code?: unknown } | null)?.code;
+        this.code = typeof code === "string" ? code : undefined;
         this.isRetriable = isRetriable;
       }
     }
@@ -22725,6 +22848,57 @@
         try {
           const intent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
           return { id: intent.id, status: intent.status };
+        } catch (err) {
+          wrapStripeError(err);
+        }
+      }
+    
+      /**
+       * Stripe's own totals on the PaymentIntent's charge, in minor units:
+       * `amount_captured` (a dashboard capture can be less than the authorization)
+       * and `amount_refunded`. The refunded total counts succeeded and pending
+       * refunds and drops failed ones, so unlike the webhook-fed
+       * `postCaptureRefundCents` (which only ever grows) it never counts money that
+       * did not reach the guest (#7790).
+       */
+      async getChargeAmounts(
+        paymentIntentId: string
+      ): Promise<{ capturedCents: number; refundedCents: number }> {
+        try {
+          const intent = await this.stripe.paymentIntents.retrieve(paymentIntentId, {
+            expand: ["latest_charge"],
+          });
+          const charge = intent.latest_charge;
+          if (charge == null || typeof charge === "string") {
+            throw new Error(`PaymentIntent ${paymentIntentId} has no charge to read amounts from`);
+          }
+          return { capturedCents: charge.amount_captured, refundedCents: charge.amount_refunded };
+        } catch (err) {
+          wrapStripeError(err);
+        }
+      }
+    
+      /**
+       * How many of OUR refunds of `leg` ended `failed` or `canceled`. A retry whose
+       * earlier refund failed owes the same amount, so its idempotency key must
+       * change or Stripe replays the cached (now failed) response.
+       */
+      async countFailedDepositRefunds(
+        paymentIntentId: string,
+        depositId: string,
+        leg: DepositRefundLeg
+      ): Promise<number> {
+        try {
+          const refunds = await this.stripe.refunds.list({
+            payment_intent: paymentIntentId,
+            limit: 100,
+          });
+          return refunds.data.filter(
+            (refund) =>
+              refund.metadata?.depositId === depositId &&
+              refund.metadata?.leg === leg &&
+              (refund.status === "failed" || refund.status === "canceled")
+          ).length;
         } catch (err) {
           wrapStripeError(err);
         }
@@ -25449,7 +25623,7 @@
         if (!isSlotInBookingWindow(start, window)) continue;
         const end = new Date(start.getTime() + duration * 60 * 1000);
         const free = suitable
-          .filter((t) => !checkTableConflict(t.id, start, end, [], []))
+          .filter((t) => !checkTableConflict(t.id, start, end, [], [], now))
           .map((t) => ({
             id: t.id,
             name: t.name,
@@ -25457,7 +25631,7 @@
             minCovers: t.minCovers,
             maxCovers: t.maxCovers,
           }));
-        const pacingOk = checkPacingForSlot(start, partySize, settings, [], []);
+        const pacingOk = checkPacingForSlot(start, partySize, settings, [], [], now);
         slots.push({
           time: start.toISOString(),
           available: free.length > 0 && pacingOk,
@@ -25715,13 +25889,13 @@
       /** Replace an op's default result (or make it throw) from now on. */
       respond<Op extends PaymentsOp>(op: Op, impl: PaymentsImpl<Op>): void;
       /** The next call to `op` throws a `StripeOperationError` of `stripeType`, as `StripeService` would. */
-      failNext(op: PaymentsOp, stripeType: string): void;
+      failNext(op: PaymentsOp, stripeType: string, code?: string): void;
     }
     export function createInMemoryPayments(): InMemoryPayments {
       const calls: { op: PaymentsOp; args: unknown[] }[] = [];
       const counters = { cus: 0, pi: 0, re: 0 };
       const nextId = (kind: keyof typeof counters) => `${kind}_mem_${++counters[kind]}`;
-      const failures = new Map<PaymentsOp, string>();
+      const failures = new Map<PaymentsOp, { stripeType: string; code?: string }>();
     
       const defaults: { [Op in PaymentsOp]: PaymentsImpl<Op> } = {
         createCustomer: (options) => ({
@@ -25738,16 +25912,23 @@
         createPartialRefund: (_id, amount) => ({ id: nextId("re"), status: "succeeded", amount }),
         retrievePaymentIntent: (id) => ({ id, status: "requires_capture" }),
         findDepositRefund: () => null,
+        // Nothing refunded; "captured" is unbounded so tests only set what they assert on.
+        getChargeAmounts: () => ({ capturedCents: Number.MAX_SAFE_INTEGER, refundedCents: 0 }),
+        countFailedDepositRefunds: () => 0,
       };
       const impls: { [Op in PaymentsOp]: PaymentsImpl<Op> } = { ...defaults };
     
       function call<Op extends PaymentsOp>(op: Op): PaymentsPort[Op] {
         const recorded = async (...args: Parameters<PaymentsPort[Op]>) => {
           calls.push({ op, args });
-          const stripeType = failures.get(op);
-          if (stripeType !== undefined) {
+          const failure = failures.get(op);
+          if (failure !== undefined) {
             failures.delete(op);
-            const cause = Object.assign(new Error(`${stripeType} (in-memory)`), { type: stripeType });
+            const { stripeType, code } = failure;
+            const cause = Object.assign(new Error(`${stripeType} (in-memory)`), {
+              type: stripeType,
+              code,
+            });
             throw new StripeOperationError(cause, stripeType, RETRIABLE_STRIPE_TYPES.has(stripeType));
           }
           return await (impls[op] as PaymentsImpl<Op>)(...args);
@@ -25760,8 +25941,8 @@
         respond(op, impl) {
           (impls as Record<PaymentsOp, unknown>)[op] = impl;
         },
-        failNext(op, stripeType) {
-          failures.set(op, stripeType);
+        failNext(op, stripeType, code) {
+          failures.set(op, { stripeType, code });
         },
         createCustomer: call("createCustomer"),
         createPaymentIntent: call("createPaymentIntent"),
@@ -25770,6 +25951,8 @@
         createPartialRefund: call("createPartialRefund"),
         retrievePaymentIntent: call("retrievePaymentIntent"),
         findDepositRefund: call("findDepositRefund"),
+        getChargeAmounts: call("getChargeAmounts"),
+        countFailedDepositRefunds: call("countFailedDepositRefunds"),
       };
     }
   </file>
@@ -25833,6 +26016,15 @@
         userId?: string,
         actor?: ReservationEventActor
       ): Promise<CreateReservationResult>;
+      /**
+       * Post-commit effects of a venue closure: a cancelled event (reminders cancelled) per cancelled
+       * booking, an updated event (reminders re-timed) per moved one. No guest message: closure
+       * notices own that (#7523). Call only after the closure's transaction has committed.
+       */
+      settleClosure(
+        venueId: string,
+        changed: { cancelled: readonly Reservation[]; moved: readonly Reservation[] }
+      ): Promise<void>;
       /** No-op unless the reservation is PENDING (the guard moved here from the route). */
       confirmAttendance(reservation: Reservation, actor?: ReservationEventActor): Promise<void>;
     }
@@ -25966,6 +26158,15 @@
           return result;
         },
     
+        async settleClosure(venueId, changed) {
+          for (const updated of changed.cancelled) {
+            await settle({ kind: "closure-cancelled", updated }, venueId);
+          }
+          for (const after of changed.moved) {
+            await settle({ kind: "closure-moved", after }, venueId);
+          }
+        },
+    
         async confirmAttendance(reservation, actor) {
           if (reservation.status !== "PENDING") return;
           const updated = await reservationService.update(
@@ -26020,7 +26221,11 @@
           reservation: Reservation;
           table?: Table;
         }
-      | { kind: "attendance-confirmed"; reservation: Reservation };
+      | { kind: "attendance-confirmed"; reservation: Reservation }
+      /** A venue closure cancelled the booking: guests hear through closure notices, not the cancel email. */
+      | { kind: "closure-cancelled"; updated: Reservation }
+      /** A venue closure moved the booking to a new start. */
+      | { kind: "closure-moved"; after: Reservation };
     export function reminderJobId(jobType: string, reservationId: string): string {
       return `${jobType}_${reservationId}`;
     }
@@ -26172,6 +26377,20 @@
     
         case "attendance-confirmed":
           return [live(reservationEvent("reservation:updated", fact.reservation))];
+    
+        case "closure-cancelled":
+          return [
+            ...cancelReminders(fact.updated.id).map((op) => awaited(job(op), "log")),
+            live(reservationEvent("reservation:cancelled", fact.updated)),
+          ];
+    
+        case "closure-moved":
+          return [
+            ...reminderOps(fact.after, now, "replace-if-present").map((op) =>
+              background(job(op), "log")
+            ),
+            live(reservationEvent("reservation:updated", fact.after)),
+          ];
       }
     }
     export function planEffects(
@@ -26253,6 +26472,8 @@
       | "createPartialRefund"
       | "retrievePaymentIntent"
       | "findDepositRefund"
+      | "getChargeAmounts"
+      | "countFailedDepositRefunds"
     >;
   </file>
   <file path="src/transitions/run.ts">

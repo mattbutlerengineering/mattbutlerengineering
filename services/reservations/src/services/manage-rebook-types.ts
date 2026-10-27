@@ -1,5 +1,5 @@
 import type { BookingSnapshot } from "@mbe/availability";
-import type { CreateHoldRequest, Reservation } from "@mbe/types";
+import type { CreateHoldRequest, Reservation, VenueSettings } from "@mbe/types";
 import type { Prisma } from "../generated/prisma/index.js";
 import type { ConfirmHoldInput, ConfirmHoldResult } from "./confirm-hold.js";
 import type { CreateHoldResult } from "./hold.js";
@@ -24,7 +24,7 @@ export interface RebookDeps {
     from: string,
     to: string,
     now: Date
-  ): Promise<{ snapshot: BookingSnapshot }>;
+  ): Promise<{ snapshot: BookingSnapshot; venueSettings?: VenueSettings | null }>;
   createHold(data: CreateHoldRequest, sessionId: string): Promise<CreateHoldResult>;
   confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldResult>;
   releaseHold(holdId: string, sessionId: string): Promise<boolean>;

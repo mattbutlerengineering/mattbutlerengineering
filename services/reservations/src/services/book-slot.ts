@@ -1,8 +1,7 @@
-import { toDateString, type VenueSettings } from "@mbe/types";
+import { toDateString } from "@mbe/types";
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import {
-  checkPacingForSlot,
   overlapWindow,
   serviceDayConflictWindow,
   activeHoldWindow,
@@ -47,7 +46,7 @@ export function venueShareLockSql(venueId: string): Prisma.Sql {
 }
 
 /** Why a slot could not be written. */
-export type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED" | "NOT_BOOKABLE";
+export type SlotConflictCode = "CONFLICT" | "EXPIRED" | "NOT_BOOKABLE";
 
 /** `NOT_BOOKABLE` is the availability gate's refusal and carries its {@link GateRejection}. */
 export type SlotConflict =
@@ -63,30 +62,28 @@ export type SlotWriteResult<T> = { ok: true; value: T } | { ok: false; conflict:
 export interface BookSlotIntent<T> {
   /** Table whose slot is written; keys the advisory lock and conflict re-check. */
   tableId: string;
-  /** Venue for the pacing re-check; null/undefined skips pacing. */
+  /** Venue the availability gate judges; null/undefined skips the gate. */
   venueId?: string | null;
-  /** Date-only used by the in-transaction conflict/pacing queries. */
+  /** Date-only used by the in-transaction conflict queries. */
   date: Date;
   /** Slot window — [startTime, endTime). */
   window: { startTime: Date; endTime: Date };
-  /** Party size added when computing the pacing re-check. */
+  /** Party size being booked. */
   partySize: number;
   /** Reservation excluded from the conflict re-check (moving an existing reservation). */
   excludeReservationId?: string;
-  /** Hold excluded from the conflict/pacing re-check (confirming that hold). */
+  /** Hold excluded from the conflict re-check (confirming that hold). */
   excludeHoldId?: string;
   /** Session whose holds are excluded from the re-check (own session's holds during hold-create). */
   excludeSessionId?: string;
   /** Also re-check conflicting holds (not just reservations). */
   checkHoldConflict?: boolean;
-  /** Re-check pacing under the lock. Requires venueId. */
-  checkPacing?: boolean;
   /**
    * Judge the slot against the venue's resolved availability under the lock,
    * reading the committed configuration through this transaction
    * ({@link judgeBooking}). Requires venueId. Walk-ins never set it.
    */
-  gate?: { channel: BookingChannel; override?: { reason: string } };
+  gate?: { channel: BookingChannel; override?: { reason: string }; movingFrom?: Date };
   /**
    * Runs immediately after the lock, before the conflict re-check. Returning a
    * {@link SlotConflict} short-circuits the write (e.g. a hold that expired
@@ -95,7 +92,7 @@ export interface BookSlotIntent<T> {
   guard?: (tx: Prisma.TransactionClient) => Promise<SlotConflict | undefined>;
   /**
    * Runs inside the transaction whenever the slot is unbookable (guard,
-   * conflict, or pacing), before {@link bookSlot} returns — e.g. deleting the
+   * conflict, or gate refusal), before {@link bookSlot} returns — e.g. deleting the
    * hold that could not be confirmed.
    */
   onUnbookable?: (tx: Prisma.TransactionClient, conflict: SlotConflict) => Promise<void>;
@@ -117,7 +114,7 @@ export interface BookSlotIntent<T> {
  *   1. acquires the advisory lock (serializes writes for this table),
  *   2. runs the optional caller guard (e.g. hold-expiry),
  *   3. re-checks conflicting reservations (and holds, when requested),
- *   4. re-checks pacing (when requested),
+ *   4. judges the availability gate (when requested; pacing, closures),
  *   5. runs the caller's write, returning its value.
  *
  * The lock + re-check together close the read-committed write-skew window: two
@@ -131,12 +128,10 @@ export async function bookSlot<T>(intent: BookSlotIntent<T>): Promise<SlotWriteR
     venueId,
     date,
     window: { startTime, endTime },
-    partySize,
     excludeReservationId,
     excludeHoldId,
     excludeSessionId,
     checkHoldConflict = false,
-    checkPacing = false,
     gate,
     guard,
     onUnbookable,
@@ -201,42 +196,6 @@ export async function bookSlot<T>(intent: BookSlotIntent<T>): Promise<SlotWriteR
       }
     }
 
-    if (checkPacing && venueId) {
-      const now = new Date();
-      const reservations = await tx.reservation.findMany({
-        where: { venueId, date: serviceDays, status: { notIn: [...NOT_BOOKED_STATUSES] } },
-        select: { id: true, tableId: true, startTime: true, endTime: true, partySize: true },
-      });
-      const holds = await tx.reservationHold.findMany({
-        where: {
-          venueId,
-          date: serviceDays,
-          expiresAt: activeHoldWindow(now),
-          ...(excludeHoldId ? { id: { not: excludeHoldId } } : {}),
-          ...(excludeSessionId ? { sessionId: { not: excludeSessionId } } : {}),
-        },
-        select: {
-          id: true,
-          tableId: true,
-          startTime: true,
-          endTime: true,
-          partySize: true,
-          expiresAt: true,
-        },
-      });
-      const settings = (
-        await tx.venue.findUnique({ where: { id: venueId }, select: { settings: true } })
-      )?.settings as VenueSettings | null | undefined;
-
-      const pacingOk = checkPacingForSlot(startTime, partySize, settings, reservations, holds);
-      if (!pacingOk) {
-        return fail({
-          code: "PACING_EXCEEDED",
-          message: "Pacing limit reached for this time slot",
-        });
-      }
-    }
-
     let gated: { overrideLimits?: SoftLimit[] } = {};
     if (gate && venueId) {
       const verdict = await availabilityVerdict(tx, { ...intent, venueId }, gate);
@@ -266,6 +225,7 @@ async function availabilityVerdict(
     partySize: intent.partySize,
     channel: gate.channel,
     override: gate.override,
+    movingFrom: gate.movingFrom,
     excludeReservationId: intent.excludeReservationId,
     excludeHoldId: intent.excludeHoldId,
     excludeSessionId: intent.excludeSessionId,

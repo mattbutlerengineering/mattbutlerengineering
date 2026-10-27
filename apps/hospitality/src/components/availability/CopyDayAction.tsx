@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button, DatePicker, Dialog, Stack, Text, useToast } from "@mattbutlerengineering/rialto";
+import { Button, DatePicker, Dialog, Stack, Text } from "@mattbutlerengineering/rialto";
 import type { ResolvedDay } from "@mbe/availability";
 import type { AvailabilityConfigState, ScopeConflictMode } from "@mbe/types";
+import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { buildCopyDayChanges, copyDayDates } from "./copy-day.js";
 import { seedServices } from "./draft-changes.js";
@@ -27,7 +28,7 @@ export function CopyDayAction(props: CopyDayActionProps) {
   const { venueId, state, date, day, onStale } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
-  const { toast } = useToast();
+  const offerUndo = useAvailabilityUndo();
   const saver = useScheduleSave(onStale);
   const [open, setOpen] = useState(false);
   const [weekdays, setWeekdays] = useState<number[]>([]);
@@ -61,10 +62,11 @@ export function CopyDayAction(props: CopyDayActionProps) {
       until,
       makeId: () => crypto.randomUUID(),
     });
-    const ok = await saver.save(venueId, state, changes, dates.length > 1 ? mode : "replace");
-    if (!ok) return;
-    toast({
-      variant: "success",
+    const saved = await saver.save(venueId, state, changes, dates.length > 1 ? mode : "replace");
+    if (!saved) return;
+    offerUndo({
+      venueId,
+      saved,
       title: t("availabilitySchedules.copy.saved", { count: dates.length }),
     });
     close();

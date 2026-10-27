@@ -201,6 +201,20 @@ describe("JobScheduler", () => {
     expect(opts).toMatchObject({ attempts: 3, backoff: { type: "exponential", delay: 1000 } });
   });
 
+  it("schedule() gives CLOSURE_REFUND a retry window that rides out a multi-minute Stripe incident", async () => {
+    const scheduler = new JobScheduler({ redisUrl: "redis://localhost:6379" });
+
+    await scheduler.schedule(JOB_TYPES.CLOSURE_REFUND, { outcomeId: "o-1", venueId: "v-1" }, 0);
+
+    const [, , opts] = mocks.add.mock.calls[0]!;
+    expect(opts).toMatchObject({ attempts: 8, backoff: { type: "exponential", delay: 5000 } });
+    // Exponential: 5s * (2^7 - 1) between 8 attempts = 635s, over ten minutes.
+    const total = Array.from({ length: opts.attempts - 1 }, (_, i) => 5000 * 2 ** i).reduce(
+      (a, b) => a + b
+    );
+    expect(total).toBeGreaterThan(10 * 60 * 1000);
+  });
+
   describe("requeue()", () => {
     const fakeJob = (state: string) => ({
       getState: vi.fn().mockResolvedValue(state),

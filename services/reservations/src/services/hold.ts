@@ -108,13 +108,15 @@ export const holdService = {
       }
       selectedTableId = table.id;
     } else {
-      // Pre-check: verify provided table is available and pacing is not exceeded.
+      // Pre-check: verify the provided table fits and is free. Pacing is the
+      // availability gate's call (judgeBooking below), so `settings: null`
+      // skips the legacy pacing rule here.
       const bookingError = assertBookable({
         tableId: selectedTableId,
         table: await loadTableFit(selectedTableId),
         window: { startTime, endTime },
         partySize,
-        settings,
+        settings: null,
         reservations,
         holds,
         excludeSessionId: sessionId,

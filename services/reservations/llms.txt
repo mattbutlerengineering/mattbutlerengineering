@@ -124,6 +124,11 @@
     <item priority="low">
       type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
     </item>
+    <item priority="high">
+      export function jobOptionsFor(
+        jobType: JobType
+      ): typeof DEFAULT_JOB_OPTIONS | typeof CLOSURE_REFUND_JOB_OPTIONS { /* ... */ }
+    </item>
     <item priority="low">
       interface ReminderPayload {
         reservationId: string;
@@ -784,6 +789,13 @@
     </item>
   </file>
   <file path="src/routes/closure-post-commit.ts">
+    <item priority="high">
+      export async function publishClosureChanges(
+        fastify: FastifyInstance,
+        log: FastifyBaseLogger,
+        saved: { venueId: string; ruleId: string }
+      ): Promise<void> { /* ... */ }
+    </item>
     <item priority="high">
       export async function enqueueNotices(
         enqueue: FastifyInstance["services"]["closureNoticeService"]["enqueueForClosure"],
@@ -1460,6 +1472,9 @@
     <item priority="low">
       async function onChargeRefunded(event: Stripe.Event, deps: WebhookDeps): Promise<void> { /* ... */ }
     </item>
+    <item priority="low">
+      async function onChargeRefundUpdated(event: Stripe.Event, deps: WebhookDeps): Promise<void> { /* ... */ }
+    </item>
     <item priority="medium">
       function createWebhookRouter(deps: WebhookDeps): WebhookEventRouter { /* ... */ }
     </item>
@@ -1778,12 +1793,16 @@
       export const REVERT_KIND: unknown;
     </item>
     <item priority="medium">
+      function dayStart(d: string, timezone: string): Date { /* ... */ }
+    </item>
+    <item priority="medium">
       function outcomeOf(kind: string, inverse: unknown): AvailabilityChangeOutcome | null { /* ... */ }
     </item>
     <item priority="medium">
       function whereOf(
         venueId: string,
-        query: AvailabilityChangesParsed
+        query: AvailabilityChangesParsed,
+        timezone: string
       ): Prisma.AvailabilityChangeWhereInput { /* ... */ }
     </item>
     <item priority="medium">
@@ -2088,6 +2107,9 @@
     <item priority="medium">
       function readState(client: StoreClient, venueId: string, now: Date): Promise<ConfigState | null> { /* ... */ }
     </item>
+    <item priority="low">
+      async function isCarriedOver(db: StoreDb, venueId: string): Promise<boolean> { /* ... */ }
+    </item>
     <item priority="high">
       export async function getAvailabilityConfig(
         venueId: string,
@@ -2097,6 +2119,7 @@
         config: AvailabilityConfig;
         version: number;
         source: AvailabilityConfigSource;
+        migrated?: true;
         legacyNotes?: LegacyNotes;
         legacyProblem?: { reason: string; detail: string };
       } | null> { /* ... */ }
@@ -2140,6 +2163,12 @@
       class SaveRefused {
         
       }
+    </item>
+    <item priority="high">
+      export const LATE_GUEST_GRACE_MINUTES: unknown;
+    </item>
+    <item priority="high">
+      export function stillToServeWhere(now: Date) { /* ... */ }
     </item>
     <item priority="high">
       export async function futureBookings(
@@ -2308,7 +2337,7 @@
         body: PreviewAvailabilityParsed;
         bookings: readonly BookedReservation[];
         tableIds: ReadonlySet<string>;
-        now: Date;
+        tables?: readonly EngineTable[];
       }
     </item>
     <item priority="low">
@@ -2540,7 +2569,7 @@
       export function venueShareLockSql(venueId: string): Prisma.Sql { /* ... */ }
     </item>
     <item priority="low">
-      type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED" | "NOT_BOOKABLE";
+      type SlotConflictCode = "CONFLICT" | "EXPIRED" | "NOT_BOOKABLE";
     </item>
     <item priority="low">
       type SlotConflict = { code: Exclude<SlotConflictCo | { code: "NOT_BOOKABLE"; messag;
@@ -2680,6 +2709,7 @@
         reservationId: string;
         action: ClosureAction;
         movedTo: Date | null;
+        expectedStartTime: Date;
       }
     </item>
     <item priority="low">
@@ -2699,7 +2729,8 @@
         tx: Tx,
         venueId: string,
         actorId: string,
-        r: Existing
+        r: Existing,
+        expectedStartTime: Date
       ): Promise<ApplyResult> { /* ... */ }
     </item>
     <item priority="low">
@@ -2717,7 +2748,8 @@
         venueId: string,
         actorId: string,
         r: Existing,
-        startTime: Date
+        startTime: Date,
+        expectedStartTime: Date
       ): Promise<boolean> { /* ... */ }
     </item>
     <item priority="high">
@@ -2729,9 +2761,23 @@
       ): Promise<ApplyResult> { /* ... */ }
     </item>
   </file>
+  <file path="src/services/closure-changes.ts">
+    <item priority="low">
+      interface ClosureChanges {
+        cancelled: Reservation[];
+        moved: Reservation[];
+      }
+    </item>
+    <item priority="high">
+      export async function loadClosureChanges(venueId: string, ruleId: string): Promise<ClosureChanges> { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/closure-command-plan.ts">
     <item priority="low">
       type DecisionCheck = { kind: "ok"; actions: Readonl | { kind: "decision-required"; g | { kind: "invalid-decision"; gr;
+    </item>
+    <item priority="medium">
+      function membershipChanged(group: ClosureImpactGroup, decision: ClosureDecision): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function checkDecisions(
@@ -2881,6 +2927,7 @@
         rows: Prisma.ClosureOutcomeCreateManyInput[];
         counts: Record<ClosureAction, number>;
         notifiedGuests: boolean;
+        starts: ReadonlyMap<string, Date>;
       }
     </item>
     <item priority="medium">
@@ -3390,6 +3437,11 @@
     <item priority="high">
       export function createPrismaClosureRefundStore(): ClosureRefundStore { /* ... */ }
     </item>
+    <item priority="high">
+      export async function markDoneRefundFailed(
+        reservationId: string
+      ): Promise<"flipped" | "pending" | "unchanged"> { /* ... */ }
+    </item>
   </file>
   <file path="src/services/closure-refund.ts">
     <item priority="low">
@@ -3448,10 +3500,25 @@
       async function resolvePending(deps: ClosureRefundDeps, deposit: Deposit): Promise<Settled | null> { /* ... */ }
     </item>
     <item priority="low">
+      async function confirmRefundedIntentVoid(deps: ClosureRefundDeps, deposit: Deposit): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function refundHeld(deps: ClosureRefundDeps, deposit: Deposit): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
       async function settleOnce(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<Settled | null> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isAmountRejection(error: StripeOperationError): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function asPermanentIfStripeRejection(error: unknown): unknown { /* ... */ }
     </item>
     <item priority="low">
       async function settleDeposit(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<Settled> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function needsRelease(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<boolean> { /* ... */ }
     </item>
     <item priority="high">
       export async function settleClosureRefund(
@@ -4765,49 +4832,7 @@
       export function venueLocalDateString(instant: Date, ianaTimezone: string): string { /* ... */ }
     </item>
     <item priority="high">
-      type DateThreshold = { lt: Date } | { gt: Date };
-    </item>
-    <item priority="medium">
-      function passesThreshold(value: Date, threshold: DateThreshold): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export function overlapWindow(
-        startTime: Date,
-        endTime: Date
-      ): { startTime: DateThreshold; endTime: DateThreshold } { /* ... */ }
-    </item>
-    <item priority="high">
       export function serviceDayConflictWindow(date: Date): { gte: Date; lte: Date } { /* ... */ }
-    </item>
-    <item priority="high">
-      export function activeHoldWindow(now: Date): DateThreshold { /* ... */ }
-    </item>
-    <item priority="high">
-      export function checkTableConflict(
-        tableId: string,
-        startTime: Date,
-        endTime: Date,
-        reservations: ReservationSlim[],
-        holds: HoldSlim[]
-      ): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export function checkPacingForSlot(
-        startTime: Date,
-        partySize: number,
-        settings: VenueSettings | null | undefined,
-        reservations: ReservationSlim[],
-        holds: HoldSlim[]
-      ): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export function selectBestTable(
-        candidates: TableCandidate[],
-        startTime: Date,
-        endTime: Date,
-        reservations: ReservationSlim[],
-        holds: HoldSlim[]
-      ): TableCandidate | null { /* ... */ }
     </item>
   </file>
   <file path="src/services/sse-connection-manager.ts">
@@ -4900,6 +4925,7 @@
       class StripeOperationError {
         isRetriable: boolean;
         stripeType: string;
+        code: string | undefined;
         cause: unknown;
       }
     </item>
@@ -5832,7 +5858,7 @@
             kind: "guest-modified" | {
             kind: "hold-confirmed" | {
             kind: "created";
-            | { kind: "attendance-confirmed";
+            | { kind: "attendance-confirmed" | { kind: "closure-cancelled"; u | { kind: "closure-moved"; after;
     </item>
     <item priority="high">
       export function reminderJobId(jobType: string, reservationId: string): string { /* ... */ }

@@ -827,7 +827,9 @@ describe("SpecialDatesTab", () => {
 
       await waitFor(() => expect(createClosure).toHaveBeenCalledTimes(1));
       const { body } = createClosure.mock.calls[0]![0];
-      expect(body.decisions).toEqual([{ groupKey: `${DATE}:closed`, action: "cancel" }]);
+      expect(body.decisions).toEqual([
+        { groupKey: `${DATE}:closed`, action: "cancel", reservationIds: expect.any(Array) },
+      ]);
       expect(body.rule).toMatchObject({
         kind: "closure",
         startsOn: "2027-01-11",

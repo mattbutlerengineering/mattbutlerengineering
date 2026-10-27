@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-10-26T09:53:08.337Z",
+  "lastRun": "2026-10-27T09:43:27.530Z",
   "currentLevel": 5,
   "checks": {
     "acmm:prereq-test-suite": {
@@ -340,7 +340,7 @@
     },
     "acmm:auto-issue-gen": {
       "passed": true,
-      "evidence": "123 automation-labeled issue(s) created in the last 30 days",
+      "evidence": "124 automation-labeled issue(s) created in the last 30 days",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -550,7 +550,7 @@
     },
     "meta:threshold-tuning": {
       "passed": true,
-      "evidence": "14 threshold adjustment(s) in last 30 days",
+      "evidence": "15 threshold adjustment(s) in last 30 days",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -585,7 +585,7 @@
     },
     "meta:audit-freshness": {
       "passed": true,
-      "evidence": "last audit was 1 day(s) ago (within 7-day window)",
+      "evidence": "last audit was 0 day(s) ago (within 7-day window)",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -1137,6 +1137,12 @@
       "level": 5,
       "detected": 73,
       "total": 84
+    },
+    {
+      "date": "2026-10-27",
+      "level": 5,
+      "detected": 73,
+      "total": 84
     }
   ],
   "issuesCreated": {
@@ -1330,33 +1336,33 @@
         "name": "ci-flake-rate",
         "description": "CI flake rate must be below 20%",
         "passed": true,
-        "value": 0.015063731170336037,
+        "value": 0.016611295681063124,
         "threshold": 0.2,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 863
+        "sampleSize": 903
       },
       {
         "level": 4,
         "name": "agent-pr-acceptance",
         "description": "Agent PR acceptance rate must exceed 50%",
         "passed": true,
-        "value": 0.9925742574257426,
+        "value": 0.992462311557789,
         "threshold": 0.5,
         "direction": "above",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 404
+        "sampleSize": 398
       },
       {
         "level": 5,
         "name": "auto-qa-tuning-history",
         "description": "Auto-QA tuning history must have more than 1 entry",
         "passed": true,
-        "value": 36,
+        "value": 37,
         "threshold": 1,
         "direction": "above",
         "strict": true,
@@ -1375,28 +1381,28 @@
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 404
+        "sampleSize": 398
       },
       {
         "level": 6,
         "name": "human-touch-ratio",
         "description": "Human-touch ratio must be below 50% (merged agent PRs requiring non-author commits, 30-day window)",
         "passed": true,
-        "value": 0.014962593516209476,
+        "value": 0.012658227848101266,
         "threshold": 0.5,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 404
+        "sampleSize": 398
       }
     ],
     "capped": false
   },
   "behavioral": {
     "flake": {
-      "rate_30d": 0.015063731170336037,
-      "sample_size": 863,
+      "rate_30d": 0.016611295681063124,
+      "sample_size": 903,
       "flaky_shas": [
         "19b39178d7f04bfb702895a86a0bf2866f70c559",
         "2b2af184d05e2f27dd83bac1504abad173bda939",
@@ -1410,25 +1416,39 @@
         "897ef11bc3d946e07ce870874610007555c476c6",
         "8f0ff88d87c92c613375b44fb3fa0822abfc4a39",
         "a4b17fbe87b67f763889fa10ce106ecb9fc921d0",
-        "bb2d7ab591982f783b0c16b5443e67627cf0af72"
+        "b46ecce861d737aa37e43cc52213c716ea7ad827",
+        "bb2d7ab591982f783b0c16b5443e67627cf0af72",
+        "f3ed4390bf06ddfd60e7c915ccb9b9ef0c6e96ee"
       ],
       "insufficient_data": false,
       "oldest_record_at": "2026-09-27T00:15:55.000Z",
-      "measured_at": "2026-10-26T09:53:08.336Z"
+      "measured_at": "2026-10-27T09:43:27.528Z"
     },
     "agent_pr": {
-      "sample_size": 404,
-      "merged_count": 401,
+      "sample_size": 398,
+      "merged_count": 395,
       "closed_unmerged_count": 3,
       "open_count": 0,
-      "acceptance_rate_30d": 0.9925742574257426,
+      "acceptance_rate_30d": 0.992462311557789,
       "revert_rate_30d": 0,
       "revert_detection_unavailable_reason": null,
-      "median_time_to_merge_hours": 0.18333333333333332,
-      "human_touch_ratio": 0.014962593516209476,
+      "median_time_to_merge_hours": 0.17888888888888888,
+      "human_touch_ratio": 0.012658227848101266,
       "insufficient_data": false,
-      "oldest_record_at": "2026-10-06T05:24:15.000Z",
+      "oldest_record_at": "2026-10-08T19:04:14.000Z",
       "recent_changes": [
+        {
+          "number": 7701,
+          "title": "fix(claude-md-sync): stop flagging packages/* and services/* CLAUDE.md as drift (mbe-daily-issue #7694)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7701",
+          "mergedAt": "2026-10-26T17:58:05Z"
+        },
+        {
+          "number": 7671,
+          "title": "fix(deps): raise fast-uri override floor to 3.1.9 (mbe-feature-drain #7668)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7671",
+          "mergedAt": "2026-10-26T17:12:25Z"
+        },
         {
           "number": 7614,
           "title": "fix(scripts): resource-audit refreshes and comments on reopen (mbe-feature-drain #7602)",
@@ -1536,21 +1556,9 @@
           "title": "feat(agent): cache generated gen-ui specs by prompt hash (mbe-feature-drain #7231)",
           "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7423",
           "mergedAt": "2026-10-24T18:57:34Z"
-        },
-        {
-          "number": 7412,
-          "title": "test(rialto-web): audit kanban, timeline and visual-test pages for a11y (mbe-feature-drain #7405)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7412",
-          "mergedAt": "2026-10-24T16:18:56Z"
-        },
-        {
-          "number": 7411,
-          "title": "fix(rialto): selected Tag text meets 4.5:1 contrast (mbe-feature-drain #7404)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7411",
-          "mergedAt": "2026-10-24T15:47:10Z"
         }
       ],
-      "measured_at": "2026-10-26T09:53:08.336Z"
+      "measured_at": "2026-10-27T09:43:27.528Z"
     },
     "evals": {
       "n": 37,
@@ -1571,8 +1579,8 @@
       "measured_at": "2026-05-30T17:04:57.036Z"
     },
     "auto_qa_tuning": {
-      "history_count": 36,
-      "measured_at": "2026-10-26T09:53:08.336Z"
+      "history_count": 37,
+      "measured_at": "2026-10-27T09:43:27.528Z"
     }
   },
   "honestAuditNote": "Verified 2026-05-23: Level cap removed. All 3 original concerns addressed: (1) Strategic Dashboard updated with real autonomous activity audit log (PR #1688). (2) Auto-rollback drill mechanism implemented (PR #1678) — trigger with `gh workflow run auto-rollback.yml -f drill=true`. (3) llms.txt integrity fixed — root cause was Node version mismatch + stale api-versioning refs. Substance checks 5/5, behavioral gates all pass (91% acceptance, 0% reverts). Computed level 6."

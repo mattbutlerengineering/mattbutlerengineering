@@ -158,6 +158,32 @@ describe("moveReservationToHold", () => {
     expect(tx.reservationHold.findFirst.mock.calls[0]![0].where.id).toEqual({ not: "hold-1" });
   });
 
+  it("does not count the moving reservation against its own pacing window", async () => {
+    const hold = makeHold({ partySize: 4 });
+    vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(hold as never);
+    const tx = makeTx();
+    tx.venue.findUnique.mockResolvedValue({
+      settings: { pacingRules: [{ maxCoversPerSlot: 4, timeWindowMinutes: 15 }] },
+    });
+    // The reservation being moved already sits in the target window (same start).
+    tx.reservation.findMany.mockResolvedValue([
+      {
+        id: "res-1",
+        tableId: "table-1",
+        startTime: hold.startTime,
+        endTime: hold.endTime,
+        partySize: 2,
+      },
+    ]);
+    tx.reservation.update.mockResolvedValue(makeUpdatedRow(hold));
+    useTx(tx);
+
+    const result = await moveReservationToHold(input);
+
+    expect(result.success).toBe(true);
+    expect(tx.reservation.findMany).not.toHaveBeenCalled();
+  });
+
   it("returns NOT_FOUND for a missing hold or another venue's hold without writing", async () => {
     vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(null);
     expect(await moveReservationToHold(input)).toMatchObject({

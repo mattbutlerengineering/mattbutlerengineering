@@ -28,12 +28,14 @@ export function QuickSetupHoursStep({ data, errors, onChange }: QuickSetupHoursS
     draftFromLegacyHours(data, crypto.randomUUID())
   );
   const [touched, setTouched] = useState(false);
-  const issues = validateDraft(draft);
+  const issues = validateDraft(draft, { legacyReader: true });
 
   const handleChange = (next: QuickSetupDraft) => {
     setDraft(next);
     setTouched(true);
-    onChange(validateDraft(next).length === 0 ? draftToLegacyHours(next) : {});
+    onChange(
+      validateDraft(next, { legacyReader: true }).length === 0 ? draftToLegacyHours(next) : {}
+    );
   };
 
   return (

@@ -64,7 +64,11 @@ export type TransitionFact =
       reservation: Reservation;
       table?: Table;
     }
-  | { kind: "attendance-confirmed"; reservation: Reservation };
+  | { kind: "attendance-confirmed"; reservation: Reservation }
+  /** A venue closure cancelled the booking: guests hear through closure notices, not the cancel email. */
+  | { kind: "closure-cancelled"; updated: Reservation }
+  /** A venue closure moved the booking to a new start. */
+  | { kind: "closure-moved"; after: Reservation };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
@@ -274,6 +278,20 @@ function planForFact(fact: TransitionFact, now: Date): PlannedEffect[] {
 
     case "attendance-confirmed":
       return [live(reservationEvent("reservation:updated", fact.reservation))];
+
+    case "closure-cancelled":
+      return [
+        ...cancelReminders(fact.updated.id).map((op) => awaited(job(op), "log")),
+        live(reservationEvent("reservation:cancelled", fact.updated)),
+      ];
+
+    case "closure-moved":
+      return [
+        ...reminderOps(fact.after, now, "replace-if-present").map((op) =>
+          background(job(op), "log")
+        ),
+        live(reservationEvent("reservation:updated", fact.after)),
+      ];
   }
 }
 

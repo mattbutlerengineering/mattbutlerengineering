@@ -52,6 +52,30 @@ describe("findStrandedReservations", () => {
     ]);
   });
 
+  it("reports a booking on a table the change blocks, though the snapshot lists no tables", () => {
+    const blocked: AvailabilityConfig = {
+      ...CONFIG,
+      dateRules: [
+        {
+          id: "dr-t",
+          kind: "closure",
+          targetKind: "tables",
+          tableIds: ["t-1"],
+          startsOn: "2026-11-06",
+          endsOn: "2026-11-06",
+        },
+      ],
+    };
+
+    const stranded = findStrandedReservations(
+      { timezone: TZ, config: CONFIG },
+      { timezone: TZ, config: blocked },
+      [BOOKING]
+    );
+
+    expect(stranded.map((s) => s.reason)).toEqual(["table_blocked"]);
+  });
+
   it("reports a booking left outside shortened hours", () => {
     const shortened = {
       ...CONFIG,

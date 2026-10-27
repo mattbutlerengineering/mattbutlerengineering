@@ -76,4 +76,35 @@ describe("diffDays", () => {
     expect(days[0]?.removed).toEqual([]);
     expect(days[1]?.removed).toEqual([1020, 1050, 1080]);
   });
+
+  it("counts only seatings a table fits when bookableOnly is set", () => {
+    const withTable: BookingSnapshot = {
+      ...BEFORE,
+      tables: [
+        {
+          id: "t",
+          name: "T",
+          capacity: 2,
+          minCovers: 1,
+          maxCovers: null,
+          isActive: true,
+          priority: 0,
+        },
+      ],
+    };
+    const closed = applyDraft(
+      withTable,
+      {
+        upsert: {
+          dateRules: [{ id: "c", kind: "closure", targetKind: "venue", startsOn: "2026-11-07" }],
+        },
+        remove: {},
+      },
+      NOW.toISOString()
+    );
+    const asked = (partySize: number) =>
+      diffDays(withTable, closed, DATES, { ...OPTIONS, partySize, bookableOnly: true });
+    expect(asked(2)[1]?.removed).toEqual([1020, 1050, 1080]);
+    expect(asked(5)[1]?.removed).toEqual([]);
+  });
 });

@@ -98,6 +98,8 @@ const input: PreviewInput = {
     scope: { from: "2026-10-26" },
     focusDate: "2026-11-01",
     strandedOffset: 0,
+    compareWith: "saved" as const,
+    partySize: 2,
   },
   bookings,
   tableIds: new Set(),

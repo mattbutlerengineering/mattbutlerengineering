@@ -16,6 +16,23 @@ export const JOB_TYPES = {
 
 export type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
 
+/**
+ * Retry policy for one job type. A refund owes a guest money and must ride out
+ * a multi-minute Stripe incident: 8 attempts backing off 5s, 10s, ... 320s
+ * (~10.5 minutes in all). Permanent Stripe errors skip the wait entirely
+ * (ClosureRefundPermanentError). Everything else keeps the default.
+ */
+const CLOSURE_REFUND_JOB_OPTIONS = {
+  attempts: 8,
+  backoff: { type: "exponential" as const, delay: 5000 },
+} as const;
+
+export function jobOptionsFor(
+  jobType: JobType
+): typeof DEFAULT_JOB_OPTIONS | typeof CLOSURE_REFUND_JOB_OPTIONS {
+  return jobType === JOB_TYPES.CLOSURE_REFUND ? CLOSURE_REFUND_JOB_OPTIONS : DEFAULT_JOB_OPTIONS;
+}
+
 // JobHandlerMap (below) is `Partial<{ [K in JobType]: ... }>`, not an
 // exhaustive mapped type. Adding a new entry to JOB_TYPES does NOT require
 // every service's handler factory to add a stub for it — a service registers
