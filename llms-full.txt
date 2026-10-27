@@ -10329,7 +10329,7 @@
       {
         title: "Rialto Design System",
         description:
-          "A precision component library with 65+ components built on a warm neutral token system. " +
+          `A precision component library with ${REPO_STATS.rialtoComponents} components built on a warm neutral token system. ` +
           "Every surface, radius, shadow, and motion value is tokenized — components compose, not collide.",
         stack: ["React", "TypeScript", "Vite", "Framer Motion", "CSS Modules"],
         // Deep-links to the Booking Wizard example — a composed multi-component
@@ -10365,14 +10365,15 @@
       readonly agentPrsMerged: number;
       /** Merged pull requests in total. */
       readonly totalPrsMerged: number;
-      /** Component folders in `packages/rialto/src/components`. */
+      /** Entries in Rialto's compiled manifest — the one definition of "component". */
       readonly rialtoComponents: number;
       /** Git-tracked `*.test.*` / `*.spec.*` files. */
       readonly testFiles: number;
       /** ISO timestamp of the measurement. */
       readonly measuredAt: string;
     }
-    export function isRepoStats(value: unknown): value is RepoStats {
+    export type MeasuredStats = Omit<RepoStats, "rialtoComponents">;
+    export function isMeasuredStats(value: unknown): value is MeasuredStats {
       if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
       const candidate = value as Record<string, unknown>;
     
@@ -10385,14 +10386,25 @@
       const { measuredAt } = candidate;
       return typeof measuredAt === "string" && !Number.isNaN(Date.parse(measuredAt));
     }
-    export const FALLBACK_REPO_STATS: RepoStats = fallbackSnapshot;
-    export function selectRepoStats(generated: unknown, fallback: RepoStats): RepoStats {
-      return isRepoStats(generated) ? generated : fallback;
+    export const FALLBACK_REPO_STATS: MeasuredStats = fallbackSnapshot;
+    export function selectMeasuredStats(generated: unknown, fallback: MeasuredStats): MeasuredStats {
+      return isMeasuredStats(generated) ? generated : fallback;
     }
-    export const REPO_STATS: RepoStats = selectRepoStats(
-      Object.values(generatedSnapshots)[0]?.default,
-      FALLBACK_REPO_STATS
+    export function selectComponentCount(generated: unknown, fallback: number): number {
+      const count =
+        typeof generated === "object" && generated !== null
+          ? (generated as { rialtoComponents?: unknown }).rialtoComponents
+          : undefined;
+      return typeof count === "number" && Number.isInteger(count) && count > 0 ? count : fallback;
+    }
+    export const RIALTO_COMPONENT_COUNT: number = selectComponentCount(
+      Object.values(generatedComponentCounts)[0]?.default,
+      componentCountFallback.rialtoComponents
     );
+    export const REPO_STATS: RepoStats = {
+      ...selectMeasuredStats(Object.values(generatedSnapshots)[0]?.default, FALLBACK_REPO_STATS),
+      rialtoComponents: RIALTO_COMPONENT_COUNT,
+    };
   </file>
   <file path="apps/marketing/src/data/shipped-features.ts">
     export interface ShippedPr {

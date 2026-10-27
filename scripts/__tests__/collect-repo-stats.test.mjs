@@ -12,7 +12,6 @@ import {
 function fakeDeps(overrides = {}) {
   return {
     searchPrCount: async (query) => (query === AGENT_MERGED_QUERY ? 936 : 1426),
-    listComponentDirs: () => ["Button", "Card", "Odometer"],
     listTrackedFiles: () => [
       "src/data/stats.ts",
       "src/data/stats.test.ts",
@@ -136,7 +135,6 @@ describe("collectRepoStats", () => {
       stats: {
         agentPrsMerged: 936,
         totalPrsMerged: 1426,
-        rialtoComponents: 3,
         testFiles: 2,
         measuredAt: "2026-07-29T12:00:00.000Z",
       },
@@ -149,7 +147,6 @@ describe("collectRepoStats", () => {
     expect(Object.keys(result.stats).sort()).toEqual([
       "agentPrsMerged",
       "measuredAt",
-      "rialtoComponents",
       "testFiles",
       "totalPrsMerged",
     ]);

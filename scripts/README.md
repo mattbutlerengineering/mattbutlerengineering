@@ -19,17 +19,18 @@ Guard invariants across the monorepo. Run by CI on every PR.
 
 ## Code Generation
 
-| Script                         | Purpose                                                                                                                                            |
-| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `generate-dep-graph.js`        | Generate Mermaid dependency graph (`docs/architecture/dependency-graph.md`)                                                                        |
-| `generate-dep-graph.mjs`       | Generate JSON dependency graph (`infrastructure/worker/dep-graph.json`)                                                                            |
-| `generate-acmm-report.mjs`     | Build ACMM report JSON for the marketing dashboard                                                                                                 |
-| `generate-audit-inventory.mjs` | Generate audit inventory from the surface registry                                                                                                 |
-| `generate-metrics-json.mjs`    | Build ACMM state → `apps/marketing/public/metrics.json` for the quality dashboard                                                                  |
-| `collect-repo-stats.mjs`       | Measure repo proof-strip numbers → `apps/marketing/src/data/generated/repo-stats.json`                                                             |
-| `collect-shipped-features.mjs` | Gather closed `tracking` issues + merged PRs via `gh api` REST → `apps/marketing/src/data/shipped-features.json` (`--out`, `--limit`, `--dry-run`) |
-| `update-schema-baselines.js`   | Update schema baseline JSON for backward compat checking                                                                                           |
-| `process-a11y-results.mjs`     | Parse Vitest JSON output, segment a11y violations by author, fail CI on agent-branch regressions                                                   |
+| Script                         | Purpose                                                                                                                                              |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `generate-dep-graph.js`        | Generate Mermaid dependency graph (`docs/architecture/dependency-graph.md`)                                                                          |
+| `generate-dep-graph.mjs`       | Generate JSON dependency graph (`infrastructure/worker/dep-graph.json`)                                                                              |
+| `generate-acmm-report.mjs`     | Build ACMM report JSON for the marketing dashboard                                                                                                   |
+| `generate-audit-inventory.mjs` | Generate audit inventory from the surface registry                                                                                                   |
+| `generate-metrics-json.mjs`    | Build ACMM state → `apps/marketing/public/metrics.json` for the quality dashboard                                                                    |
+| `collect-repo-stats.mjs`       | Measure repo proof-strip numbers → `apps/marketing/src/data/generated/repo-stats.json`                                                               |
+| `rialto-component-count.mjs`   | The one definition of the advertised Rialto component count (compiled-manifest entries); read by marketing's prebuild and the surface-agreement test |
+| `collect-shipped-features.mjs` | Gather closed `tracking` issues + merged PRs via `gh api` REST → `apps/marketing/src/data/shipped-features.json` (`--out`, `--limit`, `--dry-run`)   |
+| `update-schema-baselines.js`   | Update schema baseline JSON for backward compat checking                                                                                             |
+| `process-a11y-results.mjs`     | Parse Vitest JSON output, segment a11y violations by author, fail CI on agent-branch regressions                                                     |
 
 > `generate-dep-graph.js` and `generate-dep-graph.mjs` are **not duplicates** — they emit
 > different committed artifacts (Mermaid markdown vs. JSON) for different consumers

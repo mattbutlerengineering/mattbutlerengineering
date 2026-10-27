@@ -3447,14 +3447,23 @@
         measuredAt: string;
       }
     </item>
-    <item priority="high">
-      export function isRepoStats(value: unknown): value is RepoStats { /* ... */ }
+    <item priority="low">
+      type MeasuredStats = Omit<RepoStats, "rialtoComponents">;
     </item>
     <item priority="high">
-      export const FALLBACK_REPO_STATS: RepoStats;
+      export function isMeasuredStats(value: unknown): value is MeasuredStats { /* ... */ }
     </item>
     <item priority="high">
-      export function selectRepoStats(generated: unknown, fallback: RepoStats): RepoStats { /* ... */ }
+      export const FALLBACK_REPO_STATS: MeasuredStats;
+    </item>
+    <item priority="high">
+      export function selectMeasuredStats(generated: unknown, fallback: MeasuredStats): MeasuredStats { /* ... */ }
+    </item>
+    <item priority="high">
+      export function selectComponentCount(generated: unknown, fallback: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export const RIALTO_COMPONENT_COUNT: number;
     </item>
     <item priority="high">
       export const REPO_STATS: RepoStats;

@@ -1,3 +1,5 @@
+import { REPO_STATS } from "./repo-stats.js";
+
 export interface Project {
   title: string;
   description: string;
@@ -17,7 +19,7 @@ export const PROJECTS: Project[] = [
   {
     title: "Rialto Design System",
     description:
-      "A precision component library with 65+ components built on a warm neutral token system. " +
+      `A precision component library with ${REPO_STATS.rialtoComponents} components built on a warm neutral token system. ` +
       "Every surface, radius, shadow, and motion value is tokenized — components compose, not collide.",
     stack: ["React", "TypeScript", "Vite", "Framer Motion", "CSS Modules"],
     // Deep-links to the Booking Wizard example — a composed multi-component
