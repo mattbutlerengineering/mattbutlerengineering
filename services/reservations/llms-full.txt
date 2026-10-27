@@ -13740,7 +13740,11 @@
       if (rule.startsOn !== serviceDate) return false;
       // A Tonight change that leaves nothing bookable on its targets is the emergency close in effect.
       if (venue.hostEmergencyClose) return true;
-      const tables = await db.table.findMany({ where: { venueId }, select: { id: true } });
+      // Only active tables seat guests, so an inactive one cannot keep the night open.
+      const tables = await db.table.findMany({
+        where: { venueId, isActive: true },
+        select: { id: true },
+      });
       return !isEmergencyTonightClose(
         snapshot,
         rule,

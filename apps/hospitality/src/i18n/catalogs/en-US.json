@@ -2241,6 +2241,7 @@
       "hostGranted": "Hosts can close the whole venue for tonight. Anything longer needs a manager.",
       "hostNotGranted": "Only managers can close in an emergency. Ask a manager to allow it for hosts in Settings.",
       "error": "Couldn't apply that change. Try again.",
+      "forbidden": "That would close tonight. Only a manager, or a host allowed to close in an emergency, can do that.",
       "alreadyApplied": "That change was already applied. Showing what is in force now.",
       "chip": {
         "pause": "Online paused · rest of tonight",

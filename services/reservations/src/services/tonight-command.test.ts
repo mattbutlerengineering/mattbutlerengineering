@@ -141,7 +141,13 @@ function fakeClient(w: World) {
       }),
     },
     table: {
-      findMany: vi.fn(async () => [{ id: "t-1" }, { id: "t-2" }]),
+      findMany: vi.fn(async ({ where }: { where?: { isActive?: boolean } } = {}) =>
+        [
+          { id: "t-1", isActive: true },
+          { id: "t-2", isActive: true },
+          { id: "t-3", isActive: false },
+        ].filter((t) => where?.isActive === undefined || t.isActive === where.isActive)
+      ),
     },
     availabilityChange: {
       findFirst: vi.fn(async ({ where }: { where: { inverse?: { equals: unknown } } }) => {
@@ -309,6 +315,11 @@ describe("setTonight", () => {
       expect(await run(w, allTables)).toEqual({ kind: "forbidden" });
       expect(w.dateRules).toEqual([]);
       expect(w.version).toBe(4);
+    });
+
+    it("ignores an inactive table: blocking every active table is still the close", async () => {
+      // t-3 is inactive, so the engine never seats it and it cannot keep the night open.
+      expect(await run(world(), allTables)).toEqual({ kind: "forbidden" });
     });
 
     it("refuses a Host whose second block leaves no table, however it is split", async () => {
