@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { ReactNode } from "react";
 import { StatusPage } from "./StatusPage.js";
 
@@ -50,6 +52,19 @@ describe("StatusPage", () => {
     // Page must stay mounted
     expect(screen.getByText("Reservations API")).toBeInTheDocument();
     expect(screen.getByText("Hospitality")).toBeInTheDocument();
+  });
+
+  it("renders the version in a no-wrap monospace element", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: "ok", version: "a1b2c3d4e5f6" }),
+    });
+    render(<StatusPage />);
+    const versions = await screen.findAllByText("va1b2c3d4e5f6", { selector: "code" });
+    expect(versions[0]?.tagName).toBe("CODE");
+    const css = readFileSync(join(__dirname, "StatusPage.module.css"), "utf8");
+    expect(css).toMatch(/\.version\s*\{[^}]*white-space:\s*nowrap/);
+    expect(css).toMatch(/\.version\s*\{[^}]*var\(--rialto-font-mono\)/);
   });
 
   it("renders healthy state", async () => {
