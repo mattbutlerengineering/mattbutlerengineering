@@ -9,6 +9,8 @@ import Stripe from "stripe";
 export class StripeOperationError extends Error {
   readonly isRetriable: boolean;
   readonly stripeType: string;
+  /** Stripe's machine-readable error `code` (e.g. `amount_too_large`), when it sent one. */
+  readonly code: string | undefined;
   override readonly cause: unknown;
 
   constructor(cause: unknown, stripeType: string, isRetriable: boolean) {
@@ -17,6 +19,8 @@ export class StripeOperationError extends Error {
     this.name = "StripeOperationError";
     this.cause = cause;
     this.stripeType = stripeType;
+    const code = (cause as { code?: unknown } | null)?.code;
+    this.code = typeof code === "string" ? code : undefined;
     this.isRetriable = isRetriable;
   }
 }
@@ -235,6 +239,27 @@ export class StripeService {
     try {
       const intent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
       return { id: intent.id, status: intent.status };
+    } catch (err) {
+      wrapStripeError(err);
+    }
+  }
+
+  /**
+   * Stripe's own total refunded on the PaymentIntent's charge (`amount_refunded`),
+   * in minor units. It counts succeeded and pending refunds and drops failed
+   * ones, so unlike the webhook-fed `postCaptureRefundCents` (which only ever
+   * grows) it never counts money that did not reach the guest (#7790).
+   */
+  async getChargeRefundedCents(paymentIntentId: string): Promise<number> {
+    try {
+      const intent = await this.stripe.paymentIntents.retrieve(paymentIntentId, {
+        expand: ["latest_charge"],
+      });
+      const charge = intent.latest_charge;
+      if (charge == null || typeof charge === "string") {
+        throw new Error(`PaymentIntent ${paymentIntentId} has no charge to read refunds from`);
+      }
+      return charge.amount_refunded;
     } catch (err) {
       wrapStripeError(err);
     }
