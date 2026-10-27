@@ -56044,6 +56044,10 @@
           return TABLE_NOT_IN_VENUE;
         }
     
+        // Walk-ins deliberately skip the availability gate: they are counted, never
+        // refused (venue-availability breakdown § Booking gate), so Tonight's
+        // coverCap does not apply here (#7765). The venue's own pacing rule below is
+        // the pre-existing behaviour and stays.
         // Pre-check for conflicts and pacing before the transaction (which re-checks
         // to prevent TOCTOU races). Fetch the conflict slices once and use the
         // canonical assertBookable predicate (conflict + pacing in one call).
