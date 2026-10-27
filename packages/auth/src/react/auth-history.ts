@@ -59,7 +59,19 @@ export function installAuthBackSkip(
   const steps = authHistorySkipSteps(Number(raw), history.length);
   if (steps == null) return;
 
-  const onPop = () => {
+  history.pushState({ mbeAuthSentinel: true }, "", window.location.href);
+  // In-app navigation after this point pushes entries and grows the length.
+  const armedLength = history.length;
+
+  const onPop = (event: PopStateEvent) => {
+    if (history.length !== armedLength) {
+      // The user navigated in-app: Back no longer means "leave the callback".
+      window.removeEventListener("popstate", onPop);
+      return;
+    }
+    // Landing on the sentinel itself is not leaving the callback entry.
+    const state: unknown = event.state;
+    if (typeof state === "object" && state !== null && "mbeAuthSentinel" in state) return;
     window.removeEventListener("popstate", onPop);
     try {
       storage.setItem(AUTH_BACK_RELOAD_KEY, "1");
@@ -72,7 +84,6 @@ export function installAuthBackSkip(
     });
   };
   window.addEventListener("popstate", onPop);
-  history.pushState({ mbeAuthSentinel: true }, "", window.location.href);
 }
 
 interface PageShowTarget {
@@ -85,12 +96,12 @@ interface PageShowTarget {
 /** Reload a bfcache restore that followed an auth-history skip. Returns cleanup. */
 export function installAuthBackReload(target: PageShowTarget = window): () => void {
   const onPageShow = (event: PageTransitionEvent) => {
-    if (!event.persisted) return;
     try {
       const flagged = target.sessionStorage.getItem(AUTH_BACK_RELOAD_KEY) === "1";
       if (!flagged) return;
       target.sessionStorage.removeItem(AUTH_BACK_RELOAD_KEY);
-      target.location.reload();
+      // A fresh load (not a bfcache restore) already has a live React tree.
+      if (event.persisted) target.location.reload();
     } catch (error) {
       continueWhenStorageFails(error);
     }

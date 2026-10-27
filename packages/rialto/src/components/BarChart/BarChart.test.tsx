@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { BarChart } from "./BarChart";
@@ -27,5 +28,15 @@ describe("BarChart", () => {
       .filter((size) => size.endsWith("%"));
     expect(heights).toContain("100%");
     expect(heights).toContain(`${(18.2 / 22) * 100}%`);
+  });
+});
+
+describe("BarChart.module.css tokens", () => {
+  it("only references radius tokens that exist", () => {
+    const css = readFileSync("src/components/BarChart/BarChart.module.css", "utf8");
+    const radii = readFileSync("src/tokens/radius.css", "utf8");
+    for (const [, token] of css.matchAll(/var\((--rialto-radius-[a-z-]+)\)/g)) {
+      expect(radii).toContain(`${token}:`);
+    }
   });
 });
