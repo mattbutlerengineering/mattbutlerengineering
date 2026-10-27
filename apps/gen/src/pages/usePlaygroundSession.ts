@@ -256,8 +256,10 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
     // the error the user is meant to see and act on. Skipped for a
     // transport/HTTP failure (auth expired, network drop) — that's an
     // infrastructure hiccup, not a generation failure worth recording.
+    // A refresh aborts the fetch with a network error. Clearing here erased
+    // the stash before the next page could read it. The key stays until the
+    // generation succeeds or the user stops it.
     onError: (err) => {
-      clearPendingPrompt();
       if (!rawPrompt || isTransportError(err)) return;
       void saveSpec({
         prompt: rawPrompt,

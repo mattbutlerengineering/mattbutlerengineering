@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { PromptBar } from "./PromptBar.js";
@@ -82,6 +83,60 @@ describe("PromptBar", () => {
     render(<PromptBar {...defaultProps} isStreaming={true} onStop={onStop} />);
     fireEvent.click(screen.getByRole("button", { name: /stop/i }));
     expect(onStop).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not abort when the second click of a double-click lands on Stop", () => {
+    const onSubmit = vi.fn();
+    const onStop = vi.fn();
+    function Harness() {
+      const [streaming, setStreaming] = useState(false);
+      return (
+        <PromptBar
+          {...defaultProps}
+          isStreaming={streaming}
+          onSubmit={(prompt) => {
+            onSubmit(prompt);
+            setStreaming(true);
+          }}
+          onStop={() => {
+            onStop();
+            setStreaming(false);
+          }}
+        />
+      );
+    }
+    render(<Harness />);
+    const textarea = screen.getByRole("textbox", { name: /prompt input/i });
+    fireEvent.change(textarea, { target: { value: "a 500-row table of users" } });
+    fireEvent.click(screen.getByRole("button", { name: /generate/i }));
+    // The first click has already swapped Generate for Stop under the pointer.
+    fireEvent.click(screen.getByRole("button", { name: /stop/i }));
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onSubmit).toHaveBeenCalledWith("a 500-row table of users");
+    expect(onStop).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: /stop/i })).toBeDefined();
+  });
+
+  it("stops a generation after the double-click window", () => {
+    const onStop = vi.fn();
+    const now = vi.spyOn(performance, "now");
+    now.mockReturnValue(5_000);
+    const { rerender } = render(
+      <PromptBar {...defaultProps} isStreaming={false} onSubmit={vi.fn()} onStop={onStop} />
+    );
+    const textarea = screen.getByRole("textbox", { name: /prompt input/i });
+    fireEvent.change(textarea, { target: { value: "dashboard" } });
+    fireEvent.click(screen.getByRole("button", { name: /generate/i }));
+
+    now.mockReturnValue(5_200);
+    rerender(<PromptBar {...defaultProps} isStreaming={true} onSubmit={vi.fn()} onStop={onStop} />);
+    fireEvent.click(screen.getByRole("button", { name: /stop/i }));
+    expect(onStop).not.toHaveBeenCalled();
+
+    now.mockReturnValue(5_600);
+    fireEvent.click(screen.getByRole("button", { name: /stop/i }));
+    expect(onStop).toHaveBeenCalledTimes(1);
+    now.mockRestore();
   });
 
   it("calls onSubmit with trimmed prompt text when Generate is clicked", () => {

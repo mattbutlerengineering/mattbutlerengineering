@@ -267,10 +267,34 @@
   </file>
   <file path="src/lib/normalize-generated-spec.ts">
     <item priority="high">
+      interface GenElement {
+        type: string;
+        props?: Record<string, unknown>;
+        children?: string[];
+        visible?: unknown;
+        slots?: Record<string, string[]>;
+      }
+    </item>
+    <item priority="high">
       export function parseTrendPoints(text: string): { label: string; value: string }[] | null { /* ... */ }
     </item>
     <item priority="medium">
       function textContent(props: unknown): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function elementsOf(spec: Spec): Record<string, GenElement> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function reachableKeys(elements: Record<string, GenElement>, root: string): Set<string> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function revealStateGated(element: GenElement): GenElement { /* ... */ }
+    </item>
+    <item priority="medium">
+      function linkOrphans(spec: Spec, elements: Record<string, GenElement>): Record<string, GenElement> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function prepareTree(spec: Spec): Spec { /* ... */ }
     </item>
     <item priority="high">
       export function normalizeGeneratedSpec(spec: Spec): Spec { /* ... */ }
@@ -282,6 +306,12 @@
     </item>
     <item priority="medium">
       function continueWhenStorageFails(error: unknown): void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function rewriteActivePrompt(storage: Storage): void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function markLeaving(): void { /* ... */ }
     </item>
     <item priority="high">
       export function interruptedPromptNotice(): string { /* ... */ }

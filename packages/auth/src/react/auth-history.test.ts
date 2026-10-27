@@ -31,32 +31,26 @@ describe("installAuthBackSkip", () => {
   });
 
   it("does nothing when sign-in did not record a length", () => {
-    const pushState = vi.spyOn(window.history, "pushState");
+    const go = vi.spyOn(window.history, "go");
     installAuthBackSkip();
-    expect(pushState).not.toHaveBeenCalled();
-    pushState.mockRestore();
+    expect(go).not.toHaveBeenCalled();
+    go.mockRestore();
   });
 
-  it("pushes a sentinel and, on Back, jumps over the IdP entries", () => {
+  it("jumps over the IdP entries as soon as the callback lands", () => {
     const go = vi.spyOn(window.history, "go").mockImplementation(() => {});
+    const pushState = vi.spyOn(window.history, "pushState");
     vi.spyOn(window.history, "length", "get").mockReturnValue(6);
     sessionStorage.setItem(PRE_AUTH_HISTORY_KEY, "3");
-    const scheduled: Array<() => void> = [];
 
-    installAuthBackSkip(window.history, sessionStorage, (fn) => {
-      scheduled.push(fn);
-    });
+    installAuthBackSkip();
 
     expect(sessionStorage.getItem(PRE_AUTH_HISTORY_KEY)).toBeNull();
-    expect(scheduled).toHaveLength(0);
-
-    window.dispatchEvent(new PopStateEvent("popstate"));
     expect(sessionStorage.getItem(AUTH_BACK_RELOAD_KEY)).toBe("1");
-    expect(go).not.toHaveBeenCalled();
-
-    scheduled[0]?.();
     expect(go).toHaveBeenCalledWith(-3);
+    expect(pushState).not.toHaveBeenCalled();
     go.mockRestore();
+    pushState.mockRestore();
   });
 });
 

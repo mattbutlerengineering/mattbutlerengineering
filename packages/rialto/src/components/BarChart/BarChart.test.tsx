@@ -28,4 +28,49 @@ describe("BarChart", () => {
     expect(heights).toContain("100%");
     expect(heights).toContain(`${(18.2 / 22) * 100}%`);
   });
+
+  it("does not let a suffixed duplicate of the first month flatten the rest of the series", () => {
+    // Live dashboard: one huge "Jan $142k" bar, then Jan–Jun at 142…203 drawn as slivers.
+    const mixed = [
+      { label: "Jan", value: "$142k" },
+      { label: "Jan", value: 142 },
+      { label: "Feb", value: 158 },
+      { label: "Mar", value: 171 },
+      { label: "Apr", value: 165 },
+      { label: "May", value: 183 },
+      { label: "Jun", value: 203 },
+    ];
+    const { container } = render(<BarChart label="Monthly revenue" data={mixed} />);
+    expect(screen.getAllByText("Jan")).toHaveLength(1);
+    expect(screen.queryByText("$142k")).toBeNull();
+    expect(screen.getByText("203")).toBeDefined();
+    const heights = Array.from(container.querySelectorAll("span"))
+      .map((bar) => bar.style.blockSize)
+      .filter((size) => size.endsWith("%"))
+      .map((size) => Number(size.slice(0, -1)));
+    expect(heights).toHaveLength(6);
+    expect(Math.min(...heights)).toBeGreaterThan(50);
+    expect(heights).toContain(100);
+  });
+
+  it("drops a first bar whose tick is the suffixed spelling of the next month", () => {
+    const mixed = [
+      { label: "Jan $142k", value: "$142k" },
+      { label: "Jan", value: 142 },
+      { label: "Feb", value: 158 },
+      { label: "Mar", value: 171 },
+      { label: "Apr", value: 165 },
+      { label: "May", value: 183 },
+      { label: "Jun", value: 203 },
+    ];
+    const { container } = render(<BarChart label="Monthly revenue" data={mixed} />);
+    expect(screen.queryByText("Jan $142k")).toBeNull();
+    expect(screen.getAllByText("Jan")).toHaveLength(1);
+    const heights = Array.from(container.querySelectorAll("span"))
+      .map((bar) => bar.style.blockSize)
+      .filter((size) => size.endsWith("%"))
+      .map((size) => Number(size.slice(0, -1)));
+    expect(heights).toHaveLength(6);
+    expect(Math.min(...heights)).toBeGreaterThan(50);
+  });
 });

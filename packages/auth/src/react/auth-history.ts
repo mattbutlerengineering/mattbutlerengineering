@@ -4,17 +4,16 @@
  * browser Back button then lands on the expired Auth0 `/u/consent` URL (400).
  *
  * Before `signIn`, record `history.length`. On the callback, if the round-trip
- * pushed more than the callback entry itself, push a same-document sentinel.
- * The next Back pops that sentinel and `history.go` skips the IdP entries,
- * landing on the page that started sign-in. A bfcache restore of that page
+ * pushed more than the callback entry itself, `history.go` back across those
+ * entries immediately. The user is already stored, so the restored page loads
+ * signed in. Calling `history.go` from a `popstate` handler — even on a
+ * timeout — is ignored by real browsers, so a sentinel the user must Back
+ * through stops on `/u/consent`. A bfcache restore of the pre-auth page
  * reloads so a logged-out React tree is not shown over a live session.
  */
 
 export const PRE_AUTH_HISTORY_KEY = "mbe.auth.preHistoryLength";
 export const AUTH_BACK_RELOAD_KEY = "mbe.auth.backReload";
-
-/** `history.go` during `popstate` is ignored; run it on the next turn. */
-const SKIP_IDP_HISTORY_DELAY_MS = 0;
 
 /** QuotaExceededError and SecurityError must not block sign-in. */
 function continueWhenStorageFails(error: unknown): void {
@@ -43,10 +42,7 @@ export function rememberPreAuthHistoryLength(storage: Storage = window.sessionSt
 
 export function installAuthBackSkip(
   history: History = window.history,
-  storage: Storage = window.sessionStorage,
-  schedule: (fn: () => void) => void = (fn) => {
-    window.setTimeout(fn, SKIP_IDP_HISTORY_DELAY_MS);
-  }
+  storage: Storage = window.sessionStorage
 ): void {
   let raw: string | null;
   try {
@@ -59,20 +55,13 @@ export function installAuthBackSkip(
   const steps = authHistorySkipSteps(Number(raw), history.length);
   if (steps == null) return;
 
-  const onPop = () => {
-    window.removeEventListener("popstate", onPop);
-    try {
-      storage.setItem(AUTH_BACK_RELOAD_KEY, "1");
-    } catch (error) {
-      continueWhenStorageFails(error);
-    }
-    // history.go inside the popstate handler is ignored by some browsers.
-    schedule(() => {
-      history.go(-steps);
-    });
-  };
-  window.addEventListener("popstate", onPop);
-  history.pushState({ mbeAuthSentinel: true }, "", window.location.href);
+  try {
+    storage.setItem(AUTH_BACK_RELOAD_KEY, "1");
+  } catch (error) {
+    continueWhenStorageFails(error);
+  }
+  // Not from popstate: browsers drop history.go that runs inside that event.
+  history.go(-steps);
 }
 
 interface PageShowTarget {
