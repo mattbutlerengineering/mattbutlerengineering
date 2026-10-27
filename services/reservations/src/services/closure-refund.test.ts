@@ -253,6 +253,43 @@ describe("settleClosureRefund", () => {
     expect(depositRows.get("dep-1")?.status).toBe("held");
   });
 
+  it.each([
+    "StripeCardError",
+    "StripeInvalidRequestError",
+    "StripeAuthenticationError",
+    "StripePermissionError",
+  ])("fails fast, with a clear message, on a non-retriable %s from the refund", async (type) => {
+    seedDeposit({ status: "forfeited" });
+    const { deps, payments, state } = setup();
+    payments.respond("retrievePaymentIntent", (id) => ({ id, status: "succeeded" }));
+    payments.failNext("createPartialRefund", type);
+
+    await expect(
+      runClosureRefundJob(deps, PAYLOAD, { isFinalAttempt: false })
+    ).rejects.toMatchObject({
+      name: "ClosureRefundPermanentError",
+      message: expect.stringContaining(type),
+    });
+
+    expect(state.row.refund).toBe("failed");
+  });
+
+  it.each(["StripeConnectionError", "StripeRateLimitError", "StripeAPIError"])(
+    "keeps retrying a transient %s",
+    async (type) => {
+      seedDeposit({ status: "forfeited" });
+      const { deps, payments, state } = setup();
+      payments.respond("retrievePaymentIntent", (id) => ({ id, status: "succeeded" }));
+      payments.failNext("createPartialRefund", type);
+
+      await expect(
+        runClosureRefundJob(deps, PAYLOAD, { isFinalAttempt: false })
+      ).rejects.not.toMatchObject({ name: "ClosureRefundPermanentError" });
+
+      expect(state.row.refund).toBe("pending");
+    }
+  );
+
   it("settles a closure outcome with no deposit as none", async () => {
     const { deps, payments, state } = setup();
     await settleClosureRefund(deps, PAYLOAD);
@@ -270,10 +307,38 @@ describe("settleClosureRefund", () => {
     expect(stripeOps(payments)).toEqual([
       {
         op: "createPartialRefund",
-        args: ["pi_1", 5000, "dep-1", "dep-1:closureRefund", "closureRefund"],
+        args: ["pi_1", 5000, "dep-1", "dep-1:closureRefund:5000", "closureRefund"],
       },
     ]);
     expect(state.row.refund).toBe("done");
+  });
+
+  it("keys the closure refund by amount, so a corrected smaller amount is not blocked by a rejected over-amount attempt", async () => {
+    seedDeposit({ status: "forfeited" });
+    const { deps, payments } = setup();
+    payments.respond("retrievePaymentIntent", (id) => ({ id, status: "succeeded" }));
+    payments.failNext("createPartialRefund", "StripeInvalidRequestError");
+
+    await expect(settleClosureRefund(deps, PAYLOAD)).rejects.toBeDefined();
+    // A late charge.refunded webhook lands: the guest is already owed 2000 less.
+    depositRows.set("dep-1", { ...depositRows.get("dep-1"), postCaptureRefundCents: 2000 });
+    await settleClosureRefund(deps, PAYLOAD);
+
+    const keys = stripeOps(payments).map((c) => c.args[3]);
+    expect(keys).toEqual(["dep-1:closureRefund:5000", "dep-1:closureRefund:3000"]);
+  });
+
+  it("reuses the same key when a retry owes the same amount", async () => {
+    seedDeposit({ status: "forfeited" });
+    const { deps, payments } = setup();
+    payments.respond("retrievePaymentIntent", (id) => ({ id, status: "succeeded" }));
+    payments.failNext("createPartialRefund", "StripeConnectionError");
+
+    await expect(settleClosureRefund(deps, PAYLOAD)).rejects.toBeDefined();
+    await settleClosureRefund(deps, PAYLOAD);
+
+    const keys = stripeOps(payments).map((c) => c.args[3]);
+    expect(keys).toEqual(["dep-1:closureRefund:5000", "dep-1:closureRefund:5000"]);
   });
 
   it("refunds only the fee a partial_refunded deposit kept, net of Stripe's own leg", async () => {
@@ -346,7 +411,7 @@ describe("settleClosureRefund", () => {
     expect(stripeOps(payments)).toEqual([
       {
         op: "createPartialRefund",
-        args: ["pi_1", 5000, "dep-1", "dep-1:closureRefund", "closureRefund"],
+        args: ["pi_1", 5000, "dep-1", "dep-1:closureRefund:5000", "closureRefund"],
       },
     ]);
     expect(state.row.refund).toBe("done");

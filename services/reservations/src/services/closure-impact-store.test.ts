@@ -145,6 +145,27 @@ describe("getClosureImpact", () => {
     );
   });
 
+  it("counts a captured deposit with a payment intent: a cancel owes the guest its refund", async () => {
+    const { client, tx } = fakeClient(rows());
+    const base = (await tx.reservation.findMany())[0]!;
+    const withDeposit = (id: string, status: string, pi: string | null) => ({
+      ...base,
+      id,
+      deposit: { amountCents: 3000, currency: "usd", status, stripePaymentIntentId: pi },
+    });
+    tx.reservation.findMany.mockResolvedValueOnce([
+      withDeposit("res-applied", "applied", "pi_1"),
+      withDeposit("res-forfeited", "forfeited", "pi_2"),
+      withDeposit("res-partial", "partial_refunded", "pi_3"),
+      withDeposit("res-no-pi", "applied", null),
+      withDeposit("res-uncollectable", "uncollectable", "pi_4"),
+    ] as never);
+
+    const outcome = await getClosureImpact("venue-1", closure(), NOW, client);
+
+    expect(outcome).toMatchObject({ kind: "ok", impact: { depositsHeld: 3 } });
+  });
+
   it("scans from yesterday's service day when the closure starts in the past", async () => {
     const { client, tx } = fakeClient(rows());
 

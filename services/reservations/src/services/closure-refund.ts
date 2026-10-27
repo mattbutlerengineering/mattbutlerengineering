@@ -9,6 +9,7 @@ import {
 } from "./deposit.js";
 import type { ReservationEventActor } from "./reservation-events.js";
 import { TransitionError } from "./state-machine.js";
+import { StripeOperationError } from "./stripe.js";
 
 /**
  * The CLOSURE_REFUND job (docs/features/venue-availability/architecture.md
@@ -35,7 +36,10 @@ import { TransitionError } from "./state-machine.js";
  *
  * The job key `closure:<ruleId>:<reservationId>` dedupes the JOB only. Stripe
  * idempotency keys stay `DepositService`'s own (`${depositId}:refund`) and
- * `${depositId}:closureRefund` for the captured leg.
+ * `${depositId}:closureRefund:${owed}` for the captured leg. The amount is part of
+ * the key so Stripe's cached rejection of an over-amount attempt cannot block the
+ * corrected smaller one for ~24h; `findDepositRefund` runs before every create, so
+ * a different key never means a second refund.
  *
  * Runs inside `runWithVenueContext(venueId, …)` (set by the job handler).
  */
@@ -154,7 +158,7 @@ async function refundCaptured(
     pi,
     owed,
     deposit.id,
-    `${deposit.id}:closureRefund`,
+    `${deposit.id}:closureRefund:${owed}`,
     "closureRefund"
   );
   return "done";
@@ -238,6 +242,24 @@ async function settleOnce(deps: ClosureRefundDeps, row: ClosureRefundRow): Promi
   return null;
 }
 
+/** Stripe rejections no retry can fix: the same request fails the same way every time. */
+const PERMANENT_STRIPE_TYPES: ReadonlySet<string> = new Set([
+  "StripeCardError",
+  "StripeInvalidRequestError",
+  "StripeAuthenticationError",
+  "StripePermissionError",
+]);
+
+/** A non-retriable Stripe error becomes a permanent failure; anything else passes through. */
+function asPermanentIfStripeRejection(error: unknown): unknown {
+  if (error instanceof StripeOperationError && PERMANENT_STRIPE_TYPES.has(error.stripeType)) {
+    return new ClosureRefundPermanentError(
+      `Stripe rejected the refund (${error.stripeType}: ${error.message}); refund it by hand`
+    );
+  }
+  return error;
+}
+
 /** The row moved between our read and the service's re-read or its CAS. */
 const isRace = (error: unknown): boolean =>
   error instanceof TransitionError || error instanceof DepositConcurrentUpdateError;
@@ -248,7 +270,7 @@ async function settleDeposit(deps: ClosureRefundDeps, row: ClosureRefundRow): Pr
       const settled = await settleOnce(deps, row);
       if (settled) return settled;
     } catch (error) {
-      if (!isRace(error)) throw error;
+      if (!isRace(error)) throw asPermanentIfStripeRejection(error);
     }
   }
   // Retriable on purpose: BullMQ's bounded attempts re-run the job, and the
