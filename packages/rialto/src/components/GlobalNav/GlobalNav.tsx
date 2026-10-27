@@ -8,6 +8,7 @@ import {
   type FocusEvent,
   type KeyboardEvent,
 } from "react";
+import { useDismiss } from "../../hooks/useDismiss";
 import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { ThemeToggle } from "../ThemeToggle/ThemeToggle";
 import { cn } from "../../utils/class-composer";
@@ -88,7 +89,13 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
     const dropdownId = useId();
     const triggerRef = useRef<HTMLButtonElement>(null);
     const dropdownRef = useRef<HTMLUListElement>(null);
+    const dropdownWrapRef = useRef<HTMLDivElement>(null);
+    const mobileGroupLabelId = useId();
     const menuCurrent = menu?.items.some((item) => item.current) ?? false;
+
+    const closeDropdown = useCallback(() => setDropdownOpen(false), []);
+    // Safari does not focus a clicked <button>, so blur alone misses outside clicks.
+    useDismiss(dropdownWrapRef, closeDropdown, { enabled: dropdownOpen });
 
     const handleDropdownKeyDown = useCallback((e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -137,6 +144,7 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
             {menu && (
               <li>
                 <div
+                  ref={dropdownWrapRef}
                   role="presentation"
                   className={styles.dropdown}
                   onKeyDown={handleDropdownKeyDown}
@@ -208,7 +216,14 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
             ))}
             {menu && (
               <li role="presentation">
-                <ul role="group" aria-label={menu.label} className={styles.mobileGroup}>
+                <span id={mobileGroupLabelId} className={styles.mobileGroupLabel}>
+                  {menu.label}
+                </span>
+                <ul
+                  role="group"
+                  aria-labelledby={mobileGroupLabelId}
+                  className={styles.mobileGroup}
+                >
                   {menu.items.map((item) => (
                     <li key={item.href}>
                       <a

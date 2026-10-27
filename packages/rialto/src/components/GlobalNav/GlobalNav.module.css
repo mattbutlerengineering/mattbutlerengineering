@@ -218,6 +218,17 @@
   transition: background 0.15s var(--rialto-ease-precision);
 }
 
+.mobileGroupLabel {
+  display: block;
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-medium);
+  letter-spacing: var(--rialto-tracking-wide);
+  color: var(--rialto-text-secondary);
+  padding-block-start: var(--rialto-space-sm);
+  padding-inline: var(--rialto-space-sm);
+}
+
 .mobileGroup {
   list-style: none;
   margin: 0;

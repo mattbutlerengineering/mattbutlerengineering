@@ -526,7 +526,12 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
   },
 
   GlobalNav: {
-    element: <GlobalNav currentApp="marketing" />,
+    element: (
+      <GlobalNav
+        currentApp="marketing"
+        menu={{ label: "Engineering", items: [{ label: "Metrics", href: "/metrics" }] }}
+      />
+    ),
   },
 
   GuestCards: {
