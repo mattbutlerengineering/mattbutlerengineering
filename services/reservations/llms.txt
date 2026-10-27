@@ -2540,7 +2540,7 @@
       export function venueShareLockSql(venueId: string): Prisma.Sql { /* ... */ }
     </item>
     <item priority="low">
-      type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED" | "NOT_BOOKABLE";
+      type SlotConflictCode = "CONFLICT" | "EXPIRED" | "NOT_BOOKABLE";
     </item>
     <item priority="low">
       type SlotConflict = { code: Exclude<SlotConflictCo | { code: "NOT_BOOKABLE"; messag;
@@ -4765,49 +4765,7 @@
       export function venueLocalDateString(instant: Date, ianaTimezone: string): string { /* ... */ }
     </item>
     <item priority="high">
-      type DateThreshold = { lt: Date } | { gt: Date };
-    </item>
-    <item priority="medium">
-      function passesThreshold(value: Date, threshold: DateThreshold): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export function overlapWindow(
-        startTime: Date,
-        endTime: Date
-      ): { startTime: DateThreshold; endTime: DateThreshold } { /* ... */ }
-    </item>
-    <item priority="high">
       export function serviceDayConflictWindow(date: Date): { gte: Date; lte: Date } { /* ... */ }
-    </item>
-    <item priority="high">
-      export function activeHoldWindow(now: Date): DateThreshold { /* ... */ }
-    </item>
-    <item priority="high">
-      export function checkTableConflict(
-        tableId: string,
-        startTime: Date,
-        endTime: Date,
-        reservations: ReservationSlim[],
-        holds: HoldSlim[]
-      ): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export function checkPacingForSlot(
-        startTime: Date,
-        partySize: number,
-        settings: VenueSettings | null | undefined,
-        reservations: ReservationSlim[],
-        holds: HoldSlim[]
-      ): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export function selectBestTable(
-        candidates: TableCandidate[],
-        startTime: Date,
-        endTime: Date,
-        reservations: ReservationSlim[],
-        holds: HoldSlim[]
-      ): TableCandidate | null { /* ... */ }
     </item>
   </file>
   <file path="src/services/sse-connection-manager.ts">

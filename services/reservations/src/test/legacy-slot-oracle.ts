@@ -84,7 +84,7 @@ export function legacyTimeSlots(
     if (!isSlotInBookingWindow(start, window)) continue;
     const end = new Date(start.getTime() + duration * 60 * 1000);
     const free = suitable
-      .filter((t) => !checkTableConflict(t.id, start, end, [], []))
+      .filter((t) => !checkTableConflict(t.id, start, end, [], [], now))
       .map((t) => ({
         id: t.id,
         name: t.name,
@@ -92,7 +92,7 @@ export function legacyTimeSlots(
         minCovers: t.minCovers,
         maxCovers: t.maxCovers,
       }));
-    const pacingOk = checkPacingForSlot(start, partySize, settings, [], []);
+    const pacingOk = checkPacingForSlot(start, partySize, settings, [], [], now);
     slots.push({
       time: start.toISOString(),
       available: free.length > 0 && pacingOk,

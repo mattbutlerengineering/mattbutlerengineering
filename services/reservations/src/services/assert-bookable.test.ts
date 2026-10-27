@@ -115,6 +115,17 @@ describe("assertBookable", () => {
     });
   });
 
+  describe("injected clock", () => {
+    it("judges hold expiry against the supplied now, not the wall clock", () => {
+      const past = new Date("2020-01-01T12:00:00Z");
+      const hold = makeHold({ expiresAt: new Date(past.getTime() + 10 * 60 * 1000) });
+      expect(assertBookable({ ...BASE_OPTS, holds: [hold], now: past })?.code).toBe("CONFLICT");
+      expect(
+        assertBookable({ ...BASE_OPTS, holds: [hold], now: new Date(past.getTime() + 3_600_000) })
+      ).toBeUndefined();
+    });
+  });
+
   describe("pacing", () => {
     const settings = {
       pacingRules: [{ maxCoversPerSlot: 4, timeWindowMinutes: 15 }],

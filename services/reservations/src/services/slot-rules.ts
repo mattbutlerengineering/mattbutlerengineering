@@ -210,28 +210,6 @@ export function venueLocalDateString(instant: Date, ianaTimezone: string): strin
   return new Intl.DateTimeFormat("en-CA", { timeZone: ianaTimezone }).format(instant);
 }
 
-type DateThreshold = { lt: Date } | { gt: Date };
-
-function passesThreshold(value: Date, threshold: DateThreshold): boolean {
-  return "lt" in threshold ? value < threshold.lt : value > threshold.gt;
-}
-
-/**
- * The double-booking overlap rule, declared once as a half-open window
- * `[startTime, endTime)`. checkTableConflict evaluates these thresholds
- * against in-memory Dates via {@link passesThreshold}; bookSlot spreads this
- * same object into a Prisma `where` clause.
- */
-export function overlapWindow(
-  startTime: Date,
-  endTime: Date
-): { startTime: DateThreshold; endTime: DateThreshold } {
-  return {
-    startTime: { lt: endTime },
-    endTime: { gt: startTime },
-  };
-}
-
 const MS_PER_DAY = 86_400_000;
 
 /**
@@ -250,82 +228,10 @@ export function serviceDayConflictWindow(date: Date): { gte: Date; lte: Date } {
   };
 }
 
-/**
- * The hold-expiry rule, declared once: a hold guards its slot only while
- * still active (`expiresAt` in the future). Shared by the pure re-check, the
- * fetch queries that build {@link HoldSlim} slices, and bookSlot's SQL form.
- */
-export function activeHoldWindow(now: Date): DateThreshold {
-  return { gt: now };
-}
-
-export function checkTableConflict(
-  tableId: string,
-  startTime: Date,
-  endTime: Date,
-  reservations: ReservationSlim[],
-  holds: HoldSlim[]
-): boolean {
-  const window = overlapWindow(startTime, endTime);
-
-  const hasReservationConflict = reservations.some(
-    (r) =>
-      r.tableId === tableId &&
-      passesThreshold(r.startTime, window.startTime) &&
-      passesThreshold(r.endTime, window.endTime)
-  );
-
-  if (hasReservationConflict) return true;
-
-  const activeWindow = activeHoldWindow(new Date());
-  return holds.some(
-    (h) =>
-      h.tableId === tableId &&
-      passesThreshold(h.expiresAt, activeWindow) &&
-      passesThreshold(h.startTime, window.startTime) &&
-      passesThreshold(h.endTime, window.endTime)
-  );
-}
-
-export function checkPacingForSlot(
-  startTime: Date,
-  partySize: number,
-  settings: VenueSettings | null | undefined,
-  reservations: ReservationSlim[],
-  holds: HoldSlim[]
-): boolean {
-  const pacingRules = settings?.pacingRules;
-
-  if (!pacingRules || pacingRules.length === 0) return true;
-
-  const rule = pacingRules[0];
-  if (!rule) return true;
-  const windowMinutes =
-    rule.timeWindowMinutes ?? settings?.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
-  const windowEnd = new Date(startTime.getTime() + windowMinutes * 60 * 1000);
-
-  const reservationCovers = reservations
-    .filter((r) => r.startTime >= startTime && r.startTime < windowEnd)
-    .reduce((sum, r) => sum + r.partySize, 0);
-
-  const holdCovers = holds
-    .filter((h) => h.expiresAt > new Date() && h.startTime >= startTime && h.startTime < windowEnd)
-    .reduce((sum, h) => sum + h.partySize, 0);
-
-  return reservationCovers + holdCovers + partySize <= rule.maxCoversPerSlot;
-}
-
-export function selectBestTable(
-  candidates: TableCandidate[],
-  startTime: Date,
-  endTime: Date,
-  reservations: ReservationSlim[],
-  holds: HoldSlim[]
-): TableCandidate | null {
-  for (const table of candidates) {
-    if (!checkTableConflict(table.id, startTime, endTime, reservations, holds)) {
-      return table;
-    }
-  }
-  return null;
-}
+export {
+  overlapWindow,
+  activeHoldWindow,
+  checkTableConflict,
+  checkPacingForSlot,
+  selectBestTable,
+} from "@mbe/availability";

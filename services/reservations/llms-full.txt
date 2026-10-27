@@ -10546,6 +10546,8 @@
       excludeHoldId?: string;
       /** Exclude this session ID's holds from conflict checks (used during hold create). */
       excludeSessionId?: string;
+      /** The instant hold expiry is judged against. Defaults to the wall clock. */
+      now?: Date;
     }
     export function assertBookable(opts: AssertBookableOptions): BookableError | undefined {
       const {
@@ -10556,6 +10558,7 @@
         holds,
         excludeHoldId,
         excludeSessionId,
+        now = new Date(),
       } = opts;
     
       if (opts.table && !partyFitsTable(opts.table, partySize)) {
@@ -10581,7 +10584,8 @@
         startTime,
         endTime,
         opts.reservations,
-        filteredHolds
+        filteredHolds,
+        now
       );
       if (hasConflict) {
         return { code: "CONFLICT", message: "Table is not available for this time slot" };
@@ -10592,7 +10596,8 @@
         partySize,
         settings,
         opts.reservations,
-        filteredHolds
+        filteredHolds,
+        now
       );
       if (!pacingOk) {
         const maxCovers = settings?.pacingRules?.[0]?.maxCoversPerSlot;
@@ -12790,7 +12795,7 @@
     
       const { reservations, holds } = await fetchConflictData(venueId, date);
     
-      return selectBestTable(tables, startTime, endTime, reservations, holds) as Table | null;
+      return selectBestTable(tables, startTime, endTime, reservations, holds, new Date());
     }
     async function findSuitableTables(venueId: string, partySize: number): Promise<Table[]> {
       // The party-fits rule (maxCovers ?? capacity as the ceiling) lives in one
@@ -12855,7 +12860,7 @@
     export function venueShareLockSql(venueId: string): Prisma.Sql {
       return Prisma.sql`SELECT 1 FROM venues WHERE id = ${venueId} FOR SHARE`;
     }
-    export type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED" | "NOT_BOOKABLE";
+    export type SlotConflictCode = "CONFLICT" | "EXPIRED" | "NOT_BOOKABLE";
     export type SlotConflict =
       | { code: Exclude<SlotConflictCode, "NOT_BOOKABLE">; message: string }
       | { code: "NOT_BOOKABLE"; message: string; rejection: GateRejection };
@@ -12863,24 +12868,22 @@
     export interface BookSlotIntent<T> {
       /** Table whose slot is written; keys the advisory lock and conflict re-check. */
       tableId: string;
-      /** Venue for the pacing re-check; null/undefined skips pacing. */
+      /** Venue the availability gate judges; null/undefined skips the gate. */
       venueId?: string | null;
-      /** Date-only used by the in-transaction conflict/pacing queries. */
+      /** Date-only used by the in-transaction conflict queries. */
       date: Date;
       /** Slot window — [startTime, endTime). */
       window: { startTime: Date; endTime: Date };
-      /** Party size added when computing the pacing re-check. */
+      /** Party size being booked. */
       partySize: number;
       /** Reservation excluded from the conflict re-check (moving an existing reservation). */
       excludeReservationId?: string;
-      /** Hold excluded from the conflict/pacing re-check (confirming that hold). */
+      /** Hold excluded from the conflict re-check (confirming that hold). */
       excludeHoldId?: string;
       /** Session whose holds are excluded from the re-check (own session's holds during hold-create). */
       excludeSessionId?: string;
       /** Also re-check conflicting holds (not just reservations). */
       checkHoldConflict?: boolean;
-      /** Re-check pacing under the lock. Requires venueId. */
-      checkPacing?: boolean;
       /**
        * Judge the slot against the venue's resolved availability under the lock,
        * reading the committed configuration through this transaction
@@ -12895,7 +12898,7 @@
       guard?: (tx: Prisma.TransactionClient) => Promise<SlotConflict | undefined>;
       /**
        * Runs inside the transaction whenever the slot is unbookable (guard,
-       * conflict, or pacing), before {@link bookSlot} returns — e.g. deleting the
+       * conflict, or gate refusal), before {@link bookSlot} returns — e.g. deleting the
        * hold that could not be confirmed.
        */
       onUnbookable?: (tx: Prisma.TransactionClient, conflict: SlotConflict) => Promise<void>;
@@ -12912,12 +12915,10 @@
         venueId,
         date,
         window: { startTime, endTime },
-        partySize,
         excludeReservationId,
         excludeHoldId,
         excludeSessionId,
         checkHoldConflict = false,
-        checkPacing = false,
         gate,
         guard,
         onUnbookable,
@@ -12979,42 +12980,6 @@
           });
           if (conflictingHold) {
             return fail({ code: "CONFLICT", message: "Table is not available for this time slot" });
-          }
-        }
-    
-        if (checkPacing && venueId) {
-          const now = new Date();
-          const reservations = await tx.reservation.findMany({
-            where: { venueId, date: serviceDays, status: { notIn: [...NOT_BOOKED_STATUSES] } },
-            select: { id: true, tableId: true, startTime: true, endTime: true, partySize: true },
-          });
-          const holds = await tx.reservationHold.findMany({
-            where: {
-              venueId,
-              date: serviceDays,
-              expiresAt: activeHoldWindow(now),
-              ...(excludeHoldId ? { id: { not: excludeHoldId } } : {}),
-              ...(excludeSessionId ? { sessionId: { not: excludeSessionId } } : {}),
-            },
-            select: {
-              id: true,
-              tableId: true,
-              startTime: true,
-              endTime: true,
-              partySize: true,
-              expiresAt: true,
-            },
-          });
-          const settings = (
-            await tx.venue.findUnique({ where: { id: venueId }, select: { settings: true } })
-          )?.settings as VenueSettings | null | undefined;
-    
-          const pacingOk = checkPacingForSlot(startTime, partySize, settings, reservations, holds);
-          if (!pacingOk) {
-            return fail({
-              code: "PACING_EXCEEDED",
-              message: "Pacing limit reached for this time slot",
-            });
           }
         }
     
@@ -15511,41 +15476,6 @@
         };
       }
     
-      // Step 2.5: Pacing pre-check — runs outside the transaction so pacing is
-      // enforced on every confirm path, not just hold create. Fetch venue settings
-      // and conflict slices once; pass to assertBookable (pure rule, no DB access).
-      if (hold.venueId) {
-        // ADR-026 §3.3 (sweep-discovered gap, #5369 PR 5): `venues` is RLS-scoped,
-        // and `hold.venueId` is already a known, trusted scalar (the hold's own
-        // column, not caller-supplied) — no ambiguity to resolve, so this reads
-        // it inside that venue's own context rather than through `resolveVenueId`.
-        const venue = await runWithVenueContext(hold.venueId, () =>
-          prisma.venue.findUnique({ where: { id: hold.venueId } })
-        );
-        const settings = (venue?.settings ?? null) as VenueSettings | null;
-        const dateStr = hold.date.toISOString().slice(0, 10);
-        const { reservations, holds: holdSlices } = await availabilityService.fetchConflictData(
-          hold.venueId,
-          dateStr
-        );
-    
-        const bookingError = assertBookable({
-          tableId: hold.tableId,
-          window: { startTime: hold.startTime, endTime: hold.endTime },
-          partySize: hold.partySize,
-          settings,
-          reservations,
-          holds: holdSlices,
-          excludeHoldId: holdId,
-        });
-    
-        if (bookingError?.code === "PACING_EXCEEDED") {
-          return { success: false, error: bookingError.message, errorCode: "PACING_EXCEEDED" };
-        }
-        // CONFLICT from assertBookable is a pre-check only; bookSlot re-checks under
-        // the advisory lock, which is the authoritative gate.
-      }
-    
       // Step 3: Atomic slot write under the advisory lock + transaction.
       const result = await bookSlot({
         tableId: hold.tableId,
@@ -15555,7 +15485,6 @@
         partySize: hold.partySize,
         excludeHoldId: holdId,
         checkHoldConflict: true,
-        checkPacing: hold.venueId != null,
         // Re-judge the slot against the committed availability, so a closure saved
         // after the hold was created wins over the hold.
         gate: { channel: "online" },
@@ -15563,7 +15492,7 @@
         // reservation, even if it expired between the lookup and acquiring the lock.
         guard: async () =>
           hold.expiresAt < new Date() ? { code: "EXPIRED", message: "Hold has expired" } : undefined,
-        // Every unbookable outcome (expired, conflict, pacing) consumes the hold.
+        // Every unbookable outcome (expired, conflict, gate refusal) consumes the hold.
         onUnbookable: async (tx) => {
           await tx.reservationHold.delete({ where: { id: holdId } });
         },
@@ -15620,13 +15549,6 @@
         }
         if (conflict.code === "EXPIRED") {
           return { success: false, error: "Hold has expired", errorCode: "EXPIRED" };
-        }
-        if (conflict.code === "PACING_EXCEEDED") {
-          return {
-            success: false,
-            error: "Pacing limit reached for this time slot",
-            errorCode: "PACING_EXCEEDED",
-          };
         }
         return { success: false, error: "Time slot is no longer available", errorCode: "CONFLICT" };
       }
@@ -18370,13 +18292,15 @@
           }
           selectedTableId = table.id;
         } else {
-          // Pre-check: verify provided table is available and pacing is not exceeded.
+          // Pre-check: verify the provided table fits and is free. Pacing is the
+          // availability gate's call (judgeBooking below), so `settings: null`
+          // skips the legacy pacing rule here.
           const bookingError = assertBookable({
             tableId: selectedTableId,
             table: await loadTableFit(selectedTableId),
             window: { startTime, endTime },
             partySize,
-            settings,
+            settings: null,
             reservations,
             holds,
             excludeSessionId: sessionId,
@@ -19525,7 +19449,6 @@
         excludeReservationId: reservation.id,
         excludeHoldId: holdId,
         checkHoldConflict: true,
-        checkPacing: true,
         gate: { channel: "online" },
         guard: async () =>
           hold.expiresAt < new Date() ? { code: "EXPIRED", message: "Hold has expired" } : undefined,
@@ -19571,13 +19494,6 @@
         }
         if (conflict.code === "EXPIRED") {
           return { success: false, error: "Hold has expired", errorCode: "EXPIRED" };
-        }
-        if (conflict.code === "PACING_EXCEEDED") {
-          return {
-            success: false,
-            error: "Pacing limit reached for this time slot",
-            errorCode: "PACING_EXCEEDED",
-          };
         }
         return { success: false, error: "Time slot is no longer available", errorCode: "CONFLICT" };
       }
@@ -22118,95 +22034,11 @@
     export function venueLocalDateString(instant: Date, ianaTimezone: string): string {
       return new Intl.DateTimeFormat("en-CA", { timeZone: ianaTimezone }).format(instant);
     }
-    type DateThreshold = { lt: Date } | { gt: Date };
-    function passesThreshold(value: Date, threshold: DateThreshold): boolean {
-      return "lt" in threshold ? value < threshold.lt : value > threshold.gt;
-    }
-    export function overlapWindow(
-      startTime: Date,
-      endTime: Date
-    ): { startTime: DateThreshold; endTime: DateThreshold } {
-      return {
-        startTime: { lt: endTime },
-        endTime: { gt: startTime },
-      };
-    }
     export function serviceDayConflictWindow(date: Date): { gte: Date; lte: Date } {
       return {
         gte: new Date(date.getTime() - MS_PER_DAY),
         lte: new Date(date.getTime() + MS_PER_DAY),
       };
-    }
-    export function activeHoldWindow(now: Date): DateThreshold {
-      return { gt: now };
-    }
-    export function checkTableConflict(
-      tableId: string,
-      startTime: Date,
-      endTime: Date,
-      reservations: ReservationSlim[],
-      holds: HoldSlim[]
-    ): boolean {
-      const window = overlapWindow(startTime, endTime);
-    
-      const hasReservationConflict = reservations.some(
-        (r) =>
-          r.tableId === tableId &&
-          passesThreshold(r.startTime, window.startTime) &&
-          passesThreshold(r.endTime, window.endTime)
-      );
-    
-      if (hasReservationConflict) return true;
-    
-      const activeWindow = activeHoldWindow(new Date());
-      return holds.some(
-        (h) =>
-          h.tableId === tableId &&
-          passesThreshold(h.expiresAt, activeWindow) &&
-          passesThreshold(h.startTime, window.startTime) &&
-          passesThreshold(h.endTime, window.endTime)
-      );
-    }
-    export function checkPacingForSlot(
-      startTime: Date,
-      partySize: number,
-      settings: VenueSettings | null | undefined,
-      reservations: ReservationSlim[],
-      holds: HoldSlim[]
-    ): boolean {
-      const pacingRules = settings?.pacingRules;
-    
-      if (!pacingRules || pacingRules.length === 0) return true;
-    
-      const rule = pacingRules[0];
-      if (!rule) return true;
-      const windowMinutes =
-        rule.timeWindowMinutes ?? settings?.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
-      const windowEnd = new Date(startTime.getTime() + windowMinutes * 60 * 1000);
-    
-      const reservationCovers = reservations
-        .filter((r) => r.startTime >= startTime && r.startTime < windowEnd)
-        .reduce((sum, r) => sum + r.partySize, 0);
-    
-      const holdCovers = holds
-        .filter((h) => h.expiresAt > new Date() && h.startTime >= startTime && h.startTime < windowEnd)
-        .reduce((sum, h) => sum + h.partySize, 0);
-    
-      return reservationCovers + holdCovers + partySize <= rule.maxCoversPerSlot;
-    }
-    export function selectBestTable(
-      candidates: TableCandidate[],
-      startTime: Date,
-      endTime: Date,
-      reservations: ReservationSlim[],
-      holds: HoldSlim[]
-    ): TableCandidate | null {
-      for (const table of candidates) {
-        if (!checkTableConflict(table.id, startTime, endTime, reservations, holds)) {
-          return table;
-        }
-      }
-      return null;
     }
   </file>
   <file path="src/services/sse-connection-manager.ts">
@@ -25463,7 +25295,7 @@
         if (!isSlotInBookingWindow(start, window)) continue;
         const end = new Date(start.getTime() + duration * 60 * 1000);
         const free = suitable
-          .filter((t) => !checkTableConflict(t.id, start, end, [], []))
+          .filter((t) => !checkTableConflict(t.id, start, end, [], [], now))
           .map((t) => ({
             id: t.id,
             name: t.name,
@@ -25471,7 +25303,7 @@
             minCovers: t.minCovers,
             maxCovers: t.maxCovers,
           }));
-        const pacingOk = checkPacingForSlot(start, partySize, settings, [], []);
+        const pacingOk = checkPacingForSlot(start, partySize, settings, [], [], now);
         slots.push({
           time: start.toISOString(),
           available: free.length > 0 && pacingOk,
