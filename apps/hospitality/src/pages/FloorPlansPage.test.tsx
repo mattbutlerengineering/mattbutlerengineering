@@ -112,7 +112,16 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   ),
   Skeleton: () => <div data-testid="skeleton" />,
   SkeletonGroup: ({ children }: any) => <div data-testid="skeleton-group">{children}</div>,
-  Text: ({ children }: any) => <span>{children}</span>,
+  Text: ({ children, truncate, title, className, ...rest }: any) => (
+    <span
+      className={className}
+      title={title}
+      data-rialto-truncate={truncate ? "true" : undefined}
+      data-truncate={rest["data-truncate"]}
+    >
+      {children}
+    </span>
+  ),
 }));
 
 // Wrap with QueryClientProvider since useFloorPlans uses useQuery
@@ -204,6 +213,24 @@ describe("FloorPlansPage", () => {
     expect(screen.getByText("1 table")).toBeDefined();
 
     expect(screen.getByText("Updated 01/15/2026")).toBeDefined();
+  });
+
+  it("truncates a 120-character plan name and meta lines, keeping the full value in title", async () => {
+    const longName = "North Terrace Private Dining Room ".repeat(4).trim().slice(0, 120);
+    expect(longName).toHaveLength(120);
+    mockFloorPlansList.mockResolvedValue({
+      data: [{ ...mockFloorPlan, name: longName }],
+    });
+    renderPage();
+
+    const name = await screen.findByText(longName);
+    expect(name.getAttribute("data-rialto-truncate")).toBe("true");
+    expect(name.getAttribute("data-truncate")).not.toBeNull();
+    expect(name.getAttribute("title")).toBe(longName);
+
+    const updated = screen.getByText("Updated 01/15/2026");
+    expect(updated.getAttribute("data-rialto-truncate")).toBe("true");
+    expect(updated.getAttribute("title")).toBe("Updated 01/15/2026");
   });
 
   it("active floor plan shows Active badge", async () => {
