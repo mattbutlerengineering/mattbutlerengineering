@@ -1945,6 +1945,7 @@
         "close_after_open": "El cierre debe ser distinto de la apertura.",
         "last_seating_after_close": "La última mesa debe ser antes del cierre.",
         "span_too_long": "Un servicio que pasa de la medianoche puede durar como máximo 16 horas.",
+        "legacy_closed_day": "Un día de exactamente 24 horas, o un servicio más corto que la ventana de 90 minutos de última sentada, dejaría el local como cerrado. Ajusta los horarios.",
         "name_too_long": "Usa 40 caracteres o menos para el nombre del servicio.",
         "overlap": "Este servicio se traslapa con otro.",
         "days_required": "Elige al menos un día."

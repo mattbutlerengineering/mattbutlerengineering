@@ -536,7 +536,7 @@
       type QuickSetupField = "name" | "opens" | "lastSeating" | "closes";
     </item>
     <item priority="low">
-      type QuickSetupIssueCode = "name_required" | "name_too_long" | "time_required" | "close_after_open" | "last_seating_after_close" | "span_too_long" | "overlap" | "days_required";
+      type QuickSetupIssueCode = "name_required" | "name_too_long" | "time_required" | "close_after_open" | "last_seating_after_close" | "span_too_long" | "legacy_closed_day" | "overlap" | "days_required";
     </item>
     <item priority="low">
       interface QuickSetupIssue {
@@ -562,10 +562,16 @@
       function orderIssues(service: ServiceDraft, m: ServiceMinutes): QuickSetupIssue[] { /* ... */ }
     </item>
     <item priority="high">
-      export function validateDraft(draft: QuickSetupDraft): QuickSetupIssue[] { /* ... */ }
+      export function validateDraft(
+        draft: QuickSetupDraft,
+        options: { readonly legacyReader?: boolean } = {}
+      ): QuickSetupIssue[] { /* ... */ }
     </item>
     <item priority="medium">
-      function spanIssues(draft: QuickSetupDraft): QuickSetupIssue[] { /* ... */ }
+      function spanIssues(draft: QuickSetupDraft, legacyReader: boolean): QuickSetupIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function hasClosedDay(draft: QuickSetupDraft, hours: LegacyHours): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function draftToConfig(

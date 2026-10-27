@@ -1907,6 +1907,7 @@
         "close_after_open": "Closing must be different from opening.",
         "last_seating_after_close": "Last seating must be before closing.",
         "span_too_long": "A service that runs past midnight can be at most 16 hours long.",
+        "legacy_closed_day": "A day of exactly 24 hours, or a service shorter than the 90-minute last-seating window, would show the venue as closed. Adjust the times.",
         "name_too_long": "Use 40 characters or fewer for the service name.",
         "overlap": "This service overlaps another one.",
         "days_required": "Choose at least one day."
