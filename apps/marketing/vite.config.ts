@@ -11,7 +11,7 @@ export default defineConfig({
       injectRegister: "script-defer",
       registerType: "autoUpdate",
       scope: "/",
-      includeAssets: ["favicon.svg", "apple-touch-icon.png", "robots.txt"],
+      includeAssets: ["favicon.svg", "favicon.ico", "apple-touch-icon.png", "robots.txt"],
       manifest: {
         name: "Matt Butler Engineering",
         short_name: "MBE",
