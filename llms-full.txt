@@ -10274,6 +10274,12 @@
         failingGates: failingGates.map(normalizeFailingGate),
       };
     }
+    export function describeSensorGap(sensor: Record<string, unknown>): string | null {
+      if (sensor.available === true) return null;
+      const code = readString(sensor.reason) ?? readString(sensor.state);
+      if (code != null) return SENSOR_GAP_EXPLANATIONS[code] ?? code;
+      return readString(sensor.error);
+    }
     export function normalizeSensorReport(report: unknown): HealthMetrics {
       const raw = asRecord(report);
       const sensors = asRecord(raw.sensors);

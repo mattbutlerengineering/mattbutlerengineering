@@ -206,6 +206,27 @@ describe("AiHealthPage", () => {
     });
   });
 
+  it("says why an unavailable sensor is unavailable instead of a bare badge (#7581)", async () => {
+    const report = {
+      ...MOCK_REPORT,
+      sensors: {
+        ...MOCK_REPORT.sensors,
+        lighthouse: { available: false, reason: "inventory_missing" },
+        mutationScore: { available: false, state: "report-missing" },
+        e2eStability: { available: false, reason: "no_resolvable_runs" },
+        flakyTests: { available: false, error: "gh-client: no gh binary" },
+      },
+    };
+    mockFetch.mockResolvedValue({ ok: true, json: async () => report });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText(/local \/site-audit run/)).toBeInTheDocument();
+      expect(screen.getByText(/Mutation Testing workflow/)).toBeInTheDocument();
+      expect(screen.getByText(/not present in this checkout/)).toBeInTheDocument();
+      expect(screen.getByText(/gh-client: no gh binary/)).toBeInTheDocument();
+    });
+  });
+
   it("renders an explicit As of timestamp", async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => MOCK_REPORT });
     renderPage();
