@@ -18,6 +18,13 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Text: ({ children, as: As = "span" }: { children: ReactNode; as?: ElementType }) => (
     <As>{children}</As>
   ),
+  GlobalNav: () => (
+    <nav aria-label="Global">
+      <a href="/">MBE</a>
+    </nav>
+  ),
+  Footer: ({ children }: { children?: ReactNode }) => <footer>{children}</footer>,
+  useTheme: () => ({ theme: "light", toggleTheme: vi.fn() }),
   Button: ({ children, onClick }: { children: ReactNode; onClick?: () => void }) => (
     <button onClick={onClick}>{children}</button>
   ),
@@ -76,6 +83,18 @@ describe("App", () => {
     renderAt({ phase: "signed-out", afterSignOut: a }, "/gen/callback");
     expect(screen.getByTestId("login-landing")).toBeDefined();
     expect(screen.queryByText("Loading...")).toBeNull();
+  });
+
+  it("keeps a way back to the site (header home link + footer) on the error screen", () => {
+    renderAt({ phase: "error", error: new Error("Auth failed"), onCallback: false });
+    expect(screen.getByRole("link", { name: "MBE" }).getAttribute("href")).toBe("/");
+    expect(screen.getByRole("contentinfo")).toBeDefined();
+  });
+
+  it("keeps a way back to the site (header home link + footer) on the session-expired screen", () => {
+    renderAt({ phase: "expired" });
+    expect(screen.getByRole("link", { name: "MBE" }).getAttribute("href")).toBe("/");
+    expect(screen.getByRole("contentinfo")).toBeDefined();
   });
 
   it("renders a session-expired screen whose Sign In re-enters sign-in", () => {

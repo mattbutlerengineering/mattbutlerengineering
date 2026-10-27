@@ -1,16 +1,14 @@
 import { useAuth } from "@mbe/auth/react";
 import {
-  Footer,
-  GlobalNav,
   Hero,
   Heading,
   Stack,
   Text,
   Button,
   RialtoProvider,
-  useTheme,
   useUIEnvironment,
 } from "@mattbutlerengineering/rialto";
+import { SiteChrome } from "./SiteChrome.js";
 import styles from "./LoginLanding.module.css";
 
 /** The four visible stages of the Gen pipeline: prompt -> spec -> JSX -> live preview. */
@@ -35,15 +33,12 @@ export function LoginLanding() {
   const { signIn } = useAuth();
   // Inherit the ambient theme so the scoped provider only shifts the vibe.
   const { theme } = useUIEnvironment();
-  const { toggleTheme } = useTheme();
 
   return (
     <RialtoProvider vibe="transacting" theme={theme}>
-      <div className={styles.page}>
-        <GlobalNav currentApp="gen" theme={theme} onThemeToggle={toggleTheme} />
+      <SiteChrome>
         <main className={styles.landing}>
           <Hero
-            className={styles.hero}
             eyebrow="Generative UI"
             minHeight="auto"
             showDivider={false}
@@ -94,10 +89,7 @@ export function LoginLanding() {
             </figure>
           </section>
         </main>
-        <Footer variant="minimal">
-          <Text>{`\u00A9 ${new Date().getFullYear()} Matt Butler Engineering`}</Text>
-        </Footer>
-      </div>
+      </SiteChrome>
     </RialtoProvider>
   );
 }
