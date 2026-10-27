@@ -11,7 +11,7 @@ const SITE_NAME = "Matt Butler Engineering";
 
 // First match wins; "*" (404) must stay last. "/" is intentionally absent:
 // the homepage keeps the static title and description from index.html.
-export const ROUTE_META: readonly RouteMeta[] = [
+const ROUTE_META: readonly RouteMeta[] = [
   {
     pattern: "/status",
     title: `System Status — ${SITE_NAME}`,
@@ -60,7 +60,7 @@ export const ROUTE_META: readonly RouteMeta[] = [
   },
 ];
 
-export function findRouteMeta(pathname: string): RouteMeta | undefined {
+function findRouteMeta(pathname: string): RouteMeta | undefined {
   if (pathname === "/") return undefined;
   return ROUTE_META.find((meta) => matchPath({ path: meta.pattern, end: true }, pathname));
 }

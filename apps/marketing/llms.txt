@@ -545,11 +545,8 @@
         description: string;
       }
     </item>
-    <item priority="high">
-      export const ROUTE_META: readonly RouteMeta[];
-    </item>
-    <item priority="high">
-      export function findRouteMeta(pathname: string): RouteMeta | undefined { /* ... */ }
+    <item priority="medium">
+      function findRouteMeta(pathname: string): RouteMeta | undefined { /* ... */ }
     </item>
     <item priority="medium">
       function setDescription(content: string): void { /* ... */ }
