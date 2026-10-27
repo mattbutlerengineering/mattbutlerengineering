@@ -9,6 +9,8 @@ import styles from "./AvailabilityAgenda.module.css";
 export interface AvailabilityAgendaProps {
   /** The dates to list, in order; one row each. */
   readonly dates: readonly string[];
+  /** The list's accessible name, including the period on show. */
+  readonly label: string;
   readonly byDate: ReadonlyMap<string, AvailabilityDaySummary>;
   readonly today: string;
   readonly selectedDate?: string | null;
@@ -31,7 +33,7 @@ export function AvailabilityAgenda(props: AvailabilityAgendaProps) {
   const format = useVenueFormat();
 
   return (
-    <ul className={styles.agenda} aria-label={t("availability.calendar.label")}>
+    <ul className={styles.agenda} aria-label={props.label}>
       {dates.map((date) => {
         const summary = byDate.get(date);
         const view = presentDay(date, summary, false, t, format);

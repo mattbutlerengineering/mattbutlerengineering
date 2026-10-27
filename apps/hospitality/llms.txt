@@ -413,6 +413,23 @@
       export function outcomeLabel(counts: OutcomeCounts, t: TFunction): string { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/period.ts">
+    <item priority="high">
+      export function periodLabel(
+        view: CalendarView,
+        anchor: string,
+        t: TFunction,
+        format: VenueFormat
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function weekSummary(
+        anchor: string,
+        days: readonly AvailabilityDaySummary[] | undefined,
+        t: TFunction
+      ): string | null { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/quick-setup-draft.ts">
     <item priority="low">
       interface ServiceDraft {
@@ -4366,6 +4383,18 @@
     </item>
     <item priority="high">
       export function formatHourLabel(hour: number, locale: string, compact: boolean): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function deviceTimeZone(): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatTimeZoneName(at: Date, timeZone: string, locale: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function canonicalTimeZone(timeZone: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function sameTimeZone(a: string, b: string): boolean { /* ... */ }
     </item>
   </file>
   <file path="src/utils/ics.ts">

@@ -4,3 +4,15 @@
   align-items: center;
   gap: var(--rialto-space-sm);
 }
+
+.summaryRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rialto-space-sm);
+}
+
+.period {
+  font-weight: 600;
+}
