@@ -21781,6 +21781,13 @@
     }
   </file>
   <file path="apps/gen/src/lib/normalize-generated-spec.ts">
+    interface GenElement {
+      type: string;
+      props?: Record<string, unknown>;
+      children?: string[];
+      visible?: unknown;
+      slots?: Record<string, string[]>;
+    }
     export function parseTrendPoints(text: string): { label: string; value: string }[] | null {
       const trimmed = text.trim();
       if (trimmed.length < 8 || trimmed.length > 400) return null;
@@ -21801,9 +21808,67 @@
       if (typeof record.text === "string") return record.text;
       return null;
     }
-    export function normalizeGeneratedSpec(spec: Spec): Spec {
+    function elementsOf(spec: Spec): Record<string, GenElement> {
+      return spec.elements as Record<string, GenElement>;
+    }
+    function reachableKeys(elements: Record<string, GenElement>, root: string): Set<string> {
+      const seen = new Set<string>();
+      const walk = (key: string) => {
+        if (seen.has(key)) return;
+        const element = elements[key];
+        if (!element) return;
+        seen.add(key);
+        for (const child of element.children ?? []) walk(child);
+        for (const slot of Object.values(element.slots ?? {})) {
+          if (!Array.isArray(slot)) continue;
+          for (const child of slot) walk(child);
+        }
+      };
+      walk(root);
+      return seen;
+    }
+    function revealStateGated(element: GenElement): GenElement {
+      if (element.visible === undefined || typeof element.visible === "boolean") return element;
+      const next = { ...element };
+      delete next.visible;
+      return next;
+    }
+    function linkOrphans(spec: Spec, elements: Record<string, GenElement>): Record<string, GenElement> {
+      if (!spec.root || !elements[spec.root]) return elements;
+      const seen = reachableKeys(elements, spec.root);
+      const orphans = Object.keys(elements).filter((key) => !seen.has(key));
+      if (orphans.length === 0) return elements;
+      const referenced = new Set<string>();
+      for (const key of orphans) {
+        for (const child of elements[key]?.children ?? []) referenced.add(child);
+      }
+      const roots = orphans.filter((key) => !referenced.has(key));
+      const attach = roots.length > 0 ? roots : orphans;
+      if (attach.length === 0) return elements;
+      const root = elements[spec.root];
+      if (!root) return elements;
+      return {
+        ...elements,
+        [spec.root]: { ...root, children: [...(root.children ?? []), ...attach] },
+      };
+    }
+    function prepareTree(spec: Spec): Spec {
+      const source = elementsOf(spec);
       let changed = false;
-      const elements: Spec["elements"] = { ...spec.elements };
+      const revealed: Record<string, GenElement> = {};
+      for (const [key, element] of Object.entries(source)) {
+        const next = revealStateGated(element);
+        if (next !== element) changed = true;
+        revealed[key] = next;
+      }
+      const linked = linkOrphans(spec, revealed);
+      if (!changed && linked === revealed) return spec;
+      return { ...spec, elements: linked as Spec["elements"] };
+    }
+    export function normalizeGeneratedSpec(spec: Spec): Spec {
+      const prepared = prepareTree(spec);
+      let changed = prepared !== spec;
+      const elements: Record<string, GenElement> = { ...elementsOf(prepared) };
       for (const [key, element] of Object.entries(elements)) {
         if (!element || element.type !== "Text") continue;
         const text = textContent(element.props);
@@ -21816,7 +21881,7 @@
           props: { label: "Trend", data: points },
         };
       }
-      return changed ? { ...spec, elements } : spec;
+      return changed ? { ...prepared, elements: elements as Spec["elements"] } : prepared;
     }
   </file>
   <file path="apps/gen/src/lib/pending-prompt.ts">
@@ -21825,6 +21890,18 @@
       if (error instanceof Error) return;
       throw error;
     }
+    function rewriteActivePrompt(storage: Storage): void {
+      if (!activePrompt) return;
+      try {
+        storage.setItem(PENDING_PROMPT_KEY, activePrompt);
+      } catch (error) {
+        continueWhenStorageFails(error);
+      }
+    }
+    function markLeaving(): void {
+      leaving = true;
+      rewriteActivePrompt(window.sessionStorage);
+    }
     export function interruptedPromptNotice(): string {
       return INTERRUPTED_NOTICE;
     }
@@ -21832,6 +21909,8 @@
       prompt: string,
       storage: Storage = window.sessionStorage
     ): void {
+      activePrompt = prompt;
+      leaving = false;
       try {
         storage.setItem(PENDING_PROMPT_KEY, prompt);
       } catch (error) {
@@ -21839,26 +21918,35 @@
       }
     }
     export function clearPendingPrompt(storage: Storage = window.sessionStorage): void {
+      // A refresh aborts the fetch after pagehide. Completing or failing in that
+      // window must leave the prompt for the next load.
+      if (leaving) {
+        rewriteActivePrompt(storage);
+        return;
+      }
+      activePrompt = null;
+      cached = null;
       try {
         storage.removeItem(PENDING_PROMPT_KEY);
       } catch (error) {
         continueWhenStorageFails(error);
       }
-      cached = null;
     }
     export function readInterruptedPrompt(storage: Storage = window.sessionStorage): string | null {
       if (cached !== undefined) return cached;
       try {
         const value = storage.getItem(PENDING_PROMPT_KEY);
-        storage.removeItem(PENDING_PROMPT_KEY);
         cached = value && value.trim() !== "" ? value : null;
       } catch {
         cached = null;
       }
+      activePrompt = cached;
       return cached;
     }
     export function resetInterruptedPromptCache(): void {
       cached = undefined;
+      activePrompt = null;
+      leaving = false;
     }
   </file>
   <file path="apps/gen/src/lib/shortcuts.ts">
@@ -25385,8 +25473,10 @@
         // the error the user is meant to see and act on. Skipped for a
         // transport/HTTP failure (auth expired, network drop) — that's an
         // infrastructure hiccup, not a generation failure worth recording.
+        // A refresh aborts the fetch with a network error. Clearing here erased
+        // the stash before the next page could read it. The key stays until the
+        // generation succeeds or the user stops it.
         onError: (err) => {
-          clearPendingPrompt();
           if (!rawPrompt || isTransportError(err)) return;
           void saveSpec({
             prompt: rawPrompt,
@@ -27457,10 +27547,7 @@
     }
     export function installAuthBackSkip(
       history: History = window.history,
-      storage: Storage = window.sessionStorage,
-      schedule: (fn: () => void) => void = (fn) => {
-        window.setTimeout(fn, SKIP_IDP_HISTORY_DELAY_MS);
-      }
+      storage: Storage = window.sessionStorage
     ): void {
       let raw: string | null;
       try {
@@ -27473,20 +27560,13 @@
       const steps = authHistorySkipSteps(Number(raw), history.length);
       if (steps == null) return;
     
-      const onPop = () => {
-        window.removeEventListener("popstate", onPop);
-        try {
-          storage.setItem(AUTH_BACK_RELOAD_KEY, "1");
-        } catch (error) {
-          continueWhenStorageFails(error);
-        }
-        // history.go inside the popstate handler is ignored by some browsers.
-        schedule(() => {
-          history.go(-steps);
-        });
-      };
-      window.addEventListener("popstate", onPop);
-      history.pushState({ mbeAuthSentinel: true }, "", window.location.href);
+      try {
+        storage.setItem(AUTH_BACK_RELOAD_KEY, "1");
+      } catch (error) {
+        continueWhenStorageFails(error);
+      }
+      // Not from popstate: browsers drop history.go that runs inside that event.
+      history.go(-steps);
     }
     interface PageShowTarget {
       sessionStorage: Storage;
