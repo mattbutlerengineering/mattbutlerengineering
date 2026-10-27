@@ -135,7 +135,13 @@ function listDay(loaded: LoadedSnapshot, date: string, partySize: number, now: D
 }
 
 function noticesFor(loaded: LoadedSnapshot, date: string, seatingCount: number) {
-  return dayNotices(loaded.snapshot, date, loaded.venueSettings?.phone ?? null, seatingCount);
+  return dayNotices(
+    loaded.snapshot,
+    date,
+    loaded.venueSettings?.phone ?? null,
+    seatingCount,
+    loaded.unconfigured
+  );
 }
 
 /** Slots for one date, with the closure or booking-pause notice the guest sees instead. */

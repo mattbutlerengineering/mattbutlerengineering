@@ -111,7 +111,7 @@ export function DatePartySelector({
                     date: format.formatLongDate(iso),
                     message: closedDates[iso],
                   })
-                : undefined
+                : format.formatLongDate(iso)
             }
             onFocus={(e) => setFocusedDate(e.target.getAttribute("data-date"))}
             onBlur={(e) => {
