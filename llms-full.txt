@@ -20790,6 +20790,8 @@
       readonly drawer: string;
       /** Fallback accessible name of a Popover with no title. */
       readonly popover: string;
+      /** NeonSign banner shape: the decorative script line printed above OPEN. */
+      readonly neonSignLead: string;
       /** Accessible name of a HoverCard's preview surface. */
       readonly preview: string;
       /** Accessible name of the Toast region. */
@@ -21006,6 +21008,7 @@
       dialog: "Dialog",
       drawer: "Drawer",
       popover: "Popover",
+      neonSignLead: "Yes, we're",
       preview: "Preview",
       notifications: "Notifications",
       confirm: "Confirm",
@@ -22911,6 +22914,7 @@
       dialog: "Diálogo",
       drawer: "Panel lateral",
       popover: "Ventana emergente",
+      neonSignLead: "Sí, estamos",
       preview: "Vista previa",
       notifications: "Notificaciones",
       confirm: "Confirmar",
@@ -23074,6 +23078,7 @@
       dialog: "Boîte de dialogue",
       drawer: "Panneau latéral",
       popover: "Fenêtre contextuelle",
+      neonSignLead: "Oui, on est",
       preview: "Aperçu",
       notifications: "Avis",
       confirm: "Confirmer",
