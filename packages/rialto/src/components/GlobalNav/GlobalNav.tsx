@@ -27,7 +27,7 @@ const NAV_ITEMS: readonly NavItem[] = [
 ];
 
 /** A dropdown of same-site links that sits after the app links (a group in the mobile menu). */
-export interface GlobalNavMenu {
+interface GlobalNavMenu {
   /** Trigger text and mobile group name. */
   readonly label: string;
   readonly items: readonly { label: string; href: string; current?: boolean }[];

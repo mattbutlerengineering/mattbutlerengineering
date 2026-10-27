@@ -2197,13 +2197,6 @@
       "slots": []
     },
     {
-      "name": "GlobalNavMenu",
-      "description": "A dropdown of same-site links that sits after the app links (a group in the mobile menu).",
-      "importPath": "@mattbutlerengineering/rialto",
-      "props": [],
-      "slots": []
-    },
-    {
       "name": "GuestCard",
       "description": "One guest in `GuestCards`. Contact details, notes and spend are not part of\nthe card and are never shown.",
       "importPath": "@mattbutlerengineering/rialto",
