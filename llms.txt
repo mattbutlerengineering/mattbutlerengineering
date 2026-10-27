@@ -15096,10 +15096,16 @@
       async function settleOnce(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<Settled | null> { /* ... */ }
     </item>
     <item priority="medium">
+      function isAmountRejection(error: StripeOperationError): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
       function asPermanentIfStripeRejection(error: unknown): unknown { /* ... */ }
     </item>
     <item priority="low">
       async function settleDeposit(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<Settled> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function needsRelease(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<boolean> { /* ... */ }
     </item>
     <item priority="high">
       export async function settleClosureRefund(
@@ -16506,6 +16512,7 @@
       class StripeOperationError {
         isRetriable: boolean;
         stripeType: string;
+        code: string | undefined;
         cause: unknown;
       }
     </item>

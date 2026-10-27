@@ -26,3 +26,14 @@ describe("createPrismaClosureRefundStore.markFailed", () => {
     });
   });
 });
+
+describe("createPrismaClosureRefundStore.reopenDone", () => {
+  it("moves only a done outcome back to pending", async () => {
+    await createPrismaClosureRefundStore().reopenDone("out-1");
+
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: "out-1", refund: "done" },
+      data: { refund: "pending" },
+    });
+  });
+});

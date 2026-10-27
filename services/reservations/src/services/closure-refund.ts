@@ -65,6 +65,12 @@ export interface ClosureRefundStore {
    * reset, so the failure is never overwritten.
    */
   resetToPending(outcomeId: string): Promise<void>;
+  /**
+   * Returns a `done` outcome to `pending`. Conditional on `done`. Used when the live deposit
+   * contradicts `done`, so a failed re-run is recorded as `failed` (which Manager Retry can
+   * re-run) instead of the no-op `markFailed` leaves on a settled row.
+   */
+  reopenDone(outcomeId: string): Promise<void>;
   /** Records `failed`, leaving an outcome a concurrent run already settled (`done` / `none`). */
   markFailed(outcomeId: string): Promise<void>;
   /** Outcomes of one closure whose refund is in one of `statuses`. */
@@ -148,19 +154,19 @@ async function refundCaptured(
   }
   if (await deps.payments.findDepositRefund(pi, deposit.id, "closureRefund")) return "done";
 
-  const ownLeg =
-    deposit.status === "partial_refunded"
-      ? ((await deps.payments.findDepositRefund(pi, deposit.id, "refundPartial"))?.amount ?? 0)
-      : 0;
-  const owed = deposit.amountCents - ownLeg - (deposit.postCaptureRefundCents ?? 0);
+  // Stripe's own totals on the charge (refunded = succeeded + pending refunds, never failed
+  // ones). They already include the deposit's own refundPartial leg and any dashboard refund,
+  // so they replace both the leg lookup and the webhook-fed postCaptureRefundCents, which only
+  // ever grows and so kept counting a closure refund that later failed (#7790). A dashboard
+  // capture can be smaller than the deposit, so cap at what was captured.
+  const { capturedCents, refundedCents } = await deps.payments.getChargeAmounts(pi);
+  const owed = Math.min(deposit.amountCents, capturedCents) - refundedCents;
   if (owed <= 0) return "done";
-  await deps.payments.createPartialRefund(
-    pi,
-    owed,
-    deposit.id,
-    `${deposit.id}:closureRefund:${owed}`,
-    "closureRefund"
-  );
+  // An earlier attempt at this amount that failed at Stripe would be replayed from the
+  // idempotency cache under the same key, so each failure moves the key on.
+  const failed = await deps.payments.countFailedDepositRefunds(pi, deposit.id, "closureRefund");
+  const key = `${deposit.id}:closureRefund:${owed}${failed > 0 ? `:${failed}` : ""}`;
+  await deps.payments.createPartialRefund(pi, owed, deposit.id, key, "closureRefund");
   return "done";
 }
 
@@ -250,9 +256,32 @@ const PERMANENT_STRIPE_TYPES: ReadonlySet<string> = new Set([
   "StripePermissionError",
 ]);
 
+/**
+ * Amount rejections are about OUR stale `owed`, not the request's shape: the next run reads
+ * Stripe's refunded total again, computes the right amount, and uses a new amount-keyed
+ * idempotency key (e.g. the job ran before `charge.refunded` for a dashboard refund).
+ */
+const RETRIABLE_AMOUNT_CODES: ReadonlySet<string> = new Set([
+  "amount_too_large",
+  "charge_already_refunded",
+]);
+const UNREFUNDED_AMOUNT_MESSAGE = /greater than unrefunded amount/i;
+
+function isAmountRejection(error: StripeOperationError): boolean {
+  if (error.stripeType !== "StripeInvalidRequestError") return false;
+  return (
+    (error.code !== undefined && RETRIABLE_AMOUNT_CODES.has(error.code)) ||
+    UNREFUNDED_AMOUNT_MESSAGE.test(error.message)
+  );
+}
+
 /** A non-retriable Stripe error becomes a permanent failure; anything else passes through. */
 function asPermanentIfStripeRejection(error: unknown): unknown {
-  if (error instanceof StripeOperationError && PERMANENT_STRIPE_TYPES.has(error.stripeType)) {
+  if (
+    error instanceof StripeOperationError &&
+    PERMANENT_STRIPE_TYPES.has(error.stripeType) &&
+    !isAmountRejection(error)
+  ) {
     return new ClosureRefundPermanentError(
       `Stripe rejected the refund (${error.stripeType}: ${error.message}); refund it by hand`
     );
@@ -278,6 +307,12 @@ async function settleDeposit(deps: ClosureRefundDeps, row: ClosureRefundRow): Pr
   throw new Error(`Deposit for ${row.reservationId} kept changing; try again`);
 }
 
+/** `done` contradicted by the live deposit: still `held` or `pending`, so nothing was released. */
+async function needsRelease(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<boolean> {
+  const deposit = await deps.deposits.getByReservationId(row.reservationId);
+  return deposit?.status === "held" || deposit?.status === "pending";
+}
+
 /**
  * Settles one outcome's deposit and records the result. Safe to run twice:
  * an outcome already `done` / `none` is left alone.
@@ -288,7 +323,16 @@ export async function settleClosureRefund(
 ): Promise<void> {
   const row = await deps.store.load(payload.outcomeId);
   if (!row) throw new ClosureRefundPermanentError(`Closure outcome ${payload.outcomeId} not found`);
-  if (row.refund === "done" || row.refund === "none") return;
+  if (row.refund === "none") return;
+  // `done` is a hint, not the truth: Runner B can record it from a `refunded` read, then
+  // Runner A's failed Stripe cancel rolls the deposit back to `held` (#7789). A deposit
+  // still waiting on a release is never settled, so re-run the decision.
+  if (row.refund === "done") {
+    if (!(await needsRelease(deps, row))) return;
+    // Reopen first: markFailed leaves a `done` row alone, so a failed re-run would stay
+    // `done` over a live authorization and nothing would ever pick it up again.
+    await deps.store.reopenDone(row.id);
+  }
   await deps.store.setRefund(row.id, await settleDeposit(deps, row));
 }
 

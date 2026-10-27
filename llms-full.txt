@@ -49641,6 +49641,12 @@
             data: { refund: "pending" },
           });
         },
+        reopenDone: async (outcomeId) => {
+          await prisma.closureOutcome.updateMany({
+            where: { id: outcomeId, refund: "done" },
+            data: { refund: "pending" },
+          });
+        },
         markFailed: async (outcomeId) => {
           await prisma.closureOutcome.updateMany({
             where: { id: outcomeId, refund: { notIn: ["done", "none"] } },
@@ -49674,6 +49680,12 @@
        * reset, so the failure is never overwritten.
        */
       resetToPending(outcomeId: string): Promise<void>;
+      /**
+       * Returns a `done` outcome to `pending`. Conditional on `done`. Used when the live deposit
+       * contradicts `done`, so a failed re-run is recorded as `failed` (which Manager Retry can
+       * re-run) instead of the no-op `markFailed` leaves on a settled row.
+       */
+      reopenDone(outcomeId: string): Promise<void>;
       /** Records `failed`, leaving an outcome a concurrent run already settled (`done` / `none`). */
       markFailed(outcomeId: string): Promise<void>;
       /** Outcomes of one closure whose refund is in one of `statuses`. */
@@ -49735,19 +49747,19 @@
       }
       if (await deps.payments.findDepositRefund(pi, deposit.id, "closureRefund")) return "done";
     
-      const ownLeg =
-        deposit.status === "partial_refunded"
-          ? ((await deps.payments.findDepositRefund(pi, deposit.id, "refundPartial"))?.amount ?? 0)
-          : 0;
-      const owed = deposit.amountCents - ownLeg - (deposit.postCaptureRefundCents ?? 0);
+      // Stripe's own totals on the charge (refunded = succeeded + pending refunds, never failed
+      // ones). They already include the deposit's own refundPartial leg and any dashboard refund,
+      // so they replace both the leg lookup and the webhook-fed postCaptureRefundCents, which only
+      // ever grows and so kept counting a closure refund that later failed (#7790). A dashboard
+      // capture can be smaller than the deposit, so cap at what was captured.
+      const { capturedCents, refundedCents } = await deps.payments.getChargeAmounts(pi);
+      const owed = Math.min(deposit.amountCents, capturedCents) - refundedCents;
       if (owed <= 0) return "done";
-      await deps.payments.createPartialRefund(
-        pi,
-        owed,
-        deposit.id,
-        `${deposit.id}:closureRefund:${owed}`,
-        "closureRefund"
-      );
+      // An earlier attempt at this amount that failed at Stripe would be replayed from the
+      // idempotency cache under the same key, so each failure moves the key on.
+      const failed = await deps.payments.countFailedDepositRefunds(pi, deposit.id, "closureRefund");
+      const key = `${deposit.id}:closureRefund:${owed}${failed > 0 ? `:${failed}` : ""}`;
+      await deps.payments.createPartialRefund(pi, owed, deposit.id, key, "closureRefund");
       return "done";
     }
     async function resolvePending(deps: ClosureRefundDeps, deposit: Deposit): Promise<Settled | null> {
@@ -49816,8 +49828,19 @@
       if (deposit.status === "pending") return resolvePending(deps, deposit);
       return null;
     }
+    function isAmountRejection(error: StripeOperationError): boolean {
+      if (error.stripeType !== "StripeInvalidRequestError") return false;
+      return (
+        (error.code !== undefined && RETRIABLE_AMOUNT_CODES.has(error.code)) ||
+        UNREFUNDED_AMOUNT_MESSAGE.test(error.message)
+      );
+    }
     function asPermanentIfStripeRejection(error: unknown): unknown {
-      if (error instanceof StripeOperationError && PERMANENT_STRIPE_TYPES.has(error.stripeType)) {
+      if (
+        error instanceof StripeOperationError &&
+        PERMANENT_STRIPE_TYPES.has(error.stripeType) &&
+        !isAmountRejection(error)
+      ) {
         return new ClosureRefundPermanentError(
           `Stripe rejected the refund (${error.stripeType}: ${error.message}); refund it by hand`
         );
@@ -49837,13 +49860,26 @@
       // final attempt records `failed`.
       throw new Error(`Deposit for ${row.reservationId} kept changing; try again`);
     }
+    async function needsRelease(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<boolean> {
+      const deposit = await deps.deposits.getByReservationId(row.reservationId);
+      return deposit?.status === "held" || deposit?.status === "pending";
+    }
     export async function settleClosureRefund(
       deps: ClosureRefundDeps,
       payload: ClosureRefundPayload
     ): Promise<void> {
       const row = await deps.store.load(payload.outcomeId);
       if (!row) throw new ClosureRefundPermanentError(`Closure outcome ${payload.outcomeId} not found`);
-      if (row.refund === "done" || row.refund === "none") return;
+      if (row.refund === "none") return;
+      // `done` is a hint, not the truth: Runner B can record it from a `refunded` read, then
+      // Runner A's failed Stripe cancel rolls the deposit back to `held` (#7789). A deposit
+      // still waiting on a release is never settled, so re-run the decision.
+      if (row.refund === "done") {
+        if (!(await needsRelease(deps, row))) return;
+        // Reopen first: markFailed leaves a `done` row alone, so a failed re-run would stay
+        // `done` over a live authorization and nothing would ever pick it up again.
+        await deps.store.reopenDone(row.id);
+      }
       await deps.store.setRefund(row.id, await settleDeposit(deps, row));
     }
     export async function runClosureRefundJob(
@@ -56899,6 +56935,8 @@
     export class StripeOperationError extends Error {
       readonly isRetriable: boolean;
       readonly stripeType: string;
+      /** Stripe's machine-readable error `code` (e.g. `amount_too_large`), when it sent one. */
+      readonly code: string | undefined;
       override readonly cause: unknown;
     
       constructor(cause: unknown, stripeType: string, isRetriable: boolean) {
@@ -56907,6 +56945,8 @@
         this.name = "StripeOperationError";
         this.cause = cause;
         this.stripeType = stripeType;
+        const code = (cause as { code?: unknown } | null)?.code;
+        this.code = typeof code === "string" ? code : undefined;
         this.isRetriable = isRetriable;
       }
     }
@@ -57096,6 +57136,57 @@
         try {
           const intent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
           return { id: intent.id, status: intent.status };
+        } catch (err) {
+          wrapStripeError(err);
+        }
+      }
+    
+      /**
+       * Stripe's own totals on the PaymentIntent's charge, in minor units:
+       * `amount_captured` (a dashboard capture can be less than the authorization)
+       * and `amount_refunded`. The refunded total counts succeeded and pending
+       * refunds and drops failed ones, so unlike the webhook-fed
+       * `postCaptureRefundCents` (which only ever grows) it never counts money that
+       * did not reach the guest (#7790).
+       */
+      async getChargeAmounts(
+        paymentIntentId: string
+      ): Promise<{ capturedCents: number; refundedCents: number }> {
+        try {
+          const intent = await this.stripe.paymentIntents.retrieve(paymentIntentId, {
+            expand: ["latest_charge"],
+          });
+          const charge = intent.latest_charge;
+          if (charge == null || typeof charge === "string") {
+            throw new Error(`PaymentIntent ${paymentIntentId} has no charge to read amounts from`);
+          }
+          return { capturedCents: charge.amount_captured, refundedCents: charge.amount_refunded };
+        } catch (err) {
+          wrapStripeError(err);
+        }
+      }
+    
+      /**
+       * How many of OUR refunds of `leg` ended `failed` or `canceled`. A retry whose
+       * earlier refund failed owes the same amount, so its idempotency key must
+       * change or Stripe replays the cached (now failed) response.
+       */
+      async countFailedDepositRefunds(
+        paymentIntentId: string,
+        depositId: string,
+        leg: DepositRefundLeg
+      ): Promise<number> {
+        try {
+          const refunds = await this.stripe.refunds.list({
+            payment_intent: paymentIntentId,
+            limit: 100,
+          });
+          return refunds.data.filter(
+            (refund) =>
+              refund.metadata?.depositId === depositId &&
+              refund.metadata?.leg === leg &&
+              (refund.status === "failed" || refund.status === "canceled")
+          ).length;
         } catch (err) {
           wrapStripeError(err);
         }
@@ -80958,13 +81049,13 @@
       /** Replace an op's default result (or make it throw) from now on. */
       respond<Op extends PaymentsOp>(op: Op, impl: PaymentsImpl<Op>): void;
       /** The next call to `op` throws a `StripeOperationError` of `stripeType`, as `StripeService` would. */
-      failNext(op: PaymentsOp, stripeType: string): void;
+      failNext(op: PaymentsOp, stripeType: string, code?: string): void;
     }
     export function createInMemoryPayments(): InMemoryPayments {
       const calls: { op: PaymentsOp; args: unknown[] }[] = [];
       const counters = { cus: 0, pi: 0, re: 0 };
       const nextId = (kind: keyof typeof counters) => `${kind}_mem_${++counters[kind]}`;
-      const failures = new Map<PaymentsOp, string>();
+      const failures = new Map<PaymentsOp, { stripeType: string; code?: string }>();
     
       const defaults: { [Op in PaymentsOp]: PaymentsImpl<Op> } = {
         createCustomer: (options) => ({
@@ -80981,16 +81072,23 @@
         createPartialRefund: (_id, amount) => ({ id: nextId("re"), status: "succeeded", amount }),
         retrievePaymentIntent: (id) => ({ id, status: "requires_capture" }),
         findDepositRefund: () => null,
+        // Nothing refunded; "captured" is unbounded so tests only set what they assert on.
+        getChargeAmounts: () => ({ capturedCents: Number.MAX_SAFE_INTEGER, refundedCents: 0 }),
+        countFailedDepositRefunds: () => 0,
       };
       const impls: { [Op in PaymentsOp]: PaymentsImpl<Op> } = { ...defaults };
     
       function call<Op extends PaymentsOp>(op: Op): PaymentsPort[Op] {
         const recorded = async (...args: Parameters<PaymentsPort[Op]>) => {
           calls.push({ op, args });
-          const stripeType = failures.get(op);
-          if (stripeType !== undefined) {
+          const failure = failures.get(op);
+          if (failure !== undefined) {
             failures.delete(op);
-            const cause = Object.assign(new Error(`${stripeType} (in-memory)`), { type: stripeType });
+            const { stripeType, code } = failure;
+            const cause = Object.assign(new Error(`${stripeType} (in-memory)`), {
+              type: stripeType,
+              code,
+            });
             throw new StripeOperationError(cause, stripeType, RETRIABLE_STRIPE_TYPES.has(stripeType));
           }
           return await (impls[op] as PaymentsImpl<Op>)(...args);
@@ -81003,8 +81101,8 @@
         respond(op, impl) {
           (impls as Record<PaymentsOp, unknown>)[op] = impl;
         },
-        failNext(op, stripeType) {
-          failures.set(op, stripeType);
+        failNext(op, stripeType, code) {
+          failures.set(op, { stripeType, code });
         },
         createCustomer: call("createCustomer"),
         createPaymentIntent: call("createPaymentIntent"),
@@ -81013,6 +81111,8 @@
         createPartialRefund: call("createPartialRefund"),
         retrievePaymentIntent: call("retrievePaymentIntent"),
         findDepositRefund: call("findDepositRefund"),
+        getChargeAmounts: call("getChargeAmounts"),
+        countFailedDepositRefunds: call("countFailedDepositRefunds"),
       };
     }
   </file>
@@ -81532,6 +81632,8 @@
       | "createPartialRefund"
       | "retrievePaymentIntent"
       | "findDepositRefund"
+      | "getChargeAmounts"
+      | "countFailedDepositRefunds"
     >;
   </file>
   <file path="services/reservations/src/transitions/run.ts">
