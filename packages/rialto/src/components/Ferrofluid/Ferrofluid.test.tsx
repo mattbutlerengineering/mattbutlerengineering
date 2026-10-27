@@ -18,12 +18,12 @@ describe("Ferrofluid", () => {
   });
 
   describe("motion", () => {
-    it("drifts every blob on an infinite loop when motion is allowed", () => {
+    it("drifts every blob a bounded number of cycles when motion is allowed (WCAG 2.2.2)", () => {
       setMatchingMedia([]);
       const { container } = render(<Ferrofluid blobCount={3} />);
       const animated = container.querySelectorAll("circle[data-motion-transition]");
       expect(animated).toHaveLength(3);
-      expect(animated[0]?.getAttribute("data-motion-transition")).toContain('"repeat":null');
+      expect(animated[0]?.getAttribute("data-motion-transition")).toContain('"repeat":2');
     });
 
     it("renders static blobs under prefers-reduced-motion", () => {

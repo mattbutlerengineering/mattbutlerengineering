@@ -110,7 +110,8 @@
   text-shadow:
     0 0 2px currentColor,
     0 0 8px currentColor;
-  animation: rialto-neon-breathe var(--neon-warm-cycle) var(--rialto-ease-smooth) infinite;
+  /* Bounded (WCAG 2.2.2): 3 cycles, then it settles dim. */
+  animation: rialto-neon-breathe var(--neon-warm-cycle) var(--rialto-ease-smooth) 3;
 }
 
 .neonSign[data-state="opening-soon"] .housing::before {

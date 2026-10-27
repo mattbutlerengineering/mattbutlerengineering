@@ -35,6 +35,9 @@ const SPEED_DURATION = {
   fast: 8,
 } as const;
 
+/** Extra cycles after the first (3 total), then blobs rest — WCAG 2.2.2. */
+const DRIFT_REPEATS = 2;
+
 export const Ferrofluid = forwardRef<HTMLDivElement, FerrofluidProps>(
   (
     {
@@ -86,7 +89,7 @@ export const Ferrofluid = forwardRef<HTMLDivElement, FerrofluidProps>(
                   }}
                   transition={{
                     duration: duration + (i % 3) * 2,
-                    repeat: Infinity,
+                    repeat: DRIFT_REPEATS,
                     ease: "easeInOut",
                     delay: i * 0.3,
                   }}
