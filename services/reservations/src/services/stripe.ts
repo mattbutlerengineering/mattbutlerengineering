@@ -245,21 +245,51 @@ export class StripeService {
   }
 
   /**
-   * Stripe's own total refunded on the PaymentIntent's charge (`amount_refunded`),
-   * in minor units. It counts succeeded and pending refunds and drops failed
-   * ones, so unlike the webhook-fed `postCaptureRefundCents` (which only ever
-   * grows) it never counts money that did not reach the guest (#7790).
+   * Stripe's own totals on the PaymentIntent's charge, in minor units:
+   * `amount_captured` (a dashboard capture can be less than the authorization)
+   * and `amount_refunded`. The refunded total counts succeeded and pending
+   * refunds and drops failed ones, so unlike the webhook-fed
+   * `postCaptureRefundCents` (which only ever grows) it never counts money that
+   * did not reach the guest (#7790).
    */
-  async getChargeRefundedCents(paymentIntentId: string): Promise<number> {
+  async getChargeAmounts(
+    paymentIntentId: string
+  ): Promise<{ capturedCents: number; refundedCents: number }> {
     try {
       const intent = await this.stripe.paymentIntents.retrieve(paymentIntentId, {
         expand: ["latest_charge"],
       });
       const charge = intent.latest_charge;
       if (charge == null || typeof charge === "string") {
-        throw new Error(`PaymentIntent ${paymentIntentId} has no charge to read refunds from`);
+        throw new Error(`PaymentIntent ${paymentIntentId} has no charge to read amounts from`);
       }
-      return charge.amount_refunded;
+      return { capturedCents: charge.amount_captured, refundedCents: charge.amount_refunded };
+    } catch (err) {
+      wrapStripeError(err);
+    }
+  }
+
+  /**
+   * How many of OUR refunds of `leg` ended `failed` or `canceled`. A retry whose
+   * earlier refund failed owes the same amount, so its idempotency key must
+   * change or Stripe replays the cached (now failed) response.
+   */
+  async countFailedDepositRefunds(
+    paymentIntentId: string,
+    depositId: string,
+    leg: DepositRefundLeg
+  ): Promise<number> {
+    try {
+      const refunds = await this.stripe.refunds.list({
+        payment_intent: paymentIntentId,
+        limit: 100,
+      });
+      return refunds.data.filter(
+        (refund) =>
+          refund.metadata?.depositId === depositId &&
+          refund.metadata?.leg === leg &&
+          (refund.status === "failed" || refund.status === "canceled")
+      ).length;
     } catch (err) {
       wrapStripeError(err);
     }

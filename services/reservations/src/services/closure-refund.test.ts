@@ -42,6 +42,7 @@ vi.mock("./database.js", async () => {
 vi.mock("../middleware/venue-context.js", () => ({ setVenueContext: vi.fn() }));
 
 import { DepositService, DepositTransitionError } from "./deposit.js";
+import { StripeOperationError } from "./stripe.js";
 import { createInMemoryPayments } from "../transitions/in-memory.js";
 import {
   ClosureRefundEnqueueError,
@@ -70,6 +71,9 @@ function makeStore(overrides: Partial<ClosureRefundRow> = {}) {
     load: vi.fn(async () => state.row),
     setRefund: vi.fn(async (_id, refund) => {
       state.row = { ...state.row, refund };
+    }),
+    reopenDone: vi.fn(async () => {
+      if (state.row.refund === "done") state.row = { ...state.row, refund: "pending" };
     }),
     resetToPending: vi.fn(async () => {
       if (state.row.refund === "failed") {
@@ -113,7 +117,8 @@ const stripeOps = (p: ReturnType<typeof createInMemoryPayments>) =>
     (c) =>
       c.op !== "retrievePaymentIntent" &&
       c.op !== "findDepositRefund" &&
-      c.op !== "getChargeRefundedCents"
+      c.op !== "getChargeAmounts" &&
+      c.op !== "countFailedDepositRefunds"
   );
 
 beforeEach(() => depositRows.clear());
@@ -245,7 +250,7 @@ describe("settleClosureRefund", () => {
     seedDeposit({ status: "forfeited", postCaptureRefundCents: 5000 });
     const { deps, payments, state } = setup();
     payments.respond("retrievePaymentIntent", (id) => ({ id, status: "succeeded" }));
-    payments.respond("getChargeRefundedCents", () => 0); // the failed refund is not counted
+    payments.respond("getChargeAmounts", () => ({ capturedCents: 5000, refundedCents: 0 })); // the failed refund is not counted
 
     await settleClosureRefund(deps, PAYLOAD);
 
@@ -257,7 +262,7 @@ describe("settleClosureRefund", () => {
     seedDeposit({ status: "applied" });
     const { deps, payments, state } = setup();
     payments.respond("retrievePaymentIntent", (id) => ({ id, status: "succeeded" }));
-    payments.respond("getChargeRefundedCents", () => 5000);
+    payments.respond("getChargeAmounts", () => ({ capturedCents: 5000, refundedCents: 5000 }));
 
     await settleClosureRefund(deps, PAYLOAD);
 
@@ -321,6 +326,74 @@ describe("settleClosureRefund", () => {
     expect(intentStatus).toBe("canceled");
     expect(depositRows.get("dep-1")?.status).toBe("refunded");
     expect(state.row.refund).toBe("done");
+  });
+
+  it("keeps a message-only 'greater than unrefunded amount' rejection retriable", async () => {
+    seedDeposit({ status: "forfeited" });
+    const { deps, payments, state } = setup();
+    payments.respond("retrievePaymentIntent", (id) => ({ id, status: "succeeded" }));
+    payments.respond("createPartialRefund", () => {
+      const cause = Object.assign(
+        new Error("Refund amount ($50.00) is greater than unrefunded amount on charge"),
+        { type: "StripeInvalidRequestError" }
+      );
+      throw new StripeOperationError(cause, "StripeInvalidRequestError", false);
+    });
+
+    await expect(
+      runClosureRefundJob(deps, PAYLOAD, { isFinalAttempt: false })
+    ).rejects.not.toMatchObject({ name: "ClosureRefundPermanentError" });
+
+    expect(state.row.refund).toBe("pending");
+  });
+
+  it("refunds at most what was captured when the dashboard captured less than the deposit", async () => {
+    seedDeposit({ status: "applied" });
+    const { deps, payments } = setup();
+    payments.respond("retrievePaymentIntent", (id) => ({ id, status: "succeeded" }));
+    payments.respond("getChargeAmounts", () => ({ capturedCents: 3000, refundedCents: 500 }));
+
+    await settleClosureRefund(deps, PAYLOAD);
+
+    expect(stripeOps(payments).map((c) => c.args.slice(1, 4))).toEqual([
+      [2500, "dep-1", "dep-1:closureRefund:2500"],
+    ]);
+  });
+
+  it("uses a fresh key after an earlier closure refund failed at Stripe, so the cached pending refund is not replayed", async () => {
+    seedDeposit({ status: "forfeited" });
+    const { deps, payments } = setup();
+    payments.respond("retrievePaymentIntent", (id) => ({ id, status: "succeeded" }));
+    payments.respond("countFailedDepositRefunds", () => 1);
+
+    await settleClosureRefund(deps, PAYLOAD);
+
+    expect(stripeOps(payments).map((c) => c.args[3])).toEqual(["dep-1:closureRefund:5000:1"]);
+  });
+
+  it("records failed, not done, when re-releasing a done-but-held deposit fails permanently", async () => {
+    seedDeposit({ status: "held" });
+    const { deps, payments, state } = setup({ refund: "done" });
+    payments.failNext("cancelPaymentIntent", "StripeInvalidRequestError");
+    payments.respond("retrievePaymentIntent", (id) => ({ id, status: "succeeded" }));
+
+    await expect(
+      runClosureRefundJob(deps, PAYLOAD, { isFinalAttempt: false })
+    ).rejects.toMatchObject({ name: "ClosureRefundPermanentError" });
+
+    expect(state.row.refund).toBe("failed");
+  });
+
+  it("records failed, not done, when re-releasing a done-but-held deposit fails on the final attempt", async () => {
+    seedDeposit({ status: "held" });
+    const { deps, payments, state } = setup({ refund: "done" });
+    payments.failNext("cancelPaymentIntent", "StripeConnectionError");
+
+    await expect(
+      runClosureRefundJob(deps, PAYLOAD, { isFinalAttempt: true })
+    ).rejects.toBeDefined();
+
+    expect(state.row.refund).toBe("failed");
   });
 
   it("fails permanently, not in a retry loop, when a held deposit was captured outside the app", async () => {
@@ -408,7 +481,7 @@ describe("settleClosureRefund", () => {
 
     await expect(settleClosureRefund(deps, PAYLOAD)).rejects.toBeDefined();
     // Stripe now reports the 2000 dashboard refund: the guest is owed 2000 less.
-    payments.respond("getChargeRefundedCents", () => 2000);
+    payments.respond("getChargeAmounts", () => ({ capturedCents: 5000, refundedCents: 2000 }));
     await settleClosureRefund(deps, PAYLOAD);
 
     const keys = stripeOps(payments).map((c) => c.args[3]);
@@ -433,7 +506,7 @@ describe("settleClosureRefund", () => {
     const { deps, payments } = setup();
     payments.respond("retrievePaymentIntent", (id) => ({ id, status: "succeeded" }));
     // Stripe's total already includes the refundPartial leg.
-    payments.respond("getChargeRefundedCents", () => 2000);
+    payments.respond("getChargeAmounts", () => ({ capturedCents: 5000, refundedCents: 2000 }));
 
     await settleClosureRefund(deps, PAYLOAD);
 

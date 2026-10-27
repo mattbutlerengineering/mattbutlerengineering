@@ -15309,6 +15309,12 @@
             data: { refund: "pending" },
           });
         },
+        reopenDone: async (outcomeId) => {
+          await prisma.closureOutcome.updateMany({
+            where: { id: outcomeId, refund: "done" },
+            data: { refund: "pending" },
+          });
+        },
         markFailed: async (outcomeId) => {
           await prisma.closureOutcome.updateMany({
             where: { id: outcomeId, refund: { notIn: ["done", "none"] } },
@@ -15342,6 +15348,12 @@
        * reset, so the failure is never overwritten.
        */
       resetToPending(outcomeId: string): Promise<void>;
+      /**
+       * Returns a `done` outcome to `pending`. Conditional on `done`. Used when the live deposit
+       * contradicts `done`, so a failed re-run is recorded as `failed` (which Manager Retry can
+       * re-run) instead of the no-op `markFailed` leaves on a settled row.
+       */
+      reopenDone(outcomeId: string): Promise<void>;
       /** Records `failed`, leaving an outcome a concurrent run already settled (`done` / `none`). */
       markFailed(outcomeId: string): Promise<void>;
       /** Outcomes of one closure whose refund is in one of `statuses`. */
@@ -15403,20 +15415,19 @@
       }
       if (await deps.payments.findDepositRefund(pi, deposit.id, "closureRefund")) return "done";
     
-      // Stripe's own total on the charge (succeeded + pending refunds, never failed ones). It
-      // already includes the deposit's own refundPartial leg and any dashboard refund, so it
-      // replaces both the leg lookup and the webhook-fed postCaptureRefundCents, which only
-      // ever grows and so kept counting a closure refund that later failed (#7790).
-      const refunded = await deps.payments.getChargeRefundedCents(pi);
-      const owed = deposit.amountCents - refunded;
+      // Stripe's own totals on the charge (refunded = succeeded + pending refunds, never failed
+      // ones). They already include the deposit's own refundPartial leg and any dashboard refund,
+      // so they replace both the leg lookup and the webhook-fed postCaptureRefundCents, which only
+      // ever grows and so kept counting a closure refund that later failed (#7790). A dashboard
+      // capture can be smaller than the deposit, so cap at what was captured.
+      const { capturedCents, refundedCents } = await deps.payments.getChargeAmounts(pi);
+      const owed = Math.min(deposit.amountCents, capturedCents) - refundedCents;
       if (owed <= 0) return "done";
-      await deps.payments.createPartialRefund(
-        pi,
-        owed,
-        deposit.id,
-        `${deposit.id}:closureRefund:${owed}`,
-        "closureRefund"
-      );
+      // An earlier attempt at this amount that failed at Stripe would be replayed from the
+      // idempotency cache under the same key, so each failure moves the key on.
+      const failed = await deps.payments.countFailedDepositRefunds(pi, deposit.id, "closureRefund");
+      const key = `${deposit.id}:closureRefund:${owed}${failed > 0 ? `:${failed}` : ""}`;
+      await deps.payments.createPartialRefund(pi, owed, deposit.id, key, "closureRefund");
       return "done";
     }
     async function resolvePending(deps: ClosureRefundDeps, deposit: Deposit): Promise<Settled | null> {
@@ -15531,7 +15542,12 @@
       // `done` is a hint, not the truth: Runner B can record it from a `refunded` read, then
       // Runner A's failed Stripe cancel rolls the deposit back to `held` (#7789). A deposit
       // still waiting on a release is never settled, so re-run the decision.
-      if (row.refund === "done" && !(await needsRelease(deps, row))) return;
+      if (row.refund === "done") {
+        if (!(await needsRelease(deps, row))) return;
+        // Reopen first: markFailed leaves a `done` row alone, so a failed re-run would stay
+        // `done` over a live authorization and nothing would ever pick it up again.
+        await deps.store.reopenDone(row.id);
+      }
       await deps.store.setRefund(row.id, await settleDeposit(deps, row));
     }
     export async function runClosureRefundJob(
@@ -22790,21 +22806,51 @@
       }
     
       /**
-       * Stripe's own total refunded on the PaymentIntent's charge (`amount_refunded`),
-       * in minor units. It counts succeeded and pending refunds and drops failed
-       * ones, so unlike the webhook-fed `postCaptureRefundCents` (which only ever
-       * grows) it never counts money that did not reach the guest (#7790).
+       * Stripe's own totals on the PaymentIntent's charge, in minor units:
+       * `amount_captured` (a dashboard capture can be less than the authorization)
+       * and `amount_refunded`. The refunded total counts succeeded and pending
+       * refunds and drops failed ones, so unlike the webhook-fed
+       * `postCaptureRefundCents` (which only ever grows) it never counts money that
+       * did not reach the guest (#7790).
        */
-      async getChargeRefundedCents(paymentIntentId: string): Promise<number> {
+      async getChargeAmounts(
+        paymentIntentId: string
+      ): Promise<{ capturedCents: number; refundedCents: number }> {
         try {
           const intent = await this.stripe.paymentIntents.retrieve(paymentIntentId, {
             expand: ["latest_charge"],
           });
           const charge = intent.latest_charge;
           if (charge == null || typeof charge === "string") {
-            throw new Error(`PaymentIntent ${paymentIntentId} has no charge to read refunds from`);
+            throw new Error(`PaymentIntent ${paymentIntentId} has no charge to read amounts from`);
           }
-          return charge.amount_refunded;
+          return { capturedCents: charge.amount_captured, refundedCents: charge.amount_refunded };
+        } catch (err) {
+          wrapStripeError(err);
+        }
+      }
+    
+      /**
+       * How many of OUR refunds of `leg` ended `failed` or `canceled`. A retry whose
+       * earlier refund failed owes the same amount, so its idempotency key must
+       * change or Stripe replays the cached (now failed) response.
+       */
+      async countFailedDepositRefunds(
+        paymentIntentId: string,
+        depositId: string,
+        leg: DepositRefundLeg
+      ): Promise<number> {
+        try {
+          const refunds = await this.stripe.refunds.list({
+            payment_intent: paymentIntentId,
+            limit: 100,
+          });
+          return refunds.data.filter(
+            (refund) =>
+              refund.metadata?.depositId === depositId &&
+              refund.metadata?.leg === leg &&
+              (refund.status === "failed" || refund.status === "canceled")
+          ).length;
         } catch (err) {
           wrapStripeError(err);
         }
@@ -25818,7 +25864,9 @@
         createPartialRefund: (_id, amount) => ({ id: nextId("re"), status: "succeeded", amount }),
         retrievePaymentIntent: (id) => ({ id, status: "requires_capture" }),
         findDepositRefund: () => null,
-        getChargeRefundedCents: () => 0,
+        // Nothing refunded; "captured" is unbounded so tests only set what they assert on.
+        getChargeAmounts: () => ({ capturedCents: Number.MAX_SAFE_INTEGER, refundedCents: 0 }),
+        countFailedDepositRefunds: () => 0,
       };
       const impls: { [Op in PaymentsOp]: PaymentsImpl<Op> } = { ...defaults };
     
@@ -25855,7 +25903,8 @@
         createPartialRefund: call("createPartialRefund"),
         retrievePaymentIntent: call("retrievePaymentIntent"),
         findDepositRefund: call("findDepositRefund"),
-        getChargeRefundedCents: call("getChargeRefundedCents"),
+        getChargeAmounts: call("getChargeAmounts"),
+        countFailedDepositRefunds: call("countFailedDepositRefunds"),
       };
     }
   </file>
@@ -26375,7 +26424,8 @@
       | "createPartialRefund"
       | "retrievePaymentIntent"
       | "findDepositRefund"
-      | "getChargeRefundedCents"
+      | "getChargeAmounts"
+      | "countFailedDepositRefunds"
     >;
   </file>
   <file path="src/transitions/run.ts">

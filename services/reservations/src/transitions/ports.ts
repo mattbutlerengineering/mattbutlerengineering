@@ -122,5 +122,6 @@ export type PaymentsPort = Pick<
   | "createPartialRefund"
   | "retrievePaymentIntent"
   | "findDepositRefund"
-  | "getChargeRefundedCents"
+  | "getChargeAmounts"
+  | "countFailedDepositRefunds"
 >;

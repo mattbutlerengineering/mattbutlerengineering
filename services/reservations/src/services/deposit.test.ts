@@ -55,7 +55,8 @@ function createMockStripe() {
     createCustomer: vi.fn(),
     retrievePaymentIntent: vi.fn(),
     findDepositRefund: vi.fn(),
-    getChargeRefundedCents: vi.fn(),
+    getChargeAmounts: vi.fn(),
+    countFailedDepositRefunds: vi.fn(),
   };
 }
 

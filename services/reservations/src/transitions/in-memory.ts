@@ -117,7 +117,9 @@ export function createInMemoryPayments(): InMemoryPayments {
     createPartialRefund: (_id, amount) => ({ id: nextId("re"), status: "succeeded", amount }),
     retrievePaymentIntent: (id) => ({ id, status: "requires_capture" }),
     findDepositRefund: () => null,
-    getChargeRefundedCents: () => 0,
+    // Nothing refunded; "captured" is unbounded so tests only set what they assert on.
+    getChargeAmounts: () => ({ capturedCents: Number.MAX_SAFE_INTEGER, refundedCents: 0 }),
+    countFailedDepositRefunds: () => 0,
   };
   const impls: { [Op in PaymentsOp]: PaymentsImpl<Op> } = { ...defaults };
 
@@ -154,6 +156,7 @@ export function createInMemoryPayments(): InMemoryPayments {
     createPartialRefund: call("createPartialRefund"),
     retrievePaymentIntent: call("retrievePaymentIntent"),
     findDepositRefund: call("findDepositRefund"),
-    getChargeRefundedCents: call("getChargeRefundedCents"),
+    getChargeAmounts: call("getChargeAmounts"),
+    countFailedDepositRefunds: call("countFailedDepositRefunds"),
   };
 }

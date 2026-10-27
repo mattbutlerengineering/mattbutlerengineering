@@ -186,6 +186,50 @@ describe("StripeService", () => {
     });
   });
 
+  describe("getChargeAmounts", () => {
+    it("expands latest_charge and returns Stripe's captured and refunded totals", async () => {
+      mockPaymentIntents.retrieve.mockResolvedValueOnce({
+        id: "pi_test_123",
+        latest_charge: { id: "ch_1", amount_captured: 3000, amount_refunded: 500 },
+      });
+
+      const result = await stripeService.getChargeAmounts("pi_test_123");
+
+      expect(mockPaymentIntents.retrieve).toHaveBeenCalledWith("pi_test_123", {
+        expand: ["latest_charge"],
+      });
+      expect(result).toEqual({ capturedCents: 3000, refundedCents: 500 });
+    });
+
+    it.each([
+      ["a bare charge id", "ch_1"],
+      ["no charge", null],
+    ])("throws when the intent has %s", async (_label, latest_charge) => {
+      mockPaymentIntents.retrieve.mockResolvedValueOnce({ id: "pi_test_123", latest_charge });
+
+      await expect(stripeService.getChargeAmounts("pi_test_123")).rejects.toThrow(/no charge/);
+    });
+  });
+
+  describe("countFailedDepositRefunds", () => {
+    it("counts only OUR failed or canceled refunds of that leg", async () => {
+      const tag = { depositId: "dep-1", leg: "closureRefund" };
+      mockRefunds.list.mockResolvedValueOnce({
+        data: [
+          { id: "re_1", status: "failed", metadata: tag },
+          { id: "re_2", status: "canceled", metadata: tag },
+          { id: "re_3", status: "succeeded", metadata: tag },
+          { id: "re_4", status: "failed", metadata: { depositId: "dep-2", leg: "closureRefund" } },
+          { id: "re_5", status: "failed", metadata: { depositId: "dep-1", leg: "refundPartial" } },
+        ],
+      });
+
+      expect(
+        await stripeService.countFailedDepositRefunds("pi_test_123", "dep-1", "closureRefund")
+      ).toBe(2);
+    });
+  });
+
   describe("createPartialRefund", () => {
     it("tags the refund with depositId + leg metadata so a retry can find it specifically (#5722 MED-2)", async () => {
       mockPaymentIntents.retrieve.mockResolvedValueOnce({
@@ -411,6 +455,30 @@ describe("StripeService", () => {
         isRetriable: false,
         stripeType: "StripeCardError",
       });
+    });
+
+    it("carries Stripe's error code through", async () => {
+      const amountError = Object.assign(
+        new Error("Refund amount is greater than unrefunded amount"),
+        {
+          type: "StripeInvalidRequestError",
+          code: "amount_too_large",
+        }
+      );
+      mockPaymentIntents.capture.mockRejectedValueOnce(amountError);
+
+      await expect(stripeService.capturePaymentIntent("pi_test_123")).rejects.toMatchObject({
+        stripeType: "StripeInvalidRequestError",
+        code: "amount_too_large",
+      });
+    });
+
+    it("leaves code undefined when Stripe sent none", async () => {
+      const noCode = Object.assign(new Error("x"), { type: "StripeInvalidRequestError" });
+      mockPaymentIntents.capture.mockRejectedValueOnce(noCode);
+
+      const rejection = await stripeService.capturePaymentIntent("pi_test_123").catch((e) => e);
+      expect(rejection.code).toBeUndefined();
     });
 
     it("wraps a StripeConnectionError as retriable", async () => {
