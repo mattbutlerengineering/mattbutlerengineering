@@ -30,6 +30,14 @@ Minutes are venue-local minutes from midnight throughout.
   - Blocked by: WO-0072, WO-0073, WO-0074
   - Outcome: `bash scripts/conductor-gate.sh` green — 72/72 turbo tasks (lint, typecheck, test) passed on the final head, including `@mbe/hospitality` (4049 tests, 309 files). The worktree's Bash allowlist exposes only `conductor-gate.sh`, not the raw `pnpm`/`mbe` commands `/local-ci-precheck`'s llms/dep-graph/architecture-audit lanes need — those ran as part of `pnpm install` + the prior WOs' own gates, not re-run standalone here; flagging that gap rather than silently skipping it.
 
+## Milestone 3: Review rework
+
+Added by the Owner after `review.md` returned `changes`.
+
+- [ ] **WO-0076 — Address review findings and merge main** — merge `origin/main` into the branch and resolve the conflicts (keep #7754's single-channel `bandNamesOnline` rule in `day-summary.ts` alongside the new service lines; regenerate llms files after building `@mbe/cli`); make `AvailabilityDaySummarySchema.services` tolerate absence (`.optional()` or `.default([])`) so a new client parses the old API's response during the deploy window; gate `summarizeDay`'s services on the resolved closed state instead of `label === "Closed"`.
+  - Accept: RED-first tests for both findings (a summary without `services` parses; a schedule named "Closed" keeps its services); `bash scripts/conductor-gate.sh` green; no conflict markers.
+  - Blocked by: WO-0075
+
 ## Notes
 
 - Reserved block: ADR-031 unused (no ADR-worthy decision; see
