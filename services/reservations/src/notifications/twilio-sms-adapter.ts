@@ -99,12 +99,14 @@ export class TwilioSmsAdapter implements SmsPort {
     const dateStr = formatDate(input.date);
     const manageUrl = buildManageUrl(input.manageBaseUrl, input.manageToken);
 
-    const body = `${name}, you&apos;re on the waitlist at ${input.venueName} for ${dateStr}, party of ${input.partySize}. Check: ${manageUrl}`;
-    // Strip HTML entities for SMS
-    const smsBody = body.replace(/&apos;/g, "'");
-    const trimmed = smsBody.length > 160 ? smsBody.slice(0, 160) : smsBody;
-
-    await this.sendWithRetry(input.guestPhone, trimmed);
+    await this.sendWithRetry(
+      input.guestPhone,
+      fitReminderBody([
+        `${name}, you're on the waitlist at ${input.venueName} for ${dateStr}, party of ${input.partySize}. Check: ${manageUrl}`,
+        `${name}, you're on the waitlist at ${input.venueName} ${dateStr}. Check: ${manageUrl}`,
+        `Waitlist at ${input.venueName}: ${manageUrl}`,
+      ])
+    );
   }
 
   async sendWinbackMessage(input: WinbackMessageInput): Promise<void> {

@@ -299,6 +299,20 @@ describe("TwilioSmsAdapter", () => {
       expect(body).toContain("7:00 PM");
     });
 
+    it("never truncates a real-length manage token in a waitlist update", async () => {
+      const token = Buffer.from(
+        `res_abc123:jane@example.com:1790000000000:${"a".repeat(64)}`
+      ).toString("base64url");
+      await reminderAdapter().sendWaitlistUpdate({
+        ...defaultWaitlistInput,
+        manageToken: token,
+        venueName: "The Oak Table and Wine Garden",
+      });
+      const body = mockCreate.mock.calls[0]![0].body as string;
+      expect(body.endsWith(`?token=${encodeURIComponent(token)}`)).toBe(true);
+      expect(body.toLowerCase()).toContain("waitlist");
+    });
+
     it("encodes reserved characters in the token", async () => {
       await reminderAdapter().sendBookingReminder({ ...defaultSmsInput, manageToken: "a b&c" });
       expect(mockCreate.mock.calls[0]![0].body).toContain("?token=a%20b%26c");
