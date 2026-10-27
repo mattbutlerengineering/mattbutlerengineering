@@ -1964,7 +1964,7 @@
       "rangeLabel": "Faites entre",
       "rangePlaceholder": "Toutes les dates",
       "entry": {
-        "range": "{{from}} au {{to}}",
+        "range": "du {{from}} au {{to}}",
         "onward": "à partir du {{from}}",
         "moved_one": "{{count}} réservation déplacée",
         "moved_many": "{{count}} de réservations déplacées",

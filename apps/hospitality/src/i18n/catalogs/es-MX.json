@@ -1964,7 +1964,7 @@
       "rangeLabel": "Hechos entre",
       "rangePlaceholder": "Cualquier fecha",
       "entry": {
-        "range": "{{from}} al {{to}}",
+        "range": "del {{from}} al {{to}}",
         "onward": "desde el {{from}} en adelante",
         "moved_one": "{{count}} reservación movida",
         "moved_many": "{{count}} de reservaciones movidas",
