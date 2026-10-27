@@ -185,6 +185,12 @@ describe("PageRegistry — structure", () => {
     }
   });
 
+  it("sidebar labels are unique (no duplicate nav entries)", () => {
+    const labels = PAGE_REGISTRY.map((e) => e.label);
+    const dupes = labels.filter((l, i) => labels.indexOf(l) !== i);
+    expect(dupes).toEqual([]);
+  });
+
   it("every entry has a load function", () => {
     for (const entry of PAGE_REGISTRY) {
       expect(typeof entry.load, `${entry.id} missing load`).toBe("function");

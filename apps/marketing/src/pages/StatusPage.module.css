@@ -60,3 +60,9 @@
   font-size: 0.8125rem;
   opacity: 0.6;
 }
+
+.version {
+  font-family: var(--rialto-font-mono);
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
