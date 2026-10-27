@@ -3,7 +3,7 @@
 const MS_PER_DAY = 86400000;
 
 /** Parse YYYY-MM-DD → UTC-midnight ms. Defaults malformed parts to 1970-01-01 rather than throwing. */
-export function parseISOMs(iso: string): number {
+function parseISOMs(iso: string): number {
   const parts = iso.split("-");
   const y = Number(parts[0] ?? "1970");
   const m = Number(parts[1] ?? "1");

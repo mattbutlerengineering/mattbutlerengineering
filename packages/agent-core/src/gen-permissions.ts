@@ -7,7 +7,7 @@
  */
 
 /** Patterns that should never be executed in any agent or gen session. */
-export const BLOCKED_BASH_PATTERNS: readonly RegExp[] = [
+const BLOCKED_BASH_PATTERNS: readonly RegExp[] = [
   /\brm\s+.*\/\*/, // rm ... /*
   /\bsudo\b/, // sudo anything
   /\bcurl\b.*\|\s*\bbash\b/, // curl | bash (pipe to shell)
@@ -80,7 +80,7 @@ function segmentIsRmRecursiveDelete(segment: string): boolean {
  * These detect the *encoding mechanism* rather than the decoded payload,
  * blocking the bypass vector itself regardless of what command is hidden inside.
  */
-export const ENCODING_BYPASS_PATTERNS: readonly RegExp[] = [
+const ENCODING_BYPASS_PATTERNS: readonly RegExp[] = [
   // base64 decode piped to shell
   /\bbase64\s+(-d|--decode)\b.*\|\s*(sh|bash|zsh|eval)\b/,
   /\bbase64\s+(-d|--decode)\b.*\$\(/,

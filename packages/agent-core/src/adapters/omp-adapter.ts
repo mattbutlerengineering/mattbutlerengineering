@@ -19,7 +19,7 @@ import { parseOmpUsage, extractOmpError, type CliUsage } from "./cli-usage-parse
  * configured default with that id. Forward a provider/model id
  * (`anthropic/claude-opus-4-8`) or a non-Claude fuzzy name (`gpt-5.2`).
  */
-export function ompModelToForward(model: string | undefined): string | undefined {
+function ompModelToForward(model: string | undefined): string | undefined {
   if (!model || model.startsWith("claude-")) return undefined;
   return model;
 }

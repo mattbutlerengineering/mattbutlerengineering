@@ -15,7 +15,7 @@ import {
 
 type FetchLike = typeof fetch;
 
-export const DEFAULT_MODELS: Readonly<Record<ProviderId, string>> = {
+const DEFAULT_MODELS: Readonly<Record<ProviderId, string>> = {
   anthropic: "claude-haiku-5-5",
   openai: "gpt-6-luna",
   gemini: "gemini-3.1-flash-lite",
