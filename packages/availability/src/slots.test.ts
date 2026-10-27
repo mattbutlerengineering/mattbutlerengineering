@@ -401,6 +401,25 @@ describe("judge", () => {
     ).toEqual({ kind: "hard", reason: "conflict" });
   });
 
+  it("is table_unavailable, not a conflict, for a named table that is inactive or too small (#7591)", () => {
+    const req = { start: at("17:00"), channel: "phone" as const };
+    const inactive = snapshot({
+      tables: TABLES.map((t) => (t.id === "t-4" ? { ...t, isActive: false } : t)),
+    });
+    expect(judge(inactive, { ...req, partySize: 2, tableId: "t-4" }, NOW)).toEqual({
+      kind: "hard",
+      reason: "table_unavailable",
+    });
+    expect(judge(snapshot(), { ...req, partySize: 3, tableId: "t-2" }, NOW)).toEqual({
+      kind: "hard",
+      reason: "table_unavailable",
+    });
+    expect(judge(snapshot(), { ...req, partySize: 2, tableId: "missing" }, NOW)).toEqual({
+      kind: "hard",
+      reason: "table_unavailable",
+    });
+  });
+
   it("judges a requested table over the booking's real end, not the estimated one", () => {
     const later = snapshot({
       reservations: [

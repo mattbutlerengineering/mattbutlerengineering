@@ -57,7 +57,12 @@ export interface Slot {
 
 export type SoftLimit = "after_last_seating" | "pacing" | "party_size";
 export type HardReason =
-  "closed" | "booking_closed" | "outside_service" | "table_blocked" | "conflict";
+  | "closed"
+  | "booking_closed"
+  | "outside_service"
+  | "table_blocked"
+  | "table_unavailable"
+  | "conflict";
 
 export type Verdict =
   | { kind: "ok" }
@@ -262,7 +267,11 @@ function tableVerdict(
     request.end
   );
   if (request.tableId === undefined) return free.length > 0 ? null : hard("conflict");
+  // Blocked first: strand checks judge a bare snapshot with no tables and rely on this reason.
   if (blockedTables(day, minute).has(request.tableId)) return hard("table_blocked");
+  // Not a clash with another booking: the table is inactive, unknown or does not fit the party.
+  const suitable = filterSuitableTables(snapshot.tables, request.partySize);
+  if (!suitable.some((t) => t.id === request.tableId)) return hard("table_unavailable");
   return free.some((t) => t.id === request.tableId) ? null : hard("conflict");
 }
 

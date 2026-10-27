@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import type { LoadSnapshotOptions } from "./availability-snapshot.js";
-import { gateProblem, judgeBooking, type GateRequest } from "./assert-bookable.js";
+import {
+  gateProblem,
+  judgeBooking,
+  type GateRejection,
+  type GateRequest,
+} from "./assert-bookable.js";
 
 vi.mock("./database.js", () => ({ prisma: {} }));
 
@@ -196,6 +201,27 @@ describe("judgeBooking", () => {
     expect(
       await judgeBooking(fakeDb({ reservations }), request({ excludeReservationId: "res-1" }), NOW)
     ).toEqual({ kind: "ok" });
+  });
+
+  it("refuses a named table too small for the party as table_unavailable, not a conflict (#7591)", async () => {
+    const outcome = await judgeBooking(fakeDb(), request({ partySize: 6 }), NOW);
+    expect(outcome).toEqual({
+      kind: "rejected",
+      rejection: { code: "outside-availability", reason: "table_unavailable" },
+    });
+    expect(gateProblem((outcome as { rejection: GateRejection }).rejection)).toMatchObject({
+      status: 422,
+      code: "outside-availability",
+      reason: "table_unavailable",
+      detail: "This table is out of service or does not fit the party size.",
+    });
+  });
+
+  it("refuses a named table that is not in the active set as table_unavailable (#7591)", async () => {
+    expect(await judgeBooking(fakeDb(), request({ tableId: "t-inactive" }), NOW)).toEqual({
+      kind: "rejected",
+      rejection: { code: "outside-availability", reason: "table_unavailable" },
+    });
   });
 
   it("judges the table over the booking's real end, so a short staff booking is not a conflict", async () => {
