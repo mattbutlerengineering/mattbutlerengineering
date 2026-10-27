@@ -25562,6 +25562,27 @@
       export const SOURCE_LABELS: Record<WeeklyResource["source"], string>;
     </item>
   </file>
+  <file path="apps/marketing/src/utils/route-meta.ts">
+    <item priority="low">
+      interface RouteMeta {
+        pattern: string;
+        title: string;
+        description: string;
+      }
+    </item>
+    <item priority="high">
+      export const ROUTE_META: readonly RouteMeta[];
+    </item>
+    <item priority="high">
+      export function findRouteMeta(pathname: string): RouteMeta | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function setDescription(content: string): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useRouteMeta(): void { /* ... */ }
+    </item>
+  </file>
   <file path="packages/rialto/src/utils/class-composer.ts">
     <item priority="high">
       export function cn(...classes: (string | false | null | undefined)[]): string { /* ... */ }
