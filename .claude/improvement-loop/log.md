@@ -4465,3 +4465,13 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 - **Filing: stopped.** `findings.mjs plan` exited 2 — 7 `ui-quality`-labelled issues the findings ledger does not reference and whose titles are no current finding title: **#7385, #7386, #7387, #7388, #7389, #7603, #7609**. This fire read incomplete state, so it planned nothing. No escalation issue written: open escalation **#7477** already tracks it. Recovery is a human's, per #7477's body — retitle each listed issue to its finding title or remove its `ui-quality` label, then close #7477. Steps (6d)–(6h) skipped as a consequence: no issues created, reopened or commented, no seeds, **no fix PR** (filing stopped before any candidate could exist), **no P1 SLA sweep**.
 - **Coverage before this fire:** 100% (135/135, provisional; first run 2026-10-01).
 - No `blocker: no-browser` — Chromium resolved at `/opt/pw-browsers/chromium_headless_shell-1243/…`. No pipeline bug.
+
+## 2026-10-27 — mbe-learning-loop
+
+**Sensors:** 14/17 available (lighthouse, mutationScore, e2eStability not available) — status Healthy
+**Regressions:** 0 detected, 0 issues created
+**Verifications:** 5 checked, 0 verified, 0 failed, 5 skipped (no completed CI runs / no Lighthouse inventory to verify against)
+**Sentry triage:** skipped (MCP authorization expired — re-auth needed)
+**AI issue feedback:** 7 categories, 0 unhealthy (>40% rejected); budgets unchanged at 3
+**Skill proposals:** 0 (Tuesday — Friday-only)
+**Threshold notes:** fix-effectiveness 75% (12/16 non-skip verifications over 30d, >50%, healthy); all feedback-category rejection rates ≤4% (<30%, healthy); auto-tuner applied 1 adjustment (acmm 1.324 → 1.35, headroom)
