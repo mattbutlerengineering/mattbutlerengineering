@@ -18,6 +18,8 @@ const MANAGER = { isManager: true, actorId: "mgr-1" };
 interface World {
   version: number;
   hostEmergencyClose: boolean;
+  /** The channels the dinner service takes bookings on. */
+  bookingTypes: string[];
   dateRules: Record<string, unknown>[];
   ruleTables: { dateRuleId: string; tableId: string }[];
   changes: { id: string; actorId: string; kind: string; summary: string; inverse: unknown }[];
@@ -28,6 +30,7 @@ interface World {
 const world = (): World => ({
   version: 4,
   hostEmergencyClose: false,
+  bookingTypes: ["online", "phone"],
   dateRules: [],
   ruleTables: [],
   changes: [],
@@ -68,7 +71,7 @@ function fakeClient(w: World) {
           lastSeatingAt: 1260,
           closesAt: 1380,
           seating: { version: 1, interval: 15 },
-          bookingTypes: ["online", "phone"],
+          bookingTypes: w.bookingTypes,
         },
       ]),
       create: vi.fn(async () => void w.scheduleWrites++),
@@ -218,7 +221,9 @@ describe("setTonight", () => {
 
   it("blocks tables for the rest of tonight through DateRuleTable", async () => {
     const w = world();
-    const outcome = await run(w, body({ type: "block_tables", tableIds: ["t-1", "t-2"] }));
+    const outcome = await run(w, body({ type: "block_tables", tableIds: ["t-1", "t-2"] }), {
+      caller: MANAGER,
+    });
 
     expect(outcome.kind).toBe("saved");
     expect(w.dateRules[0]).toMatchObject({
@@ -293,6 +298,50 @@ describe("setTonight", () => {
       expect((await run(w, body({ type: "stop_window", from: 1170, to: 1200 }))).kind).toBe(
         "saved"
       );
+    });
+  });
+
+  describe("a table block or online pause that leaves nothing bookable is the emergency close (#7721)", () => {
+    const allTables = body({ type: "block_tables", tableIds: ["t-1", "t-2"] });
+
+    it("refuses a Host blocking every table and writes nothing", async () => {
+      const w = world();
+      expect(await run(w, allTables)).toEqual({ kind: "forbidden" });
+      expect(w.dateRules).toEqual([]);
+      expect(w.version).toBe(4);
+    });
+
+    it("refuses a Host whose second block leaves no table, however it is split", async () => {
+      const w = world();
+      const first = await run(w, body({ type: "block_tables", tableIds: ["t-1"] }));
+      expect(first.kind).toBe("saved");
+      const second = body(
+        { type: "block_tables", tableIds: ["t-2"] },
+        { expectedVersion: 5, ruleId: "t-2" }
+      );
+      expect(await run(w, second)).toEqual({ kind: "forbidden" });
+      expect(w.dateRules).toHaveLength(1);
+    });
+
+    it("refuses a Host pausing online on an online-only service", async () => {
+      const w = { ...world(), bookingTypes: ["online"] };
+      expect(await run(w, body({ type: "pause_online" }))).toEqual({ kind: "forbidden" });
+      expect(w.dateRules).toEqual([]);
+    });
+
+    it("lets a Host block some tables", async () => {
+      const w = world();
+      expect((await run(w, body({ type: "block_tables", tableIds: ["t-1"] }))).kind).toBe("saved");
+    });
+
+    it("lets a Host pause online while phone stays open", async () => {
+      expect((await run(world(), body({ type: "pause_online" }))).kind).toBe("saved");
+    });
+
+    it("lets a Manager, and a Host with the grant, block every table", async () => {
+      expect((await run(world(), allTables, { caller: MANAGER })).kind).toBe("saved");
+      const granted = { ...world(), hostEmergencyClose: true };
+      expect((await run(granted, allTables)).kind).toBe("saved");
     });
   });
 

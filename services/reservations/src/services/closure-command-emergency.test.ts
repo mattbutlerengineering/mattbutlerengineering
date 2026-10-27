@@ -43,7 +43,7 @@ const at = (hhmm: string) => new Date(`2026-12-24T${hhmm}:00.000Z`);
 function check(
   rule: DateRule,
   now: Date,
-  opts: { stored?: DateRule[]; hours?: Hours; seating?: Seating } = {}
+  opts: { stored?: DateRule[]; hours?: Hours; seating?: Seating; tableIds?: string[] } = {}
 ): boolean {
   const snapshot = {
     timezone: "UTC",
@@ -55,7 +55,7 @@ function check(
       dateRules: [dinner(opts.hours ?? DEFAULT_HOURS, opts.seating), ...(opts.stored ?? [])],
     },
   } as unknown as AvailabilitySnapshot;
-  return isEmergencyTonightClose(snapshot, rule, now);
+  return isEmergencyTonightClose(snapshot, rule, now, opts.tableIds);
 }
 
 describe("isEmergencyTonightClose (#7687)", () => {
@@ -208,5 +208,37 @@ describe("isEmergencyTonightClose (#7687)", () => {
     const hours = { opensAt: 1320, lastSeatingAt: 1500, closesAt: 1560 };
     expect(check(tonight("n", { closeAt: 1340 }), at("22:30"), { hours })).toBe(true);
     expect(check(tonight("n", { closeAt: 1500 }), at("22:30"), { hours })).toBe(false);
+  });
+});
+
+describe("isEmergencyTonightClose counts tables and channels (#7721)", () => {
+  const block = (id: string, tableIds: string[]): DateRule =>
+    ({
+      ...tonight(id, { stop: { from: 0, to: 2880 } }),
+      targetKind: "tables",
+      tableIds,
+    }) as DateRule;
+  const pause = tonight("p", { stop: { from: 0, to: 2880 } }) as unknown as {
+    [k: string]: unknown;
+  };
+  const pauseOnline = {
+    ...pause,
+    targetKind: "booking",
+    bookingTypes: ["online"],
+  } as unknown as DateRule;
+  const tableIds = ["t-1", "t-2"];
+
+  it("treats blocking every table as the close, and some tables as not", () => {
+    expect(check(block("b", tableIds), at("16:00"), { tableIds })).toBe(true);
+    expect(check(block("b", ["t-1"]), at("16:00"), { tableIds })).toBe(false);
+  });
+
+  it("judges the last step of blocking tables in steps", () => {
+    const first = block("first", ["t-1"]);
+    expect(check(block("b", ["t-2"]), at("16:00"), { tableIds, stored: [first] })).toBe(true);
+  });
+
+  it("treats pausing the only open channel as the close", () => {
+    expect(check(pauseOnline, at("16:00"))).toBe(true);
   });
 });
