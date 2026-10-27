@@ -64,10 +64,18 @@ describe.skipIf(guardMode !== "run")("advertised Rialto component count surfaces
     expect(fallback.rialtoComponents).toBe(count);
   });
 
-  it("rialto-web overview define equals the manifest count", async () => {
-    const { resolveRialtoComponentCount } =
-      await import("../../apps/rialto-web/component-count.config.ts");
-    expect(resolveRialtoComponentCount()).toBe(count);
+  // Read as text: scripts/ may not import from apps/ (dependency-cruiser
+  // `apps-not-imported`). rialto-web's own test pins its helper's behavior.
+  it("rialto-web overview counts the same manifest's entries", () => {
+    const config = read("apps/rialto-web/component-count.config.ts");
+    expect(config).toContain("@mattbutlerengineering/rialto/manifest");
+    expect(config).toContain("countRialtoComponents(manifest)");
+    expect(read("apps/rialto-web/src/data/rialto-components.ts")).toContain(
+      "manifest.components.length"
+    );
+    expect(read("apps/rialto-web/src/pages/OverviewPage.tsx")).toContain(
+      "__RIALTO_COMPONENT_COUNT__"
+    );
   });
 
   it("marketing project card carries no hardcoded component count", () => {
