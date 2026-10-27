@@ -777,7 +777,8 @@
       ),
       bookingOpen: z.object({ online: z.boolean(), phone: z.boolean(), waitlist: z.boolean() }),
       guestMessage: z.string().optional(),
-      services: z.array(DaySummaryServiceSchema),
+      /** Absent when parsing an old API's response during a deploy window. */
+      services: z.array(DaySummaryServiceSchema).optional(),
     });
     export const ClosureAlongsideSchema = z.object({
       /** Rows to write: the ended original series, and skips or one-date edits re-pointed. */

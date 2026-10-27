@@ -34,7 +34,7 @@ Minutes are venue-local minutes from midnight throughout.
 
 Added by the Owner after `review.md` returned `changes`.
 
-- [ ] **WO-0076 — Address review findings and merge main** — merge `origin/main` into the branch and resolve the conflicts (keep #7754's single-channel `bandNamesOnline` rule in `day-summary.ts` alongside the new service lines; regenerate llms files after building `@mbe/cli`); make `AvailabilityDaySummarySchema.services` tolerate absence (`.optional()` or `.default([])`) so a new client parses the old API's response during the deploy window; gate `summarizeDay`'s services on the resolved closed state instead of `label === "Closed"`.
+- [x] **WO-0076 — Address review findings and merge main** — merge `origin/main` into the branch and resolve the conflicts (keep #7754's single-channel `bandNamesOnline` rule in `day-summary.ts` alongside the new service lines; regenerate llms files after building `@mbe/cli`); make `AvailabilityDaySummarySchema.services` tolerate absence (`.optional()` or `.default([])`) so a new client parses the old API's response during the deploy window; gate `summarizeDay`'s services on the resolved closed state instead of `label === "Closed"`.
   - Accept: RED-first tests for both findings (a summary without `services` parses; a schedule named "Closed" keeps its services); `bash scripts/conductor-gate.sh` green; no conflict markers.
   - Blocked by: WO-0075
 

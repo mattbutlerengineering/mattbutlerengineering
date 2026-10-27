@@ -1863,6 +1863,9 @@
       ): StrandedReservation[] { /* ... */ }
     </item>
     <item priority="medium">
+      function isDayClosed(day: ResolvedDay): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
       function dayLabel(config: AvailabilityConfig, day: ResolvedDay): string { /* ... */ }
     </item>
     <item priority="high">
