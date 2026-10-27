@@ -2223,7 +2223,34 @@
       "clear": "Clear selection",
       "selectMenu": "Select…",
       "weekdayInMonth": "Every {{weekday}} in {{month}}",
-      "usingSchedule": "All dates using {{schedule}}"
+      "usingSchedule": "All dates using {{schedule}}",
+      "useSchedule": "Use schedule",
+      "useOtherDay": "Use another day’s hours",
+      "clearChanges": "Clear changes",
+      "use": {
+        "titleSchedule": "Use a schedule on the selected dates",
+        "titleDay": "Use another day’s hours",
+        "schedule": "Schedule",
+        "from": "Copy hours from",
+        "cancel": "Cancel",
+        "save_one": "Apply to {{count}} date",
+        "save_other": "Apply to {{count}} dates",
+        "save_many": "Apply to {{count}} dates",
+        "saved_one": "{{count}} date updated",
+        "saved_other": "{{count}} dates updated",
+        "saved_many": "{{count}} dates updated"
+      },
+      "clearDialog": {
+        "title_one": "Clear changes on {{count}} date?",
+        "title_other": "Clear changes on {{count}} dates?",
+        "title_many": "Clear changes on {{count}} dates?",
+        "description": "These dates go back to following their schedule. You can undo this right after.",
+        "confirm": "Clear changes",
+        "keep": "Keep changes",
+        "saved_one": "Cleared changes on {{count}} date",
+        "saved_other": "Cleared changes on {{count}} dates",
+        "saved_many": "Cleared changes on {{count}} dates"
+      }
     },
     "tonight": {
       "title": "Tonight",

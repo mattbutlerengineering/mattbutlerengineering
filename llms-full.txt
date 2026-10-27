@@ -6536,6 +6536,70 @@
       );
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/selection-actions.ts">
+    export function ownSingleDateRules(
+      config: AvailabilityConfig,
+      dates: readonly string[]
+    ): DateRule[] {
+      const picked = new Set(dates);
+      return config.dateRules.filter(
+        (r) =>
+          (r.kind === "special_hours" || r.kind === "use_schedule") &&
+          r.targetKind === "venue" &&
+          r.endsOn === r.startsOn &&
+          picked.has(r.startsOn) &&
+          r.repeat == null &&
+          r.window == null &&
+          r.seriesId == null &&
+          r.bookingTypes == null &&
+          r.venueServiceId == null
+      );
+    }
+    export function buildClearChanges(
+      config: AvailabilityConfig,
+      dates: readonly string[]
+    ): AvailabilityConfigChanges {
+      return { upsert: {}, remove: removal(ownSingleDateRules(config, dates)) };
+    }
+    export function buildUseScheduleChanges(
+      config: AvailabilityConfig,
+      dates: readonly string[],
+      scheduleId: string,
+      makeId: () => string
+    ): AvailabilityConfigChanges {
+      const dateRules: DateRule[] = dates.map((date) => ({
+        id: makeId(),
+        kind: "use_schedule",
+        targetKind: "venue",
+        startsOn: date,
+        endsOn: date,
+        useScheduleId: scheduleId,
+      }));
+      return {
+        upsert: { dateRules },
+        remove: removal(ownSingleDateRules(config, dates)),
+      };
+    }
+    export function buildUseDayHoursChanges(input: {
+      readonly config: AvailabilityConfig;
+      readonly services: readonly DraftService[];
+      readonly dates: readonly string[];
+      readonly makeId: () => string;
+    }): AvailabilityConfigChanges {
+      const { config, services, dates, makeId } = input;
+      const own = ownSingleDateRules(config, dates);
+      const ownIds = new Set(own.map((r) => r.id));
+      // Hand the builder a config without the old rules so it writes fresh ones, then remove those.
+      const stripped = { ...config, dateRules: config.dateRules.filter((r) => !ownIds.has(r.id)) };
+      const built = buildDraftChanges({
+        config: stripped,
+        scope: { kind: "dates", dates },
+        services,
+        makeId,
+      });
+      return { upsert: built.upsert, remove: removal(own) };
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/selection.ts">
     export function normalizeDates(dates: readonly string[]): string[] {
       return [...new Set(dates)].sort();

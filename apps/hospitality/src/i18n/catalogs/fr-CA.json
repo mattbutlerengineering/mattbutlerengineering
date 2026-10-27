@@ -2273,7 +2273,34 @@
       "clear": "Effacer la sélection",
       "selectMenu": "Sélectionner…",
       "weekdayInMonth": "Chaque {{weekday}} de {{month}}",
-      "usingSchedule": "Toutes les dates avec {{schedule}}"
+      "usingSchedule": "Toutes les dates avec {{schedule}}",
+      "useSchedule": "Utiliser un horaire",
+      "useOtherDay": "Utiliser les heures d’un autre jour",
+      "clearChanges": "Effacer les modifications",
+      "use": {
+        "titleSchedule": "Utiliser un horaire pour les dates sélectionnées",
+        "titleDay": "Utiliser les heures d’un autre jour",
+        "schedule": "Horaire",
+        "from": "Copier les heures du",
+        "cancel": "Annuler",
+        "save_one": "Appliquer à {{count}} date",
+        "save_other": "Appliquer à {{count}} dates",
+        "save_many": "Appliquer à {{count}} dates",
+        "saved_one": "{{count}} date mise à jour",
+        "saved_other": "{{count}} dates mises à jour",
+        "saved_many": "{{count}} dates mises à jour"
+      },
+      "clearDialog": {
+        "title_one": "Effacer les modifications de {{count}} date ?",
+        "title_other": "Effacer les modifications de {{count}} dates ?",
+        "title_many": "Effacer les modifications de {{count}} dates ?",
+        "description": "Ces dates reprennent leur horaire habituel. Vous pouvez annuler tout de suite après.",
+        "confirm": "Effacer les modifications",
+        "keep": "Conserver les modifications",
+        "saved_one": "Modifications effacées pour {{count}} date",
+        "saved_other": "Modifications effacées pour {{count}} dates",
+        "saved_many": "Modifications effacées pour {{count}} dates"
+      }
     },
     "tonight": {
       "title": "Ce soir",
