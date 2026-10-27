@@ -8,7 +8,11 @@ import { TimelineEmptyNight, type TimelineEmptyNightProps } from "./TimelineEmpt
 import { useScrollToNow } from "./useScrollToNow.js";
 import { useTimelineKeyboard } from "../../hooks/useTimelineKeyboard.js";
 import { useGridFocus } from "./useGridFocus.js";
-import { computeReservationLayout, type ReservationLayoutResult } from "./reservationLayout.js";
+import {
+  computeReservationLayout,
+  serviceDayMinute,
+  type ReservationLayoutResult,
+} from "./reservationLayout.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { minutesOfDayIn, venueDate } from "../../utils/service-day.js";
 import styles from "./TimelineGrid.module.css";
@@ -126,13 +130,23 @@ export function TimelineGrid({
     }
   }, [focusedReservationId, selectedReservationId, onReservationClick, reservations]);
 
+  // Hour columns grow past 24 (25 = 1 AM next morning) to cover the latest block on the service day.
+  const lastHour = useMemo(() => {
+    let latestEndMinute = 0;
+    for (const reservation of reservations) {
+      const end = serviceDayMinute(new Date(reservation.endTime), date, timeZone);
+      if (end > latestEndMinute) latestEndMinute = end;
+    }
+    return Math.max(endHour, Math.ceil(latestEndMinute / 60) - 1);
+  }, [reservations, date, timeZone, endHour]);
+
   const hours = useMemo(() => {
     const result = [];
-    for (let h = startHour; h <= endHour; h++) {
+    for (let h = startHour; h <= lastHour; h++) {
       result.push(h);
     }
     return result;
-  }, [startHour, endHour]);
+  }, [startHour, lastHour]);
 
   const gridFocus = useGridFocus({ rowCount: tables.length, colCount: hours.length });
 
