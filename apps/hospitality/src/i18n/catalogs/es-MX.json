@@ -1582,7 +1582,10 @@
     "retried": "Reembolsos en cola de nuevo ({{count}})",
     "retryError": "No se pudieron poner en cola los reembolsos",
     "callListOpen": "Lista de llamadas",
+    "callListFor": "Lista de llamadas del {{date}}",
     "remove": "Quitar",
+    "removeClosureFor": "Quitar el cierre del {{date}}",
+    "hoursRange": "{{from}} – {{to}}",
     "ended": {
       "title": "Cierre anterior",
       "detail": "Ya no está activo y aún tiene reembolsos abiertos"
@@ -1664,6 +1667,7 @@
       "title": "Agregar fechas especiales",
       "rowLegend": "Fecha {{n}}",
       "date": "Fecha",
+      "dateMissing": "Elige una fecha.",
       "dateInvalid": "Elige una fecha de hoy en adelante, una sola vez y sin horario especial ya definido.",
       "kindLabel": "Qué pasa en la fecha {{n}}",
       "kind": {
@@ -2106,7 +2110,7 @@
       "versionConflict": "La disponibilidad cambió desde que abriste esto. Cierra este diálogo e inténtalo de nuevo.",
       "staffNote": "Nota para el personal",
       "guestMessage": "Mensaje para los comensales",
-      "guestMessageCount": "{{count}}/{{max}}",
+      "guestMessageTooLong": "Usa un máximo de {{max}} caracteres.",
       "suggestions": {
         "private": "Cerrado por evento privado",
         "weather": "Cerrado por clima",

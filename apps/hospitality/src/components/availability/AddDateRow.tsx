@@ -10,7 +10,14 @@ import {
 import { addDays, weekdayIndexOf } from "@mbe/availability";
 import { GUEST_MESSAGE_MAX_LENGTH, type AvailabilityConfig } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { regularServices, type DateRow, type RowField, type RowKind } from "./add-dates-draft.js";
+import {
+  regularServices,
+  rowFieldId,
+  type DateRow,
+  type RowField,
+  type RowKind,
+} from "./add-dates-draft.js";
+import { WEEK_STARTS_ON } from "./calendar-dates.js";
 import { minuteText } from "./closure-band.js";
 import { ServicesEditor } from "./ServicesEditor.js";
 import styles from "./AddSpecialDatesSheet.module.css";
@@ -39,6 +46,8 @@ export function AddDateRow(props: AddDateRowProps) {
   const { row, index, config, timezone, today, invalid, messageShared, onChange } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
+  // Trimmed, like validateRows: what blocks Next is what the field flags.
+  const messageError = row.message.trim().length > GUEST_MESSAGE_MAX_LENGTH;
   const seed = (weekday: number) => regularServices(config, timezone, weekday, today);
   const weekdayName = (d: number) =>
     format.formatCalendarDate(addDays(SUNDAY, d), { weekday: "long" });
@@ -74,10 +83,12 @@ export function AddDateRow(props: AddDateRowProps) {
       </legend>
       <div className={styles.rowHead}>
         <DatePicker
+          id={rowFieldId(row.key, "date")}
           label={t("availabilitySpecial.add.date")}
           value={row.date || null}
           min={today}
           locale={format.locale}
+          weekStartsOn={WEEK_STARTS_ON}
           onChange={(date) => chooseDate(date ?? "")}
         />
         {props.canRemove && (
@@ -90,9 +101,13 @@ export function AddDateRow(props: AddDateRowProps) {
           </Button>
         )}
       </div>
-      {invalid === "date" && (
+      {(invalid === "dateMissing" || invalid === "date") && (
         <Text variant="caption" color="error" role="alert">
-          {t("availabilitySpecial.add.dateInvalid")}
+          {t(
+            invalid === "dateMissing"
+              ? "availabilitySpecial.add.dateMissing"
+              : "availabilitySpecial.add.dateInvalid"
+          )}
         </Text>
       )}
       <SegmentedControl
@@ -104,6 +119,7 @@ export function AddDateRow(props: AddDateRowProps) {
       {row.kind === "same" && (
         <>
           <Select
+            id={rowFieldId(row.key, "same")}
             label={t("availabilitySpecial.add.sameAs")}
             value={String(row.sameAs)}
             options={[0, 1, 2, 3, 4, 5, 6].map((d) => ({
@@ -134,13 +150,15 @@ export function AddDateRow(props: AddDateRowProps) {
       )}
       {row.kind === "hours" && (
         <>
-          <ServicesEditor
-            services={row.services}
-            venueServices={config.venueServices}
-            date={row.date || today}
-            allowNew={false}
-            onChange={(services) => onChange({ ...row, services })}
-          />
+          <div id={rowFieldId(row.key, "hours")}>
+            <ServicesEditor
+              services={row.services}
+              venueServices={config.venueServices}
+              date={row.date || today}
+              allowNew={false}
+              onChange={(services) => onChange({ ...row, services })}
+            />
+          </div>
           {invalid === "hours" && (
             <Text variant="caption" color="error" role="alert">
               {t("availabilitySpecial.add.hoursInvalid")}
@@ -150,14 +168,16 @@ export function AddDateRow(props: AddDateRowProps) {
       )}
       {!messageShared && (
         <TextArea
+          id={rowFieldId(row.key, "message")}
           label={t("availability.close.guestMessage")}
-          hint={t("availability.close.guestMessageCount", {
-            count: row.message.length,
-            max: GUEST_MESSAGE_MAX_LENGTH,
-          })}
           value={row.message}
           maxLength={GUEST_MESSAGE_MAX_LENGTH}
-          error={invalid === "message"}
+          error={messageError}
+          hint={
+            messageError
+              ? t("availability.close.guestMessageTooLong", { max: GUEST_MESSAGE_MAX_LENGTH })
+              : undefined
+          }
           showOptional
           onChange={(e) => onChange({ ...row, message: e.target.value })}
         />

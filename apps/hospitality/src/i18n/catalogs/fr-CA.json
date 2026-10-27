@@ -1582,7 +1582,10 @@
     "retried": "Remboursements remis en file ({{count}})",
     "retryError": "Impossible de mettre les remboursements en file",
     "callListOpen": "Liste d'appels",
+    "callListFor": "Liste d'appels pour {{date}}",
     "remove": "Retirer",
+    "removeClosureFor": "Retirer la fermeture pour {{date}}",
+    "hoursRange": "{{from}} – {{to}}",
     "ended": {
       "title": "Fermeture antérieure",
       "detail": "N'est plus active, des remboursements restent ouverts"
@@ -1664,6 +1667,7 @@
       "title": "Ajouter des dates spéciales",
       "rowLegend": "Date {{n}}",
       "date": "Date",
+      "dateMissing": "Choisissez une date.",
       "dateInvalid": "Choisissez une date d’aujourd’hui ou plus tard, une seule fois et sans horaire spécial déjà défini.",
       "kindLabel": "Ce qui se passe à la date {{n}}",
       "kind": {
@@ -2106,7 +2110,7 @@
       "versionConflict": "Les disponibilités ont changé depuis l'ouverture de cette fenêtre. Fermez-la et réessayez.",
       "staffNote": "Note pour le personnel",
       "guestMessage": "Message pour les clients",
-      "guestMessageCount": "{{count}}/{{max}}",
+      "guestMessageTooLong": "Limitez-vous à {{max}} caractères.",
       "suggestions": {
         "private": "Fermé pour un événement privé",
         "weather": "Fermé en raison de la météo",

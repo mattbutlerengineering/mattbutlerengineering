@@ -20,6 +20,7 @@ import { formatCurrencyFromCents } from "../../utils/format.js";
 import { addDays } from "../../utils/service-day.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import { AddSpecialDatesSheet } from "./AddSpecialDatesSheet.js";
+import { minuteText } from "./closure-band.js";
 import { CallListDialog } from "./CallListDialog.js";
 import { CloseDialog } from "./CloseDialog.js";
 import { ReopenClosureDialog } from "./ReopenClosureDialog.js";
@@ -92,6 +93,20 @@ function hoursSubject(rule: SpecialDateRule, format: VenueFormat, t: TFunction):
     });
   }
   return t("availabilitySpecial.hours.subjectDates", { dates: rangeLabel(rule, format, t) });
+}
+
+/** "11:00 AM – 3:00 PM, 5:00 PM – 10:00 PM": one range per service, so a gap between them shows (ux.md S6b). */
+function hoursRange(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string | null {
+  if (rule.kind !== "special_hours" || rule.payload.services.length === 0) return null;
+  return [...rule.payload.services]
+    .sort((a, b) => a.opensAt - b.opensAt)
+    .map((s) =>
+      t("availabilitySpecial.hoursRange", {
+        from: minuteText(s.opensAt, t, format),
+        to: minuteText(s.closesAt, t, format),
+      })
+    )
+    .join(", ");
 }
 
 interface RowProps {
@@ -174,7 +189,11 @@ function SpecialDateItem(props: RowProps) {
       </div>
       <div className={styles.actions}>
         {summary && summary.unreachable > 0 && (
-          <Button variant="secondary" onClick={() => props.onCallList(ruleId)}>
+          <Button
+            variant="secondary"
+            aria-label={t("availabilitySpecial.callListFor", { date: title })}
+            onClick={() => props.onCallList(ruleId)}
+          >
             {t("availabilitySpecial.callListOpen")}
           </Button>
         )}
@@ -223,7 +242,11 @@ function SpecialDateItem(props: RowProps) {
           </>
         )}
         {isManager && props.onRemove && (
-          <Button variant="ghost" onClick={props.onRemove}>
+          <Button
+            variant="ghost"
+            aria-label={t("availabilitySpecial.removeClosureFor", { date: title })}
+            onClick={props.onRemove}
+          >
             {t("availabilitySpecial.remove")}
           </Button>
         )}
@@ -376,6 +399,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
                 rule.kind === "closure"
                   ? t("availabilitySpecial.kind.closure")
                   : t("availabilitySpecial.kind.specialHours"),
+                hoursRange(rule, format, t),
                 rule.repeat ? t("availabilitySpecial.repeating") : null,
                 skippedLabel(rule.id),
               ]

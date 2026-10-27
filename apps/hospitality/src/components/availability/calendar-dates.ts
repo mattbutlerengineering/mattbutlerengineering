@@ -2,6 +2,9 @@ import { addDays, weekdayIndexOf } from "@mbe/availability";
 
 export type CalendarView = "month" | "week";
 
+/** The Availability calendar is Monday-first; date pickers beside it start weeks the same day. */
+export const WEEK_STARTS_ON = 1;
+
 /** Days from the Monday that starts `date`'s week (Monday-first grid). */
 function daysSinceMonday(date: string): number {
   return (weekdayIndexOf(date) + 6) % 7;

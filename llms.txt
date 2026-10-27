@@ -1415,7 +1415,10 @@
       }
     </item>
     <item priority="low">
-      type RowField = "date" | "hours" | "message";
+      type RowField = "dateMissing" | "date" | "hours" | "message";
+    </item>
+    <item priority="high">
+      export const rowFieldId: unknown;
     </item>
     <item priority="high">
       export const emptyRow: unknown;
@@ -1467,6 +1470,9 @@
   <file path="apps/hospitality/src/components/availability/calendar-dates.ts">
     <item priority="low">
       type CalendarView = "month" | "week";
+    </item>
+    <item priority="high">
+      export const WEEK_STARTS_ON: unknown;
     </item>
     <item priority="medium">
       function daysSinceMonday(date: string): number { /* ... */ }
