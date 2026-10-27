@@ -28,6 +28,11 @@
   box-shadow: var(--rialto-shadow-pressed);
   padding: 2px;
   flex-shrink: 0;
+  transition: border-color var(--rialto-duration-fast) var(--rialto-ease-precision);
+}
+
+.wrapper:not([aria-disabled="true"]):hover .track:not([data-checked="true"]) {
+  border-color: var(--rialto-border-strong);
 }
 
 .track[data-checked="true"] {

@@ -63,7 +63,6 @@ export const Toggle = forwardRef<HTMLInputElement, ToggleProps>(
             <motion.div
               className={styles.knob}
               animate={{ x: (checked ?? false) ? (dir === "rtl" ? -20 : 20) : 0 }}
-              whileHover={disabled ? undefined : motionPreset.boop}
               transition={motionPreset.spring}
             />
           </label>
