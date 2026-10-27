@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-10-26T18:08:42.898Z",
+  "generated_at": "2026-10-27T00:19:13.972Z",
   "period": {
-    "start": "2026-10-19",
-    "end": "2026-10-26"
+    "start": "2026-10-20",
+    "end": "2026-10-27"
   },
   "sensors": {
     "acmm": {
@@ -42,36 +42,36 @@
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 0.03,
+          "age_days": 0.28,
           "latest": "2026-10-26T17:31:31.788Z",
           "max_age_days": 3
         },
         {
           "metric": "queue-telemetry",
           "state": "fresh",
-          "age_days": 0.33,
+          "age_days": 0.59,
           "latest": "2026-10-26T10:08:58.000Z",
           "max_age_days": 3
         },
         {
           "metric": "queueEfficiency",
           "state": "fresh",
-          "age_days": 0.76,
+          "age_days": 1.01,
           "latest": "2026-10-26T00:00:00.000Z",
           "max_age_days": 5
         },
         {
           "metric": "sdlcSpeed",
           "state": "fresh",
-          "age_days": 0.76,
+          "age_days": 1.01,
           "latest": "2026-10-26T00:00:00.000Z",
           "max_age_days": 14
         },
         {
           "metric": "ai-issue-feedback",
           "state": "fresh",
-          "age_days": 0.02,
-          "latest": "2026-10-26T17:34:37.007Z",
+          "age_days": 0.25,
+          "latest": "2026-10-26T18:18:00.783Z",
           "max_age_days": 5
         }
       ]
@@ -91,32 +91,32 @@
     },
     "prCategoryMetrics": {
       "available": true,
-      "total_prs": 96,
-      "total_merged": 96,
+      "total_prs": 98,
+      "total_merged": 98,
       "total_closed_without_merge": 0,
       "by_category": {
-        "tier:trivial": {
-          "merged": 31,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
-        "dependencies": {
-          "merged": 2,
+        "tier:sensitive": {
+          "merged": 18,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:standard": {
-          "merged": 28,
+          "merged": 34,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
-        "tier:sensitive": {
-          "merged": 19,
+        "tier:trivial": {
+          "merged": 27,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
+        },
+        "dependencies": {
+          "merged": 4,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:critical": {
-          "merged": 16,
+          "merged": 15,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         }
@@ -135,7 +135,7 @@
       "avg_turns_per_session": 0,
       "queue": {
         "sessions_7d": 3,
-        "sessions_without_usage_7d": 88,
+        "sessions_without_usage_7d": 87,
         "tokens_7d": 1174545,
         "cost_7d_usd": null,
         "cost_known_sessions_7d": 0
@@ -146,36 +146,36 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 614217,
-      "output_tokens": 1266,
-      "cache_creation_tokens": 34068,
-      "cache_hit_rate": 0.9474,
+      "cache_read_tokens": 5159872,
+      "output_tokens": 23069,
+      "cache_creation_tokens": 127070,
+      "cache_hit_rate": 0.976,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 14,
-          "output_tokens": 1266,
-          "cache_read_tokens": 614217,
-          "cache_creation_tokens": 34068
+          "input_tokens": 72,
+          "output_tokens": 23069,
+          "cache_read_tokens": 5159872,
+          "cache_creation_tokens": 127070
         }
       }
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
-      "completed": 21,
-      "passed": 10,
-      "failed": 1,
+      "completed": 19,
+      "passed": 13,
+      "failed": 0,
       "phantom": 0,
-      "pass_rate_pct": 91,
+      "pass_rate_pct": 100,
       "most_recent": {
-        "databaseId": 40375100801,
+        "databaseId": 40425557273,
         "status": "completed",
         "conclusion": "skipped",
-        "createdAt": "2026-10-26T18:08:37Z",
+        "createdAt": "2026-10-27T00:18:30Z",
         "name": "Auto-Rollback on Agent Regression",
         "headBranch": "main",
-        "headSha": "30044ae7ae26bc9b6034a4426c362dbb053823e0"
+        "headSha": "f079df288ee1a8c8b2ab51ce5f6e7070abdd2e97"
       }
     },
     "lighthouse": {
@@ -183,25 +183,32 @@
     },
     "issues": {
       "available": true,
-      "open": 53,
+      "open": 58,
       "created_7d": 200,
-      "closed_7d": 200,
-      "closure_rate": 100,
+      "closed_7d": 197,
+      "closure_rate": 99,
       "queue_depth": 1,
       "agent_failed": 0
     },
     "issueFeedback": {
       "available": true,
-      "collected_at": "2026-10-26T17:34:37.007Z",
-      "category_count": 5,
+      "collected_at": "2026-10-26T18:18:00.783Z",
+      "category_count": 6,
       "unhealthy_categories": [],
       "categories": {
+        "acmm": {
+          "total": 1,
+          "accepted": 1,
+          "rejected": 0,
+          "wontfix": 0,
+          "rejection_rate": 0
+        },
         "feature": {
           "total": 152,
-          "accepted": 128,
-          "rejected": 6,
-          "wontfix": 18,
-          "rejection_rate": 0.039473684210526314
+          "accepted": 126,
+          "rejected": 7,
+          "wontfix": 19,
+          "rejection_rate": 0.046052631578947366
         },
         "audit": {
           "total": 18,
@@ -218,8 +225,8 @@
           "rejection_rate": 0
         },
         "ci-fix": {
-          "total": 11,
-          "accepted": 7,
+          "total": 10,
+          "accepted": 6,
           "rejected": 0,
           "wontfix": 4,
           "rejection_rate": 0
@@ -254,8 +261,8 @@
     "codeChurn": {
       "available": true,
       "churn_rate": 0.001,
-      "total_lines_added_7d": 889004,
-      "lines_churned_7d": 1216,
+      "total_lines_added_7d": 889982,
+      "lines_churned_7d": 1005,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -272,10 +279,10 @@
     },
     "queueEfficiency": {
       "available": true,
-      "composite": 0.958,
+      "composite": 0.957,
       "sub_metrics": {
-        "issues_merged": 95,
-        "first_pass_success_rate": 0.937,
+        "issues_merged": 94,
+        "first_pass_success_rate": 0.936,
         "median_time_to_merge_hours": 0.1,
         "median_rework_cycles": 0,
         "cost_per_issue_usd": null,
@@ -290,7 +297,7 @@
           "avg_ttm_hours": 0.4
         },
         "size:xs": {
-          "count": 34,
+          "count": 33,
           "avg_commits": 1.1,
           "avg_ttm_hours": 0.1
         },
@@ -324,20 +331,11 @@
     "queue_efficiency_composite_drop": 0.05,
     "queue_efficiency_fps_drop": 0.1
   },
-  "regressions": [
-    {
-      "sensor": "ciHealth",
-      "metric": "pass_rate_pct",
-      "current": 91,
-      "previous": 100,
-      "delta": -9,
-      "severity": "high"
-    }
-  ],
+  "regressions": [],
   "summary": {
     "sensors_available": 13,
     "sensors_total": 17,
-    "regressions_detected": 1,
-    "status": "regressions_detected"
+    "regressions_detected": 0,
+    "status": "healthy"
   }
 }

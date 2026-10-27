@@ -4287,7 +4287,7 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 | Metric                         | Value                                                                                                                                                                                                                                                                                                       |
 | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Closed (7d, audit+ci-fix)      | 24 (15 audit + 9 ci-fix)                                                                                                                                                                                                                                                                                    |
-| Created/touched (7d)*          | 27 (16 audit + 11 ci-fix)                                                                                                                                                                                                                                                                                   |
+| Created/touched (7d)\*         | 27 (16 audit + 11 ci-fix)                                                                                                                                                                                                                                                                                   |
 | Closure Rate                   | ~89%                                                                                                                                                                                                                                                                                                        |
 | Time-to-Close                  | not computed — GitHub's issues-API `since` filters by `updated_at`, not `created_at`, so no reliable 7d created-cohort was available via this session's tooling                                                                                                                                             |
 | Agent Success (queue snapshot) | has-pr open: 0, agent-failed open: 0 (was 1, see Patterns)                                                                                                                                                                                                                                                  |
@@ -4413,3 +4413,44 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 **AI issue feedback:** 6 categories updated — feature 152 total/5% rejected, audit 18/0%, meta-improvement 18/0% (1 rejected tracked as ~6% rounds to listed 0%), ci-fix 10/0%, agent-failed 1/0%, acmm 1/0% — all budgets stay at 3 (none crossed the >40%-rejected halving threshold)
 **Skill proposals:** 0 (Monday — Friday-only)
 **Threshold notes:** auto-tuner applied 1 adjustment (acmm headroom 1.315 → 1.324). Fix-effectiveness (verified/(verified+failed), last 30d, excluding `confidence: "skip"` rows): 12/16 ≈ 75.0% — healthy, well above the 50% review line. False-positive proxy via `ai-issue-feedback.json`'s per-category rejection rates: all 6 categories at 0-5% rejected — well under the 30% loosen-threshold. No threshold loosening or fix-strategy review triggered.
+
+## 2026-10-27 — mbe-evening
+
+### Metrics
+
+| Metric                                      | Value                                                                                                                                                                                                                                                                                                         |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Created (7d, audit+ci-fix)                  | 23 (13 audit + 10 ci-fix)                                                                                                                                                                                                                                                                                     |
+| Closed (7d, audit+ci-fix)                   | 20 (13 audit + 7 ci-fix)                                                                                                                                                                                                                                                                                      |
+| Closure Rate                                | ~87%                                                                                                                                                                                                                                                                                                          |
+| Time-to-Close                               | mean 1.3h (20 issues closed in the 7d window)                                                                                                                                                                                                                                                                 |
+| Agent Success (queue snapshot)              | has-pr open: 0, agent-failed open: 0 — no current numerator/denominator; this run's own implement-queue iteration claimed 0 issues (none agent-eligible)                                                                                                                                                      |
+| CI Pass (main, last 10 completed `CI` runs) | 10/10 = 100%, excluding in-flight/queued/skipped runs from the denominator; preflight (`gh run list --branch main`) also reports zero failures in the last 5 runs                                                                                                                                             |
+| Queue (ready, open)                         | 1 (#7376) — carries `ready-for-human` (Auth0 E2E creds this session type lacks, per 2026-10-24's finding), not agent-eligible                                                                                                                                                                                 |
+| Stale (ready > 7d)                          | 0 (#7376 is ~2.5 days old)                                                                                                                                                                                                                                                                                    |
+| Blocked (agent-failed)                      | 0                                                                                                                                                                                                                                                                                                             |
+| Skipped (agent-skip)                        | 0                                                                                                                                                                                                                                                                                                             |
+| Daily / 7d Spend                            | unknown, not $0 — `.claude/agent-spend/sessions.jsonl` carries 0 attributed sessions in the 7d window (last row 2026-10-16); `metrics/queue-telemetry.jsonl` has 89 queue-worker rows in the 7d window, only 2 carry non-null `subagent_tokens` (410,845 combined), `cost_usd` null on all 89 (no ledger row) |
+| Cost/Issue                                  | unknown, same reason — token-only proxy: ~410,845 tokens / 20 closed (audit+ci-fix) ≈ 20.5k tokens/issue, dollar cost not computable                                                                                                                                                                          |
+
+### Patterns
+
+- This run's `/idea-to-prod:implement-queue` iteration (mbe-evening step 1) found **zero** agent-workable `ready` issues — the only `ready`-labeled issue (#7376) still carries `ready-for-human` from the 2026-10-24 Auth0-credential finding, unchanged since yesterday's run. No batch dispatched, no worktrees opened, no telemetry rows appended.
+- Two open PRs exist (#7745 `fix(availability): show closure date...`, #7744 the changesets `chore: version packages` release PR), both 1–2 commits behind `main` with CI still `in_progress` at the time of this check. #7745 already carries `needs-review` (held for a human per the profile's hold-label rule — not this skill's to touch). #7744 is the changesets bot's own PR, outside this skill's merge train. Neither needed an `update-branch` action this iteration since their CI had not yet settled.
+- Third evening in a row (10-25, 10-26, 10-27) where #7376 is the recurring sole `ready-for-human` holdout — worth watching for the 7-day-stale threshold, though it's only ~2.5 days old today.
+- 1 revert in the last 7 days (`git log --grep="Revert" --since="7 days ago"`), under the >3/week concern threshold.
+- Both `gh issue list`/`gh pr list` are GraphQL-blocked in this session type (gotchas § Claude Code Remote); every query above used `gh api` REST instead.
+
+### Recommendations
+
+- None rising to a 3-day-consistent pattern yet. "Queue 1, all ready-for-human, claimed 0" is now a 2-evening repeat in different forms (10-26 showed "queue 3, claimed 1" with #7376 excluded the same way; today's other two 10-26 ready issues already closed, leaving only #7376). Re-check tomorrow — if the queue sits empty-of-agent-eligible-work a third evening running, consider whether `/decompose` or `/site-audit` should run more often to keep the queue fed.
+
+### Skipped Issues
+
+0 `agent-skip` issues open — nothing to manually review.
+
+## 2026-10-27
+
+**queueEfficiency:** composite 0.957 (baseline n/a) — healthy
+**Difficulty distribution:** size:s:31, size:xs:33, size:m:14, size:l:6, size:xl:10
+**Issues filed:** 0
