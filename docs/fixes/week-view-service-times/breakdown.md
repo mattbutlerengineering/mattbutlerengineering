@@ -22,7 +22,7 @@ Minutes are venue-local minutes from midnight throughout.
 
 ## Milestone 2: Week view renders it
 
-- [ ] **WO-0074 — Render per-service lines in the week cell** — extend `presentDay` (`apps/hospitality/src/components/availability/day-summary.ts`) to emit service lines (`{name} {opensAt}–{closesAt}`) when `detailed` is true, format times through `useVenueFormat`, add catalog keys (en-US + es-MX + fr-CA; en-GB only if wording differs), and render them in `AvailabilityCalendar`'s week cells following the closure-band layout. Accessible details speak the services in order.
+- [x] **WO-0074 — Render per-service lines in the week cell** — extend `presentDay` (`apps/hospitality/src/components/availability/day-summary.ts`) to emit service lines (`{name} {opensAt}–{closesAt}`) when `detailed` is true, format times through `useVenueFormat`, add catalog keys (en-US + es-MX + fr-CA; en-GB only if wording differs), and render them in `AvailabilityCalendar`'s week cells following the closure-band layout. Accessible details speak the services in order.
   - Accept: RED-first tests on `presentDay` (service lines in week mode, count-only in month mode, loading day unchanged) and on `AvailabilityCalendar` week view; `pnpm check:i18n-catalogs` green; month view and phone agenda assertions unchanged.
   - Blocked by: WO-0073
 - [ ] **WO-0075 — Run the repo gates over the whole change** — `bash scripts/conductor-gate.sh` (install + affected lint/typecheck/test), llms/dep-graph regen check, and the `/local-ci-precheck` steps before any push.

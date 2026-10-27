@@ -101,6 +101,11 @@ function Cell(props: CellProps) {
                 {b.text}
               </span>
             ))}
+            {view.services.map((s) => (
+              <span key={s.key} className={styles.service}>
+                {s.text}
+              </span>
+            ))}
             {view.onlineOff && (
               <span className={styles.meta}>{t("availability.calendar.onlineOff")}</span>
             )}

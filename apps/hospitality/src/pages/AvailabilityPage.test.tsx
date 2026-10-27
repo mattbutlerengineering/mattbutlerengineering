@@ -130,6 +130,7 @@ function summaryFor(date: string): AvailabilityDaySummary {
     serviceCount: 1,
     closures: [],
     bookingOpen: { online: true, phone: true, waitlist: true },
+    services: [],
   };
 }
 

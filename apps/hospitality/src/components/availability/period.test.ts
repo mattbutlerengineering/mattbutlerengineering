@@ -24,6 +24,7 @@ function week(
     serviceCount: 2,
     closures: [],
     bookingOpen: OPEN,
+    services: [],
     ...overrides[serviceDate],
   }));
 }

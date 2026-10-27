@@ -18,6 +18,7 @@ function day(date: string, overrides: Partial<AvailabilityDaySummary> = {}) {
     serviceCount: 1,
     closures: [],
     bookingOpen: OPEN,
+    services: [],
     ...overrides,
   } satisfies AvailabilityDaySummary;
 }
@@ -31,6 +32,16 @@ const WEEK = [
     label: "Special hours",
     serviceCount: 2,
     closures: [{ ruleId: "r1", targetKind: "venue", from: 1320, to: 1380 }],
+    services: [
+      { venueServiceId: "svc-1", name: "Lunch", opensAt: 660, lastSeatingAt: 810, closesAt: 840 },
+      {
+        venueServiceId: "svc-2",
+        name: "Dinner",
+        opensAt: 1080,
+        lastSeatingAt: 1290,
+        closesAt: 1320,
+      },
+    ],
   }),
   day("2026-10-31", { bookingOpen: { ...OPEN, online: false } }),
   day("2026-11-01", { closures: [{ ruleId: "r2", targetKind: "venue", from: 0, to: 2880 }] }),
@@ -67,10 +78,17 @@ describe("AvailabilityCalendar", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", {
-        name: "Friday, October 30: Special hours, 2 services, closed 10:00 PM – 11:00 PM",
+        name: "Friday, October 30: Special hours, 2 services, closed 10:00 PM – 11:00 PM, Lunch 11:00 AM–2:00 PM, Dinner 6:00 PM–10:00 PM",
       })
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Monday, October 26: Closed/ })).toBeInTheDocument();
+  });
+
+  it("shows each service's hours as its own line", () => {
+    renderCalendar();
+    const cell = screen.getByRole("button", { name: /Friday, October 30/ });
+    expect(within(cell).getByText("Lunch 11:00 AM–2:00 PM")).toBeInTheDocument();
+    expect(within(cell).getByText("Dinner 6:00 PM–10:00 PM")).toBeInTheDocument();
   });
 
   it("marks the day that holds an unsaved draft with a dot and says so in its name", () => {
