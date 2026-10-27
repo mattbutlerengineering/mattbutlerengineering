@@ -5,6 +5,9 @@
  * is still marked complete. Replace a non-array `data` value with a short
  * deterministic sample so the table renders. Real arrays, including `[]`,
  * are left alone so `emptyMessage` still works.
+ *
+ * Playground-only: the shared registry does not call this, because an app with
+ * real data (hospitality) must not display invented guests.
  */
 
 const SAMPLE_ROW_COUNT = 8;
