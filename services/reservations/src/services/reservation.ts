@@ -21,7 +21,7 @@ import { assumeAppRole } from "./assume-app-role.js";
 import { getCurrentVenueId, runWithVenueContext } from "./venue-context-store.js";
 import { availabilityService } from "./availability.js";
 import { assertBookable, type GateRejection } from "./assert-bookable.js";
-import { venueLocalDateString } from "./slot-rules.js";
+import { NOT_BOOKED_STATUSES, venueLocalDateString } from "./slot-rules.js";
 import { bookSlot, type SlotConflict } from "./book-slot.js";
 import { toReservation, toTable } from "./serializers.js";
 import { transitionReservation, ReservationTransitionError } from "./reservation-state-machine.js";
@@ -612,6 +612,12 @@ export const reservationService = {
       };
     }
 
+    // A cancelled (e.g. by a venue closure) or no-show booking holds no slot:
+    // a time/table edit would resurrect its window under a dead status.
+    if (isSlotMove(data) && NOT_BOOKED_STATUSES.includes(existing.status)) {
+      return { success: false, error: "A cancelled or no-show reservation cannot be moved" };
+    }
+
     // A move onto another venue's table is refused before the capacity and
     // conflict checks, either of which would reveal that table's size or
     // bookings. (A reservation with no venueId never reaches this through a
@@ -734,7 +740,10 @@ export const reservationService = {
       write: async (tx, gated) => {
         try {
           const moved = await tx.reservation.update({
-            where: { id },
+            // Status + start CAS: a closure that cancelled or moved this booking
+            // since `existing` was read makes this miss (P2025 -> null below)
+            // instead of overwriting the closure's outcome.
+            where: { id, status: existing.status, startTime: existing.startTime },
             // A re-judged slot replaces any earlier override: it stays only if
             // this move needed one.
             data: {

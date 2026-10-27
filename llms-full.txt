@@ -31351,6 +31351,18 @@
       "Only a Manager can do this. A Host may close the whole venue for tonight, and only when the venue allows it.";
   </file>
   <file path="services/reservations/src/routes/closure-post-commit.ts">
+    export async function publishClosureChanges(
+      fastify: FastifyInstance,
+      log: FastifyBaseLogger,
+      saved: { venueId: string; ruleId: string }
+    ): Promise<void> {
+      const { venueId, ruleId } = saved;
+      try {
+        await fastify.transitions.settleClosure(venueId, await loadClosureChanges(venueId, ruleId));
+      } catch (err) {
+        log.error({ err, venueId, ruleId }, "closure SSE events were not published");
+      }
+    }
     export async function enqueueNotices(
       enqueue: FastifyInstance["services"]["closureNoticeService"]["enqueueForClosure"],
       input: { venueId: string; ruleId: string },
@@ -31368,6 +31380,7 @@
       saved: { venueId: string; ruleId: string; cancelled: number }
     ): Promise<void> {
       const { venueId, ruleId, cancelled } = saved;
+      await publishClosureChanges(fastify, log, { venueId, ruleId });
       if (cancelled > 0) {
         try {
           await fastify.closureRefunds.enqueue(venueId, ruleId);
@@ -47776,6 +47789,25 @@
         : { kind: "ok" };
     }
   </file>
+  <file path="services/reservations/src/services/closure-changes.ts">
+    export interface ClosureChanges {
+      cancelled: Reservation[];
+      moved: Reservation[];
+    }
+    export async function loadClosureChanges(venueId: string, ruleId: string): Promise<ClosureChanges> {
+      const outcomes = await runWithVenueContext(venueId, () =>
+        prisma.closureOutcome.findMany({
+          where: { venueId, dateRuleId: ruleId, action: { in: ["cancel", "move"] } },
+          select: { action: true, reservation: { include: { table: true } } },
+        })
+      );
+      const pick = (action: string, cancelled: boolean): Reservation[] =>
+        outcomes
+          .filter((o) => o.action === action && (o.reservation.status === "CANCELLED") === cancelled)
+          .map((o) => toReservation(o.reservation));
+      return { cancelled: pick("cancel", true), moved: pick("move", false) };
+    }
+  </file>
   <file path="services/reservations/src/services/closure-command-plan.ts">
     export type DecisionCheck =
       | { kind: "ok"; actions: ReadonlyMap<string, ClosureDecision> }
@@ -55732,6 +55764,12 @@
           };
         }
     
+        // A cancelled (e.g. by a venue closure) or no-show booking holds no slot:
+        // a time/table edit would resurrect its window under a dead status.
+        if (isSlotMove(data) && NOT_BOOKED_STATUSES.includes(existing.status)) {
+          return { success: false, error: "A cancelled or no-show reservation cannot be moved" };
+        }
+    
         // A move onto another venue's table is refused before the capacity and
         // conflict checks, either of which would reveal that table's size or
         // bookings. (A reservation with no venueId never reaches this through a
@@ -55854,7 +55892,10 @@
           write: async (tx, gated) => {
             try {
               const moved = await tx.reservation.update({
-                where: { id },
+                // Status + start CAS: a closure that cancelled or moved this booking
+                // since `existing` was read makes this miss (P2025 -> null below)
+                // instead of overwriting the closure's outcome.
+                where: { id, status: existing.status, startTime: existing.startTime },
                 // A re-judged slot replaces any earlier override: it stays only if
                 // this move needed one.
                 data: {
@@ -80931,6 +80972,15 @@
         userId?: string,
         actor?: ReservationEventActor
       ): Promise<CreateReservationResult>;
+      /**
+       * Post-commit effects of a venue closure: a cancelled event (reminders cancelled) per cancelled
+       * booking, an updated event (reminders re-timed) per moved one. No guest message: closure
+       * notices own that (#7523). Call only after the closure's transaction has committed.
+       */
+      settleClosure(
+        venueId: string,
+        changed: { cancelled: readonly Reservation[]; moved: readonly Reservation[] }
+      ): Promise<void>;
       /** No-op unless the reservation is PENDING (the guard moved here from the route). */
       confirmAttendance(reservation: Reservation, actor?: ReservationEventActor): Promise<void>;
     }
@@ -81064,6 +81114,15 @@
           return result;
         },
     
+        async settleClosure(venueId, changed) {
+          for (const updated of changed.cancelled) {
+            await settle({ kind: "closure-cancelled", updated }, venueId);
+          }
+          for (const after of changed.moved) {
+            await settle({ kind: "closure-moved", after }, venueId);
+          }
+        },
+    
         async confirmAttendance(reservation, actor) {
           if (reservation.status !== "PENDING") return;
           const updated = await reservationService.update(
@@ -81118,7 +81177,11 @@
           reservation: Reservation;
           table?: Table;
         }
-      | { kind: "attendance-confirmed"; reservation: Reservation };
+      | { kind: "attendance-confirmed"; reservation: Reservation }
+      /** A venue closure cancelled the booking: guests hear through closure notices, not the cancel email. */
+      | { kind: "closure-cancelled"; updated: Reservation }
+      /** A venue closure moved the booking to a new start. */
+      | { kind: "closure-moved"; after: Reservation };
     export function reminderJobId(jobType: string, reservationId: string): string {
       return `${jobType}_${reservationId}`;
     }
@@ -81270,6 +81333,20 @@
     
         case "attendance-confirmed":
           return [live(reservationEvent("reservation:updated", fact.reservation))];
+    
+        case "closure-cancelled":
+          return [
+            ...cancelReminders(fact.updated.id).map((op) => awaited(job(op), "log")),
+            live(reservationEvent("reservation:cancelled", fact.updated)),
+          ];
+    
+        case "closure-moved":
+          return [
+            ...reminderOps(fact.after, now, "replace-if-present").map((op) =>
+              background(job(op), "log")
+            ),
+            live(reservationEvent("reservation:updated", fact.after)),
+          ];
       }
     }
     export function planEffects(

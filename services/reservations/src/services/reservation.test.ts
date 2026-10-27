@@ -1421,6 +1421,41 @@ describe("reservationService", () => {
       expect(tx.reservation.update).not.toHaveBeenCalled();
     });
 
+    it("a staff time edit is refused when a closure cancelled the booking meanwhile (status CAS)", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation({ status: "CONFIRMED" }) as never
+      );
+      const tx = useSlotTxOnce();
+      tx.reservation.update.mockRejectedValueOnce(
+        Object.assign(new Error("Record to update not found"), { code: "P2025" })
+      );
+
+      const result = await reservationService.updateWithConflictCheck("res-1", {
+        startTime: "2026-05-05T19:00:00Z",
+      });
+
+      expect(result.success).toBe(false);
+      expect(tx.reservation.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: "res-1", status: "CONFIRMED" }),
+        })
+      );
+      expect(tx.reservationEvent.create).not.toHaveBeenCalled();
+    });
+
+    it("a staff time edit on an already-cancelled booking is refused before any write", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation({ status: "CANCELLED" }) as never
+      );
+
+      const result = await reservationService.updateWithConflictCheck("res-1", {
+        startTime: "2026-05-05T19:00:00Z",
+      });
+
+      expect(result.success).toBe(false);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
     it("judges a party-size increase on the phone channel and returns the gate's rejection", async () => {
       vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
         makePrismaReservation() as never
