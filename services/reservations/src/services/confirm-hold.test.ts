@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type * as SlotRules from "./slot-rules.js";
 
 vi.mock("./database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
@@ -29,21 +28,14 @@ vi.mock("./availability.js", () => ({
   },
 }));
 
-vi.mock("./slot-rules.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof SlotRules>();
-  return { ...actual, checkPacingForSlot: vi.fn().mockReturnValue(true) };
-});
-
 vi.mock("./assert-bookable.js", () => ({
-  assertBookable: vi.fn().mockReturnValue(undefined),
   judgeBooking: vi.fn().mockResolvedValue({ kind: "ok" }),
 }));
 
 import { confirmHold } from "./confirm-hold.js";
 import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
-import { checkPacingForSlot } from "./slot-rules.js";
-import { assertBookable, judgeBooking } from "./assert-bookable.js";
+import { judgeBooking } from "./assert-bookable.js";
 
 const NOW = new Date("2026-05-05T18:00:00Z");
 const TEN_MIN_FROM_NOW = new Date(NOW.getTime() + 10 * 60 * 1000);
@@ -143,7 +135,6 @@ describe("confirmHold", () => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
 
-    // Default: venue with no pacing rules — pacing check passes by default.
     vi.mocked(prisma.venue.findUnique).mockResolvedValue({
       id: "venue-1",
       settings: null,
@@ -152,10 +143,6 @@ describe("confirmHold", () => {
       reservations: [],
       holds: [],
     });
-    // assertBookable: no booking errors by default (slot is free).
-    vi.mocked(assertBookable).mockReturnValue(undefined);
-    // checkPacingForSlot: pacing passes by default (used in in-tx re-check).
-    vi.mocked(checkPacingForSlot).mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -548,27 +535,22 @@ describe("confirmHold", () => {
     });
   });
 
-  describe("Slice 9: Pacing regression — confirm must enforce pacing", () => {
-    it("rejects hold confirmation when pacing limit would be exceeded", async () => {
-      // Regression: confirm-hold previously skipped pacing entirely.
-      // Confirming a hold that would exceed the venue's maxCoversPerSlot must
-      // return PACING_EXCEEDED, not create a reservation.
-      const hold = makePrismaHold({ partySize: 4 });
-
-      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(hold as never);
-      vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({
-        id: "venue-1",
-        settings: { pacingRules: [{ maxCoversPerSlot: 4, timeWindowMinutes: 15 }] },
-      } as never);
-      vi.mocked(availabilityService.fetchConflictData).mockResolvedValueOnce({
-        reservations: [],
-        holds: [],
+  describe("Slice 9: Pacing is the availability gate's call", () => {
+    it("refuses over pacing as NOT_BOOKABLE soft-limit [pacing], consuming the hold, with no legacy pre-check", async () => {
+      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(
+        makePrismaHold({ partySize: 4 }) as never
+      );
+      const rejection = { code: "soft-limit" as const, limits: ["pacing" as const] };
+      vi.mocked(judgeBooking).mockResolvedValueOnce({ kind: "rejected", rejection });
+      const holdDelete = vi.fn().mockResolvedValue(undefined);
+      const reservationCreate = vi.fn();
+      const tx = makeTxMock({
+        reservation: { ...makeTxMock().reservation, create: reservationCreate },
+        reservationHold: { ...makeTxMock().reservationHold, delete: holdDelete },
       });
-      // assertBookable reports pacing exceeded
-      vi.mocked(assertBookable).mockReturnValueOnce({
-        code: "PACING_EXCEEDED",
-        message: "Pacing limit reached. Maximum 4 covers per time window.",
-      });
+      vi.mocked(prisma.$transaction).mockImplementationOnce(
+        async (fn: (client: never) => Promise<unknown>) => fn(tx as never)
+      );
 
       const result = await confirmHold({
         holdId: "hold-1",
@@ -576,34 +558,22 @@ describe("confirmHold", () => {
         guestDetails: { guestName: "Jane Doe" },
       });
 
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.errorCode).toBe("PACING_EXCEEDED");
-      }
+      expect(result).toMatchObject({ success: false, errorCode: "NOT_BOOKABLE", rejection });
+      expect(holdDelete).toHaveBeenCalledWith({ where: { id: "hold-1" } });
+      expect(reservationCreate).not.toHaveBeenCalled();
+      expect(availabilityService.fetchConflictData).not.toHaveBeenCalled();
+      expect(prisma.venue.findUnique).not.toHaveBeenCalled();
     });
 
-    it("allows confirmation when pacing limit is not exceeded", async () => {
+    it("allows confirmation when the gate passes", async () => {
       const hold = makePrismaHold({ partySize: 2 });
-      const reservation = makeReservationResult(hold);
-
       vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(hold as never);
-      vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({
-        id: "venue-1",
-        settings: { pacingRules: [{ maxCoversPerSlot: 10, timeWindowMinutes: 15 }] },
-      } as never);
-      vi.mocked(availabilityService.fetchConflictData).mockResolvedValueOnce({
-        reservations: [],
-        holds: [],
-      });
-      // assertBookable: no error (slot is bookable)
-      vi.mocked(assertBookable).mockReturnValueOnce(undefined);
-
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
           const tx = makeTxMock({
             reservation: {
               ...makeTxMock().reservation,
-              create: vi.fn().mockResolvedValue(reservation),
+              create: vi.fn().mockResolvedValue(makeReservationResult(hold)),
             },
           });
           return fn(tx);
@@ -617,78 +587,6 @@ describe("confirmHold", () => {
       });
 
       expect(result.success).toBe(true);
-    });
-
-    it("passes excludeHoldId to assertBookable so the hold does not conflict with itself", async () => {
-      const hold = makePrismaHold();
-
-      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(hold as never);
-      vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({
-        id: "venue-1",
-        settings: null,
-      } as never);
-      vi.mocked(availabilityService.fetchConflictData).mockResolvedValueOnce({
-        reservations: [],
-        holds: [],
-      });
-      vi.mocked(assertBookable).mockReturnValueOnce(undefined);
-
-      vi.mocked(prisma.$transaction).mockImplementationOnce(
-        async (fn: (tx: any) => Promise<unknown>) => {
-          const tx = makeTxMock({
-            reservation: {
-              ...makeTxMock().reservation,
-              create: vi.fn().mockResolvedValue(makeReservationResult(hold)),
-            },
-          });
-          return fn(tx);
-        }
-      );
-
-      await confirmHold({
-        holdId: "hold-1",
-        sessionId: "session-abc",
-        guestDetails: { guestName: "Jane Doe" },
-      });
-
-      expect(assertBookable).toHaveBeenCalledWith(
-        expect.objectContaining({ excludeHoldId: "hold-1" })
-      );
-    });
-  });
-
-  describe("Slice 10: In-transaction pacing re-check (TOCTOU close)", () => {
-    it("rejects confirmation when in-tx pacing re-check fails even if pre-check passed", async () => {
-      // Regression test: two concurrent confirmations on different tables for the
-      // same slot can both pass the pre-lock pacing check (TOCTOU). The in-tx
-      // re-check under the advisory lock is the authoritative gate.
-      const hold = makePrismaHold({ partySize: 4 });
-      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(hold as never);
-
-      // Pre-check passes (assertBookable returns undefined)
-      vi.mocked(assertBookable).mockReturnValueOnce(undefined);
-
-      // In-tx pacing re-check: another concurrent confirmation already committed
-      // while we were waiting for the lock, so pacing now fails.
-      vi.mocked(checkPacingForSlot).mockReturnValueOnce(false);
-
-      vi.mocked(prisma.$transaction).mockImplementationOnce(
-        async (fn: (tx: any) => Promise<unknown>) => {
-          const tx = makeTxMock();
-          return fn(tx);
-        }
-      );
-
-      const result = await confirmHold({
-        holdId: "hold-1",
-        sessionId: "session-abc",
-        guestDetails: { guestName: "Jane Doe" },
-      });
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.errorCode).toBe("PACING_EXCEEDED");
-      }
     });
   });
 });

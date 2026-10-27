@@ -236,6 +236,30 @@ describe("judgeBooking", () => {
   });
 });
 
+describe("judgeBooking Tonight cover cap", () => {
+  const tonightCap = (covers: number) => ({
+    ...closureOn("2026-11-05"),
+    id: "r-tonight",
+    kind: "tonight",
+    targetKind: "venue",
+    payload: { version: 1, pacing: { covers } },
+  });
+  const otherTable = { ...booked("res-other", at("2026-11-05T19:00:00")), tableId: "t2" };
+
+  it("refuses an online booking that would push the window past the cap", async () => {
+    const db = fakeDb({ dateRules: [tonightCap(4)], reservations: [otherTable] });
+    expect(await judgeBooking(db, request({ partySize: 3 }), NOW)).toEqual({
+      kind: "rejected",
+      rejection: { code: "soft-limit", limits: ["pacing"] },
+    });
+  });
+
+  it("accepts a booking that lands exactly on the cap", async () => {
+    const db = fakeDb({ dateRules: [tonightCap(4)], reservations: [otherTable] });
+    expect(await judgeBooking(db, request({ partySize: 2 }), NOW)).toEqual({ kind: "ok" });
+  });
+});
+
 describe("judgeBooking service date", () => {
   it("refuses a client date that is not the time's service day (#7677)", async () => {
     // 19:00 PT on Nov 5 sent with date Nov 20.

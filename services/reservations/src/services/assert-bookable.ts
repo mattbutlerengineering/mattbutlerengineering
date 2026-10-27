@@ -61,6 +61,8 @@ export interface AssertBookableOptions {
   excludeHoldId?: string;
   /** Exclude this session ID's holds from conflict checks (used during hold create). */
   excludeSessionId?: string;
+  /** The instant hold expiry is judged against. Defaults to the wall clock. */
+  now?: Date;
 }
 
 /**
@@ -84,6 +86,7 @@ export function assertBookable(opts: AssertBookableOptions): BookableError | und
     holds,
     excludeHoldId,
     excludeSessionId,
+    now = new Date(),
   } = opts;
 
   if (opts.table && !partyFitsTable(opts.table, partySize)) {
@@ -109,7 +112,8 @@ export function assertBookable(opts: AssertBookableOptions): BookableError | und
     startTime,
     endTime,
     opts.reservations,
-    filteredHolds
+    filteredHolds,
+    now
   );
   if (hasConflict) {
     return { code: "CONFLICT", message: "Table is not available for this time slot" };
@@ -120,7 +124,8 @@ export function assertBookable(opts: AssertBookableOptions): BookableError | und
     partySize,
     settings,
     opts.reservations,
-    filteredHolds
+    filteredHolds,
+    now
   );
   if (!pacingOk) {
     const maxCovers = settings?.pacingRules?.[0]?.maxCoversPerSlot;

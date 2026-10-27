@@ -218,7 +218,7 @@ export async function findBestTable(
 
   const { reservations, holds } = await fetchConflictData(venueId, date);
 
-  return selectBestTable(tables, startTime, endTime, reservations, holds) as Table | null;
+  return selectBestTable(tables, startTime, endTime, reservations, holds, new Date());
 }
 
 // --- Helper functions ---
