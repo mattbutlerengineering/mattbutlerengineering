@@ -8,6 +8,7 @@ export const frCA: RialtoMessages = {
   dialog: "Boîte de dialogue",
   drawer: "Panneau latéral",
   popover: "Fenêtre contextuelle",
+  neonSignLead: "Oui, nous sommes",
   preview: "Aperçu",
   notifications: "Avis",
   confirm: "Confirmer",

@@ -632,7 +632,34 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
   },
 
   NeonSign: {
-    element: <NeonSign state="open" aria-label="Open until 10:00 PM" />,
+    // Every shape, lit and closed, so axe sees each variant's SVG parts and the banner lead.
+    element: (
+      <>
+        <NeonSign state="open" aria-label="Open until 10:00 PM" />
+        {(["swoosh", "boxed", "vertical", "arrow", "banner", "vintage"] as const).flatMap(
+          (shape) => [
+            <NeonSign
+              key={`${shape}-open`}
+              state="open"
+              shape={shape}
+              aria-label={`${shape} open`}
+            />,
+            <NeonSign
+              key={`${shape}-closed`}
+              state="closed"
+              shape={shape}
+              aria-label={`${shape} closed`}
+            />,
+          ]
+        )}
+        <NeonSign
+          state="open"
+          shape="boxed"
+          tone={{ word: "purple", frame: "green" }}
+          aria-label="Toned boxed open"
+        />
+      </>
+    ),
   },
 
   NumberInput: {

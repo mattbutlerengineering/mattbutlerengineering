@@ -8,6 +8,7 @@ export const esMX: RialtoMessages = {
   dialog: "Diálogo",
   drawer: "Panel lateral",
   popover: "Ventana emergente",
+  neonSignLead: "Sí, estamos",
   preview: "Vista previa",
   notifications: "Notificaciones",
   confirm: "Confirmar",
