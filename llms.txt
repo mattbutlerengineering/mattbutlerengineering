@@ -1415,7 +1415,10 @@
       }
     </item>
     <item priority="low">
-      type RowField = "date" | "hours" | "message";
+      type RowField = "dateMissing" | "date" | "hours" | "message";
+    </item>
+    <item priority="high">
+      export const rowFieldId: unknown;
     </item>
     <item priority="high">
       export const emptyRow: unknown;
@@ -1467,6 +1470,9 @@
   <file path="apps/hospitality/src/components/availability/calendar-dates.ts">
     <item priority="low">
       type CalendarView = "month" | "week";
+    </item>
+    <item priority="high">
+      export const WEEK_STARTS_ON: unknown;
     </item>
     <item priority="medium">
       function daysSinceMonday(date: string): number { /* ... */ }
@@ -1611,6 +1617,21 @@
       export function isWholeDay(closure: Pick<Closure, "from" | "to">): boolean { /* ... */ }
     </item>
     <item priority="high">
+      interface Copy {
+        allDay: (t: TFunction) => readonly [text: string, name: string];
+        band: (t: TFunction, v: { from: string; to: string }) => readon...;
+      }
+    </item>
+    <item priority="high">
+      type ChannelSuffix = "" | (typeof CHANNEL_SUFFIX)[keyof ;
+    </item>
+    <item priority="medium">
+      function channelSuffix(closure: Closure): ChannelSuffix { /* ... */ }
+    </item>
+    <item priority="medium">
+      function bookingCopy(suffix: ChannelSuffix): Copy { /* ... */ }
+    </item>
+    <item priority="high">
       export function closureBandText(
         closure: Closure,
         t: TFunction,
@@ -1702,6 +1723,26 @@
       ): DayPresentation { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/describe-change.ts">
+    <item priority="medium">
+      function whenOf(
+        from: string | null | undefined,
+        to: string | null | undefined,
+        format: VenueFormat,
+        t: TFunction
+      ): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function outcomeText(outcome: AvailabilityChangeOutcome, format: VenueFormat, t: TFunction) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function describeChange(
+        entry: AvailabilityChangeEntry,
+        format: VenueFormat,
+        t: TFunction
+      ): string | null { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/draft-changes.ts">
     <item priority="low">
       type EditScope = { readonly kind: "date"; reado | { readonly kind: "weekday"; re | { readonly kind: "schedule"; r | { readonly kind: "dates"; read | {
@@ -1772,6 +1813,23 @@
   <file path="apps/hospitality/src/components/availability/outcome-label.ts">
     <item priority="high">
       export function outcomeLabel(counts: OutcomeCounts, t: TFunction): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/period.ts">
+    <item priority="high">
+      export function periodLabel(
+        view: CalendarView,
+        anchor: string,
+        t: TFunction,
+        format: VenueFormat
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function weekSummary(
+        anchor: string,
+        days: readonly AvailabilityDaySummary[] | undefined,
+        t: TFunction
+      ): string | null { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/quick-setup-draft.ts">
@@ -10740,6 +10798,9 @@
       export const AvailabilityChangeSummarySchema: unknown;
     </item>
     <item priority="high">
+      export const AvailabilityChangeOutcomeSchema: unknown;
+    </item>
+    <item priority="high">
       export const AvailabilityChangeEntrySchema: unknown;
     </item>
     <item priority="high">
@@ -10882,6 +10943,9 @@
     </item>
     <item priority="low">
       type AvailabilityChangeSummary = z.infer<typeof AvailabilityChangeSummarySchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityChangeOutcome = z.infer<typeof AvailabilityChangeOutcomeSchema>;
     </item>
     <item priority="low">
       type AvailabilityChangeEntry = z.infer<typeof AvailabilityChangeEntrySchema>;
@@ -13236,6 +13300,9 @@
       export const REVERT_KIND: unknown;
     </item>
     <item priority="medium">
+      function outcomeOf(kind: string, inverse: unknown): AvailabilityChangeOutcome | null { /* ... */ }
+    </item>
+    <item priority="medium">
       function whereOf(
         venueId: string,
         query: AvailabilityChangesParsed
@@ -14219,13 +14286,25 @@
       type DayServices = ReturnType<typeof resolveDay>;
     </item>
     <item priority="medium">
-      function seatingStarts(day: DayServices, venueServiceId: string, fromMin: number): number[] { /* ... */ }
+      function seatingStarts(
+        day: DayServices,
+        venueServiceId: string,
+        fromMin: number,
+        tableIds: readonly string[] = []
+      ): number[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function channelOpen(day: DayServices, s: DayServices["services"][number], m: number): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function tableFree(day: DayServices, tableIds: readonly string[], m: number): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function isEmergencyTonightClose(
         snapshot: AvailabilitySnapshot,
         rule: DateRule,
-        now: Date
+        now: Date,
+        tableIds: readonly string[] = []
       ): boolean { /* ... */ }
     </item>
     <item priority="high">
@@ -14265,6 +14344,7 @@
         ruleId: string;
         idempotencyKey: string;
         version: number;
+        outcome?: AvailabilityChangeOutcome;
         batch?: BatchShape;
       }
     </item>
@@ -15457,6 +15537,7 @@
         id: string;
         refund: GuestRefundStatus;
         rebookedReservationId: string | null;
+        guestMessage: string | null;
       }
     </item>
     <item priority="low">
@@ -15481,6 +15562,8 @@
     <item priority="low">
       interface VenueCancellation {
         refundStatus: GuestRefundStatus;
+        closureDate: string;
+        closureMessage: string | null;
         offers: RebookOffer[];
         rebooked: { reservationId: string; startTime: string } | null;
       }
@@ -19837,6 +19920,8 @@
     <item priority="low">
       interface ManagedVenueCancellation {
         refundStatus: "none" | "pending" | "done" | "failed";
+        closureDate: string | null;
+        closureMessage: string | null;
         offers: ManagedRebookOffer[];
         rebooked: { startTime: string; manageToken: string } | null;
       }
@@ -24994,6 +25079,18 @@
     </item>
     <item priority="high">
       export function formatHourLabel(hour: number, locale: string, compact: boolean): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function deviceTimeZone(): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatTimeZoneName(at: Date, timeZone: string, locale: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function canonicalTimeZone(timeZone: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function sameTimeZone(a: string, b: string): boolean { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/utils/ics.ts">

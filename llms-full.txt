@@ -4658,7 +4658,9 @@
       readonly shareMessage: boolean;
       readonly sharedMessage: string;
     }
-    export type RowField = "date" | "hours" | "message";
+    export type RowField = "dateMissing" | "date" | "hours" | "message";
+    export const rowFieldId = (rowKey: string, field: "date" | "hours" | "message" | "same"): string =>
+      `add-date-${rowKey}-${field}`;
     export const emptyRow = (key: string, date: string): DateRow => ({
       key,
       date,
@@ -4684,8 +4686,8 @@
     ): { readonly key: string; readonly field: RowField } | null {
       const seen = new Set<string>();
       for (const row of form.rows) {
+        if (row.date === "") return { key: row.key, field: "dateMissing" };
         if (
-          row.date === "" ||
           row.date < today ||
           seen.has(row.date) ||
           (row.kind !== "closed" && hasOwnHours(config, row.date))
@@ -4792,6 +4794,7 @@
   </file>
   <file path="apps/hospitality/src/components/availability/calendar-dates.ts">
     export type CalendarView = "month" | "week";
+    export const WEEK_STARTS_ON = 1;
     function daysSinceMonday(date: string): number {
       return (weekdayIndexOf(date) + 6) % 7;
     }
@@ -5033,27 +5036,45 @@
     export function isWholeDay(closure: Pick<Closure, "from" | "to">): boolean {
       return closure.from === 0 && closure.to >= 2 * MINUTES_PER_DAY;
     }
+    interface Copy {
+      allDay: (t: TFunction) => readonly [text: string, name: string];
+      band: (t: TFunction, v: { from: string; to: string }) => readonly [text: string, name: string];
+    }
+    type ChannelSuffix = "" | (typeof CHANNEL_SUFFIX)[keyof typeof CHANNEL_SUFFIX];
+    function channelSuffix(closure: Closure): ChannelSuffix {
+      const [only, ...rest] = closure.bookingTypes ?? [];
+      return only && rest.length === 0 ? CHANNEL_SUFFIX[only] : "";
+    }
+    function bookingCopy(suffix: ChannelSuffix): Copy {
+      return {
+        allDay: (t) => [
+          t(`availability.calendar.bookingOff${suffix}AllDay`),
+          t(`availability.calendar.bookingOff${suffix}AllDayName`),
+        ],
+        band: (t, v) => [
+          t(`availability.calendar.bookingOff${suffix}Band`, v),
+          t(`availability.calendar.bookingOff${suffix}BandName`, v),
+        ],
+      };
+    }
     export function closureBandText(
       closure: Closure,
       t: TFunction,
       format: VenueFormat
     ): ClosureBandText {
+      const copy =
+        closure.targetKind === "booking"
+          ? bookingCopy(channelSuffix(closure))
+          : COPY[closure.targetKind];
       if (isWholeDay(closure)) {
-        return {
-          key: closure.ruleId,
-          text: t("availability.calendar.closedAllDay"),
-          name: t("availability.calendar.closedAllDayName"),
-        };
+        const [text, name] = copy.allDay(t);
+        return { key: closure.ruleId, text, name };
       }
-      const values = {
+      const [text, name] = copy.band(t, {
         from: minuteText(closure.from, t, format),
         to: minuteText(closure.to, t, format),
-      };
-      return {
-        key: closure.ruleId,
-        text: t("availability.calendar.closedBand", values),
-        name: t("availability.calendar.closedBandName", values),
-      };
+      });
+      return { key: closure.ruleId, text, name };
     }
   </file>
   <file path="apps/hospitality/src/components/availability/compare-changes.ts">
@@ -5209,7 +5230,16 @@
       const count = showCount
         ? t("availability.calendar.services", { count: summary.serviceCount })
         : null;
-      const onlineOff = summary !== undefined && !summary.bookingOpen.online;
+      // A whole-day pause that names online already says so; saying it twice reads as two facts.
+      // The band names a channel only when it is the single one paused (closure-band.ts channelSuffix).
+      const bandNamesOnline = (summary?.closures ?? []).some(
+        (c) =>
+          c.targetKind === "booking" &&
+          isWholeDay(c) &&
+          c.bookingTypes?.length === 1 &&
+          c.bookingTypes[0] === "online"
+      );
+      const onlineOff = summary !== undefined && !summary.bookingOpen.online && !bandNamesOnline;
     
       const parts = summary
         ? [
@@ -5235,6 +5265,58 @@
           details: accessibleDetails,
         }),
       };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/describe-change.ts">
+    function whenOf(
+      from: string | null | undefined,
+      to: string | null | undefined,
+      format: VenueFormat,
+      t: TFunction
+    ): string | null {
+      if (!from) return null;
+      const start = format.formatCalendarDate(from, DAY);
+      if (!to) return t("availability.history.entry.onward", { from: start });
+      if (to === from) return start;
+      return t("availability.history.entry.range", {
+        from: start,
+        to: format.formatCalendarDate(to, DAY),
+      });
+    }
+    function outcomeText(outcome: AvailabilityChangeOutcome, format: VenueFormat, t: TFunction) {
+      const parts = [
+        outcome.cancelled > 0
+          ? t("availability.history.entry.cancelled", { count: outcome.cancelled })
+          : null,
+        outcome.moved > 0 ? t("availability.history.entry.moved", { count: outcome.moved }) : null,
+        outcome.kept > 0 ? t("availability.history.entry.kept", { count: outcome.kept }) : null,
+      ].filter((p): p is string => p !== null);
+      if (parts.length === 0) return t("availability.history.entry.none");
+      return new Intl.ListFormat(format.locale, { style: "long", type: "conjunction" }).format(parts);
+    }
+    export function describeChange(
+      entry: AvailabilityChangeEntry,
+      format: VenueFormat,
+      t: TFunction
+    ): string | null {
+      const { outcome } = entry;
+      // The rule's own dates when recorded: the audit range also spans rows a series edit touched.
+      const own = outcome?.startsOn != null;
+      const when = whenOf(
+        own ? outcome.startsOn : entry.affectedFrom,
+        own ? outcome.endsOn : entry.affectedTo,
+        format,
+        t
+      );
+      if (!when) return null;
+      if (entry.kind === "reopen") return t("availability.history.entry.reopened", { when });
+      if (entry.kind !== "closure" || !outcome) return null;
+      return t(
+        outcome.closeEarly
+          ? "availability.history.entry.closedEarly"
+          : "availability.history.entry.closed",
+        { when, outcome: outcomeText(outcome, format, t) }
+      );
     }
   </file>
   <file path="apps/hospitality/src/components/availability/draft-changes.ts">
@@ -5457,6 +5539,48 @@
         parts: parts
           .map((p) => t(`availability.close.button.part.${p.a}`, { count: p.count }))
           .join(" · "),
+      });
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/period.ts">
+    export function periodLabel(
+      view: CalendarView,
+      anchor: string,
+      t: TFunction,
+      format: VenueFormat
+    ): string {
+      if (view === "month") {
+        return format.formatCalendarDate(anchor, { month: "long", year: "numeric" });
+      }
+      const week = visibleDates("week", anchor);
+      return t("availability.toolbar.range", {
+        from: format.formatCalendarDate(week[0] ?? anchor, { month: "short", day: "numeric" }),
+        to: format.formatCalendarDate(week[6] ?? anchor, {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        }),
+      });
+    }
+    export function weekSummary(
+      anchor: string,
+      days: readonly AvailabilityDaySummary[] | undefined,
+      t: TFunction
+    ): string | null {
+      const week = new Set(visibleDates("week", anchor));
+      const loaded = (days ?? []).filter((d) => week.has(d.serviceDate));
+      if (loaded.length === 0) return null;
+      // A whole-day venue closure already empties `serviceCount`; booking, service and tables
+      // closures leave the day open.
+      const open = loaded.filter((d) => d.serviceCount > 0);
+      const closures = new Set(loaded.flatMap((d) => d.closures.map((c) => c.ruleId)));
+      const onlineOff = open.filter((d) => !d.bookingOpen.online).length;
+      const online =
+        onlineOff === open.length ? "onlineOff" : onlineOff === 0 ? "onlineOn" : "onlinePartial";
+      return t("availability.weekSummary.line", {
+        open: t("availability.weekSummary.open", { count: open.length }),
+        closures: t("availability.weekSummary.closures", { count: closures.size }),
+        online: t(`availability.weekSummary.${online}`),
       });
     }
   </file>
@@ -39138,6 +39262,16 @@
       kind: z.string(),
       summary: z.string(),
     });
+    export const AvailabilityChangeOutcomeSchema = z.object({
+      cancelled: z.number().int(),
+      moved: z.number().int(),
+      kept: z.number().int(),
+      /** A close-early (Tonight) rather than a closure. */
+      closeEarly: z.boolean(),
+      /** The saved rule's own first and last day; `endsOn` null means it has no end. Absent on older rows. */
+      startsOn: ServiceDateSchema.optional(),
+      endsOn: ServiceDateSchema.nullish(),
+    });
     export const AvailabilityChangeEntrySchema = AvailabilityChangeSummarySchema.extend({
       /** First and last service dates the change can alter; `null` end means onward. */
       affectedFrom: ServiceDateSchema.nullable(),
@@ -39148,6 +39282,11 @@
       revertedById: z.string().nullable(),
       /** `Revert` is offered only on the newest change, and only when it told no guest. */
       revertible: z.boolean(),
+      /**
+       * Counts for a saved closure; `null` for any other change and for rows saved before they were
+       * recorded. Optional so a client talking to an older API falls back to `summary`.
+       */
+      outcome: AvailabilityChangeOutcomeSchema.nullish(),
     });
     export const AVAILABILITY_CHANGES_MAX_LIMIT = 100;
     export const AvailabilityChangesQuerySchema = z.object({
@@ -39224,6 +39363,8 @@
           targetKind: DateRuleTargetKindSchema,
           from: z.number().int(),
           to: z.number().int(),
+          /** Channels a `booking` closure pauses; absent for other targets and from an older API. */
+          bookingTypes: z.array(z.enum(RULE_BOOKING_TYPES)).optional(),
         })
       ),
       bookingOpen: z.object({ online: z.boolean(), phone: z.boolean(), waitlist: z.boolean() }),
@@ -39358,6 +39499,7 @@
     export type AvailabilityConfigState = z.infer<typeof AvailabilityConfigStateSchema>;
     export type AvailabilityConfigSaveResult = z.infer<typeof AvailabilityConfigSaveResultSchema>;
     export type AvailabilityChangeSummary = z.infer<typeof AvailabilityChangeSummarySchema>;
+    export type AvailabilityChangeOutcome = z.infer<typeof AvailabilityChangeOutcomeSchema>;
     export type AvailabilityChangeEntry = z.infer<typeof AvailabilityChangeEntrySchema>;
     export type AvailabilityChangesQuery = z.input<typeof AvailabilityChangesQuerySchema>;
     export type AvailabilityChangesParsed = z.infer<typeof AvailabilityChangesQuerySchema>;
@@ -44882,6 +45024,11 @@
   </file>
   <file path="services/reservations/src/services/availability-changes.ts">
     export const REVERT_KIND = "revert";
+    function outcomeOf(kind: string, inverse: unknown): AvailabilityChangeOutcome | null {
+      if (kind !== "closure") return null;
+      const meta = (inverse as { closure?: { outcome?: AvailabilityChangeOutcome } } | null)?.closure;
+      return meta?.outcome ?? null;
+    }
     function whereOf(
       venueId: string,
       query: AvailabilityChangesParsed
@@ -44939,6 +45086,7 @@
           affectedTo: toDay(r.affectedTo),
           notifiedGuests: r.notifiedGuests,
           revertedById: r.revertedById,
+          outcome: outcomeOf(r.kind, r.inverse),
           revertible:
             r.id === newest?.id &&
             !r.notifiedGuests &&
@@ -45128,11 +45276,12 @@
         label: dayLabel(config, day),
         scheduleId: day.scheduleId,
         serviceCount: day.services.length,
-        closures: day.closures.map(({ ruleId, targetKind, from, to }) => ({
+        closures: day.closures.map(({ ruleId, targetKind, from, to, bookingTypes }) => ({
           ruleId,
           targetKind,
           from,
           to,
+          ...(targetKind === "booking" && bookingTypes ? { bookingTypes } : {}),
         })),
         bookingOpen: day.bookingOpen,
         ...(day.guestMessage ? { guestMessage: day.guestMessage } : {}),
@@ -47627,7 +47776,12 @@
     }
     export const MIN_SERVICE_MINUTES = 60;
     type DayServices = ReturnType<typeof resolveDay>;
-    function seatingStarts(day: DayServices, venueServiceId: string, fromMin: number): number[] {
+    function seatingStarts(
+      day: DayServices,
+      venueServiceId: string,
+      fromMin: number,
+      tableIds: readonly string[] = []
+    ): number[] {
       const s = day.services.find((d) => d.venueServiceId === venueServiceId);
       if (!s) return [];
       const grid =
@@ -47647,15 +47801,37 @@
       return grid
         .filter((m) => m >= Math.max(s.opensAt, fromMin) && m <= s.lastSeatingAt && m < s.closesAt)
         .filter((m) => !bands.some((band) => band.from <= m && m < band.to))
+        .filter((m) => channelOpen(day, s, m) && tableFree(day, tableIds, m))
         .sort((x, y) => x - y);
+    }
+    function channelOpen(day: DayServices, s: DayServices["services"][number], m: number): boolean {
+      return s.bookingTypes.some(
+        (channel) =>
+          day.bookingOpen[channel] &&
+          !day.closures.some(
+            (c) =>
+              c.targetKind === "booking" && inBand(c, m) && (c.bookingTypes ?? []).includes(channel)
+          )
+      );
+    }
+    function tableFree(day: DayServices, tableIds: readonly string[], m: number): boolean {
+      if (tableIds.length === 0) return true;
+      const blocked = new Set(
+        day.closures
+          .filter((c) => c.targetKind === "tables" && inBand(c, m))
+          .flatMap((c) => c.tableIds ?? [])
+      );
+      return tableIds.some((id) => !blocked.has(id));
     }
     export function isEmergencyTonightClose(
       snapshot: AvailabilitySnapshot,
       rule: DateRule,
-      now: Date
+      now: Date,
+      tableIds: readonly string[] = []
     ): boolean {
       if (rule.kind !== "tonight") return false;
-      if (rule.targetKind !== "venue" && rule.targetKind !== "service") return false;
+      const starts = (day: DayServices, id: string, from: number): number[] =>
+        seatingStarts(day, id, from, tableIds);
       const others = snapshot.config.dateRules.filter((r) => r.id !== rule.id);
       const withRules = (dateRules: DateRule[]): AvailabilitySnapshot => ({
         ...snapshot,
@@ -47666,23 +47842,23 @@
       const after = resolveDay(withRules([...others, rule]), rule.startsOn);
       const nowMin = wallMinutes(now, rule.startsOn, snapshot.timezone);
       const live = before.services
-        .filter((s) => rule.targetKind === "venue" || s.venueServiceId === rule.venueServiceId)
-        .filter((s) => seatingStarts(before, s.venueServiceId, nowMin).length > 0);
+        .filter((s) => rule.targetKind !== "service" || s.venueServiceId === rule.venueServiceId)
+        .filter((s) => starts(before, s.venueServiceId, nowMin).length > 0);
       return (
         live.length > 0 &&
         live.some((s) => {
-          const remaining = seatingStarts(after, s.venueServiceId, nowMin);
+          const remaining = starts(after, s.venueServiceId, nowMin);
           if (remaining.length === 0) return true;
           // A change that takes no seating away closes nothing, however short the service already is.
-          const current = seatingStarts(before, s.venueServiceId, nowMin);
+          const current = starts(before, s.venueServiceId, nowMin);
           if (remaining.length === current.length) return false;
           const plannedOpen = planned.services.find((p) => p.venueServiceId === s.venueServiceId);
           const openAt = plannedOpen?.opensAt ?? s.opensAt;
           const floor = Math.min(
             MIN_SERVICE_MINUTES,
-            spanOf(seatingStarts(planned, s.venueServiceId, openAt))
+            spanOf(starts(planned, s.venueServiceId, openAt))
           );
-          return spanOf(seatingStarts(after, s.venueServiceId, openAt)) < floor;
+          return spanOf(starts(after, s.venueServiceId, openAt)) < floor;
         })
       );
     }
@@ -47729,6 +47905,8 @@
       ruleId: string;
       idempotencyKey: string;
       version: number;
+      /** Counts for the History drawer, which words the entry itself. Absent on older rows. */
+      outcome?: AvailabilityChangeOutcome;
       /** Set on every item of a batch save: what the whole batch was, so a reused key can be told apart. */
       batch?: BatchShape;
     }
@@ -47767,7 +47945,18 @@
       if (rule.kind !== "tonight") return isHostEmergencyClose(rule, serviceDate);
       if (rule.startsOn !== serviceDate) return false;
       // A Tonight change that leaves nothing bookable on its targets is the emergency close in effect.
-      return venue.hostEmergencyClose || !isEmergencyTonightClose(snapshot, rule, now);
+      if (venue.hostEmergencyClose) return true;
+      // Only active tables seat guests, so an inactive one cannot keep the night open.
+      const tables = await db.table.findMany({
+        where: { venueId, isActive: true },
+        select: { id: true },
+      });
+      return !isEmergencyTonightClose(
+        snapshot,
+        rule,
+        now,
+        tables.map((t) => t.id)
+      );
     }
     export function mayClose(
       venueId: string,
@@ -47986,6 +48175,14 @@
         ruleId: rule.id,
         idempotencyKey: key,
         version,
+        outcome: {
+          cancelled: plan.counts.cancel,
+          moved: plan.counts.move,
+          kept: plan.counts.keep_notify + plan.counts.keep_silent,
+          closeEarly: rule.kind === "tonight",
+          startsOn: rule.startsOn,
+          endsOn: rule.endsOn ?? null,
+        },
         ...(input.batch ? { batch: input.batch } : {}),
       };
       const inverse = { ...inverseOf(state.stored, diff, state.operatingHours), closure: meta };
@@ -52929,11 +53126,20 @@
       return guest !== null && assessGuestReliability(guest, settings) === "risky";
     }
     export const defaultRebookDeps: RebookDeps = {
-      findCancelOutcome: (reservationId, venueId) =>
-        prisma.closureOutcome.findFirst({
+      findCancelOutcome: async (reservationId, venueId) => {
+        const row = await prisma.closureOutcome.findFirst({
           where: { reservationId, venueId, action: "cancel" },
-          select: { id: true, refund: true, rebookedReservationId: true },
-        }),
+          select: {
+            id: true,
+            refund: true,
+            rebookedReservationId: true,
+            dateRule: { select: { guestMessage: true } },
+          },
+        });
+        if (!row) return null;
+        const { dateRule, ...outcome } = row;
+        return { ...outcome, guestMessage: dateRule.guestMessage };
+      },
       findRebooked: (reservationId) =>
         prisma.reservation.findUnique({
           where: { id: reservationId },
@@ -52959,6 +53165,8 @@
       id: string;
       refund: GuestRefundStatus;
       rebookedReservationId: string | null;
+      /** The closure rule's guest-facing message (never the staff note). */
+      guestMessage: string | null;
     }
     export interface RebookDeps {
       findCancelOutcome(reservationId: string, venueId: string): Promise<CancelOutcome | null>;
@@ -52994,6 +53202,10 @@
     }
     export interface VenueCancellation {
       refundStatus: GuestRefundStatus;
+      /** The reservation's service date (YYYY-MM-DD): the day the venue was closed for this guest. */
+      closureDate: string;
+      /** The Manager's guest message for the closure; shown to the guest as plain text. */
+      closureMessage: string | null;
       offers: RebookOffer[];
       /** Set once the guest has rebooked; offers are then always empty. */
       rebooked: { reservationId: string; startTime: string } | null;
@@ -53035,11 +53247,16 @@
       const outcome = await deps.findCancelOutcome(reservation.id, venueId);
       if (!outcome) return null;
       const { refund: refundStatus } = outcome;
+      const closure = {
+        refundStatus,
+        closureDate: reservation.date,
+        closureMessage: outcome.guestMessage,
+      };
     
       if (outcome.rebookedReservationId) {
         const rebooked = await deps.findRebooked(outcome.rebookedReservationId);
         return {
-          refundStatus,
+          ...closure,
           offers: [],
           rebooked: rebooked
             ? { reservationId: rebooked.id, startTime: rebooked.startTime.toISOString() }
@@ -53049,10 +53266,10 @@
     
       // A deposit venue gets no one-tap offers: the guest goes through the widget's payment step.
       if (await deps.requiresDeposit(venueId, reservation)) {
-        return { refundStatus, offers: [], rebooked: null };
+        return { ...closure, offers: [], rebooked: null };
       }
       const offers = await currentOffers(reservation, venueId, now, deps);
-      return { refundStatus, offers, rebooked: null };
+      return { ...closure, offers, rebooked: null };
     }
     export type RebookResult =
       | { ok: true; reservation: Reservation }
@@ -57294,8 +57511,9 @@
           }
           const replayed = await replayOf(tx, venueId, rule, state);
           if (replayed) return { kind: "saved", result: replayed };
-          if (body.change.type === "stop_window") {
-            // A stop over what is left of the service closes the night like a close-early does.
+          if (GATED_CHANGES.has(body.change.type)) {
+            // A stop, table block or pause that leaves nothing bookable closes the night like a
+            // close-early does (#7721); one that leaves a table and a channel open stays a Host's.
             // After the replay check: a saved stop's retry is not a new close.
             const allowed = await mayCloseFor(tx, venueId, caller, rule, now);
             if (!allowed) throw new Refused({ kind: allowed === null ? "not_found" : "forbidden" });
@@ -68958,6 +69176,10 @@
     }
     export interface ManagedVenueCancellation {
       refundStatus: "none" | "pending" | "done" | "failed";
+      /** The service date (YYYY-MM-DD) the venue was closed; null when an older API did not send it. */
+      closureDate: string | null;
+      /** The venue's guest message for the closure; free text, render as text only. */
+      closureMessage: string | null;
       /** Empty once rebooked, and where the new booking would need a deposit (the guest uses the full picker). */
       offers: ManagedRebookOffer[];
       /** Set once the guest has rebooked; `manageToken` opens the new reservation. */
@@ -70695,7 +70917,12 @@
         };
       }
       if ("stop" in payload) {
-        return { ...day, closures: [...day.closures, closureOf(rule, payload.stop)] };
+        const closures = [...day.closures, closureOf(rule, payload.stop)];
+        // A whole-day booking stop (Pause online) turns those channels off; a windowed one only records its band.
+        const wholeDay = payload.stop.from === 0 && payload.stop.to >= WHOLE_DAY.to;
+        return rule.targetKind === "booking" && wholeDay
+          ? { ...day, closures, bookingOpen: closeBookingTypes(day.bookingOpen, rule) }
+          : { ...day, closures };
       }
       return {
         ...day,
@@ -81618,6 +81845,26 @@
       const instant = new Date(Date.UTC(1970, 0, 1, hour));
       if (!compact) return formatter.format(instant);
       return formatter.formatToParts(instant).find((part) => part.type === "hour")?.value ?? "";
+    }
+    export function deviceTimeZone(): string {
+      return new Intl.DateTimeFormat().resolvedOptions().timeZone ?? "";
+    }
+    export function formatTimeZoneName(at: Date, timeZone: string, locale: string): string {
+      const parts = new Intl.DateTimeFormat(locale, {
+        timeZone,
+        timeZoneName: "longGeneric",
+      }).formatToParts(at);
+      return parts.find((part) => part.type === "timeZoneName")?.value ?? timeZone;
+    }
+    function canonicalTimeZone(timeZone: string): string {
+      try {
+        return new Intl.DateTimeFormat("en", { timeZone }).resolvedOptions().timeZone;
+      } catch {
+        return timeZone;
+      }
+    }
+    export function sameTimeZone(a: string, b: string): boolean {
+      return canonicalTimeZone(a) === canonicalTimeZone(b);
     }
   </file>
   <file path="apps/hospitality/src/utils/ics.ts">

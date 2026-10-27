@@ -9,6 +9,7 @@ import { shiftAnchor, visibleDates, type CalendarView } from "./calendar-dates.j
 import { columnDates } from "./selection.js";
 import { useDateSelection, type DateGestureHandlers } from "./useDateSelection.js";
 import { presentDay } from "./day-summary.js";
+import { periodLabel } from "./period.js";
 import { AvailabilityAgenda } from "./AvailabilityAgenda.js";
 import styles from "./AvailabilityCalendar.module.css";
 
@@ -180,16 +181,26 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
     onAnchorChange(next);
   };
 
+  const gridLabel = t("availability.calendar.labelWithPeriod", {
+    label: t("availability.calendar.label"),
+    period: periodLabel(view, anchor, t, format),
+  });
   const weeks = Array.from({ length: Math.ceil(dates.length / 7) }, (_, i) =>
     dates.slice(i * 7, i * 7 + 7)
   );
 
   if (isMobile) {
     // Phone and tablet: a one-row-per-day list of the anchor month (a week view lists its week).
-    const listed = view === "month" ? dates.filter((d) => d.startsWith(anchorMonth)) : dates;
+    // In the month that holds today the list starts there, so no past days sit above it.
+    const inMonth = view === "month" ? dates.filter((d) => d.startsWith(anchorMonth)) : dates;
+    const listed =
+      view === "month" && today.startsWith(anchorMonth)
+        ? inMonth.filter((d) => d >= today)
+        : inMonth;
     return (
       <AvailabilityAgenda
         dates={listed}
+        label={gridLabel}
         byDate={byDate}
         today={today}
         selectedDate={selectedDate}
@@ -202,12 +213,7 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
   }
 
   return (
-    <div
-      ref={gridRef}
-      role="grid"
-      aria-label={t("availability.calendar.label")}
-      className={styles.calendar}
-    >
+    <div ref={gridRef} className={styles.calendar} aria-label={gridLabel} role="grid">
       <div role="row" className={styles.row}>
         {(weeks[0] ?? []).map((date, column) => (
           <div key={date} role="columnheader" className={styles.columnHeader}>

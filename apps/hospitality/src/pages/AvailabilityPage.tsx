@@ -42,6 +42,8 @@ import { useDiscardGuard } from "../components/availability/use-discard-guard.js
 import { datesUsingSchedule, weekdayDatesInMonth } from "../components/availability/selection.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
 import { PageHeader } from "../components/PageHeader.js";
+import { periodLabel, weekSummary } from "../components/availability/period.js";
+import { deviceTimeZone, formatTimeZoneName, sameTimeZone } from "../utils/format.js";
 import styles from "./AvailabilityPage.module.css";
 
 const EMPTY: string[] = [];
@@ -235,10 +237,30 @@ export function AvailabilityPage() {
   const failure = days.error ? describeApiError(days.error) : null;
   const drawerFailure = config.error ? describeApiError(config.error).detail : null;
 
+  const summary = weekSummary(anchor, days.data ?? undefined, t);
+  const device = deviceTimeZone();
+  const showVenueTime = timeZone !== "" && device !== "" && !sameTimeZone(device, timeZone);
+
   return (
     <Stack gap="md">
       <PageHeader title={t("availability.title")} description={t("availability.description")} />
       {scheduleControls}
+      {(summary || showVenueTime) && (
+        <div className={styles.summaryRow}>
+          {summary && (
+            <Text variant="body" color="secondary">
+              {summary}
+            </Text>
+          )}
+          {showVenueTime && (
+            <Text variant="body" color="secondary">
+              {t("availability.venueTime", {
+                zone: formatTimeZoneName(now, timeZone, format.locale),
+              })}
+            </Text>
+          )}
+        </div>
+      )}
       <div className={styles.toolbar}>
         <Button variant="secondary" onClick={() => setChosenAnchor(shiftAnchor(view, anchor, -1))}>
           {t("availability.toolbar.previous")}
@@ -249,6 +271,9 @@ export function AvailabilityPage() {
         <Button variant="secondary" onClick={() => setChosenAnchor(null)}>
           {t("availability.toolbar.today")}
         </Button>
+        <Text variant="body" color="primary" aria-live="polite" className={styles.period}>
+          {periodLabel(view, anchor, t, format)}
+        </Text>
         <Button variant="secondary" onClick={() => setHistoryOpen(true)}>
           {t("availability.historyButton")}
         </Button>

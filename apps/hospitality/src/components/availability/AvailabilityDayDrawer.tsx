@@ -12,6 +12,7 @@ import {
 import type { Layer, ResolvedDay, ResolvedDaySummary } from "@mbe/availability";
 import type { AvailabilityConfigState, TeamRole } from "@mbe/types";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
+import { useViewport } from "../../hooks/useViewport.js";
 import { AvailabilityDayEditor } from "./AvailabilityDayEditor.js";
 import { CopyDayAction } from "./CopyDayAction.js";
 import { ScheduleNudge } from "./ScheduleNudge.js";
@@ -137,6 +138,7 @@ function DayBody({ day, date }: { readonly day: ResolvedDay; readonly date: stri
  * controls.
  */
 export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
+  const viewport = useViewport();
   const { date, day, isLoading, error, viewerRole, editing, onClose } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
@@ -204,6 +206,7 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
     <Drawer
       open={date !== null}
       onClose={onClose}
+      size={viewport === "phone" ? "full" : "default"}
       title={
         date === null
           ? undefined

@@ -1,7 +1,7 @@
 import type { TFunction } from "i18next";
 import type { AvailabilityDaySummary } from "@mbe/types";
 import type { VenueFormat } from "../../hooks/useVenueFormat.js";
-import { closureBandText, type ClosureBandText } from "./closure-band.js";
+import { closureBandText, isWholeDay, type ClosureBandText } from "./closure-band.js";
 
 export interface DayPresentation {
   readonly bands: readonly ClosureBandText[];
@@ -27,7 +27,16 @@ export function presentDay(
   const count = showCount
     ? t("availability.calendar.services", { count: summary.serviceCount })
     : null;
-  const onlineOff = summary !== undefined && !summary.bookingOpen.online;
+  // A whole-day pause that names online already says so; saying it twice reads as two facts.
+  // The band names a channel only when it is the single one paused (closure-band.ts channelSuffix).
+  const bandNamesOnline = (summary?.closures ?? []).some(
+    (c) =>
+      c.targetKind === "booking" &&
+      isWholeDay(c) &&
+      c.bookingTypes?.length === 1 &&
+      c.bookingTypes[0] === "online"
+  );
+  const onlineOff = summary !== undefined && !summary.bookingOpen.online && !bandNamesOnline;
 
   const parts = summary
     ? [

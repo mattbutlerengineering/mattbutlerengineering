@@ -396,6 +396,8 @@
     <item priority="low">
       interface ManagedVenueCancellation {
         refundStatus: "none" | "pending" | "done" | "failed";
+        closureDate: string | null;
+        closureMessage: string | null;
         offers: ManagedRebookOffer[];
         rebooked: { startTime: string; manageToken: string } | null;
       }

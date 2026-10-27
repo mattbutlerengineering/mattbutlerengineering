@@ -305,4 +305,95 @@ describe("AddSpecialDatesSheet", () => {
     expect(screen.getByRole("alert").textContent).toMatch(/Pick a date/);
     expect(preview).not.toHaveBeenCalled();
   });
+
+  it("says only 'Pick a date' for an empty date, and moves focus to that field", async () => {
+    renderSheet();
+    fireEvent.click(primary());
+    expect(screen.getByRole("alert").textContent).toBe("Pick a date.");
+    await waitFor(() => expect(document.activeElement).toBe(screen.getAllByLabelText("Date")[0]));
+  });
+
+  it("keeps the catch-all message for a date that is set but not allowed", async () => {
+    renderSheet();
+    await pickDate(0, "2026-12-24");
+    addRow();
+    await pickDate(1, "2026-12-24");
+    fireEvent.click(primary());
+    expect(screen.getByRole("alert").textContent).toMatch(/today or later, once/);
+  });
+
+  it("moves focus to the new row's date field on Add another date", async () => {
+    renderSheet();
+    addRow();
+    await waitFor(() => expect(document.activeElement).toBe(screen.getAllByLabelText("Date")[1]));
+  });
+
+  it("shows the character counter once per message field", () => {
+    renderSheet();
+    expect(screen.getAllByText("0/200")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use one message for every date" }));
+    // The row's own message field goes away; the shared one takes its place.
+    expect(screen.getAllByText(/^\d+\/200$/)).toHaveLength(1);
+  });
+
+  it("moves focus to Copy hours from when the chosen weekday has no regular hours", async () => {
+    renderSheet();
+    await pickDate(0, "2026-12-24"); // a Thursday: the fixture has regular hours on Friday only
+    fireEvent.click(screen.getByRole("radio", { name: "Same as another day" }));
+    fireEvent.click(primary());
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole("combobox", { name: "Copy hours from" }))
+    );
+  });
+
+  it("explains an over-limit message on a date row", () => {
+    renderSheet();
+    fireEvent.change(screen.getByLabelText(/Message for guests/), {
+      target: { value: "x".repeat(201) },
+    });
+    expect(screen.getByText("Keep it to 200 characters.").getAttribute("role")).toBe("alert");
+  });
+
+  it("explains an over-limit shared message", () => {
+    renderSheet();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use one message for every date" }));
+    fireEvent.change(screen.getByLabelText(/Message for guests \(every date\)/), {
+      target: { value: "x".repeat(201) },
+    });
+    expect(screen.getByText("Keep it to 200 characters.").getAttribute("role")).toBe("alert");
+  });
+
+  it("clears the shared-message error once the text is back under the limit", async () => {
+    renderSheet();
+    await pickDate(0, "2026-12-24");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use one message for every date" }));
+    const field = screen.getByLabelText(/Message for guests \(every date\)/);
+    fireEvent.change(field, { target: { value: "x".repeat(201) } });
+    fireEvent.click(primary());
+    fireEvent.change(field, { target: { value: "x".repeat(181) } });
+    expect(screen.queryByText("Keep it to 200 characters.")).toBeNull();
+  });
+
+  it("judges message length trimmed, as Next does", () => {
+    renderSheet();
+    fireEvent.change(screen.getByLabelText(/Message for guests/), {
+      target: { value: `${"x".repeat(199)}  ` },
+    });
+    expect(screen.queryByText("Keep it to 200 characters.")).toBeNull();
+  });
+
+  it("judges the shared message length trimmed, as Next does", () => {
+    renderSheet();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use one message for every date" }));
+    fireEvent.change(screen.getByLabelText(/Message for guests \(every date\)/), {
+      target: { value: `${"x".repeat(199)}  ` },
+    });
+    expect(screen.queryByText("Keep it to 200 characters.")).toBeNull();
+  });
+
+  it("starts the date picker's weeks on Monday", () => {
+    renderSheet();
+    fireEvent.click(screen.getAllByLabelText("Date")[0]!);
+    expect(screen.getAllByRole("columnheader")[0]!.textContent).toMatch(/^Mo/);
+  });
 });

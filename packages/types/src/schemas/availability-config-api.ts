@@ -6,6 +6,7 @@ import {
   DateRuleTargetKindSchema,
   GUEST_MESSAGE_MAX_LENGTH,
   MinuteSchema,
+  RULE_BOOKING_TYPES,
   ScheduleAssignmentSchema,
   ScheduleSchema,
   ScheduleServiceSchema,
@@ -106,6 +107,18 @@ export const AvailabilityChangeSummarySchema = z.object({
   summary: z.string(),
 });
 
+/** What a saved closure or close-early did to the bookings it touched; the History drawer words it. */
+export const AvailabilityChangeOutcomeSchema = z.object({
+  cancelled: z.number().int(),
+  moved: z.number().int(),
+  kept: z.number().int(),
+  /** A close-early (Tonight) rather than a closure. */
+  closeEarly: z.boolean(),
+  /** The saved rule's own first and last day; `endsOn` null means it has no end. Absent on older rows. */
+  startsOn: ServiceDateSchema.optional(),
+  endsOn: ServiceDateSchema.nullish(),
+});
+
 /** One row of the history drawer: the audit row, plus whether undo is still on offer. */
 export const AvailabilityChangeEntrySchema = AvailabilityChangeSummarySchema.extend({
   /** First and last service dates the change can alter; `null` end means onward. */
@@ -117,6 +130,11 @@ export const AvailabilityChangeEntrySchema = AvailabilityChangeSummarySchema.ext
   revertedById: z.string().nullable(),
   /** `Revert` is offered only on the newest change, and only when it told no guest. */
   revertible: z.boolean(),
+  /**
+   * Counts for a saved closure; `null` for any other change and for rows saved before they were
+   * recorded. Optional so a client talking to an older API falls back to `summary`.
+   */
+  outcome: AvailabilityChangeOutcomeSchema.nullish(),
 });
 
 /** Most entries one `GET …/availability/changes` page returns. */
@@ -208,6 +226,8 @@ export const AvailabilityDaySummarySchema = z.object({
       targetKind: DateRuleTargetKindSchema,
       from: z.number().int(),
       to: z.number().int(),
+      /** Channels a `booking` closure pauses; absent for other targets and from an older API. */
+      bookingTypes: z.array(z.enum(RULE_BOOKING_TYPES)).optional(),
     })
   ),
   bookingOpen: z.object({ online: z.boolean(), phone: z.boolean(), waitlist: z.boolean() }),
@@ -380,6 +400,7 @@ export type AvailabilityConfigSource = z.infer<typeof AvailabilityConfigSourceSc
 export type AvailabilityConfigState = z.infer<typeof AvailabilityConfigStateSchema>;
 export type AvailabilityConfigSaveResult = z.infer<typeof AvailabilityConfigSaveResultSchema>;
 export type AvailabilityChangeSummary = z.infer<typeof AvailabilityChangeSummarySchema>;
+export type AvailabilityChangeOutcome = z.infer<typeof AvailabilityChangeOutcomeSchema>;
 export type AvailabilityChangeEntry = z.infer<typeof AvailabilityChangeEntrySchema>;
 export type AvailabilityChangesQuery = z.input<typeof AvailabilityChangesQuerySchema>;
 export type AvailabilityChangesParsed = z.infer<typeof AvailabilityChangesQuerySchema>;

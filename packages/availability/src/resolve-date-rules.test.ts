@@ -420,6 +420,22 @@ describe("resolveDay — tonight", () => {
     ]);
   });
 
+  it("closes the booking types of a whole-day stop, not of a windowed one", () => {
+    const pause: DateRule = {
+      ...closeEarly,
+      targetKind: "booking",
+      bookingTypes: ["online"],
+      payload: { version: 1, stop: { from: 0, to: 2880 } },
+    };
+    expect(resolveDay(withRules(pause), FRIDAY).bookingOpen).toEqual({
+      online: false,
+      phone: true,
+      waitlist: true,
+    });
+    const windowed = { ...pause, payload: { version: 1 as const, stop: { from: 1140, to: 2880 } } };
+    expect(resolveDay(withRules(windowed), FRIDAY).bookingOpen.online).toBe(true);
+  });
+
   it("lowers tonight's pacing", () => {
     const day = resolveDay(
       withRules({ ...closeEarly, payload: { version: 1, pacing: { covers: 12 } } }),

@@ -28,7 +28,9 @@
       readonly shareMessage: boolean;
       readonly sharedMessage: string;
     }
-    export type RowField = "date" | "hours" | "message";
+    export type RowField = "dateMissing" | "date" | "hours" | "message";
+    export const rowFieldId = (rowKey: string, field: "date" | "hours" | "message" | "same"): string =>
+      `add-date-${rowKey}-${field}`;
     export const emptyRow = (key: string, date: string): DateRow => ({
       key,
       date,
@@ -54,8 +56,8 @@
     ): { readonly key: string; readonly field: RowField } | null {
       const seen = new Set<string>();
       for (const row of form.rows) {
+        if (row.date === "") return { key: row.key, field: "dateMissing" };
         if (
-          row.date === "" ||
           row.date < today ||
           seen.has(row.date) ||
           (row.kind !== "closed" && hasOwnHours(config, row.date))
@@ -162,6 +164,7 @@
   </file>
   <file path="src/components/availability/calendar-dates.ts">
     export type CalendarView = "month" | "week";
+    export const WEEK_STARTS_ON = 1;
     function daysSinceMonday(date: string): number {
       return (weekdayIndexOf(date) + 6) % 7;
     }
@@ -403,27 +406,45 @@
     export function isWholeDay(closure: Pick<Closure, "from" | "to">): boolean {
       return closure.from === 0 && closure.to >= 2 * MINUTES_PER_DAY;
     }
+    interface Copy {
+      allDay: (t: TFunction) => readonly [text: string, name: string];
+      band: (t: TFunction, v: { from: string; to: string }) => readonly [text: string, name: string];
+    }
+    type ChannelSuffix = "" | (typeof CHANNEL_SUFFIX)[keyof typeof CHANNEL_SUFFIX];
+    function channelSuffix(closure: Closure): ChannelSuffix {
+      const [only, ...rest] = closure.bookingTypes ?? [];
+      return only && rest.length === 0 ? CHANNEL_SUFFIX[only] : "";
+    }
+    function bookingCopy(suffix: ChannelSuffix): Copy {
+      return {
+        allDay: (t) => [
+          t(`availability.calendar.bookingOff${suffix}AllDay`),
+          t(`availability.calendar.bookingOff${suffix}AllDayName`),
+        ],
+        band: (t, v) => [
+          t(`availability.calendar.bookingOff${suffix}Band`, v),
+          t(`availability.calendar.bookingOff${suffix}BandName`, v),
+        ],
+      };
+    }
     export function closureBandText(
       closure: Closure,
       t: TFunction,
       format: VenueFormat
     ): ClosureBandText {
+      const copy =
+        closure.targetKind === "booking"
+          ? bookingCopy(channelSuffix(closure))
+          : COPY[closure.targetKind];
       if (isWholeDay(closure)) {
-        return {
-          key: closure.ruleId,
-          text: t("availability.calendar.closedAllDay"),
-          name: t("availability.calendar.closedAllDayName"),
-        };
+        const [text, name] = copy.allDay(t);
+        return { key: closure.ruleId, text, name };
       }
-      const values = {
+      const [text, name] = copy.band(t, {
         from: minuteText(closure.from, t, format),
         to: minuteText(closure.to, t, format),
-      };
-      return {
-        key: closure.ruleId,
-        text: t("availability.calendar.closedBand", values),
-        name: t("availability.calendar.closedBandName", values),
-      };
+      });
+      return { key: closure.ruleId, text, name };
     }
   </file>
   <file path="src/components/availability/compare-changes.ts">
@@ -579,7 +600,16 @@
       const count = showCount
         ? t("availability.calendar.services", { count: summary.serviceCount })
         : null;
-      const onlineOff = summary !== undefined && !summary.bookingOpen.online;
+      // A whole-day pause that names online already says so; saying it twice reads as two facts.
+      // The band names a channel only when it is the single one paused (closure-band.ts channelSuffix).
+      const bandNamesOnline = (summary?.closures ?? []).some(
+        (c) =>
+          c.targetKind === "booking" &&
+          isWholeDay(c) &&
+          c.bookingTypes?.length === 1 &&
+          c.bookingTypes[0] === "online"
+      );
+      const onlineOff = summary !== undefined && !summary.bookingOpen.online && !bandNamesOnline;
     
       const parts = summary
         ? [
@@ -605,6 +635,58 @@
           details: accessibleDetails,
         }),
       };
+    }
+  </file>
+  <file path="src/components/availability/describe-change.ts">
+    function whenOf(
+      from: string | null | undefined,
+      to: string | null | undefined,
+      format: VenueFormat,
+      t: TFunction
+    ): string | null {
+      if (!from) return null;
+      const start = format.formatCalendarDate(from, DAY);
+      if (!to) return t("availability.history.entry.onward", { from: start });
+      if (to === from) return start;
+      return t("availability.history.entry.range", {
+        from: start,
+        to: format.formatCalendarDate(to, DAY),
+      });
+    }
+    function outcomeText(outcome: AvailabilityChangeOutcome, format: VenueFormat, t: TFunction) {
+      const parts = [
+        outcome.cancelled > 0
+          ? t("availability.history.entry.cancelled", { count: outcome.cancelled })
+          : null,
+        outcome.moved > 0 ? t("availability.history.entry.moved", { count: outcome.moved }) : null,
+        outcome.kept > 0 ? t("availability.history.entry.kept", { count: outcome.kept }) : null,
+      ].filter((p): p is string => p !== null);
+      if (parts.length === 0) return t("availability.history.entry.none");
+      return new Intl.ListFormat(format.locale, { style: "long", type: "conjunction" }).format(parts);
+    }
+    export function describeChange(
+      entry: AvailabilityChangeEntry,
+      format: VenueFormat,
+      t: TFunction
+    ): string | null {
+      const { outcome } = entry;
+      // The rule's own dates when recorded: the audit range also spans rows a series edit touched.
+      const own = outcome?.startsOn != null;
+      const when = whenOf(
+        own ? outcome.startsOn : entry.affectedFrom,
+        own ? outcome.endsOn : entry.affectedTo,
+        format,
+        t
+      );
+      if (!when) return null;
+      if (entry.kind === "reopen") return t("availability.history.entry.reopened", { when });
+      if (entry.kind !== "closure" || !outcome) return null;
+      return t(
+        outcome.closeEarly
+          ? "availability.history.entry.closedEarly"
+          : "availability.history.entry.closed",
+        { when, outcome: outcomeText(outcome, format, t) }
+      );
     }
   </file>
   <file path="src/components/availability/draft-changes.ts">
@@ -827,6 +909,48 @@
         parts: parts
           .map((p) => t(`availability.close.button.part.${p.a}`, { count: p.count }))
           .join(" · "),
+      });
+    }
+  </file>
+  <file path="src/components/availability/period.ts">
+    export function periodLabel(
+      view: CalendarView,
+      anchor: string,
+      t: TFunction,
+      format: VenueFormat
+    ): string {
+      if (view === "month") {
+        return format.formatCalendarDate(anchor, { month: "long", year: "numeric" });
+      }
+      const week = visibleDates("week", anchor);
+      return t("availability.toolbar.range", {
+        from: format.formatCalendarDate(week[0] ?? anchor, { month: "short", day: "numeric" }),
+        to: format.formatCalendarDate(week[6] ?? anchor, {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        }),
+      });
+    }
+    export function weekSummary(
+      anchor: string,
+      days: readonly AvailabilityDaySummary[] | undefined,
+      t: TFunction
+    ): string | null {
+      const week = new Set(visibleDates("week", anchor));
+      const loaded = (days ?? []).filter((d) => week.has(d.serviceDate));
+      if (loaded.length === 0) return null;
+      // A whole-day venue closure already empties `serviceCount`; booking, service and tables
+      // closures leave the day open.
+      const open = loaded.filter((d) => d.serviceCount > 0);
+      const closures = new Set(loaded.flatMap((d) => d.closures.map((c) => c.ruleId)));
+      const onlineOff = open.filter((d) => !d.bookingOpen.online).length;
+      const online =
+        onlineOff === open.length ? "onlineOff" : onlineOff === 0 ? "onlineOn" : "onlinePartial";
+      return t("availability.weekSummary.line", {
+        open: t("availability.weekSummary.open", { count: open.length }),
+        closures: t("availability.weekSummary.closures", { count: closures.size }),
+        online: t(`availability.weekSummary.${online}`),
       });
     }
   </file>
@@ -10938,6 +11062,26 @@
       const instant = new Date(Date.UTC(1970, 0, 1, hour));
       if (!compact) return formatter.format(instant);
       return formatter.formatToParts(instant).find((part) => part.type === "hour")?.value ?? "";
+    }
+    export function deviceTimeZone(): string {
+      return new Intl.DateTimeFormat().resolvedOptions().timeZone ?? "";
+    }
+    export function formatTimeZoneName(at: Date, timeZone: string, locale: string): string {
+      const parts = new Intl.DateTimeFormat(locale, {
+        timeZone,
+        timeZoneName: "longGeneric",
+      }).formatToParts(at);
+      return parts.find((part) => part.type === "timeZoneName")?.value ?? timeZone;
+    }
+    function canonicalTimeZone(timeZone: string): string {
+      try {
+        return new Intl.DateTimeFormat("en", { timeZone }).resolvedOptions().timeZone;
+      } catch {
+        return timeZone;
+      }
+    }
+    export function sameTimeZone(a: string, b: string): boolean {
+      return canonicalTimeZone(a) === canonicalTimeZone(b);
     }
   </file>
   <file path="src/utils/ics.ts">

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import {
@@ -27,6 +27,7 @@ import {
   emptyRow,
   ruleItems,
   saveLabelParts,
+  rowFieldId,
   validateRows,
   type AddDatesForm,
   type RowField,
@@ -46,6 +47,8 @@ export interface AddSpecialDatesSheetProps {
   readonly onStale: () => void;
   readonly onClose: () => void;
 }
+
+const SHARED_MESSAGE_ID = "add-dates-shared-message";
 
 function isVersionConflict(error: unknown): boolean {
   const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
@@ -87,6 +90,19 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
   const [ruleIds] = useState(() => new Map<string, string>());
   const [idempotencyKey] = useState(() => crypto.randomUUID());
 
+  // Set by a handler that wants focus moved once the render it causes has committed.
+  const pendingFocusRef = useRef<string | null>(null);
+  useEffect(() => {
+    const id = pendingFocusRef.current;
+    pendingFocusRef.current = null;
+    const target = id ? document.getElementById(id) : null;
+    // A hours row names a wrapper: focus the first control inside it.
+    const control = target?.matches("input, textarea, button, select")
+      ? target
+      : target?.querySelector<HTMLElement>("input, textarea, button, select");
+    control?.focus();
+  }, [form.rows, invalid]);
+
   const idFor = (key: string) => {
     if (!ruleIds.has(key)) ruleIds.set(key, crypto.randomUUID());
     return ruleIds.get(key)!;
@@ -100,6 +116,8 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
     today,
     minutesOfDayIn(now, timezone)
   );
+  // Trimmed, like validateRows: what blocks Next is what the field flags.
+  const sharedMessageError = form.sharedMessage.trim().length > GUEST_MESSAGE_MAX_LENGTH;
   const busy = previewImpacts.isPending || createClosures.isPending;
 
   const patchRow = (next: DateRow) => {
@@ -149,7 +167,24 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
   const next = async () => {
     const problem = validateRows(form, state.config, today);
     setInvalid(problem);
-    if (problem) return;
+    if (problem) {
+      // ux.md S6: field-level messages; focus moves to the first.
+      const row = form.rows.find((r) => r.key === problem.key);
+      const field =
+        problem.field === "dateMissing"
+          ? "date"
+          : problem.field === "hours" && row?.kind === "same"
+            ? "same"
+            : problem.field;
+      pendingFocusRef.current =
+        field === "message" && form.shareMessage
+          ? SHARED_MESSAGE_ID
+          : field === "same"
+            ? // Rialto Select puts its id on the field and focuses via `<id>-trigger`.
+              `${rowFieldId(problem.key, field)}-trigger`
+            : rowFieldId(problem.key, field);
+      return;
+    }
     try {
       const found = await previewImpacts.mutateAsync({
         venueId,
@@ -236,9 +271,11 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
             <div>
               <Button
                 variant="secondary"
-                onClick={() =>
-                  setForm({ ...form, rows: [...form.rows, emptyRow(crypto.randomUUID(), "")] })
-                }
+                onClick={() => {
+                  const added = emptyRow(crypto.randomUUID(), "");
+                  pendingFocusRef.current = rowFieldId(added.key, "date");
+                  setForm({ ...form, rows: [...form.rows, added] });
+                }}
               >
                 {t("availabilitySpecial.add.addRow")}
               </Button>
@@ -257,12 +294,17 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
             {form.shareMessage && (
               <TextArea
                 label={t("availabilitySpecial.add.sharedMessage")}
-                hint={t("availability.close.guestMessageCount", {
-                  count: form.sharedMessage.length,
-                  max: GUEST_MESSAGE_MAX_LENGTH,
-                })}
+                id={SHARED_MESSAGE_ID}
                 value={form.sharedMessage}
                 maxLength={GUEST_MESSAGE_MAX_LENGTH}
+                error={sharedMessageError}
+                hint={
+                  sharedMessageError
+                    ? t("availability.close.guestMessageTooLong", {
+                        max: GUEST_MESSAGE_MAX_LENGTH,
+                      })
+                    : undefined
+                }
                 showOptional
                 onChange={(e) => setForm({ ...form, sharedMessage: e.target.value })}
               />

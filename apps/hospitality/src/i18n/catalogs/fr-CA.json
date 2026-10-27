@@ -1474,6 +1474,8 @@
     "venueCancelled": {
       "heading": "Votre réservation a été annulée",
       "intro": "{{venue}} a dû annuler cette réservation.",
+      "closedOn": "{{venue}} est fermé le {{date}}",
+      "message": "« {{message}} »",
       "refund": {
         "pending": "Le remboursement de votre dépôt est en cours.",
         "done": "Votre dépôt a été remboursé.",
@@ -1580,7 +1582,10 @@
     "retried": "Remboursements remis en file ({{count}})",
     "retryError": "Impossible de mettre les remboursements en file",
     "callListOpen": "Liste d'appels",
+    "callListFor": "Liste d'appels pour {{date}}",
     "remove": "Retirer",
+    "removeClosureFor": "Retirer la fermeture pour {{date}}",
+    "hoursRange": "{{from}} – {{to}}",
     "ended": {
       "title": "Fermeture antérieure",
       "detail": "N'est plus active, des remboursements restent ouverts"
@@ -1662,6 +1667,7 @@
       "title": "Ajouter des dates spéciales",
       "rowLegend": "Date {{n}}",
       "date": "Date",
+      "dateMissing": "Choisissez une date.",
       "dateInvalid": "Choisissez une date d’aujourd’hui ou plus tard, une seule fois et sans horaire spécial déjà défini.",
       "kindLabel": "Ce qui se passe à la date {{n}}",
       "kind": {
@@ -1810,7 +1816,8 @@
       "week": "Semaine",
       "previous": "Précédent",
       "next": "Suivant",
-      "today": "Aujourd'hui"
+      "today": "Aujourd'hui",
+      "range": "{{from}} – {{to}}"
     },
     "calendar": {
       "label": "Calendrier de disponibilité",
@@ -1825,8 +1832,33 @@
       "closedAllDayName": "fermé toute la journée",
       "closedBand": "Fermé {{from}} – {{to}}",
       "closedBandName": "fermé {{from}} – {{to}}",
+      "bookingOffAllDay": "Réservations désactivées toute la journée",
+      "bookingOffAllDayName": "réservations désactivées toute la journée",
+      "bookingOffBand": "Réservations désactivées {{from}} – {{to}}",
+      "bookingOffBandName": "réservations désactivées {{from}} – {{to}}",
+      "bookingOffOnlineAllDay": "Réservation en ligne désactivée toute la journée",
+      "bookingOffOnlineAllDayName": "réservation en ligne désactivée toute la journée",
+      "bookingOffOnlineBand": "Réservation en ligne désactivée {{from}} – {{to}}",
+      "bookingOffOnlineBandName": "réservation en ligne désactivée {{from}} – {{to}}",
+      "bookingOffPhoneAllDay": "Réservation par téléphone désactivée toute la journée",
+      "bookingOffPhoneAllDayName": "réservation par téléphone désactivée toute la journée",
+      "bookingOffPhoneBand": "Réservation par téléphone désactivée {{from}} – {{to}}",
+      "bookingOffPhoneBandName": "réservation par téléphone désactivée {{from}} – {{to}}",
+      "bookingOffWaitlistAllDay": "Liste d'attente désactivée toute la journée",
+      "bookingOffWaitlistAllDayName": "liste d'attente désactivée toute la journée",
+      "bookingOffWaitlistBand": "Liste d'attente désactivée {{from}} – {{to}}",
+      "bookingOffWaitlistBandName": "liste d'attente désactivée {{from}} – {{to}}",
+      "serviceClosedAllDay": "Service fermé toute la journée",
+      "serviceClosedAllDayName": "service fermé toute la journée",
+      "serviceClosedBand": "Service fermé {{from}} – {{to}}",
+      "serviceClosedBandName": "service fermé {{from}} – {{to}}",
+      "tablesBlockedAllDay": "Tables bloquées toute la journée",
+      "tablesBlockedAllDayName": "tables bloquées toute la journée",
+      "tablesBlockedBand": "Tables bloquées {{from}} – {{to}}",
+      "tablesBlockedBandName": "tables bloquées {{from}} – {{to}}",
       "nextDay": "{{time}} (lendemain)",
-      "draftName": "changements non enregistrés"
+      "draftName": "changements non enregistrés",
+      "labelWithPeriod": "{{label}}, {{period}}"
     },
     "drawer": {
       "summaryOpen": "Ouvert pour {{services}}.",
@@ -1962,7 +1994,24 @@
       "personAll": "Tout le monde",
       "personMe": "Moi seulement",
       "rangeLabel": "Faites entre",
-      "rangePlaceholder": "Toutes les dates"
+      "rangePlaceholder": "Toutes les dates",
+      "entry": {
+        "range": "du {{from}} au {{to}}",
+        "onward": "à partir du {{from}}",
+        "moved_one": "{{count}} réservation déplacée",
+        "moved_many": "{{count}} de réservations déplacées",
+        "moved_other": "{{count}} réservations déplacées",
+        "kept_one": "{{count}} réservation conservée",
+        "kept_many": "{{count}} de réservations conservées",
+        "kept_other": "{{count}} réservations conservées",
+        "closed": "Fermé {{when}} : {{outcome}}",
+        "closedEarly": "Fermeture anticipée {{when}} : {{outcome}}",
+        "reopened": "Rouvert {{when}}",
+        "none": "aucune réservation touchée",
+        "cancelled_one": "{{count}} réservation annulée",
+        "cancelled_many": "{{count}} de réservations annulées",
+        "cancelled_other": "{{count}} réservations annulées"
+      }
     },
     "editor": {
       "edit": "Modifier {{name}}",
@@ -2075,7 +2124,7 @@
       "versionConflict": "Les disponibilités ont changé depuis l'ouverture de cette fenêtre. Fermez-la et réessayez.",
       "staffNote": "Note pour le personnel",
       "guestMessage": "Message pour les clients",
-      "guestMessageCount": "{{count}}/{{max}}",
+      "guestMessageTooLong": "Limitez-vous à {{max}} caractères.",
       "suggestions": {
         "private": "Fermé pour un événement privé",
         "weather": "Fermé en raison de la météo",
@@ -2254,6 +2303,7 @@
       "hostGranted": "Les hôtes peuvent fermer tout l'établissement pour ce soir. Plus longtemps, il faut un gérant.",
       "hostNotGranted": "Seuls les gérants peuvent fermer en cas d'urgence. Demandez à un gérant de l'autoriser pour les hôtes dans les paramètres.",
       "error": "Impossible d'appliquer ce changement. Réessayez.",
+      "forbidden": "Cela fermerait l'établissement ce soir. Seul un gérant, ou un hôte autorisé à fermer en cas d'urgence, peut le faire.",
       "alreadyApplied": "Ce changement était déjà appliqué. Voici ce qui est en vigueur maintenant.",
       "chip": {
         "pause": "Réservations en ligne suspendues · reste de la soirée",
@@ -2272,6 +2322,19 @@
         "pacing_other": "Cadence de {{count}} couverts",
         "pacing_many": "Cadence de {{count}} couverts"
       }
+    },
+    "venueTime": "Heure de l'établissement ({{zone}})",
+    "weekSummary": {
+      "line": "Cette semaine : {{open}} · {{closures}} · {{online}}",
+      "open_one": "ouvert {{count}} jour",
+      "open_other": "ouvert {{count}} jours",
+      "open_many": "ouvert {{count}} jours",
+      "closures_one": "{{count}} fermeture",
+      "closures_other": "{{count}} fermetures",
+      "closures_many": "{{count}} fermetures",
+      "onlineOn": "réservation en ligne activée",
+      "onlineOff": "réservation en ligne désactivée",
+      "onlinePartial": "réservation en ligne désactivée certains jours"
     }
   },
   "setup": {

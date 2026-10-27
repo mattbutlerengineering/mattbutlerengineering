@@ -4,7 +4,7 @@ title: Design System Unification (Rialto over Tailwind)
 status: active
 date: 2026-03-28
 prohibited_patterns:
-  - '\b(flex|grid|mt-|p-|text-)\b.*className='
+  - 'className=["''{][^"''}]*\b(flex|grid|mt-|p-|text-)\b'
   - 'className=(?:"[^"]*|\{[^}]*)\b(flex|grid|mt-|p-|text-)\b'
 ---
 

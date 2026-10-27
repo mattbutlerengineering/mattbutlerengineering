@@ -95,11 +95,12 @@ export function summarizeDay(config: AvailabilityConfig, day: ResolvedDay): Avai
     label: dayLabel(config, day),
     scheduleId: day.scheduleId,
     serviceCount: day.services.length,
-    closures: day.closures.map(({ ruleId, targetKind, from, to }) => ({
+    closures: day.closures.map(({ ruleId, targetKind, from, to, bookingTypes }) => ({
       ruleId,
       targetKind,
       from,
       to,
+      ...(targetKind === "booking" && bookingTypes ? { bookingTypes } : {}),
     })),
     bookingOpen: day.bookingOpen,
     ...(day.guestMessage ? { guestMessage: day.guestMessage } : {}),

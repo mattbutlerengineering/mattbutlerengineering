@@ -1,5 +1,6 @@
 import { projectLegacyOperatingHours } from "@mbe/availability";
 import type {
+  AvailabilityChangeOutcome,
   AvailabilityChangeSummary,
   ClosureAlongside,
   ClosureAction,
@@ -96,6 +97,8 @@ interface ClosureMeta {
   ruleId: string;
   idempotencyKey: string;
   version: number;
+  /** Counts for the History drawer, which words the entry itself. Absent on older rows. */
+  outcome?: AvailabilityChangeOutcome;
   /** Set on every item of a batch save: what the whole batch was, so a reused key can be told apart. */
   batch?: BatchShape;
 }
@@ -143,7 +146,18 @@ export async function mayCloseFor(
   if (rule.kind !== "tonight") return isHostEmergencyClose(rule, serviceDate);
   if (rule.startsOn !== serviceDate) return false;
   // A Tonight change that leaves nothing bookable on its targets is the emergency close in effect.
-  return venue.hostEmergencyClose || !isEmergencyTonightClose(snapshot, rule, now);
+  if (venue.hostEmergencyClose) return true;
+  // Only active tables seat guests, so an inactive one cannot keep the night open.
+  const tables = await db.table.findMany({
+    where: { venueId, isActive: true },
+    select: { id: true },
+  });
+  return !isEmergencyTonightClose(
+    snapshot,
+    rule,
+    now,
+    tables.map((t) => t.id)
+  );
 }
 
 /** Read-only form of the same limits, for the impact preview: `null` for an unknown venue. */
@@ -391,6 +405,14 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
     ruleId: rule.id,
     idempotencyKey: key,
     version,
+    outcome: {
+      cancelled: plan.counts.cancel,
+      moved: plan.counts.move,
+      kept: plan.counts.keep_notify + plan.counts.keep_silent,
+      closeEarly: rule.kind === "tonight",
+      startsOn: rule.startsOn,
+      endsOn: rule.endsOn ?? null,
+    },
     ...(input.batch ? { batch: input.batch } : {}),
   };
   const inverse = { ...inverseOf(state.stored, diff, state.operatingHours), closure: meta };

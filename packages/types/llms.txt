@@ -184,6 +184,9 @@
       export const AvailabilityChangeSummarySchema: unknown;
     </item>
     <item priority="high">
+      export const AvailabilityChangeOutcomeSchema: unknown;
+    </item>
+    <item priority="high">
       export const AvailabilityChangeEntrySchema: unknown;
     </item>
     <item priority="high">
@@ -326,6 +329,9 @@
     </item>
     <item priority="low">
       type AvailabilityChangeSummary = z.infer<typeof AvailabilityChangeSummarySchema>;
+    </item>
+    <item priority="low">
+      type AvailabilityChangeOutcome = z.infer<typeof AvailabilityChangeOutcomeSchema>;
     </item>
     <item priority="low">
       type AvailabilityChangeEntry = z.infer<typeof AvailabilityChangeEntrySchema>;

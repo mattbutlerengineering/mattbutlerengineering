@@ -158,6 +158,14 @@
   fill: none;
 }
 
+/* Touch devices need the 44px target (WCAG 2.5.8); mouse users keep the compact button. */
+@media (pointer: coarse) {
+  .close {
+    width: 44px;
+    height: 44px;
+  }
+}
+
 /* ── Body ─────────────────────────────────────── */
 .body {
   flex: 1;

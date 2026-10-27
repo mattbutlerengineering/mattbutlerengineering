@@ -1778,6 +1778,9 @@
       export const REVERT_KIND: unknown;
     </item>
     <item priority="medium">
+      function outcomeOf(kind: string, inverse: unknown): AvailabilityChangeOutcome | null { /* ... */ }
+    </item>
+    <item priority="medium">
       function whereOf(
         venueId: string,
         query: AvailabilityChangesParsed
@@ -2761,13 +2764,25 @@
       type DayServices = ReturnType<typeof resolveDay>;
     </item>
     <item priority="medium">
-      function seatingStarts(day: DayServices, venueServiceId: string, fromMin: number): number[] { /* ... */ }
+      function seatingStarts(
+        day: DayServices,
+        venueServiceId: string,
+        fromMin: number,
+        tableIds: readonly string[] = []
+      ): number[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function channelOpen(day: DayServices, s: DayServices["services"][number], m: number): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function tableFree(day: DayServices, tableIds: readonly string[], m: number): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function isEmergencyTonightClose(
         snapshot: AvailabilitySnapshot,
         rule: DateRule,
-        now: Date
+        now: Date,
+        tableIds: readonly string[] = []
       ): boolean { /* ... */ }
     </item>
     <item priority="high">
@@ -2807,6 +2822,7 @@
         ruleId: string;
         idempotencyKey: string;
         version: number;
+        outcome?: AvailabilityChangeOutcome;
         batch?: BatchShape;
       }
     </item>
@@ -3999,6 +4015,7 @@
         id: string;
         refund: GuestRefundStatus;
         rebookedReservationId: string | null;
+        guestMessage: string | null;
       }
     </item>
     <item priority="low">
@@ -4023,6 +4040,8 @@
     <item priority="low">
       interface VenueCancellation {
         refundStatus: GuestRefundStatus;
+        closureDate: string;
+        closureMessage: string | null;
         offers: RebookOffer[];
         rebooked: { reservationId: string; startTime: string } | null;
       }

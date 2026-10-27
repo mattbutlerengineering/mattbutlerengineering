@@ -39,6 +39,36 @@ const row = (over: Record<string, unknown>) => ({
 describe("listAvailabilityChanges", () => {
   const query = { limit: 25, offset: 0 };
 
+  it("reads a closure's outcome counts from the stored meta, and leaves old rows without them", async () => {
+    const withOutcome = row({
+      id: "chg-2",
+      kind: "closure",
+      inverse: {
+        closure: {
+          ruleId: "r",
+          outcome: { cancelled: 14, moved: 1, kept: 2, closeEarly: false },
+        },
+      },
+    });
+    const old = row({ id: "chg-1", kind: "closure", inverse: { closure: { ruleId: "r" } } });
+    const client = fakeClient({
+      venue: { findUnique: vi.fn(async () => ({ id: "venue-1" })) },
+      availabilityChange: {
+        findMany: vi.fn(async () => [withOutcome, old]),
+        count: vi.fn(async () => 2),
+        findFirst: vi.fn(async () => null),
+      },
+    });
+    const page = await listAvailabilityChanges("venue-1", query, client);
+    expect(page!.items[0]!.outcome).toEqual({
+      cancelled: 14,
+      moved: 1,
+      kept: 2,
+      closeEarly: false,
+    });
+    expect(page!.items[1]!.outcome).toBeNull();
+  });
+
   it("answers an unknown venue as null", async () => {
     const client = fakeClient({ venue: { findUnique: vi.fn(async () => null) } });
     expect(await listAvailabilityChanges("venue-1", query, client)).toBeNull();

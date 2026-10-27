@@ -10819,6 +10819,11 @@
   </file>
   <file path="src/services/availability-changes.ts">
     export const REVERT_KIND = "revert";
+    function outcomeOf(kind: string, inverse: unknown): AvailabilityChangeOutcome | null {
+      if (kind !== "closure") return null;
+      const meta = (inverse as { closure?: { outcome?: AvailabilityChangeOutcome } } | null)?.closure;
+      return meta?.outcome ?? null;
+    }
     function whereOf(
       venueId: string,
       query: AvailabilityChangesParsed
@@ -10876,6 +10881,7 @@
           affectedTo: toDay(r.affectedTo),
           notifiedGuests: r.notifiedGuests,
           revertedById: r.revertedById,
+          outcome: outcomeOf(r.kind, r.inverse),
           revertible:
             r.id === newest?.id &&
             !r.notifiedGuests &&
@@ -11065,11 +11071,12 @@
         label: dayLabel(config, day),
         scheduleId: day.scheduleId,
         serviceCount: day.services.length,
-        closures: day.closures.map(({ ruleId, targetKind, from, to }) => ({
+        closures: day.closures.map(({ ruleId, targetKind, from, to, bookingTypes }) => ({
           ruleId,
           targetKind,
           from,
           to,
+          ...(targetKind === "booking" && bookingTypes ? { bookingTypes } : {}),
         })),
         bookingOpen: day.bookingOpen,
         ...(day.guestMessage ? { guestMessage: day.guestMessage } : {}),
@@ -13564,7 +13571,12 @@
     }
     export const MIN_SERVICE_MINUTES = 60;
     type DayServices = ReturnType<typeof resolveDay>;
-    function seatingStarts(day: DayServices, venueServiceId: string, fromMin: number): number[] {
+    function seatingStarts(
+      day: DayServices,
+      venueServiceId: string,
+      fromMin: number,
+      tableIds: readonly string[] = []
+    ): number[] {
       const s = day.services.find((d) => d.venueServiceId === venueServiceId);
       if (!s) return [];
       const grid =
@@ -13584,15 +13596,37 @@
       return grid
         .filter((m) => m >= Math.max(s.opensAt, fromMin) && m <= s.lastSeatingAt && m < s.closesAt)
         .filter((m) => !bands.some((band) => band.from <= m && m < band.to))
+        .filter((m) => channelOpen(day, s, m) && tableFree(day, tableIds, m))
         .sort((x, y) => x - y);
+    }
+    function channelOpen(day: DayServices, s: DayServices["services"][number], m: number): boolean {
+      return s.bookingTypes.some(
+        (channel) =>
+          day.bookingOpen[channel] &&
+          !day.closures.some(
+            (c) =>
+              c.targetKind === "booking" && inBand(c, m) && (c.bookingTypes ?? []).includes(channel)
+          )
+      );
+    }
+    function tableFree(day: DayServices, tableIds: readonly string[], m: number): boolean {
+      if (tableIds.length === 0) return true;
+      const blocked = new Set(
+        day.closures
+          .filter((c) => c.targetKind === "tables" && inBand(c, m))
+          .flatMap((c) => c.tableIds ?? [])
+      );
+      return tableIds.some((id) => !blocked.has(id));
     }
     export function isEmergencyTonightClose(
       snapshot: AvailabilitySnapshot,
       rule: DateRule,
-      now: Date
+      now: Date,
+      tableIds: readonly string[] = []
     ): boolean {
       if (rule.kind !== "tonight") return false;
-      if (rule.targetKind !== "venue" && rule.targetKind !== "service") return false;
+      const starts = (day: DayServices, id: string, from: number): number[] =>
+        seatingStarts(day, id, from, tableIds);
       const others = snapshot.config.dateRules.filter((r) => r.id !== rule.id);
       const withRules = (dateRules: DateRule[]): AvailabilitySnapshot => ({
         ...snapshot,
@@ -13603,23 +13637,23 @@
       const after = resolveDay(withRules([...others, rule]), rule.startsOn);
       const nowMin = wallMinutes(now, rule.startsOn, snapshot.timezone);
       const live = before.services
-        .filter((s) => rule.targetKind === "venue" || s.venueServiceId === rule.venueServiceId)
-        .filter((s) => seatingStarts(before, s.venueServiceId, nowMin).length > 0);
+        .filter((s) => rule.targetKind !== "service" || s.venueServiceId === rule.venueServiceId)
+        .filter((s) => starts(before, s.venueServiceId, nowMin).length > 0);
       return (
         live.length > 0 &&
         live.some((s) => {
-          const remaining = seatingStarts(after, s.venueServiceId, nowMin);
+          const remaining = starts(after, s.venueServiceId, nowMin);
           if (remaining.length === 0) return true;
           // A change that takes no seating away closes nothing, however short the service already is.
-          const current = seatingStarts(before, s.venueServiceId, nowMin);
+          const current = starts(before, s.venueServiceId, nowMin);
           if (remaining.length === current.length) return false;
           const plannedOpen = planned.services.find((p) => p.venueServiceId === s.venueServiceId);
           const openAt = plannedOpen?.opensAt ?? s.opensAt;
           const floor = Math.min(
             MIN_SERVICE_MINUTES,
-            spanOf(seatingStarts(planned, s.venueServiceId, openAt))
+            spanOf(starts(planned, s.venueServiceId, openAt))
           );
-          return spanOf(seatingStarts(after, s.venueServiceId, openAt)) < floor;
+          return spanOf(starts(after, s.venueServiceId, openAt)) < floor;
         })
       );
     }
@@ -13666,6 +13700,8 @@
       ruleId: string;
       idempotencyKey: string;
       version: number;
+      /** Counts for the History drawer, which words the entry itself. Absent on older rows. */
+      outcome?: AvailabilityChangeOutcome;
       /** Set on every item of a batch save: what the whole batch was, so a reused key can be told apart. */
       batch?: BatchShape;
     }
@@ -13704,7 +13740,18 @@
       if (rule.kind !== "tonight") return isHostEmergencyClose(rule, serviceDate);
       if (rule.startsOn !== serviceDate) return false;
       // A Tonight change that leaves nothing bookable on its targets is the emergency close in effect.
-      return venue.hostEmergencyClose || !isEmergencyTonightClose(snapshot, rule, now);
+      if (venue.hostEmergencyClose) return true;
+      // Only active tables seat guests, so an inactive one cannot keep the night open.
+      const tables = await db.table.findMany({
+        where: { venueId, isActive: true },
+        select: { id: true },
+      });
+      return !isEmergencyTonightClose(
+        snapshot,
+        rule,
+        now,
+        tables.map((t) => t.id)
+      );
     }
     export function mayClose(
       venueId: string,
@@ -13923,6 +13970,14 @@
         ruleId: rule.id,
         idempotencyKey: key,
         version,
+        outcome: {
+          cancelled: plan.counts.cancel,
+          moved: plan.counts.move,
+          kept: plan.counts.keep_notify + plan.counts.keep_silent,
+          closeEarly: rule.kind === "tonight",
+          startsOn: rule.startsOn,
+          endsOn: rule.endsOn ?? null,
+        },
         ...(input.batch ? { batch: input.batch } : {}),
       };
       const inverse = { ...inverseOf(state.stored, diff, state.operatingHours), closure: meta };
@@ -18866,11 +18921,20 @@
       return guest !== null && assessGuestReliability(guest, settings) === "risky";
     }
     export const defaultRebookDeps: RebookDeps = {
-      findCancelOutcome: (reservationId, venueId) =>
-        prisma.closureOutcome.findFirst({
+      findCancelOutcome: async (reservationId, venueId) => {
+        const row = await prisma.closureOutcome.findFirst({
           where: { reservationId, venueId, action: "cancel" },
-          select: { id: true, refund: true, rebookedReservationId: true },
-        }),
+          select: {
+            id: true,
+            refund: true,
+            rebookedReservationId: true,
+            dateRule: { select: { guestMessage: true } },
+          },
+        });
+        if (!row) return null;
+        const { dateRule, ...outcome } = row;
+        return { ...outcome, guestMessage: dateRule.guestMessage };
+      },
       findRebooked: (reservationId) =>
         prisma.reservation.findUnique({
           where: { id: reservationId },
@@ -18896,6 +18960,8 @@
       id: string;
       refund: GuestRefundStatus;
       rebookedReservationId: string | null;
+      /** The closure rule's guest-facing message (never the staff note). */
+      guestMessage: string | null;
     }
     export interface RebookDeps {
       findCancelOutcome(reservationId: string, venueId: string): Promise<CancelOutcome | null>;
@@ -18931,6 +18997,10 @@
     }
     export interface VenueCancellation {
       refundStatus: GuestRefundStatus;
+      /** The reservation's service date (YYYY-MM-DD): the day the venue was closed for this guest. */
+      closureDate: string;
+      /** The Manager's guest message for the closure; shown to the guest as plain text. */
+      closureMessage: string | null;
       offers: RebookOffer[];
       /** Set once the guest has rebooked; offers are then always empty. */
       rebooked: { reservationId: string; startTime: string } | null;
@@ -18972,11 +19042,16 @@
       const outcome = await deps.findCancelOutcome(reservation.id, venueId);
       if (!outcome) return null;
       const { refund: refundStatus } = outcome;
+      const closure = {
+        refundStatus,
+        closureDate: reservation.date,
+        closureMessage: outcome.guestMessage,
+      };
     
       if (outcome.rebookedReservationId) {
         const rebooked = await deps.findRebooked(outcome.rebookedReservationId);
         return {
-          refundStatus,
+          ...closure,
           offers: [],
           rebooked: rebooked
             ? { reservationId: rebooked.id, startTime: rebooked.startTime.toISOString() }
@@ -18986,10 +19061,10 @@
     
       // A deposit venue gets no one-tap offers: the guest goes through the widget's payment step.
       if (await deps.requiresDeposit(venueId, reservation)) {
-        return { refundStatus, offers: [], rebooked: null };
+        return { ...closure, offers: [], rebooked: null };
       }
       const offers = await currentOffers(reservation, venueId, now, deps);
-      return { refundStatus, offers, rebooked: null };
+      return { ...closure, offers, rebooked: null };
     }
     export type RebookResult =
       | { ok: true; reservation: Reservation }
@@ -23231,8 +23306,9 @@
           }
           const replayed = await replayOf(tx, venueId, rule, state);
           if (replayed) return { kind: "saved", result: replayed };
-          if (body.change.type === "stop_window") {
-            // A stop over what is left of the service closes the night like a close-early does.
+          if (GATED_CHANGES.has(body.change.type)) {
+            // A stop, table block or pause that leaves nothing bookable closes the night like a
+            // close-early does (#7721); one that leaves a table and a channel open stays a Host's.
             // After the replay check: a saved stop's retry is not a new close.
             const allowed = await mayCloseFor(tx, venueId, caller, rule, now);
             if (!allowed) throw new Refused({ kind: allowed === null ? "not_found" : "forbidden" });
