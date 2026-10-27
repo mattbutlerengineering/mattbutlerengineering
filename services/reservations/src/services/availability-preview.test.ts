@@ -43,6 +43,8 @@ const closure = (startsOn: string, endsOn = startsOn) => ({
   endsOn,
 });
 
+const DEFAULTS = { strandedOffset: 0, compareWith: "saved", partySize: 2 } as const;
+
 const input = (overrides: Partial<PreviewInput> = {}): PreviewInput => ({
   state: STATE,
   body: {
@@ -52,7 +54,7 @@ const input = (overrides: Partial<PreviewInput> = {}): PreviewInput => ({
     },
     scope: { from: "2026-11-01" },
     focusDate: "2026-11-01",
-    strandedOffset: 0,
+    ...DEFAULTS,
   },
   bookings: [],
   tableIds: new Set(),
@@ -95,7 +97,7 @@ describe("planPreview", () => {
           },
           scope: { from: "2026-11-01" },
           focusDate: "2026-11-01",
-          strandedOffset: 0,
+          ...DEFAULTS,
         },
       })
     );
@@ -140,7 +142,7 @@ describe("planPreview", () => {
           },
           scope: { from: "2026-11-01", to: "2026-12-31" },
           focusDate: "2026-11-01",
-          strandedOffset: 0,
+          ...DEFAULTS,
         },
         bookings: [booking(1, "2026-11-06"), booking(2, "2027-02-05"), booking(3, "2026-11-07")],
       })
@@ -157,7 +159,7 @@ describe("planPreview", () => {
           },
           scope: { from: "2026-11-01" },
           focusDate: "2026-11-01",
-          strandedOffset: 0,
+          ...DEFAULTS,
         },
         bookings: [booking(2, "2027-02-05")],
       })
@@ -177,5 +179,66 @@ describe("planPreview", () => {
     expect(second.result.stranded.items).toHaveLength(10);
     const ids = [...first.result.stranded.items, ...second.result.stranded.items].map((r) => r.id);
     expect(new Set(ids).size).toBe(60);
+  });
+
+  describe("compareWith", () => {
+    const withClosure = {
+      ...STATE,
+      stored: { ...CONFIG, dateRules: [closure("2026-11-04")] },
+      effective: { ...CONFIG, dateRules: [closure("2026-11-04")] },
+    };
+    const removedDates = (compareWith: "saved" | "regularWeek") => {
+      const plan = planPreview(
+        input({ state: withClosure, body: { ...input().body, compareWith } })
+      );
+      if (plan.kind !== "ok") throw new Error(plan.kind);
+      return plan.result.days.filter((d) => d.removed.length > 0).map((d) => d.serviceDate);
+    };
+
+    it("measures against the saved config by default", () => {
+      expect(removedDates("saved")).toEqual(["2026-11-06"]);
+    });
+
+    it("measures against the regular week, which has no date rules", () => {
+      expect(removedDates("regularWeek")).toEqual(["2026-11-04", "2026-11-06"]);
+    });
+
+    it("still finds stranded bookings against the saved config", () => {
+      const plan = planPreview(
+        input({
+          state: withClosure,
+          body: { ...input().body, compareWith: "regularWeek" },
+          bookings: [booking(1, "2026-11-04")],
+        })
+      );
+      if (plan.kind !== "ok") throw new Error(plan.kind);
+      expect(plan.result.stranded.total).toBe(0);
+    });
+  });
+
+  describe("partySize", () => {
+    const table = {
+      id: "t-1",
+      name: "T1",
+      capacity: 4,
+      minCovers: 1,
+      maxCovers: null,
+      isActive: true,
+      priority: 0,
+    };
+    const removedFor = (partySize: number, tables: PreviewInput["tables"]) => {
+      const plan = planPreview(input({ tables, body: { ...input().body, partySize } }));
+      if (plan.kind !== "ok") throw new Error(plan.kind);
+      return plan.result.days.find((d) => d.serviceDate === "2026-11-06")?.removed ?? [];
+    };
+
+    it("shows the times a party of that size could book, given the tables", () => {
+      expect(removedFor(2, [table]).length).toBeGreaterThan(0);
+      expect(removedFor(6, [table])).toEqual([]);
+    });
+
+    it("shows the listed times when the venue has no tables to judge by", () => {
+      expect(removedFor(6, []).length).toBeGreaterThan(0);
+    });
   });
 });

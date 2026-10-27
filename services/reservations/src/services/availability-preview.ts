@@ -1,5 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { addDays, diffDays, resolveDay, type BookingSnapshot } from "@mbe/availability";
+import {
+  addDays,
+  diffDays,
+  resolveDay,
+  type BookingSnapshot,
+  type EngineTable,
+} from "@mbe/availability";
 import {
   PREVIEW_STRANDED_PAGE_SIZE,
   PREVIEW_WINDOW_DAYS,
@@ -30,6 +36,8 @@ export interface PreviewInput {
   /** Future, still-booked reservations, each with its service date. */
   bookings: readonly BookedReservation[];
   tableIds: ReadonlySet<string>;
+  /** The venue's tables, so a party size narrows the times to those a table fits. */
+  tables?: readonly EngineTable[];
   now: Date;
   newId?: () => string;
 }
@@ -47,20 +55,22 @@ export function scopeIncludes(scope: PreviewScope, date: string): boolean {
 const toServiceDate = (d: Date): string => d.toISOString().slice(0, 10);
 
 /** Structure only: the preview shows times the schedule lists, not which tables are free. */
-const structural = (timezone: string, config: BookingSnapshot["config"]): BookingSnapshot => ({
+const structural = (
+  timezone: string,
+  config: BookingSnapshot["config"],
+  tables: readonly EngineTable[] = []
+): BookingSnapshot => ({
   timezone,
   config,
-  tables: [],
+  tables: [...tables],
   reservations: [],
   holds: [],
   settings: null,
 });
 
-const PREVIEW_PARTY_SIZE = 2;
-
 export function planPreview(input: PreviewInput): PreviewPlan {
   const { state, body, now } = input;
-  const { draft, scope, focusDate, strandedOffset } = body;
+  const { draft, scope, focusDate, strandedOffset, compareWith, partySize } = body;
   const { next, issues } = settleDraft({
     snapshot: { timezone: state.timezone, config: state.effective },
     changes: draft.changes,
@@ -72,13 +82,20 @@ export function planPreview(input: PreviewInput): PreviewPlan {
   });
   if (issues.length > 0) return { kind: "invalid", issues };
 
-  const before = structural(state.timezone, state.effective);
-  const after = structural(state.timezone, next);
+  const tables = input.tables ?? [];
+  const before = structural(state.timezone, state.effective, tables);
+  const after = structural(state.timezone, next, tables);
+  // The regular week is the saved schedules with no date rules: no closures, no special hours.
+  const base =
+    compareWith === "regularWeek"
+      ? structural(state.timezone, { ...state.effective, dateRules: [] }, tables)
+      : before;
   const dates = Array.from({ length: PREVIEW_WINDOW_DAYS }, (_, i) => addDays(focusDate, i));
-  const days = diffDays(before, after, dates, {
-    partySize: PREVIEW_PARTY_SIZE,
+  const days = diffDays(base, after, dates, {
+    partySize,
     channel: "online",
     now,
+    bookableOnly: tables.length > 0,
   });
 
   const focus = resolveDay(after, focusDate);

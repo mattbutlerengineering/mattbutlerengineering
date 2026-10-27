@@ -7,6 +7,7 @@ import {
   Select,
   SegmentedControl,
   Stack,
+  Tabs,
   Text,
 } from "@mattbutlerengineering/rialto";
 import type { ResolvedDay } from "@mbe/availability";
@@ -20,6 +21,7 @@ import {
 import { useSaveAvailabilityConfig } from "../../hooks/useAvailability.js";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
+import { useViewport } from "../../hooks/useViewport.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import { AvailabilityGuestPreview } from "./AvailabilityGuestPreview.js";
 import { ConflictDialog } from "./ConflictDialog.js";
@@ -93,6 +95,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   const { onDirtyChange, onCancel, onFinished, fixedDates, ruleScope } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
+  const phone = useViewport() === "phone";
   const offerUndo = useAvailabilityUndo();
   const { mutateAsync, isPending } = useSaveAvailabilityConfig();
   const choiceLabelId = useId();
@@ -296,17 +299,8 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
       : []),
   ];
 
-  return (
-    <Stack gap="md">
-      {failure && (
-        <Alert variant="error" title={t("availability.editor.saveError")}>
-          {failure.messages.map((message) => (
-            <Text key={message} variant="body" color="primary">
-              {message}
-            </Text>
-          ))}
-        </Alert>
-      )}
+  const fields = (
+    <>
       {!fixedDates && !ruleScope && (
         <Select
           label={t("availability.editor.scope.label")}
@@ -346,31 +340,72 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
         date={date}
         onChange={(services) => update({ ...edit, services })}
       />
-      {/* A scope that reaches no dates (a schedule used only by a use_schedule rule) has nothing to preview; the server refuses an empty scope. */}
-      {previewChanges && dates.length > 0 && (
-        <AvailabilityGuestPreview
-          venueId={venueId}
-          changes={previewChanges}
-          scopeConflicts={conflictMode}
-          dates={dates}
-          focusDate={date}
+    </>
+  );
+  // A scope that reaches no dates (a schedule used only by a use_schedule rule) has nothing to preview; the server refuses an empty scope.
+  const preview =
+    previewChanges && dates.length > 0 ? (
+      <AvailabilityGuestPreview
+        venueId={venueId}
+        changes={previewChanges}
+        scopeConflicts={conflictMode}
+        dates={dates}
+        focusDate={date}
+      />
+    ) : null;
+  const choice =
+    dates.length > 1 && own.length > 0 ? (
+      <Stack gap="xs">
+        <Text variant="body" color="primary" id={choiceLabelId}>
+          {t("availability.editor.ownChanges", { count: own.length })}
+        </Text>
+        <SegmentedControl
+          aria-labelledby={choiceLabelId}
+          segments={[
+            { id: "keep", label: t("availability.editor.keepTheirs") },
+            { id: "replace", label: t("availability.editor.replaceThem") },
+          ]}
+          value={edit.mode}
+          onChange={(mode) => update({ ...edit, mode: mode as ScopeConflictMode })}
         />
+      </Stack>
+    ) : null;
+
+  return (
+    <Stack gap="md">
+      {failure && (
+        <Alert variant="error" title={t("availability.editor.saveError")}>
+          {failure.messages.map((message) => (
+            <Text key={message} variant="body" color="primary">
+              {message}
+            </Text>
+          ))}
+        </Alert>
       )}
-      {dates.length > 1 && own.length > 0 && (
-        <Stack gap="xs">
-          <Text variant="body" color="primary" id={choiceLabelId}>
-            {t("availability.editor.ownChanges", { count: own.length })}
-          </Text>
-          <SegmentedControl
-            aria-labelledby={choiceLabelId}
-            segments={[
-              { id: "keep", label: t("availability.editor.keepTheirs") },
-              { id: "replace", label: t("availability.editor.replaceThem") },
-            ]}
-            value={edit.mode}
-            onChange={(mode) => update({ ...edit, mode: mode as ScopeConflictMode })}
-          />
-        </Stack>
+      {/* On a phone the preview is a tab of its own, so the drawer is not one long scroll. */}
+      {preview && phone ? (
+        <Tabs
+          aria-label={t("availability.editor.tabsLabel")}
+          tabs={[
+            {
+              id: "edit",
+              label: t("availability.editor.tabEdit"),
+              content: (
+                <Stack gap="md">
+                  {fields}
+                  {choice}
+                </Stack>
+              ),
+            },
+            { id: "preview", label: t("availability.editor.tabPreview"), content: preview },
+          ]}
+        />
+      ) : (
+        <>
+          {fields}
+          {preview}
+          {choice}
+        </>
       )}
       <div className={styles.actions}>
         <Button variant="secondary" onClick={onCancel}>

@@ -39567,6 +39567,10 @@
       z.array(ServiceDateSchema).min(1).max(PREVIEW_SCOPE_MAX_DATES),
       z.object({ from: ServiceDateSchema, to: ServiceDateSchema.optional() }),
     ]);
+    export const PREVIEW_PARTY_MAX = 20;
+    export const PREVIEW_PARTY_DEFAULT = 2;
+    export const PREVIEW_COMPARE_WITH = ["saved", "regularWeek"] as const;
+    export const PreviewCompareWithSchema = z.enum(PREVIEW_COMPARE_WITH);
     export const PreviewAvailabilityBodySchema = z.object({
       /** The unsaved edit: the rows a save would send. */
       draft: z.object({
@@ -39578,6 +39582,10 @@
       focusDate: ServiceDateSchema,
       /** Index of the first stranded reservation to return (a page is 50). */
       strandedOffset: z.number().int().min(0).default(0),
+      /** The base the added / removed times are measured against. */
+      compareWith: PreviewCompareWithSchema.default("saved"),
+      /** The party whose bookable times are shown (tables that fit it). */
+      partySize: z.number().int().min(1).max(PREVIEW_PARTY_MAX).default(PREVIEW_PARTY_DEFAULT),
     });
     export const PreviewDaySchema = z.object({
       serviceDate: ServiceDateSchema,
@@ -39599,6 +39607,7 @@
     });
     export type PreviewAvailabilityBody = z.input<typeof PreviewAvailabilityBodySchema>;
     export type PreviewAvailabilityParsed = z.infer<typeof PreviewAvailabilityBodySchema>;
+    export type PreviewCompareWith = z.infer<typeof PreviewCompareWithSchema>;
     export type PreviewResult = z.infer<typeof PreviewResultSchema>;
     export type PreviewScope = z.infer<typeof PreviewScopeSchema>;
     export type AvailabilityConfigChanges = z.infer<typeof AvailabilityConfigChangesSchema>;
@@ -46290,13 +46299,25 @@
         if (!state) return { kind: "not_found" };
         const [bookings, tables] = await Promise.all([
           futureBookings(tx, venueId, civilDateIn(now, state.timezone), now),
-          tx.table.findMany({ where: { venueId }, select: { id: true } }),
+          tx.table.findMany({
+            where: { venueId },
+            select: {
+              id: true,
+              name: true,
+              capacity: true,
+              minCovers: true,
+              maxCovers: true,
+              isActive: true,
+              priority: true,
+            },
+          }),
         ]);
         return planPreview({
           state,
           body,
           bookings,
           tableIds: new Set(tables.map((t) => t.id)),
+          tables,
           now,
         });
       });
@@ -46569,6 +46590,8 @@
       /** Future, still-booked reservations, each with its service date. */
       bookings: readonly BookedReservation[];
       tableIds: ReadonlySet<string>;
+      /** The venue's tables, so a party size narrows the times to those a table fits. */
+      tables?: readonly EngineTable[];
       now: Date;
       newId?: () => string;
     }
@@ -46581,7 +46604,7 @@
     }
     export function planPreview(input: PreviewInput): PreviewPlan {
       const { state, body, now } = input;
-      const { draft, scope, focusDate, strandedOffset } = body;
+      const { draft, scope, focusDate, strandedOffset, compareWith, partySize } = body;
       const { next, issues } = settleDraft({
         snapshot: { timezone: state.timezone, config: state.effective },
         changes: draft.changes,
@@ -46593,13 +46616,20 @@
       });
       if (issues.length > 0) return { kind: "invalid", issues };
     
-      const before = structural(state.timezone, state.effective);
-      const after = structural(state.timezone, next);
+      const tables = input.tables ?? [];
+      const before = structural(state.timezone, state.effective, tables);
+      const after = structural(state.timezone, next, tables);
+      // The regular week is the saved schedules with no date rules: no closures, no special hours.
+      const base =
+        compareWith === "regularWeek"
+          ? structural(state.timezone, { ...state.effective, dateRules: [] }, tables)
+          : before;
       const dates = Array.from({ length: PREVIEW_WINDOW_DAYS }, (_, i) => addDays(focusDate, i));
-      const days = diffDays(before, after, dates, {
-        partySize: PREVIEW_PARTY_SIZE,
+      const days = diffDays(base, after, dates, {
+        partySize,
         channel: "online",
         now,
+        bookableOnly: tables.length > 0,
       });
     
       const focus = resolveDay(after, focusDate);
@@ -70073,6 +70103,8 @@
       partySize: number;
       channel: BookingChannel;
       now: Date;
+      /** Count only seatings with a table that fits the party, not every listed time. */
+      bookableOnly?: boolean;
     }
     export function diffDays(
       before: BookingSnapshot,
