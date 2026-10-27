@@ -177,7 +177,9 @@ describe("PreviewPane", () => {
     const onSuggestionClick = vi.fn();
     render(<PreviewPane {...defaultProps} onSuggestionClick={onSuggestionClick} />);
     fireEvent.click(screen.getByText("Dashboard"));
-    expect(onSuggestionClick).toHaveBeenCalledWith("Analytics dashboard with charts and KPIs");
+    expect(onSuggestionClick).toHaveBeenCalledWith(
+      "Analytics dashboard with KPI stats and a BarChart of monthly revenue (Jan through Jun), not a paragraph of numbers"
+    );
   });
 
   it("shows loading pulse when streaming with no spec", () => {

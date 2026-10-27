@@ -341,5 +341,16 @@
       export const generatedSchemas: unknown;
     </item>
   </file>
+  <file path="src/materialize-table-data.ts">
+    <item priority="medium">
+      function columnKeys(columns: unknown): string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function sampleCell(key: string, index: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function materializeCatalogProps(name: string, props: unknown): unknown { /* ... */ }
+    </item>
+  </file>
   </section>
 </codebase>

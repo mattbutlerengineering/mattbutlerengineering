@@ -41,6 +41,10 @@ export const generatedSchemas = {
     dismissible: z.boolean().optional(),
     action: z.string().optional(),
   }),
+  BarChart: z.object({
+    label: z.string().max(60),
+    data: z.array(z.object({ label: z.string(), value: z.union([z.number(), z.string()]) })).min(1),
+  }),
   Breadcrumb: z.object({
     items: z.array(z.object({ label: z.string(), href: z.string().optional(), icon: z.string().optional() })),
     maxItems: z.number().optional(),
@@ -64,7 +68,7 @@ export const generatedSchemas = {
     subtitle: z.string().max(80).optional(),
   }),
   Checkbox: z.object({
-    label: z.string().max(30).optional(),
+    label: z.string().max(80).optional(),
     checked: z.boolean().optional(),
     defaultChecked: z.boolean().optional(),
     required: z.boolean().optional(),

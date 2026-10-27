@@ -265,6 +265,43 @@
       } { /* ... */ }
     </item>
   </file>
+  <file path="src/lib/normalize-generated-spec.ts">
+    <item priority="high">
+      export function parseTrendPoints(text: string): { label: string; value: string }[] | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function textContent(props: unknown): string | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function normalizeGeneratedSpec(spec: Spec): Spec { /* ... */ }
+    </item>
+  </file>
+  <file path="src/lib/pending-prompt.ts">
+    <item priority="high">
+      export const PENDING_PROMPT_KEY: unknown;
+    </item>
+    <item priority="medium">
+      function continueWhenStorageFails(error: unknown): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function interruptedPromptNotice(): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function rememberPendingPrompt(
+        prompt: string,
+        storage: Storage = window.sessionStorage
+      ): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function clearPendingPrompt(storage: Storage = window.sessionStorage): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function readInterruptedPrompt(storage: Storage = window.sessionStorage): string | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resetInterruptedPromptCache(): void { /* ... */ }
+    </item>
+  </file>
   <file path="src/lib/shortcuts.ts">
     <item priority="low">
       type ShortcutAction = "newGeneration" | "templates" | "history" | "inspector" | "fullscreen" | "stop" | "help" | "undo" | "redo";
@@ -453,6 +490,28 @@
   </file>
   </section>
   <section priority="medium" role="src">
+  <file path="src/auth-config.ts">
+    <item priority="low">
+      interface GenAuthEnv {
+        authority?: string;
+        clientId?: string;
+        redirectUri?: string;
+        audience?: string;
+      }
+    </item>
+    <item priority="low">
+      interface GenAuthConfig {
+        authority: string;
+        clientId: string;
+        redirectUri: string;
+        audience?: string;
+        postLogoutRedirectUri: string;
+      }
+    </item>
+    <item priority="high">
+      export function buildGenAuthConfig(env: GenAuthEnv, origin: string): GenAuthConfig { /* ... */ }
+    </item>
+  </file>
   <file path="src/types.ts">
     <item priority="low">
       type EntryKind = "generate" | "refine" | "recover" | "failed";

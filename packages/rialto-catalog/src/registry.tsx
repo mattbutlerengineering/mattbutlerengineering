@@ -31,6 +31,7 @@ import {
   Avatar,
   Badge,
   Banner,
+  BarChart,
   Breadcrumb,
   Button,
   Card,
@@ -74,7 +75,8 @@ import type {
 import { catalog } from "./catalog.js";
 import { catalogMeta } from "./generated-catalog.js";
 import { generatedSchemas } from "./generated-schemas.js";
-import { Children, type ReactNode } from "react";
+import { materializeCatalogProps } from "./materialize-table-data.js";
+import { Children, type CSSProperties, type ReactNode } from "react";
 
 const TIMELINE_STATUSES: ReadonlySet<string> = new Set([
   "completed",
@@ -278,7 +280,10 @@ function withSchemaValidation<T extends Record<string, AdapterFn>>(adapters: T):
         ? (schema as unknown as Masked).partial({ children: true })
         : schema;
     wrapped[name] = (context) => {
-      const clamped = { ...context, props: clampToCharLimits(name, context.props) };
+      const clamped = {
+        ...context,
+        props: materializeCatalogProps(name, clampToCharLimits(name, context.props)),
+      };
       const hasChildElements = Children.count(context.children) > 0;
       const check = hasChildElements ? withoutWords : schema;
       if (check.safeParse(clamped.props).success) return adapter(clamped);
@@ -305,17 +310,31 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
   components: withAliasNormalization(
     withSchemaValidation({
       // ── Layout ────────────────────────────────────────────────────
-      Stack: ({ props, children }: any) => (
-        <Stack
-          direction={props.direction}
-          gap={props.gap}
-          align={props.align}
-          justify={props.justify}
-          wrap={props.wrap}
-        >
-          {children}
-        </Stack>
-      ),
+      Stack: ({ props, children }: any) => {
+        // A row of peer cards (pricing tiers) is content-sized flex, so three
+        // cards wrap 2+1 in the playground's preview column. Share the row
+        // once there are three or more children. Two children stay flex.
+        const shareRow = props.direction === "row" && Children.count(children) >= 3;
+        const style: CSSProperties | undefined = shareRow
+          ? {
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 12rem), 1fr))",
+              inlineSize: "100%",
+            }
+          : undefined;
+        return (
+          <Stack
+            direction={props.direction}
+            gap={props.gap}
+            align={props.align}
+            justify={props.justify}
+            wrap={props.wrap}
+            style={style}
+          >
+            {children}
+          </Stack>
+        );
+      },
 
       Card: ({ props, children }: any) => (
         <Card
@@ -375,7 +394,7 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
           disabled={props.disabled}
           onClick={() => emit("press")}
         >
-          {children ?? props.children}
+          {slotOr(children, props.children)}
         </Button>
       ),
 
@@ -566,6 +585,11 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
       // The registry seam (`withSchemaValidation`) validates these four against the
       // generated Zod schemas before the adapter runs, so each cast below narrows
       // a guaranteed shape (mirrors the Odometer renderer, avoiding an `any`).
+      BarChart: ({ props }: { props: unknown }) => {
+        const p = props as { label: string; data: { label: string; value: number | string }[] };
+        return <BarChart label={p.label} data={p.data} />;
+      },
+
       Stat: ({ props }: { props: unknown }) => {
         const p = props as Pick<StatProps, "label" | "trend" | "size"> & {
           value: string | number;

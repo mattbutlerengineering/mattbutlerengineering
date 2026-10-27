@@ -95,6 +95,7 @@ export function PlaygroundBody({ session, onSignOut, toggleTheme }: PlaygroundBo
     displayError,
     activeSpecId,
     failedPrompt,
+    interruptedPrompt,
     submit,
     refine,
     refineNode,
@@ -310,6 +311,7 @@ export function PlaygroundBody({ session, onSignOut, toggleTheme }: PlaygroundBo
         onExitRefinement={exitRefinement}
         failedPrompt={failedPrompt}
         failedError={displayError}
+        initialPrompt={interruptedPrompt}
       />
       <TemplateGallery open={galleryOpen} onClose={closeGallery} onSelect={handleTemplateSelect} />
       <KeyboardShortcuts open={shortcutsOpen} onClose={closeShortcuts} />

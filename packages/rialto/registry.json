@@ -428,6 +428,39 @@
       ]
     },
     {
+      "name": "BarChart",
+      "description": "Vertical bars for a short trend (revenue by month, signups by week).\nPrefer this over a paragraph of numbers.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "description": "Accessible name, shown as the caption."
+        },
+        {
+          "name": "data",
+          "type": "readonly BarChartDatum[]",
+          "required": true
+        }
+      ],
+      "slots": [
+        "children"
+      ],
+      "characterLimits": [
+        {
+          "prop": "label",
+          "max": 60
+        }
+      ]
+    },
+    {
+      "name": "BarChartDatum",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
       "name": "Breadcrumb",
       "description": "Navigation trail showing the user's location within a hierarchy.\nAutomatically collapses middle items into an ellipsis when `maxItems` is set.",
       "importPath": "@mattbutlerengineering/rialto",
@@ -868,7 +901,7 @@
         },
         {
           "prop": "label",
-          "max": 30
+          "max": 80
         }
       ]
     },

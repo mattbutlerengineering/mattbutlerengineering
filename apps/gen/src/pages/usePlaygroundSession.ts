@@ -19,6 +19,12 @@ import type { SpecError } from "../lib/spec-subtree.js";
 import { validateSpecAgainstCatalog } from "../lib/validate-spec.js";
 import { createSubtreeRefinementPrompt } from "./createSubtreeRefinementPrompt.js";
 import { resolveEntry } from "../lib/entry-kind.js";
+import {
+  clearPendingPrompt,
+  interruptedPromptNotice,
+  readInterruptedPrompt,
+  rememberPendingPrompt,
+} from "../lib/pending-prompt.js";
 import type { EntryKind, StoredSpec } from "../types.js";
 import type { SpecDiff } from "../lib/spec-subtree.js";
 
@@ -76,6 +82,8 @@ export interface PlaygroundSession {
   /** The raw prompt behind the current displayError, so it can be restored
    *  into the prompt input for editing instead of being lost. */
   failedPrompt: string | null;
+  /** Prompt restored after a refresh dropped an in-flight generation. */
+  interruptedPrompt: string | null;
 
   // Session verbs — own transition choreography lives here, not in the caller.
   submit: (prompt: string) => void;
@@ -153,10 +161,19 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
   const diffHistory = useSpecDiffHistory();
   const { push: pushDiff, clear: clearDiffs } = diffHistory;
   const [lastChange, setLastChange] = useState<SpecDiff | null>(null);
+  const [interruptedPrompt] = useState(() => readInterruptedPrompt());
+  const noticedInterruptedRef = useRef(false);
+
+  useEffect(() => {
+    if (!interruptedPrompt || noticedInterruptedRef.current) return;
+    noticedInterruptedRef.current = true;
+    options?.onNotice?.(interruptedPromptNotice());
+  }, [interruptedPrompt, options]);
 
   const { spec, isStreaming, error, rawLines, send, stop, clear } = useGenStream({
     api: "/api/gen/ui",
     onComplete: (completedSpec, completedRawLines) => {
+      clearPendingPrompt();
       const nodeRefine = nodeRefineRef.current;
       let savedSpec = completedSpec;
       let refinement: SpecDiff | undefined;
@@ -240,6 +257,7 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
     // transport/HTTP failure (auth expired, network drop) — that's an
     // infrastructure hiccup, not a generation failure worth recording.
     onError: (err) => {
+      clearPendingPrompt();
       if (!rawPrompt || isTransportError(err)) return;
       void saveSpec({
         prompt: rawPrompt,
@@ -293,6 +311,7 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
 
   const submit = useCallback(
     (prompt: string) => {
+      rememberPendingPrompt(prompt);
       setRawPrompt(prompt);
       clearNodeRefine();
       if (mode === "refine" && displaySpec) {
@@ -468,9 +487,15 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
   // common case, so resetTo(null) alone is a no-op for it) and the logo
   // click / sign-out "New Generation" action doesn't show the empty state.
   const reset = useCallback(() => {
+    clearPendingPrompt();
     clear();
     resetTo(null);
   }, [clear, resetTo]);
+
+  const stopGeneration = useCallback(() => {
+    clearPendingPrompt();
+    stop();
+  }, [stop]);
 
   const handleDeleteSpec = useCallback(
     (id: string) => {
@@ -506,6 +531,7 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
     displayError,
     activeSpecId,
     failedPrompt,
+    interruptedPrompt,
 
     submit,
     refine: enterRefinement,
@@ -521,6 +547,6 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
     canRedo: diffHistory.canRedo,
     lastChange,
     reset,
-    stop,
+    stop: stopGeneration,
   };
 }

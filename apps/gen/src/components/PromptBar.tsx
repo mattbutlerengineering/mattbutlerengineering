@@ -25,6 +25,8 @@ export interface PromptBarProps {
    *  second failure with identical prompt text still re-seeds the input even
    *  though the user may have already edited it away after the first one. */
   failedError?: Error | null;
+  /** A prompt restored after a refresh interrupted a generation. */
+  initialPrompt?: string | null;
 }
 
 const MAX_CHARS = 2000;
@@ -48,6 +50,7 @@ export function PromptBar({
   onExitRefinement,
   failedPrompt = null,
   failedError = null,
+  initialPrompt = null,
 }: PromptBarProps) {
   const [value, setValue] = useState("");
   const [history, setHistory] = useState<readonly string[]>([]);
@@ -65,6 +68,12 @@ export function PromptBar({
   if (failedError && failedError !== seededError) {
     setSeededError(failedError);
     setValue(failedPrompt ?? value);
+  }
+
+  const [seededInitial, setSeededInitial] = useState(false);
+  if (!seededInitial && initialPrompt && !failedError) {
+    setSeededInitial(true);
+    setValue(initialPrompt);
   }
 
   const isRefineMode = mode === "refine";
@@ -102,8 +111,9 @@ export function PromptBar({
   }, [value, disabled, onSubmit]);
 
   const handleChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => {
-    const next = e.target.value;
-    if (next.length > MAX_CHARS) return;
+    // A paste longer than the cap used to be ignored. The browser had already
+    // inserted it, so the controlled value stayed "" and the counter read 0.
+    const next = e.target.value.slice(0, MAX_CHARS);
     setValue(next);
     setHistoryIndex(-1);
   }, []);

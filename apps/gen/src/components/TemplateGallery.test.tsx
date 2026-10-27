@@ -74,6 +74,11 @@ describe("TemplateGallery", () => {
     expect(screen.getByRole("heading", { name: /templates/i })).toBeDefined();
   });
 
+  it("shows the real templates shortcut, not Ctrl+T", () => {
+    render(<TemplateGallery {...defaultProps} />);
+    expect(screen.getByTestId("shortcut").textContent).toBe("Alt+Shift+T");
+  });
+
   it("renders all category buttons including All", () => {
     render(<TemplateGallery {...defaultProps} />);
     expect(screen.getByRole("button", { name: /^All/ })).toBeDefined();
@@ -133,7 +138,7 @@ describe("TemplateGallery", () => {
     render(<TemplateGallery {...defaultProps} onSelect={onSelect} onClose={onClose} />);
     fireEvent.click(screen.getByRole("button", { name: /use Analytics Dashboard template/i }));
     expect(onSelect).toHaveBeenCalledWith(
-      "Dashboard with KPI cards in Cards, an Odometer for the headline stat, Badges showing week-over-week change, and a recent activity DataTable"
+      "Dashboard with KPI cards in Cards, an Odometer for the headline stat, a BarChart of monthly revenue for the last 6 months, Badges showing week-over-week change, and a recent activity DataTable"
     );
     expect(onClose).toHaveBeenCalledTimes(1);
   });

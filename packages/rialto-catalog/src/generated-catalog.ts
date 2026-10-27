@@ -47,6 +47,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
       "Full-width page-level message displayed at the top of a view. Use for one-per-page system announcements. Unlike Alert (inline), Banner spans the full width. Use variant=info (default) for announcements, variant=warning for important notices, variant=error for critical failures.",
     slots: ["default"],
   },
+  BarChart: {
+    name: "BarChart",
+    description:
+      "Vertical bar chart for a trend over time, such as revenue by month or signups by week. Use this instead of a paragraph or a Text element listing numbers. label is the accessible chart title (for example Revenue trend). data is an array of {label, value} points; value may be a number or a short formatted string such as $18.2k. Keep to about 12 points.",
+    charLimits: { label: 60 },
+  },
   Breadcrumb: {
     name: "Breadcrumb",
     description:
@@ -55,7 +61,7 @@ export const catalogMeta: Record<string, CatalogMeta> = {
   Button: {
     name: "Button",
     description:
-      "Clickable action trigger. Use variant=primary for the main CTA; variant=secondary for supporting actions; variant=ghost for tertiary or inline actions. Use size=sm for compact UIs, size=md (default) for most contexts, size=lg for prominent calls-to-action.",
+      "Clickable action trigger. Put the button's words in the label prop (for example, Contact sales). Use variant=primary for the main CTA; variant=secondary for supporting actions; variant=ghost for tertiary or inline actions. Use size=sm for compact UIs, size=md (default) for most contexts, size=lg for prominent calls-to-action.",
     slots: ["default"],
     aliases: { label: "children" },
   },
@@ -75,8 +81,8 @@ export const catalogMeta: Record<string, CatalogMeta> = {
   Checkbox: {
     name: "Checkbox",
     description:
-      "Checkbox for boolean selection. Use when users need to opt-in or out of something. Provide a label. Use description for additional context below the label. Use indeterminate for 'select all' with partial selection.",
-    charLimits: { label: 30, description: 80 },
+      "Checkbox for boolean selection. Use when users need to opt-in or out of something. Provide a label of at most 80 characters (a full sentence such as a terms agreement fits). Use description for additional context below the label. Use indeterminate for 'select all' with partial selection.",
+    charLimits: { label: 80, description: 80 },
   },
   Combobox: {
     name: "Combobox",

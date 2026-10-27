@@ -48,6 +48,13 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="BarChart">
+  <file path="packages/rialto/src/components/BarChart/BarChart.catalog.ts">
+    <item priority="high">
+      export const barChartCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="Breadcrumb">
   <file path="packages/rialto/src/components/Breadcrumb/Breadcrumb.catalog.ts">
     <item priority="high">
@@ -7431,6 +7438,43 @@
       } { /* ... */ }
     </item>
   </file>
+  <file path="apps/gen/src/lib/normalize-generated-spec.ts">
+    <item priority="high">
+      export function parseTrendPoints(text: string): { label: string; value: string }[] | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function textContent(props: unknown): string | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function normalizeGeneratedSpec(spec: Spec): Spec { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/gen/src/lib/pending-prompt.ts">
+    <item priority="high">
+      export const PENDING_PROMPT_KEY: unknown;
+    </item>
+    <item priority="medium">
+      function continueWhenStorageFails(error: unknown): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function interruptedPromptNotice(): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function rememberPendingPrompt(
+        prompt: string,
+        storage: Storage = window.sessionStorage
+      ): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function clearPendingPrompt(storage: Storage = window.sessionStorage): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function readInterruptedPrompt(storage: Storage = window.sessionStorage): string | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resetInterruptedPromptCache(): void { /* ... */ }
+    </item>
+  </file>
   <file path="apps/gen/src/lib/shortcuts.ts">
     <item priority="low">
       type ShortcutAction = "newGeneration" | "templates" | "history" | "inspector" | "fullscreen" | "stop" | "help" | "undo" | "redo";
@@ -9199,6 +9243,43 @@
     </item>
     <item priority="high">
       export function useAuthGate(): AuthGate { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/auth/src/react/auth-history.ts">
+    <item priority="high">
+      export const PRE_AUTH_HISTORY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const AUTH_BACK_RELOAD_KEY: unknown;
+    </item>
+    <item priority="medium">
+      function continueWhenStorageFails(error: unknown): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function authHistorySkipSteps(preLength: number, currentLength: number): number | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function rememberPreAuthHistoryLength(storage: Storage = window.sessionStorage): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function installAuthBackSkip(
+        history: History = window.history,
+        storage: Storage = window.sessionStorage,
+        schedule: (fn: () => void) => void = (fn) => {
+          window.setTimeout(fn, SKIP_IDP_HISTORY_DELAY_MS);
+        }
+      ): void { /* ... */ }
+    </item>
+    <item priority="high">
+      interface PageShowTarget {
+        sessionStorage: Storage;
+        location: { reload: () => void };
+        addEventListener: (type: "pageshow", listener: (event: PageTransitionEvent)...;
+        removeEventListener: (type: "pageshow", listener: (event: PageTransitionEvent)...;
+      }
+    </item>
+    <item priority="high">
+      export function installAuthBackReload(target: PageShowTarget = window): () => void { /* ... */ }
     </item>
   </file>
   <file path="packages/auth/src/react/hooks.ts">
@@ -17235,6 +17316,28 @@
   </file>
   </section>
   <section priority="medium" role="src">
+  <file path="apps/gen/src/auth-config.ts">
+    <item priority="low">
+      interface GenAuthEnv {
+        authority?: string;
+        clientId?: string;
+        redirectUri?: string;
+        audience?: string;
+      }
+    </item>
+    <item priority="low">
+      interface GenAuthConfig {
+        authority: string;
+        clientId: string;
+        redirectUri: string;
+        audience?: string;
+        postLogoutRedirectUri: string;
+      }
+    </item>
+    <item priority="high">
+      export function buildGenAuthConfig(env: GenAuthEnv, origin: string): GenAuthConfig { /* ... */ }
+    </item>
+  </file>
   <file path="apps/gen/src/types.ts">
     <item priority="low">
       type EntryKind = "generate" | "refine" | "recover" | "failed";
@@ -21916,6 +22019,17 @@
   <file path="packages/rialto-catalog/src/generated-schemas.ts">
     <item priority="high">
       export const generatedSchemas: unknown;
+    </item>
+  </file>
+  <file path="packages/rialto-catalog/src/materialize-table-data.ts">
+    <item priority="medium">
+      function columnKeys(columns: unknown): string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function sampleCell(key: string, index: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function materializeCatalogProps(name: string, props: unknown): unknown { /* ... */ }
     </item>
   </file>
   <file path="packages/sentry/src/build-info.ts">
