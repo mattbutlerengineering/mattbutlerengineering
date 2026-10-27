@@ -1962,7 +1962,19 @@
       "personAll": "Todos",
       "personMe": "Solo yo",
       "rangeLabel": "Hechos entre",
-      "rangePlaceholder": "Cualquier fecha"
+      "rangePlaceholder": "Cualquier fecha",
+      "entry": {
+        "range": "{{from}} al {{to}}",
+        "closed": "Cerrado {{when}}: {{outcome}}",
+        "closedEarly": "Cierre anticipado {{when}}: {{outcome}}",
+        "reopened": "Reabierto {{when}}",
+        "none": "ninguna reservación afectada",
+        "cancelled_one": "{{count}} reservación cancelada",
+        "cancelled_many": "{{count}} de reservaciones canceladas",
+        "cancelled_other": "{{count}} reservaciones canceladas",
+        "moved": "{{count}} movidas",
+        "kept": "{{count}} conservadas"
+      }
     },
     "editor": {
       "edit": "Editar {{name}}",

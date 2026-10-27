@@ -1270,6 +1270,9 @@ describe("createClosure for a Tonight close-early (#7529)", () => {
       expect.objectContaining({ reservationId: "res-t", kind: "cancelled" }),
     ]);
     expect(w.changes[0]!.summary).toMatch(/^Closing early 2026-10-25/);
+    expect((w.changes[0]!.inverse as { closure: unknown }).closure).toMatchObject({
+      outcome: { cancelled: 1, moved: 0, kept: 0, closeEarly: true },
+    });
   });
 
   it("asks for a decision for the bookings after the new close", async () => {

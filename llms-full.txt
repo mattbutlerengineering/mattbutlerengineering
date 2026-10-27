@@ -5237,6 +5237,44 @@
       };
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/describe-change.ts">
+    function whenOf(entry: AvailabilityChangeEntry, format: VenueFormat, t: TFunction): string | null {
+      if (!entry.affectedFrom) return null;
+      const from = format.formatCalendarDate(entry.affectedFrom, DAY);
+      if (!entry.affectedTo || entry.affectedTo === entry.affectedFrom) return from;
+      return t("availability.history.entry.range", {
+        from,
+        to: format.formatCalendarDate(entry.affectedTo, DAY),
+      });
+    }
+    function outcomeText(outcome: AvailabilityChangeOutcome, format: VenueFormat, t: TFunction) {
+      const parts = [
+        outcome.cancelled > 0
+          ? t("availability.history.entry.cancelled", { count: outcome.cancelled })
+          : null,
+        outcome.moved > 0 ? t("availability.history.entry.moved", { count: outcome.moved }) : null,
+        outcome.kept > 0 ? t("availability.history.entry.kept", { count: outcome.kept }) : null,
+      ].filter((p): p is string => p !== null);
+      if (parts.length === 0) return t("availability.history.entry.none");
+      return new Intl.ListFormat(format.locale, { style: "long", type: "conjunction" }).format(parts);
+    }
+    export function describeChange(
+      entry: AvailabilityChangeEntry,
+      format: VenueFormat,
+      t: TFunction
+    ): string | null {
+      const when = whenOf(entry, format, t);
+      if (!when) return null;
+      if (entry.kind === "reopen") return t("availability.history.entry.reopened", { when });
+      if (entry.kind !== "closure" || !entry.outcome) return null;
+      return t(
+        entry.outcome.closeEarly
+          ? "availability.history.entry.closedEarly"
+          : "availability.history.entry.closed",
+        { when, outcome: outcomeText(entry.outcome, format, t) }
+      );
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/draft-changes.ts">
     export type EditScope =
       | { readonly kind: "date"; readonly date: string }
@@ -39138,6 +39176,13 @@
       kind: z.string(),
       summary: z.string(),
     });
+    export const AvailabilityChangeOutcomeSchema = z.object({
+      cancelled: z.number().int(),
+      moved: z.number().int(),
+      kept: z.number().int(),
+      /** A close-early (Tonight) rather than a closure. */
+      closeEarly: z.boolean(),
+    });
     export const AvailabilityChangeEntrySchema = AvailabilityChangeSummarySchema.extend({
       /** First and last service dates the change can alter; `null` end means onward. */
       affectedFrom: ServiceDateSchema.nullable(),
@@ -39148,6 +39193,11 @@
       revertedById: z.string().nullable(),
       /** `Revert` is offered only on the newest change, and only when it told no guest. */
       revertible: z.boolean(),
+      /**
+       * Counts for a saved closure; `null` for any other change and for rows saved before they were
+       * recorded. Optional so a client talking to an older API falls back to `summary`.
+       */
+      outcome: AvailabilityChangeOutcomeSchema.nullish(),
     });
     export const AVAILABILITY_CHANGES_MAX_LIMIT = 100;
     export const AvailabilityChangesQuerySchema = z.object({
@@ -39358,6 +39408,7 @@
     export type AvailabilityConfigState = z.infer<typeof AvailabilityConfigStateSchema>;
     export type AvailabilityConfigSaveResult = z.infer<typeof AvailabilityConfigSaveResultSchema>;
     export type AvailabilityChangeSummary = z.infer<typeof AvailabilityChangeSummarySchema>;
+    export type AvailabilityChangeOutcome = z.infer<typeof AvailabilityChangeOutcomeSchema>;
     export type AvailabilityChangeEntry = z.infer<typeof AvailabilityChangeEntrySchema>;
     export type AvailabilityChangesQuery = z.input<typeof AvailabilityChangesQuerySchema>;
     export type AvailabilityChangesParsed = z.infer<typeof AvailabilityChangesQuerySchema>;
@@ -44882,6 +44933,11 @@
   </file>
   <file path="services/reservations/src/services/availability-changes.ts">
     export const REVERT_KIND = "revert";
+    function outcomeOf(kind: string, inverse: unknown): AvailabilityChangeOutcome | null {
+      if (kind !== "closure") return null;
+      const meta = (inverse as { closure?: { outcome?: AvailabilityChangeOutcome } } | null)?.closure;
+      return meta?.outcome ?? null;
+    }
     function whereOf(
       venueId: string,
       query: AvailabilityChangesParsed
@@ -44939,6 +44995,7 @@
           affectedTo: toDay(r.affectedTo),
           notifiedGuests: r.notifiedGuests,
           revertedById: r.revertedById,
+          outcome: outcomeOf(r.kind, r.inverse),
           revertible:
             r.id === newest?.id &&
             !r.notifiedGuests &&
@@ -47729,6 +47786,8 @@
       ruleId: string;
       idempotencyKey: string;
       version: number;
+      /** Counts for the History drawer, which words the entry itself. Absent on older rows. */
+      outcome?: AvailabilityChangeOutcome;
       /** Set on every item of a batch save: what the whole batch was, so a reused key can be told apart. */
       batch?: BatchShape;
     }
@@ -47986,6 +48045,12 @@
         ruleId: rule.id,
         idempotencyKey: key,
         version,
+        outcome: {
+          cancelled: plan.counts.cancel,
+          moved: plan.counts.move,
+          kept: plan.counts.keep_notify + plan.counts.keep_silent,
+          closeEarly: rule.kind === "tonight",
+        },
         ...(input.batch ? { batch: input.batch } : {}),
       };
       const inverse = { ...inverseOf(state.stored, diff, state.operatingHours), closure: meta };

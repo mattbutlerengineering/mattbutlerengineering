@@ -22,6 +22,7 @@ import {
   useRevertAvailabilityChange,
 } from "../../hooks/useAvailability.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
+import { describeChange } from "./describe-change.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import { revertErrorText } from "./revert-error.js";
 import styles from "./AvailabilityHistoryDrawer.module.css";
@@ -63,7 +64,7 @@ function EntryRow({ entry, mine, canRevert, reverting, onRevert, onOpenDay }: En
   return (
     <li className={styles.entry}>
       <Text variant="body" color="primary">
-        {entry.summary}
+        {describeChange(entry, format, t) ?? entry.summary}
       </Text>
       <Text variant="caption" color="secondary">
         {t("availability.history.byWhen", {

@@ -213,6 +213,87 @@ describe("AvailabilityHistoryDrawer", () => {
     );
   });
 
+  describe("entries worded on the client from structured fields", () => {
+    const closure = (over: Partial<AvailabilityChangeEntry>) =>
+      entry({
+        kind: "closure",
+        summary: "Closure saved for 2026-12-24: 14 cancelled, 0 moved, 0 kept",
+        affectedFrom: "2026-12-24",
+        affectedTo: "2026-12-24",
+        outcome: { cancelled: 14, moved: 0, kept: 0, closeEarly: false },
+        ...over,
+      });
+    const firstRow = () => screen.getAllByRole("listitem")[0]!;
+
+    it("words a closure with a full date and the cancelled count, never the stored English", () => {
+      loaded([closure({})]);
+      renderDrawer();
+      expect(firstRow()).toHaveTextContent("Closed Thu, Dec 24: 14 bookings cancelled");
+      expect(firstRow()).not.toHaveTextContent("2026-12-24");
+      expect(firstRow()).not.toHaveTextContent("Closure saved for");
+    });
+
+    it("names a date range, joins the outcomes and singularises one booking", () => {
+      loaded([
+        closure({
+          affectedTo: "2026-12-26",
+          outcome: { cancelled: 1, moved: 2, kept: 1, closeEarly: false },
+        }),
+      ]);
+      renderDrawer();
+      expect(firstRow()).toHaveTextContent(
+        "Closed Thu, Dec 24 to Sat, Dec 26: 1 booking cancelled, 2 moved, and 1 kept"
+      );
+    });
+
+    it("says when no booking was affected", () => {
+      loaded([closure({ outcome: { cancelled: 0, moved: 0, kept: 0, closeEarly: false } })]);
+      renderDrawer();
+      expect(firstRow()).toHaveTextContent("Closed Thu, Dec 24: no bookings affected");
+    });
+
+    it("words a reopening from its kind and date", () => {
+      loaded([
+        entry({
+          kind: "reopen",
+          summary: "Closure reopened (2026-12-24)",
+          affectedFrom: "2026-12-24",
+          affectedTo: "2026-12-24",
+        }),
+      ]);
+      renderDrawer();
+      expect(firstRow()).toHaveTextContent("Reopened Thu, Dec 24");
+      expect(firstRow()).not.toHaveTextContent("Closure reopened");
+    });
+
+    it("words a close-early as closing early", () => {
+      loaded([
+        closure({
+          summary: "Closing early 2026-10-26: 1 cancelled, 0 moved, 0 kept",
+          affectedFrom: "2026-10-26",
+          affectedTo: "2026-10-26",
+          outcome: { cancelled: 1, moved: 0, kept: 0, closeEarly: true },
+        }),
+      ]);
+      renderDrawer();
+      expect(firstRow()).toHaveTextContent("Closed early Mon, Oct 26: 1 booking cancelled");
+    });
+
+    it("falls back to the stored summary for a closure row saved without counts", () => {
+      loaded([closure({ outcome: undefined })]);
+      renderDrawer();
+      expect(firstRow()).toHaveTextContent(
+        "Closure saved for 2026-12-24: 14 cancelled, 0 moved, 0 kept"
+      );
+    });
+
+    it("falls back to the stored summary for kinds it does not word", () => {
+      loaded([NEWEST]);
+      renderDrawer();
+      expect(firstRow()).toHaveTextContent("Availability updated: 1 added, 0 changed, 0 removed");
+    });
+  });
+
   it("has no axe violations", async () => {
     renderDrawer();
     expect((await axe(document.body, AXE_OPTIONS)).violations).toEqual([]);
