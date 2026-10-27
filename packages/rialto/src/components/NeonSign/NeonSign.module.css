@@ -111,7 +111,7 @@
     0 0 2px currentColor,
     0 0 8px currentColor;
   /* Bounded (WCAG 2.2.2): 2 cycles (4.8s total, under the 5s WCAG 2.2.2 threshold), then it settles dim. */
-  animation: rialto-neon-breathe var(--neon-warm-cycle) var(--rialto-ease-smooth) 2;
+  animation: rialto-neon-breathe var(--neon-warm-cycle) var(--rialto-ease-smooth) 2 forwards;
 }
 
 .neonSign[data-state="opening-soon"] .housing::before {
