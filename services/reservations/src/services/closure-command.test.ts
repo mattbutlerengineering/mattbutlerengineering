@@ -655,6 +655,33 @@ describe("createClosure", () => {
     expect(outcome).toEqual({ kind: "key_reused" });
   });
 
+  // Characterization (#7635): a reverted closure's outcome rows stay behind, and closing the same
+  // date again must not trip over them. The rows hang off the reverted rule's id; the new closure
+  // is a new rule with its own rows.
+  it("closes a date again after the first closure was reverted, under a fresh rule id", async () => {
+    const w = world();
+    const silent = [
+      { groupKey: "2026-12-24:closed", action: "keep_silent" as const, acknowledged: true },
+    ];
+    const first = await run(w, body({ decisions: silent }));
+    expect(first.outcome.kind).toBe("saved");
+
+    // A revert soft-deletes the rule and bumps the version; it leaves the outcome rows.
+    w.dateRules = [];
+    w.version += 1;
+
+    const again = await run(
+      w,
+      body({ expectedVersion: 6, rule: closure({ id: "dr-again" }), decisions: silent }),
+      { key: "key-2" }
+    );
+
+    expect(again.outcome.kind).toBe("saved");
+    expect(w.dateRules).toHaveLength(1);
+    expect(w.outcomes.filter((o) => o.dateRuleId === "dr-new")).toHaveLength(2);
+    expect(w.outcomes.filter((o) => o.dateRuleId === "dr-again")).toHaveLength(2);
+  });
+
   it("refuses the same rule id again under a new key as already saved, not a 500", async () => {
     const w = world();
     await run(w, body());
