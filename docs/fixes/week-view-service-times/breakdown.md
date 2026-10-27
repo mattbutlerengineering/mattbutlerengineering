@@ -13,7 +13,7 @@ Minutes are venue-local minutes from midnight throughout.
 
 ## Milestone 1: API carries the data
 
-- [ ] **WO-0072 — Extract `DaySummaryServiceSchema` and add `services` to the day summary** — in `packages/types/src/schemas/availability-config-api.ts`, extract the focusDay per-service object (`venueServiceId`, `name`, `opensAt`, `lastSeatingAt`, `closesAt`) as `DaySummaryServiceSchema`, add `services: z.array(DaySummaryServiceSchema)` to `AvailabilityDaySummarySchema`, and re-point `PreviewResultSchema.focusDay` at the shared schema.
+- [x] **WO-0072 — Extract `DaySummaryServiceSchema` and add `services` to the day summary** — in `packages/types/src/schemas/availability-config-api.ts`, extract the focusDay per-service object (`venueServiceId`, `name`, `opensAt`, `lastSeatingAt`, `closesAt`) as `DaySummaryServiceSchema`, add `services: z.array(DaySummaryServiceSchema)` to `AvailabilityDaySummarySchema`, and re-point `PreviewResultSchema.focusDay` at the shared schema.
   - Accept: a RED-first schema test pins the new field and the focusDay reuse; `pnpm --dir packages/types test` and `typecheck` green; llms regen clean (build `@mbe/cli` first).
   - Blocked by: —
 - [ ] **WO-0073 — Populate `services` in `summarizeDay`** — in `services/reservations/src/services/availability-config-checks.ts`, map `day.services` plus config service names into the new field, sharing the preview focusDay's name-lookup mapper. A closed day returns `[]`.
