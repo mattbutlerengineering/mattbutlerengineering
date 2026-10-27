@@ -113,6 +113,23 @@ describe("loadVenueCancellation", () => {
     }
   });
 
+  it("offers only slots inside the venue's booking window", async () => {
+    // NOW is 04:00 PST Nov 5; minAdvance 48h puts the earliest offer after 04:00 PST Nov 7,
+    // and maxAdvance 3 days ends the window with Nov 8 (local).
+    const d = deps({ refund: "done" });
+    d.loadSnapshot.mockResolvedValue({
+      snapshot: snapshot(),
+      venueSettings: { minAdvanceBooking: 48, maxAdvanceBooking: 3 },
+    });
+    const result = await loadVenueCancellation(reservation(), "v1", NOW, d);
+    expect(result?.offers.length).toBeGreaterThan(0);
+    for (const offer of result?.offers ?? []) {
+      const start = new Date(offer.startTime);
+      expect(start.getTime()).toBeGreaterThanOrEqual(NOW.getTime() + 48 * 3600_000);
+      expect(offer.date <= "2026-11-08").toBe(true);
+    }
+  });
+
   it("carries the closure's service date and the venue's guest message", async () => {
     const outcome = { refund: "done", guestMessage: "Closed for a private event" };
     const result = await loadVenueCancellation(reservation(), "v1", NOW, deps(outcome));

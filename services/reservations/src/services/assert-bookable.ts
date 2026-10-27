@@ -171,6 +171,8 @@ export interface GateRequest {
   channel: BookingChannel;
   /** A staff reason to pass a soft limit. Honoured on the phone channel only; closures never yield. */
   override?: { reason: string };
+  /** Where the reservation being moved starts now; lets a booking kept through a closure move within its date. */
+  movingFrom?: Date;
   /** The reservation being moved; it must not conflict or pace against itself. */
   excludeReservationId?: string;
   /** The hold being confirmed or moved onto. */
@@ -239,6 +241,7 @@ export async function judgeBooking(
       channel: request.channel,
       tableId: request.tableId,
       override: request.override,
+      movingFrom: request.movingFrom,
     },
     now
   );
