@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { matchPath, useLocation } from "react-router";
 
 export interface RouteMeta {
@@ -77,9 +77,16 @@ function setDescription(content: string): void {
 
 export function useRouteMeta(): void {
   const { pathname } = useLocation();
+  // index.html's title and description, captured before this hook first
+  // overwrites them, so unmapped paths (e.g. "/") can restore them.
+  const defaultsRef = useRef<{ title: string; description: string } | null>(null);
   useEffect(() => {
-    const meta = findRouteMeta(pathname);
-    if (!meta) return;
+    defaultsRef.current ??= {
+      title: document.title,
+      description:
+        document.head.querySelector<HTMLMetaElement>('meta[name="description"]')?.content ?? "",
+    };
+    const meta = findRouteMeta(pathname) ?? defaultsRef.current;
     document.title = meta.title;
     setDescription(meta.description);
   }, [pathname]);

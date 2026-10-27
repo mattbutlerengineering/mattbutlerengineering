@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { act, render } from "@testing-library/react";
+import { MemoryRouter, useNavigate } from "react-router";
 import type { ReactNode } from "react";
 import { App } from "./App.js";
 
@@ -44,6 +44,25 @@ function renderAt(path: string) {
 describe("marketing route metadata", () => {
   beforeEach(() => {
     document.head.innerHTML = '<meta name="description" content="Default site description" />';
+  });
+
+  it("restores the index.html defaults when navigating from a mapped route to /", () => {
+    document.title = DEFAULT_TITLE;
+    let go: (to: string) => void = () => undefined;
+    function Nav() {
+      go = useNavigate();
+      return null;
+    }
+    render(
+      <MemoryRouter initialEntries={["/metrics"]}>
+        <Nav />
+        <App theme="light" onThemeToggle={vi.fn()} />
+      </MemoryRouter>
+    );
+    expect(document.title).not.toBe(DEFAULT_TITLE);
+    act(() => go("/"));
+    expect(document.title).toBe(DEFAULT_TITLE);
+    expect(metaDescription()).toBe("Default site description");
   });
 
   it("finds the router config routes", () => {
