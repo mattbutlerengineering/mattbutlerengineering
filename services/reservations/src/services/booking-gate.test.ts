@@ -213,6 +213,7 @@ describe("judgeBooking", () => {
       status: 422,
       code: "outside-availability",
       reason: "table_unavailable",
+      detail: "This table is out of service or does not fit the party size.",
     });
   });
 

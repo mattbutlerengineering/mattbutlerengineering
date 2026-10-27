@@ -359,7 +359,7 @@ const OUTSIDE_AVAILABILITY_DETAIL: Record<HardReason, string> = {
   booking_closed: "Bookings are not being taken for this time.",
   outside_service: "This time is outside the venue's service hours.",
   table_blocked: "This table is not available at this time.",
-  table_unavailable: "This table is out of service or too small for the party.",
+  table_unavailable: "This table is out of service or does not fit the party size.",
   conflict: "This table is not available at this time.",
 };
 
