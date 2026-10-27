@@ -32,6 +32,18 @@ export function countManifestComponents(manifest) {
 }
 
 /**
+ * What the surface-agreement guard does given the manifest's presence: CI must
+ * never skip it silently (an unbuilt manifest there is a broken pipeline).
+ *
+ * @param {{ manifestBuilt: boolean, ci: boolean }} state
+ * @returns {"run" | "skip" | "fail"}
+ */
+export function surfaceGuardMode({ manifestBuilt, ci }) {
+  if (manifestBuilt) return "run";
+  return ci ? "fail" : "skip";
+}
+
+/**
  * @param {string} root - Repo root.
  * @returns {number}
  */

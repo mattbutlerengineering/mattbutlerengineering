@@ -6,11 +6,33 @@ import {
   RIALTO_MANIFEST_PATH,
   countManifestComponents,
   readRialtoComponentCount,
+  surfaceGuardMode,
 } from "../rialto-component-count.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const read = (rel) => readFileSync(resolve(ROOT, rel), "utf8");
 const manifestBuilt = existsSync(resolve(ROOT, RIALTO_MANIFEST_PATH));
+const guardMode = surfaceGuardMode({ manifestBuilt, ci: Boolean(process.env.CI) });
+
+describe("surfaceGuardMode", () => {
+  it("runs when the manifest is built", () => {
+    expect(surfaceGuardMode({ manifestBuilt: true, ci: true })).toBe("run");
+    expect(surfaceGuardMode({ manifestBuilt: true, ci: false })).toBe("run");
+  });
+
+  it("skips locally but fails in CI when the manifest is missing", () => {
+    expect(surfaceGuardMode({ manifestBuilt: false, ci: false })).toBe("skip");
+    expect(surfaceGuardMode({ manifestBuilt: false, ci: true })).toBe("fail");
+  });
+});
+
+it("has a built Rialto manifest whenever CI runs the surface guard", () => {
+  expect(
+    guardMode,
+    `${RIALTO_MANIFEST_PATH} is missing in CI — the component-count surface guard cannot run. ` +
+      "Build packages/rialto before this suite (pnpm --dir packages/rialto build)."
+  ).not.toBe("fail");
+});
 
 describe("countManifestComponents", () => {
   it("counts every entry in the compiled manifest", () => {
@@ -28,7 +50,7 @@ describe("countManifestComponents", () => {
  * (`@mattbutlerengineering/rialto/manifest`). Every advertised count must
  * agree with it. Needs `pnpm --dir packages/rialto build` (CI builds it).
  */
-describe.skipIf(!manifestBuilt)("advertised Rialto component count surfaces", () => {
+describe.skipIf(guardMode !== "run")("advertised Rialto component count surfaces", () => {
   const count = manifestBuilt ? readRialtoComponentCount(ROOT) : 0;
 
   it("reads a non-zero count from the manifest", () => {
