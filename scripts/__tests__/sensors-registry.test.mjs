@@ -135,7 +135,8 @@ describe("sensors-registry", () => {
 
       const result = collectReportSensors(entries, {});
 
-      expect(result.brokenSensor).toEqual({ available: false });
+      // The reason survives into the report so the page can say why (#7581).
+      expect(result.brokenSensor).toEqual({ available: false, error: "boom" });
       expect(errorSpy).toHaveBeenCalledTimes(1);
       expect(errorSpy.mock.calls[0].join(" ")).toContain("brokenSensor");
     });
@@ -785,7 +786,42 @@ describe("sensors-registry", () => {
       const ghClient = { workflow: { runs: vi.fn().mockReturnValue([]) } };
       const sensor = SENSORS.find((s) => s.id === "e2eStability");
 
-      expect(sensor.collect({ root: process.cwd(), ghClient })).toEqual({ available: false });
+      expect(sensor.collect({ root: process.cwd(), ghClient })).toEqual({
+        available: false,
+        reason: "no_runs",
+      });
+    });
+
+    it("e2eStability sensor names the cause when every run's head SHA is missing from the local object store", () => {
+      const ghClient = {
+        workflow: {
+          runs: vi.fn().mockReturnValue([
+            {
+              conclusion: "failure",
+              createdAt: "2026-10-01T00:00:00Z",
+              headBranch: "main",
+              headSha: "0000000000000000000000000000000000000000",
+            },
+          ]),
+        },
+      };
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      const sensor = SENSORS.find((s) => s.id === "e2eStability");
+
+      expect(sensor.collect({ root: process.cwd(), ghClient })).toEqual({
+        available: false,
+        reason: "no_resolvable_runs",
+      });
+    });
+
+    it("lighthouse sensor names the missing local audit inventory", () => {
+      const emptyRoot = mkdtempSync(join(tmpdir(), "lighthouse-sensor-"));
+      const sensor = SENSORS.find((s) => s.id === "lighthouse");
+
+      expect(sensor.collect({ root: emptyRoot })).toEqual({
+        available: false,
+        reason: "inventory_missing",
+      });
     });
 
     it("flakyTests collects runs via ghClient.workflow.runs scoped to the CI workflow", () => {

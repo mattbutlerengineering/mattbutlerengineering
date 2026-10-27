@@ -11,6 +11,7 @@ import {
 } from "../utils/formatters.js";
 import {
   normalizeSensorReport,
+  describeSensorGap,
   type SensorReport,
   type QueueEfficiencyMetrics,
   type ReviewBurdenMetrics,
@@ -457,7 +458,12 @@ export function AiHealthPage() {
         <div className={styles.sensorGrid} data-testid="sensor-status-list">
           {metrics.sensorEntries.map(([key, sensor]) => (
             <div key={key} className={styles.sensorRow}>
-              <Text className={styles.sensorName}>{key}</Text>
+              <div>
+                <Text className={styles.sensorName}>{key}</Text>
+                {describeSensorGap(sensor) != null && (
+                  <Text className={styles.statNote}>{describeSensorGap(sensor)}</Text>
+                )}
+              </div>
               <div className={styles.sensorBadge}>
                 <Badge color={getSensorColor(sensor.available === true)} size="sm">
                   {formatSensorStatus(sensor.available === true)}

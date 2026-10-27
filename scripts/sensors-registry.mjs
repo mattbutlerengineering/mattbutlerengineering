@@ -658,7 +658,9 @@ export const SENSORS = [
     collect: ({ root }) => {
       const invPath = resolve(root, ".audit-state", "inventory.json");
       const inv = safe(() => readJson(invPath));
-      if (!inv) return { available: false };
+      // `.audit-state/` is gitignored and written only by a local /site-audit
+      // run, so scheduled/cloud sensor runs never have it (#7581).
+      if (!inv) return { available: false, reason: "inventory_missing" };
 
       const surfaces = inv.surfaces ?? inv;
       if (!Array.isArray(surfaces) && typeof surfaces !== "object") return { available: false };
@@ -986,6 +988,12 @@ export const SENSORS = [
         );
       }
 
+      // Every run unresolved (shallow/stale checkout) is a different cause from
+      // "no runs"; name it so the page does not show a bare Unavailable (#7581).
+      if (runs.length === 0 && unresolved > 0) {
+        return { available: false, reason: "no_resolvable_runs" };
+      }
+
       return computeE2eStability(runs);
     },
     format: (data, name) =>
@@ -1203,7 +1211,7 @@ export function collectReportSensors(entries, ctx) {
         return [key, sensor.collect(ctx)];
       } catch (err) {
         console.error(`[sensor-report] unexpected error in "${sensor.id}" collector:`, err);
-        return [key, { available: false }];
+        return [key, { available: false, error: err instanceof Error ? err.message : String(err) }];
       }
     })
   );

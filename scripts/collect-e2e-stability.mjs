@@ -52,7 +52,7 @@ function isFrontendRun(changedPaths) {
  */
 export function computeE2eStability(runs) {
   if (!runs || runs.length === 0) {
-    return { available: false };
+    return { available: false, reason: "no_runs" };
   }
 
   // Sort by createdAt descending (most recent first) — immutable copy.
@@ -64,7 +64,7 @@ export function computeE2eStability(runs) {
   const nonFrontend = sorted.filter((r) => !isFrontendRun(r.changedPaths));
 
   if (nonFrontend.length === 0) {
-    return { available: false };
+    return { available: false, reason: "no_non_frontend_runs" };
   }
 
   // Count consecutive failures from the top of the sorted list.
