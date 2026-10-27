@@ -1166,9 +1166,6 @@
     <item priority="high">
       export const FOCUSABLE_SELECTOR: unknown;
     </item>
-    <item priority="high">
-      export const FOCUS_TRAP_SKIP_INITIAL_ATTR: unknown;
-    </item>
     <item priority="low">
       interface UseFocusTrapOptions {
         initialFocus?: RefObject<HTMLElement | null>;

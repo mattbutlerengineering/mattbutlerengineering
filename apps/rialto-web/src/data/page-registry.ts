@@ -19,8 +19,6 @@
 
 import { derivePath } from "../../../../scripts/ui-quality/derive-path.mjs";
 
-export { derivePath };
-
 export interface PageEntry {
   id: string;
   label: string;

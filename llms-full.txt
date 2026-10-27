@@ -20244,7 +20244,6 @@
   <file path="packages/rialto/src/hooks/useFocusTrap.ts">
     export const FOCUSABLE_SELECTOR =
       'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
-    export const FOCUS_TRAP_SKIP_INITIAL_ATTR = "data-focus-trap-skip-initial";
     export interface UseFocusTrapOptions {
       /** Element to focus when the trap activates, overriding the default candidate. */
       initialFocus?: RefObject<HTMLElement | null>;
