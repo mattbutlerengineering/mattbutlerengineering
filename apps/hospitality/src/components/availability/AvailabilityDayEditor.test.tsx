@@ -150,10 +150,27 @@ describe("AvailabilityDayEditor", () => {
       expect(screen.getByRole("button", { name: "Remove Dinner" })).toBeInTheDocument();
     });
 
-    it("shows no tabs before there is a draft to preview", () => {
+    it("keeps the typing field mounted and focused as the draft becomes previewable", () => {
       phone();
       renderEditor();
-      expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+      fireEvent.click(screen.getByRole("combobox", { name: "Add service" }));
+      fireEvent.click(screen.getByRole("option", { name: "A new service…" }));
+      const name = screen.getByRole("textbox", { name: /Service name/ });
+      name.focus();
+      fireEvent.change(name, { target: { value: "B" } });
+      expect(name).toBeInTheDocument();
+      expect(name).toHaveFocus();
+      fireEvent.change(name, { target: { value: "Br" } });
+      expect(name).toBeInTheDocument();
+      expect(name).toHaveFocus();
+    });
+
+    it("keeps the Preview tab off until there is a draft to preview", () => {
+      phone();
+      renderEditor();
+      fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+      expect(screen.getByRole("tab", { name: "Preview" })).toHaveAttribute("aria-disabled", "true");
     });
   });
 

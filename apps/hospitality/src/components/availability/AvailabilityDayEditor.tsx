@@ -383,7 +383,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
         </Alert>
       )}
       {/* On a phone the preview is a tab of its own, so the drawer is not one long scroll. */}
-      {preview && phone ? (
+      {phone ? (
         <Tabs
           aria-label={t("availability.editor.tabsLabel")}
           tabs={[
@@ -397,7 +397,18 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
                 </Stack>
               ),
             },
-            { id: "preview", label: t("availability.editor.tabPreview"), content: preview },
+            {
+              id: "preview",
+              label: t("availability.editor.tabPreview"),
+              // Disabled, not removed, so the Edit panel keeps its place in the tree and the
+              // field being typed in is not remounted when the draft first becomes previewable.
+              disabled: !preview,
+              content: preview ?? (
+                <Text variant="caption" color="secondary">
+                  {t("availability.editor.previewEmpty")}
+                </Text>
+              ),
+            },
           ]}
         />
       ) : (

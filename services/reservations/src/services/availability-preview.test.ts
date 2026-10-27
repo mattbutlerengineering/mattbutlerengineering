@@ -241,4 +241,71 @@ describe("planPreview", () => {
       expect(removedFor(6, []).length).toBeGreaterThan(0);
     });
   });
+
+  it("takes the regular week from undated assignments, not a seasonal one", () => {
+    const summer = {
+      ...CONFIG,
+      schedules: [
+        ...CONFIG.schedules,
+        { id: "sch-2", name: "Summer", kind: "alternate" as const, isRegular: false },
+      ],
+      scheduleServices: [
+        ...CONFIG.scheduleServices,
+        {
+          ...CONFIG.scheduleServices[0]!,
+          id: "ss-2",
+          scheduleId: "sch-2",
+          opensAt: 720,
+          lastSeatingAt: 780,
+          closesAt: 840,
+        },
+      ],
+      assignments: [
+        ...CONFIG.assignments,
+        {
+          id: "as-2",
+          scheduleId: "sch-2",
+          weekdays: [0, 1, 2, 3, 4, 5, 6],
+          precedence: 1,
+          startsOn: "2026-11-01",
+          endsOn: "2026-11-30",
+        },
+      ],
+    };
+    const state = { ...STATE, stored: summer, effective: summer };
+    const run = (compareWith: "saved" | "regularWeek") => {
+      const plan = planPreview(
+        input({
+          state,
+          body: {
+            ...input().body,
+            draft: { changes: { upsert: {}, remove: {} }, scopeConflicts: "keep" },
+            compareWith,
+          },
+        })
+      );
+      if (plan.kind !== "ok") throw new Error(plan.kind);
+      return plan.result.days[0]!;
+    };
+    expect(run("saved").added).toEqual([]);
+    // The draft changes nothing, so against the season it adds the dinner times the season lacks.
+    expect(run("regularWeek").added.length).toBeGreaterThan(0);
+  });
+
+  it("judges by active tables only", () => {
+    const inactive = {
+      id: "t-1",
+      name: "T1",
+      capacity: 4,
+      minCovers: 1,
+      maxCovers: null,
+      isActive: false,
+      priority: 0,
+    };
+    const plan = planPreview(input({ tables: [inactive] }));
+    if (plan.kind !== "ok") throw new Error(plan.kind);
+    expect(
+      plan.result.days.find((d) => d.serviceDate === "2026-11-06")?.removed.length
+    ).toBeGreaterThan(0);
+  });
 });

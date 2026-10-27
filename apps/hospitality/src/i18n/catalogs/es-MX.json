@@ -2050,6 +2050,7 @@
       "tabsLabel": "Editor del día",
       "tabEdit": "Editar",
       "tabPreview": "Vista previa",
+      "previewEmpty": "Haz un cambio para ver la vista previa.",
       "scopeCount_one": "Aplica a {{count}} fecha",
       "scopeCount_other": "Aplica a {{count}} fechas",
       "scopeCount_many": "Aplica a {{count}} fechas",

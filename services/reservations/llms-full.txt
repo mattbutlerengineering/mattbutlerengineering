@@ -12286,13 +12286,23 @@
       });
       if (issues.length > 0) return { kind: "invalid", issues };
     
-      const tables = input.tables ?? [];
+      // Inactive tables never seat anyone, so they do not make the venue "have tables".
+      const tables = (input.tables ?? []).filter((t) => t.isActive);
       const before = structural(state.timezone, state.effective, tables);
       const after = structural(state.timezone, next, tables);
-      // The regular week is the saved schedules with no date rules: no closures, no special hours.
+      // The regular week is what the venue normally does each weekday: undated assignments only,
+      // no date rules (no closures, special hours or seasons).
       const base =
         compareWith === "regularWeek"
-          ? structural(state.timezone, { ...state.effective, dateRules: [] }, tables)
+          ? structural(
+              state.timezone,
+              {
+                ...state.effective,
+                dateRules: [],
+                assignments: state.effective.assignments.filter((a) => !a.startsOn && !a.endsOn),
+              },
+              tables
+            )
           : before;
       const dates = Array.from({ length: PREVIEW_WINDOW_DAYS }, (_, i) => addDays(focusDate, i));
       const days = diffDays(base, after, dates, {

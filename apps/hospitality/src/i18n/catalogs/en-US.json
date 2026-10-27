@@ -2009,6 +2009,7 @@
       "tabsLabel": "Day editor",
       "tabEdit": "Edit",
       "tabPreview": "Preview",
+      "previewEmpty": "Change something to see the preview.",
       "scopeCount_one": "Applies to {{count}} date",
       "scopeCount_other": "Applies to {{count}} dates",
       "ownChanges_one": "{{count}} date in this scope already has its own changes",
