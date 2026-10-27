@@ -29,7 +29,6 @@
 }
 
 .secondary:hover {
-  transform: translateY(-1px);
   box-shadow:
     0 2px 4px rgb(26 25 24 / 0.08),
     0 4px 12px rgb(26 25 24 / 0.08),
@@ -73,7 +72,6 @@
 }
 
 .primary:hover {
-  transform: translateY(-1px);
   box-shadow:
     0 2px 4px rgb(26 25 24 / 0.12),
     0 4px 12px rgb(196 146 42 / 0.25),
