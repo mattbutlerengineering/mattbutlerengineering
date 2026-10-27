@@ -66,10 +66,10 @@ function ToastItem({ toast: t, onDismiss }: { toast: ToastData; onDismiss: (id: 
     <motion.div
       layout
       className={cn(styles.toast, styles[t.variant ?? "default"])}
-      initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, x: 80, scale: 0.95 }}
-      animate={{ opacity: 1, x: 0, scale: 1 }}
-      exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, x: 40, scale: 0.95 }}
-      transition={motionPreset.spring}
+      initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -4, scale: 0.96 }}
+      transition={motionPreset.precision}
     >
       <ToastIcon variant={t.variant ?? "default"} />
       {t.title && <p className={styles.title}>{t.title}</p>}

@@ -92,7 +92,7 @@ export const Checkbox = forwardRef<HTMLDivElement, CheckboxProps>(
               <motion.span
                 className={styles.check}
                 animate={
-                  checked || indeterminate ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }
+                  checked || indeterminate ? { scale: 1, opacity: 1 } : { scale: 0.9, opacity: 0 }
                 }
                 transition={motionPreset.spring}
               >
@@ -214,7 +214,7 @@ export const Radio = forwardRef<HTMLDivElement, RadioProps>(
             >
               <motion.span
                 className={styles.dot}
-                animate={checked ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }}
+                animate={checked ? { scale: 1, opacity: 1 } : { scale: 0.9, opacity: 0 }}
                 transition={motionPreset.spring}
               />
             </motion.span>

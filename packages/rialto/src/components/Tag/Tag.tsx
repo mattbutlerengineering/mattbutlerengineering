@@ -175,9 +175,9 @@ export const AnimatedTag = forwardRef<HTMLDivElement, AnimatedTagProps>(
       <motion.div
         ref={ref}
         layout
-        initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.8 }}
+        initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.8 }}
+        exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.9 }}
         transition={motionPreset.spring}
         style={{ display: "inline-flex" }}
       >
