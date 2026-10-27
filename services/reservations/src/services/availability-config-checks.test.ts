@@ -122,6 +122,33 @@ describe("summarizeDay", () => {
     });
   });
 
+  it("names the paused channels of a booking closure and omits them elsewhere", () => {
+    const config: AvailabilityConfig = {
+      ...CONFIG,
+      dateRules: [
+        {
+          id: "dr-b",
+          kind: "closure",
+          targetKind: "booking",
+          bookingTypes: ["online"],
+          startsOn: "2026-11-06",
+          endsOn: "2026-11-06",
+        },
+        {
+          id: "dr-v",
+          kind: "closure",
+          targetKind: "venue",
+          startsOn: "2026-11-06",
+          endsOn: "2026-11-06",
+        },
+      ],
+    };
+    const day = resolveDay({ timezone: TZ, config }, "2026-11-06");
+    const { closures } = summarizeDay(config, day);
+    expect(closures.find((c) => c.ruleId === "dr-b")?.bookingTypes).toEqual(["online"]);
+    expect(closures.find((c) => c.ruleId === "dr-v")).not.toHaveProperty("bookingTypes");
+  });
+
   it("labels special hours", () => {
     const config: AvailabilityConfig = {
       ...CONFIG,
