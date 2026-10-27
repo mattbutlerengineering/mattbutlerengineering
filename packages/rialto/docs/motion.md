@@ -117,21 +117,22 @@ Delight is chosen, not sprinkled. These are the planned moments; adding another 
 
 Verdicts as of this policy. **Keep** means it already fits its tier. **Trim** means a follow-up issue changes it. No component is changed by the PR that introduced this page. "Loop" means the component runs motion with no end.
 
-| Component or group                                                                                  | Tier       | Verdict  | Note                                                                                              |
-| --------------------------------------------------------------------------------------------------- | ---------- | -------- | ------------------------------------------------------------------------------------------------- |
-| Dialog, Drawer, Popover, HoverCard, Toast, Banner, Alert, Collapsible, AppBar, Sidebar              | Productive | Keep     | Occasional, fade and short travel, scale at or above 0.96.                                        |
-| DropdownMenu, ContextMenu, NavigationMenu, Tooltip, Select, Combobox, Autocomplete                  | Productive | Keep     | Tens per day; short fade with scale 0.95, close to the floor. Keep, never deepen.                 |
-| CommandPalette                                                                                      | Productive | **Trim** | Opens 100+ times a day; scales and slides on enter. Should be instant or opacity only.            |
-| Button, Toggle, Checkbox, Pagination, SegmentedControl, Tag: hover `boop`                           | Expressive | **Trim** | Hover scale 1.03 on tens-per-day controls. Keep press (0.975); make hover colour only.            |
-| Tabs, Slider, SegmentedControl indicator, Sidebar and Tree chevrons, Navbar toggle, Meter, Progress | Productive | Keep     | Indicator and state motion, precise and short.                                                    |
-| PinInput (scale 0.6), Tag (scale 0.8), Checkbox mark (scale 0)                                      | Productive | **Trim** | Violate the never-scale-from-0 floor (0.9). Start at 0.9 or above with opacity.                   |
-| Skeleton, Progress shimmer/trace, Button and Combobox spinners, StatusLED, WatchLoader              | Productive | Keep     | Status loops (loading, live) are allowed.                                                         |
-| NeonSign breathe, Handshake shuttle, Ferrofluid (`repeat: Infinity`)                                | Expressive | **Trim** | Decorative loops: confirm they pause offscreen or after N cycles (WCAG 2.2.2); keep one per view. |
-| Hero, staggerReveal, SilkFlow, SplitScreenExit, MasterOverride, ChatPanel, ImageUpload              | Expressive | Keep     | Rare or guest-facing; one expressive element per view.                                            |
-| FlipDot, SplitFlap, DepartureBoard, Odometer, Avatar `splitflap` transition                         | Expressive | Keep     | Signature instruments; respect the 3-flashes rule and the one-per-view rule.                      |
-| Card, Badge and other static components                                                             | None       | Keep     | No motion.                                                                                        |
+| Component or group                                                                                  | Tier       | Verdict  | Note                                                                                                  |
+| --------------------------------------------------------------------------------------------------- | ---------- | -------- | ----------------------------------------------------------------------------------------------------- |
+| Dialog, Drawer, Popover, HoverCard, Banner, Alert, Collapsible, AppBar, Sidebar                     | Productive | Keep     | Occasional, fade and short travel, scale at or above 0.96.                                            |
+| DropdownMenu, ContextMenu, NavigationMenu, Tooltip, Select, Combobox, Autocomplete                  | Productive | Keep     | Tens per day; short fade with scale 0.95, close to the floor. Keep, never deepen.                     |
+| CommandPalette                                                                                      | Productive | **Trim** | Opens 100+ times a day; scales and slides on enter. Should be instant or opacity only.                |
+| Button, Toggle, Checkbox, Pagination, SegmentedControl, Tag: hover `boop`                           | Expressive | **Trim** | Hover scale 1.03 on tens-per-day controls. Keep press (0.975); make hover colour only.                |
+| Tabs, Slider, SegmentedControl indicator, Sidebar and Tree chevrons, Navbar toggle, Meter, Progress | Productive | Keep     | Indicator and state motion, precise and short.                                                        |
+| Toast (x 80, scale 0.95, spring)                                                                    | Productive | **Trim** | Travels 80px on a spring in staff tools. Use a `precision` fade and 8px lift, scale at or above 0.96. |
+| PinInput (scale 0.6), Tag (scale 0.8), Checkbox mark (scale 0)                                      | Productive | **Trim** | Violate the never-scale-from-0 floor (0.9). Start at 0.9 or above with opacity.                       |
+| Skeleton, Progress shimmer/trace, Button and Combobox spinners, StatusLED, WatchLoader              | Productive | Keep     | Status loops (loading, live) are allowed.                                                             |
+| NeonSign breathe, Handshake shuttle, Ferrofluid (`repeat: Infinity`)                                | Expressive | **Trim** | Decorative loops: confirm they pause offscreen or after N cycles (WCAG 2.2.2); keep one per view.     |
+| Hero, staggerReveal, SilkFlow, SplitScreenExit, MasterOverride, ChatPanel, ImageUpload              | Expressive | Keep     | Rare or guest-facing; one expressive element per view.                                                |
+| FlipDot, SplitFlap, DepartureBoard, Odometer, Avatar `splitflap` transition                         | Expressive | Keep     | Signature instruments; respect the 3-flashes rule and the one-per-view rule.                          |
+| Card, Badge and other static components                                                             | None       | Keep     | No motion.                                                                                            |
 
-Follow-ups for the **Trim** rows: CommandPalette #7810, hover boop #7811, scale floor #7812, decorative loops #7813.
+Follow-ups for the **Trim** rows: CommandPalette #7810, hover boop #7811, scale floor and Toast entrance #7812, decorative loops #7813.
 
 ## References
 

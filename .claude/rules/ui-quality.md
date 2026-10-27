@@ -49,9 +49,8 @@ content or an actionable error state, and every in-app link must match a route.
 
 ## Motion — not screenshot-judged, still a defect in review
 
-Policy: [`packages/rialto/docs/motion.md`](../../packages/rialto/docs/motion.md).
-These are not `rubric.json` tells (a still image cannot show them); avoid them
-at the source and flag them in review.
+Policy: [`motion.md`](../../packages/rialto/docs/motion.md). Not `rubric.json`
+tells (a still image can't show them); avoid them and flag them in review.
 
 - [ ] Animation on a 100+/day action (command palette, shortcuts, typing, tab
       switch) — make it instant.
