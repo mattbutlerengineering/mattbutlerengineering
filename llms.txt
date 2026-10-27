@@ -20492,7 +20492,8 @@
       export function rebookOffers(
         snapshot: BookingSnapshot,
         reservation: RebookReservation,
-        now: Date
+        now: Date,
+        isBookable: (start: Date) => boolean = () => true
       ): RebookResult { /* ... */ }
     </item>
   </file>
@@ -20826,6 +20827,13 @@
         request: BookingRequest,
         now: Date
       ): SoftLimit[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function keptThroughClosure(
+        snapshot: BookingSnapshot,
+        request: BookingRequest,
+        serviceDate: ServiceDate
+      ): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function judge(snapshot: BookingSnapshot, request: BookingRequest, now: Date): Verdict { /* ... */ }

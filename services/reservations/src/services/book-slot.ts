@@ -86,7 +86,7 @@ export interface BookSlotIntent<T> {
    * reading the committed configuration through this transaction
    * ({@link judgeBooking}). Requires venueId. Walk-ins never set it.
    */
-  gate?: { channel: BookingChannel; override?: { reason: string } };
+  gate?: { channel: BookingChannel; override?: { reason: string }; movingFrom?: Date };
   /**
    * Runs immediately after the lock, before the conflict re-check. Returning a
    * {@link SlotConflict} short-circuits the write (e.g. a hold that expired
@@ -266,6 +266,7 @@ async function availabilityVerdict(
     partySize: intent.partySize,
     channel: gate.channel,
     override: gate.override,
+    movingFrom: gate.movingFrom,
     excludeReservationId: intent.excludeReservationId,
     excludeHoldId: intent.excludeHoldId,
     excludeSessionId: intent.excludeSessionId,

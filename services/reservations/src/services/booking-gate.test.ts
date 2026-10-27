@@ -376,6 +376,39 @@ describe("judgeBooking staff override", () => {
     });
   });
 
+  it("lets staff move a booking the Manager kept on a closed date within that date", async () => {
+    // The booking's own slot is inside the whole-day closure: it was kept (keep_notify).
+    const db = fakeDb({ dateRules: [closureOn("2026-11-05")] });
+    const outcome = await judgeBooking(
+      db,
+      request({
+        channel: "phone",
+        movingFrom: at("2026-11-05T18:00:00"),
+        excludeReservationId: "kept-1",
+      }),
+      NOW
+    );
+    expect(outcome).toEqual({ kind: "ok" });
+  });
+
+  it("still refuses a move onto a closed date from a slot that was not closed", async () => {
+    const db = fakeDb({ dateRules: [closureOn("2026-11-05")] });
+    const outcome = await judgeBooking(
+      db,
+      request({
+        channel: "phone",
+        start: at("2026-11-05T19:00:00"),
+        movingFrom: at("2026-11-04T19:00:00"),
+        excludeReservationId: "r1",
+      }),
+      NOW
+    );
+    expect(outcome).toMatchObject({
+      kind: "rejected",
+      rejection: { code: "outside-availability", reason: "closed" },
+    });
+  });
+
   it("reports no overridden limits when nothing needed overriding", async () => {
     const outcome = await judgeBooking(
       fakeDb(),

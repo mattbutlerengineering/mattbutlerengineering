@@ -10631,6 +10631,8 @@
       channel: BookingChannel;
       /** A staff reason to pass a soft limit. Honoured on the phone channel only; closures never yield. */
       override?: { reason: string };
+      /** Where the reservation being moved starts now; lets a booking kept through a closure move within its date. */
+      movingFrom?: Date;
       /** The reservation being moved; it must not conflict or pace against itself. */
       excludeReservationId?: string;
       /** The hold being confirmed or moved onto. */
@@ -10684,6 +10686,7 @@
           channel: request.channel,
           tableId: request.tableId,
           override: request.override,
+          movingFrom: request.movingFrom,
         },
         now
       );
@@ -12883,7 +12886,7 @@
        * reading the committed configuration through this transaction
        * ({@link judgeBooking}). Requires venueId. Walk-ins never set it.
        */
-      gate?: { channel: BookingChannel; override?: { reason: string } };
+      gate?: { channel: BookingChannel; override?: { reason: string }; movingFrom?: Date };
       /**
        * Runs immediately after the lock, before the conflict re-check. Returning a
        * {@link SlotConflict} short-circuits the write (e.g. a hold that expired
@@ -13040,6 +13043,7 @@
         partySize: intent.partySize,
         channel: gate.channel,
         override: gate.override,
+        movingFrom: gate.movingFrom,
         excludeReservationId: intent.excludeReservationId,
         excludeHoldId: intent.excludeHoldId,
         excludeSessionId: intent.excludeSessionId,
@@ -18981,7 +18985,7 @@
         from: string,
         to: string,
         now: Date
-      ): Promise<{ snapshot: BookingSnapshot }>;
+      ): Promise<{ snapshot: BookingSnapshot; venueSettings?: VenueSettings | null }>;
       createHold(data: CreateHoldRequest, sessionId: string): Promise<CreateHoldResult>;
       confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldResult>;
       releaseHold(holdId: string, sessionId: string): Promise<boolean>;
@@ -19021,16 +19025,20 @@
     ): Promise<RebookOffer[]> {
       // Probe the timezone-free window generously; the engine applies the exact 14-day rule.
       const today = now.toISOString().slice(0, 10);
-      const { snapshot } = await deps.loadSnapshot(
+      const { snapshot, venueSettings } = await deps.loadSnapshot(
         venueId,
         addDays(today, -1),
         addDays(today, REBOOK_WINDOW_DAYS + 1),
         now
       );
+      const window = bookingWindow(venueSettings, now, snapshot.timezone);
       const result = rebookOffers(
         snapshot,
         { startTime: new Date(reservation.startTime), partySize: reservation.partySize },
-        now
+        now,
+        // The engine leaves advance limits to the caller; an offer outside the window would
+        // fail the hold with BOOKING_WINDOW_ERROR, which the guest sees as slot-taken.
+        (start) => isSlotInBookingWindow(start, window)
       );
       return result.kind === "offers"
         ? result.slots.map((slot) => ({
@@ -21459,11 +21467,17 @@
           }
         }
     
-        // Determine if we need to check for conflicts
-        const timeOrTableChanged = isSlotMove(data);
+        // A slot move, or a party-size increase, changes what the slot must hold, so
+        // both cross the booking gate (max party, pacing). A status payload never
+        // reaches the gated write (it writes no status), so it keeps the plain path.
+        const needsGate =
+          isSlotMove(data) ||
+          (data.status === undefined &&
+            data.partySize !== undefined &&
+            data.partySize > existing.partySize);
     
-        // Notes / party-size / preference edits are not slot moves — no lock needed.
-        if (!timeOrTableChanged) {
+        // Notes / preference / party-size-decrease edits need no gate or lock.
+        if (!needsGate) {
           const reservation = await this.update(id, data, actor);
           if (!reservation) {
             return { success: false, error: "Failed to update reservation" };
@@ -21538,7 +21552,7 @@
           partySize: data.partySize ?? existing.partySize,
           excludeReservationId: id,
           checkHoldConflict: true,
-          gate: { channel: "phone", override: data.override },
+          gate: { channel: "phone", override: data.override, movingFrom: existing.startTime },
           write: async (tx, gated) => {
             try {
               const moved = await tx.reservation.update({
@@ -21556,7 +21570,7 @@
               await recordReservationEvent(tx, {
                 reservationId: id,
                 venueId: existing.venueId,
-                kind: "moved",
+                kind: isSlotMove(data) ? "moved" : "updated",
                 actor,
                 from: toEventState(existing),
                 to: toEventState(moved),

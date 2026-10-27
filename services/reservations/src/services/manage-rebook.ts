@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { addDays, rebookOfferId, rebookOffers, REBOOK_WINDOW_DAYS } from "@mbe/availability";
 import type { Reservation } from "@mbe/types";
+import { bookingWindow, isSlotInBookingWindow } from "./slot-rules.js";
 import type { GateRejection } from "./assert-bookable.js";
 import { defaultRebookDeps } from "./manage-rebook-deps.js";
 import type {
@@ -51,16 +52,20 @@ async function currentOffers(
 ): Promise<RebookOffer[]> {
   // Probe the timezone-free window generously; the engine applies the exact 14-day rule.
   const today = now.toISOString().slice(0, 10);
-  const { snapshot } = await deps.loadSnapshot(
+  const { snapshot, venueSettings } = await deps.loadSnapshot(
     venueId,
     addDays(today, -1),
     addDays(today, REBOOK_WINDOW_DAYS + 1),
     now
   );
+  const window = bookingWindow(venueSettings, now, snapshot.timezone);
   const result = rebookOffers(
     snapshot,
     { startTime: new Date(reservation.startTime), partySize: reservation.partySize },
-    now
+    now,
+    // The engine leaves advance limits to the caller; an offer outside the window would
+    // fail the hold with BOOKING_WINDOW_ERROR, which the guest sees as slot-taken.
+    (start) => isSlotInBookingWindow(start, window)
   );
   return result.kind === "offers"
     ? result.slots.map((slot) => ({
