@@ -168,6 +168,7 @@
         "acmm/review-burden-metrics.js",
         "agent-core-build-freshness.mjs",
         "agent-spend-telemetry.mjs",
+        "api-failures.mjs",
         "approve-automation-runs.mjs",
         "assert-vitest-ran.mjs",
         "audit-markdown.mjs",
