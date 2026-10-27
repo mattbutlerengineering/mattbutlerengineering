@@ -88,8 +88,10 @@ describe("ShippedIndexPage", () => {
     expect(screen.getAllByText(/1 merged PR\b/)).toHaveLength(2);
   });
 
-  it("shows the snapshot as-of date as a time element", () => {
+  it("labels the list a snapshot with its real data date, not as live", () => {
     const { container } = renderPage();
     expect(container.querySelector("time[datetime]")).not.toBeNull();
+    expect(screen.getByText(/snapshot from/i)).toBeInTheDocument();
+    expect(screen.queryByText(/^as of/i)).toBeNull();
   });
 });

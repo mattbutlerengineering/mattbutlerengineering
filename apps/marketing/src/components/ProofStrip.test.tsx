@@ -6,6 +6,7 @@ import { render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { ProofStrip } from "./ProofStrip.js";
 import { REPO_STATS } from "../data/repo-stats.js";
+import { MEASUREMENT_DATE } from "../data/measurement-date.js";
 import { formatMeasuredAt } from "../utils/formatters.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -86,10 +87,11 @@ describe("ProofStrip", () => {
     expect(within(group as HTMLElement).getByText(String(value))).toBeInTheDocument();
   });
 
-  it("states when the figures were measured", () => {
+  it("dates the figures with the same date /metrics shows, as a snapshot", () => {
     render(<ProofStrip />);
-    const provenance = screen.getByText(/measured at last deploy/i);
-    expect(provenance).toHaveTextContent(formatMeasuredAt(REPO_STATS.measuredAt));
+    const provenance = screen.getByText(/snapshot from/i);
+    expect(provenance).toHaveTextContent(formatMeasuredAt(MEASUREMENT_DATE));
+    expect(screen.queryByText(/measured at last deploy/i)).toBeNull();
   });
 });
 

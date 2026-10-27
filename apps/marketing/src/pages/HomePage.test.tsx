@@ -22,6 +22,9 @@ vi.mock("../components/ContactSection.js", () => ({
 vi.mock("../components/factory/FactorySection.js", () => ({
   FactorySection: () => <div data-testid="factory-section" />,
 }));
+vi.mock("../components/ReadingSection.js", () => ({
+  ReadingSection: () => <div data-testid="reading-section" />,
+}));
 vi.mock("../components/Navbar.js", () => ({
   Navbar: () => <nav data-testid="navbar" />,
 }));
@@ -90,9 +93,9 @@ describe("HomePage", () => {
     ).toBe(true);
   });
 
-  it("closes with the weekly reads card above the minimal contact row", () => {
+  it("closes with the reading section above the minimal contact row", () => {
     renderHomePage();
-    const weekly = screen.getByRole("link", { name: /browse the stack/i });
+    const weekly = screen.getByTestId("reading-section");
     expect(precedes(screen.getByTestId("factory-section"), weekly)).toBe(true);
     expect(precedes(weekly, screen.getByTestId("contact-section"))).toBe(true);
   });

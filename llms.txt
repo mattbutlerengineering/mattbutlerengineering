@@ -3397,6 +3397,11 @@
       export function normalizeSensorReport(report: unknown): HealthMetrics { /* ... */ }
     </item>
   </file>
+  <file path="apps/marketing/src/data/measurement-date.ts">
+    <item priority="high">
+      export const MEASUREMENT_DATE: string;
+    </item>
+  </file>
   <file path="apps/marketing/src/data/projects.ts">
     <item priority="low">
       interface Project {
@@ -3509,6 +3514,17 @@
     </item>
     <item priority="high">
       export function statusProbeFixture(url: string, method: string): ProbeFixture | undefined { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/marketing/src/data/weekly-freshness.ts">
+    <item priority="high">
+      export function recentReadingItems(
+        resources: readonly WeeklyResource[],
+        now: Date = new Date()
+      ): readonly WeeklyResource[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function latestPublishedAt(resources: readonly WeeklyResource[]): string | null { /* ... */ }
     </item>
   </file>
   <file path="apps/marketing/src/data/weekly-intake.ts">

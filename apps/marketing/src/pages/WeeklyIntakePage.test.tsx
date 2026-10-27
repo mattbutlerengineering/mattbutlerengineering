@@ -1,8 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, mbe-local/prefer-rialto-components */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WeeklyIntakePage } from "./WeeklyIntakePage.js";
+import { formatDate } from "../utils/formatters.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Heading: ({ children }: any) => <h2>{children}</h2>,
@@ -20,6 +21,14 @@ describe("WeeklyIntakePage", () => {
     expect(
       screen.getByText(/Curated resources from the best weekly newsletters/i)
     ).toBeInTheDocument();
+  });
+
+  it("states the newest issue date as a snapshot instead of claiming to be current", () => {
+    render(<WeeklyIntakePage />);
+    expect(screen.getByText(/snapshot — latest issue/i)).toHaveTextContent(
+      formatDate("2026-04-29")
+    );
+    expect(screen.queryByText(/keep you up to date/i)).toBeNull();
   });
 
   it("renders all filter buttons", () => {

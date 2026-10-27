@@ -13,6 +13,7 @@ import { FactoryCanvas } from "./FactoryCanvas.js";
 import { FactoryStill } from "./FactoryStill.js";
 import { PIPELINE_STAGES } from "./pipeline-stages.js";
 import { SHIPPED_FEATURES } from "../../data/shipped-features.js";
+import shippedSnapshot from "../../data/shipped-features.json";
 import { formatDate, formatWallClock } from "../../utils/formatters.js";
 import homeStyles from "../../pages/HomePage.module.css";
 import styles from "./FactorySection.module.css";
@@ -103,6 +104,12 @@ export function FactorySection() {
               <Heading level={3} className={styles.shippedHeading}>
                 Recently shipped
               </Heading>
+              <Text variant="detail" color="tertiary" as="p">
+                Snapshot from{" "}
+                <time dateTime={shippedSnapshot.generatedAt}>
+                  {formatDate(shippedSnapshot.generatedAt)}
+                </time>
+              </Text>
               <ul className={styles.shippedList}>
                 {SHIPPED_FEATURES.slice(0, 3).map((feature) => (
                   <li key={feature.slug} className={styles.shippedItem}>
