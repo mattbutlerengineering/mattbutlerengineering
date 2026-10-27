@@ -53,7 +53,7 @@ Policy: [`motion.md`](../../packages/rialto/docs/motion.md). Not `rubric.json`
 tells (a still image can't show them); avoid them and flag them in review.
 
 - [ ] Animation on a 100+/day action (command palette, shortcuts, typing, tab
-      switch) — make it instant.
+      switch) — make it instant or an opacity-only fade.
 - [ ] Two expressive animations in one view — one expressive element at a time.
 - [ ] Infinite loop in task UI — only status loops (loading, live, LED).
 - [ ] Scale from below 0.9 — start at 0.9+ with opacity; press scale 0.97-0.98.

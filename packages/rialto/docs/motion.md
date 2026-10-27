@@ -20,12 +20,12 @@ An animation ships only if it does at least one of these:
 
 Decide motion by how often a person meets the interaction, not by how nice it would look.
 
-| How often       | Examples                                                                | Motion                                                                                        |
-| --------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| 100+ per day    | keyboard shortcuts, command palette open, typing, tab and filter switch | None. Instant.                                                                                |
-| Tens per day    | hover, list navigation, menus, tooltips, select                         | At most `--rialto-duration-fast` (100ms), opacity or colour only. No travel, no scale.        |
-| Occasional      | dialogs, drawers, toasts, banners, confirm, collapse                    | Standard enter and exit: `precision` or `springGentle`, 150 to 200ms feel, travel under 16px. |
-| Rare (once-ish) | onboarding, first booking, booking confirmed, empty to first data       | Expressive: springs, stagger, signature instruments. This is where the pzazz goes.            |
+| How often       | Examples                                                                | Motion                                                                                            |
+| --------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| 100+ per day    | keyboard shortcuts, command palette open, typing, tab and filter switch | None, or an opacity-only fade. No travel, no scale.                                               |
+| Tens per day    | hover, list navigation, menus, tooltips, select                         | At most `--rialto-duration-fast` (100ms), opacity or colour. No travel; scale no lower than 0.95. |
+| Occasional      | dialogs, drawers, toasts, banners, confirm, collapse                    | Standard enter and exit: `precision` or `springGentle`, 150 to 200ms feel, travel under 16px.     |
+| Rare (once-ish) | onboarding, first booking, booking confirmed, empty to first data       | Expressive: springs, stagger, signature instruments. This is where the pzazz goes.                |
 
 If a surface is both frequent and a candidate for delight, the frequency wins.
 
@@ -103,15 +103,15 @@ Delight is chosen, not sprinkled. These are the planned moments; adding another 
 
 ## 8. Do and don't
 
-| Do                                                         | Don't                                                              |
-| ---------------------------------------------------------- | ------------------------------------------------------------------ |
-| Open the command palette instantly.                        | Slide and scale the command palette on every Cmd+K.                |
-| Fade and lift a toast 8px with `precision`.                | Spring a toast in from 80px away on every table update.            |
-| Give a hover a colour change within 100ms.                 | Boop-scale every button on hover in a dense staff table.           |
-| Spend one `staggerReveal` on the booking-confirmed screen. | Stagger forty rows, or animate three instruments in one view.      |
-| Run a spinner or LED breathe for loading and live status.  | Loop a decorative glow beside a form someone is filling in.        |
-| Enter a dialog from `scale: 0.97` with opacity.            | Enter a chip from `scale: 0`.                                      |
-| Resolve configs with `useMotionPreset()`.                  | Hand-build `shouldReduceMotion ? { duration: 0 } : ...` fallbacks. |
+| Do                                                           | Don't                                                              |
+| ------------------------------------------------------------ | ------------------------------------------------------------------ |
+| Open the command palette instantly, or with an opacity fade. | Slide and scale the command palette on every Cmd+K.                |
+| Fade and lift a toast 8px with `precision`.                  | Spring a toast in from 80px away on every table update.            |
+| Give a hover a colour change within 100ms.                   | Boop-scale every button on hover in a dense staff table.           |
+| Spend one `staggerReveal` on the booking-confirmed screen.   | Stagger forty rows, or animate three instruments in one view.      |
+| Run a spinner or LED breathe for loading and live status.    | Loop a decorative glow beside a form someone is filling in.        |
+| Enter a dialog from `scale: 0.97` with opacity.              | Enter a chip from `scale: 0`.                                      |
+| Resolve configs with `useMotionPreset()`.                    | Hand-build `shouldReduceMotion ? { duration: 0 } : ...` fallbacks. |
 
 ## 9. Component audit
 

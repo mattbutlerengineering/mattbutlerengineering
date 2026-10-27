@@ -239,12 +239,12 @@ export const MOTION_FREQUENCY_BUDGET: readonly {
   {
     how: "100+ per day",
     examples: "Keyboard shortcuts, command palette, typing, tab switches",
-    motion: "None. Instant.",
+    motion: "None, or an opacity-only fade.",
   },
   {
     how: "Tens per day",
     examples: "Hover, list navigation, menus",
-    motion: "At most --rialto-duration-fast, opacity or colour only.",
+    motion: "At most --rialto-duration-fast, opacity or colour. Scale no lower than 0.95.",
   },
   {
     how: "Occasional",

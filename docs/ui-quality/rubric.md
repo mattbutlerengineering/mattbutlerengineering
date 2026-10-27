@@ -218,7 +218,7 @@ any of them to a tell needs a human PR that bumps `rubric_version` and
 recomputes `tells_hash`.
 
 - **Animation on a 100+/day action** — command palette, keyboard shortcut,
-  typing, tab or filter switch. These are instant.
+  typing, tab or filter switch. These are instant or an opacity-only fade.
 - **Two expressive animations in one view** — springs, stagger or signature
   instruments compete; one at a time.
 - **Infinite loop in task UI** — only status loops (loading, live, LED) are
