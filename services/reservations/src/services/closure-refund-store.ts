@@ -44,3 +44,25 @@ export function createPrismaClosureRefundStore(): ClosureRefundStore {
       }),
   };
 }
+
+/**
+ * Moves a reservation's `done` closure outcome to `failed` after Stripe reports the closure
+ * refund failed or was canceled (`charge.refund.updated`). Conditional on `done`, so Stripe
+ * redelivery and an outcome already failed / none are left untouched. Returns `"pending"` when
+ * the outcome is not `done` yet (the job is between creating the refund and recording it), so
+ * the caller can ask Stripe to redeliver.
+ */
+export async function markDoneRefundFailed(
+  reservationId: string
+): Promise<"flipped" | "pending" | "unchanged"> {
+  const { count } = await prisma.closureOutcome.updateMany({
+    where: { reservationId, refund: "done" },
+    data: { refund: "failed" },
+  });
+  if (count > 0) return "flipped";
+  const pending = await prisma.closureOutcome.findFirst({
+    where: { reservationId, refund: "pending" },
+    select: { id: true },
+  });
+  return pending ? "pending" : "unchanged";
+}

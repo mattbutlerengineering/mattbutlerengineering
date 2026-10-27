@@ -1472,6 +1472,9 @@
     <item priority="low">
       async function onChargeRefunded(event: Stripe.Event, deps: WebhookDeps): Promise<void> { /* ... */ }
     </item>
+    <item priority="low">
+      async function onChargeRefundUpdated(event: Stripe.Event, deps: WebhookDeps): Promise<void> { /* ... */ }
+    </item>
     <item priority="medium">
       function createWebhookRouter(deps: WebhookDeps): WebhookEventRouter { /* ... */ }
     </item>
@@ -3433,6 +3436,11 @@
   <file path="src/services/closure-refund-store.ts">
     <item priority="high">
       export function createPrismaClosureRefundStore(): ClosureRefundStore { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function markDoneRefundFailed(
+        reservationId: string
+      ): Promise<"flipped" | "pending" | "unchanged"> { /* ... */ }
     </item>
   </file>
   <file path="src/services/closure-refund.ts">

@@ -8515,6 +8515,35 @@
         }
       });
     }
+    async function onChargeRefundUpdated(event: Stripe.Event, deps: WebhookDeps): Promise<void> {
+      const refund = event.data.object as Stripe.Refund;
+      if (refund.status !== "failed" && refund.status !== "canceled") return;
+      const depositId = refund.metadata?.depositId;
+      if (refund.metadata?.leg !== "closureRefund" || !depositId) return;
+      const paymentIntentId =
+        typeof refund.payment_intent === "string" ? refund.payment_intent : refund.payment_intent?.id;
+      if (!paymentIntentId) return;
+    
+      await withDepositVenueContext(paymentIntentId, event.type, async () => {
+        const deposit = await deps.deposits.getByPaymentIntentId(paymentIntentId);
+        if (!deposit || deposit.id !== depositId) return;
+        logger.info(
+          { depositId, paymentIntentId, refundId: refund.id, status: refund.status },
+          "closure refund failed at Stripe; marking its outcome failed"
+        );
+        // A newer live closure refund (a retry after this one failed) means this event is stale:
+        // the outcome's `done` belongs to the newer refund, so leave it alone.
+        const live = await deps.payments.findDepositRefund(paymentIntentId, depositId, "closureRefund");
+        if (live && live.id !== refund.id) return;
+        const result = await markDoneRefundFailed(deposit.reservationId);
+        // Still `pending`: the job is between createPartialRefund and recording `done`. Throw so
+        // the route answers 500 and Stripe redelivers (it stops after ~3 days), by which time
+        // the outcome is `done` and the redelivery flips it.
+        if (result === "pending") {
+          throw new Error(`closure refund ${refund.id} failed before its outcome was recorded done`);
+        }
+      });
+    }
     function createWebhookRouter(deps: WebhookDeps): WebhookEventRouter {
       return new WebhookEventRouter()
         .register("payment_intent.succeeded", (event) => onPaymentIntentSucceeded(event, deps))
@@ -8522,7 +8551,8 @@
           onPaymentIntentAmountCapturableUpdated(event, deps)
         )
         .register("payment_intent.canceled", (event) => onPaymentIntentCanceled(event, deps))
-        .register("charge.refunded", (event) => onChargeRefunded(event, deps));
+        .register("charge.refunded", (event) => onChargeRefunded(event, deps))
+        .register("charge.refund.updated", (event) => onChargeRefundUpdated(event, deps));
     }
     export const stripeWebhookRoutes: FastifyPluginAsync = async (fastify) => {
       // Scoped to this plugin's routes only (fastify.register encapsulation) — captures
@@ -15327,6 +15357,20 @@
             select: { id: true, reservationId: true, refund: true },
           }),
       };
+    }
+    export async function markDoneRefundFailed(
+      reservationId: string
+    ): Promise<"flipped" | "pending" | "unchanged"> {
+      const { count } = await prisma.closureOutcome.updateMany({
+        where: { reservationId, refund: "done" },
+        data: { refund: "failed" },
+      });
+      if (count > 0) return "flipped";
+      const pending = await prisma.closureOutcome.findFirst({
+        where: { reservationId, refund: "pending" },
+        select: { id: true },
+      });
+      return pending ? "pending" : "unchanged";
     }
   </file>
   <file path="src/services/closure-refund.ts">
