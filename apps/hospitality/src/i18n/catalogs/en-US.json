@@ -2237,8 +2237,7 @@
         "save_many": "Apply to {{count}} dates",
         "saved_one": "{{count}} date updated",
         "saved_other": "{{count}} dates updated",
-        "saved_many": "{{count}} dates updated",
-        "error": "Couldn’t update these dates"
+        "saved_many": "{{count}} dates updated"
       },
       "clearDialog": {
         "title_one": "Clear changes on {{count}} date?",

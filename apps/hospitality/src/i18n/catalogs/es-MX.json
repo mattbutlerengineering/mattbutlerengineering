@@ -2287,8 +2287,7 @@
         "save_many": "Aplicar a {{count}} fechas",
         "saved_one": "{{count}} fecha actualizada",
         "saved_other": "{{count}} fechas actualizadas",
-        "saved_many": "{{count}} fechas actualizadas",
-        "error": "No se pudieron actualizar estas fechas"
+        "saved_many": "{{count}} fechas actualizadas"
       },
       "clearDialog": {
         "title_one": "¿Borrar los cambios de {{count}} fecha?",

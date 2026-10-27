@@ -2287,8 +2287,7 @@
         "save_many": "Appliquer à {{count}} dates",
         "saved_one": "{{count}} date mise à jour",
         "saved_other": "{{count}} dates mises à jour",
-        "saved_many": "{{count}} dates mises à jour",
-        "error": "Impossible de mettre à jour ces dates"
+        "saved_many": "{{count}} dates mises à jour"
       },
       "clearDialog": {
         "title_one": "Effacer les modifications de {{count}} date ?",

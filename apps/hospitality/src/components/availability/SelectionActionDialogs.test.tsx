@@ -87,9 +87,9 @@ describe("ClearChangesDialog", () => {
     return { onFinished, onClose };
   }
 
-  it("asks before clearing and names the count", () => {
+  it("asks before clearing and names the dates that change", () => {
     renderClear();
-    expect(screen.getByText("Clear changes on 2 dates?")).toBeInTheDocument();
+    expect(screen.getByText("Clear changes on 1 date?")).toBeInTheDocument();
     expect(save).not.toHaveBeenCalled();
   });
 
@@ -99,8 +99,29 @@ describe("ClearChangesDialog", () => {
     await waitFor(() => expect(onFinished).toHaveBeenCalledOnce());
     expect(sent().body.expectedVersion).toBe(7);
     expect(sent().body.changes.remove.dateRules).toEqual(["r-special"]);
-    expect(await screen.findByText("Cleared changes on 2 dates")).toBeInTheDocument();
+    expect(await screen.findByText("Cleared changes on 1 date")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Undo" })).toBeInTheDocument();
+  });
+
+  it("counts only the dates that actually change", async () => {
+    render(
+      <ToastProvider>
+        <main>
+          <ClearChangesDialog
+            open
+            venueId="venue-1"
+            state={stateOf([EARLY_DINNER])}
+            dates={[FIXTURE_DATE, OTHER, "2026-11-01", "2026-11-02"]}
+            onClose={vi.fn()}
+            onFinished={vi.fn()}
+            onStale={vi.fn()}
+          />
+        </main>
+      </ToastProvider>
+    );
+    expect(screen.getByText("Clear changes on 1 date?")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Clear changes" }));
+    expect(await screen.findByText("Cleared changes on 1 date")).toBeInTheDocument();
   });
 
   it("keeps the changes when cancelled", () => {

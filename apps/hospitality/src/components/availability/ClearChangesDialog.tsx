@@ -4,7 +4,7 @@ import type { AvailabilityConfigState } from "@mbe/types";
 import { useSaveAvailabilityConfig } from "../../hooks/useAvailability.js";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
-import { buildClearChanges } from "./selection-actions.js";
+import { buildClearChanges, ownSingleDateRules } from "./selection-actions.js";
 
 export interface ClearChangesDialogProps {
   readonly open: boolean;
@@ -30,6 +30,9 @@ export function ClearChangesDialog(props: ClearChangesDialogProps) {
   const offerUndo = useAvailabilityUndo();
   const { mutateAsync } = useSaveAvailabilityConfig();
 
+  // Only dates with an own change of theirs are touched; say that number, not the selection's.
+  const changing = new Set(ownSingleDateRules(state.config, dates).map((r) => r.startsOn)).size;
+
   const confirm = async () => {
     try {
       const saved = await mutateAsync({
@@ -43,7 +46,7 @@ export function ClearChangesDialog(props: ClearChangesDialogProps) {
       offerUndo({
         venueId,
         saved,
-        title: t("availability.selection.clearDialog.saved", { count: dates.length }),
+        title: t("availability.selection.clearDialog.saved", { count: changing }),
       });
       onFinished();
     } catch (error) {
@@ -57,7 +60,7 @@ export function ClearChangesDialog(props: ClearChangesDialogProps) {
     <ConfirmDialog
       open={open}
       variant="destructive"
-      title={t("availability.selection.clearDialog.title", { count: dates.length })}
+      title={t("availability.selection.clearDialog.title", { count: changing })}
       description={t("availability.selection.clearDialog.description")}
       confirmLabel={t("availability.selection.clearDialog.confirm")}
       cancelLabel={t("availability.selection.clearDialog.keep")}
