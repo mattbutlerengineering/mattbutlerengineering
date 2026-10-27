@@ -1,0 +1,101 @@
+{
+  "duration_api_ms": 166311,
+  "stop_reason": "end_turn",
+  "session_id": "ef595134-672a-4fae-9eb0-9196cc5da682",
+  "total_cost_usd": 1.0928908,
+  "usage": {
+    "input_tokens": 64,
+    "cache_creation_input_tokens": 89519,
+    "cache_read_input_tokens": 3035384,
+    "output_tokens": 12761,
+    "output_tokens_details": {
+      "thinking_tokens": 3297
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 89519,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 206,
+        "cache_read_input_tokens": 115498,
+        "cache_creation_input_tokens": 927,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 927
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 64,
+      "outputTokens": 12761,
+      "cacheReadInputTokens": 3035384,
+      "cacheCreationInputTokens": 89519,
+      "webSearchRequests": 0,
+      "costUSD": 1.0928908,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 3297,
+      "cacheCreationEphemeral5mInputTokens": 0,
+      "cacheCreationEphemeral1hInputTokens": 89519,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 37,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "WO-0073 done, test-first: RED test added, GREEN implementation, checkbox ticked, commit `aa1148e81` on `conductor/b20261027-7749`, pr-body.md written uncommitted at worktree root.\n\nFull reservations suite (3210 tests), typecheck, lint, and architecture-audit all pass. Did not run the drift lane's dep-graph/llms regen check in full (no package.json or workspace-boundary changes, so it's not a plausible source) \u2014 `llms.txt`/`llms-full.txt` for `services/reservations` were regenerated and committed by the pre-commit hook already.",
+  "ttft_ms": 2830,
+  "type": "result",
+  "duration_ms": 345426,
+  "uuid": "1760a560-ec6e-47ef-8c65-5bc049d56278",
+  "ttft_stream_ms": 1891,
+  "time_to_request_ms": 409,
+  "first_content_frame_ms": 1892,
+  "queued_turn_count": 0,
+  "result_index": 0
+}
