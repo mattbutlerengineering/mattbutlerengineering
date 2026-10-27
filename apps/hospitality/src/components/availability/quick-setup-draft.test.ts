@@ -144,7 +144,7 @@ describe("quick setup draft", () => {
       services: [timed("l", "11:00", "14:00", "15:00"), timed("n", "22:00", "10:00", "11:00")],
       days: WEEKDAY_SHORTCUT,
     };
-    expect(validateDraft(draft)).toEqual([
+    expect(validateDraft(draft, { legacyReader: true })).toEqual([
       { serviceId: "n", field: "closes", code: "legacy_closed_day" },
     ]);
   });
@@ -159,9 +159,11 @@ describe("quick setup draft", () => {
         "10:30"
       )
     );
-    expect(validateDraft(short)).toEqual([
+    expect(validateDraft(short, { legacyReader: true })).toEqual([
       { serviceId: "s1", field: "closes", code: "legacy_closed_day" },
     ]);
+    // The Availability page card writes config rows directly, so the legacy reader never sees them.
+    expect(validateDraft(short)).toEqual([]);
   });
 
   it("flags a service name over 40 characters", () => {

@@ -215,9 +215,14 @@ function orderIssues(service: ServiceDraft, m: ServiceMinutes): QuickSetupIssue[
 
 /**
  * Field-level problems, in card order (first is where focus goes). Overlap is the engine's call
- * (`validateConfig`): the same rule the server applies on save.
+ * (`validateConfig`): the same rule the server applies on save. `legacyReader` is for the
+ * new-venue wizard, which sends legacy hours; the card writes config rows directly, so days the
+ * legacy reader would close (`legacy_closed_day`) are fine there.
  */
-export function validateDraft(draft: QuickSetupDraft): QuickSetupIssue[] {
+export function validateDraft(
+  draft: QuickSetupDraft,
+  options: { readonly legacyReader?: boolean } = {}
+): QuickSetupIssue[] {
   const perService = draft.services.flatMap((service) => {
     const missing = completenessIssues(service);
     const minutes = minutesOf(service);
@@ -235,7 +240,7 @@ export function validateDraft(draft: QuickSetupDraft): QuickSetupIssue[] {
       const service = draft.services[index];
       return service ? [{ serviceId: service.id, field: "opens", code: "overlap" }] : [];
     });
-  return [...overlaps, ...spanIssues(draft), ...daysIssue];
+  return [...overlaps, ...spanIssues(draft, options.legacyReader === true), ...daysIssue];
 }
 
 /**
@@ -246,7 +251,7 @@ export function validateDraft(draft: QuickSetupDraft): QuickSetupIssue[] {
  * (`normalizeLegacyHours` + `buildLegacyConfig`) so the thresholds are not copied here, and
  * blame the latest-closing service.
  */
-function spanIssues(draft: QuickSetupDraft): QuickSetupIssue[] {
+function spanIssues(draft: QuickSetupDraft, legacyReader: boolean): QuickSetupIssue[] {
   const read = normalizeLegacyHours(draftToLegacyHours(draft));
   const tooLong =
     read.ok &&
@@ -257,7 +262,7 @@ function spanIssues(draft: QuickSetupDraft): QuickSetupIssue[] {
     );
   const code: QuickSetupIssueCode | null = tooLong
     ? "span_too_long"
-    : read.ok && hasClosedDay(draft, read.hours)
+    : legacyReader && read.ok && hasClosedDay(draft, read.hours)
       ? "legacy_closed_day"
       : null;
   if (code === null) return [];

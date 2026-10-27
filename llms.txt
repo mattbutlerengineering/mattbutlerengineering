@@ -1949,10 +1949,13 @@
       function orderIssues(service: ServiceDraft, m: ServiceMinutes): QuickSetupIssue[] { /* ... */ }
     </item>
     <item priority="high">
-      export function validateDraft(draft: QuickSetupDraft): QuickSetupIssue[] { /* ... */ }
+      export function validateDraft(
+        draft: QuickSetupDraft,
+        options: { readonly legacyReader?: boolean } = {}
+      ): QuickSetupIssue[] { /* ... */ }
     </item>
     <item priority="medium">
-      function spanIssues(draft: QuickSetupDraft): QuickSetupIssue[] { /* ... */ }
+      function spanIssues(draft: QuickSetupDraft, legacyReader: boolean): QuickSetupIssue[] { /* ... */ }
     </item>
     <item priority="medium">
       function hasClosedDay(draft: QuickSetupDraft, hours: LegacyHours): boolean { /* ... */ }

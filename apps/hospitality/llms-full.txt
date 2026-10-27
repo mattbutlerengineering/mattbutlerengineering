@@ -1134,7 +1134,10 @@
       if (service.opens === service.closes) return [at("closes", "close_after_open")];
       return m.lastSeatingAt > m.closesAt ? [at("lastSeating", "last_seating_after_close")] : [];
     }
-    export function validateDraft(draft: QuickSetupDraft): QuickSetupIssue[] {
+    export function validateDraft(
+      draft: QuickSetupDraft,
+      options: { readonly legacyReader?: boolean } = {}
+    ): QuickSetupIssue[] {
       const perService = draft.services.flatMap((service) => {
         const missing = completenessIssues(service);
         const minutes = minutesOf(service);
@@ -1152,9 +1155,9 @@
           const service = draft.services[index];
           return service ? [{ serviceId: service.id, field: "opens", code: "overlap" }] : [];
         });
-      return [...overlaps, ...spanIssues(draft), ...daysIssue];
+      return [...overlaps, ...spanIssues(draft, options.legacyReader === true), ...daysIssue];
     }
-    function spanIssues(draft: QuickSetupDraft): QuickSetupIssue[] {
+    function spanIssues(draft: QuickSetupDraft, legacyReader: boolean): QuickSetupIssue[] {
       const read = normalizeLegacyHours(draftToLegacyHours(draft));
       const tooLong =
         read.ok &&
@@ -1165,7 +1168,7 @@
         );
       const code: QuickSetupIssueCode | null = tooLong
         ? "span_too_long"
-        : read.ok && hasClosedDay(draft, read.hours)
+        : legacyReader && read.ok && hasClosedDay(draft, read.hours)
           ? "legacy_closed_day"
           : null;
       if (code === null) return [];
