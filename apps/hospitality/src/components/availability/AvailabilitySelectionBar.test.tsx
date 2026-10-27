@@ -53,6 +53,44 @@ describe("AvailabilitySelectionBar", () => {
     expect(screen.getByRole("button", { name: "Clear selection" })).toBeInTheDocument();
   });
 
+  it("offers Use another day's hours with one schedule and Use schedule with several", () => {
+    const onUseSchedule = vi.fn();
+    const { rerender } = renderBar({ onUseSchedule, multipleSchedules: false });
+    fireEvent.click(screen.getByRole("button", { name: "Use another day’s hours" }));
+    expect(onUseSchedule).toHaveBeenCalledOnce();
+    rerender(
+      <main>
+        <AvailabilitySelectionBar
+          selection={SIX}
+          canEdit
+          onEditHours={vi.fn()}
+          onClear={vi.fn()}
+          onUseSchedule={onUseSchedule}
+          multipleSchedules
+        />
+      </main>
+    );
+    expect(screen.getByRole("button", { name: "Use schedule" })).toBeInTheDocument();
+  });
+
+  it("opens Clear changes when the selection has changes of its own", () => {
+    const onClearChanges = vi.fn();
+    renderBar({ onClearChanges, canClearChanges: true });
+    fireEvent.click(screen.getByRole("button", { name: "Clear changes" }));
+    expect(onClearChanges).toHaveBeenCalledOnce();
+  });
+
+  it("disables Clear changes when no selected date has changes to clear", () => {
+    renderBar({ onClearChanges: vi.fn(), canClearChanges: false });
+    expect(screen.getByRole("button", { name: "Clear changes" })).toBeDisabled();
+  });
+
+  it("hides both schedule actions from someone who cannot edit", () => {
+    renderBar({ canEdit: false, onUseSchedule: vi.fn(), onClearChanges: vi.fn() });
+    expect(screen.queryByRole("button", { name: "Clear changes" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Use/ })).not.toBeInTheDocument();
+  });
+
   it("keeps an empty live region mounted so the first selection is announced", () => {
     renderBar({ selection: [] });
     expect(screen.getByRole("status")).toBeEmptyDOMElement();

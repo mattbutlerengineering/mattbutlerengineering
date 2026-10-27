@@ -813,6 +813,36 @@
       ): string[] { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/selection-actions.ts">
+    <item priority="high">
+      export function ownSingleDateRules(
+        config: AvailabilityConfig,
+        dates: readonly string[]
+      ): DateRule[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildClearChanges(
+        config: AvailabilityConfig,
+        dates: readonly string[]
+      ): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildUseScheduleChanges(
+        config: AvailabilityConfig,
+        dates: readonly string[],
+        scheduleId: string,
+        makeId: () => string
+      ): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildUseDayHoursChanges(input: {
+        readonly config: AvailabilityConfig;
+        readonly services: readonly DraftService[];
+        readonly dates: readonly string[];
+        readonly makeId: () => string;
+      }): AvailabilityConfigChanges { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/selection.ts">
     <item priority="high">
       export function normalizeDates(dates: readonly string[]): string[] { /* ... */ }

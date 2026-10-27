@@ -9,15 +9,23 @@ export interface AvailabilitySelectionBarProps {
   /** Open the day drawer with these dates as its fixed scope. */
   readonly onEditHours: (dates: readonly string[]) => void;
   readonly onClear: () => void;
+  /** Open the Use schedule / another day's hours dialog. */
+  readonly onUseSchedule?: () => void;
+  /** Two or more schedules exist, so the action names a schedule rather than another day. */
+  readonly multipleSchedules?: boolean;
+  /** Open the Clear changes confirmation. */
+  readonly onClearChanges?: () => void;
+  /** At least one selected date has an hours change of its own to clear. */
+  readonly canClearChanges?: boolean;
 }
 
 /**
  * The bar that appears while days are picked (ux.md F-MS). Its live region stays mounted even
  * when nothing is picked, so the first selection is announced rather than silently inserted.
- * Close…, Use schedule and Clear changes join it with their own slices.
+ * Close… joins it with its own slice.
  */
 export function AvailabilitySelectionBar(props: AvailabilitySelectionBarProps) {
-  const { selection, canEdit, onEditHours, onClear } = props;
+  const { selection, canEdit, onEditHours, onClear, onUseSchedule, onClearChanges } = props;
   const { t } = useTranslation();
   const count = selection.length;
 
@@ -35,6 +43,20 @@ export function AvailabilitySelectionBar(props: AvailabilitySelectionBarProps) {
           {canEdit && (
             <Button variant="primary" onClick={() => onEditHours(selection)}>
               {t("availability.selection.editHours")}
+            </Button>
+          )}
+          {canEdit && onUseSchedule && (
+            <Button variant="secondary" onClick={onUseSchedule}>
+              {t(
+                props.multipleSchedules
+                  ? "availability.selection.useSchedule"
+                  : "availability.selection.useOtherDay"
+              )}
+            </Button>
+          )}
+          {canEdit && onClearChanges && (
+            <Button variant="secondary" disabled={!props.canClearChanges} onClick={onClearChanges}>
+              {t("availability.selection.clearChanges")}
             </Button>
           )}
           <IconButton
