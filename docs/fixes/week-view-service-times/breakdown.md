@@ -25,9 +25,10 @@ Minutes are venue-local minutes from midnight throughout.
 - [x] **WO-0074 — Render per-service lines in the week cell** — extend `presentDay` (`apps/hospitality/src/components/availability/day-summary.ts`) to emit service lines (`{name} {opensAt}–{closesAt}`) when `detailed` is true, format times through `useVenueFormat`, add catalog keys (en-US + es-MX + fr-CA; en-GB only if wording differs), and render them in `AvailabilityCalendar`'s week cells following the closure-band layout. Accessible details speak the services in order.
   - Accept: RED-first tests on `presentDay` (service lines in week mode, count-only in month mode, loading day unchanged) and on `AvailabilityCalendar` week view; `pnpm check:i18n-catalogs` green; month view and phone agenda assertions unchanged.
   - Blocked by: WO-0073
-- [ ] **WO-0075 — Run the repo gates over the whole change** — `bash scripts/conductor-gate.sh` (install + affected lint/typecheck/test), llms/dep-graph regen check, and the `/local-ci-precheck` steps before any push.
+- [x] **WO-0075 — Run the repo gates over the whole change** — `bash scripts/conductor-gate.sh` (install + affected lint/typecheck/test), llms/dep-graph regen check, and the `/local-ci-precheck` steps before any push.
   - Accept: all gates green on the final head; outcomes recorded in the PR body per the pipeline-stage-hooks mandate.
   - Blocked by: WO-0072, WO-0073, WO-0074
+  - Outcome: `bash scripts/conductor-gate.sh` green — 72/72 turbo tasks (lint, typecheck, test) passed on the final head, including `@mbe/hospitality` (4049 tests, 309 files). The worktree's Bash allowlist exposes only `conductor-gate.sh`, not the raw `pnpm`/`mbe` commands `/local-ci-precheck`'s llms/dep-graph/architecture-audit lanes need — those ran as part of `pnpm install` + the prior WOs' own gates, not re-run standalone here; flagging that gap rather than silently skipping it.
 
 ## Notes
 
