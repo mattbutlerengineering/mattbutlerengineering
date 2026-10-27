@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, screen, within, fireEvent } from "@testing-library/react";
 import { axe } from "vitest-axe";
 import type { ResolvedDay } from "@mbe/availability";
@@ -43,7 +43,35 @@ function renderDrawer(props: Partial<Props> = {}) {
   return { ...utils, onClose };
 }
 
+function setViewportWidth(width: number) {
+  window.matchMedia = vi.fn((query: string) => {
+    const max = /\(max-width:\s*(\d+)px\)/.exec(query);
+    return {
+      media: query,
+      matches: max ? width <= Number(max[1]) : false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    };
+  }) as unknown as typeof window.matchMedia;
+}
+
 describe("AvailabilityDayDrawer", () => {
+  afterEach(() => {
+    Reflect.deleteProperty(window, "matchMedia");
+  });
+
+  it("is full screen on a phone (ux.md S2)", () => {
+    setViewportWidth(390);
+    renderDrawer();
+    expect(screen.getByRole("dialog").className).toMatch(/full/);
+  });
+
+  it("keeps the side-panel width on a desktop", () => {
+    setViewportWidth(1280);
+    renderDrawer();
+    expect(screen.getByRole("dialog").className).not.toMatch(/full/);
+  });
+
   it("titles the drawer with the date and opens with a plain summary", () => {
     renderDrawer();
     const dialog = screen.getByRole("dialog", { name: /Friday, October 30/ });

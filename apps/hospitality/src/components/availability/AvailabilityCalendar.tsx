@@ -191,7 +191,12 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
 
   if (isMobile) {
     // Phone and tablet: a one-row-per-day list of the anchor month (a week view lists its week).
-    const listed = view === "month" ? dates.filter((d) => d.startsWith(anchorMonth)) : dates;
+    // In the month that holds today the list starts there, so no past days sit above it.
+    const inMonth = view === "month" ? dates.filter((d) => d.startsWith(anchorMonth)) : dates;
+    const listed =
+      view === "month" && today.startsWith(anchorMonth)
+        ? inMonth.filter((d) => d >= today)
+        : inMonth;
     return (
       <AvailabilityAgenda
         dates={listed}
