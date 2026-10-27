@@ -532,13 +532,25 @@ export async function previewAvailabilityConfig(
     if (!state) return { kind: "not_found" };
     const [bookings, tables] = await Promise.all([
       futureBookings(tx, venueId, civilDateIn(now, state.timezone), now),
-      tx.table.findMany({ where: { venueId }, select: { id: true } }),
+      tx.table.findMany({
+        where: { venueId },
+        select: {
+          id: true,
+          name: true,
+          capacity: true,
+          minCovers: true,
+          maxCovers: true,
+          isActive: true,
+          priority: true,
+        },
+      }),
     ]);
     return planPreview({
       state,
       body,
       bookings,
       tableIds: new Set(tables.map((t) => t.id)),
+      tables,
       now,
     });
   });

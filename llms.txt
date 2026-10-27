@@ -10965,6 +10965,18 @@
       export const PreviewScopeSchema: unknown;
     </item>
     <item priority="high">
+      export const PREVIEW_PARTY_MAX: unknown;
+    </item>
+    <item priority="high">
+      export const PREVIEW_PARTY_DEFAULT: unknown;
+    </item>
+    <item priority="high">
+      export const PREVIEW_COMPARE_WITH: unknown;
+    </item>
+    <item priority="high">
+      export const PreviewCompareWithSchema: unknown;
+    </item>
+    <item priority="high">
       export const PreviewAvailabilityBodySchema: unknown;
     </item>
     <item priority="high">
@@ -10978,6 +10990,9 @@
     </item>
     <item priority="low">
       type PreviewAvailabilityParsed = z.infer<typeof PreviewAvailabilityBodySchema>;
+    </item>
+    <item priority="low">
+      type PreviewCompareWith = z.infer<typeof PreviewCompareWithSchema>;
     </item>
     <item priority="low">
       type PreviewResult = z.infer<typeof PreviewResultSchema>;
@@ -13909,7 +13924,7 @@
         body: PreviewAvailabilityParsed;
         bookings: readonly BookedReservation[];
         tableIds: ReadonlySet<string>;
-        now: Date;
+        tables?: readonly EngineTable[];
       }
     </item>
     <item priority="low">
@@ -20229,6 +20244,7 @@
         partySize: number;
         channel: BookingChannel;
         now: Date;
+        bookableOnly?: boolean;
       }
     </item>
     <item priority="high">

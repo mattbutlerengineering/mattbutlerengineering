@@ -2329,7 +2329,7 @@
         body: PreviewAvailabilityParsed;
         bookings: readonly BookedReservation[];
         tableIds: ReadonlySet<string>;
-        now: Date;
+        tables?: readonly EngineTable[];
       }
     </item>
     <item priority="low">

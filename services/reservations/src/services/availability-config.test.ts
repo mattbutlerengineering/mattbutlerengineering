@@ -613,6 +613,8 @@ describe("previewAvailabilityConfig", () => {
     scope: { from: "2026-11-01" },
     focusDate: "2026-11-02",
     strandedOffset: 0,
+    compareWith: "saved" as const,
+    partySize: 2,
   };
 
   const previewTx = (venue: object | null, reservations: () => Promise<unknown[]>) => ({

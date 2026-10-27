@@ -19,6 +19,9 @@ vi.mock("../../contexts/venue-context-object.js", () => ({
 
 import { AvailabilityGuestPreview } from "./AvailabilityGuestPreview.js";
 
+// jsdom has no scrollIntoView; the open Select listbox scrolls to its active option.
+window.HTMLElement.prototype.scrollIntoView = vi.fn();
+
 const FOCUS = "2026-10-30";
 const DEBOUNCE = 400;
 
@@ -109,6 +112,9 @@ describe("AvailabilityGuestPreview", () => {
       draft: { changes: CHANGES_A, scopeConflicts: "keep" },
       scope: [FOCUS, "2026-11-06"],
       focusDate: FOCUS,
+      compareWith: "saved",
+      partySize: 2,
+      strandedOffset: 0,
     });
     expect(await screen.findByText("3 times added · 2 removed")).toBeInTheDocument();
     expect(await screen.findByText("Dinner 5:00 PM – 11:00 PM")).toBeInTheDocument();
@@ -278,7 +284,8 @@ describe("AvailabilityGuestPreview", () => {
     render(tree(CHANGES_A));
     await settle();
     await screen.findByText("3 times added · 2 removed");
-    expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "Preview date" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Next date" })).not.toBeInTheDocument();
   });
 
   it("has no axe violations", async () => {
@@ -289,5 +296,106 @@ describe("AvailabilityGuestPreview", () => {
       rules: { "color-contrast": { enabled: false } },
     });
     expect(violations).toEqual([]);
+  });
+
+  it("compares against the regular week when asked, and says which base is on", async () => {
+    render(tree(CHANGES_A));
+    await settle();
+    await screen.findByText("3 times added · 2 removed");
+    expect(screen.getByRole("radio", { name: "Last saved" })).toBeChecked();
+    fireEvent.click(screen.getByRole("radio", { name: "Regular week" }));
+    expect(screen.getByRole("radio", { name: "Regular week" })).toBeChecked();
+    await settle();
+    expect(previewConfig).toHaveBeenLastCalledWith(
+      "venue-1",
+      expect.objectContaining({ compareWith: "regularWeek" })
+    );
+  });
+
+  it("asks for the party size picked", async () => {
+    render(tree(CHANGES_A));
+    await settle();
+    await screen.findByText("3 times added · 2 removed");
+    expect(screen.getByRole("combobox", { name: "Party" })).toHaveTextContent("2");
+    fireEvent.click(screen.getByRole("combobox", { name: "Party" }));
+    fireEvent.click(screen.getByRole("option", { name: "6" }));
+    await settle();
+    expect(previewConfig).toHaveBeenLastCalledWith(
+      "venue-1",
+      expect.objectContaining({ partySize: 6 })
+    );
+  });
+
+  it("steps the date with the arrows and stops at the ends of the scope", async () => {
+    render(tree(CHANGES_A, [FOCUS, "2026-10-31", "2026-11-01"]));
+    await settle();
+    await screen.findByText("3 times added · 2 removed");
+    expect(screen.getByRole("button", { name: "Previous date" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Next date" }));
+    await settle();
+    expect(previewConfig).toHaveBeenLastCalledWith(
+      "venue-1",
+      expect.objectContaining({ focusDate: "2026-10-31" })
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Next date" }));
+    expect(screen.getByRole("button", { name: "Next date" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Previous date" }));
+    await settle();
+    expect(previewConfig).toHaveBeenLastCalledWith(
+      "venue-1",
+      expect.objectContaining({ focusDate: "2026-10-31" })
+    );
+  });
+
+  describe("stranded pages", () => {
+    const page = (offset: number, ids: string[]) =>
+      result({
+        stranded: {
+          total: 60,
+          offset,
+          items: ids.map((id) => ({
+            id,
+            startTime: "2026-10-31T05:30:00.000Z",
+            partySize: 2,
+            reason: "closed" as const,
+          })),
+        },
+      });
+
+    it("shows the next page from the Show link and returns with Back", async () => {
+      previewConfig.mockResolvedValue(page(0, ["r1"]));
+      render(tree(CHANGES_A));
+      await settle();
+      await screen.findByText("plus 59 more on later dates in scope");
+      previewConfig.mockResolvedValue(page(50, ["r51"]));
+      fireEvent.click(screen.getByRole("button", { name: "Show" }));
+      await settle();
+      expect(previewConfig).toHaveBeenLastCalledWith(
+        "venue-1",
+        expect.objectContaining({ strandedOffset: 50 })
+      );
+      previewConfig.mockResolvedValue(page(0, ["r1"]));
+      fireEvent.click(await screen.findByRole("button", { name: "Back to first" }));
+      await settle();
+      expect(previewConfig).toHaveBeenLastCalledWith(
+        "venue-1",
+        expect.objectContaining({ strandedOffset: 0 })
+      );
+    });
+
+    it("goes back to the first page when the draft changes", async () => {
+      previewConfig.mockResolvedValue(page(0, ["r1"]));
+      const { rerender } = render(tree(CHANGES_A));
+      await settle();
+      await screen.findByText("plus 59 more on later dates in scope");
+      fireEvent.click(screen.getByRole("button", { name: "Show" }));
+      await settle();
+      rerender(tree(CHANGES_B));
+      await settle();
+      expect(previewConfig).toHaveBeenLastCalledWith(
+        "venue-1",
+        expect.objectContaining({ strandedOffset: 0 })
+      );
+    });
   });
 });

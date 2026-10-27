@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, it, expect, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, within, fireEvent, waitFor } from "@testing-library/react";
 import { axe } from "vitest-axe";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
@@ -120,6 +120,58 @@ describe("AvailabilityDayEditor", () => {
     expect(screen.getByTestId("guest-preview")).toHaveTextContent(`${FIXTURE_DATE} x1`);
     chooseScope(/Every Friday/);
     expect(screen.getByTestId("guest-preview")).toHaveTextContent(`${FIXTURE_DATE} x53`);
+  });
+
+  describe("on a phone", () => {
+    afterEach(() => {
+      Reflect.deleteProperty(window, "matchMedia");
+    });
+
+    function phone() {
+      window.matchMedia = vi.fn((query: string) => ({
+        media: query,
+        matches: /\(max-width:\s*(\d+)px\)/.test(query),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })) as unknown as typeof window.matchMedia;
+    }
+
+    it("moves the preview to a Preview tab, with Save still in reach", () => {
+      phone();
+      renderEditor();
+      fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+      fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+      expect(screen.queryByTestId("guest-preview")).not.toBeInTheDocument();
+      expect(screen.getByRole("tab", { name: "Edit", selected: true })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("tab", { name: "Preview" }));
+      expect(screen.getByTestId("guest-preview")).toHaveTextContent(`${FIXTURE_DATE} x1`);
+      expect(screen.getByRole("button", { name: /^Save/ })).toBeEnabled();
+      fireEvent.click(screen.getByRole("tab", { name: "Edit" }));
+      expect(screen.getByRole("button", { name: "Remove Dinner" })).toBeInTheDocument();
+    });
+
+    it("keeps the typing field mounted and focused as the draft becomes previewable", () => {
+      phone();
+      renderEditor();
+      fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+      fireEvent.click(screen.getByRole("combobox", { name: "Add service" }));
+      fireEvent.click(screen.getByRole("option", { name: "A new service…" }));
+      const name = screen.getByRole("textbox", { name: /Service name/ });
+      name.focus();
+      fireEvent.change(name, { target: { value: "B" } });
+      expect(name).toBeInTheDocument();
+      expect(name).toHaveFocus();
+      fireEvent.change(name, { target: { value: "Br" } });
+      expect(name).toBeInTheDocument();
+      expect(name).toHaveFocus();
+    });
+
+    it("keeps the Preview tab off until there is a draft to preview", () => {
+      phone();
+      renderEditor();
+      fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+      expect(screen.getByRole("tab", { name: "Preview" })).toHaveAttribute("aria-disabled", "true");
+    });
   });
 
   it("makes no preview when the chosen scope reaches no dates", () => {

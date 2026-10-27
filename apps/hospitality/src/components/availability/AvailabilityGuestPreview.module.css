@@ -13,6 +13,15 @@
   gap: var(--rialto-space-xs);
 }
 
+.options,
+.strip,
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--rialto-space-xs) var(--rialto-space-sm);
+}
+
 /* The previous result stays visible, dimmed, while a newer one is on its way. */
 .stale {
   opacity: 0.6;

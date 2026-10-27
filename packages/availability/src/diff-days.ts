@@ -13,10 +13,16 @@ export interface DiffDaysOptions {
   partySize: number;
   channel: BookingChannel;
   now: Date;
+  /** Count only seatings with a table that fits the party, not every listed time. */
+  bookableOnly?: boolean;
 }
 
 const minutesOn = (snapshot: BookingSnapshot, date: ServiceDate, o: DiffDaysOptions) =>
-  new Set(listSlots(snapshot, date, o.partySize, o.channel, o.now).map((s) => s.minute));
+  new Set(
+    listSlots(snapshot, date, o.partySize, o.channel, o.now)
+      .filter((s) => !o.bookableOnly || s.available)
+      .map((s) => s.minute)
+  );
 
 const onlyIn = (a: Set<number>, b: Set<number>): number[] =>
   [...a].filter((m) => !b.has(m)).sort((x, y) => x - y);

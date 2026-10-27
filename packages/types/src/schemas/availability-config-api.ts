@@ -355,6 +355,15 @@ export const PreviewScopeSchema = z.union([
   z.object({ from: ServiceDateSchema, to: ServiceDateSchema.optional() }),
 ]);
 
+/** Largest party the preview can be asked about. */
+export const PREVIEW_PARTY_MAX = 20;
+/** The party a preview assumes when none is asked for. */
+export const PREVIEW_PARTY_DEFAULT = 2;
+
+/** What the draft's times are measured against: the saved config, or the saved regular week (no date rules). */
+export const PREVIEW_COMPARE_WITH = ["saved", "regularWeek"] as const;
+export const PreviewCompareWithSchema = z.enum(PREVIEW_COMPARE_WITH);
+
 export const PreviewAvailabilityBodySchema = z.object({
   /** The unsaved edit: the rows a save would send. */
   draft: z.object({
@@ -366,6 +375,10 @@ export const PreviewAvailabilityBodySchema = z.object({
   focusDate: ServiceDateSchema,
   /** Index of the first stranded reservation to return (a page is 50). */
   strandedOffset: z.number().int().min(0).default(0),
+  /** The base the added / removed times are measured against. */
+  compareWith: PreviewCompareWithSchema.default("saved"),
+  /** The party whose bookable times are shown (tables that fit it). */
+  partySize: z.number().int().min(1).max(PREVIEW_PARTY_MAX).default(PREVIEW_PARTY_DEFAULT),
 });
 
 /** What guests gain and lose on one date: seating minutes past the service day's midnight. */
@@ -393,6 +406,7 @@ export const PreviewResultSchema = z.object({
 export type PreviewAvailabilityBody = z.input<typeof PreviewAvailabilityBodySchema>;
 /** The body once parsed (defaults applied). */
 export type PreviewAvailabilityParsed = z.infer<typeof PreviewAvailabilityBodySchema>;
+export type PreviewCompareWith = z.infer<typeof PreviewCompareWithSchema>;
 export type PreviewResult = z.infer<typeof PreviewResultSchema>;
 export type PreviewScope = z.infer<typeof PreviewScopeSchema>;
 
