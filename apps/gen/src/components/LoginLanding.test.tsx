@@ -63,6 +63,14 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       {children}
     </div>
   ),
+  // Faithful to the real GlobalNav: a <nav> whose brand is a link home ("/").
+  GlobalNav: ({ currentApp }: { currentApp: string }) => (
+    <nav aria-label="Global" data-current-app={currentApp}>
+      <a href="/">MBE</a>
+    </nav>
+  ),
+  Footer: ({ copyright }: { copyright?: string }) => <footer>{copyright}</footer>,
+  useTheme: () => ({ theme: "light", toggleTheme: vi.fn() }),
   useUIEnvironment: () => ({ theme: "light", vibe: "default", device: {} }),
 }));
 
@@ -121,5 +129,12 @@ describe("LoginLanding", () => {
     render(<LoginLanding />);
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(screen.getAllByRole("heading", { level: 2 }).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("renders the shared site header with a home link and a footer", () => {
+    render(<LoginLanding />);
+    const nav = screen.getByRole("navigation");
+    expect(within(nav).getByRole("link", { name: "MBE" }).getAttribute("href")).toBe("/");
+    expect(screen.getByRole("contentinfo")).toBeDefined();
   });
 });
