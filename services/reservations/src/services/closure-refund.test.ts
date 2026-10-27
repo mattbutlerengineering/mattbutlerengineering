@@ -198,6 +198,34 @@ describe("settleClosureRefund", () => {
     expect(state.row.refund).toBe("pending");
   });
 
+  it.each(["succeeded", "processing"])(
+    "fails permanently, never done, when a refunded deposit's intent is %s",
+    async (intentStatus) => {
+      seedDeposit({ status: "refunded" });
+      const { deps, payments, state } = setup();
+      payments.respond("retrievePaymentIntent", (id) => ({ id, status: intentStatus }));
+
+      await expect(
+        runClosureRefundJob(deps, PAYLOAD, { isFinalAttempt: false })
+      ).rejects.toMatchObject({ name: "ClosureRefundPermanentError" });
+
+      expect(state.row.refund).toBe("failed");
+      expect(stripeOps(payments)).toEqual([]);
+    }
+  );
+
+  it("keeps the outcome pending and rethrows when retrieving a refunded deposit's intent fails", async () => {
+    seedDeposit({ status: "refunded" });
+    const { deps, payments, state } = setup();
+    payments.failNext("retrievePaymentIntent", "StripeRateLimitError");
+
+    await expect(
+      runClosureRefundJob(deps, PAYLOAD, { isFinalAttempt: false })
+    ).rejects.toMatchObject({ stripeType: "StripeRateLimitError" });
+
+    expect(state.row.refund).toBe("pending");
+  });
+
   it("settles a refunded deposit with no payment intent without a Stripe call", async () => {
     seedDeposit({ status: "refunded", stripePaymentIntentId: null });
     const { deps, payments, state } = setup();

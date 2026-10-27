@@ -197,6 +197,11 @@ async function confirmRefundedIntentVoid(deps: ClosureRefundDeps, deposit: Depos
   const intent = await deps.payments.retrievePaymentIntent(pi);
   if (intent.status === "requires_capture") {
     await deps.payments.cancelPaymentIntent(pi, `${deposit.id}:refund`);
+  } else if (intent.status === "succeeded" || intent.status === "processing") {
+    // The rollback to `held` failed after a capture; the row lies. Never record `done`.
+    throw new ClosureRefundPermanentError(
+      `Deposit ${deposit.id} is refunded but its payment ${pi} is ${intent.status}; refund it by hand`
+    );
   }
 }
 
@@ -205,6 +210,7 @@ async function refundHeld(deps: ClosureRefundDeps, deposit: Deposit): Promise<vo
   try {
     await deps.deposits.refund(deposit.id);
   } catch (error) {
+    // Also thrown when the intent is `processing`, not only `succeeded`.
     if (error instanceof DepositAlreadyCapturedError) {
       throw new ClosureRefundPermanentError(
         `Deposit ${deposit.id} was captured outside the app; refund it by hand`
