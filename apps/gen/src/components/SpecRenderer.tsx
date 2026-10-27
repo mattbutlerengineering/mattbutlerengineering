@@ -8,7 +8,6 @@ import {
   createSelectableRegistry,
   stampNodeKeys,
 } from "./selectable-registry.js";
-import { normalizeGeneratedSpec } from "../lib/normalize-generated-spec.js";
 
 export interface SpecProviderProps {
   children: ReactNode;
@@ -46,11 +45,10 @@ export function SpecRenderer({
     () => (selectable ? createSelectableRegistry(registry) : registry),
     [selectable]
   );
-  const activeSpec = useMemo(() => {
-    if (!spec) return spec;
-    const stamped = selectable ? stampNodeKeys(spec) : spec;
-    return normalizeGeneratedSpec(stamped);
-  }, [selectable, spec]);
+  const activeSpec = useMemo(
+    () => (selectable && spec ? stampNodeKeys(spec) : spec),
+    [selectable, spec]
+  );
   const [cursor, setCursor] = useState<{ spec: Spec | null; key: string | null }>({
     spec,
     key: null,

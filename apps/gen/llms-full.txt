@@ -301,11 +301,6 @@
     
       // Store AbortController in ref so it persists across renders
       const abortControllerRef = useRef<AbortController | null>(null);
-      // A second Generate click used to abort the in-flight request and clear the
-      // spec, and the aborted request's catch then set isStreaming false under the
-      // replacement. Extra clicks are ignored until this request settles.
-      const inFlightRef = useRef(false);
-      const generationRef = useRef(0);
     
       // Use stable refs for callbacks to avoid re-creating send on every render.
       // Sync via useEffect — writing ref.current in render body violates
@@ -326,9 +321,8 @@
           context?: Record<string, unknown>,
           extraBody?: Record<string, unknown>
         ): Promise<void> => {
-          if (inFlightRef.current) return;
-          inFlightRef.current = true;
-          const generation = ++generationRef.current;
+          // Abort any in-flight request
+          abortControllerRef.current?.abort();
     
           const controller = new AbortController();
           abortControllerRef.current = controller;
@@ -364,8 +358,6 @@
               setSpec(updatedSpec);
             }
     
-            if (generation !== generationRef.current) return;
-    
             // Build the final spec and notify completion — pass local rawLines array
             // to avoid stale closure pitfall (React state may not reflect latest lines)
             const finalSpec = accumulatedElements.length > 0 ? flatToTree(accumulatedElements) : null;
@@ -375,7 +367,6 @@
     
             setIsStreaming(false);
           } catch (err) {
-            if (generation !== generationRef.current) return;
             if (err instanceof Error && err.name === "AbortError") {
               // Abort is intentional (user clicked stop) — keep partial spec, no error
               setIsStreaming(false);
@@ -390,8 +381,6 @@
             setError(error);
             setIsStreaming(false);
             onErrorRef.current?.(error);
-          } finally {
-            if (generation === generationRef.current) inFlightRef.current = false;
           }
         },
         [api, accessToken]
@@ -404,8 +393,6 @@
       }, []);
     
       const stop = useCallback(() => {
-        generationRef.current += 1;
-        inFlightRef.current = false;
         abortControllerRef.current?.abort();
         setIsStreaming(false);
       }, []);
@@ -931,87 +918,6 @@
       return { kind: "generate", prompt: entry.prompt };
     }
   </file>
-  <file path="src/lib/normalize-generated-spec.ts">
-    export function parseTrendPoints(text: string): { label: string; value: string }[] | null {
-      const trimmed = text.trim();
-      if (trimmed.length < 8 || trimmed.length > 400) return null;
-      const parts = trimmed.split(/\s*[·•|,]\s*/);
-      if (parts.length < 3) return null;
-      const points: { label: string; value: string }[] = [];
-      for (const part of parts) {
-        const match = POINT.exec(part.trim());
-        if (!match || match[1] === undefined || match[2] === undefined) return null;
-        points.push({ label: match[1], value: match[2] });
-      }
-      return points;
-    }
-    function textContent(props: unknown): string | null {
-      if (props === null || typeof props !== "object") return null;
-      const record = props as Record<string, unknown>;
-      if (typeof record.children === "string") return record.children;
-      if (typeof record.text === "string") return record.text;
-      return null;
-    }
-    export function normalizeGeneratedSpec(spec: Spec): Spec {
-      let changed = false;
-      const elements: Spec["elements"] = { ...spec.elements };
-      for (const [key, element] of Object.entries(elements)) {
-        if (!element || element.type !== "Text") continue;
-        const text = textContent(element.props);
-        const points = text ? parseTrendPoints(text) : null;
-        if (!points) continue;
-        changed = true;
-        elements[key] = {
-          ...element,
-          type: "BarChart",
-          props: { label: "Trend", data: points },
-        };
-      }
-      return changed ? { ...spec, elements } : spec;
-    }
-  </file>
-  <file path="src/lib/pending-prompt.ts">
-    export const PENDING_PROMPT_KEY = "gen.pendingPrompt";
-    function continueWhenStorageFails(error: unknown): void {
-      if (error instanceof Error) return;
-      throw error;
-    }
-    export function interruptedPromptNotice(): string {
-      return INTERRUPTED_NOTICE;
-    }
-    export function rememberPendingPrompt(
-      prompt: string,
-      storage: Storage = window.sessionStorage
-    ): void {
-      try {
-        storage.setItem(PENDING_PROMPT_KEY, prompt);
-      } catch (error) {
-        continueWhenStorageFails(error);
-      }
-    }
-    export function clearPendingPrompt(storage: Storage = window.sessionStorage): void {
-      try {
-        storage.removeItem(PENDING_PROMPT_KEY);
-      } catch (error) {
-        continueWhenStorageFails(error);
-      }
-      cached = null;
-    }
-    export function readInterruptedPrompt(storage: Storage = window.sessionStorage): string | null {
-      if (cached !== undefined) return cached;
-      try {
-        const value = storage.getItem(PENDING_PROMPT_KEY);
-        storage.removeItem(PENDING_PROMPT_KEY);
-        cached = value && value.trim() !== "" ? value : null;
-      } catch {
-        cached = null;
-      }
-      return cached;
-    }
-    export function resetInterruptedPromptCache(): void {
-      cached = undefined;
-    }
-  </file>
   <file path="src/lib/shortcuts.ts">
     export type ShortcutAction =
       | "newGeneration"
@@ -1371,8 +1277,6 @@
       /** The raw prompt behind the current displayError, so it can be restored
        *  into the prompt input for editing instead of being lost. */
       failedPrompt: string | null;
-      /** Prompt restored after a refresh dropped an in-flight generation. */
-      interruptedPrompt: string | null;
     
       // Session verbs — own transition choreography lives here, not in the caller.
       submit: (prompt: string) => void;
@@ -1439,19 +1343,10 @@
       const diffHistory = useSpecDiffHistory();
       const { push: pushDiff, clear: clearDiffs } = diffHistory;
       const [lastChange, setLastChange] = useState<SpecDiff | null>(null);
-      const [interruptedPrompt] = useState(() => readInterruptedPrompt());
-      const noticedInterruptedRef = useRef(false);
-    
-      useEffect(() => {
-        if (!interruptedPrompt || noticedInterruptedRef.current) return;
-        noticedInterruptedRef.current = true;
-        options?.onNotice?.(interruptedPromptNotice());
-      }, [interruptedPrompt, options]);
     
       const { spec, isStreaming, error, rawLines, send, stop, clear } = useGenStream({
         api: "/api/gen/ui",
         onComplete: (completedSpec, completedRawLines) => {
-          clearPendingPrompt();
           const nodeRefine = nodeRefineRef.current;
           let savedSpec = completedSpec;
           let refinement: SpecDiff | undefined;
@@ -1535,7 +1430,6 @@
         // transport/HTTP failure (auth expired, network drop) — that's an
         // infrastructure hiccup, not a generation failure worth recording.
         onError: (err) => {
-          clearPendingPrompt();
           if (!rawPrompt || isTransportError(err)) return;
           void saveSpec({
             prompt: rawPrompt,
@@ -1589,7 +1483,6 @@
     
       const submit = useCallback(
         (prompt: string) => {
-          rememberPendingPrompt(prompt);
           setRawPrompt(prompt);
           clearNodeRefine();
           if (mode === "refine" && displaySpec) {
@@ -1765,15 +1658,9 @@
       // common case, so resetTo(null) alone is a no-op for it) and the logo
       // click / sign-out "New Generation" action doesn't show the empty state.
       const reset = useCallback(() => {
-        clearPendingPrompt();
         clear();
         resetTo(null);
       }, [clear, resetTo]);
-    
-      const stopGeneration = useCallback(() => {
-        clearPendingPrompt();
-        stop();
-      }, [stop]);
     
       const handleDeleteSpec = useCallback(
         (id: string) => {
@@ -1809,7 +1696,6 @@
         displayError,
         activeSpecId,
         failedPrompt,
-        interruptedPrompt,
     
         submit,
         refine: enterRefinement,
@@ -1825,7 +1711,7 @@
         canRedo: diffHistory.canRedo,
         lastChange,
         reset,
-        stop: stopGeneration,
+        stop,
       };
     }
   </file>
@@ -1895,37 +1781,6 @@
   </file>
   </section>
   <section priority="medium" role="src">
-  <file path="src/auth-config.ts">
-    export interface GenAuthEnv {
-      authority?: string;
-      clientId?: string;
-      redirectUri?: string;
-      audience?: string;
-    }
-    export interface GenAuthConfig {
-      authority: string;
-      clientId: string;
-      redirectUri: string;
-      audience?: string;
-      postLogoutRedirectUri: string;
-    }
-    export function buildGenAuthConfig(env: GenAuthEnv, origin: string): GenAuthConfig {
-      const redirectUri =
-        env.redirectUri && env.redirectUri.trim() !== "" ? env.redirectUri : `${origin}/gen/callback`;
-      // Strip only the gen callback suffix so a custom redirect that is not the
-      // gen callback cannot invent a logout URL Auth0 has never been given.
-      const postLogoutRedirectUri = redirectUri.endsWith("/gen/callback")
-        ? redirectUri.slice(0, -"/callback".length)
-        : `${origin}/gen`;
-      return {
-        authority: env.authority ?? "",
-        clientId: env.clientId ?? "",
-        redirectUri,
-        audience: env.audience,
-        postLogoutRedirectUri,
-      };
-    }
-  </file>
   <file path="src/types.ts">
     export type EntryKind = "generate" | "refine" | "recover" | "failed";
     export interface StoredSpec {

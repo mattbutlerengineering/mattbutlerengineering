@@ -30,9 +30,8 @@ const PROMPT_SUGGESTIONS = [
   {
     icon: "🎨",
     title: "Dashboard",
-    description: "Analytics dashboard with a revenue BarChart and KPIs",
-    prompt:
-      "Analytics dashboard with KPI stats and a BarChart of monthly revenue (Jan through Jun), not a paragraph of numbers",
+    description: "Analytics dashboard with charts and KPIs",
+    prompt: "Analytics dashboard with charts and KPIs",
   },
   {
     icon: "📋",

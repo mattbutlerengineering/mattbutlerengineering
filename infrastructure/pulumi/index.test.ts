@@ -748,16 +748,6 @@ describe("Configuration Validation", () => {
       expect(callbacks).toContain(`https://${TEST_DOMAIN}/hospitality/callback`);
     });
 
-    it("allows sign-out to return to /gen and to the login callbacks", () => {
-      const client = findResource("auth0:index/client:Client");
-      const logoutUrls = client!.inputs.allowedLogoutUrls as string[];
-      expect(logoutUrls).toContain(`https://${TEST_DOMAIN}/gen`);
-      expect(logoutUrls).toContain(`https://${TEST_DOMAIN}/gen/callback`);
-      expect(logoutUrls).toContain(`https://${TEST_DOMAIN}/hospitality/callback`);
-      expect(logoutUrls).toContain("http://localhost:3005/gen");
-      expect(logoutUrls).toContain("http://localhost:3005/gen/callback");
-    });
-
     it("hospitality app grant types include authorization_code and refresh_token", () => {
       const client = findResource("auth0:index/client:Client");
       const grantTypes = client!.inputs.grantTypes as string[];

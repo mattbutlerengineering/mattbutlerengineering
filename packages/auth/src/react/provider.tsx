@@ -2,11 +2,10 @@ import { AuthProvider as OIDCProvider } from "react-oidc-context";
 import type { AuthProviderProps as OIDCProviderProps } from "react-oidc-context";
 import { WebStorageStateStore } from "oidc-client-ts";
 import type { User } from "oidc-client-ts";
-import { useEffect, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { OIDCConfig } from "../types/index.js";
 import { extractReturnTo } from "./return-to.js";
 import { rememberSigninReturnTo } from "./signin-return-to.js";
-import { installAuthBackReload, installAuthBackSkip } from "./auth-history.js";
 import { SessionLifecycleProvider } from "./session-lifecycle.js";
 
 export interface AuthProviderProps {
@@ -25,8 +24,6 @@ export interface AuthProviderProps {
  * Uses standard OIDC (not Auth0-specific SDK) for portability
  */
 export function AuthProvider({ config, children, onSigninCallback }: AuthProviderProps) {
-  useEffect(() => installAuthBackReload(), []);
-
   const oidcConfig: OIDCProviderProps = {
     authority: config.authority,
     client_id: config.clientId,
@@ -41,9 +38,6 @@ export function AuthProvider({ config, children, onSigninCallback }: AuthProvide
     onSigninCallback: (user: User | undefined | void) => {
       // Remove OIDC callback params from URL after sign-in
       window.history.replaceState({}, document.title, window.location.pathname);
-      // The consent page is still behind this entry. Arm a Back skip when
-      // sign-in recorded how long history was before the redirect.
-      installAuthBackSkip();
       const returnTo = user ? extractReturnTo(user.state) : undefined;
       rememberSigninReturnTo(returnTo);
       onSigninCallback?.(returnTo);

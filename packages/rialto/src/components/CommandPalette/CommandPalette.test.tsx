@@ -106,18 +106,6 @@ describe("CommandPalette", () => {
       // Fire Escape directly on the combobox — it bubbles to the overlay's onKeyDown
       const combobox = screen.getByRole("combobox");
       fireEvent.keyDown(combobox, { key: "Escape" });
-      expect(onOpenChange).toHaveBeenCalledTimes(1);
-      expect(onOpenChange).toHaveBeenCalledWith(false);
-    });
-
-    it("closes on the first Escape when the query is non-empty", async () => {
-      const user = userEvent.setup();
-      const onOpenChange = vi.fn();
-      render(<CommandPalette open onOpenChange={onOpenChange} items={items} />);
-      const combobox = screen.getByRole("combobox");
-      await user.type(combobox, "copy");
-      await user.keyboard("{Escape}");
-      expect(onOpenChange).toHaveBeenCalledTimes(1);
       expect(onOpenChange).toHaveBeenCalledWith(false);
     });
 

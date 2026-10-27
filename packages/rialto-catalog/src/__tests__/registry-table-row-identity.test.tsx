@@ -30,30 +30,6 @@ describe("Table adapter", () => {
     renderSpec(tableSpec("Table", {}, [{ name: "Ada" }]));
     expect(screen.getByText("Ada")).toBeDefined();
   });
-
-  it("renders sample rows when data is an unresolved $state binding", () => {
-    renderSpec({
-      root: "t1",
-      elements: {
-        t1: {
-          type: "Table",
-          props: {
-            columns,
-            data: { $state: "/users" },
-            emptyMessage: "No users found",
-          },
-          children: [],
-        },
-      },
-    });
-    expect(screen.queryByText("Component could not be displayed")).toBeNull();
-    expect(screen.getByText("Alex Rivera")).toBeDefined();
-  });
-
-  it("keeps an empty data array empty", () => {
-    renderSpec(tableSpec("Table", { emptyMessage: "No users found" }, []));
-    expect(screen.queryByText("Alex Rivera")).toBeNull();
-  });
 });
 
 describe("DataTable adapter", () => {

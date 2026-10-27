@@ -4,7 +4,6 @@ import type { AuthUser, JWTPayload } from "../types/index.js";
 import { deriveReturnTo } from "./return-to.js";
 import type { SignInOptions } from "./return-to.js";
 import { isSilentAuthError } from "./auth-error.js";
-import { rememberPreAuthHistoryLength } from "./auth-history.js";
 import { useSessionLifecycle } from "./session-lifecycle-context.js";
 
 /** The navigator react-oidc-context currently has in flight, if any. */
@@ -73,7 +72,6 @@ export function useAuth() {
      * `onSigninCallback(returnTo)`.
      */
     signIn: (options?: SignInOptions) => {
-      rememberPreAuthHistoryLength();
       const returnTo =
         options?.returnTo ?? deriveReturnTo(window.location, auth.settings.redirect_uri);
       return auth.signinRedirect({ state: { returnTo } });

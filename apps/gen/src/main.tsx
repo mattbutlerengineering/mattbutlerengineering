@@ -7,7 +7,6 @@ import { ErrorBoundary, RialtoProvider, Text, ToastProvider } from "@mattbutlere
 import { AuthProvider } from "@mbe/auth/react";
 import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";
 import { App, CallbackRedirect } from "./App";
-import { buildGenAuthConfig } from "./auth-config.js";
 
 initSentry({
   appName: "gen",
@@ -35,17 +34,13 @@ function LoadingFallback() {
   );
 }
 
-// Auth config from environment. Sign-out returns to /gen (an Allowed Logout
-// URL), not /gen/callback, which Auth0 rejects with HTTP 400.
-const authConfig = buildGenAuthConfig(
-  {
-    authority: import.meta.env.VITE_AUTH_AUTHORITY,
-    clientId: import.meta.env.VITE_AUTH_CLIENT_ID,
-    redirectUri: import.meta.env.VITE_AUTH_REDIRECT_URI,
-    audience: import.meta.env.VITE_AUTH_AUDIENCE,
-  },
-  window.location.origin
-);
+// Auth config from environment
+const authConfig = {
+  authority: import.meta.env.VITE_AUTH_AUTHORITY ?? "",
+  clientId: import.meta.env.VITE_AUTH_CLIENT_ID ?? "",
+  redirectUri: import.meta.env.VITE_AUTH_REDIRECT_URI ?? window.location.origin + "/gen/callback",
+  audience: import.meta.env.VITE_AUTH_AUDIENCE,
+};
 
 /** Theme persistence and live OS tracking are owned by RialtoProvider (`persistTheme`). */
 function ThemedApp() {

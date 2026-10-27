@@ -23,7 +23,6 @@ import { Autocomplete } from "../../components/Autocomplete/Autocomplete";
 import { Avatar } from "../../components/Avatar/Avatar";
 import { Badge } from "../../components/Badge/Badge";
 import { Banner } from "../../components/Banner/Banner";
-import { BarChart } from "../../components/BarChart/BarChart";
 import { Breadcrumb } from "../../components/Breadcrumb/Breadcrumb";
 import { Button } from "../../components/Button/Button";
 import { Calendar } from "../../components/Calendar/Calendar";
@@ -132,7 +131,6 @@ export type BarrelExportName =
   | "Avatar"
   | "Badge"
   | "Banner"
-  | "BarChart"
   | "Breadcrumb"
   | "Button"
   | "Calendar"
@@ -292,18 +290,6 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
 
   Badge: {
     element: <Badge>New</Badge>,
-  },
-
-  BarChart: {
-    element: (
-      <BarChart
-        label="Revenue trend"
-        data={[
-          { label: "Jan", value: "$18.2k" },
-          { label: "Feb", value: "$19.9k" },
-        ]}
-      />
-    ),
   },
 
   Banner: {

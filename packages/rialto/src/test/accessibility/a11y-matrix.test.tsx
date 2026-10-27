@@ -34,7 +34,6 @@ const BARREL_COMPONENT_NAMES: readonly BarrelExportName[] = [
   "Avatar",
   "Badge",
   "Banner",
-  "BarChart",
   "Breadcrumb",
   "Button",
   "Calendar",

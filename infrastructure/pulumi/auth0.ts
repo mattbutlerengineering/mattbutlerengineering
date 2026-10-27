@@ -16,17 +16,13 @@ const callbackUrls = [...localCallbacks, ...prodCallbacks];
 const localLogoutUrls = [
   "http://localhost:3002",
   "http://localhost:3002/hospitality",
-  "http://localhost:3002/hospitality/callback",
   "http://localhost:3005",
   "http://localhost:3005/gen",
-  "http://localhost:3005/gen/callback",
 ];
 const prodLogoutUrls = [
   `https://${domain}`,
   `https://${domain}/hospitality`,
-  `https://${domain}/hospitality/callback`,
   `https://${domain}/gen`,
-  `https://${domain}/gen/callback`,
 ];
 const logoutUrls = [...localLogoutUrls, ...prodLogoutUrls];
 

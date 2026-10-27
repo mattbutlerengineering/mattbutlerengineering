@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Badge, Shortcut } from "@mattbutlerengineering/rialto";
 import styles from "./TemplateGallery.module.css";
-import { shortcutKeys } from "../lib/shortcuts.js";
 
 // ---------------------------------------------------------------------------
 // Template data types
@@ -37,7 +36,7 @@ export const TEMPLATES: readonly Template[] = [
     description: "KPI cards, an odometer-style headline stat, and a recent activity table",
     category: "Dashboards",
     prompt:
-      "Dashboard with KPI cards in Cards, an Odometer for the headline stat, a BarChart of monthly revenue for the last 6 months, Badges showing week-over-week change, and a recent activity DataTable",
+      "Dashboard with KPI cards in Cards, an Odometer for the headline stat, Badges showing week-over-week change, and a recent activity DataTable",
   },
   {
     id: "admin-dashboard",
@@ -524,7 +523,10 @@ export function TemplateGallery({ open, onClose, onSelect }: TemplateGalleryProp
         <div className={styles.header}>
           <div className={styles.headerLeft}>
             <h2 className={styles.title}>Templates</h2>
-            <Shortcut keys={shortcutKeys("templates")} className={styles.shortcutHint} />
+            <Shortcut
+              keys={[navigator.platform.includes("Mac") ? "\u2318" : "Ctrl", "T"]}
+              className={styles.shortcutHint}
+            />
           </div>
           <button
             type="button"

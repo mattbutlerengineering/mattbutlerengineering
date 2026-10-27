@@ -494,81 +494,6 @@
       return resolveAuthGate(useAuth(), window.location);
     }
   </file>
-  <file path="src/react/auth-history.ts">
-    export const PRE_AUTH_HISTORY_KEY = "mbe.auth.preHistoryLength";
-    export const AUTH_BACK_RELOAD_KEY = "mbe.auth.backReload";
-    function continueWhenStorageFails(error: unknown): void {
-      if (error instanceof Error) return;
-      throw error;
-    }
-    export function authHistorySkipSteps(preLength: number, currentLength: number): number | null {
-      if (!Number.isInteger(preLength) || !Number.isInteger(currentLength)) return null;
-      if (preLength < 1 || currentLength < preLength) return null;
-      const added = currentLength - preLength;
-      return added > 1 ? added : null;
-    }
-    export function rememberPreAuthHistoryLength(storage: Storage = window.sessionStorage): void {
-      try {
-        storage.setItem(PRE_AUTH_HISTORY_KEY, String(window.history.length));
-      } catch (error) {
-        continueWhenStorageFails(error);
-      }
-    }
-    export function installAuthBackSkip(
-      history: History = window.history,
-      storage: Storage = window.sessionStorage,
-      schedule: (fn: () => void) => void = (fn) => {
-        window.setTimeout(fn, SKIP_IDP_HISTORY_DELAY_MS);
-      }
-    ): void {
-      let raw: string | null;
-      try {
-        raw = storage.getItem(PRE_AUTH_HISTORY_KEY);
-        storage.removeItem(PRE_AUTH_HISTORY_KEY);
-      } catch {
-        return;
-      }
-      if (raw == null) return;
-      const steps = authHistorySkipSteps(Number(raw), history.length);
-      if (steps == null) return;
-    
-      const onPop = () => {
-        window.removeEventListener("popstate", onPop);
-        try {
-          storage.setItem(AUTH_BACK_RELOAD_KEY, "1");
-        } catch (error) {
-          continueWhenStorageFails(error);
-        }
-        // history.go inside the popstate handler is ignored by some browsers.
-        schedule(() => {
-          history.go(-steps);
-        });
-      };
-      window.addEventListener("popstate", onPop);
-      history.pushState({ mbeAuthSentinel: true }, "", window.location.href);
-    }
-    interface PageShowTarget {
-      sessionStorage: Storage;
-      location: { reload: () => void };
-      addEventListener: (type: "pageshow", listener: (event: PageTransitionEvent) => void) => void;
-      removeEventListener: (type: "pageshow", listener: (event: PageTransitionEvent) => void) => void;
-    }
-    export function installAuthBackReload(target: PageShowTarget = window): () => void {
-      const onPageShow = (event: PageTransitionEvent) => {
-        if (!event.persisted) return;
-        try {
-          const flagged = target.sessionStorage.getItem(AUTH_BACK_RELOAD_KEY) === "1";
-          if (!flagged) return;
-          target.sessionStorage.removeItem(AUTH_BACK_RELOAD_KEY);
-          target.location.reload();
-        } catch (error) {
-          continueWhenStorageFails(error);
-        }
-      };
-      target.addEventListener("pageshow", onPageShow);
-      return () => target.removeEventListener("pageshow", onPageShow);
-    }
-  </file>
   <file path="src/react/hooks.ts">
     export type ActiveNavigator = NonNullable<ReturnType<typeof useOIDCAuth>["activeNavigator"]>;
     export function useAuth() {
@@ -625,7 +550,6 @@
          * `onSigninCallback(returnTo)`.
          */
         signIn: (options?: SignInOptions) => {
-          rememberPreAuthHistoryLength();
           const returnTo =
             options?.returnTo ?? deriveReturnTo(window.location, auth.settings.redirect_uri);
           return auth.signinRedirect({ state: { returnTo } });

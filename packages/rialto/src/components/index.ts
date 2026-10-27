@@ -64,7 +64,6 @@ export * from "./DisabledTooltip";
 export * from "./Autocomplete";
 export * from "./InputGroup";
 export * from "./Banner";
-export * from "./BarChart";
 export * from "./Collapsible";
 export * from "./ConfirmDialog";
 export * from "./ContextMenu";

@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { resetInterruptedPromptCache } from "../lib/pending-prompt.js";
 import { renderHook, act } from "@testing-library/react";
 import type { Spec } from "@json-render/react";
 import type { StoredSpec } from "../types.js";
@@ -79,8 +78,6 @@ function makeStoredSpec(overrides: Partial<StoredSpec>): StoredSpec {
 
 describe("usePlaygroundSession", () => {
   beforeEach(() => {
-    sessionStorage.clear();
-    resetInterruptedPromptCache();
     vi.clearAllMocks();
     genStreamState = { spec: null, isStreaming: false, error: null, rawLines: [] };
     specsApiState = { specs: [], isLoading: false };
@@ -96,25 +93,6 @@ describe("usePlaygroundSession", () => {
     expect(result.current.mode).toBe("generate");
     expect(result.current.activeSpecId).toBe(null);
     expect(result.current.displaySpec).toBe(null);
-  });
-
-  it("restores a prompt that a refresh interrupted and tells the user once", () => {
-    sessionStorage.setItem("gen.pendingPrompt", "pricing page");
-    resetInterruptedPromptCache();
-    const onNotice = vi.fn();
-    const { result } = renderHook(() => usePlaygroundSession({ onNotice }));
-    expect(result.current.interruptedPrompt).toBe("pricing page");
-    expect(onNotice).toHaveBeenCalledWith(expect.stringMatching(/interrupted/i));
-  });
-
-  it("drops the stashed prompt once the generation completes", async () => {
-    const { result } = renderHook(() => usePlaygroundSession());
-    act(() => result.current.submit("draw a table"));
-    expect(sessionStorage.getItem("gen.pendingPrompt")).toBe("draw a table");
-    await act(async () => {
-      capturedOnComplete?.({ root: "r", elements: {} }, []);
-    });
-    expect(sessionStorage.getItem("gen.pendingPrompt")).toBeNull();
   });
 
   describe("submit", () => {

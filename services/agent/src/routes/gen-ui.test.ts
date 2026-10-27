@@ -225,9 +225,6 @@ describe("POST /api/gen/ui", () => {
     expect(call.instructions.content).toMatch(/Do not give elements a `children` array of keys/);
     expect(call.instructions.content).toMatch(/own words go in its text or label prop/);
     expect(call.instructions.content).not.toMatch(/Do not use `children`/);
-    expect(call.instructions.content).toMatch(/Do not use \$state/);
-    expect(call.instructions.content).toMatch(/use BarChart/);
-    expect(call.instructions.content).toMatch(/at most 12 representative rows/);
   });
 
   it("accepts json-render's key/parentKey FlatElement shape and rejects the old id/children shape", async () => {

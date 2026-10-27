@@ -1012,12 +1012,6 @@
           "Full-width page-level message displayed at the top of a view. Use for one-per-page system announcements. Unlike Alert (inline), Banner spans the full width. Use variant=info (default) for announcements, variant=warning for important notices, variant=error for critical failures.",
         slots: ["default"],
       },
-      BarChart: {
-        name: "BarChart",
-        description:
-          "Vertical bar chart for a trend over time, such as revenue by month or signups by week. Use this instead of a paragraph or a Text element listing numbers. label is the accessible chart title (for example Revenue trend). data is an array of {label, value} points; value may be a number or a short formatted string such as $18.2k. Keep to about 12 points.",
-        charLimits: { label: 60 },
-      },
       Breadcrumb: {
         name: "Breadcrumb",
         description:
@@ -1026,7 +1020,7 @@
       Button: {
         name: "Button",
         description:
-          "Clickable action trigger. Put the button's words in the label prop (for example, Contact sales). Use variant=primary for the main CTA; variant=secondary for supporting actions; variant=ghost for tertiary or inline actions. Use size=sm for compact UIs, size=md (default) for most contexts, size=lg for prominent calls-to-action.",
+          "Clickable action trigger. Use variant=primary for the main CTA; variant=secondary for supporting actions; variant=ghost for tertiary or inline actions. Use size=sm for compact UIs, size=md (default) for most contexts, size=lg for prominent calls-to-action.",
         slots: ["default"],
         aliases: { label: "children" },
       },
@@ -1046,8 +1040,8 @@
       Checkbox: {
         name: "Checkbox",
         description:
-          "Checkbox for boolean selection. Use when users need to opt-in or out of something. Provide a label of at most 80 characters (a full sentence such as a terms agreement fits). Use description for additional context below the label. Use indeterminate for 'select all' with partial selection.",
-        charLimits: { label: 80, description: 80 },
+          "Checkbox for boolean selection. Use when users need to opt-in or out of something. Provide a label. Use description for additional context below the label. Use indeterminate for 'select all' with partial selection.",
+        charLimits: { label: 30, description: 80 },
       },
       Combobox: {
         name: "Combobox",
@@ -1283,10 +1277,6 @@
         dismissible: z.boolean().optional(),
         action: z.string().optional(),
       }),
-      BarChart: z.object({
-        label: z.string().max(60),
-        data: z.array(z.object({ label: z.string(), value: z.union([z.number(), z.string()]) })).min(1),
-      }),
       Breadcrumb: z.object({
         items: z.array(z.object({ label: z.string(), href: z.string().optional(), icon: z.string().optional() })),
         maxItems: z.number().optional(),
@@ -1310,7 +1300,7 @@
         subtitle: z.string().max(80).optional(),
       }),
       Checkbox: z.object({
-        label: z.string().max(80).optional(),
+        label: z.string().max(30).optional(),
         checked: z.boolean().optional(),
         defaultChecked: z.boolean().optional(),
         required: z.boolean().optional(),
@@ -1527,39 +1517,6 @@
         disabledReason: z.string().optional(),
       }),
     } as const;
-  </file>
-  <file path="src/materialize-table-data.ts">
-    function columnKeys(columns: unknown): string[] {
-      if (!Array.isArray(columns)) return [];
-      return columns.flatMap((column) => {
-        if (column === null || typeof column !== "object") return [];
-        const key = (column as { key?: unknown }).key;
-        return typeof key === "string" && key !== "" ? [key] : [];
-      });
-    }
-    function sampleCell(key: string, index: number): string {
-      const normalized = key.toLowerCase();
-      if (normalized.includes("email")) return `user${index + 1}@example.com`;
-      if (normalized.includes("name")) return SAMPLE_NAMES[index % SAMPLE_NAMES.length] ?? key;
-      if (normalized.includes("status")) return SAMPLE_STATUSES[index % SAMPLE_STATUSES.length] ?? key;
-      if (normalized.includes("role")) return SAMPLE_ROLES[index % SAMPLE_ROLES.length] ?? key;
-      if (normalized === "id" || normalized.endsWith("id")) return String(index + 1);
-      return `${key} ${index + 1}`;
-    }
-    export function materializeCatalogProps(name: string, props: unknown): unknown {
-      if (name !== "Table" && name !== "DataTable") return props;
-      if (props === null || typeof props !== "object") return props;
-      const source = props as Record<string, unknown>;
-      if (Array.isArray(source.data)) return props;
-      const keys = columnKeys(source.columns);
-      if (keys.length === 0) return props;
-      const data = Array.from({ length: SAMPLE_ROW_COUNT }, (_, index) => {
-        const row: Record<string, string> = {};
-        for (const key of keys) row[key] = sampleCell(key, index);
-        return row;
-      });
-      return { ...source, data };
-    }
   </file>
   </section>
 </codebase>

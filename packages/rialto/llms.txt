@@ -48,13 +48,6 @@
     </item>
   </file>
   </section>
-  <section priority="medium" role="BarChart">
-  <file path="src/components/BarChart/BarChart.catalog.ts">
-    <item priority="high">
-      export const barChartCatalogMeta: unknown;
-    </item>
-  </file>
-  </section>
   <section priority="medium" role="Breadcrumb">
   <file path="src/components/Breadcrumb/Breadcrumb.catalog.ts">
     <item priority="high">
