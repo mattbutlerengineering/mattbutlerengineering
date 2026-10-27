@@ -1,6 +1,6 @@
 import { Queue } from "bullmq";
 import { Redis } from "ioredis";
-import { DEFAULT_QUEUE_NAME, DEFAULT_JOB_OPTIONS } from "./job-types.js";
+import { DEFAULT_QUEUE_NAME, jobOptionsFor } from "./job-types.js";
 import type { JobType, JobPayloadMap } from "./job-types.js";
 
 export interface JobSchedulerConfig {
@@ -43,7 +43,7 @@ export class JobScheduler {
   ): Promise<string> {
     const job = await this.queue.add(jobType, payload, {
       delay: delayMs,
-      ...DEFAULT_JOB_OPTIONS,
+      ...jobOptionsFor(jobType),
       removeOnComplete: { count: 100 },
       removeOnFail: { count: 50 },
       ...(jobId !== undefined ? { jobId } : {}),
@@ -98,7 +98,7 @@ export class JobScheduler {
       {
         name: jobType,
         data: payload,
-        opts: { ...DEFAULT_JOB_OPTIONS },
+        opts: { ...jobOptionsFor(jobType) },
       }
     );
   }

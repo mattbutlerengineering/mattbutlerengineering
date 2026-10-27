@@ -7216,6 +7216,11 @@
     <item priority="low">
       type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
     </item>
+    <item priority="high">
+      export function jobOptionsFor(
+        jobType: JobType
+      ): typeof DEFAULT_JOB_OPTIONS | typeof CLOSURE_REFUND_JOB_OPTIONS { /* ... */ }
+    </item>
     <item priority="low">
       interface ReminderPayload {
         reservationId: string;
@@ -15089,6 +15094,9 @@
     </item>
     <item priority="low">
       async function settleOnce(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<Settled | null> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function asPermanentIfStripeRejection(error: unknown): unknown { /* ... */ }
     </item>
     <item priority="low">
       async function settleDeposit(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<Settled> { /* ... */ }

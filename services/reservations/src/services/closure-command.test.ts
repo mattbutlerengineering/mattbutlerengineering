@@ -711,6 +711,21 @@ describe("createClosure", () => {
     });
   });
 
+  it("marks a cancelled booking's already-captured deposit for refund", async () => {
+    const w = world();
+    w.reservations[0]!.deposit = {
+      amountCents: 4000,
+      currency: "usd",
+      status: "applied",
+      stripePaymentIntentId: "pi_1",
+    } as never;
+    const { tx } = await run(w, body());
+    expect(tx.closureOutcome.createMany.mock.calls[0]![0].data[0]).toMatchObject({
+      reservationId: "res-1",
+      refund: "pending",
+    });
+  });
+
   it("answers a stale version with the winning change", async () => {
     const w = world({ version: 7 });
     const { outcome } = await run(w, body({ expectedVersion: 4 }));

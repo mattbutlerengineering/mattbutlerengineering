@@ -21152,6 +21152,11 @@
       CLOSURE_REFUND: "closure-refund",
     } as const;
     export type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
+    export function jobOptionsFor(
+      jobType: JobType
+    ): typeof DEFAULT_JOB_OPTIONS | typeof CLOSURE_REFUND_JOB_OPTIONS {
+      return jobType === JOB_TYPES.CLOSURE_REFUND ? CLOSURE_REFUND_JOB_OPTIONS : DEFAULT_JOB_OPTIONS;
+    }
     export interface ReminderPayload {
       reservationId: string;
       venueId: string;
@@ -21263,7 +21268,7 @@
       ): Promise<string> {
         const job = await this.queue.add(jobType, payload, {
           delay: delayMs,
-          ...DEFAULT_JOB_OPTIONS,
+          ...jobOptionsFor(jobType),
           removeOnComplete: { count: 100 },
           removeOnFail: { count: 50 },
           ...(jobId !== undefined ? { jobId } : {}),
@@ -21318,7 +21323,7 @@
           {
             name: jobType,
             data: payload,
-            opts: { ...DEFAULT_JOB_OPTIONS },
+            opts: { ...jobOptionsFor(jobType) },
           }
         );
       }
@@ -48679,13 +48684,20 @@
           endTime: true,
           partySize: true,
           guestName: true,
-          deposit: { select: { amountCents: true, currency: true, status: true } },
+          deposit: {
+            select: {
+              amountCents: true,
+              currency: true,
+              status: true,
+              stripePaymentIntentId: true,
+            },
+          },
         },
       });
       const bookings: ImpactBooking[] = rows.map(({ deposit, ...row }) => ({
         ...row,
         heldDeposit:
-          deposit && LIVE_DEPOSIT_STATUSES.has(deposit.status)
+          deposit && owesRefund(deposit)
             ? { amountCents: deposit.amountCents, currency: deposit.currency }
             : null,
       }));
@@ -48724,7 +48736,7 @@
       endTime: Date;
       partySize: number;
       guestName: string | null;
-      /** Set for a non-terminal deposit (`pending` or `held`). Named for the common case. */
+      /** Set for a deposit a cancel owes a refund or void on: live (`pending`/`held`) or captured with a payment intent. Named for the common case. */
       heldDeposit: { amountCents: number; currency: string } | null;
     }
     function kindOf(rule: DateRule): ClosureImpactKind {
@@ -49733,7 +49745,7 @@
         pi,
         owed,
         deposit.id,
-        `${deposit.id}:closureRefund`,
+        `${deposit.id}:closureRefund:${owed}`,
         "closureRefund"
       );
       return "done";
@@ -49804,13 +49816,21 @@
       if (deposit.status === "pending") return resolvePending(deps, deposit);
       return null;
     }
+    function asPermanentIfStripeRejection(error: unknown): unknown {
+      if (error instanceof StripeOperationError && PERMANENT_STRIPE_TYPES.has(error.stripeType)) {
+        return new ClosureRefundPermanentError(
+          `Stripe rejected the refund (${error.stripeType}: ${error.message}); refund it by hand`
+        );
+      }
+      return error;
+    }
     async function settleDeposit(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<Settled> {
       for (let read = 0; read < MAX_REREADS; read += 1) {
         try {
           const settled = await settleOnce(deps, row);
           if (settled) return settled;
         } catch (error) {
-          if (!isRace(error)) throw error;
+          if (!isRace(error)) throw asPermanentIfStripeRejection(error);
         }
       }
       // Retriable on purpose: BullMQ's bounded attempts re-run the job, and the
