@@ -110,15 +110,25 @@ describe("summarizeDay", () => {
       label: "Regular",
       serviceCount: 1,
       closures: [],
+      services: [
+        {
+          venueServiceId: "vs-dinner",
+          name: "Dinner",
+          opensAt: 1020,
+          lastSeatingAt: 1260,
+          closesAt: 1320,
+        },
+      ],
     });
   });
 
-  it("labels a whole-day closure Closed and keeps its band", () => {
+  it("labels a whole-day closure Closed, keeps its band and returns no services", () => {
     const config = closedOn("2026-11-06");
     const day = resolveDay({ timezone: TZ, config }, "2026-11-06");
     expect(summarizeDay(config, day)).toMatchObject({
       label: "Closed",
       closures: [{ ruleId: "dr-c", targetKind: "venue", from: 0, to: 2880 }],
+      services: [],
     });
   });
 

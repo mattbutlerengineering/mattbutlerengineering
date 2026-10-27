@@ -16,7 +16,7 @@ Minutes are venue-local minutes from midnight throughout.
 - [x] **WO-0072 — Extract `DaySummaryServiceSchema` and add `services` to the day summary** — in `packages/types/src/schemas/availability-config-api.ts`, extract the focusDay per-service object (`venueServiceId`, `name`, `opensAt`, `lastSeatingAt`, `closesAt`) as `DaySummaryServiceSchema`, add `services: z.array(DaySummaryServiceSchema)` to `AvailabilityDaySummarySchema`, and re-point `PreviewResultSchema.focusDay` at the shared schema.
   - Accept: a RED-first schema test pins the new field and the focusDay reuse; `pnpm --dir packages/types test` and `typecheck` green; llms regen clean (build `@mbe/cli` first).
   - Blocked by: —
-- [ ] **WO-0073 — Populate `services` in `summarizeDay`** — in `services/reservations/src/services/availability-config-checks.ts`, map `day.services` plus config service names into the new field, sharing the preview focusDay's name-lookup mapper. A closed day returns `[]`.
+- [x] **WO-0073 — Populate `services` in `summarizeDay`** — in `services/reservations/src/services/availability-config-checks.ts`, map `day.services` plus config service names into the new field, sharing the preview focusDay's name-lookup mapper. A closed day returns `[]`.
   - Accept: RED-first resolver tests cover a two-service day (ordered by `opensAt`), a closed day, and a special-hours day; route test asserts `GET .../availability/days` validates against the extended schema; service `test` + `typecheck` green.
   - Blocked by: WO-0072
 

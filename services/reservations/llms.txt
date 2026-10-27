@@ -1866,6 +1866,12 @@
       function dayLabel(config: AvailabilityConfig, day: ResolvedDay): string { /* ... */ }
     </item>
     <item priority="high">
+      export function daySummaryServices(
+        names: ReadonlyMap<string, string>,
+        day: ResolvedDay
+      ): DaySummaryService[] { /* ... */ }
+    </item>
+    <item priority="high">
       export function summarizeDay(config: AvailabilityConfig, day: ResolvedDay): AvailabilityDaySummary { /* ... */ }
     </item>
   </file>
