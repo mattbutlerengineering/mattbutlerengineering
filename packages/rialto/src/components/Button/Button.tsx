@@ -70,7 +70,6 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         disabled={isDisabled}
         aria-busy={isLoading || undefined}
         onClick={onClick}
-        whileHover={isDisabled ? undefined : motionPreset.boop}
         whileTap={isDisabled || shouldReduceMotion ? undefined : "pressed"}
         variants={{
           pressed: {

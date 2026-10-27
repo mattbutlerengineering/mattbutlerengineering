@@ -85,10 +85,7 @@ export const Checkbox = forwardRef<HTMLDivElement, CheckboxProps>(
                 onCheckedChange?.(next);
               }}
             />
-            <motion.span
-              className={styles.box}
-              whileHover={disabled ? undefined : motionPreset.boop}
-            >
+            <motion.span className={styles.box}>
               <motion.span
                 className={styles.check}
                 animate={
