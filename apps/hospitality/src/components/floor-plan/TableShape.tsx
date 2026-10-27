@@ -113,13 +113,16 @@ function TableShapeComponent({
   const shape = table.shapeMetadata?.shape ?? "rectangle";
   const rotation = table.shapeMetadata?.rotation ?? 0;
 
-  // Determine the surface color — inactive always wins over any live status,
-  // then live status, then the per-table `shapeMetadata.color` tint, then the
-  // editor-only "available" default. Status outranks the tint so that a
-  // custom table color can never hide a seated or needs-bussing table.
+  // Determine the surface color. Precedence: inactive > non-available live
+  // status > per-table `shapeMetadata.color` tint > available default.
+  // Decision (#7264): "available" is the neutral resting state and carries no
+  // operational information, so a custom tint outranks it; any other status
+  // (seated, needs-bussing, reserved-soon) outranks the tint so a custom color
+  // can never hide an operational state.
+  const liveStatusColor = status && status !== "available" ? themeColors[status] : undefined;
   const fillColor = !table.isActive
     ? themeColors.inactive
-    : (status && themeColors[status]) || table.shapeMetadata?.color || themeColors.available;
+    : liveStatusColor || table.shapeMetadata?.color || themeColors.available;
 
   const handleDragStart = () => {
     onDragStart(table.id);

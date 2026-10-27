@@ -455,7 +455,7 @@ describe("TableShape", () => {
       expect(tableSurface().getAttribute("data-fill")).toBe("#b0841e");
     });
 
-    it("renders the available status color when status is explicitly available", () => {
+    it("renders the available status color when status is explicitly available and the table has no custom color", () => {
       const table = makeTable({ isActive: true });
       render(<TableShape table={table} {...defaultProps} status="available" />);
       expect(tableSurface().getAttribute("data-fill")).toBe("#5e6a2e");
@@ -497,6 +497,37 @@ describe("TableShape", () => {
       });
       render(<TableShape table={table} {...defaultProps} status="seated" />);
       expect(tableSurface().getAttribute("data-fill")).toBe("#b84a3c");
+    });
+
+    it("lets the tint outrank the neutral available status (#7264)", () => {
+      const table = makeTable({
+        isActive: true,
+        shapeMetadata: {
+          x: 10,
+          y: 10,
+          width: 80,
+          height: 60,
+          shape: "rectangle",
+          color: "#123456",
+        },
+      });
+      render(<TableShape table={table} {...defaultProps} status="available" />);
+      expect(tableSurface().getAttribute("data-fill")).toBe("#123456");
+    });
+
+    it("lets needs-bussing override the tint", () => {
+      const table = makeTable({
+        shapeMetadata: {
+          x: 10,
+          y: 10,
+          width: 80,
+          height: 60,
+          shape: "rectangle",
+          color: "#123456",
+        },
+      });
+      render(<TableShape table={table} {...defaultProps} status="needs-bussing" />);
+      expect(tableSurface().getAttribute("data-fill")).toBe("#8a6820");
     });
 
     it("lets an inactive table override the tint", () => {
