@@ -85,16 +85,18 @@ describe("App", () => {
     expect(screen.queryByText("Loading...")).toBeNull();
   });
 
-  it("keeps a way back to the site (header home link + footer) on the error screen", () => {
+  it("keeps a way back to the site (header home link + footer) and a main landmark on the error screen", () => {
     renderAt({ phase: "error", error: new Error("Auth failed"), onCallback: false });
     expect(screen.getByRole("link", { name: "MBE" }).getAttribute("href")).toBe("/");
     expect(screen.getByRole("contentinfo")).toBeDefined();
+    expect(screen.getByRole("main")).toBeDefined();
   });
 
-  it("keeps a way back to the site (header home link + footer) on the session-expired screen", () => {
+  it("keeps a way back to the site (header home link + footer) and a main landmark on the session-expired screen", () => {
     renderAt({ phase: "expired" });
     expect(screen.getByRole("link", { name: "MBE" }).getAttribute("href")).toBe("/");
     expect(screen.getByRole("contentinfo")).toBeDefined();
+    expect(screen.getByRole("main")).toBeDefined();
   });
 
   it("renders a session-expired screen whose Sign In re-enters sign-in", () => {

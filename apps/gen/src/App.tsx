@@ -19,7 +19,7 @@ function SessionExpiredScreen() {
   const { signIn } = useAuth();
   return (
     <SiteChrome>
-      <div className={styles.loginContainer}>
+      <main className={styles.chromeMessage}>
         <Stack gap="md" align="center">
           <Text as="h1" variant="display" color="primary">
             Session expired
@@ -31,7 +31,7 @@ function SessionExpiredScreen() {
             Sign In
           </Button>
         </Stack>
-      </div>
+      </main>
     </SiteChrome>
   );
 }
@@ -55,7 +55,7 @@ export function App() {
     case "error":
       return (
         <SiteChrome>
-          <div className={styles.loginContainer}>
+          <main className={styles.chromeMessage}>
             <Stack gap="md" align="center">
               <Text as="h1" variant="display" color="primary">
                 Authentication Error
@@ -67,7 +67,7 @@ export function App() {
                 Try Again
               </Button>
             </Stack>
-          </div>
+          </main>
         </SiteChrome>
       );
     case "expired":
