@@ -60,6 +60,11 @@
       "limit": "3.5 kB"
     },
     {
+      "name": "Availability day resolver (@mbe/availability resolve-day, shared by the availability page and the timeline's Tonight panel)",
+      "path": "dist/assets/resolve-day-*.js",
+      "limit": "2.2 kB"
+    },
+    {
       "name": "Venue Onboarding (lazy chunk)",
       "path": "dist/assets/VenueOnboardingPage-*.js",
       "limit": "7.5 kB"
