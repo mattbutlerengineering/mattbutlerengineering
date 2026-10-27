@@ -59,11 +59,24 @@ interface AcmmMetrics {
   readonly behavioralGates: readonly BehavioralGate[];
 }
 
+/**
+ * Gates whose value/threshold are raw counts, not ratios. A threshold of 1 on a
+ * count gate means "more than 1 entry" — formatting it as a ratio read as
+ * "100.0%" next to a Pass badge (#7581). Mirrors `computeLevel.js` in plugins/acmm.
+ */
+const COUNT_GATES: ReadonlySet<string> = new Set(["auto-qa-tuning-history"]);
+
+function formatGateNumber(gate: BehavioralGate, n: number): string {
+  return !COUNT_GATES.has(gate.name) && n <= 1 ? formatRatio(n) : String(n);
+}
+
 function formatEvalPassRate(behavioral: AcmmMetrics["behavioral"]): string {
-  if (behavioral.evalPassRate === null) {
-    return behavioral.evalsLastRun
-      ? `Not measured since ${formatDate(behavioral.evalsLastRun)}`
-      : "Not measured";
+  const lastRun = behavioral.evalsLastRun;
+  // Reuse the page's 14-day freshness window: a reading older than it is stale
+  // even if the producer did not null it out.
+  if (behavioral.evalPassRate === null || (lastRun && isStale(lastRun))) {
+    if (!lastRun) return "Not measured";
+    return `Stale — last measured ${formatDate(lastRun)}`;
   }
   return formatRatio(behavioral.evalPassRate);
 }
@@ -171,11 +184,8 @@ export function MetricsPage() {
                 </Badge>
               </div>
               <Text className={styles.gateValue}>
-                L{gate.level}:{" "}
-                {typeof gate.value === "number" && gate.value <= 1
-                  ? formatRatio(gate.value)
-                  : gate.value}{" "}
-                (threshold: {gate.threshold <= 1 ? formatRatio(gate.threshold) : gate.threshold})
+                L{gate.level}: {formatGateNumber(gate, gate.value)} (threshold:{" "}
+                {formatGateNumber(gate, gate.threshold)})
               </Text>
             </Card>
           ))}

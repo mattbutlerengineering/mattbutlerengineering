@@ -439,9 +439,69 @@ describe("MetricsPage", () => {
     await waitFor(() => {
       expect(screen.getByText("Eval Pass Rate")).toBeInTheDocument();
     });
-    expect(screen.getByText(/Not measured since May 10, 2026/)).toBeInTheDocument();
+    expect(screen.getByText(/Stale — last measured May 10, 2026/)).toBeInTheDocument();
     expect(screen.queryByText("90.0%")).not.toBeInTheDocument();
     expect(screen.queryByText("0.0%")).not.toBeInTheDocument();
+  });
+
+  it("flags a non-null eval reading older than the freshness window as stale", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ...MOCK_METRICS,
+        behavioral: {
+          ...MOCK_METRICS.behavioral,
+          evalPassRate: 0.9,
+          evalsStale: false,
+          evalsLastRun: "2026-05-10T12:00:00.000Z",
+        },
+      }),
+    });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("Eval Pass Rate")).toBeInTheDocument();
+    });
+    expect(screen.getByText(/Stale — last measured May 10, 2026/)).toBeInTheDocument();
+    expect(screen.queryByText("90.0%")).not.toBeInTheDocument();
+  });
+
+  it("renders a count gate as a count, not a percentage (auto-qa-tuning-history)", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ...MOCK_METRICS,
+        behavioralGates: [
+          { level: 5, name: "auto-qa-tuning-history", passed: true, value: 29, threshold: 1 },
+        ],
+      }),
+    });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText(/auto qa tuning history/i)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/L5: 29 \(threshold: 1\)/)).toBeInTheDocument();
+    expect(screen.queryByText(/100\.0%/)).not.toBeInTheDocument();
+  });
+
+  it("renders a count gate below its threshold as Fail", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ...MOCK_METRICS,
+        behavioralGates: [
+          { level: 5, name: "auto-qa-tuning-history", passed: false, value: 0, threshold: 1 },
+        ],
+      }),
+    });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("Fail")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("Pass")).not.toBeInTheDocument();
+    expect(screen.getByText(/L5: 0 \(threshold: 1\)/)).toBeInTheDocument();
   });
 
   it("renders a null revert rate as 'Unverifiable', never 0% (#5858)", async () => {
