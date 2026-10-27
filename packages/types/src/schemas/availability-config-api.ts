@@ -424,6 +424,12 @@ export const ClosureDecisionSchema = z.object({
   groupKey: z.string().min(1),
   action: ClosureActionSchema,
   acknowledged: z.boolean().optional(),
+  /**
+   * The bookings the Manager saw in this group. When sent and the group's members have changed
+   * since, the command answers `decision-required` so the choice is made again. Optional so an
+   * older client (a static site deploys before the API) still saves.
+   */
+  reservationIds: z.array(z.string()).optional(),
 });
 
 /** `POST …/closures`: the rule, the version the client read, and one decision per impact group. */

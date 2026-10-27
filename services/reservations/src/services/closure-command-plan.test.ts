@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AvailabilitySnapshot } from "@mbe/availability";
 import type { DateRule } from "@mbe/types";
-import { moveTarget } from "./closure-command-plan.js";
+import { checkDecisions, moveTarget } from "./closure-command-plan.js";
 
 const DINNER_TO_9PM = {
   id: "sh",
@@ -66,5 +66,39 @@ describe("moveTarget and a Tonight stop window", () => {
     } as unknown as DateRule;
     const target = moveTarget(snapshot(window), "2026-12-24", booking, NOW);
     expect(target).toBeNull();
+  });
+});
+
+describe("checkDecisions and a group that changed since the preview", () => {
+  const impact = (ids: string[]) =>
+    ({
+      groups: [
+        {
+          groupKey: "2026-12-24:closed",
+          date: "2026-12-24",
+          kind: "closed",
+          reservations: ids.map((id) => ({ id })),
+        },
+      ],
+    }) as unknown as Parameters<typeof checkDecisions>[0];
+
+  it("asks again when a guest booked after the Manager saw the group", () => {
+    const decision = {
+      groupKey: "2026-12-24:closed",
+      action: "cancel" as const,
+      reservationIds: ["a", "b"],
+    };
+    expect(checkDecisions(impact(["a", "b", "c"]), [decision])).toEqual({
+      kind: "decision-required",
+      groupKeys: ["2026-12-24:closed"],
+    });
+  });
+
+  it("accepts the same members in any order, and a decision that names none", () => {
+    const named = { groupKey: "2026-12-24:closed", action: "cancel" as const };
+    expect(
+      checkDecisions(impact(["a", "b"]), [{ ...named, reservationIds: ["b", "a"] }]).kind
+    ).toBe("ok");
+    expect(checkDecisions(impact(["a", "b"]), [named]).kind).toBe("ok");
   });
 });

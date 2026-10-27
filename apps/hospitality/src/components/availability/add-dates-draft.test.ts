@@ -200,8 +200,21 @@ describe("the combined Step 2", () => {
       "2026-12-25:closed": { action: "keep_silent" as const, acknowledged: true },
     };
     expect(decisionsFor(impacts, choices)).toEqual([
-      [{ groupKey: "2026-12-24:closed", action: "cancel" }],
-      [{ groupKey: "2026-12-25:closed", action: "keep_silent", acknowledged: true }],
+      [
+        {
+          groupKey: "2026-12-24:closed",
+          action: "cancel",
+          reservationIds: ["2026-12-24-0", "2026-12-24-1"],
+        },
+      ],
+      [
+        {
+          groupKey: "2026-12-25:closed",
+          action: "keep_silent",
+          acknowledged: true,
+          reservationIds: ["2026-12-25-0", "2026-12-25-1", "2026-12-25-2"],
+        },
+      ],
     ]);
   });
 

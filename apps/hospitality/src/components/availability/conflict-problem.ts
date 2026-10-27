@@ -6,6 +6,13 @@ export type Conflict =
   /** This attempt id already committed (a response was lost). */
   | { readonly code: "closure-exists" };
 
+/** The 422 a closure save gets when a group's bookings changed since the Manager chose. */
+export function isDecisionRequired(error: unknown): boolean {
+  const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
+  const problem = AvailabilityConfigProblemSchema.safeParse(details);
+  return problem.success && problem.data.code === "decision-required";
+}
+
 /** The 409 the closure and Tonight endpoints answer with, or `null` for any other failure. */
 export function conflictOf(error: unknown): Conflict | null {
   const details = (error as { problemDetails?: unknown } | null)?.problemDetails;

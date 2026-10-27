@@ -2073,6 +2073,7 @@
       "cancel": "Cancel",
       "saveError": "Couldn't close",
       "versionConflict": "Availability changed since you opened this. Close this dialog and try again.",
+      "groupsChanged": "The bookings changed while you were deciding. Review the updated list and choose again.",
       "staffNote": "Note for staff",
       "guestMessage": "Message for guests",
       "guestMessageTooLong": "Keep it to {{max}} characters.",

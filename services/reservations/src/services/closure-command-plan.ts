@@ -10,6 +10,7 @@ import type {
   ClosureAction,
   ClosureDecision,
   ClosureImpact,
+  ClosureImpactGroup,
   ClosureImpactReservation,
   DateRule,
 } from "@mbe/types";
@@ -24,6 +25,17 @@ export type DecisionCheck =
   | { kind: "ok"; actions: ReadonlyMap<string, ClosureDecision> }
   | { kind: "decision-required"; groupKeys: string[] }
   | { kind: "invalid-decision"; groupKeys: string[] };
+
+/**
+ * Whether the group now holds other bookings than the ones the decision was made on (a guest
+ * booked, or a booking moved, between the preview and the save). A decision that names no
+ * bookings (an older client) is never stale.
+ */
+function membershipChanged(group: ClosureImpactGroup, decision: ClosureDecision): boolean {
+  if (decision.reservationIds === undefined) return false;
+  const seen = new Set(decision.reservationIds);
+  return seen.size !== group.reservations.length || group.reservations.some((r) => !seen.has(r.id));
+}
 
 /**
  * Every group needs exactly one decision. `move` is only for a shortened
@@ -51,7 +63,11 @@ export function checkDecisions(
     .map((g) => g.groupKey)
     .filter((key) => {
       const d = answered.get(key);
-      return !d || (d.action === "keep_silent" && d.acknowledged !== true);
+      return (
+        !d ||
+        (d.action === "keep_silent" && d.acknowledged !== true) ||
+        membershipChanged(groups.get(key)!, d)
+      );
     });
   return missing.length > 0
     ? { kind: "decision-required", groupKeys: missing }

@@ -11766,6 +11766,14 @@
         super(outcome.kind);
       }
     }
+    export function stillToServeWhere(now: Date) {
+      return {
+        OR: [
+          { startTime: { gte: now } },
+          { status: { in: ["PENDING", "CONFIRMED"] as ReservationStatus[] }, endTime: { gt: now } },
+        ],
+      };
+    }
     export async function futureBookings(
       db: StoreDb,
       venueId: string,
@@ -11776,9 +11784,9 @@
         where: {
           venueId,
           // From yesterday's service day: a service running past midnight is still
-          // yesterday's (ADR-029), and `startTime >= now` keeps the scan to the future.
+          // yesterday's (ADR-029), and `stillToServeWhere` keeps the scan to bookings not yet over.
           date: { gte: new Date(`${addDays(today, -1)}T00:00:00.000Z`) },
-          startTime: { gte: now },
+          ...stillToServeWhere(now),
           status: { notIn: [...NOT_BOOKED_STATUSES] },
         },
         select: { id: true, tableId: true, startTime: true, partySize: true, date: true },
@@ -13477,6 +13485,11 @@
       | { kind: "ok"; actions: ReadonlyMap<string, ClosureDecision> }
       | { kind: "decision-required"; groupKeys: string[] }
       | { kind: "invalid-decision"; groupKeys: string[] };
+    function membershipChanged(group: ClosureImpactGroup, decision: ClosureDecision): boolean {
+      if (decision.reservationIds === undefined) return false;
+      const seen = new Set(decision.reservationIds);
+      return seen.size !== group.reservations.length || group.reservations.some((r) => !seen.has(r.id));
+    }
     export function checkDecisions(
       impact: ClosureImpact,
       decisions: readonly ClosureDecision[]
@@ -13498,7 +13511,11 @@
         .map((g) => g.groupKey)
         .filter((key) => {
           const d = answered.get(key);
-          return !d || (d.action === "keep_silent" && d.acknowledged !== true);
+          return (
+            !d ||
+            (d.action === "keep_silent" && d.acknowledged !== true) ||
+            membershipChanged(groups.get(key)!, d)
+          );
         });
       return missing.length > 0
         ? { kind: "decision-required", groupKeys: missing }
@@ -14237,7 +14254,7 @@
         where: {
           venueId,
           date: { gte: toDbDate(range.from), lte: toDbDate(range.to) },
-          startTime: { gte: now },
+          ...stillToServeWhere(now),
           status: { notIn: [...NOT_BOOKED_STATUSES] },
         },
         select: {

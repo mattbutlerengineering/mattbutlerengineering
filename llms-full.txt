@@ -4958,10 +4958,11 @@
       return groups.flatMap((g) => {
         const action = choices[g.groupKey]?.action;
         if (action === undefined) return [];
+        const reservationIds = g.reservations.map((r) => r.id);
         return [
           action === "keep_silent"
-            ? { groupKey: g.groupKey, action, acknowledged: true }
-            : { groupKey: g.groupKey, action },
+            ? { groupKey: g.groupKey, action, acknowledged: true, reservationIds }
+            : { groupKey: g.groupKey, action, reservationIds },
         ];
       });
     }
@@ -5142,6 +5143,11 @@
       | { readonly code: "version-conflict"; readonly winningChange: AvailabilityChangeSummary | null }
       /** This attempt id already committed (a response was lost). */
       | { readonly code: "closure-exists" };
+    export function isDecisionRequired(error: unknown): boolean {
+      const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
+      const problem = AvailabilityConfigProblemSchema.safeParse(details);
+      return problem.success && problem.data.code === "decision-required";
+    }
     export function conflictOf(error: unknown): Conflict | null {
       const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
       const problem = AvailabilityConfigProblemSchema.safeParse(details);
@@ -39537,6 +39543,12 @@
       groupKey: z.string().min(1),
       action: ClosureActionSchema,
       acknowledged: z.boolean().optional(),
+      /**
+       * The bookings the Manager saw in this group. When sent and the group's members have changed
+       * since, the command answers `decision-required` so the choice is made again. Optional so an
+       * older client (a static site deploys before the API) still saves.
+       */
+      reservationIds: z.array(z.string()).optional(),
     });
     export const CreateClosureBodySchema = z.object({
       expectedVersion: z.number().int().min(0),
@@ -45995,6 +46007,14 @@
         super(outcome.kind);
       }
     }
+    export function stillToServeWhere(now: Date) {
+      return {
+        OR: [
+          { startTime: { gte: now } },
+          { status: { in: ["PENDING", "CONFIRMED"] as ReservationStatus[] }, endTime: { gt: now } },
+        ],
+      };
+    }
     export async function futureBookings(
       db: StoreDb,
       venueId: string,
@@ -46005,9 +46025,9 @@
         where: {
           venueId,
           // From yesterday's service day: a service running past midnight is still
-          // yesterday's (ADR-029), and `startTime >= now` keeps the scan to the future.
+          // yesterday's (ADR-029), and `stillToServeWhere` keeps the scan to bookings not yet over.
           date: { gte: new Date(`${addDays(today, -1)}T00:00:00.000Z`) },
-          startTime: { gte: now },
+          ...stillToServeWhere(now),
           status: { notIn: [...NOT_BOOKED_STATUSES] },
         },
         select: { id: true, tableId: true, startTime: true, partySize: true, date: true },
@@ -47706,6 +47726,11 @@
       | { kind: "ok"; actions: ReadonlyMap<string, ClosureDecision> }
       | { kind: "decision-required"; groupKeys: string[] }
       | { kind: "invalid-decision"; groupKeys: string[] };
+    function membershipChanged(group: ClosureImpactGroup, decision: ClosureDecision): boolean {
+      if (decision.reservationIds === undefined) return false;
+      const seen = new Set(decision.reservationIds);
+      return seen.size !== group.reservations.length || group.reservations.some((r) => !seen.has(r.id));
+    }
     export function checkDecisions(
       impact: ClosureImpact,
       decisions: readonly ClosureDecision[]
@@ -47727,7 +47752,11 @@
         .map((g) => g.groupKey)
         .filter((key) => {
           const d = answered.get(key);
-          return !d || (d.action === "keep_silent" && d.acknowledged !== true);
+          return (
+            !d ||
+            (d.action === "keep_silent" && d.acknowledged !== true) ||
+            membershipChanged(groups.get(key)!, d)
+          );
         });
       return missing.length > 0
         ? { kind: "decision-required", groupKeys: missing }
@@ -48466,7 +48495,7 @@
         where: {
           venueId,
           date: { gte: toDbDate(range.from), lte: toDbDate(range.to) },
-          startTime: { gte: now },
+          ...stillToServeWhere(now),
           status: { notIn: [...NOT_BOOKED_STATUSES] },
         },
         select: {

@@ -132,7 +132,10 @@ describe("getClosureImpact", () => {
             gte: new Date("2026-12-24T00:00:00.000Z"),
             lte: new Date("2026-12-24T00:00:00.000Z"),
           },
-          startTime: { gte: NOW },
+          OR: [
+            { startTime: { gte: NOW } },
+            { status: { in: ["PENDING", "CONFIRMED"] }, endTime: { gt: NOW } },
+          ],
         }),
       })
     );

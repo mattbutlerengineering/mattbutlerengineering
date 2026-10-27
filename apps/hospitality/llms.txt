@@ -286,6 +286,9 @@
       type Conflict = { readonly code: "version-conf | { readonly code: "closure-exis;
     </item>
     <item priority="high">
+      export function isDecisionRequired(error: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="high">
       export function conflictOf(error: unknown): Conflict | null { /* ... */ }
     </item>
   </file>

@@ -3,7 +3,7 @@ import type { ClosureAlongside, ClosureImpact, DateRule } from "@mbe/types";
 import type { PrismaClient } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
 import { referenceIssues, SCOPE_CONFLICT_HORIZON_DAYS } from "./availability-config-plan.js";
-import { loadConfigState, type ConfigState } from "./availability-config.js";
+import { loadConfigState, stillToServeWhere, type ConfigState } from "./availability-config.js";
 import { civilDateIn } from "./availability-migration.js";
 import { computeClosureImpact, withClosure, type ImpactBooking } from "./closure-impact.js";
 import { prisma } from "./database.js";
@@ -72,7 +72,7 @@ export async function impactInTransaction(
     where: {
       venueId,
       date: { gte: toDbDate(range.from), lte: toDbDate(range.to) },
-      startTime: { gte: now },
+      ...stillToServeWhere(now),
       status: { notIn: [...NOT_BOOKED_STATUSES] },
     },
     select: {
