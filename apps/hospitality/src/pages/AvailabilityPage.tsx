@@ -301,7 +301,7 @@ export function AvailabilityPage() {
           onChange={(id) => setView(id as CalendarView)}
         />
       </div>
-      {config.data?.source === "legacy" && (
+      {(config.data?.source === "legacy" || config.data?.migrated) && (
         <AvailabilityMigrationBanner key={selectedVenueId} venueId={selectedVenueId} />
       )}
       {pause && (

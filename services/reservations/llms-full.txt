@@ -10827,6 +10827,14 @@
   </file>
   <file path="src/services/availability-changes.ts">
     export const REVERT_KIND = "revert";
+    function dayStart(d: string, timezone: string): Date {
+      return (
+        serviceDayInstant(d, 0, timezone) ??
+        new Date(
+          (serviceDayInstant(d, 60, timezone) ?? new Date(`${d}T01:00:00.000Z`)).getTime() - 3_600_000
+        )
+      );
+    }
     function outcomeOf(kind: string, inverse: unknown): AvailabilityChangeOutcome | null {
       if (kind !== "closure") return null;
       const meta = (inverse as { closure?: { outcome?: AvailabilityChangeOutcome } } | null)?.closure;
@@ -10834,7 +10842,8 @@
     }
     function whereOf(
       venueId: string,
-      query: AvailabilityChangesParsed
+      query: AvailabilityChangesParsed,
+      timezone: string
     ): Prisma.AvailabilityChangeWhereInput {
       return {
         venueId,
@@ -10843,8 +10852,8 @@
         ...(query.from || query.to
           ? {
               at: {
-                ...(query.from ? { gte: dayStart(query.from) } : {}),
-                ...(query.to ? { lt: dayStart(addDays(query.to, 1)) } : {}),
+                ...(query.from ? { gte: dayStart(query.from, timezone) } : {}),
+                ...(query.to ? { lt: dayStart(addDays(query.to, 1), timezone) } : {}),
               },
             }
           : {}),
@@ -10866,9 +10875,12 @@
       return client.$transaction(async (tx) => {
         await setVenueContext(tx, venueId);
         const db = tx as unknown as StoreTx;
-        const venue = await db.venue.findUnique({ where: { id: venueId }, select: { id: true } });
+        const venue = await db.venue.findUnique({
+          where: { id: venueId },
+          select: { id: true, ianaTimezone: true },
+        });
         if (!venue) return null;
-        const where = whereOf(venueId, query);
+        const where = whereOf(venueId, query, venue.ianaTimezone);
         const [rows, total, newest] = await Promise.all([
           db.availabilityChange.findMany({
             where,
@@ -11662,6 +11674,9 @@
         return loadConfigState(tx, venueId, now);
       });
     }
+    async function isCarriedOver(db: StoreDb, venueId: string): Promise<boolean> {
+      return (await db.availabilityChange.count({ where: { venueId } })) === 0;
+    }
     export async function getAvailabilityConfig(
       venueId: string,
       now: Date,
@@ -11670,16 +11685,24 @@
       config: AvailabilityConfig;
       version: number;
       source: AvailabilityConfigSource;
+      migrated?: true;
       legacyNotes?: LegacyNotes;
       legacyProblem?: { reason: string; detail: string };
     } | null> {
-      const state = await readState(client, venueId, now);
+      const read = await client.$transaction(async (tx) => {
+        await setVenueContext(tx, venueId);
+        const loaded = await loadConfigState(tx, venueId, now);
+        const migrated = loaded?.source === "rows" && (await isCarriedOver(tx, venueId));
+        return { loaded, migrated };
+      });
+      const state = read.loaded;
       if (!state) return null;
       const { effective: config, version, source, legacyNotes, legacyProblem } = state;
       return {
         config,
         version,
         source,
+        ...(read.migrated ? { migrated: true as const } : {}),
         ...(legacyNotes ? { legacyNotes } : {}),
         ...(legacyProblem ? { legacyProblem } : {}),
       };

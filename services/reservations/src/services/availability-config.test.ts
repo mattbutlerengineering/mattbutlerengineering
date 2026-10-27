@@ -455,6 +455,70 @@ describe("getAvailabilityConfig", () => {
   });
 });
 
+describe("getAvailabilityConfig: the migrated flag", () => {
+  // Rows as the backfill leaves them: a regular week, and no audit row (it writes none).
+  const backfilled = (changes: number) =>
+    fakeClient({
+      schedule: {
+        findMany: vi.fn(async () => [
+          { id: "sch-1", name: "Regular", kind: "regular", isRegular: true, archivedAt: null },
+        ]),
+      },
+      venueService: {
+        findMany: vi.fn(async () => [
+          { id: "vs-dinner", name: "Dinner", position: 0, archivedAt: null },
+        ]),
+      },
+      scheduleService: {
+        findMany: vi.fn(async () => [
+          {
+            id: "ss-1",
+            scheduleId: "sch-1",
+            venueServiceId: "vs-dinner",
+            opensAt: 1020,
+            lastSeatingAt: 1260,
+            closesAt: 1320,
+            seating: { version: 1, interval: 15 },
+            bookingTypes: ["online", "phone"],
+          },
+        ]),
+      },
+      scheduleAssignment: {
+        findMany: vi.fn(async () => [
+          {
+            id: "as-1",
+            scheduleId: "sch-1",
+            weekdays: [0, 1, 2, 3, 4, 5, 6],
+            startsOn: null,
+            endsOn: null,
+            precedence: 0,
+          },
+        ]),
+      },
+      dateRule: { findMany: vi.fn(async () => []) },
+      availabilityChange: { count: vi.fn(async () => changes) },
+      venue: {
+        findUnique: vi.fn(async () => ({
+          ianaTimezone: TZ,
+          settings: {},
+          operatingHours: { friday: { open: "17:00", close: "22:00" } },
+          availabilityVersion: 0,
+        })),
+      },
+    });
+
+  it("flags a venue on rows that nobody has saved yet, so F11 can tell it was carried over", async () => {
+    const state = await getAvailabilityConfig("venue-1", NOW, backfilled(0));
+    expect(state).toMatchObject({ source: "rows", migrated: true });
+  });
+
+  it("drops the flag once anyone has saved", async () => {
+    const state = await getAvailabilityConfig("venue-1", NOW, backfilled(1));
+    expect(state?.source).toBe("rows");
+    expect(state).not.toHaveProperty("migrated");
+  });
+});
+
 // Monday's open cannot be read (25:00); Friday's can. The strict backfill
 // rejects the whole venue; the lenient reader closes Monday, as the listing does.
 const UNREADABLE_HOURS = {

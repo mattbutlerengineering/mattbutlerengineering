@@ -147,6 +147,15 @@ function readState(client: StoreClient, venueId: string, now: Date): Promise<Con
   });
 }
 
+/**
+ * Rows the backfill wrote and nobody has saved over: the backfill writes no
+ * audit row and every save writes one, so "rows, and no change yet" is the
+ * state F11's "Your hours were carried over" banner is for. No new column.
+ */
+async function isCarriedOver(db: StoreDb, venueId: string): Promise<boolean> {
+  return (await db.availabilityChange.count({ where: { venueId } })) === 0;
+}
+
 export async function getAvailabilityConfig(
   venueId: string,
   now: Date,
@@ -155,16 +164,24 @@ export async function getAvailabilityConfig(
   config: AvailabilityConfig;
   version: number;
   source: AvailabilityConfigSource;
+  migrated?: true;
   legacyNotes?: LegacyNotes;
   legacyProblem?: { reason: string; detail: string };
 } | null> {
-  const state = await readState(client, venueId, now);
+  const read = await client.$transaction(async (tx) => {
+    await setVenueContext(tx, venueId);
+    const loaded = await loadConfigState(tx, venueId, now);
+    const migrated = loaded?.source === "rows" && (await isCarriedOver(tx, venueId));
+    return { loaded, migrated };
+  });
+  const state = read.loaded;
   if (!state) return null;
   const { effective: config, version, source, legacyNotes, legacyProblem } = state;
   return {
     config,
     version,
     source,
+    ...(read.migrated ? { migrated: true as const } : {}),
     ...(legacyNotes ? { legacyNotes } : {}),
     ...(legacyProblem ? { legacyProblem } : {}),
   };

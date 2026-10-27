@@ -52,7 +52,7 @@ describe("listAvailabilityChanges", () => {
     });
     const old = row({ id: "chg-1", kind: "closure", inverse: { closure: { ruleId: "r" } } });
     const client = fakeClient({
-      venue: { findUnique: vi.fn(async () => ({ id: "venue-1" })) },
+      venue: { findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: TZ })) },
       availabilityChange: {
         findMany: vi.fn(async () => [withOutcome, old]),
         count: vi.fn(async () => 2),
@@ -79,7 +79,7 @@ describe("listAvailabilityChanges", () => {
     const older = row({ id: "chg-2" });
     const findMany = vi.fn(async () => [newest, older]);
     const client = fakeClient({
-      venue: { findUnique: vi.fn(async () => ({ id: "venue-1" })) },
+      venue: { findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: TZ })) },
       availabilityChange: {
         findMany,
         count: vi.fn(async () => 7),
@@ -119,7 +119,7 @@ describe("listAvailabilityChanges", () => {
       row({ id: "c", kind: "revert" }),
     ];
     const client = fakeClient({
-      venue: { findUnique: vi.fn(async () => ({ id: "venue-1" })) },
+      venue: { findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: TZ })) },
       availabilityChange: {
         findMany: vi.fn(async () => rows),
         count: vi.fn(async () => 3),
@@ -132,10 +132,10 @@ describe("listAvailabilityChanges", () => {
     expect(page?.items.map((i) => i.revertible)).toEqual([false, false, false]);
   });
 
-  it("filters by made-on dates, person and type", async () => {
+  it("filters by made-on dates as the venue's local days, person and type", async () => {
     const findMany = vi.fn(async () => []);
     const client = fakeClient({
-      venue: { findUnique: vi.fn(async () => ({ id: "venue-1" })) },
+      venue: { findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: TZ })) },
       availabilityChange: {
         findMany,
         count: vi.fn(async () => 0),
@@ -149,6 +149,8 @@ describe("listAvailabilityChanges", () => {
       client
     );
 
+    // Los Angeles: Oct 1 starts 07:00Z (PDT); Oct 31 ends at Nov 1 00:00 local, which is
+    // 07:00Z (PDT) -- a 23:30 PDT change on Oct 30 lands inside, not on Oct 31.
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
@@ -156,8 +158,39 @@ describe("listAvailabilityChanges", () => {
           actorId: "auth0|ana",
           kind: "revert",
           at: {
-            gte: new Date("2026-10-01T00:00:00.000Z"),
-            lt: new Date("2026-11-01T00:00:00.000Z"),
+            gte: new Date("2026-10-01T07:00:00.000Z"),
+            lt: new Date("2026-11-01T07:00:00.000Z"),
+          },
+        },
+      })
+    );
+  });
+
+  it("spans a daylight-saving change with the offset in force on each boundary", async () => {
+    const findMany = vi.fn(async () => []);
+    const client = fakeClient({
+      venue: { findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: TZ })) },
+      availabilityChange: {
+        findMany,
+        count: vi.fn(async () => 0),
+        findFirst: vi.fn(async () => null),
+      },
+    });
+
+    // Nov 1 2026 is the fall-back day: starts PDT (07:00Z), Nov 2 starts PST (08:00Z).
+    await listAvailabilityChanges(
+      "venue-1",
+      { ...query, from: "2026-11-01", to: "2026-11-01" },
+      client
+    );
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          venueId: "venue-1",
+          at: {
+            gte: new Date("2026-11-01T07:00:00.000Z"),
+            lt: new Date("2026-11-02T08:00:00.000Z"),
           },
         },
       })

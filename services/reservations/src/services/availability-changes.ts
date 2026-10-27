@@ -1,4 +1,4 @@
-import { addDays } from "@mbe/availability";
+import { addDays, serviceDayInstant } from "@mbe/availability";
 import type {
   AvailabilityChangeEntry,
   AvailabilityChangeOutcome,
@@ -33,7 +33,19 @@ import { prisma } from "./database.js";
 export const REVERT_KIND = "revert";
 
 const toDay = (d: Date | null): string | null => (d ? d.toISOString().slice(0, 10) : null);
-const dayStart = (d: string): Date => new Date(`${d}T00:00:00.000Z`);
+
+/**
+ * The instant a venue-local civil day begins. A zone whose midnight does not exist
+ * (a spring-forward at 00:00) begins the day at the first real wall time, 01:00 less an hour.
+ */
+function dayStart(d: string, timezone: string): Date {
+  return (
+    serviceDayInstant(d, 0, timezone) ??
+    new Date(
+      (serviceDayInstant(d, 60, timezone) ?? new Date(`${d}T01:00:00.000Z`)).getTime() - 3_600_000
+    )
+  );
+}
 
 /** The counts a closure recorded in its meta; `null` on rows saved before they were. */
 function outcomeOf(kind: string, inverse: unknown): AvailabilityChangeOutcome | null {
@@ -44,7 +56,8 @@ function outcomeOf(kind: string, inverse: unknown): AvailabilityChangeOutcome | 
 
 function whereOf(
   venueId: string,
-  query: AvailabilityChangesParsed
+  query: AvailabilityChangesParsed,
+  timezone: string
 ): Prisma.AvailabilityChangeWhereInput {
   return {
     venueId,
@@ -53,8 +66,8 @@ function whereOf(
     ...(query.from || query.to
       ? {
           at: {
-            ...(query.from ? { gte: dayStart(query.from) } : {}),
-            ...(query.to ? { lt: dayStart(addDays(query.to, 1)) } : {}),
+            ...(query.from ? { gte: dayStart(query.from, timezone) } : {}),
+            ...(query.to ? { lt: dayStart(addDays(query.to, 1), timezone) } : {}),
           },
         }
       : {}),
@@ -80,9 +93,12 @@ export async function listAvailabilityChanges(
   return client.$transaction(async (tx) => {
     await setVenueContext(tx, venueId);
     const db = tx as unknown as StoreTx;
-    const venue = await db.venue.findUnique({ where: { id: venueId }, select: { id: true } });
+    const venue = await db.venue.findUnique({
+      where: { id: venueId },
+      select: { id: true, ianaTimezone: true },
+    });
     if (!venue) return null;
-    const where = whereOf(venueId, query);
+    const where = whereOf(venueId, query, venue.ianaTimezone);
     const [rows, total, newest] = await Promise.all([
       db.availabilityChange.findMany({
         where,

@@ -1778,12 +1778,16 @@
       export const REVERT_KIND: unknown;
     </item>
     <item priority="medium">
+      function dayStart(d: string, timezone: string): Date { /* ... */ }
+    </item>
+    <item priority="medium">
       function outcomeOf(kind: string, inverse: unknown): AvailabilityChangeOutcome | null { /* ... */ }
     </item>
     <item priority="medium">
       function whereOf(
         venueId: string,
-        query: AvailabilityChangesParsed
+        query: AvailabilityChangesParsed,
+        timezone: string
       ): Prisma.AvailabilityChangeWhereInput { /* ... */ }
     </item>
     <item priority="medium">
@@ -2088,6 +2092,9 @@
     <item priority="medium">
       function readState(client: StoreClient, venueId: string, now: Date): Promise<ConfigState | null> { /* ... */ }
     </item>
+    <item priority="low">
+      async function isCarriedOver(db: StoreDb, venueId: string): Promise<boolean> { /* ... */ }
+    </item>
     <item priority="high">
       export async function getAvailabilityConfig(
         venueId: string,
@@ -2097,6 +2104,7 @@
         config: AvailabilityConfig;
         version: number;
         source: AvailabilityConfigSource;
+        migrated?: true;
         legacyNotes?: LegacyNotes;
         legacyProblem?: { reason: string; detail: string };
       } | null> { /* ... */ }

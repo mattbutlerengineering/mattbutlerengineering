@@ -24,9 +24,10 @@ function remember(venueId: string): boolean {
 }
 
 /**
- * F11: a venue whose hours still come from the legacy column (`source: "legacy"`) is told once
- * that they were carried over unchanged. Dismissal is remembered per venue on this device; the
- * first save writes the hours as rows, after which the page stops rendering this at all.
+ * F11: a venue whose hours still come from the legacy column (`source: "legacy"`), or that the
+ * backfill carried into rows and nobody has saved over yet (`migrated`), is told once that they
+ * were carried over unchanged. Dismissal is remembered per venue on this device; the first save
+ * clears both signals, after which the page stops rendering this at all.
  */
 export function AvailabilityMigrationBanner({ venueId }: { readonly venueId: string }) {
   const { t } = useTranslation();
