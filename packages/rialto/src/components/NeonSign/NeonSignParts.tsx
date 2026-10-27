@@ -6,12 +6,12 @@ import styles from "./NeonSign.module.css";
 export type NeonSignFramedShape = "swoosh" | "boxed" | "vertical" | "arrow" | "banner" | "vintage";
 
 /** The tube spells one word; a dark OPEN reads as closed by shop-window convention. */
-export const TUBE_WORD = "OPEN";
+const TUBE_WORD = "OPEN";
 
 /** Geometry for the stretched frame tubes, in a 100 x 100 box that scales to the stage. */
 const RING = <ellipse cx="50" cy="50" rx="48" ry="46" />;
 const BOX = <rect x="2" y="2" width="96" height="96" rx="14" />;
-/** Open on the bottom-start corner: the arrow ornament continues the tube from there. */
+/** Open along the bottom edge; the separate arrow glyph sits beneath its start-side end. */
 const ARROW_FRAME = <path d="M 6 96 V 4 H 94 V 96" />;
 const STAR_PATH =
   "M12 2 L14.9 9 L22 9.6 L16.6 14.3 L18.2 21.5 L12 17.7 L5.8 21.5 L7.4 14.3 L2 9.6 L9.1 9 Z";

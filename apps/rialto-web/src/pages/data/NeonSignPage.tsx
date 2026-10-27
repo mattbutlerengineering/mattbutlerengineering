@@ -131,6 +131,7 @@ function TonePicker() {
               key={t}
               size="sm"
               variant={t === value ? "primary" : "secondary"}
+              aria-pressed={t === value}
               onClick={() => set(t)}
             >
               {t}
