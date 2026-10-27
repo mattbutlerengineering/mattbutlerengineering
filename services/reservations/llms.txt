@@ -2142,6 +2142,9 @@
       }
     </item>
     <item priority="high">
+      export const LATE_GUEST_GRACE_MINUTES: unknown;
+    </item>
+    <item priority="high">
       export function stillToServeWhere(now: Date) { /* ... */ }
     </item>
     <item priority="high">

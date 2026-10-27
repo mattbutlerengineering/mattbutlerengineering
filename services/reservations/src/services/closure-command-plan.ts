@@ -49,8 +49,16 @@ export function checkDecisions(
   const groups = new Map(impact.groups.map((g) => [g.groupKey, g]));
   const seen = new Set<string>();
   const invalid: string[] = [];
+  const vanished: string[] = [];
   for (const d of decisions) {
     const group = groups.get(d.groupKey);
+    // A group the Manager saw (the decision names its bookings) that is gone now is stale, not
+    // invalid: every booking in it was cancelled or moved since the preview.
+    if (!group && d.reservationIds !== undefined && !seen.has(d.groupKey)) {
+      vanished.push(d.groupKey);
+      seen.add(d.groupKey);
+      continue;
+    }
     const bad =
       !group || seen.has(d.groupKey) || (d.action === "move" && group.kind !== "shortened");
     if (bad) invalid.push(d.groupKey);
@@ -69,8 +77,9 @@ export function checkDecisions(
         membershipChanged(groups.get(key)!, d)
       );
     });
-  return missing.length > 0
-    ? { kind: "decision-required", groupKeys: missing }
+  const stale = [...missing, ...vanished];
+  return stale.length > 0
+    ? { kind: "decision-required", groupKeys: stale }
     : { kind: "ok", actions: answered };
 }
 

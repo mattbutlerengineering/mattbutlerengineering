@@ -94,6 +94,36 @@ describe("checkDecisions and a group that changed since the preview", () => {
     });
   });
 
+  it("asks again, not invalid, when a booking was cancelled or moved out of the group", () => {
+    const decision = {
+      groupKey: "2026-12-24:closed",
+      action: "cancel" as const,
+      reservationIds: ["a", "b", "c"],
+    };
+    expect(checkDecisions(impact(["a", "b"]), [decision])).toEqual({
+      kind: "decision-required",
+      groupKeys: ["2026-12-24:closed"],
+    });
+  });
+
+  it("asks again, not invalid, when the whole group is gone since the preview", () => {
+    const decision = {
+      groupKey: "2026-12-24:closed",
+      action: "cancel" as const,
+      reservationIds: ["a"],
+    };
+    const empty = { groups: [] } as unknown as Parameters<typeof checkDecisions>[0];
+    expect(checkDecisions(empty, [decision])).toEqual({
+      kind: "decision-required",
+      groupKeys: ["2026-12-24:closed"],
+    });
+  });
+
+  it("still calls a decision naming an unknown group, with no bookings sent, invalid", () => {
+    const decision = { groupKey: "2026-12-30:closed", action: "cancel" as const };
+    expect(checkDecisions(impact(["a"]), [decision]).kind).toBe("invalid-decision");
+  });
+
   it("accepts the same members in any order, and a decision that names none", () => {
     const named = { groupKey: "2026-12-24:closed", action: "cancel" as const };
     expect(

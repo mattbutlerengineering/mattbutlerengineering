@@ -272,15 +272,26 @@ class SaveRefused extends Error {
 }
 
 /**
- * Bookings a change can still affect at `now`: those starting later, and those whose start has
- * passed but whose guest has not been seated or finished (PENDING or CONFIRMED, running late)
- * with time still on the clock.
+ * How long after its start a PENDING/CONFIRMED booking still counts as a late guest rather than
+ * a seated party. A reservation has no seated state, so a party that started longer ago than
+ * this is treated as seated and left out (Owner decision on #7685, "late guests only").
+ */
+export const LATE_GUEST_GRACE_MINUTES = 30;
+
+/**
+ * Bookings a change can still affect at `now`: those starting later, and late guests: PENDING or
+ * CONFIRMED bookings that started within the grace window and have not ended.
  */
 export function stillToServeWhere(now: Date) {
+  const graceStart = new Date(now.getTime() - LATE_GUEST_GRACE_MINUTES * 60_000);
   return {
     OR: [
       { startTime: { gte: now } },
-      { status: { in: ["PENDING", "CONFIRMED"] as ReservationStatus[] }, endTime: { gt: now } },
+      {
+        status: { in: ["PENDING", "CONFIRMED"] as ReservationStatus[] },
+        startTime: { gte: graceStart },
+        endTime: { gt: now },
+      },
     ],
   };
 }

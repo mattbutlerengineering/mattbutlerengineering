@@ -420,7 +420,11 @@ describe("saveAvailabilityConfig", () => {
           date: { gte: new Date("2026-11-06T00:00:00.000Z") },
           OR: [
             { startTime: { gte: late } },
-            { status: { in: ["PENDING", "CONFIRMED"] }, endTime: { gt: late } },
+            {
+              status: { in: ["PENDING", "CONFIRMED"] },
+              startTime: { gte: new Date("2026-11-07T07:40:00.000Z") },
+              endTime: { gt: late },
+            },
           ],
         }),
       })
