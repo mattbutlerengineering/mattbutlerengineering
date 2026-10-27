@@ -138,8 +138,8 @@
   /* The pulse is an absolutely-positioned decoration inside an overflow-hidden
      groove, so animating its logical inset stays cheap and RTL-correct without
      a mirrored translateX keyframe. */
-  /* Bounded (WCAG 2.2.2): 3 round trips, then it rests at the start. */
-  animation: rialto-handshake-shuttle var(--handshake-shuttle) var(--rialto-ease-smooth) 3;
+  /* Bounded (WCAG 2.2.2): 2 round trips (4.8s total, under the 5s WCAG 2.2.2 threshold), then it rests at the start. */
+  animation: rialto-handshake-shuttle var(--handshake-shuttle) var(--rialto-ease-smooth) 2;
 }
 
 @keyframes rialto-handshake-shuttle {

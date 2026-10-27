@@ -1,8 +1,10 @@
 /// <reference types="node" />
 // @vitest-environment node
 /**
- * WCAG 2.2.2 — decorative loops must stop on their own. jsdom applies no
- * stylesheet, so read the source CSS and assert no `infinite` iteration count.
+ * WCAG 2.2.2 — auto-starting motion longer than 5s needs a pause/stop/hide
+ * control, so decorative loops must end on their own within 5s total. jsdom
+ * applies no stylesheet, so read the source CSS and compute iterations x
+ * duration.
  */
 
 import { describe, it, expect } from "vitest";
@@ -10,18 +12,26 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+const MAX_TOTAL_SECONDS = 5;
 const componentsDir = dirname(fileURLToPath(import.meta.url));
 const read = (file: string): string => readFileSync(join(componentsDir, file), "utf-8");
 
-describe("decorative CSS loops are bounded", () => {
+function totalSeconds(css: string, name: string, durationVar: string): number {
+  const line = css.split("\n").find((l) => l.includes(`animation: ${name}`));
+  expect(line).toBeDefined();
+  expect(line).not.toMatch(/infinite/);
+  const iterations = Number(/\s(\d+);/.exec(line ?? "")?.[1]);
+  const seconds = Number(new RegExp(`${durationVar}:\\s*([\\d.]+)s`).exec(css)?.[1]);
+  return iterations * seconds;
+}
+
+describe("decorative CSS loops stop within 5s (WCAG 2.2.2)", () => {
   it.each([
-    ["NeonSign/NeonSign.module.css", "rialto-neon-breathe"],
-    ["Handshake/Handshake.module.css", "rialto-handshake-shuttle"],
-  ])("%s runs %s a finite number of times", (file, name) => {
-    const css = read(file);
-    const line = css.split("\n").find((l) => l.includes(`animation: ${name}`));
-    expect(line).toBeDefined();
-    expect(line).not.toMatch(/infinite/);
-    expect(line).toMatch(/\s\d+;/);
+    ["NeonSign/NeonSign.module.css", "rialto-neon-breathe", "--neon-warm-cycle"],
+    ["Handshake/Handshake.module.css", "rialto-handshake-shuttle", "--handshake-shuttle"],
+  ])("%s runs %s for at most 5s in total", (file, name, durationVar) => {
+    const total = totalSeconds(read(file), name, durationVar);
+    expect(total).toBeGreaterThan(0);
+    expect(total).toBeLessThanOrEqual(MAX_TOTAL_SECONDS);
   });
 });

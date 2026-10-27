@@ -18,13 +18,25 @@ describe("Ferrofluid", () => {
   });
 
   describe("motion", () => {
-    it("drifts every blob a bounded number of cycles when motion is allowed (WCAG 2.2.2)", () => {
-      setMatchingMedia([]);
-      const { container } = render(<Ferrofluid blobCount={3} />);
-      const animated = container.querySelectorAll("circle[data-motion-transition]");
-      expect(animated).toHaveLength(3);
-      expect(animated[0]?.getAttribute("data-motion-transition")).toContain('"repeat":2');
-    });
+    it.each(["slow", "medium", "fast"] as const)(
+      "stops every %s blob within 5s in total (WCAG 2.2.2)",
+      (speed) => {
+        setMatchingMedia([]);
+        const { container } = render(<Ferrofluid blobCount={12} speed={speed} />);
+        const animated = container.querySelectorAll("circle[data-motion-transition]");
+        expect(animated).toHaveLength(12);
+        for (const circle of animated) {
+          const t = JSON.parse(circle.getAttribute("data-motion-transition") ?? "{}") as {
+            duration: number;
+            delay?: number;
+            repeat?: number | null;
+          };
+          // Infinity serialises to null; a missing repeat means a single pass.
+          expect(t.repeat ?? 0).toBe(0);
+          expect((t.delay ?? 0) + t.duration).toBeLessThanOrEqual(5);
+        }
+      }
+    );
 
     it("renders static blobs under prefers-reduced-motion", () => {
       const { container } = render(<Ferrofluid blobCount={3} />);

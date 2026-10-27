@@ -29,15 +29,17 @@ export interface FerrofluidProps extends HTMLAttributes<HTMLDivElement> {
   blurAmount?: number;
 }
 
+/**
+ * The whole drift is ONE pass that ends back at rest, and never exceeds this
+ * budget: WCAG 2.2.2 requires auto-starting motion over 5s to be stoppable.
+ */
+const DRIFT_BUDGET_S = 5;
+
 const SPEED_DURATION = {
-  slow: 18,
-  medium: 12,
-  fast: 8,
+  slow: DRIFT_BUDGET_S,
+  medium: 4,
+  fast: 3,
 } as const;
-
-/** Extra cycles after the first (3 total), then blobs rest — WCAG 2.2.2. */
-const DRIFT_REPEATS = 2;
-
 export const Ferrofluid = forwardRef<HTMLDivElement, FerrofluidProps>(
   (
     {
@@ -88,10 +90,8 @@ export const Ferrofluid = forwardRef<HTMLDivElement, FerrofluidProps>(
                     cy: [blob.cy, blob.cy - blob.dy, blob.cy + blob.dy / 2, blob.cy],
                   }}
                   transition={{
-                    duration: duration + (i % 3) * 2,
-                    repeat: DRIFT_REPEATS,
+                    duration,
                     ease: "easeInOut",
-                    delay: i * 0.3,
                   }}
                 />
               )
