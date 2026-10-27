@@ -5036,12 +5036,36 @@
     export function isWholeDay(closure: Pick<Closure, "from" | "to">): boolean {
       return closure.from === 0 && closure.to >= 2 * MINUTES_PER_DAY;
     }
+    interface Copy {
+      allDay: (t: TFunction) => readonly [text: string, name: string];
+      band: (t: TFunction, v: { from: string; to: string }) => readonly [text: string, name: string];
+    }
+    type ChannelSuffix = "" | (typeof CHANNEL_SUFFIX)[keyof typeof CHANNEL_SUFFIX];
+    function channelSuffix(closure: Closure): ChannelSuffix {
+      const [only, ...rest] = closure.bookingTypes ?? [];
+      return only && rest.length === 0 ? CHANNEL_SUFFIX[only] : "";
+    }
+    function bookingCopy(suffix: ChannelSuffix): Copy {
+      return {
+        allDay: (t) => [
+          t(`availability.calendar.bookingOff${suffix}AllDay`),
+          t(`availability.calendar.bookingOff${suffix}AllDayName`),
+        ],
+        band: (t, v) => [
+          t(`availability.calendar.bookingOff${suffix}Band`, v),
+          t(`availability.calendar.bookingOff${suffix}BandName`, v),
+        ],
+      };
+    }
     export function closureBandText(
       closure: Closure,
       t: TFunction,
       format: VenueFormat
     ): ClosureBandText {
-      const copy = COPY[closure.targetKind];
+      const copy =
+        closure.targetKind === "booking"
+          ? bookingCopy(channelSuffix(closure))
+          : COPY[closure.targetKind];
       if (isWholeDay(closure)) {
         const [text, name] = copy.allDay(t);
         return { key: closure.ruleId, text, name };
@@ -5228,7 +5252,16 @@
       const services = detailed
         ? (summary?.services ?? []).map((s) => serviceLineText(s, t, format))
         : [];
-      const onlineOff = summary !== undefined && !summary.bookingOpen.online;
+      // A whole-day pause that names online already says so; saying it twice reads as two facts.
+      // The band names a channel only when it is the single one paused (closure-band.ts channelSuffix).
+      const bandNamesOnline = (summary?.closures ?? []).some(
+        (c) =>
+          c.targetKind === "booking" &&
+          isWholeDay(c) &&
+          c.bookingTypes?.length === 1 &&
+          c.bookingTypes[0] === "online"
+      );
+      const onlineOff = summary !== undefined && !summary.bookingOpen.online && !bandNamesOnline;
     
       const parts = summary
         ? [
@@ -39361,11 +39394,14 @@
           targetKind: DateRuleTargetKindSchema,
           from: z.number().int(),
           to: z.number().int(),
+          /** Channels a `booking` closure pauses; absent for other targets and from an older API. */
+          bookingTypes: z.array(z.enum(RULE_BOOKING_TYPES)).optional(),
         })
       ),
       bookingOpen: z.object({ online: z.boolean(), phone: z.boolean(), waitlist: z.boolean() }),
       guestMessage: z.string().optional(),
-      services: z.array(DaySummaryServiceSchema),
+      /** Absent when parsing an old API's response during a deploy window. */
+      services: z.array(DaySummaryServiceSchema).optional(),
     });
     export const ClosureAlongsideSchema = z.object({
       /** Rows to write: the ended original series, and skips or one-date edits re-pointed. */
@@ -45250,11 +45286,14 @@
         ];
       });
     }
-    function dayLabel(config: AvailabilityConfig, day: ResolvedDay): string {
+    function isDayClosed(day: ResolvedDay): boolean {
       const closedAllDay = day.closures.some(
         (c) => c.targetKind === "venue" && c.from <= 0 && c.to >= WHOLE_DAY_MINUTES
       );
-      if (closedAllDay || day.services.length === 0) return "Closed";
+      return closedAllDay || day.services.length === 0;
+    }
+    function dayLabel(config: AvailabilityConfig, day: ResolvedDay): string {
+      if (isDayClosed(day)) return "Closed";
       if (day.explanation.some((l) => l.kind === "special_hours")) return "Special hours";
       return config.schedules.find((s) => s.id === day.scheduleId)?.name ?? "Open";
     }
@@ -45278,14 +45317,15 @@
         label,
         scheduleId: day.scheduleId,
         serviceCount: day.services.length,
-        closures: day.closures.map(({ ruleId, targetKind, from, to }) => ({
+        closures: day.closures.map(({ ruleId, targetKind, from, to, bookingTypes }) => ({
           ruleId,
           targetKind,
           from,
           to,
+          ...(targetKind === "booking" && bookingTypes ? { bookingTypes } : {}),
         })),
         bookingOpen: day.bookingOpen,
-        services: label === "Closed" ? [] : daySummaryServices(names, day),
+        services: isDayClosed(day) ? [] : daySummaryServices(names, day),
         ...(day.guestMessage ? { guestMessage: day.guestMessage } : {}),
       };
     }
@@ -47768,7 +47808,12 @@
     }
     export const MIN_SERVICE_MINUTES = 60;
     type DayServices = ReturnType<typeof resolveDay>;
-    function seatingStarts(day: DayServices, venueServiceId: string, fromMin: number): number[] {
+    function seatingStarts(
+      day: DayServices,
+      venueServiceId: string,
+      fromMin: number,
+      tableIds: readonly string[] = []
+    ): number[] {
       const s = day.services.find((d) => d.venueServiceId === venueServiceId);
       if (!s) return [];
       const grid =
@@ -47788,15 +47833,37 @@
       return grid
         .filter((m) => m >= Math.max(s.opensAt, fromMin) && m <= s.lastSeatingAt && m < s.closesAt)
         .filter((m) => !bands.some((band) => band.from <= m && m < band.to))
+        .filter((m) => channelOpen(day, s, m) && tableFree(day, tableIds, m))
         .sort((x, y) => x - y);
+    }
+    function channelOpen(day: DayServices, s: DayServices["services"][number], m: number): boolean {
+      return s.bookingTypes.some(
+        (channel) =>
+          day.bookingOpen[channel] &&
+          !day.closures.some(
+            (c) =>
+              c.targetKind === "booking" && inBand(c, m) && (c.bookingTypes ?? []).includes(channel)
+          )
+      );
+    }
+    function tableFree(day: DayServices, tableIds: readonly string[], m: number): boolean {
+      if (tableIds.length === 0) return true;
+      const blocked = new Set(
+        day.closures
+          .filter((c) => c.targetKind === "tables" && inBand(c, m))
+          .flatMap((c) => c.tableIds ?? [])
+      );
+      return tableIds.some((id) => !blocked.has(id));
     }
     export function isEmergencyTonightClose(
       snapshot: AvailabilitySnapshot,
       rule: DateRule,
-      now: Date
+      now: Date,
+      tableIds: readonly string[] = []
     ): boolean {
       if (rule.kind !== "tonight") return false;
-      if (rule.targetKind !== "venue" && rule.targetKind !== "service") return false;
+      const starts = (day: DayServices, id: string, from: number): number[] =>
+        seatingStarts(day, id, from, tableIds);
       const others = snapshot.config.dateRules.filter((r) => r.id !== rule.id);
       const withRules = (dateRules: DateRule[]): AvailabilitySnapshot => ({
         ...snapshot,
@@ -47807,23 +47874,23 @@
       const after = resolveDay(withRules([...others, rule]), rule.startsOn);
       const nowMin = wallMinutes(now, rule.startsOn, snapshot.timezone);
       const live = before.services
-        .filter((s) => rule.targetKind === "venue" || s.venueServiceId === rule.venueServiceId)
-        .filter((s) => seatingStarts(before, s.venueServiceId, nowMin).length > 0);
+        .filter((s) => rule.targetKind !== "service" || s.venueServiceId === rule.venueServiceId)
+        .filter((s) => starts(before, s.venueServiceId, nowMin).length > 0);
       return (
         live.length > 0 &&
         live.some((s) => {
-          const remaining = seatingStarts(after, s.venueServiceId, nowMin);
+          const remaining = starts(after, s.venueServiceId, nowMin);
           if (remaining.length === 0) return true;
           // A change that takes no seating away closes nothing, however short the service already is.
-          const current = seatingStarts(before, s.venueServiceId, nowMin);
+          const current = starts(before, s.venueServiceId, nowMin);
           if (remaining.length === current.length) return false;
           const plannedOpen = planned.services.find((p) => p.venueServiceId === s.venueServiceId);
           const openAt = plannedOpen?.opensAt ?? s.opensAt;
           const floor = Math.min(
             MIN_SERVICE_MINUTES,
-            spanOf(seatingStarts(planned, s.venueServiceId, openAt))
+            spanOf(starts(planned, s.venueServiceId, openAt))
           );
-          return spanOf(seatingStarts(after, s.venueServiceId, openAt)) < floor;
+          return spanOf(starts(after, s.venueServiceId, openAt)) < floor;
         })
       );
     }
@@ -47910,7 +47977,18 @@
       if (rule.kind !== "tonight") return isHostEmergencyClose(rule, serviceDate);
       if (rule.startsOn !== serviceDate) return false;
       // A Tonight change that leaves nothing bookable on its targets is the emergency close in effect.
-      return venue.hostEmergencyClose || !isEmergencyTonightClose(snapshot, rule, now);
+      if (venue.hostEmergencyClose) return true;
+      // Only active tables seat guests, so an inactive one cannot keep the night open.
+      const tables = await db.table.findMany({
+        where: { venueId, isActive: true },
+        select: { id: true },
+      });
+      return !isEmergencyTonightClose(
+        snapshot,
+        rule,
+        now,
+        tables.map((t) => t.id)
+      );
     }
     export function mayClose(
       venueId: string,
@@ -57465,8 +57543,9 @@
           }
           const replayed = await replayOf(tx, venueId, rule, state);
           if (replayed) return { kind: "saved", result: replayed };
-          if (body.change.type === "stop_window") {
-            // A stop over what is left of the service closes the night like a close-early does.
+          if (GATED_CHANGES.has(body.change.type)) {
+            // A stop, table block or pause that leaves nothing bookable closes the night like a
+            // close-early does (#7721); one that leaves a table and a channel open stays a Host's.
             // After the replay check: a saved stop's retry is not a new close.
             const allowed = await mayCloseFor(tx, venueId, caller, rule, now);
             if (!allowed) throw new Refused({ kind: allowed === null ? "not_found" : "forbidden" });

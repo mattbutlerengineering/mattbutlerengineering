@@ -224,6 +224,18 @@ describe("AvailabilityDaySummarySchema", () => {
     expect(result.success).toBe(true);
     expect(DaySummaryServiceSchema.safeParse(summary.services[0]).success).toBe(true);
   });
+
+  it("parses a summary with no services field, from an old API during the deploy window", () => {
+    const summary = {
+      serviceDate: "2026-11-01",
+      label: "Regular",
+      scheduleId: "s1",
+      serviceCount: 1,
+      closures: [],
+      bookingOpen: { online: true, phone: true, waitlist: true },
+    };
+    expect(AvailabilityDaySummarySchema.safeParse(summary).success).toBe(true);
+  });
 });
 
 describe("PreviewResultSchema.focusDay", () => {

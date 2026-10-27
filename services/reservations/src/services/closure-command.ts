@@ -146,7 +146,18 @@ export async function mayCloseFor(
   if (rule.kind !== "tonight") return isHostEmergencyClose(rule, serviceDate);
   if (rule.startsOn !== serviceDate) return false;
   // A Tonight change that leaves nothing bookable on its targets is the emergency close in effect.
-  return venue.hostEmergencyClose || !isEmergencyTonightClose(snapshot, rule, now);
+  if (venue.hostEmergencyClose) return true;
+  // Only active tables seat guests, so an inactive one cannot keep the night open.
+  const tables = await db.table.findMany({
+    where: { venueId, isActive: true },
+    select: { id: true },
+  });
+  return !isEmergencyTonightClose(
+    snapshot,
+    rule,
+    now,
+    tables.map((t) => t.id)
+  );
 }
 
 /** Read-only form of the same limits, for the impact preview: `null` for an unknown venue. */

@@ -2770,13 +2770,25 @@
       type DayServices = ReturnType<typeof resolveDay>;
     </item>
     <item priority="medium">
-      function seatingStarts(day: DayServices, venueServiceId: string, fromMin: number): number[] { /* ... */ }
+      function seatingStarts(
+        day: DayServices,
+        venueServiceId: string,
+        fromMin: number,
+        tableIds: readonly string[] = []
+      ): number[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function channelOpen(day: DayServices, s: DayServices["services"][number], m: number): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function tableFree(day: DayServices, tableIds: readonly string[], m: number): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function isEmergencyTonightClose(
         snapshot: AvailabilitySnapshot,
         rule: DateRule,
-        now: Date
+        now: Date,
+        tableIds: readonly string[] = []
       ): boolean { /* ... */ }
     </item>
     <item priority="high">

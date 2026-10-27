@@ -6,6 +6,7 @@ import {
   DateRuleTargetKindSchema,
   GUEST_MESSAGE_MAX_LENGTH,
   MinuteSchema,
+  RULE_BOOKING_TYPES,
   ScheduleAssignmentSchema,
   ScheduleSchema,
   ScheduleServiceSchema,
@@ -234,11 +235,14 @@ export const AvailabilityDaySummarySchema = z.object({
       targetKind: DateRuleTargetKindSchema,
       from: z.number().int(),
       to: z.number().int(),
+      /** Channels a `booking` closure pauses; absent for other targets and from an older API. */
+      bookingTypes: z.array(z.enum(RULE_BOOKING_TYPES)).optional(),
     })
   ),
   bookingOpen: z.object({ online: z.boolean(), phone: z.boolean(), waitlist: z.boolean() }),
   guestMessage: z.string().optional(),
-  services: z.array(DaySummaryServiceSchema),
+  /** Absent when parsing an old API's response during a deploy window. */
+  services: z.array(DaySummaryServiceSchema).optional(),
 });
 
 /**

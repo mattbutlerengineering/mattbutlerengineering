@@ -326,6 +326,22 @@ describe("TonightControl", () => {
       fireEvent.click(screen.getByRole("switch", { name: "Pause online booking" }));
       expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't apply that change");
     });
+
+    it("says who can do it when the server refuses with 403, not to try again", async () => {
+      setTonight.mockRejectedValueOnce(
+        new ApiClientError(
+          { type: "about:blank", title: "Forbidden", status: 403, detail: "forbidden" } as never,
+          "POST",
+          "tonight"
+        )
+      );
+      renderControl({ viewerRole: "host" });
+      open();
+      fireEvent.click(screen.getByRole("switch", { name: "Pause online booking" }));
+      const alert = await screen.findByRole("alert");
+      expect(alert).toHaveTextContent("That would close tonight. Only a manager");
+      expect(alert).not.toHaveTextContent("Try again");
+    });
   });
 
   describe("conflicts", () => {

@@ -84,11 +84,15 @@ export function findStrandedReservations(
 
 const WHOLE_DAY_MINUTES = 2880;
 
-function dayLabel(config: AvailabilityConfig, day: ResolvedDay): string {
+function isDayClosed(day: ResolvedDay): boolean {
   const closedAllDay = day.closures.some(
     (c) => c.targetKind === "venue" && c.from <= 0 && c.to >= WHOLE_DAY_MINUTES
   );
-  if (closedAllDay || day.services.length === 0) return "Closed";
+  return closedAllDay || day.services.length === 0;
+}
+
+function dayLabel(config: AvailabilityConfig, day: ResolvedDay): string {
+  if (isDayClosed(day)) return "Closed";
   if (day.explanation.some((l) => l.kind === "special_hours")) return "Special hours";
   return config.schedules.find((s) => s.id === day.scheduleId)?.name ?? "Open";
 }
@@ -116,14 +120,15 @@ export function summarizeDay(config: AvailabilityConfig, day: ResolvedDay): Avai
     label,
     scheduleId: day.scheduleId,
     serviceCount: day.services.length,
-    closures: day.closures.map(({ ruleId, targetKind, from, to }) => ({
+    closures: day.closures.map(({ ruleId, targetKind, from, to, bookingTypes }) => ({
       ruleId,
       targetKind,
       from,
       to,
+      ...(targetKind === "booking" && bookingTypes ? { bookingTypes } : {}),
     })),
     bookingOpen: day.bookingOpen,
-    services: label === "Closed" ? [] : daySummaryServices(names, day),
+    services: isDayClosed(day) ? [] : daySummaryServices(names, day),
     ...(day.guestMessage ? { guestMessage: day.guestMessage } : {}),
   };
 }

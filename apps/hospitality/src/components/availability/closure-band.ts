@@ -27,14 +27,36 @@ export function isWholeDay(closure: Pick<Closure, "from" | "to">): boolean {
   return closure.from === 0 && closure.to >= 2 * MINUTES_PER_DAY;
 }
 
+interface Copy {
+  allDay: (t: TFunction) => readonly [text: string, name: string];
+  band: (t: TFunction, v: { from: string; to: string }) => readonly [text: string, name: string];
+}
+
+/** Channel-specific booking copy; the generic ("") one covers several channels or none named. */
+const CHANNEL_SUFFIX = { online: "Online", phone: "Phone", waitlist: "Waitlist" } as const;
+
+type ChannelSuffix = "" | (typeof CHANNEL_SUFFIX)[keyof typeof CHANNEL_SUFFIX];
+
+function channelSuffix(closure: Closure): ChannelSuffix {
+  const [only, ...rest] = closure.bookingTypes ?? [];
+  return only && rest.length === 0 ? CHANNEL_SUFFIX[only] : "";
+}
+
+function bookingCopy(suffix: ChannelSuffix): Copy {
+  return {
+    allDay: (t) => [
+      t(`availability.calendar.bookingOff${suffix}AllDay`),
+      t(`availability.calendar.bookingOff${suffix}AllDayName`),
+    ],
+    band: (t, v) => [
+      t(`availability.calendar.bookingOff${suffix}Band`, v),
+      t(`availability.calendar.bookingOff${suffix}BandName`, v),
+    ],
+  };
+}
+
 /** Each closure target says what it closes; only a venue closure reads "Closed" (ux.md S2). */
-const COPY: Record<
-  Closure["targetKind"],
-  {
-    allDay: (t: TFunction) => readonly [text: string, name: string];
-    band: (t: TFunction, v: { from: string; to: string }) => readonly [text: string, name: string];
-  }
-> = {
+const COPY: Record<Closure["targetKind"], Copy> = {
   venue: {
     allDay: (t) => [
       t("availability.calendar.closedAllDay"),
@@ -45,16 +67,7 @@ const COPY: Record<
       t("availability.calendar.closedBandName", v),
     ],
   },
-  booking: {
-    allDay: (t) => [
-      t("availability.calendar.bookingOffAllDay"),
-      t("availability.calendar.bookingOffAllDayName"),
-    ],
-    band: (t, v) => [
-      t("availability.calendar.bookingOffBand", v),
-      t("availability.calendar.bookingOffBandName", v),
-    ],
-  },
+  booking: bookingCopy(""),
   service: {
     allDay: (t) => [
       t("availability.calendar.serviceClosedAllDay"),
@@ -82,7 +95,10 @@ export function closureBandText(
   t: TFunction,
   format: VenueFormat
 ): ClosureBandText {
-  const copy = COPY[closure.targetKind];
+  const copy =
+    closure.targetKind === "booking"
+      ? bookingCopy(channelSuffix(closure))
+      : COPY[closure.targetKind];
   if (isWholeDay(closure)) {
     const [text, name] = copy.allDay(t);
     return { key: closure.ruleId, text, name };

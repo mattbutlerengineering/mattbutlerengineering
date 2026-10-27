@@ -132,6 +132,33 @@ describe("summarizeDay", () => {
     });
   });
 
+  it("names the paused channels of a booking closure and omits them elsewhere", () => {
+    const config: AvailabilityConfig = {
+      ...CONFIG,
+      dateRules: [
+        {
+          id: "dr-b",
+          kind: "closure",
+          targetKind: "booking",
+          bookingTypes: ["online"],
+          startsOn: "2026-11-06",
+          endsOn: "2026-11-06",
+        },
+        {
+          id: "dr-v",
+          kind: "closure",
+          targetKind: "venue",
+          startsOn: "2026-11-06",
+          endsOn: "2026-11-06",
+        },
+      ],
+    };
+    const day = resolveDay({ timezone: TZ, config }, "2026-11-06");
+    const { closures } = summarizeDay(config, day);
+    expect(closures.find((c) => c.ruleId === "dr-b")?.bookingTypes).toEqual(["online"]);
+    expect(closures.find((c) => c.ruleId === "dr-v")).not.toHaveProperty("bookingTypes");
+  });
+
   it("labels special hours", () => {
     const config: AvailabilityConfig = {
       ...CONFIG,
@@ -172,5 +199,24 @@ describe("summarizeDay", () => {
     };
     const openDay = resolveDay({ timezone: TZ, config: open }, "2026-11-06");
     expect(summarizeDay(open, openDay).label).toBe("Special hours");
+  });
+
+  it("keeps a schedule named 'Closed' its own services, not the closed-day empty list", () => {
+    const config: AvailabilityConfig = {
+      ...CONFIG,
+      schedules: [{ id: "sch-1", name: "Closed", kind: "regular", isRegular: true }],
+    };
+    const day = resolveDay({ timezone: TZ, config }, "2026-11-06");
+    const result = summarizeDay(config, day);
+    expect(result.label).toBe("Closed");
+    expect(result.services).toEqual([
+      {
+        venueServiceId: "vs-dinner",
+        name: "Dinner",
+        opensAt: 1020,
+        lastSeatingAt: 1260,
+        closesAt: 1320,
+      },
+    ]);
   });
 });
