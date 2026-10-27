@@ -2123,6 +2123,7 @@
       "cancel": "Annuler",
       "saveError": "Impossible de fermer",
       "versionConflict": "Les disponibilités ont changé depuis l'ouverture de cette fenêtre. Fermez-la et réessayez.",
+      "groupsChanged": "Les réservations ont changé pendant votre décision. Passez en revue la liste à jour et choisissez de nouveau.",
       "staffNote": "Note pour le personnel",
       "guestMessage": "Message pour les clients",
       "guestMessageTooLong": "Limitez-vous à {{max}} caractères.",

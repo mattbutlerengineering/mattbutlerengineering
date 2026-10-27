@@ -1673,6 +1673,9 @@
       type Conflict = { readonly code: "version-conf | { readonly code: "closure-exis;
     </item>
     <item priority="high">
+      export function isDecisionRequired(error: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="high">
       export function conflictOf(error: unknown): Conflict | null { /* ... */ }
     </item>
   </file>
@@ -13683,6 +13686,12 @@
       }
     </item>
     <item priority="high">
+      export const LATE_GUEST_GRACE_MINUTES: unknown;
+    </item>
+    <item priority="high">
+      export function stillToServeWhere(now: Date) { /* ... */ }
+    </item>
+    <item priority="high">
       export async function futureBookings(
         db: StoreDb,
         venueId: string,
@@ -14273,6 +14282,9 @@
   <file path="services/reservations/src/services/closure-command-plan.ts">
     <item priority="low">
       type DecisionCheck = { kind: "ok"; actions: Readonl | { kind: "decision-required"; g | { kind: "invalid-decision"; gr;
+    </item>
+    <item priority="medium">
+      function membershipChanged(group: ClosureImpactGroup, decision: ClosureDecision): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function checkDecisions(

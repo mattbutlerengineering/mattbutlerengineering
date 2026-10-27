@@ -11769,6 +11769,20 @@
         super(outcome.kind);
       }
     }
+    export const LATE_GUEST_GRACE_MINUTES = 30;
+    export function stillToServeWhere(now: Date) {
+      const graceStart = new Date(now.getTime() - LATE_GUEST_GRACE_MINUTES * 60_000);
+      return {
+        OR: [
+          { startTime: { gte: now } },
+          {
+            status: { in: ["PENDING", "CONFIRMED"] as ReservationStatus[] },
+            startTime: { gte: graceStart },
+            endTime: { gt: now },
+          },
+        ],
+      };
+    }
     export async function futureBookings(
       db: StoreDb,
       venueId: string,
@@ -11779,9 +11793,9 @@
         where: {
           venueId,
           // From yesterday's service day: a service running past midnight is still
-          // yesterday's (ADR-029), and `startTime >= now` keeps the scan to the future.
+          // yesterday's (ADR-029), and `stillToServeWhere` keeps the scan to bookings not yet over.
           date: { gte: new Date(`${addDays(today, -1)}T00:00:00.000Z`) },
-          startTime: { gte: now },
+          ...stillToServeWhere(now),
           status: { notIn: [...NOT_BOOKED_STATUSES] },
         },
         select: { id: true, tableId: true, startTime: true, partySize: true, date: true },
@@ -13481,6 +13495,11 @@
       | { kind: "ok"; actions: ReadonlyMap<string, ClosureDecision> }
       | { kind: "decision-required"; groupKeys: string[] }
       | { kind: "invalid-decision"; groupKeys: string[] };
+    function membershipChanged(group: ClosureImpactGroup, decision: ClosureDecision): boolean {
+      if (decision.reservationIds === undefined) return false;
+      const seen = new Set(decision.reservationIds);
+      return seen.size !== group.reservations.length || group.reservations.some((r) => !seen.has(r.id));
+    }
     export function checkDecisions(
       impact: ClosureImpact,
       decisions: readonly ClosureDecision[]
@@ -13488,8 +13507,16 @@
       const groups = new Map(impact.groups.map((g) => [g.groupKey, g]));
       const seen = new Set<string>();
       const invalid: string[] = [];
+      const vanished: string[] = [];
       for (const d of decisions) {
         const group = groups.get(d.groupKey);
+        // A group the Manager saw (the decision names its bookings) that is gone now is stale, not
+        // invalid: every booking in it was cancelled or moved since the preview.
+        if (!group && d.reservationIds !== undefined && !seen.has(d.groupKey)) {
+          vanished.push(d.groupKey);
+          seen.add(d.groupKey);
+          continue;
+        }
         const bad =
           !group || seen.has(d.groupKey) || (d.action === "move" && group.kind !== "shortened");
         if (bad) invalid.push(d.groupKey);
@@ -13502,10 +13529,15 @@
         .map((g) => g.groupKey)
         .filter((key) => {
           const d = answered.get(key);
-          return !d || (d.action === "keep_silent" && d.acknowledged !== true);
+          return (
+            !d ||
+            (d.action === "keep_silent" && d.acknowledged !== true) ||
+            membershipChanged(groups.get(key)!, d)
+          );
         });
-      return missing.length > 0
-        ? { kind: "decision-required", groupKeys: missing }
+      const stale = [...missing, ...vanished];
+      return stale.length > 0
+        ? { kind: "decision-required", groupKeys: stale }
         : { kind: "ok", actions: answered };
     }
     export function countActions(actions: readonly ClosureAction[]): Record<ClosureAction, number> {
@@ -14241,7 +14273,7 @@
         where: {
           venueId,
           date: { gte: toDbDate(range.from), lte: toDbDate(range.to) },
-          startTime: { gte: now },
+          ...stillToServeWhere(now),
           status: { notIn: [...NOT_BOOKED_STATUSES] },
         },
         select: {

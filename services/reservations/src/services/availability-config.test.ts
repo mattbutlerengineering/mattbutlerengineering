@@ -418,7 +418,14 @@ describe("saveAvailabilityConfig", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           date: { gte: new Date("2026-11-06T00:00:00.000Z") },
-          startTime: { gte: late },
+          OR: [
+            { startTime: { gte: late } },
+            {
+              status: { in: ["PENDING", "CONFIRMED"] },
+              startTime: { gte: new Date("2026-11-07T07:40:00.000Z") },
+              endTime: { gt: late },
+            },
+          ],
         }),
       })
     );

@@ -7,13 +7,14 @@ import type { AvailabilityConfigState, ClosureImpact, DateRule } from "@mbe/type
 
 const create = vi.hoisted(() => vi.fn());
 const impactState = vi.hoisted(() => ({ value: null as unknown }));
+const refetchImpact = vi.hoisted(() => vi.fn());
 vi.mock("../../hooks/useClosures.js", () => ({
   useCreateClosure: () => ({ mutateAsync: create, isPending: false }),
   useClosureImpact: () => ({
     data: impactState.value,
     isLoading: false,
     error: null,
-    refetch: vi.fn(),
+    refetch: refetchImpact,
   }),
 }));
 const refresh = vi.hoisted(() => vi.fn());
@@ -203,7 +204,43 @@ describe("CloseDialog", () => {
       startsOn: DATE,
       guestMessage: "Closed for a private event",
     });
-    expect(call.body.decisions).toEqual([{ groupKey: `${DATE}:closed`, action: "cancel" }]);
+    expect(call.body.decisions).toEqual([
+      {
+        groupKey: `${DATE}:closed`,
+        action: "cancel",
+        reservationIds: IMPACT.groups[0]!.reservations.map((r) => r.id),
+      },
+    ]);
+  });
+
+  it("refetches the impact and asks again when the group changed before the save", async () => {
+    refetchImpact.mockReset();
+    create.mockRejectedValue(
+      new ApiClientError(
+        {
+          type: "about:blank",
+          title: "decision-required",
+          status: 422,
+          detail: "Every affected group needs a choice.",
+          code: "decision-required",
+          groupKeys: [`${DATE}:closed`],
+        } as never,
+        "POST",
+        "closures"
+      )
+    );
+    renderDialog();
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+    fireEvent.click(within(dialog).getByRole("radio", { name: /Cancel, notify & refund/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+
+    expect(
+      await within(dialog).findByText(/bookings changed while you were deciding/i)
+    ).toBeTruthy();
+    expect(refetchImpact).toHaveBeenCalled();
+    // The old choice is gone: the Manager decides again on the fresh group.
+    expect(within(dialog).getByTestId("close-primary")).toBeDisabled();
   });
 
   it("asks for the acknowledgement before keeping bookings silent", () => {

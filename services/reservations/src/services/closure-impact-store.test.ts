@@ -132,7 +132,14 @@ describe("getClosureImpact", () => {
             gte: new Date("2026-12-24T00:00:00.000Z"),
             lte: new Date("2026-12-24T00:00:00.000Z"),
           },
-          startTime: { gte: NOW },
+          OR: [
+            { startTime: { gte: NOW } },
+            {
+              status: { in: ["PENDING", "CONFIRMED"] },
+              startTime: { gte: new Date("2026-10-25T18:30:00.000Z") },
+              endTime: { gt: NOW },
+            },
+          ],
         }),
       })
     );
@@ -213,5 +220,86 @@ describe("getClosureImpact", () => {
     expect(await getClosureImpact("venue-1", closure(), NOW, client)).toEqual({
       kind: "not_found",
     });
+  });
+});
+
+type Where = {
+  startTime?: { gte: Date };
+  endTime?: { gt: Date };
+  status?: { in?: string[]; notIn?: string[] };
+  OR?: Where[];
+};
+type SeededRow = { id: string; status: string; startTime: Date; endTime: Date };
+
+/** Applies the where clause the store sends, so a test seeds rows and sees who is returned. */
+function matches(row: SeededRow, where: Where): boolean {
+  if (where.OR && !where.OR.some((w) => matches(row, w))) return false;
+  if (where.startTime && !(row.startTime >= where.startTime.gte)) return false;
+  if (where.endTime && !(row.endTime > where.endTime.gt)) return false;
+  if (where.status?.in && !where.status.in.includes(row.status)) return false;
+  if (where.status?.notIn?.includes(row.status)) return false;
+  return true;
+}
+
+describe("getClosureImpact and a booking that has already started", () => {
+  // 7:05 PM on Sun 25 Oct in Los Angeles; the 7:00 PM booking has not arrived yet.
+  const LATE = new Date("2026-10-26T02:05:00.000Z");
+  const seeded = (status: string): SeededRow => ({
+    id: "late-1",
+    status,
+    startTime: new Date("2026-10-26T02:00:00.000Z"),
+    endTime: new Date("2026-10-26T03:30:00.000Z"),
+  });
+
+  async function impactFor(status: string, now: Date = LATE) {
+    const data = rows();
+    const row = seeded(status);
+    data.reservation.findMany = vi.fn(async (args: { where: Where }) =>
+      [row]
+        .filter((r) => matches(r, args.where))
+        .map((r) => ({
+          ...r,
+          tableId: "t-1",
+          date: new Date("2026-10-25T00:00:00.000Z"),
+          partySize: 4,
+          guestName: "Late Guest",
+          deposit: null,
+        }))
+    ) as never;
+    const { client } = fakeClient(data);
+    const rule = closure({ startsOn: "2026-10-25", endsOn: "2026-10-25" });
+    return getClosureImpact("venue-1", rule, now, client);
+  }
+
+  it("puts a CONFIRMED booking running late in the closed group", async () => {
+    const outcome = await impactFor("CONFIRMED");
+    expect(outcome).toMatchObject({ kind: "ok", impact: { reservations: 1 } });
+    if (outcome.kind !== "ok") return;
+    expect(outcome.impact.groups).toHaveLength(1);
+    expect(outcome.impact.groups[0]).toMatchObject({ kind: "closed" });
+    expect(outcome.impact.groups[0]?.reservations.map((r) => r.id)).toEqual(["late-1"]);
+  });
+
+  it("keeps a late guest at exactly the grace window, and drops a party past it as seated", async () => {
+    const edge = new Date("2026-10-26T02:30:00.000Z"); // 30 minutes after the 7:00 PM start
+    expect(await impactFor("CONFIRMED", edge)).toMatchObject({
+      kind: "ok",
+      impact: { reservations: 1 },
+    });
+    const past = new Date("2026-10-26T02:30:00.001Z");
+    expect(await impactFor("CONFIRMED", past)).toMatchObject({
+      kind: "ok",
+      impact: { reservations: 0 },
+    });
+  });
+
+  it("leaves a CONFIRMED booking at 7:45 PM out: that party is treated as seated", async () => {
+    const outcome = await impactFor("CONFIRMED", new Date("2026-10-26T02:45:00.000Z"));
+    expect(outcome).toMatchObject({ kind: "ok", impact: { reservations: 0, groups: [] } });
+  });
+
+  it.each(["COMPLETED", "CANCELLED", "NO_SHOW"])("leaves a %s booking out", async (status) => {
+    const outcome = await impactFor(status);
+    expect(outcome).toMatchObject({ kind: "ok", impact: { reservations: 0, groups: [] } });
   });
 });

@@ -144,7 +144,10 @@ export function decisionsReady(groups: readonly ClosureImpactGroup[], choices: C
   });
 }
 
-/** The command's `decisions`; only `keep_silent` carries `acknowledged`. */
+/**
+ * The command's `decisions`; only `keep_silent` carries `acknowledged`. Each names the bookings
+ * it was made on, so the server can tell when the group changed before the save.
+ */
 export function toDecisions(
   groups: readonly ClosureImpactGroup[],
   choices: ChoiceMap
@@ -152,10 +155,11 @@ export function toDecisions(
   return groups.flatMap((g) => {
     const action = choices[g.groupKey]?.action;
     if (action === undefined) return [];
+    const reservationIds = g.reservations.map((r) => r.id);
     return [
       action === "keep_silent"
-        ? { groupKey: g.groupKey, action, acknowledged: true }
-        : { groupKey: g.groupKey, action },
+        ? { groupKey: g.groupKey, action, acknowledged: true, reservationIds }
+        : { groupKey: g.groupKey, action, reservationIds },
     ];
   });
 }

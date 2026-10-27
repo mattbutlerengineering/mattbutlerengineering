@@ -25,7 +25,7 @@ import {
   type CloseField,
   type CloseForm,
 } from "./close-draft.js";
-import { conflictOf } from "./conflict-problem.js";
+import { conflictOf, isDecisionRequired } from "./conflict-problem.js";
 import { useWinningChangeText } from "./use-winning-change-text.js";
 import { CloseStepOne } from "./CloseStepOne.js";
 import { CloseStepTwo } from "./CloseStepTwo.js";
@@ -193,6 +193,13 @@ export function CloseDialog(props: CloseDialogProps) {
       toast({ title, variant: "success" });
       onClose();
     } catch (error) {
+      if (isDecisionRequired(error)) {
+        // The group changed since the Manager chose: drop the stale choices and load the new one.
+        setChoices({});
+        setFailure(t("availability.close.groupsChanged"));
+        void impactQuery.refetch();
+        return;
+      }
       setFailure(failureText(error, t));
       const conflict = conflictOf(error);
       if (conflict?.code === "version-conflict") {

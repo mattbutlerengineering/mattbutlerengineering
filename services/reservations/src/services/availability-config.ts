@@ -14,7 +14,7 @@ import type {
   PutAvailabilityConfigBody,
   StrandedReservation,
 } from "@mbe/types";
-import type { Prisma, PrismaClient } from "../generated/prisma/index.js";
+import type { Prisma, PrismaClient, ReservationStatus } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
 import {
   affectedRange,
@@ -271,6 +271,31 @@ class SaveRefused extends Error {
   }
 }
 
+/**
+ * How long after its start a PENDING/CONFIRMED booking still counts as a late guest rather than
+ * a seated party. A reservation has no seated state, so a party that started longer ago than
+ * this is treated as seated and left out (Owner decision on #7685, "late guests only").
+ */
+export const LATE_GUEST_GRACE_MINUTES = 30;
+
+/**
+ * Bookings a change can still affect at `now`: those starting later, and late guests: PENDING or
+ * CONFIRMED bookings that started within the grace window and have not ended.
+ */
+export function stillToServeWhere(now: Date) {
+  const graceStart = new Date(now.getTime() - LATE_GUEST_GRACE_MINUTES * 60_000);
+  return {
+    OR: [
+      { startTime: { gte: now } },
+      {
+        status: { in: ["PENDING", "CONFIRMED"] as ReservationStatus[] },
+        startTime: { gte: graceStart },
+        endTime: { gt: now },
+      },
+    ],
+  };
+}
+
 /** Future, still-booked reservations: the ones a change could strand. */
 export async function futureBookings(
   db: StoreDb,
@@ -282,9 +307,9 @@ export async function futureBookings(
     where: {
       venueId,
       // From yesterday's service day: a service running past midnight is still
-      // yesterday's (ADR-029), and `startTime >= now` keeps the scan to the future.
+      // yesterday's (ADR-029), and `stillToServeWhere` keeps the scan to bookings not yet over.
       date: { gte: new Date(`${addDays(today, -1)}T00:00:00.000Z`) },
-      startTime: { gte: now },
+      ...stillToServeWhere(now),
       status: { notIn: [...NOT_BOOKED_STATUSES] },
     },
     select: { id: true, tableId: true, startTime: true, partySize: true, date: true },
