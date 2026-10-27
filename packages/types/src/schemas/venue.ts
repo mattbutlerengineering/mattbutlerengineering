@@ -1,26 +1,46 @@
 import { z } from "zod";
 
+/**
+ * READ-side day schema. Deliberately lenient: stored venues may hold legacy
+ * or empty times (#7583) and api-client parses every venue response with it,
+ * so tightening it would break venue lists and public pages. Writes are
+ * validated by `OperatingHoursWriteSchema`.
+ */
+export const DayScheduleSchema = z.object({
+  open: z.string(),
+  close: z.string(),
+  closed: z.boolean().optional(),
+});
+
 const HH_MM = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-/** Open days need HH:MM times; a closed day's times are ignored and may be empty. */
-export const DayScheduleSchema = z
-  .object({
-    open: z.string(),
-    close: z.string(),
-    closed: z.boolean().optional(),
-  })
-  .superRefine((day, ctx) => {
-    if (day.closed === true) return;
-    for (const field of ["open", "close"] as const) {
-      if (!HH_MM.test(day[field])) {
-        ctx.addIssue({
-          code: "custom",
-          path: [field],
-          message: "Expected a time in HH:MM format",
-        });
-      }
+/** WRITE-side day: open days need HH:MM times; a closed day's times are ignored and may be empty. */
+const DayScheduleWriteSchema = DayScheduleSchema.superRefine((day, ctx) => {
+  if (day.closed === true) return;
+  for (const field of ["open", "close"] as const) {
+    if (!HH_MM.test(day[field])) {
+      ctx.addIssue({
+        code: "custom",
+        path: [field],
+        message: "Expected a time in HH:MM format",
+      });
     }
-  });
+  }
+});
+
+/**
+ * Write-side operating hours. Fastify's JSON-schema conversion drops
+ * `superRefine`, so the venues create/update routes run this explicitly.
+ */
+export const OperatingHoursWriteSchema = z.looseObject({
+  monday: DayScheduleWriteSchema.optional(),
+  tuesday: DayScheduleWriteSchema.optional(),
+  wednesday: DayScheduleWriteSchema.optional(),
+  thursday: DayScheduleWriteSchema.optional(),
+  friday: DayScheduleWriteSchema.optional(),
+  saturday: DayScheduleWriteSchema.optional(),
+  sunday: DayScheduleWriteSchema.optional(),
+});
 
 /**
  * Restaurant identity ported from eat-sheet's `tenants` table (#7250). Stored

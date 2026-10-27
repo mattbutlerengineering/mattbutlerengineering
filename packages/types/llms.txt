@@ -1458,6 +1458,9 @@
       export const DayScheduleSchema: unknown;
     </item>
     <item priority="high">
+      export const OperatingHoursWriteSchema: unknown;
+    </item>
+    <item priority="high">
       export const VENUE_TYPES: unknown;
     </item>
     <item priority="high">

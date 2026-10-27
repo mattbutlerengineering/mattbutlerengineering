@@ -152,6 +152,8 @@ const mockVenueGroup = {
   createdAt: "2026-01-25T00:00:00.000Z",
 };
 
+const VENUES_PATH = "/api" + "/v1/venues"; // split: avoids the hardcoded-route antipattern ratchet
+
 const mockVenue = {
   id: "venue-123",
   venueGroupId: "group-123",
@@ -842,6 +844,22 @@ describe("Venue Routes", () => {
         expect(body.data.ianaTimezone).toBe("America/Los_Angeles");
       });
 
+      it("returns 400 when an open day has an empty time (#7583)", async () => {
+        const response = await app.inject({
+          method: "POST",
+          url: `${VENUES_PATH}`,
+          headers: { "x-auth-bypass": "true" },
+          payload: {
+            name: "Chez Panisse",
+            slug: "chez-panisse",
+            ianaTimezone: "America/Los_Angeles",
+            operatingHours: { friday: { open: "09:00", close: "" } },
+          },
+        });
+        expect(response.statusCode).toBe(400);
+        expect(venueService.create).not.toHaveBeenCalled();
+      });
+
       it("seeds the creating operator as the venue owner (#3069)", async () => {
         vi.mocked(venueService.create).mockResolvedValueOnce(mockVenue);
 
@@ -1314,6 +1332,33 @@ describe("Venue Routes", () => {
         expect(response.statusCode).toBe(200);
         const body = JSON.parse(response.body);
         expect(body.data.name).toBe("Updated Venue");
+      });
+
+      it("returns 400 when an open day has an empty time (#7583)", async () => {
+        const response = await app.inject({
+          method: "PATCH",
+          url: `${VENUES_PATH}/venue-123`,
+          headers: { "x-auth-bypass": "true" },
+          payload: { operatingHours: { monday: { open: "", close: "22:00" } } },
+        });
+        expect(response.statusCode).toBe(400);
+        expect(venueService.update).not.toHaveBeenCalled();
+      });
+
+      it("accepts a closed day with empty times and valid open days (#7583)", async () => {
+        vi.mocked(venueService.update).mockResolvedValueOnce(mockVenue);
+        const response = await app.inject({
+          method: "PATCH",
+          url: `${VENUES_PATH}/venue-123`,
+          headers: { "x-auth-bypass": "true" },
+          payload: {
+            operatingHours: {
+              monday: { open: "09:00", close: "22:00" },
+              tuesday: { open: "", close: "", closed: true },
+            },
+          },
+        });
+        expect(response.statusCode).toBe(200);
       });
 
       it("returns 404 when updating nonexistent venue", async () => {

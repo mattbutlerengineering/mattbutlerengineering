@@ -2381,24 +2381,20 @@
     export type UpdateVenueTeamRequest = z.infer<typeof UpdateVenueTeamRequestSchema>;
   </file>
   <file path="src/schemas/venue.ts">
-    export const DayScheduleSchema = z
-      .object({
-        open: z.string(),
-        close: z.string(),
-        closed: z.boolean().optional(),
-      })
-      .superRefine((day, ctx) => {
-        if (day.closed === true) return;
-        for (const field of ["open", "close"] as const) {
-          if (!HH_MM.test(day[field])) {
-            ctx.addIssue({
-              code: "custom",
-              path: [field],
-              message: "Expected a time in HH:MM format",
-            });
-          }
-        }
-      });
+    export const DayScheduleSchema = z.object({
+      open: z.string(),
+      close: z.string(),
+      closed: z.boolean().optional(),
+    });
+    export const OperatingHoursWriteSchema = z.looseObject({
+      monday: DayScheduleWriteSchema.optional(),
+      tuesday: DayScheduleWriteSchema.optional(),
+      wednesday: DayScheduleWriteSchema.optional(),
+      thursday: DayScheduleWriteSchema.optional(),
+      friday: DayScheduleWriteSchema.optional(),
+      saturday: DayScheduleWriteSchema.optional(),
+      sunday: DayScheduleWriteSchema.optional(),
+    });
     export const VENUE_TYPES = ["fine_dining", "casual", "bar", "cafe"] as const;
     export const VenueTypeSchema = z.enum(VENUE_TYPES);
     export const VENUE_DESCRIPTION_MAX_LENGTH = 280;
