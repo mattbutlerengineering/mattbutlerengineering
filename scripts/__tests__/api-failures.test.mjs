@@ -17,6 +17,7 @@ import {
 import {
   THRESHOLDS,
   MAX_NEW_ISSUES,
+  QUERY_ROW_LIMIT,
   normalizePath,
   buildFailuresQuery,
   aggregate,
@@ -56,18 +57,18 @@ function capture() {
 
 describe("normalizePath", () => {
   it("collapses UUIDs, numeric ids and long mixed tokens to :id", () => {
-    expect(normalizePath(`${API}/reservations/3f2b8c1e-9a4d-4e6f-8b1a-0c2d3e4f5a6b`)).toBe(
-      `${API}/reservations/:id`
+    expect(normalizePath(`${API}/v1/reservations/3f2b8c1e-9a4d-4e6f-8b1a-0c2d3e4f5a6b`)).toBe(
+      `${API}/v1/reservations/:id`
     );
-    expect(normalizePath(`${API}/users/12345/profile`)).toBe(`${API}/users/:id/profile`);
+    expect(normalizePath(`${API}/v1/users/12345/profile`)).toBe(`${API}/v1/users/:id/profile`);
     expect(normalizePath(`${API}/venues/res_9fA3kLq2Zx81/tables`)).toBe(`${API}/venues/:id/tables`);
   });
 
   it("keeps ordinary words and drops a trailing slash", () => {
-    expect(normalizePath(`${API}/reservations/availability/`)).toBe(
-      `${API}/reservations/availability`
+    expect(normalizePath(`${API}/v1/reservations/availability/`)).toBe(
+      `${API}/v1/reservations/availability`
     );
-    expect(normalizePath(`${API}/users/me`)).toBe(`${API}/users/me`);
+    expect(normalizePath(`${API}/v1/users/me`)).toBe(`${API}/v1/users/me`);
   });
 });
 
@@ -79,7 +80,7 @@ describe("buildFailuresQuery", () => {
     expect(sql).toContain(`${c.method} AS method`);
     expect(sql).toContain(`${c.pathname} AS pathname`);
     expect(sql).toContain(`${c.status} AS status`);
-    expect(sql).toContain(`quantileWeighted(0.95)(${c.elapsedMs}, _sample_interval)`);
+    expect(sql).toContain(`quantileExactWeighted(0.95)(${c.elapsedMs}, _sample_interval)`);
     expect(sql).toContain("SUM(_sample_interval)");
     expect(sql).toContain(`${c.pathname} LIKE '${API}/%'`);
     expect(sql).toContain("INTERVAL '7' DAY");
@@ -90,13 +91,13 @@ describe("buildFailuresQuery", () => {
 describe("aggregate", () => {
   it("merges rows sharing a normalized path and counts 5xx / 4xx", () => {
     const groups = aggregate([
-      sqlRow("GET", `${API}/reservations/111`, 200, 90),
-      sqlRow("GET", `${API}/reservations/222`, 500, 10),
-      sqlRow("POST", `${API}/reservations`, 400, 5),
+      sqlRow("GET", `${API}/v1/reservations/111`, 200, 90),
+      sqlRow("GET", `${API}/v1/reservations/222`, 500, 10),
+      sqlRow("POST", `${API}/v1/reservations`, 400, 5),
     ]);
     const get = groups.find((g) => g.method === "GET");
     expect(get).toMatchObject({
-      path: `${API}/reservations/:id`,
+      path: `${API}/v1/reservations/:id`,
       total: 100,
       count5xx: 10,
       count4xx: 0,
@@ -107,28 +108,28 @@ describe("aggregate", () => {
 
   it("excludes 401 and 404 from the 4xx count on reads only", () => {
     const [get] = aggregate([
-      sqlRow("GET", `${API}/users/me`, 401, 40),
-      sqlRow("GET", `${API}/users/me`, 404, 10),
-      sqlRow("GET", `${API}/users/me`, 422, 5),
-      sqlRow("GET", `${API}/users/me`, 200, 45),
+      sqlRow("GET", `${API}/v1/users/me`, 401, 40),
+      sqlRow("GET", `${API}/v1/users/me`, 404, 10),
+      sqlRow("GET", `${API}/v1/users/me`, 422, 5),
+      sqlRow("GET", `${API}/v1/users/me`, 200, 45),
     ]);
     expect(get.count4xx).toBe(5);
     const [post] = aggregate([
-      sqlRow("POST", `${API}/users`, 401, 4),
-      sqlRow("POST", `${API}/users`, 404, 1),
+      sqlRow("POST", `${API}/v1/users`, 401, 4),
+      sqlRow("POST", `${API}/v1/users`, 404, 1),
     ]);
     expect(post.count4xx).toBe(5);
   });
 
   it("reports the request-weighted 95th percentile of the row p95s and top statuses", () => {
     const [g] = aggregate([
-      sqlRow("GET", `${API}/agent/runs`, 200, 95, 100),
-      sqlRow("GET", `${API}/agent/runs/9`, 200, 5, 5000),
+      sqlRow("GET", `${API}/gen/runs`, 200, 95, 100),
+      sqlRow("GET", `${API}/gen/runs/9`, 200, 5, 5000),
     ]);
     expect(g.p95).toBe(100);
     const [slow] = aggregate([
-      sqlRow("GET", `${API}/agent/runs`, 200, 90, 100),
-      sqlRow("GET", `${API}/agent/runs`, 504, 10, 5000),
+      sqlRow("GET", `${API}/gen/runs`, 200, 90, 100),
+      sqlRow("GET", `${API}/gen/runs`, 504, 10, 5000),
     ]);
     expect(slow.p95).toBe(5000);
     expect(slow.topStatuses[0]).toEqual({ status: 200, count: 90 });
@@ -174,7 +175,7 @@ describe("classify", () => {
 describe("issue content", () => {
   const group = {
     method: "GET",
-    path: `${API}/reservations/:id`,
+    path: `${API}/v1/reservations/:id`,
     total: 200,
     count5xx: 10,
     count4xx: 0,
@@ -185,13 +186,17 @@ describe("issue content", () => {
   };
 
   it("builds the marker, title, area label and body", () => {
-    expect(markerFor(group)).toBe("<!-- api-failures:GET /api/reservations/:id -->");
+    expect(markerFor(group)).toBe("<!-- api-failures:GET /api/v1/reservations/:id -->");
     expect(buildIssueTitle(group, ["5xx rate 5.0% (10/200)"])).toBe(
-      "api-failures: GET /api/reservations/:id — 5xx rate 5.0% (10/200)"
+      "api-failures: GET /api/v1/reservations/:id — 5xx rate 5.0% (10/200)"
     );
-    expect(areaLabelFor(`${API}/reservations/:id`)).toBe("area:reservations");
-    expect(areaLabelFor(`${API}/users/me`)).toBe("area:users");
-    expect(areaLabelFor(`${API}/agent/runs`)).toBe("area:agent");
+    expect(areaLabelFor(`${API}/v1/reservations/:id`)).toBe("area:reservations");
+    expect(areaLabelFor(`${API}/v1/users/me`)).toBe("area:users");
+    expect(areaLabelFor(`${API}/gen/runs`)).toBe("area:agent");
+    expect(areaLabelFor(`${API}/v1/venues/:id/tables`)).toBe("area:reservations");
+    expect(areaLabelFor(`${API}/health`)).toBe("area:reservations");
+    expect(buildIssueBody(group, [], 7)).not.toMatch(/may be low/);
+    expect(buildIssueBody(group, [], 7, true)).toMatch(/may be low/);
     const body = buildIssueBody(group, ["5xx rate 5.0% (10/200)"], 7);
     expect(body).toContain(markerFor(group));
     expect(body).toContain("7 days");
@@ -203,7 +208,7 @@ describe("issue content", () => {
 describe("planActions", () => {
   const breaching = (n) => ({
     method: "GET",
-    path: `${API}/reservations/r${n}`,
+    path: `${API}/v1/reservations/r${n}`,
     total: 100,
     count5xx: 50,
     count4xx: 0,
@@ -248,8 +253,8 @@ describe("planActions", () => {
 
 describe("main", () => {
   const rows = [
-    sqlRow("GET", `${API}/reservations/1`, 200, 50),
-    sqlRow("GET", `${API}/reservations/1`, 500, 50),
+    sqlRow("GET", `${API}/v1/reservations/1`, 200, 50),
+    sqlRow("GET", `${API}/v1/reservations/1`, 500, 50),
   ];
 
   function deps(overrides = {}) {
@@ -279,6 +284,23 @@ describe("main", () => {
     expect(d.gh).not.toHaveBeenCalled();
   });
 
+  it("warns and flags issue bodies when the result hits the row limit", async () => {
+    const full = Array.from({ length: QUERY_ROW_LIMIT }, (_, i) =>
+      sqlRow("GET", `${API}/v1/reservations/${i}`, i === 0 ? 500 : 200, i === 0 ? 5000 : 1)
+    );
+    const d = deps({ fetchImpl: vi.fn(async () => response(200, jsonl(full))) });
+    expect(await main(ENV, d)).toBe(0);
+    expect(d.stderr.text()).toMatch(/truncated/i);
+    const create = d.gh.mock.calls.find(([a]) => a[1] === "create");
+    expect(create[0].join("\n")).toMatch(/may be low/);
+  });
+
+  it("does not warn below the row limit", async () => {
+    const d = deps();
+    await main(ENV, d);
+    expect(d.stderr.text()).not.toMatch(/truncated/i);
+  });
+
   it("fails closed on zero rows for the whole window", async () => {
     const d = deps({ fetchImpl: vi.fn(async () => response(200, "")) });
     expect(await main(ENV, d)).toBe(1);
@@ -288,7 +310,7 @@ describe("main", () => {
   it("--dry-run prints the report and planned issues without writing", async () => {
     const d = deps({ argv: ["--dry-run"] });
     expect(await main(ENV, d)).toBe(0);
-    expect(d.stdout.text()).toContain("api-failures: GET /api/reservations/:id");
+    expect(d.stdout.text()).toContain("api-failures: GET /api/v1/reservations/:id");
     const writes = d.gh.mock.calls.filter(([a]) => a[1] === "create" || a[1] === "comment");
     expect(writes).toEqual([]);
   });

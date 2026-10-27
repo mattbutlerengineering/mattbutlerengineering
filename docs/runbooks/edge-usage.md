@@ -112,7 +112,7 @@ gh run list --workflow pulumi-up.yml --branch main --limit 5 \
 15:00 UTC (and on `workflow_dispatch`). It reads the same dataset for `/api/*`
 requests over 7 days and files one issue per failing or slow endpoint. Paths
 are normalized (UUIDs, numeric and opaque ids become `:id`); p95 is the
-request-weighted 95th percentile of the per-row `quantileWeighted` p95s, so it
+request-weighted 95th percentile of the per-row `quantileExactWeighted` p95s, so it
 is an approximation across merged paths.
 
 | Breach | Threshold                                             |

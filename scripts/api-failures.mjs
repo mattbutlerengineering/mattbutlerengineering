@@ -32,7 +32,6 @@ import { queryEdgeUsage } from "./edge-usage.mjs";
 
 const execFileAsync = promisify(execFile);
 
-const API_PREFIX = "/api";
 export const WINDOW_DAYS = 7;
 export const MAX_NEW_ISSUES = 5;
 export const THRESHOLDS = Object.freeze({
@@ -42,15 +41,19 @@ export const THRESHOLDS = Object.freeze({
   min4xx: 50,
   p95Ms: 2000,
 });
+const API_PREFIX = "/api";
+export const QUERY_ROW_LIMIT = 10000;
 const P95_QUANTILE = 0.95;
 const DEFAULT_REPO = "mattbutlerengineering/mattbutlerengineering";
 const ISSUE_LABELS = ["ready", "bug", "production-health"];
-const DEFAULT_AREA_LABEL = "area:infra";
-const AREA_BY_SEGMENT = Object.freeze({
-  reservations: "area:reservations",
-  users: "area:users",
-  agent: "area:agent",
-});
+// Mirrors the DO ingress order in infrastructure/pulumi/index.ts: /api/v1/users
+// -> users-api, /api/gen -> agent-api, every other /api path -> reservations-api.
+// Not derived from `route` (blob1): the edge router always writes "api" there.
+const AREA_RULES = Object.freeze([
+  { prefix: `${API_PREFIX}/v1/users`, label: "area:users" },
+  { prefix: `${API_PREFIX}/gen`, label: "area:agent" },
+]);
+const DEFAULT_AREA_LABEL = "area:reservations";
 // 401/404 on auth-gated reads are expected traffic, not endpoint failures.
 const EXPECTED_READ_STATUSES = new Set([401, 404]);
 const READ_METHODS = new Set(["GET", "HEAD"]);
@@ -89,11 +92,11 @@ export function buildFailuresQuery() {
   return [
     `SELECT ${c.method} AS method, ${c.pathname} AS pathname, ${c.status} AS status,`,
     `SUM(_sample_interval) AS requests,`,
-    `quantileWeighted(${P95_QUANTILE})(${c.elapsedMs}, _sample_interval) AS p95`,
+    `quantileExactWeighted(${P95_QUANTILE})(${c.elapsedMs}, _sample_interval) AS p95`,
     `FROM ${EDGE_REQUESTS_DATASET}`,
     `WHERE timestamp > NOW() - INTERVAL '${WINDOW_DAYS}' DAY AND ${c.pathname} LIKE '${API_PREFIX}/%'`,
     `GROUP BY method, pathname, status`,
-    `LIMIT 10000`,
+    `LIMIT ${QUERY_ROW_LIMIT}`,
     `FORMAT JSONEachRow`,
   ].join("\n");
 }
@@ -187,15 +190,15 @@ export function markerFor(group) {
 }
 
 export function areaLabelFor(path) {
-  const segment = path.split("/")[2] ?? "";
-  return AREA_BY_SEGMENT[segment] ?? DEFAULT_AREA_LABEL;
+  const rule = AREA_RULES.find(({ prefix }) => path === prefix || path.startsWith(`${prefix}/`));
+  return rule ? rule.label : DEFAULT_AREA_LABEL;
 }
 
 export function buildIssueTitle(group, reasons) {
   return `api-failures: ${group.method} ${group.path} — ${reasons.join("; ")}`;
 }
 
-export function buildIssueBody(group, reasons, days) {
+export function buildIssueBody(group, reasons, days, truncated = false) {
   const statuses = group.topStatuses.map((s) => `${s.status}: ${s.count}`).join(", ") || "n/a";
   return [
     `\`${group.method} ${group.path}\` breached an api-failures threshold over the last ${days} days.`,
@@ -211,6 +214,9 @@ export function buildIssueBody(group, reasons, days) {
     `| p95 elapsedMs | ${Math.round(group.p95)} |`,
     `| Top status codes | ${statuses} |`,
     "",
+    ...(truncated
+      ? [`> Warning: the query hit its ${QUERY_ROW_LIMIT}-row limit, so counts may be low.`, ""]
+      : []),
     "Source: `edge_requests` Analytics Engine dataset; see docs/runbooks/edge-usage.md.",
     "",
     markerFor(group),
@@ -229,7 +235,7 @@ function bySeverityDesc(a, b) {
  * Decide what to write. Breaching groups with an open marker issue get a
  * comment (uncapped); the rest are filed worst-first up to MAX_NEW_ISSUES.
  */
-export function planActions(groups, openIssues, days) {
+export function planActions(groups, openIssues, days, truncated = false) {
   const breaching = groups
     .map((group) => ({ group, reasons: classify(group) }))
     .filter(({ reasons }) => reasons.length > 0)
@@ -243,7 +249,7 @@ export function planActions(groups, openIssues, days) {
       group,
       reasons,
       title: buildIssueTitle(group, reasons),
-      body: buildIssueBody(group, reasons, days),
+      body: buildIssueBody(group, reasons, days, truncated),
     };
     if (existing) comment.push({ ...item, number: existing.number });
     else fresh.push(item);
@@ -353,6 +359,12 @@ export async function main(env, deps = {}) {
       );
     }
 
+    const truncated = rows.length >= QUERY_ROW_LIMIT;
+    if (truncated) {
+      stderr.write(
+        `Warning: result truncated at the ${QUERY_ROW_LIMIT}-row limit; counts may be low.\n`
+      );
+    }
     const groups = aggregate(rows);
     stdout.write(formatReport(groups));
 
@@ -370,7 +382,7 @@ export async function main(env, deps = {}) {
       "--json",
       "number,body",
     ]);
-    const plan = planActions(groups, JSON.parse(listed || "[]"), WINDOW_DAYS);
+    const plan = planActions(groups, JSON.parse(listed || "[]"), WINDOW_DAYS, truncated);
     stdout.write(describePlan(plan));
     if (dryRun) return 0;
 
