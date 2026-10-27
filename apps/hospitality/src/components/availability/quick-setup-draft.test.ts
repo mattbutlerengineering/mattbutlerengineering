@@ -129,6 +129,41 @@ describe("quick setup draft", () => {
     ]);
   });
 
+  it("flags a day of exactly 24 hours, which the legacy reader reads as closed", () => {
+    const timed = (id: string, opens: string, lastSeating: string, closes: string) =>
+      setServiceTime(
+        setServiceTime(
+          setServiceTime({ ...emptyDraft(id).services[0]!, name: id }, "opens", opens),
+          "lastSeating",
+          lastSeating
+        ),
+        "closes",
+        closes
+      );
+    const draft: QuickSetupDraft = {
+      services: [timed("l", "11:00", "14:00", "15:00"), timed("n", "22:00", "10:00", "11:00")],
+      days: WEEKDAY_SHORTCUT,
+    };
+    expect(validateDraft(draft)).toEqual([
+      { serviceId: "n", field: "closes", code: "legacy_closed_day" },
+    ]);
+  });
+
+  it("flags a service shorter than the last-seating buffer", () => {
+    const draft = dinnerWeekdays();
+    const short = replaceService(
+      draft,
+      setServiceTime(
+        setServiceTime(setServiceTime(draft.services[0]!, "opens", "10:00"), "closes", "11:00"),
+        "lastSeating",
+        "10:30"
+      )
+    );
+    expect(validateDraft(short)).toEqual([
+      { serviceId: "s1", field: "closes", code: "legacy_closed_day" },
+    ]);
+  });
+
   it("flags a service name over 40 characters", () => {
     const draft = dinnerWeekdays();
     const long = replaceService(draft, { ...draft.services[0]!, name: "D".repeat(41) });

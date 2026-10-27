@@ -5704,6 +5704,7 @@
       | "close_after_open"
       | "last_seating_after_close"
       | "span_too_long"
+      | "legacy_closed_day"
       | "overlap"
       | "days_required";
     export interface QuickSetupIssue {
@@ -5792,12 +5793,24 @@
             (w) => w.wrapped === true && w.close - w.open > MAX_PAST_MIDNIGHT_SPAN
           )
         );
-      if (!tooLong) return [];
+      const code: QuickSetupIssueCode | null = tooLong
+        ? "span_too_long"
+        : read.ok && hasClosedDay(draft, read.hours)
+          ? "legacy_closed_day"
+          : null;
+      if (code === null) return [];
       const latest = draft.services.reduce<{ id: string; closesAt: number } | null>((acc, s) => {
         const m = minutesOf(s);
         return m && (!acc || m.closesAt > acc.closesAt) ? { id: s.id, closesAt: m.closesAt } : acc;
       }, null);
-      return latest ? [{ serviceId: latest.id, field: "closes", code: "span_too_long" }] : [];
+      return latest ? [{ serviceId: latest.id, field: "closes", code }] : [];
+    }
+    function hasClosedDay(draft: QuickSetupDraft, hours: LegacyHours): boolean {
+      let n = 0;
+      const built = buildLegacyConfig({ hours, today: "1970-01-01", newId: () => `legacy-${++n}` });
+      if (!built.ok) return false;
+      const open = new Set(built.config.assignments.flatMap((a) => a.weekdays));
+      return draft.days.some((day) => !open.has(day));
     }
     export function draftToConfig(
       draft: QuickSetupDraft,
