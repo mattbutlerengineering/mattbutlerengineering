@@ -9,6 +9,7 @@ import { addDays } from "@mbe/availability";
 import { requireAuth } from "@mbe/auth/fastify";
 import { registerEndpoint } from "@mbe/service-bootstrap";
 import { SCOPE_CONFLICT_HORIZON_DAYS } from "../services/availability-config-plan.js";
+import { actorNameOf } from "../services/actor-name.js";
 import { CLOSURE_FORBIDDEN, closureCaller } from "./closure-caller.js";
 import type { PreviewOutcome, SaveOutcome } from "../services/availability-config.js";
 import { venueScoped } from "./venue-scope.js";
@@ -115,6 +116,7 @@ export const availabilityConfigRoutes: FastifyPluginAsync = async (fastify) => {
         const outcome = await availabilityConfigService.save({
           venueId,
           actorId: request.user?.id ?? "unknown",
+          actorName: actorNameOf(request.user),
           body: request.body,
           now: new Date(),
         });

@@ -273,11 +273,17 @@ async function checkRule(
 
 async function writeChange(
   tx: Db,
-  input: { venueId: string; actorId: string; now: Date; body: SetTonightBody },
+  input: {
+    venueId: string;
+    actorId: string;
+    actorName: string | null;
+    now: Date;
+    body: SetTonightBody;
+  },
   state: ConfigState,
   rule: Extract<DateRule, { kind: "tonight" }>
 ): Promise<TonightResult> {
-  const { venueId, actorId, now, body } = input;
+  const { venueId, actorId, actorName, now, body } = input;
   const cas = await tx.venue.updateMany({
     where: { id: venueId, availabilityVersion: body.expectedVersion },
     data: { availabilityVersion: { increment: 1 } },
@@ -296,6 +302,7 @@ async function writeChange(
     data: {
       venueId,
       actorId,
+      actorName,
       at: now,
       kind: "tonight",
       summary: describeChange(body.change),
@@ -368,7 +375,7 @@ export async function setTonight(
       }
       const result = await writeChange(
         tx,
-        { venueId, actorId: caller.actorId, now, body },
+        { venueId, actorId: caller.actorId, actorName: caller.actorName ?? null, now, body },
         state,
         rule
       );
@@ -402,7 +409,12 @@ export type EndTonightOutcome = { kind: "ended"; result: ReopenResult } | { kind
  * inverse). Bookings a close-early cancelled stay cancelled.
  */
 export async function endTonight(
-  input: { venueId: string; ruleId: string; caller: Pick<ClosureCaller, "actorId">; now: Date },
+  input: {
+    venueId: string;
+    ruleId: string;
+    caller: Pick<ClosureCaller, "actorId" | "actorName">;
+    now: Date;
+  },
   client: StoreClient = prisma
 ): Promise<EndTonightOutcome> {
   const { venueId, ruleId, caller, now } = input;
@@ -431,6 +443,7 @@ export async function endTonight(
       data: {
         venueId,
         actorId: caller.actorId,
+        actorName: caller.actorName ?? null,
         at: now,
         kind: "tonight_end",
         summary: "Tonight change ended",

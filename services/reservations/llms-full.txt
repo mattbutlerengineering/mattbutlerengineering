@@ -2318,6 +2318,7 @@
               venueId,
               changeId: request.params.changeId,
               actorId: request.user?.id ?? "unknown",
+              actorName: actorNameOf(request.user),
               expectedVersion: request.body.expectedVersion,
               now: new Date(),
             });
@@ -2453,6 +2454,7 @@
             const outcome = await availabilityConfigService.save({
               venueId,
               actorId: request.user?.id ?? "unknown",
+              actorName: actorNameOf(request.user),
               body: request.body,
               now: new Date(),
             });
@@ -2957,6 +2959,7 @@
       return {
         isManager: isAdmin || hasVenueRole(role, "manager"),
         actorId: request.user?.id ?? "unknown",
+        actorName: actorNameOf(request.user),
       };
     }
     export const CLOSURE_FORBIDDEN =
@@ -10579,6 +10582,13 @@
   </file>
   </section>
   <section priority="medium" role="services">
+  <file path="src/services/actor-name.ts">
+    export function actorNameOf(user: { name?: string | null } | undefined): string | null {
+      const name = user?.name?.trim();
+      if (!name || name.includes("@")) return null;
+      return name.slice(0, MAX_ACTOR_NAME_LENGTH);
+    }
+  </file>
   <file path="src/services/assert-bookable.ts">
     export type BookableError =
       | { code: "PARTY_DOES_NOT_FIT"; message: string }
@@ -10954,6 +10964,7 @@
         const items: AvailabilityChangeEntry[] = rows.map((r) => ({
           id: r.id,
           actorId: r.actorId,
+          actorName: r.actorName ?? null,
           at: r.at.toISOString(),
           kind: r.kind,
           summary: r.summary,
@@ -10991,14 +11002,15 @@
         venueId: string;
         changeId: string;
         actorId: string;
+        actorName?: string | null;
         expectedVersion: number;
         now: Date;
       },
       client: StoreClient = prisma
     ): Promise<RevertOutcome> {
-      const { venueId, changeId, actorId, expectedVersion, now } = input;
+      const { venueId, changeId, actorId, actorName, expectedVersion, now } = input;
       return inSaveTransaction<SaveOutcome, RevertOutcome>(client, venueId, (tx) =>
-        commitSave(tx, { venueId, actorId, expectedVersion, now }, async (state) => {
+        commitSave(tx, { venueId, actorId, actorName, expectedVersion, now }, async (state) => {
           const change = await tx.availabilityChange.findFirst({ where: { id: changeId, venueId } });
           if (!change) return refuseSave({ kind: "change_not_found" });
           if (change.revertedById) return refuseSave(refused("already_reverted"));
@@ -11965,10 +11977,16 @@
     }
     export async function commitSave(
       tx: StoreDb,
-      input: { venueId: string; actorId: string; expectedVersion: number; now: Date },
+      input: {
+        venueId: string;
+        actorId: string;
+        actorName?: string | null;
+        expectedVersion: number;
+        now: Date;
+      },
       resolve: (state: ConfigState) => Promise<SaveRequest>
     ): Promise<SaveOutcome> {
-      const { venueId, actorId, expectedVersion, now } = input;
+      const { venueId, actorId, actorName = null, expectedVersion, now } = input;
       const cas = await tx.venue.updateMany({
         where: { id: venueId, availabilityVersion: expectedVersion },
         data: { availabilityVersion: { increment: 1 } },
@@ -12008,6 +12026,7 @@
         data: {
           venueId,
           actorId,
+          actorName,
           at: now,
           kind: request.kind,
           summary: request.summary ?? plan.summary,
@@ -12025,16 +12044,26 @@
       return { kind: "saved" as const, version: expectedVersion + 1, changeId: change.id };
     }
     export async function saveAvailabilityConfig(
-      input: { venueId: string; actorId: string; body: PutAvailabilityConfigBody; now: Date },
+      input: {
+        venueId: string;
+        actorId: string;
+        actorName?: string | null;
+        body: PutAvailabilityConfigBody;
+        now: Date;
+      },
       client: StoreClient = prisma
     ): Promise<SaveOutcome> {
-      const { venueId, actorId, body, now } = input;
+      const { venueId, actorId, actorName, body, now } = input;
       return inSaveTransaction(client, venueId, (tx) =>
-        commitSave(tx, { venueId, actorId, expectedVersion: body.expectedVersion, now }, async () => ({
-          changes: body.changes,
-          scopeConflicts: body.scopeConflicts,
-          kind: "config",
-        }))
+        commitSave(
+          tx,
+          { venueId, actorId, actorName, expectedVersion: body.expectedVersion, now },
+          async () => ({
+            changes: body.changes,
+            scopeConflicts: body.scopeConflicts,
+            kind: "config",
+          })
+        )
       );
     }
     export type PreviewOutcome = { kind: "not_found" } | { kind: "timeout" } | PreviewPlan;
@@ -13823,6 +13852,8 @@
       /** Owner, manager or platform admin. Anyone else is a Host. */
       isManager: boolean;
       actorId: string;
+      /** Display name snapshotted on the audit row; absent or `null` when the token has none. */
+      actorName?: string | null;
     }
     export type CreateClosureOutcome =
       | { kind: "saved"; result: ClosureResult }
@@ -14135,6 +14166,7 @@
         data: {
           venueId,
           actorId: caller.actorId,
+          actorName: caller.actorName ?? null,
           at: now,
           kind: "closure",
           summary: describe(rule, plan.counts),
@@ -14310,6 +14342,7 @@
             data: {
               venueId,
               actorId: caller.actorId,
+              actorName: caller.actorName ?? null,
               at: now,
               kind: "reopen",
               summary: `Closure reopened (${rule.startsOn})`,
@@ -23418,11 +23451,17 @@
     }
     async function writeChange(
       tx: Db,
-      input: { venueId: string; actorId: string; now: Date; body: SetTonightBody },
+      input: {
+        venueId: string;
+        actorId: string;
+        actorName: string | null;
+        now: Date;
+        body: SetTonightBody;
+      },
       state: ConfigState,
       rule: Extract<DateRule, { kind: "tonight" }>
     ): Promise<TonightResult> {
-      const { venueId, actorId, now, body } = input;
+      const { venueId, actorId, actorName, now, body } = input;
       const cas = await tx.venue.updateMany({
         where: { id: venueId, availabilityVersion: body.expectedVersion },
         data: { availabilityVersion: { increment: 1 } },
@@ -23441,6 +23480,7 @@
         data: {
           venueId,
           actorId,
+          actorName,
           at: now,
           kind: "tonight",
           summary: describeChange(body.change),
@@ -23500,7 +23540,7 @@
           }
           const result = await writeChange(
             tx,
-            { venueId, actorId: caller.actorId, now, body },
+            { venueId, actorId: caller.actorId, actorName: caller.actorName ?? null, now, body },
             state,
             rule
           );
@@ -23528,7 +23568,12 @@
     }
     export type EndTonightOutcome = { kind: "ended"; result: ReopenResult } | { kind: "not_found" };
     export async function endTonight(
-      input: { venueId: string; ruleId: string; caller: Pick<ClosureCaller, "actorId">; now: Date },
+      input: {
+        venueId: string;
+        ruleId: string;
+        caller: Pick<ClosureCaller, "actorId" | "actorName">;
+        now: Date;
+      },
       client: StoreClient = prisma
     ): Promise<EndTonightOutcome> {
       const { venueId, ruleId, caller, now } = input;
@@ -23557,6 +23602,7 @@
           data: {
             venueId,
             actorId: caller.actorId,
+            actorName: caller.actorName ?? null,
             at: now,
             kind: "tonight_end",
             summary: "Tonight change ended",

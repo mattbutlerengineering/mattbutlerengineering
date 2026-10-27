@@ -690,6 +690,12 @@
        * recorded. Optional so a client talking to an older API falls back to `summary`.
        */
       outcome: AvailabilityChangeOutcomeSchema.nullish(),
+      /**
+       * The person's display name, snapshotted when the change was made; never an email. `null` on
+       * rows saved before names were recorded. Optional so a client talking to an older API still
+       * works (History then says "a teammate").
+       */
+      actorName: z.string().nullish(),
     });
     export const AVAILABILITY_CHANGES_MAX_LIMIT = 100;
     export const AvailabilityChangesQuerySchema = z.object({
