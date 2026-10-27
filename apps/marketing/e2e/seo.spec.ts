@@ -23,16 +23,16 @@ test.describe("SEO metadata", () => {
     await expect(canonical).toHaveAttribute("href", /mattbutlerengineering\.com/);
   });
 
-  test("status page has base title", async ({ page }) => {
+  test("status page has its own title", async ({ page }) => {
     await page.goto("/status");
 
-    await expect(page).toHaveTitle("Matt Butler Engineering");
+    await expect(page).toHaveTitle("System Status — Matt Butler Engineering");
   });
 
-  test("weekly page has base title", async ({ page }) => {
+  test("weekly page has its own title", async ({ page }) => {
     await page.goto("/weekly");
 
-    await expect(page).toHaveTitle("Matt Butler Engineering");
+    await expect(page).toHaveTitle("Weekly Information Intake — Matt Butler Engineering");
   });
 
   test("404 page sets page-not-found title", async ({ page }) => {
