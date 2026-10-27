@@ -1,5 +1,15 @@
 # @mattbutlerengineering/rialto
 
+## 0.9.1
+
+### Patch Changes
+
+- [#7755](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7755) [`6af871b`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/6af871b9efe667a897fcc7bf64992806557923ca) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Drawer's close button is 44px square on touch (`(pointer: coarse)`) devices, meeting the minimum target size; mouse and trackpad users keep the compact 28px button.
+
+- [#7798](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7798) [`9c24507`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/9c2450793b14b94d58cb6a2ecea5d312b643a43e) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Widen the `framer-motion` peer range to include `^14.0.0`, so consumers on 14.x no longer get a peer warning. Rialto's own tests and typecheck run against 14.6.
+
+- [#7741](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7741) [`7061edd`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/7061edd590c8643de69d5a4e36a8a101a70596b9) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Popover no longer dismisses on a press inside a descendant portaled to `document.body` (such as a `Select` listbox), so mouse picks in a Select inside a Popover now register. `useDismiss` gains an optional `isInside` predicate.
+
 ## 0.9.0
 
 ### Minor Changes
