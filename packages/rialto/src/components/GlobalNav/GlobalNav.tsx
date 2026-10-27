@@ -156,7 +156,7 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
                     className={cn(styles.link, styles.trigger, menuCurrent && styles.active)}
                     aria-expanded={dropdownOpen}
                     aria-controls={dropdownId}
-                    aria-current={menuCurrent ? "page" : undefined}
+                    aria-current={menuCurrent ? "true" : undefined}
                     onClick={() => setDropdownOpen((prev) => !prev)}
                   >
                     {menu.label}
@@ -215,27 +215,25 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
               </li>
             ))}
             {menu && (
-              <li role="presentation">
-                <span id={mobileGroupLabelId} className={styles.mobileGroupLabel}>
-                  {menu.label}
-                </span>
-                <ul
-                  role="group"
-                  aria-labelledby={mobileGroupLabelId}
-                  className={styles.mobileGroup}
-                >
-                  {menu.items.map((item) => (
-                    <li key={item.href}>
-                      <a
-                        href={item.href}
-                        className={cn(styles.mobileLink, item.current && styles.active)}
-                        aria-current={item.current ? "page" : undefined}
-                      >
-                        {item.label}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
+              <li>
+                <div role="group" aria-labelledby={mobileGroupLabelId}>
+                  <span id={mobileGroupLabelId} className={styles.mobileGroupLabel}>
+                    {menu.label}
+                  </span>
+                  <ul className={styles.mobileGroup}>
+                    {menu.items.map((item) => (
+                      <li key={item.href}>
+                        <a
+                          href={item.href}
+                          className={cn(styles.mobileLink, item.current && styles.active)}
+                          aria-current={item.current ? "page" : undefined}
+                        >
+                          {item.label}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </li>
             )}
           </ul>

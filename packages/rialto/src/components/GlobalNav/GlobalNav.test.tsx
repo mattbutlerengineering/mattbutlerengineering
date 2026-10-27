@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { axe } from "vitest-axe";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { GlobalNav } from "./GlobalNav";
@@ -210,7 +211,7 @@ describe("GlobalNav", () => {
       render(<GlobalNav currentApp="marketing" menu={menu} />);
 
       const trigger = screen.getByRole("button", { name: "Engineering" });
-      expect(trigger.getAttribute("aria-current")).toBe("page");
+      expect(trigger.getAttribute("aria-current")).toBe("true");
       await user.click(trigger);
       expect(screen.getByRole("link", { name: "Status" }).getAttribute("aria-current")).toBe(
         "page"
@@ -289,6 +290,24 @@ describe("GlobalNav", () => {
       expect(
         document.getElementById(group.getAttribute("aria-labelledby") ?? "")?.textContent
       ).toBe("Engineering");
+    });
+
+    it("has no axe violations with the mobile menu open", async () => {
+      const user = userEvent.setup();
+      const { container } = render(<GlobalNav currentApp="marketing" menu={menu} />);
+
+      await user.click(screen.getByRole("button", { name: "Open menu" }));
+      const results = await axe(container, { rules: { "color-contrast": { enabled: false } } });
+      expect(results.violations).toEqual([]);
+    });
+
+    it("has no axe violations with the dropdown open", async () => {
+      const user = userEvent.setup();
+      const { container } = render(<GlobalNav currentApp="marketing" menu={menu} />);
+
+      await user.click(screen.getByRole("button", { name: "Engineering" }));
+      const results = await axe(container, { rules: { "color-contrast": { enabled: false } } });
+      expect(results.violations).toEqual([]);
     });
   });
 });
