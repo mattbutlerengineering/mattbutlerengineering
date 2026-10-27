@@ -1631,6 +1631,40 @@
         ],
       },
     ];
+    export const MOTION_FREQUENCY_BUDGET: readonly {
+      readonly how: string;
+      readonly examples: string;
+      readonly motion: string;
+    }[] = [
+      {
+        how: "100+ per day",
+        examples: "Keyboard shortcuts, command palette, typing, tab switches",
+        motion: "None, or an opacity-only fade.",
+      },
+      {
+        how: "Tens per day",
+        examples: "Hover, list navigation, menus",
+        motion: "At most --rialto-duration-fast, opacity or colour. Scale no lower than 0.95.",
+      },
+      {
+        how: "Occasional",
+        examples: "Dialogs, drawers, toasts, confirmations",
+        motion: "Standard enter and exit with precision or a gentle spring.",
+      },
+      {
+        how: "Rare",
+        examples: "Onboarding, first booking, booking confirmed, marketing hero",
+        motion: "Expressive: springs, stagger, signature instruments. The pzazz goes here.",
+      },
+    ];
+    export const MOTION_RESTRAINT_RULES: readonly string[] = [
+      "One expressive element per view at a time.",
+      "No looping motion in task UI except status (loading, live, LED).",
+      "Never scale from 0; start at 0.9 or above, with opacity.",
+      "Animate only transform and opacity; layout changes use framer's layout prop.",
+      "No parallax or auto-scroll in staff tools.",
+      "Stagger at most about six items, then reveal the rest as one batch.",
+    ];
     export const MOTION_TOKEN_NAMES: readonly string[] = MOTION_GROUPS.flatMap((group) =>
       group.tokens.map((token) => token.name)
     );

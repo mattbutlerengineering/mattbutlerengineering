@@ -50,6 +50,10 @@ Design philosophy, token inventories (surface/text/border/semantic colors, spaci
 
 ## Motion Rules
 
+### When to animate
+
+Decide _whether_ before _which curve_. Policy (purpose test, frequency budget, productive vs expressive tier, restraint rules, signature moments) lives in [docs/motion.md](./docs/motion.md). Short form: no motion or an opacity-only fade on 100+/day paths, at most `--rialto-duration-fast` opacity/colour on hover, one expressive element per view, never scale from below 0.9.
+
 ### When to use precision easing
 
 - Standard UI transitions (hover, color changes, opacity)

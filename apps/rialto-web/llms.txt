@@ -722,6 +722,14 @@
       export const MOTION_GROUPS: readonly TokenGroup[];
     </item>
     <item priority="high">
+      export const MOTION_FREQUENCY_BUDGET: readonly {
+        readonly how: string;
+        readonly examples: s...;
+    </item>
+    <item priority="high">
+      export const MOTION_RESTRAINT_RULES: readonly string[];
+    </item>
+    <item priority="high">
       export const MOTION_TOKEN_NAMES: readonly string[];
     </item>
     <item priority="high">
