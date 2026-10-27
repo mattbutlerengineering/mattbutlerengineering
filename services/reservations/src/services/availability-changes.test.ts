@@ -555,4 +555,29 @@ describe("revertAvailabilityChange", () => {
       where: { venueId: "venue-1", dateRuleId: "dr-gone" },
     });
   });
+
+  // Characterization (#7635): the rows are harmless and are kept on purpose, so this pins the
+  // decision. A revertible closure told no guest, so every row is `keep_silent` (no refund, no
+  // notice); a later close of the date saves under a fresh rule id; the sweeper, notice jobs and
+  // Special dates tab never act on or show such a row. The rows still back an idempotent replay.
+  it("leaves a reverted closure's outcome rows alone", async () => {
+    const tx = revertingTx({
+      change: row({ id: "chg-5", kind: "closure", notifiedGuests: false, inverse: inverse() }),
+    });
+    const closureOutcome = {
+      delete: vi.fn(),
+      deleteMany: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+      findMany: vi.fn(),
+    };
+
+    const outcome = await revertAvailabilityChange(
+      { ...request, expectedVersion: 5 },
+      fakeClient({ ...tx, closureOutcome })
+    );
+
+    expect(outcome).toEqual({ kind: "saved", version: 6, changeId: "chg-6" });
+    for (const fn of Object.values(closureOutcome)) expect(fn).not.toHaveBeenCalled();
+  });
 });
