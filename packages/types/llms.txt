@@ -217,6 +217,9 @@
       export const AvailabilityDaysQuerySchema: unknown;
     </item>
     <item priority="high">
+      export const DaySummaryServiceSchema: unknown;
+    </item>
+    <item priority="high">
       export const AvailabilityDaySummarySchema: unknown;
     </item>
     <item priority="high">
@@ -356,6 +359,9 @@
     </item>
     <item priority="low">
       type AvailabilityDaySummary = z.infer<typeof AvailabilityDaySummarySchema>;
+    </item>
+    <item priority="low">
+      type DaySummaryService = z.infer<typeof DaySummaryServiceSchema>;
     </item>
     <item priority="high">
       export const ClosureDecisionSchema: unknown;
