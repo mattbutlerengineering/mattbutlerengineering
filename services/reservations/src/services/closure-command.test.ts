@@ -760,6 +760,14 @@ describe("createClosure", () => {
       );
     });
 
+    it("records the edited rule's own dates, not the wider range the split touched", async () => {
+      const w = growth();
+      await run(w, body(split()));
+      expect((w.changes[0]!.inverse as { closure: unknown }).closure).toMatchObject({
+        outcome: { startsOn: "2026-12-10", endsOn: null },
+      });
+    });
+
     it("asks for the decision first and writes neither the series nor a cancel without it", async () => {
       const w = growth();
       const { outcome, tx } = await run(w, body({ ...split(), decisions: [] }));
@@ -1270,6 +1278,16 @@ describe("createClosure for a Tonight close-early (#7529)", () => {
       expect.objectContaining({ reservationId: "res-t", kind: "cancelled" }),
     ]);
     expect(w.changes[0]!.summary).toMatch(/^Closing early 2026-10-25/);
+    expect((w.changes[0]!.inverse as { closure: unknown }).closure).toMatchObject({
+      outcome: {
+        cancelled: 1,
+        moved: 0,
+        kept: 0,
+        closeEarly: true,
+        startsOn: "2026-10-25",
+        endsOn: "2026-10-25",
+      },
+    });
   });
 
   it("asks for a decision for the bookings after the new close", async () => {

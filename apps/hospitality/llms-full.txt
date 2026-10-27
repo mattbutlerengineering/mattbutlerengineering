@@ -601,6 +601,58 @@
       };
     }
   </file>
+  <file path="src/components/availability/describe-change.ts">
+    function whenOf(
+      from: string | null | undefined,
+      to: string | null | undefined,
+      format: VenueFormat,
+      t: TFunction
+    ): string | null {
+      if (!from) return null;
+      const start = format.formatCalendarDate(from, DAY);
+      if (!to) return t("availability.history.entry.onward", { from: start });
+      if (to === from) return start;
+      return t("availability.history.entry.range", {
+        from: start,
+        to: format.formatCalendarDate(to, DAY),
+      });
+    }
+    function outcomeText(outcome: AvailabilityChangeOutcome, format: VenueFormat, t: TFunction) {
+      const parts = [
+        outcome.cancelled > 0
+          ? t("availability.history.entry.cancelled", { count: outcome.cancelled })
+          : null,
+        outcome.moved > 0 ? t("availability.history.entry.moved", { count: outcome.moved }) : null,
+        outcome.kept > 0 ? t("availability.history.entry.kept", { count: outcome.kept }) : null,
+      ].filter((p): p is string => p !== null);
+      if (parts.length === 0) return t("availability.history.entry.none");
+      return new Intl.ListFormat(format.locale, { style: "long", type: "conjunction" }).format(parts);
+    }
+    export function describeChange(
+      entry: AvailabilityChangeEntry,
+      format: VenueFormat,
+      t: TFunction
+    ): string | null {
+      const { outcome } = entry;
+      // The rule's own dates when recorded: the audit range also spans rows a series edit touched.
+      const own = outcome?.startsOn != null;
+      const when = whenOf(
+        own ? outcome.startsOn : entry.affectedFrom,
+        own ? outcome.endsOn : entry.affectedTo,
+        format,
+        t
+      );
+      if (!when) return null;
+      if (entry.kind === "reopen") return t("availability.history.entry.reopened", { when });
+      if (entry.kind !== "closure" || !outcome) return null;
+      return t(
+        outcome.closeEarly
+          ? "availability.history.entry.closedEarly"
+          : "availability.history.entry.closed",
+        { when, outcome: outcomeText(outcome, format, t) }
+      );
+    }
+  </file>
   <file path="src/components/availability/draft-changes.ts">
     export type EditScope =
       | { readonly kind: "date"; readonly date: string }

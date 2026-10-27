@@ -315,6 +315,26 @@
       ): DayPresentation { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/describe-change.ts">
+    <item priority="medium">
+      function whenOf(
+        from: string | null | undefined,
+        to: string | null | undefined,
+        format: VenueFormat,
+        t: TFunction
+      ): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function outcomeText(outcome: AvailabilityChangeOutcome, format: VenueFormat, t: TFunction) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function describeChange(
+        entry: AvailabilityChangeEntry,
+        format: VenueFormat,
+        t: TFunction
+      ): string | null { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/draft-changes.ts">
     <item priority="low">
       type EditScope = { readonly kind: "date"; reado | { readonly kind: "weekday"; re | { readonly kind: "schedule"; r | { readonly kind: "dates"; read | {

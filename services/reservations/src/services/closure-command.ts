@@ -1,5 +1,6 @@
 import { projectLegacyOperatingHours } from "@mbe/availability";
 import type {
+  AvailabilityChangeOutcome,
   AvailabilityChangeSummary,
   ClosureAlongside,
   ClosureAction,
@@ -96,6 +97,8 @@ interface ClosureMeta {
   ruleId: string;
   idempotencyKey: string;
   version: number;
+  /** Counts for the History drawer, which words the entry itself. Absent on older rows. */
+  outcome?: AvailabilityChangeOutcome;
   /** Set on every item of a batch save: what the whole batch was, so a reused key can be told apart. */
   batch?: BatchShape;
 }
@@ -391,6 +394,14 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
     ruleId: rule.id,
     idempotencyKey: key,
     version,
+    outcome: {
+      cancelled: plan.counts.cancel,
+      moved: plan.counts.move,
+      kept: plan.counts.keep_notify + plan.counts.keep_silent,
+      closeEarly: rule.kind === "tonight",
+      startsOn: rule.startsOn,
+      endsOn: rule.endsOn ?? null,
+    },
     ...(input.batch ? { batch: input.batch } : {}),
   };
   const inverse = { ...inverseOf(state.stored, diff, state.operatingHours), closure: meta };

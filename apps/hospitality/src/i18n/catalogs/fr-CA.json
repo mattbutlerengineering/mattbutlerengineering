@@ -1976,7 +1976,24 @@
       "personAll": "Tout le monde",
       "personMe": "Moi seulement",
       "rangeLabel": "Faites entre",
-      "rangePlaceholder": "Toutes les dates"
+      "rangePlaceholder": "Toutes les dates",
+      "entry": {
+        "range": "du {{from}} au {{to}}",
+        "onward": "à partir du {{from}}",
+        "moved_one": "{{count}} réservation déplacée",
+        "moved_many": "{{count}} de réservations déplacées",
+        "moved_other": "{{count}} réservations déplacées",
+        "kept_one": "{{count}} réservation conservée",
+        "kept_many": "{{count}} de réservations conservées",
+        "kept_other": "{{count}} réservations conservées",
+        "closed": "Fermé {{when}} : {{outcome}}",
+        "closedEarly": "Fermeture anticipée {{when}} : {{outcome}}",
+        "reopened": "Rouvert {{when}}",
+        "none": "aucune réservation touchée",
+        "cancelled_one": "{{count}} réservation annulée",
+        "cancelled_many": "{{count}} de réservations annulées",
+        "cancelled_other": "{{count}} réservations annulées"
+      }
     },
     "editor": {
       "edit": "Modifier {{name}}",

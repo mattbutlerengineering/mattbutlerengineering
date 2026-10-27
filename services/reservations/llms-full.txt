@@ -10819,6 +10819,11 @@
   </file>
   <file path="src/services/availability-changes.ts">
     export const REVERT_KIND = "revert";
+    function outcomeOf(kind: string, inverse: unknown): AvailabilityChangeOutcome | null {
+      if (kind !== "closure") return null;
+      const meta = (inverse as { closure?: { outcome?: AvailabilityChangeOutcome } } | null)?.closure;
+      return meta?.outcome ?? null;
+    }
     function whereOf(
       venueId: string,
       query: AvailabilityChangesParsed
@@ -10876,6 +10881,7 @@
           affectedTo: toDay(r.affectedTo),
           notifiedGuests: r.notifiedGuests,
           revertedById: r.revertedById,
+          outcome: outcomeOf(r.kind, r.inverse),
           revertible:
             r.id === newest?.id &&
             !r.notifiedGuests &&
@@ -13666,6 +13672,8 @@
       ruleId: string;
       idempotencyKey: string;
       version: number;
+      /** Counts for the History drawer, which words the entry itself. Absent on older rows. */
+      outcome?: AvailabilityChangeOutcome;
       /** Set on every item of a batch save: what the whole batch was, so a reused key can be told apart. */
       batch?: BatchShape;
     }
@@ -13923,6 +13931,14 @@
         ruleId: rule.id,
         idempotencyKey: key,
         version,
+        outcome: {
+          cancelled: plan.counts.cancel,
+          moved: plan.counts.move,
+          kept: plan.counts.keep_notify + plan.counts.keep_silent,
+          closeEarly: rule.kind === "tonight",
+          startsOn: rule.startsOn,
+          endsOn: rule.endsOn ?? null,
+        },
         ...(input.batch ? { batch: input.batch } : {}),
       };
       const inverse = { ...inverseOf(state.stored, diff, state.operatingHours), closure: meta };
