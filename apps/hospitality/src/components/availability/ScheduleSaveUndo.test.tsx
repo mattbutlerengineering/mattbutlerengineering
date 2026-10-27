@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AvailabilityConfigState } from "@mbe/types";
 
@@ -30,10 +30,27 @@ vi.mock("@mattbutlerengineering/rialto", async (importOriginal) => ({
 }));
 
 import { ChangeRegularWeekDrawer } from "./ChangeRegularWeekDrawer.js";
+import { CompareServices } from "./CompareServices.js";
 import { CopyDayAction } from "./CopyDayAction.js";
 import { FIXTURE_DATE, fixtureConfig, resolveFixtureDay } from "./resolved-day-fixtures.js";
 
 const state: AvailabilityConfigState = { config: fixtureConfig(), version: 7, source: "rows" };
+
+/** Compare needs a service that two schedules share. */
+const twoSchedules: AvailabilityConfigState = {
+  ...state,
+  config: {
+    ...state.config,
+    schedules: [
+      ...state.config.schedules,
+      { id: "wk", name: "Weeknight", kind: "alternate", isRegular: false },
+    ],
+    scheduleServices: [
+      ...state.config.scheduleServices,
+      ...state.config.scheduleServices.map((r) => ({ ...r, id: `${r.id}-wk`, scheduleId: "wk" })),
+    ],
+  },
+};
 
 async function undoOffered() {
   await waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
@@ -46,6 +63,9 @@ async function undoOffered() {
 const REVERT_ARGS = { venueId: "venue-1", changeId: "chg", expectedVersion: 8 };
 
 describe("Undo after a schedule save", () => {
+  beforeAll(() => {
+    window.HTMLElement.prototype.scrollIntoView = vi.fn();
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     save.mockResolvedValue({ version: 8, changeId: "chg" });
@@ -86,6 +106,28 @@ describe("Undo after a schedule save", () => {
     fireEvent.click(screen.getByRole("button", { name: "Copy to other days…" }));
     fireEvent.click(screen.getByRole("checkbox", { name: /^Mon/ }));
     fireEvent.click(screen.getByRole("button", { name: /^Copy to \d+ date/ }));
+    (await undoOffered())();
+    await waitFor(() => expect(revert).toHaveBeenCalledWith(REVERT_ARGS));
+  });
+
+  it("offers Undo after saving from Compare services, reverting that save", async () => {
+    render(
+      <main>
+        <CompareServices
+          venueId="venue-1"
+          state={twoSchedules}
+          timezone="America/Los_Angeles"
+          today="2026-10-25"
+          onStale={vi.fn()}
+        />
+      </main>
+    );
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select Weekend" }));
+    fireEvent.click(screen.getByRole("button", { name: "Set selected to…" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Booking" }));
+    fireEvent.click(screen.getByRole("option", { name: "Phone only" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply to 1 selected" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
     (await undoOffered())();
     await waitFor(() => expect(revert).toHaveBeenCalledWith(REVERT_ARGS));
   });
