@@ -213,6 +213,8 @@ interface Plan {
   rows: Prisma.ClosureOutcomeCreateManyInput[];
   counts: Record<ClosureAction, number>;
   notifiedGuests: boolean;
+  /** Each reservation's start when the impact was computed, for the apply step's CAS. */
+  starts: ReadonlyMap<string, Date>;
 }
 
 /** One outcome row per affected reservation, from its group's decision. */
@@ -229,11 +231,13 @@ function planOutcomes(
   const after = { timezone: state.timezone, config: withClosure(state.effective, rule, alongside) };
   const rows: Prisma.ClosureOutcomeCreateManyInput[] = [];
   const stuck: string[] = [];
+  const starts = new Map<string, Date>();
   for (const group of impact.groups) {
     const action = actions.get(group.groupKey)!.action; // checkDecisions answered every group
     for (const r of group.reservations) {
       const target = action === "move" ? moveTarget(after, group.date, r, now) : null;
       if (action === "move" && !target) stuck.push(r.id);
+      starts.set(r.id, new Date(r.startTime));
       rows.push({
         venueId,
         dateRuleId: rule.id,
@@ -249,7 +253,7 @@ function planOutcomes(
   const counts = { cancel: 0, move: 0, keep_notify: 0, keep_silent: 0 };
   for (const row of rows) counts[row.action] += 1;
   const notifiedGuests = [...actions.values()].some((d) => d.action !== "keep_silent");
-  return { rows, counts, notifiedGuests };
+  return { rows, counts, notifiedGuests, starts };
 }
 
 const isRefusal = (p: Plan | Refusal): p is Refusal => "kind" in p;
@@ -443,6 +447,7 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
       reservationId: r.reservationId,
       action: r.action,
       movedTo: r.movedTo as Date | null,
+      expectedStartTime: plan.starts.get(r.reservationId) as Date,
     }))
   );
   if (applied.kind === "move_conflict") {

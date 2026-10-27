@@ -1434,7 +1434,7 @@ describe("reservationService", () => {
         startTime: "2026-05-05T19:00:00Z",
       });
 
-      expect(result.success).toBe(false);
+      expect(result).toMatchObject({ success: false, conflict: { hasConflict: true } });
       expect(tx.reservation.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ id: "res-1", status: "CONFIRMED" }),
@@ -1452,7 +1452,7 @@ describe("reservationService", () => {
         startTime: "2026-05-05T19:00:00Z",
       });
 
-      expect(result.success).toBe(false);
+      expect(result).toMatchObject({ success: false, conflict: { hasConflict: true } });
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 

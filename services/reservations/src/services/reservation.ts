@@ -132,6 +132,9 @@ function compareReservationDateDesc(
   return dateDiff !== 0 ? dateDiff : b.startTime.getTime() - a.startTime.getTime();
 }
 
+/** A staff edit lost to a concurrent change; the route answers 409 so the client reloads. */
+const CHANGED_MEANWHILE = "Reservation changed meanwhile; reload and retry";
+
 export const reservationService = {
   async list(options: ListReservationsOptions): Promise<PaginatedResponse<Reservation>> {
     const { page, limit, date, status, tableId, venueId, guestId } = options;
@@ -615,7 +618,7 @@ export const reservationService = {
     // A cancelled (e.g. by a venue closure) or no-show booking holds no slot:
     // a time/table edit would resurrect its window under a dead status.
     if (isSlotMove(data) && NOT_BOOKED_STATUSES.includes(existing.status)) {
-      return { success: false, error: "A cancelled or no-show reservation cannot be moved" };
+      return { success: false, error: CHANGED_MEANWHILE, conflict: { hasConflict: true } };
     }
 
     // A move onto another venue's table is refused before the capacity and
@@ -773,7 +776,8 @@ export const reservationService = {
     if (!result.ok) return staffSlotFailure(result.conflict);
 
     if (!result.value) {
-      return { success: false, error: "Failed to update reservation" };
+      // The status/start CAS missed (or the row vanished): a closure or another edit got there first.
+      return { success: false, error: CHANGED_MEANWHILE, conflict: { hasConflict: true } };
     }
 
     return { success: true, reservation: toReservation(result.value) };

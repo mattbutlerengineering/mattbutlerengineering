@@ -2693,6 +2693,7 @@
         reservationId: string;
         action: ClosureAction;
         movedTo: Date | null;
+        expectedStartTime: Date;
       }
     </item>
     <item priority="low">
@@ -2712,7 +2713,8 @@
         tx: Tx,
         venueId: string,
         actorId: string,
-        r: Existing
+        r: Existing,
+        expectedStartTime: Date
       ): Promise<ApplyResult> { /* ... */ }
     </item>
     <item priority="low">
@@ -2730,7 +2732,8 @@
         venueId: string,
         actorId: string,
         r: Existing,
-        startTime: Date
+        startTime: Date,
+        expectedStartTime: Date
       ): Promise<boolean> { /* ... */ }
     </item>
     <item priority="high">
@@ -2908,6 +2911,7 @@
         rows: Prisma.ClosureOutcomeCreateManyInput[];
         counts: Record<ClosureAction, number>;
         notifiedGuests: boolean;
+        starts: ReadonlyMap<string, Date>;
       }
     </item>
     <item priority="medium">

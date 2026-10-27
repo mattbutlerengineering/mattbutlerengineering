@@ -34,6 +34,8 @@ export interface PlannedTransition {
   reservationId: string;
   action: ClosureAction;
   movedTo: Date | null;
+  /** The start the impact was computed from; a booking a staff edit moved since is not ours to touch. */
+  expectedStartTime: Date;
 }
 
 export type ApplyResult =
@@ -59,7 +61,8 @@ async function cancelInTx(
   tx: Tx,
   venueId: string,
   actorId: string,
-  r: Existing
+  r: Existing,
+  expectedStartTime: Date
 ): Promise<ApplyResult> {
   try {
     transitionReservation(r.status as never, "CANCELLED");
@@ -70,7 +73,7 @@ async function cancelInTx(
     throw error;
   }
   const { count } = await tx.reservation.updateMany({
-    where: { id: r.id, venueId, status: r.status as never },
+    where: { id: r.id, venueId, status: r.status as never, startTime: expectedStartTime },
     data: {
       status: "CANCELLED",
       cancellationReason: "venue_closure",
@@ -135,12 +138,13 @@ async function moveInTx(
   venueId: string,
   actorId: string,
   r: Existing,
-  startTime: Date
+  startTime: Date,
+  expectedStartTime: Date
 ): Promise<boolean> {
   const endTime = new Date(startTime.getTime() + (r.endTime.getTime() - r.startTime.getTime()));
   if (r.tableId && (await targetTaken(tx, venueId, r, startTime, endTime))) return false;
   const { count } = await tx.reservation.updateMany({
-    where: { id: r.id, venueId, status: r.status as never },
+    where: { id: r.id, venueId, status: r.status as never, startTime: expectedStartTime },
     data: { startTime, endTime },
   });
   if (count === 0) return false;
@@ -185,9 +189,9 @@ export async function applyTransitions(
     const r = byId.get(p.reservationId);
     if (!r) continue;
     if (p.action === "cancel") {
-      const result = await cancelInTx(tx, venueId, actorId, r);
+      const result = await cancelInTx(tx, venueId, actorId, r, p.expectedStartTime);
       if (result.kind !== "ok") return result;
-    } else if (!(await moveInTx(tx, venueId, actorId, r, p.movedTo as Date))) {
+    } else if (!(await moveInTx(tx, venueId, actorId, r, p.movedTo as Date, p.expectedStartTime))) {
       conflicts.push(r.id);
     }
   }

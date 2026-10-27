@@ -47645,6 +47645,8 @@
       reservationId: string;
       action: ClosureAction;
       movedTo: Date | null;
+      /** The start the impact was computed from; a booking a staff edit moved since is not ours to touch. */
+      expectedStartTime: Date;
     }
     export type ApplyResult =
       | { kind: "ok" }
@@ -47663,7 +47665,8 @@
       tx: Tx,
       venueId: string,
       actorId: string,
-      r: Existing
+      r: Existing,
+      expectedStartTime: Date
     ): Promise<ApplyResult> {
       try {
         transitionReservation(r.status as never, "CANCELLED");
@@ -47674,7 +47677,7 @@
         throw error;
       }
       const { count } = await tx.reservation.updateMany({
-        where: { id: r.id, venueId, status: r.status as never },
+        where: { id: r.id, venueId, status: r.status as never, startTime: expectedStartTime },
         data: {
           status: "CANCELLED",
           cancellationReason: "venue_closure",
@@ -47730,12 +47733,13 @@
       venueId: string,
       actorId: string,
       r: Existing,
-      startTime: Date
+      startTime: Date,
+      expectedStartTime: Date
     ): Promise<boolean> {
       const endTime = new Date(startTime.getTime() + (r.endTime.getTime() - r.startTime.getTime()));
       if (r.tableId && (await targetTaken(tx, venueId, r, startTime, endTime))) return false;
       const { count } = await tx.reservation.updateMany({
-        where: { id: r.id, venueId, status: r.status as never },
+        where: { id: r.id, venueId, status: r.status as never, startTime: expectedStartTime },
         data: { startTime, endTime },
       });
       if (count === 0) return false;
@@ -47778,9 +47782,9 @@
         const r = byId.get(p.reservationId);
         if (!r) continue;
         if (p.action === "cancel") {
-          const result = await cancelInTx(tx, venueId, actorId, r);
+          const result = await cancelInTx(tx, venueId, actorId, r, p.expectedStartTime);
           if (result.kind !== "ok") return result;
-        } else if (!(await moveInTx(tx, venueId, actorId, r, p.movedTo as Date))) {
+        } else if (!(await moveInTx(tx, venueId, actorId, r, p.movedTo as Date, p.expectedStartTime))) {
           conflicts.push(r.id);
         }
       }
@@ -48163,6 +48167,8 @@
       rows: Prisma.ClosureOutcomeCreateManyInput[];
       counts: Record<ClosureAction, number>;
       notifiedGuests: boolean;
+      /** Each reservation's start when the impact was computed, for the apply step's CAS. */
+      starts: ReadonlyMap<string, Date>;
     }
     function planOutcomes(
       venueId: string,
@@ -48177,11 +48183,13 @@
       const after = { timezone: state.timezone, config: withClosure(state.effective, rule, alongside) };
       const rows: Prisma.ClosureOutcomeCreateManyInput[] = [];
       const stuck: string[] = [];
+      const starts = new Map<string, Date>();
       for (const group of impact.groups) {
         const action = actions.get(group.groupKey)!.action; // checkDecisions answered every group
         for (const r of group.reservations) {
           const target = action === "move" ? moveTarget(after, group.date, r, now) : null;
           if (action === "move" && !target) stuck.push(r.id);
+          starts.set(r.id, new Date(r.startTime));
           rows.push({
             venueId,
             dateRuleId: rule.id,
@@ -48197,7 +48205,7 @@
       const counts = { cancel: 0, move: 0, keep_notify: 0, keep_silent: 0 };
       for (const row of rows) counts[row.action] += 1;
       const notifiedGuests = [...actions.values()].some((d) => d.action !== "keep_silent");
-      return { rows, counts, notifiedGuests };
+      return { rows, counts, notifiedGuests, starts };
     }
     function describe(rule: DateRule, counts: Record<ClosureAction, number>): string {
       const span =
@@ -48370,6 +48378,7 @@
           reservationId: r.reservationId,
           action: r.action,
           movedTo: r.movedTo as Date | null,
+          expectedStartTime: plan.starts.get(r.reservationId) as Date,
         }))
       );
       if (applied.kind === "move_conflict") {
@@ -55767,7 +55776,7 @@
         // A cancelled (e.g. by a venue closure) or no-show booking holds no slot:
         // a time/table edit would resurrect its window under a dead status.
         if (isSlotMove(data) && NOT_BOOKED_STATUSES.includes(existing.status)) {
-          return { success: false, error: "A cancelled or no-show reservation cannot be moved" };
+          return { success: false, error: CHANGED_MEANWHILE, conflict: { hasConflict: true } };
         }
     
         // A move onto another venue's table is refused before the capacity and
@@ -55925,7 +55934,8 @@
         if (!result.ok) return staffSlotFailure(result.conflict);
     
         if (!result.value) {
-          return { success: false, error: "Failed to update reservation" };
+          // The status/start CAS missed (or the row vanished): a closure or another edit got there first.
+          return { success: false, error: CHANGED_MEANWHILE, conflict: { hasConflict: true } };
         }
     
         return { success: true, reservation: toReservation(result.value) };
