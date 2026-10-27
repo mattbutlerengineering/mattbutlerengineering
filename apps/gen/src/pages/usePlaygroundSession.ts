@@ -311,6 +311,9 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
 
   const submit = useCallback(
     (prompt: string) => {
+      // send() ignores a request while one is in flight; abort the old one first
+      // so it never completes under this prompt.
+      if (isStreaming) stop();
       rememberPendingPrompt(prompt);
       setRawPrompt(prompt);
       clearNodeRefine();
@@ -329,7 +332,7 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
         void send(prompt);
       }
     },
-    [mode, displaySpec, send, clearNodeRefine]
+    [mode, displaySpec, isStreaming, send, stop, clearNodeRefine]
   );
 
   const refineNode = useCallback(

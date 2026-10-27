@@ -31,7 +31,7 @@ describe("Table adapter", () => {
     expect(screen.getByText("Ada")).toBeDefined();
   });
 
-  it("renders sample rows when data is an unresolved $state binding", () => {
+  it("shows the seam fallback, not invented rows, when data is an unresolved $state binding", () => {
     renderSpec({
       root: "t1",
       elements: {
@@ -46,8 +46,8 @@ describe("Table adapter", () => {
         },
       },
     });
-    expect(screen.queryByText("Component could not be displayed")).toBeNull();
-    expect(screen.getByText("Alex Rivera")).toBeDefined();
+    expect(screen.getByText("Component could not be displayed")).toBeDefined();
+    expect(screen.queryByText("Alex Rivera")).toBeNull();
   });
 
   it("keeps an empty data array empty", () => {
