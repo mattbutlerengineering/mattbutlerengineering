@@ -10317,6 +10317,9 @@
       };
     }
   </file>
+  <file path="apps/marketing/src/data/measurement-date.ts">
+    export const MEASUREMENT_DATE: string = metricsSnapshot.generatedAt;
+  </file>
   <file path="apps/marketing/src/data/projects.ts">
     export interface Project {
       title: string;
@@ -10522,6 +10525,21 @@
         return { status: 200, body: "" };
       }
       return undefined;
+    }
+  </file>
+  <file path="apps/marketing/src/data/weekly-freshness.ts">
+    export function recentReadingItems(
+      resources: readonly WeeklyResource[],
+      now: Date = new Date()
+    ): readonly WeeklyResource[] {
+      const cutoff = now.getTime() - READING_WINDOW_DAYS * MS_PER_DAY;
+      return resources
+        .filter((resource) => new Date(resource.publishedAt).getTime() >= cutoff)
+        .sort(byNewest)
+        .slice(0, MAX_READING_ITEMS);
+    }
+    export function latestPublishedAt(resources: readonly WeeklyResource[]): string | null {
+      return [...resources].sort(byNewest)[0]?.publishedAt ?? null;
     }
   </file>
   <file path="apps/marketing/src/data/weekly-intake.ts">

@@ -108,6 +108,12 @@ describe("FactorySection recently shipped", () => {
     ).toHaveAttribute("href", "/shipped");
   });
 
+  it("dates the block as a snapshot instead of implying it is live", () => {
+    shipped.features = [story(1)];
+    renderSection();
+    expect(screen.getByText(/snapshot from/i)).toBeInTheDocument();
+  });
+
   it("caps at three stories in snapshot order", () => {
     shipped.features = [1, 2, 3, 4, 5].map(story);
     renderSection();

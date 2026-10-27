@@ -75,7 +75,7 @@ function renderHomePage() {
 }
 
 /** Every landing section that enters on scroll, named by its `data-reveal` value. */
-const SCROLL_REVEALED_SECTIONS = ["proof", "projects", "machinery", "weekly", "contact"];
+const SCROLL_REVEALED_SECTIONS = ["proof", "projects", "machinery", "contact"];
 
 describe("HomePage entrance choreography", () => {
   afterEach(() => {

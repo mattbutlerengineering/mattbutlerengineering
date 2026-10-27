@@ -10,6 +10,7 @@ import {
 } from "@mattbutlerengineering/rialto";
 import { motion } from "framer-motion";
 import { REPO_STATS } from "../data/repo-stats";
+import { MEASUREMENT_DATE } from "../data/measurement-date";
 import { formatMeasuredAt } from "../utils/formatters";
 import styles from "../pages/HomePage.module.css";
 
@@ -104,8 +105,7 @@ export function ProofStrip() {
           </motion.div>
 
           <Text variant="detail" color="tertiary" as="p">
-            Counted straight out of the repo — measured at last deploy,{" "}
-            {formatMeasuredAt(REPO_STATS.measuredAt)}.
+            Counted out of the repo. Snapshot from {formatMeasuredAt(MEASUREMENT_DATE)}.
           </Text>
         </Stack>
       </div>

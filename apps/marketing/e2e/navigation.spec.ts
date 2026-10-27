@@ -9,12 +9,16 @@ test.describe("Homepage", () => {
     await expect(page.getByRole("link", { name: "Live metrics" })).toBeVisible();
   });
 
-  test("Weekly Reads CTA navigates to /weekly", async ({ page }) => {
+  test("reading section is absent while the weekly intake has nothing recent", async ({ page }) => {
     await page.goto("/");
 
-    await page.getByRole("link", { name: "Browse the stack" }).click();
+    await expect(page.getByRole("heading", { name: /what i.m reading/i })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Browse the stack" })).toHaveCount(0);
+  });
 
-    await expect(page).toHaveURL("/weekly");
+  test("weekly intake page renders", async ({ page }) => {
+    await page.goto("/weekly");
+
     await expect(page.getByRole("heading", { name: "Weekly Information Intake" })).toBeVisible();
   });
 
