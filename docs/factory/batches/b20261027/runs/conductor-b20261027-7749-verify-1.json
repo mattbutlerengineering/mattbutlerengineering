@@ -1,0 +1,101 @@
+{
+  "duration_api_ms": 275879,
+  "stop_reason": "end_turn",
+  "session_id": "9dcaad6f-24a5-47d3-aae6-c45804e1cfc5",
+  "total_cost_usd": 1.3414838000000002,
+  "usage": {
+    "input_tokens": 86,
+    "cache_creation_input_tokens": 93989,
+    "cache_read_input_tokens": 4068079,
+    "output_tokens": 15174,
+    "output_tokens_details": {
+      "thinking_tokens": 2306
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 93989,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 328,
+        "cache_read_input_tokens": 119478,
+        "cache_creation_input_tokens": 1417,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1417
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 86,
+      "outputTokens": 15174,
+      "cacheReadInputTokens": 4068079,
+      "cacheCreationInputTokens": 93989,
+      "webSearchRequests": 0,
+      "costUSD": 1.3414838000000002,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 2306,
+      "cacheCreationEphemeral5mInputTokens": 0,
+      "cacheCreationEphemeral1hInputTokens": 93989,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 44,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "Verify's done.\n\nVerdict: 5/5 criteria PASS, 0 FAIL, 0 unaccounted NOT RUN. Schema, resolver, UI, and i18n all check out with real test evidence. Found one real gap along the way \u2014 `llms.txt`/`llms-full.txt` were stale after the schema change (WO-0075's own gate run flagged it couldn't run raw `pnpm regen` in its sandboxed allowlist) \u2014 fixed and committed (`36b2de1f4`), then re-ran the full gate (72/72 green) to confirm.\n\nCommits on `conductor/b20261027-7749`: `36b2de1f4` (regen fix) and `74a94ec98` (verification.md). `pr-body.md` is written at the worktree root, uncommitted, per the task.\n\nNot checked: visual/E2E baselines for the Week view and a live browser walkthrough \u2014 relied on component-test DOM assertions instead, noted in verification.md's \"Not verified\" section.",
+  "ttft_ms": 3289,
+  "type": "result",
+  "duration_ms": 435079,
+  "uuid": "9718f041-37f7-44c2-b194-5393d9fbfc67",
+  "ttft_stream_ms": 2541,
+  "time_to_request_ms": 407,
+  "first_content_frame_ms": 2542,
+  "queued_turn_count": 0,
+  "result_index": 0
+}

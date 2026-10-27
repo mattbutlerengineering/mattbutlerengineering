@@ -1,0 +1,109 @@
+{
+  "duration_api_ms": 151607,
+  "stop_reason": "end_turn",
+  "session_id": "f2330d0d-7c00-49f3-9b1c-eff3cacec3e3",
+  "total_cost_usd": 1.0558987999999996,
+  "usage": {
+    "input_tokens": 58,
+    "cache_creation_input_tokens": 107895,
+    "cache_read_input_tokens": 2601714,
+    "output_tokens": 10386,
+    "output_tokens_details": {
+      "thinking_tokens": 3218
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 107895,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 245,
+        "cache_read_input_tokens": 106735,
+        "cache_creation_input_tokens": 1160,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1160
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 58,
+      "outputTokens": 10386,
+      "cacheReadInputTokens": 2601714,
+      "cacheCreationInputTokens": 107895,
+      "webSearchRequests": 0,
+      "costUSD": 1.0558987999999996,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 3218,
+      "cacheCreationEphemeral5mInputTokens": 0,
+      "cacheCreationEphemeral1hInputTokens": 107895,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_01KqxJztdKTP9L3vqceaKHfU",
+      "tool_input": {
+        "command": "cd packages/types && pnpm vitest run src/schemas/availability-config-api.test.ts 2>&1 | tail -40"
+      }
+    }
+  ],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 29,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "WO-0072 done: `DaySummaryServiceSchema` extracted, `services` added to `AvailabilityDaySummarySchema`, `PreviewResultSchema.focusDay` re-pointed at the shared schema. RED test went in first, then GREEN; `packages/types` test/typecheck/lint clean, llms regen clean. Two commits on `conductor/b20261027-7749`; breakdown row checked off; `pr-body.md` written uncommitted at the worktree root.\n\nNot run: the full-repo gate (`scripts/conductor-gate.sh`) \u2014 `services/reservations` will go typecheck-red until WO-0073 populates the new `services` field, which is out of this WO's scope and noted in the PR body.",
+  "ttft_ms": 4205,
+  "type": "result",
+  "duration_ms": 255579,
+  "uuid": "bdb083c5-78c6-4a8d-a49e-d7cea6dc03d3",
+  "ttft_stream_ms": 2189,
+  "time_to_request_ms": 393,
+  "first_content_frame_ms": 2189,
+  "queued_turn_count": 0,
+  "result_index": 0
+}
