@@ -106,6 +106,40 @@ gh run list --workflow pulumi-up.yml --branch main --limit 5 \
   -q '.[] | "\(.conclusion)\t\(.createdAt)\t\(.url)"'
 ```
 
+## Weekly api-failures report
+
+`.github/workflows/api-failures.yml` runs `scripts/api-failures.mjs` Mondays
+15:00 UTC (and on `workflow_dispatch`). It reads the same dataset for `/api/*`
+requests over 7 days and files one issue per failing or slow endpoint. Paths
+are normalized (UUIDs, numeric and opaque ids become `:id`); p95 is the
+request-weighted 95th percentile of the per-row `quantileWeighted` p95s, so it
+is an approximation across merged paths.
+
+| Breach | Threshold                                             |
+| ------ | ----------------------------------------------------- |
+| 5xx    | rate >= 1% with >= 20 requests                        |
+| 4xx    | rate >= 10% with >= 50 requests, excl. 401/404 on GET |
+| Slow   | p95 `elapsedMs` >= 2000                               |
+
+```bash
+# Preview without filing (needs the same two env vars as edge-usage, plus gh auth)
+node scripts/api-failures.mjs --dry-run
+```
+
+- **Dedupe:** an open `production-health` issue whose body contains
+  `<!-- api-failures:<METHOD> <path> -->` gets a comment with the new numbers.
+  New issues are capped at 5 per run, worst first; the rest are listed in the
+  run log as DEFERRED and picked up next week.
+- **Fails closed (exit 1):** missing `CLOUDFLARE_API_TOKEN` /
+  `CLOUDFLARE_ACCOUNT_ID`, a SQL API error, zero rows for the whole window, or a
+  failed `gh` write. Zero rows is an error here (unlike `edge-usage.mjs`)
+  because a silent skip must not look like "no failures"; see the zero-rows
+  section above for why it can happen right after a deploy.
+- **Secret:** the workflow reads `secrets.CLOUDFLARE_API_TOKEN`, not
+  `MBE_CLOUDFLARE_API_TOKEN` (wrong scope). Set it with
+  `gh secret set CLOUDFLARE_API_TOKEN --body "<token>"`. Until it exists every
+  run fails loudly.
+
 ## Undercount caveat
 
 The count sees **edge requests only**. The sites behind the router are
