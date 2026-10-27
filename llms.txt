@@ -1611,6 +1611,21 @@
       export function isWholeDay(closure: Pick<Closure, "from" | "to">): boolean { /* ... */ }
     </item>
     <item priority="high">
+      interface Copy {
+        allDay: (t: TFunction) => readonly [text: string, name: string];
+        band: (t: TFunction, v: { from: string; to: string }) => readon...;
+      }
+    </item>
+    <item priority="high">
+      type ChannelSuffix = "" | (typeof CHANNEL_SUFFIX)[keyof ;
+    </item>
+    <item priority="medium">
+      function channelSuffix(closure: Closure): ChannelSuffix { /* ... */ }
+    </item>
+    <item priority="medium">
+      function bookingCopy(suffix: ChannelSuffix): Copy { /* ... */ }
+    </item>
+    <item priority="high">
       export function closureBandText(
         closure: Closure,
         t: TFunction,

@@ -5033,12 +5033,36 @@
     export function isWholeDay(closure: Pick<Closure, "from" | "to">): boolean {
       return closure.from === 0 && closure.to >= 2 * MINUTES_PER_DAY;
     }
+    interface Copy {
+      allDay: (t: TFunction) => readonly [text: string, name: string];
+      band: (t: TFunction, v: { from: string; to: string }) => readonly [text: string, name: string];
+    }
+    type ChannelSuffix = "" | (typeof CHANNEL_SUFFIX)[keyof typeof CHANNEL_SUFFIX];
+    function channelSuffix(closure: Closure): ChannelSuffix {
+      const [only, ...rest] = closure.bookingTypes ?? [];
+      return only && rest.length === 0 ? CHANNEL_SUFFIX[only] : "";
+    }
+    function bookingCopy(suffix: ChannelSuffix): Copy {
+      return {
+        allDay: (t) => [
+          t(`availability.calendar.bookingOff${suffix}AllDay`),
+          t(`availability.calendar.bookingOff${suffix}AllDayName`),
+        ],
+        band: (t, v) => [
+          t(`availability.calendar.bookingOff${suffix}Band`, v),
+          t(`availability.calendar.bookingOff${suffix}BandName`, v),
+        ],
+      };
+    }
     export function closureBandText(
       closure: Closure,
       t: TFunction,
       format: VenueFormat
     ): ClosureBandText {
-      const copy = COPY[closure.targetKind];
+      const copy =
+        closure.targetKind === "booking"
+          ? bookingCopy(channelSuffix(closure))
+          : COPY[closure.targetKind];
       if (isWholeDay(closure)) {
         const [text, name] = copy.allDay(t);
         return { key: closure.ruleId, text, name };
@@ -5203,7 +5227,11 @@
       const count = showCount
         ? t("availability.calendar.services", { count: summary.serviceCount })
         : null;
-      const onlineOff = summary !== undefined && !summary.bookingOpen.online;
+      // A whole-day pause that names online already says so; saying it twice reads as two facts.
+      const bandNamesOnline = (summary?.closures ?? []).some(
+        (c) => c.targetKind === "booking" && isWholeDay(c) && c.bookingTypes?.includes("online")
+      );
+      const onlineOff = summary !== undefined && !summary.bookingOpen.online && !bandNamesOnline;
     
       const parts = summary
         ? [
@@ -39285,6 +39313,8 @@
           targetKind: DateRuleTargetKindSchema,
           from: z.number().int(),
           to: z.number().int(),
+          /** Channels a `booking` closure pauses; absent for other targets and from an older API. */
+          bookingTypes: z.array(z.enum(RULE_BOOKING_TYPES)).optional(),
         })
       ),
       bookingOpen: z.object({ online: z.boolean(), phone: z.boolean(), waitlist: z.boolean() }),
@@ -45196,11 +45226,12 @@
         label: dayLabel(config, day),
         scheduleId: day.scheduleId,
         serviceCount: day.services.length,
-        closures: day.closures.map(({ ruleId, targetKind, from, to }) => ({
+        closures: day.closures.map(({ ruleId, targetKind, from, to, bookingTypes }) => ({
           ruleId,
           targetKind,
           from,
           to,
+          ...(targetKind === "booking" && bookingTypes ? { bookingTypes } : {}),
         })),
         bookingOpen: day.bookingOpen,
         ...(day.guestMessage ? { guestMessage: day.guestMessage } : {}),
