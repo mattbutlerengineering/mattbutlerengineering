@@ -1,3 +1,11 @@
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-sm);
+  align-items: center;
+  justify-content: space-between;
+}
+
 .list {
   display: flex;
   flex-direction: column;
@@ -41,4 +49,41 @@
 .callList td {
   padding: var(--rialto-space-xs) var(--rialto-space-sm);
   text-align: start;
+}
+
+/* The print copy of the call list (CallListDialog): hidden on screen. */
+.printCopy {
+  display: none;
+}
+
+@media print {
+  /* Page chrome (shell, dialog overlay, toasts) is dropped; only the print copy remains. */
+  :global(body[data-printing-call-list]) > :not(.printCopy) {
+    display: none;
+  }
+
+  .printCopy {
+    display: block;
+    padding: var(--rialto-space-md);
+    font-family: var(--rialto-font-sans);
+    /* Paper is white whatever the dashboard theme, so use the UA's print colors. */
+    color: CanvasText;
+    background: Canvas;
+    color-scheme: light;
+  }
+
+  .printTitle {
+    margin: 0 0 var(--rialto-space-md);
+    font-family: var(--rialto-font-display);
+    font-size: var(--rialto-text-xl);
+  }
+
+  .printCopy .callList tr {
+    break-inside: avoid;
+  }
+
+  .printCopy .callList th,
+  .printCopy .callList td {
+    border-block-end: 1px solid currentcolor;
+  }
 }

@@ -72,7 +72,7 @@ function makeStore(overrides: Partial<ClosureRefundRow> = {}) {
       state.row = { ...state.row, refund };
     }),
     resetToPending: vi.fn(async () => {
-      if (state.row.refund === "failed" || state.row.refund === "pending") {
+      if (state.row.refund === "failed") {
         state.row = { ...state.row, refund: "pending" };
       }
     }),
@@ -80,7 +80,9 @@ function makeStore(overrides: Partial<ClosureRefundRow> = {}) {
       if (state.row.refund === "done" || state.row.refund === "none") return;
       state.row = { ...state.row, refund: "failed" };
     }),
-    listByRule: vi.fn(async () => [{ id: "out-1", reservationId: "res-1" }]),
+    listByRule: vi.fn(async () => [
+      { id: "out-1", reservationId: "res-1", refund: state.row.refund },
+    ]),
   };
   return { store, state };
 }
@@ -391,11 +393,11 @@ describe("enqueueClosureRefunds", () => {
     expect(schedule.mock.calls[0]?.[3]).not.toBe(closureRefundJobId("rule-1", "res-1"));
   });
 
-  it("a retry whose schedule fails leaves the row as it was, and reports how many were queued", async () => {
-    const { store } = makeStore({ refund: "failed" });
+  it("a retry whose schedule fails puts a failed row back to failed, and reports how many were queued", async () => {
+    const { store, state } = makeStore({ refund: "failed" });
     store.listByRule = vi.fn(async () => [
-      { id: "out-0", reservationId: "res-0" },
-      { id: "out-1", reservationId: "res-1" },
+      { id: "out-0", reservationId: "res-0", refund: "failed" as const },
+      { id: "out-1", reservationId: "res-1", refund: "failed" as const },
     ]);
     const schedule = vi
       .fn<(...args: unknown[]) => Promise<string>>()
@@ -412,11 +414,90 @@ describe("enqueueClosureRefunds", () => {
 
     expect(error).toBeInstanceOf(ClosureRefundEnqueueError);
     expect((error as ClosureRefundEnqueueError).enqueued).toBe(1);
-    // Only the outcome whose job exists was reset; the one that failed to schedule is untouched.
-    expect(store.resetToPending).toHaveBeenCalledTimes(1);
-    expect(store.resetToPending).toHaveBeenCalledWith("out-0");
-    expect(store.resetToPending).not.toHaveBeenCalledWith("out-1");
-    expect(store.setRefund).not.toHaveBeenCalled();
+    expect(store.markFailed).toHaveBeenCalledTimes(1);
+    expect(store.markFailed).toHaveBeenCalledWith("out-1");
+    expect(state.row.refund).toBe("failed");
+  });
+
+  it("logs, rather than swallows, a failure to restore the row", async () => {
+    const { store } = makeStore({ refund: "failed" });
+    store.markFailed = vi.fn(async () => {
+      throw new Error("db down");
+    });
+    const log = { error: vi.fn() };
+    const schedule = vi.fn(async (..._args: unknown[]) => {
+      throw new Error("redis down");
+    });
+
+    await enqueueClosureRefunds(
+      { store, jobs: { schedule }, log },
+      "venue-1",
+      "rule-1",
+      ["failed"],
+      { retry: true }
+    ).catch(() => undefined);
+
+    expect(log.error).toHaveBeenCalledWith(
+      expect.objectContaining({ venueId: "venue-1", ruleId: "rule-1", outcomeId: "out-1" }),
+      expect.any(String)
+    );
+  });
+
+  it("a retry whose schedule fails leaves a row that was only pending pending", async () => {
+    const { store, state } = makeStore({ refund: "pending" });
+    const schedule = vi.fn(async (..._args: unknown[]) => {
+      throw new Error("redis down");
+    });
+
+    await enqueueClosureRefunds({ store, jobs: { schedule } }, "venue-1", "rule-1", ["pending"], {
+      retry: true,
+    }).catch(() => undefined);
+
+    expect(store.markFailed).not.toHaveBeenCalled();
+    expect(state.row.refund).toBe("pending");
+  });
+
+  it("a retry resets the row before scheduling, so a job that fails at once stays failed", async () => {
+    const { store, state } = makeStore({ refund: "failed" });
+    const order: string[] = [];
+    const reset = store.resetToPending;
+    store.resetToPending = vi.fn(async (id: string) => {
+      order.push("reset");
+      await reset(id);
+    });
+    // The job fails permanently the moment it exists: its markFailed runs inside schedule.
+    const schedule = vi.fn(async (..._args: unknown[]) => {
+      order.push("schedule");
+      await store.markFailed("out-1");
+      return "id";
+    });
+
+    await enqueueClosureRefunds({ store, jobs: { schedule } }, "venue-1", "rule-1", ["failed"], {
+      retry: true,
+    });
+
+    expect(order).toEqual(["reset", "schedule"]);
+    expect(state.row.refund).toBe("failed");
+  });
+
+  it("a reset that throws schedules nothing for that outcome and counts only earlier ones", async () => {
+    const { store } = makeStore({ refund: "failed" });
+    store.resetToPending = vi.fn(async () => {
+      throw new Error("db down");
+    });
+    const schedule = vi.fn(async (..._args: unknown[]) => "id");
+
+    const error = await enqueueClosureRefunds(
+      { store, jobs: { schedule } },
+      "venue-1",
+      "rule-1",
+      ["failed"],
+      { retry: true }
+    ).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ClosureRefundEnqueueError);
+    expect((error as ClosureRefundEnqueueError).enqueued).toBe(0);
+    expect(schedule).not.toHaveBeenCalled();
   });
 
   it("the reset never turns a row that settled meanwhile back into pending", async () => {

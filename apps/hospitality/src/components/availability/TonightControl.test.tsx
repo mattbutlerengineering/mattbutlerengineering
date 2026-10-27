@@ -1,6 +1,7 @@
 import { beforeAll, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
+import userEvent from "@testing-library/user-event";
 import { axe } from "vitest-axe";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import { ApiClientError } from "@mbe/api-client";
@@ -9,16 +10,20 @@ import type { AvailabilityConfigState, ClosureImpact, DateRule, Table } from "@m
 const setTonight = vi.hoisted(() => vi.fn());
 const endTonight = vi.hoisted(() => vi.fn());
 const impactState = vi.hoisted(() => ({ value: null as unknown }));
+const impactCalls = vi.hoisted(() => [] as unknown[]);
 const viewport = vi.hoisted(() => ({ value: "desktop" as "desktop" | "phone" }));
 
 vi.mock("../../hooks/useTonight.js", () => ({
   useSetTonight: () => ({ mutateAsync: setTonight, isPending: false }),
   useEndTonight: () => ({ mutateAsync: endTonight, isPending: false }),
 }));
+const refresh = vi.hoisted(() => vi.fn());
+vi.mock("../../hooks/useRefreshAvailability.js", () => ({ useRefreshAvailability: () => refresh }));
+vi.mock("@mbe/auth/react", () => ({ useAuth: () => ({ user: { id: "auth0|me" } }) }));
 vi.mock("../../hooks/useViewport.js", () => ({ useViewport: () => viewport.value }));
 vi.mock("../../hooks/useClosures.js", () => ({
-  useClosureImpact: () => ({
-    data: impactState.value,
+  useClosureImpact: (args: unknown) => ({
+    data: (impactCalls.push(args), impactState.value),
     isLoading: false,
     error: null,
     refetch: vi.fn(),
@@ -38,8 +43,8 @@ import { TonightControl, type TonightControlProps } from "./TonightControl.js";
 import { fixtureConfig } from "./resolved-day-fixtures.js";
 
 const AXE_OPTIONS = { rules: { "color-contrast": { enabled: false } } };
-const TODAY = "2026-10-29";
-const NOW = new Date("2026-10-29T20:00:00Z");
+const TODAY = "2026-10-30"; // a Friday, the fixture's regular service day
+const NOW = new Date("2026-10-30T20:00:00Z");
 
 const TABLES = [
   { id: "t1", name: "P1", location: "Patio", isActive: true },
@@ -54,7 +59,7 @@ const PAUSE_RULE = {
   bookingTypes: ["online"],
   startsOn: TODAY,
   endsOn: TODAY,
-  expiresAt: "2026-10-30T11:00:00.000Z",
+  expiresAt: "2026-10-31T11:00:00.000Z",
   payload: { version: 1, stop: { from: 0, to: 2880 } },
 } as DateRule;
 
@@ -97,6 +102,21 @@ function decisionRequired() {
   );
 }
 
+function conflict(code: "version-conflict" | "closure-exists", winningChange?: unknown) {
+  return new ApiClientError(
+    {
+      type: "about:blank",
+      title: "Conflict",
+      status: 409,
+      detail: "conflict",
+      code,
+      ...(winningChange ? { winningChange } : {}),
+    } as never,
+    "POST",
+    "tonight"
+  );
+}
+
 /** A venue that closes at 2:00 AM (minute 1560 of its service day). */
 function lateState(): AvailabilityConfigState {
   const base = stateWith();
@@ -122,7 +142,6 @@ function renderControl(props: Partial<TonightControlProps> = {}) {
             venueId="venue-1"
             state={stateWith()}
             timezone="America/Los_Angeles"
-            today={TODAY}
             now={NOW}
             viewerRole="manager"
             hostEmergencyClose={false}
@@ -193,6 +212,16 @@ describe("TonightControl", () => {
     });
   });
 
+  describe("Ending a change from its chip", () => {
+    it("shows an error beside the chips when ending fails with the panel closed", async () => {
+      endTonight.mockRejectedValueOnce(new Error("boom"));
+      renderControl({ state: stateWith(PAUSE_RULE) });
+      const chips = screen.getByRole("list", { name: /./ });
+      fireEvent.click(within(chips).getByRole("button", { name: /^Remove/ }));
+      expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't apply that change");
+    });
+  });
+
   describe("Manager", () => {
     it("opens the Close dialog unlocked and links the footer to Settings", () => {
       renderControl({ viewerRole: "manager" });
@@ -256,19 +285,11 @@ describe("TonightControl", () => {
       });
     });
 
-    it("sends the current minute of the service day for Now, past midnight too", async () => {
-      renderControl({ now: new Date("2026-10-30T08:30:00Z") });
-      open();
-      fireEvent.click(screen.getByRole("button", { name: "Block" }));
-      await waitFor(() => expect(setTonight).toHaveBeenCalledOnce());
-      expect(setTonight.mock.calls[0]![0].body.change).toMatchObject({ from: 1530 });
-    });
-
     it("refuses an until that is not after the effective from", () => {
       renderControl({ state: lateState() });
       open();
       fireEvent.click(screen.getByRole("combobox", { name: "Block until" }));
-      fireEvent.click(screen.getAllByRole("option", { name: "12:00 AM" }).at(-1)!);
+      fireEvent.click(screen.getByRole("option", { name: "11:30 AM" }));
       expect(screen.getByRole("button", { name: "Block" })).toBeDisabled();
     });
 
@@ -304,6 +325,79 @@ describe("TonightControl", () => {
       open();
       fireEvent.click(screen.getByRole("switch", { name: "Pause online booking" }));
       expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't apply that change");
+    });
+
+    it("says who can do it when the server refuses with 403, not to try again", async () => {
+      setTonight.mockRejectedValueOnce(
+        new ApiClientError(
+          { type: "about:blank", title: "Forbidden", status: 403, detail: "forbidden" } as never,
+          "POST",
+          "tonight"
+        )
+      );
+      renderControl({ viewerRole: "host" });
+      open();
+      fireEvent.click(screen.getByRole("switch", { name: "Pause online booking" }));
+      const alert = await screen.findByRole("alert");
+      expect(alert).toHaveTextContent("That would close tonight. Only a manager");
+      expect(alert).not.toHaveTextContent("Try again");
+    });
+  });
+
+  describe("conflicts", () => {
+    it("names the change that won on a version conflict and refreshes", async () => {
+      setTonight.mockRejectedValueOnce(
+        conflict("version-conflict", {
+          id: "c1",
+          actorId: "auth0|ana",
+          at: "2026-10-30T20:15:00Z",
+          kind: "tonight",
+          summary: "Paused online booking",
+        })
+      );
+      renderControl();
+      open();
+      fireEvent.click(screen.getAllByRole("button", { name: "Apply" })[0]!);
+      const alert = await screen.findByRole("alert");
+      expect(alert).toHaveTextContent(/changed first by a teammate/i);
+      expect(alert).toHaveTextContent("Paused online booking");
+      expect(refresh).toHaveBeenCalled();
+    });
+
+    it("refreshes instead of looping when the attempt already committed", async () => {
+      setTonight.mockRejectedValueOnce(conflict("closure-exists"));
+      renderControl();
+      open();
+      fireEvent.click(screen.getAllByRole("button", { name: "Apply" })[0]!);
+      expect(await screen.findByRole("alert")).toHaveTextContent(/already applied/i);
+      expect(refresh).toHaveBeenCalled();
+      // The next apply is a new attempt, not a replay of the committed id.
+      fireEvent.click(screen.getAllByRole("button", { name: "Apply" })[0]!);
+      await waitFor(() => expect(setTonight).toHaveBeenCalledTimes(2));
+      const [first, second] = setTonight.mock.calls.map((c) => c[0].body);
+      expect(second.ruleId).not.toBe(first.ruleId);
+    });
+
+    it("keeps the attempt id for a retry of the same change, and mints a new one when it changes", async () => {
+      setTonight.mockRejectedValue(new Error("lost"));
+      renderControl({ state: lateState() });
+      open();
+      const apply = () => fireEvent.click(screen.getAllByRole("button", { name: "Apply" })[0]!);
+      apply();
+      await waitFor(() => expect(setTonight).toHaveBeenCalledTimes(1));
+      await screen.findByRole("alert");
+      apply();
+      await waitFor(() => expect(setTonight).toHaveBeenCalledTimes(2));
+      await waitFor(() =>
+        expect(screen.getAllByRole("button", { name: "Apply" })[0]).toBeEnabled()
+      );
+      fireEvent.click(screen.getByRole("combobox", { name: "Close early at" }));
+      fireEvent.click(screen.getByRole("option", { name: "1:00 AM (next day)" }));
+      apply();
+      await waitFor(() => expect(setTonight).toHaveBeenCalledTimes(3));
+      const [first, second, third] = setTonight.mock.calls.map((c) => c[0].body);
+      expect(second.ruleId).toBe(first.ruleId);
+      expect(third.ruleId).not.toBe(first.ruleId);
     });
   });
 
@@ -351,6 +445,35 @@ describe("TonightControl", () => {
     );
   });
 
+  describe("desktop popover selects", () => {
+    it("applies the time the Host clicked with the mouse, not the default", async () => {
+      const user = userEvent.setup();
+      renderControl();
+      await user.click(screen.getByRole("button", { name: /^Tonight/ }));
+      await user.click(screen.getByRole("combobox", { name: "Close early at" }));
+      await user.click(screen.getByRole("option", { name: "9:30 PM" }));
+      expect(screen.getByRole("combobox", { name: "Close early at" })).toHaveTextContent("9:30 PM");
+      await user.click(screen.getAllByRole("button", { name: "Apply" })[0]!);
+      await waitFor(() => expect(setTonight).toHaveBeenCalledOnce());
+      expect(setTonight.mock.calls[0]![0].body.change).toEqual({
+        type: "close_early",
+        closeAt: 1290,
+      });
+    });
+
+    it("keeps the panel open when Enter commits a select option", async () => {
+      const user = userEvent.setup();
+      renderControl();
+      await user.click(screen.getByRole("button", { name: /^Tonight/ }));
+      screen.getByRole("combobox", { name: "Close early at" }).focus();
+      await user.keyboard("{ArrowUp}{ArrowUp}{Enter}");
+      expect(screen.getByTestId("tonight-panel")).toBeInTheDocument();
+      expect(screen.getByRole("combobox", { name: "Close early at" })).not.toHaveTextContent(
+        "10:00 PM"
+      );
+    });
+  });
+
   describe("times after midnight", () => {
     it("offers the service's late minutes, labelled as the next day", async () => {
       renderControl({ state: lateState() });
@@ -379,6 +502,126 @@ describe("TonightControl", () => {
         from: 1410,
         to: 1500,
       });
+    });
+  });
+
+  describe("past midnight on the service day", () => {
+    // Every day: Dinner 17:00 to 02:00. 00:30 PDT Friday 2026-10-30 is still Thursday's service.
+    const AFTER_MIDNIGHT = new Date("2026-10-30T07:30:00Z");
+    const THURSDAY_PAUSE = {
+      ...PAUSE_RULE,
+      startsOn: "2026-10-29",
+      endsOn: "2026-10-29",
+      expiresAt: "2026-10-30T11:00:00.000Z",
+    } as DateRule;
+
+    function nightState(closesAt: number, ...rules: DateRule[]): AvailabilityConfigState {
+      const base = stateWith(...rules);
+      return {
+        ...base,
+        config: {
+          ...base.config,
+          scheduleServices: [{ ...base.config.scheduleServices[1]!, closesAt }],
+          assignments: [
+            { id: "as-all", scheduleId: "regular", weekdays: [0, 1, 2, 3, 4, 5, 6], precedence: 0 },
+          ],
+        },
+      };
+    }
+
+    it("shows the changes made for the service day", () => {
+      renderControl({ state: nightState(1560, THURSDAY_PAUSE), now: AFTER_MIDNIGHT });
+      expect(screen.getByText(/Online paused/)).toBeInTheDocument();
+    });
+
+    it("closes early on the service day's scale", async () => {
+      renderControl({ state: nightState(1560), now: AFTER_MIDNIGHT });
+      open();
+      fireEvent.click(screen.getByRole("combobox", { name: "Close early at" }));
+      expect(screen.queryByRole("option", { name: "1:00 AM" })).toBeNull();
+      fireEvent.click(screen.getByRole("option", { name: "1:00 AM (next day)" }));
+      fireEvent.click(screen.getAllByRole("button", { name: "Apply" })[0]!);
+      await waitFor(() => expect(setTonight).toHaveBeenCalledOnce());
+      expect(setTonight.mock.calls[0]![0].body.change).toEqual({
+        type: "close_early",
+        closeAt: 1500,
+      });
+    });
+
+    it("previews the close-early rule on the service day", async () => {
+      impactState.value = IMPACT;
+      setTonight.mockRejectedValueOnce(decisionRequired());
+      renderControl({ state: nightState(1560), now: AFTER_MIDNIGHT });
+      open();
+      fireEvent.click(screen.getAllByRole("button", { name: "Apply" })[0]!);
+      expect(
+        await screen.findByRole("dialog", { name: "Bookings after the new close" })
+      ).toBeInTheDocument();
+      expect(impactCalls.at(-1)).toMatchObject({
+        venueId: "venue-1",
+        rule: { kind: "tonight", startsOn: "2026-10-29", endsOn: "2026-10-29" },
+      });
+    });
+
+    it("starts the close-early and stop pickers inside a 5 PM to 9 PM day", async () => {
+      renderControl({ state: nightState(1260), now: NOW });
+      open();
+      expect(screen.getByRole("combobox", { name: "Close early at" })).toHaveTextContent("9:00 PM");
+      fireEvent.click(screen.getAllByRole("button", { name: "Apply" })[0]!);
+      await waitFor(() => expect(setTonight).toHaveBeenCalledOnce());
+      expect(setTonight.mock.calls[0]![0].body.change).toEqual({
+        type: "close_early",
+        closeAt: 1260,
+      });
+      fireEvent.click(screen.getAllByRole("button", { name: "Apply" })[1]!);
+      await waitFor(() => expect(setTonight).toHaveBeenCalledTimes(2));
+      expect(setTonight.mock.calls[1]![0].body.change).toEqual({
+        type: "stop_window",
+        from: 1170,
+        to: 1200,
+      });
+    });
+
+    it("starts the pickers inside an 11 AM to 3 PM day with a valid stop window", async () => {
+      const base = nightState(900);
+      renderControl({
+        state: {
+          ...base,
+          config: {
+            ...base.config,
+            scheduleServices: [
+              { ...base.config.scheduleServices[0]!, opensAt: 660, closesAt: 900 },
+            ],
+          },
+        },
+        now: NOW,
+      });
+      open();
+      expect(screen.getByRole("combobox", { name: "Close early at" })).toHaveTextContent("3:00 PM");
+      fireEvent.click(screen.getAllByRole("button", { name: "Apply" })[1]!);
+      await waitFor(() => expect(setTonight).toHaveBeenCalledOnce());
+      expect(setTonight.mock.calls[0]![0].body.change).toEqual({
+        type: "stop_window",
+        from: 870,
+        to: 900,
+      });
+    });
+
+    it("sends the service-day minute for Now", async () => {
+      renderControl({ state: nightState(1560), now: new Date("2026-10-30T08:30:00Z") });
+      open();
+      fireEvent.click(screen.getByRole("button", { name: "Block" }));
+      await waitFor(() => expect(setTonight).toHaveBeenCalledOnce());
+      expect(setTonight.mock.calls[0]![0].body.change).toMatchObject({ from: 1530 });
+    });
+
+    it("offers no time past a 10 PM close", () => {
+      renderControl({ state: nightState(1320), now: NOW });
+      open();
+      fireEvent.click(screen.getByRole("combobox", { name: "Close early at" }));
+      expect(screen.getByRole("option", { name: "10:00 PM" })).toBeInTheDocument();
+      expect(screen.queryByRole("option", { name: "10:30 PM" })).toBeNull();
+      expect(screen.queryByRole("option", { name: /next day/ })).toBeNull();
     });
   });
 

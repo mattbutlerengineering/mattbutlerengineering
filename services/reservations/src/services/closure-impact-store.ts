@@ -1,11 +1,11 @@
 import { addDays, validateConfig } from "@mbe/availability";
-import type { AvailabilityConfig, ClosureImpact, DateRule } from "@mbe/types";
+import type { ClosureAlongside, ClosureImpact, DateRule } from "@mbe/types";
 import type { PrismaClient } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
 import { referenceIssues, SCOPE_CONFLICT_HORIZON_DAYS } from "./availability-config-plan.js";
 import { loadConfigState, type ConfigState } from "./availability-config.js";
 import { civilDateIn } from "./availability-migration.js";
-import { computeClosureImpact, type ImpactBooking } from "./closure-impact.js";
+import { computeClosureImpact, withClosure, type ImpactBooking } from "./closure-impact.js";
 import { prisma } from "./database.js";
 import { NOT_BOOKED_STATUSES } from "./slot-rules.js";
 
@@ -29,11 +29,6 @@ const LIVE_DEPOSIT_STATUSES: ReadonlySet<string> = new Set(["pending", "held"]);
 
 const toDbDate = (d: string): Date => new Date(`${d}T00:00:00.000Z`);
 
-/** Replaces a rule with the same id, as the closure will when it is saved. */
-function withDraft(config: AvailabilityConfig, rule: DateRule): AvailabilityConfig {
-  return { ...config, dateRules: [...config.dateRules.filter((r) => r.id !== rule.id), rule] };
-}
-
 /**
  * The service dates to scan, or null when an explicit range is over a year.
  * From yesterday at the earliest: a service running past midnight is still
@@ -41,10 +36,11 @@ function withDraft(config: AvailabilityConfig, rule: DateRule): AvailabilityConf
  * open-ended rule is scanned a year ahead.
  */
 function scanRange(rule: DateRule, today: string): { from: string; to: string } | null {
-  const horizon = addDays(rule.startsOn, SCOPE_CONFLICT_HORIZON_DAYS);
-  if (rule.endsOn && rule.endsOn > horizon) return null;
   const earliest = addDays(today, -1);
   const from = rule.startsOn > earliest ? rule.startsOn : earliest;
+  // The year is counted from the first date that can hold a booking, so a series that began long
+  // ago (an "All dates" edit keeps its start) is not "too long".
+  if (rule.endsOn && rule.endsOn > addDays(from, SCOPE_CONFLICT_HORIZON_DAYS)) return null;
   return { from, to: rule.endsOn ?? addDays(from, SCOPE_CONFLICT_HORIZON_DAYS) };
 }
 
@@ -58,10 +54,11 @@ export async function impactInTransaction(
   venueId: string,
   state: ConfigState,
   rule: DateRule,
-  now: Date
+  now: Date,
+  alongside?: ClosureAlongside
 ): Promise<ClosureImpactOutcome> {
   const tables = await tx.table.findMany({ where: { venueId }, select: { id: true } });
-  const next = withDraft(state.effective, rule);
+  const next = withClosure(state.effective, rule, alongside);
   const issues = [
     ...validateConfig(next),
     ...referenceIssues(next, new Set(tables.map((t) => t.id))),
@@ -100,6 +97,7 @@ export async function impactInTransaction(
     timezone: state.timezone,
     config: state.effective,
     rule,
+    alongside,
     bookings,
   });
   return { kind: "ok", impact };
@@ -109,13 +107,14 @@ export async function getClosureImpact(
   venueId: string,
   rule: DateRule,
   now: Date,
-  client: StoreClient = prisma
+  client: StoreClient = prisma,
+  alongside?: ClosureAlongside
 ): Promise<ClosureImpactOutcome> {
   return client.$transaction(async (tx) => {
     await setVenueContext(tx, venueId);
     const state = await loadConfigState(tx, venueId, now);
     if (!state) return { kind: "not_found" as const };
-    return impactInTransaction(tx, venueId, state, rule, now);
+    return impactInTransaction(tx, venueId, state, rule, now, alongside);
   });
 }
 

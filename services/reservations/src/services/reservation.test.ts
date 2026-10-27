@@ -1421,6 +1421,60 @@ describe("reservationService", () => {
       expect(tx.reservation.update).not.toHaveBeenCalled();
     });
 
+    it("judges a party-size increase on the phone channel and returns the gate's rejection", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation() as never
+      );
+      const rejection: GateRejection = { code: "soft-limit", limits: ["party_size"] };
+      vi.mocked(judgeBooking).mockResolvedValueOnce({ kind: "rejected", rejection });
+      const tx = useSlotTxOnce();
+
+      const result = await reservationService.updateWithConflictCheck("res-1", {
+        partySize: 4,
+        override: { reason: "Regular" },
+      });
+
+      expect(result).toMatchObject({ success: false, rejection });
+      expect(judgeBooking).toHaveBeenCalledWith(
+        tx,
+        expect.objectContaining({
+          channel: "phone",
+          partySize: 4,
+          excludeReservationId: "res-1",
+          override: { reason: "Regular" },
+        })
+      );
+      expect(tx.reservation.update).not.toHaveBeenCalled();
+    });
+
+    it("does not gate a party-size decrease", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation({ partySize: 4 }) as never
+      );
+      vi.mocked(prisma.reservation.update).mockResolvedValueOnce(
+        makePrismaReservation({ partySize: 2 }) as never
+      );
+
+      const result = await reservationService.updateWithConflictCheck("res-1", { partySize: 2 });
+
+      expect(result.success).toBe(true);
+      expect(judgeBooking).not.toHaveBeenCalled();
+    });
+
+    it("tells the gate where a move starts, so a kept booking can move within its closed date", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation() as never
+      );
+      const tx = useSlotTxOnce(makePrismaReservation({ tableId: "table-2" }));
+
+      await reservationService.updateWithConflictCheck("res-1", { tableId: "table-2" });
+
+      expect(judgeBooking).toHaveBeenCalledWith(
+        tx,
+        expect.objectContaining({ movingFrom: new Date("2026-05-05T18:00:00Z") })
+      );
+    });
+
     it("checks the booking invariant via assertBookable when time changes", async () => {
       vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
         makePrismaReservation() as never
@@ -1631,9 +1685,8 @@ describe("reservationService", () => {
         minCovers: 1,
         maxCovers: null,
       } as never);
-      vi.mocked(prisma.reservation.update).mockResolvedValueOnce(
-        makePrismaReservation({ partySize: 3 }) as never
-      );
+      // 2 -> 3 is an increase, so it crosses the booking gate's transaction.
+      useSlotTxOnce(makePrismaReservation({ partySize: 3 }));
 
       const result = await reservationService.updateWithConflictCheck("res-1", {
         partySize: 3,

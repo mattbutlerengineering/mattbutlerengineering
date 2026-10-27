@@ -144,6 +144,83 @@ describe("planSave", () => {
   });
 });
 
+describe("planSave with exact: true (a revert applies the prior rows as they were)", () => {
+  type DateRuleRow = AvailabilityConfig["dateRules"][number];
+  const hours = (id: string, startsOn: string, endsOn: string | null, opts = {}): DateRuleRow =>
+    ({
+      id,
+      kind: "special_hours",
+      targetKind: "venue",
+      startsOn,
+      endsOn,
+      payload: {
+        version: 1,
+        services: [
+          {
+            venueServiceId: "vs-dinner",
+            opensAt: 1080,
+            lastSeatingAt: 1200,
+            closesAt: 1260,
+            seating: { version: 1, interval: 15 },
+            bookingTypes: ["online", "phone"],
+          },
+        ],
+      },
+      ...opts,
+    }) as DateRuleRow;
+  const fridaysB = hours("B", "2026-11-01", null, { repeat: { version: 1, weekdays: [5] } });
+  const rangeA = hours("A", "2026-12-20", "2026-12-31");
+  const stateOf = (config: AvailabilityConfig): ConfigState => ({
+    ...STATE,
+    stored: config,
+    effective: config,
+  });
+  const plan = (state: ConfigState, changes: PutAvailabilityConfigBody["changes"], exact = false) =>
+    planSave({
+      state,
+      body: { expectedVersion: 3, changes, scopeConflicts: "keep" },
+      bookings: [],
+      tableIds: new Set(),
+      now: NOW,
+      newId: () => "skip-new",
+      ...(exact ? { exact: true } : {}),
+    });
+  const asChanges = (inverse: {
+    restore: PutAvailabilityConfigBody["changes"]["upsert"];
+    remove: PutAvailabilityConfigBody["changes"]["remove"];
+  }) => ({ upsert: inverse.restore, remove: inverse.remove });
+
+  it("restores overlapping hours rules without re-adding the skip a Keep save created", () => {
+    const before = { ...CONFIG, dateRules: [fridaysB, rangeA] };
+    const edited = hours("A", "2026-12-20", "2026-12-31", { staffNote: "edited" });
+    const forward = plan(stateOf(before), { upsert: { dateRules: [edited] }, remove: {} });
+    expect(forward.kind).toBe("write");
+    if (forward.kind !== "write") return;
+    // Forward saves still settle conflicts: A's edit meets B on Fri Dec 25.
+    expect(forward.next.dateRules.filter((r) => r.kind === "skip")).toHaveLength(1);
+
+    const revert = plan(stateOf(forward.next), asChanges(forward.inverse), true);
+
+    expect(revert.kind).toBe("write");
+    if (revert.kind !== "write") return;
+    expect(revert.next.dateRules).toEqual(before.dateRules);
+  });
+
+  it("reverts a split of a repeating-rule range back to the single rule", () => {
+    const before = { ...CONFIG, dateRules: [fridaysB, rangeA] };
+    const ended = { ...rangeA, endsOn: "2026-12-24" };
+    const created = { ...hours("A-2", "2026-12-25", "2026-12-31") };
+    const forward = plan(stateOf(before), { upsert: { dateRules: [ended, created] }, remove: {} });
+    expect(forward.kind).toBe("write");
+    if (forward.kind !== "write") return;
+    expect(forward.next.dateRules.some((r) => r.kind === "skip")).toBe(true);
+
+    const revert = plan(stateOf(forward.next), asChanges(forward.inverse), true);
+
+    expect(revert.kind === "write" && revert.next.dateRules).toEqual(before.dateRules);
+  });
+});
+
 /** A `$transaction` client whose transaction is `tx`. */
 function fakeClient(tx: Record<string, unknown>) {
   const full = {

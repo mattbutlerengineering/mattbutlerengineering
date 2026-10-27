@@ -219,12 +219,15 @@ export function planSave(input: {
   newId?: () => string;
   /** Undoing a venue's first save returns it to no hours at all, which is not an error. */
   allowNoHours?: boolean;
+  /** A revert: apply the rows exactly, without settling scope conflicts. */
+  exact?: boolean;
 }): SavePlan {
   const { state, body, bookings, now } = input;
   const { next, issues: allIssues } = settleDraft({
     snapshot: { timezone: state.timezone, config: state.effective },
     changes: body.changes,
     scopeConflicts: body.scopeConflicts,
+    ...(input.exact ? { exact: true } : {}),
     tableIds: input.tableIds,
     now,
     today: civilDateIn(now, state.timezone),
@@ -269,7 +272,7 @@ class SaveRefused extends Error {
 }
 
 /** Future, still-booked reservations: the ones a change could strand. */
-async function futureBookings(
+export async function futureBookings(
   db: StoreDb,
   venueId: string,
   today: string,
@@ -338,6 +341,8 @@ export interface SaveRequest {
   operatingHours?: Prisma.InputJsonValue | typeof Prisma.DbNull;
   /** Permit the result to have no live schedule (an undone first save). */
   allowNoHours?: boolean;
+  /** Apply the rows exactly, without settling scope conflicts (a revert). */
+  exact?: boolean;
   /** Date rules to bring back from soft-deletion instead of creating. */
   revive?: ReadonlySet<string>;
   /** Runs in the save transaction once the audit row exists. */
@@ -405,6 +410,7 @@ export async function commitSave(
     tableIds,
     now,
     ...(request.allowNoHours ? { allowNoHours: true } : {}),
+    ...(request.exact ? { exact: true } : {}),
   });
   if (plan.kind !== "write") throw new SaveRefused(plan);
 

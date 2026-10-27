@@ -267,6 +267,8 @@ describe("ManageReservationPage", () => {
   describe("cancelled by the venue", () => {
     const venueCancellation = {
       refundStatus: "done",
+      closureDate: "2026-06-19",
+      closureMessage: "Closed for a private event",
       offers: [
         {
           id: "2026-06-20T02:00:00.000Z",
@@ -294,10 +296,40 @@ describe("ManageReservationPage", () => {
       expect(screen.queryByText("This reservation has been cancelled.")).toBeNull();
     });
 
+    it("says which date the venue is closed and quotes its message", async () => {
+      mockSearchParams.set("token", "valid-token-abc");
+      mockFetch.mockResolvedValueOnce(makeOkResponse(payload(venueCancellation)));
+
+      renderPage();
+
+      await waitFor(() => expect(screen.getByText(/is closed Fri, Jun 19/)).toBeDefined());
+      expect(screen.getByText(/Closed for a private event/)).toBeDefined();
+    });
+
+    it("hides Add to Calendar for a cancelled reservation", async () => {
+      mockSearchParams.set("token", "valid-token-abc");
+      mockFetch.mockResolvedValueOnce(makeOkResponse(payload(venueCancellation)));
+
+      renderPage();
+
+      await waitFor(() => expect(screen.getByText("Your reservation was cancelled")).toBeDefined());
+      expect(screen.queryByRole("heading", { name: "Add to Calendar" })).toBeNull();
+      expect(screen.queryByRole("button", { name: /\.ics/i })).toBeNull();
+      expect(screen.queryByRole("link", { name: /google/i })).toBeNull();
+    });
+
     it("with no offers shows only the picker link", async () => {
       mockSearchParams.set("token", "valid-token-abc");
       mockFetch.mockResolvedValueOnce(
-        makeOkResponse(payload({ refundStatus: "none", offers: [], rebooked: null }))
+        makeOkResponse(
+          payload({
+            refundStatus: "none",
+            closureDate: "2026-06-19",
+            closureMessage: null,
+            offers: [],
+            rebooked: null,
+          })
+        )
       );
 
       renderPage();
@@ -313,6 +345,8 @@ describe("ManageReservationPage", () => {
         makeOkResponse(
           payload({
             refundStatus: "none",
+            closureDate: "2026-06-19",
+            closureMessage: null,
             offers: [],
             rebooked: { startTime: "2026-06-20T02:00:00.000Z", manageToken: "new-tok" },
           })

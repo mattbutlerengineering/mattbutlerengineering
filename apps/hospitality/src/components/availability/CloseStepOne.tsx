@@ -16,6 +16,7 @@ import {
 import { GUEST_MESSAGE_MAX_LENGTH, type ClosureImpact, type VenueService } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { addDays } from "../../utils/service-day.js";
+import { WEEK_STARTS_ON } from "./calendar-dates.js";
 import { minuteText } from "./closure-band.js";
 import type { BookingChannel, CloseForm, CloseWhat, CloseWhen } from "./close-draft.js";
 import styles from "./CloseDialog.module.css";
@@ -72,6 +73,8 @@ export function CloseStepOne(props: CloseStepOneProps) {
   const format = useVenueFormat();
   const patch = (next: Partial<CloseForm>) => onChange({ ...form, ...next });
   const { what, when } = form;
+  // Trimmed, like validateForm: what blocks Next is what the field flags.
+  const messageError = form.guestMessage.trim().length > GUEST_MESSAGE_MAX_LENGTH;
 
   const fullDate = (date: string) =>
     format.formatCalendarDate(date, { weekday: "short", month: "short", day: "numeric" });
@@ -81,6 +84,7 @@ export function CloseStepOne(props: CloseStepOneProps) {
       value={value || null}
       min={today}
       locale={format.locale}
+      weekStartsOn={WEEK_STARTS_ON}
       onChange={(v) => set(v ?? "")}
     />
   );
@@ -248,13 +252,14 @@ export function CloseStepOne(props: CloseStepOneProps) {
       />
       <TextArea
         label={t("availability.close.guestMessage")}
-        hint={t("availability.close.guestMessageCount", {
-          count: form.guestMessage.length,
-          max: GUEST_MESSAGE_MAX_LENGTH,
-        })}
         value={form.guestMessage}
         maxLength={GUEST_MESSAGE_MAX_LENGTH}
-        error={props.invalid === "guestMessage"}
+        error={messageError}
+        hint={
+          messageError
+            ? t("availability.close.guestMessageTooLong", { max: GUEST_MESSAGE_MAX_LENGTH })
+            : undefined
+        }
         showOptional
         onChange={(e) => patch({ guestMessage: e.target.value })}
       />

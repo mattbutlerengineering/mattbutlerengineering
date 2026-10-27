@@ -169,6 +169,23 @@ describe("AvailabilityClient config API", () => {
     expect(JSON.parse(String(init?.body))).toEqual({ rule });
   });
 
+  it("getClosureImpact sends the rows a series edit replaces", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ data: { reservations: 0, covers: 0, depositsHeld: 0, groups: [] } })
+    );
+    const rule = {
+      id: "s2",
+      kind: "closure",
+      targetKind: "venue",
+      startsOn: "2026-12-10",
+    } as const;
+    const alongside = { upsert: [], remove: ["s1"] };
+
+    await client().getClosureImpact("v1", rule, alongside);
+
+    expect(JSON.parse(String(mockFetch.mock.calls[0]![1]?.body))).toEqual({ rule, alongside });
+  });
+
   it("createClosure POSTs the body with the Idempotency-Key header", async () => {
     const result = {
       ruleId: "dr-new",
@@ -198,6 +215,49 @@ describe("AvailabilityClient config API", () => {
     expect(JSON.parse(String(init?.body))).toEqual(body);
   });
 
+  it("createClosures POSTs every item to the batch route with one Idempotency-Key", async () => {
+    const results = {
+      version: 6,
+      results: [
+        {
+          ruleId: "dr-a",
+          version: 5,
+          changeId: "chg-1",
+          outcomes: { cancel: 1, move: 0, keep_notify: 0, keep_silent: 0 },
+        },
+        {
+          ruleId: "dr-b",
+          version: 6,
+          changeId: "chg-2",
+          outcomes: { cancel: 0, move: 0, keep_notify: 0, keep_silent: 0 },
+        },
+      ],
+    };
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: results }));
+    const item = (id: string, date: string) => ({
+      rule: {
+        id,
+        kind: "closure" as const,
+        targetKind: "venue" as const,
+        startsOn: date,
+        endsOn: date,
+      },
+      decisions: [],
+    });
+    const body = {
+      expectedVersion: 4,
+      items: [item("dr-a", "2026-12-24"), item("dr-b", "2026-12-25")],
+    };
+
+    expect(await client().createClosures("v1", body, "key-9")).toEqual(results);
+
+    const [url, init] = mockFetch.mock.calls[0]!;
+    expect(url).toBe("https://api.test.com/api/v1/venues/v1/closures/batch");
+    expect(init?.method).toBe("POST");
+    expect(new Headers(init?.headers).get("Idempotency-Key")).toBe("key-9");
+    expect(JSON.parse(String(init?.body))).toEqual(body);
+  });
+
   it("reopenClosure DELETEs the rule with tellCancelledGuests", async () => {
     mockFetch.mockResolvedValueOnce(jsonResponse({ data: { version: 6, changeId: "chg-2" } }));
 
@@ -222,6 +282,9 @@ describe("AvailabilityClient config API", () => {
       unreachable: 0,
       refundFailed: 1,
       refundPending: 0,
+      refundFailures: [
+        { outcomeId: "out-1", guestName: "Rivera", amountCents: 4000, currency: "usd" },
+      ],
     };
     mockFetch.mockResolvedValueOnce(jsonResponse({ data: [summary] }));
 

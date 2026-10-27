@@ -34,6 +34,10 @@ export const UNBUDGETED_CHUNK_ALLOWLIST = [
   "dist/assets/AvailabilityPage-*.js",
   "dist/assets/BookingWidgetDemoPage-*.js",
   "dist/assets/BriefingPage-*.js",
+  // Crossed the floor (4890 -> 6529 B raw) with no code change when the
+  // vite 8.3.5 bump (#7713) moved apply-room-template.ts out of the budgeted
+  // floor-plan-* chunk (-1671 B) into this page: a relocation, not growth.
+  "dist/assets/FloorPlansPage-*.js",
   "dist/assets/GuestsPage-*.js",
   "dist/assets/HomePage-*.js",
   "dist/assets/ManageReservationPage-*.js",

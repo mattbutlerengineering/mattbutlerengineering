@@ -1,4 +1,4 @@
-import type { VenueSettings } from "@mbe/types";
+import { toDateString, type VenueSettings } from "@mbe/types";
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import {
@@ -28,6 +28,22 @@ import { judgeBooking, type GateRejection } from "./assert-bookable.js";
  */
 export function tableAdvisoryLockSql(tableId: string): Prisma.Sql {
   return Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${tableId})::bigint)`;
+}
+
+/**
+ * Share-locks the venue row for the rest of the transaction, before the gate reads config.
+ *
+ * A closure or config save compare-and-sets (`UPDATE`) that row, then scans bookings. Sharing it
+ * makes an in-flight booking and that save serialise: either the save waits for this commit and
+ * its scan sees the booking, or this waits for the save and the gate reads the new config.
+ *
+ * Lock order is venue row -> table advisory lock, so call it BEFORE `tableAdvisoryLockSql`. The
+ * closure command CASes the venue row and then, moving a booking, takes the table advisory lock
+ * (`closure-apply.ts` `targetTaken`); the same order on both sides cannot form a cycle. Share locks
+ * do not conflict with each other, so bookings never block one another here (#7679).
+ */
+export function venueShareLockSql(venueId: string): Prisma.Sql {
+  return Prisma.sql`SELECT 1 FROM venues WHERE id = ${venueId} FOR SHARE`;
 }
 
 /** Why a slot could not be written. */
@@ -70,7 +86,7 @@ export interface BookSlotIntent<T> {
    * reading the committed configuration through this transaction
    * ({@link judgeBooking}). Requires venueId. Walk-ins never set it.
    */
-  gate?: { channel: BookingChannel; override?: { reason: string } };
+  gate?: { channel: BookingChannel; override?: { reason: string }; movingFrom?: Date };
   /**
    * Runs immediately after the lock, before the conflict re-check. Returning a
    * {@link SlotConflict} short-circuits the write (e.g. a hold that expired
@@ -134,6 +150,10 @@ export async function bookSlot<T>(intent: BookSlotIntent<T>): Promise<SlotWriteR
     // app.venue_id on THIS transaction's own `tx` explicitly (ADR-026 part
     // 6), using the intent's own (already-resolved) venueId.
     await setVenueContext(tx, venueId);
+
+    // Gated writes take the venue row first (share), the order the closure command uses
+    // (venue row, then table locks), so the two can never wait on each other in a cycle.
+    if (gate && venueId) await tx.$executeRaw(venueShareLockSql(venueId));
 
     // Serialize conflict-checked writes per table BEFORE any conflict check so
     // concurrent slot writes cannot both pass and double-book. Released
@@ -241,10 +261,12 @@ async function availabilityVerdict(
     venueId: intent.venueId,
     tableId: intent.tableId,
     start: intent.window.startTime,
+    serviceDate: Number.isNaN(intent.date.getTime()) ? "invalid" : toDateString(intent.date),
     end: intent.window.endTime,
     partySize: intent.partySize,
     channel: gate.channel,
     override: gate.override,
+    movingFrom: gate.movingFrom,
     excludeReservationId: intent.excludeReservationId,
     excludeHoldId: intent.excludeHoldId,
     excludeSessionId: intent.excludeSessionId,

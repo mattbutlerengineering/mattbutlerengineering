@@ -8,6 +8,7 @@ import { Stack, Text } from "@mattbutlerengineering/rialto";
 import { useVenue } from "../contexts/VenueContext.js";
 import type { VenueContextValue } from "../contexts/VenueContext.js";
 import { useBriefing } from "../hooks/useBriefing.js";
+import { useStaffTonight, type StaffTonight } from "../hooks/useStaffTonight.js";
 import { ERROR_COPY } from "../lib/describe-api-error.js";
 import React from "react";
 import { readFileSync } from "node:fs";
@@ -31,6 +32,14 @@ vi.mock("react-router", async (importOriginal) => {
 
 vi.mock("../contexts/VenueContext.js", () => ({ useVenue: vi.fn() }));
 vi.mock("../hooks/useBriefing.js", () => ({ useBriefing: vi.fn() }));
+vi.mock("../hooks/useStaffTonight.js", () => ({ useStaffTonight: vi.fn() }));
+
+const tonightAt = (serviceDate: string | null): StaffTonight => ({
+  serviceDate,
+  config: null,
+  rules: [],
+  waitlistClosed: false,
+});
 vi.mock("../hooks/useSSESync.tsx", () => ({
   useSSEEventFeed: vi.fn(() => []),
   useSSEStatus: vi.fn(() => ({ isConnected: false, error: null })),
@@ -276,6 +285,7 @@ describe("BriefingPage", () => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW_LOCAL);
     vi.mocked(useVenue).mockReturnValue(mockVenue);
+    vi.mocked(useStaffTonight).mockReturnValue(tonightAt(null));
     mockNavigate.mockReset();
   });
 
@@ -297,6 +307,19 @@ describe("BriefingPage", () => {
       expect(within(busy!).getAllByTestId("skeleton")).toHaveLength(3);
       expect(screen.getByTestId("skeleton-group")).toBeInTheDocument();
     });
+  });
+
+  it("defaults to the current service date when the clock is past midnight and no ?date is set", () => {
+    vi.setSystemTime(new Date("2026-09-05T00:30:00"));
+    vi.mocked(useStaffTonight).mockReturnValue(tonightAt("2026-09-04"));
+    mockBriefing();
+
+    renderPage();
+
+    expect(screen.getByLabelText("Service date")).toHaveValue("2026-09-04");
+    expect(vi.mocked(useBriefing)).toHaveBeenCalledWith(
+      expect.objectContaining({ date: "2026-09-04" })
+    );
   });
 
   it("renders page title in header", () => {

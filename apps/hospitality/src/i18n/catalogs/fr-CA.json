@@ -996,6 +996,7 @@
     "dateRequired": "La date est obligatoire.",
     "startTime": "Heure de début",
     "startTimeRequired": "L’heure de début est obligatoire.",
+    "calendarHint": "Réservé pour {{when}}",
     "partySize": "Convives",
     "noTables": "Aucune table disponible pour {{size}} convives.",
     "table": "Table",
@@ -1473,6 +1474,8 @@
     "venueCancelled": {
       "heading": "Votre réservation a été annulée",
       "intro": "{{venue}} a dû annuler cette réservation.",
+      "closedOn": "{{venue}} est fermé le {{date}}",
+      "message": "« {{message}} »",
       "refund": {
         "pending": "Le remboursement de votre dépôt est en cours.",
         "done": "Votre dépôt a été remboursé.",
@@ -1570,14 +1573,19 @@
     "repeating": "Récurrente",
     "range": "Du {{from}} au {{to}}",
     "untilReopened": "{{from}} jusqu'à la réouverture",
+    "fromOn": "À partir du {{from}}",
     "counts": "Envoyés {{sent}} · Réservés de nouveau {{rebooked}} · Injoignables {{unreachable}}",
     "refundFailed": "Remboursement échoué ({{count}})",
+    "refundFailedNamed": "Remboursement échoué : {{names}}",
     "refundPending": "Remboursements en attente ({{count}})",
     "retry": "Réessayer les remboursements",
     "retried": "Remboursements remis en file ({{count}})",
     "retryError": "Impossible de mettre les remboursements en file",
     "callListOpen": "Liste d'appels",
+    "callListFor": "Liste d'appels pour {{date}}",
     "remove": "Retirer",
+    "removeClosureFor": "Retirer la fermeture pour {{date}}",
+    "hoursRange": "{{from}} – {{to}}",
     "ended": {
       "title": "Fermeture antérieure",
       "detail": "N'est plus active, des remboursements restent ouverts"
@@ -1613,7 +1621,34 @@
       "stranded_one": "{{count}} réservation resterait sans service avec ce changement. Fermez la date depuis Modifier cette date… pour choisir ce qui arrive.",
       "stranded_other": "{{count}} réservations resteraient sans service avec ce changement. Fermez la date depuis Modifier cette date… pour choisir ce qui arrive.",
       "stranded_many": "{{count}} réservations resteraient sans service avec ce changement. Fermez la date depuis Modifier cette date… pour choisir ce qui arrive.",
-      "dateChanged": "Cette date a déjà son propre changement. Retirez-le d’abord."
+      "dateChanged": "Cette date a déjà son propre changement. Retirez-le d’abord.",
+      "alreadySkipped": "Cette date est déjà ignorée.",
+      "restore": "Rétablir cette date",
+      "restoreDate": "Rétablir le {{date}}",
+      "restoredToast": "{{date}} rétablie. La série la ferme de nouveau."
+    },
+    "rowStranded_one": "{{count}} réservation resterait sans service avec ce changement. Rien n’a été annulé.",
+    "rowStranded_other": "{{count}} réservations resteraient sans service avec ce changement. Rien n’a été annulé.",
+    "rowStranded_many": "{{count}} réservations resteraient sans service avec ce changement. Rien n’a été annulé.",
+    "hours": {
+      "edit": "Modifier",
+      "editFor": "Modifier l’horaire du {{date}}",
+      "editMany": "Modifier…",
+      "editRule": "Modifier les heures spéciales {{subject}}",
+      "scope": {
+        "title": "Modifier les heures spéciales",
+        "following": "Cette date et les suivantes à partir du {{date}}",
+        "all": "Toutes les dates",
+        "continue": "Continuer"
+      },
+      "subjectDates": "pour {{dates}}",
+      "subjectRepeat": "chaque {{days}}",
+      "removeFor": "Retirer l’horaire spécial {{subject}}",
+      "removeTitle": "Retirer l’horaire spécial {{subject}} ?",
+      "removeDescription": "La date reprend son horaire habituel. Aucune réservation n’est annulée par ce changement.",
+      "removeDescriptionMany": "Cela retire l’horaire spécial de toutes ses dates, pas d’une seule. Aucune réservation n’est annulée par ce changement.",
+      "keep": "Garder l’horaire",
+      "removedToast": "Horaire spécial retiré {{subject}}"
     },
     "callList": {
       "title": "Liste d'appels",
@@ -1626,6 +1661,39 @@
       "unnamed": "Client sans nom",
       "print": "Imprimer",
       "close": "Fermer"
+    },
+    "add": {
+      "open": "Ajouter une date spéciale",
+      "title": "Ajouter des dates spéciales",
+      "rowLegend": "Date {{n}}",
+      "date": "Date",
+      "dateMissing": "Choisissez une date.",
+      "dateInvalid": "Choisissez une date d’aujourd’hui ou plus tard, une seule fois et sans horaire spécial déjà défini.",
+      "kindLabel": "Ce qui se passe à la date {{n}}",
+      "kind": {
+        "closed": "Fermé",
+        "hours": "Horaire spécial",
+        "same": "Comme un autre jour"
+      },
+      "sameAs": "Copier l’horaire de",
+      "sameAsDay": "Comme le {{day}}",
+      "sameEmpty": "La semaine habituelle n’a pas d’horaire le {{day}}. Choisissez un autre jour ou utilisez Fermé.",
+      "hoursInvalid": "Ajoutez au moins un des services existants du lieu. Les nouveaux services s’ajoutent depuis l’éditeur de la journée.",
+      "removeRow": "Retirer la date {{n}}",
+      "addRow": "Ajouter une autre date",
+      "shareMessage": "Utiliser un seul message pour toutes les dates",
+      "sharedMessage": "Message aux clients (toutes les dates)",
+      "next": "Suivant",
+      "saveMixed_one": "Enregistrer {{count}} date · {{parts}}",
+      "saveMixed_other": "Enregistrer {{count}} dates · {{parts}}",
+      "saveMixed_many": "Enregistrer {{count}} dates · {{parts}}",
+      "saved_one": "{{count}} date spéciale enregistrée",
+      "saved_other": "{{count}} dates spéciales enregistrées",
+      "saved_many": "{{count}} dates spéciales enregistrées",
+      "savedNotified_one": "{{count}} date spéciale enregistrée · {{notified}} avisés",
+      "savedNotified_other": "{{count}} dates spéciales enregistrées · {{notified}} avisés",
+      "savedNotified_many": "{{count}} dates spéciales enregistrées · {{notified}} avisés",
+      "nothingCancelled": "Aucune réservation n’a été annulée et aucun client n’a été avisé. Corrigez et enregistrez à nouveau."
     }
   },
   "availabilitySchedules": {
@@ -1748,7 +1816,8 @@
       "week": "Semaine",
       "previous": "Précédent",
       "next": "Suivant",
-      "today": "Aujourd'hui"
+      "today": "Aujourd'hui",
+      "range": "{{from}} – {{to}}"
     },
     "calendar": {
       "label": "Calendrier de disponibilité",
@@ -1763,8 +1832,34 @@
       "closedAllDayName": "fermé toute la journée",
       "closedBand": "Fermé {{from}} – {{to}}",
       "closedBandName": "fermé {{from}} – {{to}}",
+      "bookingOffAllDay": "Réservations désactivées toute la journée",
+      "bookingOffAllDayName": "réservations désactivées toute la journée",
+      "bookingOffBand": "Réservations désactivées {{from}} – {{to}}",
+      "bookingOffBandName": "réservations désactivées {{from}} – {{to}}",
+      "bookingOffOnlineAllDay": "Réservation en ligne désactivée toute la journée",
+      "bookingOffOnlineAllDayName": "réservation en ligne désactivée toute la journée",
+      "bookingOffOnlineBand": "Réservation en ligne désactivée {{from}} – {{to}}",
+      "bookingOffOnlineBandName": "réservation en ligne désactivée {{from}} – {{to}}",
+      "bookingOffPhoneAllDay": "Réservation par téléphone désactivée toute la journée",
+      "bookingOffPhoneAllDayName": "réservation par téléphone désactivée toute la journée",
+      "bookingOffPhoneBand": "Réservation par téléphone désactivée {{from}} – {{to}}",
+      "bookingOffPhoneBandName": "réservation par téléphone désactivée {{from}} – {{to}}",
+      "bookingOffWaitlistAllDay": "Liste d'attente désactivée toute la journée",
+      "bookingOffWaitlistAllDayName": "liste d'attente désactivée toute la journée",
+      "bookingOffWaitlistBand": "Liste d'attente désactivée {{from}} – {{to}}",
+      "bookingOffWaitlistBandName": "liste d'attente désactivée {{from}} – {{to}}",
+      "serviceClosedAllDay": "Service fermé toute la journée",
+      "serviceClosedAllDayName": "service fermé toute la journée",
+      "serviceClosedBand": "Service fermé {{from}} – {{to}}",
+      "serviceClosedBandName": "service fermé {{from}} – {{to}}",
+      "tablesBlockedAllDay": "Tables bloquées toute la journée",
+      "tablesBlockedAllDayName": "tables bloquées toute la journée",
+      "tablesBlockedBand": "Tables bloquées {{from}} – {{to}}",
+      "tablesBlockedBandName": "tables bloquées {{from}} – {{to}}",
+      "serviceLine": "{{name}} {{from}} – {{to}}",
       "nextDay": "{{time}} (lendemain)",
-      "draftName": "changements non enregistrés"
+      "draftName": "changements non enregistrés",
+      "labelWithPeriod": "{{label}}, {{period}}"
     },
     "drawer": {
       "summaryOpen": "Ouvert pour {{services}}.",
@@ -1870,6 +1965,10 @@
         "invalid-config": "Cette modification ne peut plus être annulée avec vos heures actuelles."
       }
     },
+    "conflict": {
+      "winning": "Modifié d'abord par {{who}} : {{summary}} · {{when}}",
+      "unknown": "Quelqu'un d'autre a modifié la disponibilité en premier."
+    },
     "history": {
       "title": "Historique",
       "byWhen": "par {{who}} · {{when}}",
@@ -1896,7 +1995,24 @@
       "personAll": "Tout le monde",
       "personMe": "Moi seulement",
       "rangeLabel": "Faites entre",
-      "rangePlaceholder": "Toutes les dates"
+      "rangePlaceholder": "Toutes les dates",
+      "entry": {
+        "range": "du {{from}} au {{to}}",
+        "onward": "à partir du {{from}}",
+        "moved_one": "{{count}} réservation déplacée",
+        "moved_many": "{{count}} de réservations déplacées",
+        "moved_other": "{{count}} réservations déplacées",
+        "kept_one": "{{count}} réservation conservée",
+        "kept_many": "{{count}} de réservations conservées",
+        "kept_other": "{{count}} réservations conservées",
+        "closed": "Fermé {{when}} : {{outcome}}",
+        "closedEarly": "Fermeture anticipée {{when}} : {{outcome}}",
+        "reopened": "Rouvert {{when}}",
+        "none": "aucune réservation touchée",
+        "cancelled_one": "{{count}} réservation annulée",
+        "cancelled_many": "{{count}} de réservations annulées",
+        "cancelled_other": "{{count}} réservations annulées"
+      }
     },
     "editor": {
       "edit": "Modifier {{name}}",
@@ -1950,6 +2066,9 @@
       "stranded_one": "{{count}} réservation serait hors de ces heures. Modifiez les heures ou réglez d’abord la réservation.",
       "stranded_other": "{{count}} réservations seraient hors de ces heures. Modifiez les heures ou réglez d’abord les réservations.",
       "stranded_many": "{{count}} réservations seraient hors de ces heures. Modifiez les heures ou réglez d’abord les réservations.",
+      "strandedRule_one": "{{count}} réservation serait hors des nouvelles heures. Rien n’a été annulé. Modifiez les heures ou réglez d’abord la réservation.",
+      "strandedRule_other": "{{count}} réservations seraient hors des nouvelles heures. Rien n’a été annulé. Modifiez les heures ou réglez d’abord les réservations.",
+      "strandedRule_many": "{{count}} réservations seraient hors des nouvelles heures. Rien n’a été annulé. Modifiez les heures ou réglez d’abord les réservations.",
       "conflict": {
         "title": "Quelqu’un a modifié la disponibilité avant vous",
         "theirs": "{{summary}} (enregistré à {{time}}).",
@@ -2006,7 +2125,7 @@
       "versionConflict": "Les disponibilités ont changé depuis l'ouverture de cette fenêtre. Fermez-la et réessayez.",
       "staffNote": "Note pour le personnel",
       "guestMessage": "Message pour les clients",
-      "guestMessageCount": "{{count}}/{{max}}",
+      "guestMessageTooLong": "Limitez-vous à {{max}} caractères.",
       "suggestions": {
         "private": "Fermé pour un événement privé",
         "weather": "Fermé en raison de la météo",
@@ -2185,6 +2304,8 @@
       "hostGranted": "Les hôtes peuvent fermer tout l'établissement pour ce soir. Plus longtemps, il faut un gérant.",
       "hostNotGranted": "Seuls les gérants peuvent fermer en cas d'urgence. Demandez à un gérant de l'autoriser pour les hôtes dans les paramètres.",
       "error": "Impossible d'appliquer ce changement. Réessayez.",
+      "forbidden": "Cela fermerait l'établissement ce soir. Seul un gérant, ou un hôte autorisé à fermer en cas d'urgence, peut le faire.",
+      "alreadyApplied": "Ce changement était déjà appliqué. Voici ce qui est en vigueur maintenant.",
       "chip": {
         "pause": "Réservations en ligne suspendues · reste de la soirée",
         "closeEarly": "Fermeture hâtive · {{time}}",
@@ -2202,6 +2323,19 @@
         "pacing_other": "Cadence de {{count}} couverts",
         "pacing_many": "Cadence de {{count}} couverts"
       }
+    },
+    "venueTime": "Heure de l'établissement ({{zone}})",
+    "weekSummary": {
+      "line": "Cette semaine : {{open}} · {{closures}} · {{online}}",
+      "open_one": "ouvert {{count}} jour",
+      "open_other": "ouvert {{count}} jours",
+      "open_many": "ouvert {{count}} jours",
+      "closures_one": "{{count}} fermeture",
+      "closures_other": "{{count}} fermetures",
+      "closures_many": "{{count}} fermetures",
+      "onlineOn": "réservation en ligne activée",
+      "onlineOff": "réservation en ligne désactivée",
+      "onlinePartial": "réservation en ligne désactivée certains jours"
     }
   },
   "setup": {

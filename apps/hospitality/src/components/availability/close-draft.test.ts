@@ -189,6 +189,26 @@ describe("isUrgent", () => {
     }
   });
 
+  describe("a repeating closure that started in the past", () => {
+    // TODAY is Tuesday 2026-12-01.
+    const tuesdays = { startsOn: "2026-10-06", fromMinute: 20 * 60, repeat: { weekdays: [2] } };
+    const sundays = { startsOn: "2026-10-04", fromMinute: null, repeat: { weekdays: [0] } };
+
+    it("is urgent when its next occurrence is tonight", () => {
+      expect(isUrgent(tuesdays, TODAY, 18 * 60)).toBe(true);
+    });
+
+    it("is not urgent when its next occurrence is days away", () => {
+      expect(isUrgent(sundays, TODAY, 20 * 60)).toBe(false);
+    });
+  });
+
+  it("is not urgent when the range ended before today", () => {
+    expect(
+      isUrgent({ startsOn: "2026-11-01", endsOn: "2026-11-05", fromMinute: null }, TODAY, 20 * 60)
+    ).toBe(false);
+  });
+
   it("measures a closure tomorrow from tonight", () => {
     expect(isUrgent({ startsOn: "2026-12-02", fromMinute: null }, TODAY, 20 * 60)).toBe(true);
     expect(isUrgent({ startsOn: "2026-12-02", fromMinute: 60 }, TODAY, 20 * 60)).toBe(true);

@@ -20,6 +20,10 @@ type RuleDb = Pick<PrismaClient, "dateRule">;
 export interface ClosureWindow {
   /** "YYYY-MM-DD", venue-local. */
   startsOn: string;
+  /** "YYYY-MM-DD", venue-local; `null` = open-ended. */
+  endsOn: string | null;
+  /** Weekdays (0 = Sunday) a repeating rule covers; `null` = not repeating. */
+  weekdays: number[] | null;
   /** Minute of the service day the window opens; `null` = the whole service day. */
   from: number | null;
   timezone: string;
@@ -30,6 +34,13 @@ function windowFrom(window: unknown): number | null {
   return typeof from === "number" ? from : null;
 }
 
+function weekdaysOf(repeat: unknown): number[] | null {
+  const weekdays = (repeat as { weekdays?: unknown } | null)?.weekdays;
+  return Array.isArray(weekdays)
+    ? weekdays.filter((d): d is number => typeof d === "number")
+    : null;
+}
+
 /** The closure's start, for the per-closure urgency decision. A reopened rule is still read. */
 export async function loadClosureWindow(
   venueId: string,
@@ -38,11 +49,19 @@ export async function loadClosureWindow(
 ): Promise<ClosureWindow | null> {
   const rule = await db.dateRule.findFirst({
     where: { id: ruleId, venueId },
-    select: { startsOn: true, window: true, venue: { select: { ianaTimezone: true } } },
+    select: {
+      startsOn: true,
+      endsOn: true,
+      repeat: true,
+      window: true,
+      venue: { select: { ianaTimezone: true } },
+    },
   });
   if (!rule) return null;
   return {
     startsOn: rule.startsOn.toISOString().slice(0, 10),
+    endsOn: rule.endsOn ? rule.endsOn.toISOString().slice(0, 10) : null,
+    weekdays: weekdaysOf(rule.repeat),
     from: windowFrom(rule.window),
     timezone: rule.venue.ianaTimezone,
   };
@@ -210,10 +229,30 @@ export interface ClosureSummary {
   rebooked: number;
   unreachable: number;
   refundFailed: number;
+  /** The failed refunds by guest and amount; no contact details. */
+  refundFailures: RefundFailure[];
   refundPending: number;
 }
 
+export interface RefundFailure {
+  outcomeId: string;
+  guestName: string | null;
+  amountCents: number | null;
+  currency: string | null;
+}
+
 interface SummaryRow {
+  id: string;
+  reservation: {
+    guestName: string | null;
+    deposit: {
+      amountCents: number;
+      currency: string;
+      status: string;
+      refundAmountCents: number | null;
+      postCaptureRefundCents: number | null;
+    } | null;
+  };
   dateRuleId: string;
   action: NoticeOutcome["action"];
   deliveries: unknown;
@@ -228,8 +267,29 @@ const EMPTY_SUMMARY = {
   rebooked: 0,
   unreachable: 0,
   refundFailed: 0,
+  refundFailures: [] as RefundFailure[],
   refundPending: 0,
 };
+
+/**
+ * An estimate of what a closure refund still owes, for the failure line: the deposit less its
+ * planned partial refund (`refundAmountCents`) and anything refunded after capture. The job
+ * itself subtracts the own refund that actually reached Stripe, which can differ.
+ */
+function refundOwedCents(deposit: NonNullable<SummaryRow["reservation"]["deposit"]>): number {
+  const ownLeg = deposit.status === "partial_refunded" ? (deposit.refundAmountCents ?? 0) : 0;
+  return Math.max(0, deposit.amountCents - ownLeg - (deposit.postCaptureRefundCents ?? 0));
+}
+
+function refundFailureOf(row: SummaryRow): RefundFailure {
+  const { guestName, deposit } = row.reservation;
+  return {
+    outcomeId: row.id,
+    guestName,
+    amountCents: deposit ? refundOwedCents(deposit) : null,
+    currency: deposit?.currency ?? null,
+  };
+}
 
 /** Folds outcome rows into one summary per date rule, in first-seen order. */
 export function summarizeOutcomes(rows: readonly SummaryRow[]): ClosureSummary[] {
@@ -248,6 +308,10 @@ export function summarizeOutcomes(rows: readonly SummaryRow[]): ClosureSummary[]
       unreachable:
         prev.unreachable + (isOnCallList({ action: row.action, deliveries, rebooked }) ? 1 : 0),
       refundFailed: prev.refundFailed + (row.refund === "failed" ? 1 : 0),
+      refundFailures:
+        row.refund === "failed"
+          ? [...prev.refundFailures, refundFailureOf(row)]
+          : prev.refundFailures,
       refundPending: prev.refundPending + (row.refund === "pending" ? 1 : 0),
     });
   }
@@ -264,11 +328,26 @@ export async function listSummaries(venueId: string, db: Db = prisma): Promise<C
     where: { venueId },
     orderBy: { createdAt: "asc" },
     select: {
+      id: true,
       dateRuleId: true,
       action: true,
       deliveries: true,
       rebookedReservationId: true,
       refund: true,
+      reservation: {
+        select: {
+          guestName: true,
+          deposit: {
+            select: {
+              amountCents: true,
+              currency: true,
+              status: true,
+              refundAmountCents: true,
+              postCaptureRefundCents: true,
+            },
+          },
+        },
+      },
     },
   });
   return summarizeOutcomes(rows);

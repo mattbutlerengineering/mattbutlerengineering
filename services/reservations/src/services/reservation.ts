@@ -645,11 +645,17 @@ export const reservationService = {
       }
     }
 
-    // Determine if we need to check for conflicts
-    const timeOrTableChanged = isSlotMove(data);
+    // A slot move, or a party-size increase, changes what the slot must hold, so
+    // both cross the booking gate (max party, pacing). A status payload never
+    // reaches the gated write (it writes no status), so it keeps the plain path.
+    const needsGate =
+      isSlotMove(data) ||
+      (data.status === undefined &&
+        data.partySize !== undefined &&
+        data.partySize > existing.partySize);
 
-    // Notes / party-size / preference edits are not slot moves — no lock needed.
-    if (!timeOrTableChanged) {
+    // Notes / preference / party-size-decrease edits need no gate or lock.
+    if (!needsGate) {
       const reservation = await this.update(id, data, actor);
       if (!reservation) {
         return { success: false, error: "Failed to update reservation" };
@@ -724,7 +730,7 @@ export const reservationService = {
       partySize: data.partySize ?? existing.partySize,
       excludeReservationId: id,
       checkHoldConflict: true,
-      gate: { channel: "phone", override: data.override },
+      gate: { channel: "phone", override: data.override, movingFrom: existing.startTime },
       write: async (tx, gated) => {
         try {
           const moved = await tx.reservation.update({
@@ -742,7 +748,7 @@ export const reservationService = {
           await recordReservationEvent(tx, {
             reservationId: id,
             venueId: existing.venueId,
-            kind: "moved",
+            kind: isSlotMove(data) ? "moved" : "updated",
             actor,
             from: toEventState(existing),
             to: toEventState(moved),

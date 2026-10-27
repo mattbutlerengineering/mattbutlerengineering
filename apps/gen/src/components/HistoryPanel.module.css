@@ -1,7 +1,7 @@
+/* Width comes from the playground grid column or the mobile overlay. */
 .panel {
-  inline-size: 20%;
-  min-inline-size: 180px;
-  max-inline-size: 280px;
+  flex: 1;
+  min-block-size: 0;
   display: flex;
   flex-direction: column;
   overflow-y: auto;

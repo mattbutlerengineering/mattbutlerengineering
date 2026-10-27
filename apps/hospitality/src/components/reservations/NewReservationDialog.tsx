@@ -18,7 +18,7 @@ import { GuestHistoryStrip } from "../crm/GuestHistoryStrip.js";
 import { pickAnnouncement } from "../crm/guest-lookup-rows.js";
 import { applyClear, applyPick, type PrefillSnapshot } from "../crm/guest-prefill.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { venueWallTimeToInstant } from "../../utils/venue-wall-time.js";
+import { serviceDayCalendarDate, serviceDayStartInstant } from "../../utils/service-day-start.js";
 import { useStaffBookingCheck } from "../../hooks/useStaffBookingCheck.js";
 import { useOpenTimes } from "../../hooks/useOpenTimes.js";
 import { useStaffTonight } from "../../hooks/useStaffTonight.js";
@@ -32,6 +32,11 @@ interface NewReservationDialogProps {
   tables: Table[];
   venueId: string;
   defaultDate: string;
+  /**
+   * `defaultDate` is only a stand-in for the current service day: once the venue's config says
+   * which day that is, an untouched date field moves to it. False when the date was chosen.
+   */
+  followServiceDay?: boolean;
   onConfirm: (data: CreateReservationRequest) => Promise<void>;
   onClose: () => void;
 }
@@ -69,11 +74,12 @@ export function NewReservationDialog({
   tables,
   venueId,
   defaultDate,
+  followServiceDay = false,
   onConfirm,
   onClose,
 }: NewReservationDialogProps) {
   const { t } = useTranslation();
-  const { timeZone } = useVenueFormat();
+  const { timeZone, formatCalendarDate, formatLocalTime } = useVenueFormat();
   const [partySize, setPartySize] = useState(2);
   const [tableId, setTableId] = useState<string>(() => findBestTable(tables, 2));
   const [occasion, setOccasion] = useState<Occasion>("none");
@@ -106,7 +112,7 @@ export function NewReservationDialog({
     setValue,
     setFocus,
     watch,
-    formState: { errors },
+    formState: { errors, dirtyFields },
   } = useForm<NewReservationFormData>({
     defaultValues: {
       guestName: "",
@@ -121,14 +127,28 @@ export function NewReservationDialog({
   const date = watch("date");
   const startTime = watch("startTime");
 
-  // The booking's real window, read on the venue clock; null until date and time are both entered.
+  const tonight = useStaffTonight(venueId);
+
+  // The dialog can mount before the config loads, prefilled with the calendar date. Move an
+  // untouched date field to the service day once known, once, so 00:45 does not book next night.
+  const followedRef = useRef(false);
+  const serviceDate = tonight.serviceDate;
+  const dateIsDirty = dirtyFields.date === true;
+  useEffect(() => {
+    if (!followServiceDay || !serviceDate || followedRef.current) return;
+    followedRef.current = true;
+    if (!dateIsDirty) setValue("date", serviceDate);
+  }, [followServiceDay, serviceDate, dateIsDirty, setValue]);
+
+  // The booking's real window on the venue clock; null until date and time are both entered.
+  // `date` is the service day, so an after-midnight time sits on the next calendar date.
   const bookingWindow = useMemo(() => {
     if (!date || !startTime) return null;
-    const start = venueWallTimeToInstant(date, startTime, timeZone);
+    const start = serviceDayStartInstant(tonight.config, timeZone, date, startTime);
     if (Number.isNaN(start.getTime())) return null;
     const end = new Date(start.getTime() + DEFAULT_DURATION_MINUTES * 60_000);
     return { start: start.toISOString(), end: end.toISOString() };
-  }, [date, startTime, timeZone]);
+  }, [date, startTime, timeZone, tonight.config]);
 
   const handlePick = (guest: Guest) => {
     setValue("guestName", guest.name);
@@ -159,6 +179,17 @@ export function NewReservationDialog({
     .filter((table) => table.isActive && table.capacity >= partySize)
     .sort((a, b) => a.capacity - b.capacity);
 
+  // What the booking will land on when an after-midnight time puts it past the service day.
+  const calendarDate = startTime
+    ? serviceDayCalendarDate(tonight.config, timeZone, date, startTime)
+    : date;
+  const calendarHint =
+    date && startTime && calendarDate !== date
+      ? t("newReservation.calendarHint", {
+          when: `${formatCalendarDate(calendarDate, { weekday: "short", day: "numeric", month: "short" })}, ${formatLocalTime(startTime)}`,
+        })
+      : null;
+
   const check = useStaffBookingCheck({
     venueId,
     window: bookingWindow,
@@ -166,7 +197,6 @@ export function NewReservationDialog({
     selectedTableId: tableId,
   });
   const openTimes = useOpenTimes({ venueId, date, partySize });
-  const tonight = useStaffTonight(venueId);
   const isHardBlocked = check.verdict?.kind === "hard";
   const needsOverride = check.verdict?.kind === "soft";
   const trimmedReason = overrideReason.trim();
@@ -182,7 +212,7 @@ export function NewReservationDialog({
               tonight.config,
               timeZone,
               tonight.serviceDate,
-              date,
+              serviceDayCalendarDate(tonight.config, timeZone, date, startTime),
               startTime
             )
           )
@@ -227,8 +257,9 @@ export function NewReservationDialog({
       return;
     }
 
-    // The picked date and time are the venue's wall clock; the API takes the UTC instant.
-    const startDate = venueWallTimeToInstant(data.date, data.startTime, timeZone);
+    // The picked date is the service day and the time the venue's wall clock; a time after
+    // midnight of a past-midnight service is on the next calendar date. The API takes UTC.
+    const startDate = serviceDayStartInstant(tonight.config, timeZone, data.date, data.startTime);
     const endDate = new Date(startDate.getTime() + DEFAULT_DURATION_MINUTES * 60_000);
 
     setIsLoading(true);
@@ -341,6 +372,12 @@ export function NewReservationDialog({
                   {...register("startTime", { required: t("newReservation.startTimeRequired") })}
                 />
               </div>
+
+              {calendarHint && (
+                <Text color="secondary" data-testid="calendar-date-hint">
+                  {calendarHint}
+                </Text>
+              )}
 
               <OpenTimesStrip
                 slots={openTimes.data ?? []}

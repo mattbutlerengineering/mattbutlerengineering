@@ -65,8 +65,49 @@ describe("dayNotices", () => {
     expect(dayNotices(snapshot([]), DATE, null)).toEqual({});
   });
 
-  it("says nothing on a weekday the schedule simply does not cover", () => {
+  it("reports a weekday the regular week does not cover as closed", () => {
     const s = snapshot([]);
+    const closedThursday = {
+      ...s,
+      config: { ...s.config, assignments: [{ ...s.config.assignments[0]!, weekdays: [0] }] },
+    };
+    expect(dayNotices(closedThursday, DATE, null)).toEqual({
+      closure: { message: DEFAULT_CLOSURE_MESSAGE },
+    });
+  });
+
+  it("says nothing for a venue that never set hours (staff may take phone bookings)", () => {
+    const s = snapshot([]);
+    const empty = {
+      ...s,
+      config: { ...s.config, scheduleServices: [], assignments: [] },
+    };
+    expect(noticesFor(empty, DATE, null, 0, true)).toEqual({});
+  });
+
+  it("keeps a closed weekday selectable when a special-hours date opens it", () => {
+    const s = snapshot([
+      {
+        kind: "special_hours",
+        id: "sh1",
+        targetKind: "venue",
+        startsOn: DATE,
+        endsOn: DATE,
+        payload: {
+          version: 1,
+          services: [
+            {
+              venueServiceId: "vs1",
+              opensAt: 1020,
+              lastSeatingAt: 1230,
+              closesAt: 1320,
+              seating: { version: 1, interval: 30 },
+              bookingTypes: ["online", "phone"],
+            },
+          ],
+        },
+      } as DateRule,
+    ]);
     const closedThursday = {
       ...s,
       config: { ...s.config, assignments: [{ ...s.config.assignments[0]!, weekdays: [0] }] },

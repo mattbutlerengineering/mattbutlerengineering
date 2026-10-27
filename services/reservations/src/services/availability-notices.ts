@@ -35,7 +35,9 @@ export function dayNotices(
   serviceDate: ServiceDate,
   phone: string | null,
   /** Online seatings `listSlots` found for the date, booked or not. */
-  seatingCount: number
+  seatingCount: number,
+  /** The venue never set hours: no services is "not set up", not "closed" (staff may still book by phone). */
+  unconfigured = false
 ): DayNotices {
   const day = resolveDay(snapshot, serviceDate);
   const pause = activePause(snapshot, day);
@@ -51,7 +53,11 @@ export function dayNotices(
       },
     };
   }
-  const closedByRule = day.closures.some((band) => band.targetKind !== "tables");
+  // A day the resolved config runs no service on (a closed regular weekday that no
+  // special date reopens) is closed too, so the guest calendar can disable it.
+  const closedByRule =
+    (day.services.length === 0 && !unconfigured) ||
+    day.closures.some((band) => band.targetKind !== "tables");
   if (!closedByRule) return {};
   // Any seating left on the online channel means the date is open, if shorter.
   if (seatingCount > 0) return {};

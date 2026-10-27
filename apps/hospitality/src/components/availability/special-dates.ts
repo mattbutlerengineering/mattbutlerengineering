@@ -1,4 +1,5 @@
-import type { ClosureSummary, DateRule } from "@mbe/types";
+import type { ClosureSummary, DateRule, RefundFailure } from "@mbe/types";
+import { coversDate, nextOccurrence } from "./series-edit.js";
 
 export type SpecialDatesFilter = "all" | "closures" | "special_hours" | "repeating" | "past";
 
@@ -48,6 +49,38 @@ export function specialDateRows(
   const byStart = (a: SpecialDateRow, b: SpecialDateRow) =>
     a.rule.startsOn.localeCompare(b.rule.startsOn);
   return [...rows].sort(filter === "past" ? (a, b) => byStart(b, a) : byStart);
+}
+
+/**
+ * The date the day editor opens on for a special-hours row: its first date not yet past, or
+ * `null` when a repeating rule has no covered date left before it ends.
+ */
+export function hoursEditDate(rule: DateRule, today: string): string | null {
+  if (rule.repeat != null) {
+    // `nextOccurrence` falls back to the rule's start when nothing is covered ahead.
+    const next = nextOccurrence(rule, today);
+    return next >= today && coversDate(rule, next) ? next : null;
+  }
+  return rule.startsOn > today ? rule.startsOn : today;
+}
+
+/** Whether a row stands for more than one date: a range, an open-ended rule, or a repeat. */
+export const coversManyDates = (rule: DateRule): boolean =>
+  rule.repeat != null || rule.endsOn !== rule.startsOn;
+
+/**
+ * "Rivera ($40.00)": a failed refund's guest and amount, in the deposit's own currency (which can
+ * differ from the venue's); the amount is omitted when unknown.
+ */
+export function refundFailureLabel(
+  failure: RefundFailure,
+  formatMoney: (cents: number, currency: string) => string,
+  unnamed: string
+): string {
+  const name = failure.guestName ?? unnamed;
+  return failure.amountCents == null || failure.currency == null
+    ? name
+    : `${name} (${formatMoney(failure.amountCents, failure.currency)})`;
 }
 
 /**

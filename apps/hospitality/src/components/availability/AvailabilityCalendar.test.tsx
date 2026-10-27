@@ -18,6 +18,7 @@ function day(date: string, overrides: Partial<AvailabilityDaySummary> = {}) {
     serviceCount: 1,
     closures: [],
     bookingOpen: OPEN,
+    services: [],
     ...overrides,
   } satisfies AvailabilityDaySummary;
 }
@@ -31,6 +32,16 @@ const WEEK = [
     label: "Special hours",
     serviceCount: 2,
     closures: [{ ruleId: "r1", targetKind: "venue", from: 1320, to: 1380 }],
+    services: [
+      { venueServiceId: "svc-1", name: "Lunch", opensAt: 660, lastSeatingAt: 810, closesAt: 840 },
+      {
+        venueServiceId: "svc-2",
+        name: "Dinner",
+        opensAt: 1080,
+        lastSeatingAt: 1290,
+        closesAt: 1320,
+      },
+    ],
   }),
   day("2026-10-31", { bookingOpen: { ...OPEN, online: false } }),
   day("2026-11-01", { closures: [{ ruleId: "r2", targetKind: "venue", from: 0, to: 2880 }] }),
@@ -62,13 +73,22 @@ function renderCalendar(props: Partial<React.ComponentProps<typeof AvailabilityC
 describe("AvailabilityCalendar", () => {
   it("names each cell with its date, label, service count and closure band", () => {
     renderCalendar();
-    expect(screen.getByRole("grid", { name: "Availability calendar" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("grid", { name: "Availability calendar, Oct 26 – Nov 1, 2026" })
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("button", {
-        name: "Friday, October 30: Special hours, 2 services, closed 10:00 PM – 11:00 PM",
+        name: "Friday, October 30: Special hours, 2 services, closed 10:00 PM – 11:00 PM, Lunch 11:00 AM–2:00 PM, Dinner 6:00 PM–10:00 PM",
       })
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Monday, October 26: Closed/ })).toBeInTheDocument();
+  });
+
+  it("shows each service's hours as its own line", () => {
+    renderCalendar();
+    const cell = screen.getByRole("button", { name: /Friday, October 30/ });
+    expect(within(cell).getByText("Lunch 11:00 AM–2:00 PM")).toBeInTheDocument();
+    expect(within(cell).getByText("Dinner 6:00 PM–10:00 PM")).toBeInTheDocument();
   });
 
   it("marks the day that holds an unsaved draft with a dot and says so in its name", () => {
@@ -177,16 +197,24 @@ describe("AvailabilityCalendar on a phone or tablet (agenda list)", () => {
     Reflect.deleteProperty(window, "matchMedia");
   });
 
-  it("lists one row per day of the anchor month only, with weekday and date visible", () => {
+  it("starts the month list at today, with weekday and date visible", () => {
     setViewportWidth(1024);
     renderCalendar({ view: "month", anchor: "2026-10-15", days: MONTH_DAYS });
-    const list = screen.getByRole("list", { name: "Availability calendar" });
+    const list = screen.getByRole("list", { name: "Availability calendar, October 2026" });
     expect(screen.queryByRole("grid")).not.toBeInTheDocument();
     const rows = within(list).getAllByRole("listitem");
+    expect(rows).toHaveLength(4);
+    expect(within(rows[0]!).getByText("Wed, Oct 28")).toBeInTheDocument();
+    expect(within(rows[3]!).getByText("Sat, Oct 31")).toBeInTheDocument();
+    expect(within(rows[0]!).getByText("Weeknight")).toBeInTheDocument();
+  });
+
+  it("lists every day of a month that does not contain today", () => {
+    setViewportWidth(1024);
+    renderCalendar({ view: "month", anchor: "2026-10-15", today: "2026-11-02", days: MONTH_DAYS });
+    const rows = within(screen.getByRole("list")).getAllByRole("listitem");
     expect(rows).toHaveLength(31);
     expect(within(rows[0]!).getByText("Thu, Oct 1")).toBeInTheDocument();
-    expect(within(rows[30]!).getByText("Sat, Oct 31")).toBeInTheDocument();
-    expect(within(rows[0]!).getByText("Weeknight")).toBeInTheDocument();
   });
 
   it("opens the day drawer from a row and marks today", () => {

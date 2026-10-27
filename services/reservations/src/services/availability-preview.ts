@@ -88,22 +88,12 @@ export function planPreview(input: PreviewInput): PreviewPlan {
     input.bookings.filter((b) => b.date && scopeIncludes(scope, toServiceDate(b.date)))
   ).sort((a, b) => a.startTime.localeCompare(b.startTime) || a.id.localeCompare(b.id));
 
-  const names = new Map(next.venueServices.map((s) => [s.id, s.name]));
   return {
     kind: "ok",
     result: {
       version: state.version,
       days,
-      focusDay: {
-        ...summarizeDay(next, focus),
-        services: focus.services.map((s) => ({
-          venueServiceId: s.venueServiceId,
-          name: names.get(s.venueServiceId) ?? s.name,
-          opensAt: s.opensAt,
-          lastSeatingAt: s.lastSeatingAt,
-          closesAt: s.closesAt,
-        })),
-      },
+      focusDay: summarizeDay(next, focus),
       stranded: {
         total: stranded.length,
         offset: strandedOffset,

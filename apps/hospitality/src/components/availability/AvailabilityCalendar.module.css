@@ -104,6 +104,11 @@
   color: var(--rialto-text-primary);
 }
 
+.service {
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-secondary);
+}
+
 .draftDot {
   position: absolute;
   inset-block-start: var(--rialto-space-xs);

@@ -13,6 +13,7 @@ import type { CommandItem } from "@mattbutlerengineering/rialto";
 import { useAuth } from "@mbe/auth/react";
 import { useTheme } from "../contexts/ThemeContext.js";
 import { usePanelLayout } from "../hooks/usePanelLayout.js";
+import { HelpButton } from "./KeyboardShortcuts.js";
 import styles from "./AppShell.module.css";
 
 type Breakpoint = "mobile" | "tablet" | "desktop";
@@ -94,6 +95,8 @@ export interface AppShellProps {
   onLogoClick?: () => void;
   /** Genuinely per-page: open the templates gallery. Omit to hide the button. */
   onTemplatesOpen?: () => void;
+  /** Genuinely per-page: open the keyboard-shortcuts dialog. Omit to hide the button. */
+  onShortcutsOpen?: () => void;
   /** Genuinely per-page: fullscreen suppresses the side panels. */
   isFullscreen?: boolean;
 }
@@ -114,6 +117,7 @@ export function AppShell({
   onSignOut,
   onLogoClick,
   onTemplatesOpen,
+  onShortcutsOpen,
   isFullscreen = false,
 }: AppShellProps) {
   const { theme, toggleTheme } = useTheme();
@@ -182,6 +186,7 @@ export function AppShell({
               </Button>
               <Button
                 type="button"
+                variant="ghost"
                 className={styles.logoButton}
                 onClick={onLogoClick}
                 aria-label="Return to empty state"
@@ -215,9 +220,15 @@ export function AppShell({
               >
                 <Text aria-hidden="true">{"{}"}</Text>
               </Button>
+              {onShortcutsOpen && <HelpButton onClick={onShortcutsOpen} />}
               <ThemeToggle theme={theme} onToggle={toggleTheme} />
               {user && (
-                <Avatar src={user.picture} name={user.name ?? user.email ?? "User"} size="sm" />
+                <Avatar
+                  src={user.picture}
+                  name={user.name ?? user.email ?? "User"}
+                  size="sm"
+                  className={styles.avatar}
+                />
               )}
               <Button
                 variant="ghost"

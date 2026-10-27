@@ -76,6 +76,12 @@ function baseIntent(overrides: Record<string, unknown> = {}) {
   };
 }
 
+/** A `$executeRaw` argument as text: a `Prisma.Sql`, or the strings of a tagged template. */
+function sqlOf(arg: unknown): { sql: string; values: unknown[] } {
+  if (Array.isArray(arg)) return { sql: arg.join("?"), values: [] };
+  return arg as { sql: string; values: unknown[] };
+}
+
 describe("bookSlot", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -274,6 +280,7 @@ describe("bookSlot", () => {
       venueId: "venue-1",
       tableId: "table-1",
       start: START,
+      serviceDate: "2026-05-05",
       end: END,
       partySize: 2,
       channel: "phone",
@@ -281,6 +288,35 @@ describe("bookSlot", () => {
       excludeHoldId: "hold-9",
       excludeSessionId: "sess-9",
     });
+  });
+
+  it("share-locks the venue row first, then the table lock, then the gate reads config", async () => {
+    // A closure commit CASes the venue row; sharing it makes an in-flight booking and the
+    // closure serialise, so a booking cannot land under a closure it never saw (#7679).
+    const tx = makeTx();
+    useTxOnce(tx);
+
+    await bookSlot(baseIntent({ gate: { channel: "phone" } }));
+
+    const statements = vi.mocked(tx.$executeRaw).mock.calls.map((call) => sqlOf(call[0]));
+    const tableLock = statements.findIndex((s) => s.sql.includes("pg_advisory_xact_lock"));
+    const venueLock = statements.findIndex((s) => s.sql.includes("FOR SHARE"));
+    expect(venueLock).toBeGreaterThanOrEqual(0);
+    expect(venueLock).toBeLessThan(tableLock);
+    expect(statements[venueLock]?.sql).toContain("venues");
+    expect(statements[venueLock]?.values).toContain("venue-1");
+    const lockOrder = vi.mocked(tx.$executeRaw).mock.invocationCallOrder[venueLock] ?? 0;
+    const tableOrder = vi.mocked(tx.$executeRaw).mock.invocationCallOrder[tableLock] ?? 0;
+    expect(lockOrder).toBeLessThan(tableOrder);
+    expect(tableOrder).toBeLessThan(vi.mocked(judgeBooking).mock.invocationCallOrder[0] ?? 0);
+  });
+
+  it("does not share-lock the venue row when the intent skips the gate", async () => {
+    const tx = makeTx();
+    useTxOnce(tx);
+    await bookSlot(baseIntent());
+    const statements = vi.mocked(tx.$executeRaw).mock.calls.map((c) => sqlOf(c[0]));
+    expect(statements.some((s) => s.sql.includes("FOR SHARE"))).toBe(false);
   });
 
   it("refuses a slot the gate rejects as NOT_BOOKABLE, runs onUnbookable, skips write", async () => {

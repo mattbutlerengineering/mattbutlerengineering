@@ -1,4 +1,4 @@
-import { serviceDayInstant } from "@mbe/availability";
+import { firstOccurrenceOnOrAfter, localDateTimeOf, serviceDayInstant } from "@mbe/availability";
 import { JOB_TYPES } from "../jobs/index.js";
 import type { JobsPort } from "../transitions/ports.js";
 import * as defaultStore from "./closure-notice-store.js";
@@ -19,13 +19,27 @@ interface EnqueueInput {
   now: Date;
 }
 
+/** The closure's earliest covered service date on or after today in venue time, or `null` when none is left. */
+function nextClosureDate(w: ClosureWindow, now: Date): string | null {
+  return firstOccurrenceOnOrAfter(
+    {
+      startsOn: w.startsOn,
+      endsOn: w.endsOn,
+      repeat: w.weekdays == null ? null : { weekdays: w.weekdays },
+    },
+    localDateTimeOf(now, w.timezone).date
+  );
+}
+
 /**
- * When the closure begins: its first service date plus its window's start
- * (a whole-day closure begins at the service day's start), in venue time.
- * `null` when that wall time does not exist (a DST gap).
+ * When the closure next begins: the next occurrence of the rule (so a rule that
+ * started in the past, or repeats, is judged from today) plus its window's
+ * start, in venue time. `null` when that wall time does not exist (a DST gap)
+ * or no occurrence is left.
  */
-export function closureStartsAt(w: ClosureWindow): Date | null {
-  return serviceDayInstant(w.startsOn, w.from ?? 0, w.timezone);
+export function closureStartsAt(w: ClosureWindow, now: Date): Date | null {
+  const date = nextClosureDate(w, now);
+  return date === null ? null : serviceDayInstant(date, w.from ?? 0, w.timezone);
 }
 
 /**
@@ -41,12 +55,15 @@ export function closureNoticeJobId(outcomeId: string, variant: NoticeVariant): s
 /**
  * Urgency is decided per closure, not per booking (architecture.md
  * § Closure notifications): every outcome of a closure starting within 6
- * hours is urgent. An unknown start (missing rule, DST gap) errs toward urgent,
- * so the guest gets every channel they have.
+ * hours is urgent. A missing rule or DST gap errs toward urgent, so the guest
+ * gets every channel they have; a closure with no occurrence left has nothing
+ * imminent to be urgent about.
  */
 async function isUrgent(store: Store, input: EnqueueInput): Promise<boolean> {
   const w = await store.loadClosureWindow(input.venueId, input.ruleId);
-  const startsAt = w ? closureStartsAt(w) : null;
+  if (!w) return true;
+  if (nextClosureDate(w, input.now) === null) return false;
+  const startsAt = closureStartsAt(w, input.now);
   return startsAt === null || startsAt.getTime() - input.now.getTime() <= URGENT_WINDOW_MS;
 }
 
@@ -84,6 +101,8 @@ export function createClosureNoticeService(deps: { scheduler: Scheduler; store?:
   return {
     enqueueForClosure: (input: EnqueueInput) => enqueue("closure", input),
     enqueueForReopen: (input: EnqueueInput) => enqueue("reopened", input),
+    /** The per-closure urgency decision, for callers that enqueue single outcomes. */
+    isUrgent: (input: EnqueueInput) => isUrgent(store, input),
     callList: (venueId: string, ruleId: string) => store.listCallList(venueId, ruleId),
     summaries: (venueId: string) => store.listSummaries(venueId),
   };

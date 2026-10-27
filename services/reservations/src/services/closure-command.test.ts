@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import type { CreateClosureBody, DateRule } from "@mbe/types";
+import type { CreateClosureBody, CreateClosuresBody, DateRule } from "@mbe/types";
 
 vi.mock("./database.js", () => ({ prisma: {} }));
 
-const { createClosure, reopenClosure, mayClose } = await import("./closure-command.js");
+const { createClosure, createClosures, reopenClosure, mayClose } =
+  await import("./closure-command.js");
 
 const NOW = new Date("2026-10-25T19:00:00.000Z"); // Sun Oct 25, noon in Los Angeles
 const TZ = "America/Los_Angeles";
@@ -463,6 +464,66 @@ describe("createClosure", () => {
     expect(w.reservations[0]!.startTime).toEqual(new Date("2026-12-25T03:00:00.000Z"));
   });
 
+  it("never moves a booking into the past: a close-early with no later fit refuses the move", async () => {
+    const closeEarly = {
+      ...SHORTENED,
+      startsOn: "2026-10-25",
+      endsOn: "2026-10-25",
+      payload: {
+        version: 1,
+        services: [
+          {
+            venueServiceId: "vs-dinner",
+            opensAt: 1020,
+            lastSeatingAt: 1260,
+            closesAt: 1260, // closes at 9:00 PM
+            seating: { version: 1, interval: 15 },
+            bookingTypes: ["online", "phone"],
+          },
+        ],
+      },
+    } as DateRule;
+    const w = world({
+      reservations: [
+        // 8:00-10:00 PM PDT on Oct 25
+        res("res-1", "2026-10-25", "2026-10-26T03:00:00.000Z", "2026-10-26T05:00:00.000Z"),
+      ],
+    });
+    const { outcome } = await run(
+      w,
+      body({
+        rule: closeEarly,
+        decisions: [{ groupKey: "2026-10-25:shortened", action: "move" }],
+      }),
+      { now: new Date("2026-10-26T02:45:00.000Z") } // 7:45 PM PDT
+    );
+    expect(outcome).toEqual({ kind: "move_unavailable", reservationIds: ["res-1"] });
+    expect(w.reservations[0]!.startTime).toEqual(new Date("2026-10-26T03:00:00.000Z"));
+  });
+
+  it("moves a booking out of a closure window so it ends where the window starts", async () => {
+    const w = world({
+      service: { opensAt: 1020, lastSeatingAt: 1350, closesAt: 1380 },
+      reservations: [
+        // 10:15-11:45 PM PST on Dec 24
+        res("res-1", "2026-12-24", "2026-12-25T06:15:00.000Z", "2026-12-25T07:45:00.000Z"),
+      ],
+    });
+    const windowed = closure({
+      targetKind: "venue",
+      window: { version: 1, from: 1320, to: 1380 }, // 10:00-11:00 PM
+    });
+    const { outcome } = await run(
+      w,
+      body({ rule: windowed, decisions: [{ groupKey: "2026-12-24:shortened", action: "move" }] })
+    );
+    expect(outcome).toMatchObject({ kind: "saved", result: { outcomes: { move: 1 } } });
+    expect(w.reservations[0]).toMatchObject({
+      startTime: new Date("2026-12-25T04:30:00.000Z"), // 8:30 PM, ends 10:00 PM
+      endTime: new Date("2026-12-25T06:00:00.000Z"),
+    });
+  });
+
   it("takes the table's advisory lock before a move's clash check", async () => {
     const w = world({
       reservations: [
@@ -630,6 +691,243 @@ describe("createClosure", () => {
     expect(w.dateRules).toHaveLength(0);
   });
 
+  describe("a series growth edit (alongside)", () => {
+    /** Thursdays from Dec 1, as the stored row; the edit adds Fridays from Dec 10. */
+    const storedSeries = {
+      id: "s1",
+      venueId: "v",
+      kind: "closure",
+      targetKind: "venue",
+      venueServiceId: null,
+      bookingTypes: [],
+      startsOn: new Date("2026-12-01T00:00:00.000Z"),
+      endsOn: null,
+      repeat: { version: 1, weekdays: [4] },
+      window: null,
+      payload: null,
+      useScheduleId: null,
+      seriesId: null,
+      guestMessage: null,
+      staffNote: null,
+      expiresAt: null,
+      deletedAt: null,
+      tables: [],
+    };
+    const friday = (id: string) =>
+      res(id, "2026-12-25", "2026-12-26T03:00:00.000Z", "2026-12-26T04:30:00.000Z");
+    const growth = (): World =>
+      world({ dateRules: [storedSeries], reservations: [friday("res-1"), friday("res-2")] });
+    const split = (): Partial<CreateClosureBody> => ({
+      rule: closure({
+        id: "s2",
+        startsOn: "2026-12-10",
+        endsOn: null,
+        repeat: { version: 1, weekdays: [4, 5] },
+      }),
+      alongside: {
+        upsert: [
+          {
+            id: "s1",
+            kind: "closure",
+            targetKind: "venue",
+            startsOn: "2026-12-01",
+            endsOn: "2026-12-09",
+            repeat: { version: 1, weekdays: [4] },
+          },
+        ],
+        remove: [],
+      },
+      decisions: [{ groupKey: "2026-12-25:closed", action: "cancel" }],
+    });
+
+    it("cancels the newly closed dates and splits the series in one save", async () => {
+      const w = growth();
+      const { outcome, tx } = await run(w, body(split()));
+
+      expect(outcome).toMatchObject({
+        kind: "saved",
+        result: { ruleId: "s2", outcomes: { cancel: 2 } },
+      });
+      expect(w.reservations.map((r) => r.status)).toEqual(["CANCELLED", "CANCELLED"]);
+      expect(tx.dateRule.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ id: "s2" }) })
+      );
+      expect(tx.dateRule.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "s1" },
+          data: expect.objectContaining({ endsOn: new Date("2026-12-09T00:00:00.000Z") }),
+        })
+      );
+    });
+
+    it("records the edited rule's own dates, not the wider range the split touched", async () => {
+      const w = growth();
+      await run(w, body(split()));
+      expect((w.changes[0]!.inverse as { closure: unknown }).closure).toMatchObject({
+        outcome: { startsOn: "2026-12-10", endsOn: null },
+      });
+    });
+
+    it("asks for the decision first and writes neither the series nor a cancel without it", async () => {
+      const w = growth();
+      const { outcome, tx } = await run(w, body({ ...split(), decisions: [] }));
+
+      expect(outcome).toEqual({ kind: "decision_required", groupKeys: ["2026-12-25:closed"] });
+      expect(w.reservations.map((r) => r.status)).toEqual(["CONFIRMED", "CONFIRMED"]);
+      expect(tx.dateRule.create).not.toHaveBeenCalled();
+      expect(tx.dateRule.update).not.toHaveBeenCalled();
+      expect(w.version).toBe(4);
+    });
+
+    it("leaves a date the replaced series already closed out of the decisions", async () => {
+      const w = world({
+        dateRules: [storedSeries],
+        reservations: [
+          res("thu", "2026-12-24", "2026-12-25T03:00:00.000Z", "2026-12-25T04:30:00.000Z"),
+        ],
+      });
+      const { outcome } = await run(w, body({ ...split(), decisions: [] }));
+      expect(outcome.kind).toBe("saved");
+      expect(w.reservations[0]!.status).toBe("CONFIRMED");
+    });
+
+    it("is a Manager's change", async () => {
+      const { outcome } = await run(growth(), body(split()), { caller: HOST });
+      expect(outcome).toEqual({ kind: "forbidden" });
+    });
+
+    it("refuses to write anything but closures and skips beside the closure", async () => {
+      const bad = split();
+      const { outcome } = await run(
+        growth(),
+        body({
+          ...bad,
+          alongside: { upsert: [{ ...SHORTENED, id: "sh-1" }], remove: [] },
+        })
+      );
+      expect(outcome).toMatchObject({ kind: "invalid" });
+    });
+
+    describe("what alongside may change", () => {
+      const storedSkip = {
+        ...storedSeries,
+        id: "k1",
+        kind: "skip",
+        startsOn: new Date("2026-12-03T00:00:00.000Z"),
+        endsOn: new Date("2026-12-03T00:00:00.000Z"),
+        repeat: null,
+        seriesId: "s1",
+      };
+      const thu = () =>
+        res("thu", "2026-12-03", "2026-12-04T03:00:00.000Z", "2026-12-04T04:30:00.000Z");
+      const layered = (extra: Record<string, unknown>[] = []): World =>
+        world({ dateRules: [storedSeries, storedSkip, ...extra], reservations: [thu()] });
+      const draft = closure({
+        id: "s2",
+        startsOn: "2026-12-10",
+        endsOn: null,
+        repeat: { version: 1, weekdays: [4, 5] },
+      });
+      const unchanged = (): World["dateRules"] => layered().dateRules;
+
+      it("refuses removing a skip, which would close a booked date with no decision", async () => {
+        const w = layered();
+        const { outcome } = await run(
+          w,
+          body({ rule: draft, alongside: { upsert: [], remove: ["k1"] }, decisions: [] })
+        );
+        expect(outcome).toMatchObject({ kind: "invalid" });
+        expect(w.reservations[0]!.status).toBe("CONFIRMED");
+        expect(w.version).toBe(4);
+        expect(w.dateRules).toEqual(unchanged());
+      });
+
+      it("refuses removing a rule that is not the replaced series", async () => {
+        const hours = {
+          ...storedSeries,
+          id: "sh1",
+          kind: "special_hours",
+          repeat: null,
+          payload: (SHORTENED as Extract<DateRule, { kind: "special_hours" }>).payload,
+        };
+        const { outcome } = await run(
+          layered([hours]),
+          body({ rule: draft, alongside: { upsert: [], remove: ["sh1"] }, decisions: [] })
+        );
+        expect(outcome).toMatchObject({ kind: "invalid" });
+      });
+
+      it("refuses a new closure written beside the series", async () => {
+        const { outcome } = await run(
+          layered(),
+          body({
+            rule: draft,
+            alongside: { upsert: [closure({ id: "extra" })], remove: ["s1"] },
+            decisions: [],
+          })
+        );
+        expect(outcome).toMatchObject({ kind: "invalid" });
+      });
+
+      it("refuses an alongside series row that grows", async () => {
+        const w = world({
+          dateRules: [{ ...storedSeries, endsOn: new Date("2026-12-31T00:00:00.000Z") }],
+          reservations: [],
+        });
+        const grown = {
+          id: "s1",
+          kind: "closure",
+          targetKind: "venue",
+          startsOn: "2026-12-01",
+          endsOn: "2027-06-30",
+          repeat: { version: 1, weekdays: [4] },
+        } as DateRule;
+        const { outcome } = await run(
+          w,
+          body({ rule: draft, alongside: { upsert: [grown], remove: [] }, decisions: [] })
+        );
+        expect(outcome).toMatchObject({ kind: "invalid" });
+      });
+
+      it("refuses a moved skip that was changed on the way", async () => {
+        const moved = {
+          id: "k1",
+          kind: "skip",
+          targetKind: "venue",
+          startsOn: "2026-12-17",
+          endsOn: "2026-12-17",
+          seriesId: "s2",
+        } as DateRule;
+        const { outcome } = await run(
+          layered(),
+          body({ rule: draft, alongside: { upsert: [moved], remove: ["s1"] }, decisions: [] })
+        );
+        expect(outcome).toMatchObject({ kind: "invalid" });
+      });
+
+      it("accepts replacing the series and moving its skip unchanged", async () => {
+        const moved = {
+          id: "k1",
+          kind: "skip",
+          targetKind: "venue",
+          startsOn: "2026-12-03",
+          endsOn: "2026-12-03",
+          seriesId: "s2",
+        } as DateRule;
+        const { outcome } = await run(
+          layered(),
+          body({
+            rule: { ...draft, startsOn: "2026-12-01" },
+            alongside: { upsert: [moved], remove: ["s1"] },
+            decisions: [],
+          })
+        );
+        expect(outcome.kind).toBe("saved");
+        expect(outcome).toMatchObject({ result: { outcomes: { cancel: 0 } } });
+      });
+    });
+  });
+
   describe("Host emergency limits", () => {
     const tonight = closure({ id: "dr-tonight", startsOn: "2026-10-25", endsOn: "2026-10-25" });
     const none = { reservations: [] };
@@ -696,6 +994,143 @@ describe("createClosure", () => {
       });
       expect(other.outcome).toEqual({ kind: "forbidden" });
     });
+  });
+});
+
+describe("createClosures (several dates in one save)", () => {
+  const christmas = closure({ id: "dr-25", startsOn: "2026-12-25", endsOn: "2026-12-25" });
+  const twoDays = () =>
+    world({
+      reservations: [
+        res("res-1", "2026-12-24", "2026-12-25T03:00:00.000Z", "2026-12-25T04:30:00.000Z"),
+        res("res-3", "2026-12-25", "2026-12-26T03:00:00.000Z", "2026-12-26T04:30:00.000Z", false),
+      ],
+    });
+  const items = [
+    { rule: closure(), decisions: [{ groupKey: "2026-12-24:closed", action: "cancel" as const }] },
+    {
+      rule: christmas,
+      decisions: [{ groupKey: "2026-12-25:closed", action: "keep_notify" as const }],
+    },
+  ];
+  const runBatch = (
+    w: World,
+    batch: CreateClosuresBody["items"],
+    opts: { key?: string; caller?: typeof MANAGER } = {}
+  ) => {
+    const { client } = fakeClient(w);
+    return createClosures(
+      {
+        venueId: "v",
+        caller: opts.caller ?? MANAGER,
+        body: { expectedVersion: 4, items: batch },
+        idempotencyKey: opts.key ?? "batch-1",
+        now: NOW,
+      },
+      client
+    );
+  };
+
+  it("saves every closure in one transaction, each with its own result and audit row", async () => {
+    const w = twoDays();
+    const outcome = await runBatch(w, items);
+
+    expect(outcome).toMatchObject({
+      kind: "saved",
+      result: {
+        version: 6,
+        results: [
+          { ruleId: "dr-new", version: 5, outcomes: { cancel: 1 } },
+          { ruleId: "dr-25", version: 6, outcomes: { keep_notify: 1 } },
+        ],
+      },
+    });
+    expect(w.dateRules).toHaveLength(2);
+    expect(w.changes).toHaveLength(2);
+    expect(w.reservations.map((r) => r.status)).toEqual(["CANCELLED", "CONFIRMED"]);
+  });
+
+  it("saves none when a later item lacks a decision, cancelling nothing", async () => {
+    const w = twoDays();
+    const outcome = await runBatch(w, [items[0]!, { rule: christmas, decisions: [] }]);
+
+    expect(outcome).toEqual({ kind: "decision_required", groupKeys: ["2026-12-25:closed"] });
+    expect(w.version).toBe(4);
+    expect(w.dateRules).toHaveLength(0);
+    expect(w.outcomes).toHaveLength(0);
+    expect(w.reservations.map((r) => r.status)).toEqual(["CONFIRMED", "CONFIRMED"]);
+  });
+
+  it("replays the same key to the stored results, changing nothing", async () => {
+    const w = twoDays();
+    const first = await runBatch(w, items);
+    const second = await runBatch(w, items);
+
+    expect(second).toEqual(first);
+    expect(w.version).toBe(6);
+    expect(w.dateRules).toHaveLength(2);
+  });
+
+  it("refuses a Host, and the same rule id twice", async () => {
+    const w = twoDays();
+    expect(await runBatch(w, items, { caller: HOST })).toEqual({ kind: "forbidden" });
+    expect(await runBatch(w, [items[0]!, items[0]!])).toEqual({ kind: "closure_exists" });
+    expect(w.version).toBe(4);
+  });
+
+  it("refuses a key reused for a different batch, replaying neither a subset nor appended items", async () => {
+    const w = twoDays();
+    await runBatch(w, items);
+    const extra = {
+      rule: closure({ id: "dr-26", startsOn: "2026-12-26", endsOn: "2026-12-26" }),
+      decisions: [],
+    };
+
+    expect(await runBatch(w, [items[0]!])).toEqual({ kind: "key_reused" });
+    expect(await runBatch(w, [...items, extra])).toEqual({ kind: "key_reused" });
+    expect(w.dateRules).toHaveLength(2);
+    expect(w.version).toBe(6);
+  });
+
+  it("decides special hours beside a closure: the shortened group moves, the closed one cancels", async () => {
+    const w = world({
+      reservations: [
+        res("res-1", "2026-12-24", "2026-12-25T03:00:00.000Z", "2026-12-25T04:30:00.000Z"),
+        res("res-3", "2026-12-25", "2026-12-26T03:00:00.000Z", "2026-12-26T04:30:00.000Z", false),
+      ],
+    });
+    const outcome = await runBatch(w, [
+      {
+        rule: SHORTENED,
+        decisions: [{ groupKey: "2026-12-24:shortened", action: "move" as const }],
+      },
+      {
+        rule: christmas,
+        decisions: [{ groupKey: "2026-12-25:closed", action: "cancel" as const }],
+      },
+    ]);
+
+    expect(outcome).toMatchObject({
+      kind: "saved",
+      result: {
+        results: [{ outcomes: { move: 1 } }, { outcomes: { cancel: 1 } }],
+      },
+    });
+    expect(w.reservations.map((r) => r.status)).toEqual(["CONFIRMED", "CANCELLED"]);
+  });
+
+  it("gives a booking under two overlapping items exactly one outcome and one refund", async () => {
+    const w = world({
+      reservations: [
+        res("res-1", "2026-12-24", "2026-12-25T03:00:00.000Z", "2026-12-25T04:30:00.000Z"),
+      ],
+    });
+    const range = closure({ id: "dr-range", startsOn: "2026-12-24", endsOn: "2026-12-25" });
+    const outcome = await runBatch(w, [items[0]!, { rule: range, decisions: [] }]);
+
+    expect(outcome.kind).toBe("saved");
+    const rows = w.outcomes.filter((o) => o.reservationId === "res-1");
+    expect(rows).toEqual([expect.objectContaining({ action: "cancel", refund: "pending" })]);
   });
 });
 
@@ -843,6 +1278,16 @@ describe("createClosure for a Tonight close-early (#7529)", () => {
       expect.objectContaining({ reservationId: "res-t", kind: "cancelled" }),
     ]);
     expect(w.changes[0]!.summary).toMatch(/^Closing early 2026-10-25/);
+    expect((w.changes[0]!.inverse as { closure: unknown }).closure).toMatchObject({
+      outcome: {
+        cancelled: 1,
+        moved: 0,
+        kept: 0,
+        closeEarly: true,
+        startsOn: "2026-10-25",
+        endsOn: "2026-10-25",
+      },
+    });
   });
 
   it("asks for a decision for the bookings after the new close", async () => {
@@ -877,6 +1322,58 @@ describe("createClosure for a Tonight close-early (#7529)", () => {
       expect(outcome).toEqual({ kind: "forbidden" });
       expect(w.reservations[0]!.status).toBe("CONFIRMED");
       expect(w.changes).toEqual([]);
+    });
+
+    describe("what is left bookable from now decides, whatever the payload kind (#7687)", () => {
+      // 17:20 in Los Angeles, twenty minutes into dinner (opens 17:00 = 1020).
+      const LATE = new Date("2026-10-26T00:20:00.000Z");
+      const stop = (from: number, to: number, patch: Partial<DateRule> = {}) =>
+        ({
+          ...closeEarly,
+          id: "t-stop",
+          ...patch,
+          payload: { version: 1, stop: { from, to } },
+        }) as DateRule;
+      const runAt = async (rule: DateRule, now: Date, w = tonightWorld()) => {
+        const { client } = fakeClient(w);
+        return createClosure(
+          {
+            venueId: "v",
+            caller: HOST,
+            body: tonightBody({ rule, decisions: rule.id === "t-stop" ? [] : closed }),
+            idempotencyKey: "tonight:t-new",
+            now,
+            ruleKinds: TONIGHT_KINDS,
+          },
+          client
+        );
+      };
+
+      it.each([
+        ["a close-early 15 minutes after open, past by now", at(1035)],
+        ["a stop window covering the whole service", stop(1020, 1380)],
+        ["a stop window covering what is left of the service", stop(1000, 1380)],
+        [
+          "a stop window over the whole of dinner",
+          stop(1020, 1380, { targetKind: "service", venueServiceId: "vs-dinner" }),
+        ],
+      ])("refuses a Host without the grant: %s", async (_label, rule) => {
+        expect(await runAt(rule, LATE)).toEqual({ kind: "forbidden" });
+      });
+
+      it("allows a partial close-early that leaves bookable minutes", async () => {
+        expect((await runAt(at(1200), LATE)).kind).toBe("saved");
+      });
+
+      it("allows a stop window that leaves bookable minutes", async () => {
+        expect((await runAt(stop(1100, 1200), LATE)).kind).toBe("saved");
+      });
+
+      it("allows the same change for a Host with the grant", async () => {
+        const w = { ...tonightWorld(), hostEmergencyClose: true };
+        // Past the permission guard: it now asks for the bookings' decisions instead.
+        expect((await runAt(stop(1020, 1380), LATE, w)).kind).not.toBe("forbidden");
+      });
     });
 
     it("lets a Host with the grant close all of tonight early", async () => {

@@ -1,7 +1,7 @@
 import { expect } from "vitest";
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance, InjectOptions, LightMyRequestResponse } from "fastify";
-import { AVAILABILITY_CONFIG_PREFIX } from "@mbe/types";
+import { AVAILABILITY_CONFIG_PREFIX, ClosureSummariesSchema } from "@mbe/types";
 
 /**
  * #5369 PR 2 — the route-sweep completeness data. Kept out of the `.test.ts`
@@ -1081,6 +1081,39 @@ const availabilityFixtures: Record<string, RouteFixture> = {
       "member venue B"
     );
   }),
+  // The batch save is the same transaction repeated per item, on the same disposable venue.
+  "POST /api/v1/venues/:id/closures/batch": ok(async (ctx) => {
+    const { base, version } = await sharedAvailabilityVenue(ctx);
+    const item = (date: string) => ({
+      rule: {
+        id: `rls-sweep-batch-${randomUUID()}`,
+        kind: "closure",
+        targetKind: "venue",
+        startsOn: date,
+        endsOn: date,
+      },
+      decisions: [],
+    });
+    const batch = { expectedVersion: version, items: [item("2026-12-26"), item("2026-12-27")] };
+    expectOk(
+      await asAdmin(ctx, {
+        method: "POST",
+        url: `${base}/closures/batch`,
+        headers: { "idempotency-key": `rls-sweep-4-${randomUUID()}` },
+        payload: batch,
+      }),
+      "admin batch"
+    );
+    expectDenied(
+      await asMember(ctx, {
+        method: "POST",
+        url: `${AVAILABILITY_CONFIG_PREFIX}/${ctx.venueB.id}/closures/batch`,
+        headers: { "idempotency-key": `rls-sweep-4b-${randomUUID()}` },
+        payload: batch,
+      }),
+      "member venue B"
+    );
+  }),
   "DELETE /api/v1/venues/:id/closures/:ruleId": ok(async (ctx) => {
     const { base, version } = await sharedAvailabilityVenue(ctx);
     const reopenRuleId = `rls-sweep-reopen-${randomUUID()}`;
@@ -1128,7 +1161,10 @@ const availabilityFixtures: Record<string, RouteFixture> = {
       method: "GET" as const,
       url: `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/closures`,
     });
-    expectOk(await asAdmin(ctx, list(ctx.venueA.id)), "admin venue A");
+    const listed = await asAdmin(ctx, list(ctx.venueA.id));
+    expectOk(listed, "admin venue A");
+    // The named-refund join (reservation + deposit) must still satisfy the response schema.
+    expect(() => ClosureSummariesSchema.parse(JSON.parse(listed.body).data)).not.toThrow();
     expectOk(await asAdmin(ctx, list(ctx.venueB.id)), "admin venue B");
     expectDenied(await asMember(ctx, list(ctx.venueB.id)), "member venue B");
   }),

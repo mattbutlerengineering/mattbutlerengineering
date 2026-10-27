@@ -1,12 +1,18 @@
 import { addDays, weekdayIndexOf } from "@mbe/availability";
-import type { AvailabilityConfig, AvailabilityConfigChanges, DateRule } from "@mbe/types";
+import type {
+  AvailabilityConfig,
+  AvailabilityConfigChanges,
+  ClosureAlongside,
+  DateRule,
+} from "@mbe/types";
 
 /**
  * F-SER (ux.md): changing one date of something that repeats, or the series itself. Pure: each
  * function returns the row operations a config save sends, reusing the engine's own model. A
  * skipped date is a `skip` row pointing at its series (`seriesId`); the series row is never
  * rewritten for a single date. The server's stranded-bookings check still guards every save,
- * and a one-date edit that closes something new goes through the closure command.
+ * and an edit that closes something new (one date, or a series that grows) goes through the
+ * closure command.
  */
 
 /** Which dates of the series an edit reaches (ux.md F-SER step 2). */
@@ -18,6 +24,9 @@ export interface SeriesEdit {
   /** `null`: until reopened. */
   readonly endsOn: string | null;
 }
+
+/** A special-hours rule: one date, a range, or a repeat. */
+export type SpecialHoursRule = Extract<DateRule, { kind: "special_hours" }>;
 
 /** A repeating closure that is a series in its own right, not an edit of another one. */
 export function isSeries(rule: DateRule): boolean {
@@ -52,12 +61,21 @@ export function dateOverride(
   return rules.find((r) => r.seriesId === seriesId && r.startsOn === date);
 }
 
-/** Dates already skipped out of a series, in order. */
-export function skippedDates(rules: readonly DateRule[], seriesId: string): string[] {
+/** The skip rows of a series, in date order. */
+export function skipRows(rules: readonly DateRule[], seriesId: string): DateRule[] {
   return rules
     .filter((r) => r.kind === "skip" && r.seriesId === seriesId)
-    .map((r) => r.startsOn)
-    .sort();
+    .sort((a, b) => a.startsOn.localeCompare(b.startsOn));
+}
+
+/** Dates already skipped out of a series, in order. */
+export function skippedDates(rules: readonly DateRule[], seriesId: string): string[] {
+  return skipRows(rules, seriesId).map((r) => r.startsOn);
+}
+
+/** Restore a skipped date: drop the skip row, so the series closes it again. */
+export function restoreDate(skip: DateRule): AvailabilityConfigChanges {
+  return { upsert: {}, remove: { dateRules: [skip.id] } };
 }
 
 /** Skip one date: the series stays, and that date is bookable as usual. */
@@ -82,6 +100,65 @@ const withEdit = (series: DateRule, edit: SeriesEdit): DateRule => ({
   endsOn: edit.endsOn,
   repeat: { version: 1, weekdays: [...edit.weekdays] },
 });
+
+/**
+ * Whether the edit can close a date the series did not: a weekday added, or an end moved later
+ * (or removed). Only these go through the closure flow; the rest can only reopen dates.
+ */
+export function growsSeries(series: DateRule, edit: SeriesEdit): boolean {
+  const had = series.repeat?.weekdays ?? [];
+  const later = series.endsOn != null && (edit.endsOn == null || edit.endsOn > series.endsOn);
+  return edit.weekdays.some((d) => !had.includes(d)) || later;
+}
+
+/**
+ * A growth edit as a closure: the edited series is the draft rule, and the rows it replaces go
+ * `alongside` so the server saves both in one transaction. "This and following" ends the original
+ * the day before `date`; from the first date (or "All dates") the original is removed and the new
+ * series, under a new id, takes over. Later skips and one-date edits move onto the new series.
+ */
+export function growthClosure(
+  config: AvailabilityConfig,
+  series: DateRule,
+  scope: SeriesScope,
+  date: string,
+  edit: SeriesEdit,
+  makeId: () => string
+): { rule: DateRule; alongside: ClosureAlongside } {
+  const from = scope === "all" || date <= series.startsOn ? series.startsOn : date;
+  const rule: DateRule = { ...withEdit(series, edit), id: makeId(), startsOn: from };
+  const moved = config.dateRules
+    .filter((r) => r.seriesId === series.id && r.startsOn >= from)
+    .map((r) => ({ ...r, seriesId: rule.id }));
+  if (from === series.startsOn) return { rule, alongside: { upsert: moved, remove: [series.id] } };
+  const ended: DateRule = { ...series, endsOn: addDays(from, -1) };
+  return { rule, alongside: { upsert: [ended, ...moved], remove: [] } };
+}
+
+/**
+ * Change the hours of a range or repeating special-hours rule (ux.md F-SER). "All dates" edits
+ * the rule itself. "This and following" ends it the day before `date` and starts a new rule on
+ * `date` with the edited hours; from the rule's first date it is the same as "All dates". The
+ * server's stranded-bookings check guards the save, so no booking is cancelled silently.
+ */
+export function editHoursRule(
+  rule: SpecialHoursRule,
+  scope: SeriesScope,
+  date: string,
+  payload: SpecialHoursRule["payload"],
+  makeId: () => string,
+  today = ""
+): AvailabilityConfigChanges {
+  const edited: SpecialHoursRule = { ...rule, payload };
+  // "All dates" reaches the dates still ahead: dates already past keep their hours.
+  const from = scope === "all" ? (today > rule.startsOn ? today : rule.startsOn) : date;
+  if (from <= rule.startsOn) {
+    return { upsert: { dateRules: [edited] }, remove: {} };
+  }
+  const created: SpecialHoursRule = { ...edited, id: makeId(), startsOn: from };
+  const ended: SpecialHoursRule = { ...rule, endsOn: addDays(from, -1) };
+  return { upsert: { dateRules: [ended, created] }, remove: {} };
+}
 
 /**
  * Change the series' weekdays and end. "This and following" ends the original the day before

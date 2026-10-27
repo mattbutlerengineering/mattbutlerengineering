@@ -73,6 +73,12 @@ export interface BookingRequest {
   /** The booking's real end; without it the estimated duration for the party size is used. */
   end?: Date;
   override?: { reason: string };
+  /**
+   * Where the booking being moved starts now. A booking the Manager kept through a
+   * closure (keep_notify) sits inside it; staff may move it within that same service
+   * date, so the closure no longer refuses the move. Table blocks and limits still apply.
+   */
+  movingFrom?: Date;
 }
 
 /** Seatings from opening to last seating — never at or after close, so judge accepts every one. */
@@ -227,6 +233,14 @@ function owningServiceDay(snapshot: AvailabilitySnapshot, start: Date) {
   })[0];
 }
 
+/** The service date that owns an instant, or undefined when no planned service covers it. */
+export function owningServiceDate(
+  snapshot: AvailabilitySnapshot,
+  start: Date
+): ServiceDate | undefined {
+  return owningServiceDay(snapshot, start)?.serviceDate;
+}
+
 function hard(reason: HardReason, message?: string): Verdict {
   return message ? { kind: "hard", reason, message } : { kind: "hard", reason };
 }
@@ -268,17 +282,37 @@ function softLimits(
   ];
 }
 
+/** Is the booking being moved already inside a closure on the service date it moves within? */
+function keptThroughClosure(
+  snapshot: BookingSnapshot,
+  request: BookingRequest,
+  serviceDate: ServiceDate
+): boolean {
+  if (!request.movingFrom) return false;
+  const from = owningServiceDay(snapshot, request.movingFrom);
+  if (!from || from.serviceDate !== serviceDate) return false;
+  return resolveDay(snapshot, serviceDate).closures.some((b) =>
+    closesSeating(b, from.minute, from.planned.venueServiceId, request.channel)
+  );
+}
+
+const pick = ({ services, bookingOpen }: ResolvedDaySummary) => ({ services, bookingOpen });
+
 /** Can this booking be made? Closures and missing tables are hard; limits are soft. */
 export function judge(snapshot: BookingSnapshot, request: BookingRequest, now: Date): Verdict {
   const owner = owningServiceDay(snapshot, request.start);
   if (!owner) return hard("outside_service");
   const { serviceDate, minute, planned } = owner;
-  const day = resolveDay(snapshot, serviceDate);
-  const message = day.guestMessage;
+  const resolved = resolveDay(snapshot, serviceDate);
+  const message = resolved.guestMessage;
 
-  const band = day.closures.find((b) =>
-    closesSeating(b, minute, planned.venueServiceId, request.channel)
-  );
+  // A kept booking is judged against the day as planned: the closure took its service and
+  // channels away, and that is exactly what it was kept through. Table blocks stay.
+  const kept = keptThroughClosure(snapshot, request, serviceDate);
+  const day = kept ? { ...resolved, ...pick(plannedDay(snapshot, serviceDate)) } : resolved;
+  const band = kept
+    ? undefined
+    : day.closures.find((b) => closesSeating(b, minute, planned.venueServiceId, request.channel));
   if (band) return hard(band.targetKind === "booking" ? "booking_closed" : "closed", message);
   if (!day.bookingOpen[request.channel]) return hard("booking_closed", message);
   const service = day.services
@@ -286,6 +320,17 @@ export function judge(snapshot: BookingSnapshot, request: BookingRequest, now: D
     .find(containing(minute));
   if (!service) return hard("closed", message);
   if (!service.bookingTypes.includes(request.channel)) return hard("booking_closed", message);
+  // Online guests only book the exact instants listSlots offers (a seating minute, at
+  // second 0, first occurrence of a repeated hour); staff on the phone may book off-grid.
+  if (request.channel === "online") {
+    const offered = serviceDayInstant(serviceDate, minute, snapshot.timezone);
+    if (
+      !seatingMinutes(service).includes(minute) ||
+      offered?.getTime() !== request.start.getTime()
+    ) {
+      return hard("outside_service");
+    }
+  }
 
   const tableIssue = tableVerdict(snapshot, day, minute, request, now);
   if (tableIssue) return tableIssue;

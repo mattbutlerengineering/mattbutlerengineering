@@ -1,5 +1,5 @@
 import type { BookingSnapshot } from "@mbe/availability";
-import type { CreateHoldRequest, Reservation } from "@mbe/types";
+import type { CreateHoldRequest, Reservation, VenueSettings } from "@mbe/types";
 import type { Prisma } from "../generated/prisma/index.js";
 import type { ConfirmHoldInput, ConfirmHoldResult } from "./confirm-hold.js";
 import type { CreateHoldResult } from "./hold.js";
@@ -10,6 +10,8 @@ export interface CancelOutcome {
   id: string;
   refund: GuestRefundStatus;
   rebookedReservationId: string | null;
+  /** The closure rule's guest-facing message (never the staff note). */
+  guestMessage: string | null;
 }
 
 export interface RebookDeps {
@@ -22,7 +24,7 @@ export interface RebookDeps {
     from: string,
     to: string,
     now: Date
-  ): Promise<{ snapshot: BookingSnapshot }>;
+  ): Promise<{ snapshot: BookingSnapshot; venueSettings?: VenueSettings | null }>;
   createHold(data: CreateHoldRequest, sessionId: string): Promise<CreateHoldResult>;
   confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldResult>;
   releaseHold(holdId: string, sessionId: string): Promise<boolean>;

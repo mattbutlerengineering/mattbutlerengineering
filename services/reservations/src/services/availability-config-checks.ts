@@ -5,7 +5,12 @@ import type {
   ResolvedDay,
   Verdict,
 } from "@mbe/availability";
-import type { AvailabilityConfig, AvailabilityDaySummary, StrandedReservation } from "@mbe/types";
+import type {
+  AvailabilityConfig,
+  AvailabilityDaySummary,
+  DaySummaryService,
+  StrandedReservation,
+} from "@mbe/types";
 
 /**
  * Read-side checks of a config save, pure over engine output: which future
@@ -79,29 +84,51 @@ export function findStrandedReservations(
 
 const WHOLE_DAY_MINUTES = 2880;
 
-function dayLabel(config: AvailabilityConfig, day: ResolvedDay): string {
+function isDayClosed(day: ResolvedDay): boolean {
   const closedAllDay = day.closures.some(
     (c) => c.targetKind === "venue" && c.from <= 0 && c.to >= WHOLE_DAY_MINUTES
   );
-  if (closedAllDay || day.services.length === 0) return "Closed";
+  return closedAllDay || day.services.length === 0;
+}
+
+function dayLabel(config: AvailabilityConfig, day: ResolvedDay): string {
+  if (isDayClosed(day)) return "Closed";
   if (day.explanation.some((l) => l.kind === "special_hours")) return "Special hours";
   return config.schedules.find((s) => s.id === day.scheduleId)?.name ?? "Open";
 }
 
-/** A calendar cell: label, closure bands and service count (architecture § `GET …/days`). */
+/** Each resolved service's config name, falling back to the day's own (a deleted service). */
+export function daySummaryServices(
+  names: ReadonlyMap<string, string>,
+  day: ResolvedDay
+): DaySummaryService[] {
+  return day.services.map((s) => ({
+    venueServiceId: s.venueServiceId,
+    name: names.get(s.venueServiceId) ?? s.name,
+    opensAt: s.opensAt,
+    lastSeatingAt: s.lastSeatingAt,
+    closesAt: s.closesAt,
+  }));
+}
+
+/** A calendar cell: label, closure bands, service count and services (architecture § `GET …/days`). */
 export function summarizeDay(config: AvailabilityConfig, day: ResolvedDay): AvailabilityDaySummary {
+  const label = dayLabel(config, day);
+  const names = new Map(config.venueServices.map((s) => [s.id, s.name]));
   return {
     serviceDate: day.serviceDate,
-    label: dayLabel(config, day),
+    label,
     scheduleId: day.scheduleId,
     serviceCount: day.services.length,
-    closures: day.closures.map(({ ruleId, targetKind, from, to }) => ({
+    closures: day.closures.map(({ ruleId, targetKind, from, to, bookingTypes }) => ({
       ruleId,
       targetKind,
       from,
       to,
+      ...(targetKind === "booking" && bookingTypes ? { bookingTypes } : {}),
     })),
     bookingOpen: day.bookingOpen,
+    services: isDayClosed(day) ? [] : daySummaryServices(names, day),
     ...(day.guestMessage ? { guestMessage: day.guestMessage } : {}),
   };
 }

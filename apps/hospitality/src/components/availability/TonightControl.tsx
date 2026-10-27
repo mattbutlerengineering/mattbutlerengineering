@@ -23,12 +23,21 @@ import {
   type Table,
 } from "@mbe/types";
 import { useEndTonight, useSetTonight, type SetTonightRequest } from "../../hooks/useTonight.js";
+import { useRefreshAvailability } from "../../hooks/useRefreshAvailability.js";
 import { useViewport } from "../../hooks/useViewport.js";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
 import { CloseDialog } from "./CloseDialog.js";
+import { conflictOf, type Conflict } from "./conflict-problem.js";
+import { useWinningChangeText } from "./use-winning-change-text.js";
 import { minuteText } from "./closure-band.js";
 import { TonightDecisionsDialog } from "./TonightDecisionsDialog.js";
-import { activeTonightChanges, type TonightChange } from "./tonight-state.js";
+import {
+  activeTonightChanges,
+  tonightDefaults,
+  tonightTimeMinutes,
+  type TonightChange,
+} from "./tonight-state.js";
+import { currentServiceDate } from "../../utils/current-service-date.js";
 import { minutesOfDayIn, venueDate } from "../../utils/service-day.js";
 import styles from "./TonightControl.module.css";
 
@@ -36,8 +45,6 @@ export interface TonightControlProps {
   readonly venueId: string;
   readonly state: AvailabilityConfigState;
   readonly timezone: string;
-  /** Today on the venue clock. */
-  readonly today: string;
   readonly now: Date;
   readonly viewerRole: "manager" | "host";
   /** `Venue.hostEmergencyClose`: whether a Host may close the whole venue for tonight. */
@@ -47,18 +54,13 @@ export interface TonightControlProps {
 
 type TonightBody = SetTonightRequest["change"];
 
-const STEP_MINUTES = 30;
-const LAST_EVENING_MINUTE = 23 * 60 + STEP_MINUTES;
-/** `MinuteSchema` allows a service day up to two days of minutes (ADR-029). */
+/**`MinuteSchema` allows a service day up to two days of minutes (ADR-029). */
 const MAX_MINUTE = 2880;
 const MINUTES_PER_DAY = 1440;
 const ALL_TABLES = "all";
 const PICK_TABLES = "pick";
 const UNSET = "unset";
 const LOCATION_PREFIX = "location:";
-const DEFAULT_CLOSE_AT = 22 * 60;
-const DEFAULT_STOP_FROM = 19 * 60 + 30;
-const DEFAULT_STOP_TO = 20 * 60;
 const DEFAULT_PACING = 10;
 
 function chipText(change: TonightChange, t: TFunction, format: VenueFormat): string {
@@ -94,22 +96,17 @@ function chipText(change: TonightChange, t: TFunction, format: VenueFormat): str
   }
 }
 
-/** Half-hour minutes from midnight to the venue's last close, so 1:00 AM is offered after a 2 AM close. */
-function timeMinutes(state: AvailabilityConfigState): readonly number[] {
-  const closes = [
-    ...state.config.scheduleServices.map((s) => s.closesAt),
-    ...state.config.dateRules.flatMap((r) =>
-      r.kind === "special_hours" ? r.payload.services.map((s) => s.closesAt) : []
-    ),
-  ];
-  const last = Math.min(MAX_MINUTE, Math.max(LAST_EVENING_MINUTE, ...closes));
-  return Array.from({ length: Math.floor(last / STEP_MINUTES) + 1 }, (_, i) => i * STEP_MINUTES);
-}
-
 function isDecisionRequired(error: unknown): boolean {
   const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
   const problem = AvailabilityConfigProblemSchema.safeParse(details);
   return problem.success && problem.data.code === "decision-required";
+}
+
+/** The server refused the change itself (403): a retry cannot succeed. */
+function isForbidden(error: unknown): boolean {
+  return (
+    (error as { problemDetails?: { status?: unknown } } | null)?.problemDetails?.status === 403
+  );
 }
 
 /** The Tonight rule the server builds for a close-early, for the impact preview. */
@@ -143,12 +140,15 @@ function tableTargets(
  * When locked; a Host without it sees why not, as text.
  */
 export function TonightControl(props: TonightControlProps) {
-  const { venueId, state, timezone, today, now, viewerRole, hostEmergencyClose, tables } = props;
+  const { venueId, state, timezone, now, viewerRole, hostEmergencyClose, tables } = props;
+  // Tonight is the service day, which stays on yesterday's date until a late service closes.
+  const today = currentServiceDate(state.config, timezone, now);
   const { t } = useTranslation();
   const format = useVenueFormat();
   const viewport = useViewport();
   const setTonight = useSetTonight();
   const endTonight = useEndTonight();
+  const refresh = useRefreshAvailability();
 
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -158,16 +158,22 @@ export function TonightControl(props: TonightControlProps) {
   } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [closeAt, setCloseAt] = useState(DEFAULT_CLOSE_AT);
-  const [stopFrom, setStopFrom] = useState(DEFAULT_STOP_FROM);
-  const [stopTo, setStopTo] = useState(DEFAULT_STOP_TO);
+  const [conflict, setConflict] = useState<Conflict | null>(null);
+  const winnerText = useWinningChangeText(
+    conflict?.code === "version-conflict" ? conflict.winningChange : null
+  );
+  // Null until picked: the shown value is then the default clamped into tonight's options.
+  const [closeAtPick, setCloseAt] = useState<number | null>(null);
+  const [stopFromPick, setStopFrom] = useState<number | null>(null);
+  const [stopToPick, setStopTo] = useState<number | null>(null);
   const [blockTarget, setBlockTarget] = useState(ALL_TABLES);
   const [pickedTables, setPickedTables] = useState<readonly string[]>([]);
   const [blockFrom, setBlockFrom] = useState<number | null>(null);
   const [blockTo, setBlockTo] = useState<number | null>(null);
   const [pacing, setPacing] = useState(DEFAULT_PACING);
-  // One id per attempt, kept until it succeeds, so a retry replays the first result.
-  const attemptIdsRef = useRef<Record<string, string>>({});
+  // One id per attempt, kept until it succeeds, so a retry of the same change replays the first
+  // result. A different change (its fingerprint) is a new attempt with a new id.
+  const attemptIdsRef = useRef<Record<string, { fingerprint: string; id: string }>>({});
 
   const rules = state.config.dateRules;
   const changes = activeTonightChanges(rules, today, now);
@@ -197,25 +203,46 @@ export function TonightControl(props: TonightControlProps) {
     minutesOfDayIn(now, timezone) + (venueDate(now, timezone) > today ? MINUTES_PER_DAY : 0);
   const effectiveFrom = blockFrom ?? nowServiceMinute;
   const blockWindowInvalid = blockTo !== null && blockTo <= effectiveFrom;
-  const timeOptions = timeMinutes(state).map((m) => ({
+  const tonightMinutes = tonightTimeMinutes(state.config, timezone, today);
+  const defaults = tonightDefaults(tonightMinutes);
+  const closeAt = closeAtPick ?? defaults.closeAt;
+  const stopFrom = stopFromPick ?? defaults.stopFrom;
+  const stopTo = stopToPick ?? defaults.stopTo;
+  const timeOptions = tonightMinutes.map((m) => ({
     value: String(m),
     label: minuteText(m, t, format),
   }));
 
   const run = async (
     key: string,
+    fingerprint: string,
     action: (ruleId: string) => Promise<unknown>,
     // Returns true when the failure was a question for the user rather than an error.
     askUser?: (error: unknown, ruleId: string) => boolean
   ) => {
-    const ruleId = (attemptIdsRef.current[key] ??= crypto.randomUUID());
+    const previous = attemptIdsRef.current[key];
+    const ruleId = previous?.fingerprint === fingerprint ? previous.id : crypto.randomUUID();
+    attemptIdsRef.current[key] = { fingerprint, id: ruleId };
     setBusy(key);
     setError(null);
+    setConflict(null);
     try {
       await action(ruleId);
       delete attemptIdsRef.current[key];
     } catch (failure) {
-      if (!askUser?.(failure, ruleId)) setError(t("availability.tonight.error"));
+      if (askUser?.(failure, ruleId)) return;
+      const lost = conflictOf(failure);
+      if (lost) {
+        // Someone else's change won, or this attempt already committed: its id is spent, and the
+        // screen must show the state that is now true rather than loop on it.
+        delete attemptIdsRef.current[key];
+        setConflict(lost);
+        refresh();
+      } else {
+        setError(
+          t(isForbidden(failure) ? "availability.tonight.forbidden" : "availability.tonight.error")
+        );
+      }
     } finally {
       setBusy(null);
     }
@@ -224,6 +251,7 @@ export function TonightControl(props: TonightControlProps) {
   const apply = (key: string, change: TonightBody) =>
     run(
       key,
+      JSON.stringify(change),
       (ruleId) =>
         setTonight.mutateAsync({
           venueId,
@@ -253,8 +281,17 @@ export function TonightControl(props: TonightControlProps) {
     setNeedsDecisions(null);
   };
 
+  const failure = (error || conflict) && (
+    <Text variant="caption" color="secondary" role="alert">
+      {error ??
+        (conflict?.code === "version-conflict"
+          ? winnerText
+          : t("availability.tonight.alreadyApplied"))}
+    </Text>
+  );
+
   const end = (ruleId: string) =>
-    run(`end:${ruleId}`, () => endTonight.mutateAsync({ venueId, ruleId }));
+    run(`end:${ruleId}`, "", () => endTonight.mutateAsync({ venueId, ruleId }));
 
   const time = (label: string, value: number, set: (m: number) => void) => (
     <Select
@@ -395,11 +432,7 @@ export function TonightControl(props: TonightControlProps) {
             {t("availability.tonight.apply")}
           </Button>
         </div>
-        {error && (
-          <Text variant="caption" color="secondary" role="alert">
-            {error}
-          </Text>
-        )}
+        {failure}
         {endsAt && (
           <Text variant="caption" color="secondary">
             {t("availability.tonight.ends", {
@@ -464,6 +497,8 @@ export function TonightControl(props: TonightControlProps) {
           ))}
         </ul>
       )}
+      {/* A chip ✕ works with the panel closed, so its failure can't live only inside the panel. */}
+      {!open && failure}
       {isSheet ? (
         <>
           {trigger}
@@ -493,7 +528,7 @@ export function TonightControl(props: TonightControlProps) {
           rule={closeEarlyRule(needsDecisions.ruleId, today, needsDecisions.closeAt)}
           today={today}
           closeAt={needsDecisions.closeAt}
-          nowMinute={minutesOfDayIn(now, timezone)}
+          nowMinute={nowServiceMinute}
           onConfirm={confirmDecisions}
           onClose={() => setNeedsDecisions(null)}
         />

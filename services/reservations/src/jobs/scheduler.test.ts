@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mocks = vi.hoisted(() => ({
   add: vi.fn().mockResolvedValue({ id: "job_123" }),
   remove: vi.fn().mockResolvedValue(undefined),
+  getJob: vi.fn().mockResolvedValue(undefined),
   upsertJobScheduler: vi.fn().mockResolvedValue({ id: "sched_123" }),
   close: vi.fn().mockResolvedValue(undefined),
   redisQuit: vi.fn().mockResolvedValue("OK"),
@@ -14,6 +15,7 @@ vi.mock("bullmq", () => {
   class MockQueue {
     add = mocks.add;
     remove = mocks.remove;
+    getJob = mocks.getJob;
     upsertJobScheduler = mocks.upsertJobScheduler;
     close = mocks.close;
     constructor(_name: string, _opts?: unknown) {
@@ -197,6 +199,60 @@ describe("JobScheduler", () => {
 
     const [, , opts] = mocks.add.mock.calls[0]!;
     expect(opts).toMatchObject({ attempts: 3, backoff: { type: "exponential", delay: 1000 } });
+  });
+
+  describe("requeue()", () => {
+    const fakeJob = (state: string) => ({
+      getState: vi.fn().mockResolvedValue(state),
+      remove: vi.fn().mockResolvedValue(undefined),
+    });
+    const requeue = () =>
+      new JobScheduler({ redisUrl: "redis://localhost:6379" }).requeue(
+        JOB_TYPES.BOOKING_REMINDER,
+        bookingPayload,
+        "base-id"
+      );
+
+    beforeEach(() => {
+      mocks.getJob.mockReset();
+    });
+
+    it("adds under the base id when no job holds it", async () => {
+      mocks.getJob.mockResolvedValue(undefined);
+
+      expect(await requeue()).toBe("added");
+      expect(mocks.add.mock.calls[0]![2]).toMatchObject({ jobId: "base-id", delay: 0 });
+    });
+
+    it("removes a retained failed job and re-adds under the same id", async () => {
+      const job = fakeJob("failed");
+      mocks.getJob.mockResolvedValue(job);
+
+      expect(await requeue()).toBe("requeued");
+      expect(job.remove).toHaveBeenCalledOnce();
+      expect(mocks.add.mock.calls[0]![2]).toMatchObject({ jobId: "base-id" });
+    });
+
+    it("removes a retained completed job and re-adds under the same id", async () => {
+      const job = fakeJob("completed");
+      mocks.getJob.mockResolvedValue(job);
+
+      expect(await requeue()).toBe("requeued");
+      expect(job.remove).toHaveBeenCalledOnce();
+      expect(mocks.add).toHaveBeenCalledOnce();
+    });
+
+    it.each(["active", "waiting", "delayed", "prioritized", "waiting-children"])(
+      "leaves a %s job untouched",
+      async (state) => {
+        const job = fakeJob(state);
+        mocks.getJob.mockResolvedValue(job);
+
+        expect(await requeue()).toBe("live");
+        expect(job.remove).not.toHaveBeenCalled();
+        expect(mocks.add).not.toHaveBeenCalled();
+      }
+    );
   });
 
   it("scheduleCron() passes attempts: 3 retry policy to BullMQ", async () => {

@@ -286,3 +286,31 @@ export function formatHourLabel(hour: number, locale: string, compact: boolean):
   if (!compact) return formatter.format(instant);
   return formatter.formatToParts(instant).find((part) => part.type === "hour")?.value ?? "";
 }
+
+/** The device's IANA zone, or "" when the runtime cannot say. */
+export function deviceTimeZone(): string {
+  return new Intl.DateTimeFormat().resolvedOptions().timeZone ?? "";
+}
+
+/** A zone's generic name in the viewer's language ("Pacific Time"). */
+export function formatTimeZoneName(at: Date, timeZone: string, locale: string): string {
+  const parts = new Intl.DateTimeFormat(locale, {
+    timeZone,
+    timeZoneName: "longGeneric",
+  }).formatToParts(at);
+  return parts.find((part) => part.type === "timeZoneName")?.value ?? timeZone;
+}
+
+/** The zone's canonical IANA name, so aliases ("US/Eastern") match; unknown zones stay as given. */
+function canonicalTimeZone(timeZone: string): string {
+  try {
+    return new Intl.DateTimeFormat("en", { timeZone }).resolvedOptions().timeZone;
+  } catch {
+    return timeZone;
+  }
+}
+
+/** Whether two IANA zone names are the same zone, aliases included. */
+export function sameTimeZone(a: string, b: string): boolean {
+  return canonicalTimeZone(a) === canonicalTimeZone(b);
+}

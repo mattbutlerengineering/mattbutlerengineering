@@ -5,7 +5,14 @@ import {
   type ProblemDetails,
   type VenueSettings,
 } from "@mbe/types";
-import { MINUTES_PER_DAY, addDays, judge, localDateTimeOf, resolveDay } from "@mbe/availability";
+import {
+  MINUTES_PER_DAY,
+  addDays,
+  judge,
+  localDateTimeOf,
+  owningServiceDate,
+  resolveDay,
+} from "@mbe/availability";
 import type {
   BookingChannel,
   BookingSnapshot,
@@ -132,7 +139,9 @@ export function assertBookable(opts: AssertBookableOptions): BookableError | und
 /** Why the gate refused a booking. Rendered by {@link gateProblem}. */
 export type GateRejection =
   | { code: "outside-availability"; reason: HardReason; message?: string }
-  | { code: "soft-limit"; limits: SoftLimit[] };
+  | { code: "soft-limit"; limits: SoftLimit[] }
+  /** The client's `date` is not the service day that owns `start` (ADR-029). */
+  | { code: "date-mismatch"; serviceDate: string };
 
 /**
  * `conflict` is a taken table: callers keep their existing conflict answer
@@ -149,6 +158,12 @@ export interface GateRequest {
   /** Omit to ask whether any table is free (the staff check endpoint). */
   tableId?: string;
   start: Date;
+  /**
+   * The date the client sent with `start`. When given, it must be the service
+   * day that owns `start` (a past-midnight seating belongs to the previous
+   * day), else the row would hide from every conflict read keyed on its date.
+   */
+  serviceDate?: string;
   /** The booking's real end. Without it the engine estimates one from the party size. */
   end?: Date;
   partySize: number;
@@ -156,6 +171,8 @@ export interface GateRequest {
   channel: BookingChannel;
   /** A staff reason to pass a soft limit. Honoured on the phone channel only; closures never yield. */
   override?: { reason: string };
+  /** Where the reservation being moved starts now; lets a booking kept through a closure move within its date. */
+  movingFrom?: Date;
   /** The reservation being moved; it must not conflict or pace against itself. */
   excludeReservationId?: string;
   /** The hold being confirmed or moved onto. */
@@ -224,6 +241,7 @@ export async function judgeBooking(
       channel: request.channel,
       tableId: request.tableId,
       override: request.override,
+      movingFrom: request.movingFrom,
     },
     now
   );
@@ -232,8 +250,22 @@ export async function judgeBooking(
     request.channel === "phone" &&
     verdict.kind === "hard" &&
     verdict.reason === "outside_service";
-  if (!staffOnUnsetHours) return outcomeOf(verdict);
-  return unsetHoursStaffOutcome(snapshot, request, logger);
+  const outcome = staffOnUnsetHours
+    ? unsetHoursStaffOutcome(snapshot, request, logger)
+    : outcomeOf(verdict);
+  if (outcome.kind === "rejected") return outcome;
+  return dateMismatch(snapshot, request) ?? outcome;
+}
+
+/** A rejection when the client's date is not the service day owning the time. */
+function dateMismatch(snapshot: BookingSnapshot, request: GateRequest): GateOutcome | null {
+  if (request.serviceDate === undefined) return null;
+  const local = localDateTimeOf(request.start, snapshot.timezone).date;
+  // With no hours configured no service owns the time; accept the local day or the one before.
+  const owner = owningServiceDate(snapshot, request.start);
+  const accepted = owner === undefined ? [local, addDays(local, -1)] : [owner];
+  if (accepted.includes(request.serviceDate)) return null;
+  return { kind: "rejected", rejection: { code: "date-mismatch", serviceDate: owner ?? local } };
 }
 
 function outcomeOf(verdict: Verdict): GateOutcome {
@@ -336,6 +368,9 @@ export function rejectionDetail(rejection: GateRejection): string {
   if (rejection.code === "outside-availability") {
     return rejection.message ?? OUTSIDE_AVAILABILITY_DETAIL[rejection.reason];
   }
+  if (rejection.code === "date-mismatch") {
+    return `The date does not match the requested time, which falls on the ${rejection.serviceDate} service day.`;
+  }
   return `This booking is ${rejection.limits.map((l) => SOFT_LIMIT_DETAIL[l]).join(" and ")}.`;
 }
 
@@ -346,6 +381,12 @@ export function gateProblem(rejection: GateRejection): ProblemDetails {
     return createProblemDetails(422, "Outside Availability", detail, "about:blank", undefined, {
       code: rejection.code,
       reason: rejection.reason,
+    });
+  }
+  if (rejection.code === "date-mismatch") {
+    return createProblemDetails(422, "Date Mismatch", detail, "about:blank", undefined, {
+      code: rejection.code,
+      serviceDate: rejection.serviceDate,
     });
   }
   return createProblemDetails(422, "Soft Limit", detail, "about:blank", undefined, {

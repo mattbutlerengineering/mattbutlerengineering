@@ -199,6 +199,8 @@ describe("GET /public/v1/reservations/manage", () => {
     const cancelled = { ...mockReservation, status: "CANCELLED" };
     const venueCancellation = {
       refundStatus: "done",
+      closureDate: "2026-11-05",
+      closureMessage: "Closed for a private event",
       offers: [
         {
           id: "2026-11-05T01:30:00.000Z",
@@ -248,6 +250,34 @@ describe("GET /public/v1/reservations/manage", () => {
       valid: true,
       reservationId: "res_2",
       guestEmail: "jane@example.com",
+    });
+  });
+
+  it("hands a phone-only guest's rebooked booking a manage token signed with an empty email", async () => {
+    const token = generateManageToken("res_1", "");
+    vi.mocked(reservationService.getById).mockResolvedValueOnce({
+      ...mockReservation,
+      guestEmail: null,
+      status: "CANCELLED",
+    } as never);
+    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+    vi.mocked(loadVenueCancellation).mockResolvedValueOnce({
+      refundStatus: "done",
+      offers: [],
+      rebooked: { reservationId: "res_2", startTime: "2026-11-08T02:00:00.000Z" },
+    } as never);
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/public/v1/reservations/manage?token=${token}`,
+    });
+
+    expect(response.statusCode).toBe(200);
+    const { rebooked } = response.json().data.venueCancellation;
+    expect(verifyManageToken(rebooked.manageToken)).toMatchObject({
+      valid: true,
+      reservationId: "res_2",
+      guestEmail: "",
     });
   });
 

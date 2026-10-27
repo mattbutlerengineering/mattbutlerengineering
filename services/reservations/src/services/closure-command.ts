@@ -1,19 +1,24 @@
 import { projectLegacyOperatingHours } from "@mbe/availability";
 import type {
+  AvailabilityChangeOutcome,
   AvailabilityChangeSummary,
-  AvailabilityConfig,
+  ClosureAlongside,
   ClosureAction,
   ClosureImpact,
   ClosureResult,
+  ClosuresResult,
   CreateClosureBody,
+  CreateClosuresBody,
   DateRule,
   ReopenResult,
 } from "@mbe/types";
 import type { Prisma, PrismaClient } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
 import { affectedRange, diffConfig, inverseOf } from "./availability-config-plan.js";
+import { findStrandedReservations } from "./availability-config-checks.js";
 import {
   conflictIssue,
+  futureBookings,
   loadConfigState,
   refuseStale,
   toDbDate,
@@ -25,12 +30,14 @@ import { civilDateIn } from "./availability-migration.js";
 import { applyTransitions } from "./closure-apply.js";
 import {
   checkDecisions,
-  closesAllOfTonight,
   countActions,
   currentServiceDate,
   isHostEmergencyClose,
+  isEmergencyTonightClose,
   moveTarget,
 } from "./closure-command-plan.js";
+import { checkAlongside } from "./closure-alongside.js";
+import { withAlongside, withClosure } from "./closure-impact.js";
 import { impactInTransaction } from "./closure-impact-store.js";
 import { prisma } from "./database.js";
 
@@ -90,6 +97,27 @@ interface ClosureMeta {
   ruleId: string;
   idempotencyKey: string;
   version: number;
+  /** Counts for the History drawer, which words the entry itself. Absent on older rows. */
+  outcome?: AvailabilityChangeOutcome;
+  /** Set on every item of a batch save: what the whole batch was, so a reused key can be told apart. */
+  batch?: BatchShape;
+}
+
+/** A batch's identity under its Idempotency-Key: how many items, and which rules, in order. */
+interface BatchShape {
+  count: number;
+  ruleIds: string[];
+}
+
+/** Field-wise, so the order jsonb stores object keys in cannot make a replay look different. */
+function sameBatch(stored: BatchShape | undefined, now: BatchShape): boolean {
+  return (
+    stored !== undefined &&
+    stored.count === now.count &&
+    Array.isArray(stored.ruleIds) &&
+    stored.ruleIds.length === now.ruleIds.length &&
+    stored.ruleIds.every((id, i) => id === now.ruleIds[i])
+  );
 }
 
 /**
@@ -117,8 +145,19 @@ export async function mayCloseFor(
   const serviceDate = currentServiceDate(snapshot, now);
   if (rule.kind !== "tonight") return isHostEmergencyClose(rule, serviceDate);
   if (rule.startsOn !== serviceDate) return false;
-  // A close-early that leaves no targeted service tonight is the emergency close in effect.
-  return venue.hostEmergencyClose || !closesAllOfTonight(snapshot, rule);
+  // A Tonight change that leaves nothing bookable on its targets is the emergency close in effect.
+  if (venue.hostEmergencyClose) return true;
+  // Only active tables seat guests, so an inactive one cannot keep the night open.
+  const tables = await db.table.findMany({
+    where: { venueId, isActive: true },
+    select: { id: true },
+  });
+  return !isEmergencyTonightClose(
+    snapshot,
+    rule,
+    now,
+    tables.map((t) => t.id)
+  );
 }
 
 /** Read-only form of the same limits, for the impact preview: `null` for an unknown venue. */
@@ -170,10 +209,6 @@ async function storedResult(
   };
 }
 
-function withRule(config: AvailabilityConfig, rule: DateRule): AvailabilityConfig {
-  return { ...config, dateRules: [...config.dateRules.filter((r) => r.id !== rule.id), rule] };
-}
-
 interface Plan {
   rows: Prisma.ClosureOutcomeCreateManyInput[];
   counts: Record<ClosureAction, number>;
@@ -186,16 +221,18 @@ function planOutcomes(
   actorId: string,
   state: ConfigState,
   rule: DateRule,
+  alongside: ClosureAlongside | undefined,
   impact: ClosureImpact,
-  actions: ReadonlyMap<string, { action: ClosureAction }>
+  actions: ReadonlyMap<string, { action: ClosureAction }>,
+  now: Date
 ): Plan | Refusal {
-  const after = { timezone: state.timezone, config: withRule(state.effective, rule) };
+  const after = { timezone: state.timezone, config: withClosure(state.effective, rule, alongside) };
   const rows: Prisma.ClosureOutcomeCreateManyInput[] = [];
   const stuck: string[] = [];
   for (const group of impact.groups) {
     const action = actions.get(group.groupKey)!.action; // checkDecisions answered every group
     for (const r of group.reservations) {
-      const target = action === "move" ? moveTarget(after, group.date, r) : null;
+      const target = action === "move" ? moveTarget(after, group.date, r, now) : null;
       if (action === "move" && !target) stuck.push(r.id);
       rows.push({
         venueId,
@@ -243,6 +280,7 @@ type CommitInput = {
   key: string;
   now: Date;
   ruleKinds: ReadonlySet<string>;
+  batch?: BatchShape;
 };
 
 /**
@@ -259,6 +297,37 @@ async function replayOf(tx: Db, input: CommitInput): Promise<ClosureResult | nul
     throw new Refused({ kind: "forbidden" });
   }
   return storedResult(tx, venueId, replay);
+}
+
+/**
+ * A series edit's `alongside` is a Manager's, and is limited to shortening or removing the one
+ * series it replaces and moving that series' skips (`closure-alongside.ts`). As a second guard it
+ * must strand no booking by itself: the draft rule's dates are decided in Step 2, anything else
+ * the rows change is not.
+ */
+async function refuseBadAlongside(tx: Db, input: CommitInput, state: ConfigState): Promise<void> {
+  const { body, caller, venueId, now } = input;
+  const { alongside, rule } = body;
+  if (!alongside) return;
+  if (!caller.isManager) throw new Refused({ kind: "forbidden" });
+  const issue = checkAlongside(state.stored.dateRules, rule, alongside);
+  if (issue) throw new Refused({ kind: "invalid", issues: [issue] });
+  const today = civilDateIn(now, state.timezone);
+  const stranded = findStrandedReservations(
+    { timezone: state.timezone, config: state.effective },
+    { timezone: state.timezone, config: withAlongside(state.effective, alongside) },
+    await futureBookings(tx, venueId, today, now)
+  );
+  if (stranded.length > 0) {
+    throw new Refused({
+      kind: "invalid",
+      issues: stranded.map((r) => ({
+        path: `reservations.${r.id}`,
+        code: "strands_booking",
+        message: "The rows replaced beside the closure would leave this booking without service.",
+      })),
+    });
+  }
 }
 
 /** Refuses what cannot become a clean closure before anything is written. */
@@ -303,7 +372,8 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
   if (state.stored.dateRules.some((r) => r.id === rule.id)) {
     throw new Refused({ kind: "closure_exists" });
   }
-  const found = await impactInTransaction(tx, venueId, state, rule, now);
+  await refuseBadAlongside(tx, input, state);
+  const found = await impactInTransaction(tx, venueId, state, rule, now, body.alongside);
   if (found.kind !== "ok") throw new Refused(found);
   const checked = checkDecisions(found.impact, body.decisions);
   if (checked.kind === "decision-required") {
@@ -312,17 +382,39 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
   if (checked.kind === "invalid-decision") {
     throw new Refused({ kind: "invalid_decision", groupKeys: checked.groupKeys });
   }
-  const plan = planOutcomes(venueId, caller.actorId, state, rule, found.impact, checked.actions);
+  const plan = planOutcomes(
+    venueId,
+    caller.actorId,
+    state,
+    rule,
+    body.alongside,
+    found.impact,
+    checked.actions,
+    now
+  );
   if (isRefusal(plan)) throw new Refused(plan);
 
-  const next = withRule(state.effective, rule);
+  const next = withClosure(state.effective, rule, body.alongside);
   const diff = diffConfig(state.stored, next);
   await writeConfigDiff(tx, venueId, diff, { actorId: caller.actorId, now }).catch((e: unknown) => {
     throw e instanceof ConfigRowConflict ? new Refused(conflictIssue(e, next) as Refusal) : e;
   });
   const version = body.expectedVersion + 1;
   const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
-  const meta: ClosureMeta = { ruleId: rule.id, idempotencyKey: key, version };
+  const meta: ClosureMeta = {
+    ruleId: rule.id,
+    idempotencyKey: key,
+    version,
+    outcome: {
+      cancelled: plan.counts.cancel,
+      moved: plan.counts.move,
+      kept: plan.counts.keep_notify + plan.counts.keep_silent,
+      closeEarly: rule.kind === "tonight",
+      startsOn: rule.startsOn,
+      endsOn: rule.endsOn ?? null,
+    },
+    ...(input.batch ? { batch: input.batch } : {}),
+  };
   const inverse = { ...inverseOf(state.stored, diff, state.operatingHours), closure: meta };
   const change = await tx.availabilityChange.create({
     data: {
@@ -391,6 +483,65 @@ export async function createClosure(
       return commit(tx, { venueId, caller, body, key, now, ruleKinds });
     });
     return { kind: "saved", result };
+  } catch (error) {
+    if (error instanceof Refused) return error.outcome;
+    throw error;
+  }
+}
+
+export type CreateClosuresOutcome =
+  { kind: "saved"; result: ClosuresResult } | Exclude<CreateClosureOutcome, { kind: "saved" }>;
+
+/**
+ * Several closures in one transaction (ux.md F6, "Add special date"). Each item commits exactly
+ * as `createClosure` would, in order, from the version the one before it left, so a booking's
+ * outcome, its notice and its refund stay keyed to its own rule. Any refusal rolls back every
+ * item: no booking is cancelled for one date while another date fails. Item `i` replays under
+ * `<key>#i`. Manager only; a Host's emergency close is a single `createClosure`.
+ */
+export async function createClosures(
+  input: {
+    venueId: string;
+    caller: ClosureCaller;
+    body: CreateClosuresBody;
+    idempotencyKey: string;
+    now: Date;
+  },
+  client: StoreClient = prisma
+): Promise<CreateClosuresOutcome> {
+  const { venueId, caller, body, idempotencyKey: key, now } = input;
+  if (!caller.isManager) return { kind: "forbidden" };
+  try {
+    const results = await client.$transaction(async (tx) => {
+      await setVenueContext(tx, venueId);
+      const saved: ClosureResult[] = [];
+      const batch: BatchShape = {
+        count: body.items.length,
+        ruleIds: body.items.map((i) => i.rule.id),
+      };
+      // A key already used for a batch answers only to that same batch: never a subset of it,
+      // and never a longer one whose appended items would commit beside the replayed ones.
+      const first = await findReplay(tx, venueId, `${key}#0`);
+      if (first && !sameBatch(first.closure.batch, batch)) {
+        throw new Refused({ kind: "key_reused" });
+      }
+      let expectedVersion = body.expectedVersion;
+      for (const [i, item] of body.items.entries()) {
+        const result = await commit(tx, {
+          venueId,
+          caller,
+          body: { expectedVersion, rule: item.rule, decisions: item.decisions },
+          key: `${key}#${i}`,
+          now,
+          ruleKinds: CLOSURE_RULE_KINDS,
+          batch,
+        });
+        saved.push(result);
+        expectedVersion = result.version;
+      }
+      return saved;
+    });
+    return { kind: "saved", result: { version: results.at(-1)!.version, results } };
   } catch (error) {
     if (error instanceof Refused) return error.outcome;
     throw error;
@@ -490,4 +641,9 @@ export async function reopenClosure(
 }
 
 /** The store as a domain-service record, for the `buildApp({ services })` seam. */
-export const closureCommandService = { create: createClosure, reopen: reopenClosure, mayClose };
+export const closureCommandService = {
+  create: createClosure,
+  createMany: createClosures,
+  reopen: reopenClosure,
+  mayClose,
+};

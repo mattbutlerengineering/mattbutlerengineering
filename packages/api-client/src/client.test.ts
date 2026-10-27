@@ -35,6 +35,27 @@ describe("ApiClient", () => {
       expect(mockFetch).toHaveBeenCalledOnce();
       const [url, options] = mockFetch.mock.calls[0]!;
       expect(url).toBe("https://api.test.com/users");
+      expect((options?.headers as Record<string, string>)["Content-Type"]).toBeUndefined();
+    });
+
+    it("omits Content-Type on a body-less DELETE (Fastify 400s an empty JSON body)", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: "ok" }));
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com" });
+      await client.request("/tonight/r1", { method: "DELETE" });
+
+      const [, options] = mockFetch.mock.calls[0]!;
+      const headers = options?.headers as Record<string, string>;
+      expect(Object.keys(headers).map((k) => k.toLowerCase())).not.toContain("content-type");
+    });
+
+    it("sends Content-Type: application/json when a body is present", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: "ok" }));
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com" });
+      await client.request("/x", { method: "POST", body: JSON.stringify({ a: 1 }) });
+
+      const [, options] = mockFetch.mock.calls[0]!;
       expect((options?.headers as Record<string, string>)["Content-Type"]).toBe("application/json");
     });
 
@@ -1137,7 +1158,7 @@ describe("ApiClient.call — execute an endpoint definition", () => {
     const headers = mockFetch.mock.calls[0]![1]?.headers as Record<string, string>;
     expect(headers["x-session-id"]).toBe("sess-1");
     expect(headers.Authorization).toBe("Bearer manage-tok");
-    expect(headers["Content-Type"]).toBe("application/json");
+    expect(headers["Content-Type"]).toBeUndefined();
   });
 
   it("an explicit per-call Authorization beats the client-wide access token", async () => {

@@ -1,6 +1,7 @@
 import { addDays } from "@mbe/availability";
 import type {
   AvailabilityChangeEntry,
+  AvailabilityChangeOutcome,
   AvailabilityChangesPage,
   AvailabilityChangesParsed,
 } from "@mbe/types";
@@ -33,6 +34,13 @@ export const REVERT_KIND = "revert";
 
 const toDay = (d: Date | null): string | null => (d ? d.toISOString().slice(0, 10) : null);
 const dayStart = (d: string): Date => new Date(`${d}T00:00:00.000Z`);
+
+/** The counts a closure recorded in its meta; `null` on rows saved before they were. */
+function outcomeOf(kind: string, inverse: unknown): AvailabilityChangeOutcome | null {
+  if (kind !== "closure") return null;
+  const meta = (inverse as { closure?: { outcome?: AvailabilityChangeOutcome } } | null)?.closure;
+  return meta?.outcome ?? null;
+}
 
 function whereOf(
   venueId: string,
@@ -95,6 +103,7 @@ export async function listAvailabilityChanges(
       affectedTo: toDay(r.affectedTo),
       notifiedGuests: r.notifiedGuests,
       revertedById: r.revertedById,
+      outcome: outcomeOf(r.kind, r.inverse),
       revertible:
         r.id === newest?.id &&
         !r.notifiedGuests &&
@@ -154,6 +163,8 @@ export async function revertAvailabilityChange(
       return {
         changes: { upsert: restore, remove: inverse.remove },
         scopeConflicts: "keep",
+        // The inverse is the exact prior state: no scope-conflict skips on top.
+        exact: true,
         kind: REVERT_KIND,
         summary: `Reverted: ${change.summary}`,
         // The column exactly as it was (null included), so undoing a venue's first

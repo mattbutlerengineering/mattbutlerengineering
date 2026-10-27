@@ -4,6 +4,7 @@ import {
   AVAILABILITY_CONFIG_PREFIX,
   AvailabilityConfigProblemSchema,
   ClosureResultSchema,
+  ClosuresResultSchema,
   ClosureSummariesSchema,
   ReopenResultSchema,
 } from "@mbe/types";
@@ -23,7 +24,7 @@ vi.mock("jose", () => ({
 
 const URL = `${AVAILABILITY_CONFIG_PREFIX}/venue-1/closures`;
 const ADMIN = { "x-auth-bypass": "true" };
-const commandSvc = { mayClose: vi.fn(), create: vi.fn(), reopen: vi.fn() };
+const commandSvc = { mayClose: vi.fn(), create: vi.fn(), createMany: vi.fn(), reopen: vi.fn() };
 const noticeSvc = {
   enqueueForClosure: vi.fn(),
   enqueueForReopen: vi.fn(),
@@ -182,6 +183,80 @@ describe("closure routes", () => {
     });
   });
 
+  describe("POST /closures/batch", () => {
+    const BATCH_URL = `${URL}/batch`;
+    const second = { ...rule, id: "dr-25", startsOn: "2026-12-25", endsOn: "2026-12-25" };
+    const BATCH = {
+      expectedVersion: 4,
+      items: [
+        { rule, decisions: [{ groupKey: "2026-12-24:closed", action: "cancel" }] },
+        { rule: second, decisions: [] },
+      ],
+    };
+    const BATCH_RESULT = {
+      version: 6,
+      results: [
+        RESULT,
+        { ...RESULT, ruleId: "dr-25", version: 6, outcomes: { ...RESULT.outcomes, cancel: 0 } },
+      ],
+    };
+    const post = (
+      payload: unknown = BATCH,
+      headers: Record<string, string> = { ...ADMIN, "idempotency-key": "k-1" }
+    ) => app.inject({ method: "POST", url: BATCH_URL, headers, payload: payload as object });
+
+    it("saves every item with the Idempotency-Key and returns each result", async () => {
+      commandSvc.createMany.mockResolvedValueOnce({ kind: "saved", result: BATCH_RESULT });
+
+      const res = await post();
+
+      expect(res.statusCode).toBe(200);
+      expect(ClosuresResultSchema.parse(res.json().data)).toEqual(BATCH_RESULT);
+      expect(commandSvc.createMany).toHaveBeenCalledWith(
+        expect.objectContaining({ venueId: "venue-1", idempotencyKey: "k-1", body: BATCH })
+      );
+    });
+
+    it("enqueues refunds and notices for each saved closure after the commit", async () => {
+      commandSvc.createMany.mockResolvedValueOnce({ kind: "saved", result: BATCH_RESULT });
+
+      await post();
+
+      expect(noticeSvc.enqueueForClosure).toHaveBeenCalledTimes(2);
+      expect(noticeSvc.enqueueForClosure).toHaveBeenCalledWith(
+        expect.objectContaining({ venueId: "venue-1", ruleId: "dr-25" })
+      );
+      // Only the item that cancelled bookings owes a refund job.
+      expect(closureRefunds.enqueue).toHaveBeenCalledTimes(1);
+      expect(closureRefunds.enqueue).toHaveBeenCalledWith("venue-1", "dr-new");
+    });
+
+    it("enqueues nothing for a refusal", async () => {
+      commandSvc.createMany.mockResolvedValueOnce({
+        kind: "decision_required",
+        groupKeys: ["2026-12-25:closed"],
+      });
+
+      const res = await post();
+
+      expect(res.statusCode).toBe(422);
+      expect(AvailabilityConfigProblemSchema.parse(res.json()).code).toBe("decision-required");
+      expect(closureRefunds.enqueue).not.toHaveBeenCalled();
+      expect(noticeSvc.enqueueForClosure).not.toHaveBeenCalled();
+    });
+
+    it("400s without an Idempotency-Key and for an empty or malformed batch", async () => {
+      expect((await post(BATCH, ADMIN)).statusCode).toBe(400);
+      expect((await post({ expectedVersion: 4, items: [] })).statusCode).toBe(400);
+      expect(commandSvc.createMany).not.toHaveBeenCalled();
+    });
+
+    it("answers a Host with 403", async () => {
+      commandSvc.createMany.mockResolvedValueOnce({ kind: "forbidden" });
+      expect((await post()).statusCode).toBe(403);
+    });
+  });
+
   describe("GET /closures", () => {
     it("lists the outcome summary of every closure", async () => {
       const summary = {
@@ -192,6 +267,9 @@ describe("closure routes", () => {
         rebooked: 1,
         unreachable: 2,
         refundFailed: 1,
+        refundFailures: [
+          { outcomeId: "o-1", guestName: "Rivera", amountCents: 4000, currency: "usd" },
+        ],
         refundPending: 0,
       };
       noticeSvc.summaries.mockResolvedValueOnce([summary]);

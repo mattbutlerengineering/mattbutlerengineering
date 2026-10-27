@@ -885,6 +885,14 @@ describe("availabilityService.getDayAvailability", () => {
     ]);
   });
 
+  it("reports no closure for a venue that never set hours", async () => {
+    stubOpenVenue({ operatingHours: null });
+
+    const day = await availabilityService.getDayAvailability(VENUE_ID, "2026-05-05", 2);
+
+    expect(day).toEqual({ slots: [] });
+  });
+
   it("is closed, and logs a warning, when the legacy hours cannot be read", async () => {
     stubOpenVenue({ operatingHours: { version: 7 } });
     const logger = { warn: vi.fn() };
@@ -893,7 +901,7 @@ describe("availabilityService.getDayAvailability", () => {
       logger,
     });
 
-    expect(day).toEqual({ slots: [] });
+    expect(day).toEqual({ slots: [], closure: { message: "Closed on this date." } });
     expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({ table: "venues", id: VENUE_ID }),
       "availability_snapshot_row_invalid"

@@ -3,13 +3,14 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { Alert, Button, Dialog, Text, useToast } from "@mattbutlerengineering/rialto";
 import {
-  AvailabilityConfigProblemSchema,
+  type AvailabilityChangeSummary,
   type AvailabilityConfigState,
   type ClosureImpact,
   type DateRule,
 } from "@mbe/types";
 import { useClosureImpact, useCreateClosure } from "../../hooks/useClosures.js";
 import { useNow } from "../../hooks/useNow.js";
+import { useRefreshAvailability } from "../../hooks/useRefreshAvailability.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import { minutesOfDayIn } from "../../utils/service-day.js";
@@ -24,6 +25,8 @@ import {
   type CloseField,
   type CloseForm,
 } from "./close-draft.js";
+import { conflictOf } from "./conflict-problem.js";
+import { useWinningChangeText } from "./use-winning-change-text.js";
 import { CloseStepOne } from "./CloseStepOne.js";
 import { CloseStepTwo } from "./CloseStepTwo.js";
 import { outcomeLabel } from "./outcome-label.js";
@@ -105,12 +108,9 @@ function inSeries(rule: DateRule | null, series: DateRule | undefined): DateRule
 }
 
 function failureText(error: unknown, t: TFunction): string {
-  const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
-  const problem = AvailabilityConfigProblemSchema.safeParse(details);
-  if (problem.success && problem.data.code === "version-conflict") {
-    return t("availability.close.versionConflict");
-  }
-  return describeApiError(error).detail;
+  return conflictOf(error)?.code === "version-conflict"
+    ? t("availability.close.versionConflict")
+    : describeApiError(error).detail;
 }
 
 /**
@@ -125,12 +125,18 @@ export function CloseDialog(props: CloseDialogProps) {
   const { toast } = useToast();
   const now = useNow();
   const { mutateAsync, isPending } = useCreateClosure();
+  const refresh = useRefreshAvailability();
 
   const [form, setForm] = useState<CloseForm>(() => initialForm(props));
   const [step, setStep] = useState<1 | 2>(1);
   const [choices, setChoices] = useState<ChoiceMap>({});
   const [invalid, setInvalid] = useState<CloseField | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  // Set on a 409 version conflict: the change that won, `null` when none is recorded.
+  const [winner, setWinner] = useState<{
+    readonly change: AvailabilityChangeSummary | null;
+  } | null>(null);
+  const winnerText = useWinningChangeText(winner?.change ?? null);
   // One id per dialog: the rule is created at most once, whatever the Manager retries.
   const [ruleId] = useState(() => crypto.randomUUID());
 
@@ -167,6 +173,7 @@ export function CloseDialog(props: CloseDialogProps) {
   const save = async () => {
     if (!rule) return;
     setFailure(null);
+    setWinner(null);
     try {
       const result = await mutateAsync({
         venueId,
@@ -187,12 +194,17 @@ export function CloseDialog(props: CloseDialogProps) {
       onClose();
     } catch (error) {
       setFailure(failureText(error, t));
+      const conflict = conflictOf(error);
+      if (conflict?.code === "version-conflict") {
+        setWinner({ change: conflict.winningChange });
+        refresh();
+      }
     }
   };
 
   const counts = outcomeCounts(groups, choices);
   const urgent = isUrgent(
-    { startsOn, fromMinute: form.fromMinute },
+    { startsOn, endsOn: rule?.endsOn, repeat: rule?.repeat, fromMinute: form.fromMinute },
     today,
     minutesOfDayIn(now, timezone)
   );
@@ -243,6 +255,7 @@ export function CloseDialog(props: CloseDialogProps) {
       {failure && (
         <Alert variant="error" title={t("availability.close.saveError")}>
           {failure}
+          {winner && <Text variant="body">{winnerText}</Text>}
         </Alert>
       )}
       {step === 1 ? (

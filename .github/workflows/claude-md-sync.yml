@@ -91,20 +91,22 @@ jobs:
             echo "SUMMARY_EOF" >> "$GITHUB_OUTPUT"
           fi
 
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.summary.outputs.has_learnings == 'true'
+        with:
+          node-version-file: ".nvmrc"
+
       - name: Check if CLAUDE.md references are current
         if: steps.summary.outputs.has_learnings == 'true'
         id: drift
         run: |
           DRIFT_ITEMS=""
 
-          # Check for new package CLAUDE.md files not referenced in root
-          NEW_CLAUDES=$(find packages services apps -name 'CLAUDE.md' 2>/dev/null | while read -r f; do
-            DIR=$(dirname "$f")
-            BASENAME=$(basename "$DIR")
-            if ! grep -q "$DIR" CLAUDE.md 2>/dev/null && ! grep -q "$BASENAME" CLAUDE.md 2>/dev/null; then
-              echo "$f"
-            fi
-          done || true)
+          # Check for new package/service/app CLAUDE.md files root CLAUDE.md
+          # doesn't document — packages/* and services/* are covered by a
+          # generic catch-all there, so only apps/* needs an explicit mention
+          # (scripts/check-claude-md-package-refs.mjs, #7694).
+          NEW_CLAUDES=$(node scripts/check-claude-md-package-refs.mjs || true)
 
           if [ -n "$NEW_CLAUDES" ]; then
             DRIFT_ITEMS="${DRIFT_ITEMS}- New package CLAUDE.md files not referenced in root:\n"

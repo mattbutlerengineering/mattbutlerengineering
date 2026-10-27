@@ -7,6 +7,7 @@ import type {
   Seating,
   SpecialHoursService,
 } from "@mbe/types";
+import { editHoursRule, type SeriesScope, type SpecialHoursRule } from "./series-edit.js";
 
 /**
  * The drawer's draft: the services a Manager is editing and the scope they apply to, and the
@@ -22,7 +23,14 @@ export type EditScope =
   | { readonly kind: "weekday"; readonly from: string; readonly until: string | null }
   | { readonly kind: "schedule"; readonly scheduleId: string }
   /** Exactly these dates, picked in the multi-select bar (ux.md F-MS). */
-  | { readonly kind: "dates"; readonly dates: readonly string[] };
+  | { readonly kind: "dates"; readonly dates: readonly string[] }
+  /** A range or repeating special-hours rule, from `from` on ("following") or whole ("all"). */
+  | {
+      readonly kind: "rule";
+      readonly ruleId: string;
+      readonly mode: SeriesScope;
+      readonly from: string;
+    };
 
 /** One editable service row. */
 export interface DraftService {
@@ -53,12 +61,30 @@ const hoursOf = (s: SeedService): SeedService => ({
   bookingTypes: s.bookingTypes,
 });
 
+function hoursRuleOf(config: AvailabilityConfig, ruleId: string): SpecialHoursRule | undefined {
+  return config.dateRules.find(
+    (r): r is SpecialHoursRule => r.id === ruleId && r.kind === "special_hours"
+  );
+}
+
 /** The rows the drawer starts from: the day as resolved, or the schedule's own services. */
 export function seedServices(
   config: AvailabilityConfig,
   day: Pick<ResolvedDaySummary, "services">,
   scope: EditScope
 ): DraftService[] {
+  const names = new Map(config.venueServices.map((v) => [v.id, v.name]));
+  if (scope.kind === "rule") {
+    return [...(hoursRuleOf(config, scope.ruleId)?.payload.services ?? [])]
+      .sort((a, b) => a.opensAt - b.opensAt)
+      .map((s) => ({
+        ...hoursOf(s),
+        key: s.venueServiceId,
+        venueServiceId: s.venueServiceId,
+        scheduleServiceId: null,
+        name: names.get(s.venueServiceId) ?? s.venueServiceId,
+      }));
+  }
   if (scope.kind !== "schedule") {
     return day.services.map((s) => ({
       ...hoursOf(s),
@@ -68,7 +94,6 @@ export function seedServices(
       name: s.name,
     }));
   }
-  const names = new Map(config.venueServices.map((v) => [v.id, v.name]));
   return config.scheduleServices
     .filter((s) => s.scheduleId === scope.scheduleId)
     .sort((a, b) => a.opensAt - b.opensAt)
@@ -100,6 +125,8 @@ interface BuildInput {
    * since the server treats a changed rule as incoming and would overwrite it.
    */
   readonly leaveOut?: readonly string[];
+  /** Today on the venue clock: a rule edit's "All dates" starts here, so past dates keep their hours. */
+  readonly today?: string;
 }
 
 /** The venue's own single-date special-hours rule for `date`, which a date edit changes in place. */
@@ -190,6 +217,19 @@ export function buildDraftChanges(input: BuildInput): AvailabilityConfigChanges 
     bookingTypes: [...s.bookingTypes],
     venueServiceId: s.venueServiceId,
   }));
+  if (scope.kind === "rule") {
+    const rule = hoursRuleOf(config, scope.ruleId);
+    if (!rule) return { upsert: venueServices, remove: {} };
+    const changes = editHoursRule(
+      rule,
+      scope.mode,
+      scope.from,
+      { version: 1, services: payload },
+      makeId,
+      input.today
+    );
+    return { upsert: { ...venueServices, ...changes.upsert }, remove: {} };
+  }
   if (scope.kind === "dates" || scope.kind === "date") {
     const picked = scope.kind === "date" ? [scope.date] : scope.dates;
     const skipped = new Set(input.leaveOut ?? []);

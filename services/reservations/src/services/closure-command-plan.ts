@@ -75,23 +75,61 @@ function wallMinutes(instant: Date, serviceDate: string, tz: string): number {
   );
 }
 
+type StartRange = readonly [lo: number, hi: number];
+
+/**
+ * The ranges left of `ranges` once starts that hit the band are removed.
+ * `span` is how much of the booking the band covers: all of it for a closure,
+ * one minute (the start) for a Tonight stop window, which only stops new seatings.
+ */
+function clearOfBand(
+  ranges: readonly StartRange[],
+  band: { from: number; to: number },
+  span: number
+): StartRange[] {
+  const lastBefore = band.from - span; // latest start that clears the band
+  return ranges.flatMap(([lo, hi]) => [
+    ...(lo <= lastBefore ? [[lo, Math.min(hi, lastBefore)] as const] : []),
+    ...(hi >= band.to ? [[Math.max(lo, band.to), hi] as const] : []),
+  ]);
+}
+
 /**
  * The start closest to the booking's own that the changed day still serves
  * with the booking's length: inside one service, no later than its last
- * seating, and finishing by its close. Null when no service can hold it.
+ * seating, finishing by its close, not before `now`, and clear of every
+ * closure band that covers the service (a windowed closure is a band, not a
+ * trimmed service). Null when nothing fits, or the booking already sits there.
  */
 export function moveTarget(
   after: AvailabilitySnapshot,
   serviceDate: string,
-  booking: Pick<ClosureImpactReservation, "startTime" | "endTime">
+  booking: Pick<ClosureImpactReservation, "startTime" | "endTime">,
+  now: Date
 ): { startTime: Date; endTime: Date } | null {
   const start = new Date(booking.startTime);
   const durationMin = (Date.parse(booking.endTime) - start.getTime()) / MS_PER_MINUTE;
   const startMin = wallMinutes(start, serviceDate, after.timezone);
-  const candidates = resolveDay(after, serviceDate).services.flatMap((s) => {
-    const latest = Math.min(s.lastSeatingAt, s.closesAt - durationMin);
-    if (latest < s.opensAt) return [];
-    return [Math.min(Math.max(startMin, s.opensAt), latest)];
+  const nowMin = wallMinutes(now, serviceDate, after.timezone);
+  const day = resolveDay(after, serviceDate);
+  const stopRuleIds = new Set(
+    after.config.dateRules.filter((r) => r.kind === "tonight").map((r) => r.id)
+  );
+  const spanOf = (band: { ruleId: string }): number =>
+    stopRuleIds.has(band.ruleId) ? 1 : durationMin;
+  const candidates = day.services.flatMap((s) => {
+    const bands = day.closures.filter(
+      (c) =>
+        c.targetKind === "venue" ||
+        (c.targetKind === "service" && c.venueServiceId === s.venueServiceId)
+    );
+    const open: StartRange[] = [
+      [Math.max(s.opensAt, nowMin), Math.min(s.lastSeatingAt, s.closesAt - durationMin)],
+    ];
+    const free = bands
+      .reduce((ranges, band) => clearOfBand(ranges, band, spanOf(band)), open)
+      .filter(([lo, hi]) => lo <= hi);
+    return free.map(([lo, hi]) => Math.min(Math.max(startMin, lo), hi));
   });
   const best = candidates.sort((a, b) => Math.abs(a - startMin) - Math.abs(b - startMin))[0];
   if (best === undefined || best === startMin) return null;
@@ -120,26 +158,127 @@ export function currentServiceDate(snapshot: AvailabilitySnapshot, now: Date): s
   return isOpen(yesterday) ? yesterday : today;
 }
 
+/** A service a Tonight change leaves open for less than this is closed in effect (#7687). */
+export const MIN_SERVICE_MINUTES = 60;
+
+type DayServices = ReturnType<typeof resolveDay>;
+
 /**
- * Whether a Tonight close-early takes away every service it targets on the
- * planned day (Tonight changes stripped): a close at or before the earliest
- * open drops them all (resolve-day `closeEarly`), which is a closure, not a
- * shortened night. A target with no service tonight removes nothing.
+ * The seating starts a service still offers on a resolved day from `fromMin`: its own grid
+ * (every interval from the open, or its fixed times), up to the last seating and before close,
+ * not inside a stop band that covers it. The engine books these and nothing between them.
  */
-export function closesAllOfTonight(snapshot: AvailabilitySnapshot, rule: DateRule): boolean {
-  if (rule.kind !== "tonight" || !("closeAt" in rule.payload)) return false;
-  const { closeAt } = rule.payload;
-  const planned = {
-    ...snapshot,
-    config: {
-      ...snapshot.config,
-      dateRules: snapshot.config.dateRules.filter((r) => r.kind !== "tonight"),
-    },
-  };
-  const targeted = resolveDay(planned, rule.startsOn).services.filter(
-    (s) => rule.targetKind === "venue" || s.venueServiceId === rule.venueServiceId
+function seatingStarts(
+  day: DayServices,
+  venueServiceId: string,
+  fromMin: number,
+  tableIds: readonly string[] = []
+): number[] {
+  const s = day.services.find((d) => d.venueServiceId === venueServiceId);
+  if (!s) return [];
+  const grid =
+    "interval" in s.seating
+      ? Array.from(
+          {
+            length: Math.max(Math.floor((s.lastSeatingAt - s.opensAt) / s.seating.interval) + 1, 0),
+          },
+          (_, k) => s.opensAt + k * (s.seating as { interval: number }).interval
+        )
+      : [...new Set(s.seating.fixed)];
+  const bands = day.closures.filter(
+    (c) =>
+      c.targetKind === "venue" ||
+      (c.targetKind === "service" && c.venueServiceId === s.venueServiceId)
   );
-  return targeted.length > 0 && targeted.every((s) => s.opensAt >= closeAt);
+  return grid
+    .filter((m) => m >= Math.max(s.opensAt, fromMin) && m <= s.lastSeatingAt && m < s.closesAt)
+    .filter((m) => !bands.some((band) => band.from <= m && m < band.to))
+    .filter((m) => channelOpen(day, s, m) && tableFree(day, tableIds, m))
+    .sort((x, y) => x - y);
+}
+
+const inBand = (band: { from: number; to: number }, m: number): boolean =>
+  band.from <= m && m < band.to;
+
+/** Whether at least one of the service's booking channels is still open at minute `m`. */
+function channelOpen(day: DayServices, s: DayServices["services"][number], m: number): boolean {
+  return s.bookingTypes.some(
+    (channel) =>
+      day.bookingOpen[channel] &&
+      !day.closures.some(
+        (c) =>
+          c.targetKind === "booking" && inBand(c, m) && (c.bookingTypes ?? []).includes(channel)
+      )
+  );
+}
+
+/** Whether a table is left unblocked at minute `m`. No table list means tables are not judged. */
+function tableFree(day: DayServices, tableIds: readonly string[], m: number): boolean {
+  if (tableIds.length === 0) return true;
+  const blocked = new Set(
+    day.closures
+      .filter((c) => c.targetKind === "tables" && inBand(c, m))
+      .flatMap((c) => c.tableIds ?? [])
+  );
+  return tableIds.some((id) => !blocked.has(id));
+}
+
+/** First seating to last seating, in minutes: how long the service is still taking bookings. */
+const spanOf = (starts: readonly number[]): number =>
+  starts.length === 0 ? 0 : starts[starts.length - 1]! - starts[0]!;
+
+/**
+ * Whether a Tonight change is the emergency close in effect (#7687): on ANY
+ * targeted service that is still bookable from `now` before the change (a venue
+ * target is judged service by service, so wiping dinner is a close even while
+ * lunch keeps slots), the
+ * change leaves nothing bookable from `now`, or leaves less than
+ * MIN_SERVICE_MINUTES between its first and last seating, counted from the planned open.
+ * "Before" keeps the other active Tonight rules, so closing the night in steps
+ * is judged on its last step. A service already past its last seating has
+ * nothing left to close. A seating counts only while it keeps an unblocked table
+ * (of `tableIds`; empty means tables are not judged) and an open booking channel,
+ * so blocking every table or pausing the only open channel is a close too (#7721).
+ * Booking and table targets apply to every service.
+ */
+export function isEmergencyTonightClose(
+  snapshot: AvailabilitySnapshot,
+  rule: DateRule,
+  now: Date,
+  tableIds: readonly string[] = []
+): boolean {
+  if (rule.kind !== "tonight") return false;
+  const starts = (day: DayServices, id: string, from: number): number[] =>
+    seatingStarts(day, id, from, tableIds);
+  const others = snapshot.config.dateRules.filter((r) => r.id !== rule.id);
+  const withRules = (dateRules: DateRule[]): AvailabilitySnapshot => ({
+    ...snapshot,
+    config: { ...snapshot.config, dateRules },
+  });
+  const planned = resolveDay(withRules(others.filter((r) => r.kind !== "tonight")), rule.startsOn);
+  const before = resolveDay(withRules(others), rule.startsOn);
+  const after = resolveDay(withRules([...others, rule]), rule.startsOn);
+  const nowMin = wallMinutes(now, rule.startsOn, snapshot.timezone);
+  const live = before.services
+    .filter((s) => rule.targetKind !== "service" || s.venueServiceId === rule.venueServiceId)
+    .filter((s) => starts(before, s.venueServiceId, nowMin).length > 0);
+  return (
+    live.length > 0 &&
+    live.some((s) => {
+      const remaining = starts(after, s.venueServiceId, nowMin);
+      if (remaining.length === 0) return true;
+      // A change that takes no seating away closes nothing, however short the service already is.
+      const current = starts(before, s.venueServiceId, nowMin);
+      if (remaining.length === current.length) return false;
+      const plannedOpen = planned.services.find((p) => p.venueServiceId === s.venueServiceId);
+      const openAt = plannedOpen?.opensAt ?? s.opensAt;
+      const floor = Math.min(
+        MIN_SERVICE_MINUTES,
+        spanOf(starts(planned, s.venueServiceId, openAt))
+      );
+      return spanOf(starts(after, s.venueServiceId, openAt)) < floor;
+    })
+  );
 }
 
 /**

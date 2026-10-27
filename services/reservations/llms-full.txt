@@ -475,6 +475,33 @@
       }
     
       /**
+       * Make sure a runnable job exists under `jobId`, for a caller that knows the
+       * work is still owed (the closure outcome sweeper). BullMQ treats an id held
+       * in ANY state, including retained failed / completed jobs, as a duplicate,
+       * so a plain `schedule` would silently do nothing. Here:
+       *  - no job → add it (`added`);
+       *  - failed or completed → remove it and add it again under the same id
+       *    (`requeued`), so replicas still dedupe on that id;
+       *  - waiting / delayed / active / etc. → leave it (`live`).
+       */
+      async requeue<T extends JobType>(
+        jobType: T,
+        payload: JobPayloadMap[T],
+        jobId: string
+      ): Promise<"added" | "requeued" | "live"> {
+        const existing = await this.queue.getJob(jobId);
+        if (!existing) {
+          await this.schedule(jobType, payload, 0, jobId);
+          return "added";
+        }
+        const state = await existing.getState();
+        if (state !== "failed" && state !== "completed") return "live";
+        await existing.remove();
+        await this.schedule(jobType, payload, 0, jobId);
+        return "requeued";
+      }
+    
+      /**
        * Schedule a recurring cron job.
        * @param jobType        The type of job to run.
        * @param payload        Typed payload for the job.
@@ -2504,9 +2531,17 @@
           if (allowed === null) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
           }
-          if (!allowed)
+          // A series edit's replaced rows are a Manager's change, as in the closure command.
+          if (!allowed || (request.body.alongside && !caller.isManager)) {
             return reply.code(403).send(createProblemDetails(403, "Forbidden", CLOSURE_FORBIDDEN));
-          const outcome = await closureImpactService.impact(venueId, request.body.rule, now);
+          }
+          const outcome = await closureImpactService.impact(
+            venueId,
+            request.body.rule,
+            now,
+            undefined,
+            request.body.alongside
+          );
           switch (outcome.kind) {
             case "not_found":
               return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
@@ -3071,6 +3106,44 @@
             ruleId: outcome.result.ruleId,
             cancelled: outcome.result.outcomes.cancel,
           });
+          return { data: outcome.result };
+        }),
+      });
+    
+      registerEndpoint(fastify, availabilityConfigEndpoints.createClosures, {
+        docs: {
+          summary: "Save several closures in one transaction",
+          operationId: "createClosures",
+          description:
+            "Each item is a `POST …/closures` body; the items commit in order inside one transaction, so a refusal (a missing decision, a move with no open time, a stale version) saves none of them and cancels no booking. Every item keeps its own rule, outcomes, audit row, refund job and notices. Requires an `Idempotency-Key` header; a replay returns the stored results. Manager only.",
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(VENUE_FROM_ID, async (request, reply, { venueId, isAdmin }) => {
+          const key = request.headers["idempotency-key"];
+          if (typeof key !== "string" || key.trim() === "") {
+            return reply
+              .code(400)
+              .send(createProblemDetails(400, "Bad Request", "Idempotency-Key header is required"));
+          }
+          const caller = await closureCaller(request, venueId, isAdmin);
+          const outcome = await closureCommandService.createMany({
+            venueId,
+            caller,
+            body: request.body,
+            idempotencyKey: key,
+            now: new Date(),
+          });
+          if (outcome.kind !== "saved") return sendRefusal(reply, outcome);
+          // After the commit; failures are logged, never returned.
+          for (const saved of outcome.result.results) {
+            await enqueueClosureJobs(fastify, request.log, {
+              venueId,
+              ruleId: saved.ruleId,
+              cancelled: saved.outcomes.cancel,
+            });
+          }
           return { data: outcome.result };
         }),
       });
@@ -4850,7 +4923,8 @@
               const { id, guestEmail } = result.reservation;
               return reply.status(201).send({
                 data: { reservationId: id, startTime: result.reservation.startTime },
-                manageToken: guestEmail ? generateManageToken(id, guestEmail) : undefined,
+                // A phone-only guest signs with "", like the closure notice runtime.
+                manageToken: generateManageToken(id, guestEmail ?? ""),
               });
             }
             if (result.reason === "rejected") {
@@ -4909,20 +4983,20 @@
           async (_request, reply, { venueId, reservation }) => {
             const venue = await venueService.getById(venueId);
             const loaded = await loadVenueCancellation(reservation, venueId);
-            // The new booking belongs to the same guest, so the same email signs its token.
-            const venueCancellation =
-              loaded?.rebooked && reservation.guestEmail
-                ? {
-                    ...loaded,
-                    rebooked: {
-                      startTime: loaded.rebooked.startTime,
-                      manageToken: generateManageToken(
-                        loaded.rebooked.reservationId,
-                        reservation.guestEmail
-                      ),
-                    },
-                  }
-                : loaded;
+            // The new booking belongs to the same guest, so the same email signs its
+            // token ("" for a phone-only guest, like the closure notice runtime).
+            const venueCancellation = loaded?.rebooked
+              ? {
+                  ...loaded,
+                  rebooked: {
+                    startTime: loaded.rebooked.startTime,
+                    manageToken: generateManageToken(
+                      loaded.rebooked.reservationId,
+                      reservation.guestEmail ?? ""
+                    ),
+                  },
+                }
+              : loaded;
     
             return reply.status(200).send({
               data: {
@@ -10532,7 +10606,9 @@
     }
     export type GateRejection =
       | { code: "outside-availability"; reason: HardReason; message?: string }
-      | { code: "soft-limit"; limits: SoftLimit[] };
+      | { code: "soft-limit"; limits: SoftLimit[] }
+      /** The client's `date` is not the service day that owns `start` (ADR-029). */
+      | { code: "date-mismatch"; serviceDate: string };
     export type GateOutcome =
       | { kind: "ok"; overrideLimits?: SoftLimit[] }
       | { kind: "conflict" }
@@ -10542,6 +10618,12 @@
       /** Omit to ask whether any table is free (the staff check endpoint). */
       tableId?: string;
       start: Date;
+      /**
+       * The date the client sent with `start`. When given, it must be the service
+       * day that owns `start` (a past-midnight seating belongs to the previous
+       * day), else the row would hide from every conflict read keyed on its date.
+       */
+      serviceDate?: string;
       /** The booking's real end. Without it the engine estimates one from the party size. */
       end?: Date;
       partySize: number;
@@ -10549,6 +10631,8 @@
       channel: BookingChannel;
       /** A staff reason to pass a soft limit. Honoured on the phone channel only; closures never yield. */
       override?: { reason: string };
+      /** Where the reservation being moved starts now; lets a booking kept through a closure move within its date. */
+      movingFrom?: Date;
       /** The reservation being moved; it must not conflict or pace against itself. */
       excludeReservationId?: string;
       /** The hold being confirmed or moved onto. */
@@ -10602,6 +10686,7 @@
           channel: request.channel,
           tableId: request.tableId,
           override: request.override,
+          movingFrom: request.movingFrom,
         },
         now
       );
@@ -10610,8 +10695,20 @@
         request.channel === "phone" &&
         verdict.kind === "hard" &&
         verdict.reason === "outside_service";
-      if (!staffOnUnsetHours) return outcomeOf(verdict);
-      return unsetHoursStaffOutcome(snapshot, request, logger);
+      const outcome = staffOnUnsetHours
+        ? unsetHoursStaffOutcome(snapshot, request, logger)
+        : outcomeOf(verdict);
+      if (outcome.kind === "rejected") return outcome;
+      return dateMismatch(snapshot, request) ?? outcome;
+    }
+    function dateMismatch(snapshot: BookingSnapshot, request: GateRequest): GateOutcome | null {
+      if (request.serviceDate === undefined) return null;
+      const local = localDateTimeOf(request.start, snapshot.timezone).date;
+      // With no hours configured no service owns the time; accept the local day or the one before.
+      const owner = owningServiceDate(snapshot, request.start);
+      const accepted = owner === undefined ? [local, addDays(local, -1)] : [owner];
+      if (accepted.includes(request.serviceDate)) return null;
+      return { kind: "rejected", rejection: { code: "date-mismatch", serviceDate: owner ?? local } };
     }
     function outcomeOf(verdict: Verdict): GateOutcome {
       switch (verdict.kind) {
@@ -10683,6 +10780,9 @@
       if (rejection.code === "outside-availability") {
         return rejection.message ?? OUTSIDE_AVAILABILITY_DETAIL[rejection.reason];
       }
+      if (rejection.code === "date-mismatch") {
+        return `The date does not match the requested time, which falls on the ${rejection.serviceDate} service day.`;
+      }
       return `This booking is ${rejection.limits.map((l) => SOFT_LIMIT_DETAIL[l]).join(" and ")}.`;
     }
     export function gateProblem(rejection: GateRejection): ProblemDetails {
@@ -10691,6 +10791,12 @@
         return createProblemDetails(422, "Outside Availability", detail, "about:blank", undefined, {
           code: rejection.code,
           reason: rejection.reason,
+        });
+      }
+      if (rejection.code === "date-mismatch") {
+        return createProblemDetails(422, "Date Mismatch", detail, "about:blank", undefined, {
+          code: rejection.code,
+          serviceDate: rejection.serviceDate,
         });
       }
       return createProblemDetails(422, "Soft Limit", detail, "about:blank", undefined, {
@@ -10716,6 +10822,11 @@
   </file>
   <file path="src/services/availability-changes.ts">
     export const REVERT_KIND = "revert";
+    function outcomeOf(kind: string, inverse: unknown): AvailabilityChangeOutcome | null {
+      if (kind !== "closure") return null;
+      const meta = (inverse as { closure?: { outcome?: AvailabilityChangeOutcome } } | null)?.closure;
+      return meta?.outcome ?? null;
+    }
     function whereOf(
       venueId: string,
       query: AvailabilityChangesParsed
@@ -10773,6 +10884,7 @@
           affectedTo: toDay(r.affectedTo),
           notifiedGuests: r.notifiedGuests,
           revertedById: r.revertedById,
+          outcome: outcomeOf(r.kind, r.inverse),
           revertible:
             r.id === newest?.id &&
             !r.notifiedGuests &&
@@ -10825,6 +10937,8 @@
           return {
             changes: { upsert: restore, remove: inverse.remove },
             scopeConflicts: "keep",
+            // The inverse is the exact prior state: no scope-conflict skips on top.
+            exact: true,
             kind: REVERT_KIND,
             summary: `Reverted: ${change.summary}`,
             // The column exactly as it was (null included), so undoing a venue's first
@@ -10861,9 +10975,13 @@
         case "rejected": {
           const { rejection } = outcome;
           const message = rejectionDetail(rejection);
-          return rejection.code === "soft-limit"
-            ? { kind: "soft", limits: rejection.limits, message }
-            : { kind: "hard", reason: rejection.reason, message };
+          if (rejection.code === "soft-limit") {
+            return { kind: "soft", limits: rejection.limits, message };
+          }
+          // The check endpoint sends no date, so it never yields `date-mismatch`.
+          const reason =
+            rejection.code === "outside-availability" ? rejection.reason : "outside_service";
+          return { kind: "hard", reason, message };
         }
       }
     }
@@ -10942,27 +11060,46 @@
         ];
       });
     }
-    function dayLabel(config: AvailabilityConfig, day: ResolvedDay): string {
+    function isDayClosed(day: ResolvedDay): boolean {
       const closedAllDay = day.closures.some(
         (c) => c.targetKind === "venue" && c.from <= 0 && c.to >= WHOLE_DAY_MINUTES
       );
-      if (closedAllDay || day.services.length === 0) return "Closed";
+      return closedAllDay || day.services.length === 0;
+    }
+    function dayLabel(config: AvailabilityConfig, day: ResolvedDay): string {
+      if (isDayClosed(day)) return "Closed";
       if (day.explanation.some((l) => l.kind === "special_hours")) return "Special hours";
       return config.schedules.find((s) => s.id === day.scheduleId)?.name ?? "Open";
     }
+    export function daySummaryServices(
+      names: ReadonlyMap<string, string>,
+      day: ResolvedDay
+    ): DaySummaryService[] {
+      return day.services.map((s) => ({
+        venueServiceId: s.venueServiceId,
+        name: names.get(s.venueServiceId) ?? s.name,
+        opensAt: s.opensAt,
+        lastSeatingAt: s.lastSeatingAt,
+        closesAt: s.closesAt,
+      }));
+    }
     export function summarizeDay(config: AvailabilityConfig, day: ResolvedDay): AvailabilityDaySummary {
+      const label = dayLabel(config, day);
+      const names = new Map(config.venueServices.map((s) => [s.id, s.name]));
       return {
         serviceDate: day.serviceDate,
-        label: dayLabel(config, day),
+        label,
         scheduleId: day.scheduleId,
         serviceCount: day.services.length,
-        closures: day.closures.map(({ ruleId, targetKind, from, to }) => ({
+        closures: day.closures.map(({ ruleId, targetKind, from, to, bookingTypes }) => ({
           ruleId,
           targetKind,
           from,
           to,
+          ...(targetKind === "booking" && bookingTypes ? { bookingTypes } : {}),
         })),
         bookingOpen: day.bookingOpen,
+        services: isDayClosed(day) ? [] : daySummaryServices(names, day),
         ...(day.guestMessage ? { guestMessage: day.guestMessage } : {}),
       };
     }
@@ -11006,6 +11143,11 @@
         if (coversDate(a, d) && coversDate(b, d)) dates.push(d);
       }
       return dates;
+    }
+    function newlyCoveredShared(rule: DateRule, prior: DateRule | undefined, theirs: DateRule) {
+      const shared = sharedDates(rule, theirs);
+      if (!prior || !sameRow(withoutRange(prior), withoutRange(rule))) return shared;
+      return shared.filter((date) => !coversDate(prior, date));
     }
     type Skip = { seriesId: string; date: string };
     function editedSchedules(before: AvailabilityConfig, next: AvailabilityConfig): Set<string> {
@@ -11072,7 +11214,7 @@
       const skips: Skip[] = [
         ...incoming.flatMap((rule) =>
           untouched.flatMap((theirs) =>
-            sharedDates(rule, theirs).map((date) => ({
+            newlyCoveredShared(rule, stored.get(rule.id), theirs).map((date) => ({
               seriesId: mode === "keep" ? rule.id : theirs.id,
               date,
             }))
@@ -11235,6 +11377,12 @@
       snapshot: { timezone: string; config: AvailabilityConfig };
       changes: AvailabilityConfigChanges;
       scopeConflicts: ScopeConflictMode;
+      /**
+       * A revert: the rows are an exact prior state, so scope conflicts are not
+       * settled (they were settled when that state was first made) and the
+       * restored rows must not count as incoming.
+       */
+      exact?: boolean;
       tableIds: ReadonlySet<string>;
       now: Date;
       today: string;
@@ -11242,13 +11390,15 @@
     }): { next: AvailabilityConfig; issues: (ConfigIssue | ReferenceIssue)[] } {
       const { snapshot, now } = input;
       const applied = applyDraft(snapshot, input.changes, now.toISOString()).config;
-      const next = resolveScopeConflicts(
-        snapshot.config,
-        applied,
-        input.scopeConflicts,
-        input.newId,
-        input.today
-      );
+      const next = input.exact
+        ? applied
+        : resolveScopeConflicts(
+            snapshot.config,
+            applied,
+            input.scopeConflicts,
+            input.newId,
+            input.today
+          );
       return {
         next,
         issues: [...validateConfig(next), ...referenceIssues(next, input.tableIds)],
@@ -11571,12 +11721,15 @@
       newId?: () => string;
       /** Undoing a venue's first save returns it to no hours at all, which is not an error. */
       allowNoHours?: boolean;
+      /** A revert: apply the rows exactly, without settling scope conflicts. */
+      exact?: boolean;
     }): SavePlan {
       const { state, body, bookings, now } = input;
       const { next, issues: allIssues } = settleDraft({
         snapshot: { timezone: state.timezone, config: state.effective },
         changes: body.changes,
         scopeConflicts: body.scopeConflicts,
+        ...(input.exact ? { exact: true } : {}),
         tableIds: input.tableIds,
         now,
         today: civilDateIn(now, state.timezone),
@@ -11616,7 +11769,7 @@
         super(outcome.kind);
       }
     }
-    async function futureBookings(
+    export async function futureBookings(
       db: StoreDb,
       venueId: string,
       today: string,
@@ -11679,6 +11832,8 @@
       operatingHours?: Prisma.InputJsonValue | typeof Prisma.DbNull;
       /** Permit the result to have no live schedule (an undone first save). */
       allowNoHours?: boolean;
+      /** Apply the rows exactly, without settling scope conflicts (a revert). */
+      exact?: boolean;
       /** Date rules to bring back from soft-deletion instead of creating. */
       revive?: ReadonlySet<string>;
       /** Runs in the save transaction once the audit row exists. */
@@ -11731,6 +11886,7 @@
         tableIds,
         now,
         ...(request.allowNoHours ? { allowNoHours: true } : {}),
+        ...(request.exact ? { exact: true } : {}),
       });
       if (plan.kind !== "write") throw new SaveRefused(plan);
     
@@ -12037,7 +12193,9 @@
       serviceDate: ServiceDate,
       phone: string | null,
       /** Online seatings `listSlots` found for the date, booked or not. */
-      seatingCount: number
+      seatingCount: number,
+      /** The venue never set hours: no services is "not set up", not "closed" (staff may still book by phone). */
+      unconfigured = false
     ): DayNotices {
       const day = resolveDay(snapshot, serviceDate);
       const pause = activePause(snapshot, day);
@@ -12053,7 +12211,11 @@
           },
         };
       }
-      const closedByRule = day.closures.some((band) => band.targetKind !== "tables");
+      // A day the resolved config runs no service on (a closed regular weekday that no
+      // special date reopens) is closed too, so the guest calendar can disable it.
+      const closedByRule =
+        (day.services.length === 0 && !unconfigured) ||
+        day.closures.some((band) => band.targetKind !== "tables");
       if (!closedByRule) return {};
       // Any seating left on the online channel means the date is open, if shorter.
       if (seatingCount > 0) return {};
@@ -12107,22 +12269,12 @@
         input.bookings.filter((b) => b.date && scopeIncludes(scope, toServiceDate(b.date)))
       ).sort((a, b) => a.startTime.localeCompare(b.startTime) || a.id.localeCompare(b.id));
     
-      const names = new Map(next.venueServices.map((s) => [s.id, s.name]));
       return {
         kind: "ok",
         result: {
           version: state.version,
           days,
-          focusDay: {
-            ...summarizeDay(next, focus),
-            services: focus.services.map((s) => ({
-              venueServiceId: s.venueServiceId,
-              name: names.get(s.venueServiceId) ?? s.name,
-              opensAt: s.opensAt,
-              lastSeatingAt: s.lastSeatingAt,
-              closesAt: s.closesAt,
-            })),
-          },
+          focusDay: summarizeDay(next, focus),
           stranded: {
             total: stranded.length,
             offset: strandedOffset,
@@ -12571,7 +12723,13 @@
       return { seatings, offered: seatings.filter((s) => isSlotInBookingWindow(s.start, window)) };
     }
     function noticesFor(loaded: LoadedSnapshot, date: string, seatingCount: number) {
-      return dayNotices(loaded.snapshot, date, loaded.venueSettings?.phone ?? null, seatingCount);
+      return dayNotices(
+        loaded.snapshot,
+        date,
+        loaded.venueSettings?.phone ?? null,
+        seatingCount,
+        loaded.unconfigured
+      );
     }
     export async function getDayAvailability(
       venueId: string,
@@ -12694,6 +12852,9 @@
     export function tableAdvisoryLockSql(tableId: string): Prisma.Sql {
       return Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${tableId})::bigint)`;
     }
+    export function venueShareLockSql(venueId: string): Prisma.Sql {
+      return Prisma.sql`SELECT 1 FROM venues WHERE id = ${venueId} FOR SHARE`;
+    }
     export type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED" | "NOT_BOOKABLE";
     export type SlotConflict =
       | { code: Exclude<SlotConflictCode, "NOT_BOOKABLE">; message: string }
@@ -12725,7 +12886,7 @@
        * reading the committed configuration through this transaction
        * ({@link judgeBooking}). Requires venueId. Walk-ins never set it.
        */
-      gate?: { channel: BookingChannel; override?: { reason: string } };
+      gate?: { channel: BookingChannel; override?: { reason: string }; movingFrom?: Date };
       /**
        * Runs immediately after the lock, before the conflict re-check. Returning a
        * {@link SlotConflict} short-circuits the write (e.g. a hold that expired
@@ -12770,6 +12931,10 @@
         // app.venue_id on THIS transaction's own `tx` explicitly (ADR-026 part
         // 6), using the intent's own (already-resolved) venueId.
         await setVenueContext(tx, venueId);
+    
+        // Gated writes take the venue row first (share), the order the closure command uses
+        // (venue row, then table locks), so the two can never wait on each other in a cycle.
+        if (gate && venueId) await tx.$executeRaw(venueShareLockSql(venueId));
     
         // Serialize conflict-checked writes per table BEFORE any conflict check so
         // concurrent slot writes cannot both pass and double-book. Released
@@ -12873,10 +13038,12 @@
         venueId: intent.venueId,
         tableId: intent.tableId,
         start: intent.window.startTime,
+        serviceDate: Number.isNaN(intent.date.getTime()) ? "invalid" : toDateString(intent.date),
         end: intent.window.endTime,
         partySize: intent.partySize,
         channel: gate.channel,
         override: gate.override,
+        movingFrom: gate.movingFrom,
         excludeReservationId: intent.excludeReservationId,
         excludeHoldId: intent.excludeHoldId,
         excludeSessionId: intent.excludeSessionId,
@@ -13091,6 +13258,71 @@
     }
     export const briefingService = { getBriefing };
   </file>
+  <file path="src/services/closure-alongside.ts">
+    export interface AlongsideIssue {
+      path: string;
+      code: string;
+      message: string;
+    }
+    function canonical(value: unknown): unknown {
+      if (Array.isArray(value)) return value.map(canonical);
+      if (value === null || typeof value !== "object") return value;
+      return Object.fromEntries(
+        Object.entries(value)
+          .filter(([, v]) => v != null && !(Array.isArray(v) && v.length === 0))
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([k, v]) => [k, canonical(v)])
+      );
+    }
+    function onlyShortened(edited: DateRule, stored: DateRule): boolean {
+      return (
+        edited.endsOn != null &&
+        (stored.endsOn == null || edited.endsOn < stored.endsOn) &&
+        same({ ...edited, endsOn: stored.endsOn }, stored)
+      );
+    }
+    function onlyMoved(edited: DateRule, stored: DateRule, seriesId: string, draftId: string) {
+      return (
+        stored.seriesId === seriesId &&
+        (edited.seriesId === seriesId || edited.seriesId === draftId) &&
+        same({ ...edited, seriesId: stored.seriesId }, stored)
+      );
+    }
+    export function checkAlongside(
+      stored: readonly DateRule[],
+      draft: DateRule,
+      alongside: ClosureAlongside
+    ): AlongsideIssue | null {
+      const byId = new Map(stored.map((r) => [r.id, r]));
+      const touched = new Set([
+        ...alongside.remove,
+        ...alongside.upsert
+          .filter((u) => byId.has(u.id) && isSeriesRow(byId.get(u.id)!))
+          .map((u) => u.id),
+      ]);
+      const [seriesId] = [...touched];
+      const series = seriesId ? byId.get(seriesId) : undefined;
+      if (touched.size !== 1 || !series || !isSeriesRow(series) || series.id === draft.id) {
+        return refuse("alongside", "A series edit replaces exactly one stored repeating closure.");
+      }
+      if (alongside.remove.some((id) => id !== series.id)) {
+        return refuse("alongside.remove", "Only the replaced series can be removed.");
+      }
+      for (const edited of alongside.upsert) {
+        const row = byId.get(edited.id);
+        const path = `alongside.upsert.${edited.id}`;
+        if (!row) return refuse(path, "A series edit adds no rows beside the new series.");
+        if (edited.id === series.id) {
+          if (alongside.remove.length > 0 || !onlyShortened(edited, row)) {
+            return refuse(path, "The replaced series can only end earlier.");
+          }
+        } else if (!onlyMoved(edited, row, series.id, draft.id)) {
+          return refuse(path, "Only the series' own skips and edited dates move, unchanged.");
+        }
+      }
+      return null;
+    }
+  </file>
   <file path="src/services/closure-apply.ts">
     type Tx = Pick<
       PrismaClient,
@@ -13288,18 +13520,47 @@
         local.minute
       );
     }
+    type StartRange = readonly [lo: number, hi: number];
+    function clearOfBand(
+      ranges: readonly StartRange[],
+      band: { from: number; to: number },
+      span: number
+    ): StartRange[] {
+      const lastBefore = band.from - span; // latest start that clears the band
+      return ranges.flatMap(([lo, hi]) => [
+        ...(lo <= lastBefore ? [[lo, Math.min(hi, lastBefore)] as const] : []),
+        ...(hi >= band.to ? [[Math.max(lo, band.to), hi] as const] : []),
+      ]);
+    }
     export function moveTarget(
       after: AvailabilitySnapshot,
       serviceDate: string,
-      booking: Pick<ClosureImpactReservation, "startTime" | "endTime">
+      booking: Pick<ClosureImpactReservation, "startTime" | "endTime">,
+      now: Date
     ): { startTime: Date; endTime: Date } | null {
       const start = new Date(booking.startTime);
       const durationMin = (Date.parse(booking.endTime) - start.getTime()) / MS_PER_MINUTE;
       const startMin = wallMinutes(start, serviceDate, after.timezone);
-      const candidates = resolveDay(after, serviceDate).services.flatMap((s) => {
-        const latest = Math.min(s.lastSeatingAt, s.closesAt - durationMin);
-        if (latest < s.opensAt) return [];
-        return [Math.min(Math.max(startMin, s.opensAt), latest)];
+      const nowMin = wallMinutes(now, serviceDate, after.timezone);
+      const day = resolveDay(after, serviceDate);
+      const stopRuleIds = new Set(
+        after.config.dateRules.filter((r) => r.kind === "tonight").map((r) => r.id)
+      );
+      const spanOf = (band: { ruleId: string }): number =>
+        stopRuleIds.has(band.ruleId) ? 1 : durationMin;
+      const candidates = day.services.flatMap((s) => {
+        const bands = day.closures.filter(
+          (c) =>
+            c.targetKind === "venue" ||
+            (c.targetKind === "service" && c.venueServiceId === s.venueServiceId)
+        );
+        const open: StartRange[] = [
+          [Math.max(s.opensAt, nowMin), Math.min(s.lastSeatingAt, s.closesAt - durationMin)],
+        ];
+        const free = bands
+          .reduce((ranges, band) => clearOfBand(ranges, band, spanOf(band)), open)
+          .filter(([lo, hi]) => lo <= hi);
+        return free.map(([lo, hi]) => Math.min(Math.max(startMin, lo), hi));
       });
       const best = candidates.sort((a, b) => Math.abs(a - startMin) - Math.abs(b - startMin))[0];
       if (best === undefined || best === startMin) return null;
@@ -13320,20 +13581,93 @@
       const yesterday = addDays(today, -1);
       return isOpen(yesterday) ? yesterday : today;
     }
-    export function closesAllOfTonight(snapshot: AvailabilitySnapshot, rule: DateRule): boolean {
-      if (rule.kind !== "tonight" || !("closeAt" in rule.payload)) return false;
-      const { closeAt } = rule.payload;
-      const planned = {
-        ...snapshot,
-        config: {
-          ...snapshot.config,
-          dateRules: snapshot.config.dateRules.filter((r) => r.kind !== "tonight"),
-        },
-      };
-      const targeted = resolveDay(planned, rule.startsOn).services.filter(
-        (s) => rule.targetKind === "venue" || s.venueServiceId === rule.venueServiceId
+    export const MIN_SERVICE_MINUTES = 60;
+    type DayServices = ReturnType<typeof resolveDay>;
+    function seatingStarts(
+      day: DayServices,
+      venueServiceId: string,
+      fromMin: number,
+      tableIds: readonly string[] = []
+    ): number[] {
+      const s = day.services.find((d) => d.venueServiceId === venueServiceId);
+      if (!s) return [];
+      const grid =
+        "interval" in s.seating
+          ? Array.from(
+              {
+                length: Math.max(Math.floor((s.lastSeatingAt - s.opensAt) / s.seating.interval) + 1, 0),
+              },
+              (_, k) => s.opensAt + k * (s.seating as { interval: number }).interval
+            )
+          : [...new Set(s.seating.fixed)];
+      const bands = day.closures.filter(
+        (c) =>
+          c.targetKind === "venue" ||
+          (c.targetKind === "service" && c.venueServiceId === s.venueServiceId)
       );
-      return targeted.length > 0 && targeted.every((s) => s.opensAt >= closeAt);
+      return grid
+        .filter((m) => m >= Math.max(s.opensAt, fromMin) && m <= s.lastSeatingAt && m < s.closesAt)
+        .filter((m) => !bands.some((band) => band.from <= m && m < band.to))
+        .filter((m) => channelOpen(day, s, m) && tableFree(day, tableIds, m))
+        .sort((x, y) => x - y);
+    }
+    function channelOpen(day: DayServices, s: DayServices["services"][number], m: number): boolean {
+      return s.bookingTypes.some(
+        (channel) =>
+          day.bookingOpen[channel] &&
+          !day.closures.some(
+            (c) =>
+              c.targetKind === "booking" && inBand(c, m) && (c.bookingTypes ?? []).includes(channel)
+          )
+      );
+    }
+    function tableFree(day: DayServices, tableIds: readonly string[], m: number): boolean {
+      if (tableIds.length === 0) return true;
+      const blocked = new Set(
+        day.closures
+          .filter((c) => c.targetKind === "tables" && inBand(c, m))
+          .flatMap((c) => c.tableIds ?? [])
+      );
+      return tableIds.some((id) => !blocked.has(id));
+    }
+    export function isEmergencyTonightClose(
+      snapshot: AvailabilitySnapshot,
+      rule: DateRule,
+      now: Date,
+      tableIds: readonly string[] = []
+    ): boolean {
+      if (rule.kind !== "tonight") return false;
+      const starts = (day: DayServices, id: string, from: number): number[] =>
+        seatingStarts(day, id, from, tableIds);
+      const others = snapshot.config.dateRules.filter((r) => r.id !== rule.id);
+      const withRules = (dateRules: DateRule[]): AvailabilitySnapshot => ({
+        ...snapshot,
+        config: { ...snapshot.config, dateRules },
+      });
+      const planned = resolveDay(withRules(others.filter((r) => r.kind !== "tonight")), rule.startsOn);
+      const before = resolveDay(withRules(others), rule.startsOn);
+      const after = resolveDay(withRules([...others, rule]), rule.startsOn);
+      const nowMin = wallMinutes(now, rule.startsOn, snapshot.timezone);
+      const live = before.services
+        .filter((s) => rule.targetKind !== "service" || s.venueServiceId === rule.venueServiceId)
+        .filter((s) => starts(before, s.venueServiceId, nowMin).length > 0);
+      return (
+        live.length > 0 &&
+        live.some((s) => {
+          const remaining = starts(after, s.venueServiceId, nowMin);
+          if (remaining.length === 0) return true;
+          // A change that takes no seating away closes nothing, however short the service already is.
+          const current = starts(before, s.venueServiceId, nowMin);
+          if (remaining.length === current.length) return false;
+          const plannedOpen = planned.services.find((p) => p.venueServiceId === s.venueServiceId);
+          const openAt = plannedOpen?.opensAt ?? s.opensAt;
+          const floor = Math.min(
+            MIN_SERVICE_MINUTES,
+            spanOf(starts(planned, s.venueServiceId, openAt))
+          );
+          return spanOf(starts(after, s.venueServiceId, openAt)) < floor;
+        })
+      );
     }
     export function isHostEmergencyClose(rule: DateRule, serviceDate: string): boolean {
       return (
@@ -13378,6 +13712,23 @@
       ruleId: string;
       idempotencyKey: string;
       version: number;
+      /** Counts for the History drawer, which words the entry itself. Absent on older rows. */
+      outcome?: AvailabilityChangeOutcome;
+      /** Set on every item of a batch save: what the whole batch was, so a reused key can be told apart. */
+      batch?: BatchShape;
+    }
+    interface BatchShape {
+      count: number;
+      ruleIds: string[];
+    }
+    function sameBatch(stored: BatchShape | undefined, now: BatchShape): boolean {
+      return (
+        stored !== undefined &&
+        stored.count === now.count &&
+        Array.isArray(stored.ruleIds) &&
+        stored.ruleIds.length === now.ruleIds.length &&
+        stored.ruleIds.every((id, i) => id === now.ruleIds[i])
+      );
     }
     export async function mayCloseFor(
       db: StoreDb,
@@ -13400,8 +13751,19 @@
       const serviceDate = currentServiceDate(snapshot, now);
       if (rule.kind !== "tonight") return isHostEmergencyClose(rule, serviceDate);
       if (rule.startsOn !== serviceDate) return false;
-      // A close-early that leaves no targeted service tonight is the emergency close in effect.
-      return venue.hostEmergencyClose || !closesAllOfTonight(snapshot, rule);
+      // A Tonight change that leaves nothing bookable on its targets is the emergency close in effect.
+      if (venue.hostEmergencyClose) return true;
+      // Only active tables seat guests, so an inactive one cannot keep the night open.
+      const tables = await db.table.findMany({
+        where: { venueId, isActive: true },
+        select: { id: true },
+      });
+      return !isEmergencyTonightClose(
+        snapshot,
+        rule,
+        now,
+        tables.map((t) => t.id)
+      );
     }
     export function mayClose(
       venueId: string,
@@ -13447,9 +13809,6 @@
         outcomes: countActions(rows.map((r) => r.action)),
       };
     }
-    function withRule(config: AvailabilityConfig, rule: DateRule): AvailabilityConfig {
-      return { ...config, dateRules: [...config.dateRules.filter((r) => r.id !== rule.id), rule] };
-    }
     interface Plan {
       rows: Prisma.ClosureOutcomeCreateManyInput[];
       counts: Record<ClosureAction, number>;
@@ -13460,16 +13819,18 @@
       actorId: string,
       state: ConfigState,
       rule: DateRule,
+      alongside: ClosureAlongside | undefined,
       impact: ClosureImpact,
-      actions: ReadonlyMap<string, { action: ClosureAction }>
+      actions: ReadonlyMap<string, { action: ClosureAction }>,
+      now: Date
     ): Plan | Refusal {
-      const after = { timezone: state.timezone, config: withRule(state.effective, rule) };
+      const after = { timezone: state.timezone, config: withClosure(state.effective, rule, alongside) };
       const rows: Prisma.ClosureOutcomeCreateManyInput[] = [];
       const stuck: string[] = [];
       for (const group of impact.groups) {
         const action = actions.get(group.groupKey)!.action; // checkDecisions answered every group
         for (const r of group.reservations) {
-          const target = action === "move" ? moveTarget(after, group.date, r) : null;
+          const target = action === "move" ? moveTarget(after, group.date, r, now) : null;
           if (action === "move" && !target) stuck.push(r.id);
           rows.push({
             venueId,
@@ -13512,6 +13873,7 @@
       key: string;
       now: Date;
       ruleKinds: ReadonlySet<string>;
+      batch?: BatchShape;
     };
     async function replayOf(tx: Db, input: CommitInput): Promise<ClosureResult | null> {
       const { venueId, caller, body, key } = input;
@@ -13522,6 +13884,30 @@
         throw new Refused({ kind: "forbidden" });
       }
       return storedResult(tx, venueId, replay);
+    }
+    async function refuseBadAlongside(tx: Db, input: CommitInput, state: ConfigState): Promise<void> {
+      const { body, caller, venueId, now } = input;
+      const { alongside, rule } = body;
+      if (!alongside) return;
+      if (!caller.isManager) throw new Refused({ kind: "forbidden" });
+      const issue = checkAlongside(state.stored.dateRules, rule, alongside);
+      if (issue) throw new Refused({ kind: "invalid", issues: [issue] });
+      const today = civilDateIn(now, state.timezone);
+      const stranded = findStrandedReservations(
+        { timezone: state.timezone, config: state.effective },
+        { timezone: state.timezone, config: withAlongside(state.effective, alongside) },
+        await futureBookings(tx, venueId, today, now)
+      );
+      if (stranded.length > 0) {
+        throw new Refused({
+          kind: "invalid",
+          issues: stranded.map((r) => ({
+            path: `reservations.${r.id}`,
+            code: "strands_booking",
+            message: "The rows replaced beside the closure would leave this booking without service.",
+          })),
+        });
+      }
     }
     async function preflight(tx: Db, input: CommitInput): Promise<void> {
       const { venueId, caller, body, now } = input;
@@ -13563,7 +13949,8 @@
       if (state.stored.dateRules.some((r) => r.id === rule.id)) {
         throw new Refused({ kind: "closure_exists" });
       }
-      const found = await impactInTransaction(tx, venueId, state, rule, now);
+      await refuseBadAlongside(tx, input, state);
+      const found = await impactInTransaction(tx, venueId, state, rule, now, body.alongside);
       if (found.kind !== "ok") throw new Refused(found);
       const checked = checkDecisions(found.impact, body.decisions);
       if (checked.kind === "decision-required") {
@@ -13572,17 +13959,39 @@
       if (checked.kind === "invalid-decision") {
         throw new Refused({ kind: "invalid_decision", groupKeys: checked.groupKeys });
       }
-      const plan = planOutcomes(venueId, caller.actorId, state, rule, found.impact, checked.actions);
+      const plan = planOutcomes(
+        venueId,
+        caller.actorId,
+        state,
+        rule,
+        body.alongside,
+        found.impact,
+        checked.actions,
+        now
+      );
       if (isRefusal(plan)) throw new Refused(plan);
     
-      const next = withRule(state.effective, rule);
+      const next = withClosure(state.effective, rule, body.alongside);
       const diff = diffConfig(state.stored, next);
       await writeConfigDiff(tx, venueId, diff, { actorId: caller.actorId, now }).catch((e: unknown) => {
         throw e instanceof ConfigRowConflict ? new Refused(conflictIssue(e, next) as Refusal) : e;
       });
       const version = body.expectedVersion + 1;
       const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
-      const meta: ClosureMeta = { ruleId: rule.id, idempotencyKey: key, version };
+      const meta: ClosureMeta = {
+        ruleId: rule.id,
+        idempotencyKey: key,
+        version,
+        outcome: {
+          cancelled: plan.counts.cancel,
+          moved: plan.counts.move,
+          kept: plan.counts.keep_notify + plan.counts.keep_silent,
+          closeEarly: rule.kind === "tonight",
+          startsOn: rule.startsOn,
+          endsOn: rule.endsOn ?? null,
+        },
+        ...(input.batch ? { batch: input.batch } : {}),
+      };
       const inverse = { ...inverseOf(state.stored, diff, state.operatingHours), closure: meta };
       const change = await tx.availabilityChange.create({
         data: {
@@ -13650,6 +14059,56 @@
           return commit(tx, { venueId, caller, body, key, now, ruleKinds });
         });
         return { kind: "saved", result };
+      } catch (error) {
+        if (error instanceof Refused) return error.outcome;
+        throw error;
+      }
+    }
+    export type CreateClosuresOutcome =
+      { kind: "saved"; result: ClosuresResult } | Exclude<CreateClosureOutcome, { kind: "saved" }>;
+    export async function createClosures(
+      input: {
+        venueId: string;
+        caller: ClosureCaller;
+        body: CreateClosuresBody;
+        idempotencyKey: string;
+        now: Date;
+      },
+      client: StoreClient = prisma
+    ): Promise<CreateClosuresOutcome> {
+      const { venueId, caller, body, idempotencyKey: key, now } = input;
+      if (!caller.isManager) return { kind: "forbidden" };
+      try {
+        const results = await client.$transaction(async (tx) => {
+          await setVenueContext(tx, venueId);
+          const saved: ClosureResult[] = [];
+          const batch: BatchShape = {
+            count: body.items.length,
+            ruleIds: body.items.map((i) => i.rule.id),
+          };
+          // A key already used for a batch answers only to that same batch: never a subset of it,
+          // and never a longer one whose appended items would commit beside the replayed ones.
+          const first = await findReplay(tx, venueId, `${key}#0`);
+          if (first && !sameBatch(first.closure.batch, batch)) {
+            throw new Refused({ kind: "key_reused" });
+          }
+          let expectedVersion = body.expectedVersion;
+          for (const [i, item] of body.items.entries()) {
+            const result = await commit(tx, {
+              venueId,
+              caller,
+              body: { expectedVersion, rule: item.rule, decisions: item.decisions },
+              key: `${key}#${i}`,
+              now,
+              ruleKinds: CLOSURE_RULE_KINDS,
+              batch,
+            });
+            saved.push(result);
+            expectedVersion = result.version;
+          }
+          return saved;
+        });
+        return { kind: "saved", result: { version: results.at(-1)!.version, results } };
       } catch (error) {
         if (error instanceof Refused) return error.outcome;
         throw error;
@@ -13736,7 +14195,12 @@
         throw error;
       }
     }
-    export const closureCommandService = { create: createClosure, reopen: reopenClosure, mayClose };
+    export const closureCommandService = {
+      create: createClosure,
+      createMany: createClosures,
+      reopen: reopenClosure,
+      mayClose,
+    };
   </file>
   <file path="src/services/closure-impact-store.ts">
     type StoreClient = Pick<PrismaClient, "$transaction">;
@@ -13746,14 +14210,12 @@
       | { kind: "not_found" }
       | { kind: "too_long" }
       | { kind: "invalid"; issues: { path: string; code: string; message: string }[] };
-    function withDraft(config: AvailabilityConfig, rule: DateRule): AvailabilityConfig {
-      return { ...config, dateRules: [...config.dateRules.filter((r) => r.id !== rule.id), rule] };
-    }
     function scanRange(rule: DateRule, today: string): { from: string; to: string } | null {
-      const horizon = addDays(rule.startsOn, SCOPE_CONFLICT_HORIZON_DAYS);
-      if (rule.endsOn && rule.endsOn > horizon) return null;
       const earliest = addDays(today, -1);
       const from = rule.startsOn > earliest ? rule.startsOn : earliest;
+      // The year is counted from the first date that can hold a booking, so a series that began long
+      // ago (an "All dates" edit keeps its start) is not "too long".
+      if (rule.endsOn && rule.endsOn > addDays(from, SCOPE_CONFLICT_HORIZON_DAYS)) return null;
       return { from, to: rule.endsOn ?? addDays(from, SCOPE_CONFLICT_HORIZON_DAYS) };
     }
     export async function impactInTransaction(
@@ -13761,10 +14223,11 @@
       venueId: string,
       state: ConfigState,
       rule: DateRule,
-      now: Date
+      now: Date,
+      alongside?: ClosureAlongside
     ): Promise<ClosureImpactOutcome> {
       const tables = await tx.table.findMany({ where: { venueId }, select: { id: true } });
-      const next = withDraft(state.effective, rule);
+      const next = withClosure(state.effective, rule, alongside);
       const issues = [
         ...validateConfig(next),
         ...referenceIssues(next, new Set(tables.map((t) => t.id))),
@@ -13803,6 +14266,7 @@
         timezone: state.timezone,
         config: state.effective,
         rule,
+        alongside,
         bookings,
       });
       return { kind: "ok", impact };
@@ -13811,13 +14275,14 @@
       venueId: string,
       rule: DateRule,
       now: Date,
-      client: StoreClient = prisma
+      client: StoreClient = prisma,
+      alongside?: ClosureAlongside
     ): Promise<ClosureImpactOutcome> {
       return client.$transaction(async (tx) => {
         await setVenueContext(tx, venueId);
         const state = await loadConfigState(tx, venueId, now);
         if (!state) return { kind: "not_found" as const };
-        return impactInTransaction(tx, venueId, state, rule, now);
+        return impactInTransaction(tx, venueId, state, rule, now, alongside);
       });
     }
     export const closureImpactService = { impact: getClosureImpact };
@@ -13840,6 +14305,23 @@
     }
     function withDraft(config: AvailabilityConfig, rule: DateRule): AvailabilityConfig {
       return { ...config, dateRules: [...config.dateRules.filter((r) => r.id !== rule.id), rule] };
+    }
+    export function withAlongside(
+      config: AvailabilityConfig,
+      alongside: ClosureAlongside | undefined
+    ): AvailabilityConfig {
+      if (!alongside) return config;
+      const upserted = new Set(alongside.upsert.map((r) => r.id));
+      const removed = new Set(alongside.remove);
+      const kept = config.dateRules.filter((r) => !removed.has(r.id) && !upserted.has(r.id));
+      return { ...config, dateRules: [...kept, ...alongside.upsert] };
+    }
+    export function withClosure(
+      config: AvailabilityConfig,
+      rule: DateRule,
+      alongside?: ClosureAlongside
+    ): AvailabilityConfig {
+      return withDraft(withAlongside(config, alongside), rule);
     }
     function wallMinutes(instant: Date, serviceDate: string, tz: string): number {
       const local = localDateTimeOf(instant, tz);
@@ -13866,7 +14348,8 @@
       before: AvailabilitySnapshot,
       after: AvailabilitySnapshot,
       rule: DateRule,
-      booking: ImpactBooking
+      booking: ImpactBooking,
+      replaced: ReadonlySet<string>
     ): Verdicts | null {
       if (strandReason(before, booking) !== null) return null; // already unserved: not this change's doing
       if (strandReason(after, booking) !== null) return { runsInto: false };
@@ -13875,13 +14358,25 @@
       const startMin = wallMinutes(booking.startTime, date, after.timezone);
       const endMin = wallMinutes(booking.endTime, date, after.timezone);
       const dayAfter = resolveDay(after, date);
-      const servedBefore = resolveDay(before, date).services.filter(
+      const dayBefore = resolveDay(before, date);
+      const servedBefore = dayBefore.services.filter(
         (s) => s.opensAt <= startMin && startMin < s.closesAt
       );
     
       const servedIds = new Set(servedBefore.map((s) => s.venueServiceId));
-      const bandRunsInto = dayAfter.closures.some(
+      const draftBands = dayAfter.closures.filter(
         (band) => band.ruleId === rule.id && runsIntoBand(band, startMin, endMin, servedIds)
+      );
+      // Only the series being replaced counts as already decided: its band, no later than the
+      // draft's, cut into this booking before and the Manager chose then. Any other closure is news.
+      const bandRunsInto = draftBands.some(
+        (draft) =>
+          !dayBefore.closures.some(
+            (band) =>
+              replaced.has(band.ruleId) &&
+              band.from <= draft.from &&
+              runsIntoBand(band, startMin, endMin, servedIds)
+          )
       );
       const hours = servedBefore.map((was) => ({
         was,
@@ -13933,16 +14428,21 @@
       timezone: string;
       config: AvailabilityConfig;
       rule: DateRule;
+      alongside?: ClosureAlongside;
       bookings: readonly ImpactBooking[];
     }): ClosureImpact {
-      const { timezone, config, rule, bookings } = input;
+      const { timezone, config, rule, bookings, alongside } = input;
       const before = { timezone, config };
-      const after = { timezone, config: withDraft(config, rule) };
+      const after = { timezone, config: withClosure(config, rule, alongside) };
       const kind = kindOf(rule);
+      const replaced = new Set([
+        ...(alongside?.remove ?? []),
+        ...(alongside?.upsert.map((r) => r.id) ?? []),
+      ]);
     
       const byDate = new Map<string, ClosureImpactReservation[]>();
       for (const booking of bookings) {
-        const verdict = assess(before, after, rule, booking);
+        const verdict = assess(before, after, rule, booking, replaced);
         if (!verdict) continue;
         const date = booking.date.toISOString().slice(0, 10);
         byDate.set(date, [...(byDate.get(date) ?? []), toReservation(booking, verdict.runsInto)]);
@@ -13998,8 +14498,19 @@
       ruleId: string;
       now: Date;
     }
-    export function closureStartsAt(w: ClosureWindow): Date | null {
-      return serviceDayInstant(w.startsOn, w.from ?? 0, w.timezone);
+    function nextClosureDate(w: ClosureWindow, now: Date): string | null {
+      return firstOccurrenceOnOrAfter(
+        {
+          startsOn: w.startsOn,
+          endsOn: w.endsOn,
+          repeat: w.weekdays == null ? null : { weekdays: w.weekdays },
+        },
+        localDateTimeOf(now, w.timezone).date
+      );
+    }
+    export function closureStartsAt(w: ClosureWindow, now: Date): Date | null {
+      const date = nextClosureDate(w, now);
+      return date === null ? null : serviceDayInstant(date, w.from ?? 0, w.timezone);
     }
     export function closureNoticeJobId(outcomeId: string, variant: NoticeVariant): string {
       return variant === "reopened"
@@ -14008,7 +14519,9 @@
     }
     async function isUrgent(store: Store, input: EnqueueInput): Promise<boolean> {
       const w = await store.loadClosureWindow(input.venueId, input.ruleId);
-      const startsAt = w ? closureStartsAt(w) : null;
+      if (!w) return true;
+      if (nextClosureDate(w, input.now) === null) return false;
+      const startsAt = closureStartsAt(w, input.now);
       return startsAt === null || startsAt.getTime() - input.now.getTime() <= URGENT_WINDOW_MS;
     }
     export function createClosureNoticeService(deps: { scheduler: Scheduler; store?: Store }) {
@@ -14039,6 +14552,8 @@
       return {
         enqueueForClosure: (input: EnqueueInput) => enqueue("closure", input),
         enqueueForReopen: (input: EnqueueInput) => enqueue("reopened", input),
+        /** The per-closure urgency decision, for callers that enqueue single outcomes. */
+        isUrgent: (input: EnqueueInput) => isUrgent(store, input),
         callList: (venueId: string, ruleId: string) => store.listCallList(venueId, ruleId),
         summaries: (venueId: string) => store.listSummaries(venueId),
       };
@@ -14051,6 +14566,10 @@
     export interface ClosureWindow {
       /** "YYYY-MM-DD", venue-local. */
       startsOn: string;
+      /** "YYYY-MM-DD", venue-local; `null` = open-ended. */
+      endsOn: string | null;
+      /** Weekdays (0 = Sunday) a repeating rule covers; `null` = not repeating. */
+      weekdays: number[] | null;
       /** Minute of the service day the window opens; `null` = the whole service day. */
       from: number | null;
       timezone: string;
@@ -14059,6 +14578,12 @@
       const from = (window as { from?: unknown } | null)?.from;
       return typeof from === "number" ? from : null;
     }
+    function weekdaysOf(repeat: unknown): number[] | null {
+      const weekdays = (repeat as { weekdays?: unknown } | null)?.weekdays;
+      return Array.isArray(weekdays)
+        ? weekdays.filter((d): d is number => typeof d === "number")
+        : null;
+    }
     export async function loadClosureWindow(
       venueId: string,
       ruleId: string,
@@ -14066,11 +14591,19 @@
     ): Promise<ClosureWindow | null> {
       const rule = await db.dateRule.findFirst({
         where: { id: ruleId, venueId },
-        select: { startsOn: true, window: true, venue: { select: { ianaTimezone: true } } },
+        select: {
+          startsOn: true,
+          endsOn: true,
+          repeat: true,
+          window: true,
+          venue: { select: { ianaTimezone: true } },
+        },
       });
       if (!rule) return null;
       return {
         startsOn: rule.startsOn.toISOString().slice(0, 10),
+        endsOn: rule.endsOn ? rule.endsOn.toISOString().slice(0, 10) : null,
+        weekdays: weekdaysOf(rule.repeat),
         from: windowFrom(rule.window),
         timezone: rule.venue.ianaTimezone,
       };
@@ -14216,14 +14749,46 @@
       rebooked: number;
       unreachable: number;
       refundFailed: number;
+      /** The failed refunds by guest and amount; no contact details. */
+      refundFailures: RefundFailure[];
       refundPending: number;
     }
+    export interface RefundFailure {
+      outcomeId: string;
+      guestName: string | null;
+      amountCents: number | null;
+      currency: string | null;
+    }
     interface SummaryRow {
+      id: string;
+      reservation: {
+        guestName: string | null;
+        deposit: {
+          amountCents: number;
+          currency: string;
+          status: string;
+          refundAmountCents: number | null;
+          postCaptureRefundCents: number | null;
+        } | null;
+      };
       dateRuleId: string;
       action: NoticeOutcome["action"];
       deliveries: unknown;
       rebookedReservationId: string | null;
       refund: string;
+    }
+    function refundOwedCents(deposit: NonNullable<SummaryRow["reservation"]["deposit"]>): number {
+      const ownLeg = deposit.status === "partial_refunded" ? (deposit.refundAmountCents ?? 0) : 0;
+      return Math.max(0, deposit.amountCents - ownLeg - (deposit.postCaptureRefundCents ?? 0));
+    }
+    function refundFailureOf(row: SummaryRow): RefundFailure {
+      const { guestName, deposit } = row.reservation;
+      return {
+        outcomeId: row.id,
+        guestName,
+        amountCents: deposit ? refundOwedCents(deposit) : null,
+        currency: deposit?.currency ?? null,
+      };
     }
     export function summarizeOutcomes(rows: readonly SummaryRow[]): ClosureSummary[] {
       const byRule = new Map<string, ClosureSummary>();
@@ -14241,6 +14806,10 @@
           unreachable:
             prev.unreachable + (isOnCallList({ action: row.action, deliveries, rebooked }) ? 1 : 0),
           refundFailed: prev.refundFailed + (row.refund === "failed" ? 1 : 0),
+          refundFailures:
+            row.refund === "failed"
+              ? [...prev.refundFailures, refundFailureOf(row)]
+              : prev.refundFailures,
           refundPending: prev.refundPending + (row.refund === "pending" ? 1 : 0),
         });
       }
@@ -14251,11 +14820,26 @@
         where: { venueId },
         orderBy: { createdAt: "asc" },
         select: {
+          id: true,
           dateRuleId: true,
           action: true,
           deliveries: true,
           rebookedReservationId: true,
           refund: true,
+          reservation: {
+            select: {
+              guestName: true,
+              deposit: {
+                select: {
+                  amountCents: true,
+                  currency: true,
+                  status: true,
+                  refundAmountCents: true,
+                  postCaptureRefundCents: true,
+                },
+              },
+            },
+          },
         },
       });
       return summarizeOutcomes(rows);
@@ -14395,6 +14979,205 @@
         runWithVenueContext(payload.venueId, () => deliver(payload, ctx));
     }
   </file>
+  <file path="src/services/closure-outcome-sweep-store.ts">
+    export function createPrismaClosureOutcomeSweepStore(): ClosureOutcomeSweepStore {
+      return {
+        listStuckRefunds: (venueId, olderThan, limit) =>
+          prisma.closureOutcome.findMany({
+            where: { venueId, refund: "pending", updatedAt: { lt: olderThan } },
+            orderBy: { createdAt: "asc" },
+            take: limit,
+            select: SELECT,
+          }),
+        listStuckNotices: (venueId, olderThan, limit) =>
+          prisma.closureOutcome.findMany({
+            where: {
+              venueId,
+              action: { not: "keep_silent" },
+              deliveries: { equals: {} },
+              createdAt: { lt: olderThan },
+            },
+            orderBy: { createdAt: "asc" },
+            take: limit,
+            select: SELECT,
+          }),
+      };
+    }
+  </file>
+  <file path="src/services/closure-outcome-sweeper.ts">
+    export const DEFAULT_GRACE_MS = 5 * 60 * 1000;
+    export const DEFAULT_BATCH_SIZE = 50;
+    export const DEFAULT_SWEEP_INTERVAL_MS = 2 * 60 * 1000;
+    export interface StuckOutcome {
+      id: string;
+      dateRuleId: string;
+      reservationId: string;
+    }
+    export interface ClosureOutcomeSweepStore {
+      /** `refund = pending`, last touched before `olderThan`. Venue-scoped; oldest first. */
+      listStuckRefunds(venueId: string, olderThan: Date, limit: number): Promise<StuckOutcome[]>;
+      /** Notifiable outcomes with no delivery recorded, created before `olderThan`. */
+      listStuckNotices(venueId: string, olderThan: Date, limit: number): Promise<StuckOutcome[]>;
+    }
+    export interface ClosureOutcomeSweeperDeps {
+      getVenueIds(): Promise<string[]>;
+      store: ClosureOutcomeSweepStore;
+      jobs: Pick<JobScheduler, "requeue">;
+      notices: Pick<ClosureNoticeService, "isUrgent">;
+      log: Pick<FastifyBaseLogger, "error" | "info">;
+      now?: () => Date;
+      graceMs?: number;
+      batchSize?: number;
+    }
+    export interface KindResult {
+      requeued: number;
+      live: number;
+    }
+    export interface SweepResult {
+      refunds: KindResult;
+      notices: KindResult;
+    }
+    async function sweepRefunds(
+      deps: ClosureOutcomeSweeperDeps,
+      venueId: string,
+      stuck: readonly StuckOutcome[]
+    ): Promise<KindResult> {
+      let result = EMPTY;
+      for (const o of stuck) {
+        try {
+          const outcome = await deps.jobs.requeue(
+            JOB_TYPES.CLOSURE_REFUND,
+            { outcomeId: o.id, venueId },
+            closureRefundJobId(o.dateRuleId, o.reservationId)
+          );
+          if (outcome === "live") {
+            deps.log.info(
+              { venueId, outcomeId: o.id },
+              "closure sweeper: refund job still live in the queue"
+            );
+          }
+          result = add(
+            result,
+            outcome === "live" ? { requeued: 0, live: 1 } : { requeued: 1, live: 0 }
+          );
+        } catch (err) {
+          deps.log.error({ err, venueId, outcomeId: o.id }, "closure sweeper: refund requeue failed");
+        }
+      }
+      return result;
+    }
+    async function sweepNotices(
+      deps: ClosureOutcomeSweeperDeps,
+      venueId: string,
+      stuck: readonly StuckOutcome[],
+      now: Date
+    ): Promise<KindResult> {
+      const urgencyByRule = new Map<string, boolean>();
+      let result = EMPTY;
+      for (const o of stuck) {
+        try {
+          let urgent = urgencyByRule.get(o.dateRuleId);
+          if (urgent === undefined) {
+            urgent = await deps.notices.isUrgent({ venueId, ruleId: o.dateRuleId, now });
+            urgencyByRule.set(o.dateRuleId, urgent);
+          }
+          const outcome = await deps.jobs.requeue(
+            JOB_TYPES.CLOSURE_NOTICE,
+            { outcomeId: o.id, venueId, variant: "closure", urgent },
+            closureNoticeJobId(o.id, "closure")
+          );
+          if (outcome === "live") {
+            deps.log.info(
+              { venueId, outcomeId: o.id },
+              "closure sweeper: notice job still live in the queue"
+            );
+          }
+          result = add(
+            result,
+            outcome === "live" ? { requeued: 0, live: 1 } : { requeued: 1, live: 0 }
+          );
+        } catch (err) {
+          deps.log.error({ err, venueId, outcomeId: o.id }, "closure sweeper: notice requeue failed");
+        }
+      }
+      return result;
+    }
+    async function sweepVenue(deps: ClosureOutcomeSweeperDeps, venueId: string): Promise<SweepResult> {
+      const now = (deps.now ?? (() => new Date()))();
+      const cutoff = new Date(now.getTime() - (deps.graceMs ?? DEFAULT_GRACE_MS));
+      const limit = deps.batchSize ?? DEFAULT_BATCH_SIZE;
+      return runWithVenueContext(venueId, async () => {
+        const refunds = await sweepRefunds(
+          deps,
+          venueId,
+          await deps.store.listStuckRefunds(venueId, cutoff, limit)
+        );
+        const notices = await sweepNotices(
+          deps,
+          venueId,
+          await deps.store.listStuckNotices(venueId, cutoff, limit),
+          now
+        );
+        return { refunds, notices };
+      });
+    }
+    export async function sweepClosureOutcomes(deps: ClosureOutcomeSweeperDeps): Promise<SweepResult> {
+      let total: SweepResult = { refunds: EMPTY, notices: EMPTY };
+      for (const venueId of await deps.getVenueIds()) {
+        try {
+          const result = await sweepVenue(deps, venueId);
+          total = {
+            refunds: add(total.refunds, result.refunds),
+            notices: add(total.notices, result.notices),
+          };
+        } catch (err) {
+          deps.log.error({ err, venueId }, "closure sweeper: venue sweep failed");
+        }
+      }
+      return total;
+    }
+    export interface ClosureOutcomeSweeper {
+      start(): void;
+      stop(): void;
+    }
+    export function createClosureOutcomeSweeper(
+      deps: ClosureOutcomeSweeperDeps,
+      opts: { intervalMs?: number; startupDelayMs?: number } = {}
+    ): ClosureOutcomeSweeper {
+      const { intervalMs = DEFAULT_SWEEP_INTERVAL_MS, startupDelayMs = DEFAULT_STARTUP_DELAY_MS } =
+        opts;
+      let startup: ReturnType<typeof setTimeout> | null = null;
+      let interval: ReturnType<typeof setInterval> | null = null;
+      let running = false;
+    
+      const tick = async (): Promise<void> => {
+        if (running) return;
+        running = true;
+        try {
+          await sweepClosureOutcomes(deps);
+        } catch (err) {
+          deps.log.error({ err }, "closure sweeper: sweep failed");
+        } finally {
+          running = false;
+        }
+      };
+    
+      return {
+        start() {
+          startup = setTimeout(() => {
+            void tick();
+            interval = setInterval(() => void tick(), intervalMs);
+          }, startupDelayMs);
+        },
+        stop() {
+          if (startup !== null) clearTimeout(startup);
+          if (interval !== null) clearInterval(interval);
+          startup = null;
+          interval = null;
+        },
+      };
+    }
+  </file>
   <file path="src/services/closure-refund-store.ts">
     export function createPrismaClosureRefundStore(): ClosureRefundStore {
       return {
@@ -14415,7 +15198,7 @@
         },
         resetToPending: async (outcomeId) => {
           await prisma.closureOutcome.updateMany({
-            where: { id: outcomeId, refund: { in: ["failed", "pending"] } },
+            where: { id: outcomeId, refund: "failed" },
             data: { refund: "pending" },
           });
         },
@@ -14428,7 +15211,7 @@
         listByRule: (venueId, ruleId, statuses) =>
           prisma.closureOutcome.findMany({
             where: { venueId, dateRuleId: ruleId, refund: { in: [...statuses] } },
-            select: { id: true, reservationId: true },
+            select: { id: true, reservationId: true, refund: true },
           }),
       };
     }
@@ -14446,8 +15229,10 @@
       load(outcomeId: string): Promise<ClosureRefundRow | null>;
       setRefund(outcomeId: string, refund: ClosureRefundStatus): Promise<void>;
       /**
-       * Returns a `failed` outcome to `pending` once its retry job exists. Conditional: a row
-       * that settled (`done` / `none`) in the meantime is left alone.
+       * Returns a `failed` outcome to `pending` BEFORE its retry job is scheduled. Conditional on
+       * `failed`: a row that settled (`done` / `none`) or is already `pending` is left alone.
+       * Resetting first means a job that fails permanently always runs `markFailed` after the
+       * reset, so the failure is never overwritten.
        */
       resetToPending(outcomeId: string): Promise<void>;
       /** Records `failed`, leaving an outcome a concurrent run already settled (`done` / `none`). */
@@ -14457,7 +15242,7 @@
         venueId: string,
         ruleId: string,
         statuses: readonly ClosureRefundStatus[]
-      ): Promise<{ id: string; reservationId: string }[]>;
+      ): Promise<{ id: string; reservationId: string; refund: ClosureRefundStatus }[]>;
     }
     export interface ClosureRefundDeps {
       deposits: Pick<DepositService, "getByReservationId" | "hold" | "refund" | "writeOffUncaptured">;
@@ -14599,6 +15384,9 @@
         throw error;
       }
     }
+    export interface RefundLogger {
+      error(context: Record<string, unknown>, message: string): void;
+    }
     export class ClosureRefundEnqueueError extends Error {
       constructor(
         readonly enqueued: number,
@@ -14609,7 +15397,11 @@
       }
     }
     export async function enqueueClosureRefunds(
-      deps: { store: ClosureRefundStore; jobs: Pick<JobScheduler, "schedule"> },
+      deps: {
+        store: ClosureRefundStore;
+        jobs: Pick<JobScheduler, "schedule">;
+        log?: RefundLogger;
+      },
       venueId: string,
       ruleId: string,
       statuses: readonly ClosureRefundStatus[],
@@ -14621,14 +15413,23 @@
         const base = closureRefundJobId(ruleId, outcome.reservationId);
         const jobId = opts.retry ? `${base}_retry_${(opts.now ?? Date.now)()}` : base;
         try {
+          if (opts.retry) await deps.store.resetToPending(outcome.id);
           await deps.jobs.schedule(
             JOB_TYPES.CLOSURE_REFUND,
             { outcomeId: outcome.id, venueId },
             0,
             jobId
           );
-          if (opts.retry) await deps.store.resetToPending(outcome.id);
         } catch (error) {
+          if (opts.retry && outcome.refund === "failed") {
+            await deps.store.markFailed(outcome.id).catch((restoreError: unknown) => {
+              // The row stays `pending` with no job; the next retry picks it up (it covers pending).
+              deps.log?.error(
+                { err: restoreError, venueId, ruleId, outcomeId: outcome.id },
+                "closure refund retry: could not restore the failed outcome after a scheduling error"
+              );
+            });
+          }
           throw new ClosureRefundEnqueueError(enqueued, error);
         }
         enqueued += 1;
@@ -14642,6 +15443,7 @@
     export function createClosureRefunds(deps: {
       store: ClosureRefundStore;
       jobs: Pick<JobScheduler, "schedule">;
+      log?: RefundLogger;
     }): ClosureRefunds {
       return {
         enqueue: (venueId, ruleId) => enqueueClosureRefunds(deps, venueId, ruleId, ["pending"]),
@@ -18131,11 +18933,20 @@
       return guest !== null && assessGuestReliability(guest, settings) === "risky";
     }
     export const defaultRebookDeps: RebookDeps = {
-      findCancelOutcome: (reservationId, venueId) =>
-        prisma.closureOutcome.findFirst({
+      findCancelOutcome: async (reservationId, venueId) => {
+        const row = await prisma.closureOutcome.findFirst({
           where: { reservationId, venueId, action: "cancel" },
-          select: { id: true, refund: true, rebookedReservationId: true },
-        }),
+          select: {
+            id: true,
+            refund: true,
+            rebookedReservationId: true,
+            dateRule: { select: { guestMessage: true } },
+          },
+        });
+        if (!row) return null;
+        const { dateRule, ...outcome } = row;
+        return { ...outcome, guestMessage: dateRule.guestMessage };
+      },
       findRebooked: (reservationId) =>
         prisma.reservation.findUnique({
           where: { id: reservationId },
@@ -18161,6 +18972,8 @@
       id: string;
       refund: GuestRefundStatus;
       rebookedReservationId: string | null;
+      /** The closure rule's guest-facing message (never the staff note). */
+      guestMessage: string | null;
     }
     export interface RebookDeps {
       findCancelOutcome(reservationId: string, venueId: string): Promise<CancelOutcome | null>;
@@ -18172,7 +18985,7 @@
         from: string,
         to: string,
         now: Date
-      ): Promise<{ snapshot: BookingSnapshot }>;
+      ): Promise<{ snapshot: BookingSnapshot; venueSettings?: VenueSettings | null }>;
       createHold(data: CreateHoldRequest, sessionId: string): Promise<CreateHoldResult>;
       confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldResult>;
       releaseHold(holdId: string, sessionId: string): Promise<boolean>;
@@ -18196,6 +19009,10 @@
     }
     export interface VenueCancellation {
       refundStatus: GuestRefundStatus;
+      /** The reservation's service date (YYYY-MM-DD): the day the venue was closed for this guest. */
+      closureDate: string;
+      /** The Manager's guest message for the closure; shown to the guest as plain text. */
+      closureMessage: string | null;
       offers: RebookOffer[];
       /** Set once the guest has rebooked; offers are then always empty. */
       rebooked: { reservationId: string; startTime: string } | null;
@@ -18208,16 +19025,20 @@
     ): Promise<RebookOffer[]> {
       // Probe the timezone-free window generously; the engine applies the exact 14-day rule.
       const today = now.toISOString().slice(0, 10);
-      const { snapshot } = await deps.loadSnapshot(
+      const { snapshot, venueSettings } = await deps.loadSnapshot(
         venueId,
         addDays(today, -1),
         addDays(today, REBOOK_WINDOW_DAYS + 1),
         now
       );
+      const window = bookingWindow(venueSettings, now, snapshot.timezone);
       const result = rebookOffers(
         snapshot,
         { startTime: new Date(reservation.startTime), partySize: reservation.partySize },
-        now
+        now,
+        // The engine leaves advance limits to the caller; an offer outside the window would
+        // fail the hold with BOOKING_WINDOW_ERROR, which the guest sees as slot-taken.
+        (start) => isSlotInBookingWindow(start, window)
       );
       return result.kind === "offers"
         ? result.slots.map((slot) => ({
@@ -18237,11 +19058,16 @@
       const outcome = await deps.findCancelOutcome(reservation.id, venueId);
       if (!outcome) return null;
       const { refund: refundStatus } = outcome;
+      const closure = {
+        refundStatus,
+        closureDate: reservation.date,
+        closureMessage: outcome.guestMessage,
+      };
     
       if (outcome.rebookedReservationId) {
         const rebooked = await deps.findRebooked(outcome.rebookedReservationId);
         return {
-          refundStatus,
+          ...closure,
           offers: [],
           rebooked: rebooked
             ? { reservationId: rebooked.id, startTime: rebooked.startTime.toISOString() }
@@ -18251,10 +19077,10 @@
     
       // A deposit venue gets no one-tap offers: the guest goes through the widget's payment step.
       if (await deps.requiresDeposit(venueId, reservation)) {
-        return { refundStatus, offers: [], rebooked: null };
+        return { ...closure, offers: [], rebooked: null };
       }
       const offers = await currentOffers(reservation, venueId, now, deps);
-      return { refundStatus, offers, rebooked: null };
+      return { ...closure, offers, rebooked: null };
     }
     export type RebookResult =
       | { ok: true; reservation: Reservation }
@@ -18760,7 +19586,7 @@
     }
   </file>
   <file path="src/services/notifier-runtime.ts">
-    export type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel">;
+    export type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel" | "requeue">;
     export interface NotifierRuntime {
       /**
        * Redis URL — the single source for the scheduler AND the in-process worker.
@@ -18843,6 +19669,9 @@
         },
         async cancel(jobId: string): Promise<boolean> {
           return connect().cancel(jobId);
+        },
+        async requeue<T extends JobType>(jobType: T, payload: JobPayloadMap[T], jobId: string) {
+          return connect().requeue(jobType, payload, jobId);
         },
       };
     
@@ -20638,11 +21467,17 @@
           }
         }
     
-        // Determine if we need to check for conflicts
-        const timeOrTableChanged = isSlotMove(data);
+        // A slot move, or a party-size increase, changes what the slot must hold, so
+        // both cross the booking gate (max party, pacing). A status payload never
+        // reaches the gated write (it writes no status), so it keeps the plain path.
+        const needsGate =
+          isSlotMove(data) ||
+          (data.status === undefined &&
+            data.partySize !== undefined &&
+            data.partySize > existing.partySize);
     
-        // Notes / party-size / preference edits are not slot moves — no lock needed.
-        if (!timeOrTableChanged) {
+        // Notes / preference / party-size-decrease edits need no gate or lock.
+        if (!needsGate) {
           const reservation = await this.update(id, data, actor);
           if (!reservation) {
             return { success: false, error: "Failed to update reservation" };
@@ -20717,7 +21552,7 @@
           partySize: data.partySize ?? existing.partySize,
           excludeReservationId: id,
           checkHoldConflict: true,
-          gate: { channel: "phone", override: data.override },
+          gate: { channel: "phone", override: data.override, movingFrom: existing.startTime },
           write: async (tx, gated) => {
             try {
               const moved = await tx.reservation.update({
@@ -20735,7 +21570,7 @@
               await recordReservationEvent(tx, {
                 reservationId: id,
                 venueId: existing.venueId,
-                kind: "moved",
+                kind: isSlotMove(data) ? "moved" : "updated",
                 actor,
                 from: toEventState(existing),
                 to: toEventState(moved),
@@ -22493,6 +23328,13 @@
           }
           const replayed = await replayOf(tx, venueId, rule, state);
           if (replayed) return { kind: "saved", result: replayed };
+          if (GATED_CHANGES.has(body.change.type)) {
+            // A stop, table block or pause that leaves nothing bookable closes the night like a
+            // close-early does (#7721); one that leaves a table and a channel open stays a Host's.
+            // After the replay check: a saved stop's retry is not a new close.
+            const allowed = await mayCloseFor(tx, venueId, caller, rule, now);
+            if (!allowed) throw new Refused({ kind: allowed === null ? "not_found" : "forbidden" });
+          }
           const result = await writeChange(
             tx,
             { venueId, actorId: caller.actorId, now, body },
@@ -24211,6 +25053,7 @@
           createClosureRefunds({
             store: closureRefundStore,
             jobs: options.jobs ?? notifierRuntime.scheduler,
+            log: fastify.log,
           })
       );
     
@@ -24311,6 +25154,17 @@
           });
           fastify.addHook("onReady", async () => jobWorker.start(fastify.log));
           fastify.addHook("onClose", async () => jobWorker.stop());
+    
+          // Re-enqueues closure refunds/notices lost after commit (#7681).
+          const closureOutcomeSweeper = createClosureOutcomeSweeper({
+            getVenueIds: () => getAllVenueIds(prisma),
+            store: createPrismaClosureOutcomeSweepStore(),
+            jobs: notifierRuntime.scheduler,
+            notices: services.closureNoticeService,
+            log: fastify.log,
+          });
+          fastify.addHook("onReady", async () => closureOutcomeSweeper.start());
+          fastify.addHook("onClose", async () => closureOutcomeSweeper.stop());
         }
       }
     

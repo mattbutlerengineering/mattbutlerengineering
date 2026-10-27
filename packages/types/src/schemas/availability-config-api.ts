@@ -6,6 +6,7 @@ import {
   DateRuleTargetKindSchema,
   GUEST_MESSAGE_MAX_LENGTH,
   MinuteSchema,
+  RULE_BOOKING_TYPES,
   ScheduleAssignmentSchema,
   ScheduleSchema,
   ScheduleServiceSchema,
@@ -106,6 +107,18 @@ export const AvailabilityChangeSummarySchema = z.object({
   summary: z.string(),
 });
 
+/** What a saved closure or close-early did to the bookings it touched; the History drawer words it. */
+export const AvailabilityChangeOutcomeSchema = z.object({
+  cancelled: z.number().int(),
+  moved: z.number().int(),
+  kept: z.number().int(),
+  /** A close-early (Tonight) rather than a closure. */
+  closeEarly: z.boolean(),
+  /** The saved rule's own first and last day; `endsOn` null means it has no end. Absent on older rows. */
+  startsOn: ServiceDateSchema.optional(),
+  endsOn: ServiceDateSchema.nullish(),
+});
+
 /** One row of the history drawer: the audit row, plus whether undo is still on offer. */
 export const AvailabilityChangeEntrySchema = AvailabilityChangeSummarySchema.extend({
   /** First and last service dates the change can alter; `null` end means onward. */
@@ -117,6 +130,11 @@ export const AvailabilityChangeEntrySchema = AvailabilityChangeSummarySchema.ext
   revertedById: z.string().nullable(),
   /** `Revert` is offered only on the newest change, and only when it told no guest. */
   revertible: z.boolean(),
+  /**
+   * Counts for a saved closure; `null` for any other change and for rows saved before they were
+   * recorded. Optional so a client talking to an older API falls back to `summary`.
+   */
+  outcome: AvailabilityChangeOutcomeSchema.nullish(),
 });
 
 /** Most entries one `GET …/availability/changes` page returns. */
@@ -195,7 +213,16 @@ export const AvailabilityDaysQuerySchema = z.object({
   to: ServiceDateSchema,
 });
 
-/** One calendar cell: what the day is called, its closure bands and service count. */
+/** One service that runs on a day: its hours, for the day's summary and the preview's focus day. */
+export const DaySummaryServiceSchema = z.object({
+  venueServiceId: z.string(),
+  name: z.string(),
+  opensAt: z.number().int(),
+  lastSeatingAt: z.number().int(),
+  closesAt: z.number().int(),
+});
+
+/** One calendar cell: what the day is called, its closure bands, service count and services. */
 export const AvailabilityDaySummarySchema = z.object({
   serviceDate: ServiceDateSchema,
   /** The schedule name, "Special hours" or "Closed". */
@@ -208,14 +235,33 @@ export const AvailabilityDaySummarySchema = z.object({
       targetKind: DateRuleTargetKindSchema,
       from: z.number().int(),
       to: z.number().int(),
+      /** Channels a `booking` closure pauses; absent for other targets and from an older API. */
+      bookingTypes: z.array(z.enum(RULE_BOOKING_TYPES)).optional(),
     })
   ),
   bookingOpen: z.object({ online: z.boolean(), phone: z.boolean(), waitlist: z.boolean() }),
   guestMessage: z.string().optional(),
+  /** Absent when parsing an old API's response during a deploy window. */
+  services: z.array(DaySummaryServiceSchema).optional(),
+});
+
+/**
+ * Date-rule rows a closure replaces in the same save (ux.md F-SER: a series edit that closes new
+ * dates). Applied to the config before the draft `rule` is added, in the preview and in the
+ * closure command's one transaction; Manager only.
+ */
+export const ClosureAlongsideSchema = z.object({
+  /** Rows to write: the ended original series, and skips or one-date edits re-pointed. */
+  upsert: z.array(DateRuleSchema).default([]),
+  /** Rule ids to remove (soft delete): the series the draft replaces. */
+  remove: IdListSchema.default([]),
 });
 
 /** `POST …/closures/impact`: the draft date rule whose effect on bookings is asked about. */
-export const ClosureImpactBodySchema = z.object({ rule: DateRuleSchema });
+export const ClosureImpactBodySchema = z.object({
+  rule: DateRuleSchema,
+  alongside: ClosureAlongsideSchema.optional(),
+});
 
 /** `closed`: the booking's time is gone; `shortened`: hours or a window changed. */
 export const CLOSURE_IMPACT_KINDS = ["closed", "shortened"] as const;
@@ -253,6 +299,7 @@ export const ClosureImpactSchema = z.object({
   groups: z.array(ClosureImpactGroupSchema),
 });
 
+export type ClosureAlongside = z.infer<typeof ClosureAlongsideSchema>;
 export type ClosureImpactBody = z.infer<typeof ClosureImpactBodySchema>;
 export type ClosureImpactKind = z.infer<typeof ClosureImpactKindSchema>;
 export type ClosureImpactReservation = z.infer<typeof ClosureImpactReservationSchema>;
@@ -331,17 +378,7 @@ export const PreviewResultSchema = z.object({
   version: z.number().int(),
   days: z.array(PreviewDaySchema),
   /** The focus date under the draft: its summary and the services that run. */
-  focusDay: AvailabilityDaySummarySchema.extend({
-    services: z.array(
-      z.object({
-        venueServiceId: z.string(),
-        name: z.string(),
-        opensAt: z.number().int(),
-        lastSeatingAt: z.number().int(),
-        closesAt: z.number().int(),
-      })
-    ),
-  }),
+  focusDay: AvailabilityDaySummarySchema,
   /** Future bookings in scope the draft would leave unserved, by start time. */
   stranded: z.object({
     total: z.number().int(),
@@ -364,6 +401,7 @@ export type AvailabilityConfigSource = z.infer<typeof AvailabilityConfigSourceSc
 export type AvailabilityConfigState = z.infer<typeof AvailabilityConfigStateSchema>;
 export type AvailabilityConfigSaveResult = z.infer<typeof AvailabilityConfigSaveResultSchema>;
 export type AvailabilityChangeSummary = z.infer<typeof AvailabilityChangeSummarySchema>;
+export type AvailabilityChangeOutcome = z.infer<typeof AvailabilityChangeOutcomeSchema>;
 export type AvailabilityChangeEntry = z.infer<typeof AvailabilityChangeEntrySchema>;
 export type AvailabilityChangesQuery = z.input<typeof AvailabilityChangesQuerySchema>;
 export type AvailabilityChangesParsed = z.infer<typeof AvailabilityChangesQuerySchema>;
@@ -372,6 +410,7 @@ export type RevertAvailabilityChangeBody = z.infer<typeof RevertAvailabilityChan
 export type StrandedReservation = z.infer<typeof StrandedReservationSchema>;
 export type AvailabilityConfigProblem = z.infer<typeof AvailabilityConfigProblemSchema>;
 export type AvailabilityDaySummary = z.infer<typeof AvailabilityDaySummarySchema>;
+export type DaySummaryService = z.infer<typeof DaySummaryServiceSchema>;
 
 // ── Closure command ─────────────────────────────────────────────────────────
 
@@ -391,7 +430,26 @@ export const ClosureDecisionSchema = z.object({
 export const CreateClosureBodySchema = z.object({
   expectedVersion: z.number().int().min(0),
   rule: DateRuleSchema,
+  alongside: ClosureAlongsideSchema.optional(),
   decisions: z.array(ClosureDecisionSchema).default([]),
+});
+
+/** Most closures one batch save carries (the Add special date sheet's rows). */
+export const MAX_CLOSURE_BATCH = 20;
+
+/**
+ * `POST …/closures/batch`: several closures saved in one transaction (ux.md F6 "Add special
+ * date"). Each item is a `POST …/closures` body without its own version; the items commit in
+ * order from `expectedVersion`, and any refusal saves none of them.
+ */
+export const CreateClosuresBodySchema = z.object({
+  expectedVersion: z.number().int().min(0),
+  items: z
+    .array(
+      z.object({ rule: DateRuleSchema, decisions: z.array(ClosureDecisionSchema).default([]) })
+    )
+    .min(1)
+    .max(MAX_CLOSURE_BATCH),
 });
 
 /** `DELETE …/closures/:ruleId`. */
@@ -412,6 +470,13 @@ export const ClosureResultSchema = z.object({
   outcomes: ClosureOutcomeCountsSchema,
 });
 
+export const ClosuresResultSchema = z.object({
+  /** `Venue.availabilityVersion` after the last item. */
+  version: z.number().int(),
+  /** One result per item, in the order sent. */
+  results: z.array(ClosureResultSchema),
+});
+
 export const ReopenResultSchema = z.object({ version: z.number().int(), changeId: z.string() });
 
 /**
@@ -419,6 +484,15 @@ export const ReopenResultSchema = z.object({ version: z.number().int(), changeId
  * keyed by the date rule that made it. Rows exist even after the rule is gone
  * (a reopened closure, an ended Tonight change), so refunds can still be retried.
  */
+export const RefundFailureSchema = z.object({
+  outcomeId: z.string(),
+  /** The guest's name as booked; no email or phone travels here. */
+  guestName: z.string().nullable(),
+  /** The deposit being refunded, in integer minor units; null when no deposit is on file. */
+  amountCents: z.number().int().nullable(),
+  currency: z.string().nullable(),
+});
+
 export const ClosureSummarySchema = z.object({
   ruleId: z.string(),
   /** Outcomes the closure produced. */
@@ -433,6 +507,8 @@ export const ClosureSummarySchema = z.object({
   unreachable: z.number().int(),
   /** Deposit refunds the refund job gave up on. */
   refundFailed: z.number().int(),
+  /** The failed refunds, named, for "Refund failed: Rivera ($40)". */
+  refundFailures: z.array(RefundFailureSchema),
   /** Deposit refunds not yet settled (also retried: the enqueue itself may have been lost). */
   refundPending: z.number().int(),
 });
@@ -508,7 +584,10 @@ export type ClosureDecision = z.infer<typeof ClosureDecisionSchema>;
 export type CreateClosureBody = z.infer<typeof CreateClosureBodySchema>;
 export type ReopenClosureBody = z.infer<typeof ReopenClosureBodySchema>;
 export type ClosureResult = z.infer<typeof ClosureResultSchema>;
+export type CreateClosuresBody = z.infer<typeof CreateClosuresBodySchema>;
+export type ClosuresResult = z.infer<typeof ClosuresResultSchema>;
 export type ReopenResult = z.infer<typeof ReopenResultSchema>;
+export type RefundFailure = z.infer<typeof RefundFailureSchema>;
 export type ClosureSummary = z.infer<typeof ClosureSummarySchema>;
 export type RetryRefundsResult = z.infer<typeof RetryRefundsResultSchema>;
 export type ClosureCallListEntry = z.infer<typeof CallListEntrySchema>;

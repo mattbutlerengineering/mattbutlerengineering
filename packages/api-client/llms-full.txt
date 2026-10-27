@@ -80,6 +80,7 @@
     }
     export type SaveAvailabilityConfigRequest = z.input<typeof PutAvailabilityConfigBodySchema>;
     export type CreateClosureRequest = z.input<typeof CreateClosureBodySchema>;
+    export type CreateClosuresRequest = z.input<typeof CreateClosuresBodySchema>;
     export type SetTonightRequest = z.input<typeof SetTonightBodySchema>;
     export class AvailabilityClient {
       constructor(private client: ApiClient) {}
@@ -178,10 +179,14 @@
        * special hours or Tonight change) would affect, grouped by date and kind.
        * Requires a Manager.
        */
-      async getClosureImpact(venueId: string, rule: DateRule): Promise<ClosureImpact> {
+      async getClosureImpact(
+        venueId: string,
+        rule: DateRule,
+        alongside?: ClosureAlongside
+      ): Promise<ClosureImpact> {
         const response = await this.client.call(availabilityConfigEndpoints.closureImpact, {
           params: { id: venueId },
-          body: { rule },
+          body: alongside ? { rule, alongside } : { rule },
         });
         return response.data;
       }
@@ -200,6 +205,23 @@
       ): Promise<ClosureResult> {
         const response = await this.client.call(
           availabilityConfigEndpoints.createClosure,
+          { params: { id: venueId }, body },
+          { headers: { "Idempotency-Key": idempotencyKey }, idempotentRetry: true }
+        );
+        return response.data;
+      }
+    
+      /**
+       * Saves several closures in one transaction (the Add special date sheet): all or none, each
+       * with its own decisions. `idempotencyKey` makes a retry replay the first results.
+       */
+      async createClosures(
+        venueId: string,
+        body: CreateClosuresRequest,
+        idempotencyKey: string
+      ): Promise<ClosuresResult> {
+        const response = await this.client.call(
+          availabilityConfigEndpoints.createClosures,
           { params: { id: venueId }, body },
           { headers: { "Idempotency-Key": idempotencyKey }, idempotentRetry: true }
         );
@@ -642,7 +664,8 @@
         const method = options.method ?? "GET";
     
         const headers: Record<string, string> = {
-          "Content-Type": "application/json",
+          // Only with a body: Fastify 400s an empty body under a JSON content type.
+          ...(options.body != null ? { "Content-Type": "application/json" } : {}),
           ...(options.headers as Record<string, string>),
           ...override?.headers,
         };
@@ -1678,6 +1701,10 @@
     }
     export interface ManagedVenueCancellation {
       refundStatus: "none" | "pending" | "done" | "failed";
+      /** The service date (YYYY-MM-DD) the venue was closed; null when an older API did not send it. */
+      closureDate: string | null;
+      /** The venue's guest message for the closure; free text, render as text only. */
+      closureMessage: string | null;
       /** Empty once rebooked, and where the new booking would need a deposit (the guest uses the full picker). */
       offers: ManagedRebookOffer[];
       /** Set once the guest has rebooked; `manageToken` opens the new reservation. */

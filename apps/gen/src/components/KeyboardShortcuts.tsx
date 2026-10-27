@@ -104,7 +104,7 @@ export interface HelpButtonProps {
 }
 
 /**
- * Fixed-position "?" button in the bottom-right corner.
+ * Header "?" button that opens the keyboard-shortcuts dialog.
  * Hidden on mobile via CSS media query.
  */
 export function HelpButton({ onClick }: HelpButtonProps) {

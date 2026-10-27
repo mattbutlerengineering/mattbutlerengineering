@@ -337,6 +337,21 @@ describe("toResponseJsonSchema (endpoint definitions → Fastify response schema
     expect(data).toHaveProperty("type", "object");
   });
 
+  it("keeps `required` on union branches so they stay distinguishable (#7722)", () => {
+    const schema = toResponseJsonSchema(
+      z.object({
+        data: z.union([
+          z.strictObject({ a: z.string(), n: z.object({ x: z.number() }) }),
+          z.strictObject({ b: z.string() }),
+        ]),
+      })
+    );
+    const data = (schema.properties as Record<string, { anyOf: Record<string, unknown>[] }>).data!;
+    expect(data.anyOf.map((branch) => branch.required)).toEqual([["a", "n"], ["b"]]);
+    const nested = (data.anyOf[0]!.properties as Record<string, Record<string, unknown>>).n!;
+    expect(nested).not.toHaveProperty("required");
+  });
+
   it("maps exactly the entities whose $id the shared Fastify schemas assign", () => {
     expect([...SHARED_RESPONSE_REFS.values()].sort()).toEqual(["Guest#", "GuestSegment#"]);
     expect(guestJsonSchema.$id).toBe("Guest");

@@ -1,6 +1,45 @@
 import { describe, expect, it } from "vitest";
 import type { ClosureSummary, DateRule } from "@mbe/types";
-import { orphanRefundRules, specialDateRows } from "./special-dates.js";
+import {
+  hoursEditDate,
+  orphanRefundRules,
+  refundFailureLabel,
+  specialDateRows,
+} from "./special-dates.js";
+
+describe("hoursEditDate", () => {
+  const range = (startsOn: string, endsOn: string | null) =>
+    ({ id: "r", kind: "special_hours", targetKind: "venue", startsOn, endsOn }) as DateRule;
+
+  it("is the rule's own date for a single date", () => {
+    expect(hoursEditDate(range("2026-12-31", "2026-12-31"), "2026-12-01")).toBe("2026-12-31");
+  });
+
+  it("is the next covered weekday for a repeating rule that started in the past", () => {
+    const fridays = {
+      ...range("2026-09-04", null),
+      repeat: { version: 1, weekdays: [5] },
+    } as DateRule;
+    // 2026-10-26 is a Monday; the rule's first date is a Friday long gone.
+    expect(hoursEditDate(fridays, "2026-10-26")).toBe("2026-10-30");
+    expect(hoursEditDate(fridays, "2026-09-01")).toBe("2026-09-04");
+  });
+
+  it("is null for a repeating rule with no covered date left before it ends", () => {
+    const fridays = {
+      ...range("2026-10-02", "2026-10-28"),
+      repeat: { version: 1, weekdays: [5] },
+    } as DateRule;
+    // 2026-10-26 is a Monday; the last Friday covered was Oct 23.
+    expect(hoursEditDate(fridays, "2026-10-26")).toBeNull();
+    expect(hoursEditDate(fridays, "2026-10-20")).toBe("2026-10-23");
+  });
+
+  it("is the first date not yet past for a range already under way", () => {
+    expect(hoursEditDate(range("2026-12-01", "2026-12-31"), "2026-12-10")).toBe("2026-12-10");
+    expect(hoursEditDate(range("2026-12-20", null), "2026-12-10")).toBe("2026-12-20");
+  });
+});
 
 const closure = (id: string, startsOn: string, over: Partial<DateRule> = {}) =>
   ({ id, kind: "closure", targetKind: "venue", startsOn, endsOn: startsOn, ...over }) as DateRule;
@@ -23,6 +62,7 @@ const summary = (ruleId: string, over: Partial<ClosureSummary> = {}): ClosureSum
   rebooked: 0,
   unreachable: 0,
   refundFailed: 0,
+  refundFailures: [],
   refundPending: 0,
   ...over,
 });
@@ -74,5 +114,19 @@ describe("orphanRefundRules", () => {
       "tonight",
       "reopened",
     ]);
+  });
+});
+
+describe("refundFailureLabel", () => {
+  const format = (cents: number, currency: string) => `${currency}:${cents}`;
+
+  it("formats the amount in the deposit's own currency", () => {
+    const failure = { outcomeId: "o", guestName: "Rivera", amountCents: 4000, currency: "cad" };
+    expect(refundFailureLabel(failure, format, "Unnamed")).toBe("Rivera (cad:4000)");
+  });
+
+  it("drops the amount when it or its currency is unknown", () => {
+    const failure = { outcomeId: "o", guestName: null, amountCents: 4000, currency: null };
+    expect(refundFailureLabel(failure, format, "Unnamed")).toBe("Unnamed");
   });
 });

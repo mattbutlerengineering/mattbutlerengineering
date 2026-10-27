@@ -2,6 +2,7 @@ import { beforeAll, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, within, fireEvent, waitFor } from "@testing-library/react";
 import { axe } from "vitest-axe";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
+import { ApiClientError } from "@mbe/api-client";
 import type { AvailabilityConfigState, ClosureImpact, DateRule } from "@mbe/types";
 
 const create = vi.hoisted(() => vi.fn());
@@ -15,6 +16,9 @@ vi.mock("../../hooks/useClosures.js", () => ({
     refetch: vi.fn(),
   }),
 }));
+const refresh = vi.hoisted(() => vi.fn());
+vi.mock("../../hooks/useRefreshAvailability.js", () => ({ useRefreshAvailability: () => refresh }));
+vi.mock("@mbe/auth/react", () => ({ useAuth: () => ({ user: { id: "auth0|me" } }) }));
 vi.mock("../../contexts/VenueContext.js", () => ({
   useVenue: () => ({
     selectedVenue: { id: "venue-1", ianaTimezone: "America/Los_Angeles", currencyCode: "USD" },
@@ -90,7 +94,35 @@ describe("CloseDialog", () => {
   });
   beforeEach(() => {
     create.mockReset();
+    refresh.mockReset();
     impactState.value = IMPACT;
+  });
+
+  it("shows the guest-message character counter once", () => {
+    renderDialog();
+    expect(screen.getAllByText("0/200")).toHaveLength(1);
+  });
+
+  it("explains an over-limit guest message", () => {
+    renderDialog();
+    fireEvent.change(screen.getByLabelText(/Message for guests/), {
+      target: { value: "x".repeat(201) },
+    });
+    expect(screen.getByText("Keep it to 200 characters.").getAttribute("role")).toBe("alert");
+  });
+
+  it("judges the guest message length trimmed, as Next does", () => {
+    renderDialog();
+    fireEvent.change(screen.getByLabelText(/Message for guests/), {
+      target: { value: `${"x".repeat(199)}  ` },
+    });
+    expect(screen.queryByText("Keep it to 200 characters.")).toBeNull();
+  });
+
+  it("starts the date picker's weeks on Monday", () => {
+    renderDialog();
+    fireEvent.click(screen.getAllByRole("combobox", { name: "Date" })[0]!);
+    expect(screen.getAllByRole("columnheader")[0]!.textContent).toMatch(/^Mo/);
   });
 
   it("edits one date of a series: When is fixed to that date and What starts as the series", async () => {
@@ -272,6 +304,38 @@ describe("CloseDialog", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Close and keep 14" }));
     expect(await within(dialog).findByText("Couldn't close")).toBeTruthy();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("names the change that won on a version conflict, and refreshes", async () => {
+    create.mockRejectedValue(
+      new ApiClientError(
+        {
+          type: "about:blank",
+          title: "Conflict",
+          status: 409,
+          detail: "Availability changed since you loaded it.",
+          code: "version-conflict",
+          winningChange: {
+            id: "c1",
+            actorId: "auth0|ana",
+            at: "2026-12-01T20:15:00Z",
+            kind: "closure",
+            summary: "Closed Thu Dec 24",
+          },
+        } as never,
+        "POST",
+        "closures"
+      )
+    );
+    renderDialog();
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+    fireEvent.click(within(dialog).getByRole("radio", { name: /Keep them and notify/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close and keep 14" }));
+    expect(
+      await within(dialog).findByText(/changed first by a teammate: Closed Thu Dec 24/i)
+    ).toBeTruthy();
+    expect(refresh).toHaveBeenCalled();
   });
 
   it("locks What and When to the whole venue tonight for a Host, as text", async () => {

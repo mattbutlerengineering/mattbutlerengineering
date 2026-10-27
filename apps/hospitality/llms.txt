@@ -7,9 +7,85 @@
   </file>
   </section>
   <section priority="medium" role="availability">
+  <file path="src/components/availability/add-dates-draft.ts">
+    <item priority="low">
+      type RowKind = "closed" | "hours" | "same";
+    </item>
+    <item priority="low">
+      interface DateRow {
+        key: string;
+        date: string;
+        kind: RowKind;
+        sameAs: number;
+        services: readonly DraftService[];
+      }
+    </item>
+    <item priority="low">
+      interface AddDatesForm {
+        rows: readonly DateRow[];
+        shareMessage: boolean;
+        sharedMessage: string;
+      }
+    </item>
+    <item priority="low">
+      type RowField = "dateMissing" | "date" | "hours" | "message";
+    </item>
+    <item priority="high">
+      export const rowFieldId: unknown;
+    </item>
+    <item priority="high">
+      export const emptyRow: unknown;
+    </item>
+    <item priority="medium">
+      function hasOwnHours(config: AvailabilityConfig, date: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function validateRows(
+        form: AddDatesForm,
+        config: AvailabilityConfig,
+        today: string
+      ): { readonly key: string; readonly field: RowField } | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function ruleItems(
+        form: AddDatesForm,
+        today: string,
+        idFor: (rowKey: string) => string
+      ): { readonly rowKey: string; readonly rule: DateRule }[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function hoursRule(row: DateRow, id: string, message: string): DateRule { /* ... */ }
+    </item>
+    <item priority="high">
+      export function regularServices(
+        config: AvailabilityConfig,
+        timezone: string,
+        weekday: number,
+        today: string
+      ): DraftService[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function combineImpacts(impacts: readonly ClosureImpact[]): ClosureImpact { /* ... */ }
+    </item>
+    <item priority="high">
+      export function decisionsFor(
+        impacts: readonly ClosureImpact[],
+        choices: ChoiceMap
+      ): ClosureDecision[][] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function saveLabelParts(
+        dates: number,
+        counts: OutcomeCounts
+      ): { dates: number; parts: { action: ClosureAction; count: number }[] } { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/calendar-dates.ts">
     <item priority="low">
       type CalendarView = "month" | "week";
+    </item>
+    <item priority="high">
+      export const WEEK_STARTS_ON: unknown;
     </item>
     <item priority="medium">
       function daysSinceMonday(date: string): number { /* ... */ }
@@ -118,7 +194,12 @@
     </item>
     <item priority="high">
       export function isUrgent(
-        closure: { readonly startsOn: string; readonly fromMinute: number | null },
+        closure: {
+          readonly startsOn: string;
+          readonly endsOn?: string | null;
+          readonly repeat?: { readonly weekdays: readonly number[] } | null;
+          readonly fromMinute: number | null;
+        },
         today: string,
         nowMinute: number
       ): boolean { /* ... */ }
@@ -147,6 +228,21 @@
     </item>
     <item priority="high">
       export function isWholeDay(closure: Pick<Closure, "from" | "to">): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      interface Copy {
+        allDay: (t: TFunction) => readonly [text: string, name: string];
+        band: (t: TFunction, v: { from: string; to: string }) => readon...;
+      }
+    </item>
+    <item priority="high">
+      type ChannelSuffix = "" | (typeof CHANNEL_SUFFIX)[keyof ;
+    </item>
+    <item priority="medium">
+      function channelSuffix(closure: Closure): ChannelSuffix { /* ... */ }
+    </item>
+    <item priority="medium">
+      function bookingCopy(suffix: ChannelSuffix): Copy { /* ... */ }
     </item>
     <item priority="high">
       export function closureBandText(
@@ -185,6 +281,14 @@
       ): AvailabilityConfigChanges { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/conflict-problem.ts">
+    <item priority="low">
+      type Conflict = { readonly code: "version-conf | { readonly code: "closure-exis;
+    </item>
+    <item priority="high">
+      export function conflictOf(error: unknown): Conflict | null { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/copy-day.ts">
     <item priority="low">
       interface CopyTarget {
@@ -214,13 +318,26 @@
   </file>
   <file path="src/components/availability/day-summary.ts">
     <item priority="low">
+      interface ServiceLineText {
+        key: string;
+        text: string;
+      }
+    </item>
+    <item priority="low">
       interface DayPresentation {
         bands: readonly ClosureBandText[];
         count: string | null;
+        services: readonly ServiceLineText[];
         onlineOff: boolean;
         accessibleDetails: string;
-        accessibleName: string;
       }
+    </item>
+    <item priority="medium">
+      function serviceLineText(
+        service: DaySummaryService,
+        t: TFunction,
+        format: VenueFormat
+      ): ServiceLineText { /* ... */ }
     </item>
     <item priority="high">
       export function presentDay(
@@ -232,9 +349,30 @@
       ): DayPresentation { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/describe-change.ts">
+    <item priority="medium">
+      function whenOf(
+        from: string | null | undefined,
+        to: string | null | undefined,
+        format: VenueFormat,
+        t: TFunction
+      ): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function outcomeText(outcome: AvailabilityChangeOutcome, format: VenueFormat, t: TFunction) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function describeChange(
+        entry: AvailabilityChangeEntry,
+        format: VenueFormat,
+        t: TFunction
+      ): string | null { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/draft-changes.ts">
     <item priority="low">
-      type EditScope = { readonly kind: "date"; reado | { readonly kind: "weekday"; re | { readonly kind: "schedule"; r | { readonly kind: "dates"; read;
+      type EditScope = { readonly kind: "date"; reado | { readonly kind: "weekday"; re | { readonly kind: "schedule"; r | { readonly kind: "dates"; read | {
+            readonly kind: "rule";;
     </item>
     <item priority="low">
       interface DraftService {
@@ -249,6 +387,9 @@
       type SeedService = Pick<
         DraftService,
         "opensAt" | "lastSeatingAt" | "cl...;
+    </item>
+    <item priority="medium">
+      function hoursRuleOf(config: AvailabilityConfig, ruleId: string): SpecialHoursRule | undefined { /* ... */ }
     </item>
     <item priority="high">
       export function seedServices(
@@ -298,6 +439,23 @@
   <file path="src/components/availability/outcome-label.ts">
     <item priority="high">
       export function outcomeLabel(counts: OutcomeCounts, t: TFunction): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/period.ts">
+    <item priority="high">
+      export function periodLabel(
+        view: CalendarView,
+        anchor: string,
+        t: TFunction,
+        format: VenueFormat
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function weekSummary(
+        anchor: string,
+        days: readonly AvailabilityDaySummary[] | undefined,
+        t: TFunction
+      ): string | null { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/quick-setup-draft.ts">
@@ -641,8 +799,8 @@
     <item priority="high">
       export function scopeDates(scope: EditScope, context: ScopeContext): string[] { /* ... */ }
     </item>
-    <item priority="medium">
-      function coversDate(rule: DateRule, date: string): boolean { /* ... */ }
+    <item priority="high">
+      export function coversDate(rule: DateRule, date: string): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function ownChangeDates(
@@ -690,6 +848,9 @@
         endsOn: string | null;
       }
     </item>
+    <item priority="low">
+      type SpecialHoursRule = Extract<DateRule, { kind: "special_hours" }>;
+    </item>
     <item priority="high">
       export function isSeries(rule: DateRule): boolean { /* ... */ }
     </item>
@@ -707,13 +868,42 @@
       ): DateRule | undefined { /* ... */ }
     </item>
     <item priority="high">
+      export function skipRows(rules: readonly DateRule[], seriesId: string): DateRule[] { /* ... */ }
+    </item>
+    <item priority="high">
       export function skippedDates(rules: readonly DateRule[], seriesId: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function restoreDate(skip: DateRule): AvailabilityConfigChanges { /* ... */ }
     </item>
     <item priority="high">
       export function skipDate(
         series: DateRule,
         date: string,
         makeId: () => string
+      ): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="high">
+      export function growsSeries(series: DateRule, edit: SeriesEdit): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function growthClosure(
+        config: AvailabilityConfig,
+        series: DateRule,
+        scope: SeriesScope,
+        date: string,
+        edit: SeriesEdit,
+        makeId: () => string
+      ): { rule: DateRule; alongside: ClosureAlongside } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function editHoursRule(
+        rule: SpecialHoursRule,
+        scope: SeriesScope,
+        date: string,
+        payload: SpecialHoursRule["payload"],
+        makeId: () => string,
+        today = ""
       ): AvailabilityConfigChanges { /* ... */ }
     </item>
     <item priority="high">
@@ -748,6 +938,19 @@
       ): SpecialDateRow[] { /* ... */ }
     </item>
     <item priority="high">
+      export function hoursEditDate(rule: DateRule, today: string): string | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export const coversManyDates: unknown;
+    </item>
+    <item priority="high">
+      export function refundFailureLabel(
+        failure: RefundFailure,
+        formatMoney: (cents: number, currency: string) => string,
+        unnamed: string
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
       export function orphanRefundRules(
         summaries: readonly ClosureSummary[],
         listedRuleIds: readonly string[]
@@ -765,6 +968,26 @@
     </item>
     <item priority="medium">
       function describe(rule: TonightRule): TonightChange | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function tonightTimeMinutes(
+        config: AvailabilityConfig,
+        timezone: string,
+        serviceDate: string
+      ): readonly number[] { /* ... */ }
+    </item>
+    <item priority="low">
+      interface TonightDefaults {
+        closeAt: number;
+        stopFrom: number;
+        stopTo: number;
+      }
+    </item>
+    <item priority="medium">
+      function nearestAtOrBefore(options: readonly number[], target: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function tonightDefaults(options: readonly number[]): TonightDefaults { /* ... */ }
     </item>
     <item priority="high">
       export function activeTonightChanges(
@@ -785,8 +1008,14 @@
         onStale: () => void,
         strandedKey:
           | "availabilitySchedules.stranded"
-          | "availabilitySpecial.series.stranded" = "availabilitySchedules.stranded"
+          | "availabilitySpecial.series.stranded"
+          | "availabilitySpecial.rowStranded" = "availabilitySchedules.stranded"
       ) { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/use-winning-change-text.ts">
+    <item priority="high">
+      export function useWinningChangeText(winningChange: AvailabilityChangeSummary | null): string { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/useDateSelection.ts">
@@ -1297,6 +1526,16 @@
   <file path="e2e/problem-details.ts">
     <item priority="high">
       export const SERVER_ERROR_BODY: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="fixtures">
+  <file path="e2e/fixtures/locale-sweep-readable.ts">
+    <item priority="high">
+      export const MIN_LITERAL_LETTERS: unknown;
+    </item>
+    <item priority="high">
+      export function hasReadableLiteral(value: string): boolean { /* ... */ }
     </item>
   </file>
   </section>
@@ -2151,6 +2390,15 @@
     <item priority="high">
       export const useClosureImpact: unknown;
     </item>
+    <item priority="low">
+      type PreviewClosureImpactVariables = {
+        venueId: string;
+        rule: DateRule;
+        alongside: Closu...;
+    </item>
+    <item priority="high">
+      export const usePreviewClosureImpact: unknown;
+    </item>
     <item priority="high">
       type CreateClosureRequest = Parameters<AvailabilityClient["createClosure"]>[1];
     </item>
@@ -2189,6 +2437,27 @@
     </item>
     <item priority="high">
       export const useReopenClosure: unknown;
+    </item>
+    <item priority="low">
+      type PreviewClosureImpactsVariables = {
+        venueId: string;
+        rules: readonly DateRule[];
+      };
+    </item>
+    <item priority="high">
+      export const usePreviewClosureImpacts: unknown;
+    </item>
+    <item priority="high">
+      type CreateClosuresRequest = Parameters<AvailabilityClient["createClosures"]>[1];
+    </item>
+    <item priority="low">
+      type CreateClosuresVariables = {
+        venueId: string;
+        body: CreateClosuresRequest;
+        /**...;
+    </item>
+    <item priority="high">
+      export const useCreateClosures: unknown;
     </item>
   </file>
   <file path="src/hooks/useDashboardStatsQuery.ts">
@@ -2649,6 +2918,11 @@
     </item>
     <item priority="high">
       export function usePublicApiClient(options: UsePublicApiClientOptions = {}) { /* ... */ }
+    </item>
+  </file>
+  <file path="src/hooks/useRefreshAvailability.ts">
+    <item priority="high">
+      export function useRefreshAvailability(): () => void { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useReservationDisplay.ts">
@@ -4138,6 +4412,18 @@
     <item priority="high">
       export function formatHourLabel(hour: number, locale: string, compact: boolean): string { /* ... */ }
     </item>
+    <item priority="high">
+      export function deviceTimeZone(): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatTimeZoneName(at: Date, timeZone: string, locale: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function canonicalTimeZone(timeZone: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function sameTimeZone(a: string, b: string): boolean { /* ... */ }
+    </item>
   </file>
   <file path="src/utils/ics.ts">
     <item priority="low">
@@ -4243,6 +4529,24 @@
       export function tablesThatFit<
         T extends Pick<Table, "status" | "capacity" | "minCovers" | "maxCovers">,
       >(tables: readonly T[], partySize: number): T[] { /* ... */ }
+    </item>
+  </file>
+  <file path="src/utils/service-day-start.ts">
+    <item priority="high">
+      export function serviceDayCalendarDate(
+        config: AvailabilityConfig | null | undefined,
+        timeZone: string,
+        serviceDate: string,
+        hhmm: string
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function serviceDayStartInstant(
+        config: AvailabilityConfig | null | undefined,
+        timeZone: string,
+        serviceDate: string,
+        hhmm: string
+      ): Date { /* ... */ }
     </item>
   </file>
   <file path="src/utils/service-day.ts">
