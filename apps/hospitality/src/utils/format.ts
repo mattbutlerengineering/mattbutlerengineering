@@ -286,3 +286,17 @@ export function formatHourLabel(hour: number, locale: string, compact: boolean):
   if (!compact) return formatter.format(instant);
   return formatter.formatToParts(instant).find((part) => part.type === "hour")?.value ?? "";
 }
+
+/** The device's IANA zone, or "" when the runtime cannot say. */
+export function deviceTimeZone(): string {
+  return new Intl.DateTimeFormat().resolvedOptions().timeZone ?? "";
+}
+
+/** A zone's generic name in the viewer's language ("Pacific Time"). */
+export function formatTimeZoneName(at: Date, timeZone: string, locale: string): string {
+  const parts = new Intl.DateTimeFormat(locale, {
+    timeZone,
+    timeZoneName: "longGeneric",
+  }).formatToParts(at);
+  return parts.find((part) => part.type === "timeZoneName")?.value ?? timeZone;
+}

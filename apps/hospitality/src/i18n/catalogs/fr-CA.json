@@ -1810,7 +1810,8 @@
       "week": "Semaine",
       "previous": "Précédent",
       "next": "Suivant",
-      "today": "Aujourd'hui"
+      "today": "Aujourd'hui",
+      "range": "{{from}} – {{to}}"
     },
     "calendar": {
       "label": "Calendrier de disponibilité",
@@ -1838,7 +1839,8 @@
       "tablesBlockedBand": "Tables bloquées {{from}} – {{to}}",
       "tablesBlockedBandName": "tables bloquées {{from}} – {{to}}",
       "nextDay": "{{time}} (lendemain)",
-      "draftName": "changements non enregistrés"
+      "draftName": "changements non enregistrés",
+      "labelWithPeriod": "{{label}}, {{period}}"
     },
     "drawer": {
       "summaryOpen": "Ouvert pour {{services}}.",
@@ -2284,6 +2286,19 @@
         "pacing_other": "Cadence de {{count}} couverts",
         "pacing_many": "Cadence de {{count}} couverts"
       }
+    },
+    "venueTime": "Heure de l'établissement ({{zone}})",
+    "weekSummary": {
+      "line": "Cette semaine : {{open}} · {{closures}} · {{online}}",
+      "open_one": "ouvert {{count}} jour",
+      "open_other": "ouvert {{count}} jours",
+      "open_many": "ouvert {{count}} jours",
+      "closures_one": "{{count}} fermeture",
+      "closures_other": "{{count}} fermetures",
+      "closures_many": "{{count}} fermetures",
+      "onlineOn": "réservation en ligne activée",
+      "onlineOff": "réservation en ligne désactivée",
+      "onlinePartial": "réservation en ligne désactivée certains jours"
     }
   },
   "setup": {

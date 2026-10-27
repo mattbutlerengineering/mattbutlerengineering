@@ -5454,6 +5454,46 @@
       });
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/period.ts">
+    export function periodLabel(
+      view: CalendarView,
+      anchor: string,
+      t: TFunction,
+      format: VenueFormat
+    ): string {
+      if (view === "month") {
+        return format.formatCalendarDate(anchor, { month: "long", year: "numeric" });
+      }
+      const week = visibleDates("week", anchor);
+      return t("availability.toolbar.range", {
+        from: format.formatCalendarDate(week[0] ?? anchor, { month: "short", day: "numeric" }),
+        to: format.formatCalendarDate(week[6] ?? anchor, {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        }),
+      });
+    }
+    export function weekSummary(
+      anchor: string,
+      days: readonly AvailabilityDaySummary[] | undefined,
+      t: TFunction
+    ): string | null {
+      const week = new Set(visibleDates("week", anchor));
+      const loaded = (days ?? []).filter((d) => week.has(d.serviceDate));
+      if (loaded.length === 0) return null;
+      const open = loaded.filter((d) => d.serviceCount > 0 && !d.closures.some(isWholeDay));
+      const closures = new Set(loaded.flatMap((d) => d.closures.map((c) => c.ruleId)));
+      const onlineOff = open.filter((d) => !d.bookingOpen.online).length;
+      const online =
+        onlineOff === 0 ? "onlineOn" : onlineOff === open.length ? "onlineOff" : "onlinePartial";
+      return t("availability.weekSummary.line", {
+        open: t("availability.weekSummary.open", { count: open.length }),
+        closures: t("availability.weekSummary.closures", { count: closures.size }),
+        online: t(`availability.weekSummary.${online}`),
+      });
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/quick-setup-draft.ts">
     export interface ServiceDraft {
       readonly id: string;
@@ -81617,6 +81657,16 @@
       const instant = new Date(Date.UTC(1970, 0, 1, hour));
       if (!compact) return formatter.format(instant);
       return formatter.formatToParts(instant).find((part) => part.type === "hour")?.value ?? "";
+    }
+    export function deviceTimeZone(): string {
+      return new Intl.DateTimeFormat().resolvedOptions().timeZone ?? "";
+    }
+    export function formatTimeZoneName(at: Date, timeZone: string, locale: string): string {
+      const parts = new Intl.DateTimeFormat(locale, {
+        timeZone,
+        timeZoneName: "longGeneric",
+      }).formatToParts(at);
+      return parts.find((part) => part.type === "timeZoneName")?.value ?? timeZone;
     }
   </file>
   <file path="apps/hospitality/src/utils/ics.ts">

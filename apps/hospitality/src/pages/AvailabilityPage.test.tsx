@@ -162,7 +162,9 @@ describe("AvailabilityPage", () => {
       expect.objectContaining({ venueId: "venue-1", from: "2026-09-28", to: "2026-11-01" })
     );
     expect(screen.getByRole("heading", { level: 1, name: "Availability" })).toBeInTheDocument();
-    expect(screen.getByRole("grid", { name: "Availability calendar" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("grid", { name: "Availability calendar, October 2026" })
+    ).toBeInTheDocument();
   });
 
   it("switches to the week view and its range", () => {
@@ -180,6 +182,62 @@ describe("AvailabilityPage", () => {
     expect(daysHook).toHaveBeenLastCalledWith(expect.objectContaining({ from: "2026-10-26" }));
     fireEvent.click(screen.getByRole("button", { name: "Today" }));
     expect(daysHook).toHaveBeenLastCalledWith(expect.objectContaining({ from: "2026-09-28" }));
+  });
+
+  it("names the month next to the controls and follows Next", () => {
+    renderPage();
+    expect(screen.getByText("October 2026")).toHaveAttribute("aria-live", "polite");
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByText("November 2026")).toBeVisible();
+    expect(
+      screen.getByRole("grid", { name: "Availability calendar, November 2026" })
+    ).toBeVisible();
+  });
+
+  it("names the date range in week view", () => {
+    renderPage();
+    fireEvent.click(screen.getByRole("radio", { name: "Week" }));
+    expect(screen.getByRole("grid", { name: /Oct 26 – Nov 1, 2026/ })).toBeVisible();
+  });
+
+  describe("venue time note", () => {
+    const deviceZone = (zone: string) =>
+      vi.spyOn(Intl.DateTimeFormat.prototype, "resolvedOptions").mockReturnValue({
+        timeZone: zone,
+      } as Intl.ResolvedDateTimeFormatOptions);
+
+    afterEach(() => vi.restoreAllMocks());
+
+    it("shows when the device zone differs from the venue's", () => {
+      deviceZone("America/New_York");
+      renderPage();
+      expect(screen.getByText(/^Venue time \(Pacific/)).toBeInTheDocument();
+    });
+
+    it("hides when the device is on venue time", () => {
+      deviceZone("America/Los_Angeles");
+      renderPage();
+      expect(screen.queryByText(/^Venue time/)).not.toBeInTheDocument();
+    });
+  });
+
+  it("summarises the week from the loaded days", () => {
+    daysQuery.value = {
+      data: [
+        summaryFor("2026-10-28"),
+        {
+          ...summaryFor("2026-10-29"),
+          closures: [{ ruleId: "r1", targetKind: "venue", from: 1320, to: 1380 }],
+        },
+        { ...summaryFor("2026-10-30"), label: "Closed", scheduleId: null, serviceCount: 0 },
+      ],
+      isLoading: false,
+      error: null,
+    };
+    renderPage();
+    expect(
+      screen.getByText("This week: open 2 days · 1 closure · online booking on")
+    ).toBeInTheDocument();
   });
 
   it("opens the day drawer from a cell", () => {

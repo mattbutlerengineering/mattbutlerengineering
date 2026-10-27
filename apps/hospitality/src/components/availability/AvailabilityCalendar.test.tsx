@@ -62,7 +62,9 @@ function renderCalendar(props: Partial<React.ComponentProps<typeof AvailabilityC
 describe("AvailabilityCalendar", () => {
   it("names each cell with its date, label, service count and closure band", () => {
     renderCalendar();
-    expect(screen.getByRole("grid", { name: "Availability calendar" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("grid", { name: "Availability calendar, Oct 26 – Nov 1, 2026" })
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("button", {
         name: "Friday, October 30: Special hours, 2 services, closed 10:00 PM – 11:00 PM",
@@ -180,7 +182,7 @@ describe("AvailabilityCalendar on a phone or tablet (agenda list)", () => {
   it("lists one row per day of the anchor month only, with weekday and date visible", () => {
     setViewportWidth(1024);
     renderCalendar({ view: "month", anchor: "2026-10-15", days: MONTH_DAYS });
-    const list = screen.getByRole("list", { name: "Availability calendar" });
+    const list = screen.getByRole("list", { name: "Availability calendar, October 2026" });
     expect(screen.queryByRole("grid")).not.toBeInTheDocument();
     const rows = within(list).getAllByRole("listitem");
     expect(rows).toHaveLength(31);

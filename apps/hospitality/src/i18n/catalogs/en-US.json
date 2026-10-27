@@ -1772,7 +1772,8 @@
       "week": "Week",
       "previous": "Previous",
       "next": "Next",
-      "today": "Today"
+      "today": "Today",
+      "range": "{{from}} – {{to}}"
     },
     "calendar": {
       "label": "Availability calendar",
@@ -1800,7 +1801,8 @@
       "tablesBlockedBand": "Tables blocked {{from}} – {{to}}",
       "tablesBlockedBandName": "tables blocked {{from}} – {{to}}",
       "nextDay": "{{time}} (next day)",
-      "draftName": "unsaved changes"
+      "draftName": "unsaved changes",
+      "labelWithPeriod": "{{label}}, {{period}}"
     },
     "drawer": {
       "summaryOpen": "Open for {{services}}.",
@@ -2237,6 +2239,17 @@
         "pacing_other": "Pacing {{count}} covers",
         "pacing_many": "Pacing {{count}} covers"
       }
+    },
+    "venueTime": "Venue time ({{zone}})",
+    "weekSummary": {
+      "line": "This week: {{open}} · {{closures}} · {{online}}",
+      "open_one": "open {{count}} day",
+      "open_other": "open {{count}} days",
+      "closures_one": "{{count}} closure",
+      "closures_other": "{{count}} closures",
+      "onlineOn": "online booking on",
+      "onlineOff": "online booking off",
+      "onlinePartial": "online booking off some days"
     }
   },
   "setup": {
