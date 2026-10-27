@@ -179,16 +179,24 @@ describe("AvailabilityCalendar on a phone or tablet (agenda list)", () => {
     Reflect.deleteProperty(window, "matchMedia");
   });
 
-  it("lists one row per day of the anchor month only, with weekday and date visible", () => {
+  it("starts the month list at today, with weekday and date visible", () => {
     setViewportWidth(1024);
     renderCalendar({ view: "month", anchor: "2026-10-15", days: MONTH_DAYS });
     const list = screen.getByRole("list", { name: "Availability calendar, October 2026" });
     expect(screen.queryByRole("grid")).not.toBeInTheDocument();
     const rows = within(list).getAllByRole("listitem");
+    expect(rows).toHaveLength(4);
+    expect(within(rows[0]!).getByText("Wed, Oct 28")).toBeInTheDocument();
+    expect(within(rows[3]!).getByText("Sat, Oct 31")).toBeInTheDocument();
+    expect(within(rows[0]!).getByText("Weeknight")).toBeInTheDocument();
+  });
+
+  it("lists every day of a month that does not contain today", () => {
+    setViewportWidth(1024);
+    renderCalendar({ view: "month", anchor: "2026-10-15", today: "2026-11-02", days: MONTH_DAYS });
+    const rows = within(screen.getByRole("list")).getAllByRole("listitem");
     expect(rows).toHaveLength(31);
     expect(within(rows[0]!).getByText("Thu, Oct 1")).toBeInTheDocument();
-    expect(within(rows[30]!).getByText("Sat, Oct 31")).toBeInTheDocument();
-    expect(within(rows[0]!).getByText("Weeknight")).toBeInTheDocument();
   });
 
   it("opens the day drawer from a row and marks today", () => {
