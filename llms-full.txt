@@ -36910,6 +36910,25 @@
         }
       });
     }
+    async function onChargeRefundUpdated(event: Stripe.Event, deps: WebhookDeps): Promise<void> {
+      const refund = event.data.object as Stripe.Refund;
+      if (refund.status !== "failed" && refund.status !== "canceled") return;
+      const depositId = refund.metadata?.depositId;
+      if (refund.metadata?.leg !== "closureRefund" || !depositId) return;
+      const paymentIntentId =
+        typeof refund.payment_intent === "string" ? refund.payment_intent : refund.payment_intent?.id;
+      if (!paymentIntentId) return;
+    
+      await withDepositVenueContext(paymentIntentId, event.type, async () => {
+        const deposit = await deps.deposits.getByPaymentIntentId(paymentIntentId);
+        if (!deposit || deposit.id !== depositId) return;
+        logger.info(
+          { depositId, paymentIntentId, refundId: refund.id, status: refund.status },
+          "closure refund failed at Stripe; marking its outcome failed"
+        );
+        await markDoneRefundFailed(deposit.reservationId);
+      });
+    }
     function createWebhookRouter(deps: WebhookDeps): WebhookEventRouter {
       return new WebhookEventRouter()
         .register("payment_intent.succeeded", (event) => onPaymentIntentSucceeded(event, deps))
@@ -36917,7 +36936,8 @@
           onPaymentIntentAmountCapturableUpdated(event, deps)
         )
         .register("payment_intent.canceled", (event) => onPaymentIntentCanceled(event, deps))
-        .register("charge.refunded", (event) => onChargeRefunded(event, deps));
+        .register("charge.refunded", (event) => onChargeRefunded(event, deps))
+        .register("charge.refund.updated", (event) => onChargeRefundUpdated(event, deps));
     }
     export const stripeWebhookRoutes: FastifyPluginAsync = async (fastify) => {
       // Scoped to this plugin's routes only (fastify.register encapsulation) — captures
@@ -49659,6 +49679,12 @@
             select: { id: true, reservationId: true, refund: true },
           }),
       };
+    }
+    export async function markDoneRefundFailed(reservationId: string): Promise<void> {
+      await prisma.closureOutcome.updateMany({
+        where: { reservationId, refund: "done" },
+        data: { refund: "failed" },
+      });
     }
   </file>
   <file path="services/reservations/src/services/closure-refund.ts">

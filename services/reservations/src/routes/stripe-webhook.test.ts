@@ -1,13 +1,19 @@
 import type * as VenueContext from "../middleware/venue-context.js";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-const { mockDepositFindFirst, mockDepositFindUnique, mockDepositUpdate, mockDepositUpdateMany } =
-  vi.hoisted(() => ({
-    mockDepositFindFirst: vi.fn(),
-    mockDepositFindUnique: vi.fn(),
-    mockDepositUpdate: vi.fn(),
-    mockDepositUpdateMany: vi.fn(),
-  }));
+const {
+  mockDepositFindFirst,
+  mockDepositFindUnique,
+  mockDepositUpdate,
+  mockDepositUpdateMany,
+  mockOutcomeUpdateMany,
+} = vi.hoisted(() => ({
+  mockDepositFindFirst: vi.fn(),
+  mockDepositFindUnique: vi.fn(),
+  mockDepositUpdate: vi.fn(),
+  mockDepositUpdateMany: vi.fn(),
+  mockOutcomeUpdateMany: vi.fn(),
+}));
 
 vi.mock("../services/database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
@@ -26,6 +32,7 @@ vi.mock("../services/database.js", async () => {
         update: vi.fn(),
       },
       reservationEvent: { create: vi.fn() },
+      closureOutcome: { updateMany: mockOutcomeUpdateMany },
     },
   });
 });
@@ -1011,5 +1018,81 @@ describe("POST /api/v1/stripe/webhook", () => {
     // Should not have called refund (status is pending, not held)
     expect(mockDepositUpdate).not.toHaveBeenCalled();
     await app.close();
+  });
+
+  describe("charge.refund.updated for a closure refund (#7794)", () => {
+    const post = async (refund: Record<string, unknown>) => {
+      const event = { type: "charge.refund.updated", data: { object: refund } };
+      const app = await buildApp({ logger: false, payments });
+      await app.ready();
+      const response = await app.inject({
+        method: "POST",
+        url: ["", "api", "v1", "stripe", "webhook"].join("/"),
+        payload: Buffer.from(JSON.stringify(event)),
+        headers: {
+          "content-type": "application/json",
+          "stripe-signature": signFor(JSON.stringify(event)),
+        },
+      });
+      await app.close();
+      return response;
+    };
+    const ours = {
+      id: "re_1",
+      status: "failed",
+      payment_intent: "pi_closure",
+      metadata: { depositId: "dep_closure", leg: "closureRefund" },
+    };
+
+    beforeEach(() => {
+      mockDepositFindFirst.mockResolvedValue({
+        id: "dep_closure",
+        reservationId: "res_closure",
+        stripePaymentIntentId: "pi_closure",
+      });
+      mockOutcomeUpdateMany.mockResolvedValue({ count: 1 });
+    });
+
+    it.each(["failed", "canceled"])(
+      "moves the done outcome to failed when the refund is %s",
+      async (status) => {
+        const response = await post({ ...ours, status });
+
+        expect(response.statusCode).toBe(200);
+        expect(mockOutcomeUpdateMany).toHaveBeenCalledWith({
+          where: { reservationId: "res_closure", refund: "done" },
+          data: { refund: "failed" },
+        });
+      }
+    );
+
+    it("is idempotent on redelivery: the conditional write matches nothing the second time", async () => {
+      mockOutcomeUpdateMany.mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 0 });
+
+      expect((await post(ours)).statusCode).toBe(200);
+      expect((await post(ours)).statusCode).toBe(200);
+      for (const call of mockOutcomeUpdateMany.mock.calls) {
+        expect(call[0].where).toEqual({ reservationId: "res_closure", refund: "done" });
+      }
+    });
+
+    it("ignores a refund that is not ours (no closureRefund leg)", async () => {
+      await post({ ...ours, metadata: {} });
+      await post({ ...ours, metadata: { depositId: "dep_closure", leg: "refund" } });
+
+      expect(mockOutcomeUpdateMany).not.toHaveBeenCalled();
+    });
+
+    it("ignores a refund that is not failed or canceled", async () => {
+      await post({ ...ours, status: "succeeded" });
+
+      expect(mockOutcomeUpdateMany).not.toHaveBeenCalled();
+    });
+
+    it("ignores a refund whose depositId does not match the PaymentIntent's deposit", async () => {
+      await post({ ...ours, metadata: { depositId: "dep_other", leg: "closureRefund" } });
+
+      expect(mockOutcomeUpdateMany).not.toHaveBeenCalled();
+    });
   });
 });

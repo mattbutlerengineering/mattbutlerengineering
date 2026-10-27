@@ -44,3 +44,15 @@ export function createPrismaClosureRefundStore(): ClosureRefundStore {
       }),
   };
 }
+
+/**
+ * Moves a reservation's `done` closure outcome to `failed` after Stripe reports the closure
+ * refund failed or was canceled (`charge.refund.updated`). Conditional on `done`, so Stripe
+ * redelivery and an outcome already failed / pending / none are left untouched.
+ */
+export async function markDoneRefundFailed(reservationId: string): Promise<void> {
+  await prisma.closureOutcome.updateMany({
+    where: { reservationId, refund: "done" },
+    data: { refund: "failed" },
+  });
+}
