@@ -116,8 +116,8 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
     today,
     minutesOfDayIn(now, timezone)
   );
-  const sharedMessageError =
-    form.sharedMessage.length > GUEST_MESSAGE_MAX_LENGTH || invalid?.field === "message";
+  // Trimmed, like validateRows: what blocks Next is what the field flags.
+  const sharedMessageError = form.sharedMessage.trim().length > GUEST_MESSAGE_MAX_LENGTH;
   const busy = previewImpacts.isPending || createClosures.isPending;
 
   const patchRow = (next: DateRow) => {

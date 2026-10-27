@@ -73,8 +73,8 @@ export function CloseStepOne(props: CloseStepOneProps) {
   const format = useVenueFormat();
   const patch = (next: Partial<CloseForm>) => onChange({ ...form, ...next });
   const { what, when } = form;
-  const messageError =
-    props.invalid === "guestMessage" || form.guestMessage.length > GUEST_MESSAGE_MAX_LENGTH;
+  // Trimmed, like validateForm: what blocks Next is what the field flags.
+  const messageError = form.guestMessage.trim().length > GUEST_MESSAGE_MAX_LENGTH;
 
   const fullDate = (date: string) =>
     format.formatCalendarDate(date, { weekday: "short", month: "short", day: "numeric" });

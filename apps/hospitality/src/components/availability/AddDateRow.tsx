@@ -46,7 +46,8 @@ export function AddDateRow(props: AddDateRowProps) {
   const { row, index, config, timezone, today, invalid, messageShared, onChange } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
-  const messageError = invalid === "message" || row.message.length > GUEST_MESSAGE_MAX_LENGTH;
+  // Trimmed, like validateRows: what blocks Next is what the field flags.
+  const messageError = row.message.trim().length > GUEST_MESSAGE_MAX_LENGTH;
   const seed = (weekday: number) => regularServices(config, timezone, weekday, today);
   const weekdayName = (d: number) =>
     format.formatCalendarDate(addDays(SUNDAY, d), { weekday: "long" });

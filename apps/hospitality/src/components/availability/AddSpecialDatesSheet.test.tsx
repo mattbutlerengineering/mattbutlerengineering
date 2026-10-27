@@ -363,6 +363,34 @@ describe("AddSpecialDatesSheet", () => {
     expect(screen.getByText("Keep it to 200 characters.").getAttribute("role")).toBe("alert");
   });
 
+  it("clears the shared-message error once the text is back under the limit", async () => {
+    renderSheet();
+    await pickDate(0, "2026-12-24");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use one message for every date" }));
+    const field = screen.getByLabelText(/Message for guests \(every date\)/);
+    fireEvent.change(field, { target: { value: "x".repeat(201) } });
+    fireEvent.click(primary());
+    fireEvent.change(field, { target: { value: "x".repeat(181) } });
+    expect(screen.queryByText("Keep it to 200 characters.")).toBeNull();
+  });
+
+  it("judges message length trimmed, as Next does", () => {
+    renderSheet();
+    fireEvent.change(screen.getByLabelText(/Message for guests/), {
+      target: { value: `${"x".repeat(199)}  ` },
+    });
+    expect(screen.queryByText("Keep it to 200 characters.")).toBeNull();
+  });
+
+  it("judges the shared message length trimmed, as Next does", () => {
+    renderSheet();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use one message for every date" }));
+    fireEvent.change(screen.getByLabelText(/Message for guests \(every date\)/), {
+      target: { value: `${"x".repeat(199)}  ` },
+    });
+    expect(screen.queryByText("Keep it to 200 characters.")).toBeNull();
+  });
+
   it("starts the date picker's weeks on Monday", () => {
     renderSheet();
     fireEvent.click(screen.getAllByLabelText("Date")[0]!);

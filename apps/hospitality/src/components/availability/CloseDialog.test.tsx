@@ -111,6 +111,14 @@ describe("CloseDialog", () => {
     expect(screen.getByText("Keep it to 200 characters.").getAttribute("role")).toBe("alert");
   });
 
+  it("judges the guest message length trimmed, as Next does", () => {
+    renderDialog();
+    fireEvent.change(screen.getByLabelText(/Message for guests/), {
+      target: { value: `${"x".repeat(199)}  ` },
+    });
+    expect(screen.queryByText("Keep it to 200 characters.")).toBeNull();
+  });
+
   it("starts the date picker's weeks on Monday", () => {
     renderDialog();
     fireEvent.click(screen.getAllByRole("combobox", { name: "Date" })[0]!);
