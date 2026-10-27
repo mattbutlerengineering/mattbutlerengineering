@@ -483,6 +483,20 @@ describe("ReservationsClient.manageReservation", () => {
     expect(result.venueCancellation).toEqual(venueCancellation);
   });
 
+  it("defaults the closure fields to null when an older API omits them", async () => {
+    const venueCancellation = { refundStatus: "done", offers: [], rebooked: null };
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ data: { ...managedPayload, venueCancellation } })
+    );
+
+    const result = await makeClient().manageReservation("tok");
+    expect(result.venueCancellation).toEqual({
+      ...venueCancellation,
+      closureDate: null,
+      closureMessage: null,
+    });
+  });
+
   it("rejects an unknown refund status", async () => {
     mockFetch.mockResolvedValueOnce(
       jsonResponse({

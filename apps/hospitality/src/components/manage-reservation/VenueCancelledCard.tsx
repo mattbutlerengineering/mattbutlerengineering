@@ -98,10 +98,12 @@ export function VenueCancelledCard({
           {t("manageReservation.venueCancelled.heading")}
         </Text>
         <Text variant="body" color="secondary">
-          {t("manageReservation.venueCancelled.closedOn", {
-            venue: venue.name,
-            date: format.formatCalendarDate(cancellation.closureDate, DATE_FIELDS),
-          })}
+          {cancellation.closureDate
+            ? t("manageReservation.venueCancelled.closedOn", {
+                venue: venue.name,
+                date: format.formatCalendarDate(cancellation.closureDate, DATE_FIELDS),
+              })
+            : t("manageReservation.venueCancelled.intro", { venue: venue.name })}
         </Text>
         {cancellation.closureMessage && (
           <Text variant="body" dir="auto">

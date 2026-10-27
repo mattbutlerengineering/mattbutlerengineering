@@ -1701,8 +1701,8 @@
     }
     export interface ManagedVenueCancellation {
       refundStatus: "none" | "pending" | "done" | "failed";
-      /** The service date (YYYY-MM-DD) the venue was closed for this booking. */
-      closureDate: string;
+      /** The service date (YYYY-MM-DD) the venue was closed; null when an older API did not send it. */
+      closureDate: string | null;
       /** The venue's guest message for the closure; free text, render as text only. */
       closureMessage: string | null;
       /** Empty once rebooked, and where the new booking would need a deposit (the guest uses the full picker). */

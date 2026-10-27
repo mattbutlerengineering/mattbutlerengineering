@@ -81,6 +81,18 @@ describe("VenueCancelledCard", () => {
     expect(quote.querySelector("b")).toBeNull();
   });
 
+  it("falls back to the generic line when an older API sent no closure date", () => {
+    renderCard({
+      refundStatus: "none",
+      closureDate: null,
+      closureMessage: null,
+      offers: [],
+      rebooked: null,
+    });
+    expect(screen.getByText("The Oak Table had to cancel this reservation.")).toBeDefined();
+    expect(screen.queryByText(/is closed/)).toBeNull();
+  });
+
   it("omits the quote when the venue left no message", () => {
     renderCard({
       refundStatus: "none",

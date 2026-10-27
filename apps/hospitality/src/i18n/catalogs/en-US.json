@@ -1447,6 +1447,7 @@
     },
     "venueCancelled": {
       "heading": "Your reservation was cancelled",
+      "intro": "{{venue}} had to cancel this reservation.",
       "closedOn": "{{venue}} is closed {{date}}",
       "message": "“{{message}}”",
       "refund": {
