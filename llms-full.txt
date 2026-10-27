@@ -5184,15 +5184,34 @@
     export const NUDGE_THRESHOLD = 3;
   </file>
   <file path="apps/hospitality/src/components/availability/day-summary.ts">
+    export interface ServiceLineText {
+      readonly key: string;
+      /** "Lunch 11:00 AM – 2:00 PM". */
+      readonly text: string;
+    }
     export interface DayPresentation {
       readonly bands: readonly ClosureBandText[];
       /** "2 services", or `null` when the count is not worth showing. */
       readonly count: string | null;
+      /** One line per service, open to close; only populated when `detailed`. */
+      readonly services: readonly ServiceLineText[];
       readonly onlineOff: boolean;
       /** The spoken details after the date: "Special hours, 2 services, closed 10:00 PM – 11:00 PM". */
       readonly accessibleDetails: string;
       /** The button's accessible name: "Friday, October 30: …". */
       readonly accessibleName: string;
+    }
+    function serviceLineText(
+      service: DaySummaryService,
+      t: TFunction,
+      format: VenueFormat
+    ): ServiceLineText {
+      const text = t("availability.calendar.serviceLine", {
+        name: service.name,
+        from: minuteText(service.opensAt, t, format),
+        to: minuteText(service.closesAt, t, format),
+      });
+      return { key: service.venueServiceId, text };
     }
     export function presentDay(
       date: string,
@@ -5206,6 +5225,9 @@
       const count = showCount
         ? t("availability.calendar.services", { count: summary.serviceCount })
         : null;
+      const services = detailed
+        ? (summary?.services ?? []).map((s) => serviceLineText(s, t, format))
+        : [];
       const onlineOff = summary !== undefined && !summary.bookingOpen.online;
     
       const parts = summary
@@ -5213,6 +5235,7 @@
             summary.label,
             ...(count ? [count] : []),
             ...bands.map((b) => b.name),
+            ...services.map((s) => s.text),
             ...(onlineOff ? [t("availability.calendar.onlineOffName")] : []),
           ]
         : [t("availability.calendar.loadingDay")];
@@ -5225,6 +5248,7 @@
       return {
         bands,
         count,
+        services,
         onlineOff,
         accessibleDetails,
         accessibleName: t("availability.calendar.cellName", {
@@ -45234,10 +45258,24 @@
       if (day.explanation.some((l) => l.kind === "special_hours")) return "Special hours";
       return config.schedules.find((s) => s.id === day.scheduleId)?.name ?? "Open";
     }
+    export function daySummaryServices(
+      names: ReadonlyMap<string, string>,
+      day: ResolvedDay
+    ): DaySummaryService[] {
+      return day.services.map((s) => ({
+        venueServiceId: s.venueServiceId,
+        name: names.get(s.venueServiceId) ?? s.name,
+        opensAt: s.opensAt,
+        lastSeatingAt: s.lastSeatingAt,
+        closesAt: s.closesAt,
+      }));
+    }
     export function summarizeDay(config: AvailabilityConfig, day: ResolvedDay): AvailabilityDaySummary {
+      const label = dayLabel(config, day);
+      const names = new Map(config.venueServices.map((s) => [s.id, s.name]));
       return {
         serviceDate: day.serviceDate,
-        label: dayLabel(config, day),
+        label,
         scheduleId: day.scheduleId,
         serviceCount: day.services.length,
         closures: day.closures.map(({ ruleId, targetKind, from, to }) => ({
@@ -45247,6 +45285,7 @@
           to,
         })),
         bookingOpen: day.bookingOpen,
+        services: label === "Closed" ? [] : daySummaryServices(names, day),
         ...(day.guestMessage ? { guestMessage: day.guestMessage } : {}),
       };
     }
@@ -46416,22 +46455,12 @@
         input.bookings.filter((b) => b.date && scopeIncludes(scope, toServiceDate(b.date)))
       ).sort((a, b) => a.startTime.localeCompare(b.startTime) || a.id.localeCompare(b.id));
     
-      const names = new Map(next.venueServices.map((s) => [s.id, s.name]));
       return {
         kind: "ok",
         result: {
           version: state.version,
           days,
-          focusDay: {
-            ...summarizeDay(next, focus),
-            services: focus.services.map((s) => ({
-              venueServiceId: s.venueServiceId,
-              name: names.get(s.venueServiceId) ?? s.name,
-              opensAt: s.opensAt,
-              lastSeatingAt: s.lastSeatingAt,
-              closesAt: s.closesAt,
-            })),
-          },
+          focusDay: summarizeDay(next, focus),
           stranded: {
             total: stranded.length,
             offset: strandedOffset,

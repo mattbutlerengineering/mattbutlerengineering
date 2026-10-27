@@ -1690,13 +1690,26 @@
   </file>
   <file path="apps/hospitality/src/components/availability/day-summary.ts">
     <item priority="low">
+      interface ServiceLineText {
+        key: string;
+        text: string;
+      }
+    </item>
+    <item priority="low">
       interface DayPresentation {
         bands: readonly ClosureBandText[];
         count: string | null;
+        services: readonly ServiceLineText[];
         onlineOff: boolean;
         accessibleDetails: string;
-        accessibleName: string;
       }
+    </item>
+    <item priority="medium">
+      function serviceLineText(
+        service: DaySummaryService,
+        t: TFunction,
+        format: VenueFormat
+      ): ServiceLineText { /* ... */ }
     </item>
     <item priority="high">
       export function presentDay(
@@ -13377,6 +13390,12 @@
     </item>
     <item priority="medium">
       function dayLabel(config: AvailabilityConfig, day: ResolvedDay): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function daySummaryServices(
+        names: ReadonlyMap<string, string>,
+        day: ResolvedDay
+      ): DaySummaryService[] { /* ... */ }
     </item>
     <item priority="high">
       export function summarizeDay(config: AvailabilityConfig, day: ResolvedDay): AvailabilityDaySummary { /* ... */ }
