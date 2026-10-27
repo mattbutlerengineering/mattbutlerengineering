@@ -2093,6 +2093,7 @@
       "versionConflict": "Les disponibilités ont changé depuis l'ouverture de cette fenêtre. Fermez-la et réessayez.",
       "staffNote": "Note pour le personnel",
       "guestMessage": "Message pour les clients",
+      "guestMessageTooLong": "Limitez-vous à {{max}} caractères.",
       "suggestions": {
         "private": "Fermé pour un événement privé",
         "weather": "Fermé en raison de la météo",

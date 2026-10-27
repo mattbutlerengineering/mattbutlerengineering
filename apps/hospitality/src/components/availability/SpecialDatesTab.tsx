@@ -12,7 +12,6 @@ import {
   Text,
   useToast,
 } from "@mattbutlerengineering/rialto";
-import { MINUTES_PER_DAY } from "@mbe/availability";
 import type { AvailabilityConfigState, ClosureSummary, DateRule } from "@mbe/types";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useClosureSummaries, useRetryClosureRefunds } from "../../hooks/useClosures.js";
@@ -21,6 +20,7 @@ import { formatCurrencyFromCents } from "../../utils/format.js";
 import { addDays } from "../../utils/service-day.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import { AddSpecialDatesSheet } from "./AddSpecialDatesSheet.js";
+import { minuteText } from "./closure-band.js";
 import { CallListDialog } from "./CallListDialog.js";
 import { CloseDialog } from "./CloseDialog.js";
 import { ReopenClosureDialog } from "./ReopenClosureDialog.js";
@@ -95,20 +95,18 @@ function hoursSubject(rule: SpecialDateRule, format: VenueFormat, t: TFunction):
   return t("availabilitySpecial.hours.subjectDates", { dates: rangeLabel(rule, format, t) });
 }
 
-/** "6:00 PM – 1:00 AM": the earliest opening to the latest closing, past midnight read as plain clock time (ux.md S6b). */
+/** "11:00 AM – 3:00 PM, 5:00 PM – 10:00 PM": one range per service, so a gap between them shows (ux.md S6b). */
 function hoursRange(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string | null {
   if (rule.kind !== "special_hours" || rule.payload.services.length === 0) return null;
-  const clock = (minute: number) => {
-    const wrapped = minute % MINUTES_PER_DAY;
-    const hh = String(Math.floor(wrapped / 60)).padStart(2, "0");
-    const mm = String(wrapped % 60).padStart(2, "0");
-    return format.formatLocalTime(`${hh}:${mm}`);
-  };
-  const services = rule.payload.services;
-  return t("availabilitySpecial.hoursRange", {
-    from: clock(Math.min(...services.map((s) => s.opensAt))),
-    to: clock(Math.max(...services.map((s) => s.closesAt))),
-  });
+  return [...rule.payload.services]
+    .sort((a, b) => a.opensAt - b.opensAt)
+    .map((s) =>
+      t("availabilitySpecial.hoursRange", {
+        from: minuteText(s.opensAt, t, format),
+        to: minuteText(s.closesAt, t, format),
+      })
+    )
+    .join(", ");
 }
 
 interface RowProps {

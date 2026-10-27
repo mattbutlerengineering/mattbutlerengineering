@@ -84,6 +84,9 @@
     <item priority="low">
       type CalendarView = "month" | "week";
     </item>
+    <item priority="high">
+      export const WEEK_STARTS_ON: unknown;
+    </item>
     <item priority="medium">
       function daysSinceMonday(date: string): number { /* ... */ }
     </item>

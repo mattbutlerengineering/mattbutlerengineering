@@ -2093,6 +2093,7 @@
       "versionConflict": "La disponibilidad cambió desde que abriste esto. Cierra este diálogo e inténtalo de nuevo.",
       "staffNote": "Nota para el personal",
       "guestMessage": "Mensaje para los comensales",
+      "guestMessageTooLong": "Usa un máximo de {{max}} caracteres.",
       "suggestions": {
         "private": "Cerrado por evento privado",
         "weather": "Cerrado por clima",

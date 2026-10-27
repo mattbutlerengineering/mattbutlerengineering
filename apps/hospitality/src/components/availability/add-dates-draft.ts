@@ -43,7 +43,7 @@ export interface AddDatesForm {
 export type RowField = "dateMissing" | "date" | "hours" | "message";
 
 /** DOM id of a row's field, so a failed Next or a new row can move focus to it. */
-export const rowFieldId = (rowKey: string, field: "date" | "hours" | "message"): string =>
+export const rowFieldId = (rowKey: string, field: "date" | "hours" | "message" | "same"): string =>
   `add-date-${rowKey}-${field}`;
 
 export const emptyRow = (key: string, date: string): DateRow => ({

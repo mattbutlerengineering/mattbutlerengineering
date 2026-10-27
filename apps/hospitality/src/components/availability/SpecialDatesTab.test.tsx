@@ -349,7 +349,7 @@ describe("SpecialDatesTab", () => {
       expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
     });
 
-    it("shows the hours on the row, earliest opening to latest closing", () => {
+    it("shows one range per service, so a gap between services stays visible", () => {
       const service = (opensAt: number, closesAt: number) => ({
         venueServiceId: "vs",
         opensAt,
@@ -361,12 +361,15 @@ describe("SpecialDatesTab", () => {
       const dinner = {
         ...hours,
         payload: { version: 1, services: [service(1080, 1500), service(660, 900)] },
+        // Listed out of order: the row still reads earliest first.
       } as unknown as DateRule;
       renderTab(true, {
         ...STATE,
         config: { ...STATE.config, dateRules: [dinner] },
       } as AvailabilityConfigState);
-      expect(screen.getByText("Special hours · 11:00 AM – 1:00 AM")).toBeTruthy();
+      expect(
+        screen.getByText("Special hours · 11:00 AM – 3:00 PM, 6:00 PM – 1:00 AM (next day)")
+      ).toBeTruthy();
     });
 
     it("edits the hours in the day editor", () => {

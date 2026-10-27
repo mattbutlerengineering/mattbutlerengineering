@@ -116,6 +116,8 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
     today,
     minutesOfDayIn(now, timezone)
   );
+  const sharedMessageError =
+    form.sharedMessage.length > GUEST_MESSAGE_MAX_LENGTH || invalid?.field === "message";
   const busy = previewImpacts.isPending || createClosures.isPending;
 
   const patchRow = (next: DateRow) => {
@@ -167,11 +169,20 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
     setInvalid(problem);
     if (problem) {
       // ux.md S6: field-level messages; focus moves to the first.
-      const field = problem.field === "dateMissing" ? "date" : problem.field;
+      const row = form.rows.find((r) => r.key === problem.key);
+      const field =
+        problem.field === "dateMissing"
+          ? "date"
+          : problem.field === "hours" && row?.kind === "same"
+            ? "same"
+            : problem.field;
       pendingFocusRef.current =
         field === "message" && form.shareMessage
           ? SHARED_MESSAGE_ID
-          : rowFieldId(problem.key, field);
+          : field === "same"
+            ? // Rialto Select puts its id on the field and focuses via `<id>-trigger`.
+              `${rowFieldId(problem.key, field)}-trigger`
+            : rowFieldId(problem.key, field);
       return;
     }
     try {
@@ -286,6 +297,14 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
                 id={SHARED_MESSAGE_ID}
                 value={form.sharedMessage}
                 maxLength={GUEST_MESSAGE_MAX_LENGTH}
+                error={sharedMessageError}
+                hint={
+                  sharedMessageError
+                    ? t("availability.close.guestMessageTooLong", {
+                        max: GUEST_MESSAGE_MAX_LENGTH,
+                      })
+                    : undefined
+                }
                 showOptional
                 onChange={(e) => setForm({ ...form, sharedMessage: e.target.value })}
               />

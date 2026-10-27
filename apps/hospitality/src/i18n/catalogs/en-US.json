@@ -2046,6 +2046,7 @@
       "versionConflict": "Availability changed since you opened this. Close this dialog and try again.",
       "staffNote": "Note for staff",
       "guestMessage": "Message for guests",
+      "guestMessageTooLong": "Keep it to {{max}} characters.",
       "suggestions": {
         "private": "Closed for a private event",
         "weather": "Closed due to weather",

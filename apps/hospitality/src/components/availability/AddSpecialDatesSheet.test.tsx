@@ -336,6 +336,33 @@ describe("AddSpecialDatesSheet", () => {
     expect(screen.getAllByText(/^\d+\/200$/)).toHaveLength(1);
   });
 
+  it("moves focus to Copy hours from when the chosen weekday has no regular hours", async () => {
+    renderSheet();
+    await pickDate(0, "2026-12-24"); // a Thursday: the fixture has regular hours on Friday only
+    fireEvent.click(screen.getByRole("radio", { name: "Same as another day" }));
+    fireEvent.click(primary());
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole("combobox", { name: "Copy hours from" }))
+    );
+  });
+
+  it("explains an over-limit message on a date row", () => {
+    renderSheet();
+    fireEvent.change(screen.getByLabelText(/Message for guests/), {
+      target: { value: "x".repeat(201) },
+    });
+    expect(screen.getByText("Keep it to 200 characters.").getAttribute("role")).toBe("alert");
+  });
+
+  it("explains an over-limit shared message", () => {
+    renderSheet();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use one message for every date" }));
+    fireEvent.change(screen.getByLabelText(/Message for guests \(every date\)/), {
+      target: { value: "x".repeat(201) },
+    });
+    expect(screen.getByText("Keep it to 200 characters.").getAttribute("role")).toBe("alert");
+  });
+
   it("starts the date picker's weeks on Monday", () => {
     renderSheet();
     fireEvent.click(screen.getAllByLabelText("Date")[0]!);

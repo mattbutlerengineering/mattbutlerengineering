@@ -29,7 +29,7 @@
       readonly sharedMessage: string;
     }
     export type RowField = "dateMissing" | "date" | "hours" | "message";
-    export const rowFieldId = (rowKey: string, field: "date" | "hours" | "message"): string =>
+    export const rowFieldId = (rowKey: string, field: "date" | "hours" | "message" | "same"): string =>
       `add-date-${rowKey}-${field}`;
     export const emptyRow = (key: string, date: string): DateRow => ({
       key,
@@ -164,6 +164,7 @@
   </file>
   <file path="src/components/availability/calendar-dates.ts">
     export type CalendarView = "month" | "week";
+    export const WEEK_STARTS_ON = 1;
     function daysSinceMonday(date: string): number {
       return (weekdayIndexOf(date) + 6) % 7;
     }

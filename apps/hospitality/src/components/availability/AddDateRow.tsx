@@ -17,6 +17,7 @@ import {
   type RowField,
   type RowKind,
 } from "./add-dates-draft.js";
+import { WEEK_STARTS_ON } from "./calendar-dates.js";
 import { minuteText } from "./closure-band.js";
 import { ServicesEditor } from "./ServicesEditor.js";
 import styles from "./AddSpecialDatesSheet.module.css";
@@ -24,8 +25,6 @@ import styles from "./AddSpecialDatesSheet.module.css";
 /** 2026-01-04 is a Sunday; weekday index n is that date plus n days. */
 const SUNDAY = "2026-01-04";
 const KINDS: readonly RowKind[] = ["closed", "hours", "same"];
-/** Matches the Availability calendar, which is Monday-first. */
-const WEEK_STARTS_ON = 1;
 
 export interface AddDateRowProps {
   readonly row: DateRow;
@@ -47,6 +46,7 @@ export function AddDateRow(props: AddDateRowProps) {
   const { row, index, config, timezone, today, invalid, messageShared, onChange } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
+  const messageError = invalid === "message" || row.message.length > GUEST_MESSAGE_MAX_LENGTH;
   const seed = (weekday: number) => regularServices(config, timezone, weekday, today);
   const weekdayName = (d: number) =>
     format.formatCalendarDate(addDays(SUNDAY, d), { weekday: "long" });
@@ -118,6 +118,7 @@ export function AddDateRow(props: AddDateRowProps) {
       {row.kind === "same" && (
         <>
           <Select
+            id={rowFieldId(row.key, "same")}
             label={t("availabilitySpecial.add.sameAs")}
             value={String(row.sameAs)}
             options={[0, 1, 2, 3, 4, 5, 6].map((d) => ({
@@ -170,7 +171,12 @@ export function AddDateRow(props: AddDateRowProps) {
           label={t("availability.close.guestMessage")}
           value={row.message}
           maxLength={GUEST_MESSAGE_MAX_LENGTH}
-          error={invalid === "message"}
+          error={messageError}
+          hint={
+            messageError
+              ? t("availability.close.guestMessageTooLong", { max: GUEST_MESSAGE_MAX_LENGTH })
+              : undefined
+          }
           showOptional
           onChange={(e) => onChange({ ...row, message: e.target.value })}
         />
