@@ -1,0 +1,96 @@
+{
+  "duration_api_ms": 285314,
+  "stop_reason": "end_turn",
+  "session_id": "482dcd3f-0b91-4866-a79b-7345e0ded235",
+  "total_cost_usd": 1.7014007999999998,
+  "usage": {
+    "input_tokens": 98,
+    "cache_creation_input_tokens": 109762,
+    "cache_read_input_tokens": 5186816,
+    "output_tokens": 19019,
+    "output_tokens_details": {
+      "thinking_tokens": 7560
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 109762,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 256,
+        "cache_read_input_tokens": 136164,
+        "cache_creation_input_tokens": 504,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 504
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 100,
+      "outputTokens": 19554,
+      "cacheReadInputTokens": 5323484,
+      "cacheCreationInputTokens": 110241,
+      "webSearchRequests": 0,
+      "costUSD": 1.7014007999999998,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 7560,
+      "cacheCreationEphemeral5mInputTokens": 0,
+      "cacheCreationEphemeral1hInputTokens": 110241,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "budget_exhausted",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": true,
+  "num_turns": 50,
+  "subtype": "error_max_budget_usd",
+  "errors": ["Reached maximum budget ($1.67)"],
+  "type": "result",
+  "duration_ms": 640930,
+  "uuid": "ae3be5d8-aab9-4c35-8b1f-e24548350f26",
+  "queued_turn_count": 0,
+  "result_index": 0
+}
