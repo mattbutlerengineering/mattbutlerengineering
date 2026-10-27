@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from "react";
+import { useCallback, useLayoutEffect, useRef } from "react";
 
 /**
  * Captures the focused element when `open` transitions to `true` and restores
@@ -20,6 +20,9 @@ import { useLayoutEffect, useRef } from "react";
  * menu item instead of the real trigger (#5618).
  *
  * @param open - Whether the overlay is currently open.
+ * @returns `skipRestore` — call it just before closing when focus is being handed
+ * onward on purpose (Tab out of a menu), so the pending restore does not yank it
+ * back to the trigger. It applies to the next close only.
  *
  * @example
  * function MyDialog({ open, onClose }) {
@@ -27,8 +30,12 @@ import { useLayoutEffect, useRef } from "react";
  *   // ...
  * }
  */
-export function useReturnFocus(open: boolean): void {
+export function useReturnFocus(open: boolean): () => void {
   const triggerRef = useRef<Element | null>(null);
+  const skipRef = useRef(false);
+  const skipRestore = useCallback(() => {
+    skipRef.current = true;
+  }, []);
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -39,9 +46,14 @@ export function useReturnFocus(open: boolean): void {
     return () => {
       const captured = triggerRef.current;
       triggerRef.current = null;
+      const skip = skipRef.current;
+      skipRef.current = false;
+      if (skip) return;
       requestAnimationFrame(() => {
         (captured as HTMLElement | null)?.focus();
       });
     };
   }, [open]);
+
+  return skipRestore;
 }

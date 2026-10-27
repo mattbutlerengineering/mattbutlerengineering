@@ -112,7 +112,7 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
   const shouldReduceMotion = motionPreset.reduced;
   const slide = side === "top" ? 4 : -4;
 
-  useReturnFocus(open);
+  const skipReturnFocus = useReturnFocus(open);
 
   // Flat list of focusable item indices
   const focusableIndices = items.reduce<number[]>((acc, entry, i) => {
@@ -183,6 +183,14 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
         break;
       case "Escape":
         e.preventDefault();
+        close();
+        break;
+      case "Tab":
+        // ARIA APG: Tab closes the menu and moves on. Park focus on the trigger so the
+        // browser's default Tab continues from there (and stays inside any enclosing
+        // focus trap), and keep the return-focus restore from undoing that move.
+        skipReturnFocus();
+        document.getElementById(triggerId)?.focus();
         close();
         break;
       case "Enter":

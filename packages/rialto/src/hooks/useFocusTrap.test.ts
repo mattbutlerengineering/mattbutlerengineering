@@ -300,4 +300,80 @@ describe("useFocusTrap", () => {
     const e = tabKeyDown(false);
     expect(e.defaultPrevented).toBe(false);
   });
+
+  describe("skips elements a user cannot Tab to", () => {
+    it("ignores a hidden last control when wrapping Tab", () => {
+      const panel = makePanel("button", "button", "button");
+      const [first, last, hiddenLast] = Array.from(panel.querySelectorAll<HTMLElement>("button"));
+      hiddenLast!.hidden = true;
+
+      renderHook(() => useFocusTrap(makeRef(panel), true));
+
+      last!.focus();
+      const e = tabKeyDown(false);
+
+      expect(e.defaultPrevented).toBe(true);
+      expect(document.activeElement).toBe(first);
+    });
+
+    it("ignores a control inside a display:none ancestor", () => {
+      const panel = makePanel("button", "div");
+      const [first] = Array.from(panel.querySelectorAll<HTMLElement>("button"));
+      const collapsed = panel.querySelector("div") as HTMLElement;
+      collapsed.style.display = "none";
+      const inner = document.createElement("button");
+      collapsed.appendChild(inner);
+
+      renderHook(() => useFocusTrap(makeRef(panel), true));
+
+      first!.focus();
+      const e = tabKeyDown(false);
+
+      expect(e.defaultPrevented).toBe(true);
+      expect(document.activeElement).toBe(first);
+    });
+
+    it("ignores an inert subtree", () => {
+      const panel = makePanel("button", "div");
+      const [first] = Array.from(panel.querySelectorAll<HTMLElement>("button"));
+      const inertWrap = panel.querySelector("div") as HTMLElement;
+      inertWrap.setAttribute("inert", "");
+      inertWrap.appendChild(document.createElement("button"));
+
+      renderHook(() => useFocusTrap(makeRef(panel), true));
+
+      first!.focus();
+      tabKeyDown(false);
+
+      expect(document.activeElement).toBe(first);
+    });
+
+    it("ignores buttons and links removed from the Tab order with tabindex=-1", () => {
+      const panel = makePanel("button", "button", "button");
+      const [first, last, roving] = Array.from(panel.querySelectorAll<HTMLElement>("button"));
+      roving!.setAttribute("tabindex", "-1");
+
+      renderHook(() => useFocusTrap(makeRef(panel), true));
+
+      last!.focus();
+      const e = tabKeyDown(false);
+
+      expect(e.defaultPrevented).toBe(true);
+      expect(document.activeElement).toBe(first);
+    });
+
+    it("ignores input[type=hidden]", () => {
+      const panel = makePanel("button", "input");
+      const [first] = Array.from(panel.querySelectorAll<HTMLElement>("button"));
+      (panel.querySelector("input") as HTMLInputElement).type = "hidden";
+
+      renderHook(() => useFocusTrap(makeRef(panel), true));
+
+      first!.focus();
+      const e = tabKeyDown(false);
+
+      expect(e.defaultPrevented).toBe(true);
+      expect(document.activeElement).toBe(first);
+    });
+  });
 });
