@@ -68,6 +68,8 @@ export interface ClosureCaller {
   /** Owner, manager or platform admin. Anyone else is a Host. */
   isManager: boolean;
   actorId: string;
+  /** Display name snapshotted on the audit row; absent or `null` when the token has none. */
+  actorName?: string | null;
 }
 
 export type CreateClosureOutcome =
@@ -424,6 +426,7 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
     data: {
       venueId,
       actorId: caller.actorId,
+      actorName: caller.actorName ?? null,
       at: now,
       kind: "closure",
       summary: describe(rule, plan.counts),
@@ -620,6 +623,7 @@ export async function reopenClosure(
         data: {
           venueId,
           actorId: caller.actorId,
+          actorName: caller.actorName ?? null,
           at: now,
           kind: "reopen",
           summary: `Closure reopened (${rule.startsOn})`,

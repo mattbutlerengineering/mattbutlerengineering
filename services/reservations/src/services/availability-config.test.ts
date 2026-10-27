@@ -298,6 +298,32 @@ describe("saveAvailabilityConfig", () => {
 
   const WHOLE_WEEK = body({ upsert: { ...CONFIG, dateRules: [] } }, 3);
 
+  it("snapshots the actor's name on the audit row, and null when none is given", async () => {
+    const named = savingTx();
+    await saveAvailabilityConfig(
+      {
+        venueId: "venue-1",
+        actorId: "auth0|ben",
+        actorName: "Ben Ito",
+        body: WHOLE_WEEK,
+        now: NOW,
+      },
+      fakeClient(named)
+    );
+    expect(named.availabilityChange.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ actorName: "Ben Ito" }) })
+    );
+
+    const anonymous = savingTx();
+    await saveAvailabilityConfig(
+      { venueId: "venue-1", actorId: "auth0|ben", body: WHOLE_WEEK, now: NOW },
+      fakeClient(anonymous)
+    );
+    expect(anonymous.availabilityChange.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ actorName: null }) })
+    );
+  });
+
   it("commits rows, the audit row and the legacy projection together", async () => {
     const tx = savingTx();
 

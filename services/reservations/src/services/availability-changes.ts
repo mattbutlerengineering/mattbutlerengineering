@@ -112,6 +112,7 @@ export async function listAvailabilityChanges(
     const items: AvailabilityChangeEntry[] = rows.map((r) => ({
       id: r.id,
       actorId: r.actorId,
+      actorName: r.actorName ?? null,
       at: r.at.toISOString(),
       kind: r.kind,
       summary: r.summary,
@@ -156,14 +157,15 @@ export async function revertAvailabilityChange(
     venueId: string;
     changeId: string;
     actorId: string;
+    actorName?: string | null;
     expectedVersion: number;
     now: Date;
   },
   client: StoreClient = prisma
 ): Promise<RevertOutcome> {
-  const { venueId, changeId, actorId, expectedVersion, now } = input;
+  const { venueId, changeId, actorId, actorName, expectedVersion, now } = input;
   return inSaveTransaction<SaveOutcome, RevertOutcome>(client, venueId, (tx) =>
-    commitSave(tx, { venueId, actorId, expectedVersion, now }, async (state) => {
+    commitSave(tx, { venueId, actorId, actorName, expectedVersion, now }, async (state) => {
       const change = await tx.availabilityChange.findFirst({ where: { id: changeId, venueId } });
       if (!change) return refuseSave({ kind: "change_not_found" });
       if (change.revertedById) return refuseSave(refused("already_reverted"));

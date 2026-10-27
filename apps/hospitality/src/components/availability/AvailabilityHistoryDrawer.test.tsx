@@ -96,6 +96,20 @@ describe("AvailabilityHistoryDrawer", () => {
     expect(rows[1]).toHaveTextContent(/by a teammate/i);
   });
 
+  it("names the person when the server does, and keeps 'by you' for the viewer", () => {
+    loaded([
+      entry({ id: "mine", actorName: "Me Myself" }),
+      entry({ id: "ana", actorId: "auth0|ana", actorName: "Ana Ruiz", revertible: false }),
+      entry({ id: "gone", actorId: "auth0|gone", actorName: null, revertible: false }),
+    ]);
+    renderDrawer();
+    const rows = within(screen.getByRole("dialog", { name: "History" })).getAllByRole("listitem");
+    expect(rows[0]).toHaveTextContent(/by you/i);
+    expect(rows[0]).not.toHaveTextContent("Me Myself");
+    expect(rows[1]).toHaveTextContent(/by Ana Ruiz/);
+    expect(rows[2]).toHaveTextContent(/by a teammate/i);
+  });
+
   it("offers Revert only where the server says it is possible, and only to a Manager", () => {
     renderDrawer();
     expect(screen.getAllByRole("button", { name: "Revert" })).toHaveLength(1);

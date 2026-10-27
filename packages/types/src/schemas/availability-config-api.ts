@@ -137,6 +137,12 @@ export const AvailabilityChangeEntrySchema = AvailabilityChangeSummarySchema.ext
    * recorded. Optional so a client talking to an older API falls back to `summary`.
    */
   outcome: AvailabilityChangeOutcomeSchema.nullish(),
+  /**
+   * The person's display name, snapshotted when the change was made; never an email. `null` on
+   * rows saved before names were recorded. Optional so a client talking to an older API still
+   * works (History then says "a teammate").
+   */
+  actorName: z.string().nullish(),
 });
 
 /** Most entries one `GET …/availability/changes` page returns. */

@@ -430,10 +430,16 @@ export function refuseSave(outcome: { kind: string }): never {
  */
 export async function commitSave(
   tx: StoreDb,
-  input: { venueId: string; actorId: string; expectedVersion: number; now: Date },
+  input: {
+    venueId: string;
+    actorId: string;
+    actorName?: string | null;
+    expectedVersion: number;
+    now: Date;
+  },
   resolve: (state: ConfigState) => Promise<SaveRequest>
 ): Promise<SaveOutcome> {
-  const { venueId, actorId, expectedVersion, now } = input;
+  const { venueId, actorId, actorName = null, expectedVersion, now } = input;
   const cas = await tx.venue.updateMany({
     where: { id: venueId, availabilityVersion: expectedVersion },
     data: { availabilityVersion: { increment: 1 } },
@@ -473,6 +479,7 @@ export async function commitSave(
     data: {
       venueId,
       actorId,
+      actorName,
       at: now,
       kind: request.kind,
       summary: request.summary ?? plan.summary,
@@ -491,16 +498,26 @@ export async function commitSave(
 }
 
 export async function saveAvailabilityConfig(
-  input: { venueId: string; actorId: string; body: PutAvailabilityConfigBody; now: Date },
+  input: {
+    venueId: string;
+    actorId: string;
+    actorName?: string | null;
+    body: PutAvailabilityConfigBody;
+    now: Date;
+  },
   client: StoreClient = prisma
 ): Promise<SaveOutcome> {
-  const { venueId, actorId, body, now } = input;
+  const { venueId, actorId, actorName, body, now } = input;
   return inSaveTransaction(client, venueId, (tx) =>
-    commitSave(tx, { venueId, actorId, expectedVersion: body.expectedVersion, now }, async () => ({
-      changes: body.changes,
-      scopeConflicts: body.scopeConflicts,
-      kind: "config",
-    }))
+    commitSave(
+      tx,
+      { venueId, actorId, actorName, expectedVersion: body.expectedVersion, now },
+      async () => ({
+        changes: body.changes,
+        scopeConflicts: body.scopeConflicts,
+        kind: "config",
+      })
+    )
   );
 }
 
