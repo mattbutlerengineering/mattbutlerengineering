@@ -38,7 +38,7 @@ const NEAR_BLACK_THRESHOLD = 15;
  * 4000x3000 logo yields under 5,000 sampled pixels, so k-means cannot stall
  * the operator's browser.
  */
-export const MAX_SAMPLE_EDGE = 256;
+const MAX_SAMPLE_EDGE = 256;
 
 /** The box an image is drawn into before sampling, preserving aspect ratio. */
 export function fitWithin(

@@ -14,7 +14,7 @@ import { AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY } from "./us
 import { createMutationHook } from "./create-mutation-hook.js";
 import { createQueryHook } from "./create-query-hook.js";
 
-export const CLOSURE_IMPACT_QUERY_KEY = "closureImpact" as const;
+const CLOSURE_IMPACT_QUERY_KEY = "closureImpact" as const;
 
 /** Which future bookings a draft closure would affect (read-only; Manager). */
 export const useClosureImpact = createQueryHook<
@@ -64,8 +64,8 @@ export const useCreateClosure = createMutationHook<CreateClosureVariables, Closu
     api.availability.createClosure(venueId, body, idempotencyKey),
 });
 
-export const CLOSURE_SUMMARIES_QUERY_KEY = "closureSummaries" as const;
-export const CLOSURE_CALL_LIST_QUERY_KEY = "closureCallList" as const;
+const CLOSURE_SUMMARIES_QUERY_KEY = "closureSummaries" as const;
+const CLOSURE_CALL_LIST_QUERY_KEY = "closureCallList" as const;
 
 /** Sent / Rebooked / Unreachable and refund counts per closure (Special dates tab). */
 export const useClosureSummaries = createQueryHook<

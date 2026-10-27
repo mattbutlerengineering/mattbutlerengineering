@@ -1593,7 +1593,6 @@
     }
   </file>
   <file path="packages/rialto/src/components/SilkFlow/silk-flow-field.ts">
-    export const FIELD_SCALE = 0.0022;
     export const FIELD_TIME_STEP = 0.0035;
     export type ValueNoise = (x: number, y: number) => number;
     export function silkParticleCount(width: number, height: number): number {
@@ -1739,7 +1738,7 @@
   </section>
   <section priority="medium" role="TapeChart">
   <file path="packages/rialto/src/components/TapeChart/dateMath.ts">
-    export function parseISOMs(iso: string): number {
+    function parseISOMs(iso: string): number {
       const parts = iso.split("-");
       const y = Number(parts[0] ?? "1970");
       const m = Number(parts[1] ?? "1");
@@ -1796,7 +1795,7 @@
       roomStatusLabels: Record<TapeChartRoomStatus, string>;
       overlapLabels: Record<TapeChartOverlapKind, string>;
     };
-    export function defaultStringsFor(messages: RialtoMessages): ResolvedStrings {
+    function defaultStringsFor(messages: RialtoMessages): ResolvedStrings {
       const { viaSource: _via, blockedReason: _reason, ...labels } = messages.tapeChart;
       return {
         ...labels,
@@ -2403,8 +2402,6 @@
       readonly teeth?: number;
     }
     export const PLATE_RADIUS = 48;
-    export const PIVOT = { x: 50, y: 50 } as const;
-    export const TOOTH_RATIO = 0.28;
     export const ESCAPE_TEETH = 15;
     export const ROTOR_RADIUS = 44;
     export const MOVEMENT = {
@@ -3055,7 +3052,7 @@
     }
   </file>
   <file path="packages/agent-core/src/adapters/omp-adapter.ts">
-    export function ompModelToForward(model: string | undefined): string | undefined {
+    function ompModelToForward(model: string | undefined): string | undefined {
       if (!model || model.startsWith("claude-")) return undefined;
       return model;
     }
@@ -4602,7 +4599,6 @@
   </file>
   <file path="apps/rialto-web/src/pages/auth/score-password.ts">
     export const MIN_PASSWORD_LENGTH = 12;
-    export const BONUS_LENGTH = 16;
     export interface PasswordRequirements {
       /** At least {@link MIN_PASSWORD_LENGTH} characters */
       minLength: boolean;
@@ -5629,7 +5625,6 @@
       /** Stored weekday indexes, 0 = Sunday … 6 = Saturday. */
       readonly days: readonly number[];
     }
-    export const LAST_SEATING_LEAD_MINUTES = 45;
     export const SERVICE_NAME_MAX_LENGTH = 40;
     export const WEEK_DISPLAY_ORDER: readonly number[] = [1, 2, 3, 4, 5, 6, 0];
     export const WEEKDAY_SHORTCUT: readonly number[] = [1, 2, 3, 4, 5];
@@ -5652,7 +5647,7 @@
       const [h = 0, m = 0] = hhmm.split(":").map(Number);
       return h * 60 + m;
     }
-    export function toClock(minutes: number): string {
+    function toClock(minutes: number): string {
       const wrapped = ((minutes % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
       const hh = String(Math.floor(wrapped / 60)).padStart(2, "0");
       const mm = String(wrapped % 60).padStart(2, "0");
@@ -6988,7 +6983,6 @@
     }
   </file>
   <file path="apps/hospitality/src/components/availability/useDateSelection.ts">
-    export const LONG_PRESS_MS = 500;
     export interface DateSelectionOptions {
       readonly selection: readonly string[];
       readonly onSelectionChange: (dates: string[]) => void;
@@ -7295,13 +7289,6 @@
       };
     }
     export const MISSING_VENUE_SLUG_ERROR = enUS.bookingWidget.errors.missingVenueSlug;
-    export const STEP_KEYS_NO_DEPOSIT: BookingStep[] = ["date-party", "time-slot", "guest-details"];
-    export const STEP_KEYS_WITH_DEPOSIT: BookingStep[] = [
-      "date-party",
-      "time-slot",
-      "guest-details",
-      "payment",
-    ];
     export function deriveStepKeys(depositRequired: boolean): BookingStep[] {
       return depositRequired ? STEP_KEYS_WITH_DEPOSIT : STEP_KEYS_NO_DEPOSIT;
     }
@@ -10130,7 +10117,6 @@
        */
       readonly noFormalReviewStage: boolean;
     }
-    export const PR_CATEGORY_LOW_SAMPLE_THRESHOLD = 5;
     export interface PrCategoryBreakdownStats {
       readonly merged: number | null;
       readonly closedWithoutMerge: number | null;
@@ -10588,7 +10574,6 @@
     ];
   </file>
   <file path="apps/rialto-web/src/data/demo-routes.ts">
-    export const DEMOS_BASE = "/demos";
     export const DEMO_ROUTES = {
       signIn: `${DEMOS_BASE}/login`,
       signUp: `${DEMOS_BASE}/signup`,
@@ -13714,7 +13699,6 @@
         pricePerNight: 420,
       },
     ];
-    export const TAX_RATE = 0.12;
     export interface GuestInfo {
       firstName: string;
       lastName: string;
@@ -15057,7 +15041,7 @@
       }
       return names;
     }
-    export function uniqueTableName(desired: string, taken: ReadonlySet<string>): string {
+    function uniqueTableName(desired: string, taken: ReadonlySet<string>): string {
       if (!taken.has(desired)) return desired;
       // `taken` is finite, and among `desired-2 … desired-(size + 2)` there are
       // more candidates than `taken` has entries, so one of them is always free.
@@ -15242,7 +15226,6 @@
     export const ENDPOINT_HIT_RADIUS = 12;
     export const MIN_WALL_THICKNESS = 2;
     export const MAX_WALL_THICKNESS = 40;
-    export const DEFAULT_WALL_THICKNESS = 8;
     export interface Point {
       readonly x: number;
       readonly y: number;
@@ -15713,7 +15696,7 @@
       light: { plate: "#f8f6f3", text: "#1a1918" },
       dark: { plate: "#1e1c1a", text: "rgb(253 252 250 / 0.92)" },
     };
-    export function resolveSectionLabelTheme(): SectionLabelTheme {
+    function resolveSectionLabelTheme(): SectionLabelTheme {
       const theme: "light" | "dark" =
         document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
       const fallback = SECTION_LABEL_FALLBACKS[theme];
@@ -17172,7 +17155,6 @@
   <file path="apps/hospitality/src/hooks/useAvailability.ts">
     export const AVAILABILITY_DAYS_QUERY_KEY = "availabilityDays" as const;
     export const AVAILABILITY_CONFIG_QUERY_KEY = "availabilityConfig" as const;
-    export const AVAILABILITY_CHANGES_QUERY_KEY = "availabilityChanges" as const;
     export const useAvailabilityDays = createQueryHook<
       AvailabilityDaySummary[] | null,
       { venueId: string | null; from: string; to: string }
@@ -17242,7 +17224,6 @@
     });
   </file>
   <file path="apps/hospitality/src/hooks/useAvailabilityPreview.ts">
-    export const AVAILABILITY_PREVIEW_QUERY_KEY = "availabilityPreview" as const;
     export interface AvailabilityPreviewState {
       /** The newest result that arrived, kept while a newer request is pending or has failed. */
       readonly result: PreviewResult | null;
@@ -17276,7 +17257,6 @@
     }
   </file>
   <file path="apps/hospitality/src/hooks/useAvailabilityUndo.ts">
-    export const UNDO_TOAST_MS = 10_000;
     export function useAvailabilityUndo() {
       const { t } = useTranslation();
       const { toast } = useToast();
@@ -17308,7 +17288,6 @@
     }
   </file>
   <file path="apps/hospitality/src/hooks/useBriefing.ts">
-    export const BRIEFING_QUERY_KEY = "briefing" as const;
     export type BriefingEntry = ApiBriefingEntry;
     export interface UseBriefingParams {
       date: string;
@@ -17502,7 +17481,6 @@
     }
   </file>
   <file path="apps/hospitality/src/hooks/useClosures.ts">
-    export const CLOSURE_IMPACT_QUERY_KEY = "closureImpact" as const;
     export const useClosureImpact = createQueryHook<
       ClosureImpact | null,
       { venueId: string | null; rule: DateRule | null }
@@ -17539,8 +17517,6 @@
       mutationFn: (api, { venueId, body, idempotencyKey }) =>
         api.availability.createClosure(venueId, body, idempotencyKey),
     });
-    export const CLOSURE_SUMMARIES_QUERY_KEY = "closureSummaries" as const;
-    export const CLOSURE_CALL_LIST_QUERY_KEY = "closureCallList" as const;
     export const useClosureSummaries = createQueryHook<
       ClosureSummary[] | null,
       { venueId: string | null }
@@ -17739,7 +17715,6 @@
     }
   </file>
   <file path="apps/hospitality/src/hooks/useDeposits.ts">
-    export const DEPOSITS_QUERY_KEY = "deposits" as const;
     export function useDepositByReservation(reservationId: string | null | undefined) {
       return useDepositByReservationQuery({ reservationId });
     }
@@ -17843,7 +17818,6 @@
   </file>
   <file path="apps/hospitality/src/hooks/useFloorPlans.ts">
     export const FLOOR_PLANS_QUERY_KEY = "floorPlans" as const;
-    export const FLOOR_PLAN_QUERY_KEY = "floorPlan" as const;
     export interface UseFloorPlansParams {
       venueId?: string | null;
       limit?: number;
@@ -17868,7 +17842,7 @@
     export function useFloorPlan(id: string | undefined): UseFloorPlanResult {
       return useFloorPlanQuery({ id }) as QueryHookResult<FloorPlan | null>;
     }
-    export function floorPlanQueryKey(id: string | undefined): readonly unknown[] {
+    function floorPlanQueryKey(id: string | undefined): readonly unknown[] {
       return buildQueryKey(FLOOR_PLAN_QUERY_KEY, { id });
     }
     export const useCloneFloorPlan = createMutationHook<string, FloorPlan>({
@@ -17926,7 +17900,6 @@
         queryClient.invalidateQueries({ queryKey: floorPlanQueryKey(variables.floorPlanId) });
       },
     });
-    export const FLOOR_PLAN_SECTIONS_QUERY_KEY = "floorPlanSections" as const;
     export const useFloorPlanSections = createQueryHook<
       FloorPlanSection[],
       { venueId?: string | null; floorPlanId?: string | null }
@@ -18394,8 +18367,6 @@
     }
   </file>
   <file path="apps/hospitality/src/hooks/useMenus.ts">
-    export const MENUS_QUERY_KEY = "menus" as const;
-    export const MENU_QUERY_KEY = "menu" as const;
     export const useMenus = createQueryHook<Menu[], { venueId?: string | null }>({
       key: MENUS_QUERY_KEY,
       fetcher: (params, api) => api.menus.list(params!.venueId!),
@@ -18527,7 +18498,6 @@
     }
   </file>
   <file path="apps/hospitality/src/hooks/useOpenTimes.ts">
-    export const OPEN_TIMES_QUERY_KEY = "staffOpenTimes" as const;
     export const useOpenTimes = createQueryHook<
       TimeSlot[] | null,
       { venueId: string | null | undefined; date: string; partySize: number },
@@ -18818,7 +18788,6 @@
     }
   </file>
   <file path="apps/hospitality/src/hooks/useStaffBookingCheck.ts">
-    export const STAFF_BOOKING_CHECK_QUERY_KEY = "staffBookingCheck" as const;
     type BookingWindow = { start: string; end: string };
     export interface StaffCheckParams {
       venueId: string | null | undefined;
@@ -19249,8 +19218,6 @@
     });
   </file>
   <file path="apps/hospitality/src/hooks/useUsers.ts">
-    export const CURRENT_USER_QUERY_KEY = "currentUser" as const;
-    export const USERS_QUERY_KEY = "users" as const;
     export interface UseCurrentUserResult {
       data: User | null | undefined;
       isLoading: boolean;
@@ -19364,7 +19331,6 @@
     }
   </file>
   <file path="apps/hospitality/src/hooks/useVenuePolicy.ts">
-    export const VENUE_POLICY_QUERY_KEY = "venue-policy" as const;
     export function useVenuePolicy(slug: string | undefined): {
       policy: CancellationPolicy | null;
       isLoading: boolean;
@@ -19406,7 +19372,6 @@
       nextStep: SetupStep | null;
       progress: number; // 0–100
     }
-    export const STEP_ORDER: readonly SetupStep[] = ["onboarding", "operating-hours", "floor-plan"];
     export function computeReadiness(
       venue: Venue | null,
       floorPlans: readonly FloorPlan[],
@@ -19489,7 +19454,6 @@
     }
   </file>
   <file path="apps/hospitality/src/hooks/useVenueTeam.ts">
-    export const VENUE_TEAM_QUERY_KEY = "venueTeam" as const;
     export const useVenueTeam = createQueryHook<VenueTeam | null, { venueId: string | null }>({
       key: VENUE_TEAM_QUERY_KEY,
       fetcher: async (params, api) => (params?.venueId ? api.venueTeam.get(params.venueId) : null),
@@ -19510,7 +19474,6 @@
   </file>
   <file path="apps/hospitality/src/hooks/useVenues.ts">
     export const VENUES_QUERY_KEY = "venues" as const;
-    export const VENUE_BY_SLUG_QUERY_KEY = "venueBySlug" as const;
     export interface UseVenuesParams {
       limit?: number;
       enabled?: boolean;
@@ -22192,7 +22155,6 @@
     export type RgbaBytes = Uint8Array | Uint8ClampedArray;
     export const DEFAULT_MAX_COLORS = 5;
     export const PIXEL_STRIDE = 10;
-    export const MAX_SAMPLE_EDGE = 256;
     export function fitWithin(
       width: number,
       height: number,
@@ -23326,7 +23288,7 @@
       manageUrl: string;
       offers: readonly ClosureOffer[];
     }
-    export function toGsm(text: string): string {
+    function toGsm(text: string): string {
       return text.replace(LOOKALIKE, (ch) => GSM_LOOKALIKES[ch]!);
     }
     export function smsSegments(body: string): number {
@@ -27444,7 +27406,7 @@
       if (value.startsWith("//") || value.startsWith("/\\")) return false;
       return true;
     }
-    export function appBasePath(redirectUri: string): string {
+    function appBasePath(redirectUri: string): string {
       try {
         const pathname = new URL(redirectUri).pathname;
         const base = pathname.replace(/\/[^/]*$/, "");
@@ -28103,7 +28065,7 @@
         day: "2-digit",
       }).format(now);
     }
-    export function localTimeIn(iso: unknown, timeZone: string | undefined): string | undefined {
+    function localTimeIn(iso: unknown, timeZone: string | undefined): string | undefined {
       if (typeof iso !== "string") return undefined;
       const instant = new Date(iso);
       if (Number.isNaN(instant.getTime())) return undefined;
@@ -29123,7 +29085,6 @@
       "seat_walk_in",
       "update_table_status",
     ] as const;
-    export const GEN_WRITE_TOOLS: ReadonlySet<string> = new Set(GEN_WRITE_TOOL_NAMES);
     export type GenToolMap = Record<string, unknown>;
     export type GenEventCallback = (event: GenStreamEvent) => Promise<void>;
     export interface GenRunner {
@@ -29259,7 +29220,7 @@
     }
   </file>
   <file path="services/agent/src/routes/gen-specs.ts">
-    export function normaliseKind(
+    function normaliseKind(
       prompt: string,
       kind: (typeof GEN_SPEC_KINDS)[number] | undefined
     ): { prompt: string; kind: (typeof GEN_SPEC_KINDS)[number] } {
@@ -36333,8 +36294,6 @@
       return new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     }
     export const ADMIN_HEADERS: Record<string, string> = { "x-auth-bypass": "true" };
-    export const MEMBER_HEADERS: Record<string, string> = { authorization: "Bearer member-a-token" };
-    export const DINER_A_HEADERS: Record<string, string> = { authorization: "Bearer diner-a-token" };
     function inject(
       ctx: SweepContext,
       headers: Record<string, string>,
@@ -36354,8 +36313,6 @@
       inject(ctx, ADMIN_HEADERS, opts);
     export const asMember = (ctx: SweepContext, opts: InjectOptions): Promise<LightMyRequestResponse> =>
       inject(ctx, MEMBER_HEADERS, opts);
-    export const asDiner = (ctx: SweepContext, opts: InjectOptions): Promise<LightMyRequestResponse> =>
-      inject(ctx, DINER_A_HEADERS, opts);
     export function expectOk(res: LightMyRequestResponse, label: string): void {
       expect(
         res.statusCode,
@@ -41459,10 +41416,9 @@
         1_000_000
       );
     }
-    export function uncachedCostUsd(tokens: Tokens, pricing: Pricing): number {
+    function uncachedCostUsd(tokens: Tokens, pricing: Pricing): number {
       return costUsd({ inputTokens: tokens.inputTokens, outputTokens: tokens.outputTokens }, pricing);
     }
-    export const SYSTEM_PROMPT = `${catalog.prompt()}\n\n${JSON_OUTPUT_INSTRUCTIONS}`;
     export type Validation = { ok: true } | { ok: false; error: string };
     function extractJson(text: string): unknown {
       const fenced = /```(?:json)?\s*([\s\S]*?)```/.exec(text);
@@ -41754,11 +41710,6 @@
   </file>
   <file path="packages/rialto-catalog/scripts/gen-ui-bakeoff-providers.ts">
     type FetchLike = typeof fetch;
-    export const DEFAULT_MODELS: Readonly<Record<ProviderId, string>> = {
-      anthropic: "claude-haiku-5-5",
-      openai: "gpt-6-luna",
-      gemini: "gemini-3.1-flash-lite",
-    };
     export const ENV_KEYS: Readonly<Record<ProviderId, string>> = {
       anthropic: "ANTHROPIC_API_KEY",
       openai: "OPENAI_API_KEY",
@@ -43876,7 +43827,6 @@
     export const prisma = db.prisma as unknown as PrismaClient;
   </file>
   <file path="services/agent/src/services/gen-spec-cache.ts">
-    export const GEN_SPEC_CACHE_TTL_HOURS = 24;
     export interface GenSpecCacheKeyInput {
       readonly route: string;
       readonly messages: ReadonlyArray<{ readonly role: string; readonly content: string }>;
@@ -44190,7 +44140,7 @@
         },
       };
     }
-    export function resolveConcurrencyLimit(): number {
+    function resolveConcurrencyLimit(): number {
       return parseInt(process.env.MAX_CONCURRENT_SESSIONS ?? "5", 10);
     }
     export const defaultConcurrency: SessionConcurrency =
@@ -45209,7 +45159,6 @@
     }
   </file>
   <file path="services/reservations/src/services/availability-changes.ts">
-    export const REVERT_KIND = "revert";
     function dayStart(d: string, timezone: string): Date {
       return (
         serviceDayInstant(d, 0, timezone) ??
@@ -45470,7 +45419,7 @@
       if (day.explanation.some((l) => l.kind === "special_hours")) return "Special hours";
       return config.schedules.find((s) => s.id === day.scheduleId)?.name ?? "Open";
     }
-    export function daySummaryServices(
+    function daySummaryServices(
       names: ReadonlyMap<string, string>,
       day: ResolvedDay
     ): DaySummaryService[] {
@@ -46093,7 +46042,7 @@
         ...(legacyProblem ? { legacyProblem } : {}),
       };
     }
-    export async function listAvailabilityDays(
+    async function listAvailabilityDays(
       venueId: string,
       from: string,
       to: string,
@@ -46183,7 +46132,6 @@
         super(outcome.kind);
       }
     }
-    export const LATE_GUEST_GRACE_MINUTES = 30;
     export function stillToServeWhere(now: Date) {
       const graceStart = new Date(now.getTime() - LATE_GUEST_GRACE_MINUTES * 60_000);
       return {
@@ -46360,7 +46308,6 @@
         }))
       );
     }
-    export const PREVIEW_TIMEOUT_MS = 5000;
     export type PreviewOutcome = { kind: "not_found" } | { kind: "timeout" } | PreviewPlan;
     export async function previewAvailabilityConfig(
       input: {
@@ -46421,7 +46368,6 @@
     };
   </file>
   <file path="services/reservations/src/services/availability-migration.ts">
-    export const MIGRATION_ACTOR = "system:availability-legacy-migration";
     export interface VenueForMigration {
       operatingHours: unknown;
       settings: unknown;
@@ -47190,7 +47136,7 @@
         loaded.unconfigured
       );
     }
-    export async function getDayAvailability(
+    async function getDayAvailability(
       venueId: string,
       date: string,
       partySize: number,
@@ -47204,7 +47150,7 @@
       const { seatings, offered } = listDay(timed, date, partySize, now);
       return { slots: offered.map(toTimeSlot), ...noticesFor(loaded, date, seatings.length) };
     }
-    export async function generateTimeSlots(
+    async function generateTimeSlots(
       venueId: string,
       date: string,
       partySize: number,
@@ -47218,7 +47164,7 @@
       const days = Math.min(span, MAX_RANGE_DAYS);
       return days >= 0 ? Array.from({ length: days + 1 }, (_, i) => addDays(startDate, i)) : [];
     }
-    export async function getAvailableDates(
+    async function getAvailableDates(
       venueId: string,
       startDate: string,
       endDate: string,
@@ -47238,7 +47184,7 @@
         return { date, hasAvailability: slotCount > 0, slotCount, ...(closure ? { closure } : {}) };
       });
     }
-    export async function findBestTable(
+    async function findBestTable(
       venueId: string,
       date: string,
       startTime: Date,
@@ -47311,7 +47257,7 @@
     export function tableAdvisoryLockSql(tableId: string): Prisma.Sql {
       return Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${tableId})::bigint)`;
     }
-    export function venueShareLockSql(venueId: string): Prisma.Sql {
+    function venueShareLockSql(venueId: string): Prisma.Sql {
       return Prisma.sql`SELECT 1 FROM venues WHERE id = ${venueId} FOR SHARE`;
     }
     export type SlotConflictCode = "CONFLICT" | "EXPIRED" | "NOT_BOOKABLE";
@@ -48041,7 +47987,6 @@
       const yesterday = addDays(today, -1);
       return isOpen(yesterday) ? yesterday : today;
     }
-    export const MIN_SERVICE_MINUTES = 60;
     type DayServices = ReturnType<typeof resolveDay>;
     function seatingStarts(
       day: DayServices,
@@ -49477,9 +49422,6 @@
     }
   </file>
   <file path="services/reservations/src/services/closure-outcome-sweeper.ts">
-    export const DEFAULT_GRACE_MS = 5 * 60 * 1000;
-    export const DEFAULT_BATCH_SIZE = 50;
-    export const DEFAULT_SWEEP_INTERVAL_MS = 2 * 60 * 1000;
     export interface StuckOutcome {
       id: string;
       dateRuleId: string;
@@ -49753,8 +49695,6 @@
         this.name = "ClosureRefundPermanentError";
       }
     }
-    export const closureRefundKey = (ruleId: string, reservationId: string): string =>
-      `closure:${ruleId}:${reservationId}`;
     export const closureRefundJobId = (ruleId: string, reservationId: string): string =>
       closureRefundKey(ruleId, reservationId).replaceAll(":", "_");
     type Settled = ClosureRefundStatus;
@@ -50232,7 +50172,7 @@
     export function setDepositServiceLogger(next: DepositServiceLogger): void {
       logger = next;
     }
-    export class DepositNotFoundError extends Error {
+    class DepositNotFoundError extends Error {
       constructor(id: string) {
         super(`Deposit not found: ${id}`);
         this.name = "DepositNotFoundError";
@@ -52796,7 +52736,6 @@
     };
   </file>
   <file path="services/reservations/src/services/hold.ts">
-    export const BOOKING_WINDOW_ERROR = "Requested time is outside the venue's booking window";
     function mapPrismaHold(hold: PrismaHold): ReservationHold {
       return {
         id: hold.id,
@@ -59010,7 +58949,6 @@
     }
   </file>
   <file path="services/reservations/src/services/waitlist.ts">
-    export const NOTIFY_CLAIM_WINDOW_MS = 5 * 60 * 1000;
     export interface WaitlistEntryData {
       id: string;
       venueId: string;
@@ -62764,7 +62702,6 @@
       f === "package-lock.json" ||
       f === "yarn.lock";
     export const isInfrastructureFile = (f: string): boolean => f.startsWith("infrastructure/");
-    export const isMetricsFile = (f: string): boolean => f.startsWith("metrics/");
     export const isFrontendSourceFile = (f: string): boolean =>
       (f.startsWith("apps/") || f.startsWith("packages/rialto/")) &&
       !isTestFile(f) &&
@@ -62887,15 +62824,6 @@
     }
   </file>
   <file path="packages/agent-core/src/gen-permissions.ts">
-    export const BLOCKED_BASH_PATTERNS: readonly RegExp[] = [
-      /\brm\s+.*\/\*/, // rm ... /*
-      /\bsudo\b/, // sudo anything
-      /\bcurl\b.*\|\s*\bbash\b/, // curl | bash (pipe to shell)
-      /\bwget\b.*\|\s*\bbash\b/, // wget | bash
-      /\bgit\s+push\b/, // git push (orchestrator handles this)
-      /\bnpm\s+publish\b/, // npm publish
-      /\bpnpm\s+publish\b/, // pnpm publish
-    ];
     export function isRmRecursiveDelete(command: string): boolean {
       const segments = command.split(/[;|&()`$\n]+/);
       return segments.some(segmentIsRmRecursiveDelete);
@@ -62915,32 +62843,6 @@
         return arg.startsWith("-") && arg.length > 1 && arg.slice(1).includes("r");
       });
     }
-    export const ENCODING_BYPASS_PATTERNS: readonly RegExp[] = [
-      // base64 decode piped to shell
-      /\bbase64\s+(-d|--decode)\b.*\|\s*(sh|bash|zsh|eval)\b/,
-      /\bbase64\s+(-d|--decode)\b.*\$\(/,
-    
-      // printf/echo with hex (\x..) or octal (\0..) piped to shell
-      /\b(printf|echo\s+-e)\b.*\\x[0-9a-fA-F]{2}.*\|\s*(sh|bash|zsh|eval)\b/,
-      /\b(printf|echo\s+-e)\b.*\\0[0-7]{1,3}.*\|\s*(sh|bash|zsh|eval)\b/,
-    
-      // $'\x..' ANSI-C quoting with hex/octal piped to shell
-      /\$'[^']*\\x[0-9a-fA-F]{2}[^']*'.*\|\s*(sh|bash|zsh|eval)\b/,
-      /\$'[^']*\\0[0-7]{1,3}[^']*'.*\|\s*(sh|bash|zsh|eval)\b/,
-    
-      // eval of variable expansion or subshell (eval "$cmd", eval $(…))
-      /\beval\s+("|'|\$[({])/,
-    
-      // command substitution piped to shell: $(...) | sh
-      /\$\([^)]+\)\s*\|\s*(sh|bash|zsh|eval)\b/,
-    
-      // generic pipe to shell execution (covers many encoding tricks)
-      /\|\s*(sh|bash|zsh)\b/,
-    
-      // variable-based command execution: cmd="rm"; $cmd ...
-      /\$\{?[a-zA-Z_][a-zA-Z0-9_]*\}?\s+-[a-zA-Z]*r[a-zA-Z]*f/,
-      /\$\{?[a-zA-Z_][a-zA-Z0-9_]*\}?\s+-rf\b/,
-    ];
     export const BLOCKED_TOOLS: ReadonlySet<string> = new Set([
       "WebSearch",
       "WebFetch",
@@ -79994,11 +79896,11 @@
       readonly outputTokens: number;
       readonly durationMs: number;
     }
-    export function fixtureUuid(seed: string): SDKResultMessage["uuid"] {
+    function fixtureUuid(seed: string): SDKResultMessage["uuid"] {
       const hex = Buffer.from(seed).toString("hex").padEnd(32, "0").slice(0, 32);
       return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
     }
-    export function buildUsage(inputTokens: number, outputTokens: number): SDKResultMessage["usage"] {
+    function buildUsage(inputTokens: number, outputTokens: number): SDKResultMessage["usage"] {
       return {
         input_tokens: inputTokens,
         output_tokens: outputTokens,
@@ -82534,7 +82436,6 @@
     }
   </file>
   <file path="apps/hospitality/src/utils/timeline-intent.ts">
-    export const WALK_IN_PARAM = "walkin";
     export const SELECTED_PARAM = "selected";
     export const REHEARSAL_PARAM = "rehearsal";
     export interface TimelineIntent {
@@ -82556,7 +82457,6 @@
       next.delete(SELECTED_PARAM);
       return next;
     }
-    export const NEW_RESERVATION_PARAM = "new";
     export interface ReservationsIntent {
       /** Exactly `new=true` — any other spelling is no intent. */
       readonly newReservation: boolean;

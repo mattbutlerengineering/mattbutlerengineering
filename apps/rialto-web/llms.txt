@@ -110,9 +110,6 @@
     <item priority="high">
       export const MIN_PASSWORD_LENGTH: unknown;
     </item>
-    <item priority="high">
-      export const BONUS_LENGTH: unknown;
-    </item>
     <item priority="low">
       interface PasswordRequirements {
         minLength: boolean;
@@ -146,9 +143,6 @@
   </section>
   <section priority="medium" role="data">
   <file path="src/data/demo-routes.ts">
-    <item priority="high">
-      export const DEMOS_BASE: unknown;
-    </item>
     <item priority="high">
       export const DEMO_ROUTES: unknown;
     </item>
@@ -335,9 +329,6 @@
     </item>
     <item priority="high">
       export const ROOMS: RoomOption[];
-    </item>
-    <item priority="high">
-      export const TAX_RATE: unknown;
     </item>
     <item priority="low">
       interface GuestInfo {

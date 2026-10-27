@@ -12,7 +12,7 @@ import { buildQueryKey, createQueryHook, type QueryHookResult } from "./create-q
 import { createMutationHook } from "./create-mutation-hook.js";
 
 export const FLOOR_PLANS_QUERY_KEY = "floorPlans" as const;
-export const FLOOR_PLAN_QUERY_KEY = "floorPlan" as const;
+const FLOOR_PLAN_QUERY_KEY = "floorPlan" as const;
 
 /* ── useFloorPlans ───────────────────────────────────── */
 
@@ -57,7 +57,7 @@ export function useFloorPlan(id: string | undefined): UseFloorPlanResult {
 }
 
 /** The cache key useFloorPlan(id) reads from — invalidate through this, never a hand-built array. */
-export function floorPlanQueryKey(id: string | undefined): readonly unknown[] {
+function floorPlanQueryKey(id: string | undefined): readonly unknown[] {
   return buildQueryKey(FLOOR_PLAN_QUERY_KEY, { id });
 }
 
@@ -141,7 +141,7 @@ export const useUpdateFloorPlanLayout = createMutationHook<
 
 /* ── useFloorPlanSections ────────────────────────────── */
 
-export const FLOOR_PLAN_SECTIONS_QUERY_KEY = "floorPlanSections" as const;
+const FLOOR_PLAN_SECTIONS_QUERY_KEY = "floorPlanSections" as const;
 
 export const useFloorPlanSections = createQueryHook<
   FloorPlanSection[],

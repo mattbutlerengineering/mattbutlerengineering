@@ -62,7 +62,7 @@ export const ROOMS: RoomOption[] = [
 ];
 
 /** Flat tax applied to the room subtotal in the mock price breakdown. */
-export const TAX_RATE = 0.12;
+const TAX_RATE = 0.12;
 
 /* ── State ───────────────────────────────────── */
 

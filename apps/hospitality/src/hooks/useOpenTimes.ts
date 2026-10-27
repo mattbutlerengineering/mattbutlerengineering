@@ -1,7 +1,7 @@
 import type { TimeSlot } from "@mbe/types";
 import { createQueryHook } from "./create-query-hook.js";
 
-export const OPEN_TIMES_QUERY_KEY = "staffOpenTimes" as const;
+const OPEN_TIMES_QUERY_KEY = "staffOpenTimes" as const;
 
 /** Bookable slots for a party on a date: the open-times strip under the staff form's time input. */
 export const useOpenTimes = createQueryHook<

@@ -20,7 +20,7 @@ interface LocationTimeStepProps {
 }
 
 /** Comprehensive list of IANA timezones (50+), grouped by region. */
-export const TIMEZONE_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
+const TIMEZONE_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
   // Americas
   { value: "America/New_York", label: "Eastern Time (America/New_York)" },
   { value: "America/Chicago", label: "Central Time (America/Chicago)" },

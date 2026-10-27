@@ -227,7 +227,6 @@
        */
       readonly noFormalReviewStage: boolean;
     }
-    export const PR_CATEGORY_LOW_SAMPLE_THRESHOLD = 5;
     export interface PrCategoryBreakdownStats {
       readonly merged: number | null;
       readonly closedWithoutMerge: number | null;

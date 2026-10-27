@@ -10,7 +10,7 @@
 export const MIN_PASSWORD_LENGTH = 12;
 
 /** Length at which a fully-satisfying password earns the bonus point. */
-export const BONUS_LENGTH = 16;
+const BONUS_LENGTH = 16;
 
 export interface PasswordRequirements {
   /** At least {@link MIN_PASSWORD_LENGTH} characters */

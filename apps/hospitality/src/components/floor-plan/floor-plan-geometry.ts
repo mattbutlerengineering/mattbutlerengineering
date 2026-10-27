@@ -98,7 +98,7 @@ export function snapToGrid(value: number, gridSize: number = GRID_SIZE): number 
 export const ENDPOINT_HIT_RADIUS = 12;
 export const MIN_WALL_THICKNESS = 2;
 export const MAX_WALL_THICKNESS = 40;
-export const DEFAULT_WALL_THICKNESS = 8;
+const DEFAULT_WALL_THICKNESS = 8;
 
 export interface Point {
   readonly x: number;

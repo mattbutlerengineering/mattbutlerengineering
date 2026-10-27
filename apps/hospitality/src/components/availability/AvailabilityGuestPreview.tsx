@@ -29,7 +29,7 @@ import { minuteText } from "./closure-band.js";
 import styles from "./AvailabilityGuestPreview.module.css";
 
 /** How long the draft must sit still before it is previewed. */
-export const PREVIEW_DEBOUNCE_MS = 400;
+const PREVIEW_DEBOUNCE_MS = 400;
 
 /** Most dates the date strip shows at once. */
 const STRIP_SIZE = 5;
