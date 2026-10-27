@@ -251,7 +251,17 @@ async function onChargeRefundUpdated(event: Stripe.Event, deps: WebhookDeps): Pr
       { depositId, paymentIntentId, refundId: refund.id, status: refund.status },
       "closure refund failed at Stripe; marking its outcome failed"
     );
-    await markDoneRefundFailed(deposit.reservationId);
+    // A newer live closure refund (a retry after this one failed) means this event is stale:
+    // the outcome's `done` belongs to the newer refund, so leave it alone.
+    const live = await deps.payments.findDepositRefund(paymentIntentId, depositId, "closureRefund");
+    if (live && live.id !== refund.id) return;
+    const result = await markDoneRefundFailed(deposit.reservationId);
+    // Still `pending`: the job is between createPartialRefund and recording `done`. Throw so
+    // the route answers 500 and Stripe redelivers (it stops after ~3 days), by which time
+    // the outcome is `done` and the redelivery flips it.
+    if (result === "pending") {
+      throw new Error(`closure refund ${refund.id} failed before its outcome was recorded done`);
+    }
   });
 }
 

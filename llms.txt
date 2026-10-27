@@ -15033,7 +15033,9 @@
       export function createPrismaClosureRefundStore(): ClosureRefundStore { /* ... */ }
     </item>
     <item priority="high">
-      export async function markDoneRefundFailed(reservationId: string): Promise<void> { /* ... */ }
+      export async function markDoneRefundFailed(
+        reservationId: string
+      ): Promise<"flipped" | "pending" | "unchanged"> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/closure-refund.ts">

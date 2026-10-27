@@ -7,12 +7,14 @@ const {
   mockDepositUpdate,
   mockDepositUpdateMany,
   mockOutcomeUpdateMany,
+  mockOutcomeFindFirst,
 } = vi.hoisted(() => ({
   mockDepositFindFirst: vi.fn(),
   mockDepositFindUnique: vi.fn(),
   mockDepositUpdate: vi.fn(),
   mockDepositUpdateMany: vi.fn(),
   mockOutcomeUpdateMany: vi.fn(),
+  mockOutcomeFindFirst: vi.fn(),
 }));
 
 vi.mock("../services/database.js", async () => {
@@ -32,7 +34,7 @@ vi.mock("../services/database.js", async () => {
         update: vi.fn(),
       },
       reservationEvent: { create: vi.fn() },
-      closureOutcome: { updateMany: mockOutcomeUpdateMany },
+      closureOutcome: { updateMany: mockOutcomeUpdateMany, findFirst: mockOutcomeFindFirst },
     },
   });
 });
@@ -1051,6 +1053,7 @@ describe("POST /api/v1/stripe/webhook", () => {
         stripePaymentIntentId: "pi_closure",
       });
       mockOutcomeUpdateMany.mockResolvedValue({ count: 1 });
+      mockOutcomeFindFirst.mockResolvedValue(null);
     });
 
     it.each(["failed", "canceled"])(
@@ -1071,6 +1074,7 @@ describe("POST /api/v1/stripe/webhook", () => {
 
       expect((await post(ours)).statusCode).toBe(200);
       expect((await post(ours)).statusCode).toBe(200);
+      expect(mockOutcomeUpdateMany).toHaveBeenCalledTimes(2);
       for (const call of mockOutcomeUpdateMany.mock.calls) {
         expect(call[0].where).toEqual({ reservationId: "res_closure", refund: "done" });
       }
@@ -1093,6 +1097,41 @@ describe("POST /api/v1/stripe/webhook", () => {
       await post({ ...ours, metadata: { depositId: "dep_other", leg: "closureRefund" } });
 
       expect(mockOutcomeUpdateMany).not.toHaveBeenCalled();
+    });
+
+    it("ignores a failed refund once a newer live closure refund replaced it", async () => {
+      payments.respond("findDepositRefund", () => ({ id: "re_B", amount: 1000 }));
+
+      const response = await post(ours);
+
+      expect(response.statusCode).toBe(200);
+      expect(mockOutcomeUpdateMany).not.toHaveBeenCalled();
+    });
+
+    it("still flips to failed when the live refund is the event's own", async () => {
+      payments.respond("findDepositRefund", () => ({ id: "re_1", amount: 1000 }));
+
+      await post(ours);
+
+      expect(mockOutcomeUpdateMany).toHaveBeenCalled();
+    });
+
+    it("answers 500 while the outcome is still pending so Stripe redelivers", async () => {
+      mockOutcomeUpdateMany.mockResolvedValue({ count: 0 });
+      mockOutcomeFindFirst.mockResolvedValue({ id: "out-1" });
+
+      const response = await post(ours);
+
+      expect(response.statusCode).toBe(500);
+      expect(mockOutcomeFindFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { reservationId: "res_closure", refund: "pending" } })
+      );
+    });
+
+    it("answers 200 when the outcome is already failed or settled", async () => {
+      mockOutcomeUpdateMany.mockResolvedValue({ count: 0 });
+
+      expect((await post(ours)).statusCode).toBe(200);
     });
   });
 });
