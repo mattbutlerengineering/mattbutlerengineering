@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen } from "@testing-library/react";
 import { MotionPage } from "./MotionPage.js";
-import { MOTION_GROUPS, MOTION_TOKEN_NAMES } from "./token-catalog.js";
+import { MOTION_FREQUENCY_BUDGET, MOTION_GROUPS, MOTION_TOKEN_NAMES } from "./token-catalog.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Text: ({ children, as: As = "span" }: { children?: React.ReactNode; as?: React.ElementType }) => (
@@ -75,6 +75,17 @@ describe("MotionPage", () => {
   it("documents reduced-motion behaviour", () => {
     render(<MotionPage />);
     expect(screen.getByRole("heading", { name: /reduced motion/i })).toBeInTheDocument();
+  });
+
+  it("states the motion policy: when to animate, tiers, restraint", () => {
+    render(<MotionPage />);
+    expect(screen.getByRole("heading", { name: /when to animate/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /frequency budget/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /productive and expressive/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /restraint/i })).toBeInTheDocument();
+    for (const row of MOTION_FREQUENCY_BUDGET) {
+      expect(screen.getByText(row.how)).toBeInTheDocument();
+    }
   });
 
   it("re-reads resolved values when the theme switches", async () => {
