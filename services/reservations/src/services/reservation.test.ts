@@ -1842,6 +1842,41 @@ describe("reservationService", () => {
       expect(result.reservation!.status).toBe("CONFIRMED");
     });
 
+    it("is not refused by Tonight's soft limits: walk-ins are counted, never gated (#7765)", async () => {
+      // The availability gate is where Tonight's coverCap lives. A walk-in must
+      // never cross it, so the door is never turned away by a host's lowered cap.
+      vi.mocked(judgeBooking).mockResolvedValue({
+        kind: "rejected",
+        rejection: { code: "soft-limit", limits: ["pacing"] },
+      });
+      vi.mocked(prisma.$transaction).mockImplementationOnce(
+        async (fn: (tx: any) => Promise<unknown>) =>
+          fn({
+            $executeRawUnsafe: vi.fn().mockResolvedValue(0),
+            $executeRaw: vi.fn().mockResolvedValue(0),
+            reservationEvent: { create: vi.fn().mockResolvedValue(undefined) },
+            reservation: {
+              findFirst: vi.fn().mockResolvedValue(null),
+              create: vi.fn().mockResolvedValue(makePrismaReservation({ status: "CONFIRMED" })),
+            },
+            tableEvent: { create: vi.fn().mockResolvedValue(undefined) },
+            table: {
+              findUniqueOrThrow: vi.fn().mockResolvedValue(makePrismaTable()),
+              update: vi.fn().mockResolvedValue(makePrismaTable()),
+            },
+          })
+      );
+
+      const result = await reservationService.createWalkIn({
+        partySize: 4,
+        tableId: "table-1",
+        venueId: "venue-1",
+      });
+
+      expect(result.success).toBe(true);
+      expect(judgeBooking).not.toHaveBeenCalled();
+    });
+
     it("uses default 90 minute duration", async () => {
       vi.mocked(checkTableConflict).mockReturnValueOnce(false);
 
