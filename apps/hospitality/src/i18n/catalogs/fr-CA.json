@@ -2303,6 +2303,7 @@
       "hostGranted": "Les hôtes peuvent fermer tout l'établissement pour ce soir. Plus longtemps, il faut un gérant.",
       "hostNotGranted": "Seuls les gérants peuvent fermer en cas d'urgence. Demandez à un gérant de l'autoriser pour les hôtes dans les paramètres.",
       "error": "Impossible d'appliquer ce changement. Réessayez.",
+      "forbidden": "Cela fermerait l'établissement ce soir. Seul un gérant, ou un hôte autorisé à fermer en cas d'urgence, peut le faire.",
       "alreadyApplied": "Ce changement était déjà appliqué. Voici ce qui est en vigueur maintenant.",
       "chip": {
         "pause": "Réservations en ligne suspendues · reste de la soirée",

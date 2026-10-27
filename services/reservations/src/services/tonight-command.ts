@@ -322,6 +322,12 @@ async function writeChange(
   };
 }
 
+const GATED_CHANGES: ReadonlySet<TonightChange["type"]> = new Set([
+  "stop_window",
+  "block_tables",
+  "pause_online",
+]);
+
 type Prepared =
   | { kind: "saved"; result: TonightResult }
   | { kind: "delegate"; rule: Extract<DateRule, { kind: "tonight" }> };
@@ -353,8 +359,9 @@ export async function setTonight(
       }
       const replayed = await replayOf(tx, venueId, rule, state);
       if (replayed) return { kind: "saved", result: replayed };
-      if (body.change.type === "stop_window") {
-        // A stop over what is left of the service closes the night like a close-early does.
+      if (GATED_CHANGES.has(body.change.type)) {
+        // A stop, table block or pause that leaves nothing bookable closes the night like a
+        // close-early does (#7721); one that leaves a table and a channel open stays a Host's.
         // After the replay check: a saved stop's retry is not a new close.
         const allowed = await mayCloseFor(tx, venueId, caller, rule, now);
         if (!allowed) throw new Refused({ kind: allowed === null ? "not_found" : "forbidden" });

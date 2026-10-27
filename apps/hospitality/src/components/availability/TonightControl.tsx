@@ -102,6 +102,13 @@ function isDecisionRequired(error: unknown): boolean {
   return problem.success && problem.data.code === "decision-required";
 }
 
+/** The server refused the change itself (403): a retry cannot succeed. */
+function isForbidden(error: unknown): boolean {
+  return (
+    (error as { problemDetails?: { status?: unknown } } | null)?.problemDetails?.status === 403
+  );
+}
+
 /** The Tonight rule the server builds for a close-early, for the impact preview. */
 function closeEarlyRule(id: string, today: string, closeAt: number): DateRule {
   return {
@@ -232,7 +239,9 @@ export function TonightControl(props: TonightControlProps) {
         setConflict(lost);
         refresh();
       } else {
-        setError(t("availability.tonight.error"));
+        setError(
+          t(isForbidden(failure) ? "availability.tonight.forbidden" : "availability.tonight.error")
+        );
       }
     } finally {
       setBusy(null);

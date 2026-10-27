@@ -168,7 +168,12 @@ type DayServices = ReturnType<typeof resolveDay>;
  * (every interval from the open, or its fixed times), up to the last seating and before close,
  * not inside a stop band that covers it. The engine books these and nothing between them.
  */
-function seatingStarts(day: DayServices, venueServiceId: string, fromMin: number): number[] {
+function seatingStarts(
+  day: DayServices,
+  venueServiceId: string,
+  fromMin: number,
+  tableIds: readonly string[] = []
+): number[] {
   const s = day.services.find((d) => d.venueServiceId === venueServiceId);
   if (!s) return [];
   const grid =
@@ -188,7 +193,34 @@ function seatingStarts(day: DayServices, venueServiceId: string, fromMin: number
   return grid
     .filter((m) => m >= Math.max(s.opensAt, fromMin) && m <= s.lastSeatingAt && m < s.closesAt)
     .filter((m) => !bands.some((band) => band.from <= m && m < band.to))
+    .filter((m) => channelOpen(day, s, m) && tableFree(day, tableIds, m))
     .sort((x, y) => x - y);
+}
+
+const inBand = (band: { from: number; to: number }, m: number): boolean =>
+  band.from <= m && m < band.to;
+
+/** Whether at least one of the service's booking channels is still open at minute `m`. */
+function channelOpen(day: DayServices, s: DayServices["services"][number], m: number): boolean {
+  return s.bookingTypes.some(
+    (channel) =>
+      day.bookingOpen[channel] &&
+      !day.closures.some(
+        (c) =>
+          c.targetKind === "booking" && inBand(c, m) && (c.bookingTypes ?? []).includes(channel)
+      )
+  );
+}
+
+/** Whether a table is left unblocked at minute `m`. No table list means tables are not judged. */
+function tableFree(day: DayServices, tableIds: readonly string[], m: number): boolean {
+  if (tableIds.length === 0) return true;
+  const blocked = new Set(
+    day.closures
+      .filter((c) => c.targetKind === "tables" && inBand(c, m))
+      .flatMap((c) => c.tableIds ?? [])
+  );
+  return tableIds.some((id) => !blocked.has(id));
 }
 
 /** First seating to last seating, in minutes: how long the service is still taking bookings. */
@@ -204,15 +236,20 @@ const spanOf = (starts: readonly number[]): number =>
  * MIN_SERVICE_MINUTES between its first and last seating, counted from the planned open.
  * "Before" keeps the other active Tonight rules, so closing the night in steps
  * is judged on its last step. A service already past its last seating has
- * nothing left to close. Only venue and service targets have seatings.
+ * nothing left to close. A seating counts only while it keeps an unblocked table
+ * (of `tableIds`; empty means tables are not judged) and an open booking channel,
+ * so blocking every table or pausing the only open channel is a close too (#7721).
+ * Booking and table targets apply to every service.
  */
 export function isEmergencyTonightClose(
   snapshot: AvailabilitySnapshot,
   rule: DateRule,
-  now: Date
+  now: Date,
+  tableIds: readonly string[] = []
 ): boolean {
   if (rule.kind !== "tonight") return false;
-  if (rule.targetKind !== "venue" && rule.targetKind !== "service") return false;
+  const starts = (day: DayServices, id: string, from: number): number[] =>
+    seatingStarts(day, id, from, tableIds);
   const others = snapshot.config.dateRules.filter((r) => r.id !== rule.id);
   const withRules = (dateRules: DateRule[]): AvailabilitySnapshot => ({
     ...snapshot,
@@ -223,23 +260,23 @@ export function isEmergencyTonightClose(
   const after = resolveDay(withRules([...others, rule]), rule.startsOn);
   const nowMin = wallMinutes(now, rule.startsOn, snapshot.timezone);
   const live = before.services
-    .filter((s) => rule.targetKind === "venue" || s.venueServiceId === rule.venueServiceId)
-    .filter((s) => seatingStarts(before, s.venueServiceId, nowMin).length > 0);
+    .filter((s) => rule.targetKind !== "service" || s.venueServiceId === rule.venueServiceId)
+    .filter((s) => starts(before, s.venueServiceId, nowMin).length > 0);
   return (
     live.length > 0 &&
     live.some((s) => {
-      const remaining = seatingStarts(after, s.venueServiceId, nowMin);
+      const remaining = starts(after, s.venueServiceId, nowMin);
       if (remaining.length === 0) return true;
       // A change that takes no seating away closes nothing, however short the service already is.
-      const current = seatingStarts(before, s.venueServiceId, nowMin);
+      const current = starts(before, s.venueServiceId, nowMin);
       if (remaining.length === current.length) return false;
       const plannedOpen = planned.services.find((p) => p.venueServiceId === s.venueServiceId);
       const openAt = plannedOpen?.opensAt ?? s.opensAt;
       const floor = Math.min(
         MIN_SERVICE_MINUTES,
-        spanOf(seatingStarts(planned, s.venueServiceId, openAt))
+        spanOf(starts(planned, s.venueServiceId, openAt))
       );
-      return spanOf(seatingStarts(after, s.venueServiceId, openAt)) < floor;
+      return spanOf(starts(after, s.venueServiceId, openAt)) < floor;
     })
   );
 }
