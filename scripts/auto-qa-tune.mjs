@@ -150,7 +150,7 @@ function isoDate(d = new Date()) {
   return d.toISOString().slice(0, 10);
 }
 
-export async function run() {
+async function run() {
   const metricsRaw = read("pr-acceptance", { root: cwd });
   if (metricsRaw === null) {
     throw new Error(

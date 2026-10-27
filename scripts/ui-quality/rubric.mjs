@@ -25,12 +25,11 @@ import { fileURLToPath } from "node:url";
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
-export const RUBRIC_FILE = "docs/ui-quality/rubric.json";
-export const RUBRIC_PROSE_FILE = "docs/ui-quality/rubric.md";
+const RUBRIC_FILE = "docs/ui-quality/rubric.json";
 
-export const FACES = ["bugs", "agent-built", "navigation", "accessibility"];
-export const DETECTIONS = ["mechanical", "judged"];
-export const SEVERITIES = ["P1", "P2"];
+const FACES = ["bugs", "agent-built", "navigation", "accessibility"];
+const DETECTIONS = ["mechanical", "judged"];
+const SEVERITIES = ["P1", "P2"];
 export const CATEGORIES = [
   "marketing-site",
   "booking-checkout",
