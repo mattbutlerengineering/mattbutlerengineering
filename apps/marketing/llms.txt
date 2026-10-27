@@ -253,6 +253,9 @@
       function normalizeAcmm(sensors: Record<string, unknown>): AcmmMetrics { /* ... */ }
     </item>
     <item priority="high">
+      export function describeSensorGap(sensor: Record<string, unknown>): string | null { /* ... */ }
+    </item>
+    <item priority="high">
       export function normalizeSensorReport(report: unknown): HealthMetrics { /* ... */ }
     </item>
   </file>

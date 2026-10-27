@@ -132,6 +132,24 @@ describe("listAvailabilityChanges", () => {
     expect(page?.items.map((i) => i.revertible)).toEqual([false, false, false]);
   });
 
+  it("names the person from the snapshot, and leaves older rows without a name", async () => {
+    const client = fakeClient({
+      venue: { findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: TZ })) },
+      availabilityChange: {
+        findMany: vi.fn(async () => [
+          row({ id: "named", actorName: "Ana Ruiz" }),
+          row({ id: "old" }),
+        ]),
+        count: vi.fn(async () => 2),
+        findFirst: vi.fn(async () => null),
+      },
+    });
+
+    const page = await listAvailabilityChanges("venue-1", query, client);
+
+    expect(page?.items.map((i) => i.actorName)).toEqual(["Ana Ruiz", null]);
+  });
+
   it("filters by made-on dates as the venue's local days, person and type", async () => {
     const findMany = vi.fn(async () => []);
     const client = fakeClient({
@@ -334,6 +352,21 @@ function revertingTx(options: {
 const request = { venueId: "venue-1", changeId: "chg-5", actorId: "auth0|ben", now: NOW };
 
 describe("revertAvailabilityChange", () => {
+  it("snapshots the reverting person's name on the revert row", async () => {
+    const tx = revertingTx({});
+
+    await revertAvailabilityChange(
+      { ...request, actorName: "Ben Ito", expectedVersion: 5 },
+      fakeClient(tx)
+    );
+
+    expect(tx.availabilityChange.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ kind: "revert", actorName: "Ben Ito" }),
+      })
+    );
+  });
+
   it("applies the inverse as a new save and links the original to it", async () => {
     const tx = revertingTx({});
 

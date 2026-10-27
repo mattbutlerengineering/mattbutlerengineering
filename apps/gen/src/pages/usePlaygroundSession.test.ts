@@ -118,6 +118,25 @@ describe("usePlaygroundSession", () => {
   });
 
   describe("submit", () => {
+    it("stops an in-flight generation before sending, so send is not ignored", () => {
+      genStreamState = { spec: null, isStreaming: true, error: null, rawLines: [] };
+      const { result } = renderHook(() => usePlaygroundSession());
+
+      act(() => result.current.submit("pricing template"));
+
+      expect(mockStop).toHaveBeenCalledTimes(1);
+      expect(mockSend).toHaveBeenCalledWith("pricing template");
+      expect(mockStop.mock.invocationCallOrder[0]).toBeLessThan(
+        mockSend.mock.invocationCallOrder[0] ?? 0
+      );
+    });
+
+    it("does not stop when nothing is streaming", () => {
+      const { result } = renderHook(() => usePlaygroundSession());
+      act(() => result.current.submit("hi"));
+      expect(mockStop).not.toHaveBeenCalled();
+    });
+
     it("sends the raw prompt in generate mode and clears the active spec", () => {
       specsApiState = { specs: [makeStoredSpec({ id: "s1" })], isLoading: false };
       const { result } = renderHook(() => usePlaygroundSession());

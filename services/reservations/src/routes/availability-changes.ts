@@ -7,6 +7,7 @@ import {
 import { requireAuth } from "@mbe/auth/fastify";
 import { registerEndpoint } from "@mbe/service-bootstrap";
 import type { RevertRefusalReason } from "../services/availability-changes.js";
+import { actorNameOf } from "../services/actor-name.js";
 import { venueScoped } from "./venue-scope.js";
 
 /**
@@ -84,6 +85,7 @@ export const availabilityChangesRoutes: FastifyPluginAsync = async (fastify) => 
           venueId,
           changeId: request.params.changeId,
           actorId: request.user?.id ?? "unknown",
+          actorName: actorNameOf(request.user),
           expectedVersion: request.body.expectedVersion,
           now: new Date(),
         });

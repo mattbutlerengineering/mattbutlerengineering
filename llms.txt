@@ -3401,6 +3401,9 @@
       function normalizeAcmm(sensors: Record<string, unknown>): AcmmMetrics { /* ... */ }
     </item>
     <item priority="high">
+      export function describeSensorGap(sensor: Record<string, unknown>): string | null { /* ... */ }
+    </item>
+    <item priority="high">
       export function normalizeSensorReport(report: unknown): HealthMetrics { /* ... */ }
     </item>
   </file>
@@ -13273,6 +13276,11 @@
       export const defaultDeliveryDedupStore: DeliveryDedupStore;
     </item>
   </file>
+  <file path="services/reservations/src/services/actor-name.ts">
+    <item priority="high">
+      export function actorNameOf(user: { name?: string | null } | undefined): string | null { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/assert-bookable.ts">
     <item priority="low">
       type BookableError = { code: "PARTY_DOES_NOT_FIT";  | { code: "CONFLICT"; message: s | { code: "PACING_EXCEEDED"; mes;
@@ -13414,6 +13422,7 @@
           venueId: string;
           changeId: string;
           actorId: string;
+          actorName?: string | null;
           expectedVersion: number;
           now: Date;
         },
@@ -13787,13 +13796,25 @@
     <item priority="high">
       export async function commitSave(
         tx: StoreDb,
-        input: { venueId: string; actorId: string; expectedVersion: number; now: Date },
+        input: {
+          venueId: string;
+          actorId: string;
+          actorName?: string | null;
+          expectedVersion: number;
+          now: Date;
+        },
         resolve: (state: ConfigState) => Promise<SaveRequest>
       ): Promise<SaveOutcome> { /* ... */ }
     </item>
     <item priority="high">
       export async function saveAvailabilityConfig(
-        input: { venueId: string; actorId: string; body: PutAvailabilityConfigBody; now: Date },
+        input: {
+          venueId: string;
+          actorId: string;
+          actorName?: string | null;
+          body: PutAvailabilityConfigBody;
+          now: Date;
+        },
         client: StoreClient = prisma
       ): Promise<SaveOutcome> { /* ... */ }
     </item>
@@ -14428,6 +14449,7 @@
       interface ClosureCaller {
         isManager: boolean;
         actorId: string;
+        actorName?: string | null;
       }
     </item>
     <item priority="low">
@@ -16687,7 +16709,13 @@
     <item priority="low">
       async function writeChange(
         tx: Db,
-        input: { venueId: string; actorId: string; now: Date; body: SetTonightBody },
+        input: {
+          venueId: string;
+          actorId: string;
+          actorName: string | null;
+          now: Date;
+          body: SetTonightBody;
+        },
         state: ConfigState,
         rule: Extract<DateRule, { kind: "tonight" }>
       ): Promise<TonightResult> { /* ... */ }
@@ -16707,7 +16735,12 @@
     </item>
     <item priority="high">
       export async function endTonight(
-        input: { venueId: string; ruleId: string; caller: Pick<ClosureCaller, "actorId">; now: Date },
+        input: {
+          venueId: string;
+          ruleId: string;
+          caller: Pick<ClosureCaller, "actorId" | "actorName">;
+          now: Date;
+        },
         client: StoreClient = prisma
       ): Promise<EndTonightOutcome> { /* ... */ }
     </item>

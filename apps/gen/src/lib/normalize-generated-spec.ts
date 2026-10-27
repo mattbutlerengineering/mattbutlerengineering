@@ -1,4 +1,5 @@
 import type { Spec } from "@json-render/react";
+import { materializeCatalogProps } from "@mbe/rialto-catalog";
 
 /**
  * A dashboard prompt asks for a chart, and the catalog used to have none, so
@@ -6,7 +7,10 @@ import type { Spec } from "@json-render/react";
  * When that shape is still what comes back, render it as a BarChart.
  */
 
-const POINT = /^([A-Za-z][A-Za-z0-9.'-]{0,12})\s+(\$?\d[\d,]*(?:\.\d+)?[kKmMbB]?)$/;
+// The value must read as money ("$18.2k") or a percent ("12%"); bare numbers
+// such as "Jan 15, Feb 20, Mar 10" are ordinary prose and stay Text.
+const POINT =
+  /^([A-Za-z][A-Za-z0-9.'-]{0,12})\s+(\$\d[\d,]*(?:\.\d+)?[kKmMbB]?|\d[\d,]*(?:\.\d+)?%)$/;
 
 export function parseTrendPoints(text: string): { label: string; value: string }[] | null {
   const trimmed = text.trim();
@@ -35,7 +39,14 @@ export function normalizeGeneratedSpec(spec: Spec): Spec {
   let changed = false;
   const elements: Spec["elements"] = { ...spec.elements };
   for (const [key, element] of Object.entries(elements)) {
-    if (!element || element.type !== "Text") continue;
+    if (!element) continue;
+    const materialized = materializeCatalogProps(element.type, element.props);
+    if (materialized !== element.props) {
+      changed = true;
+      elements[key] = { ...element, props: materialized as typeof element.props };
+      continue;
+    }
+    if (element.type !== "Text") continue;
     const text = textContent(element.props);
     const points = text ? parseTrendPoints(text) : null;
     if (!points) continue;

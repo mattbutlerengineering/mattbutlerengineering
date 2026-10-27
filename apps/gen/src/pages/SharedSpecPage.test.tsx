@@ -60,6 +60,7 @@ vi.mock("@json-render/react", () => ({
 }));
 
 vi.mock("@mbe/rialto-catalog", () => ({
+  materializeCatalogProps: (_name: string, props: unknown) => props,
   registry: {},
 }));
 
