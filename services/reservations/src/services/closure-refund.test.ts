@@ -153,17 +153,104 @@ describe("settleClosureRefund", () => {
     expect(state.row.refund).toBe("none");
   });
 
-  it.each([
-    ["refunded", "done"],
-    ["uncollectable", "none"],
-  ])("settles a %s deposit with no Stripe call (outcome %s)", async (status, expected) => {
-    seedDeposit({ status });
+  it("settles an uncollectable deposit with no Stripe call", async () => {
+    seedDeposit({ status: "uncollectable" });
     const { deps, payments, state } = setup();
 
     await settleClosureRefund(deps, PAYLOAD);
 
     expect(payments.calls).toEqual([]);
-    expect(state.row.refund).toBe(expected);
+    expect(state.row.refund).toBe("none");
+  });
+
+  it("settles a refunded deposit whose intent is already canceled with no cancel call", async () => {
+    seedDeposit({ status: "refunded" });
+    const { deps, payments, state } = setup();
+    payments.respond("retrievePaymentIntent", (id) => ({ id, status: "canceled" }));
+
+    await settleClosureRefund(deps, PAYLOAD);
+
+    expect(stripeOps(payments)).toEqual([]);
+    expect(state.row.refund).toBe("done");
+  });
+
+  it("cancels a still-live authorization on a refunded deposit (crash after the row write)", async () => {
+    seedDeposit({ status: "refunded" });
+    const { deps, payments, state } = setup();
+    // default in-memory retrieve: requires_capture
+
+    await settleClosureRefund(deps, PAYLOAD);
+
+    expect(stripeOps(payments)).toEqual([
+      { op: "cancelPaymentIntent", args: ["pi_1", "dep-1:refund"] },
+    ]);
+    expect(depositRows.get("dep-1")?.status).toBe("refunded");
+    expect(state.row.refund).toBe("done");
+  });
+
+  it("does not mark a refunded deposit done when cancelling its live authorization fails", async () => {
+    seedDeposit({ status: "refunded" });
+    const { deps, payments, state } = setup();
+    payments.failNext("cancelPaymentIntent", "StripeConnectionError");
+
+    await expect(settleClosureRefund(deps, PAYLOAD)).rejects.toThrow();
+
+    expect(state.row.refund).toBe("pending");
+  });
+
+  it.each(["succeeded", "processing"])(
+    "fails permanently, never done, when a refunded deposit's intent is %s",
+    async (intentStatus) => {
+      seedDeposit({ status: "refunded" });
+      const { deps, payments, state } = setup();
+      payments.respond("retrievePaymentIntent", (id) => ({ id, status: intentStatus }));
+
+      await expect(
+        runClosureRefundJob(deps, PAYLOAD, { isFinalAttempt: false })
+      ).rejects.toMatchObject({ name: "ClosureRefundPermanentError" });
+
+      expect(state.row.refund).toBe("failed");
+      expect(stripeOps(payments)).toEqual([]);
+    }
+  );
+
+  it("keeps the outcome pending and rethrows when retrieving a refunded deposit's intent fails", async () => {
+    seedDeposit({ status: "refunded" });
+    const { deps, payments, state } = setup();
+    payments.failNext("retrievePaymentIntent", "StripeRateLimitError");
+
+    await expect(
+      runClosureRefundJob(deps, PAYLOAD, { isFinalAttempt: false })
+    ).rejects.toMatchObject({ stripeType: "StripeRateLimitError" });
+
+    expect(state.row.refund).toBe("pending");
+  });
+
+  it("settles a refunded deposit with no payment intent without a Stripe call", async () => {
+    seedDeposit({ status: "refunded", stripePaymentIntentId: null });
+    const { deps, payments, state } = setup();
+
+    await settleClosureRefund(deps, PAYLOAD);
+
+    expect(payments.calls).toEqual([]);
+    expect(state.row.refund).toBe("done");
+  });
+
+  it("fails permanently, not in a retry loop, when a held deposit was captured outside the app", async () => {
+    seedDeposit({ status: "held" });
+    const { deps, payments, state } = setup();
+    payments.failNext("cancelPaymentIntent", "StripeInvalidRequestError");
+    payments.respond("retrievePaymentIntent", (id) => ({ id, status: "succeeded" }));
+
+    await expect(
+      runClosureRefundJob(deps, PAYLOAD, { isFinalAttempt: false })
+    ).rejects.toMatchObject({
+      name: "ClosureRefundPermanentError",
+    });
+
+    expect(state.row.refund).toBe("failed");
+    expect(stripeOps(payments).map((c) => c.op)).toEqual(["cancelPaymentIntent"]);
+    expect(depositRows.get("dep-1")?.status).toBe("held");
   });
 
   it("settles a closure outcome with no deposit as none", async () => {

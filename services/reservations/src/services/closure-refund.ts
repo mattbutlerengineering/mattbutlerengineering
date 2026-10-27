@@ -2,7 +2,11 @@ import type { ClosureRefundPayload, JobScheduler } from "../jobs/index.js";
 import { JOB_TYPES } from "../jobs/index.js";
 import type { PaymentsPort } from "../transitions/ports.js";
 import type { ClosureRefundStatus, Deposit } from "../generated/prisma/index.js";
-import { DepositConcurrentUpdateError, type DepositService } from "./deposit.js";
+import {
+  DepositAlreadyCapturedError,
+  DepositConcurrentUpdateError,
+  type DepositService,
+} from "./deposit.js";
 import type { ReservationEventActor } from "./reservation-events.js";
 import { TransitionError } from "./state-machine.js";
 
@@ -182,14 +186,51 @@ async function resolvePending(deps: ClosureRefundDeps, deposit: Deposit): Promis
   }
 }
 
+/**
+ * A `refunded` row is written BEFORE Stripe's cancel, so a crash (or a failed
+ * rollback) can leave the authorization live. Verify the intent and cancel it
+ * under the same key `refund()` uses; a no-op when it is already void.
+ */
+async function confirmRefundedIntentVoid(deps: ClosureRefundDeps, deposit: Deposit): Promise<void> {
+  const pi = deposit.stripePaymentIntentId;
+  if (!pi) return;
+  const intent = await deps.payments.retrievePaymentIntent(pi);
+  if (intent.status === "requires_capture") {
+    await deps.payments.cancelPaymentIntent(pi, `${deposit.id}:refund`);
+  } else if (intent.status === "succeeded" || intent.status === "processing") {
+    // The rollback to `held` failed after a capture; the row lies. Never record `done`.
+    throw new ClosureRefundPermanentError(
+      `Deposit ${deposit.id} is refunded but its payment ${pi} is ${intent.status}; refund it by hand`
+    );
+  }
+}
+
+/** `refund()` on a held deposit; money captured outside the app is for a human. */
+async function refundHeld(deps: ClosureRefundDeps, deposit: Deposit): Promise<void> {
+  try {
+    await deps.deposits.refund(deposit.id);
+  } catch (error) {
+    // Also thrown when the intent is `processing`, not only `succeeded`.
+    if (error instanceof DepositAlreadyCapturedError) {
+      throw new ClosureRefundPermanentError(
+        `Deposit ${deposit.id} was captured outside the app; refund it by hand`
+      );
+    }
+    throw error;
+  }
+}
+
 /** One decision on one read of the deposit. `null` = read it again. */
 async function settleOnce(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<Settled | null> {
   const deposit = await deps.deposits.getByReservationId(row.reservationId);
   if (!deposit) return "none";
-  if (deposit.status === "refunded") return "done";
+  if (deposit.status === "refunded") {
+    await confirmRefundedIntentVoid(deps, deposit);
+    return "done";
+  }
   if (deposit.status === "uncollectable") return "none";
   if (deposit.status === "held") {
-    await deps.deposits.refund(deposit.id);
+    await refundHeld(deps, deposit);
     return "done";
   }
   if (CAPTURED.has(deposit.status)) return refundCaptured(deps, deposit, row);
