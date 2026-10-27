@@ -1965,15 +1965,20 @@
       "rangePlaceholder": "Cualquier fecha",
       "entry": {
         "range": "{{from}} al {{to}}",
+        "onward": "desde el {{from}} en adelante",
+        "moved_one": "{{count}} reservación movida",
+        "moved_many": "{{count}} de reservaciones movidas",
+        "moved_other": "{{count}} reservaciones movidas",
+        "kept_one": "{{count}} reservación conservada",
+        "kept_many": "{{count}} de reservaciones conservadas",
+        "kept_other": "{{count}} reservaciones conservadas",
         "closed": "Cerrado {{when}}: {{outcome}}",
         "closedEarly": "Cierre anticipado {{when}}: {{outcome}}",
         "reopened": "Reabierto {{when}}",
         "none": "ninguna reservación afectada",
         "cancelled_one": "{{count}} reservación cancelada",
         "cancelled_many": "{{count}} de reservaciones canceladas",
-        "cancelled_other": "{{count}} reservaciones canceladas",
-        "moved": "{{count}} movidas",
-        "kept": "{{count}} conservadas"
+        "cancelled_other": "{{count}} reservaciones canceladas"
       }
     },
     "editor": {

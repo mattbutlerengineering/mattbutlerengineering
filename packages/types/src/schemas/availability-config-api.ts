@@ -113,6 +113,9 @@ export const AvailabilityChangeOutcomeSchema = z.object({
   kept: z.number().int(),
   /** A close-early (Tonight) rather than a closure. */
   closeEarly: z.boolean(),
+  /** The saved rule's own first and last day; `endsOn` null means it has no end. Absent on older rows. */
+  startsOn: ServiceDateSchema.optional(),
+  endsOn: ServiceDateSchema.nullish(),
 });
 
 /** One row of the history drawer: the audit row, plus whether undo is still on offer. */

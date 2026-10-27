@@ -4,13 +4,20 @@ import type { VenueFormat } from "../../hooks/useVenueFormat.js";
 
 const DAY: Intl.DateTimeFormatOptions = { weekday: "short", month: "short", day: "numeric" };
 
-function whenOf(entry: AvailabilityChangeEntry, format: VenueFormat, t: TFunction): string | null {
-  if (!entry.affectedFrom) return null;
-  const from = format.formatCalendarDate(entry.affectedFrom, DAY);
-  if (!entry.affectedTo || entry.affectedTo === entry.affectedFrom) return from;
+/** A single day, a range, or an open end ("from … onward"). */
+function whenOf(
+  from: string | null | undefined,
+  to: string | null | undefined,
+  format: VenueFormat,
+  t: TFunction
+): string | null {
+  if (!from) return null;
+  const start = format.formatCalendarDate(from, DAY);
+  if (!to) return t("availability.history.entry.onward", { from: start });
+  if (to === from) return start;
   return t("availability.history.entry.range", {
-    from,
-    to: format.formatCalendarDate(entry.affectedTo, DAY),
+    from: start,
+    to: format.formatCalendarDate(to, DAY),
   });
 }
 
@@ -36,14 +43,22 @@ export function describeChange(
   format: VenueFormat,
   t: TFunction
 ): string | null {
-  const when = whenOf(entry, format, t);
+  const { outcome } = entry;
+  // The rule's own dates when recorded: the audit range also spans rows a series edit touched.
+  const own = outcome?.startsOn != null;
+  const when = whenOf(
+    own ? outcome.startsOn : entry.affectedFrom,
+    own ? outcome.endsOn : entry.affectedTo,
+    format,
+    t
+  );
   if (!when) return null;
   if (entry.kind === "reopen") return t("availability.history.entry.reopened", { when });
-  if (entry.kind !== "closure" || !entry.outcome) return null;
+  if (entry.kind !== "closure" || !outcome) return null;
   return t(
-    entry.outcome.closeEarly
+    outcome.closeEarly
       ? "availability.history.entry.closedEarly"
       : "availability.history.entry.closed",
-    { when, outcome: outcomeText(entry.outcome, format, t) }
+    { when, outcome: outcomeText(outcome, format, t) }
   );
 }

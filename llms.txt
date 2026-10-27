@@ -1704,7 +1704,12 @@
   </file>
   <file path="apps/hospitality/src/components/availability/describe-change.ts">
     <item priority="medium">
-      function whenOf(entry: AvailabilityChangeEntry, format: VenueFormat, t: TFunction): string | null { /* ... */ }
+      function whenOf(
+        from: string | null | undefined,
+        to: string | null | undefined,
+        format: VenueFormat,
+        t: TFunction
+      ): string | null { /* ... */ }
     </item>
     <item priority="medium">
       function outcomeText(outcome: AvailabilityChangeOutcome, format: VenueFormat, t: TFunction) { /* ... */ }

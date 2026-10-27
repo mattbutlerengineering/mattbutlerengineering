@@ -242,7 +242,57 @@ describe("AvailabilityHistoryDrawer", () => {
       ]);
       renderDrawer();
       expect(firstRow()).toHaveTextContent(
-        "Closed Thu, Dec 24 to Sat, Dec 26: 1 booking cancelled, 2 moved, and 1 kept"
+        "Closed Thu, Dec 24 to Sat, Dec 26: 1 booking cancelled, 2 bookings moved, and 1 booking kept"
+      );
+    });
+
+    it("words the edited rule's own dates, not the wider range a series edit touched", () => {
+      loaded([
+        closure({
+          affectedFrom: "2026-09-07",
+          affectedTo: null,
+          outcome: {
+            cancelled: 0,
+            moved: 0,
+            kept: 0,
+            closeEarly: false,
+            startsOn: "2026-11-02",
+            endsOn: "2026-11-02",
+          },
+        }),
+      ]);
+      renderDrawer();
+      expect(firstRow()).toHaveTextContent("Closed Mon, Nov 2: no bookings affected");
+    });
+
+    it("says onward when the closure has no end", () => {
+      loaded([
+        closure({
+          outcome: {
+            cancelled: 2,
+            moved: 0,
+            kept: 0,
+            closeEarly: false,
+            startsOn: "2026-11-02",
+            endsOn: null,
+          },
+        }),
+      ]);
+      renderDrawer();
+      expect(firstRow()).toHaveTextContent("Closed from Mon, Nov 2 onward: 2 bookings cancelled");
+    });
+
+    it("says onward for an open-ended row saved before the rule's dates were recorded", () => {
+      loaded([closure({ affectedTo: null })]);
+      renderDrawer();
+      expect(firstRow()).toHaveTextContent("Closed from Thu, Dec 24 onward: 14 bookings cancelled");
+    });
+
+    it("uses singular forms for a single moved and a single kept booking", () => {
+      loaded([closure({ outcome: { cancelled: 0, moved: 1, kept: 1, closeEarly: false } })]);
+      renderDrawer();
+      expect(firstRow()).toHaveTextContent(
+        "Closed Thu, Dec 24: 1 booking moved and 1 booking kept"
       );
     });
 

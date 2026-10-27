@@ -1927,14 +1927,17 @@
       "rangePlaceholder": "Any dates",
       "entry": {
         "range": "{{from}} to {{to}}",
+        "onward": "from {{from}} onward",
+        "moved_one": "{{count}} booking moved",
+        "moved_other": "{{count}} bookings moved",
+        "kept_one": "{{count}} booking kept",
+        "kept_other": "{{count}} bookings kept",
         "closed": "Closed {{when}}: {{outcome}}",
         "closedEarly": "Closed early {{when}}: {{outcome}}",
         "reopened": "Reopened {{when}}",
         "none": "no bookings affected",
         "cancelled_one": "{{count}} booking cancelled",
-        "cancelled_other": "{{count}} bookings cancelled",
-        "moved": "{{count}} moved",
-        "kept": "{{count}} kept"
+        "cancelled_other": "{{count}} bookings cancelled"
       }
     },
     "editor": {

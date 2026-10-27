@@ -399,6 +399,8 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
       moved: plan.counts.move,
       kept: plan.counts.keep_notify + plan.counts.keep_silent,
       closeEarly: rule.kind === "tonight",
+      startsOn: rule.startsOn,
+      endsOn: rule.endsOn ?? null,
     },
     ...(input.batch ? { batch: input.batch } : {}),
   };
