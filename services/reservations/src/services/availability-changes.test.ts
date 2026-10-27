@@ -198,6 +198,41 @@ describe("listAvailabilityChanges", () => {
   });
 });
 
+describe("listAvailabilityChanges in a zone whose local midnight does not exist", () => {
+  it("begins the day at the first real instant, so the previous day owns late changes", async () => {
+    const findMany = vi.fn(async () => []);
+    const client = fakeClient({
+      venue: {
+        findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: "America/Santiago" })),
+      },
+      availabilityChange: {
+        findMany,
+        count: vi.fn(async () => 0),
+        findFirst: vi.fn(async () => null),
+      },
+    });
+
+    // Santiago springs forward 00:00 -> 01:00 on 2026-09-06; the day begins at 04:00Z.
+    await listAvailabilityChanges(
+      "venue-1",
+      { limit: 25, offset: 0, from: "2026-09-05", to: "2026-09-05" },
+      client
+    );
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          venueId: "venue-1",
+          at: {
+            gte: new Date("2026-09-05T04:00:00.000Z"),
+            lt: new Date("2026-09-06T04:00:00.000Z"),
+          },
+        },
+      })
+    );
+  });
+});
+
 const CURRENT_SERVICE = {
   id: "ss-1",
   scheduleId: "sch-1",

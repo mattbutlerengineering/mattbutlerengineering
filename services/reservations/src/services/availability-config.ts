@@ -153,7 +153,11 @@ function readState(client: StoreClient, venueId: string, now: Date): Promise<Con
  * state F11's "Your hours were carried over" banner is for. No new column.
  */
 async function isCarriedOver(db: StoreDb, venueId: string): Promise<boolean> {
-  return (await db.availabilityChange.count({ where: { venueId } })) === 0;
+  const saved = await db.availabilityChange.findFirst({
+    where: { venueId },
+    select: { id: true },
+  });
+  return saved === null;
 }
 
 export async function getAvailabilityConfig(

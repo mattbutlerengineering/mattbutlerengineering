@@ -36,14 +36,14 @@ const toDay = (d: Date | null): string | null => (d ? d.toISOString().slice(0, 1
 
 /**
  * The instant a venue-local civil day begins. A zone whose midnight does not exist
- * (a spring-forward at 00:00) begins the day at the first real wall time, 01:00 less an hour.
+ * (a spring-forward at 00:00) begins the day at the first real wall time, 01:00, which is
+ * the transition instant itself.
  */
 function dayStart(d: string, timezone: string): Date {
   return (
     serviceDayInstant(d, 0, timezone) ??
-    new Date(
-      (serviceDayInstant(d, 60, timezone) ?? new Date(`${d}T01:00:00.000Z`)).getTime() - 3_600_000
-    )
+    serviceDayInstant(d, 60, timezone) ??
+    new Date(`${d}T00:00:00.000Z`)
   );
 }
 

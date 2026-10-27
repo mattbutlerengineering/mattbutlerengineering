@@ -496,7 +496,7 @@ describe("getAvailabilityConfig: the migrated flag", () => {
         ]),
       },
       dateRule: { findMany: vi.fn(async () => []) },
-      availabilityChange: { count: vi.fn(async () => changes) },
+      availabilityChange: { findFirst: vi.fn(async () => (changes > 0 ? { id: "chg-1" } : null)) },
       venue: {
         findUnique: vi.fn(async () => ({
           ianaTimezone: TZ,

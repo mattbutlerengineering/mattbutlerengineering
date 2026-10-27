@@ -10830,9 +10830,8 @@
     function dayStart(d: string, timezone: string): Date {
       return (
         serviceDayInstant(d, 0, timezone) ??
-        new Date(
-          (serviceDayInstant(d, 60, timezone) ?? new Date(`${d}T01:00:00.000Z`)).getTime() - 3_600_000
-        )
+        serviceDayInstant(d, 60, timezone) ??
+        new Date(`${d}T00:00:00.000Z`)
       );
     }
     function outcomeOf(kind: string, inverse: unknown): AvailabilityChangeOutcome | null {
@@ -11675,7 +11674,11 @@
       });
     }
     async function isCarriedOver(db: StoreDb, venueId: string): Promise<boolean> {
-      return (await db.availabilityChange.count({ where: { venueId } })) === 0;
+      const saved = await db.availabilityChange.findFirst({
+        where: { venueId },
+        select: { id: true },
+      });
+      return saved === null;
     }
     export async function getAvailabilityConfig(
       venueId: string,
