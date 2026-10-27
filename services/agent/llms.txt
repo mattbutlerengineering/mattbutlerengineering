@@ -66,8 +66,8 @@
     <item priority="high">
       export function todayIn(timeZone: string | undefined, now: Date = new Date()): string { /* ... */ }
     </item>
-    <item priority="high">
-      export function localTimeIn(iso: unknown, timeZone: string | undefined): string | undefined { /* ... */ }
+    <item priority="medium">
+      function localTimeIn(iso: unknown, timeZone: string | undefined): string | undefined { /* ... */ }
     </item>
     <item priority="medium">
       function withLocalTime<T extends object>(
@@ -226,9 +226,6 @@
     <item priority="high">
       export const GEN_WRITE_TOOL_NAMES: unknown;
     </item>
-    <item priority="high">
-      export const GEN_WRITE_TOOLS: ReadonlySet<string>;
-    </item>
     <item priority="low">
       type GenToolMap = Record<string, unknown>;
     </item>
@@ -254,8 +251,8 @@
     </item>
   </file>
   <file path="src/routes/gen-specs.ts">
-    <item priority="high">
-      export function normaliseKind(
+    <item priority="medium">
+      function normaliseKind(
         prompt: string,
         kind: (typeof GEN_SPEC_KINDS)[number] | undefined
       ): { prompt: string; kind: (typeof GEN_SPEC_KINDS)[number] } { /* ... */ }
@@ -526,9 +523,6 @@
     </item>
   </file>
   <file path="src/services/gen-spec-cache.ts">
-    <item priority="high">
-      export const GEN_SPEC_CACHE_TTL_HOURS: unknown;
-    </item>
     <item priority="low">
       interface GenSpecCacheKeyInput {
         route: string;
@@ -674,8 +668,8 @@
     <item priority="high">
       export function createSessionConcurrency(limit: number): SessionConcurrency { /* ... */ }
     </item>
-    <item priority="high">
-      export function resolveConcurrencyLimit(): number { /* ... */ }
+    <item priority="medium">
+      function resolveConcurrencyLimit(): number { /* ... */ }
     </item>
     <item priority="high">
       export const defaultConcurrency: SessionConcurrency;

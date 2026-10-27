@@ -7,7 +7,7 @@ import { estimateWaitFromTurnover } from "./waitlist-estimate.js";
 import type { VenueSettings } from "@mbe/types";
 
 /** How long a notified party has to claim their table before the entry expires. */
-export const NOTIFY_CLAIM_WINDOW_MS = 5 * 60 * 1000;
+const NOTIFY_CLAIM_WINDOW_MS = 5 * 60 * 1000;
 
 export interface WaitlistEntryData {
   id: string;

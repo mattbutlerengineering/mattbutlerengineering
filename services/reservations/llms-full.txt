@@ -810,7 +810,7 @@
       manageUrl: string;
       offers: readonly ClosureOffer[];
     }
-    export function toGsm(text: string): string {
+    function toGsm(text: string): string {
       return text.replace(LOOKALIKE, (ch) => GSM_LOOKALIKES[ch]!);
     }
     export function smsSegments(body: string): number {
@@ -7938,8 +7938,6 @@
       return new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     }
     export const ADMIN_HEADERS: Record<string, string> = { "x-auth-bypass": "true" };
-    export const MEMBER_HEADERS: Record<string, string> = { authorization: "Bearer member-a-token" };
-    export const DINER_A_HEADERS: Record<string, string> = { authorization: "Bearer diner-a-token" };
     function inject(
       ctx: SweepContext,
       headers: Record<string, string>,
@@ -7959,8 +7957,6 @@
       inject(ctx, ADMIN_HEADERS, opts);
     export const asMember = (ctx: SweepContext, opts: InjectOptions): Promise<LightMyRequestResponse> =>
       inject(ctx, MEMBER_HEADERS, opts);
-    export const asDiner = (ctx: SweepContext, opts: InjectOptions): Promise<LightMyRequestResponse> =>
-      inject(ctx, DINER_A_HEADERS, opts);
     export function expectOk(res: LightMyRequestResponse, label: string): void {
       expect(
         res.statusCode,
@@ -10876,7 +10872,6 @@
     }
   </file>
   <file path="src/services/availability-changes.ts">
-    export const REVERT_KIND = "revert";
     function dayStart(d: string, timezone: string): Date {
       return (
         serviceDayInstant(d, 0, timezone) ??
@@ -11137,7 +11132,7 @@
       if (day.explanation.some((l) => l.kind === "special_hours")) return "Special hours";
       return config.schedules.find((s) => s.id === day.scheduleId)?.name ?? "Open";
     }
-    export function daySummaryServices(
+    function daySummaryServices(
       names: ReadonlyMap<string, string>,
       day: ResolvedDay
     ): DaySummaryService[] {
@@ -11760,7 +11755,7 @@
         ...(legacyProblem ? { legacyProblem } : {}),
       };
     }
-    export async function listAvailabilityDays(
+    async function listAvailabilityDays(
       venueId: string,
       from: string,
       to: string,
@@ -11850,7 +11845,6 @@
         super(outcome.kind);
       }
     }
-    export const LATE_GUEST_GRACE_MINUTES = 30;
     export function stillToServeWhere(now: Date) {
       const graceStart = new Date(now.getTime() - LATE_GUEST_GRACE_MINUTES * 60_000);
       return {
@@ -12027,7 +12021,6 @@
         }))
       );
     }
-    export const PREVIEW_TIMEOUT_MS = 5000;
     export type PreviewOutcome = { kind: "not_found" } | { kind: "timeout" } | PreviewPlan;
     export async function previewAvailabilityConfig(
       input: {
@@ -12088,7 +12081,6 @@
     };
   </file>
   <file path="src/services/availability-migration.ts">
-    export const MIGRATION_ACTOR = "system:availability-legacy-migration";
     export interface VenueForMigration {
       operatingHours: unknown;
       settings: unknown;
@@ -12857,7 +12849,7 @@
         loaded.unconfigured
       );
     }
-    export async function getDayAvailability(
+    async function getDayAvailability(
       venueId: string,
       date: string,
       partySize: number,
@@ -12871,7 +12863,7 @@
       const { seatings, offered } = listDay(timed, date, partySize, now);
       return { slots: offered.map(toTimeSlot), ...noticesFor(loaded, date, seatings.length) };
     }
-    export async function generateTimeSlots(
+    async function generateTimeSlots(
       venueId: string,
       date: string,
       partySize: number,
@@ -12885,7 +12877,7 @@
       const days = Math.min(span, MAX_RANGE_DAYS);
       return days >= 0 ? Array.from({ length: days + 1 }, (_, i) => addDays(startDate, i)) : [];
     }
-    export async function getAvailableDates(
+    async function getAvailableDates(
       venueId: string,
       startDate: string,
       endDate: string,
@@ -12905,7 +12897,7 @@
         return { date, hasAvailability: slotCount > 0, slotCount, ...(closure ? { closure } : {}) };
       });
     }
-    export async function findBestTable(
+    async function findBestTable(
       venueId: string,
       date: string,
       startTime: Date,
@@ -12978,7 +12970,7 @@
     export function tableAdvisoryLockSql(tableId: string): Prisma.Sql {
       return Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${tableId})::bigint)`;
     }
-    export function venueShareLockSql(venueId: string): Prisma.Sql {
+    function venueShareLockSql(venueId: string): Prisma.Sql {
       return Prisma.sql`SELECT 1 FROM venues WHERE id = ${venueId} FOR SHARE`;
     }
     export type SlotConflictCode = "CONFLICT" | "EXPIRED" | "NOT_BOOKABLE";
@@ -13708,7 +13700,6 @@
       const yesterday = addDays(today, -1);
       return isOpen(yesterday) ? yesterday : today;
     }
-    export const MIN_SERVICE_MINUTES = 60;
     type DayServices = ReturnType<typeof resolveDay>;
     function seatingStarts(
       day: DayServices,
@@ -15144,9 +15135,6 @@
     }
   </file>
   <file path="src/services/closure-outcome-sweeper.ts">
-    export const DEFAULT_GRACE_MS = 5 * 60 * 1000;
-    export const DEFAULT_BATCH_SIZE = 50;
-    export const DEFAULT_SWEEP_INTERVAL_MS = 2 * 60 * 1000;
     export interface StuckOutcome {
       id: string;
       dateRuleId: string;
@@ -15420,8 +15408,6 @@
         this.name = "ClosureRefundPermanentError";
       }
     }
-    export const closureRefundKey = (ruleId: string, reservationId: string): string =>
-      `closure:${ruleId}:${reservationId}`;
     export const closureRefundJobId = (ruleId: string, reservationId: string): string =>
       closureRefundKey(ruleId, reservationId).replaceAll(":", "_");
     type Settled = ClosureRefundStatus;
@@ -15899,7 +15885,7 @@
     export function setDepositServiceLogger(next: DepositServiceLogger): void {
       logger = next;
     }
-    export class DepositNotFoundError extends Error {
+    class DepositNotFoundError extends Error {
       constructor(id: string) {
         super(`Deposit not found: ${id}`);
         this.name = "DepositNotFoundError";
@@ -18463,7 +18449,6 @@
     };
   </file>
   <file path="src/services/hold.ts">
-    export const BOOKING_WINDOW_ERROR = "Requested time is outside the venue's booking window";
     function mapPrismaHold(hold: PrismaHold): ReservationHold {
       return {
         id: hold.id,
@@ -24677,7 +24662,6 @@
     }
   </file>
   <file path="src/services/waitlist.ts">
-    export const NOTIFY_CLAIM_WINDOW_MS = 5 * 60 * 1000;
     export interface WaitlistEntryData {
       id: string;
       venueId: string;
