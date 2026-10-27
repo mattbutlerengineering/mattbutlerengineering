@@ -300,3 +300,17 @@ export function formatTimeZoneName(at: Date, timeZone: string, locale: string): 
   }).formatToParts(at);
   return parts.find((part) => part.type === "timeZoneName")?.value ?? timeZone;
 }
+
+/** The zone's canonical IANA name, so aliases ("US/Eastern") match; unknown zones stay as given. */
+function canonicalTimeZone(timeZone: string): string {
+  try {
+    return new Intl.DateTimeFormat("en", { timeZone }).resolvedOptions().timeZone;
+  } catch {
+    return timeZone;
+  }
+}
+
+/** Whether two IANA zone names are the same zone, aliases included. */
+export function sameTimeZone(a: string, b: string): boolean {
+  return canonicalTimeZone(a) === canonicalTimeZone(b);
+}

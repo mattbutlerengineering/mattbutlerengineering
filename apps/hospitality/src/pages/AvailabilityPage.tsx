@@ -43,7 +43,7 @@ import { datesUsingSchedule, weekdayDatesInMonth } from "../components/availabil
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
 import { PageHeader } from "../components/PageHeader.js";
 import { periodLabel, weekSummary } from "../components/availability/period.js";
-import { deviceTimeZone, formatTimeZoneName } from "../utils/format.js";
+import { deviceTimeZone, formatTimeZoneName, sameTimeZone } from "../utils/format.js";
 import styles from "./AvailabilityPage.module.css";
 
 const EMPTY: string[] = [];
@@ -239,7 +239,7 @@ export function AvailabilityPage() {
 
   const summary = weekSummary(anchor, days.data ?? undefined, t);
   const device = deviceTimeZone();
-  const showVenueTime = timeZone !== "" && device !== "" && device !== timeZone;
+  const showVenueTime = timeZone !== "" && device !== "" && !sameTimeZone(device, timeZone);
 
   return (
     <Stack gap="md">

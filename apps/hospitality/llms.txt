@@ -4364,6 +4364,12 @@
     <item priority="high">
       export function formatTimeZoneName(at: Date, timeZone: string, locale: string): string { /* ... */ }
     </item>
+    <item priority="medium">
+      function canonicalTimeZone(timeZone: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function sameTimeZone(a: string, b: string): boolean { /* ... */ }
+    </item>
   </file>
   <file path="src/utils/ics.ts">
     <item priority="low">

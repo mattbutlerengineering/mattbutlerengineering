@@ -1,7 +1,6 @@
 import type { TFunction } from "i18next";
 import type { AvailabilityDaySummary } from "@mbe/types";
 import type { VenueFormat } from "../../hooks/useVenueFormat.js";
-import { isWholeDay } from "./closure-band.js";
 import { visibleDates, type CalendarView } from "./calendar-dates.js";
 
 /** The month ("October 2026") or the Monday-to-Sunday range ("Oct 26 – Nov 1, 2026") on show. */
@@ -37,11 +36,13 @@ export function weekSummary(
   const week = new Set(visibleDates("week", anchor));
   const loaded = (days ?? []).filter((d) => week.has(d.serviceDate));
   if (loaded.length === 0) return null;
-  const open = loaded.filter((d) => d.serviceCount > 0 && !d.closures.some(isWholeDay));
+  // A whole-day venue closure already empties `serviceCount`; booking, service and tables
+  // closures leave the day open.
+  const open = loaded.filter((d) => d.serviceCount > 0);
   const closures = new Set(loaded.flatMap((d) => d.closures.map((c) => c.ruleId)));
   const onlineOff = open.filter((d) => !d.bookingOpen.online).length;
   const online =
-    onlineOff === 0 ? "onlineOn" : onlineOff === open.length ? "onlineOff" : "onlinePartial";
+    onlineOff === open.length ? "onlineOff" : onlineOff === 0 ? "onlineOn" : "onlinePartial";
   return t("availability.weekSummary.line", {
     open: t("availability.weekSummary.open", { count: open.length }),
     closures: t("availability.weekSummary.closures", { count: closures.size }),

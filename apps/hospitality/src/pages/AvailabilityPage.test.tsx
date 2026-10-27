@@ -3,6 +3,7 @@ import { render, screen, within, fireEvent, waitFor } from "@testing-library/rea
 import { axe } from "vitest-axe";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type * as Engine from "@mbe/availability";
+import type * as Format from "../utils/format.js";
 import type * as Drawer from "../components/availability/AvailabilityDayDrawer.js";
 import type { AvailabilityDaySummary, VenueTeam } from "@mbe/types";
 
@@ -13,6 +14,7 @@ const daysQuery = vi.hoisted(() => ({
     error: Error | null;
   },
 }));
+const device = vi.hoisted(() => ({ zone: "America/Los_Angeles" }));
 const daysHook = vi.hoisted(() => vi.fn());
 const configHook = vi.hoisted(() => vi.fn());
 const refetch = vi.hoisted(() => vi.fn());
@@ -91,6 +93,10 @@ vi.mock("../components/availability/AvailabilityDayDrawer.js", async (importOrig
 });
 vi.mock("../hooks/useRefreshAvailability.js", () => ({ useRefreshAvailability: () => vi.fn() }));
 vi.mock("@mbe/auth/react", () => ({ useAuth: () => ({ user: { id: "auth0|me" } }) }));
+vi.mock("../utils/format.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof Format>()),
+  deviceTimeZone: () => device.zone,
+}));
 vi.mock("../hooks/useVenueTeam.js", () => ({
   useVenueTeam: () => ({ data: team.value, isLoading: false, error: null }),
 }));
@@ -201,12 +207,9 @@ describe("AvailabilityPage", () => {
   });
 
   describe("venue time note", () => {
-    const deviceZone = (zone: string) =>
-      vi.spyOn(Intl.DateTimeFormat.prototype, "resolvedOptions").mockReturnValue({
-        timeZone: zone,
-      } as Intl.ResolvedDateTimeFormatOptions);
-
-    afterEach(() => vi.restoreAllMocks());
+    const deviceZone = (zone: string) => {
+      device.zone = zone;
+    };
 
     it("shows when the device zone differs from the venue's", () => {
       deviceZone("America/New_York");
