@@ -9968,6 +9968,13 @@
   </file>
   <file path="services/reservations/src/routes/closure-post-commit.ts">
     <item priority="high">
+      export async function publishClosureChanges(
+        fastify: FastifyInstance,
+        log: FastifyBaseLogger,
+        saved: { venueId: string; ruleId: string }
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
       export async function enqueueNotices(
         enqueue: FastifyInstance["services"]["closureNoticeService"]["enqueueForClosure"],
         input: { venueId: string; ruleId: string },
@@ -14274,6 +14281,7 @@
         reservationId: string;
         action: ClosureAction;
         movedTo: Date | null;
+        expectedStartTime: Date;
       }
     </item>
     <item priority="low">
@@ -14293,7 +14301,8 @@
         tx: Tx,
         venueId: string,
         actorId: string,
-        r: Existing
+        r: Existing,
+        expectedStartTime: Date
       ): Promise<ApplyResult> { /* ... */ }
     </item>
     <item priority="low">
@@ -14311,7 +14320,8 @@
         venueId: string,
         actorId: string,
         r: Existing,
-        startTime: Date
+        startTime: Date,
+        expectedStartTime: Date
       ): Promise<boolean> { /* ... */ }
     </item>
     <item priority="high">
@@ -14321,6 +14331,17 @@
         actorId: string,
         planned: readonly PlannedTransition[]
       ): Promise<ApplyResult> { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/closure-changes.ts">
+    <item priority="low">
+      interface ClosureChanges {
+        cancelled: Reservation[];
+        moved: Reservation[];
+      }
+    </item>
+    <item priority="high">
+      export async function loadClosureChanges(venueId: string, ruleId: string): Promise<ClosureChanges> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/closure-command-plan.ts">
@@ -14478,6 +14499,7 @@
         rows: Prisma.ClosureOutcomeCreateManyInput[];
         counts: Record<ClosureAction, number>;
         notifiedGuests: boolean;
+        starts: ReadonlyMap<string, Date>;
       }
     </item>
     <item priority="medium">
@@ -24682,7 +24704,7 @@
             kind: "guest-modified" | {
             kind: "hold-confirmed" | {
             kind: "created";
-            | { kind: "attendance-confirmed";
+            | { kind: "attendance-confirmed" | { kind: "closure-cancelled"; u | { kind: "closure-moved"; after;
     </item>
     <item priority="high">
       export function reminderJobId(jobType: string, reservationId: string): string { /* ... */ }

@@ -94,6 +94,28 @@ describe("planEffects — the effects table", () => {
     ]);
   });
 
+  describe("closure-cancelled", () => {
+    it("cancels both reminders and publishes reservation:cancelled, with no guest message (notices are the closure's)", () => {
+      expect(
+        view(plan({ kind: "closure-cancelled", updated: res({ status: "CANCELLED" }) }))
+      ).toEqual([
+        "jobs:cancel booking-reminder_res-1 [await/log]",
+        "jobs:cancel day-of-reminder_res-1 [await/log]",
+        "events:reservation:cancelled [await/log]",
+      ]);
+    });
+  });
+
+  describe("closure-moved", () => {
+    it("re-times both reminders to the new start and publishes reservation:updated", () => {
+      expect(view(plan({ kind: "closure-moved", after: res({ startTime: at(96) }) }))).toEqual([
+        "jobs:replace-if-present booking-reminder_res-1 @72h [background/log]",
+        "jobs:replace-if-present day-of-reminder_res-1 @94h [background/log]",
+        "events:reservation:updated [await/log]",
+      ]);
+    });
+  });
+
   describe("staff-updated", () => {
     const fact = (
       patch: Record<string, unknown>,
