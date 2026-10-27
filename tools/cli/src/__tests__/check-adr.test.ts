@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { glob } from "glob";
+import type * as NodeFs from "node:fs";
 
 vi.mock("node:fs", () => ({
   existsSync: vi.fn(),
@@ -431,5 +432,37 @@ describe("check-adr command", () => {
     const out = errorOutput();
     expect(out).toContain("regex-uncompilable");
     expect(out).toContain("(unclosed");
+  });
+});
+
+describe("ADR-001 Tailwind prohibited patterns (real ADR file)", () => {
+  async function loadAdr001Patterns(): Promise<RegExp[]> {
+    const actualFs = await vi.importActual<typeof NodeFs>("node:fs");
+    const adr = actualFs.readFileSync(
+      new URL("../../../../docs/adr/ADR-001-rialto-over-tailwind.md", import.meta.url),
+      "utf8"
+    );
+    const frontmatter = adr.split("---")[1] ?? "";
+    return [...frontmatter.matchAll(/^ {2}- '(.+)'$/gm)].map(
+      // eslint-disable-next-line security/detect-non-literal-regexp -- repo-controlled ADR frontmatter, same as adr.ts
+      (m) => new RegExp(m[1]!.replaceAll("''", "'"), "g")
+    );
+  }
+
+  const violates = (patterns: RegExp[], src: string): boolean =>
+    patterns.some((p) => src.match(p) !== null);
+
+  it('does not flag role="grid" preceding a CSS-module className', async () => {
+    const patterns = await loadAdr001Patterns();
+    expect(patterns.length).toBeGreaterThan(0);
+    expect(violates(patterns, '<div role="grid" className={styles.calendar}>')).toBe(false);
+  });
+
+  it("still flags Tailwind utilities inside className", async () => {
+    const patterns = await loadAdr001Patterns();
+    // Built at runtime so this file does not itself trip `check-adr` when scanned.
+    const attr = "class" + "Name";
+    expect(violates(patterns, `<div ${attr}="flex mt-4">`)).toBe(true);
+    expect(violates(patterns, `<div ${attr}={\`grid p-2\`}>`)).toBe(true);
   });
 });
