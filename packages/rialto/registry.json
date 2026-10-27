@@ -2132,9 +2132,9 @@
       "props": [
         {
           "name": "currentApp",
-          "type": "\"marketing\" | \"hospitality\" | \"rialto\"",
+          "type": "\"marketing\" | \"hospitality\" | \"rialto\" | \"gen\"",
           "required": true,
-          "description": "Which app is currently active — drives the active link indicator."
+          "description": "Which app is currently active — drives the active link indicator.\n`\"gen\"` is a sibling app with no nav link of its own, so no link is marked active."
         },
         {
           "name": "theme",

@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { ReactNode } from "react";
 import { LoginLanding } from "./LoginLanding.js";
 
@@ -63,6 +65,14 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       {children}
     </div>
   ),
+  // Faithful to the real GlobalNav: a <nav> whose brand is a link home ("/").
+  GlobalNav: ({ currentApp }: { currentApp: string }) => (
+    <nav aria-label="Global" data-current-app={currentApp}>
+      <a href="/">MBE</a>
+    </nav>
+  ),
+  Footer: ({ copyright }: { copyright?: string }) => <footer>{copyright}</footer>,
+  useTheme: () => ({ theme: "light", toggleTheme: vi.fn() }),
   useUIEnvironment: () => ({ theme: "light", vibe: "default", device: {} }),
 }));
 
@@ -121,5 +131,19 @@ describe("LoginLanding", () => {
     render(<LoginLanding />);
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(screen.getAllByRole("heading", { level: 2 }).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("renders the shared site header with a home link and a footer", () => {
+    render(<LoginLanding />);
+    const nav = screen.getByRole("navigation");
+    expect(within(nav).getByRole("link", { name: "MBE" }).getAttribute("href")).toBe("/");
+    expect(screen.getByRole("contentinfo")).toBeDefined();
+  });
+
+  it("gives the hero subtitle the primary text token so it clears 4.5:1 in light mode", () => {
+    const css = readFileSync(resolve(import.meta.dirname, "LoginLanding.module.css"), "utf8");
+    const rule = css.match(/\.hero\s*\{([^}]*)\}/);
+    expect(rule).not.toBeNull();
+    expect(rule![1]).toMatch(/--rialto-text-secondary:\s*var\(--rialto-text-primary\)/);
   });
 });
