@@ -273,7 +273,7 @@ function ManageReservationPageContent() {
             </Card>
           )}
 
-          {venue && (
+          {venue && reservation.status !== "CANCELLED" && (
             <Card>
               <Stack gap="md" style={{ padding: "1.5rem" }}>
                 <Text as="h2" variant="label">

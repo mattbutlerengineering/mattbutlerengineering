@@ -448,6 +448,8 @@ describe("ReservationsClient.manageReservation", () => {
   it("carries the venue cancellation (refund status and rebook offers) through", async () => {
     const venueCancellation = {
       refundStatus: "done",
+      closureDate: "2026-11-05",
+      closureMessage: "Closed for a private event",
       offers: [
         {
           id: "2026-11-05T01:30:00.000Z",
@@ -468,6 +470,8 @@ describe("ReservationsClient.manageReservation", () => {
   it("carries the rebooked state (new start and manage token) through", async () => {
     const venueCancellation = {
       refundStatus: "done",
+      closureDate: "2026-11-05",
+      closureMessage: "Closed for a private event",
       offers: [],
       rebooked: { startTime: "2026-11-08T02:00:00.000Z", manageToken: "tok-new" },
     };
@@ -477,6 +481,20 @@ describe("ReservationsClient.manageReservation", () => {
 
     const result = await makeClient().manageReservation("tok");
     expect(result.venueCancellation).toEqual(venueCancellation);
+  });
+
+  it("defaults the closure fields to null when an older API omits them", async () => {
+    const venueCancellation = { refundStatus: "done", offers: [], rebooked: null };
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ data: { ...managedPayload, venueCancellation } })
+    );
+
+    const result = await makeClient().manageReservation("tok");
+    expect(result.venueCancellation).toEqual({
+      ...venueCancellation,
+      closureDate: null,
+      closureMessage: null,
+    });
   });
 
   it("rejects an unknown refund status", async () => {

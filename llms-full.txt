@@ -52923,11 +52923,20 @@
       return guest !== null && assessGuestReliability(guest, settings) === "risky";
     }
     export const defaultRebookDeps: RebookDeps = {
-      findCancelOutcome: (reservationId, venueId) =>
-        prisma.closureOutcome.findFirst({
+      findCancelOutcome: async (reservationId, venueId) => {
+        const row = await prisma.closureOutcome.findFirst({
           where: { reservationId, venueId, action: "cancel" },
-          select: { id: true, refund: true, rebookedReservationId: true },
-        }),
+          select: {
+            id: true,
+            refund: true,
+            rebookedReservationId: true,
+            dateRule: { select: { guestMessage: true } },
+          },
+        });
+        if (!row) return null;
+        const { dateRule, ...outcome } = row;
+        return { ...outcome, guestMessage: dateRule.guestMessage };
+      },
       findRebooked: (reservationId) =>
         prisma.reservation.findUnique({
           where: { id: reservationId },
@@ -52953,6 +52962,8 @@
       id: string;
       refund: GuestRefundStatus;
       rebookedReservationId: string | null;
+      /** The closure rule's guest-facing message (never the staff note). */
+      guestMessage: string | null;
     }
     export interface RebookDeps {
       findCancelOutcome(reservationId: string, venueId: string): Promise<CancelOutcome | null>;
@@ -52988,6 +52999,10 @@
     }
     export interface VenueCancellation {
       refundStatus: GuestRefundStatus;
+      /** The reservation's service date (YYYY-MM-DD): the day the venue was closed for this guest. */
+      closureDate: string;
+      /** The Manager's guest message for the closure; shown to the guest as plain text. */
+      closureMessage: string | null;
       offers: RebookOffer[];
       /** Set once the guest has rebooked; offers are then always empty. */
       rebooked: { reservationId: string; startTime: string } | null;
@@ -53029,11 +53044,16 @@
       const outcome = await deps.findCancelOutcome(reservation.id, venueId);
       if (!outcome) return null;
       const { refund: refundStatus } = outcome;
+      const closure = {
+        refundStatus,
+        closureDate: reservation.date,
+        closureMessage: outcome.guestMessage,
+      };
     
       if (outcome.rebookedReservationId) {
         const rebooked = await deps.findRebooked(outcome.rebookedReservationId);
         return {
-          refundStatus,
+          ...closure,
           offers: [],
           rebooked: rebooked
             ? { reservationId: rebooked.id, startTime: rebooked.startTime.toISOString() }
@@ -53043,10 +53063,10 @@
     
       // A deposit venue gets no one-tap offers: the guest goes through the widget's payment step.
       if (await deps.requiresDeposit(venueId, reservation)) {
-        return { refundStatus, offers: [], rebooked: null };
+        return { ...closure, offers: [], rebooked: null };
       }
       const offers = await currentOffers(reservation, venueId, now, deps);
-      return { refundStatus, offers, rebooked: null };
+      return { ...closure, offers, rebooked: null };
     }
     export type RebookResult =
       | { ok: true; reservation: Reservation }
@@ -68952,6 +68972,10 @@
     }
     export interface ManagedVenueCancellation {
       refundStatus: "none" | "pending" | "done" | "failed";
+      /** The service date (YYYY-MM-DD) the venue was closed; null when an older API did not send it. */
+      closureDate: string | null;
+      /** The venue's guest message for the closure; free text, render as text only. */
+      closureMessage: string | null;
       /** Empty once rebooked, and where the new booking would need a deposit (the guest uses the full picker). */
       offers: ManagedRebookOffer[];
       /** Set once the guest has rebooked; `manageToken` opens the new reservation. */

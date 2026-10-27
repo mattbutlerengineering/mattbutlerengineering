@@ -34,11 +34,20 @@ export async function rebookRequiresDeposit(
 }
 
 export const defaultRebookDeps: RebookDeps = {
-  findCancelOutcome: (reservationId, venueId) =>
-    prisma.closureOutcome.findFirst({
+  findCancelOutcome: async (reservationId, venueId) => {
+    const row = await prisma.closureOutcome.findFirst({
       where: { reservationId, venueId, action: "cancel" },
-      select: { id: true, refund: true, rebookedReservationId: true },
-    }),
+      select: {
+        id: true,
+        refund: true,
+        rebookedReservationId: true,
+        dateRule: { select: { guestMessage: true } },
+      },
+    });
+    if (!row) return null;
+    const { dateRule, ...outcome } = row;
+    return { ...outcome, guestMessage: dateRule.guestMessage };
+  },
   findRebooked: (reservationId) =>
     prisma.reservation.findUnique({
       where: { id: reservationId },

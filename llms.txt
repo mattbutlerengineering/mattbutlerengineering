@@ -15457,6 +15457,7 @@
         id: string;
         refund: GuestRefundStatus;
         rebookedReservationId: string | null;
+        guestMessage: string | null;
       }
     </item>
     <item priority="low">
@@ -15481,6 +15482,8 @@
     <item priority="low">
       interface VenueCancellation {
         refundStatus: GuestRefundStatus;
+        closureDate: string;
+        closureMessage: string | null;
         offers: RebookOffer[];
         rebooked: { reservationId: string; startTime: string } | null;
       }
@@ -19837,6 +19840,8 @@
     <item priority="low">
       interface ManagedVenueCancellation {
         refundStatus: "none" | "pending" | "done" | "failed";
+        closureDate: string | null;
+        closureMessage: string | null;
         offers: ManagedRebookOffer[];
         rebooked: { startTime: string; manageToken: string } | null;
       }
