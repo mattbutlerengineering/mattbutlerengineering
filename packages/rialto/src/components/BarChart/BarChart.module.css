@@ -1,0 +1,60 @@
+.chart {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+  inline-size: 100%;
+  min-inline-size: 0;
+  margin: 0;
+}
+
+.caption {
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+}
+
+.plot {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--rialto-space-xs);
+  block-size: 8rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.barItem {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--rialto-space-2xs);
+  min-inline-size: 0;
+  block-size: 100%;
+}
+
+.bar {
+  inline-size: 100%;
+  min-block-size: 2px;
+  border-radius: var(--rialto-radius-sm) var(--rialto-radius-sm) 0 0;
+  background: var(--rialto-accent);
+}
+
+.tick,
+.value {
+  max-inline-size: 100%;
+  overflow: hidden;
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-secondary);
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.value {
+  font-family: var(--rialto-font-mono);
+  color: var(--rialto-text-tertiary);
+}

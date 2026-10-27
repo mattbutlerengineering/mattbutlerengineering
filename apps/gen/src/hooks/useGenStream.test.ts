@@ -174,4 +174,32 @@ describe("useGenStream", () => {
     expect((result.current.error as Error & { status?: number }).status).toBe(429);
     expect(onError).toHaveBeenCalledWith(result.current.error);
   });
+
+  it("ignores a second send while the first is still streaming", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    mockStreamNDJSON.mockImplementation(() =>
+      (async function* () {
+        await gate;
+        yield { key: "root", type: "Text", props: { children: "Hi" } };
+      })()
+    );
+
+    const { result } = renderHook(() => useGenStream({ api: "/gen/stream" }));
+
+    await act(async () => {
+      const first = result.current.send("one");
+      const second = result.current.send("two");
+      release();
+      await first;
+      await second;
+    });
+
+    expect(mockStreamNDJSON).toHaveBeenCalledTimes(1);
+    expect(mockStreamNDJSON.mock.calls[0]?.[0].body.prompt).toBe("one");
+    expect(result.current.isStreaming).toBe(false);
+    expect(result.current.spec).not.toBeNull();
+  });
 });

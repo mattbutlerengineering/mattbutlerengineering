@@ -115,6 +115,21 @@ describe("PromptBar", () => {
     expect((textarea as HTMLTextAreaElement).disabled).toBe(true);
   });
 
+  it("truncates a paste past 2000 characters and keeps the counter in sync", () => {
+    render(<PromptBar {...defaultProps} />);
+    const textarea = screen.getByRole("textbox", { name: /prompt input/i });
+    fireEvent.change(textarea, { target: { value: "x".repeat(2500) } });
+    expect((textarea as HTMLTextAreaElement).value).toHaveLength(2000);
+    expect(screen.getByText("2000 / 2000")).toBeDefined();
+  });
+
+  it("seeds the input from a prompt restored after an interrupted generation", () => {
+    render(<PromptBar {...defaultProps} initialPrompt="pricing page with three tiers" />);
+    expect(
+      (screen.getByRole("textbox", { name: /prompt input/i }) as HTMLTextAreaElement).value
+    ).toBe("pricing page with three tiers");
+  });
+
   it("shows character count", () => {
     render(<PromptBar {...defaultProps} />);
     expect(screen.getByText("0 / 2000")).toBeDefined();

@@ -87,6 +87,21 @@
     } satisfies CatalogMeta;
   </file>
   </section>
+  <section priority="medium" role="BarChart">
+  <file path="packages/rialto/src/components/BarChart/BarChart.catalog.ts">
+    export const barChartCatalogMeta = {
+      name: "BarChart",
+      description:
+        "Vertical bar chart for a trend over time, such as revenue by month or signups by week. Use this instead of a paragraph or a Text element listing numbers. label is the accessible chart title (for example Revenue trend). data is an array of {label, value} points; value may be a number or a short formatted string such as $18.2k. Keep to about 12 points.",
+      propSchemas: {
+        data: "z.array(z.object({ label: z.string(), value: z.union([z.number(), z.string()]) })).min(1)",
+      },
+      charLimits: {
+        label: 60,
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
   <section priority="medium" role="Breadcrumb">
   <file path="packages/rialto/src/components/Breadcrumb/Breadcrumb.catalog.ts">
     export const breadcrumbCatalogMeta = {
@@ -105,7 +120,7 @@
     export const buttonCatalogMeta = {
       name: "Button",
       description:
-        "Clickable action trigger. Use variant=primary for the main CTA; variant=secondary for supporting actions; variant=ghost for tertiary or inline actions. Use size=sm for compact UIs, size=md (default) for most contexts, size=lg for prominent calls-to-action.",
+        "Clickable action trigger. Put the button's words in the label prop (for example, Contact sales). Use variant=primary for the main CTA; variant=secondary for supporting actions; variant=ghost for tertiary or inline actions. Use size=sm for compact UIs, size=md (default) for most contexts, size=lg for prominent calls-to-action.",
       slots: ["default"],
       aliases: {
         label: "children",
@@ -581,9 +596,9 @@
     export const checkboxCatalogMeta = {
       name: "Checkbox",
       description:
-        "Checkbox for boolean selection. Use when users need to opt-in or out of something. Provide a label. Use description for additional context below the label. Use indeterminate for 'select all' with partial selection.",
+        "Checkbox for boolean selection. Use when users need to opt-in or out of something. Provide a label of at most 80 characters (a full sentence such as a terms agreement fits). Use description for additional context below the label. Use indeterminate for 'select all' with partial selection.",
       charLimits: {
-        label: 30,
+        label: 80,
         description: 80,
       },
     } satisfies CatalogMeta;
@@ -16065,6 +16080,11 @@
     
       // Store AbortController in ref so it persists across renders
       const abortControllerRef = useRef<AbortController | null>(null);
+      // A second Generate click used to abort the in-flight request and clear the
+      // spec, and the aborted request's catch then set isStreaming false under the
+      // replacement. Extra clicks are ignored until this request settles.
+      const inFlightRef = useRef(false);
+      const generationRef = useRef(0);
     
       // Use stable refs for callbacks to avoid re-creating send on every render.
       // Sync via useEffect — writing ref.current in render body violates
@@ -16085,8 +16105,9 @@
           context?: Record<string, unknown>,
           extraBody?: Record<string, unknown>
         ): Promise<void> => {
-          // Abort any in-flight request
-          abortControllerRef.current?.abort();
+          if (inFlightRef.current) return;
+          inFlightRef.current = true;
+          const generation = ++generationRef.current;
     
           const controller = new AbortController();
           abortControllerRef.current = controller;
@@ -16122,6 +16143,8 @@
               setSpec(updatedSpec);
             }
     
+            if (generation !== generationRef.current) return;
+    
             // Build the final spec and notify completion — pass local rawLines array
             // to avoid stale closure pitfall (React state may not reflect latest lines)
             const finalSpec = accumulatedElements.length > 0 ? flatToTree(accumulatedElements) : null;
@@ -16131,6 +16154,7 @@
     
             setIsStreaming(false);
           } catch (err) {
+            if (generation !== generationRef.current) return;
             if (err instanceof Error && err.name === "AbortError") {
               // Abort is intentional (user clicked stop) — keep partial spec, no error
               setIsStreaming(false);
@@ -16145,6 +16169,8 @@
             setError(error);
             setIsStreaming(false);
             onErrorRef.current?.(error);
+          } finally {
+            if (generation === generationRef.current) inFlightRef.current = false;
           }
         },
         [api, accessToken]
@@ -16157,6 +16183,8 @@
       }, []);
     
       const stop = useCallback(() => {
+        generationRef.current += 1;
+        inFlightRef.current = false;
         abortControllerRef.current?.abort();
         setIsStreaming(false);
       }, []);
@@ -21747,6 +21775,87 @@
       return { kind: "generate", prompt: entry.prompt };
     }
   </file>
+  <file path="apps/gen/src/lib/normalize-generated-spec.ts">
+    export function parseTrendPoints(text: string): { label: string; value: string }[] | null {
+      const trimmed = text.trim();
+      if (trimmed.length < 8 || trimmed.length > 400) return null;
+      const parts = trimmed.split(/\s*[·•|,]\s*/);
+      if (parts.length < 3) return null;
+      const points: { label: string; value: string }[] = [];
+      for (const part of parts) {
+        const match = POINT.exec(part.trim());
+        if (!match || match[1] === undefined || match[2] === undefined) return null;
+        points.push({ label: match[1], value: match[2] });
+      }
+      return points;
+    }
+    function textContent(props: unknown): string | null {
+      if (props === null || typeof props !== "object") return null;
+      const record = props as Record<string, unknown>;
+      if (typeof record.children === "string") return record.children;
+      if (typeof record.text === "string") return record.text;
+      return null;
+    }
+    export function normalizeGeneratedSpec(spec: Spec): Spec {
+      let changed = false;
+      const elements: Spec["elements"] = { ...spec.elements };
+      for (const [key, element] of Object.entries(elements)) {
+        if (!element || element.type !== "Text") continue;
+        const text = textContent(element.props);
+        const points = text ? parseTrendPoints(text) : null;
+        if (!points) continue;
+        changed = true;
+        elements[key] = {
+          ...element,
+          type: "BarChart",
+          props: { label: "Trend", data: points },
+        };
+      }
+      return changed ? { ...spec, elements } : spec;
+    }
+  </file>
+  <file path="apps/gen/src/lib/pending-prompt.ts">
+    export const PENDING_PROMPT_KEY = "gen.pendingPrompt";
+    function continueWhenStorageFails(error: unknown): void {
+      if (error instanceof Error) return;
+      throw error;
+    }
+    export function interruptedPromptNotice(): string {
+      return INTERRUPTED_NOTICE;
+    }
+    export function rememberPendingPrompt(
+      prompt: string,
+      storage: Storage = window.sessionStorage
+    ): void {
+      try {
+        storage.setItem(PENDING_PROMPT_KEY, prompt);
+      } catch (error) {
+        continueWhenStorageFails(error);
+      }
+    }
+    export function clearPendingPrompt(storage: Storage = window.sessionStorage): void {
+      try {
+        storage.removeItem(PENDING_PROMPT_KEY);
+      } catch (error) {
+        continueWhenStorageFails(error);
+      }
+      cached = null;
+    }
+    export function readInterruptedPrompt(storage: Storage = window.sessionStorage): string | null {
+      if (cached !== undefined) return cached;
+      try {
+        const value = storage.getItem(PENDING_PROMPT_KEY);
+        storage.removeItem(PENDING_PROMPT_KEY);
+        cached = value && value.trim() !== "" ? value : null;
+      } catch {
+        cached = null;
+      }
+      return cached;
+    }
+    export function resetInterruptedPromptCache(): void {
+      cached = undefined;
+    }
+  </file>
   <file path="apps/gen/src/lib/shortcuts.ts">
     export type ShortcutAction =
       | "newGeneration"
@@ -25108,6 +25217,8 @@
       /** The raw prompt behind the current displayError, so it can be restored
        *  into the prompt input for editing instead of being lost. */
       failedPrompt: string | null;
+      /** Prompt restored after a refresh dropped an in-flight generation. */
+      interruptedPrompt: string | null;
     
       // Session verbs — own transition choreography lives here, not in the caller.
       submit: (prompt: string) => void;
@@ -25174,10 +25285,19 @@
       const diffHistory = useSpecDiffHistory();
       const { push: pushDiff, clear: clearDiffs } = diffHistory;
       const [lastChange, setLastChange] = useState<SpecDiff | null>(null);
+      const [interruptedPrompt] = useState(() => readInterruptedPrompt());
+      const noticedInterruptedRef = useRef(false);
+    
+      useEffect(() => {
+        if (!interruptedPrompt || noticedInterruptedRef.current) return;
+        noticedInterruptedRef.current = true;
+        options?.onNotice?.(interruptedPromptNotice());
+      }, [interruptedPrompt, options]);
     
       const { spec, isStreaming, error, rawLines, send, stop, clear } = useGenStream({
         api: "/api/gen/ui",
         onComplete: (completedSpec, completedRawLines) => {
+          clearPendingPrompt();
           const nodeRefine = nodeRefineRef.current;
           let savedSpec = completedSpec;
           let refinement: SpecDiff | undefined;
@@ -25261,6 +25381,7 @@
         // transport/HTTP failure (auth expired, network drop) — that's an
         // infrastructure hiccup, not a generation failure worth recording.
         onError: (err) => {
+          clearPendingPrompt();
           if (!rawPrompt || isTransportError(err)) return;
           void saveSpec({
             prompt: rawPrompt,
@@ -25314,6 +25435,7 @@
     
       const submit = useCallback(
         (prompt: string) => {
+          rememberPendingPrompt(prompt);
           setRawPrompt(prompt);
           clearNodeRefine();
           if (mode === "refine" && displaySpec) {
@@ -25489,9 +25611,15 @@
       // common case, so resetTo(null) alone is a no-op for it) and the logo
       // click / sign-out "New Generation" action doesn't show the empty state.
       const reset = useCallback(() => {
+        clearPendingPrompt();
         clear();
         resetTo(null);
       }, [clear, resetTo]);
+    
+      const stopGeneration = useCallback(() => {
+        clearPendingPrompt();
+        stop();
+      }, [stop]);
     
       const handleDeleteSpec = useCallback(
         (id: string) => {
@@ -25527,6 +25655,7 @@
         displayError,
         activeSpecId,
         failedPrompt,
+        interruptedPrompt,
     
         submit,
         refine: enterRefinement,
@@ -25542,7 +25671,7 @@
         canRedo: diffHistory.canRedo,
         lastChange,
         reset,
-        stop,
+        stop: stopGeneration,
       };
     }
   </file>
@@ -27301,6 +27430,81 @@
       return resolveAuthGate(useAuth(), window.location);
     }
   </file>
+  <file path="packages/auth/src/react/auth-history.ts">
+    export const PRE_AUTH_HISTORY_KEY = "mbe.auth.preHistoryLength";
+    export const AUTH_BACK_RELOAD_KEY = "mbe.auth.backReload";
+    function continueWhenStorageFails(error: unknown): void {
+      if (error instanceof Error) return;
+      throw error;
+    }
+    export function authHistorySkipSteps(preLength: number, currentLength: number): number | null {
+      if (!Number.isInteger(preLength) || !Number.isInteger(currentLength)) return null;
+      if (preLength < 1 || currentLength < preLength) return null;
+      const added = currentLength - preLength;
+      return added > 1 ? added : null;
+    }
+    export function rememberPreAuthHistoryLength(storage: Storage = window.sessionStorage): void {
+      try {
+        storage.setItem(PRE_AUTH_HISTORY_KEY, String(window.history.length));
+      } catch (error) {
+        continueWhenStorageFails(error);
+      }
+    }
+    export function installAuthBackSkip(
+      history: History = window.history,
+      storage: Storage = window.sessionStorage,
+      schedule: (fn: () => void) => void = (fn) => {
+        window.setTimeout(fn, SKIP_IDP_HISTORY_DELAY_MS);
+      }
+    ): void {
+      let raw: string | null;
+      try {
+        raw = storage.getItem(PRE_AUTH_HISTORY_KEY);
+        storage.removeItem(PRE_AUTH_HISTORY_KEY);
+      } catch {
+        return;
+      }
+      if (raw == null) return;
+      const steps = authHistorySkipSteps(Number(raw), history.length);
+      if (steps == null) return;
+    
+      const onPop = () => {
+        window.removeEventListener("popstate", onPop);
+        try {
+          storage.setItem(AUTH_BACK_RELOAD_KEY, "1");
+        } catch (error) {
+          continueWhenStorageFails(error);
+        }
+        // history.go inside the popstate handler is ignored by some browsers.
+        schedule(() => {
+          history.go(-steps);
+        });
+      };
+      window.addEventListener("popstate", onPop);
+      history.pushState({ mbeAuthSentinel: true }, "", window.location.href);
+    }
+    interface PageShowTarget {
+      sessionStorage: Storage;
+      location: { reload: () => void };
+      addEventListener: (type: "pageshow", listener: (event: PageTransitionEvent) => void) => void;
+      removeEventListener: (type: "pageshow", listener: (event: PageTransitionEvent) => void) => void;
+    }
+    export function installAuthBackReload(target: PageShowTarget = window): () => void {
+      const onPageShow = (event: PageTransitionEvent) => {
+        if (!event.persisted) return;
+        try {
+          const flagged = target.sessionStorage.getItem(AUTH_BACK_RELOAD_KEY) === "1";
+          if (!flagged) return;
+          target.sessionStorage.removeItem(AUTH_BACK_RELOAD_KEY);
+          target.location.reload();
+        } catch (error) {
+          continueWhenStorageFails(error);
+        }
+      };
+      target.addEventListener("pageshow", onPageShow);
+      return () => target.removeEventListener("pageshow", onPageShow);
+    }
+  </file>
   <file path="packages/auth/src/react/hooks.ts">
     export type ActiveNavigator = NonNullable<ReturnType<typeof useOIDCAuth>["activeNavigator"]>;
     export function useAuth() {
@@ -27357,6 +27561,7 @@
          * `onSigninCallback(returnTo)`.
          */
         signIn: (options?: SignInOptions) => {
+          rememberPreAuthHistoryLength();
           const returnTo =
             options?.returnTo ?? deriveReturnTo(window.location, auth.settings.redirect_uri);
           return auth.signinRedirect({ state: { returnTo } });
@@ -59881,6 +60086,37 @@
   </file>
   </section>
   <section priority="medium" role="src">
+  <file path="apps/gen/src/auth-config.ts">
+    export interface GenAuthEnv {
+      authority?: string;
+      clientId?: string;
+      redirectUri?: string;
+      audience?: string;
+    }
+    export interface GenAuthConfig {
+      authority: string;
+      clientId: string;
+      redirectUri: string;
+      audience?: string;
+      postLogoutRedirectUri: string;
+    }
+    export function buildGenAuthConfig(env: GenAuthEnv, origin: string): GenAuthConfig {
+      const redirectUri =
+        env.redirectUri && env.redirectUri.trim() !== "" ? env.redirectUri : `${origin}/gen/callback`;
+      // Strip only the gen callback suffix so a custom redirect that is not the
+      // gen callback cannot invent a logout URL Auth0 has never been given.
+      const postLogoutRedirectUri = redirectUri.endsWith("/gen/callback")
+        ? redirectUri.slice(0, -"/callback".length)
+        : `${origin}/gen`;
+      return {
+        authority: env.authority ?? "",
+        clientId: env.clientId ?? "",
+        redirectUri,
+        audience: env.audience,
+        postLogoutRedirectUri,
+      };
+    }
+  </file>
   <file path="apps/gen/src/types.ts">
     export type EntryKind = "generate" | "refine" | "recover" | "failed";
     export interface StoredSpec {
@@ -73977,6 +74213,12 @@
           "Full-width page-level message displayed at the top of a view. Use for one-per-page system announcements. Unlike Alert (inline), Banner spans the full width. Use variant=info (default) for announcements, variant=warning for important notices, variant=error for critical failures.",
         slots: ["default"],
       },
+      BarChart: {
+        name: "BarChart",
+        description:
+          "Vertical bar chart for a trend over time, such as revenue by month or signups by week. Use this instead of a paragraph or a Text element listing numbers. label is the accessible chart title (for example Revenue trend). data is an array of {label, value} points; value may be a number or a short formatted string such as $18.2k. Keep to about 12 points.",
+        charLimits: { label: 60 },
+      },
       Breadcrumb: {
         name: "Breadcrumb",
         description:
@@ -73985,7 +74227,7 @@
       Button: {
         name: "Button",
         description:
-          "Clickable action trigger. Use variant=primary for the main CTA; variant=secondary for supporting actions; variant=ghost for tertiary or inline actions. Use size=sm for compact UIs, size=md (default) for most contexts, size=lg for prominent calls-to-action.",
+          "Clickable action trigger. Put the button's words in the label prop (for example, Contact sales). Use variant=primary for the main CTA; variant=secondary for supporting actions; variant=ghost for tertiary or inline actions. Use size=sm for compact UIs, size=md (default) for most contexts, size=lg for prominent calls-to-action.",
         slots: ["default"],
         aliases: { label: "children" },
       },
@@ -74005,8 +74247,8 @@
       Checkbox: {
         name: "Checkbox",
         description:
-          "Checkbox for boolean selection. Use when users need to opt-in or out of something. Provide a label. Use description for additional context below the label. Use indeterminate for 'select all' with partial selection.",
-        charLimits: { label: 30, description: 80 },
+          "Checkbox for boolean selection. Use when users need to opt-in or out of something. Provide a label of at most 80 characters (a full sentence such as a terms agreement fits). Use description for additional context below the label. Use indeterminate for 'select all' with partial selection.",
+        charLimits: { label: 80, description: 80 },
       },
       Combobox: {
         name: "Combobox",
@@ -74242,6 +74484,10 @@
         dismissible: z.boolean().optional(),
         action: z.string().optional(),
       }),
+      BarChart: z.object({
+        label: z.string().max(60),
+        data: z.array(z.object({ label: z.string(), value: z.union([z.number(), z.string()]) })).min(1),
+      }),
       Breadcrumb: z.object({
         items: z.array(z.object({ label: z.string(), href: z.string().optional(), icon: z.string().optional() })),
         maxItems: z.number().optional(),
@@ -74265,7 +74511,7 @@
         subtitle: z.string().max(80).optional(),
       }),
       Checkbox: z.object({
-        label: z.string().max(30).optional(),
+        label: z.string().max(80).optional(),
         checked: z.boolean().optional(),
         defaultChecked: z.boolean().optional(),
         required: z.boolean().optional(),
@@ -74482,6 +74728,39 @@
         disabledReason: z.string().optional(),
       }),
     } as const;
+  </file>
+  <file path="packages/rialto-catalog/src/materialize-table-data.ts">
+    function columnKeys(columns: unknown): string[] {
+      if (!Array.isArray(columns)) return [];
+      return columns.flatMap((column) => {
+        if (column === null || typeof column !== "object") return [];
+        const key = (column as { key?: unknown }).key;
+        return typeof key === "string" && key !== "" ? [key] : [];
+      });
+    }
+    function sampleCell(key: string, index: number): string {
+      const normalized = key.toLowerCase();
+      if (normalized.includes("email")) return `user${index + 1}@example.com`;
+      if (normalized.includes("name")) return SAMPLE_NAMES[index % SAMPLE_NAMES.length] ?? key;
+      if (normalized.includes("status")) return SAMPLE_STATUSES[index % SAMPLE_STATUSES.length] ?? key;
+      if (normalized.includes("role")) return SAMPLE_ROLES[index % SAMPLE_ROLES.length] ?? key;
+      if (normalized === "id" || normalized.endsWith("id")) return String(index + 1);
+      return `${key} ${index + 1}`;
+    }
+    export function materializeCatalogProps(name: string, props: unknown): unknown {
+      if (name !== "Table" && name !== "DataTable") return props;
+      if (props === null || typeof props !== "object") return props;
+      const source = props as Record<string, unknown>;
+      if (Array.isArray(source.data)) return props;
+      const keys = columnKeys(source.columns);
+      if (keys.length === 0) return props;
+      const data = Array.from({ length: SAMPLE_ROW_COUNT }, (_, index) => {
+        const row: Record<string, string> = {};
+        for (const key of keys) row[key] = sampleCell(key, index);
+        return row;
+      });
+      return { ...source, data };
+    }
   </file>
   <file path="packages/sentry/src/build-info.ts">
     export const UNKNOWN_BUILD = "unknown";

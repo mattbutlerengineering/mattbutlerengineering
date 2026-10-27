@@ -178,6 +178,21 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
     useReturnFocus(open);
     useEscapeKey(() => onOpenChange(false), open);
 
+    // Close on the first Escape, including when the query is non-empty.
+    // useEscapeKey ignores a key whose default was already prevented (a nested
+    // combobox swallowing Escape), so a capture listener claims it first.
+    useEffect(() => {
+      if (!open) return;
+      const onKeyDown = (event: KeyboardEvent) => {
+        if (event.key !== "Escape") return;
+        event.preventDefault();
+        event.stopPropagation();
+        onOpenChange(false);
+      };
+      document.addEventListener("keydown", onKeyDown, true);
+      return () => document.removeEventListener("keydown", onKeyDown, true);
+    }, [open, onOpenChange]);
+
     /* ── Reset on open/close ─────────────────── */
     useEffect(() => {
       if (open) {

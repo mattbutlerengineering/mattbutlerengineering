@@ -73,6 +73,11 @@ export function useGenStream({
 
   // Store AbortController in ref so it persists across renders
   const abortControllerRef = useRef<AbortController | null>(null);
+  // A second Generate click used to abort the in-flight request and clear the
+  // spec, and the aborted request's catch then set isStreaming false under the
+  // replacement. Extra clicks are ignored until this request settles.
+  const inFlightRef = useRef(false);
+  const generationRef = useRef(0);
 
   // Use stable refs for callbacks to avoid re-creating send on every render.
   // Sync via useEffect — writing ref.current in render body violates
@@ -93,8 +98,9 @@ export function useGenStream({
       context?: Record<string, unknown>,
       extraBody?: Record<string, unknown>
     ): Promise<void> => {
-      // Abort any in-flight request
-      abortControllerRef.current?.abort();
+      if (inFlightRef.current) return;
+      inFlightRef.current = true;
+      const generation = ++generationRef.current;
 
       const controller = new AbortController();
       abortControllerRef.current = controller;
@@ -130,6 +136,8 @@ export function useGenStream({
           setSpec(updatedSpec);
         }
 
+        if (generation !== generationRef.current) return;
+
         // Build the final spec and notify completion — pass local rawLines array
         // to avoid stale closure pitfall (React state may not reflect latest lines)
         const finalSpec = accumulatedElements.length > 0 ? flatToTree(accumulatedElements) : null;
@@ -139,6 +147,7 @@ export function useGenStream({
 
         setIsStreaming(false);
       } catch (err) {
+        if (generation !== generationRef.current) return;
         if (err instanceof Error && err.name === "AbortError") {
           // Abort is intentional (user clicked stop) — keep partial spec, no error
           setIsStreaming(false);
@@ -153,6 +162,8 @@ export function useGenStream({
         setError(error);
         setIsStreaming(false);
         onErrorRef.current?.(error);
+      } finally {
+        if (generation === generationRef.current) inFlightRef.current = false;
       }
     },
     [api, accessToken]
@@ -165,6 +176,8 @@ export function useGenStream({
   }, []);
 
   const stop = useCallback(() => {
+    generationRef.current += 1;
+    inFlightRef.current = false;
     abortControllerRef.current?.abort();
     setIsStreaming(false);
   }, []);

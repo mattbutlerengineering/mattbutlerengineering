@@ -7,7 +7,7 @@ import type { CatalogMeta } from "../catalog-meta";
 export const buttonCatalogMeta = {
   name: "Button",
   description:
-    "Clickable action trigger. Use variant=primary for the main CTA; variant=secondary for supporting actions; variant=ghost for tertiary or inline actions. Use size=sm for compact UIs, size=md (default) for most contexts, size=lg for prominent calls-to-action.",
+    "Clickable action trigger. Put the button's words in the label prop (for example, Contact sales). Use variant=primary for the main CTA; variant=secondary for supporting actions; variant=ghost for tertiary or inline actions. Use size=sm for compact UIs, size=md (default) for most contexts, size=lg for prominent calls-to-action.",
   slots: ["default"],
   aliases: {
     label: "children",
