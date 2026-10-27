@@ -1,10 +1,26 @@
 import { z } from "zod";
 
-export const DayScheduleSchema = z.object({
-  open: z.string(),
-  close: z.string(),
-  closed: z.boolean().optional(),
-});
+const HH_MM = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** Open days need HH:MM times; a closed day's times are ignored and may be empty. */
+export const DayScheduleSchema = z
+  .object({
+    open: z.string(),
+    close: z.string(),
+    closed: z.boolean().optional(),
+  })
+  .superRefine((day, ctx) => {
+    if (day.closed === true) return;
+    for (const field of ["open", "close"] as const) {
+      if (!HH_MM.test(day[field])) {
+        ctx.addIssue({
+          code: "custom",
+          path: [field],
+          message: "Expected a time in HH:MM format",
+        });
+      }
+    }
+  });
 
 /**
  * Restaurant identity ported from eat-sheet's `tenants` table (#7250). Stored

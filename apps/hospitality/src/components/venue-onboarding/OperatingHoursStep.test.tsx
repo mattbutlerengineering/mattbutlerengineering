@@ -196,6 +196,13 @@ describe("validateOperatingHours", () => {
     expect(result?.days?.monday).toBe("Closing time must be after opening time");
   });
 
+  it("returns day error when an open day has an empty time", () => {
+    const emptyOpen = validateOperatingHours({ monday: { open: "", close: "22:00" } });
+    expect(emptyOpen?.days?.monday).toBe("Enter both an opening and a closing time");
+    const emptyClose = validateOperatingHours({ monday: { open: "09:00", close: "" } });
+    expect(emptyClose?.days?.monday).toBe("Enter both an opening and a closing time");
+  });
+
   it("returns global error when no days enabled", () => {
     const result = validateOperatingHours({});
     expect(result?.global).toBe("At least one day must be open");

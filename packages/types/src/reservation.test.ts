@@ -407,6 +407,17 @@ describe("DayScheduleSchema", () => {
     ).toBe(true);
   });
 
+  it("rejects empty or malformed times on an open day", () => {
+    expect(DayScheduleSchema.safeParse({ open: "", close: "22:00" }).success).toBe(false);
+    expect(DayScheduleSchema.safeParse({ open: "09:00", close: "" }).success).toBe(false);
+    expect(DayScheduleSchema.safeParse({ open: "9am", close: "22:00" }).success).toBe(false);
+    expect(DayScheduleSchema.safeParse({ open: "09:00", close: "25:00" }).success).toBe(false);
+  });
+
+  it("accepts empty times on a closed day", () => {
+    expect(DayScheduleSchema.safeParse({ open: "", close: "", closed: true }).success).toBe(true);
+  });
+
   it("rejects missing open/close", () => {
     expect(DayScheduleSchema.safeParse({ close: "22:00" }).success).toBe(false);
     expect(DayScheduleSchema.safeParse({ open: "09:00" }).success).toBe(false);

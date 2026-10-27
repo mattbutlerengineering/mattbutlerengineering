@@ -90,6 +90,7 @@
       "openingTime": "Heure d’ouverture du {{day}}",
       "closingTime": "Heure de fermeture du {{day}}",
       "closeAfterOpen": "L’heure de fermeture doit être postérieure à l’heure d’ouverture",
+      "timesRequired": "Entrez une heure d’ouverture et une heure de fermeture",
       "atLeastOne": "Au moins un jour doit être ouvert",
       "closeDayTitle": "Fermer le {{day}} ?",
       "closeDayDescription": "Cela effacera les heures d’ouverture et de fermeture personnalisées que vous avez définies pour ce jour.",
