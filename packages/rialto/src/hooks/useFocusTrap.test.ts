@@ -168,7 +168,79 @@ describe("useFocusTrap", () => {
     expect(document.activeElement).toBe(first);
   });
 
-  it("does not wrap from a removed or newly disabled stale last element", () => {
+  it("wraps from the new last element after the cached last element is removed", () => {
+    const panel = makePanel("button", "button", "button");
+    const [first, second, third] = Array.from(panel.querySelectorAll<HTMLElement>("button"));
+
+    renderHook(() => useFocusTrap(makeRef(panel), true));
+
+    third!.remove();
+    second!.focus();
+    const e = tabKeyDown(false);
+    expect(e.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(first);
+  });
+
+  describe("stacked traps (two panels enabled at once)", () => {
+    function setup() {
+      const lower = makePanel("button", "button");
+      const top = makePanel("button", "button");
+      const lowerHook = renderHook(
+        ({ enabled }: { enabled: boolean }) => useFocusTrap(makeRef(lower), enabled),
+        { initialProps: { enabled: true } }
+      );
+      const topHook = renderHook(
+        ({ enabled }: { enabled: boolean }) => useFocusTrap(makeRef(top), enabled),
+        { initialProps: { enabled: true } }
+      );
+      return {
+        lower: Array.from(lower.querySelectorAll<HTMLElement>("button")),
+        top: Array.from(top.querySelectorAll<HTMLElement>("button")),
+        lowerHook,
+        topHook,
+      };
+    }
+
+    it("leaves Tab alone from the top panel's first element", () => {
+      const { top } = setup();
+      top[0]!.focus();
+      const e = tabKeyDown(false);
+      expect(e.defaultPrevented).toBe(false);
+      expect(document.activeElement).toBe(top[0]);
+    });
+
+    it("wraps within the top panel from its last element", () => {
+      const { top } = setup();
+      top[1]!.focus();
+      const e = tabKeyDown(false);
+      expect(e.defaultPrevented).toBe(true);
+      expect(document.activeElement).toBe(top[0]);
+    });
+
+    it("lets the lower trap act again once the top trap is disabled", () => {
+      const { lower, topHook } = setup();
+      act(() => {
+        topHook.rerender({ enabled: false });
+      });
+      lower[1]!.focus();
+      const e = tabKeyDown(false);
+      expect(e.defaultPrevented).toBe(true);
+      expect(document.activeElement).toBe(lower[0]);
+    });
+
+    it("keeps the top trap when the lower trap is disabled first", () => {
+      const { top, lowerHook } = setup();
+      act(() => {
+        lowerHook.rerender({ enabled: false });
+      });
+      top[1]!.focus();
+      const e = tabKeyDown(false);
+      expect(e.defaultPrevented).toBe(true);
+      expect(document.activeElement).toBe(top[0]);
+    });
+  });
+
+  it("does not wrap from a newly disabled stale last element", () => {
     const panel = makePanel("button", "button", "button");
     const [first, second, third] = Array.from(panel.querySelectorAll<HTMLElement>("button"));
 

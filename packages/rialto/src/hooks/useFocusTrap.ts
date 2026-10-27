@@ -31,6 +31,12 @@ function resolveInitialFocus(
 }
 
 /**
+ * Panels with an active trap, in activation order. The last entry is the
+ * topmost trap; only it handles Tab (a dialog over a drawer, a palette over a dialog).
+ */
+const activePanels: HTMLElement[] = [];
+
+/**
  * Traps keyboard focus inside a panel element while `enabled` is true.
  *
  * On enable: focuses `options.initialFocus` if provided, else the first
@@ -38,6 +44,7 @@ function resolveInitialFocus(
  * (e.g. a dismiss/Close button), falling back to the first focusable element.
  * Tab at last element: wraps to first.
  * Shift+Tab at first element: wraps to last.
+ * When several traps are active, only the most recently enabled one acts.
  * On disable / unmount: removes all listeners (no cleanup side-effects on the caller).
  *
  * RIALTO RULE: no setState in this hook — all behavior is imperative (focus + listeners).
@@ -62,8 +69,12 @@ export function useFocusTrap(
     const initialCandidates = panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
     resolveInitialFocus(initialCandidates, initialCandidates[0], initialFocus)?.focus();
 
+    activePanels.push(panel);
+
     const trap = (e: KeyboardEvent) => {
       if (e.key !== "Tab") return;
+      // Only the topmost trap acts, so stacked panels don't fight over focus.
+      if (panel !== activePanels[activePanels.length - 1]) return;
       // Re-query on every Tab: panels add/remove/disable controls after open,
       // so cached ends go stale and let focus escape.
       const focusable = panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
@@ -89,6 +100,10 @@ export function useFocusTrap(
     };
 
     document.addEventListener("keydown", trap);
-    return () => document.removeEventListener("keydown", trap);
+    return () => {
+      document.removeEventListener("keydown", trap);
+      const index = activePanels.lastIndexOf(panel);
+      if (index !== -1) activePanels.splice(index, 1);
+    };
   }, [enabled, panelRef, initialFocus]);
 }

@@ -20257,8 +20257,12 @@
         const initialCandidates = panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
         resolveInitialFocus(initialCandidates, initialCandidates[0], initialFocus)?.focus();
     
+        activePanels.push(panel);
+    
         const trap = (e: KeyboardEvent) => {
           if (e.key !== "Tab") return;
+          // Only the topmost trap acts, so stacked panels don't fight over focus.
+          if (panel !== activePanels[activePanels.length - 1]) return;
           // Re-query on every Tab: panels add/remove/disable controls after open,
           // so cached ends go stale and let focus escape.
           const focusable = panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
@@ -20284,7 +20288,11 @@
         };
     
         document.addEventListener("keydown", trap);
-        return () => document.removeEventListener("keydown", trap);
+        return () => {
+          document.removeEventListener("keydown", trap);
+          const index = activePanels.lastIndexOf(panel);
+          if (index !== -1) activePanels.splice(index, 1);
+        };
       }, [enabled, panelRef, initialFocus]);
     }
   </file>
