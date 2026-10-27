@@ -956,7 +956,14 @@
       let changed = false;
       const elements: Spec["elements"] = { ...spec.elements };
       for (const [key, element] of Object.entries(elements)) {
-        if (!element || element.type !== "Text") continue;
+        if (!element) continue;
+        const materialized = materializeCatalogProps(element.type, element.props);
+        if (materialized !== element.props) {
+          changed = true;
+          elements[key] = { ...element, props: materialized as typeof element.props };
+          continue;
+        }
+        if (element.type !== "Text") continue;
         const text = textContent(element.props);
         const points = text ? parseTrendPoints(text) : null;
         if (!points) continue;
@@ -1589,6 +1596,9 @@
     
       const submit = useCallback(
         (prompt: string) => {
+          // send() ignores a request while one is in flight; abort the old one first
+          // so it never completes under this prompt.
+          if (isStreaming) stop();
           rememberPendingPrompt(prompt);
           setRawPrompt(prompt);
           clearNodeRefine();
@@ -1607,7 +1617,7 @@
             void send(prompt);
           }
         },
-        [mode, displaySpec, send, clearNodeRefine]
+        [mode, displaySpec, isStreaming, send, stop, clearNodeRefine]
       );
     
       const refineNode = useCallback(
