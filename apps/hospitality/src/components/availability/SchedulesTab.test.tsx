@@ -6,6 +6,7 @@ import type { AvailabilityConfig, AvailabilityConfigState } from "@mbe/types";
 const save = vi.hoisted(() => vi.fn());
 vi.mock("../../hooks/useAvailability.js", () => ({
   useSaveAvailabilityConfig: () => ({ mutateAsync: save, isPending: false }),
+  useRevertAvailabilityChange: () => ({ mutateAsync: vi.fn() }),
 }));
 vi.mock("../../contexts/VenueContext.js", () => ({
   useVenue: () => ({
