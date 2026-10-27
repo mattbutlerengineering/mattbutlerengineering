@@ -3448,6 +3448,12 @@
       async function resolvePending(deps: ClosureRefundDeps, deposit: Deposit): Promise<Settled | null> { /* ... */ }
     </item>
     <item priority="low">
+      async function confirmRefundedIntentVoid(deps: ClosureRefundDeps, deposit: Deposit): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function refundHeld(deps: ClosureRefundDeps, deposit: Deposit): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
       async function settleOnce(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<Settled | null> { /* ... */ }
     </item>
     <item priority="low">
