@@ -5704,6 +5704,7 @@
       | "close_after_open"
       | "last_seating_after_close"
       | "span_too_long"
+      | "legacy_closed_day"
       | "overlap"
       | "days_required";
     export interface QuickSetupIssue {
@@ -5763,7 +5764,10 @@
       if (service.opens === service.closes) return [at("closes", "close_after_open")];
       return m.lastSeatingAt > m.closesAt ? [at("lastSeating", "last_seating_after_close")] : [];
     }
-    export function validateDraft(draft: QuickSetupDraft): QuickSetupIssue[] {
+    export function validateDraft(
+      draft: QuickSetupDraft,
+      options: { readonly legacyReader?: boolean } = {}
+    ): QuickSetupIssue[] {
       const perService = draft.services.flatMap((service) => {
         const missing = completenessIssues(service);
         const minutes = minutesOf(service);
@@ -5781,9 +5785,9 @@
           const service = draft.services[index];
           return service ? [{ serviceId: service.id, field: "opens", code: "overlap" }] : [];
         });
-      return [...overlaps, ...spanIssues(draft), ...daysIssue];
+      return [...overlaps, ...spanIssues(draft, options.legacyReader === true), ...daysIssue];
     }
-    function spanIssues(draft: QuickSetupDraft): QuickSetupIssue[] {
+    function spanIssues(draft: QuickSetupDraft, legacyReader: boolean): QuickSetupIssue[] {
       const read = normalizeLegacyHours(draftToLegacyHours(draft));
       const tooLong =
         read.ok &&
@@ -5792,12 +5796,24 @@
             (w) => w.wrapped === true && w.close - w.open > MAX_PAST_MIDNIGHT_SPAN
           )
         );
-      if (!tooLong) return [];
+      const code: QuickSetupIssueCode | null = tooLong
+        ? "span_too_long"
+        : legacyReader && read.ok && hasClosedDay(draft, read.hours)
+          ? "legacy_closed_day"
+          : null;
+      if (code === null) return [];
       const latest = draft.services.reduce<{ id: string; closesAt: number } | null>((acc, s) => {
         const m = minutesOf(s);
         return m && (!acc || m.closesAt > acc.closesAt) ? { id: s.id, closesAt: m.closesAt } : acc;
       }, null);
-      return latest ? [{ serviceId: latest.id, field: "closes", code: "span_too_long" }] : [];
+      return latest ? [{ serviceId: latest.id, field: "closes", code }] : [];
+    }
+    function hasClosedDay(draft: QuickSetupDraft, hours: LegacyHours): boolean {
+      let n = 0;
+      const built = buildLegacyConfig({ hours, today: "1970-01-01", newId: () => `legacy-${++n}` });
+      if (!built.ok) return false;
+      const open = new Set(built.config.assignments.flatMap((a) => a.weekdays));
+      return draft.days.some((day) => !open.has(day));
     }
     export function draftToConfig(
       draft: QuickSetupDraft,
@@ -6518,6 +6534,70 @@
       return dates.filter((date) =>
         rules.some((rule) => coversDate(rule, date) && !skipped.has(`${rule.id}@${date}`))
       );
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/selection-actions.ts">
+    export function ownSingleDateRules(
+      config: AvailabilityConfig,
+      dates: readonly string[]
+    ): DateRule[] {
+      const picked = new Set(dates);
+      return config.dateRules.filter(
+        (r) =>
+          (r.kind === "special_hours" || r.kind === "use_schedule") &&
+          r.targetKind === "venue" &&
+          r.endsOn === r.startsOn &&
+          picked.has(r.startsOn) &&
+          r.repeat == null &&
+          r.window == null &&
+          r.seriesId == null &&
+          r.bookingTypes == null &&
+          r.venueServiceId == null
+      );
+    }
+    export function buildClearChanges(
+      config: AvailabilityConfig,
+      dates: readonly string[]
+    ): AvailabilityConfigChanges {
+      return { upsert: {}, remove: removal(ownSingleDateRules(config, dates)) };
+    }
+    export function buildUseScheduleChanges(
+      config: AvailabilityConfig,
+      dates: readonly string[],
+      scheduleId: string,
+      makeId: () => string
+    ): AvailabilityConfigChanges {
+      const dateRules: DateRule[] = dates.map((date) => ({
+        id: makeId(),
+        kind: "use_schedule",
+        targetKind: "venue",
+        startsOn: date,
+        endsOn: date,
+        useScheduleId: scheduleId,
+      }));
+      return {
+        upsert: { dateRules },
+        remove: removal(ownSingleDateRules(config, dates)),
+      };
+    }
+    export function buildUseDayHoursChanges(input: {
+      readonly config: AvailabilityConfig;
+      readonly services: readonly DraftService[];
+      readonly dates: readonly string[];
+      readonly makeId: () => string;
+    }): AvailabilityConfigChanges {
+      const { config, services, dates, makeId } = input;
+      const own = ownSingleDateRules(config, dates);
+      const ownIds = new Set(own.map((r) => r.id));
+      // Hand the builder a config without the old rules so it writes fresh ones, then remove those.
+      const stripped = { ...config, dateRules: config.dateRules.filter((r) => !ownIds.has(r.id)) };
+      const built = buildDraftChanges({
+        config: stripped,
+        scope: { kind: "dates", dates },
+        services,
+        makeId,
+      });
+      return { upsert: built.upsert, remove: removal(own) };
     }
   </file>
   <file path="apps/hospitality/src/components/availability/selection.ts">
@@ -31271,6 +31351,18 @@
       "Only a Manager can do this. A Host may close the whole venue for tonight, and only when the venue allows it.";
   </file>
   <file path="services/reservations/src/routes/closure-post-commit.ts">
+    export async function publishClosureChanges(
+      fastify: FastifyInstance,
+      log: FastifyBaseLogger,
+      saved: { venueId: string; ruleId: string }
+    ): Promise<void> {
+      const { venueId, ruleId } = saved;
+      try {
+        await fastify.transitions.settleClosure(venueId, await loadClosureChanges(venueId, ruleId));
+      } catch (err) {
+        log.error({ err, venueId, ruleId }, "closure SSE events were not published");
+      }
+    }
     export async function enqueueNotices(
       enqueue: FastifyInstance["services"]["closureNoticeService"]["enqueueForClosure"],
       input: { venueId: string; ruleId: string },
@@ -31288,6 +31380,7 @@
       saved: { venueId: string; ruleId: string; cancelled: number }
     ): Promise<void> {
       const { venueId, ruleId, cancelled } = saved;
+      await publishClosureChanges(fastify, log, { venueId, ruleId });
       if (cancelled > 0) {
         try {
           await fastify.closureRefunds.enqueue(venueId, ruleId);
@@ -39274,6 +39367,8 @@
       /** `Venue.availabilityVersion`; send it back as `expectedVersion`. */
       version: z.number().int(),
       source: AvailabilityConfigSourceSchema,
+      /** `rows` the backfill wrote that no one has saved over yet (F11's "carried over" banner); absent otherwise. */
+      migrated: z.literal(true).optional(),
       /** `legacy` only: days the lenient reader closed, and values it coerced. */
       legacyNotes: z
         .object({ unreadableDays: z.array(z.string()), coercions: z.array(z.string()) })
@@ -45068,6 +45163,13 @@
   </file>
   <file path="services/reservations/src/services/availability-changes.ts">
     export const REVERT_KIND = "revert";
+    function dayStart(d: string, timezone: string): Date {
+      return (
+        serviceDayInstant(d, 0, timezone) ??
+        serviceDayInstant(d, 60, timezone) ??
+        new Date(`${d}T00:00:00.000Z`)
+      );
+    }
     function outcomeOf(kind: string, inverse: unknown): AvailabilityChangeOutcome | null {
       if (kind !== "closure") return null;
       const meta = (inverse as { closure?: { outcome?: AvailabilityChangeOutcome } } | null)?.closure;
@@ -45075,7 +45177,8 @@
     }
     function whereOf(
       venueId: string,
-      query: AvailabilityChangesParsed
+      query: AvailabilityChangesParsed,
+      timezone: string
     ): Prisma.AvailabilityChangeWhereInput {
       return {
         venueId,
@@ -45084,8 +45187,8 @@
         ...(query.from || query.to
           ? {
               at: {
-                ...(query.from ? { gte: dayStart(query.from) } : {}),
-                ...(query.to ? { lt: dayStart(addDays(query.to, 1)) } : {}),
+                ...(query.from ? { gte: dayStart(query.from, timezone) } : {}),
+                ...(query.to ? { lt: dayStart(addDays(query.to, 1), timezone) } : {}),
               },
             }
           : {}),
@@ -45107,9 +45210,12 @@
       return client.$transaction(async (tx) => {
         await setVenueContext(tx, venueId);
         const db = tx as unknown as StoreTx;
-        const venue = await db.venue.findUnique({ where: { id: venueId }, select: { id: true } });
+        const venue = await db.venue.findUnique({
+          where: { id: venueId },
+          select: { id: true, ianaTimezone: true },
+        });
         if (!venue) return null;
-        const where = whereOf(venueId, query);
+        const where = whereOf(venueId, query, venue.ianaTimezone);
         const [rows, total, newest] = await Promise.all([
           db.availabilityChange.findMany({
             where,
@@ -45903,6 +46009,13 @@
         return loadConfigState(tx, venueId, now);
       });
     }
+    async function isCarriedOver(db: StoreDb, venueId: string): Promise<boolean> {
+      const saved = await db.availabilityChange.findFirst({
+        where: { venueId },
+        select: { id: true },
+      });
+      return saved === null;
+    }
     export async function getAvailabilityConfig(
       venueId: string,
       now: Date,
@@ -45911,16 +46024,24 @@
       config: AvailabilityConfig;
       version: number;
       source: AvailabilityConfigSource;
+      migrated?: true;
       legacyNotes?: LegacyNotes;
       legacyProblem?: { reason: string; detail: string };
     } | null> {
-      const state = await readState(client, venueId, now);
+      const read = await client.$transaction(async (tx) => {
+        await setVenueContext(tx, venueId);
+        const loaded = await loadConfigState(tx, venueId, now);
+        const migrated = loaded?.source === "rows" && (await isCarriedOver(tx, venueId));
+        return { loaded, migrated };
+      });
+      const state = read.loaded;
       if (!state) return null;
       const { effective: config, version, source, legacyNotes, legacyProblem } = state;
       return {
         config,
         version,
         source,
+        ...(read.migrated ? { migrated: true as const } : {}),
         ...(legacyNotes ? { legacyNotes } : {}),
         ...(legacyProblem ? { legacyProblem } : {}),
       };
@@ -47552,6 +47673,8 @@
       reservationId: string;
       action: ClosureAction;
       movedTo: Date | null;
+      /** The start the impact was computed from; a booking a staff edit moved since is not ours to touch. */
+      expectedStartTime: Date;
     }
     export type ApplyResult =
       | { kind: "ok" }
@@ -47570,7 +47693,8 @@
       tx: Tx,
       venueId: string,
       actorId: string,
-      r: Existing
+      r: Existing,
+      expectedStartTime: Date
     ): Promise<ApplyResult> {
       try {
         transitionReservation(r.status as never, "CANCELLED");
@@ -47581,7 +47705,7 @@
         throw error;
       }
       const { count } = await tx.reservation.updateMany({
-        where: { id: r.id, venueId, status: r.status as never },
+        where: { id: r.id, venueId, status: r.status as never, startTime: expectedStartTime },
         data: {
           status: "CANCELLED",
           cancellationReason: "venue_closure",
@@ -47637,12 +47761,13 @@
       venueId: string,
       actorId: string,
       r: Existing,
-      startTime: Date
+      startTime: Date,
+      expectedStartTime: Date
     ): Promise<boolean> {
       const endTime = new Date(startTime.getTime() + (r.endTime.getTime() - r.startTime.getTime()));
       if (r.tableId && (await targetTaken(tx, venueId, r, startTime, endTime))) return false;
       const { count } = await tx.reservation.updateMany({
-        where: { id: r.id, venueId, status: r.status as never },
+        where: { id: r.id, venueId, status: r.status as never, startTime: expectedStartTime },
         data: { startTime, endTime },
       });
       if (count === 0) return false;
@@ -47685,15 +47810,34 @@
         const r = byId.get(p.reservationId);
         if (!r) continue;
         if (p.action === "cancel") {
-          const result = await cancelInTx(tx, venueId, actorId, r);
+          const result = await cancelInTx(tx, venueId, actorId, r, p.expectedStartTime);
           if (result.kind !== "ok") return result;
-        } else if (!(await moveInTx(tx, venueId, actorId, r, p.movedTo as Date))) {
+        } else if (!(await moveInTx(tx, venueId, actorId, r, p.movedTo as Date, p.expectedStartTime))) {
           conflicts.push(r.id);
         }
       }
       return conflicts.length > 0
         ? { kind: "move_conflict", reservationIds: conflicts }
         : { kind: "ok" };
+    }
+  </file>
+  <file path="services/reservations/src/services/closure-changes.ts">
+    export interface ClosureChanges {
+      cancelled: Reservation[];
+      moved: Reservation[];
+    }
+    export async function loadClosureChanges(venueId: string, ruleId: string): Promise<ClosureChanges> {
+      const outcomes = await runWithVenueContext(venueId, () =>
+        prisma.closureOutcome.findMany({
+          where: { venueId, dateRuleId: ruleId, action: { in: ["cancel", "move"] } },
+          select: { action: true, reservation: { include: { table: true } } },
+        })
+      );
+      const pick = (action: string, cancelled: boolean): Reservation[] =>
+        outcomes
+          .filter((o) => o.action === action && (o.reservation.status === "CANCELLED") === cancelled)
+          .map((o) => toReservation(o.reservation));
+      return { cancelled: pick("cancel", true), moved: pick("move", false) };
     }
   </file>
   <file path="services/reservations/src/services/closure-command-plan.ts">
@@ -48051,6 +48195,8 @@
       rows: Prisma.ClosureOutcomeCreateManyInput[];
       counts: Record<ClosureAction, number>;
       notifiedGuests: boolean;
+      /** Each reservation's start when the impact was computed, for the apply step's CAS. */
+      starts: ReadonlyMap<string, Date>;
     }
     function planOutcomes(
       venueId: string,
@@ -48065,11 +48211,13 @@
       const after = { timezone: state.timezone, config: withClosure(state.effective, rule, alongside) };
       const rows: Prisma.ClosureOutcomeCreateManyInput[] = [];
       const stuck: string[] = [];
+      const starts = new Map<string, Date>();
       for (const group of impact.groups) {
         const action = actions.get(group.groupKey)!.action; // checkDecisions answered every group
         for (const r of group.reservations) {
           const target = action === "move" ? moveTarget(after, group.date, r, now) : null;
           if (action === "move" && !target) stuck.push(r.id);
+          starts.set(r.id, new Date(r.startTime));
           rows.push({
             venueId,
             dateRuleId: rule.id,
@@ -48085,7 +48233,7 @@
       const counts = { cancel: 0, move: 0, keep_notify: 0, keep_silent: 0 };
       for (const row of rows) counts[row.action] += 1;
       const notifiedGuests = [...actions.values()].some((d) => d.action !== "keep_silent");
-      return { rows, counts, notifiedGuests };
+      return { rows, counts, notifiedGuests, starts };
     }
     function describe(rule: DateRule, counts: Record<ClosureAction, number>): string {
       const span =
@@ -48258,6 +48406,7 @@
           reservationId: r.reservationId,
           action: r.action,
           movedTo: r.movedTo as Date | null,
+          expectedStartTime: plan.starts.get(r.reservationId) as Date,
         }))
       );
       if (applied.kind === "move_conflict") {
@@ -55652,6 +55801,12 @@
           };
         }
     
+        // A cancelled (e.g. by a venue closure) or no-show booking holds no slot:
+        // a time/table edit would resurrect its window under a dead status.
+        if (isSlotMove(data) && NOT_BOOKED_STATUSES.includes(existing.status)) {
+          return { success: false, error: CHANGED_MEANWHILE, conflict: { hasConflict: true } };
+        }
+    
         // A move onto another venue's table is refused before the capacity and
         // conflict checks, either of which would reveal that table's size or
         // bookings. (A reservation with no venueId never reaches this through a
@@ -55774,7 +55929,10 @@
           write: async (tx, gated) => {
             try {
               const moved = await tx.reservation.update({
-                where: { id },
+                // Status + start CAS: a closure that cancelled or moved this booking
+                // since `existing` was read makes this miss (P2025 -> null below)
+                // instead of overwriting the closure's outcome.
+                where: { id, status: existing.status, startTime: existing.startTime },
                 // A re-judged slot replaces any earlier override: it stays only if
                 // this move needed one.
                 data: {
@@ -55804,7 +55962,8 @@
         if (!result.ok) return staffSlotFailure(result.conflict);
     
         if (!result.value) {
-          return { success: false, error: "Failed to update reservation" };
+          // The status/start CAS missed (or the row vanished): a closure or another edit got there first.
+          return { success: false, error: CHANGED_MEANWHILE, conflict: { hasConflict: true } };
         }
     
         return { success: true, reservation: toReservation(result.value) };
@@ -80851,6 +81010,15 @@
         userId?: string,
         actor?: ReservationEventActor
       ): Promise<CreateReservationResult>;
+      /**
+       * Post-commit effects of a venue closure: a cancelled event (reminders cancelled) per cancelled
+       * booking, an updated event (reminders re-timed) per moved one. No guest message: closure
+       * notices own that (#7523). Call only after the closure's transaction has committed.
+       */
+      settleClosure(
+        venueId: string,
+        changed: { cancelled: readonly Reservation[]; moved: readonly Reservation[] }
+      ): Promise<void>;
       /** No-op unless the reservation is PENDING (the guard moved here from the route). */
       confirmAttendance(reservation: Reservation, actor?: ReservationEventActor): Promise<void>;
     }
@@ -80984,6 +81152,15 @@
           return result;
         },
     
+        async settleClosure(venueId, changed) {
+          for (const updated of changed.cancelled) {
+            await settle({ kind: "closure-cancelled", updated }, venueId);
+          }
+          for (const after of changed.moved) {
+            await settle({ kind: "closure-moved", after }, venueId);
+          }
+        },
+    
         async confirmAttendance(reservation, actor) {
           if (reservation.status !== "PENDING") return;
           const updated = await reservationService.update(
@@ -81038,7 +81215,11 @@
           reservation: Reservation;
           table?: Table;
         }
-      | { kind: "attendance-confirmed"; reservation: Reservation };
+      | { kind: "attendance-confirmed"; reservation: Reservation }
+      /** A venue closure cancelled the booking: guests hear through closure notices, not the cancel email. */
+      | { kind: "closure-cancelled"; updated: Reservation }
+      /** A venue closure moved the booking to a new start. */
+      | { kind: "closure-moved"; after: Reservation };
     export function reminderJobId(jobType: string, reservationId: string): string {
       return `${jobType}_${reservationId}`;
     }
@@ -81190,6 +81371,20 @@
     
         case "attendance-confirmed":
           return [live(reservationEvent("reservation:updated", fact.reservation))];
+    
+        case "closure-cancelled":
+          return [
+            ...cancelReminders(fact.updated.id).map((op) => awaited(job(op), "log")),
+            live(reservationEvent("reservation:cancelled", fact.updated)),
+          ];
+    
+        case "closure-moved":
+          return [
+            ...reminderOps(fact.after, now, "replace-if-present").map((op) =>
+              background(job(op), "log")
+            ),
+            live(reservationEvent("reservation:updated", fact.after)),
+          ];
       }
     }
     export function planEffects(

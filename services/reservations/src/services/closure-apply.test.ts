@@ -53,10 +53,13 @@ type Tx = ReturnType<typeof makeTx>;
 const apply = (tx: Tx, planned: PlannedTransition[]) =>
   applyTransitions(tx as never, VENUE, ACTOR, planned);
 
+const EXPECTED_START = new Date("2026-11-01T18:00:00Z");
+
 const cancel = (reservationId: string): PlannedTransition => ({
   reservationId,
   action: "cancel",
   movedTo: null,
+  expectedStartTime: EXPECTED_START,
 });
 const move = (
   reservationId: string,
@@ -65,6 +68,7 @@ const move = (
   reservationId,
   action: "move",
   movedTo,
+  expectedStartTime: EXPECTED_START,
 });
 
 describe("applyTransitions", () => {
@@ -74,7 +78,14 @@ describe("applyTransitions", () => {
 
   it("returns ok without touching tx when nothing is cancelled or moved", async () => {
     const tx = makeTx([]);
-    const result = await apply(tx, [{ reservationId: "r1", action: "keep_silent", movedTo: null }]);
+    const result = await apply(tx, [
+      {
+        reservationId: "r1",
+        action: "keep_silent",
+        movedTo: null,
+        expectedStartTime: EXPECTED_START,
+      },
+    ]);
     expect(result).toEqual({ kind: "ok" });
     expect(tx.reservation.findMany).not.toHaveBeenCalled();
     expect(tx.reservation.updateMany).not.toHaveBeenCalled();
@@ -88,7 +99,7 @@ describe("applyTransitions", () => {
       const result = await apply(tx, [cancel("r1")]);
       expect(result).toEqual({ kind: "ok" });
       expect(tx.reservation.updateMany).toHaveBeenCalledWith({
-        where: { id: "r1", venueId: VENUE, status: "CONFIRMED" },
+        where: { id: "r1", venueId: VENUE, status: "CONFIRMED", startTime: EXPECTED_START },
         data: expect.objectContaining({ status: "CANCELLED", cancellationReason: "venue_closure" }),
       });
       expect(recordReservationEvent).toHaveBeenCalledTimes(1);
@@ -150,7 +161,7 @@ describe("applyTransitions", () => {
         tx.reservation.findFirst.mock.invocationCallOrder[0]!
       );
       expect(tx.reservation.updateMany).toHaveBeenCalledWith({
-        where: { id: "r1", venueId: VENUE, status: "CONFIRMED" },
+        where: { id: "r1", venueId: VENUE, status: "CONFIRMED", startTime: EXPECTED_START },
         data: { startTime: to, endTime: new Date("2026-11-01T21:30:00Z") },
       });
       expect(recordReservationEvent).toHaveBeenCalledWith(
@@ -218,5 +229,82 @@ describe("applyTransitions", () => {
       expect(tx.reservation.updateMany).toHaveBeenCalledTimes(1);
       expect(tx.reservation.updateMany.mock.calls[0]![0].where.id).toBe("r2");
     });
+  });
+});
+
+const PLANNED_START = new Date("2030-06-04T21:30:00.000Z");
+const STAFF_MOVED_START = new Date("2030-06-04T19:00:00.000Z");
+
+/** A reservation row as the closure tx reads it. */
+const raceRow = (startTime: Date) => ({
+  id: "res-1",
+  status: "CONFIRMED",
+  tableId: "table-1",
+  date: new Date("2030-06-04T00:00:00.000Z"),
+  startTime,
+  endTime: new Date(startTime.getTime() + 2 * 60 * 60 * 1000),
+  partySize: 2,
+});
+
+/**
+ * A DB whose updateMany honours the `startTime` filter, so a booking a staff edit moved
+ * after the impact was computed no longer matches the planned start.
+ */
+function makeRaceTx(current: ReturnType<typeof raceRow>) {
+  return {
+    $executeRaw: vi.fn().mockResolvedValue(0),
+    reservation: {
+      findMany: vi.fn().mockResolvedValue([current]),
+      findFirst: vi.fn().mockResolvedValue(null),
+      updateMany: vi.fn(async ({ where }: { where: { startTime?: Date } }) => ({
+        count: where.startTime && where.startTime.getTime() !== current.startTime.getTime() ? 0 : 1,
+      })),
+    },
+    reservationHold: { findFirst: vi.fn().mockResolvedValue(null) },
+    reservationEvent: { create: vi.fn().mockResolvedValue(undefined) },
+  };
+}
+
+describe("applyTransitions: a staff edit that moved the booking after the impact was computed", () => {
+  it("refuses to cancel it and writes no event", async () => {
+    const tx = makeRaceTx(raceRow(STAFF_MOVED_START));
+
+    const result = await applyTransitions(tx as never, "venue-1", "actor-1", [
+      { reservationId: "res-1", action: "cancel", movedTo: null, expectedStartTime: PLANNED_START },
+    ]);
+
+    expect(result).toMatchObject({ kind: "cannot_cancel", reservationId: "res-1" });
+    expect(tx.reservation.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: "res-1", startTime: PLANNED_START }),
+      })
+    );
+    expect(recordReservationEvent).not.toHaveBeenCalled();
+  });
+
+  it("reports a move conflict instead of overwriting the staff's new time", async () => {
+    const tx = makeRaceTx(raceRow(STAFF_MOVED_START));
+
+    const result = await applyTransitions(tx as never, "venue-1", "actor-1", [
+      {
+        reservationId: "res-1",
+        action: "move",
+        movedTo: new Date("2030-06-04T20:00:00.000Z"),
+        expectedStartTime: PLANNED_START,
+      },
+    ]);
+
+    expect(result).toEqual({ kind: "move_conflict", reservationIds: ["res-1"] });
+    expect(recordReservationEvent).not.toHaveBeenCalled();
+  });
+
+  it("still cancels a booking that has not moved", async () => {
+    const tx = makeRaceTx(raceRow(PLANNED_START));
+
+    const result = await applyTransitions(tx as never, "venue-1", "actor-1", [
+      { reservationId: "res-1", action: "cancel", movedTo: null, expectedStartTime: PLANNED_START },
+    ]);
+
+    expect(result).toEqual({ kind: "ok" });
   });
 });

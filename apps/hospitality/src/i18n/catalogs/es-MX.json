@@ -1945,6 +1945,7 @@
         "close_after_open": "El cierre debe ser distinto de la apertura.",
         "last_seating_after_close": "La última mesa debe ser antes del cierre.",
         "span_too_long": "Un servicio que pasa de la medianoche puede durar como máximo 16 horas.",
+        "legacy_closed_day": "Un día de exactamente 24 horas, o un servicio más corto que la ventana de 90 minutos de última sentada, dejaría el local como cerrado. Ajusta los horarios.",
         "name_too_long": "Usa 40 caracteres o menos para el nombre del servicio.",
         "overlap": "Este servicio se traslapa con otro.",
         "days_required": "Elige al menos un día."
@@ -2095,6 +2096,12 @@
       "removed": "{{time}} quitado",
       "slow": "La vista previa tarda más de lo normal",
       "unavailable": "Vista previa no disponible",
+      "noTimes": "No hay horarios en esta fecha",
+      "date": "Fecha de la vista previa",
+      "summaryAffected": "{{summary}} · {{affected}}",
+      "affectedCount_one": "{{count}} reservación afectada",
+      "affectedCount_many": "{{count}} reservaciones afectadas",
+      "affectedCount_other": "{{count}} reservaciones afectadas",
       "unavailableHelp": "Aún puedes guardar; la revisión de reservaciones se vuelve a hacer al guardar.",
       "retry": "Reintentar",
       "stranded_one": "{{count}} reservación quedaría fuera de este horario",
@@ -2272,7 +2279,34 @@
       "clear": "Borrar selección",
       "selectMenu": "Seleccionar…",
       "weekdayInMonth": "Cada {{weekday}} de {{month}}",
-      "usingSchedule": "Todas las fechas con {{schedule}}"
+      "usingSchedule": "Todas las fechas con {{schedule}}",
+      "useSchedule": "Usar horario",
+      "useOtherDay": "Usar el horario de otro día",
+      "clearChanges": "Borrar cambios",
+      "use": {
+        "titleSchedule": "Usar un horario en las fechas seleccionadas",
+        "titleDay": "Usar el horario de otro día",
+        "schedule": "Horario",
+        "from": "Copiar el horario de",
+        "cancel": "Cancelar",
+        "save_one": "Aplicar a {{count}} fecha",
+        "save_other": "Aplicar a {{count}} fechas",
+        "save_many": "Aplicar a {{count}} fechas",
+        "saved_one": "{{count}} fecha actualizada",
+        "saved_other": "{{count}} fechas actualizadas",
+        "saved_many": "{{count}} fechas actualizadas"
+      },
+      "clearDialog": {
+        "title_one": "¿Borrar los cambios de {{count}} fecha?",
+        "title_other": "¿Borrar los cambios de {{count}} fechas?",
+        "title_many": "¿Borrar los cambios de {{count}} fechas?",
+        "description": "Estas fechas vuelven a seguir su horario. Puedes deshacerlo de inmediato.",
+        "confirm": "Borrar cambios",
+        "keep": "Conservar cambios",
+        "saved_one": "Se borraron los cambios de {{count}} fecha",
+        "saved_other": "Se borraron los cambios de {{count}} fechas",
+        "saved_many": "Se borraron los cambios de {{count}} fechas"
+      }
     },
     "tonight": {
       "title": "Esta noche",

@@ -107,6 +107,28 @@ describe("reservation transitions — verbs", () => {
     expect(events.published.map((e) => e.type)).toEqual(["reservation:cancelled"]);
   });
 
+  it("settleClosure: one cancelled event per cancel, one updated event per move, reminders re-timed, no guest message", async () => {
+    const { transitions, messaging, events, jobs } = setup();
+    const moved = { ...reservation, id: "res-2", startTime: "2030-06-05T12:00:00.000Z" };
+    await transitions.settleClosure("venue-1", {
+      cancelled: [cancelled, { ...cancelled, id: "res-3" }],
+      moved: [moved],
+    });
+    expect(events.published.map((e) => e.type)).toEqual([
+      "reservation:cancelled",
+      "reservation:cancelled",
+      "reservation:updated",
+    ]);
+    expect(messaging.sent).toEqual([]);
+    expect(jobs.jobs.has("booking-reminder_res-2")).toBe(false);
+  });
+
+  it("settleClosure: publishes nothing when there is nothing to publish", async () => {
+    const { transitions, events } = setup();
+    await transitions.settleClosure("venue-1", { cancelled: [], moved: [] });
+    expect(events.published).toEqual([]);
+  });
+
   it("a domain failure runs no effects", async () => {
     const { transitions, messaging, events, jobs } = setup();
     const failure = { success: false as const, status: 500, title: "x", detail: "y" };

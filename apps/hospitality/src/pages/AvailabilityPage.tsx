@@ -33,6 +33,9 @@ import {
   visibleDates,
   type CalendarView,
 } from "../components/availability/calendar-dates.js";
+import { ClearChangesDialog } from "../components/availability/ClearChangesDialog.js";
+import { UseScheduleDialog } from "../components/availability/UseScheduleDialog.js";
+import { ownSingleDateRules } from "../components/availability/selection-actions.js";
 import { CloseDialog } from "../components/availability/CloseDialog.js";
 import { activeOnlinePause } from "../components/availability/close-draft.js";
 import { OnlinePausedBanner } from "../components/availability/OnlinePausedBanner.js";
@@ -85,6 +88,7 @@ export function AvailabilityPage() {
   const [closing, setClosing] = useState<Closing | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [tab, setTab] = useState<AvailabilityTab>("calendar");
+  const [selectionAction, setSelectionAction] = useState<"use" | "clear" | null>(null);
   const anchor = chosenAnchor ?? today;
   // Picked days belong to one venue; derive "none" on a venue switch rather than clearing in an effect.
   const [picked, setPicked] = useState<{ venueId: string | null; dates: string[] }>({
@@ -231,6 +235,13 @@ export function AvailabilityPage() {
   }
 
   const isManager = team?.viewerRole === "manager";
+  const activeScheduleCount =
+    config.data?.config.schedules.filter((s) => !s.archivedAt).length ?? 0;
+  const ownChangeCount = config.data ? ownSingleDateRules(config.data.config, selection).length : 0;
+  const finishSelectionAction = () => {
+    setSelectionAction(null);
+    setSelection([]);
+  };
   const pause = config.data
     ? activeOnlinePause(config.data.config.dateRules, today, minutesOfDayIn(now, timeZone))
     : null;
@@ -301,7 +312,7 @@ export function AvailabilityPage() {
           onChange={(id) => setView(id as CalendarView)}
         />
       </div>
-      {config.data?.source === "legacy" && (
+      {(config.data?.source === "legacy" || config.data?.migrated) && (
         <AvailabilityMigrationBanner key={selectedVenueId} venueId={selectedVenueId} />
       )}
       {pause && (
@@ -317,10 +328,37 @@ export function AvailabilityPage() {
       )}
       <AvailabilitySelectionBar
         selection={selection}
-        canEdit={team?.viewerRole === "manager"}
+        canEdit={isManager}
         onEditHours={editSelection}
         onClear={() => setSelection([])}
+        onUseSchedule={() => setSelectionAction("use")}
+        multipleSchedules={activeScheduleCount > 1}
+        onClearChanges={() => setSelectionAction("clear")}
+        canClearChanges={ownChangeCount > 0}
       />
+      {selectionAction && config.data && selection.length > 0 && (
+        <>
+          <UseScheduleDialog
+            open={selectionAction === "use"}
+            venueId={selectedVenueId}
+            state={config.data}
+            timezone={timeZone}
+            dates={selection}
+            onClose={() => setSelectionAction(null)}
+            onFinished={finishSelectionAction}
+            onStale={() => void config.refetch()}
+          />
+          <ClearChangesDialog
+            open={selectionAction === "clear"}
+            venueId={selectedVenueId}
+            state={config.data}
+            dates={selection}
+            onClose={() => setSelectionAction(null)}
+            onFinished={finishSelectionAction}
+            onStale={() => void config.refetch()}
+          />
+        </>
+      )}
       <AvailabilityCalendar
         view={view}
         anchor={anchor}

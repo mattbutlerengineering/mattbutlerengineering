@@ -79,6 +79,13 @@ function tree(changes: AvailabilityConfigChanges, dates: string[] = [FOCUS]) {
   );
 }
 
+/** The preview's polite live region (not `role="status"`, which the selection bar owns on the page). */
+function liveRegion(): HTMLElement {
+  const region = document.querySelector<HTMLElement>("[aria-live=polite]");
+  if (!region) throw new Error("no live region");
+  return region;
+}
+
 /** Waits out the debounce; results are then awaited with findBy. */
 async function settle() {
   await act(async () => {
@@ -176,6 +183,102 @@ describe("AvailabilityGuestPreview", () => {
     expect(await screen.findByText(/Fri, Oct 30.*10:30 PM.*party of 4/)).toBeInTheDocument();
     expect(await screen.findByText(/Fri, Nov 6.*10:45 PM.*party of 2/)).toBeInTheDocument();
     expect(await screen.findByText("plus 6 more on later dates in scope")).toBeInTheDocument();
+  });
+
+  it("says there are no times on the date, with the reason, when the draft leaves no service", async () => {
+    previewConfig.mockResolvedValue(
+      result({
+        days: [{ serviceDate: FOCUS, added: [], removed: [1185, 1200] }],
+        focusDay: { ...result().focusDay, label: "Closed", serviceCount: 0, services: [] },
+      })
+    );
+    render(tree(CHANGES_A));
+    await settle();
+    expect(await screen.findByText("No times on this date")).toBeInTheDocument();
+    expect(screen.getByText("Closed")).toBeInTheDocument();
+    expect(screen.getByText("0 times added · 2 removed")).toBeInTheDocument();
+  });
+
+  it("keeps the live region mounted so the first result and errors are announced", async () => {
+    render(tree(CHANGES_A));
+    const region = liveRegion();
+    expect(region).toBeInTheDocument();
+    await settle();
+    expect(await screen.findByText("3 times added · 2 removed")).toBeInTheDocument();
+    expect(liveRegion()).toBe(region);
+    expect(region).toHaveTextContent("3 times added · 2 removed");
+  });
+
+  it("puts the slow message in the live region", async () => {
+    previewConfig.mockRejectedValue(timeout());
+    render(tree(CHANGES_A));
+    await settle();
+    expect(await screen.findByText("Preview is taking longer than usual")).toBeInTheDocument();
+    expect(liveRegion()).toHaveTextContent("Preview is taking longer than usual");
+  });
+
+  it("adds how many reservations are affected to the summary", async () => {
+    previewConfig.mockResolvedValue(
+      result({
+        stranded: {
+          total: 2,
+          offset: 0,
+          items: [
+            { id: "r1", startTime: "2026-10-31T05:30:00.000Z", partySize: 4, reason: "closed" },
+            { id: "r2", startTime: "2026-10-31T06:30:00.000Z", partySize: 2, reason: "closed" },
+          ],
+        },
+      })
+    );
+    render(tree(CHANGES_A));
+    await settle();
+    expect(
+      await screen.findByText("3 times added · 2 removed · 2 reservations affected")
+    ).toBeInTheDocument();
+  });
+
+  it("lets staff move the preview to another date in scope", async () => {
+    render(tree(CHANGES_A, [FOCUS, "2026-10-31", "2026-11-01"]));
+    await settle();
+    await screen.findByText("3 times added · 2 removed");
+    const group = screen.getByRole("radiogroup", { name: "Preview date" });
+    expect(group).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: /31/ }));
+    await settle();
+    expect(previewConfig).toHaveBeenLastCalledWith(
+      "venue-1",
+      expect.objectContaining({ focusDate: "2026-10-31" })
+    );
+  });
+
+  it("keeps showing the date a result was computed for until the picked date's result lands", async () => {
+    render(tree(CHANGES_A, [FOCUS, "2026-10-31"]));
+    await settle();
+    await screen.findByText("3 times added · 2 removed");
+    let resolveNext: (value: PreviewResult) => void = () => undefined;
+    previewConfig.mockImplementation(
+      () => new Promise<PreviewResult>((resolve) => (resolveNext = resolve))
+    );
+    fireEvent.click(screen.getByRole("radio", { name: /31/ }));
+    await settle();
+    expect(previewConfig).toHaveBeenCalledTimes(2);
+    // The old result is for Oct 30; it must not be read against Oct 31.
+    expect(liveRegion()).toHaveTextContent("3 times added · 2 removed");
+    expect(liveRegion()).not.toHaveTextContent("0 times added");
+    expect(screen.getByText("7:45 PM added")).toBeInTheDocument();
+    const next = result({
+      days: [{ serviceDate: "2026-10-31", added: [], removed: [1350] }],
+      focusDay: { ...result().focusDay, serviceDate: "2026-10-31" },
+    });
+    await act(async () => resolveNext(next));
+    expect(await screen.findByText("0 times added · 1 removed")).toBeInTheDocument();
+  });
+
+  it("shows no date strip for a one-date scope", async () => {
+    render(tree(CHANGES_A));
+    await settle();
+    await screen.findByText("3 times added · 2 removed");
+    expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
   });
 
   it("has no axe violations", async () => {

@@ -117,6 +117,15 @@ export interface ReservationTransitions {
     userId?: string,
     actor?: ReservationEventActor
   ): Promise<CreateReservationResult>;
+  /**
+   * Post-commit effects of a venue closure: a cancelled event (reminders cancelled) per cancelled
+   * booking, an updated event (reminders re-timed) per moved one. No guest message: closure
+   * notices own that (#7523). Call only after the closure's transaction has committed.
+   */
+  settleClosure(
+    venueId: string,
+    changed: { cancelled: readonly Reservation[]; moved: readonly Reservation[] }
+  ): Promise<void>;
   /** No-op unless the reservation is PENDING (the guard moved here from the route). */
   confirmAttendance(reservation: Reservation, actor?: ReservationEventActor): Promise<void>;
 }
@@ -249,6 +258,15 @@ export function createReservationTransitions(
         );
       }
       return result;
+    },
+
+    async settleClosure(venueId, changed) {
+      for (const updated of changed.cancelled) {
+        await settle({ kind: "closure-cancelled", updated }, venueId);
+      }
+      for (const after of changed.moved) {
+        await settle({ kind: "closure-moved", after }, venueId);
+      }
     },
 
     async confirmAttendance(reservation, actor) {

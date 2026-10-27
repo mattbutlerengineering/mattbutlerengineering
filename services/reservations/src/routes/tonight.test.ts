@@ -109,6 +109,34 @@ describe("tonight routes", () => {
         expect(noticeSvc.enqueueForClosure).not.toHaveBeenCalled();
       });
 
+      it("enqueues notices but no refunds when a close-early cancels nothing", async () => {
+        const notifyOnly = {
+          ...RESULT,
+          outcomes: { cancel: 0, move: 0, keep_notify: 1, keep_silent: 0 },
+        };
+        tonightSvc.set.mockResolvedValueOnce({ kind: "saved", result: notifyOnly });
+
+        await post(CLOSE_BODY);
+
+        expect(closureRefunds.enqueue).not.toHaveBeenCalled();
+        expect(noticeSvc.enqueueForClosure).toHaveBeenCalledWith(
+          expect.objectContaining({ venueId: "venue-1", ruleId: "t-new" })
+        );
+      });
+
+      it.each([
+        [{ kind: "decision_required", groupKeys: ["g"] }, 422],
+        [{ kind: "version_conflict", winningChange: null }, 409],
+        [{ kind: "rule_exists" }, 409],
+      ])("enqueues nothing when a close-early is refused: %j", async (outcome, status) => {
+        tonightSvc.set.mockResolvedValueOnce(outcome);
+
+        expect((await post(CLOSE_BODY)).statusCode).toBe(status);
+
+        expect(closureRefunds.enqueue).not.toHaveBeenCalled();
+        expect(noticeSvc.enqueueForClosure).not.toHaveBeenCalled();
+      });
+
       it("enqueues nothing for other Tonight kinds", async () => {
         tonightSvc.set.mockResolvedValueOnce({ kind: "saved", result: WITH_OUTCOMES });
 

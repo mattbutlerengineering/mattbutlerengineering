@@ -1945,6 +1945,7 @@
         "close_after_open": "La fermeture doit être différente de l'ouverture.",
         "last_seating_after_close": "La dernière table doit précéder la fermeture.",
         "span_too_long": "Un service qui dépasse minuit peut durer au plus 16 heures.",
+        "legacy_closed_day": "Une journée d’exactement 24 heures, ou un service plus court que la fenêtre de 90 minutes de dernière assise, afficherait le lieu comme fermé. Ajustez les heures.",
         "name_too_long": "Utilisez 40 caractères ou moins pour le nom du service.",
         "overlap": "Ce service chevauche un autre service.",
         "days_required": "Choisissez au moins un jour."
@@ -2095,6 +2096,12 @@
       "removed": "{{time}} retirée",
       "slow": "L’aperçu prend plus de temps que d’habitude",
       "unavailable": "Aperçu indisponible",
+      "noTimes": "Aucune heure à cette date",
+      "date": "Date de l’aperçu",
+      "summaryAffected": "{{summary}} · {{affected}}",
+      "affectedCount_one": "{{count}} réservation touchée",
+      "affectedCount_many": "{{count}} réservations touchées",
+      "affectedCount_other": "{{count}} réservations touchées",
       "unavailableHelp": "Vous pouvez quand même enregistrer; la vérification des réservations est refaite à ce moment.",
       "retry": "Réessayer",
       "stranded_one": "{{count}} réservation serait hors de ces heures",
@@ -2272,7 +2279,34 @@
       "clear": "Effacer la sélection",
       "selectMenu": "Sélectionner…",
       "weekdayInMonth": "Chaque {{weekday}} de {{month}}",
-      "usingSchedule": "Toutes les dates avec {{schedule}}"
+      "usingSchedule": "Toutes les dates avec {{schedule}}",
+      "useSchedule": "Utiliser un horaire",
+      "useOtherDay": "Utiliser les heures d’un autre jour",
+      "clearChanges": "Effacer les modifications",
+      "use": {
+        "titleSchedule": "Utiliser un horaire pour les dates sélectionnées",
+        "titleDay": "Utiliser les heures d’un autre jour",
+        "schedule": "Horaire",
+        "from": "Copier les heures du",
+        "cancel": "Annuler",
+        "save_one": "Appliquer à {{count}} date",
+        "save_other": "Appliquer à {{count}} dates",
+        "save_many": "Appliquer à {{count}} dates",
+        "saved_one": "{{count}} date mise à jour",
+        "saved_other": "{{count}} dates mises à jour",
+        "saved_many": "{{count}} dates mises à jour"
+      },
+      "clearDialog": {
+        "title_one": "Effacer les modifications de {{count}} date ?",
+        "title_other": "Effacer les modifications de {{count}} dates ?",
+        "title_many": "Effacer les modifications de {{count}} dates ?",
+        "description": "Ces dates reprennent leur horaire habituel. Vous pouvez annuler tout de suite après.",
+        "confirm": "Effacer les modifications",
+        "keep": "Conserver les modifications",
+        "saved_one": "Modifications effacées pour {{count}} date",
+        "saved_other": "Modifications effacées pour {{count}} dates",
+        "saved_many": "Modifications effacées pour {{count}} dates"
+      }
     },
     "tonight": {
       "title": "Ce soir",

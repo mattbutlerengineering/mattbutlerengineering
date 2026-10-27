@@ -1074,6 +1074,7 @@
       | "close_after_open"
       | "last_seating_after_close"
       | "span_too_long"
+      | "legacy_closed_day"
       | "overlap"
       | "days_required";
     export interface QuickSetupIssue {
@@ -1133,7 +1134,10 @@
       if (service.opens === service.closes) return [at("closes", "close_after_open")];
       return m.lastSeatingAt > m.closesAt ? [at("lastSeating", "last_seating_after_close")] : [];
     }
-    export function validateDraft(draft: QuickSetupDraft): QuickSetupIssue[] {
+    export function validateDraft(
+      draft: QuickSetupDraft,
+      options: { readonly legacyReader?: boolean } = {}
+    ): QuickSetupIssue[] {
       const perService = draft.services.flatMap((service) => {
         const missing = completenessIssues(service);
         const minutes = minutesOf(service);
@@ -1151,9 +1155,9 @@
           const service = draft.services[index];
           return service ? [{ serviceId: service.id, field: "opens", code: "overlap" }] : [];
         });
-      return [...overlaps, ...spanIssues(draft), ...daysIssue];
+      return [...overlaps, ...spanIssues(draft, options.legacyReader === true), ...daysIssue];
     }
-    function spanIssues(draft: QuickSetupDraft): QuickSetupIssue[] {
+    function spanIssues(draft: QuickSetupDraft, legacyReader: boolean): QuickSetupIssue[] {
       const read = normalizeLegacyHours(draftToLegacyHours(draft));
       const tooLong =
         read.ok &&
@@ -1162,12 +1166,24 @@
             (w) => w.wrapped === true && w.close - w.open > MAX_PAST_MIDNIGHT_SPAN
           )
         );
-      if (!tooLong) return [];
+      const code: QuickSetupIssueCode | null = tooLong
+        ? "span_too_long"
+        : legacyReader && read.ok && hasClosedDay(draft, read.hours)
+          ? "legacy_closed_day"
+          : null;
+      if (code === null) return [];
       const latest = draft.services.reduce<{ id: string; closesAt: number } | null>((acc, s) => {
         const m = minutesOf(s);
         return m && (!acc || m.closesAt > acc.closesAt) ? { id: s.id, closesAt: m.closesAt } : acc;
       }, null);
-      return latest ? [{ serviceId: latest.id, field: "closes", code: "span_too_long" }] : [];
+      return latest ? [{ serviceId: latest.id, field: "closes", code }] : [];
+    }
+    function hasClosedDay(draft: QuickSetupDraft, hours: LegacyHours): boolean {
+      let n = 0;
+      const built = buildLegacyConfig({ hours, today: "1970-01-01", newId: () => `legacy-${++n}` });
+      if (!built.ok) return false;
+      const open = new Set(built.config.assignments.flatMap((a) => a.weekdays));
+      return draft.days.some((day) => !open.has(day));
     }
     export function draftToConfig(
       draft: QuickSetupDraft,
@@ -1888,6 +1904,70 @@
       return dates.filter((date) =>
         rules.some((rule) => coversDate(rule, date) && !skipped.has(`${rule.id}@${date}`))
       );
+    }
+  </file>
+  <file path="src/components/availability/selection-actions.ts">
+    export function ownSingleDateRules(
+      config: AvailabilityConfig,
+      dates: readonly string[]
+    ): DateRule[] {
+      const picked = new Set(dates);
+      return config.dateRules.filter(
+        (r) =>
+          (r.kind === "special_hours" || r.kind === "use_schedule") &&
+          r.targetKind === "venue" &&
+          r.endsOn === r.startsOn &&
+          picked.has(r.startsOn) &&
+          r.repeat == null &&
+          r.window == null &&
+          r.seriesId == null &&
+          r.bookingTypes == null &&
+          r.venueServiceId == null
+      );
+    }
+    export function buildClearChanges(
+      config: AvailabilityConfig,
+      dates: readonly string[]
+    ): AvailabilityConfigChanges {
+      return { upsert: {}, remove: removal(ownSingleDateRules(config, dates)) };
+    }
+    export function buildUseScheduleChanges(
+      config: AvailabilityConfig,
+      dates: readonly string[],
+      scheduleId: string,
+      makeId: () => string
+    ): AvailabilityConfigChanges {
+      const dateRules: DateRule[] = dates.map((date) => ({
+        id: makeId(),
+        kind: "use_schedule",
+        targetKind: "venue",
+        startsOn: date,
+        endsOn: date,
+        useScheduleId: scheduleId,
+      }));
+      return {
+        upsert: { dateRules },
+        remove: removal(ownSingleDateRules(config, dates)),
+      };
+    }
+    export function buildUseDayHoursChanges(input: {
+      readonly config: AvailabilityConfig;
+      readonly services: readonly DraftService[];
+      readonly dates: readonly string[];
+      readonly makeId: () => string;
+    }): AvailabilityConfigChanges {
+      const { config, services, dates, makeId } = input;
+      const own = ownSingleDateRules(config, dates);
+      const ownIds = new Set(own.map((r) => r.id));
+      // Hand the builder a config without the old rules so it writes fresh ones, then remove those.
+      const stripped = { ...config, dateRules: config.dateRules.filter((r) => !ownIds.has(r.id)) };
+      const built = buildDraftChanges({
+        config: stripped,
+        scope: { kind: "dates", dates },
+        services,
+        makeId,
+      });
+      return { upsert: built.upsert, remove: removal(own) };
     }
   </file>
   <file path="src/components/availability/selection.ts">

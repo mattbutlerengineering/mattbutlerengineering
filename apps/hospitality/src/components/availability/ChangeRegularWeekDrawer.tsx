@@ -1,15 +1,8 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Button,
-  DatePicker,
-  Drawer,
-  Input,
-  Stack,
-  Text,
-  useToast,
-} from "@mattbutlerengineering/rialto";
+import { Button, DatePicker, Drawer, Input, Stack, Text } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState, ScopeConflictMode } from "@mbe/types";
+import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { seedServices, type DraftService } from "./draft-changes.js";
 import {
@@ -45,7 +38,7 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
   const { config } = state;
   const { t } = useTranslation();
   const format = useVenueFormat();
-  const { toast } = useToast();
+  const offerUndo = useAvailabilityUndo();
   const saver = useScheduleSave(onStale);
 
   const regular = config.schedules.find((s) => s.isRegular && !s.archivedAt);
@@ -94,15 +87,16 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
       winner,
       makeId: () => crypto.randomUUID(),
     });
-    const ok = await saver.save(
+    const saved = await saver.save(
       venueId,
       state,
       changes,
       dates.length > 1 ? conflictMode : "replace"
     );
-    if (!ok) return;
-    toast({
-      variant: "success",
+    if (!saved) return;
+    offerUndo({
+      venueId,
+      saved,
       title: t("availabilitySchedules.regularWeek.saved", { name: trimmed, date: startText }),
     });
     onClose();

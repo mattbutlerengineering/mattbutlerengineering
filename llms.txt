@@ -1923,7 +1923,7 @@
       type QuickSetupField = "name" | "opens" | "lastSeating" | "closes";
     </item>
     <item priority="low">
-      type QuickSetupIssueCode = "name_required" | "name_too_long" | "time_required" | "close_after_open" | "last_seating_after_close" | "span_too_long" | "overlap" | "days_required";
+      type QuickSetupIssueCode = "name_required" | "name_too_long" | "time_required" | "close_after_open" | "last_seating_after_close" | "span_too_long" | "legacy_closed_day" | "overlap" | "days_required";
     </item>
     <item priority="low">
       interface QuickSetupIssue {
@@ -1949,10 +1949,16 @@
       function orderIssues(service: ServiceDraft, m: ServiceMinutes): QuickSetupIssue[] { /* ... */ }
     </item>
     <item priority="high">
-      export function validateDraft(draft: QuickSetupDraft): QuickSetupIssue[] { /* ... */ }
+      export function validateDraft(
+        draft: QuickSetupDraft,
+        options: { readonly legacyReader?: boolean } = {}
+      ): QuickSetupIssue[] { /* ... */ }
     </item>
     <item priority="medium">
-      function spanIssues(draft: QuickSetupDraft): QuickSetupIssue[] { /* ... */ }
+      function spanIssues(draft: QuickSetupDraft, legacyReader: boolean): QuickSetupIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function hasClosedDay(draft: QuickSetupDraft, hours: LegacyHours): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function draftToConfig(
@@ -2198,6 +2204,36 @@
         dates: readonly string[],
         ignoreRuleId: string | null
       ): string[] { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/selection-actions.ts">
+    <item priority="high">
+      export function ownSingleDateRules(
+        config: AvailabilityConfig,
+        dates: readonly string[]
+      ): DateRule[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildClearChanges(
+        config: AvailabilityConfig,
+        dates: readonly string[]
+      ): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildUseScheduleChanges(
+        config: AvailabilityConfig,
+        dates: readonly string[],
+        scheduleId: string,
+        makeId: () => string
+      ): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildUseDayHoursChanges(input: {
+        readonly config: AvailabilityConfig;
+        readonly services: readonly DraftService[];
+        readonly dates: readonly string[];
+        readonly makeId: () => string;
+      }): AvailabilityConfigChanges { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/selection.ts">
@@ -9932,6 +9968,13 @@
   </file>
   <file path="services/reservations/src/routes/closure-post-commit.ts">
     <item priority="high">
+      export async function publishClosureChanges(
+        fastify: FastifyInstance,
+        log: FastifyBaseLogger,
+        saved: { venueId: string; ruleId: string }
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
       export async function enqueueNotices(
         enqueue: FastifyInstance["services"]["closureNoticeService"]["enqueueForClosure"],
         input: { venueId: string; ruleId: string },
@@ -13322,12 +13365,16 @@
       export const REVERT_KIND: unknown;
     </item>
     <item priority="medium">
+      function dayStart(d: string, timezone: string): Date { /* ... */ }
+    </item>
+    <item priority="medium">
       function outcomeOf(kind: string, inverse: unknown): AvailabilityChangeOutcome | null { /* ... */ }
     </item>
     <item priority="medium">
       function whereOf(
         venueId: string,
-        query: AvailabilityChangesParsed
+        query: AvailabilityChangesParsed,
+        timezone: string
       ): Prisma.AvailabilityChangeWhereInput { /* ... */ }
     </item>
     <item priority="medium">
@@ -13632,6 +13679,9 @@
     <item priority="medium">
       function readState(client: StoreClient, venueId: string, now: Date): Promise<ConfigState | null> { /* ... */ }
     </item>
+    <item priority="low">
+      async function isCarriedOver(db: StoreDb, venueId: string): Promise<boolean> { /* ... */ }
+    </item>
     <item priority="high">
       export async function getAvailabilityConfig(
         venueId: string,
@@ -13641,6 +13691,7 @@
         config: AvailabilityConfig;
         version: number;
         source: AvailabilityConfigSource;
+        migrated?: true;
         legacyNotes?: LegacyNotes;
         legacyProblem?: { reason: string; detail: string };
       } | null> { /* ... */ }
@@ -14230,6 +14281,7 @@
         reservationId: string;
         action: ClosureAction;
         movedTo: Date | null;
+        expectedStartTime: Date;
       }
     </item>
     <item priority="low">
@@ -14249,7 +14301,8 @@
         tx: Tx,
         venueId: string,
         actorId: string,
-        r: Existing
+        r: Existing,
+        expectedStartTime: Date
       ): Promise<ApplyResult> { /* ... */ }
     </item>
     <item priority="low">
@@ -14267,7 +14320,8 @@
         venueId: string,
         actorId: string,
         r: Existing,
-        startTime: Date
+        startTime: Date,
+        expectedStartTime: Date
       ): Promise<boolean> { /* ... */ }
     </item>
     <item priority="high">
@@ -14277,6 +14331,17 @@
         actorId: string,
         planned: readonly PlannedTransition[]
       ): Promise<ApplyResult> { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/closure-changes.ts">
+    <item priority="low">
+      interface ClosureChanges {
+        cancelled: Reservation[];
+        moved: Reservation[];
+      }
+    </item>
+    <item priority="high">
+      export async function loadClosureChanges(venueId: string, ruleId: string): Promise<ClosureChanges> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/closure-command-plan.ts">
@@ -14434,6 +14499,7 @@
         rows: Prisma.ClosureOutcomeCreateManyInput[];
         counts: Record<ClosureAction, number>;
         notifiedGuests: boolean;
+        starts: ReadonlyMap<string, Date>;
       }
     </item>
     <item priority="medium">
@@ -24638,7 +24704,7 @@
             kind: "guest-modified" | {
             kind: "hold-confirmed" | {
             kind: "created";
-            | { kind: "attendance-confirmed";
+            | { kind: "attendance-confirmed" | { kind: "closure-cancelled"; u | { kind: "closure-moved"; after;
     </item>
     <item priority="high">
       export function reminderJobId(jobType: string, reservationId: string): string { /* ... */ }
