@@ -89,7 +89,7 @@ export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(function
   const motionPreset = useMotionPreset();
   const shouldReduceMotion = motionPreset.reduced;
 
-  useReturnFocus(open);
+  const skipReturnFocus = useReturnFocus(open);
 
   const focusableIndices = items.reduce<number[]>((acc, entry, i) => {
     if (isItem(entry) && !entry.disabled) acc.push(i);
@@ -153,6 +153,11 @@ export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(function
       case "End":
         e.preventDefault();
         setActiveIndex(focusableIndices[focusableIndices.length - 1]!);
+        break;
+      case "Tab":
+        // ARIA APG: Tab closes the menu and moves on — never trap, never pull focus back.
+        skipReturnFocus();
+        close();
         break;
       case "Enter":
       case " ": {
