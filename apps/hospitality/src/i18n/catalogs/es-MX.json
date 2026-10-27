@@ -1856,6 +1856,7 @@
       "tablesBlockedAllDayName": "mesas bloqueadas todo el día",
       "tablesBlockedBand": "Mesas bloqueadas {{from}} – {{to}}",
       "tablesBlockedBandName": "mesas bloqueadas {{from}} – {{to}}",
+      "serviceLine": "{{name}} {{from}}–{{to}}",
       "nextDay": "{{time}} (día siguiente)",
       "draftName": "cambios sin guardar",
       "labelWithPeriod": "{{label}}, {{period}}"

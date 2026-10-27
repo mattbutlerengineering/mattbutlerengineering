@@ -3,10 +3,13 @@ import {
   AvailabilityCheckBodySchema,
   AvailabilityCheckResultSchema,
   AvailabilityConfigProblemSchema,
+  AvailabilityDaySummarySchema,
   ClosureImpactBodySchema,
   ClosureImpactSchema,
   CreateClosureBodySchema,
+  DaySummaryServiceSchema,
   PreviewAvailabilityBodySchema,
+  PreviewResultSchema,
   PutAvailabilityConfigBodySchema,
   SetTonightBodySchema,
 } from "./availability-config-api.js";
@@ -179,6 +182,88 @@ describe("PreviewAvailabilityBodySchema", () => {
       PreviewAvailabilityBodySchema.safeParse({ ...base, scope: ["2026-11-06"] }).success
     ).toBe(true);
     expect(PreviewAvailabilityBodySchema.safeParse({ ...base, scope: [] }).success).toBe(false);
+  });
+});
+
+describe("DaySummaryServiceSchema", () => {
+  const service = {
+    venueServiceId: "vs-1",
+    name: "Dinner",
+    opensAt: 1080,
+    lastSeatingAt: 1260,
+    closesAt: 1320,
+  };
+
+  it("parses a service and requires every field", () => {
+    expect(DaySummaryServiceSchema.safeParse(service).success).toBe(true);
+    const { name: _name, ...withoutName } = service;
+    expect(DaySummaryServiceSchema.safeParse(withoutName).success).toBe(false);
+  });
+});
+
+describe("AvailabilityDaySummarySchema", () => {
+  it("carries the services that run that day via the shared service schema", () => {
+    const summary = {
+      serviceDate: "2026-11-01",
+      label: "Regular",
+      scheduleId: "s1",
+      serviceCount: 1,
+      closures: [],
+      bookingOpen: { online: true, phone: true, waitlist: true },
+      services: [
+        {
+          venueServiceId: "vs-1",
+          name: "Dinner",
+          opensAt: 1080,
+          lastSeatingAt: 1260,
+          closesAt: 1320,
+        },
+      ],
+    };
+    const result = AvailabilityDaySummarySchema.safeParse(summary);
+    expect(result.success).toBe(true);
+    expect(DaySummaryServiceSchema.safeParse(summary.services[0]).success).toBe(true);
+  });
+
+  it("parses a summary with no services field, from an old API during the deploy window", () => {
+    const summary = {
+      serviceDate: "2026-11-01",
+      label: "Regular",
+      scheduleId: "s1",
+      serviceCount: 1,
+      closures: [],
+      bookingOpen: { online: true, phone: true, waitlist: true },
+    };
+    expect(AvailabilityDaySummarySchema.safeParse(summary).success).toBe(true);
+  });
+});
+
+describe("PreviewResultSchema.focusDay", () => {
+  it("uses the shared day-summary schema (services included, not bolted on separately)", () => {
+    const focusDay = {
+      serviceDate: "2026-11-01",
+      label: "Regular",
+      scheduleId: "s1",
+      serviceCount: 1,
+      closures: [],
+      bookingOpen: { online: true, phone: true, waitlist: true },
+      services: [
+        {
+          venueServiceId: "vs-1",
+          name: "Dinner",
+          opensAt: 1080,
+          lastSeatingAt: 1260,
+          closesAt: 1320,
+        },
+      ],
+    };
+    const result = PreviewResultSchema.safeParse({
+      version: 1,
+      days: [],
+      focusDay,
+      stranded: { total: 0, offset: 0, items: [] },
+    });
+    expect(result.success).toBe(true);
   });
 });
 

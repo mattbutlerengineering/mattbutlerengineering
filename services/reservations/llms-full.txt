@@ -11057,18 +11057,35 @@
         ];
       });
     }
-    function dayLabel(config: AvailabilityConfig, day: ResolvedDay): string {
+    function isDayClosed(day: ResolvedDay): boolean {
       const closedAllDay = day.closures.some(
         (c) => c.targetKind === "venue" && c.from <= 0 && c.to >= WHOLE_DAY_MINUTES
       );
-      if (closedAllDay || day.services.length === 0) return "Closed";
+      return closedAllDay || day.services.length === 0;
+    }
+    function dayLabel(config: AvailabilityConfig, day: ResolvedDay): string {
+      if (isDayClosed(day)) return "Closed";
       if (day.explanation.some((l) => l.kind === "special_hours")) return "Special hours";
       return config.schedules.find((s) => s.id === day.scheduleId)?.name ?? "Open";
     }
+    export function daySummaryServices(
+      names: ReadonlyMap<string, string>,
+      day: ResolvedDay
+    ): DaySummaryService[] {
+      return day.services.map((s) => ({
+        venueServiceId: s.venueServiceId,
+        name: names.get(s.venueServiceId) ?? s.name,
+        opensAt: s.opensAt,
+        lastSeatingAt: s.lastSeatingAt,
+        closesAt: s.closesAt,
+      }));
+    }
     export function summarizeDay(config: AvailabilityConfig, day: ResolvedDay): AvailabilityDaySummary {
+      const label = dayLabel(config, day);
+      const names = new Map(config.venueServices.map((s) => [s.id, s.name]));
       return {
         serviceDate: day.serviceDate,
-        label: dayLabel(config, day),
+        label,
         scheduleId: day.scheduleId,
         serviceCount: day.services.length,
         closures: day.closures.map(({ ruleId, targetKind, from, to, bookingTypes }) => ({
@@ -11079,6 +11096,7 @@
           ...(targetKind === "booking" && bookingTypes ? { bookingTypes } : {}),
         })),
         bookingOpen: day.bookingOpen,
+        services: isDayClosed(day) ? [] : daySummaryServices(names, day),
         ...(day.guestMessage ? { guestMessage: day.guestMessage } : {}),
       };
     }
@@ -12248,22 +12266,12 @@
         input.bookings.filter((b) => b.date && scopeIncludes(scope, toServiceDate(b.date)))
       ).sort((a, b) => a.startTime.localeCompare(b.startTime) || a.id.localeCompare(b.id));
     
-      const names = new Map(next.venueServices.map((s) => [s.id, s.name]));
       return {
         kind: "ok",
         result: {
           version: state.version,
           days,
-          focusDay: {
-            ...summarizeDay(next, focus),
-            services: focus.services.map((s) => ({
-              venueServiceId: s.venueServiceId,
-              name: names.get(s.venueServiceId) ?? s.name,
-              opensAt: s.opensAt,
-              lastSeatingAt: s.lastSeatingAt,
-              closesAt: s.closesAt,
-            })),
-          },
+          focusDay: summarizeDay(next, focus),
           stranded: {
             total: stranded.length,
             offset: strandedOffset,

@@ -1705,13 +1705,26 @@
   </file>
   <file path="apps/hospitality/src/components/availability/day-summary.ts">
     <item priority="low">
+      interface ServiceLineText {
+        key: string;
+        text: string;
+      }
+    </item>
+    <item priority="low">
       interface DayPresentation {
         bands: readonly ClosureBandText[];
         count: string | null;
+        services: readonly ServiceLineText[];
         onlineOff: boolean;
         accessibleDetails: string;
-        accessibleName: string;
       }
+    </item>
+    <item priority="medium">
+      function serviceLineText(
+        service: DaySummaryService,
+        t: TFunction,
+        format: VenueFormat
+      ): ServiceLineText { /* ... */ }
     </item>
     <item priority="high">
       export function presentDay(
@@ -10831,6 +10844,9 @@
       export const AvailabilityDaysQuerySchema: unknown;
     </item>
     <item priority="high">
+      export const DaySummaryServiceSchema: unknown;
+    </item>
+    <item priority="high">
       export const AvailabilityDaySummarySchema: unknown;
     </item>
     <item priority="high">
@@ -10970,6 +10986,9 @@
     </item>
     <item priority="low">
       type AvailabilityDaySummary = z.infer<typeof AvailabilityDaySummarySchema>;
+    </item>
+    <item priority="low">
+      type DaySummaryService = z.infer<typeof DaySummaryServiceSchema>;
     </item>
     <item priority="high">
       export const ClosureDecisionSchema: unknown;
@@ -13385,7 +13404,16 @@
       ): StrandedReservation[] { /* ... */ }
     </item>
     <item priority="medium">
+      function isDayClosed(day: ResolvedDay): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
       function dayLabel(config: AvailabilityConfig, day: ResolvedDay): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function daySummaryServices(
+        names: ReadonlyMap<string, string>,
+        day: ResolvedDay
+      ): DaySummaryService[] { /* ... */ }
     </item>
     <item priority="high">
       export function summarizeDay(config: AvailabilityConfig, day: ResolvedDay): AvailabilityDaySummary { /* ... */ }

@@ -752,6 +752,13 @@
       from: ServiceDateSchema,
       to: ServiceDateSchema,
     });
+    export const DaySummaryServiceSchema = z.object({
+      venueServiceId: z.string(),
+      name: z.string(),
+      opensAt: z.number().int(),
+      lastSeatingAt: z.number().int(),
+      closesAt: z.number().int(),
+    });
     export const AvailabilityDaySummarySchema = z.object({
       serviceDate: ServiceDateSchema,
       /** The schedule name, "Special hours" or "Closed". */
@@ -770,6 +777,8 @@
       ),
       bookingOpen: z.object({ online: z.boolean(), phone: z.boolean(), waitlist: z.boolean() }),
       guestMessage: z.string().optional(),
+      /** Absent when parsing an old API's response during a deploy window. */
+      services: z.array(DaySummaryServiceSchema).optional(),
     });
     export const ClosureAlongsideSchema = z.object({
       /** Rows to write: the ended original series, and skips or one-date edits re-pointed. */
@@ -871,17 +880,7 @@
       version: z.number().int(),
       days: z.array(PreviewDaySchema),
       /** The focus date under the draft: its summary and the services that run. */
-      focusDay: AvailabilityDaySummarySchema.extend({
-        services: z.array(
-          z.object({
-            venueServiceId: z.string(),
-            name: z.string(),
-            opensAt: z.number().int(),
-            lastSeatingAt: z.number().int(),
-            closesAt: z.number().int(),
-          })
-        ),
-      }),
+      focusDay: AvailabilityDaySummarySchema,
       /** Future bookings in scope the draft would leave unserved, by start time. */
       stranded: z.object({
         total: z.number().int(),
@@ -909,6 +908,7 @@
     export type StrandedReservation = z.infer<typeof StrandedReservationSchema>;
     export type AvailabilityConfigProblem = z.infer<typeof AvailabilityConfigProblemSchema>;
     export type AvailabilityDaySummary = z.infer<typeof AvailabilityDaySummarySchema>;
+    export type DaySummaryService = z.infer<typeof DaySummaryServiceSchema>;
     export const ClosureDecisionSchema = z.object({
       /** The impact group's `groupKey` (`<date>:<kind>`). */
       groupKey: z.string().min(1),

@@ -213,7 +213,16 @@ export const AvailabilityDaysQuerySchema = z.object({
   to: ServiceDateSchema,
 });
 
-/** One calendar cell: what the day is called, its closure bands and service count. */
+/** One service that runs on a day: its hours, for the day's summary and the preview's focus day. */
+export const DaySummaryServiceSchema = z.object({
+  venueServiceId: z.string(),
+  name: z.string(),
+  opensAt: z.number().int(),
+  lastSeatingAt: z.number().int(),
+  closesAt: z.number().int(),
+});
+
+/** One calendar cell: what the day is called, its closure bands, service count and services. */
 export const AvailabilityDaySummarySchema = z.object({
   serviceDate: ServiceDateSchema,
   /** The schedule name, "Special hours" or "Closed". */
@@ -232,6 +241,8 @@ export const AvailabilityDaySummarySchema = z.object({
   ),
   bookingOpen: z.object({ online: z.boolean(), phone: z.boolean(), waitlist: z.boolean() }),
   guestMessage: z.string().optional(),
+  /** Absent when parsing an old API's response during a deploy window. */
+  services: z.array(DaySummaryServiceSchema).optional(),
 });
 
 /**
@@ -367,17 +378,7 @@ export const PreviewResultSchema = z.object({
   version: z.number().int(),
   days: z.array(PreviewDaySchema),
   /** The focus date under the draft: its summary and the services that run. */
-  focusDay: AvailabilityDaySummarySchema.extend({
-    services: z.array(
-      z.object({
-        venueServiceId: z.string(),
-        name: z.string(),
-        opensAt: z.number().int(),
-        lastSeatingAt: z.number().int(),
-        closesAt: z.number().int(),
-      })
-    ),
-  }),
+  focusDay: AvailabilityDaySummarySchema,
   /** Future bookings in scope the draft would leave unserved, by start time. */
   stranded: z.object({
     total: z.number().int(),
@@ -409,6 +410,7 @@ export type RevertAvailabilityChangeBody = z.infer<typeof RevertAvailabilityChan
 export type StrandedReservation = z.infer<typeof StrandedReservationSchema>;
 export type AvailabilityConfigProblem = z.infer<typeof AvailabilityConfigProblemSchema>;
 export type AvailabilityDaySummary = z.infer<typeof AvailabilityDaySummarySchema>;
+export type DaySummaryService = z.infer<typeof DaySummaryServiceSchema>;
 
 // ── Closure command ─────────────────────────────────────────────────────────
 

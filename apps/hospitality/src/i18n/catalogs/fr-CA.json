@@ -1856,6 +1856,7 @@
       "tablesBlockedAllDayName": "tables bloquées toute la journée",
       "tablesBlockedBand": "Tables bloquées {{from}} – {{to}}",
       "tablesBlockedBandName": "tables bloquées {{from}} – {{to}}",
+      "serviceLine": "{{name}} {{from}} – {{to}}",
       "nextDay": "{{time}} (lendemain)",
       "draftName": "changements non enregistrés",
       "labelWithPeriod": "{{label}}, {{period}}"

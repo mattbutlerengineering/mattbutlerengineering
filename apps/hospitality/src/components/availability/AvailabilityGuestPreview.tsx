@@ -112,7 +112,7 @@ function FocusTimes(props: {
           removed: t("availability.preview.removedCount", { count: removed.length }),
         })}
       </Text>
-      {result.focusDay.services.map((s) => (
+      {(result.focusDay.services ?? []).map((s) => (
         <Text key={s.venueServiceId} variant="caption" color="secondary">
           {t("availability.editor.serviceLine", {
             name: s.name,

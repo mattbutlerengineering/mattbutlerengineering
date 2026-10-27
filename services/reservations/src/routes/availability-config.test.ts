@@ -219,6 +219,15 @@ describe("availability config routes", () => {
       serviceCount: 1,
       closures: [],
       bookingOpen: { online: true, phone: true, waitlist: true },
+      services: [
+        {
+          venueServiceId: "vs-dinner",
+          name: "Dinner",
+          opensAt: 1020,
+          lastSeatingAt: 1260,
+          closesAt: 1320,
+        },
+      ],
     };
 
     it("returns one summary per date", async () => {
