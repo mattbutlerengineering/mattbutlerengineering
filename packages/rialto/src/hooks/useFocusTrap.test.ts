@@ -152,6 +152,62 @@ describe("useFocusTrap", () => {
     expect(document.activeElement).toBe(enabled);
   });
 
+  it("traps a focusable element added after the trap activated", () => {
+    const panel = makePanel("button", "button");
+    const [first] = Array.from(panel.querySelectorAll<HTMLElement>("button"));
+
+    renderHook(() => useFocusTrap(makeRef(panel), true));
+
+    const added = document.createElement("button");
+    panel.appendChild(added);
+
+    // Tab from the newly added last element wraps to first
+    added.focus();
+    const e = tabKeyDown(false);
+    expect(e.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(first);
+  });
+
+  it("does not wrap from a removed or newly disabled stale last element", () => {
+    const panel = makePanel("button", "button", "button");
+    const [first, second, third] = Array.from(panel.querySelectorAll<HTMLElement>("button"));
+
+    renderHook(() => useFocusTrap(makeRef(panel), true));
+
+    third!.setAttribute("disabled", "true");
+    second!.focus();
+    const e = tabKeyDown(false);
+    expect(e.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(first);
+  });
+
+  it("pulls focus back to the first element on Tab when focus is outside the panel", () => {
+    const panel = makePanel("button", "button");
+    const [first] = Array.from(panel.querySelectorAll<HTMLElement>("button"));
+    renderHook(() => useFocusTrap(makeRef(panel), true));
+
+    const outside = document.createElement("button");
+    document.body.appendChild(outside);
+    outside.focus();
+
+    const e = tabKeyDown(false);
+    expect(e.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(first);
+  });
+
+  it("pulls focus to the last element on Shift+Tab when focus is outside the panel", () => {
+    const panel = makePanel("button", "button");
+    const [, last] = Array.from(panel.querySelectorAll<HTMLElement>("button"));
+    renderHook(() => useFocusTrap(makeRef(panel), true));
+
+    const outside = document.createElement("button");
+    document.body.appendChild(outside);
+    outside.focus();
+    const e = tabKeyDown(true);
+    expect(e.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(last);
+  });
+
   it("cleans up listeners when disabled", () => {
     const panel = makePanel("button", "button");
     const focusable = Array.from(panel.querySelectorAll<HTMLElement>("button"));
