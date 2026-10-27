@@ -126,6 +126,19 @@ describe("SpecialDatesTab", () => {
     expect(screen.getByText("Closed · Repeating")).toBeTruthy();
   });
 
+  it("names each closure row's buttons with its date", () => {
+    summaries.value = [summary("xmas"), summary("mondays")];
+    renderTab();
+    expect(screen.getByRole("button", { name: "Remove closure for Thu, Dec 24" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Remove closure for Tue, Jan 5 to Tue, Mar 30" })
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Call list for Thu, Dec 24" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Call list for Tue, Jan 5 to Tue, Mar 30" })
+    ).toBeTruthy();
+  });
+
   it("offers Add special date to a Manager only", () => {
     const { unmount } = renderTab(true);
     expect(screen.getByRole("button", { name: "Add special date" })).toBeTruthy();
@@ -334,6 +347,26 @@ describe("SpecialDatesTab", () => {
 
       expect(await screen.findByText(/would be left without service/)).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+    });
+
+    it("shows the hours on the row, earliest opening to latest closing", () => {
+      const service = (opensAt: number, closesAt: number) => ({
+        venueServiceId: "vs",
+        opensAt,
+        lastSeatingAt: closesAt - 60,
+        closesAt,
+        seating: "regular",
+        bookingTypes: ["online"],
+      });
+      const dinner = {
+        ...hours,
+        payload: { version: 1, services: [service(1080, 1500), service(660, 900)] },
+      } as unknown as DateRule;
+      renderTab(true, {
+        ...STATE,
+        config: { ...STATE.config, dateRules: [dinner] },
+      } as AvailabilityConfigState);
+      expect(screen.getByText("Special hours · 11:00 AM – 1:00 AM")).toBeTruthy();
     });
 
     it("edits the hours in the day editor", () => {
@@ -676,7 +709,7 @@ describe("SpecialDatesTab", () => {
     it("offers Undo when no guests were told", async () => {
       revertChange.mockResolvedValue({ version: 8, changeId: "c9" });
       renderTab();
-      fireEvent.click(screen.getAllByRole("button", { name: "Remove" })[0]!);
+      fireEvent.click(screen.getByRole("button", { name: "Remove closure for Thu, Dec 24" }));
       const dialog = screen.getByRole("dialog");
       fireEvent.click(within(dialog).getByRole("checkbox"));
       fireEvent.click(within(dialog).getByRole("button", { name: "Reopen" }));
@@ -693,7 +726,7 @@ describe("SpecialDatesTab", () => {
 
     it("offers no Undo once the cancelled guests were told", async () => {
       renderTab();
-      fireEvent.click(screen.getAllByRole("button", { name: "Remove" })[0]!);
+      fireEvent.click(screen.getByRole("button", { name: "Remove closure for Thu, Dec 24" }));
       fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Reopen" }));
 
       expect(await screen.findByText("Thu, Dec 24 reopened")).toBeTruthy();
@@ -857,7 +890,7 @@ describe("SpecialDatesTab", () => {
 
   it("reopens, telling the cancelled guests by default", async () => {
     renderTab();
-    fireEvent.click(screen.getAllByRole("button", { name: "Remove" })[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Remove closure for Thu, Dec 24" }));
 
     const dialog = screen.getByRole("dialog");
     expect(
@@ -876,7 +909,7 @@ describe("SpecialDatesTab", () => {
 
   it("reopens without telling guests when the box is cleared", async () => {
     renderTab();
-    fireEvent.click(screen.getAllByRole("button", { name: "Remove" })[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Remove closure for Thu, Dec 24" }));
     const dialog = screen.getByRole("dialog");
     fireEvent.click(within(dialog).getByRole("checkbox"));
     fireEvent.click(within(dialog).getByRole("button", { name: "Reopen" }));
@@ -936,7 +969,7 @@ describe("SpecialDatesTab", () => {
       },
     ];
     renderTab();
-    const buttons = screen.getAllByRole("button", { name: "Call list" });
+    const buttons = screen.getAllByRole("button", { name: "Call list for Thu, Dec 24" });
     expect(buttons).toHaveLength(1);
 
     fireEvent.click(buttons[0]!);
@@ -962,7 +995,7 @@ describe("SpecialDatesTab", () => {
     renderTab();
     expect(document.querySelector("[data-call-list-print]")).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Call list" }));
+    fireEvent.click(screen.getByRole("button", { name: "Call list for Thu, Dec 24" }));
 
     const printCopy = document.querySelector("[data-call-list-print]")!;
     expect(printCopy.parentElement).toBe(document.body);
@@ -977,9 +1010,9 @@ describe("SpecialDatesTab", () => {
   it("hides Remove and Retry from a Host but keeps the call list", () => {
     summaries.value = [summary("xmas", { refundFailed: 1 })];
     renderTab(false);
-    expect(screen.queryByRole("button", { name: "Remove" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Remove/ })).toBeNull();
     expect(screen.queryByRole("button", { name: "Retry refunds" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Call list" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Call list for Thu, Dec 24" })).toBeTruthy();
   });
 
   it("has no axe violations", async () => {

@@ -28,7 +28,9 @@
       readonly shareMessage: boolean;
       readonly sharedMessage: string;
     }
-    export type RowField = "date" | "hours" | "message";
+    export type RowField = "dateMissing" | "date" | "hours" | "message";
+    export const rowFieldId = (rowKey: string, field: "date" | "hours" | "message"): string =>
+      `add-date-${rowKey}-${field}`;
     export const emptyRow = (key: string, date: string): DateRow => ({
       key,
       date,
@@ -54,8 +56,8 @@
     ): { readonly key: string; readonly field: RowField } | null {
       const seen = new Set<string>();
       for (const row of form.rows) {
+        if (row.date === "") return { key: row.key, field: "dateMissing" };
         if (
-          row.date === "" ||
           row.date < today ||
           seen.has(row.date) ||
           (row.kind !== "closed" && hasOwnHours(config, row.date))

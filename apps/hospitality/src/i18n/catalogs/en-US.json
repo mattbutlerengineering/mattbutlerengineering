@@ -1556,7 +1556,10 @@
     "retried": "Refunds queued again ({{count}})",
     "retryError": "Couldn't queue the refunds",
     "callListOpen": "Call list",
+    "callListFor": "Call list for {{date}}",
     "remove": "Remove",
+    "removeClosureFor": "Remove closure for {{date}}",
+    "hoursRange": "{{from}} – {{to}}",
     "ended": {
       "title": "Earlier closure",
       "detail": "No longer active, with refunds still open"
@@ -1636,6 +1639,7 @@
       "title": "Add special dates",
       "rowLegend": "Date {{n}}",
       "date": "Date",
+      "dateMissing": "Pick a date.",
       "dateInvalid": "Pick a date that is today or later, once, and without special hours already set.",
       "kindLabel": "What happens on date {{n}}",
       "kind": {
@@ -2042,7 +2046,6 @@
       "versionConflict": "Availability changed since you opened this. Close this dialog and try again.",
       "staffNote": "Note for staff",
       "guestMessage": "Message for guests",
-      "guestMessageCount": "{{count}}/{{max}}",
       "suggestions": {
         "private": "Closed for a private event",
         "weather": "Closed due to weather",

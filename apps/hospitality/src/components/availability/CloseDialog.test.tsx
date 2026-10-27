@@ -98,6 +98,17 @@ describe("CloseDialog", () => {
     impactState.value = IMPACT;
   });
 
+  it("shows the guest-message character counter once", () => {
+    renderDialog();
+    expect(screen.getAllByText("0/200")).toHaveLength(1);
+  });
+
+  it("starts the date picker's weeks on Monday", () => {
+    renderDialog();
+    fireEvent.click(screen.getAllByRole("combobox", { name: "Date" })[0]!);
+    expect(screen.getAllByRole("columnheader")[0]!.textContent).toMatch(/^Mo/);
+  });
+
   it("edits one date of a series: When is fixed to that date and What starts as the series", async () => {
     create.mockResolvedValue({
       ruleId: "rule",

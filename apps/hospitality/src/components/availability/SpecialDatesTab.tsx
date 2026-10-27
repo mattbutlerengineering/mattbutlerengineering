@@ -12,6 +12,7 @@ import {
   Text,
   useToast,
 } from "@mattbutlerengineering/rialto";
+import { MINUTES_PER_DAY } from "@mbe/availability";
 import type { AvailabilityConfigState, ClosureSummary, DateRule } from "@mbe/types";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useClosureSummaries, useRetryClosureRefunds } from "../../hooks/useClosures.js";
@@ -94,6 +95,22 @@ function hoursSubject(rule: SpecialDateRule, format: VenueFormat, t: TFunction):
   return t("availabilitySpecial.hours.subjectDates", { dates: rangeLabel(rule, format, t) });
 }
 
+/** "6:00 PM – 1:00 AM": the earliest opening to the latest closing, past midnight read as plain clock time (ux.md S6b). */
+function hoursRange(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string | null {
+  if (rule.kind !== "special_hours" || rule.payload.services.length === 0) return null;
+  const clock = (minute: number) => {
+    const wrapped = minute % MINUTES_PER_DAY;
+    const hh = String(Math.floor(wrapped / 60)).padStart(2, "0");
+    const mm = String(wrapped % 60).padStart(2, "0");
+    return format.formatLocalTime(`${hh}:${mm}`);
+  };
+  const services = rule.payload.services;
+  return t("availabilitySpecial.hoursRange", {
+    from: clock(Math.min(...services.map((s) => s.opensAt))),
+    to: clock(Math.max(...services.map((s) => s.closesAt))),
+  });
+}
+
 interface RowProps {
   readonly title: string;
   readonly detail: string;
@@ -174,7 +191,11 @@ function SpecialDateItem(props: RowProps) {
       </div>
       <div className={styles.actions}>
         {summary && summary.unreachable > 0 && (
-          <Button variant="secondary" onClick={() => props.onCallList(ruleId)}>
+          <Button
+            variant="secondary"
+            aria-label={t("availabilitySpecial.callListFor", { date: title })}
+            onClick={() => props.onCallList(ruleId)}
+          >
             {t("availabilitySpecial.callListOpen")}
           </Button>
         )}
@@ -223,7 +244,11 @@ function SpecialDateItem(props: RowProps) {
           </>
         )}
         {isManager && props.onRemove && (
-          <Button variant="ghost" onClick={props.onRemove}>
+          <Button
+            variant="ghost"
+            aria-label={t("availabilitySpecial.removeClosureFor", { date: title })}
+            onClick={props.onRemove}
+          >
             {t("availabilitySpecial.remove")}
           </Button>
         )}
@@ -376,6 +401,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
                 rule.kind === "closure"
                   ? t("availabilitySpecial.kind.closure")
                   : t("availabilitySpecial.kind.specialHours"),
+                hoursRange(rule, format, t),
                 rule.repeat ? t("availabilitySpecial.repeating") : null,
                 skippedLabel(rule.id),
               ]

@@ -28,7 +28,10 @@
       }
     </item>
     <item priority="low">
-      type RowField = "date" | "hours" | "message";
+      type RowField = "dateMissing" | "date" | "hours" | "message";
+    </item>
+    <item priority="high">
+      export const rowFieldId: unknown;
     </item>
     <item priority="high">
       export const emptyRow: unknown;

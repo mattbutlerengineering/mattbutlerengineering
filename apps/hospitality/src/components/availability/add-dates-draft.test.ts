@@ -29,7 +29,7 @@ describe("validateRows", () => {
   it("needs a date on every row, today or later, and no date twice", () => {
     expect(validateRows(form([row({ key: "a", date: "" })]), config, TODAY)).toEqual({
       key: "a",
-      field: "date",
+      field: "dateMissing",
     });
     expect(validateRows(form([row({ key: "a", date: "2026-10-25" })]), config, TODAY)?.field).toBe(
       "date"

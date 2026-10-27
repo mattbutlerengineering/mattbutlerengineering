@@ -26,6 +26,8 @@ const HALF_HOURS = Array.from({ length: 48 }, (_, i) => i * 30);
 /** 2026-01-04 is a Sunday; weekday index n is that date plus n days. */
 const SUNDAY = "2026-01-04";
 const ALL_DAY = "all";
+/** Matches the Availability calendar, which is Monday-first. */
+const WEEK_STARTS_ON = 1;
 
 export interface CloseStepOneProps {
   readonly form: CloseForm;
@@ -81,6 +83,7 @@ export function CloseStepOne(props: CloseStepOneProps) {
       value={value || null}
       min={today}
       locale={format.locale}
+      weekStartsOn={WEEK_STARTS_ON}
       onChange={(v) => set(v ?? "")}
     />
   );
@@ -248,10 +251,6 @@ export function CloseStepOne(props: CloseStepOneProps) {
       />
       <TextArea
         label={t("availability.close.guestMessage")}
-        hint={t("availability.close.guestMessageCount", {
-          count: form.guestMessage.length,
-          max: GUEST_MESSAGE_MAX_LENGTH,
-        })}
         value={form.guestMessage}
         maxLength={GUEST_MESSAGE_MAX_LENGTH}
         error={props.invalid === "guestMessage"}

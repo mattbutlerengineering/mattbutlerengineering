@@ -39,7 +39,12 @@ export interface AddDatesForm {
   readonly sharedMessage: string;
 }
 
-export type RowField = "date" | "hours" | "message";
+/** `dateMissing` is an empty date; `date` is a date that is set but cannot be used. */
+export type RowField = "dateMissing" | "date" | "hours" | "message";
+
+/** DOM id of a row's field, so a failed Next or a new row can move focus to it. */
+export const rowFieldId = (rowKey: string, field: "date" | "hours" | "message"): string =>
+  `add-date-${rowKey}-${field}`;
 
 export const emptyRow = (key: string, date: string): DateRow => ({
   key,
@@ -73,8 +78,8 @@ export function validateRows(
 ): { readonly key: string; readonly field: RowField } | null {
   const seen = new Set<string>();
   for (const row of form.rows) {
+    if (row.date === "") return { key: row.key, field: "dateMissing" };
     if (
-      row.date === "" ||
       row.date < today ||
       seen.has(row.date) ||
       (row.kind !== "closed" && hasOwnHours(config, row.date))
