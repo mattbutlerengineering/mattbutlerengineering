@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router";
 import { Footer, GlobalNav, Skeleton, Text } from "@mattbutlerengineering/rialto";
+import { useRouteMeta } from "./utils/route-meta";
 import styles from "./App.module.css";
 
 const HomePage = lazy(() => import("./pages/HomePage").then((m) => ({ default: m.HomePage })));
@@ -43,6 +44,7 @@ function HomeRouteFallback() {
 }
 
 export function App({ theme, onThemeToggle }: AppProps) {
+  useRouteMeta();
   useEffect(() => {
     const main = document.getElementById("main-content");
     if (main && !window.location.hash) {

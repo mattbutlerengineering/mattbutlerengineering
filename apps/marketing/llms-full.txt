@@ -1290,5 +1290,41 @@
       other: "Other",
     };
   </file>
+  <file path="src/utils/route-meta.ts">
+    export interface RouteMeta {
+      readonly pattern: string;
+      readonly title: string;
+      readonly description: string;
+    }
+    function findRouteMeta(pathname: string): RouteMeta | undefined {
+      if (pathname === "/") return undefined;
+      return ROUTE_META.find((meta) => matchPath({ path: meta.pattern, end: true }, pathname));
+    }
+    function setDescription(content: string): void {
+      let tag = document.head.querySelector<HTMLMetaElement>('meta[name="description"]');
+      if (!tag) {
+        tag = document.createElement("meta");
+        tag.name = "description";
+        document.head.appendChild(tag);
+      }
+      tag.content = content;
+    }
+    export function useRouteMeta(): void {
+      const { pathname } = useLocation();
+      // index.html's title and description, captured before this hook first
+      // overwrites them, so unmapped paths (e.g. "/") can restore them.
+      const defaultsRef = useRef<{ title: string; description: string } | null>(null);
+      useEffect(() => {
+        defaultsRef.current ??= {
+          title: document.title,
+          description:
+            document.head.querySelector<HTMLMetaElement>('meta[name="description"]')?.content ?? "",
+        };
+        const meta = findRouteMeta(pathname) ?? defaultsRef.current;
+        document.title = meta.title;
+        setDescription(meta.description);
+      }, [pathname]);
+    }
+  </file>
   </section>
 </codebase>
