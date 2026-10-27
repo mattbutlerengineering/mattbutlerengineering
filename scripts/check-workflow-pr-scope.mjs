@@ -127,7 +127,7 @@ export function evaluateWorkflowPrScope({ workflows, scripts = {} }) {
   return { findings };
 }
 
-export const FAIL_MESSAGE =
+const FAIL_MESSAGE =
   "FAIL: these workflows read pull requests without granting pull-request read.\n" +
   "A token lacking the scope is NOT refused — GitHub filters out the results it\n" +
   "cannot see and returns 200 with an empty list, so the job goes green while\n" +

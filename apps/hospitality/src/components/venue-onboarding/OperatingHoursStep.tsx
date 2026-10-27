@@ -197,7 +197,10 @@ export function validateOperatingHours(
 
   for (const day of DAYS_OF_WEEK) {
     const schedule = data[day];
-    if (schedule && isCloseBeforeOpen(schedule.open, schedule.close)) {
+    if (schedule && (schedule.open === "" || schedule.close === "")) {
+      dayErrors[day] = t("onboarding.hours.timesRequired");
+      hasError = true;
+    } else if (schedule && isCloseBeforeOpen(schedule.open, schedule.close)) {
       dayErrors[day] = t("onboarding.hours.closeAfterOpen");
       hasError = true;
     }

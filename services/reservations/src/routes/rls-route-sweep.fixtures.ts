@@ -183,7 +183,7 @@ export function inWindowDate(daysAhead: number): string {
 
 export const ADMIN_HEADERS: Record<string, string> = { "x-auth-bypass": "true" };
 /** Matched by the `jose` mock in the test file to a non-admin member of venue A. */
-export const MEMBER_HEADERS: Record<string, string> = { authorization: "Bearer member-a-token" };
+const MEMBER_HEADERS: Record<string, string> = { authorization: "Bearer member-a-token" };
 /**
  * Matched by the `jose` mock in the test file to a diner whose verified email
  * equals `reservationA`'s `guestEmail` — `requireReservationOwnerOrAdmin`'s
@@ -191,7 +191,7 @@ export const MEMBER_HEADERS: Record<string, string> = { authorization: "Bearer m
  * `/reservations/:id` sweep used to prove only the admin path, never the
  * former `loadInVenueContext`-wrapped owner resolver a genuine diner exercises).
  */
-export const DINER_A_HEADERS: Record<string, string> = { authorization: "Bearer diner-a-token" };
+const DINER_A_HEADERS: Record<string, string> = { authorization: "Bearer diner-a-token" };
 
 /**
  * A fresh, unique `remoteAddress` per call. `@fastify/rate-limit`'s default
@@ -223,7 +223,7 @@ export const asAdmin = (ctx: SweepContext, opts: InjectOptions): Promise<LightMy
   inject(ctx, ADMIN_HEADERS, opts);
 export const asMember = (ctx: SweepContext, opts: InjectOptions): Promise<LightMyRequestResponse> =>
   inject(ctx, MEMBER_HEADERS, opts);
-export const asDiner = (ctx: SweepContext, opts: InjectOptions): Promise<LightMyRequestResponse> =>
+const asDiner = (ctx: SweepContext, opts: InjectOptions): Promise<LightMyRequestResponse> =>
   inject(ctx, DINER_A_HEADERS, opts);
 
 /** A successful response (< 300) — the RLS + venue-context plumbing did not interfere. */

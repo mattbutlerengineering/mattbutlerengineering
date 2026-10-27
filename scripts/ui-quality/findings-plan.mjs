@@ -24,7 +24,7 @@ import { tellsById } from "./rubric.mjs";
 
 export const CALIBRATION_STATUSES = ["pass", "failed", "stale"];
 /** The route token of a P1 burst aggregate's key — never a router template. */
-export const AGGREGATE_ROUTE = "(multiple)";
+const AGGREGATE_ROUTE = "(multiple)";
 
 const byString = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
@@ -67,7 +67,7 @@ export function unmigratedKeys(ledger, rubric) {
  * @param {number[]} labelled   every `ui-quality`-labelled issue number, any state
  * @returns {number[]} sorted ascending, deduplicated
  */
-export function unknownLabelledIssues(ledger, labelled) {
+function unknownLabelledIssues(ledger, labelled) {
   const known = new Set();
   for (const rec of Object.values(ledger)) {
     if (Number.isInteger(rec.issue)) known.add(rec.issue);
@@ -91,7 +91,7 @@ const AGGREGATE_TITLE = /^ui-quality: (\S+) — (\S+) on multiple routes \(rubri
  *
  * @returns {{ key: string, severity: string } | null}
  */
-export function keyFromTitle(title, rubric) {
+function keyFromTitle(title, rubric) {
   const finding = FINDING_TITLE.exec(title ?? "");
   const aggregate = finding ? null : AGGREGATE_TITLE.exec(title ?? "");
   const parts = finding
@@ -251,7 +251,7 @@ function citedSeeds(finding, backlogLines) {
   return backlogLines.filter((l) => l.startsWith("- ") && l.includes(stem)).map((l) => l.slice(2));
 }
 
-export function bodyFor(finding, key, { legacy, backlogLines = [] } = {}) {
+function bodyFor(finding, key, { legacy, backlogLines = [] } = {}) {
   const seeds = citedSeeds(finding, backlogLines);
   return [
     `**${finding.tell}** (${finding.severity}) on \`${finding.app}\` route \`${finding.route}\`.`,
@@ -280,7 +280,7 @@ function aggregateBody(app, tell, severity, members, key) {
 const labelsFor = (severity) => [LABEL.base, severity === "P1" ? LABEL.p1 : LABEL.p2, "ready"];
 
 /** Concatenate every source, refuse unknown tells, one finding per key, sorted by key. */
-export function normaliseFindings(sources, rubric) {
+function normaliseFindings(sources, rubric) {
   const tells = tellsById(rubric);
   const all = sources.flat();
   const unknown = [...new Set(all.map((f) => f?.tell).filter((t) => !tells.has(t)))];

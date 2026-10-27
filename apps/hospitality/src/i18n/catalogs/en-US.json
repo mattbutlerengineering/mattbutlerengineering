@@ -7,7 +7,7 @@
       "hospitality": "Hospitality",
       "rialto": "Design System"
     },
-    "copyright": "© {{year}} Matt Butler",
+    "copyright": "© {{year}} Matt Butler Engineering",
     "dashboardDocumentTitle": "Dashboard - Matt Butler Engineering"
   },
   "onboarding": {
@@ -90,6 +90,7 @@
       "openingTime": "{{day}} opening time",
       "closingTime": "{{day}} closing time",
       "closeAfterOpen": "Closing time must be after opening time",
+      "timesRequired": "Enter both an opening and a closing time",
       "atLeastOne": "At least one day must be open",
       "closeDayTitle": "Close {{day}}?",
       "closeDayDescription": "This will clear the custom opening and closing times you set for this day.",

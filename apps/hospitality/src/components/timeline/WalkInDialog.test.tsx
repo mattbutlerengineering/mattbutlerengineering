@@ -458,6 +458,19 @@ describe("WalkInDialog", () => {
       expect(document.activeElement).toBe(last);
     });
 
+    it("pulls focus back into the dialog when Tab is pressed with focus on a background element (#7539)", () => {
+      const background = document.createElement("button");
+      document.body.appendChild(background);
+      const { container } = render(<WalkInDialog {...defaultProps} />);
+      const first = container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)[0]!;
+
+      background.focus();
+      fireEvent.keyDown(document.activeElement!, { key: "Tab" });
+
+      expect(document.activeElement).toBe(first);
+      background.remove();
+    });
+
     it("opens with focus on the pressed party-size control, surviving StrictMode's double-run effects", () => {
       render(
         <StrictMode>

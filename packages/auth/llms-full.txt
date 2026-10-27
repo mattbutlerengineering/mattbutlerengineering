@@ -719,7 +719,7 @@
       if (value.startsWith("//") || value.startsWith("/\\")) return false;
       return true;
     }
-    export function appBasePath(redirectUri: string): string {
+    function appBasePath(redirectUri: string): string {
       try {
         const pathname = new URL(redirectUri).pathname;
         const base = pathname.replace(/\/[^/]*$/, "");

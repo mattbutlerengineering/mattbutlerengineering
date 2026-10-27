@@ -3,7 +3,7 @@ import { createQueryHook, type QueryHookResult } from "./create-query-hook.js";
 import { createMutationHook } from "./create-mutation-hook.js";
 
 export const VENUES_QUERY_KEY = "venues" as const;
-export const VENUE_BY_SLUG_QUERY_KEY = "venueBySlug" as const;
+const VENUE_BY_SLUG_QUERY_KEY = "venueBySlug" as const;
 
 /* ── useVenues ───────────────────────────────────────── */
 

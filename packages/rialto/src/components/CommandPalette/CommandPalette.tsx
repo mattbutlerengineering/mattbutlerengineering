@@ -280,10 +280,11 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
               role="dialog"
               aria-modal="true"
               aria-label={messages.commandPalette}
-              initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: -8 }}
-              animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
-              exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: -4 }}
-              transition={motionPreset.spring}
+              /* Opens 100+ times a day: opacity only, no scale or travel (docs/motion.md). */
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={motionPreset.precision}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Search */}

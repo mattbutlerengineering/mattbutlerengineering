@@ -50,7 +50,6 @@ export const Tag = forwardRef<HTMLElement, TagProps>(
   ) => {
     const { messages } = useRialtoLocale();
     const isInteractive = !!onClick;
-    const motionPreset = useMotionPreset();
     const classes = cn(
       styles.tag,
       variantClass(styles, variant, "default"),
@@ -58,8 +57,6 @@ export const Tag = forwardRef<HTMLElement, TagProps>(
       selected && styles.selected,
       className
     );
-
-    const hoverAnimation = motionPreset.boop;
 
     // Interactive + dismissible: render the clickable label and the dismiss
     // control as SIBLINGS inside a non-interactive chip wrapper so we never
@@ -72,7 +69,6 @@ export const Tag = forwardRef<HTMLElement, TagProps>(
             className={styles.labelButton}
             onClick={onClick}
             type="button"
-            whileHover={hoverAnimation}
           >
             {icon && <span className={styles.icon}>{icon}</span>}
             {children}
@@ -106,7 +102,6 @@ export const Tag = forwardRef<HTMLElement, TagProps>(
           className={classes}
           onClick={onClick}
           type="button"
-          whileHover={hoverAnimation}
         >
           {icon && <span className={styles.icon}>{icon}</span>}
           {children}
@@ -175,9 +170,9 @@ export const AnimatedTag = forwardRef<HTMLDivElement, AnimatedTagProps>(
       <motion.div
         ref={ref}
         layout
-        initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.8 }}
+        initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.8 }}
+        exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.9 }}
         transition={motionPreset.spring}
         style={{ display: "inline-flex" }}
       >

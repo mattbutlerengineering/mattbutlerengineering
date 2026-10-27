@@ -48,7 +48,7 @@ export function todayIn(timeZone: string | undefined, now: Date = new Date()): s
  * so the model never does time-zone arithmetic. Undefined, never a throw, when
  * the time or the zone can't be read.
  */
-export function localTimeIn(iso: unknown, timeZone: string | undefined): string | undefined {
+function localTimeIn(iso: unknown, timeZone: string | undefined): string | undefined {
   if (typeof iso !== "string") return undefined;
   const instant = new Date(iso);
   if (Number.isNaN(instant.getTime())) return undefined;

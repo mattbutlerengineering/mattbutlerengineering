@@ -58,7 +58,7 @@ const GSM_LOOKALIKES: Readonly<Record<string, string>> = {
 const LOOKALIKE = /[\u2018\u2019\u201C\u201D\u2013\u2014\u2026\u00A0\u202F]/g;
 
 /** Replaces common typographic punctuation with its GSM-7 equivalent. */
-export function toGsm(text: string): string {
+function toGsm(text: string): string {
   return text.replace(LOOKALIKE, (ch) => GSM_LOOKALIKES[ch]!);
 }
 

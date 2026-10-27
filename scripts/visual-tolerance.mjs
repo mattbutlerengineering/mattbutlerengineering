@@ -27,7 +27,7 @@
  */
 
 /** The three directives this module knows how to read, in a fixed order. */
-export const TOLERANCE_KEYS = ["threshold", "maxDiffPixelRatio", "maxDiffPixels"];
+const TOLERANCE_KEYS = ["threshold", "maxDiffPixelRatio", "maxDiffPixels"];
 
 /**
  * A numeric literal, and nothing else.

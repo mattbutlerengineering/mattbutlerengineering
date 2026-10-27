@@ -1,6 +1,11 @@
 import { Text } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
-import { MOTION_GROUPS, MOTION_TOKEN_NAMES } from "./token-catalog";
+import {
+  MOTION_FREQUENCY_BUDGET,
+  MOTION_GROUPS,
+  MOTION_RESTRAINT_RULES,
+  MOTION_TOKEN_NAMES,
+} from "./token-catalog";
 import { useLiveTokenValues } from "./use-live-tokens";
 import styles from "./MotionPage.module.css";
 
@@ -53,6 +58,60 @@ export function MotionPage() {
           </div>
         </Section>
       ))}
+      <Section title="When to animate">
+        <Text variant="body" color="secondary">
+          Every animation must give feedback, show a state change, keep spatial continuity, draw
+          attention to one thing, or add delight at a rare moment. &quot;Looks cool&quot; on a
+          frequent path means no animation. The full policy is in{" "}
+          <Text as="span" mono>
+            packages/rialto/docs/motion.md
+          </Text>
+          .
+        </Text>
+      </Section>
+      <Section title="Frequency budget">
+        <Text variant="body" color="secondary">
+          The more often someone meets an interaction, the less it moves.
+        </Text>
+        <div className={styles.policyList}>
+          {MOTION_FREQUENCY_BUDGET.map((row) => (
+            <div key={row.how} className={styles.policyRow} data-testid="motion-frequency-row">
+              <Text variant="caption" mono>
+                {row.how}
+              </Text>
+              <Text variant="detail" color="secondary">
+                {row.examples}
+              </Text>
+              <Text variant="detail" color="tertiary">
+                {row.motion}
+              </Text>
+            </div>
+          ))}
+        </div>
+      </Section>
+      <Section title="Productive and expressive tiers">
+        <Text variant="body" color="secondary">
+          Productive motion serves staff tools: precision easing and the duration tokens, opacity
+          and colour first. Expressive motion serves marketing, guest-facing booking moments and
+          celebrations: springs, staggered reveals and the signature instruments. Both resolve
+          through{" "}
+          <Text as="span" mono>
+            useMotionPreset()
+          </Text>
+          .
+        </Text>
+      </Section>
+      <Section title="Restraint">
+        <ul className={styles.rules}>
+          {MOTION_RESTRAINT_RULES.map((rule) => (
+            <li key={rule}>
+              <Text variant="body" color="secondary">
+                {rule}
+              </Text>
+            </li>
+          ))}
+        </ul>
+      </Section>
       <Section title="Reduced motion">
         <Text variant="body" color="secondary">
           Every animation above is gated behind an{" "}

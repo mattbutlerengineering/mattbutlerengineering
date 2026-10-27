@@ -478,9 +478,6 @@
       }
     </item>
     <item priority="high">
-      export const LAST_SEATING_LEAD_MINUTES: unknown;
-    </item>
-    <item priority="high">
       export const SERVICE_NAME_MAX_LENGTH: unknown;
     </item>
     <item priority="high">
@@ -510,8 +507,8 @@
     <item priority="medium">
       function toMinutes(hhmm: string): number { /* ... */ }
     </item>
-    <item priority="high">
-      export function toClock(minutes: number): string { /* ... */ }
+    <item priority="medium">
+      function toClock(minutes: number): string { /* ... */ }
     </item>
     <item priority="high">
       export function autoLastSeating(closes: string): string { /* ... */ }
@@ -1058,9 +1055,6 @@
     </item>
   </file>
   <file path="src/components/availability/useDateSelection.ts">
-    <item priority="high">
-      export const LONG_PRESS_MS: unknown;
-    </item>
     <item priority="low">
       interface DateSelectionOptions {
         selection: readonly string[];
@@ -1184,12 +1178,6 @@
     </item>
     <item priority="high">
       export const MISSING_VENUE_SLUG_ERROR: unknown;
-    </item>
-    <item priority="high">
-      export const STEP_KEYS_NO_DEPOSIT: BookingStep[];
-    </item>
-    <item priority="high">
-      export const STEP_KEYS_WITH_DEPOSIT: BookingStep[];
     </item>
     <item priority="high">
       export function deriveStepKeys(depositRequired: boolean): BookingStep[] { /* ... */ }
@@ -1598,8 +1586,8 @@
         venueId: string
       ): Promise<ReadonlySet<string>> { /* ... */ }
     </item>
-    <item priority="high">
-      export function uniqueTableName(desired: string, taken: ReadonlySet<string>): string { /* ... */ }
+    <item priority="medium">
+      function uniqueTableName(desired: string, taken: ReadonlySet<string>): string { /* ... */ }
     </item>
     <item priority="low">
       interface CreateFromTemplateInput {
@@ -1690,9 +1678,6 @@
     </item>
     <item priority="high">
       export const MAX_WALL_THICKNESS: unknown;
-    </item>
-    <item priority="high">
-      export const DEFAULT_WALL_THICKNESS: unknown;
     </item>
     <item priority="low">
       interface Point {
@@ -1987,8 +1972,8 @@
     <item priority="high">
       export const SECTION_LABEL_FALLBACKS: Record<"light" | "dark", SectionLabelTheme>;
     </item>
-    <item priority="high">
-      export function resolveSectionLabelTheme(): SectionLabelTheme { /* ... */ }
+    <item priority="medium">
+      function resolveSectionLabelTheme(): SectionLabelTheme { /* ... */ }
     </item>
     <item priority="high">
       export function useSectionLabelTheme(): SectionLabelTheme { /* ... */ }
@@ -2281,9 +2266,6 @@
       export const AVAILABILITY_CONFIG_QUERY_KEY: unknown;
     </item>
     <item priority="high">
-      export const AVAILABILITY_CHANGES_QUERY_KEY: unknown;
-    </item>
-    <item priority="high">
       export const useAvailabilityDays: unknown;
     </item>
     <item priority="high">
@@ -2305,9 +2287,6 @@
     </item>
   </file>
   <file path="src/hooks/useAvailabilityPreview.ts">
-    <item priority="high">
-      export const AVAILABILITY_PREVIEW_QUERY_KEY: unknown;
-    </item>
     <item priority="low">
       interface AvailabilityPreviewState {
         result: PreviewResult | null;
@@ -2325,16 +2304,10 @@
   </file>
   <file path="src/hooks/useAvailabilityUndo.ts">
     <item priority="high">
-      export const UNDO_TOAST_MS: unknown;
-    </item>
-    <item priority="high">
       export function useAvailabilityUndo() { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useBriefing.ts">
-    <item priority="high">
-      export const BRIEFING_QUERY_KEY: unknown;
-    </item>
     <item priority="low">
       type BriefingEntry = ApiBriefingEntry;
     </item>
@@ -2424,9 +2397,6 @@
   </file>
   <file path="src/hooks/useClosures.ts">
     <item priority="high">
-      export const CLOSURE_IMPACT_QUERY_KEY: unknown;
-    </item>
-    <item priority="high">
       export const useClosureImpact: unknown;
     </item>
     <item priority="low">
@@ -2449,12 +2419,6 @@
     </item>
     <item priority="high">
       export const useCreateClosure: unknown;
-    </item>
-    <item priority="high">
-      export const CLOSURE_SUMMARIES_QUERY_KEY: unknown;
-    </item>
-    <item priority="high">
-      export const CLOSURE_CALL_LIST_QUERY_KEY: unknown;
     </item>
     <item priority="high">
       export const useClosureSummaries: unknown;
@@ -2552,9 +2516,6 @@
   </file>
   <file path="src/hooks/useDeposits.ts">
     <item priority="high">
-      export const DEPOSITS_QUERY_KEY: unknown;
-    </item>
-    <item priority="high">
       export function useDepositByReservation(reservationId: string | null | undefined) { /* ... */ }
     </item>
     <item priority="high">
@@ -2590,9 +2551,6 @@
     <item priority="high">
       export const FLOOR_PLANS_QUERY_KEY: unknown;
     </item>
-    <item priority="high">
-      export const FLOOR_PLAN_QUERY_KEY: unknown;
-    </item>
     <item priority="low">
       interface UseFloorPlansParams {
         venueId?: string | null;
@@ -2614,8 +2572,8 @@
     <item priority="high">
       export function useFloorPlan(id: string | undefined): UseFloorPlanResult { /* ... */ }
     </item>
-    <item priority="high">
-      export function floorPlanQueryKey(id: string | undefined): readonly unknown[] { /* ... */ }
+    <item priority="medium">
+      function floorPlanQueryKey(id: string | undefined): readonly unknown[] { /* ... */ }
     </item>
     <item priority="high">
       export const useCloneFloorPlan: unknown;
@@ -2649,9 +2607,6 @@
     </item>
     <item priority="high">
       export const useUpdateFloorPlanLayout: unknown;
-    </item>
-    <item priority="high">
-      export const FLOOR_PLAN_SECTIONS_QUERY_KEY: unknown;
     </item>
     <item priority="high">
       export const useFloorPlanSections: unknown;
@@ -2852,12 +2807,6 @@
   </file>
   <file path="src/hooks/useMenus.ts">
     <item priority="high">
-      export const MENUS_QUERY_KEY: unknown;
-    </item>
-    <item priority="high">
-      export const MENU_QUERY_KEY: unknown;
-    </item>
-    <item priority="high">
       export const useMenus: unknown;
     </item>
     <item priority="high">
@@ -2941,9 +2890,6 @@
     </item>
   </file>
   <file path="src/hooks/useOpenTimes.ts">
-    <item priority="high">
-      export const OPEN_TIMES_QUERY_KEY: unknown;
-    </item>
     <item priority="high">
       export const useOpenTimes: unknown;
     </item>
@@ -3069,9 +3015,6 @@
     </item>
   </file>
   <file path="src/hooks/useStaffBookingCheck.ts">
-    <item priority="high">
-      export const STAFF_BOOKING_CHECK_QUERY_KEY: unknown;
-    </item>
     <item priority="high">
       type BookingWindow = { start: string; end: string };
     </item>
@@ -3215,12 +3158,6 @@
     </item>
   </file>
   <file path="src/hooks/useUsers.ts">
-    <item priority="high">
-      export const CURRENT_USER_QUERY_KEY: unknown;
-    </item>
-    <item priority="high">
-      export const USERS_QUERY_KEY: unknown;
-    </item>
     <item priority="low">
       interface UseCurrentUserResult {
         data: User | null | undefined;
@@ -3281,9 +3218,6 @@
   </file>
   <file path="src/hooks/useVenuePolicy.ts">
     <item priority="high">
-      export const VENUE_POLICY_QUERY_KEY: unknown;
-    </item>
-    <item priority="high">
       export function useVenuePolicy(slug: string | undefined): {
         policy: CancellationPolicy | null;
         isLoading: boolean;
@@ -3303,9 +3237,6 @@
       }
     </item>
     <item priority="high">
-      export const STEP_ORDER: readonly SetupStep[];
-    </item>
-    <item priority="high">
       export function computeReadiness(
         venue: Venue | null,
         floorPlans: readonly FloorPlan[],
@@ -3317,9 +3248,6 @@
     </item>
   </file>
   <file path="src/hooks/useVenueTeam.ts">
-    <item priority="high">
-      export const VENUE_TEAM_QUERY_KEY: unknown;
-    </item>
     <item priority="high">
       export const useVenueTeam: unknown;
     </item>
@@ -3333,9 +3261,6 @@
   <file path="src/hooks/useVenues.ts">
     <item priority="high">
       export const VENUES_QUERY_KEY: unknown;
-    </item>
-    <item priority="high">
-      export const VENUE_BY_SLUG_QUERY_KEY: unknown;
     </item>
     <item priority="low">
       interface UseVenuesParams {
@@ -3678,9 +3603,6 @@
     </item>
     <item priority="high">
       export const PIXEL_STRIDE: unknown;
-    </item>
-    <item priority="high">
-      export const MAX_SAMPLE_EDGE: unknown;
     </item>
     <item priority="high">
       export function fitWithin(
@@ -4619,9 +4541,6 @@
   </file>
   <file path="src/utils/timeline-intent.ts">
     <item priority="high">
-      export const WALK_IN_PARAM: unknown;
-    </item>
-    <item priority="high">
       export const SELECTED_PARAM: unknown;
     </item>
     <item priority="high">
@@ -4638,9 +4557,6 @@
     </item>
     <item priority="high">
       export function stripTimelineIntent(params: URLSearchParams): URLSearchParams { /* ... */ }
-    </item>
-    <item priority="high">
-      export const NEW_RESERVATION_PARAM: unknown;
     </item>
     <item priority="low">
       interface ReservationsIntent {

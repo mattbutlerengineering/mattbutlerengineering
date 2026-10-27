@@ -160,7 +160,6 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
                     ? (e: React.MouseEvent) => e.preventDefault()
                     : () => onChange(segment.id)
                 }
-                whileHover={segment.disabled ? undefined : motionPreset.boop}
               >
                 {segment.label}
               </motion.button>

@@ -1,7 +1,6 @@
 import { forwardRef, useCallback, useEffect, useRef, type ForwardedRef } from "react";
 import { motion } from "framer-motion";
 import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
-import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import styles from "./Pagination.module.css";
 
@@ -132,8 +131,6 @@ export const Pagination = forwardRef<HTMLElement, PaginationProps>(
   ({ page, totalPages, onChange, siblingCount = 1, className = "", ariaLabel }, ref) => {
     const { messages } = useRialtoLocale();
     const pages = buildPages(page, totalPages, siblingCount);
-    const motionPreset = useMotionPreset();
-    const boopHover = motionPreset.boop;
     const navRef = useRef<HTMLElement | null>(null);
     const pendingArrowRef = useRef<{ direction: ArrowDirection; target: number } | null>(null);
 
@@ -184,7 +181,6 @@ export const Pagination = forwardRef<HTMLElement, PaginationProps>(
               onClick={() => goTo(page - 1, "prev")}
               disabled={page <= 1}
               aria-label={messages.previousPage}
-              whileHover={page <= 1 ? undefined : boopHover}
             >
               {ChevronLeft}
             </motion.button>
@@ -204,7 +200,6 @@ export const Pagination = forwardRef<HTMLElement, PaginationProps>(
                   onClick={() => goTo(item, null)}
                   aria-label={messages.pageNumber(item)}
                   aria-current={item === page ? "page" : undefined}
-                  whileHover={boopHover}
                 >
                   {item}
                 </motion.button>
@@ -220,7 +215,6 @@ export const Pagination = forwardRef<HTMLElement, PaginationProps>(
               onClick={() => goTo(page + 1, "next")}
               disabled={page >= totalPages}
               aria-label={messages.nextPage}
-              whileHover={page >= totalPages ? undefined : boopHover}
             >
               {ChevronRight}
             </motion.button>

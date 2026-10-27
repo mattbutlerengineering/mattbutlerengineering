@@ -6,7 +6,7 @@
  * arrival, acts on it, and strips both keys so a reload or Back does not replay it.
  */
 
-export const WALK_IN_PARAM = "walkin";
+const WALK_IN_PARAM = "walkin";
 export const SELECTED_PARAM = "selected";
 /** Exactly `rehearsal=true` shows the Dress Rehearsal simulation instead of the live book. */
 export const REHEARSAL_PARAM = "rehearsal";
@@ -40,7 +40,7 @@ export function stripTimelineIntent(params: URLSearchParams): URLSearchParams {
  * strips the key so Back or a reload does not replay it.
  */
 
-export const NEW_RESERVATION_PARAM = "new";
+const NEW_RESERVATION_PARAM = "new";
 
 export interface ReservationsIntent {
   /** Exactly `new=true` — any other spelling is no intent. */

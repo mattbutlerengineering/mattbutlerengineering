@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "node scripts/write-rialto-component-count.mjs && tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint src/ e2e/",
     "typecheck": "NODE_OPTIONS=--max-old-space-size=8192 tsc --noEmit && tsc --noEmit -p tsconfig.e2e.json",

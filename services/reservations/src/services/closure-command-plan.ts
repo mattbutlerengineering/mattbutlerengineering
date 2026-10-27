@@ -184,7 +184,7 @@ export function currentServiceDate(snapshot: AvailabilitySnapshot, now: Date): s
 }
 
 /** A service a Tonight change leaves open for less than this is closed in effect (#7687). */
-export const MIN_SERVICE_MINUTES = 60;
+const MIN_SERVICE_MINUTES = 60;
 
 type DayServices = ReturnType<typeof resolveDay>;
 

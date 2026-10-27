@@ -282,9 +282,6 @@ async function handleHealthSystem(request, env, requestId) {
 }
 
 export {
-  SERVICE_ENDPOINTS,
-  STATIC_SITE_BINDINGS,
-  KV_KEYS,
   subsystemStatus,
   ciStatus,
   deployStatus,

@@ -177,7 +177,7 @@ export const PinInput = forwardRef<HTMLDivElement, PinInputProps>(function PinIn
   const entryAnimation = shouldReduceMotion
     ? {}
     : {
-        initial: { scale: 0.6, opacity: 0 },
+        initial: { scale: 0.9, opacity: 0 },
         animate: { scale: 1, opacity: 1 },
         transition: spring,
       };

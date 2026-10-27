@@ -15,12 +15,12 @@ export interface ResultInputs {
 }
 
 /** Deterministic UUID-shaped id derived from a seed (the SDK types uuid as a 5-part template). */
-export function fixtureUuid(seed: string): SDKResultMessage["uuid"] {
+function fixtureUuid(seed: string): SDKResultMessage["uuid"] {
   const hex = Buffer.from(seed).toString("hex").padEnd(32, "0").slice(0, 32);
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
-export function buildUsage(inputTokens: number, outputTokens: number): SDKResultMessage["usage"] {
+function buildUsage(inputTokens: number, outputTokens: number): SDKResultMessage["usage"] {
   return {
     input_tokens: inputTokens,
     output_tokens: outputTokens,

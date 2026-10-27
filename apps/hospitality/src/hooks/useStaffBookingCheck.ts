@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { AvailabilityCheckResult } from "@mbe/types";
 import { useApiClient } from "./useApiClient.js";
 
-export const STAFF_BOOKING_CHECK_QUERY_KEY = "staffBookingCheck" as const;
+const STAFF_BOOKING_CHECK_QUERY_KEY = "staffBookingCheck" as const;
 /** The pause after the last change before the check runs (the API shares a per-IP rate bucket). */
 const DEBOUNCE_MS = 400;
 

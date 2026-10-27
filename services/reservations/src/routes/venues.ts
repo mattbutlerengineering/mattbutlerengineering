@@ -21,6 +21,7 @@ import {
   createVenueBodyJsonSchema,
   updateVenueBodyJsonSchema,
   publicVenueJsonSchema,
+  OperatingHoursWriteSchema,
 } from "@mbe/types";
 import {
   requireAuth,
@@ -33,6 +34,19 @@ import { VenueBootstrapForbiddenError } from "../services/venue.js";
 import { tableStatusService } from "../services/table-status.js";
 import { venueScoped } from "./venue-scope.js";
 import { publicVenueScoped } from "./public-venue-scope.js";
+
+/**
+ * Fastify's JSON-schema body validation cannot express "HH:MM unless closed",
+ * so the operating-hours open-day rule (#7583) runs here. Returns the 400
+ * detail, or null when the hours are absent or valid.
+ */
+function operatingHoursError(operatingHours: unknown): string | null {
+  if (operatingHours === undefined || operatingHours === null) return null;
+  const result = OperatingHoursWriteSchema.safeParse(operatingHours);
+  if (result.success) return null;
+  const issue = result.error.issues[0];
+  return `Invalid operatingHours at ${issue?.path.join(".") ?? ""}: ${issue?.message ?? "invalid"}`;
+}
 
 /**
  * The venue self-routes address the venue by its own `:id`. Membership is
@@ -647,6 +661,10 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
+      const hoursError = operatingHoursError(request.body.operatingHours);
+      if (hoursError) {
+        return reply.code(400).send(createProblemDetails(400, "Bad Request", hoursError));
+      }
       try {
         // requireVenueCreateAccess ran, so request.user is set; seed the creator
         // as the venue owner (VenueMembership) so it appears in their scoped
@@ -749,6 +767,11 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
     // #7509); staff/Host members are refused, admins bypass.
     venueScoped(venueManagerFromRouteId, async (request, reply, { venueId, isAdmin }) => {
       const { venueGroupId } = request.body;
+
+      const hoursError = operatingHoursError(request.body.operatingHours);
+      if (hoursError) {
+        return reply.code(400).send(createProblemDetails(400, "Bad Request", hoursError));
+      }
 
       if (venueGroupId !== undefined && !isAdmin) {
         // Manager scope proves a per-venue role, never platform authority.

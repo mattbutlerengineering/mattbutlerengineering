@@ -34,7 +34,7 @@ export function isSafeReturnTo(value: unknown): value is string {
  * dropping its final path segment — e.g. "https://x/hospitality/callback"
  * yields "/hospitality", and "https://x/callback" yields "".
  */
-export function appBasePath(redirectUri: string): string {
+function appBasePath(redirectUri: string): string {
   try {
     const pathname = new URL(redirectUri).pathname;
     const base = pathname.replace(/\/[^/]*$/, "");

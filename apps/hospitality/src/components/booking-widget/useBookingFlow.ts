@@ -185,9 +185,9 @@ function createInitialState(venueTimezone?: string): BookingFlowState {
 export const MISSING_VENUE_SLUG_ERROR = enUS.bookingWidget.errors.missingVenueSlug;
 
 /** Step keys when no deposit is required — single source of truth for step-set derivation. */
-export const STEP_KEYS_NO_DEPOSIT: BookingStep[] = ["date-party", "time-slot", "guest-details"];
+const STEP_KEYS_NO_DEPOSIT: BookingStep[] = ["date-party", "time-slot", "guest-details"];
 /** Step keys when a deposit is required — appends the "payment" step. */
-export const STEP_KEYS_WITH_DEPOSIT: BookingStep[] = [
+const STEP_KEYS_WITH_DEPOSIT: BookingStep[] = [
   "date-party",
   "time-slot",
   "guest-details",

@@ -121,7 +121,12 @@ export function StatusPage() {
               {service.latency !== undefined && (
                 <Text className={styles.meta}>
                   Latency: {service.latency}ms
-                  {service.version && ` · v${service.version}`}
+                  {service.version && (
+                    <>
+                      {" · "}
+                      <code className={styles.version}>{`v${service.version}`}</code>
+                    </>
+                  )}
                 </Text>
               )}
             </Card>

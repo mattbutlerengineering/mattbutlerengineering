@@ -220,7 +220,6 @@ export {
   readCspPolicy,
   cacheControlFor,
   generateNonce,
-  NonceInjector,
   addHeaders,
   brandedErrorPage,
 };

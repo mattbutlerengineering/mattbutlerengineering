@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Card, Badge, Heading, Text, Button } from "@mattbutlerengineering/rialto";
 import { weeklyResources } from "../data/weekly-intake";
 import type { WeeklyResource } from "../data/weekly-intake";
+import { latestPublishedAt } from "../data/weekly-freshness";
 import { SOURCE_COLORS, SOURCE_LABELS, formatDate } from "../utils/formatters.js";
 import styles from "./WeeklyIntakePage.module.css";
 
@@ -45,6 +46,7 @@ const filters: { readonly value: Filter; readonly label: string }[] = [
 
 export function WeeklyIntakePage() {
   const [activeFilter, setActiveFilter] = useState<Filter>("all");
+  const latest = latestPublishedAt(weeklyResources);
 
   const filtered =
     activeFilter === "all"
@@ -57,7 +59,8 @@ export function WeeklyIntakePage() {
         Weekly Information Intake
       </Heading>
       <Text className={styles.subtitle}>
-        Curated resources from the best weekly newsletters to keep you up to date.
+        Curated resources from the best weekly newsletters.
+        {latest !== null && <> Snapshot — latest issue {formatDate(latest)}.</>}
       </Text>
 
       <nav className={styles.filters} aria-label="Filter resources by source">

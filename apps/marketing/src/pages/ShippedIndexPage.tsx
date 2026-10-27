@@ -45,7 +45,9 @@ export function ShippedIndexPage() {
         Every feature the factory has taken from proposal to production, newest first.
       </Text>
       <Text className={styles.asOf}>
-        As of <time dateTime={snapshot.generatedAt}>{formatDate(snapshot.generatedAt)}</time>
+        Snapshot from{" "}
+        <time dateTime={snapshot.generatedAt}>{formatDate(snapshot.generatedAt)}</time>; not a live
+        feed.
       </Text>
 
       {SHIPPED_FEATURES.length === 0 ? (

@@ -13,7 +13,7 @@ const MONDAY_FIRST = [1, 2, 3, 4, 5, 6, 0] as const;
 const SUNDAY = "2026-10-25";
 
 /** Short or long weekday name for a stored index (0 = Sunday). */
-export function useWeekdayName() {
+function useWeekdayName() {
   const format = useVenueFormat();
   return (weekday: number, width: "short" | "long" = "short") =>
     format.formatCalendarDate(addDays(SUNDAY, weekday), { weekday: width });

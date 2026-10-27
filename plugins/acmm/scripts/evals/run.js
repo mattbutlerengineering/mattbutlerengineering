@@ -104,7 +104,7 @@ export async function dryRunRunner(task) {
  * @param {RunOpts} opts
  * @returns {Promise<RunnerOutput>}
  */
-export async function defaultRunner(task, opts = {}) {
+async function defaultRunner(task, opts = {}) {
   const repoPath = opts.repoPath ?? process.cwd();
   if (!existsSync(repoPath)) throw new Error(`repoPath does not exist: ${repoPath}`);
 

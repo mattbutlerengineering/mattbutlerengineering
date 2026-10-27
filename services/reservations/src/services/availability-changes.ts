@@ -30,7 +30,7 @@ import { prisma } from "./database.js";
  * and is not revertable.
  */
 
-export const REVERT_KIND = "revert";
+const REVERT_KIND = "revert";
 
 const toDay = (d: Date | null): string | null => (d ? d.toISOString().slice(0, 10) : null);
 

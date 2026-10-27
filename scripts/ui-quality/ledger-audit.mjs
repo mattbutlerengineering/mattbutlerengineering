@@ -22,12 +22,12 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const keyOf = ({ app, route }) => `${app}|${route}`;
 
 /** A route template that cannot be navigated to as written. */
-export function isParameterised(route) {
+function isParameterised(route) {
   return route.includes(":") || route.includes("*");
 }
 
 /** App-relative URL path for a route, via fixtures for parameterised ones; null when unresolvable. */
-export function resolvePath(row, fixtures) {
+function resolvePath(row, fixtures) {
   if (isParameterised(row.route)) return fixtures?.[row.app]?.[row.route] ?? null;
   return row.route === "/" ? "/" : `/${row.route}`;
 }
@@ -37,7 +37,7 @@ export function resolvePath(row, fixtures) {
  * `ttlDays` ago. An unjudged/unreachable row keeps its old dates, so whatever
  * made it due still holds next fire.
  */
-export function isDue(row, { now, ttlDays }) {
+function isDue(row, { now, ttlDays }) {
   if (!row.last_audited_at) return true;
   const audited = Date.parse(row.last_audited_at);
   if (row.last_changed_at && Date.parse(row.last_changed_at) > audited) return true;
@@ -45,7 +45,7 @@ export function isDue(row, { now, ttlDays }) {
 }
 
 /** Audited under a `rubric_version` below the rubric's current one. */
-export function isVersionStale(row, rubricVersion) {
+function isVersionStale(row, rubricVersion) {
   return (
     Boolean(row.last_audited_at) &&
     Number.isInteger(row.rubric_version) &&

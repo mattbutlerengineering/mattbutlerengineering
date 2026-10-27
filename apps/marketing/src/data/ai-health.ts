@@ -191,7 +191,7 @@ export interface ReviewBurdenMetrics {
  * the "keep AI-health pages honest" theme `reviewBurden.noFormalReviewStage`
  * already applies: a judgment the normalizer makes once, not left to the panel.
  */
-export const PR_CATEGORY_LOW_SAMPLE_THRESHOLD = 5;
+const PR_CATEGORY_LOW_SAMPLE_THRESHOLD = 5;
 
 /** Safe per-category view-model entry for the prCategoryBreakdown panel. */
 export interface PrCategoryBreakdownStats {

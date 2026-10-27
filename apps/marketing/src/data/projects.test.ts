@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { PROJECTS } from "./projects.js";
+import { REPO_STATS } from "./repo-stats.js";
 
 describe("PROJECTS", () => {
   it("has the correct number of projects", () => {
@@ -33,9 +34,13 @@ describe("PROJECTS", () => {
     expect(rialto).toBeDefined();
     expect(rialto!.stack).toContain("React");
     expect(rialto!.stack).toContain("TypeScript");
-    // Deep-links to a composed showcase page (Booking Wizard example) rather than
-    // the /rialto/ landing page, so a first-time visitor sees breadth in one view.
-    expect(rialto!.href).toBe("/rialto/examples/booking-wizard");
+    // Links to the showcase landing page, not a single example.
+    expect(rialto!.href).toBe("/rialto");
+  });
+
+  it("Rialto card advertises the shared REPO_STATS count, not hardcoded copy (#7548)", () => {
+    const rialto = PROJECTS.find((p) => p.title === "Rialto Design System");
+    expect(rialto!.description).toContain(`${REPO_STATS.rialtoComponents} components`);
   });
 
   it("Hospitality Platform project has correct data", () => {

@@ -16,7 +16,7 @@ export const WIDGET_LOCALE_STORAGE_KEY = "mbe-booking-widget-locale";
  * never touches `<html lang>` (the scope marks its subtree with `lang`
  * instead), so a guest's choice and a staff member's never move each other.
  */
-export function createWidgetRuntime(): LocaleRuntime {
+function createWidgetRuntime(): LocaleRuntime {
   return createLocaleRuntime({
     ...browserDeps,
     setDocumentLang: () => {},

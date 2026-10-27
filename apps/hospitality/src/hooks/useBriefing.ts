@@ -1,7 +1,7 @@
 import type { ApiBriefingEntry } from "@mbe/api-client";
 import { createQueryHook } from "./create-query-hook.js";
 
-export const BRIEFING_QUERY_KEY = "briefing" as const;
+const BRIEFING_QUERY_KEY = "briefing" as const;
 
 // Re-export api-client types under the names consumers already import
 export type BriefingEntry = ApiBriefingEntry;

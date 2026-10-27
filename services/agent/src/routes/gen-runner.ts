@@ -67,7 +67,7 @@ export const GEN_WRITE_TOOL_NAMES = [
   "update_table_status",
 ] as const;
 
-export const GEN_WRITE_TOOLS: ReadonlySet<string> = new Set(GEN_WRITE_TOOL_NAMES);
+const GEN_WRITE_TOOLS: ReadonlySet<string> = new Set(GEN_WRITE_TOOL_NAMES);
 
 export type GenToolMap = Record<string, unknown>;
 export type GenEventCallback = (event: GenStreamEvent) => Promise<void>;

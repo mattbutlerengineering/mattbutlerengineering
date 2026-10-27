@@ -35,7 +35,7 @@ const WORKTREE_GITDIR_RE = /^gitdir:.*[/\\]worktrees[/\\]/;
  * @param {string} dirPath - absolute path to the candidate directory
  * @returns {boolean}
  */
-export function isNestedGitWorktree(dirPath) {
+function isNestedGitWorktree(dirPath) {
   const gitPath = path.join(dirPath, ".git");
   let stat;
   try {

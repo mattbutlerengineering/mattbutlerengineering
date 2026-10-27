@@ -31,8 +31,11 @@ export interface GlobalNavProps extends Pick<
   HTMLAttributes<HTMLElement>,
   "id" | "aria-label" | "className" | "style"
 > {
-  /** Which app is currently active — drives the active link indicator. */
-  currentApp: "marketing" | "hospitality" | "rialto";
+  /**
+   * Which app is currently active — drives the active link indicator.
+   * `"gen"` is a sibling app with no nav link of its own, so no link is marked active.
+   */
+  currentApp: "marketing" | "hospitality" | "rialto" | "gen";
   /** Current resolved theme for the theme toggle icon. */
   theme?: "light" | "dark";
   /** Called when the user clicks the theme toggle. */

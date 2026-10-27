@@ -596,9 +596,6 @@
   </file>
   <file path="packages/rialto/src/components/SilkFlow/silk-flow-field.ts">
     <item priority="high">
-      export const FIELD_SCALE: unknown;
-    </item>
-    <item priority="high">
       export const FIELD_TIME_STEP: unknown;
     </item>
     <item priority="low">
@@ -684,8 +681,8 @@
   </section>
   <section priority="medium" role="TapeChart">
   <file path="packages/rialto/src/components/TapeChart/dateMath.ts">
-    <item priority="high">
-      export function parseISOMs(iso: string): number { /* ... */ }
+    <item priority="medium">
+      function parseISOMs(iso: string): number { /* ... */ }
     </item>
     <item priority="high">
       export function daysBetween(a: string, b: string): number { /* ... */ }
@@ -710,8 +707,8 @@
           TapeChartStrings,
           | "reservatio...;
     </item>
-    <item priority="high">
-      export function defaultStringsFor(messages: RialtoMessages): ResolvedStrings { /* ... */ }
+    <item priority="medium">
+      function defaultStringsFor(messages: RialtoMessages): ResolvedStrings { /* ... */ }
     </item>
     <item priority="high">
       export const DEFAULT_STRINGS: ResolvedStrings;
@@ -986,12 +983,6 @@
       export const PLATE_RADIUS: unknown;
     </item>
     <item priority="high">
-      export const PIVOT: unknown;
-    </item>
-    <item priority="high">
-      export const TOOTH_RATIO: unknown;
-    </item>
-    <item priority="high">
       export const ESCAPE_TEETH: unknown;
     </item>
     <item priority="high">
@@ -1125,8 +1116,8 @@
     </item>
   </file>
   <file path="packages/agent-core/src/adapters/omp-adapter.ts">
-    <item priority="high">
-      export function ompModelToForward(model: string | undefined): string | undefined { /* ... */ }
+    <item priority="medium">
+      function ompModelToForward(model: string | undefined): string | undefined { /* ... */ }
     </item>
     <item priority="high">
       class OmpCliAdapter {
@@ -1372,9 +1363,6 @@
   <file path="apps/rialto-web/src/pages/auth/score-password.ts">
     <item priority="high">
       export const MIN_PASSWORD_LENGTH: unknown;
-    </item>
-    <item priority="high">
-      export const BONUS_LENGTH: unknown;
     </item>
     <item priority="low">
       interface PasswordRequirements {
@@ -1872,9 +1860,6 @@
       }
     </item>
     <item priority="high">
-      export const LAST_SEATING_LEAD_MINUTES: unknown;
-    </item>
-    <item priority="high">
       export const SERVICE_NAME_MAX_LENGTH: unknown;
     </item>
     <item priority="high">
@@ -1904,8 +1889,8 @@
     <item priority="medium">
       function toMinutes(hhmm: string): number { /* ... */ }
     </item>
-    <item priority="high">
-      export function toClock(minutes: number): string { /* ... */ }
+    <item priority="medium">
+      function toClock(minutes: number): string { /* ... */ }
     </item>
     <item priority="high">
       export function autoLastSeating(closes: string): string { /* ... */ }
@@ -2452,9 +2437,6 @@
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/useDateSelection.ts">
-    <item priority="high">
-      export const LONG_PRESS_MS: unknown;
-    </item>
     <item priority="low">
       interface DateSelectionOptions {
         selection: readonly string[];
@@ -2578,12 +2560,6 @@
     </item>
     <item priority="high">
       export const MISSING_VENUE_SLUG_ERROR: unknown;
-    </item>
-    <item priority="high">
-      export const STEP_KEYS_NO_DEPOSIT: BookingStep[];
-    </item>
-    <item priority="high">
-      export const STEP_KEYS_WITH_DEPOSIT: BookingStep[];
     </item>
     <item priority="high">
       export function deriveStepKeys(depositRequired: boolean): BookingStep[] { /* ... */ }
@@ -3355,9 +3331,6 @@
         totalReviewers: number | null;
       }
     </item>
-    <item priority="high">
-      export const PR_CATEGORY_LOW_SAMPLE_THRESHOLD: unknown;
-    </item>
     <item priority="low">
       interface PrCategoryBreakdownStats {
         merged: number | null;
@@ -3431,6 +3404,11 @@
       export function normalizeSensorReport(report: unknown): HealthMetrics { /* ... */ }
     </item>
   </file>
+  <file path="apps/marketing/src/data/measurement-date.ts">
+    <item priority="high">
+      export const MEASUREMENT_DATE: string;
+    </item>
+  </file>
   <file path="apps/marketing/src/data/projects.ts">
     <item priority="low">
       interface Project {
@@ -3454,14 +3432,23 @@
         measuredAt: string;
       }
     </item>
-    <item priority="high">
-      export function isRepoStats(value: unknown): value is RepoStats { /* ... */ }
+    <item priority="low">
+      type MeasuredStats = Omit<RepoStats, "rialtoComponents">;
     </item>
     <item priority="high">
-      export const FALLBACK_REPO_STATS: RepoStats;
+      export function isMeasuredStats(value: unknown): value is MeasuredStats { /* ... */ }
     </item>
     <item priority="high">
-      export function selectRepoStats(generated: unknown, fallback: RepoStats): RepoStats { /* ... */ }
+      export const FALLBACK_REPO_STATS: MeasuredStats;
+    </item>
+    <item priority="high">
+      export function selectMeasuredStats(generated: unknown, fallback: MeasuredStats): MeasuredStats { /* ... */ }
+    </item>
+    <item priority="high">
+      export function selectComponentCount(generated: unknown, fallback: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export const RIALTO_COMPONENT_COUNT: number;
     </item>
     <item priority="high">
       export const REPO_STATS: RepoStats;
@@ -3545,6 +3532,17 @@
       export function statusProbeFixture(url: string, method: string): ProbeFixture | undefined { /* ... */ }
     </item>
   </file>
+  <file path="apps/marketing/src/data/weekly-freshness.ts">
+    <item priority="high">
+      export function recentReadingItems(
+        resources: readonly WeeklyResource[],
+        now: Date = new Date()
+      ): readonly WeeklyResource[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function latestPublishedAt(resources: readonly WeeklyResource[]): string | null { /* ... */ }
+    </item>
+  </file>
   <file path="apps/marketing/src/data/weekly-intake.ts">
     <item priority="low">
       interface WeeklyResource {
@@ -3560,9 +3558,6 @@
     </item>
   </file>
   <file path="apps/rialto-web/src/data/demo-routes.ts">
-    <item priority="high">
-      export const DEMOS_BASE: unknown;
-    </item>
     <item priority="high">
       export const DEMO_ROUTES: unknown;
     </item>
@@ -4342,9 +4337,6 @@
     <item priority="high">
       export const ROOMS: RoomOption[];
     </item>
-    <item priority="high">
-      export const TAX_RATE: unknown;
-    </item>
     <item priority="low">
       interface GuestInfo {
         firstName: string;
@@ -4790,8 +4782,8 @@
         venueId: string
       ): Promise<ReadonlySet<string>> { /* ... */ }
     </item>
-    <item priority="high">
-      export function uniqueTableName(desired: string, taken: ReadonlySet<string>): string { /* ... */ }
+    <item priority="medium">
+      function uniqueTableName(desired: string, taken: ReadonlySet<string>): string { /* ... */ }
     </item>
     <item priority="low">
       interface CreateFromTemplateInput {
@@ -4882,9 +4874,6 @@
     </item>
     <item priority="high">
       export const MAX_WALL_THICKNESS: unknown;
-    </item>
-    <item priority="high">
-      export const DEFAULT_WALL_THICKNESS: unknown;
     </item>
     <item priority="low">
       interface Point {
@@ -5179,8 +5168,8 @@
     <item priority="high">
       export const SECTION_LABEL_FALLBACKS: Record<"light" | "dark", SectionLabelTheme>;
     </item>
-    <item priority="high">
-      export function resolveSectionLabelTheme(): SectionLabelTheme { /* ... */ }
+    <item priority="medium">
+      function resolveSectionLabelTheme(): SectionLabelTheme { /* ... */ }
     </item>
     <item priority="high">
       export function useSectionLabelTheme(): SectionLabelTheme { /* ... */ }
@@ -5673,9 +5662,6 @@
       export const AVAILABILITY_CONFIG_QUERY_KEY: unknown;
     </item>
     <item priority="high">
-      export const AVAILABILITY_CHANGES_QUERY_KEY: unknown;
-    </item>
-    <item priority="high">
       export const useAvailabilityDays: unknown;
     </item>
     <item priority="high">
@@ -5697,9 +5683,6 @@
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useAvailabilityPreview.ts">
-    <item priority="high">
-      export const AVAILABILITY_PREVIEW_QUERY_KEY: unknown;
-    </item>
     <item priority="low">
       interface AvailabilityPreviewState {
         result: PreviewResult | null;
@@ -5717,16 +5700,10 @@
   </file>
   <file path="apps/hospitality/src/hooks/useAvailabilityUndo.ts">
     <item priority="high">
-      export const UNDO_TOAST_MS: unknown;
-    </item>
-    <item priority="high">
       export function useAvailabilityUndo() { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useBriefing.ts">
-    <item priority="high">
-      export const BRIEFING_QUERY_KEY: unknown;
-    </item>
     <item priority="low">
       type BriefingEntry = ApiBriefingEntry;
     </item>
@@ -5816,9 +5793,6 @@
   </file>
   <file path="apps/hospitality/src/hooks/useClosures.ts">
     <item priority="high">
-      export const CLOSURE_IMPACT_QUERY_KEY: unknown;
-    </item>
-    <item priority="high">
       export const useClosureImpact: unknown;
     </item>
     <item priority="low">
@@ -5841,12 +5815,6 @@
     </item>
     <item priority="high">
       export const useCreateClosure: unknown;
-    </item>
-    <item priority="high">
-      export const CLOSURE_SUMMARIES_QUERY_KEY: unknown;
-    </item>
-    <item priority="high">
-      export const CLOSURE_CALL_LIST_QUERY_KEY: unknown;
     </item>
     <item priority="high">
       export const useClosureSummaries: unknown;
@@ -5944,9 +5912,6 @@
   </file>
   <file path="apps/hospitality/src/hooks/useDeposits.ts">
     <item priority="high">
-      export const DEPOSITS_QUERY_KEY: unknown;
-    </item>
-    <item priority="high">
       export function useDepositByReservation(reservationId: string | null | undefined) { /* ... */ }
     </item>
     <item priority="high">
@@ -5982,9 +5947,6 @@
     <item priority="high">
       export const FLOOR_PLANS_QUERY_KEY: unknown;
     </item>
-    <item priority="high">
-      export const FLOOR_PLAN_QUERY_KEY: unknown;
-    </item>
     <item priority="low">
       interface UseFloorPlansParams {
         venueId?: string | null;
@@ -6006,8 +5968,8 @@
     <item priority="high">
       export function useFloorPlan(id: string | undefined): UseFloorPlanResult { /* ... */ }
     </item>
-    <item priority="high">
-      export function floorPlanQueryKey(id: string | undefined): readonly unknown[] { /* ... */ }
+    <item priority="medium">
+      function floorPlanQueryKey(id: string | undefined): readonly unknown[] { /* ... */ }
     </item>
     <item priority="high">
       export const useCloneFloorPlan: unknown;
@@ -6041,9 +6003,6 @@
     </item>
     <item priority="high">
       export const useUpdateFloorPlanLayout: unknown;
-    </item>
-    <item priority="high">
-      export const FLOOR_PLAN_SECTIONS_QUERY_KEY: unknown;
     </item>
     <item priority="high">
       export const useFloorPlanSections: unknown;
@@ -6244,12 +6203,6 @@
   </file>
   <file path="apps/hospitality/src/hooks/useMenus.ts">
     <item priority="high">
-      export const MENUS_QUERY_KEY: unknown;
-    </item>
-    <item priority="high">
-      export const MENU_QUERY_KEY: unknown;
-    </item>
-    <item priority="high">
       export const useMenus: unknown;
     </item>
     <item priority="high">
@@ -6333,9 +6286,6 @@
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useOpenTimes.ts">
-    <item priority="high">
-      export const OPEN_TIMES_QUERY_KEY: unknown;
-    </item>
     <item priority="high">
       export const useOpenTimes: unknown;
     </item>
@@ -6461,9 +6411,6 @@
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useStaffBookingCheck.ts">
-    <item priority="high">
-      export const STAFF_BOOKING_CHECK_QUERY_KEY: unknown;
-    </item>
     <item priority="high">
       type BookingWindow = { start: string; end: string };
     </item>
@@ -6607,12 +6554,6 @@
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useUsers.ts">
-    <item priority="high">
-      export const CURRENT_USER_QUERY_KEY: unknown;
-    </item>
-    <item priority="high">
-      export const USERS_QUERY_KEY: unknown;
-    </item>
     <item priority="low">
       interface UseCurrentUserResult {
         data: User | null | undefined;
@@ -6673,9 +6614,6 @@
   </file>
   <file path="apps/hospitality/src/hooks/useVenuePolicy.ts">
     <item priority="high">
-      export const VENUE_POLICY_QUERY_KEY: unknown;
-    </item>
-    <item priority="high">
       export function useVenuePolicy(slug: string | undefined): {
         policy: CancellationPolicy | null;
         isLoading: boolean;
@@ -6695,9 +6633,6 @@
       }
     </item>
     <item priority="high">
-      export const STEP_ORDER: readonly SetupStep[];
-    </item>
-    <item priority="high">
       export function computeReadiness(
         venue: Venue | null,
         floorPlans: readonly FloorPlan[],
@@ -6709,9 +6644,6 @@
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useVenueTeam.ts">
-    <item priority="high">
-      export const VENUE_TEAM_QUERY_KEY: unknown;
-    </item>
     <item priority="high">
       export const useVenueTeam: unknown;
     </item>
@@ -6725,9 +6657,6 @@
   <file path="apps/hospitality/src/hooks/useVenues.ts">
     <item priority="high">
       export const VENUES_QUERY_KEY: unknown;
-    </item>
-    <item priority="high">
-      export const VENUE_BY_SLUG_QUERY_KEY: unknown;
     </item>
     <item priority="low">
       interface UseVenuesParams {
@@ -7695,9 +7624,6 @@
       export const PIXEL_STRIDE: unknown;
     </item>
     <item priority="high">
-      export const MAX_SAMPLE_EDGE: unknown;
-    </item>
-    <item priority="high">
       export function fitWithin(
         width: number,
         height: number,
@@ -8078,8 +8004,8 @@
         startTime: string;
       }
     </item>
-    <item priority="high">
-      export function toGsm(text: string): string { /* ... */ }
+    <item priority="medium">
+      function toGsm(text: string): string { /* ... */ }
     </item>
     <item priority="high">
       export function smsSegments(body: string): number { /* ... */ }
@@ -9311,8 +9237,8 @@
     <item priority="high">
       export function isSafeReturnTo(value: unknown): value is string { /* ... */ }
     </item>
-    <item priority="high">
-      export function appBasePath(redirectUri: string): string { /* ... */ }
+    <item priority="medium">
+      function appBasePath(redirectUri: string): string { /* ... */ }
     </item>
     <item priority="medium">
       function isCallbackPath(pathname: string, redirectUri: string): boolean { /* ... */ }
@@ -9553,8 +9479,8 @@
     <item priority="high">
       export function todayIn(timeZone: string | undefined, now: Date = new Date()): string { /* ... */ }
     </item>
-    <item priority="high">
-      export function localTimeIn(iso: unknown, timeZone: string | undefined): string | undefined { /* ... */ }
+    <item priority="medium">
+      function localTimeIn(iso: unknown, timeZone: string | undefined): string | undefined { /* ... */ }
     </item>
     <item priority="medium">
       function withLocalTime<T extends object>(
@@ -9713,9 +9639,6 @@
     <item priority="high">
       export const GEN_WRITE_TOOL_NAMES: unknown;
     </item>
-    <item priority="high">
-      export const GEN_WRITE_TOOLS: ReadonlySet<string>;
-    </item>
     <item priority="low">
       type GenToolMap = Record<string, unknown>;
     </item>
@@ -9741,8 +9664,8 @@
     </item>
   </file>
   <file path="services/agent/src/routes/gen-specs.ts">
-    <item priority="high">
-      export function normaliseKind(
+    <item priority="medium">
+      function normaliseKind(
         prompt: string,
         kind: (typeof GEN_SPEC_KINDS)[number] | undefined
       ): { prompt: string; kind: (typeof GEN_SPEC_KINDS)[number] } { /* ... */ }
@@ -10539,12 +10462,6 @@
     <item priority="high">
       export const ADMIN_HEADERS: Record<string, string>;
     </item>
-    <item priority="high">
-      export const MEMBER_HEADERS: Record<string, string>;
-    </item>
-    <item priority="high">
-      export const DINER_A_HEADERS: Record<string, string>;
-    </item>
     <item priority="medium">
       function inject(
         ctx: SweepContext,
@@ -10557,9 +10474,6 @@
     </item>
     <item priority="high">
       export const asMember: unknown;
-    </item>
-    <item priority="high">
-      export const asDiner: unknown;
     </item>
     <item priority="high">
       export function expectOk(res: LightMyRequestResponse, label: string): void { /* ... */ }
@@ -10858,6 +10772,9 @@
     </item>
   </file>
   <file path="services/reservations/src/routes/venues.ts">
+    <item priority="medium">
+      function operatingHoursError(operatingHours: unknown): string | null { /* ... */ }
+    </item>
     <item priority="high">
       export const VENUE_CREATE_RATE_LIMIT: unknown;
     </item>
@@ -12220,6 +12137,9 @@
       export const DayScheduleSchema: unknown;
     </item>
     <item priority="high">
+      export const OperatingHoursWriteSchema: unknown;
+    </item>
+    <item priority="high">
       export const VENUE_TYPES: unknown;
     </item>
     <item priority="high">
@@ -12445,11 +12365,8 @@
     <item priority="high">
       export function costUsd(tokens: Tokens, pricing: Pricing): number { /* ... */ }
     </item>
-    <item priority="high">
-      export function uncachedCostUsd(tokens: Tokens, pricing: Pricing): number { /* ... */ }
-    </item>
-    <item priority="high">
-      export const SYSTEM_PROMPT: unknown;
+    <item priority="medium">
+      function uncachedCostUsd(tokens: Tokens, pricing: Pricing): number { /* ... */ }
     </item>
     <item priority="low">
       type Validation = { ok: true } | { ok: false; error: string };
@@ -12537,9 +12454,6 @@
   <file path="packages/rialto-catalog/scripts/gen-ui-bakeoff-providers.ts">
     <item priority="high">
       type FetchLike = typeof fetch;
-    </item>
-    <item priority="high">
-      export const DEFAULT_MODELS: Readonly<Record<ProviderId, string>>;
     </item>
     <item priority="high">
       export const ENV_KEYS: Readonly<Record<ProviderId, string>>;
@@ -13045,9 +12959,6 @@
     </item>
   </file>
   <file path="services/agent/src/services/gen-spec-cache.ts">
-    <item priority="high">
-      export const GEN_SPEC_CACHE_TTL_HOURS: unknown;
-    </item>
     <item priority="low">
       interface GenSpecCacheKeyInput {
         route: string;
@@ -13193,8 +13104,8 @@
     <item priority="high">
       export function createSessionConcurrency(limit: number): SessionConcurrency { /* ... */ }
     </item>
-    <item priority="high">
-      export function resolveConcurrencyLimit(): number { /* ... */ }
+    <item priority="medium">
+      function resolveConcurrencyLimit(): number { /* ... */ }
     </item>
     <item priority="high">
       export const defaultConcurrency: SessionConcurrency;
@@ -13465,9 +13376,6 @@
     </item>
   </file>
   <file path="services/reservations/src/services/availability-changes.ts">
-    <item priority="high">
-      export const REVERT_KIND: unknown;
-    </item>
     <item priority="medium">
       function dayStart(d: string, timezone: string): Date { /* ... */ }
     </item>
@@ -13563,8 +13471,8 @@
     <item priority="medium">
       function dayLabel(config: AvailabilityConfig, day: ResolvedDay): string { /* ... */ }
     </item>
-    <item priority="high">
-      export function daySummaryServices(
+    <item priority="medium">
+      function daySummaryServices(
         names: ReadonlyMap<string, string>,
         day: ResolvedDay
       ): DaySummaryService[] { /* ... */ }
@@ -13800,8 +13708,8 @@
         legacyProblem?: { reason: string; detail: string };
       } | null> { /* ... */ }
     </item>
-    <item priority="high">
-      export async function listAvailabilityDays(
+    <item priority="low">
+      async function listAvailabilityDays(
         venueId: string,
         from: string,
         to: string,
@@ -13839,9 +13747,6 @@
       class SaveRefused {
         
       }
-    </item>
-    <item priority="high">
-      export const LATE_GUEST_GRACE_MINUTES: unknown;
     </item>
     <item priority="high">
       export function stillToServeWhere(now: Date) { /* ... */ }
@@ -13895,9 +13800,6 @@
         client: StoreClient = prisma
       ): Promise<SaveOutcome> { /* ... */ }
     </item>
-    <item priority="high">
-      export const PREVIEW_TIMEOUT_MS: unknown;
-    </item>
     <item priority="low">
       type PreviewOutcome = { kind: "not_found" } | { kind: "timeout" } | PreviewPlan;
     </item>
@@ -13917,9 +13819,6 @@
     </item>
   </file>
   <file path="services/reservations/src/services/availability-migration.ts">
-    <item priority="high">
-      export const MIGRATION_ACTOR: unknown;
-    </item>
     <item priority="low">
       interface VenueForMigration {
         operatingHours: unknown;
@@ -14185,8 +14084,8 @@
     <item priority="medium">
       function noticesFor(loaded: LoadedSnapshot, date: string, seatingCount: number) { /* ... */ }
     </item>
-    <item priority="high">
-      export async function getDayAvailability(
+    <item priority="low">
+      async function getDayAvailability(
         venueId: string,
         date: string,
         partySize: number,
@@ -14194,8 +14093,8 @@
         options: ListingOptions = {}
       ): Promise<DayAvailability> { /* ... */ }
     </item>
-    <item priority="high">
-      export async function generateTimeSlots(
+    <item priority="low">
+      async function generateTimeSlots(
         venueId: string,
         date: string,
         partySize: number,
@@ -14206,8 +14105,8 @@
     <item priority="medium">
       function rangeDates(startDate: string, endDate: string): string[] { /* ... */ }
     </item>
-    <item priority="high">
-      export async function getAvailableDates(
+    <item priority="low">
+      async function getAvailableDates(
         venueId: string,
         startDate: string,
         endDate: string,
@@ -14215,8 +14114,8 @@
         options: ListingOptions = {}
       ): Promise<DateAvailability[]> { /* ... */ }
     </item>
-    <item priority="high">
-      export async function findBestTable(
+    <item priority="low">
+      async function findBestTable(
         venueId: string,
         date: string,
         startTime: Date,
@@ -14241,8 +14140,8 @@
     <item priority="high">
       export function tableAdvisoryLockSql(tableId: string): Prisma.Sql { /* ... */ }
     </item>
-    <item priority="high">
-      export function venueShareLockSql(venueId: string): Prisma.Sql { /* ... */ }
+    <item priority="medium">
+      function venueShareLockSql(venueId: string): Prisma.Sql { /* ... */ }
     </item>
     <item priority="low">
       type SlotConflictCode = "CONFLICT" | "EXPIRED" | "NOT_BOOKABLE";
@@ -14487,9 +14386,6 @@
     </item>
     <item priority="high">
       export function currentServiceDate(snapshot: AvailabilitySnapshot, now: Date): string { /* ... */ }
-    </item>
-    <item priority="high">
-      export const MIN_SERVICE_MINUTES: unknown;
     </item>
     <item priority="high">
       type DayServices = ReturnType<typeof resolveDay>;
@@ -15034,15 +14930,6 @@
     </item>
   </file>
   <file path="services/reservations/src/services/closure-outcome-sweeper.ts">
-    <item priority="high">
-      export const DEFAULT_GRACE_MS: unknown;
-    </item>
-    <item priority="high">
-      export const DEFAULT_BATCH_SIZE: unknown;
-    </item>
-    <item priority="high">
-      export const DEFAULT_SWEEP_INTERVAL_MS: unknown;
-    </item>
     <item priority="low">
       interface StuckOutcome {
         id: string;
@@ -15145,9 +15032,6 @@
       class ClosureRefundPermanentError {
         
       }
-    </item>
-    <item priority="high">
-      export const closureRefundKey: unknown;
     </item>
     <item priority="high">
       export const closureRefundJobId: unknown;
@@ -15339,7 +15223,7 @@
     <item priority="high">
       export function setDepositServiceLogger(next: DepositServiceLogger): void { /* ... */ }
     </item>
-    <item priority="high">
+    <item priority="medium">
       class DepositNotFoundError {
         
       }
@@ -15602,9 +15486,6 @@
     </item>
   </file>
   <file path="services/reservations/src/services/hold.ts">
-    <item priority="high">
-      export const BOOKING_WINDOW_ERROR: unknown;
-    </item>
     <item priority="medium">
       function mapPrismaHold(hold: PrismaHold): ReservationHold { /* ... */ }
     </item>
@@ -17115,9 +16996,6 @@
     </item>
   </file>
   <file path="services/reservations/src/services/waitlist.ts">
-    <item priority="high">
-      export const NOTIFY_CLAIM_WINDOW_MS: unknown;
-    </item>
     <item priority="low">
       interface WaitlistEntryData {
         id: string;
@@ -18294,9 +18172,6 @@
       export const isInfrastructureFile: unknown;
     </item>
     <item priority="high">
-      export const isMetricsFile: unknown;
-    </item>
-    <item priority="high">
       export const isFrontendSourceFile: unknown;
     </item>
     <item priority="high">
@@ -18360,16 +18235,10 @@
   </file>
   <file path="packages/agent-core/src/gen-permissions.ts">
     <item priority="high">
-      export const BLOCKED_BASH_PATTERNS: readonly RegExp[];
-    </item>
-    <item priority="high">
       export function isRmRecursiveDelete(command: string): boolean { /* ... */ }
     </item>
     <item priority="medium">
       function segmentIsRmRecursiveDelete(segment: string): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export const ENCODING_BYPASS_PATTERNS: readonly RegExp[];
     </item>
     <item priority="high">
       export const BLOCKED_TOOLS: ReadonlySet<string>;
@@ -24400,11 +24269,11 @@
         outputTokens: number;
       }
     </item>
-    <item priority="high">
-      export function fixtureUuid(seed: string): SDKResultMessage["uuid"] { /* ... */ }
+    <item priority="medium">
+      function fixtureUuid(seed: string): SDKResultMessage["uuid"] { /* ... */ }
     </item>
-    <item priority="high">
-      export function buildUsage(inputTokens: number, outputTokens: number): SDKResultMessage["usage"] { /* ... */ }
+    <item priority="medium">
+      function buildUsage(inputTokens: number, outputTokens: number): SDKResultMessage["usage"] { /* ... */ }
     </item>
     <item priority="high">
       export function buildSuccessResult(opts: ResultInputs, result: string): SDKResultMessage { /* ... */ }
@@ -24647,6 +24516,14 @@
     </item>
     <item priority="high">
       export const MOTION_GROUPS: readonly TokenGroup[];
+    </item>
+    <item priority="high">
+      export const MOTION_FREQUENCY_BUDGET: readonly {
+        readonly how: string;
+        readonly examples: s...;
+    </item>
+    <item priority="high">
+      export const MOTION_RESTRAINT_RULES: readonly string[];
     </item>
     <item priority="high">
       export const MOTION_TOKEN_NAMES: readonly string[];
@@ -25479,9 +25356,6 @@
   </file>
   <file path="apps/hospitality/src/utils/timeline-intent.ts">
     <item priority="high">
-      export const WALK_IN_PARAM: unknown;
-    </item>
-    <item priority="high">
       export const SELECTED_PARAM: unknown;
     </item>
     <item priority="high">
@@ -25498,9 +25372,6 @@
     </item>
     <item priority="high">
       export function stripTimelineIntent(params: URLSearchParams): URLSearchParams { /* ... */ }
-    </item>
-    <item priority="high">
-      export const NEW_RESERVATION_PARAM: unknown;
     </item>
     <item priority="low">
       interface ReservationsIntent {
@@ -25674,6 +25545,24 @@
     </item>
     <item priority="high">
       export const SOURCE_LABELS: Record<WeeklyResource["source"], string>;
+    </item>
+  </file>
+  <file path="apps/marketing/src/utils/route-meta.ts">
+    <item priority="low">
+      interface RouteMeta {
+        pattern: string;
+        title: string;
+        description: string;
+      }
+    </item>
+    <item priority="medium">
+      function findRouteMeta(pathname: string): RouteMeta | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function setDescription(content: string): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useRouteMeta(): void { /* ... */ }
     </item>
   </file>
   <file path="packages/rialto/src/utils/class-composer.ts">

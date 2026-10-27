@@ -2,7 +2,7 @@ import { useEffect, useRef, type MouseEvent, type TouchEvent } from "react";
 import { dateRange, normalizeDates, toggleDate } from "./selection.js";
 
 /** How long a finger must rest on a day before it starts a selection. */
-export const LONG_PRESS_MS = 500;
+const LONG_PRESS_MS = 500;
 
 export interface DateSelectionOptions {
   readonly selection: readonly string[];

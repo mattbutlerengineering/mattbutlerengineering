@@ -560,9 +560,6 @@
   </file>
   <file path="src/components/SilkFlow/silk-flow-field.ts">
     <item priority="high">
-      export const FIELD_SCALE: unknown;
-    </item>
-    <item priority="high">
       export const FIELD_TIME_STEP: unknown;
     </item>
     <item priority="low">
@@ -648,8 +645,8 @@
   </section>
   <section priority="medium" role="TapeChart">
   <file path="src/components/TapeChart/dateMath.ts">
-    <item priority="high">
-      export function parseISOMs(iso: string): number { /* ... */ }
+    <item priority="medium">
+      function parseISOMs(iso: string): number { /* ... */ }
     </item>
     <item priority="high">
       export function daysBetween(a: string, b: string): number { /* ... */ }
@@ -674,8 +671,8 @@
           TapeChartStrings,
           | "reservatio...;
     </item>
-    <item priority="high">
-      export function defaultStringsFor(messages: RialtoMessages): ResolvedStrings { /* ... */ }
+    <item priority="medium">
+      function defaultStringsFor(messages: RialtoMessages): ResolvedStrings { /* ... */ }
     </item>
     <item priority="high">
       export const DEFAULT_STRINGS: ResolvedStrings;
@@ -948,12 +945,6 @@
     </item>
     <item priority="high">
       export const PLATE_RADIUS: unknown;
-    </item>
-    <item priority="high">
-      export const PIVOT: unknown;
-    </item>
-    <item priority="high">
-      export const TOOTH_RATIO: unknown;
     </item>
     <item priority="high">
       export const ESCAPE_TEETH: unknown;
