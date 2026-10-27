@@ -96,7 +96,7 @@ export class ClosureRefundPermanentError extends Error {
 }
 
 /** The logical job key; it dedupes the job and never reaches Stripe. */
-export const closureRefundKey = (ruleId: string, reservationId: string): string =>
+const closureRefundKey = (ruleId: string, reservationId: string): string =>
   `closure:${ruleId}:${reservationId}`;
 
 /** BullMQ rejects `:` in a custom job id, so the key's separators become `_`. */

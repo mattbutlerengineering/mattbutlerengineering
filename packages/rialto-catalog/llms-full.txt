@@ -102,10 +102,9 @@
         1_000_000
       );
     }
-    export function uncachedCostUsd(tokens: Tokens, pricing: Pricing): number {
+    function uncachedCostUsd(tokens: Tokens, pricing: Pricing): number {
       return costUsd({ inputTokens: tokens.inputTokens, outputTokens: tokens.outputTokens }, pricing);
     }
-    export const SYSTEM_PROMPT = `${catalog.prompt()}\n\n${JSON_OUTPUT_INSTRUCTIONS}`;
     export type Validation = { ok: true } | { ok: false; error: string };
     function extractJson(text: string): unknown {
       const fenced = /```(?:json)?\s*([\s\S]*?)```/.exec(text);
@@ -397,11 +396,6 @@
   </file>
   <file path="scripts/gen-ui-bakeoff-providers.ts">
     type FetchLike = typeof fetch;
-    export const DEFAULT_MODELS: Readonly<Record<ProviderId, string>> = {
-      anthropic: "claude-haiku-5-5",
-      openai: "gpt-6-luna",
-      gemini: "gemini-3.1-flash-lite",
-    };
     export const ENV_KEYS: Readonly<Record<ProviderId, string>> = {
       anthropic: "ANTHROPIC_API_KEY",
       openai: "OPENAI_API_KEY",

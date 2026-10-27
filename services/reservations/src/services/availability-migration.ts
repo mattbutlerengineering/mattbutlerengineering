@@ -25,7 +25,7 @@ import { setVenueContext } from "../middleware/venue-context.js";
  * outcome carries the original column value, so the run log doubles as a backup.
  */
 
-export const MIGRATION_ACTOR = "system:availability-legacy-migration";
+const MIGRATION_ACTOR = "system:availability-legacy-migration";
 
 export interface VenueForMigration {
   operatingHours: unknown;

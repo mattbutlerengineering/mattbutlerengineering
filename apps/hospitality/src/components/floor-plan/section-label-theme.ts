@@ -43,7 +43,7 @@ export const SECTION_LABEL_FALLBACKS: Record<"light" | "dark", SectionLabelTheme
   dark: { plate: "#1e1c1a", text: "rgb(253 252 250 / 0.92)" },
 };
 
-export function resolveSectionLabelTheme(): SectionLabelTheme {
+function resolveSectionLabelTheme(): SectionLabelTheme {
   const theme: "light" | "dark" =
     document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
   const fallback = SECTION_LABEL_FALLBACKS[theme];

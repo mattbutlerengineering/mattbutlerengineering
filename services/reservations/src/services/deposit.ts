@@ -96,7 +96,7 @@ export function setDepositServiceLogger(next: DepositServiceLogger): void {
   logger = next;
 }
 
-export class DepositNotFoundError extends Error {
+class DepositNotFoundError extends Error {
   constructor(id: string) {
     super(`Deposit not found: ${id}`);
     this.name = "DepositNotFoundError";

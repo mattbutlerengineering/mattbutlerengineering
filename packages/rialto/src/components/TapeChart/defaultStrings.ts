@@ -47,7 +47,7 @@ export type ResolvedStrings = Required<
 };
 
 /** The built-in labels for one locale's messages (ADR-028). */
-export function defaultStringsFor(messages: RialtoMessages): ResolvedStrings {
+function defaultStringsFor(messages: RialtoMessages): ResolvedStrings {
   const { viaSource: _via, blockedReason: _reason, ...labels } = messages.tapeChart;
   return {
     ...labels,

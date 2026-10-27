@@ -41,7 +41,7 @@ export function tableAdvisoryLockSql(tableId: string): Prisma.Sql {
  * (`closure-apply.ts` `targetTaken`); the same order on both sides cannot form a cycle. Share locks
  * do not conflict with each other, so bookings never block one another here (#7679).
  */
-export function venueShareLockSql(venueId: string): Prisma.Sql {
+function venueShareLockSql(venueId: string): Prisma.Sql {
   return Prisma.sql`SELECT 1 FROM venues WHERE id = ${venueId} FOR SHARE`;
 }
 

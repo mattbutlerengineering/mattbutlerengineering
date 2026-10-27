@@ -177,8 +177,8 @@
     <item priority="high">
       export function isSafeReturnTo(value: unknown): value is string { /* ... */ }
     </item>
-    <item priority="high">
-      export function appBasePath(redirectUri: string): string { /* ... */ }
+    <item priority="medium">
+      function appBasePath(redirectUri: string): string { /* ... */ }
     </item>
     <item priority="medium">
       function isCallbackPath(pathname: string, redirectUri: string): boolean { /* ... */ }

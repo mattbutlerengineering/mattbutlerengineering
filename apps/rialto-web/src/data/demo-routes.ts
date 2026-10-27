@@ -10,7 +10,7 @@
  */
 
 /** Path segment (below the `/rialto` basename) that all demo pages sit under. */
-export const DEMOS_BASE = "/demos";
+const DEMOS_BASE = "/demos";
 
 /** Fully-qualified (basename-relative) paths for every demo cross-link target. */
 export const DEMO_ROUTES = {

@@ -314,7 +314,7 @@
         day: "2-digit",
       }).format(now);
     }
-    export function localTimeIn(iso: unknown, timeZone: string | undefined): string | undefined {
+    function localTimeIn(iso: unknown, timeZone: string | undefined): string | undefined {
       if (typeof iso !== "string") return undefined;
       const instant = new Date(iso);
       if (Number.isNaN(instant.getTime())) return undefined;
@@ -1334,7 +1334,6 @@
       "seat_walk_in",
       "update_table_status",
     ] as const;
-    export const GEN_WRITE_TOOLS: ReadonlySet<string> = new Set(GEN_WRITE_TOOL_NAMES);
     export type GenToolMap = Record<string, unknown>;
     export type GenEventCallback = (event: GenStreamEvent) => Promise<void>;
     export interface GenRunner {
@@ -1470,7 +1469,7 @@
     }
   </file>
   <file path="src/routes/gen-specs.ts">
-    export function normaliseKind(
+    function normaliseKind(
       prompt: string,
       kind: (typeof GEN_SPEC_KINDS)[number] | undefined
     ): { prompt: string; kind: (typeof GEN_SPEC_KINDS)[number] } {
@@ -2919,7 +2918,6 @@
     export const prisma = db.prisma as unknown as PrismaClient;
   </file>
   <file path="src/services/gen-spec-cache.ts">
-    export const GEN_SPEC_CACHE_TTL_HOURS = 24;
     export interface GenSpecCacheKeyInput {
       readonly route: string;
       readonly messages: ReadonlyArray<{ readonly role: string; readonly content: string }>;
@@ -3233,7 +3231,7 @@
         },
       };
     }
-    export function resolveConcurrencyLimit(): number {
+    function resolveConcurrencyLimit(): number {
       return parseInt(process.env.MAX_CONCURRENT_SESSIONS ?? "5", 10);
     }
     export const defaultConcurrency: SessionConcurrency =

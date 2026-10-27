@@ -18,11 +18,11 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-export const ROUTES_CONFIG_FILE = "infrastructure/worker/routes-config.json";
+const ROUTES_CONFIG_FILE = "infrastructure/worker/routes-config.json";
 const APPS_DIR = "apps";
 
 /** The top-level `name = "…"` of a wrangler.toml (before any `[section]`); null when absent. */
-export function wranglerName(text) {
+function wranglerName(text) {
   for (const line of text.split("\n")) {
     if (/^\s*\[/.test(line)) return null;
     const m = line.match(/^\s*name\s*=\s*"([^"]+)"/);

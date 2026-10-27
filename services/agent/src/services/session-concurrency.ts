@@ -54,7 +54,7 @@ export function createSessionConcurrency(limit: number): SessionConcurrency {
 }
 
 /** Parse the concurrency limit from the environment. Single parse site. */
-export function resolveConcurrencyLimit(): number {
+function resolveConcurrencyLimit(): number {
   return parseInt(process.env.MAX_CONCURRENT_SESSIONS ?? "5", 10);
 }
 

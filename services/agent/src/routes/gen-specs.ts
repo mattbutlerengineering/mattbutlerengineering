@@ -14,7 +14,7 @@ const LEGACY_PREFIXES: ReadonlyArray<readonly [string, (typeof GEN_SPEC_KINDS)[n
 ];
 
 // Mirrors apps/gen resolveEntry: an explicit kind wins; otherwise strip ONE legacy prefix.
-export function normaliseKind(
+function normaliseKind(
   prompt: string,
   kind: (typeof GEN_SPEC_KINDS)[number] | undefined
 ): { prompt: string; kind: (typeof GEN_SPEC_KINDS)[number] } {

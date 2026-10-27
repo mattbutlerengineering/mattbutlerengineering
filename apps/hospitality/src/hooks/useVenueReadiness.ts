@@ -14,7 +14,7 @@ export interface VenueReadiness {
   progress: number; // 0–100
 }
 
-export const STEP_ORDER: readonly SetupStep[] = ["onboarding", "operating-hours", "floor-plan"];
+const STEP_ORDER: readonly SetupStep[] = ["onboarding", "operating-hours", "floor-plan"];
 
 const LOADING: VenueReadiness = {
   status: "loading",

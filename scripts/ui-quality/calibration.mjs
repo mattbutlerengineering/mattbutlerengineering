@@ -38,7 +38,7 @@ import { pngSize } from "./png.mjs";
 export const CALIBRATION_FILE = "docs/ui-quality/calibration.json";
 const PREFERENCES = ["ours", "reference"];
 
-export const VERIFY_HINT =
+const VERIFY_HINT =
   `${CALIBRATION_FILE} has no labelled pairs yet — Matt labels ≥ ${CALIBRATION_MIN_PAIRS} ` +
   "pairs once at the Verify stage (docs/features/ui-quality-loop/breakdown.md § Notes, " +
   '"Verify-owned"); until then the rater is uncalibrated and its agent-built findings stay suppressed';

@@ -11,7 +11,7 @@ const MAX_PARTICLES = 420;
 const MIN_PARTICLES = 150;
 
 /** How tightly the noise field is sampled in screen space. */
-export const FIELD_SCALE = 0.0022;
+const FIELD_SCALE = 0.0022;
 /** Field evolution per frame. */
 export const FIELD_TIME_STEP = 0.0035;
 /** Full turns the noise range maps onto — two rotations, so strands curl. */

@@ -35,7 +35,6 @@ import { dayNotices } from "./availability-notices.js";
 
 // Re-export pure types and functions for callers that import them from this module.
 export type { ReservationSlim, HoldSlim };
-export { selectBestTable, filterSuitableTables };
 
 /** `getAvailableDates` never computes more than this many days past the start. */
 const MAX_RANGE_DAYS = 60;
@@ -145,7 +144,7 @@ function noticesFor(loaded: LoadedSnapshot, date: string, seatingCount: number) 
 }
 
 /** Slots for one date, with the closure or booking-pause notice the guest sees instead. */
-export async function getDayAvailability(
+async function getDayAvailability(
   venueId: string,
   date: string,
   partySize: number,
@@ -163,7 +162,7 @@ export async function getDayAvailability(
 /**
  * Generates available time slots for a venue on a specific date.
  */
-export async function generateTimeSlots(
+async function generateTimeSlots(
   venueId: string,
   date: string,
   partySize: number,
@@ -183,7 +182,7 @@ function rangeDates(startDate: string, endDate: string): string[] {
 /**
  * Gets dates with availability in a date range, from one snapshot of the range.
  */
-export async function getAvailableDates(
+async function getAvailableDates(
   venueId: string,
   startDate: string,
   endDate: string,
@@ -207,7 +206,7 @@ export async function getAvailableDates(
 /**
  * Finds the best available table for a reservation.
  */
-export async function findBestTable(
+async function findBestTable(
   venueId: string,
   date: string,
   startTime: Date,

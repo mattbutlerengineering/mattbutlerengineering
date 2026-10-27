@@ -4,7 +4,7 @@ import { createQueryHook } from "./create-query-hook.js";
 import { createMutationHook } from "./create-mutation-hook.js";
 import { RESERVATIONS_QUERY_KEY } from "./useReservations.js";
 
-export const DEPOSITS_QUERY_KEY = "deposits" as const;
+const DEPOSITS_QUERY_KEY = "deposits" as const;
 
 /* ── useDepositByReservation ───────────────────────────── */
 

@@ -42,7 +42,7 @@ export interface QuickSetupDraft {
   readonly days: readonly number[];
 }
 
-export const LAST_SEATING_LEAD_MINUTES = 45;
+const LAST_SEATING_LEAD_MINUTES = 45;
 /** `VenueServiceSchema.name` max; the server refuses a longer name. */
 export const SERVICE_NAME_MAX_LENGTH = 40;
 const MINUTES_PER_DAY = 1440;
@@ -77,7 +77,7 @@ function toMinutes(hhmm: string): number {
   return h * 60 + m;
 }
 
-export function toClock(minutes: number): string {
+function toClock(minutes: number): string {
   const wrapped = ((minutes % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
   const hh = String(Math.floor(wrapped / 60)).padStart(2, "0");
   const mm = String(wrapped % 60).padStart(2, "0");

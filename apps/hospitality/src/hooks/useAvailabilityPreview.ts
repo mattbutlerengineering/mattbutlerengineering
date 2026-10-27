@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { PreviewAvailabilityBody, PreviewResult } from "@mbe/types";
 import { useApiClient } from "./useApiClient.js";
 
-export const AVAILABILITY_PREVIEW_QUERY_KEY = "availabilityPreview" as const;
+const AVAILABILITY_PREVIEW_QUERY_KEY = "availabilityPreview" as const;
 
 export interface AvailabilityPreviewState {
   /** The newest result that arrived, kept while a newer request is pending or has failed. */

@@ -108,4 +108,4 @@ async function proxyToOrigin(request, url, env, ctx) {
   return finish(response);
 }
 
-export { proxyToOrigin, serviceFor };
+export { proxyToOrigin };

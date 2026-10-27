@@ -18,7 +18,7 @@ import { DEFAULT_LOCALE, resolveLocale, type LocaleTag } from "./locales.js";
  * stay where they were and the promise rejects (the picker offers Retry).
  */
 
-export const LOCALE_STORAGE_KEY = "mbe-hospitality-locale";
+const LOCALE_STORAGE_KEY = "mbe-hospitality-locale";
 const LOAD_TIMEOUT_MS = 10_000;
 
 type Catalog = Record<string, unknown>;

@@ -192,7 +192,7 @@ export async function getAvailabilityConfig(
 }
 
 /** Calendar summaries for `from`..`to` inclusive; the caller bounds the range. */
-export async function listAvailabilityDays(
+async function listAvailabilityDays(
   venueId: string,
   from: string,
   to: string,
@@ -297,7 +297,7 @@ class SaveRefused extends Error {
  * a seated party. A reservation has no seated state, so a party that started longer ago than
  * this is treated as seated and left out (Owner decision on #7685, "late guests only").
  */
-export const LATE_GUEST_GRACE_MINUTES = 30;
+const LATE_GUEST_GRACE_MINUTES = 30;
 
 /**
  * Bookings a change can still affect at `now`: those starting later, and late guests: PENDING or
@@ -507,7 +507,7 @@ export async function saveAvailabilityConfig(
 // ── Preview ─────────────────────────────────────────────────────────────────
 
 /** The server gives up on a preview after this long (architecture § Reservations HTTP). */
-export const PREVIEW_TIMEOUT_MS = 5000;
+const PREVIEW_TIMEOUT_MS = 5000;
 
 export type PreviewOutcome = { kind: "not_found" } | { kind: "timeout" } | PreviewPlan;
 

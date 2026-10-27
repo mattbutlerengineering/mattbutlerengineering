@@ -123,7 +123,6 @@ function recordFailure(circuitState, nowMs) {
 
 export {
   CIRCUIT_BREAKER_KEY_PREFIX,
-  FAILURE_THRESHOLD,
   OPEN_DURATION_SECONDS,
   defaultState,
   getCircuitState,

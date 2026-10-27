@@ -1494,7 +1494,6 @@
     }
   </file>
   <file path="src/components/SilkFlow/silk-flow-field.ts">
-    export const FIELD_SCALE = 0.0022;
     export const FIELD_TIME_STEP = 0.0035;
     export type ValueNoise = (x: number, y: number) => number;
     export function silkParticleCount(width: number, height: number): number {
@@ -1640,7 +1639,7 @@
   </section>
   <section priority="medium" role="TapeChart">
   <file path="src/components/TapeChart/dateMath.ts">
-    export function parseISOMs(iso: string): number {
+    function parseISOMs(iso: string): number {
       const parts = iso.split("-");
       const y = Number(parts[0] ?? "1970");
       const m = Number(parts[1] ?? "1");
@@ -1697,7 +1696,7 @@
       roomStatusLabels: Record<TapeChartRoomStatus, string>;
       overlapLabels: Record<TapeChartOverlapKind, string>;
     };
-    export function defaultStringsFor(messages: RialtoMessages): ResolvedStrings {
+    function defaultStringsFor(messages: RialtoMessages): ResolvedStrings {
       const { viaSource: _via, blockedReason: _reason, ...labels } = messages.tapeChart;
       return {
         ...labels,
@@ -2304,8 +2303,6 @@
       readonly teeth?: number;
     }
     export const PLATE_RADIUS = 48;
-    export const PIVOT = { x: 50, y: 50 } as const;
-    export const TOOTH_RATIO = 0.28;
     export const ESCAPE_TEETH = 15;
     export const ROTOR_RADIUS = 44;
     export const MOVEMENT = {
