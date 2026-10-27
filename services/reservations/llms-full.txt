@@ -9400,6 +9400,13 @@
     };
   </file>
   <file path="src/routes/venues.ts">
+    function operatingHoursError(operatingHours: unknown): string | null {
+      if (operatingHours === undefined || operatingHours === null) return null;
+      const result = OperatingHoursWriteSchema.safeParse(operatingHours);
+      if (result.success) return null;
+      const issue = result.error.issues[0];
+      return `Invalid operatingHours at ${issue?.path.join(".") ?? ""}: ${issue?.message ?? "invalid"}`;
+    }
     export const VENUE_CREATE_RATE_LIMIT = { max: 5, timeWindow: "1 minute" } as const;
     function isWriteConflict(error: unknown): boolean {
       if (typeof error !== "object" || error === null || !("code" in error)) return false;
@@ -9983,6 +9990,10 @@
           },
         },
         async (request, reply) => {
+          const hoursError = operatingHoursError(request.body.operatingHours);
+          if (hoursError) {
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", hoursError));
+          }
           try {
             // requireVenueCreateAccess ran, so request.user is set; seed the creator
             // as the venue owner (VenueMembership) so it appears in their scoped
@@ -10085,6 +10096,11 @@
         // #7509); staff/Host members are refused, admins bypass.
         venueScoped(venueManagerFromRouteId, async (request, reply, { venueId, isAdmin }) => {
           const { venueGroupId } = request.body;
+    
+          const hoursError = operatingHoursError(request.body.operatingHours);
+          if (hoursError) {
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", hoursError));
+          }
     
           if (venueGroupId !== undefined && !isAdmin) {
             // Manager scope proves a per-venue role, never platform authority.

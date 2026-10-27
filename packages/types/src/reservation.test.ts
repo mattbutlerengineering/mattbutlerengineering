@@ -5,7 +5,12 @@ import {
   TableSchema,
   TableStatusSchema,
 } from "./schemas/reservation.js";
-import { VenueSchema, VenueGroupSchema, DayScheduleSchema } from "./schemas/venue.js";
+import {
+  VenueSchema,
+  VenueGroupSchema,
+  DayScheduleSchema,
+  OperatingHoursWriteSchema,
+} from "./schemas/venue.js";
 import {
   TableShapeMetadataSchema,
   FloorPlanLayoutSchema,
@@ -407,9 +412,37 @@ describe("DayScheduleSchema", () => {
     ).toBe(true);
   });
 
+  it("stays lenient on reads: legacy or empty stored times still parse (#7583)", () => {
+    expect(DayScheduleSchema.safeParse({ open: "", close: "22:00" }).success).toBe(true);
+    expect(DayScheduleSchema.safeParse({ open: "9:00", close: "24:00" }).success).toBe(true);
+  });
+
   it("rejects missing open/close", () => {
     expect(DayScheduleSchema.safeParse({ close: "22:00" }).success).toBe(false);
     expect(DayScheduleSchema.safeParse({ open: "09:00" }).success).toBe(false);
+  });
+});
+
+describe("OperatingHoursWriteSchema", () => {
+  it("rejects empty or malformed times on an open day", () => {
+    for (const day of [
+      { open: "", close: "22:00" },
+      { open: "09:00", close: "" },
+      { open: "9am", close: "22:00" },
+      { open: "09:00", close: "25:00" },
+    ]) {
+      expect(OperatingHoursWriteSchema.safeParse({ monday: day }).success).toBe(false);
+    }
+  });
+
+  it("accepts valid open days, empty times on a closed day, and absent days", () => {
+    expect(
+      OperatingHoursWriteSchema.safeParse({
+        monday: { open: "09:00", close: "22:00" },
+        tuesday: { open: "", close: "", closed: true },
+      }).success
+    ).toBe(true);
+    expect(OperatingHoursWriteSchema.safeParse({}).success).toBe(true);
   });
 });
 

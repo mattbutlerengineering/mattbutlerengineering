@@ -2386,6 +2386,15 @@
       close: z.string(),
       closed: z.boolean().optional(),
     });
+    export const OperatingHoursWriteSchema = z.looseObject({
+      monday: DayScheduleWriteSchema.optional(),
+      tuesday: DayScheduleWriteSchema.optional(),
+      wednesday: DayScheduleWriteSchema.optional(),
+      thursday: DayScheduleWriteSchema.optional(),
+      friday: DayScheduleWriteSchema.optional(),
+      saturday: DayScheduleWriteSchema.optional(),
+      sunday: DayScheduleWriteSchema.optional(),
+    });
     export const VENUE_TYPES = ["fine_dining", "casual", "bar", "cafe"] as const;
     export const VenueTypeSchema = z.enum(VENUE_TYPES);
     export const VENUE_DESCRIPTION_MAX_LENGTH = 280;

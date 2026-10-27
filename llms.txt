@@ -10666,6 +10666,9 @@
     </item>
   </file>
   <file path="services/reservations/src/routes/venues.ts">
+    <item priority="medium">
+      function operatingHoursError(operatingHours: unknown): string | null { /* ... */ }
+    </item>
     <item priority="high">
       export const VENUE_CREATE_RATE_LIMIT: unknown;
     </item>
@@ -12026,6 +12029,9 @@
   <file path="packages/types/src/schemas/venue.ts">
     <item priority="high">
       export const DayScheduleSchema: unknown;
+    </item>
+    <item priority="high">
+      export const OperatingHoursWriteSchema: unknown;
     </item>
     <item priority="high">
       export const VENUE_TYPES: unknown;
