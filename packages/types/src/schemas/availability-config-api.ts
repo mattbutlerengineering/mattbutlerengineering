@@ -317,6 +317,7 @@ export const HARD_REASONS = [
   "booking_closed",
   "outside_service",
   "table_blocked",
+  "table_unavailable",
   "conflict",
 ] as const;
 export const HardReasonSchema = z.enum(HARD_REASONS);

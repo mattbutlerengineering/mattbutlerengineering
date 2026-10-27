@@ -232,7 +232,7 @@ VenueMembership     role now read (owner|manager → Manager, staff → Host)
   - DST: a nonexistent local time is skipped, and an ambiguous time maps to its first occurrence.
 - **`judge(snapshot, request, now) → Verdict`**
   - Input: `{start, partySize, channel, tableId?, override?}`.
-  - Output: `ok | soft{limits: (after_last_seating|pacing|party_size|…)[]} | hard{reason: closed|booking_closed|outside_service|table_blocked|conflict, message?}`.
+  - Output: `ok | soft{limits: (after_last_seating|pacing|party_size|…)[]} | hard{reason: closed|booking_closed|outside_service|table_blocked|table_unavailable|conflict, message?}`. `table_unavailable` is a named table that is inactive, unknown or too small for the party: staff get a 422 with that reason, not the 409 reserved for a table another booking holds (#7591).
   - Closures are always hard. A `soft` verdict with `override.reason` (non-empty, staff channel) becomes `ok-with-override`.
 - **`applyDraft(snapshot, draft) → snapshot`** and **`diffDays(before, after, dates) → {added, removed}`**: pure functions that serve the preview.
 - **`rebookOffers(snapshot, reservation, now) → Slot[≤3]`**

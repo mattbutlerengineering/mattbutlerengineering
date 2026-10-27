@@ -20800,7 +20800,7 @@
       type SoftLimit = "after_last_seating" | "pacing" | "party_size";
     </item>
     <item priority="low">
-      type HardReason = "closed" | "booking_closed" | "outside_service" | "table_blocked" | "conflict";
+      type HardReason = "closed" | "booking_closed" | "outside_service" | "table_blocked" | "table_unavailable" | "conflict";
     </item>
     <item priority="low">
       type Verdict = { kind: "ok" } | { kind: "ok_with_override"; li | { kind: "soft"; limits: SoftLi | { kind: "hard"; reason: HardRe;
