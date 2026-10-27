@@ -11,7 +11,7 @@ export const FOCUSABLE_SELECTOR =
  * Attribute a panel can put on an element (e.g. a dismiss/Close button) to
  * exclude it from the *initial* focus target. It remains reachable via Tab.
  */
-export const FOCUS_TRAP_SKIP_INITIAL_ATTR = "data-focus-trap-skip-initial";
+const FOCUS_TRAP_SKIP_INITIAL_ATTR = "data-focus-trap-skip-initial";
 
 export interface UseFocusTrapOptions {
   /** Element to focus when the trap activates, overriding the default candidate. */

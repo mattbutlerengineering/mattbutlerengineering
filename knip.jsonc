@@ -28,10 +28,6 @@
     // useUpdateGuest is the mutation hook for the guest-edit flow (known P1 gap in
     // apps/hospitality/CLAUDE.md); it is referenced by docs/fixes/floor-plan-cache-keys.
     "apps/hospitality/src/hooks/useGuests.ts": ["exports"],
-    // TEMPORARY: both files are edited by open PRs (#7821, #7801); drop these two
-    // entries and the dead exports in a follow-up once those merge.
-    "apps/rialto-web/src/data/page-registry.ts": ["exports"],
-    "packages/rialto/src/hooks/useFocusTrap.ts": ["exports"],
   },
   // CLIs that are provided by the toolchain / invoked via pnpm exec, not declared per package.
   "ignoreBinaries": ["eslint", "prettier", "tsx", "vite", "prisma"],
