@@ -50,6 +50,8 @@ describe("presentDay", () => {
     expect(view.accessibleDetails).toContain("availability.calendar.onlineOffName");
     const phone = { ...PAUSE_ONLINE, bookingTypes: ["phone" as const] };
     expect(presentDay("2026-11-06", summary([phone]), false, t, format).onlineOff).toBe(true);
+    const both = { ...PAUSE_ONLINE, bookingTypes: ["online" as const, "phone" as const] };
+    expect(presentDay("2026-11-06", summary([both]), false, t, format).onlineOff).toBe(true);
   });
 
   it("keeps the online-off text when online is off with no closure", () => {

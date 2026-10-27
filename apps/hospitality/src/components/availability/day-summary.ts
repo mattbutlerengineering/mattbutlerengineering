@@ -28,8 +28,13 @@ export function presentDay(
     ? t("availability.calendar.services", { count: summary.serviceCount })
     : null;
   // A whole-day pause that names online already says so; saying it twice reads as two facts.
+  // The band names a channel only when it is the single one paused (closure-band.ts channelSuffix).
   const bandNamesOnline = (summary?.closures ?? []).some(
-    (c) => c.targetKind === "booking" && isWholeDay(c) && c.bookingTypes?.includes("online")
+    (c) =>
+      c.targetKind === "booking" &&
+      isWholeDay(c) &&
+      c.bookingTypes?.length === 1 &&
+      c.bookingTypes[0] === "online"
   );
   const onlineOff = summary !== undefined && !summary.bookingOpen.online && !bandNamesOnline;
 
