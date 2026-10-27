@@ -240,6 +240,7 @@ export function AvailabilityGuestPreview(props: AvailabilityGuestPreviewProps) {
   );
   const { body, pending } = useSettledBody(draft);
   const { result, isFetching, error, retry } = useAvailabilityPreview(venueId, body);
+  // A result is read against the date it was computed for, never the newly picked one.
   const stale = pending || isFetching;
 
   return (
@@ -255,7 +256,7 @@ export function AvailabilityGuestPreview(props: AvailabilityGuestPreviewProps) {
           onChange={(date) => setPicked({ base: props.focusDate, date })}
         />
         <div aria-live="polite" className={stale ? styles.stale : undefined}>
-          {result && <Summary result={result} date={focusDate} />}
+          {result && <Summary result={result} date={result.focusDay.serviceDate} />}
           {error && (
             <Text variant="body" color="warning">
               {isSlow(error)
@@ -281,7 +282,7 @@ export function AvailabilityGuestPreview(props: AvailabilityGuestPreviewProps) {
         {result ? (
           <div className={stale ? styles.stale : undefined} aria-busy={stale}>
             <Stack gap="sm">
-              <FocusTimes result={result} focusDate={focusDate} format={format} />
+              <FocusTimes result={result} focusDate={result.focusDay.serviceDate} format={format} />
               <StrandedList stranded={result.stranded} />
             </Stack>
           </div>

@@ -251,6 +251,29 @@ describe("AvailabilityGuestPreview", () => {
     );
   });
 
+  it("keeps showing the date a result was computed for until the picked date's result lands", async () => {
+    render(tree(CHANGES_A, [FOCUS, "2026-10-31"]));
+    await settle();
+    await screen.findByText("3 times added · 2 removed");
+    let resolveNext: (value: PreviewResult) => void = () => undefined;
+    previewConfig.mockImplementation(
+      () => new Promise<PreviewResult>((resolve) => (resolveNext = resolve))
+    );
+    fireEvent.click(screen.getByRole("radio", { name: /31/ }));
+    await settle();
+    expect(previewConfig).toHaveBeenCalledTimes(2);
+    // The old result is for Oct 30; it must not be read against Oct 31.
+    expect(liveRegion()).toHaveTextContent("3 times added · 2 removed");
+    expect(liveRegion()).not.toHaveTextContent("0 times added");
+    expect(screen.getByText("7:45 PM added")).toBeInTheDocument();
+    const next = result({
+      days: [{ serviceDate: "2026-10-31", added: [], removed: [1350] }],
+      focusDay: { ...result().focusDay, serviceDate: "2026-10-31" },
+    });
+    await act(async () => resolveNext(next));
+    expect(await screen.findByText("0 times added · 1 removed")).toBeInTheDocument();
+  });
+
   it("shows no date strip for a one-date scope", async () => {
     render(tree(CHANGES_A));
     await settle();
