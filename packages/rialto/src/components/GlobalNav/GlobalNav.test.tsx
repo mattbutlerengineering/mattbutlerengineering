@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { axe } from "vitest-axe";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { GlobalNav } from "./GlobalNav";
 
@@ -181,5 +182,132 @@ describe("GlobalNav", () => {
     expect(screen.getByRole("link", { name: "Sistema" }).getAttribute("href")).toBe("/rialto");
     expect(screen.getByRole("link", { name: "Hospitality" })).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Home" })).toBeNull();
+  });
+  describe("menu", () => {
+    const menu = {
+      label: "Engineering",
+      items: [
+        { label: "Metrics", href: "/metrics" },
+        { label: "Status", href: "/status", current: true },
+        { label: "ACMM", href: "/acmm" },
+      ],
+    };
+
+    it("renders a collapsed trigger and no links until opened", async () => {
+      const user = userEvent.setup();
+      render(<GlobalNav currentApp="marketing" menu={menu} />);
+
+      const trigger = screen.getByRole("button", { name: "Engineering" });
+      expect(trigger.getAttribute("aria-expanded")).toBe("false");
+      expect(screen.queryByRole("link", { name: "Metrics" })).toBeNull();
+
+      await user.click(trigger);
+      expect(trigger.getAttribute("aria-expanded")).toBe("true");
+      expect(screen.getByRole("link", { name: "Metrics" }).getAttribute("href")).toBe("/metrics");
+    });
+
+    it("marks the trigger and the current item with aria-current", async () => {
+      const user = userEvent.setup();
+      render(<GlobalNav currentApp="marketing" menu={menu} />);
+
+      const trigger = screen.getByRole("button", { name: "Engineering" });
+      expect(trigger.getAttribute("aria-current")).toBe("true");
+      await user.click(trigger);
+      expect(screen.getByRole("link", { name: "Status" }).getAttribute("aria-current")).toBe(
+        "page"
+      );
+      expect(screen.getByRole("link", { name: "Metrics" }).getAttribute("aria-current")).toBeNull();
+    });
+
+    it("omits aria-current on the trigger when no item is current", () => {
+      render(
+        <GlobalNav
+          currentApp="marketing"
+          menu={{ label: "Engineering", items: [{ label: "Metrics", href: "/metrics" }] }}
+        />
+      );
+      expect(
+        screen.getByRole("button", { name: "Engineering" }).getAttribute("aria-current")
+      ).toBeNull();
+    });
+
+    it("moves focus with arrow keys and wraps", async () => {
+      const user = userEvent.setup();
+      render(<GlobalNav currentApp="marketing" menu={menu} />);
+
+      await user.click(screen.getByRole("button", { name: "Engineering" }));
+      await user.keyboard("{ArrowDown}");
+      expect(document.activeElement).toBe(screen.getByRole("link", { name: "Metrics" }));
+      await user.keyboard("{ArrowDown}");
+      expect(document.activeElement).toBe(screen.getByRole("link", { name: "Status" }));
+      await user.keyboard("{ArrowUp}{ArrowUp}");
+      expect(document.activeElement).toBe(screen.getByRole("link", { name: "ACMM" }));
+    });
+
+    it("closes on Escape and returns focus to the trigger", async () => {
+      const user = userEvent.setup();
+      render(<GlobalNav currentApp="marketing" menu={menu} />);
+
+      const trigger = screen.getByRole("button", { name: "Engineering" });
+      await user.click(trigger);
+      await user.keyboard("{ArrowDown}");
+      await user.keyboard("{Escape}");
+
+      expect(trigger.getAttribute("aria-expanded")).toBe("false");
+      expect(screen.queryByRole("link", { name: "Metrics" })).toBeNull();
+      expect(document.activeElement).toBe(trigger);
+    });
+
+    it("closes when focus leaves the menu", async () => {
+      const user = userEvent.setup();
+      render(<GlobalNav currentApp="marketing" menu={menu} />);
+
+      await user.click(screen.getByRole("button", { name: "Engineering" }));
+      await user.click(screen.getByRole("link", { name: "Home" }));
+      expect(screen.queryByRole("link", { name: "Metrics" })).toBeNull();
+    });
+
+    it("closes on a press outside the menu", async () => {
+      const user = userEvent.setup();
+      render(<GlobalNav currentApp="marketing" menu={menu} />);
+
+      await user.click(screen.getByRole("button", { name: "Engineering" }));
+      fireEvent.mouseDown(document.body);
+      expect(screen.queryByRole("link", { name: "Metrics" })).toBeNull();
+    });
+
+    it("lists the items as a named group, with a visible name, in the mobile menu", async () => {
+      const user = userEvent.setup();
+      render(<GlobalNav currentApp="marketing" menu={menu} />);
+
+      await user.click(screen.getByRole("button", { name: "Open menu" }));
+      const group = screen.getByRole("group", { name: "Engineering" });
+      expect(
+        within(group)
+          .getAllByRole("link")
+          .map((a) => a.textContent)
+      ).toEqual(["Metrics", "Status", "ACMM"]);
+      expect(
+        document.getElementById(group.getAttribute("aria-labelledby") ?? "")?.textContent
+      ).toBe("Engineering");
+    });
+
+    it("has no axe violations with the mobile menu open", async () => {
+      const user = userEvent.setup();
+      const { container } = render(<GlobalNav currentApp="marketing" menu={menu} />);
+
+      await user.click(screen.getByRole("button", { name: "Open menu" }));
+      const results = await axe(container, { rules: { "color-contrast": { enabled: false } } });
+      expect(results.violations).toEqual([]);
+    });
+
+    it("has no axe violations with the dropdown open", async () => {
+      const user = userEvent.setup();
+      const { container } = render(<GlobalNav currentApp="marketing" menu={menu} />);
+
+      await user.click(screen.getByRole("button", { name: "Engineering" }));
+      const results = await axe(container, { rules: { "color-contrast": { enabled: false } } });
+      expect(results.violations).toEqual([]);
+    });
   });
 });

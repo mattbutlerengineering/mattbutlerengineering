@@ -10324,6 +10324,23 @@
       };
     }
   </file>
+  <file path="apps/marketing/src/data/engineering-menu.ts">
+    export interface EngineeringPage {
+      readonly label: string;
+      readonly href: string;
+    }
+    export const ENGINEERING_PAGES: readonly EngineeringPage[] = [
+      { label: "Metrics", href: "/metrics" },
+      { label: "Shipped", href: "/shipped" },
+      { label: "Weekly", href: "/weekly" },
+      { label: "Status", href: "/status" },
+      { label: "AI health", href: "/ai-health" },
+      { label: "ACMM", href: "/acmm" },
+    ];
+    export function isEngineeringPageCurrent(pathname: string, href: string): boolean {
+      return pathname === href || pathname.startsWith(`${href}/`);
+    }
+  </file>
   <file path="apps/marketing/src/data/measurement-date.ts">
     export const MEASUREMENT_DATE: string = metricsSnapshot.generatedAt;
   </file>

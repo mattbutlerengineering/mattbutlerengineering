@@ -1,4 +1,14 @@
-import { forwardRef, useId, useState, useCallback, type HTMLAttributes } from "react";
+import {
+  forwardRef,
+  useId,
+  useRef,
+  useState,
+  useCallback,
+  type HTMLAttributes,
+  type FocusEvent,
+  type KeyboardEvent,
+} from "react";
+import { useDismiss } from "../../hooks/useDismiss";
 import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { ThemeToggle } from "../ThemeToggle/ThemeToggle";
 import { cn } from "../../utils/class-composer";
@@ -16,6 +26,13 @@ const NAV_ITEMS: readonly NavItem[] = [
   { label: "Hospitality", href: "/hospitality", app: "hospitality" },
   { label: "Design System", href: "/rialto", app: "rialto" },
 ];
+
+/** A dropdown of same-site links that sits after the app links (a group in the mobile menu). */
+interface GlobalNavMenu {
+  /** Trigger text and mobile group name. */
+  readonly label: string;
+  readonly items: readonly { label: string; href: string; current?: boolean }[];
+}
 
 /**
  * Cross-app navigation bar for mattbutlerengineering.com.
@@ -42,13 +59,15 @@ export interface GlobalNavProps extends Pick<
   onThemeToggle?: () => void;
   /** Link labels per app, for consumers that localize them. Omitted apps keep the English defaults. */
   labels?: Partial<Record<NavItem["app"], string>>;
+  /** Optional dropdown after the app links. The trigger is marked current when any item is. */
+  menu?: GlobalNavMenu;
 }
 
 /** Product name, not translatable text. */
 const BRAND_NAME = "MBE";
 
 export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
-  ({ currentApp, theme, onThemeToggle, labels, className, ...props }, ref) => {
+  ({ currentApp, theme, onThemeToggle, labels, menu, className, ...props }, ref) => {
     const { messages } = useRialtoLocale();
     const [menuOpen, setMenuOpen] = useState(false);
     const mobileMenuId = useId();
@@ -65,6 +84,38 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
       },
       [menuOpen]
     );
+
+    const [dropdownOpen, setDropdownOpen] = useState(false);
+    const dropdownId = useId();
+    const triggerRef = useRef<HTMLButtonElement>(null);
+    const dropdownRef = useRef<HTMLUListElement>(null);
+    const dropdownWrapRef = useRef<HTMLDivElement>(null);
+    const mobileGroupLabelId = useId();
+    const menuCurrent = menu?.items.some((item) => item.current) ?? false;
+
+    const closeDropdown = useCallback(() => setDropdownOpen(false), []);
+    // Safari does not focus a clicked <button>, so blur alone misses outside clicks.
+    useDismiss(dropdownWrapRef, closeDropdown, { enabled: dropdownOpen });
+
+    const handleDropdownKeyDown = useCallback((e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setDropdownOpen(false);
+        triggerRef.current?.focus();
+        return;
+      }
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      const links = Array.from(dropdownRef.current?.querySelectorAll<HTMLAnchorElement>("a") ?? []);
+      if (links.length === 0) return;
+      e.preventDefault();
+      const at = links.indexOf(document.activeElement as HTMLAnchorElement);
+      const step = e.key === "ArrowDown" ? 1 : -1;
+      const next = at === -1 ? (step === 1 ? 0 : links.length - 1) : at + step;
+      links[(next + links.length) % links.length]?.focus();
+    }, []);
+
+    const handleDropdownBlur = useCallback((e: FocusEvent<HTMLDivElement>) => {
+      if (!e.currentTarget.contains(e.relatedTarget)) setDropdownOpen(false);
+    }, []);
 
     const classes = cn(styles.globalNav, className);
     const items = NAV_ITEMS.map((item) => ({ ...item, label: labels?.[item.app] ?? item.label }));
@@ -90,6 +141,44 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
                 </a>
               </li>
             ))}
+            {menu && (
+              <li>
+                <div
+                  ref={dropdownWrapRef}
+                  role="presentation"
+                  className={styles.dropdown}
+                  onKeyDown={handleDropdownKeyDown}
+                  onBlur={handleDropdownBlur}
+                >
+                  <button
+                    ref={triggerRef}
+                    type="button"
+                    className={cn(styles.link, styles.trigger, menuCurrent && styles.active)}
+                    aria-expanded={dropdownOpen}
+                    aria-controls={dropdownId}
+                    aria-current={menuCurrent ? "true" : undefined}
+                    onClick={() => setDropdownOpen((prev) => !prev)}
+                  >
+                    {menu.label}
+                  </button>
+                  {dropdownOpen && (
+                    <ul id={dropdownId} ref={dropdownRef} className={styles.dropdownList}>
+                      {menu.items.map((item) => (
+                        <li key={item.href}>
+                          <a
+                            href={item.href}
+                            className={cn(styles.dropdownLink, item.current && styles.active)}
+                            aria-current={item.current ? "page" : undefined}
+                          >
+                            {item.label}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </li>
+            )}
           </ul>
 
           {/* ── Actions (theme toggle) ────────────── */}
@@ -125,6 +214,28 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
                 </a>
               </li>
             ))}
+            {menu && (
+              <li>
+                <div role="group" aria-labelledby={mobileGroupLabelId}>
+                  <span id={mobileGroupLabelId} className={styles.mobileGroupLabel}>
+                    {menu.label}
+                  </span>
+                  <ul className={styles.mobileGroup}>
+                    {menu.items.map((item) => (
+                      <li key={item.href}>
+                        <a
+                          href={item.href}
+                          className={cn(styles.mobileLink, item.current && styles.active)}
+                          aria-current={item.current ? "page" : undefined}
+                        >
+                          {item.label}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </li>
+            )}
           </ul>
         )}
       </nav>
