@@ -93,6 +93,47 @@ for (const id of darkSections) {
   });
 }
 
+/* ── Neon Sign shape gallery (own route) ───────── */
+
+/**
+ * The NeonSign page is its own route, not a /visual-test section. The Shapes
+ * section is the capture target: every shape, lit and closed, is static once
+ * motion is reduced. Reduced motion is emulated (alongside the colour scheme)
+ * so the strike and breathe animations never start, and fonts are awaited so
+ * the tube lettering is measured against the real face. The Service Day Replay
+ * section is deliberately not captured — it animates through phases.
+ *
+ * `colorScheme` drives `data-theme` (same pipeline a11y-pages.spec.ts relies
+ * on); the attribute is asserted so the dark arm cannot silently shoot light.
+ */
+test.describe("neon sign shapes", () => {
+  test.use({ viewport: { width: 1280, height: 1000 } });
+
+  for (const scheme of ["light", "dark"] as const) {
+    test(`${scheme} / neon-sign-shapes`, async ({ page }) => {
+      await page.addInitScript(() => {
+        window.localStorage.setItem(
+          "rialto-cookie-consent",
+          JSON.stringify({
+            consented: true,
+            preferences: { essential: true, analytics: true, functional: true, marketing: true },
+          })
+        );
+      });
+      await page.emulateMedia({ reducedMotion: "reduce", colorScheme: scheme });
+      await page.goto("components/neon-sign");
+      await page.waitForLoadState("networkidle");
+      await expect(page.locator("html")).toHaveAttribute("data-theme", scheme);
+      await page.evaluate(() => document.fonts.ready);
+
+      const shapes = page.getByTestId("neon-sign-shapes");
+      await expect(shapes).toHaveScreenshot(`${scheme}-neon-sign-shapes.png`, {
+        timeout: 15_000,
+      });
+    });
+  }
+});
+
 /* ── Telemetry HUD (own route) ─────────────────── */
 
 /**
