@@ -110,8 +110,8 @@
     </item>
   </file>
   <file path="src/adapters/omp-adapter.ts">
-    <item priority="high">
-      export function ompModelToForward(model: string | undefined): string | undefined { /* ... */ }
+    <item priority="medium">
+      function ompModelToForward(model: string | undefined): string | undefined { /* ... */ }
     </item>
     <item priority="high">
       class OmpCliAdapter {
@@ -1553,9 +1553,6 @@
       export const isInfrastructureFile: unknown;
     </item>
     <item priority="high">
-      export const isMetricsFile: unknown;
-    </item>
-    <item priority="high">
       export const isFrontendSourceFile: unknown;
     </item>
     <item priority="high">
@@ -1619,16 +1616,10 @@
   </file>
   <file path="src/gen-permissions.ts">
     <item priority="high">
-      export const BLOCKED_BASH_PATTERNS: readonly RegExp[];
-    </item>
-    <item priority="high">
       export function isRmRecursiveDelete(command: string): boolean { /* ... */ }
     </item>
     <item priority="medium">
       function segmentIsRmRecursiveDelete(segment: string): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export const ENCODING_BYPASS_PATTERNS: readonly RegExp[];
     </item>
     <item priority="high">
       export const BLOCKED_TOOLS: ReadonlySet<string>;
@@ -3047,11 +3038,11 @@
         outputTokens: number;
       }
     </item>
-    <item priority="high">
-      export function fixtureUuid(seed: string): SDKResultMessage["uuid"] { /* ... */ }
+    <item priority="medium">
+      function fixtureUuid(seed: string): SDKResultMessage["uuid"] { /* ... */ }
     </item>
-    <item priority="high">
-      export function buildUsage(inputTokens: number, outputTokens: number): SDKResultMessage["usage"] { /* ... */ }
+    <item priority="medium">
+      function buildUsage(inputTokens: number, outputTokens: number): SDKResultMessage["usage"] { /* ... */ }
     </item>
     <item priority="high">
       export function buildSuccessResult(opts: ResultInputs, result: string): SDKResultMessage { /* ... */ }

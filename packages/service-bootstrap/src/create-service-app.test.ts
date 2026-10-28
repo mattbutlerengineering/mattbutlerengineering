@@ -393,6 +393,14 @@ describe("createServiceApp", () => {
     expect(opts.origin).toContain("https://mattbutlerengineering.com");
   });
 
+  it("includes https://eat-sheet.com in the default origins (#7709)", async () => {
+    const cors = await import("@fastify/cors");
+    app = await createServiceApp(createTestConfig());
+    const opts = getPluginOpts(vi.mocked(cors.default)) as { origin: string[] };
+    expect(opts.origin).toContain("https://eat-sheet.com");
+    expect(opts.origin).toContain("https://mattbutlerengineering.com");
+  });
+
   it("includes dev origins in development mode", async () => {
     process.env.NODE_ENV = "development";
     const cors = await import("@fastify/cors");
@@ -561,6 +569,16 @@ describe("validateCorsOrigins", () => {
       "https://subdomain.mattbutlerengineering.com",
       "https://hospitality.mattbutlerengineering.com",
     ]);
+  });
+
+  it("accepts the eat-sheet.com apex but not its lookalikes (#7709)", () => {
+    const result = validateCorsOrigins([
+      "https://eat-sheet.com",
+      "http://eat-sheet.com",
+      "https://evil-eat-sheet.com",
+      "https://eat-sheet.com.evil.io",
+    ]);
+    expect(result).toEqual(["https://eat-sheet.com"]);
   });
 
   it("rejects invalid origins", () => {

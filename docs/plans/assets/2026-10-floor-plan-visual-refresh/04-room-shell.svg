@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 190" role="img" aria-labelledby="t d">
+  <title id="t">Room shell, before and after</title>
+  <desc id="d">Before: butt-capped walls leave notches at a corner, a full-strength grid, and a dashed window. After: square corners, a faint grid that yields to floor texture, and a window drawn as glass between two jambs.</desc>
+  <rect width="480" height="190" fill="#edeae5"/>
+  <text x="120" y="20" fill="#1a1918" font-family="sans-serif" font-size="12" text-anchor="middle">Before</text>
+  <text x="360" y="20" fill="#1a1918" font-family="sans-serif" font-size="12" text-anchor="middle">After</text>
+  <line x1="240" y1="28" x2="240" y2="182" stroke="#a8a49d"/>
+  <defs>
+    <pattern id="g1" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M10 0H0V10" fill="none" stroke="#a8a49d" stroke-width="1"/></pattern>
+    <pattern id="g2" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M10 0H0V10" fill="none" stroke="#a8a49d" stroke-width="1" opacity="0.35"/></pattern>
+  </defs>
+  <rect x="20" y="40" width="200" height="130" fill="url(#g1)"/>
+  <rect x="260" y="40" width="200" height="130" fill="url(#g2)"/>
+  <rect x="260" y="40" width="110" height="130" fill="#c9b79a" opacity="0.5"/>
+  <!-- before: butt caps leave a notch -->
+  <path d="M40 150V60" stroke="#4a4744" stroke-width="10" stroke-linecap="butt"/>
+  <path d="M40 60H150" stroke="#4a4744" stroke-width="10" stroke-linecap="butt" transform="translate(5 0)"/>
+  <path d="M150 60H200" stroke="#4a4744" stroke-width="10" stroke-dasharray="10 6" opacity="0.6"/>
+  <!-- after: square caps, window as glass -->
+  <path d="M280 150V60H390" stroke="#4a4744" stroke-width="10" stroke-linejoin="miter" fill="none"/>
+  <path d="M390 60H440" stroke="#4a4744" stroke-width="10" opacity="0.25"/>
+  <path d="M390 60H440" stroke="#7a766f" stroke-width="2"/>
+  <path d="M390 54v12M440 54v12" stroke="#4a4744" stroke-width="3"/>
+</svg>

@@ -71,7 +71,7 @@ export const isInfrastructureFile = (f: string): boolean => f.startsWith("infras
  * production-health snapshots, sensor reports). Appending a row to one of these
  * is low-risk by construction; see isLowRiskFile.
  */
-export const isMetricsFile = (f: string): boolean => f.startsWith("metrics/");
+const isMetricsFile = (f: string): boolean => f.startsWith("metrics/");
 
 /**
  * True for front-end source files (apps/ or packages/rialto/) that are not

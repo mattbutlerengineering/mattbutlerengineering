@@ -66,6 +66,15 @@ describe("E2E fixture validation against Zod schemas", () => {
     expect(() => PaginatedSchema(FloorPlanSchema).parse(fixture)).not.toThrow();
   });
 
+  it("floor-plan-detail-visual matches FloorPlan and seeds a shell, a window and a floor", () => {
+    const fixture = loadFixture("floor-plan-detail-visual");
+    const { data } = ApiResponseSchema(FloorPlanSchema).parse(fixture);
+    const walls = data.layoutJson.walls ?? [];
+    expect(data.layoutJson.floorMaterial).toBe("hardwood");
+    expect(walls.some((w) => w.wallType === "window")).toBe(true);
+    expect(walls.filter((w) => w.wallType !== "window").length).toBeGreaterThanOrEqual(2);
+  });
+
   it("availability-slots has valid shape", () => {
     const TimeSlotSchema = z.object({
       time: z.string(),

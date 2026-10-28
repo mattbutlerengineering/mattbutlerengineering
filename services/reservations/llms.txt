@@ -20,6 +20,14 @@
   </file>
   </section>
   <section priority="medium" role="config">
+  <file path="src/config/manage-base-url.ts">
+    <item priority="high">
+      export const DEFAULT_MANAGE_BASE_URL: unknown;
+    </item>
+    <item priority="high">
+      export function resolveManageBaseUrl(env: { MANAGE_BASE_URL?: string | undefined }): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/config/manage-token.ts">
     <item priority="low">
       interface ManageTokenConfig {
@@ -123,6 +131,11 @@
     </item>
     <item priority="low">
       type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
+    </item>
+    <item priority="high">
+      export function jobOptionsFor(
+        jobType: JobType
+      ): typeof DEFAULT_JOB_OPTIONS | typeof CLOSURE_REFUND_JOB_OPTIONS { /* ... */ }
     </item>
     <item priority="low">
       interface ReminderPayload {
@@ -315,8 +328,8 @@
         startTime: string;
       }
     </item>
-    <item priority="high">
-      export function toGsm(text: string): string { /* ... */ }
+    <item priority="medium">
+      function toGsm(text: string): string { /* ... */ }
     </item>
     <item priority="high">
       export function smsSegments(body: string): number { /* ... */ }
@@ -784,6 +797,13 @@
     </item>
   </file>
   <file path="src/routes/closure-post-commit.ts">
+    <item priority="high">
+      export async function publishClosureChanges(
+        fastify: FastifyInstance,
+        log: FastifyBaseLogger,
+        saved: { venueId: string; ruleId: string }
+      ): Promise<void> { /* ... */ }
+    </item>
     <item priority="high">
       export async function enqueueNotices(
         enqueue: FastifyInstance["services"]["closureNoticeService"]["enqueueForClosure"],
@@ -1263,12 +1283,6 @@
     <item priority="high">
       export const ADMIN_HEADERS: Record<string, string>;
     </item>
-    <item priority="high">
-      export const MEMBER_HEADERS: Record<string, string>;
-    </item>
-    <item priority="high">
-      export const DINER_A_HEADERS: Record<string, string>;
-    </item>
     <item priority="medium">
       function inject(
         ctx: SweepContext,
@@ -1281,9 +1295,6 @@
     </item>
     <item priority="high">
       export const asMember: unknown;
-    </item>
-    <item priority="high">
-      export const asDiner: unknown;
     </item>
     <item priority="high">
       export function expectOk(res: LightMyRequestResponse, label: string): void { /* ... */ }
@@ -1460,6 +1471,9 @@
     <item priority="low">
       async function onChargeRefunded(event: Stripe.Event, deps: WebhookDeps): Promise<void> { /* ... */ }
     </item>
+    <item priority="low">
+      async function onChargeRefundUpdated(event: Stripe.Event, deps: WebhookDeps): Promise<void> { /* ... */ }
+    </item>
     <item priority="medium">
       function createWebhookRouter(deps: WebhookDeps): WebhookEventRouter { /* ... */ }
     </item>
@@ -1579,6 +1593,9 @@
     </item>
   </file>
   <file path="src/routes/venues.ts">
+    <item priority="medium">
+      function operatingHoursError(operatingHours: unknown): string | null { /* ... */ }
+    </item>
     <item priority="high">
       export const VENUE_CREATE_RATE_LIMIT: unknown;
     </item>
@@ -1674,6 +1691,11 @@
   </file>
   </section>
   <section priority="medium" role="services">
+  <file path="src/services/actor-name.ts">
+    <item priority="high">
+      export function actorNameOf(user: { name?: string | null } | undefined): string | null { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/assert-bookable.ts">
     <item priority="low">
       type BookableError = { code: "PARTY_DOES_NOT_FIT";  | { code: "CONFLICT"; message: s | { code: "PACING_EXCEEDED"; mes;
@@ -1774,8 +1796,8 @@
     </item>
   </file>
   <file path="src/services/availability-changes.ts">
-    <item priority="high">
-      export const REVERT_KIND: unknown;
+    <item priority="medium">
+      function dayStart(d: string, timezone: string): Date { /* ... */ }
     </item>
     <item priority="medium">
       function outcomeOf(kind: string, inverse: unknown): AvailabilityChangeOutcome | null { /* ... */ }
@@ -1783,7 +1805,8 @@
     <item priority="medium">
       function whereOf(
         venueId: string,
-        query: AvailabilityChangesParsed
+        query: AvailabilityChangesParsed,
+        timezone: string
       ): Prisma.AvailabilityChangeWhereInput { /* ... */ }
     </item>
     <item priority="medium">
@@ -1814,6 +1837,7 @@
           venueId: string;
           changeId: string;
           actorId: string;
+          actorName?: string | null;
           expectedVersion: number;
           now: Date;
         },
@@ -1868,8 +1892,8 @@
     <item priority="medium">
       function dayLabel(config: AvailabilityConfig, day: ResolvedDay): string { /* ... */ }
     </item>
-    <item priority="high">
-      export function daySummaryServices(
+    <item priority="medium">
+      function daySummaryServices(
         names: ReadonlyMap<string, string>,
         day: ResolvedDay
       ): DaySummaryService[] { /* ... */ }
@@ -2088,6 +2112,9 @@
     <item priority="medium">
       function readState(client: StoreClient, venueId: string, now: Date): Promise<ConfigState | null> { /* ... */ }
     </item>
+    <item priority="low">
+      async function isCarriedOver(db: StoreDb, venueId: string): Promise<boolean> { /* ... */ }
+    </item>
     <item priority="high">
       export async function getAvailabilityConfig(
         venueId: string,
@@ -2097,12 +2124,13 @@
         config: AvailabilityConfig;
         version: number;
         source: AvailabilityConfigSource;
+        migrated?: true;
         legacyNotes?: LegacyNotes;
         legacyProblem?: { reason: string; detail: string };
       } | null> { /* ... */ }
     </item>
-    <item priority="high">
-      export async function listAvailabilityDays(
+    <item priority="low">
+      async function listAvailabilityDays(
         venueId: string,
         from: string,
         to: string,
@@ -2140,6 +2168,9 @@
       class SaveRefused {
         
       }
+    </item>
+    <item priority="high">
+      export function stillToServeWhere(now: Date) { /* ... */ }
     </item>
     <item priority="high">
       export async function futureBookings(
@@ -2180,18 +2211,27 @@
     <item priority="high">
       export async function commitSave(
         tx: StoreDb,
-        input: { venueId: string; actorId: string; expectedVersion: number; now: Date },
+        input: {
+          venueId: string;
+          actorId: string;
+          actorName?: string | null;
+          expectedVersion: number;
+          now: Date;
+        },
         resolve: (state: ConfigState) => Promise<SaveRequest>
       ): Promise<SaveOutcome> { /* ... */ }
     </item>
     <item priority="high">
       export async function saveAvailabilityConfig(
-        input: { venueId: string; actorId: string; body: PutAvailabilityConfigBody; now: Date },
+        input: {
+          venueId: string;
+          actorId: string;
+          actorName?: string | null;
+          body: PutAvailabilityConfigBody;
+          now: Date;
+        },
         client: StoreClient = prisma
       ): Promise<SaveOutcome> { /* ... */ }
-    </item>
-    <item priority="high">
-      export const PREVIEW_TIMEOUT_MS: unknown;
     </item>
     <item priority="low">
       type PreviewOutcome = { kind: "not_found" } | { kind: "timeout" } | PreviewPlan;
@@ -2212,9 +2252,6 @@
     </item>
   </file>
   <file path="src/services/availability-migration.ts">
-    <item priority="high">
-      export const MIGRATION_ACTOR: unknown;
-    </item>
     <item priority="low">
       interface VenueForMigration {
         operatingHours: unknown;
@@ -2308,7 +2345,7 @@
         body: PreviewAvailabilityParsed;
         bookings: readonly BookedReservation[];
         tableIds: ReadonlySet<string>;
-        now: Date;
+        tables?: readonly EngineTable[];
       }
     </item>
     <item priority="low">
@@ -2480,8 +2517,8 @@
     <item priority="medium">
       function noticesFor(loaded: LoadedSnapshot, date: string, seatingCount: number) { /* ... */ }
     </item>
-    <item priority="high">
-      export async function getDayAvailability(
+    <item priority="low">
+      async function getDayAvailability(
         venueId: string,
         date: string,
         partySize: number,
@@ -2489,8 +2526,8 @@
         options: ListingOptions = {}
       ): Promise<DayAvailability> { /* ... */ }
     </item>
-    <item priority="high">
-      export async function generateTimeSlots(
+    <item priority="low">
+      async function generateTimeSlots(
         venueId: string,
         date: string,
         partySize: number,
@@ -2501,8 +2538,8 @@
     <item priority="medium">
       function rangeDates(startDate: string, endDate: string): string[] { /* ... */ }
     </item>
-    <item priority="high">
-      export async function getAvailableDates(
+    <item priority="low">
+      async function getAvailableDates(
         venueId: string,
         startDate: string,
         endDate: string,
@@ -2510,8 +2547,8 @@
         options: ListingOptions = {}
       ): Promise<DateAvailability[]> { /* ... */ }
     </item>
-    <item priority="high">
-      export async function findBestTable(
+    <item priority="low">
+      async function findBestTable(
         venueId: string,
         date: string,
         startTime: Date,
@@ -2536,11 +2573,11 @@
     <item priority="high">
       export function tableAdvisoryLockSql(tableId: string): Prisma.Sql { /* ... */ }
     </item>
-    <item priority="high">
-      export function venueShareLockSql(venueId: string): Prisma.Sql { /* ... */ }
+    <item priority="medium">
+      function venueShareLockSql(venueId: string): Prisma.Sql { /* ... */ }
     </item>
     <item priority="low">
-      type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED" | "NOT_BOOKABLE";
+      type SlotConflictCode = "CONFLICT" | "EXPIRED" | "NOT_BOOKABLE";
     </item>
     <item priority="low">
       type SlotConflict = { code: Exclude<SlotConflictCo | { code: "NOT_BOOKABLE"; messag;
@@ -2680,6 +2717,7 @@
         reservationId: string;
         action: ClosureAction;
         movedTo: Date | null;
+        expectedStartTime: Date;
       }
     </item>
     <item priority="low">
@@ -2699,7 +2737,8 @@
         tx: Tx,
         venueId: string,
         actorId: string,
-        r: Existing
+        r: Existing,
+        expectedStartTime: Date
       ): Promise<ApplyResult> { /* ... */ }
     </item>
     <item priority="low">
@@ -2717,7 +2756,8 @@
         venueId: string,
         actorId: string,
         r: Existing,
-        startTime: Date
+        startTime: Date,
+        expectedStartTime: Date
       ): Promise<boolean> { /* ... */ }
     </item>
     <item priority="high">
@@ -2729,9 +2769,23 @@
       ): Promise<ApplyResult> { /* ... */ }
     </item>
   </file>
+  <file path="src/services/closure-changes.ts">
+    <item priority="low">
+      interface ClosureChanges {
+        cancelled: Reservation[];
+        moved: Reservation[];
+      }
+    </item>
+    <item priority="high">
+      export async function loadClosureChanges(venueId: string, ruleId: string): Promise<ClosureChanges> { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/closure-command-plan.ts">
     <item priority="low">
       type DecisionCheck = { kind: "ok"; actions: Readonl | { kind: "decision-required"; g | { kind: "invalid-decision"; gr;
+    </item>
+    <item priority="medium">
+      function membershipChanged(group: ClosureImpactGroup, decision: ClosureDecision): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function checkDecisions(
@@ -2765,9 +2819,6 @@
     </item>
     <item priority="high">
       export function currentServiceDate(snapshot: AvailabilitySnapshot, now: Date): string { /* ... */ }
-    </item>
-    <item priority="high">
-      export const MIN_SERVICE_MINUTES: unknown;
     </item>
     <item priority="high">
       type DayServices = ReturnType<typeof resolveDay>;
@@ -2813,6 +2864,7 @@
       interface ClosureCaller {
         isManager: boolean;
         actorId: string;
+        actorName?: string | null;
       }
     </item>
     <item priority="low">
@@ -2881,6 +2933,7 @@
         rows: Prisma.ClosureOutcomeCreateManyInput[];
         counts: Record<ClosureAction, number>;
         notifiedGuests: boolean;
+        starts: ReadonlyMap<string, Date>;
       }
     </item>
     <item priority="medium">
@@ -3311,15 +3364,6 @@
     </item>
   </file>
   <file path="src/services/closure-outcome-sweeper.ts">
-    <item priority="high">
-      export const DEFAULT_GRACE_MS: unknown;
-    </item>
-    <item priority="high">
-      export const DEFAULT_BATCH_SIZE: unknown;
-    </item>
-    <item priority="high">
-      export const DEFAULT_SWEEP_INTERVAL_MS: unknown;
-    </item>
     <item priority="low">
       interface StuckOutcome {
         id: string;
@@ -3390,6 +3434,11 @@
     <item priority="high">
       export function createPrismaClosureRefundStore(): ClosureRefundStore { /* ... */ }
     </item>
+    <item priority="high">
+      export async function markDoneRefundFailed(
+        reservationId: string
+      ): Promise<"flipped" | "pending" | "unchanged"> { /* ... */ }
+    </item>
   </file>
   <file path="src/services/closure-refund.ts">
     <item priority="low">
@@ -3419,9 +3468,6 @@
       }
     </item>
     <item priority="high">
-      export const closureRefundKey: unknown;
-    </item>
-    <item priority="high">
       export const closureRefundJobId: unknown;
     </item>
     <item priority="high">
@@ -3448,10 +3494,25 @@
       async function resolvePending(deps: ClosureRefundDeps, deposit: Deposit): Promise<Settled | null> { /* ... */ }
     </item>
     <item priority="low">
+      async function confirmRefundedIntentVoid(deps: ClosureRefundDeps, deposit: Deposit): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function refundHeld(deps: ClosureRefundDeps, deposit: Deposit): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
       async function settleOnce(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<Settled | null> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isAmountRejection(error: StripeOperationError): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function asPermanentIfStripeRejection(error: unknown): unknown { /* ... */ }
     </item>
     <item priority="low">
       async function settleDeposit(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<Settled> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function needsRelease(deps: ClosureRefundDeps, row: ClosureRefundRow): Promise<boolean> { /* ... */ }
     </item>
     <item priority="high">
       export async function settleClosureRefund(
@@ -3596,7 +3657,7 @@
     <item priority="high">
       export function setDepositServiceLogger(next: DepositServiceLogger): void { /* ... */ }
     </item>
-    <item priority="high">
+    <item priority="medium">
       class DepositNotFoundError {
         
       }
@@ -3859,9 +3920,6 @@
     </item>
   </file>
   <file path="src/services/hold.ts">
-    <item priority="high">
-      export const BOOKING_WINDOW_ERROR: unknown;
-    </item>
     <item priority="medium">
       function mapPrismaHold(hold: PrismaHold): ReservationHold { /* ... */ }
     </item>
@@ -4765,49 +4823,7 @@
       export function venueLocalDateString(instant: Date, ianaTimezone: string): string { /* ... */ }
     </item>
     <item priority="high">
-      type DateThreshold = { lt: Date } | { gt: Date };
-    </item>
-    <item priority="medium">
-      function passesThreshold(value: Date, threshold: DateThreshold): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export function overlapWindow(
-        startTime: Date,
-        endTime: Date
-      ): { startTime: DateThreshold; endTime: DateThreshold } { /* ... */ }
-    </item>
-    <item priority="high">
       export function serviceDayConflictWindow(date: Date): { gte: Date; lte: Date } { /* ... */ }
-    </item>
-    <item priority="high">
-      export function activeHoldWindow(now: Date): DateThreshold { /* ... */ }
-    </item>
-    <item priority="high">
-      export function checkTableConflict(
-        tableId: string,
-        startTime: Date,
-        endTime: Date,
-        reservations: ReservationSlim[],
-        holds: HoldSlim[]
-      ): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export function checkPacingForSlot(
-        startTime: Date,
-        partySize: number,
-        settings: VenueSettings | null | undefined,
-        reservations: ReservationSlim[],
-        holds: HoldSlim[]
-      ): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export function selectBestTable(
-        candidates: TableCandidate[],
-        startTime: Date,
-        endTime: Date,
-        reservations: ReservationSlim[],
-        holds: HoldSlim[]
-      ): TableCandidate | null { /* ... */ }
     </item>
   </file>
   <file path="src/services/sse-connection-manager.ts">
@@ -4900,6 +4916,7 @@
       class StripeOperationError {
         isRetriable: boolean;
         stripeType: string;
+        code: string | undefined;
         cause: unknown;
       }
     </item>
@@ -5107,7 +5124,13 @@
     <item priority="low">
       async function writeChange(
         tx: Db,
-        input: { venueId: string; actorId: string; now: Date; body: SetTonightBody },
+        input: {
+          venueId: string;
+          actorId: string;
+          actorName: string | null;
+          now: Date;
+          body: SetTonightBody;
+        },
         state: ConfigState,
         rule: Extract<DateRule, { kind: "tonight" }>
       ): Promise<TonightResult> { /* ... */ }
@@ -5127,7 +5150,12 @@
     </item>
     <item priority="high">
       export async function endTonight(
-        input: { venueId: string; ruleId: string; caller: Pick<ClosureCaller, "actorId">; now: Date },
+        input: {
+          venueId: string;
+          ruleId: string;
+          caller: Pick<ClosureCaller, "actorId" | "actorName">;
+          now: Date;
+        },
         client: StoreClient = prisma
       ): Promise<EndTonightOutcome> { /* ... */ }
     </item>
@@ -5413,9 +5441,6 @@
     </item>
   </file>
   <file path="src/services/waitlist.ts">
-    <item priority="high">
-      export const NOTIFY_CLAIM_WINDOW_MS: unknown;
-    </item>
     <item priority="low">
       interface WaitlistEntryData {
         id: string;
@@ -5832,7 +5857,7 @@
             kind: "guest-modified" | {
             kind: "hold-confirmed" | {
             kind: "created";
-            | { kind: "attendance-confirmed";
+            | { kind: "attendance-confirmed" | { kind: "closure-cancelled"; u | { kind: "closure-moved"; after;
     </item>
     <item priority="high">
       export function reminderJobId(jobType: string, reservationId: string): string { /* ... */ }

@@ -314,7 +314,7 @@
         day: "2-digit",
       }).format(now);
     }
-    export function localTimeIn(iso: unknown, timeZone: string | undefined): string | undefined {
+    function localTimeIn(iso: unknown, timeZone: string | undefined): string | undefined {
       if (typeof iso !== "string") return undefined;
       const instant = new Date(iso);
       if (Number.isNaN(instant.getTime())) return undefined;
@@ -965,6 +965,67 @@
       },
     });
   </file>
+  <file path="src/routes/gen-json-elements.ts">
+    export function completeJsonElements(buffer: string): unknown[] {
+      const key = buffer.indexOf('"elements"');
+      if (key === -1) return [];
+      const start = buffer.indexOf("[", key);
+      if (start === -1) return [];
+    
+      const elements: unknown[] = [];
+      let index = start + 1;
+      while (index < buffer.length) {
+        const char = buffer[index];
+        if (char === undefined) break;
+        if (char === " " || char === "\n" || char === "\r" || char === "\t" || char === ",") {
+          index += 1;
+          continue;
+        }
+        if (char === "]") break;
+        if (char !== "{") break;
+        const end = endOfObject(buffer, index);
+        if (end === -1) break;
+        try {
+          elements.push(JSON.parse(buffer.slice(index, end)) as unknown);
+        } catch {
+          break;
+        }
+        index = end;
+      }
+      return elements;
+    }
+    function endOfObject(buffer: string, start: number): number {
+      let depth = 0;
+      let inString = false;
+      let escape = false;
+      for (let index = start; index < buffer.length; index += 1) {
+        const char = buffer[index];
+        if (char === undefined) break;
+        if (inString) {
+          if (escape) {
+            escape = false;
+            continue;
+          }
+          if (char === "\\") {
+            escape = true;
+            continue;
+          }
+          if (char === '"') inString = false;
+          continue;
+        }
+        if (char === '"') {
+          inString = true;
+          continue;
+        }
+        if (char === "{") depth += 1;
+        else if (char === "}") {
+          depth -= 1;
+          if (depth === 0) return index + 1;
+        }
+      }
+      return -1;
+    }
+  </file>
   <file path="src/routes/gen-route-factory.ts">
     export interface GenRouteConfig<TSchema extends z.ZodType> {
       readonly path: string;
@@ -1010,6 +1071,17 @@
     type GenMessages = Array<{ role: "user" | "assistant"; content: string }>;
     function emptyOutputError(): Error & { statusCode: number } {
       return toError(new Error("Generation completed with no output"));
+    }
+    function generationFailureMessage(err: unknown): string {
+      const cause = err instanceof Error && err.cause instanceof Error ? err.cause.message : "";
+      const text = `${err instanceof Error ? err.message : ""} ${cause}`;
+      if (text.includes("maxOutputTokens")) {
+        return "This UI is too large to generate in one pass. Try fewer fields, then generate again.";
+      }
+      if (text.includes("no output")) {
+        return "Generation finished without a UI. Try a simpler description.";
+      }
+      return "Generation failed before a UI came back. Your prompt is still here — try again.";
     }
     function toError(err: unknown): Error & { statusCode: number } {
       return Object.assign(new Error("Generation failed upstream", { cause: err }), {
@@ -1154,6 +1226,8 @@
                 return reply.send(
                   new ReadableStream({
                     start(controller) {
+                      // Same leading blank line a miss writes, so a hit is byte-identical.
+                      controller.enqueue(encoder.encode("\n"));
                       for (const line of cached) {
                         controller.enqueue(encoder.encode(JSON.stringify(line) + "\n"));
                       }
@@ -1181,17 +1255,22 @@
             const tools = await getTools(request, parsed);
             // A run that errors before onFinish still consumed tokens: charge the worst case.
             let usageReported = false;
-            const chargeIfUnreported = async () => {
+            const chargeIfUnreported = async (finishReason = "error") => {
               if (usageReported) return;
+              // Claim the charge first so a late onFinish cannot charge the run twice.
+              usageReported = true;
               // onFinish never logged this run, so the cost line is emitted here, zeroed.
               logGenCost(request.log, {
                 userId: request.user?.id,
                 usage: {},
                 label: costLogLabel,
-                telemetry: telemetry("error"),
+                telemetry: telemetry(finishReason),
               });
               await trackGenSpend(failedGenCostMicroUsd(), request.log);
             };
+            // Fired when the client disconnects (the response stream is cancelled),
+            // so the model call stops instead of spending tokens nobody will read.
+            const clientGone = new AbortController();
             const runner = createGenRunner({
               systemPrompt,
               modelId: GEN_MODEL_ID,
@@ -1200,6 +1279,8 @@
               toolChoice: config.toolChoice,
               failOnToolError: config.failOnToolError,
               onFinish: async ({ usage, providerMetadata, finishReason }) => {
+                // Already charged the worst case (aborted or failed first): never charge twice.
+                if (usageReported) return;
                 logGenCost(request.log, {
                   userId: request.user?.id,
                   usage,
@@ -1219,16 +1300,30 @@
                 async start(controller) {
                   let emitted = false;
                   try {
-                    await runner.run(messages, tools, async (event) => {
-                      if (event.type === "text" && event.content.length > 0) {
-                        emitted = true;
-                        markEmitted();
-                        controller.enqueue(event.content);
-                      }
-                    });
+                    await runner.run(
+                      messages,
+                      tools,
+                      async (event) => {
+                        if (clientGone.signal.aborted) return;
+                        if (event.type === "text" && event.content.length > 0) {
+                          emitted = true;
+                          markEmitted();
+                          controller.enqueue(event.content);
+                        }
+                      },
+                      clientGone.signal
+                    );
+                    if (clientGone.signal.aborted) {
+                      await chargeIfUnreported("aborted");
+                      return;
+                    }
                     if (!emitted) throw emptyOutputError();
                     controller.close();
                   } catch (err) {
+                    if (clientGone.signal.aborted) {
+                      await chargeIfUnreported("aborted");
+                      return;
+                    }
                     // Error the stream — closing here would turn an upstream
                     // failure (e.g. 529/401) into an empty-looking 200.
                     request.log.error({ err }, "gen stream failed");
@@ -1236,25 +1331,68 @@
                     controller.error(toError(err));
                   }
                 },
+                cancel() {
+                  clientGone.abort();
+                },
               });
               return reply.send(createSanitizedStream(textStream));
             }
     
-            // ndjson: encode each event as a JSON line
+            // ndjson: encode each event as a JSON line.
+            // A blank line goes out immediately and every 10s. DigitalOcean's
+            // gateway answers 504 when a request sits with no bytes (the model
+            // thinks, then emits one tool call). Blank lines are not elements.
+            // Once any byte is flushed the status is committed, so a later failure
+            // is a `$genError` line the client throws on — not a silent 200.
             const serializeEvent = config.createEventSerializer?.(parsed) ?? defaultSerializeEvent;
+            // Shared with cancel(): once the client is gone nothing may touch the controller.
+            let closed = false;
+            let pulse: ReturnType<typeof setInterval> | undefined;
             const ndjsonStream = new ReadableStream({
               async start(controller) {
                 let emitted = false;
+                let sent = false;
                 const lines: unknown[] = [];
+                const write = (bytes: Uint8Array) => {
+                  if (closed) return;
+                  try {
+                    controller.enqueue(bytes);
+                    sent = true;
+                  } catch {
+                    // The stream closed under us (client gone): a late write is dropped,
+                    // never thrown — from the pulse's setInterval it would be uncaught.
+                    closed = true;
+                    clearInterval(pulse);
+                  }
+                };
+                write(encoder.encode("\n"));
+                pulse = setInterval(() => write(encoder.encode("\n")), 10_000);
+                const end = (errorLine?: string) => {
+                  if (closed) return;
+                  closed = true;
+                  clearInterval(pulse);
+                  if (errorLine !== undefined) controller.enqueue(encoder.encode(errorLine));
+                  controller.close();
+                };
                 try {
-                  await runner.run(messages, tools, async (event) => {
-                    const line = serializeEvent(event);
-                    if (line === undefined) return;
-                    emitted = true;
-                    markEmitted();
-                    lines.push(line);
-                    controller.enqueue(encoder.encode(JSON.stringify(line) + "\n"));
-                  });
+                  await runner.run(
+                    messages,
+                    tools,
+                    async (event) => {
+                      const line = serializeEvent(event);
+                      if (line === undefined) return;
+                      emitted = true;
+                      markEmitted();
+                      lines.push(line);
+                      write(encoder.encode(JSON.stringify(line) + "\n"));
+                    },
+                    clientGone.signal
+                  );
+                  // An aborted run is partial: charge it, never cache it.
+                  if (clientGone.signal.aborted) {
+                    await chargeIfUnreported("aborted");
+                    return;
+                  }
                   if (!emitted) throw emptyOutputError();
                   // Only a run that finished cleanly reaches here: errors and the
                   // maxOutputTokens truncation both throw out of runner.run above.
@@ -1263,12 +1401,30 @@
                       request.log.warn({ err }, "gen spec cache write failed");
                     });
                   }
-                  controller.close();
+                  end();
                 } catch (err) {
+                  if (clientGone.signal.aborted) {
+                    await chargeIfUnreported("aborted");
+                    return;
+                  }
                   request.log.error({ err }, "gen stream failed");
                   await chargeIfUnreported();
-                  controller.error(toError(err));
+                  if (!sent) {
+                    closed = true;
+                    clearInterval(pulse);
+                    controller.error(toError(err));
+                    return;
+                  }
+                  end(JSON.stringify({ $genError: generationFailureMessage(err) }) + "\n");
+                } finally {
+                  clearInterval(pulse);
                 }
+              },
+              cancel() {
+                // Fastify cancels the reader when the client disconnects.
+                closed = true;
+                clearInterval(pulse);
+                clientGone.abort();
               },
             });
             return reply.send(ndjsonStream);
@@ -1334,21 +1490,23 @@
       "seat_walk_in",
       "update_table_status",
     ] as const;
-    export const GEN_WRITE_TOOLS: ReadonlySet<string> = new Set(GEN_WRITE_TOOL_NAMES);
     export type GenToolMap = Record<string, unknown>;
     export type GenEventCallback = (event: GenStreamEvent) => Promise<void>;
     export interface GenRunner {
       run(
         messages: ReadonlyArray<{ role: "user" | "assistant"; content: string }>,
         tools: GenToolMap,
-        onEvent: GenEventCallback
+        onEvent: GenEventCallback,
+        /** Aborts the model call, e.g. when the client disconnects mid-stream. */
+        signal?: AbortSignal
       ): Promise<void>;
     }
     export function createGenRunner(config: GenRunnerConfig): GenRunner {
       return {
-        async run(messages, tools, onEvent) {
+        async run(messages, tools, onEvent, signal) {
           const result = streamText({
             model: anthropic(config.modelId),
+            abortSignal: signal,
             // System prompt goes through `instructions` — ai@7 rejects system-role
             // entries inside `messages` (see genSystemInstructions).
             instructions: genSystemInstructions(config.systemPrompt),
@@ -1357,6 +1515,15 @@
             toolChoice: config.toolChoice,
             stopWhen: stepCountIs(config.maxSteps),
             maxOutputTokens: config.maxOutputTokens,
+            providerOptions: {
+              anthropic: {
+                // Haiku 5.5 thinks before the tool call, and those tokens count
+                // against the output cap. Nothing is emitted until thinking
+                // finishes, so a large form sits silent until the gateway 504s.
+                thinking: { type: "disabled" },
+                toolStreaming: true,
+              },
+            },
             onFinish: config.onFinish
               ? async ({ usage, providerMetadata, finishReason }) => {
                   await config.onFinish!({ usage, providerMetadata, finishReason });
@@ -1368,8 +1535,22 @@
           // on from the previous step's: "…for 2 people:Monday's slots…" (F29).
           let textSoFar = false;
           let stepEnded = false;
+          let renderJson = "";
+          let renderEmitted = 0;
+          let trackingRender = false;
           for await (const event of result.fullStream) {
-            if (event.type === "text-delta") {
+            if (event.type === "tool-input-start" && event.toolName === "render_component") {
+              trackingRender = true;
+              renderJson = "";
+              renderEmitted = 0;
+            } else if (event.type === "tool-input-delta" && trackingRender) {
+              renderJson += event.delta;
+              const ready = completeJsonElements(renderJson);
+              for (const element of ready.slice(renderEmitted)) {
+                await onEvent({ type: "element", element });
+              }
+              renderEmitted = ready.length;
+            } else if (event.type === "text-delta") {
               const content = textSoFar && stepEnded ? `\n\n${event.text}` : event.text;
               textSoFar = true;
               stepEnded = false;
@@ -1377,7 +1558,10 @@
             } else if (event.type === "finish-step" && event.finishReason !== "length") {
               stepEnded = true;
             } else if (event.type === "tool-call") {
-              await handleToolCall(event, onEvent);
+              const already =
+                trackingRender && event.toolName === "render_component" ? renderEmitted : 0;
+              await handleToolCall(event, onEvent, already);
+              if (event.toolName === "render_component") trackingRender = false;
             } else if (event.type === "tool-result") {
               await onEvent({
                 type: "tool_status",
@@ -1419,7 +1603,8 @@
     }
     async function handleToolCall(
       event: { toolCallId: string; toolName: string; input: unknown },
-      onEvent: GenEventCallback
+      onEvent: GenEventCallback,
+      alreadyEmitted = 0
     ): Promise<void> {
       const { toolName, toolCallId, input } = event;
     
@@ -1448,7 +1633,7 @@
       // render_component emits element events (no status — handled by tool-result)
       if (toolName === "render_component") {
         const typedInput = input as { elements?: unknown[] };
-        for (const element of typedInput.elements ?? []) {
+        for (const element of (typedInput.elements ?? []).slice(alreadyEmitted)) {
           await onEvent({ type: "element", element });
         }
         return;
@@ -1470,7 +1655,7 @@
     }
   </file>
   <file path="src/routes/gen-specs.ts">
-    export function normaliseKind(
+    function normaliseKind(
       prompt: string,
       kind: (typeof GEN_SPEC_KINDS)[number] | undefined
     ): { prompt: string; kind: (typeof GEN_SPEC_KINDS)[number] } {
@@ -1612,7 +1797,7 @@
       if (!rates) throw new Error(`No pricing declared for GEN_MODEL_ID "${GEN_MODEL_ID}"`);
       return rates;
     })();
-    export const GEN_MAX_OUTPUT_TOKENS = 2048;
+    export const GEN_MAX_OUTPUT_TOKENS = 4096;
     export function genSystemInstructions(systemPrompt: string) {
       return {
         role: "system" as const,
@@ -2919,7 +3104,6 @@
     export const prisma = db.prisma as unknown as PrismaClient;
   </file>
   <file path="src/services/gen-spec-cache.ts">
-    export const GEN_SPEC_CACHE_TTL_HOURS = 24;
     export interface GenSpecCacheKeyInput {
       readonly route: string;
       readonly messages: ReadonlyArray<{ readonly role: string; readonly content: string }>;
@@ -3233,7 +3417,7 @@
         },
       };
     }
-    export function resolveConcurrencyLimit(): number {
+    function resolveConcurrencyLimit(): number {
       return parseInt(process.env.MAX_CONCURRENT_SESSIONS ?? "5", 10);
     }
     export const defaultConcurrency: SessionConcurrency =

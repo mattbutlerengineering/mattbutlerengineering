@@ -4465,3 +4465,54 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 - **Filing: stopped.** `findings.mjs plan` exited 2 — 7 `ui-quality`-labelled issues the findings ledger does not reference and whose titles are no current finding title: **#7385, #7386, #7387, #7388, #7389, #7603, #7609**. This fire read incomplete state, so it planned nothing. No escalation issue written: open escalation **#7477** already tracks it. Recovery is a human's, per #7477's body — retitle each listed issue to its finding title or remove its `ui-quality` label, then close #7477. Steps (6d)–(6h) skipped as a consequence: no issues created, reopened or commented, no seeds, **no fix PR** (filing stopped before any candidate could exist), **no P1 SLA sweep**.
 - **Coverage before this fire:** 100% (135/135, provisional; first run 2026-10-01).
 - No `blocker: no-browser` — Chromium resolved at `/opt/pw-browsers/chromium_headless_shell-1243/…`. No pipeline bug.
+
+## 2026-10-27 — mbe-learning-loop
+
+**Sensors:** 14/17 available (lighthouse, mutationScore, e2eStability not available) — status Healthy
+**Regressions:** 0 detected, 0 issues created
+**Verifications:** 5 checked, 0 verified, 0 failed, 5 skipped (no completed CI runs / no Lighthouse inventory to verify against)
+**Sentry triage:** skipped (MCP authorization expired — re-auth needed)
+**AI issue feedback:** 7 categories, 0 unhealthy (>40% rejected); budgets unchanged at 3
+**Skill proposals:** 0 (Tuesday — Friday-only)
+**Threshold notes:** fix-effectiveness 75% (12/16 non-skip verifications over 30d, >50%, healthy); all feedback-category rejection rates ≤4% (<30%, healthy); auto-tuner applied 1 adjustment (acmm 1.324 → 1.35, headroom)
+
+## 2026-10-28
+
+### Metrics
+
+| Metric                                 | Value                                                                                                                                                                                                                                          |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Created (7d, audit+ci-fix)             | 25                                                                                                                                                                                                                                             |
+| Closed (7d, audit+ci-fix)              | 26                                                                                                                                                                                                                                             |
+| Closure Rate                           | ~104% (closing a backlog slightly older than 7d; green, >80%)                                                                                                                                                                                  |
+| Time-to-Close                          | mean 23.9h across the 26 closed in the 7d window (borderline, just under the 24h target)                                                                                                                                                       |
+| Agent Success (queue snapshot)         | has-pr open: 2, agent-failed open: 0 → 100%                                                                                                                                                                                                    |
+| CI Pass (main, last 10 completed runs) | 10/10 = 100%, excluding in-flight/skipped/cancelled from the denominator; preflight (`gh run list --branch main --limit 5`) reports zero failures                                                                                              |
+| Queue (ready, open)                    | 1 (#7376, `ready-for-human`) — this run's own implement-queue iteration (step 1) claimed the other 2 ready issues (#7709, #7463) into `in-progress` and dispatched worktree workers; both still running in background as this entry is written |
+| Stale (ready > 7d)                     | 0 (#7376 is ~4 days old)                                                                                                                                                                                                                       |
+| Blocked (agent-failed)                 | 0                                                                                                                                                                                                                                              |
+| Skipped (agent-skip)                   | 0                                                                                                                                                                                                                                              |
+| Daily / 7d Spend                       | unknown, not $0 — `.claude/agent-spend/sessions.jsonl` has 0 attributed sessions in the 7d window (last row 2026-10-16); the `agentCost` sensor reports 3 queue-worker sessions in 7d totalling 1,174,545 tokens, cost unknown on all of them  |
+| Cost/Issue                             | unknown, same reason — no dollar figure computable from token counts alone                                                                                                                                                                     |
+
+### Patterns
+
+- This run's `/idea-to-prod:implement-queue` iteration (mbe-evening step 1) claimed a batch of 2 (`selectZoneSpreadBatch` dropped #7376 as a same-zone — `area:hospitality` — surplus behind #7709, deferring it to a later batch; strict-main probe returned `strictMain: true`). Issues #7709 (opus tier) and #7463 (sonnet tier) moved to `in-progress`, both dispatched to `implement-queue-worker` agents in isolated worktrees; results land after this entry is written, so Phase 2–4 (gate, merge train, reap, telemetry persist) for this batch complete later in the same run.
+- One already-open implement-queue PR, #7851 (partial slice of #7463, CI green, reviewed PASS 7/10, no `needs-review`), hit `[Merge Without Review]` again on `gh api -X PUT .../merge` — same denial class as #6125, confirmed recurring across sessions rather than a one-off. Per the merge-command hook, no further merge attempts were made this session; it's reported as reviewed-green-awaiting-human-merge. Three other open PRs (#7856, #7841, #7840) already carry `needs-review` and were left alone; #7852 (changesets release) and #7831 (`automation/production-feedback`, CI red) are bot-authored PRs outside this skill's scope — #7831's failing CI is a different automation's workflow, not an implement-queue PR, and was not treated as a Phase-0 block on claiming new issues.
+- 1 revert in the last 7 days, under the >3/week concern threshold.
+- Both `gh issue list`/`gh pr list` remain GraphQL-blocked in this session type (gotchas § Claude Code Remote); every query above used `gh api` REST (repo-scoped — the global `search/issues` endpoint is also blocked here: "sessions are bound to their configured repositories").
+
+### Recommendations
+
+- The `[Merge Without Review]` denial on #7851 is now observed on at least two separate sessions/days without self-resolving. Worth a `meta-improvement` issue if a human merge doesn't clear it soon — tentatively holding off filing today since it's a known, already-tracked gotcha (gotchas § Claude Code Remote) rather than a new 3-day pattern.
+- No other pattern yet rises to 3-day-consistent.
+
+### Skipped Issues
+
+0 `agent-skip` issues open — nothing to manually review.
+
+## 2026-10-28
+
+**queueEfficiency:** composite 0.939 (baseline n/a) — healthy
+**Difficulty distribution:** size:xs:39, size:l:8, size:m:23, size:s:39, size:xl:11
+**Issues filed:** 0

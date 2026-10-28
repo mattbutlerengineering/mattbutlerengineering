@@ -173,8 +173,23 @@ describe("PreviewAvailabilityBodySchema", () => {
         scope: { from: "2026-11-01" },
         focusDate: "2026-11-01",
         strandedOffset: 0,
+        compareWith: "saved",
+        partySize: 2,
       }
     );
+  });
+
+  it("takes a comparison base and a party size, and refuses others", () => {
+    const body = { ...base, scope: ["2026-11-06"] };
+    const parsed = PreviewAvailabilityBodySchema.parse({
+      ...body,
+      compareWith: "regularWeek",
+      partySize: 6,
+    });
+    expect(parsed).toMatchObject({ compareWith: "regularWeek", partySize: 6 });
+    for (const bad of [{ compareWith: "yesterday" }, { partySize: 0 }, { partySize: 21 }]) {
+      expect(PreviewAvailabilityBodySchema.safeParse({ ...body, ...bad }).success).toBe(false);
+    }
   });
 
   it("takes a list of dates but not an empty one", () => {

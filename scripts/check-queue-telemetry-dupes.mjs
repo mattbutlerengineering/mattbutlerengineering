@@ -64,7 +64,7 @@ export function evaluateTelemetryDuplicates(rows) {
   };
 }
 
-export const FAIL_MESSAGE =
+const FAIL_MESSAGE =
   "FAIL: metrics/queue-telemetry.jsonl has more than one row per (issue, PR).\n" +
   "Both readers count rows and treat each as one merged PR, so a doubled row\n" +
   "inflates numerator and denominator alike (#5630).\n" +

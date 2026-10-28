@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { RialtoProvider, ToastProvider } from "@mattbutlerengineering/rialto";
 import { HomePage } from "./HomePage.js";
@@ -35,7 +35,6 @@ describe("HomePage heading hierarchy", () => {
       "By the numbers",
       "Projects",
       "How this site ships itself",
-      "What I'm reading",
       "Elsewhere",
     ]);
   });
@@ -77,16 +76,11 @@ describe("HomePage hero", () => {
   });
 });
 
-describe("HomePage weekly CTA", () => {
-  it("renders the weekly CTA as a Rialto Card, not bespoke section markup", () => {
+describe("HomePage reading section", () => {
+  it("renders no empty heading or button while there is nothing recent to read", () => {
     renderHomePage();
-    const weekly = screen.getByTestId("weekly-cta");
-    expect(weekly.tagName).toBe("DIV");
-    expect(weekly.className).toMatch(/card/i);
-    expect(document.querySelector(".weeklyCta")).toBeNull();
-    expect(
-      within(weekly).getByRole("heading", { level: 2, name: /what i'm reading/i })
-    ).toBeInTheDocument();
-    expect(within(weekly).getByRole("link", { name: /browse the stack/i })).toBeInTheDocument();
+    expect(screen.queryByTestId("weekly-cta")).toBeNull();
+    expect(screen.queryByRole("heading", { name: /what i'm reading/i })).toBeNull();
+    expect(screen.queryByRole("link", { name: /browse the stack/i })).toBeNull();
   });
 });

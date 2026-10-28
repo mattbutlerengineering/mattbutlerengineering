@@ -3,8 +3,10 @@
   top: 0;
   z-index: var(--rialto-z-sticky);
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
+  row-gap: var(--rialto-space-xs);
   padding: var(--rialto-space-sm) var(--rialto-space-lg);
   border-bottom: 1px solid var(--rialto-border);
   background: var(--rialto-surface-elevated);
@@ -27,6 +29,10 @@
 
 .actions {
   display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--rialto-space-sm);
+  min-inline-size: 0;
 }

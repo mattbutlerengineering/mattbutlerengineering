@@ -833,6 +833,27 @@ describe("Reservation Routes", () => {
       expect(body.detail).toBeTruthy();
     });
 
+    it("returns 409 with a reload hint when a closure changed the booking meanwhile (#7624)", async () => {
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
+      vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
+        success: false,
+        error: "Reservation changed meanwhile; reload and retry",
+        conflict: { hasConflict: true },
+      });
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: ["", "api", "v1", "reservations", mockReservation.id].join("/"),
+        headers: { authorization: "Bearer valid-token" },
+        payload: { startTime: "2026-02-15T19:00:00.000Z" },
+      });
+
+      expect(response.statusCode).toBe(409);
+      expect(JSON.parse(response.body).detail).toBe(
+        "Reservation changed meanwhile; reload and retry"
+      );
+    });
+
     describe("PATCH /v1/reservations/:id — partySize deposit guard (#2998)", () => {
       it("blocks a partySize INCREASE with 409 when a per_person deposit is held", async () => {
         vi.mocked(reservationService.getById).mockResolvedValueOnce(

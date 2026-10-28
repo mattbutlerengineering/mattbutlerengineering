@@ -159,6 +159,7 @@ function fakeClient(w: World) {
           ) ?? null
         );
       }),
+
       create: vi.fn(async ({ data }: { data: World["changes"][number] }) => {
         const change = { ...data, id: `chg-${w.changes.length + 1}` };
         w.changes = [...w.changes, change];

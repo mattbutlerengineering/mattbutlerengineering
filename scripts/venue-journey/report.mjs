@@ -30,10 +30,10 @@
  */
 
 /** A step slower than this is friction, not failure. */
-export const SLOW_STEP_MS = 10_000;
+const SLOW_STEP_MS = 10_000;
 
 /** Artifact uploaded by the workflow that holds failure screenshots. */
-export const SCREENSHOT_ARTIFACT_NAME = "venue-journey-artifacts";
+const SCREENSHOT_ARTIFACT_NAME = "venue-journey-artifacts";
 
 /**
  * Classifies how one journey step ended. The single decision behind the step

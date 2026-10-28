@@ -79,6 +79,36 @@ describe("registry rendering", () => {
     expect(button.textContent).toContain("Click me");
   });
 
+  it("renders button words from props.children when the element has no child keys", () => {
+    // flatToTree always sets children to [] (truthy), which used to hide the label.
+    renderSpec({
+      root: "btn1",
+      elements: {
+        btn1: {
+          type: "Button",
+          props: { variant: "secondary", size: "md", children: "Contact sales" },
+          children: [],
+        },
+      },
+    });
+    expect(screen.getByRole("button", { name: "Contact sales" })).toBeDefined();
+  });
+
+  it("shares a row of three cards across the preview instead of wrapping the last one", () => {
+    const { container } = renderSpec({
+      root: "row",
+      elements: {
+        row: { type: "Stack", props: { direction: "row", gap: "md" }, children: ["a", "b", "c"] },
+        a: { type: "Text", props: { children: "Starter" }, children: [] },
+        b: { type: "Text", props: { children: "Pro" }, children: [] },
+        c: { type: "Text", props: { children: "Enterprise" }, children: [] },
+      },
+    });
+    const row = container.querySelector("[style*='grid']");
+    expect(row).not.toBeNull();
+    expect(row?.getAttribute("style")).toContain("12rem");
+  });
+
   it("renders a Card with a Text child via slot forwarding", () => {
     const spec = {
       root: "card1",

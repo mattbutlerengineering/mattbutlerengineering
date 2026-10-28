@@ -87,6 +87,8 @@ function NavTrigger({
   const openTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const closeTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const panelRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const skipFocusOpen = useRef(false);
   const isOpen = openId === item.label;
 
   const hasChildren = item.children && item.children.length > 0;
@@ -134,11 +136,25 @@ function NavTrigger({
         items[items.length - 1]?.focus();
       } else if (e.key === "Escape") {
         e.preventDefault();
+        // The focused item is about to unmount: hand focus back to the trigger, and
+        // skip the focus-opens-menu handler so the menu does not reopen.
+        if (triggerRef.current && document.activeElement !== triggerRef.current) {
+          skipFocusOpen.current = true;
+          triggerRef.current.focus();
+        }
         onClose();
       }
     },
     [onClose]
   );
+
+  const handleTriggerFocus = () => {
+    if (skipFocusOpen.current) {
+      skipFocusOpen.current = false;
+      return;
+    }
+    startOpen();
+  };
 
   if (!hasChildren) {
     return (
@@ -151,11 +167,12 @@ function NavTrigger({
   return (
     <div className={styles.triggerWrapper} onMouseEnter={startOpen} onMouseLeave={startClose}>
       <button
+        ref={triggerRef}
         type="button"
         className={styles.trigger}
         aria-haspopup="menu"
         aria-expanded={isOpen}
-        onFocus={startOpen}
+        onFocus={handleTriggerFocus}
         onBlur={startClose}
         onKeyDown={handlePanelKeyDown}
       >

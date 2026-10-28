@@ -89,7 +89,7 @@ export interface InMemoryPayments extends PaymentsPort {
   /** Replace an op's default result (or make it throw) from now on. */
   respond<Op extends PaymentsOp>(op: Op, impl: PaymentsImpl<Op>): void;
   /** The next call to `op` throws a `StripeOperationError` of `stripeType`, as `StripeService` would. */
-  failNext(op: PaymentsOp, stripeType: string): void;
+  failNext(op: PaymentsOp, stripeType: string, code?: string): void;
 }
 
 /**
@@ -100,7 +100,7 @@ export function createInMemoryPayments(): InMemoryPayments {
   const calls: { op: PaymentsOp; args: unknown[] }[] = [];
   const counters = { cus: 0, pi: 0, re: 0 };
   const nextId = (kind: keyof typeof counters) => `${kind}_mem_${++counters[kind]}`;
-  const failures = new Map<PaymentsOp, string>();
+  const failures = new Map<PaymentsOp, { stripeType: string; code?: string }>();
 
   const defaults: { [Op in PaymentsOp]: PaymentsImpl<Op> } = {
     createCustomer: (options) => ({
@@ -117,16 +117,23 @@ export function createInMemoryPayments(): InMemoryPayments {
     createPartialRefund: (_id, amount) => ({ id: nextId("re"), status: "succeeded", amount }),
     retrievePaymentIntent: (id) => ({ id, status: "requires_capture" }),
     findDepositRefund: () => null,
+    // Nothing refunded; "captured" is unbounded so tests only set what they assert on.
+    getChargeAmounts: () => ({ capturedCents: Number.MAX_SAFE_INTEGER, refundedCents: 0 }),
+    countFailedDepositRefunds: () => 0,
   };
   const impls: { [Op in PaymentsOp]: PaymentsImpl<Op> } = { ...defaults };
 
   function call<Op extends PaymentsOp>(op: Op): PaymentsPort[Op] {
     const recorded = async (...args: Parameters<PaymentsPort[Op]>) => {
       calls.push({ op, args });
-      const stripeType = failures.get(op);
-      if (stripeType !== undefined) {
+      const failure = failures.get(op);
+      if (failure !== undefined) {
         failures.delete(op);
-        const cause = Object.assign(new Error(`${stripeType} (in-memory)`), { type: stripeType });
+        const { stripeType, code } = failure;
+        const cause = Object.assign(new Error(`${stripeType} (in-memory)`), {
+          type: stripeType,
+          code,
+        });
         throw new StripeOperationError(cause, stripeType, RETRIABLE_STRIPE_TYPES.has(stripeType));
       }
       return await (impls[op] as PaymentsImpl<Op>)(...args);
@@ -139,8 +146,8 @@ export function createInMemoryPayments(): InMemoryPayments {
     respond(op, impl) {
       (impls as Record<PaymentsOp, unknown>)[op] = impl;
     },
-    failNext(op, stripeType) {
-      failures.set(op, stripeType);
+    failNext(op, stripeType, code) {
+      failures.set(op, { stripeType, code });
     },
     createCustomer: call("createCustomer"),
     createPaymentIntent: call("createPaymentIntent"),
@@ -149,5 +156,7 @@ export function createInMemoryPayments(): InMemoryPayments {
     createPartialRefund: call("createPartialRefund"),
     retrievePaymentIntent: call("retrievePaymentIntent"),
     findDepositRefund: call("findDepositRefund"),
+    getChargeAmounts: call("getChargeAmounts"),
+    countFailedDepositRefunds: call("countFailedDepositRefunds"),
   };
 }

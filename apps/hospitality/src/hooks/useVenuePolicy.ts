@@ -9,7 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useApiClient } from "./useApiClient.js";
 import type { CancellationPolicy } from "@mbe/cancellation-policy";
 
-export const VENUE_POLICY_QUERY_KEY = "venue-policy" as const;
+const VENUE_POLICY_QUERY_KEY = "venue-policy" as const;
 
 /**
  * Returns the cancellation policy for a venue by slug.

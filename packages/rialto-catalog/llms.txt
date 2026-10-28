@@ -83,11 +83,8 @@
     <item priority="high">
       export function costUsd(tokens: Tokens, pricing: Pricing): number { /* ... */ }
     </item>
-    <item priority="high">
-      export function uncachedCostUsd(tokens: Tokens, pricing: Pricing): number { /* ... */ }
-    </item>
-    <item priority="high">
-      export const SYSTEM_PROMPT: unknown;
+    <item priority="medium">
+      function uncachedCostUsd(tokens: Tokens, pricing: Pricing): number { /* ... */ }
     </item>
     <item priority="low">
       type Validation = { ok: true } | { ok: false; error: string };
@@ -175,9 +172,6 @@
   <file path="scripts/gen-ui-bakeoff-providers.ts">
     <item priority="high">
       type FetchLike = typeof fetch;
-    </item>
-    <item priority="high">
-      export const DEFAULT_MODELS: Readonly<Record<ProviderId, string>>;
     </item>
     <item priority="high">
       export const ENV_KEYS: Readonly<Record<ProviderId, string>>;
@@ -339,6 +333,17 @@
   <file path="src/generated-schemas.ts">
     <item priority="high">
       export const generatedSchemas: unknown;
+    </item>
+  </file>
+  <file path="src/materialize-table-data.ts">
+    <item priority="medium">
+      function columnKeys(columns: unknown): string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function sampleCell(key: string, index: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function materializeCatalogProps(name: string, props: unknown): unknown { /* ... */ }
     </item>
   </file>
   </section>

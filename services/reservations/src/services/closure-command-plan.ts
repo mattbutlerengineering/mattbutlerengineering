@@ -10,6 +10,7 @@ import type {
   ClosureAction,
   ClosureDecision,
   ClosureImpact,
+  ClosureImpactGroup,
   ClosureImpactReservation,
   DateRule,
 } from "@mbe/types";
@@ -26,6 +27,17 @@ export type DecisionCheck =
   | { kind: "invalid-decision"; groupKeys: string[] };
 
 /**
+ * Whether the group now holds other bookings than the ones the decision was made on (a guest
+ * booked, or a booking moved, between the preview and the save). A decision that names no
+ * bookings (an older client) is never stale.
+ */
+function membershipChanged(group: ClosureImpactGroup, decision: ClosureDecision): boolean {
+  if (decision.reservationIds === undefined) return false;
+  const seen = new Set(decision.reservationIds);
+  return seen.size !== group.reservations.length || group.reservations.some((r) => !seen.has(r.id));
+}
+
+/**
  * Every group needs exactly one decision. `move` is only for a shortened
  * group; `keep_silent` needs the acknowledgement. A decision naming no group
  * (or one twice) is invalid rather than ignored, so a stale client is told.
@@ -37,8 +49,16 @@ export function checkDecisions(
   const groups = new Map(impact.groups.map((g) => [g.groupKey, g]));
   const seen = new Set<string>();
   const invalid: string[] = [];
+  const vanished: string[] = [];
   for (const d of decisions) {
     const group = groups.get(d.groupKey);
+    // A group the Manager saw (the decision names its bookings) that is gone now is stale, not
+    // invalid: every booking in it was cancelled or moved since the preview.
+    if (!group && d.reservationIds !== undefined && !seen.has(d.groupKey)) {
+      vanished.push(d.groupKey);
+      seen.add(d.groupKey);
+      continue;
+    }
     const bad =
       !group || seen.has(d.groupKey) || (d.action === "move" && group.kind !== "shortened");
     if (bad) invalid.push(d.groupKey);
@@ -51,10 +71,15 @@ export function checkDecisions(
     .map((g) => g.groupKey)
     .filter((key) => {
       const d = answered.get(key);
-      return !d || (d.action === "keep_silent" && d.acknowledged !== true);
+      return (
+        !d ||
+        (d.action === "keep_silent" && d.acknowledged !== true) ||
+        membershipChanged(groups.get(key)!, d)
+      );
     });
-  return missing.length > 0
-    ? { kind: "decision-required", groupKeys: missing }
+  const stale = [...missing, ...vanished];
+  return stale.length > 0
+    ? { kind: "decision-required", groupKeys: stale }
     : { kind: "ok", actions: answered };
 }
 
@@ -159,7 +184,7 @@ export function currentServiceDate(snapshot: AvailabilitySnapshot, now: Date): s
 }
 
 /** A service a Tonight change leaves open for less than this is closed in effect (#7687). */
-export const MIN_SERVICE_MINUTES = 60;
+const MIN_SERVICE_MINUTES = 60;
 
 type DayServices = ReturnType<typeof resolveDay>;
 

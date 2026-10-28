@@ -301,6 +301,11 @@
     
       // Store AbortController in ref so it persists across renders
       const abortControllerRef = useRef<AbortController | null>(null);
+      // A second Generate click used to abort the in-flight request and clear the
+      // spec, and the aborted request's catch then set isStreaming false under the
+      // replacement. Extra clicks are ignored until this request settles.
+      const inFlightRef = useRef(false);
+      const generationRef = useRef(0);
     
       // Use stable refs for callbacks to avoid re-creating send on every render.
       // Sync via useEffect — writing ref.current in render body violates
@@ -321,8 +326,9 @@
           context?: Record<string, unknown>,
           extraBody?: Record<string, unknown>
         ): Promise<void> => {
-          // Abort any in-flight request
-          abortControllerRef.current?.abort();
+          if (inFlightRef.current) return;
+          inFlightRef.current = true;
+          const generation = ++generationRef.current;
     
           const controller = new AbortController();
           abortControllerRef.current = controller;
@@ -358,6 +364,8 @@
               setSpec(updatedSpec);
             }
     
+            if (generation !== generationRef.current) return;
+    
             // Build the final spec and notify completion — pass local rawLines array
             // to avoid stale closure pitfall (React state may not reflect latest lines)
             const finalSpec = accumulatedElements.length > 0 ? flatToTree(accumulatedElements) : null;
@@ -367,6 +375,7 @@
     
             setIsStreaming(false);
           } catch (err) {
+            if (generation !== generationRef.current) return;
             if (err instanceof Error && err.name === "AbortError") {
               // Abort is intentional (user clicked stop) — keep partial spec, no error
               setIsStreaming(false);
@@ -376,11 +385,13 @@
             const raised = err instanceof Error ? err : new Error(String(err));
             // Swap in limit-specific copy but keep the status fields, so the
             // result still classifies as a transport failure.
-            const limitCopy = describeLimitError(raised);
+            const limitCopy = describeLimitError(raised) ?? describeTimeoutError(raised);
             const error = limitCopy ? Object.assign(new Error(limitCopy), { ...raised }) : raised;
             setError(error);
             setIsStreaming(false);
             onErrorRef.current?.(error);
+          } finally {
+            if (generation === generationRef.current) inFlightRef.current = false;
           }
         },
         [api, accessToken]
@@ -393,6 +404,8 @@
       }, []);
     
       const stop = useCallback(() => {
+        generationRef.current += 1;
+        inFlightRef.current = false;
         abortControllerRef.current?.abort();
         setIsStreaming(false);
       }, []);
@@ -811,6 +824,10 @@
     export interface UseSpecsApiReturn {
       specs: StoredSpec[];
       isLoading: boolean;
+      /** Set when the most recent fetchSpecs() call failed; cleared on the next
+       *  successful fetch. Lets the UI show a deliberate error state instead of
+       *  an indistinguishable "no history yet". */
+      error: Error | null;
       fetchSpecs: () => Promise<void>;
       saveSpec: (data: SaveSpecData) => Promise<StoredSpec>;
       toggleFavorite: (id: string) => Promise<void>;
@@ -821,6 +838,7 @@
     
       const [specs, setSpecs] = useState<StoredSpec[]>([]);
       const [isLoading, setIsLoading] = useState(true);
+      const [error, setError] = useState<Error | null>(null);
       // Mirror of specs in a ref so deleteSpec can read the current list without
       // taking specs as a useCallback dependency (which would recreate on every render).
       const specsRef = useRef<StoredSpec[]>(specs);
@@ -839,8 +857,10 @@
         try {
           const json = await client.get<{ data: StoredSpec[] }>("/api/gen/specs");
           setSpecs(json.data.map(decodeStored));
+          setError(null);
         } catch (err) {
           console.error("[useSpecsApi] fetchSpecs error:", err);
+          setError(err instanceof Error ? err : new Error("Failed to load history."));
         } finally {
           setIsLoading(false);
         }
@@ -899,11 +919,130 @@
         queueMicrotask(() => void fetchSpecs());
       }, [fetchSpecs]);
     
-      return { specs, isLoading, fetchSpecs, saveSpec, toggleFavorite, deleteSpec };
+      return { specs, isLoading, error, fetchSpecs, saveSpec, toggleFavorite, deleteSpec };
     }
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="src/lib/dialog-controls.ts">
+    export interface DialogControl {
+      initialOpen: boolean;
+    }
+    export interface ButtonControl {
+      kind: "open" | "close";
+      dialogKey: string;
+    }
+    export interface DialogPlan {
+      dialogs: Record<string, DialogControl>;
+      buttons: Record<string, ButtonControl>;
+    }
+    interface GenElement {
+      type?: string;
+      props?: Record<string, unknown>;
+      children?: string[];
+      slots?: Record<string, string[]>;
+    }
+    function elementsOf(spec: Spec | null): Record<string, GenElement> | null {
+      if (!spec?.root || !spec.elements) return null;
+      return spec.elements as Record<string, GenElement>;
+    }
+    function childKeys(element: GenElement | undefined): string[] {
+      if (!element) return [];
+      const keys = [...(element.children ?? [])];
+      for (const slot of Object.values(element.slots ?? {})) {
+        if (!Array.isArray(slot)) continue;
+        for (const key of slot) if (typeof key === "string") keys.push(key);
+      }
+      return keys;
+    }
+    function labelOf(element: GenElement): string {
+      const props = element.props ?? {};
+      return [props.label, props.children, props["aria-label"], props.text]
+        .filter((part): part is string => typeof part === "string")
+        .join(" ");
+    }
+    function isButton(element: GenElement | undefined): boolean {
+      return element?.type === "Button" || element?.type === "IconButton";
+    }
+    function wantsClose(label: string): boolean {
+      return /\bclose\b/i.test(label);
+    }
+    function wantsOpen(label: string): boolean {
+      return /\bopen\b/i.test(label);
+    }
+    function findDialog(elements: Record<string, GenElement>, key: string): string | null {
+      const element = elements[key];
+      if (!element) return null;
+      if (element.type === "Dialog") return key;
+      for (const child of childKeys(element)) {
+        const found = findDialog(elements, child);
+        if (found) return found;
+      }
+      return null;
+    }
+    export function planDialogControls(spec: Spec | null): DialogPlan {
+      const elements = elementsOf(spec);
+      if (!elements || !spec?.root) return EMPTY;
+    
+      const parent = new Map<string, string>();
+      const walk = (key: string) => {
+        for (const child of childKeys(elements[key])) {
+          if (parent.has(child)) continue;
+          parent.set(child, key);
+          walk(child);
+        }
+      };
+      walk(spec.root);
+    
+      const nearestDialog = (key: string): string | null => {
+        let current = parent.get(key);
+        while (current) {
+          if (elements[current]?.type === "Dialog") return current;
+          current = parent.get(current);
+        }
+        return null;
+      };
+    
+      const buttons: Record<string, ButtonControl> = {};
+      const opened = new Set<string>();
+    
+      for (const [key, element] of Object.entries(elements)) {
+        if (!isButton(element)) continue;
+        const label = labelOf(element);
+        const ancestor = nearestDialog(key);
+        if (wantsClose(label) && ancestor) {
+          buttons[key] = { kind: "close", dialogKey: ancestor };
+          continue;
+        }
+        const parentKey = parent.get(key);
+        const siblings = childKeys(parentKey ? elements[parentKey] : undefined);
+        const index = siblings.indexOf(key);
+        let target: string | null = null;
+        if (wantsOpen(label)) {
+          for (const sibling of siblings.slice(index + 1)) {
+            target = findDialog(elements, sibling);
+            if (target) break;
+          }
+        } else if (index >= 0) {
+          const next = siblings[index + 1];
+          if (next && elements[next]?.type === "Dialog") target = next;
+        }
+        if (target) {
+          buttons[key] = { kind: "open", dialogKey: target };
+          opened.add(target);
+        }
+      }
+    
+      const dialogs: Record<string, DialogControl> = {};
+      for (const [key, element] of Object.entries(elements)) {
+        if (element.type !== "Dialog") continue;
+        const literalOpen = element.props?.open === true;
+        dialogs[key] = { initialOpen: opened.has(key) ? false : literalOpen };
+      }
+    
+      return { dialogs, buttons };
+    }
+  </file>
   <file path="src/lib/entry-kind.ts">
     export function resolveEntry(entry: Pick<StoredSpec, "prompt" | "kind">): {
       kind: EntryKind;
@@ -916,6 +1055,165 @@
         }
       }
       return { kind: "generate", prompt: entry.prompt };
+    }
+  </file>
+  <file path="src/lib/normalize-generated-spec.ts">
+    export function parseTrendPoints(text: string): { label: string; value: string }[] | null {
+      const trimmed = text.trim();
+      if (trimmed.length < 8 || trimmed.length > 400) return null;
+      const parts = trimmed.split(/\s*[·•|,]\s*/);
+      if (parts.length < 3) return null;
+      const points: { label: string; value: string }[] = [];
+      for (const part of parts) {
+        const match = POINT.exec(part.trim());
+        if (!match || match[1] === undefined || match[2] === undefined) return null;
+        points.push({ label: match[1], value: match[2] });
+      }
+      return points;
+    }
+    function textContent(props: unknown): string | null {
+      if (props === null || typeof props !== "object") return null;
+      const record = props as Record<string, unknown>;
+      if (typeof record.children === "string") return record.children;
+      if (typeof record.text === "string") return record.text;
+      return null;
+    }
+    interface Point {
+      label: string;
+      value: number | string;
+    }
+    function asPoints(value: unknown): Point[] | null {
+      if (!Array.isArray(value) || value.length === 0) return null;
+      const points: Point[] = [];
+      for (const item of value) {
+        if (item === null || typeof item !== "object") return null;
+        const record = item as Record<string, unknown>;
+        const label = record.label ?? record.x ?? record.name;
+        const amount = record.value ?? record.y;
+        if (typeof label !== "string") return null;
+        if (typeof amount !== "number" && typeof amount !== "string") return null;
+        points.push({ label, value: amount });
+      }
+      return points;
+    }
+    function chartProps(props: unknown): { label: string; data: Point[] } | null {
+      if (props === null || typeof props !== "object") return null;
+      const record = props as Record<string, unknown>;
+      const data = asPoints(record.data ?? record.points ?? record.series);
+      if (!data) return null;
+      const label =
+        typeof record.label === "string" && record.label.trim() !== "" ? record.label : "Trend";
+      return { label, data };
+    }
+    function repairImage(
+      key: string,
+      element: Spec["elements"][string],
+      elements: Spec["elements"]
+    ): boolean {
+      if (!element || (element.type !== "Image" && element.type !== "Img")) return false;
+      const props = (element.props ?? {}) as Record<string, unknown>;
+      const alt =
+        (typeof props.alt === "string" && props.alt.trim() !== "" ? props.alt : null) ??
+        (typeof props.name === "string" && props.name.trim() !== "" ? props.name : null) ??
+        "Image";
+      const src = typeof props.src === "string" ? props.src : undefined;
+      const avatarKey = `${key}__avatar`;
+      const captionKey = `${key}__caption`;
+      elements[key] = {
+        ...element,
+        type: "Stack",
+        props: { direction: "column", gap: "xs" },
+        children: [avatarKey, captionKey],
+      };
+      elements[avatarKey] = {
+        type: "Avatar",
+        props: { src, name: alt.slice(0, 30), alt },
+        children: [],
+      };
+      elements[captionKey] = {
+        type: "Text",
+        props: { children: alt, variant: "caption" },
+        children: [],
+      };
+      return true;
+    }
+    export function normalizeGeneratedSpec(spec: Spec): Spec {
+      if (!spec.elements) return spec;
+      let changed = false;
+      const elements: Spec["elements"] = { ...spec.elements };
+      for (const [key, element] of Object.entries(elements)) {
+        if (!element) continue;
+        const materialized = materializeCatalogProps(element.type, element.props);
+        if (materialized !== element.props) {
+          changed = true;
+          elements[key] = { ...element, props: materialized as typeof element.props };
+          continue;
+        }
+        if (element.type !== "Text") continue;
+        const text = textContent(element.props);
+        const points = text ? parseTrendPoints(text) : null;
+        if (!points) continue;
+        changed = true;
+        elements[key] = {
+          ...element,
+          type: "BarChart",
+          props: { label: "Trend", data: points },
+        };
+      }
+      for (const [key, element] of Object.entries(elements)) {
+        if (!element) continue;
+        if (CHART_ALIASES.has(element.type)) {
+          const chart = chartProps(element.props);
+          if (!chart) continue;
+          changed = true;
+          elements[key] = { ...element, type: "BarChart", props: chart };
+          continue;
+        }
+        if (repairImage(key, element, elements)) changed = true;
+      }
+      return changed ? { ...spec, elements } : spec;
+    }
+  </file>
+  <file path="src/lib/pending-prompt.ts">
+    export const PENDING_PROMPT_KEY = "gen.pendingPrompt";
+    function continueWhenStorageFails(error: unknown): void {
+      if (error instanceof Error) return;
+      throw error;
+    }
+    export function interruptedPromptNotice(): string {
+      return INTERRUPTED_NOTICE;
+    }
+    export function rememberPendingPrompt(
+      prompt: string,
+      storage: Storage = window.sessionStorage
+    ): void {
+      try {
+        storage.setItem(PENDING_PROMPT_KEY, prompt);
+      } catch (error) {
+        continueWhenStorageFails(error);
+      }
+    }
+    export function clearPendingPrompt(storage: Storage = window.sessionStorage): void {
+      try {
+        storage.removeItem(PENDING_PROMPT_KEY);
+      } catch (error) {
+        continueWhenStorageFails(error);
+      }
+      cached = null;
+    }
+    export function readInterruptedPrompt(storage: Storage = window.sessionStorage): string | null {
+      if (cached !== undefined) return cached;
+      try {
+        const value = storage.getItem(PENDING_PROMPT_KEY);
+        storage.removeItem(PENDING_PROMPT_KEY);
+        cached = value && value.trim() !== "" ? value : null;
+      } catch {
+        cached = null;
+      }
+      return cached;
+    }
+    export function resetInterruptedPromptCache(): void {
+      cached = undefined;
     }
   </file>
   <file path="src/lib/shortcuts.ts">
@@ -1019,11 +1317,22 @@
       if (!def) throw new Error(`Unknown shortcut: ${id}`);
       return displayKeys(def, mac);
     }
+    function altHeld(event: KeyboardEvent): boolean {
+      if (event.altKey) return true;
+      // Linux Chrome sometimes reports the Alt combo with altKey unset while
+      // getModifierState still sees Alt. Matching only altKey drops Alt+1.
+      return typeof event.getModifierState === "function" && event.getModifierState("Alt");
+    }
     function mainKeyMatches(token: string, event: KeyboardEvent, usesAlt: boolean): boolean {
       if (token === "Esc") return event.key === "Escape";
-      // With Alt held, macOS rewrites event.key (Option+F -> a symbol), so match the
-      // physical key via event.code instead.
-      if (usesAlt) return event.code === (/^\d$/.test(token) ? `Digit${token}` : `Key${token}`);
+      const code = /^\d$/.test(token) ? `Digit${token}` : `Key${token}`;
+      // Alt rewrites event.key (Option+F is a symbol on macOS; some Linux layouts
+      // do the same). The physical key is event.code. When code is empty, the
+      // unmodified character in event.key is the fallback.
+      if (usesAlt) {
+        if (event.code === code) return true;
+        return event.key.length === 1 && event.key.toUpperCase() === token.toUpperCase();
+      }
       return event.key === token;
     }
     export function matchShortcut(event: KeyboardEvent): ShortcutAction | null {
@@ -1033,7 +1342,7 @@
         const token = def.keys[def.keys.length - 1];
         if (token === undefined) continue;
         const usesAlt = def.keys.includes("Alt");
-        if (event.altKey !== usesAlt) continue;
+        if (altHeld(event) !== usesAlt) continue;
         // Bare keys like "?" are shifted on many layouts, so only require Shift
         // to match when the binding is an Alt combo.
         if (usesAlt && event.shiftKey !== def.keys.includes("Shift")) continue;
@@ -1153,18 +1462,100 @@
   </file>
   <file path="src/lib/validate-spec.ts">
     export type CatalogValidation = { ok: true } | { ok: false; message: string };
+    export function readableCatalogMessage(message: string): string {
+      const jsonAt = message.indexOf("{");
+      if (jsonAt === -1) return message.length > 280 ? `${message.slice(0, 260)}…` : message;
+      const prefix = message.slice(0, jsonAt).replace(/:\s*$/, "").trim();
+      try {
+        const issue = JSON.parse(message.slice(jsonAt)) as {
+          path?: unknown;
+          message?: unknown;
+          received?: unknown;
+        };
+        const path = Array.isArray(issue.path) ? issue.path.map(String) : [];
+        const received =
+          typeof issue.received === "string"
+            ? issue.received
+            : receivedFrom(typeof issue.message === "string" ? issue.message : "");
+        if (path[path.length - 1] === "type" && received) {
+          return `unknown component "${received}". Charts use BarChart.`;
+        }
+        if (
+          typeof issue.message === "string" &&
+          issue.message.length > 0 &&
+          issue.message.length < 160
+        ) {
+          return prefix ? `${prefix}: ${issue.message}` : issue.message;
+        }
+      } catch {
+        // Not a JSON issue. Fall through to a clipped copy of the original.
+      }
+      const clipped = message.length > 280 ? `${message.slice(0, 260)}…` : message;
+      return prefix && clipped.startsWith("{") ? `${prefix}.` : clipped;
+    }
+    function receivedFrom(message: string): string | null {
+      const match = /received ['"]([^'"]+)['"]/i.exec(message);
+      return match?.[1] ?? null;
+    }
     export function validateSpecAgainstCatalog(spec: Spec): CatalogValidation {
       const result = catalog.validate(spec);
       if (result.success) return { ok: true };
-      return {
-        ok: false,
-        message: result.error?.message ?? "Spec does not conform to the Rialto catalog",
+      const raw = result.error?.message ?? "Spec does not conform to the Rialto catalog";
+      return { ok: false, message: readableCatalogMessage(raw) };
+    }
+  </file>
+  <file path="src/lib/visible-content.ts">
+    interface GenElement {
+      type?: string;
+      props?: Record<string, unknown>;
+      children?: string[];
+      slots?: Record<string, string[]>;
+    }
+    function childKeys(element: GenElement): string[] {
+      const keys = [...(element.children ?? [])];
+      for (const slot of Object.values(element.slots ?? {})) {
+        if (!Array.isArray(slot)) continue;
+        for (const key of slot) if (typeof key === "string") keys.push(key);
+      }
+      return keys;
+    }
+    function cardHasWords(element: GenElement): boolean {
+      const props = element.props ?? {};
+      return [props.title, props.subtitle, props.children].some(
+        (value) => typeof value === "string" && value.trim() !== ""
+      );
+    }
+    export function specHasVisibleContent(spec: Spec | null): boolean {
+      if (!spec?.root || !spec.elements) return false;
+      const elements = spec.elements as Record<string, GenElement>;
+      const seen = new Set<string>();
+    
+      const walk = (key: string): boolean => {
+        if (seen.has(key)) return false;
+        const element = elements[key];
+        if (!element?.type) return false;
+        seen.add(key);
+        if (element.type === "Card") {
+          if (cardHasWords(element)) return true;
+          return childKeys(element).some(walk);
+        }
+        if (!LAYOUT.has(element.type)) return true;
+        return childKeys(element).some(walk);
       };
+    
+      return walk(spec.root);
     }
   </file>
   </section>
   <section priority="medium" role="pages">
   <file path="src/pages/classifyGenerationError.ts">
+    export function isTimeoutError(error: Error): boolean {
+      return statusOf(error) === 504;
+    }
+    export function describeTimeoutError(error: Error): string | null {
+      if (!isTimeoutError(error)) return null;
+      return "Generation timed out before a UI came back. Your prompt is still in the box — try again, or ask for something smaller.";
+    }
     export function isTransportError(error: Error): boolean {
       return (
         error instanceof TypeError ||
@@ -1263,6 +1654,10 @@
       // History (from useSpecsApi)
       specs: StoredSpec[];
       isLoading: boolean;
+      /** Set when the most recent history fetch failed. */
+      historyError: Error | null;
+      /** Re-runs the failed history fetch. */
+      retryHistory: () => void;
       filter: "all" | "favorites";
       setFilter: (filter: "all" | "favorites") => void;
     
@@ -1277,6 +1672,8 @@
       /** The raw prompt behind the current displayError, so it can be restored
        *  into the prompt input for editing instead of being lost. */
       failedPrompt: string | null;
+      /** Prompt restored after a refresh dropped an in-flight generation. */
+      interruptedPrompt: string | null;
     
       // Session verbs — own transition choreography lives here, not in the caller.
       submit: (prompt: string) => void;
@@ -1312,7 +1709,15 @@
       const playgroundState = usePlaygroundState();
       const { mode, exitRefinement, enterRefinement } = playgroundState;
     
-      const { specs, isLoading, saveSpec, toggleFavorite, deleteSpec } = useSpecsApi();
+      const {
+        specs,
+        isLoading,
+        error: historyError,
+        fetchSpecs: retryHistory,
+        saveSpec,
+        toggleFavorite,
+        deleteSpec,
+      } = useSpecsApi();
       const [activeId, setActiveId] = useState<string | null>(null);
       const [filter, setFilter] = useState<"all" | "favorites">("all");
       // Track the most recently submitted prompt without triggering a re-render.
@@ -1343,10 +1748,23 @@
       const diffHistory = useSpecDiffHistory();
       const { push: pushDiff, clear: clearDiffs } = diffHistory;
       const [lastChange, setLastChange] = useState<SpecDiff | null>(null);
+      const [interruptedPrompt] = useState(() => readInterruptedPrompt());
+      // A history row picked while a generation is still streaming. The finished
+      // run still saves, but it must not replace what the user is looking at.
+      const [heldId, setHeldId] = useState<string | null>(null);
+      const heldIdRef = useRef<string | null>(null);
+      const noticedInterruptedRef = useRef(false);
+    
+      useEffect(() => {
+        if (!interruptedPrompt || noticedInterruptedRef.current) return;
+        noticedInterruptedRef.current = true;
+        options?.onNotice?.(interruptedPromptNotice());
+      }, [interruptedPrompt, options]);
     
       const { spec, isStreaming, error, rawLines, send, stop, clear } = useGenStream({
         api: "/api/gen/ui",
         onComplete: (completedSpec, completedRawLines) => {
+          clearPendingPrompt();
           const nodeRefine = nodeRefineRef.current;
           let savedSpec = completedSpec;
           let refinement: SpecDiff | undefined;
@@ -1366,6 +1784,9 @@
             }
             savedSpec = spliced.spec;
             const before = extractSubtree(nodeRefine.base, nodeRefine.key);
+            // A row picked mid-stream stays on screen: the refine is saved, but its
+            // diff is not pushed onto the undo stack of a spec the user isn't viewing.
+            const held = heldIdRef.current !== null;
             if (before) {
               refinement = {
                 parentId: nodeRefine.parentId,
@@ -1373,11 +1794,13 @@
                 before,
                 after: completedSpec,
               };
-              pushDiff(refinement);
-              setLastChange(refinement);
+              if (!held) {
+                pushDiff(refinement);
+                setLastChange(refinement);
+              }
             }
             nodeRefineRef.current = null;
-            setPinnedSpec(savedSpec);
+            if (!held) setPinnedSpec(savedSpec);
           }
           if (!nodeRefine) {
             // A full generation is checked with the same validator as a refine.
@@ -1385,7 +1808,8 @@
             // The streamed spec stays on screen (activeId stays null) next to the
             // error affordance, and the attempt is recorded as "failed" in history,
             // the same as a stream failure, rather than saved as a success.
-            const validation = validateSpecAgainstCatalog(completedSpec);
+            savedSpec = normalizeGeneratedSpec(completedSpec);
+            const validation = validateSpecAgainstCatalog(savedSpec);
             if (!validation.ok) {
               setValidationError(
                 new Error(`The generated UI is not valid Rialto: ${validation.message}`)
@@ -1415,7 +1839,7 @@
             refinement,
           })
             .then((stored) => {
-              setActiveId(stored.id);
+              setActiveId((current) => (heldIdRef.current ? current : stored.id));
               setPinnedSpec(null);
             })
             .finally(() => {
@@ -1430,7 +1854,8 @@
         // transport/HTTP failure (auth expired, network drop) — that's an
         // infrastructure hiccup, not a generation failure worth recording.
         onError: (err) => {
-          if (!rawPrompt || isTransportError(err)) return;
+          clearPendingPrompt();
+          if (!rawPrompt || (isTransportError(err) && !isTimeoutError(err))) return;
           void saveSpec({
             prompt: rawPrompt,
             kind: "failed",
@@ -1449,18 +1874,32 @@
       const activeEntrySpec = activeEntry ? (decodeSpec(activeEntry.spec) ?? undefined) : undefined;
       const activeEntryRawLines = activeEntry?.rawLines ?? [];
     
-      const displaySpec = pinnedSpec ?? (isStreaming ? spec : (activeEntrySpec ?? spec));
-      const displayRawLines = isStreaming
-        ? rawLines
-        : activeEntryRawLines.length > 0
-          ? activeEntryRawLines
-          : rawLines;
+      const showingHeld = heldId !== null && activeId === heldId && activeEntrySpec !== undefined;
+      const displaySpec =
+        pinnedSpec ?? (showingHeld ? activeEntrySpec : isStreaming ? spec : (activeEntrySpec ?? spec));
+      const displayRawLines = showingHeld
+        ? activeEntryRawLines
+        : isStreaming
+          ? rawLines
+          : activeEntryRawLines.length > 0
+            ? activeEntryRawLines
+            : rawLines;
       // useGenStream flips isStreaming to false in the same batch it sets error,
       // so gating on isStreaming here would mean the error is never visible —
       // only relevant while we're not looking at a previously saved entry.
-      const displayError = activeId === null ? (refineError ?? validationError ?? error) : null;
-      const activeSpecId = !isStreaming && activeId ? activeId : null;
-      const failedPrompt = displayError ? rawPrompt : null;
+      // A selected "failed" history entry has its own failure to show, distinct
+      // from (and not cleared by) the live generation's error/refineError/
+      // validationError above — otherwise it reads as an empty, not failed, spec.
+      const displayError =
+        activeId === null
+          ? (refineError ?? validationError ?? error)
+          : activeEntry?.kind === "failed"
+            ? FAILED_ENTRY_ERROR
+            : null;
+      const activeSpecId = heldId ?? (!isStreaming && activeId ? activeId : null);
+      // Only the live generation's failure restores rawPrompt; a selected history
+      // entry's failure is unrelated to whatever was last typed.
+      const failedPrompt = activeId === null && displayError ? rawPrompt : null;
     
       const clearNodeRefine = useCallback(() => {
         nodeRefineRef.current = null;
@@ -1483,6 +1922,12 @@
     
       const submit = useCallback(
         (prompt: string) => {
+          // send() ignores a request while one is in flight; abort the old one first
+          // so it never completes under this prompt.
+          if (isStreaming) stop();
+          heldIdRef.current = null;
+          setHeldId(null);
+          rememberPendingPrompt(prompt);
           setRawPrompt(prompt);
           clearNodeRefine();
           if (mode === "refine" && displaySpec) {
@@ -1500,7 +1945,7 @@
             void send(prompt);
           }
         },
-        [mode, displaySpec, send, clearNodeRefine]
+        [mode, displaySpec, isStreaming, send, stop, clearNodeRefine]
       );
     
       const refineNode = useCallback(
@@ -1647,10 +2092,29 @@
     
       const selectHistory = useCallback(
         (id: string) => {
-          if (isStreaming) return;
+          // Looking at an earlier result while a long generation runs is the
+          // useful action. Ignoring the click makes the row look broken, and
+          // letting the save steal the row throws away the choice. The run still
+          // lands in history either way.
+          if (isStreaming) {
+            heldIdRef.current = id;
+            setHeldId(id);
+            if (nodeRefineRef.current) {
+              // A node refine in flight must still splice into its base and save
+              // its diff, so keep it (resetTo would clear it). Only release the
+              // pinned base so the picked row shows.
+              setPinnedSpec(null);
+              setActiveId(id);
+              exitRefinement();
+              return;
+            }
+          } else {
+            heldIdRef.current = null;
+            setHeldId(null);
+          }
           resetTo(id);
         },
-        [isStreaming, resetTo]
+        [isStreaming, resetTo, exitRefinement]
       );
     
       // Clear the underlying error/spec/rawLines too, not just activeId/mode —
@@ -1658,9 +2122,17 @@
       // common case, so resetTo(null) alone is a no-op for it) and the logo
       // click / sign-out "New Generation" action doesn't show the empty state.
       const reset = useCallback(() => {
+        clearPendingPrompt();
+        heldIdRef.current = null;
+        setHeldId(null);
         clear();
         resetTo(null);
       }, [clear, resetTo]);
+    
+      const stopGeneration = useCallback(() => {
+        clearPendingPrompt();
+        stop();
+      }, [stop]);
     
       const handleDeleteSpec = useCallback(
         (id: string) => {
@@ -1686,6 +2158,8 @@
     
         specs,
         isLoading,
+        historyError,
+        retryHistory: () => void retryHistory(),
         filter,
         setFilter,
     
@@ -1696,6 +2170,7 @@
         displayError,
         activeSpecId,
         failedPrompt,
+        interruptedPrompt,
     
         submit,
         refine: enterRefinement,
@@ -1711,7 +2186,7 @@
         canRedo: diffHistory.canRedo,
         lastChange,
         reset,
-        stop,
+        stop: stopGeneration,
       };
     }
   </file>
@@ -1781,6 +2256,37 @@
   </file>
   </section>
   <section priority="medium" role="src">
+  <file path="src/auth-config.ts">
+    export interface GenAuthEnv {
+      authority?: string;
+      clientId?: string;
+      redirectUri?: string;
+      audience?: string;
+    }
+    export interface GenAuthConfig {
+      authority: string;
+      clientId: string;
+      redirectUri: string;
+      audience?: string;
+      postLogoutRedirectUri: string;
+    }
+    export function buildGenAuthConfig(env: GenAuthEnv, origin: string): GenAuthConfig {
+      const redirectUri =
+        env.redirectUri && env.redirectUri.trim() !== "" ? env.redirectUri : `${origin}/gen/callback`;
+      // Strip only the gen callback suffix so a custom redirect that is not the
+      // gen callback cannot invent a logout URL Auth0 has never been given.
+      const postLogoutRedirectUri = redirectUri.endsWith("/gen/callback")
+        ? redirectUri.slice(0, -"/callback".length)
+        : `${origin}/gen`;
+      return {
+        authority: env.authority ?? "",
+        clientId: env.clientId ?? "",
+        redirectUri,
+        audience: env.audience,
+        postLogoutRedirectUri,
+      };
+    }
+  </file>
   <file path="src/types.ts">
     export type EntryKind = "generate" | "refine" | "recover" | "failed";
     export interface StoredSpec {

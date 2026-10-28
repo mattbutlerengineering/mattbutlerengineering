@@ -22,7 +22,7 @@ import { join } from "node:path";
 import { discoverWorkspaceGlobs, resolveGlob, root } from "./dep-graph-discovery.mjs";
 import { runCheck } from "./lib/fitness-check.mjs";
 
-export const BOUNDARIES_SCRIPT_NAME = "check:boundaries";
+const BOUNDARIES_SCRIPT_NAME = "check:boundaries";
 
 /**
  * Parse the positional depcruise path args out of package.json's
@@ -70,7 +70,7 @@ export function formatFinding(dir) {
   return `${dir} — not scanned by check:boundaries' depcruise args`;
 }
 
-export const FAIL_MESSAGE =
+const FAIL_MESSAGE =
   "FAIL: check:boundaries' depcruise scan args don't cover every workspace package.\n" +
   "Add the missing path(s) to the check:boundaries script in package.json — see\n" +
   "scripts/check-boundaries-coverage.mjs.";

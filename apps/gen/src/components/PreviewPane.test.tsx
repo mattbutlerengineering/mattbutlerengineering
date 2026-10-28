@@ -33,6 +33,7 @@ vi.mock("@json-render/react", () => ({
 }));
 
 vi.mock("@mbe/rialto-catalog", () => ({
+  materializeCatalogProps: (_name: string, props: unknown) => props,
   registry: {
     Box: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
     Text: () => <p>text node</p>,
@@ -166,6 +167,19 @@ describe("PreviewPane", () => {
     ).toBeDefined();
   });
 
+  it("says so when a spec renders no visible leaves", () => {
+    const spec: Spec = {
+      root: "column",
+      elements: {
+        column: { type: "Stack", props: { direction: "column" }, children: ["grid"] },
+        grid: { type: "Stack", props: { direction: "row" }, children: [] },
+      },
+    };
+    render(<PreviewPane {...defaultProps} spec={spec} />);
+    expect(screen.getByRole("status").textContent).toMatch(/nothing visible/i);
+    expect(screen.queryByTestId("renderer")).toBeNull();
+  });
+
   it("renders suggestion cards in empty state", () => {
     render(<PreviewPane {...defaultProps} />);
     expect(screen.getByText("Dashboard")).toBeDefined();
@@ -177,7 +191,9 @@ describe("PreviewPane", () => {
     const onSuggestionClick = vi.fn();
     render(<PreviewPane {...defaultProps} onSuggestionClick={onSuggestionClick} />);
     fireEvent.click(screen.getByText("Dashboard"));
-    expect(onSuggestionClick).toHaveBeenCalledWith("Analytics dashboard with charts and KPIs");
+    expect(onSuggestionClick).toHaveBeenCalledWith(
+      "Analytics dashboard with KPI stats and a BarChart of monthly revenue (Jan through Jun), not a paragraph of numbers"
+    );
   });
 
   it("shows loading pulse when streaming with no spec", () => {

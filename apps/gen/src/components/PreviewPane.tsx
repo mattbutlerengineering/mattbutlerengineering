@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import type { Spec } from "@json-render/react";
+import { specHasVisibleContent } from "../lib/visible-content.js";
 import {
   Alert,
   Button,
@@ -30,8 +31,9 @@ const PROMPT_SUGGESTIONS = [
   {
     icon: "🎨",
     title: "Dashboard",
-    description: "Analytics dashboard with charts and KPIs",
-    prompt: "Analytics dashboard with charts and KPIs",
+    description: "Analytics dashboard with a revenue BarChart and KPIs",
+    prompt:
+      "Analytics dashboard with KPI stats and a BarChart of monthly revenue (Jan through Jun), not a paragraph of numbers",
   },
   {
     icon: "📋",
@@ -285,6 +287,13 @@ export function PreviewPane({
                 ))}
               </div>
             </div>
+          </div>
+        ) : spec && !isStreaming && !specHasVisibleContent(spec) ? (
+          <div className={styles.emptyResult} role="status">
+            <Text variant="body">
+              Nothing visible was generated. This spec is only layout — empty stacks, with no text,
+              controls, or pictures. Ask for those pieces, or try the prompt again.
+            </Text>
           </div>
         ) : (
           <div className={styles.rendererWrapper}>

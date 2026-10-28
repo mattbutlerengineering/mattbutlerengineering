@@ -129,13 +129,16 @@
     <item priority="low">
       type AuthGate = { readonly phase: "signing-out | { readonly phase: "loading" } | { readonly phase: "callback" } | { readonly phase: "error"; rea | { readonly phase: "signed-out" | { readonly phase: "expired" } | { readonly phase: "ready" };
     </item>
+    <item priority="high">
+      export const STALE_SESSION_MS: unknown;
+    </item>
     <item priority="low">
       interface AuthGateFacts {
         isLoading: boolean;
         isAuthenticated: boolean;
         error: Error | undefined;
         sessionExpired: boolean;
-        activeNavigator: ActiveNavigator | undefined;
+        expiredForMs?: number | undefined;
       }
     </item>
     <item priority="low">
@@ -148,12 +151,52 @@
       export function useAuthGate(): AuthGate { /* ... */ }
     </item>
   </file>
+  <file path="src/react/auth-history.ts">
+    <item priority="high">
+      export const PRE_AUTH_HISTORY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const AUTH_BACK_RELOAD_KEY: unknown;
+    </item>
+    <item priority="medium">
+      function continueWhenStorageFails(error: unknown): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function authHistorySkipSteps(preLength: number, currentLength: number): number | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function rememberPreAuthHistoryLength(storage: Storage = window.sessionStorage): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function installAuthBackSkip(
+        history: History = window.history,
+        storage: Storage = window.sessionStorage,
+        schedule: (fn: () => void) => void = (fn) => {
+          window.setTimeout(fn, SKIP_IDP_HISTORY_DELAY_MS);
+        }
+      ): void { /* ... */ }
+    </item>
+    <item priority="high">
+      interface PageShowTarget {
+        sessionStorage: Storage;
+        location: { reload: () => void };
+        addEventListener: (type: "pageshow", listener: (event: PageTransitionEvent)...;
+        removeEventListener: (type: "pageshow", listener: (event: PageTransitionEvent)...;
+      }
+    </item>
+    <item priority="high">
+      export function installAuthBackReload(target: PageShowTarget = window): () => void { /* ... */ }
+    </item>
+  </file>
   <file path="src/react/hooks.ts">
     <item priority="low">
       type ActiveNavigator = NonNullable<ReturnType<typeof useOIDCAuth>["activeNavigat...;
     </item>
     <item priority="high">
       export function useAuth() { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useStaleSession() { /* ... */ }
     </item>
     <item priority="low">
       interface AccessTokenState {
@@ -177,8 +220,8 @@
     <item priority="high">
       export function isSafeReturnTo(value: unknown): value is string { /* ... */ }
     </item>
-    <item priority="high">
-      export function appBasePath(redirectUri: string): string { /* ... */ }
+    <item priority="medium">
+      function appBasePath(redirectUri: string): string { /* ... */ }
     </item>
     <item priority="medium">
       function isCallbackPath(pathname: string, redirectUri: string): boolean { /* ... */ }

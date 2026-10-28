@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { isTransportError, describeLimitError } from "./classifyGenerationError.js";
+import {
+  isTransportError,
+  isTimeoutError,
+  describeLimitError,
+  describeTimeoutError,
+} from "./classifyGenerationError.js";
 
 describe("isTransportError", () => {
   it("treats an HTTP non-2xx failure as transport (streamNDJSON's 'Request failed:' prefix)", () => {
@@ -57,6 +62,14 @@ describe("describeLimitError", () => {
       withStatus(503, { problemType: "urn:mbe:problem:gen-spend-ceiling-unavailable" })
     );
     expect(msg).toMatch(/temporarily unavailable/i);
+  });
+
+  it("describes an HTTP 504 as a timeout the user can retry", () => {
+    const error = Object.assign(new Error("Request failed: HTTP 504"), { status: 504 });
+    expect(isTimeoutError(error)).toBe(true);
+    expect(describeTimeoutError(error)).toMatch(/timed out/i);
+    expect(describeTimeoutError(error)).toMatch(/prompt is still/i);
+    expect(describeTimeoutError(withStatus(500))).toBeNull();
   });
 
   it("returns null for other failures", () => {

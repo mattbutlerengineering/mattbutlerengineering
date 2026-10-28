@@ -191,7 +191,7 @@ export interface ReviewBurdenMetrics {
  * the "keep AI-health pages honest" theme `reviewBurden.noFormalReviewStage`
  * already applies: a judgment the normalizer makes once, not left to the panel.
  */
-export const PR_CATEGORY_LOW_SAMPLE_THRESHOLD = 5;
+const PR_CATEGORY_LOW_SAMPLE_THRESHOLD = 5;
 
 /** Safe per-category view-model entry for the prCategoryBreakdown panel. */
 export interface PrCategoryBreakdownStats {
@@ -378,6 +378,27 @@ function normalizeAcmm(sensors: Record<string, unknown>): AcmmMetrics {
     capped: acmm.capped === true,
     failingGates: failingGates.map(normalizeFailingGate),
   };
+}
+
+/** Owner-readable causes for the stable reason/state codes collectors write (#7581). */
+const SENSOR_GAP_EXPLANATIONS: Readonly<Record<string, string>> = {
+  inventory_missing:
+    "Needs .audit-state/inventory.json, which only a local /site-audit run writes; scheduled runs never have it.",
+  "report-missing":
+    "Needs reports/mutation/mutation.json, which only the Mutation Testing workflow produces; this run had no report.",
+  no_resolvable_runs:
+    "E2E runs were found, but their commits are not present in this checkout, so they could not be classified.",
+  no_runs: "No E2E Tests runs on main were returned.",
+  no_non_frontend_runs:
+    "Every recent E2E run touched frontend paths, so there is nothing to measure.",
+};
+
+/** Why a sensor is unavailable, or null when it is available or gave no reason. */
+export function describeSensorGap(sensor: Record<string, unknown>): string | null {
+  if (sensor.available === true) return null;
+  const code = readString(sensor.reason) ?? readString(sensor.state);
+  if (code != null) return SENSOR_GAP_EXPLANATIONS[code] ?? code;
+  return readString(sensor.error);
 }
 
 /** Normalizes a fetched sensor report (buildReport() shape) into safe display values. */

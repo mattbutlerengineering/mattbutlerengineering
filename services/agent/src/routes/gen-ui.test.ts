@@ -225,6 +225,9 @@ describe("POST /api/gen/ui", () => {
     expect(call.instructions.content).toMatch(/Do not give elements a `children` array of keys/);
     expect(call.instructions.content).toMatch(/own words go in its text or label prop/);
     expect(call.instructions.content).not.toMatch(/Do not use `children`/);
+    expect(call.instructions.content).toMatch(/Do not use \$state/);
+    expect(call.instructions.content).toMatch(/use BarChart/);
+    expect(call.instructions.content).toMatch(/at most 12 representative rows/);
   });
 
   it("accepts json-render's key/parentKey FlatElement shape and rejects the old id/children shape", async () => {
@@ -484,11 +487,9 @@ describe("POST /api/gen/ui", () => {
     // the error (the pre-fix behavior, a bare `finally { controller.close() }`)
     // delivers a 200 with a truncated-but-valid-looking NDJSON body, which the
     // client reads as a complete, successful generation instead of a failed
-    // one. Once a chunk has already been enqueued, erroring the stream tears
-    // down the in-flight response instead of completing it cleanly — verified
-    // empirically that `app.inject()` rejects in that case (the underlying
-    // connection is destroyed, matching what a real client's fetch reader
-    // would see: a stream error, not a clean HTTP status).
+    // one. A keepalive byte is already on the wire, so the status is 200 and
+    // the failure is a trailing $genError line. streamNDJSON throws on that
+    // line, so the client does not treat the truncated body as success.
     async function* oneElementThenThrow(): AsyncGenerator<unknown> {
       yield {
         type: "tool-call",
@@ -505,13 +506,15 @@ describe("POST /api/gen/ui", () => {
       providerMetadata: Promise.resolve({}),
     } as never);
 
-    await expect(
-      app.inject({
-        method: "POST",
-        url: "/api/gen/ui",
-        payload: { prompt: "a booking form" },
-      })
-    ).rejects.toThrow();
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/gen/ui",
+      payload: { prompt: "a booking form" },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toContain('"root-1"');
+    expect(response.body).toContain('"$genError"');
+    expect(response.body).not.toContain("model call failed");
   });
 
   it("fails instead of silently returning 200 when the model call itself fails (ai@7 error part, no throw)", async () => {
@@ -541,7 +544,10 @@ describe("POST /api/gen/ui", () => {
       payload: { prompt: "a booking form" },
     });
 
-    expect(response.statusCode).toBe(502);
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toContain('"$genError"');
+    expect(response.body).toMatch(/try again/i);
+    expect(response.body).not.toContain("529 overloaded");
   });
 
   it("fails instead of silently returning a 200 empty body when zero elements were produced", async () => {
@@ -577,7 +583,9 @@ describe("POST /api/gen/ui", () => {
       payload: { prompt: "a booking form" },
     });
 
-    expect(response.statusCode).toBe(502);
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toContain('"$genError"');
+    expect(response.body).toMatch(/without a UI/i);
   });
 
   it("still fails fast on a tool-error, since maxSteps is 1 and no retry is possible", async () => {
@@ -606,7 +614,10 @@ describe("POST /api/gen/ui", () => {
       payload: { prompt: "a booking form" },
     });
 
-    expect(response.statusCode).toBe(502);
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toContain('"$genError"');
+    expect(response.body).toMatch(/try again/i);
+    expect(response.body).not.toContain("invalid tool input");
   });
 
   describe("target (subtree) mode", () => {
@@ -672,7 +683,9 @@ describe("POST /api/gen/ui", () => {
     it("fails when the first element's key differs from target.key", async () => {
       streamElements([{ key: "other", type: "Card", props: {} }]);
       const response = await post({ prompt: "p", target });
-      expect(response.statusCode).toBe(502);
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toContain('"$genError"');
+      expect(response.body).not.toContain('"other"');
     });
 
     it("fails when a second root element appears", async () => {
@@ -680,7 +693,10 @@ describe("POST /api/gen/ui", () => {
         { key: "card-1", type: "Card", props: {} },
         { key: "root-2", type: "Card", props: {} },
       ]);
-      await expect(post({ prompt: "p", target })).rejects.toThrow();
+      const response = await post({ prompt: "p", target });
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toContain('"card-1"');
+      expect(response.body).toContain('"$genError"');
     });
 
     it("returns 400 for an invalid target shape", async () => {

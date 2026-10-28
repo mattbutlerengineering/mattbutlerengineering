@@ -19,8 +19,6 @@
 
 import { derivePath } from "../../../../scripts/ui-quality/derive-path.mjs";
 
-export { derivePath };
-
 export interface PageEntry {
   id: string;
   label: string;
@@ -273,7 +271,17 @@ const RAW_PAGE_ENTRIES: RawPageEntry[] = [
   { id: "example-booking-confirmed", label: "Booking Confirmed", category: "Examples" },
   { id: "example-booking-failed", label: "Booking Failed", category: "Examples" },
   { id: "example-pricing-table", label: "Pricing Table", category: "Examples" },
-  { id: "example-command-palette", label: "Command Palette", category: "Examples" },
+  // Labelled "Demo" so the sidebar does not list "Command Palette" twice
+  // (the Overlays entry owns that label); the module keeps its original name.
+  {
+    id: "example-command-palette",
+    label: "Command Palette Demo",
+    category: "Examples",
+    load: () =>
+      import("../pages/examples/CommandPaletteExamplePage").then((m) => ({
+        default: m.CommandPaletteExamplePage,
+      })),
+  },
   { id: "example-booking-wizard", label: "Booking Wizard", category: "Examples" },
   { id: "example-onboarding", label: "Onboarding", category: "Examples" },
   { id: "example-availability-heatmap", label: "Availability Heatmap", category: "Examples" },

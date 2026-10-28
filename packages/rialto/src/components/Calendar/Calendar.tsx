@@ -22,7 +22,7 @@ import {
 import styles from "./Calendar.module.css";
 
 // Re-export the shared ISO helpers/types consumed elsewhere (e.g. DatePicker).
-export { parseIsoDate, toIsoDate };
+export { parseIsoDate };
 export type { CalendarMonth };
 
 /* ── Component ─────────────────────────────────────────────────────────────── */

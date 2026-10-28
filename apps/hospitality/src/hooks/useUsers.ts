@@ -8,8 +8,8 @@ import type {
 import { useApiClient } from "./useApiClient.js";
 import { createQueryHook, type QueryHookResult } from "./create-query-hook.js";
 
-export const CURRENT_USER_QUERY_KEY = "currentUser" as const;
-export const USERS_QUERY_KEY = "users" as const;
+const CURRENT_USER_QUERY_KEY = "currentUser" as const;
+const USERS_QUERY_KEY = "users" as const;
 
 /* ── useCurrentUser ──────────────────────────────────── */
 

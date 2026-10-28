@@ -28,6 +28,13 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
 vi.mock("@json-render/react", () => ({
   JSONUIProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   Renderer: () => <div data-testid="renderer" />,
+  // The session normalizes specs, which loads the catalog registry. The real
+  // defineRegistry is not what this page test renders.
+  defineRegistry: () => ({
+    registry: {},
+    handlers: () => ({}),
+    executeAction: async () => undefined,
+  }),
 }));
 
 let capturedOnComplete: ((spec: unknown, rawLines: string[]) => void) | undefined;
@@ -61,6 +68,7 @@ vi.mock("../hooks/useSpecsApi.js", () => ({
       },
     ],
     isLoading: false,
+    error: null,
     fetchSpecs: vi.fn(),
     saveSpec: mockSaveSpec,
     toggleFavorite: mockToggleFavorite,
@@ -215,6 +223,8 @@ function makeSession(overrides: Partial<PlaygroundSession> = {}): PlaygroundSess
     exitRefinement: vi.fn(),
     specs: [],
     isLoading: false,
+    historyError: null,
+    retryHistory: vi.fn(),
     filter: "all",
     setFilter: vi.fn(),
     isStreaming: false,
@@ -224,6 +234,7 @@ function makeSession(overrides: Partial<PlaygroundSession> = {}): PlaygroundSess
     displayError: null,
     activeSpecId: null,
     failedPrompt: null,
+    interruptedPrompt: null,
     submit: mockSend,
     refine: vi.fn(),
     refineNode: vi.fn(),

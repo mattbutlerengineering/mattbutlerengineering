@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 190" role="img" aria-labelledby="t d">
+  <title id="t">Status legend, before and after</title>
+  <desc id="d">Before: four statuses distinguished by colour alone, with two near-identical golds. After: a legend strip and a per-status glyph on each table.</desc>
+  <rect width="480" height="190" fill="#edeae5"/>
+  <text x="120" y="22" fill="#1a1918" font-family="sans-serif" font-size="12" text-anchor="middle">Before</text>
+  <text x="360" y="22" fill="#1a1918" font-family="sans-serif" font-size="12" text-anchor="middle">After</text>
+  <line x1="240" y1="30" x2="240" y2="180" stroke="#a8a49d"/>
+  <rect x="30" y="60" width="40" height="40" rx="4" fill="#5e6a2e"/>
+  <rect x="80" y="60" width="40" height="40" rx="4" fill="#b0841e"/>
+  <rect x="130" y="60" width="40" height="40" rx="4" fill="#8a6820"/>
+  <rect x="180" y="60" width="40" height="40" rx="4" fill="#b84a3c"/>
+  <text x="120" y="130" fill="#4a4744" font-family="sans-serif" font-size="10" text-anchor="middle">reserved-soon vs needs-bussing: 1.5:1</text>
+  <rect x="270" y="60" width="40" height="40" rx="4" fill="#5e6a2e"/>
+  <rect x="320" y="60" width="40" height="40" rx="4" fill="#b0841e"/>
+  <rect x="370" y="60" width="40" height="40" rx="4" fill="#8a6820"/>
+  <rect x="420" y="60" width="40" height="40" rx="4" fill="#b84a3c"/>
+  <!-- glyphs: available check, reserved clock, bussing broom-dash, seated filled dot -->
+  <path d="M283 80l6 6 11-12" stroke="#fff" stroke-width="3" fill="none"/>
+  <circle cx="340" cy="80" r="9" stroke="#fff" stroke-width="2" fill="none"/>
+  <path d="M340 74v6l4 3" stroke="#fff" stroke-width="2" fill="none"/>
+  <path d="M380 80h20M380 74h20M380 86h20" stroke="#fff" stroke-width="2"/>
+  <circle cx="440" cy="80" r="7" fill="#fff"/>
+  <rect x="262" y="140" width="204" height="32" rx="6" fill="#f8f6f3" stroke="#a8a49d"/>
+  <g font-family="sans-serif" font-size="9" fill="#1a1918">
+    <text x="272" y="160">Open</text>
+    <text x="304" y="160">Soon</text>
+    <text x="340" y="160">Bussing</text>
+    <text x="392" y="160">Seated</text>
+    <text x="430" y="160">Inactive</text>
+  </g>
+</svg>

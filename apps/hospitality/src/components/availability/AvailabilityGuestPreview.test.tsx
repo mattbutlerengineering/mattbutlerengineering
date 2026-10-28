@@ -19,6 +19,9 @@ vi.mock("../../contexts/venue-context-object.js", () => ({
 
 import { AvailabilityGuestPreview } from "./AvailabilityGuestPreview.js";
 
+// jsdom has no scrollIntoView; the open Select listbox scrolls to its active option.
+window.HTMLElement.prototype.scrollIntoView = vi.fn();
+
 const FOCUS = "2026-10-30";
 const DEBOUNCE = 400;
 
@@ -79,6 +82,13 @@ function tree(changes: AvailabilityConfigChanges, dates: string[] = [FOCUS]) {
   );
 }
 
+/** The preview's polite live region (not `role="status"`, which the selection bar owns on the page). */
+function liveRegion(): HTMLElement {
+  const region = document.querySelector<HTMLElement>("[aria-live=polite]");
+  if (!region) throw new Error("no live region");
+  return region;
+}
+
 /** Waits out the debounce; results are then awaited with findBy. */
 async function settle() {
   await act(async () => {
@@ -102,6 +112,9 @@ describe("AvailabilityGuestPreview", () => {
       draft: { changes: CHANGES_A, scopeConflicts: "keep" },
       scope: [FOCUS, "2026-11-06"],
       focusDate: FOCUS,
+      compareWith: "saved",
+      partySize: 2,
+      strandedOffset: 0,
     });
     expect(await screen.findByText("3 times added · 2 removed")).toBeInTheDocument();
     expect(await screen.findByText("Dinner 5:00 PM – 11:00 PM")).toBeInTheDocument();
@@ -178,6 +191,103 @@ describe("AvailabilityGuestPreview", () => {
     expect(await screen.findByText("plus 6 more on later dates in scope")).toBeInTheDocument();
   });
 
+  it("says there are no times on the date, with the reason, when the draft leaves no service", async () => {
+    previewConfig.mockResolvedValue(
+      result({
+        days: [{ serviceDate: FOCUS, added: [], removed: [1185, 1200] }],
+        focusDay: { ...result().focusDay, label: "Closed", serviceCount: 0, services: [] },
+      })
+    );
+    render(tree(CHANGES_A));
+    await settle();
+    expect(await screen.findByText("No times on this date")).toBeInTheDocument();
+    expect(screen.getByText("Closed")).toBeInTheDocument();
+    expect(screen.getByText("0 times added · 2 removed")).toBeInTheDocument();
+  });
+
+  it("keeps the live region mounted so the first result and errors are announced", async () => {
+    render(tree(CHANGES_A));
+    const region = liveRegion();
+    expect(region).toBeInTheDocument();
+    await settle();
+    expect(await screen.findByText("3 times added · 2 removed")).toBeInTheDocument();
+    expect(liveRegion()).toBe(region);
+    expect(region).toHaveTextContent("3 times added · 2 removed");
+  });
+
+  it("puts the slow message in the live region", async () => {
+    previewConfig.mockRejectedValue(timeout());
+    render(tree(CHANGES_A));
+    await settle();
+    expect(await screen.findByText("Preview is taking longer than usual")).toBeInTheDocument();
+    expect(liveRegion()).toHaveTextContent("Preview is taking longer than usual");
+  });
+
+  it("adds how many reservations are affected to the summary", async () => {
+    previewConfig.mockResolvedValue(
+      result({
+        stranded: {
+          total: 2,
+          offset: 0,
+          items: [
+            { id: "r1", startTime: "2026-10-31T05:30:00.000Z", partySize: 4, reason: "closed" },
+            { id: "r2", startTime: "2026-10-31T06:30:00.000Z", partySize: 2, reason: "closed" },
+          ],
+        },
+      })
+    );
+    render(tree(CHANGES_A));
+    await settle();
+    expect(
+      await screen.findByText("3 times added · 2 removed · 2 reservations affected")
+    ).toBeInTheDocument();
+  });
+
+  it("lets staff move the preview to another date in scope", async () => {
+    render(tree(CHANGES_A, [FOCUS, "2026-10-31", "2026-11-01"]));
+    await settle();
+    await screen.findByText("3 times added · 2 removed");
+    const group = screen.getByRole("radiogroup", { name: "Preview date" });
+    expect(group).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: /31/ }));
+    await settle();
+    expect(previewConfig).toHaveBeenLastCalledWith(
+      "venue-1",
+      expect.objectContaining({ focusDate: "2026-10-31" })
+    );
+  });
+
+  it("keeps showing the date a result was computed for until the picked date's result lands", async () => {
+    render(tree(CHANGES_A, [FOCUS, "2026-10-31"]));
+    await settle();
+    await screen.findByText("3 times added · 2 removed");
+    let resolveNext: (value: PreviewResult) => void = () => undefined;
+    previewConfig.mockImplementation(
+      () => new Promise<PreviewResult>((resolve) => (resolveNext = resolve))
+    );
+    fireEvent.click(screen.getByRole("radio", { name: /31/ }));
+    await settle();
+    expect(previewConfig).toHaveBeenCalledTimes(2);
+    // The old result is for Oct 30; it must not be read against Oct 31.
+    expect(liveRegion()).toHaveTextContent("3 times added · 2 removed");
+    expect(liveRegion()).not.toHaveTextContent("0 times added");
+    expect(screen.getByText("7:45 PM added")).toBeInTheDocument();
+    const next = result({
+      days: [{ serviceDate: "2026-10-31", added: [], removed: [1350] }],
+      focusDay: { ...result().focusDay, serviceDate: "2026-10-31" },
+    });
+    await act(async () => resolveNext(next));
+    expect(await screen.findByText("0 times added · 1 removed")).toBeInTheDocument();
+  });
+
+  it("shows no date strip for a one-date scope", async () => {
+    render(tree(CHANGES_A));
+    await settle();
+    await screen.findByText("3 times added · 2 removed");
+    expect(screen.queryByRole("radiogroup", { name: "Preview date" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Next date" })).not.toBeInTheDocument();
+  });
+
   it("has no axe violations", async () => {
     previewConfig.mockResolvedValue(result());
     const { container } = render(tree(CHANGES_A));
@@ -186,5 +296,106 @@ describe("AvailabilityGuestPreview", () => {
       rules: { "color-contrast": { enabled: false } },
     });
     expect(violations).toEqual([]);
+  });
+
+  it("compares against the regular week when asked, and says which base is on", async () => {
+    render(tree(CHANGES_A));
+    await settle();
+    await screen.findByText("3 times added · 2 removed");
+    expect(screen.getByRole("radio", { name: "Last saved" })).toBeChecked();
+    fireEvent.click(screen.getByRole("radio", { name: "Regular week" }));
+    expect(screen.getByRole("radio", { name: "Regular week" })).toBeChecked();
+    await settle();
+    expect(previewConfig).toHaveBeenLastCalledWith(
+      "venue-1",
+      expect.objectContaining({ compareWith: "regularWeek" })
+    );
+  });
+
+  it("asks for the party size picked", async () => {
+    render(tree(CHANGES_A));
+    await settle();
+    await screen.findByText("3 times added · 2 removed");
+    expect(screen.getByRole("combobox", { name: "Party" })).toHaveTextContent("2");
+    fireEvent.click(screen.getByRole("combobox", { name: "Party" }));
+    fireEvent.click(screen.getByRole("option", { name: "6" }));
+    await settle();
+    expect(previewConfig).toHaveBeenLastCalledWith(
+      "venue-1",
+      expect.objectContaining({ partySize: 6 })
+    );
+  });
+
+  it("steps the date with the arrows and stops at the ends of the scope", async () => {
+    render(tree(CHANGES_A, [FOCUS, "2026-10-31", "2026-11-01"]));
+    await settle();
+    await screen.findByText("3 times added · 2 removed");
+    expect(screen.getByRole("button", { name: "Previous date" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Next date" }));
+    await settle();
+    expect(previewConfig).toHaveBeenLastCalledWith(
+      "venue-1",
+      expect.objectContaining({ focusDate: "2026-10-31" })
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Next date" }));
+    expect(screen.getByRole("button", { name: "Next date" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Previous date" }));
+    await settle();
+    expect(previewConfig).toHaveBeenLastCalledWith(
+      "venue-1",
+      expect.objectContaining({ focusDate: "2026-10-31" })
+    );
+  });
+
+  describe("stranded pages", () => {
+    const page = (offset: number, ids: string[]) =>
+      result({
+        stranded: {
+          total: 60,
+          offset,
+          items: ids.map((id) => ({
+            id,
+            startTime: "2026-10-31T05:30:00.000Z",
+            partySize: 2,
+            reason: "closed" as const,
+          })),
+        },
+      });
+
+    it("shows the next page from the Show link and returns with Back", async () => {
+      previewConfig.mockResolvedValue(page(0, ["r1"]));
+      render(tree(CHANGES_A));
+      await settle();
+      await screen.findByText("plus 59 more on later dates in scope");
+      previewConfig.mockResolvedValue(page(50, ["r51"]));
+      fireEvent.click(screen.getByRole("button", { name: "Show" }));
+      await settle();
+      expect(previewConfig).toHaveBeenLastCalledWith(
+        "venue-1",
+        expect.objectContaining({ strandedOffset: 50 })
+      );
+      previewConfig.mockResolvedValue(page(0, ["r1"]));
+      fireEvent.click(await screen.findByRole("button", { name: "Back to first" }));
+      await settle();
+      expect(previewConfig).toHaveBeenLastCalledWith(
+        "venue-1",
+        expect.objectContaining({ strandedOffset: 0 })
+      );
+    });
+
+    it("goes back to the first page when the draft changes", async () => {
+      previewConfig.mockResolvedValue(page(0, ["r1"]));
+      const { rerender } = render(tree(CHANGES_A));
+      await settle();
+      await screen.findByText("plus 59 more on later dates in scope");
+      fireEvent.click(screen.getByRole("button", { name: "Show" }));
+      await settle();
+      rerender(tree(CHANGES_B));
+      await settle();
+      expect(previewConfig).toHaveBeenLastCalledWith(
+        "venue-1",
+        expect.objectContaining({ strandedOffset: 0 })
+      );
+    });
   });
 });

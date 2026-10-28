@@ -13,7 +13,7 @@ import { VENUES_QUERY_KEY } from "./useVenues.js";
 
 export const AVAILABILITY_DAYS_QUERY_KEY = "availabilityDays" as const;
 export const AVAILABILITY_CONFIG_QUERY_KEY = "availabilityConfig" as const;
-export const AVAILABILITY_CHANGES_QUERY_KEY = "availabilityChanges" as const;
+const AVAILABILITY_CHANGES_QUERY_KEY = "availabilityChanges" as const;
 
 /** Calendar cells: one summary per service date from `from` to `to` (<= 62 days). */
 export const useAvailabilityDays = createQueryHook<

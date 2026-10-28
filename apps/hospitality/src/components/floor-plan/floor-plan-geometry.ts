@@ -98,7 +98,7 @@ export function snapToGrid(value: number, gridSize: number = GRID_SIZE): number 
 export const ENDPOINT_HIT_RADIUS = 12;
 export const MIN_WALL_THICKNESS = 2;
 export const MAX_WALL_THICKNESS = 40;
-export const DEFAULT_WALL_THICKNESS = 8;
+const DEFAULT_WALL_THICKNESS = 8;
 
 export interface Point {
   readonly x: number;
@@ -206,8 +206,36 @@ export interface SeatPlacement {
 export interface SeatPlacementInput {
   readonly shape: TableShapeName;
   readonly capacity: number;
+  /** Stored footprint; each falls back to the shape's `SHAPE_DEFAULTS` entry. */
+  readonly width?: number;
+  readonly height?: number;
   /** Clearance from the table edge; defaults to the canonical SEAT_GAP. */
   readonly gap?: number;
+}
+
+/** Chair art size, in canvas units, before rotation. */
+export interface SeatSize {
+  readonly width: number;
+  readonly height: number;
+}
+
+const SEAT_SIZE_FULL: SeatSize = { width: 16, height: 13 };
+const SEAT_SIZE_SMALL: SeatSize = { width: 13, height: 11 };
+/** Chairs are full size up to this party, easing to small at SEAT_SHRINK_END. */
+const SEAT_SHRINK_START = 6;
+const SEAT_SHRINK_END = 12;
+
+/** Chair size for a party: 16x13 up to 6 seats, easing to 13x11 at 12 and above. */
+export function seatSize(capacity: number): SeatSize {
+  const t = Math.min(
+    1,
+    Math.max(0, (capacity - SEAT_SHRINK_START) / (SEAT_SHRINK_END - SEAT_SHRINK_START))
+  );
+  const ease = (from: number, to: number) => Math.round((from + (to - from) * t) * 1000) / 1000;
+  return {
+    width: ease(SEAT_SIZE_FULL.width, SEAT_SIZE_SMALL.width),
+    height: ease(SEAT_SIZE_FULL.height, SEAT_SIZE_SMALL.height),
+  };
 }
 
 /** The sides of a rectangular table, in the order seats are assigned to them. */
@@ -284,6 +312,44 @@ function rectangleSeats(
   });
 }
 
+/** Breathing room kept between neighbouring chairs once their width is capped. */
+const SEAT_SPACING_GAP = 1;
+
+/** Smallest centre-to-centre distance between neighbouring seats on one side (or ring). */
+function minSeatSpacing(input: SeatPlacementInput, seats: readonly SeatPlacement[]): number {
+  if (input.shape === "circle") {
+    const diameter = input.width ?? SHAPE_DEFAULTS.circle.width;
+    const gap = input.gap ?? SEAT_GAP;
+    return seats.length > 1
+      ? 2 * (diameter / 2 + gap) * Math.sin(Math.PI / seats.length)
+      : Infinity;
+  }
+  const bySide = new Map<number, number[]>();
+  for (const seat of seats) {
+    const along = seat.rotation % 180 === 0 ? seat.x : seat.y;
+    bySide.set(seat.rotation, [...(bySide.get(seat.rotation) ?? []), along]);
+  }
+  let min = Infinity;
+  for (const positions of bySide.values()) {
+    const sorted = [...positions].sort((a, b) => a - b);
+    sorted.slice(1).forEach((p, i) => {
+      min = Math.min(min, p - (sorted[i] ?? 0));
+    });
+  }
+  return min;
+}
+
+/**
+ * The chair size to draw: `seatSize` for the party, with the width (which runs
+ * along the table edge) capped so neighbouring chairs never overlap. Seat
+ * positions are unaffected.
+ */
+export function fittedSeatSize(input: SeatPlacementInput): SeatSize {
+  const base = seatSize(input.capacity);
+  const spacing = minSeatSpacing(input, seatPlacements(input));
+  return { ...base, width: Math.min(base.width, spacing - SEAT_SPACING_GAP) };
+}
+
 /**
  * Place `capacity` seats around a table of the given shape.
  *
@@ -295,7 +361,9 @@ export function seatPlacements(input: SeatPlacementInput): readonly SeatPlacemen
   const count = usableSeatCount(input.capacity);
   if (count === 0) return [];
 
-  const { width, height } = SHAPE_DEFAULTS[input.shape];
+  const defaults = SHAPE_DEFAULTS[input.shape];
+  const width = input.width ?? defaults.width;
+  const height = input.height ?? defaults.height;
   return input.shape === "circle"
     ? circleSeats(count, width / 2 + gap)
     : rectangleSeats(count, width, height, gap);

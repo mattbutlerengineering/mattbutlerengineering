@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 190" role="img" aria-labelledby="t d">
+  <title id="t">Table labels, before and after</title>
+  <desc id="d">Before: white label on a gold dark-theme table at 2.3 to 1 contrast, upside down when the table is rotated. After: a surface plate with primary ink, always upright.</desc>
+  <rect width="480" height="190" fill="#1e1c1a"/>
+  <text x="120" y="22" fill="#fdfcfa" font-family="sans-serif" font-size="12" text-anchor="middle">Before (dark theme)</text>
+  <text x="360" y="22" fill="#fdfcfa" font-family="sans-serif" font-size="12" text-anchor="middle">After</text>
+  <line x1="240" y1="30" x2="240" y2="180" stroke="#4a4643"/>
+  <!-- before: reserved-soon fill, white label 2.33:1 -->
+  <rect x="80" y="60" width="80" height="60" rx="6" fill="#d4a23a"/>
+  <text x="120" y="88" fill="#fff" font-family="sans-serif" font-weight="bold" font-size="14" text-anchor="middle">12</text>
+  <text x="120" y="106" fill="#fff" font-family="sans-serif" font-size="10" text-anchor="middle" opacity="0.8">2-4</text>
+  <!-- before: rotated 180 -->
+  <g transform="translate(200 150) rotate(180)">
+    <rect x="-20" y="-15" width="40" height="30" rx="4" fill="#9aaa4c"/>
+    <text x="0" y="5" fill="#fff" font-family="sans-serif" font-weight="bold" font-size="12" text-anchor="middle">7</text>
+  </g>
+  <!-- after -->
+  <rect x="320" y="60" width="80" height="60" rx="6" fill="#d4a23a"/>
+  <rect x="338" y="76" width="44" height="28" rx="3" fill="#1e1c1a"/>
+  <text x="360" y="92" fill="#fdfcfa" font-family="sans-serif" font-weight="bold" font-size="13" text-anchor="middle">12</text>
+  <text x="360" y="101" fill="#fdfcfa" font-family="sans-serif" font-size="8" text-anchor="middle" opacity="0.8">2-4</text>
+  <g transform="translate(440 150) rotate(180)">
+    <rect x="-20" y="-15" width="40" height="30" rx="4" fill="#9aaa4c"/>
+  </g>
+  <rect x="420" y="135" width="40" height="30" rx="3" fill="none"/>
+  <rect x="428" y="140" width="24" height="20" rx="3" fill="#1e1c1a"/>
+  <text x="440" y="154" fill="#fdfcfa" font-family="sans-serif" font-weight="bold" font-size="12" text-anchor="middle">7</text>
+</svg>

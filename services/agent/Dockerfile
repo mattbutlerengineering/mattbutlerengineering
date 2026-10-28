@@ -1,5 +1,5 @@
 # Build stage
-FROM node:22-alpine3.19@sha256:40dc4b415c17b85bea9be05314b4a753f45a4e1716bb31c01182e6c53d51a654 AS builder
+FROM node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS builder
 
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
@@ -74,7 +74,7 @@ RUN pnpm --filter @mbe/types build && \
     pnpm --filter @mbe/agent-service build
 
 # Production stage
-FROM node:22-alpine3.19@sha256:40dc4b415c17b85bea9be05314b4a753f45a4e1716bb31c01182e6c53d51a654 AS runner
+FROM node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS runner
 
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 

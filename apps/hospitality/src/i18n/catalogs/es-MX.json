@@ -7,8 +7,8 @@
       "hospitality": "Hospitalidad",
       "rialto": "Sistema de diseño"
     },
-    "copyright": "© {{year}} Matt Butler",
-    "dashboardDocumentTitle": "Panel - Matt Butler Engineering"
+    "copyright": "© {{year}} {{brand}}",
+    "dashboardDocumentTitle": "Panel - {{brand}}"
   },
   "onboarding": {
     "steps": {
@@ -90,6 +90,7 @@
       "openingTime": "Hora de apertura del {{day}}",
       "closingTime": "Hora de cierre del {{day}}",
       "closeAfterOpen": "La hora de cierre debe ser posterior a la de apertura",
+      "timesRequired": "Ingresa una hora de apertura y una de cierre",
       "atLeastOne": "Al menos un día debe estar abierto",
       "closeDayTitle": "¿Cerrar el {{day}}?",
       "closeDayDescription": "Esto borrará los horarios de apertura y cierre personalizados que fijaste para este día.",
@@ -237,7 +238,7 @@
     },
     "login": {
       "title": "Hospitality",
-      "documentTitle": "Hospitality - Matt Butler Engineering",
+      "documentTitle": "Hospitality - {{brand}}",
       "boardPhrases": {
         "reservations": "RESERVAS",
         "guests": "CLIENTES",
@@ -479,7 +480,16 @@
       "emptyTitle": "No hay mesas en este plano de sala",
       "emptyNote": "Agrega mesas desde la barra lateral",
       "moved": "{{name}} se movió a {{x}}, {{y}}",
-      "tableAria": "Mesa {{label}}"
+      "tableAria": "Mesa {{label}}",
+      "tableAriaWithStatus": "Mesa {{label}}, {{status}}"
+    },
+    "statusLegend": {
+      "title": "Estado de las mesas",
+      "available": "Disponible",
+      "reservedSoon": "Reservada pronto",
+      "seated": "Ocupada",
+      "needsBussing": "Por limpiar",
+      "inactive": "Inactiva"
     },
     "tableStatus": {
       "available": "Disponible",
@@ -509,6 +519,9 @@
       "material": "Piso",
       "materialFor": "Material del piso de {{name}}",
       "materialNone": "Ninguno"
+    },
+    "planFloor": {
+      "label": "Piso del salón"
     },
     "templates": {
       "preview": "Vista previa del plano: {{tables}} y {{sections}}",
@@ -1412,10 +1425,10 @@
     "notFoundHeading": "No se encontró el restaurante",
     "notFoundDescription": "No encontramos la página de reservas que buscas. Revisa el enlace o comunícate directamente con el restaurante para reservar.",
     "goBack": "Regresar",
-    "homeLink": "Volver a Matt Butler Engineering",
+    "homeLink": "Volver a {{brand}}",
     "loading": "Cargando restaurante...",
     "tagline": "Reserva tu mesa en línea",
-    "poweredBy": "Con tecnología de Matt Butler Engineering"
+    "poweredBy": "Con tecnología de {{brand}}"
   },
   "publicMenu": {
     "menuLabel": "Menú",
@@ -1435,7 +1448,7 @@
     "documentTitle": "Tu reserva — Hospitality",
     "venueDocumentTitle": "{{venue}} — Tu reserva",
     "supportLine": "¿Necesitas ayuda? Comunícate directamente con el restaurante con los datos de tu correo de confirmación.",
-    "homeLink": "Volver a Matt Butler Engineering",
+    "homeLink": "Volver a {{brand}}",
     "noLinkHeading": "Sin enlace de acceso",
     "noLinkDescription": "Revisa el enlace en tu correo de confirmación.",
     "loading": "Cargando reserva...",
@@ -1594,6 +1607,9 @@
       "title": "¿Reabrir el {{date}}?",
       "description": "Los clientes podrán reservar de nuevo.",
       "descriptionCancelled": "Los clientes podrán reservar de nuevo. Las reservaciones que cancelaste siguen canceladas.",
+      "editedDates_one": "También reabre {{count}} fecha editada.",
+      "editedDates_many": "También reabre {{count}} de fechas editadas.",
+      "editedDates_other": "También reabre {{count}} fechas editadas.",
       "tell": "Avisar a los clientes cancelados que reabrimos, con un enlace para reservar ({{count}})",
       "confirm": "Reabrir",
       "keep": "Mantener cerrado",
@@ -1945,6 +1961,7 @@
         "close_after_open": "El cierre debe ser distinto de la apertura.",
         "last_seating_after_close": "La última mesa debe ser antes del cierre.",
         "span_too_long": "Un servicio que pasa de la medianoche puede durar como máximo 16 horas.",
+        "legacy_closed_day": "Un día de exactamente 24 horas, o un servicio más corto que la ventana de 90 minutos de última sentada, dejaría el local como cerrado. Ajusta los horarios.",
         "name_too_long": "Usa 40 caracteres o menos para el nombre del servicio.",
         "overlap": "Este servicio se traslapa con otro.",
         "days_required": "Elige al menos un día."
@@ -2046,6 +2063,10 @@
       },
       "until": "Hasta",
       "noEnd": "Sin fecha final",
+      "tabsLabel": "Editor del día",
+      "tabEdit": "Editar",
+      "tabPreview": "Vista previa",
+      "previewEmpty": "Haz un cambio para ver la vista previa.",
       "scopeCount_one": "Aplica a {{count}} fecha",
       "scopeCount_other": "Aplica a {{count}} fechas",
       "scopeCount_many": "Aplica a {{count}} fechas",
@@ -2095,6 +2116,12 @@
       "removed": "{{time}} quitado",
       "slow": "La vista previa tarda más de lo normal",
       "unavailable": "Vista previa no disponible",
+      "noTimes": "No hay horarios en esta fecha",
+      "date": "Fecha de la vista previa",
+      "summaryAffected": "{{summary}} · {{affected}}",
+      "affectedCount_one": "{{count}} reservación afectada",
+      "affectedCount_many": "{{count}} reservaciones afectadas",
+      "affectedCount_other": "{{count}} reservaciones afectadas",
       "unavailableHelp": "Aún puedes guardar; la revisión de reservaciones se vuelve a hacer al guardar.",
       "retry": "Reintentar",
       "stranded_one": "{{count}} reservación quedaría fuera de este horario",
@@ -2102,6 +2129,14 @@
       "stranded_other": "{{count}} reservaciones quedarían fuera de este horario",
       "strandedItem": "{{date}} · {{time}} · {{size}} personas · {{reason}}",
       "strandedMore": "y {{count}} más en fechas posteriores del alcance",
+      "compare": "Comparar con",
+      "compareSaved": "Último guardado",
+      "compareRegularWeek": "Semana regular",
+      "party": "Grupo",
+      "prevDate": "Fecha anterior",
+      "nextDate": "Fecha siguiente",
+      "strandedShow": "Mostrar",
+      "strandedBack": "Volver al inicio",
       "reason": {
         "closed": "cerrado",
         "outside_service": "fuera de servicio",
@@ -2123,6 +2158,7 @@
       "cancel": "Cancelar",
       "saveError": "No se pudo cerrar",
       "versionConflict": "La disponibilidad cambió desde que abriste esto. Cierra este diálogo e inténtalo de nuevo.",
+      "groupsChanged": "Las reservaciones cambiaron mientras decidías. Revisa la lista actualizada y elige de nuevo.",
       "staffNote": "Nota para el personal",
       "guestMessage": "Mensaje para los comensales",
       "guestMessageTooLong": "Usa un máximo de {{max}} caracteres.",
@@ -2271,7 +2307,34 @@
       "clear": "Borrar selección",
       "selectMenu": "Seleccionar…",
       "weekdayInMonth": "Cada {{weekday}} de {{month}}",
-      "usingSchedule": "Todas las fechas con {{schedule}}"
+      "usingSchedule": "Todas las fechas con {{schedule}}",
+      "useSchedule": "Usar horario",
+      "useOtherDay": "Usar el horario de otro día",
+      "clearChanges": "Borrar cambios",
+      "use": {
+        "titleSchedule": "Usar un horario en las fechas seleccionadas",
+        "titleDay": "Usar el horario de otro día",
+        "schedule": "Horario",
+        "from": "Copiar el horario de",
+        "cancel": "Cancelar",
+        "save_one": "Aplicar a {{count}} fecha",
+        "save_other": "Aplicar a {{count}} fechas",
+        "save_many": "Aplicar a {{count}} fechas",
+        "saved_one": "{{count}} fecha actualizada",
+        "saved_other": "{{count}} fechas actualizadas",
+        "saved_many": "{{count}} fechas actualizadas"
+      },
+      "clearDialog": {
+        "title_one": "¿Borrar los cambios de {{count}} fecha?",
+        "title_other": "¿Borrar los cambios de {{count}} fechas?",
+        "title_many": "¿Borrar los cambios de {{count}} fechas?",
+        "description": "Estas fechas vuelven a seguir su horario. Puedes deshacerlo de inmediato.",
+        "confirm": "Borrar cambios",
+        "keep": "Conservar cambios",
+        "saved_one": "Se borraron los cambios de {{count}} fecha",
+        "saved_other": "Se borraron los cambios de {{count}} fechas",
+        "saved_many": "Se borraron los cambios de {{count}} fechas"
+      }
     },
     "tonight": {
       "title": "Esta noche",

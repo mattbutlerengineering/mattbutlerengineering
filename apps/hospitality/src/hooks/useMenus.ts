@@ -13,8 +13,8 @@ import { useApiClient } from "./useApiClient.js";
 import { buildQueryKey, createQueryHook } from "./create-query-hook.js";
 import { createMutationHook } from "./create-mutation-hook.js";
 
-export const MENUS_QUERY_KEY = "menus" as const;
-export const MENU_QUERY_KEY = "menu" as const;
+const MENUS_QUERY_KEY = "menus" as const;
+const MENU_QUERY_KEY = "menu" as const;
 
 /* ── Queries ─────────────────────────────────────────── */
 

@@ -472,4 +472,4 @@ function selectZoneSpreadBatch(
   return batch;
 }
 
-export { issueZone, selectZoneSpreadBatch, buildScopeZoneMap, SCOPE_ZONE_MAP, DEFAULT_MAX_WORKERS };
+export { issueZone, selectZoneSpreadBatch, SCOPE_ZONE_MAP };

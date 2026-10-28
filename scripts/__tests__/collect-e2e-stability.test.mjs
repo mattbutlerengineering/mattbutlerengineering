@@ -27,7 +27,7 @@ function makeRun({
 describe("computeE2eStability", () => {
   it("returns available: false when runs array is empty", () => {
     const result = computeE2eStability([]);
-    expect(result.available).toBe(false);
+    expect(result).toEqual({ available: false, reason: "no_runs" });
   });
 
   it("returns available: false when runs is null", () => {
@@ -198,7 +198,7 @@ describe("computeE2eStability", () => {
       }),
     ];
     const result = computeE2eStability(runs);
-    expect(result.available).toBe(false);
+    expect(result).toEqual({ available: false, reason: "no_non_frontend_runs" });
   });
 
   it("uses createdAt for ordering (sorts by createdAt descending internally)", () => {

@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import type { LoadSnapshotOptions } from "./availability-snapshot.js";
-import { gateProblem, judgeBooking, type GateRequest } from "./assert-bookable.js";
+import {
+  gateProblem,
+  judgeBooking,
+  type GateRejection,
+  type GateRequest,
+} from "./assert-bookable.js";
 
 vi.mock("./database.js", () => ({ prisma: {} }));
 
@@ -198,6 +203,27 @@ describe("judgeBooking", () => {
     ).toEqual({ kind: "ok" });
   });
 
+  it("refuses a named table too small for the party as table_unavailable, not a conflict (#7591)", async () => {
+    const outcome = await judgeBooking(fakeDb(), request({ partySize: 6 }), NOW);
+    expect(outcome).toEqual({
+      kind: "rejected",
+      rejection: { code: "outside-availability", reason: "table_unavailable" },
+    });
+    expect(gateProblem((outcome as { rejection: GateRejection }).rejection)).toMatchObject({
+      status: 422,
+      code: "outside-availability",
+      reason: "table_unavailable",
+      detail: "This table is out of service or does not fit the party size.",
+    });
+  });
+
+  it("refuses a named table that is not in the active set as table_unavailable (#7591)", async () => {
+    expect(await judgeBooking(fakeDb(), request({ tableId: "t-inactive" }), NOW)).toEqual({
+      kind: "rejected",
+      rejection: { code: "outside-availability", reason: "table_unavailable" },
+    });
+  });
+
   it("judges the table over the booking's real end, so a short staff booking is not a conflict", async () => {
     const reservations = [booked("res-1", at("2026-11-05T20:00:00"))];
     const shortBooking = request({ channel: "phone", end: at("2026-11-05T20:00:00") });
@@ -233,6 +259,30 @@ describe("judgeBooking", () => {
         where: expect.objectContaining({ date: { gte: d("2026-11-04"), lte: d("2026-11-07") } }),
       })
     );
+  });
+});
+
+describe("judgeBooking Tonight cover cap", () => {
+  const tonightCap = (covers: number) => ({
+    ...closureOn("2026-11-05"),
+    id: "r-tonight",
+    kind: "tonight",
+    targetKind: "venue",
+    payload: { version: 1, pacing: { covers } },
+  });
+  const otherTable = { ...booked("res-other", at("2026-11-05T19:00:00")), tableId: "t2" };
+
+  it("refuses an online booking that would push the window past the cap", async () => {
+    const db = fakeDb({ dateRules: [tonightCap(4)], reservations: [otherTable] });
+    expect(await judgeBooking(db, request({ partySize: 3 }), NOW)).toEqual({
+      kind: "rejected",
+      rejection: { code: "soft-limit", limits: ["pacing"] },
+    });
+  });
+
+  it("accepts a booking that lands exactly on the cap", async () => {
+    const db = fakeDb({ dateRules: [tonightCap(4)], reservations: [otherTable] });
+    expect(await judgeBooking(db, request({ partySize: 2 }), NOW)).toEqual({ kind: "ok" });
   });
 });
 

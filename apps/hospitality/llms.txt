@@ -286,6 +286,9 @@
       type Conflict = { readonly code: "version-conf | { readonly code: "closure-exis;
     </item>
     <item priority="high">
+      export function isDecisionRequired(error: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="high">
       export function conflictOf(error: unknown): Conflict | null { /* ... */ }
     </item>
   </file>
@@ -475,9 +478,6 @@
       }
     </item>
     <item priority="high">
-      export const LAST_SEATING_LEAD_MINUTES: unknown;
-    </item>
-    <item priority="high">
       export const SERVICE_NAME_MAX_LENGTH: unknown;
     </item>
     <item priority="high">
@@ -507,8 +507,8 @@
     <item priority="medium">
       function toMinutes(hhmm: string): number { /* ... */ }
     </item>
-    <item priority="high">
-      export function toClock(minutes: number): string { /* ... */ }
+    <item priority="medium">
+      function toClock(minutes: number): string { /* ... */ }
     </item>
     <item priority="high">
       export function autoLastSeating(closes: string): string { /* ... */ }
@@ -533,7 +533,7 @@
       type QuickSetupField = "name" | "opens" | "lastSeating" | "closes";
     </item>
     <item priority="low">
-      type QuickSetupIssueCode = "name_required" | "name_too_long" | "time_required" | "close_after_open" | "last_seating_after_close" | "span_too_long" | "overlap" | "days_required";
+      type QuickSetupIssueCode = "name_required" | "name_too_long" | "time_required" | "close_after_open" | "last_seating_after_close" | "span_too_long" | "legacy_closed_day" | "overlap" | "days_required";
     </item>
     <item priority="low">
       interface QuickSetupIssue {
@@ -559,10 +559,16 @@
       function orderIssues(service: ServiceDraft, m: ServiceMinutes): QuickSetupIssue[] { /* ... */ }
     </item>
     <item priority="high">
-      export function validateDraft(draft: QuickSetupDraft): QuickSetupIssue[] { /* ... */ }
+      export function validateDraft(
+        draft: QuickSetupDraft,
+        options: { readonly legacyReader?: boolean } = {}
+      ): QuickSetupIssue[] { /* ... */ }
     </item>
     <item priority="medium">
-      function spanIssues(draft: QuickSetupDraft): QuickSetupIssue[] { /* ... */ }
+      function spanIssues(draft: QuickSetupDraft, legacyReader: boolean): QuickSetupIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function hasClosedDay(draft: QuickSetupDraft, hours: LegacyHours): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function draftToConfig(
@@ -810,6 +816,36 @@
       ): string[] { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/selection-actions.ts">
+    <item priority="high">
+      export function ownSingleDateRules(
+        config: AvailabilityConfig,
+        dates: readonly string[]
+      ): DateRule[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildClearChanges(
+        config: AvailabilityConfig,
+        dates: readonly string[]
+      ): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildUseScheduleChanges(
+        config: AvailabilityConfig,
+        dates: readonly string[],
+        scheduleId: string,
+        makeId: () => string
+      ): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildUseDayHoursChanges(input: {
+        readonly config: AvailabilityConfig;
+        readonly services: readonly DraftService[];
+        readonly dates: readonly string[];
+        readonly makeId: () => string;
+      }): AvailabilityConfigChanges { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/selection.ts">
     <item priority="high">
       export function normalizeDates(dates: readonly string[]): string[] { /* ... */ }
@@ -1019,9 +1055,6 @@
     </item>
   </file>
   <file path="src/components/availability/useDateSelection.ts">
-    <item priority="high">
-      export const LONG_PRESS_MS: unknown;
-    </item>
     <item priority="low">
       interface DateSelectionOptions {
         selection: readonly string[];
@@ -1147,12 +1180,6 @@
       export const MISSING_VENUE_SLUG_ERROR: unknown;
     </item>
     <item priority="high">
-      export const STEP_KEYS_NO_DEPOSIT: BookingStep[];
-    </item>
-    <item priority="high">
-      export const STEP_KEYS_WITH_DEPOSIT: BookingStep[];
-    </item>
-    <item priority="high">
       export function deriveStepKeys(depositRequired: boolean): BookingStep[] { /* ... */ }
     </item>
     <item priority="medium">
@@ -1214,6 +1241,12 @@
         valid: false;
         missing: readonly string[];
       }
+    </item>
+    <item priority="high">
+      export function resolveRedirectUri(
+        configured: string | undefined,
+        location: Pick<Location, "origin" | "hostname">
+      ): string { /* ... */ }
     </item>
     <item priority="high">
       export function validateAuthConfig(): AuthConfigResult | AuthConfigFailure { /* ... */ }
@@ -1559,8 +1592,8 @@
         venueId: string
       ): Promise<ReadonlySet<string>> { /* ... */ }
     </item>
-    <item priority="high">
-      export function uniqueTableName(desired: string, taken: ReadonlySet<string>): string { /* ... */ }
+    <item priority="medium">
+      function uniqueTableName(desired: string, taken: ReadonlySet<string>): string { /* ... */ }
     </item>
     <item priority="low">
       interface CreateFromTemplateInput {
@@ -1652,9 +1685,6 @@
     <item priority="high">
       export const MAX_WALL_THICKNESS: unknown;
     </item>
-    <item priority="high">
-      export const DEFAULT_WALL_THICKNESS: unknown;
-    </item>
     <item priority="low">
       interface Point {
         x: number;
@@ -1708,8 +1738,19 @@
       interface SeatPlacementInput {
         shape: TableShapeName;
         capacity: number;
+        width?: number;
+        height?: number;
         gap?: number;
       }
+    </item>
+    <item priority="low">
+      interface SeatSize {
+        width: number;
+        height: number;
+      }
+    </item>
+    <item priority="high">
+      export function seatSize(capacity: number): SeatSize { /* ... */ }
     </item>
     <item priority="high">
       type RectangleSide = (typeof RECTANGLE_SIDES)[number];
@@ -1734,8 +1775,28 @@
         gap: number
       ): readonly SeatPlacement[] { /* ... */ }
     </item>
+    <item priority="medium">
+      function minSeatSpacing(input: SeatPlacementInput, seats: readonly SeatPlacement[]): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function fittedSeatSize(input: SeatPlacementInput): SeatSize { /* ... */ }
+    </item>
     <item priority="high">
       export function seatPlacements(input: SeatPlacementInput): readonly SeatPlacement[] { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/floor-plan/floor-plan-grid.ts">
+    <item priority="high">
+      export const MIN_GRID_CELL_PX: unknown;
+    </item>
+    <item priority="high">
+      export function floorPlanGridStyle({
+        readOnly,
+        scale,
+      }: {
+        readOnly: boolean;
+        scale: number;
+      }): Pick<CSSProperties, "backgroundImage" | "backgroundSize"> | undefined { /* ... */ }
     </item>
   </file>
   <file path="src/components/floor-plan/floor-textures.ts">
@@ -1755,6 +1816,17 @@
       export function floorTextureUrl(material: FloorMaterial, baseUrl: string): string { /* ... */ }
     </item>
   </file>
+  <file path="src/components/floor-plan/furniture-theme.ts">
+    <item priority="medium">
+      function readTheme(): FurnitureTheme { /* ... */ }
+    </item>
+    <item priority="medium">
+      function subscribe(listener: () => void): () => void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useFurnitureTheme(): FurnitureTheme { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/floor-plan/furniture-tokens.ts">
     <item priority="high">
       export const TABLE_SURFACE_NAME: unknown;
@@ -1767,6 +1839,18 @@
     </item>
     <item priority="high">
       export const FURNITURE_PALETTE: unknown;
+    </item>
+    <item priority="low">
+      type FurnitureTheme = "light" | "dark";
+    </item>
+    <item priority="high">
+      export const SEAT_TONES: Record<FurnitureTheme, { frame: string; edge: string; cus...;
+    </item>
+    <item priority="high">
+      export const SHADOW_TONES: Record<FurnitureTheme, string>;
+    </item>
+    <item priority="high">
+      export const CONTACT_SHADOW: unknown;
     </item>
     <item priority="high">
       export const TABLE_CORNER_RADIUS: Record<Exclude<TableShapeName, "circle">, number>;
@@ -1948,11 +2032,110 @@
     <item priority="high">
       export const SECTION_LABEL_FALLBACKS: Record<"light" | "dark", SectionLabelTheme>;
     </item>
-    <item priority="high">
-      export function resolveSectionLabelTheme(): SectionLabelTheme { /* ... */ }
+    <item priority="medium">
+      function resolveSectionLabelTheme(): SectionLabelTheme { /* ... */ }
     </item>
     <item priority="high">
       export function useSectionLabelTheme(): SectionLabelTheme { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/floor-plan/table-label-layout.ts">
+    <item priority="high">
+      export const LABEL_MIN_SCREEN_PX: unknown;
+    </item>
+    <item priority="high">
+      export const LABEL_PADDING: unknown;
+    </item>
+    <item priority="high">
+      export const LABEL_LINE_HEIGHT: unknown;
+    </item>
+    <item priority="low">
+      interface TableLabelInput {
+        number: string;
+        covers: string;
+        shape: TableShapeName;
+        capacity: number;
+        width: number;
+      }
+    </item>
+    <item priority="low">
+      interface TableLabelLayout {
+        text: string;
+        fontSize: number;
+        width: number;
+        height: number;
+        glyphSize: number;
+      }
+    </item>
+    <item priority="high">
+      export function counterRotation(rotation: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      interface Box {
+        cx: number;
+        cy: number;
+        halfW: number;
+        halfH: number;
+      }
+    </item>
+    <item priority="medium">
+      function chairBoxes(input: TableLabelInput): readonly Box[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function footprintBox(input: TableLabelInput): Box { /* ... */ }
+    </item>
+    <item priority="medium">
+      function overlapsChair(chair: Box, plateHalfW: number, plateHalfH: number): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      interface Plate {
+        text: string;
+        fontSize: number;
+        width: number;
+        height: number;
+        glyphSize: number;
+      }
+    </item>
+    <item priority="medium">
+      function plateFor(lines: readonly string[], fontSize: number, withGlyph: boolean): Plate { /* ... */ }
+    </item>
+    <item priority="high">
+      export function tableLabelLayout(input: TableLabelInput): TableLabelLayout { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/floor-plan/table-status-glyph.ts">
+    <item priority="low">
+      type StatusGlyphKey = TableDisplayStatus | "inactive";
+    </item>
+    <item priority="high">
+      export const STATUS_GLYPH_KEYS: readonly StatusGlyphKey[];
+    </item>
+    <item priority="high">
+      export const GLYPH_VIEWBOX: unknown;
+    </item>
+    <item priority="high">
+      export const GLYPH_STROKE_WIDTH: unknown;
+    </item>
+    <item priority="low">
+      interface StatusGlyph {
+        path: string;
+        filled: boolean;
+      }
+    </item>
+    <item priority="high">
+      export const STATUS_GLYPHS: Readonly<Record<StatusGlyphKey, StatusGlyph>>;
+    </item>
+    <item priority="high">
+      export const STATUS_LABEL_KEY: unknown;
+    </item>
+    <item priority="high">
+      export function glyphKeyFor(
+        status: TableDisplayStatus | undefined,
+        isActive: boolean
+      ): StatusGlyphKey | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function statusFillToken(key: StatusGlyphKey): string { /* ... */ }
     </item>
   </file>
   <file path="src/components/floor-plan/table-status.ts">
@@ -2242,9 +2425,6 @@
       export const AVAILABILITY_CONFIG_QUERY_KEY: unknown;
     </item>
     <item priority="high">
-      export const AVAILABILITY_CHANGES_QUERY_KEY: unknown;
-    </item>
-    <item priority="high">
       export const useAvailabilityDays: unknown;
     </item>
     <item priority="high">
@@ -2266,9 +2446,6 @@
     </item>
   </file>
   <file path="src/hooks/useAvailabilityPreview.ts">
-    <item priority="high">
-      export const AVAILABILITY_PREVIEW_QUERY_KEY: unknown;
-    </item>
     <item priority="low">
       interface AvailabilityPreviewState {
         result: PreviewResult | null;
@@ -2286,16 +2463,10 @@
   </file>
   <file path="src/hooks/useAvailabilityUndo.ts">
     <item priority="high">
-      export const UNDO_TOAST_MS: unknown;
-    </item>
-    <item priority="high">
       export function useAvailabilityUndo() { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useBriefing.ts">
-    <item priority="high">
-      export const BRIEFING_QUERY_KEY: unknown;
-    </item>
     <item priority="low">
       type BriefingEntry = ApiBriefingEntry;
     </item>
@@ -2385,9 +2556,6 @@
   </file>
   <file path="src/hooks/useClosures.ts">
     <item priority="high">
-      export const CLOSURE_IMPACT_QUERY_KEY: unknown;
-    </item>
-    <item priority="high">
       export const useClosureImpact: unknown;
     </item>
     <item priority="low">
@@ -2410,12 +2578,6 @@
     </item>
     <item priority="high">
       export const useCreateClosure: unknown;
-    </item>
-    <item priority="high">
-      export const CLOSURE_SUMMARIES_QUERY_KEY: unknown;
-    </item>
-    <item priority="high">
-      export const CLOSURE_CALL_LIST_QUERY_KEY: unknown;
     </item>
     <item priority="high">
       export const useClosureSummaries: unknown;
@@ -2513,9 +2675,6 @@
   </file>
   <file path="src/hooks/useDeposits.ts">
     <item priority="high">
-      export const DEPOSITS_QUERY_KEY: unknown;
-    </item>
-    <item priority="high">
       export function useDepositByReservation(reservationId: string | null | undefined) { /* ... */ }
     </item>
     <item priority="high">
@@ -2551,9 +2710,6 @@
     <item priority="high">
       export const FLOOR_PLANS_QUERY_KEY: unknown;
     </item>
-    <item priority="high">
-      export const FLOOR_PLAN_QUERY_KEY: unknown;
-    </item>
     <item priority="low">
       interface UseFloorPlansParams {
         venueId?: string | null;
@@ -2575,8 +2731,8 @@
     <item priority="high">
       export function useFloorPlan(id: string | undefined): UseFloorPlanResult { /* ... */ }
     </item>
-    <item priority="high">
-      export function floorPlanQueryKey(id: string | undefined): readonly unknown[] { /* ... */ }
+    <item priority="medium">
+      function floorPlanQueryKey(id: string | undefined): readonly unknown[] { /* ... */ }
     </item>
     <item priority="high">
       export const useCloneFloorPlan: unknown;
@@ -2610,9 +2766,6 @@
     </item>
     <item priority="high">
       export const useUpdateFloorPlanLayout: unknown;
-    </item>
-    <item priority="high">
-      export const FLOOR_PLAN_SECTIONS_QUERY_KEY: unknown;
     </item>
     <item priority="high">
       export const useFloorPlanSections: unknown;
@@ -2813,12 +2966,6 @@
   </file>
   <file path="src/hooks/useMenus.ts">
     <item priority="high">
-      export const MENUS_QUERY_KEY: unknown;
-    </item>
-    <item priority="high">
-      export const MENU_QUERY_KEY: unknown;
-    </item>
-    <item priority="high">
       export const useMenus: unknown;
     </item>
     <item priority="high">
@@ -2902,9 +3049,6 @@
     </item>
   </file>
   <file path="src/hooks/useOpenTimes.ts">
-    <item priority="high">
-      export const OPEN_TIMES_QUERY_KEY: unknown;
-    </item>
     <item priority="high">
       export const useOpenTimes: unknown;
     </item>
@@ -3030,9 +3174,6 @@
     </item>
   </file>
   <file path="src/hooks/useStaffBookingCheck.ts">
-    <item priority="high">
-      export const STAFF_BOOKING_CHECK_QUERY_KEY: unknown;
-    </item>
     <item priority="high">
       type BookingWindow = { start: string; end: string };
     </item>
@@ -3176,12 +3317,6 @@
     </item>
   </file>
   <file path="src/hooks/useUsers.ts">
-    <item priority="high">
-      export const CURRENT_USER_QUERY_KEY: unknown;
-    </item>
-    <item priority="high">
-      export const USERS_QUERY_KEY: unknown;
-    </item>
     <item priority="low">
       interface UseCurrentUserResult {
         data: User | null | undefined;
@@ -3242,9 +3377,6 @@
   </file>
   <file path="src/hooks/useVenuePolicy.ts">
     <item priority="high">
-      export const VENUE_POLICY_QUERY_KEY: unknown;
-    </item>
-    <item priority="high">
       export function useVenuePolicy(slug: string | undefined): {
         policy: CancellationPolicy | null;
         isLoading: boolean;
@@ -3264,9 +3396,6 @@
       }
     </item>
     <item priority="high">
-      export const STEP_ORDER: readonly SetupStep[];
-    </item>
-    <item priority="high">
       export function computeReadiness(
         venue: Venue | null,
         floorPlans: readonly FloorPlan[],
@@ -3278,9 +3407,6 @@
     </item>
   </file>
   <file path="src/hooks/useVenueTeam.ts">
-    <item priority="high">
-      export const VENUE_TEAM_QUERY_KEY: unknown;
-    </item>
     <item priority="high">
       export const useVenueTeam: unknown;
     </item>
@@ -3294,9 +3420,6 @@
   <file path="src/hooks/useVenues.ts">
     <item priority="high">
       export const VENUES_QUERY_KEY: unknown;
-    </item>
-    <item priority="high">
-      export const VENUE_BY_SLUG_QUERY_KEY: unknown;
     </item>
     <item priority="low">
       interface UseVenuesParams {
@@ -3595,6 +3718,45 @@
       ): AuthErrorDescription { /* ... */ }
     </item>
   </file>
+  <file path="src/lib/host-brand.ts">
+    <item priority="low">
+      interface Brand {
+        name: string;
+        logo: string;
+      }
+    </item>
+    <item priority="low">
+      interface HostConfig {
+        brand: Brand;
+        basename: string;
+        standalone: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function hostConfig(hostname: string): HostConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      export function currentHostConfig(): HostConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      export function appUrl(
+        path: string,
+        location: Pick<Location, "origin" | "hostname"> = window.location
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function homeUrl(location: Pick<Location, "origin"> = window.location): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function manageReservationUrl(
+        token: string,
+        location: Pick<Location, "origin" | "hostname"> = window.location
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function legacyPathRedirect(pathname: string, basename: string): string | null { /* ... */ }
+    </item>
+  </file>
   <file path="src/lib/logo-palette-canvas.ts">
     <item priority="high">
       export const ACCEPTED_LOGO_TYPES: unknown;
@@ -3639,9 +3801,6 @@
     </item>
     <item priority="high">
       export const PIXEL_STRIDE: unknown;
-    </item>
-    <item priority="high">
-      export const MAX_SAMPLE_EDGE: unknown;
     </item>
     <item priority="high">
       export function fitWithin(
@@ -4580,9 +4739,6 @@
   </file>
   <file path="src/utils/timeline-intent.ts">
     <item priority="high">
-      export const WALK_IN_PARAM: unknown;
-    </item>
-    <item priority="high">
       export const SELECTED_PARAM: unknown;
     </item>
     <item priority="high">
@@ -4599,9 +4755,6 @@
     </item>
     <item priority="high">
       export function stripTimelineIntent(params: URLSearchParams): URLSearchParams { /* ... */ }
-    </item>
-    <item priority="high">
-      export const NEW_RESERVATION_PARAM: unknown;
     </item>
     <item priority="low">
       interface ReservationsIntent {

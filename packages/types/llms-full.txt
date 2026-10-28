@@ -645,6 +645,8 @@
       /** `Venue.availabilityVersion`; send it back as `expectedVersion`. */
       version: z.number().int(),
       source: AvailabilityConfigSourceSchema,
+      /** `rows` the backfill wrote that no one has saved over yet (F11's "carried over" banner); absent otherwise. */
+      migrated: z.literal(true).optional(),
       /** `legacy` only: days the lenient reader closed, and values it coerced. */
       legacyNotes: z
         .object({ unreadableDays: z.array(z.string()), coercions: z.array(z.string()) })
@@ -688,6 +690,12 @@
        * recorded. Optional so a client talking to an older API falls back to `summary`.
        */
       outcome: AvailabilityChangeOutcomeSchema.nullish(),
+      /**
+       * The person's display name, snapshotted when the change was made; never an email. `null` on
+       * rows saved before names were recorded. Optional so a client talking to an older API still
+       * works (History then says "a teammate").
+       */
+      actorName: z.string().nullish(),
     });
     export const AVAILABILITY_CHANGES_MAX_LIMIT = 100;
     export const AvailabilityChangesQuerySchema = z.object({
@@ -833,6 +841,7 @@
       "booking_closed",
       "outside_service",
       "table_blocked",
+      "table_unavailable",
       "conflict",
     ] as const;
     export const HardReasonSchema = z.enum(HARD_REASONS);
@@ -858,6 +867,10 @@
       z.array(ServiceDateSchema).min(1).max(PREVIEW_SCOPE_MAX_DATES),
       z.object({ from: ServiceDateSchema, to: ServiceDateSchema.optional() }),
     ]);
+    export const PREVIEW_PARTY_MAX = 20;
+    export const PREVIEW_PARTY_DEFAULT = 2;
+    export const PREVIEW_COMPARE_WITH = ["saved", "regularWeek"] as const;
+    export const PreviewCompareWithSchema = z.enum(PREVIEW_COMPARE_WITH);
     export const PreviewAvailabilityBodySchema = z.object({
       /** The unsaved edit: the rows a save would send. */
       draft: z.object({
@@ -869,6 +882,10 @@
       focusDate: ServiceDateSchema,
       /** Index of the first stranded reservation to return (a page is 50). */
       strandedOffset: z.number().int().min(0).default(0),
+      /** The base the added / removed times are measured against. */
+      compareWith: PreviewCompareWithSchema.default("saved"),
+      /** The party whose bookable times are shown (tables that fit it). */
+      partySize: z.number().int().min(1).max(PREVIEW_PARTY_MAX).default(PREVIEW_PARTY_DEFAULT),
     });
     export const PreviewDaySchema = z.object({
       serviceDate: ServiceDateSchema,
@@ -890,6 +907,7 @@
     });
     export type PreviewAvailabilityBody = z.input<typeof PreviewAvailabilityBodySchema>;
     export type PreviewAvailabilityParsed = z.infer<typeof PreviewAvailabilityBodySchema>;
+    export type PreviewCompareWith = z.infer<typeof PreviewCompareWithSchema>;
     export type PreviewResult = z.infer<typeof PreviewResultSchema>;
     export type PreviewScope = z.infer<typeof PreviewScopeSchema>;
     export type AvailabilityConfigChanges = z.infer<typeof AvailabilityConfigChangesSchema>;
@@ -914,6 +932,12 @@
       groupKey: z.string().min(1),
       action: ClosureActionSchema,
       acknowledged: z.boolean().optional(),
+      /**
+       * The bookings the Manager saw in this group. When sent and the group's members have changed
+       * since, the command answers `decision-required` so the choice is made again. Optional so an
+       * older client (a static site deploys before the API) still saves.
+       */
+      reservationIds: z.array(z.string()).optional(),
     });
     export const CreateClosureBodySchema = z.object({
       expectedVersion: z.number().int().min(0),
@@ -1298,6 +1322,8 @@
       showGrid: z.boolean().optional(),
       walls: z.array(WallLayoutSchema).optional(),
       sections: z.array(SectionLayoutSchema).optional(),
+      /** Plan-level default floor, drawn beneath every section. Absent = bare floor. */
+      floorMaterial: FloorMaterialSchema.nullish(),
     });
     export const TableStatusSchema = z.enum(["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]);
     export const TableSchema = z.object({
@@ -1902,12 +1928,12 @@
       venueId: z.string(),
       name: z.string(),
       isActive: z.boolean().optional(),
-      layoutJson: JsonObjectSchema,
+      layoutJson: FloorPlanLayoutWriteSchema,
     });
     export const UpdateFloorPlanBodySchema = z.object({
       name: z.string().optional(),
       isActive: z.boolean().optional(),
-      layoutJson: JsonObjectSchema.optional(),
+      layoutJson: FloorPlanLayoutWriteSchema.optional(),
     });
     export const UpdateTablePositionsBodySchema = z.object({
       floorPlanId: z.string(),
@@ -2368,6 +2394,15 @@
       close: z.string(),
       closed: z.boolean().optional(),
     });
+    export const OperatingHoursWriteSchema = z.looseObject({
+      monday: DayScheduleWriteSchema.optional(),
+      tuesday: DayScheduleWriteSchema.optional(),
+      wednesday: DayScheduleWriteSchema.optional(),
+      thursday: DayScheduleWriteSchema.optional(),
+      friday: DayScheduleWriteSchema.optional(),
+      saturday: DayScheduleWriteSchema.optional(),
+      sunday: DayScheduleWriteSchema.optional(),
+    });
     export const VENUE_TYPES = ["fine_dining", "casual", "bar", "cafe"] as const;
     export const VenueTypeSchema = z.enum(VENUE_TYPES);
     export const VENUE_DESCRIPTION_MAX_LENGTH = 280;
@@ -2756,6 +2791,8 @@
       showGrid?: boolean;
       walls?: WallLayout[];
       sections?: SectionLayout[];
+      /** Plan-level default floor, drawn beneath every section. Absent = bare floor. */
+      floorMaterial?: FloorMaterial | null;
     }
     export interface CreateFloorPlanRequest {
       venueId: string;

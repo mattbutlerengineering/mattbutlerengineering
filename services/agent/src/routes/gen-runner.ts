@@ -3,6 +3,7 @@ import { streamText, stepCountIs } from "ai";
 // Permission policy sourced from agent-core — not duplicated here (security requirement)
 import { GEN_BLOCKED_TOOLS, genIsBashCommandBlocked } from "@mbe/agent-core";
 import { genSystemInstructions } from "./gen-stream.js";
+import { completeJsonElements } from "./gen-json-elements.js";
 
 // ── Public types ──────────────────────────────────────────────────────
 
@@ -67,7 +68,7 @@ export const GEN_WRITE_TOOL_NAMES = [
   "update_table_status",
 ] as const;
 
-export const GEN_WRITE_TOOLS: ReadonlySet<string> = new Set(GEN_WRITE_TOOL_NAMES);
+const GEN_WRITE_TOOLS: ReadonlySet<string> = new Set(GEN_WRITE_TOOL_NAMES);
 
 export type GenToolMap = Record<string, unknown>;
 export type GenEventCallback = (event: GenStreamEvent) => Promise<void>;
@@ -76,7 +77,9 @@ export interface GenRunner {
   run(
     messages: ReadonlyArray<{ role: "user" | "assistant"; content: string }>,
     tools: GenToolMap,
-    onEvent: GenEventCallback
+    onEvent: GenEventCallback,
+    /** Aborts the model call, e.g. when the client disconnects mid-stream. */
+    signal?: AbortSignal
   ): Promise<void>;
 }
 
@@ -92,9 +95,10 @@ export interface GenRunner {
  */
 export function createGenRunner(config: GenRunnerConfig): GenRunner {
   return {
-    async run(messages, tools, onEvent) {
+    async run(messages, tools, onEvent, signal) {
       const result = streamText({
         model: anthropic(config.modelId),
+        abortSignal: signal,
         // System prompt goes through `instructions` — ai@7 rejects system-role
         // entries inside `messages` (see genSystemInstructions).
         instructions: genSystemInstructions(config.systemPrompt),
@@ -103,6 +107,15 @@ export function createGenRunner(config: GenRunnerConfig): GenRunner {
         toolChoice: config.toolChoice,
         stopWhen: stepCountIs(config.maxSteps),
         maxOutputTokens: config.maxOutputTokens,
+        providerOptions: {
+          anthropic: {
+            // Haiku 5.5 thinks before the tool call, and those tokens count
+            // against the output cap. Nothing is emitted until thinking
+            // finishes, so a large form sits silent until the gateway 504s.
+            thinking: { type: "disabled" },
+            toolStreaming: true,
+          },
+        },
         onFinish: config.onFinish
           ? async ({ usage, providerMetadata, finishReason }) => {
               await config.onFinish!({ usage, providerMetadata, finishReason });
@@ -114,8 +127,22 @@ export function createGenRunner(config: GenRunnerConfig): GenRunner {
       // on from the previous step's: "…for 2 people:Monday's slots…" (F29).
       let textSoFar = false;
       let stepEnded = false;
+      let renderJson = "";
+      let renderEmitted = 0;
+      let trackingRender = false;
       for await (const event of result.fullStream) {
-        if (event.type === "text-delta") {
+        if (event.type === "tool-input-start" && event.toolName === "render_component") {
+          trackingRender = true;
+          renderJson = "";
+          renderEmitted = 0;
+        } else if (event.type === "tool-input-delta" && trackingRender) {
+          renderJson += event.delta;
+          const ready = completeJsonElements(renderJson);
+          for (const element of ready.slice(renderEmitted)) {
+            await onEvent({ type: "element", element });
+          }
+          renderEmitted = ready.length;
+        } else if (event.type === "text-delta") {
           const content = textSoFar && stepEnded ? `\n\n${event.text}` : event.text;
           textSoFar = true;
           stepEnded = false;
@@ -123,7 +150,10 @@ export function createGenRunner(config: GenRunnerConfig): GenRunner {
         } else if (event.type === "finish-step" && event.finishReason !== "length") {
           stepEnded = true;
         } else if (event.type === "tool-call") {
-          await handleToolCall(event, onEvent);
+          const already =
+            trackingRender && event.toolName === "render_component" ? renderEmitted : 0;
+          await handleToolCall(event, onEvent, already);
+          if (event.toolName === "render_component") trackingRender = false;
         } else if (event.type === "tool-result") {
           await onEvent({
             type: "tool_status",
@@ -167,7 +197,8 @@ function toError(value: unknown): Error {
 
 async function handleToolCall(
   event: { toolCallId: string; toolName: string; input: unknown },
-  onEvent: GenEventCallback
+  onEvent: GenEventCallback,
+  alreadyEmitted = 0
 ): Promise<void> {
   const { toolName, toolCallId, input } = event;
 
@@ -196,7 +227,7 @@ async function handleToolCall(
   // render_component emits element events (no status — handled by tool-result)
   if (toolName === "render_component") {
     const typedInput = input as { elements?: unknown[] };
-    for (const element of typedInput.elements ?? []) {
+    for (const element of (typedInput.elements ?? []).slice(alreadyEmitted)) {
       await onEvent({ type: "element", element });
     }
     return;

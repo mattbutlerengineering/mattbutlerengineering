@@ -4,6 +4,7 @@ import type { AuthUser, JWTPayload } from "../types/index.js";
 import { deriveReturnTo } from "./return-to.js";
 import type { SignInOptions } from "./return-to.js";
 import { isSilentAuthError } from "./auth-error.js";
+import { rememberPreAuthHistoryLength } from "./auth-history.js";
 import { useSessionLifecycle } from "./session-lifecycle-context.js";
 
 /** The navigator react-oidc-context currently has in flight, if any. */
@@ -72,6 +73,7 @@ export function useAuth() {
      * `onSigninCallback(returnTo)`.
      */
     signIn: (options?: SignInOptions) => {
+      rememberPreAuthHistoryLength();
       const returnTo =
         options?.returnTo ?? deriveReturnTo(window.location, auth.settings.redirect_uri);
       return auth.signinRedirect({ state: { returnTo } });
@@ -84,6 +86,24 @@ export function useAuth() {
     error: silentFailure ? undefined : auth.error,
     /** The most recent silent-refresh failure, or null — see {@link useAccessToken} */
     refreshError: silentFailure ? (auth.error ?? null) : null,
+  };
+}
+
+/**
+ * Stale-session facts for {@link useAuthGate}: how long the stored token has
+ * been expired (undefined while valid or absent) and a way to drop the stored
+ * user via the user manager without a sign-out redirect. Separate from
+ * {@link useAuth} so that hook's return shape (mocked across apps) is unchanged.
+ */
+export function useStaleSession() {
+  const auth = useOIDCAuth();
+  const expiresAt = auth.user?.expires_at;
+  return {
+    expiredForMs:
+      expiresAt !== undefined && auth.user?.expired === true
+        ? Date.now() - expiresAt * 1000
+        : undefined,
+    clearSession: () => auth.removeUser(),
   };
 }
 

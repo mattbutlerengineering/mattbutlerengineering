@@ -146,7 +146,8 @@ describe("decisions", () => {
     );
   });
 
-  it("sends the acknowledgement only with keep_silent", () => {
+  it("sends the acknowledgement only with keep_silent, and the bookings each choice was made on", () => {
+    const ids = group().reservations.map((r) => r.id);
     const groups = [group(), group({ groupKey: "2026-12-25:closed", date: "2026-12-25" })];
     expect(
       toDecisions(groups, {
@@ -154,8 +155,13 @@ describe("decisions", () => {
         "2026-12-25:closed": { action: "keep_silent", acknowledged: true },
       })
     ).toEqual([
-      { groupKey: key, action: "cancel" },
-      { groupKey: "2026-12-25:closed", action: "keep_silent", acknowledged: true },
+      { groupKey: key, action: "cancel", reservationIds: ids },
+      {
+        groupKey: "2026-12-25:closed",
+        action: "keep_silent",
+        acknowledged: true,
+        reservationIds: ids,
+      },
     ]);
   });
 

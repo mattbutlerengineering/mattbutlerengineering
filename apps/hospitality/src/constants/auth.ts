@@ -1,3 +1,5 @@
+import { appUrl } from "../lib/host-brand.js";
+
 /**
  * Required auth environment variables and their corresponding VITE_* names.
  * Used for runtime validation before initializing the OIDC provider.
@@ -23,6 +25,22 @@ export interface AuthConfigFailure {
 }
 
 /**
+ * The OIDC redirect URI (also the post-logout return URL) for the host serving
+ * the app. The app is served from more than one host (#7709), so a build-time
+ * VITE_AUTH_REDIRECT_URI is honored only when it is on the serving origin;
+ * otherwise the callback is derived from that origin and the host's basename.
+ */
+export function resolveRedirectUri(
+  configured: string | undefined,
+  location: Pick<Location, "origin" | "hostname">
+): string {
+  // A malformed value is treated as unset.
+  const sameOrigin =
+    !!configured && URL.canParse(configured) && new URL(configured).origin === location.origin;
+  return sameOrigin ? configured : appUrl("/callback", location);
+}
+
+/**
  * Validates that all required auth environment variables are present and non-empty.
  * Returns either a validated config object or a list of missing variable names.
  */
@@ -40,8 +58,7 @@ export function validateAuthConfig(): AuthConfigResult | AuthConfigFailure {
     config: {
       authority: import.meta.env.VITE_AUTH_AUTHORITY,
       clientId: import.meta.env.VITE_AUTH_CLIENT_ID,
-      redirectUri:
-        import.meta.env.VITE_AUTH_REDIRECT_URI || window.location.origin + "/hospitality/callback",
+      redirectUri: resolveRedirectUri(import.meta.env.VITE_AUTH_REDIRECT_URI, window.location),
       audience: import.meta.env.VITE_AUTH_AUDIENCE || undefined,
     },
   };

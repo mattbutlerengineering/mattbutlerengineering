@@ -12,7 +12,7 @@ import { assertBookable, type GateRejection } from "./assert-bookable.js";
 import { bookSlot } from "./book-slot.js";
 import { isTableInVenue, loadTableFit, TABLE_NOT_IN_VENUE_DETAIL } from "./table-venue.js";
 
-export const BOOKING_WINDOW_ERROR = "Requested time is outside the venue's booking window";
+const BOOKING_WINDOW_ERROR = "Requested time is outside the venue's booking window";
 
 // Default hold duration in minutes
 const DEFAULT_HOLD_DURATION = 10;
@@ -108,13 +108,15 @@ export const holdService = {
       }
       selectedTableId = table.id;
     } else {
-      // Pre-check: verify provided table is available and pacing is not exceeded.
+      // Pre-check: verify the provided table fits and is free. Pacing is the
+      // availability gate's call (judgeBooking below), so `settings: null`
+      // skips the legacy pacing rule here.
       const bookingError = assertBookable({
         tableId: selectedTableId,
         table: await loadTableFit(selectedTableId),
         window: { startTime, endTime },
         partySize,
-        settings,
+        settings: null,
         reservations,
         holds,
         excludeSessionId: sessionId,

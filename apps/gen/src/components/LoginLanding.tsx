@@ -8,6 +8,7 @@ import {
   RialtoProvider,
   useUIEnvironment,
 } from "@mattbutlerengineering/rialto";
+import { SiteChrome } from "./SiteChrome.js";
 import styles from "./LoginLanding.module.css";
 
 /** The four visible stages of the Gen pipeline: prompt -> spec -> JSX -> live preview. */
@@ -35,58 +36,60 @@ export function LoginLanding() {
 
   return (
     <RialtoProvider vibe="transacting" theme={theme}>
-      <main className={styles.landing}>
-        <Hero
-          eyebrow="Generative UI"
-          minHeight="auto"
-          showDivider={false}
-          title={
-            <>
-              Turn a{" "}
-              {/* Hero's documented accent hook is a bare <span class="accent">; a Text
+      <SiteChrome>
+        <main className={styles.landing}>
+          <Hero
+            eyebrow="Generative UI"
+            minHeight="auto"
+            showDivider={false}
+            title={
+              <>
+                Turn a{" "}
+                {/* Hero's documented accent hook is a bare <span class="accent">; a Text
                   element would inject a <p> inside the <h1> and drop the heading typography. */}
-              {/* eslint-disable-next-line mbe-local/prefer-rialto-components */}
-              <span className="accent">prompt</span> into a live interface with Gen
-            </>
-          }
-          subtitle="Describe the screen you want in plain language. Gen produces a validated component spec, renders it to JSX, and previews it live — no boilerplate, no wiring."
-          actions={
-            <Stack direction="row" gap="md" justify="center" wrap>
-              <Button variant="primary" size="lg" onClick={() => signIn()}>
-                Try Gen
-              </Button>
-              <Button variant="ghost" size="lg" onClick={() => signIn()}>
-                Sign In
-              </Button>
-            </Stack>
-          }
-        />
+                {/* eslint-disable-next-line mbe-local/prefer-rialto-components */}
+                <span className="accent">prompt</span> into a live interface with Gen
+              </>
+            }
+            subtitle="Describe the screen you want in plain language. Gen produces a validated component spec, renders it to JSX, and previews it live — no boilerplate, no wiring."
+            actions={
+              <Stack direction="row" gap="md" justify="center" wrap>
+                <Button variant="primary" size="lg" onClick={() => signIn()}>
+                  Try Gen
+                </Button>
+                <Button variant="ghost" size="lg" onClick={() => signIn()}>
+                  Sign In
+                </Button>
+              </Stack>
+            }
+          />
 
-        <section className={styles.previewSection} aria-labelledby="gen-flow-heading">
-          <Heading id="gen-flow-heading" level={2} size={3} align="center">
-            From idea to UI in four steps
-          </Heading>
-          <figure className={styles.preview} data-testid="gen-preview">
-            <ol className={styles.flow}>
-              {PIPELINE_STAGES.map((stage) => (
-                <li key={stage.label} className={styles.stage}>
-                  <Text as="span" variant="label" className={styles.stageLabel}>
-                    {stage.label}
-                  </Text>
-                  <Text as="span" variant="detail" color="secondary">
-                    {stage.detail}
-                  </Text>
-                </li>
-              ))}
-            </ol>
-            <figcaption className={styles.previewCaption}>
-              <Text variant="caption" color="secondary" align="center">
-                A glimpse of the Gen pipeline — sign in to build your own.
-              </Text>
-            </figcaption>
-          </figure>
-        </section>
-      </main>
+          <section className={styles.previewSection} aria-labelledby="gen-flow-heading">
+            <Heading id="gen-flow-heading" level={2} size={3} align="center">
+              From idea to UI in four steps
+            </Heading>
+            <figure className={styles.preview} data-testid="gen-preview">
+              <ol className={styles.flow}>
+                {PIPELINE_STAGES.map((stage) => (
+                  <li key={stage.label} className={styles.stage}>
+                    <Text as="span" variant="label" className={styles.stageLabel}>
+                      {stage.label}
+                    </Text>
+                    <Text as="span" variant="detail" color="secondary">
+                      {stage.detail}
+                    </Text>
+                  </li>
+                ))}
+              </ol>
+              <figcaption className={styles.previewCaption}>
+                <Text variant="caption" color="secondary" align="center">
+                  A glimpse of the Gen pipeline — sign in to build your own.
+                </Text>
+              </figcaption>
+            </figure>
+          </section>
+        </main>
+      </SiteChrome>
     </RialtoProvider>
   );
 }

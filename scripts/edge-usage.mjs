@@ -29,14 +29,14 @@ import {
   EDGE_REQUESTS_DATASET,
 } from "../infrastructure/worker/analytics-schema.js";
 
-export const DEFAULT_DAYS = 7;
-export const MAX_DAYS = 90; // ≈ Analytics Engine retention (three months)
-export const ROUTE_PATTERN = /^[a-z][a-z0-9_-]*$/;
+const DEFAULT_DAYS = 7;
+const MAX_DAYS = 90; // ≈ Analytics Engine retention (three months)
+const ROUTE_PATTERN = /^[a-z][a-z0-9_-]*$/;
 export const ZERO_ROWS_MESSAGE = "0 rows — see docs/runbooks/edge-usage.md";
-export const SCOPE_HINT =
+const SCOPE_HINT =
   "the token needs the Account Analytics Read scope (Cloudflare dashboard: Account · Account Analytics · Read)";
 
-export const USAGE = `Usage: node scripts/edge-usage.mjs [--days <1..${MAX_DAYS}>] [--route <name>]
+const USAGE = `Usage: node scripts/edge-usage.mjs [--days <1..${MAX_DAYS}>] [--route <name>]
 
 Requests per route and pathname over a trailing window, read from the
 ${EDGE_REQUESTS_DATASET} Analytics Engine dataset. Needs CLOUDFLARE_API_TOKEN
@@ -47,11 +47,11 @@ ${EDGE_REQUESTS_DATASET} Analytics Engine dataset. Needs CLOUDFLARE_API_TOKEN
 
 // ── Validation (the injection boundary) ──────────────────────────────
 
-export function isValidDays(value) {
+function isValidDays(value) {
   return Number.isInteger(value) && value >= 1 && value <= MAX_DAYS;
 }
 
-export function isValidRoute(value) {
+function isValidRoute(value) {
   return typeof value === "string" && ROUTE_PATTERN.test(value);
 }
 
@@ -126,7 +126,7 @@ export function buildUsageQuery({ days = DEFAULT_DAYS, route = null } = {}) {
   ].join("\n");
 }
 
-export function sqlApiUrl(accountId) {
+function sqlApiUrl(accountId) {
   return `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/analytics_engine/sql`;
 }
 
@@ -173,7 +173,7 @@ export async function queryEdgeUsage({ fetchImpl, accountId, token, sql }) {
 
 const COLUMNS = ["route", "pathname", "requests"];
 
-export function formatRows(rows) {
+function formatRows(rows) {
   const table = [COLUMNS, ...rows.map((row) => COLUMNS.map((col) => String(row[col] ?? "")))];
   const widths = COLUMNS.map((_, col) => Math.max(...table.map((cells) => cells[col].length)));
   return table

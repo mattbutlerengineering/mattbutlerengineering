@@ -23,6 +23,7 @@ import { Autocomplete } from "../../components/Autocomplete/Autocomplete";
 import { Avatar } from "../../components/Avatar/Avatar";
 import { Badge } from "../../components/Badge/Badge";
 import { Banner } from "../../components/Banner/Banner";
+import { BarChart } from "../../components/BarChart/BarChart";
 import { Breadcrumb } from "../../components/Breadcrumb/Breadcrumb";
 import { Button } from "../../components/Button/Button";
 import { Calendar } from "../../components/Calendar/Calendar";
@@ -131,6 +132,7 @@ export type BarrelExportName =
   | "Avatar"
   | "Badge"
   | "Banner"
+  | "BarChart"
   | "Breadcrumb"
   | "Button"
   | "Calendar"
@@ -290,6 +292,18 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
 
   Badge: {
     element: <Badge>New</Badge>,
+  },
+
+  BarChart: {
+    element: (
+      <BarChart
+        label="Revenue trend"
+        data={[
+          { label: "Jan", value: "$18.2k" },
+          { label: "Feb", value: "$19.9k" },
+        ]}
+      />
+    ),
   },
 
   Banner: {
@@ -512,7 +526,12 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
   },
 
   GlobalNav: {
-    element: <GlobalNav currentApp="marketing" />,
+    element: (
+      <GlobalNav
+        currentApp="marketing"
+        menu={{ label: "Engineering", items: [{ label: "Metrics", href: "/metrics" }] }}
+      />
+    ),
   },
 
   GuestCards: {
@@ -618,7 +637,34 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
   },
 
   NeonSign: {
-    element: <NeonSign state="open" aria-label="Open until 10:00 PM" />,
+    // Every shape, lit and closed, so axe sees each variant's SVG parts and the banner lead.
+    element: (
+      <>
+        <NeonSign state="open" aria-label="Open until 10:00 PM" />
+        {(["swoosh", "boxed", "vertical", "arrow", "banner", "vintage"] as const).flatMap(
+          (shape) => [
+            <NeonSign
+              key={`${shape}-open`}
+              state="open"
+              shape={shape}
+              aria-label={`${shape} open`}
+            />,
+            <NeonSign
+              key={`${shape}-closed`}
+              state="closed"
+              shape={shape}
+              aria-label={`${shape} closed`}
+            />,
+          ]
+        )}
+        <NeonSign
+          state="open"
+          shape="boxed"
+          tone={{ word: "purple", frame: "green" }}
+          aria-label="Toned boxed open"
+        />
+      </>
+    ),
   },
 
   NumberInput: {

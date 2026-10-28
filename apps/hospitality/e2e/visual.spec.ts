@@ -108,6 +108,17 @@ function briefingEntry(id: string, start: string, end: string, guestName: string
 }
 
 /**
+ * The plan behind `/floor-plans/:id`, with a room shell (walls, one window) and
+ * a plan floor (#7846, #7893). Scoped to this spec: the shared mockApi plan stays
+ * bare for the specs that assert on an empty canvas.
+ */
+const FLOOR_PLAN_DETAIL = (
+  JSON.parse(
+    readFileSync(new URL("fixtures/floor-plan-detail-visual.json", import.meta.url), "utf8")
+  ) as { data: unknown }
+).data;
+
+/**
  * Endpoints the page rows reach that `mockApi` deliberately leaves to each spec
  * (briefing.spec.ts, floor-plan-status.spec.ts mount their own). Registered
  * after mockApi, so these win; every value is a constant on FIXED_NOW's day.
@@ -138,6 +149,7 @@ const VISUAL_ROUTES: ReadonlyArray<readonly [RegExp, unknown]> = [
       },
     ],
   ],
+  [/\/api\/v1\/floor-plans\/fp_e2e_001$/, FLOOR_PLAN_DETAIL],
   [/\/api\/v1\/venues\/[^/?]+\/table-statuses$/, [{ tableId: "tbl_e2e_001", status: "available" }]],
   [
     /\/public\/v1\/reservations\/manage\?token=/,
@@ -200,6 +212,12 @@ const test = base.extend<{ unmockedApi: string[] }>({
   // mockApi, so this route is the lowest-priority handler: only a request
   // every mock declined or fell back from reaches it.
   page: async ({ page, unmockedApi }, use) => {
+    // mockedPage navigates once while building the fixture, before this test
+    // body runs. That load must already be on FIXED_NOW: the init script pins
+    // expires_at an hour after FIXED_NOW, and a wall clock months later makes
+    // the session look more than a day stale. The gate then shows the signed-out
+    // landing and drops the stored user, so every staff page screenshots Sign In.
+    await page.clock.setFixedTime(FIXED_NOW);
     await page.route(isAppApi, (route) => {
       const url = new URL(route.request().url());
       unmockedApi.push(`${route.request().method()} ${url.pathname}${url.search}`);

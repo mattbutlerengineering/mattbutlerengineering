@@ -6,7 +6,7 @@ import { revertErrorText } from "../components/availability/revert-error.js";
 import { useRevertAvailabilityChange } from "./useAvailability.js";
 
 /** How long the Undo stays on offer (ux.md § Undo: 10 s). */
-export const UNDO_TOAST_MS = 10_000;
+const UNDO_TOAST_MS = 10_000;
 
 /**
  * The undo toast after a save: `offerUndo` shows "<what happened> · Undo", and Undo reverts

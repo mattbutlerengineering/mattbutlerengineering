@@ -178,6 +178,21 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
     useReturnFocus(open);
     useEscapeKey(() => onOpenChange(false), open);
 
+    // Close on the first Escape, including when the query is non-empty.
+    // useEscapeKey ignores a key whose default was already prevented (a nested
+    // combobox swallowing Escape), so a capture listener claims it first.
+    useEffect(() => {
+      if (!open) return;
+      const onKeyDown = (event: KeyboardEvent) => {
+        if (event.key !== "Escape") return;
+        event.preventDefault();
+        event.stopPropagation();
+        onOpenChange(false);
+      };
+      document.addEventListener("keydown", onKeyDown, true);
+      return () => document.removeEventListener("keydown", onKeyDown, true);
+    }, [open, onOpenChange]);
+
     /* ── Reset on open/close ─────────────────── */
     useEffect(() => {
       if (open) {
@@ -265,10 +280,11 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
               role="dialog"
               aria-modal="true"
               aria-label={messages.commandPalette}
-              initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: -8 }}
-              animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
-              exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: -4 }}
-              transition={motionPreset.spring}
+              /* Opens 100+ times a day: opacity only, no scale or travel (docs/motion.md). */
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={motionPreset.precision}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Search */}

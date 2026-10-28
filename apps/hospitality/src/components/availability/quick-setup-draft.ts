@@ -1,10 +1,12 @@
 import type { TFunction } from "i18next";
 import {
+  buildLegacyConfig,
   MAX_PAST_MIDNIGHT_SPAN,
   normalizeLegacyHours,
   projectLegacyOperatingHours,
   validateConfig,
   WEEKDAYS,
+  type LegacyHours,
 } from "@mbe/availability";
 import { localeRuntime } from "../../i18n/runtime.js";
 import type { OperatingHoursValidationErrors } from "../venue-onboarding/OperatingHoursStep.js";
@@ -40,7 +42,7 @@ export interface QuickSetupDraft {
   readonly days: readonly number[];
 }
 
-export const LAST_SEATING_LEAD_MINUTES = 45;
+const LAST_SEATING_LEAD_MINUTES = 45;
 /** `VenueServiceSchema.name` max; the server refuses a longer name. */
 export const SERVICE_NAME_MAX_LENGTH = 40;
 const MINUTES_PER_DAY = 1440;
@@ -75,7 +77,7 @@ function toMinutes(hhmm: string): number {
   return h * 60 + m;
 }
 
-export function toClock(minutes: number): string {
+function toClock(minutes: number): string {
   const wrapped = ((minutes % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
   const hh = String(Math.floor(wrapped / 60)).padStart(2, "0");
   const mm = String(wrapped % 60).padStart(2, "0");
@@ -138,6 +140,7 @@ export type QuickSetupIssueCode =
   | "close_after_open"
   | "last_seating_after_close"
   | "span_too_long"
+  | "legacy_closed_day"
   | "overlap"
   | "days_required";
 
@@ -212,9 +215,14 @@ function orderIssues(service: ServiceDraft, m: ServiceMinutes): QuickSetupIssue[
 
 /**
  * Field-level problems, in card order (first is where focus goes). Overlap is the engine's call
- * (`validateConfig`): the same rule the server applies on save.
+ * (`validateConfig`): the same rule the server applies on save. `legacyReader` is for the
+ * new-venue wizard, which sends legacy hours; the card writes config rows directly, so days the
+ * legacy reader would close (`legacy_closed_day`) are fine there.
  */
-export function validateDraft(draft: QuickSetupDraft): QuickSetupIssue[] {
+export function validateDraft(
+  draft: QuickSetupDraft,
+  options: { readonly legacyReader?: boolean } = {}
+): QuickSetupIssue[] {
   const perService = draft.services.flatMap((service) => {
     const missing = completenessIssues(service);
     const minutes = minutesOf(service);
@@ -232,16 +240,18 @@ export function validateDraft(draft: QuickSetupDraft): QuickSetupIssue[] {
       const service = draft.services[index];
       return service ? [{ serviceId: service.id, field: "opens", code: "overlap" }] : [];
     });
-  return [...overlaps, ...spanIssues(draft), ...daysIssue];
+  return [...overlaps, ...spanIssues(draft, options.legacyReader === true), ...daysIssue];
 }
 
 /**
  * The server stores the day as one legacy window (earliest open, latest close) and its
- * reader drops a past-midnight window longer than MAX_PAST_MIDNIGHT_SPAN, so the venue
- * would show closed. Read the projection with the server's own reader; blame the
- * latest-closing service.
+ * reader closes the day when that window cannot seat anyone: a past-midnight window longer
+ * than MAX_PAST_MIDNIGHT_SPAN, a span of exactly 24 hours (open == close), or one shorter
+ * than the last-seating buffer. Read the projection with the server's own reader
+ * (`normalizeLegacyHours` + `buildLegacyConfig`) so the thresholds are not copied here, and
+ * blame the latest-closing service.
  */
-function spanIssues(draft: QuickSetupDraft): QuickSetupIssue[] {
+function spanIssues(draft: QuickSetupDraft, legacyReader: boolean): QuickSetupIssue[] {
   const read = normalizeLegacyHours(draftToLegacyHours(draft));
   const tooLong =
     read.ok &&
@@ -250,12 +260,26 @@ function spanIssues(draft: QuickSetupDraft): QuickSetupIssue[] {
         (w) => w.wrapped === true && w.close - w.open > MAX_PAST_MIDNIGHT_SPAN
       )
     );
-  if (!tooLong) return [];
+  const code: QuickSetupIssueCode | null = tooLong
+    ? "span_too_long"
+    : legacyReader && read.ok && hasClosedDay(draft, read.hours)
+      ? "legacy_closed_day"
+      : null;
+  if (code === null) return [];
   const latest = draft.services.reduce<{ id: string; closesAt: number } | null>((acc, s) => {
     const m = minutesOf(s);
     return m && (!acc || m.closesAt > acc.closesAt) ? { id: s.id, closesAt: m.closesAt } : acc;
   }, null);
-  return latest ? [{ serviceId: latest.id, field: "closes", code: "span_too_long" }] : [];
+  return latest ? [{ serviceId: latest.id, field: "closes", code }] : [];
+}
+
+/** True when a day the draft opens gets no assignment from the legacy reader (read as closed). */
+function hasClosedDay(draft: QuickSetupDraft, hours: LegacyHours): boolean {
+  let n = 0;
+  const built = buildLegacyConfig({ hours, today: "1970-01-01", newId: () => `legacy-${++n}` });
+  if (!built.ok) return false;
+  const open = new Set(built.config.assignments.flatMap((a) => a.weekdays));
+  return draft.days.some((day) => !open.has(day));
 }
 
 // ── To the stored model ───────────────────────────────────────────────────

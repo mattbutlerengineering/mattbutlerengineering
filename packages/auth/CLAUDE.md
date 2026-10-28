@@ -10,7 +10,7 @@ File map, `AuthProvider` and hook API tables, Fastify usage examples, the token 
 
 ### Auth gate
 
-`useAuthGate()` returns one `AuthGate` phase — `signing-out | loading | callback | error{error, onCallback} | signed-out{afterSignOut} | expired | ready` — from `useAuth()` facts plus `window.location`. It is the single owner of the gate ORDER (#6395: two app-local copies diverged and gen's sign-out hung on Loading); apps map phase → screen only. The order is table-tested against the pure `resolveAuthGate(facts, location)` in `auth-gate.test.ts`. A bare `/callback` (no OIDC params) is `signed-out{afterSignOut: true}` — that is where sign-out lands — never a wait.
+`useAuthGate()` returns one `AuthGate` phase — `signing-out | loading | callback | error{error, onCallback} | signed-out{afterSignOut} | expired | ready` — from `useAuth()` facts plus `window.location`. It is the single owner of the gate ORDER (#6395: two app-local copies diverged and gen's sign-out hung on Loading); apps map phase → screen only. The order is table-tested against the pure `resolveAuthGate(facts, location)` in `auth-gate.test.ts`. A session expired `STALE_SESSION_MS` (24 h) or more is `signed-out{afterSignOut: false}` and `useAuthGate` removes the stored user via `clearSession()` (#7430); fresher expiry stays `expired`. A bare `/callback` (no OIDC params) is `signed-out{afterSignOut: true}` — that is where sign-out lands — never a wait.
 
 `signinReturnTo()` is where a `/callback` route should navigate once `ready`: the returnTo carried through the OIDC state (recorded by `AuthProvider`, re-validated with `isSafeReturnTo` on read), or `"/"`.
 

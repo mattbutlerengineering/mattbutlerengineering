@@ -1,15 +1,8 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Button,
-  Checkbox,
-  Select,
-  Stack,
-  Text,
-  TimePicker,
-  useToast,
-} from "@mattbutlerengineering/rialto";
+import { Button, Checkbox, Select, Stack, Text, TimePicker } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState, ScopeConflictMode } from "@mbe/types";
+import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { closeFromClock, lastSeatingFromClock, openFromClock, toClock } from "./clock-minutes.js";
 import {
   buildCompareChanges,
@@ -112,7 +105,7 @@ export function CompareServices(props: CompareServicesProps) {
   const { venueId, state, timezone, today, onStale } = props;
   const { config } = state;
   const { t } = useTranslation();
-  const { toast } = useToast();
+  const offerUndo = useAvailabilityUndo();
   const saver = useScheduleSave(onStale);
 
   const options = useMemo(() => compareServiceOptions(config), [config]);
@@ -162,15 +155,16 @@ export function CompareServices(props: CompareServicesProps) {
   };
 
   const submit = async () => {
-    const ok = await saver.save(
+    const saved = await saver.save(
       venueId,
       state,
       buildCompareChanges(config, rows),
       dates.length > 1 ? mode : "replace"
     );
-    if (!ok) return;
-    toast({
-      variant: "success",
+    if (!saved) return;
+    offerUndo({
+      venueId,
+      saved,
       title: t("availabilitySchedules.compare.saved", { count: scheduleCount }),
     });
     setEdits({});

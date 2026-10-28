@@ -81,6 +81,11 @@ export const METRICS = {
     durable: true,
   },
   "queue-telemetry": { file: "queue-telemetry.jsonl", format: "jsonl", durable: true },
+  // One summary row per weekly lighthouse.yml / mutation-testing.yml run, so the
+  // `lighthouse` and `mutationScore` sensors have an input a scheduled
+  // checkout can read (#7581). Builders: scripts/metrics-summary-rows.mjs.
+  lighthouse: { file: "lighthouse.jsonl", format: "jsonl", durable: true },
+  "mutation-score": { file: "mutation-score.jsonl", format: "jsonl", durable: true },
   "review-burden": { file: "review-burden.json", format: "json-array", durable: true },
   // Latest-only snapshot, deliberately NOT durable: a 5 KB whole-file rewrite
   // in a merge=union directory is a conflict magnet and carries no trend. The

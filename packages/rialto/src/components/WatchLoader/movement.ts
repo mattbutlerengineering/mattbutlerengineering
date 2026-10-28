@@ -15,9 +15,9 @@ export interface MovementPart {
 }
 
 export const PLATE_RADIUS = 48;
-export const PIVOT = { x: 50, y: 50 } as const;
+const PIVOT = { x: 50, y: 50 } as const;
 /** Tooth length as a fraction of body radius. */
-export const TOOTH_RATIO = 0.28;
+const TOOTH_RATIO = 0.28;
 export const ESCAPE_TEETH = 15;
 export const ROTOR_RADIUS = 44;
 

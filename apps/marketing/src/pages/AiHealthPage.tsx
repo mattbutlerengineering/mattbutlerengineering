@@ -11,6 +11,7 @@ import {
 } from "../utils/formatters.js";
 import {
   normalizeSensorReport,
+  describeSensorGap,
   type SensorReport,
   type QueueEfficiencyMetrics,
   type ReviewBurdenMetrics,
@@ -21,6 +22,7 @@ import {
 import { normalizeHealthTrends } from "../data/ai-health-trends.js";
 import { TrendChart } from "../components/TrendChart.js";
 import styles from "./AiHealthPage.module.css";
+import { DashboardPurpose } from "../components/DashboardPurpose";
 
 const PLACEHOLDER = "—";
 
@@ -365,6 +367,7 @@ export function AiHealthPage() {
         <Text className={styles.subtitle}>
           Live metrics for the AI agent system — sensors, CI, PRs, and issue pipeline
         </Text>
+        <DashboardPurpose current="/ai-health" />
         <Text className={styles.meta}>
           As of {formatTimestamp(metrics.timestamp)}
           {" · "}
@@ -457,7 +460,12 @@ export function AiHealthPage() {
         <div className={styles.sensorGrid} data-testid="sensor-status-list">
           {metrics.sensorEntries.map(([key, sensor]) => (
             <div key={key} className={styles.sensorRow}>
-              <Text className={styles.sensorName}>{key}</Text>
+              <div>
+                <Text className={styles.sensorName}>{key}</Text>
+                {describeSensorGap(sensor) != null && (
+                  <Text className={styles.statNote}>{describeSensorGap(sensor)}</Text>
+                )}
+              </div>
               <div className={styles.sensorBadge}>
                 <Badge color={getSensorColor(sensor.available === true)} size="sm">
                   {formatSensorStatus(sensor.available === true)}

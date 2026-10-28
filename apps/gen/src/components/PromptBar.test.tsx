@@ -33,6 +33,7 @@ vi.mock("./PromptBar.module.css", () => ({
     input: "input",
     charCount: "charCount",
     charCountWarn: "charCountWarn",
+    errorNote: "errorNote",
     hints: "hints",
   },
 }));
@@ -113,6 +114,21 @@ describe("PromptBar", () => {
     render(<PromptBar {...defaultProps} disabled={true} />);
     const textarea = screen.getByRole("textbox", { name: /prompt input/i });
     expect((textarea as HTMLTextAreaElement).disabled).toBe(true);
+  });
+
+  it("truncates a paste past 2000 characters and keeps the counter in sync", () => {
+    render(<PromptBar {...defaultProps} />);
+    const textarea = screen.getByRole("textbox", { name: /prompt input/i });
+    fireEvent.change(textarea, { target: { value: "x".repeat(2500) } });
+    expect((textarea as HTMLTextAreaElement).value).toHaveLength(2000);
+    expect(screen.getByText("2000 / 2000")).toBeDefined();
+  });
+
+  it("seeds the input from a prompt restored after an interrupted generation", () => {
+    render(<PromptBar {...defaultProps} initialPrompt="pricing page with three tiers" />);
+    expect(
+      (screen.getByRole("textbox", { name: /prompt input/i }) as HTMLTextAreaElement).value
+    ).toBe("pricing page with three tiers");
   });
 
   it("shows character count", () => {
@@ -239,6 +255,25 @@ describe("PromptBar", () => {
     expect((textarea as HTMLTextAreaElement).value).toBe("same prompt");
   });
 
+  it("shows the failure reason in the prompt panel itself, not just elsewhere on screen (#7463)", () => {
+    render(
+      <PromptBar
+        {...defaultProps}
+        failedPrompt="draw a broken form"
+        failedError={new Error("boom")}
+      />
+    );
+    expect(screen.getByText("boom")).toBeDefined();
+    // PreviewPane's error Alert already announces the same message; a second
+    // live alert here would make assistive tech read it twice.
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("shows no error affordance when there is no failure", () => {
+    render(<PromptBar {...defaultProps} failedPrompt={null} failedError={null} />);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("does not re-seed on an unrelated re-render when the same error persists", () => {
     const err = new Error("same error");
     const { rerender } = render(
@@ -252,5 +287,22 @@ describe("PromptBar", () => {
     rerender(<PromptBar {...defaultProps} failedPrompt="original" failedError={err} />);
 
     expect((textarea as HTMLTextAreaElement).value).toBe("user is editing");
+  });
+
+  it("does not re-seed a live failure's prompt after a promptless failure was shown in between", () => {
+    // Live failure E1 → a selected failed history entry (no prompt to restore)
+    // → back to live with E1 still set. The user's draft must survive.
+    const liveError = new Error("live failure");
+    const entryError = new Error("This generation failed");
+    const { rerender } = render(
+      <PromptBar {...defaultProps} failedPrompt="A" failedError={liveError} />
+    );
+    rerender(<PromptBar {...defaultProps} failedPrompt={null} failedError={entryError} />);
+    const textarea = screen.getByRole("textbox", { name: /prompt input/i });
+    fireEvent.change(textarea, { target: { value: "B draft" } });
+
+    rerender(<PromptBar {...defaultProps} failedPrompt="A" failedError={liveError} />);
+
+    expect((textarea as HTMLTextAreaElement).value).toBe("B draft");
   });
 });

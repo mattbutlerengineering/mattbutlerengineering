@@ -1,3 +1,5 @@
+import { REPO_STATS } from "./repo-stats.js";
+
 export interface Project {
   title: string;
   description: string;
@@ -17,14 +19,12 @@ export const PROJECTS: Project[] = [
   {
     title: "Rialto Design System",
     description:
-      "A precision component library with 65+ components built on a warm neutral token system. " +
+      `A precision component library with ${REPO_STATS.rialtoComponents} components built on a warm neutral token system. ` +
       "Every surface, radius, shadow, and motion value is tokenized — components compose, not collide.",
     stack: ["React", "TypeScript", "Vite", "Framer Motion", "CSS Modules"],
-    // Deep-links to the Booking Wizard example — a composed multi-component
-    // page — rather than the showcase landing page, so a first-time visitor
-    // sees breadth in one view. Path derived per apps/rialto-web/src/data/
-    // page-registry.ts (Examples category strips the "example-" id prefix).
-    href: "/rialto/examples/booking-wizard",
+    // Links to the showcase landing page, which matches the "View live" label
+    // and orients a first-time visitor before they pick an example.
+    href: "/rialto",
   },
   {
     title: "Hospitality Platform",

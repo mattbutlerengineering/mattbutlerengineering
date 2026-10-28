@@ -145,8 +145,10 @@ describe("closure routes", () => {
     });
 
     it("enqueues nothing for a refusal", async () => {
+      const settle = vi.spyOn(app.transitions, "settleClosure");
       commandSvc.create.mockResolvedValueOnce({ kind: "forbidden" });
       await post();
+      expect(settle).not.toHaveBeenCalled();
       expect(closureRefunds.enqueue).not.toHaveBeenCalled();
       expect(noticeSvc.enqueueForClosure).not.toHaveBeenCalled();
     });

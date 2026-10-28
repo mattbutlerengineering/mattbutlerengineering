@@ -9,18 +9,24 @@ const mockPost = vi.fn();
 const mockPatch = vi.fn();
 const mockDelete = vi.fn();
 
+// One stable client object, mirroring the real useApi()'s useMemo — a fresh
+// object on every call would give fetchSpecs a new identity on every render,
+// re-firing the mount effect in a loop once a fetch failure's new Error
+// reference (unlike the isLoading boolean) stops React from bailing out.
+const mockClient = {
+  get: mockGet,
+  post: mockPost,
+  patch: mockPatch,
+  delete: mockDelete,
+  request: mockGet,
+  getOne: mockGet,
+  postOne: mockPost,
+  patchOne: mockPatch,
+};
+
 // Mock the single seam hook — no component test should mock client construction directly.
 vi.mock("./useApi.js", () => ({
-  useApi: () => ({
-    get: mockGet,
-    post: mockPost,
-    patch: mockPatch,
-    delete: mockDelete,
-    request: mockGet,
-    getOne: mockGet,
-    postOne: mockPost,
-    patchOne: mockPatch,
-  }),
+  useApi: () => mockClient,
 }));
 
 function makeSpec(overrides?: Partial<StoredSpec>): StoredSpec {
@@ -80,6 +86,28 @@ describe("useSpecsApi — fetchSpecs", () => {
     const { result } = renderHook(() => useSpecsApi());
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.specs).toEqual([]);
+  });
+
+  it("exposes the fetch error so the UI can show a deliberate error state (#7463)", async () => {
+    mockGet.mockRejectedValue(new Error("Network error"));
+    const { result } = renderHook(() => useSpecsApi());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.error).toBeInstanceOf(Error);
+    expect(result.current.error?.message).toBe("Network error");
+  });
+
+  it("clears a previous fetch error once a retry succeeds", async () => {
+    mockGet.mockRejectedValueOnce(new Error("Network error"));
+    const { result } = renderHook(() => useSpecsApi());
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(Error));
+
+    mockGet.mockResolvedValueOnce({ data: [makeSpec()] });
+    await act(async () => {
+      await result.current.fetchSpecs();
+    });
+
+    expect(result.current.error).toBeNull();
+    expect(result.current.specs).toHaveLength(1);
   });
 });
 

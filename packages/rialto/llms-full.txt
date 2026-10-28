@@ -87,6 +87,21 @@
     } satisfies CatalogMeta;
   </file>
   </section>
+  <section priority="medium" role="BarChart">
+  <file path="src/components/BarChart/BarChart.catalog.ts">
+    export const barChartCatalogMeta = {
+      name: "BarChart",
+      description:
+        "Vertical bar chart for a trend over time, such as revenue by month or signups by week. Use this instead of a paragraph or a Text element listing numbers. label is the accessible chart title (for example Revenue trend). data is an array of {label, value} points; value may be a number or a short formatted string such as $18.2k. Keep to about 12 points.",
+      propSchemas: {
+        data: "z.array(z.object({ label: z.string(), value: z.union([z.number(), z.string()]) })).min(1)",
+      },
+      charLimits: {
+        label: 60,
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
   <section priority="medium" role="Breadcrumb">
   <file path="src/components/Breadcrumb/Breadcrumb.catalog.ts">
     export const breadcrumbCatalogMeta = {
@@ -105,7 +120,7 @@
     export const buttonCatalogMeta = {
       name: "Button",
       description:
-        "Clickable action trigger. Use variant=primary for the main CTA; variant=secondary for supporting actions; variant=ghost for tertiary or inline actions. Use size=sm for compact UIs, size=md (default) for most contexts, size=lg for prominent calls-to-action.",
+        "Clickable action trigger. Put the button's words in the label prop (for example, Contact sales). Use variant=primary for the main CTA; variant=secondary for supporting actions; variant=ghost for tertiary or inline actions. Use size=sm for compact UIs, size=md (default) for most contexts, size=lg for prominent calls-to-action.",
       slots: ["default"],
       aliases: {
         label: "children",
@@ -581,9 +596,9 @@
     export const checkboxCatalogMeta = {
       name: "Checkbox",
       description:
-        "Checkbox for boolean selection. Use when users need to opt-in or out of something. Provide a label. Use description for additional context below the label. Use indeterminate for 'select all' with partial selection.",
+        "Checkbox for boolean selection. Use when users need to opt-in or out of something. Provide a label of at most 80 characters (a full sentence such as a terms agreement fits). Use description for additional context below the label. Use indeterminate for 'select all' with partial selection.",
       charLimits: {
-        label: 30,
+        label: 80,
         description: 80,
       },
     } satisfies CatalogMeta;
@@ -1494,7 +1509,6 @@
     }
   </file>
   <file path="src/components/SilkFlow/silk-flow-field.ts">
-    export const FIELD_SCALE = 0.0022;
     export const FIELD_TIME_STEP = 0.0035;
     export type ValueNoise = (x: number, y: number) => number;
     export function silkParticleCount(width: number, height: number): number {
@@ -1640,7 +1654,7 @@
   </section>
   <section priority="medium" role="TapeChart">
   <file path="src/components/TapeChart/dateMath.ts">
-    export function parseISOMs(iso: string): number {
+    function parseISOMs(iso: string): number {
       const parts = iso.split("-");
       const y = Number(parts[0] ?? "1970");
       const m = Number(parts[1] ?? "1");
@@ -1697,7 +1711,7 @@
       roomStatusLabels: Record<TapeChartRoomStatus, string>;
       overlapLabels: Record<TapeChartOverlapKind, string>;
     };
-    export function defaultStringsFor(messages: RialtoMessages): ResolvedStrings {
+    function defaultStringsFor(messages: RialtoMessages): ResolvedStrings {
       const { viaSource: _via, blockedReason: _reason, ...labels } = messages.tapeChart;
       return {
         ...labels,
@@ -2304,8 +2318,6 @@
       readonly teeth?: number;
     }
     export const PLATE_RADIUS = 48;
-    export const PIVOT = { x: 50, y: 50 } as const;
-    export const TOOTH_RATIO = 0.28;
     export const ESCAPE_TEETH = 15;
     export const ROTOR_RADIUS = 44;
     export const MOVEMENT = {
@@ -2945,22 +2957,38 @@
     }
   </file>
   <file path="src/hooks/useFocusTrap.ts">
-    export const FOCUSABLE_SELECTOR =
-      'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
-    export const FOCUS_TRAP_SKIP_INITIAL_ATTR = "data-focus-trap-skip-initial";
+    export const FOCUSABLE_SELECTOR = [
+      'button:not(:disabled):not([tabindex="-1"])',
+      '[href]:not([tabindex="-1"])',
+      'input:not(:disabled):not([type="hidden"]):not([tabindex="-1"])',
+      'select:not(:disabled):not([tabindex="-1"])',
+      'textarea:not(:disabled):not([tabindex="-1"])',
+      '[tabindex]:not([tabindex="-1"])',
+    ].join(", ");
+    function isReachable(el: HTMLElement, panel: HTMLElement): boolean {
+      if (el.closest("[hidden], [inert]")) return false;
+      if (getComputedStyle(el).visibility === "hidden") return false;
+      for (let node: HTMLElement | null = el; node && node !== panel; node = node.parentElement) {
+        if (getComputedStyle(node).display === "none") return false;
+      }
+      return true;
+    }
+    function queryTabbable(panel: HTMLElement): HTMLElement[] {
+      return Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter((el) =>
+        isReachable(el, panel)
+      );
+    }
     export interface UseFocusTrapOptions {
       /** Element to focus when the trap activates, overriding the default candidate. */
       initialFocus?: RefObject<HTMLElement | null>;
     }
     function resolveInitialFocus(
-      focusable: NodeListOf<HTMLElement>,
+      focusable: HTMLElement[],
       first: HTMLElement | undefined,
       initialFocus?: RefObject<HTMLElement | null>
     ): HTMLElement | undefined {
       if (initialFocus?.current) return initialFocus.current;
-      const defaultTarget = Array.from(focusable).find(
-        (el) => !el.hasAttribute(FOCUS_TRAP_SKIP_INITIAL_ATTR)
-      );
+      const defaultTarget = focusable.find((el) => !el.hasAttribute(FOCUS_TRAP_SKIP_INITIAL_ATTR));
       return defaultTarget ?? first;
     }
     export function useFocusTrap(
@@ -2976,29 +3004,45 @@
         const panel = panelRef.current;
         if (!panel) return;
     
-        const focusable = panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
+        const initialCandidates = queryTabbable(panel);
+        resolveInitialFocus(initialCandidates, initialCandidates[0], initialFocus)?.focus();
     
-        resolveInitialFocus(focusable, first, initialFocus)?.focus();
+        activePanels.push(panel);
     
         const trap = (e: KeyboardEvent) => {
           if (e.key !== "Tab") return;
+          // Only the topmost trap acts, so stacked panels don't fight over focus.
+          if (panel !== activePanels[activePanels.length - 1]) return;
+          // Re-query on every Tab: panels add/remove/disable controls after open,
+          // so cached ends go stale and let focus escape.
+          const focusable = queryTabbable(panel);
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          const active = document.activeElement;
+    
+          if (!active || !panel.contains(active)) {
+            // Focus already escaped the panel: pull it back in.
+            e.preventDefault();
+            (e.shiftKey ? last : first)?.focus();
+            return;
+          }
           if (e.shiftKey) {
-            if (document.activeElement === first) {
+            if (active === first) {
               e.preventDefault();
               last?.focus();
             }
-          } else {
-            if (document.activeElement === last) {
-              e.preventDefault();
-              first?.focus();
-            }
+          } else if (active === last) {
+            e.preventDefault();
+            first?.focus();
           }
         };
     
         document.addEventListener("keydown", trap);
-        return () => document.removeEventListener("keydown", trap);
+        return () => {
+          document.removeEventListener("keydown", trap);
+          const index = activePanels.lastIndexOf(panel);
+          if (index !== -1) activePanels.splice(index, 1);
+        };
       }, [enabled, panelRef, initialFocus]);
     }
   </file>
@@ -3049,8 +3093,12 @@
     }
   </file>
   <file path="src/hooks/useReturnFocus.ts">
-    export function useReturnFocus(open: boolean): void {
+    export function useReturnFocus(open: boolean): () => void {
       const triggerRef = useRef<Element | null>(null);
+      const skipRef = useRef(false);
+      const skipRestore = useCallback(() => {
+        skipRef.current = true;
+      }, []);
     
       useLayoutEffect(() => {
         if (!open) return;
@@ -3061,11 +3109,16 @@
         return () => {
           const captured = triggerRef.current;
           triggerRef.current = null;
+          const skip = skipRef.current;
+          skipRef.current = false;
+          if (skip) return;
           requestAnimationFrame(() => {
             (captured as HTMLElement | null)?.focus();
           });
         };
       }, [open]);
+    
+      return skipRestore;
     }
   </file>
   <file path="src/hooks/useScrollReveal.ts">
@@ -3333,6 +3386,8 @@
       readonly drawer: string;
       /** Fallback accessible name of a Popover with no title. */
       readonly popover: string;
+      /** NeonSign banner shape: the decorative script line printed above OPEN. */
+      readonly neonSignLead: string;
       /** Accessible name of a HoverCard's preview surface. */
       readonly preview: string;
       /** Accessible name of the Toast region. */
@@ -3549,6 +3604,7 @@
       dialog: "Dialog",
       drawer: "Drawer",
       popover: "Popover",
+      neonSignLead: "Yes, we're",
       preview: "Preview",
       notifications: "Notifications",
       confirm: "Confirm",
@@ -3765,6 +3821,7 @@
       dialog: "Diálogo",
       drawer: "Panel lateral",
       popover: "Ventana emergente",
+      neonSignLead: "Sí, estamos",
       preview: "Vista previa",
       notifications: "Notificaciones",
       confirm: "Confirmar",
@@ -3928,6 +3985,7 @@
       dialog: "Boîte de dialogue",
       drawer: "Panneau latéral",
       popover: "Fenêtre contextuelle",
+      neonSignLead: "Oui, on est",
       preview: "Aperçu",
       notifications: "Avis",
       confirm: "Confirmer",

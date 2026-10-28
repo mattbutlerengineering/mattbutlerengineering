@@ -47,7 +47,7 @@ export type MoveToHoldResult =
  * excluding the reservation itself and the hold from the conflict re-check. In
  * one transaction it rewrites the reservation's date, times, table and party
  * size from the hold and deletes the hold. If the slot is lost (expired,
- * conflict, pacing) nothing is written, so the original booking is untouched.
+ * conflict, gate refusal) nothing is written, so the original booking is untouched.
  * `status` is never written.
  */
 export async function moveReservationToHold(input: MoveToHoldInput): Promise<MoveToHoldResult> {
@@ -74,7 +74,6 @@ export async function moveReservationToHold(input: MoveToHoldInput): Promise<Mov
     excludeReservationId: reservation.id,
     excludeHoldId: holdId,
     checkHoldConflict: true,
-    checkPacing: true,
     gate: { channel: "online" },
     guard: async () =>
       hold.expiresAt < new Date() ? { code: "EXPIRED", message: "Hold has expired" } : undefined,
@@ -120,13 +119,6 @@ export async function moveReservationToHold(input: MoveToHoldInput): Promise<Mov
     }
     if (conflict.code === "EXPIRED") {
       return { success: false, error: "Hold has expired", errorCode: "EXPIRED" };
-    }
-    if (conflict.code === "PACING_EXCEEDED") {
-      return {
-        success: false,
-        error: "Pacing limit reached for this time slot",
-        errorCode: "PACING_EXCEEDED",
-      };
     }
     return { success: false, error: "Time slot is no longer available", errorCode: "CONFLICT" };
   }

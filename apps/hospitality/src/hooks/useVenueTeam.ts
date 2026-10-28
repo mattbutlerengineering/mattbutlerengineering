@@ -2,7 +2,7 @@ import type { TeamRole, VenueTeam } from "@mbe/types";
 import { createQueryHook } from "./create-query-hook.js";
 import { createMutationHook } from "./create-mutation-hook.js";
 
-export const VENUE_TEAM_QUERY_KEY = "venueTeam" as const;
+const VENUE_TEAM_QUERY_KEY = "venueTeam" as const;
 
 /** Settings → Team: members' Manager / Host roles and the Host emergency-close grant. */
 export const useVenueTeam = createQueryHook<VenueTeam | null, { venueId: string | null }>({

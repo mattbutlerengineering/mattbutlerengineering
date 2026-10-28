@@ -1,5 +1,6 @@
 import type { FastifyRequest } from "fastify";
 import { hasVenueRole } from "@mbe/auth/fastify";
+import { actorNameOf } from "../services/actor-name.js";
 import type { ClosureCaller } from "../services/closure-command.js";
 
 /**
@@ -18,6 +19,7 @@ export async function closureCaller(
   return {
     isManager: isAdmin || hasVenueRole(role, "manager"),
     actorId: request.user?.id ?? "unknown",
+    actorName: actorNameOf(request.user),
   };
 }
 

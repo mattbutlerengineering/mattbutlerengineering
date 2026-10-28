@@ -1,6 +1,6 @@
 {
   "name": "@mattbutlerengineering/rialto",
-  "version": "0.9.0",
+  "version": "0.9.4",
   "type": "module",
   "main": "./dist/lib/rialto.js",
   "module": "./dist/lib/rialto.js",
@@ -65,6 +65,10 @@
     "./Banner": {
       "types": "./dist/lib/components/Banner/index.d.ts",
       "import": "./dist/lib/components/Banner/index.js"
+    },
+    "./BarChart": {
+      "types": "./dist/lib/components/BarChart/index.d.ts",
+      "import": "./dist/lib/components/BarChart/index.js"
     },
     "./Breadcrumb": {
       "types": "./dist/lib/components/Breadcrumb/index.d.ts",
@@ -421,6 +425,8 @@
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "lint": "eslint .",
+    "size": "size-limit",
+    "size:check": "size-limit",
     "manifest": "pnpm exec tsx scripts/generate-manifest.ts",
     "exports": "pnpm exec tsx scripts/generate-exports.ts",
     "exports:check": "pnpm exec tsx scripts/generate-exports.ts --check",
@@ -433,7 +439,7 @@
     "test:visual:update": "playwright test --config playwright.visual.config.ts --update-snapshots"
   },
   "peerDependencies": {
-    "framer-motion": "^12.0.0 || ^13.0.0",
+    "framer-motion": "^12.0.0 || ^13.0.0 || ^14.0.0",
     "lucide-react": ">=0.400.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

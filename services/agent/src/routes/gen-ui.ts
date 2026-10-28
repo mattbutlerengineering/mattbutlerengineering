@@ -20,7 +20,19 @@ const RENDER_TOOL_INSTRUCTIONS =
   "every element except the root, a `parentKey` set to its parent's `key` " +
   "(omit `parentKey` on the root element). Do not give elements a `children` " +
   "array of keys — the tree is assembled purely from `parentKey` links. An " +
-  "element's own words go in its text or label prop.";
+  "element's own words go in its text or label prop. Do not use $state, " +
+  "$bindState, or $item inside component props; this playground has no state " +
+  "store, so a state binding does not render. Put literal values in props. " +
+  "For Table and DataTable, inline at most 12 representative rows in data " +
+  "even when the user asked for more, and set emptyMessage. For a trend over " +
+  "time use BarChart with data as {label, value} points, not a paragraph of " +
+  "numbers. There is no LineChart. Negative and missing chart values are " +
+  "still BarChart points. Dialog open must be false; a button beside the " +
+  "dialog opens it, and a button inside it closes it. Do not set open true. " +
+  "For a picture, emit an Image element with src and alt — never an empty " +
+  "Stack. Button text goes in the label prop. Checkbox labels must be 80 " +
+  "characters or fewer. Peer cards such as pricing tiers belong in one Stack " +
+  "with direction row; do not place the last card outside that row.";
 
 // Memoize catalog prompt at module load — avoid re-generating per request
 const SYSTEM_PROMPT = `${catalog.prompt()}\n\n${RENDER_TOOL_INSTRUCTIONS}`;

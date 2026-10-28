@@ -1,11 +1,9 @@
-import { type ConfirmHoldRequest, type Reservation, type VenueSettings } from "@mbe/types";
+import type { ConfirmHoldRequest, Reservation } from "@mbe/types";
 import type { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
-import { availabilityService } from "./availability.js";
-import { assertBookable, type GateRejection } from "./assert-bookable.js";
+import type { GateRejection } from "./assert-bookable.js";
 import { bookSlot } from "./book-slot.js";
 import { toReservation } from "./serializers.js";
-import { runWithVenueContext } from "./venue-context-store.js";
 import {
   recordReservationEvent,
   toEventState,
@@ -54,13 +52,12 @@ export type ConfirmHoldResult =
  * Steps:
  * 1. Look up hold by ID
  * 2. If sessionId provided, validate it matches
- * 2.5. Pacing pre-check (fast fail outside the lock)
- * 3. bookSlot: advisory lock -> expiry guard -> conflict + pacing re-check ->
- *    create reservation -> delete hold
+ * 3. bookSlot: advisory lock -> expiry guard -> conflict re-check -> availability
+ *    gate (pacing, closures) -> create reservation -> delete hold
  * 4. Return reservation (the `hold:confirmed` live event is set off by the
  *    reservation-transitions `confirmHold` verb, through the live emitter)
  *
- * The advisory lock, expiry guard, and conflict/pacing re-checks all run inside
+ * The advisory lock, expiry guard, and conflict re-check all run inside
  * the shared {@link bookSlot} seam so two concurrent confirmations (or a confirm
  * racing a walk-in create) on the same table serialize on the lock key and
  * cannot both pass their conflict checks and commit (write-skew double-booking).
@@ -91,41 +88,6 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
     };
   }
 
-  // Step 2.5: Pacing pre-check — runs outside the transaction so pacing is
-  // enforced on every confirm path, not just hold create. Fetch venue settings
-  // and conflict slices once; pass to assertBookable (pure rule, no DB access).
-  if (hold.venueId) {
-    // ADR-026 §3.3 (sweep-discovered gap, #5369 PR 5): `venues` is RLS-scoped,
-    // and `hold.venueId` is already a known, trusted scalar (the hold's own
-    // column, not caller-supplied) — no ambiguity to resolve, so this reads
-    // it inside that venue's own context rather than through `resolveVenueId`.
-    const venue = await runWithVenueContext(hold.venueId, () =>
-      prisma.venue.findUnique({ where: { id: hold.venueId } })
-    );
-    const settings = (venue?.settings ?? null) as VenueSettings | null;
-    const dateStr = hold.date.toISOString().slice(0, 10);
-    const { reservations, holds: holdSlices } = await availabilityService.fetchConflictData(
-      hold.venueId,
-      dateStr
-    );
-
-    const bookingError = assertBookable({
-      tableId: hold.tableId,
-      window: { startTime: hold.startTime, endTime: hold.endTime },
-      partySize: hold.partySize,
-      settings,
-      reservations,
-      holds: holdSlices,
-      excludeHoldId: holdId,
-    });
-
-    if (bookingError?.code === "PACING_EXCEEDED") {
-      return { success: false, error: bookingError.message, errorCode: "PACING_EXCEEDED" };
-    }
-    // CONFLICT from assertBookable is a pre-check only; bookSlot re-checks under
-    // the advisory lock, which is the authoritative gate.
-  }
-
   // Step 3: Atomic slot write under the advisory lock + transaction.
   const result = await bookSlot({
     tableId: hold.tableId,
@@ -135,7 +97,6 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
     partySize: hold.partySize,
     excludeHoldId: holdId,
     checkHoldConflict: true,
-    checkPacing: hold.venueId != null,
     // Re-judge the slot against the committed availability, so a closure saved
     // after the hold was created wins over the hold.
     gate: { channel: "online" },
@@ -143,7 +104,7 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
     // reservation, even if it expired between the lookup and acquiring the lock.
     guard: async () =>
       hold.expiresAt < new Date() ? { code: "EXPIRED", message: "Hold has expired" } : undefined,
-    // Every unbookable outcome (expired, conflict, pacing) consumes the hold.
+    // Every unbookable outcome (expired, conflict, gate refusal) consumes the hold.
     onUnbookable: async (tx) => {
       await tx.reservationHold.delete({ where: { id: holdId } });
     },
@@ -200,13 +161,6 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
     }
     if (conflict.code === "EXPIRED") {
       return { success: false, error: "Hold has expired", errorCode: "EXPIRED" };
-    }
-    if (conflict.code === "PACING_EXCEEDED") {
-      return {
-        success: false,
-        error: "Pacing limit reached for this time slot",
-        errorCode: "PACING_EXCEEDED",
-      };
     }
     return { success: false, error: "Time slot is no longer available", errorCode: "CONFLICT" };
   }

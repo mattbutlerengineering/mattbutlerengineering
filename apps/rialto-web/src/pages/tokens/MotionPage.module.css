@@ -96,3 +96,28 @@
     inset-inline-start: calc(50% - 7px);
   }
 }
+
+.policyList {
+  display: grid;
+  gap: var(--rialto-space-sm);
+}
+
+.policyRow {
+  display: grid;
+  grid-template-columns: 8rem 1fr 1fr;
+  gap: var(--rialto-space-md);
+  padding-block: var(--rialto-space-xs);
+}
+
+.rules {
+  margin: 0;
+  padding-inline-start: var(--rialto-space-lg);
+  display: grid;
+  gap: var(--rialto-space-xs);
+}
+
+@media (max-width: 40rem) {
+  .policyRow {
+    grid-template-columns: 1fr;
+  }
+}

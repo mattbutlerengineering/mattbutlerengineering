@@ -98,7 +98,7 @@ function dayLabel(config: AvailabilityConfig, day: ResolvedDay): string {
 }
 
 /** Each resolved service's config name, falling back to the day's own (a deleted service). */
-export function daySummaryServices(
+function daySummaryServices(
   names: ReadonlyMap<string, string>,
   day: ResolvedDay
 ): DaySummaryService[] {

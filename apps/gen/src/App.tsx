@@ -2,6 +2,7 @@ import { Outlet, Navigate } from "react-router";
 import { useAuth, useAuthGate, signinReturnTo } from "@mbe/auth/react";
 import { Stack, Text, Button } from "@mattbutlerengineering/rialto";
 import { LoginLanding } from "./components/LoginLanding.js";
+import { SiteChrome } from "./components/SiteChrome.js";
 import styles from "./App.module.css";
 
 function LoadingScreen() {
@@ -17,19 +18,21 @@ function LoadingScreen() {
 function SessionExpiredScreen() {
   const { signIn } = useAuth();
   return (
-    <div className={styles.loginContainer}>
-      <Stack gap="md" align="center">
-        <Text as="h1" variant="display" color="primary">
-          Session expired
-        </Text>
-        <Text variant="body" color="secondary">
-          Your session ended. Sign in again to pick up where you left off.
-        </Text>
-        <Button variant="primary" onClick={() => signIn()}>
-          Sign In
-        </Button>
-      </Stack>
-    </div>
+    <SiteChrome>
+      <main className={styles.chromeMessage}>
+        <Stack gap="md" align="center">
+          <Text as="h1" variant="display" color="primary">
+            Session expired
+          </Text>
+          <Text variant="body" color="secondary">
+            Your session ended. Sign in again to pick up where you left off.
+          </Text>
+          <Button variant="primary" onClick={() => signIn()}>
+            Sign In
+          </Button>
+        </Stack>
+      </main>
+    </SiteChrome>
   );
 }
 
@@ -51,19 +54,21 @@ export function App() {
       return <LoadingScreen />;
     case "error":
       return (
-        <div className={styles.loginContainer}>
-          <Stack gap="md" align="center">
-            <Text as="h1" variant="display" color="primary">
-              Authentication Error
-            </Text>
-            <Text variant="body" color="secondary">
-              {gate.error.message}
-            </Text>
-            <Button variant="primary" onClick={() => window.location.assign("/gen")}>
-              Try Again
-            </Button>
-          </Stack>
-        </div>
+        <SiteChrome>
+          <main className={styles.chromeMessage}>
+            <Stack gap="md" align="center">
+              <Text as="h1" variant="display" color="primary">
+                Authentication Error
+              </Text>
+              <Text variant="body" color="secondary">
+                {gate.error.message}
+              </Text>
+              <Button variant="primary" onClick={() => window.location.assign("/gen")}>
+                Try Again
+              </Button>
+            </Stack>
+          </main>
+        </SiteChrome>
       );
     case "expired":
       return isSharedSpec ? <Outlet /> : <SessionExpiredScreen />;

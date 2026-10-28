@@ -77,6 +77,8 @@ export interface RialtoMessages {
   readonly drawer: string;
   /** Fallback accessible name of a Popover with no title. */
   readonly popover: string;
+  /** NeonSign banner shape: the decorative script line printed above OPEN. */
+  readonly neonSignLead: string;
   /** Accessible name of a HoverCard's preview surface. */
   readonly preview: string;
   /** Accessible name of the Toast region. */
@@ -294,6 +296,7 @@ export const enUS: RialtoMessages = {
   dialog: "Dialog",
   drawer: "Drawer",
   popover: "Popover",
+  neonSignLead: "Yes, we're",
   preview: "Preview",
   notifications: "Notifications",
   confirm: "Confirm",

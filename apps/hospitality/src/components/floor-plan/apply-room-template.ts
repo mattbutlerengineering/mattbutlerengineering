@@ -99,7 +99,7 @@ async function listVenueTableNames(
  * hand the new plan fewer tables than its template specifies — the same bug,
  * quieter. Only later plans are suffixed; the first keeps the pristine names.
  */
-export function uniqueTableName(desired: string, taken: ReadonlySet<string>): string {
+function uniqueTableName(desired: string, taken: ReadonlySet<string>): string {
   if (!taken.has(desired)) return desired;
   // `taken` is finite, and among `desired-2 … desired-(size + 2)` there are
   // more candidates than `taken` has entries, so one of them is always free.

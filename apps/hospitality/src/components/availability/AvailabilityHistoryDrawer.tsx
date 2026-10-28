@@ -68,7 +68,9 @@ function EntryRow({ entry, mine, canRevert, reverting, onRevert, onOpenDay }: En
       </Text>
       <Text variant="caption" color="secondary">
         {t("availability.history.byWhen", {
-          who: mine ? t("availability.history.you") : t("availability.history.teammate"),
+          who: mine
+            ? t("availability.history.you")
+            : (entry.actorName ?? t("availability.history.teammate")),
           when,
         })}
       </Text>

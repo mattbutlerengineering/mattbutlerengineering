@@ -292,6 +292,18 @@
       export const PreviewScopeSchema: unknown;
     </item>
     <item priority="high">
+      export const PREVIEW_PARTY_MAX: unknown;
+    </item>
+    <item priority="high">
+      export const PREVIEW_PARTY_DEFAULT: unknown;
+    </item>
+    <item priority="high">
+      export const PREVIEW_COMPARE_WITH: unknown;
+    </item>
+    <item priority="high">
+      export const PreviewCompareWithSchema: unknown;
+    </item>
+    <item priority="high">
       export const PreviewAvailabilityBodySchema: unknown;
     </item>
     <item priority="high">
@@ -305,6 +317,9 @@
     </item>
     <item priority="low">
       type PreviewAvailabilityParsed = z.infer<typeof PreviewAvailabilityBodySchema>;
+    </item>
+    <item priority="low">
+      type PreviewCompareWith = z.infer<typeof PreviewCompareWithSchema>;
     </item>
     <item priority="low">
       type PreviewResult = z.infer<typeof PreviewResultSchema>;
@@ -1441,6 +1456,9 @@
   <file path="src/schemas/venue.ts">
     <item priority="high">
       export const DayScheduleSchema: unknown;
+    </item>
+    <item priority="high">
+      export const OperatingHoursWriteSchema: unknown;
     </item>
     <item priority="high">
       export const VENUE_TYPES: unknown;

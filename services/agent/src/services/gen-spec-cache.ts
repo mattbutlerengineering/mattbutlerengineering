@@ -9,7 +9,7 @@ import { prisma } from "./database.js";
  */
 
 /** Cached rows older than this are ignored on read and swept on write. */
-export const GEN_SPEC_CACHE_TTL_HOURS = 24;
+const GEN_SPEC_CACHE_TTL_HOURS = 24;
 
 export interface GenSpecCacheKeyInput {
   readonly route: string;

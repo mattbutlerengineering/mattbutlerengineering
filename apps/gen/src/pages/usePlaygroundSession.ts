@@ -5,7 +5,8 @@ import { useSpecsApi } from "../hooks/useSpecsApi.js";
 import { useSpecDiffHistory } from "../hooks/useSpecDiffHistory.js";
 import { createRefinementPrompt } from "./createRefinementPrompt.js";
 import { createErrorRecoveryPrompt } from "./createErrorRecoveryPrompt.js";
-import { isTransportError } from "./classifyGenerationError.js";
+import { isTimeoutError, isTransportError } from "./classifyGenerationError.js";
+import { normalizeGeneratedSpec } from "../lib/normalize-generated-spec.js";
 import { usePlaygroundState } from "./usePlaygroundState.js";
 import type { PlaygroundMode } from "./usePlaygroundState.js";
 import { decodeSpec } from "../lib/spec.js";
@@ -19,6 +20,12 @@ import type { SpecError } from "../lib/spec-subtree.js";
 import { validateSpecAgainstCatalog } from "../lib/validate-spec.js";
 import { createSubtreeRefinementPrompt } from "./createSubtreeRefinementPrompt.js";
 import { resolveEntry } from "../lib/entry-kind.js";
+import {
+  clearPendingPrompt,
+  interruptedPromptNotice,
+  readInterruptedPrompt,
+  rememberPendingPrompt,
+} from "../lib/pending-prompt.js";
 import type { EntryKind, StoredSpec } from "../types.js";
 import type { SpecDiff } from "../lib/spec-subtree.js";
 
@@ -28,6 +35,10 @@ import type { SpecDiff } from "../lib/spec-subtree.js";
 // NOT NULL, so this stands in for "no spec" without risking a render crash
 // if the failed entry is ever selected from history.
 const EMPTY_SPEC: Spec = { root: "", elements: {} };
+
+// One shared instance: PromptBar re-seeds its textarea whenever the error's
+// identity changes, so a fresh Error per render would wipe what the user types.
+const FAILED_ENTRY_ERROR = new Error("This generation failed");
 
 const SPLICE_ERROR_MESSAGES: Record<SpecError, string> = {
   "unknown-key": "The selected component no longer exists in the spec.",
@@ -62,6 +73,10 @@ export interface PlaygroundSession {
   // History (from useSpecsApi)
   specs: StoredSpec[];
   isLoading: boolean;
+  /** Set when the most recent history fetch failed. */
+  historyError: Error | null;
+  /** Re-runs the failed history fetch. */
+  retryHistory: () => void;
   filter: "all" | "favorites";
   setFilter: (filter: "all" | "favorites") => void;
 
@@ -76,6 +91,8 @@ export interface PlaygroundSession {
   /** The raw prompt behind the current displayError, so it can be restored
    *  into the prompt input for editing instead of being lost. */
   failedPrompt: string | null;
+  /** Prompt restored after a refresh dropped an in-flight generation. */
+  interruptedPrompt: string | null;
 
   // Session verbs — own transition choreography lives here, not in the caller.
   submit: (prompt: string) => void;
@@ -122,7 +139,15 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
   const playgroundState = usePlaygroundState();
   const { mode, exitRefinement, enterRefinement } = playgroundState;
 
-  const { specs, isLoading, saveSpec, toggleFavorite, deleteSpec } = useSpecsApi();
+  const {
+    specs,
+    isLoading,
+    error: historyError,
+    fetchSpecs: retryHistory,
+    saveSpec,
+    toggleFavorite,
+    deleteSpec,
+  } = useSpecsApi();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "favorites">("all");
   // Track the most recently submitted prompt without triggering a re-render.
@@ -153,10 +178,23 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
   const diffHistory = useSpecDiffHistory();
   const { push: pushDiff, clear: clearDiffs } = diffHistory;
   const [lastChange, setLastChange] = useState<SpecDiff | null>(null);
+  const [interruptedPrompt] = useState(() => readInterruptedPrompt());
+  // A history row picked while a generation is still streaming. The finished
+  // run still saves, but it must not replace what the user is looking at.
+  const [heldId, setHeldId] = useState<string | null>(null);
+  const heldIdRef = useRef<string | null>(null);
+  const noticedInterruptedRef = useRef(false);
+
+  useEffect(() => {
+    if (!interruptedPrompt || noticedInterruptedRef.current) return;
+    noticedInterruptedRef.current = true;
+    options?.onNotice?.(interruptedPromptNotice());
+  }, [interruptedPrompt, options]);
 
   const { spec, isStreaming, error, rawLines, send, stop, clear } = useGenStream({
     api: "/api/gen/ui",
     onComplete: (completedSpec, completedRawLines) => {
+      clearPendingPrompt();
       const nodeRefine = nodeRefineRef.current;
       let savedSpec = completedSpec;
       let refinement: SpecDiff | undefined;
@@ -176,6 +214,9 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
         }
         savedSpec = spliced.spec;
         const before = extractSubtree(nodeRefine.base, nodeRefine.key);
+        // A row picked mid-stream stays on screen: the refine is saved, but its
+        // diff is not pushed onto the undo stack of a spec the user isn't viewing.
+        const held = heldIdRef.current !== null;
         if (before) {
           refinement = {
             parentId: nodeRefine.parentId,
@@ -183,11 +224,13 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
             before,
             after: completedSpec,
           };
-          pushDiff(refinement);
-          setLastChange(refinement);
+          if (!held) {
+            pushDiff(refinement);
+            setLastChange(refinement);
+          }
         }
         nodeRefineRef.current = null;
-        setPinnedSpec(savedSpec);
+        if (!held) setPinnedSpec(savedSpec);
       }
       if (!nodeRefine) {
         // A full generation is checked with the same validator as a refine.
@@ -195,7 +238,8 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
         // The streamed spec stays on screen (activeId stays null) next to the
         // error affordance, and the attempt is recorded as "failed" in history,
         // the same as a stream failure, rather than saved as a success.
-        const validation = validateSpecAgainstCatalog(completedSpec);
+        savedSpec = normalizeGeneratedSpec(completedSpec);
+        const validation = validateSpecAgainstCatalog(savedSpec);
         if (!validation.ok) {
           setValidationError(
             new Error(`The generated UI is not valid Rialto: ${validation.message}`)
@@ -225,7 +269,7 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
         refinement,
       })
         .then((stored) => {
-          setActiveId(stored.id);
+          setActiveId((current) => (heldIdRef.current ? current : stored.id));
           setPinnedSpec(null);
         })
         .finally(() => {
@@ -240,7 +284,8 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
     // transport/HTTP failure (auth expired, network drop) — that's an
     // infrastructure hiccup, not a generation failure worth recording.
     onError: (err) => {
-      if (!rawPrompt || isTransportError(err)) return;
+      clearPendingPrompt();
+      if (!rawPrompt || (isTransportError(err) && !isTimeoutError(err))) return;
       void saveSpec({
         prompt: rawPrompt,
         kind: "failed",
@@ -259,18 +304,32 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
   const activeEntrySpec = activeEntry ? (decodeSpec(activeEntry.spec) ?? undefined) : undefined;
   const activeEntryRawLines = activeEntry?.rawLines ?? [];
 
-  const displaySpec = pinnedSpec ?? (isStreaming ? spec : (activeEntrySpec ?? spec));
-  const displayRawLines = isStreaming
-    ? rawLines
-    : activeEntryRawLines.length > 0
-      ? activeEntryRawLines
-      : rawLines;
+  const showingHeld = heldId !== null && activeId === heldId && activeEntrySpec !== undefined;
+  const displaySpec =
+    pinnedSpec ?? (showingHeld ? activeEntrySpec : isStreaming ? spec : (activeEntrySpec ?? spec));
+  const displayRawLines = showingHeld
+    ? activeEntryRawLines
+    : isStreaming
+      ? rawLines
+      : activeEntryRawLines.length > 0
+        ? activeEntryRawLines
+        : rawLines;
   // useGenStream flips isStreaming to false in the same batch it sets error,
   // so gating on isStreaming here would mean the error is never visible —
   // only relevant while we're not looking at a previously saved entry.
-  const displayError = activeId === null ? (refineError ?? validationError ?? error) : null;
-  const activeSpecId = !isStreaming && activeId ? activeId : null;
-  const failedPrompt = displayError ? rawPrompt : null;
+  // A selected "failed" history entry has its own failure to show, distinct
+  // from (and not cleared by) the live generation's error/refineError/
+  // validationError above — otherwise it reads as an empty, not failed, spec.
+  const displayError =
+    activeId === null
+      ? (refineError ?? validationError ?? error)
+      : activeEntry?.kind === "failed"
+        ? FAILED_ENTRY_ERROR
+        : null;
+  const activeSpecId = heldId ?? (!isStreaming && activeId ? activeId : null);
+  // Only the live generation's failure restores rawPrompt; a selected history
+  // entry's failure is unrelated to whatever was last typed.
+  const failedPrompt = activeId === null && displayError ? rawPrompt : null;
 
   const clearNodeRefine = useCallback(() => {
     nodeRefineRef.current = null;
@@ -293,6 +352,12 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
 
   const submit = useCallback(
     (prompt: string) => {
+      // send() ignores a request while one is in flight; abort the old one first
+      // so it never completes under this prompt.
+      if (isStreaming) stop();
+      heldIdRef.current = null;
+      setHeldId(null);
+      rememberPendingPrompt(prompt);
       setRawPrompt(prompt);
       clearNodeRefine();
       if (mode === "refine" && displaySpec) {
@@ -310,7 +375,7 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
         void send(prompt);
       }
     },
-    [mode, displaySpec, send, clearNodeRefine]
+    [mode, displaySpec, isStreaming, send, stop, clearNodeRefine]
   );
 
   const refineNode = useCallback(
@@ -457,10 +522,29 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
 
   const selectHistory = useCallback(
     (id: string) => {
-      if (isStreaming) return;
+      // Looking at an earlier result while a long generation runs is the
+      // useful action. Ignoring the click makes the row look broken, and
+      // letting the save steal the row throws away the choice. The run still
+      // lands in history either way.
+      if (isStreaming) {
+        heldIdRef.current = id;
+        setHeldId(id);
+        if (nodeRefineRef.current) {
+          // A node refine in flight must still splice into its base and save
+          // its diff, so keep it (resetTo would clear it). Only release the
+          // pinned base so the picked row shows.
+          setPinnedSpec(null);
+          setActiveId(id);
+          exitRefinement();
+          return;
+        }
+      } else {
+        heldIdRef.current = null;
+        setHeldId(null);
+      }
       resetTo(id);
     },
-    [isStreaming, resetTo]
+    [isStreaming, resetTo, exitRefinement]
   );
 
   // Clear the underlying error/spec/rawLines too, not just activeId/mode —
@@ -468,9 +552,17 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
   // common case, so resetTo(null) alone is a no-op for it) and the logo
   // click / sign-out "New Generation" action doesn't show the empty state.
   const reset = useCallback(() => {
+    clearPendingPrompt();
+    heldIdRef.current = null;
+    setHeldId(null);
     clear();
     resetTo(null);
   }, [clear, resetTo]);
+
+  const stopGeneration = useCallback(() => {
+    clearPendingPrompt();
+    stop();
+  }, [stop]);
 
   const handleDeleteSpec = useCallback(
     (id: string) => {
@@ -496,6 +588,8 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
 
     specs,
     isLoading,
+    historyError,
+    retryHistory: () => void retryHistory(),
     filter,
     setFilter,
 
@@ -506,6 +600,7 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
     displayError,
     activeSpecId,
     failedPrompt,
+    interruptedPrompt,
 
     submit,
     refine: enterRefinement,
@@ -521,6 +616,6 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
     canRedo: diffHistory.canRedo,
     lastChange,
     reset,
-    stop,
+    stop: stopGeneration,
   };
 }

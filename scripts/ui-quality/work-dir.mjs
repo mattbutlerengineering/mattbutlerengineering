@@ -17,7 +17,7 @@ import { join } from "node:path";
 
 export const WORK_DIR = ".ui-quality";
 export const CAPTURES_DIR = "captures";
-export const MANIFEST_FILE = "manifest.jsonl";
+const MANIFEST_FILE = "manifest.jsonl";
 export const JUDGE_STATUS_FILE = "judge-status.json";
 
 /** `<root>/.ui-quality[/<...parts>]` */

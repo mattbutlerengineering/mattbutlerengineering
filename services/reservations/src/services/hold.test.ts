@@ -399,18 +399,18 @@ describe("holdService", () => {
       expect(result.error).toContain("not available");
     });
 
-    it("returns error when pacing limit exceeded (assertBookable returns PACING_EXCEEDED)", async () => {
+    it("leaves pacing to the availability gate: the named-table pre-check runs with settings null", async () => {
       vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({
         id: "venue-1",
-        settings: null,
+        settings: { pacingRules: [{ maxCoversPerSlot: 2, timeWindowMinutes: 15 }] },
       } as never);
       vi.mocked(estimateDuration).mockReturnValueOnce(90);
       vi.mocked(assertBookable).mockReturnValueOnce({
-        code: "PACING_EXCEEDED",
-        message: "Pacing limit reached. Maximum undefined covers per time window.",
+        code: "CONFLICT",
+        message: "Table is not available for this time slot",
       });
 
-      const result = await holdService.create(
+      await holdService.create(
         {
           venueId: "venue-1",
           date: "2026-05-05",
@@ -421,8 +421,7 @@ describe("holdService", () => {
         "session-abc"
       );
 
-      expect(result.success).toBe(false);
-      expect(result.error).toContain("Pacing limit");
+      expect(assertBookable).toHaveBeenCalledWith(expect.objectContaining({ settings: null }));
     });
 
     it("returns error when transaction detects conflicting reservation", async () => {

@@ -28,7 +28,7 @@ export interface ImpactBooking {
   endTime: Date;
   partySize: number;
   guestName: string | null;
-  /** Set for a non-terminal deposit (`pending` or `held`). Named for the common case. */
+  /** Set for a deposit a cancel owes a refund or void on: live (`pending`/`held`) or captured with a payment intent. Named for the common case. */
   heldDeposit: { amountCents: number; currency: string } | null;
 }
 

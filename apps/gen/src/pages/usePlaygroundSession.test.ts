@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { resetInterruptedPromptCache } from "../lib/pending-prompt.js";
 import { renderHook, act } from "@testing-library/react";
 import type { Spec } from "@json-render/react";
 import type { StoredSpec } from "../types.js";
@@ -45,9 +46,13 @@ let specsApiState: { specs: StoredSpec[]; isLoading: boolean } = {
   isLoading: false,
 };
 
+const mockFetchSpecs = vi.fn();
+
 vi.mock("../hooks/useSpecsApi.js", () => ({
   useSpecsApi: () => ({
     ...specsApiState,
+    error: null,
+    fetchSpecs: mockFetchSpecs,
     saveSpec: mockSaveSpec,
     toggleFavorite: mockToggleFavorite,
     deleteSpec: mockDeleteSpec,
@@ -78,6 +83,8 @@ function makeStoredSpec(overrides: Partial<StoredSpec>): StoredSpec {
 
 describe("usePlaygroundSession", () => {
   beforeEach(() => {
+    sessionStorage.clear();
+    resetInterruptedPromptCache();
     vi.clearAllMocks();
     genStreamState = { spec: null, isStreaming: false, error: null, rawLines: [] };
     specsApiState = { specs: [], isLoading: false };
@@ -95,7 +102,45 @@ describe("usePlaygroundSession", () => {
     expect(result.current.displaySpec).toBe(null);
   });
 
+  it("restores a prompt that a refresh interrupted and tells the user once", () => {
+    sessionStorage.setItem("gen.pendingPrompt", "pricing page");
+    resetInterruptedPromptCache();
+    const onNotice = vi.fn();
+    const { result } = renderHook(() => usePlaygroundSession({ onNotice }));
+    expect(result.current.interruptedPrompt).toBe("pricing page");
+    expect(onNotice).toHaveBeenCalledWith(expect.stringMatching(/interrupted/i));
+  });
+
+  it("drops the stashed prompt once the generation completes", async () => {
+    const { result } = renderHook(() => usePlaygroundSession());
+    act(() => result.current.submit("draw a table"));
+    expect(sessionStorage.getItem("gen.pendingPrompt")).toBe("draw a table");
+    await act(async () => {
+      capturedOnComplete?.({ root: "r", elements: {} }, []);
+    });
+    expect(sessionStorage.getItem("gen.pendingPrompt")).toBeNull();
+  });
+
   describe("submit", () => {
+    it("stops an in-flight generation before sending, so send is not ignored", () => {
+      genStreamState = { spec: null, isStreaming: true, error: null, rawLines: [] };
+      const { result } = renderHook(() => usePlaygroundSession());
+
+      act(() => result.current.submit("pricing template"));
+
+      expect(mockStop).toHaveBeenCalledTimes(1);
+      expect(mockSend).toHaveBeenCalledWith("pricing template");
+      expect(mockStop.mock.invocationCallOrder[0]).toBeLessThan(
+        mockSend.mock.invocationCallOrder[0] ?? 0
+      );
+    });
+
+    it("does not stop when nothing is streaming", () => {
+      const { result } = renderHook(() => usePlaygroundSession());
+      act(() => result.current.submit("hi"));
+      expect(mockStop).not.toHaveBeenCalled();
+    });
+
     it("sends the raw prompt in generate mode and clears the active spec", () => {
       specsApiState = { specs: [makeStoredSpec({ id: "s1" })], isLoading: false };
       const { result } = renderHook(() => usePlaygroundSession());
@@ -223,6 +268,54 @@ describe("usePlaygroundSession", () => {
         },
         after: REPLACEMENT,
       });
+    });
+
+    it("still splices and saves the refine diff when a history row is picked mid-stream", async () => {
+      const other: Spec = {
+        root: "o",
+        elements: { o: { type: "Text", props: { text: "Other" }, children: [] } },
+      };
+      specsApiState = {
+        specs: [
+          makeStoredSpec({ id: "parent", spec: BASE }),
+          makeStoredSpec({ id: "other", spec: other }),
+        ],
+        isLoading: false,
+      };
+      const { result, rerender } = setup();
+      act(() => result.current.selectHistory("parent"));
+      act(() => result.current.refineNode("card", "grid"));
+      genStreamState = { ...genStreamState, isStreaming: true, spec: REPLACEMENT };
+      rerender();
+
+      act(() => result.current.selectHistory("other"));
+      expect(result.current.activeSpecId).toBe("other");
+      expect(result.current.displaySpec).toEqual(other);
+
+      genStreamState = { ...genStreamState, isStreaming: false };
+      rerender();
+      await complete(REPLACEMENT);
+
+      const saved = mockSaveSpec.mock.calls[0]?.[0] as {
+        kind: string;
+        spec: Spec;
+        refinement: unknown;
+      };
+      expect(saved.kind).toBe("refine");
+      expect(saved.spec.elements.root).toEqual(BASE.elements.root);
+      expect(saved.spec.elements.card).toEqual(REPLACEMENT.elements.card);
+      expect(saved.refinement).toEqual({
+        parentId: "parent",
+        path: "card",
+        before: {
+          root: "card",
+          elements: { card: BASE.elements.card, label: BASE.elements.label },
+        },
+        after: REPLACEMENT,
+      });
+      // The picked row stays on screen.
+      expect(result.current.activeSpecId).toBe("other");
+      expect(result.current.displaySpec).toEqual(other);
     });
 
     it("saves a null parentId when the refined spec is not a saved entry", async () => {
@@ -520,6 +613,22 @@ describe("usePlaygroundSession", () => {
     });
   });
 
+  describe("viewing a failed history entry", () => {
+    it("sets displayError so JsonInspector shows a failure, not the generic empty state", () => {
+      specsApiState = {
+        specs: [makeStoredSpec({ id: "s1", prompt: "draw a form", kind: "failed", rawLines: [] })],
+        isLoading: false,
+      };
+      const { result } = renderHook(() => usePlaygroundSession());
+
+      act(() => result.current.selectHistory("s1"));
+
+      expect(result.current.activeSpecId).toBe("s1");
+      expect(result.current.displayRawLines).toEqual([]);
+      expect(result.current.displayError).not.toBeNull();
+    });
+  });
+
   describe("retry", () => {
     it("resubmits the active entry's prompt", () => {
       specsApiState = {
@@ -734,13 +843,39 @@ describe("usePlaygroundSession", () => {
       expect(result.current.mode).toBe("generate");
     });
 
-    it("is ignored while streaming", () => {
-      genStreamState = { ...genStreamState, isStreaming: true };
-      specsApiState = { specs: [makeStoredSpec({ id: "s1" })], isLoading: false };
+    it("keeps a row picked while streaming when the generation finishes", async () => {
+      const entrySpec: Spec = {
+        root: "card",
+        elements: { card: { type: "Card", props: { title: "Saved" }, children: [] } },
+      };
+      const liveSpec: Spec = {
+        root: "live",
+        elements: { live: { type: "Text", props: { children: "streaming" }, children: [] } },
+      };
+      specsApiState = {
+        specs: [makeStoredSpec({ id: "s1", spec: entrySpec, rawLines: ["{saved}"] })],
+        isLoading: false,
+      };
+      genStreamState = { spec: liveSpec, isStreaming: true, error: null, rawLines: ["{live}"] };
       const { result } = renderHook(() => usePlaygroundSession());
 
       act(() => result.current.selectHistory("s1"));
-      expect(result.current.activeSpecId).toBe(null);
+      expect(result.current.activeSpecId).toBe("s1");
+      expect(result.current.displaySpec).toEqual(entrySpec);
+      expect(result.current.displayRawLines).toEqual(["{saved}"]);
+
+      const finished: Spec = {
+        root: "done",
+        elements: { done: { type: "Text", props: { children: "done" }, children: [] } },
+      };
+      await act(async () => {
+        capturedOnComplete?.(finished, ["{done}"]);
+        await Promise.resolve();
+      });
+
+      expect(mockSaveSpec).toHaveBeenCalled();
+      expect(result.current.activeSpecId).toBe("s1");
+      expect(result.current.displaySpec).toEqual(entrySpec);
     });
   });
 
@@ -877,6 +1012,31 @@ describe("usePlaygroundSession", () => {
     it("does not expose a failing prompt when there is no error", () => {
       const { result } = renderHook(() => usePlaygroundSession());
       act(() => result.current.submit("draw a form"));
+      expect(result.current.failedPrompt).toBe(null);
+    });
+
+    it("keeps a selected failed entry's error stable across rerenders", () => {
+      // PromptBar re-seeds its textarea whenever the error identity changes, so
+      // a fresh Error per render would wipe what the user is typing.
+      specsApiState = { specs: [makeStoredSpec({ id: "f1", kind: "failed" })], isLoading: false };
+      const { result, rerender } = renderHook(() => usePlaygroundSession());
+
+      act(() => result.current.selectHistory("f1"));
+      const first = result.current.displayError;
+      rerender();
+
+      expect(first?.message).toBe("This generation failed");
+      expect(result.current.displayError).toBe(first);
+    });
+
+    it("does not offer the last typed prompt for a selected failed history entry", () => {
+      specsApiState = { specs: [makeStoredSpec({ id: "f1", kind: "failed" })], isLoading: false };
+      const { result } = renderHook(() => usePlaygroundSession());
+
+      act(() => result.current.submit("unrelated live prompt"));
+      act(() => result.current.selectHistory("f1"));
+
+      expect(result.current.displayError).not.toBeNull();
       expect(result.current.failedPrompt).toBe(null);
     });
   });
@@ -1026,6 +1186,25 @@ describe("usePlaygroundSession", () => {
       });
 
       expect(result.current.activeSpecId).toBe(null);
+    });
+
+    it("records a timeout so the attempt is visible, and keeps the prompt", async () => {
+      const timeout = Object.assign(new Error("Request failed: HTTP 504"), { status: 504 });
+      const { result, rerender } = renderHook(() => usePlaygroundSession());
+      act(() => result.current.submit("A form with 50 text input fields"));
+
+      await act(async () => {
+        capturedOnError?.(timeout);
+        await Promise.resolve();
+      });
+      genStreamState = { ...genStreamState, error: timeout, isStreaming: false };
+      rerender();
+
+      expect(mockSaveSpec).toHaveBeenCalledWith(
+        expect.objectContaining({ prompt: "A form with 50 text input fields", kind: "failed" })
+      );
+      expect(result.current.displayError).toBe(timeout);
+      expect(result.current.failedPrompt).toBe("A form with 50 text input fields");
     });
 
     it("does not record a Failed: history row for a transport error", async () => {

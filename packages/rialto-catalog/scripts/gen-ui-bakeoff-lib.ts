@@ -127,7 +127,7 @@ export function costUsd(tokens: Tokens, pricing: Pricing): number {
 }
 
 /** Cold-start cost: the same tokens with nothing served from cache. */
-export function uncachedCostUsd(tokens: Tokens, pricing: Pricing): number {
+function uncachedCostUsd(tokens: Tokens, pricing: Pricing): number {
   return costUsd({ inputTokens: tokens.inputTokens, outputTokens: tokens.outputTokens }, pricing);
 }
 
@@ -145,7 +145,7 @@ const JSON_OUTPUT_INSTRUCTIONS =
   "is assembled purely from `parentKey` links. An element's own words go in its " +
   "text or label prop.";
 
-export const SYSTEM_PROMPT = `${catalog.prompt()}\n\n${JSON_OUTPUT_INSTRUCTIONS}`;
+const SYSTEM_PROMPT = `${catalog.prompt()}\n\n${JSON_OUTPUT_INSTRUCTIONS}`;
 
 /* ── Validation ──────────────────────────────── */
 

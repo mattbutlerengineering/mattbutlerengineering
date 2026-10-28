@@ -105,6 +105,24 @@ vi.mock("./SectionZone.js", () => ({
   ),
 }));
 
+vi.mock("./PlanFloor.js", () => ({
+  PlanFloor: ({
+    texture,
+    width,
+    height,
+  }: {
+    texture?: HTMLImageElement;
+    width: number;
+    height: number;
+  }) => (
+    <div
+      data-testid="plan-floor"
+      data-textured={String(Boolean(texture))}
+      data-size={`${width}x${height}`}
+    />
+  ),
+}));
+
 import { FloorPlanCanvas } from "./FloorPlanCanvas.js";
 
 /* ── Fixtures ─────────────────────────────────────────────────── */
@@ -224,6 +242,40 @@ describe("FloorPlanCanvas sections", () => {
     vi.unstubAllGlobals();
   });
 
+  it("draws the plan-level floor beneath the sections, textured once its material loads", async () => {
+    const loaded: Record<string, () => void> = {};
+    class StubImage {
+      onload: (() => void) | null = null;
+      set src(value: string) {
+        const material = value.split("/").pop()!.replace(".png", "");
+        loaded[material] = () => this.onload?.();
+      }
+    }
+    vi.stubGlobal("Image", StubImage);
+
+    render(
+      <FloorPlanCanvas
+        {...defaultProps}
+        floorPlan={{
+          ...FLOOR_PLAN,
+          layoutJson: { width: 1200, height: 800, floorMaterial: "concrete" },
+        }}
+        sections={[zone]}
+      />
+    );
+    const floor = screen.getByTestId("plan-floor");
+    expect(floor.dataset.size).toBe("1200x800");
+    expect(floor.dataset.textured).toBe("false");
+    expect(
+      floor.compareDocumentPosition(screen.getByTestId("section-zone-s1")) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+
+    await act(async () => loaded.concrete?.());
+    expect(screen.getByTestId("plan-floor").dataset.textured).toBe("true");
+    vi.unstubAllGlobals();
+  });
+
   it("resolves one label theme for the whole canvas", () => {
     render(<FloorPlanCanvas {...defaultProps} sections={[zone]} />);
     expect(screen.getByTestId("section-zone-s1").dataset.labelPlate).toBeTruthy();
@@ -324,6 +376,36 @@ describe("FloorPlanCanvas", () => {
 
       expect(screen.getByTestId("table-shape-t1").getAttribute("data-status")).toBeNull();
       expect(screen.getByTestId("table-shape-t2").getAttribute("data-status")).toBeNull();
+    });
+  });
+
+  describe("status legend (#7844)", () => {
+    it("shows the legend under the canvas when statuses are supplied", () => {
+      const tableStatuses = new Map<string, TableDisplayStatus>([["t1", "seated"]]);
+      render(<FloorPlanCanvas {...defaultProps} tableStatuses={tableStatuses} />);
+      expect(screen.getByRole("list", { name: "Table status" })).toBeInTheDocument();
+      expect(
+        screen
+          .getByTestId("floor-plan-canvas-wrapper")
+          .compareDocumentPosition(screen.getByRole("list", { name: "Table status" }))
+      ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    });
+
+    it("hides the legend in editor-only usage", () => {
+      render(<FloorPlanCanvas {...defaultProps} />);
+      expect(screen.queryByRole("list", { name: "Table status" })).not.toBeInTheDocument();
+    });
+
+    it("does not speak a status for a table the feed has not reported", () => {
+      const tableStatuses = new Map<string, TableDisplayStatus>([["t1", "seated"]]);
+      render(<FloorPlanCanvas {...defaultProps} tableStatuses={tableStatuses} />);
+      expect(screen.getByRole("button", { name: /T2$/ })).toBeInTheDocument();
+    });
+
+    it("names each table's status on its keyboard button", () => {
+      const tableStatuses = new Map<string, TableDisplayStatus>([["t1", "needs-bussing"]]);
+      render(<FloorPlanCanvas {...defaultProps} tableStatuses={tableStatuses} />);
+      expect(screen.getByRole("button", { name: /, Needs bussing$/ })).toBeInTheDocument();
     });
   });
 
@@ -460,6 +542,34 @@ describe("FloorPlanCanvas", () => {
       // #f8f6f3 / #d8d4cd were the pre-fix hardcoded light-theme grid colors
       // baked into a data-URI SVG — they never adapted to dark theme.
       expect(backgroundImage).not.toMatch(/#f8f6f3|#d8d4cd/i);
+    });
+
+    const gridOverlay = () =>
+      screen.getByTestId("floor-plan-canvas-wrapper").querySelector<HTMLElement>(".gridOverlay");
+
+    it("has no grid overlay when the plan has no floor material", () => {
+      render(<FloorPlanCanvas {...defaultProps} />);
+      expect(gridOverlay()).toBeNull();
+    });
+
+    it("moves the grid above an opaque plan floor so it stays visible", () => {
+      const floorPlan = {
+        ...defaultProps.floorPlan,
+        layoutJson: { ...defaultProps.floorPlan.layoutJson, floorMaterial: "marble" as const },
+      };
+      render(<FloorPlanCanvas {...defaultProps} floorPlan={floorPlan} />);
+
+      expect(gridOverlay()?.style.backgroundImage).toContain("var(--rialto-border)");
+      expect(screen.getByTestId("floor-plan-canvas-wrapper").style.backgroundImage).toBe("");
+    });
+
+    it("draws no grid overlay on a read-only canvas", () => {
+      const floorPlan = {
+        ...defaultProps.floorPlan,
+        layoutJson: { ...defaultProps.floorPlan.layoutJson, floorMaterial: "marble" as const },
+      };
+      render(<FloorPlanCanvas {...defaultProps} floorPlan={floorPlan} readOnly />);
+      expect(gridOverlay()).toBeNull();
     });
   });
 

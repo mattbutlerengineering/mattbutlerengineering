@@ -298,6 +298,32 @@ describe("saveAvailabilityConfig", () => {
 
   const WHOLE_WEEK = body({ upsert: { ...CONFIG, dateRules: [] } }, 3);
 
+  it("snapshots the actor's name on the audit row, and null when none is given", async () => {
+    const named = savingTx();
+    await saveAvailabilityConfig(
+      {
+        venueId: "venue-1",
+        actorId: "auth0|ben",
+        actorName: "Ben Ito",
+        body: WHOLE_WEEK,
+        now: NOW,
+      },
+      fakeClient(named)
+    );
+    expect(named.availabilityChange.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ actorName: "Ben Ito" }) })
+    );
+
+    const anonymous = savingTx();
+    await saveAvailabilityConfig(
+      { venueId: "venue-1", actorId: "auth0|ben", body: WHOLE_WEEK, now: NOW },
+      fakeClient(anonymous)
+    );
+    expect(anonymous.availabilityChange.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ actorName: null }) })
+    );
+  });
+
   it("commits rows, the audit row and the legacy projection together", async () => {
     const tx = savingTx();
 
@@ -418,7 +444,14 @@ describe("saveAvailabilityConfig", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           date: { gte: new Date("2026-11-06T00:00:00.000Z") },
-          startTime: { gte: late },
+          OR: [
+            { startTime: { gte: late } },
+            {
+              status: { in: ["PENDING", "CONFIRMED"] },
+              startTime: { gte: new Date("2026-11-07T07:40:00.000Z") },
+              endTime: { gt: late },
+            },
+          ],
         }),
       })
     );
@@ -445,6 +478,70 @@ describe("getAvailabilityConfig", () => {
     expect(first).toMatchObject({ source: "legacy", version: 0 });
     expect(first?.config.schedules).toHaveLength(1);
     expect(second?.config).toEqual(first?.config);
+  });
+});
+
+describe("getAvailabilityConfig: the migrated flag", () => {
+  // Rows as the backfill leaves them: a regular week, and no audit row (it writes none).
+  const backfilled = (changes: number) =>
+    fakeClient({
+      schedule: {
+        findMany: vi.fn(async () => [
+          { id: "sch-1", name: "Regular", kind: "regular", isRegular: true, archivedAt: null },
+        ]),
+      },
+      venueService: {
+        findMany: vi.fn(async () => [
+          { id: "vs-dinner", name: "Dinner", position: 0, archivedAt: null },
+        ]),
+      },
+      scheduleService: {
+        findMany: vi.fn(async () => [
+          {
+            id: "ss-1",
+            scheduleId: "sch-1",
+            venueServiceId: "vs-dinner",
+            opensAt: 1020,
+            lastSeatingAt: 1260,
+            closesAt: 1320,
+            seating: { version: 1, interval: 15 },
+            bookingTypes: ["online", "phone"],
+          },
+        ]),
+      },
+      scheduleAssignment: {
+        findMany: vi.fn(async () => [
+          {
+            id: "as-1",
+            scheduleId: "sch-1",
+            weekdays: [0, 1, 2, 3, 4, 5, 6],
+            startsOn: null,
+            endsOn: null,
+            precedence: 0,
+          },
+        ]),
+      },
+      dateRule: { findMany: vi.fn(async () => []) },
+      availabilityChange: { findFirst: vi.fn(async () => (changes > 0 ? { id: "chg-1" } : null)) },
+      venue: {
+        findUnique: vi.fn(async () => ({
+          ianaTimezone: TZ,
+          settings: {},
+          operatingHours: { friday: { open: "17:00", close: "22:00" } },
+          availabilityVersion: 0,
+        })),
+      },
+    });
+
+  it("flags a venue on rows that nobody has saved yet, so F11 can tell it was carried over", async () => {
+    const state = await getAvailabilityConfig("venue-1", NOW, backfilled(0));
+    expect(state).toMatchObject({ source: "rows", migrated: true });
+  });
+
+  it("drops the flag once anyone has saved", async () => {
+    const state = await getAvailabilityConfig("venue-1", NOW, backfilled(1));
+    expect(state?.source).toBe("rows");
+    expect(state).not.toHaveProperty("migrated");
   });
 });
 
@@ -542,6 +639,8 @@ describe("previewAvailabilityConfig", () => {
     scope: { from: "2026-11-01" },
     focusDate: "2026-11-02",
     strandedOffset: 0,
+    compareWith: "saved" as const,
+    partySize: 2,
   };
 
   const previewTx = (venue: object | null, reservations: () => Promise<unknown[]>) => ({

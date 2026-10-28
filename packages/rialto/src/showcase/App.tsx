@@ -127,5 +127,3 @@ export function App() {
     </RialtoProvider>
   );
 }
-
-export { Section, Subsection };

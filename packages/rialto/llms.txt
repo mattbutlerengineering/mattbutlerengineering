@@ -48,6 +48,13 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="BarChart">
+  <file path="src/components/BarChart/BarChart.catalog.ts">
+    <item priority="high">
+      export const barChartCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="Breadcrumb">
   <file path="src/components/Breadcrumb/Breadcrumb.catalog.ts">
     <item priority="high">
@@ -553,9 +560,6 @@
   </file>
   <file path="src/components/SilkFlow/silk-flow-field.ts">
     <item priority="high">
-      export const FIELD_SCALE: unknown;
-    </item>
-    <item priority="high">
       export const FIELD_TIME_STEP: unknown;
     </item>
     <item priority="low">
@@ -641,8 +645,8 @@
   </section>
   <section priority="medium" role="TapeChart">
   <file path="src/components/TapeChart/dateMath.ts">
-    <item priority="high">
-      export function parseISOMs(iso: string): number { /* ... */ }
+    <item priority="medium">
+      function parseISOMs(iso: string): number { /* ... */ }
     </item>
     <item priority="high">
       export function daysBetween(a: string, b: string): number { /* ... */ }
@@ -667,8 +671,8 @@
           TapeChartStrings,
           | "reservatio...;
     </item>
-    <item priority="high">
-      export function defaultStringsFor(messages: RialtoMessages): ResolvedStrings { /* ... */ }
+    <item priority="medium">
+      function defaultStringsFor(messages: RialtoMessages): ResolvedStrings { /* ... */ }
     </item>
     <item priority="high">
       export const DEFAULT_STRINGS: ResolvedStrings;
@@ -943,12 +947,6 @@
       export const PLATE_RADIUS: unknown;
     </item>
     <item priority="high">
-      export const PIVOT: unknown;
-    </item>
-    <item priority="high">
-      export const TOOTH_RATIO: unknown;
-    </item>
-    <item priority="high">
       export const ESCAPE_TEETH: unknown;
     </item>
     <item priority="high">
@@ -1168,8 +1166,11 @@
     <item priority="high">
       export const FOCUSABLE_SELECTOR: unknown;
     </item>
-    <item priority="high">
-      export const FOCUS_TRAP_SKIP_INITIAL_ATTR: unknown;
+    <item priority="medium">
+      function isReachable(el: HTMLElement, panel: HTMLElement): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function queryTabbable(panel: HTMLElement): HTMLElement[] { /* ... */ }
     </item>
     <item priority="low">
       interface UseFocusTrapOptions {
@@ -1178,7 +1179,7 @@
     </item>
     <item priority="medium">
       function resolveInitialFocus(
-        focusable: NodeListOf<HTMLElement>,
+        focusable: HTMLElement[],
         first: HTMLElement | undefined,
         initialFocus?: RefObject<HTMLElement | null>
       ): HTMLElement | undefined { /* ... */ }
@@ -1207,7 +1208,7 @@
   </file>
   <file path="src/hooks/useReturnFocus.ts">
     <item priority="high">
-      export function useReturnFocus(open: boolean): void { /* ... */ }
+      export function useReturnFocus(open: boolean): () => void { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useScrollReveal.ts">

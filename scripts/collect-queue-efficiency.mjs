@@ -91,7 +91,7 @@ const READ_PRS_WINDOW_DAYS = 7;
  * @param {unknown} err
  * @returns {string}
  */
-export function classifyUnavailableReason(err) {
+function classifyUnavailableReason(err) {
   if (err instanceof GhGraphqlUnavailableError) return "graphql_unavailable";
   if (err instanceof MissingGithubTokenError) return "gh_binary_absent_no_credential";
   if (err instanceof GhRateLimitError) return "rate_limited";

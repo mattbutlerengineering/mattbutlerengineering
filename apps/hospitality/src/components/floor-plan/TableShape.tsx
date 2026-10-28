@@ -1,12 +1,16 @@
 import { memo, useRef, useEffect, useState } from "react";
-import { Group, Text } from "react-konva";
+import { Group } from "react-konva";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type { Table } from "@mbe/types";
-import { seatPlacements } from "./floor-plan-geometry.js";
+import { SHAPE_DEFAULTS, fittedSeatSize, seatPlacements } from "./floor-plan-geometry.js";
 import { SeatArt, TableArt } from "./FurnitureArt.js";
+import { useMotionPreset } from "@mattbutlerengineering/rialto/providers";
 import { FURNITURE_PALETTE } from "./furniture-tokens.js";
+import { useSectionLabelTheme } from "./section-label-theme.js";
+import { TableLabel } from "./TableLabel.js";
 import { TABLE_STATUS_COLOR_TOKEN, type TableDisplayStatus } from "./table-status.js";
+import { glyphKeyFor } from "./table-status-glyph.js";
 
 /* Canvas (Konva) doesn't support CSS custom properties — `fillStyle` needs a
  * literal color string, and `var(--rialto-*)` never resolves on a canvas.
@@ -15,8 +19,6 @@ import { TABLE_STATUS_COLOR_TOKEN, type TableDisplayStatus } from "./table-statu
  * and re-resolves whenever `data-theme` flips (see the MutationObserver in
  * TableShape below). See apps/hospitality/CLAUDE.md for the documented
  * exception this implements. */
-const TABLE_LABEL_COLOR = "#ffffff";
-
 type ColorKey = TableDisplayStatus | "inactive" | "selectedStroke";
 
 /** rialto custom-property names backing each canvas fill/stroke. The
@@ -81,6 +83,8 @@ export interface TableShapeProps {
    * falls back to "available" — matching the pre-live-status default.
    */
   status?: TableDisplayStatus;
+  /** The stage's scale; sizes the label so it stays readable when the plan is shrunk. */
+  stageScale?: number;
 }
 
 function TableShapeComponent({
@@ -91,8 +95,10 @@ function TableShapeComponent({
   onDragStart,
   onDragEnd,
   status,
+  stageScale = 1,
 }: TableShapeProps) {
   const groupRef = useRef<Konva.Group>(null);
+  const labelTheme = useSectionLabelTheme();
   const [themeColors, setThemeColors] = useState(resolveThemeColors);
 
   // Re-resolve fills whenever the active theme flips — Konva can't consume
@@ -113,13 +119,16 @@ function TableShapeComponent({
   const shape = table.shapeMetadata?.shape ?? "rectangle";
   const rotation = table.shapeMetadata?.rotation ?? 0;
 
-  // Determine the surface color — inactive always wins over any live status,
-  // then live status, then the per-table `shapeMetadata.color` tint, then the
-  // editor-only "available" default. Status outranks the tint so that a
-  // custom table color can never hide a seated or needs-bussing table.
+  // Determine the surface color. Precedence: inactive > non-available live
+  // status > per-table `shapeMetadata.color` tint > available default.
+  // Decision (#7264): "available" is the neutral resting state and carries no
+  // operational information, so a custom tint outranks it; any other status
+  // (seated, needs-bussing, reserved-soon) outranks the tint so a custom color
+  // can never hide an operational state.
+  const liveStatusColor = status && status !== "available" ? themeColors[status] : undefined;
   const fillColor = !table.isActive
     ? themeColors.inactive
-    : (status && themeColors[status]) || table.shapeMetadata?.color || themeColors.available;
+    : liveStatusColor || table.shapeMetadata?.color || themeColors.available;
 
   const handleDragStart = () => {
     onDragStart(table.id);
@@ -134,20 +143,26 @@ function TableShapeComponent({
     onSelect(table.id);
   };
 
-  // Apply shadow when dragging
+  // Apply shadow when dragging. The only animated shadow on the canvas; it
+  // lands instantly under reduced motion (the preset's duration is 0).
+  const { precision } = useMotionPreset();
+  const dragShadowDuration = precision.duration;
   useEffect(() => {
     if (groupRef.current) {
       groupRef.current.to({
         shadowBlur: isDragging ? 10 : 0,
         shadowOpacity: isDragging ? 0.3 : 0,
-        duration: 0.1,
+        duration: dragShadowDuration,
       });
     }
-  }, [isDragging]);
+  }, [isDragging, dragShadowDuration]);
 
   // Seats are drawn first so the table surface overlaps them — the look of
   // chairs tucked under a table rather than floating beside it.
-  const seats = seatPlacements({ shape, capacity: table.capacity });
+  const width = table.shapeMetadata?.width ?? SHAPE_DEFAULTS[shape].width;
+  const height = table.shapeMetadata?.height ?? SHAPE_DEFAULTS[shape].height;
+  const seats = seatPlacements({ shape, capacity: table.capacity, width, height });
+  const chair = fittedSeatSize({ shape, capacity: table.capacity, width, height });
 
   return (
     <Group
@@ -165,34 +180,34 @@ function TableShapeComponent({
       {seats.map((seat) => (
         // Seats have no identity of their own; their placement is deterministic
         // and distinct, so the position is the stable key.
-        <SeatArt key={`${seat.x},${seat.y}`} x={seat.x} y={seat.y} rotation={seat.rotation} />
+        <SeatArt
+          key={`${seat.x},${seat.y}`}
+          x={seat.x}
+          y={seat.y}
+          rotation={seat.rotation}
+          width={chair.width}
+          height={chair.height}
+        />
       ))}
       <TableArt
         shape={shape}
+        width={width}
+        height={height}
         fill={fillColor}
         stroke={isSelected ? themeColors.selectedStroke : FURNITURE_PALETTE.edge}
         strokeWidth={isSelected ? 3 : 1}
       />
-      <Text
-        text={table.tableNumber || table.name}
-        fontSize={14}
-        fontStyle="bold"
-        fill={TABLE_LABEL_COLOR}
-        align="center"
-        verticalAlign="middle"
-        offsetX={20}
-        offsetY={7}
-        width={40}
-      />
-      <Text
-        text={`${table.minCovers}-${table.maxCovers ?? table.capacity}`}
-        fontSize={10}
-        fill={TABLE_LABEL_COLOR}
-        align="center"
-        offsetX={15}
-        offsetY={-8}
-        width={30}
-        opacity={0.8}
+      <TableLabel
+        number={table.tableNumber || table.name}
+        covers={`${table.minCovers}-${table.maxCovers ?? table.capacity}`}
+        shape={shape}
+        capacity={table.capacity}
+        tableWidth={width}
+        tableHeight={height}
+        tableRotation={rotation}
+        stageScale={stageScale}
+        theme={labelTheme}
+        glyph={glyphKeyFor(status, table.isActive)}
       />
     </Group>
   );

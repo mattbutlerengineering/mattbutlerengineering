@@ -207,3 +207,22 @@ and headings in outline order.
 
 **A professional team instead:** fixes it when the page is next touched; minor
 is still a defect, just not an urgent one.
+
+## Motion — reviewer guidance (not judged tells)
+
+A still screenshot cannot show motion, so these are **not** tells in
+`rubric.json` and the judge never names them. They are the bar for code review
+and for anyone editing UI; the policy is
+[`packages/rialto/docs/motion.md`](../../packages/rialto/docs/motion.md). Promoting
+any of them to a tell needs a human PR that bumps `rubric_version` and
+recomputes `tells_hash`.
+
+- **Animation on a 100+/day action** — command palette, keyboard shortcut,
+  typing, tab or filter switch. These are instant or an opacity-only fade.
+- **Two expressive animations in one view** — springs, stagger or signature
+  instruments compete; one at a time.
+- **Infinite loop in task UI** — only status loops (loading, live, LED) are
+  allowed, and decorative loops must pause offscreen or after N cycles.
+- **Scale from below 0.9** — enter from 0.9 or above with opacity.
+- **Motion that carries information reduced motion drops** — reduced motion
+  swaps movement for opacity or an instant change, never removes the message.

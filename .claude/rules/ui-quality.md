@@ -46,3 +46,15 @@ The fix is almost always a rialto token: see `packages/rialto/CLAUDE.md`
 Bugs (`bugs/blank-render`, `bugs/unhandled-error`, `bugs/dead-in-app-link`,
 `bugs/failed-request`) are detected mechanically; every route must render
 content or an actionable error state, and every in-app link must match a route.
+
+## Motion — not screenshot-judged, still a defect in review
+
+Policy: [`motion.md`](../../packages/rialto/docs/motion.md). Not `rubric.json`
+tells (a still image can't show them); avoid them and flag them in review.
+
+- [ ] Animation on a 100+/day action (command palette, shortcuts, typing, tab
+      switch) — make it instant or an opacity-only fade.
+- [ ] Two expressive animations in one view — one expressive element at a time.
+- [ ] Infinite loop in task UI — only status loops (loading, live, LED).
+- [ ] Scale from below 0.9 — start at 0.9+ with opacity; press scale 0.97-0.98.
+- [ ] Hand-built reduced-motion fallback — resolve through `useMotionPreset()`.

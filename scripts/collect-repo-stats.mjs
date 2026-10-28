@@ -9,6 +9,10 @@
  * back to the committed `repo-stats.fallback.json` snapshot, so a build with no
  * network — or no token — still succeeds with slightly stale numbers.
  *
+ * The Rialto component count is deliberately not measured here (#7548): it is
+ * derived from the compiled manifest by `scripts/rialto-component-count.mjs`,
+ * which cannot run before the rialto build this step precedes.
+ *
  * Rate-limit budget: exactly two GitHub search calls (`total_count` only, never
  * paginating PR history). Local counters come from the working tree.
  *
@@ -17,7 +21,7 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { AGENT_LABEL } from "../plugins/acmm/scripts/agent-pr.js";
@@ -46,9 +50,6 @@ export const TOTAL_MERGED_QUERY = `repo:${REPO_SLUG} is:pr is:merged`;
  * so this count is a superset (it includes mislabeled bookkeeping PRs).
  */
 export const AGENT_MERGED_QUERY = `${TOTAL_MERGED_QUERY} label:${AGENT_LABEL}`;
-
-/** Component folders live one level under this directory. */
-const RIALTO_COMPONENTS_DIR = "packages/rialto/src/components";
 
 /** Where the generated snapshot is written (gitignored). */
 const OUTPUT_PATH = "apps/marketing/src/data/generated/repo-stats.json";
@@ -88,7 +89,6 @@ export function countTestFiles(trackedFiles) {
  * @typedef {object} RepoStats
  * @property {number} agentPrsMerged
  * @property {number} totalPrsMerged
- * @property {number} rialtoComponents
  * @property {number} testFiles
  * @property {string} measuredAt
  */
@@ -101,17 +101,11 @@ export function countTestFiles(trackedFiles) {
  *
  * @param {object} deps
  * @param {(query: string) => Promise<number>} deps.searchPrCount
- * @param {() => string[]} deps.listComponentDirs
  * @param {() => string[]} deps.listTrackedFiles
  * @param {() => Date} deps.now
  * @returns {Promise<{ available: true, stats: RepoStats } | { available: false, reason: string }>}
  */
-export async function collectRepoStats({
-  searchPrCount,
-  listComponentDirs,
-  listTrackedFiles,
-  now,
-}) {
+export async function collectRepoStats({ searchPrCount, listTrackedFiles, now }) {
   try {
     const totalPrsMerged = await searchPrCount(TOTAL_MERGED_QUERY);
 
@@ -139,7 +133,6 @@ export async function collectRepoStats({
       stats: {
         agentPrsMerged,
         totalPrsMerged,
-        rialtoComponents: listComponentDirs().length,
         testFiles: countTestFiles(listTrackedFiles()),
         measuredAt: now().toISOString(),
       },
@@ -178,13 +171,6 @@ export function createSearchPrCount(token, fetchImpl = fetch) {
   };
 }
 
-/** @returns {string[]} Directory names under packages/rialto/src/components. */
-function listComponentDirs() {
-  return readdirSync(resolve(ROOT, RIALTO_COMPONENTS_DIR), { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name);
-}
-
 /** @returns {string[]} Every git-tracked path in the repo. */
 function listTrackedFiles() {
   const stdout = execFileSync("git", ["ls-files"], {
@@ -216,7 +202,6 @@ async function main(env) {
 
   const result = await collectRepoStats({
     searchPrCount: createSearchPrCount(token),
-    listComponentDirs,
     listTrackedFiles,
     now: () => new Date(),
   });

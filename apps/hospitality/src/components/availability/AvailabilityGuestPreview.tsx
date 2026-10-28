@@ -1,12 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button, Card, Skeleton, Stack, Tag, Text } from "@mattbutlerengineering/rialto";
-import type {
-  AvailabilityConfigChanges,
-  PreviewAvailabilityBody,
-  PreviewResult,
-  ScopeConflictMode,
-  StrandedReservation,
+import {
+  Button,
+  Card,
+  IconButton,
+  SegmentedControl,
+  Select,
+  Skeleton,
+  Stack,
+  Tag,
+  Text,
+} from "@mattbutlerengineering/rialto";
+import {
+  PREVIEW_COMPARE_WITH,
+  PREVIEW_PARTY_DEFAULT,
+  PREVIEW_PARTY_MAX,
+  PREVIEW_STRANDED_PAGE_SIZE,
+  type AvailabilityConfigChanges,
+  type PreviewAvailabilityBody,
+  type PreviewCompareWith,
+  type PreviewResult,
+  type ScopeConflictMode,
+  type StrandedReservation,
 } from "@mbe/types";
 import { useAvailabilityPreview } from "../../hooks/useAvailabilityPreview.js";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
@@ -14,7 +29,10 @@ import { minuteText } from "./closure-band.js";
 import styles from "./AvailabilityGuestPreview.module.css";
 
 /** How long the draft must sit still before it is previewed. */
-export const PREVIEW_DEBOUNCE_MS = 400;
+const PREVIEW_DEBOUNCE_MS = 400;
+
+/** Most dates the date strip shows at once. */
+const STRIP_SIZE = 5;
 
 export interface AvailabilityGuestPreviewProps {
   readonly venueId: string;
@@ -49,8 +67,16 @@ function useSettledBody(body: PreviewAvailabilityBody) {
 const isSlow = (error: Error): boolean =>
   (error as { problemDetails?: { status?: number } }).problemDetails?.status === 503;
 
-function StrandedList(props: { readonly stranded: PreviewResult["stranded"] }) {
-  const { stranded } = props;
+const PARTY_OPTIONS = Array.from({ length: PREVIEW_PARTY_MAX }, (_, i) => ({
+  value: String(i + 1),
+  label: String(i + 1),
+}));
+
+function StrandedList(props: {
+  readonly stranded: PreviewResult["stranded"];
+  readonly onOffset: (offset: number) => void;
+}) {
+  const { stranded, onOffset } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   if (stranded.total === 0) return null;
@@ -80,9 +106,151 @@ function StrandedList(props: { readonly stranded: PreviewResult["stranded"] }) {
           </li>
         ))}
       </ul>
-      {more > 0 && (
+      {(more > 0 || stranded.offset > 0) && (
+        <div className={styles.pager}>
+          {more > 0 && (
+            <>
+              <Text variant="caption" color="secondary">
+                {t("availability.preview.strandedMore", { count: more })}
+              </Text>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onOffset(stranded.offset + PREVIEW_STRANDED_PAGE_SIZE)}
+              >
+                {t("availability.preview.strandedShow")}
+              </Button>
+            </>
+          )}
+          {stranded.offset > 0 && (
+            <Button variant="ghost" size="sm" onClick={() => onOffset(0)}>
+              {t("availability.preview.strandedBack")}
+            </Button>
+          )}
+        </div>
+      )}
+    </Stack>
+  );
+}
+
+const dayOf = (result: PreviewResult, date: string) =>
+  result.days.find((d) => d.serviceDate === date);
+
+/** "3 times added · 2 removed", plus the bookings the draft would strand. */
+function Summary(props: { readonly result: PreviewResult; readonly date: string }) {
+  const { result, date } = props;
+  const { t } = useTranslation();
+  const day = dayOf(result, date);
+  const summary = t("availability.preview.summary", {
+    added: t("availability.preview.addedCount", { count: day?.added.length ?? 0 }),
+    removed: t("availability.preview.removedCount", { count: day?.removed.length ?? 0 }),
+  });
+  const affected = result.stranded.total;
+  return (
+    <Text variant="body" color="primary">
+      {affected > 0
+        ? t("availability.preview.summaryAffected", {
+            summary,
+            affected: t("availability.preview.affectedCount", { count: affected }),
+          })
+        : summary}
+    </Text>
+  );
+}
+
+/** Staff pick the focus date from the dates the edit reaches, a few at a time around the pick. */
+function DateStrip(props: {
+  readonly dates: readonly string[];
+  readonly value: string;
+  readonly onChange: (date: string) => void;
+}) {
+  const { dates, value, onChange } = props;
+  const { t } = useTranslation();
+  const format = useVenueFormat();
+  if (dates.length < 2) return null;
+  const at = Math.max(0, dates.indexOf(value));
+  const start = Math.max(0, Math.min(at - Math.floor(STRIP_SIZE / 2), dates.length - STRIP_SIZE));
+  const segments = dates.slice(start, start + STRIP_SIZE).map((d) => ({
+    id: d,
+    label: format.formatCalendarDate(d, { weekday: "short", day: "numeric" }),
+  }));
+  const step = (by: number) => {
+    const next = dates[at + by];
+    if (next) onChange(next);
+  };
+  return (
+    <div className={styles.strip}>
+      <IconButton
+        size="sm"
+        aria-label={t("availability.preview.prevDate")}
+        icon={<Text aria-hidden="true">◂</Text>}
+        disabled={at === 0}
+        onClick={() => step(-1)}
+      />
+      <SegmentedControl
+        size="sm"
+        aria-label={t("availability.preview.date")}
+        segments={segments}
+        value={value}
+        onChange={onChange}
+      />
+      <IconButton
+        size="sm"
+        aria-label={t("availability.preview.nextDate")}
+        icon={<Text aria-hidden="true">▸</Text>}
+        disabled={at === dates.length - 1}
+        onClick={() => step(1)}
+      />
+    </div>
+  );
+}
+
+/** What the added / removed marks are measured against, and the party the times are for. */
+function Options(props: {
+  readonly compareWith: PreviewCompareWith;
+  readonly partySize: number;
+  readonly onCompare: (value: PreviewCompareWith) => void;
+  readonly onParty: (size: number) => void;
+}) {
+  const { compareWith, partySize, onCompare, onParty } = props;
+  const { t } = useTranslation();
+  return (
+    <div className={styles.options}>
+      <SegmentedControl
+        size="sm"
+        aria-label={t("availability.preview.compare")}
+        segments={PREVIEW_COMPARE_WITH.map((id) => ({
+          id,
+          label: t(`availability.preview.compare${id === "saved" ? "Saved" : "RegularWeek"}`),
+        }))}
+        value={compareWith}
+        onChange={(id) => onCompare(id as PreviewCompareWith)}
+      />
+      <Select
+        label={t("availability.preview.party")}
+        options={PARTY_OPTIONS}
+        value={String(partySize)}
+        onChange={(value) => onParty(Number(value))}
+      />
+    </div>
+  );
+}
+
+/** Why a date has no times: the day's name ("Closed", a schedule) and any guest message. */
+function NoTimes(props: { readonly day: PreviewResult["focusDay"] }) {
+  const { day } = props;
+  const { t } = useTranslation();
+  return (
+    <Stack gap="xs">
+      <Text variant="label" color="primary">
+        {t("availability.preview.noTimes")}
+      </Text>
+      <Text variant="caption" color="secondary">
+        {day.label}
+      </Text>
+      {day.guestMessage && (
         <Text variant="caption" color="secondary">
-          {t("availability.preview.strandedMore", { count: more })}
+          {day.guestMessage}
         </Text>
       )}
     </Stack>
@@ -96,9 +264,14 @@ function FocusTimes(props: {
 }) {
   const { result, focusDate, format } = props;
   const { t } = useTranslation();
-  const day = result.days.find((d) => d.serviceDate === focusDate);
+  const day = dayOf(result, focusDate);
   const added = day?.added ?? [];
   const removed = day?.removed ?? [];
+  const services = result.focusDay.services ?? [];
+  // An older API omits `services`; its count says the same thing.
+  const noService = result.focusDay.services
+    ? services.length === 0
+    : result.focusDay.serviceCount === 0;
   const mark = (key: "added" | "removed", minute: number) => (
     <Tag key={`${key}-${minute}`} variant={key === "added" ? "success" : "error"}>
       {t(`availability.preview.${key}`, { time: minuteText(minute, t, format) })}
@@ -106,13 +279,8 @@ function FocusTimes(props: {
   );
   return (
     <Stack gap="xs">
-      <Text variant="body" color="primary" aria-live="polite">
-        {t("availability.preview.summary", {
-          added: t("availability.preview.addedCount", { count: added.length }),
-          removed: t("availability.preview.removedCount", { count: removed.length }),
-        })}
-      </Text>
-      {(result.focusDay.services ?? []).map((s) => (
+      {noService && <NoTimes day={result.focusDay} />}
+      {services.map((s) => (
         <Text key={s.venueServiceId} variant="caption" color="secondary">
           {t("availability.editor.serviceLine", {
             name: s.name,
@@ -132,18 +300,51 @@ function FocusTimes(props: {
 /**
  * The guest preview (ux.md S4): what guests would gain and lose on the focus date under the
  * unsaved draft, and the bookings anywhere in the scope it would strand. The draft is debounced;
- * the last good result stays on screen, dimmed, while a newer one loads or fails.
+ * the last good result stays on screen, dimmed, while a newer one loads or fails. The summary and
+ * the slow / unavailable messages share one live region that is mounted from the start, so the
+ * first result is announced too.
  */
 export function AvailabilityGuestPreview(props: AvailabilityGuestPreviewProps) {
-  const { venueId, changes, scopeConflicts, dates, focusDate } = props;
+  const { venueId, changes, scopeConflicts, dates } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
+  // A picked date holds only while the page keeps the same focus date and the pick stays in scope.
+  const [picked, setPicked] = useState<{ base: string; date: string } | null>(null);
+  const focusDate =
+    picked && picked.base === props.focusDate && dates.includes(picked.date)
+      ? picked.date
+      : props.focusDate;
+  const stripDates = useMemo(
+    () => [...new Set([...dates, props.focusDate])].sort(),
+    [dates, props.focusDate]
+  );
+  const [compareWith, setCompareWith] = useState<PreviewCompareWith>("saved");
+  const [partySize, setPartySize] = useState(PREVIEW_PARTY_DEFAULT);
+  // A stranded page holds only for the request it was asked under; any other change starts over.
+  const [paged, setPaged] = useState<{ base: string; offset: number } | null>(null);
+  const requestKey = JSON.stringify([
+    changes,
+    scopeConflicts,
+    dates,
+    focusDate,
+    compareWith,
+    partySize,
+  ]);
+  const strandedOffset = paged?.base === requestKey ? paged.offset : 0;
   const draft = useMemo<PreviewAvailabilityBody>(
-    () => ({ draft: { changes, scopeConflicts }, scope: [...dates], focusDate }),
-    [changes, scopeConflicts, dates, focusDate]
+    () => ({
+      draft: { changes, scopeConflicts },
+      scope: [...dates],
+      focusDate,
+      compareWith,
+      partySize,
+      strandedOffset,
+    }),
+    [changes, scopeConflicts, dates, focusDate, compareWith, partySize, strandedOffset]
   );
   const { body, pending } = useSettledBody(draft);
   const { result, isFetching, error, retry } = useAvailabilityPreview(venueId, body);
+  // A result is read against the date it was computed for, never the newly picked one.
   const stale = pending || isFetching;
 
   return (
@@ -153,13 +354,29 @@ export function AvailabilityGuestPreview(props: AvailabilityGuestPreviewProps) {
       subtitle={t("availability.preview.draft")}
     >
       <Stack gap="sm">
-        {error && (
-          <Stack gap="xs">
+        <Options
+          compareWith={compareWith}
+          partySize={partySize}
+          onCompare={setCompareWith}
+          onParty={setPartySize}
+        />
+        <DateStrip
+          dates={stripDates}
+          value={focusDate}
+          onChange={(date) => setPicked({ base: props.focusDate, date })}
+        />
+        <div aria-live="polite" className={stale ? styles.stale : undefined}>
+          {result && <Summary result={result} date={result.focusDay.serviceDate} />}
+          {error && (
             <Text variant="body" color="warning">
               {isSlow(error)
                 ? t("availability.preview.slow")
                 : t("availability.preview.unavailable")}
             </Text>
+          )}
+        </div>
+        {error && (
+          <Stack gap="xs">
             {!isSlow(error) && (
               <Text variant="caption" color="secondary">
                 {t("availability.preview.unavailableHelp")}
@@ -175,8 +392,11 @@ export function AvailabilityGuestPreview(props: AvailabilityGuestPreviewProps) {
         {result ? (
           <div className={stale ? styles.stale : undefined} aria-busy={stale}>
             <Stack gap="sm">
-              <FocusTimes result={result} focusDate={focusDate} format={format} />
-              <StrandedList stranded={result.stranded} />
+              <FocusTimes result={result} focusDate={result.focusDay.serviceDate} format={format} />
+              <StrandedList
+                stranded={result.stranded}
+                onOffset={(offset) => setPaged({ base: requestKey, offset })}
+              />
             </Stack>
           </div>
         ) : (

@@ -8,9 +8,13 @@ import { TimelineEmptyNight, type TimelineEmptyNightProps } from "./TimelineEmpt
 import { useScrollToNow } from "./useScrollToNow.js";
 import { useTimelineKeyboard } from "../../hooks/useTimelineKeyboard.js";
 import { useGridFocus } from "./useGridFocus.js";
-import { computeReservationLayout, type ReservationLayoutResult } from "./reservationLayout.js";
+import {
+  computeReservationLayout,
+  serviceDayMinute,
+  type ReservationLayoutResult,
+} from "./reservationLayout.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { minutesOfDayIn, venueDate } from "../../utils/service-day.js";
+import { addDays, venueDate } from "../../utils/service-day.js";
 import styles from "./TimelineGrid.module.css";
 
 const HOUR_WIDTH = 120;
@@ -126,13 +130,23 @@ export function TimelineGrid({
     }
   }, [focusedReservationId, selectedReservationId, onReservationClick, reservations]);
 
+  // Hour columns grow past 24 (25 = 1 AM next morning) to cover the latest block on the service day.
+  const lastHour = useMemo(() => {
+    let latestEndMinute = 0;
+    for (const reservation of reservations) {
+      const end = serviceDayMinute(new Date(reservation.endTime), date, timeZone);
+      if (end > latestEndMinute) latestEndMinute = end;
+    }
+    return Math.max(endHour, Math.ceil(latestEndMinute / 60) - 1);
+  }, [reservations, date, timeZone, endHour]);
+
   const hours = useMemo(() => {
     const result = [];
-    for (let h = startHour; h <= endHour; h++) {
+    for (let h = startHour; h <= lastHour; h++) {
       result.push(h);
     }
     return result;
-  }, [startHour, endHour]);
+  }, [startHour, lastHour]);
 
   const gridFocus = useGridFocus({ rowCount: tables.length, colCount: hours.length });
 
@@ -189,15 +203,19 @@ export function TimelineGrid({
 
   // The grid is the venue's night: today and the now-line are read on the venue clock, the same
   // clock the blocks and labels use. (The UTC-keyed toDateString emptied the grid at 17:00 Pacific.)
-  const isToday = date === venueDate(currentTime, timeZone);
+  // The service day outlives venue midnight: while this grid's date is the venue's previous
+  // calendar day, `now` sits on the service-day axis at 1440+ and the line is drawn only if the
+  // grid actually has columns that far out (it is null again once the morning passes them).
+  const nowDay = venueDate(currentTime, timeZone);
+  const onServiceDay = date === nowDay || addDays(date, 1) === nowDay;
   const currentTimeOffset = useMemo(() => {
-    if (!isToday) return null;
-    const minutes = minutesOfDayIn(currentTime, timeZone);
+    if (!onServiceDay) return null;
+    const minutes = serviceDayMinute(currentTime, date, timeZone);
     const offset = minutes - startHour * 60;
-    // The endHour column is drawn (endHour:00–endHour:59), so the line runs through it too.
+    // The last hour column is drawn (h:00–h:59), so the line runs through it too.
     if (offset < 0 || offset >= hours.length * 60) return null;
     return (offset / 60) * hourWidth;
-  }, [isToday, startHour, hours.length, currentTime, hourWidth, timeZone]);
+  }, [onServiceDay, date, startHour, hours.length, currentTime, hourWidth, timeZone]);
 
   const totalWidth = tableColumnWidth + hours.length * hourWidth;
   const totalHeight = HEADER_HEIGHT + tables.length * ROW_HEIGHT;

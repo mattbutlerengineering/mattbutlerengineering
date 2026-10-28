@@ -102,6 +102,14 @@
         }
       }
     },
+    "neon": {
+      "red": { "$value": "#ff7a6b", "$type": "color" },
+      "pink": { "$value": "#ff7ab8", "$type": "color" },
+      "blue": { "$value": "#6aa8ff", "$type": "color" },
+      "green": { "$value": "#5fd47a", "$type": "color" },
+      "orange": { "$value": "#ff9a3d", "$type": "color" },
+      "purple": { "$value": "#b98cff", "$type": "color" }
+    },
     "overlay": {
       "$value": "rgb(0 0 0 / 0.6)",
       "$type": "color"

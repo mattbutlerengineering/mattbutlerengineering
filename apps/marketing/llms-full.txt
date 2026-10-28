@@ -227,7 +227,6 @@
        */
       readonly noFormalReviewStage: boolean;
     }
-    export const PR_CATEGORY_LOW_SAMPLE_THRESHOLD = 5;
     export interface PrCategoryBreakdownStats {
       readonly merged: number | null;
       readonly closedWithoutMerge: number | null;
@@ -385,6 +384,12 @@
         failingGates: failingGates.map(normalizeFailingGate),
       };
     }
+    export function describeSensorGap(sensor: Record<string, unknown>): string | null {
+      if (sensor.available === true) return null;
+      const code = readString(sensor.reason) ?? readString(sensor.state);
+      if (code != null) return SENSOR_GAP_EXPLANATIONS[code] ?? code;
+      return readString(sensor.error);
+    }
     export function normalizeSensorReport(report: unknown): HealthMetrics {
       const raw = asRecord(report);
       const sensors = asRecord(raw.sensors);
@@ -414,6 +419,26 @@
       };
     }
   </file>
+  <file path="src/data/engineering-menu.ts">
+    export interface EngineeringPage {
+      readonly label: string;
+      readonly href: string;
+    }
+    export const ENGINEERING_PAGES: readonly EngineeringPage[] = [
+      { label: "Metrics", href: "/metrics" },
+      { label: "Shipped", href: "/shipped" },
+      { label: "Weekly", href: "/weekly" },
+      { label: "Status", href: "/status" },
+      { label: "AI health", href: "/ai-health" },
+      { label: "ACMM", href: "/acmm" },
+    ];
+    export function isEngineeringPageCurrent(pathname: string, href: string): boolean {
+      return pathname === href || pathname.startsWith(`${href}/`);
+    }
+  </file>
+  <file path="src/data/measurement-date.ts">
+    export const MEASUREMENT_DATE: string = metricsSnapshot.generatedAt;
+  </file>
   <file path="src/data/projects.ts">
     export interface Project {
       title: string;
@@ -426,14 +451,12 @@
       {
         title: "Rialto Design System",
         description:
-          "A precision component library with 65+ components built on a warm neutral token system. " +
+          `A precision component library with ${REPO_STATS.rialtoComponents} components built on a warm neutral token system. ` +
           "Every surface, radius, shadow, and motion value is tokenized — components compose, not collide.",
         stack: ["React", "TypeScript", "Vite", "Framer Motion", "CSS Modules"],
-        // Deep-links to the Booking Wizard example — a composed multi-component
-        // page — rather than the showcase landing page, so a first-time visitor
-        // sees breadth in one view. Path derived per apps/rialto-web/src/data/
-        // page-registry.ts (Examples category strips the "example-" id prefix).
-        href: "/rialto/examples/booking-wizard",
+        // Links to the showcase landing page, which matches the "View live" label
+        // and orients a first-time visitor before they pick an example.
+        href: "/rialto",
       },
       {
         title: "Hospitality Platform",
@@ -462,14 +485,15 @@
       readonly agentPrsMerged: number;
       /** Merged pull requests in total. */
       readonly totalPrsMerged: number;
-      /** Component folders in `packages/rialto/src/components`. */
+      /** Entries in Rialto's compiled manifest — the one definition of "component". */
       readonly rialtoComponents: number;
       /** Git-tracked `*.test.*` / `*.spec.*` files. */
       readonly testFiles: number;
       /** ISO timestamp of the measurement. */
       readonly measuredAt: string;
     }
-    export function isRepoStats(value: unknown): value is RepoStats {
+    export type MeasuredStats = Omit<RepoStats, "rialtoComponents">;
+    export function isMeasuredStats(value: unknown): value is MeasuredStats {
       if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
       const candidate = value as Record<string, unknown>;
     
@@ -482,14 +506,25 @@
       const { measuredAt } = candidate;
       return typeof measuredAt === "string" && !Number.isNaN(Date.parse(measuredAt));
     }
-    export const FALLBACK_REPO_STATS: RepoStats = fallbackSnapshot;
-    export function selectRepoStats(generated: unknown, fallback: RepoStats): RepoStats {
-      return isRepoStats(generated) ? generated : fallback;
+    export const FALLBACK_REPO_STATS: MeasuredStats = fallbackSnapshot;
+    export function selectMeasuredStats(generated: unknown, fallback: MeasuredStats): MeasuredStats {
+      return isMeasuredStats(generated) ? generated : fallback;
     }
-    export const REPO_STATS: RepoStats = selectRepoStats(
-      Object.values(generatedSnapshots)[0]?.default,
-      FALLBACK_REPO_STATS
+    export function selectComponentCount(generated: unknown, fallback: number): number {
+      const count =
+        typeof generated === "object" && generated !== null
+          ? (generated as { rialtoComponents?: unknown }).rialtoComponents
+          : undefined;
+      return typeof count === "number" && Number.isInteger(count) && count > 0 ? count : fallback;
+    }
+    export const RIALTO_COMPONENT_COUNT: number = selectComponentCount(
+      Object.values(generatedComponentCounts)[0]?.default,
+      componentCountFallback.rialtoComponents
     );
+    export const REPO_STATS: RepoStats = {
+      ...selectMeasuredStats(Object.values(generatedSnapshots)[0]?.default, FALLBACK_REPO_STATS),
+      rialtoComponents: RIALTO_COMPONENT_COUNT,
+    };
   </file>
   <file path="src/data/shipped-features.ts">
     export interface ShippedPr {
@@ -619,6 +654,21 @@
         return { status: 200, body: "" };
       }
       return undefined;
+    }
+  </file>
+  <file path="src/data/weekly-freshness.ts">
+    export function recentReadingItems(
+      resources: readonly WeeklyResource[],
+      now: Date = new Date()
+    ): readonly WeeklyResource[] {
+      const cutoff = now.getTime() - READING_WINDOW_DAYS * MS_PER_DAY;
+      return resources
+        .filter((resource) => new Date(resource.publishedAt).getTime() >= cutoff)
+        .sort(byNewest)
+        .slice(0, MAX_READING_ITEMS);
+    }
+    export function latestPublishedAt(resources: readonly WeeklyResource[]): string | null {
+      return [...resources].sort(byNewest)[0]?.publishedAt ?? null;
     }
   </file>
   <file path="src/data/weekly-intake.ts">
@@ -1289,6 +1339,42 @@
       "ai-weekly": "AI Weekly",
       other: "Other",
     };
+  </file>
+  <file path="src/utils/route-meta.ts">
+    export interface RouteMeta {
+      readonly pattern: string;
+      readonly title: string;
+      readonly description: string;
+    }
+    function findRouteMeta(pathname: string): RouteMeta | undefined {
+      if (pathname === "/") return undefined;
+      return ROUTE_META.find((meta) => matchPath({ path: meta.pattern, end: true }, pathname));
+    }
+    function setDescription(content: string): void {
+      let tag = document.head.querySelector<HTMLMetaElement>('meta[name="description"]');
+      if (!tag) {
+        tag = document.createElement("meta");
+        tag.name = "description";
+        document.head.appendChild(tag);
+      }
+      tag.content = content;
+    }
+    export function useRouteMeta(): void {
+      const { pathname } = useLocation();
+      // index.html's title and description, captured before this hook first
+      // overwrites them, so unmapped paths (e.g. "/") can restore them.
+      const defaultsRef = useRef<{ title: string; description: string } | null>(null);
+      useEffect(() => {
+        defaultsRef.current ??= {
+          title: document.title,
+          description:
+            document.head.querySelector<HTMLMetaElement>('meta[name="description"]')?.content ?? "",
+        };
+        const meta = findRouteMeta(pathname) ?? defaultsRef.current;
+        document.title = meta.title;
+        setDescription(meta.description);
+      }, [pathname]);
+    }
   </file>
   </section>
 </codebase>

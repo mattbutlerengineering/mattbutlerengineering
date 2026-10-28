@@ -460,6 +460,9 @@
         retryAfterSeconds: number;
       }
     </item>
+    <item priority="medium">
+      function parseLine(line: string): unknown { /* ... */ }
+    </item>
     <item priority="high">
       export async function* streamNDJSON<T>(config: StreamConfig): AsyncGenerator<T> { /* ... */ }
     </item>

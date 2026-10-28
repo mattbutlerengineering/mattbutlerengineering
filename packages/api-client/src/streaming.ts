@@ -39,6 +39,23 @@ export class StreamRequestError extends Error {
   }
 }
 
+// A line, or undefined if blank/malformed. `$genError` throws a plain Error.
+function parseLine(line: string): unknown {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(line);
+  } catch {
+    return undefined;
+  }
+  const message = (parsed as { $genError?: unknown } | null)?.$genError;
+  if (typeof message === "string" && message) {
+    const error = new Error(message);
+    error.name = "GenStreamError";
+    throw error;
+  }
+  return parsed;
+}
+
 /**
  * Stream NDJSON from a POST endpoint, yielding one parsed object per line.
  *
@@ -107,27 +124,14 @@ export async function* streamNDJSON<T>(config: StreamConfig): AsyncGenerator<T> 
       buffer = lines.pop() ?? "";
 
       for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-
-        try {
-          const parsed = JSON.parse(trimmed) as T;
-          yield parsed;
-        } catch {
-          // Skip malformed JSON lines
-        }
+        const parsed = parseLine(line);
+        if (parsed !== undefined) yield parsed as T;
       }
     }
 
     // Process any remaining buffered content
-    if (buffer.trim()) {
-      try {
-        const parsed = JSON.parse(buffer.trim()) as T;
-        yield parsed;
-      } catch {
-        // Skip malformed JSON lines
-      }
-    }
+    const parsed = parseLine(buffer);
+    if (parsed !== undefined) yield parsed as T;
   } finally {
     reader.releaseLock();
   }

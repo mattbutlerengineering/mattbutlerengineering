@@ -9,6 +9,8 @@ import Stripe from "stripe";
 export class StripeOperationError extends Error {
   readonly isRetriable: boolean;
   readonly stripeType: string;
+  /** Stripe's machine-readable error `code` (e.g. `amount_too_large`), when it sent one. */
+  readonly code: string | undefined;
   override readonly cause: unknown;
 
   constructor(cause: unknown, stripeType: string, isRetriable: boolean) {
@@ -17,6 +19,8 @@ export class StripeOperationError extends Error {
     this.name = "StripeOperationError";
     this.cause = cause;
     this.stripeType = stripeType;
+    const code = (cause as { code?: unknown } | null)?.code;
+    this.code = typeof code === "string" ? code : undefined;
     this.isRetriable = isRetriable;
   }
 }
@@ -235,6 +239,57 @@ export class StripeService {
     try {
       const intent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
       return { id: intent.id, status: intent.status };
+    } catch (err) {
+      wrapStripeError(err);
+    }
+  }
+
+  /**
+   * Stripe's own totals on the PaymentIntent's charge, in minor units:
+   * `amount_captured` (a dashboard capture can be less than the authorization)
+   * and `amount_refunded`. The refunded total counts succeeded and pending
+   * refunds and drops failed ones, so unlike the webhook-fed
+   * `postCaptureRefundCents` (which only ever grows) it never counts money that
+   * did not reach the guest (#7790).
+   */
+  async getChargeAmounts(
+    paymentIntentId: string
+  ): Promise<{ capturedCents: number; refundedCents: number }> {
+    try {
+      const intent = await this.stripe.paymentIntents.retrieve(paymentIntentId, {
+        expand: ["latest_charge"],
+      });
+      const charge = intent.latest_charge;
+      if (charge == null || typeof charge === "string") {
+        throw new Error(`PaymentIntent ${paymentIntentId} has no charge to read amounts from`);
+      }
+      return { capturedCents: charge.amount_captured, refundedCents: charge.amount_refunded };
+    } catch (err) {
+      wrapStripeError(err);
+    }
+  }
+
+  /**
+   * How many of OUR refunds of `leg` ended `failed` or `canceled`. A retry whose
+   * earlier refund failed owes the same amount, so its idempotency key must
+   * change or Stripe replays the cached (now failed) response.
+   */
+  async countFailedDepositRefunds(
+    paymentIntentId: string,
+    depositId: string,
+    leg: DepositRefundLeg
+  ): Promise<number> {
+    try {
+      const refunds = await this.stripe.refunds.list({
+        payment_intent: paymentIntentId,
+        limit: 100,
+      });
+      return refunds.data.filter(
+        (refund) =>
+          refund.metadata?.depositId === depositId &&
+          refund.metadata?.leg === leg &&
+          (refund.status === "failed" || refund.status === "canceled")
+      ).length;
     } catch (err) {
       wrapStripeError(err);
     }

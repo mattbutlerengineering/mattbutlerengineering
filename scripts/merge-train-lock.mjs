@@ -238,10 +238,4 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   process.exitCode = main(process.argv.slice(2), process.env);
 }
 
-export {
-  acquireMergeTrainLock,
-  releaseMergeTrainLock,
-  heartbeatMergeTrainLock,
-  defaultLockDir,
-  lockNameForZone,
-};
+export { lockNameForZone };

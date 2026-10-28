@@ -435,7 +435,13 @@ describe("TonightControl", () => {
         await waitFor(() => expect(setTonight).toHaveBeenCalledTimes(2));
         const [first, second] = setTonight.mock.calls.map((c) => c[0].body);
         expect(second.change).toEqual({ type: "close_early", closeAt: 1320 });
-        expect(second.decisions).toEqual([{ groupKey: `${TODAY}:shortened`, action: "cancel" }]);
+        expect(second.decisions).toEqual([
+          {
+            groupKey: `${TODAY}:shortened`,
+            action: "cancel",
+            reservationIds: expect.any(Array),
+          },
+        ]);
         // The retry replays the first attempt's id.
         expect(second.ruleId).toBe(first.ruleId);
         await waitFor(() =>

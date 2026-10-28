@@ -285,6 +285,39 @@ describe("createGenRunner", () => {
 
       const call = vi.mocked(streamText).mock.calls[0]![0] as Record<string, unknown>;
       expect(call.maxOutputTokens).toBe(2048);
+      expect(call.providerOptions).toEqual({
+        anthropic: { thinking: { type: "disabled" }, toolStreaming: true },
+      });
+    });
+
+    it("emits each element as its JSON closes, and does not emit it again on tool-call", async () => {
+      const first = JSON.stringify({ key: "a", type: "Input", props: { label: "Field 1" } });
+      const second = JSON.stringify({ key: "b", type: "Input", props: { label: "Field 2" } });
+      vi.mocked(streamText).mockReturnValueOnce({
+        fullStream: mockAsyncIterable([
+          { type: "tool-input-start", id: "call-1", toolName: "render_component" },
+          { type: "tool-input-delta", id: "call-1", delta: `{"elements":[${first},` },
+          { type: "tool-input-delta", id: "call-1", delta: `${second}]}` },
+          {
+            type: "tool-call",
+            toolCallId: "call-1",
+            toolName: "render_component",
+            input: { elements: [JSON.parse(first), JSON.parse(second)] },
+          },
+        ]),
+        usage: Promise.resolve({ inputTokens: 1, outputTokens: 1 }),
+        providerMetadata: Promise.resolve({}),
+      } as never);
+
+      const events: GenStreamEvent[] = [];
+      await runner.run([{ role: "user", content: "form" }], {}, async (event) => {
+        events.push(event);
+      });
+
+      expect(events).toEqual([
+        { type: "element", element: JSON.parse(first) },
+        { type: "element", element: JSON.parse(second) },
+      ]);
     });
 
     it("fails the run when the model stops with finishReason length (cap hit)", async () => {

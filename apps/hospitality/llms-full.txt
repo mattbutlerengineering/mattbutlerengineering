@@ -328,10 +328,11 @@
       return groups.flatMap((g) => {
         const action = choices[g.groupKey]?.action;
         if (action === undefined) return [];
+        const reservationIds = g.reservations.map((r) => r.id);
         return [
           action === "keep_silent"
-            ? { groupKey: g.groupKey, action, acknowledged: true }
-            : { groupKey: g.groupKey, action },
+            ? { groupKey: g.groupKey, action, acknowledged: true, reservationIds }
+            : { groupKey: g.groupKey, action, reservationIds },
         ];
       });
     }
@@ -512,6 +513,11 @@
       | { readonly code: "version-conflict"; readonly winningChange: AvailabilityChangeSummary | null }
       /** This attempt id already committed (a response was lost). */
       | { readonly code: "closure-exists" };
+    export function isDecisionRequired(error: unknown): boolean {
+      const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
+      const problem = AvailabilityConfigProblemSchema.safeParse(details);
+      return problem.success && problem.data.code === "decision-required";
+    }
     export function conflictOf(error: unknown): Conflict | null {
       const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
       const problem = AvailabilityConfigProblemSchema.safeParse(details);
@@ -993,7 +999,6 @@
       /** Stored weekday indexes, 0 = Sunday … 6 = Saturday. */
       readonly days: readonly number[];
     }
-    export const LAST_SEATING_LEAD_MINUTES = 45;
     export const SERVICE_NAME_MAX_LENGTH = 40;
     export const WEEK_DISPLAY_ORDER: readonly number[] = [1, 2, 3, 4, 5, 6, 0];
     export const WEEKDAY_SHORTCUT: readonly number[] = [1, 2, 3, 4, 5];
@@ -1016,7 +1021,7 @@
       const [h = 0, m = 0] = hhmm.split(":").map(Number);
       return h * 60 + m;
     }
-    export function toClock(minutes: number): string {
+    function toClock(minutes: number): string {
       const wrapped = ((minutes % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
       const hh = String(Math.floor(wrapped / 60)).padStart(2, "0");
       const mm = String(wrapped % 60).padStart(2, "0");
@@ -1068,6 +1073,7 @@
       | "close_after_open"
       | "last_seating_after_close"
       | "span_too_long"
+      | "legacy_closed_day"
       | "overlap"
       | "days_required";
     export interface QuickSetupIssue {
@@ -1127,7 +1133,10 @@
       if (service.opens === service.closes) return [at("closes", "close_after_open")];
       return m.lastSeatingAt > m.closesAt ? [at("lastSeating", "last_seating_after_close")] : [];
     }
-    export function validateDraft(draft: QuickSetupDraft): QuickSetupIssue[] {
+    export function validateDraft(
+      draft: QuickSetupDraft,
+      options: { readonly legacyReader?: boolean } = {}
+    ): QuickSetupIssue[] {
       const perService = draft.services.flatMap((service) => {
         const missing = completenessIssues(service);
         const minutes = minutesOf(service);
@@ -1145,9 +1154,9 @@
           const service = draft.services[index];
           return service ? [{ serviceId: service.id, field: "opens", code: "overlap" }] : [];
         });
-      return [...overlaps, ...spanIssues(draft), ...daysIssue];
+      return [...overlaps, ...spanIssues(draft, options.legacyReader === true), ...daysIssue];
     }
-    function spanIssues(draft: QuickSetupDraft): QuickSetupIssue[] {
+    function spanIssues(draft: QuickSetupDraft, legacyReader: boolean): QuickSetupIssue[] {
       const read = normalizeLegacyHours(draftToLegacyHours(draft));
       const tooLong =
         read.ok &&
@@ -1156,12 +1165,24 @@
             (w) => w.wrapped === true && w.close - w.open > MAX_PAST_MIDNIGHT_SPAN
           )
         );
-      if (!tooLong) return [];
+      const code: QuickSetupIssueCode | null = tooLong
+        ? "span_too_long"
+        : legacyReader && read.ok && hasClosedDay(draft, read.hours)
+          ? "legacy_closed_day"
+          : null;
+      if (code === null) return [];
       const latest = draft.services.reduce<{ id: string; closesAt: number } | null>((acc, s) => {
         const m = minutesOf(s);
         return m && (!acc || m.closesAt > acc.closesAt) ? { id: s.id, closesAt: m.closesAt } : acc;
       }, null);
-      return latest ? [{ serviceId: latest.id, field: "closes", code: "span_too_long" }] : [];
+      return latest ? [{ serviceId: latest.id, field: "closes", code }] : [];
+    }
+    function hasClosedDay(draft: QuickSetupDraft, hours: LegacyHours): boolean {
+      let n = 0;
+      const built = buildLegacyConfig({ hours, today: "1970-01-01", newId: () => `legacy-${++n}` });
+      if (!built.ok) return false;
+      const open = new Set(built.config.assignments.flatMap((a) => a.weekdays));
+      return draft.days.some((day) => !open.has(day));
     }
     export function draftToConfig(
       draft: QuickSetupDraft,
@@ -1884,6 +1905,70 @@
       );
     }
   </file>
+  <file path="src/components/availability/selection-actions.ts">
+    export function ownSingleDateRules(
+      config: AvailabilityConfig,
+      dates: readonly string[]
+    ): DateRule[] {
+      const picked = new Set(dates);
+      return config.dateRules.filter(
+        (r) =>
+          (r.kind === "special_hours" || r.kind === "use_schedule") &&
+          r.targetKind === "venue" &&
+          r.endsOn === r.startsOn &&
+          picked.has(r.startsOn) &&
+          r.repeat == null &&
+          r.window == null &&
+          r.seriesId == null &&
+          r.bookingTypes == null &&
+          r.venueServiceId == null
+      );
+    }
+    export function buildClearChanges(
+      config: AvailabilityConfig,
+      dates: readonly string[]
+    ): AvailabilityConfigChanges {
+      return { upsert: {}, remove: removal(ownSingleDateRules(config, dates)) };
+    }
+    export function buildUseScheduleChanges(
+      config: AvailabilityConfig,
+      dates: readonly string[],
+      scheduleId: string,
+      makeId: () => string
+    ): AvailabilityConfigChanges {
+      const dateRules: DateRule[] = dates.map((date) => ({
+        id: makeId(),
+        kind: "use_schedule",
+        targetKind: "venue",
+        startsOn: date,
+        endsOn: date,
+        useScheduleId: scheduleId,
+      }));
+      return {
+        upsert: { dateRules },
+        remove: removal(ownSingleDateRules(config, dates)),
+      };
+    }
+    export function buildUseDayHoursChanges(input: {
+      readonly config: AvailabilityConfig;
+      readonly services: readonly DraftService[];
+      readonly dates: readonly string[];
+      readonly makeId: () => string;
+    }): AvailabilityConfigChanges {
+      const { config, services, dates, makeId } = input;
+      const own = ownSingleDateRules(config, dates);
+      const ownIds = new Set(own.map((r) => r.id));
+      // Hand the builder a config without the old rules so it writes fresh ones, then remove those.
+      const stripped = { ...config, dateRules: config.dateRules.filter((r) => !ownIds.has(r.id)) };
+      const built = buildDraftChanges({
+        config: stripped,
+        scope: { kind: "dates", dates },
+        services,
+        makeId,
+      });
+      return { upsert: built.upsert, remove: removal(own) };
+    }
+  </file>
   <file path="src/components/availability/selection.ts">
     export function normalizeDates(dates: readonly string[]): string[] {
       return [...new Set(dates)].sort();
@@ -2272,7 +2357,6 @@
     }
   </file>
   <file path="src/components/availability/useDateSelection.ts">
-    export const LONG_PRESS_MS = 500;
     export interface DateSelectionOptions {
       readonly selection: readonly string[];
       readonly onSelectionChange: (dates: string[]) => void;
@@ -2579,13 +2663,6 @@
       };
     }
     export const MISSING_VENUE_SLUG_ERROR = enUS.bookingWidget.errors.missingVenueSlug;
-    export const STEP_KEYS_NO_DEPOSIT: BookingStep[] = ["date-party", "time-slot", "guest-details"];
-    export const STEP_KEYS_WITH_DEPOSIT: BookingStep[] = [
-      "date-party",
-      "time-slot",
-      "guest-details",
-      "payment",
-    ];
     export function deriveStepKeys(depositRequired: boolean): BookingStep[] {
       return depositRequired ? STEP_KEYS_WITH_DEPOSIT : STEP_KEYS_NO_DEPOSIT;
     }
@@ -3252,6 +3329,15 @@
       readonly valid: false;
       readonly missing: readonly string[];
     }
+    export function resolveRedirectUri(
+      configured: string | undefined,
+      location: Pick<Location, "origin" | "hostname">
+    ): string {
+      // A malformed value is treated as unset.
+      const sameOrigin =
+        !!configured && URL.canParse(configured) && new URL(configured).origin === location.origin;
+      return sameOrigin ? configured : appUrl("/callback", location);
+    }
     export function validateAuthConfig(): AuthConfigResult | AuthConfigFailure {
       const missing = REQUIRED_AUTH_ENV.filter((env) => !env.value || env.value.trim() === "").map(
         (env) => env.key
@@ -3266,8 +3352,7 @@
         config: {
           authority: import.meta.env.VITE_AUTH_AUTHORITY,
           clientId: import.meta.env.VITE_AUTH_CLIENT_ID,
-          redirectUri:
-            import.meta.env.VITE_AUTH_REDIRECT_URI || window.location.origin + "/hospitality/callback",
+          redirectUri: resolveRedirectUri(import.meta.env.VITE_AUTH_REDIRECT_URI, window.location),
           audience: import.meta.env.VITE_AUTH_AUDIENCE || undefined,
         },
       };
@@ -5001,7 +5086,7 @@
       }
       return names;
     }
-    export function uniqueTableName(desired: string, taken: ReadonlySet<string>): string {
+    function uniqueTableName(desired: string, taken: ReadonlySet<string>): string {
       if (!taken.has(desired)) return desired;
       // `taken` is finite, and among `desired-2 … desired-(size + 2)` there are
       // more candidates than `taken` has entries, so one of them is always free.
@@ -5186,7 +5271,6 @@
     export const ENDPOINT_HIT_RADIUS = 12;
     export const MIN_WALL_THICKNESS = 2;
     export const MAX_WALL_THICKNESS = 40;
-    export const DEFAULT_WALL_THICKNESS = 8;
     export interface Point {
       readonly x: number;
       readonly y: number;
@@ -5253,8 +5337,26 @@
     export interface SeatPlacementInput {
       readonly shape: TableShapeName;
       readonly capacity: number;
+      /** Stored footprint; each falls back to the shape's `SHAPE_DEFAULTS` entry. */
+      readonly width?: number;
+      readonly height?: number;
       /** Clearance from the table edge; defaults to the canonical SEAT_GAP. */
       readonly gap?: number;
+    }
+    export interface SeatSize {
+      readonly width: number;
+      readonly height: number;
+    }
+    export function seatSize(capacity: number): SeatSize {
+      const t = Math.min(
+        1,
+        Math.max(0, (capacity - SEAT_SHRINK_START) / (SEAT_SHRINK_END - SEAT_SHRINK_START))
+      );
+      const ease = (from: number, to: number) => Math.round((from + (to - from) * t) * 1000) / 1000;
+      return {
+        width: ease(SEAT_SIZE_FULL.width, SEAT_SIZE_SMALL.width),
+        height: ease(SEAT_SIZE_FULL.height, SEAT_SIZE_SMALL.height),
+      };
     }
     type RectangleSide = (typeof RECTANGLE_SIDES)[number];
     function usableSeatCount(capacity: number): number {
@@ -5306,15 +5408,58 @@
         }));
       });
     }
+    function minSeatSpacing(input: SeatPlacementInput, seats: readonly SeatPlacement[]): number {
+      if (input.shape === "circle") {
+        const diameter = input.width ?? SHAPE_DEFAULTS.circle.width;
+        const gap = input.gap ?? SEAT_GAP;
+        return seats.length > 1
+          ? 2 * (diameter / 2 + gap) * Math.sin(Math.PI / seats.length)
+          : Infinity;
+      }
+      const bySide = new Map<number, number[]>();
+      for (const seat of seats) {
+        const along = seat.rotation % 180 === 0 ? seat.x : seat.y;
+        bySide.set(seat.rotation, [...(bySide.get(seat.rotation) ?? []), along]);
+      }
+      let min = Infinity;
+      for (const positions of bySide.values()) {
+        const sorted = [...positions].sort((a, b) => a - b);
+        sorted.slice(1).forEach((p, i) => {
+          min = Math.min(min, p - (sorted[i] ?? 0));
+        });
+      }
+      return min;
+    }
+    export function fittedSeatSize(input: SeatPlacementInput): SeatSize {
+      const base = seatSize(input.capacity);
+      const spacing = minSeatSpacing(input, seatPlacements(input));
+      return { ...base, width: Math.min(base.width, spacing - SEAT_SPACING_GAP) };
+    }
     export function seatPlacements(input: SeatPlacementInput): readonly SeatPlacement[] {
       const gap = input.gap ?? SEAT_GAP;
       const count = usableSeatCount(input.capacity);
       if (count === 0) return [];
     
-      const { width, height } = SHAPE_DEFAULTS[input.shape];
+      const defaults = SHAPE_DEFAULTS[input.shape];
+      const width = input.width ?? defaults.width;
+      const height = input.height ?? defaults.height;
       return input.shape === "circle"
         ? circleSeats(count, width / 2 + gap)
         : rectangleSeats(count, width, height, gap);
+    }
+  </file>
+  <file path="src/components/floor-plan/floor-plan-grid.ts">
+    export const MIN_GRID_CELL_PX = 8;
+    export function floorPlanGridStyle({
+      readOnly,
+      scale,
+    }: {
+      readOnly: boolean;
+      scale: number;
+    }): Pick<CSSProperties, "backgroundImage" | "backgroundSize"> | undefined {
+      const cell = GRID_SIZE * scale;
+      if (readOnly || cell < MIN_GRID_CELL_PX) return undefined;
+      return { backgroundImage: GRID_PATTERN, backgroundSize: `${cell}px ${cell}px` };
     }
   </file>
   <file path="src/components/floor-plan/floor-textures.ts">
@@ -5328,6 +5473,31 @@
     export function floorTextureUrl(material: FloorMaterial, baseUrl: string): string {
       const base = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
       return `${base}${FLOOR_TEXTURE_DIR}/${material}.png`;
+    }
+  </file>
+  <file path="src/components/floor-plan/furniture-theme.ts">
+    function readTheme(): FurnitureTheme {
+      return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+    }
+    function subscribe(listener: () => void): () => void {
+      listeners.add(listener);
+      if (!observer) {
+        observer = new MutationObserver(() => listeners.forEach((notify) => notify()));
+        observer.observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ["data-theme"],
+        });
+      }
+      return () => {
+        listeners.delete(listener);
+        if (listeners.size === 0) {
+          observer?.disconnect();
+          observer = null;
+        }
+      };
+    }
+    export function useFurnitureTheme(): FurnitureTheme {
+      return useSyncExternalStore(subscribe, readTheme, () => "light");
     }
   </file>
   <file path="src/components/floor-plan/furniture-tokens.ts">
@@ -5344,11 +5514,18 @@
       grain: "#806A4E",
       highlight: "#9C8468",
       edge: "#6B5740",
-      shadow: "rgba(0,0,0,0.12)",
-      seatFrame: "#4a3f32",
-      seatEdge: "#3d3228",
-      seatCushion: "#5c4f40",
     } as const;
+    export type FurnitureTheme = "light" | "dark";
+    export const SEAT_TONES: Record<FurnitureTheme, { frame: string; edge: string; cushion: string }> =
+      {
+        light: { frame: "#4a3f32", edge: "#3d3228", cushion: "#5c4f40" },
+        dark: { frame: "#8a7a66", edge: "#6b5d4c", cushion: "#a08c72" },
+      };
+    export const SHADOW_TONES: Record<FurnitureTheme, string> = {
+      light: "rgba(26,25,24,0.28)",
+      dark: "rgba(0,0,0,0.6)",
+    };
+    export const CONTACT_SHADOW = { blur: 6, offsetY: 2 } as const;
     export const TABLE_CORNER_RADIUS: Record<Exclude<TableShapeName, "circle">, number> = {
       rectangle: 6,
       square: 3,
@@ -5657,7 +5834,7 @@
       light: { plate: "#f8f6f3", text: "#1a1918" },
       dark: { plate: "#1e1c1a", text: "rgb(253 252 250 / 0.92)" },
     };
-    export function resolveSectionLabelTheme(): SectionLabelTheme {
+    function resolveSectionLabelTheme(): SectionLabelTheme {
       const theme: "light" | "dark" =
         document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
       const fallback = SECTION_LABEL_FALLBACKS[theme];
@@ -5680,6 +5857,168 @@
       }, []);
     
       return theme;
+    }
+  </file>
+  <file path="src/components/floor-plan/table-label-layout.ts">
+    export const LABEL_MIN_SCREEN_PX = 10;
+    export const LABEL_PADDING = 2;
+    export const LABEL_LINE_HEIGHT = 1.15;
+    export interface TableLabelInput {
+      number: string;
+      covers: string;
+      shape: TableShapeName;
+      capacity: number;
+      /** The table footprint in canvas units (its own, unrotated frame). */
+      width: number;
+      height: number;
+      /** The table group's rotation, in degrees clockwise. */
+      rotation: number;
+      /** The stage's scale (rendered px per canvas unit). */
+      stageScale: number;
+      /** Reserve room in the plate for a status glyph, sized from the font so it shrinks with it. */
+      glyph?: boolean;
+    }
+    export interface TableLabelLayout {
+      text: string;
+      fontSize: number;
+      /** Plate size in canvas units, including padding. */
+      width: number;
+      height: number;
+      /** Status glyph edge in canvas units; 0 when the table wears no glyph. */
+      glyphSize: number;
+      /** Width the glyph takes at the plate's leading edge, gap included; 0 without a glyph. */
+      glyphSlot: number;
+      /** Always false: the number is never ellipsized; the font shrinks instead. */
+      ellipsis: false;
+    }
+    export function counterRotation(rotation: number): number {
+      return rotation === 0 ? 0 : -rotation;
+    }
+    interface Box {
+      readonly cx: number;
+      readonly cy: number;
+      readonly halfW: number;
+      readonly halfH: number;
+    }
+    function chairBoxes(input: TableLabelInput): readonly Box[] {
+      const placementInput: SeatPlacementInput = {
+        shape: input.shape,
+        capacity: input.capacity,
+        width: input.width,
+        height: input.height,
+      };
+      const chair = fittedSeatSize(placementInput);
+      const tableRad = toRadians(input.rotation);
+      return seatPlacements(placementInput).map((seat) => {
+        const total = toRadians(seat.rotation + input.rotation);
+        return {
+          cx: seat.x * Math.cos(tableRad) - seat.y * Math.sin(tableRad),
+          cy: seat.x * Math.sin(tableRad) + seat.y * Math.cos(tableRad),
+          halfW:
+            (chair.width * Math.abs(Math.cos(total)) + chair.height * Math.abs(Math.sin(total))) / 2,
+          halfH:
+            (chair.width * Math.abs(Math.sin(total)) + chair.height * Math.abs(Math.cos(total))) / 2,
+        };
+      });
+    }
+    function footprintBox(input: TableLabelInput): Box {
+      const rad = toRadians(input.rotation);
+      return {
+        cx: 0,
+        cy: 0,
+        halfW: (input.width * Math.abs(Math.cos(rad)) + input.height * Math.abs(Math.sin(rad))) / 2,
+        halfH: (input.width * Math.abs(Math.sin(rad)) + input.height * Math.abs(Math.cos(rad))) / 2,
+      };
+    }
+    function overlapsChair(chair: Box, plateHalfW: number, plateHalfH: number): boolean {
+      const gapX = Math.max(0, Math.abs(chair.cx) - chair.halfW - CHAIR_CLEARANCE);
+      const gapY = Math.max(0, Math.abs(chair.cy) - chair.halfH - CHAIR_CLEARANCE);
+      return gapX < plateHalfW && gapY < plateHalfH;
+    }
+    interface Plate {
+      text: string;
+      fontSize: number;
+      width: number;
+      height: number;
+      glyphSize: number;
+      glyphSlot: number;
+    }
+    function plateFor(lines: readonly string[], fontSize: number, withGlyph: boolean): Plate {
+      const longest = Math.max(...lines.map((line) => line.length), 1);
+      const glyphSize = withGlyph ? fontSize * STATUS_GLYPH_EM : 0;
+      const glyphSlot = withGlyph ? glyphSize + LABEL_PADDING : 0;
+      return {
+        text: lines.join("\n"),
+        fontSize,
+        width: longest * GLYPH_WIDTH_EM * fontSize + 2 * LABEL_PADDING + glyphSlot,
+        height: lines.length * fontSize * LABEL_LINE_HEIGHT + 2 * LABEL_PADDING,
+        glyphSize,
+        glyphSlot,
+      };
+    }
+    export function tableLabelLayout(input: TableLabelInput): TableLabelLayout {
+      const withGlyph = input.glyph === true;
+      const chairs = chairBoxes(input);
+      const footprint = chairs.length === 0 ? footprintBox(input) : null;
+      const clear = (plate: Plate) =>
+        chairs.every((chair) => !overlapsChair(chair, plate.width / 2, plate.height / 2)) &&
+        (footprint === null ||
+          (plate.width / 2 <= footprint.halfW && plate.height / 2 <= footprint.halfH));
+    
+      const startFont = Math.max(LABEL_MIN_SCREEN_PX / input.stageScale, LABEL_MAX_FONT_SIZE);
+      const full = plateFor([input.number, input.covers], startFont, withGlyph);
+      if (clear(full)) return { ...full, ellipsis: false };
+    
+      let plate = plateFor([input.number], startFont, withGlyph);
+      for (let step = 0; step < MAX_SHRINK_STEPS && !clear(plate); step += 1) {
+        plate = plateFor([input.number], plate.fontSize * SHRINK_FACTOR, withGlyph);
+      }
+      return { ...plate, ellipsis: false };
+    }
+  </file>
+  <file path="src/components/floor-plan/table-status-glyph.ts">
+    export type StatusGlyphKey = TableDisplayStatus | "inactive";
+    export const STATUS_GLYPH_KEYS: readonly StatusGlyphKey[] = [
+      "available",
+      "reserved-soon",
+      "seated",
+      "needs-bussing",
+      "inactive",
+    ];
+    export const GLYPH_VIEWBOX = 10;
+    export const GLYPH_STROKE_WIDTH = 1.4;
+    export interface StatusGlyph {
+      /** SVG path data inside a `GLYPH_VIEWBOX` square. */
+      readonly path: string;
+      /** Filled glyphs are solid; the rest are outlines. */
+      readonly filled: boolean;
+    }
+    export const STATUS_GLYPHS: Readonly<Record<StatusGlyphKey, StatusGlyph>> = {
+      available: { path: "M1.5 5.5 L4 8 L8.5 2", filled: false },
+      "reserved-soon": {
+        path: "M5 0.9 A4.1 4.1 0 1 1 4.99 0.9 M5 2.8 V5.2 L6.8 6.2",
+        filled: false,
+      },
+      "needs-bussing": { path: "M1.5 2.5 H8.5 M1.5 5 H8.5 M1.5 7.5 H8.5", filled: false },
+      seated: { path: "M5 1 A4 4 0 1 1 4.99 1 Z", filled: true },
+      inactive: { path: "M2 2 L8 8 M8 2 L2 8", filled: false },
+    };
+    export const STATUS_LABEL_KEY = {
+      available: "floorPlan.statusLegend.available",
+      "reserved-soon": "floorPlan.statusLegend.reservedSoon",
+      seated: "floorPlan.statusLegend.seated",
+      "needs-bussing": "floorPlan.statusLegend.needsBussing",
+      inactive: "floorPlan.statusLegend.inactive",
+    } as const satisfies Record<StatusGlyphKey, string>;
+    export function glyphKeyFor(
+      status: TableDisplayStatus | undefined,
+      isActive: boolean
+    ): StatusGlyphKey | null {
+      if (status === undefined) return null;
+      return isActive ? status : "inactive";
+    }
+    export function statusFillToken(key: StatusGlyphKey): string {
+      return key === "inactive" ? "var(--rialto-surface-deep)" : TABLE_STATUS_COLOR_TOKEN[key];
     }
   </file>
   <file path="src/components/floor-plan/table-status.ts">
@@ -6294,7 +6633,6 @@
   <file path="src/hooks/useAvailability.ts">
     export const AVAILABILITY_DAYS_QUERY_KEY = "availabilityDays" as const;
     export const AVAILABILITY_CONFIG_QUERY_KEY = "availabilityConfig" as const;
-    export const AVAILABILITY_CHANGES_QUERY_KEY = "availabilityChanges" as const;
     export const useAvailabilityDays = createQueryHook<
       AvailabilityDaySummary[] | null,
       { venueId: string | null; from: string; to: string }
@@ -6364,7 +6702,6 @@
     });
   </file>
   <file path="src/hooks/useAvailabilityPreview.ts">
-    export const AVAILABILITY_PREVIEW_QUERY_KEY = "availabilityPreview" as const;
     export interface AvailabilityPreviewState {
       /** The newest result that arrived, kept while a newer request is pending or has failed. */
       readonly result: PreviewResult | null;
@@ -6398,7 +6735,6 @@
     }
   </file>
   <file path="src/hooks/useAvailabilityUndo.ts">
-    export const UNDO_TOAST_MS = 10_000;
     export function useAvailabilityUndo() {
       const { t } = useTranslation();
       const { toast } = useToast();
@@ -6430,7 +6766,6 @@
     }
   </file>
   <file path="src/hooks/useBriefing.ts">
-    export const BRIEFING_QUERY_KEY = "briefing" as const;
     export type BriefingEntry = ApiBriefingEntry;
     export interface UseBriefingParams {
       date: string;
@@ -6624,7 +6959,6 @@
     }
   </file>
   <file path="src/hooks/useClosures.ts">
-    export const CLOSURE_IMPACT_QUERY_KEY = "closureImpact" as const;
     export const useClosureImpact = createQueryHook<
       ClosureImpact | null,
       { venueId: string | null; rule: DateRule | null }
@@ -6661,8 +6995,6 @@
       mutationFn: (api, { venueId, body, idempotencyKey }) =>
         api.availability.createClosure(venueId, body, idempotencyKey),
     });
-    export const CLOSURE_SUMMARIES_QUERY_KEY = "closureSummaries" as const;
-    export const CLOSURE_CALL_LIST_QUERY_KEY = "closureCallList" as const;
     export const useClosureSummaries = createQueryHook<
       ClosureSummary[] | null,
       { venueId: string | null }
@@ -6861,7 +7193,6 @@
     }
   </file>
   <file path="src/hooks/useDeposits.ts">
-    export const DEPOSITS_QUERY_KEY = "deposits" as const;
     export function useDepositByReservation(reservationId: string | null | undefined) {
       return useDepositByReservationQuery({ reservationId });
     }
@@ -6965,7 +7296,6 @@
   </file>
   <file path="src/hooks/useFloorPlans.ts">
     export const FLOOR_PLANS_QUERY_KEY = "floorPlans" as const;
-    export const FLOOR_PLAN_QUERY_KEY = "floorPlan" as const;
     export interface UseFloorPlansParams {
       venueId?: string | null;
       limit?: number;
@@ -6990,7 +7320,7 @@
     export function useFloorPlan(id: string | undefined): UseFloorPlanResult {
       return useFloorPlanQuery({ id }) as QueryHookResult<FloorPlan | null>;
     }
-    export function floorPlanQueryKey(id: string | undefined): readonly unknown[] {
+    function floorPlanQueryKey(id: string | undefined): readonly unknown[] {
       return buildQueryKey(FLOOR_PLAN_QUERY_KEY, { id });
     }
     export const useCloneFloorPlan = createMutationHook<string, FloorPlan>({
@@ -7048,7 +7378,6 @@
         queryClient.invalidateQueries({ queryKey: floorPlanQueryKey(variables.floorPlanId) });
       },
     });
-    export const FLOOR_PLAN_SECTIONS_QUERY_KEY = "floorPlanSections" as const;
     export const useFloorPlanSections = createQueryHook<
       FloorPlanSection[],
       { venueId?: string | null; floorPlanId?: string | null }
@@ -7516,8 +7845,6 @@
     }
   </file>
   <file path="src/hooks/useMenus.ts">
-    export const MENUS_QUERY_KEY = "menus" as const;
-    export const MENU_QUERY_KEY = "menu" as const;
     export const useMenus = createQueryHook<Menu[], { venueId?: string | null }>({
       key: MENUS_QUERY_KEY,
       fetcher: (params, api) => api.menus.list(params!.venueId!),
@@ -7649,7 +7976,6 @@
     }
   </file>
   <file path="src/hooks/useOpenTimes.ts">
-    export const OPEN_TIMES_QUERY_KEY = "staffOpenTimes" as const;
     export const useOpenTimes = createQueryHook<
       TimeSlot[] | null,
       { venueId: string | null | undefined; date: string; partySize: number },
@@ -7940,7 +8266,6 @@
     }
   </file>
   <file path="src/hooks/useStaffBookingCheck.ts">
-    export const STAFF_BOOKING_CHECK_QUERY_KEY = "staffBookingCheck" as const;
     type BookingWindow = { start: string; end: string };
     export interface StaffCheckParams {
       venueId: string | null | undefined;
@@ -8371,8 +8696,6 @@
     });
   </file>
   <file path="src/hooks/useUsers.ts">
-    export const CURRENT_USER_QUERY_KEY = "currentUser" as const;
-    export const USERS_QUERY_KEY = "users" as const;
     export interface UseCurrentUserResult {
       data: User | null | undefined;
       isLoading: boolean;
@@ -8486,7 +8809,6 @@
     }
   </file>
   <file path="src/hooks/useVenuePolicy.ts">
-    export const VENUE_POLICY_QUERY_KEY = "venue-policy" as const;
     export function useVenuePolicy(slug: string | undefined): {
       policy: CancellationPolicy | null;
       isLoading: boolean;
@@ -8528,7 +8850,6 @@
       nextStep: SetupStep | null;
       progress: number; // 0–100
     }
-    export const STEP_ORDER: readonly SetupStep[] = ["onboarding", "operating-hours", "floor-plan"];
     export function computeReadiness(
       venue: Venue | null,
       floorPlans: readonly FloorPlan[],
@@ -8611,7 +8932,6 @@
     }
   </file>
   <file path="src/hooks/useVenueTeam.ts">
-    export const VENUE_TEAM_QUERY_KEY = "venueTeam" as const;
     export const useVenueTeam = createQueryHook<VenueTeam | null, { venueId: string | null }>({
       key: VENUE_TEAM_QUERY_KEY,
       fetcher: async (params, api) => (params?.venueId ? api.venueTeam.get(params.venueId) : null),
@@ -8632,7 +8952,6 @@
   </file>
   <file path="src/hooks/useVenues.ts">
     export const VENUES_QUERY_KEY = "venues" as const;
-    export const VENUE_BY_SLUG_QUERY_KEY = "venueBySlug" as const;
     export interface UseVenuesParams {
       limit?: number;
       enabled?: boolean;
@@ -9264,6 +9583,47 @@
       };
     }
   </file>
+  <file path="src/lib/host-brand.ts">
+    export interface Brand {
+      /** Product name shown in titles, the header, guest pages and copyright. */
+      readonly name: string;
+      /** Short wordmark rendered as the header logo. */
+      readonly logo: string;
+    }
+    export interface HostConfig {
+      readonly brand: Brand;
+      /** React Router basename: "" when the app owns the host's root. */
+      readonly basename: string;
+      /** True when the host serves only this app (no marketing / rialto / gen pages). */
+      readonly standalone: boolean;
+    }
+    export function hostConfig(hostname: string): HostConfig {
+      return EAT_SHEET_HOSTS.has(hostname.toLowerCase()) ? EAT_SHEET : MBE;
+    }
+    export function currentHostConfig(): HostConfig {
+      return hostConfig(typeof window === "undefined" ? "" : window.location.hostname);
+    }
+    export function appUrl(
+      path: string,
+      location: Pick<Location, "origin" | "hostname"> = window.location
+    ): string {
+      return `${location.origin}${hostConfig(location.hostname).basename}${path}`;
+    }
+    export function homeUrl(location: Pick<Location, "origin"> = window.location): string {
+      return `${location.origin}/`;
+    }
+    export function manageReservationUrl(
+      token: string,
+      location: Pick<Location, "origin" | "hostname"> = window.location
+    ): string {
+      return `${appUrl("/reservations/manage", location)}?token=${encodeURIComponent(token)}`;
+    }
+    export function legacyPathRedirect(pathname: string, basename: string): string | null {
+      if (basename === LEGACY_BASE) return null;
+      if (pathname !== LEGACY_BASE && !pathname.startsWith(`${LEGACY_BASE}/`)) return null;
+      return pathname.slice(LEGACY_BASE.length) || "/";
+    }
+  </file>
   <file path="src/lib/logo-palette-canvas.ts">
     export const ACCEPTED_LOGO_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
     export const MAX_LOGO_BYTES = 8 * 1024 * 1024;
@@ -9315,7 +9675,6 @@
     export type RgbaBytes = Uint8Array | Uint8ClampedArray;
     export const DEFAULT_MAX_COLORS = 5;
     export const PIXEL_STRIDE = 10;
-    export const MAX_SAMPLE_EDGE = 256;
     export function fitWithin(
       width: number,
       height: number,
@@ -11381,7 +11740,6 @@
     }
   </file>
   <file path="src/utils/timeline-intent.ts">
-    export const WALK_IN_PARAM = "walkin";
     export const SELECTED_PARAM = "selected";
     export const REHEARSAL_PARAM = "rehearsal";
     export interface TimelineIntent {
@@ -11403,7 +11761,6 @@
       next.delete(SELECTED_PARAM);
       return next;
     }
-    export const NEW_RESERVATION_PARAM = "new";
     export interface ReservationsIntent {
       /** Exactly `new=true` — any other spelling is no intent. */
       readonly newReservation: boolean;
