@@ -302,6 +302,38 @@
   color: var(--rialto-text-primary);
 }
 
+/* Phones: stack the canvas full width above the side panel; the page scrolls
+ * vertically instead of squeezing the canvas into a ~70px column. */
+@media (max-width: 767px) {
+  .header {
+    flex-wrap: wrap;
+    gap: var(--rialto-space-xs);
+  }
+
+  .headerLeft,
+  .headerRight {
+    flex-wrap: wrap;
+  }
+
+  .content {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .canvasArea {
+    flex: none;
+    overflow: visible;
+  }
+
+  .sidebar {
+    width: auto;
+    flex-shrink: 0;
+    overflow: visible;
+    border-inline-start: none;
+    border-block-start: 1px solid var(--rialto-border);
+  }
+}
+
 .tableListButtonSelected {
   background: color-mix(in srgb, var(--rialto-accent) 10%, transparent);
   color: var(--rialto-accent);
