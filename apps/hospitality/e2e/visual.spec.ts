@@ -108,6 +108,17 @@ function briefingEntry(id: string, start: string, end: string, guestName: string
 }
 
 /**
+ * The plan behind `/floor-plans/:id`, with a room shell (walls, one window) and
+ * a plan floor (#7846, #7893). Scoped to this spec: the shared mockApi plan stays
+ * bare for the specs that assert on an empty canvas.
+ */
+const FLOOR_PLAN_DETAIL = (
+  JSON.parse(
+    readFileSync(new URL("fixtures/floor-plan-detail-visual.json", import.meta.url), "utf8")
+  ) as { data: unknown }
+).data;
+
+/**
  * Endpoints the page rows reach that `mockApi` deliberately leaves to each spec
  * (briefing.spec.ts, floor-plan-status.spec.ts mount their own). Registered
  * after mockApi, so these win; every value is a constant on FIXED_NOW's day.
@@ -138,6 +149,7 @@ const VISUAL_ROUTES: ReadonlyArray<readonly [RegExp, unknown]> = [
       },
     ],
   ],
+  [/\/api\/v1\/floor-plans\/fp_e2e_001$/, FLOOR_PLAN_DETAIL],
   [/\/api\/v1\/venues\/[^/?]+\/table-statuses$/, [{ tableId: "tbl_e2e_001", status: "available" }]],
   [
     /\/public\/v1\/reservations\/manage\?token=/,
