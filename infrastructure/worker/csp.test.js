@@ -84,6 +84,17 @@ describe("buildCspDirectives", () => {
     expect(buildCspDirectives(nonce)).toContain("https://api.mattbutlerengineering.com");
   });
 
+  it("appends extraConnectSrc origins to connect-src when provided", () => {
+    const csp = buildCspDirectives(nonce, {
+      extraConnectSrc: ["https://mattbutlerengineering.com"],
+    });
+    expect(csp).toContain("https://mattbutlerengineering.com");
+  });
+
+  it("does not include the bare apex origin in connect-src when extraConnectSrc is omitted", () => {
+    expect(buildCspDirectives(nonce)).not.toContain("https://mattbutlerengineering.com ");
+  });
+
   it("includes the Sentry ingest origin in connect-src", () => {
     // Every app (hospitality, gen, marketing, rialto-web) calls Sentry.init
     // with VITE_SENTRY_DSN. Without this origin the browser SDK's envelope

@@ -127,6 +127,18 @@ describe("Edge Router — eat-sheet.com host routing", () => {
     expect(csp).toContain("frame-ancestors 'none'");
   });
 
+  it("allows the apex origin in connect-src on eat-sheet.com (hospitality's VITE_API_URL is cross-origin there)", async () => {
+    const response = await edgeRouter.fetch(request(EAT_SHEET, "/"), env);
+    const csp = response.headers.get("Content-Security-Policy");
+    expect(csp).toContain("https://mattbutlerengineering.com");
+  });
+
+  it("does not add the apex origin to connect-src on mattbutlerengineering.com (already same-origin)", async () => {
+    const response = await edgeRouter.fetch(request(MBE, "/hospitality"), env);
+    const csp = response.headers.get("Content-Security-Policy");
+    expect(csp).not.toContain("https://mattbutlerengineering.com ");
+  });
+
   it("records the hospitality route name in analytics", async () => {
     await edgeRouter.fetch(request(EAT_SHEET, "/"), env);
     const point = env.ANALYTICS.writeDataPoint.mock.calls[0][0];

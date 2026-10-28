@@ -28,6 +28,12 @@ import { handleHealthPerformance } from "./health/performance.js";
 import { handleHealthDeps } from "./health/deps.js";
 import { ANALYTICS_BINDING, toDataPoint } from "./analytics-schema.js";
 
+// The apex origin that path-routed hosts serve from and that host-routed
+// apps' build-time API base URL points at (e.g. VITE_API_URL for
+// hospitality). Used to extend CSP connect-src on a host-routed site — see
+// isHostRouted and its use below.
+const APEX_ORIGIN = "https://mattbutlerengineering.com";
+
 // ── Audit Token Verification ─────────────────────────────────────────
 // Automated audits (Lighthouse, Playwright, curl) from the CI/cloud
 // environment are blocked by Cloudflare Bot Fight Mode. Requests that
@@ -155,6 +161,13 @@ export default {
     // Rollback: `wrangler kv key delete --binding HEALTH_STATE "security/csp"`
     const kvPolicy = await readCspPolicy(env.HEALTH_STATE);
 
+    // A host-routed site (e.g. eat-sheet.com, #7709) serves an app whose
+    // VITE_API_URL is baked to the apex origin at build time — a
+    // cross-origin fetch from that host's perspective, so CSP's connect-src
+    // needs the apex origin added. Same-origin on mattbutlerengineering.com
+    // itself, so nothing is added there.
+    const extraConnectSrc = isHostRouted(url) ? [APEX_ORIGIN] : [];
+
     // ── Audit token verification ──────────────────────────────────────
     const auditVerified = isAuditRequest(request, env);
 
@@ -191,7 +204,8 @@ export default {
         Response.redirect(`https://${bare}${url.pathname}${url.search}`, 301),
         url.pathname,
         nonce,
-        kvPolicy
+        kvPolicy,
+        extraConnectSrc
       );
     }
 
@@ -202,7 +216,8 @@ export default {
         Response.redirect(`https://${url.hostname}/hospitality${rest}`, 301),
         url.pathname,
         nonce,
-        kvPolicy
+        kvPolicy,
+        extraConnectSrc
       );
     }
 
@@ -290,7 +305,8 @@ export default {
             }),
             url.pathname,
             nonce,
-            kvPolicy
+            kvPolicy,
+            extraConnectSrc
           );
         }
       } catch {
@@ -299,6 +315,6 @@ export default {
     }
 
     writeAnalytics(env, request, routeName, response.status, startTime);
-    return addHeaders(response, url.pathname, nonce, kvPolicy);
+    return addHeaders(response, url.pathname, nonce, kvPolicy, extraConnectSrc);
   },
 };
