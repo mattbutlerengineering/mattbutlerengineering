@@ -316,6 +316,7 @@ export function FloorPlanCanvas({
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
               status={tableStatuses?.get(table.id)}
+              stageScale={scale}
             />
           ))}
         </Layer>

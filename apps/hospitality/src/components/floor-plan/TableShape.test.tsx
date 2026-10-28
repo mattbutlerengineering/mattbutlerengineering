@@ -146,17 +146,49 @@ vi.mock("react-konva", () => {
     Circle: shapeMock("circle"),
     Line: shapeMock("line"),
     Path: shapeMock("path"),
+    Label: ({
+      children,
+      name,
+      offsetX,
+      offsetY,
+    }: {
+      children?: React.ReactNode;
+      name?: string;
+      offsetX?: number;
+      offsetY?: number;
+    }) => (
+      <div
+        data-testid="konva-label"
+        data-name={name}
+        data-offset-x={offsetX}
+        data-offset-y={offsetY}
+      >
+        {children}
+      </div>
+    ),
+    Tag: ({ fill }: { fill?: string }) => <div data-testid="konva-tag" data-fill={fill} />,
     Text: ({
       text,
       fontSize,
       fill,
+      width,
+      ellipsis,
     }: {
       text?: string;
       fontSize?: number;
       fill?: string;
+      width?: number;
+      ellipsis?: boolean;
       [key: string]: unknown;
     }) => (
-      <span data-testid="konva-text" data-text={text} data-font-size={fontSize} data-fill={fill} />
+      <span
+        data-testid="konva-text"
+        data-ellipsis={ellipsis ? "true" : undefined}
+        data-text={text}
+        data-font-size={fontSize}
+        data-fill={fill}
+        data-width={width}
+      />
     ),
   };
 });
@@ -421,12 +453,107 @@ describe("TableShape", () => {
     });
   });
 
+  describe("label plate (#7843)", () => {
+    const labelGroup = () => requireNamed("table-label-group");
+    const plate = () => requireNamed("table-label-group").querySelector("[data-testid=konva-tag]");
+    const labelText = () =>
+      requireNamed("table-label-group").querySelector("[data-testid=konva-text]");
+
+    it("draws the number and covers on an opaque plate resolved from rialto tokens", () => {
+      setThemeVar("--rialto-surface", "rgb(250, 250, 250)");
+      setThemeVar("--rialto-text-primary", "rgb(10, 10, 10)");
+      render(<TableShape table={makeTable()} {...defaultProps} />);
+      expect(plate()?.getAttribute("data-fill")).toBe("rgb(250, 250, 250)");
+      expect(labelText()?.getAttribute("data-fill")).toBe("rgb(10, 10, 10)");
+    });
+
+    it("repaints the plate when the theme flips, without a remount", async () => {
+      setThemeVar("--rialto-surface", "rgb(1, 1, 1)");
+      render(<TableShape table={makeTable()} {...defaultProps} />);
+      setThemeVar("--rialto-surface", "rgb(2, 2, 2)");
+      setTheme("dark");
+      await waitFor(() => expect(plate()?.getAttribute("data-fill")).toBe("rgb(2, 2, 2)"));
+    });
+
+    it.each([0, 90, 180, 270])("is upright on a table rotated %i degrees", (rotation) => {
+      const table = makeTable({
+        shapeMetadata: { x: 0, y: 0, width: 80, height: 60, shape: "rectangle", rotation },
+      });
+      render(<TableShape table={table} {...defaultProps} />);
+      const total =
+        Number(tableGroup().getAttribute("data-rotation")) +
+        Number(labelGroup().getAttribute("data-rotation"));
+      expect(total).toBe(0);
+    });
+
+    it("no longer paints literal white labels", () => {
+      render(<TableShape table={makeTable()} {...defaultProps} />);
+      expect(labelText()?.getAttribute("data-fill")).not.toBe("#ffffff");
+    });
+
+    it("keeps a 6-character number on one line without truncating it", () => {
+      const table = makeTable({ tableNumber: "TBL-12" });
+      render(<TableShape table={table} {...defaultProps} stageScale={375 / 800} />);
+      const text = labelText();
+      expect(text?.getAttribute("data-text")?.split("\n")[0]).toBe("TBL-12");
+      // Clear-of-chair geometry is asserted in table-label-layout.test.ts.
+      expect(text?.hasAttribute("data-ellipsis")).toBe(false);
+    });
+
+    it("is at least 10px tall at a 375px viewport", () => {
+      const scale = 375 / 800;
+      render(<TableShape table={makeTable()} {...defaultProps} stageScale={scale} />);
+      expect(Number(labelText()?.getAttribute("data-font-size")) * scale).toBeGreaterThanOrEqual(
+        10
+      );
+    });
+  });
+
+  describe("label contrast against rialto tokens (#7843)", () => {
+    const channel = (value: string) => {
+      const hex = value.match(/^#([0-9a-f]{6})$/i);
+      if (hex) {
+        const n = Number.parseInt(hex[1]!, 16);
+        return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255, a: 1 };
+      }
+      const m = value.match(/^rgb\(\s*(\d+)\s+(\d+)\s+(\d+)\s*(?:\/\s*([\d.]+)\s*)?\)$/);
+      if (!m) throw new Error(`Unparseable colour: ${value}`);
+      return { r: Number(m[1]), g: Number(m[2]), b: Number(m[3]), a: m[4] ? Number(m[4]) : 1 };
+    };
+    const luminance = (over: string, under: string) => {
+      const fg = channel(over);
+      const bg = channel(under);
+      const lin = (c: number) => {
+        const s = c / 255;
+        return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+      };
+      const mix = (f: number, b: number) => lin(f * fg.a + b * (1 - fg.a));
+      return 0.2126 * mix(fg.r, bg.r) + 0.7152 * mix(fg.g, bg.g) + 0.0722 * mix(fg.b, bg.b);
+    };
+
+    it.each(["light", "dark"] as const)("reaches 4.5:1 on the plate in %s", (theme) => {
+      setTheme(theme);
+      render(<TableShape table={makeTable()} {...defaultProps} />);
+      const fill = document.querySelector("[data-testid=konva-tag]")?.getAttribute("data-fill");
+      const ink = document
+        .querySelector("[data-name=table-label-group] [data-testid=konva-text]")
+        ?.getAttribute("data-fill");
+      // The rendered fallbacks must be the live tokens, and those must clear AA.
+      expect(fill).toBe(readRialtoToken("--rialto-surface", theme));
+      expect(ink).toBe(readRialtoToken("--rialto-text-primary", theme));
+      const a = luminance(ink!, fill!);
+      const b = luminance(fill!, fill!);
+      const ratio = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+      expect(ratio).toBeGreaterThanOrEqual(4.5);
+    });
+  });
+
   describe("status display", () => {
     it("renders table number as label text", () => {
       const table = makeTable({ tableNumber: "T7", name: "Table 7" });
       const { getAllByTestId } = render(<TableShape table={table} {...defaultProps} />);
       const texts = getAllByTestId("konva-text");
-      const labelText = texts.find((el) => el.getAttribute("data-text") === "T7");
+      const labelText = texts.find((el) => el.getAttribute("data-text")?.split("\n")[0] === "T7");
       expect(labelText).toBeDefined();
     });
 
@@ -434,7 +561,9 @@ describe("TableShape", () => {
       const table = makeTable({ tableNumber: null, name: "VIP Booth" });
       const { getAllByTestId } = render(<TableShape table={table} {...defaultProps} />);
       const texts = getAllByTestId("konva-text");
-      const labelText = texts.find((el) => el.getAttribute("data-text") === "VIP Booth");
+      const labelText = texts.find(
+        (el) => el.getAttribute("data-text")?.split("\n")[0] === "VIP Booth"
+      );
       expect(labelText).toBeDefined();
     });
 
@@ -442,7 +571,9 @@ describe("TableShape", () => {
       const table = makeTable({ minCovers: 2, maxCovers: 6, capacity: 6 });
       const { getAllByTestId } = render(<TableShape table={table} {...defaultProps} />);
       const texts = getAllByTestId("konva-text");
-      const capacityText = texts.find((el) => el.getAttribute("data-text") === "2-6");
+      const capacityText = texts.find(
+        (el) => el.getAttribute("data-text")?.split("\n")[1] === "2-6"
+      );
       expect(capacityText).toBeDefined();
     });
 
@@ -450,7 +581,9 @@ describe("TableShape", () => {
       const table = makeTable({ minCovers: 1, maxCovers: null, capacity: 4 });
       const { getAllByTestId } = render(<TableShape table={table} {...defaultProps} />);
       const texts = getAllByTestId("konva-text");
-      const capacityText = texts.find((el) => el.getAttribute("data-text") === "1-4");
+      const capacityText = texts.find(
+        (el) => el.getAttribute("data-text")?.split("\n")[1] === "1-4"
+      );
       expect(capacityText).toBeDefined();
     });
 
