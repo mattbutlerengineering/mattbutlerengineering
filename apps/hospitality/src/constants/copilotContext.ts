@@ -86,6 +86,8 @@ const ACTION_TITLES = {
   notify_waitlist_party: "chat.actions.notify_waitlist_party",
   seat_waitlist_party: "chat.actions.seat_waitlist_party",
   remove_from_waitlist: "chat.actions.remove_from_waitlist",
+  seat_reservation: "chat.actions.seat_reservation",
+  mark_no_show: "chat.actions.mark_no_show",
 } as const;
 
 const ACTION_FIELDS = {
@@ -108,6 +110,8 @@ const ACTION_FIELDS = {
   covers: "chat.actions.fields.covers",
   summary: "chat.actions.fields.summary",
   guestPhone: "chat.actions.fields.guestPhone",
+  reason: "chat.actions.fields.reason",
+  note: "chat.actions.fields.note",
 } as const;
 
 const TABLE_STATUSES = {
@@ -125,11 +129,20 @@ const TONIGHT_CHANGES = {
   pacing: "chat.actions.tonightChanges.pacing",
 } as const;
 
+/** The cancel reasons as the timeline's cancel dialog words them. */
+const CANCEL_REASONS = {
+  guest_cancelled: "timeline.cancel.reasons.guestCancelled",
+  no_show: "timeline.cancel.reasons.noShow",
+  restaurant_cancelled: "timeline.cancel.reasons.restaurantCancelled",
+  other: "timeline.cancel.reasons.other",
+} as const;
+
 type ChatActionKey =
   | (typeof ACTION_TITLES)[keyof typeof ACTION_TITLES]
   | (typeof ACTION_FIELDS)[keyof typeof ACTION_FIELDS]
   | (typeof TABLE_STATUSES)[keyof typeof TABLE_STATUSES]
-  | (typeof TONIGHT_CHANGES)[keyof typeof TONIGHT_CHANGES];
+  | (typeof TONIGHT_CHANGES)[keyof typeof TONIGHT_CHANGES]
+  | (typeof CANCEL_REASONS)[keyof typeof CANCEL_REASONS];
 
 type Translate = (key: ChatActionKey) => string;
 
@@ -178,7 +191,9 @@ export function describeChatAction(
           ? lookup(TABLE_STATUSES, value)
           : key === "change"
             ? lookup(TONIGHT_CHANGES, value)
-            : undefined;
+            : key === "reason"
+              ? lookup(CANCEL_REASONS, value)
+              : undefined;
       const shown =
         key === "tableId"
           ? (tableName(value) ?? value)

@@ -3451,7 +3451,8 @@
       | (typeof ACTION_TITLES)[keyof typeof ACTION_TITLES]
       | (typeof ACTION_FIELDS)[keyof typeof ACTION_FIELDS]
       | (typeof TABLE_STATUSES)[keyof typeof TABLE_STATUSES]
-      | (typeof TONIGHT_CHANGES)[keyof typeof TONIGHT_CHANGES];
+      | (typeof TONIGHT_CHANGES)[keyof typeof TONIGHT_CHANGES]
+      | (typeof CANCEL_REASONS)[keyof typeof CANCEL_REASONS];
     type Translate = (key: ChatActionKey) => string;
     function formatWhen(key: string, value: string, locale?: string): string {
       if (key === "date" && CALENDAR_DATE.test(value) && isRealDate(value)) {
@@ -3479,7 +3480,9 @@
               ? lookup(TABLE_STATUSES, value)
               : key === "change"
                 ? lookup(TONIGHT_CHANGES, value)
-                : undefined;
+                : key === "reason"
+                  ? lookup(CANCEL_REASONS, value)
+                  : undefined;
           const shown =
             key === "tableId"
               ? (tableName(value) ?? value)

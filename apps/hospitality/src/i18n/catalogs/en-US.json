@@ -1534,6 +1534,8 @@
       "notify_waitlist_party": "Tell a party their table is ready",
       "seat_waitlist_party": "Seat a waiting party",
       "remove_from_waitlist": "Remove from the waitlist",
+      "seat_reservation": "Seat a booked party",
+      "mark_no_show": "Mark a no-show",
       "fields": {
         "guestName": "Guest",
         "partySize": "Party size",
@@ -1553,7 +1555,9 @@
         "tables": "Tables",
         "covers": "Covers per slot",
         "summary": "Change",
-        "guestPhone": "Phone"
+        "guestPhone": "Phone",
+        "reason": "Reason",
+        "note": "Note"
       },
       "tonightChanges": {
         "pause_online": "Pause online booking",

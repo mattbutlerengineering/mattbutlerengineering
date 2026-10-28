@@ -252,3 +252,16 @@ describe("waitlist in the prompt", () => {
     expect(prompt).not.toMatch(/can't manage the waitlist/i);
   });
 });
+
+// #7925: the timeline's own actions are confirmable changes too; deposits stay on the page.
+describe("timeline actions in the prompt", () => {
+  it("lists seating and no-shows among the changes the user confirms, and keeps deposits page-only", () => {
+    const prompt = buildAgentSystemPrompt({ venueId: "v", now: NOW, catalogPrompt: "CATALOG" });
+    const confirmLine = prompt.split("\n").find((line) => /Confirm or Cancel button/.test(line));
+
+    expect(confirmLine).toMatch(/seating/);
+    expect(confirmLine).toMatch(/no-show/);
+    expect(prompt).toMatch(/seat_reservation.*seat_walk_in/);
+    expect(prompt).toMatch(/deposits/i);
+  });
+});

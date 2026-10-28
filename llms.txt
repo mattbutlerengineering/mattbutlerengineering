@@ -3053,7 +3053,7 @@
       export function useChatSuggestions(): readonly string[] { /* ... */ }
     </item>
     <item priority="high">
-      type ChatActionKey = (typeof ACTION_TITLES)[keyof t | (typeof ACTION_FIELDS)[keyof t | (typeof TABLE_STATUSES)[keyof  | (typeof TONIGHT_CHANGES)[keyof;
+      type ChatActionKey = (typeof ACTION_TITLES)[keyof t | (typeof ACTION_FIELDS)[keyof t | (typeof TABLE_STATUSES)[keyof  | (typeof TONIGHT_CHANGES)[keyof | (typeof CANCEL_REASONS)[keyof ;
     </item>
     <item priority="high">
       type Translate = (key: ChatActionKey) => string;
@@ -9955,6 +9955,28 @@
     </item>
     <item priority="high">
       export function buildAgentSystemPrompt(ctx: AgentPromptContext): string { /* ... */ }
+    </item>
+  </file>
+  <file path="services/agent/src/routes/gen-agent-timeline-tools.ts">
+    <item priority="high">
+      type Reservation = Awaited<ReturnType<ApiClient["reservations"]["get"]>>;
+    </item>
+    <item priority="medium">
+      function bookingWriteFailure(err: unknown, action: string) { /* ... */ }
+    </item>
+    <item priority="low">
+      async function venueReservation(
+        api: ApiClient,
+        venueId: string,
+        reservationId: string
+      ): Promise<{ reservation: Reservation } | { error: string }> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createTimelineTools(
+        log: FastifyBaseLogger,
+        api: ApiClient,
+        { venueId }: { readonly venueId?: string | undefined }
+      ): ToolSet { /* ... */ }
     </item>
   </file>
   <file path="services/agent/src/routes/gen-agent-tools.ts">

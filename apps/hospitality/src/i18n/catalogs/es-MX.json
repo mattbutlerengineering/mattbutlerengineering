@@ -1560,6 +1560,8 @@
       "notify_waitlist_party": "Avisar a un grupo que su mesa está lista",
       "seat_waitlist_party": "Sentar a un grupo en espera",
       "remove_from_waitlist": "Quitar de la lista de espera",
+      "seat_reservation": "Sentar a un grupo con reserva",
+      "mark_no_show": "Marcar como no presentado",
       "fields": {
         "guestName": "Cliente",
         "partySize": "Personas",
@@ -1579,7 +1581,9 @@
         "tables": "Mesas",
         "covers": "Cubiertos por horario",
         "summary": "Cambio",
-        "guestPhone": "Teléfono"
+        "guestPhone": "Teléfono",
+        "reason": "Motivo",
+        "note": "Nota"
       },
       "tonightChanges": {
         "pause_online": "Pausar reservas en línea",
