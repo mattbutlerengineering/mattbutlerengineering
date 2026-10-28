@@ -193,11 +193,35 @@ describe("BarChart", () => {
       .map((bar) => bar.style.blockSize)
       .filter((size) => size.endsWith("%"));
     expect(heights).toEqual([
-      `${(12 / 1500) * 100}%`,
-      `${(3.4 / 1500) * 100}%`,
-      `${(8 / 1500) * 100}%`,
+      `${(12 / 3_400_000) * 100}%`,
       "100%",
+      `${(8 / 3_400_000) * 100}%`,
+      `${(1500 / 3_400_000) * 100}%`,
     ]);
+  });
+
+  it("scales a k/m/b suffix only when it directly follows the number", () => {
+    const heightsFor = (values: string[]) => {
+      const { container, unmount } = render(
+        <BarChart label="Units" data={values.map((value, i) => ({ label: `L${i}`, value }))} />
+      );
+      const heights = Array.from(container.querySelectorAll("span"))
+        .map((bar) => bar.style.blockSize)
+        .filter((size) => size.endsWith("%"));
+      unmount();
+      return heights;
+    };
+    // Each value is paired with a 1000000 anchor so the bar height reveals its parsed size.
+    const parsed = (value: string) => {
+      const [, height] = heightsFor(["1000000", value]);
+      return (Number.parseFloat(height ?? "0") / 100) * 1_000_000;
+    };
+    expect(parsed("5 per week")).toBeCloseTo(5);
+    expect(parsed("3 per month")).toBeCloseTo(3);
+    expect(parsed("8 sales")).toBeCloseTo(8);
+    expect(parsed("12 kg")).toBeCloseTo(12);
+    expect(parsed("12 k")).toBeCloseTo(12000);
+    expect(parsed("$20k")).toBeCloseTo(20000);
   });
 
   it("draws a bar for '5 per week' instead of dropping it as non-finite", () => {

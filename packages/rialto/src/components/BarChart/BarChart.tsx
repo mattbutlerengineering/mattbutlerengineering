@@ -55,7 +55,11 @@ function parseAmount(value: unknown): ParsedAmount | null {
   const match = numeric.match(/-?\d+(?:\.\d+)?/);
   if (!match?.[0]) return null;
   const base = Number(match[0]);
-  const multiplier = suffixMultiplier(trimmed.slice(-1).toLowerCase());
+  // A suffix counts only right after the number (one space allowed) and not as
+  // the start of a word: "$20k", "12 k" scale; "5 per week", "12 kg" do not.
+  const tail = numeric.slice((match.index ?? 0) + match[0].length);
+  const suffix = tail.match(/^ ?([kmb])(?![a-z])/i)?.[1] ?? "";
+  const multiplier = suffixMultiplier(suffix.toLowerCase());
   return Number.isFinite(base * multiplier) ? { base, multiplier } : null;
 }
 
