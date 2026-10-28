@@ -5813,6 +5813,47 @@
       return theme;
     }
   </file>
+  <file path="src/components/floor-plan/table-label-layout.ts">
+    export const LABEL_MIN_SCREEN_PX = 10;
+    export const LABEL_MAX_FONT_SIZE = 14;
+    export const LABEL_PADDING = 2;
+    export const LABEL_LINE_HEIGHT = 1.15;
+    export interface TableLabelInput {
+      number: string;
+      covers: string;
+      /** The table footprint's width in canvas units. */
+      tableWidth: number;
+      /** The stage's scale (rendered px per canvas unit). */
+      stageScale: number;
+    }
+    export interface TableLabelLayout {
+      text: string;
+      fontSize: number;
+      /** Plate size in canvas units, including padding. */
+      width: number;
+      height: number;
+    }
+    export function counterRotation(rotation: number): number {
+      return rotation === 0 ? 0 : -rotation;
+    }
+    export function tableLabelLayout(input: TableLabelInput): TableLabelLayout {
+      const lines = [input.number, input.covers];
+      const longest = Math.max(...lines.map((line) => line.length), 1);
+      // Seats start SEAT_GAP beyond the table edge; stay clear of them.
+      const maxWidth = input.tableWidth + 2 * (SEAT_GAP - 2);
+      const fitFont = (maxWidth - 2 * LABEL_PADDING) / (longest * GLYPH_WIDTH_EM);
+      const floor = LABEL_MIN_SCREEN_PX / input.stageScale;
+      // Legibility wins over fit: the floor applies even if the text no longer fits.
+      const fontSize = Math.max(floor, Math.min(LABEL_MAX_FONT_SIZE, fitFont));
+      const textWidth = longest * GLYPH_WIDTH_EM * fontSize + 2 * LABEL_PADDING;
+      return {
+        text: lines.join("\n"),
+        fontSize,
+        width: Math.min(textWidth, maxWidth),
+        height: lines.length * fontSize * LABEL_LINE_HEIGHT + 2 * LABEL_PADDING,
+      };
+    }
+  </file>
   <file path="src/components/floor-plan/table-status.ts">
     export const TABLE_STATUS_COLOR_TOKEN: Record<TableDisplayStatus, string> = {
       available: "var(--rialto-success)",

@@ -5223,6 +5223,42 @@
       export function useSectionLabelTheme(): SectionLabelTheme { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/floor-plan/table-label-layout.ts">
+    <item priority="high">
+      export const LABEL_MIN_SCREEN_PX: unknown;
+    </item>
+    <item priority="high">
+      export const LABEL_MAX_FONT_SIZE: unknown;
+    </item>
+    <item priority="high">
+      export const LABEL_PADDING: unknown;
+    </item>
+    <item priority="high">
+      export const LABEL_LINE_HEIGHT: unknown;
+    </item>
+    <item priority="low">
+      interface TableLabelInput {
+        number: string;
+        covers: string;
+        tableWidth: number;
+        stageScale: number;
+      }
+    </item>
+    <item priority="low">
+      interface TableLabelLayout {
+        text: string;
+        fontSize: number;
+        width: number;
+        height: number;
+      }
+    </item>
+    <item priority="high">
+      export function counterRotation(rotation: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function tableLabelLayout(input: TableLabelInput): TableLabelLayout { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/floor-plan/table-status.ts">
     <item priority="high">
       export const TABLE_STATUS_COLOR_TOKEN: Record<TableDisplayStatus, string>;
