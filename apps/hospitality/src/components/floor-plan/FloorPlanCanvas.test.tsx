@@ -105,6 +105,24 @@ vi.mock("./SectionZone.js", () => ({
   ),
 }));
 
+vi.mock("./PlanFloor.js", () => ({
+  PlanFloor: ({
+    texture,
+    width,
+    height,
+  }: {
+    texture?: HTMLImageElement;
+    width: number;
+    height: number;
+  }) => (
+    <div
+      data-testid="plan-floor"
+      data-textured={String(Boolean(texture))}
+      data-size={`${width}x${height}`}
+    />
+  ),
+}));
+
 import { FloorPlanCanvas } from "./FloorPlanCanvas.js";
 
 /* ── Fixtures ─────────────────────────────────────────────────── */
@@ -221,6 +239,40 @@ describe("FloorPlanCanvas sections", () => {
 
     await act(async () => loaded.hardwood?.());
     expect(screen.getByTestId("section-zone-s1").dataset.textured).toBe("true");
+    vi.unstubAllGlobals();
+  });
+
+  it("draws the plan-level floor beneath the sections, textured once its material loads", async () => {
+    const loaded: Record<string, () => void> = {};
+    class StubImage {
+      onload: (() => void) | null = null;
+      set src(value: string) {
+        const material = value.split("/").pop()!.replace(".png", "");
+        loaded[material] = () => this.onload?.();
+      }
+    }
+    vi.stubGlobal("Image", StubImage);
+
+    render(
+      <FloorPlanCanvas
+        {...defaultProps}
+        floorPlan={{
+          ...FLOOR_PLAN,
+          layoutJson: { width: 1200, height: 800, floorMaterial: "concrete" },
+        }}
+        sections={[zone]}
+      />
+    );
+    const floor = screen.getByTestId("plan-floor");
+    expect(floor.dataset.size).toBe("1200x800");
+    expect(floor.dataset.textured).toBe("false");
+    expect(
+      floor.compareDocumentPosition(screen.getByTestId("section-zone-s1")) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+
+    await act(async () => loaded.concrete?.());
+    expect(screen.getByTestId("plan-floor").dataset.textured).toBe("true");
     vi.unstubAllGlobals();
   });
 

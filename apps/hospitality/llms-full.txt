@@ -5448,6 +5448,20 @@
         : rectangleSeats(count, width, height, gap);
     }
   </file>
+  <file path="src/components/floor-plan/floor-plan-grid.ts">
+    export const MIN_GRID_CELL_PX = 8;
+    export function floorPlanGridStyle({
+      readOnly,
+      scale,
+    }: {
+      readOnly: boolean;
+      scale: number;
+    }): Pick<CSSProperties, "backgroundImage" | "backgroundSize"> | undefined {
+      const cell = GRID_SIZE * scale;
+      if (readOnly || cell < MIN_GRID_CELL_PX) return undefined;
+      return { backgroundImage: GRID_PATTERN, backgroundSize: `${cell}px ${cell}px` };
+    }
+  </file>
   <file path="src/components/floor-plan/floor-textures.ts">
     export const FLOOR_TEXTURE_DIR = "floor-plan/textures";
     export const TEXTURE_SOURCE_PX = 64;
