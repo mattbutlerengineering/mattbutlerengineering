@@ -36,8 +36,6 @@ const GRAIN_RINGS = 3;
 const SHADOW_DROP = 2;
 /** How far grain and edge highlights stop short of the table edge. */
 const EDGE_INSET = 3;
-const SEAT_WIDTH = 16;
-const SEAT_HEIGHT = 13;
 
 /** SVG path data for a circular arc centred on the origin (degrees, clockwise). */
 function arcPath(radius: number, fromDeg: number, toDeg: number): string {
@@ -50,17 +48,25 @@ function arcPath(radius: number, fromDeg: number, toDeg: number): string {
 
 export interface TableArtProps {
   shape: TableShapeName;
+  /** Stored footprint; falls back to the shape default when omitted. */
+  width?: number;
+  height?: number;
   /** Surface fill — the live status or inactive colour. */
   fill: string;
   stroke: string;
   strokeWidth: number;
 }
 
-type SurfacePaint = Omit<TableArtProps, "shape">;
+type SurfacePaint = Omit<TableArtProps, "shape" | "width" | "height">;
 
 /** `table-round.svg`: wood disc, three grain rings, top-left highlight arc. */
-function RoundTableArt({ fill, stroke, strokeWidth }: SurfacePaint) {
-  const radius = SHAPE_DEFAULTS.circle.width / 2;
+function RoundTableArt({
+  width = SHAPE_DEFAULTS.circle.width,
+  fill,
+  stroke,
+  strokeWidth,
+}: SurfacePaint & { width?: number }) {
+  const radius = width / 2;
   return (
     <>
       <Circle
@@ -99,11 +105,12 @@ function RoundTableArt({ fill, stroke, strokeWidth }: SurfacePaint) {
 /** `table-rect.svg` / `table-square.svg`: wood slab, grain lines, edge highlights. */
 function SlabTableArt({
   shape,
+  width = SHAPE_DEFAULTS[shape].width,
+  height = SHAPE_DEFAULTS[shape].height,
   fill,
   stroke,
   strokeWidth,
-}: SurfacePaint & { shape: Exclude<TableShapeName, "circle"> }) {
-  const { width, height } = SHAPE_DEFAULTS[shape];
+}: SurfacePaint & { shape: Exclude<TableShapeName, "circle">; width?: number; height?: number }) {
   const cornerRadius = TABLE_CORNER_RADIUS[shape];
   const left = -width / 2;
   const top = -height / 2;
@@ -163,11 +170,11 @@ function SlabTableArt({
 }
 
 /** Shape-appropriate table art, tinted by `fill`. */
-export function TableArt({ shape, ...paint }: TableArtProps) {
+export function TableArt({ shape, width, height, ...paint }: TableArtProps) {
   return shape === "circle" ? (
-    <RoundTableArt {...paint} />
+    <RoundTableArt width={width} {...paint} />
   ) : (
-    <SlabTableArt shape={shape} {...paint} />
+    <SlabTableArt shape={shape} width={width} height={height} {...paint} />
   );
 }
 
@@ -176,28 +183,31 @@ export interface SeatArtProps {
   y: number;
   /** Degrees clockwise; 0 means the seat faces up, towards -y. */
   rotation: number;
+  /** Chair size; scales with party size (see `seatSize`). */
+  width: number;
+  height: number;
 }
 
 /** `chair.svg`: a rounded frame with an inset cushion. */
-export function SeatArt({ x, y, rotation }: SeatArtProps) {
+export function SeatArt({ x, y, rotation, width, height }: SeatArtProps) {
   return (
     <Group name={SEAT_NAME} x={x} y={y} rotation={rotation}>
       <Rect
-        x={-SEAT_WIDTH / 2}
-        y={-SEAT_HEIGHT / 2}
-        width={SEAT_WIDTH}
-        height={SEAT_HEIGHT}
-        cornerRadius={SEAT_WIDTH / 4}
+        x={-width / 2}
+        y={-height / 2}
+        width={width}
+        height={height}
+        cornerRadius={width / 4}
         fill={FURNITURE_PALETTE.seatFrame}
         stroke={FURNITURE_PALETTE.seatEdge}
         strokeWidth={0.7}
       />
       <Rect
-        x={-SEAT_WIDTH * 0.29}
-        y={-SEAT_HEIGHT / 4}
-        width={SEAT_WIDTH * 0.58}
-        height={SEAT_HEIGHT / 2}
-        cornerRadius={SEAT_HEIGHT / 5}
+        x={-width * 0.29}
+        y={-height / 4}
+        width={width * 0.58}
+        height={height / 2}
+        cornerRadius={height / 5}
         fill={FURNITURE_PALETTE.seatCushion}
       />
     </Group>

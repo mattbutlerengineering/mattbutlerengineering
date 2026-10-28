@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Badge, Button, Card, Heading, Spinner, Text } from "@mattbutlerengineering/rialto";
 import styles from "./AcmmPage.module.css";
+import { DashboardPurpose } from "../components/DashboardPurpose";
 
 interface BehavioralGate {
   readonly level: number;
@@ -137,6 +138,7 @@ export function AcmmPage() {
       <header className={styles.header}>
         <Heading level={1}>ACMM Dashboard</Heading>
         <Text className={styles.subtitle}>AI Codebase Maturity Model — repo-level audit</Text>
+        <DashboardPurpose current="/acmm" />
         <Text className={styles.meta}>
           Audited {repo.lastRun ? formatDate(repo.lastRun) : "date unknown"}
           {" · "}

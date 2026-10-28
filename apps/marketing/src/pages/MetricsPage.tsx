@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, Badge, Heading, Text, Spinner, Banner } from "@mattbutlerengineering/rialto";
 import { formatRatio, formatDate, isStale } from "../utils/formatters.js";
 import styles from "./MetricsPage.module.css";
+import { DashboardPurpose } from "../components/DashboardPurpose";
 
 interface BehavioralGate {
   readonly level: number;
@@ -75,7 +76,7 @@ function formatEvalPassRate(behavioral: AcmmMetrics["behavioral"]): string {
   // Reuse the page's 14-day freshness window: a reading older than it is stale
   // even if the producer did not null it out.
   if (behavioral.evalPassRate === null || (lastRun && isStale(lastRun))) {
-    if (!lastRun) return "Not measured";
+    if (!lastRun) return "No judged runs yet";
     return `Stale — last measured ${formatDate(lastRun)}`;
   }
   return formatRatio(behavioral.evalPassRate);
@@ -129,6 +130,7 @@ export function MetricsPage() {
         <Text className={styles.subtitle}>
           AI Codebase Maturity Model — public metrics for mattbutlerengineering
         </Text>
+        <DashboardPurpose current="/metrics" />
         <Text className={styles.meta}>
           Last updated: {formatDate(metrics.generatedAt)}
           {" · "}

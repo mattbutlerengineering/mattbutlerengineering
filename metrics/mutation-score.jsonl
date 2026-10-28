@@ -1,0 +1,1 @@
+{"date":"2026-10-28","commit":"f544dc901465e8be1250a82004f4211d64caf9d6","mutation_score":99.07,"passes_threshold":true,"threshold":80,"killed":107,"survived":1,"timeout":0,"no_coverage":0,"total_mutants":389,"packages":{"services/users":99.07}}

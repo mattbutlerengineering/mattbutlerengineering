@@ -1,5 +1,5 @@
 {
-  "version": "0.9.1",
+  "version": "0.9.3",
   "components": [
     {
       "name": "Accordion",
@@ -2186,6 +2186,12 @@
           "type": "Partial<Record<\"marketing\" | \"hospitality\" | \"rialto\", string>> | undefined",
           "required": false,
           "description": "Link labels per app, for consumers that localize them. Omitted apps keep the English defaults."
+        },
+        {
+          "name": "menu",
+          "type": "GlobalNavMenu | undefined",
+          "required": false,
+          "description": "Optional dropdown after the app links. The trigger is marked current when any item is."
         }
       ],
       "slots": []
@@ -2954,6 +2960,18 @@
           "type": "\"sm\" | \"md\" | \"lg\" | undefined",
           "required": false,
           "description": "Tube, housing padding and caption scale together."
+        },
+        {
+          "name": "shape",
+          "type": "NeonSignShape | undefined",
+          "required": false,
+          "description": "Look of the sign. `classic` is the block OPEN on the housing; the others add\nframe tubes drawn as SVG strokes. `vertical` and `arrow` are taller than wide\n(roughly 1:3, width to height); the rest are wider than tall. All scale with `size`."
+        },
+        {
+          "name": "tone",
+          "type": "NeonSignTone | undefined",
+          "required": false,
+          "description": "Tube colours from the `--rialto-neon-*` tokens. Omitted, `classic` keeps its\nstate-driven colours (success while open, accent while opening soon) and every\nother shape uses its own default tones. `state` still decides whether tubes are lit."
         }
       ],
       "slots": [
@@ -2961,8 +2979,29 @@
       ]
     },
     {
+      "name": "NeonSignShape",
+      "description": "Look of the sign — see `NeonSignProps.shape`.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
       "name": "NeonSignState",
       "description": "Trading state the sign shows.\n- `open` — the tube is lit with the success token and strikes on when entered.\n- `opening-soon` — the tube warms gold and breathes; doors open within the lead window.\n- `closed` — dark glass on the plate.\n- `unset` — no tube, dashed outline: hours were never configured.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
+      "name": "NeonSignTone",
+      "description": "Colour of the word and, on shapes that have one, of the frame tubes around it.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
+      "name": "NeonTone",
+      "description": "Neon tube colours, each a `--rialto-neon-*` token.",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []

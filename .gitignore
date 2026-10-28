@@ -133,6 +133,8 @@ reports/mutation/
 !/metrics/eval-reports.jsonl
 !/metrics/instruction-changes.jsonl
 !/metrics/last-audit.json
+!/metrics/lighthouse.jsonl
+!/metrics/mutation-score.jsonl
 !/metrics/pr-acceptance.json
 !/metrics/process-metrics.jsonl
 !/metrics/production-health/

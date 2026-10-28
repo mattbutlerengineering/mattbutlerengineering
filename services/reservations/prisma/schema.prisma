@@ -706,6 +706,8 @@ model AvailabilityChange {
   venueId        String    @map("venue_id")
   venue          Venue     @relation(fields: [venueId], references: [id])
   actorId        String    @map("actor_id")
+  /// The actor's display name when the change was made (never an email); null on older rows.
+  actorName      String?   @map("actor_name")
   at             DateTime  @default(now())
   kind           String
   summary        String

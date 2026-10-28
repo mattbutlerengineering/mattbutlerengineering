@@ -58,6 +58,47 @@ describe("installAuthBackSkip", () => {
     expect(go).toHaveBeenCalledWith(-3);
     go.mockRestore();
   });
+
+  it("does not skip after in-app navigation (sign in, navigate, Back)", () => {
+    const go = vi.spyOn(window.history, "go").mockImplementation(() => {});
+    const length = vi.spyOn(window.history, "length", "get").mockReturnValue(6);
+    sessionStorage.setItem(PRE_AUTH_HISTORY_KEY, "3");
+    const scheduled: Array<() => void> = [];
+    installAuthBackSkip(window.history, sessionStorage, (fn) => {
+      scheduled.push(fn);
+    });
+
+    // In-app link pushes a new entry, then Back lands on the sentinel entry.
+    length.mockReturnValue(7);
+    window.dispatchEvent(new PopStateEvent("popstate", { state: { mbeAuthSentinel: true } }));
+    // A later Back (to the callback entry) must not be hijacked either.
+    length.mockReturnValue(7);
+    window.dispatchEvent(new PopStateEvent("popstate", { state: {} }));
+
+    expect(scheduled).toHaveLength(0);
+    expect(sessionStorage.getItem(AUTH_BACK_RELOAD_KEY)).toBeNull();
+    expect(go).not.toHaveBeenCalled();
+    go.mockRestore();
+    length.mockRestore();
+  });
+
+  it("ignores a pop that lands back on the sentinel entry itself", () => {
+    const go = vi.spyOn(window.history, "go").mockImplementation(() => {});
+    vi.spyOn(window.history, "length", "get").mockReturnValue(6);
+    sessionStorage.setItem(PRE_AUTH_HISTORY_KEY, "3");
+    const scheduled: Array<() => void> = [];
+    installAuthBackSkip(window.history, sessionStorage, (fn) => {
+      scheduled.push(fn);
+    });
+
+    window.dispatchEvent(new PopStateEvent("popstate", { state: { mbeAuthSentinel: true } }));
+    expect(scheduled).toHaveLength(0);
+
+    window.dispatchEvent(new PopStateEvent("popstate", { state: {} }));
+    scheduled[0]?.();
+    expect(go).toHaveBeenCalledWith(-3);
+    go.mockRestore();
+  });
 });
 
 describe("installAuthBackReload", () => {
@@ -85,6 +126,9 @@ describe("installAuthBackReload", () => {
     sessionStorage.setItem(AUTH_BACK_RELOAD_KEY, "1");
     listener?.(new PageTransitionEvent("pageshow", { persisted: false }));
     expect(reload).not.toHaveBeenCalled();
+    // A non-bfcache load clears the stale flag so a later restore cannot reload.
+    expect(sessionStorage.getItem(AUTH_BACK_RELOAD_KEY)).toBeNull();
+    sessionStorage.setItem(AUTH_BACK_RELOAD_KEY, "1");
 
     listener?.(new PageTransitionEvent("pageshow", { persisted: true }));
     expect(reload).toHaveBeenCalledOnce();

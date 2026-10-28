@@ -28,7 +28,6 @@ import {
   CODE_CHURN_THRESHOLD,
 } from "./collect-code-churn.mjs";
 import { computePrCategoryMetrics } from "./collect-pr-metrics.mjs";
-import { collectMutationScore } from "./collect-mutation-score.mjs";
 import { computeFlakyTests } from "./collect-flaky-tests.mjs";
 import { computeE2eStability } from "./collect-e2e-stability.mjs";
 import {
@@ -38,7 +37,7 @@ import {
   QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE,
   readMergedAiPrsPaged,
 } from "./collect-queue-efficiency.mjs";
-import { read } from "./metrics-store.mjs";
+import { read, lastEntry } from "./metrics-store.mjs";
 import { assessFreshness, freshnessFindings, freshnessRegressions } from "./metrics-freshness.mjs";
 import { describeGhError, listRunArtifacts, downloadArtifactZip } from "@mbe/gh-client";
 import { extractZipEntries } from "./extract-zip-entries.mjs";
@@ -656,24 +655,19 @@ export const SENSORS = [
       confidence: "skip",
     }),
     collect: ({ root }) => {
-      const invPath = resolve(root, ".audit-state", "inventory.json");
-      const inv = safe(() => readJson(invPath));
-      if (!inv) return { available: false };
-
-      const surfaces = inv.surfaces ?? inv;
-      if (!Array.isArray(surfaces) && typeof surfaces !== "object") return { available: false };
-
-      const entries = Array.isArray(surfaces) ? surfaces : Object.values(surfaces);
-      const scored = entries.filter((s) => s.scores || s.lighthouse);
+      // Latest row of metrics/lighthouse.jsonl, committed by lighthouse.yml.
+      // The raw reports are never in a scheduled checkout (#7581).
+      const row = safe(() => lastEntry("lighthouse", { root }));
+      if (!row?.routes?.length) return { available: false, reason: "summary_missing" };
 
       return {
         available: true,
-        surface_count: entries.length,
-        scored_count: scored.length,
-        surfaces: scored.map((s) => ({
-          url: s.url ?? s.name ?? "unknown",
-          scores: s.scores ?? s.lighthouse ?? {},
-          last_audit: s.lastAudit ?? s.last_audit ?? null,
+        surface_count: row.routes.length,
+        scored_count: row.routes.length,
+        surfaces: row.routes.map(({ url, ...scores }) => ({
+          url,
+          scores,
+          last_audit: row.date ?? null,
         })),
       };
     },
@@ -902,10 +896,15 @@ export const SENSORS = [
   {
     id: "mutationScore",
     category: "quality",
-    collect: ({ root, now }) => {
-      const reportPath = resolve(root, "reports", "mutation", "mutation.json");
-      const reportJson = safe(() => readJson(reportPath));
-      return collectMutationScore(reportJson, now);
+    collect: ({ root }) => {
+      // Latest row of metrics/mutation-score.jsonl, committed by
+      // mutation-testing.yml; the Stryker report itself is gitignored (#7581).
+      const row = safe(() => lastEntry("mutation-score", { root }));
+      if (!row || typeof row.mutation_score !== "number") {
+        return { available: false, reason: "summary_missing" };
+      }
+      const { date, commit, ...score } = row;
+      return { available: true, ...score, commit, last_run: date };
     },
     format: (data, name) =>
       `${name}: ${data.mutation_score}% (${data.killed}/${data.total_mutants} killed, threshold ${data.threshold}%) ${data.passes_threshold ? "PASS" : "BELOW TARGET"}`,
@@ -984,6 +983,12 @@ export const SENSORS = [
           `[e2eStability] ${unresolved} CI run head SHA(s) not in the local git object store ` +
             `(stale main or squash-deleted branches); skipped.`
         );
+      }
+
+      // Every run unresolved (shallow/stale checkout) is a different cause from
+      // "no runs"; name it so the page does not show a bare Unavailable (#7581).
+      if (runs.length === 0 && unresolved > 0) {
+        return { available: false, reason: "no_resolvable_runs" };
       }
 
       return computeE2eStability(runs);
@@ -1203,7 +1208,7 @@ export function collectReportSensors(entries, ctx) {
         return [key, sensor.collect(ctx)];
       } catch (err) {
         console.error(`[sensor-report] unexpected error in "${sensor.id}" collector:`, err);
-        return [key, { available: false }];
+        return [key, { available: false, error: err instanceof Error ? err.message : String(err) }];
       }
     })
   );

@@ -68,6 +68,8 @@ export interface ClosureCaller {
   /** Owner, manager or platform admin. Anyone else is a Host. */
   isManager: boolean;
   actorId: string;
+  /** Display name snapshotted on the audit row; absent or `null` when the token has none. */
+  actorName?: string | null;
 }
 
 export type CreateClosureOutcome =
@@ -424,6 +426,7 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
     data: {
       venueId,
       actorId: caller.actorId,
+      actorName: caller.actorName ?? null,
       at: now,
       kind: "closure",
       summary: describe(rule, plan.counts),
@@ -603,7 +606,8 @@ export async function reopenClosure(
 
       const next = {
         ...state.stored,
-        dateRules: state.stored.dateRules.filter((r) => r.id !== ruleId),
+        // Reopening a series also removes its skips and one-date edits (#7685).
+        dateRules: state.stored.dateRules.filter((r) => r.id !== ruleId && r.seriesId !== ruleId),
       };
       const diff = diffConfig(state.stored, next);
       await writeConfigDiff(db, venueId, diff, { actorId: caller.actorId, now });
@@ -620,6 +624,7 @@ export async function reopenClosure(
         data: {
           venueId,
           actorId: caller.actorId,
+          actorName: caller.actorName ?? null,
           at: now,
           kind: "reopen",
           summary: `Closure reopened (${rule.startsOn})`,

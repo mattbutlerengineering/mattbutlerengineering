@@ -106,6 +106,11 @@ export function FloorPlansPage() {
     [cloneMutation, navigate, t]
   );
 
+  const tableCountLabel = (floorPlan: FloorPlan) =>
+    t("floorPlan.list.tableCount", { count: floorPlan.tables?.length ?? 0 });
+  const updatedLabel = (floorPlan: FloorPlan) =>
+    t("floorPlan.list.updated", { date: fmt.formatShortDate(floorPlan.updatedAt.slice(0, 10)) });
+
   const handleCreated = useCallback(
     (floorPlan: FloorPlan) => {
       navigate(`/floor-plans/${floorPlan.id}`);
@@ -227,7 +232,14 @@ export function FloorPlansPage() {
                   </div>
                   <div className={styles.cardBody}>
                     <div className={styles.cardMeta}>
-                      <Text variant="body" color="primary" className={styles.cardName}>
+                      <Text
+                        variant="body"
+                        color="primary"
+                        truncate
+                        data-truncate
+                        title={floorPlan.name}
+                        className={styles.cardName}
+                      >
                         {floorPlan.name}
                       </Text>
                       {floorPlan.isActive && (
@@ -237,13 +249,23 @@ export function FloorPlansPage() {
                       )}
                     </div>
                     <div className={styles.cardDetails}>
-                      <Text variant="caption" color="secondary">
-                        {t("floorPlan.list.tableCount", { count: floorPlan.tables?.length ?? 0 })}
+                      <Text
+                        variant="caption"
+                        color="secondary"
+                        truncate
+                        data-truncate
+                        title={tableCountLabel(floorPlan)}
+                      >
+                        {tableCountLabel(floorPlan)}
                       </Text>
-                      <Text variant="caption" color="secondary">
-                        {t("floorPlan.list.updated", {
-                          date: fmt.formatShortDate(floorPlan.updatedAt.slice(0, 10)),
-                        })}
+                      <Text
+                        variant="caption"
+                        color="secondary"
+                        truncate
+                        data-truncate
+                        title={updatedLabel(floorPlan)}
+                      >
+                        {updatedLabel(floorPlan)}
                       </Text>
                     </div>
                   </div>

@@ -1,0 +1,43 @@
+name: API Failures
+
+on:
+  schedule:
+    # Mondays 15:00 UTC
+    - cron: "0 15 * * 1"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Print the report and planned issues without filing"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  report:
+    name: Weekly /api failure report
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Run api-failures
+        env:
+          # Needs Account · Account Analytics · Read, which
+          # MBE_CLOUDFLARE_API_TOKEN does not carry (docs/runbooks/edge-usage.md
+          # § Token provisioning). A missing secret fails the run loudly.
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -o pipefail
+          flags=""
+          if [ "$DRY_RUN" = "true" ]; then flags="--dry-run"; fi
+          node scripts/api-failures.mjs $flags 2>&1 | tee api-failures.log

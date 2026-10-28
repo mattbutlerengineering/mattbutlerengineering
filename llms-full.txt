@@ -10289,6 +10289,12 @@
         failingGates: failingGates.map(normalizeFailingGate),
       };
     }
+    export function describeSensorGap(sensor: Record<string, unknown>): string | null {
+      if (sensor.available === true) return null;
+      const code = readString(sensor.reason) ?? readString(sensor.state);
+      if (code != null) return SENSOR_GAP_EXPLANATIONS[code] ?? code;
+      return readString(sensor.error);
+    }
     export function normalizeSensorReport(report: unknown): HealthMetrics {
       const raw = asRecord(report);
       const sensors = asRecord(raw.sensors);
@@ -10316,6 +10322,23 @@
         acmm: normalizeAcmm(sensors),
         prCategoryBreakdown: normalizePrCategoryMetrics(sensors),
       };
+    }
+  </file>
+  <file path="apps/marketing/src/data/engineering-menu.ts">
+    export interface EngineeringPage {
+      readonly label: string;
+      readonly href: string;
+    }
+    export const ENGINEERING_PAGES: readonly EngineeringPage[] = [
+      { label: "Metrics", href: "/metrics" },
+      { label: "Shipped", href: "/shipped" },
+      { label: "Weekly", href: "/weekly" },
+      { label: "Status", href: "/status" },
+      { label: "AI health", href: "/ai-health" },
+      { label: "ACMM", href: "/acmm" },
+    ];
+    export function isEngineeringPageCurrent(pathname: string, href: string): boolean {
+      return pathname === href || pathname.startsWith(`${href}/`);
     }
   </file>
   <file path="apps/marketing/src/data/measurement-date.ts">
@@ -15335,8 +15358,26 @@
     export interface SeatPlacementInput {
       readonly shape: TableShapeName;
       readonly capacity: number;
+      /** Stored footprint; each falls back to the shape's `SHAPE_DEFAULTS` entry. */
+      readonly width?: number;
+      readonly height?: number;
       /** Clearance from the table edge; defaults to the canonical SEAT_GAP. */
       readonly gap?: number;
+    }
+    export interface SeatSize {
+      readonly width: number;
+      readonly height: number;
+    }
+    export function seatSize(capacity: number): SeatSize {
+      const t = Math.min(
+        1,
+        Math.max(0, (capacity - SEAT_SHRINK_START) / (SEAT_SHRINK_END - SEAT_SHRINK_START))
+      );
+      const ease = (from: number, to: number) => Math.round((from + (to - from) * t) * 1000) / 1000;
+      return {
+        width: ease(SEAT_SIZE_FULL.width, SEAT_SIZE_SMALL.width),
+        height: ease(SEAT_SIZE_FULL.height, SEAT_SIZE_SMALL.height),
+      };
     }
     type RectangleSide = (typeof RECTANGLE_SIDES)[number];
     function usableSeatCount(capacity: number): number {
@@ -15388,12 +15429,41 @@
         }));
       });
     }
+    function minSeatSpacing(input: SeatPlacementInput, seats: readonly SeatPlacement[]): number {
+      if (input.shape === "circle") {
+        const diameter = input.width ?? SHAPE_DEFAULTS.circle.width;
+        const gap = input.gap ?? SEAT_GAP;
+        return seats.length > 1
+          ? 2 * (diameter / 2 + gap) * Math.sin(Math.PI / seats.length)
+          : Infinity;
+      }
+      const bySide = new Map<number, number[]>();
+      for (const seat of seats) {
+        const along = seat.rotation % 180 === 0 ? seat.x : seat.y;
+        bySide.set(seat.rotation, [...(bySide.get(seat.rotation) ?? []), along]);
+      }
+      let min = Infinity;
+      for (const positions of bySide.values()) {
+        const sorted = [...positions].sort((a, b) => a - b);
+        sorted.slice(1).forEach((p, i) => {
+          min = Math.min(min, p - (sorted[i] ?? 0));
+        });
+      }
+      return min;
+    }
+    export function fittedSeatSize(input: SeatPlacementInput): SeatSize {
+      const base = seatSize(input.capacity);
+      const spacing = minSeatSpacing(input, seatPlacements(input));
+      return { ...base, width: Math.min(base.width, spacing - SEAT_SPACING_GAP) };
+    }
     export function seatPlacements(input: SeatPlacementInput): readonly SeatPlacement[] {
       const gap = input.gap ?? SEAT_GAP;
       const count = usableSeatCount(input.capacity);
       if (count === 0) return [];
     
-      const { width, height } = SHAPE_DEFAULTS[input.shape];
+      const defaults = SHAPE_DEFAULTS[input.shape];
+      const width = input.width ?? defaults.width;
+      const height = input.height ?? defaults.height;
       return input.shape === "circle"
         ? circleSeats(count, width / 2 + gap)
         : rectangleSeats(count, width, height, gap);
@@ -20242,21 +20312,38 @@
     }
   </file>
   <file path="packages/rialto/src/hooks/useFocusTrap.ts">
-    export const FOCUSABLE_SELECTOR =
-      'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
+    export const FOCUSABLE_SELECTOR = [
+      'button:not(:disabled):not([tabindex="-1"])',
+      '[href]:not([tabindex="-1"])',
+      'input:not(:disabled):not([type="hidden"]):not([tabindex="-1"])',
+      'select:not(:disabled):not([tabindex="-1"])',
+      'textarea:not(:disabled):not([tabindex="-1"])',
+      '[tabindex]:not([tabindex="-1"])',
+    ].join(", ");
+    function isReachable(el: HTMLElement, panel: HTMLElement): boolean {
+      if (el.closest("[hidden], [inert]")) return false;
+      if (getComputedStyle(el).visibility === "hidden") return false;
+      for (let node: HTMLElement | null = el; node && node !== panel; node = node.parentElement) {
+        if (getComputedStyle(node).display === "none") return false;
+      }
+      return true;
+    }
+    function queryTabbable(panel: HTMLElement): HTMLElement[] {
+      return Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter((el) =>
+        isReachable(el, panel)
+      );
+    }
     export interface UseFocusTrapOptions {
       /** Element to focus when the trap activates, overriding the default candidate. */
       initialFocus?: RefObject<HTMLElement | null>;
     }
     function resolveInitialFocus(
-      focusable: NodeListOf<HTMLElement>,
+      focusable: HTMLElement[],
       first: HTMLElement | undefined,
       initialFocus?: RefObject<HTMLElement | null>
     ): HTMLElement | undefined {
       if (initialFocus?.current) return initialFocus.current;
-      const defaultTarget = Array.from(focusable).find(
-        (el) => !el.hasAttribute(FOCUS_TRAP_SKIP_INITIAL_ATTR)
-      );
+      const defaultTarget = focusable.find((el) => !el.hasAttribute(FOCUS_TRAP_SKIP_INITIAL_ATTR));
       return defaultTarget ?? first;
     }
     export function useFocusTrap(
@@ -20272,7 +20359,7 @@
         const panel = panelRef.current;
         if (!panel) return;
     
-        const initialCandidates = panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
+        const initialCandidates = queryTabbable(panel);
         resolveInitialFocus(initialCandidates, initialCandidates[0], initialFocus)?.focus();
     
         activePanels.push(panel);
@@ -20283,7 +20370,7 @@
           if (panel !== activePanels[activePanels.length - 1]) return;
           // Re-query on every Tab: panels add/remove/disable controls after open,
           // so cached ends go stale and let focus escape.
-          const focusable = panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
+          const focusable = queryTabbable(panel);
           const first = focusable[0];
           const last = focusable[focusable.length - 1];
           const active = document.activeElement;
@@ -20361,8 +20448,12 @@
     }
   </file>
   <file path="packages/rialto/src/hooks/useReturnFocus.ts">
-    export function useReturnFocus(open: boolean): void {
+    export function useReturnFocus(open: boolean): () => void {
       const triggerRef = useRef<Element | null>(null);
+      const skipRef = useRef(false);
+      const skipRestore = useCallback(() => {
+        skipRef.current = true;
+      }, []);
     
       useLayoutEffect(() => {
         if (!open) return;
@@ -20373,11 +20464,16 @@
         return () => {
           const captured = triggerRef.current;
           triggerRef.current = null;
+          const skip = skipRef.current;
+          skipRef.current = false;
+          if (skip) return;
           requestAnimationFrame(() => {
             (captured as HTMLElement | null)?.focus();
           });
         };
       }, [open]);
+    
+      return skipRestore;
     }
   </file>
   <file path="packages/rialto/src/hooks/useScrollReveal.ts">
@@ -20758,6 +20854,8 @@
       readonly drawer: string;
       /** Fallback accessible name of a Popover with no title. */
       readonly popover: string;
+      /** NeonSign banner shape: the decorative script line printed above OPEN. */
+      readonly neonSignLead: string;
       /** Accessible name of a HoverCard's preview surface. */
       readonly preview: string;
       /** Accessible name of the Toast region. */
@@ -20974,6 +21072,7 @@
       dialog: "Dialog",
       drawer: "Drawer",
       popover: "Popover",
+      neonSignLead: "Yes, we're",
       preview: "Preview",
       notifications: "Notifications",
       confirm: "Confirm",
@@ -21799,7 +21898,14 @@
       let changed = false;
       const elements: Spec["elements"] = { ...spec.elements };
       for (const [key, element] of Object.entries(elements)) {
-        if (!element || element.type !== "Text") continue;
+        if (!element) continue;
+        const materialized = materializeCatalogProps(element.type, element.props);
+        if (materialized !== element.props) {
+          changed = true;
+          elements[key] = { ...element, props: materialized as typeof element.props };
+          continue;
+        }
+        if (element.type !== "Text") continue;
         const text = textContent(element.props);
         const points = text ? parseTrendPoints(text) : null;
         if (!points) continue;
@@ -22872,6 +22978,7 @@
       dialog: "Diálogo",
       drawer: "Panel lateral",
       popover: "Ventana emergente",
+      neonSignLead: "Sí, estamos",
       preview: "Vista previa",
       notifications: "Notificaciones",
       confirm: "Confirmar",
@@ -23035,6 +23142,7 @@
       dialog: "Boîte de dialogue",
       drawer: "Panneau latéral",
       popover: "Fenêtre contextuelle",
+      neonSignLead: "Oui, on est",
       preview: "Aperçu",
       notifications: "Avis",
       confirm: "Confirmer",
@@ -25434,6 +25542,9 @@
     
       const submit = useCallback(
         (prompt: string) => {
+          // send() ignores a request while one is in flight; abort the old one first
+          // so it never completes under this prompt.
+          if (isStreaming) stop();
           rememberPendingPrompt(prompt);
           setRawPrompt(prompt);
           clearNodeRefine();
@@ -25452,7 +25563,7 @@
             void send(prompt);
           }
         },
-        [mode, displaySpec, send, clearNodeRefine]
+        [mode, displaySpec, isStreaming, send, stop, clearNodeRefine]
       );
     
       const refineNode = useCallback(
@@ -27467,7 +27578,19 @@
       const steps = authHistorySkipSteps(Number(raw), history.length);
       if (steps == null) return;
     
-      const onPop = () => {
+      history.pushState({ mbeAuthSentinel: true }, "", window.location.href);
+      // In-app navigation after this point pushes entries and grows the length.
+      const armedLength = history.length;
+    
+      const onPop = (event: PopStateEvent) => {
+        if (history.length !== armedLength) {
+          // The user navigated in-app: Back no longer means "leave the callback".
+          window.removeEventListener("popstate", onPop);
+          return;
+        }
+        // Landing on the sentinel itself is not leaving the callback entry.
+        const state: unknown = event.state;
+        if (typeof state === "object" && state !== null && "mbeAuthSentinel" in state) return;
         window.removeEventListener("popstate", onPop);
         try {
           storage.setItem(AUTH_BACK_RELOAD_KEY, "1");
@@ -27480,7 +27603,6 @@
         });
       };
       window.addEventListener("popstate", onPop);
-      history.pushState({ mbeAuthSentinel: true }, "", window.location.href);
     }
     interface PageShowTarget {
       sessionStorage: Storage;
@@ -27490,12 +27612,12 @@
     }
     export function installAuthBackReload(target: PageShowTarget = window): () => void {
       const onPageShow = (event: PageTransitionEvent) => {
-        if (!event.persisted) return;
         try {
           const flagged = target.sessionStorage.getItem(AUTH_BACK_RELOAD_KEY) === "1";
           if (!flagged) return;
           target.sessionStorage.removeItem(AUTH_BACK_RELOAD_KEY);
-          target.location.reload();
+          // A fresh load (not a bfcache restore) already has a live React tree.
+          if (event.persisted) target.location.reload();
         } catch (error) {
           continueWhenStorageFails(error);
         }
@@ -30922,6 +31044,7 @@
               venueId,
               changeId: request.params.changeId,
               actorId: request.user?.id ?? "unknown",
+              actorName: actorNameOf(request.user),
               expectedVersion: request.body.expectedVersion,
               now: new Date(),
             });
@@ -31057,6 +31180,7 @@
             const outcome = await availabilityConfigService.save({
               venueId,
               actorId: request.user?.id ?? "unknown",
+              actorName: actorNameOf(request.user),
               body: request.body,
               now: new Date(),
             });
@@ -31561,6 +31685,7 @@
       return {
         isManager: isAdmin || hasVenueRole(role, "manager"),
         actorId: request.user?.id ?? "unknown",
+        actorName: actorNameOf(request.user),
       };
     }
     export const CLOSURE_FORBIDDEN =
@@ -39670,6 +39795,12 @@
        * recorded. Optional so a client talking to an older API falls back to `summary`.
        */
       outcome: AvailabilityChangeOutcomeSchema.nullish(),
+      /**
+       * The person's display name, snapshotted when the change was made; never an email. `null` on
+       * rows saved before names were recorded. Optional so a client talking to an older API still
+       * works (History then says "a teammate").
+       */
+      actorName: z.string().nullish(),
     });
     export const AVAILABILITY_CHANGES_MAX_LIMIT = 100;
     export const AvailabilityChangesQuerySchema = z.object({
@@ -45123,6 +45254,13 @@
     }
     export const defaultDeliveryDedupStore: DeliveryDedupStore = createDeliveryDedupStore();
   </file>
+  <file path="services/reservations/src/services/actor-name.ts">
+    export function actorNameOf(user: { name?: string | null } | undefined): string | null {
+      const name = user?.name?.trim();
+      if (!name || name.includes("@")) return null;
+      return name.slice(0, MAX_ACTOR_NAME_LENGTH);
+    }
+  </file>
   <file path="services/reservations/src/services/assert-bookable.ts">
     export type BookableError =
       | { code: "PARTY_DOES_NOT_FIT"; message: string }
@@ -45498,6 +45636,7 @@
         const items: AvailabilityChangeEntry[] = rows.map((r) => ({
           id: r.id,
           actorId: r.actorId,
+          actorName: r.actorName ?? null,
           at: r.at.toISOString(),
           kind: r.kind,
           summary: r.summary,
@@ -45535,14 +45674,15 @@
         venueId: string;
         changeId: string;
         actorId: string;
+        actorName?: string | null;
         expectedVersion: number;
         now: Date;
       },
       client: StoreClient = prisma
     ): Promise<RevertOutcome> {
-      const { venueId, changeId, actorId, expectedVersion, now } = input;
+      const { venueId, changeId, actorId, actorName, expectedVersion, now } = input;
       return inSaveTransaction<SaveOutcome, RevertOutcome>(client, venueId, (tx) =>
-        commitSave(tx, { venueId, actorId, expectedVersion, now }, async (state) => {
+        commitSave(tx, { venueId, actorId, actorName, expectedVersion, now }, async (state) => {
           const change = await tx.availabilityChange.findFirst({ where: { id: changeId, venueId } });
           if (!change) return refuseSave({ kind: "change_not_found" });
           if (change.revertedById) return refuseSave(refused("already_reverted"));
@@ -46509,10 +46649,16 @@
     }
     export async function commitSave(
       tx: StoreDb,
-      input: { venueId: string; actorId: string; expectedVersion: number; now: Date },
+      input: {
+        venueId: string;
+        actorId: string;
+        actorName?: string | null;
+        expectedVersion: number;
+        now: Date;
+      },
       resolve: (state: ConfigState) => Promise<SaveRequest>
     ): Promise<SaveOutcome> {
-      const { venueId, actorId, expectedVersion, now } = input;
+      const { venueId, actorId, actorName = null, expectedVersion, now } = input;
       const cas = await tx.venue.updateMany({
         where: { id: venueId, availabilityVersion: expectedVersion },
         data: { availabilityVersion: { increment: 1 } },
@@ -46552,6 +46698,7 @@
         data: {
           venueId,
           actorId,
+          actorName,
           at: now,
           kind: request.kind,
           summary: request.summary ?? plan.summary,
@@ -46569,16 +46716,26 @@
       return { kind: "saved" as const, version: expectedVersion + 1, changeId: change.id };
     }
     export async function saveAvailabilityConfig(
-      input: { venueId: string; actorId: string; body: PutAvailabilityConfigBody; now: Date },
+      input: {
+        venueId: string;
+        actorId: string;
+        actorName?: string | null;
+        body: PutAvailabilityConfigBody;
+        now: Date;
+      },
       client: StoreClient = prisma
     ): Promise<SaveOutcome> {
-      const { venueId, actorId, body, now } = input;
+      const { venueId, actorId, actorName, body, now } = input;
       return inSaveTransaction(client, venueId, (tx) =>
-        commitSave(tx, { venueId, actorId, expectedVersion: body.expectedVersion, now }, async () => ({
-          changes: body.changes,
-          scopeConflicts: body.scopeConflicts,
-          kind: "config",
-        }))
+        commitSave(
+          tx,
+          { venueId, actorId, actorName, expectedVersion: body.expectedVersion, now },
+          async () => ({
+            changes: body.changes,
+            scopeConflicts: body.scopeConflicts,
+            kind: "config",
+          })
+        )
       );
     }
     export type PreviewOutcome = { kind: "not_found" } | { kind: "timeout" } | PreviewPlan;
@@ -48367,6 +48524,8 @@
       /** Owner, manager or platform admin. Anyone else is a Host. */
       isManager: boolean;
       actorId: string;
+      /** Display name snapshotted on the audit row; absent or `null` when the token has none. */
+      actorName?: string | null;
     }
     export type CreateClosureOutcome =
       | { kind: "saved"; result: ClosureResult }
@@ -48679,6 +48838,7 @@
         data: {
           venueId,
           actorId: caller.actorId,
+          actorName: caller.actorName ?? null,
           at: now,
           kind: "closure",
           summary: describe(rule, plan.counts),
@@ -48837,7 +48997,8 @@
     
           const next = {
             ...state.stored,
-            dateRules: state.stored.dateRules.filter((r) => r.id !== ruleId),
+            // Reopening a series also removes its skips and one-date edits (#7685).
+            dateRules: state.stored.dateRules.filter((r) => r.id !== ruleId && r.seriesId !== ruleId),
           };
           const diff = diffConfig(state.stored, next);
           await writeConfigDiff(db, venueId, diff, { actorId: caller.actorId, now });
@@ -48854,6 +49015,7 @@
             data: {
               venueId,
               actorId: caller.actorId,
+              actorName: caller.actorName ?? null,
               at: now,
               kind: "reopen",
               summary: `Closure reopened (${rule.startsOn})`,
@@ -57962,11 +58124,17 @@
     }
     async function writeChange(
       tx: Db,
-      input: { venueId: string; actorId: string; now: Date; body: SetTonightBody },
+      input: {
+        venueId: string;
+        actorId: string;
+        actorName: string | null;
+        now: Date;
+        body: SetTonightBody;
+      },
       state: ConfigState,
       rule: Extract<DateRule, { kind: "tonight" }>
     ): Promise<TonightResult> {
-      const { venueId, actorId, now, body } = input;
+      const { venueId, actorId, actorName, now, body } = input;
       const cas = await tx.venue.updateMany({
         where: { id: venueId, availabilityVersion: body.expectedVersion },
         data: { availabilityVersion: { increment: 1 } },
@@ -57985,6 +58153,7 @@
         data: {
           venueId,
           actorId,
+          actorName,
           at: now,
           kind: "tonight",
           summary: describeChange(body.change),
@@ -58044,7 +58213,7 @@
           }
           const result = await writeChange(
             tx,
-            { venueId, actorId: caller.actorId, now, body },
+            { venueId, actorId: caller.actorId, actorName: caller.actorName ?? null, now, body },
             state,
             rule
           );
@@ -58072,7 +58241,12 @@
     }
     export type EndTonightOutcome = { kind: "ended"; result: ReopenResult } | { kind: "not_found" };
     export async function endTonight(
-      input: { venueId: string; ruleId: string; caller: Pick<ClosureCaller, "actorId">; now: Date },
+      input: {
+        venueId: string;
+        ruleId: string;
+        caller: Pick<ClosureCaller, "actorId" | "actorName">;
+        now: Date;
+      },
       client: StoreClient = prisma
     ): Promise<EndTonightOutcome> {
       const { venueId, ruleId, caller, now } = input;
@@ -58101,6 +58275,7 @@
           data: {
             venueId,
             actorId: caller.actorId,
+            actorName: caller.actorName ?? null,
             at: now,
             kind: "tonight_end",
             summary: "Tonight change ended",

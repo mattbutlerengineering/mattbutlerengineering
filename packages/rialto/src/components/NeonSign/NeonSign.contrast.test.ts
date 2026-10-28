@@ -100,6 +100,34 @@ const textColor = (tokens: Map<string, string>, value: string): Rgba =>
 const closedTubeColor = declaration(ruleBody(css, ".tube"), "color") as string;
 const housingBackground = declaration(ruleBody(css, ".housing"), "background") as string;
 
+const TONES = ["red", "pink", "blue", "green", "orange", "purple"] as const;
+/** The backboard wash is the tone mixed over the housing at this strength (see --neon-wash). */
+const WASH_PERCENT = 12;
+
+describe("NeonSign tone contrast (lit word is text: AA 4.5:1 on the housing and its wash)", () => {
+  for (const [themeName, tokens] of Object.entries(THEMES)) {
+    for (const tone of TONES) {
+      it(`--rialto-neon-${tone} meets 4.5:1 in ${themeName}`, () => {
+        const housing = resolveColor(tokens, housingBackground);
+        const housingRgb: Rgb = [housing[0], housing[1], housing[2]];
+        const fg = resolveToken(tokens, `--rialto-neon-${tone}`);
+        const fgRgb: Rgb = [fg[0], fg[1], fg[2]];
+        const washed = blend([fg[0], fg[1], fg[2], WASH_PERCENT / 100], housingRgb);
+        expect(ratio(fgRgb, housingRgb)).toBeGreaterThanOrEqual(4.5);
+        expect(ratio(fgRgb, washed)).toBeGreaterThanOrEqual(4.5);
+      });
+    }
+  }
+
+  it("the sheet derives the wash at the strength this test assumes", () => {
+    expect(css).toContain(`${WASH_PERCENT}%, transparent`);
+  });
+
+  it("the sheet holds no raw colour literal", () => {
+    expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/);
+  });
+});
+
 describe("NeonSign closed tube contrast (axe color-contrast, WCAG AA 4.5:1)", () => {
   for (const [themeName, tokens] of Object.entries(THEMES)) {
     it(`unlit tube text meets 4.5:1 on the housing in ${themeName}`, () => {

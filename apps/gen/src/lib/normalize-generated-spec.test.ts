@@ -17,6 +17,14 @@ describe("parseTrendPoints", () => {
     expect(parseTrendPoints(SERIES)?.[0]).toEqual({ label: "Jan", value: "$18.2k" });
   });
 
+  it("rejects plain-number lists that are not money or percent series", () => {
+    expect(parseTrendPoints("Jan 15, Feb 20, Mar 10")).toBeNull();
+  });
+
+  it("accepts percent series", () => {
+    expect(parseTrendPoints("Jan 12% · Feb 15% · Mar 18%")).toHaveLength(3);
+  });
+
   it("rejects ordinary sentences", () => {
     expect(parseTrendPoints("Revenue trend")).toBeNull();
     expect(parseTrendPoints("Last 6 months")).toBeNull();
@@ -24,6 +32,22 @@ describe("parseTrendPoints", () => {
 });
 
 describe("normalizeGeneratedSpec", () => {
+  it("replaces a non-array Table data binding with sample rows (playground only)", () => {
+    const spec: Spec = {
+      root: "t",
+      elements: {
+        t: {
+          type: "Table",
+          props: { columns: [{ key: "name", header: "Name" }], data: { $state: "/users" } },
+          children: [],
+        },
+      },
+    };
+    const next = normalizeGeneratedSpec(spec);
+    expect((next.elements.t?.props as { data: unknown[] }).data).toHaveLength(8);
+    expect(spec.elements.t?.props.data).toEqual({ $state: "/users" });
+  });
+
   it("turns a trend sentence into a BarChart and leaves the heading", () => {
     const spec: Spec = {
       root: "card",

@@ -164,4 +164,36 @@ describe("useReturnFocus", () => {
     document.body.removeChild(trigger);
     document.body.removeChild(other);
   });
+
+  it("skips the restore once when the caller hands focus onward (skipRestore)", () => {
+    const trigger = document.createElement("button");
+    const next = document.createElement("button");
+    document.body.append(trigger, next);
+    trigger.focus();
+
+    const { result, rerender } = renderHook(({ open }) => useReturnFocus(open), {
+      initialProps: { open: false },
+    });
+
+    act(() => rerender({ open: true }));
+    // Tab out of a menu: the browser moves focus on, the hook must not yank it back.
+    act(() => result.current());
+    next.focus();
+    act(() => rerender({ open: false }));
+    act(() => vi.runAllTimers());
+
+    expect(document.activeElement).toBe(next);
+
+    // The skip is single-use: the next cycle restores as usual.
+    trigger.focus();
+    act(() => rerender({ open: true }));
+    next.focus();
+    act(() => rerender({ open: false }));
+    act(() => vi.runAllTimers());
+
+    expect(document.activeElement).toBe(trigger);
+
+    document.body.removeChild(trigger);
+    document.body.removeChild(next);
+  });
 });

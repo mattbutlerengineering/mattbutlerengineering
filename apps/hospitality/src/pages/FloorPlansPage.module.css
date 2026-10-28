@@ -11,10 +11,17 @@
   margin-block-end: var(--rialto-space-lg);
 }
 
+/* Title block takes the row and wraps the action below it when it won't fit. */
+.header > :first-child {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
 /* Cards grid */
 .cardGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  /* min(100%, 300px): a 375px viewport minus page padding is under 300px. */
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
   gap: var(--rialto-space-lg);
 }
 
@@ -38,6 +45,8 @@
   align-items: stretch;
   justify-content: flex-start;
   width: 100%;
+  min-width: 0;
+  overflow: hidden;
   padding: 0;
   border: none;
   border-radius: 0;
@@ -68,24 +77,41 @@
   color: var(--rialto-border-strong);
 }
 
+/* min-width: 0 lets flex/grid children shrink below their text width so the
+   ellipsis can engage instead of the text spilling out of the card. */
 .cardBody {
   padding: var(--rialto-space-md);
+  min-width: 0;
+  max-width: 100%;
 }
 
 .cardMeta {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--rialto-space-sm);
+  min-width: 0;
   margin-block-end: var(--rialto-space-xs);
 }
 
 .cardName {
+  flex: 1 1 auto;
+  min-width: 0;
   font-weight: var(--rialto-weight-medium);
+}
+
+.cardMeta > :not(.cardName) {
+  flex: 0 0 auto;
 }
 
 .cardDetails {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+}
+
+.cardDetails > * {
+  min-width: 0;
 }
 
 .cardActions {

@@ -167,6 +167,7 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
                   className={styles.close}
                   onClick={close}
                   aria-label={messages.close}
+                  data-focus-trap-skip-initial="true"
                 >
                   <svg
                     width="10"

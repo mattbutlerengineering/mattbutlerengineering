@@ -31,6 +31,22 @@ describe("upsertQueueEfficiencyRow", () => {
     expect(lines[0]).toMatchObject({ available: true, composite: 0.7 });
   });
 
+  it("never replaces a same-day available row with an unavailable one (#7581)", () => {
+    const good = JSON.stringify({
+      date: "2026-10-12",
+      sensor: "queueEfficiency",
+      available: true,
+      composite: 0.9,
+    });
+    const out = upsertQueueEfficiencyRow(good + "\n", {
+      date: "2026-10-12",
+      sensor: "queueEfficiency",
+      available: false,
+      reason: "query_error",
+    });
+    expect(out).toBe(good + "\n");
+  });
+
   it("keeps same-day rows from other sensors and tolerates an empty file", () => {
     const out = upsertQueueEfficiencyRow(row("2026-10-12", "ciHealth") + "\n", {
       date: "2026-10-12",
@@ -66,6 +82,36 @@ describe("recordQueueEfficiency", () => {
       },
     });
     expect(entry.available).toBe(false);
+    expect(entry.reason).toBe("credential_rejected");
+  });
+
+  it("retries a transient GitHub 5xx and records the successful result (#7581)", () => {
+    const results = [
+      { available: false, reason: "query_error", error: "HTTP 502: 502 Bad Gateway" },
+      { available: false, reason: "query_error", error: "spawnSync gh ETIMEDOUT" },
+      { available: true, composite: 0.9 },
+    ];
+    let calls = 0;
+    const entry = recordQueueEfficiency({
+      now: new Date("2026-10-12T11:30:00Z"),
+      collect: () => results[calls++],
+      sleep: () => {},
+    });
+    expect(calls).toBe(3);
+    expect(entry.available).toBe(true);
+  });
+
+  it("does not retry a credential failure", () => {
+    let calls = 0;
+    const entry = recordQueueEfficiency({
+      now: new Date("2026-10-12T11:30:00Z"),
+      collect: () => {
+        calls++;
+        return { available: false, reason: "credential_rejected", error: "HTTP 401" };
+      },
+      sleep: () => {},
+    });
+    expect(calls).toBe(1);
     expect(entry.reason).toBe("credential_rejected");
   });
 });
