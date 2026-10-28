@@ -1,4 +1,5 @@
 import { forwardRef, useId, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
@@ -49,7 +50,7 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
           exit: { opacity: 0, y: 8, scale: 0.98 },
         };
 
-    return (
+    const dialog = (
       <AnimatePresence>
         {open && (
           <motion.div
@@ -116,6 +117,11 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
         )}
       </AnimatePresence>
     );
+
+    // Portaled so a dialog nested in another (whose panel is transformed by
+    // framer-motion) is not trapped inside that panel and painted over its text.
+    if (typeof document === "undefined") return dialog;
+    return createPortal(dialog, document.body);
   }
 );
 

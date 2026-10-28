@@ -29,6 +29,49 @@ describe("BarChart", () => {
     expect(heights).toContain("100%");
     expect(heights).toContain(`${(18.2 / 22) * 100}%`);
   });
+
+  it("draws negative values down from a zero baseline and skips non-finite ones", () => {
+    const { container } = render(
+      <BarChart
+        label="Mixed values"
+        data={[
+          { label: "A", value: -50 },
+          { label: "B", value: "NaN" },
+          { label: "C", value: 20 },
+          { label: "D", value: "null" },
+          { label: "E", value: -300 },
+          { label: "F", value: "Infinity" },
+          { label: "G", value: "1e999" },
+        ]}
+      />
+    );
+    const negative = container.querySelectorAll("[data-sign='negative']");
+    const positive = container.querySelectorAll("[data-sign='positive']");
+    expect(negative).toHaveLength(2);
+    expect(positive).toHaveLength(1);
+    expect(container.querySelectorAll("[data-bar='missing']")).toHaveLength(4);
+    const down = Number.parseFloat((negative[0] as HTMLElement).style.blockSize);
+    const further = Number.parseFloat((negative[1] as HTMLElement).style.blockSize);
+    expect(further).toBeGreaterThan(down);
+    expect(container.querySelector("[class*='baseline']")).not.toBeNull();
+  });
+
+  it("does not turn Infinity or 1e999 into a bar when the rest of the series is positive", () => {
+    const { container } = render(
+      <BarChart
+        label="Spikes"
+        data={[
+          { label: "A", value: 20 },
+          { label: "B", value: Number.POSITIVE_INFINITY },
+          { label: "C", value: "1e999" },
+        ]}
+      />
+    );
+    const heights = Array.from(container.querySelectorAll("span"))
+      .map((bar) => bar.style.blockSize)
+      .filter((size) => size.endsWith("%"));
+    expect(heights).toEqual(["100%"]);
+  });
 });
 
 describe("BarChart.module.css tokens", () => {

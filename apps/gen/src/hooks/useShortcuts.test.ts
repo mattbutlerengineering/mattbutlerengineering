@@ -127,9 +127,34 @@ describe("shortcut table", () => {
 
   it("renders platform-specific key labels", () => {
     const history = SHORTCUTS.find((s) => s.id === "history");
-    if (!history) throw new Error("missing history");
+    const palette = SHORTCUTS.find((s) => s.id === "palette");
+    if (!history || !palette) throw new Error("missing shortcut");
     expect(displayKeys(history, true)).toEqual(["⌥", "1"]);
     expect(displayKeys(history, false)).toEqual(["Alt", "1"]);
+    expect(displayKeys(palette, true)).toEqual(["⌘", "K"]);
+    expect(displayKeys(palette, false)).toEqual(["Ctrl", "K"]);
+  });
+
+  it("matches Alt shortcuts from realistic key and code values", () => {
+    const history = vi.fn();
+    const inspector = vi.fn();
+    const fullscreen = vi.fn();
+    const templates = vi.fn();
+    renderHook(() => useShortcuts({ history, inspector, fullscreen, templates }));
+
+    // Linux Chrome, US layout: Alt does not rewrite the digit.
+    press({ altKey: true, key: "1", code: "Digit1" });
+    // macOS Option+2: key is the symbol, code is the physical key.
+    press({ altKey: true, key: "™", code: "Digit2" });
+    // Alt+Shift+F where key is a symbol and code is KeyF.
+    press({ altKey: true, shiftKey: true, key: "ƒ", code: "KeyF" });
+    // Code missing, unmodified character still in key (some Linux events).
+    press({ altKey: true, shiftKey: true, key: "T", code: "" });
+
+    expect(history).toHaveBeenCalledTimes(1);
+    expect(inspector).toHaveBeenCalledTimes(1);
+    expect(fullscreen).toHaveBeenCalledTimes(1);
+    expect(templates).toHaveBeenCalledTimes(1);
   });
 
   it("does not hijack native text undo: Cmd/Ctrl+Z is never matched, Alt+Z is ignored while typing", () => {

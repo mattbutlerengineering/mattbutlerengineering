@@ -460,6 +460,12 @@
         retryAfterSeconds: number;
       }
     </item>
+    <item priority="medium">
+      function throwIfGenError(parsed: unknown): void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isGenStreamError(error: unknown): boolean { /* ... */ }
+    </item>
     <item priority="high">
       export async function* streamNDJSON<T>(config: StreamConfig): AsyncGenerator<T> { /* ... */ }
     </item>

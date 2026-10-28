@@ -34,8 +34,79 @@ function textContent(props: unknown): string | null {
   return null;
 }
 
-/** Return a spec whose trend sentences are BarChart elements. */
+const CHART_ALIASES = new Set(["LineChart", "AreaChart", "Chart"]);
+
+interface Point {
+  label: string;
+  value: number | string;
+}
+
+function asPoints(value: unknown): Point[] | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  const points: Point[] = [];
+  for (const item of value) {
+    if (item === null || typeof item !== "object") return null;
+    const record = item as Record<string, unknown>;
+    const label = record.label ?? record.x ?? record.name;
+    const amount = record.value ?? record.y;
+    if (typeof label !== "string") return null;
+    if (typeof amount !== "number" && typeof amount !== "string") return null;
+    points.push({ label, value: amount });
+  }
+  return points;
+}
+
+function chartProps(props: unknown): { label: string; data: Point[] } | null {
+  if (props === null || typeof props !== "object") return null;
+  const record = props as Record<string, unknown>;
+  const data = asPoints(record.data ?? record.points ?? record.series);
+  if (!data) return null;
+  const label =
+    typeof record.label === "string" && record.label.trim() !== "" ? record.label : "Trend";
+  return { label, data };
+}
+
+/**
+ * Pictures are not a catalog component. An Image becomes an Avatar (initials
+ * when src fails) plus a Text caption of the alt, so a broken URL still says
+ * what the picture was.
+ */
+function repairImage(
+  key: string,
+  element: Spec["elements"][string],
+  elements: Spec["elements"]
+): boolean {
+  if (!element || (element.type !== "Image" && element.type !== "Img")) return false;
+  const props = (element.props ?? {}) as Record<string, unknown>;
+  const alt =
+    (typeof props.alt === "string" && props.alt.trim() !== "" ? props.alt : null) ??
+    (typeof props.name === "string" && props.name.trim() !== "" ? props.name : null) ??
+    "Image";
+  const src = typeof props.src === "string" ? props.src : undefined;
+  const avatarKey = `${key}__avatar`;
+  const captionKey = `${key}__caption`;
+  elements[key] = {
+    ...element,
+    type: "Stack",
+    props: { direction: "column", gap: "xs" },
+    children: [avatarKey, captionKey],
+  };
+  elements[avatarKey] = {
+    type: "Avatar",
+    props: { src, name: alt.slice(0, 30), alt },
+    children: [],
+  };
+  elements[captionKey] = {
+    type: "Text",
+    props: { children: alt, variant: "caption" },
+    children: [],
+  };
+  return true;
+}
+
+/** Return a spec whose trend sentences, unknown charts, and images can render. */
 export function normalizeGeneratedSpec(spec: Spec): Spec {
+  if (!spec.elements) return spec;
   let changed = false;
   const elements: Spec["elements"] = { ...spec.elements };
   for (const [key, element] of Object.entries(elements)) {
@@ -56,6 +127,17 @@ export function normalizeGeneratedSpec(spec: Spec): Spec {
       type: "BarChart",
       props: { label: "Trend", data: points },
     };
+  }
+  for (const [key, element] of Object.entries(elements)) {
+    if (!element) continue;
+    if (CHART_ALIASES.has(element.type)) {
+      const chart = chartProps(element.props);
+      if (!chart) continue;
+      changed = true;
+      elements[key] = { ...element, type: "BarChart", props: chart };
+      continue;
+    }
+    if (repairImage(key, element, elements)) changed = true;
   }
   return changed ? { ...spec, elements } : spec;
 }

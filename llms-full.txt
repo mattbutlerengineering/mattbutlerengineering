@@ -16234,7 +16234,7 @@
             const raised = err instanceof Error ? err : new Error(String(err));
             // Swap in limit-specific copy but keep the status fields, so the
             // result still classifies as a transport failure.
-            const limitCopy = describeLimitError(raised);
+            const limitCopy = describeLimitError(raised) ?? describeTimeoutError(raised);
             const error = limitCopy ? Object.assign(new Error(limitCopy), { ...raised }) : raised;
             setError(error);
             setIsStreaming(false);
@@ -21859,6 +21859,125 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="apps/gen/src/lib/dialog-controls.ts">
+    export interface DialogControl {
+      initialOpen: boolean;
+    }
+    export interface ButtonControl {
+      kind: "open" | "close";
+      dialogKey: string;
+    }
+    export interface DialogPlan {
+      dialogs: Record<string, DialogControl>;
+      buttons: Record<string, ButtonControl>;
+    }
+    interface GenElement {
+      type?: string;
+      props?: Record<string, unknown>;
+      children?: string[];
+      slots?: Record<string, string[]>;
+    }
+    function elementsOf(spec: Spec | null): Record<string, GenElement> | null {
+      if (!spec?.root || !spec.elements) return null;
+      return spec.elements as Record<string, GenElement>;
+    }
+    function childKeys(element: GenElement | undefined): string[] {
+      if (!element) return [];
+      const keys = [...(element.children ?? [])];
+      for (const slot of Object.values(element.slots ?? {})) {
+        if (!Array.isArray(slot)) continue;
+        for (const key of slot) if (typeof key === "string") keys.push(key);
+      }
+      return keys;
+    }
+    function labelOf(element: GenElement): string {
+      const props = element.props ?? {};
+      return [props.label, props.children, props["aria-label"], props.text]
+        .filter((part): part is string => typeof part === "string")
+        .join(" ");
+    }
+    function isButton(element: GenElement | undefined): boolean {
+      return element?.type === "Button" || element?.type === "IconButton";
+    }
+    function wantsClose(label: string): boolean {
+      return /\bclose\b/i.test(label);
+    }
+    function wantsOpen(label: string): boolean {
+      return /\bopen\b/i.test(label);
+    }
+    function findDialog(elements: Record<string, GenElement>, key: string): string | null {
+      const element = elements[key];
+      if (!element) return null;
+      if (element.type === "Dialog") return key;
+      for (const child of childKeys(element)) {
+        const found = findDialog(elements, child);
+        if (found) return found;
+      }
+      return null;
+    }
+    export function planDialogControls(spec: Spec | null): DialogPlan {
+      const elements = elementsOf(spec);
+      if (!elements || !spec?.root) return EMPTY;
+    
+      const parent = new Map<string, string>();
+      const walk = (key: string) => {
+        for (const child of childKeys(elements[key])) {
+          if (parent.has(child)) continue;
+          parent.set(child, key);
+          walk(child);
+        }
+      };
+      walk(spec.root);
+    
+      const nearestDialog = (key: string): string | null => {
+        let current = parent.get(key);
+        while (current) {
+          if (elements[current]?.type === "Dialog") return current;
+          current = parent.get(current);
+        }
+        return null;
+      };
+    
+      const buttons: Record<string, ButtonControl> = {};
+      const opened = new Set<string>();
+    
+      for (const [key, element] of Object.entries(elements)) {
+        if (!isButton(element)) continue;
+        const label = labelOf(element);
+        const ancestor = nearestDialog(key);
+        if (wantsClose(label) && ancestor) {
+          buttons[key] = { kind: "close", dialogKey: ancestor };
+          continue;
+        }
+        const parentKey = parent.get(key);
+        const siblings = childKeys(parentKey ? elements[parentKey] : undefined);
+        const index = siblings.indexOf(key);
+        let target: string | null = null;
+        if (wantsOpen(label)) {
+          for (const sibling of siblings.slice(index + 1)) {
+            target = findDialog(elements, sibling);
+            if (target) break;
+          }
+        } else if (index >= 0) {
+          const next = siblings[index + 1];
+          if (next && elements[next]?.type === "Dialog") target = next;
+        }
+        if (target) {
+          buttons[key] = { kind: "open", dialogKey: target };
+          opened.add(target);
+        }
+      }
+    
+      const dialogs: Record<string, DialogControl> = {};
+      for (const [key, element] of Object.entries(elements)) {
+        if (element.type !== "Dialog") continue;
+        const literalOpen = element.props?.open === true;
+        dialogs[key] = { initialOpen: opened.has(key) ? false : literalOpen };
+      }
+    
+      return { dialogs, buttons };
+    }
+  </file>
   <file path="apps/gen/src/lib/entry-kind.ts">
     export function resolveEntry(entry: Pick<StoredSpec, "prompt" | "kind">): {
       kind: EntryKind;
@@ -21894,7 +22013,67 @@
       if (typeof record.text === "string") return record.text;
       return null;
     }
+    interface Point {
+      label: string;
+      value: number | string;
+    }
+    function asPoints(value: unknown): Point[] | null {
+      if (!Array.isArray(value) || value.length === 0) return null;
+      const points: Point[] = [];
+      for (const item of value) {
+        if (item === null || typeof item !== "object") return null;
+        const record = item as Record<string, unknown>;
+        const label = record.label ?? record.x ?? record.name;
+        const amount = record.value ?? record.y;
+        if (typeof label !== "string") return null;
+        if (typeof amount !== "number" && typeof amount !== "string") return null;
+        points.push({ label, value: amount });
+      }
+      return points;
+    }
+    function chartProps(props: unknown): { label: string; data: Point[] } | null {
+      if (props === null || typeof props !== "object") return null;
+      const record = props as Record<string, unknown>;
+      const data = asPoints(record.data ?? record.points ?? record.series);
+      if (!data) return null;
+      const label =
+        typeof record.label === "string" && record.label.trim() !== "" ? record.label : "Trend";
+      return { label, data };
+    }
+    function repairImage(
+      key: string,
+      element: Spec["elements"][string],
+      elements: Spec["elements"]
+    ): boolean {
+      if (!element || (element.type !== "Image" && element.type !== "Img")) return false;
+      const props = (element.props ?? {}) as Record<string, unknown>;
+      const alt =
+        (typeof props.alt === "string" && props.alt.trim() !== "" ? props.alt : null) ??
+        (typeof props.name === "string" && props.name.trim() !== "" ? props.name : null) ??
+        "Image";
+      const src = typeof props.src === "string" ? props.src : undefined;
+      const avatarKey = `${key}__avatar`;
+      const captionKey = `${key}__caption`;
+      elements[key] = {
+        ...element,
+        type: "Stack",
+        props: { direction: "column", gap: "xs" },
+        children: [avatarKey, captionKey],
+      };
+      elements[avatarKey] = {
+        type: "Avatar",
+        props: { src, name: alt.slice(0, 30), alt },
+        children: [],
+      };
+      elements[captionKey] = {
+        type: "Text",
+        props: { children: alt, variant: "caption" },
+        children: [],
+      };
+      return true;
+    }
     export function normalizeGeneratedSpec(spec: Spec): Spec {
+      if (!spec.elements) return spec;
       let changed = false;
       const elements: Spec["elements"] = { ...spec.elements };
       for (const [key, element] of Object.entries(elements)) {
@@ -21915,6 +22094,17 @@
           type: "BarChart",
           props: { label: "Trend", data: points },
         };
+      }
+      for (const [key, element] of Object.entries(elements)) {
+        if (!element) continue;
+        if (CHART_ALIASES.has(element.type)) {
+          const chart = chartProps(element.props);
+          if (!chart) continue;
+          changed = true;
+          elements[key] = { ...element, type: "BarChart", props: chart };
+          continue;
+        }
+        if (repairImage(key, element, elements)) changed = true;
       }
       return changed ? { ...spec, elements } : spec;
     }
@@ -22062,11 +22252,22 @@
       if (!def) throw new Error(`Unknown shortcut: ${id}`);
       return displayKeys(def, mac);
     }
+    function altHeld(event: KeyboardEvent): boolean {
+      if (event.altKey) return true;
+      // Linux Chrome sometimes reports the Alt combo with altKey unset while
+      // getModifierState still sees Alt. Matching only altKey drops Alt+1.
+      return typeof event.getModifierState === "function" && event.getModifierState("Alt");
+    }
     function mainKeyMatches(token: string, event: KeyboardEvent, usesAlt: boolean): boolean {
       if (token === "Esc") return event.key === "Escape";
-      // With Alt held, macOS rewrites event.key (Option+F -> a symbol), so match the
-      // physical key via event.code instead.
-      if (usesAlt) return event.code === (/^\d$/.test(token) ? `Digit${token}` : `Key${token}`);
+      const code = /^\d$/.test(token) ? `Digit${token}` : `Key${token}`;
+      // Alt rewrites event.key (Option+F is a symbol on macOS; some Linux layouts
+      // do the same). The physical key is event.code. When code is empty, the
+      // unmodified character in event.key is the fallback.
+      if (usesAlt) {
+        if (event.code === code) return true;
+        return event.key.length === 1 && event.key.toUpperCase() === token.toUpperCase();
+      }
       return event.key === token;
     }
     export function matchShortcut(event: KeyboardEvent): ShortcutAction | null {
@@ -22076,7 +22277,7 @@
         const token = def.keys[def.keys.length - 1];
         if (token === undefined) continue;
         const usesAlt = def.keys.includes("Alt");
-        if (event.altKey !== usesAlt) continue;
+        if (altHeld(event) !== usesAlt) continue;
         // Bare keys like "?" are shifted on many layouts, so only require Shift
         // to match when the binding is an Alt combo.
         if (usesAlt && event.shiftKey !== def.keys.includes("Shift")) continue;
@@ -22196,13 +22397,88 @@
   </file>
   <file path="apps/gen/src/lib/validate-spec.ts">
     export type CatalogValidation = { ok: true } | { ok: false; message: string };
+    export function readableCatalogMessage(message: string): string {
+      const jsonAt = message.indexOf("{");
+      if (jsonAt === -1) return message.length > 280 ? `${message.slice(0, 260)}…` : message;
+      const prefix = message.slice(0, jsonAt).replace(/:\s*$/, "").trim();
+      try {
+        const issue = JSON.parse(message.slice(jsonAt)) as {
+          path?: unknown;
+          message?: unknown;
+          received?: unknown;
+        };
+        const path = Array.isArray(issue.path) ? issue.path.map(String) : [];
+        const received =
+          typeof issue.received === "string"
+            ? issue.received
+            : receivedFrom(typeof issue.message === "string" ? issue.message : "");
+        if (path[path.length - 1] === "type" && received) {
+          return `unknown component "${received}". Charts use BarChart.`;
+        }
+        if (
+          typeof issue.message === "string" &&
+          issue.message.length > 0 &&
+          issue.message.length < 160
+        ) {
+          return prefix ? `${prefix}: ${issue.message}` : issue.message;
+        }
+      } catch {
+        // Not a JSON issue. Fall through to a clipped copy of the original.
+      }
+      const clipped = message.length > 280 ? `${message.slice(0, 260)}…` : message;
+      return prefix && clipped.startsWith("{") ? `${prefix}.` : clipped;
+    }
+    function receivedFrom(message: string): string | null {
+      const match = /received ['"]([^'"]+)['"]/i.exec(message);
+      return match?.[1] ?? null;
+    }
     export function validateSpecAgainstCatalog(spec: Spec): CatalogValidation {
       const result = catalog.validate(spec);
       if (result.success) return { ok: true };
-      return {
-        ok: false,
-        message: result.error?.message ?? "Spec does not conform to the Rialto catalog",
+      const raw = result.error?.message ?? "Spec does not conform to the Rialto catalog";
+      return { ok: false, message: readableCatalogMessage(raw) };
+    }
+  </file>
+  <file path="apps/gen/src/lib/visible-content.ts">
+    interface GenElement {
+      type?: string;
+      props?: Record<string, unknown>;
+      children?: string[];
+      slots?: Record<string, string[]>;
+    }
+    function childKeys(element: GenElement): string[] {
+      const keys = [...(element.children ?? [])];
+      for (const slot of Object.values(element.slots ?? {})) {
+        if (!Array.isArray(slot)) continue;
+        for (const key of slot) if (typeof key === "string") keys.push(key);
+      }
+      return keys;
+    }
+    function cardHasWords(element: GenElement): boolean {
+      const props = element.props ?? {};
+      return [props.title, props.subtitle, props.children].some(
+        (value) => typeof value === "string" && value.trim() !== ""
+      );
+    }
+    export function specHasVisibleContent(spec: Spec | null): boolean {
+      if (!spec?.root || !spec.elements) return false;
+      const elements = spec.elements as Record<string, GenElement>;
+      const seen = new Set<string>();
+    
+      const walk = (key: string): boolean => {
+        if (seen.has(key)) return false;
+        const element = elements[key];
+        if (!element?.type) return false;
+        seen.add(key);
+        if (element.type === "Card") {
+          if (cardHasWords(element)) return true;
+          return childKeys(element).some(walk);
+        }
+        if (!LAYOUT.has(element.type)) return true;
+        return childKeys(element).some(walk);
       };
+    
+      return walk(spec.root);
     }
   </file>
   <file path="apps/hospitality/src/lib/describe-api-error.ts">
@@ -25212,6 +25488,13 @@
   </section>
   <section priority="medium" role="pages">
   <file path="apps/gen/src/pages/classifyGenerationError.ts">
+    export function isTimeoutError(error: Error): boolean {
+      return statusOf(error) === 504;
+    }
+    export function describeTimeoutError(error: Error): string | null {
+      if (!isTimeoutError(error)) return null;
+      return "Generation timed out before a UI came back. Your prompt is still in the box — try again, or ask for something smaller.";
+    }
     export function isTransportError(error: Error): boolean {
       return (
         error instanceof TypeError ||
@@ -25393,6 +25676,10 @@
       const { push: pushDiff, clear: clearDiffs } = diffHistory;
       const [lastChange, setLastChange] = useState<SpecDiff | null>(null);
       const [interruptedPrompt] = useState(() => readInterruptedPrompt());
+      // A history row picked while a generation is still streaming. The finished
+      // run still saves, but it must not replace what the user is looking at.
+      const [heldId, setHeldId] = useState<string | null>(null);
+      const heldIdRef = useRef<string | null>(null);
       const noticedInterruptedRef = useRef(false);
     
       useEffect(() => {
@@ -25443,7 +25730,8 @@
             // The streamed spec stays on screen (activeId stays null) next to the
             // error affordance, and the attempt is recorded as "failed" in history,
             // the same as a stream failure, rather than saved as a success.
-            const validation = validateSpecAgainstCatalog(completedSpec);
+            savedSpec = normalizeGeneratedSpec(completedSpec);
+            const validation = validateSpecAgainstCatalog(savedSpec);
             if (!validation.ok) {
               setValidationError(
                 new Error(`The generated UI is not valid Rialto: ${validation.message}`)
@@ -25473,7 +25761,7 @@
             refinement,
           })
             .then((stored) => {
-              setActiveId(stored.id);
+              setActiveId((current) => (heldIdRef.current ? current : stored.id));
               setPinnedSpec(null);
             })
             .finally(() => {
@@ -25489,7 +25777,7 @@
         // infrastructure hiccup, not a generation failure worth recording.
         onError: (err) => {
           clearPendingPrompt();
-          if (!rawPrompt || isTransportError(err)) return;
+          if (!rawPrompt || (isTransportError(err) && !isTimeoutError(err))) return;
           void saveSpec({
             prompt: rawPrompt,
             kind: "failed",
@@ -25508,17 +25796,21 @@
       const activeEntrySpec = activeEntry ? (decodeSpec(activeEntry.spec) ?? undefined) : undefined;
       const activeEntryRawLines = activeEntry?.rawLines ?? [];
     
-      const displaySpec = pinnedSpec ?? (isStreaming ? spec : (activeEntrySpec ?? spec));
-      const displayRawLines = isStreaming
-        ? rawLines
-        : activeEntryRawLines.length > 0
-          ? activeEntryRawLines
-          : rawLines;
+      const showingHeld = heldId !== null && activeId === heldId && activeEntrySpec !== undefined;
+      const displaySpec =
+        pinnedSpec ?? (showingHeld ? activeEntrySpec : isStreaming ? spec : (activeEntrySpec ?? spec));
+      const displayRawLines = showingHeld
+        ? activeEntryRawLines
+        : isStreaming
+          ? rawLines
+          : activeEntryRawLines.length > 0
+            ? activeEntryRawLines
+            : rawLines;
       // useGenStream flips isStreaming to false in the same batch it sets error,
       // so gating on isStreaming here would mean the error is never visible —
       // only relevant while we're not looking at a previously saved entry.
       const displayError = activeId === null ? (refineError ?? validationError ?? error) : null;
-      const activeSpecId = !isStreaming && activeId ? activeId : null;
+      const activeSpecId = heldId ?? (!isStreaming && activeId ? activeId : null);
       const failedPrompt = displayError ? rawPrompt : null;
     
       const clearNodeRefine = useCallback(() => {
@@ -25545,6 +25837,8 @@
           // send() ignores a request while one is in flight; abort the old one first
           // so it never completes under this prompt.
           if (isStreaming) stop();
+          heldIdRef.current = null;
+          setHeldId(null);
           rememberPendingPrompt(prompt);
           setRawPrompt(prompt);
           clearNodeRefine();
@@ -25710,7 +26004,17 @@
     
       const selectHistory = useCallback(
         (id: string) => {
-          if (isStreaming) return;
+          // Looking at an earlier result while a long generation runs is the
+          // useful action. Ignoring the click makes the row look broken, and
+          // letting the save steal the row throws away the choice. The run still
+          // lands in history either way.
+          if (isStreaming) {
+            heldIdRef.current = id;
+            setHeldId(id);
+          } else {
+            heldIdRef.current = null;
+            setHeldId(null);
+          }
           resetTo(id);
         },
         [isStreaming, resetTo]
@@ -25722,6 +26026,8 @@
       // click / sign-out "New Generation" action doesn't show the empty state.
       const reset = useCallback(() => {
         clearPendingPrompt();
+        heldIdRef.current = null;
+        setHeldId(null);
         clear();
         resetTo(null);
       }, [clear, resetTo]);
@@ -29086,6 +29392,67 @@
       },
     });
   </file>
+  <file path="services/agent/src/routes/gen-json-elements.ts">
+    export function completeJsonElements(buffer: string): unknown[] {
+      const key = buffer.indexOf('"elements"');
+      if (key === -1) return [];
+      const start = buffer.indexOf("[", key);
+      if (start === -1) return [];
+    
+      const elements: unknown[] = [];
+      let index = start + 1;
+      while (index < buffer.length) {
+        const char = buffer[index];
+        if (char === undefined) break;
+        if (char === " " || char === "\n" || char === "\r" || char === "\t" || char === ",") {
+          index += 1;
+          continue;
+        }
+        if (char === "]") break;
+        if (char !== "{") break;
+        const end = endOfObject(buffer, index);
+        if (end === -1) break;
+        try {
+          elements.push(JSON.parse(buffer.slice(index, end)) as unknown);
+        } catch {
+          break;
+        }
+        index = end;
+      }
+      return elements;
+    }
+    function endOfObject(buffer: string, start: number): number {
+      let depth = 0;
+      let inString = false;
+      let escape = false;
+      for (let index = start; index < buffer.length; index += 1) {
+        const char = buffer[index];
+        if (char === undefined) break;
+        if (inString) {
+          if (escape) {
+            escape = false;
+            continue;
+          }
+          if (char === "\\") {
+            escape = true;
+            continue;
+          }
+          if (char === '"') inString = false;
+          continue;
+        }
+        if (char === '"') {
+          inString = true;
+          continue;
+        }
+        if (char === "{") depth += 1;
+        else if (char === "}") {
+          depth -= 1;
+          if (depth === 0) return index + 1;
+        }
+      }
+      return -1;
+    }
+  </file>
   <file path="services/agent/src/routes/gen-route-factory.ts">
     export interface GenRouteConfig<TSchema extends z.ZodType> {
       readonly path: string;
@@ -29131,6 +29498,17 @@
     type GenMessages = Array<{ role: "user" | "assistant"; content: string }>;
     function emptyOutputError(): Error & { statusCode: number } {
       return toError(new Error("Generation completed with no output"));
+    }
+    function generationFailureMessage(err: unknown): string {
+      const cause = err instanceof Error && err.cause instanceof Error ? err.cause.message : "";
+      const text = `${err instanceof Error ? err.message : ""} ${cause}`;
+      if (text.includes("maxOutputTokens")) {
+        return "This UI is too large to generate in one pass. Try fewer fields, then generate again.";
+      }
+      if (text.includes("no output")) {
+        return "Generation finished without a UI. Try a simpler description.";
+      }
+      return "Generation failed before a UI came back. Your prompt is still here — try again.";
     }
     function toError(err: unknown): Error & { statusCode: number } {
       return Object.assign(new Error("Generation failed upstream", { cause: err }), {
@@ -29275,6 +29653,8 @@
                 return reply.send(
                   new ReadableStream({
                     start(controller) {
+                      // Same leading blank line a miss writes, so a hit is byte-identical.
+                      controller.enqueue(encoder.encode("\n"));
                       for (const line of cached) {
                         controller.enqueue(encoder.encode(JSON.stringify(line) + "\n"));
                       }
@@ -29361,12 +29741,33 @@
               return reply.send(createSanitizedStream(textStream));
             }
     
-            // ndjson: encode each event as a JSON line
+            // ndjson: encode each event as a JSON line.
+            // A blank line goes out immediately and every 10s. DigitalOcean's
+            // gateway answers 504 when a request sits with no bytes (the model
+            // thinks, then emits one tool call). Blank lines are not elements.
+            // Once any byte is flushed the status is committed, so a later failure
+            // is a `$genError` line the client throws on — not a silent 200.
             const serializeEvent = config.createEventSerializer?.(parsed) ?? defaultSerializeEvent;
             const ndjsonStream = new ReadableStream({
               async start(controller) {
                 let emitted = false;
+                let sent = false;
+                let closed = false;
                 const lines: unknown[] = [];
+                const write = (bytes: Uint8Array) => {
+                  if (closed) return;
+                  controller.enqueue(bytes);
+                  sent = true;
+                };
+                write(encoder.encode("\n"));
+                const pulse = setInterval(() => write(encoder.encode("\n")), 10_000);
+                const end = (errorLine?: string) => {
+                  if (closed) return;
+                  closed = true;
+                  clearInterval(pulse);
+                  if (errorLine !== undefined) controller.enqueue(encoder.encode(errorLine));
+                  controller.close();
+                };
                 try {
                   await runner.run(messages, tools, async (event) => {
                     const line = serializeEvent(event);
@@ -29374,7 +29775,7 @@
                     emitted = true;
                     markEmitted();
                     lines.push(line);
-                    controller.enqueue(encoder.encode(JSON.stringify(line) + "\n"));
+                    write(encoder.encode(JSON.stringify(line) + "\n"));
                   });
                   if (!emitted) throw emptyOutputError();
                   // Only a run that finished cleanly reaches here: errors and the
@@ -29384,11 +29785,19 @@
                       request.log.warn({ err }, "gen spec cache write failed");
                     });
                   }
-                  controller.close();
+                  end();
                 } catch (err) {
                   request.log.error({ err }, "gen stream failed");
                   await chargeIfUnreported();
-                  controller.error(toError(err));
+                  if (!sent) {
+                    closed = true;
+                    clearInterval(pulse);
+                    controller.error(toError(err));
+                    return;
+                  }
+                  end(JSON.stringify({ $genError: generationFailureMessage(err) }) + "\n");
+                } finally {
+                  clearInterval(pulse);
                 }
               },
             });
@@ -29477,6 +29886,15 @@
             toolChoice: config.toolChoice,
             stopWhen: stepCountIs(config.maxSteps),
             maxOutputTokens: config.maxOutputTokens,
+            providerOptions: {
+              anthropic: {
+                // Haiku 5.5 thinks before the tool call, and those tokens count
+                // against the output cap. Nothing is emitted until thinking
+                // finishes, so a large form sits silent until the gateway 504s.
+                thinking: { type: "disabled" },
+                toolStreaming: true,
+              },
+            },
             onFinish: config.onFinish
               ? async ({ usage, providerMetadata, finishReason }) => {
                   await config.onFinish!({ usage, providerMetadata, finishReason });
@@ -29488,8 +29906,22 @@
           // on from the previous step's: "…for 2 people:Monday's slots…" (F29).
           let textSoFar = false;
           let stepEnded = false;
+          let renderJson = "";
+          let renderEmitted = 0;
+          let trackingRender = false;
           for await (const event of result.fullStream) {
-            if (event.type === "text-delta") {
+            if (event.type === "tool-input-start" && event.toolName === "render_component") {
+              trackingRender = true;
+              renderJson = "";
+              renderEmitted = 0;
+            } else if (event.type === "tool-input-delta" && trackingRender) {
+              renderJson += event.delta;
+              const ready = completeJsonElements(renderJson);
+              for (const element of ready.slice(renderEmitted)) {
+                await onEvent({ type: "element", element });
+              }
+              renderEmitted = ready.length;
+            } else if (event.type === "text-delta") {
               const content = textSoFar && stepEnded ? `\n\n${event.text}` : event.text;
               textSoFar = true;
               stepEnded = false;
@@ -29497,7 +29929,10 @@
             } else if (event.type === "finish-step" && event.finishReason !== "length") {
               stepEnded = true;
             } else if (event.type === "tool-call") {
-              await handleToolCall(event, onEvent);
+              const already =
+                trackingRender && event.toolName === "render_component" ? renderEmitted : 0;
+              await handleToolCall(event, onEvent, already);
+              if (event.toolName === "render_component") trackingRender = false;
             } else if (event.type === "tool-result") {
               await onEvent({
                 type: "tool_status",
@@ -29539,7 +29974,8 @@
     }
     async function handleToolCall(
       event: { toolCallId: string; toolName: string; input: unknown },
-      onEvent: GenEventCallback
+      onEvent: GenEventCallback,
+      alreadyEmitted = 0
     ): Promise<void> {
       const { toolName, toolCallId, input } = event;
     
@@ -29568,7 +30004,7 @@
       // render_component emits element events (no status — handled by tool-result)
       if (toolName === "render_component") {
         const typedInput = input as { elements?: unknown[] };
-        for (const element of typedInput.elements ?? []) {
+        for (const element of (typedInput.elements ?? []).slice(alreadyEmitted)) {
           await onEvent({ type: "element", element });
         }
         return;
@@ -29732,7 +30168,7 @@
       if (!rates) throw new Error(`No pricing declared for GEN_MODEL_ID "${GEN_MODEL_ID}"`);
       return rates;
     })();
-    export const GEN_MAX_OUTPUT_TOKENS = 2048;
+    export const GEN_MAX_OUTPUT_TOKENS = 4096;
     export function genSystemInstructions(systemPrompt: string) {
       return {
         role: "system" as const,
@@ -70158,6 +70594,19 @@
         this.retryAfterSeconds = fields.retryAfterSeconds;
       }
     }
+    function throwIfGenError(parsed: unknown): void {
+      if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return;
+      const message = (parsed as { $genError?: unknown }).$genError;
+      if (typeof message !== "string" || message === "") return;
+      // A plain Error, not a transport status: the prompt stays and the attempt
+      // is a generation failure the history can record.
+      const error = new Error(message);
+      error.name = "GenStreamError";
+      throw error;
+    }
+    function isGenStreamError(error: unknown): boolean {
+      return error instanceof Error && error.name === "GenStreamError";
+    }
     export async function* streamNDJSON<T>(config: StreamConfig): AsyncGenerator<T> {
       const response = await fetch(config.url, {
         method: "POST",
@@ -70216,8 +70665,10 @@
     
             try {
               const parsed = JSON.parse(trimmed) as T;
+              throwIfGenError(parsed);
               yield parsed;
-            } catch {
+            } catch (error) {
+              if (error instanceof StreamRequestError || isGenStreamError(error)) throw error;
               // Skip malformed JSON lines
             }
           }
@@ -70227,8 +70678,10 @@
         if (buffer.trim()) {
           try {
             const parsed = JSON.parse(buffer.trim()) as T;
+            throwIfGenError(parsed);
             yield parsed;
-          } catch {
+          } catch (error) {
+            if (error instanceof StreamRequestError || isGenStreamError(error)) throw error;
             // Skip malformed JSON lines
           }
         }

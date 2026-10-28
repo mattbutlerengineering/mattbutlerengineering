@@ -40,7 +40,7 @@ export const AppBar = forwardRef<HTMLElement, AppBarProps>(
       <motion.header
         ref={ref}
         className={classes}
-        style={{ height, ...style }}
+        style={{ minHeight: height, height: "auto", ...style }}
         initial={shouldReduceMotion ? false : { opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={motionPreset.springGentle}

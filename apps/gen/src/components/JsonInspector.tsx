@@ -87,8 +87,10 @@ function highlightJson(json: string, search: string): ReactNode[] {
     }
 
     if (className) {
+      // Span, not Text: Text's default element is a <p>, which puts every
+      // token on its own line.
       parts.push(
-        <Text key={keyIndex} className={className}>
+        <Text as="span" key={keyIndex} className={className}>
           {wrapMatches(token, search, keyIndex)}
         </Text>
       );

@@ -55,6 +55,15 @@ describe("JsonInspector", () => {
     expect(screen.getByText("No data yet")).toBeDefined();
   });
 
+  it("keeps a key and its value on one line instead of a block per token", () => {
+    render(<JsonInspector rawLines={['{"name":"test"}']} isStreaming={false} />);
+    const key = screen.getByText('"name":');
+    const value = screen.getByText('"test"');
+    expect(key.tagName).toBe("SPAN");
+    expect(value.tagName).toBe("SPAN");
+    expect(key.closest("[class*=lineRow]")).toBe(value.closest("[class*=lineRow]"));
+  });
+
   it("should render JSON lines", () => {
     const rawLines = ['{"name": "test", "value": 123}'];
     render(<JsonInspector rawLines={rawLines} isStreaming={false} />);

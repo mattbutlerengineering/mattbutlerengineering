@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Dialog } from "./Dialog";
 
@@ -93,16 +93,26 @@ describe("Dialog", () => {
       expect(onClose).toHaveBeenCalledTimes(1);
     });
 
-    it("calls onClose when overlay backdrop is clicked", async () => {
-      const user = userEvent.setup();
+    it("calls onClose when overlay backdrop is clicked", () => {
       const onClose = vi.fn();
-      const { container } = render(<Dialog open onClose={onClose} />);
-      // The overlay is the outermost motion.div; click on it directly
-      const overlay = container.querySelector('[class*="overlay"]') as HTMLElement;
-      if (overlay) {
-        await user.click(overlay);
-        expect(onClose).toHaveBeenCalled();
-      }
+      render(<Dialog open onClose={onClose} />);
+      const overlay = document.body.querySelector('[class*="overlay"]') as HTMLElement;
+      expect(overlay).not.toBeNull();
+      fireEvent.click(overlay);
+      expect(onClose).toHaveBeenCalled();
+    });
+
+    it("portals a nested dialog outside the outer panel so the two do not share a box", () => {
+      render(
+        <Dialog open onClose={() => {}} title="Outer">
+          <Dialog open onClose={() => {}} title="Inner">
+            <p>Inside</p>
+          </Dialog>
+        </Dialog>
+      );
+      const outer = screen.getByRole("dialog", { name: "Outer" });
+      const inner = screen.getByRole("dialog", { name: "Inner" });
+      expect(outer.contains(inner)).toBe(false);
     });
 
     it("does not close when clicking inside the panel", async () => {

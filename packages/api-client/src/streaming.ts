@@ -54,6 +54,21 @@ export class StreamRequestError extends Error {
  * }
  * ```
  */
+function throwIfGenError(parsed: unknown): void {
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return;
+  const message = (parsed as { $genError?: unknown }).$genError;
+  if (typeof message !== "string" || message === "") return;
+  // A plain Error, not a transport status: the prompt stays and the attempt
+  // is a generation failure the history can record.
+  const error = new Error(message);
+  error.name = "GenStreamError";
+  throw error;
+}
+
+function isGenStreamError(error: unknown): boolean {
+  return error instanceof Error && error.name === "GenStreamError";
+}
+
 export async function* streamNDJSON<T>(config: StreamConfig): AsyncGenerator<T> {
   const response = await fetch(config.url, {
     method: "POST",
@@ -112,8 +127,10 @@ export async function* streamNDJSON<T>(config: StreamConfig): AsyncGenerator<T> 
 
         try {
           const parsed = JSON.parse(trimmed) as T;
+          throwIfGenError(parsed);
           yield parsed;
-        } catch {
+        } catch (error) {
+          if (error instanceof StreamRequestError || isGenStreamError(error)) throw error;
           // Skip malformed JSON lines
         }
       }
@@ -123,8 +140,10 @@ export async function* streamNDJSON<T>(config: StreamConfig): AsyncGenerator<T> 
     if (buffer.trim()) {
       try {
         const parsed = JSON.parse(buffer.trim()) as T;
+        throwIfGenError(parsed);
         yield parsed;
-      } catch {
+      } catch (error) {
+        if (error instanceof StreamRequestError || isGenStreamError(error)) throw error;
         // Skip malformed JSON lines
       }
     }

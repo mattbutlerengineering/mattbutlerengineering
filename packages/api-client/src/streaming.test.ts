@@ -151,4 +151,26 @@ describe("streamNDJSON integration", () => {
     expect(e.problemType).toBe("urn:mbe:problem:gen-spend-ceiling-reached");
     expect(e.retryAfterSeconds).toBe(3600);
   });
+
+  it("throws the server's generation failure line instead of yielding it as an element", async () => {
+    mockFetch.mockResolvedValueOnce(
+      createMockResponse([
+        '\n{"key":"a","type":"Text"}\n',
+        '{"$genError":"This UI is too large"}\n',
+      ])
+    );
+    const seen: unknown[] = [];
+    const err = await (async () => {
+      try {
+        for await (const obj of streamNDJSON({ url: "/test", body: {} })) seen.push(obj);
+      } catch (error) {
+        return error;
+      }
+      return null;
+    })();
+    expect(seen).toEqual([{ key: "a", type: "Text" }]);
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).name).toBe("GenStreamError");
+    expect((err as Error).message).toBe("This UI is too large");
+  });
 });

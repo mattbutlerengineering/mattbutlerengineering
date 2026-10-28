@@ -338,10 +338,11 @@ describe("createGenRoute factory", () => {
         payload: { messages: [{ role: "user", content: "hello" }] },
       });
 
-      // Each line must end with exactly one newline
+      // A leading blank line keeps the gateway from idling out. The element
+      // line still ends with exactly one newline.
       const body = response.body;
       const expectedLine = JSON.stringify({ type: "text", content: "Hi" }) + "\n";
-      expect(body).toBe(expectedLine);
+      expect(body).toBe("\n" + expectedLine);
     });
   });
 
@@ -386,13 +387,17 @@ describe("createGenRoute factory", () => {
             () => ({ rejected: true as const, code: 0, body: "" })
           );
 
-        // A failed model call must be client-visible: an errored stream (fastify
-        // answers with an error status while no bytes are sent) or an aborted
-        // response — never a clean 200.
-        // Upstream status/detail must not leak: always a generic 502.
+        // Text has not flushed, so Fastify can still answer 502. NDJSON has
+        // already written a keepalive, so the failure is a $genError line on
+        // a 200 — never a clean success, and never the upstream detail.
         expect(outcome.rejected).toBe(false);
-        expect(outcome.code).toBe(502);
         expect(outcome.body).not.toContain(`upstream ${status}`);
+        if (format === "text") {
+          expect(outcome.code).toBe(502);
+        } else {
+          expect(outcome.code).toBe(200);
+          expect(outcome.body).toContain('"$genError"');
+        }
       }
     );
   });
@@ -422,7 +427,13 @@ describe("createGenRoute factory", () => {
           payload: { messages: [{ role: "user", content: "hello" }] },
         });
 
-        expect(response.statusCode).toBe(502);
+        if (format === "text") {
+          expect(response.statusCode).toBe(502);
+        } else {
+          expect(response.statusCode).toBe(200);
+          expect(response.body).toContain('"$genError"');
+          expect(response.body).toMatch(/without a UI/i);
+        }
       }
     );
   });
@@ -471,7 +482,7 @@ describe("createGenRoute factory", () => {
       });
 
       expect(response.statusCode).toBe(200);
-      expect(response.body).toBe(JSON.stringify({ key: "a", type: "Card" }) + "\n");
+      expect(response.body).toBe("\n" + JSON.stringify({ key: "a", type: "Card" }) + "\n");
       const call = vi.mocked(streamText).mock.calls[0]![0] as {
         instructions: { content: string };
         messages: Array<{ role: string; content: string }>;
@@ -482,7 +493,7 @@ describe("createGenRoute factory", () => {
       expect(call.toolChoice).toEqual({ type: "tool", toolName: "render_component" });
     });
 
-    it("counts only serialized events: non-element output alone is zero output (502)", async () => {
+    it("counts only serialized events: non-element output alone is a generation failure", async () => {
       await registerCustom();
       vi.mocked(streamText).mockReturnValueOnce({
         fullStream: mockStream([{ type: "text-delta", text: "no tool call" }]),
@@ -494,7 +505,9 @@ describe("createGenRoute factory", () => {
         payload: { prompt: "a form" },
       });
 
-      expect(response.statusCode).toBe(502);
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toContain('"$genError"');
+      expect(response.body).toMatch(/without a UI/i);
     });
   });
 
@@ -936,7 +949,7 @@ describe("spec cache", () => {
     expect(second.headers["content-type"]).toBe(first.headers["content-type"]);
     expect(second.body).toBe(first.body);
     expect(first.body).toBe(
-      `${JSON.stringify({ type: "element", element: { key: "a", type: "Text" } })}\n`
+      `\n${JSON.stringify({ type: "element", element: { key: "a", type: "Text" } })}\n`
     );
   });
 
