@@ -288,4 +288,21 @@ describe("PromptBar", () => {
 
     expect((textarea as HTMLTextAreaElement).value).toBe("user is editing");
   });
+
+  it("does not re-seed a live failure's prompt after a promptless failure was shown in between", () => {
+    // Live failure E1 → a selected failed history entry (no prompt to restore)
+    // → back to live with E1 still set. The user's draft must survive.
+    const liveError = new Error("live failure");
+    const entryError = new Error("This generation failed");
+    const { rerender } = render(
+      <PromptBar {...defaultProps} failedPrompt="A" failedError={liveError} />
+    );
+    rerender(<PromptBar {...defaultProps} failedPrompt={null} failedError={entryError} />);
+    const textarea = screen.getByRole("textbox", { name: /prompt input/i });
+    fireEvent.change(textarea, { target: { value: "B draft" } });
+
+    rerender(<PromptBar {...defaultProps} failedPrompt="A" failedError={liveError} />);
+
+    expect((textarea as HTMLTextAreaElement).value).toBe("B draft");
+  });
 });
