@@ -11,6 +11,7 @@ import {
 import { usePublicApiClient } from "../hooks/usePublicApiClient.js";
 import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 import styles from "./PublicBookingPage.module.css";
+import { homeUrl } from "../lib/host-brand.js";
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? "";
 
@@ -21,8 +22,10 @@ const BASE_URL = import.meta.env.VITE_API_URL ?? "";
 // This must be a PUBLIC page. /hospitality is the authenticated staff dashboard
 // (main.tsx routes its index through DashboardLayout), so sending a guest there
 // swaps one dead end for an Auth0 login wall they have no account for. The
-// marketing root is the only guest-readable destination this product has.
-const FALLBACK_HOME_URL = "https://mattbutlerengineering.com/";
+// serving host's root is the destination: the marketing site on
+// mattbutlerengineering.com, the eat-sheet landing on eat-sheet.com (#7709),
+// which serves nothing else. Derived from the host, never a fixed domain.
+const FALLBACK_HOME_URL = homeUrl();
 
 /** The guest's page locale is the widget's own (stored choice, else browser) — never the dashboard's. */
 export function PublicBookingPage() {

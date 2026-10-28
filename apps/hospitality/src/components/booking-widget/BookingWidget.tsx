@@ -4,6 +4,7 @@ import { EmptyState, Steps, Text } from "@mattbutlerengineering/rialto";
 import type { StepItem } from "@mattbutlerengineering/rialto";
 import { quoteDeposit } from "@mbe/cancellation-policy";
 import { addDays, venueDate } from "../../utils/service-day.js";
+import { manageReservationUrl } from "../../lib/host-brand.js";
 import { WidgetLocalePicker } from "./WidgetLocalePicker.js";
 import { DatePartySelector } from "./DatePartySelector";
 import { TimeSlotPicker } from "./TimeSlotPicker";
@@ -64,14 +65,6 @@ export interface BookingWidgetProps {
    * the venue's clock rather than the guest's device timezone (#4976).
    */
   venueTimezone?: string;
-}
-
-// Mirrors the "reservations/manage" route registered in main.tsx (basename
-// "/hospitality") — the guest-facing self-service manage/cancel page.
-const MANAGE_RESERVATION_PATH = "/hospitality/reservations/manage";
-
-function buildManageCancellationUrl(manageToken: string): string {
-  return `${window.location.origin}${MANAGE_RESERVATION_PATH}?token=${encodeURIComponent(manageToken)}`;
 }
 
 const STEP_LABEL_KEYS = {
@@ -268,7 +261,7 @@ export function BookingWidget({
           onNewBooking={actions.resetFlow}
           cancellationUrl={
             cancellationUrl ??
-            (data.manageToken ? buildManageCancellationUrl(data.manageToken) : undefined)
+            (data.manageToken ? manageReservationUrl(data.manageToken) : undefined)
           }
           venueConfig={data.venueConfig}
           venueTimezone={venueTimezone}

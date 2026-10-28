@@ -152,6 +152,13 @@
   </file>
   </section>
   <section priority="medium" role="config">
+  <file path="src/config/manage-base-url.ts">
+    export const DEFAULT_MANAGE_BASE_URL = "https://mattbutlerengineering.com";
+    export function resolveManageBaseUrl(env: { MANAGE_BASE_URL?: string | undefined }): string {
+      const raw = (env.MANAGE_BASE_URL ?? "").trim();
+      return raw === "" ? DEFAULT_MANAGE_BASE_URL : raw.replace(/\/+$/, "");
+    }
+  </file>
   <file path="src/config/manage-token.ts">
     export interface ManageTokenConfig {
       secret: string;
@@ -25347,7 +25354,7 @@
               closureNotice: createClosureNoticeDeps({
                 dispatcher: notificationPort,
                 generateManageToken,
-                manageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
+                manageBaseUrl: resolveManageBaseUrl(process.env),
                 logger: fastify.log,
               }),
               handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),
@@ -25403,7 +25410,7 @@
       return new ResendNotificationAdapter({
         resend: resendClient,
         fromAddress: process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
-        manageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
+        manageBaseUrl: resolveManageBaseUrl(process.env),
         publicApiBaseUrl,
       });
     }
@@ -25427,7 +25434,7 @@
       return new NotificationDispatcher({
         emailAdapter,
         smsAdapter,
-        smsManageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
+        smsManageBaseUrl: resolveManageBaseUrl(process.env),
       });
     }
   </file>

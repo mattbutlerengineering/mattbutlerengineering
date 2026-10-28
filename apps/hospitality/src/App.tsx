@@ -5,7 +5,9 @@ import { useTranslation } from "react-i18next";
 import { Suspense } from "react";
 import { useAuthGate, signinReturnTo } from "@mbe/auth/react";
 import type { AuthGate } from "@mbe/auth/react";
-import { Text, GlobalNav, Footer } from "@mattbutlerengineering/rialto";
+import { Text, Footer } from "@mattbutlerengineering/rialto";
+import { AppNav } from "./components/AppNav.js";
+import { currentHostConfig } from "./lib/host-brand.js";
 import { useTheme, useThemeServerHydration } from "./hooks/use-theme";
 import { useCurrentUser } from "./hooks/useUsers.js";
 import { LoadingPage } from "./pages/LoadingPage";
@@ -82,7 +84,6 @@ function unauthenticatedScreen(gate: Exclude<AuthGate, { phase: "ready" }>): Rea
  * route matching (including basename stripping) happens BEFORE auth checks.
  */
 export function App() {
-  const { t } = useTranslation();
   const gate = useAuthGate();
 
   useEffect(() => {
@@ -98,16 +99,7 @@ export function App() {
   };
 
   const nav = (
-    <GlobalNav
-      currentApp="hospitality"
-      theme={resolved}
-      onThemeToggle={handleThemeToggle}
-      labels={{
-        marketing: t("shell.globalNav.marketing"),
-        hospitality: t("shell.globalNav.hospitality"),
-        rialto: t("shell.globalNav.rialto"),
-      }}
-    />
+    <AppNav host={currentHostConfig()} theme={resolved} onThemeToggle={handleThemeToggle} />
   );
 
   // The gate ORDER (which phase for which lifecycle facts + URL) is owned by

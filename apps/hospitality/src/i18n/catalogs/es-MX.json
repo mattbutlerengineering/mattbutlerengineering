@@ -7,8 +7,8 @@
       "hospitality": "Hospitalidad",
       "rialto": "Sistema de diseño"
     },
-    "copyright": "© {{year}} Matt Butler Engineering",
-    "dashboardDocumentTitle": "Panel - Matt Butler Engineering"
+    "copyright": "© {{year}} {{brand}}",
+    "dashboardDocumentTitle": "Panel - {{brand}}"
   },
   "onboarding": {
     "steps": {
@@ -238,7 +238,7 @@
     },
     "login": {
       "title": "Hospitality",
-      "documentTitle": "Hospitality - Matt Butler Engineering",
+      "documentTitle": "Hospitality - {{brand}}",
       "boardPhrases": {
         "reservations": "RESERVAS",
         "guests": "CLIENTES",
@@ -1413,10 +1413,10 @@
     "notFoundHeading": "No se encontró el restaurante",
     "notFoundDescription": "No encontramos la página de reservas que buscas. Revisa el enlace o comunícate directamente con el restaurante para reservar.",
     "goBack": "Regresar",
-    "homeLink": "Volver a Matt Butler Engineering",
+    "homeLink": "Volver a {{brand}}",
     "loading": "Cargando restaurante...",
     "tagline": "Reserva tu mesa en línea",
-    "poweredBy": "Con tecnología de Matt Butler Engineering"
+    "poweredBy": "Con tecnología de {{brand}}"
   },
   "publicMenu": {
     "menuLabel": "Menú",
@@ -1436,7 +1436,7 @@
     "documentTitle": "Tu reserva — Hospitality",
     "venueDocumentTitle": "{{venue}} — Tu reserva",
     "supportLine": "¿Necesitas ayuda? Comunícate directamente con el restaurante con los datos de tu correo de confirmación.",
-    "homeLink": "Volver a Matt Butler Engineering",
+    "homeLink": "Volver a {{brand}}",
     "noLinkHeading": "Sin enlace de acceso",
     "noLinkDescription": "Revisa el enlace en tu correo de confirmación.",
     "loading": "Cargando reserva...",

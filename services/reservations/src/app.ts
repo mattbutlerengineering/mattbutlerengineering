@@ -84,6 +84,7 @@ import { allOutboundLive } from "./transitions/venue-policy.js";
 import type { JobsPort, PaymentsPort } from "./transitions/ports.js";
 import { StripeService } from "./services/stripe.js";
 import { DepositService } from "./services/deposit.js";
+import { resolveManageBaseUrl } from "./config/manage-base-url.js";
 
 export interface ReservationsAppOptions extends AppOptions {
   notificationPort?: NotificationDispatcher;
@@ -387,7 +388,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
           closureNotice: createClosureNoticeDeps({
             dispatcher: notificationPort,
             generateManageToken,
-            manageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
+            manageBaseUrl: resolveManageBaseUrl(process.env),
             logger: fastify.log,
           }),
           handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),
