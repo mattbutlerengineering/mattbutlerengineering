@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Link } from "react-router";
-import { Stack, Text, Button, Heading } from "@mattbutlerengineering/rialto";
+import { Stack, Text, Heading } from "@mattbutlerengineering/rialto";
 import styles from "./NotFoundPage.module.css";
 
 const SUGGESTED_LINKS = [
@@ -28,9 +28,7 @@ export function NotFoundPage() {
 
       <Stack gap="lg" align="center">
         <Link to="/" className={styles.primaryLink}>
-          <Button variant="primary" size="md">
-            Back to home
-          </Button>
+          Back to home
         </Link>
 
         <Text variant="body" color="secondary">
