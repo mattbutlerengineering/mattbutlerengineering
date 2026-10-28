@@ -167,11 +167,22 @@ async function apiRequest(
   const headers: Record<string, string> = { Authorization: `Bearer ${accessToken}` };
   if (body !== undefined) headers["Content-Type"] = "application/json";
 
-  return fetch(`${API_BASE_URL}${path}`, {
-    method,
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  const send = (): Promise<Response> =>
+    fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+
+  // A single dropped connection ("fetch failed") must not fail the daily
+  // journey (#7921). Only idempotent methods are retried, so a POST can never
+  // create a venue twice.
+  if (method !== "GET" && method !== "DELETE") return send();
+  try {
+    return await send();
+  } catch {
+    return send();
+  }
 }
 
 /** Lists every venue whose name carries the synthetic-journey prefix. */
