@@ -46,9 +46,13 @@ let specsApiState: { specs: StoredSpec[]; isLoading: boolean } = {
   isLoading: false,
 };
 
+const mockFetchSpecs = vi.fn();
+
 vi.mock("../hooks/useSpecsApi.js", () => ({
   useSpecsApi: () => ({
     ...specsApiState,
+    error: null,
+    fetchSpecs: mockFetchSpecs,
     saveSpec: mockSaveSpec,
     toggleFavorite: mockToggleFavorite,
     deleteSpec: mockDeleteSpec,
@@ -137,6 +141,25 @@ describe("usePlaygroundSession", () => {
   });
 
   describe("submit", () => {
+    it("stops an in-flight generation before sending, so send is not ignored", () => {
+      genStreamState = { spec: null, isStreaming: true, error: null, rawLines: [] };
+      const { result } = renderHook(() => usePlaygroundSession());
+
+      act(() => result.current.submit("pricing template"));
+
+      expect(mockStop).toHaveBeenCalledTimes(1);
+      expect(mockSend).toHaveBeenCalledWith("pricing template");
+      expect(mockStop.mock.invocationCallOrder[0]).toBeLessThan(
+        mockSend.mock.invocationCallOrder[0] ?? 0
+      );
+    });
+
+    it("does not stop when nothing is streaming", () => {
+      const { result } = renderHook(() => usePlaygroundSession());
+      act(() => result.current.submit("hi"));
+      expect(mockStop).not.toHaveBeenCalled();
+    });
+
     it("sends the raw prompt in generate mode and clears the active spec", () => {
       specsApiState = { specs: [makeStoredSpec({ id: "s1" })], isLoading: false };
       const { result } = renderHook(() => usePlaygroundSession());
@@ -561,6 +584,22 @@ describe("usePlaygroundSession", () => {
     });
   });
 
+  describe("viewing a failed history entry", () => {
+    it("sets displayError so JsonInspector shows a failure, not the generic empty state", () => {
+      specsApiState = {
+        specs: [makeStoredSpec({ id: "s1", prompt: "draw a form", kind: "failed", rawLines: [] })],
+        isLoading: false,
+      };
+      const { result } = renderHook(() => usePlaygroundSession());
+
+      act(() => result.current.selectHistory("s1"));
+
+      expect(result.current.activeSpecId).toBe("s1");
+      expect(result.current.displayRawLines).toEqual([]);
+      expect(result.current.displayError).not.toBeNull();
+    });
+  });
+
   describe("retry", () => {
     it("resubmits the active entry's prompt", () => {
       specsApiState = {
@@ -918,6 +957,31 @@ describe("usePlaygroundSession", () => {
     it("does not expose a failing prompt when there is no error", () => {
       const { result } = renderHook(() => usePlaygroundSession());
       act(() => result.current.submit("draw a form"));
+      expect(result.current.failedPrompt).toBe(null);
+    });
+
+    it("keeps a selected failed entry's error stable across rerenders", () => {
+      // PromptBar re-seeds its textarea whenever the error identity changes, so
+      // a fresh Error per render would wipe what the user is typing.
+      specsApiState = { specs: [makeStoredSpec({ id: "f1", kind: "failed" })], isLoading: false };
+      const { result, rerender } = renderHook(() => usePlaygroundSession());
+
+      act(() => result.current.selectHistory("f1"));
+      const first = result.current.displayError;
+      rerender();
+
+      expect(first?.message).toBe("This generation failed");
+      expect(result.current.displayError).toBe(first);
+    });
+
+    it("does not offer the last typed prompt for a selected failed history entry", () => {
+      specsApiState = { specs: [makeStoredSpec({ id: "f1", kind: "failed" })], isLoading: false };
+      const { result } = renderHook(() => usePlaygroundSession());
+
+      act(() => result.current.submit("unrelated live prompt"));
+      act(() => result.current.selectHistory("f1"));
+
+      expect(result.current.displayError).not.toBeNull();
       expect(result.current.failedPrompt).toBe(null);
     });
   });

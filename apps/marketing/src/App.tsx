@@ -1,7 +1,8 @@
 import { lazy, Suspense, useEffect } from "react";
-import { Routes, Route, Navigate } from "react-router";
+import { Routes, Route, Navigate, useLocation } from "react-router";
 import { Footer, GlobalNav, Skeleton, Text } from "@mattbutlerengineering/rialto";
 import { useRouteMeta } from "./utils/route-meta";
+import { ENGINEERING_PAGES, isEngineeringPageCurrent } from "./data/engineering-menu";
 import styles from "./App.module.css";
 
 const HomePage = lazy(() => import("./pages/HomePage").then((m) => ({ default: m.HomePage })));
@@ -45,6 +46,14 @@ function HomeRouteFallback() {
 
 export function App({ theme, onThemeToggle }: AppProps) {
   useRouteMeta();
+  const { pathname } = useLocation();
+  const engineeringMenu = {
+    label: "Engineering",
+    items: ENGINEERING_PAGES.map((page) => ({
+      ...page,
+      current: isEngineeringPageCurrent(pathname, page.href),
+    })),
+  };
   useEffect(() => {
     const main = document.getElementById("main-content");
     if (main && !window.location.hash) {
@@ -65,7 +74,12 @@ export function App({ theme, onThemeToggle }: AppProps) {
       <a href="#main-content" className="skip-link">
         Skip to main content
       </a>
-      <GlobalNav currentApp="marketing" theme={theme} onThemeToggle={onThemeToggle} />
+      <GlobalNav
+        currentApp="marketing"
+        theme={theme}
+        onThemeToggle={onThemeToggle}
+        menu={engineeringMenu}
+      />
       <main id="main-content" tabIndex={-1} className={styles.main}>
         <Suspense fallback={null}>
           <Routes>

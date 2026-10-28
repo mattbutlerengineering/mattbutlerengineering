@@ -30,6 +30,12 @@
       "cacheClass": "static-site"
     }
   ],
+  "hostRoutes": [
+    {
+      "host": "eat-sheet.com",
+      "routeName": "hospitality"
+    }
+  ],
   "services": [
     {
       "name": "users",

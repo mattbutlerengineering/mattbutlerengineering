@@ -146,6 +146,11 @@ describe("response-formatter", () => {
       const headers = buildSecurityHeaders("abc123", null);
       expect(headers["Content-Security-Policy"]).toContain("default-src 'self'");
     });
+
+    it("CSP connect-src includes extraConnectSrc origins when passed", () => {
+      const headers = buildSecurityHeaders("abc123", null, ["https://mattbutlerengineering.com"]);
+      expect(headers["Content-Security-Policy"]).toContain("https://mattbutlerengineering.com");
+    });
   });
 
   describe("cacheControlFor", () => {

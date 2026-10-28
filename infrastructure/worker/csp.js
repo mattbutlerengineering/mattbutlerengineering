@@ -48,14 +48,21 @@ export const SENTRY_INGEST_ORIGIN = "https://o4510650299842560.ingest.us.sentry.
  * Values that contain the nonce are intentionally left as functions of
  * the nonce parameter rather than stored in this map.
  */
-function defaultDirectives(nonce, auth0Origin, sentryIngestOrigin) {
+function defaultDirectives(nonce, auth0Origin, sentryIngestOrigin, extraConnectSrc) {
+  const connectSrc = [
+    "'self'",
+    auth0Origin,
+    "https://api.mattbutlerengineering.com",
+    sentryIngestOrigin,
+    ...extraConnectSrc,
+  ].join(" ");
   return {
     "default-src": "'self'",
     "script-src": `'nonce-${nonce}' 'self' https://js.stripe.com`,
     "style-src": "'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src": "'self' data: https:",
     "font-src": "'self' https://fonts.gstatic.com",
-    "connect-src": `'self' ${auth0Origin} https://api.mattbutlerengineering.com ${sentryIngestOrigin}`,
+    "connect-src": connectSrc,
     "frame-src": "https://js.stripe.com https://hooks.stripe.com",
     "frame-ancestors": "'none'",
     "base-uri": "'self'",
@@ -76,14 +83,18 @@ function defaultDirectives(nonce, auth0Origin, sentryIngestOrigin) {
  *   KV ("security/csp"). Each key is a directive name; each value is the
  *   directive value (without the directive name prefix). Nonce-carrying
  *   directives in kvPolicy should already include the nonce token.
+ * @param {string[]} [options.extraConnectSrc] - Extra origins appended to
+ *   connect-src, e.g. the apex origin when a host-routed site's API base
+ *   URL is cross-origin from the serving host (#7709).
  * @returns {string} The assembled CSP header value.
  */
 export function buildCspDirectives(nonce, options = {}) {
   const auth0Origin = options.auth0Origin ?? AUTH0_ORIGIN;
   const sentryIngestOrigin = options.sentryIngestOrigin ?? SENTRY_INGEST_ORIGIN;
   const kvPolicy = options.kvPolicy ?? {};
+  const extraConnectSrc = options.extraConnectSrc ?? [];
 
-  const defaults = defaultDirectives(nonce, auth0Origin, sentryIngestOrigin);
+  const defaults = defaultDirectives(nonce, auth0Origin, sentryIngestOrigin, extraConnectSrc);
 
   // Merge: KV overrides win over defaults, but ordering follows defaults.
   const merged = { ...defaults, ...kvPolicy };

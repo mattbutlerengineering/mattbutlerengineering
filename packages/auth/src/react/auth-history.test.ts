@@ -79,6 +79,9 @@ describe("installAuthBackReload", () => {
     sessionStorage.setItem(AUTH_BACK_RELOAD_KEY, "1");
     listener?.(new PageTransitionEvent("pageshow", { persisted: false }));
     expect(reload).not.toHaveBeenCalled();
+    // A non-bfcache load clears the stale flag so a later restore cannot reload.
+    expect(sessionStorage.getItem(AUTH_BACK_RELOAD_KEY)).toBeNull();
+    sessionStorage.setItem(AUTH_BACK_RELOAD_KEY, "1");
 
     listener?.(new PageTransitionEvent("pageshow", { persisted: true }));
     expect(reload).toHaveBeenCalledOnce();

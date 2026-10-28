@@ -42,6 +42,35 @@ describe("TableSelectionOverlay", () => {
     expect(screen.getByRole("button", { name: /T2/ })).toBeInTheDocument();
   });
 
+  it("sizes the hit area to the stored footprint at the current scale (#7847)", () => {
+    const wide = makeTable("t3", "Long", {
+      shapeMetadata: { x: 100, y: 100, width: 140, height: 60, shape: "rectangle" },
+    });
+    render(
+      <TableSelectionOverlay
+        tables={[wide]}
+        scale={0.5}
+        selectedTableId={null}
+        onSelect={vi.fn()}
+      />
+    );
+    const button = screen.getByRole("button", { name: /T3/ });
+    expect(button.style.width).toBe("70px");
+    expect(button.style.height).toBe("30px");
+  });
+
+  it("falls back to the shape default when no footprint is stored (#7847)", () => {
+    const bare = makeTable("t4", "Bare", {
+      shapeMetadata: { x: 100, y: 100, shape: "square" } as Table["shapeMetadata"],
+    });
+    render(
+      <TableSelectionOverlay tables={[bare]} scale={1} selectedTableId={null} onSelect={vi.fn()} />
+    );
+    const button = screen.getByRole("button", { name: /T4/ });
+    expect(button.style.width).toBe("60px");
+    expect(button.style.height).toBe("60px");
+  });
+
   it("calls onSelect with the table id when a button is activated via keyboard", async () => {
     const onSelect = vi.fn();
     const user = userEvent.setup();

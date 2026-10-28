@@ -58,6 +58,20 @@
   /* Success alert backgrounds, success badge tints */
   --rialto-success-muted: rgb(94 106 46 / 0.1);
 
+  /* ── Neon (NeonSign tube tones — lit tube text and strokes only, never fills) ─ */
+  /* Red neon tube (AA on the recessed housing and its glow wash) */
+  --rialto-neon-red: #a82019;
+  /* Pink neon tube */
+  --rialto-neon-pink: #a31a60;
+  /* Blue neon tube */
+  --rialto-neon-blue: #1a56a8;
+  /* Green neon tube */
+  --rialto-neon-green: #246a2f;
+  /* Orange neon tube (warm vintage glass) */
+  --rialto-neon-orange: #8f4707;
+  /* Purple neon tube */
+  --rialto-neon-purple: #7a35b8;
+
   /* ── Overlay ──────────────────────────────────── */
   /* Modal/drawer backdrop, scrim behind overlays */
   --rialto-overlay: rgb(26 25 24 / 0.4);
@@ -98,6 +112,14 @@
   --rialto-warning-muted: rgb(212 160 48 / 0.15);
   --rialto-success: #9aaa4c;
   --rialto-success-muted: rgb(154 170 76 / 0.15);
+
+  /* ── Neon ─────────────────────────────────────── */
+  --rialto-neon-red: #ff7a6b;
+  --rialto-neon-pink: #ff7ab8;
+  --rialto-neon-blue: #6aa8ff;
+  --rialto-neon-green: #5fd47a;
+  --rialto-neon-orange: #ff9a3d;
+  --rialto-neon-purple: #b98cff;
 
   /* ── Overlay ──────────────────────────────────── */
   --rialto-overlay: rgb(0 0 0 / 0.6);

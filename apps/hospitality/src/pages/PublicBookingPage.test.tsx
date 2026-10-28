@@ -288,8 +288,10 @@ describe("PublicBookingPage", () => {
         const link = screen.getByRole("link");
         // Pin the destination, not just its existence: a truthy href is equally
         // satisfied by a link into the auth-gated staff dashboard, which is not
-        // an exit for a guest.
-        expect(link.getAttribute("href")).toBe("https://mattbutlerengineering.com/");
+        // an exit for a guest. The home is the serving host's root (#7709):
+        // the marketing site on mattbutlerengineering.com, the eat-sheet
+        // landing on eat-sheet.com — never a hard-coded domain.
+        expect(link.getAttribute("href")).toBe(`${window.location.origin}/`);
         expect(screen.queryByRole("button")).toBeNull();
       } finally {
         historyLengthSpy.mockRestore();

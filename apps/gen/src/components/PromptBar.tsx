@@ -71,11 +71,13 @@ export function PromptBar({
   // tracks the last error object already seeded from, so the SAME error
   // can't re-seed twice and clobber an in-progress edit, while a genuinely
   // new failure (a new Error instance) still re-seeds even if its message
-  // text repeats.
+  // text repeats. A failure with no prompt to restore (a selected failed
+  // history entry) never advances the seed, so returning to a live failure
+  // already seeded can't clobber a draft typed in between.
   const [seededError, setSeededError] = useState<Error | null>(null);
-  if (failedError && failedError !== seededError) {
+  if (failedError && failedPrompt != null && failedError !== seededError) {
     setSeededError(failedError);
-    setValue(failedPrompt ?? value);
+    setValue(failedPrompt);
   }
 
   const [seededInitial, setSeededInitial] = useState(false);
@@ -221,6 +223,7 @@ export function PromptBar({
           </Button>
         )}
       </div>
+      {failedError && <p className={styles.errorNote}>{failedError.message}</p>}
       {/* Always mounted; CSS shows it on :focus-within so focus changes never
           resize the bar and move Generate out from under the pointer (F26). */}
       <div className={styles.hints}>

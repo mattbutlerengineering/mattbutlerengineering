@@ -4,7 +4,7 @@ import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { measureEvals } from "../evals.js";
+import { measureEvals, measureJudgedEvals } from "../evals.js";
 
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), "acmm-evals-"));
@@ -149,5 +149,103 @@ test("measureEvals: skips malformed JSONL lines", () => {
     assert.equal(s.n, 2);
   } finally {
     fx.cleanup();
+  }
+});
+
+/* ── measureJudgedEvals: reads metrics/eval-reports.jsonl (#7581) ── */
+
+function reportFixture(rows) {
+  const root = mkdtempSync(join(tmpdir(), "acmm-judged-"));
+  mkdirSync(join(root, "metrics"), { recursive: true });
+  writeFileSync(
+    join(root, "metrics/eval-reports.jsonl"),
+    rows.map((r) => JSON.stringify(r)).join("\n") + "\n",
+    "utf-8"
+  );
+  return root;
+}
+
+function judgedTask(overrides = {}) {
+  return {
+    taskId: "t",
+    passed: true,
+    score: 1,
+    judgeResult: { passed: true, confidence: 0.9, reasoning: "ok" },
+    costUsd: 0.5,
+    turns: 10,
+    ...overrides,
+  };
+}
+
+test("measureJudgedEvals: ignores rows with no judge result (pre-judge)", () => {
+  const root = reportFixture([
+    {
+      timestamp: new Date().toISOString(),
+      adapter: "claude-cli",
+      tasks: [{ taskId: "t", passed: true, score: 1 }],
+    },
+  ]);
+  try {
+    const s = measureJudgedEvals(root);
+    assert.equal(s.n, 0);
+    assert.equal(s.lastRun, null);
+    assert.equal(s.freshness, "never-run");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("measureJudgedEvals: ignores tasks whose judge could not run", () => {
+  const failed = judgedTask({
+    passed: false,
+    judgeResult: { passed: false, confidence: 0, evaluationFailed: true },
+  });
+  const root = reportFixture([
+    { timestamp: new Date().toISOString(), adapter: "claude-cli", tasks: [failed, failed] },
+  ]);
+  try {
+    const s = measureJudgedEvals(root);
+    assert.equal(s.n, 0);
+    assert.equal(s.freshness, "never-run");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("measureJudgedEvals: aggregates judged tasks only", () => {
+  const ts = new Date().toISOString();
+  const root = reportFixture([
+    { timestamp: ts, adapter: "claude-cli", tasks: [{ taskId: "old", passed: true, score: 1 }] },
+    {
+      timestamp: ts,
+      adapter: "claude-cli",
+      tasks: [
+        judgedTask({ passed: true, score: 1 }),
+        judgedTask({ passed: true, score: 0.8 }),
+        judgedTask({ passed: false, score: 0.4 }),
+      ],
+    },
+  ]);
+  try {
+    const s = measureJudgedEvals(root);
+    assert.equal(s.n, 3);
+    assert.equal(s.passRate, 0.6667);
+    assert.equal(s.medianScore, 0.8);
+    assert.equal(s.lastRun, ts);
+    assert.equal(s.freshness, "current");
+    assert.deepEqual(Object.keys(s.perModel), ["claude-cli"]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("measureJudgedEvals: missing file is never-run, not zero", () => {
+  const root = mkdtempSync(join(tmpdir(), "acmm-judged-"));
+  try {
+    const s = measureJudgedEvals(root);
+    assert.equal(s.n, 0);
+    assert.equal(s.freshness, "never-run");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });

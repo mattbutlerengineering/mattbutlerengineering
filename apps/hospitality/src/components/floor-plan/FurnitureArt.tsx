@@ -23,21 +23,48 @@
 import { Circle, Group, Line, Path, Rect } from "react-konva";
 import { SHAPE_DEFAULTS, type TableShapeName } from "./floor-plan-geometry.js";
 import {
+  CONTACT_SHADOW,
   FURNITURE_PALETTE,
   SEAT_NAME,
+  SEAT_TONES,
+  SHADOW_TONES,
   TABLE_CORNER_RADIUS,
   TABLE_SHADOW_NAME,
   TABLE_SURFACE_NAME,
+  type FurnitureTheme,
 } from "./furniture-tokens.js";
+import { useFurnitureTheme } from "./furniture-theme.js";
+
+/**
+ * Soft contact shadow, drawn by the shape itself.
+ *
+ * Perf: the blur sits on the nodes that cast it (the table's shadow node and
+ * each chair frame), not on the table group. This does NOT make drags cheap:
+ * all tables share one Layer and Konva redraws that whole layer on every drag
+ * frame, so every blurred node on the plan is redrawn each frame. Mitigations
+ * here are small: `perfectDrawEnabled: false` (no extra buffer canvas),
+ * `shadowForStrokeEnabled: false`, and a non-listening table shadow node
+ * (chairs stay listening so they still drag the table). If a 60-table drag
+ * misses 50 fps, cache the static furniture per table or move the dragged
+ * group to its own drag layer.
+ */
+function contactShadow(theme: FurnitureTheme) {
+  return {
+    shadowColor: SHADOW_TONES[theme],
+    shadowBlur: CONTACT_SHADOW.blur,
+    shadowOffsetY: CONTACT_SHADOW.offsetY,
+    shadowForStrokeEnabled: false,
+    perfectDrawEnabled: false,
+  } as const;
+}
+
+/** Opaque caster: canvas scales shadow alpha by the caster's alpha. It sits under the surface. */
+const SHADOW_CASTER = "#000000";
 
 const GRAIN_LINES = 4;
 const GRAIN_RINGS = 3;
-/** How far the contact shadow sits below the surface, in canvas units. */
-const SHADOW_DROP = 2;
 /** How far grain and edge highlights stop short of the table edge. */
 const EDGE_INSET = 3;
-const SEAT_WIDTH = 16;
-const SEAT_HEIGHT = 13;
 
 /** SVG path data for a circular arc centred on the origin (degrees, clockwise). */
 function arcPath(radius: number, fromDeg: number, toDeg: number): string {
@@ -50,24 +77,34 @@ function arcPath(radius: number, fromDeg: number, toDeg: number): string {
 
 export interface TableArtProps {
   shape: TableShapeName;
+  /** Stored footprint; falls back to the shape default when omitted. */
+  width?: number;
+  height?: number;
   /** Surface fill — the live status or inactive colour. */
   fill: string;
   stroke: string;
   strokeWidth: number;
 }
 
-type SurfacePaint = Omit<TableArtProps, "shape">;
+type SurfacePaint = Omit<TableArtProps, "shape" | "width" | "height">;
 
 /** `table-round.svg`: wood disc, three grain rings, top-left highlight arc. */
-function RoundTableArt({ fill, stroke, strokeWidth }: SurfacePaint) {
-  const radius = SHAPE_DEFAULTS.circle.width / 2;
+function RoundTableArt({
+  width = SHAPE_DEFAULTS.circle.width,
+  fill,
+  stroke,
+  strokeWidth,
+}: SurfacePaint & { width?: number }) {
+  const radius = width / 2;
+  const theme = useFurnitureTheme();
   return (
     <>
       <Circle
         name={TABLE_SHADOW_NAME}
-        y={SHADOW_DROP}
         radius={radius}
-        fill={FURNITURE_PALETTE.shadow}
+        fill={SHADOW_CASTER}
+        listening={false}
+        {...contactShadow(theme)}
       />
       <Circle
         name={TABLE_SURFACE_NAME}
@@ -99,27 +136,31 @@ function RoundTableArt({ fill, stroke, strokeWidth }: SurfacePaint) {
 /** `table-rect.svg` / `table-square.svg`: wood slab, grain lines, edge highlights. */
 function SlabTableArt({
   shape,
+  width = SHAPE_DEFAULTS[shape].width,
+  height = SHAPE_DEFAULTS[shape].height,
   fill,
   stroke,
   strokeWidth,
-}: SurfacePaint & { shape: Exclude<TableShapeName, "circle"> }) {
-  const { width, height } = SHAPE_DEFAULTS[shape];
+}: SurfacePaint & { shape: Exclude<TableShapeName, "circle">; width?: number; height?: number }) {
   const cornerRadius = TABLE_CORNER_RADIUS[shape];
   const left = -width / 2;
   const top = -height / 2;
   const innerLeft = left + EDGE_INSET;
   const innerRight = -left - EDGE_INSET;
+  const theme = useFurnitureTheme();
 
   return (
     <>
       <Rect
         name={TABLE_SHADOW_NAME}
         x={left}
-        y={top + SHADOW_DROP}
+        y={top}
         width={width}
         height={height}
         cornerRadius={cornerRadius}
-        fill={FURNITURE_PALETTE.shadow}
+        fill={SHADOW_CASTER}
+        listening={false}
+        {...contactShadow(theme)}
       />
       <Rect
         name={TABLE_SURFACE_NAME}
@@ -163,11 +204,11 @@ function SlabTableArt({
 }
 
 /** Shape-appropriate table art, tinted by `fill`. */
-export function TableArt({ shape, ...paint }: TableArtProps) {
+export function TableArt({ shape, width, height, ...paint }: TableArtProps) {
   return shape === "circle" ? (
-    <RoundTableArt {...paint} />
+    <RoundTableArt width={width} {...paint} />
   ) : (
-    <SlabTableArt shape={shape} {...paint} />
+    <SlabTableArt shape={shape} width={width} height={height} {...paint} />
   );
 }
 
@@ -176,29 +217,35 @@ export interface SeatArtProps {
   y: number;
   /** Degrees clockwise; 0 means the seat faces up, towards -y. */
   rotation: number;
+  /** Chair size; scales with party size (see `seatSize`). */
+  width: number;
+  height: number;
 }
 
 /** `chair.svg`: a rounded frame with an inset cushion. */
-export function SeatArt({ x, y, rotation }: SeatArtProps) {
+export function SeatArt({ x, y, rotation, width, height }: SeatArtProps) {
+  const theme = useFurnitureTheme();
+  const tones = SEAT_TONES[theme];
   return (
     <Group name={SEAT_NAME} x={x} y={y} rotation={rotation}>
       <Rect
-        x={-SEAT_WIDTH / 2}
-        y={-SEAT_HEIGHT / 2}
-        width={SEAT_WIDTH}
-        height={SEAT_HEIGHT}
-        cornerRadius={SEAT_WIDTH / 4}
-        fill={FURNITURE_PALETTE.seatFrame}
-        stroke={FURNITURE_PALETTE.seatEdge}
+        x={-width / 2}
+        y={-height / 2}
+        width={width}
+        height={height}
+        cornerRadius={width / 4}
+        fill={tones.frame}
+        stroke={tones.edge}
         strokeWidth={0.7}
+        {...contactShadow(theme)}
       />
       <Rect
-        x={-SEAT_WIDTH * 0.29}
-        y={-SEAT_HEIGHT / 4}
-        width={SEAT_WIDTH * 0.58}
-        height={SEAT_HEIGHT / 2}
-        cornerRadius={SEAT_HEIGHT / 5}
-        fill={FURNITURE_PALETTE.seatCushion}
+        x={-width * 0.29}
+        y={-height / 4}
+        width={width * 0.58}
+        height={height / 2}
+        cornerRadius={height / 5}
+        fill={tones.cushion}
       />
     </Group>
   );

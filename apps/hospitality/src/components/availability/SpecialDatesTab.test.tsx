@@ -709,6 +709,34 @@ describe("SpecialDatesTab", () => {
   });
 
   describe("reopening", () => {
+    it("says how many edited dates reopening a series also reopens (#7685)", () => {
+      const edits = ["2027-01-11", "2027-01-18"].map(
+        (day, i) =>
+          ({
+            id: `skip-${i}`,
+            kind: "skip",
+            targetKind: "venue",
+            startsOn: day,
+            endsOn: day,
+            seriesId: "mondays",
+          }) as DateRule
+      );
+      renderTab(true, {
+        ...STATE,
+        config: { ...STATE.config, dateRules: [...RULES, ...edits] },
+      } as AvailabilityConfigState);
+      fireEvent.click(screen.getAllByRole("button", { name: /^Remove closure for/ })[1]!);
+      expect(
+        within(screen.getByRole("dialog")).getByText("Also reopens 2 edited dates.")
+      ).toBeTruthy();
+    });
+
+    it("adds no edited-dates line for a single date", () => {
+      renderTab();
+      fireEvent.click(screen.getByRole("button", { name: "Remove closure for Thu, Dec 24" }));
+      expect(screen.queryByText(/edited date/)).toBeNull();
+    });
+
     it("offers Undo when no guests were told", async () => {
       revertChange.mockResolvedValue({ version: 8, changeId: "c9" });
       renderTab();

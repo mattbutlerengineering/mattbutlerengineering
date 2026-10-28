@@ -9483,6 +9483,13 @@
   </file>
   </section>
   <section priority="medium" role="config">
+  <file path="services/reservations/src/config/manage-base-url.ts">
+    export const DEFAULT_MANAGE_BASE_URL = "https://mattbutlerengineering.com";
+    export function resolveManageBaseUrl(env: { MANAGE_BASE_URL?: string | undefined }): string {
+      const raw = (env.MANAGE_BASE_URL ?? "").trim();
+      return raw === "" ? DEFAULT_MANAGE_BASE_URL : raw.replace(/\/+$/, "");
+    }
+  </file>
   <file path="services/reservations/src/config/manage-token.ts">
     export interface ManageTokenConfig {
       secret: string;
@@ -9641,6 +9648,15 @@
       readonly valid: false;
       readonly missing: readonly string[];
     }
+    export function resolveRedirectUri(
+      configured: string | undefined,
+      location: Pick<Location, "origin" | "hostname">
+    ): string {
+      // A malformed value is treated as unset.
+      const sameOrigin =
+        !!configured && URL.canParse(configured) && new URL(configured).origin === location.origin;
+      return sameOrigin ? configured : appUrl("/callback", location);
+    }
     export function validateAuthConfig(): AuthConfigResult | AuthConfigFailure {
       const missing = REQUIRED_AUTH_ENV.filter((env) => !env.value || env.value.trim() === "").map(
         (env) => env.key
@@ -9655,8 +9671,7 @@
         config: {
           authority: import.meta.env.VITE_AUTH_AUTHORITY,
           clientId: import.meta.env.VITE_AUTH_CLIENT_ID,
-          redirectUri:
-            import.meta.env.VITE_AUTH_REDIRECT_URI || window.location.origin + "/hospitality/callback",
+          redirectUri: resolveRedirectUri(import.meta.env.VITE_AUTH_REDIRECT_URI, window.location),
           audience: import.meta.env.VITE_AUTH_AUDIENCE || undefined,
         },
       };
@@ -10322,6 +10337,23 @@
         acmm: normalizeAcmm(sensors),
         prCategoryBreakdown: normalizePrCategoryMetrics(sensors),
       };
+    }
+  </file>
+  <file path="apps/marketing/src/data/engineering-menu.ts">
+    export interface EngineeringPage {
+      readonly label: string;
+      readonly href: string;
+    }
+    export const ENGINEERING_PAGES: readonly EngineeringPage[] = [
+      { label: "Metrics", href: "/metrics" },
+      { label: "Shipped", href: "/shipped" },
+      { label: "Weekly", href: "/weekly" },
+      { label: "Status", href: "/status" },
+      { label: "AI health", href: "/ai-health" },
+      { label: "ACMM", href: "/acmm" },
+    ];
+    export function isEngineeringPageCurrent(pathname: string, href: string): boolean {
+      return pathname === href || pathname.startsWith(`${href}/`);
     }
   </file>
   <file path="apps/marketing/src/data/measurement-date.ts">
@@ -15341,8 +15373,26 @@
     export interface SeatPlacementInput {
       readonly shape: TableShapeName;
       readonly capacity: number;
+      /** Stored footprint; each falls back to the shape's `SHAPE_DEFAULTS` entry. */
+      readonly width?: number;
+      readonly height?: number;
       /** Clearance from the table edge; defaults to the canonical SEAT_GAP. */
       readonly gap?: number;
+    }
+    export interface SeatSize {
+      readonly width: number;
+      readonly height: number;
+    }
+    export function seatSize(capacity: number): SeatSize {
+      const t = Math.min(
+        1,
+        Math.max(0, (capacity - SEAT_SHRINK_START) / (SEAT_SHRINK_END - SEAT_SHRINK_START))
+      );
+      const ease = (from: number, to: number) => Math.round((from + (to - from) * t) * 1000) / 1000;
+      return {
+        width: ease(SEAT_SIZE_FULL.width, SEAT_SIZE_SMALL.width),
+        height: ease(SEAT_SIZE_FULL.height, SEAT_SIZE_SMALL.height),
+      };
     }
     type RectangleSide = (typeof RECTANGLE_SIDES)[number];
     function usableSeatCount(capacity: number): number {
@@ -15394,12 +15444,41 @@
         }));
       });
     }
+    function minSeatSpacing(input: SeatPlacementInput, seats: readonly SeatPlacement[]): number {
+      if (input.shape === "circle") {
+        const diameter = input.width ?? SHAPE_DEFAULTS.circle.width;
+        const gap = input.gap ?? SEAT_GAP;
+        return seats.length > 1
+          ? 2 * (diameter / 2 + gap) * Math.sin(Math.PI / seats.length)
+          : Infinity;
+      }
+      const bySide = new Map<number, number[]>();
+      for (const seat of seats) {
+        const along = seat.rotation % 180 === 0 ? seat.x : seat.y;
+        bySide.set(seat.rotation, [...(bySide.get(seat.rotation) ?? []), along]);
+      }
+      let min = Infinity;
+      for (const positions of bySide.values()) {
+        const sorted = [...positions].sort((a, b) => a - b);
+        sorted.slice(1).forEach((p, i) => {
+          min = Math.min(min, p - (sorted[i] ?? 0));
+        });
+      }
+      return min;
+    }
+    export function fittedSeatSize(input: SeatPlacementInput): SeatSize {
+      const base = seatSize(input.capacity);
+      const spacing = minSeatSpacing(input, seatPlacements(input));
+      return { ...base, width: Math.min(base.width, spacing - SEAT_SPACING_GAP) };
+    }
     export function seatPlacements(input: SeatPlacementInput): readonly SeatPlacement[] {
       const gap = input.gap ?? SEAT_GAP;
       const count = usableSeatCount(input.capacity);
       if (count === 0) return [];
     
-      const { width, height } = SHAPE_DEFAULTS[input.shape];
+      const defaults = SHAPE_DEFAULTS[input.shape];
+      const width = input.width ?? defaults.width;
+      const height = input.height ?? defaults.height;
       return input.shape === "circle"
         ? circleSeats(count, width / 2 + gap)
         : rectangleSeats(count, width, height, gap);
@@ -15418,6 +15497,31 @@
       return `${base}${FLOOR_TEXTURE_DIR}/${material}.png`;
     }
   </file>
+  <file path="apps/hospitality/src/components/floor-plan/furniture-theme.ts">
+    function readTheme(): FurnitureTheme {
+      return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+    }
+    function subscribe(listener: () => void): () => void {
+      listeners.add(listener);
+      if (!observer) {
+        observer = new MutationObserver(() => listeners.forEach((notify) => notify()));
+        observer.observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ["data-theme"],
+        });
+      }
+      return () => {
+        listeners.delete(listener);
+        if (listeners.size === 0) {
+          observer?.disconnect();
+          observer = null;
+        }
+      };
+    }
+    export function useFurnitureTheme(): FurnitureTheme {
+      return useSyncExternalStore(subscribe, readTheme, () => "light");
+    }
+  </file>
   <file path="apps/hospitality/src/components/floor-plan/furniture-tokens.ts">
     export const TABLE_SURFACE_NAME = "table-surface";
     export const TABLE_SHADOW_NAME = "table-shadow";
@@ -15432,11 +15536,18 @@
       grain: "#806A4E",
       highlight: "#9C8468",
       edge: "#6B5740",
-      shadow: "rgba(0,0,0,0.12)",
-      seatFrame: "#4a3f32",
-      seatEdge: "#3d3228",
-      seatCushion: "#5c4f40",
     } as const;
+    export type FurnitureTheme = "light" | "dark";
+    export const SEAT_TONES: Record<FurnitureTheme, { frame: string; edge: string; cushion: string }> =
+      {
+        light: { frame: "#4a3f32", edge: "#3d3228", cushion: "#5c4f40" },
+        dark: { frame: "#8a7a66", edge: "#6b5d4c", cushion: "#a08c72" },
+      };
+    export const SHADOW_TONES: Record<FurnitureTheme, string> = {
+      light: "rgba(26,25,24,0.28)",
+      dark: "rgba(0,0,0,0.6)",
+    };
+    export const CONTACT_SHADOW = { blur: 6, offsetY: 2 } as const;
     export const TABLE_CORNER_RADIUS: Record<Exclude<TableShapeName, "circle">, number> = {
       rectangle: 6,
       square: 3,
@@ -15768,6 +15879,110 @@
       }, []);
     
       return theme;
+    }
+  </file>
+  <file path="apps/hospitality/src/components/floor-plan/table-label-layout.ts">
+    export const LABEL_MIN_SCREEN_PX = 10;
+    export const LABEL_PADDING = 2;
+    export const LABEL_LINE_HEIGHT = 1.15;
+    export interface TableLabelInput {
+      number: string;
+      covers: string;
+      shape: TableShapeName;
+      capacity: number;
+      /** The table footprint in canvas units (its own, unrotated frame). */
+      width: number;
+      height: number;
+      /** The table group's rotation, in degrees clockwise. */
+      rotation: number;
+      /** The stage's scale (rendered px per canvas unit). */
+      stageScale: number;
+    }
+    export interface TableLabelLayout {
+      text: string;
+      fontSize: number;
+      /** Plate size in canvas units, including padding. */
+      width: number;
+      height: number;
+      /** Always false: the number is never ellipsized; the font shrinks instead. */
+      ellipsis: false;
+    }
+    export function counterRotation(rotation: number): number {
+      return rotation === 0 ? 0 : -rotation;
+    }
+    interface Box {
+      readonly cx: number;
+      readonly cy: number;
+      readonly halfW: number;
+      readonly halfH: number;
+    }
+    function chairBoxes(input: TableLabelInput): readonly Box[] {
+      const placementInput: SeatPlacementInput = {
+        shape: input.shape,
+        capacity: input.capacity,
+        width: input.width,
+        height: input.height,
+      };
+      const chair = fittedSeatSize(placementInput);
+      const tableRad = toRadians(input.rotation);
+      return seatPlacements(placementInput).map((seat) => {
+        const total = toRadians(seat.rotation + input.rotation);
+        return {
+          cx: seat.x * Math.cos(tableRad) - seat.y * Math.sin(tableRad),
+          cy: seat.x * Math.sin(tableRad) + seat.y * Math.cos(tableRad),
+          halfW:
+            (chair.width * Math.abs(Math.cos(total)) + chair.height * Math.abs(Math.sin(total))) / 2,
+          halfH:
+            (chair.width * Math.abs(Math.sin(total)) + chair.height * Math.abs(Math.cos(total))) / 2,
+        };
+      });
+    }
+    function footprintBox(input: TableLabelInput): Box {
+      const rad = toRadians(input.rotation);
+      return {
+        cx: 0,
+        cy: 0,
+        halfW: (input.width * Math.abs(Math.cos(rad)) + input.height * Math.abs(Math.sin(rad))) / 2,
+        halfH: (input.width * Math.abs(Math.sin(rad)) + input.height * Math.abs(Math.cos(rad))) / 2,
+      };
+    }
+    function overlapsChair(chair: Box, plateHalfW: number, plateHalfH: number): boolean {
+      const gapX = Math.max(0, Math.abs(chair.cx) - chair.halfW - CHAIR_CLEARANCE);
+      const gapY = Math.max(0, Math.abs(chair.cy) - chair.halfH - CHAIR_CLEARANCE);
+      return gapX < plateHalfW && gapY < plateHalfH;
+    }
+    interface Plate {
+      text: string;
+      fontSize: number;
+      width: number;
+      height: number;
+    }
+    function plateFor(lines: readonly string[], fontSize: number): Plate {
+      const longest = Math.max(...lines.map((line) => line.length), 1);
+      return {
+        text: lines.join("\n"),
+        fontSize,
+        width: longest * GLYPH_WIDTH_EM * fontSize + 2 * LABEL_PADDING,
+        height: lines.length * fontSize * LABEL_LINE_HEIGHT + 2 * LABEL_PADDING,
+      };
+    }
+    export function tableLabelLayout(input: TableLabelInput): TableLabelLayout {
+      const chairs = chairBoxes(input);
+      const footprint = chairs.length === 0 ? footprintBox(input) : null;
+      const clear = (plate: Plate) =>
+        chairs.every((chair) => !overlapsChair(chair, plate.width / 2, plate.height / 2)) &&
+        (footprint === null ||
+          (plate.width / 2 <= footprint.halfW && plate.height / 2 <= footprint.halfH));
+    
+      const startFont = Math.max(LABEL_MIN_SCREEN_PX / input.stageScale, LABEL_MAX_FONT_SIZE);
+      const full = plateFor([input.number, input.covers], startFont);
+      if (clear(full)) return { ...full, ellipsis: false };
+    
+      let plate = plateFor([input.number], startFont);
+      for (let step = 0; step < MAX_SHRINK_STEPS && !clear(plate); step += 1) {
+        plate = plateFor([input.number], plate.fontSize * SHRINK_FACTOR);
+      }
+      return { ...plate, ellipsis: false };
     }
   </file>
   <file path="apps/hospitality/src/components/floor-plan/table-status.ts">
@@ -16609,6 +16824,10 @@
     export interface UseSpecsApiReturn {
       specs: StoredSpec[];
       isLoading: boolean;
+      /** Set when the most recent fetchSpecs() call failed; cleared on the next
+       *  successful fetch. Lets the UI show a deliberate error state instead of
+       *  an indistinguishable "no history yet". */
+      error: Error | null;
       fetchSpecs: () => Promise<void>;
       saveSpec: (data: SaveSpecData) => Promise<StoredSpec>;
       toggleFavorite: (id: string) => Promise<void>;
@@ -16619,6 +16838,7 @@
     
       const [specs, setSpecs] = useState<StoredSpec[]>([]);
       const [isLoading, setIsLoading] = useState(true);
+      const [error, setError] = useState<Error | null>(null);
       // Mirror of specs in a ref so deleteSpec can read the current list without
       // taking specs as a useCallback dependency (which would recreate on every render).
       const specsRef = useRef<StoredSpec[]>(specs);
@@ -16637,8 +16857,10 @@
         try {
           const json = await client.get<{ data: StoredSpec[] }>("/api/gen/specs");
           setSpecs(json.data.map(decodeStored));
+          setError(null);
         } catch (err) {
           console.error("[useSpecsApi] fetchSpecs error:", err);
+          setError(err instanceof Error ? err : new Error("Failed to load history."));
         } finally {
           setIsLoading(false);
         }
@@ -16697,7 +16919,7 @@
         queueMicrotask(() => void fetchSpecs());
       }, [fetchSpecs]);
     
-      return { specs, isLoading, fetchSpecs, saveSpec, toggleFavorite, deleteSpec };
+      return { specs, isLoading, error, fetchSpecs, saveSpec, toggleFavorite, deleteSpec };
     }
   </file>
   <file path="apps/hospitality/src/hooks/create-mutation-hook.ts">
@@ -20248,21 +20470,38 @@
     }
   </file>
   <file path="packages/rialto/src/hooks/useFocusTrap.ts">
-    export const FOCUSABLE_SELECTOR =
-      'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
+    export const FOCUSABLE_SELECTOR = [
+      'button:not(:disabled):not([tabindex="-1"])',
+      '[href]:not([tabindex="-1"])',
+      'input:not(:disabled):not([type="hidden"]):not([tabindex="-1"])',
+      'select:not(:disabled):not([tabindex="-1"])',
+      'textarea:not(:disabled):not([tabindex="-1"])',
+      '[tabindex]:not([tabindex="-1"])',
+    ].join(", ");
+    function isReachable(el: HTMLElement, panel: HTMLElement): boolean {
+      if (el.closest("[hidden], [inert]")) return false;
+      if (getComputedStyle(el).visibility === "hidden") return false;
+      for (let node: HTMLElement | null = el; node && node !== panel; node = node.parentElement) {
+        if (getComputedStyle(node).display === "none") return false;
+      }
+      return true;
+    }
+    function queryTabbable(panel: HTMLElement): HTMLElement[] {
+      return Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter((el) =>
+        isReachable(el, panel)
+      );
+    }
     export interface UseFocusTrapOptions {
       /** Element to focus when the trap activates, overriding the default candidate. */
       initialFocus?: RefObject<HTMLElement | null>;
     }
     function resolveInitialFocus(
-      focusable: NodeListOf<HTMLElement>,
+      focusable: HTMLElement[],
       first: HTMLElement | undefined,
       initialFocus?: RefObject<HTMLElement | null>
     ): HTMLElement | undefined {
       if (initialFocus?.current) return initialFocus.current;
-      const defaultTarget = Array.from(focusable).find(
-        (el) => !el.hasAttribute(FOCUS_TRAP_SKIP_INITIAL_ATTR)
-      );
+      const defaultTarget = focusable.find((el) => !el.hasAttribute(FOCUS_TRAP_SKIP_INITIAL_ATTR));
       return defaultTarget ?? first;
     }
     export function useFocusTrap(
@@ -20278,7 +20517,7 @@
         const panel = panelRef.current;
         if (!panel) return;
     
-        const initialCandidates = panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
+        const initialCandidates = queryTabbable(panel);
         resolveInitialFocus(initialCandidates, initialCandidates[0], initialFocus)?.focus();
     
         activePanels.push(panel);
@@ -20289,7 +20528,7 @@
           if (panel !== activePanels[activePanels.length - 1]) return;
           // Re-query on every Tab: panels add/remove/disable controls after open,
           // so cached ends go stale and let focus escape.
-          const focusable = panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
+          const focusable = queryTabbable(panel);
           const first = focusable[0];
           const last = focusable[focusable.length - 1];
           const active = document.activeElement;
@@ -20367,8 +20606,12 @@
     }
   </file>
   <file path="packages/rialto/src/hooks/useReturnFocus.ts">
-    export function useReturnFocus(open: boolean): void {
+    export function useReturnFocus(open: boolean): () => void {
       const triggerRef = useRef<Element | null>(null);
+      const skipRef = useRef(false);
+      const skipRestore = useCallback(() => {
+        skipRef.current = true;
+      }, []);
     
       useLayoutEffect(() => {
         if (!open) return;
@@ -20379,11 +20622,16 @@
         return () => {
           const captured = triggerRef.current;
           triggerRef.current = null;
+          const skip = skipRef.current;
+          skipRef.current = false;
+          if (skip) return;
           requestAnimationFrame(() => {
             (captured as HTMLElement | null)?.focus();
           });
         };
       }, [open]);
+    
+      return skipRestore;
     }
   </file>
   <file path="packages/rialto/src/hooks/useScrollReveal.ts">
@@ -20764,6 +21012,8 @@
       readonly drawer: string;
       /** Fallback accessible name of a Popover with no title. */
       readonly popover: string;
+      /** NeonSign banner shape: the decorative script line printed above OPEN. */
+      readonly neonSignLead: string;
       /** Accessible name of a HoverCard's preview surface. */
       readonly preview: string;
       /** Accessible name of the Toast region. */
@@ -20980,6 +21230,7 @@
       dialog: "Dialog",
       drawer: "Drawer",
       popover: "Popover",
+      neonSignLead: "Yes, we're",
       preview: "Preview",
       notifications: "Notifications",
       confirm: "Confirm",
@@ -21870,7 +22121,14 @@
       let changed = prepared !== spec;
       const elements: Record<string, GenElement> = { ...elementsOf(prepared) };
       for (const [key, element] of Object.entries(elements)) {
-        if (!element || element.type !== "Text") continue;
+        if (!element) continue;
+        const materialized = materializeCatalogProps(element.type, element.props);
+        if (materialized !== element.props) {
+          changed = true;
+          elements[key] = { ...element, props: materialized as typeof element.props };
+          continue;
+        }
+        if (element.type !== "Text") continue;
         const text = textContent(element.props);
         const points = text ? parseTrendPoints(text) : null;
         if (!points) continue;
@@ -22348,6 +22606,47 @@
         body: t("auth.error.generic.body"),
         canRetry: true,
       };
+    }
+  </file>
+  <file path="apps/hospitality/src/lib/host-brand.ts">
+    export interface Brand {
+      /** Product name shown in titles, the header, guest pages and copyright. */
+      readonly name: string;
+      /** Short wordmark rendered as the header logo. */
+      readonly logo: string;
+    }
+    export interface HostConfig {
+      readonly brand: Brand;
+      /** React Router basename: "" when the app owns the host's root. */
+      readonly basename: string;
+      /** True when the host serves only this app (no marketing / rialto / gen pages). */
+      readonly standalone: boolean;
+    }
+    export function hostConfig(hostname: string): HostConfig {
+      return EAT_SHEET_HOSTS.has(hostname.toLowerCase()) ? EAT_SHEET : MBE;
+    }
+    export function currentHostConfig(): HostConfig {
+      return hostConfig(typeof window === "undefined" ? "" : window.location.hostname);
+    }
+    export function appUrl(
+      path: string,
+      location: Pick<Location, "origin" | "hostname"> = window.location
+    ): string {
+      return `${location.origin}${hostConfig(location.hostname).basename}${path}`;
+    }
+    export function homeUrl(location: Pick<Location, "origin"> = window.location): string {
+      return `${location.origin}/`;
+    }
+    export function manageReservationUrl(
+      token: string,
+      location: Pick<Location, "origin" | "hostname"> = window.location
+    ): string {
+      return `${appUrl("/reservations/manage", location)}?token=${encodeURIComponent(token)}`;
+    }
+    export function legacyPathRedirect(pathname: string, basename: string): string | null {
+      if (basename === LEGACY_BASE) return null;
+      if (pathname !== LEGACY_BASE && !pathname.startsWith(`${LEGACY_BASE}/`)) return null;
+      return pathname.slice(LEGACY_BASE.length) || "/";
     }
   </file>
   <file path="apps/hospitality/src/lib/logo-palette-canvas.ts">
@@ -22966,6 +23265,7 @@
       dialog: "Diálogo",
       drawer: "Panel lateral",
       popover: "Ventana emergente",
+      neonSignLead: "Sí, estamos",
       preview: "Vista previa",
       notifications: "Notificaciones",
       confirm: "Confirmar",
@@ -23129,6 +23429,7 @@
       dialog: "Boîte de dialogue",
       drawer: "Panneau latéral",
       popover: "Fenêtre contextuelle",
+      neonSignLead: "Oui, on est",
       preview: "Aperçu",
       notifications: "Avis",
       confirm: "Confirmer",
@@ -25296,6 +25597,10 @@
       // History (from useSpecsApi)
       specs: StoredSpec[];
       isLoading: boolean;
+      /** Set when the most recent history fetch failed. */
+      historyError: Error | null;
+      /** Re-runs the failed history fetch. */
+      retryHistory: () => void;
       filter: "all" | "favorites";
       setFilter: (filter: "all" | "favorites") => void;
     
@@ -25347,7 +25652,15 @@
       const playgroundState = usePlaygroundState();
       const { mode, exitRefinement, enterRefinement } = playgroundState;
     
-      const { specs, isLoading, saveSpec, toggleFavorite, deleteSpec } = useSpecsApi();
+      const {
+        specs,
+        isLoading,
+        error: historyError,
+        fetchSpecs: retryHistory,
+        saveSpec,
+        toggleFavorite,
+        deleteSpec,
+      } = useSpecsApi();
       const [activeId, setActiveId] = useState<string | null>(null);
       const [filter, setFilter] = useState<"all" | "favorites">("all");
       // Track the most recently submitted prompt without triggering a re-render.
@@ -25505,9 +25818,19 @@
       // useGenStream flips isStreaming to false in the same batch it sets error,
       // so gating on isStreaming here would mean the error is never visible —
       // only relevant while we're not looking at a previously saved entry.
-      const displayError = activeId === null ? (refineError ?? validationError ?? error) : null;
+      // A selected "failed" history entry has its own failure to show, distinct
+      // from (and not cleared by) the live generation's error/refineError/
+      // validationError above — otherwise it reads as an empty, not failed, spec.
+      const displayError =
+        activeId === null
+          ? (refineError ?? validationError ?? error)
+          : activeEntry?.kind === "failed"
+            ? FAILED_ENTRY_ERROR
+            : null;
       const activeSpecId = !isStreaming && activeId ? activeId : null;
-      const failedPrompt = displayError ? rawPrompt : null;
+      // Only the live generation's failure restores rawPrompt; a selected history
+      // entry's failure is unrelated to whatever was last typed.
+      const failedPrompt = activeId === null && displayError ? rawPrompt : null;
     
       const clearNodeRefine = useCallback(() => {
         nodeRefineRef.current = null;
@@ -25530,6 +25853,9 @@
     
       const submit = useCallback(
         (prompt: string) => {
+          // send() ignores a request while one is in flight; abort the old one first
+          // so it never completes under this prompt.
+          if (isStreaming) stop();
           rememberPendingPrompt(prompt);
           setRawPrompt(prompt);
           clearNodeRefine();
@@ -25548,7 +25874,7 @@
             void send(prompt);
           }
         },
-        [mode, displaySpec, send, clearNodeRefine]
+        [mode, displaySpec, isStreaming, send, stop, clearNodeRefine]
       );
     
       const refineNode = useCallback(
@@ -25740,6 +26066,8 @@
     
         specs,
         isLoading,
+        historyError,
+        retryHistory: () => void retryHistory(),
         filter,
         setFilter,
     
@@ -27487,11 +27815,14 @@
       | { readonly phase: "signed-out"; readonly afterSignOut: boolean }
       | { readonly phase: "expired" }
       | { readonly phase: "ready" };
+    export const STALE_SESSION_MS = 24 * 60 * 60 * 1000;
     export interface AuthGateFacts {
       readonly isLoading: boolean;
       readonly isAuthenticated: boolean;
       readonly error: Error | undefined;
       readonly sessionExpired: boolean;
+      /** Milliseconds since the stored token expired; undefined when unknown. */
+      readonly expiredForMs?: number | undefined;
       readonly activeNavigator: ActiveNavigator | undefined;
     }
     export type AuthGateLocation = Pick<Location, "pathname" | "search" | "hash">;
@@ -27515,14 +27846,29 @@
     
       // Before isAuthenticated: react-oidc-context does not re-evaluate it when a
       // token expires in place.
-      if (facts.sessionExpired) return { phase: "expired" };
+      if (facts.sessionExpired) {
+        if (facts.expiredForMs !== undefined && facts.expiredForMs >= STALE_SESSION_MS) {
+          return { phase: "signed-out", afterSignOut: false };
+        }
+        return { phase: "expired" };
+      }
     
       if (!facts.isAuthenticated) return { phase: "signed-out", afterSignOut: false };
     
       return { phase: "ready" };
     }
     export function useAuthGate(): AuthGate {
-      return resolveAuthGate(useAuth(), window.location);
+      const auth = useAuth();
+      const { expiredForMs, clearSession } = useStaleSession();
+      const gate = resolveAuthGate({ ...auth, expiredForMs }, window.location);
+      const stale = auth.sessionExpired && gate.phase === "signed-out";
+    
+      // A stale stored user would keep resurfacing; drop it via the user manager.
+      useEffect(() => {
+        if (stale) void clearSession();
+      }, [stale, clearSession]);
+    
+      return gate;
     }
   </file>
   <file path="packages/auth/src/react/auth-history.ts">
@@ -27576,12 +27922,12 @@
     }
     export function installAuthBackReload(target: PageShowTarget = window): () => void {
       const onPageShow = (event: PageTransitionEvent) => {
-        if (!event.persisted) return;
         try {
           const flagged = target.sessionStorage.getItem(AUTH_BACK_RELOAD_KEY) === "1";
           if (!flagged) return;
           target.sessionStorage.removeItem(AUTH_BACK_RELOAD_KEY);
-          target.location.reload();
+          // A fresh load (not a bfcache restore) already has a live React tree.
+          if (event.persisted) target.location.reload();
         } catch (error) {
           continueWhenStorageFails(error);
         }
@@ -27659,6 +28005,17 @@
         error: silentFailure ? undefined : auth.error,
         /** The most recent silent-refresh failure, or null — see {@link useAccessToken} */
         refreshError: silentFailure ? (auth.error ?? null) : null,
+      };
+    }
+    export function useStaleSession() {
+      const auth = useOIDCAuth();
+      const expiresAt = auth.user?.expires_at;
+      return {
+        expiredForMs:
+          expiresAt !== undefined && auth.user?.expired === true
+            ? Date.now() - expiresAt * 1000
+            : undefined,
+        clearSession: () => auth.removeUser(),
       };
     }
     export interface AccessTokenState {
@@ -48961,7 +49318,8 @@
     
           const next = {
             ...state.stored,
-            dateRules: state.stored.dateRules.filter((r) => r.id !== ruleId),
+            // Reopening a series also removes its skips and one-date edits (#7685).
+            dateRules: state.stored.dateRules.filter((r) => r.id !== ruleId && r.seriesId !== ruleId),
           };
           const diff = diffConfig(state.stored, next);
           await writeConfigDiff(db, venueId, diff, { actorId: caller.actorId, now });
@@ -75435,6 +75793,7 @@
     export function validateCorsOrigins(origins: string[]): string[] {
       const validPatterns = [
         /^https:\/\/([a-z-]+\.)?mattbutlerengineering\.com$/,
+        /^https:\/\/eat-sheet\.com$/,
         ...(process.env.NODE_ENV === "development" ? [/^http:\/\/localhost:\d+$/] : []),
       ];
     
@@ -75522,6 +75881,8 @@
         "https://mattbutlerengineering.com",
         "https://hospitality.mattbutlerengineering.com",
         "https://gen.mattbutlerengineering.com",
+        // Hospitality is also served at the eat-sheet.com apex (#7709).
+        "https://eat-sheet.com",
       ];
     
       const defaultOrigins = [
@@ -77659,7 +78020,7 @@
               closureNotice: createClosureNoticeDeps({
                 dispatcher: notificationPort,
                 generateManageToken,
-                manageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
+                manageBaseUrl: resolveManageBaseUrl(process.env),
                 logger: fastify.log,
               }),
               handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),
@@ -77715,7 +78076,7 @@
       return new ResendNotificationAdapter({
         resend: resendClient,
         fromAddress: process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
-        manageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
+        manageBaseUrl: resolveManageBaseUrl(process.env),
         publicApiBaseUrl,
       });
     }
@@ -77739,7 +78100,7 @@
       return new NotificationDispatcher({
         emailAdapter,
         smsAdapter,
-        smsManageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
+        smsManageBaseUrl: resolveManageBaseUrl(process.env),
       });
     }
   </file>

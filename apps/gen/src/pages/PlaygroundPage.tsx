@@ -87,6 +87,8 @@ export function PlaygroundBody({ session, onSignOut, toggleTheme }: PlaygroundBo
     shortcutsOpen,
     specs,
     isLoading,
+    historyError,
+    retryHistory,
     filter,
     setFilter,
     isStreaming,
@@ -209,6 +211,8 @@ export function PlaygroundBody({ session, onSignOut, toggleTheme }: PlaygroundBo
             activeId={activeSpecId}
             filter={filter}
             isLoading={isLoading}
+            error={historyError}
+            onRetry={retryHistory}
             onSelect={handleSelectHistory}
             onReplay={handleReplay}
             onToggleFavorite={handleToggleFavorite}
@@ -298,7 +302,11 @@ export function PlaygroundBody({ session, onSignOut, toggleTheme }: PlaygroundBo
               </div>
             }
           >
-            <JsonInspector rawLines={displayRawLines} isStreaming={isStreaming} />
+            <JsonInspector
+              rawLines={displayRawLines}
+              isStreaming={isStreaming}
+              error={displayError}
+            />
           </ErrorBoundary>
         </AppShell.InspectorRegion>
       </div>

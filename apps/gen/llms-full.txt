@@ -824,6 +824,10 @@
     export interface UseSpecsApiReturn {
       specs: StoredSpec[];
       isLoading: boolean;
+      /** Set when the most recent fetchSpecs() call failed; cleared on the next
+       *  successful fetch. Lets the UI show a deliberate error state instead of
+       *  an indistinguishable "no history yet". */
+      error: Error | null;
       fetchSpecs: () => Promise<void>;
       saveSpec: (data: SaveSpecData) => Promise<StoredSpec>;
       toggleFavorite: (id: string) => Promise<void>;
@@ -834,6 +838,7 @@
     
       const [specs, setSpecs] = useState<StoredSpec[]>([]);
       const [isLoading, setIsLoading] = useState(true);
+      const [error, setError] = useState<Error | null>(null);
       // Mirror of specs in a ref so deleteSpec can read the current list without
       // taking specs as a useCallback dependency (which would recreate on every render).
       const specsRef = useRef<StoredSpec[]>(specs);
@@ -852,8 +857,10 @@
         try {
           const json = await client.get<{ data: StoredSpec[] }>("/api/gen/specs");
           setSpecs(json.data.map(decodeStored));
+          setError(null);
         } catch (err) {
           console.error("[useSpecsApi] fetchSpecs error:", err);
+          setError(err instanceof Error ? err : new Error("Failed to load history."));
         } finally {
           setIsLoading(false);
         }
@@ -912,7 +919,7 @@
         queueMicrotask(() => void fetchSpecs());
       }, [fetchSpecs]);
     
-      return { specs, isLoading, fetchSpecs, saveSpec, toggleFavorite, deleteSpec };
+      return { specs, isLoading, error, fetchSpecs, saveSpec, toggleFavorite, deleteSpec };
     }
   </file>
   </section>
@@ -1021,7 +1028,14 @@
       let changed = prepared !== spec;
       const elements: Record<string, GenElement> = { ...elementsOf(prepared) };
       for (const [key, element] of Object.entries(elements)) {
-        if (!element || element.type !== "Text") continue;
+        if (!element) continue;
+        const materialized = materializeCatalogProps(element.type, element.props);
+        if (materialized !== element.props) {
+          changed = true;
+          elements[key] = { ...element, props: materialized as typeof element.props };
+          continue;
+        }
+        if (element.type !== "Text") continue;
         const text = textContent(element.props);
         const points = text ? parseTrendPoints(text) : null;
         if (!points) continue;
@@ -1445,6 +1459,10 @@
       // History (from useSpecsApi)
       specs: StoredSpec[];
       isLoading: boolean;
+      /** Set when the most recent history fetch failed. */
+      historyError: Error | null;
+      /** Re-runs the failed history fetch. */
+      retryHistory: () => void;
       filter: "all" | "favorites";
       setFilter: (filter: "all" | "favorites") => void;
     
@@ -1496,7 +1514,15 @@
       const playgroundState = usePlaygroundState();
       const { mode, exitRefinement, enterRefinement } = playgroundState;
     
-      const { specs, isLoading, saveSpec, toggleFavorite, deleteSpec } = useSpecsApi();
+      const {
+        specs,
+        isLoading,
+        error: historyError,
+        fetchSpecs: retryHistory,
+        saveSpec,
+        toggleFavorite,
+        deleteSpec,
+      } = useSpecsApi();
       const [activeId, setActiveId] = useState<string | null>(null);
       const [filter, setFilter] = useState<"all" | "favorites">("all");
       // Track the most recently submitted prompt without triggering a re-render.
@@ -1654,9 +1680,19 @@
       // useGenStream flips isStreaming to false in the same batch it sets error,
       // so gating on isStreaming here would mean the error is never visible —
       // only relevant while we're not looking at a previously saved entry.
-      const displayError = activeId === null ? (refineError ?? validationError ?? error) : null;
+      // A selected "failed" history entry has its own failure to show, distinct
+      // from (and not cleared by) the live generation's error/refineError/
+      // validationError above — otherwise it reads as an empty, not failed, spec.
+      const displayError =
+        activeId === null
+          ? (refineError ?? validationError ?? error)
+          : activeEntry?.kind === "failed"
+            ? FAILED_ENTRY_ERROR
+            : null;
       const activeSpecId = !isStreaming && activeId ? activeId : null;
-      const failedPrompt = displayError ? rawPrompt : null;
+      // Only the live generation's failure restores rawPrompt; a selected history
+      // entry's failure is unrelated to whatever was last typed.
+      const failedPrompt = activeId === null && displayError ? rawPrompt : null;
     
       const clearNodeRefine = useCallback(() => {
         nodeRefineRef.current = null;
@@ -1679,6 +1715,9 @@
     
       const submit = useCallback(
         (prompt: string) => {
+          // send() ignores a request while one is in flight; abort the old one first
+          // so it never completes under this prompt.
+          if (isStreaming) stop();
           rememberPendingPrompt(prompt);
           setRawPrompt(prompt);
           clearNodeRefine();
@@ -1697,7 +1736,7 @@
             void send(prompt);
           }
         },
-        [mode, displaySpec, send, clearNodeRefine]
+        [mode, displaySpec, isStreaming, send, stop, clearNodeRefine]
       );
     
       const refineNode = useCallback(
@@ -1889,6 +1928,8 @@
     
         specs,
         isLoading,
+        historyError,
+        retryHistory: () => void retryHistory(),
         filter,
         setFilter,
     

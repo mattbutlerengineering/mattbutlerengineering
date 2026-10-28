@@ -123,6 +123,39 @@
           }
         }
       },
+      "neon": {
+        "$description": "NeonSign tube tones — lit tube text and strokes only, never fills",
+        "red": {
+          "$value": "#a82019",
+          "$type": "color",
+          "$description": "Red neon tube (AA on the recessed housing and its glow wash)"
+        },
+        "pink": {
+          "$value": "#a31a60",
+          "$type": "color",
+          "$description": "Pink neon tube"
+        },
+        "blue": {
+          "$value": "#1a56a8",
+          "$type": "color",
+          "$description": "Blue neon tube"
+        },
+        "green": {
+          "$value": "#246a2f",
+          "$type": "color",
+          "$description": "Green neon tube"
+        },
+        "orange": {
+          "$value": "#8f4707",
+          "$type": "color",
+          "$description": "Orange neon tube (warm vintage glass)"
+        },
+        "purple": {
+          "$value": "#7a35b8",
+          "$type": "color",
+          "$description": "Purple neon tube"
+        }
+      },
       "overlay": {
         "$value": "rgb(26 25 24 / 0.4)",
         "$type": "color",
@@ -279,6 +312,32 @@
             "$value": "rgb(154 170 76 / 0.15)",
             "$type": "color"
           }
+        }
+      },
+      "neon": {
+        "red": {
+          "$value": "#ff7a6b",
+          "$type": "color"
+        },
+        "pink": {
+          "$value": "#ff7ab8",
+          "$type": "color"
+        },
+        "blue": {
+          "$value": "#6aa8ff",
+          "$type": "color"
+        },
+        "green": {
+          "$value": "#5fd47a",
+          "$type": "color"
+        },
+        "orange": {
+          "$value": "#ff9a3d",
+          "$type": "color"
+        },
+        "purple": {
+          "$value": "#b98cff",
+          "$type": "color"
         }
       },
       "overlay": {

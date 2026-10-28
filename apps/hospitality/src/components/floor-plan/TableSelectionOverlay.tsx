@@ -35,7 +35,8 @@ export function TableSelectionOverlay({
         const x = table.shapeMetadata?.x ?? 100;
         const y = table.shapeMetadata?.y ?? 100;
         const shape = table.shapeMetadata?.shape ?? "rectangle";
-        const { width, height } = SHAPE_DEFAULTS[shape];
+        const width = table.shapeMetadata?.width ?? SHAPE_DEFAULTS[shape].width;
+        const height = table.shapeMetadata?.height ?? SHAPE_DEFAULTS[shape].height;
         const isSelected = table.id === selectedTableId;
 
         return (

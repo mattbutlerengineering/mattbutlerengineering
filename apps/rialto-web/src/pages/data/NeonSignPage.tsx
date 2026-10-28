@@ -7,6 +7,7 @@ import {
   Stack,
   Text,
   type NeonSignState,
+  type NeonTone,
 } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
@@ -98,6 +99,50 @@ function StatePlayground() {
   );
 }
 
+const SHAPES = ["classic", "swoosh", "boxed", "vertical", "arrow", "banner", "vintage"] as const;
+const TONES: readonly NeonTone[] = ["red", "pink", "blue", "green", "orange", "purple"];
+
+/** Pick the word and frame tones of a boxed sign. */
+function TonePicker() {
+  const [word, setWord] = useState<NeonTone>("red");
+  const [frame, setFrame] = useState<NeonTone>("blue");
+
+  return (
+    <Stack gap="lg" align="start">
+      <NeonSign
+        shape="boxed"
+        state="open"
+        tone={{ word, frame }}
+        aria-label="Open until 10:00 PM"
+        size="lg"
+      />
+      {(
+        [
+          ["Word", word, setWord],
+          ["Frame", frame, setFrame],
+        ] as const
+      ).map(([label, value, set]) => (
+        <Stack key={label} direction="row" gap="xs" wrap align="center">
+          <Text variant="caption" color="secondary">
+            {label}
+          </Text>
+          {TONES.map((t) => (
+            <Button
+              key={t}
+              size="sm"
+              variant={t === value ? "primary" : "secondary"}
+              aria-pressed={t === value}
+              onClick={() => set(t)}
+            >
+              {t}
+            </Button>
+          ))}
+        </Stack>
+      ))}
+    </Stack>
+  );
+}
+
 export function NeonSignPage() {
   return (
     <ComponentPageLayout
@@ -129,6 +174,30 @@ export function NeonSignPage() {
       <Section title="Playground">
         <Card variant="elevated" style={{ padding: "var(--rialto-space-xl)" }}>
           <StatePlayground />
+        </Card>
+      </Section>
+
+      {/* ── Shapes ────────────────────────────────────────────────── */}
+      <Section title="Shapes">
+        <Stack gap="xl" data-testid="neon-sign-shapes">
+          {SHAPES.map((shape) => (
+            <Stack key={shape} gap="xs">
+              <Text variant="caption" color="secondary">
+                {shape}
+              </Text>
+              <Stack direction="row" gap="xl" align="end" wrap>
+                <NeonSign shape={shape} state="open" aria-label={`${shape} sign, lit`} />
+                <NeonSign shape={shape} state="closed" aria-label={`${shape} sign, closed`} />
+              </Stack>
+            </Stack>
+          ))}
+        </Stack>
+      </Section>
+
+      {/* ── Tones ─────────────────────────────────────────────────── */}
+      <Section title="Tones">
+        <Card variant="elevated" style={{ padding: "var(--rialto-space-xl)" }}>
+          <TonePicker />
         </Card>
       </Section>
 

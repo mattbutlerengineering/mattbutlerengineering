@@ -1,6 +1,6 @@
 export { AuthProvider } from "./provider.js";
 export { signinReturnTo } from "./signin-return-to.js";
-export { useAuthGate, resolveAuthGate } from "./auth-gate.js";
+export { useAuthGate, resolveAuthGate, STALE_SESSION_MS } from "./auth-gate.js";
 export type { AuthGate, AuthGateFacts, AuthGateLocation } from "./auth-gate.js";
 export type { AuthProviderProps } from "./provider.js";
 export { useAuth, useAccessToken, useRequireAuth } from "./hooks.js";

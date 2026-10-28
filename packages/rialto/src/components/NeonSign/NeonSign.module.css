@@ -89,7 +89,7 @@
    `:where()` keeps the two animating state rules at (0,2,0) so the
    reduced-motion rules at the end of this sheet (0,3,0) win the cascade. */
 .neonSign:where([data-state="open"]) .tube {
-  color: var(--rialto-success);
+  color: var(--neon-word, var(--rialto-success));
   text-shadow:
     0 0 2px currentColor,
     0 0 8px currentColor;
@@ -100,13 +100,14 @@
 }
 
 .neonSign[data-state="open"] .housing::before {
-  background: var(--rialto-success-muted);
+  background: var(--neon-wash, var(--rialto-success-muted));
   opacity: 1;
 }
 
 /* ── opening-soon: warming gold, breathing ──── */
 .neonSign:where([data-state="opening-soon"]) .tube {
-  color: var(--rialto-accent);
+  /* A toned sign warms in its own tone; only the untoned classic sign uses the accent. */
+  color: var(--neon-word, var(--rialto-accent));
   text-shadow:
     0 0 2px currentColor,
     0 0 8px currentColor;
@@ -115,7 +116,7 @@
 }
 
 .neonSign[data-state="opening-soon"] .housing::before {
-  background: var(--rialto-accent-muted);
+  background: var(--neon-wash, var(--rialto-accent-muted));
   opacity: 1;
 }
 
@@ -127,6 +128,201 @@
 }
 
 .neonSign[data-state="unset"] .tube {
+  visibility: hidden;
+}
+
+/* ── Tones — word and frame colours from the --rialto-neon-* tokens ──
+   Set per sign by data attributes so no colour is ever inlined. Absent
+   (classic with no `tone`), the state rules above fall back to success/accent. */
+.neonSign[data-word-tone] {
+  --neon-wash: color-mix(in srgb, var(--neon-word) 12%, transparent);
+}
+
+.neonSign[data-word-tone="red"] {
+  --neon-word: var(--rialto-neon-red);
+}
+
+.neonSign[data-word-tone="pink"] {
+  --neon-word: var(--rialto-neon-pink);
+}
+
+.neonSign[data-word-tone="blue"] {
+  --neon-word: var(--rialto-neon-blue);
+}
+
+.neonSign[data-word-tone="green"] {
+  --neon-word: var(--rialto-neon-green);
+}
+
+.neonSign[data-word-tone="orange"] {
+  --neon-word: var(--rialto-neon-orange);
+}
+
+.neonSign[data-word-tone="purple"] {
+  --neon-word: var(--rialto-neon-purple);
+}
+
+.neonSign[data-frame-tone="red"] {
+  --neon-frame: var(--rialto-neon-red);
+}
+
+.neonSign[data-frame-tone="pink"] {
+  --neon-frame: var(--rialto-neon-pink);
+}
+
+.neonSign[data-frame-tone="blue"] {
+  --neon-frame: var(--rialto-neon-blue);
+}
+
+.neonSign[data-frame-tone="green"] {
+  --neon-frame: var(--rialto-neon-green);
+}
+
+.neonSign[data-frame-tone="orange"] {
+  --neon-frame: var(--rialto-neon-orange);
+}
+
+.neonSign[data-frame-tone="purple"] {
+  --neon-frame: var(--rialto-neon-purple);
+}
+
+/* Lit frame tubes take the frame tone (else the word's). Colour only, no
+   animation, so the cascade guard's reduced-motion rules still outrank every animating rule. */
+.neonSign .frameTone[data-lit="true"] {
+  color: var(--neon-frame, var(--neon-word, var(--rialto-success)));
+}
+
+/* ── Framed shapes ───────────────────────────────
+   The stage sizes from the tube font-size, so sm/md/lg scale every shape.
+   `vertical` and `arrow` run about 1:3 (width:height); the others are wider than tall. */
+.stage {
+  --neon-stroke: calc(var(--neon-tube) / 8);
+  --neon-ornament: calc(var(--neon-tube) * 0.8);
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--neon-tube) / 4);
+  padding-block: calc(var(--neon-tube) * 0.5);
+  padding-inline: calc(var(--neon-tube) * 0.9);
+}
+
+.word {
+  position: relative;
+}
+
+/* Line tubes: SVG strokes with the same glow treatment as the word. */
+.stroke {
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: var(--neon-stroke);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  overflow: visible;
+}
+
+.stroke * {
+  vector-effect: non-scaling-stroke;
+}
+
+.stroke[data-lit="true"] {
+  filter: drop-shadow(0 0 2px currentcolor) drop-shadow(0 0 6px currentcolor);
+}
+
+/* Frames stretch over the whole stage; ornaments keep their own aspect. */
+.frame {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.ornament {
+  position: relative;
+  inline-size: var(--neon-ornament);
+  block-size: var(--neon-ornament);
+  flex: none;
+}
+
+.lead {
+  font-style: italic;
+  text-transform: none;
+  font-size: calc(var(--neon-tube) * 0.55);
+}
+
+/* swoosh — slanted script OPEN inside a tilted ring */
+.shapeSwoosh {
+  padding-inline: calc(var(--neon-tube) * 1.3);
+  padding-block: calc(var(--neon-tube) * 0.8);
+}
+
+.shapeSwoosh .word {
+  font-style: italic;
+  transform: rotate(-6deg);
+}
+
+.shapeSwoosh .frame {
+  transform: rotate(-6deg);
+}
+
+/* vertical and arrow — letters stacked upright in a tall frame */
+.shapeVertical .word,
+.shapeArrow .word {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+}
+
+.shapeArrow {
+  align-items: stretch;
+}
+
+.shapeArrow .word {
+  align-self: center;
+}
+
+.shapeArrow .ornament {
+  align-self: flex-start;
+  margin-block-end: calc(var(--neon-tube) * -0.9);
+}
+
+[dir="rtl"] .shapeArrow .ornament {
+  transform: scaleX(-1);
+}
+
+/* vintage — thick glass over visible mounting rails */
+.shapeVintage {
+  padding-inline: calc(var(--neon-tube) * 1.1);
+  padding-block: calc(var(--neon-tube) * 0.7);
+}
+
+.rails {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  fill: none;
+  stroke: var(--rialto-border-strong);
+  stroke-width: 1;
+}
+
+.rails * {
+  vector-effect: non-scaling-stroke;
+}
+
+.shapeVintage .word {
+  font-weight: var(--rialto-weight-medium);
+}
+
+.neonSign .shapeVintage .word[data-lit="true"] {
+  text-shadow:
+    0 0 3px currentcolor,
+    0 0 12px currentcolor;
+}
+
+/* unset: the mounting hardware goes with the tubes */
+.neonSign[data-state="unset"] .rails {
   visibility: hidden;
 }
 

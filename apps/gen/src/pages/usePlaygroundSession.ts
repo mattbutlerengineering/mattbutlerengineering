@@ -35,6 +35,10 @@ import type { SpecDiff } from "../lib/spec-subtree.js";
 // if the failed entry is ever selected from history.
 const EMPTY_SPEC: Spec = { root: "", elements: {} };
 
+// One shared instance: PromptBar re-seeds its textarea whenever the error's
+// identity changes, so a fresh Error per render would wipe what the user types.
+const FAILED_ENTRY_ERROR = new Error("This generation failed");
+
 const SPLICE_ERROR_MESSAGES: Record<SpecError, string> = {
   "unknown-key": "The selected component no longer exists in the spec.",
   "root-mismatch": "The regenerated subtree's root key does not match the selected component.",
@@ -68,6 +72,10 @@ export interface PlaygroundSession {
   // History (from useSpecsApi)
   specs: StoredSpec[];
   isLoading: boolean;
+  /** Set when the most recent history fetch failed. */
+  historyError: Error | null;
+  /** Re-runs the failed history fetch. */
+  retryHistory: () => void;
   filter: "all" | "favorites";
   setFilter: (filter: "all" | "favorites") => void;
 
@@ -130,7 +138,15 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
   const playgroundState = usePlaygroundState();
   const { mode, exitRefinement, enterRefinement } = playgroundState;
 
-  const { specs, isLoading, saveSpec, toggleFavorite, deleteSpec } = useSpecsApi();
+  const {
+    specs,
+    isLoading,
+    error: historyError,
+    fetchSpecs: retryHistory,
+    saveSpec,
+    toggleFavorite,
+    deleteSpec,
+  } = useSpecsApi();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "favorites">("all");
   // Track the most recently submitted prompt without triggering a re-render.
@@ -288,9 +304,19 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
   // useGenStream flips isStreaming to false in the same batch it sets error,
   // so gating on isStreaming here would mean the error is never visible —
   // only relevant while we're not looking at a previously saved entry.
-  const displayError = activeId === null ? (refineError ?? validationError ?? error) : null;
+  // A selected "failed" history entry has its own failure to show, distinct
+  // from (and not cleared by) the live generation's error/refineError/
+  // validationError above — otherwise it reads as an empty, not failed, spec.
+  const displayError =
+    activeId === null
+      ? (refineError ?? validationError ?? error)
+      : activeEntry?.kind === "failed"
+        ? FAILED_ENTRY_ERROR
+        : null;
   const activeSpecId = !isStreaming && activeId ? activeId : null;
-  const failedPrompt = displayError ? rawPrompt : null;
+  // Only the live generation's failure restores rawPrompt; a selected history
+  // entry's failure is unrelated to whatever was last typed.
+  const failedPrompt = activeId === null && displayError ? rawPrompt : null;
 
   const clearNodeRefine = useCallback(() => {
     nodeRefineRef.current = null;
@@ -313,6 +339,9 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
 
   const submit = useCallback(
     (prompt: string) => {
+      // send() ignores a request while one is in flight; abort the old one first
+      // so it never completes under this prompt.
+      if (isStreaming) stop();
       rememberPendingPrompt(prompt);
       setRawPrompt(prompt);
       clearNodeRefine();
@@ -331,7 +360,7 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
         void send(prompt);
       }
     },
-    [mode, displaySpec, send, clearNodeRefine]
+    [mode, displaySpec, isStreaming, send, stop, clearNodeRefine]
   );
 
   const refineNode = useCallback(
@@ -523,6 +552,8 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
 
     specs,
     isLoading,
+    historyError,
+    retryHistory: () => void retryHistory(),
     filter,
     setFilter,
 
