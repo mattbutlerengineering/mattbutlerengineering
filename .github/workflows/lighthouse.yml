@@ -72,3 +72,14 @@ jobs:
           temporaryPublicStorage: true
         env:
           LH_STATIC_DIST_DIR: ./lh-dist
+
+      # record-summary-rows.yml reads these after the run and commits one
+      # summary row to metrics/lighthouse.jsonl (#7581).
+      - name: Upload Lighthouse reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: lighthouse-lhr-${{ matrix.app.name }}
+          path: .lighthouseci/lhr-*.json
+          if-no-files-found: warn
+          retention-days: 14

@@ -444,6 +444,28 @@ describe("MetricsPage", () => {
     expect(screen.queryByText("0.0%")).not.toBeInTheDocument();
   });
 
+  it("shows an empty state when no judged eval run exists (#7581)", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ...MOCK_METRICS,
+        behavioral: {
+          ...MOCK_METRICS.behavioral,
+          evalPassRate: null,
+          evalMedianScore: null,
+          evalsStale: true,
+          evalsLastRun: null,
+        },
+      }),
+    });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("Eval Pass Rate")).toBeInTheDocument();
+    });
+    expect(screen.getByText("No judged runs yet")).toBeInTheDocument();
+  });
+
   it("flags a non-null eval reading older than the freshness window as stale", async () => {
     mockFetch.mockResolvedValue({
       ok: true,

@@ -814,13 +814,13 @@ describe("sensors-registry", () => {
       });
     });
 
-    it("lighthouse sensor names the missing local audit inventory", () => {
+    it("lighthouse sensor names the missing committed summary", () => {
       const emptyRoot = mkdtempSync(join(tmpdir(), "lighthouse-sensor-"));
       const sensor = SENSORS.find((s) => s.id === "lighthouse");
 
       expect(sensor.collect({ root: emptyRoot })).toEqual({
         available: false,
-        reason: "inventory_missing",
+        reason: "summary_missing",
       });
     });
 
@@ -1413,6 +1413,8 @@ describe("metricsFreshness sensor (#5529)", () => {
   const FRESH_QUEUE = `${JSON.stringify({ claimed_at: "2026-09-20T00:00:00.000Z" })}\n`;
   // Healthy rows for the #6312 collectors, same reason.
   const FRESH_COLLECTORS = {
+    "lighthouse.jsonl": `${JSON.stringify({ date: "2026-09-20" })}\n`,
+    "mutation-score.jsonl": `${JSON.stringify({ date: "2026-09-20" })}\n`,
     "process-metrics.jsonl": `${JSON.stringify({ date: "2026-09-20", sensor: "queueEfficiency", available: true })}\n${JSON.stringify({ date: "2026-09-20", sensor: "sdlcSpeed", available: true })}\n`,
     "ai-issue-feedback.json": JSON.stringify({
       collected_at: "2026-09-20T00:00:00.000Z",
@@ -1445,11 +1447,13 @@ describe("metricsFreshness sensor (#5529)", () => {
     });
 
     expect(data.available).toBe(true);
-    expect(data.stale_count).toBe(5);
+    expect(data.stale_count).toBe(7);
 
     const regressions = sensor().detectRegression(data, undefined, {});
     expect(regressions.map((r) => r.metric).sort()).toEqual([
       "ai-issue-feedback",
+      "lighthouse",
+      "mutation-score",
       "queue-telemetry",
       "queueEfficiency",
       "review-burden",

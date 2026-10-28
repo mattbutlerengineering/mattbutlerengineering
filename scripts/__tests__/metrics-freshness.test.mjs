@@ -127,6 +127,8 @@ describe("FRESHNESS_POLICY", () => {
   it("no longer watches domain-metrics — the collector was retired (#5561)", () => {
     expect(FRESHNESS_POLICY.map((p) => p.metric).sort()).toEqual([
       "ai-issue-feedback",
+      "lighthouse", // weekly, #7581
+      "mutation-score", // weekly, #7581
       "process-metrics", // queueEfficiency
       "process-metrics", // sdlcSpeed (#6654)
       "queue-telemetry",
@@ -154,8 +156,11 @@ describe("FRESHNESS_POLICY", () => {
   it("sets a threshold wider than the collection cadence", () => {
     for (const entry of FRESHNESS_POLICY) {
       expect(entry.maxAgeDays).toBeGreaterThanOrEqual(2);
-      // sdlcSpeed is weekly (two missed runs = 14); every other entry is daily.
-      expect(entry.maxAgeDays).toBeLessThanOrEqual(entry.label === "sdlcSpeed" ? 14 : 7);
+      // sdlcSpeed is weekly (two missed runs = 14); lighthouse and mutation-score
+      // are weekly behind a PR that can sit (three missed runs = 21, #7581);
+      // every other entry is daily.
+      const weekly = { sdlcSpeed: 14, lighthouse: 21, "mutation-score": 21 };
+      expect(entry.maxAgeDays).toBeLessThanOrEqual(weekly[entry.label ?? entry.metric] ?? 7);
     }
   });
 });
@@ -457,7 +462,7 @@ describe("queueEfficiency + ai-issue-feedback policy (#6312)", () => {
         if (metric === "process-metrics") return [...queue, SDLC_ROW];
         if (metric === "ai-issue-feedback") return feedback;
         if (metric === "queue-telemetry") return [{ claimed_at: daysAgo(0) }];
-        return [{ timestamp: daysAgo(0) }];
+        return [{ timestamp: daysAgo(0), date: daysAgo(0).slice(0, 10) }];
       },
       now: NOW,
     });
