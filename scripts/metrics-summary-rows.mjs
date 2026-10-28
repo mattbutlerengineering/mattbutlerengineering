@@ -20,6 +20,14 @@ const LIGHTHOUSE_CATEGORIES = {
   seo: "seo",
 };
 
+function routePath(raw) {
+  try {
+    return new URL(raw).pathname;
+  } catch {
+    return raw ?? "unknown";
+  }
+}
+
 const round2 = (n) => Math.round(n * 100) / 100;
 
 /**
@@ -34,7 +42,9 @@ export function buildLighthouseRow(lhrs, { date, commit }) {
     if (!Object.values(LIGHTHOUSE_CATEGORIES).some((c) => typeof cats[c]?.score === "number")) {
       continue;
     }
-    const url = lhr.finalUrl ?? lhr.requestedUrl ?? "unknown";
+    // Key by path: LHCI serves staticDistDir on a random port, so the origin
+    // differs every run and week-over-week comparison would never match.
+    const url = routePath(lhr.finalUrl ?? lhr.requestedUrl);
     if (!byUrl.has(url)) byUrl.set(url, []);
     byUrl.get(url).push(cats);
   }

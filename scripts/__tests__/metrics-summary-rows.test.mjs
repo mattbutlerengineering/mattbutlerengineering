@@ -40,9 +40,21 @@ describe("buildLighthouseRow", () => {
     expect(row.date).toBe("2026-10-28");
     expect(row.commit).toBe("abc");
     expect(row.routes).toEqual([
-      { url: "http://x/", performance: 0.9, a11y: 1, "best-practices": 0.95, seo: 1 },
-      { url: "http://x/rialto/", performance: 0.5, a11y: 0.9, "best-practices": 1, seo: 1 },
+      { url: "/", performance: 0.9, a11y: 1, "best-practices": 0.95, seo: 1 },
+      { url: "/rialto/", performance: 0.5, a11y: 0.9, "best-practices": 1, seo: 1 },
     ]);
+  });
+
+  it("keys routes by path so a different LHCI port does not split a route", () => {
+    const row = buildLighthouseRow(
+      [
+        lhr("http://localhost:41111/rialto/", 0.8, 1, 1, 1),
+        lhr("http://localhost:52222/rialto/", 1, 1, 1, 1),
+      ],
+      { date: "2026-10-28", commit: "abc" }
+    );
+    expect(row.routes).toHaveLength(1);
+    expect(row.routes[0]).toMatchObject({ url: "/rialto/", performance: 0.9 });
   });
 
   it("returns null when no report carries category scores", () => {
@@ -89,7 +101,7 @@ describe("sensors read the committed summary rows", () => {
     expect(out.available).toBe(true);
     expect(out.scored_count).toBe(1);
     expect(out.surfaces[0]).toEqual({
-      url: "http://x/",
+      url: "/",
       scores: { performance: 0.9, a11y: 1, "best-practices": 1, seo: 1 },
       last_audit: "2026-10-28",
     });
