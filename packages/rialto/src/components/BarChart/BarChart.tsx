@@ -33,7 +33,8 @@ function chartAmount(value: unknown): number | null {
   const trimmed = value.trim();
   if (trimmed === "" || NON_FINITE.test(trimmed)) return null;
   const numeric = trimmed.replace(/[$,]/g, "");
-  if (/e/i.test(numeric)) {
+  // Only a whole exponent literal: "12 tickets" or "8 sales" read by their digits.
+  if (/^-?\d+(\.\d+)?e[+-]?\d+$/i.test(numeric)) {
     const parsed = Number(numeric);
     return Number.isFinite(parsed) ? parsed : null;
   }

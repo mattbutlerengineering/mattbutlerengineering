@@ -56,6 +56,39 @@ describe("BarChart", () => {
     expect(container.querySelector("[class*='baseline']")).not.toBeNull();
   });
 
+  it("reads a value with a word containing 'e' by its digits, and real exponent notation", () => {
+    const { container } = render(
+      <BarChart
+        label="Units"
+        data={[
+          { label: "A", value: "12 tickets" },
+          { label: "C", value: "$3.4M revenue" },
+          { label: "D", value: "8 sales" },
+          { label: "E", value: "1.5e3" },
+        ]}
+      />
+    );
+    const heights = Array.from(container.querySelectorAll("span"))
+      .map((bar) => bar.style.blockSize)
+      .filter((size) => size.endsWith("%"));
+    expect(heights).toEqual([
+      `${(12 / 1500) * 100}%`,
+      `${(3.4 / 1500) * 100}%`,
+      `${(8 / 1500) * 100}%`,
+      "100%",
+    ]);
+  });
+
+  it("draws a bar for '5 per week' instead of dropping it as non-finite", () => {
+    const { container } = render(
+      <BarChart label="Cadence" data={[{ label: "A", value: "5 per week" }]} />
+    );
+    const heights = Array.from(container.querySelectorAll("span"))
+      .map((bar) => bar.style.blockSize)
+      .filter((size) => size.endsWith("%"));
+    expect(heights).toEqual(["100%"]);
+  });
+
   it("does not turn Infinity or 1e999 into a bar when the rest of the series is positive", () => {
     const { container } = render(
       <BarChart
