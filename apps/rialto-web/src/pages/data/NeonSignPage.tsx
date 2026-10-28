@@ -179,7 +179,7 @@ export function NeonSignPage() {
 
       {/* ── Shapes ────────────────────────────────────────────────── */}
       <Section title="Shapes">
-        <Stack gap="xl">
+        <Stack gap="xl" data-testid="neon-sign-shapes">
           {SHAPES.map((shape) => (
             <Stack key={shape} gap="xs">
               <Text variant="caption" color="secondary">

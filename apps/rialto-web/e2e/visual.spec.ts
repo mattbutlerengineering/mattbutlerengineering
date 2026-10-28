@@ -126,7 +126,7 @@ test.describe("neon sign shapes", () => {
       await expect(page.locator("html")).toHaveAttribute("data-theme", scheme);
       await page.evaluate(() => document.fonts.ready);
 
-      const shapes = page.getByRole("heading", { name: "Shapes", exact: true }).locator("xpath=..");
+      const shapes = page.getByTestId("neon-sign-shapes");
       await expect(shapes).toHaveScreenshot(`${scheme}-neon-sign-shapes.png`, {
         timeout: 15_000,
       });
