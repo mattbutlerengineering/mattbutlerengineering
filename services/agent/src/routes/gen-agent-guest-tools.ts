@@ -89,10 +89,17 @@ const UpdateGuestInputSchema = z
       .array(z.string().min(1))
       .optional()
       .describe("The guest's full list of dietary restrictions (replaces the current list)"),
+    notes: z
+      .string()
+      .min(1)
+      .max(1000)
+      .optional()
+      .describe("New profile notes (replaces them); for a dated staff note use add_guest_note"),
   })
   .refine(
     (input) =>
       [
+        input.notes,
         input.name,
         input.phone,
         input.email,
@@ -100,7 +107,7 @@ const UpdateGuestInputSchema = z
         input.removeTags,
         input.dietaryRestrictions,
       ].some((v) => v !== undefined),
-    { message: "Say what to change: a name, phone, email, tags or dietary restrictions" }
+    { message: "Say what to change: a name, phone, email, tags, dietary restrictions or notes" }
   );
 
 export function createGuestTools(
@@ -138,16 +145,21 @@ export function createGuestTools(
     // ── Write (each runs only after the user confirms) ─────
     add_guest: tool({
       description:
-        "Add a guest to the directory. An existing guest with the same email or phone is reused, not duplicated. Requires confirmation.",
-      inputSchema: z.object({
-        name: z.string().min(1).describe("The guest's name"),
-        phone: z.string().min(1).optional().describe("The guest's phone number"),
-        email: z.email().optional().describe("The guest's email address"),
-        dietaryRestrictions: z
-          .array(z.string().min(1))
-          .optional()
-          .describe("Dietary restrictions, when the user gives them"),
-      }),
+        "Add a guest to the directory. Needs a phone number or an email; an existing guest with the same email or phone is reused, not duplicated. Requires confirmation.",
+      inputSchema: z
+        .object({
+          name: z.string().min(1).describe("The guest's name"),
+          phone: z.string().min(1).optional().describe("The guest's phone number"),
+          email: z.email().optional().describe("The guest's email address"),
+          dietaryRestrictions: z
+            .array(z.string().min(1))
+            .optional()
+            .describe("Dietary restrictions, when the user gives them"),
+        })
+        // The server refuses a guest it can't reach; catch it before the confirm bar.
+        .refine((input) => Boolean(input.phone || input.email), {
+          message: "A phone number or an email is required to add a guest",
+        }),
       execute: async ({ name, phone, email, dietaryRestrictions }) => {
         if (!venueId) return NO_VENUE;
         log.info({ venueId }, "add_guest tool called");
@@ -193,6 +205,7 @@ export function createGuestTools(
             ...(input.dietaryRestrictions
               ? { dietaryRestrictions: input.dietaryRestrictions }
               : {}),
+            ...(input.notes ? { notes: input.notes } : {}),
           });
           return { updated: true, guest: shown(updated) };
         } catch (err) {

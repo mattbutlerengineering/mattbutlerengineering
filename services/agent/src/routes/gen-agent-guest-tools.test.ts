@@ -111,7 +111,28 @@ describe("guest chat tools", () => {
     });
   });
 
+  describe("add_guest needs a way to reach the guest", () => {
+    // The server refuses a guest with neither: catch it before the user is asked to confirm.
+    it("rejects a guest with neither phone nor email before anything is confirmed", () => {
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
+      const schema = tools.add_guest!.inputSchema as unknown as {
+        safeParse: (v: unknown) => { success: boolean };
+      };
+
+      expect(schema.safeParse({ name: "Kim Lee" }).success).toBe(false);
+      expect(schema.safeParse({ name: "Kim Lee", email: "kim@example.com" }).success).toBe(true);
+    });
+  });
+
   describe("update_guest", () => {
+    it("replaces the profile notes when asked", async () => {
+      api.guests.update.mockResolvedValue(guest({ notes: "Prefers the window" }));
+
+      await run("update_guest", { guest: "Ana Lopez", notes: "Prefers the window" });
+
+      expect(api.guests.update).toHaveBeenCalledWith("g1", { notes: "Prefers the window" });
+    });
+
     it("adds and removes tags against the guest's current ones", async () => {
       api.guests.search.mockResolvedValue({ data: [guest({ tags: ["regular", "patio"] })] });
       api.guests.update.mockResolvedValue(guest({ tags: ["regular", "vip"] }));
@@ -235,7 +256,7 @@ describe("guest chat tools", () => {
   });
 
   describe.each([
-    ["add_guest", { name: "Kim Lee" }],
+    ["add_guest", { name: "Kim Lee", phone: "+15555550111" }],
     ["update_guest", { guest: "Ana Lopez", addTags: ["vip"] }],
     ["add_guest_note", { guest: "Ana Lopez", text: "Prefers booth 4" }],
     ["send_win_back", { guest: "Sam Park" }],
