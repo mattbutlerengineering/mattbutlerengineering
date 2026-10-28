@@ -175,6 +175,24 @@ describe("useGenStream", () => {
     expect(onError).toHaveBeenCalledWith(result.current.error);
   });
 
+  it("replaces an HTTP 504 with a timeout the user can act on, keeping the status", async () => {
+    mockStreamNDJSON.mockImplementation(() => {
+      async function* gen(): AsyncGenerator<never> {
+        yield* [] as never[];
+        throw Object.assign(new Error("Request failed: HTTP 504"), { status: 504 });
+      }
+      return gen();
+    });
+
+    const { result } = renderHook(() => useGenStream({ api: "/gen/stream" }));
+    await act(async () => {
+      await result.current.send("A form with 50 fields");
+    });
+
+    expect(result.current.error?.message).toMatch(/timed out/i);
+    expect((result.current.error as Error & { status?: number }).status).toBe(504);
+  });
+
   it("ignores a second send while the first is still streaming", async () => {
     let release!: () => void;
     const gate = new Promise<void>((resolve) => {

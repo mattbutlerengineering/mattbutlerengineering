@@ -14,6 +14,16 @@
  * network failure (fetch() itself rejecting — offline, DNS, CORS) throws a
  * TypeError instead. Those are the only signals available client-side.
  */
+/** A gateway timeout (HTTP 504). The prompt should stay, and the attempt is worth recording. */
+export function isTimeoutError(error: Error): boolean {
+  return statusOf(error) === 504;
+}
+
+export function describeTimeoutError(error: Error): string | null {
+  if (!isTimeoutError(error)) return null;
+  return "Generation timed out before a UI came back. Your prompt is still in the box — try again, or ask for something smaller.";
+}
+
 export function isTransportError(error: Error): boolean {
   return (
     error instanceof TypeError ||

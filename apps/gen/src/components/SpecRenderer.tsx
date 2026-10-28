@@ -8,6 +8,7 @@ import {
   createSelectableRegistry,
   stampNodeKeys,
 } from "./selectable-registry.js";
+import { DialogControlProvider, createInteractiveRegistry } from "./dialog-registry.js";
 import { normalizeGeneratedSpec } from "../lib/normalize-generated-spec.js";
 
 export interface SpecProviderProps {
@@ -42,15 +43,14 @@ export function SpecRenderer({
   onSelect,
   selectableClassName,
 }: SpecRendererProps) {
-  const activeRegistry = useMemo(
-    () => (selectable ? createSelectableRegistry(registry) : registry),
-    [selectable]
-  );
+  const activeRegistry = useMemo(() => {
+    const interactive = createInteractiveRegistry(registry);
+    return selectable ? createSelectableRegistry(interactive) : interactive;
+  }, [selectable]);
   const activeSpec = useMemo(() => {
     if (!spec) return spec;
-    const stamped = selectable ? stampNodeKeys(spec) : spec;
-    return normalizeGeneratedSpec(stamped);
-  }, [selectable, spec]);
+    return stampNodeKeys(normalizeGeneratedSpec(spec));
+  }, [spec]);
   const [cursor, setCursor] = useState<{ spec: Spec | null; key: string | null }>({
     spec,
     key: null,
@@ -58,7 +58,11 @@ export function SpecRenderer({
   // A cursor on a previous spec's node is meaningless; derive it away at render time.
   const cursorKey = cursor.spec === spec ? cursor.key : null;
 
-  const renderer = <Renderer spec={activeSpec} registry={activeRegistry} loading={loading} />;
+  const renderer = (
+    <DialogControlProvider spec={activeSpec}>
+      <Renderer spec={activeSpec} registry={activeRegistry} loading={loading} />
+    </DialogControlProvider>
+  );
   if (!selectable) return renderer;
 
   function nodeKeys(container: HTMLElement): string[] {

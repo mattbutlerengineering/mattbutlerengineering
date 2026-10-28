@@ -1,4 +1,14 @@
-import { forwardRef, useId, useRef, type ReactNode } from "react";
+import {
+  createContext,
+  forwardRef,
+  useCallback,
+  useContext,
+  useId,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
@@ -28,8 +38,26 @@ export interface DialogProps {
   className?: string;
 }
 
+/**
+ * The layer a nested Dialog portals into: a node inside the outer dialog's
+ * overlay, beside (not inside) its transformed panel. Null outside a Dialog.
+ */
+const DialogLayerContext = createContext<HTMLElement | null>(null);
+
 export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
   ({ open, onClose, title, description, children, footer }, ref) => {
+    const parentLayer = useContext(DialogLayerContext);
+    // Created up front so a nested dialog can portal into it on its first
+    // render; the overlay's ref attaches it before any effect runs.
+    const [layer] = useState(() =>
+      typeof document === "undefined" ? null : document.createElement("div")
+    );
+    const attachLayer = useCallback(
+      (overlay: HTMLDivElement | null) => {
+        if (overlay && layer) overlay.appendChild(layer);
+      },
+      [layer]
+    );
     const { messages } = useRialtoLocale();
     const motionPreset = useMotionPreset();
     const shouldReduceMotion = motionPreset.reduced;
@@ -49,10 +77,11 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
           exit: { opacity: 0, y: 8, scale: 0.98 },
         };
 
-    return (
+    const dialog = (
       <AnimatePresence>
         {open && (
           <motion.div
+            ref={attachLayer}
             className={styles.overlay}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -109,13 +138,19 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
                   {description}
                 </p>
               )}
-              {children}
+              <DialogLayerContext.Provider value={layer}>{children}</DialogLayerContext.Provider>
               {footer && <div className={styles.footer}>{footer}</div>}
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
     );
+
+    // A top-level dialog renders in place, so it keeps its RialtoProvider's
+    // scoped vibe variables and `dir`. A nested one is portaled beside the outer
+    // panel (transformed by framer-motion), which would otherwise trap it and
+    // paint it over its text; the layer is still inside the provider subtree.
+    return parentLayer ? createPortal(dialog, parentLayer) : dialog;
   }
 );
 

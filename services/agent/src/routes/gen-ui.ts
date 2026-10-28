@@ -26,7 +26,11 @@ const RENDER_TOOL_INSTRUCTIONS =
   "For Table and DataTable, inline at most 12 representative rows in data " +
   "even when the user asked for more, and set emptyMessage. For a trend over " +
   "time use BarChart with data as {label, value} points, not a paragraph of " +
-  "numbers. Button text goes in the label prop. Checkbox labels must be 80 " +
+  "numbers. There is no LineChart. Negative and missing chart values are " +
+  "still BarChart points. Dialog open must be false; a button beside the " +
+  "dialog opens it, and a button inside it closes it. Do not set open true. " +
+  "For a picture, emit an Image element with src and alt — never an empty " +
+  "Stack. Button text goes in the label prop. Checkbox labels must be 80 " +
   "characters or fewer. Peer cards such as pricing tiers belong in one Stack " +
   "with direction row; do not place the last card outside that row.";
 

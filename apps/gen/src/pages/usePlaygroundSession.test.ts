@@ -270,6 +270,54 @@ describe("usePlaygroundSession", () => {
       });
     });
 
+    it("still splices and saves the refine diff when a history row is picked mid-stream", async () => {
+      const other: Spec = {
+        root: "o",
+        elements: { o: { type: "Text", props: { text: "Other" }, children: [] } },
+      };
+      specsApiState = {
+        specs: [
+          makeStoredSpec({ id: "parent", spec: BASE }),
+          makeStoredSpec({ id: "other", spec: other }),
+        ],
+        isLoading: false,
+      };
+      const { result, rerender } = setup();
+      act(() => result.current.selectHistory("parent"));
+      act(() => result.current.refineNode("card", "grid"));
+      genStreamState = { ...genStreamState, isStreaming: true, spec: REPLACEMENT };
+      rerender();
+
+      act(() => result.current.selectHistory("other"));
+      expect(result.current.activeSpecId).toBe("other");
+      expect(result.current.displaySpec).toEqual(other);
+
+      genStreamState = { ...genStreamState, isStreaming: false };
+      rerender();
+      await complete(REPLACEMENT);
+
+      const saved = mockSaveSpec.mock.calls[0]?.[0] as {
+        kind: string;
+        spec: Spec;
+        refinement: unknown;
+      };
+      expect(saved.kind).toBe("refine");
+      expect(saved.spec.elements.root).toEqual(BASE.elements.root);
+      expect(saved.spec.elements.card).toEqual(REPLACEMENT.elements.card);
+      expect(saved.refinement).toEqual({
+        parentId: "parent",
+        path: "card",
+        before: {
+          root: "card",
+          elements: { card: BASE.elements.card, label: BASE.elements.label },
+        },
+        after: REPLACEMENT,
+      });
+      // The picked row stays on screen.
+      expect(result.current.activeSpecId).toBe("other");
+      expect(result.current.displaySpec).toEqual(other);
+    });
+
     it("saves a null parentId when the refined spec is not a saved entry", async () => {
       const { result } = setup();
       act(() => result.current.refineNode("card", "grid"));
@@ -795,13 +843,39 @@ describe("usePlaygroundSession", () => {
       expect(result.current.mode).toBe("generate");
     });
 
-    it("is ignored while streaming", () => {
-      genStreamState = { ...genStreamState, isStreaming: true };
-      specsApiState = { specs: [makeStoredSpec({ id: "s1" })], isLoading: false };
+    it("keeps a row picked while streaming when the generation finishes", async () => {
+      const entrySpec: Spec = {
+        root: "card",
+        elements: { card: { type: "Card", props: { title: "Saved" }, children: [] } },
+      };
+      const liveSpec: Spec = {
+        root: "live",
+        elements: { live: { type: "Text", props: { children: "streaming" }, children: [] } },
+      };
+      specsApiState = {
+        specs: [makeStoredSpec({ id: "s1", spec: entrySpec, rawLines: ["{saved}"] })],
+        isLoading: false,
+      };
+      genStreamState = { spec: liveSpec, isStreaming: true, error: null, rawLines: ["{live}"] };
       const { result } = renderHook(() => usePlaygroundSession());
 
       act(() => result.current.selectHistory("s1"));
-      expect(result.current.activeSpecId).toBe(null);
+      expect(result.current.activeSpecId).toBe("s1");
+      expect(result.current.displaySpec).toEqual(entrySpec);
+      expect(result.current.displayRawLines).toEqual(["{saved}"]);
+
+      const finished: Spec = {
+        root: "done",
+        elements: { done: { type: "Text", props: { children: "done" }, children: [] } },
+      };
+      await act(async () => {
+        capturedOnComplete?.(finished, ["{done}"]);
+        await Promise.resolve();
+      });
+
+      expect(mockSaveSpec).toHaveBeenCalled();
+      expect(result.current.activeSpecId).toBe("s1");
+      expect(result.current.displaySpec).toEqual(entrySpec);
     });
   });
 
@@ -1112,6 +1186,25 @@ describe("usePlaygroundSession", () => {
       });
 
       expect(result.current.activeSpecId).toBe(null);
+    });
+
+    it("records a timeout so the attempt is visible, and keeps the prompt", async () => {
+      const timeout = Object.assign(new Error("Request failed: HTTP 504"), { status: 504 });
+      const { result, rerender } = renderHook(() => usePlaygroundSession());
+      act(() => result.current.submit("A form with 50 text input fields"));
+
+      await act(async () => {
+        capturedOnError?.(timeout);
+        await Promise.resolve();
+      });
+      genStreamState = { ...genStreamState, error: timeout, isStreaming: false };
+      rerender();
+
+      expect(mockSaveSpec).toHaveBeenCalledWith(
+        expect.objectContaining({ prompt: "A form with 50 text input fields", kind: "failed" })
+      );
+      expect(result.current.displayError).toBe(timeout);
+      expect(result.current.failedPrompt).toBe("A form with 50 text input fields");
     });
 
     it("does not record a Failed: history row for a transport error", async () => {

@@ -195,6 +195,7 @@ describe("gen-agent wire contract (application/x-ndjson)", () => {
 
     // Byte-exact: each line is JSON.stringify(event) + "\n"
     const expectedBody =
+      "\n" +
       JSON.stringify({ type: "text", content: "Hello" }) +
       "\n" +
       JSON.stringify({ type: "text", content: " world" }) +

@@ -42,6 +42,35 @@
   background: var(--rialto-accent);
 }
 
+.track {
+  position: relative;
+  inline-size: 100%;
+  flex: 1 1 auto;
+  min-block-size: 0;
+}
+
+.baseline {
+  position: absolute;
+  inset-inline: 0;
+  block-size: 1px;
+  background: var(--rialto-border);
+}
+
+.signedBar {
+  position: absolute;
+  inset-inline: 0;
+  min-block-size: 0;
+  background: var(--rialto-accent);
+}
+
+.signedBar[data-sign="positive"] {
+  border-radius: var(--rialto-radius-sharp) var(--rialto-radius-sharp) 0 0;
+}
+
+.signedBar[data-sign="negative"] {
+  border-radius: 0 0 var(--rialto-radius-sharp) var(--rialto-radius-sharp);
+}
+
 .tick,
 .value {
   max-inline-size: 100%;
