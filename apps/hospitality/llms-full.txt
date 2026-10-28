@@ -3408,7 +3408,8 @@
     type ChatActionKey =
       | (typeof ACTION_TITLES)[keyof typeof ACTION_TITLES]
       | (typeof ACTION_FIELDS)[keyof typeof ACTION_FIELDS]
-      | (typeof TABLE_STATUSES)[keyof typeof TABLE_STATUSES];
+      | (typeof TABLE_STATUSES)[keyof typeof TABLE_STATUSES]
+      | (typeof TONIGHT_CHANGES)[keyof typeof TONIGHT_CHANGES];
     type Translate = (key: ChatActionKey) => string;
     function formatWhen(key: string, value: string, locale?: string): string {
       if (key === "date" && CALENDAR_DATE.test(value) && isRealDate(value)) {
@@ -3430,8 +3431,13 @@
       return {
         title: titleKey ? t(titleKey) : action.toolName.replace(/_/g, " "),
         details: Object.entries(action.toolInput).map(([key, raw]) => {
-          const value = String(raw);
-          const statusKey = key === "status" ? lookup(TABLE_STATUSES, value) : undefined;
+          const value = Array.isArray(raw) ? raw.join(", ") : String(raw);
+          const statusKey =
+            key === "status"
+              ? lookup(TABLE_STATUSES, value)
+              : key === "change"
+                ? lookup(TONIGHT_CHANGES, value)
+                : undefined;
           const shown =
             key === "tableId"
               ? (tableName(value) ?? value)

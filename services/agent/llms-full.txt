@@ -234,6 +234,326 @@
   </file>
   </section>
   <section priority="medium" role="routes">
+  <file path="src/routes/gen-agent-availability-tools.ts">
+    type TonightChangeType = (typeof TONIGHT_CHANGE_TYPES)[number];
+    type ChangeField = "closeAt" | "from" | "to" | "service" | "tables" | "covers";
+    type ChangeTonightInput = z.infer<typeof ChangeTonightInputSchema>;
+    type TonightRule = Extract<DateRule, { kind: "tonight" }>;
+    function clockToMinute(clock: string): number {
+      const [hours, minutes] = clock.split(":").map(Number);
+      return hours! * 60 + minutes!;
+    }
+    function serviceDayMinute(clock: string, config: AvailabilityConfig): number {
+      const minute = clockToMinute(clock);
+      const opens = config.scheduleServices.map((s) => s.opensAt);
+      const earliest = opens.length ? Math.min(...opens) : 0;
+      return minute < earliest ? minute + MINUTES_IN_DAY : minute;
+    }
+    function minuteToClock(minute: number): string {
+      const wall = minute % MINUTES_IN_DAY;
+      const pad = (n: number) => String(n).padStart(2, "0");
+      return `${pad(Math.floor(wall / 60))}:${pad(wall % 60)}`;
+    }
+    function activeTonightRules(config: AvailabilityConfig, today: string, now: Date): TonightRule[] {
+      return config.dateRules.filter(
+        (rule): rule is TonightRule =>
+          rule.kind === "tonight" &&
+          (rule.expiresAt ? Date.parse(rule.expiresAt) > now.getTime() : rule.startsOn === today)
+      );
+    }
+    function changeTypeOf(rule: TonightRule): TonightChangeType {
+      const { payload } = rule;
+      if ("closeAt" in payload) return "close_early";
+      if ("pacing" in payload) return "pacing";
+      if (rule.targetKind === "booking") return "pause_online";
+      if (rule.targetKind === "tables") return "block_tables";
+      return "stop_window";
+    }
+    function stopTimes(stop: { from: number; to: number }) {
+      return stop.from === 0 && stop.to === MINUTES_IN_TWO_DAYS
+        ? {}
+        : { from: minuteToClock(stop.from), to: minuteToClock(stop.to) };
+    }
+    function describeRule(
+      rule: TonightRule,
+      serviceName: (id: string) => string | undefined,
+      tableName: (id: string) => string
+    ) {
+      const change = changeTypeOf(rule);
+      const { payload } = rule;
+      if ("closeAt" in payload) {
+        const service = rule.venueServiceId ? serviceName(rule.venueServiceId) : undefined;
+        return { change, closeAt: minuteToClock(payload.closeAt), ...(service ? { service } : {}) };
+      }
+      if ("pacing" in payload) return { change, covers: payload.pacing.covers };
+      if (change === "pause_online") return { change };
+      if (change === "block_tables") {
+        return { change, tables: (rule.tableIds ?? []).map(tableName), ...stopTimes(payload.stop) };
+      }
+      return { change, ...stopTimes(payload.stop) };
+    }
+    function resolveService(
+      config: AvailabilityConfig,
+      name: string
+    ): { id: string } | { error: string } {
+      const live = config.venueServices.filter((s) => !s.archivedAt);
+      const steps: ReadonlyArray<(s: (typeof live)[number]) => boolean> = [
+        (s) => s.name === name.trim(),
+        (s) => s.name.toLowerCase() === name.trim().toLowerCase(),
+      ];
+      for (const matches of steps) {
+        const found = live.filter(matches);
+        if (found.length === 1) return { id: found[0]!.id };
+        if (found.length > 1) return { error: `More than one service is called ${name}. Ask which.` };
+      }
+      return {
+        error: `This venue has no service called ${name}. Its services are ${live.map((s) => s.name).join(", ")}.`,
+      };
+    }
+    async function resolveTableIds(
+      api: ApiClient,
+      venueId: string,
+      refs: readonly string[]
+    ): Promise<{ ids: string[] } | { error: string }> {
+      const { data } = await api.tables.list({ venueId, limit: TABLES_LIMIT });
+      const ids: string[] = [];
+      for (const ref of refs) {
+        const resolved = resolveTable(data, ref);
+        if ("error" in resolved) return resolved;
+        ids.push(resolved.table.id);
+      }
+      return { ids };
+    }
+    async function buildChange(
+      input: ChangeTonightInput,
+      config: AvailabilityConfig,
+      api: ApiClient,
+      venueId: string
+    ): Promise<{ change: TonightChange } | { error: string }> {
+      const minute = (clock: string) => serviceDayMinute(clock, config);
+      const window =
+        input.from && input.to ? { from: minute(input.from), to: minute(input.to) } : undefined;
+      if (window && window.to <= window.from) {
+        return { error: `The window must end after it starts (${input.from} to ${input.to}).` };
+      }
+      switch (input.change) {
+        case "pause_online":
+          return { change: { type: "pause_online" } };
+        case "pacing":
+          return { change: { type: "pacing", covers: input.covers! } };
+        case "stop_window":
+          return { change: { type: "stop_window", ...window! } };
+        case "close_early": {
+          if (!input.service)
+            return { change: { type: "close_early", closeAt: minute(input.closeAt!) } };
+          const service = resolveService(config, input.service);
+          if ("error" in service) return service;
+          return {
+            change: {
+              type: "close_early",
+              closeAt: minute(input.closeAt!),
+              venueServiceId: service.id,
+            },
+          };
+        }
+        case "block_tables": {
+          const tables = await resolveTableIds(api, venueId, input.tables!);
+          if ("error" in tables) return tables;
+          return {
+            change: {
+              type: "block_tables",
+              tableIds: tables.ids,
+              ...(input.from ? { from: minute(input.from) } : {}),
+              ...(input.to ? { to: minute(input.to) } : {}),
+            },
+          };
+        }
+      }
+    }
+    function availabilityWriteFailure(err: unknown, action: string) {
+      const refusal = refusalOf(err);
+      if (!refusal)
+        return { error: `Couldn't ${action} right now. Ask the user to try again shortly.` };
+      const base = { refused: true, ...(refusal.code ? { code: refusal.code } : {}) };
+      switch (refusal.code ?? (refusal.status === 403 ? "forbidden" : undefined)) {
+        case "decision-required":
+          return {
+            ...base,
+            needsDecisions: true,
+            error: `This affects existing bookings, and each one needs a decision (cancel, move or keep). ${AVAILABILITY_PAGE} Nothing was changed.`,
+          };
+        case "version-conflict":
+          return {
+            ...base,
+            error:
+              "Availability changed since it was read, so nothing was saved. Check the current Tonight changes and ask the user to confirm again.",
+          };
+        case "guests-notified":
+          return {
+            ...base,
+            error: "That change already told guests, so it can't be undone. Nothing was changed.",
+          };
+        case "forbidden":
+          return {
+            ...base,
+            error:
+              "The user doesn't have permission to make this change. A manager can make it, or it can be done on the Availability page.",
+          };
+        default:
+          return { ...base, error: `${refusal.detail} Nothing was changed.` };
+      }
+    }
+    export function createAvailabilityTools(
+      log: FastifyBaseLogger,
+      api: ApiClient,
+      {
+        venueId,
+        timeZone,
+      }: { readonly venueId?: string | undefined; readonly timeZone?: string | undefined }
+    ): ToolSet {
+      /** The Tonight rules in force, with the config they came from. */
+      async function readTonight() {
+        const state = await api.availability.getConfig(venueId!);
+        const rules = activeTonightRules(state.config, todayIn(timeZone), new Date());
+        return { state, rules };
+      }
+    
+      return {
+        // ── Read ───────────────────────────────────────────────
+        list_tonight_changes: tool({
+          description:
+            "List the Tonight changes in force (paused online booking, close early, stopped windows, blocked tables, pacing), and the newest availability change that can still be undone. Call it before ending or undoing a change.",
+          inputSchema: z.object({}),
+          execute: async () => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId }, "list_tonight_changes tool called");
+            try {
+              const { state, rules } = await readTonight();
+              const needsTables = rules.some((r) => r.tableIds?.length);
+              const tables = needsTables
+                ? (await api.tables.list({ venueId, limit: TABLES_LIMIT })).data
+                : [];
+              const serviceName = (id: string) =>
+                state.config.venueServices.find((s) => s.id === id)?.name;
+              const tableName = (id: string) => {
+                const table = tables.find((t) => t.id === id);
+                return table?.name ?? table?.tableNumber ?? id;
+              };
+              const page = await api.availability.listChanges(venueId, { limit: 1 });
+              const newest = page.items[0];
+              return {
+                changes: rules.map((rule) => describeRule(rule, serviceName, tableName)),
+                undoable: newest?.revertible ? { summary: newest.summary, at: newest.at } : null,
+              };
+            } catch (err) {
+              log.error({ err, venueId }, "list_tonight_changes failed");
+              return { error: "Couldn't read tonight's availability. Ask the user to try again." };
+            }
+          },
+        }),
+    
+        // ── Write (each runs only after the user confirms) ─────
+        change_tonight_availability: tool({
+          description:
+            "Make one Tonight change for the venue's current service day; it ends on its own when the day does. Requires confirmation. For a closure, special hours or a schedule change on another day, point the user to the Availability page instead.",
+          inputSchema: ChangeTonightInputSchema,
+          execute: async (input) => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId, change: input.change }, "change_tonight_availability tool called");
+            try {
+              const state = await api.availability.getConfig(venueId);
+              const built = await buildChange(input, state.config, api, venueId);
+              if ("error" in built) return built;
+              const result = await api.availability.setTonight(venueId, {
+                expectedVersion: state.version,
+                ruleId: randomUUID(),
+                change: built.change,
+              });
+              const until = localTimeIn(result.expiresAt, timeZone);
+              return {
+                applied: true,
+                serviceDate: result.serviceDate,
+                ...(until ? { until } : {}),
+              };
+            } catch (err) {
+              log.error({ err, venueId, change: input.change }, "change_tonight_availability failed");
+              return availabilityWriteFailure(err, "make the change");
+            }
+          },
+        }),
+    
+        end_tonight_change: tool({
+          description:
+            "End a Tonight change early so its times or tables open again. Bookings a close-early cancelled stay cancelled. Requires confirmation.",
+          inputSchema: z.object({
+            change: z.enum(TONIGHT_CHANGE_TYPES).describe("The kind of Tonight change to end"),
+            from: ClockSchema.optional().describe(
+              "When several stop windows or table blocks are in force: the start of the one to end, HH:MM"
+            ),
+          }),
+          execute: async ({ change, from }) => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId, change }, "end_tonight_change tool called");
+            try {
+              const { rules } = await readTonight();
+              const ofKind = rules.filter((rule) => changeTypeOf(rule) === change);
+              const matches = from
+                ? ofKind.filter(
+                    (rule) => "stop" in rule.payload && minuteToClock(rule.payload.stop.from) === from
+                  )
+                : ofKind;
+              if (matches.length === 0) {
+                return { error: `No ${change.replace(/_/g, " ")} change is in force tonight.` };
+              }
+              if (matches.length > 1) {
+                return {
+                  error: `More than one ${change.replace(/_/g, " ")} change is in force. Ask which one, by its start time.`,
+                };
+              }
+              await api.availability.endTonight(venueId, matches[0]!.id);
+              return { ended: true, change };
+            } catch (err) {
+              log.error({ err, venueId, change }, "end_tonight_change failed");
+              return availabilityWriteFailure(err, "end the change");
+            }
+          },
+        }),
+    
+        undo_availability_change: tool({
+          description:
+            "Undo the newest availability change, when list_tonight_changes offers it as undoable. Pass its summary exactly as listed. A change that told guests can't be undone. Requires confirmation.",
+          inputSchema: z.object({
+            summary: z.string().min(1).describe("The undoable change's summary, copied exactly"),
+          }),
+          execute: async ({ summary }) => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId }, "undo_availability_change tool called");
+            try {
+              const page = await api.availability.listChanges(venueId, { limit: 1 });
+              const newest = page.items[0];
+              if (!newest?.revertible) {
+                return {
+                  error: "No availability change can be undone right now. Nothing was changed.",
+                };
+              }
+              // The user confirmed this summary: undo only that change, never whatever is newest now.
+              if (newest.summary !== summary) {
+                return {
+                  error: `The newest change is now "${newest.summary}", not the one confirmed. Nothing was changed; ask the user again.`,
+                };
+              }
+              const { version } = await api.availability.getConfig(venueId);
+              await api.availability.revertChange(venueId, newest.id, version);
+              return { undone: true, summary };
+            } catch (err) {
+              log.error({ err, venueId }, "undo_availability_change failed");
+              return availabilityWriteFailure(err, "undo the change");
+            }
+          },
+        }),
+      };
+    }
+  </file>
   <file path="src/routes/gen-agent-prompt.ts">
     export interface AgentPromptContext {
       /** The venue selected in the app, when there is one. */
@@ -270,7 +590,7 @@
         venueLine,
         "Never ask the user for a venue ID, reservation ID, or table ID: look them up with the tools.",
         "Your earlier replies in this conversation were based on tool results that aren't shown to you again. Treat them as accurate: don't apologize for or correct them unless a new tool result actually contradicts them. When you need an earlier detail, such as an ID, look it up again.",
-        "A change (booking, walk-in, cancellation, table status) runs only when the user presses the Confirm or Cancel button the chat shows with it. Tell them to use those buttons, and never ask them to type yes: typing a new message dismisses the pending change.",
+        "A change (booking, walk-in, cancellation, table status, Tonight availability) runs only when the user presses the Confirm or Cancel button the chat shows with it. Tell them to use those buttons, and never ask them to type yes: typing a new message dismisses the pending change.",
         "Ask only for details the user has to decide, such as guest name, party size, or time. When a reservation's end time isn't given, use two hours after the start.",
         "Reply in short, plain sentences in the user's language. Don't use markdown: the chat shows plain text.",
         "Show elements only by calling render_component with an elements array: each element has a unique id, a type from the components below, its props, and children as a list of other elements' ids; an element no other element lists is shown at the top level. Never write JSON, element specs or patch lines in your reply text.",
@@ -285,6 +605,8 @@
         "Guest tags and dietary restrictions: show them as Tag.",
         "Any other lists: show them as a Table.",
         'Tables move AVAILABLE (free) → OCCUPIED (seated) → DIRTY (needs bussing) → READY (cleaned) → AVAILABLE. Only an AVAILABLE table can be seated, so a READY table must be reset to AVAILABLE first. When staff say a table is "clean", that means READY. Describe statuses to staff in plain words, not capitals.',
+        "For tonight's availability, use change_tonight_availability to pause online booking, close early, stop a time window, block tables, or set pacing; it lasts until the service day ends. Call list_tonight_changes before end_tonight_change or undo_availability_change, and pass undo_availability_change the summary exactly as listed. When a change affects existing bookings, tell the user to finish it on the Availability page.",
+        "You can't add closures, special hours, or schedule changes for other days. Say so plainly and point the user to the Availability page.",
         "You can't manage the waitlist, deposits, or menus yet. Say so plainly and point the user to that page in the dashboard.",
         "",
         ctx.catalogPrompt,
@@ -292,7 +614,6 @@
     }
   </file>
   <file path="src/routes/gen-agent-tools.ts">
-    type ApiClient = ReturnType<typeof createApiClient>;
     export interface ConfirmedAction {
       /** Echo of the action_request's actionId — traceability only (a resend produces new tool-call ids). */
       readonly actionId: string;
@@ -306,29 +627,6 @@
       /** The venue's IANA time zone, so "today" means the venue's today rather than UTC's. */
       readonly timeZone?: string | undefined;
     }
-    export function todayIn(timeZone: string | undefined, now: Date = new Date()): string {
-      return new Intl.DateTimeFormat("en-CA", {
-        timeZone: timeZone ?? "UTC",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      }).format(now);
-    }
-    function localTimeIn(iso: unknown, timeZone: string | undefined): string | undefined {
-      if (typeof iso !== "string") return undefined;
-      const instant = new Date(iso);
-      if (Number.isNaN(instant.getTime())) return undefined;
-      try {
-        return new Intl.DateTimeFormat("en-GB", {
-          timeZone: timeZone ?? "UTC",
-          hour: "2-digit",
-          minute: "2-digit",
-          hourCycle: "h23",
-        }).format(instant);
-      } catch {
-        return undefined; // unknown time zone (RangeError)
-      }
-    }
     function withLocalTime<T extends object>(
       item: T,
       field: string,
@@ -338,25 +636,6 @@
       return localTime ? { ...item, localTime } : item;
     }
     type PublicAvailability = Awaited<ReturnType<ApiClient["availability"]["getPublicAvailability"]>>;
-    interface Refusal {
-      readonly status: number;
-      readonly detail: string;
-      readonly code?: string;
-      readonly reason?: string;
-    }
-    function refusalOf(err: unknown): Refusal | undefined {
-      const problem = (err as { problemDetails?: Record<string, unknown> } | null)?.problemDetails;
-      const status = problem?.["status"];
-      if (typeof status !== "number" || status < 400 || status >= 500) return undefined;
-      if (status === 408 || status === 429) return undefined;
-      const { detail, code, reason } = problem as Record<string, unknown>;
-      return {
-        status,
-        detail: typeof detail === "string" && detail ? detail : `The request was refused (${status}).`,
-        ...(typeof code === "string" ? { code } : {}),
-        ...(typeof reason === "string" ? { reason } : {}),
-      };
-    }
     function rejectedResult(refusal: Refusal) {
       return { rejected: true, error: refusal.detail } as const;
     }
@@ -527,30 +806,6 @@
         } as ToolSet[string];
       }
       return gated;
-    }
-    interface NamedTable {
-      readonly id: string;
-      readonly name?: string | null;
-      readonly tableNumber?: string | null;
-    }
-    function resolveTable<T extends NamedTable>(
-      tables: readonly T[],
-      tableRef: string
-    ): { table: T } | { error: string } {
-      const ref = tableRef.trim();
-      const steps: ReadonlyArray<(t: T) => boolean> = [
-        (t) => t.tableNumber === ref,
-        (t) => t.name === ref,
-        (t) => t.name?.toLowerCase() === ref.toLowerCase(),
-      ];
-      for (const matches of steps) {
-        const found = tables.filter(matches);
-        if (found.length === 1) return { table: found[0]! };
-        if (found.length > 1) {
-          return { error: `Table ${tableRef} is ambiguous in this venue. Ask which table they mean.` };
-        }
-      }
-      return { error: `Table ${tableRef} not found in this venue.` };
     }
     export function createAgentTools(
       log: FastifyBaseLogger,
@@ -890,6 +1145,8 @@
             }
           },
         }),
+    
+        ...createAvailabilityTools(log, api, { venueId, timeZone }),
       };
       return gateWriteTools(tools, log, options.confirmedAction);
     }
@@ -1489,6 +1746,9 @@
       "cancel_reservation",
       "seat_walk_in",
       "update_table_status",
+      "change_tonight_availability",
+      "end_tonight_change",
+      "undo_availability_change",
     ] as const;
     export type GenToolMap = Record<string, unknown>;
     export type GenEventCallback = (event: GenStreamEvent) => Promise<void>;
@@ -1602,7 +1862,7 @@
       return value instanceof Error ? value : new Error(String(value));
     }
     async function handleToolCall(
-      event: { toolCallId: string; toolName: string; input: unknown },
+      event: { toolCallId: string; toolName: string; input: unknown; invalid?: boolean },
       onEvent: GenEventCallback,
       alreadyEmitted = 0
     ): Promise<void> {
@@ -1639,8 +1899,10 @@
         return;
       }
     
-      // Write tools emit action_request (require user confirmation)
+      // Write tools emit action_request (require user confirmation). A schema-invalid
+      // call never executes, and the SDK resends its error to the model: no confirm bar.
       if (GEN_WRITE_TOOLS.has(toolName)) {
+        if (event.invalid) return;
         await onEvent({
           type: "action_request",
           actionId: toolCallId,
@@ -1883,6 +2145,78 @@
       reply.header("Cache-Control", "no-cache");
       reply.header("Connection", "keep-alive");
       reply.header("X-Accel-Buffering", "no");
+    }
+  </file>
+  <file path="src/routes/gen-tool-support.ts">
+    export type ApiClient = ReturnType<typeof createApiClient>;
+    export const NO_VENUE = {
+      error: "No venue is selected. Ask the user to pick a venue in the app, then try again.",
+    } as const;
+    export function todayIn(timeZone: string | undefined, now: Date = new Date()): string {
+      return new Intl.DateTimeFormat("en-CA", {
+        timeZone: timeZone ?? "UTC",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(now);
+    }
+    export function localTimeIn(iso: unknown, timeZone: string | undefined): string | undefined {
+      if (typeof iso !== "string") return undefined;
+      const instant = new Date(iso);
+      if (Number.isNaN(instant.getTime())) return undefined;
+      try {
+        return new Intl.DateTimeFormat("en-GB", {
+          timeZone: timeZone ?? "UTC",
+          hour: "2-digit",
+          minute: "2-digit",
+          hourCycle: "h23",
+        }).format(instant);
+      } catch {
+        return undefined; // unknown time zone (RangeError)
+      }
+    }
+    export interface Refusal {
+      readonly status: number;
+      readonly detail: string;
+      readonly code?: string;
+      readonly reason?: string;
+    }
+    export function refusalOf(err: unknown): Refusal | undefined {
+      const problem = (err as { problemDetails?: Record<string, unknown> } | null)?.problemDetails;
+      const status = problem?.["status"];
+      if (typeof status !== "number" || status < 400 || status >= 500) return undefined;
+      if (status === 408 || status === 429) return undefined;
+      const { detail, code, reason } = problem as Record<string, unknown>;
+      return {
+        status,
+        detail: typeof detail === "string" && detail ? detail : `The request was refused (${status}).`,
+        ...(typeof code === "string" ? { code } : {}),
+        ...(typeof reason === "string" ? { reason } : {}),
+      };
+    }
+    export interface NamedTable {
+      readonly id: string;
+      readonly name?: string | null;
+      readonly tableNumber?: string | null;
+    }
+    export function resolveTable<T extends NamedTable>(
+      tables: readonly T[],
+      tableRef: string
+    ): { table: T } | { error: string } {
+      const ref = tableRef.trim();
+      const steps: ReadonlyArray<(t: T) => boolean> = [
+        (t) => t.tableNumber === ref,
+        (t) => t.name === ref,
+        (t) => t.name?.toLowerCase() === ref.toLowerCase(),
+      ];
+      for (const matches of steps) {
+        const found = tables.filter(matches);
+        if (found.length === 1) return { table: found[0]! };
+        if (found.length > 1) {
+          return { error: `Table ${tableRef} is ambiguous in this venue. Ask which table they mean.` };
+        }
+      }
+      return { error: `Table ${tableRef} not found in this venue.` };
     }
   </file>
   <file path="src/routes/gen-ui.ts">

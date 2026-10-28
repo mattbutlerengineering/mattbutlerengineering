@@ -66,6 +66,9 @@ export const GEN_WRITE_TOOL_NAMES = [
   "cancel_reservation",
   "seat_walk_in",
   "update_table_status",
+  "change_tonight_availability",
+  "end_tonight_change",
+  "undo_availability_change",
 ] as const;
 
 const GEN_WRITE_TOOLS: ReadonlySet<string> = new Set(GEN_WRITE_TOOL_NAMES);
@@ -196,7 +199,7 @@ function toError(value: unknown): Error {
 }
 
 async function handleToolCall(
-  event: { toolCallId: string; toolName: string; input: unknown },
+  event: { toolCallId: string; toolName: string; input: unknown; invalid?: boolean },
   onEvent: GenEventCallback,
   alreadyEmitted = 0
 ): Promise<void> {
@@ -233,8 +236,10 @@ async function handleToolCall(
     return;
   }
 
-  // Write tools emit action_request (require user confirmation)
+  // Write tools emit action_request (require user confirmation). A schema-invalid
+  // call never executes, and the SDK resends its error to the model: no confirm bar.
   if (GEN_WRITE_TOOLS.has(toolName)) {
+    if (event.invalid) return;
     await onEvent({
       type: "action_request",
       actionId: toolCallId,

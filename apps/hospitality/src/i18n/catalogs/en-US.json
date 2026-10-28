@@ -1525,6 +1525,9 @@
       "cancel_reservation": "Cancel a reservation",
       "seat_walk_in": "Seat a walk-in",
       "update_table_status": "Update a table",
+      "change_tonight_availability": "Change tonight's availability",
+      "end_tonight_change": "End a Tonight change",
+      "undo_availability_change": "Undo an availability change",
       "fields": {
         "guestName": "Guest",
         "partySize": "Party size",
@@ -1535,7 +1538,22 @@
         "table": "Table",
         "status": "Status",
         "notes": "Notes",
-        "reservationId": "Reservation"
+        "reservationId": "Reservation",
+        "change": "Change",
+        "closeAt": "Close at",
+        "from": "From",
+        "to": "To",
+        "service": "Service",
+        "tables": "Tables",
+        "covers": "Covers per slot",
+        "summary": "Change"
+      },
+      "tonightChanges": {
+        "pause_online": "Pause online booking",
+        "close_early": "Close early",
+        "stop_window": "Stop bookings for a window",
+        "block_tables": "Block tables",
+        "pacing": "Set pacing"
       }
     }
   },

@@ -26,6 +26,79 @@
   </file>
   </section>
   <section priority="medium" role="routes">
+  <file path="src/routes/gen-agent-availability-tools.ts">
+    <item priority="high">
+      type TonightChangeType = (typeof TONIGHT_CHANGE_TYPES)[number];
+    </item>
+    <item priority="high">
+      type ChangeField = "closeAt" | "from" | "to" | "service" | "tables" | "covers";
+    </item>
+    <item priority="high">
+      type ChangeTonightInput = z.infer<typeof ChangeTonightInputSchema>;
+    </item>
+    <item priority="high">
+      type TonightRule = Extract<DateRule, { kind: "tonight" }>;
+    </item>
+    <item priority="medium">
+      function clockToMinute(clock: string): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function serviceDayMinute(clock: string, config: AvailabilityConfig): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function minuteToClock(minute: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function activeTonightRules(config: AvailabilityConfig, today: string, now: Date): TonightRule[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function changeTypeOf(rule: TonightRule): TonightChangeType { /* ... */ }
+    </item>
+    <item priority="medium">
+      function stopTimes(stop: { from: number; to: number }) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function describeRule(
+        rule: TonightRule,
+        serviceName: (id: string) => string | undefined,
+        tableName: (id: string) => string
+      ) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function resolveService(
+        config: AvailabilityConfig,
+        name: string
+      ): { id: string } | { error: string } { /* ... */ }
+    </item>
+    <item priority="low">
+      async function resolveTableIds(
+        api: ApiClient,
+        venueId: string,
+        refs: readonly string[]
+      ): Promise<{ ids: string[] } | { error: string }> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function buildChange(
+        input: ChangeTonightInput,
+        config: AvailabilityConfig,
+        api: ApiClient,
+        venueId: string
+      ): Promise<{ change: TonightChange } | { error: string }> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function availabilityWriteFailure(err: unknown, action: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createAvailabilityTools(
+        log: FastifyBaseLogger,
+        api: ApiClient,
+        {
+          venueId,
+          timeZone,
+        }: { readonly venueId?: string | undefined; readonly timeZone?: string | undefined }
+      ): ToolSet { /* ... */ }
+    </item>
+  </file>
   <file path="src/routes/gen-agent-prompt.ts">
     <item priority="low">
       interface AgentPromptContext {
@@ -46,9 +119,6 @@
     </item>
   </file>
   <file path="src/routes/gen-agent-tools.ts">
-    <item priority="high">
-      type ApiClient = ReturnType<typeof createApiClient>;
-    </item>
     <item priority="low">
       interface ConfirmedAction {
         actionId: string;
@@ -63,12 +133,6 @@
         timeZone?: string | undefined;
       }
     </item>
-    <item priority="high">
-      export function todayIn(timeZone: string | undefined, now: Date = new Date()): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function localTimeIn(iso: unknown, timeZone: string | undefined): string | undefined { /* ... */ }
-    </item>
     <item priority="medium">
       function withLocalTime<T extends object>(
         item: T,
@@ -78,17 +142,6 @@
     </item>
     <item priority="high">
       type PublicAvailability = Awaited<ReturnType<ApiClient["availability"]["getPublicAv...;
-    </item>
-    <item priority="high">
-      interface Refusal {
-        status: number;
-        detail: string;
-        code?: string;
-        reason?: string;
-      }
-    </item>
-    <item priority="medium">
-      function refusalOf(err: unknown): Refusal | undefined { /* ... */ }
     </item>
     <item priority="medium">
       function rejectedResult(refusal: Refusal) { /* ... */ }
@@ -136,19 +189,6 @@
         log: FastifyBaseLogger,
         confirmedAction?: ConfirmedAction
       ): ToolSet { /* ... */ }
-    </item>
-    <item priority="high">
-      interface NamedTable {
-        id: string;
-        name?: string | null;
-        tableNumber?: string | null;
-      }
-    </item>
-    <item priority="medium">
-      function resolveTable<T extends NamedTable>(
-        tables: readonly T[],
-        tableRef: string
-      ): { table: T } | { error: string } { /* ... */ }
     </item>
     <item priority="high">
       export function createAgentTools(
@@ -256,7 +296,7 @@
     </item>
     <item priority="low">
       async function handleToolCall(
-        event: { toolCallId: string; toolName: string; input: unknown },
+        event: { toolCallId: string; toolName: string; input: unknown; invalid?: boolean },
         onEvent: GenEventCallback,
         alreadyEmitted = 0
       ): Promise<void> { /* ... */ }
@@ -323,6 +363,44 @@
     </item>
     <item priority="high">
       export function applyStreamHeaders(reply: FastifyReply, contentType: string): void { /* ... */ }
+    </item>
+  </file>
+  <file path="src/routes/gen-tool-support.ts">
+    <item priority="low">
+      type ApiClient = ReturnType<typeof createApiClient>;
+    </item>
+    <item priority="high">
+      export const NO_VENUE: unknown;
+    </item>
+    <item priority="high">
+      export function todayIn(timeZone: string | undefined, now: Date = new Date()): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function localTimeIn(iso: unknown, timeZone: string | undefined): string | undefined { /* ... */ }
+    </item>
+    <item priority="low">
+      interface Refusal {
+        status: number;
+        detail: string;
+        code?: string;
+        reason?: string;
+      }
+    </item>
+    <item priority="high">
+      export function refusalOf(err: unknown): Refusal | undefined { /* ... */ }
+    </item>
+    <item priority="low">
+      interface NamedTable {
+        id: string;
+        name?: string | null;
+        tableNumber?: string | null;
+      }
+    </item>
+    <item priority="high">
+      export function resolveTable<T extends NamedTable>(
+        tables: readonly T[],
+        tableRef: string
+      ): { table: T } | { error: string } { /* ... */ }
     </item>
   </file>
   <file path="src/routes/gen-ui.ts">

@@ -78,6 +78,9 @@ const ACTION_TITLES = {
   cancel_reservation: "chat.actions.cancel_reservation",
   seat_walk_in: "chat.actions.seat_walk_in",
   update_table_status: "chat.actions.update_table_status",
+  change_tonight_availability: "chat.actions.change_tonight_availability",
+  end_tonight_change: "chat.actions.end_tonight_change",
+  undo_availability_change: "chat.actions.undo_availability_change",
 } as const;
 
 const ACTION_FIELDS = {
@@ -91,6 +94,14 @@ const ACTION_FIELDS = {
   status: "chat.actions.fields.status",
   notes: "chat.actions.fields.notes",
   reservationId: "chat.actions.fields.reservationId",
+  change: "chat.actions.fields.change",
+  closeAt: "chat.actions.fields.closeAt",
+  from: "chat.actions.fields.from",
+  to: "chat.actions.fields.to",
+  service: "chat.actions.fields.service",
+  tables: "chat.actions.fields.tables",
+  covers: "chat.actions.fields.covers",
+  summary: "chat.actions.fields.summary",
 } as const;
 
 const TABLE_STATUSES = {
@@ -100,10 +111,19 @@ const TABLE_STATUSES = {
   READY: "floorPlan.tableStatus.ready",
 } as const;
 
+const TONIGHT_CHANGES = {
+  pause_online: "chat.actions.tonightChanges.pause_online",
+  close_early: "chat.actions.tonightChanges.close_early",
+  stop_window: "chat.actions.tonightChanges.stop_window",
+  block_tables: "chat.actions.tonightChanges.block_tables",
+  pacing: "chat.actions.tonightChanges.pacing",
+} as const;
+
 type ChatActionKey =
   | (typeof ACTION_TITLES)[keyof typeof ACTION_TITLES]
   | (typeof ACTION_FIELDS)[keyof typeof ACTION_FIELDS]
-  | (typeof TABLE_STATUSES)[keyof typeof TABLE_STATUSES];
+  | (typeof TABLE_STATUSES)[keyof typeof TABLE_STATUSES]
+  | (typeof TONIGHT_CHANGES)[keyof typeof TONIGHT_CHANGES];
 
 type Translate = (key: ChatActionKey) => string;
 
@@ -113,7 +133,7 @@ const isRealDate = (value: string): boolean => {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 };
 const WALL_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
-const TIME_FIELDS: ReadonlySet<string> = new Set(["startTime", "endTime"]);
+const TIME_FIELDS: ReadonlySet<string> = new Set(["startTime", "endTime", "closeAt", "from", "to"]);
 
 /** A tool's YYYY-MM-DD date or HH:MM wall time as people read it; anything else as sent. */
 function formatWhen(key: string, value: string, locale?: string): string {
@@ -146,8 +166,13 @@ export function describeChatAction(
   return {
     title: titleKey ? t(titleKey) : action.toolName.replace(/_/g, " "),
     details: Object.entries(action.toolInput).map(([key, raw]) => {
-      const value = String(raw);
-      const statusKey = key === "status" ? lookup(TABLE_STATUSES, value) : undefined;
+      const value = Array.isArray(raw) ? raw.join(", ") : String(raw);
+      const statusKey =
+        key === "status"
+          ? lookup(TABLE_STATUSES, value)
+          : key === "change"
+            ? lookup(TONIGHT_CHANGES, value)
+            : undefined;
       const shown =
         key === "tableId"
           ? (tableName(value) ?? value)

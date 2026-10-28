@@ -175,6 +175,33 @@ describe("createGenRunner", () => {
         toolInput: { guestName: "Smith", date: "2026-06-18" },
       });
     });
+
+    // The SDK reports a schema-invalid call as a tool-call with `invalid: true`, then
+    // resends the error to the model. A confirm bar for it could never execute.
+    it("does not ask the user to confirm a write tool call whose input is invalid", async () => {
+      vi.mocked(streamText).mockReturnValueOnce({
+        fullStream: mockAsyncIterable([
+          {
+            type: "tool-call",
+            toolCallId: "call-4",
+            toolName: "change_tonight_availability",
+            input: { change: "pacing" },
+            dynamic: true,
+            invalid: true,
+            error: new Error("pacing needs covers"),
+          },
+        ]),
+        usage: Promise.resolve({ inputTokens: 5, outputTokens: 3 }),
+        providerMetadata: Promise.resolve({}),
+      } as never);
+
+      const events: GenStreamEvent[] = [];
+      await runner.run([{ role: "user", content: "pace it" }], {}, async (event) => {
+        events.push(event);
+      });
+
+      expect(events.some((event) => event.type === "action_request")).toBe(false);
+    });
   });
 
   describe("permission denial", () => {
