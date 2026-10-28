@@ -31,42 +31,73 @@ describe("installAuthBackSkip", () => {
   });
 
   it("does nothing when sign-in did not record a length", () => {
-    const go = vi.spyOn(window.history, "go");
-    installAuthBackSkip();
-    expect(go).not.toHaveBeenCalled();
-    go.mockRestore();
-  });
-
-  it("jumps over the IdP entries as soon as the callback lands", () => {
-    const go = vi.spyOn(window.history, "go").mockImplementation(() => {});
     const pushState = vi.spyOn(window.history, "pushState");
-    vi.spyOn(window.history, "length", "get").mockReturnValue(6);
-    sessionStorage.setItem(PRE_AUTH_HISTORY_KEY, "3");
-
     installAuthBackSkip();
-
-    expect(sessionStorage.getItem(PRE_AUTH_HISTORY_KEY)).toBeNull();
-    expect(sessionStorage.getItem(AUTH_BACK_RELOAD_KEY)).toBe("1");
-    expect(go).toHaveBeenCalledWith(-3);
     expect(pushState).not.toHaveBeenCalled();
-    go.mockRestore();
     pushState.mockRestore();
   });
 
-  it("does not hijack a later Back after in-app navigation", () => {
+  it("pushes a sentinel and, on Back, jumps over the IdP entries", () => {
+    const go = vi.spyOn(window.history, "go").mockImplementation(() => {});
+    vi.spyOn(window.history, "length", "get").mockReturnValue(6);
+    sessionStorage.setItem(PRE_AUTH_HISTORY_KEY, "3");
+    const scheduled: Array<() => void> = [];
+
+    installAuthBackSkip(window.history, sessionStorage, (fn) => {
+      scheduled.push(fn);
+    });
+
+    expect(sessionStorage.getItem(PRE_AUTH_HISTORY_KEY)).toBeNull();
+    expect(scheduled).toHaveLength(0);
+
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    expect(sessionStorage.getItem(AUTH_BACK_RELOAD_KEY)).toBe("1");
+    expect(go).not.toHaveBeenCalled();
+
+    scheduled[0]?.();
+    expect(go).toHaveBeenCalledWith(-3);
+    go.mockRestore();
+  });
+
+  it("does not skip after in-app navigation (sign in, navigate, Back)", () => {
     const go = vi.spyOn(window.history, "go").mockImplementation(() => {});
     const length = vi.spyOn(window.history, "length", "get").mockReturnValue(6);
     sessionStorage.setItem(PRE_AUTH_HISTORY_KEY, "3");
-    installAuthBackSkip();
-    expect(go).toHaveBeenCalledOnce();
+    const scheduled: Array<() => void> = [];
+    installAuthBackSkip(window.history, sessionStorage, (fn) => {
+      scheduled.push(fn);
+    });
 
-    // In-app link pushes a new entry, then the user presses Back.
+    // In-app link pushes a new entry, then Back lands on the sentinel entry.
+    length.mockReturnValue(7);
+    window.dispatchEvent(new PopStateEvent("popstate", { state: { mbeAuthSentinel: true } }));
+    // A later Back (to the callback entry) must not be hijacked either.
     length.mockReturnValue(7);
     window.dispatchEvent(new PopStateEvent("popstate", { state: {} }));
 
-    expect(go).toHaveBeenCalledOnce();
+    expect(scheduled).toHaveLength(0);
+    expect(sessionStorage.getItem(AUTH_BACK_RELOAD_KEY)).toBeNull();
+    expect(go).not.toHaveBeenCalled();
     go.mockRestore();
     length.mockRestore();
+  });
+
+  it("ignores a pop that lands back on the sentinel entry itself", () => {
+    const go = vi.spyOn(window.history, "go").mockImplementation(() => {});
+    vi.spyOn(window.history, "length", "get").mockReturnValue(6);
+    sessionStorage.setItem(PRE_AUTH_HISTORY_KEY, "3");
+    const scheduled: Array<() => void> = [];
+    installAuthBackSkip(window.history, sessionStorage, (fn) => {
+      scheduled.push(fn);
+    });
+
+    window.dispatchEvent(new PopStateEvent("popstate", { state: { mbeAuthSentinel: true } }));
+    expect(scheduled).toHaveLength(0);
+
+    window.dispatchEvent(new PopStateEvent("popstate", { state: {} }));
+    scheduled[0]?.();
+    expect(go).toHaveBeenCalledWith(-3);
+    go.mockRestore();
   });
 });
 
