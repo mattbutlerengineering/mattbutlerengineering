@@ -10,6 +10,7 @@ import { FURNITURE_PALETTE } from "./furniture-tokens.js";
 import { useSectionLabelTheme } from "./section-label-theme.js";
 import { TableLabel } from "./TableLabel.js";
 import { TABLE_STATUS_COLOR_TOKEN, type TableDisplayStatus } from "./table-status.js";
+import { glyphKeyFor } from "./table-status-glyph.js";
 
 /* Canvas (Konva) doesn't support CSS custom properties — `fillStyle` needs a
  * literal color string, and `var(--rialto-*)` never resolves on a canvas.
@@ -206,6 +207,7 @@ function TableShapeComponent({
         tableRotation={rotation}
         stageScale={stageScale}
         theme={labelTheme}
+        glyph={glyphKeyFor(status, table.isActive)}
       />
     </Group>
   );

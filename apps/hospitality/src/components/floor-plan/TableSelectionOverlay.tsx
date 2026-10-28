@@ -1,6 +1,9 @@
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import type { Table } from "@mbe/types";
 import { SHAPE_DEFAULTS } from "./floor-plan-geometry.js";
+import type { TableDisplayStatus } from "./table-status.js";
+import { STATUS_LABEL_KEY, glyphKeyFor, type StatusGlyphKey } from "./table-status-glyph.js";
 import styles from "./TableSelectionOverlay.module.css";
 
 export interface TableSelectionOverlayProps {
@@ -8,6 +11,18 @@ export interface TableSelectionOverlayProps {
   scale: number;
   selectedTableId: string | null;
   onSelect: (tableId: string) => void;
+  /**
+   * Live status per table. When supplied, each button's name carries the status
+   * ("Table 4, Needs bussing"), so the canvas glyph is the only place it is drawn
+   * and nothing is announced twice. Omitted in editor-only usage.
+   */
+  tableStatuses?: ReadonlyMap<string, TableDisplayStatus>;
+}
+
+function tableAriaLabel(t: TFunction, label: string, status: StatusGlyphKey | null): string {
+  return status === null
+    ? t("floorPlan.canvas.tableAria", { label })
+    : t("floorPlan.canvas.tableAriaWithStatus", { label, status: t(STATUS_LABEL_KEY[status]) });
 }
 
 /**
@@ -27,6 +42,7 @@ export function TableSelectionOverlay({
   scale,
   selectedTableId,
   onSelect,
+  tableStatuses,
 }: TableSelectionOverlayProps) {
   const { t } = useTranslation();
   return (
@@ -52,7 +68,13 @@ export function TableSelectionOverlay({
               height: height * scale,
             }}
             aria-pressed={isSelected}
-            aria-label={t("floorPlan.canvas.tableAria", { label: table.tableNumber || table.name })}
+            aria-label={tableAriaLabel(
+              t,
+              table.tableNumber || table.name,
+              // A table the feed has not reported (before the first snapshot) has no
+              // known status: say nothing rather than a guess.
+              glyphKeyFor(tableStatuses?.get(table.id), table.isActive)
+            )}
             onClick={() => onSelect(table.id)}
           />
         );

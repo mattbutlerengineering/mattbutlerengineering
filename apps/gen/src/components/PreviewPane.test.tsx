@@ -167,6 +167,19 @@ describe("PreviewPane", () => {
     ).toBeDefined();
   });
 
+  it("says so when a spec renders no visible leaves", () => {
+    const spec: Spec = {
+      root: "column",
+      elements: {
+        column: { type: "Stack", props: { direction: "column" }, children: ["grid"] },
+        grid: { type: "Stack", props: { direction: "row" }, children: [] },
+      },
+    };
+    render(<PreviewPane {...defaultProps} spec={spec} />);
+    expect(screen.getByRole("status").textContent).toMatch(/nothing visible/i);
+    expect(screen.queryByTestId("renderer")).toBeNull();
+  });
+
   it("renders suggestion cards in empty state", () => {
     render(<PreviewPane {...defaultProps} />);
     expect(screen.getByText("Dashboard")).toBeDefined();

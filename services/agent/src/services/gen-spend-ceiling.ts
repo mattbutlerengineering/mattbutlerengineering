@@ -97,8 +97,8 @@ let consecutiveWriteFailures = 0;
 
 /**
  * While degraded, one request per this interval is let through as a probe; its
- * write heals or re-latches. 5 min keeps even a permanent write outage under
- * the default daily ceiling (288 probes x worst-case ~$0.001 = ~$0.30/day).
+ * write heals or re-latches. 5 min keeps a permanent write outage near the
+ * default daily ceiling. The worst case is the output cap, about $0.002 a probe.
  * Known limit: probe state is per instance, so N instances multiply this by N.
  */
 export const GEN_DEGRADED_PROBE_MS = 300_000;

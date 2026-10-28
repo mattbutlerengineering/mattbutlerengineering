@@ -1322,6 +1322,8 @@
       showGrid: z.boolean().optional(),
       walls: z.array(WallLayoutSchema).optional(),
       sections: z.array(SectionLayoutSchema).optional(),
+      /** Plan-level default floor, drawn beneath every section. Absent = bare floor. */
+      floorMaterial: FloorMaterialSchema.nullish(),
     });
     export const TableStatusSchema = z.enum(["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]);
     export const TableSchema = z.object({
@@ -2789,6 +2791,8 @@
       showGrid?: boolean;
       walls?: WallLayout[];
       sections?: SectionLayout[];
+      /** Plan-level default floor, drawn beneath every section. Absent = bare floor. */
+      floorMaterial?: FloorMaterial | null;
     }
     export interface CreateFloorPlanRequest {
       venueId: string;

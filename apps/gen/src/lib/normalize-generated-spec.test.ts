@@ -110,4 +110,50 @@ describe("normalizeGeneratedSpec", () => {
     expect(next.elements.stack?.children).not.toContain("note");
     expect(spec.elements.stack?.children).toEqual(["title"]);
   });
+
+  it("repairs a LineChart into a BarChart so an unknown chart still renders", () => {
+    const spec: Spec = {
+      root: "line",
+      elements: {
+        line: {
+          type: "LineChart",
+          props: {
+            label: "Losses",
+            data: [
+              { label: "A", value: -50 },
+              { label: "B", value: "NaN" },
+            ],
+          },
+          children: [],
+        },
+      },
+    };
+    const next = normalizeGeneratedSpec(spec);
+    expect(next.elements.line?.type).toBe("BarChart");
+    expect(next.elements.line?.props).toMatchObject({ label: "Losses" });
+  });
+
+  it("turns an Image into an avatar plus the alt text, so a broken src still says what it was", () => {
+    const spec: Spec = {
+      root: "pic",
+      elements: {
+        pic: {
+          type: "Image",
+          props: { src: "https://example.invalid/a.png", alt: "Broken hero" },
+          children: [],
+        },
+      },
+    };
+    const next = normalizeGeneratedSpec(spec);
+    expect(next.elements.pic?.type).toBe("Stack");
+    const caption = Object.values(next.elements).find(
+      (element) => element?.type === "Text" && element.props?.children === "Broken hero"
+    );
+    const avatar = Object.values(next.elements).find((element) => element?.type === "Avatar");
+    expect(caption).toBeDefined();
+    expect(avatar?.props).toMatchObject({
+      src: "https://example.invalid/a.png",
+      alt: "Broken hero",
+    });
+  });
 });

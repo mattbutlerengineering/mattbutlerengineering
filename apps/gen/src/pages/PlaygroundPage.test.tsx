@@ -28,6 +28,13 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
 vi.mock("@json-render/react", () => ({
   JSONUIProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   Renderer: () => <div data-testid="renderer" />,
+  // The session normalizes specs, which loads the catalog registry. The real
+  // defineRegistry is not what this page test renders.
+  defineRegistry: () => ({
+    registry: {},
+    handlers: () => ({}),
+    executeAction: async () => undefined,
+  }),
 }));
 
 let capturedOnComplete: ((spec: unknown, rawLines: string[]) => void) | undefined;

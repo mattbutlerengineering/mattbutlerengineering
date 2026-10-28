@@ -19,21 +19,48 @@ export interface BarChartProps extends HTMLAttributes<HTMLElement> {
   data: readonly BarChartDatum[];
 }
 
+const NON_FINITE = /^(nan|null|undefined|infinity|-infinity|\+infinity|inf|-inf)$/i;
+
 interface ParsedAmount {
   /** The number written in the value, before a k/m/b suffix. */
   base: number;
   multiplier: number;
 }
 
-function parseAmount(value: number | string): ParsedAmount {
-  if (typeof value === "number") return { base: Number.isFinite(value) ? value : 0, multiplier: 1 };
-  const match = value.replace(/,/g, "").match(/-?\d+(?:\.\d+)?/);
-  if (!match?.[0]) return { base: 0, multiplier: 1 };
-  const suffix = value.trim().slice(-1).toLowerCase();
-  const multiplier =
-    suffix === "k" ? 1_000 : suffix === "m" ? 1_000_000 : suffix === "b" ? 1_000_000_000 : 1;
+function suffixMultiplier(suffix: string): number {
+  if (suffix === "k") return 1_000;
+  if (suffix === "m") return 1_000_000;
+  if (suffix === "b") return 1_000_000_000;
+  return 1;
+}
+
+/**
+ * The written number and its k/m/b scale, or null when the value is missing
+ * or not finite (NaN, null, Infinity, 1e999). Those must not become a
+ * zero-height sliver or a tiny bar from a truncated "1".
+ */
+function parseAmount(value: unknown): ParsedAmount | null {
+  if (value == null) return null;
+  if (typeof value === "number")
+    return Number.isFinite(value) ? { base: value, multiplier: 1 } : null;
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (trimmed === "" || NON_FINITE.test(trimmed)) return null;
+  const numeric = trimmed.replace(/[$,]/g, "");
+  // Only a whole exponent literal: "12 tickets" or "8 sales" read by their digits.
+  if (/^-?\d+(\.\d+)?e[+-]?\d+$/i.test(numeric)) {
+    const parsed = Number(numeric);
+    return Number.isFinite(parsed) ? { base: parsed, multiplier: 1 } : null;
+  }
+  const match = numeric.match(/-?\d+(?:\.\d+)?/);
+  if (!match?.[0]) return null;
   const base = Number(match[0]);
-  return { base: Number.isFinite(base) ? base : 0, multiplier };
+  const multiplier = suffixMultiplier(trimmed.slice(-1).toLowerCase());
+  return Number.isFinite(base * multiplier) ? { base, multiplier } : null;
+}
+
+function basesMatch(a: ParsedAmount, b: ParsedAmount): boolean {
+  return Math.abs(a.base - b.base) < 0.001;
 }
 
 /**
@@ -42,15 +69,15 @@ function parseAmount(value: number | string): ParsedAmount {
  * rest. Ignore the suffix only when the written number matches a plain point
  * in the same series. A real mixed pair ($40 beside $20k) still uses the suffix.
  */
-function seriesMagnitudes(parsed: ParsedAmount[]): number[] {
-  const plainBases = parsed
-    .filter((amount) => amount.multiplier === 1)
-    .map((amount) => amount.base);
+function seriesMagnitudes(parsed: (ParsedAmount | null)[]): (number | null)[] {
+  const plain = parsed.filter(
+    (amount): amount is ParsedAmount => amount !== null && amount.multiplier === 1
+  );
   return parsed.map((amount) => {
+    if (amount === null) return null;
     const scaled = amount.base * amount.multiplier;
-    if (amount.multiplier === 1 || plainBases.length === 0) return scaled;
-    const duplicatesPlain = plainBases.some((base) => Math.abs(base - amount.base) < 0.001);
-    return duplicatesPlain ? amount.base : scaled;
+    if (amount.multiplier === 1 || plain.length === 0) return scaled;
+    return plain.some((other) => basesMatch(other, amount)) ? amount.base : scaled;
   });
 }
 
@@ -58,11 +85,7 @@ function sameLabel(a: string, b: string): boolean {
   return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
 
-function basesMatch(a: ParsedAmount, b: ParsedAmount): boolean {
-  return Math.abs(a.base - b.base) < 0.001;
-}
-
-/** Drop a repeated month that is only the suffixed spelling of the next point. */
+/** Drop a repeated month that is only the suffixed spelling of another point. */
 function withoutDuplicatePoints(data: readonly BarChartDatum[]): BarChartDatum[] {
   const parsed = data.map((datum) => parseAmount(datum.value));
   const drop = new Set<number>();
@@ -103,18 +126,63 @@ export const BarChart = forwardRef<HTMLElement, BarChartProps>(function BarChart
 ) {
   const points = withoutDuplicatePoints(data);
   const amounts = seriesMagnitudes(points.map((datum) => parseAmount(datum.value)));
-  const max = Math.max(0, ...amounts);
+  const finite = amounts.filter((amount): amount is number => amount !== null);
+  const hasNegative = finite.some((amount) => amount < 0);
+  const maxPositive = Math.max(0, ...finite);
+  const min = Math.min(0, ...finite, 0);
+  const max = Math.max(0, ...finite, 0);
+  const span = max - min || 1;
+  const zeroFromBottom = ((0 - min) / span) * 100;
 
   return (
     <figure ref={ref} className={cn(styles.chart, className)} {...props}>
       <figcaption className={styles.caption}>{label}</figcaption>
       <ul className={styles.plot} aria-label={label}>
         {points.map((datum, index) => {
-          const amount = amounts[index] ?? 0;
-          const height = max > 0 ? (amount / max) * 100 : 0;
+          const amount = amounts[index] ?? null;
+          const missing = amount === null;
+          if (!hasNegative) {
+            const height = !missing && maxPositive > 0 ? (amount / maxPositive) * 100 : 0;
+            return (
+              <li key={`${datum.label}:${String(datum.value)}`} className={styles.barItem}>
+                {missing ? null : (
+                  <span
+                    className={styles.bar}
+                    style={{ blockSize: `${height}%` }}
+                    aria-hidden="true"
+                  />
+                )}
+                <span className={styles.tick}>{datum.label}</span>
+                <span className={styles.value}>{String(datum.value)}</span>
+              </li>
+            );
+          }
+          const portion = missing ? 0 : (Math.abs(amount) / span) * 100;
+          const negative = !missing && amount < 0;
           return (
-            <li key={`${datum.label}:${String(datum.value)}`} className={styles.barItem}>
-              <span className={styles.bar} style={{ blockSize: `${height}%` }} aria-hidden="true" />
+            <li
+              key={`${datum.label}:${String(datum.value)}`}
+              className={styles.barItem}
+              data-bar={missing ? "missing" : negative ? "negative" : "positive"}
+            >
+              <span className={styles.track}>
+                <span className={styles.baseline} style={{ insetBlockEnd: `${zeroFromBottom}%` }} />
+                {missing || amount === 0 ? null : (
+                  <span
+                    className={styles.signedBar}
+                    data-sign={negative ? "negative" : "positive"}
+                    style={
+                      negative
+                        ? {
+                            blockSize: `${portion}%`,
+                            insetBlockStart: `${100 - zeroFromBottom}%`,
+                          }
+                        : { blockSize: `${portion}%`, insetBlockEnd: `${zeroFromBottom}%` }
+                    }
+                    aria-hidden="true"
+                  />
+                )}
+              </span>
               <span className={styles.tick}>{datum.label}</span>
               <span className={styles.value}>{String(datum.value)}</span>
             </li>

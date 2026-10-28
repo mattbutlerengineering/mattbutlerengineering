@@ -5006,6 +5006,20 @@
       export function seatPlacements(input: SeatPlacementInput): readonly SeatPlacement[] { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/floor-plan/floor-plan-grid.ts">
+    <item priority="high">
+      export const MIN_GRID_CELL_PX: unknown;
+    </item>
+    <item priority="high">
+      export function floorPlanGridStyle({
+        readOnly,
+        scale,
+      }: {
+        readOnly: boolean;
+        scale: number;
+      }): Pick<CSSProperties, "backgroundImage" | "backgroundSize"> | undefined { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/floor-plan/floor-textures.ts">
     <item priority="high">
       export const FLOOR_TEXTURE_DIR: unknown;
@@ -5271,7 +5285,7 @@
         fontSize: number;
         width: number;
         height: number;
-        ellipsis: false;
+        glyphSize: number;
       }
     </item>
     <item priority="high">
@@ -5300,13 +5314,49 @@
         fontSize: number;
         width: number;
         height: number;
+        glyphSize: number;
       }
     </item>
     <item priority="medium">
-      function plateFor(lines: readonly string[], fontSize: number): Plate { /* ... */ }
+      function plateFor(lines: readonly string[], fontSize: number, withGlyph: boolean): Plate { /* ... */ }
     </item>
     <item priority="high">
       export function tableLabelLayout(input: TableLabelInput): TableLabelLayout { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/floor-plan/table-status-glyph.ts">
+    <item priority="low">
+      type StatusGlyphKey = TableDisplayStatus | "inactive";
+    </item>
+    <item priority="high">
+      export const STATUS_GLYPH_KEYS: readonly StatusGlyphKey[];
+    </item>
+    <item priority="high">
+      export const GLYPH_VIEWBOX: unknown;
+    </item>
+    <item priority="high">
+      export const GLYPH_STROKE_WIDTH: unknown;
+    </item>
+    <item priority="low">
+      interface StatusGlyph {
+        path: string;
+        filled: boolean;
+      }
+    </item>
+    <item priority="high">
+      export const STATUS_GLYPHS: Readonly<Record<StatusGlyphKey, StatusGlyph>>;
+    </item>
+    <item priority="high">
+      export const STATUS_LABEL_KEY: unknown;
+    </item>
+    <item priority="high">
+      export function glyphKeyFor(
+        status: TableDisplayStatus | undefined,
+        isActive: boolean
+      ): StatusGlyphKey | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function statusFillToken(key: StatusGlyphKey): string { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/floor-plan/table-status.ts">
@@ -7496,6 +7546,57 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="apps/gen/src/lib/dialog-controls.ts">
+    <item priority="low">
+      interface DialogControl {
+        initialOpen: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface ButtonControl {
+        kind: "open" | "close";
+        dialogKey: string;
+      }
+    </item>
+    <item priority="low">
+      interface DialogPlan {
+        dialogs: Record<string, DialogControl>;
+        buttons: Record<string, ButtonControl>;
+      }
+    </item>
+    <item priority="high">
+      interface GenElement {
+        type?: string;
+        props?: Record<string, unknown>;
+        children?: string[];
+        slots?: Record<string, string[]>;
+      }
+    </item>
+    <item priority="medium">
+      function elementsOf(spec: Spec | null): Record<string, GenElement> | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function childKeys(element: GenElement | undefined): string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function labelOf(element: GenElement): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isButton(element: GenElement | undefined): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function wantsClose(label: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function wantsOpen(label: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function findDialog(elements: Record<string, GenElement>, key: string): string | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function planDialogControls(spec: Spec | null): DialogPlan { /* ... */ }
+    </item>
+  </file>
   <file path="apps/gen/src/lib/entry-kind.ts">
     <item priority="high">
       export function resolveEntry(entry: Pick<StoredSpec, "prompt" | "kind">): {
@@ -7531,6 +7632,25 @@
     </item>
     <item priority="medium">
       function linkOrphans(spec: Spec, elements: Record<string, GenElement>): Record<string, GenElement> { /* ... */ }
+    </item>
+    <item priority="high">
+      interface Point {
+        label: string;
+        value: number | string;
+      }
+    </item>
+    <item priority="medium">
+      function asPoints(value: unknown): Point[] | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function chartProps(props: unknown): { label: string; data: Point[] } | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function repairImage(
+        key: string,
+        element: GenElement | undefined,
+        elements: Record<string, GenElement>
+      ): boolean { /* ... */ }
     </item>
     <item priority="medium">
       function prepareTree(spec: Spec): Spec { /* ... */ }
@@ -7601,6 +7721,9 @@
     </item>
     <item priority="high">
       export function shortcutKeys(id: string, mac?: boolean): string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function altHeld(event: KeyboardEvent): boolean { /* ... */ }
     </item>
     <item priority="medium">
       function mainKeyMatches(token: string, event: KeyboardEvent, usesAlt: boolean): boolean { /* ... */ }
@@ -7674,7 +7797,32 @@
       type CatalogValidation = { ok: true } | { ok: false; message: string };
     </item>
     <item priority="high">
+      export function readableCatalogMessage(message: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function receivedFrom(message: string): string | null { /* ... */ }
+    </item>
+    <item priority="high">
       export function validateSpecAgainstCatalog(spec: Spec): CatalogValidation { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/gen/src/lib/visible-content.ts">
+    <item priority="high">
+      interface GenElement {
+        type?: string;
+        props?: Record<string, unknown>;
+        children?: string[];
+        slots?: Record<string, string[]>;
+      }
+    </item>
+    <item priority="medium">
+      function childKeys(element: GenElement): string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function cardHasWords(element: GenElement): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function specHasVisibleContent(spec: Spec | null): boolean { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/lib/describe-api-error.ts">
@@ -8799,6 +8947,12 @@
   <section priority="medium" role="pages">
   <file path="apps/gen/src/pages/classifyGenerationError.ts">
     <item priority="high">
+      export function isTimeoutError(error: Error): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function describeTimeoutError(error: Error): string | null { /* ... */ }
+    </item>
+    <item priority="high">
       export function isTransportError(error: Error): boolean { /* ... */ }
     </item>
     <item priority="medium">
@@ -9800,6 +9954,14 @@
       export const genAgentRoutes: unknown;
     </item>
   </file>
+  <file path="services/agent/src/routes/gen-json-elements.ts">
+    <item priority="high">
+      export function completeJsonElements(buffer: string): unknown[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function endOfObject(buffer: string, start: number): number { /* ... */ }
+    </item>
+  </file>
   <file path="services/agent/src/routes/gen-route-factory.ts">
     <item priority="low">
       interface GenRouteConfig {
@@ -9815,6 +9977,9 @@
     </item>
     <item priority="medium">
       function emptyOutputError(): Error & { statusCode: number } { /* ... */ }
+    </item>
+    <item priority="medium">
+      function generationFailureMessage(err: unknown): string { /* ... */ }
     </item>
     <item priority="medium">
       function toError(err: unknown): Error & { statusCode: number } { /* ... */ }
@@ -9871,7 +10036,8 @@
     <item priority="low">
       async function handleToolCall(
         event: { toolCallId: string; toolName: string; input: unknown },
-        onEvent: GenEventCallback
+        onEvent: GenEventCallback,
+        alreadyEmitted = 0
       ): Promise<void> { /* ... */ }
     </item>
   </file>
@@ -20305,6 +20471,9 @@
         problemType: string;
         retryAfterSeconds: number;
       }
+    </item>
+    <item priority="medium">
+      function parseLine(line: string): unknown { /* ... */ }
     </item>
     <item priority="high">
       export async function* streamNDJSON<T>(config: StreamConfig): AsyncGenerator<T> { /* ... */ }

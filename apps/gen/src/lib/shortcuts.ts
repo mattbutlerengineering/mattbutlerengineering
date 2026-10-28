@@ -118,11 +118,23 @@ export function shortcutKeys(id: string, mac?: boolean): string[] {
   return displayKeys(def, mac);
 }
 
+function altHeld(event: KeyboardEvent): boolean {
+  if (event.altKey) return true;
+  // Linux Chrome sometimes reports the Alt combo with altKey unset while
+  // getModifierState still sees Alt. Matching only altKey drops Alt+1.
+  return typeof event.getModifierState === "function" && event.getModifierState("Alt");
+}
+
 function mainKeyMatches(token: string, event: KeyboardEvent, usesAlt: boolean): boolean {
   if (token === "Esc") return event.key === "Escape";
-  // With Alt held, macOS rewrites event.key (Option+F -> a symbol), so match the
-  // physical key via event.code instead.
-  if (usesAlt) return event.code === (/^\d$/.test(token) ? `Digit${token}` : `Key${token}`);
+  const code = /^\d$/.test(token) ? `Digit${token}` : `Key${token}`;
+  // Alt rewrites event.key (Option+F is a symbol on macOS; some Linux layouts
+  // do the same). The physical key is event.code. When code is empty, the
+  // unmodified character in event.key is the fallback.
+  if (usesAlt) {
+    if (event.code === code) return true;
+    return event.key.length === 1 && event.key.toUpperCase() === token.toUpperCase();
+  }
   return event.key === token;
 }
 
@@ -134,7 +146,7 @@ export function matchShortcut(event: KeyboardEvent): ShortcutAction | null {
     const token = def.keys[def.keys.length - 1];
     if (token === undefined) continue;
     const usesAlt = def.keys.includes("Alt");
-    if (event.altKey !== usesAlt) continue;
+    if (altHeld(event) !== usesAlt) continue;
     // Bare keys like "?" are shifted on many layouts, so only require Shift
     // to match when the binding is an Alt combo.
     if (usesAlt && event.shiftKey !== def.keys.includes("Shift")) continue;

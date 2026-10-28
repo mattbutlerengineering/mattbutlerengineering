@@ -385,7 +385,7 @@
             const raised = err instanceof Error ? err : new Error(String(err));
             // Swap in limit-specific copy but keep the status fields, so the
             // result still classifies as a transport failure.
-            const limitCopy = describeLimitError(raised);
+            const limitCopy = describeLimitError(raised) ?? describeTimeoutError(raised);
             const error = limitCopy ? Object.assign(new Error(limitCopy), { ...raised }) : raised;
             setError(error);
             setIsStreaming(false);
@@ -924,6 +924,125 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="src/lib/dialog-controls.ts">
+    export interface DialogControl {
+      initialOpen: boolean;
+    }
+    export interface ButtonControl {
+      kind: "open" | "close";
+      dialogKey: string;
+    }
+    export interface DialogPlan {
+      dialogs: Record<string, DialogControl>;
+      buttons: Record<string, ButtonControl>;
+    }
+    interface GenElement {
+      type?: string;
+      props?: Record<string, unknown>;
+      children?: string[];
+      slots?: Record<string, string[]>;
+    }
+    function elementsOf(spec: Spec | null): Record<string, GenElement> | null {
+      if (!spec?.root || !spec.elements) return null;
+      return spec.elements as Record<string, GenElement>;
+    }
+    function childKeys(element: GenElement | undefined): string[] {
+      if (!element) return [];
+      const keys = [...(element.children ?? [])];
+      for (const slot of Object.values(element.slots ?? {})) {
+        if (!Array.isArray(slot)) continue;
+        for (const key of slot) if (typeof key === "string") keys.push(key);
+      }
+      return keys;
+    }
+    function labelOf(element: GenElement): string {
+      const props = element.props ?? {};
+      return [props.label, props.children, props["aria-label"], props.text]
+        .filter((part): part is string => typeof part === "string")
+        .join(" ");
+    }
+    function isButton(element: GenElement | undefined): boolean {
+      return element?.type === "Button" || element?.type === "IconButton";
+    }
+    function wantsClose(label: string): boolean {
+      return /\bclose\b/i.test(label);
+    }
+    function wantsOpen(label: string): boolean {
+      return /\bopen\b/i.test(label);
+    }
+    function findDialog(elements: Record<string, GenElement>, key: string): string | null {
+      const element = elements[key];
+      if (!element) return null;
+      if (element.type === "Dialog") return key;
+      for (const child of childKeys(element)) {
+        const found = findDialog(elements, child);
+        if (found) return found;
+      }
+      return null;
+    }
+    export function planDialogControls(spec: Spec | null): DialogPlan {
+      const elements = elementsOf(spec);
+      if (!elements || !spec?.root) return EMPTY;
+    
+      const parent = new Map<string, string>();
+      const walk = (key: string) => {
+        for (const child of childKeys(elements[key])) {
+          if (parent.has(child)) continue;
+          parent.set(child, key);
+          walk(child);
+        }
+      };
+      walk(spec.root);
+    
+      const nearestDialog = (key: string): string | null => {
+        let current = parent.get(key);
+        while (current) {
+          if (elements[current]?.type === "Dialog") return current;
+          current = parent.get(current);
+        }
+        return null;
+      };
+    
+      const buttons: Record<string, ButtonControl> = {};
+      const opened = new Set<string>();
+    
+      for (const [key, element] of Object.entries(elements)) {
+        if (!isButton(element)) continue;
+        const label = labelOf(element);
+        const ancestor = nearestDialog(key);
+        if (wantsClose(label) && ancestor) {
+          buttons[key] = { kind: "close", dialogKey: ancestor };
+          continue;
+        }
+        const parentKey = parent.get(key);
+        const siblings = childKeys(parentKey ? elements[parentKey] : undefined);
+        const index = siblings.indexOf(key);
+        let target: string | null = null;
+        if (wantsOpen(label)) {
+          for (const sibling of siblings.slice(index + 1)) {
+            target = findDialog(elements, sibling);
+            if (target) break;
+          }
+        } else if (index >= 0) {
+          const next = siblings[index + 1];
+          if (next && elements[next]?.type === "Dialog") target = next;
+        }
+        if (target) {
+          buttons[key] = { kind: "open", dialogKey: target };
+          opened.add(target);
+        }
+      }
+    
+      const dialogs: Record<string, DialogControl> = {};
+      for (const [key, element] of Object.entries(elements)) {
+        if (element.type !== "Dialog") continue;
+        const literalOpen = element.props?.open === true;
+        dialogs[key] = { initialOpen: opened.has(key) ? false : literalOpen };
+      }
+    
+      return { dialogs, buttons };
+    }
+  </file>
   <file path="src/lib/entry-kind.ts">
     export function resolveEntry(entry: Pick<StoredSpec, "prompt" | "kind">): {
       kind: EntryKind;
@@ -1010,6 +1129,65 @@
         [spec.root]: { ...root, children: [...(root.children ?? []), ...attach] },
       };
     }
+    interface Point {
+      label: string;
+      value: number | string;
+    }
+    function asPoints(value: unknown): Point[] | null {
+      if (!Array.isArray(value) || value.length === 0) return null;
+      const points: Point[] = [];
+      for (const item of value) {
+        if (item === null || typeof item !== "object") return null;
+        const record = item as Record<string, unknown>;
+        const label = record.label ?? record.x ?? record.name;
+        const amount = record.value ?? record.y;
+        if (typeof label !== "string") return null;
+        if (typeof amount !== "number" && typeof amount !== "string") return null;
+        points.push({ label, value: amount });
+      }
+      return points;
+    }
+    function chartProps(props: unknown): { label: string; data: Point[] } | null {
+      if (props === null || typeof props !== "object") return null;
+      const record = props as Record<string, unknown>;
+      const data = asPoints(record.data ?? record.points ?? record.series);
+      if (!data) return null;
+      const label =
+        typeof record.label === "string" && record.label.trim() !== "" ? record.label : "Trend";
+      return { label, data };
+    }
+    function repairImage(
+      key: string,
+      element: GenElement | undefined,
+      elements: Record<string, GenElement>
+    ): boolean {
+      if (!element || (element.type !== "Image" && element.type !== "Img")) return false;
+      const props = (element.props ?? {}) as Record<string, unknown>;
+      const alt =
+        (typeof props.alt === "string" && props.alt.trim() !== "" ? props.alt : null) ??
+        (typeof props.name === "string" && props.name.trim() !== "" ? props.name : null) ??
+        "Image";
+      const src = typeof props.src === "string" ? props.src : undefined;
+      const avatarKey = `${key}__avatar`;
+      const captionKey = `${key}__caption`;
+      elements[key] = {
+        ...element,
+        type: "Stack",
+        props: { direction: "column", gap: "xs" },
+        children: [avatarKey, captionKey],
+      };
+      elements[avatarKey] = {
+        type: "Avatar",
+        props: { src, name: alt.slice(0, 30), alt },
+        children: [],
+      };
+      elements[captionKey] = {
+        type: "Text",
+        props: { children: alt, variant: "caption" },
+        children: [],
+      };
+      return true;
+    }
     function prepareTree(spec: Spec): Spec {
       const source = elementsOf(spec);
       let changed = false;
@@ -1024,6 +1202,7 @@
       return { ...spec, elements: linked as Spec["elements"] };
     }
     export function normalizeGeneratedSpec(spec: Spec): Spec {
+      if (!spec.elements) return spec;
       const prepared = prepareTree(spec);
       let changed = prepared !== spec;
       const elements: Record<string, GenElement> = { ...elementsOf(prepared) };
@@ -1045,6 +1224,17 @@
           type: "BarChart",
           props: { label: "Trend", data: points },
         };
+      }
+      for (const [key, element] of Object.entries(elements)) {
+        if (!element) continue;
+        if (CHART_ALIASES.has(element.type)) {
+          const chart = chartProps(element.props);
+          if (!chart) continue;
+          changed = true;
+          elements[key] = { ...element, type: "BarChart", props: chart };
+          continue;
+        }
+        if (repairImage(key, element, elements)) changed = true;
       }
       return changed ? { ...prepared, elements: elements as Spec["elements"] } : prepared;
     }
@@ -1215,11 +1405,22 @@
       if (!def) throw new Error(`Unknown shortcut: ${id}`);
       return displayKeys(def, mac);
     }
+    function altHeld(event: KeyboardEvent): boolean {
+      if (event.altKey) return true;
+      // Linux Chrome sometimes reports the Alt combo with altKey unset while
+      // getModifierState still sees Alt. Matching only altKey drops Alt+1.
+      return typeof event.getModifierState === "function" && event.getModifierState("Alt");
+    }
     function mainKeyMatches(token: string, event: KeyboardEvent, usesAlt: boolean): boolean {
       if (token === "Esc") return event.key === "Escape";
-      // With Alt held, macOS rewrites event.key (Option+F -> a symbol), so match the
-      // physical key via event.code instead.
-      if (usesAlt) return event.code === (/^\d$/.test(token) ? `Digit${token}` : `Key${token}`);
+      const code = /^\d$/.test(token) ? `Digit${token}` : `Key${token}`;
+      // Alt rewrites event.key (Option+F is a symbol on macOS; some Linux layouts
+      // do the same). The physical key is event.code. When code is empty, the
+      // unmodified character in event.key is the fallback.
+      if (usesAlt) {
+        if (event.code === code) return true;
+        return event.key.length === 1 && event.key.toUpperCase() === token.toUpperCase();
+      }
       return event.key === token;
     }
     export function matchShortcut(event: KeyboardEvent): ShortcutAction | null {
@@ -1229,7 +1430,7 @@
         const token = def.keys[def.keys.length - 1];
         if (token === undefined) continue;
         const usesAlt = def.keys.includes("Alt");
-        if (event.altKey !== usesAlt) continue;
+        if (altHeld(event) !== usesAlt) continue;
         // Bare keys like "?" are shifted on many layouts, so only require Shift
         // to match when the binding is an Alt combo.
         if (usesAlt && event.shiftKey !== def.keys.includes("Shift")) continue;
@@ -1349,18 +1550,100 @@
   </file>
   <file path="src/lib/validate-spec.ts">
     export type CatalogValidation = { ok: true } | { ok: false; message: string };
+    export function readableCatalogMessage(message: string): string {
+      const jsonAt = message.indexOf("{");
+      if (jsonAt === -1) return message.length > 280 ? `${message.slice(0, 260)}…` : message;
+      const prefix = message.slice(0, jsonAt).replace(/:\s*$/, "").trim();
+      try {
+        const issue = JSON.parse(message.slice(jsonAt)) as {
+          path?: unknown;
+          message?: unknown;
+          received?: unknown;
+        };
+        const path = Array.isArray(issue.path) ? issue.path.map(String) : [];
+        const received =
+          typeof issue.received === "string"
+            ? issue.received
+            : receivedFrom(typeof issue.message === "string" ? issue.message : "");
+        if (path[path.length - 1] === "type" && received) {
+          return `unknown component "${received}". Charts use BarChart.`;
+        }
+        if (
+          typeof issue.message === "string" &&
+          issue.message.length > 0 &&
+          issue.message.length < 160
+        ) {
+          return prefix ? `${prefix}: ${issue.message}` : issue.message;
+        }
+      } catch {
+        // Not a JSON issue. Fall through to a clipped copy of the original.
+      }
+      const clipped = message.length > 280 ? `${message.slice(0, 260)}…` : message;
+      return prefix && clipped.startsWith("{") ? `${prefix}.` : clipped;
+    }
+    function receivedFrom(message: string): string | null {
+      const match = /received ['"]([^'"]+)['"]/i.exec(message);
+      return match?.[1] ?? null;
+    }
     export function validateSpecAgainstCatalog(spec: Spec): CatalogValidation {
       const result = catalog.validate(spec);
       if (result.success) return { ok: true };
-      return {
-        ok: false,
-        message: result.error?.message ?? "Spec does not conform to the Rialto catalog",
+      const raw = result.error?.message ?? "Spec does not conform to the Rialto catalog";
+      return { ok: false, message: readableCatalogMessage(raw) };
+    }
+  </file>
+  <file path="src/lib/visible-content.ts">
+    interface GenElement {
+      type?: string;
+      props?: Record<string, unknown>;
+      children?: string[];
+      slots?: Record<string, string[]>;
+    }
+    function childKeys(element: GenElement): string[] {
+      const keys = [...(element.children ?? [])];
+      for (const slot of Object.values(element.slots ?? {})) {
+        if (!Array.isArray(slot)) continue;
+        for (const key of slot) if (typeof key === "string") keys.push(key);
+      }
+      return keys;
+    }
+    function cardHasWords(element: GenElement): boolean {
+      const props = element.props ?? {};
+      return [props.title, props.subtitle, props.children].some(
+        (value) => typeof value === "string" && value.trim() !== ""
+      );
+    }
+    export function specHasVisibleContent(spec: Spec | null): boolean {
+      if (!spec?.root || !spec.elements) return false;
+      const elements = spec.elements as Record<string, GenElement>;
+      const seen = new Set<string>();
+    
+      const walk = (key: string): boolean => {
+        if (seen.has(key)) return false;
+        const element = elements[key];
+        if (!element?.type) return false;
+        seen.add(key);
+        if (element.type === "Card") {
+          if (cardHasWords(element)) return true;
+          return childKeys(element).some(walk);
+        }
+        if (!LAYOUT.has(element.type)) return true;
+        return childKeys(element).some(walk);
       };
+    
+      return walk(spec.root);
     }
   </file>
   </section>
   <section priority="medium" role="pages">
   <file path="src/pages/classifyGenerationError.ts">
+    export function isTimeoutError(error: Error): boolean {
+      return statusOf(error) === 504;
+    }
+    export function describeTimeoutError(error: Error): string | null {
+      if (!isTimeoutError(error)) return null;
+      return "Generation timed out before a UI came back. Your prompt is still in the box — try again, or ask for something smaller.";
+    }
     export function isTransportError(error: Error): boolean {
       return (
         error instanceof TypeError ||
@@ -1554,6 +1837,10 @@
       const { push: pushDiff, clear: clearDiffs } = diffHistory;
       const [lastChange, setLastChange] = useState<SpecDiff | null>(null);
       const [interruptedPrompt] = useState(() => readInterruptedPrompt());
+      // A history row picked while a generation is still streaming. The finished
+      // run still saves, but it must not replace what the user is looking at.
+      const [heldId, setHeldId] = useState<string | null>(null);
+      const heldIdRef = useRef<string | null>(null);
       const noticedInterruptedRef = useRef(false);
     
       useEffect(() => {
@@ -1585,6 +1872,9 @@
             }
             savedSpec = spliced.spec;
             const before = extractSubtree(nodeRefine.base, nodeRefine.key);
+            // A row picked mid-stream stays on screen: the refine is saved, but its
+            // diff is not pushed onto the undo stack of a spec the user isn't viewing.
+            const held = heldIdRef.current !== null;
             if (before) {
               refinement = {
                 parentId: nodeRefine.parentId,
@@ -1592,11 +1882,13 @@
                 before,
                 after: completedSpec,
               };
-              pushDiff(refinement);
-              setLastChange(refinement);
+              if (!held) {
+                pushDiff(refinement);
+                setLastChange(refinement);
+              }
             }
             nodeRefineRef.current = null;
-            setPinnedSpec(savedSpec);
+            if (!held) setPinnedSpec(savedSpec);
           }
           if (!nodeRefine) {
             // A full generation is checked with the same validator as a refine.
@@ -1604,7 +1896,8 @@
             // The streamed spec stays on screen (activeId stays null) next to the
             // error affordance, and the attempt is recorded as "failed" in history,
             // the same as a stream failure, rather than saved as a success.
-            const validation = validateSpecAgainstCatalog(completedSpec);
+            savedSpec = normalizeGeneratedSpec(completedSpec);
+            const validation = validateSpecAgainstCatalog(savedSpec);
             if (!validation.ok) {
               setValidationError(
                 new Error(`The generated UI is not valid Rialto: ${validation.message}`)
@@ -1634,7 +1927,7 @@
             refinement,
           })
             .then((stored) => {
-              setActiveId(stored.id);
+              setActiveId((current) => (heldIdRef.current ? current : stored.id));
               setPinnedSpec(null);
             })
             .finally(() => {
@@ -1652,7 +1945,7 @@
         // the stash before the next page could read it. The key stays until the
         // generation succeeds or the user stops it.
         onError: (err) => {
-          if (!rawPrompt || isTransportError(err)) return;
+          if (!rawPrompt || (isTransportError(err) && !isTimeoutError(err))) return;
           void saveSpec({
             prompt: rawPrompt,
             kind: "failed",
@@ -1671,12 +1964,16 @@
       const activeEntrySpec = activeEntry ? (decodeSpec(activeEntry.spec) ?? undefined) : undefined;
       const activeEntryRawLines = activeEntry?.rawLines ?? [];
     
-      const displaySpec = pinnedSpec ?? (isStreaming ? spec : (activeEntrySpec ?? spec));
-      const displayRawLines = isStreaming
-        ? rawLines
-        : activeEntryRawLines.length > 0
-          ? activeEntryRawLines
-          : rawLines;
+      const showingHeld = heldId !== null && activeId === heldId && activeEntrySpec !== undefined;
+      const displaySpec =
+        pinnedSpec ?? (showingHeld ? activeEntrySpec : isStreaming ? spec : (activeEntrySpec ?? spec));
+      const displayRawLines = showingHeld
+        ? activeEntryRawLines
+        : isStreaming
+          ? rawLines
+          : activeEntryRawLines.length > 0
+            ? activeEntryRawLines
+            : rawLines;
       // useGenStream flips isStreaming to false in the same batch it sets error,
       // so gating on isStreaming here would mean the error is never visible —
       // only relevant while we're not looking at a previously saved entry.
@@ -1689,7 +1986,7 @@
           : activeEntry?.kind === "failed"
             ? FAILED_ENTRY_ERROR
             : null;
-      const activeSpecId = !isStreaming && activeId ? activeId : null;
+      const activeSpecId = heldId ?? (!isStreaming && activeId ? activeId : null);
       // Only the live generation's failure restores rawPrompt; a selected history
       // entry's failure is unrelated to whatever was last typed.
       const failedPrompt = activeId === null && displayError ? rawPrompt : null;
@@ -1718,6 +2015,8 @@
           // send() ignores a request while one is in flight; abort the old one first
           // so it never completes under this prompt.
           if (isStreaming) stop();
+          heldIdRef.current = null;
+          setHeldId(null);
           rememberPendingPrompt(prompt);
           setRawPrompt(prompt);
           clearNodeRefine();
@@ -1883,10 +2182,29 @@
     
       const selectHistory = useCallback(
         (id: string) => {
-          if (isStreaming) return;
+          // Looking at an earlier result while a long generation runs is the
+          // useful action. Ignoring the click makes the row look broken, and
+          // letting the save steal the row throws away the choice. The run still
+          // lands in history either way.
+          if (isStreaming) {
+            heldIdRef.current = id;
+            setHeldId(id);
+            if (nodeRefineRef.current) {
+              // A node refine in flight must still splice into its base and save
+              // its diff, so keep it (resetTo would clear it). Only release the
+              // pinned base so the picked row shows.
+              setPinnedSpec(null);
+              setActiveId(id);
+              exitRefinement();
+              return;
+            }
+          } else {
+            heldIdRef.current = null;
+            setHeldId(null);
+          }
           resetTo(id);
         },
-        [isStreaming, resetTo]
+        [isStreaming, resetTo, exitRefinement]
       );
     
       // Clear the underlying error/spec/rawLines too, not just activeId/mode —
@@ -1895,6 +2213,8 @@
       // click / sign-out "New Generation" action doesn't show the empty state.
       const reset = useCallback(() => {
         clearPendingPrompt();
+        heldIdRef.current = null;
+        setHeldId(null);
         clear();
         resetTo(null);
       }, [clear, resetTo]);

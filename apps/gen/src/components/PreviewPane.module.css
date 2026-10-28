@@ -18,10 +18,13 @@
 /* Viewport toolbar — always visible when content exists */
 .viewportBar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
+  gap: var(--rialto-space-xs);
   padding-block: var(--rialto-space-xs);
   flex-shrink: 0;
+  max-inline-size: 100%;
 }
 
 /* Renderer container — centers the viewport frame */
@@ -188,14 +191,14 @@
    Download JSON, Copy JSON and Expand/Collapse at once. */
 .actionBar {
   display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
+  flex-flow: row wrap;
   align-items: center;
   gap: var(--rialto-space-sm);
   padding-block-end: var(--rialto-space-sm);
   margin-block-end: var(--rialto-space-sm);
   border-block-end: 1px solid var(--rialto-border);
   flex-shrink: 0;
+  max-inline-size: 100%;
 }
 
 .specStats {
@@ -230,13 +233,28 @@
   }
 }
 
+.emptyResult {
+  max-inline-size: min(36rem, 100%);
+  margin-inline: auto;
+  padding: var(--rialto-space-lg);
+  overflow-wrap: anywhere;
+}
+
 /* Error state */
 .errorState {
   display: flex;
   flex-direction: column;
   gap: var(--rialto-space-md);
   padding: var(--rialto-space-lg);
-  max-inline-size: 480px;
+  max-inline-size: min(480px, 100%);
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.errorState * {
+  overflow-wrap: anywhere;
+  min-inline-size: 0;
+  max-inline-size: 100%;
 }
 
 /* Select mode — node wrappers add no box; the outline sits on the rendered child */

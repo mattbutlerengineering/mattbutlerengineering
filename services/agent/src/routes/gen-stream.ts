@@ -42,7 +42,12 @@ export const GEN_PRICING = (() => {
  * Per-request output-token ceiling. App-level limits are the only exact spend
  * cap (#6948). Thinking tokens bill as output and count against it.
  */
-export const GEN_MAX_OUTPUT_TOKENS = 2048;
+/**
+ * A 50-field form is a few thousand tokens of JSON. 2048 (shared with
+ * thinking) truncated it or sat until the gateway timed out. Thinking is
+ * disabled on the gen runner, so this budget is for the tool call itself.
+ */
+export const GEN_MAX_OUTPUT_TOKENS = 4096;
 
 /**
  * The cache-controlled system prompt for `streamText`'s `instructions` option.

@@ -472,7 +472,16 @@
       "emptyTitle": "No tables on this floor plan",
       "emptyNote": "Add tables from the sidebar",
       "moved": "{{name}} moved to {{x}}, {{y}}",
-      "tableAria": "Table {{label}}"
+      "tableAria": "Table {{label}}",
+      "tableAriaWithStatus": "Table {{label}}, {{status}}"
+    },
+    "statusLegend": {
+      "title": "Table status",
+      "available": "Available",
+      "reservedSoon": "Reserved soon",
+      "seated": "Seated",
+      "needsBussing": "Needs bussing",
+      "inactive": "Inactive"
     },
     "tableStatus": {
       "available": "Available",

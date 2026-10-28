@@ -13,6 +13,7 @@ import type { CommandItem } from "@mattbutlerengineering/rialto";
 import { useAuth } from "@mbe/auth/react";
 import { useTheme } from "../contexts/ThemeContext.js";
 import { usePanelLayout } from "../hooks/usePanelLayout.js";
+import { shortcutKeys } from "../lib/shortcuts.js";
 import { HelpButton } from "./KeyboardShortcuts.js";
 import styles from "./AppShell.module.css";
 
@@ -196,7 +197,7 @@ export function AppShell({
                 </Text>
                 <Text className={styles.logoText}>Gen Playground</Text>
               </Button>
-              <Shortcut keys={["⌘", "K"]} className={styles.shortcutHint} />
+              <Shortcut keys={shortcutKeys("palette")} className={styles.shortcutHint} />
             </div>
           }
           actions={

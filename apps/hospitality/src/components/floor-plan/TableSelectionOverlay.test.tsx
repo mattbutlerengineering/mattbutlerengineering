@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Table } from "@mbe/types";
 import { TableSelectionOverlay } from "./TableSelectionOverlay.js";
+import type { TableDisplayStatus } from "./table-status.js";
 
 function makeTable(id: string, name: string, overrides: Partial<Table> = {}): Table {
   return {
@@ -101,6 +102,65 @@ describe("TableSelectionOverlay", () => {
     );
     expect(screen.getByRole("button", { name: /T1/ })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: /T2/ })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  describe("status in the accessible name (#7844)", () => {
+    it("names the status, so the canvas glyph need not be announced", () => {
+      render(
+        <TableSelectionOverlay
+          tables={[TABLE_A, TABLE_B]}
+          scale={1}
+          selectedTableId={null}
+          onSelect={vi.fn()}
+          tableStatuses={
+            new Map<string, TableDisplayStatus>([
+              ["t1", "needs-bussing"],
+              ["t2", "reserved-soon"],
+            ])
+          }
+        />
+      );
+      expect(screen.getByRole("button", { name: "Table T1, Needs bussing" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Table T2, Reserved soon" })).toBeInTheDocument();
+    });
+
+    it("names an inactive table as inactive, whatever its status", () => {
+      render(
+        <TableSelectionOverlay
+          tables={[makeTable("t5", "Five", { isActive: false })]}
+          scale={1}
+          selectedTableId={null}
+          onSelect={vi.fn()}
+          tableStatuses={new Map<string, TableDisplayStatus>([["t5", "seated"]])}
+        />
+      );
+      expect(screen.getByRole("button", { name: "Table T5, Inactive" })).toBeInTheDocument();
+    });
+
+    it("leaves a table missing from a supplied map unlabelled, not 'available'", () => {
+      render(
+        <TableSelectionOverlay
+          tables={[TABLE_A]}
+          scale={1}
+          selectedTableId={null}
+          onSelect={vi.fn()}
+          tableStatuses={new Map()}
+        />
+      );
+      expect(screen.getByRole("button", { name: "Table T1" })).toBeInTheDocument();
+    });
+
+    it("leaves the name unchanged when no statuses are supplied", () => {
+      render(
+        <TableSelectionOverlay
+          tables={[TABLE_A]}
+          scale={1}
+          selectedTableId={null}
+          onSelect={vi.fn()}
+        />
+      );
+      expect(screen.getByRole("button", { name: "Table T1" })).toBeInTheDocument();
+    });
   });
 
   it("positions each button at the table's scaled canvas coordinates", () => {
