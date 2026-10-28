@@ -29566,7 +29566,7 @@
         ...pageLines(ctx),
         "Never ask the user for a venue ID, reservation ID, or table ID: look them up with the tools.",
         "Your earlier replies in this conversation were based on tool results that aren't shown to you again. Treat them as accurate: don't apologize for or correct them unless a new tool result actually contradicts them. When you need an earlier detail, such as an ID, look it up again.",
-        "A change (booking, walk-in, cancellation, table status, Tonight availability) runs only when the user presses the Confirm or Cancel button the chat shows with it. Tell them to use those buttons, and never ask them to type yes: typing a new message dismisses the pending change.",
+        "A change (booking, walk-in, cancellation, table status, Tonight availability, waitlist) runs only when the user presses the Confirm or Cancel button the chat shows with it. Tell them to use those buttons, and never ask them to type yes: typing a new message dismisses the pending change.",
         "Ask only for details the user has to decide, such as guest name, party size, or time. When a reservation's end time isn't given, use two hours after the start.",
         "Reply in short, plain sentences in the user's language. Don't use markdown: the chat shows plain text.",
         "Show elements only by calling render_component with an elements array: each element has a unique id, a type from the components below, its props, and children as a list of other elements' ids; an element no other element lists is shown at the top level. Never write JSON, element specs or patch lines in your reply text.",
@@ -29583,7 +29583,8 @@
         'Tables move AVAILABLE (free) → OCCUPIED (seated) → DIRTY (needs bussing) → READY (cleaned) → AVAILABLE. Only an AVAILABLE table can be seated, so a READY table must be reset to AVAILABLE first. When staff say a table is "clean", that means READY. Describe statuses to staff in plain words, not capitals.',
         "For tonight's availability, use change_tonight_availability to pause online booking, close early, stop a time window, block tables, or set pacing; it lasts until the service day ends. Call list_tonight_changes before end_tonight_change or undo_availability_change, and pass undo_availability_change the summary exactly as listed. When a change affects existing bookings, tell the user to finish it on the Availability page.",
         "You can't add closures, special hours, or schedule changes for other days. Say so plainly and point the user to the Availability page.",
-        "You can't manage the waitlist, deposits, or menus yet. Say so plainly and point the user to that page in the dashboard.",
+        "Read the waitlist with list_waitlist. To seat a waiting party use seat_waitlist_party, not seat_walk_in, so they also leave the waitlist. Parties are named by guest name; when two share a name, ask for the party size.",
+        "You can't manage deposits or menus yet. Say so plainly and point the user to that page in the dashboard.",
         "",
         ctx.catalogPrompt,
       ].join("\n");
@@ -30123,8 +30124,216 @@
         }),
     
         ...createAvailabilityTools(log, api, { venueId, timeZone }),
+        ...createWaitlistTools(log, api, { venueId, timeZone }),
       };
       return gateWriteTools(tools, log, options.confirmedAction);
+    }
+  </file>
+  <file path="services/agent/src/routes/gen-agent-waitlist-tools.ts">
+    type WaitlistEntry = Awaited<ReturnType<ApiClient["waitlist"]["list"]>>[number];
+    function waitlistFailure(err: unknown, action: string) {
+      const refusal = refusalOf(err);
+      if (!refusal) {
+        return {
+          error: `Couldn't ${action} right now. Nothing was changed. Ask the user to try again.`,
+        };
+      }
+      if (refusal.status === 403) {
+        return {
+          refused: true,
+          error: "The user doesn't have permission to do this. Nothing was changed.",
+        };
+      }
+      return { refused: true, error: `${refusal.detail} Nothing was changed.` };
+    }
+    async function findParty(
+      api: ApiClient,
+      venueId: string,
+      guestName: string,
+      partySize: number | undefined
+    ): Promise<{ entry: WaitlistEntry } | { error: string }> {
+      const entries = await api.waitlist.list(venueId);
+      const name = guestName.trim().toLowerCase();
+      const named = entries.filter(
+        (e) => ACTIVE_STATUSES.has(e.status) && e.guestName.trim().toLowerCase() === name
+      );
+      const matches = partySize === undefined ? named : named.filter((e) => e.partySize === partySize);
+      if (matches.length === 1) return { entry: matches[0]! };
+      if (matches.length === 0) {
+        return {
+          error: `No party called ${guestName} is waiting${partySize ? ` with ${partySize} guests` : ""}.`,
+        };
+      }
+      const sizes = matches.map((e) => e.partySize).join(" and ");
+      return {
+        error: `${matches.length} waiting parties are called ${guestName} (party sizes ${sizes}). Ask which one, by party size.`,
+      };
+    }
+    export function createWaitlistTools(
+      log: FastifyBaseLogger,
+      api: ApiClient,
+      {
+        venueId,
+        timeZone,
+      }: { readonly venueId?: string | undefined; readonly timeZone?: string | undefined }
+    ): ToolSet {
+      return {
+        // ── Read ───────────────────────────────────────────────
+        list_waitlist: tool({
+          description:
+            "List the parties on the waitlist now, in order: name, party size, quoted wait, whether they've been told their table is ready, and when they joined.",
+          inputSchema: z.object({}),
+          execute: async () => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId }, "list_waitlist tool called");
+            try {
+              const entries = await api.waitlist.list(venueId);
+              const parties = entries
+                .filter((e) => ACTIVE_STATUSES.has(e.status))
+                .sort((a, b) => a.position - b.position)
+                .map((e) => {
+                  const joinedAt = localTimeIn(e.createdAt, timeZone);
+                  return {
+                    guestName: e.guestName,
+                    partySize: e.partySize,
+                    position: e.position,
+                    quotedWaitMinutes: e.estimatedWaitMinutes,
+                    status: e.status,
+                    ...(joinedAt ? { joinedAt } : {}),
+                  };
+                });
+              return { parties };
+            } catch (err) {
+              log.error({ err, venueId }, "list_waitlist failed");
+              const refusal = refusalOf(err);
+              return refusal?.status === 403
+                ? { refused: true, error: "The user doesn't have permission to see the waitlist." }
+                : { error: "Couldn't read the waitlist. Ask the user to try again." };
+            }
+          },
+        }),
+    
+        // ── Write (each runs only after the user confirms) ─────
+        add_to_waitlist: tool({
+          description:
+            "Add a walk-in party to the waitlist. Needs their name, party size and phone number (the waitlist texts them when their table is ready). Requires confirmation.",
+          inputSchema: z.object({
+            guestName: z.string().min(1).describe("The party's name"),
+            partySize: z.number().int().min(1).describe("Number of guests"),
+            guestPhone: z.string().min(1).describe("The guest's phone number"),
+          }),
+          execute: async ({ guestName, partySize, guestPhone }) => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId, partySize }, "add_to_waitlist tool called");
+            try {
+              const added = await api.waitlist.create({ venueId, guestName, partySize, guestPhone });
+              return {
+                added: true,
+                position: added.position,
+                quotedWaitMinutes: added.estimatedWaitMinutes,
+              };
+            } catch (err) {
+              log.error({ err, venueId }, "add_to_waitlist failed");
+              return waitlistFailure(err, "add the party");
+            }
+          },
+        }),
+    
+        notify_waitlist_party: tool({
+          description:
+            "Tell a waiting party their table is ready (sends them a text). Requires confirmation.",
+          inputSchema: z.object(PartySchema),
+          execute: async ({ guestName, partySize }) => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId }, "notify_waitlist_party tool called");
+            try {
+              const found = await findParty(api, venueId, guestName, partySize);
+              if ("error" in found) return found;
+              // The server notifies only a waiting party: a second notify sends nothing but still answers 200.
+              if (found.entry.status === "notified") {
+                const at = localTimeIn(found.entry.notifiedAt, timeZone);
+                return {
+                  error: `${found.entry.guestName} was already told their table is ready${at ? ` at ${at}` : ""}. No new text was sent.`,
+                };
+              }
+              await api.waitlist.notify(found.entry.id);
+              return { notified: true, guestName: found.entry.guestName };
+            } catch (err) {
+              log.error({ err, venueId }, "notify_waitlist_party failed");
+              return waitlistFailure(err, "notify the party");
+            }
+          },
+        }),
+    
+        seat_waitlist_party: tool({
+          description:
+            "Seat a waiting party at a table staff name: creates their walk-in at that table and takes them off the waitlist. Requires confirmation.",
+          inputSchema: z.object({
+            ...PartySchema,
+            table: z.string().min(1).describe("The table's name or number, as staff call it"),
+          }),
+          execute: async ({ guestName, partySize, table: tableRef }) => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId, tableRef }, "seat_waitlist_party tool called");
+            let seatedAt: string | undefined;
+            try {
+              const found = await findParty(api, venueId, guestName, partySize);
+              if ("error" in found) return found;
+              const { entry } = found;
+              const { data: tables } = await api.tables.list({ venueId, limit: TABLES_LIMIT });
+              const resolved = resolveTable(tables, tableRef);
+              if ("error" in resolved) return resolved;
+              const { table } = resolved;
+              const label = table.name ?? table.tableNumber ?? tableRef;
+              if (table.status !== "AVAILABLE") {
+                return {
+                  error: `Table ${label} is ${table.status.toLowerCase()}, so the party can't be seated there. Nothing was changed.`,
+                };
+              }
+              await api.reservations.walkIn({
+                venueId,
+                partySize: entry.partySize,
+                tableId: table.id,
+                guestName: entry.guestName,
+              });
+              seatedAt = label;
+              await api.waitlist.seat(entry.id);
+              return { seated: true, guestName: entry.guestName, table: label };
+            } catch (err) {
+              log.error({ err, venueId }, "seat_waitlist_party failed");
+              // The walk-in exists, so the party is seated; only the waitlist row is stale (as WaitlistPage reports it).
+              if (seatedAt) {
+                return {
+                  seated: true,
+                  waitlistStale: true,
+                  table: seatedAt,
+                  note: `The party is seated at ${seatedAt}, but they are still shown on the waitlist. Tell the user to remove them from the Waitlist page.`,
+                };
+              }
+              return waitlistFailure(err, "seat the party");
+            }
+          },
+        }),
+    
+        remove_from_waitlist: tool({
+          description:
+            "Take a party off the waitlist (they left or no longer want a table). Requires confirmation.",
+          inputSchema: z.object(PartySchema),
+          execute: async ({ guestName, partySize }) => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId }, "remove_from_waitlist tool called");
+            try {
+              const found = await findParty(api, venueId, guestName, partySize);
+              if ("error" in found) return found;
+              await api.waitlist.cancel(found.entry.id);
+              return { removed: true, guestName: found.entry.guestName };
+            } catch (err) {
+              log.error({ err, venueId }, "remove_from_waitlist failed");
+              return waitlistFailure(err, "remove the party");
+            }
+          },
+        }),
+      };
     }
   </file>
   <file path="services/agent/src/routes/gen-agent.ts">
@@ -30728,6 +30937,10 @@
       "change_tonight_availability",
       "end_tonight_change",
       "undo_availability_change",
+      "add_to_waitlist",
+      "notify_waitlist_party",
+      "seat_waitlist_party",
+      "remove_from_waitlist",
     ] as const;
     export type GenToolMap = Record<string, unknown>;
     export type GenEventCallback = (event: GenStreamEvent) => Promise<void>;

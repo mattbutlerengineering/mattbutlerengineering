@@ -82,6 +82,10 @@ const ACTION_TITLES = {
   change_tonight_availability: "chat.actions.change_tonight_availability",
   end_tonight_change: "chat.actions.end_tonight_change",
   undo_availability_change: "chat.actions.undo_availability_change",
+  add_to_waitlist: "chat.actions.add_to_waitlist",
+  notify_waitlist_party: "chat.actions.notify_waitlist_party",
+  seat_waitlist_party: "chat.actions.seat_waitlist_party",
+  remove_from_waitlist: "chat.actions.remove_from_waitlist",
 } as const;
 
 const ACTION_FIELDS = {
@@ -103,6 +107,7 @@ const ACTION_FIELDS = {
   tables: "chat.actions.fields.tables",
   covers: "chat.actions.fields.covers",
   summary: "chat.actions.fields.summary",
+  guestPhone: "chat.actions.fields.guestPhone",
 } as const;
 
 const TABLE_STATUSES = {

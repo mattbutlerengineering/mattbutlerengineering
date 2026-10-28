@@ -239,3 +239,16 @@ describe("chat component reference", () => {
     expect(prompt).toMatch(/never write JSON[^.\n]*reply/i);
   });
 });
+
+// #7926: the chat runs the waitlist now.
+describe("waitlist in the prompt", () => {
+  it("lists waitlist changes among the confirmed ones and no longer says the waitlist is unsupported", () => {
+    const prompt = buildAgentSystemPrompt({ venueId: "v", now: NOW, catalogPrompt: "CATALOG" });
+    const confirmLine = prompt.split("\n").find((line) => /Confirm or Cancel button/.test(line));
+
+    expect(confirmLine).toMatch(/waitlist/);
+    expect(prompt).toMatch(/list_waitlist/);
+    expect(prompt).toMatch(/seat_waitlist_party.*not seat_walk_in/i);
+    expect(prompt).not.toMatch(/can't manage the waitlist/i);
+  });
+});
