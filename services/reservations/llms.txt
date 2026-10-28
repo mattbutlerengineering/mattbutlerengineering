@@ -20,6 +20,14 @@
   </file>
   </section>
   <section priority="medium" role="config">
+  <file path="src/config/manage-base-url.ts">
+    <item priority="high">
+      export const DEFAULT_MANAGE_BASE_URL: unknown;
+    </item>
+    <item priority="high">
+      export function resolveManageBaseUrl(env: { MANAGE_BASE_URL?: string | undefined }): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/config/manage-token.ts">
     <item priority="low">
       interface ManageTokenConfig {

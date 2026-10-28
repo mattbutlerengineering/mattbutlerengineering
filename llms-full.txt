@@ -9483,6 +9483,13 @@
   </file>
   </section>
   <section priority="medium" role="config">
+  <file path="services/reservations/src/config/manage-base-url.ts">
+    export const DEFAULT_MANAGE_BASE_URL = "https://mattbutlerengineering.com";
+    export function resolveManageBaseUrl(env: { MANAGE_BASE_URL?: string | undefined }): string {
+      const raw = (env.MANAGE_BASE_URL ?? "").trim();
+      return raw === "" ? DEFAULT_MANAGE_BASE_URL : raw.replace(/\/+$/, "");
+    }
+  </file>
   <file path="services/reservations/src/config/manage-token.ts">
     export interface ManageTokenConfig {
       secret: string;
@@ -9641,6 +9648,15 @@
       readonly valid: false;
       readonly missing: readonly string[];
     }
+    export function resolveRedirectUri(
+      configured: string | undefined,
+      location: Pick<Location, "origin" | "hostname">
+    ): string {
+      // A malformed value is treated as unset.
+      const sameOrigin =
+        !!configured && URL.canParse(configured) && new URL(configured).origin === location.origin;
+      return sameOrigin ? configured : appUrl("/callback", location);
+    }
     export function validateAuthConfig(): AuthConfigResult | AuthConfigFailure {
       const missing = REQUIRED_AUTH_ENV.filter((env) => !env.value || env.value.trim() === "").map(
         (env) => env.key
@@ -9655,8 +9671,7 @@
         config: {
           authority: import.meta.env.VITE_AUTH_AUTHORITY,
           clientId: import.meta.env.VITE_AUTH_CLIENT_ID,
-          redirectUri:
-            import.meta.env.VITE_AUTH_REDIRECT_URI || window.location.origin + "/hospitality/callback",
+          redirectUri: resolveRedirectUri(import.meta.env.VITE_AUTH_REDIRECT_URI, window.location),
           audience: import.meta.env.VITE_AUTH_AUDIENCE || undefined,
         },
       };
@@ -22360,6 +22375,47 @@
         body: t("auth.error.generic.body"),
         canRetry: true,
       };
+    }
+  </file>
+  <file path="apps/hospitality/src/lib/host-brand.ts">
+    export interface Brand {
+      /** Product name shown in titles, the header, guest pages and copyright. */
+      readonly name: string;
+      /** Short wordmark rendered as the header logo. */
+      readonly logo: string;
+    }
+    export interface HostConfig {
+      readonly brand: Brand;
+      /** React Router basename: "" when the app owns the host's root. */
+      readonly basename: string;
+      /** True when the host serves only this app (no marketing / rialto / gen pages). */
+      readonly standalone: boolean;
+    }
+    export function hostConfig(hostname: string): HostConfig {
+      return EAT_SHEET_HOSTS.has(hostname.toLowerCase()) ? EAT_SHEET : MBE;
+    }
+    export function currentHostConfig(): HostConfig {
+      return hostConfig(typeof window === "undefined" ? "" : window.location.hostname);
+    }
+    export function appUrl(
+      path: string,
+      location: Pick<Location, "origin" | "hostname"> = window.location
+    ): string {
+      return `${location.origin}${hostConfig(location.hostname).basename}${path}`;
+    }
+    export function homeUrl(location: Pick<Location, "origin"> = window.location): string {
+      return `${location.origin}/`;
+    }
+    export function manageReservationUrl(
+      token: string,
+      location: Pick<Location, "origin" | "hostname"> = window.location
+    ): string {
+      return `${appUrl("/reservations/manage", location)}?token=${encodeURIComponent(token)}`;
+    }
+    export function legacyPathRedirect(pathname: string, basename: string): string | null {
+      if (basename === LEGACY_BASE) return null;
+      if (pathname !== LEGACY_BASE && !pathname.startsWith(`${LEGACY_BASE}/`)) return null;
+      return pathname.slice(LEGACY_BASE.length) || "/";
     }
   </file>
   <file path="apps/hospitality/src/lib/logo-palette-canvas.ts">
@@ -75472,6 +75528,7 @@
     export function validateCorsOrigins(origins: string[]): string[] {
       const validPatterns = [
         /^https:\/\/([a-z-]+\.)?mattbutlerengineering\.com$/,
+        /^https:\/\/eat-sheet\.com$/,
         ...(process.env.NODE_ENV === "development" ? [/^http:\/\/localhost:\d+$/] : []),
       ];
     
@@ -75559,6 +75616,8 @@
         "https://mattbutlerengineering.com",
         "https://hospitality.mattbutlerengineering.com",
         "https://gen.mattbutlerengineering.com",
+        // Hospitality is also served at the eat-sheet.com apex (#7709).
+        "https://eat-sheet.com",
       ];
     
       const defaultOrigins = [
@@ -77696,7 +77755,7 @@
               closureNotice: createClosureNoticeDeps({
                 dispatcher: notificationPort,
                 generateManageToken,
-                manageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
+                manageBaseUrl: resolveManageBaseUrl(process.env),
                 logger: fastify.log,
               }),
               handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),
@@ -77752,7 +77811,7 @@
       return new ResendNotificationAdapter({
         resend: resendClient,
         fromAddress: process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
-        manageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
+        manageBaseUrl: resolveManageBaseUrl(process.env),
         publicApiBaseUrl,
       });
     }
@@ -77776,7 +77835,7 @@
       return new NotificationDispatcher({
         emailAdapter,
         smsAdapter,
-        smsManageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
+        smsManageBaseUrl: resolveManageBaseUrl(process.env),
       });
     }
   </file>

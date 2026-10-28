@@ -6,11 +6,12 @@ import { WidgetLocaleScope } from "../components/booking-widget/index.js";
 import { usePublicApiClient } from "../hooks/usePublicApiClient.js";
 import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 import styles from "./PublicMenu.module.css";
+import { homeUrl } from "../lib/host-brand.js";
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? "";
 
 // Same public, guest-readable destination PublicBookingPage falls back to.
-const FALLBACK_HOME_URL = "https://mattbutlerengineering.com/";
+const FALLBACK_HOME_URL = homeUrl();
 
 /** Guest-facing list of a venue's active menus. Login-free; locale is the guest's own. */
 export function PublicMenusPage() {

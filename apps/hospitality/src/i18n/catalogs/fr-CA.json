@@ -7,8 +7,8 @@
       "hospitality": "Hôtellerie",
       "rialto": "Système de design"
     },
-    "copyright": "© {{year}} Matt Butler Engineering",
-    "dashboardDocumentTitle": "Tableau de bord - Matt Butler Engineering"
+    "copyright": "© {{year}} {{brand}}",
+    "dashboardDocumentTitle": "Tableau de bord - {{brand}}"
   },
   "onboarding": {
     "steps": {
@@ -238,7 +238,7 @@
     },
     "login": {
       "title": "Hospitality",
-      "documentTitle": "Hospitality - Matt Butler Engineering",
+      "documentTitle": "Hospitality - {{brand}}",
       "boardPhrases": {
         "reservations": "RESERVATIONS",
         "guests": "CLIENTS",
@@ -1413,10 +1413,10 @@
     "notFoundHeading": "Établissement introuvable",
     "notFoundDescription": "Nous n’avons pas trouvé la page de réservation que vous cherchez. Vérifiez le lien ou communiquez directement avec l’établissement pour réserver.",
     "goBack": "Retour",
-    "homeLink": "Retour à Matt Butler Engineering",
+    "homeLink": "Retour à {{brand}}",
     "loading": "Chargement de l’établissement...",
     "tagline": "Réservez votre table en ligne",
-    "poweredBy": "Propulsé par Matt Butler Engineering"
+    "poweredBy": "Propulsé par {{brand}}"
   },
   "publicMenu": {
     "menuLabel": "Menu",
@@ -1436,7 +1436,7 @@
     "documentTitle": "Votre réservation — Hospitality",
     "venueDocumentTitle": "{{venue}} — Votre réservation",
     "supportLine": "Besoin d’aide? Communiquez directement avec l’établissement à l’aide des coordonnées de votre courriel de confirmation.",
-    "homeLink": "Retour à Matt Butler Engineering",
+    "homeLink": "Retour à {{brand}}",
     "noLinkHeading": "Aucun lien d’accès",
     "noLinkDescription": "Veuillez vérifier le lien dans votre courriel de confirmation.",
     "loading": "Chargement de la réservation...",

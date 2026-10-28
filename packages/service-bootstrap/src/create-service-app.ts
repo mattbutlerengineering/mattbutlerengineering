@@ -83,12 +83,14 @@ export interface AppOptions {
 
 /**
  * Validates CORS origins from the CORS_ORIGINS env var against an allowlist.
- * Accepts *.mattbutlerengineering.com in all environments and localhost
+ * Accepts *.mattbutlerengineering.com and the eat-sheet.com apex in all
+ * environments and localhost
  * origins only in development. Returns only the origins that pass validation.
  */
 export function validateCorsOrigins(origins: string[]): string[] {
   const validPatterns = [
     /^https:\/\/([a-z-]+\.)?mattbutlerengineering\.com$/,
+    /^https:\/\/eat-sheet\.com$/,
     ...(process.env.NODE_ENV === "development" ? [/^http:\/\/localhost:\d+$/] : []),
   ];
 
@@ -196,6 +198,8 @@ export async function createServiceApp(
     "https://mattbutlerengineering.com",
     "https://hospitality.mattbutlerengineering.com",
     "https://gen.mattbutlerengineering.com",
+    // Hospitality is also served at the eat-sheet.com apex (#7709).
+    "https://eat-sheet.com",
   ];
 
   const defaultOrigins = [
