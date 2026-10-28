@@ -27648,11 +27648,14 @@
       | { readonly phase: "signed-out"; readonly afterSignOut: boolean }
       | { readonly phase: "expired" }
       | { readonly phase: "ready" };
+    export const STALE_SESSION_MS = 24 * 60 * 60 * 1000;
     export interface AuthGateFacts {
       readonly isLoading: boolean;
       readonly isAuthenticated: boolean;
       readonly error: Error | undefined;
       readonly sessionExpired: boolean;
+      /** Milliseconds since the stored token expired; undefined when unknown. */
+      readonly expiredForMs?: number | undefined;
       readonly activeNavigator: ActiveNavigator | undefined;
     }
     export type AuthGateLocation = Pick<Location, "pathname" | "search" | "hash">;
@@ -27676,14 +27679,29 @@
     
       // Before isAuthenticated: react-oidc-context does not re-evaluate it when a
       // token expires in place.
-      if (facts.sessionExpired) return { phase: "expired" };
+      if (facts.sessionExpired) {
+        if (facts.expiredForMs !== undefined && facts.expiredForMs >= STALE_SESSION_MS) {
+          return { phase: "signed-out", afterSignOut: false };
+        }
+        return { phase: "expired" };
+      }
     
       if (!facts.isAuthenticated) return { phase: "signed-out", afterSignOut: false };
     
       return { phase: "ready" };
     }
     export function useAuthGate(): AuthGate {
-      return resolveAuthGate(useAuth(), window.location);
+      const auth = useAuth();
+      const { expiredForMs, clearSession } = useStaleSession();
+      const gate = resolveAuthGate({ ...auth, expiredForMs }, window.location);
+      const stale = auth.sessionExpired && gate.phase === "signed-out";
+    
+      // A stale stored user would keep resurfacing; drop it via the user manager.
+      useEffect(() => {
+        if (stale) void clearSession();
+      }, [stale, clearSession]);
+    
+      return gate;
     }
   </file>
   <file path="packages/auth/src/react/auth-history.ts">
@@ -27820,6 +27838,17 @@
         error: silentFailure ? undefined : auth.error,
         /** The most recent silent-refresh failure, or null — see {@link useAccessToken} */
         refreshError: silentFailure ? (auth.error ?? null) : null,
+      };
+    }
+    export function useStaleSession() {
+      const auth = useOIDCAuth();
+      const expiresAt = auth.user?.expires_at;
+      return {
+        expiredForMs:
+          expiresAt !== undefined && auth.user?.expired === true
+            ? Date.now() - expiresAt * 1000
+            : undefined,
+        clearSession: () => auth.removeUser(),
       };
     }
     export interface AccessTokenState {

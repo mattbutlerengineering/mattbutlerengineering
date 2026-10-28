@@ -89,6 +89,24 @@ export function useAuth() {
   };
 }
 
+/**
+ * Stale-session facts for {@link useAuthGate}: how long the stored token has
+ * been expired (undefined while valid or absent) and a way to drop the stored
+ * user via the user manager without a sign-out redirect. Separate from
+ * {@link useAuth} so that hook's return shape (mocked across apps) is unchanged.
+ */
+export function useStaleSession() {
+  const auth = useOIDCAuth();
+  const expiresAt = auth.user?.expires_at;
+  return {
+    expiredForMs:
+      expiresAt !== undefined && auth.user?.expired === true
+        ? Date.now() - expiresAt * 1000
+        : undefined,
+    clearSession: () => auth.removeUser(),
+  };
+}
+
 /** How far ahead of expiry to proactively refresh the token (5 minutes). */
 const REFRESH_LEAD_MS = 5 * 60 * 1000;
 
