@@ -93,6 +93,60 @@ for (const id of darkSections) {
   });
 }
 
+/* ── Neon Sign shape gallery (own route) ───────── */
+
+/**
+ * The NeonSign page is its own route, not a /visual-test section. The Shapes
+ * section is the capture target: every shape, lit and closed, is static once
+ * motion is reduced. Reduced motion is emulated (alongside the colour scheme)
+ * so the strike and breathe animations never start, and fonts are awaited so
+ * the tube lettering is measured against the real face. The Service Day Replay
+ * section is deliberately not captured — it animates through phases.
+ *
+ * `colorScheme` drives `data-theme` (same pipeline a11y-pages.spec.ts relies
+ * on); the attribute is asserted so the dark arm cannot silently shoot light.
+ */
+test.describe("neon sign shapes", () => {
+  // Tall enough to hold the whole gallery (seven shapes, lit + closed, with
+  // captions) so the element is never scrolled or clipped by the viewport.
+  test.use({ viewport: { width: 1280, height: 2400 } });
+
+  for (const scheme of ["light", "dark"] as const) {
+    test(`${scheme} / neon-sign-shapes`, async ({ page }) => {
+      await page.addInitScript(() => {
+        window.localStorage.setItem(
+          "rialto-cookie-consent",
+          JSON.stringify({
+            consented: true,
+            preferences: { essential: true, analytics: true, functional: true, marketing: true },
+          })
+        );
+      });
+      await page.emulateMedia({ reducedMotion: "reduce", colorScheme: scheme });
+      await page.goto("components/neon-sign");
+      await page.waitForLoadState("networkidle");
+      await expect(page.locator("html")).toHaveAttribute("data-theme", scheme);
+      await page.evaluate(() => document.fonts.ready);
+
+      // Hide fixed/sticky chrome (GlobalNav, floating controls). The viewport
+      // above fits the gallery so Playwright never scrolls, but a sticky bar
+      // still paints over the top of the element at scroll 0. Hiding keeps
+      // layout intact (visibility, not display), so nothing reflows.
+      await page.evaluate(() => {
+        for (const el of document.querySelectorAll<HTMLElement>("body *")) {
+          const { position } = getComputedStyle(el);
+          if (position === "fixed" || position === "sticky") el.style.visibility = "hidden";
+        }
+      });
+
+      const shapes = page.getByTestId("neon-sign-shapes");
+      await expect(shapes).toHaveScreenshot(`${scheme}-neon-sign-shapes.png`, {
+        timeout: 15_000,
+      });
+    });
+  }
+});
+
 /* ── Telemetry HUD (own route) ─────────────────── */
 
 /**

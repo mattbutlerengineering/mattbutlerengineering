@@ -156,6 +156,17 @@ describe("NeonSign.module.css cascade — reduced motion outranks the state anim
     expect(mediaPath.length).toBeGreaterThan(0);
   });
 
+  it("animates only tubes: every animating rule in the sheet targets .tube", () => {
+    const everyAnimated = parseRules(stripComments(css)).filter((rule) => {
+      const name = animationName(rule);
+      return name !== undefined && name !== "none";
+    });
+    expect(everyAnimated.length).toBeGreaterThan(0);
+    for (const rule of everyAnimated) {
+      expect(targetsTube(rule.selector), describeRule(rule)).toBe(true);
+    }
+  });
+
   it.each([
     ["useReducedMotion() → .reduced", classPath],
     ["@media (prefers-reduced-motion: reduce)", mediaPath],

@@ -765,6 +765,7 @@
     export function validateCorsOrigins(origins: string[]): string[] {
       const validPatterns = [
         /^https:\/\/([a-z-]+\.)?mattbutlerengineering\.com$/,
+        /^https:\/\/eat-sheet\.com$/,
         ...(process.env.NODE_ENV === "development" ? [/^http:\/\/localhost:\d+$/] : []),
       ];
     
@@ -852,6 +853,8 @@
         "https://mattbutlerengineering.com",
         "https://hospitality.mattbutlerengineering.com",
         "https://gen.mattbutlerengineering.com",
+        // Hospitality is also served at the eat-sheet.com apex (#7709).
+        "https://eat-sheet.com",
       ];
     
       const defaultOrigins = [

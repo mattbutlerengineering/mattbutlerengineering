@@ -114,6 +114,21 @@ export const FRESHNESS_POLICY = [
     producer: "scripts/collect-sdlc-speed.mjs",
   },
   {
+    // Weekly (lighthouse.yml, Monday). 21 days = three missed runs: the
+    // workflow commits through a PR that can sit for a few days (#7581).
+    metric: "lighthouse",
+    timestampField: "date",
+    maxAgeDays: 21,
+    producer: ".github/workflows/lighthouse.yml (scripts/record-summary-row.mjs)",
+  },
+  {
+    // Weekly (mutation-testing.yml, Monday); same tolerance as lighthouse.
+    metric: "mutation-score",
+    timestampField: "date",
+    maxAgeDays: 21,
+    producer: ".github/workflows/mutation-testing.yml (scripts/record-summary-row.mjs)",
+  },
+  {
     // A single-object file: the collector rewrites it, and on failure writes
     // `{ collected_at, error }` — a fresh timestamp with no data (#6312).
     metric: "ai-issue-feedback",

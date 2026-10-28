@@ -16,14 +16,15 @@ import { buildGoogleCalendarUrl, buildOutlookCalendarUrl } from "../utils/calend
 import { specialRequestsText } from "../utils/reservation-display.js";
 import { WidgetLocaleScope, WidgetLocalePicker } from "../components/booking-widget/index.js";
 import styles from "./ManageReservationPage.module.css";
+import { homeUrl } from "../lib/host-brand.js";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
 // A guest arriving from an emailed link has no venue-scoped page to route back
 // to (the manage link carries only a token, never a venue slug) — the
-// marketing root is the only guest-readable destination this product has, the
-// same fallback PublicBookingPage.tsx uses for the same reason (#4978).
-const FALLBACK_HOME_URL = "https://mattbutlerengineering.com/";
+// serving host's root is the destination, the same fallback
+// PublicBookingPage.tsx uses for the same reason (#4978, #7709).
+const FALLBACK_HOME_URL = homeUrl();
 
 /** Reservation statuses a guest can still self-service cancel. */
 const CANCELLABLE_STATUSES = new Set(["PENDING", "CONFIRMED"]);

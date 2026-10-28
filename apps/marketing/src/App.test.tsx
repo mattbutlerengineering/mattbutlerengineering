@@ -8,7 +8,23 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   RialtoProvider: ({ children }: { children?: ReactNode }) => (
     <div data-testid="rialto-provider">{children}</div>
   ),
-  GlobalNav: () => <nav data-testid="global-nav" />,
+  GlobalNav: ({
+    menu,
+  }: {
+    menu?: { label: string; items: { label: string; href: string; current?: boolean }[] };
+  }) => (
+    <nav data-testid="global-nav">
+      {menu && (
+        <ul data-testid="nav-menu" data-label={menu.label}>
+          {menu.items.map((i) => (
+            <li key={i.href} data-current={i.current ? "true" : "false"}>
+              {i.href}
+            </li>
+          ))}
+        </ul>
+      )}
+    </nav>
+  ),
   Footer: () => <footer data-testid="footer" />,
   Text: ({ children }: { children?: ReactNode }) => <span data-testid="text">{children}</span>,
   Skeleton: ({ variant, height }: { variant?: string; height?: string }) => (
@@ -41,5 +57,27 @@ describe("App", () => {
     const fallback = screen.getByTestId("home-fallback");
     expect(fallback).toHaveAttribute("data-variant", "rect");
     expect(fallback).toHaveAttribute("data-height", "90vh");
+  });
+
+  it("gives the nav an Engineering menu and marks the current page", () => {
+    render(
+      <MemoryRouter initialEntries={["/shipped/some-story"]}>
+        <App theme="light" onThemeToggle={vi.fn()} />
+      </MemoryRouter>
+    );
+    const menu = screen.getByTestId("nav-menu");
+    expect(menu.getAttribute("data-label")).toBe("Engineering");
+    expect(Array.from(menu.children).map((li) => li.textContent)).toEqual([
+      "/metrics",
+      "/shipped",
+      "/weekly",
+      "/status",
+      "/ai-health",
+      "/acmm",
+    ]);
+    const current = Array.from(menu.children).filter(
+      (li) => li.getAttribute("data-current") === "true"
+    );
+    expect(current.map((li) => li.textContent)).toEqual(["/shipped"]);
   });
 });

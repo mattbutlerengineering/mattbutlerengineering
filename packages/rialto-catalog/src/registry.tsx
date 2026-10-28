@@ -75,7 +75,6 @@ import type {
 import { catalog } from "./catalog.js";
 import { catalogMeta } from "./generated-catalog.js";
 import { generatedSchemas } from "./generated-schemas.js";
-import { materializeCatalogProps } from "./materialize-table-data.js";
 import { Children, type CSSProperties, type ReactNode } from "react";
 
 const TIMELINE_STATUSES: ReadonlySet<string> = new Set([
@@ -282,7 +281,7 @@ function withSchemaValidation<T extends Record<string, AdapterFn>>(adapters: T):
     wrapped[name] = (context) => {
       const clamped = {
         ...context,
-        props: materializeCatalogProps(name, clampToCharLimits(name, context.props)),
+        props: clampToCharLimits(name, context.props),
       };
       const hasChildElements = Children.count(context.children) > 0;
       const check = hasChildElements ? withoutWords : schema;

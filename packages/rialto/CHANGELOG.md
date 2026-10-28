@@ -1,5 +1,39 @@
 # @mattbutlerengineering/rialto
 
+## 0.9.3
+
+### Patch Changes
+
+- [#7850](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7850) [`2b0afd8`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/2b0afd8929f78d4c20c7b48b2ff7f374db838bfa) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - NeonSign: add `shape` (`classic` | `swoosh` | `boxed` | `vertical` | `arrow` | `banner` | `vintage`) and `tone` (`{ word, frame? }` from the new `--rialto-neon-*` tokens). Defaults render the existing classic sign unchanged. New `neonSignLead` locale key for the banner's decorative script line.
+
+- [#7849](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7849) [`1281dd9`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/1281dd9f56913f6c224f59819b68cb4b64440449) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Overlay focus audit ([#7803](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/7803)). `useFocusTrap` now skips hidden, `inert`, `display: none`, `input[type=hidden]` and `tabindex="-1"` controls when choosing the initial target and the wrap ends. `Popover` no longer lands initial focus on its Close button. `DropdownMenu` and `ContextMenu` close on Tab and let focus move on instead of staying open (and the return-focus restore no longer pulls it back; `useReturnFocus` now returns a `skipRestore` function for that). `NavigationMenu` returns focus to its trigger on Escape.
+
+## 0.9.2
+
+### Patch Changes
+
+- [#7837](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7837) [`339f1b8`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/339f1b8881cdedf23e51cf63afb9cea9afd63c18) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - BarChart bars now round with `--rialto-radius-sharp`; the previous `--rialto-radius-sm` is not a token, so the radius was dropped.
+
+- [#7815](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7815) [`2ff5d7a`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/2ff5d7af05224c1ffef827c8dc7ab885e897171f) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - NeonSign breathe and Handshake shuttle now stop after 4.8s, and Ferrofluid drifts for a single pass of at most 5s (`speed` now sets 5s, 4s or 3s) before resting, instead of looping forever (WCAG 2.2.2). Reduced-motion behaviour is unchanged.
+
+- [#7838](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7838) [`66bf811`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/66bf811417e3020f5c9aeaa6d40d26c17152cd47) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Remove the `translateY(-1px)` hover lift from Button's primary and secondary variants. It was previously masked by the framer hover boop; once that went, a pointer resting on a button's bottom edge made it flicker between hovered and unhovered forever (never "stable" to Playwright). Hover is colour and shadow only.
+
+- [#7816](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7816) [`83a8ef7`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/83a8ef775cc2b5a2391e01daa385643e36fbc953) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - CommandPalette now enters and exits on opacity only. The panel no longer scales and slides on a spring each time it opens, per the motion policy for 100+-per-day interactions. Reduced-motion behaviour is unchanged.
+
+- [#7826](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7826) [`3e3846d`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/3e3846d36e843c23d143581467a815621ddcefb6) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Make the unused `FOCUS_TRAP_SKIP_INITIAL_ATTR` constant in `useFocusTrap` module-private.
+
+- [#7801](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7801) [`aa5d940`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/aa5d9404075104ed7d1cae0ee05ef59971511746) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - `useFocusTrap` re-queries focusable elements on every Tab instead of caching them at open, so controls added, removed or disabled while a Dialog/Drawer is open no longer let focus escape. Tab or Shift+Tab with focus already outside the panel now pulls it back inside.
+
+- [#7807](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7807) [`ec6ac5b`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/ec6ac5bb61fadcdb3438f4b6f60e6fe9924d0ae3) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - GlobalNav: accept `currentApp="gen"` for the Gen app, which has no link of its own in the nav.
+
+- [#7827](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7827) [`df70222`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/df702229413b0ab5dcf3d2712a7a08c53bc15631) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add BarChart for short trends, and allow Checkbox labels up to 80 characters so a full sentence such as a terms agreement is not cut off.
+
+- [#7824](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7824) [`1a3b2da`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/1a3b2dadf2ffd70bb81f4701c3fcc10bdb347fc2) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Stop exporting internal helpers that nothing imports (Calendar's `toIsoDate` re-export, TapeChart date math and default-string helpers, SilkFlow and WatchLoader internals). No public API change.
+
+- [#7819](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7819) [`3594209`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/35942092dfc351b089ef29b57a1e230cb8f47e41) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Remove the hover scale ("boop", 1.03) from Button, Toggle, Checkbox, Pagination, SegmentedControl and Tag, per the motion policy: hover on high-frequency controls is colour/opacity only. Press scale is unchanged. Toggle gains a border-colour hover state; the others already had one.
+
+- [#7817](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7817) [`4966751`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/49667512ad2913e1d9949a55ab96f4765fd3fb53) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Follow the motion policy on entrances: PinInput, Tag and the Checkbox and Radio marks now start at scale 0.9 or above instead of 0.6, 0.8 and 0. Toast fades in on the `precision` preset with an 8px lift (scale 0.96) instead of springing in from 80px away; its exit is likewise shorter. Reduced-motion behaviour is unchanged.
+
 ## 0.9.1
 
 ### Patch Changes

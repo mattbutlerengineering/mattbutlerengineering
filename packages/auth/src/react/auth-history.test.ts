@@ -52,6 +52,22 @@ describe("installAuthBackSkip", () => {
     go.mockRestore();
     pushState.mockRestore();
   });
+
+  it("does not hijack a later Back after in-app navigation", () => {
+    const go = vi.spyOn(window.history, "go").mockImplementation(() => {});
+    const length = vi.spyOn(window.history, "length", "get").mockReturnValue(6);
+    sessionStorage.setItem(PRE_AUTH_HISTORY_KEY, "3");
+    installAuthBackSkip();
+    expect(go).toHaveBeenCalledOnce();
+
+    // In-app link pushes a new entry, then the user presses Back.
+    length.mockReturnValue(7);
+    window.dispatchEvent(new PopStateEvent("popstate", { state: {} }));
+
+    expect(go).toHaveBeenCalledOnce();
+    go.mockRestore();
+    length.mockRestore();
+  });
 });
 
 describe("installAuthBackReload", () => {
@@ -79,6 +95,9 @@ describe("installAuthBackReload", () => {
     sessionStorage.setItem(AUTH_BACK_RELOAD_KEY, "1");
     listener?.(new PageTransitionEvent("pageshow", { persisted: false }));
     expect(reload).not.toHaveBeenCalled();
+    // A non-bfcache load clears the stale flag so a later restore cannot reload.
+    expect(sessionStorage.getItem(AUTH_BACK_RELOAD_KEY)).toBeNull();
+    sessionStorage.setItem(AUTH_BACK_RELOAD_KEY, "1");
 
     listener?.(new PageTransitionEvent("pageshow", { persisted: true }));
     expect(reload).toHaveBeenCalledOnce();

@@ -8,6 +8,7 @@ import {
 } from "@mattbutlerengineering/rialto/providers";
 import enUS from "./catalogs/en-US.json";
 import { DEFAULT_LOCALE, resolveLocale, type LocaleTag } from "./locales.js";
+import { currentHostConfig } from "../lib/host-brand.js";
 
 /**
  * The app's only code that loads catalogs or changes language.
@@ -33,6 +34,11 @@ export interface RuntimeDeps {
   timeoutMs: number;
   /** Where the explicit choice is persisted. Defaults to the dashboard's key. */
   storageKey?: string;
+  /**
+   * Product name filled into every `{{brand}}` placeholder. Defaults to the
+   * serving host's brand (#7709): "eat-sheet" on eat-sheet.com.
+   */
+  brand?: string;
 }
 
 const APP_CATALOGS: Record<Exclude<LocaleTag, "en-US">, () => Promise<{ default: Catalog }>> = {
@@ -106,7 +112,10 @@ export function createLocaleRuntime(deps: RuntimeDeps = browserDeps): LocaleRunt
     fallbackLng: DEFAULT_LOCALE,
     resources: { [DEFAULT_LOCALE]: { translation: enUS } },
     initAsync: false,
-    interpolation: { escapeValue: false }, // React escapes
+    interpolation: {
+      escapeValue: false, // React escapes
+      defaultVariables: { brand: deps.brand ?? currentHostConfig().brand.name },
+    },
   });
 
   const rialtoCache = new Map<LocaleTag, RialtoMessages>([[DEFAULT_LOCALE, rialtoEnUS]]);

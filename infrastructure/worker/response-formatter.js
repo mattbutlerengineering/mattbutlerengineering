@@ -15,8 +15,12 @@ import { readKvJson } from "./health/kv-access.js";
 
 /**
  * Build security headers with a per-request nonce for CSP script-src.
+ *
+ * @param {string[]} [extraConnectSrc] - Extra origins appended to CSP's
+ *   connect-src, e.g. the apex origin on a host-routed site whose API base
+ *   URL is cross-origin from the serving host (#7709).
  */
-function buildSecurityHeaders(nonce, kvPolicy) {
+function buildSecurityHeaders(nonce, kvPolicy, extraConnectSrc) {
   return {
     "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
     "X-Frame-Options": "DENY",
@@ -24,7 +28,7 @@ function buildSecurityHeaders(nonce, kvPolicy) {
     "X-XSS-Protection": "0",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
-    "Content-Security-Policy": buildCspDirectives(nonce, { kvPolicy }),
+    "Content-Security-Policy": buildCspDirectives(nonce, { kvPolicy, extraConnectSrc }),
   };
 }
 
@@ -77,8 +81,8 @@ class NonceInjector {
  * and inject nonce into <script> tags for HTML responses.
  * Used for static site responses only (not API proxy).
  */
-function addHeaders(response, pathname, nonce, kvPolicy) {
-  const securityHeaders = buildSecurityHeaders(nonce, kvPolicy);
+function addHeaders(response, pathname, nonce, kvPolicy, extraConnectSrc) {
+  const securityHeaders = buildSecurityHeaders(nonce, kvPolicy, extraConnectSrc);
   const headers = new Headers(response.headers);
 
   for (const [key, value] of Object.entries(securityHeaders)) {

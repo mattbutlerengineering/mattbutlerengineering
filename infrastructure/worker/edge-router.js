@@ -28,6 +28,12 @@ import { handleHealthPerformance } from "./health/performance.js";
 import { handleHealthDeps } from "./health/deps.js";
 import { ANALYTICS_BINDING, toDataPoint } from "./analytics-schema.js";
 
+// The apex origin that path-routed hosts serve from and that host-routed
+// apps' build-time API base URL points at (e.g. VITE_API_URL for
+// hospitality). Used to extend CSP connect-src on a host-routed site — see
+// isHostRouted and its use below.
+const APEX_ORIGIN = "https://mattbutlerengineering.com";
+
 // ── Audit Token Verification ─────────────────────────────────────────
 // Automated audits (Lighthouse, Playwright, curl) from the CI/cloud
 // environment are blocked by Cloudflare Bot Fight Mode. Requests that
@@ -70,6 +76,37 @@ function isAuditRequest(request, env) {
  */
 function isOriginRoute(pathname) {
   return topologyConfig.originRoutes.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
+/**
+ * Which static route serves `url`, the path to forward to it, and the public
+ * prefix to put back on a rewritten Location header.
+ *
+ * A host listed in routes-config.json `hostRoutes` (e.g. eat-sheet.com, #7709)
+ * is served entirely by that one static route mounted at the root: every path
+ * falls through to it, and the route's own prefix (`/hospitality`) is stripped
+ * when present so the app's `/hospitality/assets/*` URLs still resolve. Any
+ * other host uses the path-prefix table, first match wins.
+ */
+function resolveStaticRoute(url) {
+  const hostRoute = topologyConfig.hostRoutes.find((h) => h.host === url.hostname);
+  if (hostRoute) {
+    const route = topologyConfig.staticRoutes.find((r) => r.routeName === hostRoute.routeName);
+    const p = route.prefix;
+    const underPrefix = url.pathname === p || url.pathname.startsWith(`${p}/`);
+    const strippedPath = underPrefix ? url.pathname.slice(p.length) || "/" : url.pathname;
+    return { route, strippedPath, publicPrefix: "" };
+  }
+  const route = topologyConfig.staticRoutes.find((r) =>
+    r.prefix ? url.pathname.startsWith(r.prefix) : true
+  );
+  const strippedPath = route.prefix ? url.pathname.slice(route.prefix.length) || "/" : url.pathname;
+  return { route, strippedPath, publicPrefix: route.prefix };
+}
+
+/** True when `url`'s host is served by a single app at the root (see resolveStaticRoute). */
+function isHostRouted(url) {
+  return topologyConfig.hostRoutes.some((h) => h.host === url.hostname);
 }
 
 // ── Auth0 Tenant ──────────────────────────────────────────────────────
@@ -124,6 +161,13 @@ export default {
     // Rollback: `wrangler kv key delete --binding HEALTH_STATE "security/csp"`
     const kvPolicy = await readCspPolicy(env.HEALTH_STATE);
 
+    // A host-routed site (e.g. eat-sheet.com, #7709) serves an app whose
+    // VITE_API_URL is baked to the apex origin at build time — a
+    // cross-origin fetch from that host's perspective, so CSP's connect-src
+    // needs the apex origin added. Same-origin on mattbutlerengineering.com
+    // itself, so nothing is added there.
+    const extraConnectSrc = isHostRouted(url) ? [APEX_ORIGIN] : [];
+
     // ── Audit token verification ──────────────────────────────────────
     const auditVerified = isAuditRequest(request, env);
 
@@ -160,18 +204,20 @@ export default {
         Response.redirect(`https://${bare}${url.pathname}${url.search}`, 301),
         url.pathname,
         nonce,
-        kvPolicy
+        kvPolicy,
+        extraConnectSrc
       );
     }
 
-    // Redirect legacy /dashboard → /hospitality
-    if (url.pathname.startsWith("/dashboard")) {
+    // Redirect legacy /dashboard → /hospitality (path-routed hosts only)
+    if (url.pathname.startsWith("/dashboard") && !isHostRouted(url)) {
       const rest = url.pathname.slice("/dashboard".length);
       return addHeaders(
         Response.redirect(`https://${url.hostname}/hospitality${rest}`, 301),
         url.pathname,
         nonce,
-        kvPolicy
+        kvPolicy,
+        extraConnectSrc
       );
     }
 
@@ -212,18 +258,14 @@ export default {
     // stripping now treats an exact-basename pathname and a
     // basename+"/" pathname identically, so that workaround is no
     // longer needed.
-    // Route table comes from routes-config.json staticRoutes.
+    // Route table comes from routes-config.json staticRoutes (and hostRoutes).
     // Entries are ordered: specific prefixes first, catch-all (empty prefix) last.
-    const matchedRoute = topologyConfig.staticRoutes.find((r) =>
-      r.prefix ? url.pathname.startsWith(r.prefix) : true
-    );
-    const prefix = matchedRoute.prefix;
+    // The path prefix is stripped before forwarding to the app Worker.
+    const { route: matchedRoute, strippedPath, publicPrefix: prefix } = resolveStaticRoute(url);
     const bindingOrigin = matchedRoute.bindingOrigin;
     const routeName = matchedRoute.routeName;
     const binding = env[matchedRoute.binding];
 
-    // Strip path prefix before forwarding to the app Worker.
-    const strippedPath = prefix ? url.pathname.slice(prefix.length) || "/" : url.pathname;
     const appUrl = new URL(strippedPath + url.search, bindingOrigin);
     const appHeaders = new Headers(request.headers);
     appHeaders.set("X-Request-ID", requestId);
@@ -238,7 +280,7 @@ export default {
     try {
       response = await binding.fetch(appRequest);
     } catch (error) {
-      console.error(`Static site error (${prefix || "marketing"}):`, error.message);
+      console.error(`Static site error (${routeName}):`, error.message);
       return brandedErrorPage(503, "Service temporarily unavailable", requestId, nonce, kvPolicy);
     }
 
@@ -263,7 +305,8 @@ export default {
             }),
             url.pathname,
             nonce,
-            kvPolicy
+            kvPolicy,
+            extraConnectSrc
           );
         }
       } catch {
@@ -272,6 +315,6 @@ export default {
     }
 
     writeAnalytics(env, request, routeName, response.status, startTime);
-    return addHeaders(response, url.pathname, nonce, kvPolicy);
+    return addHeaders(response, url.pathname, nonce, kvPolicy, extraConnectSrc);
   },
 };

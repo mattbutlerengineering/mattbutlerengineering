@@ -2901,6 +2901,14 @@
   </file>
   </section>
   <section priority="medium" role="config">
+  <file path="services/reservations/src/config/manage-base-url.ts">
+    <item priority="high">
+      export const DEFAULT_MANAGE_BASE_URL: unknown;
+    </item>
+    <item priority="high">
+      export function resolveManageBaseUrl(env: { MANAGE_BASE_URL?: string | undefined }): string { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/config/manage-token.ts">
     <item priority="low">
       interface ManageTokenConfig {
@@ -2987,6 +2995,12 @@
         valid: false;
         missing: readonly string[];
       }
+    </item>
+    <item priority="high">
+      export function resolveRedirectUri(
+        configured: string | undefined,
+        location: Pick<Location, "origin" | "hostname">
+      ): string { /* ... */ }
     </item>
     <item priority="high">
       export function validateAuthConfig(): AuthConfigResult | AuthConfigFailure { /* ... */ }
@@ -3405,6 +3419,20 @@
     </item>
     <item priority="high">
       export function normalizeSensorReport(report: unknown): HealthMetrics { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/marketing/src/data/engineering-menu.ts">
+    <item priority="low">
+      interface EngineeringPage {
+        label: string;
+        href: string;
+      }
+    </item>
+    <item priority="high">
+      export const ENGINEERING_PAGES: readonly EngineeringPage[];
+    </item>
+    <item priority="high">
+      export function isEngineeringPageCurrent(pathname: string, href: string): boolean { /* ... */ }
     </item>
   </file>
   <file path="apps/marketing/src/data/measurement-date.ts">
@@ -4931,8 +4959,19 @@
       interface SeatPlacementInput {
         shape: TableShapeName;
         capacity: number;
+        width?: number;
+        height?: number;
         gap?: number;
       }
+    </item>
+    <item priority="low">
+      interface SeatSize {
+        width: number;
+        height: number;
+      }
+    </item>
+    <item priority="high">
+      export function seatSize(capacity: number): SeatSize { /* ... */ }
     </item>
     <item priority="high">
       type RectangleSide = (typeof RECTANGLE_SIDES)[number];
@@ -4956,6 +4995,12 @@
         height: number,
         gap: number
       ): readonly SeatPlacement[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function minSeatSpacing(input: SeatPlacementInput, seats: readonly SeatPlacement[]): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function fittedSeatSize(input: SeatPlacementInput): SeatSize { /* ... */ }
     </item>
     <item priority="high">
       export function seatPlacements(input: SeatPlacementInput): readonly SeatPlacement[] { /* ... */ }
@@ -6899,6 +6944,12 @@
     <item priority="high">
       export const FOCUSABLE_SELECTOR: unknown;
     </item>
+    <item priority="medium">
+      function isReachable(el: HTMLElement, panel: HTMLElement): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function queryTabbable(panel: HTMLElement): HTMLElement[] { /* ... */ }
+    </item>
     <item priority="low">
       interface UseFocusTrapOptions {
         initialFocus?: RefObject<HTMLElement | null>;
@@ -6906,7 +6957,7 @@
     </item>
     <item priority="medium">
       function resolveInitialFocus(
-        focusable: NodeListOf<HTMLElement>,
+        focusable: HTMLElement[],
         first: HTMLElement | undefined,
         initialFocus?: RefObject<HTMLElement | null>
       ): HTMLElement | undefined { /* ... */ }
@@ -6935,7 +6986,7 @@
   </file>
   <file path="packages/rialto/src/hooks/useReturnFocus.ts">
     <item priority="high">
-      export function useReturnFocus(open: boolean): void { /* ... */ }
+      export function useReturnFocus(open: boolean): () => void { /* ... */ }
     </item>
   </file>
   <file path="packages/rialto/src/hooks/useScrollReveal.ts">
@@ -7606,6 +7657,45 @@
         error: Error,
         t: TFunction = localeRuntime.i18n.t
       ): AuthErrorDescription { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/lib/host-brand.ts">
+    <item priority="low">
+      interface Brand {
+        name: string;
+        logo: string;
+      }
+    </item>
+    <item priority="low">
+      interface HostConfig {
+        brand: Brand;
+        basename: string;
+        standalone: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function hostConfig(hostname: string): HostConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      export function currentHostConfig(): HostConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      export function appUrl(
+        path: string,
+        location: Pick<Location, "origin" | "hostname"> = window.location
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function homeUrl(location: Pick<Location, "origin"> = window.location): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function manageReservationUrl(
+        token: string,
+        location: Pick<Location, "origin" | "hostname"> = window.location
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function legacyPathRedirect(pathname: string, basename: string): string | null { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/lib/logo-palette-canvas.ts">

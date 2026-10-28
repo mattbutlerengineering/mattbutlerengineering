@@ -5,6 +5,7 @@ import {
   NotificationDispatcher,
 } from "./notifications/index.js";
 import { getPublicApiBaseUrlConfig } from "./config/public-api-base-url.js";
+import { resolveManageBaseUrl } from "./config/manage-base-url.js";
 
 /**
  * Reads Resend env vars once and constructs a ResendNotificationAdapter.
@@ -38,7 +39,7 @@ export function createResendAdapter(): ResendNotificationAdapter {
   return new ResendNotificationAdapter({
     resend: resendClient,
     fromAddress: process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
-    manageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
+    manageBaseUrl: resolveManageBaseUrl(process.env),
     publicApiBaseUrl,
   });
 }
@@ -67,6 +68,6 @@ export function createNotificationPort(): NotificationDispatcher {
   return new NotificationDispatcher({
     emailAdapter,
     smsAdapter,
-    smsManageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
+    smsManageBaseUrl: resolveManageBaseUrl(process.env),
   });
 }

@@ -345,6 +345,25 @@ to a single worker without worktree isolation in cloud and keep the local
   never appear and the PR would sit `BLOCKED` forever — the same trap #3543 fixed
   for `pr-metrics.yml`. `workflow_dispatch` is the documented exception.
 
+## `api-failures` (GitHub Actions)
+
+- **When:** Mondays 15:00 UTC (`0 15 * * 1`) plus `workflow_dispatch` (input
+  `dry_run`). Workflow: `.github/workflows/api-failures.yml`; no agent.
+- **What:** `scripts/api-failures.mjs` reads the trailing 7 days of `/api/*`
+  requests from the `edge_requests` Analytics Engine dataset, groups by method
+  and normalized path, and files one `ready` + `bug` + `production-health`
+  issue (plus an `area:*` label) per breaching endpoint: 5xx rate >= 1% with
+  > = 20 requests, 4xx rate >= 10% with >= 50 requests (401/404 on reads
+  > excluded), or p95 >= 2000 ms. An open issue carrying the hidden
+  > `<!-- api-failures:METHOD path -->` marker gets a comment instead; at most 5
+  > new issues per run. `sentry-triage.yml` covers thrown exceptions; this covers
+  > failures that never throw.
+- **Fails closed:** a missing `CLOUDFLARE_API_TOKEN`, a query error or zero rows
+  for the whole window exits non-zero, so `scheduled-workflow-health` files a
+  `ci-fix` issue. A silent skip never reads as "no failures".
+- **Secret:** `CLOUDFLARE_API_TOKEN` (Account · Account Analytics · Read) and
+  `CLOUDFLARE_ACCOUNT_ID`. Runbook: [edge-usage](./runbooks/edge-usage.md#weekly-api-failures-report).
+
 ## `mbe-weekly-improve`
 
 > **Prompt:** [`routines/mbe-weekly-improve.md`](./routines/mbe-weekly-improve.md).

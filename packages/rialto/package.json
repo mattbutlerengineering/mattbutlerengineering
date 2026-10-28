@@ -1,6 +1,6 @@
 {
   "name": "@mattbutlerengineering/rialto",
-  "version": "0.9.1",
+  "version": "0.9.3",
   "type": "module",
   "main": "./dist/lib/rialto.js",
   "module": "./dist/lib/rialto.js",
@@ -425,6 +425,8 @@
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "lint": "eslint .",
+    "size": "size-limit",
+    "size:check": "size-limit",
     "manifest": "pnpm exec tsx scripts/generate-manifest.ts",
     "exports": "pnpm exec tsx scripts/generate-exports.ts",
     "exports:check": "pnpm exec tsx scripts/generate-exports.ts --check",

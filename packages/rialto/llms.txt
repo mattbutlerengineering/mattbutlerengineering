@@ -1166,6 +1166,12 @@
     <item priority="high">
       export const FOCUSABLE_SELECTOR: unknown;
     </item>
+    <item priority="medium">
+      function isReachable(el: HTMLElement, panel: HTMLElement): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function queryTabbable(panel: HTMLElement): HTMLElement[] { /* ... */ }
+    </item>
     <item priority="low">
       interface UseFocusTrapOptions {
         initialFocus?: RefObject<HTMLElement | null>;
@@ -1173,7 +1179,7 @@
     </item>
     <item priority="medium">
       function resolveInitialFocus(
-        focusable: NodeListOf<HTMLElement>,
+        focusable: HTMLElement[],
         first: HTMLElement | undefined,
         initialFocus?: RefObject<HTMLElement | null>
       ): HTMLElement | undefined { /* ... */ }
@@ -1202,7 +1208,7 @@
   </file>
   <file path="src/hooks/useReturnFocus.ts">
     <item priority="high">
-      export function useReturnFocus(open: boolean): void { /* ... */ }
+      export function useReturnFocus(open: boolean): () => void { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useScrollReveal.ts">

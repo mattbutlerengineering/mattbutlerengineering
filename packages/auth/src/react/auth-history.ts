@@ -74,12 +74,12 @@ interface PageShowTarget {
 /** Reload a bfcache restore that followed an auth-history skip. Returns cleanup. */
 export function installAuthBackReload(target: PageShowTarget = window): () => void {
   const onPageShow = (event: PageTransitionEvent) => {
-    if (!event.persisted) return;
     try {
       const flagged = target.sessionStorage.getItem(AUTH_BACK_RELOAD_KEY) === "1";
       if (!flagged) return;
       target.sessionStorage.removeItem(AUTH_BACK_RELOAD_KEY);
-      target.location.reload();
+      // A fresh load (not a bfcache restore) already has a live React tree.
+      if (event.persisted) target.location.reload();
     } catch (error) {
       continueWhenStorageFails(error);
     }

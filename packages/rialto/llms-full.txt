@@ -2957,21 +2957,38 @@
     }
   </file>
   <file path="src/hooks/useFocusTrap.ts">
-    export const FOCUSABLE_SELECTOR =
-      'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
+    export const FOCUSABLE_SELECTOR = [
+      'button:not(:disabled):not([tabindex="-1"])',
+      '[href]:not([tabindex="-1"])',
+      'input:not(:disabled):not([type="hidden"]):not([tabindex="-1"])',
+      'select:not(:disabled):not([tabindex="-1"])',
+      'textarea:not(:disabled):not([tabindex="-1"])',
+      '[tabindex]:not([tabindex="-1"])',
+    ].join(", ");
+    function isReachable(el: HTMLElement, panel: HTMLElement): boolean {
+      if (el.closest("[hidden], [inert]")) return false;
+      if (getComputedStyle(el).visibility === "hidden") return false;
+      for (let node: HTMLElement | null = el; node && node !== panel; node = node.parentElement) {
+        if (getComputedStyle(node).display === "none") return false;
+      }
+      return true;
+    }
+    function queryTabbable(panel: HTMLElement): HTMLElement[] {
+      return Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter((el) =>
+        isReachable(el, panel)
+      );
+    }
     export interface UseFocusTrapOptions {
       /** Element to focus when the trap activates, overriding the default candidate. */
       initialFocus?: RefObject<HTMLElement | null>;
     }
     function resolveInitialFocus(
-      focusable: NodeListOf<HTMLElement>,
+      focusable: HTMLElement[],
       first: HTMLElement | undefined,
       initialFocus?: RefObject<HTMLElement | null>
     ): HTMLElement | undefined {
       if (initialFocus?.current) return initialFocus.current;
-      const defaultTarget = Array.from(focusable).find(
-        (el) => !el.hasAttribute(FOCUS_TRAP_SKIP_INITIAL_ATTR)
-      );
+      const defaultTarget = focusable.find((el) => !el.hasAttribute(FOCUS_TRAP_SKIP_INITIAL_ATTR));
       return defaultTarget ?? first;
     }
     export function useFocusTrap(
@@ -2987,7 +3004,7 @@
         const panel = panelRef.current;
         if (!panel) return;
     
-        const initialCandidates = panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
+        const initialCandidates = queryTabbable(panel);
         resolveInitialFocus(initialCandidates, initialCandidates[0], initialFocus)?.focus();
     
         activePanels.push(panel);
@@ -2998,7 +3015,7 @@
           if (panel !== activePanels[activePanels.length - 1]) return;
           // Re-query on every Tab: panels add/remove/disable controls after open,
           // so cached ends go stale and let focus escape.
-          const focusable = panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
+          const focusable = queryTabbable(panel);
           const first = focusable[0];
           const last = focusable[focusable.length - 1];
           const active = document.activeElement;
@@ -3076,8 +3093,12 @@
     }
   </file>
   <file path="src/hooks/useReturnFocus.ts">
-    export function useReturnFocus(open: boolean): void {
+    export function useReturnFocus(open: boolean): () => void {
       const triggerRef = useRef<Element | null>(null);
+      const skipRef = useRef(false);
+      const skipRestore = useCallback(() => {
+        skipRef.current = true;
+      }, []);
     
       useLayoutEffect(() => {
         if (!open) return;
@@ -3088,11 +3109,16 @@
         return () => {
           const captured = triggerRef.current;
           triggerRef.current = null;
+          const skip = skipRef.current;
+          skipRef.current = false;
+          if (skip) return;
           requestAnimationFrame(() => {
             (captured as HTMLElement | null)?.focus();
           });
         };
       }, [open]);
+    
+      return skipRestore;
     }
   </file>
   <file path="src/hooks/useScrollReveal.ts">
@@ -3360,6 +3386,8 @@
       readonly drawer: string;
       /** Fallback accessible name of a Popover with no title. */
       readonly popover: string;
+      /** NeonSign banner shape: the decorative script line printed above OPEN. */
+      readonly neonSignLead: string;
       /** Accessible name of a HoverCard's preview surface. */
       readonly preview: string;
       /** Accessible name of the Toast region. */
@@ -3576,6 +3604,7 @@
       dialog: "Dialog",
       drawer: "Drawer",
       popover: "Popover",
+      neonSignLead: "Yes, we're",
       preview: "Preview",
       notifications: "Notifications",
       confirm: "Confirm",
@@ -3792,6 +3821,7 @@
       dialog: "Diálogo",
       drawer: "Panel lateral",
       popover: "Ventana emergente",
+      neonSignLead: "Sí, estamos",
       preview: "Vista previa",
       notifications: "Notificaciones",
       confirm: "Confirmar",
@@ -3955,6 +3985,7 @@
       dialog: "Boîte de dialogue",
       drawer: "Panneau latéral",
       popover: "Fenêtre contextuelle",
+      neonSignLead: "Oui, on est",
       preview: "Aperçu",
       notifications: "Avis",
       confirm: "Confirmer",

@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@mbe/auth/react";
 import { Button, DepartureBoard, Handshake, Stack, Text } from "@mattbutlerengineering/rialto";
+import { currentHostConfig } from "../lib/host-brand.js";
 import styles from "./LoginGate.module.css";
 
 /** Query param + value the marketing homepage's Hospitality project link appends (`?ref=marketing`). */
@@ -57,6 +58,9 @@ export function LoginGate({ signedOut = false }: LoginGateProps = {}) {
     [t]
   );
   const stations = [t("auth.stations.browser"), t("auth.stations.identity")] as const;
+  // On a standalone host (eat-sheet.com, #7709) the product IS the brand.
+  const host = currentHostConfig();
+  const heading = host.standalone ? host.brand.name : t("auth.login.title");
 
   // The landing title replaces the dashboard's; restored on unmount so the
   // authenticated dashboard keeps its own title.
@@ -76,7 +80,7 @@ export function LoginGate({ signedOut = false }: LoginGateProps = {}) {
         <Stack gap="lg" align="center">
           <Stack gap="sm" align="center">
             <Text as="h1" variant="display" color="primary">
-              {t("auth.login.title")}
+              {heading}
             </Text>
             <Text variant="body" color="secondary">
               {tagline}
