@@ -4516,3 +4516,18 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 **queueEfficiency:** composite 0.939 (baseline n/a) — healthy
 **Difficulty distribution:** size:xs:39, size:l:8, size:m:23, size:s:39, size:xl:11
 **Issues filed:** 0
+
+## 2026-10-28 — mbe-ui-quality
+
+- **State:** `state.mjs checkout` exit 0, `source: branch` (`ui-quality/ledger` @ f3813c4, merged `origin/main` c84add0, no conflicts resolved).
+- **Routes:** 40 due (marketing 8, rialto-web 32), 40 captured, 40 audited. Hospitality contributed 0 due rows — all 20 of its routes are `unreachable:auth`. No `unreachable:build`; all three app builds succeeded.
+- **Judging:** rubric v1. 0 unjudged, 0 dropped tells. Judged per route from the 1280x720 capture of every route, plus the 375x812 capture for all 8 marketing routes and a 3-route rialto-web mobile sample (data-table, chalkboard, hero); no responsive-only judged tells exist in v1.
+- **Findings:** 0 mechanical, 1 judged — `marketing /` `accessibility/vague-link-purpose` (three identical "View live" links in the Projects section pointing at three different destinations). Already a known key in the findings ledger (`marketing|/|r1|accessibility/vague-link-purpose`).
+- **Calibration stamp: `stale`.** First `calibration-status` returned exit 3 (stale), which is the calibration trigger. `rate.mjs pairs --calibration` exited 2: `docs/ui-quality/calibration.json` still holds the unlabelled placeholder set (Matt labels ≥ 10 pairs once at the Verify stage). Logged, not retried. Re-queried status: still exit 3 — a stale the calibration could not clear, so rating proceeded. Ratings recorded over 12 pairs: marketing 2.5, rialto-web 3.33.
+- **Filing: STOPPED — `findings.mjs plan` exit 2.** Three `ui-quality`-labelled issues are absent from the findings ledger and carry no current finding title: **#7463, #7603, #7609**. The fire read incomplete state, so it planned nothing rather than refiling. Opened the single escalation issue the plan wrote: **#7908** (labels came back `ui-quality` + `needs-review`, as required). Recovery is a human's, per that issue: retitle each listed issue to its finding title, or drop its `ui-quality` label, then close #7908.
+  - Note: #7603 and #7609 are themselves the closed fix issues for this exact failure mode, and #7477 was the previous escalation (now closed) — all three still carry the `ui-quality` label, which is what re-trips the check.
+- **Issues created / reopened / commented:** 1 created (#7908, the escalation). 0 reopened, 0 commented. **Seeds:** none (step 6e not reached).
+- **Fix PR:** none — filing stopped at the plan, so no `fix_pr_candidate` action ever existed.
+- **P1 SLA:** not run. The plan's exit 2 routes the fire straight to step (7), skipping 6d–6h.
+- **Coverage before this fire:** 100% (135/135 covered, provisional; `first_run_at` 2026-10-01). 20 `unreachable:auth` rows, all hospitality.
+- **Blockers / pipeline bugs:** no `blocker: no-browser` (Chromium resolved at `/opt/pw-browsers/chromium_headless_shell-1243/...`). No pipeline bug: both exit-2s this fire (`pairs --calibration`, `plan`) are documented, intended refusals, not faults.
