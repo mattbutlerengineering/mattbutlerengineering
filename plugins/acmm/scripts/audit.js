@@ -27,7 +27,7 @@ import { updateBadge } from "./outputs/badge.js";
 import { applyIssuesForFailures, ensureAcmmLabel } from "./outputs/issues.js";
 import { measureFlakeRate } from "./flake-rate.js";
 import { measurePrOutcomes } from "./pr-outcomes.js";
-import { measureEvals } from "./evals.js";
+import { measureJudgedEvals } from "./evals.js";
 import { formatEvalsLine } from "./evals-freshness.js";
 import { freshBehavioralReading, describeBehavioralAge } from "./behavioral-freshness.js";
 import path from "node:path";
@@ -309,7 +309,7 @@ async function main() {
    * isn't spawned for every reader) ── */
   const flake = ghAvailable ? measureFlakeRate() : null;
   const prOutcomes = ghAvailable ? measurePrOutcomes() : null;
-  const evalsSummary = measureEvals(cwd);
+  const evalsSummary = measureJudgedEvals(cwd);
   const autoQaTuning = measureAutoQaTuning(repoRoot);
   const behavioral = {
     ...(prior.behavioral ?? {}),
@@ -317,13 +317,12 @@ async function main() {
     agent_pr: prOutcomes
       ? { ...prOutcomes, measured_at: new Date().toISOString() }
       : (prior.behavioral?.agent_pr ?? null),
-    // A carried-forward reading keeps its own `lastRun`/`measured_at`, so
-    // `formatEvalsLine` can tell the reader how old it is rather than rendering
-    // it as a live measurement — which it did for 133 days (#4199).
-    evals:
-      evalsSummary.freshness === "current"
-        ? { ...evalsSummary, measured_at: new Date().toISOString() }
-        : (prior.behavioral?.evals ?? null),
+    // Read from judged rows of metrics/eval-reports.jsonl (#7581). An old
+    // judged reading keeps its own `lastRun`, so `formatEvalsLine` says how
+    // old it is instead of rendering it as live (#4199). With no judged row
+    // there is nothing to carry: a prior reading came from the retired
+    // acmm-evals.jsonl feed and must not resurface as a number.
+    evals: evalsSummary.lastRun ? { ...evalsSummary, measured_at: new Date().toISOString() } : null,
     auto_qa_tuning: autoQaTuning
       ? { ...autoQaTuning, measured_at: new Date().toISOString() }
       : (prior.behavioral?.auto_qa_tuning ?? null),
