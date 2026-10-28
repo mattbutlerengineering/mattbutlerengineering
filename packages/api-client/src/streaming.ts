@@ -39,6 +39,23 @@ export class StreamRequestError extends Error {
   }
 }
 
+// A line, or undefined if blank/malformed. `$genError` throws a plain Error.
+function parseLine(line: string): unknown {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(line);
+  } catch {
+    return undefined;
+  }
+  const message = (parsed as { $genError?: unknown } | null)?.$genError;
+  if (typeof message === "string" && message) {
+    const error = new Error(message);
+    error.name = "GenStreamError";
+    throw error;
+  }
+  return parsed;
+}
+
 /**
  * Stream NDJSON from a POST endpoint, yielding one parsed object per line.
  *
@@ -54,21 +71,6 @@ export class StreamRequestError extends Error {
  * }
  * ```
  */
-function throwIfGenError(parsed: unknown): void {
-  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return;
-  const message = (parsed as { $genError?: unknown }).$genError;
-  if (typeof message !== "string" || message === "") return;
-  // A plain Error, not a transport status: the prompt stays and the attempt
-  // is a generation failure the history can record.
-  const error = new Error(message);
-  error.name = "GenStreamError";
-  throw error;
-}
-
-function isGenStreamError(error: unknown): boolean {
-  return error instanceof Error && error.name === "GenStreamError";
-}
-
 export async function* streamNDJSON<T>(config: StreamConfig): AsyncGenerator<T> {
   const response = await fetch(config.url, {
     method: "POST",
@@ -122,31 +124,14 @@ export async function* streamNDJSON<T>(config: StreamConfig): AsyncGenerator<T> 
       buffer = lines.pop() ?? "";
 
       for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-
-        try {
-          const parsed = JSON.parse(trimmed) as T;
-          throwIfGenError(parsed);
-          yield parsed;
-        } catch (error) {
-          if (error instanceof StreamRequestError || isGenStreamError(error)) throw error;
-          // Skip malformed JSON lines
-        }
+        const parsed = parseLine(line);
+        if (parsed !== undefined) yield parsed as T;
       }
     }
 
     // Process any remaining buffered content
-    if (buffer.trim()) {
-      try {
-        const parsed = JSON.parse(buffer.trim()) as T;
-        throwIfGenError(parsed);
-        yield parsed;
-      } catch (error) {
-        if (error instanceof StreamRequestError || isGenStreamError(error)) throw error;
-        // Skip malformed JSON lines
-      }
-    }
+    const parsed = parseLine(buffer);
+    if (parsed !== undefined) yield parsed as T;
   } finally {
     reader.releaseLock();
   }
