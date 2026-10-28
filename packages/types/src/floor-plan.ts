@@ -1,3 +1,4 @@
+import type { FloorMaterial } from "./schemas/floor-plan-section.js";
 import type { Table, TableShapeMetadata } from "./table.js";
 
 // Re-export for existing importers (type now owned by table.ts).
@@ -40,6 +41,8 @@ export interface FloorPlanLayout {
   showGrid?: boolean;
   walls?: WallLayout[];
   sections?: SectionLayout[];
+  /** Plan-level default floor, drawn beneath every section. Absent = bare floor. */
+  floorMaterial?: FloorMaterial | null;
 }
 
 export interface CreateFloorPlanRequest {

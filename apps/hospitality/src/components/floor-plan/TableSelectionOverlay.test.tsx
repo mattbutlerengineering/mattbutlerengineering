@@ -137,7 +137,7 @@ describe("TableSelectionOverlay", () => {
       expect(screen.getByRole("button", { name: "Table T5, Inactive" })).toBeInTheDocument();
     });
 
-    it("defaults a table missing from the map to available", () => {
+    it("leaves a table missing from a supplied map unlabelled, not 'available'", () => {
       render(
         <TableSelectionOverlay
           tables={[TABLE_A]}
@@ -147,7 +147,7 @@ describe("TableSelectionOverlay", () => {
           tableStatuses={new Map()}
         />
       );
-      expect(screen.getByRole("button", { name: "Table T1, Available" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Table T1" })).toBeInTheDocument();
     });
 
     it("leaves the name unchanged when no statuses are supplied", () => {

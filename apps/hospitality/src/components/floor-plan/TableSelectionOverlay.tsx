@@ -71,10 +71,9 @@ export function TableSelectionOverlay({
             aria-label={tableAriaLabel(
               t,
               table.tableNumber || table.name,
-              glyphKeyFor(
-                tableStatuses && (tableStatuses.get(table.id) ?? "available"),
-                table.isActive
-              )
+              // A table the feed has not reported (before the first snapshot) has no
+              // known status: say nothing rather than a guess.
+              glyphKeyFor(tableStatuses?.get(table.id), table.isActive)
             )}
             onClick={() => onSelect(table.id)}
           />

@@ -7,6 +7,9 @@ import { SECTION_LABEL_FALLBACKS, type SectionLabelTheme } from "./section-label
 export const SECTION_TEXTURE_NAME = "section-texture";
 export const SECTION_TINT_NAME = "section-tint";
 export const SECTION_LABEL_NAME = "section-label";
+export const SECTION_BORDER_NAME = "section-border";
+
+const BORDER_OPACITY = 0.7;
 
 const CORNER_RADIUS = 6;
 const LABEL_PADDING = 4;
@@ -80,9 +83,20 @@ export function SectionZone({
         height={zone.height}
         fill={zone.color}
         opacity={0.18}
+        cornerRadius={CORNER_RADIUS}
+        listening={false}
+      />
+      {/* A solid hairline in the section colour. Its own node so the tint's low
+          opacity doesn't wash the edge out. */}
+      <Rect
+        name={SECTION_BORDER_NAME}
+        x={zone.x}
+        y={zone.y}
+        width={zone.width}
+        height={zone.height}
         stroke={zone.color}
         strokeWidth={1}
-        dash={[6, 4]}
+        opacity={BORDER_OPACITY}
         cornerRadius={CORNER_RADIUS}
         listening={false}
       />

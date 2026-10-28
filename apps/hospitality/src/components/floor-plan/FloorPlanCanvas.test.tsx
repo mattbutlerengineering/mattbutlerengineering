@@ -105,6 +105,24 @@ vi.mock("./SectionZone.js", () => ({
   ),
 }));
 
+vi.mock("./PlanFloor.js", () => ({
+  PlanFloor: ({
+    texture,
+    width,
+    height,
+  }: {
+    texture?: HTMLImageElement;
+    width: number;
+    height: number;
+  }) => (
+    <div
+      data-testid="plan-floor"
+      data-textured={String(Boolean(texture))}
+      data-size={`${width}x${height}`}
+    />
+  ),
+}));
+
 import { FloorPlanCanvas } from "./FloorPlanCanvas.js";
 
 /* ── Fixtures ─────────────────────────────────────────────────── */
@@ -224,6 +242,40 @@ describe("FloorPlanCanvas sections", () => {
     vi.unstubAllGlobals();
   });
 
+  it("draws the plan-level floor beneath the sections, textured once its material loads", async () => {
+    const loaded: Record<string, () => void> = {};
+    class StubImage {
+      onload: (() => void) | null = null;
+      set src(value: string) {
+        const material = value.split("/").pop()!.replace(".png", "");
+        loaded[material] = () => this.onload?.();
+      }
+    }
+    vi.stubGlobal("Image", StubImage);
+
+    render(
+      <FloorPlanCanvas
+        {...defaultProps}
+        floorPlan={{
+          ...FLOOR_PLAN,
+          layoutJson: { width: 1200, height: 800, floorMaterial: "concrete" },
+        }}
+        sections={[zone]}
+      />
+    );
+    const floor = screen.getByTestId("plan-floor");
+    expect(floor.dataset.size).toBe("1200x800");
+    expect(floor.dataset.textured).toBe("false");
+    expect(
+      floor.compareDocumentPosition(screen.getByTestId("section-zone-s1")) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+
+    await act(async () => loaded.concrete?.());
+    expect(screen.getByTestId("plan-floor").dataset.textured).toBe("true");
+    vi.unstubAllGlobals();
+  });
+
   it("resolves one label theme for the whole canvas", () => {
     render(<FloorPlanCanvas {...defaultProps} sections={[zone]} />);
     expect(screen.getByTestId("section-zone-s1").dataset.labelPlate).toBeTruthy();
@@ -312,11 +364,11 @@ describe("FloorPlanCanvas", () => {
       );
     });
 
-    it("treats a table with no entry in tableStatuses as available, so its glyph matches the legend", () => {
+    it("leaves status undefined for a table with no entry in tableStatuses", () => {
       const tableStatuses = new Map<string, TableDisplayStatus>([["t1", "seated"]]);
       render(<FloorPlanCanvas {...defaultProps} tableStatuses={tableStatuses} />);
 
-      expect(screen.getByTestId("table-shape-t2").getAttribute("data-status")).toBe("available");
+      expect(screen.getByTestId("table-shape-t2").getAttribute("data-status")).toBeNull();
     });
 
     it("leaves status undefined for every table when tableStatuses is omitted (no regression to editor-only usage)", () => {
@@ -342,6 +394,12 @@ describe("FloorPlanCanvas", () => {
     it("hides the legend in editor-only usage", () => {
       render(<FloorPlanCanvas {...defaultProps} />);
       expect(screen.queryByRole("list", { name: "Table status" })).not.toBeInTheDocument();
+    });
+
+    it("does not speak a status for a table the feed has not reported", () => {
+      const tableStatuses = new Map<string, TableDisplayStatus>([["t1", "seated"]]);
+      render(<FloorPlanCanvas {...defaultProps} tableStatuses={tableStatuses} />);
+      expect(screen.getByRole("button", { name: /T2$/ })).toBeInTheDocument();
     });
 
     it("names each table's status on its keyboard button", () => {

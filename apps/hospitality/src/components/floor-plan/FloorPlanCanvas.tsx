@@ -7,6 +7,7 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import type { Table, FloorPlan, WallLayout } from "@mbe/types";
 import { TableShape } from "./TableShape";
 import { WallShape } from "./WallShape.js";
+import { PlanFloor } from "./PlanFloor.js";
 import { SectionZone, type SectionZoneData } from "./SectionZone.js";
 import { useSectionLabelTheme } from "./section-label-theme.js";
 import { useFloorTextures } from "../../hooks/useFloorTextures.js";
@@ -20,26 +21,10 @@ import {
   type Point,
   type WallEnd,
 } from "./floor-plan-geometry.js";
+import { floorPlanGridStyle } from "./floor-plan-grid.js";
 import type { TableDisplayStatus } from "./table-status.js";
 import { TableStatusLegend } from "./TableStatusLegend.js";
 import styles from "./FloorPlanCanvas.module.css";
-
-// Grid pattern background — pure function of GRID_SIZE, computed once at
-// module load rather than on every render (draggingTableId/dimensions/scale/
-// tableStatuses all change far more often than the grid itself does).
-//
-// Drawn as two repeating-linear-gradients using the rialto border token
-// instead of a data-URI SVG with baked-in hex fill/stroke — a data URI is a
-// separate resource and can't resolve `var(--rialto-*)`, which is how the
-// old version painted a light-theme-only grid in dark mode. CSS custom
-// properties in a plain background-image resolve live against whichever
-// theme is active, and the wrapper's own `--rialto-surface-recessed`
-// background (FloorPlanCanvas.module.css) shows through as the grid fill.
-const GRID_LINE_COLOR = "var(--rialto-border)";
-const GRID_PATTERN = [
-  `repeating-linear-gradient(0deg, ${GRID_LINE_COLOR} 0, ${GRID_LINE_COLOR} 1px, transparent 1px, transparent ${GRID_SIZE}px)`,
-  `repeating-linear-gradient(90deg, ${GRID_LINE_COLOR} 0, ${GRID_LINE_COLOR} 1px, transparent 1px, transparent ${GRID_SIZE}px)`,
-].join(", ");
 
 const ARROW_DELTAS: Readonly<Record<string, readonly [number, number]>> = {
   ArrowUp: [0, -GRID_SIZE],
@@ -117,11 +102,15 @@ export function FloorPlanCanvas({
 
   // Floor textures are loaded once for the whole canvas, not per zone, so two
   // sections sharing a material share one image and one request.
-  const sectionMaterials = useMemo(
-    () => sections.flatMap((zone) => (zone.floorMaterial ? [zone.floorMaterial] : [])),
-    [sections]
+  const planMaterial = floorPlan.layoutJson.floorMaterial ?? null;
+  const floorMaterials = useMemo(
+    () => [
+      ...(planMaterial ? [planMaterial] : []),
+      ...sections.flatMap((zone) => (zone.floorMaterial ? [zone.floorMaterial] : [])),
+    ],
+    [planMaterial, sections]
   );
-  const floorTextures = useFloorTextures(sectionMaterials);
+  const floorTextures = useFloorTextures(floorMaterials);
   const sectionLabelTheme = useSectionLabelTheme();
 
   /**
@@ -248,8 +237,8 @@ export function FloorPlanCanvas({
   return (
     <>
       {/* Focus-scoped keyboard handling. tabIndex -1 lets a pointer click on the
-          canvas move focus here (so keys work after mouse selection) without
-          adding a tab stop; Tab still reaches the per-table overlay buttons. */}
+        canvas move focus here (so keys work after mouse selection) without
+        adding a tab stop; Tab still reaches the per-table overlay buttons. */}
       {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
       <div
         ref={containerRef}
@@ -260,10 +249,7 @@ export function FloorPlanCanvas({
         onKeyDown={handleKeyDown}
         data-testid="floor-plan-canvas-wrapper"
         className={styles.canvasWrapper}
-        style={{
-          backgroundImage: GRID_PATTERN,
-          backgroundSize: `${GRID_SIZE * scale}px ${GRID_SIZE * scale}px`,
-        }}
+        style={floorPlanGridStyle({ readOnly, scale })}
       >
         <Text id={instructionsId} className={styles.srOnly}>
           {onDeleteRequest
@@ -304,6 +290,11 @@ export function FloorPlanCanvas({
           onTap={handleStageClick}
         >
           <Layer>
+            <PlanFloor
+              width={planWidth}
+              height={planHeight}
+              texture={planMaterial ? floorTextures.get(planMaterial) : undefined}
+            />
             {sections.map((zone) => (
               <SectionZone
                 key={zone.id}
@@ -330,9 +321,7 @@ export function FloorPlanCanvas({
                 onSelect={handleSelect}
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
-                // With statuses supplied every table wears a glyph; one the feed
-                // has not mentioned is available, as its fill already says.
-                status={tableStatuses ? (tableStatuses.get(table.id) ?? "available") : undefined}
+                status={tableStatuses?.get(table.id)}
                 stageScale={scale}
               />
             ))}

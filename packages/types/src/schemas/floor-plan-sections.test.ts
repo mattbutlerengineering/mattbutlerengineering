@@ -32,6 +32,15 @@ describe("sections in the floor plan layout", () => {
     expect(FloorPlanLayoutSchema.parse(layout).sections).toEqual([zone]);
   });
 
+  it("round-trips a plan-level floor material and rejects an unknown one", () => {
+    const layout = { width: 800, height: 600, floorMaterial: "hardwood" };
+    expect(FloorPlanLayoutSchema.parse(layout).floorMaterial).toBe("hardwood");
+    expect(FloorPlanLayoutSchema.safeParse({ ...layout, floorMaterial: "lava" }).success).toBe(
+      false
+    );
+    expect(FloorPlanLayoutSchema.parse({ width: 800, height: 600 }).floorMaterial).toBeUndefined();
+  });
+
   it("still parses a layout saved before sections existed", () => {
     const parsed = FloorPlanLayoutSchema.parse({ width: 800, height: 600 });
     expect(parsed.sections).toBeUndefined();
