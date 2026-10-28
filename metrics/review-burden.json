@@ -644,5 +644,30 @@
       "review_coverage": "measured",
       "no_formal_review_stage": false
     }
+  },
+  {
+    "timestamp": "2026-10-28T17:14:17.375Z",
+    "window_days": 7,
+    "rubber_stamp_threshold_minutes": 5,
+    "total_closed_prs": 100,
+    "reviewers": [
+      {
+        "login": "mattbutlerengineering",
+        "prs_reviewed": 1,
+        "mean_review_minutes": 18.13,
+        "approvals": 1,
+        "rubber_stamps": 0,
+        "rubber_stamp_ratio": 0
+      }
+    ],
+    "summary": {
+      "total_reviewers": 1,
+      "total_reviews": 1,
+      "overall_rubber_stamp_ratio": 0,
+      "overall_rubber_stamps": 0,
+      "overall_approvals": 1,
+      "review_coverage": "measured",
+      "no_formal_review_stage": false
+    }
   }
 ]
