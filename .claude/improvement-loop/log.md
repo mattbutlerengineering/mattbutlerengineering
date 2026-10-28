@@ -4531,3 +4531,13 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 - **P1 SLA:** not run. The plan's exit 2 routes the fire straight to step (7), skipping 6d–6h.
 - **Coverage before this fire:** 100% (135/135 covered, provisional; `first_run_at` 2026-10-01). 20 `unreachable:auth` rows, all hospitality.
 - **Blockers / pipeline bugs:** no `blocker: no-browser` (Chromium resolved at `/opt/pw-browsers/chromium_headless_shell-1243/...`). No pipeline bug: both exit-2s this fire (`pairs --calibration`, `plan`) are documented, intended refusals, not faults.
+
+## 2026-10-28 — mbe-learning-loop
+
+**Sensors:** 16/17 available (e2eStability not available) — status Healthy
+**Regressions:** 0 detected, 0 issues created
+**Verifications:** 5 checked, 0 verified, 0 failed, 5 skipped (no completed CI runs / no Lighthouse inventory to verify against)
+**Sentry triage:** skipped (MCP authorization expired — re-auth needed)
+**AI issue feedback:** 7 categories, 0 unhealthy (>40% rejected); budgets unchanged at 3
+**Skill proposals:** 0 (Wednesday — Friday-only)
+**Threshold notes:** fix-effectiveness 75% (12/16 non-skip verifications over 30d, >50%, healthy); all feedback-category rejection rates ≤4% (<30%, healthy); auto-tuner applied 1 adjustment (acmm 1.35 → 1.38, headroom)
