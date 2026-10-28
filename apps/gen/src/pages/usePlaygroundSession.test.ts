@@ -940,6 +940,31 @@ describe("usePlaygroundSession", () => {
       act(() => result.current.submit("draw a form"));
       expect(result.current.failedPrompt).toBe(null);
     });
+
+    it("keeps a selected failed entry's error stable across rerenders", () => {
+      // PromptBar re-seeds its textarea whenever the error identity changes, so
+      // a fresh Error per render would wipe what the user is typing.
+      specsApiState = { specs: [makeStoredSpec({ id: "f1", kind: "failed" })], isLoading: false };
+      const { result, rerender } = renderHook(() => usePlaygroundSession());
+
+      act(() => result.current.selectHistory("f1"));
+      const first = result.current.displayError;
+      rerender();
+
+      expect(first?.message).toBe("This generation failed");
+      expect(result.current.displayError).toBe(first);
+    });
+
+    it("does not offer the last typed prompt for a selected failed history entry", () => {
+      specsApiState = { specs: [makeStoredSpec({ id: "f1", kind: "failed" })], isLoading: false };
+      const { result } = renderHook(() => usePlaygroundSession());
+
+      act(() => result.current.submit("unrelated live prompt"));
+      act(() => result.current.selectHistory("f1"));
+
+      expect(result.current.displayError).not.toBeNull();
+      expect(result.current.failedPrompt).toBe(null);
+    });
   });
 
   describe("initial prompt query param", () => {

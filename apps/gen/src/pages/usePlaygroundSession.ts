@@ -35,6 +35,10 @@ import type { SpecDiff } from "../lib/spec-subtree.js";
 // if the failed entry is ever selected from history.
 const EMPTY_SPEC: Spec = { root: "", elements: {} };
 
+// One shared instance: PromptBar re-seeds its textarea whenever the error's
+// identity changes, so a fresh Error per render would wipe what the user types.
+const FAILED_ENTRY_ERROR = new Error("This generation failed");
+
 const SPLICE_ERROR_MESSAGES: Record<SpecError, string> = {
   "unknown-key": "The selected component no longer exists in the spec.",
   "root-mismatch": "The regenerated subtree's root key does not match the selected component.",
@@ -305,10 +309,12 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
     activeId === null
       ? (refineError ?? validationError ?? error)
       : activeEntry?.kind === "failed"
-        ? new Error("This generation failed")
+        ? FAILED_ENTRY_ERROR
         : null;
   const activeSpecId = !isStreaming && activeId ? activeId : null;
-  const failedPrompt = displayError ? rawPrompt : null;
+  // Only the live generation's failure restores rawPrompt; a selected history
+  // entry's failure is unrelated to whatever was last typed.
+  const failedPrompt = activeId === null && displayError ? rawPrompt : null;
 
   const clearNodeRefine = useCallback(() => {
     nodeRefineRef.current = null;

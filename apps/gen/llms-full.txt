@@ -1597,10 +1597,12 @@
         activeId === null
           ? (refineError ?? validationError ?? error)
           : activeEntry?.kind === "failed"
-            ? new Error("This generation failed")
+            ? FAILED_ENTRY_ERROR
             : null;
       const activeSpecId = !isStreaming && activeId ? activeId : null;
-      const failedPrompt = displayError ? rawPrompt : null;
+      // Only the live generation's failure restores rawPrompt; a selected history
+      // entry's failure is unrelated to whatever was last typed.
+      const failedPrompt = activeId === null && displayError ? rawPrompt : null;
     
       const clearNodeRefine = useCallback(() => {
         nodeRefineRef.current = null;
