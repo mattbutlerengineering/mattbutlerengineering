@@ -20,6 +20,10 @@ function decodeStored(entry: StoredSpec): StoredSpec {
 export interface UseSpecsApiReturn {
   specs: StoredSpec[];
   isLoading: boolean;
+  /** Set when the most recent fetchSpecs() call failed; cleared on the next
+   *  successful fetch. Lets the UI show a deliberate error state instead of
+   *  an indistinguishable "no history yet". */
+  error: Error | null;
   fetchSpecs: () => Promise<void>;
   saveSpec: (data: SaveSpecData) => Promise<StoredSpec>;
   toggleFavorite: (id: string) => Promise<void>;
@@ -36,6 +40,7 @@ export function useSpecsApi(): UseSpecsApiReturn {
 
   const [specs, setSpecs] = useState<StoredSpec[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
   // Mirror of specs in a ref so deleteSpec can read the current list without
   // taking specs as a useCallback dependency (which would recreate on every render).
   const specsRef = useRef<StoredSpec[]>(specs);
@@ -54,8 +59,10 @@ export function useSpecsApi(): UseSpecsApiReturn {
     try {
       const json = await client.get<{ data: StoredSpec[] }>("/api/gen/specs");
       setSpecs(json.data.map(decodeStored));
+      setError(null);
     } catch (err) {
       console.error("[useSpecsApi] fetchSpecs error:", err);
+      setError(err instanceof Error ? err : new Error("Failed to load history."));
     } finally {
       setIsLoading(false);
     }
@@ -114,5 +121,5 @@ export function useSpecsApi(): UseSpecsApiReturn {
     queueMicrotask(() => void fetchSpecs());
   }, [fetchSpecs]);
 
-  return { specs, isLoading, fetchSpecs, saveSpec, toggleFavorite, deleteSpec };
+  return { specs, isLoading, error, fetchSpecs, saveSpec, toggleFavorite, deleteSpec };
 }
