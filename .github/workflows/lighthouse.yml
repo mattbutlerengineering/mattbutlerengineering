@@ -81,5 +81,7 @@ jobs:
         with:
           name: lighthouse-lhr-${{ matrix.app.name }}
           path: .lighthouseci/lhr-*.json
-          if-no-files-found: warn
+          # .lighthouseci is a dot-directory; v4.4+ skips hidden paths by default.
+          include-hidden-files: true
+          if-no-files-found: error
           retention-days: 14
