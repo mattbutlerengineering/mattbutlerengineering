@@ -157,7 +157,7 @@ describe("POST /api/gen/agent", () => {
     expect(response.statusCode).toBe(400);
   });
 
-  it("registers all 16 tools (7 read + render + 8 write)", async () => {
+  it("registers all 21 tools (8 read + render + 12 write)", async () => {
     vi.mocked(streamText).mockReturnValueOnce({
       fullStream: mockAsyncIterable([]),
       usage: Promise.resolve({ inputTokens: 10, outputTokens: 5 }),
@@ -175,6 +175,8 @@ describe("POST /api/gen/agent", () => {
     };
     const toolNames = Object.keys(call.tools).sort();
     expect(toolNames).toEqual([
+      "add_guest",
+      "add_guest_note",
       "cancel_reservation",
       "change_tonight_availability",
       "check_availability",
@@ -182,6 +184,7 @@ describe("POST /api/gen/agent", () => {
       "create_reservation",
       "end_tonight_change",
       "get_table_status",
+      "list_lapsing_guests",
       "list_today_reservations",
       "list_tonight_changes",
       "lookup_reservation",
@@ -189,7 +192,9 @@ describe("POST /api/gen/agent", () => {
       "render_component",
       "search_guests",
       "seat_walk_in",
+      "send_win_back",
       "undo_availability_change",
+      "update_guest",
       "update_table_status",
     ]);
   });

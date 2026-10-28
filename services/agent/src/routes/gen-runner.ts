@@ -69,6 +69,10 @@ export const GEN_WRITE_TOOL_NAMES = [
   "change_tonight_availability",
   "end_tonight_change",
   "undo_availability_change",
+  "add_guest",
+  "update_guest",
+  "add_guest_note",
+  "send_win_back",
 ] as const;
 
 const GEN_WRITE_TOOLS: ReadonlySet<string> = new Set(GEN_WRITE_TOOL_NAMES);

@@ -82,6 +82,10 @@ const ACTION_TITLES = {
   change_tonight_availability: "chat.actions.change_tonight_availability",
   end_tonight_change: "chat.actions.end_tonight_change",
   undo_availability_change: "chat.actions.undo_availability_change",
+  add_guest: "chat.actions.add_guest",
+  update_guest: "chat.actions.update_guest",
+  add_guest_note: "chat.actions.add_guest_note",
+  send_win_back: "chat.actions.send_win_back",
 } as const;
 
 const ACTION_FIELDS = {
@@ -103,6 +107,15 @@ const ACTION_FIELDS = {
   tables: "chat.actions.fields.tables",
   covers: "chat.actions.fields.covers",
   summary: "chat.actions.fields.summary",
+  guest: "chat.actions.fields.guest",
+  contact: "chat.actions.fields.contact",
+  name: "chat.actions.fields.name",
+  phone: "chat.actions.fields.phone",
+  email: "chat.actions.fields.email",
+  addTags: "chat.actions.fields.addTags",
+  removeTags: "chat.actions.fields.removeTags",
+  dietaryRestrictions: "chat.actions.fields.dietaryRestrictions",
+  text: "chat.actions.fields.text",
 } as const;
 
 const TABLE_STATUSES = {

@@ -99,6 +99,32 @@
       ): ToolSet { /* ... */ }
     </item>
   </file>
+  <file path="src/routes/gen-agent-guest-tools.ts">
+    <item priority="high">
+      type Guest = Awaited<ReturnType<ApiClient["guests"]["get"]>>;
+    </item>
+    <item priority="medium">
+      function shown(guest: Guest) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function guestFailure(err: unknown, action: string) { /* ... */ }
+    </item>
+    <item priority="low">
+      async function findGuest(
+        api: ApiClient,
+        venueId: string,
+        name: string,
+        contact: string | undefined
+      ): Promise<{ guest: Guest } | { error: string }> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createGuestTools(
+        log: FastifyBaseLogger,
+        api: ApiClient,
+        { venueId }: { readonly venueId?: string | undefined }
+      ): ToolSet { /* ... */ }
+    </item>
+  </file>
   <file path="src/routes/gen-agent-prompt.ts">
     <item priority="high">
       export const CHAT_PAGES: unknown;

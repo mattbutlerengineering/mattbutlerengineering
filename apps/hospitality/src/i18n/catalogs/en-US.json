@@ -1530,6 +1530,10 @@
       "change_tonight_availability": "Change tonight's availability",
       "end_tonight_change": "End a Tonight change",
       "undo_availability_change": "Undo an availability change",
+      "add_guest": "Add a guest",
+      "update_guest": "Update a guest",
+      "add_guest_note": "Add a staff note",
+      "send_win_back": "Invite a guest back",
       "fields": {
         "guestName": "Guest",
         "partySize": "Party size",
@@ -1548,7 +1552,16 @@
         "service": "Service",
         "tables": "Tables",
         "covers": "Covers per slot",
-        "summary": "Change"
+        "summary": "Change",
+        "guest": "Guest",
+        "contact": "Phone or email",
+        "name": "Name",
+        "phone": "Phone",
+        "email": "Email",
+        "addTags": "Add tags",
+        "removeTags": "Remove tags",
+        "dietaryRestrictions": "Dietary restrictions",
+        "text": "Note"
       },
       "tonightChanges": {
         "pause_online": "Pause online booking",

@@ -1556,6 +1556,10 @@
       "change_tonight_availability": "Cambiar la disponibilidad de esta noche",
       "end_tonight_change": "Terminar un cambio de esta noche",
       "undo_availability_change": "Deshacer un cambio de disponibilidad",
+      "add_guest": "Agregar un cliente",
+      "update_guest": "Actualizar un cliente",
+      "add_guest_note": "Agregar una nota del personal",
+      "send_win_back": "Invitar a un cliente a volver",
       "fields": {
         "guestName": "Cliente",
         "partySize": "Personas",
@@ -1574,7 +1578,16 @@
         "service": "Servicio",
         "tables": "Mesas",
         "covers": "Cubiertos por horario",
-        "summary": "Cambio"
+        "summary": "Cambio",
+        "guest": "Cliente",
+        "contact": "Teléfono o correo",
+        "name": "Nombre",
+        "phone": "Teléfono",
+        "email": "Correo",
+        "addTags": "Agregar etiquetas",
+        "removeTags": "Quitar etiquetas",
+        "dietaryRestrictions": "Restricciones alimentarias",
+        "text": "Nota"
       },
       "tonightChanges": {
         "pause_online": "Pausar reservas en línea",

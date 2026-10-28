@@ -1556,6 +1556,10 @@
       "change_tonight_availability": "Modifier la disponibilité de ce soir",
       "end_tonight_change": "Mettre fin à un changement de ce soir",
       "undo_availability_change": "Annuler un changement de disponibilité",
+      "add_guest": "Ajouter un client",
+      "update_guest": "Modifier un client",
+      "add_guest_note": "Ajouter une note du personnel",
+      "send_win_back": "Inviter un client à revenir",
       "fields": {
         "guestName": "Client",
         "partySize": "Personnes",
@@ -1574,7 +1578,16 @@
         "service": "Service",
         "tables": "Tables",
         "covers": "Couverts par créneau",
-        "summary": "Changement"
+        "summary": "Changement",
+        "guest": "Client",
+        "contact": "Téléphone ou courriel",
+        "name": "Nom",
+        "phone": "Téléphone",
+        "email": "Courriel",
+        "addTags": "Ajouter des étiquettes",
+        "removeTags": "Retirer des étiquettes",
+        "dietaryRestrictions": "Restrictions alimentaires",
+        "text": "Note"
       },
       "tonightChanges": {
         "pause_online": "Suspendre les réservations en ligne",

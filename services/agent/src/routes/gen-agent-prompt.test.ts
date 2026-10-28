@@ -239,3 +239,15 @@ describe("chat component reference", () => {
     expect(prompt).toMatch(/never write JSON[^.\n]*reply/i);
   });
 });
+
+// #7927: guest profile changes from the chat.
+describe("guests in the prompt", () => {
+  it("lists guest changes among the confirmed ones and keeps contact details out of replies", () => {
+    const prompt = buildAgentSystemPrompt({ venueId: "v", now: NOW, catalogPrompt: "CATALOG" });
+    const confirmLine = prompt.split("\n").find((line) => /Confirm or Cancel button/.test(line));
+
+    expect(confirmLine).toMatch(/guest profile/);
+    expect(prompt).toMatch(/update_guest/);
+    expect(prompt).toMatch(/list_lapsing_guests.*send_win_back/);
+  });
+});
