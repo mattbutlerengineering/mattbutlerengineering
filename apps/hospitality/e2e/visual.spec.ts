@@ -200,6 +200,12 @@ const test = base.extend<{ unmockedApi: string[] }>({
   // mockApi, so this route is the lowest-priority handler: only a request
   // every mock declined or fell back from reaches it.
   page: async ({ page, unmockedApi }, use) => {
+    // mockedPage navigates once while building the fixture, before this test
+    // body runs. That load must already be on FIXED_NOW: the init script pins
+    // expires_at an hour after FIXED_NOW, and a wall clock months later makes
+    // the session look more than a day stale. The gate then shows the signed-out
+    // landing and drops the stored user, so every staff page screenshots Sign In.
+    await page.clock.setFixedTime(FIXED_NOW);
     await page.route(isAppApi, (route) => {
       const url = new URL(route.request().url());
       unmockedApi.push(`${route.request().method()} ${url.pathname}${url.search}`);
