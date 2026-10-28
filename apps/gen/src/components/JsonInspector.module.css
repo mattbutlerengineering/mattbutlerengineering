@@ -106,7 +106,7 @@
 }
 
 .arrow {
-  font-size: 9px;
+  font-size: var(--rialto-text-xs);
   color: var(--rialto-text-tertiary);
   line-height: 1;
 }
@@ -154,7 +154,7 @@
   flex-shrink: 0;
   text-align: end;
   padding-inline-end: var(--rialto-space-sm);
-  font-size: 10px;
+  font-size: var(--rialto-text-xs);
   line-height: 1.5;
   color: var(--rialto-text-tertiary);
   background-color: color-mix(in srgb, var(--rialto-surface-recessed) 80%, var(--rialto-surface));
@@ -165,7 +165,7 @@
 
 .pre {
   margin: 0;
-  font-size: 11px;
+  font-size: var(--rialto-text-xs);
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-all;

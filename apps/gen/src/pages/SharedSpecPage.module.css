@@ -138,11 +138,7 @@
   content: "";
   position: absolute;
   inset: -20px;
-  background: radial-gradient(
-    ellipse at 50% 0%,
-    var(--rialto-accent-muted, rgba(196, 154, 42, 0.06)) 0%,
-    transparent 70%
-  );
+  background: radial-gradient(ellipse at 50% 0%, var(--rialto-accent-muted) 0%, transparent 70%);
   border-radius: var(--rialto-radius-soft);
   pointer-events: none;
   z-index: 0;
