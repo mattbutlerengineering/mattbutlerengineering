@@ -9189,13 +9189,16 @@
     <item priority="low">
       type AuthGate = { readonly phase: "signing-out | { readonly phase: "loading" } | { readonly phase: "callback" } | { readonly phase: "error"; rea | { readonly phase: "signed-out" | { readonly phase: "expired" } | { readonly phase: "ready" };
     </item>
+    <item priority="high">
+      export const STALE_SESSION_MS: unknown;
+    </item>
     <item priority="low">
       interface AuthGateFacts {
         isLoading: boolean;
         isAuthenticated: boolean;
         error: Error | undefined;
         sessionExpired: boolean;
-        activeNavigator: ActiveNavigator | undefined;
+        expiredForMs?: number | undefined;
       }
     </item>
     <item priority="low">
@@ -9251,6 +9254,9 @@
     </item>
     <item priority="high">
       export function useAuth() { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useStaleSession() { /* ... */ }
     </item>
     <item priority="low">
       interface AccessTokenState {
