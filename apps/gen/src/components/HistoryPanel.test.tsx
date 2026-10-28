@@ -37,6 +37,8 @@ vi.mock("./HistoryPanel.module.css", () => ({
     starButtonActive: "starButtonActive",
     replayButton: "replayButton",
     deleteButton: "deleteButton",
+    errorState: "errorState",
+    retryButton: "retryButton",
   },
 }));
 
@@ -82,6 +84,25 @@ describe("HistoryPanel", () => {
   it("should show 'No favorites yet' when filter is favorites and empty", () => {
     render(<HistoryPanel {...defaultProps} filter="favorites" />);
     expect(screen.getByText("No favorites yet")).toBeDefined();
+  });
+
+  it("should show a deliberate error state instead of the empty state when history fails to load (#7463)", () => {
+    render(<HistoryPanel {...defaultProps} error={new Error("Network error")} />);
+    expect(screen.getByText("Couldn't load history")).toBeDefined();
+    expect(screen.queryByText("No history yet")).toBeNull();
+  });
+
+  it("calls onRetry when the error state's retry button is clicked", () => {
+    const onRetry = vi.fn();
+    render(<HistoryPanel {...defaultProps} error={new Error("Network error")} onRetry={onRetry} />);
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it("prefers showing loaded entries over a stale error from a failed background refresh", () => {
+    const entries = [createMockEntry()];
+    render(<HistoryPanel {...defaultProps} entries={entries} error={new Error("Network error")} />);
+    expect(screen.queryByText("Couldn't load history")).toBeNull();
   });
 
   it("should show search input", () => {

@@ -9,6 +9,12 @@ export interface HistoryPanelProps {
   activeId: string | null;
   filter: "all" | "favorites";
   isLoading: boolean;
+  /** Set when the most recent history fetch failed. Only shown when there are
+   *  no entries to fall back on — a failed background refresh of an
+   *  already-loaded list stays silent rather than hiding real data. */
+  error?: Error | null;
+  /** Retries the failed fetch. Omit to hide the retry button. */
+  onRetry?: () => void;
   onSelect: (id: string) => void;
   onReplay: (id: string) => void;
   onToggleFavorite: (id: string) => void;
@@ -30,6 +36,8 @@ export function HistoryPanel({
   activeId,
   filter,
   isLoading,
+  error = null,
+  onRetry,
   onSelect,
   onReplay,
   onToggleFavorite,
@@ -202,6 +210,15 @@ export function HistoryPanel({
 
       {isLoading && entries.length === 0 ? (
         <p className={styles.empty}>Loading...</p>
+      ) : error && entries.length === 0 ? (
+        <div className={styles.errorState}>
+          <p className={styles.empty}>Couldn&apos;t load history</p>
+          {onRetry && (
+            <button type="button" className={styles.retryButton} onClick={onRetry}>
+              Try again
+            </button>
+          )}
+        </div>
       ) : filteredEntries.length === 0 ? (
         <p className={styles.empty}>
           {searchTerm

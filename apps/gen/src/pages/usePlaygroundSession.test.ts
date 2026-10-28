@@ -46,9 +46,13 @@ let specsApiState: { specs: StoredSpec[]; isLoading: boolean } = {
   isLoading: false,
 };
 
+const mockFetchSpecs = vi.fn();
+
 vi.mock("../hooks/useSpecsApi.js", () => ({
   useSpecsApi: () => ({
     ...specsApiState,
+    error: null,
+    fetchSpecs: mockFetchSpecs,
     saveSpec: mockSaveSpec,
     toggleFavorite: mockToggleFavorite,
     deleteSpec: mockDeleteSpec,

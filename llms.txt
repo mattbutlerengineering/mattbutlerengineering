@@ -5418,9 +5418,9 @@
       interface UseSpecsApiReturn {
         specs: StoredSpec[];
         isLoading: boolean;
+        error: Error | null;
         fetchSpecs: () => Promise<void>;
         saveSpec: (data: SaveSpecData) => Promise<StoredSpec>;
-        toggleFavorite: (id: string) => Promise<void>;
       }
     </item>
     <item priority="high">

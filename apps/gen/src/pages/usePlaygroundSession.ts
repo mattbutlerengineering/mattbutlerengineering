@@ -68,6 +68,10 @@ export interface PlaygroundSession {
   // History (from useSpecsApi)
   specs: StoredSpec[];
   isLoading: boolean;
+  /** Set when the most recent history fetch failed. */
+  historyError: Error | null;
+  /** Re-runs the failed history fetch. */
+  retryHistory: () => void;
   filter: "all" | "favorites";
   setFilter: (filter: "all" | "favorites") => void;
 
@@ -130,7 +134,15 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
   const playgroundState = usePlaygroundState();
   const { mode, exitRefinement, enterRefinement } = playgroundState;
 
-  const { specs, isLoading, saveSpec, toggleFavorite, deleteSpec } = useSpecsApi();
+  const {
+    specs,
+    isLoading,
+    error: historyError,
+    fetchSpecs: retryHistory,
+    saveSpec,
+    toggleFavorite,
+    deleteSpec,
+  } = useSpecsApi();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "favorites">("all");
   // Track the most recently submitted prompt without triggering a re-render.
@@ -524,6 +536,8 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
 
     specs,
     isLoading,
+    historyError,
+    retryHistory: () => void retryHistory(),
     filter,
     setFilter,
 

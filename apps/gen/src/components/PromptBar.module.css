@@ -71,7 +71,15 @@
 
 .charCountWarn {
   color: var(--rialto-warning, var(--rialto-accent));
-  font-weight: 600;
+  font-weight: var(--rialto-weight-medium);
+}
+
+.errorNote {
+  margin: 0;
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-error);
+  padding-inline-start: var(--rialto-space-xs);
 }
 
 .hints {

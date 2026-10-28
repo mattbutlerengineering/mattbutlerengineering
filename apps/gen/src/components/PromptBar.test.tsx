@@ -33,6 +33,7 @@ vi.mock("./PromptBar.module.css", () => ({
     input: "input",
     charCount: "charCount",
     charCountWarn: "charCountWarn",
+    errorNote: "errorNote",
     hints: "hints",
   },
 }));
@@ -252,6 +253,22 @@ describe("PromptBar", () => {
     );
 
     expect((textarea as HTMLTextAreaElement).value).toBe("same prompt");
+  });
+
+  it("shows the failure reason in the prompt panel itself, not just elsewhere on screen (#7463)", () => {
+    render(
+      <PromptBar
+        {...defaultProps}
+        failedPrompt="draw a broken form"
+        failedError={new Error("boom")}
+      />
+    );
+    expect(screen.getByRole("alert").textContent).toBe("boom");
+  });
+
+  it("shows no error affordance when there is no failure", () => {
+    render(<PromptBar {...defaultProps} failedPrompt={null} failedError={null} />);
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("does not re-seed on an unrelated re-render when the same error persists", () => {
