@@ -1,5 +1,13 @@
 # @mattbutlerengineering/rialto
 
+## 0.9.3
+
+### Patch Changes
+
+- [#7850](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7850) [`2b0afd8`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/2b0afd8929f78d4c20c7b48b2ff7f374db838bfa) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - NeonSign: add `shape` (`classic` | `swoosh` | `boxed` | `vertical` | `arrow` | `banner` | `vintage`) and `tone` (`{ word, frame? }` from the new `--rialto-neon-*` tokens). Defaults render the existing classic sign unchanged. New `neonSignLead` locale key for the banner's decorative script line.
+
+- [#7849](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7849) [`1281dd9`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/1281dd9f56913f6c224f59819b68cb4b64440449) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Overlay focus audit ([#7803](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/7803)). `useFocusTrap` now skips hidden, `inert`, `display: none`, `input[type=hidden]` and `tabindex="-1"` controls when choosing the initial target and the wrap ends. `Popover` no longer lands initial focus on its Close button. `DropdownMenu` and `ContextMenu` close on Tab and let focus move on instead of staying open (and the return-focus restore no longer pulls it back; `useReturnFocus` now returns a `skipRestore` function for that). `NavigationMenu` returns focus to its trigger on Escape.
+
 ## 0.9.2
 
 ### Patch Changes
