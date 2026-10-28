@@ -77,7 +77,9 @@ export interface GenRunner {
   run(
     messages: ReadonlyArray<{ role: "user" | "assistant"; content: string }>,
     tools: GenToolMap,
-    onEvent: GenEventCallback
+    onEvent: GenEventCallback,
+    /** Aborts the model call, e.g. when the client disconnects mid-stream. */
+    signal?: AbortSignal
   ): Promise<void>;
 }
 
@@ -93,9 +95,10 @@ export interface GenRunner {
  */
 export function createGenRunner(config: GenRunnerConfig): GenRunner {
   return {
-    async run(messages, tools, onEvent) {
+    async run(messages, tools, onEvent, signal) {
       const result = streamText({
         model: anthropic(config.modelId),
+        abortSignal: signal,
         // System prompt goes through `instructions` — ai@7 rejects system-role
         // entries inside `messages` (see genSystemInstructions).
         instructions: genSystemInstructions(config.systemPrompt),

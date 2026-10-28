@@ -277,17 +277,22 @@ export function createGenRoute<TSchema extends z.ZodType>(
         const tools = await getTools(request, parsed);
         // A run that errors before onFinish still consumed tokens: charge the worst case.
         let usageReported = false;
-        const chargeIfUnreported = async () => {
+        const chargeIfUnreported = async (finishReason = "error") => {
           if (usageReported) return;
+          // Claim the charge first so a late onFinish cannot charge the run twice.
+          usageReported = true;
           // onFinish never logged this run, so the cost line is emitted here, zeroed.
           logGenCost(request.log, {
             userId: request.user?.id,
             usage: {},
             label: costLogLabel,
-            telemetry: telemetry("error"),
+            telemetry: telemetry(finishReason),
           });
           await trackGenSpend(failedGenCostMicroUsd(), request.log);
         };
+        // Fired when the client disconnects (the response stream is cancelled),
+        // so the model call stops instead of spending tokens nobody will read.
+        const clientGone = new AbortController();
         const runner = createGenRunner({
           systemPrompt,
           modelId: GEN_MODEL_ID,
@@ -296,6 +301,8 @@ export function createGenRoute<TSchema extends z.ZodType>(
           toolChoice: config.toolChoice,
           failOnToolError: config.failOnToolError,
           onFinish: async ({ usage, providerMetadata, finishReason }) => {
+            // Already charged the worst case (aborted or failed first): never charge twice.
+            if (usageReported) return;
             logGenCost(request.log, {
               userId: request.user?.id,
               usage,
@@ -315,22 +322,39 @@ export function createGenRoute<TSchema extends z.ZodType>(
             async start(controller) {
               let emitted = false;
               try {
-                await runner.run(messages, tools, async (event) => {
-                  if (event.type === "text" && event.content.length > 0) {
-                    emitted = true;
-                    markEmitted();
-                    controller.enqueue(event.content);
-                  }
-                });
+                await runner.run(
+                  messages,
+                  tools,
+                  async (event) => {
+                    if (clientGone.signal.aborted) return;
+                    if (event.type === "text" && event.content.length > 0) {
+                      emitted = true;
+                      markEmitted();
+                      controller.enqueue(event.content);
+                    }
+                  },
+                  clientGone.signal
+                );
+                if (clientGone.signal.aborted) {
+                  await chargeIfUnreported("aborted");
+                  return;
+                }
                 if (!emitted) throw emptyOutputError();
                 controller.close();
               } catch (err) {
+                if (clientGone.signal.aborted) {
+                  await chargeIfUnreported("aborted");
+                  return;
+                }
                 // Error the stream — closing here would turn an upstream
                 // failure (e.g. 529/401) into an empty-looking 200.
                 request.log.error({ err }, "gen stream failed");
                 await chargeIfUnreported();
                 controller.error(toError(err));
               }
+            },
+            cancel() {
+              clientGone.abort();
             },
           });
           return reply.send(createSanitizedStream(textStream));
@@ -343,19 +367,28 @@ export function createGenRoute<TSchema extends z.ZodType>(
         // Once any byte is flushed the status is committed, so a later failure
         // is a `$genError` line the client throws on — not a silent 200.
         const serializeEvent = config.createEventSerializer?.(parsed) ?? defaultSerializeEvent;
+        // Shared with cancel(): once the client is gone nothing may touch the controller.
+        let closed = false;
+        let pulse: ReturnType<typeof setInterval> | undefined;
         const ndjsonStream = new ReadableStream({
           async start(controller) {
             let emitted = false;
             let sent = false;
-            let closed = false;
             const lines: unknown[] = [];
             const write = (bytes: Uint8Array) => {
               if (closed) return;
-              controller.enqueue(bytes);
-              sent = true;
+              try {
+                controller.enqueue(bytes);
+                sent = true;
+              } catch {
+                // The stream closed under us (client gone): a late write is dropped,
+                // never thrown — from the pulse's setInterval it would be uncaught.
+                closed = true;
+                clearInterval(pulse);
+              }
             };
             write(encoder.encode("\n"));
-            const pulse = setInterval(() => write(encoder.encode("\n")), 10_000);
+            pulse = setInterval(() => write(encoder.encode("\n")), 10_000);
             const end = (errorLine?: string) => {
               if (closed) return;
               closed = true;
@@ -364,14 +397,24 @@ export function createGenRoute<TSchema extends z.ZodType>(
               controller.close();
             };
             try {
-              await runner.run(messages, tools, async (event) => {
-                const line = serializeEvent(event);
-                if (line === undefined) return;
-                emitted = true;
-                markEmitted();
-                lines.push(line);
-                write(encoder.encode(JSON.stringify(line) + "\n"));
-              });
+              await runner.run(
+                messages,
+                tools,
+                async (event) => {
+                  const line = serializeEvent(event);
+                  if (line === undefined) return;
+                  emitted = true;
+                  markEmitted();
+                  lines.push(line);
+                  write(encoder.encode(JSON.stringify(line) + "\n"));
+                },
+                clientGone.signal
+              );
+              // An aborted run is partial: charge it, never cache it.
+              if (clientGone.signal.aborted) {
+                await chargeIfUnreported("aborted");
+                return;
+              }
               if (!emitted) throw emptyOutputError();
               // Only a run that finished cleanly reaches here: errors and the
               // maxOutputTokens truncation both throw out of runner.run above.
@@ -382,6 +425,10 @@ export function createGenRoute<TSchema extends z.ZodType>(
               }
               end();
             } catch (err) {
+              if (clientGone.signal.aborted) {
+                await chargeIfUnreported("aborted");
+                return;
+              }
               request.log.error({ err }, "gen stream failed");
               await chargeIfUnreported();
               if (!sent) {
@@ -394,6 +441,12 @@ export function createGenRoute<TSchema extends z.ZodType>(
             } finally {
               clearInterval(pulse);
             }
+          },
+          cancel() {
+            // Fastify cancels the reader when the client disconnects.
+            closed = true;
+            clearInterval(pulse);
+            clientGone.abort();
           },
         });
         return reply.send(ndjsonStream);
