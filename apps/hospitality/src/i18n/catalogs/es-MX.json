@@ -480,7 +480,16 @@
       "emptyTitle": "No hay mesas en este plano de sala",
       "emptyNote": "Agrega mesas desde la barra lateral",
       "moved": "{{name}} se movió a {{x}}, {{y}}",
-      "tableAria": "Mesa {{label}}"
+      "tableAria": "Mesa {{label}}",
+      "tableAriaWithStatus": "Mesa {{label}}, {{status}}"
+    },
+    "statusLegend": {
+      "title": "Estado de las mesas",
+      "available": "Disponible",
+      "reservedSoon": "Reservada pronto",
+      "seated": "Ocupada",
+      "needsBussing": "Por limpiar",
+      "inactive": "Inactiva"
     },
     "tableStatus": {
       "available": "Disponible",

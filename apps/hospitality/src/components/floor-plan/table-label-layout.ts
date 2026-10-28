@@ -31,6 +31,8 @@ export const LABEL_PADDING = 2;
 export const LABEL_LINE_HEIGHT = 1.15;
 /** Average glyph advance of the bold label face, as a multiple of the font size. */
 const GLYPH_WIDTH_EM = 0.6;
+/** Status glyph edge as a multiple of the font size. */
+const STATUS_GLYPH_EM = 0.8;
 /** Clearance kept between the plate and a chair's outline, in canvas units. */
 const CHAIR_CLEARANCE = 0.5;
 /** Each shrink step multiplies the font by this; bounded so the loop always ends. */
@@ -49,6 +51,8 @@ export interface TableLabelInput {
   rotation: number;
   /** The stage's scale (rendered px per canvas unit). */
   stageScale: number;
+  /** Reserve room in the plate for a status glyph, sized from the font so it shrinks with it. */
+  glyph?: boolean;
 }
 
 export interface TableLabelLayout {
@@ -57,6 +61,10 @@ export interface TableLabelLayout {
   /** Plate size in canvas units, including padding. */
   width: number;
   height: number;
+  /** Status glyph edge in canvas units; 0 when the table wears no glyph. */
+  glyphSize: number;
+  /** Width the glyph takes at the plate's leading edge, gap included; 0 without a glyph. */
+  glyphSlot: number;
   /** Always false: the number is never ellipsized; the font shrinks instead. */
   ellipsis: false;
 }
@@ -121,19 +129,26 @@ interface Plate {
   fontSize: number;
   width: number;
   height: number;
+  glyphSize: number;
+  glyphSlot: number;
 }
 
-function plateFor(lines: readonly string[], fontSize: number): Plate {
+function plateFor(lines: readonly string[], fontSize: number, withGlyph: boolean): Plate {
   const longest = Math.max(...lines.map((line) => line.length), 1);
+  const glyphSize = withGlyph ? fontSize * STATUS_GLYPH_EM : 0;
+  const glyphSlot = withGlyph ? glyphSize + LABEL_PADDING : 0;
   return {
     text: lines.join("\n"),
     fontSize,
-    width: longest * GLYPH_WIDTH_EM * fontSize + 2 * LABEL_PADDING,
+    width: longest * GLYPH_WIDTH_EM * fontSize + 2 * LABEL_PADDING + glyphSlot,
     height: lines.length * fontSize * LABEL_LINE_HEIGHT + 2 * LABEL_PADDING,
+    glyphSize,
+    glyphSlot,
   };
 }
 
 export function tableLabelLayout(input: TableLabelInput): TableLabelLayout {
+  const withGlyph = input.glyph === true;
   const chairs = chairBoxes(input);
   const footprint = chairs.length === 0 ? footprintBox(input) : null;
   const clear = (plate: Plate) =>
@@ -142,12 +157,12 @@ export function tableLabelLayout(input: TableLabelInput): TableLabelLayout {
       (plate.width / 2 <= footprint.halfW && plate.height / 2 <= footprint.halfH));
 
   const startFont = Math.max(LABEL_MIN_SCREEN_PX / input.stageScale, LABEL_MAX_FONT_SIZE);
-  const full = plateFor([input.number, input.covers], startFont);
+  const full = plateFor([input.number, input.covers], startFont, withGlyph);
   if (clear(full)) return { ...full, ellipsis: false };
 
-  let plate = plateFor([input.number], startFont);
+  let plate = plateFor([input.number], startFont, withGlyph);
   for (let step = 0; step < MAX_SHRINK_STEPS && !clear(plate); step += 1) {
-    plate = plateFor([input.number], plate.fontSize * SHRINK_FACTOR);
+    plate = plateFor([input.number], plate.fontSize * SHRINK_FACTOR, withGlyph);
   }
   return { ...plate, ellipsis: false };
 }

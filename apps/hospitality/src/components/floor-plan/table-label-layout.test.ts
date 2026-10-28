@@ -138,6 +138,40 @@ describe("tableLabelLayout", () => {
     ).toBeLessThanOrEqual(14);
   });
 
+  describe("with a status glyph in the plate", () => {
+    describe.each(["square", "circle", "rectangle"] as const)("%s table", (shape) => {
+      describe.each(SCALES)("at stage scale %f", (scale) => {
+        it.each(ROTATIONS)("still stays clear of every chair at rotation %i", (rotation) => {
+          const input = inputFor(shape, rotation, scale, { glyph: true });
+          const layout = tableLabelLayout(input);
+          expect(layout.glyphSize).toBeGreaterThan(0);
+          expect(plateHitsChair(input, layout)).toBe(false);
+        });
+      });
+    });
+
+    it("reserves a slot for the glyph, left of the text, inside the plate", () => {
+      const input = inputFor("rectangle", 0, 1, { number: "T1" });
+      const plain = tableLabelLayout(input);
+      const withGlyph = tableLabelLayout({ ...input, glyph: true });
+      expect(plain.glyphSize).toBe(0);
+      expect(plain.glyphSlot).toBe(0);
+      expect(withGlyph.glyphSlot).toBeGreaterThan(withGlyph.glyphSize);
+      expect(withGlyph.width).toBeCloseTo(plain.width + withGlyph.glyphSlot, 5);
+    });
+
+    it("keeps the glyph no taller than the plate's text block", () => {
+      const layout = tableLabelLayout(inputFor("rectangle", 0, 1, { glyph: true }));
+      expect(layout.glyphSize).toBeLessThanOrEqual(layout.height);
+    });
+
+    it("shrinks the glyph with the font when the plate shrinks among the chairs", () => {
+      const roomy = tableLabelLayout(inputFor("rectangle", 0, 1, { glyph: true }));
+      const tight = tableLabelLayout(inputFor("square", 0, LARGE_PLAN_SCALE, { glyph: true }));
+      expect(tight.glyphSize).toBeLessThan(roomy.glyphSize);
+    });
+  });
+
   it("bounds a table with no chairs by its own footprint", () => {
     const input = inputFor("rectangle", 90, PHONE_SCALE, {
       capacity: 0,

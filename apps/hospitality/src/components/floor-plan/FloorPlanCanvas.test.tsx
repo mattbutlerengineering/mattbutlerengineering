@@ -379,6 +379,36 @@ describe("FloorPlanCanvas", () => {
     });
   });
 
+  describe("status legend (#7844)", () => {
+    it("shows the legend under the canvas when statuses are supplied", () => {
+      const tableStatuses = new Map<string, TableDisplayStatus>([["t1", "seated"]]);
+      render(<FloorPlanCanvas {...defaultProps} tableStatuses={tableStatuses} />);
+      expect(screen.getByRole("list", { name: "Table status" })).toBeInTheDocument();
+      expect(
+        screen
+          .getByTestId("floor-plan-canvas-wrapper")
+          .compareDocumentPosition(screen.getByRole("list", { name: "Table status" }))
+      ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    });
+
+    it("hides the legend in editor-only usage", () => {
+      render(<FloorPlanCanvas {...defaultProps} />);
+      expect(screen.queryByRole("list", { name: "Table status" })).not.toBeInTheDocument();
+    });
+
+    it("does not speak a status for a table the feed has not reported", () => {
+      const tableStatuses = new Map<string, TableDisplayStatus>([["t1", "seated"]]);
+      render(<FloorPlanCanvas {...defaultProps} tableStatuses={tableStatuses} />);
+      expect(screen.getByRole("button", { name: /T2$/ })).toBeInTheDocument();
+    });
+
+    it("names each table's status on its keyboard button", () => {
+      const tableStatuses = new Map<string, TableDisplayStatus>([["t1", "needs-bussing"]]);
+      render(<FloorPlanCanvas {...defaultProps} tableStatuses={tableStatuses} />);
+      expect(screen.getByRole("button", { name: /, Needs bussing$/ })).toBeInTheDocument();
+    });
+  });
+
   describe("click handling", () => {
     it("marks the correct table as selected", () => {
       render(<FloorPlanCanvas {...defaultProps} selectedTableId="t1" />);

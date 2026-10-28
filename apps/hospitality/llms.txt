@@ -2064,7 +2064,7 @@
         fontSize: number;
         width: number;
         height: number;
-        ellipsis: false;
+        glyphSize: number;
       }
     </item>
     <item priority="high">
@@ -2093,13 +2093,49 @@
         fontSize: number;
         width: number;
         height: number;
+        glyphSize: number;
       }
     </item>
     <item priority="medium">
-      function plateFor(lines: readonly string[], fontSize: number): Plate { /* ... */ }
+      function plateFor(lines: readonly string[], fontSize: number, withGlyph: boolean): Plate { /* ... */ }
     </item>
     <item priority="high">
       export function tableLabelLayout(input: TableLabelInput): TableLabelLayout { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/floor-plan/table-status-glyph.ts">
+    <item priority="low">
+      type StatusGlyphKey = TableDisplayStatus | "inactive";
+    </item>
+    <item priority="high">
+      export const STATUS_GLYPH_KEYS: readonly StatusGlyphKey[];
+    </item>
+    <item priority="high">
+      export const GLYPH_VIEWBOX: unknown;
+    </item>
+    <item priority="high">
+      export const GLYPH_STROKE_WIDTH: unknown;
+    </item>
+    <item priority="low">
+      interface StatusGlyph {
+        path: string;
+        filled: boolean;
+      }
+    </item>
+    <item priority="high">
+      export const STATUS_GLYPHS: Readonly<Record<StatusGlyphKey, StatusGlyph>>;
+    </item>
+    <item priority="high">
+      export const STATUS_LABEL_KEY: unknown;
+    </item>
+    <item priority="high">
+      export function glyphKeyFor(
+        status: TableDisplayStatus | undefined,
+        isActive: boolean
+      ): StatusGlyphKey | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function statusFillToken(key: StatusGlyphKey): string { /* ... */ }
     </item>
   </file>
   <file path="src/components/floor-plan/table-status.ts">

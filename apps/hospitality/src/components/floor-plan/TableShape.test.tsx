@@ -60,6 +60,7 @@ vi.mock("react-konva", () => {
     radius?: number;
     cornerRadius?: number;
     opacity?: number;
+    data?: string;
   }
 
   function shapeMock(kind: string) {
@@ -73,10 +74,12 @@ vi.mock("react-konva", () => {
       radius,
       cornerRadius,
       opacity,
+      data,
     }: ShapeMockProps) {
       return (
         <div
           data-testid={`konva-${kind}`}
+          data-path={data}
           data-name={name}
           data-fill={fill}
           data-stroke={stroke}
@@ -194,6 +197,7 @@ vi.mock("react-konva", () => {
 });
 
 import { TableShape } from "./TableShape.js";
+import { STATUS_GLYPHS, STATUS_GLYPH_KEYS } from "./table-status-glyph.js";
 import { TABLE_CORNER_RADIUS, SEAT_NAME, TABLE_SURFACE_NAME } from "./furniture-tokens.js";
 
 /* ── Fixtures ─────────────────────────────────────────────────── */
@@ -506,6 +510,46 @@ describe("TableShape", () => {
       expect(Number(labelText()?.getAttribute("data-font-size")) * scale).toBeGreaterThanOrEqual(
         10
       );
+    });
+  });
+
+  describe("status glyph (#7844)", () => {
+    const glyph = () => requireNamed("table-label-group").querySelector("[data-name=status-glyph]");
+
+    it.each(STATUS_GLYPH_KEYS.filter((key) => key !== "inactive"))(
+      "draws the %s glyph inside the label group",
+      (status) => {
+        render(<TableShape table={makeTable()} {...defaultProps} status={status} />);
+        expect(glyph()?.getAttribute("data-path")).toBe(STATUS_GLYPHS[status].path);
+      }
+    );
+
+    it("draws the inactive glyph on an inactive table, whatever its status", () => {
+      render(
+        <TableShape table={makeTable({ isActive: false })} {...defaultProps} status="seated" />
+      );
+      expect(glyph()?.getAttribute("data-path")).toBe(STATUS_GLYPHS.inactive.path);
+    });
+
+    it("draws no glyph when no status is supplied (editor-only usage)", () => {
+      render(<TableShape table={makeTable()} {...defaultProps} />);
+      expect(glyph()).toBeNull();
+    });
+
+    it("tells reserved-soon from needs-bussing by glyph, with no new colour", () => {
+      const { unmount } = render(
+        <TableShape table={makeTable()} {...defaultProps} status="reserved-soon" />
+      );
+      const reserved = glyph()?.getAttribute("data-path");
+      unmount();
+      render(<TableShape table={makeTable()} {...defaultProps} status="needs-bussing" />);
+      expect(glyph()?.getAttribute("data-path")).not.toBe(reserved);
+    });
+
+    it("colours the glyph with the plate ink so it keeps the label's contrast", () => {
+      setThemeVar("--rialto-text-primary", "rgb(10, 10, 10)");
+      render(<TableShape table={makeTable()} {...defaultProps} status="available" />);
+      expect(glyph()?.getAttribute("data-stroke")).toBe("rgb(10, 10, 10)");
     });
   });
 
