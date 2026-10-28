@@ -539,6 +539,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           ruleId={reopening.id}
           dateLabel={format.formatCalendarDate(reopening.startsOn, DATE_FORMAT)}
           cancelled={summaryOf(reopening.id)?.cancelled ?? 0}
+          editedDates={rules.filter((r) => r.seriesId === reopening.id).length}
           onClose={() => setReopening(null)}
         />
       )}

@@ -1232,6 +1232,65 @@ describe("reopenClosure", () => {
     expect(w.changes.at(-1)).toMatchObject({ kind: "reopen", notifiedGuests: true });
   });
 
+  describe("a series (#7685)", () => {
+    const series = {
+      ...rowFor("closure"),
+      id: "s1",
+      endsOn: null,
+      repeat: { version: 1, weekdays: [4] },
+    };
+    const child = (id: string, kind: string, day: string) => ({
+      ...rowFor(kind),
+      id,
+      seriesId: "s1",
+      startsOn: new Date(`${day}T00:00:00.000Z`),
+      endsOn: new Date(`${day}T00:00:00.000Z`),
+    });
+    const layered = () => {
+      const w = world();
+      w.dateRules = [
+        series,
+        child("k1", "skip", "2026-12-03"),
+        child("e1", "closure", "2026-12-10"),
+        { ...rowFor("closure"), id: "other" },
+      ];
+      return w;
+    };
+
+    it("deletes the series' skips and one-date edits with it, leaving other rules", async () => {
+      const w = layered();
+      const { client, tx } = fakeClient(w);
+
+      const outcome = await reopenClosure(
+        { venueId: "v", ruleId: "s1", caller: MANAGER, tellCancelledGuests: false, now: NOW },
+        client
+      );
+
+      expect(outcome.kind).toBe("reopened");
+      const deleted = JSON.stringify(tx.dateRule.updateMany.mock.calls);
+      for (const id of ["s1", "k1", "e1"]) expect(deleted).toContain(id);
+      expect(deleted).not.toContain("other");
+    });
+
+    it("records an inverse that restores the series and every child exactly", async () => {
+      const w = layered();
+      await reopen(w, MANAGER, "s1");
+
+      const inverse = JSON.stringify(w.changes.at(-1));
+      for (const id of ["s1", "k1", "e1"]) expect(inverse).toContain(id);
+      expect(inverse).not.toContain("other");
+    });
+
+    it("leaves a single-date reopen unchanged", async () => {
+      const w = layered();
+      const { tx } = await reopen(w, MANAGER, "other");
+
+      const deleted = JSON.stringify(tx.dateRule.updateMany.mock.calls);
+      expect(deleted).toContain("other");
+      for (const id of ["s1", "k1", "e1"]) expect(deleted).not.toContain(id);
+    });
+  });
+
   it("answers a replay of the original key after the reopen with the stored result, changing nothing", async () => {
     const w = world();
     const first = await run(w, body());
