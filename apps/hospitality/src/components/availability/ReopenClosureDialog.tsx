@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Button, Checkbox, Dialog, useToast } from "@mattbutlerengineering/rialto";
+import { Alert, Button, Checkbox, Dialog, Text, useToast } from "@mattbutlerengineering/rialto";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useReopenClosure } from "../../hooks/useClosures.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
@@ -12,6 +12,8 @@ export interface ReopenClosureDialogProps {
   readonly dateLabel: string;
   /** Bookings the closure cancelled; the opt-in notice goes to these guests. */
   readonly cancelled: number;
+  /** Skips and one-date edits of a series; reopening the series removes them too. */
+  readonly editedDates?: number;
   readonly onClose: () => void;
 }
 
@@ -20,7 +22,7 @@ export interface ReopenClosureDialogProps {
  * on by default, sends them the opt-in "we've reopened, rebook" notice.
  */
 export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
-  const { venueId, ruleId, dateLabel, cancelled, onClose } = props;
+  const { venueId, ruleId, dateLabel, cancelled, editedDates = 0, onClose } = props;
   const { t } = useTranslation();
   const { toast } = useToast();
   const offerUndo = useAvailabilityUndo();
@@ -65,6 +67,9 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
       }
     >
       {failure && <Alert variant="error">{failure}</Alert>}
+      {editedDates > 0 && (
+        <Text>{t("availabilitySpecial.reopen.editedDates", { count: editedDates })}</Text>
+      )}
       {cancelled > 0 && (
         <Checkbox
           label={t("availabilitySpecial.reopen.tell", { count: cancelled })}

@@ -1,5 +1,5 @@
 {
-  "version": "0.9.2",
+  "version": "0.9.3",
   "components": [
     {
       "name": "Accordion",
@@ -2186,6 +2186,12 @@
           "type": "Partial<Record<\"marketing\" | \"hospitality\" | \"rialto\", string>> | undefined",
           "required": false,
           "description": "Link labels per app, for consumers that localize them. Omitted apps keep the English defaults."
+        },
+        {
+          "name": "menu",
+          "type": "GlobalNavMenu | undefined",
+          "required": false,
+          "description": "Optional dropdown after the app links. The trigger is marked current when any item is."
         }
       ],
       "slots": []

@@ -10324,6 +10324,23 @@
       };
     }
   </file>
+  <file path="apps/marketing/src/data/engineering-menu.ts">
+    export interface EngineeringPage {
+      readonly label: string;
+      readonly href: string;
+    }
+    export const ENGINEERING_PAGES: readonly EngineeringPage[] = [
+      { label: "Metrics", href: "/metrics" },
+      { label: "Shipped", href: "/shipped" },
+      { label: "Weekly", href: "/weekly" },
+      { label: "Status", href: "/status" },
+      { label: "AI health", href: "/ai-health" },
+      { label: "ACMM", href: "/acmm" },
+    ];
+    export function isEngineeringPageCurrent(pathname: string, href: string): boolean {
+      return pathname === href || pathname.startsWith(`${href}/`);
+    }
+  </file>
   <file path="apps/marketing/src/data/measurement-date.ts">
     export const MEASUREMENT_DATE: string = metricsSnapshot.generatedAt;
   </file>
@@ -15341,8 +15358,26 @@
     export interface SeatPlacementInput {
       readonly shape: TableShapeName;
       readonly capacity: number;
+      /** Stored footprint; each falls back to the shape's `SHAPE_DEFAULTS` entry. */
+      readonly width?: number;
+      readonly height?: number;
       /** Clearance from the table edge; defaults to the canonical SEAT_GAP. */
       readonly gap?: number;
+    }
+    export interface SeatSize {
+      readonly width: number;
+      readonly height: number;
+    }
+    export function seatSize(capacity: number): SeatSize {
+      const t = Math.min(
+        1,
+        Math.max(0, (capacity - SEAT_SHRINK_START) / (SEAT_SHRINK_END - SEAT_SHRINK_START))
+      );
+      const ease = (from: number, to: number) => Math.round((from + (to - from) * t) * 1000) / 1000;
+      return {
+        width: ease(SEAT_SIZE_FULL.width, SEAT_SIZE_SMALL.width),
+        height: ease(SEAT_SIZE_FULL.height, SEAT_SIZE_SMALL.height),
+      };
     }
     type RectangleSide = (typeof RECTANGLE_SIDES)[number];
     function usableSeatCount(capacity: number): number {
@@ -15394,12 +15429,41 @@
         }));
       });
     }
+    function minSeatSpacing(input: SeatPlacementInput, seats: readonly SeatPlacement[]): number {
+      if (input.shape === "circle") {
+        const diameter = input.width ?? SHAPE_DEFAULTS.circle.width;
+        const gap = input.gap ?? SEAT_GAP;
+        return seats.length > 1
+          ? 2 * (diameter / 2 + gap) * Math.sin(Math.PI / seats.length)
+          : Infinity;
+      }
+      const bySide = new Map<number, number[]>();
+      for (const seat of seats) {
+        const along = seat.rotation % 180 === 0 ? seat.x : seat.y;
+        bySide.set(seat.rotation, [...(bySide.get(seat.rotation) ?? []), along]);
+      }
+      let min = Infinity;
+      for (const positions of bySide.values()) {
+        const sorted = [...positions].sort((a, b) => a - b);
+        sorted.slice(1).forEach((p, i) => {
+          min = Math.min(min, p - (sorted[i] ?? 0));
+        });
+      }
+      return min;
+    }
+    export function fittedSeatSize(input: SeatPlacementInput): SeatSize {
+      const base = seatSize(input.capacity);
+      const spacing = minSeatSpacing(input, seatPlacements(input));
+      return { ...base, width: Math.min(base.width, spacing - SEAT_SPACING_GAP) };
+    }
     export function seatPlacements(input: SeatPlacementInput): readonly SeatPlacement[] {
       const gap = input.gap ?? SEAT_GAP;
       const count = usableSeatCount(input.capacity);
       if (count === 0) return [];
     
-      const { width, height } = SHAPE_DEFAULTS[input.shape];
+      const defaults = SHAPE_DEFAULTS[input.shape];
+      const width = input.width ?? defaults.width;
+      const height = input.height ?? defaults.height;
       return input.shape === "circle"
         ? circleSeats(count, width / 2 + gap)
         : rectangleSeats(count, width, height, gap);
@@ -48933,7 +48997,8 @@
     
           const next = {
             ...state.stored,
-            dateRules: state.stored.dateRules.filter((r) => r.id !== ruleId),
+            // Reopening a series also removes its skips and one-date edits (#7685).
+            dateRules: state.stored.dateRules.filter((r) => r.id !== ruleId && r.seriesId !== ruleId),
           };
           const diff = diffConfig(state.stored, next);
           await writeConfigDiff(db, venueId, diff, { actorId: caller.actorId, now });

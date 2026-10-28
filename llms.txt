@@ -3407,6 +3407,20 @@
       export function normalizeSensorReport(report: unknown): HealthMetrics { /* ... */ }
     </item>
   </file>
+  <file path="apps/marketing/src/data/engineering-menu.ts">
+    <item priority="low">
+      interface EngineeringPage {
+        label: string;
+        href: string;
+      }
+    </item>
+    <item priority="high">
+      export const ENGINEERING_PAGES: readonly EngineeringPage[];
+    </item>
+    <item priority="high">
+      export function isEngineeringPageCurrent(pathname: string, href: string): boolean { /* ... */ }
+    </item>
+  </file>
   <file path="apps/marketing/src/data/measurement-date.ts">
     <item priority="high">
       export const MEASUREMENT_DATE: string;
@@ -4931,8 +4945,19 @@
       interface SeatPlacementInput {
         shape: TableShapeName;
         capacity: number;
+        width?: number;
+        height?: number;
         gap?: number;
       }
+    </item>
+    <item priority="low">
+      interface SeatSize {
+        width: number;
+        height: number;
+      }
+    </item>
+    <item priority="high">
+      export function seatSize(capacity: number): SeatSize { /* ... */ }
     </item>
     <item priority="high">
       type RectangleSide = (typeof RECTANGLE_SIDES)[number];
@@ -4956,6 +4981,12 @@
         height: number,
         gap: number
       ): readonly SeatPlacement[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function minSeatSpacing(input: SeatPlacementInput, seats: readonly SeatPlacement[]): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function fittedSeatSize(input: SeatPlacementInput): SeatSize { /* ... */ }
     </item>
     <item priority="high">
       export function seatPlacements(input: SeatPlacementInput): readonly SeatPlacement[] { /* ... */ }
