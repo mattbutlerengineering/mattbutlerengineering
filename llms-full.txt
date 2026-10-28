@@ -9755,9 +9755,15 @@
     export function useChatRequestContext(): Readonly<Record<string, unknown>> {
       const { selectedVenue } = useVenue();
       const { pathname, search } = useLocation();
+      // A record the page publishes (its live selection) wins over one named in the URL.
+      const published = useChatFocus();
       return useMemo(
-        () => ({ ...chatRequestContext(selectedVenue), ...chatPageContext(pathname, search) }),
-        [selectedVenue, pathname, search]
+        () => ({
+          ...chatRequestContext(selectedVenue),
+          ...chatPageContext(pathname, search),
+          ...(published ? { focus: published } : {}),
+        }),
+        [selectedVenue, pathname, search, published]
       );
     }
     export function useChatSuggestions(): readonly string[] {
@@ -17882,6 +17888,28 @@
       );
     
       return { status, error, selectSlot, confirm, abandon };
+    }
+  </file>
+  <file path="apps/hospitality/src/hooks/useChatFocus.ts">
+    function publish(next: ChatFocus | undefined): void {
+      if (current?.kind === next?.kind && current?.id === next?.id) return;
+      current = next;
+      for (const listener of listeners) listener();
+    }
+    function subscribe(listener: () => void): () => void {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    }
+    export function useChatFocus(): ChatFocus | undefined {
+      return useSyncExternalStore(subscribe, snapshot, snapshot);
+    }
+    export function usePublishChatFocus(focus: ChatFocus | undefined): void {
+      const kind = focus?.kind;
+      const id = focus?.id;
+      useEffect(() => {
+        publish(kind && id ? { kind, id } : undefined);
+        return () => publish(undefined);
+      }, [kind, id]);
     }
   </file>
   <file path="apps/hospitality/src/hooks/useClosures.ts">

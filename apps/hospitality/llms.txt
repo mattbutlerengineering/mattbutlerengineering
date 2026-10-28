@@ -2581,6 +2581,20 @@
       export function useChangeBooking({ token, venueSlug }: UseChangeBookingOptions) { /* ... */ }
     </item>
   </file>
+  <file path="src/hooks/useChatFocus.ts">
+    <item priority="medium">
+      function publish(next: ChatFocus | undefined): void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function subscribe(listener: () => void): () => void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useChatFocus(): ChatFocus | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function usePublishChatFocus(focus: ChatFocus | undefined): void { /* ... */ }
+    </item>
+  </file>
   <file path="src/hooks/useClosures.ts">
     <item priority="high">
       export const useClosureImpact: unknown;

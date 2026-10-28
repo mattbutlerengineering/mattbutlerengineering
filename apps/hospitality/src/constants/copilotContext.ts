@@ -7,6 +7,7 @@ import type {
 } from "@mattbutlerengineering/rialto";
 import { useLocation } from "react-router";
 import { useVenue } from "../contexts/VenueContext.js";
+import { useChatFocus } from "../hooks/useChatFocus.js";
 import { chatPageContext, chatSuggestionKeys } from "./chatPageContext.js";
 import { useTables } from "../hooks/useTables.js";
 import { formatCalendarDate, formatLocalTime, resolveTimeZone } from "../utils/format.js";
@@ -59,9 +60,15 @@ export function chatRequestContext(venue: ChatVenue | null | undefined): Record<
 export function useChatRequestContext(): Readonly<Record<string, unknown>> {
   const { selectedVenue } = useVenue();
   const { pathname, search } = useLocation();
+  // A record the page publishes (its live selection) wins over one named in the URL.
+  const published = useChatFocus();
   return useMemo(
-    () => ({ ...chatRequestContext(selectedVenue), ...chatPageContext(pathname, search) }),
-    [selectedVenue, pathname, search]
+    () => ({
+      ...chatRequestContext(selectedVenue),
+      ...chatPageContext(pathname, search),
+      ...(published ? { focus: published } : {}),
+    }),
+    [selectedVenue, pathname, search, published]
   );
 }
 
