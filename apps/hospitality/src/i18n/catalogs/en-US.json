@@ -1528,6 +1528,10 @@
       "change_tonight_availability": "Change tonight's availability",
       "end_tonight_change": "End a Tonight change",
       "undo_availability_change": "Undo an availability change",
+      "add_to_waitlist": "Add to the waitlist",
+      "notify_waitlist_party": "Tell a party their table is ready",
+      "seat_waitlist_party": "Seat a waiting party",
+      "remove_from_waitlist": "Remove from the waitlist",
       "fields": {
         "guestName": "Guest",
         "partySize": "Party size",
@@ -1546,7 +1550,8 @@
         "service": "Service",
         "tables": "Tables",
         "covers": "Covers per slot",
-        "summary": "Change"
+        "summary": "Change",
+        "guestPhone": "Phone"
       },
       "tonightChanges": {
         "pause_online": "Pause online booking",

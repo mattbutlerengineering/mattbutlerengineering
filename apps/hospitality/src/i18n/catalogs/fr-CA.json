@@ -1554,6 +1554,10 @@
       "change_tonight_availability": "Modifier la disponibilité de ce soir",
       "end_tonight_change": "Mettre fin à un changement de ce soir",
       "undo_availability_change": "Annuler un changement de disponibilité",
+      "add_to_waitlist": "Ajouter à la liste d'attente",
+      "notify_waitlist_party": "Avertir un groupe que sa table est prête",
+      "seat_waitlist_party": "Placer un groupe en attente",
+      "remove_from_waitlist": "Retirer de la liste d'attente",
       "fields": {
         "guestName": "Client",
         "partySize": "Personnes",
@@ -1572,7 +1576,8 @@
         "service": "Service",
         "tables": "Tables",
         "covers": "Couverts par créneau",
-        "summary": "Changement"
+        "summary": "Changement",
+        "guestPhone": "Téléphone"
       },
       "tonightChanges": {
         "pause_online": "Suspendre les réservations en ligne",

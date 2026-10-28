@@ -65,13 +65,13 @@ describe("describeChatAction", () => {
 describe("describeChatAction fallbacks", () => {
   it("shows a raw name rather than a translation key for an unknown tool or field", () => {
     const description = describeChatAction(
-      { actionId: "a3", toolName: "add_to_waitlist", toolInput: { quotedWait: 15 } },
+      { actionId: "a3", toolName: "send_gift_card", toolInput: { quotedWait: 15 } },
       (key) => `t:${key}`,
       () => undefined
     );
 
     expect(description).toEqual({
-      title: "add to waitlist",
+      title: "send gift card",
       details: [{ label: "quotedWait", value: "15" }],
     });
   });
@@ -217,6 +217,39 @@ describe("describeChatAction Tonight availability", () => {
     expect(undo).toEqual({
       title: "t:chat.actions.undo_availability_change",
       details: [{ label: "t:chat.actions.fields.summary", value: "Paused online booking tonight" }],
+    });
+  });
+});
+
+// #7926: waitlist actions, as the confirm bar shows them.
+describe("describeChatAction waitlist actions", () => {
+  const t = (key: string) => `t:${key}`;
+
+  it.each([
+    "add_to_waitlist",
+    "notify_waitlist_party",
+    "seat_waitlist_party",
+    "remove_from_waitlist",
+  ])("titles %s", (toolName) => {
+    expect(
+      describeChatAction({ actionId: "c", toolName, toolInput: {} }, t, () => undefined).title
+    ).toBe(`t:chat.actions.${toolName}`);
+  });
+
+  it("labels the guest's phone number", () => {
+    const add = describeChatAction(
+      {
+        actionId: "c1",
+        toolName: "add_to_waitlist",
+        toolInput: { guestName: "Park", partySize: 3, guestPhone: "+15555550199" },
+      },
+      t,
+      () => undefined
+    );
+
+    expect(add.details[2]).toEqual({
+      label: "t:chat.actions.fields.guestPhone",
+      value: "+15555550199",
     });
   });
 });

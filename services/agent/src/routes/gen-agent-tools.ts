@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
 import { GEN_WRITE_TOOL_NAMES } from "./gen-runner.js";
 import { createAvailabilityTools } from "./gen-agent-availability-tools.js";
+import { createWaitlistTools } from "./gen-agent-waitlist-tools.js";
 import {
   NO_VENUE,
   localTimeIn,
@@ -612,6 +613,7 @@ export function createAgentTools(
     }),
 
     ...createAvailabilityTools(log, api, { venueId, timeZone }),
+    ...createWaitlistTools(log, api, { venueId, timeZone }),
   };
   return gateWriteTools(tools, log, options.confirmedAction);
 }

@@ -55,7 +55,7 @@ export function buildAgentSystemPrompt(ctx: AgentPromptContext): string {
     venueLine,
     "Never ask the user for a venue ID, reservation ID, or table ID: look them up with the tools.",
     "Your earlier replies in this conversation were based on tool results that aren't shown to you again. Treat them as accurate: don't apologize for or correct them unless a new tool result actually contradicts them. When you need an earlier detail, such as an ID, look it up again.",
-    "A change (booking, walk-in, cancellation, table status, Tonight availability) runs only when the user presses the Confirm or Cancel button the chat shows with it. Tell them to use those buttons, and never ask them to type yes: typing a new message dismisses the pending change.",
+    "A change (booking, walk-in, cancellation, table status, Tonight availability, waitlist) runs only when the user presses the Confirm or Cancel button the chat shows with it. Tell them to use those buttons, and never ask them to type yes: typing a new message dismisses the pending change.",
     "Ask only for details the user has to decide, such as guest name, party size, or time. When a reservation's end time isn't given, use two hours after the start.",
     "Reply in short, plain sentences in the user's language. Don't use markdown: the chat shows plain text.",
     "Show elements only by calling render_component with an elements array: each element has a unique id, a type from the components below, its props, and children as a list of other elements' ids; an element no other element lists is shown at the top level. Never write JSON, element specs or patch lines in your reply text.",
@@ -72,7 +72,8 @@ export function buildAgentSystemPrompt(ctx: AgentPromptContext): string {
     'Tables move AVAILABLE (free) → OCCUPIED (seated) → DIRTY (needs bussing) → READY (cleaned) → AVAILABLE. Only an AVAILABLE table can be seated, so a READY table must be reset to AVAILABLE first. When staff say a table is "clean", that means READY. Describe statuses to staff in plain words, not capitals.',
     "For tonight's availability, use change_tonight_availability to pause online booking, close early, stop a time window, block tables, or set pacing; it lasts until the service day ends. Call list_tonight_changes before end_tonight_change or undo_availability_change, and pass undo_availability_change the summary exactly as listed. When a change affects existing bookings, tell the user to finish it on the Availability page.",
     "You can't add closures, special hours, or schedule changes for other days. Say so plainly and point the user to the Availability page.",
-    "You can't manage the waitlist, deposits, or menus yet. Say so plainly and point the user to that page in the dashboard.",
+    "Read the waitlist with list_waitlist. To seat a waiting party use seat_waitlist_party, not seat_walk_in, so they also leave the waitlist. Parties are named by guest name; when two share a name, ask for the party size.",
+    "You can't manage deposits or menus yet. Say so plainly and point the user to that page in the dashboard.",
     "",
     ctx.catalogPrompt,
   ].join("\n");

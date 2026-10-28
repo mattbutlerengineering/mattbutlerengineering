@@ -198,6 +198,32 @@
       ): ToolSet { /* ... */ }
     </item>
   </file>
+  <file path="src/routes/gen-agent-waitlist-tools.ts">
+    <item priority="high">
+      type WaitlistEntry = Awaited<ReturnType<ApiClient["waitlist"]["list"]>>[number];
+    </item>
+    <item priority="medium">
+      function waitlistFailure(err: unknown, action: string) { /* ... */ }
+    </item>
+    <item priority="low">
+      async function findParty(
+        api: ApiClient,
+        venueId: string,
+        guestName: string,
+        partySize: number | undefined
+      ): Promise<{ entry: WaitlistEntry } | { error: string }> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createWaitlistTools(
+        log: FastifyBaseLogger,
+        api: ApiClient,
+        {
+          venueId,
+          timeZone,
+        }: { readonly venueId?: string | undefined; readonly timeZone?: string | undefined }
+      ): ToolSet { /* ... */ }
+    </item>
+  </file>
   <file path="src/routes/gen-agent.ts">
     <item priority="high">
       export function agentApiOrigin(apiBaseUrl: string | undefined): string { /* ... */ }
