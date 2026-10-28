@@ -45,6 +45,12 @@ describe("FloorPlanEditorPage phone layout (375px)", () => {
     expect(rule(phone, "sidebar")).toMatch(/flex-shrink:\s*0/);
   });
 
+  it("wraps the header so the title and actions never overflow the viewport", () => {
+    expect(rule(phone, "header")).toMatch(/flex-wrap:\s*wrap/);
+    expect(rule(phone, "header")).toMatch(/gap:\s*var\(--rialto-space-/);
+    expect(rule(phone, "headerRight")).toMatch(/flex-wrap:\s*wrap/);
+  });
+
   it("never introduces horizontal scroll", () => {
     expect(phone).not.toMatch(/overflow-x:\s*(auto|scroll)/);
   });

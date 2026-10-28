@@ -305,6 +305,16 @@
 /* Phones: stack the canvas full width above the side panel; the page scrolls
  * vertically instead of squeezing the canvas into a ~70px column. */
 @media (max-width: 767px) {
+  .header {
+    flex-wrap: wrap;
+    gap: var(--rialto-space-xs);
+  }
+
+  .headerLeft,
+  .headerRight {
+    flex-wrap: wrap;
+  }
+
   .content {
     flex-direction: column;
     overflow-y: auto;
