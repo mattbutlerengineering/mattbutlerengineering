@@ -301,6 +301,27 @@ vi.mock("../components/floor-plan/SectionMaterialPicker.js", () => ({
   ),
 }));
 
+vi.mock("../components/floor-plan/PlanFloorMaterialPicker.js", () => ({
+  PlanFloorMaterialPicker: ({
+    value,
+    onChange,
+    disabled,
+  }: {
+    value?: string | null;
+    onChange: (m: string | null) => void;
+    disabled?: boolean;
+  }) => (
+    <span data-testid="plan-floor-picker" data-value={value ?? ""}>
+      <button disabled={disabled} onClick={() => onChange("marble")}>
+        Pick marble for room
+      </button>
+      <button disabled={disabled} onClick={() => onChange(null)}>
+        Clear room floor
+      </button>
+    </span>
+  ),
+}));
+
 /* ── Mock ErrorRetryBanner ────────────────────────────────────── */
 
 vi.mock("../components/ErrorRetryBanner.js", () => ({
@@ -739,6 +760,41 @@ describe("FloorPlanEditorPage", () => {
       fireEvent.click(await screen.findByText("Pick tile for Patio"));
       await waitFor(() => expect(screen.getByText("Floor save failed")).toBeDefined());
       // The editor stays usable — this is an inline banner, not a replaced page.
+      expect(screen.getByTestId("floor-plan-canvas")).toBeDefined();
+    });
+
+    it("saves the plan floor material through the layout, keeping the other layout keys", async () => {
+      const walls = [{ id: "w1", x1: 0, y1: 0, x2: 100, y2: 0, thickness: 8 }];
+      mockGetById.mockResolvedValue({
+        ...FLOOR_PLAN,
+        layoutJson: { ...FLOOR_PLAN.layoutJson, walls, showGrid: true },
+      });
+      mockUpdate.mockImplementation(async (_id, data) => ({ ...FLOOR_PLAN, ...data }));
+      renderPage();
+
+      expect(await screen.findByTestId("plan-floor-picker")).toHaveAttribute("data-value", "");
+      fireEvent.click(screen.getByText("Pick marble for room"));
+      await waitFor(() =>
+        expect(mockUpdate).toHaveBeenCalledWith("fp-1", {
+          layoutJson: { width: 800, height: 600, walls, showGrid: true, floorMaterial: "marble" },
+        })
+      );
+
+      fireEvent.click(screen.getByText("Clear room floor"));
+      await waitFor(() =>
+        expect(mockUpdate).toHaveBeenLastCalledWith("fp-1", {
+          layoutJson: expect.objectContaining({ floorMaterial: null }),
+        })
+      );
+    });
+
+    it("shows an inline error when saving the plan floor fails, leaving the editor usable", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN });
+      mockUpdate.mockRejectedValue(new Error("Plan floor save failed"));
+      renderPage();
+
+      fireEvent.click(await screen.findByText("Pick marble for room"));
+      await waitFor(() => expect(screen.getByText("Plan floor save failed")).toBeDefined());
       expect(screen.getByTestId("floor-plan-canvas")).toBeDefined();
     });
 

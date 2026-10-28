@@ -540,6 +540,54 @@ describe("Floor Plan Routes", () => {
       expect(body.data.name).toBe("Updated Dining");
     });
 
+    it("rejects an unknown floorMaterial in layoutJson with a 400 problem", async () => {
+      const response = await app.inject({
+        method: "PATCH",
+        url: `${FLOOR_PLANS_URL}/floor-plan-123`,
+        headers: { "x-auth-bypass": "true" },
+        payload: { layoutJson: { width: 1200, height: 800, floorMaterial: "Hardwood" } },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(JSON.parse(response.body)).toMatchObject({
+        status: 400,
+        title: "Bad Request",
+        detail: expect.stringContaining("floorMaterial"),
+      });
+      expect(floorPlanService.update).not.toHaveBeenCalled();
+    });
+
+    it("rejects an unknown floorMaterial on create with a 400", async () => {
+      const response = await app.inject({
+        method: "POST",
+        url: FLOOR_PLANS_URL,
+        headers: { "x-auth-bypass": "true" },
+        payload: {
+          venueId: "venue-123",
+          name: "Main Dining",
+          layoutJson: { floorMaterial: "lava" },
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
+    });
+
+    it.each(["marble", null])("accepts floorMaterial %s and keeps other layout keys", async (m) => {
+      vi.mocked(floorPlanService.update).mockResolvedValueOnce(mockFloorPlan);
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: `${FLOOR_PLANS_URL}/floor-plan-123`,
+        headers: { "x-auth-bypass": "true" },
+        payload: { layoutJson: { width: 1200, height: 800, floorMaterial: m, extra: 1 } },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(vi.mocked(floorPlanService.update).mock.calls.at(-1)?.[1]).toMatchObject({
+        layoutJson: { extra: 1, floorMaterial: m },
+      });
+    });
+
     it("returns 404 when updating nonexistent floor plan", async () => {
       vi.mocked(jwtVerify).mockResolvedValueOnce({
         payload: mockJWTPayload,

@@ -6,6 +6,13 @@
   border: 1px solid var(--rialto-border);
 }
 
+/* Editing grid drawn above an opaque plan floor; never intercepts the pointer. */
+.gridOverlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
 /* Floor plan name overlay (top-left) */
 .nameOverlay {
   position: absolute;

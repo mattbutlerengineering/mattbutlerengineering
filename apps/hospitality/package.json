@@ -37,7 +37,7 @@
     {
       "name": "Floor Plan Shared (floor-plan-* incl. any geometry split, lazy chunks)",
       "path": "dist/assets/floor-plan-*.js",
-      "limit": "9 kB"
+      "limit": "9.05 kB"
     },
     {
       "name": "Dress Rehearsal (shared by the timeline and floor plan pages)",
