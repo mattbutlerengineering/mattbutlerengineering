@@ -58,6 +58,8 @@ vi.mock("react-konva", () => {
     Circle: shapeMock("circle"),
     Line: shapeMock("line"),
     Path: shapeMock("path"),
+    Label: () => null,
+    Tag: () => null,
     Text: () => null,
   };
 });

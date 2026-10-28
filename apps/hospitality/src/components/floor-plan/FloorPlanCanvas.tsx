@@ -21,6 +21,7 @@ import {
   type WallEnd,
 } from "./floor-plan-geometry.js";
 import type { TableDisplayStatus } from "./table-status.js";
+import { TableStatusLegend } from "./TableStatusLegend.js";
 import styles from "./FloorPlanCanvas.module.css";
 
 // Grid pattern background — pure function of GRID_SIZE, computed once at
@@ -245,111 +246,121 @@ export function FloorPlanCanvas({
   );
 
   return (
-    // Focus-scoped keyboard handling. tabIndex -1 lets a pointer click on the
-    // canvas move focus here (so keys work after mouse selection) without
-    // adding a tab stop; Tab still reaches the per-table overlay buttons.
-    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
-    <div
-      ref={containerRef}
-      role="group"
-      aria-label={t("floorPlan.canvas.label")}
-      aria-describedby={instructionsId}
-      tabIndex={-1}
-      onKeyDown={handleKeyDown}
-      data-testid="floor-plan-canvas-wrapper"
-      className={styles.canvasWrapper}
-      style={{
-        backgroundImage: GRID_PATTERN,
-        backgroundSize: `${GRID_SIZE * scale}px ${GRID_SIZE * scale}px`,
-      }}
-    >
-      <Text id={instructionsId} className={styles.srOnly}>
-        {onDeleteRequest
-          ? t("floorPlan.canvas.instructionsWithDelete")
-          : t("floorPlan.canvas.instructions")}
-      </Text>
-
-      {/* Floor plan name overlay */}
-      <div className={styles.nameOverlay}>
-        {floorPlan.name}
-        {floorPlan.isActive && (
-          <Text className={styles.activeLabel}>{t("floorPlan.canvas.active")}</Text>
-        )}
-      </div>
-
-      {/* Zoom indicator */}
-      <div className={styles.zoomOverlay}>{Math.round(scale * 100)}%</div>
-
-      {/* Staleness indicator — connection dropped; last-known table
-          statuses above are retained as-is, not cleared. */}
-      {isStale && (
-        <div className={styles.staleOverlay} role="status" data-testid="floor-plan-stale-indicator">
-          <Text variant="label" className={styles.staleDot} />
-          <Text className={styles.staleLabel}>{t("floorPlan.canvas.stale")}</Text>
-        </div>
-      )}
-
-      <Stage
-        width={dimensions.width}
-        height={dimensions.height}
-        scaleX={scale}
-        scaleY={scale}
-        onClick={handleStageClick}
-        onTap={handleStageClick}
+    <>
+      {/* Focus-scoped keyboard handling. tabIndex -1 lets a pointer click on the
+          canvas move focus here (so keys work after mouse selection) without
+          adding a tab stop; Tab still reaches the per-table overlay buttons. */}
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
+      <div
+        ref={containerRef}
+        role="group"
+        aria-label={t("floorPlan.canvas.label")}
+        aria-describedby={instructionsId}
+        tabIndex={-1}
+        onKeyDown={handleKeyDown}
+        data-testid="floor-plan-canvas-wrapper"
+        className={styles.canvasWrapper}
+        style={{
+          backgroundImage: GRID_PATTERN,
+          backgroundSize: `${GRID_SIZE * scale}px ${GRID_SIZE * scale}px`,
+        }}
       >
-        <Layer>
-          {sections.map((zone) => (
-            <SectionZone
-              key={zone.id}
-              zone={zone}
-              texture={zone.floorMaterial ? floorTextures.get(zone.floorMaterial) : undefined}
-              labelTheme={sectionLabelTheme}
-            />
-          ))}
-          {walls.map((wall) => (
-            <WallShape
-              key={wall.id}
-              wall={wall}
-              isSelected={wall.id === selectedWallId}
-              onSelect={handleWallSelect}
-              onEndpointDrag={readOnly ? undefined : onWallEndpointMove}
-            />
-          ))}
-          {tables.map((table) => (
-            <TableShape
-              key={table.id}
-              table={table}
-              isSelected={table.id === selectedTableId}
-              isDragging={table.id === draggingTableId}
-              onSelect={handleSelect}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-              status={tableStatuses?.get(table.id)}
-              stageScale={scale}
-            />
-          ))}
-        </Layer>
-      </Stage>
+        <Text id={instructionsId} className={styles.srOnly}>
+          {onDeleteRequest
+            ? t("floorPlan.canvas.instructionsWithDelete")
+            : t("floorPlan.canvas.instructions")}
+        </Text>
 
-      {/* Keyboard-only table selection — Konva's canvas isn't natively
+        {/* Floor plan name overlay */}
+        <div className={styles.nameOverlay}>
+          {floorPlan.name}
+          {floorPlan.isActive && (
+            <Text className={styles.activeLabel}>{t("floorPlan.canvas.active")}</Text>
+          )}
+        </div>
+
+        {/* Zoom indicator */}
+        <div className={styles.zoomOverlay}>{Math.round(scale * 100)}%</div>
+
+        {/* Staleness indicator — connection dropped; last-known table
+          statuses above are retained as-is, not cleared. */}
+        {isStale && (
+          <div
+            className={styles.staleOverlay}
+            role="status"
+            data-testid="floor-plan-stale-indicator"
+          >
+            <Text variant="label" className={styles.staleDot} />
+            <Text className={styles.staleLabel}>{t("floorPlan.canvas.stale")}</Text>
+          </div>
+        )}
+
+        <Stage
+          width={dimensions.width}
+          height={dimensions.height}
+          scaleX={scale}
+          scaleY={scale}
+          onClick={handleStageClick}
+          onTap={handleStageClick}
+        >
+          <Layer>
+            {sections.map((zone) => (
+              <SectionZone
+                key={zone.id}
+                zone={zone}
+                texture={zone.floorMaterial ? floorTextures.get(zone.floorMaterial) : undefined}
+                labelTheme={sectionLabelTheme}
+              />
+            ))}
+            {walls.map((wall) => (
+              <WallShape
+                key={wall.id}
+                wall={wall}
+                isSelected={wall.id === selectedWallId}
+                onSelect={handleWallSelect}
+                onEndpointDrag={readOnly ? undefined : onWallEndpointMove}
+              />
+            ))}
+            {tables.map((table) => (
+              <TableShape
+                key={table.id}
+                table={table}
+                isSelected={table.id === selectedTableId}
+                isDragging={table.id === draggingTableId}
+                onSelect={handleSelect}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+                // With statuses supplied every table wears a glyph; one the feed
+                // has not mentioned is available, as its fill already says.
+                status={tableStatuses ? (tableStatuses.get(table.id) ?? "available") : undefined}
+                stageScale={scale}
+              />
+            ))}
+          </Layer>
+        </Stage>
+
+        {/* Keyboard-only table selection — Konva's canvas isn't natively
           focusable, so this DOM overlay gives Tab/Enter access to the same
           onSelect callback the pointer handlers above already use. */}
-      <TableSelectionOverlay
-        tables={tables}
-        scale={scale}
-        selectedTableId={selectedTableId}
-        onSelect={handleSelect}
-      />
+        <TableSelectionOverlay
+          tables={tables}
+          scale={scale}
+          selectedTableId={selectedTableId}
+          onSelect={handleSelect}
+          tableStatuses={tableStatuses}
+        />
 
-      {/* Empty state */}
-      {tables.length === 0 && (
-        <div className={styles.emptyState}>
-          <div className={styles.emptyStateContent}>
-            <Text className={styles.emptyStateTitle}>{t("floorPlan.canvas.emptyTitle")}</Text>
-            <Text className={styles.emptyStateNote}>{t("floorPlan.canvas.emptyNote")}</Text>
+        {/* Empty state */}
+        {tables.length === 0 && (
+          <div className={styles.emptyState}>
+            <div className={styles.emptyStateContent}>
+              <Text className={styles.emptyStateTitle}>{t("floorPlan.canvas.emptyTitle")}</Text>
+              <Text className={styles.emptyStateNote}>{t("floorPlan.canvas.emptyNote")}</Text>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+      <TableStatusLegend statuses={tableStatuses} />
+    </>
   );
 }
