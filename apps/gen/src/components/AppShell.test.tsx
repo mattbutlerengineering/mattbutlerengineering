@@ -1,6 +1,8 @@
+import { StrictMode } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent, within, act } from "@testing-library/react";
 import { AppShell, useAppShellPanels } from "./AppShell.js";
+import { useShortcuts } from "../hooks/useShortcuts.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   AppBar: ({ logo, actions }: { logo: React.ReactNode; actions: React.ReactNode }) => (
@@ -258,6 +260,194 @@ describe("AppShell.HistoryRegion", () => {
       </AppShell>
     );
     expect(screen.queryByTestId("history-content")).toBeNull();
+  });
+});
+
+function shellTree(panel: "history" | "inspector" | "both" = "history") {
+  return (
+    <AppShell>
+      {(panel === "history" || panel === "both") && (
+        <AppShell.HistoryRegion>
+          <button type="button">All</button>
+          <button type="button">Favorites</button>
+        </AppShell.HistoryRegion>
+      )}
+      {(panel === "inspector" || panel === "both") && (
+        <AppShell.InspectorRegion>
+          <button type="button">Copy JSON</button>
+        </AppShell.InspectorRegion>
+      )}
+      <button type="button">Behind the overlay</button>
+    </AppShell>
+  );
+}
+
+function pressEscape(): KeyboardEvent {
+  const event = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+  document.dispatchEvent(event);
+  return event;
+}
+
+async function flushFocusRestore(): Promise<void> {
+  await act(async () => {
+    await new Promise((resolve) => {
+      requestAnimationFrame(() => resolve(undefined));
+    });
+  });
+}
+
+describe("AppShell overlay panels", () => {
+  it("keeps the desktop history panel in the page: no dialog, Escape does not dismiss it", () => {
+    render(shellTree("history"));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByRole("button", { name: "All" })).toBeDefined();
+    pressEscape();
+    expect(mockCloseOverlays).not.toHaveBeenCalled();
+  });
+
+  it("closes a narrow history overlay on Escape, traps Tab, and restores focus to the toggle", async () => {
+    panelLayoutState = { ...panelLayoutState, historyVisible: false, breakpoint: "mobile" };
+    const { rerender } = render(shellTree("history"));
+    const toggle = screen.getByRole("button", { name: /toggle history panel/i });
+    toggle.focus();
+
+    panelLayoutState = { ...panelLayoutState, historyVisible: true, breakpoint: "mobile" };
+    rerender(shellTree("history"));
+
+    const dialog = screen.getByRole("dialog", { name: "History" });
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
+    const all = screen.getByRole("button", { name: "All" });
+    const favorites = screen.getByRole("button", { name: "Favorites" });
+    expect(document.activeElement).toBe(all);
+
+    favorites.focus();
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(document.activeElement).toBe(all);
+    expect(document.activeElement).not.toBe(screen.getByRole("button", { name: /sign out/i }));
+
+    all.focus();
+    fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(favorites);
+
+    screen.getByRole("button", { name: "Behind the overlay" }).focus();
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(document.activeElement).toBe(all);
+
+    const escape = pressEscape();
+    expect(escape.defaultPrevented).toBe(true);
+    expect(mockCloseOverlays).toHaveBeenCalledTimes(1);
+
+    panelLayoutState = { ...panelLayoutState, historyVisible: false };
+    rerender(shellTree("history"));
+    await flushFocusRestore();
+    expect(document.activeElement).toBe(toggle);
+  });
+
+  it("does not yank focus back to the toggle while the overlay is open (StrictMode)", async () => {
+    panelLayoutState = { ...panelLayoutState, historyVisible: false, breakpoint: "mobile" };
+    const { rerender } = render(<StrictMode>{shellTree("history")}</StrictMode>);
+    screen.getByRole("button", { name: /toggle history panel/i }).focus();
+
+    panelLayoutState = { ...panelLayoutState, historyVisible: true, breakpoint: "mobile" };
+    rerender(<StrictMode>{shellTree("history")}</StrictMode>);
+
+    const all = screen.getByRole("button", { name: "All" });
+    expect(document.activeElement).toBe(all);
+    await flushFocusRestore();
+    expect(document.activeElement).toBe(all);
+  });
+
+  it("closes a tablet history overlay from the backdrop as well as Escape", () => {
+    panelLayoutState = { ...panelLayoutState, breakpoint: "tablet" };
+    const { container } = render(shellTree("history"));
+    const backdrop = container.querySelector(".backdrop");
+    expect(backdrop).not.toBeNull();
+    fireEvent.click(backdrop!);
+    expect(mockCloseOverlays).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not let an open history overlay consume Escape that stops generation on desktop", () => {
+    const stop = vi.fn();
+    function Probe() {
+      useShortcuts({ stop });
+      return null;
+    }
+    render(
+      <AppShell>
+        <AppShell.HistoryRegion>
+          <button type="button">All</button>
+        </AppShell.HistoryRegion>
+        <Probe />
+      </AppShell>
+    );
+    pressEscape();
+    expect(stop).toHaveBeenCalledTimes(1);
+    expect(mockCloseOverlays).not.toHaveBeenCalled();
+  });
+
+  it("claims Escape while the history overlay is open so generation does not also stop", () => {
+    panelLayoutState = { ...panelLayoutState, breakpoint: "mobile" };
+    const stop = vi.fn();
+    function Probe() {
+      useShortcuts({ stop });
+      return null;
+    }
+    render(
+      <AppShell>
+        <AppShell.HistoryRegion>
+          <button type="button">All</button>
+        </AppShell.HistoryRegion>
+        <Probe />
+      </AppShell>
+    );
+    pressEscape();
+    expect(mockCloseOverlays).toHaveBeenCalledTimes(1);
+    expect(stop).not.toHaveBeenCalled();
+  });
+
+  it("leaves Escape to a dialog that is already open above the overlay", () => {
+    panelLayoutState = { ...panelLayoutState, breakpoint: "mobile" };
+    function OtherDialog() {
+      return (
+        <div role="dialog" aria-modal="true" aria-label="Template gallery">
+          <button type="button">Close template gallery</button>
+        </div>
+      );
+    }
+    render(
+      <AppShell>
+        <AppShell.HistoryRegion>
+          <button type="button">All</button>
+        </AppShell.HistoryRegion>
+        <OtherDialog />
+      </AppShell>
+    );
+    const escape = pressEscape();
+    expect(mockCloseOverlays).not.toHaveBeenCalled();
+    expect(escape.defaultPrevented).toBe(false);
+  });
+
+  it("closes a narrow JSON inspector overlay on Escape", () => {
+    panelLayoutState = {
+      ...panelLayoutState,
+      historyVisible: false,
+      inspectorVisible: true,
+      breakpoint: "mobile",
+    };
+    render(shellTree("inspector"));
+    expect(screen.getByRole("dialog", { name: "JSON inspector" }).getAttribute("aria-modal")).toBe(
+      "true"
+    );
+    pressEscape();
+    expect(mockCloseOverlays).toHaveBeenCalledTimes(1);
+  });
+
+  it("dismisses both narrow overlays on one Escape", () => {
+    panelLayoutState = { ...panelLayoutState, breakpoint: "mobile" };
+    render(shellTree("both"));
+    pressEscape();
+    expect(mockCloseOverlays).toHaveBeenCalled();
+    expect(screen.getAllByRole("dialog")).toHaveLength(2);
   });
 });
 

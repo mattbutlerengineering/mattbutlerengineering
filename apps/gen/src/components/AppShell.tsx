@@ -1,5 +1,13 @@
-import { createContext, useContext, useMemo, useState } from "react";
-import type { ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import type { ReactNode, RefObject } from "react";
 import {
   AppBar,
   ThemeToggle,
@@ -258,16 +266,13 @@ export function AppShell({
 function HistoryRegion({ children }: RegionProps) {
   const { historyVisible, isFullscreen, breakpoint, closeOverlays } = useAppShellContext();
   if (isFullscreen || !historyVisible) return null;
-  const isOverlay = breakpoint !== "desktop";
+  if (breakpoint === "desktop") {
+    return <div className={styles.sidePanel}>{children}</div>;
+  }
   return (
-    <>
-      {isOverlay && <div className={styles.backdrop} onClick={closeOverlays} aria-hidden="true" />}
-      <div
-        className={isOverlay ? `${styles.overlayPanel} ${styles.overlayStart}` : styles.sidePanel}
-      >
-        {children}
-      </div>
-    </>
+    <OverlayPanel label="History" onClose={closeOverlays} placement="start">
+      {children}
+    </OverlayPanel>
   );
 }
 
@@ -279,11 +284,152 @@ function HistoryRegion({ children }: RegionProps) {
 function InspectorRegion({ children }: RegionProps) {
   const { inspectorVisible, isFullscreen, breakpoint, closeOverlays } = useAppShellContext();
   if (isFullscreen || !inspectorVisible) return null;
-  const isOverlay = breakpoint !== "desktop";
+  if (breakpoint === "desktop") {
+    return <div className={styles.sidePanel}>{children}</div>;
+  }
+  return (
+    <OverlayPanel label="JSON inspector" onClose={closeOverlays} placement="end">
+      {children}
+    </OverlayPanel>
+  );
+}
+
+const TABBABLE_SELECTOR = [
+  'button:not(:disabled):not([tabindex="-1"])',
+  '[href]:not([tabindex="-1"])',
+  'input:not(:disabled):not([type="hidden"]):not([tabindex="-1"])',
+  'select:not(:disabled):not([tabindex="-1"])',
+  'textarea:not(:disabled):not([tabindex="-1"])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(", ");
+
+/** Shell overlays, most recently mounted last. Only the top one owns Tab and Escape. */
+const shellOverlayStack: HTMLElement[] = [];
+
+function tabbables(panel: HTMLElement): HTMLElement[] {
+  return Array.from(panel.querySelectorAll<HTMLElement>(TABBABLE_SELECTOR)).filter(
+    (el) => !el.closest("[hidden], [inert]")
+  );
+}
+
+/** A dialog that is not one of these shell overlays (gallery, shortcuts, palette). */
+function otherModalOpen(): boolean {
+  return Array.from(
+    document.querySelectorAll<HTMLElement>("[role='dialog'][aria-modal='true']")
+  ).some((el) => el.dataset.shellOverlay === undefined);
+}
+
+/**
+ * Remembers the element focused when the overlay mounted (the panel toggle,
+ * when it was used to open) and puts focus back there when the overlay unmounts.
+ */
+function useRestoreTriggerFocus(): void {
+  const triggerRef = useRef<HTMLElement | null>(null);
+  // Stays true across StrictMode's setup → cleanup → setup replay. The replay's
+  // cleanup schedules a restore rAF; that rAF must not yank focus back while the
+  // overlay is still open. A real unmount leaves this false.
+  const openRef = useRef(false);
+  useLayoutEffect(() => {
+    openRef.current = true;
+    triggerRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    return () => {
+      const trigger = triggerRef.current;
+      triggerRef.current = null;
+      openRef.current = false;
+      requestAnimationFrame(() => {
+        if (openRef.current) return;
+        trigger?.focus();
+      });
+    };
+  }, []);
+}
+
+/**
+ * While this overlay is the top shell layer, Escape dismisses it and Tab stays
+ * inside it. A dialog opened above the shell (template gallery, shortcuts)
+ * keeps the key. preventDefault lets the global Escape→stop shortcut stand down.
+ */
+function useOverlayKeyControls(
+  panelRef: RefObject<HTMLDivElement | null>,
+  onClose: () => void
+): void {
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+
+    shellOverlayStack.push(panel);
+    const isTop = () => shellOverlayStack[shellOverlayStack.length - 1] === panel;
+
+    if (isTop() && !otherModalOpen()) {
+      tabbables(panel)[0]?.focus();
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!isTop() || otherModalOpen()) return;
+      if (event.key === "Escape") {
+        if (event.defaultPrevented) return;
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = tabbables(panel);
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (!first || !last) return;
+      const active = document.activeElement;
+      if (!(active instanceof Node) || !panel.contains(active)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+        return;
+      }
+      if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      const index = shellOverlayStack.lastIndexOf(panel);
+      if (index !== -1) shellOverlayStack.splice(index, 1);
+    };
+  }, [onClose, panelRef]);
+}
+
+interface OverlayPanelProps {
+  children: ReactNode;
+  label: string;
+  onClose: () => void;
+  placement: "start" | "end";
+}
+
+/**
+ * Mobile/tablet presentation of a side panel: a dimmed backdrop plus a dialog
+ * that owns focus until dismissed. Desktop keeps the in-flow side panel.
+ */
+function OverlayPanel({ children, label, onClose, placement }: OverlayPanelProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  useRestoreTriggerFocus();
+  useOverlayKeyControls(panelRef, onClose);
+  const placementClass = placement === "start" ? styles.overlayStart : styles.overlayEnd;
+
   return (
     <>
-      {isOverlay && <div className={styles.backdrop} onClick={closeOverlays} aria-hidden="true" />}
-      <div className={isOverlay ? `${styles.overlayPanel} ${styles.overlayEnd}` : styles.sidePanel}>
+      <div className={styles.backdrop} onClick={onClose} aria-hidden="true" />
+      <div
+        ref={panelRef}
+        className={`${styles.overlayPanel} ${placementClass}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}
+        data-shell-overlay=""
+      >
         {children}
       </div>
     </>

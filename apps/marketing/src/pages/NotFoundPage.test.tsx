@@ -10,7 +10,6 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     return <Tag>{children}</Tag>;
   },
   Text: ({ children }: any) => <p>{children}</p>,
-  Button: ({ children }: any) => <button>{children}</button>,
   Stack: ({ children }: any) => <div>{children}</div>,
 }));
 
@@ -43,12 +42,13 @@ describe("NotFoundPage", () => {
     expect(screen.getByText(/Wrong door\. That page never made the list\./i)).toBeInTheDocument();
   });
 
-  it("renders a Back to home link pointing to /", () => {
+  it("renders Back to home as a single link to /, with no nested button", () => {
     renderNotFoundPage();
-    const backLink = screen.getByText("Back to home");
-    // The Link wraps the Button — check ancestor href
-    const anchor = backLink.closest("a");
-    expect(anchor).toHaveAttribute("href", "/");
+    const homeLinks = screen.getAllByRole("link", { name: "Back to home" });
+    expect(homeLinks).toHaveLength(1);
+    expect(homeLinks[0]).toHaveAttribute("href", "/");
+    expect(homeLinks[0]?.querySelector("button")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Back to home" })).not.toBeInTheDocument();
   });
 
   it("renders suggested links for Design System and Hospitality", () => {
