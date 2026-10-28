@@ -14,6 +14,10 @@ vi.mock("../constants/copilotContext.js", () => ({
   useDescribeChatAction: () => () => ({ title: "", details: [] }),
 }));
 
+vi.mock("../hooks/useRefreshingChatStream.js", () => ({
+  useRefreshingChatStream: () => vi.fn(),
+}));
+
 vi.mock("@mattbutlerengineering/rialto", () => ({
   ChatPanel: ({
     standalone,

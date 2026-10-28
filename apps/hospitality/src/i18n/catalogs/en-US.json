@@ -1517,7 +1517,9 @@
       "tonight": "How does tonight look?",
       "openTables": "Which tables are open right now?",
       "availability": "Do we have a table for 4 at 7 tonight?",
-      "walkIn": "Party of 2 just walked in. Where can I seat them?"
+      "walkIn": "Party of 2 just walked in. Where can I seat them?",
+      "tonightChanges": "What have we changed for tonight?",
+      "stopOnline": "Stop online bookings for the rest of tonight"
     },
     "actions": {
       "create_reservation": "Book a reservation",

@@ -111,7 +111,7 @@
     },
     {
       "name": "Copilot context + catalog registry (shared by dashboard drawer and chat page)",
-      "path": "dist/assets/copilotContext-*.js",
+      "path": "dist/assets/useRefreshingChatStream-*.js",
       "limit": "11 kB"
     }
   ],

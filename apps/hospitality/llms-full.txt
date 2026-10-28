@@ -3358,6 +3358,50 @@
       };
     }
   </file>
+  <file path="src/constants/chatPageContext.ts">
+    export interface ChatFocus {
+      readonly kind: "reservation" | "floorPlan" | "menu";
+      readonly id: string;
+    }
+    export interface ChatPageContext {
+      readonly page?: string;
+      readonly focus?: ChatFocus;
+      readonly focusDate?: string;
+    }
+    function focusFor(page: string, rest: readonly string[], params: URLSearchParams) {
+      const pathId = rest[0];
+      const raw =
+        page === "timeline"
+          ? { kind: "reservation" as const, id: params.get("selected") }
+          : page === "floor-plans"
+            ? { kind: "floorPlan" as const, id: pathId }
+            : page === "menus"
+              ? { kind: "menu" as const, id: pathId }
+              : undefined;
+      return raw?.id && RECORD_ID.test(raw.id) ? { kind: raw.kind, id: raw.id } : undefined;
+    }
+    export function chatPageContext(pathname: string, search: string): ChatPageContext {
+      const segments = pathname
+        .replace(/^\/hospitality/, "")
+        .split("/")
+        .filter(Boolean);
+      const page = segments[0] ?? "timeline";
+      if (!CHAT_PAGES.has(page)) return {};
+      const params = new URLSearchParams(search);
+      const focus = focusFor(page, segments.slice(1), params);
+      const date = params.get("date");
+      const focusDate = DATED_PAGES.has(page) && date && CALENDAR_DATE.test(date) ? date : undefined;
+      return { page, ...(focus ? { focus } : {}), ...(focusDate ? { focusDate } : {}) };
+    }
+    export type ChatSuggestionKey =
+      | (typeof GENERAL_SUGGESTIONS)[number]
+      | (typeof PAGE_SUGGESTIONS)[keyof typeof PAGE_SUGGESTIONS][number];
+    export function chatSuggestionKeys(page: string | undefined): readonly ChatSuggestionKey[] {
+      return page && Object.hasOwn(PAGE_SUGGESTIONS, page)
+        ? PAGE_SUGGESTIONS[page as keyof typeof PAGE_SUGGESTIONS]
+        : GENERAL_SUGGESTIONS;
+    }
+  </file>
   <file path="src/constants/copilotContext.ts">
     export const HOSPITALITY_DOMAIN_CONTEXT: DomainContext = {
       schemas: [
@@ -3389,21 +3433,19 @@
       const timeZone = resolveTimeZone(venue.ianaTimezone);
       return timeZone ? { venueId: venue.id, timeZone } : { venueId: venue.id };
     }
-    export function useChatRequestContext(): Record<string, string> {
+    export function useChatRequestContext(): Readonly<Record<string, unknown>> {
       const { selectedVenue } = useVenue();
-      return useMemo(() => chatRequestContext(selectedVenue), [selectedVenue]);
+      const { pathname, search } = useLocation();
+      return useMemo(
+        () => ({ ...chatRequestContext(selectedVenue), ...chatPageContext(pathname, search) }),
+        [selectedVenue, pathname, search]
+      );
     }
     export function useChatSuggestions(): readonly string[] {
       const { t } = useTranslation();
-      return useMemo(
-        () => [
-          t("chat.suggestions.tonight"),
-          t("chat.suggestions.openTables"),
-          t("chat.suggestions.availability"),
-          t("chat.suggestions.walkIn"),
-        ],
-        [t]
-      );
+      const { pathname } = useLocation();
+      const { page } = chatPageContext(pathname, "");
+      return useMemo(() => chatSuggestionKeys(page).map((key) => t(key)), [t, page]);
     }
     type ChatActionKey =
       | (typeof ACTION_TITLES)[keyof typeof ACTION_TITLES]
@@ -8022,6 +8064,27 @@
         void queryClient.invalidateQueries({ queryKey: [AVAILABILITY_CONFIG_QUERY_KEY] });
         void queryClient.invalidateQueries({ queryKey: [AVAILABILITY_DAYS_QUERY_KEY] });
       }, [queryClient]);
+    }
+  </file>
+  <file path="src/hooks/useRefreshingChatStream.ts">
+    function isConfirmedAction(body: unknown): boolean {
+      return typeof body === "object" && body !== null && "actionConfirm" in body;
+    }
+    export function refreshAfterConfirm(stream: ChatStreamFn, refresh: () => void): ChatStreamFn {
+      return async function* (request) {
+        try {
+          yield* stream(request);
+        } finally {
+          if (isConfirmedAction(request.body)) refresh();
+        }
+      };
+    }
+    export function useRefreshingChatStream(): ChatStreamFn {
+      const queryClient = useQueryClient();
+      return useMemo(
+        () => refreshAfterConfirm(streamNDJSON, () => void queryClient.invalidateQueries()),
+        [queryClient]
+      );
     }
   </file>
   <file path="src/hooks/useReservationDisplay.ts">

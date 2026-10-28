@@ -1543,7 +1543,9 @@
       "tonight": "De quoi a l’air la soirée?",
       "openTables": "Quelles tables sont libres en ce moment?",
       "availability": "Avons-nous une table pour 4 à 19 h ce soir?",
-      "walkIn": "Deux personnes viennent d’arriver sans réservation. Où les placer?"
+      "walkIn": "Deux personnes viennent d’arriver sans réservation. Où les placer?",
+      "tonightChanges": "Qu'avons-nous changé pour ce soir?",
+      "stopOnline": "Arrêter les réservations en ligne pour le reste de la soirée"
     },
     "actions": {
       "create_reservation": "Créer une réservation",

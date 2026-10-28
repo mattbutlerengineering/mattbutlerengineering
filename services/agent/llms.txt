@@ -100,12 +100,34 @@
     </item>
   </file>
   <file path="src/routes/gen-agent-prompt.ts">
+    <item priority="high">
+      export const CHAT_PAGES: unknown;
+    </item>
+    <item priority="low">
+      type ChatPage = keyof typeof CHAT_PAGES;
+    </item>
+    <item priority="high">
+      export const CHAT_PAGE_NAMES: unknown;
+    </item>
+    <item priority="high">
+      export const CHAT_FOCUS_KINDS: unknown;
+    </item>
+    <item priority="low">
+      interface ChatFocus {
+        kind: (typeof CHAT_FOCUS_KINDS)[number];
+        id: string;
+      }
+    </item>
+    <item priority="medium">
+      function pageLines(ctx: AgentPromptContext): string[] { /* ... */ }
+    </item>
     <item priority="low">
       interface AgentPromptContext {
         venueId?: string | undefined;
+        page?: ChatPage | undefined;
+        focus?: ChatFocus | undefined;
+        focusDate?: string | undefined;
         timeZone?: string | undefined;
-        now: Date;
-        catalogPrompt: string;
       }
     </item>
     <item priority="high">
@@ -207,7 +229,7 @@
     </item>
     <item priority="high">
       export function genAgentSystemPrompt(
-        parsed: { readonly venueId?: string | undefined; readonly timeZone?: string | undefined },
+        parsed: Pick<AgentPromptContext, "venueId" | "timeZone" | "page" | "focus" | "focusDate">,
         catalogPrompt: string
       ): string { /* ... */ }
     </item>

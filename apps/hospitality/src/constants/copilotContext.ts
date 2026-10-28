@@ -5,7 +5,9 @@ import type {
   DomainContext,
   PendingAction,
 } from "@mattbutlerengineering/rialto";
+import { useLocation } from "react-router";
 import { useVenue } from "../contexts/VenueContext.js";
+import { chatPageContext, chatSuggestionKeys } from "./chatPageContext.js";
 import { useTables } from "../hooks/useTables.js";
 import { formatCalendarDate, formatLocalTime, resolveTimeZone } from "../utils/format.js";
 
@@ -53,23 +55,22 @@ export function chatRequestContext(venue: ChatVenue | null | undefined): Record<
   return timeZone ? { venueId: venue.id, timeZone } : { venueId: venue.id };
 }
 
-export function useChatRequestContext(): Record<string, string> {
+/** The venue fields plus the page the chat is open on and the record it shows (#7924). */
+export function useChatRequestContext(): Readonly<Record<string, unknown>> {
   const { selectedVenue } = useVenue();
-  return useMemo(() => chatRequestContext(selectedVenue), [selectedVenue]);
+  const { pathname, search } = useLocation();
+  return useMemo(
+    () => ({ ...chatRequestContext(selectedVenue), ...chatPageContext(pathname, search) }),
+    [selectedVenue, pathname, search]
+  );
 }
 
-/** Starter prompts for an empty chat: the questions the chat can answer well today. */
+/** Starter prompts for an empty chat: the questions the chat answers well on this page. */
 export function useChatSuggestions(): readonly string[] {
   const { t } = useTranslation();
-  return useMemo(
-    () => [
-      t("chat.suggestions.tonight"),
-      t("chat.suggestions.openTables"),
-      t("chat.suggestions.availability"),
-      t("chat.suggestions.walkIn"),
-    ],
-    [t]
-  );
+  const { pathname } = useLocation();
+  const { page } = chatPageContext(pathname, "");
+  return useMemo(() => chatSuggestionKeys(page).map((key) => t(key)), [t, page]);
 }
 
 const ACTION_TITLES = {
