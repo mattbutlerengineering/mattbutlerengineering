@@ -5152,7 +5152,10 @@
       }
     </item>
     <item priority="high">
-      type OnboardingWizardAction = { type: "SET_STEP_DATA"; step: | { type: "SET_STEP_DATA"; step: | { type: "SET_STEP_DATA"; step: | { type: "SET_STEP_DATA"; step: | { type: "NEXT" } | { type: "BACK" } | { type: "GO_TO_STEP"; step: nu | { type: "VALIDATE" } | { type: "SLUG_CHECK_START" } | { type: "SLUG_CHECK_RESULT"; s | { type: "SET_TEMPLATE"; templa | { type: "SET_ROOM_SIZE"; sizeI | { type: "ADD_DRAFT_TABLE"; req | { type: "MOVE_DRAFT_TABLE"; lo | { type: "REMOVE_DRAFT_TABLE";  | { type: "SET_LAUNCH_PROGRESS";;
+      type OnboardingWizardAction = { type: "SET_STEP_DATA"; step: | { type: "SET_STEP_DATA"; step: | { type: "SET_STEP_DATA"; step: | { type: "SET_STEP_DATA"; step: | { type: "SET_STEP_DATA"; step: | { type: "NEXT" } | { type: "BACK" } | { type: "GO_TO_STEP"; step: nu | { type: "VALIDATE" } | { type: "SLUG_CHECK_START" } | { type: "SLUG_CHECK_RESULT"; s | { type: "SET_TEMPLATE"; templa | { type: "SET_ROOM_SIZE"; sizeI | { type: "ADD_DRAFT_TABLE"; req | { type: "MOVE_DRAFT_TABLE"; lo | { type: "REMOVE_DRAFT_TABLE";  | { type: "SET_LAUNCH_PROGRESS";;
+    </item>
+    <item priority="medium">
+      function hoursFromDraft(draft: QuickSetupDraft): OperatingHours { /* ... */ }
     </item>
     <item priority="medium">
       function runStepValidation(state: OnboardingWizardState): {

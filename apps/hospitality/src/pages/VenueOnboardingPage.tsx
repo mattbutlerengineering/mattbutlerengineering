@@ -216,9 +216,9 @@ export function VenueOnboardingPage() {
                 {t("onboarding.hours.intro")}
               </Text>
               <QuickSetupHoursStep
-                data={data.operatingHours}
+                draft={data.hoursDraft}
                 errors={errors.operatingHours ?? undefined}
-                onChange={(operatingHours) => actions.setStepData("operatingHours", operatingHours)}
+                onChange={(hoursDraft) => actions.setStepData("hoursDraft", hoursDraft)}
               />
             </>
           )}

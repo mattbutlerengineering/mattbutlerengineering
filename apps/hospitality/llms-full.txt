@@ -12685,6 +12685,11 @@
       operatingHours: OperatingHours;
       settings: SettingsData;
       floorPlan: FloorPlanDraft;
+      /**
+       * The hours step's own form. Legacy `operatingHours` has no service name, so the step
+       * reads this draft back after Back/Next instead of rebuilding from the open/close map.
+       */
+      hoursDraft: QuickSetupDraft;
     }
     export interface OnboardingWizardErrors {
       basicInfo: Partial<Record<keyof BasicInfoData, string>>;
@@ -12705,6 +12710,7 @@
       | { type: "SET_STEP_DATA"; step: "basicInfo"; data: BasicInfoData }
       | { type: "SET_STEP_DATA"; step: "locationTime"; data: LocationTimeData }
       | { type: "SET_STEP_DATA"; step: "operatingHours"; data: OperatingHours }
+      | { type: "SET_STEP_DATA"; step: "hoursDraft"; data: QuickSetupDraft }
       | { type: "SET_STEP_DATA"; step: "settings"; data: SettingsData }
       | { type: "NEXT" }
       | { type: "BACK" }
@@ -12718,6 +12724,9 @@
       | { type: "MOVE_DRAFT_TABLE"; localId: string; x: number; y: number }
       | { type: "REMOVE_DRAFT_TABLE"; localId: string }
       | { type: "SET_LAUNCH_PROGRESS"; progress: LaunchProgress };
+    function hoursFromDraft(draft: QuickSetupDraft): OperatingHours {
+      return validateDraft(draft, { legacyReader: true }).length === 0 ? draftToLegacyHours(draft) : {};
+    }
     function runStepValidation(state: OnboardingWizardState): {
       state: OnboardingWizardState;
       valid: boolean;
@@ -12789,6 +12798,16 @@
               return {
                 ...state,
                 data: { ...state.data, operatingHours: action.data },
+                errors: { ...state.errors, operatingHours: null },
+              };
+            case "hoursDraft":
+              return {
+                ...state,
+                data: {
+                  ...state.data,
+                  hoursDraft: action.data,
+                  operatingHours: hoursFromDraft(action.data),
+                },
                 errors: { ...state.errors, operatingHours: null },
               };
             case "settings":
@@ -12965,6 +12984,13 @@
                 type: "SET_STEP_DATA",
                 step: "operatingHours",
                 data: data as OperatingHours,
+              });
+              return;
+            case "hoursDraft":
+              dispatch({
+                type: "SET_STEP_DATA",
+                step: "hoursDraft",
+                data: data as QuickSetupDraft,
               });
               return;
             case "settings":
