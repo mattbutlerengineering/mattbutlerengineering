@@ -3008,7 +3008,7 @@
     },
     {
       "name": "NumberInput",
-      "description": "Numeric input with increment/decrement stepper buttons and hold-to-repeat.\nAlways controlled — requires `value` and `onChange`. Values are clamped to `min`/`max` when provided.",
+      "description": "Numeric input with increment/decrement stepper buttons and hold-to-repeat.\nAlways controlled — requires `value` and `onChange`. Stepper buttons and arrow keys\nclamp on each press. Typed text stays as entered and is clamped to `min`/`max`\nwhen the field commits (blur).",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
@@ -3020,7 +3020,7 @@
           "name": "onChange",
           "type": "(value: number) => void",
           "required": true,
-          "description": "Called with the clamped numeric value on every change"
+          "description": "Called with the clamped numeric value when the field commits, or when a\nstepper or arrow key changes it. Not called for each keystroke."
         },
         {
           "name": "min",

@@ -2,6 +2,7 @@
  * Unit tests for NumberInput — focused on accessibility attributes for
  * readOnly / disabled / error states.
  */
+import { useState } from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 
@@ -114,10 +115,13 @@ describe("NumberInput — stepper and keyboard", () => {
     expect(onChange).toHaveBeenCalledWith(2);
   });
 
-  it("handles direct input change", () => {
+  it("handles direct input change on blur", () => {
     const onChange = vi.fn();
     render(<NumberInput label="Qty" value={5} onChange={onChange} />);
-    fireEvent.change(screen.getByLabelText("Qty"), { target: { value: "7" } });
+    const input = screen.getByLabelText("Qty");
+    fireEvent.change(input, { target: { value: "7" } });
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.blur(input);
     expect(onChange).toHaveBeenCalledWith(7);
   });
 
@@ -234,5 +238,116 @@ describe("NumberInput — readOnly keyboard and stepper semantics", () => {
     render(<NumberInput label="Quantity" value={5} onChange={noop} readOnly />);
     expect(screen.getByLabelText("Decrease")).toBeDisabled();
     expect(screen.getByLabelText("Increase")).toBeDisabled();
+  });
+});
+
+/**
+ * Keystrokes must not clamp until the field commits. A controlled input that
+ * writes the clamped number back on every change turns "07" into 17 (the
+ * leading 0 snaps to min, then 7 is appended) and "-5" into the max.
+ */
+describe("NumberInput — clamp on commit, not on each keystroke", () => {
+  function LapCount({
+    initial = 17,
+    onChange,
+  }: {
+    initial?: number;
+    onChange?: (value: number) => void;
+  }) {
+    const [value, setValue] = useState(initial);
+    return (
+      <NumberInput
+        label="Lap Count"
+        value={value}
+        min={1}
+        max={99}
+        onChange={(next) => {
+          onChange?.(next);
+          setValue(next);
+        }}
+      />
+    );
+  }
+
+  /** First character replaces the field; each later one appends to what is shown. */
+  function typeChars(input: HTMLInputElement, text: string) {
+    const first = text[0] ?? "";
+    fireEvent.change(input, { target: { value: first } });
+    for (const char of text.slice(1)) {
+      fireEvent.change(input, { target: { value: `${input.value}${char}` } });
+    }
+  }
+
+  it("keeps a leading zero while typing and commits 7 for 07", () => {
+    const onChange = vi.fn();
+    render(<LapCount onChange={onChange} />);
+    const input = screen.getByLabelText("Lap Count") as HTMLInputElement;
+
+    typeChars(input, "07");
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(input.value).toBe("07");
+    fireEvent.blur(input);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith(7);
+    expect(input.value).toBe("7");
+  });
+
+  it("keeps a leading minus while typing and clamps -5 to min on blur", () => {
+    const onChange = vi.fn();
+    render(<LapCount onChange={onChange} />);
+    const input = screen.getByLabelText("Lap Count") as HTMLInputElement;
+
+    typeChars(input, "-5");
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(input.value).toBe("-5");
+    fireEvent.blur(input);
+    expect(onChange).toHaveBeenCalledWith(1);
+    expect(input.value).toBe("1");
+  });
+
+  it("shows 100 while typing and clamps to max on blur", () => {
+    const onChange = vi.fn();
+    render(<LapCount onChange={onChange} />);
+    const input = screen.getByLabelText("Lap Count") as HTMLInputElement;
+
+    typeChars(input, "100");
+
+    expect(input.value).toBe("100");
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.blur(input);
+    expect(onChange).toHaveBeenCalledWith(99);
+    expect(input.value).toBe("99");
+  });
+
+  it("clamps a value set in one go on blur", () => {
+    const onChange = vi.fn();
+    render(<LapCount initial={5} onChange={onChange} />);
+    const input = screen.getByLabelText("Lap Count");
+    fireEvent.change(input, { target: { value: "100" } });
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.blur(input);
+    expect(onChange).toHaveBeenCalledWith(99);
+  });
+
+  it("leaves the committed value when the field is cleared and blurred", () => {
+    const onChange = vi.fn();
+    render(<LapCount initial={17} onChange={onChange} />);
+    const input = screen.getByLabelText("Lap Count") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.blur(input);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(input.value).toBe("17");
+  });
+
+  it("steps from the typed number when a stepper is used before blur", () => {
+    const onChange = vi.fn();
+    render(<LapCount initial={17} onChange={onChange} />);
+    const input = screen.getByLabelText("Lap Count") as HTMLInputElement;
+    typeChars(input, "40");
+    fireEvent.pointerDown(screen.getByLabelText("Increase"));
+    expect(onChange).toHaveBeenCalledWith(41);
+    expect(input.value).toBe("41");
   });
 });

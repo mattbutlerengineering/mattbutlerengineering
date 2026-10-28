@@ -9,7 +9,13 @@ import { localeRuntime } from "../../i18n/runtime.js";
 import { validateBasicInfo, type BasicInfoData, type SlugStatus } from "./BasicInfoStep.js";
 import { validateLocationTime, detectTimezone, type LocationTimeData } from "./LocationTimeStep.js";
 import type { OperatingHoursValidationErrors } from "./OperatingHoursStep.js";
-import { validateQuickSetupHours } from "../availability/quick-setup-draft.js";
+import {
+  draftToLegacyHours,
+  emptyDraft,
+  validateDraft,
+  validateQuickSetupHours,
+  type QuickSetupDraft,
+} from "../availability/quick-setup-draft.js";
 import { validateSettings, RECOMMENDED_SETTINGS, type SettingsData } from "./SettingsStep.js";
 import {
   EMPTY_FLOOR_PLAN_DRAFT,
@@ -28,6 +34,11 @@ export interface OnboardingWizardData {
   operatingHours: OperatingHours;
   settings: SettingsData;
   floorPlan: FloorPlanDraft;
+  /**
+   * The hours step's own form. Legacy `operatingHours` has no service name, so the step
+   * reads this draft back after Back/Next instead of rebuilding from the open/close map.
+   */
+  hoursDraft: QuickSetupDraft;
 }
 
 export interface OnboardingWizardErrors {
@@ -51,6 +62,7 @@ type OnboardingWizardAction =
   | { type: "SET_STEP_DATA"; step: "basicInfo"; data: BasicInfoData }
   | { type: "SET_STEP_DATA"; step: "locationTime"; data: LocationTimeData }
   | { type: "SET_STEP_DATA"; step: "operatingHours"; data: OperatingHours }
+  | { type: "SET_STEP_DATA"; step: "hoursDraft"; data: QuickSetupDraft }
   | { type: "SET_STEP_DATA"; step: "settings"; data: SettingsData }
   | { type: "NEXT" }
   | { type: "BACK" }
@@ -73,6 +85,12 @@ const INITIAL_LOCATION_TIME: LocationTimeData = {
 };
 
 const INITIAL_OPERATING_HOURS: OperatingHours = {};
+const INITIAL_HOURS_DRAFT: QuickSetupDraft = emptyDraft("onboarding-service-1");
+
+/** A valid draft becomes the legacy hours the venue create sends; anything else keeps Next gated. */
+function hoursFromDraft(draft: QuickSetupDraft): OperatingHours {
+  return validateDraft(draft, { legacyReader: true }).length === 0 ? draftToLegacyHours(draft) : {};
+}
 
 // Pre-fill the settings step with recommended values so the wizard opens
 // ready to submit — the "Use recommended settings" one-click action in
@@ -85,6 +103,7 @@ const INITIAL_STATE: OnboardingWizardState = {
     basicInfo: INITIAL_BASIC_INFO,
     locationTime: INITIAL_LOCATION_TIME,
     operatingHours: INITIAL_OPERATING_HOURS,
+    hoursDraft: INITIAL_HOURS_DRAFT,
     settings: INITIAL_SETTINGS,
     floorPlan: EMPTY_FLOOR_PLAN_DRAFT,
   },
@@ -173,6 +192,16 @@ function reducer(
           return {
             ...state,
             data: { ...state.data, operatingHours: action.data },
+            errors: { ...state.errors, operatingHours: null },
+          };
+        case "hoursDraft":
+          return {
+            ...state,
+            data: {
+              ...state.data,
+              hoursDraft: action.data,
+              operatingHours: hoursFromDraft(action.data),
+            },
             errors: { ...state.errors, operatingHours: null },
           };
         case "settings":
@@ -352,6 +381,13 @@ export function useOnboardingWizard(): OnboardingWizardResult {
             type: "SET_STEP_DATA",
             step: "operatingHours",
             data: data as OperatingHours,
+          });
+          return;
+        case "hoursDraft":
+          dispatch({
+            type: "SET_STEP_DATA",
+            step: "hoursDraft",
+            data: data as QuickSetupDraft,
           });
           return;
         case "settings":
