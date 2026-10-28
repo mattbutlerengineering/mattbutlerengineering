@@ -312,6 +312,44 @@ function rectangleSeats(
   });
 }
 
+/** Breathing room kept between neighbouring chairs once their width is capped. */
+const SEAT_SPACING_GAP = 1;
+
+/** Smallest centre-to-centre distance between neighbouring seats on one side (or ring). */
+function minSeatSpacing(input: SeatPlacementInput, seats: readonly SeatPlacement[]): number {
+  if (input.shape === "circle") {
+    const diameter = input.width ?? SHAPE_DEFAULTS.circle.width;
+    const gap = input.gap ?? SEAT_GAP;
+    return seats.length > 1
+      ? 2 * (diameter / 2 + gap) * Math.sin(Math.PI / seats.length)
+      : Infinity;
+  }
+  const bySide = new Map<number, number[]>();
+  for (const seat of seats) {
+    const along = seat.rotation % 180 === 0 ? seat.x : seat.y;
+    bySide.set(seat.rotation, [...(bySide.get(seat.rotation) ?? []), along]);
+  }
+  let min = Infinity;
+  for (const positions of bySide.values()) {
+    const sorted = [...positions].sort((a, b) => a - b);
+    sorted.slice(1).forEach((p, i) => {
+      min = Math.min(min, p - (sorted[i] ?? 0));
+    });
+  }
+  return min;
+}
+
+/**
+ * The chair size to draw: `seatSize` for the party, with the width (which runs
+ * along the table edge) capped so neighbouring chairs never overlap. Seat
+ * positions are unaffected.
+ */
+export function fittedSeatSize(input: SeatPlacementInput): SeatSize {
+  const base = seatSize(input.capacity);
+  const spacing = minSeatSpacing(input, seatPlacements(input));
+  return { ...base, width: Math.min(base.width, spacing - SEAT_SPACING_GAP) };
+}
+
 /**
  * Place `capacity` seats around a table of the given shape.
  *

@@ -10,6 +10,7 @@ import {
   snapToGrid,
   seatPlacements,
   seatSize,
+  fittedSeatSize,
   placeNewTable,
   moveWallEndpoint,
 } from "./floor-plan-geometry.js";
@@ -245,6 +246,42 @@ describe("floor-plan-geometry", () => {
             });
           });
         }
+      });
+
+      it("never overlaps chairs on the same side, for every shape and capacity 1-20", () => {
+        const footprints = [undefined, { width: 140, height: 60 }, { width: 100, height: 100 }];
+        for (const shape of ["rectangle", "square", "circle"] as const) {
+          for (const footprint of footprints) {
+            for (let capacity = 1; capacity <= 20; capacity++) {
+              const input = { shape, capacity, ...footprint };
+              const chair = fittedSeatSize(input);
+              const seats = seatPlacements(input);
+              // Chair width runs along its side (and is rotated with the seat).
+              const sides = new Map<number, number[]>();
+              for (const seat of seats) {
+                const along = seat.rotation % 180 === 0 ? seat.x : seat.y;
+                sides.set(seat.rotation, [...(sides.get(seat.rotation) ?? []), along]);
+              }
+              if (shape === "circle") {
+                const chord =
+                  2 * (SHAPE_DEFAULTS.circle.width / 2 + SEAT_GAP) * Math.sin(Math.PI / capacity);
+                if (capacity > 1 && !footprint) expect(chair.width).toBeLessThanOrEqual(chord);
+                continue;
+              }
+              for (const positions of sides.values()) {
+                const sorted = [...positions].sort((a, b) => a - b);
+                sorted.slice(1).forEach((p, i) => {
+                  expect(p - (sorted[i] ?? 0)).toBeGreaterThanOrEqual(chair.width);
+                });
+              }
+            }
+          }
+        }
+      });
+
+      it("keeps the full chair where there is room", () => {
+        expect(fittedSeatSize({ shape: "rectangle", capacity: 4 })).toEqual(seatSize(4));
+        expect(fittedSeatSize({ shape: "square", capacity: 16 }).width).toBeLessThan(13);
       });
     });
 

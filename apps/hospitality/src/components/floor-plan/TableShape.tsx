@@ -3,7 +3,7 @@ import { Group, Text } from "react-konva";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type { Table } from "@mbe/types";
-import { SHAPE_DEFAULTS, seatPlacements, seatSize } from "./floor-plan-geometry.js";
+import { SHAPE_DEFAULTS, fittedSeatSize, seatPlacements } from "./floor-plan-geometry.js";
 import { SeatArt, TableArt } from "./FurnitureArt.js";
 import { FURNITURE_PALETTE } from "./furniture-tokens.js";
 import { TABLE_STATUS_COLOR_TOKEN, type TableDisplayStatus } from "./table-status.js";
@@ -153,7 +153,7 @@ function TableShapeComponent({
   const width = table.shapeMetadata?.width ?? SHAPE_DEFAULTS[shape].width;
   const height = table.shapeMetadata?.height ?? SHAPE_DEFAULTS[shape].height;
   const seats = seatPlacements({ shape, capacity: table.capacity, width, height });
-  const chair = seatSize(table.capacity);
+  const chair = fittedSeatSize({ shape, capacity: table.capacity, width, height });
 
   return (
     <Group

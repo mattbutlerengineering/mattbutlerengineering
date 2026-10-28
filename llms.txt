@@ -4968,6 +4968,12 @@
         gap: number
       ): readonly SeatPlacement[] { /* ... */ }
     </item>
+    <item priority="medium">
+      function minSeatSpacing(input: SeatPlacementInput, seats: readonly SeatPlacement[]): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function fittedSeatSize(input: SeatPlacementInput): SeatSize { /* ... */ }
+    </item>
     <item priority="high">
       export function seatPlacements(input: SeatPlacementInput): readonly SeatPlacement[] { /* ... */ }
     </item>
