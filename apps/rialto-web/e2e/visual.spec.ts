@@ -107,7 +107,9 @@ for (const id of darkSections) {
  * on); the attribute is asserted so the dark arm cannot silently shoot light.
  */
 test.describe("neon sign shapes", () => {
-  test.use({ viewport: { width: 1280, height: 1000 } });
+  // Tall enough to hold the whole gallery (seven shapes, lit + closed, with
+  // captions) so the element is never scrolled or clipped by the viewport.
+  test.use({ viewport: { width: 1280, height: 2400 } });
 
   for (const scheme of ["light", "dark"] as const) {
     test(`${scheme} / neon-sign-shapes`, async ({ page }) => {
@@ -125,6 +127,17 @@ test.describe("neon sign shapes", () => {
       await page.waitForLoadState("networkidle");
       await expect(page.locator("html")).toHaveAttribute("data-theme", scheme);
       await page.evaluate(() => document.fonts.ready);
+
+      // Hide fixed/sticky chrome (GlobalNav, floating controls). The viewport
+      // above fits the gallery so Playwright never scrolls, but a sticky bar
+      // still paints over the top of the element at scroll 0. Hiding keeps
+      // layout intact (visibility, not display), so nothing reflows.
+      await page.evaluate(() => {
+        for (const el of document.querySelectorAll<HTMLElement>("body *")) {
+          const { position } = getComputedStyle(el);
+          if (position === "fixed" || position === "sticky") el.style.visibility = "hidden";
+        }
+      });
 
       const shapes = page.getByTestId("neon-sign-shapes");
       await expect(shapes).toHaveScreenshot(`${scheme}-neon-sign-shapes.png`, {
