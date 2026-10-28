@@ -15484,6 +15484,20 @@
         : rectangleSeats(count, width, height, gap);
     }
   </file>
+  <file path="apps/hospitality/src/components/floor-plan/floor-plan-grid.ts">
+    export const MIN_GRID_CELL_PX = 8;
+    export function floorPlanGridStyle({
+      readOnly,
+      scale,
+    }: {
+      readOnly: boolean;
+      scale: number;
+    }): Pick<CSSProperties, "backgroundImage" | "backgroundSize"> | undefined {
+      const cell = GRID_SIZE * scale;
+      if (readOnly || cell < MIN_GRID_CELL_PX) return undefined;
+      return { backgroundImage: GRID_PATTERN, backgroundSize: `${cell}px ${cell}px` };
+    }
+  </file>
   <file path="apps/hospitality/src/components/floor-plan/floor-textures.ts">
     export const FLOOR_TEXTURE_DIR = "floor-plan/textures";
     export const TEXTURE_SOURCE_PX = 64;
@@ -40575,6 +40589,8 @@
       showGrid: z.boolean().optional(),
       walls: z.array(WallLayoutSchema).optional(),
       sections: z.array(SectionLayoutSchema).optional(),
+      /** Plan-level default floor, drawn beneath every section. Absent = bare floor. */
+      floorMaterial: FloorMaterialSchema.nullish(),
     });
     export const TableStatusSchema = z.enum(["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]);
     export const TableSchema = z.object({
@@ -76494,6 +76510,8 @@
       showGrid?: boolean;
       walls?: WallLayout[];
       sections?: SectionLayout[];
+      /** Plan-level default floor, drawn beneath every section. Absent = bare floor. */
+      floorMaterial?: FloorMaterial | null;
     }
     export interface CreateFloorPlanRequest {
       venueId: string;

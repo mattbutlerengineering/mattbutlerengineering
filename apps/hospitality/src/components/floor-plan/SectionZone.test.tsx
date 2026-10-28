@@ -31,7 +31,13 @@ vi.mock("react-konva", () => ({
     fillPatternImage,
     fillPatternRepeat,
     fillPatternScale,
+    stroke,
+    strokeWidth,
+    dash,
   }: {
+    stroke?: string;
+    strokeWidth?: number;
+    dash?: number[];
     x?: number;
     y?: number;
     width?: number;
@@ -53,6 +59,9 @@ vi.mock("react-konva", () => ({
       data-fill={fill}
       data-opacity={opacity}
       data-listening={String(listening)}
+      data-stroke={stroke}
+      data-stroke-width={strokeWidth}
+      data-dash={dash ? "dashed" : "solid"}
       data-has-pattern={String(Boolean(fillPatternImage))}
       data-pattern-repeat={fillPatternRepeat}
       data-pattern-scale={fillPatternScale ? `${fillPatternScale.x},${fillPatternScale.y}` : ""}
@@ -71,6 +80,7 @@ import {
   SectionZone,
   SECTION_LABEL_NAME,
   SECTION_TINT_NAME,
+  SECTION_BORDER_NAME,
   SECTION_TEXTURE_NAME,
 } from "./SectionZone.js";
 
@@ -103,6 +113,18 @@ describe("SectionZone", () => {
   it("never captures pointer events, so tables above it stay draggable", () => {
     render(<SectionZone zone={zone} />);
     expect(screen.getByTestId(SECTION_TINT_NAME).dataset.listening).toBe("false");
+    expect(screen.getByTestId(SECTION_BORDER_NAME).dataset.listening).toBe("false");
+  });
+
+  it("outlines the zone with a solid hairline in the section colour, not a dash", () => {
+    render(<SectionZone zone={zone} />);
+    const border = screen.getByTestId(SECTION_BORDER_NAME);
+    expect(border.dataset.stroke).toBe("#3366cc");
+    expect(border.dataset.strokeWidth).toBe("1");
+    expect(border.dataset.dash).toBe("solid");
+    expect(border.dataset.fill).toBeUndefined();
+    expect(screen.getByTestId(SECTION_TINT_NAME).dataset.dash).toBe("solid");
+    expect(screen.getByTestId(SECTION_TINT_NAME).dataset.stroke).toBeUndefined();
   });
 
   it("has no axe violations", async () => {

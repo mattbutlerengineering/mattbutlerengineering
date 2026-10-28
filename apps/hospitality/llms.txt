@@ -1785,6 +1785,20 @@
       export function seatPlacements(input: SeatPlacementInput): readonly SeatPlacement[] { /* ... */ }
     </item>
   </file>
+  <file path="src/components/floor-plan/floor-plan-grid.ts">
+    <item priority="high">
+      export const MIN_GRID_CELL_PX: unknown;
+    </item>
+    <item priority="high">
+      export function floorPlanGridStyle({
+        readOnly,
+        scale,
+      }: {
+        readOnly: boolean;
+        scale: number;
+      }): Pick<CSSProperties, "backgroundImage" | "backgroundSize"> | undefined { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/floor-plan/floor-textures.ts">
     <item priority="high">
       export const FLOOR_TEXTURE_DIR: unknown;

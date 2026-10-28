@@ -19,7 +19,28 @@ export interface WallShapeProps {
   onEndpointDrag?: (wallId: string, end: WallEnd, p: Point) => void;
 }
 
-/** A wall is a solid bar; a window is a lighter, dashed bar so the two never read the same. */
+const WINDOW_PANE_OPACITY = 0.25;
+const GLASS_WIDTH = 2;
+const JAMB_WIDTH = 2;
+/** How far a jamb tick extends past the wall's edge on each side. */
+const JAMB_OVERHANG = 2;
+
+/** Two short ticks across the wall at each end of a window, as [x1, y1, x2, y2]. */
+function windowJambs(wall: WallLayout): number[][] {
+  const dx = wall.x2 - wall.x1;
+  const dy = wall.y2 - wall.y1;
+  const len = Math.hypot(dx, dy);
+  if (len === 0) return [];
+  const half = wall.thickness / 2 + JAMB_OVERHANG;
+  const nx = (-dy / len) * half;
+  const ny = (dx / len) * half;
+  return [
+    [wall.x1 - nx, wall.y1 - ny, wall.x1 + nx, wall.y1 + ny],
+    [wall.x2 - nx, wall.y2 - ny, wall.x2 + nx, wall.y2 + ny],
+  ];
+}
+
+/** A wall is a solid square-capped bar; a window is a glass line between two jamb ticks. */
 function WallShapeComponent({ wall, isSelected, onSelect, onEndpointDrag }: WallShapeProps) {
   const isWindow = wall.wallType === "window";
   const accent = token("--rialto-accent", "#b0841e");
@@ -37,19 +58,45 @@ function WallShapeComponent({ wall, isSelected, onSelect, onEndpointDrag }: Wall
       }
     />
   );
+  const stroke = isSelected ? accent : ink;
   return (
     <Group>
+      {/* Walls use square caps so two walls meeting at a corner overlap by half a
+          thickness and leave no notch. A window's pane is a faint solid bar (butt
+          caps, so the jambs mark its ends) under a thin glass line. */}
       <Line
         points={[wall.x1, wall.y1, wall.x2, wall.y2]}
-        stroke={isSelected ? accent : ink}
+        stroke={stroke}
         strokeWidth={wall.thickness}
-        dash={isWindow ? [10, 6] : undefined}
-        opacity={isWindow ? 0.6 : 1}
-        lineCap="butt"
+        opacity={isWindow ? WINDOW_PANE_OPACITY : 1}
+        lineCap={isWindow ? "butt" : "square"}
         hitStrokeWidth={Math.max(wall.thickness, 16)}
         onClick={() => onSelect(wall.id)}
         onTap={() => onSelect(wall.id)}
       />
+      {isWindow && (
+        <>
+          <Line
+            name="window-glass"
+            points={[wall.x1, wall.y1, wall.x2, wall.y2]}
+            stroke={stroke}
+            strokeWidth={GLASS_WIDTH}
+            lineCap="butt"
+            listening={false}
+          />
+          {windowJambs(wall).map((points, i) => (
+            <Line
+              key={i}
+              name="window-jamb"
+              points={points}
+              stroke={stroke}
+              strokeWidth={JAMB_WIDTH}
+              lineCap="butt"
+              listening={false}
+            />
+          ))}
+        </>
+      )}
       {isSelected && onEndpointDrag && (
         <>
           {handle(1, wall.x1, wall.y1)}

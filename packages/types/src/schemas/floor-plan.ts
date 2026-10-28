@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { FloorMaterialSchema } from "./floor-plan-section.js";
 
 export const TableShapeMetadataSchema = z.object({
   x: z.number(),
@@ -37,6 +38,8 @@ export const FloorPlanLayoutSchema = z.object({
   showGrid: z.boolean().optional(),
   walls: z.array(WallLayoutSchema).optional(),
   sections: z.array(SectionLayoutSchema).optional(),
+  /** Plan-level default floor, drawn beneath every section. Absent = bare floor. */
+  floorMaterial: FloorMaterialSchema.nullish(),
 });
 
 export const TableStatusSchema = z.enum(["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]);
