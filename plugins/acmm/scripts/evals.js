@@ -14,6 +14,7 @@ import { join } from "node:path";
 import { classifyEvalsReading } from "./evals-freshness.js";
 
 const DEFAULT_PATH = "metrics/acmm-evals.jsonl";
+const JUDGED_PATH = "metrics/eval-reports.jsonl";
 
 /**
  * @typedef {Object} EvalsSummary
@@ -46,28 +47,89 @@ export function measureEvals(cwd, opts = {}) {
 
   if (!existsSync(path)) return emptySummary(windowDays, null, now);
 
-  const cutoff = now.getTime() - windowDays * 24 * 60 * 60 * 1000;
   const lines = readFileSync(path, "utf-8")
     .split("\n")
     .filter((l) => l.trim().length > 0);
 
+  /** @type {import("./evals/schema.js").EvalResult[]} */
+  const rows = [];
+  for (const line of lines) {
+    try {
+      rows.push(JSON.parse(line));
+    } catch {
+      // skip malformed line
+    }
+  }
+  return summarizeRuns(rows, windowDays, now);
+}
+
+/**
+ * Aggregate the judged tasks in `metrics/eval-reports.jsonl`, the file the
+ * weekly `agent-eval` run writes. A task counts only when an LLM judge scored
+ * it: rows written before the judge existed carry no `judgeResult`, and a task
+ * whose judge could not run (`evaluationFailed`) was scored as a fail without
+ * evidence. Counting either would publish a pass rate that measures nothing
+ * (#7581). With no judged task the summary is `never-run`, never a 0%.
+ *
+ * Each judged task becomes one run; the adapter stands in for the model, which
+ * reports do not record per task.
+ *
+ * @param {string} cwd
+ * @param {{ path?: string, windowDays?: number, now?: Date }} [opts]
+ * @returns {EvalsSummary}
+ */
+export function measureJudgedEvals(cwd, opts = {}) {
+  const path = join(cwd, opts.path ?? JUDGED_PATH);
+  const windowDays = opts.windowDays ?? 30;
+  const now = opts.now ?? new Date();
+
+  if (!existsSync(path)) return emptySummary(windowDays, null, now);
+
+  /** @type {import("./evals/schema.js").EvalResult[]} */
+  const rows = [];
+  for (const line of readFileSync(path, "utf-8").split("\n")) {
+    if (line.trim().length === 0) continue;
+    try {
+      const report = JSON.parse(line);
+      for (const t of report.tasks ?? []) {
+        if (!t.judgeResult || t.judgeResult.evaluationFailed) continue;
+        rows.push({
+          timestamp: report.timestamp,
+          taskId: t.taskId,
+          model: report.adapter ?? "unknown",
+          success: t.passed === true,
+          score: t.score,
+          costUsd: t.costUsd,
+          numTurns: t.turns,
+        });
+      }
+    } catch {
+      continue; // skip malformed line
+    }
+  }
+  return summarizeRuns(rows, windowDays, now);
+}
+
+/**
+ * @param {import("./evals/schema.js").EvalResult[]} rows
+ * @param {number} windowDays
+ * @param {Date} now
+ * @returns {EvalsSummary}
+ */
+function summarizeRuns(rows, windowDays, now) {
+  const cutoff = now.getTime() - windowDays * 24 * 60 * 60 * 1000;
   /** @type {import("./evals/schema.js").EvalResult[]} */
   const runs = [];
   // Newest timestamp across ALL parseable rows, in-window or not. Carrying it
   // past the window filter is what lets an empty window say *why* it is empty:
   // "the harness ran in May and stopped" instead of "no data" (#4199).
   let newestOverall = null;
-  for (const line of lines) {
-    try {
-      const r = JSON.parse(line);
-      const ts = Date.parse(r.timestamp);
-      if (Number.isNaN(ts)) continue;
-      if (newestOverall === null || r.timestamp > newestOverall) newestOverall = r.timestamp;
-      if (ts < cutoff) continue;
-      runs.push(r);
-    } catch {
-      // skip malformed line
-    }
+  for (const r of rows) {
+    const ts = Date.parse(r.timestamp);
+    if (Number.isNaN(ts)) continue;
+    if (newestOverall === null || r.timestamp > newestOverall) newestOverall = r.timestamp;
+    if (ts < cutoff) continue;
+    runs.push(r);
   }
 
   if (runs.length === 0) return emptySummary(windowDays, newestOverall, now);

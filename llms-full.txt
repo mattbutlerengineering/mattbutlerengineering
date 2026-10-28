@@ -48997,7 +48997,8 @@
     
           const next = {
             ...state.stored,
-            dateRules: state.stored.dateRules.filter((r) => r.id !== ruleId),
+            // Reopening a series also removes its skips and one-date edits (#7685).
+            dateRules: state.stored.dateRules.filter((r) => r.id !== ruleId && r.seriesId !== ruleId),
           };
           const diff = diffConfig(state.stored, next);
           await writeConfigDiff(db, venueId, diff, { actorId: caller.actorId, now });

@@ -271,6 +271,7 @@
         "reconcile-queue-telemetry.mjs",
         "record-audit-check.mjs",
         "record-queue-efficiency.mjs",
+        "record-summary-row.mjs",
         "regen-manifest.mjs",
         "regen.mjs",
         "require-deploy-secrets.mjs",
