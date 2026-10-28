@@ -195,7 +195,10 @@ function TableShapeComponent({
       <TableLabel
         number={table.tableNumber || table.name}
         covers={`${table.minCovers}-${table.maxCovers ?? table.capacity}`}
+        shape={shape}
+        capacity={table.capacity}
         tableWidth={width}
+        tableHeight={height}
         tableRotation={rotation}
         stageScale={stageScale}
         theme={labelTheme}

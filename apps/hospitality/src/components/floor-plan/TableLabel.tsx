@@ -1,4 +1,5 @@
 import { Group, Label, Tag, Text } from "react-konva";
+import type { TableShapeName } from "./floor-plan-geometry.js";
 import type { SectionLabelTheme } from "./section-label-theme.js";
 import {
   LABEL_LINE_HEIGHT,
@@ -12,8 +13,11 @@ export const TABLE_LABEL_GROUP_NAME = "table-label-group";
 export interface TableLabelProps {
   number: string;
   covers: string;
-  /** The table footprint's width, in canvas units. */
+  shape: TableShapeName;
+  capacity: number;
+  /** The table footprint, in canvas units. */
   tableWidth: number;
+  tableHeight: number;
   /** The rotation of the table group this label is drawn inside. */
   tableRotation: number;
   stageScale: number;
@@ -29,12 +33,24 @@ export interface TableLabelProps {
 export function TableLabel({
   number,
   covers,
+  shape,
+  capacity,
   tableWidth,
+  tableHeight,
   tableRotation,
   stageScale,
   theme,
 }: TableLabelProps) {
-  const layout = tableLabelLayout({ number, covers, tableWidth, stageScale });
+  const layout = tableLabelLayout({
+    number,
+    covers,
+    shape,
+    capacity,
+    width: tableWidth,
+    height: tableHeight,
+    rotation: tableRotation,
+    stageScale,
+  });
   return (
     <Group
       name={TABLE_LABEL_GROUP_NAME}
@@ -52,7 +68,6 @@ export function TableLabel({
           width={layout.width}
           align="center"
           wrap="none"
-          ellipsis
           fill={theme.text}
         />
       </Label>

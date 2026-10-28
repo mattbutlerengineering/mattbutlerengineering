@@ -488,13 +488,13 @@ describe("TableShape", () => {
       expect(labelText()?.getAttribute("data-fill")).not.toBe("#ffffff");
     });
 
-    it("keeps a 6-character number on one line inside the seat gap", () => {
+    it("keeps a 6-character number on one line without truncating it", () => {
       const table = makeTable({ tableNumber: "TBL-12" });
       render(<TableShape table={table} {...defaultProps} stageScale={375 / 800} />);
       const text = labelText();
       expect(text?.getAttribute("data-text")?.split("\n")[0]).toBe("TBL-12");
-      // Seats start 7 units beyond the 80-wide table edge.
-      expect(Number(text?.getAttribute("data-width"))).toBeLessThanOrEqual(80 + 2 * 5);
+      // Clear-of-chair geometry is asserted in table-label-layout.test.ts; here: one line, no ellipsis.
+      expect(text?.getAttribute("data-text")?.split("\n")[0]).toBe("TBL-12");
     });
 
     it("is at least 10px tall at a 375px viewport", () => {

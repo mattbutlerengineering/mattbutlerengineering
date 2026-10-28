@@ -1,9 +1,23 @@
 import { describe, it, expect } from "vitest";
-import { SEAT_GAP } from "./floor-plan-geometry.js";
-import { LABEL_MIN_SCREEN_PX, counterRotation, tableLabelLayout } from "./table-label-layout.js";
+import {
+  SHAPE_DEFAULTS,
+  fittedSeatSize,
+  seatPlacements,
+  type TableShapeName,
+} from "./floor-plan-geometry.js";
+import {
+  LABEL_MIN_SCREEN_PX,
+  counterRotation,
+  tableLabelLayout,
+  type TableLabelInput,
+} from "./table-label-layout.js";
 
 /** The stage scale at a 375px viewport on the default 800px-wide plan. */
 const PHONE_SCALE = 375 / 800;
+/** The stage scale at a 375px viewport on a 2000px-wide plan. */
+const LARGE_PLAN_SCALE = 375 / 2000;
+const ROTATIONS = [0, 90, 180, 270] as const;
+const SCALES = [PHONE_SCALE, LARGE_PLAN_SCALE] as const;
 
 describe("counterRotation", () => {
   it.each([0, 45, 90, 180, 270, 359])("cancels a table rotation of %i degrees", (rotation) => {
@@ -11,35 +25,124 @@ describe("counterRotation", () => {
   });
 });
 
-describe("tableLabelLayout", () => {
-  const base = { number: "T1", covers: "2-4", tableWidth: 80, stageScale: 1 };
+type Point = readonly [number, number];
 
-  it("renders the number over the cover range on two lines", () => {
-    expect(tableLabelLayout(base).text).toBe("T1\n2-4");
+/** Screen-space corners of every chair, from the real seat placements. */
+function chairCorners(input: TableLabelInput): Point[][] {
+  const size = {
+    shape: input.shape,
+    capacity: input.capacity,
+    width: input.width,
+    height: input.height,
+  };
+  const chair = fittedSeatSize(size);
+  const rad = (deg: number) => (deg * Math.PI) / 180;
+  const rotate = ([x, y]: Point, deg: number): Point => [
+    x * Math.cos(rad(deg)) - y * Math.sin(rad(deg)),
+    x * Math.sin(rad(deg)) + y * Math.cos(rad(deg)),
+  ];
+  return seatPlacements(size).map((seat) => {
+    const [cx, cy] = rotate([seat.x, seat.y], input.rotation);
+    const total = seat.rotation + input.rotation;
+    return (
+      [
+        [-chair.width / 2, -chair.height / 2],
+        [chair.width / 2, -chair.height / 2],
+        [chair.width / 2, chair.height / 2],
+        [-chair.width / 2, chair.height / 2],
+      ] as Point[]
+    ).map((corner) => {
+      const [dx, dy] = rotate(corner, total);
+      return [cx + dx, cy + dy] as Point;
+    });
+  });
+}
+
+/** True when the upright, origin-centred plate overlaps any chair's bounding box. */
+function plateHitsChair(input: TableLabelInput, plate: { width: number; height: number }): boolean {
+  return chairCorners(input).some((corners) => {
+    const xs = corners.map(([x]) => x);
+    const ys = corners.map(([, y]) => y);
+    return (
+      Math.min(...xs) < plate.width / 2 &&
+      Math.max(...xs) > -plate.width / 2 &&
+      Math.min(...ys) < plate.height / 2 &&
+      Math.max(...ys) > -plate.height / 2
+    );
+  });
+}
+
+function inputFor(
+  shape: TableShapeName,
+  rotation: number,
+  stageScale: number,
+  overrides: Partial<TableLabelInput> = {}
+): TableLabelInput {
+  return {
+    number: "TBL-12",
+    covers: "2-4",
+    shape,
+    capacity: 4,
+    width: SHAPE_DEFAULTS[shape].width,
+    height: SHAPE_DEFAULTS[shape].height,
+    rotation,
+    stageScale,
+    ...overrides,
+  };
+}
+
+describe("tableLabelLayout", () => {
+  describe.each(["square", "circle", "rectangle"] as const)("%s table", (shape) => {
+    describe.each(SCALES)("at stage scale %f", (scale) => {
+      it.each(ROTATIONS)("stays clear of every chair at rotation %i", (rotation) => {
+        const input = inputFor(shape, rotation, scale);
+        const layout = tableLabelLayout(input);
+        expect(layout.width).toBeGreaterThan(0);
+        expect(plateHitsChair(input, layout)).toBe(false);
+      });
+
+      it.each(ROTATIONS)("keeps the whole number, never truncated, at rotation %i", (rotation) => {
+        const layout = tableLabelLayout(inputFor(shape, rotation, scale));
+        expect(layout.text.split("\n")[0]).toBe("TBL-12");
+        expect(layout.ellipsis).toBe(false);
+      });
+    });
   });
 
-  it("is at least 10 screen px tall at a 375px viewport", () => {
-    const layout = tableLabelLayout({ ...base, stageScale: PHONE_SCALE });
+  it("drops the covers line before shrinking the number", () => {
+    // A 60x60 square at 375px: the two-line plate hits the side chairs.
+    const layout = tableLabelLayout(inputFor("square", 0, PHONE_SCALE, { number: "T1" }));
+    const lines = layout.text.split("\n");
+    expect(lines[0]).toBe("T1");
+    if (lines.length === 1) {
+      expect(layout.fontSize * PHONE_SCALE).toBeGreaterThanOrEqual(LABEL_MIN_SCREEN_PX);
+    }
+  });
+
+  it("is at least 10 screen px tall for a short number on the default rectangle at 375px", () => {
+    const layout = tableLabelLayout(inputFor("rectangle", 0, PHONE_SCALE, { number: "T1" }));
     expect(layout.fontSize * PHONE_SCALE).toBeGreaterThanOrEqual(LABEL_MIN_SCREEN_PX);
     expect(layout.height * PHONE_SCALE).toBeGreaterThanOrEqual(LABEL_MIN_SCREEN_PX);
   });
 
-  it("keeps the font at the floor when zoomed in rather than growing without bound", () => {
-    expect(tableLabelLayout({ ...base, stageScale: 2 }).fontSize).toBeLessThanOrEqual(14);
+  it("shows the covers line when it fits without touching a chair", () => {
+    const layout = tableLabelLayout(inputFor("rectangle", 0, 1, { number: "T1" }));
+    expect(layout.text).toBe("T1\n2-4");
   });
 
-  it("keeps a 6-character number clear of the seats on an 80-wide table at 375px", () => {
-    const layout = tableLabelLayout({
-      ...base,
-      number: "TBL-12",
-      stageScale: PHONE_SCALE,
+  it("keeps the font at the base size when zoomed in", () => {
+    expect(
+      tableLabelLayout(inputFor("rectangle", 0, 2, { number: "T1" })).fontSize
+    ).toBeLessThanOrEqual(14);
+  });
+
+  it("bounds a table with no chairs by its own footprint", () => {
+    const input = inputFor("rectangle", 90, PHONE_SCALE, {
+      capacity: 0,
+      number: "Window banquette",
     });
-    // Seats start SEAT_GAP beyond the table edge; stay inside that gap.
-    expect(layout.width).toBeLessThanOrEqual(80 + 2 * (SEAT_GAP - 2));
-  });
-
-  it("caps a long name's plate so it can never reach a seat", () => {
-    const layout = tableLabelLayout({ ...base, number: "Window banquette north" });
-    expect(layout.width).toBeLessThanOrEqual(80 + 2 * (SEAT_GAP - 2));
+    const layout = tableLabelLayout(input);
+    // Rotated 80x60 is 60 wide on screen.
+    expect(layout.width).toBeLessThanOrEqual(60);
   });
 });

@@ -5240,8 +5240,9 @@
       interface TableLabelInput {
         number: string;
         covers: string;
-        tableWidth: number;
-        stageScale: number;
+        shape: TableShapeName;
+        capacity: number;
+        width: number;
       }
     </item>
     <item priority="low">
@@ -5250,10 +5251,39 @@
         fontSize: number;
         width: number;
         height: number;
+        ellipsis: false;
       }
     </item>
     <item priority="high">
       export function counterRotation(rotation: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      interface Box {
+        cx: number;
+        cy: number;
+        halfW: number;
+        halfH: number;
+      }
+    </item>
+    <item priority="medium">
+      function chairBoxes(input: TableLabelInput): readonly Box[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function footprintBox(input: TableLabelInput): Box { /* ... */ }
+    </item>
+    <item priority="medium">
+      function overlapsChair(chair: Box, plateHalfW: number, plateHalfH: number): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      interface Plate {
+        text: string;
+        fontSize: number;
+        width: number;
+        height: number;
+      }
+    </item>
+    <item priority="medium">
+      function plateFor(lines: readonly string[], fontSize: number): Plate { /* ... */ }
     </item>
     <item priority="high">
       export function tableLabelLayout(input: TableLabelInput): TableLabelLayout { /* ... */ }
