@@ -112,6 +112,7 @@ export function FloorPlanCanvas({
   );
   const floorTextures = useFloorTextures(floorMaterials);
   const sectionLabelTheme = useSectionLabelTheme();
+  const gridStyle = floorPlanGridStyle({ readOnly, scale });
 
   /**
    * The plan's own canvas. Room templates (#7256) create plans at 1200x800,
@@ -249,7 +250,7 @@ export function FloorPlanCanvas({
         onKeyDown={handleKeyDown}
         data-testid="floor-plan-canvas-wrapper"
         className={styles.canvasWrapper}
-        style={floorPlanGridStyle({ readOnly, scale })}
+        style={planMaterial ? undefined : gridStyle}
       >
         <Text id={instructionsId} className={styles.srOnly}>
           {onDeleteRequest
@@ -327,6 +328,10 @@ export function FloorPlanCanvas({
             ))}
           </Layer>
         </Stage>
+
+        {/* An opaque plan floor would hide the wrapper's grid, so with one the
+          grid is drawn above the canvas instead; it ignores the pointer. */}
+        {planMaterial && gridStyle && <div className={styles.gridOverlay} style={gridStyle} />}
 
         {/* Keyboard-only table selection — Konva's canvas isn't natively
           focusable, so this DOM overlay gives Tab/Enter access to the same

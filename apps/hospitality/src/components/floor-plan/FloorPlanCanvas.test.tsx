@@ -543,6 +543,34 @@ describe("FloorPlanCanvas", () => {
       // baked into a data-URI SVG — they never adapted to dark theme.
       expect(backgroundImage).not.toMatch(/#f8f6f3|#d8d4cd/i);
     });
+
+    const gridOverlay = () =>
+      screen.getByTestId("floor-plan-canvas-wrapper").querySelector<HTMLElement>(".gridOverlay");
+
+    it("has no grid overlay when the plan has no floor material", () => {
+      render(<FloorPlanCanvas {...defaultProps} />);
+      expect(gridOverlay()).toBeNull();
+    });
+
+    it("moves the grid above an opaque plan floor so it stays visible", () => {
+      const floorPlan = {
+        ...defaultProps.floorPlan,
+        layoutJson: { ...defaultProps.floorPlan.layoutJson, floorMaterial: "marble" as const },
+      };
+      render(<FloorPlanCanvas {...defaultProps} floorPlan={floorPlan} />);
+
+      expect(gridOverlay()?.style.backgroundImage).toContain("var(--rialto-border)");
+      expect(screen.getByTestId("floor-plan-canvas-wrapper").style.backgroundImage).toBe("");
+    });
+
+    it("draws no grid overlay on a read-only canvas", () => {
+      const floorPlan = {
+        ...defaultProps.floorPlan,
+        layoutJson: { ...defaultProps.floorPlan.layoutJson, floorMaterial: "marble" as const },
+      };
+      render(<FloorPlanCanvas {...defaultProps} floorPlan={floorPlan} readOnly />);
+      expect(gridOverlay()).toBeNull();
+    });
   });
 
   describe("zoom level", () => {

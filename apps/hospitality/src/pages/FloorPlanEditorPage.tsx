@@ -7,6 +7,7 @@ import { AddTableDialog, FloorPlanCanvas } from "../components/floor-plan";
 import { TableDetailsForm } from "../components/floor-plan/TableDetailsForm.js";
 import { WallsPanel } from "../components/floor-plan/WallsPanel.js";
 import { SectionMaterialPicker } from "../components/floor-plan/SectionMaterialPicker.js";
+import { PlanFloorMaterialPicker } from "../components/floor-plan/PlanFloorMaterialPicker.js";
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
@@ -100,6 +101,24 @@ function LiveFloorPlanEditorPage() {
       }
     },
     [venueId, sectionMutation, t]
+  );
+
+  // The plan floor saves on pick, like a section's. Spreading the whole saved layout keeps
+  // every other key (walls, sections, grid) the write would otherwise replace.
+  const handlePlanFloorChange = useCallback(
+    async (floorMaterial: FloorMaterial | null) => {
+      if (!floorPlan) return;
+      setActionError(null);
+      try {
+        await layoutMutation.mutateAsync({
+          floorPlanId: floorPlan.id,
+          layoutJson: { ...floorPlan.layoutJson, floorMaterial },
+        });
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : t("floorPlan.editor.saveFailed"));
+      }
+    },
+    [floorPlan, layoutMutation, t]
   );
 
   const floorPlanId = floorPlan?.id;
@@ -380,6 +399,15 @@ function LiveFloorPlanEditorPage() {
           ) : (
             <div className={styles.noSelection}>{t("floorPlan.editor.noSelection")}</div>
           )}
+
+          <div>
+            <Text className={styles.detailLabel}>{t("floorPlan.planFloor.label")}</Text>
+            <PlanFloorMaterialPicker
+              value={floorPlan.layoutJson.floorMaterial}
+              disabled={layoutMutation.isPending}
+              onChange={handlePlanFloorChange}
+            />
+          </div>
 
           {sectionRows && sectionRows.length > 0 && (
             <section aria-labelledby="floor-plan-sections-title">

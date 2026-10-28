@@ -511,6 +511,9 @@
       "materialFor": "Floor material for {{name}}",
       "materialNone": "None"
     },
+    "planFloor": {
+      "label": "Room floor"
+    },
     "templates": {
       "preview": "Floor plan preview: {{tables}} and {{sections}}",
       "previewEmpty": "Floor plan preview: an empty floor",

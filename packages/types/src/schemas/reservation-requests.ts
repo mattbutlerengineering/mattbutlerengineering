@@ -20,6 +20,7 @@ import { z } from "zod";
 
 import { OccasionSchema, SeatingPreferenceSchema, ReservationStatusSchema } from "./reservation.js";
 import { TableStatusSchema, TableShapeMetadataSchema } from "./floor-plan.js";
+import { FloorMaterialSchema } from "./floor-plan-section.js";
 import { VenueProfileSchema } from "./venue.js";
 import { ServiceDateSchema } from "./availability-config.js";
 
@@ -165,17 +166,25 @@ export const ListFloorPlansQuerySchema = z.object({
   limit: z.string().default("10"),
 });
 
+/**
+ * Write-side check for `layoutJson`. Only `floorMaterial` is validated: saved plans may
+ * predate `FloorPlanLayoutSchema` (e.g. `{}`), so the rest stays open and passes through.
+ */
+const FloorPlanLayoutWriteSchema = z.looseObject({
+  floorMaterial: FloorMaterialSchema.nullish(),
+});
+
 export const CreateFloorPlanBodySchema = z.object({
   venueId: z.string(),
   name: z.string(),
   isActive: z.boolean().optional(),
-  layoutJson: JsonObjectSchema,
+  layoutJson: FloorPlanLayoutWriteSchema,
 });
 
 export const UpdateFloorPlanBodySchema = z.object({
   name: z.string().optional(),
   isActive: z.boolean().optional(),
-  layoutJson: JsonObjectSchema.optional(),
+  layoutJson: FloorPlanLayoutWriteSchema.optional(),
 });
 
 export const UpdateTablePositionsBodySchema = z.object({

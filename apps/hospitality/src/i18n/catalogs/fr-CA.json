@@ -520,6 +520,9 @@
       "materialFor": "Matériau du plancher de {{name}}",
       "materialNone": "Aucun"
     },
+    "planFloor": {
+      "label": "Revêtement de la salle"
+    },
     "templates": {
       "preview": "Aperçu du plan de salle : {{tables}} et {{sections}}",
       "previewEmpty": "Aperçu du plan de salle : une salle vide",

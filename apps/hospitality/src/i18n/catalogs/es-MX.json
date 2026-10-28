@@ -520,6 +520,9 @@
       "materialFor": "Material del piso de {{name}}",
       "materialNone": "Ninguno"
     },
+    "planFloor": {
+      "label": "Piso del salón"
+    },
     "templates": {
       "preview": "Vista previa del plano: {{tables}} y {{sections}}",
       "previewEmpty": "Vista previa del plano: un piso vacío",

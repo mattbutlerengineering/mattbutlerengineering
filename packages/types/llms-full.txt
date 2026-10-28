@@ -1928,12 +1928,12 @@
       venueId: z.string(),
       name: z.string(),
       isActive: z.boolean().optional(),
-      layoutJson: JsonObjectSchema,
+      layoutJson: FloorPlanLayoutWriteSchema,
     });
     export const UpdateFloorPlanBodySchema = z.object({
       name: z.string().optional(),
       isActive: z.boolean().optional(),
-      layoutJson: JsonObjectSchema.optional(),
+      layoutJson: FloorPlanLayoutWriteSchema.optional(),
     });
     export const UpdateTablePositionsBodySchema = z.object({
       floorPlanId: z.string(),
