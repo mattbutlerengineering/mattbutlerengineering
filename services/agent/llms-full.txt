@@ -1273,6 +1273,13 @@
             try {
               const found = await findParty(api, venueId, guestName, partySize);
               if ("error" in found) return found;
+              // The server notifies only a waiting party: a second notify sends nothing but still answers 200.
+              if (found.entry.status === "notified") {
+                const at = localTimeIn(found.entry.notifiedAt, timeZone);
+                return {
+                  error: `${found.entry.guestName} was already told their table is ready${at ? ` at ${at}` : ""}. No new text was sent.`,
+                };
+              }
               await api.waitlist.notify(found.entry.id);
               return { notified: true, guestName: found.entry.guestName };
             } catch (err) {

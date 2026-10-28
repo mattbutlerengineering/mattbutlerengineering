@@ -156,6 +156,23 @@ describe("waitlist chat tools", () => {
       expect(result).toMatchObject({ notified: true, guestName: "Lopez" });
     });
 
+    // The server only notifies a waiting party; a second notify sends nothing yet answers 200.
+    it("refuses a party already told, rather than claiming a second text", async () => {
+      api.waitlist.list.mockResolvedValue([
+        entry({
+          id: "w2",
+          guestName: "Chen",
+          status: "notified",
+          notifiedAt: "2026-10-28T19:45:00Z",
+        }),
+      ]);
+
+      const result = await run("notify_waitlist_party", { guestName: "Chen" });
+
+      expect(result).toMatchObject({ error: expect.stringMatching(/already told .*12:45/i) });
+      expect(api.waitlist.notify).not.toHaveBeenCalled();
+    });
+
     it("asks which party when two share the name", async () => {
       const result = await run("notify_waitlist_party", { guestName: "Smith" });
 
