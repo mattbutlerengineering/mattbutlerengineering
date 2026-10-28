@@ -85,6 +85,7 @@ function withoutDuplicatePoints(data: readonly BarChartDatum[]): BarChartDatum[]
       const word = left.label.trim().split(/\s+/)[0]?.toLowerCase();
       if (
         word &&
+        leftAmount.multiplier > rightAmount.multiplier &&
         word !== left.label.trim().toLowerCase() &&
         word === right.label.trim().toLowerCase()
       ) {

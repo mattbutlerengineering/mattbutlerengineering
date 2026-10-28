@@ -41,8 +41,8 @@ export function AuthProvider({ config, children, onSigninCallback }: AuthProvide
     onSigninCallback: (user: User | undefined | void) => {
       // Remove OIDC callback params from URL after sign-in
       window.history.replaceState({}, document.title, window.location.pathname);
-      // The consent page is still behind this entry. Skip it now: a later
-      // Back click cannot call history.go from popstate.
+      // The consent page is still behind this entry. Arm a Back skip when
+      // sign-in recorded how long history was before the redirect.
       installAuthBackSkip();
       const returnTo = user ? extractReturnTo(user.state) : undefined;
       rememberSigninReturnTo(returnTo);

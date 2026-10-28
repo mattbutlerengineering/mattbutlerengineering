@@ -9399,7 +9399,10 @@
     <item priority="high">
       export function installAuthBackSkip(
         history: History = window.history,
-        storage: Storage = window.sessionStorage
+        storage: Storage = window.sessionStorage,
+        schedule: (fn: () => void) => void = (fn) => {
+          window.setTimeout(fn, SKIP_IDP_HISTORY_DELAY_MS);
+        }
       ): void { /* ... */ }
     </item>
     <item priority="high">

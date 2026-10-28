@@ -75,6 +75,41 @@ describe("BarChart", () => {
     expect(Math.min(...heights)).toBeGreaterThan(50);
   });
 
+  it("keeps same-first-word bars at the same plain scale", () => {
+    const { container } = render(
+      <BarChart
+        label="Quarterly"
+        data={[
+          { label: "Q1", value: 50 },
+          { label: "Q1 target", value: 50 },
+          { label: "Q2", value: 60 },
+        ]}
+      />
+    );
+    expect(screen.getByText("Q1 target")).toBeDefined();
+    const heights = Array.from(container.querySelectorAll("span"))
+      .map((bar) => bar.style.blockSize)
+      .filter((size) => size.endsWith("%"));
+    expect(heights).toHaveLength(3);
+  });
+
+  it("keeps same-first-word bars at the same suffixed scale", () => {
+    const { container } = render(
+      <BarChart
+        label="Revenue"
+        data={[
+          { label: "Jan", value: "$12k" },
+          { label: "Jan 2024", value: "$12k" },
+        ]}
+      />
+    );
+    expect(screen.getByText("Jan 2024")).toBeDefined();
+    const heights = Array.from(container.querySelectorAll("span"))
+      .map((bar) => bar.style.blockSize)
+      .filter((size) => size.endsWith("%"));
+    expect(heights).toHaveLength(2);
+  });
+
   it("keeps a real k suffix far taller than a small unsuffixed amount", () => {
     const { container } = render(
       <BarChart
