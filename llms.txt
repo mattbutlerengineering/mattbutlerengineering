@@ -4931,8 +4931,19 @@
       interface SeatPlacementInput {
         shape: TableShapeName;
         capacity: number;
+        width?: number;
+        height?: number;
         gap?: number;
       }
+    </item>
+    <item priority="low">
+      interface SeatSize {
+        width: number;
+        height: number;
+      }
+    </item>
+    <item priority="high">
+      export function seatSize(capacity: number): SeatSize { /* ... */ }
     </item>
     <item priority="high">
       type RectangleSide = (typeof RECTANGLE_SIDES)[number];
@@ -4956,6 +4967,12 @@
         height: number,
         gap: number
       ): readonly SeatPlacement[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function minSeatSpacing(input: SeatPlacementInput, seats: readonly SeatPlacement[]): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function fittedSeatSize(input: SeatPlacementInput): SeatSize { /* ... */ }
     </item>
     <item priority="high">
       export function seatPlacements(input: SeatPlacementInput): readonly SeatPlacement[] { /* ... */ }
