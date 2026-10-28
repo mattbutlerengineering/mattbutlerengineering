@@ -317,6 +317,46 @@ describe("TableShape", () => {
   });
 
   describe("furniture art", () => {
+    it("draws the stored footprint, not the shape default (#7847)", () => {
+      const table = makeTable({
+        shapeMetadata: { x: 100, y: 100, width: 140, height: 60, shape: "rectangle" },
+      });
+      render(<TableShape table={table} {...defaultProps} />);
+      expect(tableSurface().getAttribute("data-width")).toBe("140");
+      expect(tableSurface().getAttribute("data-height")).toBe("60");
+    });
+
+    it("draws a round table from its stored diameter (#7847)", () => {
+      const table = makeTable({
+        shapeMetadata: { x: 100, y: 100, width: 110, height: 110, shape: "circle" },
+      });
+      render(<TableShape table={table} {...defaultProps} />);
+      expect(tableSurface().getAttribute("data-radius")).toBe("55");
+    });
+
+    it("falls back to the shape default without a stored footprint (#7847)", () => {
+      const table = makeTable({
+        shapeMetadata: { x: 100, y: 100, shape: "rectangle" } as Table["shapeMetadata"],
+      });
+      render(<TableShape table={table} {...defaultProps} />);
+      expect(tableSurface().getAttribute("data-width")).toBe("80");
+      expect(tableSurface().getAttribute("data-height")).toBe("60");
+    });
+
+    it("draws smaller chairs for a 12-top than for a 2-top (#7847)", () => {
+      const chairWidth = (capacity: number) => {
+        const { unmount } = render(
+          <TableShape table={makeTable({ capacity })} {...defaultProps} />
+        );
+        const width = document
+          .querySelector(`[data-name="${SEAT_NAME}"] [data-testid="konva-rect"]`)
+          ?.getAttribute("data-width");
+        unmount();
+        return Number(width);
+      };
+      expect(chairWidth(12)).toBeLessThan(chairWidth(2));
+    });
+
     it("draws wood grain over the rectangular table surface", () => {
       render(<TableShape table={makeTable()} {...defaultProps} />);
       // Grain lines and edge highlights are Konva Lines; a bare primitive had none.

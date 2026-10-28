@@ -3,7 +3,7 @@ import { Group, Text } from "react-konva";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type { Table } from "@mbe/types";
-import { seatPlacements } from "./floor-plan-geometry.js";
+import { SHAPE_DEFAULTS, seatPlacements, seatSize } from "./floor-plan-geometry.js";
 import { SeatArt, TableArt } from "./FurnitureArt.js";
 import { FURNITURE_PALETTE } from "./furniture-tokens.js";
 import { TABLE_STATUS_COLOR_TOKEN, type TableDisplayStatus } from "./table-status.js";
@@ -150,7 +150,10 @@ function TableShapeComponent({
 
   // Seats are drawn first so the table surface overlaps them — the look of
   // chairs tucked under a table rather than floating beside it.
-  const seats = seatPlacements({ shape, capacity: table.capacity });
+  const width = table.shapeMetadata?.width ?? SHAPE_DEFAULTS[shape].width;
+  const height = table.shapeMetadata?.height ?? SHAPE_DEFAULTS[shape].height;
+  const seats = seatPlacements({ shape, capacity: table.capacity, width, height });
+  const chair = seatSize(table.capacity);
 
   return (
     <Group
@@ -168,10 +171,19 @@ function TableShapeComponent({
       {seats.map((seat) => (
         // Seats have no identity of their own; their placement is deterministic
         // and distinct, so the position is the stable key.
-        <SeatArt key={`${seat.x},${seat.y}`} x={seat.x} y={seat.y} rotation={seat.rotation} />
+        <SeatArt
+          key={`${seat.x},${seat.y}`}
+          x={seat.x}
+          y={seat.y}
+          rotation={seat.rotation}
+          width={chair.width}
+          height={chair.height}
+        />
       ))}
       <TableArt
         shape={shape}
+        width={width}
+        height={height}
         fill={fillColor}
         stroke={isSelected ? themeColors.selectedStroke : FURNITURE_PALETTE.edge}
         strokeWidth={isSelected ? 3 : 1}

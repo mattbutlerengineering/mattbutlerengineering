@@ -9,6 +9,7 @@ import {
   MAX_RENDERED_SEATS,
   snapToGrid,
   seatPlacements,
+  seatSize,
   placeNewTable,
   moveWallEndpoint,
 } from "./floor-plan-geometry.js";
@@ -182,6 +183,91 @@ describe("floor-plan-geometry", () => {
           const clearsHorizontally = Math.abs(seat.x) >= width / 2 + SEAT_GAP;
           expect(clearsVertically || clearsHorizontally).toBe(true);
         }
+      });
+    });
+
+    describe("stored footprint (#7847)", () => {
+      it("spreads a long table's seats across its real 140 width", () => {
+        const placements = seatPlacements({
+          shape: "rectangle",
+          capacity: 8,
+          width: 140,
+          height: 60,
+        });
+        const top = placements.filter((seat) => seat.rotation === 180);
+        expect(top.map((seat) => seat.x)).toEqual([-23.333, 23.333]);
+        expect(top.every((seat) => seat.y === -(30 + SEAT_GAP))).toBe(true);
+        const right = placements.filter((seat) => seat.rotation === 270);
+        expect(right.every((seat) => seat.x === 70 + SEAT_GAP)).toBe(true);
+      });
+
+      it("keeps default-size output unchanged when no footprint is given", () => {
+        const { width, height } = SHAPE_DEFAULTS.rectangle;
+        expect(seatPlacements({ shape: "rectangle", capacity: 6 })).toEqual(
+          seatPlacements({ shape: "rectangle", capacity: 6, width, height })
+        );
+      });
+
+      it("sizes a round table's seat ring from the stored diameter", () => {
+        const [seat] = seatPlacements({ shape: "circle", capacity: 1, width: 100, height: 100 });
+        expect(seat?.y).toBe(-(50 + SEAT_GAP));
+      });
+
+      it("never overlaps seats on a sized table", () => {
+        const cases = [
+          { shape: "rectangle", capacity: 8, width: 140, height: 60 },
+          { shape: "rectangle", capacity: 12, width: 200, height: 80 },
+          { shape: "square", capacity: 8, width: 100, height: 100 },
+          { shape: "circle", capacity: 12, width: 110, height: 110 },
+        ] as const;
+        for (const input of cases) {
+          const size = seatSize(input.capacity);
+          const seats = seatPlacements(input);
+          seats.forEach((a, i) => {
+            seats.slice(i + 1).forEach((b) => {
+              // Seat art is size.width x size.height unrotated; side seats are turned 90deg.
+              const half = (r: number) =>
+                r === 90 || r === 270
+                  ? { w: size.height / 2, h: size.width / 2 }
+                  : { w: size.width / 2, h: size.height / 2 };
+              // Circle seats are rotated by arbitrary angles; use the bounding circle.
+              const ha =
+                input.shape === "circle"
+                  ? { w: size.width / 2, h: size.width / 2 }
+                  : half(a.rotation);
+              const hb =
+                input.shape === "circle"
+                  ? { w: size.width / 2, h: size.width / 2 }
+                  : half(b.rotation);
+              const separated =
+                Math.abs(a.x - b.x) >= ha.w + hb.w || Math.abs(a.y - b.y) >= ha.h + hb.h;
+              expect(separated).toBe(true);
+            });
+          });
+        }
+      });
+    });
+
+    describe("seatSize", () => {
+      it("uses the full chair up to a six-top", () => {
+        expect(seatSize(2)).toEqual({ width: 16, height: 13 });
+        expect(seatSize(6)).toEqual({ width: 16, height: 13 });
+      });
+
+      it("eases to the small chair at twelve and above", () => {
+        expect(seatSize(12)).toEqual({ width: 13, height: 11 });
+        expect(seatSize(20)).toEqual({ width: 13, height: 11 });
+      });
+
+      it("shrinks monotonically between 6 and 12", () => {
+        const w = [6, 7, 8, 9, 10, 11, 12].map((c) => seatSize(c).width);
+        expect(w).toEqual([...w].sort((a, b) => b - a));
+        expect(seatSize(9).width).toBeLessThan(16);
+        expect(seatSize(9).width).toBeGreaterThan(13);
+      });
+
+      it("makes a 2-top and a 12-top chair differ", () => {
+        expect(seatSize(2)).not.toEqual(seatSize(12));
       });
     });
 
