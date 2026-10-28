@@ -5023,6 +5023,17 @@
       export function floorTextureUrl(material: FloorMaterial, baseUrl: string): string { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/floor-plan/furniture-theme.ts">
+    <item priority="medium">
+      function readTheme(): FurnitureTheme { /* ... */ }
+    </item>
+    <item priority="medium">
+      function subscribe(listener: () => void): () => void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useFurnitureTheme(): FurnitureTheme { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/floor-plan/furniture-tokens.ts">
     <item priority="high">
       export const TABLE_SURFACE_NAME: unknown;
@@ -5035,6 +5046,18 @@
     </item>
     <item priority="high">
       export const FURNITURE_PALETTE: unknown;
+    </item>
+    <item priority="low">
+      type FurnitureTheme = "light" | "dark";
+    </item>
+    <item priority="high">
+      export const SEAT_TONES: Record<FurnitureTheme, { frame: string; edge: string; cus...;
+    </item>
+    <item priority="high">
+      export const SHADOW_TONES: Record<FurnitureTheme, string>;
+    </item>
+    <item priority="high">
+      export const CONTACT_SHADOW: unknown;
     </item>
     <item priority="high">
       export const TABLE_CORNER_RADIUS: Record<Exclude<TableShapeName, "circle">, number>;

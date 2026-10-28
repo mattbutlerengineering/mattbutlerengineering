@@ -15497,6 +15497,31 @@
       return `${base}${FLOOR_TEXTURE_DIR}/${material}.png`;
     }
   </file>
+  <file path="apps/hospitality/src/components/floor-plan/furniture-theme.ts">
+    function readTheme(): FurnitureTheme {
+      return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+    }
+    function subscribe(listener: () => void): () => void {
+      listeners.add(listener);
+      if (!observer) {
+        observer = new MutationObserver(() => listeners.forEach((notify) => notify()));
+        observer.observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ["data-theme"],
+        });
+      }
+      return () => {
+        listeners.delete(listener);
+        if (listeners.size === 0) {
+          observer?.disconnect();
+          observer = null;
+        }
+      };
+    }
+    export function useFurnitureTheme(): FurnitureTheme {
+      return useSyncExternalStore(subscribe, readTheme, () => "light");
+    }
+  </file>
   <file path="apps/hospitality/src/components/floor-plan/furniture-tokens.ts">
     export const TABLE_SURFACE_NAME = "table-surface";
     export const TABLE_SHADOW_NAME = "table-shadow";
@@ -15511,11 +15536,18 @@
       grain: "#806A4E",
       highlight: "#9C8468",
       edge: "#6B5740",
-      shadow: "rgba(0,0,0,0.12)",
-      seatFrame: "#4a3f32",
-      seatEdge: "#3d3228",
-      seatCushion: "#5c4f40",
     } as const;
+    export type FurnitureTheme = "light" | "dark";
+    export const SEAT_TONES: Record<FurnitureTheme, { frame: string; edge: string; cushion: string }> =
+      {
+        light: { frame: "#4a3f32", edge: "#3d3228", cushion: "#5c4f40" },
+        dark: { frame: "#8a7a66", edge: "#6b5d4c", cushion: "#a08c72" },
+      };
+    export const SHADOW_TONES: Record<FurnitureTheme, string> = {
+      light: "rgba(26,25,24,0.28)",
+      dark: "rgba(0,0,0,0.6)",
+    };
+    export const CONTACT_SHADOW = { blur: 6, offsetY: 2 } as const;
     export const TABLE_CORNER_RADIUS: Record<Exclude<TableShapeName, "circle">, number> = {
       rectangle: 6,
       square: 3,

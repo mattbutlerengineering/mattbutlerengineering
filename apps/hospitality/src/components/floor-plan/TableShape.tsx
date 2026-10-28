@@ -5,6 +5,7 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import type { Table } from "@mbe/types";
 import { SHAPE_DEFAULTS, fittedSeatSize, seatPlacements } from "./floor-plan-geometry.js";
 import { SeatArt, TableArt } from "./FurnitureArt.js";
+import { useMotionPreset } from "@mattbutlerengineering/rialto/providers";
 import { FURNITURE_PALETTE } from "./furniture-tokens.js";
 import { TABLE_STATUS_COLOR_TOKEN, type TableDisplayStatus } from "./table-status.js";
 
@@ -137,16 +138,19 @@ function TableShapeComponent({
     onSelect(table.id);
   };
 
-  // Apply shadow when dragging
+  // Apply shadow when dragging. The only animated shadow on the canvas; it
+  // lands instantly under reduced motion (the preset's duration is 0).
+  const { precision } = useMotionPreset();
+  const dragShadowDuration = precision.duration;
   useEffect(() => {
     if (groupRef.current) {
       groupRef.current.to({
         shadowBlur: isDragging ? 10 : 0,
         shadowOpacity: isDragging ? 0.3 : 0,
-        duration: 0.1,
+        duration: dragShadowDuration,
       });
     }
-  }, [isDragging]);
+  }, [isDragging, dragShadowDuration]);
 
   // Seats are drawn first so the table surface overlaps them — the look of
   // chairs tucked under a table rather than floating beside it.
