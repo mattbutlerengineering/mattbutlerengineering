@@ -7,6 +7,9 @@ import styles from "./JsonInspector.module.css";
 export interface JsonInspectorProps {
   rawLines: string[];
   isStreaming: boolean;
+  /** Set when the generation producing these lines failed. Only shown when
+   *  there are no lines to fall back on. */
+  error?: Error | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -152,7 +155,7 @@ function countMatches(text: string, search: string): number {
  * Features: line numbers, search/filter, collapsible blocks, copy feedback.
  * Auto-scrolls during streaming; pauses auto-scroll on manual scroll-up.
  */
-export function JsonInspector({ rawLines, isStreaming }: JsonInspectorProps) {
+export function JsonInspector({ rawLines, isStreaming, error = null }: JsonInspectorProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const autoScrollRef = useRef(true);
 
@@ -266,7 +269,9 @@ export function JsonInspector({ rawLines, isStreaming }: JsonInspectorProps) {
 
       <div className={styles.scrollArea} ref={scrollContainerRef} onScroll={handleScroll}>
         {rawLines.length === 0 ? (
-          <Text className={styles.empty}>No data yet</Text>
+          <Text className={styles.empty}>
+            {error ? "Couldn't generate JSON" : isStreaming ? "Generating…" : "No data yet"}
+          </Text>
         ) : (
           blocks.map((block, i) => {
             const isCollapsed = collapsed.has(i);

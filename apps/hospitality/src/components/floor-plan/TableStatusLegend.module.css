@@ -1,0 +1,48 @@
+/* Legend strip under the floor-plan canvas. Wraps onto further rows rather
+ * than scrolling, so it fits a 375px viewport in every locale. */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-xs) var(--rialto-space-sm);
+  margin: 0;
+  margin-block-start: var(--rialto-space-xs);
+  padding: var(--rialto-space-xs);
+  list-style: none;
+  background: var(--rialto-surface);
+  border-radius: var(--rialto-radius-default);
+  box-shadow: var(--rialto-shadow-xs);
+}
+
+.item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--rialto-space-2xs);
+  min-inline-size: 0;
+  color: var(--rialto-text-primary);
+  font-size: var(--rialto-text-sm);
+}
+
+.swatch {
+  flex: none;
+  inline-size: 0.75rem;
+  block-size: 0.75rem;
+  border-radius: var(--rialto-radius-round);
+  border: 1px solid var(--rialto-border);
+}
+
+.glyph {
+  flex: none;
+  inline-size: 1rem;
+  block-size: 1rem;
+  padding: 1px;
+  box-sizing: border-box;
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-surface);
+  border: 1px solid var(--rialto-border);
+  color: var(--rialto-text-primary);
+}
+
+.label {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}

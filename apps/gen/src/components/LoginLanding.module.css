@@ -56,7 +56,10 @@
   border: 1px solid var(--rialto-border);
   border-radius: var(--rialto-radius-default);
   background: var(--rialto-surface-elevated);
-  animation: stagePulse 5s var(--rialto-ease-smooth, ease-in-out) infinite;
+  /* Decorative, not a status loop — WCAG 2.2.2 requires it to pause rather
+     than run forever. 3 cycles reads as "demonstrating the flow" without
+     turning into ambient background motion. */
+  animation: stagePulse 5s var(--rialto-ease-smooth, ease-in-out) 3;
 }
 
 .stage:nth-child(1) {

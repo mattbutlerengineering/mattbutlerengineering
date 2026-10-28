@@ -10,18 +10,23 @@ vi.mock("react-konva", () => ({
     dash,
     stroke,
     onClick,
+    lineCap,
+    name,
   }: {
     strokeWidth: number;
     dash?: number[];
     stroke: string;
-    onClick: () => void;
+    onClick?: () => void;
+    lineCap?: string;
+    name?: string;
   }) => (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
-      data-testid="line"
+      data-testid={name ?? "line"}
       data-width={strokeWidth}
       data-dash={dash ? "dashed" : "solid"}
       data-stroke={stroke}
+      data-linecap={lineCap}
       onClick={onClick}
     />
   ),
@@ -33,14 +38,23 @@ import { WallShape } from "./WallShape.js";
 const wall: WallLayout = { id: "w1", x1: 0, y1: 0, x2: 100, y2: 0, thickness: 8 };
 
 describe("WallShape", () => {
-  it("renders a wall solid and a window dashed", () => {
-    const { rerender } = render(<WallShape wall={wall} isSelected={false} onSelect={() => {}} />);
+  it("renders a wall as one solid bar with square caps so corners close", () => {
+    render(<WallShape wall={wall} isSelected={false} onSelect={() => {}} />);
     expect(screen.getByTestId("line").dataset.dash).toBe("solid");
     expect(screen.getByTestId("line").dataset.width).toBe("8");
-    rerender(
+    expect(screen.getByTestId("line").dataset.linecap).toBe("square");
+    expect(screen.queryAllByTestId("window-jamb")).toHaveLength(0);
+  });
+
+  it("renders a window as a thin solid glass line between two jamb ticks, not a dash", () => {
+    render(
       <WallShape wall={{ ...wall, wallType: "window" }} isSelected={false} onSelect={() => {}} />
     );
-    expect(screen.getByTestId("line").dataset.dash).toBe("dashed");
+    const glass = screen.getByTestId("window-glass");
+    expect(glass.dataset.dash).toBe("solid");
+    expect(Number(glass.dataset.width)).toBeLessThan(wall.thickness);
+    expect(screen.getAllByTestId("window-jamb")).toHaveLength(2);
+    expect(screen.getByTestId("line").dataset.dash).toBe("solid");
   });
 
   it("selects on click and shows endpoint handles only when selected and draggable", () => {

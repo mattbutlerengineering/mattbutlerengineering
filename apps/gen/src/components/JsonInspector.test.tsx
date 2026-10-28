@@ -64,6 +64,20 @@ describe("JsonInspector", () => {
     expect(key.closest("[class*=lineRow]")).toBe(value.closest("[class*=lineRow]"));
   });
 
+  it("shows a distinct loading state while streaming with no lines yet (#7463)", () => {
+    render(<JsonInspector rawLines={[]} isStreaming={true} />);
+    expect(screen.getByText("Generating…")).toBeDefined();
+    expect(screen.queryByText("No data yet")).toBeNull();
+  });
+
+  it("shows a deliberate error state when generation failed with no lines (#7463)", () => {
+    render(
+      <JsonInspector rawLines={[]} isStreaming={false} error={new Error("Generation failed")} />
+    );
+    expect(screen.getByText("Couldn't generate JSON")).toBeDefined();
+    expect(screen.queryByText("No data yet")).toBeNull();
+  });
+
   it("should render JSON lines", () => {
     const rawLines = ['{"name": "test", "value": 123}'];
     render(<JsonInspector rawLines={rawLines} isStreaming={false} />);

@@ -13,6 +13,7 @@ import { AuthConfigError } from "./components/AuthConfigError";
 import { LoadingPage } from "./pages/LoadingPage";
 import { RequireAdmin } from "./components/RequireAdmin";
 import { validateAuthConfig } from "./constants/auth";
+import { currentHostConfig, legacyPathRedirect } from "./lib/host-brand.js";
 import { I18nextProvider } from "react-i18next";
 import { localeRuntime, LocaleBridge } from "./i18n/runtime.js";
 import { ToastLocaleOverride } from "./components/booking-widget/ToastLocaleOverride.js";
@@ -117,6 +118,20 @@ const NotFoundPage = lazy(() =>
 
 // Validate auth config at startup — fail fast with a user-friendly error
 const authConfigResult = validateAuthConfig();
+
+// The app owns eat-sheet.com's root but lives under /hospitality elsewhere
+// (#7709). On a root-served host, map a legacy /hospitality/* URL (older email
+// links, asset-base-relative hrefs) onto its in-app path before the router
+// reads the location.
+const HOST = currentHostConfig();
+const legacyPath = legacyPathRedirect(window.location.pathname, HOST.basename);
+if (legacyPath !== null) {
+  window.history.replaceState(
+    window.history.state,
+    "",
+    legacyPath + window.location.search + window.location.hash
+  );
+}
 
 /**
  * Uses createBrowserRouter (React Router v7 recommended API) instead of
@@ -365,7 +380,7 @@ const router = createBrowserRouter(
       ],
     },
   ],
-  { basename: "/hospitality" }
+  { basename: HOST.basename }
 );
 
 /**

@@ -3329,6 +3329,15 @@
       readonly valid: false;
       readonly missing: readonly string[];
     }
+    export function resolveRedirectUri(
+      configured: string | undefined,
+      location: Pick<Location, "origin" | "hostname">
+    ): string {
+      // A malformed value is treated as unset.
+      const sameOrigin =
+        !!configured && URL.canParse(configured) && new URL(configured).origin === location.origin;
+      return sameOrigin ? configured : appUrl("/callback", location);
+    }
     export function validateAuthConfig(): AuthConfigResult | AuthConfigFailure {
       const missing = REQUIRED_AUTH_ENV.filter((env) => !env.value || env.value.trim() === "").map(
         (env) => env.key
@@ -3343,8 +3352,7 @@
         config: {
           authority: import.meta.env.VITE_AUTH_AUTHORITY,
           clientId: import.meta.env.VITE_AUTH_CLIENT_ID,
-          redirectUri:
-            import.meta.env.VITE_AUTH_REDIRECT_URI || window.location.origin + "/hospitality/callback",
+          redirectUri: resolveRedirectUri(import.meta.env.VITE_AUTH_REDIRECT_URI, window.location),
           audience: import.meta.env.VITE_AUTH_AUDIENCE || undefined,
         },
       };
@@ -5440,6 +5448,20 @@
         : rectangleSeats(count, width, height, gap);
     }
   </file>
+  <file path="src/components/floor-plan/floor-plan-grid.ts">
+    export const MIN_GRID_CELL_PX = 8;
+    export function floorPlanGridStyle({
+      readOnly,
+      scale,
+    }: {
+      readOnly: boolean;
+      scale: number;
+    }): Pick<CSSProperties, "backgroundImage" | "backgroundSize"> | undefined {
+      const cell = GRID_SIZE * scale;
+      if (readOnly || cell < MIN_GRID_CELL_PX) return undefined;
+      return { backgroundImage: GRID_PATTERN, backgroundSize: `${cell}px ${cell}px` };
+    }
+  </file>
   <file path="src/components/floor-plan/floor-textures.ts">
     export const FLOOR_TEXTURE_DIR = "floor-plan/textures";
     export const TEXTURE_SOURCE_PX = 64;
@@ -5451,6 +5473,31 @@
     export function floorTextureUrl(material: FloorMaterial, baseUrl: string): string {
       const base = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
       return `${base}${FLOOR_TEXTURE_DIR}/${material}.png`;
+    }
+  </file>
+  <file path="src/components/floor-plan/furniture-theme.ts">
+    function readTheme(): FurnitureTheme {
+      return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+    }
+    function subscribe(listener: () => void): () => void {
+      listeners.add(listener);
+      if (!observer) {
+        observer = new MutationObserver(() => listeners.forEach((notify) => notify()));
+        observer.observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ["data-theme"],
+        });
+      }
+      return () => {
+        listeners.delete(listener);
+        if (listeners.size === 0) {
+          observer?.disconnect();
+          observer = null;
+        }
+      };
+    }
+    export function useFurnitureTheme(): FurnitureTheme {
+      return useSyncExternalStore(subscribe, readTheme, () => "light");
     }
   </file>
   <file path="src/components/floor-plan/furniture-tokens.ts">
@@ -5467,11 +5514,18 @@
       grain: "#806A4E",
       highlight: "#9C8468",
       edge: "#6B5740",
-      shadow: "rgba(0,0,0,0.12)",
-      seatFrame: "#4a3f32",
-      seatEdge: "#3d3228",
-      seatCushion: "#5c4f40",
     } as const;
+    export type FurnitureTheme = "light" | "dark";
+    export const SEAT_TONES: Record<FurnitureTheme, { frame: string; edge: string; cushion: string }> =
+      {
+        light: { frame: "#4a3f32", edge: "#3d3228", cushion: "#5c4f40" },
+        dark: { frame: "#8a7a66", edge: "#6b5d4c", cushion: "#a08c72" },
+      };
+    export const SHADOW_TONES: Record<FurnitureTheme, string> = {
+      light: "rgba(26,25,24,0.28)",
+      dark: "rgba(0,0,0,0.6)",
+    };
+    export const CONTACT_SHADOW = { blur: 6, offsetY: 2 } as const;
     export const TABLE_CORNER_RADIUS: Record<Exclude<TableShapeName, "circle">, number> = {
       rectangle: 6,
       square: 3,
@@ -5803,6 +5857,168 @@
       }, []);
     
       return theme;
+    }
+  </file>
+  <file path="src/components/floor-plan/table-label-layout.ts">
+    export const LABEL_MIN_SCREEN_PX = 10;
+    export const LABEL_PADDING = 2;
+    export const LABEL_LINE_HEIGHT = 1.15;
+    export interface TableLabelInput {
+      number: string;
+      covers: string;
+      shape: TableShapeName;
+      capacity: number;
+      /** The table footprint in canvas units (its own, unrotated frame). */
+      width: number;
+      height: number;
+      /** The table group's rotation, in degrees clockwise. */
+      rotation: number;
+      /** The stage's scale (rendered px per canvas unit). */
+      stageScale: number;
+      /** Reserve room in the plate for a status glyph, sized from the font so it shrinks with it. */
+      glyph?: boolean;
+    }
+    export interface TableLabelLayout {
+      text: string;
+      fontSize: number;
+      /** Plate size in canvas units, including padding. */
+      width: number;
+      height: number;
+      /** Status glyph edge in canvas units; 0 when the table wears no glyph. */
+      glyphSize: number;
+      /** Width the glyph takes at the plate's leading edge, gap included; 0 without a glyph. */
+      glyphSlot: number;
+      /** Always false: the number is never ellipsized; the font shrinks instead. */
+      ellipsis: false;
+    }
+    export function counterRotation(rotation: number): number {
+      return rotation === 0 ? 0 : -rotation;
+    }
+    interface Box {
+      readonly cx: number;
+      readonly cy: number;
+      readonly halfW: number;
+      readonly halfH: number;
+    }
+    function chairBoxes(input: TableLabelInput): readonly Box[] {
+      const placementInput: SeatPlacementInput = {
+        shape: input.shape,
+        capacity: input.capacity,
+        width: input.width,
+        height: input.height,
+      };
+      const chair = fittedSeatSize(placementInput);
+      const tableRad = toRadians(input.rotation);
+      return seatPlacements(placementInput).map((seat) => {
+        const total = toRadians(seat.rotation + input.rotation);
+        return {
+          cx: seat.x * Math.cos(tableRad) - seat.y * Math.sin(tableRad),
+          cy: seat.x * Math.sin(tableRad) + seat.y * Math.cos(tableRad),
+          halfW:
+            (chair.width * Math.abs(Math.cos(total)) + chair.height * Math.abs(Math.sin(total))) / 2,
+          halfH:
+            (chair.width * Math.abs(Math.sin(total)) + chair.height * Math.abs(Math.cos(total))) / 2,
+        };
+      });
+    }
+    function footprintBox(input: TableLabelInput): Box {
+      const rad = toRadians(input.rotation);
+      return {
+        cx: 0,
+        cy: 0,
+        halfW: (input.width * Math.abs(Math.cos(rad)) + input.height * Math.abs(Math.sin(rad))) / 2,
+        halfH: (input.width * Math.abs(Math.sin(rad)) + input.height * Math.abs(Math.cos(rad))) / 2,
+      };
+    }
+    function overlapsChair(chair: Box, plateHalfW: number, plateHalfH: number): boolean {
+      const gapX = Math.max(0, Math.abs(chair.cx) - chair.halfW - CHAIR_CLEARANCE);
+      const gapY = Math.max(0, Math.abs(chair.cy) - chair.halfH - CHAIR_CLEARANCE);
+      return gapX < plateHalfW && gapY < plateHalfH;
+    }
+    interface Plate {
+      text: string;
+      fontSize: number;
+      width: number;
+      height: number;
+      glyphSize: number;
+      glyphSlot: number;
+    }
+    function plateFor(lines: readonly string[], fontSize: number, withGlyph: boolean): Plate {
+      const longest = Math.max(...lines.map((line) => line.length), 1);
+      const glyphSize = withGlyph ? fontSize * STATUS_GLYPH_EM : 0;
+      const glyphSlot = withGlyph ? glyphSize + LABEL_PADDING : 0;
+      return {
+        text: lines.join("\n"),
+        fontSize,
+        width: longest * GLYPH_WIDTH_EM * fontSize + 2 * LABEL_PADDING + glyphSlot,
+        height: lines.length * fontSize * LABEL_LINE_HEIGHT + 2 * LABEL_PADDING,
+        glyphSize,
+        glyphSlot,
+      };
+    }
+    export function tableLabelLayout(input: TableLabelInput): TableLabelLayout {
+      const withGlyph = input.glyph === true;
+      const chairs = chairBoxes(input);
+      const footprint = chairs.length === 0 ? footprintBox(input) : null;
+      const clear = (plate: Plate) =>
+        chairs.every((chair) => !overlapsChair(chair, plate.width / 2, plate.height / 2)) &&
+        (footprint === null ||
+          (plate.width / 2 <= footprint.halfW && plate.height / 2 <= footprint.halfH));
+    
+      const startFont = Math.max(LABEL_MIN_SCREEN_PX / input.stageScale, LABEL_MAX_FONT_SIZE);
+      const full = plateFor([input.number, input.covers], startFont, withGlyph);
+      if (clear(full)) return { ...full, ellipsis: false };
+    
+      let plate = plateFor([input.number], startFont, withGlyph);
+      for (let step = 0; step < MAX_SHRINK_STEPS && !clear(plate); step += 1) {
+        plate = plateFor([input.number], plate.fontSize * SHRINK_FACTOR, withGlyph);
+      }
+      return { ...plate, ellipsis: false };
+    }
+  </file>
+  <file path="src/components/floor-plan/table-status-glyph.ts">
+    export type StatusGlyphKey = TableDisplayStatus | "inactive";
+    export const STATUS_GLYPH_KEYS: readonly StatusGlyphKey[] = [
+      "available",
+      "reserved-soon",
+      "seated",
+      "needs-bussing",
+      "inactive",
+    ];
+    export const GLYPH_VIEWBOX = 10;
+    export const GLYPH_STROKE_WIDTH = 1.4;
+    export interface StatusGlyph {
+      /** SVG path data inside a `GLYPH_VIEWBOX` square. */
+      readonly path: string;
+      /** Filled glyphs are solid; the rest are outlines. */
+      readonly filled: boolean;
+    }
+    export const STATUS_GLYPHS: Readonly<Record<StatusGlyphKey, StatusGlyph>> = {
+      available: { path: "M1.5 5.5 L4 8 L8.5 2", filled: false },
+      "reserved-soon": {
+        path: "M5 0.9 A4.1 4.1 0 1 1 4.99 0.9 M5 2.8 V5.2 L6.8 6.2",
+        filled: false,
+      },
+      "needs-bussing": { path: "M1.5 2.5 H8.5 M1.5 5 H8.5 M1.5 7.5 H8.5", filled: false },
+      seated: { path: "M5 1 A4 4 0 1 1 4.99 1 Z", filled: true },
+      inactive: { path: "M2 2 L8 8 M8 2 L2 8", filled: false },
+    };
+    export const STATUS_LABEL_KEY = {
+      available: "floorPlan.statusLegend.available",
+      "reserved-soon": "floorPlan.statusLegend.reservedSoon",
+      seated: "floorPlan.statusLegend.seated",
+      "needs-bussing": "floorPlan.statusLegend.needsBussing",
+      inactive: "floorPlan.statusLegend.inactive",
+    } as const satisfies Record<StatusGlyphKey, string>;
+    export function glyphKeyFor(
+      status: TableDisplayStatus | undefined,
+      isActive: boolean
+    ): StatusGlyphKey | null {
+      if (status === undefined) return null;
+      return isActive ? status : "inactive";
+    }
+    export function statusFillToken(key: StatusGlyphKey): string {
+      return key === "inactive" ? "var(--rialto-surface-deep)" : TABLE_STATUS_COLOR_TOKEN[key];
     }
   </file>
   <file path="src/components/floor-plan/table-status.ts">
@@ -9365,6 +9581,47 @@
         body: t("auth.error.generic.body"),
         canRetry: true,
       };
+    }
+  </file>
+  <file path="src/lib/host-brand.ts">
+    export interface Brand {
+      /** Product name shown in titles, the header, guest pages and copyright. */
+      readonly name: string;
+      /** Short wordmark rendered as the header logo. */
+      readonly logo: string;
+    }
+    export interface HostConfig {
+      readonly brand: Brand;
+      /** React Router basename: "" when the app owns the host's root. */
+      readonly basename: string;
+      /** True when the host serves only this app (no marketing / rialto / gen pages). */
+      readonly standalone: boolean;
+    }
+    export function hostConfig(hostname: string): HostConfig {
+      return EAT_SHEET_HOSTS.has(hostname.toLowerCase()) ? EAT_SHEET : MBE;
+    }
+    export function currentHostConfig(): HostConfig {
+      return hostConfig(typeof window === "undefined" ? "" : window.location.hostname);
+    }
+    export function appUrl(
+      path: string,
+      location: Pick<Location, "origin" | "hostname"> = window.location
+    ): string {
+      return `${location.origin}${hostConfig(location.hostname).basename}${path}`;
+    }
+    export function homeUrl(location: Pick<Location, "origin"> = window.location): string {
+      return `${location.origin}/`;
+    }
+    export function manageReservationUrl(
+      token: string,
+      location: Pick<Location, "origin" | "hostname"> = window.location
+    ): string {
+      return `${appUrl("/reservations/manage", location)}?token=${encodeURIComponent(token)}`;
+    }
+    export function legacyPathRedirect(pathname: string, basename: string): string | null {
+      if (basename === LEGACY_BASE) return null;
+      if (pathname !== LEGACY_BASE && !pathname.startsWith(`${LEGACY_BASE}/`)) return null;
+      return pathname.slice(LEGACY_BASE.length) || "/";
     }
   </file>
   <file path="src/lib/logo-palette-canvas.ts">

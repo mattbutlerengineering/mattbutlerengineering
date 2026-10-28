@@ -111,10 +111,10 @@
   white-space: normal;
   font-family: var(--rialto-font-sans);
   transition:
-    transform 0.15s ease,
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
-  animation: cardFadeIn 0.35s ease both;
+    transform var(--rialto-duration-standard) var(--rialto-ease-precision),
+    border-color var(--rialto-duration-standard) var(--rialto-ease-precision),
+    box-shadow var(--rialto-duration-standard) var(--rialto-ease-precision);
+  animation: cardFadeIn 0.35s var(--rialto-ease-smooth) both;
 }
 
 .suggestionCard:hover {
@@ -144,7 +144,7 @@
 }
 
 .suggestionTitle {
-  font-weight: 600;
+  font-weight: var(--rialto-weight-medium);
   color: var(--rialto-text-primary);
 }
 
@@ -186,7 +186,9 @@
   }
 }
 
-/* Action bar — Share and Refine controls above the rendered spec */
+/* Action bar — Share and Refine controls above the rendered spec.
+   Wraps instead of forcing a scrollbar: at 375px it holds Share, Refine,
+   Download JSON, Copy JSON and Expand/Collapse at once. */
 .actionBar {
   display: flex;
   flex-flow: row wrap;

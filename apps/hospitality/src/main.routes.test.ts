@@ -28,3 +28,17 @@ describe("hospitality catch-all route", () => {
     expect(mainTsxSource).toMatch(/import\("\.\/pages\/NotFoundPage\.js"\)/);
   });
 });
+
+describe("hospitality router basename (#7709)", () => {
+  it("derives the basename from the serving host rather than a literal /hospitality", () => {
+    expect(mainTsxSource).not.toMatch(/basename:\s*"\/hospitality"/);
+    expect(mainTsxSource).toMatch(/basename:\s*HOST\.basename/);
+  });
+
+  it("rewrites legacy /hospitality/* URLs before the router reads the location", () => {
+    const rewrite = mainTsxSource.indexOf("legacyPathRedirect(");
+    const router = mainTsxSource.indexOf("createBrowserRouter(");
+    expect(rewrite).toBeGreaterThan(-1);
+    expect(rewrite).toBeLessThan(router);
+  });
+});

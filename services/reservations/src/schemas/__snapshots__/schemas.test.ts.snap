@@ -48,6 +48,23 @@ exports[`Reservation service schemas > FloorPlanLayoutSchema matches snapshot 1`
     "backgroundImage": {
       "type": "string",
     },
+    "floorMaterial": {
+      "anyOf": [
+        {
+          "enum": [
+            "hardwood",
+            "concrete",
+            "carpet",
+            "tile",
+            "marble",
+          ],
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
+      ],
+    },
     "gridSize": {
       "type": "number",
     },
@@ -160,6 +177,23 @@ exports[`Reservation service schemas > FloorPlanSchema matches snapshot 1`] = `
       "properties": {
         "backgroundImage": {
           "type": "string",
+        },
+        "floorMaterial": {
+          "anyOf": [
+            {
+              "enum": [
+                "hardwood",
+                "concrete",
+                "carpet",
+                "tile",
+                "marble",
+              ],
+              "type": "string",
+            },
+            {
+              "type": "null",
+            },
+          ],
         },
         "gridSize": {
           "type": "number",
