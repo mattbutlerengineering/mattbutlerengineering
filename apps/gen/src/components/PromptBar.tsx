@@ -199,11 +199,7 @@ export function PromptBar({
           </Button>
         )}
       </div>
-      {failedError && (
-        <p className={styles.errorNote} role="alert">
-          {failedError.message}
-        </p>
-      )}
+      {failedError && <p className={styles.errorNote}>{failedError.message}</p>}
       {/* Always mounted; CSS shows it on :focus-within so focus changes never
           resize the bar and move Generate out from under the pointer (F26). */}
       <div className={styles.hints}>

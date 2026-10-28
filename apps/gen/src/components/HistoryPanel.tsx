@@ -211,7 +211,7 @@ export function HistoryPanel({
       {isLoading && entries.length === 0 ? (
         <p className={styles.empty}>Loading...</p>
       ) : error && entries.length === 0 ? (
-        <div className={styles.errorState}>
+        <div className={styles.errorState} role="alert">
           <p className={styles.empty}>Couldn&apos;t load history</p>
           {onRetry && (
             <button type="button" className={styles.retryButton} onClick={onRetry}>

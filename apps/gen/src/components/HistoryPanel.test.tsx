@@ -92,6 +92,11 @@ describe("HistoryPanel", () => {
     expect(screen.queryByText("No history yet")).toBeNull();
   });
 
+  it("announces the history load failure to assistive tech", () => {
+    render(<HistoryPanel {...defaultProps} error={new Error("Network error")} />);
+    expect(screen.getByRole("alert").textContent).toContain("Couldn't load history");
+  });
+
   it("calls onRetry when the error state's retry button is clicked", () => {
     const onRetry = vi.fn();
     render(<HistoryPanel {...defaultProps} error={new Error("Network error")} onRetry={onRetry} />);

@@ -263,7 +263,10 @@ describe("PromptBar", () => {
         failedError={new Error("boom")}
       />
     );
-    expect(screen.getByRole("alert").textContent).toBe("boom");
+    expect(screen.getByText("boom")).toBeDefined();
+    // PreviewPane's error Alert already announces the same message; a second
+    // live alert here would make assistive tech read it twice.
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("shows no error affordance when there is no failure", () => {
