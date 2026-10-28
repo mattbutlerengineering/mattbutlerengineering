@@ -56,8 +56,9 @@ describe("timeline chat tools", () => {
     api = createMockApiClient();
     api.tables.list.mockResolvedValue({
       data: [
-        { id: "t1", name: "Patio 2", tableNumber: "12" },
-        { id: "t2", name: "Bar", tableNumber: "3" },
+        { id: "t1", name: "Patio 2", tableNumber: "12", status: "AVAILABLE" },
+        { id: "t2", name: "Bar", tableNumber: "3", status: "AVAILABLE" },
+        { id: "t3", name: "Window", tableNumber: "5", status: "DIRTY" },
       ],
     });
     api.tables.updateStatus.mockResolvedValue({ id: "t1", status: "OCCUPIED" });
@@ -112,6 +113,42 @@ describe("timeline chat tools", () => {
 
       expect(api.reservations.update).toHaveBeenCalledWith("r1", { tableId: "t2" });
       expect(api.tables.updateStatus).toHaveBeenCalledWith("t2", "OCCUPIED");
+    });
+
+    // The reservations service refuses a status change combined with a table change.
+    it("confirms a pending booking and moves it in two separate updates", async () => {
+      api.reservations.get.mockResolvedValue(reservation({ status: "PENDING" }));
+      api.reservations.update.mockResolvedValue(reservation());
+
+      await run("seat_reservation", { reservationId: "r1", table: "Bar" });
+
+      expect(api.reservations.update).toHaveBeenNthCalledWith(1, "r1", { status: "CONFIRMED" });
+      expect(api.reservations.update).toHaveBeenNthCalledWith(2, "r1", { tableId: "t2" });
+      expect(api.tables.updateStatus).toHaveBeenCalledWith("t2", "OCCUPIED");
+    });
+
+    it("refuses a table that isn't available before changing anything", async () => {
+      api.reservations.get.mockResolvedValue(reservation({ status: "PENDING" }));
+
+      const result = await run("seat_reservation", { reservationId: "r1", table: "Window" });
+
+      expect(result).toMatchObject({ error: expect.stringMatching(/Window .*dirty/i) });
+      expect(api.reservations.update).not.toHaveBeenCalled();
+      expect(api.tables.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it("says what was saved when a later step fails", async () => {
+      api.reservations.get.mockResolvedValue(reservation({ status: "PENDING" }));
+      api.reservations.update.mockResolvedValue(reservation());
+      api.tables.updateStatus.mockRejectedValue(problem(409, { detail: "Table is taken." }));
+
+      const result = await run("seat_reservation", { reservationId: "r1" });
+
+      expect(result).toMatchObject({
+        refused: true,
+        error: expect.stringMatching(/already saved/i),
+      });
+      expect((result as { error: string }).error).not.toMatch(/Nothing was changed/);
     });
 
     it("refuses a booking that isn't waiting to be seated", async () => {
@@ -170,6 +207,20 @@ describe("timeline chat tools", () => {
       expect(result).toMatchObject({ noShow: true, warning: "The deposit was not captured." });
     });
 
+    it("passes on the server's refusal in plain words", async () => {
+      api.reservations.get.mockResolvedValue(reservation());
+      api.reservations.markNoShow.mockRejectedValue(
+        problem(409, { detail: "This booking is already seated." })
+      );
+
+      const result = await run("mark_no_show", { reservationId: "r1" });
+
+      expect(result).toMatchObject({
+        refused: true,
+        error: expect.stringContaining("already seated"),
+      });
+    });
+
     it("refuses a booking from another venue", async () => {
       api.reservations.get.mockResolvedValue(reservation({ venueId: "v2" }));
 
@@ -214,6 +265,34 @@ describe("timeline chat tools", () => {
 
       expect(schema.safeParse({ reservationId: "r1", reason: "bored" }).success).toBe(false);
       expect(schema.safeParse({ reservationId: "r1", reason: "no_show" }).success).toBe(true);
+    });
+  });
+  describe.each([
+    ["seat_reservation", { reservationId: "r1" }],
+    ["mark_no_show", { reservationId: "r1" }],
+    ["cancel_reservation", { reservationId: "r1", reason: "other" }],
+  ])("%s", (toolName, input) => {
+    it("holds the change for the user's confirmation", async () => {
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
+
+      const result = await tools[toolName]!.execute!(input as never, toolCtx);
+
+      expect(result).toMatchObject({ pendingConfirmation: true });
+      expect(api.reservations.update).not.toHaveBeenCalled();
+      expect(api.reservations.markNoShow).not.toHaveBeenCalled();
+      expect(api.reservations.cancelWithReason).not.toHaveBeenCalled();
+    });
+
+    it("needs a selected venue", async () => {
+      const tools = createAgentTools(log, api as never, {
+        confirmedAction: { actionId: "call-1", toolName, toolInput: input },
+      });
+
+      const result = await tools[toolName]!.execute!(input as never, toolCtx);
+
+      expect(result).toMatchObject({ error: expect.stringContaining("No venue") });
+      expect(api.reservations.get).not.toHaveBeenCalled();
+      expect(api.reservations.cancelWithReason).not.toHaveBeenCalled();
     });
   });
 });

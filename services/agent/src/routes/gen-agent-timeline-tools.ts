@@ -21,18 +21,23 @@ const ReservationIdSchema = z.string().min(1).describe("The reservation's ID, fr
 
 type Reservation = Awaited<ReturnType<ApiClient["reservations"]["get"]>>;
 
-/** A refused or failed booking write, in words the model can pass on. */
-function bookingWriteFailure(err: unknown, action: string) {
+/**
+ * A refused or failed booking write, in words the model can pass on. `saved` names
+ * what an earlier step already wrote, so the model never says nothing changed when
+ * something did.
+ */
+function bookingWriteFailure(err: unknown, action: string, saved?: string) {
+  const outcome = saved
+    ? `${saved} was already saved; check the timeline before trying again.`
+    : "Nothing was changed.";
   const refusal = refusalOf(err);
-  if (!refusal)
-    return { error: `Couldn't ${action} right now. Ask the user to try again shortly.` };
-  if (refusal.status === 403) {
-    return {
-      refused: true,
-      error: "The user doesn't have permission to do this. Nothing was changed.",
-    };
+  if (!refusal) {
+    return { error: `Couldn't ${action} right now. ${outcome} Ask the user to try again shortly.` };
   }
-  return { refused: true, error: `${refusal.detail} Nothing was changed.` };
+  if (refusal.status === 403) {
+    return { refused: true, error: `The user doesn't have permission to do this. ${outcome}` };
+  }
+  return { refused: true, error: `${refusal.detail} ${outcome}` };
 }
 
 /** The booking, when it belongs to the selected venue; the user confirmed this venue's booking. */
@@ -68,6 +73,7 @@ export function createTimelineTools(
       execute: async ({ reservationId, table: tableRef }) => {
         if (!venueId) return NO_VENUE;
         log.info({ venueId, reservationId, tableRef }, "seat_reservation tool called");
+        let saved: string | undefined;
         try {
           const found = await venueReservation(api, venueId, reservationId);
           if ("error" in found) return found;
@@ -84,18 +90,32 @@ export function createTimelineTools(
           if (!tableId) {
             return { error: "This booking has no table. Ask which table to seat them at." };
           }
-          // The server has no CONFIRMED -> CONFIRMED edge, so only a pending booking changes status.
-          const update = {
-            ...(reservation.status === "PENDING" ? { status: "CONFIRMED" as const } : {}),
-            ...(tableId !== reservation.tableId ? { tableId } : {}),
-          };
-          if (Object.keys(update).length > 0) await api.reservations.update(reservationId, update);
+          const target = tables.find((t) => t.id === tableId);
+          const tableLabel = target?.name ?? target?.tableNumber ?? tableId;
+          // Only an AVAILABLE table can be seated: check before writing anything.
+          if (target && target.status !== "AVAILABLE") {
+            return {
+              error: `Table ${tableLabel} is ${target.status.toLowerCase()}, so the party can't be seated there. Nothing was changed.`,
+            };
+          }
+          // The server has no CONFIRMED -> CONFIRMED edge, so only a pending booking changes
+          // status; and it refuses a status change combined with a table change, so they go
+          // as separate requests.
+          if (reservation.status === "PENDING") {
+            await api.reservations.update(reservationId, { status: "CONFIRMED" });
+            saved = "Confirming the booking";
+          }
+          if (tableId !== reservation.tableId) {
+            await api.reservations.update(reservationId, { tableId });
+            saved = saved
+              ? `${saved} and moving it to ${tableLabel}`
+              : `Moving it to ${tableLabel}`;
+          }
           await api.tables.updateStatus(tableId, "OCCUPIED");
-          const seatedAt = tables.find((t) => t.id === tableId);
-          return { seated: true, table: seatedAt?.name ?? seatedAt?.tableNumber ?? tableId };
+          return { seated: true, table: tableLabel };
         } catch (err) {
           log.error({ err, venueId, reservationId }, "seat_reservation failed");
-          return bookingWriteFailure(err, "seat the party");
+          return bookingWriteFailure(err, "seat the party", saved);
         }
       },
     }),
@@ -132,6 +152,7 @@ export function createTimelineTools(
         note: z.string().max(500).optional().describe("A note on the cancellation"),
       }),
       execute: async ({ reservationId, reason, note }) => {
+        if (!venueId) return NO_VENUE;
         log.info({ reservationId, reason }, "cancel_reservation tool called");
         try {
           if (!reservationId) {

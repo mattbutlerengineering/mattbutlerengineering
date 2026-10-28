@@ -9962,7 +9962,7 @@
       type Reservation = Awaited<ReturnType<ApiClient["reservations"]["get"]>>;
     </item>
     <item priority="medium">
-      function bookingWriteFailure(err: unknown, action: string) { /* ... */ }
+      function bookingWriteFailure(err: unknown, action: string, saved?: string) { /* ... */ }
     </item>
     <item priority="low">
       async function venueReservation(
