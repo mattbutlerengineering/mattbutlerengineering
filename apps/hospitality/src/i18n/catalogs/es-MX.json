@@ -1551,6 +1551,9 @@
       "cancel_reservation": "Cancelar una reserva",
       "seat_walk_in": "Sentar a un cliente sin reserva",
       "update_table_status": "Actualizar una mesa",
+      "change_tonight_availability": "Cambiar la disponibilidad de esta noche",
+      "end_tonight_change": "Terminar un cambio de esta noche",
+      "undo_availability_change": "Deshacer un cambio de disponibilidad",
       "fields": {
         "guestName": "Cliente",
         "partySize": "Personas",
@@ -1561,7 +1564,22 @@
         "table": "Mesa",
         "status": "Estado",
         "notes": "Notas",
-        "reservationId": "Reserva"
+        "reservationId": "Reserva",
+        "change": "Cambio",
+        "closeAt": "Cerrar a las",
+        "from": "Desde",
+        "to": "Hasta",
+        "service": "Servicio",
+        "tables": "Mesas",
+        "covers": "Cubiertos por horario",
+        "summary": "Cambio"
+      },
+      "tonightChanges": {
+        "pause_online": "Pausar reservas en línea",
+        "close_early": "Cerrar temprano",
+        "stop_window": "Detener reservas en un horario",
+        "block_tables": "Bloquear mesas",
+        "pacing": "Fijar el ritmo"
       }
     }
   },

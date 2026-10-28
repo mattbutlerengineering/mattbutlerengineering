@@ -65,6 +65,20 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).toMatch(/never ask them to type yes/i);
   });
 
+  // #7918: the chat makes Tonight changes and undoes the newest change; every
+  // other availability change belongs on the Availability page.
+  it("scopes availability changes to Tonight and undo, and sends the rest to the Availability page", () => {
+    const prompt = buildAgentSystemPrompt({ venueId: "v", now: NOW, catalogPrompt: "CATALOG" });
+    const confirmLine = prompt.split("\n").find((line) => /Confirm or Cancel button/.test(line));
+
+    expect(confirmLine).toMatch(/Tonight availability/i);
+    expect(prompt).toMatch(/change_tonight_availability/);
+    expect(prompt).toMatch(
+      /list_tonight_changes .*before .*end_tonight_change .*undo_availability_change/i
+    );
+    expect(prompt).toMatch(/closures, special hours.*Availability page/i);
+  });
+
   describe("maps each data shape to the element that shows it", () => {
     const prompt = buildAgentSystemPrompt({
       venueId: "venue-1",

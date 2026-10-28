@@ -2,11 +2,19 @@ import { tool } from "ai";
 import type { ToolSet } from "ai";
 import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
-// eslint-disable-next-line no-restricted-imports -- agent tools call reservation API on behalf of user
-import type { createApiClient } from "@mbe/api-client";
 import { GEN_WRITE_TOOL_NAMES } from "./gen-runner.js";
+import { createAvailabilityTools } from "./gen-agent-availability-tools.js";
+import {
+  NO_VENUE,
+  localTimeIn,
+  refusalOf,
+  resolveTable,
+  todayIn,
+  type ApiClient,
+  type Refusal,
+} from "./gen-tool-support.js";
 
-type ApiClient = ReturnType<typeof createApiClient>;
+export { todayIn } from "./gen-tool-support.js";
 
 /** The action the user explicitly confirmed in the client's confirm dialog. */
 export interface ConfirmedAction {
@@ -29,41 +37,6 @@ const LOOKUP_LIMIT = 100;
 /** Guest profiles a name lookup follows; more than this means the name is too vague. */
 const MAX_GUEST_MATCHES = 5;
 
-const NO_VENUE = {
-  error: "No venue is selected. Ask the user to pick a venue in the app, then try again.",
-} as const;
-
-/** YYYY-MM-DD for `now` in `timeZone` (UTC when absent). */
-export function todayIn(timeZone: string | undefined, now: Date = new Date()): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: timeZone ?? "UTC",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(now);
-}
-
-/**
- * Venue-local 24-hour `HH:mm` for an ISO time in `timeZone` (UTC when absent),
- * so the model never does time-zone arithmetic. Undefined, never a throw, when
- * the time or the zone can't be read.
- */
-function localTimeIn(iso: unknown, timeZone: string | undefined): string | undefined {
-  if (typeof iso !== "string") return undefined;
-  const instant = new Date(iso);
-  if (Number.isNaN(instant.getTime())) return undefined;
-  try {
-    return new Intl.DateTimeFormat("en-GB", {
-      timeZone: timeZone ?? "UTC",
-      hour: "2-digit",
-      minute: "2-digit",
-      hourCycle: "h23",
-    }).format(instant);
-  } catch {
-    return undefined; // unknown time zone (RangeError)
-  }
-}
-
 /** A copy of `item` with `localTime` from its `field` added, or `item` unchanged when unreadable. */
 function withLocalTime<T extends object>(
   item: T,
@@ -85,33 +58,6 @@ const AVAILABILITY_UNKNOWN = {
   error:
     "Couldn't check availability right now. Tell the user you couldn't check and to try again shortly; do not say the venue is closed or fully booked.",
 } as const;
-
-/** A 4xx the server answered on purpose: what the caller sent was refused, so retrying cannot help. */
-interface Refusal {
-  readonly status: number;
-  readonly detail: string;
-  readonly code?: string;
-  readonly reason?: string;
-}
-
-/**
- * The RFC 7807 refusal inside an `ApiClientError`, or undefined for anything
- * transient (timeout, network, 5xx, 408, 429) and for non-API errors. Duck-typed
- * on `problemDetails` so the agent need not import the client's runtime.
- */
-function refusalOf(err: unknown): Refusal | undefined {
-  const problem = (err as { problemDetails?: Record<string, unknown> } | null)?.problemDetails;
-  const status = problem?.["status"];
-  if (typeof status !== "number" || status < 400 || status >= 500) return undefined;
-  if (status === 408 || status === 429) return undefined;
-  const { detail, code, reason } = problem as Record<string, unknown>;
-  return {
-    status,
-    detail: typeof detail === "string" && detail ? detail : `The request was refused (${status}).`,
-    ...(typeof code === "string" ? { code } : {}),
-    ...(typeof reason === "string" ? { reason } : {}),
-  };
-}
 
 /** A read the server refused (for example an invalid party size): not "couldn't check". */
 function rejectedResult(refusal: Refusal) {
@@ -324,38 +270,6 @@ function gateWriteTools(
     } as ToolSet[string];
   }
   return gated;
-}
-
-interface NamedTable {
-  readonly id: string;
-  readonly name?: string | null;
-  readonly tableNumber?: string | null;
-}
-
-/**
- * Resolve a staff reference ("12", "Patio 2") to one table. Tables may have a
- * number, a name, or both, so match in order of precision: number, exact
- * name, then case-insensitive name. More than one match at a step is an
- * error, never a guess: the user confirmed this reference, not a table id.
- */
-function resolveTable<T extends NamedTable>(
-  tables: readonly T[],
-  tableRef: string
-): { table: T } | { error: string } {
-  const ref = tableRef.trim();
-  const steps: ReadonlyArray<(t: T) => boolean> = [
-    (t) => t.tableNumber === ref,
-    (t) => t.name === ref,
-    (t) => t.name?.toLowerCase() === ref.toLowerCase(),
-  ];
-  for (const matches of steps) {
-    const found = tables.filter(matches);
-    if (found.length === 1) return { table: found[0]! };
-    if (found.length > 1) {
-      return { error: `Table ${tableRef} is ambiguous in this venue. Ask which table they mean.` };
-    }
-  }
-  return { error: `Table ${tableRef} not found in this venue.` };
 }
 
 export function createAgentTools(
@@ -696,6 +610,8 @@ export function createAgentTools(
         }
       },
     }),
+
+    ...createAvailabilityTools(log, api, { venueId, timeZone }),
   };
   return gateWriteTools(tools, log, options.confirmedAction);
 }
