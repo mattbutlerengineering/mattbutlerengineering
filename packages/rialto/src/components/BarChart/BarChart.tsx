@@ -36,28 +36,22 @@ function parseAmount(value: number | string): ParsedAmount {
   return { base: Number.isFinite(base) ? base : 0, multiplier };
 }
 
-function spread(values: number[]): number {
-  const positive = values.filter((value) => value > 0);
-  if (positive.length < 2) return 1;
-  const min = Math.min(...positive);
-  const max = Math.max(...positive);
-  return min === 0 ? max : max / min;
-}
-
 /**
- * Heights for one series. A dashboard often emits January twice: once as
- * "$142k" and again as 142, beside Feb–Jun in the same plain units. Applying
- * the suffix makes that first bar ~1000× the rest. When the unsuffixed
- * readings already sit in one band, scale from those.
+ * Heights for one series. A dashboard often emits the same reading twice:
+ * "$142k" beside a plain 142. Applying the suffix makes that bar ~1000× the
+ * rest. Ignore the suffix only when the written number matches a plain point
+ * in the same series. A real mixed pair ($40 beside $20k) still uses the suffix.
  */
 function seriesMagnitudes(parsed: ParsedAmount[]): number[] {
-  const scaled = parsed.map((amount) => amount.base * amount.multiplier);
-  const unscaled = parsed.map((amount) => amount.base);
-  const mixed =
-    parsed.some((amount) => amount.multiplier !== 1) &&
-    parsed.some((amount) => amount.multiplier === 1);
-  if (mixed && spread(scaled) > 20 && spread(unscaled) <= 20) return unscaled;
-  return scaled;
+  const plainBases = parsed
+    .filter((amount) => amount.multiplier === 1)
+    .map((amount) => amount.base);
+  return parsed.map((amount) => {
+    const scaled = amount.base * amount.multiplier;
+    if (amount.multiplier === 1 || plainBases.length === 0) return scaled;
+    const duplicatesPlain = plainBases.some((base) => Math.abs(base - amount.base) < 0.001);
+    return duplicatesPlain ? amount.base : scaled;
+  });
 }
 
 function sameLabel(a: string, b: string): boolean {

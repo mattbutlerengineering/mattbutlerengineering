@@ -74,6 +74,47 @@ describe("BarChart", () => {
     expect(heights).toHaveLength(6);
     expect(Math.min(...heights)).toBeGreaterThan(50);
   });
+
+  it("keeps a real k suffix far taller than a small unsuffixed amount", () => {
+    const { container } = render(
+      <BarChart
+        label="Mixed units"
+        data={[
+          { label: "Fee", value: "$40" },
+          { label: "Revenue", value: "$20k" },
+        ]}
+      />
+    );
+    const heights = Array.from(container.querySelectorAll("span"))
+      .map((bar) => bar.style.blockSize)
+      .filter((size) => size.endsWith("%"))
+      .map((size) => Number(size.slice(0, -1)));
+    expect(heights).toContain(100);
+    const shortest = Math.min(...heights);
+    const tallest = Math.max(...heights);
+    expect(tallest / shortest).toBeGreaterThan(20);
+  });
+
+  it("does not let a same-number suffixed total flatten a plain monthly series", () => {
+    const mixed = [
+      { label: "Total", value: "$142k" },
+      { label: "Jan", value: 142 },
+      { label: "Feb", value: 158 },
+      { label: "Mar", value: 171 },
+      { label: "Apr", value: 165 },
+      { label: "May", value: 183 },
+      { label: "Jun", value: 203 },
+    ];
+    const { container } = render(<BarChart label="Monthly revenue" data={mixed} />);
+    expect(screen.getByText("Total")).toBeDefined();
+    expect(screen.getByText("$142k")).toBeDefined();
+    const heights = Array.from(container.querySelectorAll("span"))
+      .map((bar) => bar.style.blockSize)
+      .filter((size) => size.endsWith("%"))
+      .map((size) => Number(size.slice(0, -1)));
+    expect(heights).toHaveLength(7);
+    expect(Math.min(...heights)).toBeGreaterThan(50);
+  });
 });
 
 describe("BarChart.module.css tokens", () => {
