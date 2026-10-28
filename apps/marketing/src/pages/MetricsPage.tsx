@@ -76,7 +76,7 @@ function formatEvalPassRate(behavioral: AcmmMetrics["behavioral"]): string {
   // Reuse the page's 14-day freshness window: a reading older than it is stale
   // even if the producer did not null it out.
   if (behavioral.evalPassRate === null || (lastRun && isStale(lastRun))) {
-    if (!lastRun) return "Not measured";
+    if (!lastRun) return "No judged runs yet";
     return `Stale — last measured ${formatDate(lastRun)}`;
   }
   return formatRatio(behavioral.evalPassRate);

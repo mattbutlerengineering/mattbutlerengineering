@@ -321,6 +321,73 @@ Actors: **Manager** (owner or GM who configures), **Host** (floor staff working 
 128. The live preview evaluates a draft against real bookings for any date range before saving, and lists stranded reservations.
 129. Concurrency: two managers editing overrides, or a closure saved while guests are booking, never produce a booking inside a closure. [PA: hours lock]
 
+### P. Gap review (added 2026-10-27, numbered last so existing numbers stay stable)
+
+130. A venue-wide occupancy ceiling (the fire-code limit) counts service, events, walk-ins and buyouts together, so no combination of layers exceeds it.
+131. Counters and communal tables sell seats, not tables: a party of 2 at an 8-seat counter uses 2 seats.
+132. Wheelchair-accessible tables are held for guests who need them, and a guest can filter availability by that need.
+133. Inventory or times reserved for an audience (members, VIPs, hotel guests, corporate accounts), including early access before public release and a private link for a soft opening.
+134. Before opening: bookings open ahead of the first service date, soft-launch nights run at reduced capacity, and the first week can be invite-only.
+135. Release-time fairness: a limit on bookings per guest per night or period, protection against bots and hoarding, and correct holds under a burst of concurrent requests when popular dates open.
+136. A change policy separate from cancellation: a cutoff for changes, a limit on growing the party, and a change that moves the booking into a different shift or policy.
+137. Reconfirmation on peak nights: guests confirm by a deadline, or the booking is released.
+138. A late-arrival grace period per shift, after which the booking is marked a no-show and its table is freed.
+139. Party-size rules by slot or table size (no 2-tops on 6-tops at 19:30 on Saturday; a minimum party size at peak).
+140. Age or audience rules by time or area (21+ after 21:00, no children at the bar).
+141. Limited menu-item inventory sold alongside normal service (20 tasting menus a night).
+142. Spend minimums on normal tables (bottle-service table minimums), not only the private dining room.
+143. A 24-hour venue has no gap between service days; the service-day boundary and Tonight expiry still behave predictably.
+144. A fixed-date holiday on 29 February, and every yearly rule, behaves predictably in non-leap years.
+145. No holiday warning for a holiday that falls on a day the venue is already closed.
+146. Dates beyond the last decided holiday can be held back from booking, so bookings are not taken and then stranded by a later holiday decision.
+147. A change is drafted by one Manager, approved by the owner, and published on a set date.
+148. Editing the floor plan (deleting, merging or resizing tables) runs the same stranded-booking check as a closure.
+149. Deleting or archiving a template that future dates still use shows those dates and asks what replaces it.
+150. Hours imported from Google Business Profile or a CSV export from another reservations vendor.
+151. Conversational setup through gen UI ("we're open for dinner Tue–Sat, 5 to 10").
+152. Public opening hours differ from bookable hours (the bar is open until 02:00, bookings stop at 22:00, the kitchen closes at 21:30), and both are shown correctly.
+153. Closure, holiday and event messages in more than one language.
+154. With nothing free, the guest is offered alternatives: nearby times, other dates, another party size, or a sister venue.
+155. Turnaways (searches that found no availability) are recorded as demand data per date, time and party size.
+156. A pre-shift feed shows the team what changed for tonight (lower pacing, a blocked patio, a new closure).
+157. A space shared across venues (a hotel event room used by several outlets, a food-hall seating area) has one inventory.
+158. Pacing by party size: no two parties of 8+ start within 30 minutes of each other, whatever the cover count.
+159. A standing reservation (the same guest every Friday at 19:00) holds inventory weeks ahead, and closures and template edits treat it like any booking.
+160. Held tables release on a schedule: tables held for walk-ins, phone or VIPs go online at a set time before service if still unsold.
+161. The guest picks a booking type with its own duration and inventory (a one-hour drink at the bar, a full dinner, a chef's counter seat).
+162. The guest sees how long the table is theirs ("we'll need the table back by 21:00") before confirming.
+163. One venue runs different concepts by time of day (a café by day, a cocktail bar by night), each with its own name, booking page and rules.
+164. A date notice without a closure ("parade on Main St, use the back entrance"), shown to guests booked or booking that date and optionally sent to existing bookings.
+165. Seating times relative to sunset (an iftar seating during Ramadan, a patio open until dusk) move each day by the venue's location.
+166. Event and buyout setup and teardown time keeps the space unavailable before and after the event window.
+167. Booking a space makes a linked space unavailable (the PDR's noise means the adjacent booth section closes).
+168. A booking that spans two shifts with different rules gets one clear owning shift for its policy, pacing and duration.
+169. Staff waive a cancellation or no-show fee with a reason, and the waiver is audited.
+170. Ticket holders can transfer an event ticket to another guest before a cutoff.
+171. Infants and young children are counted separately from covers, and high chairs and boosters are a limited inventory.
+172. Areas carry attributes a guest can filter on (dog-friendly patio, booth, quiet room), distinct from accessibility needs.
+173. Configuration warnings before save: pacing above what the tables can seat, a shift with no online-bookable tables, a turn time longer than the shift.
+174. A health alert when the venue has no bookable availability in the next 14 days, or a channel is paused longer than a set time.
+175. The Manager is told when a date is close to sold out, with a suggested change (open more tables, extend a shift).
+176. Guests join a "tell me when bookings open" list for dates not yet released or a seasonal reopening, and hear when they open.
+177. Prices or fees vary by time: an off-peak discount at 17:00, or a prime-time booking fee on Saturday at 19:30.
+178. Restaurant Week: a set menu and price for a date range on chosen shifts, with its own pacing, flagged on each booking.
+179. A recurring closure relative to sunset (closed from Friday sunset to Saturday nightfall for Shabbat) moves each week.
+180. A Manager going on leave grants another staff member Manager rights until a set date, and the grant expires on its own.
+181. When someone books for another person (a concierge or an assistant), closure and change notices reach both the booker and the diner.
+182. Special hours and closures are published as structured data on the public venue page, so search engines show them.
+183. Gift vouchers and promotions have blackout dates and shifts, and the guest sees that before choosing a time.
+184. Large parties need more notice than the shift minimum (10+ book at least 48 hours ahead, so the kitchen can prepare).
+185. A bad weather forecast for an outdoor area prompts the Manager to decide on that area ahead of time.
+186. Pacing follows the staff rota: fewer servers or cooks scheduled lowers that shift's pacing.
+187. A surge in takeout and delivery orders lowers dine-in pacing for the affected intervals.
+188. Staff subscribe to a calendar feed of closures, special hours and events.
+189. The Manager sets how long a slot is held while the guest completes checkout, longer for prepaid bookings that need card entry.
+190. Release in batches instead of a rolling window: next month's dates all open on the 1st at 10:00.
+191. A guest asks for a time the venue doesn't offer, and the Manager accepts or declines the request.
+192. Each shift shows the guest its own menu (brunch vs dinner) while they pick a time.
+193. Replay a proposed change against last month's real demand and turnaways ("a 21:30 seating would have added about 40 covers").
+
 ## Success in one sentence
 
 A manager at any venue size, from a 40-seat bistro to a multi-room venue, can set up their real weekly service in under 15 minutes by reusing one day's setup: several shifts, areas, turn times, pacing, and prepayment and cancellation rules, plus a year of holidays and closures. The widget never offers a time the venue can't serve, and no guest arrives to find the venue closed.

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveAuthGate } from "./auth-gate.js";
+import { resolveAuthGate, STALE_SESSION_MS } from "./auth-gate.js";
 import type { AuthGate, AuthGateFacts, AuthGateLocation } from "./auth-gate.js";
 
 const ERR = new Error("Sign-in failed");
@@ -161,5 +161,31 @@ describe("resolveAuthGate — canonical gate order", () => {
       phase: "signed-out",
       afterSignOut: false,
     });
+  });
+});
+
+describe("resolveAuthGate stale sessions (#7430)", () => {
+  const HOUR = 60 * 60 * 1000;
+  const expiredFor = (expiredForMs: number | undefined) =>
+    resolveAuthGate({ ...SETTLED, sessionExpired: true, expiredForMs }, APP);
+
+  it("STALE_SESSION_MS is 24 hours", () => {
+    expect(STALE_SESSION_MS).toBe(24 * HOUR);
+  });
+
+  it("expired 1 h ago → expired", () => {
+    expect(expiredFor(HOUR)).toEqual({ phase: "expired" });
+  });
+
+  it("expired 25 h ago → signed-out landing, not afterSignOut", () => {
+    expect(expiredFor(25 * HOUR)).toEqual({ phase: "signed-out", afterSignOut: false });
+  });
+
+  it("expired exactly 24 h ago → signed-out", () => {
+    expect(expiredFor(STALE_SESSION_MS)).toEqual({ phase: "signed-out", afterSignOut: false });
+  });
+
+  it("expiry age unknown → expired (unchanged)", () => {
+    expect(expiredFor(undefined)).toEqual({ phase: "expired" });
   });
 });

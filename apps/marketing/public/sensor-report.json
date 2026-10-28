@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-28T00:20:28.935Z",
+  "generated_at": "2026-10-28T00:30:35.781Z",
   "period": {
     "start": "2026-10-21",
     "end": "2026-10-28"
@@ -49,28 +49,28 @@
         {
           "metric": "queue-telemetry",
           "state": "fresh",
-          "age_days": 0.4,
+          "age_days": 0.41,
           "latest": "2026-10-27T14:43:22.000Z",
           "max_age_days": 3
         },
         {
           "metric": "queueEfficiency",
           "state": "fresh",
-          "age_days": 2.01,
+          "age_days": 2.02,
           "latest": "2026-10-26T00:00:00.000Z",
           "max_age_days": 5
         },
         {
           "metric": "sdlcSpeed",
           "state": "fresh",
-          "age_days": 2.01,
+          "age_days": 2.02,
           "latest": "2026-10-26T00:00:00.000Z",
           "max_age_days": 14
         },
         {
           "metric": "ai-issue-feedback",
           "state": "fresh",
-          "age_days": 0.25,
+          "age_days": 0.26,
           "latest": "2026-10-27T18:15:38.976Z",
           "max_age_days": 5
         }
@@ -92,21 +92,21 @@
     "prCategoryMetrics": {
       "available": true,
       "total_prs": 92,
-      "total_merged": 91,
-      "total_closed_without_merge": 1,
+      "total_merged": 90,
+      "total_closed_without_merge": 2,
       "by_category": {
-        "tier:standard": {
-          "merged": 54,
+        "tier:trivial": {
+          "merged": 15,
           "closed_without_merge": 0,
           "acceptance_rate": 1
+        },
+        "tier:standard": {
+          "merged": 52,
+          "closed_without_merge": 1,
+          "acceptance_rate": 0.98
         },
         "tier:sensitive": {
           "merged": 19,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
-        "tier:trivial": {
-          "merged": 14,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
@@ -150,43 +150,43 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 7503166,
-      "output_tokens": 42912,
-      "cache_creation_tokens": 295177,
-      "cache_hit_rate": 0.9621,
+      "cache_read_tokens": 33292342,
+      "output_tokens": 127289,
+      "cache_creation_tokens": 546027,
+      "cache_hit_rate": 0.9838,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 118,
-          "output_tokens": 32525,
-          "cache_read_tokens": 6209638,
-          "cache_creation_tokens": 205194
+          "input_tokens": 309,
+          "output_tokens": 72338,
+          "cache_read_tokens": 22513268,
+          "cache_creation_tokens": 357426
         },
         "claude-opus-5-5": {
           "cost": 0,
-          "input_tokens": 44,
-          "output_tokens": 10387,
-          "cache_read_tokens": 1293528,
-          "cache_creation_tokens": 89983
+          "input_tokens": 176,
+          "output_tokens": 54951,
+          "cache_read_tokens": 10779074,
+          "cache_creation_tokens": 188601
         }
       }
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
-      "completed": 25,
-      "passed": 17,
-      "failed": 1,
+      "completed": 28,
+      "passed": 10,
+      "failed": 0,
       "phantom": 0,
-      "pass_rate_pct": 94,
+      "pass_rate_pct": 100,
       "most_recent": {
-        "databaseId": 40608021426,
-        "status": "completed",
-        "conclusion": "success",
-        "createdAt": "2026-10-28T00:19:27Z",
-        "name": "Auto-Merge Policy",
+        "databaseId": 40609208287,
+        "status": "queued",
+        "conclusion": null,
+        "createdAt": "2026-10-28T00:30:37Z",
+        "name": "Revert Watchdog",
         "headBranch": "main",
-        "headSha": "fa78c243f9e0a0ba09c59dde95ff6b148bee7a5d"
+        "headSha": "b81c035dd74983c17075dbf0fc90a62ddcf4d662"
       }
     },
     "lighthouse": {
@@ -271,16 +271,16 @@
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 0,
-      "logs_7d": 0,
-      "total_commits_7d": 0,
-      "unique_branches_7d": 0,
-      "branches_7d": []
+      "total_logs": 8,
+      "logs_7d": 8,
+      "total_commits_7d": 160,
+      "unique_branches_7d": 1,
+      "branches_7d": ["main"]
     },
     "codeChurn": {
       "available": true,
       "churn_rate": 0.001,
-      "total_lines_added_7d": 905287,
+      "total_lines_added_7d": 905322,
       "lines_churned_7d": 1250,
       "window_days": 7,
       "churn_threshold": 0.3
@@ -290,8 +290,11 @@
       "state": "report-missing"
     },
     "flakyTests": {
-      "available": false,
-      "data_gap": "No per-test run history found. Enable JUnit reporter and artifact upload in CI — see docs/flaky-test-detection-findings.md for the costed recommendation."
+      "available": true,
+      "flaky_count": 0,
+      "flaky_tests": [],
+      "total_runs": 6679,
+      "window_shas": 1
     },
     "e2eStability": {
       "available": false,
@@ -351,20 +354,11 @@
     "queue_efficiency_composite_drop": 0.05,
     "queue_efficiency_fps_drop": 0.1
   },
-  "regressions": [
-    {
-      "sensor": "ciHealth",
-      "metric": "pass_rate_pct",
-      "current": 94,
-      "previous": 100,
-      "delta": -6,
-      "severity": "high"
-    }
-  ],
+  "regressions": [],
   "summary": {
-    "sensors_available": 13,
+    "sensors_available": 14,
     "sensors_total": 17,
-    "regressions_detected": 1,
-    "status": "regressions_detected"
+    "regressions_detected": 0,
+    "status": "healthy"
   }
 }

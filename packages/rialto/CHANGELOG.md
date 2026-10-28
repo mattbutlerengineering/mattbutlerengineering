@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 0.9.4
+
+### Patch Changes
+
+- [#7841](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7841) [`54dd08b`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/54dd08ba3b329b6a880d5d01367fc9d980dddc20) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - GlobalNav takes an optional `menu` prop: a dropdown of same-site links after the app links, with arrow-key navigation, Escape to close and return focus, `aria-current` on the trigger when an item is current, and a labelled group inside the mobile menu.
+
 ## 0.9.3
 
 ### Patch Changes

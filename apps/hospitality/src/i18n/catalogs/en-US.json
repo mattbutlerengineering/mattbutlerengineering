@@ -7,8 +7,8 @@
       "hospitality": "Hospitality",
       "rialto": "Design System"
     },
-    "copyright": "© {{year}} Matt Butler Engineering",
-    "dashboardDocumentTitle": "Dashboard - Matt Butler Engineering"
+    "copyright": "© {{year}} {{brand}}",
+    "dashboardDocumentTitle": "Dashboard - {{brand}}"
   },
   "onboarding": {
     "steps": {
@@ -231,7 +231,7 @@
     },
     "login": {
       "title": "Hospitality",
-      "documentTitle": "Hospitality - Matt Butler Engineering",
+      "documentTitle": "Hospitality - {{brand}}",
       "boardPhrases": {
         "reservations": "RESERVATIONS",
         "guests": "GUESTS",
@@ -1387,10 +1387,10 @@
     "notFoundHeading": "Venue not found",
     "notFoundDescription": "We couldn't find the booking page you're looking for. Double-check the link, or contact the venue directly to make your reservation.",
     "goBack": "Go Back",
-    "homeLink": "Back to Matt Butler Engineering",
+    "homeLink": "Back to {{brand}}",
     "loading": "Loading venue...",
     "tagline": "Reserve your table online",
-    "poweredBy": "Powered by Matt Butler Engineering"
+    "poweredBy": "Powered by {{brand}}"
   },
   "publicMenu": {
     "menuLabel": "Menu",
@@ -1410,7 +1410,7 @@
     "documentTitle": "Your reservation — Hospitality",
     "venueDocumentTitle": "{{venue}} — Your reservation",
     "supportLine": "Need help? Contact the venue directly using the details in your confirmation email.",
-    "homeLink": "Back to Matt Butler Engineering",
+    "homeLink": "Back to {{brand}}",
     "noLinkHeading": "No Access Link",
     "noLinkDescription": "Please check the link in your confirmation email.",
     "loading": "Loading reservation...",
@@ -1569,6 +1569,8 @@
       "title": "Reopen {{date}}?",
       "description": "Guests can book again.",
       "descriptionCancelled": "Guests can book again. The reservations you cancelled stay cancelled.",
+      "editedDates_one": "Also reopens {{count}} edited date.",
+      "editedDates_other": "Also reopens {{count}} edited dates.",
       "tell": "Tell the cancelled guests we've reopened, with a link to rebook ({{count}})",
       "confirm": "Reopen",
       "keep": "Keep closed",

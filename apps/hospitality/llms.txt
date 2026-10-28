@@ -1243,6 +1243,12 @@
       }
     </item>
     <item priority="high">
+      export function resolveRedirectUri(
+        configured: string | undefined,
+        location: Pick<Location, "origin" | "hostname">
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
       export function validateAuthConfig(): AuthConfigResult | AuthConfigFailure { /* ... */ }
     </item>
   </file>
@@ -3574,6 +3580,45 @@
         error: Error,
         t: TFunction = localeRuntime.i18n.t
       ): AuthErrorDescription { /* ... */ }
+    </item>
+  </file>
+  <file path="src/lib/host-brand.ts">
+    <item priority="low">
+      interface Brand {
+        name: string;
+        logo: string;
+      }
+    </item>
+    <item priority="low">
+      interface HostConfig {
+        brand: Brand;
+        basename: string;
+        standalone: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function hostConfig(hostname: string): HostConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      export function currentHostConfig(): HostConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      export function appUrl(
+        path: string,
+        location: Pick<Location, "origin" | "hostname"> = window.location
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function homeUrl(location: Pick<Location, "origin"> = window.location): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function manageReservationUrl(
+        token: string,
+        location: Pick<Location, "origin" | "hostname"> = window.location
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function legacyPathRedirect(pathname: string, basename: string): string | null { /* ... */ }
     </item>
   </file>
   <file path="src/lib/logo-palette-canvas.ts">

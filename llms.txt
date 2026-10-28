@@ -2901,6 +2901,14 @@
   </file>
   </section>
   <section priority="medium" role="config">
+  <file path="services/reservations/src/config/manage-base-url.ts">
+    <item priority="high">
+      export const DEFAULT_MANAGE_BASE_URL: unknown;
+    </item>
+    <item priority="high">
+      export function resolveManageBaseUrl(env: { MANAGE_BASE_URL?: string | undefined }): string { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/config/manage-token.ts">
     <item priority="low">
       interface ManageTokenConfig {
@@ -2987,6 +2995,12 @@
         valid: false;
         missing: readonly string[];
       }
+    </item>
+    <item priority="high">
+      export function resolveRedirectUri(
+        configured: string | undefined,
+        location: Pick<Location, "origin" | "hostname">
+      ): string { /* ... */ }
     </item>
     <item priority="high">
       export function validateAuthConfig(): AuthConfigResult | AuthConfigFailure { /* ... */ }
@@ -7615,6 +7629,45 @@
       ): AuthErrorDescription { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/lib/host-brand.ts">
+    <item priority="low">
+      interface Brand {
+        name: string;
+        logo: string;
+      }
+    </item>
+    <item priority="low">
+      interface HostConfig {
+        brand: Brand;
+        basename: string;
+        standalone: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function hostConfig(hostname: string): HostConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      export function currentHostConfig(): HostConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      export function appUrl(
+        path: string,
+        location: Pick<Location, "origin" | "hostname"> = window.location
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function homeUrl(location: Pick<Location, "origin"> = window.location): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function manageReservationUrl(
+        token: string,
+        location: Pick<Location, "origin" | "hostname"> = window.location
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function legacyPathRedirect(pathname: string, basename: string): string | null { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/lib/logo-palette-canvas.ts">
     <item priority="high">
       export const ACCEPTED_LOGO_TYPES: unknown;
@@ -9189,13 +9242,16 @@
     <item priority="low">
       type AuthGate = { readonly phase: "signing-out | { readonly phase: "loading" } | { readonly phase: "callback" } | { readonly phase: "error"; rea | { readonly phase: "signed-out" | { readonly phase: "expired" } | { readonly phase: "ready" };
     </item>
+    <item priority="high">
+      export const STALE_SESSION_MS: unknown;
+    </item>
     <item priority="low">
       interface AuthGateFacts {
         isLoading: boolean;
         isAuthenticated: boolean;
         error: Error | undefined;
         sessionExpired: boolean;
-        activeNavigator: ActiveNavigator | undefined;
+        expiredForMs?: number | undefined;
       }
     </item>
     <item priority="low">
@@ -9251,6 +9307,9 @@
     </item>
     <item priority="high">
       export function useAuth() { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useStaleSession() { /* ... */ }
     </item>
     <item priority="low">
       interface AccessTokenState {
