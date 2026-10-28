@@ -2025,6 +2025,69 @@
       export function useSectionLabelTheme(): SectionLabelTheme { /* ... */ }
     </item>
   </file>
+  <file path="src/components/floor-plan/table-label-layout.ts">
+    <item priority="high">
+      export const LABEL_MIN_SCREEN_PX: unknown;
+    </item>
+    <item priority="high">
+      export const LABEL_PADDING: unknown;
+    </item>
+    <item priority="high">
+      export const LABEL_LINE_HEIGHT: unknown;
+    </item>
+    <item priority="low">
+      interface TableLabelInput {
+        number: string;
+        covers: string;
+        shape: TableShapeName;
+        capacity: number;
+        width: number;
+      }
+    </item>
+    <item priority="low">
+      interface TableLabelLayout {
+        text: string;
+        fontSize: number;
+        width: number;
+        height: number;
+        ellipsis: false;
+      }
+    </item>
+    <item priority="high">
+      export function counterRotation(rotation: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      interface Box {
+        cx: number;
+        cy: number;
+        halfW: number;
+        halfH: number;
+      }
+    </item>
+    <item priority="medium">
+      function chairBoxes(input: TableLabelInput): readonly Box[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function footprintBox(input: TableLabelInput): Box { /* ... */ }
+    </item>
+    <item priority="medium">
+      function overlapsChair(chair: Box, plateHalfW: number, plateHalfH: number): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      interface Plate {
+        text: string;
+        fontSize: number;
+        width: number;
+        height: number;
+      }
+    </item>
+    <item priority="medium">
+      function plateFor(lines: readonly string[], fontSize: number): Plate { /* ... */ }
+    </item>
+    <item priority="high">
+      export function tableLabelLayout(input: TableLabelInput): TableLabelLayout { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/floor-plan/table-status.ts">
     <item priority="high">
       export const TABLE_STATUS_COLOR_TOKEN: Record<TableDisplayStatus, string>;

@@ -5845,6 +5845,110 @@
       return theme;
     }
   </file>
+  <file path="src/components/floor-plan/table-label-layout.ts">
+    export const LABEL_MIN_SCREEN_PX = 10;
+    export const LABEL_PADDING = 2;
+    export const LABEL_LINE_HEIGHT = 1.15;
+    export interface TableLabelInput {
+      number: string;
+      covers: string;
+      shape: TableShapeName;
+      capacity: number;
+      /** The table footprint in canvas units (its own, unrotated frame). */
+      width: number;
+      height: number;
+      /** The table group's rotation, in degrees clockwise. */
+      rotation: number;
+      /** The stage's scale (rendered px per canvas unit). */
+      stageScale: number;
+    }
+    export interface TableLabelLayout {
+      text: string;
+      fontSize: number;
+      /** Plate size in canvas units, including padding. */
+      width: number;
+      height: number;
+      /** Always false: the number is never ellipsized; the font shrinks instead. */
+      ellipsis: false;
+    }
+    export function counterRotation(rotation: number): number {
+      return rotation === 0 ? 0 : -rotation;
+    }
+    interface Box {
+      readonly cx: number;
+      readonly cy: number;
+      readonly halfW: number;
+      readonly halfH: number;
+    }
+    function chairBoxes(input: TableLabelInput): readonly Box[] {
+      const placementInput: SeatPlacementInput = {
+        shape: input.shape,
+        capacity: input.capacity,
+        width: input.width,
+        height: input.height,
+      };
+      const chair = fittedSeatSize(placementInput);
+      const tableRad = toRadians(input.rotation);
+      return seatPlacements(placementInput).map((seat) => {
+        const total = toRadians(seat.rotation + input.rotation);
+        return {
+          cx: seat.x * Math.cos(tableRad) - seat.y * Math.sin(tableRad),
+          cy: seat.x * Math.sin(tableRad) + seat.y * Math.cos(tableRad),
+          halfW:
+            (chair.width * Math.abs(Math.cos(total)) + chair.height * Math.abs(Math.sin(total))) / 2,
+          halfH:
+            (chair.width * Math.abs(Math.sin(total)) + chair.height * Math.abs(Math.cos(total))) / 2,
+        };
+      });
+    }
+    function footprintBox(input: TableLabelInput): Box {
+      const rad = toRadians(input.rotation);
+      return {
+        cx: 0,
+        cy: 0,
+        halfW: (input.width * Math.abs(Math.cos(rad)) + input.height * Math.abs(Math.sin(rad))) / 2,
+        halfH: (input.width * Math.abs(Math.sin(rad)) + input.height * Math.abs(Math.cos(rad))) / 2,
+      };
+    }
+    function overlapsChair(chair: Box, plateHalfW: number, plateHalfH: number): boolean {
+      const gapX = Math.max(0, Math.abs(chair.cx) - chair.halfW - CHAIR_CLEARANCE);
+      const gapY = Math.max(0, Math.abs(chair.cy) - chair.halfH - CHAIR_CLEARANCE);
+      return gapX < plateHalfW && gapY < plateHalfH;
+    }
+    interface Plate {
+      text: string;
+      fontSize: number;
+      width: number;
+      height: number;
+    }
+    function plateFor(lines: readonly string[], fontSize: number): Plate {
+      const longest = Math.max(...lines.map((line) => line.length), 1);
+      return {
+        text: lines.join("\n"),
+        fontSize,
+        width: longest * GLYPH_WIDTH_EM * fontSize + 2 * LABEL_PADDING,
+        height: lines.length * fontSize * LABEL_LINE_HEIGHT + 2 * LABEL_PADDING,
+      };
+    }
+    export function tableLabelLayout(input: TableLabelInput): TableLabelLayout {
+      const chairs = chairBoxes(input);
+      const footprint = chairs.length === 0 ? footprintBox(input) : null;
+      const clear = (plate: Plate) =>
+        chairs.every((chair) => !overlapsChair(chair, plate.width / 2, plate.height / 2)) &&
+        (footprint === null ||
+          (plate.width / 2 <= footprint.halfW && plate.height / 2 <= footprint.halfH));
+    
+      const startFont = Math.max(LABEL_MIN_SCREEN_PX / input.stageScale, LABEL_MAX_FONT_SIZE);
+      const full = plateFor([input.number, input.covers], startFont);
+      if (clear(full)) return { ...full, ellipsis: false };
+    
+      let plate = plateFor([input.number], startFont);
+      for (let step = 0; step < MAX_SHRINK_STEPS && !clear(plate); step += 1) {
+        plate = plateFor([input.number], plate.fontSize * SHRINK_FACTOR);
+      }
+      return { ...plate, ellipsis: false };
+    }
+  </file>
   <file path="src/components/floor-plan/table-status.ts">
     export const TABLE_STATUS_COLOR_TOKEN: Record<TableDisplayStatus, string> = {
       available: "var(--rialto-success)",
