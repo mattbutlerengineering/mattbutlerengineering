@@ -38,7 +38,7 @@
 .bar {
   inline-size: 100%;
   min-block-size: 2px;
-  border-radius: var(--rialto-radius-sm) var(--rialto-radius-sm) 0 0;
+  border-radius: var(--rialto-radius-sharp) var(--rialto-radius-sharp) 0 0;
   background: var(--rialto-accent);
 }
 
