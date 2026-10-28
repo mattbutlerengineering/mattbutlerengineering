@@ -61,8 +61,6 @@ vi.mock("react-konva", () => {
     Label: GroupMock,
     Tag: shapeMock("tag"),
     Text: () => null,
-    Label: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
-    Tag: () => null,
   };
 });
 
