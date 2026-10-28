@@ -17,7 +17,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--rialto-space-2xs);
-  min-inline-size: 0;
+  white-space: nowrap;
   color: var(--rialto-text-primary);
   font-size: var(--rialto-text-sm);
 }
@@ -43,6 +43,5 @@
 }
 
 .label {
-  min-inline-size: 0;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
 }

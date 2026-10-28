@@ -75,7 +75,8 @@ describe("TableStatusLegend", () => {
     it("wraps at narrow widths without horizontal scroll", () => {
       expect(CSS).toMatch(/flex-wrap:\s*wrap/);
       expect(CSS).not.toMatch(/overflow-x:\s*(auto|scroll)/);
-      expect(CSS).not.toMatch(/white-space:\s*nowrap/);
+      // Items stay whole (nowrap per item); the list wraps between them.
+      expect(CSS).toMatch(/\.item\s*\{[^}]*white-space:\s*nowrap/);
       // No fixed pixel width on the strip that could exceed a 375px viewport.
       expect(CSS).not.toMatch(/(^|[^-])(min-)?width:\s*\d+px/m);
     });
