@@ -79,6 +79,35 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).toMatch(/closures, special hours.*Availability page/i);
   });
 
+  describe("the page the chat is open on (#7924)", () => {
+    const base = { venueId: "v", now: NOW, catalogPrompt: "CATALOG" };
+
+    it("names the page and what it shows", () => {
+      const prompt = buildAgentSystemPrompt({ ...base, page: "availability" });
+
+      expect(prompt).toMatch(/chat open on the Availability page/);
+    });
+
+    it("resolves 'this' to the focused record and names the day on screen", () => {
+      const prompt = buildAgentSystemPrompt({
+        ...base,
+        page: "timeline",
+        focus: { kind: "reservation", id: "res-42" },
+        focusDate: "2026-10-30",
+      });
+
+      expect(prompt).toMatch(/reservation res-42/);
+      expect(prompt).toMatch(/"this reservation"/);
+      expect(prompt).toMatch(/2026-10-30/);
+    });
+
+    it("says nothing about a page when none was sent", () => {
+      const prompt = buildAgentSystemPrompt(base);
+
+      expect(prompt).not.toMatch(/chat open on/);
+    });
+  });
+
   describe("maps each data shape to the element that shows it", () => {
     const prompt = buildAgentSystemPrompt({
       venueId: "venue-1",

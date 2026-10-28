@@ -1252,6 +1252,33 @@
       export function validateAuthConfig(): AuthConfigResult | AuthConfigFailure { /* ... */ }
     </item>
   </file>
+  <file path="src/constants/chatPageContext.ts">
+    <item priority="low">
+      interface ChatFocus {
+        kind: "reservation" | "floorPlan" | "menu";
+        id: string;
+      }
+    </item>
+    <item priority="low">
+      interface ChatPageContext {
+        page?: string;
+        focus?: ChatFocus;
+        focusDate?: string;
+      }
+    </item>
+    <item priority="medium">
+      function focusFor(page: string, rest: readonly string[], params: URLSearchParams) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function chatPageContext(pathname: string, search: string): ChatPageContext { /* ... */ }
+    </item>
+    <item priority="low">
+      type ChatSuggestionKey = (typeof GENERAL_SUGGESTIONS)[n | (typeof PAGE_SUGGESTIONS)[keyo;
+    </item>
+    <item priority="high">
+      export function chatSuggestionKeys(page: string | undefined): readonly ChatSuggestionKey[] { /* ... */ }
+    </item>
+  </file>
   <file path="src/constants/copilotContext.ts">
     <item priority="high">
       export const HOSPITALITY_DOMAIN_CONTEXT: DomainContext;
@@ -1266,7 +1293,7 @@
       export function chatRequestContext(venue: ChatVenue | null | undefined): Record<string, string> { /* ... */ }
     </item>
     <item priority="high">
-      export function useChatRequestContext(): Record<string, string> { /* ... */ }
+      export function useChatRequestContext(): Readonly<Record<string, unknown>> { /* ... */ }
     </item>
     <item priority="high">
       export function useChatSuggestions(): readonly string[] { /* ... */ }
@@ -3067,6 +3094,17 @@
   <file path="src/hooks/useRefreshAvailability.ts">
     <item priority="high">
       export function useRefreshAvailability(): () => void { /* ... */ }
+    </item>
+  </file>
+  <file path="src/hooks/useRefreshingChatStream.ts">
+    <item priority="medium">
+      function isConfirmedAction(body: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function refreshAfterConfirm(stream: ChatStreamFn, refresh: () => void): ChatStreamFn { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useRefreshingChatStream(): ChatStreamFn { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useReservationDisplay.ts">

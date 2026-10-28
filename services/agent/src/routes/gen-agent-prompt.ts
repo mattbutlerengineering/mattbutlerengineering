@@ -1,8 +1,60 @@
 import { todayIn } from "./gen-agent-tools.js";
 
+/** The dashboard pages the chat can be opened on, and what each one shows staff. */
+export const CHAT_PAGES = {
+  timeline: "Timeline page (the day's bookings on the floor, table by table)",
+  dashboard: "Dashboard page (today's covers, waitlist and lapsing guests)",
+  reservations: "Reservations page (the booking list)",
+  guests: "Guests page (the guest directory)",
+  waitlist: "Waitlist page (walk-ins waiting for a table)",
+  briefing: "Briefing page (the pre-shift briefing)",
+  "floor-plans": "Floor plans page (the venue's layouts and tables)",
+  availability: "Availability page (schedules, closures and Tonight changes)",
+  menus: "Menus page (the venue's menus and items)",
+  "booking-widget": "Booking widget page (the guest booking widget preview)",
+  settings: "Settings page (preferences, venue profile and team)",
+} as const;
+export type ChatPage = keyof typeof CHAT_PAGES;
+export const CHAT_PAGE_NAMES = Object.keys(CHAT_PAGES) as [ChatPage, ...ChatPage[]];
+
+/** The record the page has open; ids come from the app's URL, never from the model. */
+export const CHAT_FOCUS_KINDS = ["reservation", "floorPlan", "menu"] as const;
+export interface ChatFocus {
+  readonly kind: (typeof CHAT_FOCUS_KINDS)[number];
+  readonly id: string;
+}
+
+const FOCUS_WORDS: Record<ChatFocus["kind"], string> = {
+  reservation: "reservation",
+  floorPlan: "floor plan",
+  menu: "menu",
+};
+
+/** What the user is looking at, so "this one" and "this day" resolve without asking. */
+function pageLines(ctx: AgentPromptContext): string[] {
+  if (!ctx.page) return [];
+  const lines = [`The user has the chat open on the ${CHAT_PAGES[ctx.page]}.`];
+  if (ctx.focus) {
+    const noun = FOCUS_WORDS[ctx.focus.kind];
+    lines.push(
+      `They have ${noun} ${ctx.focus.id} open: read "this ${noun}" or "this one" as it, and use that id with the tools.`
+    );
+  }
+  if (ctx.focusDate) {
+    lines.push(`The page shows ${ctx.focusDate}: read "this day" or "that day" as it.`);
+  }
+  return lines;
+}
+
 export interface AgentPromptContext {
   /** The venue selected in the app, when there is one. */
   readonly venueId?: string | undefined;
+  /** The dashboard page the chat was opened on. */
+  readonly page?: ChatPage | undefined;
+  /** The record that page has open. */
+  readonly focus?: ChatFocus | undefined;
+  /** The YYYY-MM-DD date that page shows. */
+  readonly focusDate?: string | undefined;
   /** The venue's IANA time zone; UTC when absent. */
   readonly timeZone?: string | undefined;
   readonly now: Date;
@@ -53,6 +105,7 @@ export function buildAgentSystemPrompt(ctx: AgentPromptContext): string {
     "You are the assistant for a restaurant's front-of-house staff, inside their hospitality dashboard.",
     `Today is ${today} (${timeZone}). Resolve "tonight", "tomorrow", and weekday names against this date, and pass dates to tools as YYYY-MM-DD.`,
     venueLine,
+    ...pageLines(ctx),
     "Never ask the user for a venue ID, reservation ID, or table ID: look them up with the tools.",
     "Your earlier replies in this conversation were based on tool results that aren't shown to you again. Treat them as accurate: don't apologize for or correct them unless a new tool result actually contradicts them. When you need an earlier detail, such as an ID, look it up again.",
     "A change (booking, walk-in, cancellation, table status, Tonight availability) runs only when the user presses the Confirm or Cancel button the chat shows with it. Tell them to use those buttons, and never ask them to type yes: typing a new message dismisses the pending change.",

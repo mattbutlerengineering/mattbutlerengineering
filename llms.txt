@@ -3006,6 +3006,33 @@
       export function validateAuthConfig(): AuthConfigResult | AuthConfigFailure { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/constants/chatPageContext.ts">
+    <item priority="low">
+      interface ChatFocus {
+        kind: "reservation" | "floorPlan" | "menu";
+        id: string;
+      }
+    </item>
+    <item priority="low">
+      interface ChatPageContext {
+        page?: string;
+        focus?: ChatFocus;
+        focusDate?: string;
+      }
+    </item>
+    <item priority="medium">
+      function focusFor(page: string, rest: readonly string[], params: URLSearchParams) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function chatPageContext(pathname: string, search: string): ChatPageContext { /* ... */ }
+    </item>
+    <item priority="low">
+      type ChatSuggestionKey = (typeof GENERAL_SUGGESTIONS)[n | (typeof PAGE_SUGGESTIONS)[keyo;
+    </item>
+    <item priority="high">
+      export function chatSuggestionKeys(page: string | undefined): readonly ChatSuggestionKey[] { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/constants/copilotContext.ts">
     <item priority="high">
       export const HOSPITALITY_DOMAIN_CONTEXT: DomainContext;
@@ -3020,7 +3047,7 @@
       export function chatRequestContext(venue: ChatVenue | null | undefined): Record<string, string> { /* ... */ }
     </item>
     <item priority="high">
-      export function useChatRequestContext(): Record<string, string> { /* ... */ }
+      export function useChatRequestContext(): Readonly<Record<string, unknown>> { /* ... */ }
     </item>
     <item priority="high">
       export function useChatSuggestions(): readonly string[] { /* ... */ }
@@ -6490,6 +6517,17 @@
       export function useRefreshAvailability(): () => void { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useRefreshingChatStream.ts">
+    <item priority="medium">
+      function isConfirmedAction(body: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function refreshAfterConfirm(stream: ChatStreamFn, refresh: () => void): ChatStreamFn { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useRefreshingChatStream(): ChatStreamFn { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useReservationDisplay.ts">
     <item priority="low">
       type StatusFilter = "all" | ReservationStatus;
@@ -9879,12 +9917,34 @@
     </item>
   </file>
   <file path="services/agent/src/routes/gen-agent-prompt.ts">
+    <item priority="high">
+      export const CHAT_PAGES: unknown;
+    </item>
+    <item priority="low">
+      type ChatPage = keyof typeof CHAT_PAGES;
+    </item>
+    <item priority="high">
+      export const CHAT_PAGE_NAMES: unknown;
+    </item>
+    <item priority="high">
+      export const CHAT_FOCUS_KINDS: unknown;
+    </item>
+    <item priority="low">
+      interface ChatFocus {
+        kind: (typeof CHAT_FOCUS_KINDS)[number];
+        id: string;
+      }
+    </item>
+    <item priority="medium">
+      function pageLines(ctx: AgentPromptContext): string[] { /* ... */ }
+    </item>
     <item priority="low">
       interface AgentPromptContext {
         venueId?: string | undefined;
+        page?: ChatPage | undefined;
+        focus?: ChatFocus | undefined;
+        focusDate?: string | undefined;
         timeZone?: string | undefined;
-        now: Date;
-        catalogPrompt: string;
       }
     </item>
     <item priority="high">
@@ -9986,7 +10046,7 @@
     </item>
     <item priority="high">
       export function genAgentSystemPrompt(
-        parsed: { readonly venueId?: string | undefined; readonly timeZone?: string | undefined },
+        parsed: Pick<AgentPromptContext, "venueId" | "timeZone" | "page" | "focus" | "focusDate">,
         catalogPrompt: string
       ): string { /* ... */ }
     </item>
