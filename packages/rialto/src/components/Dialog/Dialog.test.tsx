@@ -1,5 +1,7 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { RialtoProvider } from "../../providers/RialtoProvider";
 import { Dialog } from "./Dialog";
 
 describe("Dialog", () => {
@@ -113,6 +115,62 @@ describe("Dialog", () => {
       const outer = screen.getByRole("dialog", { name: "Outer" });
       const inner = screen.getByRole("dialog", { name: "Inner" });
       expect(outer.contains(inner)).toBe(false);
+    });
+
+    it("renders inside its provider subtree, inheriting dir and the vibe variables", () => {
+      render(
+        <RialtoProvider vibe="transacting">
+          <div dir="rtl" data-testid="rtl-root">
+            <Dialog open onClose={() => {}} title="Scoped" />
+          </div>
+        </RialtoProvider>
+      );
+      const dialog = screen.getByRole("dialog", { name: "Scoped" });
+      expect(screen.getByTestId("rtl-root").contains(dialog)).toBe(true);
+      const vibeRoot = dialog.closest<HTMLElement>("[data-theme]");
+      expect(vibeRoot?.style.getPropertyValue("--rialto-radius-default")).toBe("4px");
+    });
+
+    it("keeps a nested dialog inside the provider subtree too", () => {
+      render(
+        <div dir="rtl" data-testid="rtl-root">
+          <Dialog open onClose={() => {}} title="Outer">
+            <Dialog open onClose={() => {}} title="Inner" />
+          </Dialog>
+        </div>
+      );
+      const inner = screen.getByRole("dialog", { name: "Inner" });
+      expect(screen.getByTestId("rtl-root").contains(inner)).toBe(true);
+    });
+
+    it("closes nested dialogs one at a time on Escape", async () => {
+      const user = userEvent.setup();
+      function Nested() {
+        const [outerOpen, setOuterOpen] = useState(true);
+        const [innerOpen, setInnerOpen] = useState(false);
+        return (
+          <Dialog open={outerOpen} onClose={() => setOuterOpen(false)} title="Outer">
+            <button type="button" onClick={() => setInnerOpen(true)}>
+              Open inner
+            </button>
+            <Dialog open={innerOpen} onClose={() => setInnerOpen(false)} title="Inner" />
+          </Dialog>
+        );
+      }
+      render(<Nested />);
+      await user.click(screen.getByRole("button", { name: "Open inner" }));
+      expect(screen.getByRole("dialog", { name: "Inner" })).toBeInTheDocument();
+
+      await user.keyboard("{Escape}");
+      await waitFor(() =>
+        expect(screen.queryByRole("dialog", { name: "Inner" })).not.toBeInTheDocument()
+      );
+      expect(screen.getByRole("dialog", { name: "Outer" })).toBeInTheDocument();
+
+      await user.keyboard("{Escape}");
+      await waitFor(() =>
+        expect(screen.queryByRole("dialog", { name: "Outer" })).not.toBeInTheDocument()
+      );
     });
 
     it("does not close when clicking inside the panel", async () => {
