@@ -172,15 +172,18 @@ vi.mock("react-konva", () => {
       fontSize,
       fill,
       width,
+      ellipsis,
     }: {
       text?: string;
       fontSize?: number;
       fill?: string;
       width?: number;
+      ellipsis?: boolean;
       [key: string]: unknown;
     }) => (
       <span
         data-testid="konva-text"
+        data-ellipsis={ellipsis ? "true" : undefined}
         data-text={text}
         data-font-size={fontSize}
         data-fill={fill}
@@ -493,8 +496,8 @@ describe("TableShape", () => {
       render(<TableShape table={table} {...defaultProps} stageScale={375 / 800} />);
       const text = labelText();
       expect(text?.getAttribute("data-text")?.split("\n")[0]).toBe("TBL-12");
-      // Clear-of-chair geometry is asserted in table-label-layout.test.ts; here: one line, no ellipsis.
-      expect(text?.getAttribute("data-text")?.split("\n")[0]).toBe("TBL-12");
+      // Clear-of-chair geometry is asserted in table-label-layout.test.ts.
+      expect(text?.hasAttribute("data-ellipsis")).toBe(false);
     });
 
     it("is at least 10px tall at a 375px viewport", () => {

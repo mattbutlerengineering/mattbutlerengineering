@@ -15851,7 +15851,6 @@
   </file>
   <file path="apps/hospitality/src/components/floor-plan/table-label-layout.ts">
     export const LABEL_MIN_SCREEN_PX = 10;
-    export const LABEL_MAX_FONT_SIZE = 14;
     export const LABEL_PADDING = 2;
     export const LABEL_LINE_HEIGHT = 1.15;
     export interface TableLabelInput {

@@ -24,7 +24,7 @@ import {
 /** Smallest rendered font size, in screen pixels, when it fits among the chairs. */
 export const LABEL_MIN_SCREEN_PX = 10;
 /** Largest font size, in canvas units, when there is room. */
-export const LABEL_MAX_FONT_SIZE = 14;
+const LABEL_MAX_FONT_SIZE = 14;
 /** Plate padding in canvas units. */
 export const LABEL_PADDING = 2;
 /** Line height as a multiple of the font size. */

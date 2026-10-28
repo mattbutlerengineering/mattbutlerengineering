@@ -5228,9 +5228,6 @@
       export const LABEL_MIN_SCREEN_PX: unknown;
     </item>
     <item priority="high">
-      export const LABEL_MAX_FONT_SIZE: unknown;
-    </item>
-    <item priority="high">
       export const LABEL_PADDING: unknown;
     </item>
     <item priority="high">

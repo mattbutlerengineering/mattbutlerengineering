@@ -8,7 +8,7 @@ import {
   tableLabelLayout,
 } from "./table-label-layout.js";
 
-export const TABLE_LABEL_GROUP_NAME = "table-label-group";
+const TABLE_LABEL_GROUP_NAME = "table-label-group";
 
 export interface TableLabelProps {
   number: string;

@@ -109,14 +109,16 @@ describe("tableLabelLayout", () => {
     });
   });
 
-  it("drops the covers line before shrinking the number", () => {
-    // A 60x60 square at 375px: the two-line plate hits the side chairs.
+  it("drops the covers line first when the two-line plate would touch a chair", () => {
+    // A 60x60 square on a 2000px plan (scale 0.1875): two lines at the 10px floor hit the chairs.
+    const layout = tableLabelLayout(inputFor("square", 0, LARGE_PLAN_SCALE, { number: "T1" }));
+    expect(layout.text.split("\n")).toEqual(["T1"]);
+  });
+
+  it("keeps both lines at 375px on an 800px plan for a short number on a square", () => {
     const layout = tableLabelLayout(inputFor("square", 0, PHONE_SCALE, { number: "T1" }));
-    const lines = layout.text.split("\n");
-    expect(lines[0]).toBe("T1");
-    if (lines.length === 1) {
-      expect(layout.fontSize * PHONE_SCALE).toBeGreaterThanOrEqual(LABEL_MIN_SCREEN_PX);
-    }
+    expect(layout.text.split("\n")).toEqual(["T1", "2-4"]);
+    expect(layout.fontSize * PHONE_SCALE).toBeGreaterThanOrEqual(LABEL_MIN_SCREEN_PX);
   });
 
   it("is at least 10 screen px tall for a short number on the default rectangle at 375px", () => {
