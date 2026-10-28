@@ -57,6 +57,26 @@ describe("Table adapter", () => {
 });
 
 describe("DataTable adapter", () => {
+  it("shows the seam fallback, not invented rows, when data is an unresolved $state binding", () => {
+    renderSpec({
+      root: "t1",
+      elements: {
+        t1: {
+          type: "DataTable",
+          props: {
+            columns,
+            data: { $state: "/users" },
+            label: "Users",
+          },
+          children: [],
+        },
+      },
+    });
+    // Sample rows are applied by the playground normalizer, not this shared registry.
+    expect(screen.getByText("Component could not be displayed")).toBeDefined();
+    expect(screen.queryByText("Alex Rivera")).toBeNull();
+  });
+
   it("selecting one row without an id column selects only that row", () => {
     renderSpec(
       tableSpec("DataTable", { selectionMode: "multiple", label: "People" }, [
