@@ -565,6 +565,22 @@ describe("usePlaygroundSession", () => {
     });
   });
 
+  describe("viewing a failed history entry", () => {
+    it("sets displayError so JsonInspector shows a failure, not the generic empty state", () => {
+      specsApiState = {
+        specs: [makeStoredSpec({ id: "s1", prompt: "draw a form", kind: "failed", rawLines: [] })],
+        isLoading: false,
+      };
+      const { result } = renderHook(() => usePlaygroundSession());
+
+      act(() => result.current.selectHistory("s1"));
+
+      expect(result.current.activeSpecId).toBe("s1");
+      expect(result.current.displayRawLines).toEqual([]);
+      expect(result.current.displayError).not.toBeNull();
+    });
+  });
+
   describe("retry", () => {
     it("resubmits the active entry's prompt", () => {
       specsApiState = {

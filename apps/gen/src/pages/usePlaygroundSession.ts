@@ -298,7 +298,15 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
   // useGenStream flips isStreaming to false in the same batch it sets error,
   // so gating on isStreaming here would mean the error is never visible —
   // only relevant while we're not looking at a previously saved entry.
-  const displayError = activeId === null ? (refineError ?? validationError ?? error) : null;
+  // A selected "failed" history entry has its own failure to show, distinct
+  // from (and not cleared by) the live generation's error/refineError/
+  // validationError above — otherwise it reads as an empty, not failed, spec.
+  const displayError =
+    activeId === null
+      ? (refineError ?? validationError ?? error)
+      : activeEntry?.kind === "failed"
+        ? new Error("This generation failed")
+        : null;
   const activeSpecId = !isStreaming && activeId ? activeId : null;
   const failedPrompt = displayError ? rawPrompt : null;
 
