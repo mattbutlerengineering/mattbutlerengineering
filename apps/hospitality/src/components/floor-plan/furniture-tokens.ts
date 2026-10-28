@@ -31,11 +31,34 @@ export const FURNITURE_PALETTE = {
   grain: "#806A4E",
   highlight: "#9C8468",
   edge: "#6B5740",
-  shadow: "rgba(0,0,0,0.12)",
-  seatFrame: "#4a3f32",
-  seatEdge: "#3d3228",
-  seatCushion: "#5c4f40",
 } as const;
+
+export type FurnitureTheme = "light" | "dark";
+
+/**
+ * Chair tones per theme. Light is `assets/chair.svg`; dark is
+ * `assets/chair-dark.svg`, a lighter set so the frame keeps 3:1 against the
+ * dark floor (`--rialto-surface-recessed`). Both are checked by the drift guard.
+ */
+export const SEAT_TONES: Record<FurnitureTheme, { frame: string; edge: string; cushion: string }> =
+  {
+    light: { frame: "#4a3f32", edge: "#3d3228", cushion: "#5c4f40" },
+    dark: { frame: "#8a7a66", edge: "#6b5d4c", cushion: "#a08c72" },
+  };
+
+/**
+ * Contact-shadow tones, following the `--rialto-shadow-*` colour family
+ * (`rgb(26 25 24 / x)` light, `rgb(0 0 0 / x)` dark; shadows.css). Canvas cannot
+ * read those composite tokens, so only the base colour is mirrored here, in
+ * comma syntax, and the drift guard ties it back to shadows.css.
+ */
+export const SHADOW_TONES: Record<FurnitureTheme, string> = {
+  light: "rgba(26,25,24,0.28)",
+  dark: "rgba(0,0,0,0.6)",
+};
+
+/** Blur radius and drop of the soft contact shadow, in canvas units. */
+export const CONTACT_SHADOW = { blur: 6, offsetY: 2 } as const;
 
 /** Corner rounding per table shape, matching each source SVG's `rx`. */
 export const TABLE_CORNER_RADIUS: Record<Exclude<TableShapeName, "circle">, number> = {

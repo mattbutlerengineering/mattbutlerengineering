@@ -23,17 +23,43 @@
 import { Circle, Group, Line, Path, Rect } from "react-konva";
 import { SHAPE_DEFAULTS, type TableShapeName } from "./floor-plan-geometry.js";
 import {
+  CONTACT_SHADOW,
   FURNITURE_PALETTE,
   SEAT_NAME,
+  SEAT_TONES,
+  SHADOW_TONES,
   TABLE_CORNER_RADIUS,
   TABLE_SHADOW_NAME,
   TABLE_SURFACE_NAME,
+  type FurnitureTheme,
 } from "./furniture-tokens.js";
+import { useFurnitureTheme } from "./furniture-theme.js";
+
+/**
+ * Soft contact shadow, drawn by the shape itself.
+ *
+ * Perf: the blur lives on the one node that casts it (the table's shadow node
+ * and each chair frame), never on the table group, so a drag re-rasterises
+ * blur only for nodes that move with the dragged table. The nodes are
+ * table shadow node is non-listening (no hit-graph pass; chairs stay hit
+ * targets so they still drag the table), and both skip `perfectDrawEnabled` (no second
+ * buffer canvas), and the stroke is excluded from the shadow.
+ */
+function contactShadow(theme: FurnitureTheme) {
+  return {
+    shadowColor: SHADOW_TONES[theme],
+    shadowBlur: CONTACT_SHADOW.blur,
+    shadowOffsetY: CONTACT_SHADOW.offsetY,
+    shadowForStrokeEnabled: false,
+    perfectDrawEnabled: false,
+  } as const;
+}
+
+/** Opaque caster: canvas scales shadow alpha by the caster's alpha. It sits under the surface. */
+const SHADOW_CASTER = "#000000";
 
 const GRAIN_LINES = 4;
 const GRAIN_RINGS = 3;
-/** How far the contact shadow sits below the surface, in canvas units. */
-const SHADOW_DROP = 2;
 /** How far grain and edge highlights stop short of the table edge. */
 const EDGE_INSET = 3;
 
@@ -67,13 +93,15 @@ function RoundTableArt({
   strokeWidth,
 }: SurfacePaint & { width?: number }) {
   const radius = width / 2;
+  const theme = useFurnitureTheme();
   return (
     <>
       <Circle
         name={TABLE_SHADOW_NAME}
-        y={SHADOW_DROP}
         radius={radius}
-        fill={FURNITURE_PALETTE.shadow}
+        fill={SHADOW_CASTER}
+        listening={false}
+        {...contactShadow(theme)}
       />
       <Circle
         name={TABLE_SURFACE_NAME}
@@ -116,17 +144,20 @@ function SlabTableArt({
   const top = -height / 2;
   const innerLeft = left + EDGE_INSET;
   const innerRight = -left - EDGE_INSET;
+  const theme = useFurnitureTheme();
 
   return (
     <>
       <Rect
         name={TABLE_SHADOW_NAME}
         x={left}
-        y={top + SHADOW_DROP}
+        y={top}
         width={width}
         height={height}
         cornerRadius={cornerRadius}
-        fill={FURNITURE_PALETTE.shadow}
+        fill={SHADOW_CASTER}
+        listening={false}
+        {...contactShadow(theme)}
       />
       <Rect
         name={TABLE_SURFACE_NAME}
@@ -190,6 +221,8 @@ export interface SeatArtProps {
 
 /** `chair.svg`: a rounded frame with an inset cushion. */
 export function SeatArt({ x, y, rotation, width, height }: SeatArtProps) {
+  const theme = useFurnitureTheme();
+  const tones = SEAT_TONES[theme];
   return (
     <Group name={SEAT_NAME} x={x} y={y} rotation={rotation}>
       <Rect
@@ -198,9 +231,10 @@ export function SeatArt({ x, y, rotation, width, height }: SeatArtProps) {
         width={width}
         height={height}
         cornerRadius={width / 4}
-        fill={FURNITURE_PALETTE.seatFrame}
-        stroke={FURNITURE_PALETTE.seatEdge}
+        fill={tones.frame}
+        stroke={tones.edge}
         strokeWidth={0.7}
+        {...contactShadow(theme)}
       />
       <Rect
         x={-width * 0.29}
@@ -208,7 +242,7 @@ export function SeatArt({ x, y, rotation, width, height }: SeatArtProps) {
         width={width * 0.58}
         height={height / 2}
         cornerRadius={height / 5}
-        fill={FURNITURE_PALETTE.seatCushion}
+        fill={tones.cushion}
       />
     </Group>
   );

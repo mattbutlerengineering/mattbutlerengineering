@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 10" width="12" height="10">
+  <!-- Dark-theme chair: lighter tones so the frame holds 3:1 against the dark floor -->
+  <!-- Outer frame -->
+  <rect x="0.5" y="0.5" width="11" height="9" rx="3" fill="#8a7a66" stroke="#6b5d4c" stroke-width="0.5"/>
+  <!-- Cushion -->
+  <rect x="2.5" y="2.5" width="7" height="5" rx="2" fill="#a08c72"/>
+</svg>
