@@ -270,6 +270,54 @@ describe("usePlaygroundSession", () => {
       });
     });
 
+    it("still splices and saves the refine diff when a history row is picked mid-stream", async () => {
+      const other: Spec = {
+        root: "o",
+        elements: { o: { type: "Text", props: { text: "Other" }, children: [] } },
+      };
+      specsApiState = {
+        specs: [
+          makeStoredSpec({ id: "parent", spec: BASE }),
+          makeStoredSpec({ id: "other", spec: other }),
+        ],
+        isLoading: false,
+      };
+      const { result, rerender } = setup();
+      act(() => result.current.selectHistory("parent"));
+      act(() => result.current.refineNode("card", "grid"));
+      genStreamState = { ...genStreamState, isStreaming: true, spec: REPLACEMENT };
+      rerender();
+
+      act(() => result.current.selectHistory("other"));
+      expect(result.current.activeSpecId).toBe("other");
+      expect(result.current.displaySpec).toEqual(other);
+
+      genStreamState = { ...genStreamState, isStreaming: false };
+      rerender();
+      await complete(REPLACEMENT);
+
+      const saved = mockSaveSpec.mock.calls[0]?.[0] as {
+        kind: string;
+        spec: Spec;
+        refinement: unknown;
+      };
+      expect(saved.kind).toBe("refine");
+      expect(saved.spec.elements.root).toEqual(BASE.elements.root);
+      expect(saved.spec.elements.card).toEqual(REPLACEMENT.elements.card);
+      expect(saved.refinement).toEqual({
+        parentId: "parent",
+        path: "card",
+        before: {
+          root: "card",
+          elements: { card: BASE.elements.card, label: BASE.elements.label },
+        },
+        after: REPLACEMENT,
+      });
+      // The picked row stays on screen.
+      expect(result.current.activeSpecId).toBe("other");
+      expect(result.current.displaySpec).toEqual(other);
+    });
+
     it("saves a null parentId when the refined spec is not a saved entry", async () => {
       const { result } = setup();
       act(() => result.current.refineNode("card", "grid"));

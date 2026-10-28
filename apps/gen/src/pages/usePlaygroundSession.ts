@@ -214,6 +214,9 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
         }
         savedSpec = spliced.spec;
         const before = extractSubtree(nodeRefine.base, nodeRefine.key);
+        // A row picked mid-stream stays on screen: the refine is saved, but its
+        // diff is not pushed onto the undo stack of a spec the user isn't viewing.
+        const held = heldIdRef.current !== null;
         if (before) {
           refinement = {
             parentId: nodeRefine.parentId,
@@ -221,11 +224,13 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
             before,
             after: completedSpec,
           };
-          pushDiff(refinement);
-          setLastChange(refinement);
+          if (!held) {
+            pushDiff(refinement);
+            setLastChange(refinement);
+          }
         }
         nodeRefineRef.current = null;
-        setPinnedSpec(savedSpec);
+        if (!held) setPinnedSpec(savedSpec);
       }
       if (!nodeRefine) {
         // A full generation is checked with the same validator as a refine.
@@ -524,13 +529,22 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
       if (isStreaming) {
         heldIdRef.current = id;
         setHeldId(id);
+        if (nodeRefineRef.current) {
+          // A node refine in flight must still splice into its base and save
+          // its diff, so keep it (resetTo would clear it). Only release the
+          // pinned base so the picked row shows.
+          setPinnedSpec(null);
+          setActiveId(id);
+          exitRefinement();
+          return;
+        }
       } else {
         heldIdRef.current = null;
         setHeldId(null);
       }
       resetTo(id);
     },
-    [isStreaming, resetTo]
+    [isStreaming, resetTo, exitRefinement]
   );
 
   // Clear the underlying error/spec/rawLines too, not just activeId/mode —
