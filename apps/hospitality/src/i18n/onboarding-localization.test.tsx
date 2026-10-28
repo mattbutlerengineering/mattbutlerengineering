@@ -46,8 +46,6 @@ vi.mock("react-konva", () => ({
   Circle: () => null,
   Line: () => null,
   Path: () => null,
-  Label: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-  Tag: () => null,
   Text: () => null,
 }));
 

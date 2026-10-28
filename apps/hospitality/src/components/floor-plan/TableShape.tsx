@@ -1,5 +1,5 @@
 import { memo, useRef, useEffect, useState } from "react";
-import { Group } from "react-konva";
+import { Group, Text } from "react-konva";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type { Table } from "@mbe/types";
@@ -7,8 +7,6 @@ import { SHAPE_DEFAULTS, fittedSeatSize, seatPlacements } from "./floor-plan-geo
 import { SeatArt, TableArt } from "./FurnitureArt.js";
 import { useMotionPreset } from "@mattbutlerengineering/rialto/providers";
 import { FURNITURE_PALETTE } from "./furniture-tokens.js";
-import { useSectionLabelTheme } from "./section-label-theme.js";
-import { TableLabel } from "./TableLabel.js";
 import { TABLE_STATUS_COLOR_TOKEN, type TableDisplayStatus } from "./table-status.js";
 
 /* Canvas (Konva) doesn't support CSS custom properties — `fillStyle` needs a
@@ -18,6 +16,8 @@ import { TABLE_STATUS_COLOR_TOKEN, type TableDisplayStatus } from "./table-statu
  * and re-resolves whenever `data-theme` flips (see the MutationObserver in
  * TableShape below). See apps/hospitality/CLAUDE.md for the documented
  * exception this implements. */
+const TABLE_LABEL_COLOR = "#ffffff";
+
 type ColorKey = TableDisplayStatus | "inactive" | "selectedStroke";
 
 /** rialto custom-property names backing each canvas fill/stroke. The
@@ -82,8 +82,6 @@ export interface TableShapeProps {
    * falls back to "available" — matching the pre-live-status default.
    */
   status?: TableDisplayStatus;
-  /** The stage's scale; sizes the label so it stays readable when the plan is shrunk. */
-  stageScale?: number;
 }
 
 function TableShapeComponent({
@@ -94,10 +92,8 @@ function TableShapeComponent({
   onDragStart,
   onDragEnd,
   status,
-  stageScale = 1,
 }: TableShapeProps) {
   const groupRef = useRef<Konva.Group>(null);
-  const labelTheme = useSectionLabelTheme();
   const [themeColors, setThemeColors] = useState(resolveThemeColors);
 
   // Re-resolve fills whenever the active theme flips — Konva can't consume
@@ -196,16 +192,26 @@ function TableShapeComponent({
         stroke={isSelected ? themeColors.selectedStroke : FURNITURE_PALETTE.edge}
         strokeWidth={isSelected ? 3 : 1}
       />
-      <TableLabel
-        number={table.tableNumber || table.name}
-        covers={`${table.minCovers}-${table.maxCovers ?? table.capacity}`}
-        shape={shape}
-        capacity={table.capacity}
-        tableWidth={width}
-        tableHeight={height}
-        tableRotation={rotation}
-        stageScale={stageScale}
-        theme={labelTheme}
+      <Text
+        text={table.tableNumber || table.name}
+        fontSize={14}
+        fontStyle="bold"
+        fill={TABLE_LABEL_COLOR}
+        align="center"
+        verticalAlign="middle"
+        offsetX={20}
+        offsetY={7}
+        width={40}
+      />
+      <Text
+        text={`${table.minCovers}-${table.maxCovers ?? table.capacity}`}
+        fontSize={10}
+        fill={TABLE_LABEL_COLOR}
+        align="center"
+        offsetX={15}
+        offsetY={-8}
+        width={30}
+        opacity={0.8}
       />
     </Group>
   );
