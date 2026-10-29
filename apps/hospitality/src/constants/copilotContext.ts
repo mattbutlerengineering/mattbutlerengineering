@@ -73,46 +73,59 @@ export function useChatSuggestions(): readonly string[] {
   return useMemo(() => chatSuggestionKeys(page).map((key) => t(key)), [t, page]);
 }
 
-const ACTION_TITLES = {
-  create_reservation: "chat.actions.create_reservation",
-  modify_reservation: "chat.actions.modify_reservation",
-  cancel_reservation: "chat.actions.cancel_reservation",
-  seat_walk_in: "chat.actions.seat_walk_in",
-  update_table_status: "chat.actions.update_table_status",
-  change_tonight_availability: "chat.actions.change_tonight_availability",
-  end_tonight_change: "chat.actions.end_tonight_change",
-  undo_availability_change: "chat.actions.undo_availability_change",
-  add_to_waitlist: "chat.actions.add_to_waitlist",
-  notify_waitlist_party: "chat.actions.notify_waitlist_party",
-  seat_waitlist_party: "chat.actions.seat_waitlist_party",
-  remove_from_waitlist: "chat.actions.remove_from_waitlist",
-  seat_reservation: "chat.actions.seat_reservation",
-  mark_no_show: "chat.actions.mark_no_show",
-} as const;
+const ACTION_TITLES = [
+  "create_reservation",
+  "modify_reservation",
+  "cancel_reservation",
+  "seat_walk_in",
+  "update_table_status",
+  "change_tonight_availability",
+  "end_tonight_change",
+  "undo_availability_change",
+  "add_guest",
+  "update_guest",
+  "add_guest_note",
+  "send_win_back",
+  "add_to_waitlist",
+  "notify_waitlist_party",
+  "seat_waitlist_party",
+  "remove_from_waitlist",
+  "seat_reservation",
+  "mark_no_show",
+] as const;
 
-const ACTION_FIELDS = {
-  guestName: "chat.actions.fields.guestName",
-  partySize: "chat.actions.fields.partySize",
-  date: "chat.actions.fields.date",
-  startTime: "chat.actions.fields.startTime",
-  endTime: "chat.actions.fields.endTime",
-  tableId: "chat.actions.fields.tableId",
-  table: "chat.actions.fields.table",
-  status: "chat.actions.fields.status",
-  notes: "chat.actions.fields.notes",
-  reservationId: "chat.actions.fields.reservationId",
-  change: "chat.actions.fields.change",
-  closeAt: "chat.actions.fields.closeAt",
-  from: "chat.actions.fields.from",
-  to: "chat.actions.fields.to",
-  service: "chat.actions.fields.service",
-  tables: "chat.actions.fields.tables",
-  covers: "chat.actions.fields.covers",
-  summary: "chat.actions.fields.summary",
-  guestPhone: "chat.actions.fields.guestPhone",
-  reason: "chat.actions.fields.reason",
-  note: "chat.actions.fields.note",
-} as const;
+const ACTION_FIELDS = [
+  "guestName",
+  "partySize",
+  "date",
+  "startTime",
+  "endTime",
+  "tableId",
+  "table",
+  "status",
+  "notes",
+  "reservationId",
+  "change",
+  "closeAt",
+  "from",
+  "to",
+  "service",
+  "tables",
+  "covers",
+  "summary",
+  "guest",
+  "contact",
+  "name",
+  "phone",
+  "email",
+  "addTags",
+  "removeTags",
+  "dietaryRestrictions",
+  "text",
+  "guestPhone",
+  "reason",
+  "note",
+] as const;
 
 const TABLE_STATUSES = {
   AVAILABLE: "floorPlan.tableStatus.available",
@@ -138,8 +151,8 @@ const CANCEL_REASONS = {
 } as const;
 
 type ChatActionKey =
-  | (typeof ACTION_TITLES)[keyof typeof ACTION_TITLES]
-  | (typeof ACTION_FIELDS)[keyof typeof ACTION_FIELDS]
+  | `chat.actions.${(typeof ACTION_TITLES)[number]}`
+  | `chat.actions.fields.${(typeof ACTION_FIELDS)[number]}`
   | (typeof TABLE_STATUSES)[keyof typeof TABLE_STATUSES]
   | (typeof TONIGHT_CHANGES)[keyof typeof TONIGHT_CHANGES]
   | (typeof CANCEL_REASONS)[keyof typeof CANCEL_REASONS];
@@ -181,9 +194,11 @@ export function describeChatAction(
   tableName: (id: string) => string | undefined,
   locale?: string
 ): ActionDescription {
-  const titleKey = lookup(ACTION_TITLES, action.toolName);
+  const hasTitle = ACTION_TITLES.includes(action.toolName as (typeof ACTION_TITLES)[number]);
   return {
-    title: titleKey ? t(titleKey) : action.toolName.replace(/_/g, " "),
+    title: hasTitle
+      ? t(`chat.actions.${action.toolName}` as ChatActionKey)
+      : action.toolName.replace(/_/g, " "),
     details: Object.entries(action.toolInput).map(([key, raw]) => {
       const value = Array.isArray(raw) ? raw.join(", ") : String(raw);
       const statusKey =
@@ -200,8 +215,11 @@ export function describeChatAction(
           : statusKey
             ? t(statusKey)
             : formatWhen(key, value, locale);
-      const labelKey = lookup(ACTION_FIELDS, key);
-      return { label: labelKey ? t(labelKey) : key, value: shown };
+      const hasLabel = ACTION_FIELDS.includes(key as (typeof ACTION_FIELDS)[number]);
+      return {
+        label: hasLabel ? t(`chat.actions.fields.${key}` as ChatActionKey) : key,
+        value: shown,
+      };
     }),
   };
 }

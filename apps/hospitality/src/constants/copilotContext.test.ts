@@ -65,13 +65,13 @@ describe("describeChatAction", () => {
 describe("describeChatAction fallbacks", () => {
   it("shows a raw name rather than a translation key for an unknown tool or field", () => {
     const description = describeChatAction(
-      { actionId: "a3", toolName: "send_gift_card", toolInput: { quotedWait: 15 } },
+      { actionId: "a3", toolName: "unknown_wait", toolInput: { quotedWait: 15 } },
       (key) => `t:${key}`,
       () => undefined
     );
 
     expect(description).toEqual({
-      title: "send gift card",
+      title: "unknown wait",
       details: [{ label: "quotedWait", value: "15" }],
     });
   });
@@ -218,6 +218,42 @@ describe("describeChatAction Tonight availability", () => {
       title: "t:chat.actions.undo_availability_change",
       details: [{ label: "t:chat.actions.fields.summary", value: "Paused online booking tonight" }],
     });
+  });
+});
+
+// #7927: guest actions, as the confirm bar shows them.
+describe("describeChatAction guest actions", () => {
+  const t = (key: string) => `t:${key}`;
+
+  it.each(["add_guest", "update_guest", "add_guest_note", "send_win_back"])(
+    "titles %s",
+    (toolName) => {
+      expect(
+        describeChatAction({ actionId: "d", toolName, toolInput: {} }, t, () => undefined).title
+      ).toBe(`t:chat.actions.${toolName}`);
+    }
+  );
+
+  it("labels each guest field and lists tags as text", () => {
+    const update = describeChatAction(
+      {
+        actionId: "d1",
+        toolName: "update_guest",
+        toolInput: {
+          guest: "Ana Lopez",
+          addTags: ["vip", "patio"],
+          dietaryRestrictions: ["vegan"],
+        },
+      },
+      t,
+      () => undefined
+    );
+
+    expect(update.details).toEqual([
+      { label: "t:chat.actions.fields.guest", value: "Ana Lopez" },
+      { label: "t:chat.actions.fields.addTags", value: "vip, patio" },
+      { label: "t:chat.actions.fields.dietaryRestrictions", value: "vegan" },
+    ]);
   });
 });
 

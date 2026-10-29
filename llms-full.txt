@@ -9767,8 +9767,8 @@
       return useMemo(() => chatSuggestionKeys(page).map((key) => t(key)), [t, page]);
     }
     type ChatActionKey =
-      | (typeof ACTION_TITLES)[keyof typeof ACTION_TITLES]
-      | (typeof ACTION_FIELDS)[keyof typeof ACTION_FIELDS]
+      | `chat.actions.${(typeof ACTION_TITLES)[number]}`
+      | `chat.actions.fields.${(typeof ACTION_FIELDS)[number]}`
       | (typeof TABLE_STATUSES)[keyof typeof TABLE_STATUSES]
       | (typeof TONIGHT_CHANGES)[keyof typeof TONIGHT_CHANGES]
       | (typeof CANCEL_REASONS)[keyof typeof CANCEL_REASONS];
@@ -9789,9 +9789,11 @@
       tableName: (id: string) => string | undefined,
       locale?: string
     ): ActionDescription {
-      const titleKey = lookup(ACTION_TITLES, action.toolName);
+      const hasTitle = ACTION_TITLES.includes(action.toolName as (typeof ACTION_TITLES)[number]);
       return {
-        title: titleKey ? t(titleKey) : action.toolName.replace(/_/g, " "),
+        title: hasTitle
+          ? t(`chat.actions.${action.toolName}` as ChatActionKey)
+          : action.toolName.replace(/_/g, " "),
         details: Object.entries(action.toolInput).map(([key, raw]) => {
           const value = Array.isArray(raw) ? raw.join(", ") : String(raw);
           const statusKey =
@@ -9808,8 +9810,11 @@
               : statusKey
                 ? t(statusKey)
                 : formatWhen(key, value, locale);
-          const labelKey = lookup(ACTION_FIELDS, key);
-          return { label: labelKey ? t(labelKey) : key, value: shown };
+          const hasLabel = ACTION_FIELDS.includes(key as (typeof ACTION_FIELDS)[number]);
+          return {
+            label: hasLabel ? t(`chat.actions.fields.${key}` as ChatActionKey) : key,
+            value: shown,
+          };
         }),
       };
     }
@@ -29492,6 +29497,216 @@
       };
     }
   </file>
+  <file path="services/agent/src/routes/gen-agent-guest-tools.ts">
+    type Guest = Awaited<ReturnType<ApiClient["guests"]["get"]>>;
+    function shown(guest: Guest) {
+      return {
+        name: guest.name,
+        visitCount: guest.visitCount,
+        tags: guest.tags ?? [],
+        dietaryRestrictions: guest.dietaryRestrictions ?? [],
+      };
+    }
+    function guestFailure(err: unknown, action: string) {
+      const refusal = refusalOf(err);
+      if (!refusal) {
+        return {
+          error: `Couldn't ${action} right now. Nothing was changed. Ask the user to try again.`,
+        };
+      }
+      if (refusal.status === 403) {
+        return {
+          refused: true,
+          error: "The user doesn't have permission to do this. Nothing was changed.",
+        };
+      }
+      return { refused: true, error: `${refusal.detail} Nothing was changed.` };
+    }
+    async function findGuest(
+      api: ApiClient,
+      venueId: string,
+      name: string,
+      contact: string | undefined
+    ): Promise<{ guest: Guest } | { error: string }> {
+      const { data } = await api.guests.search({ venueId, query: name });
+      const named = data.filter((g) => sameText(g.name, name));
+      const matches = contact
+        ? named.filter((g) => [g.email, g.phone].some((c) => c && sameText(c, contact)))
+        : named;
+      if (matches.length === 1) return { guest: matches[0]! };
+      if (matches.length === 0) {
+        return {
+          error: `No guest called ${name}${contact ? ` with that phone or email` : ""} was found.`,
+        };
+      }
+      return {
+        error: `${matches.length} guests are called ${name}. Ask for this guest's phone or email to tell them apart.`,
+      };
+    }
+    export function createGuestTools(
+      log: FastifyBaseLogger,
+      api: ApiClient,
+      { venueId }: { readonly venueId?: string | undefined }
+    ): ToolSet {
+      return {
+        // ── Read ───────────────────────────────────────────────
+        list_lapsing_guests: tool({
+          description:
+            "List regular guests who are overdue for a visit (win-back candidates), most overdue first.",
+          inputSchema: z.object({}),
+          execute: async () => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId }, "list_lapsing_guests tool called");
+            try {
+              const lapsing = await api.guests.getLapsing(venueId);
+              return {
+                guests: [...lapsing]
+                  .sort((a, b) => b.daysOverdue - a.daysOverdue)
+                  .map((g) => ({
+                    name: g.name,
+                    daysSinceLastVisit: g.daysSinceLastVisit,
+                    daysOverdue: g.daysOverdue,
+                  })),
+              };
+            } catch (err) {
+              log.error({ err, venueId }, "list_lapsing_guests failed");
+              return { error: "Couldn't read lapsing guests. Ask the user to try again." };
+            }
+          },
+        }),
+    
+        // ── Write (each runs only after the user confirms) ─────
+        add_guest: tool({
+          description:
+            "Add a guest to the directory. Needs a phone number or an email; an existing guest with the same email or phone is reused, not duplicated. Requires confirmation.",
+          inputSchema: z
+            .object({
+              name: z.string().min(1).describe("The guest's name"),
+              phone: z.string().min(1).optional().describe("The guest's phone number"),
+              email: z.email().optional().describe("The guest's email address"),
+              dietaryRestrictions: z
+                .array(z.string().min(1))
+                .optional()
+                .describe("Dietary restrictions, when the user gives them"),
+            })
+            // The server refuses a guest it can't reach; catch it before the confirm bar.
+            .refine((input) => Boolean(input.phone || input.email), {
+              message: "A phone number or an email is required to add a guest",
+            }),
+          execute: async ({ name, phone, email, dietaryRestrictions }) => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId }, "add_guest tool called");
+            try {
+              const saved = await api.guests.findOrCreate({
+                venueId,
+                name,
+                ...(phone ? { phone } : {}),
+                ...(email ? { email } : {}),
+                ...(dietaryRestrictions ? { dietaryRestrictions } : {}),
+              });
+              return { saved: true, guest: shown(saved) };
+            } catch (err) {
+              log.error({ err, venueId }, "add_guest failed");
+              return guestFailure(err, "add the guest");
+            }
+          },
+        }),
+    
+        update_guest: tool({
+          description:
+            "Update a guest's profile: correct their name, phone or email, add or remove tags, or replace their dietary restrictions. Requires confirmation.",
+          inputSchema: UpdateGuestInputSchema,
+          execute: async (input) => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId }, "update_guest tool called");
+            try {
+              const found = await findGuest(api, venueId, input.guest, input.contact);
+              if ("error" in found) return found;
+              const current = found.guest.tags ?? [];
+              const tagsChange = input.addTags || input.removeTags;
+              const tags = tagsChange
+                ? [
+                    ...current.filter((tag) => !(input.removeTags ?? []).some((r) => sameText(r, tag))),
+                    ...(input.addTags ?? []).filter((tag) => !current.some((c) => sameText(c, tag))),
+                  ]
+                : undefined;
+              const updated = await api.guests.update(found.guest.id, {
+                ...(input.name ? { name: input.name } : {}),
+                ...(input.phone ? { phone: input.phone } : {}),
+                ...(input.email ? { email: input.email } : {}),
+                ...(tags ? { tags } : {}),
+                ...(input.dietaryRestrictions
+                  ? { dietaryRestrictions: input.dietaryRestrictions }
+                  : {}),
+                ...(input.notes ? { notes: input.notes } : {}),
+              });
+              return { updated: true, guest: shown(updated) };
+            } catch (err) {
+              log.error({ err, venueId }, "update_guest failed");
+              return guestFailure(err, "update the guest");
+            }
+          },
+        }),
+    
+        add_guest_note: tool({
+          description:
+            "Add a staff note to a guest's profile (seen by staff only). Requires confirmation.",
+          inputSchema: z.object({
+            ...GuestRefSchema,
+            text: z.string().min(1).max(1000).describe("The note"),
+          }),
+          execute: async ({ guest, contact, text }) => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId }, "add_guest_note tool called");
+            try {
+              const found = await findGuest(api, venueId, guest, contact);
+              if ("error" in found) return found;
+              await api.guests.addNote(found.guest.id, text);
+              return { noted: true, guest: found.guest.name };
+            } catch (err) {
+              log.error({ err, venueId }, "add_guest_note failed");
+              return guestFailure(err, "add the note");
+            }
+          },
+        }),
+    
+        send_win_back: tool({
+          description:
+            "Send a lapsing guest the venue's win-back message, inviting them back. Only guests from list_lapsing_guests. Requires confirmation.",
+          inputSchema: z.object({
+            guest: z.string().min(1).describe("The lapsing guest's name, as listed"),
+          }),
+          execute: async ({ guest }) => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId }, "send_win_back tool called");
+            try {
+              const lapsing = await api.guests.getLapsing(venueId);
+              const matches = lapsing.filter((g) => sameText(g.name, guest));
+              if (matches.length !== 1) {
+                return {
+                  error:
+                    matches.length === 0
+                      ? `${guest} isn't on the lapsing guest list, so no win-back was sent.`
+                      : `More than one lapsing guest is called ${guest}. Send it from the Dashboard instead.`,
+                };
+              }
+              const { sent } = await api.guests.sendWinBack(matches[0]!.guestId);
+              return sent
+                ? { sent: true, guest: matches[0]!.name }
+                : {
+                    sent: false,
+                    guest: matches[0]!.name,
+                    note: "The message wasn't sent, usually because of the guest's contact preferences. Say so.",
+                  };
+            } catch (err) {
+              log.error({ err, venueId }, "send_win_back failed");
+              return guestFailure(err, "send the win-back message");
+            }
+          },
+        }),
+      };
+    }
+  </file>
   <file path="services/agent/src/routes/gen-agent-prompt.ts">
     export const CHAT_PAGES = {
       timeline: "Timeline page (the day's bookings on the floor, table by table)",
@@ -29569,7 +29784,7 @@
         ...pageLines(ctx),
         "Never ask the user for a venue ID, reservation ID, or table ID: look them up with the tools.",
         "Your earlier replies in this conversation were based on tool results that aren't shown to you again. Treat them as accurate: don't apologize for or correct them unless a new tool result actually contradicts them. When you need an earlier detail, such as an ID, look it up again.",
-        "A change (booking, seating, no-show, walk-in, cancellation, table status, Tonight availability, waitlist) runs only when the user presses the Confirm or Cancel button the chat shows with it. Tell them to use those buttons, and never ask them to type yes: typing a new message dismisses the pending change.",
+        "A change (booking, seating, no-show, walk-in, cancellation, table status, Tonight availability, waitlist, guest profile) runs only when the user presses the Confirm or Cancel button the chat shows with it. Tell them to use those buttons, and never ask them to type yes: typing a new message dismisses the pending change.",
         "Ask only for details the user has to decide, such as guest name, party size, or time. When a reservation's end time isn't given, use two hours after the start.",
         "Reply in short, plain sentences in the user's language. Don't use markdown: the chat shows plain text.",
         "Show elements only by calling render_component with an elements array: each element has a unique id, a type from the components below, its props, and children as a list of other elements' ids; an element no other element lists is shown at the top level. Never write JSON, element specs or patch lines in your reply text.",
@@ -29587,6 +29802,7 @@
         "For tonight's availability, use change_tonight_availability to pause online booking, close early, stop a time window, block tables, or set pacing; it lasts until the service day ends. Call list_tonight_changes before end_tonight_change or undo_availability_change, and pass undo_availability_change the summary exactly as listed. When a change affects existing bookings, tell the user to finish it on the Availability page.",
         "When a booked party arrives, seat them with seat_reservation; seat_walk_in is only for guests with no booking. Mark a party that never came with mark_no_show. Pass cancel_reservation the reason when the user gives one. Deposits are handled on the Timeline page only: say so and point the user there.",
         "You can't add closures, special hours, or schedule changes for other days. Say so plainly and point the user to the Availability page.",
+        "Change a guest's profile with update_guest (tags, dietary restrictions, corrected contact details) and add staff notes with add_guest_note. Find guests to win back with list_lapsing_guests, then invite one back with send_win_back. Never repeat a guest's email or phone in a reply.",
         "Read the waitlist with list_waitlist. To seat a waiting party use seat_waitlist_party, not seat_walk_in, so they also leave the waitlist. Parties are named by guest name; when two share a name, ask for the party size.",
         "You can't manage deposits or menus yet. Say so plainly and point the user to that page in the dashboard.",
         "",
@@ -30254,6 +30470,7 @@
         }),
     
         ...createAvailabilityTools(log, api, { venueId, timeZone }),
+        ...createGuestTools(log, api, { venueId }),
         ...createWaitlistTools(log, api, { venueId, timeZone }),
         ...createTimelineTools(log, api, { venueId }),
       };
@@ -31068,6 +31285,10 @@
       "change_tonight_availability",
       "end_tonight_change",
       "undo_availability_change",
+      "add_guest",
+      "update_guest",
+      "add_guest_note",
+      "send_win_back",
       "add_to_waitlist",
       "notify_waitlist_party",
       "seat_waitlist_party",
