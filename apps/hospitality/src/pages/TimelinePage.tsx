@@ -1,4 +1,5 @@
 import { useVenueFormat } from "../hooks/useVenueFormat.js";
+import { usePublishChatFocus } from "../hooks/useChatFocus.js";
 import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -178,6 +179,8 @@ function LiveTimelinePage() {
   // The tablet sheet's More ▾, keyed by reservation so a new selection opens collapsed.
   const [sheetExpandedFor, setSheetExpandedFor] = useState<string | null>(null);
   const selectedId = intent.selectedId ?? selectedIdState;
+  // The chat reads the open reservation from here: the URL drops it on purpose (#7933).
+  usePublishChatFocus(selectedId ? { kind: "reservation", id: selectedId } : undefined);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showNoShowDialog, setShowNoShowDialog] = useState(false);
   const [showEditDrawer, setShowEditDrawer] = useState(false);
