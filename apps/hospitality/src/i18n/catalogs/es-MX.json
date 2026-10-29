@@ -1560,6 +1560,12 @@
       "update_guest": "Actualizar un cliente",
       "add_guest_note": "Agregar una nota del personal",
       "send_win_back": "Invitar a un cliente a volver",
+      "add_to_waitlist": "Agregar a la lista de espera",
+      "notify_waitlist_party": "Avisar a un grupo que su mesa está lista",
+      "seat_waitlist_party": "Sentar a un grupo en espera",
+      "remove_from_waitlist": "Quitar de la lista de espera",
+      "seat_reservation": "Sentar a un grupo con reserva",
+      "mark_no_show": "Marcar como no presentado",
       "fields": {
         "guestName": "Cliente",
         "partySize": "Personas",
@@ -1587,7 +1593,10 @@
         "addTags": "Agregar etiquetas",
         "removeTags": "Quitar etiquetas",
         "dietaryRestrictions": "Restricciones alimentarias",
-        "text": "Nota"
+        "text": "Nota",
+        "guestPhone": "Teléfono",
+        "reason": "Motivo",
+        "note": "Nota"
       },
       "tonightChanges": {
         "pause_online": "Pausar reservas en línea",

@@ -903,6 +903,7 @@ describe("createAgentTools", () => {
       api.reservations.cancel.mockResolvedValue(mockCancelled);
 
       const tools = createAgentTools(log, api as never, {
+        venueId: "v1",
         confirmedAction: {
           actionId: "call-1",
           toolName: "cancel_reservation",
@@ -922,6 +923,7 @@ describe("createAgentTools", () => {
       api.reservations.cancel.mockResolvedValue({ id: "r1", status: "CANCELLED" });
 
       const tools = createAgentTools(log, api as never, {
+        venueId: "v1",
         confirmedAction: {
           actionId: "call-1",
           toolName: "cancel_reservation",

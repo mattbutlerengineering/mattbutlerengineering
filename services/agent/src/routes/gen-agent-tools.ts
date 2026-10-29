@@ -5,6 +5,8 @@ import type { FastifyBaseLogger } from "fastify";
 import { GEN_WRITE_TOOL_NAMES } from "./gen-runner.js";
 import { createAvailabilityTools } from "./gen-agent-availability-tools.js";
 import { createGuestTools } from "./gen-agent-guest-tools.js";
+import { createWaitlistTools } from "./gen-agent-waitlist-tools.js";
+import { createTimelineTools } from "./gen-agent-timeline-tools.js";
 import {
   NO_VENUE,
   localTimeIn,
@@ -530,30 +532,6 @@ export function createAgentTools(
       },
     }),
 
-    cancel_reservation: tool({
-      description: "Cancel a reservation. Requires confirmation.",
-      inputSchema: z.object({
-        reservationId: z.string().optional().describe("Reservation ID to cancel"),
-        guestName: z.string().optional().describe("Guest name to look up and cancel"),
-        date: z.string().optional().describe("Date to narrow search"),
-      }),
-      execute: async ({ reservationId }) => {
-        log.info({ reservationId }, "cancel_reservation tool called");
-        try {
-          if (!reservationId) {
-            return {
-              error: "Reservation ID is required to cancel. Please look up the reservation first.",
-            };
-          }
-          const reservation = await api.reservations.cancel(reservationId);
-          return { reservation };
-        } catch (err) {
-          log.error({ err, reservationId }, "cancel_reservation failed");
-          return { error: "Failed to cancel reservation. Please try again." };
-        }
-      },
-    }),
-
     seat_walk_in: tool({
       description:
         "Create a walk-in reservation and seat guests immediately. Requires confirmation.",
@@ -614,6 +592,8 @@ export function createAgentTools(
 
     ...createAvailabilityTools(log, api, { venueId, timeZone }),
     ...createGuestTools(log, api, { venueId }),
+    ...createWaitlistTools(log, api, { venueId, timeZone }),
+    ...createTimelineTools(log, api, { venueId }),
   };
   return gateWriteTools(tools, log, options.confirmedAction);
 }

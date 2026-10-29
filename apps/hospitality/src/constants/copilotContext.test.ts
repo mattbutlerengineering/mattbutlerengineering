@@ -65,13 +65,13 @@ describe("describeChatAction", () => {
 describe("describeChatAction fallbacks", () => {
   it("shows a raw name rather than a translation key for an unknown tool or field", () => {
     const description = describeChatAction(
-      { actionId: "a3", toolName: "add_to_waitlist", toolInput: { quotedWait: 15 } },
+      { actionId: "a3", toolName: "unknown_wait", toolInput: { quotedWait: 15 } },
       (key) => `t:${key}`,
       () => undefined
     );
 
     expect(description).toEqual({
-      title: "add to waitlist",
+      title: "unknown wait",
       details: [{ label: "quotedWait", value: "15" }],
     });
   });
@@ -253,6 +253,82 @@ describe("describeChatAction guest actions", () => {
       { label: "t:chat.actions.fields.guest", value: "Ana Lopez" },
       { label: "t:chat.actions.fields.addTags", value: "vip, patio" },
       { label: "t:chat.actions.fields.dietaryRestrictions", value: "vegan" },
+    ]);
+  });
+});
+
+// #7926: waitlist actions, as the confirm bar shows them.
+describe("describeChatAction waitlist actions", () => {
+  const t = (key: string) => `t:${key}`;
+
+  it.each([
+    "add_to_waitlist",
+    "notify_waitlist_party",
+    "seat_waitlist_party",
+    "remove_from_waitlist",
+  ])("titles %s", (toolName) => {
+    expect(
+      describeChatAction({ actionId: "c", toolName, toolInput: {} }, t, () => undefined).title
+    ).toBe(`t:chat.actions.${toolName}`);
+  });
+
+  it("labels the guest's phone number", () => {
+    const add = describeChatAction(
+      {
+        actionId: "c1",
+        toolName: "add_to_waitlist",
+        toolInput: { guestName: "Park", partySize: 3, guestPhone: "+15555550199" },
+      },
+      t,
+      () => undefined
+    );
+
+    expect(add.details[2]).toEqual({
+      label: "t:chat.actions.fields.guestPhone",
+      value: "+15555550199",
+    });
+  });
+});
+
+// #7925: the timeline actions, as the confirm bar shows them.
+describe("describeChatAction timeline actions", () => {
+  const t = (key: string) => `t:${key}`;
+
+  it("titles seating and no-shows", () => {
+    const seat = describeChatAction(
+      {
+        actionId: "b1",
+        toolName: "seat_reservation",
+        toolInput: { reservationId: "r1", table: "Bar" },
+      },
+      t,
+      () => undefined
+    );
+    const noShow = describeChatAction(
+      { actionId: "b2", toolName: "mark_no_show", toolInput: { reservationId: "r1" } },
+      t,
+      () => undefined
+    );
+
+    expect(seat.title).toBe("t:chat.actions.seat_reservation");
+    expect(seat.details[1]).toEqual({ label: "t:chat.actions.fields.table", value: "Bar" });
+    expect(noShow.title).toBe("t:chat.actions.mark_no_show");
+  });
+
+  it("shows a cancellation's reason in words, and its note", () => {
+    const cancel = describeChatAction(
+      {
+        actionId: "b3",
+        toolName: "cancel_reservation",
+        toolInput: { reservationId: "r1", reason: "guest_cancelled", note: "Called at 5" },
+      },
+      t,
+      () => undefined
+    );
+
+    expect(cancel.details.slice(1)).toEqual([
+      { label: "t:chat.actions.fields.reason", value: "t:timeline.cancel.reasons.guestCancelled" },
+      { label: "t:chat.actions.fields.note", value: "Called at 5" },
     ]);
   });
 });

@@ -251,3 +251,29 @@ describe("guests in the prompt", () => {
     expect(prompt).toMatch(/list_lapsing_guests.*send_win_back/);
   });
 });
+
+// #7926: the chat runs the waitlist now.
+describe("waitlist in the prompt", () => {
+  it("lists waitlist changes among the confirmed ones and no longer says the waitlist is unsupported", () => {
+    const prompt = buildAgentSystemPrompt({ venueId: "v", now: NOW, catalogPrompt: "CATALOG" });
+    const confirmLine = prompt.split("\n").find((line) => /Confirm or Cancel button/.test(line));
+
+    expect(confirmLine).toMatch(/waitlist/);
+    expect(prompt).toMatch(/list_waitlist/);
+    expect(prompt).toMatch(/seat_waitlist_party.*not seat_walk_in/i);
+    expect(prompt).not.toMatch(/can't manage the waitlist/i);
+  });
+});
+
+// #7925: the timeline's own actions are confirmable changes too; deposits stay on the page.
+describe("timeline actions in the prompt", () => {
+  it("lists seating and no-shows among the changes the user confirms, and keeps deposits page-only", () => {
+    const prompt = buildAgentSystemPrompt({ venueId: "v", now: NOW, catalogPrompt: "CATALOG" });
+    const confirmLine = prompt.split("\n").find((line) => /Confirm or Cancel button/.test(line));
+
+    expect(confirmLine).toMatch(/seating/);
+    expect(confirmLine).toMatch(/no-show/);
+    expect(prompt).toMatch(/seat_reservation.*seat_walk_in/);
+    expect(prompt).toMatch(/deposits/i);
+  });
+});
