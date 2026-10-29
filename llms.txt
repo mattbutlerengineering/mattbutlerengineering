@@ -3053,7 +3053,7 @@
       export function useChatSuggestions(): readonly string[] { /* ... */ }
     </item>
     <item priority="high">
-      type ChatActionKey = (typeof ACTION_TITLES)[keyof t | (typeof ACTION_FIELDS)[keyof t | (typeof TABLE_STATUSES)[keyof  | (typeof TONIGHT_CHANGES)[keyof;
+      type ChatActionKey = `chat.actions.${(typeof ACTION | `chat.actions.fields.${(typeof | (typeof TABLE_STATUSES)[keyof  | (typeof TONIGHT_CHANGES)[keyof | (typeof CANCEL_REASONS)[keyof ;
     </item>
     <item priority="high">
       type Translate = (key: ChatActionKey) => string;
@@ -9930,6 +9930,32 @@
       ): ToolSet { /* ... */ }
     </item>
   </file>
+  <file path="services/agent/src/routes/gen-agent-guest-tools.ts">
+    <item priority="high">
+      type Guest = Awaited<ReturnType<ApiClient["guests"]["get"]>>;
+    </item>
+    <item priority="medium">
+      function shown(guest: Guest) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function guestFailure(err: unknown, action: string) { /* ... */ }
+    </item>
+    <item priority="low">
+      async function findGuest(
+        api: ApiClient,
+        venueId: string,
+        name: string,
+        contact: string | undefined
+      ): Promise<{ guest: Guest } | { error: string }> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createGuestTools(
+        log: FastifyBaseLogger,
+        api: ApiClient,
+        { venueId }: { readonly venueId?: string | undefined }
+      ): ToolSet { /* ... */ }
+    </item>
+  </file>
   <file path="services/agent/src/routes/gen-agent-prompt.ts">
     <item priority="high">
       export const CHAT_PAGES: unknown;
@@ -9969,6 +9995,28 @@
     </item>
     <item priority="high">
       export function buildAgentSystemPrompt(ctx: AgentPromptContext): string { /* ... */ }
+    </item>
+  </file>
+  <file path="services/agent/src/routes/gen-agent-timeline-tools.ts">
+    <item priority="high">
+      type Reservation = Awaited<ReturnType<ApiClient["reservations"]["get"]>>;
+    </item>
+    <item priority="medium">
+      function bookingWriteFailure(err: unknown, action: string, saved?: string) { /* ... */ }
+    </item>
+    <item priority="low">
+      async function venueReservation(
+        api: ApiClient,
+        venueId: string,
+        reservationId: string
+      ): Promise<{ reservation: Reservation } | { error: string }> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createTimelineTools(
+        log: FastifyBaseLogger,
+        api: ApiClient,
+        { venueId }: { readonly venueId?: string | undefined }
+      ): ToolSet { /* ... */ }
     </item>
   </file>
   <file path="services/agent/src/routes/gen-agent-tools.ts">

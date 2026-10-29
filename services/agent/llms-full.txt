@@ -554,6 +554,216 @@
       };
     }
   </file>
+  <file path="src/routes/gen-agent-guest-tools.ts">
+    type Guest = Awaited<ReturnType<ApiClient["guests"]["get"]>>;
+    function shown(guest: Guest) {
+      return {
+        name: guest.name,
+        visitCount: guest.visitCount,
+        tags: guest.tags ?? [],
+        dietaryRestrictions: guest.dietaryRestrictions ?? [],
+      };
+    }
+    function guestFailure(err: unknown, action: string) {
+      const refusal = refusalOf(err);
+      if (!refusal) {
+        return {
+          error: `Couldn't ${action} right now. Nothing was changed. Ask the user to try again.`,
+        };
+      }
+      if (refusal.status === 403) {
+        return {
+          refused: true,
+          error: "The user doesn't have permission to do this. Nothing was changed.",
+        };
+      }
+      return { refused: true, error: `${refusal.detail} Nothing was changed.` };
+    }
+    async function findGuest(
+      api: ApiClient,
+      venueId: string,
+      name: string,
+      contact: string | undefined
+    ): Promise<{ guest: Guest } | { error: string }> {
+      const { data } = await api.guests.search({ venueId, query: name });
+      const named = data.filter((g) => sameText(g.name, name));
+      const matches = contact
+        ? named.filter((g) => [g.email, g.phone].some((c) => c && sameText(c, contact)))
+        : named;
+      if (matches.length === 1) return { guest: matches[0]! };
+      if (matches.length === 0) {
+        return {
+          error: `No guest called ${name}${contact ? ` with that phone or email` : ""} was found.`,
+        };
+      }
+      return {
+        error: `${matches.length} guests are called ${name}. Ask for this guest's phone or email to tell them apart.`,
+      };
+    }
+    export function createGuestTools(
+      log: FastifyBaseLogger,
+      api: ApiClient,
+      { venueId }: { readonly venueId?: string | undefined }
+    ): ToolSet {
+      return {
+        // ── Read ───────────────────────────────────────────────
+        list_lapsing_guests: tool({
+          description:
+            "List regular guests who are overdue for a visit (win-back candidates), most overdue first.",
+          inputSchema: z.object({}),
+          execute: async () => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId }, "list_lapsing_guests tool called");
+            try {
+              const lapsing = await api.guests.getLapsing(venueId);
+              return {
+                guests: [...lapsing]
+                  .sort((a, b) => b.daysOverdue - a.daysOverdue)
+                  .map((g) => ({
+                    name: g.name,
+                    daysSinceLastVisit: g.daysSinceLastVisit,
+                    daysOverdue: g.daysOverdue,
+                  })),
+              };
+            } catch (err) {
+              log.error({ err, venueId }, "list_lapsing_guests failed");
+              return { error: "Couldn't read lapsing guests. Ask the user to try again." };
+            }
+          },
+        }),
+    
+        // ── Write (each runs only after the user confirms) ─────
+        add_guest: tool({
+          description:
+            "Add a guest to the directory. Needs a phone number or an email; an existing guest with the same email or phone is reused, not duplicated. Requires confirmation.",
+          inputSchema: z
+            .object({
+              name: z.string().min(1).describe("The guest's name"),
+              phone: z.string().min(1).optional().describe("The guest's phone number"),
+              email: z.email().optional().describe("The guest's email address"),
+              dietaryRestrictions: z
+                .array(z.string().min(1))
+                .optional()
+                .describe("Dietary restrictions, when the user gives them"),
+            })
+            // The server refuses a guest it can't reach; catch it before the confirm bar.
+            .refine((input) => Boolean(input.phone || input.email), {
+              message: "A phone number or an email is required to add a guest",
+            }),
+          execute: async ({ name, phone, email, dietaryRestrictions }) => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId }, "add_guest tool called");
+            try {
+              const saved = await api.guests.findOrCreate({
+                venueId,
+                name,
+                ...(phone ? { phone } : {}),
+                ...(email ? { email } : {}),
+                ...(dietaryRestrictions ? { dietaryRestrictions } : {}),
+              });
+              return { saved: true, guest: shown(saved) };
+            } catch (err) {
+              log.error({ err, venueId }, "add_guest failed");
+              return guestFailure(err, "add the guest");
+            }
+          },
+        }),
+    
+        update_guest: tool({
+          description:
+            "Update a guest's profile: correct their name, phone or email, add or remove tags, or replace their dietary restrictions. Requires confirmation.",
+          inputSchema: UpdateGuestInputSchema,
+          execute: async (input) => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId }, "update_guest tool called");
+            try {
+              const found = await findGuest(api, venueId, input.guest, input.contact);
+              if ("error" in found) return found;
+              const current = found.guest.tags ?? [];
+              const tagsChange = input.addTags || input.removeTags;
+              const tags = tagsChange
+                ? [
+                    ...current.filter((tag) => !(input.removeTags ?? []).some((r) => sameText(r, tag))),
+                    ...(input.addTags ?? []).filter((tag) => !current.some((c) => sameText(c, tag))),
+                  ]
+                : undefined;
+              const updated = await api.guests.update(found.guest.id, {
+                ...(input.name ? { name: input.name } : {}),
+                ...(input.phone ? { phone: input.phone } : {}),
+                ...(input.email ? { email: input.email } : {}),
+                ...(tags ? { tags } : {}),
+                ...(input.dietaryRestrictions
+                  ? { dietaryRestrictions: input.dietaryRestrictions }
+                  : {}),
+                ...(input.notes ? { notes: input.notes } : {}),
+              });
+              return { updated: true, guest: shown(updated) };
+            } catch (err) {
+              log.error({ err, venueId }, "update_guest failed");
+              return guestFailure(err, "update the guest");
+            }
+          },
+        }),
+    
+        add_guest_note: tool({
+          description:
+            "Add a staff note to a guest's profile (seen by staff only). Requires confirmation.",
+          inputSchema: z.object({
+            ...GuestRefSchema,
+            text: z.string().min(1).max(1000).describe("The note"),
+          }),
+          execute: async ({ guest, contact, text }) => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId }, "add_guest_note tool called");
+            try {
+              const found = await findGuest(api, venueId, guest, contact);
+              if ("error" in found) return found;
+              await api.guests.addNote(found.guest.id, text);
+              return { noted: true, guest: found.guest.name };
+            } catch (err) {
+              log.error({ err, venueId }, "add_guest_note failed");
+              return guestFailure(err, "add the note");
+            }
+          },
+        }),
+    
+        send_win_back: tool({
+          description:
+            "Send a lapsing guest the venue's win-back message, inviting them back. Only guests from list_lapsing_guests. Requires confirmation.",
+          inputSchema: z.object({
+            guest: z.string().min(1).describe("The lapsing guest's name, as listed"),
+          }),
+          execute: async ({ guest }) => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId }, "send_win_back tool called");
+            try {
+              const lapsing = await api.guests.getLapsing(venueId);
+              const matches = lapsing.filter((g) => sameText(g.name, guest));
+              if (matches.length !== 1) {
+                return {
+                  error:
+                    matches.length === 0
+                      ? `${guest} isn't on the lapsing guest list, so no win-back was sent.`
+                      : `More than one lapsing guest is called ${guest}. Send it from the Dashboard instead.`,
+                };
+              }
+              const { sent } = await api.guests.sendWinBack(matches[0]!.guestId);
+              return sent
+                ? { sent: true, guest: matches[0]!.name }
+                : {
+                    sent: false,
+                    guest: matches[0]!.name,
+                    note: "The message wasn't sent, usually because of the guest's contact preferences. Say so.",
+                  };
+            } catch (err) {
+              log.error({ err, venueId }, "send_win_back failed");
+              return guestFailure(err, "send the win-back message");
+            }
+          },
+        }),
+      };
+    }
+  </file>
   <file path="src/routes/gen-agent-prompt.ts">
     export const CHAT_PAGES = {
       timeline: "Timeline page (the day's bookings on the floor, table by table)",
@@ -631,7 +841,7 @@
         ...pageLines(ctx),
         "Never ask the user for a venue ID, reservation ID, or table ID: look them up with the tools.",
         "Your earlier replies in this conversation were based on tool results that aren't shown to you again. Treat them as accurate: don't apologize for or correct them unless a new tool result actually contradicts them. When you need an earlier detail, such as an ID, look it up again.",
-        "A change (booking, walk-in, cancellation, table status, Tonight availability, waitlist) runs only when the user presses the Confirm or Cancel button the chat shows with it. Tell them to use those buttons, and never ask them to type yes: typing a new message dismisses the pending change.",
+        "A change (booking, seating, no-show, walk-in, cancellation, table status, Tonight availability, waitlist, guest profile) runs only when the user presses the Confirm or Cancel button the chat shows with it. Tell them to use those buttons, and never ask them to type yes: typing a new message dismisses the pending change.",
         "Ask only for details the user has to decide, such as guest name, party size, or time. When a reservation's end time isn't given, use two hours after the start.",
         "Reply in short, plain sentences in the user's language. Don't use markdown: the chat shows plain text.",
         "Show elements only by calling render_component with an elements array: each element has a unique id, a type from the components below, its props, and children as a list of other elements' ids; an element no other element lists is shown at the top level. Never write JSON, element specs or patch lines in your reply text.",
@@ -647,12 +857,164 @@
         "Any other lists: show them as a Table.",
         'Tables move AVAILABLE (free) → OCCUPIED (seated) → DIRTY (needs bussing) → READY (cleaned) → AVAILABLE. Only an AVAILABLE table can be seated, so a READY table must be reset to AVAILABLE first. When staff say a table is "clean", that means READY. Describe statuses to staff in plain words, not capitals.',
         "For tonight's availability, use change_tonight_availability to pause online booking, close early, stop a time window, block tables, or set pacing; it lasts until the service day ends. Call list_tonight_changes before end_tonight_change or undo_availability_change, and pass undo_availability_change the summary exactly as listed. When a change affects existing bookings, tell the user to finish it on the Availability page.",
+        "When a booked party arrives, seat them with seat_reservation; seat_walk_in is only for guests with no booking. Mark a party that never came with mark_no_show. Pass cancel_reservation the reason when the user gives one. Deposits are handled on the Timeline page only: say so and point the user there.",
         "You can't add closures, special hours, or schedule changes for other days. Say so plainly and point the user to the Availability page.",
+        "Change a guest's profile with update_guest (tags, dietary restrictions, corrected contact details) and add staff notes with add_guest_note. Find guests to win back with list_lapsing_guests, then invite one back with send_win_back. Never repeat a guest's email or phone in a reply.",
         "Read the waitlist with list_waitlist. To seat a waiting party use seat_waitlist_party, not seat_walk_in, so they also leave the waitlist. Parties are named by guest name; when two share a name, ask for the party size.",
         "You can't manage deposits or menus yet. Say so plainly and point the user to that page in the dashboard.",
         "",
         ctx.catalogPrompt,
       ].join("\n");
+    }
+  </file>
+  <file path="src/routes/gen-agent-timeline-tools.ts">
+    type Reservation = Awaited<ReturnType<ApiClient["reservations"]["get"]>>;
+    function bookingWriteFailure(err: unknown, action: string, saved?: string) {
+      const outcome = saved
+        ? `${saved} was already saved; check the timeline before trying again.`
+        : "Nothing was changed.";
+      const refusal = refusalOf(err);
+      if (!refusal) {
+        return { error: `Couldn't ${action} right now. ${outcome} Ask the user to try again shortly.` };
+      }
+      if (refusal.status === 403) {
+        return { refused: true, error: `The user doesn't have permission to do this. ${outcome}` };
+      }
+      return { refused: true, error: `${refusal.detail} ${outcome}` };
+    }
+    async function venueReservation(
+      api: ApiClient,
+      venueId: string,
+      reservationId: string
+    ): Promise<{ reservation: Reservation } | { error: string }> {
+      const reservation = await api.reservations.get(reservationId);
+      if (reservation.venueId !== venueId) {
+        return { error: "That reservation isn't at this venue. Look it up again." };
+      }
+      return { reservation };
+    }
+    export function createTimelineTools(
+      log: FastifyBaseLogger,
+      api: ApiClient,
+      { venueId }: { readonly venueId?: string | undefined }
+    ): ToolSet {
+      return {
+        seat_reservation: tool({
+          description:
+            "Seat a booked party that has arrived: at its booked table, or at the table staff name. Marks the table occupied, as the timeline's Seat button does. For a walk-in with no booking, use seat_walk_in. Requires confirmation.",
+          inputSchema: z.object({
+            reservationId: ReservationIdSchema,
+            table: z
+              .string()
+              .min(1)
+              .optional()
+              .describe("Seat at this table instead, by its name or number; omit for the booked table"),
+          }),
+          execute: async ({ reservationId, table: tableRef }) => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId, reservationId, tableRef }, "seat_reservation tool called");
+            let saved: string | undefined;
+            try {
+              const found = await venueReservation(api, venueId, reservationId);
+              if ("error" in found) return found;
+              const { reservation } = found;
+              if (!SEATABLE_STATUSES.has(reservation.status)) {
+                return {
+                  error: `This booking is ${reservation.status.toLowerCase().replace(/_/g, " ")}, so it can't be seated.`,
+                };
+              }
+              const { data: tables } = await api.tables.list({ venueId, limit: TABLES_LIMIT });
+              const chosen = tableRef ? resolveTable(tables, tableRef) : undefined;
+              if (chosen && "error" in chosen) return chosen;
+              const tableId = chosen?.table.id ?? reservation.tableId;
+              if (!tableId) {
+                return { error: "This booking has no table. Ask which table to seat them at." };
+              }
+              const target = tables.find((t) => t.id === tableId);
+              const tableLabel = target?.name ?? target?.tableNumber ?? tableId;
+              // Only an AVAILABLE table can be seated: check before writing anything.
+              if (target && target.status !== "AVAILABLE") {
+                return {
+                  error: `Table ${tableLabel} is ${target.status.toLowerCase()}, so the party can't be seated there. Nothing was changed.`,
+                };
+              }
+              // The server has no CONFIRMED -> CONFIRMED edge, so only a pending booking changes
+              // status; and it refuses a status change combined with a table change, so they go
+              // as separate requests.
+              if (reservation.status === "PENDING") {
+                await api.reservations.update(reservationId, { status: "CONFIRMED" });
+                saved = "Confirming the booking";
+              }
+              if (tableId !== reservation.tableId) {
+                await api.reservations.update(reservationId, { tableId });
+                saved = saved
+                  ? `${saved} and moving it to ${tableLabel}`
+                  : `Moving it to ${tableLabel}`;
+              }
+              await api.tables.updateStatus(tableId, "OCCUPIED");
+              return { seated: true, table: tableLabel };
+            } catch (err) {
+              log.error({ err, venueId, reservationId }, "seat_reservation failed");
+              return bookingWriteFailure(err, "seat the party", saved);
+            }
+          },
+        }),
+    
+        mark_no_show: tool({
+          description: "Mark a booking as a no-show: the party never arrived. Requires confirmation.",
+          inputSchema: z.object({ reservationId: ReservationIdSchema }),
+          execute: async ({ reservationId }) => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId, reservationId }, "mark_no_show tool called");
+            try {
+              const found = await venueReservation(api, venueId, reservationId);
+              if ("error" in found) return found;
+              const { warning } = await api.reservations.markNoShow(reservationId);
+              return { noShow: true, ...(warning ? { warning } : {}) };
+            } catch (err) {
+              log.error({ err, venueId, reservationId }, "mark_no_show failed");
+              return bookingWriteFailure(err, "mark the no-show");
+            }
+          },
+        }),
+    
+        cancel_reservation: tool({
+          description:
+            "Cancel a reservation, with the reason and a note when the user gives them. Requires confirmation.",
+          inputSchema: z.object({
+            reservationId: z.string().optional().describe("Reservation ID to cancel"),
+            guestName: z.string().optional().describe("Guest name to look up and cancel"),
+            date: z.string().optional().describe("Date to narrow search"),
+            reason: z
+              .enum(CANCEL_REASONS)
+              .optional()
+              .describe("Why it is cancelled, when the user says"),
+            note: z.string().max(500).optional().describe("A note on the cancellation"),
+          }),
+          execute: async ({ reservationId, reason, note }) => {
+            if (!venueId) return NO_VENUE;
+            log.info({ reservationId, reason }, "cancel_reservation tool called");
+            try {
+              if (!reservationId) {
+                return {
+                  error: "Reservation ID is required to cancel. Please look up the reservation first.",
+                };
+              }
+              const reservation =
+                reason || note
+                  ? await api.reservations.cancelWithReason(reservationId, {
+                      ...(reason ? { cancellationReason: reason } : {}),
+                      ...(note ? { cancellationNote: note } : {}),
+                    })
+                  : await api.reservations.cancel(reservationId);
+              return { reservation };
+            } catch (err) {
+              log.error({ err, reservationId }, "cancel_reservation failed");
+              return { error: "Failed to cancel reservation. Please try again." };
+            }
+          },
+        }),
+      };
     }
   </file>
   <file path="src/routes/gen-agent-tools.ts">
@@ -1106,30 +1468,6 @@
           },
         }),
     
-        cancel_reservation: tool({
-          description: "Cancel a reservation. Requires confirmation.",
-          inputSchema: z.object({
-            reservationId: z.string().optional().describe("Reservation ID to cancel"),
-            guestName: z.string().optional().describe("Guest name to look up and cancel"),
-            date: z.string().optional().describe("Date to narrow search"),
-          }),
-          execute: async ({ reservationId }) => {
-            log.info({ reservationId }, "cancel_reservation tool called");
-            try {
-              if (!reservationId) {
-                return {
-                  error: "Reservation ID is required to cancel. Please look up the reservation first.",
-                };
-              }
-              const reservation = await api.reservations.cancel(reservationId);
-              return { reservation };
-            } catch (err) {
-              log.error({ err, reservationId }, "cancel_reservation failed");
-              return { error: "Failed to cancel reservation. Please try again." };
-            }
-          },
-        }),
-    
         seat_walk_in: tool({
           description:
             "Create a walk-in reservation and seat guests immediately. Requires confirmation.",
@@ -1189,7 +1527,9 @@
         }),
     
         ...createAvailabilityTools(log, api, { venueId, timeZone }),
+        ...createGuestTools(log, api, { venueId }),
         ...createWaitlistTools(log, api, { venueId, timeZone }),
+        ...createTimelineTools(log, api, { venueId }),
       };
       return gateWriteTools(tools, log, options.confirmedAction);
     }
@@ -2002,10 +2342,16 @@
       "change_tonight_availability",
       "end_tonight_change",
       "undo_availability_change",
+      "add_guest",
+      "update_guest",
+      "add_guest_note",
+      "send_win_back",
       "add_to_waitlist",
       "notify_waitlist_party",
       "seat_waitlist_party",
       "remove_from_waitlist",
+      "seat_reservation",
+      "mark_no_show",
     ] as const;
     export type GenToolMap = Record<string, unknown>;
     export type GenEventCallback = (event: GenStreamEvent) => Promise<void>;

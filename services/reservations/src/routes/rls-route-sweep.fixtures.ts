@@ -599,8 +599,8 @@ const notRlsFixtures: Record<string, RouteFixture> = {
       url: HOLDS_URL,
       payload: {
         venueId: ctx.venueA.id,
-        date: inWindowDate(3),
-        time: `${inWindowDate(3)}T18:00:00Z`,
+        date: inWindowDate(4),
+        time: `${inWindowDate(4)}T18:00:00Z`,
         partySize: 2,
         tableId: ctx.tableA,
       },
@@ -611,8 +611,8 @@ const notRlsFixtures: Record<string, RouteFixture> = {
       url: HOLDS_URL,
       payload: {
         venueId: ctx.venueA.id,
-        date: inWindowDate(3),
-        time: `${inWindowDate(3)}T18:00:00Z`,
+        date: inWindowDate(4),
+        time: `${inWindowDate(4)}T18:00:00Z`,
         partySize: 2,
         tableId: ctx.tableB,
       },
@@ -628,8 +628,8 @@ const notRlsFixtures: Record<string, RouteFixture> = {
         url: HOLDS_URL,
         payload: {
           venueId: ctx.venueA.id,
-          date: inWindowDate(3),
-          time: `${inWindowDate(3)}T18:00:00Z`,
+          date: inWindowDate(4),
+          time: `${inWindowDate(4)}T18:00:00Z`,
           partySize: 2,
           tableId: memberTable,
         },
@@ -642,8 +642,8 @@ const notRlsFixtures: Record<string, RouteFixture> = {
       url: HOLDS_URL,
       payload: {
         venueId: ctx.venueB.id,
-        date: inWindowDate(3),
-        time: `${inWindowDate(3)}T18:00:00Z`,
+        date: inWindowDate(4),
+        time: `${inWindowDate(4)}T18:00:00Z`,
         partySize: 2,
         tableId: ctx.tableB,
       },
