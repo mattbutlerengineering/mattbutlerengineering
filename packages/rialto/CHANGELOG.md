@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 0.9.6
+
+### Patch Changes
+
+- [#7998](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7998) [`36ade63`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/36ade637fd4df05bfb4a9cbce99708abfba9c694) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Dialog panel is now opaque in light and dark (it used the translucent glass recipe, so content behind it ghosted through). A long dialog scrolls its body, description included, while the title and footer stay in view, and short viewports (down to the 320x256 reflow size) tighten the chrome so the footer stays reachable. An overflowing body is a keyboard-focusable region; one that fits adds no tab stop. A Popover opened inside a Dialog (DatePicker, DateRangePicker, TimePicker) now renders in the dialog's layer, flipping to the roomier side, so the scrolling body no longer clips it.
+
 ## 0.9.5
 
 ### Patch Changes
