@@ -2157,6 +2157,12 @@
       },
       "overnight": "Cierra a las {{time}} del día siguiente ({{weekday}})",
       "overnightNextDay": "Cierra a las {{time}} del día siguiente",
+      "held_one": "Tu cambio en {{names}} no se guardará: no está en lo que estás modificando ahora.",
+      "held_many": "Tus cambios en {{names}} no se guardarán: no están en lo que estás modificando ahora.",
+      "held_other": "Tus cambios en {{names}} no se guardarán: no están en lo que estás modificando ahora.",
+      "overridden_one": "No se usarán tus horarios de {{names}}: lo que estás modificando ya los tiene.",
+      "overridden_many": "No se usarán tus horarios de {{names}}: lo que estás modificando ya los tiene.",
+      "overridden_other": "No se usarán tus horarios de {{names}}: lo que estás modificando ya los tiene.",
       "remove": "Quitar {{name}}",
       "scope": {
         "label": "Estás cambiando",

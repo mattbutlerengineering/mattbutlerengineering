@@ -91,7 +91,9 @@ test.describe("Change regular week (F-UW)", () => {
     await expect(mockedPage.getByText(/^Applies to Tue–Sat/)).toBeVisible();
 
     await mockedPage.getByLabel("Starting").click();
-    await mockedPage.locator(`[data-date="${localDay()}"]`).click();
+    // The page's own calendar also has a button with this data-date, behind the drawer; only the
+    // date picker's cell is a gridcell itself.
+    await mockedPage.locator(`[role="gridcell"][data-date="${localDay()}"]`).click();
     await mockedPage.getByLabel(/Schedule name/).fill("Summer hours");
     await mockedPage.getByRole("button", { name: /^Save hours from/ }).click();
 
@@ -123,5 +125,24 @@ test.describe("Change regular week (F-UW)", () => {
       .getByRole("button", { name: "Discard" })
       .click();
     await expect(drawer).toBeHidden();
+  });
+
+  test("Cancel asks first, and the prompt's buttons are clickable above the drawer", async ({
+    mockedPage,
+  }) => {
+    await mockTueSatVenue(mockedPage);
+    await mockedPage.goto("availability");
+
+    const drawer = mockedPage.getByRole("dialog", { name: "Change regular week" });
+    await mockedPage.getByRole("button", { name: "Change regular week…" }).click();
+    await mockedPage.getByLabel(/Schedule name/).fill("Summer hours");
+
+    await mockedPage.getByRole("button", { name: "Cancel" }).click();
+    const ask = mockedPage.getByRole("dialog", { name: "Discard your changes?" });
+    await expect(ask).toBeVisible();
+    // A real click: the prompt must stack above the drawer's overlay, not under it.
+    await ask.getByRole("button", { name: "Discard" }).click();
+    await expect(drawer).toBeHidden();
+    await expect(ask).toBeHidden();
   });
 });

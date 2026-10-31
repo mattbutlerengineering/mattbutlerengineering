@@ -2017,6 +2017,68 @@
       );
     }
   </file>
+  <file path="src/components/availability/scope-switch.ts">
+    export interface ParkedEdit {
+      readonly base: DraftService;
+      readonly draft: DraftService;
+    }
+    interface SwitchInput {
+      /** The rows the draft started from, in the scope it leaves. */
+      readonly baseline: readonly DraftService[];
+      readonly services: readonly DraftService[];
+      readonly parked: readonly ParkedEdit[];
+      /** The rows of the scope it lands in. */
+      readonly seed: DraftService[];
+    }
+    export interface Switched {
+      readonly services: DraftService[];
+      readonly baseline: DraftService[];
+      readonly parked: ParkedEdit[];
+      /** Services the new scope lacks, whose edits are held rather than saved. */
+      readonly unsaved: string[];
+      /** Added services the new scope already has: its hours are kept, not the ones just set. */
+      readonly overridden: string[];
+    }
+    export function switchScope(input: SwitchInput): Switched {
+      const { baseline, services, parked, seed } = input;
+      const ids = (rows: readonly DraftService[]) => new Set(rows.map((r) => r.venueServiceId));
+      const baselineIds = ids(baseline);
+      const serviceIds = ids(services);
+      // Edits parked earlier rejoin the draft, so a scope that has the service takes them up again.
+      const base = [
+        ...baseline,
+        ...parked.map((p) => p.base).filter((b) => !baselineIds.has(b.venueServiceId)),
+      ];
+      const draft = [
+        ...services,
+        ...parked.map((p) => p.draft).filter((d) => !serviceIds.has(d.venueServiceId)),
+      ];
+      const baseById = new Map(base.map((r) => [r.venueServiceId, r]));
+      const seedById = new Map(seed.map((r) => [r.venueServiceId, r]));
+    
+      const nextParked = draft.flatMap((d) => {
+        const was = baseById.get(d.venueServiceId);
+        return d.venueServiceId !== null && was && !same(was, d) && !seedById.has(d.venueServiceId)
+          ? [{ base: was, draft: d }]
+          : [];
+      });
+      // An added service the new scope already has keeps that scope's hours, not the ones just set.
+      const overridden = draft.flatMap((d) => {
+        const there = d.venueServiceId === null ? undefined : seedById.get(d.venueServiceId);
+        return there && !baseById.has(d.venueServiceId) && !same(there, d)
+          ? [d.name || there.name]
+          : [];
+      });
+    
+      return {
+        services: reapplyDraft({ base, draft, latest: seed }),
+        baseline: seed,
+        parked: nextParked,
+        unsaved: [...new Set(nextParked.map((p) => p.draft.name))],
+        overridden: [...new Set(overridden)],
+      };
+    }
+  </file>
   <file path="src/components/availability/selection-actions.ts">
     export function ownSingleDateRules(
       config: AvailabilityConfig,

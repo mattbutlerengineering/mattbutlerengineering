@@ -85,15 +85,16 @@
    Card's stacking context — position/top/left/width are set imperatively
    from the trigger's viewport rect, not from this module.
    z-index must beat every other overlay a Select can legitimately be
-   nested inside (Dialog/Popover/DropdownMenu/NavigationMenu/Combobox at
-   100, Drawer/CommandPalette at 9998-9999) — none of those are portaled
-   either, so they share the same root stacking context. 10000 clears the
-   current ceiling (Drawer/CommandPalette at 9999); re-check this value if
-   a future overlay tier is raised above it. */
+   nested inside (Popover/DropdownMenu/NavigationMenu/Combobox at 100,
+   Drawer/CommandPalette at 9998-9999, Dialog at 10000) — none of those
+   are portaled either, so they share the same root stacking context.
+   10001 clears the current ceiling (Dialog at 10000); Toast sits above
+   it at 10002. Re-check this value if a future overlay tier is raised
+   above it (Dialog.layering.test.ts pins the order). */
 .dropdown {
   composes: glass from "../../styles/surfaces.module.css";
 
-  z-index: 10000;
+  z-index: 10001;
   border-radius: var(--rialto-radius-default);
   padding: var(--rialto-space-2xs);
   max-height: 240px;

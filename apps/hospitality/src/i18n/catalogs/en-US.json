@@ -2114,6 +2114,10 @@
       },
       "overnight": "Closes {{time}} the next day ({{weekday}})",
       "overnightNextDay": "Closes {{time}} the next day",
+      "held_one": "Your edit to {{names}} won’t be saved: it isn’t in what you’re changing now.",
+      "held_other": "Your edits to {{names}} won’t be saved: they aren’t in what you’re changing now.",
+      "overridden_one": "Your hours for {{names}} won’t be used: what you’re changing already has them.",
+      "overridden_other": "Your hours for {{names}} won’t be used: what you’re changing already has them.",
       "remove": "Remove {{name}}",
       "scope": {
         "label": "You’re changing",

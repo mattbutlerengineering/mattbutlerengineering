@@ -2157,6 +2157,12 @@
       },
       "overnight": "Ferme à {{time}} le lendemain ({{weekday}})",
       "overnightNextDay": "Ferme à {{time}} le lendemain",
+      "held_one": "Votre modification de {{names}} ne sera pas enregistrée : ce service n’est pas dans ce que vous modifiez maintenant.",
+      "held_many": "Vos modifications de {{names}} ne seront pas enregistrées : ces services ne sont pas dans ce que vous modifiez maintenant.",
+      "held_other": "Vos modifications de {{names}} ne seront pas enregistrées : ces services ne sont pas dans ce que vous modifiez maintenant.",
+      "overridden_one": "Vos heures pour {{names}} ne seront pas utilisées : ce que vous modifiez les définit déjà.",
+      "overridden_many": "Vos heures pour {{names}} ne seront pas utilisées : ce que vous modifiez les définit déjà.",
+      "overridden_other": "Vos heures pour {{names}} ne seront pas utilisées : ce que vous modifiez les définit déjà.",
       "remove": "Retirer {{name}}",
       "scope": {
         "label": "Vous modifiez",

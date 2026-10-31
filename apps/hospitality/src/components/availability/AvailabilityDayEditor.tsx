@@ -25,7 +25,7 @@ import { useViewport } from "../../hooks/useViewport.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import { AvailabilityGuestPreview } from "./AvailabilityGuestPreview.js";
 import { ConflictDialog } from "./ConflictDialog.js";
-import { reapplyDraft } from "./conflict-review.js";
+import { switchScope, type ParkedEdit } from "./scope-switch.js";
 import {
   buildDraftChanges,
   overnightHintDate,
@@ -70,6 +70,11 @@ interface EditState {
   readonly services: DraftService[];
   /** The rows the draft started from; the draft is dirty while it differs. */
   readonly baseline: DraftService[];
+  /** Edits to services the scope showing now lacks; they return with a scope that has them. */
+  readonly parked: ParkedEdit[];
+  /** Services whose edits the scope showing now will not save, named in a line under the scope. */
+  readonly unsaved: string[];
+  readonly overridden: string[];
   readonly mode: ScopeConflictMode;
 }
 
@@ -77,8 +82,13 @@ interface Failure {
   readonly messages: string[];
 }
 
+/** Something to save: the rows differ from where this scope started. */
 const isDirty = (edit: EditState | null): boolean =>
   edit !== null && !servicesEqual(edit.services, edit.baseline);
+
+/** Something to lose: a save, or an edit held for a scope that has the service. */
+const holdsEdits = (edit: EditState | null): boolean =>
+  edit !== null && (isDirty(edit) || edit.parked.length > 0);
 
 function problemOf(error: unknown) {
   const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
@@ -141,9 +151,12 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   const schedule = config.schedules.find((s) => s.id === day.scheduleId);
   const scheduleCount = config.schedules.filter((s) => !s.archivedAt).length;
 
+  const nameList = (names: readonly string[]) =>
+    new Intl.ListFormat(format.locale, { type: "conjunction" }).format(names);
+
   const update = (next: EditState) => {
     setEdit(next);
-    onDirtyChange(isDirty(next));
+    onDirtyChange(holdsEdits(next));
   };
 
   const begin = () => {
@@ -158,6 +171,9 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
       scope: first,
       services: seed,
       baseline: seed,
+      parked: [],
+      unsaved: [],
+      overridden: [],
       mode: "keep",
     });
   };
@@ -171,14 +187,28 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
           ? { kind, scheduleId: schedule.id }
           : { kind: "date", date };
     const seed = seedServices(config, day, next);
-    // Before anything is edited the rows follow the scope. A draft is kept as it is, except into
-    // the schedule: a save there removes every stored row the draft lacks, so the draft is laid
-    // over the schedule's own rows, and only what the Manager removes from them afterwards goes.
-    if (!isDirty(edit)) update({ ...edit, scope: next, services: seed, baseline: seed });
-    else if (next.kind === "schedule") {
-      const services = reapplyDraft({ base: edit.baseline, draft: edit.services, latest: seed });
-      update({ ...edit, scope: next, services, baseline: seed });
-    } else update({ ...edit, scope: next });
+    // Before anything is edited the rows follow the scope. A draft is laid over the rows of the
+    // scope it lands in, never carried across as it is: a save into the schedule removes every
+    // stored row the draft lacks, and a date's own rule would take the schedule's rows as its own.
+    if (!holdsEdits(edit)) {
+      update({
+        ...edit,
+        scope: next,
+        services: seed,
+        baseline: seed,
+        parked: [],
+        unsaved: [],
+        overridden: [],
+      });
+      return;
+    }
+    const moved = switchScope({
+      baseline: edit.baseline,
+      services: edit.services,
+      parked: edit.parked,
+      seed,
+    });
+    update({ ...edit, ...moved, scope: next });
   };
 
   const submit = async (overwrite: boolean) => {
@@ -313,6 +343,26 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
           onChange={chooseScope}
         />
       )}
+      {(edit.unsaved.length > 0 || edit.overridden.length > 0) && (
+        <div role="status">
+          {edit.unsaved.length > 0 && (
+            <Text variant="caption" color="secondary">
+              {t("availability.editor.held", {
+                count: edit.unsaved.length,
+                names: nameList(edit.unsaved),
+              })}
+            </Text>
+          )}
+          {edit.overridden.length > 0 && (
+            <Text variant="caption" color="secondary">
+              {t("availability.editor.overridden", {
+                count: edit.overridden.length,
+                names: nameList(edit.overridden),
+              })}
+            </Text>
+          )}
+        </div>
+      )}
       {edit.scope.kind === "weekday" && (
         <div className={styles.until}>
           <DatePicker
@@ -342,7 +392,10 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
         services={edit.services}
         venueServices={config.venueServices}
         date={overnightHintDate(edit.scope, date, dates)}
-        onChange={(services) => update({ ...edit, services })}
+        onChange={(services) =>
+          // Hours set again here are the Manager's own, so the line about the old ones goes.
+          update({ ...edit, services, overridden: [] })
+        }
       />
     </>
   );

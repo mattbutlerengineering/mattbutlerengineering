@@ -2243,6 +2243,34 @@
       ): string[] { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/scope-switch.ts">
+    <item priority="low">
+      interface ParkedEdit {
+        base: DraftService;
+        draft: DraftService;
+      }
+    </item>
+    <item priority="high">
+      interface SwitchInput {
+        baseline: readonly DraftService[];
+        services: readonly DraftService[];
+        parked: readonly ParkedEdit[];
+        seed: DraftService[];
+      }
+    </item>
+    <item priority="low">
+      interface Switched {
+        services: DraftService[];
+        baseline: DraftService[];
+        parked: ParkedEdit[];
+        unsaved: string[];
+        overridden: string[];
+      }
+    </item>
+    <item priority="high">
+      export function switchScope(input: SwitchInput): Switched { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/selection-actions.ts">
     <item priority="high">
       export function ownSingleDateRules(

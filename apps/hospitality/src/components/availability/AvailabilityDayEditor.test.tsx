@@ -31,6 +31,7 @@ import {
   FIXTURE_TIMEZONE,
   fixtureConfig,
   resolveFixtureDay,
+  VENUE_CLOSURE,
 } from "./resolved-day-fixtures.js";
 
 // jsdom cannot compute colour contrast; token contrast is covered in rialto.
@@ -600,6 +601,7 @@ describe("AvailabilityDayEditor", () => {
         ],
         dateRules: [rule],
       };
+      const onDirtyChange = vi.fn();
       render(
         <ToastProvider>
           <main>
@@ -610,6 +612,96 @@ describe("AvailabilityDayEditor", () => {
               state={{ config, version: 4, source: "rows" }}
               timezone={FIXTURE_TIMEZONE}
               today="2026-10-28"
+              onDirtyChange={onDirtyChange}
+              onCancel={vi.fn()}
+              onFinished={vi.fn()}
+            />
+          </main>
+        </ToastProvider>
+      );
+      return { onDirtyChange };
+    }
+
+    /** Makes the nth Booking select (rows run in opening order) Phone only. */
+    function phoneOnlyOn(index: number) {
+      fireEvent.click(screen.getAllByRole("combobox", { name: "Booking" })[index]!);
+      fireEvent.click(screen.getByRole("option", { name: "Phone only" }));
+    }
+
+    function editDinnerThenSwitch() {
+      fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
+      // Dinner opens first, so its Booking select is the first.
+      phoneOnlyOn(0);
+      chooseScope(/Your regular week/);
+    }
+
+    it("round trip: the date's own services come back, and Brunch and Lunch do not join it", async () => {
+      withOwnDay();
+      editDinnerThenSwitch();
+      chooseScope("This date only");
+      expect(screen.getByRole("button", { name: "Remove Dinner" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Remove Late" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Remove Lunch" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Remove Brunch" })).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
+      await waitFor(() => expect(save).toHaveBeenCalled());
+      const [rule] = sentBody().body.changes.upsert.dateRules as {
+        payload: { services: { venueServiceId: string; bookingTypes: string[] }[] };
+      }[];
+      expect(rule!.payload.services.map((s) => s.venueServiceId).sort()).toEqual([
+        "vs-dinner",
+        "vs-late",
+      ]);
+      expect(
+        rule!.payload.services.find((s) => s.venueServiceId === "vs-dinner")?.bookingTypes
+      ).toEqual(["phone"]);
+    });
+
+    it("an edit to a date-only service is held while away and returns with the round trip", async () => {
+      withOwnDay();
+      fireEvent.click(screen.getByRole("button", { name: "Edit Late" }));
+      phoneOnlyOn(1);
+      chooseScope(/Your regular week/);
+      chooseScope("This date only");
+      fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
+      await waitFor(() => expect(save).toHaveBeenCalled());
+      const [rule] = sentBody().body.changes.upsert.dateRules as {
+        payload: { services: { venueServiceId: string; bookingTypes: string[] }[] };
+      }[];
+      expect(
+        rule!.payload.services.find((s) => s.venueServiceId === "vs-late")?.bookingTypes
+      ).toEqual(["phone"]);
+    });
+
+    it("says so when the only edit is to a service the regular week lacks, and does not look clean", () => {
+      const { onDirtyChange } = withOwnDay();
+      fireEvent.click(screen.getByRole("button", { name: "Edit Late" }));
+      phoneOnlyOn(1);
+      chooseScope(/Your regular week/);
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Your edit to Late won’t be saved: it isn’t in what you’re changing now."
+      );
+      // Nothing to save, but the edit is not gone without a word: closing still asks.
+      expect(screen.getByRole("button", { name: /^Save/ })).toBeDisabled();
+      expect(onDirtyChange).toHaveBeenLastCalledWith(true);
+      // The line goes when the edit comes back.
+      chooseScope("This date only");
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    });
+
+    it("closed day: a service added there joins the regular week without removing its other rows", async () => {
+      const closed = fixtureConfig(VENUE_CLOSURE);
+      render(
+        <ToastProvider>
+          <main>
+            <AvailabilityDayEditor
+              venueId="venue-1"
+              date={FIXTURE_DATE}
+              day={resolveFixtureDay(VENUE_CLOSURE)}
+              state={{ config: closed, version: 4, source: "rows" }}
+              timezone={FIXTURE_TIMEZONE}
+              today="2026-10-28"
               onDirtyChange={vi.fn()}
               onCancel={vi.fn()}
               onFinished={vi.fn()}
@@ -617,15 +709,24 @@ describe("AvailabilityDayEditor", () => {
           </main>
         </ToastProvider>
       );
-    }
-
-    function editDinnerThenSwitch() {
-      fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
-      // Dinner opens first, so its Booking select is the first.
-      fireEvent.click(screen.getAllByRole("combobox", { name: "Booking" })[0]!);
-      fireEvent.click(screen.getByRole("option", { name: "Phone only" }));
+      fireEvent.click(screen.getByRole("button", { name: "Add service" }));
+      fireEvent.click(screen.getByRole("combobox", { name: "Add service" }));
+      fireEvent.click(screen.getByRole("option", { name: "Dinner" }));
       chooseScope(/Your regular week/);
-    }
+      // The regular week already has Dinner, so the hours just set are not the ones it keeps.
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Your hours for Dinner won’t be used: what you’re changing already has them."
+      );
+      expect(screen.getByRole("button", { name: "Remove Lunch" })).toBeInTheDocument();
+      // Nothing differs from the regular week yet, so there is nothing to save.
+      expect(screen.getByRole("button", { name: /^Save/ })).toBeDisabled();
+
+      // Only what the Manager removes afterwards is removed.
+      fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+      fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
+      await waitFor(() => expect(save).toHaveBeenCalled());
+      expect(sentBody().body.changes.remove.scheduleServices).toEqual(["ss-lunch"]);
+    });
 
     it("keeps the regular week's other services: nothing the Manager did not remove is deleted", async () => {
       withOwnDay();
