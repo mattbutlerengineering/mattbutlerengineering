@@ -369,11 +369,11 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     # Not `lint`: ESLint produces nothing this job consumes, and the turbo
-    # `^build` cache it reuses comes from Typecheck. CI Gate still requires
+    # `^build` cache it reuses comes from Prepare. CI Gate still requires
     # lint (scripts/__tests__/ci-lint-critical-path.test.mjs). Not
     # `architecture-audit` either: it builds the CLI on its own runner and
     # hands this job nothing; CI Gate still requires it.
-    needs: [typecheck]
+    needs: [prepare]
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
@@ -821,7 +821,7 @@ jobs:
   rls-integration:
     name: RLS Integration (owner role, #5369)
     runs-on: ubuntu-latest
-    needs: [typecheck] # not lint, see the Build job
+    needs: [prepare] # not lint; Prepare builds the workspace closure
     timeout-minutes: 15
 
     services:
@@ -843,6 +843,19 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
 
       - uses: ./.github/actions/setup-workspace
+
+      - name: Cache for Turbo
+        # #3388: same GitHub-Actions-backed remote cache as Build/Typecheck.
+        uses: rharkor/caching-for-turbo@760158c05c47e7a764f78e9a22ca3b5a6ed8c52e # v2.5.2
+
+      - name: Restore turbo local cache
+        # #4504: see the Typecheck job's identical step for rationale.
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .turbo/cache
+          key: ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-
 
       - name: Restore Prisma clients
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

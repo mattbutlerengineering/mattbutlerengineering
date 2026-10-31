@@ -11,9 +11,9 @@ const WORKFLOW = readFileSync(resolve(ROOT, ".github/workflows/ci.yml"), "utf8")
  * Lint stays off the PR critical path, and stays a gate.
  *
  * Build and Test take ~10 min each and used to wait for Lint (~2-3 min of
- * ESLint) before starting, although Lint produces nothing they consume: the
- * `^build` outputs they reuse from turbo's cache are produced by Typecheck,
- * which runs the same `^build` dependency chain and finishes in ~30s. On run
+ * ESLint) before starting, although Lint produces nothing they consume.
+ * Prepare now produces the `^build` outputs in the Turbo cache, so Build and
+ * RLS can start after Prepare while Typecheck runs independently. On run
  * 35909626065, Build/Test started at 19:33:04, 2 min after Typecheck (19:30:33)
  * finished, purely because they were waiting on Lint (19:33:02).
  *
@@ -39,11 +39,26 @@ function needsOf(jobName) {
 describe("ci.yml lint critical path", () => {
   it.each(["build", "migrations", "rls-integration"])("%s does not wait for lint", (job) => {
     expect(needsOf(job)).not.toContain("lint");
-    expect(needsOf(job)).toContain("typecheck");
   });
 
   it("CI Gate still requires lint", () => {
     expect(needsOf("ci-gate")).toContain("lint");
+  });
+});
+
+describe("ci.yml prepare/typecheck parallelism", () => {
+  it.each(["build", "rls-integration"])(
+    "%s uses Prepare outputs and runs alongside Typecheck",
+    (job) => {
+      expect(needsOf(job)).toContain("prepare");
+      expect(needsOf(job)).not.toContain("typecheck");
+    }
+  );
+
+  it("CI Gate still requires Typecheck, Build, and RLS Integration", () => {
+    expect(needsOf("ci-gate")).toEqual(
+      expect.arrayContaining(["typecheck", "build", "rls-integration"])
+    );
   });
 });
 
