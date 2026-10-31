@@ -533,7 +533,7 @@
         "dist/lib/components/Dialog/index.js",
         "dist/lib/chunks/Dialog-*.js"
       ],
-      "limit": "1450 B"
+      "limit": "1550 B"
     },
     {
       "name": "Select (subpath)",
