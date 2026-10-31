@@ -52,9 +52,15 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     </div>
   ),
   Badge: ({ children }: { children?: React.ReactNode }) => <span>{children}</span>,
-  Text: ({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }) => (
-    <span {...(props as React.HTMLAttributes<HTMLSpanElement>)}>{children}</span>
-  ),
+  Text: ({
+    as: Tag = "span",
+    children,
+    ...props
+  }: {
+    as?: "span" | "h1";
+    children?: React.ReactNode;
+    [key: string]: unknown;
+  }) => <Tag {...(props as React.HTMLAttributes<HTMLElement>)}>{children}</Tag>,
 }));
 
 vi.mock("@mbe/auth/react", () => ({
@@ -193,6 +199,26 @@ describe("AppShell", () => {
     render(<AppShell onLogoClick={onLogoClick}>{child}</AppShell>);
     fireEvent.click(screen.getByRole("button", { name: /return to empty state/i }));
     expect(onLogoClick).toHaveBeenCalledTimes(1);
+  });
+
+  // Browser audit #7463: axe landmark-one-main / region / page-has-heading-one /
+  // label-content-name-mismatch fired on the signed-in playground.
+  it("wraps the content in the main landmark the skip link targets", () => {
+    render(<AppShell>{child}</AppShell>);
+    const main = screen.getByRole("main");
+    expect(main.id).toBe("main-content");
+    expect(within(main).getByTestId("child-content")).toBeDefined();
+  });
+
+  it("gives the page one h1 that names it", () => {
+    render(<AppShell>{child}</AppShell>);
+    expect(screen.getByRole("heading", { level: 1, name: "Gen Playground" })).toBeDefined();
+  });
+
+  it("keeps the visible logo text inside the logo button's accessible name", () => {
+    render(<AppShell>{child}</AppShell>);
+    const logo = screen.getByRole("button", { name: /return to empty state/i });
+    expect(logo.getAttribute("aria-label")).toContain("Gen Playground");
   });
 });
 
