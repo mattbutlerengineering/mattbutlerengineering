@@ -46,6 +46,12 @@ describe("ci.yml lint critical path", () => {
   });
 });
 
+describe("ci.yml migrations ordering", () => {
+  it("migrations still waits for Typecheck", () => {
+    expect(needsOf("migrations")).toContain("typecheck");
+  });
+});
+
 describe("ci.yml prepare/typecheck parallelism", () => {
   it.each(["build", "rls-integration"])(
     "%s uses Prepare outputs and runs alongside Typecheck",
