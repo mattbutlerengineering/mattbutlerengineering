@@ -1318,6 +1318,48 @@ describe("reopenClosure", () => {
       expect({ rules: w.dateRules, version: w.version, changes: w.changes.length }).toEqual(before);
     });
 
+    it("takes the venue row before it scans bookings, so an in-flight booking is seen (#7975)", async () => {
+      const w = editedThursday();
+      w.reservations = [];
+      const { tx } = await reopen(w, MANAGER, "e1");
+
+      const firstWrite = Math.min(
+        ...tx.venue.update.mock.invocationCallOrder,
+        ...tx.venue.updateMany.mock.invocationCallOrder
+      );
+      expect(tx.reservation.findMany).toHaveBeenCalled();
+      expect(firstWrite).toBeLessThan(tx.reservation.findMany.mock.invocationCallOrder[0]!);
+    });
+
+    it("ignores a cancelled booking when deciding whether the date is stranded", async () => {
+      const w = editedThursday();
+      w.reservations = w.reservations.map((r) => ({ ...r, status: "CANCELLED" }));
+
+      const { outcome } = await reopen(w, MANAGER, "e1");
+
+      expect(outcome.kind).toBe("reopened");
+    });
+
+    it("refuses when only an overnight booking depends on the edit", async () => {
+      const w = editedThursday();
+      // A 22:00-02:00 service: Friday 00:30 local is still Thursday's service day. The edit only
+      // closes from 01:00, so it is what keeps the 00:30 booking open against the series.
+      w.service = { opensAt: 1320, lastSeatingAt: 1500, closesAt: 1560 };
+      w.dateRules = w.dateRules.map((r) =>
+        r.id === "e1" ? { ...r, window: { version: 1, from: 1500, to: 1560 } } : r
+      );
+      w.reservations = [
+        res("res-night", "2026-12-24", "2026-12-25T08:30:00.000Z", "2026-12-25T10:00:00.000Z"),
+      ];
+
+      const { outcome } = await reopen(w, MANAGER, "e1");
+
+      expect(outcome).toMatchObject({
+        kind: "invalid",
+        issues: [expect.objectContaining({ path: "reservations.res-night" })],
+      });
+    });
+
     it("still removes a one-date edit when no booking depends on it", async () => {
       const w = editedThursday();
       w.reservations = [];

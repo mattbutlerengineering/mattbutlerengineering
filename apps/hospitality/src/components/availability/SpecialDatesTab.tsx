@@ -573,6 +573,8 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           ruleId={reopening.id}
           subject={closureSubject(reopening, format, t)}
           cancelled={cancelledOf(reopening.id)}
+          countFailed={summaries.error != null}
+          subjectIsSpan={reopening.endsOn !== reopening.startsOn || reopening.repeat != null}
           onRetryCount={() => void summaries.refetch()}
           editedDates={rules.filter((r) => r.seriesId === reopening.id).length}
           isSeriesEdit={

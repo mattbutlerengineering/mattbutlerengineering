@@ -153,10 +153,20 @@ export function CloseDialog(props: CloseDialogProps) {
     // Escape during a save would close the dialog while the save still commits.
     if (!isPending) guard.request(null);
   };
+  // A failed save may still have committed (a lost response). The server replays a retry of its
+  // key as the original success, hiding any later edit, so after a failure an edit to the
+  // message or a decision is a new attempt: a stale expected version then answers honestly.
+  const [failedSave, setFailedSave] = useState(false);
+  const restart = () => {
+    setAttempt(newAttempt());
+    setFailedSave(false);
+  };
   const edit = (next: CloseForm) => {
     if (!sameRequest(next, form)) {
       setChoices({});
-      setAttempt(newAttempt());
+      restart();
+    } else if (failedSave && JSON.stringify(next) !== JSON.stringify(form)) {
+      restart();
     }
     setForm(next);
     setInvalid(null);
@@ -224,6 +234,7 @@ export function CloseDialog(props: CloseDialogProps) {
         return;
       }
       setFailure(failureText(error, t));
+      setFailedSave(true);
       const conflict = conflictOf(error);
       if (conflict?.code === "version-conflict") {
         setWinner({ change: conflict.winningChange });
@@ -295,34 +306,39 @@ export function CloseDialog(props: CloseDialogProps) {
             {winner && <Text variant="body">{winnerText}</Text>}
           </Alert>
         )}
-        {step === 1 ? (
-          <CloseStepOne
-            form={form}
-            onChange={edit}
-            services={services}
-            today={today}
-            impact={impact}
-            impactLoading={impactQuery.isLoading}
-            impactFailed={impactQuery.error !== null}
-            replacedDate={replacedDate}
-            invalid={invalid}
-            locked={props.hostLocked}
-            dateLocked={series !== undefined}
-          />
-        ) : (
-          impact && (
-            <CloseStepTwo
+        {/* A save in flight sends what was chosen: no control may change it meanwhile. */}
+        <fieldset className={styles.lock} disabled={isPending}>
+          {step === 1 ? (
+            <CloseStepOne
+              form={form}
+              onChange={edit}
+              services={services}
+              today={today}
               impact={impact}
-              choices={choices}
-              urgent={urgent}
-              guestMessage={form.guestMessage}
-              onChoose={(key, choice) => {
-                setChoices({ ...choices, [key]: choice });
-                guard.setDirty(true);
-              }}
+              impactLoading={impactQuery.isLoading}
+              impactFailed={impactQuery.error !== null}
+              replacedDate={replacedDate}
+              invalid={invalid}
+              locked={props.hostLocked}
+              dateLocked={series !== undefined}
             />
-          )
-        )}
+          ) : (
+            impact && (
+              <CloseStepTwo
+                impact={impact}
+                choices={choices}
+                urgent={urgent}
+                guestMessage={form.guestMessage}
+                onChoose={(key, choice) => {
+                  if (failedSave && JSON.stringify(choices[key]) !== JSON.stringify(choice))
+                    restart();
+                  setChoices({ ...choices, [key]: choice });
+                  guard.setDirty(true);
+                }}
+              />
+            )
+          )}
+        </fieldset>
       </Dialog>
       <DiscardChangesDialog
         open={guard.pending !== null}

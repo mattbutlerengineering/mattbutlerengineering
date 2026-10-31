@@ -52048,6 +52048,14 @@
         return await client.$transaction(async (tx) => {
           await setVenueContext(tx, venueId);
           const db = tx as unknown as Db;
+          // Take the venue row first, as `commit` does: an in-flight booking holds it FOR SHARE, so
+          // this waits for that commit and the stranded scan below sees the booking (book-slot.ts).
+          // A refusal rolls the bump back with the rest of the transaction.
+          const bumped = await db.venue.update({
+            where: { id: venueId },
+            data: { availabilityVersion: { increment: 1 } },
+            select: { availabilityVersion: true },
+          });
           const state = await loadConfigState(db, venueId, now);
           const rule = state?.stored.dateRules.find((r) => r.id === ruleId);
           if (!state || !rule || !CLOSURE_RULE_KINDS.has(rule.kind)) {
@@ -52064,13 +52072,10 @@
           await refuseStrandingReopen(db, venueId, state, next, now);
           const diff = diffConfig(state.stored, next);
           await writeConfigDiff(db, venueId, diff, { actorId: caller.actorId, now });
-          const bumped = await db.venue.update({
+          await db.venue.update({
             where: { id: venueId },
-            data: {
-              availabilityVersion: { increment: 1 },
-              operatingHours: projectLegacyOperatingHours(next),
-            },
-            select: { availabilityVersion: true },
+            data: { operatingHours: projectLegacyOperatingHours(next) },
+            select: { id: true },
           });
           const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
           const change = await db.availabilityChange.create({
@@ -52442,7 +52447,7 @@
       const store = deps.store ?? defaultStore;
     
       async function enqueue(variant: NoticeVariant, input: EnqueueInput): Promise<number> {
-        const outcomes = await store.listNotifiable(input.venueId, input.ruleId, variant);
+        const outcomes = await store.listNotifiable(input.venueId, input.ruleId, variant, input.now);
         if (outcomes.length === 0) return 0;
         const urgent = await isUrgent(store, input);
         await Promise.all(
@@ -52530,14 +52535,14 @@
       venueId: string,
       ruleId: string,
       variant: NoticeVariant,
+      now: Date,
       db: Db = prisma
     ): Promise<NotifiableOutcome[]> {
       const rows = await db.closureOutcome.findMany({
-        where: {
-          venueId,
-          dateRuleId: ruleId,
-          action: variant === "reopened" ? "cancel" : { not: "keep_silent" },
-        },
+        where:
+          variant === "reopened"
+            ? { venueId, dateRuleId: ruleId, action: "cancel", reservation: { startTime: { gt: now } } }
+            : { venueId, dateRuleId: ruleId, action: { not: "keep_silent" } },
         select: { id: true },
       });
       return rows.map((r) => ({ outcomeId: r.id }));

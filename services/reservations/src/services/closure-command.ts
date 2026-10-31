@@ -632,6 +632,14 @@ export async function reopenClosure(
     return await client.$transaction(async (tx) => {
       await setVenueContext(tx, venueId);
       const db = tx as unknown as Db;
+      // Take the venue row first, as `commit` does: an in-flight booking holds it FOR SHARE, so
+      // this waits for that commit and the stranded scan below sees the booking (book-slot.ts).
+      // A refusal rolls the bump back with the rest of the transaction.
+      const bumped = await db.venue.update({
+        where: { id: venueId },
+        data: { availabilityVersion: { increment: 1 } },
+        select: { availabilityVersion: true },
+      });
       const state = await loadConfigState(db, venueId, now);
       const rule = state?.stored.dateRules.find((r) => r.id === ruleId);
       if (!state || !rule || !CLOSURE_RULE_KINDS.has(rule.kind)) {
@@ -648,13 +656,10 @@ export async function reopenClosure(
       await refuseStrandingReopen(db, venueId, state, next, now);
       const diff = diffConfig(state.stored, next);
       await writeConfigDiff(db, venueId, diff, { actorId: caller.actorId, now });
-      const bumped = await db.venue.update({
+      await db.venue.update({
         where: { id: venueId },
-        data: {
-          availabilityVersion: { increment: 1 },
-          operatingHours: projectLegacyOperatingHours(next),
-        },
-        select: { availabilityVersion: true },
+        data: { operatingHours: projectLegacyOperatingHours(next) },
+        select: { id: true },
       });
       const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
       const change = await db.availabilityChange.create({

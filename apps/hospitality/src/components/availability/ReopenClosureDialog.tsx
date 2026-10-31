@@ -17,12 +17,16 @@ export interface ReopenClosureDialogProps {
    * count could not be read: Reopen waits for it, because the notice is not undoable.
    */
   readonly cancelled: number | null;
+  /** The count is unknown because reading it failed, not because it is still loading. */
+  readonly countFailed?: boolean;
   /** Asks again for the count; shown with the notice that it is unknown. */
   readonly onRetryCount: () => void;
   /** Skips and one-date edits of a series; reopening the series removes them too. */
   readonly editedDates?: number;
   /** This closure is one date of a repeating closure that stays: removing it hands the date back. */
   readonly isSeriesEdit?: boolean;
+  /** The subject covers many dates (a range, an open end or a repeat), not one. */
+  readonly subjectIsSpan?: boolean;
   readonly onClose: () => void;
 }
 
@@ -42,6 +46,11 @@ function failureText(error: unknown, t: TFunction): string {
     : t("availabilitySpecial.reopen.stranded", { count });
 }
 
+function doneKey(props: ReopenClosureDialogProps): "doneSeriesEdit" | "doneSpan" | "done" {
+  if (props.isSeriesEdit) return "doneSeriesEdit";
+  return props.subjectIsSpan ? "doneSpan" : "done";
+}
+
 function descriptionKey(
   props: ReopenClosureDialogProps
 ):
@@ -59,7 +68,7 @@ function descriptionKey(
  * on by default, sends them the opt-in "we've reopened, rebook" notice.
  */
 export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
-  const { venueId, ruleId, subject, cancelled, editedDates = 0, onClose } = props;
+  const { venueId, ruleId, subject, cancelled, editedDates = 0, isSeriesEdit, onClose } = props;
   const { t } = useTranslation();
   const { toast } = useToast();
   const offerUndo = useAvailabilityUndo();
@@ -71,9 +80,10 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
     if (cancelled === null) return;
     setFailure(null);
     try {
-      const told = cancelled > 0 && tell;
+      // A date handed back to the series stays closed: its guests are never told to rebook.
+      const told = !isSeriesEdit && cancelled > 0 && tell;
       const saved = await mutateAsync({ venueId, ruleId, tellCancelledGuests: told });
-      const title = t("availabilitySpecial.reopen.done", { date: subject });
+      const title = t(`availabilitySpecial.reopen.${doneKey(props)}`, { date: subject });
       // A reopen that told guests cannot be reverted (ux.md F6 step 3); one that told none can.
       if (told) toast({ title, variant: "success" });
       else offerUndo({ venueId, title, saved });
@@ -87,12 +97,21 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
     <Dialog
       open
       onClose={onClose}
-      title={t("availabilitySpecial.reopen.title", { date: subject })}
+      title={t(
+        isSeriesEdit
+          ? "availabilitySpecial.reopen.titleSeriesEdit"
+          : "availabilitySpecial.reopen.title",
+        { date: subject }
+      )}
       description={t(descriptionKey(props))}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            {t("availabilitySpecial.reopen.keep")}
+            {t(
+              isSeriesEdit
+                ? "availabilitySpecial.reopen.keepSeriesEdit"
+                : "availabilitySpecial.reopen.keep"
+            )}
           </Button>
           <Button
             variant="primary"
@@ -100,13 +119,20 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
             isLoading={isPending}
             disabled={cancelled === null}
           >
-            {t("availabilitySpecial.reopen.confirm")}
+            {t(
+              isSeriesEdit
+                ? "availabilitySpecial.reopen.confirmSeriesEdit"
+                : "availabilitySpecial.reopen.confirm"
+            )}
           </Button>
         </>
       }
     >
       {failure && <Alert variant="error">{failure}</Alert>}
-      {cancelled === null && (
+      {cancelled === null && !props.countFailed && (
+        <Text>{t("availabilitySpecial.reopen.countLoading")}</Text>
+      )}
+      {cancelled === null && props.countFailed && (
         <Alert variant="error">
           <Text>{t("availabilitySpecial.reopen.countUnknown")}</Text>
           <Button variant="secondary" onClick={props.onRetryCount}>
@@ -117,7 +143,7 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
       {editedDates > 0 && (
         <Text>{t("availabilitySpecial.reopen.editedDates", { count: editedDates })}</Text>
       )}
-      {cancelled !== null && cancelled > 0 && (
+      {!isSeriesEdit && cancelled !== null && cancelled > 0 && (
         <Checkbox
           label={t("availabilitySpecial.reopen.tell", { count: cancelled })}
           checked={tell}

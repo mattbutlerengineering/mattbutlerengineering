@@ -15720,6 +15720,7 @@
         venueId: string,
         ruleId: string,
         variant: NoticeVariant,
+        now: Date,
         db: Db = prisma
       ): Promise<NotifiableOutcome[]> { /* ... */ }
     </item>

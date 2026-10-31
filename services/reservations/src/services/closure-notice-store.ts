@@ -73,19 +73,22 @@ export interface NotifiableOutcome {
 
 export type NoticeVariant = "closure" | "reopened";
 
-/** Who a closure notice goes to; a reopen notice goes only to cancelled guests. */
+/**
+ * Who a closure notice goes to. A reopen notice goes only to cancelled guests whose booking has
+ * not started: nobody is told to rebook a date that has passed.
+ */
 export async function listNotifiable(
   venueId: string,
   ruleId: string,
   variant: NoticeVariant,
+  now: Date,
   db: Db = prisma
 ): Promise<NotifiableOutcome[]> {
   const rows = await db.closureOutcome.findMany({
-    where: {
-      venueId,
-      dateRuleId: ruleId,
-      action: variant === "reopened" ? "cancel" : { not: "keep_silent" },
-    },
+    where:
+      variant === "reopened"
+        ? { venueId, dateRuleId: ruleId, action: "cancel", reservation: { startTime: { gt: now } } }
+        : { venueId, dateRuleId: ruleId, action: { not: "keep_silent" } },
     select: { id: true },
   });
   return rows.map((r) => ({ outcomeId: r.id }));

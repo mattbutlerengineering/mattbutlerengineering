@@ -14,6 +14,8 @@ const summaries = vi.hoisted(() => ({ value: [] as ClosureSummary[] }));
 const summaryQuery = vi.hoisted(() => ({
   error: null as unknown,
   data: undefined as unknown,
+  /** The counts are on their way (a first read, or the refetch after an error). */
+  loading: false,
   refetch: vi.fn(),
 }));
 const callList = vi.hoisted(() => ({ value: [] as ClosureCallListEntry[] }));
@@ -25,8 +27,8 @@ const createClosure = vi.hoisted(() => vi.fn());
 
 vi.mock("../../hooks/useClosures.js", () => ({
   useClosureSummaries: () => ({
-    data: summaryQuery.error ? summaryQuery.data : summaries.value,
-    isLoading: false,
+    data: summaryQuery.error || summaryQuery.loading ? summaryQuery.data : summaries.value,
+    isLoading: summaryQuery.loading,
     error: summaryQuery.error,
     refetch: summaryQuery.refetch,
   }),
@@ -97,8 +99,8 @@ const STATE = {
   },
 } as unknown as AvailabilityConfigState;
 
-function renderTab(isManager = true, state: AvailabilityConfigState = STATE) {
-  return render(
+function tabElement(isManager = true, state: AvailabilityConfigState = STATE) {
+  return (
     <ToastProvider>
       <main>
         <SpecialDatesTab
@@ -114,6 +116,10 @@ function renderTab(isManager = true, state: AvailabilityConfigState = STATE) {
   );
 }
 
+function renderTab(isManager = true, state: AvailabilityConfigState = STATE) {
+  return render(tabElement(isManager, state));
+}
+
 /** Answer the "which dates" question that Edit asks on a range or repeating special-hours row. */
 function pickScope(choice: string) {
   const dialog = screen.getByRole("dialog", { name: "Edit special hours" });
@@ -126,6 +132,7 @@ describe("SpecialDatesTab", () => {
     vi.clearAllMocks();
     summaryQuery.error = null;
     summaryQuery.data = undefined;
+    summaryQuery.loading = false;
     summaries.value = [summary("xmas")];
     callList.value = [];
     reopen.mockResolvedValue({ version: 6, changeId: "c" });
@@ -825,6 +832,41 @@ describe("SpecialDatesTab", () => {
         ).toBeTruthy();
       });
 
+      it("words the dialog as handing the date back, not as a reopen", () => {
+        openEdit();
+        const dialog = screen.getByRole("dialog", { name: "Put Mon, Jan 18 back in the series?" });
+        expect(within(dialog).getByRole("button", { name: "Put back" })).toBeTruthy();
+        expect(within(dialog).getByRole("button", { name: "Keep this edit" })).toBeTruthy();
+        expect(within(dialog).queryByRole("button", { name: "Reopen" })).toBeNull();
+      });
+
+      it("never offers to tell guests to rebook a date that stays closed", async () => {
+        summaries.value = [summary("edit-1", { cancelled: 3 })];
+        openEdit();
+        const dialog = screen.getByRole("dialog");
+        expect(within(dialog).queryByRole("checkbox")).toBeNull();
+
+        fireEvent.click(within(dialog).getByRole("button", { name: "Put back" }));
+
+        await waitFor(() =>
+          expect(reopen).toHaveBeenCalledWith({
+            venueId: "venue-1",
+            ruleId: "edit-1",
+            tellCancelledGuests: false,
+          })
+        );
+      });
+
+      it("says the date is back in the series once done", async () => {
+        summaries.value = [summary("edit-1", { cancelled: 3 })];
+        openEdit();
+        fireEvent.click(
+          within(screen.getByRole("dialog")).getByRole("button", { name: "Put back" })
+        );
+        expect(await screen.findByText("Mon, Jan 18 is back in the series")).toBeTruthy();
+        expect(screen.queryByText(/reopened/)).toBeNull();
+      });
+
       it("shows the server's refusal as a count of bookings left without service", async () => {
         reopen.mockRejectedValue({
           problemDetails: {
@@ -840,7 +882,9 @@ describe("SpecialDatesTab", () => {
           },
         });
         openEdit();
-        fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Reopen" }));
+        fireEvent.click(
+          within(screen.getByRole("dialog")).getByRole("button", { name: "Put back" })
+        );
 
         expect(await screen.findByText(/2 bookings would be left without service/)).toBeTruthy();
       });
@@ -859,6 +903,18 @@ describe("SpecialDatesTab", () => {
 
         fireEvent.click(within(dialog).getByRole("button", { name: "Retry" }));
         expect(summaryQuery.refetch).toHaveBeenCalled();
+      });
+
+      it("says it is still checking, not that it failed, while the counts load", () => {
+        const view = renderTab();
+        fireEvent.click(screen.getByRole("button", { name: "Remove closure for Thu, Dec 24" }));
+        summaryQuery.loading = true;
+        view.rerender(tabElement());
+        const dialog = screen.getByRole("dialog");
+
+        expect(within(dialog).queryByText(/Couldn't check/)).toBeNull();
+        expect(within(dialog).getByText(/Checking how many guests/)).toBeTruthy();
+        expect(within(dialog).getByRole("button", { name: "Reopen" })).toBeDisabled();
       });
 
       it("treats a closure with no summary row as no cancelled guests", () => {
@@ -1089,6 +1145,27 @@ describe("SpecialDatesTab", () => {
         tellCancelledGuests: true,
       })
     );
+  });
+
+  it("names a reopened span without a participle that must agree with it", async () => {
+    summaries.value = [];
+    const span = {
+      id: "xmas-week",
+      kind: "closure",
+      targetKind: "venue",
+      startsOn: "2026-12-24",
+      endsOn: "2027-01-05",
+    } as DateRule;
+    renderTab(true, {
+      ...STATE,
+      config: { ...STATE.config, dateRules: [...RULES, span] },
+    } as AvailabilityConfigState);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove closure for Thu, Dec 24 to Tue, Jan 5" })
+    );
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Reopen" }));
+
+    expect(await screen.findByText("Reopened: Thu, Dec 24 to Tue, Jan 5")).toBeTruthy();
   });
 
   it("reopens without telling guests when the box is cleared", async () => {

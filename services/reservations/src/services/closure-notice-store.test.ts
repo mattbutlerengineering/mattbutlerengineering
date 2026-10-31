@@ -16,7 +16,7 @@ vi.mock("@mbe/availability", async (importOriginal) => ({
   rebookOffers,
 }));
 
-const { loadRebookSlots } = await import("./closure-notice-store.js");
+const { loadRebookSlots, listNotifiable } = await import("./closure-notice-store.js");
 
 const now = new Date("2026-10-20T12:00:00Z");
 const slot = new Date("2026-10-22T02:00:00Z");
@@ -61,5 +61,36 @@ describe("loadRebookSlots", () => {
     rebookRequiresDeposit.mockResolvedValue(true);
     await expect(loadRebookSlots(outcome, now)).resolves.toEqual([]);
     expect(loadAvailabilitySnapshot).not.toHaveBeenCalled();
+  });
+});
+
+describe("listNotifiable", () => {
+  const find = (rows: { id: string }[] = [{ id: "o1" }]) => ({
+    closureOutcome: { findMany: vi.fn(async () => rows) },
+  });
+
+  it("tells a cancelled guest to rebook only a booking that has not yet started (#7975)", async () => {
+    const db = find();
+    await expect(listNotifiable("v1", "r1", "reopened", now, db as never)).resolves.toEqual([
+      { outcomeId: "o1" },
+    ]);
+    expect(db.closureOutcome.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          action: "cancel",
+          reservation: { startTime: { gt: now } },
+        }),
+      })
+    );
+  });
+
+  it("leaves the closure notice to everyone but a silent keep, whatever the date", async () => {
+    const db = find();
+    await listNotifiable("v1", "r1", "closure", now, db as never);
+    expect(db.closureOutcome.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { venueId: "v1", dateRuleId: "r1", action: { not: "keep_silent" } },
+      })
+    );
   });
 });
