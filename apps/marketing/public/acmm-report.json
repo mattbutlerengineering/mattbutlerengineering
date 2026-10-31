@@ -1,19 +1,19 @@
 {
   "schema": "acmm-report/v2",
-  "generatedAt": "2026-10-29T10:48:34.615Z",
+  "generatedAt": "2026-10-31T10:16:53.695Z",
   "repo": {
     "currentLevel": 5,
     "levelName": "Semi-Automated",
     "role": "Operator",
-    "lastRun": "2026-10-29T10:48:31.914Z",
+    "lastRun": "2026-10-31T10:16:51.219Z",
     "summary": {
       "detected": 73,
       "total": 84,
       "coverage": 0.8690476190476191
     },
     "behavioral": {
-      "ciFlakeRate": 0.01717171717171717,
-      "agentPrAcceptanceRate": 0.9973684210526316,
+      "ciFlakeRate": 0.017364657814096015,
+      "agentPrAcceptanceRate": 0.9973544973544973,
       "agentPrRevertRate": 0,
       "evalPassRate": null,
       "evalsStale": true,
@@ -278,7 +278,7 @@
         "level": 3,
         "name": "ci-flake-rate",
         "passed": true,
-        "value": 0.01717171717171717,
+        "value": 0.017364657814096015,
         "threshold": 0.2,
         "unverifiable": false
       },
@@ -286,7 +286,7 @@
         "level": 4,
         "name": "agent-pr-acceptance",
         "passed": true,
-        "value": 0.9973684210526316,
+        "value": 0.9973544973544973,
         "threshold": 0.5,
         "unverifiable": false
       },
@@ -310,7 +310,7 @@
         "level": 6,
         "name": "human-touch-ratio",
         "passed": true,
-        "value": 0.018469656992084433,
+        "value": 0.01856763925729443,
         "threshold": 0.5,
         "unverifiable": false
       }
