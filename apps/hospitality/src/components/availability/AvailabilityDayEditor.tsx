@@ -25,6 +25,7 @@ import { useViewport } from "../../hooks/useViewport.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import { AvailabilityGuestPreview } from "./AvailabilityGuestPreview.js";
 import { ConflictDialog } from "./ConflictDialog.js";
+import { reapplyDraft } from "./conflict-review.js";
 import {
   buildDraftChanges,
   overnightHintDate,
@@ -169,13 +170,15 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
         : kind === "schedule" && schedule
           ? { kind, scheduleId: schedule.id }
           : { kind: "date", date };
-    // Before anything is edited the rows follow the scope; after, the draft is kept as it is.
-    const seed = isDirty(edit) ? null : seedServices(config, day, next);
-    update({
-      ...edit,
-      scope: next,
-      ...(seed ? { services: seed, baseline: seed } : {}),
-    });
+    const seed = seedServices(config, day, next);
+    // Before anything is edited the rows follow the scope. A draft is kept as it is, except into
+    // the schedule: a save there removes every stored row the draft lacks, so the draft is laid
+    // over the schedule's own rows, and only what the Manager removes from them afterwards goes.
+    if (!isDirty(edit)) update({ ...edit, scope: next, services: seed, baseline: seed });
+    else if (next.kind === "schedule") {
+      const services = reapplyDraft({ base: edit.baseline, draft: edit.services, latest: seed });
+      update({ ...edit, scope: next, services, baseline: seed });
+    } else update({ ...edit, scope: next });
   };
 
   const submit = async (overwrite: boolean) => {

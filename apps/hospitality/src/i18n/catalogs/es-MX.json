@@ -2250,6 +2250,7 @@
     "discard": {
       "title": "¿Descartar los cambios del {{date}}?",
       "description": "Se perderán tus cambios sin guardar en estos horarios.",
+      "leavePage": "Se perderán todos los cambios sin guardar en esta página.",
       "confirm": "Descartar",
       "keep": "Seguir editando"
     },

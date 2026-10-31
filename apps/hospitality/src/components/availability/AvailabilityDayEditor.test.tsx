@@ -549,6 +549,153 @@ describe("AvailabilityDayEditor", () => {
     });
   });
 
+  describe("switching to Your regular week after editing", () => {
+    const SEATING = { version: 1, interval: 15 } as const;
+    const HOURS = { seating: SEATING, bookingTypes: ["online", "phone"] as ("online" | "phone")[] };
+
+    /** The regular week also holds a colleague's Brunch, and Fri Oct 30 has its own Dinner-only hours. */
+    function withOwnDay(extra: DateRule["id"] = "r-own") {
+      const base = fixtureConfig();
+      const rule = {
+        ...EARLY_DINNER,
+        id: extra,
+        payload: {
+          version: 1,
+          services: [
+            {
+              venueServiceId: "vs-dinner",
+              opensAt: 1020,
+              lastSeatingAt: 1200,
+              closesAt: 1320,
+              ...HOURS,
+            },
+            {
+              venueServiceId: "vs-late",
+              opensAt: 1380,
+              lastSeatingAt: 1400,
+              closesAt: 1430,
+              ...HOURS,
+            },
+          ],
+        },
+      } as DateRule;
+      const config = {
+        ...base,
+        venueServices: [
+          ...base.venueServices,
+          { id: "vs-brunch", name: "Brunch", position: 2 },
+          { id: "vs-late", name: "Late", position: 3 },
+        ],
+        scheduleServices: [
+          ...base.scheduleServices,
+          {
+            id: "ss-brunch",
+            scheduleId: "regular",
+            venueServiceId: "vs-brunch",
+            opensAt: 400,
+            lastSeatingAt: 500,
+            closesAt: 600,
+            ...HOURS,
+          },
+        ],
+        dateRules: [rule],
+      };
+      render(
+        <ToastProvider>
+          <main>
+            <AvailabilityDayEditor
+              venueId="venue-1"
+              date={FIXTURE_DATE}
+              day={resolveDay({ timezone: FIXTURE_TIMEZONE, config }, FIXTURE_DATE)}
+              state={{ config, version: 4, source: "rows" }}
+              timezone={FIXTURE_TIMEZONE}
+              today="2026-10-28"
+              onDirtyChange={vi.fn()}
+              onCancel={vi.fn()}
+              onFinished={vi.fn()}
+            />
+          </main>
+        </ToastProvider>
+      );
+    }
+
+    function editDinnerThenSwitch() {
+      fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
+      // Dinner opens first, so its Booking select is the first.
+      fireEvent.click(screen.getAllByRole("combobox", { name: "Booking" })[0]!);
+      fireEvent.click(screen.getByRole("option", { name: "Phone only" }));
+      chooseScope(/Your regular week/);
+    }
+
+    it("keeps the regular week's other services: nothing the Manager did not remove is deleted", async () => {
+      withOwnDay();
+      editDinnerThenSwitch();
+      // The regular week's rows are all in front of the Manager now, with their Dinner edit on top.
+      expect(screen.getByRole("button", { name: "Remove Lunch" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Remove Brunch" })).toBeInTheDocument();
+      // The date's own extra service is not the regular week's, and is not carried into it.
+      expect(screen.queryByRole("button", { name: "Remove Late" })).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
+      await waitFor(() => expect(save).toHaveBeenCalled());
+      const { body } = sentBody();
+      expect(body.expectedVersion).toBe(4);
+      expect(body.changes.remove.scheduleServices).toBeUndefined();
+      const rows = body.changes.upsert.scheduleServices as {
+        venueServiceId: string;
+        bookingTypes: string[];
+      }[];
+      expect(rows.map((r) => r.venueServiceId).sort()).toEqual([
+        "vs-brunch",
+        "vs-dinner",
+        "vs-lunch",
+      ]);
+      expect(rows.find((r) => r.venueServiceId === "vs-dinner")?.bookingTypes).toEqual(["phone"]);
+    });
+
+    it("still removes a service the Manager removes after switching", async () => {
+      withOwnDay();
+      editDinnerThenSwitch();
+      fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+      fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
+      await waitFor(() => expect(save).toHaveBeenCalled());
+      const { changes } = sentBody().body;
+      expect(changes.remove.scheduleServices).toEqual(["ss-lunch"]);
+    });
+  });
+
+  it("names the weekday of a close after midnight for one date, and none for the regular week", () => {
+    const base = fixtureConfig();
+    const config = {
+      ...base,
+      scheduleServices: base.scheduleServices.map((s) =>
+        s.id === "ss-dinner" ? { ...s, closesAt: 1500 } : s
+      ),
+    };
+    render(
+      <ToastProvider>
+        <main>
+          <AvailabilityDayEditor
+            venueId="venue-1"
+            date={FIXTURE_DATE}
+            day={resolveDay({ timezone: FIXTURE_TIMEZONE, config }, FIXTURE_DATE)}
+            state={{ config, version: 4, source: "rows" }}
+            timezone={FIXTURE_TIMEZONE}
+            today="2026-10-28"
+            onDirtyChange={vi.fn()}
+            onCancel={vi.fn()}
+            onFinished={vi.fn()}
+          />
+        </main>
+      </ToastProvider>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
+    expect(screen.getByText(/the next day \(Saturday\)/)).toBeInTheDocument();
+    chooseScope(/Your regular week/);
+    expect(screen.queryByText(/\(Saturday\)/)).not.toBeInTheDocument();
+    expect(screen.getByText(/the next day$/)).toBeInTheDocument();
+  });
+
   it("has no axe violations reading or editing", async () => {
     const { container } = renderEditor();
     expect((await axe(container, AXE_OPTIONS)).violations).toEqual([]);

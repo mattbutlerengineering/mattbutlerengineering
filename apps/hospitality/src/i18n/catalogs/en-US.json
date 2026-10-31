@@ -2197,6 +2197,7 @@
     "discard": {
       "title": "Discard changes to {{date}}?",
       "description": "Your unsaved changes to these hours will be lost.",
+      "leavePage": "All unsaved changes on this page will be lost.",
       "confirm": "Discard",
       "keep": "Keep editing"
     },

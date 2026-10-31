@@ -40,6 +40,17 @@ describe("LeaveGuard", () => {
     expect(screen.queryByText("Other page")).not.toBeInTheDocument();
   });
 
+  it("says every unsaved change on the page is lost, not just the drawer's hours", async () => {
+    const router = renderGuards([
+      { active: true, title: "Compare edits" },
+      { active: true, title: "New schedule" },
+    ]);
+    await act(() => router.navigate("/other"));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("All unsaved changes on this page will be lost.");
+    expect(dialog).not.toHaveTextContent("these hours");
+  });
+
   it("does not stop navigation when nothing is unsaved", async () => {
     const router = renderGuards([{ active: false, title: "Compare edits" }]);
     await act(() => router.navigate("/other"));

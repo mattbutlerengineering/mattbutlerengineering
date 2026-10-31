@@ -1,4 +1,5 @@
 import { use, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { UNSAFE_DataRouterContext, useBlocker } from "react-router";
 import { DiscardChangesDialog } from "./DiscardChangesDialog.js";
 
@@ -17,6 +18,7 @@ export interface LeaveGuardProps {
  * later would otherwise shadow a dirty one and let its edits go without asking.
  */
 function RouteBlocker({ date, title }: Omit<LeaveGuardProps, "active">) {
+  const { t } = useTranslation();
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) => currentLocation.pathname !== nextLocation.pathname
   );
@@ -25,6 +27,8 @@ function RouteBlocker({ date, title }: Omit<LeaveGuardProps, "active">) {
       open={blocker.state === "blocked"}
       date={date}
       {...(title ? { title } : {})}
+      // Leaving the page loses every draft on it, which may be more than the one this guard names.
+      description={t("availability.discard.leavePage")}
       onDiscard={() => blocker.proceed?.()}
       onKeepEditing={() => blocker.reset?.()}
     />

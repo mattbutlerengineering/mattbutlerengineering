@@ -2250,6 +2250,7 @@
     "discard": {
       "title": "Abandonner les changements du {{date}} ?",
       "description": "Vos changements non enregistrés à ces heures seront perdus.",
+      "leavePage": "Tous les changements non enregistrés sur cette page seront perdus.",
       "confirm": "Abandonner",
       "keep": "Continuer à modifier"
     },
