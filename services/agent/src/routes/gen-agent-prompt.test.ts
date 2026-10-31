@@ -311,7 +311,7 @@ describe("briefing, dashboard stats and page-only areas in the prompt", () => {
   });
 
   it("answers the dashboard's headline stats from existing tools", () => {
-    expect(prompt).toMatch(/Dashboard stats.*covers.*list_today_reservations/);
+    expect(prompt).toMatch(/Dashboard stats.*covers from get_briefing.*list_today_reservations/);
     expect(prompt).toMatch(/Dashboard stats.*waitlist.*list_waitlist/);
     expect(prompt).toMatch(/Dashboard stats.*lapsing guests.*list_lapsing_guests/);
   });
