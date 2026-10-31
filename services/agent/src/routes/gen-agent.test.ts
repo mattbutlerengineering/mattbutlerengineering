@@ -184,8 +184,10 @@ describe("POST /api/gen/agent", () => {
       "check_booking_time",
       "create_reservation",
       "end_tonight_change",
+      "get_menu",
       "get_table_status",
       "list_lapsing_guests",
+      "list_menus",
       "list_today_reservations",
       "list_tonight_changes",
       "list_waitlist",
@@ -200,8 +202,10 @@ describe("POST /api/gen/agent", () => {
       "seat_waitlist_party",
       "seat_walk_in",
       "send_win_back",
+      "set_menu_item_availability",
       "undo_availability_change",
       "update_guest",
+      "update_menu_item",
       "update_table_status",
     ]);
   });

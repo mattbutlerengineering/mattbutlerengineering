@@ -290,6 +290,56 @@ describe("describeChatAction waitlist actions", () => {
   });
 });
 
+// #7928: menu actions, as the confirm bar shows them.
+describe("describeChatAction menu actions", () => {
+  const t = (key: string) => `t:${key}`;
+
+  it.each(["set_menu_item_availability", "update_menu_item"])("titles %s", (toolName) => {
+    expect(
+      describeChatAction({ actionId: "c", toolName, toolInput: {} }, t, () => undefined).title
+    ).toBe(`t:chat.actions.${toolName}`);
+  });
+
+  it("shows the availability in words and labels the item's fields", () => {
+    const { details } = describeChatAction(
+      {
+        actionId: "c1",
+        toolName: "set_menu_item_availability",
+        toolInput: { menu: "Dinner", item: "Soup", section: "Starters", availability: "sold_out" },
+      },
+      t,
+      () => undefined
+    );
+
+    expect(details).toEqual([
+      { label: "t:chat.actions.fields.menu", value: "Dinner" },
+      { label: "t:chat.actions.fields.item", value: "Soup" },
+      { label: "t:chat.actions.fields.section", value: "Starters" },
+      {
+        label: "t:chat.actions.fields.availability",
+        value: "t:chat.actions.menuAvailability.sold_out",
+      },
+    ]);
+  });
+
+  it("labels a new price and description", () => {
+    const { details } = describeChatAction(
+      {
+        actionId: "c2",
+        toolName: "update_menu_item",
+        toolInput: { price: "16.50", description: "Seasonal" },
+      },
+      t,
+      () => undefined
+    );
+
+    expect(details).toEqual([
+      { label: "t:chat.actions.fields.price", value: "16.50" },
+      { label: "t:chat.actions.fields.description", value: "Seasonal" },
+    ]);
+  });
+});
+
 // #7925: the timeline actions, as the confirm bar shows them.
 describe("describeChatAction timeline actions", () => {
   const t = (key: string) => `t:${key}`;

@@ -108,7 +108,7 @@ export function buildAgentSystemPrompt(ctx: AgentPromptContext): string {
     ...pageLines(ctx),
     "Never ask the user for a venue ID, reservation ID, or table ID: look them up with the tools.",
     "Your earlier replies in this conversation were based on tool results that aren't shown to you again. Treat them as accurate: don't apologize for or correct them unless a new tool result actually contradicts them. When you need an earlier detail, such as an ID, look it up again.",
-    "A change (booking, seating, no-show, walk-in, cancellation, table status, Tonight availability, waitlist, guest profile) runs only when the user presses the Confirm or Cancel button the chat shows with it. Tell them to use those buttons, and never ask them to type yes: typing a new message dismisses the pending change.",
+    "A change (booking, seating, no-show, walk-in, cancellation, table status, Tonight availability, waitlist, guest profile, menu items) runs only when the user presses the Confirm or Cancel button the chat shows with it. Tell them to use those buttons, and never ask them to type yes: typing a new message dismisses the pending change.",
     "Ask only for details the user has to decide, such as guest name, party size, or time. When a reservation's end time isn't given, use two hours after the start.",
     "Reply in short, plain sentences in the user's language. Don't use markdown: the chat shows plain text.",
     "Show elements only by calling render_component with an elements array: each element has a unique id, a type from the components below, its props, and children as a list of other elements' ids; an element no other element lists is shown at the top level. Never write JSON, element specs or patch lines in your reply text.",
@@ -128,7 +128,8 @@ export function buildAgentSystemPrompt(ctx: AgentPromptContext): string {
     "You can't add closures, special hours, or schedule changes for other days. Say so plainly and point the user to the Availability page.",
     "Change a guest's profile with update_guest (tags, dietary restrictions, corrected contact details) and add staff notes with add_guest_note. Find guests to win back with list_lapsing_guests, then invite one back with send_win_back. Never repeat a guest's email or phone in a reply.",
     "Read the waitlist with list_waitlist. To seat a waiting party use seat_waitlist_party, not seat_walk_in, so they also leave the waitlist. Parties are named by guest name; when two share a name, ask for the party size.",
-    "You can't manage deposits or menus yet. Say so plainly and point the user to that page in the dashboard.",
+    "Read menus with list_menus and get_menu. Mark an item sold out or available with set_menu_item_availability, and change its price, name or description with update_menu_item. When a menu is open, call get_menu with its id, then name the menu by its name in a change. When two items share a name, ask which section. Creating, deleting or reordering menus, sections or items stays on the Menus page: say so plainly and point the user there.",
+    "You can't manage deposits yet. Say so plainly and point the user to that page in the dashboard.",
     "",
     ctx.catalogPrompt,
   ].join("\n");

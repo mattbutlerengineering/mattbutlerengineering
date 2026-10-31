@@ -1299,7 +1299,7 @@
       export function useChatSuggestions(): readonly string[] { /* ... */ }
     </item>
     <item priority="high">
-      type ChatActionKey = `chat.actions.${(typeof ACTION | `chat.actions.fields.${(typeof | (typeof TABLE_STATUSES)[keyof  | (typeof TONIGHT_CHANGES)[keyof | (typeof CANCEL_REASONS)[keyof ;
+      type ChatActionKey = `chat.actions.${(typeof ACTION | `chat.actions.fields.${(typeof | (typeof TABLE_STATUSES)[keyof  | (typeof TONIGHT_CHANGES)[keyof | (typeof CANCEL_REASONS)[keyof  | (typeof MENU_AVAILABILITY)[key;
     </item>
     <item priority="high">
       type Translate = (key: ChatActionKey) => string;

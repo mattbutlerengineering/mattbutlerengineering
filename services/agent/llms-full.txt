@@ -764,6 +764,215 @@
       };
     }
   </file>
+  <file path="src/routes/gen-agent-menu-tools.ts">
+    type Menu = Awaited<ReturnType<ApiClient["menus"]["list"]>>[number];
+    type MenuDetail = Awaited<ReturnType<ApiClient["menus"]["getById"]>>;
+    type MenuSection = MenuDetail["sections"][number];
+    type MenuItem = MenuSection["items"][number];
+    function formatPrice(cents: number): string {
+      return (cents / CENTS_PER_UNIT).toFixed(2);
+    }
+    function priceToCents(price: string): number {
+      const [whole = "0", fraction = ""] = price.split(".");
+      return Number(whole) * CENTS_PER_UNIT + Number(fraction.padEnd(2, "0"));
+    }
+    function menuFailure(err: unknown) {
+      const refusal = refusalOf(err);
+      if (!refusal) {
+        return {
+          error: "Couldn't change the menu right now. Nothing was changed. Ask the user to try again.",
+        };
+      }
+      if (refusal.status === 403) {
+        return {
+          refused: true,
+          error: "The user doesn't have permission to do this. Nothing was changed.",
+        };
+      }
+      return { refused: true, error: `${refusal.detail} Nothing was changed.` };
+    }
+    function findMenu(menus: readonly Menu[], ref: string): { menu: Menu } | { error: string } {
+      const matches = menus.filter((m) => m.id === ref || sameName(m.name, ref));
+      if (matches.length === 1) return { menu: matches[0]! };
+      const names = menus.map((m) => m.name).join(", ");
+      return matches.length === 0
+        ? { error: `No menu called ${ref}. The menus are: ${names || "none yet"}.` }
+        : { error: `${matches.length} menus are called ${ref}. Rename one on the Menus page first.` };
+    }
+    function findItem(
+      menu: MenuDetail,
+      itemRef: string,
+      sectionRef: string | undefined
+    ): { section: MenuSection; item: MenuItem } | { error: string } {
+      const matches = menu.sections
+        .filter((s) => sectionRef === undefined || sameName(s.name, sectionRef))
+        .flatMap((section) =>
+          section.items.filter((i) => sameName(i.name, itemRef)).map((item) => ({ section, item }))
+        );
+      if (matches.length === 1) return matches[0]!;
+      if (matches.length === 0) {
+        const where = sectionRef ? `the ${sectionRef} section of ${menu.name}` : menu.name;
+        return { error: `No item called ${itemRef} on ${where}.` };
+      }
+      const sections = matches.map((m) => m.section.name).join(" and ");
+      return {
+        error: `${matches.length} items on ${menu.name} are called ${itemRef} (in ${sections}). Ask which section.`,
+      };
+    }
+    async function resolveTarget(
+      api: ApiClient,
+      venueId: string,
+      menuRef: string,
+      itemRef: string,
+      sectionRef: string | undefined
+    ) {
+      const found = findMenu(await api.menus.list(venueId), menuRef);
+      if ("error" in found) return found;
+      const detail = await api.menus.getById(venueId, found.menu.id);
+      const target = findItem(detail, itemRef, sectionRef);
+      return "error" in target ? target : { menuId: found.menu.id, ...target };
+    }
+    export function createMenuTools(
+      log: FastifyBaseLogger,
+      api: ApiClient,
+      { venueId }: { readonly venueId?: string | undefined }
+    ): ToolSet {
+      return {
+        // ── Read ───────────────────────────────────────────────
+        list_menus: tool({
+          description: "List the venue's menus: name, status (DRAFT, ACTIVE, INACTIVE), description.",
+          inputSchema: z.object({}),
+          execute: async () => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId }, "list_menus tool called");
+            try {
+              const menus = await api.menus.list(venueId);
+              return {
+                menus: menus.map((m) => ({
+                  name: m.name,
+                  status: m.status,
+                  description: m.description,
+                })),
+              };
+            } catch (err) {
+              log.error({ err, venueId }, "list_menus failed");
+              return readFailure(err);
+            }
+          },
+        }),
+    
+        get_menu: tool({
+          description:
+            "Show one menu's sections and items: each item's name, price, description and status (AVAILABLE, SOLD_OUT, HIDDEN).",
+          inputSchema: z.object({
+            menu: z
+              .string()
+              .min(1)
+              .describe("The menu's name, or the id of the menu the page has open"),
+          }),
+          execute: async ({ menu: menuRef }) => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId }, "get_menu tool called");
+            try {
+              const found = findMenu(await api.menus.list(venueId), menuRef);
+              if ("error" in found) return found;
+              const detail = await api.menus.getById(venueId, found.menu.id);
+              return {
+                menu: detail.name,
+                status: detail.status,
+                sections: detail.sections.map((s) => ({
+                  name: s.name,
+                  items: s.items.map((i) => ({
+                    name: i.name,
+                    price: formatPrice(i.priceCents),
+                    status: i.status,
+                    description: i.description,
+                  })),
+                })),
+              };
+            } catch (err) {
+              log.error({ err, venueId }, "get_menu failed");
+              return readFailure(err);
+            }
+          },
+        }),
+    
+        // ── Write (each runs only after the user confirms) ─────
+        set_menu_item_availability: tool({
+          description: "Mark a menu item sold out, or available again. Requires confirmation.",
+          inputSchema: z.object({
+            ...ItemSchema,
+            availability: z.enum(["sold_out", "available"]).describe("The item's new state"),
+          }),
+          execute: async ({ menu, item, section, availability }) => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId, availability }, "set_menu_item_availability tool called");
+            try {
+              const target = await resolveTarget(api, venueId, menu, item, section);
+              if ("error" in target) return target;
+              // Either state would show guests an item staff chose to hide.
+              if (target.item.status === "HIDDEN") {
+                return {
+                  error: `${target.item.name} is hidden from guests. Nothing was changed. Point the user to the Menus page to show it.`,
+                };
+              }
+              const status = availability === "sold_out" ? "SOLD_OUT" : "AVAILABLE";
+              await api.menus.updateItem(venueId, target.menuId, target.section.id, target.item.id, {
+                status,
+              });
+              return { updated: true, item: target.item.name, status };
+            } catch (err) {
+              log.error({ err, venueId }, "set_menu_item_availability failed");
+              return menuFailure(err);
+            }
+          },
+        }),
+    
+        update_menu_item: tool({
+          description: "Change a menu item's price, name or description. Requires confirmation.",
+          inputSchema: z
+            .object({
+              ...ItemSchema,
+              price: z
+                .string()
+                .regex(PRICE)
+                .optional()
+                .describe('The new price as plain digits with up to two decimals, like "16.50"'),
+              name: z.string().min(1).optional().describe("The item's new name"),
+              description: z.string().min(1).optional().describe("The item's new description"),
+            })
+            .refine(
+              (v) => v.price !== undefined || v.name !== undefined || v.description !== undefined,
+              {
+                message: "Give a new price, name or description.",
+              }
+            ),
+          execute: async ({ menu, item, section, price, name, description }) => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId }, "update_menu_item tool called");
+            try {
+              const target = await resolveTarget(api, venueId, menu, item, section);
+              if ("error" in target) return target;
+              await api.menus.updateItem(venueId, target.menuId, target.section.id, target.item.id, {
+                ...(price !== undefined ? { priceCents: priceToCents(price) } : {}),
+                ...(name !== undefined ? { name } : {}),
+                ...(description !== undefined ? { description } : {}),
+              });
+              return { updated: true, item: name ?? target.item.name };
+            } catch (err) {
+              log.error({ err, venueId }, "update_menu_item failed");
+              return menuFailure(err);
+            }
+          },
+        }),
+      };
+    }
+    function readFailure(err: unknown) {
+      return refusalOf(err)?.status === 403
+        ? { refused: true, error: "The user doesn't have permission to see menus." }
+        : { error: "Couldn't read the menus. Ask the user to try again." };
+    }
+  </file>
   <file path="src/routes/gen-agent-prompt.ts">
     export const CHAT_PAGES = {
       timeline: "Timeline page (the day's bookings on the floor, table by table)",
@@ -841,7 +1050,7 @@
         ...pageLines(ctx),
         "Never ask the user for a venue ID, reservation ID, or table ID: look them up with the tools.",
         "Your earlier replies in this conversation were based on tool results that aren't shown to you again. Treat them as accurate: don't apologize for or correct them unless a new tool result actually contradicts them. When you need an earlier detail, such as an ID, look it up again.",
-        "A change (booking, seating, no-show, walk-in, cancellation, table status, Tonight availability, waitlist, guest profile) runs only when the user presses the Confirm or Cancel button the chat shows with it. Tell them to use those buttons, and never ask them to type yes: typing a new message dismisses the pending change.",
+        "A change (booking, seating, no-show, walk-in, cancellation, table status, Tonight availability, waitlist, guest profile, menu items) runs only when the user presses the Confirm or Cancel button the chat shows with it. Tell them to use those buttons, and never ask them to type yes: typing a new message dismisses the pending change.",
         "Ask only for details the user has to decide, such as guest name, party size, or time. When a reservation's end time isn't given, use two hours after the start.",
         "Reply in short, plain sentences in the user's language. Don't use markdown: the chat shows plain text.",
         "Show elements only by calling render_component with an elements array: each element has a unique id, a type from the components below, its props, and children as a list of other elements' ids; an element no other element lists is shown at the top level. Never write JSON, element specs or patch lines in your reply text.",
@@ -861,7 +1070,8 @@
         "You can't add closures, special hours, or schedule changes for other days. Say so plainly and point the user to the Availability page.",
         "Change a guest's profile with update_guest (tags, dietary restrictions, corrected contact details) and add staff notes with add_guest_note. Find guests to win back with list_lapsing_guests, then invite one back with send_win_back. Never repeat a guest's email or phone in a reply.",
         "Read the waitlist with list_waitlist. To seat a waiting party use seat_waitlist_party, not seat_walk_in, so they also leave the waitlist. Parties are named by guest name; when two share a name, ask for the party size.",
-        "You can't manage deposits or menus yet. Say so plainly and point the user to that page in the dashboard.",
+        "Read menus with list_menus and get_menu. Mark an item sold out or available with set_menu_item_availability, and change its price, name or description with update_menu_item. When a menu is open, call get_menu with its id, then name the menu by its name in a change. When two items share a name, ask which section. Creating, deleting or reordering menus, sections or items stays on the Menus page: say so plainly and point the user there.",
+        "You can't manage deposits yet. Say so plainly and point the user to that page in the dashboard.",
         "",
         ctx.catalogPrompt,
       ].join("\n");
@@ -1529,6 +1739,7 @@
         ...createAvailabilityTools(log, api, { venueId, timeZone }),
         ...createGuestTools(log, api, { venueId }),
         ...createWaitlistTools(log, api, { venueId, timeZone }),
+        ...createMenuTools(log, api, { venueId }),
         ...createTimelineTools(log, api, { venueId }),
       };
       return gateWriteTools(tools, log, options.confirmedAction);
@@ -2350,6 +2561,8 @@
       "notify_waitlist_party",
       "seat_waitlist_party",
       "remove_from_waitlist",
+      "set_menu_item_availability",
+      "update_menu_item",
       "seat_reservation",
       "mark_no_show",
     ] as const;

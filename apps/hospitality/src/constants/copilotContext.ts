@@ -97,6 +97,8 @@ const ACTION_TITLES = [
   "notify_waitlist_party",
   "seat_waitlist_party",
   "remove_from_waitlist",
+  "set_menu_item_availability",
+  "update_menu_item",
   "seat_reservation",
   "mark_no_show",
 ] as const;
@@ -132,6 +134,12 @@ const ACTION_FIELDS = [
   "guestPhone",
   "reason",
   "note",
+  "menu",
+  "item",
+  "section",
+  "availability",
+  "price",
+  "description",
 ] as const;
 
 const TABLE_STATUSES = {
@@ -157,12 +165,18 @@ const CANCEL_REASONS = {
   other: "timeline.cancel.reasons.other",
 } as const;
 
+const MENU_AVAILABILITY = {
+  sold_out: "chat.actions.menuAvailability.sold_out",
+  available: "chat.actions.menuAvailability.available",
+} as const;
+
 type ChatActionKey =
   | `chat.actions.${(typeof ACTION_TITLES)[number]}`
   | `chat.actions.fields.${(typeof ACTION_FIELDS)[number]}`
   | (typeof TABLE_STATUSES)[keyof typeof TABLE_STATUSES]
   | (typeof TONIGHT_CHANGES)[keyof typeof TONIGHT_CHANGES]
-  | (typeof CANCEL_REASONS)[keyof typeof CANCEL_REASONS];
+  | (typeof CANCEL_REASONS)[keyof typeof CANCEL_REASONS]
+  | (typeof MENU_AVAILABILITY)[keyof typeof MENU_AVAILABILITY];
 
 type Translate = (key: ChatActionKey) => string;
 
@@ -215,7 +229,9 @@ export function describeChatAction(
             ? lookup(TONIGHT_CHANGES, value)
             : key === "reason"
               ? lookup(CANCEL_REASONS, value)
-              : undefined;
+              : key === "availability"
+                ? lookup(MENU_AVAILABILITY, value)
+                : undefined;
       const shown =
         key === "tableId"
           ? (tableName(value) ?? value)

@@ -1564,6 +1564,8 @@
       "notify_waitlist_party": "Avisar a un grupo que su mesa está lista",
       "seat_waitlist_party": "Sentar a un grupo en espera",
       "remove_from_waitlist": "Quitar de la lista de espera",
+      "set_menu_item_availability": "Marcar un platillo como agotado o disponible",
+      "update_menu_item": "Cambiar un platillo del menú",
       "seat_reservation": "Sentar a un grupo con reserva",
       "mark_no_show": "Marcar como no presentado",
       "fields": {
@@ -1596,7 +1598,17 @@
         "text": "Nota",
         "guestPhone": "Teléfono",
         "reason": "Motivo",
-        "note": "Nota"
+        "note": "Nota",
+        "menu": "Menú",
+        "item": "Platillo",
+        "section": "Sección",
+        "availability": "Disponibilidad",
+        "price": "Precio",
+        "description": "Descripción"
+      },
+      "menuAvailability": {
+        "sold_out": "Agotado",
+        "available": "Disponible"
       },
       "tonightChanges": {
         "pause_online": "Pausar reservas en línea",

@@ -1564,6 +1564,8 @@
       "notify_waitlist_party": "Avertir un groupe que sa table est prête",
       "seat_waitlist_party": "Placer un groupe en attente",
       "remove_from_waitlist": "Retirer de la liste d'attente",
+      "set_menu_item_availability": "Marquer un article comme épuisé ou disponible",
+      "update_menu_item": "Modifier un article du menu",
       "seat_reservation": "Placer un groupe réservé",
       "mark_no_show": "Marquer une absence",
       "fields": {
@@ -1596,7 +1598,17 @@
         "text": "Note",
         "guestPhone": "Téléphone",
         "reason": "Raison",
-        "note": "Note"
+        "note": "Note",
+        "menu": "Menu",
+        "item": "Article",
+        "section": "Section",
+        "availability": "Disponibilité",
+        "price": "Prix",
+        "description": "Description"
+      },
+      "menuAvailability": {
+        "sold_out": "Épuisé",
+        "available": "Disponible"
       },
       "tonightChanges": {
         "pause_online": "Suspendre les réservations en ligne",

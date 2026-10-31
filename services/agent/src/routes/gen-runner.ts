@@ -77,6 +77,8 @@ export const GEN_WRITE_TOOL_NAMES = [
   "notify_waitlist_party",
   "seat_waitlist_party",
   "remove_from_waitlist",
+  "set_menu_item_availability",
+  "update_menu_item",
   "seat_reservation",
   "mark_no_show",
 ] as const;
