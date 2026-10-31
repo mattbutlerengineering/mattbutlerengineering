@@ -89,6 +89,9 @@ const ACTION_TITLES = [
   "change_tonight_availability",
   "end_tonight_change",
   "undo_availability_change",
+  "close_dates",
+  "set_special_hours",
+  "reopen_closure",
   "add_guest",
   "update_guest",
   "add_guest_note",
@@ -142,6 +145,11 @@ const ACTION_FIELDS = [
   "price",
   "description",
   "floorPlan",
+  "endDate",
+  "opensAt",
+  "lastSeating",
+  "closesAt",
+  "tellCancelledGuests",
 ] as const;
 
 const TABLE_STATUSES = {
@@ -172,8 +180,14 @@ const MENU_AVAILABILITY = {
   available: "chat.actions.menuAvailability.available",
 } as const;
 
+const YES_NO = {
+  true: "chat.actions.yesNo.yes",
+  false: "chat.actions.yesNo.no",
+} as const;
+
 type ChatActionKey =
   | `chat.actions.${(typeof ACTION_TITLES)[number]}`
+  | (typeof YES_NO)[keyof typeof YES_NO]
   | `chat.actions.fields.${(typeof ACTION_FIELDS)[number]}`
   | (typeof TABLE_STATUSES)[keyof typeof TABLE_STATUSES]
   | (typeof TONIGHT_CHANGES)[keyof typeof TONIGHT_CHANGES]
@@ -188,11 +202,21 @@ const isRealDate = (value: string): boolean => {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 };
 const WALL_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
-const TIME_FIELDS: ReadonlySet<string> = new Set(["startTime", "endTime", "closeAt", "from", "to"]);
+const DATE_FIELDS: ReadonlySet<string> = new Set(["date", "endDate"]);
+const TIME_FIELDS: ReadonlySet<string> = new Set([
+  "startTime",
+  "endTime",
+  "closeAt",
+  "from",
+  "to",
+  "opensAt",
+  "lastSeating",
+  "closesAt",
+]);
 
 /** A tool's YYYY-MM-DD date or HH:MM wall time as people read it; anything else as sent. */
 function formatWhen(key: string, value: string, locale?: string): string {
-  if (key === "date" && CALENDAR_DATE.test(value) && isRealDate(value)) {
+  if (DATE_FIELDS.has(key) && CALENDAR_DATE.test(value) && isRealDate(value)) {
     return formatCalendarDate(value, { weekday: "long", month: "short", day: "numeric" }, locale);
   }
   if (TIME_FIELDS.has(key) && WALL_TIME.test(value)) return formatLocalTime(value, locale);
@@ -233,7 +257,9 @@ export function describeChatAction(
               ? lookup(CANCEL_REASONS, value)
               : key === "availability"
                 ? lookup(MENU_AVAILABILITY, value)
-                : undefined;
+                : key === "tellCancelledGuests"
+                  ? lookup(YES_NO, value)
+                  : undefined;
       const shown =
         key === "tableId"
           ? (tableName(value) ?? value)

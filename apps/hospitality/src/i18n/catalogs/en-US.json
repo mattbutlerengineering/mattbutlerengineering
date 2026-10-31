@@ -1530,6 +1530,9 @@
       "change_tonight_availability": "Change tonight's availability",
       "end_tonight_change": "End a Tonight change",
       "undo_availability_change": "Undo an availability change",
+      "close_dates": "Close on dates",
+      "set_special_hours": "Set special hours for a date",
+      "reopen_closure": "Reopen a closure",
       "add_guest": "Add a guest",
       "update_guest": "Update a guest",
       "add_guest_note": "Add a staff note",
@@ -1580,7 +1583,16 @@
         "availability": "Availability",
         "price": "Price",
         "description": "Description",
-        "floorPlan": "Floor plan"
+        "floorPlan": "Floor plan",
+        "endDate": "Last date",
+        "opensAt": "Opens",
+        "lastSeating": "Last seating",
+        "closesAt": "Closes",
+        "tellCancelledGuests": "Tell cancelled guests"
+      },
+      "yesNo": {
+        "yes": "Yes",
+        "no": "No"
       },
       "menuAvailability": {
         "sold_out": "Sold out",

@@ -3053,7 +3053,7 @@
       export function useChatSuggestions(): readonly string[] { /* ... */ }
     </item>
     <item priority="high">
-      type ChatActionKey = `chat.actions.${(typeof ACTION | `chat.actions.fields.${(typeof | (typeof TABLE_STATUSES)[keyof  | (typeof TONIGHT_CHANGES)[keyof | (typeof CANCEL_REASONS)[keyof  | (typeof MENU_AVAILABILITY)[key;
+      type ChatActionKey = `chat.actions.${(typeof ACTION | (typeof YES_NO)[keyof typeof Y | `chat.actions.fields.${(typeof | (typeof TABLE_STATUSES)[keyof  | (typeof TONIGHT_CHANGES)[keyof | (typeof CANCEL_REASONS)[keyof  | (typeof MENU_AVAILABILITY)[key;
     </item>
     <item priority="high">
       type Translate = (key: ChatActionKey) => string;
@@ -9865,6 +9865,12 @@
       type TonightChangeType = (typeof TONIGHT_CHANGE_TYPES)[number];
     </item>
     <item priority="high">
+      export const AVAILABILITY_PAGE: unknown;
+    </item>
+    <item priority="high">
+      export const ClockSchema: unknown;
+    </item>
+    <item priority="high">
       type ChangeField = "closeAt" | "from" | "to" | "service" | "tables" | "covers";
     </item>
     <item priority="high">
@@ -9873,14 +9879,14 @@
     <item priority="high">
       type TonightRule = Extract<DateRule, { kind: "tonight" }>;
     </item>
-    <item priority="medium">
-      function clockToMinute(clock: string): number { /* ... */ }
+    <item priority="high">
+      export function clockToMinute(clock: string): number { /* ... */ }
     </item>
     <item priority="medium">
       function serviceDayMinute(clock: string, config: AvailabilityConfig): number { /* ... */ }
     </item>
-    <item priority="medium">
-      function minuteToClock(minute: number): string { /* ... */ }
+    <item priority="high">
+      export function minuteToClock(minute: number): string { /* ... */ }
     </item>
     <item priority="medium">
       function activeTonightRules(config: AvailabilityConfig, today: string, now: Date): TonightRule[] { /* ... */ }
@@ -9898,8 +9904,8 @@
         tableName: (id: string) => string
       ) { /* ... */ }
     </item>
-    <item priority="medium">
-      function resolveService(
+    <item priority="high">
+      export function resolveService(
         config: AvailabilityConfig,
         name: string
       ): { id: string } | { error: string } { /* ... */ }
@@ -9924,6 +9930,105 @@
     </item>
     <item priority="high">
       export function createAvailabilityTools(
+        log: FastifyBaseLogger,
+        api: ApiClient,
+        {
+          venueId,
+          timeZone,
+        }: { readonly venueId?: string | undefined; readonly timeZone?: string | undefined }
+      ): ToolSet { /* ... */ }
+    </item>
+  </file>
+  <file path="services/agent/src/routes/gen-agent-closure-tools.ts">
+    <item priority="high">
+      type SpecialHoursRule = Extract<DateRule, { kind: "special_hours" }>;
+    </item>
+    <item priority="high">
+      type ClosureRule = Extract<DateRule, { kind: "closure" }>;
+    </item>
+    <item priority="high">
+      type DatedRule = ClosureRule | SpecialHoursRule;
+    </item>
+    <item priority="high">
+      type Impact = Awaited<ReturnType<ApiClient["availability"]["getClosureI...;
+    </item>
+    <item priority="medium">
+      function dayNumber(date: string): number | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function weekdayOf(date: string): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function checkSpan(
+        date: string,
+        endDate: string | undefined,
+        today: string
+      ): { from: string; to: string } | { error: string } { /* ... */ }
+    </item>
+    <item priority="medium">
+      function coversDate(rule: DatedRule, date: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function spanOf(rule: DatedRule) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function serviceName(config: AvailabilityConfig, id: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function scopeOf(rule: DatedRule, config: AvailabilityConfig): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function plural(count: number, noun: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function affectedResult(impact: Pick<Impact, "reservations" | "covers" | "groups">) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closureFailure(err: unknown, unsure: string) { /* ... */ }
+    </item>
+    <item priority="low">
+      async function saveIfNoBookings(
+        api: ApiClient,
+        venueId: string,
+        rule: DateRule,
+        expectedVersion: number
+      ): Promise<{ saved: true } | Record<string, unknown>> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function hasSpecialHours(config: AvailabilityConfig, date: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      interface HoursInput {
+        opensAt: string;
+        lastSeating: string;
+        closesAt: string;
+      }
+    </item>
+    <item priority="medium">
+      function hoursMinutes(input: HoursInput) { /* ... */ }
+    </item>
+    <item priority="low">
+      async function specialServices(
+        api: ApiClient,
+        venueId: string,
+        config: AvailabilityConfig,
+        date: string,
+        serviceId: string,
+        hours: ReturnType<typeof hoursMinutes>
+      ): Promise<{ services: SpecialHoursService[] } | { error: string }> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function describeRule(rule: DatedRule, config: AvailabilityConfig, cancelled: number | undefined) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function findCovering(
+        config: AvailabilityConfig,
+        date: string,
+        service: string | undefined
+      ): { rule: DatedRule } | { error: string } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createClosureTools(
         log: FastifyBaseLogger,
         api: ApiClient,
         {

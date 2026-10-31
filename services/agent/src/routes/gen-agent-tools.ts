@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
 import { GEN_WRITE_TOOL_NAMES } from "./gen-runner.js";
 import { createAvailabilityTools } from "./gen-agent-availability-tools.js";
+import { createClosureTools } from "./gen-agent-closure-tools.js";
 import { createGuestTools } from "./gen-agent-guest-tools.js";
 import { createFloorPlanTools } from "./gen-agent-floor-plan-tools.js";
 import { createMenuTools } from "./gen-agent-menu-tools.js";
@@ -593,6 +594,7 @@ export function createAgentTools(
     }),
 
     ...createAvailabilityTools(log, api, { venueId, timeZone }),
+    ...createClosureTools(log, api, { venueId, timeZone }),
     ...createGuestTools(log, api, { venueId }),
     ...createWaitlistTools(log, api, { venueId, timeZone }),
     ...createMenuTools(log, api, { venueId }),

@@ -76,7 +76,20 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).toMatch(
       /list_tonight_changes .*before .*end_tonight_change .*undo_availability_change/i
     );
-    expect(prompt).toMatch(/closures, special hours.*Availability page/i);
+    expect(prompt).toMatch(/schedules.*Availability page/i);
+  });
+
+  // #7929: closures and special hours on later dates, and reopening.
+  it("lists closures among the confirmed changes and keeps decisions and schedules on the page", () => {
+    const prompt = buildAgentSystemPrompt({ venueId: "v", now: NOW, catalogPrompt: "CATALOG" });
+    const confirmLine = prompt.split("\n").find((line) => /Confirm or Cancel button/.test(line));
+
+    expect(confirmLine).toMatch(/closures/);
+    expect(prompt).toMatch(/close_dates/);
+    expect(prompt).toMatch(/set_special_hours/);
+    expect(prompt).toMatch(/list_closures .*before .*reopen_closure/i);
+    expect(prompt).toMatch(/affects bookings.*Availability page/i);
+    expect(prompt).toMatch(/regular schedules and service hours.*Availability page/i);
   });
 
   describe("the page the chat is open on (#7924)", () => {

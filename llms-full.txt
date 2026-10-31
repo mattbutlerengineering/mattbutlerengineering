@@ -9774,6 +9774,7 @@
     }
     type ChatActionKey =
       | `chat.actions.${(typeof ACTION_TITLES)[number]}`
+      | (typeof YES_NO)[keyof typeof YES_NO]
       | `chat.actions.fields.${(typeof ACTION_FIELDS)[number]}`
       | (typeof TABLE_STATUSES)[keyof typeof TABLE_STATUSES]
       | (typeof TONIGHT_CHANGES)[keyof typeof TONIGHT_CHANGES]
@@ -9781,7 +9782,7 @@
       | (typeof MENU_AVAILABILITY)[keyof typeof MENU_AVAILABILITY];
     type Translate = (key: ChatActionKey) => string;
     function formatWhen(key: string, value: string, locale?: string): string {
-      if (key === "date" && CALENDAR_DATE.test(value) && isRealDate(value)) {
+      if (DATE_FIELDS.has(key) && CALENDAR_DATE.test(value) && isRealDate(value)) {
         return formatCalendarDate(value, { weekday: "long", month: "short", day: "numeric" }, locale);
       }
       if (TIME_FIELDS.has(key) && WALL_TIME.test(value)) return formatLocalTime(value, locale);
@@ -9812,7 +9813,9 @@
                   ? lookup(CANCEL_REASONS, value)
                   : key === "availability"
                     ? lookup(MENU_AVAILABILITY, value)
-                    : undefined;
+                    : key === "tellCancelledGuests"
+                      ? lookup(YES_NO, value)
+                      : undefined;
           const shown =
             key === "tableId"
               ? (tableName(value) ?? value)
@@ -29211,10 +29214,15 @@
   <section priority="medium" role="routes">
   <file path="services/agent/src/routes/gen-agent-availability-tools.ts">
     type TonightChangeType = (typeof TONIGHT_CHANGE_TYPES)[number];
+    export const AVAILABILITY_PAGE =
+      "Tell the user to make this change on the Availability page in the dashboard.";
+    export const ClockSchema = z
+      .string()
+      .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use a 24-hour venue-local time as HH:MM");
     type ChangeField = "closeAt" | "from" | "to" | "service" | "tables" | "covers";
     type ChangeTonightInput = z.infer<typeof ChangeTonightInputSchema>;
     type TonightRule = Extract<DateRule, { kind: "tonight" }>;
-    function clockToMinute(clock: string): number {
+    export function clockToMinute(clock: string): number {
       const [hours, minutes] = clock.split(":").map(Number);
       return hours! * 60 + minutes!;
     }
@@ -29224,7 +29232,7 @@
       const earliest = opens.length ? Math.min(...opens) : 0;
       return minute < earliest ? minute + MINUTES_IN_DAY : minute;
     }
-    function minuteToClock(minute: number): string {
+    export function minuteToClock(minute: number): string {
       const wall = minute % MINUTES_IN_DAY;
       const pad = (n: number) => String(n).padStart(2, "0");
       return `${pad(Math.floor(wall / 60))}:${pad(wall % 60)}`;
@@ -29267,7 +29275,7 @@
       }
       return { change, ...stopTimes(payload.stop) };
     }
-    function resolveService(
+    export function resolveService(
       config: AvailabilityConfig,
       name: string
     ): { id: string } | { error: string } {
@@ -29523,6 +29531,419 @@
             } catch (err) {
               log.error({ err, venueId }, "undo_availability_change failed");
               return availabilityWriteFailure(err, "undo the change");
+            }
+          },
+        }),
+      };
+    }
+  </file>
+  <file path="services/agent/src/routes/gen-agent-closure-tools.ts">
+    type SpecialHoursRule = Extract<DateRule, { kind: "special_hours" }>;
+    type ClosureRule = Extract<DateRule, { kind: "closure" }>;
+    type DatedRule = ClosureRule | SpecialHoursRule;
+    type Impact = Awaited<ReturnType<ApiClient["availability"]["getClosureImpact"]>>;
+    function dayNumber(date: string): number | undefined {
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date.trim());
+      if (!match) return undefined;
+      const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
+      const instant = new Date(Date.UTC(year, month - 1, day));
+      const reads =
+        instant.getUTCFullYear() === year &&
+        instant.getUTCMonth() === month - 1 &&
+        instant.getUTCDate() === day;
+      return reads ? instant.getTime() / MS_PER_DAY : undefined;
+    }
+    function weekdayOf(date: string): number {
+      return new Date(dayNumber(date)! * MS_PER_DAY).getUTCDay();
+    }
+    function checkSpan(
+      date: string,
+      endDate: string | undefined,
+      today: string
+    ): { from: string; to: string } | { error: string } {
+      const start = dayNumber(date);
+      const end = endDate === undefined ? start : dayNumber(endDate);
+      if (start === undefined || end === undefined) return { error: UNREADABLE_DATE };
+      if (start < dayNumber(today)!) {
+        return { error: `${date.trim()} is in the past for this venue (today is ${today}).` };
+      }
+      if (end < start) {
+        return { error: `The last date (${endDate}) is before the first (${date}).` };
+      }
+      if (end - start + 1 > MAX_CLOSURE_DAYS) {
+        return {
+          error: `A closure can cover at most ${MAX_CLOSURE_DAYS} days. Close a shorter stretch, or close until reopened on the Availability page.`,
+        };
+      }
+      return { from: date.trim(), to: (endDate ?? date).trim() };
+    }
+    function coversDate(rule: DatedRule, date: string): boolean {
+      return (
+        rule.startsOn <= date &&
+        (rule.endsOn == null || rule.endsOn >= date) &&
+        (!rule.repeat || rule.repeat.weekdays.includes(weekdayOf(date)))
+      );
+    }
+    function spanOf(rule: DatedRule) {
+      return rule.endsOn == null
+        ? { from: rule.startsOn, until: "reopened" }
+        : { from: rule.startsOn, to: rule.endsOn };
+    }
+    function serviceName(config: AvailabilityConfig, id: string): string {
+      return config.venueServices.find((s) => s.id === id)?.name ?? "a service";
+    }
+    function scopeOf(rule: DatedRule, config: AvailabilityConfig): string {
+      switch (rule.targetKind) {
+        case "service":
+          return rule.venueServiceId ? serviceName(config, rule.venueServiceId) : "a service";
+        case "booking":
+          return `${(rule.bookingTypes ?? []).join(" and ")} booking`;
+        case "tables":
+          return "some tables";
+        default:
+          return "the whole venue";
+      }
+    }
+    function plural(count: number, noun: string): string {
+      return `${count} ${noun}${count === 1 ? "" : "s"}`;
+    }
+    function affectedResult(impact: Pick<Impact, "reservations" | "covers" | "groups">) {
+      const dates = [...new Set(impact.groups.map((g) => g.date))].join(", ");
+      return {
+        refused: true,
+        needsDecisions: true,
+        error: `This would affect ${plural(impact.reservations, "booking")} (${plural(impact.covers, "cover")}) on ${dates}, and each one needs a decision (cancel, move or keep). ${AVAILABILITY_PAGE} Nothing was changed.`,
+      };
+    }
+    function closureFailure(err: unknown, unsure: string) {
+      const refusal = refusalOf(err);
+      if (!refusal) return { error: unsure };
+      const base = { refused: true, ...(refusal.code ? { code: refusal.code } : {}) };
+      switch (refusal.code ?? (refusal.status === 403 ? "forbidden" : undefined)) {
+        case "decision-required":
+          return {
+            ...base,
+            needsDecisions: true,
+            error: `Bookings now sit on those dates, and each one needs a decision (cancel, move or keep). ${AVAILABILITY_PAGE} Nothing was changed.`,
+          };
+        case "version-conflict":
+          return {
+            ...base,
+            error:
+              "Availability changed since it was read, so nothing was saved. Ask the user to confirm again.",
+          };
+        case "closure-exists":
+          return { ...base, error: "That closure was already saved. Nothing more was changed." };
+        case "forbidden":
+          return {
+            ...base,
+            error: `The user doesn't have permission to do this. Closing or changing dates is for a manager. A manager can make it, or it can be done on the Availability page. Nothing was changed.`,
+          };
+        default:
+          return { ...base, error: `${refusal.detail} Nothing was changed.` };
+      }
+    }
+    async function saveIfNoBookings(
+      api: ApiClient,
+      venueId: string,
+      rule: DateRule,
+      expectedVersion: number
+    ): Promise<{ saved: true } | Record<string, unknown>> {
+      let impact: Impact;
+      try {
+        impact = await api.availability.getClosureImpact(venueId, rule);
+      } catch (err) {
+        return closureFailure(err, CHECK_FAILED);
+      }
+      if (typeof impact?.reservations !== "number" || !Array.isArray(impact.groups)) {
+        return { error: CHECK_FAILED };
+      }
+      if (impact.reservations > 0 || impact.groups.length > 0) return affectedResult(impact);
+      try {
+        await api.availability.createClosure(
+          venueId,
+          { expectedVersion, rule, decisions: [] },
+          randomUUID()
+        );
+        return { saved: true };
+      } catch (err) {
+        return closureFailure(err, SAVE_UNSURE);
+      }
+    }
+    function hasSpecialHours(config: AvailabilityConfig, date: string): boolean {
+      return config.dateRules.some(
+        (r) => r.kind === "special_hours" && r.seriesId == null && coversDate(r, date)
+      );
+    }
+    interface HoursInput {
+      readonly opensAt: string;
+      readonly lastSeating: string;
+      readonly closesAt: string;
+    }
+    function hoursMinutes(input: HoursInput) {
+      const opensAt = clockToMinute(input.opensAt);
+      const closesAt = clockToMinute(input.closesAt);
+      const last = clockToMinute(input.lastSeating);
+      const closes = closesAt <= opensAt ? closesAt + MINUTES_IN_DAY : closesAt;
+      const lastSeatingAt = last < opensAt ? last + MINUTES_IN_DAY : last;
+      return { opensAt, lastSeatingAt, closesAt: closes };
+    }
+    async function specialServices(
+      api: ApiClient,
+      venueId: string,
+      config: AvailabilityConfig,
+      date: string,
+      serviceId: string,
+      hours: ReturnType<typeof hoursMinutes>
+    ): Promise<{ services: SpecialHoursService[] } | { error: string }> {
+      const days = await api.availability.listDays(venueId, { from: date, to: date });
+      const scheduleId = days.find((d) => d.serviceDate === date)?.scheduleId;
+      if (!scheduleId) return { error: NO_REGULAR_HOURS };
+      const live = new Set(config.venueServices.filter((s) => !s.archivedAt).map((s) => s.id));
+      const rows = config.scheduleServices.filter(
+        (row) => row.scheduleId === scheduleId && live.has(row.venueServiceId)
+      );
+      if (!rows.some((row) => row.venueServiceId === serviceId)) {
+        return {
+          error: `${serviceName(config, serviceId)} isn't one of the regular services on ${date}, so there is nothing to base its special hours on. ${AVAILABILITY_PAGE}`,
+        };
+      }
+      return {
+        services: rows.map((row) => ({
+          venueServiceId: row.venueServiceId,
+          opensAt: row.venueServiceId === serviceId ? hours.opensAt : row.opensAt,
+          lastSeatingAt: row.venueServiceId === serviceId ? hours.lastSeatingAt : row.lastSeatingAt,
+          closesAt: row.venueServiceId === serviceId ? hours.closesAt : row.closesAt,
+          seating: row.seating,
+          bookingTypes: [...row.bookingTypes],
+        })),
+      };
+    }
+    function describeRule(rule: DatedRule, config: AvailabilityConfig, cancelled: number | undefined) {
+      const repeats = rule.repeat ? { repeatsOn: rule.repeat.weekdays.map((d) => WEEKDAYS[d]) } : {};
+      if (rule.kind === "special_hours") {
+        return {
+          type: "special hours",
+          ...spanOf(rule),
+          ...repeats,
+          hours: rule.payload.services.map((s) => ({
+            service: serviceName(config, s.venueServiceId),
+            opensAt: minuteToClock(s.opensAt),
+            lastSeating: minuteToClock(s.lastSeatingAt),
+            closesAt: minuteToClock(s.closesAt),
+          })),
+        };
+      }
+      return {
+        type: "closed",
+        ...spanOf(rule),
+        ...repeats,
+        scope: scopeOf(rule, config),
+        ...(rule.window ? { fromTime: minuteToClock(rule.window.from) } : {}),
+        ...(cancelled ? { cancelledGuests: cancelled } : {}),
+      };
+    }
+    function findCovering(
+      config: AvailabilityConfig,
+      date: string,
+      service: string | undefined
+    ): { rule: DatedRule } | { error: string } {
+      let covering = config.dateRules.filter(isDated).filter((r) => coversDate(r, date));
+      if (service) {
+        const resolved = resolveService(config, service);
+        if ("error" in resolved) return resolved;
+        covering = covering.filter((r) => r.venueServiceId === resolved.id);
+      }
+      if (covering.length === 0) {
+        return {
+          error: `No closure or special hours cover ${date}. Check list_closures for what is set.`,
+        };
+      }
+      if (covering.length > 1) {
+        const options = covering
+          .map((r) => `${r.kind === "closure" ? "closed" : "special hours"}: ${scopeOf(r, config)}`)
+          .join("; ");
+        return {
+          error: `More than one closure covers ${date}. Ask which, then pass its service. They are: ${options}.`,
+        };
+      }
+      return { rule: covering[0]! };
+    }
+    export function createClosureTools(
+      log: FastifyBaseLogger,
+      api: ApiClient,
+      {
+        venueId,
+        timeZone,
+      }: { readonly venueId?: string | undefined; readonly timeZone?: string | undefined }
+    ): ToolSet {
+      return {
+        // ── Read ───────────────────────────────────────────────
+        list_closures: tool({
+          description:
+            "List the venue's closures and special hours from today on: their dates, what is closed, the hours, and how many guests a closure cancelled. Call it before reopen_closure.",
+          inputSchema: z.object({}),
+          execute: async () => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId }, "list_closures tool called");
+            try {
+              const [state, counts] = await Promise.all([
+                api.availability.getConfig(venueId),
+                // The counts are extra: a failed read must not hide the closures.
+                api.availability.listClosures(venueId).catch((err: unknown) => {
+                  log.error({ err, venueId }, "list_closures counts failed");
+                  return [];
+                }),
+              ]);
+              const today = todayIn(timeZone);
+              const closures = state.config.dateRules
+                .filter(isDated)
+                .filter((r) => r.endsOn == null || r.endsOn >= today)
+                .sort((a, b) => a.startsOn.localeCompare(b.startsOn))
+                .map((r) =>
+                  describeRule(r, state.config, counts.find((c) => c.ruleId === r.id)?.cancelled)
+                );
+              return { closures };
+            } catch (err) {
+              log.error({ err, venueId }, "list_closures failed");
+              return { error: "Couldn't read the closures. Ask the user to try again." };
+            }
+          },
+        }),
+    
+        // ── Write (each runs only after the user confirms) ─────
+        close_dates: tool({
+          description:
+            "Close the whole venue, or one service, on a date or a run of dates after tonight. Requires confirmation. It saves only when no booking is affected; otherwise it refuses and the user finishes it on the Availability page. For tonight use change_tonight_availability.",
+          inputSchema: z.object({
+            date: DateField.describe("First date to close, as YYYY-MM-DD"),
+            endDate: DateField.optional().describe("Last date to close; omit for a single date"),
+            service: z
+              .string()
+              .min(1)
+              .optional()
+              .describe("The one service to close, by name; omit to close the whole venue"),
+          }),
+          execute: async ({ date, endDate, service }) => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId }, "close_dates tool called");
+            try {
+              const span = checkSpan(date, endDate, todayIn(timeZone));
+              if ("error" in span) return span;
+              const state = await api.availability.getConfig(venueId);
+              const target = service ? resolveService(state.config, service) : undefined;
+              if (target && "error" in target) return target;
+              const rule: ClosureRule = {
+                id: randomUUID(),
+                kind: "closure",
+                targetKind: target ? "service" : "venue",
+                ...(target ? { venueServiceId: target.id } : {}),
+                startsOn: span.from,
+                endsOn: span.to,
+                window: null,
+              };
+              const outcome = await saveIfNoBookings(api, venueId, rule, state.version);
+              if (!("saved" in outcome)) return outcome;
+              return {
+                saved: true,
+                ...spanOf(rule),
+                scope: scopeOf(rule, state.config),
+                note: "No booking was affected, so no guest was told.",
+              };
+            } catch (err) {
+              log.error({ err, venueId }, "close_dates failed");
+              return closureFailure(err, "Couldn't close the dates right now. Nothing was changed.");
+            }
+          },
+        }),
+    
+        set_special_hours: tool({
+          description:
+            "Set one service's hours on a single date after tonight; the day's other services keep their regular hours and each service's seating pattern stays as it is. Requires confirmation. It saves only when no booking is affected; otherwise it refuses and the user finishes it on the Availability page. A date that already has special hours must be reopened first with reopen_closure.",
+          inputSchema: z.object({
+            date: DateField.describe("The date, as YYYY-MM-DD"),
+            service: z.string().min(1).describe("The service whose hours change, by name"),
+            opensAt: ClockSchema.describe("Opening time, HH:MM venue-local"),
+            lastSeating: ClockSchema.describe("Last seating, HH:MM venue-local"),
+            closesAt: ClockSchema.describe("Closing time, HH:MM venue-local; after midnight is fine"),
+          }),
+          execute: async ({ date, service, ...times }) => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId }, "set_special_hours tool called");
+            try {
+              const span = checkSpan(date, undefined, todayIn(timeZone));
+              if ("error" in span) return span;
+              const hours = hoursMinutes(times);
+              if (hours.lastSeatingAt < hours.opensAt || hours.lastSeatingAt > hours.closesAt) {
+                return { error: HOURS_ORDER };
+              }
+              const state = await api.availability.getConfig(venueId);
+              if (hasSpecialHours(state.config, span.from)) {
+                return {
+                  error: `${span.from} already has special hours. Reopen them first with reopen_closure, then set the new hours.`,
+                };
+              }
+              const target = resolveService(state.config, service);
+              if ("error" in target) return target;
+              const built = await specialServices(
+                api,
+                venueId,
+                state.config,
+                span.from,
+                target.id,
+                hours
+              );
+              if ("error" in built) return built;
+              const rule: SpecialHoursRule = {
+                id: randomUUID(),
+                kind: "special_hours",
+                targetKind: "venue",
+                startsOn: span.from,
+                endsOn: span.from,
+                payload: { version: 1, services: built.services },
+              };
+              const outcome = await saveIfNoBookings(api, venueId, rule, state.version);
+              if (!("saved" in outcome)) return outcome;
+              return {
+                saved: true,
+                date: span.from,
+                service: serviceName(state.config, target.id),
+                ...times,
+              };
+            } catch (err) {
+              log.error({ err, venueId }, "set_special_hours failed");
+              return closureFailure(err, "Couldn't set the hours right now. Nothing was changed.");
+            }
+          },
+        }),
+    
+        reopen_closure: tool({
+          description:
+            "Reopen a closure or remove special hours, found by a date it covers (and its service when several apply), so its slots return. Guests it already cancelled stay cancelled. Requires confirmation. Call list_closures first; if the closure cancelled guests, ask the user whether to tell them.",
+          inputSchema: z.object({
+            date: DateField.describe("A date the closure or special hours cover, as YYYY-MM-DD"),
+            service: z
+              .string()
+              .min(1)
+              .optional()
+              .describe("When several cover the date: the service the closure is for, by name"),
+            tellCancelledGuests: z
+              .boolean()
+              .describe("Whether to tell the guests the closure cancelled that it has reopened"),
+          }),
+          execute: async ({ date, service, tellCancelledGuests }) => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId }, "reopen_closure tool called");
+            try {
+              if (dayNumber(date) === undefined) return { error: UNREADABLE_DATE };
+              const state = await api.availability.getConfig(venueId);
+              const found = findCovering(state.config, date.trim(), service);
+              if ("error" in found) return found;
+              await api.availability.reopenClosure(venueId, found.rule.id, tellCancelledGuests);
+              return { reopened: true, ...spanOf(found.rule), tellCancelledGuests };
+            } catch (err) {
+              log.error({ err, venueId }, "reopen_closure failed");
+              return closureFailure(err, "Couldn't reopen it right now. Nothing was changed.");
             }
           },
         }),
@@ -30125,7 +30546,7 @@
         ...pageLines(ctx),
         "Never ask the user for a venue ID, reservation ID, or table ID: look them up with the tools.",
         "Your earlier replies in this conversation were based on tool results that aren't shown to you again. Treat them as accurate: don't apologize for or correct them unless a new tool result actually contradicts them. When you need an earlier detail, such as an ID, look it up again.",
-        "A change (booking, seating, no-show, walk-in, cancellation, table status, Tonight availability, waitlist, guest profile, menu items, the active floor plan) runs only when the user presses the Confirm or Cancel button the chat shows with it. Tell them to use those buttons, and never ask them to type yes: typing a new message dismisses the pending change.",
+        "A change (booking, seating, no-show, walk-in, cancellation, table status, Tonight availability, closures and special hours, waitlist, guest profile, menu items, the active floor plan) runs only when the user presses the Confirm or Cancel button the chat shows with it. Tell them to use those buttons, and never ask them to type yes: typing a new message dismisses the pending change.",
         "Ask only for details the user has to decide, such as guest name, party size, or time. When a reservation's end time isn't given, use two hours after the start.",
         "Reply in short, plain sentences in the user's language. Don't use markdown: the chat shows plain text.",
         "Show elements only by calling render_component with an elements array: each element has a unique id, a type from the components below, its props, and children as a list of other elements' ids; an element no other element lists is shown at the top level. Never write JSON, element specs or patch lines in your reply text.",
@@ -30142,7 +30563,7 @@
         'Tables move AVAILABLE (free) → OCCUPIED (seated) → DIRTY (needs bussing) → READY (cleaned) → AVAILABLE. Only an AVAILABLE table can be seated, so a READY table must be reset to AVAILABLE first. When staff say a table is "clean", that means READY. Describe statuses to staff in plain words, not capitals.',
         "For tonight's availability, use change_tonight_availability to pause online booking, close early, stop a time window, block tables, or set pacing; it lasts until the service day ends. Call list_tonight_changes before end_tonight_change or undo_availability_change, and pass undo_availability_change the summary exactly as listed. When a change affects existing bookings, tell the user to finish it on the Availability page.",
         "When a booked party arrives, seat them with seat_reservation; seat_walk_in is only for guests with no booking. Mark a party that never came with mark_no_show. Pass cancel_reservation the reason when the user gives one. Deposits are handled on the Timeline page only: say so and point the user there.",
-        "You can't add closures, special hours, or schedule changes for other days. Say so plainly and point the user to the Availability page.",
+        "To close the venue or one service on later dates use close_dates, and to change a service's hours on one date use set_special_hours (then the day's other services keep their regular hours). Both save only when no booking is affected: when the result says it affects bookings, tell the user plainly and point them to the Availability page, where each booking gets a decision. Dates are the venue's, written as YYYY-MM-DD. Call list_closures before reopen_closure, and when a closure cancelled guests ask whether to tell them. Regular schedules and service hours stay on the Availability page: say so plainly and point the user there.",
         "Change a guest's profile with update_guest (tags, dietary restrictions, corrected contact details) and add staff notes with add_guest_note. Find guests to win back with list_lapsing_guests, then invite one back with send_win_back. Never repeat a guest's email or phone in a reply.",
         "Read the waitlist with list_waitlist. To seat a waiting party use seat_waitlist_party, not seat_walk_in, so they also leave the waitlist. Parties are named by guest name; when two share a name, ask for the party size.",
         "Read menus with list_menus and get_menu. Mark an item sold out or available with set_menu_item_availability, and change its price, name or description with update_menu_item. When a menu is open, call get_menu with its id, then name the menu by its name in a change. When two items share a name, ask which section. Creating, deleting or reordering menus, sections or items stays on the Menus page: say so plainly and point the user there.",
@@ -30813,6 +31234,7 @@
         }),
     
         ...createAvailabilityTools(log, api, { venueId, timeZone }),
+        ...createClosureTools(log, api, { venueId, timeZone }),
         ...createGuestTools(log, api, { venueId }),
         ...createWaitlistTools(log, api, { venueId, timeZone }),
         ...createMenuTools(log, api, { venueId }),
@@ -31630,6 +32052,9 @@
       "change_tonight_availability",
       "end_tonight_change",
       "undo_availability_change",
+      "close_dates",
+      "set_special_hours",
+      "reopen_closure",
       "add_guest",
       "update_guest",
       "add_guest_note",

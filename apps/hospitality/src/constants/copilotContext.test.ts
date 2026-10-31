@@ -340,6 +340,57 @@ describe("describeChatAction menu actions", () => {
   });
 });
 
+// #7929: closures, special hours and reopening, as the confirm bar shows them.
+describe("describeChatAction closure actions", () => {
+  const t = (key: string) => `t:${key}`;
+  const describeIn = (toolName: string, toolInput: Record<string, unknown>) =>
+    describeChatAction({ actionId: "z", toolName, toolInput }, t, () => undefined, "en-US");
+
+  it("shows the dates of a closure as people read them", () => {
+    const { title, details } = describeIn("close_dates", {
+      date: "2026-12-24",
+      endDate: "2026-12-26",
+      service: "Dinner",
+    });
+
+    expect(title).toBe("t:chat.actions.close_dates");
+    expect(details).toEqual([
+      { label: "t:chat.actions.fields.date", value: "Thursday, Dec 24" },
+      { label: "t:chat.actions.fields.endDate", value: "Saturday, Dec 26" },
+      { label: "t:chat.actions.fields.service", value: "Dinner" },
+    ]);
+  });
+
+  it("shows special hours as clock times", () => {
+    const { title, details } = describeIn("set_special_hours", {
+      date: "2026-12-24",
+      service: "Dinner",
+      opensAt: "17:00",
+      lastSeating: "21:00",
+      closesAt: "23:00",
+    });
+
+    expect(title).toBe("t:chat.actions.set_special_hours");
+    expect(details.slice(2)).toEqual([
+      { label: "t:chat.actions.fields.opensAt", value: "5:00 PM" },
+      { label: "t:chat.actions.fields.lastSeating", value: "9:00 PM" },
+      { label: "t:chat.actions.fields.closesAt", value: "11:00 PM" },
+    ]);
+  });
+
+  it("words whether cancelled guests are told, not true or false", () => {
+    const told = describeIn("reopen_closure", { date: "2026-12-24", tellCancelledGuests: true });
+    const silent = describeIn("reopen_closure", { date: "2026-12-24", tellCancelledGuests: false });
+
+    expect(told.title).toBe("t:chat.actions.reopen_closure");
+    expect(told.details[1]).toEqual({
+      label: "t:chat.actions.fields.tellCancelledGuests",
+      value: "t:chat.actions.yesNo.yes",
+    });
+    expect(silent.details[1]?.value).toBe("t:chat.actions.yesNo.no");
+  });
+});
+
 // #7930: the floor plan switch, as the confirm bar shows it.
 describe("describeChatAction floor plan actions", () => {
   const t = (key: string) => `t:${key}`;
