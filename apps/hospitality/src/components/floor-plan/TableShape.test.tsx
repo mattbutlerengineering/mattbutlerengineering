@@ -123,7 +123,7 @@ vi.mock("react-konva", () => {
     // Attach a fake Konva node with a no-op .to() method
     React.useEffect(() => {
       if (ref && typeof ref === "object" && "current" in ref) {
-        (ref as React.MutableRefObject<unknown>).current = { to: vi.fn() };
+        (ref as React.MutableRefObject<unknown>).current = { to: vi.fn(), cache: vi.fn() };
       }
     });
 
