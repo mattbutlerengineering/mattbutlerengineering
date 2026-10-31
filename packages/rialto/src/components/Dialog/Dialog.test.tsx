@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { useState } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -207,6 +209,47 @@ describe("Dialog", () => {
       expect(document.activeElement).toBe(screen.getByText("First"));
       expect(document.activeElement).not.toBe(
         screen.getByRole("button", { name: /close dialog/i })
+      );
+    });
+  });
+
+  describe("layout", () => {
+    const css = fs.readFileSync(path.join(__dirname, "Dialog.module.css"), "utf-8");
+    const rule = (selector: string): string => {
+      const match = new RegExp(`(?:^|\\n)${selector}\\s*\\{([^}]*)\\}`).exec(css);
+      if (!match?.[1]) throw new Error(`no rule for ${selector} in Dialog.module.css`);
+      return match[1];
+    };
+
+    it("keeps the footer outside the scrolling body, and the title outside both", () => {
+      render(
+        <Dialog open onClose={() => {}} title="Long" footer={<button>Save</button>}>
+          <p>Dialog body</p>
+        </Dialog>
+      );
+      const panel = screen.getByRole("dialog");
+      const body = screen.getByText("Dialog body").parentElement as HTMLElement;
+      expect(body.parentElement).toBe(panel);
+      expect(body).not.toContainElement(screen.getByRole("button", { name: "Save" }));
+      expect(body).not.toContainElement(screen.getByText("Long"));
+    });
+
+    it("scrolls the body, not the panel", () => {
+      expect(rule("\\.panel")).not.toMatch(/overflow-y:\s*auto/);
+      expect(rule("\\.panel")).toMatch(/display:\s*flex/);
+      expect(rule("\\.panel")).toMatch(/flex-direction:\s*column/);
+      expect(rule("\\.body")).toMatch(/overflow-y:\s*auto/);
+      expect(rule("\\.body")).toMatch(/min-height:\s*0/);
+    });
+
+    it("paints an opaque surface over the glass recipe in both themes", () => {
+      // The panel composes `glass` (rgb(253 252 250 / 0.85) + backdrop blur),
+      // so the override must out-specify it: #7994.
+      const light = rule("\\.overlay \\.panel");
+      expect(light).toMatch(/background:\s*var\(--rialto-surface-elevated\)/);
+      expect(light).toMatch(/backdrop-filter:\s*none/);
+      expect(rule(':global\\(\\[data-theme="dark"\\]\\) \\.overlay \\.panel')).toMatch(
+        /background:\s*var\(--rialto-surface-elevated\)/
       );
     });
   });

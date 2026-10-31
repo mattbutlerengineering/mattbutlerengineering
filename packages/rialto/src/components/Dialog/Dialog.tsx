@@ -138,7 +138,9 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
                   {description}
                 </p>
               )}
-              <DialogLayerContext.Provider value={layer}>{children}</DialogLayerContext.Provider>
+              <div className={styles.body}>
+                <DialogLayerContext.Provider value={layer}>{children}</DialogLayerContext.Provider>
+              </div>
               {footer && <div className={styles.footer}>{footer}</div>}
             </motion.div>
           </motion.div>

@@ -145,33 +145,63 @@ async function mockAvailability(page: Page, closeDate: string) {
   return { saved: () => saved, venueId };
 }
 
+/** Opens the Close dialog for `closeDate` and advances to step 2 (the 14-booking impact list). */
+async function openCloseStepTwo(page: Page, closeDate: string) {
+  await page.goto("availability");
+  const calendar = page.getByRole("grid", { name: "Availability calendar" });
+  await expect(calendar).toBeVisible();
+  await page.getByRole("button", { name: "Next", exact: true }).click();
+  await calendar.locator(`[data-date="${closeDate}"]`).click();
+  // The toolbar has a "Close…" too; the drawer's carries the date.
+  const drawer = page.getByRole("dialog");
+  await drawer.getByRole("button", { name: "Close…", exact: true }).click();
+
+  const dialog = page.getByRole("dialog", { name: "Close", exact: true });
+  await expect(dialog.getByText("Step 1 of 2")).toBeVisible();
+  await expect(
+    dialog.getByText(new RegExp(`${BOOKINGS} reservations · ${GUESTS} guests`))
+  ).toBeVisible();
+
+  await dialog.getByRole("button", { name: "Closed for a private event" }).click();
+  await dialog.getByRole("button", { name: "Next", exact: true }).click();
+  await expect(dialog.getByText("Step 2 of 2")).toBeVisible();
+  return { calendar, dialog };
+}
+
 test.describe("Availability close dialog (F5)", () => {
+  // #7994: a long step 2 used to scroll the whole panel, pushing the primary action out of view,
+  // and the glass recipe left the panel see-through.
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 375, height: 812 },
+  ]) {
+    test(`step 2 keeps its primary action in view and the panel opaque at ${viewport.width}x${viewport.height}`, async ({
+      mockedPage,
+    }) => {
+      const CLOSE_DATE = midNextMonth();
+      await mockedPage.setViewportSize(viewport);
+      await mockedPage.clock.setFixedTime(pinnedNoon());
+      await mockAvailability(mockedPage, CLOSE_DATE);
+      const { dialog } = await openCloseStepTwo(mockedPage, CLOSE_DATE);
+
+      await expect(dialog.getByTestId("close-primary")).toBeInViewport({ ratio: 1 });
+      // Opaque in every theme: the glass recipe's rgb(253 252 250 / 0.85) must not show through.
+      const alpha = await dialog.evaluate((el) => {
+        const match = /rgba\([^)]*,\s*([\d.]+)\)$/.exec(getComputedStyle(el).backgroundColor);
+        return match ? Number(match[1]) : 1;
+      });
+      expect(alpha).toBe(1);
+    });
+  }
+
   test("a Manager closes a date, cancels and notifies 14 bookings, and sees the band", async ({
     mockedPage,
   }) => {
     const CLOSE_DATE = midNextMonth();
     await mockedPage.clock.setFixedTime(pinnedNoon());
     const state = await mockAvailability(mockedPage, CLOSE_DATE);
-    await mockedPage.goto("availability");
+    const { calendar, dialog } = await openCloseStepTwo(mockedPage, CLOSE_DATE);
 
-    const calendar = mockedPage.getByRole("grid", { name: "Availability calendar" });
-    await expect(calendar).toBeVisible();
-    await mockedPage.getByRole("button", { name: "Next", exact: true }).click();
-    await calendar.locator(`[data-date="${CLOSE_DATE}"]`).click();
-    // The toolbar has a "Close…" too; the drawer's carries the date.
-    const drawer = mockedPage.getByRole("dialog");
-    await drawer.getByRole("button", { name: "Close…", exact: true }).click();
-
-    const dialog = mockedPage.getByRole("dialog", { name: "Close", exact: true });
-    await expect(dialog.getByText("Step 1 of 2")).toBeVisible();
-    await expect(
-      dialog.getByText(new RegExp(`${BOOKINGS} reservations · ${GUESTS} guests`))
-    ).toBeVisible();
-
-    await dialog.getByRole("button", { name: "Closed for a private event" }).click();
-    await dialog.getByRole("button", { name: "Next", exact: true }).click();
-
-    await expect(dialog.getByText("Step 2 of 2")).toBeVisible();
     await expect(dialog.getByText(/3 deposits held/)).toBeVisible();
     // A choice is required for every group before anything is saved.
     const primary = dialog.getByTestId("close-primary");
