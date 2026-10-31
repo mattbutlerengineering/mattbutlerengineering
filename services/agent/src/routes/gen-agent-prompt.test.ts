@@ -97,6 +97,9 @@ describe("buildAgentSystemPrompt", () => {
       /special hours, repeating closures and booking or table pauses are changed on the Availability page/
     );
     expect(prompt).toMatch(/countsUnavailable never state how many/);
+    expect(prompt).toMatch(
+      /countsUnavailable.*ask the user whether to tell guests before proposing a reopen/
+    );
   });
 
   describe("the page the chat is open on (#7924)", () => {

@@ -1615,7 +1615,7 @@
         "lastSeating": "Dernier placement",
         "closesAt": "Fermeture",
         "tellCancelledGuests": "Aviser les clients annulés",
-        "scope": "Ce qui ferme"
+        "scope": "S'applique à"
       },
       "yesNo": {
         "yes": "Oui",

@@ -15,7 +15,7 @@ import {
   NO_REGULAR_HOURS,
   SAVE_UNSURE,
   SCOPES,
-  UNREADABLE_DATE,
+  UNREADABLE_SPAN_DATE,
   UNTIL_REOPENED,
   WEEKDAYS,
   affectedResult,
@@ -291,12 +291,16 @@ function setSpecialHours({ log, api, venueId, timeZone }: ToolContext) {
   });
 }
 
-/** The guest note for a finished reopen, in plain words. */
-function reopenNote(cancelled: number, told: boolean): string {
-  if (cancelled === 0) return "No guest was cancelled by this closure, so nobody was told.";
-  return told
-    ? `${cancelled} guests the closure cancelled were told it has reopened; they stay cancelled.`
-    : `${cancelled} guests the closure cancelled were not told it has reopened; they stay cancelled.`;
+/**
+ * The guest note for a finished reopen. A notice is only requested here: it is
+ * sent in the background, so delivery is never claimed.
+ */
+function reopenNote(cancelled: number, requested: boolean): string {
+  if (cancelled === 0) return "No guest was cancelled by this closure, so no notice was requested.";
+  const guests = cancelled === 1 ? "1 guest" : `${cancelled} guests`;
+  return requested
+    ? `Asked to notify the ${guests} the closure cancelled that it has reopened; delivery isn't confirmed here. They stay cancelled.`
+    : `The ${guests} the closure cancelled ${cancelled === 1 ? "was" : "were"} not asked to be notified that it has reopened. They stay cancelled.`;
 }
 
 function reopenClosure({ log, api, venueId }: ToolContext) {
@@ -323,7 +327,7 @@ function reopenClosure({ log, api, venueId }: ToolContext) {
       log.info({ venueId, scope }, "reopen_closure tool called");
       const start = dayNumber(from);
       const end = to.trim() === UNTIL_REOPENED ? null : dayNumber(to);
-      if (start === undefined || end === undefined) return { error: UNREADABLE_DATE };
+      if (start === undefined || end === undefined) return { error: UNREADABLE_SPAN_DATE };
       if (end !== null && end < start) {
         return { error: `The last date (${to}) is before the first (${from}).` };
       }
@@ -370,7 +374,7 @@ function reopenClosure({ log, api, venueId }: ToolContext) {
         ...spanOf(rule),
         scope: scopeText,
         guestsCancelled: cancelled,
-        guestsTold: told,
+        noticeRequested: told,
         note: reopenNote(cancelled, told),
       };
     },

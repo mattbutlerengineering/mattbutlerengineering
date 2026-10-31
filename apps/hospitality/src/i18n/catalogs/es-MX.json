@@ -1615,7 +1615,7 @@
         "lastSeating": "Último asiento",
         "closesAt": "Cierra",
         "tellCancelledGuests": "Avisar a los clientes cancelados",
-        "scope": "Qué cierra"
+        "scope": "Se aplica a"
       },
       "yesNo": {
         "yes": "Sí",

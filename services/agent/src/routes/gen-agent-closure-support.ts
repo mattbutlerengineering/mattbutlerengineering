@@ -30,7 +30,9 @@ export const WEEKDAYS = [
 /** What `reopen_closure` is given as `to` for a closure with no end date. */
 export const UNTIL_REOPENED = "until reopened";
 
-export const UNREADABLE_DATE = "The date can't be read. Use a real date as YYYY-MM-DD.";
+const UNREADABLE_DATE = "The date can't be read. Use a real date as YYYY-MM-DD.";
+/** `reopen_closure`'s last date also takes the open-end literal, so its refusal names it. */
+export const UNREADABLE_SPAN_DATE = `The date can't be read. Use a real date as YYYY-MM-DD, or "${UNTIL_REOPENED}" as the last date of a closure with no end.`;
 export const CHECK_FAILED =
   "Couldn't check which bookings this would affect. Nothing was changed. Ask the user to try again shortly.";
 export const SAVE_UNSURE =
@@ -91,7 +93,7 @@ export function checkSpan(
 }
 
 /** Whether `rule` is in force on `date`: in its range, on its weekdays, and not taken out by a skip or edit of it. */
-export function coversDate(rule: DatedRule, date: string, config: AvailabilityConfig): boolean {
+function coversDate(rule: DatedRule, date: string, config: AvailabilityConfig): boolean {
   const skipped = config.dateRules.some(
     (other) =>
       other.seriesId === rule.id &&
@@ -106,11 +108,9 @@ export function coversDate(rule: DatedRule, date: string, config: AvailabilityCo
   );
 }
 
-/** A rule's dates as the tools state them: `to`, or `until: "reopened"` when it has no end. */
+/** A rule's dates as the tools state them; `to` is `until reopened` when it has no end, as `reopen_closure` takes it. */
 export function spanOf(rule: DatedRule) {
-  return rule.endsOn == null
-    ? { from: rule.startsOn, until: "reopened" }
-    : { from: rule.startsOn, to: rule.endsOn };
+  return { from: rule.startsOn, to: rule.endsOn ?? UNTIL_REOPENED };
 }
 
 export function spanText(rule: DatedRule): string {
@@ -310,12 +310,15 @@ export function findReopenable(
       error: `That closure runs ${real}, not ${want.from} to ${want.to ?? UNTIL_REOPENED}. Reopening removes all of it, so propose again with its full span. Nothing was changed.`,
     };
   }
-  if (exact.length > 1) {
+  // A plain closure may share its span with special hours; only closures compete for the reopen.
+  const closures = exact.filter((r) => r.kind === "closure");
+  const named = closures.length > 0 ? closures : exact;
+  if (named.length > 1) {
     return {
       error: `More than one closure has that scope and span, so they can't be told apart here. ${AVAILABILITY_PAGE} Nothing was changed.`,
     };
   }
-  return reopenableOnly(exact[0]!);
+  return reopenableOnly(named[0]!);
 }
 
 /** What the chat won't reopen: removing these skips checks the Availability page makes. */

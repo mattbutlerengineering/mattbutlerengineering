@@ -1589,7 +1589,7 @@
         "lastSeating": "Last seating",
         "closesAt": "Closes",
         "tellCancelledGuests": "Tell cancelled guests",
-        "scope": "What closes"
+        "scope": "Applies to"
       },
       "yesNo": {
         "yes": "Yes",

@@ -125,7 +125,7 @@
       export const UNTIL_REOPENED: unknown;
     </item>
     <item priority="high">
-      export const UNREADABLE_DATE: unknown;
+      export const UNREADABLE_SPAN_DATE: unknown;
     </item>
     <item priority="high">
       export const CHECK_FAILED: unknown;
@@ -149,8 +149,8 @@
         today: string
       ): { from: string; to: string } | { error: string } { /* ... */ }
     </item>
-    <item priority="high">
-      export function coversDate(rule: DatedRule, date: string, config: AvailabilityConfig): boolean { /* ... */ }
+    <item priority="medium">
+      function coversDate(rule: DatedRule, date: string, config: AvailabilityConfig): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function spanOf(rule: DatedRule) { /* ... */ }
@@ -267,7 +267,7 @@
       function setSpecialHours({ log, api, venueId, timeZone }: ToolContext) { /* ... */ }
     </item>
     <item priority="medium">
-      function reopenNote(cancelled: number, told: boolean): string { /* ... */ }
+      function reopenNote(cancelled: number, requested: boolean): string { /* ... */ }
     </item>
     <item priority="medium">
       function reopenClosure({ log, api, venueId }: ToolContext) { /* ... */ }

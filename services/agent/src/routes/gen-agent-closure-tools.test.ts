@@ -375,6 +375,54 @@ describe("closure chat tools", () => {
       expect(result).toMatchObject({ error: expect.stringMatching(/already closed/) });
     });
 
+    it("allows a closure that only partly overlaps an existing one", async () => {
+      api.availability.getConfig.mockResolvedValue(
+        configState([
+          {
+            id: "c9",
+            kind: "closure",
+            targetKind: "venue",
+            window: null,
+            startsOn: "2026-12-24",
+            endsOn: "2026-12-26",
+          },
+        ])
+      );
+
+      const result = await run("close_dates", {
+        scope: "whole_venue",
+        date: "2026-12-26",
+        endDate: "2026-12-28",
+      });
+
+      expect(result).toMatchObject({ saved: true });
+    });
+
+    it("allows the same span for a different service", async () => {
+      api.availability.getConfig.mockResolvedValue(
+        configState([
+          {
+            id: "c9",
+            kind: "closure",
+            targetKind: "service",
+            venueServiceId: "svc-lunch",
+            window: null,
+            startsOn: "2026-12-24",
+            endsOn: "2026-12-26",
+          },
+        ])
+      );
+
+      const result = await run("close_dates", {
+        scope: "service",
+        service: "Dinner",
+        date: "2026-12-24",
+        endDate: "2026-12-26",
+      });
+
+      expect(result).toMatchObject({ saved: true });
+    });
+
     it("still closes the whole venue when only one service is closed", async () => {
       api.availability.getConfig.mockResolvedValue(
         configState([
@@ -766,7 +814,7 @@ describe("closure chat tools", () => {
           {
             type: "closed",
             from: "2026-11-02",
-            until: "reopened",
+            to: "until reopened",
             scope: "Dinner",
             cancelledGuests: 0,
           },
@@ -907,7 +955,7 @@ describe("closure chat tools", () => {
 
       const told = await run("reopen_closure", { ...input, tellCancelledGuests: true });
       expect(api.availability.reopenClosure).toHaveBeenLastCalledWith("v1", "c1", true);
-      expect(told).toMatchObject({ reopened: true, guestsCancelled: 3, guestsTold: true });
+      expect(told).toMatchObject({ reopened: true, guestsCancelled: 3, noticeRequested: true });
 
       await run("reopen_closure", { ...input, tellCancelledGuests: false });
       expect(api.availability.reopenClosure).toHaveBeenLastCalledWith("v1", "c1", false);
@@ -919,9 +967,81 @@ describe("closure chat tools", () => {
       expect(api.availability.reopenClosure).toHaveBeenCalledWith("v1", "c1", false);
       expect(result).toMatchObject({
         guestsCancelled: 0,
-        guestsTold: false,
-        note: expect.stringMatching(/No guest was cancelled.*nobody was told/i),
+        noticeRequested: false,
+        note: expect.stringMatching(/No guest was cancelled.*no notice was requested/i),
       });
+    });
+
+    it("words a requested notice as asked, not delivered, and handles one guest", async () => {
+      api.availability.listClosures.mockResolvedValue([
+        { ruleId: "c1", total: 1, cancelled: 1, sent: 0, rebooked: 0, unreachable: 0 },
+      ]);
+      const many = [{ ruleId: "c1", total: 3, cancelled: 3, sent: 0, rebooked: 0, unreachable: 0 }];
+
+      const one = await run("reopen_closure", { ...input, tellCancelledGuests: true });
+      const silent = await run("reopen_closure", { ...input, tellCancelledGuests: false });
+      api.availability.listClosures.mockResolvedValue(many);
+      const several = await run("reopen_closure", { ...input, tellCancelledGuests: true });
+
+      expect(one).toMatchObject({
+        note: expect.stringMatching(/asked to notify the 1 guest the closure cancelled/i),
+      });
+      expect(silent).toMatchObject({
+        note: expect.stringMatching(/1 guest the closure cancelled was not asked to be notified/i),
+      });
+      expect(several).toMatchObject({
+        note: expect.stringMatching(/asked to notify the 3 guests the closure cancelled/i),
+      });
+      for (const result of [one, silent, several]) {
+        expect(JSON.stringify(result)).not.toMatch(/guestsTold|were told|was told/);
+      }
+    });
+
+    it("reopens a plain closure that shares its span with special hours", async () => {
+      api.availability.getConfig.mockResolvedValue(
+        configState([
+          closure,
+          {
+            ...closure,
+            id: "sh1",
+            kind: "special_hours",
+            payload: { version: 1, services: [] },
+          },
+        ])
+      );
+
+      const result = await run("reopen_closure", input);
+
+      expect(api.availability.reopenClosure).toHaveBeenCalledWith("v1", "c1", false);
+      expect(result).toMatchObject({ reopened: true });
+    });
+
+    it("still refuses a span that only special hours match", async () => {
+      api.availability.getConfig.mockResolvedValue(
+        configState([
+          { ...closure, kind: "special_hours", payload: { version: 1, services: [] } },
+          { ...closure, id: "sh2", kind: "special_hours", payload: { version: 1, services: [] } },
+        ])
+      );
+
+      const result = await run("reopen_closure", input);
+
+      expect(result).toMatchObject({ error: expect.stringMatching(/Availability page/) });
+      expect(api.availability.reopenClosure).not.toHaveBeenCalled();
+    });
+
+    it("refuses a closure that belongs to a series", async () => {
+      api.availability.getConfig.mockResolvedValue(
+        configState([{ ...closure, seriesId: "series-1" }])
+      );
+
+      const result = await run("reopen_closure", input);
+
+      expect(result).toMatchObject({
+        refused: true,
+        error: expect.stringMatching(/series.*Availability page/s),
+      });
+      expect(api.availability.reopenClosure).not.toHaveBeenCalled();
     });
 
     it("refuses the reopen when the cancelled-guest count can't be read", async () => {
@@ -1034,7 +1154,9 @@ describe("closure chat tools", () => {
         to: "2026-12-24",
       });
 
-      expect(unreadable).toMatchObject({ error: expect.stringMatching(/can't be read/) });
+      expect(unreadable).toMatchObject({
+        error: expect.stringMatching(/can't be read.*until reopened/),
+      });
       expect(backwards).toMatchObject({ error: expect.stringMatching(/before/) });
       expect(api.availability.reopenClosure).not.toHaveBeenCalled();
     });
