@@ -7,6 +7,7 @@ import type { Table } from "@mbe/types";
  * primitives are DOM stand-ins that surface the shadow props under test. */
 
 const toSpy = vi.fn();
+const cacheSpy = vi.fn();
 let reducedMotion = false;
 
 vi.mock("@mattbutlerengineering/rialto/providers", () => ({
@@ -47,7 +48,10 @@ vi.mock("react-konva", () => {
   ) {
     React.useEffect(() => {
       if (ref && typeof ref === "object" && "current" in ref) {
-        (ref as React.MutableRefObject<unknown>).current = { to: toSpy };
+        (ref as React.MutableRefObject<unknown>).current = {
+          to: toSpy,
+          cache: cacheSpy,
+        };
       }
     });
     return <div data-name={name}>{children}</div>;
@@ -175,5 +179,44 @@ describe("drag shadow motion (#7845)", () => {
     reducedMotion = true;
     render(<TableShape table={table} {...props} isDragging />);
     expect(toSpy).toHaveBeenLastCalledWith(expect.objectContaining({ duration: 0 }));
+  });
+});
+
+describe("static furniture is cached per table (#7845)", () => {
+  beforeEach(() => {
+    cacheSpy.mockClear();
+    setTheme("light");
+  });
+  afterEach(() => {
+    setTheme("light");
+    vi.unstubAllGlobals();
+  });
+
+  it("caches the table group once drawn, so a drag frame blits a bitmap", () => {
+    render(<TableShape table={table} {...props} />);
+    expect(cacheSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders the bitmap at device pixels times the stage scale so it stays sharp", () => {
+    vi.stubGlobal("devicePixelRatio", 2);
+    render(<TableShape table={table} {...props} stageScale={1.5} />);
+    expect(cacheSpy).toHaveBeenLastCalledWith(expect.objectContaining({ pixelRatio: 3 }));
+  });
+
+  it("re-caches when the theme flips, since the baked shadow and chair tones change", async () => {
+    const baked: Array<string | null> = [];
+    cacheSpy.mockImplementation(() => baked.push(shadowNode().getAttribute("data-shadow-color")));
+    render(<TableShape table={table} {...props} />);
+    setTheme("dark");
+    // The last bake must see the dark tone already painted, or the bitmap keeps the old theme.
+    await waitFor(() => expect(baked.at(-1)).toBe(SHADOW_TONES.dark));
+    cacheSpy.mockReset();
+  });
+
+  it("re-caches when the table's look changes, so the bitmap is never stale", () => {
+    const { rerender } = render(<TableShape table={table} {...props} />);
+    cacheSpy.mockClear();
+    rerender(<TableShape table={table} {...props} isSelected />);
+    expect(cacheSpy).toHaveBeenCalledTimes(1);
   });
 });

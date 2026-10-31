@@ -157,6 +157,20 @@ function TableShapeComponent({
     }
   }, [isDragging, dragShadowDuration]);
 
+  // Bake the group (chairs, table, label and their blurred shadows) into one
+  // bitmap. Every table shares a Layer that Konva redraws whole on each drag
+  // frame, so uncached that is ~300-500 shadowBlur draws at 60 tables (#7845).
+  // Runs after every render of this memoized component, which is exactly when
+  // an input to the picture can have changed. A light/dark flip re-renders it
+  // through `themeColors` above, after the furniture art (which watches the same
+  // attribute through an earlier observer) has repainted; furniture-shadow.test
+  // pins that order. The bitmap is rendered at device pixels x stage scale so it
+  // is not resampled.
+  useEffect(() => {
+    // `|| 1`: a hidden (zero-width) container has scale 0, and a 0-size bitmap throws on draw.
+    groupRef.current?.cache({ pixelRatio: stageScale * devicePixelRatio || 1 });
+  });
+
   // Seats are drawn first so the table surface overlaps them — the look of
   // chairs tucked under a table rather than floating beside it.
   const width = table.shapeMetadata?.width ?? SHAPE_DEFAULTS[shape].width;

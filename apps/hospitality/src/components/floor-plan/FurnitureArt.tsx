@@ -39,14 +39,13 @@ import { useFurnitureTheme } from "./furniture-theme.js";
  * Soft contact shadow, drawn by the shape itself.
  *
  * Perf: the blur sits on the nodes that cast it (the table's shadow node and
- * each chair frame), not on the table group. This does NOT make drags cheap:
- * all tables share one Layer and Konva redraws that whole layer on every drag
- * frame, so every blurred node on the plan is redrawn each frame. Mitigations
- * here are small: `perfectDrawEnabled: false` (no extra buffer canvas),
+ * each chair frame), not on the table group. All tables share one Layer and
+ * Konva redraws that whole layer on every drag frame, so uncached every blurred
+ * node on the plan is redrawn each frame. `TableShape` therefore caches each
+ * table group into one bitmap (#7845), and a drag frame only blits it. Also
+ * here: `perfectDrawEnabled: false` (no extra buffer canvas),
  * `shadowForStrokeEnabled: false`, and a non-listening table shadow node
- * (chairs stay listening so they still drag the table). If a 60-table drag
- * misses 50 fps, cache the static furniture per table or move the dragged
- * group to its own drag layer.
+ * (chairs stay listening so they still drag the table).
  */
 function contactShadow(theme: FurnitureTheme) {
   return {
