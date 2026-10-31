@@ -145,33 +145,117 @@ async function mockAvailability(page: Page, closeDate: string) {
   return { saved: () => saved, venueId };
 }
 
+/** Opens the Close dialog for `closeDate` and advances to step 2 (the 14-booking impact list). */
+async function openCloseStepTwo(page: Page, closeDate: string, theme: "light" | "dark" = "light") {
+  await page.goto("availability");
+  // Desktop renders a grid, phones an agenda; both carry `data-date` on a day's cell or row.
+  await expect(page.locator("[data-date]").first()).toBeVisible();
+  await page.evaluate((t) => document.documentElement.setAttribute("data-theme", t), theme);
+  await page.getByRole("button", { name: "Next", exact: true }).click();
+  await page.locator(`[data-date="${closeDate}"]`).click();
+  // The toolbar has a "Close…" too; the drawer's carries the date.
+  const drawer = page.getByRole("dialog");
+  await drawer.getByRole("button", { name: "Close…", exact: true }).click();
+
+  const dialog = page.getByRole("dialog", { name: "Close", exact: true });
+  await expect(dialog.getByText("Step 1 of 2")).toBeVisible();
+  await expect(
+    dialog.getByText(new RegExp(`${BOOKINGS} reservations · ${GUESTS} guests`))
+  ).toBeVisible();
+
+  await dialog.getByRole("button", { name: "Closed for a private event" }).click();
+  await dialog.getByRole("button", { name: "Next", exact: true }).click();
+  await expect(dialog.getByText("Step 2 of 2")).toBeVisible();
+  return { dialog };
+}
+
 test.describe("Availability close dialog (F5)", () => {
+  // #7994: a long step 2 used to scroll the whole panel, pushing the primary action out of view,
+  // and the glass recipe left the panel see-through. Both themes at desktop size, and the phone and
+  // reflow sizes in light (the agenda rows carry `data-date` like the grid cells do).
+  const cases = [
+    { theme: "light", width: 1280, height: 720 },
+    { theme: "dark", width: 1280, height: 720 },
+    { theme: "light", width: 375, height: 812 },
+    { theme: "light", width: 320, height: 568 },
+  ] as const;
+  for (const { theme, width, height } of cases) {
+    test(`step 2 scrolls its body, keeps its primary action in view and the panel opaque (${theme}, ${width}x${height})`, async ({
+      mockedPage,
+    }) => {
+      const CLOSE_DATE = midNextMonth();
+      await mockedPage.setViewportSize({ width, height });
+      await mockedPage.clock.setFixedTime(pinnedNoon());
+      await mockAvailability(mockedPage, CLOSE_DATE);
+      const { dialog } = await openCloseStepTwo(mockedPage, CLOSE_DATE, theme);
+
+      await expect(dialog.getByTestId("close-primary")).toBeInViewport({ ratio: 1 });
+      // The 14-booking list overflows, so the body (not the panel) scrolls and is a tab stop.
+      const body = dialog.getByRole("region", { name: "Scrollable content" });
+      expect(await body.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+      expect(await dialog.evaluate((el) => el.scrollHeight <= el.clientHeight)).toBe(true);
+      expect(await dialog.evaluate(() => document.documentElement.dataset.theme)).toBe(theme);
+      // Opaque: the glass recipe's rgb(253 252 250 / 0.85) must not show through.
+      // Read alpha from whatever serialization the browser gives; an unknown one fails.
+      const alpha = await dialog.evaluate((el) => {
+        const color = getComputedStyle(el).backgroundColor;
+        const slash = /\/\s*([\d.]+)(%?)\s*\)$/.exec(color);
+        if (slash) return Number(slash[1]) / (slash[2] ? 100 : 1);
+        const comma = /^rgba\(\s*[^,]+,[^,]+,[^,]+,\s*([\d.]+)\s*\)$/.exec(color);
+        if (comma) return Number(comma[1]);
+        if (/^rgb\(\s*[\d.]+[\s,]+[\d.]+[\s,]+[\d.]+\s*\)$/.test(color)) return 1;
+        throw new Error(`unrecognised background-color serialization: ${color}`);
+      });
+      expect(alpha).toBe(1);
+
+      // Past "Show all 14" the list is at its longest. Tabbing to a radio must scroll the body,
+      // never the panel: its absolutely positioned inputs used to escape the body's clip and
+      // drag the title and the primary action out of the panel.
+      await dialog.getByRole("button", { name: /Show all/ }).click();
+      for (let i = 0; i < 6; i += 1) {
+        await mockedPage.keyboard.press("Tab");
+        const onRadio = await mockedPage.evaluate(
+          () => document.activeElement?.getAttribute("type") === "radio"
+        );
+        if (onRadio) break;
+      }
+      const m = await dialog.evaluate((panel) => {
+        const rect = (el: Element) => el.getBoundingClientRect();
+        const bodyEl = [...panel.children].find((c) => getComputedStyle(c).overflowY === "auto");
+        const active = document.activeElement;
+        const label = active?.closest("label") ?? active?.parentElement;
+        const p = rect(panel);
+        const primary = rect(panel.querySelector("[data-testid=close-primary]")!);
+        const title = rect(panel.querySelector("h2")!);
+        const b = bodyEl ? rect(bodyEl) : p;
+        const l = label ? rect(label) : null;
+        return {
+          radio: active?.getAttribute("type") === "radio",
+          panelScrolls: panel.scrollHeight > panel.clientHeight || panel.scrollTop !== 0,
+          titleInPanel: title.top >= p.top,
+          primaryInPanel: primary.top >= p.top && primary.bottom <= p.bottom,
+          labelInBody: l ? l.top >= b.top - 1 && l.bottom <= b.bottom + 1 : false,
+        };
+      });
+      expect(m).toEqual({
+        radio: true,
+        panelScrolls: false,
+        titleInPanel: true,
+        primaryInPanel: true,
+        labelInBody: true,
+      });
+    });
+  }
+
   test("a Manager closes a date, cancels and notifies 14 bookings, and sees the band", async ({
     mockedPage,
   }) => {
     const CLOSE_DATE = midNextMonth();
     await mockedPage.clock.setFixedTime(pinnedNoon());
     const state = await mockAvailability(mockedPage, CLOSE_DATE);
-    await mockedPage.goto("availability");
-
+    const { dialog } = await openCloseStepTwo(mockedPage, CLOSE_DATE);
     const calendar = mockedPage.getByRole("grid", { name: "Availability calendar" });
-    await expect(calendar).toBeVisible();
-    await mockedPage.getByRole("button", { name: "Next", exact: true }).click();
-    await calendar.locator(`[data-date="${CLOSE_DATE}"]`).click();
-    // The toolbar has a "Close…" too; the drawer's carries the date.
-    const drawer = mockedPage.getByRole("dialog");
-    await drawer.getByRole("button", { name: "Close…", exact: true }).click();
 
-    const dialog = mockedPage.getByRole("dialog", { name: "Close", exact: true });
-    await expect(dialog.getByText("Step 1 of 2")).toBeVisible();
-    await expect(
-      dialog.getByText(new RegExp(`${BOOKINGS} reservations · ${GUESTS} guests`))
-    ).toBeVisible();
-
-    await dialog.getByRole("button", { name: "Closed for a private event" }).click();
-    await dialog.getByRole("button", { name: "Next", exact: true }).click();
-
-    await expect(dialog.getByText("Step 2 of 2")).toBeVisible();
     await expect(dialog.getByText(/3 deposits held/)).toBeVisible();
     // A choice is required for every group before anything is saved.
     const primary = dialog.getByTestId("close-primary");

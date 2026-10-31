@@ -335,6 +335,11 @@
       export const dialogCatalogMeta: unknown;
     </item>
   </file>
+  <file path="packages/rialto/src/components/Dialog/DialogLayerContext.ts">
+    <item priority="high">
+      export const DialogLayerContext: unknown;
+    </item>
+  </file>
   </section>
   <section priority="medium" role="Divider">
   <file path="packages/rialto/src/components/Divider/Divider.catalog.ts">

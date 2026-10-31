@@ -1,4 +1,5 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
 
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
@@ -108,4 +109,77 @@ test("TapeChart page — each Overlaps chart reports its own rule", async ({ pag
   await classifiedChart.getByRole("button", { name: /Oscar Delacroix/ }).click();
   await expect(classifiedCard).toContainText("Shared occupancy");
   await expect(defaultCard).toContainText("Double-booked");
+});
+
+/* ── Dialog: scrolling body, nested popover, short viewports (#7994 review) ── */
+
+test.describe("Dialog layout", () => {
+  const openDialog = async (page: Page, trigger: string) => {
+    await page.goto("components/dialog");
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("button", { name: trigger }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    return dialog;
+  };
+
+  test("a long body scrolls from the keyboard and passes axe scrollable-region-focusable", async ({
+    page,
+  }) => {
+    const dialog = await openDialog(page, "Long Content Dialog");
+    const body = dialog.getByRole("region", { name: "Scrollable content" });
+    expect(await body.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+
+    const { violations } = await new AxeBuilder({ page })
+      .include('[role="dialog"]')
+      .withRules(["scrollable-region-focusable"])
+      .analyze();
+    expect(violations).toEqual([]);
+
+    // Initial focus stays on the first action, not the scroller; one Shift+Tab
+    // reaches the body, where PageDown scrolls it.
+    await expect(dialog.getByRole("button", { name: "Dismiss" })).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(body).toBeFocused();
+    await page.keyboard.press("PageDown");
+    await expect.poll(() => body.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+  });
+
+  test("a dialog that fits adds no tab stop", async ({ page }) => {
+    const dialog = await openDialog(page, "Open Dialog");
+    await expect(dialog.locator('[tabindex="0"]')).toHaveCount(0);
+  });
+
+  test("a DatePicker day grid is fully visible when opened inside a dialog", async ({ page }) => {
+    const dialog = await openDialog(page, "Session Settings");
+    await dialog.getByLabel("Session Date").click();
+    const grid = page.getByRole("dialog", { name: "Popover" }).getByRole("grid");
+    await expect(grid).toBeVisible();
+    // Not clipped by the dialog body: first and last day cells are fully in the
+    // viewport, and the popover is lifted out of the dialog's scroller.
+    await expect(grid.getByRole("gridcell").first()).toBeInViewport({ ratio: 1 });
+    await expect(grid.getByRole("gridcell").last()).toBeInViewport({ ratio: 1 });
+    expect(await grid.evaluate((el) => el.closest('[role="dialog"] [role="region"]'))).toBeNull();
+  });
+
+  test("footer actions stay reachable at the 320x256 reflow size", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 256 });
+    const dialog = await openDialog(page, "Open Dialog");
+    await expect(dialog.getByRole("button", { name: "Confirm" })).toBeInViewport({ ratio: 1 });
+    await expect(dialog.getByRole("button", { name: "Close dialog" })).toBeInViewport({
+      ratio: 1,
+    });
+  });
+
+  test("a very long description scrolls and keeps the footer in view on a phone", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    const dialog = await openDialog(page, "Open Dialog");
+    await dialog.evaluate((el) => {
+      const p = el.querySelector("p");
+      if (p) p.textContent = "A long sentence about what happens next. ".repeat(60);
+    });
+    await expect(dialog.getByRole("button", { name: "Confirm" })).toBeInViewport({ ratio: 1 });
+  });
 });

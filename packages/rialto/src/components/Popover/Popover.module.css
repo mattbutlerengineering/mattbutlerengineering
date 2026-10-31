@@ -57,6 +57,15 @@
   transform-origin: center right;
 }
 
+/* Inside a Dialog: lifted out of the scrolling body and placed by inline
+   coordinates from the trigger's viewport rect. Keeps the placement class's
+   centring translate. */
+.floating {
+  position: fixed;
+  inset: auto;
+  overflow-y: auto;
+}
+
 /* ── Header ──────────────────────────────────── */
 .header {
   display: flex;

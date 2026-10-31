@@ -694,6 +694,9 @@
       },
     } satisfies CatalogMeta;
   </file>
+  <file path="src/components/Dialog/DialogLayerContext.ts">
+    export const DialogLayerContext = createContext<HTMLElement | null>(null);
+  </file>
   </section>
   <section priority="medium" role="Divider">
   <file path="src/components/Divider/Divider.catalog.ts">
