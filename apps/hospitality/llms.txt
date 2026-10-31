@@ -1299,7 +1299,7 @@
       export function useChatSuggestions(): readonly string[] { /* ... */ }
     </item>
     <item priority="high">
-      type ChatActionKey = `chat.actions.${(typeof ACTION | `chat.actions.fields.${(typeof | (typeof TABLE_STATUSES)[keyof  | (typeof TONIGHT_CHANGES)[keyof | (typeof CANCEL_REASONS)[keyof  | (typeof MENU_AVAILABILITY)[key;
+      type ChatActionKey = `chat.actions.${(typeof ACTION | (typeof YES_NO)[keyof typeof Y | (typeof SCOPES)[keyof typeof S | (typeof OPEN_END)[keyof typeof | `chat.actions.fields.${(typeof | (typeof TABLE_STATUSES)[keyof  | (typeof TONIGHT_CHANGES)[keyof | (typeof CANCEL_REASONS)[keyof  | (typeof MENU_AVAILABILITY)[key;
     </item>
     <item priority="high">
       type Translate = (key: ChatActionKey) => string;
@@ -1308,7 +1308,7 @@
       function formatWhen(key: string, value: string, locale?: string): string { /* ... */ }
     </item>
     <item priority="medium">
-      function lookup<T extends Record<string, string>>(map: T, key: string): T[keyof T] | undefined { /* ... */ }
+      function valueKey(key: string, value: string): ChatActionKey | undefined { /* ... */ }
     </item>
     <item priority="high">
       export function describeChatAction(

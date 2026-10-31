@@ -3455,6 +3455,9 @@
     }
     type ChatActionKey =
       | `chat.actions.${(typeof ACTION_TITLES)[number]}`
+      | (typeof YES_NO)[keyof typeof YES_NO]
+      | (typeof SCOPES)[keyof typeof SCOPES]
+      | (typeof OPEN_END)[keyof typeof OPEN_END]
       | `chat.actions.fields.${(typeof ACTION_FIELDS)[number]}`
       | (typeof TABLE_STATUSES)[keyof typeof TABLE_STATUSES]
       | (typeof TONIGHT_CHANGES)[keyof typeof TONIGHT_CHANGES]
@@ -3462,14 +3465,16 @@
       | (typeof MENU_AVAILABILITY)[keyof typeof MENU_AVAILABILITY];
     type Translate = (key: ChatActionKey) => string;
     function formatWhen(key: string, value: string, locale?: string): string {
-      if (key === "date" && CALENDAR_DATE.test(value) && isRealDate(value)) {
+      if (DATE_FIELDS.has(key) && CALENDAR_DATE.test(value) && isRealDate(value)) {
         return formatCalendarDate(value, { weekday: "long", month: "short", day: "numeric" }, locale);
       }
       if (TIME_FIELDS.has(key) && WALL_TIME.test(value)) return formatLocalTime(value, locale);
       return value;
     }
-    function lookup<T extends Record<string, string>>(map: T, key: string): T[keyof T] | undefined {
-      return Object.hasOwn(map, key) ? map[key as keyof T] : undefined;
+    function valueKey(key: string, value: string): ChatActionKey | undefined {
+      if (!Object.hasOwn(VALUE_KEYS, key)) return undefined;
+      const map = VALUE_KEYS[key]!;
+      return Object.hasOwn(map, value) ? map[value] : undefined;
     }
     export function describeChatAction(
       action: PendingAction,
@@ -3484,16 +3489,7 @@
           : action.toolName.replace(/_/g, " "),
         details: Object.entries(action.toolInput).map(([key, raw]) => {
           const value = Array.isArray(raw) ? raw.join(", ") : String(raw);
-          const statusKey =
-            key === "status"
-              ? lookup(TABLE_STATUSES, value)
-              : key === "change"
-                ? lookup(TONIGHT_CHANGES, value)
-                : key === "reason"
-                  ? lookup(CANCEL_REASONS, value)
-                  : key === "availability"
-                    ? lookup(MENU_AVAILABILITY, value)
-                    : undefined;
+          const statusKey = valueKey(key, value);
           const shown =
             key === "tableId"
               ? (tableName(value) ?? value)

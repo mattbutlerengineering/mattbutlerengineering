@@ -1556,6 +1556,9 @@
       "change_tonight_availability": "Cambiar la disponibilidad de esta noche",
       "end_tonight_change": "Terminar un cambio de esta noche",
       "undo_availability_change": "Deshacer un cambio de disponibilidad",
+      "close_dates": "Cerrar en ciertas fechas",
+      "set_special_hours": "Definir horario especial para una fecha",
+      "reopen_closure": "Reabrir un cierre",
       "add_guest": "Agregar un cliente",
       "update_guest": "Actualizar un cliente",
       "add_guest_note": "Agregar una nota del personal",
@@ -1606,8 +1609,23 @@
         "availability": "Disponibilidad",
         "price": "Precio",
         "description": "Descripción",
-        "floorPlan": "Plano"
+        "floorPlan": "Plano",
+        "endDate": "Última fecha",
+        "opensAt": "Abre",
+        "lastSeating": "Último asiento",
+        "closesAt": "Cierra",
+        "tellCancelledGuests": "Avisar a los clientes cancelados",
+        "scope": "Se aplica a"
       },
+      "yesNo": {
+        "yes": "Sí",
+        "no": "No"
+      },
+      "scopes": {
+        "whole_venue": "Todo el local",
+        "service": "Un solo servicio"
+      },
+      "untilReopened": "Hasta que se reabra",
       "menuAvailability": {
         "sold_out": "Agotado",
         "available": "Disponible"

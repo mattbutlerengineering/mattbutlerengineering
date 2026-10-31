@@ -35,10 +35,10 @@ const MINUTES_IN_TWO_DAYS = 2880;
 /** The reservations API's page-size ceiling; a venue's tables fit in one page. */
 const TABLES_LIMIT = 100;
 
-const AVAILABILITY_PAGE =
+export const AVAILABILITY_PAGE =
   "Tell the user to make this change on the Availability page in the dashboard.";
 
-const ClockSchema = z
+export const ClockSchema = z
   .string()
   .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use a 24-hour venue-local time as HH:MM");
 
@@ -106,7 +106,7 @@ const ChangeTonightInputSchema = z
 type ChangeTonightInput = z.infer<typeof ChangeTonightInputSchema>;
 type TonightRule = Extract<DateRule, { kind: "tonight" }>;
 
-function clockToMinute(clock: string): number {
+export function clockToMinute(clock: string): number {
   const [hours, minutes] = clock.split(":").map(Number);
   return hours! * 60 + minutes!;
 }
@@ -123,7 +123,7 @@ function serviceDayMinute(clock: string, config: AvailabilityConfig): number {
   return minute < earliest ? minute + MINUTES_IN_DAY : minute;
 }
 
-function minuteToClock(minute: number): string {
+export function minuteToClock(minute: number): string {
   const wall = minute % MINUTES_IN_DAY;
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${pad(Math.floor(wall / 60))}:${pad(wall % 60)}`;
@@ -175,7 +175,7 @@ function describeRule(
 }
 
 /** `service` as a venue service id, by exact then case-insensitive name. */
-function resolveService(
+export function resolveService(
   config: AvailabilityConfig,
   name: string
 ): { id: string } | { error: string } {

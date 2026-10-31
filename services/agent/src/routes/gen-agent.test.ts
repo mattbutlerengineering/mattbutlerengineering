@@ -157,7 +157,7 @@ describe("POST /api/gen/agent", () => {
     expect(response.statusCode).toBe(400);
   });
 
-  it("registers all 34 tools (12 read + render + 21 write)", async () => {
+  it("registers all 38 tools (13 read + render + 24 write)", async () => {
     vi.mocked(streamText).mockReturnValueOnce({
       fullStream: mockAsyncIterable([]),
       usage: Promise.resolve({ inputTokens: 10, outputTokens: 5 }),
@@ -183,10 +183,12 @@ describe("POST /api/gen/agent", () => {
       "change_tonight_availability",
       "check_availability",
       "check_booking_time",
+      "close_dates",
       "create_reservation",
       "end_tonight_change",
       "get_menu",
       "get_table_status",
+      "list_closures",
       "list_floor_plans",
       "list_lapsing_guests",
       "list_menus",
@@ -199,12 +201,14 @@ describe("POST /api/gen/agent", () => {
       "notify_waitlist_party",
       "remove_from_waitlist",
       "render_component",
+      "reopen_closure",
       "search_guests",
       "seat_reservation",
       "seat_waitlist_party",
       "seat_walk_in",
       "send_win_back",
       "set_menu_item_availability",
+      "set_special_hours",
       "undo_availability_change",
       "update_guest",
       "update_menu_item",

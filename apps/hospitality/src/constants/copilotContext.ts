@@ -89,6 +89,9 @@ const ACTION_TITLES = [
   "change_tonight_availability",
   "end_tonight_change",
   "undo_availability_change",
+  "close_dates",
+  "set_special_hours",
+  "reopen_closure",
   "add_guest",
   "update_guest",
   "add_guest_note",
@@ -142,6 +145,12 @@ const ACTION_FIELDS = [
   "price",
   "description",
   "floorPlan",
+  "endDate",
+  "opensAt",
+  "lastSeating",
+  "closesAt",
+  "tellCancelledGuests",
+  "scope",
 ] as const;
 
 const TABLE_STATUSES = {
@@ -172,8 +181,25 @@ const MENU_AVAILABILITY = {
   available: "chat.actions.menuAvailability.available",
 } as const;
 
+const YES_NO = {
+  true: "chat.actions.yesNo.yes",
+  false: "chat.actions.yesNo.no",
+} as const;
+
+/** What a closure or reopen covers, as the confirm bar states it. */
+const SCOPES = {
+  whole_venue: "chat.actions.scopes.whole_venue",
+  service: "chat.actions.scopes.service",
+} as const;
+
+/** A closure with no end date is confirmed as this word, not as a date. */
+const OPEN_END = { "until reopened": "chat.actions.untilReopened" } as const;
+
 type ChatActionKey =
   | `chat.actions.${(typeof ACTION_TITLES)[number]}`
+  | (typeof YES_NO)[keyof typeof YES_NO]
+  | (typeof SCOPES)[keyof typeof SCOPES]
+  | (typeof OPEN_END)[keyof typeof OPEN_END]
   | `chat.actions.fields.${(typeof ACTION_FIELDS)[number]}`
   | (typeof TABLE_STATUSES)[keyof typeof TABLE_STATUSES]
   | (typeof TONIGHT_CHANGES)[keyof typeof TONIGHT_CHANGES]
@@ -182,25 +208,49 @@ type ChatActionKey =
 
 type Translate = (key: ChatActionKey) => string;
 
+/** The fields whose value is one of a fixed set, worded by a translation key. */
+const VALUE_KEYS: Readonly<Record<string, Readonly<Record<string, ChatActionKey>>>> = {
+  status: TABLE_STATUSES,
+  change: TONIGHT_CHANGES,
+  reason: CANCEL_REASONS,
+  availability: MENU_AVAILABILITY,
+  tellCancelledGuests: YES_NO,
+  scope: SCOPES,
+  to: OPEN_END,
+};
+
 const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const isRealDate = (value: string): boolean => {
   const parsed = new Date(`${value}T00:00:00Z`);
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 };
 const WALL_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
-const TIME_FIELDS: ReadonlySet<string> = new Set(["startTime", "endTime", "closeAt", "from", "to"]);
+// `from` and `to` carry a time for a Tonight window and a date for a reopened closure.
+const DATE_FIELDS: ReadonlySet<string> = new Set(["date", "endDate", "from", "to"]);
+const TIME_FIELDS: ReadonlySet<string> = new Set([
+  "startTime",
+  "endTime",
+  "closeAt",
+  "from",
+  "to",
+  "opensAt",
+  "lastSeating",
+  "closesAt",
+]);
 
 /** A tool's YYYY-MM-DD date or HH:MM wall time as people read it; anything else as sent. */
 function formatWhen(key: string, value: string, locale?: string): string {
-  if (key === "date" && CALENDAR_DATE.test(value) && isRealDate(value)) {
+  if (DATE_FIELDS.has(key) && CALENDAR_DATE.test(value) && isRealDate(value)) {
     return formatCalendarDate(value, { weekday: "long", month: "short", day: "numeric" }, locale);
   }
   if (TIME_FIELDS.has(key) && WALL_TIME.test(value)) return formatLocalTime(value, locale);
   return value;
 }
 
-function lookup<T extends Record<string, string>>(map: T, key: string): T[keyof T] | undefined {
-  return Object.hasOwn(map, key) ? map[key as keyof T] : undefined;
+function valueKey(key: string, value: string): ChatActionKey | undefined {
+  if (!Object.hasOwn(VALUE_KEYS, key)) return undefined;
+  const map = VALUE_KEYS[key]!;
+  return Object.hasOwn(map, value) ? map[value] : undefined;
 }
 
 /**
@@ -224,16 +274,7 @@ export function describeChatAction(
       : action.toolName.replace(/_/g, " "),
     details: Object.entries(action.toolInput).map(([key, raw]) => {
       const value = Array.isArray(raw) ? raw.join(", ") : String(raw);
-      const statusKey =
-        key === "status"
-          ? lookup(TABLE_STATUSES, value)
-          : key === "change"
-            ? lookup(TONIGHT_CHANGES, value)
-            : key === "reason"
-              ? lookup(CANCEL_REASONS, value)
-              : key === "availability"
-                ? lookup(MENU_AVAILABILITY, value)
-                : undefined;
+      const statusKey = valueKey(key, value);
       const shown =
         key === "tableId"
           ? (tableName(value) ?? value)
