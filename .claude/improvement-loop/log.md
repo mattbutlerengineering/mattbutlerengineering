@@ -4541,3 +4541,13 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 **AI issue feedback:** 7 categories, 0 unhealthy (>40% rejected); budgets unchanged at 3
 **Skill proposals:** 0 (Wednesday — Friday-only)
 **Threshold notes:** fix-effectiveness 75% (12/16 non-skip verifications over 30d, >50%, healthy); all feedback-category rejection rates ≤4% (<30%, healthy); auto-tuner applied 1 adjustment (acmm 1.35 → 1.38, headroom)
+
+## 2026-10-31 — mbe-learning-loop
+
+**Sensors:** 15/17 available (e2eStability not available; queueEfficiency query failed — `GET /pulls/7491` fetch failed, transient network error, not a regression since metricsFreshness still reports it fresh at 0.75d) — status Healthy
+**Regressions:** 0 detected, 0 issues created
+**Verifications:** 5 checked, 1 verified (#7952 ACMM L5), 0 failed/reopened, 4 skipped (no completed CI runs to verify the 4 "routine is dark" closures against)
+**Sentry triage:** skipped (MCP authorization expired — re-auth needed, same as prior runs)
+**AI issue feedback:** 7 categories, 0 unhealthy (>40% rejected); budgets unchanged at 3 for all categories
+**Skill proposals:** 0 (Saturday — Friday-only)
+**Threshold notes:** false-positive rate (wontfix+rejected)/total = 34/200 = 17% (<30%, healthy, no loosening needed); fix-effectiveness over last 30d = 5/9 = 56% among determinable (non-skip) verifications (>50%, healthy) — raw rate including the 76 "no CI evidence" skips is 5.9% but that reflects undeterminable cases, not failed fixes; auto-tuner made no adjustments this run
