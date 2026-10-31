@@ -151,7 +151,7 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
       {editedDates > 0 && (
         <Text>{t("availabilitySpecial.reopen.editedDates", { count: editedDates })}</Text>
       )}
-      {!isSeriesEdit && reachable > 0 && (
+      {!isSeriesEdit && cancelled !== null && reachable > 0 && (
         <Checkbox
           label={t("availabilitySpecial.reopen.tell", { count: reachable })}
           checked={tell}

@@ -1826,6 +1826,9 @@
   </file>
   <file path="apps/hospitality/src/components/availability/outcome-label.ts">
     <item priority="high">
+      export function outcomeSummary(counts: OutcomeCounts, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
       export function outcomeLabel(counts: OutcomeCounts, t: TFunction): string { /* ... */ }
     </item>
   </file>
@@ -10125,7 +10128,7 @@
       function setSpecialHours({ log, api, venueId, timeZone }: ToolContext) { /* ... */ }
     </item>
     <item priority="medium">
-      function reopenNote(cancelled: number, notified: number): string { /* ... */ }
+      function reopenNote(cancelled: number, notified: number, datesPassed: boolean): string { /* ... */ }
     </item>
     <item priority="medium">
       function reopenClosure({ log, api, venueId }: ToolContext) { /* ... */ }

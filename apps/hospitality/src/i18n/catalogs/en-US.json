@@ -2198,9 +2198,18 @@
       "versionConflict": "Availability changed since you opened this. Close this dialog and try again.",
       "groupsChanged": "The bookings changed while you were deciding. Review the updated list and choose again.",
       "alreadySaved": "This closure was already saved, and its bookings handled. Check Special dates before closing again.",
+      "savedEarlier": {
+        "title": "Already closed",
+        "body": "An earlier try of this closure was saved: {{summary}}. Guests were handled as that try chose; changes you made afterwards did not apply. Open Special dates to see the outcome.",
+        "bodyPlain": "An earlier try of this closure was saved. Changes you made afterwards did not apply. Open Special dates to see the outcome.",
+        "done": "Done"
+      },
       "discard": {
         "title": "Discard this closure?",
-        "description": "Nothing has been closed. The choices you made here will be lost."
+        "description": "Nothing has been closed. The choices you made here will be lost.",
+        "titleMaybeSaved": "Leave this closure?",
+        "descriptionMaybeSaved": "The last save didn't finish, so it may have gone through and cancelled guests. Check Special dates before closing again.",
+        "leave": "Leave"
       },
       "staffNote": "Note for staff",
       "guestMessage": "Message for guests",

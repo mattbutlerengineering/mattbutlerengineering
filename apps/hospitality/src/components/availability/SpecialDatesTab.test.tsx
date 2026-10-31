@@ -917,6 +917,23 @@ describe("SpecialDatesTab", () => {
         expect(within(dialog).getByRole("button", { name: "Reopen" })).toBeDisabled();
       });
 
+      it("drops the notice promise when a refetch fails and the old counts are kept", () => {
+        summaries.value = [summary("xmas", { cancelled: 5, upcomingCancelled: 2 })];
+        const view = renderTab();
+        fireEvent.click(screen.getByRole("button", { name: "Remove closure for Thu, Dec 24" }));
+        const dialog = screen.getByRole("dialog");
+        expect(within(dialog).getByRole("checkbox", { name: /\(2\)/ })).toBeTruthy();
+
+        // The refetch fails; react-query keeps the last data beside the error.
+        summaryQuery.data = summaries.value;
+        summaryQuery.error = new Error("down");
+        view.rerender(tabElement());
+
+        expect(within(dialog).getByText(/Couldn't check how many guests/)).toBeTruthy();
+        expect(within(dialog).queryByRole("checkbox")).toBeNull();
+        expect(within(dialog).getByRole("button", { name: "Reopen" })).toBeDisabled();
+      });
+
       it("treats a closure with no summary row as no cancelled guests", () => {
         summaries.value = [];
         renderTab();

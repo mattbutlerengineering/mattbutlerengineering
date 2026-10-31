@@ -295,7 +295,7 @@ function setSpecialHours({ log, api, venueId, timeZone }: ToolContext) {
  * The guest note for a finished reopen. A notice is only requested here: it is
  * sent in the background, so delivery is never claimed.
  */
-function reopenNote(cancelled: number, notified: number): string {
+function reopenNote(cancelled: number, notified: number, datesPassed: boolean): string {
   if (cancelled === 0) return "No guest was cancelled by this closure, so no notice was requested.";
   const guestsOf = (n: number) => (n === 1 ? "1 guest" : `${n} guests`);
   if (notified > 0) {
@@ -305,7 +305,9 @@ function reopenNote(cancelled: number, notified: number): string {
         : "";
     return `Asked to notify the ${guestsOf(notified)} the closure cancelled that it has reopened; delivery isn't confirmed here. They stay cancelled.${rest}`;
   }
-  return `The ${guestsOf(cancelled)} the closure cancelled ${cancelled === 1 ? "was" : "were"} not asked to be notified that it has reopened. They stay cancelled.`;
+  // `datesPassed`: a notice was wanted but every cancelled booking has already started.
+  const why = datesPassed ? ": their booking dates have passed" : "";
+  return `The ${guestsOf(cancelled)} the closure cancelled ${cancelled === 1 ? "was" : "were"} not asked to be notified that it has reopened${why}. They stay cancelled.`;
 }
 
 function reopenClosure({ log, api, venueId }: ToolContext) {
@@ -387,7 +389,7 @@ function reopenClosure({ log, api, venueId }: ToolContext) {
         scope: scopeText,
         guestsCancelled: cancelled,
         noticeRequested: notified > 0,
-        note: reopenNote(cancelled, notified),
+        note: reopenNote(cancelled, notified, tellCancelledGuests && reachable === 0),
       };
     },
   });

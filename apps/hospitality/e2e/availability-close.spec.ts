@@ -238,8 +238,10 @@ test.describe("Availability close dialog (F5)", () => {
     const primary = dialog.getByTestId("close-primary");
     await primary.click();
 
-    // The cancellations committed, but the Manager only sees the dropped connection.
-    await expect(dialog.getByText("Couldn't close")).toBeVisible();
+    // The cancellations committed, but the Manager only sees the dropped connection. One click
+    // makes up to four attempts (1 s, 2 s and 4 s backoff plus jitter), so the failure shows
+    // after 5.6 to 8.4 s: wait past that, not for the default 5 s.
+    await expect(dialog.getByText("Couldn't close")).toBeVisible({ timeout: 15_000 });
     connection.dropped = false;
     await primary.click();
 

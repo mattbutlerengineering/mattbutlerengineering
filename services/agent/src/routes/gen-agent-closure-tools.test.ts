@@ -991,7 +991,7 @@ describe("closure chat tools", () => {
       expect(result).toMatchObject({
         guestsCancelled: 3,
         noticeRequested: false,
-        note: expect.stringMatching(/not asked to be notified/i),
+        note: expect.stringMatching(/not asked to be notified.*booking dates have passed/i),
       });
       expect(JSON.stringify(result)).not.toMatch(/Asked to notify/);
     });

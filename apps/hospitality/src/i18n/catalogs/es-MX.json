@@ -2250,9 +2250,18 @@
       "versionConflict": "La disponibilidad cambió desde que abriste esto. Cierra este diálogo e inténtalo de nuevo.",
       "groupsChanged": "Las reservaciones cambiaron mientras decidías. Revisa la lista actualizada y elige de nuevo.",
       "alreadySaved": "Este cierre ya se guardó y sus reservaciones se atendieron. Revisa las fechas especiales antes de cerrar de nuevo.",
+      "savedEarlier": {
+        "title": "Ya está cerrado",
+        "body": "Un intento anterior de este cierre se guardó: {{summary}}. Los comensales se atendieron como eligió ese intento; los cambios posteriores no se aplicaron. Abre las fechas especiales para ver el resultado.",
+        "bodyPlain": "Un intento anterior de este cierre se guardó. Los cambios posteriores no se aplicaron. Abre las fechas especiales para ver el resultado.",
+        "done": "Listo"
+      },
       "discard": {
         "title": "¿Descartar este cierre?",
-        "description": "No se ha cerrado nada. Se perderán las decisiones que tomaste aquí."
+        "description": "No se ha cerrado nada. Se perderán las decisiones que tomaste aquí.",
+        "titleMaybeSaved": "¿Salir de este cierre?",
+        "descriptionMaybeSaved": "El último guardado no terminó, así que pudo haberse aplicado y cancelado reservaciones. Revisa las fechas especiales antes de cerrar de nuevo.",
+        "leave": "Salir"
       },
       "staffNote": "Nota para el personal",
       "guestMessage": "Mensaje para los comensales",

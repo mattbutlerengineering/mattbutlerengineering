@@ -7,7 +7,12 @@ export interface DiscardChangesDialogProps {
   /** The date whose draft would be lost; `null` while no drawer is open. */
   readonly date: string | null;
   /** Replaces the date-based wording for a draft that is not a day's hours (the Close dialog). */
-  readonly wording?: { readonly title: string; readonly description: string };
+  readonly wording?: {
+    readonly title: string;
+    readonly description: string;
+    /** Replaces "Discard" where the draft may already have been saved. */
+    readonly confirmLabel?: string;
+  };
   readonly onDiscard: () => void;
   readonly onKeepEditing: () => void;
 }
@@ -31,7 +36,7 @@ export function DiscardChangesDialog(props: DiscardChangesDialogProps) {
         })
       }
       description={wording?.description ?? t("availability.discard.description")}
-      confirmLabel={t("availability.discard.confirm")}
+      confirmLabel={wording?.confirmLabel ?? t("availability.discard.confirm")}
       cancelLabel={t("availability.discard.keep")}
       onConfirm={onDiscard}
       onCancel={onKeepEditing}

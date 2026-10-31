@@ -32,7 +32,7 @@ import { useDiscardGuard } from "./use-discard-guard.js";
 import { useWinningChangeText } from "./use-winning-change-text.js";
 import { CloseStepOne } from "./CloseStepOne.js";
 import { CloseStepTwo } from "./CloseStepTwo.js";
-import { outcomeLabel } from "./outcome-label.js";
+import { outcomeLabel, outcomeSummary } from "./outcome-label.js";
 import styles from "./CloseDialog.module.css";
 
 export interface CloseDialogProps {
@@ -117,6 +117,12 @@ function failureText(error: unknown, t: TFunction): string {
   return describeApiError(error).detail;
 }
 
+/** A save that was sent: its rule id and, as text, the outcomes it chose for the bookings. */
+interface TriedAttempt {
+  readonly id: string;
+  readonly summary: string;
+}
+
 /** One rule id and one idempotency key per request: a retry of it replays the first result. */
 const newAttempt = () => ({ ruleId: crypto.randomUUID(), idempotencyKey: crypto.randomUUID() });
 
@@ -148,10 +154,26 @@ export function CloseDialog(props: CloseDialogProps) {
   // then a retry replays the first result. Changing the request starts a new attempt.
   const [attempt, setAttempt] = useState(newAttempt);
   const { ruleId, idempotencyKey } = attempt;
-  const guard = useDiscardGuard<null>(() => onClose());
+  // Every attempt sent, with the outcomes it chose. A lost response may still have committed, and
+  // a version conflict then refreshes the version so a blind retry would save a second closure of
+  // the same dates. Once any earlier attempt shows up in the config, nothing more is saved from
+  // this dialog, and the first one's choices are what applied.
+  const [tried, setTried] = useState<readonly TriedAttempt[]>([]);
+  const earlier = tried.find((a) => state.config.dateRules.some((r) => r.id === a.id));
+  const savedEarlier = earlier !== undefined;
+  // Leaving after any save was sent, or while one is known saved, leaves the calendar stale:
+  // invalidation only runs on success.
+  const finish = () => {
+    if (tried.length > 0) refresh();
+    onClose();
+  };
+  const guard = useDiscardGuard<null>(() => finish());
   const leave = () => {
     // Escape during a save would close the dialog while the save still commits.
-    if (!isPending) guard.request(null);
+    if (isPending) return;
+    // Nothing to discard once it is saved: the question would be false.
+    if (savedEarlier) finish();
+    else guard.request(null);
   };
   // A failed save may still have committed (a lost response). The server replays a retry of its
   // key as the original success, hiding any later edit, so after a failure an edit to the
@@ -185,11 +207,6 @@ export function CloseDialog(props: CloseDialogProps) {
       ),
     [form, previewId, today, series]
   );
-  // Every rule id sent. A lost response may still have committed, and a version conflict then
-  // refreshes the version so a blind retry would save a second closure of the same dates. Once
-  // any earlier attempt shows up in the config, nothing more is saved from this dialog.
-  const [tried, setTried] = useState<readonly string[]>([]);
-  const savedEarlier = tried.some((id) => state.config.dateRules.some((r) => r.id === id));
   const impactQuery = useClosureImpact({ venueId, rule: impactRule });
   const impact: ClosureImpact | null | undefined = impactRule ? impactQuery.data : null;
   const groups = impact?.groups ?? [];
@@ -218,7 +235,11 @@ export function CloseDialog(props: CloseDialogProps) {
     if (!rule) return;
     setFailure(null);
     setWinner(null);
-    setTried((ids) => (ids.includes(ruleId) ? ids : [...ids, ruleId]));
+    setTried((all) =>
+      all.some((a) => a.id === ruleId)
+        ? all
+        : [...all, { id: ruleId, summary: outcomeSummary(outcomeCounts(groups, choices), t) }]
+    );
     try {
       const result = await mutateAsync({
         venueId,
@@ -247,6 +268,8 @@ export function CloseDialog(props: CloseDialogProps) {
       }
       setFailure(failureText(error, t));
       setFailedSave(true);
+      // The save may have committed: leaving is no longer "nothing has been closed".
+      guard.setDirty(true);
       const conflict = conflictOf(error);
       if (conflict?.code === "version-conflict") {
         setWinner({ change: conflict.winningChange });
@@ -289,46 +312,58 @@ export function CloseDialog(props: CloseDialogProps) {
         open
         onClose={leave}
         title={t("availability.close.title")}
-        description={t("availability.close.step", { step })}
+        description={savedEarlier ? undefined : t("availability.close.step", { step })}
         footer={
-          <div className={styles.footer}>
-            {step === 2 && (
-              <Text variant="caption" color="secondary" className={styles.footerNote}>
-                {t("availability.close.step2.irreversible")}
-              </Text>
-            )}
-            <Button
-              variant="secondary"
-              disabled={isPending}
-              onClick={step === 2 ? () => setStep(1) : leave}
-            >
-              {step === 2 ? t("availability.close.back") : t("availability.close.cancel")}
-            </Button>
-            <Button
-              variant="primary"
-              data-testid="close-primary"
-              onClick={step === 2 ? () => void save() : next}
-              isLoading={isPending}
-              disabled={primaryDisabled}
-            >
-              {label}
-            </Button>
-          </div>
+          savedEarlier ? (
+            <div className={styles.footer}>
+              <Button variant="primary" onClick={finish}>
+                {t("availability.close.savedEarlier.done")}
+              </Button>
+            </div>
+          ) : (
+            <div className={styles.footer}>
+              {step === 2 && (
+                <Text variant="caption" color="secondary" className={styles.footerNote}>
+                  {t("availability.close.step2.irreversible")}
+                </Text>
+              )}
+              <Button
+                variant="secondary"
+                disabled={isPending}
+                onClick={step === 2 ? () => setStep(1) : leave}
+              >
+                {step === 2 ? t("availability.close.back") : t("availability.close.cancel")}
+              </Button>
+              <Button
+                variant="primary"
+                data-testid="close-primary"
+                onClick={step === 2 ? () => void save() : next}
+                isLoading={isPending}
+                disabled={primaryDisabled}
+              >
+                {label}
+              </Button>
+            </div>
+          )
         }
       >
-        {savedEarlier && (
-          <Alert variant="warning" title={t("availability.close.saveError")}>
-            {t("availability.close.alreadySaved")}
+        {earlier && (
+          // The first attempt's choices are what applied: the form, which may show later edits,
+          // and any failure of the attempts after it, are not the outcome. Never invite a retry.
+          <Alert variant="info" title={t("availability.close.savedEarlier.title")}>
+            {earlier.summary
+              ? t("availability.close.savedEarlier.body", { summary: earlier.summary })
+              : t("availability.close.savedEarlier.bodyPlain")}
           </Alert>
         )}
-        {failure && (
+        {!savedEarlier && failure && (
           <Alert variant="error" title={t("availability.close.saveError")}>
             {failure}
             {winner && <Text variant="body">{winnerText}</Text>}
           </Alert>
         )}
         {/* A save in flight sends what was chosen: no control may change it meanwhile. */}
-        <fieldset className={styles.lock} disabled={isPending}>
+        <fieldset className={styles.lock} disabled={isPending} hidden={savedEarlier}>
           {step === 1 ? (
             <CloseStepOne
               form={form}
@@ -376,10 +411,19 @@ export function CloseDialog(props: CloseDialogProps) {
       <DiscardChangesDialog
         open={guard.pending !== null}
         date={null}
-        wording={{
-          title: t("availability.close.discard.title"),
-          description: t("availability.close.discard.description"),
-        }}
+        wording={
+          // After a save was sent it may have committed, so "nothing has been closed" is false.
+          tried.length > 0
+            ? {
+                title: t("availability.close.discard.titleMaybeSaved"),
+                description: t("availability.close.discard.descriptionMaybeSaved"),
+                confirmLabel: t("availability.close.discard.leave"),
+              }
+            : {
+                title: t("availability.close.discard.title"),
+                description: t("availability.close.discard.description"),
+              }
+        }
         onDiscard={guard.confirmDiscard}
         onKeepEditing={guard.keepEditing}
       />

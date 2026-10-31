@@ -929,6 +929,12 @@
     }
   </file>
   <file path="src/components/availability/outcome-label.ts">
+    export function outcomeSummary(counts: OutcomeCounts, t: TFunction): string {
+      return (["cancel", "move", "keep_notify", "keep_silent"] as const)
+        .filter((a) => counts[a] > 0)
+        .map((a) => t(`availability.close.button.part.${a}`, { count: counts[a] }))
+        .join(" · ");
+    }
     export function outcomeLabel(counts: OutcomeCounts, t: TFunction): string {
       const parts = (["cancel", "move", "keep_notify", "keep_silent"] as const)
         .filter((a) => counts[a] > 0)
