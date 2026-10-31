@@ -4954,6 +4954,10 @@
         ...(message ? { guestMessage: message } : {}),
       };
     }
+    export function sameRequest(a: CloseForm, b: CloseForm): boolean {
+      const key = (f: CloseForm) => JSON.stringify([f.what, f.when, f.fromMinute]);
+      return key(a) === key(b);
+    }
     export function actionsFor(kind: ClosureImpactKind): readonly ClosureAction[] {
       return kind === "shortened"
         ? ["cancel", "move", "keep_notify", "keep_silent"]
@@ -5569,6 +5573,12 @@
     }
   </file>
   <file path="apps/hospitality/src/components/availability/outcome-label.ts">
+    export function outcomeSummary(counts: OutcomeCounts, t: TFunction): string {
+      return (["cancel", "move", "keep_notify", "keep_silent"] as const)
+        .filter((a) => counts[a] > 0)
+        .map((a) => t(`availability.close.button.part.${a}`, { count: counts[a] }))
+        .join(" · ");
+    }
     export function outcomeLabel(counts: OutcomeCounts, t: TFunction): string {
       const parts = (["cancel", "move", "keep_notify", "keep_silent"] as const)
         .filter((a) => counts[a] > 0)
@@ -12982,6 +12992,11 @@
           401: authRequired,
           403: notClosureCaller,
           404: problem("Venue or closure not found"),
+          422: {
+            description:
+              "`invalid-config` with a `strands_booking` issue per booking: removing a one-date edit hands its date back to the series, which would leave these bookings without service. Nothing is changed",
+            body: AvailabilityConfigProblemSchema,
+          },
         },
       }),
       setTonight: defineEndpoint({
@@ -17956,7 +17971,11 @@
       idempotencyKey: string;
     };
     export const useCreateClosure = createMutationHook<CreateClosureVariables, ClosureResult>({
-      invalidateKeys: [AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY],
+      invalidateKeys: [
+        AVAILABILITY_CONFIG_QUERY_KEY,
+        AVAILABILITY_DAYS_QUERY_KEY,
+        CLOSURE_SUMMARIES_QUERY_KEY,
+      ],
       mutationFn: (api, { venueId, body, idempotencyKey }) =>
         api.availability.createClosure(venueId, body, idempotencyKey),
     });
@@ -30108,12 +30127,19 @@
         },
       });
     }
-    function reopenNote(cancelled: number, requested: boolean): string {
+    function reopenNote(cancelled: number, notified: number, datesPassed: boolean): string {
       if (cancelled === 0) return "No guest was cancelled by this closure, so no notice was requested.";
-      const guests = cancelled === 1 ? "1 guest" : `${cancelled} guests`;
-      return requested
-        ? `Asked to notify the ${guests} the closure cancelled that it has reopened; delivery isn't confirmed here. They stay cancelled.`
-        : `The ${guests} the closure cancelled ${cancelled === 1 ? "was" : "were"} not asked to be notified that it has reopened. They stay cancelled.`;
+      const guestsOf = (n: number) => (n === 1 ? "1 guest" : `${n} guests`);
+      if (notified > 0) {
+        const rest =
+          notified < cancelled
+            ? ` The other ${cancelled - notified} were not asked: their booking date has passed.`
+            : "";
+        return `Asked to notify the ${guestsOf(notified)} the closure cancelled that it has reopened; delivery isn't confirmed here. They stay cancelled.${rest}`;
+      }
+      // `datesPassed`: a notice was wanted but every cancelled booking has already started.
+      const why = datesPassed ? ": their booking dates have passed" : "";
+      return `The ${guestsOf(cancelled)} the closure cancelled ${cancelled === 1 ? "was" : "were"} not asked to be notified that it has reopened${why}. They stay cancelled.`;
     }
     function reopenClosure({ log, api, venueId }: ToolContext) {
       return tool({
@@ -30146,6 +30172,8 @@
           let rule: ClosureRule;
           let scopeText: string;
           let cancelled: number;
+          // The guests a notice can still reach: those whose booking has not started.
+          let reachable: number;
           try {
             const state = await api.availability.getConfig(venueId);
             const target = scope === "service" ? resolveService(state.config, service!) : undefined;
@@ -30169,14 +30197,19 @@
                   "Couldn't read how many guests this closure cancelled, so it can't decide whether to tell them. Nothing was changed. Ask the user to try again shortly.",
               };
             }
-            cancelled = counts.find((c) => c.ruleId === rule.id)?.cancelled ?? 0;
+            const summary = counts.find((c) => c.ruleId === rule.id);
+            cancelled = summary?.cancelled ?? 0;
+            reachable = summary?.upcomingCancelled ?? cancelled;
           } catch (err) {
             log.error({ err, venueId }, "reopen_closure failed to read");
             return closureFailure(err, "Couldn't read the closures. Nothing was changed.");
           }
-          const told = tellCancelledGuests && cancelled > 0;
+          const told = tellCancelledGuests && reachable > 0;
+          let notified: number;
           try {
-            await api.availability.reopenClosure(venueId, rule.id, told);
+            const saved = await api.availability.reopenClosure(venueId, rule.id, told);
+            // The server counts who the notice really reached; an older one does not say.
+            notified = told ? (saved.notified ?? reachable) : 0;
           } catch (err) {
             log.error({ err, venueId }, "reopen_closure failed");
             return closureFailure(err, SAVE_UNSURE);
@@ -30186,8 +30219,8 @@
             ...spanOf(rule),
             scope: scopeText,
             guestsCancelled: cancelled,
-            noticeRequested: told,
-            note: reopenNote(cancelled, told),
+            noticeRequested: notified > 0,
+            note: reopenNote(cancelled, notified, tellCancelledGuests && reachable === 0),
           };
         },
       });
@@ -43098,7 +43131,16 @@
       /** One result per item, in the order sent. */
       results: z.array(ClosureResultSchema),
     });
-    export const ReopenResultSchema = z.object({ version: z.number().int(), changeId: z.string() });
+    export const ReopenResultSchema = z.object({
+      version: z.number().int(),
+      changeId: z.string(),
+      /**
+       * Guests a reopen notice was requested for: cancelled guests whose booking had not started,
+       * `0` when none were asked. Absent from an older API (and from ending Tonight); read it as
+       * `notified ?? null`.
+       */
+      notified: z.number().int().nonnegative().nullable().optional(),
+    });
     export const RefundFailureSchema = z.object({
       outcomeId: z.string(),
       /** The guest's name as booked; no email or phone travels here. */
@@ -43113,6 +43155,11 @@
       total: z.number().int(),
       /** Bookings the closure cancelled (the guests a reopen notice would go to). */
       cancelled: z.number().int(),
+      /**
+       * Of those, the guests a reopen notice can still reach: their booking has not started.
+       * Absent from an older API; read it as `upcomingCancelled ?? cancelled`.
+       */
+      upcomingCancelled: z.number().int().nonnegative().nullable().optional(),
       /** Guests with a confirmed email or SMS delivery. */
       sent: z.number().int(),
       /** Guests who rebooked after the cancel. */
@@ -51991,7 +52038,48 @@
       if (saved?.actorId !== actorId) throw new Refused({ kind: "forbidden" });
     }
     export type ReopenOutcome =
-      { kind: "reopened"; result: ReopenResult } | { kind: "not_found" } | { kind: "forbidden" };
+      | { kind: "reopened"; result: ReopenResult }
+      | { kind: "not_found" }
+      | { kind: "forbidden" }
+      | Extract<Refusal, { kind: "invalid" }>;
+    async function refuseStrandingReopen(
+      tx: Db,
+      venueId: string,
+      state: ConfigState,
+      next: ConfigState["stored"],
+      now: Date
+    ): Promise<void> {
+      const removed = new Set(state.stored.dateRules.map((r) => r.id));
+      for (const r of next.dateRules) removed.delete(r.id);
+      const after = {
+        ...state.effective,
+        dateRules: state.effective.dateRules.filter((r) => !removed.has(r.id)),
+      };
+      const stranded = findStrandedReservations(
+        { timezone: state.timezone, config: state.effective },
+        { timezone: state.timezone, config: after },
+        await futureBookings(tx, venueId, civilDateIn(now, state.timezone), now)
+      );
+      if (stranded.length === 0) return;
+      throw new Refused({
+        kind: "invalid",
+        issues: stranded.map((r) => ({
+          path: `reservations.${r.id}`,
+          code: "strands_booking",
+          message: "Removing this would leave this booking without service.",
+        })),
+      });
+    }
+    function upcomingCancelled(db: Db, venueId: string, ruleId: string, now: Date): Promise<number> {
+      return db.closureOutcome.count({
+        where: {
+          venueId,
+          dateRuleId: ruleId,
+          action: "cancel",
+          reservation: { startTime: { gt: now } },
+        },
+      });
+    }
     export async function reopenClosure(
       input: {
         venueId: string;
@@ -52007,6 +52095,14 @@
         return await client.$transaction(async (tx) => {
           await setVenueContext(tx, venueId);
           const db = tx as unknown as Db;
+          // Take the venue row first, as `commit` does: an in-flight booking holds it FOR SHARE, so
+          // this waits for that commit and the stranded scan below sees the booking (book-slot.ts).
+          // A refusal rolls the bump back with the rest of the transaction.
+          const bumped = await db.venue.update({
+            where: { id: venueId },
+            data: { availabilityVersion: { increment: 1 } },
+            select: { availabilityVersion: true },
+          });
           const state = await loadConfigState(db, venueId, now);
           const rule = state?.stored.dateRules.find((r) => r.id === ruleId);
           if (!state || !rule || !CLOSURE_RULE_KINDS.has(rule.kind)) {
@@ -52020,17 +52116,20 @@
             // Reopening a series also removes its skips and one-date edits (#7685).
             dateRules: state.stored.dateRules.filter((r) => r.id !== ruleId && r.seriesId !== ruleId),
           };
+          await refuseStrandingReopen(db, venueId, state, next, now);
           const diff = diffConfig(state.stored, next);
           await writeConfigDiff(db, venueId, diff, { actorId: caller.actorId, now });
-          const bumped = await db.venue.update({
+          await db.venue.update({
             where: { id: venueId },
-            data: {
-              availabilityVersion: { increment: 1 },
-              operatingHours: projectLegacyOperatingHours(next),
-            },
-            select: { availabilityVersion: true },
+            data: { operatingHours: projectLegacyOperatingHours(next) },
+            select: { id: true },
           });
           const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
+          // Only guests whose booking has not started get the notice (`listNotifiable`); the audit
+          // row, Undo and the caller's count must agree with who it actually reaches.
+          const notified = input.tellCancelledGuests
+            ? await upcomingCancelled(db, venueId, ruleId, now)
+            : 0;
           const change = await db.availabilityChange.create({
             data: {
               venueId,
@@ -52046,13 +52145,13 @@
                 diff,
                 state.operatingHours
               ) as unknown as Prisma.InputJsonValue,
-              notifiedGuests: input.tellCancelledGuests,
+              notifiedGuests: notified > 0,
             },
             select: { id: true },
           });
           return {
             kind: "reopened" as const,
-            result: { version: bumped.availabilityVersion, changeId: change.id },
+            result: { version: bumped.availabilityVersion, changeId: change.id, notified },
           };
         });
       } catch (error) {
@@ -52400,7 +52499,7 @@
       const store = deps.store ?? defaultStore;
     
       async function enqueue(variant: NoticeVariant, input: EnqueueInput): Promise<number> {
-        const outcomes = await store.listNotifiable(input.venueId, input.ruleId, variant);
+        const outcomes = await store.listNotifiable(input.venueId, input.ruleId, variant, input.now);
         if (outcomes.length === 0) return 0;
         const urgent = await isUrgent(store, input);
         await Promise.all(
@@ -52488,14 +52587,14 @@
       venueId: string,
       ruleId: string,
       variant: NoticeVariant,
+      now: Date,
       db: Db = prisma
     ): Promise<NotifiableOutcome[]> {
       const rows = await db.closureOutcome.findMany({
-        where: {
-          venueId,
-          dateRuleId: ruleId,
-          action: variant === "reopened" ? "cancel" : { not: "keep_silent" },
-        },
+        where:
+          variant === "reopened"
+            ? { venueId, dateRuleId: ruleId, action: "cancel", reservation: { startTime: { gt: now } } }
+            : { venueId, dateRuleId: ruleId, action: { not: "keep_silent" } },
         select: { id: true },
       });
       return rows.map((r) => ({ outcomeId: r.id }));
@@ -52635,6 +52734,8 @@
       id: string;
       reservation: {
         guestName: string | null;
+        /** Only the summaries listing reads when the booking starts. */
+        startTime?: Date;
         deposit: {
           amountCents: number;
           currency: string;
@@ -52687,7 +52788,11 @@
       }
       return [...byRule.values()];
     }
-    export async function listSummaries(venueId: string, db: Db = prisma): Promise<ClosureSummary[]> {
+    export async function listSummaries(
+      venueId: string,
+      now: Date = new Date(),
+      db: Db = prisma
+    ): Promise<ClosureSummary[]> {
       const rows = await db.closureOutcome.findMany({
         where: { venueId },
         orderBy: { createdAt: "asc" },
@@ -52701,6 +52806,7 @@
           reservation: {
             select: {
               guestName: true,
+              startTime: true,
               deposit: {
                 select: {
                   amountCents: true,
@@ -52714,7 +52820,18 @@
           },
         },
       });
-      return summarizeOutcomes(rows);
+      // A reopen notice goes only to cancelled guests whose booking has not started
+      // (`listNotifiable`), so that is the count the Reopen dialog may promise.
+      const upcoming = new Map<string, number>();
+      for (const row of rows) {
+        if (row.action !== "cancel" || !row.reservation.startTime) continue;
+        if (row.reservation.startTime.getTime() <= now.getTime()) continue;
+        upcoming.set(row.dateRuleId, (upcoming.get(row.dateRuleId) ?? 0) + 1);
+      }
+      return summarizeOutcomes(rows).map((s) => ({
+        ...s,
+        upcomingCancelled: upcoming.get(s.ruleId) ?? 0,
+      }));
     }
   </file>
   <file path="services/reservations/src/services/closure-notice.ts">

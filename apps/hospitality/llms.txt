@@ -175,6 +175,9 @@
       export function buildCloseRule(form: CloseForm, id: string, today: string): DateRule | null { /* ... */ }
     </item>
     <item priority="high">
+      export function sameRequest(a: CloseForm, b: CloseForm): boolean { /* ... */ }
+    </item>
+    <item priority="high">
       export function actionsFor(kind: ClosureImpactKind): readonly ClosureAction[] { /* ... */ }
     </item>
     <item priority="high">
@@ -440,6 +443,9 @@
     </item>
   </file>
   <file path="src/components/availability/outcome-label.ts">
+    <item priority="high">
+      export function outcomeSummary(counts: OutcomeCounts, t: TFunction): string { /* ... */ }
+    </item>
     <item priority="high">
       export function outcomeLabel(counts: OutcomeCounts, t: TFunction): string { /* ... */ }
     </item>

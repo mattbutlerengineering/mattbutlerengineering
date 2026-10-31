@@ -972,6 +972,57 @@ describe("closure chat tools", () => {
       });
     });
 
+    it("asks nobody when every cancelled guest's date has passed, and says so (#7975)", async () => {
+      api.availability.listClosures.mockResolvedValue([
+        {
+          ruleId: "c1",
+          total: 3,
+          cancelled: 3,
+          upcomingCancelled: 0,
+          sent: 0,
+          rebooked: 0,
+          unreachable: 0,
+        },
+      ]);
+
+      const result = await run("reopen_closure", { ...input, tellCancelledGuests: true });
+
+      expect(api.availability.reopenClosure).toHaveBeenCalledWith("v1", "c1", false);
+      expect(result).toMatchObject({
+        guestsCancelled: 3,
+        noticeRequested: false,
+        note: expect.stringMatching(/not asked to be notified.*booking dates have passed/i),
+      });
+      expect(JSON.stringify(result)).not.toMatch(/Asked to notify/);
+    });
+
+    it("names only the guests the reopen reached when some dates have passed (#7975)", async () => {
+      api.availability.listClosures.mockResolvedValue([
+        {
+          ruleId: "c1",
+          total: 5,
+          cancelled: 5,
+          upcomingCancelled: 2,
+          sent: 0,
+          rebooked: 0,
+          unreachable: 0,
+        },
+      ]);
+      api.availability.reopenClosure.mockResolvedValue({
+        version: 9,
+        changeId: "ch2",
+        notified: 2,
+      });
+
+      const result = await run("reopen_closure", { ...input, tellCancelledGuests: true });
+
+      expect(result).toMatchObject({
+        guestsCancelled: 5,
+        noticeRequested: true,
+        note: expect.stringMatching(/asked to notify the 2 guests/i),
+      });
+    });
+
     it("words a requested notice as asked, not delivered, and handles one guest", async () => {
       api.availability.listClosures.mockResolvedValue([
         { ruleId: "c1", total: 1, cancelled: 1, sent: 0, rebooked: 0, unreachable: 0 },

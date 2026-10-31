@@ -19,6 +19,7 @@ import {
   decisionsReady,
   isUrgent,
   outcomeCounts,
+  sameRequest,
   toDecisions,
   validateClose,
   type ChoiceMap,
@@ -26,10 +27,12 @@ import {
   type CloseForm,
 } from "./close-draft.js";
 import { conflictOf, isDecisionRequired } from "./conflict-problem.js";
+import { DiscardChangesDialog } from "./DiscardChangesDialog.js";
+import { useDiscardGuard } from "./use-discard-guard.js";
 import { useWinningChangeText } from "./use-winning-change-text.js";
 import { CloseStepOne } from "./CloseStepOne.js";
 import { CloseStepTwo } from "./CloseStepTwo.js";
-import { outcomeLabel } from "./outcome-label.js";
+import { outcomeLabel, outcomeSummary } from "./outcome-label.js";
 import styles from "./CloseDialog.module.css";
 
 export interface CloseDialogProps {
@@ -108,10 +111,20 @@ function inSeries(rule: DateRule | null, series: DateRule | undefined): DateRule
 }
 
 function failureText(error: unknown, t: TFunction): string {
-  return conflictOf(error)?.code === "version-conflict"
-    ? t("availability.close.versionConflict")
-    : describeApiError(error).detail;
+  const code = conflictOf(error)?.code;
+  if (code === "version-conflict") return t("availability.close.versionConflict");
+  if (code === "closure-exists") return t("availability.close.alreadySaved");
+  return describeApiError(error).detail;
 }
+
+/** A save that was sent: its rule id and, as text, the outcomes it chose for the bookings. */
+interface TriedAttempt {
+  readonly id: string;
+  readonly summary: string;
+}
+
+/** One rule id and one idempotency key per request: a retry of it replays the first result. */
+const newAttempt = () => ({ ruleId: crypto.randomUUID(), idempotencyKey: crypto.randomUUID() });
 
 /**
  * Close, in two steps (ux.md F5): Step 1 says what, when and why with a live count of the
@@ -137,14 +150,62 @@ export function CloseDialog(props: CloseDialogProps) {
     readonly change: AvailabilityChangeSummary | null;
   } | null>(null);
   const winnerText = useWinningChangeText(winner?.change ?? null);
-  // One id per dialog: the rule is created at most once, whatever the Manager retries.
-  const [ruleId] = useState(() => crypto.randomUUID());
+  // The rule is created at most once per request, whatever the Manager retries; a lost response
+  // then a retry replays the first result. Changing the request starts a new attempt.
+  const [attempt, setAttempt] = useState(newAttempt);
+  const { ruleId, idempotencyKey } = attempt;
+  // Every attempt sent, with the outcomes it chose. A lost response may still have committed, and
+  // a version conflict then refreshes the version so a blind retry would save a second closure of
+  // the same dates. Once any earlier attempt shows up in the config, nothing more is saved from
+  // this dialog, and the first one's choices are what applied.
+  const [tried, setTried] = useState<readonly TriedAttempt[]>([]);
+  const earlier = tried.find((a) => state.config.dateRules.some((r) => r.id === a.id));
+  const savedEarlier = earlier !== undefined;
+  // Leaving after any save was sent, or while one is known saved, leaves the calendar stale:
+  // invalidation only runs on success.
+  const finish = () => {
+    if (tried.length > 0) refresh();
+    onClose();
+  };
+  const guard = useDiscardGuard<null>(() => finish());
+  const leave = () => {
+    // Escape during a save would close the dialog while the save still commits.
+    if (isPending) return;
+    // Nothing to discard once it is saved: the question would be false.
+    if (savedEarlier) finish();
+    else guard.request(null);
+  };
+  // A failed save may still have committed (a lost response). The server replays a retry of its
+  // key as the original success, hiding any later edit, so after a failure an edit to the
+  // message or a decision is a new attempt: a stale expected version then answers honestly.
+  const [failedSave, setFailedSave] = useState(false);
+  const restart = () => {
+    setAttempt(newAttempt());
+    setFailedSave(false);
+  };
+  const edit = (next: CloseForm) => {
+    if (!sameRequest(next, form)) {
+      setChoices({});
+      restart();
+    } else if (failedSave && JSON.stringify(next) !== JSON.stringify(form)) {
+      restart();
+    }
+    setForm(next);
+    setInvalid(null);
+    guard.setDirty(true);
+  };
 
   const { series } = props;
+  // The preview has its own id, fixed for the dialog: a new attempt (new `ruleId`) must not be a
+  // new impact query, or Step 2 would lose the bookings it is deciding on until it refetched.
+  const [previewId] = useState(() => crypto.randomUUID());
   const impactRule = useMemo(
     () =>
-      inSeries(buildCloseRule({ ...form, staffNote: "", guestMessage: "" }, ruleId, today), series),
-    [form, ruleId, today, series]
+      inSeries(
+        buildCloseRule({ ...form, staffNote: "", guestMessage: "" }, previewId, today),
+        series
+      ),
+    [form, previewId, today, series]
   );
   const impactQuery = useClosureImpact({ venueId, rule: impactRule });
   const impact: ClosureImpact | null | undefined = impactRule ? impactQuery.data : null;
@@ -174,10 +235,14 @@ export function CloseDialog(props: CloseDialogProps) {
     if (!rule) return;
     setFailure(null);
     setWinner(null);
+    // One rule id can be sent more than once (a refused send keeps it, and the Manager may then
+    // choose differently), and the send that commits is the last one: record its choices.
+    const sent = { id: ruleId, summary: outcomeSummary(outcomeCounts(groups, choices), t) };
+    setTried((all) => [...all.filter((a) => a.id !== ruleId), sent]);
     try {
       const result = await mutateAsync({
         venueId,
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey,
         body: { expectedVersion: state.version, rule, decisions: toDecisions(groups, choices) },
       });
       const { cancel, move, keep_notify } = result.outcomes;
@@ -201,9 +266,14 @@ export function CloseDialog(props: CloseDialogProps) {
         return;
       }
       setFailure(failureText(error, t));
+      setFailedSave(true);
+      // The save may have committed: leaving is no longer "nothing has been closed".
+      guard.setDirty(true);
       const conflict = conflictOf(error);
       if (conflict?.code === "version-conflict") {
         setWinner({ change: conflict.winningChange });
+        refresh();
+      } else if (conflict?.code === "closure-exists") {
         refresh();
       }
     }
@@ -215,10 +285,14 @@ export function CloseDialog(props: CloseDialogProps) {
     today,
     minutesOfDayIn(now, timezone)
   );
+  const impactFailed = impactRule !== null && impactQuery.error !== null;
+  // Step 2 decides on bookings it must be showing: with none loaded, `groups` is empty and the
+  // choices would read as complete.
   const primaryDisabled =
-    step === 2
-      ? !decisionsReady(groups, choices)
-      : impactQuery.isLoading || (impactRule !== null && impactQuery.error !== null);
+    savedEarlier ||
+    (step === 2
+      ? !impact || !decisionsReady(groups, choices)
+      : impactQuery.isLoading || impactFailed);
   const label =
     step === 2
       ? outcomeLabel(counts, t)
@@ -232,68 +306,126 @@ export function CloseDialog(props: CloseDialogProps) {
             }).trim();
 
   return (
-    <Dialog
-      open
-      onClose={onClose}
-      title={t("availability.close.title")}
-      description={t("availability.close.step", { step })}
-      footer={
-        <div className={styles.footer}>
-          {step === 2 && (
-            <Text variant="caption" color="secondary" className={styles.footerNote}>
-              {t("availability.close.step2.irreversible")}
-            </Text>
+    <>
+      <Dialog
+        open
+        onClose={leave}
+        title={t("availability.close.title")}
+        description={savedEarlier ? undefined : t("availability.close.step", { step })}
+        footer={
+          savedEarlier ? (
+            <div className={styles.footer}>
+              <Button variant="primary" onClick={finish}>
+                {t("availability.close.savedEarlier.done")}
+              </Button>
+            </div>
+          ) : (
+            <div className={styles.footer}>
+              {step === 2 && (
+                <Text variant="caption" color="secondary" className={styles.footerNote}>
+                  {t("availability.close.step2.irreversible")}
+                </Text>
+              )}
+              <Button
+                variant="secondary"
+                disabled={isPending}
+                onClick={step === 2 ? () => setStep(1) : leave}
+              >
+                {step === 2 ? t("availability.close.back") : t("availability.close.cancel")}
+              </Button>
+              <Button
+                variant="primary"
+                data-testid="close-primary"
+                onClick={step === 2 ? () => void save() : next}
+                isLoading={isPending}
+                disabled={primaryDisabled}
+              >
+                {label}
+              </Button>
+            </div>
+          )
+        }
+      >
+        {earlier && (
+          // The first attempt's choices are what applied: the form, which may show later edits,
+          // and any failure of the attempts after it, are not the outcome. Never invite a retry.
+          <Alert variant="info" title={t("availability.close.savedEarlier.title")}>
+            {earlier.summary
+              ? t("availability.close.savedEarlier.body", { summary: earlier.summary })
+              : t("availability.close.savedEarlier.bodyPlain")}
+          </Alert>
+        )}
+        {!savedEarlier && failure && (
+          <Alert variant="error" title={t("availability.close.saveError")}>
+            {failure}
+            {winner && <Text variant="body">{winnerText}</Text>}
+          </Alert>
+        )}
+        {/* A save in flight sends what was chosen: no control may change it meanwhile. */}
+        <fieldset className={styles.lock} disabled={isPending} hidden={savedEarlier}>
+          {step === 1 ? (
+            <CloseStepOne
+              form={form}
+              onChange={edit}
+              services={services}
+              today={today}
+              impact={impact}
+              impactLoading={impactQuery.isLoading}
+              impactFailed={impactQuery.error !== null}
+              replacedDate={replacedDate}
+              invalid={invalid}
+              locked={props.hostLocked}
+              dateLocked={series !== undefined}
+            />
+          ) : (
+            <>
+              {impact && (
+                <CloseStepTwo
+                  impact={impact}
+                  choices={choices}
+                  urgent={urgent}
+                  guestMessage={form.guestMessage}
+                  onChoose={(key, choice) => {
+                    if (failedSave && JSON.stringify(choices[key]) !== JSON.stringify(choice))
+                      restart();
+                    setChoices({ ...choices, [key]: choice });
+                    guard.setDirty(true);
+                  }}
+                />
+              )}
+              {!impact && impactFailed && (
+                <Text variant="body" color="secondary">
+                  {t("availability.close.step2.loadFailed")}
+                </Text>
+              )}
+              {!impact && !impactFailed && (
+                <Text variant="body" color="secondary">
+                  {t("availability.close.step2.loading")}
+                </Text>
+              )}
+            </>
           )}
-          <Button variant="secondary" onClick={step === 2 ? () => setStep(1) : onClose}>
-            {step === 2 ? t("availability.close.back") : t("availability.close.cancel")}
-          </Button>
-          <Button
-            variant="primary"
-            data-testid="close-primary"
-            onClick={step === 2 ? () => void save() : next}
-            isLoading={isPending}
-            disabled={primaryDisabled}
-          >
-            {label}
-          </Button>
-        </div>
-      }
-    >
-      {failure && (
-        <Alert variant="error" title={t("availability.close.saveError")}>
-          {failure}
-          {winner && <Text variant="body">{winnerText}</Text>}
-        </Alert>
-      )}
-      {step === 1 ? (
-        <CloseStepOne
-          form={form}
-          onChange={(f) => {
-            setForm(f);
-            setChoices({});
-            setInvalid(null);
-          }}
-          services={services}
-          today={today}
-          impact={impact}
-          impactLoading={impactQuery.isLoading}
-          impactFailed={impactQuery.error !== null}
-          replacedDate={replacedDate}
-          invalid={invalid}
-          locked={props.hostLocked}
-          dateLocked={series !== undefined}
-        />
-      ) : (
-        impact && (
-          <CloseStepTwo
-            impact={impact}
-            choices={choices}
-            urgent={urgent}
-            guestMessage={form.guestMessage}
-            onChoose={(key, choice) => setChoices({ ...choices, [key]: choice })}
-          />
-        )
-      )}
-    </Dialog>
+        </fieldset>
+      </Dialog>
+      <DiscardChangesDialog
+        open={guard.pending !== null}
+        date={null}
+        wording={
+          // After a save was sent it may have committed, so "nothing has been closed" is false.
+          tried.length > 0
+            ? {
+                title: t("availability.close.discard.titleMaybeSaved"),
+                description: t("availability.close.discard.descriptionMaybeSaved"),
+                confirmLabel: t("availability.close.discard.leave"),
+              }
+            : {
+                title: t("availability.close.discard.title"),
+                description: t("availability.close.discard.description"),
+              }
+        }
+        onDiscard={guard.confirmDiscard}
+        onKeepEditing={guard.keepEditing}
+      />
+    </>
   );
 }
