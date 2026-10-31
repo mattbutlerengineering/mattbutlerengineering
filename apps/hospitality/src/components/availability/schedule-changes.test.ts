@@ -10,6 +10,7 @@ import {
   isScheduleUnused,
   overlappingSchedules,
   datesOfUse,
+  regularWeekdays,
   weekdayRuns,
 } from "./schedule-changes.js";
 import { FIXTURE_TIMEZONE, fixtureConfig } from "./resolved-day-fixtures.js";
@@ -313,6 +314,101 @@ describe("Change regular week", () => {
     expect(resolve(make("existing"), "2026-11-13").scheduleId).toBe("patio");
     expect(validateConfig(make("existing"))).toEqual([]);
   });
+});
+
+describe("Change regular week on a venue that is closed some days", () => {
+  const TUE_SAT = [2, 3, 4, 5, 6];
+  const SUN = "2026-11-01";
+  const MON = "2026-10-26";
+  const TUE = "2026-10-27";
+
+  /** A Tue-Sat venue: Sunday and Monday have no assignment, so they resolve to no schedule. */
+  function tueSat(): AvailabilityConfig {
+    const base = fixtureConfig();
+    return {
+      ...base,
+      assignments: [{ id: "as-regular", scheduleId: "regular", weekdays: TUE_SAT, precedence: 0 }],
+    };
+  }
+
+  /** A migrated venue (#7738): Mon-Wed is the regular week, "Thu–Fri hours" runs its own hours. */
+  function migrated(): AvailabilityConfig {
+    const base = fixtureConfig();
+    const alternate: Schedule = {
+      id: "thu-fri",
+      name: "Thu–Fri hours",
+      kind: "alternate",
+      isRegular: false,
+    };
+    return {
+      ...base,
+      schedules: [...base.schedules, alternate],
+      scheduleServices: [
+        ...base.scheduleServices,
+        ...base.scheduleServices
+          .filter((s) => s.scheduleId === "regular")
+          .map((s) => ({
+            ...s,
+            id: `${s.id}-tf`,
+            scheduleId: "thu-fri",
+            // Thu-Fri dinner runs later than the regular week's.
+            ...(s.venueServiceId === "vs-dinner" ? { closesAt: 1410 } : {}),
+          })),
+      ],
+      assignments: [
+        { id: "as-regular", scheduleId: "regular", weekdays: [1, 2, 3], precedence: 0 },
+        { id: "as-tf", scheduleId: "thu-fri", weekdays: [4, 5], precedence: 0 },
+      ],
+    };
+  }
+
+  const input = (config: AvailabilityConfig, endsOn: string | null) => ({
+    config,
+    name: "Summer hours",
+    services: regularDraft(config),
+    startsOn: "2026-10-26",
+    endsOn,
+    winner: "new" as const,
+    makeId: counter(),
+  });
+
+  it("reads the weekdays the regular week is used on", () => {
+    expect(regularWeekdays(tueSat(), "2026-10-26")).toEqual(TUE_SAT);
+    expect(regularWeekdays(migrated(), "2026-10-26")).toEqual([1, 2, 3]);
+  });
+
+  it("with an end date, Sunday and Monday stay closed", () => {
+    const config = tueSat();
+    const next = applyChanges(config, buildRegularWeekChanges(input(config, "2026-11-08")), NOW);
+    expect(validateConfig(next)).toEqual([]);
+    expect(resolve(next, TUE).scheduleId).toBe("new-1");
+    expect(resolve(next, MON).scheduleId).toBeNull();
+    expect(resolve(next, SUN).scheduleId).toBeNull();
+  });
+
+  it("with no end date, Sunday and Monday stay closed", () => {
+    const config = tueSat();
+    const next = applyChanges(config, buildRegularWeekChanges(input(config, null)), NOW);
+    expect(validateConfig(next)).toEqual([]);
+    expect(resolve(next, TUE).scheduleId).toBe("new-1");
+    expect(resolve(next, MON).scheduleId).toBeNull();
+    expect(resolve(next, SUN).scheduleId).toBeNull();
+  });
+
+  it.each([["2026-11-30"], [null]])(
+    "a day-named schedule keeps its own days and hours (ends %s)",
+    (endsOn) => {
+      const config = migrated();
+      const next = applyChanges(config, buildRegularWeekChanges(input(config, endsOn)), NOW);
+      expect(validateConfig(next)).toEqual([]);
+      // Mon-Wed take the new hours; Thu-Fri still run "Thu–Fri hours"; the weekend stays closed.
+      expect(resolve(next, MON).scheduleId).toBe("new-1");
+      expect(resolve(next, "2026-10-29").scheduleId).toBe("thu-fri");
+      expect(resolve(next, "2026-10-29").services.at(-1)?.closesAt).toBe(1410);
+      expect(resolve(next, "2026-10-31").scheduleId).toBeNull();
+      expect(resolve(next, SUN).scheduleId).toBeNull();
+    }
+  );
 });
 
 describe("datesOfUse", () => {

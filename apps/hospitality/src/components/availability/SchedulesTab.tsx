@@ -15,7 +15,8 @@ import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { CompareServices } from "./CompareServices.js";
 import { buildDeleteScheduleChanges, isScheduleUnused } from "./schedule-changes.js";
 import { ScheduleEditorDrawer, type ScheduleEditorMode } from "./ScheduleEditorDrawer.js";
-import { SaveFailure, useWeekdaySummary } from "./ScheduleFormParts.js";
+import { SaveFailure, ScheduleDraftGuard, useWeekdaySummary } from "./ScheduleFormParts.js";
+import { useDiscardGuard } from "./use-discard-guard.js";
 import { useScheduleSave } from "./use-schedule-save.js";
 import styles from "./SchedulesTab.module.css";
 
@@ -26,9 +27,14 @@ export interface SchedulesTabProps {
   /** Today on the venue clock. */
   readonly today: string;
   readonly onStale: () => void;
+  /** Compare services has edits that are not saved; the page asks before another tab drops them. */
+  readonly onDirtyChange?: (dirty: boolean) => void;
 }
 
-/** Where a schedule applies, in words: "Mon–Thu", "Jun 1 – Sep 15, every day", or none yet. */
+/**
+ * Where a schedule applies, in words: "Mon–Thu", "Jun 1 – Sep 15, every day", the Use schedule
+ * rules that point at it, or none yet.
+ */
 function useUsageText(state: AvailabilityConfigState) {
   const { t } = useTranslation();
   const format = useVenueFormat();
@@ -36,7 +42,14 @@ function useUsageText(state: AvailabilityConfigState) {
   const day = (date: string) => format.formatCalendarDate(date, { month: "short", day: "numeric" });
   return (schedule: Schedule): string => {
     const uses = state.config.assignments.filter((a) => a.scheduleId === schedule.id);
-    if (uses.length === 0) return t("availabilitySchedules.notUsed");
+    if (uses.length === 0) {
+      const rules = state.config.dateRules.filter(
+        (r) => r.kind === "use_schedule" && r.useScheduleId === schedule.id
+      ).length;
+      return rules > 0
+        ? t("availabilitySchedules.usedByRules", { count: rules })
+        : t("availabilitySchedules.notUsed");
+    }
     return uses
       .map((a) => {
         const days = summary(a.weekdays);
@@ -60,7 +73,7 @@ function useUsageText(state: AvailabilityConfigState) {
  * and Delete (only for a schedule used nowhere), plus Compare services.
  */
 export function SchedulesTab(props: SchedulesTabProps) {
-  const { venueId, state, timezone, today, onStale } = props;
+  const { venueId, state, timezone, today, onStale, onDirtyChange } = props;
   const { t } = useTranslation();
   const { toast } = useToast();
   const usage = useUsageText(state);
@@ -69,7 +82,17 @@ export function SchedulesTab(props: SchedulesTabProps) {
     null
   );
   const [comparing, setComparing] = useState(false);
+  const [compareDirty, setCompareDirty] = useState(false);
   const [deleting, setDeleting] = useState<Schedule | null>(null);
+  // Closing Compare throws away rows edited but not saved, so it asks first (as does the page).
+  const changeCompareDirty = (dirty: boolean) => {
+    setCompareDirty(dirty);
+    onDirtyChange?.(dirty);
+  };
+  const compareGuard = useDiscardGuard<void>(() => {
+    setComparing(false);
+    changeCompareDirty(false);
+  }, compareDirty);
 
   const schedules = state.config.schedules.filter((s) => !s.archivedAt);
 
@@ -91,7 +114,10 @@ export function SchedulesTab(props: SchedulesTabProps) {
           {t("availabilitySchedules.title")}
         </Heading>
         <div className={styles.actions}>
-          <Button variant="secondary" onClick={() => setComparing((open) => !open)}>
+          <Button
+            variant="secondary"
+            onClick={() => (comparing ? compareGuard.request() : setComparing(true))}
+          >
             {t("availabilitySchedules.compare.open")}
           </Button>
           <Button variant="primary" onClick={() => setEditor({ mode: "new" })}>
@@ -133,7 +159,11 @@ export function SchedulesTab(props: SchedulesTabProps) {
                 {!schedule.isRegular && (
                   <DisabledTooltip
                     disabled={!unused}
-                    disabledReason={t("availabilitySchedules.deleteBlocked", { where })}
+                    disabledReason={
+                      state.config.assignments.some((a) => a.scheduleId === schedule.id)
+                        ? t("availabilitySchedules.deleteBlocked", { where })
+                        : t("availabilitySchedules.deleteBlockedRules", { where })
+                    }
                   >
                     <Button
                       variant="ghost"
@@ -161,9 +191,16 @@ export function SchedulesTab(props: SchedulesTabProps) {
             timezone={timezone}
             today={today}
             onStale={onStale}
+            onDirtyChange={changeCompareDirty}
           />
         </section>
       )}
+      <ScheduleDraftGuard
+        dirty={compareDirty}
+        asking={compareGuard.pending !== null}
+        onDiscard={compareGuard.confirmDiscard}
+        onKeepEditing={compareGuard.keepEditing}
+      />
       {editor && (
         <ScheduleEditorDrawer
           venueId={venueId}

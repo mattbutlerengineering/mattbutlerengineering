@@ -528,6 +528,76 @@
       return problem.data.code === "closure-exists" ? { code: "closure-exists" } : null;
     }
   </file>
+  <file path="src/components/availability/conflict-review.ts">
+    export interface ScheduleChangeSince {
+      /** The schedule no longer exists (deleted or archived). */
+      readonly gone: boolean;
+      readonly renamedTo: string | null;
+      /** Service names. */
+      readonly added: readonly string[];
+      readonly removed: readonly string[];
+      readonly changed: readonly string[];
+    }
+    function rowsByService(config: AvailabilityConfig, scheduleId: string) {
+      const names = new Map(config.venueServices.map((v) => [v.id, v.name]));
+      return new Map(
+        config.scheduleServices
+          .filter((s) => s.scheduleId === scheduleId)
+          .map((s) => [
+            s.venueServiceId,
+            { row: s, name: names.get(s.venueServiceId) ?? s.venueServiceId },
+          ])
+      );
+    }
+    export function scheduleChangesSince(
+      before: AvailabilityConfig,
+      after: AvailabilityConfig,
+      scheduleId: string
+    ): ScheduleChangeSince {
+      const was = before.schedules.find((s) => s.id === scheduleId);
+      const now = after.schedules.find((s) => s.id === scheduleId && !s.archivedAt);
+      if (!now) return { gone: true, renamedTo: null, added: [], removed: [], changed: [] };
+      const old = rowsByService(before, scheduleId);
+      const next = rowsByService(after, scheduleId);
+      return {
+        gone: false,
+        renamedTo: was && was.name !== now.name ? now.name : null,
+        added: [...next].filter(([id]) => !old.has(id)).map(([, v]) => v.name),
+        removed: [...old].filter(([id]) => !next.has(id)).map(([, v]) => v.name),
+        changed: [...next]
+          .filter(([id, v]) => {
+            const prior = old.get(id);
+            return prior !== undefined && HOURS_FIELDS.some((f) => !same(prior.row[f], v.row[f]));
+          })
+          .map(([, v]) => v.name),
+      };
+    }
+    interface ReapplyInput {
+      /** The rows the draft was seeded from. */
+      readonly base: readonly DraftService[];
+      /** The rows as the Manager has them now. */
+      readonly draft: readonly DraftService[];
+      /** The schedule's rows in the version that won. */
+      readonly latest: readonly DraftService[];
+    }
+    export function reapplyDraft({ base, draft, latest }: ReapplyInput): DraftService[] {
+      const baseById = new Map(base.map((s) => [s.venueServiceId, s]));
+      const draftById = new Map(draft.map((s) => [s.venueServiceId, s]));
+      const kept = latest.flatMap((row) => {
+        const was = baseById.get(row.venueServiceId);
+        const mine = draftById.get(row.venueServiceId);
+        if (was && !mine) return []; // the Manager removed it
+        if (!was || !mine) return [row]; // the colleague's, or nothing of the Manager's to apply
+        const edited = HOURS_FIELDS.filter((f) => !same(was[f], mine[f]));
+        return [{ ...row, ...Object.fromEntries(edited.map((f) => [f, mine[f]])) } as DraftService];
+      });
+      const added = draft.filter((s) => s.venueServiceId === null || !baseById.has(s.venueServiceId));
+      const fresh = added.filter(
+        (s) => s.venueServiceId === null || !latest.some((l) => l.venueServiceId === s.venueServiceId)
+      );
+      return [...kept, ...fresh];
+    }
+  </file>
   <file path="src/components/availability/copy-day.ts">
     export interface CopyTarget {
       readonly weekdays: readonly number[];
@@ -810,6 +880,8 @@
       readonly leaveOut?: readonly string[];
       /** Today on the venue clock: a rule edit's "All dates" starts here, so past dates keep their hours. */
       readonly today?: string;
+      /** The config the draft was seeded from; a schedule save removes only rows it contained. */
+      readonly baseline?: AvailabilityConfig;
     }
     function ownDateRule(config: AvailabilityConfig, date: string): DateRule | undefined {
       return config.dateRules.find(
@@ -848,10 +920,14 @@
       config: AvailabilityConfig,
       scheduleId: string,
       services: readonly (DraftService & { venueServiceId: string })[],
-      makeId: () => string
+      makeId: () => string,
+      baseline?: AvailabilityConfig
     ): { upsert: ScheduleService[]; removed: string[] } {
       const stored = config.scheduleServices.filter((s) => s.scheduleId === scheduleId);
       const kept = new Set(services.map((s) => s.venueServiceId));
+      // Only rows the draft started with can be ones the Manager removed. A row that appeared since
+      // (a colleague's new service) was never in front of them, so a save must not delete it.
+      const seen = baseline && new Set(baseline.scheduleServices.map((s) => s.id));
       return {
         upsert: services.map((s) => ({
           ...hoursOf(s),
@@ -863,7 +939,9 @@
           scheduleId,
           venueServiceId: s.venueServiceId,
         })),
-        removed: stored.filter((s) => !kept.has(s.venueServiceId)).map((s) => s.id),
+        removed: stored
+          .filter((s) => !kept.has(s.venueServiceId) && (!seen || seen.has(s.id)))
+          .map((s) => s.id),
       };
     }
     export function buildDraftChanges(input: BuildInput): AvailabilityConfigChanges {
@@ -880,7 +958,13 @@
       const venueServices = created.length > 0 ? { venueServices: created } : {};
     
       if (scope.kind === "schedule") {
-        const { upsert, removed } = scheduleServiceRows(config, scope.scheduleId, services, makeId);
+        const { upsert, removed } = scheduleServiceRows(
+          config,
+          scope.scheduleId,
+          services,
+          makeId,
+          input.baseline
+        );
         return {
           upsert: { ...venueServices, scheduleServices: upsert },
           remove: removed.length > 0 ? { scheduleServices: removed } : {},
@@ -1761,12 +1845,22 @@
       readonly startsOn: string;
       readonly endsOn: string | null;
     }
+    export function regularWeekdays(config: AvailabilityConfig, from: string): number[] {
+      const regular = liveSchedules(config).find((s) => s.isRegular);
+      const days = new Set(
+        config.assignments
+          .filter((a) => a.scheduleId === regular?.id && (a.endsOn == null || a.endsOn >= from))
+          .flatMap((a) => a.weekdays)
+      );
+      return days.size > 0 ? [...days].sort((x, y) => x - y) : EVERY_DAY;
+    }
     export function buildRegularWeekChanges(input: RegularWeekInput): AvailabilityConfigChanges {
       const { config, startsOn, endsOn } = input;
+      const weekdays = regularWeekdays(config, startsOn);
       if (endsOn !== null) {
         return buildNewScheduleChanges({
           ...input,
-          useOn: { weekdays: EVERY_DAY, startsOn, endsOn },
+          useOn: { weekdays, startsOn, endsOn },
         });
       }
       const scheduleId = input.makeId();
@@ -1798,7 +1892,7 @@
             {
               id: input.makeId(),
               scheduleId,
-              weekdays: EVERY_DAY,
+              weekdays,
               startsOn,
               endsOn: null,
               precedence: 0,
@@ -1816,6 +1910,8 @@
       readonly name: string;
       readonly services: readonly DraftService[];
       readonly makeId: () => string;
+      /** The config the drawer was seeded from, so a save removes only rows the Manager saw. */
+      readonly baseline?: AvailabilityConfig;
     }): AvailabilityConfigChanges {
       const { config, scheduleId, name, makeId } = input;
       const rows = buildDraftChanges({
@@ -1823,6 +1919,7 @@
         scope: { kind: "schedule", scheduleId },
         services: input.services,
         makeId,
+        ...(input.baseline ? { baseline: input.baseline } : {}),
       });
       const stored = config.schedules.find((s) => s.id === scheduleId);
       const rename = stored && stored.name !== name ? { schedules: [{ ...stored, name }] } : {};
@@ -2265,10 +2362,89 @@
       });
     }
   </file>
+  <file path="src/components/availability/use-conflict-review.ts">
+    interface Baseline {
+      readonly config: AvailabilityConfig;
+      readonly version: number;
+    }
+    export interface ConflictReview {
+      /** The refetch has landed; until then there is nothing to compare with. */
+      readonly loaded: boolean;
+      readonly changes: ScheduleChangeSince;
+    }
+    interface Input {
+      readonly state: AvailabilityConfigState;
+      /** The schedule whose rows the draft starts from; none for a draft with nothing to compare. */
+      readonly scheduleId: string | undefined;
+      readonly services: readonly DraftService[];
+      /** The name field is a rename of `scheduleId` (edit), not the name of a new schedule. */
+      readonly name: string | null;
+      readonly conflicted: boolean;
+      readonly clearConflict: () => void;
+      /** Replaces the draft with the answer the Manager chose. */
+      readonly apply: (next: { services: DraftService[]; name: string | null }) => void;
+      /** The schedule is gone, so there is nothing left to edit. */
+      readonly onGone: () => void;
+    }
+    export function useConflictReview(input: Input) {
+      const { state, scheduleId, services, name, conflicted } = input;
+      const [baseline, setBaseline] = useState<Baseline>(() => ({
+        config: state.config,
+        version: state.version,
+      }));
+      const rowsOf = (config: AvailabilityConfig): DraftService[] =>
+        scheduleId ? seedServices(config, { services: [] }, { kind: "schedule", scheduleId }) : [];
+      const nameIn = (config: AvailabilityConfig) =>
+        config.schedules.find((s) => s.id === scheduleId)?.name ?? "";
+    
+      const baselineServices = rowsOf(baseline.config);
+      const loaded = state.version !== baseline.version;
+      const changes =
+        conflicted && loaded && scheduleId
+          ? scheduleChangesSince(baseline.config, state.config, scheduleId)
+          : NO_CHANGES;
+      const review: ConflictReview | null = conflicted ? { loaded, changes } : null;
+    
+      const rebase = (next: { services: DraftService[]; name: string | null }) => {
+        setBaseline({ config: state.config, version: state.version });
+        input.apply(next);
+        input.clearConflict();
+      };
+    
+      return {
+        baseline: baseline.config,
+        /** The version a save is checked against: the one the draft was built from. */
+        baselineVersion: baseline.version,
+        baselineServices,
+        baselineName: nameIn(baseline.config),
+        review,
+        /** The winning version with only the Manager's own changes on top. */
+        reapply: () =>
+          rebase({
+            services: reapplyDraft({
+              base: baselineServices,
+              draft: services,
+              latest: rowsOf(state.config),
+            }),
+            name: name === null || name !== nameIn(baseline.config) ? name : nameIn(state.config),
+          }),
+        /** The winning version as it is; the draft is dropped. */
+        discard: () => {
+          if (changes.gone) input.onGone();
+          else
+            rebase({
+              services: rowsOf(state.config),
+              name: name === null ? null : nameIn(state.config),
+            });
+        },
+      };
+    }
+  </file>
   <file path="src/components/availability/use-discard-guard.ts">
-    export function useDiscardGuard<T>(apply: (next: T) => void) {
-      const [dirty, setDirty] = useState(false);
+    export function useDiscardGuard<T>(apply: (next: T) => void, derivedDirty?: boolean) {
+      const [reported, setDirty] = useState(false);
       const [pending, setPending] = useState<{ readonly next: T } | null>(null);
+      const dirty = derivedDirty ?? reported;
     
       /** Moves on now, with the draft gone: after a save, or once it has been thrown away. */
       const release = (next: T) => {
@@ -2301,6 +2477,9 @@
       const { t } = useTranslation();
       const { mutateAsync, isPending } = useSaveAvailabilityConfig();
       const [failure, setFailure] = useState<readonly string[]>([]);
+      // A lost race. The draft was built from a version that is gone, so a drawer that edits rows
+      // must show what changed and get an answer (reapply or discard) before it saves again.
+      const [conflicted, setConflicted] = useState(false);
     
       const reject = (error: unknown) => {
         const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
@@ -2308,6 +2487,7 @@
         const problem = parsed.success ? parsed.data : null;
         if (problem?.code === "version-conflict") {
           onStale();
+          setConflicted(true);
           setFailure([t("availabilitySchedules.conflict")]);
         } else if (problem?.code === "invalid-config" && problem.issues?.length) {
           setFailure(problem.issues.map((i) => i.message));
@@ -2337,7 +2517,18 @@
         }
       };
     
-      return { save, isPending, failure, clearFailure: () => setFailure([]) };
+      return {
+        save,
+        isPending,
+        failure,
+        conflicted,
+        clearFailure: () => setFailure([]),
+        /** The Manager has answered the conflict; the next save is against the version they saw. */
+        clearConflict: () => {
+          setConflicted(false);
+          setFailure([]);
+        },
+      };
     }
   </file>
   <file path="src/components/availability/use-winning-change-text.ts">

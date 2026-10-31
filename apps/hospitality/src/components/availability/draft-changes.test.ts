@@ -186,6 +186,39 @@ describe("buildDraftChanges", () => {
     expect(parses(changes)).toBe(true);
   });
 
+  it("never removes a service the Manager did not remove: a colleague's new one survives a stale draft", () => {
+    const opened = fixtureConfig();
+    const stale = seedServices(
+      opened,
+      { services: [] },
+      { kind: "schedule", scheduleId: "regular" }
+    );
+    // While the drawer was open a colleague added Brunch to the same schedule.
+    const latest = {
+      ...opened,
+      venueServices: [...opened.venueServices, { id: "vs-brunch", name: "Brunch", position: 2 }],
+      scheduleServices: [
+        ...opened.scheduleServices,
+        { ...opened.scheduleServices[0]!, id: "ss-brunch", venueServiceId: "vs-brunch" },
+      ],
+    };
+    const withoutBaseline = buildDraftChanges({
+      config: latest,
+      scope: { kind: "schedule", scheduleId: "regular" },
+      services: stale,
+      makeId: counter(),
+    });
+    expect(withoutBaseline.remove.scheduleServices).toEqual(["ss-brunch"]);
+    const changes = buildDraftChanges({
+      config: latest,
+      baseline: opened,
+      scope: { kind: "schedule", scheduleId: "regular" },
+      services: stale,
+      makeId: counter(),
+    });
+    expect(changes.remove.scheduleServices).toBeUndefined();
+  });
+
   it("picked dates: keep leaves out a date with its own rule, replace updates it in place", () => {
     const dates = [FIXTURE_DATE, "2026-11-02", "2026-11-03"];
     const scope: EditScope = { kind: "dates", dates };

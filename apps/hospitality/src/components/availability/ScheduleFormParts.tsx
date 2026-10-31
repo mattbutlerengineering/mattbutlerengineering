@@ -1,10 +1,20 @@
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Checkbox, SegmentedControl, Stack, Text } from "@mattbutlerengineering/rialto";
+import {
+  Alert,
+  Button,
+  Checkbox,
+  SegmentedControl,
+  Stack,
+  Text,
+} from "@mattbutlerengineering/rialto";
 import type { ScopeConflictMode } from "@mbe/types";
 import { addDays } from "@mbe/availability";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
+import { DiscardChangesDialog } from "./DiscardChangesDialog.js";
+import { LeaveGuard } from "./LeaveGuard.js";
 import { weekdayRuns, type Winner } from "./schedule-changes.js";
+import type { ConflictReview } from "./use-conflict-review.js";
 import styles from "./ScheduleFormParts.module.css";
 
 /** Monday-first display order of the stored weekday indexes. */
@@ -119,6 +129,105 @@ export function OwnChangesChoice(props: {
         onChange={(mode) => onChange(mode as ScopeConflictMode)}
       />
     </Stack>
+  );
+}
+
+/**
+ * After a lost race: what the other person changed in this schedule, and the two ways on. Saving
+ * stays off until the Manager picks one, because the draft was built from a version that is gone.
+ */
+export function ConflictReviewPanel(props: {
+  readonly review: ConflictReview;
+  readonly onReapply: () => void;
+  readonly onDiscard: () => void;
+}) {
+  const { review, onReapply, onDiscard } = props;
+  const { loaded, changes } = review;
+  const { t } = useTranslation();
+  const format = useVenueFormat();
+  const list = (names: readonly string[]) =>
+    new Intl.ListFormat(format.locale, { type: "conjunction" }).format(names);
+  const lines = [
+    changes.renamedTo !== null &&
+      t("availabilitySchedules.conflictReview.renamed", { name: changes.renamedTo }),
+    changes.added.length > 0 &&
+      t("availabilitySchedules.conflictReview.added", { names: list(changes.added) }),
+    changes.removed.length > 0 &&
+      t("availabilitySchedules.conflictReview.removed", { names: list(changes.removed) }),
+    changes.changed.length > 0 &&
+      t("availabilitySchedules.conflictReview.changed", { names: list(changes.changed) }),
+  ].filter((line): line is string => line !== false);
+
+  return (
+    <Alert
+      variant="warning"
+      title={t("availabilitySchedules.conflictReview.title")}
+      actions={
+        <Stack direction="row" gap="sm">
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={!loaded || changes.gone}
+            onClick={onReapply}
+          >
+            {t("availabilitySchedules.conflictReview.reapply")}
+          </Button>
+          <Button variant="secondary" size="sm" onClick={onDiscard}>
+            {t("availabilitySchedules.conflictReview.discard")}
+          </Button>
+        </Stack>
+      }
+    >
+      {!loaded ? (
+        <Text variant="body" color="primary">
+          {t("availabilitySchedules.conflictReview.loading")}
+        </Text>
+      ) : changes.gone ? (
+        <Text variant="body" color="primary">
+          {t("availabilitySchedules.conflictReview.gone")}
+        </Text>
+      ) : (
+        <>
+          {lines.length === 0 ? (
+            <Text variant="body" color="primary">
+              {t("availabilitySchedules.conflictReview.nothing")}
+            </Text>
+          ) : (
+            lines.map((line) => (
+              <Text key={line} variant="body" color="primary">
+                {line}
+              </Text>
+            ))
+          )}
+          <Text variant="caption" color="secondary">
+            {t("availabilitySchedules.conflictReview.hint")}
+          </Text>
+        </>
+      )}
+    </Alert>
+  );
+}
+
+/** Asks before Escape, the backdrop, Cancel or leaving the page throws away an unsaved schedule draft. */
+export function ScheduleDraftGuard(props: {
+  readonly dirty: boolean;
+  readonly asking: boolean;
+  readonly onDiscard: () => void;
+  readonly onKeepEditing: () => void;
+}) {
+  const { t } = useTranslation();
+  const title = t("availabilitySchedules.discard.title");
+  return (
+    <>
+      <DiscardChangesDialog
+        open={props.asking}
+        date={null}
+        title={title}
+        onDiscard={props.onDiscard}
+        onKeepEditing={props.onKeepEditing}
+      />
+      <LeaveGuard active={props.dirty} date={null} title={title} />
+    </>
   );
 }
 

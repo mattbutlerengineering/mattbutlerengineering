@@ -57,6 +57,22 @@ describe("AvailabilityQuickSetup", () => {
     vi.clearAllMocks();
   });
 
+  it("warns before the tab closes once hours are typed, and not before", () => {
+    render(
+      <main>
+        <AvailabilityQuickSetup venueId="venue-1" state={EMPTY} onStale={vi.fn()} />
+      </main>
+    );
+    const leave = () => {
+      const event = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    expect(leave()).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Weekdays" }));
+    expect(leave()).toBe(true);
+  });
+
   it("saves the regular week against the version it read and toasts the open days", async () => {
     mutateAsync.mockResolvedValue({ version: 5, changeId: "c1" });
     setup();

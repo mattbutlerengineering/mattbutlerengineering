@@ -7,10 +7,12 @@ export interface LeaveGuardProps {
   readonly active: boolean;
   /** The date whose draft would be lost. */
   readonly date: string | null;
+  /** Names a draft that is not a day's. */
+  readonly title?: string;
 }
 
 /** Prompts before an in-app route change throws the draft away. */
-function RouteBlocker({ active, date }: LeaveGuardProps) {
+function RouteBlocker({ active, date, title }: LeaveGuardProps) {
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
       active && currentLocation.pathname !== nextLocation.pathname
@@ -19,6 +21,7 @@ function RouteBlocker({ active, date }: LeaveGuardProps) {
     <DiscardChangesDialog
       open={blocker.state === "blocked"}
       date={date}
+      {...(title ? { title } : {})}
       onDiscard={() => blocker.proceed?.()}
       onKeepEditing={() => blocker.reset?.()}
     />

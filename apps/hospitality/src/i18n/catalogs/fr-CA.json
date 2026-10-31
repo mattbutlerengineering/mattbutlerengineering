@@ -1805,6 +1805,10 @@
     "deleteDescription": "Aucune date n’utilise cet horaire; rien ne change pour les clients. Cette action est irréversible.",
     "deleteBlocked": "Utilisé le {{where}}; transférez d’abord ces jours à un autre horaire",
     "notUsed": "Pas encore utilisé",
+    "usedByRules_one": "Utilisé par {{count}} règle Utiliser un horaire",
+    "usedByRules_other": "Utilisé par {{count}} règles Utiliser un horaire",
+    "usedByRules_many": "Utilisé par {{count}} de règles Utiliser un horaire",
+    "deleteBlockedRules": "{{where}}; transférez d’abord ces dates à un autre horaire",
     "everyDay": "tous les jours",
     "usageRange": "{{from}} – {{to}}, {{days}}",
     "usageFrom": "À partir du {{from}}, {{days}}",
@@ -1838,9 +1842,26 @@
     "stranded_one": "{{count}} réservation à venir serait hors du nouvel horaire.",
     "stranded_other": "{{count}} réservations à venir seraient hors du nouvel horaire.",
     "stranded_many": "{{count}} de réservations à venir seraient hors du nouvel horaire.",
+    "discard": {
+      "title": "Abandonner vos modifications ?"
+    },
+    "conflictReview": {
+      "title": "Quelqu’un a modifié cet horaire avant vous",
+      "loading": "Chargement de la dernière version…",
+      "gone": "Cet horaire a été supprimé; vos modifications ne peuvent pas être enregistrées. Abandonnez-les pour fermer.",
+      "nothing": "Rien n’a changé dans cet horaire. Vos modifications peuvent être réappliquées telles quelles.",
+      "added": "Ajouté : {{names}}",
+      "removed": "Retiré : {{names}}",
+      "changed": "Heures modifiées : {{names}}",
+      "renamed": "Renommé en {{name}}",
+      "hint": "Réappliquer conserve les modifications de l’autre personne et ajoute les vôtres par-dessus. Vérifiez le résultat, puis enregistrez.",
+      "reapply": "Réappliquer mes modifications",
+      "discard": "Abandonner mes modifications"
+    },
     "regularWeek": {
       "open": "Modifier la semaine habituelle…",
       "title": "Modifier la semaine habituelle",
+      "appliesTo": "S’applique à {{days}}, les jours de la semaine habituelle. Les autres jours gardent leurs heures.",
       "noEnd": "Sans fin : elle devient la nouvelle semaine habituelle",
       "save": "Enregistrer les heures dès le {{date}}",
       "saved": "{{name}} dès le {{date}}"
@@ -2127,6 +2148,7 @@
         "walkIn": "Sans réservation seulement"
       },
       "overnight": "Ferme à {{time}} le lendemain ({{weekday}})",
+      "overnightNextDay": "Ferme à {{time}} le lendemain",
       "remove": "Retirer {{name}}",
       "scope": {
         "label": "Vous modifiez",
