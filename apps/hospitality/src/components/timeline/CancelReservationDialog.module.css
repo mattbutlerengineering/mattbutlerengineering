@@ -5,7 +5,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 50;
+  /* Opens over the reservation details Drawer (overlay 9998, panel 9999), so it must sit above
+     both. 10000 is also the Rialto Dialog level after #7996, and a Select menu (portaled later,
+     10000 now, 10001 after) still opens above it. */
+  z-index: 10000;
   padding: var(--rialto-space-md);
 }
 
