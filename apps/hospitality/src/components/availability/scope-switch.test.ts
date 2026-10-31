@@ -51,7 +51,7 @@ describe("switchScope", () => {
       seed: regular,
     });
     expect(names(out.services)).toEqual(["Brunch", "Dinner", "Lunch"]);
-    expect(out.parked.map((p) => p.draft.name)).toEqual(["Late"]);
+    expect(out.parked.map((p) => p.draft?.name)).toEqual(["Late"]);
     expect(out.unsaved).toEqual(["Late"]);
   });
 
@@ -97,6 +97,45 @@ describe("switchScope", () => {
     expect(names(out.services)).toEqual(["Brunch", "Dinner", "Lunch"]);
     expect(out.services.find((s) => s.name === "Dinner")?.opensAt).toBe(1020);
     expect(out.unsaved).toEqual([]);
+    expect(out.overridden).toEqual(["Dinner"]);
+  });
+
+  it("holds a removal the new scope cannot show, so it is still a removal on the way back", () => {
+    const there = switchScope({
+      baseline: regular,
+      services: [dinner, brunch],
+      parked: [],
+      seed: date,
+    });
+    expect(there.parked.map((p) => [p.base.name, p.draft])).toEqual([["Lunch", null]]);
+    const back = switchScope({
+      baseline: there.baseline,
+      services: there.services,
+      parked: there.parked,
+      seed: regular,
+    });
+    expect(names(back.services)).toEqual(["Brunch", "Dinner"]);
+    expect(back.parked).toEqual([]);
+  });
+
+  it("holds the removal of a service only the date had", () => {
+    const there = switchScope({ baseline: date, services: [dinner], parked: [], seed: regular });
+    const back = switchScope({
+      baseline: there.baseline,
+      services: there.services,
+      parked: there.parked,
+      seed: date,
+    });
+    expect(names(back.services)).toEqual(["Dinner"]);
+  });
+
+  it("names an edit that leaves the row equal to what the new scope already has", () => {
+    const out = switchScope({
+      baseline: [phoneOnly(dinner)],
+      services: [dinner],
+      parked: [],
+      seed: [dinner],
+    });
     expect(out.overridden).toEqual(["Dinner"]);
   });
 

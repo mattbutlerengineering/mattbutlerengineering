@@ -8,10 +8,13 @@ import { servicesEqual, type DraftService } from "./draft-changes.js";
  * comes with it. Pure, so the round trips are pinned by `scope-switch.test.ts`.
  */
 
-/** An edit to a service the scope it was made in had, held while a scope without it is showing. */
+/**
+ * An edit to, or removal of (`draft` null), a service the scope it was made in had, held while a
+ * scope without that service is showing.
+ */
 export interface ParkedEdit {
   readonly base: DraftService;
-  readonly draft: DraftService;
+  readonly draft: DraftService | null;
 }
 
 interface SwitchInput {
@@ -29,7 +32,7 @@ export interface Switched {
   readonly parked: ParkedEdit[];
   /** Services the new scope lacks, whose edits are held rather than saved. */
   readonly unsaved: string[];
-  /** Added services the new scope already has: its hours are kept, not the ones just set. */
+  /** Services the new scope already has with these hours: the ones just set change nothing there. */
   readonly overridden: string[];
 }
 
@@ -47,16 +50,31 @@ export function switchScope(input: SwitchInput): Switched {
   ];
   const draft = [
     ...services,
-    ...parked.map((p) => p.draft).filter((d) => !serviceIds.has(d.venueServiceId)),
+    ...parked.flatMap((p) => (p.draft && !serviceIds.has(p.draft.venueServiceId) ? [p.draft] : [])),
   ];
+  const draftIds = ids(draft);
   const baseById = new Map(base.map((r) => [r.venueServiceId, r]));
   const seedById = new Map(seed.map((r) => [r.venueServiceId, r]));
 
-  const nextParked = draft.flatMap((d) => {
+  const edits = draft.flatMap((d) => {
     const was = baseById.get(d.venueServiceId);
     return d.venueServiceId !== null && was && !same(was, d) && !seedById.has(d.venueServiceId)
       ? [{ base: was, draft: d }]
       : [];
+  });
+  // A removal of a row the new scope has no row for is held too: it would not otherwise survive
+  // the trip back, where the row is seeded afresh.
+  const removals = base.flatMap((b) =>
+    b.venueServiceId !== null && !draftIds.has(b.venueServiceId) && !seedById.has(b.venueServiceId)
+      ? [{ base: b, draft: null }]
+      : []
+  );
+  const nextParked: ParkedEdit[] = [...edits, ...removals];
+  // An edit that leaves the row equal to what the new scope has changes nothing there.
+  const matched = draft.flatMap((d) => {
+    const there = d.venueServiceId === null ? undefined : seedById.get(d.venueServiceId);
+    const was = baseById.get(d.venueServiceId);
+    return there && was && !same(was, d) && same(there, d) ? [d.name] : [];
   });
   // An added service the new scope already has keeps that scope's hours, not the ones just set.
   const overridden = draft.flatMap((d) => {
@@ -70,7 +88,7 @@ export function switchScope(input: SwitchInput): Switched {
     services: reapplyDraft({ base, draft, latest: seed }),
     baseline: seed,
     parked: nextParked,
-    unsaved: [...new Set(nextParked.map((p) => p.draft.name))],
-    overridden: [...new Set(overridden)],
+    unsaved: [...new Set(edits.map((p) => p.draft.name))],
+    overridden: [...new Set([...overridden, ...matched])],
   };
 }

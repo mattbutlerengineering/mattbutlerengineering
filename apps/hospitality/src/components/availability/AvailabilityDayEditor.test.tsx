@@ -555,7 +555,13 @@ describe("AvailabilityDayEditor", () => {
     const HOURS = { seating: SEATING, bookingTypes: ["online", "phone"] as ("online" | "phone")[] };
 
     /** The regular week also holds a colleague's Brunch, and Fri Oct 30 has its own Dinner-only hours. */
-    function withOwnDay(extra: DateRule["id"] = "r-own") {
+    function withOwnDay(
+      extra: DateRule["id"] = "r-own",
+      dinner: { lastSeatingAt: number; closesAt: number; bookingTypes?: ("online" | "phone")[] } = {
+        lastSeatingAt: 1200,
+        closesAt: 1320,
+      }
+    ) {
       const base = fixtureConfig();
       const rule = {
         ...EARLY_DINNER,
@@ -566,9 +572,8 @@ describe("AvailabilityDayEditor", () => {
             {
               venueServiceId: "vs-dinner",
               opensAt: 1020,
-              lastSeatingAt: 1200,
-              closesAt: 1320,
               ...HOURS,
+              ...dinner,
             },
             {
               venueServiceId: "vs-late",
@@ -688,6 +693,62 @@ describe("AvailabilityDayEditor", () => {
       // The line goes when the edit comes back.
       chooseScope("This date only");
       expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    });
+
+    it("adding a service back in this scope drops the line about the edit held for it", async () => {
+      withOwnDay();
+      fireEvent.click(screen.getByRole("button", { name: "Edit Late" }));
+      phoneOnlyOn(1);
+      chooseScope(/Your regular week/);
+      expect(screen.getByRole("status")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("combobox", { name: "Add service" }));
+      fireEvent.click(screen.getByRole("option", { name: "Late" }));
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+      // Late is the Manager's addition now, so it is saved, and the old edit does not return.
+      fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
+      await waitFor(() => expect(save).toHaveBeenCalled());
+      const rows = sentBody().body.changes.upsert.scheduleServices as { venueServiceId: string }[];
+      expect(rows.map((r) => r.venueServiceId)).toContain("vs-late");
+    });
+
+    it("a removal made on the regular week is still a removal after a trip through the date", async () => {
+      withOwnDay();
+      fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
+      chooseScope(/Your regular week/);
+      fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+      chooseScope("This date only");
+      chooseScope(/Your regular week/);
+      expect(screen.queryByRole("button", { name: "Remove Lunch" })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
+      await waitFor(() => expect(save).toHaveBeenCalled());
+      expect(sentBody().body.changes.remove.scheduleServices).toEqual(["ss-lunch"]);
+    });
+
+    it("the removal of a service only the date had survives a trip through the regular week", async () => {
+      withOwnDay();
+      fireEvent.click(screen.getByRole("button", { name: "Edit Late" }));
+      fireEvent.click(screen.getByRole("button", { name: "Remove Late" }));
+      chooseScope(/Your regular week/);
+      chooseScope("This date only");
+      expect(screen.queryByRole("button", { name: "Remove Late" })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
+      await waitFor(() => expect(save).toHaveBeenCalled());
+      const [rule] = sentBody().body.changes.upsert.dateRules as {
+        payload: { services: { venueServiceId: string }[] };
+      }[];
+      expect(rule!.payload.services.map((s) => s.venueServiceId)).toEqual(["vs-dinner"]);
+    });
+
+    it("a date edit that makes it equal to the regular week is named, not dropped quietly", () => {
+      // The date's Dinner differs from the regular week's only in who can book it.
+      withOwnDay("r-own", { lastSeatingAt: 1260, closesAt: 1380, bookingTypes: ["phone"] });
+      fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
+      fireEvent.click(screen.getAllByRole("combobox", { name: "Booking" })[0]!);
+      fireEvent.click(screen.getByRole("option", { name: "Online + phone" }));
+      chooseScope(/Your regular week/);
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Your hours for Dinner won’t be used: what you’re changing already has them."
+      );
     });
 
     it("closed day: a service added there joins the regular week without removing its other rows", async () => {

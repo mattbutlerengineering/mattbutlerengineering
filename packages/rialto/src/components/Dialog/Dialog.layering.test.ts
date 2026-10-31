@@ -24,8 +24,13 @@ describe("overlay layering", () => {
     expect(dialog).toBeGreaterThan(zIndex("Drawer", "panel"));
   });
 
-  it("keeps a Select menu above a Dialog, and a Toast above both", () => {
-    expect(zIndex("Select", "dropdown")).toBeGreaterThan(dialog);
+  it("opens the command palette above a Dialog: its shortcut works while one is open", () => {
+    expect(zIndex("CommandPalette", "overlay")).toBeGreaterThan(dialog);
+  });
+
+  it("keeps a Select menu above a Dialog and the palette, and a Toast above all of them", () => {
+    const palette = zIndex("CommandPalette", "overlay");
+    expect(zIndex("Select", "dropdown")).toBeGreaterThan(palette);
     expect(zIndex("Toast", "container")).toBeGreaterThan(zIndex("Select", "dropdown"));
   });
 });

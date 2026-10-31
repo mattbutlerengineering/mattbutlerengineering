@@ -2247,7 +2247,7 @@
     <item priority="low">
       interface ParkedEdit {
         base: DraftService;
-        draft: DraftService;
+        draft: DraftService | null;
       }
     </item>
     <item priority="high">

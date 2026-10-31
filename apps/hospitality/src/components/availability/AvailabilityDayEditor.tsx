@@ -392,10 +392,20 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
         services={edit.services}
         venueServices={config.venueServices}
         date={overnightHintDate(edit.scope, date, dates)}
-        onChange={(services) =>
-          // Hours set again here are the Manager's own, so the line about the old ones goes.
-          update({ ...edit, services, overridden: [] })
-        }
+        onChange={(services) => {
+          // Hours set again here are the Manager's own, so the line about the old ones goes, and
+          // a held edit or removal for a service added back in this scope is dropped with its name.
+          const present = new Set(services.map((s) => s.venueServiceId));
+          const parked = edit.parked.filter((p) => !present.has(p.base.venueServiceId));
+          const held = new Set(parked.flatMap((p) => (p.draft ? [p.draft.name] : [])));
+          update({
+            ...edit,
+            services,
+            parked,
+            overridden: [],
+            unsaved: edit.unsaved.filter((name) => held.has(name)),
+          });
+        }}
       />
     </>
   );
