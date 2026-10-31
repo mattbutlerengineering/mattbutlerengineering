@@ -1776,6 +1776,9 @@
     "deleteDescription": "No date uses this schedule, so nothing changes for guests. This can't be undone.",
     "deleteBlocked": "Used on {{where}}; move those days to another schedule first",
     "notUsed": "Not used yet",
+    "usedByRules_one": "Used by {{count}} Use schedule rule",
+    "usedByRules_other": "Used by {{count}} Use schedule rules",
+    "deleteBlockedRules": "{{where}}; change those dates to another schedule first",
     "everyDay": "every day",
     "usageRange": "{{from}} – {{to}}, {{days}}",
     "usageFrom": "From {{from}}, {{days}}",
@@ -1806,9 +1809,34 @@
     "ownChanges_other": "{{count}} dates already have their own changes",
     "stranded_one": "{{count}} upcoming booking would fall outside the new hours.",
     "stranded_other": "{{count}} upcoming bookings would fall outside the new hours.",
+    "discard": {
+      "title": "Discard your changes?"
+    },
+    "conflictReview": {
+      "title": "Someone changed this schedule first",
+      "loading": "Loading the latest version…",
+      "gone": "This schedule was deleted, so your changes can’t be saved. Discard them to close.",
+      "nothing": "Nothing in this schedule changed. Your changes can be reapplied as they are.",
+      "added": "Added: {{names}}",
+      "removed": "Removed: {{names}}",
+      "changed": "Hours changed: {{names}}",
+      "renamed": "Renamed to {{name}}",
+      "hint": "Reapply keeps the other person’s changes and puts yours on top. Check the result, then save.",
+      "reapply": "Reapply my changes",
+      "discard": "Discard my changes",
+      "draftTitle": "Availability changed while you were editing",
+      "draftBody": "Someone saved a change to availability first. Nothing you entered has been saved.",
+      "draftHint": "Keep your schedule to save it on top of their change, or start over.",
+      "draftKeep": "Keep my schedule",
+      "startOver": "Start over",
+      "regularReplaced": "The regular week is now {{name}}",
+      "regularNothing": "Nothing in the regular week changed.",
+      "regularHint": "Reapply lays your hours over the current regular week. Check the result, then save."
+    },
     "regularWeek": {
       "open": "Change regular week…",
       "title": "Change regular week",
+      "appliesTo": "Applies to {{days}}, the days your regular week runs. Other days keep their hours.",
       "noEnd": "No end — this becomes the new regular week",
       "save": "Save hours from {{date}}",
       "saved": "{{name}} from {{date}}"
@@ -2085,6 +2113,11 @@
         "walkIn": "Walk-in only"
       },
       "overnight": "Closes {{time}} the next day ({{weekday}})",
+      "overnightNextDay": "Closes {{time}} the next day",
+      "held_one": "Your edit to {{names}} won’t be saved: it isn’t in what you’re changing now.",
+      "held_other": "Your edits to {{names}} won’t be saved: they aren’t in what you’re changing now.",
+      "overridden_one": "Your hours for {{names}} won’t be used: what you’re changing already has them.",
+      "overridden_other": "Your hours for {{names}} won’t be used: what you’re changing already has them.",
       "remove": "Remove {{name}}",
       "scope": {
         "label": "You’re changing",
@@ -2168,6 +2201,7 @@
     "discard": {
       "title": "Discard changes to {{date}}?",
       "description": "Your unsaved changes to these hours will be lost.",
+      "leavePage": "All unsaved changes on this page will be lost.",
       "confirm": "Discard",
       "keep": "Keep editing"
     },

@@ -44,6 +44,22 @@ describe("useDiscardGuard", () => {
     expect(result.current.pending).toBeNull();
   });
 
+  it("a form that knows its own dirtiness passes it in, and the guard follows it", () => {
+    const apply = vi.fn();
+    let dirty = false;
+    const { result, rerender } = renderHook(() => useDiscardGuard<void>(apply, dirty));
+    act(() => result.current.request());
+    expect(apply).toHaveBeenCalledTimes(1);
+    dirty = true;
+    rerender();
+    expect(result.current.dirty).toBe(true);
+    act(() => result.current.request());
+    expect(apply).toHaveBeenCalledTimes(1);
+    expect(result.current.pending).not.toBeNull();
+    act(() => result.current.confirmDiscard());
+    expect(apply).toHaveBeenCalledTimes(2);
+  });
+
   it("release moves without asking and clears the draft, as after a save", () => {
     const { result, apply } = setup();
     act(() => result.current.setDirty(true));
