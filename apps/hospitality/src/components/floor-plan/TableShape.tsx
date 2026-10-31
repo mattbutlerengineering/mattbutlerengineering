@@ -1,12 +1,18 @@
+import type React from "react";
 import { memo, useRef, useEffect, useState } from "react";
-import { Group } from "react-konva";
+import { Circle, Group, Rect } from "react-konva";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type { Table } from "@mbe/types";
 import { SHAPE_DEFAULTS, fittedSeatSize, seatPlacements } from "./floor-plan-geometry.js";
 import { SeatArt, TableArt } from "./FurnitureArt.js";
 import { useMotionPreset } from "@mattbutlerengineering/rialto/providers";
-import { FURNITURE_GROUP_NAME, FURNITURE_PALETTE } from "./furniture-tokens.js";
+import {
+  DRAG_SHADOW_NAME,
+  FURNITURE_GROUP_NAME,
+  FURNITURE_PALETTE,
+  TABLE_CORNER_RADIUS,
+} from "./furniture-tokens.js";
 import { useSectionLabelTheme } from "./section-label-theme.js";
 import { TableLabel } from "./TableLabel.js";
 import { TABLE_STATUS_COLOR_TOKEN, type TableDisplayStatus } from "./table-status.js";
@@ -97,7 +103,7 @@ function TableShapeComponent({
   status,
   stageScale = 1,
 }: TableShapeProps) {
-  const groupRef = useRef<Konva.Group>(null);
+  const dragShadowRef = useRef<Konva.Shape>(null);
   const furnitureRef = useRef<Konva.Group>(null);
   const labelTheme = useSectionLabelTheme();
   const [themeColors, setThemeColors] = useState(resolveThemeColors);
@@ -145,12 +151,14 @@ function TableShapeComponent({
   };
 
   // Apply shadow when dragging. The only animated shadow on the canvas; it
-  // lands instantly under reduced motion (the preset's duration is 0).
+  // lands instantly under reduced motion (the preset's duration is 0). Konva
+  // draws shadows only on Shapes, so it is tweened on a footprint-sized shape
+  // behind the furniture, not on the group (#7965).
   const { precision } = useMotionPreset();
   const dragShadowDuration = precision.duration;
   useEffect(() => {
-    if (groupRef.current) {
-      groupRef.current.to({
+    if (dragShadowRef.current) {
+      dragShadowRef.current.to({
         shadowBlur: isDragging ? 10 : 0,
         shadowOpacity: isDragging ? 0.3 : 0,
         duration: dragShadowDuration,
@@ -184,7 +192,6 @@ function TableShapeComponent({
 
   return (
     <Group
-      ref={groupRef}
       name="table-group"
       x={x}
       y={y}
@@ -195,6 +202,35 @@ function TableShapeComponent({
       onClick={handleClick}
       onTap={handleClick}
     >
+      {shape === "circle" ? (
+        <Circle
+          ref={dragShadowRef as React.Ref<Konva.Circle>}
+          name={DRAG_SHADOW_NAME}
+          radius={width / 2}
+          fill={fillColor}
+          listening={false}
+          shadowColor="#000"
+          shadowBlur={0}
+          shadowOpacity={0}
+          shadowForStrokeEnabled={false}
+        />
+      ) : (
+        <Rect
+          ref={dragShadowRef as React.Ref<Konva.Rect>}
+          name={DRAG_SHADOW_NAME}
+          x={-width / 2}
+          y={-height / 2}
+          width={width}
+          height={height}
+          cornerRadius={TABLE_CORNER_RADIUS[shape]}
+          fill={fillColor}
+          listening={false}
+          shadowColor="#000"
+          shadowBlur={0}
+          shadowOpacity={0}
+          shadowForStrokeEnabled={false}
+        />
+      )}
       <Group ref={furnitureRef} name={FURNITURE_GROUP_NAME}>
         {seats.map((seat) => (
           // Seats have no identity of their own; their placement is deterministic
