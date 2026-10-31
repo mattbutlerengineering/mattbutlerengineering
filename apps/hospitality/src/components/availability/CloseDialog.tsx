@@ -235,11 +235,10 @@ export function CloseDialog(props: CloseDialogProps) {
     if (!rule) return;
     setFailure(null);
     setWinner(null);
-    setTried((all) =>
-      all.some((a) => a.id === ruleId)
-        ? all
-        : [...all, { id: ruleId, summary: outcomeSummary(outcomeCounts(groups, choices), t) }]
-    );
+    // One rule id can be sent more than once (a refused send keeps it, and the Manager may then
+    // choose differently), and the send that commits is the last one: record its choices.
+    const sent = { id: ruleId, summary: outcomeSummary(outcomeCounts(groups, choices), t) };
+    setTried((all) => [...all.filter((a) => a.id !== ruleId), sent]);
     try {
       const result = await mutateAsync({
         venueId,

@@ -645,6 +645,74 @@ describe("CloseDialog", () => {
         expect(within(dialog).queryByRole("button", { name: /Close and/ })).toBeNull();
       });
 
+      it("names the choices of the send that committed, not of an earlier send of the same rule id", async () => {
+        const decisionRequired = new ApiClientError(
+          {
+            type: "about:blank",
+            title: "decision-required",
+            status: 422,
+            detail: "Every affected group needs a choice.",
+            code: "decision-required",
+            groupKeys: [`${DATE}:closed`],
+          } as never,
+          "POST",
+          "closures"
+        );
+        create
+          .mockRejectedValueOnce(decisionRequired) // send 1: cancel, rolled back
+          .mockRejectedValueOnce(new Error("lost")) // send 2: keep, same id, committed
+          .mockRejectedValueOnce(conflict()); // send 3: a later edit
+        const onClose = vi.fn();
+        const view = renderDialog({ onClose });
+        const dialog = screen.getByRole("dialog");
+        toStepTwo(dialog);
+        fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+        await within(dialog).findByText(/bookings changed while you were deciding/i);
+
+        // The choices were cleared and the rule id kept: the Manager now keeps the guests.
+        fireEvent.click(within(dialog).getByRole("radio", { name: "Keep them and notify" }));
+        fireEvent.click(within(dialog).getByRole("button", { name: "Close and keep 14" }));
+        await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+        expect((create.mock.calls[1]![0] as Call).body.rule.id).toBe(
+          (create.mock.calls[0]![0] as Call).body.rule.id
+        );
+        await within(dialog).findByText("Couldn't close");
+
+        // Send 2 committed with its response lost; an edit is sent, and gets a 409.
+        fireEvent.click(within(dialog).getByRole("radio", { name: /Cancel, notify & refund/ }));
+        fireEvent.click(within(dialog).getByTestId("close-primary"));
+        await waitFor(() => expect(create).toHaveBeenCalledTimes(3));
+        await waitFor(() => expect(refresh).toHaveBeenCalled());
+
+        const committedId = (create.mock.calls[1]![0] as Call).body.rule.id;
+        const base = fixtureConfig();
+        view.rerender(
+          dialogElement(
+            {
+              config: {
+                ...base,
+                dateRules: [
+                  ...base.dateRules,
+                  {
+                    id: committedId,
+                    kind: "closure",
+                    targetKind: "venue",
+                    startsOn: DATE,
+                    endsOn: DATE,
+                  },
+                ],
+              } as AvailabilityConfigState["config"],
+              version: 8,
+              source: "rows",
+            },
+            onClose
+          )
+        );
+
+        expect(within(dialog).getByText(/keep 14/)).toBeTruthy();
+        expect(within(dialog).queryByText(/cancel 14/)).toBeNull();
+      });
+
       it("saves nothing more and closes, refreshing the calendar, on Done", async () => {
         const { view, dialog, onClose } = await savedThenChanged();
         view.rerender(dialogElement(withFirstRule(), onClose));
