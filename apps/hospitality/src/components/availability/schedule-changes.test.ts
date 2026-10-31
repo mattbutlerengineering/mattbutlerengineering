@@ -156,6 +156,7 @@ describe("new and duplicated schedules", () => {
       name: "Regular week",
       services,
       makeId: counter(),
+      baseline: config,
     });
     const next = applyChanges(config, changes, NOW);
     expect(next.schedules[0]?.name).toBe("Regular week");

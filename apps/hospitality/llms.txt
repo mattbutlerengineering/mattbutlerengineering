@@ -296,10 +296,10 @@
     <item priority="low">
       interface ScheduleChangeSince {
         gone: boolean;
+        replacedBy: string | null;
         renamedTo: string | null;
         added: readonly string[];
         removed: readonly string[];
-        changed: readonly string[];
       }
     </item>
     <item priority="medium">
@@ -309,7 +309,8 @@
       export function scheduleChangesSince(
         before: AvailabilityConfig,
         after: AvailabilityConfig,
-        scheduleId: string
+        scheduleId: string,
+        latestId: string = scheduleId
       ): ScheduleChangeSince { /* ... */ }
     </item>
     <item priority="high">
@@ -407,6 +408,13 @@
     <item priority="low">
       type EditScope = { readonly kind: "date"; reado | { readonly kind: "weekday"; re | { readonly kind: "schedule"; r | { readonly kind: "dates"; read | {
             readonly kind: "rule";;
+    </item>
+    <item priority="high">
+      export function overnightHintDate(
+        scope: EditScope,
+        date: string,
+        dates: readonly string[]
+      ): string | undefined { /* ... */ }
     </item>
     <item priority="low">
       interface DraftService {
@@ -815,7 +823,7 @@
         readonly services: readonly DraftService[];
         readonly makeId: () => string;
         /** The config the drawer was seeded from, so a save removes only rows the Manager saw. */
-        readonly baseline?: AvailabilityConfig;
+        readonly baseline: AvailabilityConfig;
       }): AvailabilityConfigChanges { /* ... */ }
     </item>
     <item priority="medium">
@@ -1075,21 +1083,26 @@
       interface Baseline {
         config: AvailabilityConfig;
         version: number;
+        scheduleId: string | undefined;
       }
     </item>
     <item priority="low">
+      type ConflictReviewKind = "edit" | "regularWeek" | "draft";
+    </item>
+    <item priority="low">
       interface ConflictReview {
+        kind: ConflictReviewKind;
         loaded: boolean;
         changes: ScheduleChangeSince;
       }
     </item>
     <item priority="high">
       interface Input {
+        kind: ConflictReviewKind;
         state: AvailabilityConfigState;
         scheduleId: string | undefined;
         services: readonly DraftService[];
         name: string | null;
-        conflicted: boolean;
       }
     </item>
     <item priority="high">

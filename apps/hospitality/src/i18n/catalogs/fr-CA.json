@@ -1856,7 +1856,15 @@
       "renamed": "Renommé en {{name}}",
       "hint": "Réappliquer conserve les modifications de l’autre personne et ajoute les vôtres par-dessus. Vérifiez le résultat, puis enregistrez.",
       "reapply": "Réappliquer mes modifications",
-      "discard": "Abandonner mes modifications"
+      "discard": "Abandonner mes modifications",
+      "draftTitle": "La disponibilité a changé pendant votre modification",
+      "draftBody": "Quelqu’un a enregistré un changement de disponibilité avant vous. Rien de ce que vous avez saisi n’a été enregistré.",
+      "draftHint": "Conservez votre horaire pour l’enregistrer par-dessus leur changement, ou recommencez.",
+      "draftKeep": "Conserver mon horaire",
+      "startOver": "Recommencer",
+      "regularReplaced": "La semaine habituelle est maintenant {{name}}",
+      "regularNothing": "Rien n’a changé dans la semaine habituelle.",
+      "regularHint": "Réappliquer place vos heures par-dessus la semaine habituelle actuelle. Vérifiez le résultat, puis enregistrez."
     },
     "regularWeek": {
       "open": "Modifier la semaine habituelle…",

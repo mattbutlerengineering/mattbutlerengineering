@@ -32,6 +32,21 @@ export type EditScope =
       readonly from: string;
     };
 
+/**
+ * The date an overnight close can be named against: only a save that governs exactly one date, or
+ * one weekday every time (a regular week, picked dates and a multi-date rule span several), so
+ * "the next day (Saturday)" is never said of a close that also lands on other weekdays.
+ */
+export function overnightHintDate(
+  scope: EditScope,
+  date: string,
+  dates: readonly string[]
+): string | undefined {
+  if (scope.kind === "date" || scope.kind === "weekday") return date;
+  if (scope.kind === "rule" && dates.length === 1) return date;
+  return undefined;
+}
+
 /** One editable service row. */
 export interface DraftService {
   /** React key; stable across edits. */

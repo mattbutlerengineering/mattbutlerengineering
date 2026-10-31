@@ -10,6 +10,8 @@ import type { DraftService } from "./draft-changes.js";
 export interface ScheduleChangeSince {
   /** The schedule no longer exists (deleted or archived). */
   readonly gone: boolean;
+  /** Another schedule now holds this one's place (a newer regular week); its name. */
+  readonly replacedBy: string | null;
   readonly renamedTo: string | null;
   /** Service names. */
   readonly added: readonly string[];
@@ -32,19 +34,27 @@ function rowsByService(config: AvailabilityConfig, scheduleId: string) {
   );
 }
 
+/**
+ * `latestId` is the schedule to compare with when it is not `scheduleId` itself: the regular
+ * week a newer Change regular week has replaced.
+ */
 export function scheduleChangesSince(
   before: AvailabilityConfig,
   after: AvailabilityConfig,
-  scheduleId: string
+  scheduleId: string,
+  latestId: string = scheduleId
 ): ScheduleChangeSince {
   const was = before.schedules.find((s) => s.id === scheduleId);
-  const now = after.schedules.find((s) => s.id === scheduleId && !s.archivedAt);
-  if (!now) return { gone: true, renamedTo: null, added: [], removed: [], changed: [] };
+  const now = after.schedules.find((s) => s.id === latestId && !s.archivedAt);
+  if (!now) {
+    return { gone: true, replacedBy: null, renamedTo: null, added: [], removed: [], changed: [] };
+  }
   const old = rowsByService(before, scheduleId);
-  const next = rowsByService(after, scheduleId);
+  const next = rowsByService(after, latestId);
   return {
     gone: false,
-    renamedTo: was && was.name !== now.name ? now.name : null,
+    replacedBy: latestId !== scheduleId ? now.name : null,
+    renamedTo: latestId === scheduleId && was && was.name !== now.name ? now.name : null,
     added: [...next].filter(([id]) => !old.has(id)).map(([, v]) => v.name),
     removed: [...old].filter(([id]) => !next.has(id)).map(([, v]) => v.name),
     changed: [...next]

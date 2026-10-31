@@ -283,7 +283,7 @@ export function buildEditScheduleChanges(input: {
   readonly services: readonly DraftService[];
   readonly makeId: () => string;
   /** The config the drawer was seeded from, so a save removes only rows the Manager saw. */
-  readonly baseline?: AvailabilityConfig;
+  readonly baseline: AvailabilityConfig;
 }): AvailabilityConfigChanges {
   const { config, scheduleId, name, makeId } = input;
   const rows = buildDraftChanges({
@@ -291,7 +291,7 @@ export function buildEditScheduleChanges(input: {
     scope: { kind: "schedule", scheduleId },
     services: input.services,
     makeId,
-    ...(input.baseline ? { baseline: input.baseline } : {}),
+    baseline: input.baseline,
   });
   const stored = config.schedules.find((s) => s.id === scheduleId);
   const rename = stored && stored.name !== name ? { schedules: [{ ...stored, name }] } : {};

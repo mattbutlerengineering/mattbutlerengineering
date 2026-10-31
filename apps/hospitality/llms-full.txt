@@ -532,6 +532,8 @@
     export interface ScheduleChangeSince {
       /** The schedule no longer exists (deleted or archived). */
       readonly gone: boolean;
+      /** Another schedule now holds this one's place (a newer regular week); its name. */
+      readonly replacedBy: string | null;
       readonly renamedTo: string | null;
       /** Service names. */
       readonly added: readonly string[];
@@ -552,16 +554,20 @@
     export function scheduleChangesSince(
       before: AvailabilityConfig,
       after: AvailabilityConfig,
-      scheduleId: string
+      scheduleId: string,
+      latestId: string = scheduleId
     ): ScheduleChangeSince {
       const was = before.schedules.find((s) => s.id === scheduleId);
-      const now = after.schedules.find((s) => s.id === scheduleId && !s.archivedAt);
-      if (!now) return { gone: true, renamedTo: null, added: [], removed: [], changed: [] };
+      const now = after.schedules.find((s) => s.id === latestId && !s.archivedAt);
+      if (!now) {
+        return { gone: true, replacedBy: null, renamedTo: null, added: [], removed: [], changed: [] };
+      }
       const old = rowsByService(before, scheduleId);
-      const next = rowsByService(after, scheduleId);
+      const next = rowsByService(after, latestId);
       return {
         gone: false,
-        renamedTo: was && was.name !== now.name ? now.name : null,
+        replacedBy: latestId !== scheduleId ? now.name : null,
+        renamedTo: latestId === scheduleId && was && was.name !== now.name ? now.name : null,
         added: [...next].filter(([id]) => !old.has(id)).map(([, v]) => v.name),
         removed: [...old].filter(([id]) => !next.has(id)).map(([, v]) => v.name),
         changed: [...next]
@@ -804,6 +810,15 @@
           readonly mode: SeriesScope;
           readonly from: string;
         };
+    export function overnightHintDate(
+      scope: EditScope,
+      date: string,
+      dates: readonly string[]
+    ): string | undefined {
+      if (scope.kind === "date" || scope.kind === "weekday") return date;
+      if (scope.kind === "rule" && dates.length === 1) return date;
+      return undefined;
+    }
     export interface DraftService {
       /** React key; stable across edits. */
       readonly key: string;
@@ -1911,7 +1926,7 @@
       readonly services: readonly DraftService[];
       readonly makeId: () => string;
       /** The config the drawer was seeded from, so a save removes only rows the Manager saw. */
-      readonly baseline?: AvailabilityConfig;
+      readonly baseline: AvailabilityConfig;
     }): AvailabilityConfigChanges {
       const { config, scheduleId, name, makeId } = input;
       const rows = buildDraftChanges({
@@ -1919,7 +1934,7 @@
         scope: { kind: "schedule", scheduleId },
         services: input.services,
         makeId,
-        ...(input.baseline ? { baseline: input.baseline } : {}),
+        baseline: input.baseline,
       });
       const stored = config.schedules.find((s) => s.id === scheduleId);
       const rename = stored && stored.name !== name ? { schedules: [{ ...stored, name }] } : {};
@@ -2366,15 +2381,24 @@
     interface Baseline {
       readonly config: AvailabilityConfig;
       readonly version: number;
+      /** The schedule the draft's rows were seeded from, fixed when the drawer opened. */
+      readonly scheduleId: string | undefined;
     }
+    export type ConflictReviewKind = "edit" | "regularWeek" | "draft";
     export interface ConflictReview {
+      readonly kind: ConflictReviewKind;
       /** The refetch has landed; until then there is nothing to compare with. */
       readonly loaded: boolean;
       readonly changes: ScheduleChangeSince;
     }
     interface Input {
+      readonly kind: ConflictReviewKind;
       readonly state: AvailabilityConfigState;
-      /** The schedule whose rows the draft starts from; none for a draft with nothing to compare. */
+      /**
+       * The schedule whose rows the draft starts from, as the latest state has it (the regular week
+       * can move to another schedule); none for a draft with nothing to compare. The drawer reads
+       * it once, when it opens, and keeps that as where its rows came from.
+       */
       readonly scheduleId: string | undefined;
       readonly services: readonly DraftService[];
       /** The name field is a rename of `scheduleId` (edit), not the name of a new schedule. */
@@ -2383,33 +2407,41 @@
       readonly clearConflict: () => void;
       /** Replaces the draft with the answer the Manager chose. */
       readonly apply: (next: { services: DraftService[]; name: string | null }) => void;
+      /** Starts the whole draft again (name, dates and all) from these rows; for non-edit drafts. */
+      readonly startOver: (services: DraftService[]) => void;
       /** The schedule is gone, so there is nothing left to edit. */
       readonly onGone: () => void;
     }
     export function useConflictReview(input: Input) {
-      const { state, scheduleId, services, name, conflicted } = input;
+      const { kind, state, services, name, conflicted } = input;
       const [baseline, setBaseline] = useState<Baseline>(() => ({
         config: state.config,
         version: state.version,
+        scheduleId: input.scheduleId,
       }));
-      const rowsOf = (config: AvailabilityConfig): DraftService[] =>
-        scheduleId ? seedServices(config, { services: [] }, { kind: "schedule", scheduleId }) : [];
+      const pinned = baseline.scheduleId;
+      const latestId = kind === "regularWeek" ? input.scheduleId : pinned;
       const nameIn = (config: AvailabilityConfig) =>
-        config.schedules.find((s) => s.id === scheduleId)?.name ?? "";
+        config.schedules.find((s) => s.id === pinned)?.name ?? "";
     
-      const baselineServices = rowsOf(baseline.config);
+      const baselineServices = rowsOf(baseline.config, pinned);
       const loaded = state.version !== baseline.version;
-      const changes =
-        conflicted && loaded && scheduleId
-          ? scheduleChangesSince(baseline.config, state.config, scheduleId)
+      const compared =
+        conflicted && loaded && kind !== "draft" && pinned && latestId
+          ? scheduleChangesSince(baseline.config, state.config, pinned, latestId)
           : NO_CHANGES;
-      const review: ConflictReview | null = conflicted ? { loaded, changes } : null;
+      // A new regular week saves a new schedule, so a missing regular week is not a dead end.
+      const changes = kind === "regularWeek" ? { ...compared, gone: false } : compared;
+      const review: ConflictReview | null = conflicted ? { kind, loaded, changes } : null;
     
-      const rebase = (next: { services: DraftService[]; name: string | null }) => {
-        setBaseline({ config: state.config, version: state.version });
-        input.apply(next);
+      const rebase = () =>
+        setBaseline({ config: state.config, version: state.version, scheduleId: input.scheduleId });
+      const settle = (next: () => void) => {
+        rebase();
+        next();
         input.clearConflict();
       };
+      const latestRows = () => rowsOf(state.config, kind === "draft" ? pinned : latestId);
     
       return {
         baseline: baseline.config,
@@ -2420,22 +2452,30 @@
         review,
         /** The winning version with only the Manager's own changes on top. */
         reapply: () =>
-          rebase({
-            services: reapplyDraft({
-              base: baselineServices,
-              draft: services,
-              latest: rowsOf(state.config),
-            }),
-            name: name === null || name !== nameIn(baseline.config) ? name : nameIn(state.config),
+          settle(() => {
+            if (kind === "draft") return; // a new schedule depends on nothing that moved
+            const latest = latestId && !changes.gone ? rowsOf(state.config, latestId) : null;
+            input.apply({
+              services: latest
+                ? reapplyDraft({ base: baselineServices, draft: services, latest })
+                : [...services],
+              name: name === null || name !== nameIn(baseline.config) ? name : nameIn(state.config),
+            });
           }),
         /** The winning version as it is; the draft is dropped. */
         discard: () => {
-          if (changes.gone) input.onGone();
-          else
-            rebase({
-              services: rowsOf(state.config),
-              name: name === null ? null : nameIn(state.config),
-            });
+          if (kind === "edit") {
+            if (changes.gone) input.onGone();
+            else
+              settle(() =>
+                input.apply({
+                  services: latestRows(),
+                  name: name === null ? null : nameIn(state.config),
+                })
+              );
+            return;
+          }
+          settle(() => input.startOver(latestRows()));
         },
       };
     }

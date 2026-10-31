@@ -27,6 +27,7 @@ import { AvailabilityGuestPreview } from "./AvailabilityGuestPreview.js";
 import { ConflictDialog } from "./ConflictDialog.js";
 import {
   buildDraftChanges,
+  overnightHintDate,
   seedServices,
   servicesEqual,
   type DraftService,
@@ -337,7 +338,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
       <ServicesEditor
         services={edit.services}
         venueServices={config.venueServices}
-        date={date}
+        date={overnightHintDate(edit.scope, date, dates)}
         onChange={(services) => update({ ...edit, services })}
       />
     </>

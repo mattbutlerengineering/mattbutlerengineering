@@ -65,13 +65,24 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
   const [conflictMode, setConflictMode] = useState<ScopeConflictMode>("keep");
 
   const review = useConflictReview({
+    kind: "regularWeek",
     state,
+    // The hook keeps the regular week this drawer opened on, so a colleague's newer regular week
+    // is compared with, not mistaken for, where these rows came from.
     scheduleId: regular?.id,
     services,
     name: null,
     conflicted: saver.conflicted,
     clearConflict: saver.clearConflict,
     apply: (next) => setServices(next.services),
+    startOver: (rows) => {
+      setServices(rows);
+      setName("");
+      setStartsOn(null);
+      setEndsOn(null);
+      setWinner("new");
+      setConflictMode("keep");
+    },
     onGone: onClose,
   });
   const dirty =

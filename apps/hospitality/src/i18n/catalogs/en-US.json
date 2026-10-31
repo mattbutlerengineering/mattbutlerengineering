@@ -1823,7 +1823,15 @@
       "renamed": "Renamed to {{name}}",
       "hint": "Reapply keeps the other person’s changes and puts yours on top. Check the result, then save.",
       "reapply": "Reapply my changes",
-      "discard": "Discard my changes"
+      "discard": "Discard my changes",
+      "draftTitle": "Availability changed while you were editing",
+      "draftBody": "Someone saved a change to availability first. Nothing you entered has been saved.",
+      "draftHint": "Keep your schedule to save it on top of their change, or start over.",
+      "draftKeep": "Keep my schedule",
+      "startOver": "Start over",
+      "regularReplaced": "The regular week is now {{name}}",
+      "regularNothing": "Nothing in the regular week changed.",
+      "regularHint": "Reapply lays your hours over the current regular week. Check the result, then save."
     },
     "regularWeek": {
       "open": "Change regular week…",

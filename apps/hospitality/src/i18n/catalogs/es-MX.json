@@ -1856,7 +1856,15 @@
       "renamed": "Ahora se llama {{name}}",
       "hint": "Al volver a aplicar se conservan los cambios de la otra persona y se ponen los tuyos encima. Revisa el resultado y guarda.",
       "reapply": "Volver a aplicar mis cambios",
-      "discard": "Descartar mis cambios"
+      "discard": "Descartar mis cambios",
+      "draftTitle": "La disponibilidad cambió mientras editabas",
+      "draftBody": "Alguien guardó un cambio de disponibilidad antes. No se guardó nada de lo que escribiste.",
+      "draftHint": "Conserva tu horario para guardarlo encima de su cambio, o empieza de nuevo.",
+      "draftKeep": "Conservar mi horario",
+      "startOver": "Empezar de nuevo",
+      "regularReplaced": "La semana regular ahora es {{name}}",
+      "regularNothing": "Nada cambió en la semana regular.",
+      "regularHint": "Al volver a aplicar, tus horarios se ponen sobre la semana regular actual. Revisa el resultado y guarda."
     },
     "regularWeek": {
       "open": "Cambiar la semana habitual…",

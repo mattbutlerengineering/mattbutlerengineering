@@ -272,6 +272,198 @@ describe("schedule drawers", () => {
     });
   });
 
+  describe("a lost race outside edit mode", () => {
+    const RACED_PANEL = "Availability changed while you were editing";
+
+    /** A colleague made the regular week "Autumn": a new schedule, Lunch now opening at 8:00. */
+    function autumnRegular(opened: AvailabilityConfig): AvailabilityConfig {
+      return {
+        ...opened,
+        schedules: [
+          ...opened.schedules.map((x) => ({ ...x, isRegular: false, kind: "alternate" as const })),
+          { id: "r2", name: "Autumn", kind: "regular", isRegular: true },
+        ],
+        scheduleServices: [
+          ...opened.scheduleServices,
+          ...opened.scheduleServices.map((x) => ({
+            ...x,
+            id: `${x.id}-r2`,
+            scheduleId: "r2",
+            ...(x.id === "ss-lunch" ? { opensAt: 480 } : {}),
+          })),
+        ],
+        assignments: [
+          { id: "as-r2", scheduleId: "r2", weekdays: TUE_SAT, precedence: 0 },
+          ...opened.assignments.map((a) => ({ ...a, precedence: 1 })),
+        ],
+      };
+    }
+
+    function renderWeek(opened: AvailabilityConfig) {
+      const props = { venueId: "venue-1", today: "2026-10-25", onStale: vi.fn(), onClose: vi.fn() };
+      const view = render(
+        <main>
+          <ChangeRegularWeekDrawer {...props} state={stateOf(opened)} />
+        </main>
+      );
+      const rerenderWith = (next: AvailabilityConfig, version: number) =>
+        view.rerender(
+          <main>
+            <ChangeRegularWeekDrawer {...props} state={stateOf(next, version)} />
+          </main>
+        );
+      return { props, rerenderWith };
+    }
+
+    it("two no-end regular week changes: Reapply keeps the Manager's rows and says the week was replaced", async () => {
+      const opened = tueSat();
+      save.mockRejectedValueOnce(conflict());
+      const { props, rerenderWith } = renderWeek(opened);
+      fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+      fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
+      fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Winter" } });
+      fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
+      await waitFor(() => expect(props.onStale).toHaveBeenCalledTimes(1));
+
+      rerenderWith(autumnRegular(opened), 8);
+      expect(await screen.findByText("The regular week is now Autumn")).toBeInTheDocument();
+      expect(screen.queryByText(/^Added:/)).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Reapply my changes" }));
+      fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
+      await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+      const body = save.mock.calls[1]?.[0].body;
+      expect(body.expectedVersion).toBe(8);
+      // Lunch stays removed; Dinner is the only service the new week carries.
+      expect(
+        body.changes.upsert.scheduleServices.map(
+          (x: { venueServiceId: string }) => x.venueServiceId
+        )
+      ).toEqual(["vs-dinner"]);
+    });
+
+    it("a refetch that moves the regular week does not make an untouched drawer dirty", () => {
+      const opened = tueSat();
+      const { props, rerenderWith } = renderWeek(opened);
+      rerenderWith(autumnRegular(opened), 8);
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(props.onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it("Start over in Change regular week clears the name and dates too", async () => {
+      const opened = tueSat();
+      save.mockRejectedValueOnce(conflict());
+      const { props, rerenderWith } = renderWeek(opened);
+      fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+      fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
+      fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-30" } });
+      fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Winter" } });
+      fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
+      await waitFor(() => expect(props.onStale).toHaveBeenCalledTimes(1));
+      rerenderWith(tueSat(), 8);
+      fireEvent.click(await screen.findByRole("button", { name: "Start over" }));
+      expect(screen.getByLabelText(/Schedule name/)).toHaveValue("");
+      expect(screen.getByLabelText("Starting")).toHaveValue("");
+      expect(screen.getByLabelText("Ending")).toHaveValue("");
+      expect(screen.getByRole("button", { name: "Remove Lunch" })).toBeInTheDocument();
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(props.onClose).toHaveBeenCalledTimes(1);
+    });
+
+    function renderNew(mode: "new" | "duplicate", opened: AvailabilityConfig) {
+      const props = {
+        ...common,
+        mode,
+        ...(mode === "duplicate" ? { sourceScheduleId: "regular" } : {}),
+        onStale: vi.fn(),
+        onClose: vi.fn(),
+      };
+      const view = render(
+        <main>
+          <ScheduleEditorDrawer {...props} state={stateOf(opened)} />
+        </main>
+      );
+      const rerenderWith = (next: AvailabilityConfig, version: number) =>
+        view.rerender(
+          <main>
+            <ScheduleEditorDrawer {...props} state={stateOf(next, version)} />
+          </main>
+        );
+      return { props, rerenderWith };
+    }
+
+    it("New schedule: says availability changed, not that a schedule did, and Start over clears every field", async () => {
+      const opened = fixtureConfig();
+      save.mockRejectedValueOnce(conflict());
+      const { props, rerenderWith } = renderNew("new", opened);
+      fireEvent.change(screen.getByRole("textbox", { name: /Schedule name/ }), {
+        target: { value: "Pop-up" },
+      });
+      fireEvent.click(screen.getByRole("checkbox", { name: "Mon" }));
+      fireEvent.click(screen.getByRole("combobox", { name: "Add service" }));
+      fireEvent.click(screen.getByRole("option", { name: "Lunch" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      await waitFor(() => expect(props.onStale).toHaveBeenCalledTimes(1));
+
+      rerenderWith(withBrunch(opened), 8);
+      expect(await screen.findByText(RACED_PANEL)).toBeInTheDocument();
+      expect(screen.queryByText("Someone changed this schedule first")).not.toBeInTheDocument();
+      expect(screen.queryByText(/Nothing in this schedule changed/)).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Keep my schedule" })).toBeEnabled();
+
+      fireEvent.click(screen.getByRole("button", { name: "Start over" }));
+      expect(screen.getByRole("textbox", { name: /Schedule name/ })).toHaveValue("");
+      expect(screen.getByRole("checkbox", { name: "Mon" })).not.toBeChecked();
+      expect(screen.queryByRole("button", { name: "Remove Lunch" })).not.toBeInTheDocument();
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(props.onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it("New schedule: Keep my schedule saves the draft against the winning version", async () => {
+      const opened = fixtureConfig();
+      save.mockRejectedValueOnce(conflict());
+      const { props, rerenderWith } = renderNew("new", opened);
+      fireEvent.change(screen.getByRole("textbox", { name: /Schedule name/ }), {
+        target: { value: "Pop-up" },
+      });
+      fireEvent.click(screen.getByRole("combobox", { name: "Add service" }));
+      fireEvent.click(screen.getByRole("option", { name: "Lunch" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      await waitFor(() => expect(props.onStale).toHaveBeenCalledTimes(1));
+      rerenderWith(withBrunch(opened), 8);
+      fireEvent.click(await screen.findByRole("button", { name: "Keep my schedule" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+      expect(save.mock.calls[1]?.[0].body.expectedVersion).toBe(8);
+    });
+
+    it("Duplicate: a colleague deleting the original does not stop the copy being saved", async () => {
+      const opened = fixtureConfig();
+      save.mockRejectedValueOnce(conflict());
+      const { props, rerenderWith } = renderNew("duplicate", opened);
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      await waitFor(() => expect(props.onStale).toHaveBeenCalledTimes(1));
+      const deleted = {
+        ...opened,
+        schedules: opened.schedules.map((x) => ({ ...x, archivedAt: "2026-10-26T00:00:00Z" })),
+      };
+      rerenderWith(deleted, 8);
+      expect(await screen.findByText(RACED_PANEL)).toBeInTheDocument();
+      expect(screen.queryByText(/can’t be saved/)).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Keep my schedule" })).toBeEnabled();
+      fireEvent.click(screen.getByRole("button", { name: "Keep my schedule" }));
+      expect(screen.getByRole("button", { name: "Remove Lunch" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+    });
+
+    it("the Ending picker on New schedule can be taken back with No end", () => {
+      renderNew("new", fixtureConfig());
+      expect(screen.queryByRole("button", { name: "No end" })).not.toBeInTheDocument();
+      fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-30" } });
+      fireEvent.click(screen.getByRole("button", { name: "No end" }));
+      expect(screen.getByLabelText("Ending")).toHaveValue("");
+    });
+  });
+
   describe("the overnight hint", () => {
     it("does not name a day it cannot know", () => {
       const base = fixtureConfig();

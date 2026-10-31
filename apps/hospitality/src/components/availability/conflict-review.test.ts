@@ -33,6 +33,7 @@ describe("scheduleChangesSince", () => {
     const changes = scheduleChangesSince(fixtureConfig(), colleagueEdited(), "regular");
     expect(changes).toEqual({
       gone: false,
+      replacedBy: null,
       renamedTo: "Summer",
       added: ["Brunch"],
       removed: [],
@@ -43,10 +44,34 @@ describe("scheduleChangesSince", () => {
   it("reports nothing for a venue that did not change this schedule", () => {
     expect(scheduleChangesSince(fixtureConfig(), fixtureConfig(), "regular")).toEqual({
       gone: false,
+      replacedBy: null,
       renamedTo: null,
       added: [],
       removed: [],
       changed: [],
+    });
+  });
+
+  it("compares with the schedule now in its place, and names it", () => {
+    const before = fixtureConfig();
+    const after: AvailabilityConfig = {
+      ...before,
+      schedules: [
+        ...before.schedules.map((s) => ({ ...s, isRegular: false })),
+        { id: "r2", name: "Autumn", kind: "regular", isRegular: true },
+      ],
+      scheduleServices: [
+        ...before.scheduleServices,
+        { ...before.scheduleServices[1]!, id: "ss-dinner-r2", scheduleId: "r2", closesAt: 1350 },
+      ],
+    };
+    expect(scheduleChangesSince(before, after, "regular", "r2")).toEqual({
+      gone: false,
+      replacedBy: "Autumn",
+      renamedTo: null,
+      added: [],
+      removed: ["Lunch"],
+      changed: ["Dinner"],
     });
   });
 

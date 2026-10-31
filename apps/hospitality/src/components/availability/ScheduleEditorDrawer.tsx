@@ -82,6 +82,7 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
 
   const editing = mode === "edit";
   const review = useConflictReview({
+    kind: editing ? "edit" : "draft",
     state,
     scheduleId: sourceScheduleId,
     services,
@@ -91,6 +92,15 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
     apply: (next) => {
       setServices(next.services);
       if (next.name !== null) setName(next.name);
+    },
+    startOver: (rows) => {
+      setServices(rows);
+      setName(initialName);
+      setWeekdays([]);
+      setStartsOn(null);
+      setEndsOn(null);
+      setWinner("new");
+      setConflictMode("keep");
     },
     onGone: onClose,
   });
@@ -219,6 +229,11 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
                   min={startsOn ?? undefined}
                   onChange={setEndsOn}
                 />
+                {endsOn !== null && (
+                  <Button variant="ghost" size="sm" onClick={() => setEndsOn(null)}>
+                    {t("availabilitySchedules.noEnd")}
+                  </Button>
+                )}
               </div>
             </>
           )}

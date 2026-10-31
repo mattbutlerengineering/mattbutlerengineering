@@ -142,12 +142,39 @@ export function ConflictReviewPanel(props: {
   readonly onDiscard: () => void;
 }) {
   const { review, onReapply, onDiscard } = props;
-  const { loaded, changes } = review;
+  const { loaded, changes, kind } = review;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const list = (names: readonly string[]) =>
     new Intl.ListFormat(format.locale, { type: "conjunction" }).format(names);
+  // An edit changes a schedule that exists; a new, copied or regular-week draft saves a new one,
+  // so it never says "this schedule" and its second answer starts the whole form again.
+  const copy = {
+    edit: {
+      title: t("availabilitySchedules.conflictReview.title"),
+      keep: t("availabilitySchedules.conflictReview.reapply"),
+      leave: t("availabilitySchedules.conflictReview.discard"),
+      nothing: t("availabilitySchedules.conflictReview.nothing"),
+      hint: t("availabilitySchedules.conflictReview.hint"),
+    },
+    regularWeek: {
+      title: t("availabilitySchedules.conflictReview.draftTitle"),
+      keep: t("availabilitySchedules.conflictReview.reapply"),
+      leave: t("availabilitySchedules.conflictReview.startOver"),
+      nothing: t("availabilitySchedules.conflictReview.regularNothing"),
+      hint: t("availabilitySchedules.conflictReview.regularHint"),
+    },
+    draft: {
+      title: t("availabilitySchedules.conflictReview.draftTitle"),
+      keep: t("availabilitySchedules.conflictReview.draftKeep"),
+      leave: t("availabilitySchedules.conflictReview.startOver"),
+      nothing: t("availabilitySchedules.conflictReview.draftBody"),
+      hint: t("availabilitySchedules.conflictReview.draftHint"),
+    },
+  }[kind];
   const lines = [
+    changes.replacedBy !== null &&
+      t("availabilitySchedules.conflictReview.regularReplaced", { name: changes.replacedBy }),
     changes.renamedTo !== null &&
       t("availabilitySchedules.conflictReview.renamed", { name: changes.renamedTo }),
     changes.added.length > 0 &&
@@ -161,7 +188,7 @@ export function ConflictReviewPanel(props: {
   return (
     <Alert
       variant="warning"
-      title={t("availabilitySchedules.conflictReview.title")}
+      title={copy.title}
       actions={
         <Stack direction="row" gap="sm">
           <Button
@@ -170,10 +197,10 @@ export function ConflictReviewPanel(props: {
             disabled={!loaded || changes.gone}
             onClick={onReapply}
           >
-            {t("availabilitySchedules.conflictReview.reapply")}
+            {copy.keep}
           </Button>
           <Button variant="secondary" size="sm" onClick={onDiscard}>
-            {t("availabilitySchedules.conflictReview.discard")}
+            {copy.leave}
           </Button>
         </Stack>
       }
@@ -188,9 +215,9 @@ export function ConflictReviewPanel(props: {
         </Text>
       ) : (
         <>
-          {lines.length === 0 ? (
+          {kind === "draft" || lines.length === 0 ? (
             <Text variant="body" color="primary">
-              {t("availabilitySchedules.conflictReview.nothing")}
+              {copy.nothing}
             </Text>
           ) : (
             lines.map((line) => (
@@ -200,7 +227,7 @@ export function ConflictReviewPanel(props: {
             ))
           )}
           <Text variant="caption" color="secondary">
-            {t("availabilitySchedules.conflictReview.hint")}
+            {copy.hint}
           </Text>
         </>
       )}

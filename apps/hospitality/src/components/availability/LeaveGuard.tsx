@@ -11,11 +11,14 @@ export interface LeaveGuardProps {
   readonly title?: string;
 }
 
-/** Prompts before an in-app route change throws the draft away. */
-function RouteBlocker({ active, date, title }: LeaveGuardProps) {
+/**
+ * Prompts before an in-app route change throws the draft away. A router consults only the last
+ * blocker registered, so this mounts only while a draft exists: a clean guard that registered
+ * later would otherwise shadow a dirty one and let its edits go without asking.
+ */
+function RouteBlocker({ date, title }: Omit<LeaveGuardProps, "active">) {
   const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) =>
-      active && currentLocation.pathname !== nextLocation.pathname
+    ({ currentLocation, nextLocation }) => currentLocation.pathname !== nextLocation.pathname
   );
   return (
     <DiscardChangesDialog
@@ -43,5 +46,5 @@ export function LeaveGuard(props: LeaveGuardProps) {
     return () => window.removeEventListener("beforeunload", warn);
   }, [active]);
 
-  return inDataRouter ? <RouteBlocker {...props} /> : null;
+  return inDataRouter && active ? <RouteBlocker date={props.date} title={props.title} /> : null;
 }
