@@ -45,6 +45,22 @@ describe("ToastProvider", () => {
       );
       expect(screen.getByRole("region", { name: "Notifications" })).toBeInTheDocument();
     });
+
+    it("anchors bottom-end by default and top-end on request", () => {
+      const { rerender } = render(
+        <ToastProvider>
+          <p>Content</p>
+        </ToastProvider>
+      );
+      const region = screen.getByRole("region", { name: "Notifications" });
+      expect(region).toHaveAttribute("data-placement", "bottom-end");
+      rerender(
+        <ToastProvider placement="top-end">
+          <p>Content</p>
+        </ToastProvider>
+      );
+      expect(region).toHaveAttribute("data-placement", "top-end");
+    });
   });
 
   describe("toast creation", () => {
