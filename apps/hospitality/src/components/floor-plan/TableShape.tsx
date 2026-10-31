@@ -6,7 +6,7 @@ import type { Table } from "@mbe/types";
 import { SHAPE_DEFAULTS, fittedSeatSize, seatPlacements } from "./floor-plan-geometry.js";
 import { SeatArt, TableArt } from "./FurnitureArt.js";
 import { useMotionPreset } from "@mattbutlerengineering/rialto/providers";
-import { FURNITURE_PALETTE } from "./furniture-tokens.js";
+import { FURNITURE_GROUP_NAME, FURNITURE_PALETTE } from "./furniture-tokens.js";
 import { useSectionLabelTheme } from "./section-label-theme.js";
 import { TableLabel } from "./TableLabel.js";
 import { TABLE_STATUS_COLOR_TOKEN, type TableDisplayStatus } from "./table-status.js";
@@ -98,6 +98,7 @@ function TableShapeComponent({
   stageScale = 1,
 }: TableShapeProps) {
   const groupRef = useRef<Konva.Group>(null);
+  const furnitureRef = useRef<Konva.Group>(null);
   const labelTheme = useSectionLabelTheme();
   const [themeColors, setThemeColors] = useState(resolveThemeColors);
 
@@ -157,18 +158,21 @@ function TableShapeComponent({
     }
   }, [isDragging, dragShadowDuration]);
 
-  // Bake the group (chairs, table, label and their blurred shadows) into one
-  // bitmap. Every table shares a Layer that Konva redraws whole on each drag
-  // frame, so uncached that is ~300-500 shadowBlur draws at 60 tables (#7845).
-  // Runs after every render of this memoized component, which is exactly when
-  // an input to the picture can have changed. A light/dark flip re-renders it
-  // through `themeColors` above, after the furniture art (which watches the same
-  // attribute through an earlier observer) has repainted; furniture-shadow.test
-  // pins that order. The bitmap is rendered at device pixels x stage scale so it
-  // is not resampled.
+  // Bake the furniture (chairs, table and their blurred shadows) into one bitmap.
+  // Every table shares a Layer that Konva redraws whole on each drag frame, so
+  // uncached that is ~300-500 shadowBlur draws at 60 tables (#7845). The label is
+  // deliberately NOT in the bitmap: it has no blur, and a cached bitmap resamples
+  // at non-integer stage scales, which softens text. It stays live vector nodes.
+  // Runs after every render of this memoized component, which is exactly when an
+  // input to the picture can have changed. A light/dark flip re-renders it through
+  // `themeColors` above; SeatArt and TableArt read the theme with
+  // useSyncExternalStore at render, straight from the already-flipped DOM, so that
+  // render, and the bake after it, never sees the old theme (furniture-shadow.test
+  // pins this). The bitmap is rendered at device pixels x stage scale, which keeps
+  // it close to 1:1 on screen, but it can still resample when drawn rotated.
   useEffect(() => {
     // `|| 1`: a hidden (zero-width) container has scale 0, and a 0-size bitmap throws on draw.
-    groupRef.current?.cache({ pixelRatio: stageScale * devicePixelRatio || 1 });
+    furnitureRef.current?.cache({ pixelRatio: stageScale * devicePixelRatio || 1 });
   });
 
   // Seats are drawn first so the table surface overlaps them — the look of
@@ -191,26 +195,30 @@ function TableShapeComponent({
       onClick={handleClick}
       onTap={handleClick}
     >
-      {seats.map((seat) => (
-        // Seats have no identity of their own; their placement is deterministic
-        // and distinct, so the position is the stable key.
-        <SeatArt
-          key={`${seat.x},${seat.y}`}
-          x={seat.x}
-          y={seat.y}
-          rotation={seat.rotation}
-          width={chair.width}
-          height={chair.height}
+      <Group ref={furnitureRef} name={FURNITURE_GROUP_NAME}>
+        {seats.map((seat) => (
+          // Seats have no identity of their own; their placement is deterministic
+          // and distinct, so the position is the stable key.
+          <SeatArt
+            key={`${seat.x},${seat.y}`}
+            x={seat.x}
+            y={seat.y}
+            rotation={seat.rotation}
+            width={chair.width}
+            height={chair.height}
+            tableRotation={rotation}
+          />
+        ))}
+        <TableArt
+          shape={shape}
+          width={width}
+          height={height}
+          fill={fillColor}
+          stroke={isSelected ? themeColors.selectedStroke : FURNITURE_PALETTE.edge}
+          strokeWidth={isSelected ? 3 : 1}
+          tableRotation={rotation}
         />
-      ))}
-      <TableArt
-        shape={shape}
-        width={width}
-        height={height}
-        fill={fillColor}
-        stroke={isSelected ? themeColors.selectedStroke : FURNITURE_PALETTE.edge}
-        strokeWidth={isSelected ? 3 : 1}
-      />
+      </Group>
       <TableLabel
         number={table.tableNumber || table.name}
         covers={`${table.minCovers}-${table.maxCovers ?? table.capacity}`}

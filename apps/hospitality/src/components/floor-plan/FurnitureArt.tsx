@@ -47,11 +47,18 @@ import { useFurnitureTheme } from "./furniture-theme.js";
  * `shadowForStrokeEnabled: false`, and a non-listening table shadow node
  * (chairs stay listening so they still drag the table).
  */
-function contactShadow(theme: FurnitureTheme) {
+function contactShadow(theme: FurnitureTheme, tableRotation: number) {
+  // The furniture is baked into a bitmap in its own axes and the bitmap is then drawn
+  // rotated with the table, while canvas shadow offsets are device-space. Pre-rotate the
+  // drop by -rotation so it lands straight down on screen for every table on the plan.
+  // Seats use this same offset (not one adjusted for their own rotation): they are baked
+  // into the same bitmap, whose axes are what the offset is measured in.
+  const rad = (tableRotation * Math.PI) / 180;
   return {
     shadowColor: SHADOW_TONES[theme],
     shadowBlur: CONTACT_SHADOW.blur,
-    shadowOffsetY: CONTACT_SHADOW.offsetY,
+    shadowOffsetX: CONTACT_SHADOW.offsetY * Math.sin(rad),
+    shadowOffsetY: CONTACT_SHADOW.offsetY * Math.cos(rad),
     shadowForStrokeEnabled: false,
     perfectDrawEnabled: false,
   } as const;
@@ -83,6 +90,8 @@ export interface TableArtProps {
   fill: string;
   stroke: string;
   strokeWidth: number;
+  /** The table's rotation in degrees; keeps the baked shadow pointing down on screen. */
+  tableRotation: number;
 }
 
 type SurfacePaint = Omit<TableArtProps, "shape" | "width" | "height">;
@@ -93,6 +102,7 @@ function RoundTableArt({
   fill,
   stroke,
   strokeWidth,
+  tableRotation,
 }: SurfacePaint & { width?: number }) {
   const radius = width / 2;
   const theme = useFurnitureTheme();
@@ -103,7 +113,7 @@ function RoundTableArt({
         radius={radius}
         fill={SHADOW_CASTER}
         listening={false}
-        {...contactShadow(theme)}
+        {...contactShadow(theme, tableRotation)}
       />
       <Circle
         name={TABLE_SURFACE_NAME}
@@ -140,6 +150,7 @@ function SlabTableArt({
   fill,
   stroke,
   strokeWidth,
+  tableRotation,
 }: SurfacePaint & { shape: Exclude<TableShapeName, "circle">; width?: number; height?: number }) {
   const cornerRadius = TABLE_CORNER_RADIUS[shape];
   const left = -width / 2;
@@ -159,7 +170,7 @@ function SlabTableArt({
         cornerRadius={cornerRadius}
         fill={SHADOW_CASTER}
         listening={false}
-        {...contactShadow(theme)}
+        {...contactShadow(theme, tableRotation)}
       />
       <Rect
         name={TABLE_SURFACE_NAME}
@@ -219,10 +230,12 @@ export interface SeatArtProps {
   /** Chair size; scales with party size (see `seatSize`). */
   width: number;
   height: number;
+  /** The table's rotation (not the seat's own); see `contactShadow`. */
+  tableRotation: number;
 }
 
 /** `chair.svg`: a rounded frame with an inset cushion. */
-export function SeatArt({ x, y, rotation, width, height }: SeatArtProps) {
+export function SeatArt({ x, y, rotation, width, height, tableRotation }: SeatArtProps) {
   const theme = useFurnitureTheme();
   const tones = SEAT_TONES[theme];
   return (
@@ -236,7 +249,7 @@ export function SeatArt({ x, y, rotation, width, height }: SeatArtProps) {
         fill={tones.frame}
         stroke={tones.edge}
         strokeWidth={0.7}
-        {...contactShadow(theme)}
+        {...contactShadow(theme, tableRotation)}
       />
       <Rect
         x={-width * 0.29}

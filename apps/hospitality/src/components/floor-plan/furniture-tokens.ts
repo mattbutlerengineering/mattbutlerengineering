@@ -15,6 +15,8 @@ import type { TableShapeName } from "./floor-plan-geometry.js";
 export const TABLE_SURFACE_NAME = "table-surface";
 export const TABLE_SHADOW_NAME = "table-shadow";
 export const SEAT_NAME = "seat";
+/** The nested group holding chairs and table art: the one node `TableShape` bakes into a bitmap. */
+export const FURNITURE_GROUP_NAME = "table-furniture";
 
 /**
  * Tones taken from the committed SVGs. Canvas cannot resolve
