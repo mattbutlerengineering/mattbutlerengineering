@@ -126,6 +126,27 @@ describe("ai-audit.yml query shape", () => {
     expect(executable).not.toMatch(/AI_PRS=\$\(jq/);
   });
 
+  // W44 (#7952) reported 0 of 408 merged PRs: gh failed, its stderr went to
+  // /dev/null, and the fallback published "[]" as a clean, reassuring audit.
+  it("a failed gh query fails the job instead of reporting zero (#7952)", () => {
+    expect(executable).not.toMatch(/2>\/dev\/null \|\| true/);
+    expect(executable).not.toMatch(/echo "\[\]"/);
+    expect(executable).not.toMatch(/gh (pr|issue) list[\s\S]{0,400}?2>\/dev\/null/);
+  });
+
+  it("retries the merged-PR query, which is slow enough to time out", () => {
+    expect(executable).toMatch(/for attempt in 1 2 3/);
+    expect(executable).toMatch(/exit 1/);
+  });
+
+  it("every gh issue list passes an explicit --limit", () => {
+    const invocations = executable.split("gh issue list").slice(1);
+    expect(invocations.length).toBeGreaterThan(0);
+    for (const body of invocations) {
+      expect(body.slice(0, 400)).toContain("--limit");
+    }
+  });
+
   it("the step whose exit code matters opens with pipefail", () => {
     expect(executable).toMatch(/run: \|\n\s+set -o pipefail/);
   });
