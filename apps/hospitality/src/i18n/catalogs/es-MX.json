@@ -1566,6 +1566,7 @@
       "remove_from_waitlist": "Quitar de la lista de espera",
       "set_menu_item_availability": "Marcar un platillo como agotado o disponible",
       "update_menu_item": "Cambiar un platillo del menú",
+      "activate_floor_plan": "Cambiar el plano activo",
       "seat_reservation": "Sentar a un grupo con reserva",
       "mark_no_show": "Marcar como no presentado",
       "fields": {
@@ -1604,7 +1605,8 @@
         "section": "Sección",
         "availability": "Disponibilidad",
         "price": "Precio",
-        "description": "Descripción"
+        "description": "Descripción",
+        "floorPlan": "Plano"
       },
       "menuAvailability": {
         "sold_out": "Agotado",

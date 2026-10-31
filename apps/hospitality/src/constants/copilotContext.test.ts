@@ -340,6 +340,22 @@ describe("describeChatAction menu actions", () => {
   });
 });
 
+// #7930: the floor plan switch, as the confirm bar shows it.
+describe("describeChatAction floor plan actions", () => {
+  const t = (key: string) => `t:${key}`;
+
+  it("titles the switch and labels the plan", () => {
+    const { title, details } = describeChatAction(
+      { actionId: "c", toolName: "activate_floor_plan", toolInput: { floorPlan: "Patio" } },
+      t,
+      () => undefined
+    );
+
+    expect(title).toBe("t:chat.actions.activate_floor_plan");
+    expect(details).toEqual([{ label: "t:chat.actions.fields.floorPlan", value: "Patio" }]);
+  });
+});
+
 // #7925: the timeline actions, as the confirm bar shows them.
 describe("describeChatAction timeline actions", () => {
   const t = (key: string) => `t:${key}`;
