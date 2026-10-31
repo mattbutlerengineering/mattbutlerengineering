@@ -95,6 +95,33 @@ function hoursSubject(rule: SpecialDateRule, format: VenueFormat, t: TFunction):
   return t("availabilitySpecial.hours.subjectDates", { dates: rangeLabel(rule, format, t) });
 }
 
+/**
+ * What reopening a closure takes away, named whole: one date, the full range, "all dates from
+ * Dec 24 on" for an open end, or a repeat by its weekdays and span.
+ */
+function closureSubject(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string {
+  const from = format.formatCalendarDate(rule.startsOn, DATE_FORMAT);
+  const span =
+    rule.endsOn == null
+      ? t("availabilitySpecial.reopen.fromOn", { from })
+      : rule.endsOn === rule.startsOn
+        ? from
+        : t("availabilitySpecial.range", {
+            from,
+            to: format.formatCalendarDate(rule.endsOn, DATE_FORMAT),
+          });
+  if (rule.repeat != null) {
+    const days = rule.repeat.weekdays.map((d) =>
+      format.formatCalendarDate(addDays(SUNDAY, d), { weekday: "long" })
+    );
+    return t("availabilitySpecial.reopen.subjectRepeat", {
+      days: new Intl.ListFormat(format.locale, { type: "conjunction" }).format(days),
+      span,
+    });
+  }
+  return rule.endsOn == null ? t("availabilitySpecial.reopen.subjectOpen", { from }) : span;
+}
+
 /** "11:00 AM – 3:00 PM, 5:00 PM – 10:00 PM": one range per service, so a gap between them shows (ux.md S6b). */
 function hoursRange(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string | null {
   if (rule.kind !== "special_hours" || rule.payload.services.length === 0) return null;
@@ -287,6 +314,13 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
   const rows = specialDateRows(rules, today, filter);
   const editDateOf = (rule: DateRule) => hoursEditDate(rule, today);
   const summaryOf = (ruleId: string) => summaries.data?.find((s) => s.ruleId === ruleId);
+  /**
+   * Guests the closure cancelled. `null` when the counts failed to load (a refetch that fails
+   * leaves stale data, so the error wins) or are missing: a closure with no summary row cancelled
+   * no one, but a failed read says nothing about it.
+   */
+  const cancelledOf = (ruleId: string): number | null =>
+    summaries.error || !summaries.data ? null : (summaryOf(ruleId)?.cancelled ?? 0);
   const orphans =
     filter === "all"
       ? orphanRefundRules(
@@ -408,7 +442,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
               message={rule.guestMessage}
               summary={summaryOf(rule.id)}
               retrying={retryingId === rule.id}
-              onRemove={rule.kind === "closure" ? () => setReopening(rule) : undefined}
+              onRemove={rule.kind === "closure" && !past ? () => setReopening(rule) : undefined}
               onEditDates={isSeries(rule) ? () => setEditingSeries(rule) : undefined}
               skips={isSeries(rule) ? skipsOf(rule.id) : undefined}
               onRestore={(skipId) => void restoreSkip(skipId)}
@@ -537,9 +571,13 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
         <ReopenClosureDialog
           venueId={venueId}
           ruleId={reopening.id}
-          dateLabel={format.formatCalendarDate(reopening.startsOn, DATE_FORMAT)}
-          cancelled={summaryOf(reopening.id)?.cancelled ?? 0}
+          subject={closureSubject(reopening, format, t)}
+          cancelled={cancelledOf(reopening.id)}
+          onRetryCount={() => void summaries.refetch()}
           editedDates={rules.filter((r) => r.seriesId === reopening.id).length}
+          isSeriesEdit={
+            reopening.seriesId != null && rules.some((r) => r.id === reopening.seriesId)
+          }
           onClose={() => setReopening(null)}
         />
       )}

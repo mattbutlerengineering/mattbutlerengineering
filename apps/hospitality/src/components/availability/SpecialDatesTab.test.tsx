@@ -10,6 +10,12 @@ import type {
 } from "@mbe/types";
 
 const summaries = vi.hoisted(() => ({ value: [] as ClosureSummary[] }));
+/** `GET /closures` failing: `error` set, and the data (if any) is stale. */
+const summaryQuery = vi.hoisted(() => ({
+  error: null as unknown,
+  data: undefined as unknown,
+  refetch: vi.fn(),
+}));
 const callList = vi.hoisted(() => ({ value: [] as ClosureCallListEntry[] }));
 const reopen = vi.hoisted(() => vi.fn());
 const retry = vi.hoisted(() => vi.fn());
@@ -18,7 +24,12 @@ const previewImpact = vi.hoisted(() => vi.fn());
 const createClosure = vi.hoisted(() => vi.fn());
 
 vi.mock("../../hooks/useClosures.js", () => ({
-  useClosureSummaries: () => ({ data: summaries.value, isLoading: false, error: null }),
+  useClosureSummaries: () => ({
+    data: summaryQuery.error ? summaryQuery.data : summaries.value,
+    isLoading: false,
+    error: summaryQuery.error,
+    refetch: summaryQuery.refetch,
+  }),
   useClosureCallList: () => ({ data: callList.value, isLoading: false, error: null }),
   useReopenClosure: () => ({ mutateAsync: reopen, isPending: false }),
   useRetryClosureRefunds: () => ({ mutateAsync: retry, isPending: false }),
@@ -113,6 +124,8 @@ function pickScope(choice: string) {
 describe("SpecialDatesTab", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    summaryQuery.error = null;
+    summaryQuery.data = undefined;
     summaries.value = [summary("xmas")];
     callList.value = [];
     reopen.mockResolvedValue({ version: 6, changeId: "c" });
@@ -735,6 +748,144 @@ describe("SpecialDatesTab", () => {
       renderTab();
       fireEvent.click(screen.getByRole("button", { name: "Remove closure for Thu, Dec 24" }));
       expect(screen.queryByText(/edited date/)).toBeNull();
+    });
+
+    describe("naming what is removed (#7975)", () => {
+      const withRules = (extra: DateRule[]) =>
+        ({
+          ...STATE,
+          config: { ...STATE.config, dateRules: [...RULES, ...extra] },
+        }) as AvailabilityConfigState;
+      const SPAN = {
+        id: "xmas-week",
+        kind: "closure",
+        targetKind: "venue",
+        startsOn: "2026-12-24",
+        endsOn: "2027-01-05",
+      } as DateRule;
+
+      it("names the whole span of a date range, not just its first day", () => {
+        renderTab(true, withRules([SPAN]));
+        fireEvent.click(
+          screen.getByRole("button", { name: "Remove closure for Thu, Dec 24 to Tue, Jan 5" })
+        );
+        expect(
+          within(screen.getByRole("dialog")).getByText("Reopen Thu, Dec 24 to Tue, Jan 5?")
+        ).toBeTruthy();
+      });
+
+      it("names an open-ended closure as every date from its start", () => {
+        const open = { ...SPAN, id: "open", endsOn: null } as DateRule;
+        renderTab(true, withRules([open]));
+        fireEvent.click(
+          screen.getByRole("button", { name: "Remove closure for Thu, Dec 24 until reopened" })
+        );
+        expect(
+          within(screen.getByRole("dialog")).getByText("Reopen all dates from Thu, Dec 24 on?")
+        ).toBeTruthy();
+      });
+
+      it("names a repeating closure by its weekdays and span", () => {
+        renderTab();
+        fireEvent.click(
+          screen.getByRole("button", { name: "Remove closure for Tue, Jan 5 to Tue, Mar 30" })
+        );
+        expect(
+          within(screen.getByRole("dialog")).getByText(
+            "Reopen every Monday (Tue, Jan 5 to Tue, Mar 30)?"
+          )
+        ).toBeTruthy();
+      });
+    });
+
+    describe("a one-date edit of a series (#7975)", () => {
+      const edit = {
+        id: "edit-1",
+        kind: "closure",
+        targetKind: "venue",
+        startsOn: "2027-01-18",
+        endsOn: "2027-01-18",
+        seriesId: "mondays",
+        window: { version: 1, from: 1320, to: 2880 },
+      } as DateRule;
+      const openEdit = () => {
+        renderTab(true, {
+          ...STATE,
+          config: { ...STATE.config, dateRules: [...RULES, edit] },
+        } as AvailabilityConfigState);
+        fireEvent.click(screen.getByRole("button", { name: "Remove closure for Mon, Jan 18" }));
+      };
+
+      it("does not promise guests can book again: the date returns to the series", () => {
+        openEdit();
+        const dialog = screen.getByRole("dialog");
+        expect(within(dialog).queryByText("Guests can book again.", { exact: false })).toBeNull();
+        expect(
+          within(dialog).getByText(/goes back to the repeating closure/, { exact: false })
+        ).toBeTruthy();
+      });
+
+      it("shows the server's refusal as a count of bookings left without service", async () => {
+        reopen.mockRejectedValue({
+          problemDetails: {
+            type: "about:blank",
+            title: "Unprocessable Entity",
+            status: 422,
+            detail: "The closure is not valid.",
+            code: "invalid-config",
+            issues: [
+              { path: "reservations.r1", code: "strands_booking", message: "x" },
+              { path: "reservations.r2", code: "strands_booking", message: "x" },
+            ],
+          },
+        });
+        openEdit();
+        fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Reopen" }));
+
+        expect(await screen.findByText(/2 bookings would be left without service/)).toBeTruthy();
+      });
+    });
+
+    describe("when the guest count is unknown (#7975)", () => {
+      it("blocks Reopen and offers Retry while GET /closures has failed", () => {
+        summaryQuery.error = new Error("down");
+        renderTab();
+        fireEvent.click(screen.getByRole("button", { name: "Remove closure for Thu, Dec 24" }));
+        const dialog = screen.getByRole("dialog");
+
+        expect(within(dialog).getByText(/how many guests this closure cancelled/)).toBeTruthy();
+        expect(within(dialog).getByRole("button", { name: "Reopen" })).toBeDisabled();
+        expect(within(dialog).queryByRole("checkbox")).toBeNull();
+
+        fireEvent.click(within(dialog).getByRole("button", { name: "Retry" }));
+        expect(summaryQuery.refetch).toHaveBeenCalled();
+      });
+
+      it("treats a closure with no summary row as no cancelled guests", () => {
+        summaries.value = [];
+        renderTab();
+        fireEvent.click(screen.getByRole("button", { name: "Remove closure for Thu, Dec 24" }));
+        const dialog = screen.getByRole("dialog");
+        expect(within(dialog).getByRole("button", { name: "Reopen" })).not.toBeDisabled();
+        expect(within(dialog).queryByRole("checkbox")).toBeNull();
+      });
+    });
+
+    it("offers no Remove on a closure that is already over (#7975)", () => {
+      const over = {
+        id: "over",
+        kind: "closure",
+        targetKind: "venue",
+        startsOn: "2026-11-10",
+        endsOn: "2026-11-10",
+      } as DateRule;
+      renderTab(true, {
+        ...STATE,
+        config: { ...STATE.config, dateRules: [...RULES, over] },
+      } as AvailabilityConfigState);
+      fireEvent.click(screen.getByRole("radio", { name: "Past" }));
+      expect(screen.getByText("Tue, Nov 10")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: /^Remove closure for/ })).toBeNull();
     });
 
     it("offers Undo when no guests were told", async () => {

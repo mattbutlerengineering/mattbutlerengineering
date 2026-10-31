@@ -574,7 +574,43 @@ async function requireAuthor(
 }
 
 export type ReopenOutcome =
-  { kind: "reopened"; result: ReopenResult } | { kind: "not_found" } | { kind: "forbidden" };
+  | { kind: "reopened"; result: ReopenResult }
+  | { kind: "not_found" }
+  | { kind: "forbidden" }
+  | Extract<Refusal, { kind: "invalid" }>;
+
+/**
+ * Removing a one-date edit hands its date back to the series, which can close a day the edit kept
+ * open. Refuses, changing nothing, when that would leave a booking without service.
+ */
+async function refuseStrandingReopen(
+  tx: Db,
+  venueId: string,
+  state: ConfigState,
+  next: ConfigState["stored"],
+  now: Date
+): Promise<void> {
+  const removed = new Set(state.stored.dateRules.map((r) => r.id));
+  for (const r of next.dateRules) removed.delete(r.id);
+  const after = {
+    ...state.effective,
+    dateRules: state.effective.dateRules.filter((r) => !removed.has(r.id)),
+  };
+  const stranded = findStrandedReservations(
+    { timezone: state.timezone, config: state.effective },
+    { timezone: state.timezone, config: after },
+    await futureBookings(tx, venueId, civilDateIn(now, state.timezone), now)
+  );
+  if (stranded.length === 0) return;
+  throw new Refused({
+    kind: "invalid",
+    issues: stranded.map((r) => ({
+      path: `reservations.${r.id}`,
+      code: "strands_booking",
+      message: "Removing this would leave this booking without service.",
+    })),
+  });
+}
 
 /**
  * Removes the rule (a soft delete through the same writer, with its inverse),
@@ -609,6 +645,7 @@ export async function reopenClosure(
         // Reopening a series also removes its skips and one-date edits (#7685).
         dateRules: state.stored.dateRules.filter((r) => r.id !== ruleId && r.seriesId !== ruleId),
       };
+      await refuseStrandingReopen(db, venueId, state, next, now);
       const diff = diffConfig(state.stored, next);
       await writeConfigDiff(db, venueId, diff, { actorId: caller.actorId, now });
       const bumped = await db.venue.update({

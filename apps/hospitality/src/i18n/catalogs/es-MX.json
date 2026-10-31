@@ -1687,7 +1687,16 @@
       "tell": "Avisar a los clientes cancelados que reabrimos, con un enlace para reservar ({{count}})",
       "confirm": "Reabrir",
       "keep": "Mantener cerrado",
-      "done": "{{date}} reabierto"
+      "done": "{{date}} reabierto",
+      "fromOn": "desde el {{from}} en adelante",
+      "subjectOpen": "todas las fechas desde el {{from}} en adelante",
+      "subjectRepeat": "cada {{days}} ({{span}})",
+      "descriptionSeriesEdit": "Esta fecha vuelve al cierre recurrente, así que quizá los clientes no puedan reservar. Primero se revisan las reservaciones ya hechas.",
+      "stranded_one": "{{count}} reservación se quedaría sin servicio si esta fecha volviera a la serie. No se cambió nada.",
+      "stranded_other": "{{count}} reservaciones se quedarían sin servicio si esta fecha volviera a la serie. No se cambió nada.",
+      "stranded_many": "{{count}} de reservaciones se quedarían sin servicio si esta fecha volviera a la serie. No se cambió nada.",
+      "countUnknown": "No se pudo comprobar a cuántos clientes canceló este cierre. Reabrir espera a que cargue el conteo.",
+      "retryCount": "Reintentar"
     },
     "series": {
       "editDates": "Editar fechas…",
@@ -2233,6 +2242,11 @@
       "saveError": "No se pudo cerrar",
       "versionConflict": "La disponibilidad cambió desde que abriste esto. Cierra este diálogo e inténtalo de nuevo.",
       "groupsChanged": "Las reservaciones cambiaron mientras decidías. Revisa la lista actualizada y elige de nuevo.",
+      "alreadySaved": "Este cierre ya se guardó y sus reservaciones se atendieron. Revisa las fechas especiales antes de cerrar de nuevo.",
+      "discard": {
+        "title": "¿Descartar este cierre?",
+        "description": "No se ha cerrado nada. Se perderán las decisiones que tomaste aquí."
+      },
       "staffNote": "Nota para el personal",
       "guestMessage": "Mensaje para los comensales",
       "guestMessageTooLong": "Usa un máximo de {{max}} caracteres.",

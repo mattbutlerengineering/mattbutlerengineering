@@ -310,6 +310,10 @@
         ...(message ? { guestMessage: message } : {}),
       };
     }
+    export function sameRequest(a: CloseForm, b: CloseForm): boolean {
+      const key = (f: CloseForm) => JSON.stringify([f.what, f.when, f.fromMinute]);
+      return key(a) === key(b);
+    }
     export function actionsFor(kind: ClosureImpactKind): readonly ClosureAction[] {
       return kind === "shortened"
         ? ["cancel", "move", "keep_notify", "keep_silent"]
@@ -7075,7 +7079,11 @@
       idempotencyKey: string;
     };
     export const useCreateClosure = createMutationHook<CreateClosureVariables, ClosureResult>({
-      invalidateKeys: [AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY],
+      invalidateKeys: [
+        AVAILABILITY_CONFIG_QUERY_KEY,
+        AVAILABILITY_DAYS_QUERY_KEY,
+        CLOSURE_SUMMARIES_QUERY_KEY,
+      ],
       mutationFn: (api, { venueId, body, idempotencyKey }) =>
         api.availability.createClosure(venueId, body, idempotencyKey),
     });

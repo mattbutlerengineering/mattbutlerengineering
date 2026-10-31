@@ -1289,6 +1289,43 @@ describe("reopenClosure", () => {
       expect(deleted).toContain("other");
       for (const id of ["s1", "k1", "e1"]) expect(deleted).not.toContain(id);
     });
+
+    // Thursday Dec 24: the series closes the whole day; the edit opens it until 10 PM.
+    const editedThursday = () => {
+      const w = world();
+      w.dateRules = [
+        series,
+        {
+          ...child("e1", "closure", "2026-12-24"),
+          window: { version: 1, from: 1320, to: 1440 },
+        },
+      ];
+      return w;
+    };
+
+    it("refuses to remove a one-date edit when the series would close a booking out (#7975)", async () => {
+      const w = editedThursday(); // res-1 is booked at 7 PM that day
+      const before = { rules: w.dateRules, version: w.version, changes: w.changes.length };
+
+      const { outcome } = await reopen(w, MANAGER, "e1");
+
+      expect(outcome).toMatchObject({
+        kind: "invalid",
+        issues: expect.arrayContaining([
+          expect.objectContaining({ path: "reservations.res-1", code: "strands_booking" }),
+        ]),
+      });
+      expect({ rules: w.dateRules, version: w.version, changes: w.changes.length }).toEqual(before);
+    });
+
+    it("still removes a one-date edit when no booking depends on it", async () => {
+      const w = editedThursday();
+      w.reservations = [];
+
+      const { outcome } = await reopen(w, MANAGER, "e1");
+
+      expect(outcome.kind).toBe("reopened");
+    });
   });
 
   it("answers a replay of the original key after the reopen with the stored result, changing nothing", async () => {

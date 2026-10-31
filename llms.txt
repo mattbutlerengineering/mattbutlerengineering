@@ -1557,6 +1557,9 @@
       export function buildCloseRule(form: CloseForm, id: string, today: string): DateRule | null { /* ... */ }
     </item>
     <item priority="high">
+      export function sameRequest(a: CloseForm, b: CloseForm): boolean { /* ... */ }
+    </item>
+    <item priority="high">
       export function actionsFor(kind: ClosureImpactKind): readonly ClosureAction[] { /* ... */ }
     </item>
     <item priority="high">
@@ -15489,7 +15492,16 @@
       ): Promise<void> { /* ... */ }
     </item>
     <item priority="low">
-      type ReopenOutcome = { kind: "reopened"; result: Re | { kind: "not_found" } | { kind: "forbidden" };
+      type ReopenOutcome = { kind: "reopened"; result: Re | { kind: "not_found" } | { kind: "forbidden" } | Extract<Refusal, { kind: "inva;
+    </item>
+    <item priority="low">
+      async function refuseStrandingReopen(
+        tx: Db,
+        venueId: string,
+        state: ConfigState,
+        next: ConfigState["stored"],
+        now: Date
+      ): Promise<void> { /* ... */ }
     </item>
     <item priority="high">
       export async function reopenClosure(

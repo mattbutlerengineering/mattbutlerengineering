@@ -3013,7 +3013,16 @@
       ): Promise<void> { /* ... */ }
     </item>
     <item priority="low">
-      type ReopenOutcome = { kind: "reopened"; result: Re | { kind: "not_found" } | { kind: "forbidden" };
+      type ReopenOutcome = { kind: "reopened"; result: Re | { kind: "not_found" } | { kind: "forbidden" } | Extract<Refusal, { kind: "inva;
+    </item>
+    <item priority="low">
+      async function refuseStrandingReopen(
+        tx: Db,
+        venueId: string,
+        state: ConfigState,
+        next: ConfigState["stored"],
+        now: Date
+      ): Promise<void> { /* ... */ }
     </item>
     <item priority="high">
       export async function reopenClosure(

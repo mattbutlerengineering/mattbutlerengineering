@@ -19,6 +19,7 @@ import {
   decisionsReady,
   isUrgent,
   outcomeCounts,
+  sameRequest,
   toDecisions,
   validateClose,
   type ChoiceMap,
@@ -26,6 +27,8 @@ import {
   type CloseForm,
 } from "./close-draft.js";
 import { conflictOf, isDecisionRequired } from "./conflict-problem.js";
+import { DiscardChangesDialog } from "./DiscardChangesDialog.js";
+import { useDiscardGuard } from "./use-discard-guard.js";
 import { useWinningChangeText } from "./use-winning-change-text.js";
 import { CloseStepOne } from "./CloseStepOne.js";
 import { CloseStepTwo } from "./CloseStepTwo.js";
@@ -108,10 +111,14 @@ function inSeries(rule: DateRule | null, series: DateRule | undefined): DateRule
 }
 
 function failureText(error: unknown, t: TFunction): string {
-  return conflictOf(error)?.code === "version-conflict"
-    ? t("availability.close.versionConflict")
-    : describeApiError(error).detail;
+  const code = conflictOf(error)?.code;
+  if (code === "version-conflict") return t("availability.close.versionConflict");
+  if (code === "closure-exists") return t("availability.close.alreadySaved");
+  return describeApiError(error).detail;
 }
+
+/** One rule id and one idempotency key per request: a retry of it replays the first result. */
+const newAttempt = () => ({ ruleId: crypto.randomUUID(), idempotencyKey: crypto.randomUUID() });
 
 /**
  * Close, in two steps (ux.md F5): Step 1 says what, when and why with a live count of the
@@ -137,8 +144,24 @@ export function CloseDialog(props: CloseDialogProps) {
     readonly change: AvailabilityChangeSummary | null;
   } | null>(null);
   const winnerText = useWinningChangeText(winner?.change ?? null);
-  // One id per dialog: the rule is created at most once, whatever the Manager retries.
-  const [ruleId] = useState(() => crypto.randomUUID());
+  // The rule is created at most once per request, whatever the Manager retries; a lost response
+  // then a retry replays the first result. Changing the request starts a new attempt.
+  const [attempt, setAttempt] = useState(newAttempt);
+  const { ruleId, idempotencyKey } = attempt;
+  const guard = useDiscardGuard<null>(() => onClose());
+  const leave = () => {
+    // Escape during a save would close the dialog while the save still commits.
+    if (!isPending) guard.request(null);
+  };
+  const edit = (next: CloseForm) => {
+    if (!sameRequest(next, form)) {
+      setChoices({});
+      setAttempt(newAttempt());
+    }
+    setForm(next);
+    setInvalid(null);
+    guard.setDirty(true);
+  };
 
   const { series } = props;
   const impactRule = useMemo(
@@ -177,7 +200,7 @@ export function CloseDialog(props: CloseDialogProps) {
     try {
       const result = await mutateAsync({
         venueId,
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey,
         body: { expectedVersion: state.version, rule, decisions: toDecisions(groups, choices) },
       });
       const { cancel, move, keep_notify } = result.outcomes;
@@ -204,6 +227,8 @@ export function CloseDialog(props: CloseDialogProps) {
       const conflict = conflictOf(error);
       if (conflict?.code === "version-conflict") {
         setWinner({ change: conflict.winningChange });
+        refresh();
+      } else if (conflict?.code === "closure-exists") {
         refresh();
       }
     }
@@ -232,68 +257,83 @@ export function CloseDialog(props: CloseDialogProps) {
             }).trim();
 
   return (
-    <Dialog
-      open
-      onClose={onClose}
-      title={t("availability.close.title")}
-      description={t("availability.close.step", { step })}
-      footer={
-        <div className={styles.footer}>
-          {step === 2 && (
-            <Text variant="caption" color="secondary" className={styles.footerNote}>
-              {t("availability.close.step2.irreversible")}
-            </Text>
-          )}
-          <Button variant="secondary" onClick={step === 2 ? () => setStep(1) : onClose}>
-            {step === 2 ? t("availability.close.back") : t("availability.close.cancel")}
-          </Button>
-          <Button
-            variant="primary"
-            data-testid="close-primary"
-            onClick={step === 2 ? () => void save() : next}
-            isLoading={isPending}
-            disabled={primaryDisabled}
-          >
-            {label}
-          </Button>
-        </div>
-      }
-    >
-      {failure && (
-        <Alert variant="error" title={t("availability.close.saveError")}>
-          {failure}
-          {winner && <Text variant="body">{winnerText}</Text>}
-        </Alert>
-      )}
-      {step === 1 ? (
-        <CloseStepOne
-          form={form}
-          onChange={(f) => {
-            setForm(f);
-            setChoices({});
-            setInvalid(null);
-          }}
-          services={services}
-          today={today}
-          impact={impact}
-          impactLoading={impactQuery.isLoading}
-          impactFailed={impactQuery.error !== null}
-          replacedDate={replacedDate}
-          invalid={invalid}
-          locked={props.hostLocked}
-          dateLocked={series !== undefined}
-        />
-      ) : (
-        impact && (
-          <CloseStepTwo
+    <>
+      <Dialog
+        open
+        onClose={leave}
+        title={t("availability.close.title")}
+        description={t("availability.close.step", { step })}
+        footer={
+          <div className={styles.footer}>
+            {step === 2 && (
+              <Text variant="caption" color="secondary" className={styles.footerNote}>
+                {t("availability.close.step2.irreversible")}
+              </Text>
+            )}
+            <Button
+              variant="secondary"
+              disabled={isPending}
+              onClick={step === 2 ? () => setStep(1) : leave}
+            >
+              {step === 2 ? t("availability.close.back") : t("availability.close.cancel")}
+            </Button>
+            <Button
+              variant="primary"
+              data-testid="close-primary"
+              onClick={step === 2 ? () => void save() : next}
+              isLoading={isPending}
+              disabled={primaryDisabled}
+            >
+              {label}
+            </Button>
+          </div>
+        }
+      >
+        {failure && (
+          <Alert variant="error" title={t("availability.close.saveError")}>
+            {failure}
+            {winner && <Text variant="body">{winnerText}</Text>}
+          </Alert>
+        )}
+        {step === 1 ? (
+          <CloseStepOne
+            form={form}
+            onChange={edit}
+            services={services}
+            today={today}
             impact={impact}
-            choices={choices}
-            urgent={urgent}
-            guestMessage={form.guestMessage}
-            onChoose={(key, choice) => setChoices({ ...choices, [key]: choice })}
+            impactLoading={impactQuery.isLoading}
+            impactFailed={impactQuery.error !== null}
+            replacedDate={replacedDate}
+            invalid={invalid}
+            locked={props.hostLocked}
+            dateLocked={series !== undefined}
           />
-        )
-      )}
-    </Dialog>
+        ) : (
+          impact && (
+            <CloseStepTwo
+              impact={impact}
+              choices={choices}
+              urgent={urgent}
+              guestMessage={form.guestMessage}
+              onChoose={(key, choice) => {
+                setChoices({ ...choices, [key]: choice });
+                guard.setDirty(true);
+              }}
+            />
+          )
+        )}
+      </Dialog>
+      <DiscardChangesDialog
+        open={guard.pending !== null}
+        date={null}
+        wording={{
+          title: t("availability.close.discard.title"),
+          description: t("availability.close.discard.description"),
+        }}
+        onDiscard={guard.confirmDiscard}
+        onKeepEditing={guard.keepEditing}
+      />
+    </>
   );
 }

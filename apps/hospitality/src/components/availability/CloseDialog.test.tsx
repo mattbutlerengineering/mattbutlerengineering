@@ -6,10 +6,11 @@ import { ApiClientError } from "@mbe/api-client";
 import type { AvailabilityConfigState, ClosureImpact, DateRule } from "@mbe/types";
 
 const create = vi.hoisted(() => vi.fn());
+const saving = vi.hoisted(() => ({ value: false }));
 const impactState = vi.hoisted(() => ({ value: null as unknown }));
 const refetchImpact = vi.hoisted(() => vi.fn());
 vi.mock("../../hooks/useClosures.js", () => ({
-  useCreateClosure: () => ({ mutateAsync: create, isPending: false }),
+  useCreateClosure: () => ({ mutateAsync: create, isPending: saving.value }),
   useClosureImpact: () => ({
     data: impactState.value,
     isLoading: false,
@@ -96,6 +97,7 @@ describe("CloseDialog", () => {
   beforeEach(() => {
     create.mockReset();
     refresh.mockReset();
+    saving.value = false;
     impactState.value = IMPACT;
   });
 
@@ -398,6 +400,150 @@ describe("CloseDialog", () => {
       targetKind: "venue",
       startsOn: "2026-12-01",
       endsOn: "2026-12-01",
+    });
+  });
+
+  describe("a retried or interrupted close (#7975)", () => {
+    const RESULT = {
+      ruleId: "rule",
+      version: 8,
+      changeId: "c",
+      outcomes: { cancel: 14, move: 0, keep_notify: 0, keep_silent: 0 },
+    };
+    const toStepTwo = (dialog: HTMLElement) => {
+      fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+      fireEvent.click(within(dialog).getByRole("radio", { name: /Cancel, notify & refund/ }));
+    };
+    type Call = { idempotencyKey: string; body: { rule: { id: string } } };
+
+    it("retries a lost response under the same key and rule id, then reports success", async () => {
+      create.mockRejectedValueOnce(new Error("lost")).mockResolvedValueOnce(RESULT);
+      const { onClose } = renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+      expect(await within(dialog).findByText("Couldn't close")).toBeTruthy();
+
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+      const [first, second] = create.mock.calls.map((c) => c[0] as Call);
+      expect(second!.idempotencyKey).toBe(first!.idempotencyKey);
+      expect(second!.body.rule.id).toBe(first!.body.rule.id);
+      expect(await screen.findByText("Thu, Dec 24 closed · 14 reservations notified")).toBeTruthy();
+    });
+
+    it("starts a new attempt when the Manager changes the request after a failure", async () => {
+      create.mockRejectedValueOnce(new Error("lost")).mockResolvedValueOnce(RESULT);
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+      await within(dialog).findByText("Couldn't close");
+
+      fireEvent.click(within(dialog).getByRole("button", { name: "Back" }));
+      fireEvent.click(within(dialog).getByRole("radio", { name: "Tonight" }));
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+
+      await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+      const [first, second] = create.mock.calls.map((c) => c[0] as Call);
+      expect(second!.idempotencyKey).not.toBe(first!.idempotencyKey);
+      expect(second!.body.rule.id).not.toBe(first!.body.rule.id);
+    });
+
+    it("keeps the decisions when only the guest message changes", () => {
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Back" }));
+
+      fireEvent.change(within(dialog).getByLabelText(/Message for guests/), {
+        target: { value: "Closed for the holiday" },
+      });
+      fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+
+      expect(within(dialog).getByTestId("close-primary")).toHaveTextContent(
+        /^Close and cancel 14$/
+      );
+    });
+
+    it("clears the decisions when what or when changes", () => {
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Back" }));
+
+      fireEvent.click(within(dialog).getByRole("radio", { name: "Tonight" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+
+      expect(within(dialog).getByTestId("close-primary")).toHaveTextContent(
+        /^Choose for each group$/
+      );
+    });
+
+    it("asks before Escape throws away an edited draft", () => {
+      const { onClose } = renderDialog();
+      const dialog = screen.getByRole("dialog");
+      fireEvent.change(within(dialog).getByLabelText(/Message for guests/), {
+        target: { value: "Closed for the holiday" },
+      });
+
+      fireEvent.keyDown(document, { key: "Escape" });
+
+      expect(onClose).not.toHaveBeenCalled();
+      const ask = screen.getByRole("dialog", { name: "Discard this closure?" });
+      fireEvent.click(within(ask).getByRole("button", { name: "Keep editing" }));
+      expect(onClose).not.toHaveBeenCalled();
+      expect(screen.getByRole("dialog", { name: "Close" })).toBeTruthy();
+
+      fireEvent.keyDown(document, { key: "Escape" });
+      fireEvent.click(
+        within(screen.getByRole("dialog", { name: "Discard this closure?" })).getByRole("button", {
+          name: "Discard",
+        })
+      );
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it("closes straight away on Escape when nothing was edited", () => {
+      const { onClose } = renderDialog();
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it("locks Escape, Cancel and Back while the save is in flight", () => {
+      saving.value = true;
+      const { onClose } = renderDialog();
+      const dialog = screen.getByRole("dialog");
+
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(onClose).not.toHaveBeenCalled();
+      expect(within(dialog).getByRole("button", { name: "Cancel" })).toBeDisabled();
+
+      saving.value = false;
+    });
+
+    it("disables Back while the save is in flight on step 2", () => {
+      const { rerender } = renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+      saving.value = true;
+      rerender(
+        <ToastProvider>
+          <main>
+            <CloseDialog
+              venueId="venue-1"
+              state={{ config: fixtureConfig(), version: 7, source: "rows" }}
+              timezone="America/Los_Angeles"
+              today="2026-12-01"
+              initialDate={DATE}
+              onClose={vi.fn()}
+            />
+          </main>
+        </ToastProvider>
+      );
+      expect(within(dialog).getByRole("button", { name: "Back" })).toBeDisabled();
     });
   });
 

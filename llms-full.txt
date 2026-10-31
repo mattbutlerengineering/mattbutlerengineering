@@ -4951,6 +4951,10 @@
         ...(message ? { guestMessage: message } : {}),
       };
     }
+    export function sameRequest(a: CloseForm, b: CloseForm): boolean {
+      const key = (f: CloseForm) => JSON.stringify([f.what, f.when, f.fromMinute]);
+      return key(a) === key(b);
+    }
     export function actionsFor(kind: ClosureImpactKind): readonly ClosureAction[] {
       return kind === "shortened"
         ? ["cancel", "move", "keep_notify", "keep_silent"]
@@ -12979,6 +12983,11 @@
           401: authRequired,
           403: notClosureCaller,
           404: problem("Venue or closure not found"),
+          422: {
+            description:
+              "`invalid-config` with a `strands_booking` issue per booking: removing a one-date edit hands its date back to the series, which would leave these bookings without service. Nothing is changed",
+            body: AvailabilityConfigProblemSchema,
+          },
         },
       }),
       setTonight: defineEndpoint({
@@ -17953,7 +17962,11 @@
       idempotencyKey: string;
     };
     export const useCreateClosure = createMutationHook<CreateClosureVariables, ClosureResult>({
-      invalidateKeys: [AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY],
+      invalidateKeys: [
+        AVAILABILITY_CONFIG_QUERY_KEY,
+        AVAILABILITY_DAYS_QUERY_KEY,
+        CLOSURE_SUMMARIES_QUERY_KEY,
+      ],
       mutationFn: (api, { venueId, body, idempotencyKey }) =>
         api.availability.createClosure(venueId, body, idempotencyKey),
     });
@@ -51988,7 +52001,38 @@
       if (saved?.actorId !== actorId) throw new Refused({ kind: "forbidden" });
     }
     export type ReopenOutcome =
-      { kind: "reopened"; result: ReopenResult } | { kind: "not_found" } | { kind: "forbidden" };
+      | { kind: "reopened"; result: ReopenResult }
+      | { kind: "not_found" }
+      | { kind: "forbidden" }
+      | Extract<Refusal, { kind: "invalid" }>;
+    async function refuseStrandingReopen(
+      tx: Db,
+      venueId: string,
+      state: ConfigState,
+      next: ConfigState["stored"],
+      now: Date
+    ): Promise<void> {
+      const removed = new Set(state.stored.dateRules.map((r) => r.id));
+      for (const r of next.dateRules) removed.delete(r.id);
+      const after = {
+        ...state.effective,
+        dateRules: state.effective.dateRules.filter((r) => !removed.has(r.id)),
+      };
+      const stranded = findStrandedReservations(
+        { timezone: state.timezone, config: state.effective },
+        { timezone: state.timezone, config: after },
+        await futureBookings(tx, venueId, civilDateIn(now, state.timezone), now)
+      );
+      if (stranded.length === 0) return;
+      throw new Refused({
+        kind: "invalid",
+        issues: stranded.map((r) => ({
+          path: `reservations.${r.id}`,
+          code: "strands_booking",
+          message: "Removing this would leave this booking without service.",
+        })),
+      });
+    }
     export async function reopenClosure(
       input: {
         venueId: string;
@@ -52017,6 +52061,7 @@
             // Reopening a series also removes its skips and one-date edits (#7685).
             dateRules: state.stored.dateRules.filter((r) => r.id !== ruleId && r.seriesId !== ruleId),
           };
+          await refuseStrandingReopen(db, venueId, state, next, now);
           const diff = diffConfig(state.stored, next);
           await writeConfigDiff(db, venueId, diff, { actorId: caller.actorId, now });
           const bumped = await db.venue.update({

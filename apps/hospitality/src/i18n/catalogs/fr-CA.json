@@ -1687,7 +1687,16 @@
       "tell": "Informer les clients annulés de la réouverture, avec un lien pour réserver ({{count}})",
       "confirm": "Rouvrir",
       "keep": "Garder fermé",
-      "done": "{{date}} rouvert"
+      "done": "{{date}} rouvert",
+      "fromOn": "à partir du {{from}}",
+      "subjectOpen": "toutes les dates à partir du {{from}}",
+      "subjectRepeat": "chaque {{days}} ({{span}})",
+      "descriptionSeriesEdit": "Cette date retourne à la fermeture récurrente; les clients pourraient donc ne pas pouvoir réserver. Les réservations déjà faites sont vérifiées d'abord.",
+      "stranded_one": "{{count}} réservation resterait sans service si cette date retournait à la série. Rien n'a été modifié.",
+      "stranded_other": "{{count}} réservations resteraient sans service si cette date retournait à la série. Rien n'a été modifié.",
+      "stranded_many": "{{count}} de réservations resteraient sans service si cette date retournait à la série. Rien n'a été modifié.",
+      "countUnknown": "Impossible de vérifier combien de clients cette fermeture a annulés. La réouverture attend le chargement du compte.",
+      "retryCount": "Réessayer"
     },
     "series": {
       "editDates": "Modifier les dates…",
@@ -2233,6 +2242,11 @@
       "saveError": "Impossible de fermer",
       "versionConflict": "Les disponibilités ont changé depuis l'ouverture de cette fenêtre. Fermez-la et réessayez.",
       "groupsChanged": "Les réservations ont changé pendant votre décision. Passez en revue la liste à jour et choisissez de nouveau.",
+      "alreadySaved": "Cette fermeture est déjà enregistrée et ses réservations ont été traitées. Consultez les dates spéciales avant de fermer de nouveau.",
+      "discard": {
+        "title": "Abandonner cette fermeture ?",
+        "description": "Rien n'a été fermé. Les choix faits ici seront perdus."
+      },
       "staffNote": "Note pour le personnel",
       "guestMessage": "Message pour les clients",
       "guestMessageTooLong": "Limitez-vous à {{max}} caractères.",

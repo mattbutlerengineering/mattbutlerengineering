@@ -1660,7 +1660,16 @@
       "tell": "Tell the cancelled guests we've reopened, with a link to rebook ({{count}})",
       "confirm": "Reopen",
       "keep": "Keep closed",
-      "done": "{{date}} reopened"
+      "done": "{{date}} reopened",
+      "fromOn": "from {{from}} on",
+      "subjectOpen": "all dates from {{from}} on",
+      "subjectRepeat": "every {{days}} ({{span}})",
+      "descriptionSeriesEdit": "This date goes back to the repeating closure, so guests may not be able to book it. Bookings already made are checked first.",
+      "stranded_one": "{{count}} booking would be left without service if this date went back to the series. Nothing was changed.",
+      "stranded_other": "{{count}} bookings would be left without service if this date went back to the series. Nothing was changed.",
+      "stranded_many": "{{count}} bookings would be left without service if this date went back to the series. Nothing was changed.",
+      "countUnknown": "Couldn't check how many guests this closure cancelled. Reopen waits until the count loads.",
+      "retryCount": "Retry"
     },
     "series": {
       "editDates": "Edit dates…",
@@ -2181,6 +2190,11 @@
       "saveError": "Couldn't close",
       "versionConflict": "Availability changed since you opened this. Close this dialog and try again.",
       "groupsChanged": "The bookings changed while you were deciding. Review the updated list and choose again.",
+      "alreadySaved": "This closure was already saved, and its bookings handled. Check Special dates before closing again.",
+      "discard": {
+        "title": "Discard this closure?",
+        "description": "Nothing has been closed. The choices you made here will be lost."
+      },
       "staffNote": "Note for staff",
       "guestMessage": "Message for guests",
       "guestMessageTooLong": "Keep it to {{max}} characters.",

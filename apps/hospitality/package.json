@@ -52,7 +52,7 @@
     {
       "name": "Close Dialog (shared by the availability page and the timeline's Tonight panel)",
       "path": "dist/assets/CloseDialog-*.js",
-      "limit": "5.5 kB"
+      "limit": "5.6 kB"
     },
     {
       "name": "Service-day helpers (current-service-date, service-day-start and tonight-blocks, shared by the timeline's Tonight panel and the staff waitlist/booking form)",
@@ -112,7 +112,7 @@
     {
       "name": "Copilot context + catalog registry (shared by dashboard drawer and chat page)",
       "path": "dist/assets/useRefreshingChatStream-*.js",
-      "limit": "11.2 kB"
+      "limit": "11.3 kB"
     }
   ],
   "dependencies": {
