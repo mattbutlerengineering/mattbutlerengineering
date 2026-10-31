@@ -29530,6 +29530,86 @@
       };
     }
   </file>
+  <file path="services/agent/src/routes/gen-agent-briefing-tools.ts">
+    type BriefingEntry = Awaited<ReturnType<ApiClient["briefing"]["list"]>>[number];
+    function isRealDate(date: string): boolean {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+      const parsed = new Date(`${date}T00:00:00.000Z`);
+      return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date;
+    }
+    function seatingOf(entry: BriefingEntry, timeZone: string | undefined) {
+      const { guest } = entry;
+      return {
+        localTime: localTimeIn(entry.startTime, timeZone) ?? entry.startTime,
+        partySize: entry.partySize,
+        status: entry.status,
+        guestName: entry.guestName ?? guest?.name ?? null,
+        table: entry.table?.name ?? entry.table?.tableNumber ?? null,
+        occasion: entry.occasion,
+        seatingPreference: entry.seatingPreference,
+        notes: entry.notes,
+        ...(guest
+          ? {
+              visitCount: guest.visitCount,
+              lastVisit: guest.lastVisit,
+              dietaryRestrictions: guest.dietaryRestrictions ?? [],
+              tags: guest.tags ?? [],
+              guestNotes: guest.notes,
+              staffNotes: guest.staffNotes.map((n) => n.text),
+            }
+          : {}),
+      };
+    }
+    function readFailure(err: unknown) {
+      const refusal = refusalOf(err);
+      if (!refusal) {
+        return {
+          unknown: true,
+          error:
+            "Couldn't read the briefing right now. Tell the user you couldn't check and to try again shortly; do not say there are no bookings.",
+        } as const;
+      }
+      return refusal.status === 403
+        ? ({ refused: true, error: "The user doesn't have permission to see the briefing." } as const)
+        : ({ refused: true, error: refusal.detail } as const);
+    }
+    export function createBriefingTools(
+      log: FastifyBaseLogger,
+      api: ApiClient,
+      { venueId, timeZone }: { readonly venueId?: string | undefined; readonly timeZone?: string }
+    ): ToolSet {
+      return {
+        get_briefing: tool({
+          description:
+            "Read the Briefing page: the day's pending and confirmed seatings in arrival order, with each guest's visits, dietary restrictions, tags and notes. Defaults to today.",
+          inputSchema: z.object({
+            date: z.string().optional().describe("Date in YYYY-MM-DD format, defaults to today"),
+          }),
+          execute: async ({ date }) => {
+            if (!venueId) return NO_VENUE;
+            const day = date ?? todayIn(timeZone);
+            if (!isRealDate(day)) return { rejected: true, error: UNREADABLE_DATE };
+            log.info({ venueId, date: day }, "get_briefing tool called");
+            try {
+              const rows = await api.briefing.list({ venueId, date: day });
+              const entries = [...rows]
+                .sort((a, b) => a.startTime.localeCompare(b.startTime))
+                .map((entry) => seatingOf(entry, timeZone));
+              return {
+                date: day,
+                count: entries.length,
+                covers: rows.reduce((sum, r) => sum + r.partySize, 0),
+                entries,
+              };
+            } catch (err) {
+              log.error({ err, venueId, date: day }, "get_briefing failed");
+              return readFailure(err);
+            }
+          },
+        }),
+      };
+    }
+  </file>
   <file path="services/agent/src/routes/gen-agent-closure-support.ts">
     export type SpecialHoursRule = Extract<DateRule, { kind: "special_hours" }>;
     export type ClosureRule = Extract<DateRule, { kind: "closure" }>;
@@ -30781,6 +30861,9 @@
         "Read the waitlist with list_waitlist. To seat a waiting party use seat_waitlist_party, not seat_walk_in, so they also leave the waitlist. Parties are named by guest name; when two share a name, ask for the party size.",
         "Read menus with list_menus and get_menu. Mark an item sold out or available with set_menu_item_availability, and change its price, name or description with update_menu_item. When a menu is open, call get_menu with its id, then name the menu by its name in a change. When two items share a name, ask which section. Creating, deleting or reordering menus, sections or items stays on the Menus page: say so plainly and point the user there.",
         "Read floor plans with list_floor_plans (the active one, table counts and seats). Switch the active plan with activate_floor_plan, naming the plan by its name; if it is already active, say so. When two plans share a name, ask which. Editing a layout (tables, walls, sections) stays in the floor plan editor: say so plainly and point the user there.",
+        "Read the Briefing page with get_briefing (the day's seatings, each guest's dietary needs and notes). If it says it couldn't read the briefing, say so and never say there are no bookings.",
+        "Dashboard stats: answer covers and the day's bookings from list_today_reservations, open tables from get_table_status, the waitlist count from list_waitlist, and lapsing guests from list_lapsing_guests. Deposits at risk are on the Timeline page only.",
+        "Settings (preferences, venue profile and team roles) are changed on the Settings page only, and the booking widget is set up on the Booking widget page only: say so plainly and point the user to that page. You have no tool for either.",
         "You can't manage deposits yet. Say so plainly and point the user to that page in the dashboard.",
         "",
         ctx.catalogPrompt,
@@ -31453,6 +31536,7 @@
         ...createMenuTools(log, api, { venueId }),
         ...createFloorPlanTools(log, api, { venueId }),
         ...createTimelineTools(log, api, { venueId }),
+        ...createBriefingTools(log, api, { venueId, timeZone }),
       };
       return gateWriteTools(tools, log, options.confirmedAction);
     }
