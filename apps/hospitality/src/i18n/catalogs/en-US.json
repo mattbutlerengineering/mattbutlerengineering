@@ -1538,6 +1538,8 @@
       "notify_waitlist_party": "Tell a party their table is ready",
       "seat_waitlist_party": "Seat a waiting party",
       "remove_from_waitlist": "Remove from the waitlist",
+      "set_menu_item_availability": "Mark a menu item sold out or available",
+      "update_menu_item": "Change a menu item",
       "seat_reservation": "Seat a booked party",
       "mark_no_show": "Mark a no-show",
       "fields": {
@@ -1570,7 +1572,17 @@
         "text": "Note",
         "guestPhone": "Phone",
         "reason": "Reason",
-        "note": "Note"
+        "note": "Note",
+        "menu": "Menu",
+        "item": "Item",
+        "section": "Section",
+        "availability": "Availability",
+        "price": "Price",
+        "description": "Description"
+      },
+      "menuAvailability": {
+        "sold_out": "Sold out",
+        "available": "Available"
       },
       "tonightChanges": {
         "pause_online": "Pause online booking",

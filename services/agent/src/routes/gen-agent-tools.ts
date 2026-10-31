@@ -5,6 +5,7 @@ import type { FastifyBaseLogger } from "fastify";
 import { GEN_WRITE_TOOL_NAMES } from "./gen-runner.js";
 import { createAvailabilityTools } from "./gen-agent-availability-tools.js";
 import { createGuestTools } from "./gen-agent-guest-tools.js";
+import { createMenuTools } from "./gen-agent-menu-tools.js";
 import { createWaitlistTools } from "./gen-agent-waitlist-tools.js";
 import { createTimelineTools } from "./gen-agent-timeline-tools.js";
 import {
@@ -593,6 +594,7 @@ export function createAgentTools(
     ...createAvailabilityTools(log, api, { venueId, timeZone }),
     ...createGuestTools(log, api, { venueId }),
     ...createWaitlistTools(log, api, { venueId, timeZone }),
+    ...createMenuTools(log, api, { venueId }),
     ...createTimelineTools(log, api, { venueId }),
   };
   return gateWriteTools(tools, log, options.confirmedAction);

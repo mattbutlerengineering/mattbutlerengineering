@@ -125,6 +125,58 @@
       ): ToolSet { /* ... */ }
     </item>
   </file>
+  <file path="src/routes/gen-agent-menu-tools.ts">
+    <item priority="high">
+      type Menu = Awaited<ReturnType<ApiClient["menus"]["list"]>>[number];
+    </item>
+    <item priority="high">
+      type MenuDetail = Awaited<ReturnType<ApiClient["menus"]["getById"]>>;
+    </item>
+    <item priority="high">
+      type MenuSection = MenuDetail["sections"][number];
+    </item>
+    <item priority="high">
+      type MenuItem = MenuSection["items"][number];
+    </item>
+    <item priority="medium">
+      function formatPrice(cents: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function priceToCents(price: string): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function menuFailure(err: unknown) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function findMenu(menus: readonly Menu[], ref: string): { menu: Menu } | { error: string } { /* ... */ }
+    </item>
+    <item priority="medium">
+      function findItem(
+        menu: MenuDetail,
+        itemRef: string,
+        sectionRef: string | undefined
+      ): { section: MenuSection; item: MenuItem } | { error: string } { /* ... */ }
+    </item>
+    <item priority="low">
+      async function resolveTarget(
+        api: ApiClient,
+        venueId: string,
+        menuRef: string,
+        itemRef: string,
+        sectionRef: string | undefined
+      ) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createMenuTools(
+        log: FastifyBaseLogger,
+        api: ApiClient,
+        { venueId }: { readonly venueId?: string | undefined }
+      ): ToolSet { /* ... */ }
+    </item>
+    <item priority="medium">
+      function readFailure(err: unknown) { /* ... */ }
+    </item>
+  </file>
   <file path="src/routes/gen-agent-prompt.ts">
     <item priority="high">
       export const CHAT_PAGES: unknown;
