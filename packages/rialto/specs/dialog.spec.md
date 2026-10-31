@@ -12,10 +12,15 @@ AnimatePresence (Framer Motion — controls mount/unmount)
         +-- div.header
         |   +-- h2.title (optional) -- dialog title heading
         |   +-- button.close -- "Close dialog" aria-label
-        +-- p.description (optional) -- descriptive text
-        +-- children -- body content slot
+        +-- div.body (the only scroller; data-focus-trap-skip-initial)
+        |   +-- p.description (optional) -- descriptive text (scrolls with the body)
+        |   +-- children -- body content slot
         +-- div.footer (optional) -- fixed footer area
 ```
+
+Only `div.body` scrolls: the panel is a flex column, so `header` and `footer` keep their place. When the body overflows it gains `tabindex="0"`, `role="region"` and an accessible name (so it is keyboard-scrollable); when it fits it gains none, so short dialogs add no tab stop. It is excluded from the initial focus target. The panel scrolls only as a last resort, if the header and footer alone outgrow the viewport. The panel paints the opaque `--rialto-surface-elevated`, not the translucent glass recipe it composes.
+
+A `Popover` opened inside the body (DatePicker, DateRangePicker, TimePicker) portals into the dialog's layer, beside the panel, so the body's overflow does not clip it.
 
 The `panel` element is the dialog container. It uses `aria-label={title}` rather than `aria-labelledby` because the title is always a direct child.
 

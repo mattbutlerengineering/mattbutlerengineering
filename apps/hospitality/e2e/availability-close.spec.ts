@@ -146,10 +146,11 @@ async function mockAvailability(page: Page, closeDate: string) {
 }
 
 /** Opens the Close dialog for `closeDate` and advances to step 2 (the 14-booking impact list). */
-async function openCloseStepTwo(page: Page, closeDate: string) {
+async function openCloseStepTwo(page: Page, closeDate: string, theme: "light" | "dark" = "light") {
   await page.goto("availability");
   const calendar = page.getByRole("grid", { name: "Availability calendar" });
   await expect(calendar).toBeVisible();
+  await page.evaluate((t) => document.documentElement.setAttribute("data-theme", t), theme);
   await page.getByRole("button", { name: "Next", exact: true }).click();
   await calendar.locator(`[data-date="${closeDate}"]`).click();
   // The toolbar has a "Close…" too; the drawer's carries the date.
@@ -170,25 +171,34 @@ async function openCloseStepTwo(page: Page, closeDate: string) {
 
 test.describe("Availability close dialog (F5)", () => {
   // #7994: a long step 2 used to scroll the whole panel, pushing the primary action out of view,
-  // and the glass recipe left the panel see-through.
-  for (const viewport of [
-    { width: 1280, height: 720 },
-    { width: 375, height: 812 },
-  ]) {
-    test(`step 2 keeps its primary action in view and the panel opaque at ${viewport.width}x${viewport.height}`, async ({
+  // and the glass recipe left the panel see-through. Runs in both themes. Desktop only: below the
+  // calendar breakpoint the page swaps the grid for an agenda, so this flow starts elsewhere; the
+  // phone-size behaviour is pinned in rialto-web's interaction.spec.ts.
+  for (const theme of ["light", "dark"] as const) {
+    test(`step 2 scrolls its body, keeps its primary action in view and the panel opaque (${theme})`, async ({
       mockedPage,
     }) => {
       const CLOSE_DATE = midNextMonth();
-      await mockedPage.setViewportSize(viewport);
       await mockedPage.clock.setFixedTime(pinnedNoon());
       await mockAvailability(mockedPage, CLOSE_DATE);
-      const { dialog } = await openCloseStepTwo(mockedPage, CLOSE_DATE);
+      const { dialog } = await openCloseStepTwo(mockedPage, CLOSE_DATE, theme);
 
       await expect(dialog.getByTestId("close-primary")).toBeInViewport({ ratio: 1 });
-      // Opaque in every theme: the glass recipe's rgb(253 252 250 / 0.85) must not show through.
+      // The 14-booking list overflows, so the body (not the panel) scrolls and is a tab stop.
+      const body = dialog.getByRole("region", { name: "Scrollable content" });
+      expect(await body.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+      expect(await dialog.evaluate((el) => el.scrollHeight <= el.clientHeight)).toBe(true);
+      expect(await dialog.evaluate(() => document.documentElement.dataset.theme)).toBe(theme);
+      // Opaque: the glass recipe's rgb(253 252 250 / 0.85) must not show through.
+      // Read alpha from whatever serialization the browser gives; an unknown one fails.
       const alpha = await dialog.evaluate((el) => {
-        const match = /rgba\([^)]*,\s*([\d.]+)\)$/.exec(getComputedStyle(el).backgroundColor);
-        return match ? Number(match[1]) : 1;
+        const color = getComputedStyle(el).backgroundColor;
+        const slash = /\/\s*([\d.]+)(%?)\s*\)$/.exec(color);
+        if (slash) return Number(slash[1]) / (slash[2] ? 100 : 1);
+        const comma = /^rgba\(\s*[^,]+,[^,]+,[^,]+,\s*([\d.]+)\s*\)$/.exec(color);
+        if (comma) return Number(comma[1]);
+        if (/^rgb\(\s*[\d.]+[\s,]+[\d.]+[\s,]+[\d.]+\s*\)$/.test(color)) return 1;
+        throw new Error(`unrecognised background-color serialization: ${color}`);
       });
       expect(alpha).toBe(1);
     });

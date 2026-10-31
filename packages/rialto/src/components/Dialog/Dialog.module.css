@@ -19,9 +19,12 @@
   position: relative;
   max-height: calc(100dvh - var(--rialto-space-4xl));
 
-  /* The title and footer keep their place; only .body scrolls. */
+  /* The title and footer keep their place; .body scrolls first. The panel
+     scrolls only if the fixed chrome alone outgrows the viewport, so the
+     footer is never unreachable. */
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
 }
 
 /* The glass recipe this panel composes is translucent (rgb(253 252 250 / 0.85)
@@ -65,7 +68,6 @@
 }
 
 .description {
-  flex-shrink: 0;
   font-size: var(--rialto-text-sm);
   color: var(--rialto-text-secondary);
   line-height: var(--rialto-leading-relaxed);
@@ -100,4 +102,26 @@
   justify-content: flex-end;
   gap: var(--rialto-space-xs);
   margin-top: var(--rialto-space-lg);
+}
+
+/* Short viewports (a landscape phone, or 1280x1024 at 400% zoom = 320x256 CSS
+   px, the WCAG reflow size): the 96px default reserve would leave the body
+   almost no height. Spend the room on the body, not on chrome. */
+@media (max-height: 480px) {
+  .overlay {
+    padding: var(--rialto-space-xs);
+  }
+
+  .panel {
+    max-height: calc(100dvh - 2 * var(--rialto-space-xs));
+    padding: var(--rialto-space-md);
+  }
+
+  .header {
+    margin-bottom: var(--rialto-space-sm);
+  }
+
+  .footer {
+    margin-top: var(--rialto-space-sm);
+  }
 }

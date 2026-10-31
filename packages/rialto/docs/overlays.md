@@ -81,7 +81,10 @@ Modal dialog for focused interactions.
 
 ### Visual Design {#dialog-visual-design}
 
-- **Surface**: `glass` composition (translucent, blur backdrop)
+- **Surface**: opaque `--rialto-surface-elevated` in both themes. The panel composes `glass` but overrides it: a modal must not show the page through it.
+- **Scrolling**: only the body scrolls (the description scrolls with it). The header and footer stay in view; the panel itself scrolls only if that chrome alone outgrows the viewport. A body that overflows becomes a focusable `region` so it is keyboard-scrollable; a body that fits adds no tab stop.
+- **Short viewports**: at `max-height: 480px` the overlay padding, panel padding and chrome margins tighten so the body keeps room (320x256 is the WCAG reflow size).
+- **Nested Popover**: a `Popover` (and so `DatePicker`/`DateRangePicker`/`TimePicker`) opened inside a Dialog renders into the dialog's layer, placed by the trigger's viewport rect and flipped to the roomier side, so the scrolling body never clips it.
 - **Overlay**: `--rialto-overlay` backdrop scrim
 - **Radius**: `--rialto-radius-soft`
 - **Spacing**: `--rialto-space-lg` padding, `--rialto-space-md` header gap
@@ -173,7 +176,7 @@ Simple confirmation dialog.
 
 ### Visual Design {#confirm-dialog-visual-design}
 
-- **Surface**: Inherits Dialog glass panel
+- **Surface**: Inherits the Dialog panel (opaque elevated surface)
 - **Confirm button**: `--rialto-accent` (default), `--rialto-error` (danger variant)
 - **Cancel button**: secondary style
 - **Radius**: `--rialto-radius-default` buttons
