@@ -85,10 +85,17 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
         }
       };
       sync();
-      if (typeof ResizeObserver === "undefined") return;
-      const observer = new ResizeObserver(sync);
-      observer.observe(body);
-      return () => observer.disconnect();
+      // The resize observer only sees the body's own box. Content that changes
+      // scrollHeight without resizing it (an absolute child, text shrinking to
+      // exactly the cap) needs the mutation observer.
+      const resize = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(sync);
+      resize?.observe(body);
+      const mutation = new MutationObserver(sync);
+      mutation.observe(body, { childList: true, subtree: true, characterData: true });
+      return () => {
+        resize?.disconnect();
+        mutation.disconnect();
+      };
     }, [open, messages.scrollableContent]);
 
     const motionProps = shouldReduceMotion

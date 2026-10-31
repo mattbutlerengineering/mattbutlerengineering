@@ -18,7 +18,7 @@ AnimatePresence (Framer Motion — controls mount/unmount)
         +-- div.footer (optional) -- fixed footer area
 ```
 
-Only `div.body` scrolls: the panel is a flex column, so `header` and `footer` keep their place. When the body overflows it gains `tabindex="0"`, `role="region"` and an accessible name (so it is keyboard-scrollable); when it fits it gains none, so short dialogs add no tab stop. It is excluded from the initial focus target. The panel scrolls only as a last resort, if the header and footer alone outgrow the viewport. The panel paints the opaque `--rialto-surface-elevated`, not the translucent glass recipe it composes.
+Only `div.body` scrolls: the panel is a flex column, so `header` and `footer` keep their place. When the body overflows it gains `tabindex="0"`, `role="region"` and an accessible name (so it is keyboard-scrollable); when it fits it gains none, so short dialogs add no tab stop. This is re-evaluated when the body resizes and when its content changes (child list, subtree, text). It is excluded from the initial focus target. The body is `position: relative`, so absolutely positioned descendants (hidden radio inputs and the like) stay inside its clip rather than resolving against the panel. The panel scrolls only in one case: the header and footer, which never shrink, are by themselves taller than the room available (a very long title, or a viewport shorter than the chrome), after the body has already shrunk to nothing. The panel paints the opaque `--rialto-surface-elevated`, not the translucent glass recipe it composes.
 
 A `Popover` opened inside the body (DatePicker, DateRangePicker, TimePicker) portals into the dialog's layer, beside the panel, so the body's overflow does not clip it.
 

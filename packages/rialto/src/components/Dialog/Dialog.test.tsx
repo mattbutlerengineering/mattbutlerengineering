@@ -243,6 +243,12 @@ describe("Dialog", () => {
       expect(rule("\\.body")).toMatch(/min-height:\s*0/);
     });
 
+    it("makes the body the containing block, so absolute descendants stay inside its clip", () => {
+      // Hidden radio inputs and the like are position: absolute; without this
+      // they resolve against the panel and escape the body's overflow clip.
+      expect(rule("\\.body")).toMatch(/position:\s*relative/);
+    });
+
     it("paints an opaque surface over the glass recipe in both themes", () => {
       // The panel composes `glass` (rgb(253 252 250 / 0.85) + backdrop blur),
       // so the override must out-specify it: #7994.
@@ -307,6 +313,71 @@ describe("Dialog", () => {
       expect(bodyOf()).not.toHaveAttribute("tabindex");
       expect(bodyOf()).not.toHaveAttribute("role");
       restore();
+    });
+
+    // A ResizeObserver only sees the body's box change. These two inputs change
+    // scrollHeight without resizing it, so they need a MutationObserver.
+    describe("re-syncs on content changes that do not resize the box", () => {
+      const metrics = { scrollHeight: 200, clientHeight: 200 };
+      beforeEach(() => {
+        metrics.scrollHeight = 200;
+        metrics.clientHeight = 200;
+        vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(
+          () => metrics.scrollHeight
+        );
+        vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(
+          () => metrics.clientHeight
+        );
+      });
+      afterEach(() => vi.restoreAllMocks());
+
+      it("gains the tab stop when an absolute child makes a fitting body overflow", async () => {
+        render(
+          <Dialog open onClose={() => {}} title="T">
+            <p>Dialog body</p>
+          </Dialog>
+        );
+        expect(bodyOf()).not.toHaveAttribute("tabindex");
+        metrics.scrollHeight = 3000;
+        const tall = document.createElement("div");
+        tall.style.position = "absolute";
+        const body = bodyOf();
+        body.appendChild(tall);
+        await waitFor(() => expect(body).toHaveAttribute("tabindex", "0"));
+        expect(body).toHaveAttribute("role", "region");
+      });
+
+      it("drops a stale tab stop when text shrinks overflowing content to exactly the cap", async () => {
+        metrics.scrollHeight = 900;
+        render(
+          <Dialog open onClose={() => {}} title="T">
+            <p>Dialog body</p>
+          </Dialog>
+        );
+        const body = bodyOf();
+        expect(body).toHaveAttribute("tabindex", "0");
+        metrics.scrollHeight = 200;
+        const text = screen.getByText("Dialog body").firstChild as Text;
+        text.data = "Shorter";
+        await waitFor(() => expect(body).not.toHaveAttribute("tabindex"));
+        expect(body).not.toHaveAttribute("role");
+        expect(body).not.toHaveAttribute("aria-label");
+      });
+
+      it("stops observing when the dialog closes", async () => {
+        const disconnect = vi.spyOn(MutationObserver.prototype, "disconnect");
+        const { rerender } = render(
+          <Dialog open onClose={() => {}} title="T">
+            <p>Dialog body</p>
+          </Dialog>
+        );
+        rerender(
+          <Dialog open={false} onClose={() => {}} title="T">
+            <p>Dialog body</p>
+          </Dialog>
+        );
+        expect(disconnect).toHaveBeenCalled();
+      });
     });
   });
 
