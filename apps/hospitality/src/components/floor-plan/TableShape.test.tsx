@@ -426,8 +426,8 @@ describe("TableShape", () => {
         capacity: 0,
       });
       render(<TableShape table={table} {...defaultProps} />);
-      // Round table = drag shadow + contact shadow + surface + 3 grain rings.
-      expect(document.querySelectorAll('[data-testid="konva-circle"]').length).toBe(6);
+      // Round table = contact shadow + surface + 3 grain rings.
+      expect(document.querySelectorAll('[data-testid="konva-circle"]').length).toBe(5);
       expect(document.querySelectorAll('[data-testid="konva-path"]').length).toBe(1);
     });
 

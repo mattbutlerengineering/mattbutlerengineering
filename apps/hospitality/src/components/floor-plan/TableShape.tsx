@@ -1,6 +1,6 @@
 import type React from "react";
 import { memo, useRef, useEffect, useState } from "react";
-import { Circle, Group, Rect } from "react-konva";
+import { Group, Rect } from "react-konva";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type { Table } from "@mbe/types";
@@ -202,35 +202,18 @@ function TableShapeComponent({
       onClick={handleClick}
       onTap={handleClick}
     >
-      {shape === "circle" ? (
-        <Circle
-          ref={dragShadowRef as React.Ref<Konva.Circle>}
-          name={DRAG_SHADOW_NAME}
-          radius={width / 2}
-          fill={fillColor}
-          listening={false}
-          shadowColor="#000"
-          shadowBlur={0}
-          shadowOpacity={0}
-          shadowForStrokeEnabled={false}
-        />
-      ) : (
-        <Rect
-          ref={dragShadowRef as React.Ref<Konva.Rect>}
-          name={DRAG_SHADOW_NAME}
-          x={-width / 2}
-          y={-height / 2}
-          width={width}
-          height={height}
-          cornerRadius={TABLE_CORNER_RADIUS[shape]}
-          fill={fillColor}
-          listening={false}
-          shadowColor="#000"
-          shadowBlur={0}
-          shadowOpacity={0}
-          shadowForStrokeEnabled={false}
-        />
-      )}
+      <Rect
+        ref={dragShadowRef as React.Ref<Konva.Rect>}
+        x={-width / 2}
+        y={-height / 2}
+        width={width}
+        height={height}
+        cornerRadius={shape === "circle" ? width / 2 : TABLE_CORNER_RADIUS[shape]}
+        name={DRAG_SHADOW_NAME}
+        fill={fillColor}
+        listening={false}
+        shadowOpacity={0}
+      />
       <Group ref={furnitureRef} name={FURNITURE_GROUP_NAME}>
         {seats.map((seat) => (
           // Seats have no identity of their own; their placement is deterministic
