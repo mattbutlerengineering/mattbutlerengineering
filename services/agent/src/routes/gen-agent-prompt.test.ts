@@ -90,6 +90,13 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).toMatch(/list_closures .*before .*reopen_closure/i);
     expect(prompt).toMatch(/affects bookings.*Availability page/i);
     expect(prompt).toMatch(/regular schedules and service hours.*Availability page/i);
+    expect(prompt).toMatch(/scope whole_venue only when the user asked to close the whole venue/);
+    expect(prompt).toMatch(/Neither takes today.*change_tonight_availability/);
+    expect(prompt).toMatch(/full from and to span.*scope/);
+    expect(prompt).toMatch(
+      /special hours, repeating closures and booking or table pauses are changed on the Availability page/
+    );
+    expect(prompt).toMatch(/countsUnavailable never state how many/);
   });
 
   describe("the page the chat is open on (#7924)", () => {

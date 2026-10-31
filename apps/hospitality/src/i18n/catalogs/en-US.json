@@ -1588,12 +1588,18 @@
         "opensAt": "Opens",
         "lastSeating": "Last seating",
         "closesAt": "Closes",
-        "tellCancelledGuests": "Tell cancelled guests"
+        "tellCancelledGuests": "Tell cancelled guests",
+        "scope": "What closes"
       },
       "yesNo": {
         "yes": "Yes",
         "no": "No"
       },
+      "scopes": {
+        "whole_venue": "The whole venue",
+        "service": "One service"
+      },
+      "untilReopened": "Until reopened",
       "menuAvailability": {
         "sold_out": "Sold out",
         "available": "Available"

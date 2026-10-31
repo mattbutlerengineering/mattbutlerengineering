@@ -1614,12 +1614,18 @@
         "opensAt": "Ouverture",
         "lastSeating": "Dernier placement",
         "closesAt": "Fermeture",
-        "tellCancelledGuests": "Aviser les clients annulés"
+        "tellCancelledGuests": "Aviser les clients annulés",
+        "scope": "Ce qui ferme"
       },
       "yesNo": {
         "yes": "Oui",
         "no": "Non"
       },
+      "scopes": {
+        "whole_venue": "Tout l'établissement",
+        "service": "Un seul service"
+      },
+      "untilReopened": "Jusqu'à la réouverture",
       "menuAvailability": {
         "sold_out": "Épuisé",
         "available": "Disponible"

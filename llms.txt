@@ -3053,7 +3053,7 @@
       export function useChatSuggestions(): readonly string[] { /* ... */ }
     </item>
     <item priority="high">
-      type ChatActionKey = `chat.actions.${(typeof ACTION | (typeof YES_NO)[keyof typeof Y | `chat.actions.fields.${(typeof | (typeof TABLE_STATUSES)[keyof  | (typeof TONIGHT_CHANGES)[keyof | (typeof CANCEL_REASONS)[keyof  | (typeof MENU_AVAILABILITY)[key;
+      type ChatActionKey = `chat.actions.${(typeof ACTION | (typeof YES_NO)[keyof typeof Y | (typeof SCOPES)[keyof typeof S | (typeof OPEN_END)[keyof typeof | `chat.actions.fields.${(typeof | (typeof TABLE_STATUSES)[keyof  | (typeof TONIGHT_CHANGES)[keyof | (typeof CANCEL_REASONS)[keyof  | (typeof MENU_AVAILABILITY)[key;
     </item>
     <item priority="high">
       type Translate = (key: ChatActionKey) => string;
@@ -3062,7 +3062,7 @@
       function formatWhen(key: string, value: string, locale?: string): string { /* ... */ }
     </item>
     <item priority="medium">
-      function lookup<T extends Record<string, string>>(map: T, key: string): T[keyof T] | undefined { /* ... */ }
+      function valueKey(key: string, value: string): ChatActionKey | undefined { /* ... */ }
     </item>
     <item priority="high">
       export function describeChatAction(
@@ -9939,53 +9939,135 @@
       ): ToolSet { /* ... */ }
     </item>
   </file>
-  <file path="services/agent/src/routes/gen-agent-closure-tools.ts">
-    <item priority="high">
+  <file path="services/agent/src/routes/gen-agent-closure-support.ts">
+    <item priority="low">
       type SpecialHoursRule = Extract<DateRule, { kind: "special_hours" }>;
     </item>
-    <item priority="high">
+    <item priority="low">
       type ClosureRule = Extract<DateRule, { kind: "closure" }>;
     </item>
-    <item priority="high">
+    <item priority="low">
       type DatedRule = ClosureRule | SpecialHoursRule;
     </item>
-    <item priority="high">
+    <item priority="low">
       type Impact = Awaited<ReturnType<ApiClient["availability"]["getClosureI...;
     </item>
-    <item priority="medium">
-      function dayNumber(date: string): number | undefined { /* ... */ }
+    <item priority="high">
+      export const WEEKDAYS: unknown;
+    </item>
+    <item priority="high">
+      export const UNTIL_REOPENED: unknown;
+    </item>
+    <item priority="high">
+      export const UNREADABLE_DATE: unknown;
+    </item>
+    <item priority="high">
+      export const CHECK_FAILED: unknown;
+    </item>
+    <item priority="high">
+      export const SAVE_UNSURE: unknown;
+    </item>
+    <item priority="high">
+      export const NO_REGULAR_HOURS: unknown;
+    </item>
+    <item priority="high">
+      export function dayNumber(date: string): number | undefined { /* ... */ }
     </item>
     <item priority="medium">
       function weekdayOf(date: string): number { /* ... */ }
     </item>
-    <item priority="medium">
-      function checkSpan(
+    <item priority="high">
+      export function checkSpan(
         date: string,
         endDate: string | undefined,
         today: string
       ): { from: string; to: string } | { error: string } { /* ... */ }
     </item>
-    <item priority="medium">
-      function coversDate(rule: DatedRule, date: string): boolean { /* ... */ }
+    <item priority="high">
+      export function coversDate(rule: DatedRule, date: string, config: AvailabilityConfig): boolean { /* ... */ }
     </item>
-    <item priority="medium">
-      function spanOf(rule: DatedRule) { /* ... */ }
+    <item priority="high">
+      export function spanOf(rule: DatedRule) { /* ... */ }
     </item>
-    <item priority="medium">
-      function serviceName(config: AvailabilityConfig, id: string): string { /* ... */ }
+    <item priority="high">
+      export function spanText(rule: DatedRule): string { /* ... */ }
     </item>
-    <item priority="medium">
-      function scopeOf(rule: DatedRule, config: AvailabilityConfig): string { /* ... */ }
+    <item priority="high">
+      export const isDated: unknown;
+    </item>
+    <item priority="high">
+      export function serviceName(config: AvailabilityConfig, id: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function scopeOf(rule: DatedRule, config: AvailabilityConfig): string { /* ... */ }
     </item>
     <item priority="medium">
       function plural(count: number, noun: string): string { /* ... */ }
     </item>
-    <item priority="medium">
-      function affectedResult(impact: Pick<Impact, "reservations" | "covers" | "groups">) { /* ... */ }
+    <item priority="high">
+      export function affectedResult(impact: Pick<Impact, "reservations" | "covers" | "groups">) { /* ... */ }
     </item>
     <item priority="medium">
-      function closureFailure(err: unknown, unsure: string) { /* ... */ }
+      function issueMessages(err: unknown): string[] { /* ... */ }
     </item>
+    <item priority="high">
+      export function closureFailure(err: unknown, unsure: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      export const SCOPES: unknown;
+    </item>
+    <item priority="high">
+      export function scopeNeedsService(
+        input: { readonly scope: (typeof SCOPES)[number]; readonly service?: string | undefined },
+        ctx: z.RefinementCtx
+      ): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function findCoveringClosure(
+        config: AvailabilityConfig,
+        target: { readonly serviceId?: string | undefined },
+        from: string,
+        to: string
+      ): ClosureRule | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closureOnDay(
+        config: AvailabilityConfig,
+        serviceId: string,
+        date: string
+      ): ClosureRule | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function hasSpecialHours(config: AvailabilityConfig, date: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function findReopenable(
+        config: AvailabilityConfig,
+        want: {
+          readonly from: string;
+          readonly to: string | null;
+          readonly scope: (typeof SCOPES)[number];
+          readonly serviceId?: string | undefined;
+        }
+      ): { rule: ClosureRule } | { error: string } { /* ... */ }
+    </item>
+    <item priority="medium">
+      function reopenableOnly(rule: DatedRule): { rule: ClosureRule } | { error: string } { /* ... */ }
+    </item>
+    <item priority="low">
+      interface HoursInput {
+        opensAt: string;
+        lastSeating: string;
+        closesAt: string;
+      }
+    </item>
+    <item priority="high">
+      export function checkHours(
+        input: HoursInput
+      ): { opensAt: number; lastSeatingAt: number; closesAt: number } | { error: string } { /* ... */ }
+    </item>
+  </file>
+  <file path="services/agent/src/routes/gen-agent-closure-tools.ts">
     <item priority="low">
       async function saveIfNoBookings(
         api: ApiClient,
@@ -9994,19 +10076,6 @@
         expectedVersion: number
       ): Promise<{ saved: true } | Record<string, unknown>> { /* ... */ }
     </item>
-    <item priority="medium">
-      function hasSpecialHours(config: AvailabilityConfig, date: string): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      interface HoursInput {
-        opensAt: string;
-        lastSeating: string;
-        closesAt: string;
-      }
-    </item>
-    <item priority="medium">
-      function hoursMinutes(input: HoursInput) { /* ... */ }
-    </item>
     <item priority="low">
       async function specialServices(
         api: ApiClient,
@@ -10014,18 +10083,31 @@
         config: AvailabilityConfig,
         date: string,
         serviceId: string,
-        hours: ReturnType<typeof hoursMinutes>
+        hours: { opensAt: number; lastSeatingAt: number; closesAt: number }
       ): Promise<{ services: SpecialHoursService[] } | { error: string }> { /* ... */ }
     </item>
     <item priority="medium">
       function describeRule(rule: DatedRule, config: AvailabilityConfig, cancelled: number | undefined) { /* ... */ }
     </item>
+    <item priority="high">
+      type ToolContext = {
+        readonly log: FastifyBaseLogger;
+        readonly api: ApiC...;
+    </item>
     <item priority="medium">
-      function findCovering(
-        config: AvailabilityConfig,
-        date: string,
-        service: string | undefined
-      ): { rule: DatedRule } | { error: string } { /* ... */ }
+      function closeDates({ log, api, venueId, timeZone }: ToolContext) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function setSpecialHours({ log, api, venueId, timeZone }: ToolContext) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function reopenNote(cancelled: number, told: boolean): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function reopenClosure({ log, api, venueId }: ToolContext) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function listClosures({ log, api, venueId, timeZone }: ToolContext) { /* ... */ }
     </item>
     <item priority="high">
       export function createClosureTools(
