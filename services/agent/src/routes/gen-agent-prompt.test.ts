@@ -301,6 +301,30 @@ describe("floor plans in the prompt", () => {
   });
 });
 
+// #7973: the briefing, the dashboard's headline stats, and what stays page-only.
+describe("briefing, dashboard stats and page-only areas in the prompt", () => {
+  const prompt = buildAgentSystemPrompt({ venueId: "v", now: NOW, catalogPrompt: "CATALOG" });
+
+  it("reads the briefing with get_briefing", () => {
+    expect(prompt).toMatch(/get_briefing/);
+    expect(prompt).toMatch(/couldn't read the briefing.*never.*no bookings/i);
+  });
+
+  it("answers the dashboard's headline stats from existing tools", () => {
+    expect(prompt).toMatch(/Dashboard stats.*covers from get_briefing.*list_today_reservations/);
+    expect(prompt).toMatch(/Dashboard stats.*waitlist.*list_waitlist/);
+    expect(prompt).toMatch(/Dashboard stats.*lapsing guests.*list_lapsing_guests/);
+  });
+
+  it("keeps settings on the Settings page", () => {
+    expect(prompt).toMatch(/preferences, venue profile and team roles.*Settings page/);
+  });
+
+  it("keeps the booking widget on its page", () => {
+    expect(prompt).toMatch(/booking widget.*Booking widget page/i);
+  });
+});
+
 // #7926: the chat runs the waitlist now.
 describe("waitlist in the prompt", () => {
   it("lists waitlist changes among the confirmed ones and no longer says the waitlist is unsupported", () => {

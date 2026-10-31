@@ -105,6 +105,27 @@
       ): ToolSet { /* ... */ }
     </item>
   </file>
+  <file path="src/routes/gen-agent-briefing-tools.ts">
+    <item priority="high">
+      type BriefingEntry = Awaited<ReturnType<ApiClient["briefing"]["list"]>>[number];
+    </item>
+    <item priority="medium">
+      function isRealDate(date: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function seatingOf(entry: BriefingEntry, timeZone: string | undefined) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function readFailure(err: unknown) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createBriefingTools(
+        log: FastifyBaseLogger,
+        api: ApiClient,
+        { venueId, timeZone }: { readonly venueId?: string | undefined; readonly timeZone?: string }
+      ): ToolSet { /* ... */ }
+    </item>
+  </file>
   <file path="src/routes/gen-agent-closure-support.ts">
     <item priority="low">
       type SpecialHoursRule = Extract<DateRule, { kind: "special_hours" }>;

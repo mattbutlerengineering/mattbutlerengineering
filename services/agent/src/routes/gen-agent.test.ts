@@ -157,7 +157,7 @@ describe("POST /api/gen/agent", () => {
     expect(response.statusCode).toBe(400);
   });
 
-  it("registers all 38 tools (13 read + render + 24 write)", async () => {
+  it("registers all 39 tools (14 read + render + 24 write)", async () => {
     vi.mocked(streamText).mockReturnValueOnce({
       fullStream: mockAsyncIterable([]),
       usage: Promise.resolve({ inputTokens: 10, outputTokens: 5 }),
@@ -186,6 +186,7 @@ describe("POST /api/gen/agent", () => {
       "close_dates",
       "create_reservation",
       "end_tonight_change",
+      "get_briefing",
       "get_menu",
       "get_table_status",
       "list_closures",
