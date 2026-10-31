@@ -29528,6 +29528,106 @@
       };
     }
   </file>
+  <file path="services/agent/src/routes/gen-agent-floor-plan-tools.ts">
+    type FloorPlan = Awaited<ReturnType<ApiClient["floorPlans"]["list"]>>["data"][number];
+    function findPlan(
+      plans: readonly FloorPlan[],
+      ref: string
+    ): { plan: FloorPlan } | { error: string } {
+      const matches = plans.filter((p) => sameName(p.name, ref));
+      if (matches.length === 1) return { plan: matches[0]! };
+      if (matches.length === 0) {
+        const names = plans.map((p) => p.name).join(", ");
+        return { error: `No floor plan called ${ref}. The floor plans are: ${names || "none yet"}.` };
+      }
+      return {
+        error: `${matches.length} floor plans are called ${ref}. Ask the user which one, and rename one in the floor plan editor first.`,
+      };
+    }
+    function readFailure(err: unknown) {
+      return refusalOf(err)?.status === 403
+        ? { refused: true, error: "The user doesn't have permission to see floor plans." }
+        : { error: "Couldn't read the floor plans. Ask the user to try again." };
+    }
+    function writeFailure(err: unknown) {
+      const refusal = refusalOf(err);
+      if (!refusal) {
+        return {
+          error:
+            "Couldn't change the floor plan right now. Nothing was changed. Ask the user to try again.",
+        };
+      }
+      if (refusal.status === 403) {
+        return {
+          refused: true,
+          error: "The user doesn't have permission to do this. Nothing was changed.",
+        };
+      }
+      return { refused: true, error: `${refusal.detail} Nothing was changed.` };
+    }
+    export function createFloorPlanTools(
+      log: FastifyBaseLogger,
+      api: ApiClient,
+      { venueId }: { readonly venueId?: string | undefined }
+    ): ToolSet {
+      return {
+        // ── Read ───────────────────────────────────────────────
+        list_floor_plans: tool({
+          description:
+            "List the venue's floor plans: name, whether it is the active one, and its table count and total seats.",
+          inputSchema: z.object({}),
+          execute: async () => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId }, "list_floor_plans tool called");
+            try {
+              const { data } = await api.floorPlans.list({ venueId, limit: PLAN_PAGE_SIZE });
+              return {
+                active: data.find((p) => p.isActive)?.name ?? null,
+                floorPlans: data.map((p) => ({
+                  name: p.name,
+                  active: p.isActive,
+                  tables: p.tables?.length ?? 0,
+                  capacity: (p.tables ?? []).reduce((sum, t) => sum + t.capacity, 0),
+                })),
+              };
+            } catch (err) {
+              log.error({ err, venueId }, "list_floor_plans failed");
+              return readFailure(err);
+            }
+          },
+        }),
+    
+        // ── Write (runs only after the user confirms) ──────────
+        activate_floor_plan: tool({
+          description:
+            "Make a floor plan the venue's active one, by its name. Requires confirmation. This does not edit the layout.",
+          inputSchema: z.object({
+            floorPlan: z
+              .string()
+              .min(1)
+              .describe("The floor plan's name, as list_floor_plans gives it"),
+          }),
+          execute: async ({ floorPlan }) => {
+            if (!venueId) return NO_VENUE;
+            log.info({ venueId }, "activate_floor_plan tool called");
+            try {
+              const { data } = await api.floorPlans.list({ venueId, limit: PLAN_PAGE_SIZE });
+              const found = findPlan(data, floorPlan);
+              if ("error" in found) return found;
+              if (found.plan.isActive) {
+                return { alreadyActive: true, floorPlan: found.plan.name };
+              }
+              await api.floorPlans.setActive(found.plan.id);
+              return { updated: true, floorPlan: found.plan.name };
+            } catch (err) {
+              log.error({ err, venueId }, "activate_floor_plan failed");
+              return writeFailure(err);
+            }
+          },
+        }),
+      };
+    }
+  </file>
   <file path="services/agent/src/routes/gen-agent-guest-tools.ts">
     type Guest = Awaited<ReturnType<ApiClient["guests"]["get"]>>;
     function shown(guest: Guest) {
@@ -30024,7 +30124,7 @@
         ...pageLines(ctx),
         "Never ask the user for a venue ID, reservation ID, or table ID: look them up with the tools.",
         "Your earlier replies in this conversation were based on tool results that aren't shown to you again. Treat them as accurate: don't apologize for or correct them unless a new tool result actually contradicts them. When you need an earlier detail, such as an ID, look it up again.",
-        "A change (booking, seating, no-show, walk-in, cancellation, table status, Tonight availability, waitlist, guest profile, menu items) runs only when the user presses the Confirm or Cancel button the chat shows with it. Tell them to use those buttons, and never ask them to type yes: typing a new message dismisses the pending change.",
+        "A change (booking, seating, no-show, walk-in, cancellation, table status, Tonight availability, waitlist, guest profile, menu items, the active floor plan) runs only when the user presses the Confirm or Cancel button the chat shows with it. Tell them to use those buttons, and never ask them to type yes: typing a new message dismisses the pending change.",
         "Ask only for details the user has to decide, such as guest name, party size, or time. When a reservation's end time isn't given, use two hours after the start.",
         "Reply in short, plain sentences in the user's language. Don't use markdown: the chat shows plain text.",
         "Show elements only by calling render_component with an elements array: each element has a unique id, a type from the components below, its props, and children as a list of other elements' ids; an element no other element lists is shown at the top level. Never write JSON, element specs or patch lines in your reply text.",
@@ -30045,6 +30145,7 @@
         "Change a guest's profile with update_guest (tags, dietary restrictions, corrected contact details) and add staff notes with add_guest_note. Find guests to win back with list_lapsing_guests, then invite one back with send_win_back. Never repeat a guest's email or phone in a reply.",
         "Read the waitlist with list_waitlist. To seat a waiting party use seat_waitlist_party, not seat_walk_in, so they also leave the waitlist. Parties are named by guest name; when two share a name, ask for the party size.",
         "Read menus with list_menus and get_menu. Mark an item sold out or available with set_menu_item_availability, and change its price, name or description with update_menu_item. When a menu is open, call get_menu with its id, then name the menu by its name in a change. When two items share a name, ask which section. Creating, deleting or reordering menus, sections or items stays on the Menus page: say so plainly and point the user there.",
+        "Read floor plans with list_floor_plans (the active one, table counts and seats). Switch the active plan with activate_floor_plan, naming the plan by its name; if it is already active, say so. When two plans share a name, ask which. Editing a layout (tables, walls, sections) stays in the floor plan editor: say so plainly and point the user there.",
         "You can't manage deposits yet. Say so plainly and point the user to that page in the dashboard.",
         "",
         ctx.catalogPrompt,
@@ -30714,6 +30815,7 @@
         ...createGuestTools(log, api, { venueId }),
         ...createWaitlistTools(log, api, { venueId, timeZone }),
         ...createMenuTools(log, api, { venueId }),
+        ...createFloorPlanTools(log, api, { venueId }),
         ...createTimelineTools(log, api, { venueId }),
       };
       return gateWriteTools(tools, log, options.confirmedAction);
@@ -31537,6 +31639,7 @@
       "remove_from_waitlist",
       "set_menu_item_availability",
       "update_menu_item",
+      "activate_floor_plan",
       "seat_reservation",
       "mark_no_show",
     ] as const;

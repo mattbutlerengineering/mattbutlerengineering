@@ -157,7 +157,7 @@ describe("POST /api/gen/agent", () => {
     expect(response.statusCode).toBe(400);
   });
 
-  it("registers all 28 tools (9 read + render + 18 write)", async () => {
+  it("registers all 34 tools (12 read + render + 21 write)", async () => {
     vi.mocked(streamText).mockReturnValueOnce({
       fullStream: mockAsyncIterable([]),
       usage: Promise.resolve({ inputTokens: 10, outputTokens: 5 }),
@@ -175,6 +175,7 @@ describe("POST /api/gen/agent", () => {
     };
     const toolNames = Object.keys(call.tools).sort();
     expect(toolNames).toEqual([
+      "activate_floor_plan",
       "add_guest",
       "add_guest_note",
       "add_to_waitlist",
@@ -186,6 +187,7 @@ describe("POST /api/gen/agent", () => {
       "end_tonight_change",
       "get_menu",
       "get_table_status",
+      "list_floor_plans",
       "list_lapsing_guests",
       "list_menus",
       "list_today_reservations",

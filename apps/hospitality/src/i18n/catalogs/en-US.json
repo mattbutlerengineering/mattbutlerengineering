@@ -1540,6 +1540,7 @@
       "remove_from_waitlist": "Remove from the waitlist",
       "set_menu_item_availability": "Mark a menu item sold out or available",
       "update_menu_item": "Change a menu item",
+      "activate_floor_plan": "Switch the active floor plan",
       "seat_reservation": "Seat a booked party",
       "mark_no_show": "Mark a no-show",
       "fields": {
@@ -1578,7 +1579,8 @@
         "section": "Section",
         "availability": "Availability",
         "price": "Price",
-        "description": "Description"
+        "description": "Description",
+        "floorPlan": "Floor plan"
       },
       "menuAvailability": {
         "sold_out": "Sold out",

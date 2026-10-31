@@ -265,6 +265,19 @@ describe("menus in the prompt", () => {
   });
 });
 
+// #7930: the chat reads floor plans and switches the active one.
+describe("floor plans in the prompt", () => {
+  it("lists the switch among the confirmed changes and keeps layout editing in the editor", () => {
+    const prompt = buildAgentSystemPrompt({ venueId: "v", now: NOW, catalogPrompt: "CATALOG" });
+    const confirmLine = prompt.split("\n").find((line) => /Confirm or Cancel button/.test(line));
+
+    expect(confirmLine).toMatch(/floor plan/);
+    expect(prompt).toMatch(/list_floor_plans/);
+    expect(prompt).toMatch(/activate_floor_plan/);
+    expect(prompt).toMatch(/Editing a layout.*floor plan editor/);
+  });
+});
+
 // #7926: the chat runs the waitlist now.
 describe("waitlist in the prompt", () => {
   it("lists waitlist changes among the confirmed ones and no longer says the waitlist is unsupported", () => {

@@ -1566,6 +1566,7 @@
       "remove_from_waitlist": "Retirer de la liste d'attente",
       "set_menu_item_availability": "Marquer un article comme épuisé ou disponible",
       "update_menu_item": "Modifier un article du menu",
+      "activate_floor_plan": "Changer le plan de salle actif",
       "seat_reservation": "Placer un groupe réservé",
       "mark_no_show": "Marquer une absence",
       "fields": {
@@ -1604,7 +1605,8 @@
         "section": "Section",
         "availability": "Disponibilité",
         "price": "Prix",
-        "description": "Description"
+        "description": "Description",
+        "floorPlan": "Plan de salle"
       },
       "menuAvailability": {
         "sold_out": "Épuisé",

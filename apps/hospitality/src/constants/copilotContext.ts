@@ -99,6 +99,7 @@ const ACTION_TITLES = [
   "remove_from_waitlist",
   "set_menu_item_availability",
   "update_menu_item",
+  "activate_floor_plan",
   "seat_reservation",
   "mark_no_show",
 ] as const;
@@ -140,6 +141,7 @@ const ACTION_FIELDS = [
   "availability",
   "price",
   "description",
+  "floorPlan",
 ] as const;
 
 const TABLE_STATUSES = {
