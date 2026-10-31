@@ -612,6 +612,18 @@ async function refuseStrandingReopen(
   });
 }
 
+/** Cancelled guests of the rule whose booking has not started: the ones a reopen notice reaches. */
+function upcomingCancelled(db: Db, venueId: string, ruleId: string, now: Date): Promise<number> {
+  return db.closureOutcome.count({
+    where: {
+      venueId,
+      dateRuleId: ruleId,
+      action: "cancel",
+      reservation: { startTime: { gt: now } },
+    },
+  });
+}
+
 /**
  * Removes the rule (a soft delete through the same writer, with its inverse),
  * so the slots return. Guests the closure cancelled stay cancelled. Whether
@@ -662,6 +674,11 @@ export async function reopenClosure(
         select: { id: true },
       });
       const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
+      // Only guests whose booking has not started get the notice (`listNotifiable`); the audit
+      // row, Undo and the caller's count must agree with who it actually reaches.
+      const notified = input.tellCancelledGuests
+        ? await upcomingCancelled(db, venueId, ruleId, now)
+        : 0;
       const change = await db.availabilityChange.create({
         data: {
           venueId,
@@ -677,13 +694,13 @@ export async function reopenClosure(
             diff,
             state.operatingHours
           ) as unknown as Prisma.InputJsonValue,
-          notifiedGuests: input.tellCancelledGuests,
+          notifiedGuests: notified > 0,
         },
         select: { id: true },
       });
       return {
         kind: "reopened" as const,
-        result: { version: bumped.availabilityVersion, changeId: change.id },
+        result: { version: bumped.availabilityVersion, changeId: change.id, notified },
       };
     });
   } catch (error) {

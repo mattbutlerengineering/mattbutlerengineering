@@ -14338,6 +14338,16 @@
         })),
       });
     }
+    function upcomingCancelled(db: Db, venueId: string, ruleId: string, now: Date): Promise<number> {
+      return db.closureOutcome.count({
+        where: {
+          venueId,
+          dateRuleId: ruleId,
+          action: "cancel",
+          reservation: { startTime: { gt: now } },
+        },
+      });
+    }
     export async function reopenClosure(
       input: {
         venueId: string;
@@ -14383,6 +14393,11 @@
             select: { id: true },
           });
           const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
+          // Only guests whose booking has not started get the notice (`listNotifiable`); the audit
+          // row, Undo and the caller's count must agree with who it actually reaches.
+          const notified = input.tellCancelledGuests
+            ? await upcomingCancelled(db, venueId, ruleId, now)
+            : 0;
           const change = await db.availabilityChange.create({
             data: {
               venueId,
@@ -14398,13 +14413,13 @@
                 diff,
                 state.operatingHours
               ) as unknown as Prisma.InputJsonValue,
-              notifiedGuests: input.tellCancelledGuests,
+              notifiedGuests: notified > 0,
             },
             select: { id: true },
           });
           return {
             kind: "reopened" as const,
-            result: { version: bumped.availabilityVersion, changeId: change.id },
+            result: { version: bumped.availabilityVersion, changeId: change.id, notified },
           };
         });
       } catch (error) {
@@ -14987,6 +15002,8 @@
       id: string;
       reservation: {
         guestName: string | null;
+        /** Only the summaries listing reads when the booking starts. */
+        startTime?: Date;
         deposit: {
           amountCents: number;
           currency: string;
@@ -15039,7 +15056,11 @@
       }
       return [...byRule.values()];
     }
-    export async function listSummaries(venueId: string, db: Db = prisma): Promise<ClosureSummary[]> {
+    export async function listSummaries(
+      venueId: string,
+      now: Date = new Date(),
+      db: Db = prisma
+    ): Promise<ClosureSummary[]> {
       const rows = await db.closureOutcome.findMany({
         where: { venueId },
         orderBy: { createdAt: "asc" },
@@ -15053,6 +15074,7 @@
           reservation: {
             select: {
               guestName: true,
+              startTime: true,
               deposit: {
                 select: {
                   amountCents: true,
@@ -15066,7 +15088,18 @@
           },
         },
       });
-      return summarizeOutcomes(rows);
+      // A reopen notice goes only to cancelled guests whose booking has not started
+      // (`listNotifiable`), so that is the count the Reopen dialog may promise.
+      const upcoming = new Map<string, number>();
+      for (const row of rows) {
+        if (row.action !== "cancel" || !row.reservation.startTime) continue;
+        if (row.reservation.startTime.getTime() <= now.getTime()) continue;
+        upcoming.set(row.dateRuleId, (upcoming.get(row.dateRuleId) ?? 0) + 1);
+      }
+      return summarizeOutcomes(rows).map((s) => ({
+        ...s,
+        upcomingCancelled: upcoming.get(s.ruleId) ?? 0,
+      }));
     }
   </file>
   <file path="src/services/closure-notice.ts">

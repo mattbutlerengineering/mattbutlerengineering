@@ -3024,6 +3024,9 @@
         now: Date
       ): Promise<void> { /* ... */ }
     </item>
+    <item priority="medium">
+      function upcomingCancelled(db: Db, venueId: string, ruleId: string, now: Date): Promise<number> { /* ... */ }
+    </item>
     <item priority="high">
       export async function reopenClosure(
         input: {
@@ -3299,8 +3302,7 @@
         id: string;
         reservation: {
           guestName: string | null;
-          deposit: {
-            amou...;
+          /** Only the summarie...;
         dateRuleId: string;
         action: NoticeOutcome["action"];
         deliveries: unknown;
@@ -3316,7 +3318,11 @@
       export function summarizeOutcomes(rows: readonly SummaryRow[]): ClosureSummary[] { /* ... */ }
     </item>
     <item priority="high">
-      export async function listSummaries(venueId: string, db: Db = prisma): Promise<ClosureSummary[]> { /* ... */ }
+      export async function listSummaries(
+        venueId: string,
+        now: Date = new Date(),
+        db: Db = prisma
+      ): Promise<ClosureSummary[]> { /* ... */ }
     </item>
   </file>
   <file path="src/services/closure-notice.ts">

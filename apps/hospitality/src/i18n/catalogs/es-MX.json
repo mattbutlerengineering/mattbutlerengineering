@@ -1679,6 +1679,7 @@
     },
     "reopen": {
       "title": "¿Reabrir el {{date}}?",
+      "titleSpan": "¿Reabrir este cierre? ({{date}})",
       "description": "Los clientes podrán reservar de nuevo.",
       "descriptionCancelled": "Los clientes podrán reservar de nuevo. Las reservaciones que cancelaste siguen canceladas.",
       "editedDates_one": "También reabre {{count}} fecha editada.",
@@ -2379,6 +2380,8 @@
           "move": "Cambiamos nuestro horario el {{date}}. {{message}}\nTu mesa se movió al horario libre más cercano. ¿No puedes? Cancela sin costo.",
           "keep_notify": "Cambiamos nuestro horario el {{date}}. {{message}}\nTu mesa sigue reservada."
         },
+        "loading": "Cargando las reservaciones…",
+        "loadFailed": "No se pudieron cargar las reservaciones. Regresa e inténtalo de nuevo.",
         "irreversible": "Se avisa a los comensales de inmediato. No se puede deshacer."
       }
     },

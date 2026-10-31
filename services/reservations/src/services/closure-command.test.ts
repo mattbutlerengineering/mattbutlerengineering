@@ -99,6 +99,9 @@ interface Where {
   startTime: { lt: Date };
   endTime: { gt: Date };
   dateRuleId: string;
+  action: string;
+  /** The outcome's booking, filtered by when it starts (a notice is only worth sending ahead of it). */
+  reservation: { startTime: { gt: Date } };
   inverse: { path: string[]; equals: unknown };
 }
 
@@ -140,7 +143,14 @@ function outcomeDelegate(w: World) {
   return {
     count: vi.fn(
       async ({ where }: { where: Where }) =>
-        w.outcomes.filter((o) => o.dateRuleId === where.dateRuleId).length
+        w.outcomes.filter((o) => {
+          if (o.dateRuleId !== where.dateRuleId) return false;
+          if (where.action && o.action !== where.action) return false;
+          const after = where.reservation?.startTime.gt;
+          if (!after) return true;
+          const booking = w.reservations.find((r) => r.id === o.reservationId);
+          return booking !== undefined && booking.startTime > after;
+        }).length
     ),
     createMany: vi.fn(async ({ data }: { data: Record<string, unknown>[] }) => {
       w.outcomes = [
@@ -1367,6 +1377,54 @@ describe("reopenClosure", () => {
       const { outcome } = await reopen(w, MANAGER, "e1");
 
       expect(outcome.kind).toBe("reopened");
+    });
+  });
+
+  describe("who a reopen notice can reach (#7975)", () => {
+    const closedWithTwoGuests = async () => {
+      const w = world();
+      await run(w, body());
+      w.dateRules = [rowFor("closure")];
+      return w;
+    };
+
+    it("counts only the cancelled guests whose booking is still ahead, and says so on the audit row", async () => {
+      const w = await closedWithTwoGuests();
+      // res-2's booking has started by the time the closure is reopened.
+      w.reservations = w.reservations.map((r) =>
+        r.id === "res-2" ? { ...r, startTime: new Date("2026-10-20T01:00:00.000Z") } : r
+      );
+
+      const { outcome } = await reopen(w);
+
+      expect(outcome).toMatchObject({ kind: "reopened", result: { notified: 1 } });
+      expect(w.changes.at(-1)).toMatchObject({ kind: "reopen", notifiedGuests: true });
+    });
+
+    it("records no guests told when every cancelled booking is already over", async () => {
+      const w = await closedWithTwoGuests();
+      w.reservations = w.reservations.map((r) => ({
+        ...r,
+        startTime: new Date("2026-10-20T01:00:00.000Z"),
+      }));
+
+      const { outcome } = await reopen(w);
+
+      expect(outcome).toMatchObject({ kind: "reopened", result: { notified: 0 } });
+      expect(w.changes.at(-1)).toMatchObject({ notifiedGuests: false });
+    });
+
+    it("tells nobody when the Manager did not ask to", async () => {
+      const w = await closedWithTwoGuests();
+      const { client } = fakeClient(w);
+
+      const outcome = await reopenClosure(
+        { venueId: "v", ruleId: "dr-new", caller: MANAGER, tellCancelledGuests: false, now: NOW },
+        client
+      );
+
+      expect(outcome).toMatchObject({ kind: "reopened", result: { notified: 0 } });
+      expect(w.changes.at(-1)).toMatchObject({ notifiedGuests: false });
     });
   });
 

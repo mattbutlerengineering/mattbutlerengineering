@@ -1679,6 +1679,7 @@
     },
     "reopen": {
       "title": "Rouvrir le {{date}} ?",
+      "titleSpan": "Rouvrir cette fermeture ? ({{date}})",
       "description": "Les clients pourront de nouveau réserver.",
       "descriptionCancelled": "Les clients pourront de nouveau réserver. Les réservations que vous avez annulées restent annulées.",
       "editedDates_one": "Rouvre aussi {{count}} date modifiée.",
@@ -2379,6 +2380,8 @@
           "move": "Nous avons modifié nos heures le {{date}}. {{message}}\nVotre table est déplacée à l'heure libre la plus proche. Vous ne pouvez pas venir? Annulez sans frais.",
           "keep_notify": "Nous avons modifié nos heures le {{date}}. {{message}}\nVotre table est toujours réservée."
         },
+        "loading": "Chargement des réservations…",
+        "loadFailed": "Impossible de charger les réservations. Reviens en arrière et réessaie.",
         "irreversible": "Les clients sont avisés immédiatement. Cette action est irréversible."
       }
     },

@@ -17,6 +17,8 @@ export interface ReopenClosureDialogProps {
    * count could not be read: Reopen waits for it, because the notice is not undoable.
    */
   readonly cancelled: number | null;
+  /** Of those, the guests whose booking has not started: the only ones a notice can reach. */
+  readonly notifiable?: number | null;
   /** The count is unknown because reading it failed, not because it is still loading. */
   readonly countFailed?: boolean;
   /** Asks again for the count; shown with the notice that it is unknown. */
@@ -46,6 +48,12 @@ function failureText(error: unknown, t: TFunction): string {
     : t("availabilitySpecial.reopen.stranded", { count });
 }
 
+/** A span has no singular article to agree with ("el todas las fechas…"), so it gets its own title. */
+function titleKey(props: ReopenClosureDialogProps): "titleSeriesEdit" | "titleSpan" | "title" {
+  if (props.isSeriesEdit) return "titleSeriesEdit";
+  return props.subjectIsSpan ? "titleSpan" : "title";
+}
+
 function doneKey(props: ReopenClosureDialogProps): "doneSeriesEdit" | "doneSpan" | "done" {
   if (props.isSeriesEdit) return "doneSeriesEdit";
   return props.subjectIsSpan ? "doneSpan" : "done";
@@ -73,6 +81,9 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
   const { toast } = useToast();
   const offerUndo = useAvailabilityUndo();
   const { mutateAsync, isPending } = useReopenClosure();
+  // The guests a notice can still reach: their booking has not started. An older API does not
+  // say, so every cancelled guest counts.
+  const reachable = props.notifiable ?? cancelled ?? 0;
   const [tell, setTell] = useState(true);
   const [failure, setFailure] = useState<string | null>(null);
 
@@ -81,11 +92,13 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
     setFailure(null);
     try {
       // A date handed back to the series stays closed: its guests are never told to rebook.
-      const told = !isSeriesEdit && cancelled > 0 && tell;
+      const told = !isSeriesEdit && reachable > 0 && tell;
       const saved = await mutateAsync({ venueId, ruleId, tellCancelledGuests: told });
       const title = t(`availabilitySpecial.reopen.${doneKey(props)}`, { date: subject });
       // A reopen that told guests cannot be reverted (ux.md F6 step 3); one that told none can.
-      if (told) toast({ title, variant: "success" });
+      // The server says how many it reached; an older one does not, and `told` stands in.
+      const toldGuests = saved.notified == null ? told : saved.notified > 0;
+      if (toldGuests) toast({ title, variant: "success" });
       else offerUndo({ venueId, title, saved });
       onClose();
     } catch (error) {
@@ -97,12 +110,7 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
     <Dialog
       open
       onClose={onClose}
-      title={t(
-        isSeriesEdit
-          ? "availabilitySpecial.reopen.titleSeriesEdit"
-          : "availabilitySpecial.reopen.title",
-        { date: subject }
-      )}
+      title={t(`availabilitySpecial.reopen.${titleKey(props)}`, { date: subject })}
       description={t(descriptionKey(props))}
       footer={
         <>
@@ -143,9 +151,9 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
       {editedDates > 0 && (
         <Text>{t("availabilitySpecial.reopen.editedDates", { count: editedDates })}</Text>
       )}
-      {!isSeriesEdit && cancelled !== null && cancelled > 0 && (
+      {!isSeriesEdit && reachable > 0 && (
         <Checkbox
-          label={t("availabilitySpecial.reopen.tell", { count: cancelled })}
+          label={t("availabilitySpecial.reopen.tell", { count: reachable })}
           checked={tell}
           onCheckedChange={setTell}
         />

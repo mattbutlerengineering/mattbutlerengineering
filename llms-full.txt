@@ -30118,12 +30118,17 @@
         },
       });
     }
-    function reopenNote(cancelled: number, requested: boolean): string {
+    function reopenNote(cancelled: number, notified: number): string {
       if (cancelled === 0) return "No guest was cancelled by this closure, so no notice was requested.";
-      const guests = cancelled === 1 ? "1 guest" : `${cancelled} guests`;
-      return requested
-        ? `Asked to notify the ${guests} the closure cancelled that it has reopened; delivery isn't confirmed here. They stay cancelled.`
-        : `The ${guests} the closure cancelled ${cancelled === 1 ? "was" : "were"} not asked to be notified that it has reopened. They stay cancelled.`;
+      const guestsOf = (n: number) => (n === 1 ? "1 guest" : `${n} guests`);
+      if (notified > 0) {
+        const rest =
+          notified < cancelled
+            ? ` The other ${cancelled - notified} were not asked: their booking date has passed.`
+            : "";
+        return `Asked to notify the ${guestsOf(notified)} the closure cancelled that it has reopened; delivery isn't confirmed here. They stay cancelled.${rest}`;
+      }
+      return `The ${guestsOf(cancelled)} the closure cancelled ${cancelled === 1 ? "was" : "were"} not asked to be notified that it has reopened. They stay cancelled.`;
     }
     function reopenClosure({ log, api, venueId }: ToolContext) {
       return tool({
@@ -30156,6 +30161,8 @@
           let rule: ClosureRule;
           let scopeText: string;
           let cancelled: number;
+          // The guests a notice can still reach: those whose booking has not started.
+          let reachable: number;
           try {
             const state = await api.availability.getConfig(venueId);
             const target = scope === "service" ? resolveService(state.config, service!) : undefined;
@@ -30179,14 +30186,19 @@
                   "Couldn't read how many guests this closure cancelled, so it can't decide whether to tell them. Nothing was changed. Ask the user to try again shortly.",
               };
             }
-            cancelled = counts.find((c) => c.ruleId === rule.id)?.cancelled ?? 0;
+            const summary = counts.find((c) => c.ruleId === rule.id);
+            cancelled = summary?.cancelled ?? 0;
+            reachable = summary?.upcomingCancelled ?? cancelled;
           } catch (err) {
             log.error({ err, venueId }, "reopen_closure failed to read");
             return closureFailure(err, "Couldn't read the closures. Nothing was changed.");
           }
-          const told = tellCancelledGuests && cancelled > 0;
+          const told = tellCancelledGuests && reachable > 0;
+          let notified: number;
           try {
-            await api.availability.reopenClosure(venueId, rule.id, told);
+            const saved = await api.availability.reopenClosure(venueId, rule.id, told);
+            // The server counts who the notice really reached; an older one does not say.
+            notified = told ? (saved.notified ?? reachable) : 0;
           } catch (err) {
             log.error({ err, venueId }, "reopen_closure failed");
             return closureFailure(err, SAVE_UNSURE);
@@ -30196,8 +30208,8 @@
             ...spanOf(rule),
             scope: scopeText,
             guestsCancelled: cancelled,
-            noticeRequested: told,
-            note: reopenNote(cancelled, told),
+            noticeRequested: notified > 0,
+            note: reopenNote(cancelled, notified),
           };
         },
       });
@@ -43108,7 +43120,16 @@
       /** One result per item, in the order sent. */
       results: z.array(ClosureResultSchema),
     });
-    export const ReopenResultSchema = z.object({ version: z.number().int(), changeId: z.string() });
+    export const ReopenResultSchema = z.object({
+      version: z.number().int(),
+      changeId: z.string(),
+      /**
+       * Guests a reopen notice was requested for: cancelled guests whose booking had not started,
+       * `0` when none were asked. Absent from an older API (and from ending Tonight); read it as
+       * `notified ?? null`.
+       */
+      notified: z.number().int().nonnegative().nullable().optional(),
+    });
     export const RefundFailureSchema = z.object({
       outcomeId: z.string(),
       /** The guest's name as booked; no email or phone travels here. */
@@ -43123,6 +43144,11 @@
       total: z.number().int(),
       /** Bookings the closure cancelled (the guests a reopen notice would go to). */
       cancelled: z.number().int(),
+      /**
+       * Of those, the guests a reopen notice can still reach: their booking has not started.
+       * Absent from an older API; read it as `upcomingCancelled ?? cancelled`.
+       */
+      upcomingCancelled: z.number().int().nonnegative().nullable().optional(),
       /** Guests with a confirmed email or SMS delivery. */
       sent: z.number().int(),
       /** Guests who rebooked after the cancel. */
@@ -52033,6 +52059,16 @@
         })),
       });
     }
+    function upcomingCancelled(db: Db, venueId: string, ruleId: string, now: Date): Promise<number> {
+      return db.closureOutcome.count({
+        where: {
+          venueId,
+          dateRuleId: ruleId,
+          action: "cancel",
+          reservation: { startTime: { gt: now } },
+        },
+      });
+    }
     export async function reopenClosure(
       input: {
         venueId: string;
@@ -52078,6 +52114,11 @@
             select: { id: true },
           });
           const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
+          // Only guests whose booking has not started get the notice (`listNotifiable`); the audit
+          // row, Undo and the caller's count must agree with who it actually reaches.
+          const notified = input.tellCancelledGuests
+            ? await upcomingCancelled(db, venueId, ruleId, now)
+            : 0;
           const change = await db.availabilityChange.create({
             data: {
               venueId,
@@ -52093,13 +52134,13 @@
                 diff,
                 state.operatingHours
               ) as unknown as Prisma.InputJsonValue,
-              notifiedGuests: input.tellCancelledGuests,
+              notifiedGuests: notified > 0,
             },
             select: { id: true },
           });
           return {
             kind: "reopened" as const,
-            result: { version: bumped.availabilityVersion, changeId: change.id },
+            result: { version: bumped.availabilityVersion, changeId: change.id, notified },
           };
         });
       } catch (error) {
@@ -52682,6 +52723,8 @@
       id: string;
       reservation: {
         guestName: string | null;
+        /** Only the summaries listing reads when the booking starts. */
+        startTime?: Date;
         deposit: {
           amountCents: number;
           currency: string;
@@ -52734,7 +52777,11 @@
       }
       return [...byRule.values()];
     }
-    export async function listSummaries(venueId: string, db: Db = prisma): Promise<ClosureSummary[]> {
+    export async function listSummaries(
+      venueId: string,
+      now: Date = new Date(),
+      db: Db = prisma
+    ): Promise<ClosureSummary[]> {
       const rows = await db.closureOutcome.findMany({
         where: { venueId },
         orderBy: { createdAt: "asc" },
@@ -52748,6 +52795,7 @@
           reservation: {
             select: {
               guestName: true,
+              startTime: true,
               deposit: {
                 select: {
                   amountCents: true,
@@ -52761,7 +52809,18 @@
           },
         },
       });
-      return summarizeOutcomes(rows);
+      // A reopen notice goes only to cancelled guests whose booking has not started
+      // (`listNotifiable`), so that is the count the Reopen dialog may promise.
+      const upcoming = new Map<string, number>();
+      for (const row of rows) {
+        if (row.action !== "cancel" || !row.reservation.startTime) continue;
+        if (row.reservation.startTime.getTime() <= now.getTime()) continue;
+        upcoming.set(row.dateRuleId, (upcoming.get(row.dateRuleId) ?? 0) + 1);
+      }
+      return summarizeOutcomes(rows).map((s) => ({
+        ...s,
+        upcomingCancelled: upcoming.get(s.ruleId) ?? 0,
+      }));
     }
   </file>
   <file path="services/reservations/src/services/closure-notice.ts">

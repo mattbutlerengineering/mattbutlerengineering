@@ -174,11 +174,22 @@ export function CloseDialog(props: CloseDialogProps) {
   };
 
   const { series } = props;
+  // The preview has its own id, fixed for the dialog: a new attempt (new `ruleId`) must not be a
+  // new impact query, or Step 2 would lose the bookings it is deciding on until it refetched.
+  const [previewId] = useState(() => crypto.randomUUID());
   const impactRule = useMemo(
     () =>
-      inSeries(buildCloseRule({ ...form, staffNote: "", guestMessage: "" }, ruleId, today), series),
-    [form, ruleId, today, series]
+      inSeries(
+        buildCloseRule({ ...form, staffNote: "", guestMessage: "" }, previewId, today),
+        series
+      ),
+    [form, previewId, today, series]
   );
+  // Every rule id sent. A lost response may still have committed, and a version conflict then
+  // refreshes the version so a blind retry would save a second closure of the same dates. Once
+  // any earlier attempt shows up in the config, nothing more is saved from this dialog.
+  const [tried, setTried] = useState<readonly string[]>([]);
+  const savedEarlier = tried.some((id) => state.config.dateRules.some((r) => r.id === id));
   const impactQuery = useClosureImpact({ venueId, rule: impactRule });
   const impact: ClosureImpact | null | undefined = impactRule ? impactQuery.data : null;
   const groups = impact?.groups ?? [];
@@ -207,6 +218,7 @@ export function CloseDialog(props: CloseDialogProps) {
     if (!rule) return;
     setFailure(null);
     setWinner(null);
+    setTried((ids) => (ids.includes(ruleId) ? ids : [...ids, ruleId]));
     try {
       const result = await mutateAsync({
         venueId,
@@ -251,10 +263,14 @@ export function CloseDialog(props: CloseDialogProps) {
     today,
     minutesOfDayIn(now, timezone)
   );
+  const impactFailed = impactRule !== null && impactQuery.error !== null;
+  // Step 2 decides on bookings it must be showing: with none loaded, `groups` is empty and the
+  // choices would read as complete.
   const primaryDisabled =
-    step === 2
-      ? !decisionsReady(groups, choices)
-      : impactQuery.isLoading || (impactRule !== null && impactQuery.error !== null);
+    savedEarlier ||
+    (step === 2
+      ? !impact || !decisionsReady(groups, choices)
+      : impactQuery.isLoading || impactFailed);
   const label =
     step === 2
       ? outcomeLabel(counts, t)
@@ -300,6 +316,11 @@ export function CloseDialog(props: CloseDialogProps) {
           </div>
         }
       >
+        {savedEarlier && (
+          <Alert variant="warning" title={t("availability.close.saveError")}>
+            {t("availability.close.alreadySaved")}
+          </Alert>
+        )}
         {failure && (
           <Alert variant="error" title={t("availability.close.saveError")}>
             {failure}
@@ -323,20 +344,32 @@ export function CloseDialog(props: CloseDialogProps) {
               dateLocked={series !== undefined}
             />
           ) : (
-            impact && (
-              <CloseStepTwo
-                impact={impact}
-                choices={choices}
-                urgent={urgent}
-                guestMessage={form.guestMessage}
-                onChoose={(key, choice) => {
-                  if (failedSave && JSON.stringify(choices[key]) !== JSON.stringify(choice))
-                    restart();
-                  setChoices({ ...choices, [key]: choice });
-                  guard.setDirty(true);
-                }}
-              />
-            )
+            <>
+              {impact && (
+                <CloseStepTwo
+                  impact={impact}
+                  choices={choices}
+                  urgent={urgent}
+                  guestMessage={form.guestMessage}
+                  onChoose={(key, choice) => {
+                    if (failedSave && JSON.stringify(choices[key]) !== JSON.stringify(choice))
+                      restart();
+                    setChoices({ ...choices, [key]: choice });
+                    guard.setDirty(true);
+                  }}
+                />
+              )}
+              {!impact && impactFailed && (
+                <Text variant="body" color="secondary">
+                  {t("availability.close.step2.loadFailed")}
+                </Text>
+              )}
+              {!impact && !impactFailed && (
+                <Text variant="body" color="secondary">
+                  {t("availability.close.step2.loading")}
+                </Text>
+              )}
+            </>
           )}
         </fieldset>
       </Dialog>

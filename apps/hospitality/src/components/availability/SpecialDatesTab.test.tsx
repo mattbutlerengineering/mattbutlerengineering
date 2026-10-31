@@ -962,6 +962,58 @@ describe("SpecialDatesTab", () => {
       );
     });
 
+    describe("when some cancelled guests' dates have passed (#7975)", () => {
+      const open = () => {
+        renderTab();
+        fireEvent.click(screen.getByRole("button", { name: "Remove closure for Thu, Dec 24" }));
+        return screen.getByRole("dialog");
+      };
+
+      it("offers to tell only the guests it can still reach", () => {
+        summaries.value = [summary("xmas", { cancelled: 5, upcomingCancelled: 2 })];
+        const dialog = open();
+
+        expect(
+          within(dialog).getByRole("checkbox", { name: /Tell the cancelled guests.*\(2\)/ })
+        ).toBeTruthy();
+      });
+
+      it("offers no notice, and tells nobody, when every date has passed", async () => {
+        summaries.value = [summary("xmas", { cancelled: 3, upcomingCancelled: 0 })];
+        const dialog = open();
+        expect(within(dialog).queryByRole("checkbox")).toBeNull();
+
+        fireEvent.click(within(dialog).getByRole("button", { name: "Reopen" }));
+
+        await waitFor(() =>
+          expect(reopen).toHaveBeenCalledWith(
+            expect.objectContaining({ ruleId: "xmas", tellCancelledGuests: false })
+          )
+        );
+      });
+
+      it("offers Undo when the server says no guest was told, though the box was ticked", async () => {
+        reopen.mockResolvedValue({ version: 6, changeId: "c", notified: 0 });
+        summaries.value = [summary("xmas", { cancelled: 3 })];
+        const dialog = open();
+
+        fireEvent.click(within(dialog).getByRole("button", { name: "Reopen" }));
+
+        expect(await screen.findByRole("button", { name: "Undo" })).toBeTruthy();
+      });
+
+      it("offers no Undo once the server says guests were told", async () => {
+        reopen.mockResolvedValue({ version: 6, changeId: "c", notified: 2 });
+        summaries.value = [summary("xmas", { cancelled: 5, upcomingCancelled: 2 })];
+        const dialog = open();
+
+        fireEvent.click(within(dialog).getByRole("button", { name: "Reopen" }));
+
+        expect(await screen.findByText("Thu, Dec 24 reopened")).toBeTruthy();
+        expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+      });
+    });
+
     it("offers no Undo once the cancelled guests were told", async () => {
       renderTab();
       fireEvent.click(screen.getByRole("button", { name: "Remove closure for Thu, Dec 24" }));

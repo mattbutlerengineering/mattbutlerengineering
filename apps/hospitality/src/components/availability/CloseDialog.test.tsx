@@ -9,14 +9,29 @@ const create = vi.hoisted(() => vi.fn());
 const saving = vi.hoisted(() => ({ value: false }));
 const impactState = vi.hoisted(() => ({ value: null as unknown }));
 const refetchImpact = vi.hoisted(() => vi.fn());
+/**
+ * How the impact query answers. By default it always has data. `keyed` models react-query: only
+ * the first rule it saw has cached data, so a rule that changes (a new id included) starts empty.
+ */
+const impactQuery = vi.hoisted(() => ({
+  keyed: false,
+  firstKey: null as string | null,
+  loading: false,
+  error: null as unknown,
+}));
 vi.mock("../../hooks/useClosures.js", () => ({
   useCreateClosure: () => ({ mutateAsync: create, isPending: saving.value }),
-  useClosureImpact: () => ({
-    data: impactState.value,
-    isLoading: false,
-    error: null,
-    refetch: refetchImpact,
-  }),
+  useClosureImpact: ({ rule }: { rule: unknown }) => {
+    const key = JSON.stringify(rule);
+    if (impactQuery.keyed && impactQuery.firstKey === null) impactQuery.firstKey = key;
+    const absent = impactQuery.loading || (impactQuery.keyed && key !== impactQuery.firstKey);
+    return {
+      data: absent ? undefined : impactState.value,
+      isLoading: absent && impactQuery.error === null,
+      error: impactQuery.error,
+      refetch: refetchImpact,
+    };
+  },
 }));
 const refresh = vi.hoisted(() => vi.fn());
 vi.mock("../../hooks/useRefreshAvailability.js", () => ({ useRefreshAvailability: () => refresh }));
@@ -99,6 +114,7 @@ describe("CloseDialog", () => {
     refresh.mockReset();
     saving.value = false;
     impactState.value = IMPACT;
+    Object.assign(impactQuery, { keyed: false, firstKey: null, loading: false, error: null });
   });
 
   it("shows the guest-message character counter once", () => {
@@ -496,6 +512,128 @@ describe("CloseDialog", () => {
       const [first, second] = create.mock.calls.map((c) => c[0] as Call);
       expect(second!.idempotencyKey).not.toBe(first!.idempotencyKey);
       expect(second!.body.rule.id).not.toBe(first!.body.rule.id);
+    });
+
+    const dialogElement = (state: AvailabilityConfigState) => (
+      <ToastProvider>
+        <main>
+          <CloseDialog
+            venueId="venue-1"
+            state={state}
+            timezone="America/Los_Angeles"
+            today="2026-12-01"
+            initialDate={DATE}
+            onClose={vi.fn()}
+          />
+        </main>
+      </ToastProvider>
+    );
+    const STATE: AvailabilityConfigState = { config: fixtureConfig(), version: 7, source: "rows" };
+
+    it("keeps Step 2 and the choice when a decision changes after a failed save", async () => {
+      impactQuery.keyed = true; // a new rule id would be a new query, with no data yet
+      create.mockRejectedValueOnce(new Error("lost")).mockResolvedValueOnce(RESULT);
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+      await within(dialog).findByText("Couldn't close");
+
+      fireEvent.click(within(dialog).getByRole("radio", { name: "Keep them and notify" }));
+
+      expect(within(dialog).getByRole("radio", { name: "Keep them and notify" })).toBeChecked();
+      const primary = within(dialog).getByTestId("close-primary");
+      expect(primary).toBeEnabled();
+      fireEvent.click(primary);
+      await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+      const second = create.mock.calls[1]![0] as Call;
+      expect(second.body.decisions).toEqual([
+        expect.objectContaining({ groupKey: `${DATE}:closed`, action: "keep_notify" }),
+      ]);
+    });
+
+    it("waits on Step 2, saving nothing, while the bookings to decide on are loading", () => {
+      const view = renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+
+      impactQuery.loading = true;
+      view.rerender(dialogElement(STATE));
+
+      expect(within(dialog).getByTestId("close-primary")).toBeDisabled();
+      expect(within(dialog).getByText("Loading the bookings…")).toBeTruthy();
+      expect(create).not.toHaveBeenCalled();
+    });
+
+    it("says so on Step 2, with the save disabled, when the bookings could not be read", () => {
+      const view = renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+
+      impactQuery.error = new Error("down");
+      impactQuery.loading = true;
+      view.rerender(dialogElement(STATE));
+
+      expect(within(dialog).getByTestId("close-primary")).toBeDisabled();
+      expect(within(dialog).getByText(/Couldn't load the bookings/)).toBeTruthy();
+    });
+
+    it("stops a second closure once an earlier attempt shows up saved, even after a version conflict", async () => {
+      const conflict = new ApiClientError(
+        {
+          type: "about:blank",
+          title: "Conflict",
+          status: 409,
+          detail: "Availability changed since you loaded it.",
+          code: "version-conflict",
+        } as never,
+        "POST",
+        "closures"
+      );
+      create.mockRejectedValueOnce(new Error("lost")).mockRejectedValueOnce(conflict);
+      const view = renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+      await within(dialog).findByText("Couldn't close");
+      // The first response was lost but it committed; the Manager then edits the message.
+      fireEvent.click(within(dialog).getByRole("button", { name: "Back" }));
+      fireEvent.change(within(dialog).getByLabelText(/Message for guests/), {
+        target: { value: "Closed for the holiday" },
+      });
+      fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+      await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(refresh).toHaveBeenCalled());
+
+      // The refresh brings in the first attempt's rule, and the version moves on.
+      const firstRuleId = (create.mock.calls[0]![0] as Call).body.rule.id;
+      const base = fixtureConfig();
+      view.rerender(
+        dialogElement({
+          config: {
+            ...base,
+            dateRules: [
+              ...base.dateRules,
+              {
+                id: firstRuleId,
+                kind: "closure",
+                targetKind: "venue",
+                startsOn: DATE,
+                endsOn: DATE,
+              },
+            ],
+          } as AvailabilityConfigState["config"],
+          version: 8,
+          source: "rows",
+        })
+      );
+
+      const primary = within(dialog).getByTestId("close-primary");
+      expect(primary).toBeDisabled();
+      expect(within(dialog).getByText(/already saved/)).toBeTruthy();
+      fireEvent.click(primary);
+      expect(create).toHaveBeenCalledTimes(2);
     });
 
     it("keeps one attempt across edits made before the first save", async () => {

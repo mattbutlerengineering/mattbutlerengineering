@@ -248,6 +248,8 @@ interface SummaryRow {
   id: string;
   reservation: {
     guestName: string | null;
+    /** Only the summaries listing reads when the booking starts. */
+    startTime?: Date;
     deposit: {
       amountCents: number;
       currency: string;
@@ -326,7 +328,11 @@ export function summarizeOutcomes(rows: readonly SummaryRow[]): ClosureSummary[]
  * dates tab. Keyed by the outcome's `dateRuleId`, so a reopened closure and an
  * ended (soft-deleted) Tonight close-early are still counted.
  */
-export async function listSummaries(venueId: string, db: Db = prisma): Promise<ClosureSummary[]> {
+export async function listSummaries(
+  venueId: string,
+  now: Date = new Date(),
+  db: Db = prisma
+): Promise<ClosureSummary[]> {
   const rows = await db.closureOutcome.findMany({
     where: { venueId },
     orderBy: { createdAt: "asc" },
@@ -340,6 +346,7 @@ export async function listSummaries(venueId: string, db: Db = prisma): Promise<C
       reservation: {
         select: {
           guestName: true,
+          startTime: true,
           deposit: {
             select: {
               amountCents: true,
@@ -353,5 +360,16 @@ export async function listSummaries(venueId: string, db: Db = prisma): Promise<C
       },
     },
   });
-  return summarizeOutcomes(rows);
+  // A reopen notice goes only to cancelled guests whose booking has not started
+  // (`listNotifiable`), so that is the count the Reopen dialog may promise.
+  const upcoming = new Map<string, number>();
+  for (const row of rows) {
+    if (row.action !== "cancel" || !row.reservation.startTime) continue;
+    if (row.reservation.startTime.getTime() <= now.getTime()) continue;
+    upcoming.set(row.dateRuleId, (upcoming.get(row.dateRuleId) ?? 0) + 1);
+  }
+  return summarizeOutcomes(rows).map((s) => ({
+    ...s,
+    upcomingCancelled: upcoming.get(s.ruleId) ?? 0,
+  }));
 }

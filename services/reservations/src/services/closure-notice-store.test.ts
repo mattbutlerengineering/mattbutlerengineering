@@ -16,7 +16,8 @@ vi.mock("@mbe/availability", async (importOriginal) => ({
   rebookOffers,
 }));
 
-const { loadRebookSlots, listNotifiable } = await import("./closure-notice-store.js");
+const { loadRebookSlots, listNotifiable, listSummaries } =
+  await import("./closure-notice-store.js");
 
 const now = new Date("2026-10-20T12:00:00Z");
 const slot = new Date("2026-10-22T02:00:00Z");
@@ -61,6 +62,37 @@ describe("loadRebookSlots", () => {
     rebookRequiresDeposit.mockResolvedValue(true);
     await expect(loadRebookSlots(outcome, now)).resolves.toEqual([]);
     expect(loadAvailabilitySnapshot).not.toHaveBeenCalled();
+  });
+});
+
+describe("listSummaries", () => {
+  const row = (id: string, action: string, startTime: Date) => ({
+    id,
+    dateRuleId: "r1",
+    action,
+    deliveries: {},
+    rebookedReservationId: null,
+    refund: "none",
+    reservation: { guestName: id, startTime, deposit: null },
+  });
+
+  it("counts the cancelled guests a reopen notice can still reach, apart from all cancelled", async () => {
+    const ahead = new Date(now.getTime() + 86_400_000);
+    const over = new Date(now.getTime() - 86_400_000);
+    const db = {
+      closureOutcome: {
+        findMany: vi.fn(async () => [
+          row("a", "cancel", ahead),
+          row("b", "cancel", over),
+          row("c", "cancel", over),
+          row("d", "keep_notify", ahead),
+        ]),
+      },
+    };
+
+    const [summary] = await listSummaries("v1", now, db as never);
+
+    expect(summary).toMatchObject({ ruleId: "r1", cancelled: 3, upcomingCancelled: 1 });
   });
 });
 

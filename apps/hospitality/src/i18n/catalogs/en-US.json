@@ -1653,6 +1653,7 @@
     },
     "reopen": {
       "title": "Reopen {{date}}?",
+      "titleSpan": "Reopen {{date}}?",
       "description": "Guests can book again.",
       "descriptionCancelled": "Guests can book again. The reservations you cancelled stay cancelled.",
       "editedDates_one": "Also reopens {{count}} edited date.",
@@ -2327,6 +2328,8 @@
           "move": "We've changed our hours on {{date}}. {{message}}\nYour table is moved to the nearest open time. Can't make it? Cancel free.",
           "keep_notify": "We've changed our hours on {{date}}. {{message}}\nYour table is still booked."
         },
+        "loading": "Loading the bookings…",
+        "loadFailed": "Couldn't load the bookings to decide on. Go back and try again.",
         "irreversible": "Guests are told right away. This can't be undone."
       }
     },

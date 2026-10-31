@@ -288,7 +288,7 @@
       function setSpecialHours({ log, api, venueId, timeZone }: ToolContext) { /* ... */ }
     </item>
     <item priority="medium">
-      function reopenNote(cancelled: number, requested: boolean): string { /* ... */ }
+      function reopenNote(cancelled: number, notified: number): string { /* ... */ }
     </item>
     <item priority="medium">
       function reopenClosure({ log, api, venueId }: ToolContext) { /* ... */ }
