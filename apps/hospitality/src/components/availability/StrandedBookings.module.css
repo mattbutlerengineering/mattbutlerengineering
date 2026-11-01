@@ -12,6 +12,7 @@
 .link {
   color: var(--rialto-text-primary);
   font-size: var(--rialto-text-sm);
+  overflow-wrap: anywhere;
   text-decoration: underline;
 }
 

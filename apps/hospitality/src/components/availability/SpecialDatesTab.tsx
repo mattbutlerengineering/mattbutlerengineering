@@ -428,9 +428,10 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           {rowSave.failure.map((message) => (
             <div key={message}>{message}</div>
           ))}
-          <StrandedBookings reservations={rowSave.stranded} />
         </Alert>
       )}
+      {/* Outside the alert, which would read every row aloud. */}
+      {rowSave.failure.length > 0 && <StrandedBookings reservations={rowSave.stranded} />}
       {summaries.error && <Alert variant="error">{describeApiError(summaries.error).detail}</Alert>}
       {summaries.isLoading ? (
         <Skeleton variant="text" lines={3} />

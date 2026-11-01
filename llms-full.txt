@@ -4939,6 +4939,7 @@
       const target = document.getElementById(closeFieldId(field));
       (target?.querySelector("input") ?? target)?.focus();
     }
+    export const stepTwoNoteId = "close-step-two-note";
     export function stepTwoNote(ready: boolean, t: TFunction): string {
       const irreversible = t("availability.close.step2.irreversible");
       return ready ? irreversible : `${t("availability.close.step2.blocked")} ${irreversible}`;
@@ -7613,6 +7614,40 @@
         };
       }, [active, ms]);
       return active && elapsed;
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/use-hold-focus.ts">
+    export type HoldWayOut = "banner" | "reload" | null;
+    export function useHoldFocus(wayOut: HoldWayOut) {
+      const editorRef = useRef<HTMLDivElement>(null);
+      const bannerRef = useRef<HTMLDivElement>(null);
+      const reloadRef = useRef<HTMLDivElement>(null);
+      const hasFocusRef = useRef(false);
+    
+      useEffect(() => {
+        if (!hasFocusRef.current) return;
+        hasFocusRef.current = false;
+        if (document.activeElement && document.activeElement !== document.body) return;
+        const landing = wayOut === "banner" ? bannerRef : wayOut === "reload" ? reloadRef : editorRef;
+        landing.current?.querySelector("button")?.focus();
+      }, [wayOut]);
+    
+      // A click counts too: Safari does not focus a button it clicks.
+      const claim = useCallback(() => {
+        hasFocusRef.current = true;
+      }, []);
+      const track = useMemo(
+        () => ({
+          onFocus: claim,
+          onClick: claim,
+          onBlur: (event: FocusEvent) => {
+            if (event.relatedTarget) hasFocusRef.current = false;
+          },
+        }),
+        [claim]
+      );
+    
+      return { editorRef, bannerRef, reloadRef, track };
     }
   </file>
   <file path="apps/hospitality/src/components/availability/use-reload-hold.ts">
@@ -18719,6 +18754,16 @@
     }
   </file>
   <file path="apps/hospitality/src/hooks/useAvailabilityUndo.ts">
+    function focusOffToast(offeredFrom: Element | null) {
+      const active = document.activeElement;
+      if (active && active !== document.body && !active.closest("[aria-live]")) return;
+      const dialogs = document.querySelectorAll('[role="dialog"]');
+      const target =
+        offeredFrom instanceof HTMLElement && offeredFrom.isConnected && offeredFrom !== document.body
+          ? offeredFrom
+          : dialogs[dialogs.length - 1]?.querySelector<HTMLElement>("button:not([disabled])");
+      target?.focus();
+    }
     export function useAvailabilityUndo() {
       const { t } = useTranslation();
       const { toast } = useToast();
@@ -18726,11 +18771,18 @@
     
       return useCallback(
         (input: { venueId: string; title: string; saved: AvailabilityConfigSaveResult }) => {
+          const offeredFrom = document.activeElement;
           const undo = async () => {
             // An open day editor has pinned a version this revert would move on from: its own save
-            // would then be refused as out of date. Ask the Manager to finish that first.
+            // would then be refused as out of date. Ask the Manager to finish that first, and keep
+            // Undo there for when they have.
             if (isEditorOpen()) {
-              toast({ title: t("availability.undo.finishFirst"), variant: "default", duration: 8000 });
+              toast({
+                title: t("availability.undo.finishFirst"),
+                variant: "default",
+                duration: UNDO_TOAST_MS,
+                action: undoAction(),
+              });
               return;
             }
             try {
@@ -18744,11 +18796,26 @@
               toast({ title: revertErrorText(error, t), variant: "error", duration: 8000 });
             }
           };
+          // One press per button: a double click must not send a second revert, which the first would
+          // have made out of date.
+          const undoAction = () => {
+            let pressed = false;
+            return {
+              label: t("availability.undo.action"),
+              onClick: () => {
+                // Before the guard: a second click's press has put focus back on this button.
+                focusOffToast(offeredFrom);
+                if (pressed) return;
+                pressed = true;
+                void undo();
+              },
+            };
+          };
           toast({
             title: input.title,
             variant: "success",
             duration: UNDO_TOAST_MS,
-            action: { label: t("availability.undo.action"), onClick: () => void undo() },
+            action: undoAction(),
           });
         },
         [revert, t, toast]
@@ -30418,6 +30485,11 @@
         }
       }
     }
+    function failureLog(err: unknown) {
+      const problem = (err as { problemDetails?: { status?: unknown; code?: unknown } } | null)
+        ?.problemDetails;
+      return problem ? { status: problem.status, code: problem.code } : { err };
+    }
     function availabilityWriteFailure(err: unknown, action: string) {
       const refusal = refusalOf(err);
       if (!refusal)
@@ -30494,7 +30566,7 @@
                 undoable: newest?.revertible ? { summary: newest.summary, at: newest.at } : null,
               };
             } catch (err) {
-              log.error({ err, venueId }, "list_tonight_changes failed");
+              log.error({ ...failureLog(err), venueId }, "list_tonight_changes failed");
               return { error: "Couldn't read tonight's availability. Ask the user to try again." };
             }
           },
@@ -30524,7 +30596,10 @@
                 ...(until ? { until } : {}),
               };
             } catch (err) {
-              log.error({ err, venueId, change: input.change }, "change_tonight_availability failed");
+              log.error(
+                { ...failureLog(err), venueId, change: input.change },
+                "change_tonight_availability failed"
+              );
               return availabilityWriteFailure(err, "make the change");
             }
           },
@@ -30561,7 +30636,7 @@
               await api.availability.endTonight(venueId, matches[0]!.id);
               return { ended: true, change };
             } catch (err) {
-              log.error({ err, venueId, change }, "end_tonight_change failed");
+              log.error({ ...failureLog(err), venueId, change }, "end_tonight_change failed");
               return availabilityWriteFailure(err, "end the change");
             }
           },
@@ -30594,7 +30669,7 @@
               await api.availability.revertChange(venueId, newest.id, version);
               return { undone: true, summary };
             } catch (err) {
-              log.error({ err, venueId }, "undo_availability_change failed");
+              log.error({ ...failureLog(err), venueId }, "undo_availability_change failed");
               return availabilityWriteFailure(err, "undo the change");
             }
           },

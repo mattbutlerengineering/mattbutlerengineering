@@ -167,6 +167,9 @@ for (const { width, height } of sizes) {
     await expect(dialog.getByText(/bookings changed while you were deciding/i)).toBeVisible();
     await expect(dialog.getByText(/Guest 4/)).toBeVisible();
     await expect(dialog.getByRole("button", { name: "Choose for each group" })).toBeDisabled();
+    await expect(
+      dialog.getByRole("button", { name: "Choose for each group" })
+    ).toHaveAccessibleDescription(/each group/i);
 
     await cancel.click();
     await dialog.getByRole("button", { name: "Close and cancel 4" }).click();

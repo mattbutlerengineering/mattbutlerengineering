@@ -1565,6 +1565,9 @@
       export function focusCloseField(field: CloseField) { /* ... */ }
     </item>
     <item priority="high">
+      export const stepTwoNoteId: unknown;
+    </item>
+    <item priority="high">
       export function stepTwoNote(ready: boolean, t: TFunction): string { /* ... */ }
     </item>
     <item priority="medium">
@@ -2697,6 +2700,14 @@
   <file path="apps/hospitality/src/components/availability/use-held-for.ts">
     <item priority="high">
       export function useHeldFor(active: boolean, ms: number): boolean { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/use-hold-focus.ts">
+    <item priority="low">
+      type HoldWayOut = "banner" | "reload" | null;
+    </item>
+    <item priority="high">
+      export function useHoldFocus(wayOut: HoldWayOut) { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/use-reload-hold.ts">
@@ -6268,6 +6279,9 @@
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useAvailabilityUndo.ts">
+    <item priority="medium">
+      function focusOffToast(offeredFrom: Element | null) { /* ... */ }
+    </item>
     <item priority="high">
       export function useAvailabilityUndo() { /* ... */ }
     </item>
@@ -10279,6 +10293,9 @@
         api: ApiClient,
         venueId: string
       ): Promise<{ change: TonightChange } | { error: string }> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function failureLog(err: unknown) { /* ... */ }
     </item>
     <item priority="medium">
       function availabilityWriteFailure(err: unknown, action: string) { /* ... */ }

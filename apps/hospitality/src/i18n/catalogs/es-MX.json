@@ -2128,7 +2128,7 @@
         "already-reverted": "Este cambio ya se deshizo.",
         "superseded": "Hay un cambio más reciente. Solo se puede deshacer el último cambio.",
         "not-revertable": "Este cambio no se puede deshacer.",
-        "version-conflict": "Alguien acaba de cambiar la disponibilidad. Recarga e inténtalo de nuevo.",
+        "version-conflict": "Alguien acaba de cambiar la disponibilidad. Solo se puede deshacer el último cambio.",
         "stranded-bookings": "Al deshacerlo, quedarían reservaciones existentes sin servicio.",
         "invalid-config": "Este cambio ya no se puede deshacer con tus horarios actuales."
       }

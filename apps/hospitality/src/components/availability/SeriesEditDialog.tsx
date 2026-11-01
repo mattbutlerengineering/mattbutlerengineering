@@ -298,9 +298,10 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
             {[...failure, ...(previewFailure ? [previewFailure] : [])].map((message) => (
               <div key={message}>{message}</div>
             ))}
-            <StrandedBookings reservations={stranded} />
           </Alert>
         )}
+        {/* Outside the alert, which would read every row aloud. */}
+        {failure.length > 0 && <StrandedBookings reservations={stranded} />}
         {dateField(
           date,
           (next) => {

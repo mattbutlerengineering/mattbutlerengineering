@@ -123,6 +123,9 @@ export function focusCloseField(field: CloseField) {
   (target?.querySelector("input") ?? target)?.focus();
 }
 
+/** Ties a Step 2 button to its note. Only one Step 2 is ever open, so one id serves them all. */
+export const stepTwoNoteId = "close-step-two-note";
+
 /** The note beside a Step 2 button: that it can't be undone, and why it is off while it is. */
 export function stepTwoNote(ready: boolean, t: TFunction): string {
   const irreversible = t("availability.close.step2.irreversible");

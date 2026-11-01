@@ -173,6 +173,79 @@ describe("the hold after the Manager's own save", () => {
     expect(edit()).toHaveFocus();
   });
 
+  describe("focus after a click on Reload hours has moved on (#7979)", () => {
+    it("stays on the control it moved to, inside the drawer", async () => {
+      const onStale = vi.fn();
+      const view = render(tree({ onStale }));
+      await copyToFriday();
+      const reload = await findReload();
+      reload.focus();
+      fireEvent.click(reload);
+      screen.getByRole("button", { name: "Copy to other days…" }).focus();
+      view.rerender(tree({ onStale, version: 5 }));
+      expect(screen.getByRole("button", { name: "Copy to other days…" })).toHaveFocus();
+    });
+
+    it("stays in a field outside the drawer, where the Manager is typing", async () => {
+      const onStale = vi.fn();
+      const field = <input aria-label="Guest message" />;
+      const view = render(tree({ onStale, children: field }));
+      await copyToFriday();
+      const reload = await findReload();
+      reload.focus();
+      fireEvent.click(reload);
+      screen.getByLabelText("Guest message").focus();
+      view.rerender(tree({ onStale, version: 5, children: field }));
+      expect(screen.getByLabelText("Guest message")).toHaveFocus();
+    });
+
+    it("is not taken later, if focus came and went before the hold ended", async () => {
+      const onStale = vi.fn();
+      const field = <input aria-label="Guest message" />;
+      const view = render(tree({ onStale, children: field }));
+      await copyToFriday();
+      const reload = await findReload();
+      reload.focus();
+      fireEvent.click(reload);
+      screen.getByLabelText("Guest message").focus();
+      (document.activeElement as HTMLElement).blur();
+      view.rerender(tree({ onStale, version: 5, children: field }));
+      expect(document.body).toHaveFocus();
+    });
+  });
+
+  describe("focus on a control that goes away (#7979)", () => {
+    it("lands on Edit when the hold ends while focus is on Reload hours, with no click", async () => {
+      const onStale = vi.fn();
+      const view = render(tree({ onStale }));
+      await copyToFriday();
+      (await findReload()).focus();
+      view.rerender(tree({ onStale, version: 5 }));
+      expect(edit()).toHaveFocus();
+    });
+
+    it("lands on Edit when Retry succeeds and the banner goes", async () => {
+      const onStale = vi.fn();
+      const view = render(tree({ onStale }));
+      await copyToFriday();
+      view.rerender(tree({ onStale, reloadError: "Network down" }));
+      within(screen.getByRole("alert")).getByRole("button", { name: "Retry" }).focus();
+      view.rerender(tree({ onStale, version: 5 }));
+      expect(edit()).toHaveFocus();
+    });
+
+    it("lands on Reload hours when Retry answers but the read is still behind", async () => {
+      const onStale = vi.fn();
+      const view = render(tree({ onStale }));
+      await copyToFriday();
+      await findReload();
+      view.rerender(tree({ onStale, reloadError: "Network down" }));
+      within(screen.getByRole("alert")).getByRole("button", { name: "Retry" }).focus();
+      view.rerender(tree({ onStale }));
+      expect(screen.getByRole("button", { name: "Reload hours" })).toHaveFocus();
+    });
+  });
+
   it("leaves focus alone when the hold ends with no click on Reload hours", async () => {
     const view = render(tree());
     await copyToFriday();

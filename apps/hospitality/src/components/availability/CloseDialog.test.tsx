@@ -205,6 +205,7 @@ describe("CloseDialog", () => {
     const primary = within(dialog).getByTestId("close-primary");
     expect(primary).toHaveTextContent(/^Choose for each group$/);
     expect(primary).toBeDisabled();
+    expect(primary).toHaveAccessibleDescription(/each group/i);
 
     fireEvent.click(within(dialog).getByRole("radio", { name: /Cancel, notify & refund/ }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));

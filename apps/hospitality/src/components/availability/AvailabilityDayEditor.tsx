@@ -514,14 +514,17 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   return (
     <Stack gap="md">
       {failure && !conflict && (
-        <Alert variant="error" title={t("availability.editor.saveError")}>
-          {failure.messages.map((message) => (
-            <Text key={message} variant="body" color="primary">
-              {message}
-            </Text>
-          ))}
+        <>
+          <Alert variant="error" title={t("availability.editor.saveError")}>
+            {failure.messages.map((message) => (
+              <Text key={message} variant="body" color="primary">
+                {message}
+              </Text>
+            ))}
+          </Alert>
+          {/* Outside the alert, which would read every row aloud. */}
           <StrandedBookings reservations={failure.stranded ?? []} />
-        </Alert>
+        </>
       )}
       {/* On a phone the preview is a tab of its own, so the drawer is not one long scroll. */}
       {phone ? (

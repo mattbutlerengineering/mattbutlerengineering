@@ -138,6 +138,9 @@ describe("SeriesGrowthStepTwo refusals", () => {
     expect(onReload).toHaveBeenCalledTimes(1);
     // The old choice is void: the Manager decides again on the fresh group.
     expect(within(dialog).getByRole("button", { name: "Choose for each group" })).toBeDisabled();
+    expect(
+      within(dialog).getByRole("button", { name: "Choose for each group" })
+    ).toHaveAccessibleDescription(/each group/i);
   });
 
   it("sends the reservation ids it was given after a reload, never the old ones", async () => {

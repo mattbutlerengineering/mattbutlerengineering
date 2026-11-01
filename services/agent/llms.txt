@@ -92,6 +92,9 @@
       ): Promise<{ change: TonightChange } | { error: string }> { /* ... */ }
     </item>
     <item priority="medium">
+      function failureLog(err: unknown) { /* ... */ }
+    </item>
+    <item priority="medium">
       function availabilityWriteFailure(err: unknown, action: string) { /* ... */ }
     </item>
     <item priority="high">

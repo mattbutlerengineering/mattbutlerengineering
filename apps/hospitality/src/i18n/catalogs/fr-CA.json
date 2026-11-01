@@ -2128,7 +2128,7 @@
         "already-reverted": "Cette modification a déjà été annulée.",
         "superseded": "Une modification plus récente existe. Seule la dernière peut être annulée.",
         "not-revertable": "Cette modification ne peut pas être annulée.",
-        "version-conflict": "Quelqu’un vient de modifier les disponibilités. Rechargez et réessayez.",
+        "version-conflict": "Quelqu’un vient de modifier les disponibilités. Seule la dernière modification peut être annulée.",
         "stranded-bookings": "L’annuler laisserait des réservations existantes sans service.",
         "invalid-config": "Cette modification ne peut plus être annulée avec vos heures actuelles."
       }

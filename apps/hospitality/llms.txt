@@ -178,6 +178,9 @@
       export function focusCloseField(field: CloseField) { /* ... */ }
     </item>
     <item priority="high">
+      export const stepTwoNoteId: unknown;
+    </item>
+    <item priority="high">
       export function stepTwoNote(ready: boolean, t: TFunction): string { /* ... */ }
     </item>
     <item priority="medium">
@@ -1310,6 +1313,14 @@
   <file path="src/components/availability/use-held-for.ts">
     <item priority="high">
       export function useHeldFor(active: boolean, ms: number): boolean { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/use-hold-focus.ts">
+    <item priority="low">
+      type HoldWayOut = "banner" | "reload" | null;
+    </item>
+    <item priority="high">
+      export function useHoldFocus(wayOut: HoldWayOut) { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/use-reload-hold.ts">
@@ -2842,6 +2853,9 @@
     </item>
   </file>
   <file path="src/hooks/useAvailabilityUndo.ts">
+    <item priority="medium">
+      function focusOffToast(offeredFrom: Element | null) { /* ... */ }
+    </item>
     <item priority="high">
       export function useAvailabilityUndo() { /* ... */ }
     </item>

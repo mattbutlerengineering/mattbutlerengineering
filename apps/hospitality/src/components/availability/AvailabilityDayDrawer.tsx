@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from "react";
+import { useId } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import {
@@ -18,6 +18,7 @@ import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
 import { AvailabilityDayEditor } from "./AvailabilityDayEditor.js";
 import { useEditorOpen } from "./editor-open.js";
 import { useHeldFor } from "./use-held-for.js";
+import { useHoldFocus } from "./use-hold-focus.js";
 import { useReloadHold } from "./use-reload-hold.js";
 import { CopyDayAction } from "./CopyDayAction.js";
 import { ScheduleNudge } from "./ScheduleNudge.js";
@@ -172,18 +173,9 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
   // A normal reload ends within this; only one that has not is worth a button of its own.
   const offerReload = useHeldFor(reloadDue, RELOAD_OFFER_AFTER_MS);
 
-  // The button goes when the hold ends or the reload fails, so focus goes where the Manager is
-  // going next, not to the page behind the drawer. Only after a click on it: otherwise the hold
-  // ending by itself must not take focus from wherever it is.
-  const reloadClickedRef = useRef(false);
-  const editorRef = useRef<HTMLDivElement>(null);
-  const bannerRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!reloadClickedRef.current || (reloadDue && !error)) return;
-    reloadClickedRef.current = false;
-    const landing = reloadDue ? bannerRef.current : editorRef.current;
-    landing?.querySelector("button")?.focus();
-  }, [reloadDue, error]);
+  const { editorRef, bannerRef, reloadRef, track } = useHoldFocus(
+    error ? "banner" : offerReload ? "reload" : null
+  );
 
   let body;
   if (date === null) {
@@ -201,7 +193,7 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
       <>
         {/* A failed refresh must not unmount an open draft; the error sits above it. */}
         {error && (
-          <div ref={bannerRef}>
+          <div ref={bannerRef} {...track}>
             <ErrorRetryBanner
               title={t("availability.drawer.refreshError")}
               error={error}
@@ -286,15 +278,8 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
         {/* Beside a failure the banner's Retry is the way out; otherwise this is, so a read older
             than the save (which nothing else would refresh) cannot lock Edit. */}
         {viewerRole === "manager" && offerReload && !error && editing?.onStale && (
-          <div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                reloadClickedRef.current = true;
-                editing.onStale?.();
-              }}
-            >
+          <div ref={reloadRef} {...track}>
+            <Button variant="ghost" size="sm" onClick={() => editing.onStale?.()}>
               {t("availability.drawer.reloadHours")}
             </Button>
           </div>

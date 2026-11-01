@@ -37,6 +37,7 @@ import {
   isUrgent,
   outcomeCounts,
   stepTwoNote,
+  stepTwoNoteId,
   type ChoiceMap,
 } from "./close-draft.js";
 import { CloseStepTwo } from "./CloseStepTwo.js";
@@ -293,7 +294,12 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
         footer={
           <div className={styles.footer}>
             {step === 2 && (
-              <Text variant="caption" color="secondary" className={styles.footerNote}>
+              <Text
+                id={stepTwoNoteId}
+                variant="caption"
+                color="secondary"
+                className={styles.footerNote}
+              >
                 {stepTwoNote(decisionsReady(combined.groups, choices), t)}
               </Text>
             )}
@@ -306,6 +312,7 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
             <Button
               variant="primary"
               data-testid="add-dates-primary"
+              aria-describedby={step === 2 ? stepTwoNoteId : undefined}
               isLoading={busy}
               disabled={
                 savedEarlier || (step === 2 ? !decisionsReady(combined.groups, choices) : false)

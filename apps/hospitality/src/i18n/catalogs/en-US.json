@@ -2088,7 +2088,7 @@
         "already-reverted": "This change was already undone.",
         "superseded": "A newer change exists. Only the latest change can be undone.",
         "not-revertable": "This change can’t be undone.",
-        "version-conflict": "Someone else just changed availability. Reload and try again.",
+        "version-conflict": "Someone else just changed availability. Only the latest change can be undone.",
         "stranded-bookings": "Undoing this would leave existing bookings without service.",
         "invalid-config": "This change can no longer be undone against your current hours."
       }

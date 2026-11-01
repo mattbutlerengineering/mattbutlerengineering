@@ -267,14 +267,17 @@ export function SaveFailure(props: {
   const { t } = useTranslation();
   if (props.messages.length === 0) return null;
   return (
-    <Alert variant="error" title={t("availabilitySchedules.saveError")}>
-      {props.messages.map((message) => (
-        <Text key={message} variant="body" color="primary">
-          {message}
-        </Text>
-      ))}
+    <>
+      <Alert variant="error" title={t("availabilitySchedules.saveError")}>
+        {props.messages.map((message) => (
+          <Text key={message} variant="body" color="primary">
+            {message}
+          </Text>
+        ))}
+      </Alert>
+      {/* Outside the alert, which would read every row aloud. */}
       <StrandedBookings reservations={props.stranded ?? []} />
-    </Alert>
+    </>
   );
 }
 

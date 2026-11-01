@@ -58,13 +58,15 @@ const refusal = () =>
   });
 
 function expectBookings(alert: HTMLElement) {
-  const first = within(alert).getByRole("link", { name: /Okafor/ });
+  // A long list read out whole would drown the refusal: only the sentence is in the live region.
+  expect(within(alert).queryAllByRole("link")).toEqual([]);
+  const first = screen.getByRole("link", { name: /Okafor/ });
   expect(first).toHaveTextContent("6:30 PM");
   expect(first).toHaveTextContent("party of 4");
   expect(first.getAttribute("href")).toMatch(/timeline\?date=2026-10-30&selected=res-okafor$/);
   // A new tab, so going to look at a booking does not throw away the draft that was refused.
   expect(first).toHaveAttribute("target", "_blank");
-  const nameless = within(alert).getByRole("link", { name: /^Guest ·/ });
+  const nameless = screen.getByRole("link", { name: /^Guest ·/ });
   expect(nameless).toHaveTextContent("12:15 AM");
   // Its service day, not the calendar date its start time falls on.
   expect(nameless.getAttribute("href")).toMatch(/date=2026-10-30&selected=res-nameless$/);

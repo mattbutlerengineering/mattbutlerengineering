@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, DatePicker, Dialog, Select, Stack } from "@mattbutlerengineering/rialto";
 import { resolveDay } from "@mbe/availability";
@@ -29,6 +29,7 @@ export interface UseScheduleDialogProps {
 export function UseScheduleDialog(props: UseScheduleDialogProps) {
   const { open, venueId, state, timezone, dates, onClose, onFinished, onStale } = props;
   const { t } = useTranslation();
+  const blockedId = useId();
   const offerUndo = useAvailabilityUndo();
   const saver = useScheduleSave(onStale);
   const schedules = useMemo(
@@ -82,6 +83,7 @@ export function UseScheduleDialog(props: UseScheduleDialogProps) {
       footer={
         <div className={styles.footer}>
           <BlockedReason
+            id={blockedId}
             reason={
               ready
                 ? null
@@ -98,6 +100,7 @@ export function UseScheduleDialog(props: UseScheduleDialogProps) {
           <Button
             variant="primary"
             disabled={!ready}
+            aria-describedby={ready ? undefined : blockedId}
             isLoading={saver.isPending}
             onClick={() => void submit()}
           >

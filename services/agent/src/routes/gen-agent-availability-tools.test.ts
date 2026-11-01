@@ -473,6 +473,37 @@ describe("availability chat tools", () => {
 
       expect(result).toMatchObject({ refused: true, error: expect.stringMatching(/guests/i) });
     });
+
+    it("keeps a stranded guest's name out of the log and the model's answer", async () => {
+      api.availability.listChanges.mockResolvedValue({ total: 1, offset: 0, items: [entry] });
+      api.availability.revertChange.mockRejectedValue(
+        problem(409, {
+          code: "stranded-bookings",
+          reservations: [{ id: "res-1", guestName: "Okafor", partySize: 2 }],
+        })
+      );
+
+      const result = await run("undo_availability_change", { summary: entry.summary });
+
+      // What pino writes: an error's enumerable fields, `problemDetails` among them.
+      const logged = JSON.stringify(vi.mocked(log.error).mock.calls);
+      expect(logged).not.toContain("Okafor");
+      expect(logged).toContain("stranded-bookings");
+      expect(logged).toContain("409");
+      expect(JSON.stringify(result)).not.toContain("Okafor");
+    });
+  });
+
+  it("logs a server failure without its problem details, whatever they carry", async () => {
+    api.availability.getConfig.mockRejectedValue(
+      problem(500, { code: "boom", reservations: [{ guestName: "Okafor" }] })
+    );
+
+    await run("change_tonight_availability", { change: "pacing", covers: 2 });
+
+    const logged = JSON.stringify(vi.mocked(log.error).mock.calls);
+    expect(logged).not.toContain("Okafor");
+    expect(logged).toContain("500");
   });
 
   it.each([

@@ -124,6 +124,41 @@ test("a stranded refusal lists each booking, and its link opens that booking", a
   await expect(dialog.getByRole("button", { name: /^Save/ })).toBeEnabled();
 });
 
+test("a stranded list stays out of the alert, and a long name wraps", async ({
+  mockedPage: page,
+}) => {
+  const mock = await mockAvailability(page);
+  const dialog = await openDay(page, /Regular week/);
+  await dialog.getByRole("button", { name: /^Edit/ }).first().click();
+  await dialog.getByRole("button", { name: /^Remove/ }).click();
+  mock.nextPut = {
+    status: 409,
+    code: "stranded-bookings",
+    extra: {
+      reservations: [
+        {
+          id: "res-long",
+          startTime: "2026-11-21T01:30:00.000Z",
+          partySize: 4,
+          reason: "closed",
+          guestName: "W".repeat(120),
+          serviceDate: "2026-11-20",
+        },
+      ],
+    },
+  };
+  await dialog.getByRole("button", { name: /^Save/ }).click();
+
+  const link = dialog.getByRole("link", { name: /WWWW/ });
+  await expect(link).toBeVisible();
+  await expect(dialog.getByRole("alert").getByRole("link")).toHaveCount(0);
+  const sideways = await link.evaluate((el) => {
+    const list = el.closest("ul");
+    return list ? list.scrollWidth - list.clientWidth : Number.POSITIVE_INFINITY;
+  });
+  expect(sideways).toBeLessThanOrEqual(0);
+});
+
 test.describe("Reload hours", () => {
   async function copyToMonday(page: Page) {
     await page.getByRole("button", { name: "Copy to other days…" }).click();
@@ -165,6 +200,54 @@ test.describe("Reload hours", () => {
     await reload.click();
     await expect(reload).toHaveCount(0);
     await expect(page.getByRole("button", { name: /^Edit/ }).first()).toBeFocused();
+  });
+
+  test("a read answering after the Manager moved on leaves focus where it is", async ({
+    mockedPage: page,
+  }) => {
+    const mock = await mockAvailability(page);
+    await openDay(page, /Regular week/);
+    mock.holdReads();
+    await copyToMonday(page);
+    const reload = page.getByRole("button", { name: "Reload hours" });
+    await expect(reload).toBeVisible({ timeout: 4000 });
+    await reload.click();
+
+    const copy = page.getByRole("button", { name: "Copy to other days…" });
+    await copy.focus();
+    mock.releaseReads();
+    await expect(reload).toHaveCount(0);
+    await expect(copy).toBeFocused();
+  });
+
+  test("the hold ending under focus on Reload lands on Edit, with no click", async ({
+    mockedPage: page,
+  }) => {
+    const mock = await mockAvailability(page);
+    await openDay(page, /Regular week/);
+    mock.holdReads();
+    await copyToMonday(page);
+    const reload = page.getByRole("button", { name: "Reload hours" });
+    await expect(reload).toBeVisible({ timeout: 4000 });
+    await reload.focus();
+
+    mock.releaseReads();
+    await expect(reload).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^Edit/ }).first()).toBeFocused();
+  });
+
+  test("a double-clicked Undo sends one revert and keeps focus in the drawer", async ({
+    mockedPage: page,
+  }) => {
+    const mock = await mockAvailability(page);
+    const dialog = await openDay(page, /Regular week/);
+    await copyToMonday(page);
+
+    await page.getByRole("button", { name: "Undo" }).dblclick();
+    await expect(page.getByText("Change undone")).toBeVisible();
+    await expect.poll(() => mock.reverts).toBe(1);
+    await expect(page.getByText(/Someone else/)).toHaveCount(0);
+    expect(await dialog.evaluate((el) => el.contains(document.activeElement))).toBe(true);
   });
 });
 

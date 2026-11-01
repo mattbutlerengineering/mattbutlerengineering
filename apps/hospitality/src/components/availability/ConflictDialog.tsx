@@ -69,9 +69,10 @@ export function ConflictDialog(props: ConflictDialogProps) {
                 {message}
               </Text>
             ))}
-            <StrandedBookings reservations={props.stranded ?? []} />
           </Alert>
         )}
+        {/* Outside the alert, which would read every row aloud. */}
+        {failure.length > 0 && <StrandedBookings reservations={props.stranded ?? []} />}
         <Text variant="body" color="primary">
           {theirs}
         </Text>

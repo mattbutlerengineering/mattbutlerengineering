@@ -109,6 +109,13 @@ describe("CompareServices", () => {
     save.mockResolvedValue({ version: 8, changeId: "chg" });
   });
 
+  it("ties why Save is off to the button, so a screen reader hears it there (#7979)", () => {
+    renderWith(<CompareServices {...common} state={state()} />);
+    const save = screen.getByRole("button", { name: /^Save 0 schedules$/ });
+    expect(save).toBeDisabled();
+    expect(save).toHaveAccessibleDescription("Change a row to save.");
+  });
+
   it("saves every selected schedule in one change with one impact line", async () => {
     renderWith(<CompareServices {...common} state={state()} />);
     fireEvent.click(screen.getByRole("checkbox", { name: "Select Weekend" }));
