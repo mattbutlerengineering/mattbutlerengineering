@@ -178,5 +178,29 @@ describe("floor plan chat tools", () => {
         error: "Plan is locked. Nothing was changed.",
       });
     });
+
+    it.each([
+      ["a 502", () => problem(502)],
+      ["a timeout", () => new DOMException("The operation timed out.", "TimeoutError")],
+      ["a lost response", () => new TypeError("fetch failed")],
+    ])("after %s, may have saved: says to check list_floor_plans first", async (_name, failure) => {
+      api.floorPlans.setActive.mockRejectedValue(failure());
+
+      const result = await run({ floorPlan: "Patio" });
+
+      expect(result).toMatchObject({
+        error: expect.stringMatching(/Couldn't confirm.*list_floor_plans before trying again/),
+      });
+      expect(JSON.stringify(result)).not.toMatch(/Nothing was changed/);
+    });
+
+    it("still says nothing changed when the read before the write fails", async () => {
+      api.floorPlans.list.mockRejectedValue(problem(502));
+
+      const result = await run({ floorPlan: "Patio" });
+
+      expect(result).toMatchObject({ error: expect.stringMatching(/Nothing was changed/) });
+      expect(api.floorPlans.setActive).not.toHaveBeenCalled();
+    });
   });
 });

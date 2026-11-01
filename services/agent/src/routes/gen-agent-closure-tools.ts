@@ -38,7 +38,7 @@ import {
   type Impact,
   type SpecialHoursRule,
 } from "./gen-agent-closure-support.js";
-import { NO_VENUE, todayIn, type ApiClient } from "./gen-tool-support.js";
+import { NO_REPLAY, NO_VENUE, todayIn, type ApiClient } from "./gen-tool-support.js";
 
 /**
  * Chat tools for closures and special hours on dates after tonight (#7929):
@@ -376,7 +376,7 @@ function reopenClosure({ log, api, venueId }: ToolContext) {
       const told = tellCancelledGuests && reachable > 0;
       let notified: number;
       try {
-        const saved = await api.availability.reopenClosure(venueId, rule.id, told);
+        const saved = await api.availability.reopenClosure(venueId, rule.id, told, NO_REPLAY);
         // The server counts who the notice really reached; an older one does not say.
         notified = told ? (saved.notified ?? reachable) : 0;
       } catch (err) {
