@@ -3263,7 +3263,8 @@
             now: new Date(),
           });
           if (outcome.kind === "reopened") {
-            if (request.body.tellCancelledGuests) {
+            // The same call the command counted: no notice to rebook a date that stays closed (#8006).
+            if (request.body.tellCancelledGuests && !outcome.result.stillClosed?.everyDate) {
               await enqueueNotices(
                 closureNoticeService.enqueueForReopen,
                 { venueId, ruleId: request.params.ruleId },
@@ -14393,11 +14394,18 @@
             select: { id: true },
           });
           const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
+          const stillClosed = stillClosedAfterReopen(
+            state.stored.dateRules,
+            rule,
+            civilDateIn(now, state.timezone)
+          );
           // Only guests whose booking has not started get the notice (`listNotifiable`); the audit
-          // row, Undo and the caller's count must agree with who it actually reaches.
-          const notified = input.tellCancelledGuests
-            ? await upcomingCancelled(db, venueId, ruleId, now)
-            : 0;
+          // row, Undo and the caller's count must agree with who it actually reaches. With every date
+          // still closed by another closure there is nothing to rebook, so nobody is told to (#8006).
+          const notified =
+            input.tellCancelledGuests && !stillClosed.everyDate
+              ? await upcomingCancelled(db, venueId, ruleId, now)
+              : 0;
           const change = await db.availabilityChange.create({
             data: {
               venueId,
@@ -14419,7 +14427,7 @@
           });
           return {
             kind: "reopened" as const,
-            result: { version: bumped.availabilityVersion, changeId: change.id, notified },
+            result: { version: bumped.availabilityVersion, changeId: change.id, notified, stillClosed },
           };
         });
       } catch (error) {

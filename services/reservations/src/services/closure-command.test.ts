@@ -1380,6 +1380,68 @@ describe("reopenClosure", () => {
     });
   });
 
+  describe("a date another closure also closes (#8006)", () => {
+    const other = (fields: Record<string, unknown> = {}) => ({
+      ...rowFor("closure"),
+      id: "other",
+      ...fields,
+    });
+
+    it("says the date stays closed, naming the closure, and asks no notice to rebook it", async () => {
+      const w = world();
+      await run(w, body());
+      w.dateRules = [rowFor("closure"), other()];
+
+      const { outcome } = await reopen(w);
+
+      expect(outcome).toMatchObject({
+        kind: "reopened",
+        result: {
+          notified: 0,
+          stillClosed: {
+            everyDate: true,
+            by: [{ ruleId: "other", targetKind: "venue", dates: ["2026-12-24"] }],
+          },
+        },
+      });
+      expect(w.changes.at(-1)).toMatchObject({ kind: "reopen", notifiedGuests: false });
+    });
+
+    it("says which date of a range stays closed, and still lets the notice go", async () => {
+      const w = world();
+      await run(w, body());
+      const range = {
+        ...rowFor("closure"),
+        startsOn: new Date("2026-12-23T00:00:00.000Z"),
+        endsOn: new Date("2026-12-25T00:00:00.000Z"),
+      };
+      w.dateRules = [range, other()];
+
+      const { outcome } = await reopen(w);
+
+      expect(outcome).toMatchObject({
+        kind: "reopened",
+        result: {
+          notified: 2,
+          stillClosed: { everyDate: false, by: [{ ruleId: "other", dates: ["2026-12-24"] }] },
+        },
+      });
+    });
+
+    it("reports nothing staying closed when no other closure is there", async () => {
+      const w = world();
+      await run(w, body());
+      w.dateRules = [rowFor("closure")];
+
+      const { outcome } = await reopen(w);
+
+      expect(outcome).toMatchObject({
+        kind: "reopened",
+        result: { stillClosed: { everyDate: false, by: [] } },
+      });
+    });
+  });
+
   describe("who a reopen notice can reach (#7975)", () => {
     const closedWithTwoGuests = async () => {
       const w = world();

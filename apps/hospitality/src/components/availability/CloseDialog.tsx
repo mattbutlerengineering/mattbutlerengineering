@@ -32,6 +32,7 @@ import {
   type CloseField,
   type CloseForm,
 } from "./close-draft.js";
+import { AlreadyClosedNotice } from "./AlreadyClosedNotice.js";
 import { LeaveSaveDialog } from "./LeaveSaveDialog.js";
 import { useSaveAttempts } from "./use-save-attempts.js";
 import { useWinningChangeText } from "./use-winning-change-text.js";
@@ -305,6 +306,14 @@ export function CloseDialog(props: CloseDialogProps) {
             {failure}
             {winner && <Text variant="body">{winnerText}</Text>}
           </Alert>
+        )}
+        {!savedEarlier && step === 1 && (
+          <AlreadyClosedNotice
+            rules={state.config.dateRules}
+            draft={rule}
+            services={services}
+            today={today}
+          />
         )}
         {/* A save in flight sends what was chosen: no control may change it meanwhile. */}
         <fieldset className={styles.lock} disabled={isPending} hidden={savedEarlier}>

@@ -271,7 +271,8 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
         now: new Date(),
       });
       if (outcome.kind === "reopened") {
-        if (request.body.tellCancelledGuests) {
+        // The same call the command counted: no notice to rebook a date that stays closed (#8006).
+        if (request.body.tellCancelledGuests && !outcome.result.stillClosed?.everyDate) {
           await enqueueNotices(
             closureNoticeService.enqueueForReopen,
             { venueId, ruleId: request.params.ruleId },
