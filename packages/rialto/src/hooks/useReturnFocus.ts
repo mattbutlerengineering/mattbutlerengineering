@@ -1,5 +1,4 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
-import { isCoveredByTrap } from "./useFocusTrap";
 
 /**
  * Captures the focused element when `open` transitions to `true` and restores
@@ -61,9 +60,6 @@ export function useReturnFocus(open: boolean): () => void {
       if (skip) return;
       const frame = requestAnimationFrame(() => {
         pendingRef.current = null;
-        // Another overlay opened on top in the meantime, and it holds focus now. The trigger is
-        // behind it, where keys would act on what that overlay covers.
-        if (captured && isCoveredByTrap(captured)) return;
         (captured as HTMLElement | null)?.focus();
       });
       pendingRef.current = { frame, trigger: captured };

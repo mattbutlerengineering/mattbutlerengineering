@@ -62,15 +62,6 @@ function resolveInitialFocus(
 const activePanels: HTMLElement[] = [];
 
 /**
- * True when the topmost open trap does not contain `element`: keys there would act behind that
- * panel. A panel already out of the document no longer covers anything.
- */
-export function isCoveredByTrap(element: Element): boolean {
-  const top = activePanels[activePanels.length - 1];
-  return top !== undefined && top.isConnected && !top.contains(element);
-}
-
-/**
  * Traps keyboard focus inside a panel element while `enabled` is true.
  *
  * On enable: focuses `options.initialFocus` if provided, else the first
