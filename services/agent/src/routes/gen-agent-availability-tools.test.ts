@@ -421,7 +421,7 @@ describe("availability chat tools", () => {
 
       const result = await run("end_tonight_change", { change: "pause_online" });
 
-      expect(api.availability.endTonight).toHaveBeenCalledWith("v1", "r1");
+      expect(api.availability.endTonight).toHaveBeenCalledWith("v1", "r1", { maxRetries: 0 });
       expect(result).toMatchObject({ ended: true });
     });
 
@@ -435,7 +435,7 @@ describe("availability chat tools", () => {
 
       await run("end_tonight_change", { change: "stop_window", from: "19:30" });
 
-      expect(api.availability.endTonight).toHaveBeenCalledWith("v1", "r2");
+      expect(api.availability.endTonight).toHaveBeenCalledWith("v1", "r2", { maxRetries: 0 });
     });
 
     it("asks which one when several match", async () => {

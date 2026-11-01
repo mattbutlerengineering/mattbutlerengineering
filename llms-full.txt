@@ -30498,7 +30498,7 @@
                 };
               }
               unsure = TONIGHT_SAVE_UNSURE;
-              await api.availability.endTonight(venueId, matches[0]!.id);
+              await api.availability.endTonight(venueId, matches[0]!.id, NO_REPLAY);
               return { ended: true, change };
             } catch (err) {
               log.error({ err, venueId, change }, "end_tonight_change failed");
@@ -31198,7 +31198,7 @@
           const told = tellCancelledGuests && reachable > 0;
           let notified: number;
           try {
-            const saved = await api.availability.reopenClosure(venueId, rule.id, told);
+            const saved = await api.availability.reopenClosure(venueId, rule.id, told, NO_REPLAY);
             // The server counts who the notice really reached; an older one does not say.
             notified = told ? (saved.notified ?? reachable) : 0;
           } catch (err) {
@@ -32067,7 +32067,7 @@
                       ...(reason ? { cancellationReason: reason } : {}),
                       ...(note ? { cancellationNote: note } : {}),
                     })
-                  : await api.reservations.cancel(reservationId);
+                  : await api.reservations.cancel(reservationId, NO_REPLAY);
               return { reservation };
             } catch (err) {
               log.error({ err, reservationId }, "cancel_reservation failed");
@@ -32417,7 +32417,7 @@
             if (!venueId) return NO_VENUE;
             log.info({ venueId }, "get_table_status tool called");
             try {
-              const result = await api.tables.list({ venueId });
+              const result = await api.tables.list({ venueId, limit: TABLES_LIMIT });
               return { tables: result.data };
             } catch (err) {
               log.error({ err, venueId }, "get_table_status failed");
@@ -32586,7 +32586,7 @@
             log.info({ venueId, tableRef, newStatus }, "update_table_status tool called");
             let unsure: string | undefined;
             try {
-              const tablesResult = await api.tables.list({ venueId });
+              const tablesResult = await api.tables.list({ venueId, limit: TABLES_LIMIT });
               const resolved = resolveTable(tablesResult.data, tableRef);
               if ("error" in resolved) return resolved;
               const { table } = resolved;
@@ -33893,6 +33893,7 @@
     export function saveUnsure(read: string): string {
       return `Couldn't confirm the change was saved. Check ${read} before trying again.`;
     }
+    export const NO_REPLAY = { maxRetries: 0 } as const;
     export interface NamedTable {
       readonly id: string;
       readonly name?: string | null;
@@ -72657,12 +72658,17 @@
       async reopenClosure(
         venueId: string,
         ruleId: string,
-        tellCancelledGuests: boolean
+        tellCancelledGuests: boolean,
+        override?: PerRequestOptions
       ): Promise<ReopenResult> {
-        const response = await this.client.call(availabilityConfigEndpoints.reopenClosure, {
-          params: { id: venueId, ruleId },
-          body: { tellCancelledGuests },
-        });
+        const response = await this.client.call(
+          availabilityConfigEndpoints.reopenClosure,
+          {
+            params: { id: venueId, ruleId },
+            body: { tellCancelledGuests },
+          },
+          override
+        );
         return response.data;
       }
     
@@ -72683,10 +72689,16 @@
       }
     
       /** Ends a Tonight change early; bookings a close-early cancelled stay cancelled. */
-      async endTonight(venueId: string, ruleId: string): Promise<ReopenResult> {
-        const response = await this.client.call(availabilityConfigEndpoints.endTonight, {
-          params: { id: venueId, ruleId },
-        });
+      async endTonight(
+        venueId: string,
+        ruleId: string,
+        override?: PerRequestOptions
+      ): Promise<ReopenResult> {
+        const response = await this.client.call(
+          availabilityConfigEndpoints.endTonight,
+          { params: { id: venueId, ruleId } },
+          override
+        );
         return response.data;
       }
     
@@ -74148,8 +74160,12 @@
       /**
        * Cancel a reservation
        */
-      async cancel(id: string): Promise<Reservation> {
-        return this.client.deleteOne<Reservation>(`${RESERVATION_BASE_PATH}/${id}`, ReservationSchema);
+      async cancel(id: string, override?: PerRequestOptions): Promise<Reservation> {
+        return this.client.deleteOne<Reservation>(
+          `${RESERVATION_BASE_PATH}/${id}`,
+          ReservationSchema,
+          override
+        );
       }
     
       /**

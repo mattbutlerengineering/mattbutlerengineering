@@ -42,6 +42,8 @@ export interface CreateAgentToolsOptions {
 
 /** The reservations API's page-size ceiling. */
 const LOOKUP_LIMIT = 100;
+/** The reservations API's page-size ceiling; a venue's tables fit in one page. */
+const TABLES_LIMIT = 100;
 /** Guest profiles a name lookup follows; more than this means the name is too vague. */
 const MAX_GUEST_MATCHES = 5;
 
@@ -420,7 +422,7 @@ export function createAgentTools(
         if (!venueId) return NO_VENUE;
         log.info({ venueId }, "get_table_status tool called");
         try {
-          const result = await api.tables.list({ venueId });
+          const result = await api.tables.list({ venueId, limit: TABLES_LIMIT });
           return { tables: result.data };
         } catch (err) {
           log.error({ err, venueId }, "get_table_status failed");
@@ -589,7 +591,7 @@ export function createAgentTools(
         log.info({ venueId, tableRef, newStatus }, "update_table_status tool called");
         let unsure: string | undefined;
         try {
-          const tablesResult = await api.tables.list({ venueId });
+          const tablesResult = await api.tables.list({ venueId, limit: TABLES_LIMIT });
           const resolved = resolveTable(tablesResult.data, tableRef);
           if ("error" in resolved) return resolved;
           const { table } = resolved;

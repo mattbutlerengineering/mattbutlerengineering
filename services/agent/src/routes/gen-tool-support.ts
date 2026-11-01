@@ -76,6 +76,13 @@ export function saveUnsure(read: string): string {
   return `Couldn't confirm the change was saved. Check ${read} before trying again.`;
 }
 
+/**
+ * For a write the api-client would replay (DELETE) and whose replay is refused once
+ * the first attempt has committed. The refusal would read as "nothing changed", so
+ * the tool takes the first attempt's answer and reports it as unknown.
+ */
+export const NO_REPLAY = { maxRetries: 0 } as const;
+
 export interface NamedTable {
   readonly id: string;
   readonly name?: string | null;

@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
 import type { AvailabilityConfig, DateRule, TonightChange } from "@mbe/types";
 import {
+  NO_REPLAY,
   NO_VENUE,
   localTimeIn,
   refusalOf,
@@ -410,7 +411,7 @@ export function createAvailabilityTools(
             };
           }
           unsure = TONIGHT_SAVE_UNSURE;
-          await api.availability.endTonight(venueId, matches[0]!.id);
+          await api.availability.endTonight(venueId, matches[0]!.id, NO_REPLAY);
           return { ended: true, change };
         } catch (err) {
           log.error({ err, venueId, change }, "end_tonight_change failed");

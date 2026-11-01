@@ -3,6 +3,7 @@ import type { ToolSet } from "ai";
 import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
 import {
+  NO_REPLAY,
   NO_VENUE,
   refusalOf,
   resolveTable,
@@ -183,7 +184,7 @@ export function createTimelineTools(
                   ...(reason ? { cancellationReason: reason } : {}),
                   ...(note ? { cancellationNote: note } : {}),
                 })
-              : await api.reservations.cancel(reservationId);
+              : await api.reservations.cancel(reservationId, NO_REPLAY);
           return { reservation };
         } catch (err) {
           log.error({ err, reservationId }, "cancel_reservation failed");

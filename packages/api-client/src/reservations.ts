@@ -8,7 +8,7 @@ import type {
   WalkInRequest,
 } from "@mbe/types";
 import { ReservationSchema, ReservationStatusSchema, paginatedResponseSchema } from "@mbe/types";
-import type { ApiClient, QueryParams } from "./client.js";
+import type { ApiClient, PerRequestOptions, QueryParams } from "./client.js";
 
 export interface ListReservationsParams {
   page?: number;
@@ -212,8 +212,12 @@ export class ReservationsClient {
   /**
    * Cancel a reservation
    */
-  async cancel(id: string): Promise<Reservation> {
-    return this.client.deleteOne<Reservation>(`${RESERVATION_BASE_PATH}/${id}`, ReservationSchema);
+  async cancel(id: string, override?: PerRequestOptions): Promise<Reservation> {
+    return this.client.deleteOne<Reservation>(
+      `${RESERVATION_BASE_PATH}/${id}`,
+      ReservationSchema,
+      override
+    );
   }
 
   /**

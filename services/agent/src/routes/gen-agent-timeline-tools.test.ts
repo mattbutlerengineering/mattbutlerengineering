@@ -328,7 +328,7 @@ describe("timeline chat tools", () => {
 
       await run("cancel_reservation", { reservationId: "r1" });
 
-      expect(api.reservations.cancel).toHaveBeenCalledWith("r1");
+      expect(api.reservations.cancel).toHaveBeenCalledWith("r1", { maxRetries: 0 });
       expect(api.reservations.cancelWithReason).not.toHaveBeenCalled();
     });
 

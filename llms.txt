@@ -10939,6 +10939,9 @@
     <item priority="high">
       export function saveUnsure(read: string): string { /* ... */ }
     </item>
+    <item priority="high">
+      export const NO_REPLAY: unknown;
+    </item>
     <item priority="low">
       interface NamedTable {
         id: string;

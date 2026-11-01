@@ -496,7 +496,7 @@ describe("createAgentTools", () => {
       if (!getTableStatusTool) throw new Error("expected get_table_status tool");
       const result = await getTableStatusTool.execute!({ venueId: "v1" }, toolCtx);
 
-      expect(api.tables.list).toHaveBeenCalledWith({ venueId: "v1" });
+      expect(api.tables.list).toHaveBeenCalledWith({ venueId: "v1", limit: 100 });
       expect(result).toEqual({ tables: mockTables.data });
     });
 
@@ -519,7 +519,7 @@ describe("createAgentTools", () => {
       if (!getTableStatusTool) throw new Error("expected get_table_status tool");
       const result = await getTableStatusTool.execute!({ venueId: "v1", tableNumber: 5 }, toolCtx);
 
-      expect(api.tables.list).toHaveBeenCalledWith({ venueId: "v1" });
+      expect(api.tables.list).toHaveBeenCalledWith({ venueId: "v1", limit: 100 });
       expect(result).toEqual({ tables: mockTables.data });
     });
 
@@ -829,7 +829,7 @@ describe("createAgentTools", () => {
       if (!cancelReservationTool) throw new Error("expected cancel_reservation tool");
       const result = await cancelReservationTool.execute!({ reservationId: "r1" }, toolCtx);
 
-      expect(api.reservations.cancel).toHaveBeenCalledWith("r1");
+      expect(api.reservations.cancel).toHaveBeenCalledWith("r1", { maxRetries: 0 });
       expect(result).toEqual({ reservation: mockCancelled });
     });
 
@@ -949,7 +949,7 @@ describe("createAgentTools", () => {
       const result = await cancelTool.execute!({ reservationId: "other-res" }, toolCtx);
 
       expect(api.reservations.cancel).toHaveBeenCalledTimes(1);
-      expect(api.reservations.cancel).toHaveBeenCalledWith("r1");
+      expect(api.reservations.cancel).toHaveBeenCalledWith("r1", { maxRetries: 0 });
       expect(result).toEqual({ reservation: mockCancelled });
     });
 
@@ -1182,7 +1182,7 @@ describe("createAgentTools", () => {
         toolCtx
       );
 
-      expect(api.tables.list).toHaveBeenCalledWith({ venueId: "v1" });
+      expect(api.tables.list).toHaveBeenCalledWith({ venueId: "v1", limit: 100 });
       expect(api.tables.updateStatus).toHaveBeenCalledWith("t1", "DIRTY");
       expect(result).toEqual({ table: mockTable });
     });
@@ -1265,6 +1265,37 @@ describe("createAgentTools", () => {
       );
 
       expect(result).toEqual({ error: "Table 99 not found in this venue." });
+    });
+
+    describe("a venue with more tables than the client's default page", () => {
+      const TABLES = Array.from({ length: 11 }, (_, i) => ({
+        id: `t${i + 1}`,
+        tableNumber: String(i + 1),
+      }));
+
+      beforeEach(() => {
+        api.tables.list.mockImplementation(async ({ limit = 10 }: { readonly limit?: number }) => ({
+          data: TABLES.slice(0, limit),
+        }));
+      });
+
+      it("update_table_status finds the 11th table", async () => {
+        api.tables.updateStatus.mockResolvedValue({ id: "t11", status: "READY" });
+        const input = { table: "11", status: "READY" as const };
+        const tools = createConfirmedTools("update_table_status", input);
+
+        await tools.update_table_status!.execute!(input, toolCtx);
+
+        expect(api.tables.updateStatus).toHaveBeenCalledWith("t11", "READY");
+      });
+
+      it("get_table_status reports the 11th table", async () => {
+        const tools = createAgentTools(log, api as never, { venueId: "v1" });
+
+        const result = await tools.get_table_status!.execute!({}, toolCtx);
+
+        expect(result).toEqual({ tables: TABLES });
+      });
     });
 
     it("says nothing changed when the read before the write fails", async () => {
