@@ -42,7 +42,12 @@ import { OnlinePausedBanner } from "../components/availability/OnlinePausedBanne
 import { DiscardChangesDialog } from "../components/availability/DiscardChangesDialog.js";
 import { LeaveGuard } from "../components/availability/LeaveGuard.js";
 import { useDiscardGuard } from "../components/availability/use-discard-guard.js";
-import { datesUsingSchedule, weekdayDatesInMonth } from "../components/availability/selection.js";
+import {
+  datesUsingSchedule,
+  futureDates,
+  weekdayDatesInMonth,
+} from "../components/availability/selection.js";
+import { pickHoursSource } from "../components/availability/selection-hours.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
 import { PageHeader } from "../components/PageHeader.js";
 import { periodLabel, weekSummary } from "../components/availability/period.js";
@@ -64,6 +69,8 @@ interface Closing {
 interface OpenTarget {
   readonly date: string | null;
   readonly fixedDates?: readonly string[];
+  /** With `fixedDates`: the picked dates do not all have the hours of `date`. */
+  readonly hoursDiffer?: boolean;
   readonly closing?: Closing;
 }
 const CLOSED: OpenTarget = { date: null };
@@ -88,6 +95,8 @@ export function AvailabilityPage() {
   const [closing, setClosing] = useState<Closing | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [tab, setTab] = useState<AvailabilityTab>("calendar");
+  // A range drag holds the selection bar as it was, so the grid does not move under the pointer.
+  const [barDuringDrag, setBarDuringDrag] = useState<string[] | null>(null);
   const [selectionAction, setSelectionAction] = useState<"use" | "clear" | null>(null);
   const anchor = chosenAnchor ?? today;
   // Picked days belong to one venue; derive "none" on a venue switch rather than clearing in an effect.
@@ -96,7 +105,9 @@ export function AvailabilityPage() {
     dates: [],
   });
   const selection = picked.venueId === selectedVenueId ? picked.dates : EMPTY;
-  const setSelection = (dates: string[]) => setPicked({ venueId: selectedVenueId, dates });
+  // Past dates are history, not something to edit (the server settles a save from today on).
+  const setSelection = (dates: string[]) =>
+    setPicked({ venueId: selectedVenueId, dates: futureDates(dates, today) });
   // Moving off a day with an unsaved draft asks first (ux.md F2 step 6), selection actions included.
   // Opening a single day drops the selection, but only once the guard lets the move happen.
   const guard = useDiscardGuard<OpenTarget>(({ closing: nextClosing, ...next }) => {
@@ -169,8 +180,15 @@ export function AvailabilityPage() {
     if (date !== openDate || target.fixedDates) guard.request({ date });
     else if (selection.length > 0) setSelection([]);
   };
-  const editSelection = (dates: readonly string[]) =>
-    guard.request({ date: dates[0] ?? null, fixedDates: dates });
+  const editSelection = (dates: readonly string[]) => {
+    // The rows come from the first picked date that has a service, so a closed Monday picked with
+    // an open Friday cannot hide that Friday has hours; the drawer says when the dates differ.
+    const loaded = config.data;
+    const source = loaded
+      ? pickHoursSource(dates, (d) => resolveDay({ timezone: timeZone, config: loaded.config }, d))
+      : { date: dates[0] ?? null, differs: false };
+    guard.request({ date: source.date, fixedDates: dates, hoursDiffer: source.differs });
+  };
   const anchorSummary = days.data?.find((d) => d.serviceDate === anchor);
   // The schedule's own name, not the day's label ("Closed", "Special hours").
   const anchorSchedule = config.data?.config.schedules.find(
@@ -251,6 +269,7 @@ export function AvailabilityPage() {
           timezone={timeZone}
           today={today}
           onStale={() => void config.refetch()}
+          reloadError={config.error ? describeApiError(config.error).detail : null}
           isManager={team?.viewerRole === "manager"}
         />
       </Stack>
@@ -355,7 +374,7 @@ export function AvailabilityPage() {
         />
       )}
       <AvailabilitySelectionBar
-        selection={selection}
+        selection={barDuringDrag ?? selection}
         canEdit={isManager}
         onEditHours={editSelection}
         onClear={() => setSelection([])}
@@ -394,9 +413,10 @@ export function AvailabilityPage() {
         days={days.data ?? undefined}
         isLoading={days.isLoading}
         selectedDate={openDate}
-        draftDate={guard.dirty ? openDate : null}
+        draftDates={guard.dirty && openDate !== null ? (target.fixedDates ?? [openDate]) : EMPTY}
         selection={selection}
         onSelectionChange={setSelection}
+        onDragChange={(dragging) => setBarDuringDrag(dragging ? selection : null)}
         onOpenDay={openDay}
         onAnchorChange={setChosenAnchor}
       />
@@ -414,6 +434,7 @@ export function AvailabilityPage() {
                 timezone: timeZone,
                 today,
                 onDirtyChange: guard.setDirty,
+                hoursDiffer: target.hoursDiffer,
                 onFinished: () => guard.release(CLOSED),
                 fixedDates: target.fixedDates,
                 onStale: () => void config.refetch(),
@@ -449,6 +470,11 @@ export function AvailabilityPage() {
       <DiscardChangesDialog
         open={guard.pending !== null}
         date={openDate}
+        title={
+          target.fixedDates && target.fixedDates.length > 1
+            ? t("availability.discard.titleSelection", { total: target.fixedDates.length })
+            : undefined
+        }
         onDiscard={guard.confirmDiscard}
         onKeepEditing={guard.keepEditing}
       />

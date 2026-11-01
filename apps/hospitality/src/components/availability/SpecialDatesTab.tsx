@@ -49,6 +49,8 @@ export interface SpecialDatesTabProps {
   readonly today: string;
   /** A concurrent change was refused; reload the config. */
   readonly onStale: () => void;
+  /** Why the config could not be reloaded, for the hours drawer's Retry. */
+  readonly reloadError?: string | null;
   /** Only a Manager can reopen or retry refunds; a Host views the list and the call list. */
   readonly isManager: boolean;
 }
@@ -287,7 +289,7 @@ function SpecialDateItem(props: RowProps) {
  * became of the bookings it touched, the call list, reopening, and refund retry.
  */
 export function SpecialDatesTab(props: SpecialDatesTabProps) {
-  const { venueId, state, timezone, today, onStale, isManager } = props;
+  const { venueId, state, timezone, today, onStale, reloadError, isManager } = props;
   const rules = state.config.dateRules;
   const { t } = useTranslation();
   const format = useVenueFormat();
@@ -546,6 +548,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           date={editingHours.date}
           ruleScope={editingHours.ruleScope}
           onStale={onStale}
+          reloadError={reloadError}
           onClose={() => setEditingHours(null)}
         />
       )}

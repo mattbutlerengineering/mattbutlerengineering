@@ -7,6 +7,7 @@ import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { buildCopyDayChanges, copyDayDates } from "./copy-day.js";
 import { seedServices } from "./draft-changes.js";
+import { waitingProps } from "./draft-wait.js";
 import { ownChangeDates } from "./scope-dates.js";
 import { OwnChangesChoice, SaveFailure, WeekdayToggles } from "./ScheduleFormParts.js";
 import { useScheduleSave } from "./use-schedule-save.js";
@@ -18,6 +19,12 @@ export interface CopyDayActionProps {
   readonly date: string;
   readonly day: ResolvedDay;
   readonly onStale: () => void;
+  /** Today on the venue clock: a copy never reaches dates before it. */
+  readonly today: string;
+  /** An editor is open, or a reload is due: saving a copy now would conflict with a save of ours. */
+  readonly waiting?: boolean;
+  /** The element that says why Copy is waiting. */
+  readonly reasonId?: string;
 }
 
 /**
@@ -25,7 +32,7 @@ export interface CopyDayActionProps {
  * until a date (or until changed again), with the same keep/replace choice as any dated save.
  */
 export function CopyDayAction(props: CopyDayActionProps) {
-  const { venueId, state, date, day, onStale } = props;
+  const { venueId, state, date, day, onStale, today, waiting = false, reasonId } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const offerUndo = useAvailabilityUndo();
@@ -37,8 +44,8 @@ export function CopyDayAction(props: CopyDayActionProps) {
   const [mode, setMode] = useState<ScopeConflictMode>("keep");
 
   const dates = useMemo(
-    () => (from ? copyDayDates({ weekdays, from, until }) : []),
-    [weekdays, from, until]
+    () => (from ? copyDayDates({ weekdays, from, until, today }) : []),
+    [weekdays, from, until, today]
   );
   const own = useMemo(() => ownChangeDates(state.config, dates, null), [state.config, dates]);
   const heading = format.formatCalendarDate(date, {
@@ -60,6 +67,7 @@ export function CopyDayAction(props: CopyDayActionProps) {
       weekdays,
       from,
       until,
+      today,
       makeId: () => crypto.randomUUID(),
     });
     const saved = await saver.save(venueId, state, changes, dates.length > 1 ? mode : "replace");
@@ -74,7 +82,14 @@ export function CopyDayAction(props: CopyDayActionProps) {
 
   return (
     <>
-      <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
+      <Button
+        variant="ghost"
+        size="sm"
+        {...waitingProps(waiting, reasonId)}
+        onClick={() => {
+          if (!waiting) setOpen(true);
+        }}
+      >
         {t("availabilitySchedules.copy.action")}
       </Button>
       <Dialog
