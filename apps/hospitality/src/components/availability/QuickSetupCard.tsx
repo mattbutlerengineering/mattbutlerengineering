@@ -10,15 +10,22 @@ export interface QuickSetupCardProps {
   readonly onSave: (draft: QuickSetupDraft) => Promise<void>;
   /** The server's failure, shown in an `Alert` that takes focus. Values stay as typed. */
   readonly errorMessage: string | null;
+  /** Called as the draft moves away from, or back to, the blank form it started as. */
+  readonly onDirtyChange?: (dirty: boolean) => void;
 }
 
 /**
  * S1 "Set your regular week": the form plus its Save. Invalid input sends nothing and moves
  * focus to the first invalid field; a server error keeps the values and offers a retry.
  */
-export function QuickSetupCard({ onSave, errorMessage }: QuickSetupCardProps) {
+export function QuickSetupCard({ onSave, errorMessage, onDirtyChange }: QuickSetupCardProps) {
   const { t } = useTranslation();
-  const [draft, setDraft] = useState<QuickSetupDraft>(() => emptyDraft(crypto.randomUUID()));
+  const [blank] = useState(() => JSON.stringify(emptyDraft(crypto.randomUUID())));
+  const [draft, setDraft] = useState<QuickSetupDraft>(() => JSON.parse(blank) as QuickSetupDraft);
+  const edit = (next: QuickSetupDraft) => {
+    setDraft(next);
+    onDirtyChange?.(JSON.stringify(next) !== blank);
+  };
   const [attempted, setAttempted] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const errorRef = useRef<HTMLDivElement>(null);
@@ -55,7 +62,7 @@ export function QuickSetupCard({ onSave, errorMessage }: QuickSetupCardProps) {
             </Alert>
           </div>
         )}
-        <QuickSetupForm draft={draft} onChange={setDraft} issues={issues} />
+        <QuickSetupForm draft={draft} onChange={edit} issues={issues} />
         <Stack direction="row" justify="end">
           <Button variant="primary" onClick={save} disabled={isSaving}>
             {isSaving

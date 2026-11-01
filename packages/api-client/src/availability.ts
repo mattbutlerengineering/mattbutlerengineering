@@ -33,7 +33,7 @@ import type {
   PutAvailabilityConfigBodySchema,
 } from "@mbe/types";
 import { availabilityConfigEndpoints } from "@mbe/types";
-import type { ApiClient, QueryParams } from "./client.js";
+import type { ApiClient, PerRequestOptions, QueryParams } from "./client.js";
 
 export interface GetTimeSlotsParams {
   venueId: string;
@@ -289,12 +289,17 @@ export class AvailabilityClient {
   async reopenClosure(
     venueId: string,
     ruleId: string,
-    tellCancelledGuests: boolean
+    tellCancelledGuests: boolean,
+    override?: PerRequestOptions
   ): Promise<ReopenResult> {
-    const response = await this.client.call(availabilityConfigEndpoints.reopenClosure, {
-      params: { id: venueId, ruleId },
-      body: { tellCancelledGuests },
-    });
+    const response = await this.client.call(
+      availabilityConfigEndpoints.reopenClosure,
+      {
+        params: { id: venueId, ruleId },
+        body: { tellCancelledGuests },
+      },
+      override
+    );
     return response.data;
   }
 
@@ -315,10 +320,16 @@ export class AvailabilityClient {
   }
 
   /** Ends a Tonight change early; bookings a close-early cancelled stay cancelled. */
-  async endTonight(venueId: string, ruleId: string): Promise<ReopenResult> {
-    const response = await this.client.call(availabilityConfigEndpoints.endTonight, {
-      params: { id: venueId, ruleId },
-    });
+  async endTonight(
+    venueId: string,
+    ruleId: string,
+    override?: PerRequestOptions
+  ): Promise<ReopenResult> {
+    const response = await this.client.call(
+      availabilityConfigEndpoints.endTonight,
+      { params: { id: venueId, ruleId } },
+      override
+    );
     return response.data;
   }
 

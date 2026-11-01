@@ -453,6 +453,8 @@ describe("saveAvailabilityConfig", () => {
             },
           ],
         }),
+        // What a stranded refusal lists: who, and the service day its link opens.
+        select: expect.objectContaining({ guestName: true, date: true }),
       })
     );
   });

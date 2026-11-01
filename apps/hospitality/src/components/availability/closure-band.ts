@@ -103,9 +103,14 @@ export function closureBandText(
     const [text, name] = copy.allDay(t);
     return { key: closure.ruleId, text, name };
   }
+  // A closure from a set time is stored as running to the two-day maximum: it ends when the
+  // service day does, which reads "close", not "12:00 AM (next day)".
   const [text, name] = copy.band(t, {
     from: minuteText(closure.from, t, format),
-    to: minuteText(closure.to, t, format),
+    to:
+      closure.to >= 2 * MINUTES_PER_DAY
+        ? t("availability.calendar.untilClose")
+        : minuteText(closure.to, t, format),
   });
   return { key: closure.ruleId, text, name };
 }

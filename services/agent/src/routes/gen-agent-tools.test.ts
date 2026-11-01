@@ -368,12 +368,13 @@ describe("createAgentTools", () => {
       expect(JSON.stringify(result)).not.toMatch(/try again/i);
     });
 
-    it("still says to try again for a 5xx", async () => {
+    it("says to check before trying again for a 5xx: it may have saved", async () => {
       api.reservations.create.mockRejectedValue(problem(503));
       const tools = createConfirmedTools("create_reservation", input);
 
       expect(await tools.create_reservation!.execute!(input, toolCtx)).toEqual({
-        error: "Failed to create reservation. Please try again.",
+        error:
+          "Couldn't confirm the change was saved. Check lookup_reservation before trying again.",
       });
     });
 
@@ -442,6 +443,89 @@ describe("createAgentTools", () => {
     });
   });
 
+  describe("guest details stay out of the logs", () => {
+    /** What pino writes for an error: its message as well, where the client puts the query. */
+    const written = () =>
+      JSON.stringify(
+        [...vi.mocked(log.info).mock.calls, ...vi.mocked(log.error).mock.calls],
+        (_key, value: unknown) =>
+          value instanceof Error ? { ...value, message: value.message } : value
+      );
+    const failure = () =>
+      Object.assign(new Error("GET /guests?query=Okafor failed: 409 Okafor is booked"), {
+        path: "/guests?query=Okafor",
+        problemDetails: { status: 409, code: "conflict", detail: "Okafor is booked" },
+      });
+    const WRITE_INPUT = {
+      guestName: "Okafor",
+      date: "2026-12-01",
+      startTime: "18:00",
+      endTime: "20:00",
+      partySize: 2,
+      tableId: "t1",
+    };
+
+    it.each([
+      ["search_guests", { query: "Okafor" }],
+      ["lookup_reservation", { guestName: "Okafor" }],
+      ["create_reservation", WRITE_INPUT],
+      ["modify_reservation", { reservationId: "r1", notes: "Okafor, call 555-0100" }],
+      ["seat_walk_in", { partySize: 2, tableId: "t1", guestName: "Okafor" }],
+      ["cancel_reservation", { reservationId: "r1" }],
+    ] as const)("%s logs neither its input nor the failure's echo of it", async (name, input) => {
+      api.reservations.list.mockResolvedValue({ data: [] });
+      api.reservations.get.mockResolvedValue({ id: "r1", venueId: "v1" });
+      api.guests.search.mockRejectedValue(failure());
+      for (const fn of ["create", "update", "walkIn", "cancel"] as const) {
+        api.reservations[fn].mockRejectedValue(failure());
+      }
+      const tools = createConfirmedTools(name, input);
+
+      await tools[name]!.execute!(input as never, toolCtx);
+
+      // It reached the call and failed: a refused input would pass this test without testing it.
+      expect(log.error).toHaveBeenCalledWith(expect.anything(), `${name} failed`);
+      expect(written()).not.toMatch(/Okafor|555-0100/);
+    });
+
+    it("logs the failure's status and code, and the ids", async () => {
+      api.guests.search.mockRejectedValue(failure());
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
+
+      await tools.search_guests!.execute!({ query: "Okafor" }, toolCtx);
+
+      expect(log.error).toHaveBeenCalledWith(
+        { status: 409, code: "conflict", venueId: "v1" },
+        "search_guests failed"
+      );
+    });
+
+    it("keeps a failed response validation's query out too", async () => {
+      api.guests.search.mockRejectedValue(
+        Object.assign(new Error("GET /guests?query=Okafor failed validation: bad"), {
+          name: "ApiValidationError",
+          path: "/guests?query=Okafor",
+        })
+      );
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
+
+      await tools.search_guests!.execute!({ query: "Okafor" }, toolCtx);
+
+      expect(written()).not.toContain("Okafor");
+      expect(written()).toContain("ApiValidationError");
+    });
+
+    it("still logs a network failure whole, which holds no request data", async () => {
+      const down = new TypeError("fetch failed");
+      api.guests.search.mockRejectedValue(down);
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
+
+      await tools.search_guests!.execute!({ query: "Okafor" }, toolCtx);
+
+      expect(log.error).toHaveBeenCalledWith({ err: down, venueId: "v1" }, "search_guests failed");
+    });
+  });
+
   describe("search_guests", () => {
     it("calls api.guests.search with query and venueId", async () => {
       const mockGuests = {
@@ -495,7 +579,7 @@ describe("createAgentTools", () => {
       if (!getTableStatusTool) throw new Error("expected get_table_status tool");
       const result = await getTableStatusTool.execute!({ venueId: "v1" }, toolCtx);
 
-      expect(api.tables.list).toHaveBeenCalledWith({ venueId: "v1" });
+      expect(api.tables.list).toHaveBeenCalledWith({ venueId: "v1", limit: 100 });
       expect(result).toEqual({ tables: mockTables.data });
     });
 
@@ -518,7 +602,7 @@ describe("createAgentTools", () => {
       if (!getTableStatusTool) throw new Error("expected get_table_status tool");
       const result = await getTableStatusTool.execute!({ venueId: "v1", tableNumber: 5 }, toolCtx);
 
-      expect(api.tables.list).toHaveBeenCalledWith({ venueId: "v1" });
+      expect(api.tables.list).toHaveBeenCalledWith({ venueId: "v1", limit: 100 });
       expect(result).toEqual({ tables: mockTables.data });
     });
 
@@ -755,7 +839,10 @@ describe("createAgentTools", () => {
         toolCtx
       );
 
-      expect(result).toEqual({ error: "Failed to create reservation. Please try again." });
+      expect(result).toEqual({
+        error:
+          "Couldn't confirm the change was saved. Check lookup_reservation before trying again.",
+      });
     });
   });
 
@@ -797,7 +884,21 @@ describe("createAgentTools", () => {
         toolCtx
       );
 
-      expect(result).toEqual({ error: "Failed to modify reservation. Please try again." });
+      expect(result).toEqual({
+        error:
+          "Couldn't confirm the change was saved. Check lookup_reservation before trying again.",
+      });
+    });
+
+    it("says nothing changed on a definite refusal", async () => {
+      api.reservations.update.mockRejectedValue(problem(409, { detail: "Table is taken." }));
+      const input = { reservationId: "r1", startTime: "20:00" };
+      const tools = createConfirmedTools("modify_reservation", input);
+
+      expect(await tools.modify_reservation!.execute!(input, toolCtx)).toEqual({
+        refused: true,
+        error: "Table is taken. Nothing was changed.",
+      });
     });
   });
 
@@ -811,7 +912,7 @@ describe("createAgentTools", () => {
       if (!cancelReservationTool) throw new Error("expected cancel_reservation tool");
       const result = await cancelReservationTool.execute!({ reservationId: "r1" }, toolCtx);
 
-      expect(api.reservations.cancel).toHaveBeenCalledWith("r1");
+      expect(api.reservations.cancel).toHaveBeenCalledWith("r1", { maxRetries: 0 });
       expect(result).toEqual({ reservation: mockCancelled });
     });
 
@@ -823,7 +924,10 @@ describe("createAgentTools", () => {
       if (!cancelReservationTool) throw new Error("expected cancel_reservation tool");
       const result = await cancelReservationTool.execute!({ reservationId: "r1" }, toolCtx);
 
-      expect(result).toEqual({ error: "Failed to cancel reservation. Please try again." });
+      expect(result).toEqual({
+        error:
+          "Couldn't confirm the change was saved. Check lookup_reservation before trying again.",
+      });
     });
   });
 
@@ -880,7 +984,20 @@ describe("createAgentTools", () => {
         toolCtx
       );
 
-      expect(result).toEqual({ error: "Failed to seat walk-in. Please try again." });
+      expect(result).toEqual({
+        error: "Couldn't confirm the change was saved. Check get_table_status before trying again.",
+      });
+    });
+
+    it("says nothing changed on a definite refusal", async () => {
+      api.reservations.walkIn.mockRejectedValue(problem(409, { detail: "Table is taken." }));
+      const input = { partySize: 2, tableId: "t1" };
+      const tools = createConfirmedTools("seat_walk_in", input);
+
+      expect(await tools.seat_walk_in!.execute!(input, toolCtx)).toEqual({
+        refused: true,
+        error: "Table is taken. Nothing was changed.",
+      });
     });
   });
 
@@ -915,7 +1032,7 @@ describe("createAgentTools", () => {
       const result = await cancelTool.execute!({ reservationId: "other-res" }, toolCtx);
 
       expect(api.reservations.cancel).toHaveBeenCalledTimes(1);
-      expect(api.reservations.cancel).toHaveBeenCalledWith("r1");
+      expect(api.reservations.cancel).toHaveBeenCalledWith("r1", { maxRetries: 0 });
       expect(result).toEqual({ reservation: mockCancelled });
     });
 
@@ -1148,7 +1265,7 @@ describe("createAgentTools", () => {
         toolCtx
       );
 
-      expect(api.tables.list).toHaveBeenCalledWith({ venueId: "v1" });
+      expect(api.tables.list).toHaveBeenCalledWith({ venueId: "v1", limit: 100 });
       expect(api.tables.updateStatus).toHaveBeenCalledWith("t1", "DIRTY");
       expect(result).toEqual({ table: mockTable });
     });
@@ -1233,7 +1350,38 @@ describe("createAgentTools", () => {
       expect(result).toEqual({ error: "Table 99 not found in this venue." });
     });
 
-    it("returns error on API failure", async () => {
+    describe("a venue with more tables than the client's default page", () => {
+      const TABLES = Array.from({ length: 11 }, (_, i) => ({
+        id: `t${i + 1}`,
+        tableNumber: String(i + 1),
+      }));
+
+      beforeEach(() => {
+        api.tables.list.mockImplementation(async ({ limit = 10 }: { readonly limit?: number }) => ({
+          data: TABLES.slice(0, limit),
+        }));
+      });
+
+      it("update_table_status finds the 11th table", async () => {
+        api.tables.updateStatus.mockResolvedValue({ id: "t11", status: "READY" });
+        const input = { table: "11", status: "READY" as const };
+        const tools = createConfirmedTools("update_table_status", input);
+
+        await tools.update_table_status!.execute!(input, toolCtx);
+
+        expect(api.tables.updateStatus).toHaveBeenCalledWith("t11", "READY");
+      });
+
+      it("get_table_status reports the 11th table", async () => {
+        const tools = createAgentTools(log, api as never, { venueId: "v1" });
+
+        const result = await tools.get_table_status!.execute!({}, toolCtx);
+
+        expect(result).toEqual({ tables: TABLES });
+      });
+    });
+
+    it("says nothing changed when the read before the write fails", async () => {
       api.tables.list.mockRejectedValue(new Error("fail"));
 
       const tools = createConfirmedTools("update_table_status", {
@@ -1248,7 +1396,21 @@ describe("createAgentTools", () => {
         toolCtx
       );
 
-      expect(result).toEqual({ error: "Failed to update table status. Please try again." });
+      expect(result).toEqual({
+        error:
+          "Couldn't update the table status right now. Nothing was changed. Ask the user to try again shortly.",
+      });
+    });
+
+    it("says to check before trying again when the status write gets no answer", async () => {
+      api.tables.list.mockResolvedValue({ data: [{ id: "t1", tableNumber: "1" }] });
+      api.tables.updateStatus.mockRejectedValue(problem(502));
+      const input = { table: "1", status: "READY" as const };
+      const tools = createConfirmedTools("update_table_status", input);
+
+      expect(await tools.update_table_status!.execute!(input, toolCtx)).toEqual({
+        error: "Couldn't confirm the change was saved. Check get_table_status before trying again.",
+      });
     });
   });
 

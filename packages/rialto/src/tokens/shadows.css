@@ -22,11 +22,16 @@
   --rialto-z-popover: 50;
   /* Dropdowns, select menus, context menus */
   --rialto-z-dropdown: 100;
-  /* Toast notifications */
+  /* The three tokens below are the scale's nominal tiers. The overlay components that sit above
+     page content do not use them: they stack by fixed values in their own stylesheets, because
+     they share one root stacking context and must clear each other's literals. From lowest:
+     Drawer 9998-9999, Dialog 10000, CommandPalette 10001, Select menu 10002, Toast 10003
+     (pinned by Dialog.layering.test.ts). Change those together, not these tokens. */
+  /* Toast notifications (nominal) */
   --rialto-z-toast: 200;
-  /* Modal/dialog overlays */
+  /* Modal/dialog overlays (nominal) */
   --rialto-z-modal: 500;
-  /* Command palette, drawers — highest interactive */
+  /* Command palette, drawers (nominal) */
   --rialto-z-overlay: 1000;
 
   /* ── Elevation tiers ───────────────────────── */

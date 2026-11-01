@@ -169,12 +169,20 @@ describe("describeApiError", () => {
         "network": "Can't reach the reservations service. Check the venue's connection, then try again.",
         "notFound": "That reservation's gone — it may have been cancelled or moved. Refreshing the grid.",
         "rateLimited": "Too many requests at once. Give it a few seconds, then try again.",
-        "serverError": "The reservations service hit a snag — nothing was changed. Try again in a moment.",
+        "serverError": "The reservations service hit a snag. Try again in a moment.",
         "timeout": "That took too long. The service didn't answer in time — try again.",
         "unauthorized": "Your session ended. Sign in again to keep working.",
-        "unknown": "That didn't go through. Try again — if it keeps happening, tell your manager.",
+        "unknown": "Something went wrong. Try again — if it keeps happening, tell your manager.",
         "validationError": "Something in the form didn't pass. Check party size, time and table.",
       }
     `);
   });
+
+  // Any of these can follow a write the server committed: a gateway cannot know, and neither can we.
+  it.each(["network", "timeout", "serverError", "unknown"] as const)(
+    "%s does not say the attempt changed nothing (#8032)",
+    (category) => {
+      expect(ERROR_COPY[category].detail).not.toMatch(/nothing was changed|didn't go through/i);
+    }
+  );
 });

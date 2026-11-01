@@ -76,7 +76,30 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).toMatch(
       /list_tonight_changes .*before .*end_tonight_change .*undo_availability_change/i
     );
-    expect(prompt).toMatch(/closures, special hours.*Availability page/i);
+    expect(prompt).toMatch(/schedules.*Availability page/i);
+  });
+
+  // #7929: closures and special hours on later dates, and reopening.
+  it("lists closures among the confirmed changes and keeps decisions and schedules on the page", () => {
+    const prompt = buildAgentSystemPrompt({ venueId: "v", now: NOW, catalogPrompt: "CATALOG" });
+    const confirmLine = prompt.split("\n").find((line) => /Confirm or Cancel button/.test(line));
+
+    expect(confirmLine).toMatch(/closures/);
+    expect(prompt).toMatch(/close_dates/);
+    expect(prompt).toMatch(/set_special_hours/);
+    expect(prompt).toMatch(/list_closures .*before .*reopen_closure/i);
+    expect(prompt).toMatch(/affects bookings.*Availability page/i);
+    expect(prompt).toMatch(/regular schedules and service hours.*Availability page/i);
+    expect(prompt).toMatch(/scope whole_venue only when the user asked to close the whole venue/);
+    expect(prompt).toMatch(/Neither takes today.*change_tonight_availability/);
+    expect(prompt).toMatch(/full from and to span.*scope/);
+    expect(prompt).toMatch(
+      /special hours, repeating closures and booking or table pauses are changed on the Availability page/
+    );
+    expect(prompt).toMatch(/countsUnavailable never state how many/);
+    expect(prompt).toMatch(
+      /countsUnavailable.*ask the user whether to tell guests before proposing a reopen/
+    );
   });
 
   describe("the page the chat is open on (#7924)", () => {
@@ -252,6 +275,56 @@ describe("guests in the prompt", () => {
   });
 });
 
+// #7928: the chat reads and changes menu items now.
+describe("menus in the prompt", () => {
+  it("lists menu changes among the confirmed ones and keeps structure on the Menus page", () => {
+    const prompt = buildAgentSystemPrompt({ venueId: "v", now: NOW, catalogPrompt: "CATALOG" });
+    const confirmLine = prompt.split("\n").find((line) => /Confirm or Cancel button/.test(line));
+
+    expect(confirmLine).toMatch(/menu items/);
+    expect(prompt).toMatch(/set_menu_item_availability/);
+    expect(prompt).toMatch(/Creating, deleting or reordering.*Menus page/);
+    expect(prompt).not.toMatch(/can't manage deposits or menus/);
+  });
+});
+
+// #7930: the chat reads floor plans and switches the active one.
+describe("floor plans in the prompt", () => {
+  it("lists the switch among the confirmed changes and keeps layout editing in the editor", () => {
+    const prompt = buildAgentSystemPrompt({ venueId: "v", now: NOW, catalogPrompt: "CATALOG" });
+    const confirmLine = prompt.split("\n").find((line) => /Confirm or Cancel button/.test(line));
+
+    expect(confirmLine).toMatch(/floor plan/);
+    expect(prompt).toMatch(/list_floor_plans/);
+    expect(prompt).toMatch(/activate_floor_plan/);
+    expect(prompt).toMatch(/Editing a layout.*floor plan editor/);
+  });
+});
+
+// #7973: the briefing, the dashboard's headline stats, and what stays page-only.
+describe("briefing, dashboard stats and page-only areas in the prompt", () => {
+  const prompt = buildAgentSystemPrompt({ venueId: "v", now: NOW, catalogPrompt: "CATALOG" });
+
+  it("reads the briefing with get_briefing", () => {
+    expect(prompt).toMatch(/get_briefing/);
+    expect(prompt).toMatch(/couldn't read the briefing.*never.*no bookings/i);
+  });
+
+  it("answers the dashboard's headline stats from existing tools", () => {
+    expect(prompt).toMatch(/Dashboard stats.*covers from get_briefing.*list_today_reservations/);
+    expect(prompt).toMatch(/Dashboard stats.*waitlist.*list_waitlist/);
+    expect(prompt).toMatch(/Dashboard stats.*lapsing guests.*list_lapsing_guests/);
+  });
+
+  it("keeps settings on the Settings page", () => {
+    expect(prompt).toMatch(/preferences, venue profile and team roles.*Settings page/);
+  });
+
+  it("keeps the booking widget on its page", () => {
+    expect(prompt).toMatch(/booking widget.*Booking widget page/i);
+  });
+});
+
 // #7926: the chat runs the waitlist now.
 describe("waitlist in the prompt", () => {
   it("lists waitlist changes among the confirmed ones and no longer says the waitlist is unsupported", () => {
@@ -262,6 +335,19 @@ describe("waitlist in the prompt", () => {
     expect(prompt).toMatch(/list_waitlist/);
     expect(prompt).toMatch(/seat_waitlist_party.*not seat_walk_in/i);
     expect(prompt).not.toMatch(/can't manage the waitlist/i);
+  });
+});
+
+// #8035: tool results aren't shown again on a later turn, so the rule has to live here too.
+describe("a change a tool couldn't confirm", () => {
+  it("is never called unchanged, and a win-back is never re-proposed blindly", () => {
+    const prompt = buildAgentSystemPrompt({ venueId: "v", now: NOW, catalogPrompt: "CATALOG" });
+    const line = prompt.split("\n").find((l) => /couldn't confirm/i.test(l));
+
+    expect(line).toMatch(/may have been saved/);
+    expect(line).toMatch(/never say nothing changed/);
+    expect(line).toMatch(/before proposing it again/);
+    expect(line).toMatch(/send_win_back.*twice/);
   });
 });
 

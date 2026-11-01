@@ -460,6 +460,42 @@ describe("EditReservationDrawer", () => {
     expect(defaultProps.onClose).toHaveBeenCalledOnce();
   });
 
+  describe("while a save is in flight (#8029)", () => {
+    const failure = serverError("PATCH", "/api/v1/reservations/res-1");
+
+    async function renderMidSave() {
+      let fail: (error: unknown) => void = () => undefined;
+      const onSave = vi.fn(
+        () =>
+          new Promise<void>((_resolve, reject) => {
+            fail = reject;
+          })
+      );
+      render(<EditReservationDrawer {...defaultProps} onSave={onSave} />);
+      fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+      await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
+      return { fail: (error: unknown) => fail(error) };
+    }
+
+    it("Escape does not close the drawer, so a failure still shows", async () => {
+      const { fail } = await renderMidSave();
+
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(defaultProps.onClose).not.toHaveBeenCalled();
+
+      fail(failure);
+      expect(await screen.findByRole("alert")).toBeDefined();
+    });
+
+    it("the drawer's Close button does not close it", async () => {
+      await renderMidSave();
+
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+
+      expect(defaultProps.onClose).not.toHaveBeenCalled();
+    });
+  });
+
   describe("focus ring token", () => {
     it("uses the rialto gold focus-ring token instead of a hardcoded Tailwind-blue box-shadow", () => {
       const css = readFileSync(

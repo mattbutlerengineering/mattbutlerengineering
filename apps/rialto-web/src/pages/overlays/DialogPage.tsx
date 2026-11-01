@@ -1,6 +1,7 @@
 import {
   Button,
   DataList,
+  DatePicker,
   Dialog,
   Input,
   Select,
@@ -20,11 +21,12 @@ export function DialogPage() {
   const [basicOpen, setBasicOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [scrollOpen, setScrollOpen] = useState(false);
+  const [sessionDate, setSessionDate] = useState<string | null>(null);
 
   return (
     <ComponentPageLayout
       name="Dialog"
-      description="Glass surface with backdrop blur. Spring physics entrance from below. Warm overlay tint — never pure black."
+      description="Opaque elevated surface; only the body scrolls. Spring physics entrance from below. Warm overlay tint — never pure black."
     >
       {/* ── Basic ─────────────────────────────────────────────────── */}
       <Section title="Basic">
@@ -78,6 +80,7 @@ export function DialogPage() {
         >
           <Stack gap="md">
             <Input label="Session Name" placeholder="FP1 — Fiorano" />
+            <DatePicker label="Session Date" value={sessionDate} onChange={setSessionDate} />
             <Select
               label="Tire Compound"
               placeholder="Select compound..."

@@ -5,7 +5,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 50;
+  /* The command palette's "Walk-in guest" opens this over the reservation details Drawer (overlay
+     9998, panel 9999), so it must sit above both. 10000 is the Rialto Dialog level; the command
+     palette (10001), a Select menu (10002) and a Toast (10003) still open above it. */
+  z-index: 10000;
   padding: var(--rialto-space-md);
 }
 

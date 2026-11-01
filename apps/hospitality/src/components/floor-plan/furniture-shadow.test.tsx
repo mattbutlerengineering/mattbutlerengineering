@@ -7,6 +7,7 @@ import type { Table } from "@mbe/types";
  * primitives are DOM stand-ins that surface the shadow props under test. */
 
 const toSpy = vi.fn();
+const cacheSpy = vi.fn();
 let reducedMotion = false;
 
 vi.mock("@mattbutlerengineering/rialto/providers", () => ({
@@ -22,12 +23,18 @@ vi.mock("react-konva", () => {
     fill?: string;
     shadowColor?: string;
     shadowBlur?: number;
+    shadowOffsetX?: number;
     shadowOffsetY?: number;
     shadowEnabled?: boolean;
     listening?: boolean;
   }
   function shapeMock(kind: string) {
-    return function ShapeMock(props: ShapeMockProps) {
+    return React.forwardRef(function ShapeMock(props: ShapeMockProps, ref: React.Ref<unknown>) {
+      React.useEffect(() => {
+        if (ref && typeof ref === "object" && "current" in ref) {
+          (ref as React.MutableRefObject<unknown>).current = { to: toSpy };
+        }
+      });
       return (
         <div
           data-testid={`konva-${kind}`}
@@ -35,11 +42,12 @@ vi.mock("react-konva", () => {
           data-fill={props.fill}
           data-shadow-color={props.shadowColor}
           data-shadow-blur={props.shadowBlur}
+          data-shadow-offset-x={props.shadowOffsetX}
           data-shadow-offset-y={props.shadowOffsetY}
           data-listening={String(props.listening)}
         />
       );
-    };
+    });
   }
   const GroupMock = React.forwardRef(function GroupMock(
     { children, name }: { children?: React.ReactNode; name?: string },
@@ -47,7 +55,10 @@ vi.mock("react-konva", () => {
   ) {
     React.useEffect(() => {
       if (ref && typeof ref === "object" && "current" in ref) {
-        (ref as React.MutableRefObject<unknown>).current = { to: toSpy };
+        (ref as React.MutableRefObject<unknown>).current = {
+          to: toSpy,
+          cache: (config: unknown) => cacheSpy(config, name),
+        };
       }
     });
     return <div data-name={name}>{children}</div>;
@@ -65,7 +76,14 @@ vi.mock("react-konva", () => {
 });
 
 import { TableShape } from "./TableShape.js";
-import { SEAT_NAME, SEAT_TONES, SHADOW_TONES, TABLE_SHADOW_NAME } from "./furniture-tokens.js";
+import {
+  CONTACT_SHADOW,
+  FURNITURE_GROUP_NAME,
+  SEAT_NAME,
+  SEAT_TONES,
+  SHADOW_TONES,
+  TABLE_SHADOW_NAME,
+} from "./furniture-tokens.js";
 
 const table: Table = {
   id: "t1",
@@ -158,6 +176,44 @@ describe("floor-plan contact shadows (#7845)", () => {
   });
 });
 
+/* The furniture is baked into a bitmap in its own axes, and the bitmap is then drawn
+ * rotated with the table. Canvas shadow offsets are device-space, so an unadjusted
+ * (0, 2) would rotate with the table (180 degrees would throw the shadow upward).
+ * Pre-rotating the offset by -rotation makes every table agree: light from above. */
+describe("contact shadows keep one light direction at any table rotation (#7845)", () => {
+  const rotated = (rotation: number): Table => ({
+    ...table,
+    shapeMetadata: { ...table.shapeMetadata!, rotation },
+  });
+  // What the bitmap's offset must be so that, after the bitmap is rotated by `rotation`
+  // (clockwise, y down), the on-screen offset is (0, offsetY).
+  const bakedOffset = (rotation: number) => {
+    const rad = (rotation * Math.PI) / 180;
+    return { x: CONTACT_SHADOW.offsetY * Math.sin(rad), y: CONTACT_SHADOW.offsetY * Math.cos(rad) };
+  };
+  const rotateBy = (v: { x: number; y: number }, deg: number) => {
+    const rad = (deg * Math.PI) / 180;
+    return {
+      x: v.x * Math.cos(rad) - v.y * Math.sin(rad),
+      y: v.x * Math.sin(rad) + v.y * Math.cos(rad),
+    };
+  };
+  const offsetOf = (el: HTMLElement) => ({
+    x: Number(el.getAttribute("data-shadow-offset-x") ?? 0),
+    y: Number(el.getAttribute("data-shadow-offset-y")),
+  });
+
+  it.each([0, 45, 90, 180])("table and chairs land at (0, drop) on screen at %i degrees", (deg) => {
+    render(<TableShape table={rotated(deg)} {...props} />);
+    for (const el of [shadowNode(), ...seatFrames()]) {
+      const onScreen = rotateBy(offsetOf(el), deg);
+      expect(onScreen.x).toBeCloseTo(0, 5);
+      expect(onScreen.y).toBeCloseTo(CONTACT_SHADOW.offsetY, 5);
+      expect(offsetOf(el).x).toBeCloseTo(bakedOffset(deg).x, 5);
+    }
+  });
+});
+
 describe("drag shadow motion (#7845)", () => {
   beforeEach(() => {
     toSpy.mockClear();
@@ -175,5 +231,75 @@ describe("drag shadow motion (#7845)", () => {
     reducedMotion = true;
     render(<TableShape table={table} {...props} isDragging />);
     expect(toSpy).toHaveBeenLastCalledWith(expect.objectContaining({ duration: 0 }));
+  });
+});
+
+describe("static furniture is cached per table (#7845)", () => {
+  beforeEach(() => {
+    cacheSpy.mockClear();
+    setTheme("light");
+  });
+  afterEach(() => {
+    setTheme("light");
+    vi.unstubAllGlobals();
+  });
+
+  it("caches only the chairs and table art, once drawn", () => {
+    render(<TableShape table={table} {...props} />);
+    expect(cacheSpy).toHaveBeenCalledTimes(1);
+    expect(cacheSpy).toHaveBeenCalledWith(expect.anything(), FURNITURE_GROUP_NAME);
+  });
+
+  it("keeps the label out of the bitmap, so its text stays live vector at any scale", () => {
+    render(<TableShape table={table} {...props} />);
+    const furniture = document.querySelector(`[data-name="${FURNITURE_GROUP_NAME}"]`)!;
+    expect(furniture.querySelector(`[data-name="${TABLE_SHADOW_NAME}"]`)).not.toBeNull();
+    expect(furniture.querySelector(`[data-name="${SEAT_NAME}"]`)).not.toBeNull();
+    expect(furniture.querySelector('[data-name="table-label-group"]')).toBeNull();
+    // Still drawn above the furniture.
+    const group = document.querySelector('[data-name="table-group"]')!;
+    expect(Array.from(group.children).map((c) => c.getAttribute("data-name"))).toEqual([
+      "table-drag-shadow",
+      FURNITURE_GROUP_NAME,
+      "table-label-group",
+    ]);
+  });
+
+  it("renders the bitmap at device pixels times the stage scale", () => {
+    vi.stubGlobal("devicePixelRatio", 2);
+    render(<TableShape table={table} {...props} stageScale={1.5} />);
+    expect(cacheSpy).toHaveBeenLastCalledWith(
+      expect.objectContaining({ pixelRatio: 3 }),
+      FURNITURE_GROUP_NAME
+    );
+  });
+
+  it("re-bakes after a theme flip, and never from a render that still shows the old theme", async () => {
+    const baked: Array<{ shadow: string | null; chair: string | null }> = [];
+    let flipped = false;
+    cacheSpy.mockImplementation(() => {
+      if (!flipped) return;
+      baked.push({
+        shadow: shadowNode().getAttribute("data-shadow-color"),
+        chair: seatFrames()[0]?.getAttribute("data-fill") ?? null,
+      });
+    });
+    render(<TableShape table={table} {...props} />);
+    flipped = true;
+    setTheme("dark");
+    await waitFor(() => expect(baked.length).toBeGreaterThan(0));
+    // Every bake after the flip, not just the last, must see the new tones: SeatArt and
+    // TableArt read the theme with useSyncExternalStore at render, from the already-flipped DOM.
+    for (const bake of baked) {
+      expect(bake).toEqual({ shadow: SHADOW_TONES.dark, chair: SEAT_TONES.dark.frame });
+    }
+    cacheSpy.mockReset();
+  });
+
+  it("re-caches when the table's look changes, so the bitmap is never stale", () => {
+    const { rerender } = render(<TableShape table={table} {...props} />);
+    cacheSpy.mockClear();
+    rerender(<TableShape table={table} {...props} isSelected />);
+    expect(cacheSpy).toHaveBeenCalledTimes(1);
   });
 });

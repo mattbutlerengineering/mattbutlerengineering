@@ -290,6 +290,156 @@ describe("describeChatAction waitlist actions", () => {
   });
 });
 
+// #7928: menu actions, as the confirm bar shows them.
+describe("describeChatAction menu actions", () => {
+  const t = (key: string) => `t:${key}`;
+
+  it.each(["set_menu_item_availability", "update_menu_item"])("titles %s", (toolName) => {
+    expect(
+      describeChatAction({ actionId: "c", toolName, toolInput: {} }, t, () => undefined).title
+    ).toBe(`t:chat.actions.${toolName}`);
+  });
+
+  it("shows the availability in words and labels the item's fields", () => {
+    const { details } = describeChatAction(
+      {
+        actionId: "c1",
+        toolName: "set_menu_item_availability",
+        toolInput: { menu: "Dinner", item: "Soup", section: "Starters", availability: "sold_out" },
+      },
+      t,
+      () => undefined
+    );
+
+    expect(details).toEqual([
+      { label: "t:chat.actions.fields.menu", value: "Dinner" },
+      { label: "t:chat.actions.fields.item", value: "Soup" },
+      { label: "t:chat.actions.fields.section", value: "Starters" },
+      {
+        label: "t:chat.actions.fields.availability",
+        value: "t:chat.actions.menuAvailability.sold_out",
+      },
+    ]);
+  });
+
+  it("labels a new price and description", () => {
+    const { details } = describeChatAction(
+      {
+        actionId: "c2",
+        toolName: "update_menu_item",
+        toolInput: { price: "16.50", description: "Seasonal" },
+      },
+      t,
+      () => undefined
+    );
+
+    expect(details).toEqual([
+      { label: "t:chat.actions.fields.price", value: "16.50" },
+      { label: "t:chat.actions.fields.description", value: "Seasonal" },
+    ]);
+  });
+});
+
+// #7929: closures, special hours and reopening, as the confirm bar shows them.
+describe("describeChatAction closure actions", () => {
+  const t = (key: string) => `t:${key}`;
+  const describeIn = (toolName: string, toolInput: Record<string, unknown>) =>
+    describeChatAction({ actionId: "z", toolName, toolInput }, t, () => undefined, "en-US");
+
+  it("shows the dates of a closure as people read them", () => {
+    const { title, details } = describeIn("close_dates", {
+      scope: "service",
+      service: "Dinner",
+      date: "2026-12-24",
+      endDate: "2026-12-26",
+    });
+
+    expect(title).toBe("t:chat.actions.close_dates");
+    expect(details).toEqual([
+      { label: "t:chat.actions.fields.scope", value: "t:chat.actions.scopes.service" },
+      { label: "t:chat.actions.fields.service", value: "Dinner" },
+      { label: "t:chat.actions.fields.date", value: "Thursday, Dec 24" },
+      { label: "t:chat.actions.fields.endDate", value: "Saturday, Dec 26" },
+    ]);
+  });
+
+  it("states a whole-venue close on the confirm bar", () => {
+    const { details } = describeIn("close_dates", { scope: "whole_venue", date: "2026-12-24" });
+
+    expect(details[0]).toEqual({
+      label: "t:chat.actions.fields.scope",
+      value: "t:chat.actions.scopes.whole_venue",
+    });
+  });
+
+  it("shows a reopened closure's full span, scope and an open end in words", () => {
+    const { details } = describeIn("reopen_closure", {
+      from: "2026-12-24",
+      to: "2026-12-26",
+      scope: "whole_venue",
+      tellCancelledGuests: true,
+    });
+    const open = describeIn("reopen_closure", {
+      from: "2026-12-24",
+      to: "until reopened",
+      scope: "whole_venue",
+      tellCancelledGuests: true,
+    });
+
+    expect(details.slice(0, 3)).toEqual([
+      { label: "t:chat.actions.fields.from", value: "Thursday, Dec 24" },
+      { label: "t:chat.actions.fields.to", value: "Saturday, Dec 26" },
+      { label: "t:chat.actions.fields.scope", value: "t:chat.actions.scopes.whole_venue" },
+    ]);
+    expect(open.details[1]?.value).toBe("t:chat.actions.untilReopened");
+  });
+
+  it("shows special hours as clock times", () => {
+    const { title, details } = describeIn("set_special_hours", {
+      date: "2026-12-24",
+      service: "Dinner",
+      opensAt: "17:00",
+      lastSeating: "21:00",
+      closesAt: "23:00",
+    });
+
+    expect(title).toBe("t:chat.actions.set_special_hours");
+    expect(details.slice(2)).toEqual([
+      { label: "t:chat.actions.fields.opensAt", value: "5:00 PM" },
+      { label: "t:chat.actions.fields.lastSeating", value: "9:00 PM" },
+      { label: "t:chat.actions.fields.closesAt", value: "11:00 PM" },
+    ]);
+  });
+
+  it("words whether cancelled guests are told, not true or false", () => {
+    const told = describeIn("reopen_closure", { date: "2026-12-24", tellCancelledGuests: true });
+    const silent = describeIn("reopen_closure", { date: "2026-12-24", tellCancelledGuests: false });
+
+    expect(told.title).toBe("t:chat.actions.reopen_closure");
+    expect(told.details[1]).toEqual({
+      label: "t:chat.actions.fields.tellCancelledGuests",
+      value: "t:chat.actions.yesNo.yes",
+    });
+    expect(silent.details[1]?.value).toBe("t:chat.actions.yesNo.no");
+  });
+});
+
+// #7930: the floor plan switch, as the confirm bar shows it.
+describe("describeChatAction floor plan actions", () => {
+  const t = (key: string) => `t:${key}`;
+
+  it("titles the switch and labels the plan", () => {
+    const { title, details } = describeChatAction(
+      { actionId: "c", toolName: "activate_floor_plan", toolInput: { floorPlan: "Patio" } },
+      t,
+      () => undefined
+    );
+
+    expect(title).toBe("t:chat.actions.activate_floor_plan");
+    expect(details).toEqual([{ label: "t:chat.actions.fields.floorPlan", value: "Patio" }]);
+  });
+});
+
 // #7925: the timeline actions, as the confirm bar shows them.
 describe("describeChatAction timeline actions", () => {
   const t = (key: string) => `t:${key}`;

@@ -1,9 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { act, renderHook } from "@testing-library/react";
 import type { Reservation, Table } from "@mbe/types";
 import {
   findReservationTable,
   occupiedCaption as occupiedCaptionIn,
   statusWord as statusWordIn,
+  useSeatFlights,
 } from "./seat-guest.js";
 import { localeRuntime } from "../../i18n/runtime.js";
 
@@ -140,5 +142,73 @@ describe("findReservationTable / statusWord (unchanged behaviour)", () => {
 
     expect(statusWord(reservation, true)).toBe("Seated");
     expect(statusWord(reservation, false)).toBe("Confirmed");
+  });
+});
+
+describe("useSeatFlights (#8031)", () => {
+  function deferred() {
+    let resolve: () => void = () => undefined;
+    let reject: (error: unknown) => void = () => undefined;
+    const promise = new Promise<void>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  }
+
+  const flightsFor = (currentId: string | null) =>
+    renderHook(({ id }) => useSeatFlights(id), { initialProps: { id: currentId } });
+
+  it("is in flight for the reservation it was sent for, and no other", () => {
+    const { result } = flightsFor("bob");
+    act(() => void result.current.run("bob", () => deferred().promise));
+
+    expect(result.current.seating("bob")).toBe(true);
+    expect(result.current.seating("carol")).toBe(false);
+  });
+
+  it("sends once for a reservation already in flight, and frees it when that one ends", async () => {
+    const { result } = flightsFor("bob");
+    const first = deferred();
+    const second = vi.fn(() => Promise.resolve());
+    act(() => void result.current.run("bob", () => first.promise));
+    await act(() => result.current.run("bob", second));
+    expect(second).not.toHaveBeenCalled();
+    expect(result.current.seating("bob")).toBe(true);
+
+    await act(async () => first.resolve());
+
+    expect(result.current.seating("bob")).toBe(false);
+  });
+
+  it("keeps a failure for the reservation it failed for", async () => {
+    const { result } = flightsFor("bob");
+    await act(() => result.current.run("bob", () => Promise.reject(new Error("boom"))));
+
+    expect(result.current.failure("bob")).not.toBeNull();
+    expect(result.current.failure("carol")).toBeNull();
+  });
+
+  it("drops a failure when another reservation becomes current", async () => {
+    const { result, rerender } = flightsFor("bob");
+    await act(() => result.current.run("bob", () => Promise.reject(new Error("boom"))));
+
+    rerender({ id: "carol" });
+    expect(result.current.failure("carol")).toBeNull();
+    rerender({ id: "bob" });
+    expect(result.current.failure("bob")).toBeNull();
+  });
+
+  it("does not keep a failure that lands while another reservation is current", async () => {
+    const { result, rerender } = flightsFor("bob");
+    const seat = deferred();
+    act(() => void result.current.run("bob", () => seat.promise));
+
+    rerender({ id: "carol" });
+    await act(async () => seat.reject(new Error("boom")));
+    rerender({ id: "bob" });
+
+    expect(result.current.failure("bob")).toBeNull();
+    expect(result.current.seating("bob")).toBe(false);
   });
 });
