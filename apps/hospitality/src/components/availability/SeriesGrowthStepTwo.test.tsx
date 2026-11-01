@@ -169,7 +169,7 @@ describe("SeriesGrowthStepTwo refusals", () => {
       create.mockRejectedValueOnce(lost()).mockResolvedValueOnce(SAVED);
       const { dialog } = renderStep();
       chooseCancelAndSave(dialog);
-      await within(dialog).findByText(/Can't reach/);
+      await within(dialog).findByText(/may have gone through/);
       fireEvent.click(within(dialog).getByRole("button", { name: /Close and cancel/ }));
 
       await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
@@ -182,7 +182,7 @@ describe("SeriesGrowthStepTwo refusals", () => {
       create.mockRejectedValueOnce(lost()).mockRejectedValueOnce(refusal("version-conflict"));
       const { dialog } = renderStep();
       chooseCancelAndSave(dialog);
-      await within(dialog).findByText(/Can't reach/);
+      await within(dialog).findByText(/may have gone through/);
       fireEvent.click(within(dialog).getByRole("radio", { name: "Keep them and notify" }));
       fireEvent.click(within(dialog).getByRole("button", { name: /Close and keep/ }));
 
@@ -196,7 +196,7 @@ describe("SeriesGrowthStepTwo refusals", () => {
       create.mockRejectedValueOnce(lost());
       const { dialog, onClose } = renderStep();
       chooseCancelAndSave(dialog);
-      await within(dialog).findByText(/Can't reach/);
+      await within(dialog).findByText(/may have gone through/);
       refresh.mockClear();
 
       fireEvent.keyDown(document, { key: "Escape" });

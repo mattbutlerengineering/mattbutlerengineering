@@ -1591,6 +1591,24 @@
       ): readonly number[] { /* ... */ }
     </item>
     <item priority="high">
+      export function settleStartMinute(
+        prev: CloseForm,
+        next: CloseForm,
+        config: AvailabilityConfig,
+        timezone: string,
+        today: string
+      ): CloseForm { /* ... */ }
+    </item>
+    <item priority="medium">
+      function whatOf(series: DateRule): CloseWhat { /* ... */ }
+    </item>
+    <item priority="high">
+      export function seriesForm(series: DateRule, date: string): CloseForm { /* ... */ }
+    </item>
+    <item priority="high">
+      export function inSeries(rule: DateRule | null, series: DateRule | undefined): DateRule | null { /* ... */ }
+    </item>
+    <item priority="high">
       export function sameRequest(a: CloseForm, b: CloseForm): boolean { /* ... */ }
     </item>
     <item priority="high">
@@ -1624,7 +1642,16 @@
       ): boolean { /* ... */ }
     </item>
     <item priority="high">
-      export function activeOnlinePause(
+      export function isPauseInForce(
+        rule: DateRule,
+        config: AvailabilityConfig,
+        timezone: string,
+        today: string,
+        nowMinute: number
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function shownOnlinePause(
         config: AvailabilityConfig,
         timezone: string,
         today: string,
@@ -1920,6 +1947,22 @@
     </item>
     <item priority="high">
       export const useEditorOpen: unknown;
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/online-seatings.ts">
+    <item priority="medium">
+      function seatingMinutes({ opensAt, lastSeatingAt, closesAt, seating }: ResolvedService): number[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closesOnline(band: ResolvedClosure, minute: number, venueServiceId: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function onlineSeatingLeft(
+        config: AvailabilityConfig,
+        timezone: string,
+        date: string,
+        nowMinute: number
+      ): boolean { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/outcome-label.ts">

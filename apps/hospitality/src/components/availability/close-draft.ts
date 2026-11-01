@@ -14,6 +14,7 @@ import {
   type DateRule,
 } from "@mbe/types";
 import { addDays } from "../../utils/service-day.js";
+import { onlineSeatingLeft } from "./online-seatings.js";
 
 /** Channels a booking-only closure can close. */
 export type BookingChannel = "online" | "phone" | "waitlist";
@@ -91,7 +92,8 @@ function whenIsComplete(when: CloseWhen, today: string): boolean {
   const span = spanOf(when, today);
   if (span.startsOn === "") return false;
   if (span.endsOn !== null && (span.endsOn === "" || span.endsOn < span.startsOn)) return false;
-  return span.weekdays === undefined || span.weekdays.length > 0;
+  // A repeat with no day picked, or none in its range, would save and close nothing.
+  return guestDateOf(when, today) !== null;
 }
 
 /** The first field that blocks Next, or `null` when the form can be sent. */
@@ -240,6 +242,62 @@ export function startMinutes(
 }
 
 /**
+ * `next` after an edit of `prev`. A new When can cover a day that runs past midnight, where a time
+ * before the first opening is not offered: plain "1:00 AM" reads as after midnight but closes each
+ * whole evening. That is what All day says, so the form says it. A time held while When stays as
+ * it is (a series' own) is left alone.
+ */
+export function settleStartMinute(
+  prev: CloseForm,
+  next: CloseForm,
+  config: AvailabilityConfig,
+  timezone: string,
+  today: string
+): CloseForm {
+  if (next.when === prev.when || next.fromMinute === null) return next;
+  if (!whenIsComplete(next.when, today)) return next;
+  const { startsOn, endsOn, weekdays } = spanOf(next.when, today);
+  const repeat = weekdays ? { version: 1 as const, weekdays: [...weekdays] } : null;
+  const [first = 0] = startMinutes(
+    config,
+    timezone,
+    closedDates({ startsOn, endsOn, repeat }),
+    null
+  );
+  return next.fromMinute < first ? { ...next, fromMinute: null } : next;
+}
+
+function whatOf(series: DateRule): CloseWhat {
+  if (series.targetKind === "service" && series.venueServiceId) {
+    return { kind: "service", serviceId: series.venueServiceId };
+  }
+  if (series.targetKind === "booking" && series.bookingTypes?.length) {
+    return { kind: "booking", types: [...series.bookingTypes] };
+  }
+  return { kind: "venue" };
+}
+
+/** The form for editing one date of `series`: the series' target and start time, on that date. */
+export function seriesForm(series: DateRule, date: string): CloseForm {
+  return {
+    what: whatOf(series),
+    when: { kind: "date", date },
+    fromMinute: series.window?.from ?? null,
+    staffNote: "",
+    guestMessage: "",
+  };
+}
+
+/**
+ * An edit of one date of a series. The engine applies a rule with a `seriesId` on its start date
+ * only, so the rule is pinned to that single date whatever the form says.
+ */
+export function inSeries(rule: DateRule | null, series: DateRule | undefined): DateRule | null {
+  if (!rule || !series) return rule;
+  return { ...rule, seriesId: series.id, endsOn: rule.startsOn, repeat: null };
+}
+
+/**
  * Whether two forms ask the same thing of the bookings: what, when and the start time. The
  * impact query and the decisions depend on these alone; the notes and the guest message are
  * words, so editing them leaves the Manager's choices valid (and a retry the same request).
@@ -326,35 +384,68 @@ export function isUrgent(
 }
 
 /**
- * The online pause in force now, whose banner offers Resume (ux.md F5 step 9). Only the shape
- * the Pause button creates counts: online, open-ended and not repeating, so Resume never deletes
- * a dated or recurring closure. A start time holds the pause back until it is reached, each day: the
- * closure is a band of each service day, so before today's start only yesterday's service can be
- * inside it, and only while it is still running past midnight. A pause that started on an earlier
- * day counts from then; lunch the next morning is bookable, and the banner must not say otherwise.
- * `today` and `nowMinute` are the venue's civil date and minute.
+ * Whether a pause is what guests meet now. Its time is a seating minute of each service day, so a
+ * pause from 6:00 PM leaves earlier seatings bookable. It holds once its time has been reached, or
+ * while yesterday's service runs past midnight into it, and also once windowed online closures
+ * (this pause, alone or with others) have taken the last online seating left today, because a
+ * Manager must not read "open" when guests cannot book online. A day with no online seating of its
+ * own, or a venue closed all day, is not a pause's doing. `today` and `nowMinute` are the venue's
+ * civil date and minute.
  */
-export function activeOnlinePause(
+export function isPauseInForce(
+  rule: DateRule,
+  config: AvailabilityConfig,
+  timezone: string,
+  today: string,
+  nowMinute: number
+): boolean {
+  if (!rule.window || rule.window.from <= nowMinute) return true;
+  const yesterdayMinute = nowMinute + MINUTES_PER_DAY;
+  if (
+    rule.startsOn < today &&
+    rule.window.from <= yesterdayMinute &&
+    yesterdayMinute < lastCloseOf(resolveDay({ timezone, config }, addDays(today, -1)).services)
+  ) {
+    return true;
+  }
+  const isWindowedOnlineClosure = (r: DateRule) =>
+    r.kind === "closure" &&
+    r.targetKind === "booking" &&
+    (r.bookingTypes ?? []).includes("online") &&
+    r.window != null;
+  const without = {
+    ...config,
+    dateRules: config.dateRules.filter((r) => !isWindowedOnlineClosure(r)),
+  };
+  return (
+    onlineSeatingLeft(without, timezone, today, nowMinute) &&
+    !onlineSeatingLeft(config, timezone, today, nowMinute)
+  );
+}
+
+/**
+ * The online pause the banner shows, with its Resume (ux.md F5 step 9): one in force if there is
+ * one, else the earliest waiting for its time, which says so (`isPauseInForce`) and can still be
+ * removed. Only the shape the Pause button creates counts: online, open-ended and not repeating,
+ * so Resume never deletes a dated or recurring closure.
+ */
+export function shownOnlinePause(
   config: AvailabilityConfig,
   timezone: string,
   today: string,
   nowMinute: number
 ): DateRule | null {
-  const yesterdayMinute = nowMinute + MINUTES_PER_DAY;
-  const yesterdayRunning = () =>
-    yesterdayMinute < lastCloseOf(resolveDay({ timezone, config }, addDays(today, -1)).services);
+  const pauses = config.dateRules.filter(
+    (r) =>
+      r.kind === "closure" &&
+      r.targetKind === "booking" &&
+      (r.bookingTypes ?? []).includes("online") &&
+      r.startsOn <= today &&
+      (r.endsOn === null || r.endsOn === undefined) &&
+      !r.repeat
+  );
+  const earliest = [...pauses].sort((a, b) => (a.window?.from ?? 0) - (b.window?.from ?? 0))[0];
   return (
-    config.dateRules.find(
-      (r) =>
-        r.kind === "closure" &&
-        r.targetKind === "booking" &&
-        (r.bookingTypes ?? []).includes("online") &&
-        r.startsOn <= today &&
-        (r.endsOn === null || r.endsOn === undefined) &&
-        !r.repeat &&
-        (!r.window ||
-          r.window.from <= nowMinute ||
-          (r.startsOn < today && r.window.from <= yesterdayMinute && yesterdayRunning()))
-    ) ?? null
+    pauses.find((r) => isPauseInForce(r, config, timezone, today, nowMinute)) ?? earliest ?? null
   );
 }

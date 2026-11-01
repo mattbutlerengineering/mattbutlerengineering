@@ -138,6 +138,21 @@ function hoursRange(rule: SpecialDateRule, format: VenueFormat, t: TFunction): s
     .join(", ");
 }
 
+/** "Closed · From 10:00 PM", or "Booking paused: Online": what a closure really closes, and from when. */
+function closureDetail(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string {
+  const channels = (rule.bookingTypes ?? []).map((c) => t(`availability.close.what.channel.${c}`));
+  const what =
+    rule.targetKind === "booking" && channels.length > 0
+      ? t("availabilitySpecial.kind.bookingPaused", { channels: channels.join(", ") })
+      : t("availabilitySpecial.kind.closure");
+  return rule.window
+    ? [
+        what,
+        t("availability.close.window.from", { time: minuteText(rule.window.from, t, format) }),
+      ].join(" · ")
+    : what;
+}
+
 interface RowProps {
   readonly title: string;
   readonly detail: string;
@@ -433,7 +448,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
               title={rangeLabel(rule, format, t)}
               detail={[
                 rule.kind === "closure"
-                  ? t("availabilitySpecial.kind.closure")
+                  ? closureDetail(rule, format, t)
                   : t("availabilitySpecial.kind.specialHours"),
                 hoursRange(rule, format, t),
                 rule.repeat ? t("availabilitySpecial.repeating") : null,
