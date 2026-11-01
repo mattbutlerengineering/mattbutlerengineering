@@ -17,6 +17,8 @@ export interface AvailabilitySelectionBarProps {
   readonly onClearChanges?: () => void;
   /** At least one selected date has an hours change of its own to clear. */
   readonly canClearChanges?: boolean;
+  /** Select days is on: the bar shows even before a day is picked, with the way out. */
+  readonly selecting?: boolean;
 }
 
 /**
@@ -28,24 +30,30 @@ export function AvailabilitySelectionBar(props: AvailabilitySelectionBarProps) {
   const { selection, canEdit, onEditHours, onClear, onUseSchedule, onClearChanges } = props;
   const { t } = useTranslation();
   const count = selection.length;
+  const showing = count > 0 || props.selecting;
+  const picking = canEdit && count > 0;
 
   return (
-    <div className={count > 0 ? styles.bar : undefined}>
+    <div className={showing ? styles.bar : undefined}>
       <div role="status" aria-live="polite" className={styles.count}>
-        {count > 0 ? t("availability.selection.count", { count }) : null}
+        {count > 0
+          ? t("availability.selection.count", { count })
+          : props.selecting
+            ? t("availability.selection.selectingHint")
+            : null}
       </div>
-      {count > 0 && (
+      {showing && (
         <div
           role="group"
           aria-label={t("availability.selection.barLabel")}
           className={styles.actions}
         >
-          {canEdit && (
+          {picking && (
             <Button variant="primary" onClick={() => onEditHours(selection)}>
               {t("availability.selection.editHours")}
             </Button>
           )}
-          {canEdit && onUseSchedule && (
+          {picking && onUseSchedule && (
             <Button variant="secondary" onClick={onUseSchedule}>
               {t(
                 props.multipleSchedules
@@ -54,7 +62,7 @@ export function AvailabilitySelectionBar(props: AvailabilitySelectionBarProps) {
               )}
             </Button>
           )}
-          {canEdit && onClearChanges && (
+          {picking && onClearChanges && (
             <Button variant="secondary" disabled={!props.canClearChanges} onClick={onClearChanges}>
               {t("availability.selection.clearChanges")}
             </Button>

@@ -26,6 +26,7 @@ import { useAvailabilityPreview } from "../../hooks/useAvailabilityPreview.js";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
 import { minuteText } from "./closure-band.js";
 import { StrandedBookings } from "./StrandedBookings.js";
+import { dayLabelText } from "./day-summary.js";
 import styles from "./AvailabilityGuestPreview.module.css";
 
 /** How long the draft must sit still before it is previewed. */
@@ -226,7 +227,7 @@ function NoTimes(props: { readonly day: PreviewResult["focusDay"] }) {
         {t("availability.preview.noTimes")}
       </Text>
       <Text variant="caption" color="secondary">
-        {day.label}
+        {dayLabelText(day.label, t)}
       </Text>
       {day.guestMessage && (
         <Text variant="caption" color="secondary">

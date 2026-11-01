@@ -5485,7 +5485,24 @@
       /** "Lunch 11:00 AM – 2:00 PM". */
       readonly text: string;
     }
+    export function scheduleNameText(name: string, t: TFunction): string {
+      return name === SEEDED_REGULAR_WEEK ? t("availabilitySchedules.regularMarker") : name;
+    }
+    export function dayLabelText(label: string, t: TFunction): string {
+      switch (label) {
+        case "Closed":
+          return t("availability.calendar.dayLabel.closed");
+        case "Special hours":
+          return t("availability.calendar.dayLabel.specialHours");
+        case "Open":
+          return t("availability.calendar.dayLabel.open");
+        default:
+          return scheduleNameText(label, t);
+      }
+    }
     export interface DayPresentation {
+      /** The day's label in the viewer's language. */
+      readonly label: string | null;
       readonly bands: readonly ClosureBandText[];
       /** "2 services", or `null` when the count is not worth showing. */
       readonly count: string | null;
@@ -5535,9 +5552,10 @@
       );
       const onlineOff = summary !== undefined && !summary.bookingOpen.online && !bandNamesOnline;
     
+      const label = summary ? dayLabelText(summary.label, t) : null;
       const parts = summary
         ? [
-            summary.label,
+            label,
             ...(count ? [count] : []),
             ...bands.map((b) => b.name),
             ...services.map((s) => s.text),
@@ -5551,6 +5569,7 @@
         day: "numeric",
       });
       return {
+        label,
         bands,
         count,
         services,
@@ -7860,6 +7879,8 @@
       readonly selection: readonly string[];
       readonly onSelectionChange: (dates: string[]) => void;
       readonly onOpenDay: (date: string) => void;
+      /** Select days is on: a plain click or tap picks, with no long press needed to start. */
+      readonly selecting?: boolean;
       /**
        * A range drag is under way (`true`) or over (`false`). The page holds back anything that would
        * move the grid under the pointer until the drag ends.
@@ -7876,7 +7897,7 @@
       readonly onContextMenu: (event: MouseEvent) => void;
     }
     export function useDateSelection(options: DateSelectionOptions) {
-      const { selection, onSelectionChange, onOpenDay, onDragChange } = options;
+      const { selection, onSelectionChange, onOpenDay, onDragChange, selecting = false } = options;
       const pivot = useRef<string | null>(null);
       const drag = useRef<{ from: string; moved: boolean } | null>(null);
       const suppressClick = useRef(false);
@@ -7950,7 +7971,12 @@
           if (suppressClick.current) return;
           if (event.shiftKey) {
             onSelectionChange(dateRange(pivot.current ?? date, date));
-          } else if (event.ctrlKey || event.metaKey || (touchMode.current && selection.length > 0)) {
+          } else if (
+            selecting ||
+            event.ctrlKey ||
+            event.metaKey ||
+            (touchMode.current && selection.length > 0)
+          ) {
             toggleSelected(date);
           } else {
             pivot.current = date;

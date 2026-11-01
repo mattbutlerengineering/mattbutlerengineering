@@ -6,6 +6,10 @@
   justify-content: space-between;
 }
 
+.filterSelect {
+  flex: 1 1 100%;
+}
+
 .list {
   display: flex;
   flex-direction: column;
@@ -49,6 +53,51 @@
 .callList td {
   padding: var(--rialto-space-xs) var(--rialto-space-sm);
   text-align: start;
+}
+
+/*
+ * A phone's call list: five columns cannot fit, so each guest stacks as name, phone, then the
+ * rest on one line. Screen only: the print copy keeps its columns on any paper.
+ */
+@media screen and (max-width: 767px) {
+  .callList,
+  .callList tbody {
+    display: block;
+  }
+
+  .callList thead {
+    display: none;
+  }
+
+  .callList tr {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: var(--rialto-space-sm);
+    padding-block: var(--rialto-space-xs);
+  }
+
+  .callList td {
+    padding: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .callList td:first-child {
+    flex-basis: 100%;
+    order: -2;
+  }
+
+  .callList td:last-child {
+    flex-basis: 100%;
+    order: -1;
+  }
+
+  .callList td[data-label] {
+    order: 1;
+  }
+
+  .callList td[data-label]::before {
+    content: attr(data-label) ": ";
+  }
 }
 
 /* The print copy of the call list (CallListDialog): hidden on screen. */

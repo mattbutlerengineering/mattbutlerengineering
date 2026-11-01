@@ -8,6 +8,8 @@ export interface DateSelectionOptions {
   readonly selection: readonly string[];
   readonly onSelectionChange: (dates: string[]) => void;
   readonly onOpenDay: (date: string) => void;
+  /** Select days is on: a plain click or tap picks, with no long press needed to start. */
+  readonly selecting?: boolean;
   /**
    * A range drag is under way (`true`) or over (`false`). The page holds back anything that would
    * move the grid under the pointer until the drag ends.
@@ -31,7 +33,7 @@ export interface DateGestureHandlers {
  * more. A plain click is still "open this day"; the opener decides when that drops the selection.
  */
 export function useDateSelection(options: DateSelectionOptions) {
-  const { selection, onSelectionChange, onOpenDay, onDragChange } = options;
+  const { selection, onSelectionChange, onOpenDay, onDragChange, selecting = false } = options;
   const pivot = useRef<string | null>(null);
   const drag = useRef<{ from: string; moved: boolean } | null>(null);
   const suppressClick = useRef(false);
@@ -105,7 +107,12 @@ export function useDateSelection(options: DateSelectionOptions) {
       if (suppressClick.current) return;
       if (event.shiftKey) {
         onSelectionChange(dateRange(pivot.current ?? date, date));
-      } else if (event.ctrlKey || event.metaKey || (touchMode.current && selection.length > 0)) {
+      } else if (
+        selecting ||
+        event.ctrlKey ||
+        event.metaKey ||
+        (touchMode.current && selection.length > 0)
+      ) {
         toggleSelected(date);
       } else {
         pivot.current = date;

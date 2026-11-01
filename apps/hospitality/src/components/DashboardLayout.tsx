@@ -334,31 +334,6 @@ function DashboardLayoutInner() {
         placeholder={t("layout.searchPlaceholder")}
       />
 
-      {/* ── Mobile sidebar toggle (visible < 768px only) ── */}
-      <Button
-        className={styles.mobileSidebarToggle}
-        onClick={handleMobileToggle}
-        aria-label={isMobileMenuOpen ? t("layout.closeSidebar") : t("layout.openSidebar")}
-        aria-expanded={isMobileMenuOpen}
-        type="button"
-      >
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <line x1="3" y1="6" x2="21" y2="6" />
-          <line x1="3" y1="12" x2="21" y2="12" />
-          <line x1="3" y1="18" x2="21" y2="18" />
-        </svg>
-      </Button>
-
       <div className={styles.body}>
         <div className={styles.sidebarColumn}>
           <DashboardSidebar
@@ -401,6 +376,30 @@ function DashboardLayoutInner() {
             <Breadcrumb items={breadcrumbs} />
             <SystemHealthBadge />
             <OnlinePausedPill />
+            {/* In the bar rather than floating, so it never sits over the page (visible < 768px). */}
+            <Button
+              className={styles.mobileSidebarToggle}
+              onClick={handleMobileToggle}
+              aria-label={isMobileMenuOpen ? t("layout.closeSidebar") : t("layout.openSidebar")}
+              aria-expanded={isMobileMenuOpen}
+              type="button"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </Button>
           </div>
           <ErrorBoundary
             fallback={

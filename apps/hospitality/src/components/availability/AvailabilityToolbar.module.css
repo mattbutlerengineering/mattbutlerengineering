@@ -1,0 +1,34 @@
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+}
+
+.group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+  margin-inline-start: auto;
+}
+
+.phoneRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rialto-space-sm);
+  width: 100%;
+}
+
+.period {
+  margin-inline-start: var(--rialto-space-xs);
+  font-weight: var(--rialto-weight-medium);
+}

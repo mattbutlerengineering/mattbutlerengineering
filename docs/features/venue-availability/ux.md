@@ -413,9 +413,9 @@ Selection bar: 6 dates selected · Edit hours · Close… · Use another day's h
 - Empty state: never; S1 shows instead.
 - Loading: grid `Skeleton`.
 - Error: page `Alert`, "Couldn't load availability · Retry".
-- Phone: agenda list in Month (one row per day), Week as a vertical list; drawers full screen; long-press to multi-select.
+- Phone: agenda list in Month (one row per day), Week as a vertical list; drawers full screen; secondary actions in one **More actions** menu, so a day shows on the first screen. To multi-select: **Select days** in that menu then tap, a long press, or Space on a row. A row's name starts with the date as it shows it ("Fri, Oct 30: …").
 - Accessibility:
-  - The grid is `role="grid"` with a roving tabindex and a single Tab stop. Arrow keys move by day, Home/End go to the week's ends, and PageUp/PageDown move by month.
+  - The grid is `role="grid"` with a roving tabindex. The days are a single Tab stop: arrow keys move by day, Home/End go to the week's ends, and PageUp/PageDown move by month. The weekday headers are one Tab stop of their own: Left/Right move along them, Enter selects that weekday's dates, and Down enters the column.
   - Enter opens the drawer, Space toggles a day in the selection, and Shift+arrow extends the selection. The selection count is announced.
   - Each cell's name reads "Friday, October 30: Weekend, lunch and dinner, special hours, closed 10 to 11 PM". A venue with one schedule says "regular week" in place of a schedule name.
   - Status is never shown by colour or glyph alone.

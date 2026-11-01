@@ -53,7 +53,11 @@ export function QuickSetupCard({ onSave, errorMessage, onDirtyChange }: QuickSet
   };
 
   return (
-    <Card title={t("availability.quickSetup.title")} subtitle={t("availability.quickSetup.intro")}>
+    <Card
+      title={t("availability.quickSetup.title")}
+      subtitle={t("availability.quickSetup.intro")}
+      headingLevel={2}
+    >
       <Stack gap="md">
         {errorMessage !== null && (
           <div ref={errorRef} tabIndex={-1} className={styles.errorSlot}>
