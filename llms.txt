@@ -10251,7 +10251,7 @@
       ): Promise<{ change: TonightChange } | { error: string }> { /* ... */ }
     </item>
     <item priority="medium">
-      function availabilityWriteFailure(err: unknown, action: string) { /* ... */ }
+      function availabilityWriteFailure(err: unknown, action: string, unsure: string | undefined) { /* ... */ }
     </item>
     <item priority="high">
       export function createAvailabilityTools(
@@ -10480,7 +10480,7 @@
       function readFailure(err: unknown) { /* ... */ }
     </item>
     <item priority="medium">
-      function writeFailure(err: unknown) { /* ... */ }
+      function writeFailure(err: unknown, unsure: string | undefined) { /* ... */ }
     </item>
     <item priority="high">
       export function createFloorPlanTools(
@@ -10498,7 +10498,10 @@
       function shown(guest: Guest) { /* ... */ }
     </item>
     <item priority="medium">
-      function guestFailure(err: unknown, action: string) { /* ... */ }
+      function winBackUnsure(name: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function guestFailure(err: unknown, action: string, unsure: string | undefined) { /* ... */ }
     </item>
     <item priority="low">
       async function findGuest(
@@ -10536,7 +10539,7 @@
       function priceToCents(price: string): number { /* ... */ }
     </item>
     <item priority="medium">
-      function menuFailure(err: unknown) { /* ... */ }
+      function menuFailure(err: unknown, unsure: string | undefined) { /* ... */ }
     </item>
     <item priority="medium">
       function findMenu(menus: readonly Menu[], ref: string): { menu: Menu } | { error: string } { /* ... */ }
@@ -10613,8 +10616,13 @@
     <item priority="high">
       type Reservation = Awaited<ReturnType<ApiClient["reservations"]["get"]>>;
     </item>
-    <item priority="medium">
-      function bookingWriteFailure(err: unknown, action: string, saved?: string) { /* ... */ }
+    <item priority="high">
+      export function bookingWriteFailure(
+        err: unknown,
+        action: string,
+        unsure: string | undefined,
+        saved?: string
+      ) { /* ... */ }
     </item>
     <item priority="low">
       async function venueReservation(
@@ -10716,7 +10724,7 @@
       type WaitlistEntry = Awaited<ReturnType<ApiClient["waitlist"]["list"]>>[number];
     </item>
     <item priority="medium">
-      function waitlistFailure(err: unknown, action: string) { /* ... */ }
+      function waitlistFailure(err: unknown, action: string, unsure: string | undefined) { /* ... */ }
     </item>
     <item priority="low">
       async function findParty(
@@ -10927,6 +10935,12 @@
     </item>
     <item priority="high">
       export function refusalOf(err: unknown): Refusal | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function saveUnsure(read: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export const NO_REPLAY: unknown;
     </item>
     <item priority="low">
       interface NamedTable {

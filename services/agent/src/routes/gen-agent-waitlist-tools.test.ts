@@ -241,6 +241,68 @@ describe("waitlist chat tools", () => {
     });
   });
 
+  describe("a write the server never answered (#8035)", () => {
+    const NO_ANSWER = [
+      ["a 502", () => problem(502)],
+      ["a timeout", () => new DOMException("The operation timed out.", "TimeoutError")],
+      ["a lost response", () => new TypeError("fetch failed")],
+    ] as const;
+
+    describe.each(NO_ANSWER)("after %s", (_name, failure) => {
+      it.each([
+        [
+          "add_to_waitlist",
+          () => api.waitlist.create,
+          { guestName: "Kim", partySize: 2, guestPhone: "+15555550111" },
+          "list_waitlist",
+        ],
+        [
+          "notify_waitlist_party",
+          () => api.waitlist.notify,
+          { guestName: "Lopez" },
+          "list_waitlist",
+        ],
+        [
+          "seat_waitlist_party",
+          () => api.reservations.walkIn,
+          { guestName: "Lopez", table: "Patio 2" },
+          "get_table_status",
+        ],
+        [
+          "remove_from_waitlist",
+          () => api.waitlist.cancel,
+          { guestName: "Lopez" },
+          "list_waitlist",
+        ],
+      ] as const)("%s may have saved: says to check first", async (tool, write, input, check) => {
+        write().mockRejectedValue(failure());
+
+        const result = await run(tool, input);
+
+        expect(result).toEqual({
+          error: `Couldn't confirm the change was saved. Check ${check} before trying again.`,
+        });
+      });
+    });
+
+    it("still says nothing changed on a definite refusal", async () => {
+      api.waitlist.notify.mockRejectedValue(problem(409));
+
+      const result = await run("notify_waitlist_party", { guestName: "Lopez" });
+
+      expect(result).toEqual({ refused: true, error: "Refused. Nothing was changed." });
+    });
+
+    it("still says nothing changed when the read before the write fails", async () => {
+      api.waitlist.list.mockRejectedValue(problem(502));
+
+      const result = await run("notify_waitlist_party", { guestName: "Lopez" });
+
+      expect(result).toMatchObject({ error: expect.stringMatching(/Nothing was changed/) });
+      expect(api.waitlist.notify).not.toHaveBeenCalled();
+    });
+  });
+
   describe("remove_from_waitlist", () => {
     it("takes the named party off the waitlist", async () => {
       api.waitlist.cancel.mockResolvedValue(entry({ status: "cancelled" }));

@@ -10,12 +10,13 @@ import { createGuestTools } from "./gen-agent-guest-tools.js";
 import { createFloorPlanTools } from "./gen-agent-floor-plan-tools.js";
 import { createMenuTools } from "./gen-agent-menu-tools.js";
 import { createWaitlistTools } from "./gen-agent-waitlist-tools.js";
-import { createTimelineTools } from "./gen-agent-timeline-tools.js";
+import { bookingWriteFailure, createTimelineTools } from "./gen-agent-timeline-tools.js";
 import {
   NO_VENUE,
   localTimeIn,
   refusalOf,
   resolveTable,
+  saveUnsure,
   todayIn,
   type ApiClient,
   type Refusal,
@@ -41,6 +42,8 @@ export interface CreateAgentToolsOptions {
 
 /** The reservations API's page-size ceiling. */
 const LOOKUP_LIMIT = 100;
+/** The reservations API's page-size ceiling; a venue's tables fit in one page. */
+const TABLES_LIMIT = 100;
 /** Guest profiles a name lookup follows; more than this means the name is too vague. */
 const MAX_GUEST_MATCHES = 5;
 
@@ -158,7 +161,7 @@ const FINAL_REFUSAL_STATUSES: ReadonlySet<number> = new Set([409, 422]);
 
 function createFailureResult(err: unknown) {
   const refusal = refusalOf(err);
-  if (!refusal) return { error: "Failed to create reservation. Please try again." };
+  if (!refusal) return { error: saveUnsure("lookup_reservation") };
   if (!FINAL_REFUSAL_STATUSES.has(refusal.status)) {
     // e.g. a 400 from our own malformed request: not the venue's decision.
     return { error: `Failed to create reservation: ${refusal.detail}` };
@@ -419,7 +422,7 @@ export function createAgentTools(
         if (!venueId) return NO_VENUE;
         log.info({ venueId }, "get_table_status tool called");
         try {
-          const result = await api.tables.list({ venueId });
+          const result = await api.tables.list({ venueId, limit: TABLES_LIMIT });
           return { tables: result.data };
         } catch (err) {
           log.error({ err, venueId }, "get_table_status failed");
@@ -531,7 +534,12 @@ export function createAgentTools(
           return { reservation };
         } catch (err) {
           log.error({ err, reservationId }, "modify_reservation failed");
-          return { error: "Failed to modify reservation. Please try again." };
+          // The write is the tool's first call, so any failure may have saved.
+          return bookingWriteFailure(
+            err,
+            "modify the reservation",
+            saveUnsure("lookup_reservation")
+          );
         }
       },
     }),
@@ -565,7 +573,8 @@ export function createAgentTools(
           return { reservation };
         } catch (err) {
           log.error({ err, venueId, partySize }, "seat_walk_in failed");
-          return { error: "Failed to seat walk-in. Please try again." };
+          // The write is the tool's first call, so any failure may have saved.
+          return bookingWriteFailure(err, "seat the walk-in", saveUnsure("get_table_status"));
         }
       },
     }),
@@ -580,16 +589,18 @@ export function createAgentTools(
       execute: async ({ table: tableRef, status: newStatus }) => {
         if (!venueId) return NO_VENUE;
         log.info({ venueId, tableRef, newStatus }, "update_table_status tool called");
+        let unsure: string | undefined;
         try {
-          const tablesResult = await api.tables.list({ venueId });
+          const tablesResult = await api.tables.list({ venueId, limit: TABLES_LIMIT });
           const resolved = resolveTable(tablesResult.data, tableRef);
           if ("error" in resolved) return resolved;
           const { table } = resolved;
+          unsure = saveUnsure("get_table_status");
           const updated = await api.tables.updateStatus(table.id, newStatus);
           return { table: updated };
         } catch (err) {
           log.error({ err, venueId, tableRef }, "update_table_status failed");
-          return { error: "Failed to update table status. Please try again." };
+          return bookingWriteFailure(err, "update the table status", unsure);
         }
       },
     }),
