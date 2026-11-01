@@ -11,6 +11,8 @@ import { useCallback, useEffect, useReducer, useRef } from "react";
 export type FocusTarget =
   | { readonly kind: "element"; readonly element: HTMLElement }
   | { readonly kind: "testId"; readonly testId: string }
+  /** The first enabled control inside the `data-testid` container, a dismiss control excepted. */
+  | { readonly kind: "firstIn"; readonly testId: string }
   /** The `PageHeader` h1, which carries `tabIndex={-1}` for this purpose. */
   | { readonly kind: "pageHeading" };
 
@@ -18,14 +20,20 @@ export interface FocusAfterApi {
   readonly focusAfter: (target: FocusTarget) => void;
 }
 
+const FIRST_CONTROL =
+  'button:not(:disabled):not([data-focus-trap-skip-initial]), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
+
+const byTestId = (testId: string) =>
+  document.querySelector<HTMLElement>(`[data-testid="${testId.replace(/["\\]/g, "\\$&")}"]`);
+
 function resolveTarget(target: FocusTarget): HTMLElement | null {
   switch (target.kind) {
     case "element":
       return target.element;
     case "testId":
-      return document.querySelector<HTMLElement>(
-        `[data-testid="${target.testId.replace(/["\\]/g, "\\$&")}"]`
-      );
+      return byTestId(target.testId);
+    case "firstIn":
+      return byTestId(target.testId)?.querySelector<HTMLElement>(FIRST_CONTROL) ?? null;
     case "pageHeading":
       return document.querySelector<HTMLElement>("h1");
   }

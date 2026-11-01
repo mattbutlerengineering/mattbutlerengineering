@@ -22,9 +22,10 @@ export interface ReservationDetailsProps {
   onEdit: () => void;
   /** Rejects on failure — the panel owns showing it (architecture § Dialog contracts). */
   onSeat: () => Promise<void>;
-  onCancel: () => void;
+  /** Receives the clicked button, the opener the page returns focus to when the dialog is dismissed. */
+  onCancel: (opener: HTMLElement) => void;
   /** Opens the Mark No-Show confirmation (only offered for CONFIRMED — the only valid source state). */
-  onMarkNoShow: () => void;
+  onMarkNoShow: (opener: HTMLElement) => void;
 }
 
 function getStatusBadgeClass(reservation: Reservation, seated: boolean): string {
@@ -199,7 +200,7 @@ export function ReservationDetails({
         {reservation.status !== "CANCELLED" && (
           <Button
             variant="ghost"
-            onClick={onCancel}
+            onClick={(event) => onCancel(event.currentTarget)}
             className={styles.fullWidth}
             disabled={seating}
           >
@@ -209,7 +210,7 @@ export function ReservationDetails({
         {reservation.status === "CONFIRMED" && (
           <Button
             variant="ghost"
-            onClick={onMarkNoShow}
+            onClick={(event) => onMarkNoShow(event.currentTarget)}
             className={styles.fullWidth}
             disabled={seating}
           >

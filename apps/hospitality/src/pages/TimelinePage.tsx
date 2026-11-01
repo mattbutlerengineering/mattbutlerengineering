@@ -34,7 +34,7 @@ import { useSSEStatus } from "../hooks/useSSESync.js";
 import { useTables } from "../hooks/useTables.js";
 import { useTimelineData } from "../hooks/useTimelineData.js";
 import { useCancellationQuote } from "../hooks/useCancellationQuote.js";
-import { useFocusAfter } from "../hooks/useFocusAfter.js";
+import { useFocusAfter, type FocusTarget } from "../hooks/useFocusAfter.js";
 import { useNow } from "../hooks/useNow.js";
 import { useStaffTonight } from "../hooks/useStaffTonight.js";
 import { useAvailabilityConfig } from "../hooks/useAvailability.js";
@@ -114,6 +114,9 @@ function loadedSentence(date: string, todayStr: string, locale: string, t: TFunc
     ? t("timeline.announce.loadedTonight")
     : t("timeline.announce.loadedDate", { date: formatServiceDate(date, locale) });
 }
+
+/** Wraps the phone and tablet details surfaces: where focus goes while one of them is open. */
+const DETAILS_SURFACE_TEST_ID = "reservation-details-surface";
 
 /** The grid block's test id — `useFocusAfter`'s target after a mutation lands on a party. */
 function blockTestId(reservationId: string): string {
@@ -261,25 +264,47 @@ function LiveTimelinePage() {
     stripIntent();
   };
 
-  const openConfirmDialog = (open: (shown: boolean) => void) => {
+  // Phone and tablet show the details as a modal Drawer, so the grid block and the toolbar behind
+  // it are out of reach; the desktop sidebar sits beside them and does not trap anything.
+  const modalSurfaceOpen = viewport !== "desktop" && selectedReservation !== null;
+  const surfaceTarget: FocusTarget = { kind: "firstIn", testId: DETAILS_SURFACE_TEST_ID };
+  const insideSurface = (element: HTMLElement) =>
+    document.querySelector(`[data-testid="${DETAILS_SURFACE_TEST_ID}"]`)?.contains(element) ??
+    false;
+
+  // Where focus goes when a dialog closes: its opener while that is still usable, else the
+  // surface (modal) or the given fallback. A modal surface never hands focus to what is behind it.
+  const returnFocusTarget = (
+    opener: HTMLElement | null,
+    fallback: FocusTarget | null
+  ): FocusTarget | null => {
+    const usable = opener?.isConnected && (!modalSurfaceOpen || insideSurface(opener));
+    if (opener && usable) return { kind: "element", element: opener };
+    return modalSurfaceOpen ? surfaceTarget : fallback;
+  };
+
+  // The clicked button when the surface passes it; otherwise whatever holds focus. `body` means
+  // nothing held it (a click that did not focus its button): no opener to return to.
+  const captureOpener = (clicked?: HTMLElement): HTMLElement | null => {
+    if (clicked) return clicked;
     const active = document.activeElement;
-    // `body` means nothing held focus (a click that did not focus its button): no opener to return to.
-    confirmDialogOpenerRef.current =
-      active instanceof HTMLElement && active !== document.body ? active : null;
+    return active instanceof HTMLElement && active !== document.body ? active : null;
+  };
+
+  const openConfirmDialog = (open: (shown: boolean) => void, clicked?: HTMLElement) => {
+    confirmDialogOpenerRef.current = captureOpener(clicked);
     open(true);
   };
 
-  // Keep and Escape leave the details surface open (a modal Drawer on a phone or tablet), so focus
-  // returns to the button that opened the dialog; the grid block behind it is not reachable there.
-  // Only when that button is gone does the block take focus.
+  // Keep and Escape leave the details surface open, so focus returns to the button that opened the
+  // dialog. Only when that button is gone does focus fall back (the block, on desktop).
   const dismissConfirmDialog = (close: (shown: boolean) => void, reservation: Reservation) => {
     close(false);
-    const opener = confirmDialogOpenerRef.current;
-    focusAfter(
-      opener?.isConnected
-        ? { kind: "element", element: opener }
-        : { kind: "testId", testId: blockTestId(reservation.id) }
-    );
+    const target = returnFocusTarget(confirmDialogOpenerRef.current, {
+      kind: "testId",
+      testId: blockTestId(reservation.id),
+    });
+    if (target) focusAfter(target);
   };
 
   const closeWalkInDialog = () => {
@@ -287,9 +312,8 @@ function LiveTimelinePage() {
     stripIntent();
   };
 
-  const openWalkInDialog = () => {
-    const active = document.activeElement;
-    walkInOpenerRef.current = active instanceof HTMLElement ? active : null;
+  const openWalkInDialog = (clicked?: HTMLElement) => {
+    walkInOpenerRef.current = captureOpener(clicked);
     setShowWalkInDialog(true);
   };
 
@@ -299,9 +323,14 @@ function LiveTimelinePage() {
     // A URL-opened dialog has no opener to restore; land focus where a click-open would have — the
     // Walk-in button (ux.md Decision (d)). A click-opened dialog restores its own captured opener —
     // the toolbar button or the quiet-night CTA (#5272) — on all three dismissal paths (Escape,
-    // Cancel, overlay-click all route through this one `onClose`).
-    const target = openedFromUrl ? walkInButtonRef.current : walkInOpenerRef.current;
-    if (target) focusAfter({ kind: "element", element: target });
+    // Cancel, overlay-click all route through this one `onClose`). Under an open modal surface the
+    // toolbar is out of reach, so focus stays inside the surface instead (#8021).
+    const button = walkInButtonRef.current;
+    const target = returnFocusTarget(
+      openedFromUrl ? null : walkInOpenerRef.current,
+      button ? { kind: "element", element: button } : null
+    );
+    if (target) focusAfter(target);
   };
 
   /* ── Day navigation ── */
@@ -386,7 +415,10 @@ function LiveTimelinePage() {
     setSelectedIdState(created.id);
     closeWalkInDialog();
     announce(walkInSentence(created, tableName(created.tableId) ?? created.table?.name, t));
-    focusAfter({ kind: "testId", testId: blockTestId(created.id) });
+    // The new reservation opens in the details surface on phone and tablet; the block is behind it.
+    focusAfter(
+      viewport === "desktop" ? { kind: "testId", testId: blockTestId(created.id) } : surfaceTarget
+    );
   };
 
   const handleTableStatusChange = async (tableId: string, next: TableStatus) => {
@@ -434,8 +466,8 @@ function LiveTimelinePage() {
       now={now}
       onEdit={openEditDrawer}
       onSeat={() => handleSeat(selectedReservation)}
-      onCancel={() => openConfirmDialog(setShowCancelDialog)}
-      onMarkNoShow={() => openConfirmDialog(setShowNoShowDialog)}
+      onCancel={(opener) => openConfirmDialog(setShowCancelDialog, opener)}
+      onMarkNoShow={(opener) => openConfirmDialog(setShowNoShowDialog, opener)}
     />
   );
 
@@ -500,7 +532,7 @@ function LiveTimelinePage() {
             ? {
                 variant: isToday ? "today" : "otherDate",
                 dateLabel: formatServiceDate(selectedDate, fmt.locale),
-                onWalkIn: openWalkInDialog,
+                onWalkIn: () => openWalkInDialog(),
                 onToday: handleToday,
                 onRehearse: handleRehearse,
               }
@@ -555,7 +587,7 @@ function LiveTimelinePage() {
               ref={walkInButtonRef}
               variant="primary"
               size="md"
-              onClick={openWalkInDialog}
+              onClick={(event) => openWalkInDialog(event.currentTarget)}
               className={styles.walkInButton}
               disabled={walkInDisabled}
               aria-describedby={walkInDisabled ? walkInCaptionId : undefined}
@@ -651,36 +683,38 @@ function LiveTimelinePage() {
         )}
       </div>
 
-      {/* Tablet (768–1024 px): the bottom sheet */}
-      {viewport === "tablet" && selectedReservation && (
-        <ReservationSheet
-          reservation={selectedReservation}
-          tables={tables}
-          seated={seatedIds.has(selectedReservation.id)}
-          now={now}
-          open
-          onClose={clearSelection}
-          onSeat={() => handleSeat(selectedReservation)}
-          onEdit={openEditDrawer}
-          onCancel={() => openConfirmDialog(setShowCancelDialog)}
-          onMarkNoShow={() => openConfirmDialog(setShowNoShowDialog)}
-          expanded={sheetExpanded}
-          onToggleExpanded={toggleSheetExpanded}
-        />
-      )}
+      <div data-testid={DETAILS_SURFACE_TEST_ID} className={styles.detailsSurface}>
+        {/* Tablet (768–1024 px): the bottom sheet */}
+        {viewport === "tablet" && selectedReservation && (
+          <ReservationSheet
+            reservation={selectedReservation}
+            tables={tables}
+            seated={seatedIds.has(selectedReservation.id)}
+            now={now}
+            open
+            onClose={clearSelection}
+            onSeat={() => handleSeat(selectedReservation)}
+            onEdit={openEditDrawer}
+            onCancel={(opener) => openConfirmDialog(setShowCancelDialog, opener)}
+            onMarkNoShow={(opener) => openConfirmDialog(setShowNoShowDialog, opener)}
+            expanded={sheetExpanded}
+            onToggleExpanded={toggleSheetExpanded}
+          />
+        )}
 
-      {/* Phone (< 768 px): the right drawer */}
-      {viewport === "phone" && (
-        <Drawer
-          side="right"
-          size="default"
-          open={selectedReservation !== null}
-          onClose={clearSelection}
-          title={t("timeline.page.detailsTitle")}
-        >
-          {detailSurface}
-        </Drawer>
-      )}
+        {/* Phone (< 768 px): the right drawer */}
+        {viewport === "phone" && (
+          <Drawer
+            side="right"
+            size="default"
+            open={selectedReservation !== null}
+            onClose={clearSelection}
+            title={t("timeline.page.detailsTitle")}
+          >
+            {detailSurface}
+          </Drawer>
+        )}
+      </div>
 
       {/* Dialogs — each rejects on failure and owns its own banner */}
       {showCancelDialog && selectedReservation && (

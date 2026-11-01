@@ -87,7 +87,8 @@ test.describe("Timeline phone drawer dialogs (#8004)", () => {
   });
 });
 
-// #8010: the command palette (z-index 9999) opens the walk-in dialog over the open drawer.
+// #8010: the command palette (z-index 10001, above the walk-in dialog's 10000 and the drawer's
+// 9998/9999) opens the walk-in dialog over the open drawer.
 test.describe("Walk-in dialog over the details drawer (#8010)", () => {
   async function openWalkInOverDrawer(page: Page) {
     await openPhoneDrawer(page, "res_e2e_002");
@@ -180,3 +181,76 @@ test.describe("Focus after dismissing a drawer dialog (#8017)", () => {
     });
   });
 });
+
+// #8018 / #8021: while the details surface is open (a modal Drawer at 375x812 and 900x1100),
+// focus must be inside it: on open, after the walk-in dialog closes, and after a walk-in is seated.
+// Closing the surface hands focus back to the block that opened it.
+const SURFACES = [
+  { label: "phone", viewport: { width: 375, height: 812 }, dialog: "Reservation Details" },
+  { label: "tablet", viewport: { width: 900, height: 1100 }, dialog: "Bob Smith" },
+];
+
+for (const { label, viewport, dialog: surfaceName } of SURFACES) {
+  test.describe(`Focus and the details surface at ${label} width (#8018, #8021)`, () => {
+    test.use({ viewport });
+
+    const surface = (page: Page) => page.getByRole("dialog", { name: surfaceName });
+    const focused = (page: Page) => surface(page).locator(":focus");
+
+    async function openWalkInFromPalette(page: Page) {
+      await page.keyboard.press("ControlOrMeta+k");
+      const palette = page.getByRole("dialog", { name: "Command palette", exact: true });
+      await palette.getByRole("combobox", { name: "Search commands", exact: true }).fill("walk");
+      await page.keyboard.press("Enter");
+      const dialog = page.getByRole("dialog", { name: "Seat walk-in" });
+      await expect(dialog).toBeVisible();
+      return dialog;
+    }
+
+    test("opening the surface moves focus inside it", async ({ mockedPage }) => {
+      await openDetailsDrawer(mockedPage, "res_e2e_002", surfaceName);
+      await expect(focused(mockedPage)).toHaveCount(1);
+    });
+
+    test("closing the surface returns focus to the block", async ({ mockedPage }) => {
+      await openDetailsDrawer(mockedPage, "res_e2e_002", surfaceName);
+      await mockedPage.keyboard.press("Escape");
+      await expect(surface(mockedPage)).toHaveCount(0);
+      await expect(mockedPage.getByTestId("reservation-block-res_e2e_002")).toBeFocused();
+    });
+
+    test("Cancel in the walk-in dialog leaves focus inside the surface", async ({ mockedPage }) => {
+      await openDetailsDrawer(mockedPage, "res_e2e_002", surfaceName);
+      const dialog = await openWalkInFromPalette(mockedPage);
+      await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+      await expect(dialog).toHaveCount(0);
+      await expect(focused(mockedPage)).toHaveCount(1);
+    });
+
+    test("Escape in the walk-in dialog leaves focus inside the surface", async ({ mockedPage }) => {
+      await openDetailsDrawer(mockedPage, "res_e2e_002", surfaceName);
+      const dialog = await openWalkInFromPalette(mockedPage);
+      await mockedPage.keyboard.press("Escape");
+      await expect(dialog).toHaveCount(0);
+      await expect(focused(mockedPage)).toHaveCount(1);
+    });
+
+    test("Seat now leaves focus inside the surface, not on the block behind it", async ({
+      mockedPage,
+    }) => {
+      await openDetailsDrawer(mockedPage, "res_e2e_002", surfaceName);
+      const dialog = await openWalkInFromPalette(mockedPage);
+      await dialog.getByRole("button", { name: "Seat now" }).click();
+      await expect(dialog).toHaveCount(0);
+      await expect(mockedPage.locator('[role="dialog"][aria-modal="true"] :focus')).toHaveCount(1);
+    });
+
+    test("a reservation without a deposit shows no error alert", async ({ mockedPage }) => {
+      await openDetailsDrawer(mockedPage, "res_e2e_002", surfaceName);
+      if (label === "tablet") {
+        await surface(mockedPage).getByRole("button", { name: /More/ }).click();
+      }
+      await expect(surface(mockedPage).getByRole("alert")).toHaveCount(0);
+    });
+  });
+}
