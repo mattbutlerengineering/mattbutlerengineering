@@ -278,8 +278,17 @@ jobs:
           E2E_AUTH_EMAIL: ${{ secrets.E2E_AUTH_EMAIL }}
           E2E_AUTH_PASSWORD: ${{ secrets.E2E_AUTH_PASSWORD }}
 
+      # Two workers, because one sat at the 20-minute limit and got cancelled
+      # with its last tests unrun (#8038). Spec files stay whole on one worker
+      # (fullyParallel is off) and each test has its own browser context. Writes
+      # are route-mocked, so workers share only reads: the dev server on :3002
+      # and the backend. Set here, not in playwright.config.ts, which the visual
+      # config and e2e-screenshots.yml inherit. Pinned by
+      # scripts/__tests__/e2e-hospitality-workers.test.mjs.
       - name: Run E2E tests
-        run: pnpm --dir apps/hospitality test:e2e
+        run: |
+          echo "runner cores: $(nproc)"
+          pnpm --dir apps/hospitality test:e2e --workers=2
         env:
           VITE_AUTH_AUTHORITY: https://${{ secrets.E2E_AUTH0_DOMAIN }}
           VITE_AUTH_CLIENT_ID: ${{ secrets.E2E_AUTH0_CLIENT_ID }}
