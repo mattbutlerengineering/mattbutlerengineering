@@ -4565,3 +4565,13 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 **Coverage before this fire:** 100% (135/135 covered, 0 uncovered, 20 `unreachable:auth` excluded), exit 0 — no breach.
 **Blockers / pipeline bugs:** none. No `blocker: no-browser` (Chromium resolved at `/opt/pw-browsers/chromium_headless_shell-1243/...`), filing never stopped, every script exited 0 except the two expected non-zero codes noted above.
 **Note:** `mcp__github__search_issues` is not in this session's MCP surface, so the two issue searches used `mcp__github__list_issues` with label filters (a `list_*` tool) rather than the `gh` CLI, which this routine forbids. Both listings were complete single pages.
+
+## 2026-11-01 — mbe-learning-loop
+
+**Sensors:** 16/17 available (e2eStability not available); metricsFreshness 0 unhealthy — all watched metrics fresh
+**Regressions:** 1 detected, 1 issue created — ciHealth.pass_rate_pct 100 → 93 (-7, high). Root-caused to the monthly `Generate Changelog` workflow (run 41323785768) tripping its own 900,000-byte ENOBUFS safety guard — predicted by the guard's own 2026-08 comment as commit volume grew. Filed #8062 (`ready,ci-fix,bug`) with root cause and suggested fix (narrow the window, e.g. two weeks). No open duplicate found via `search/issues`.
+**Verifications:** 5 checked (48h window), 1 verified (#7952 ACMM L5 72/84), 0 failed/reopened, 4 skipped (routine-heartbeat issues with no CI evidence to verify against)
+**AI issue feedback:** 7 categories collected (200 issues total); budgets unchanged at default 3 (no category >40% rejected). ci-fix has a high wontfix share (16/24 = 67%) worth separate attention, but rejection_rate (excludes wontfix) stays 0% so the auto-budget-halving rule didn't trigger — flagging here since a learning-loop skim of budgets alone would miss it.
+**Skill proposals:** 0 (Sunday — Friday-only)
+**Threshold notes:** false-positive rate (wontfix+rejected)/total = 34/200 = 17% (<30%, healthy, no loosening needed); fix-effectiveness over last 30d = 6/10 = 60% among determinable (non-skip) verifications (>50%, healthy); `verify-fixes.mjs`'s own auto-tuner applied 1 adjustment this run: acmm headroom 1.38 → 1.41.
+**Environment note:** fresh checkout had no `node_modules` — ran `pnpm bootstrap:worktree` before anything else. `gh issue list`/`gh issue create` hit the known CCR GraphQL block (403); used `gh api search/issues` for dedup search and `mcp__github__issue_write` to file #8062 instead.
