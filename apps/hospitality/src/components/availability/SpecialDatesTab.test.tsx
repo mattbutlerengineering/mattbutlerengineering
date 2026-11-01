@@ -1258,6 +1258,136 @@ describe("SpecialDatesTab", () => {
     );
   });
 
+  describe("a date another closure also closes (#8006)", () => {
+    const second: DateRule = {
+      id: "second",
+      kind: "closure",
+      targetKind: "venue",
+      startsOn: "2026-12-24",
+      endsOn: "2026-12-24",
+      window: null,
+    };
+    const withRules = (...rules: DateRule[]) => ({
+      ...STATE,
+      config: { ...STATE.config, dateRules: [...STATE.config.dateRules, ...rules] },
+    });
+    const stillClosed = (everyDate: boolean, dates = ["2026-12-24"]) => ({
+      everyDate,
+      by: [
+        {
+          ruleId: "second",
+          targetKind: "venue",
+          startsOn: dates[0],
+          endsOn: dates[0],
+          dates,
+        },
+      ],
+    });
+    const openXmas = () =>
+      fireEvent.click(
+        screen.getAllByRole("button", { name: "Remove closure for Thu, Dec 24" })[0]!
+      );
+
+    it("says the date stays closed and offers no notice to rebook it", () => {
+      renderTab(true, withRules(second));
+      openXmas();
+      const dialog = screen.getByRole("dialog");
+
+      expect(within(dialog).getByText("Stays closed on Thu, Dec 24: Whole venue.")).toBeTruthy();
+      expect(within(dialog).queryByText(/Guests can book again/)).toBeNull();
+      expect(within(dialog).getByText(/another still closes these dates/)).toBeTruthy();
+      expect(within(dialog).queryByRole("checkbox")).toBeNull();
+    });
+
+    it("tells no guest, and the toast does not claim it reopened", async () => {
+      reopen.mockResolvedValue({
+        version: 6,
+        changeId: "c",
+        notified: 0,
+        stillClosed: stillClosed(true),
+      });
+      renderTab(true, withRules(second));
+      openXmas();
+      fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Reopen" }));
+
+      await waitFor(() =>
+        expect(reopen).toHaveBeenCalledWith(expect.objectContaining({ tellCancelledGuests: false }))
+      );
+      expect(
+        await screen.findByText(
+          "Closure removed: Thu, Dec 24. Not reopened. Stays closed on Thu, Dec 24: Whole venue."
+        )
+      ).toBeTruthy();
+      expect(screen.queryByText("Thu, Dec 24 reopened")).toBeNull();
+    });
+
+    it("takes the server's word in the toast when a closure arrived after the page loaded", async () => {
+      reopen.mockResolvedValue({
+        version: 6,
+        changeId: "c",
+        notified: 0,
+        stillClosed: stillClosed(true),
+      });
+      renderTab();
+      openXmas();
+      fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Reopen" }));
+
+      expect(
+        await screen.findByText(
+          "Closure removed: Thu, Dec 24. Not reopened. Stays closed on Thu, Dec 24: Whole venue."
+        )
+      ).toBeTruthy();
+    });
+
+    it("says which date of a range stays closed, and still offers the notice", async () => {
+      summaries.value = [summary("week")];
+      const week: DateRule = {
+        ...second,
+        id: "week",
+        startsOn: "2026-12-23",
+        endsOn: "2026-12-26",
+      };
+      const day: DateRule = { ...second, id: "day", startsOn: "2026-12-25", endsOn: "2026-12-25" };
+      reopen.mockResolvedValue({
+        version: 6,
+        changeId: "c",
+        notified: 1,
+        stillClosed: stillClosed(false, ["2026-12-25"]),
+      });
+      renderTab(true, { ...STATE, config: { ...STATE.config, dateRules: [week, day] } });
+      fireEvent.click(
+        screen.getByRole("button", { name: "Remove closure for Wed, Dec 23 to Sat, Dec 26" })
+      );
+      const dialog = screen.getByRole("dialog");
+
+      expect(within(dialog).getByText("Stays closed on Fri, Dec 25: Whole venue.")).toBeTruthy();
+      expect(within(dialog).getByText(/Guests can book again/)).toBeTruthy();
+      expect(within(dialog).getByRole("checkbox", { name: /Tell the cancelled/ })).toBeTruthy();
+
+      fireEvent.click(within(dialog).getByRole("button", { name: "Reopen" }));
+      expect(
+        await screen.findByText(
+          "Reopened: Wed, Dec 23 to Sat, Dec 26. Stays closed on Fri, Dec 25: Whole venue."
+        )
+      ).toBeTruthy();
+    });
+
+    it("says nothing extra when no other closure is there", async () => {
+      reopen.mockResolvedValue({
+        version: 6,
+        changeId: "c",
+        notified: 2,
+        stillClosed: { everyDate: false, by: [] },
+      });
+      renderTab();
+      openXmas();
+      const dialog = screen.getByRole("dialog");
+      expect(within(dialog).queryByText(/Stays closed/)).toBeNull();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Reopen" }));
+      expect(await screen.findByText("Thu, Dec 24 reopened")).toBeTruthy();
+    });
+  });
+
   it("names a reopened span without a participle that must agree with it", async () => {
     summaries.value = [];
     const span = {
@@ -1269,7 +1399,8 @@ describe("SpecialDatesTab", () => {
     } as DateRule;
     renderTab(true, {
       ...STATE,
-      config: { ...STATE.config, dateRules: [...RULES, span] },
+      // On its own: the fixture's other closures fall inside this span, and would stay closed.
+      config: { ...STATE.config, dateRules: [span] },
     } as AvailabilityConfigState);
     fireEvent.click(
       screen.getByRole("button", { name: "Remove closure for Thu, Dec 24 to Tue, Jan 5" })

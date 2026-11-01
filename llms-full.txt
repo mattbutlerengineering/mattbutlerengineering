@@ -5263,6 +5263,79 @@
       return { key: closure.ruleId, text, name };
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/closure-overlap-text.ts">
+    function targetText(by: ClosedByRule, services: readonly VenueService[], t: TFunction): string {
+      switch (by.targetKind) {
+        case "venue":
+          return t("availability.close.what.venue");
+        case "service":
+          return (
+            services.find((s) => s.id === by.venueServiceId)?.name ??
+            t("availability.closureOverlap.service")
+          );
+        case "booking":
+          return t("availability.closureOverlap.booking", {
+            channels: (by.bookingTypes ?? [])
+              .map((c) => t(`availability.close.what.channel.${c}`))
+              .join(", "),
+          });
+        default:
+          return t("availability.closureOverlap.tables");
+      }
+    }
+    function spanText(by: ClosedByRule, t: TFunction, format: VenueFormat): string | null {
+      const date = (d: string) => format.formatCalendarDate(d, DATE_FORMAT);
+      const from = date(by.startsOn);
+      const span =
+        by.endsOn == null
+          ? t("availabilitySpecial.untilReopened", { from })
+          : by.endsOn === by.startsOn
+            ? null
+            : t("availabilitySpecial.range", { from, to: date(by.endsOn) });
+      if (by.repeat == null) return span;
+      const days = by.repeat.weekdays.map((d) =>
+        format.formatCalendarDate(addDays(SUNDAY, d), { weekday: "long" })
+      );
+      return t("availabilitySpecial.reopen.subjectRepeat", {
+        days: new Intl.ListFormat(format.locale, { type: "conjunction" }).format(days),
+        span: span ?? from,
+      });
+    }
+    function closureText(
+      by: ClosedByRule,
+      services: readonly VenueService[],
+      t: TFunction,
+      format: VenueFormat
+    ): string {
+      const from = by.window
+        ? t("availability.close.window.from", { time: minuteText(by.window.from, t, format) })
+        : null;
+      return [targetText(by, services, t), from, spanText(by, t, format)]
+        .filter((part) => part !== null)
+        .join(SEPARATOR);
+    }
+    function datesText(dates: readonly string[], t: TFunction, format: VenueFormat): string {
+      const named = dates.slice(0, DATES_NAMED).map((d) => format.formatCalendarDate(d, DATE_FORMAT));
+      const rest = dates.length - named.length;
+      return rest === 0
+        ? new Intl.ListFormat(format.locale, { type: "conjunction" }).format(named)
+        : t("availability.closureOverlap.moreDates", { dates: named.join(", "), count: rest });
+    }
+    export function overlapLines(
+      overlap: ClosureOverlap,
+      kind: "already" | "stays",
+      services: readonly VenueService[],
+      t: TFunction,
+      format: VenueFormat
+    ): readonly string[] {
+      return overlap.by.map((by) =>
+        t(`availability.closureOverlap.${kind}`, {
+          dates: datesText(by.dates, t, format),
+          closure: closureText(by, services, t, format),
+        })
+      );
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/compare-changes.ts">
     type Hours = Pick<
       ScheduleService,
@@ -31069,7 +31142,7 @@
     export function spanOf(rule: DatedRule) {
       return { from: rule.startsOn, to: rule.endsOn ?? UNTIL_REOPENED };
     }
-    export function spanText(rule: DatedRule): string {
+    export function spanText(rule: Pick<DatedRule, "startsOn" | "endsOn">): string {
       return rule.endsOn == null
         ? `from ${rule.startsOn} until reopened`
         : `from ${rule.startsOn} to ${rule.endsOn}`;
@@ -31079,7 +31152,10 @@
     export function serviceName(config: AvailabilityConfig, id: string): string {
       return config.venueServices.find((s) => s.id === id)?.name ?? "a service";
     }
-    export function scopeOf(rule: DatedRule, config: AvailabilityConfig): string {
+    export function scopeOf(
+      rule: Pick<DatedRule, "targetKind" | "venueServiceId" | "bookingTypes">,
+      config: AvailabilityConfig
+    ): string {
       switch (rule.targetKind) {
         case "service":
           return rule.venueServiceId ? serviceName(config, rule.venueServiceId) : "a service";
@@ -31156,29 +31232,23 @@
         });
       }
     }
-    export function findCoveringClosure(
+    export function closedDays(
       config: AvailabilityConfig,
-      target: { readonly serviceId?: string | undefined },
+      serviceId: string | undefined,
       from: string,
       to: string
-    ): ClosureRule | undefined {
-      return config.dateRules.find(
-        (r): r is ClosureRule =>
-          r.kind === "closure" &&
-          !r.repeat &&
-          !r.seriesId &&
-          !r.window &&
-          (r.targetKind === "venue" ||
-            (target.serviceId !== undefined &&
-              r.targetKind === "service" &&
-              r.venueServiceId === target.serviceId)) &&
-          r.startsOn <= from &&
-          (r.endsOn == null || r.endsOn >= to)
-      );
+    ): { date: string; rule: ClosureRule }[] {
+      const [first, last] = [dayNumber(from)!, dayNumber(to)!]; // `checkSpan` read both
+      return Array.from({ length: last - first + 1 }, (_, i) =>
+        new Date((first + i) * MS_PER_DAY).toISOString().slice(0, 10)
+      ).flatMap((date) => {
+        const rule = closureOnDay(config, serviceId, date);
+        return rule ? [{ date, rule }] : [];
+      });
     }
     export function closureOnDay(
       config: AvailabilityConfig,
-      serviceId: string,
+      serviceId: string | undefined,
       date: string
     ): ClosureRule | undefined {
       return config.dateRules.find(
@@ -31384,15 +31454,12 @@
             const state = await api.availability.getConfig(venueId);
             const target = scope === "service" ? resolveService(state.config, service!) : undefined;
             if (target && "error" in target) return target;
-            const same = findCoveringClosure(
-              state.config,
-              { serviceId: target?.id },
-              span.from,
-              span.to
-            );
-            if (same) {
+            const closed = closedDays(state.config, target?.id, span.from, span.to);
+            const named = (rule: ClosureRule) => `${scopeOf(rule, state.config)} ${spanText(rule)}`;
+            if (closed.length === dayNumber(span.to)! - dayNumber(span.from)! + 1) {
+              const closures = [...new Set(closed.map((c) => named(c.rule)))].join("; ");
               return {
-                error: `This is already closed (${scopeOf(same, state.config)} ${spanText(same)}), which covers those dates. Nothing was changed.`,
+                error: `This is already closed (${closures}), which covers those dates. Nothing was changed.`,
               };
             }
             const rule: ClosureRule = {
@@ -31411,7 +31478,10 @@
               ...spanOf(rule),
               to: span.to,
               scope: scopeOf(rule, state.config),
-              note: "No booking was affected, so no guest was told.",
+              note: `No booking was affected, so no guest was told.${closed.map((c) => ` ${c.date} was already closed (${named(c.rule)}): it stays closed until that closure is reopened too.`).join("")}`,
+              ...(closed.length > 0
+                ? { alreadyClosed: closed.map((c) => ({ date: c.date, by: named(c.rule) })) }
+                : {}),
             };
           } catch (err) {
             log.error({ err, venueId }, "close_dates failed");
@@ -31499,9 +31569,23 @@
       const why = datesPassed ? ": their booking dates have passed" : "";
       return `The ${guestsOf(cancelled)} the closure cancelled ${cancelled === 1 ? "was" : "were"} not asked to be notified that it has reopened${why}. They stay cancelled.`;
     }
+    function stillClosedFields(saved: ReopenResult, config: AvailabilityConfig) {
+      const by = saved.stillClosed?.by ?? [];
+      if (by.length === 0) return { stillClosed: undefined, note: "" };
+      const stillClosed = by.map((rule) => {
+        const from = rule.window ? ` from ${minuteToClock(rule.window.from)}` : "";
+        return { dates: rule.dates, by: `${scopeOf(rule, config)}${from} ${spanText(rule)}` };
+      });
+      return {
+        stillClosed,
+        note: stillClosed
+          .map((s) => ` ${s.dates.join(", ")} stays closed by another closure (${s.by}).`)
+          .join(""),
+      };
+    }
     function reopenClosure({ log, api, venueId }: ToolContext) {
       return tool({
-        description: `Reopen a closure of the whole venue or one service so its slots return. Pass the closure's full span exactly as list_closures gives it (to is "${UNTIL_REOPENED}" for one with no end) and its scope; a different span is refused with the real one. Guests it already cancelled stay cancelled. Requires confirmation. Special hours, repeating closures and booking or table pauses are changed on the Availability page. Call list_closures first; if the closure cancelled guests, ask whether to tell them.`,
+        description: `Reopen a closure of the whole venue or one service so its slots return, unless another closure also closes those dates: stillClosed then names it, and reopened is false when no date came back, so say so instead of saying it reopened. Pass the closure's full span exactly as list_closures gives it (to is "${UNTIL_REOPENED}" for one with no end) and its scope; a different span is refused with the real one. Guests it already cancelled stay cancelled. Requires confirmation. Special hours, repeating closures and booking or table pauses are changed on the Availability page. Call list_closures first; if the closure cancelled guests, ask whether to tell them.`,
         inputSchema: z
           .object({
             from: DateField.describe("The closure's first date, as YYYY-MM-DD"),
@@ -31528,6 +31612,7 @@
             return { error: `The last date (${to}) is before the first (${from}).` };
           }
           let rule: ClosureRule;
+          let config: AvailabilityConfig;
           let scopeText: string;
           let cancelled: number;
           // The guests a notice can still reach: those whose booking has not started.
@@ -31544,6 +31629,7 @@
             });
             if ("error" in found) return { refused: true, ...found };
             rule = found.rule;
+            config = state.config;
             scopeText = scopeOf(rule, state.config);
             const counts = await api.availability.listClosures(venueId).catch((err: unknown) => {
               log.error({ err, venueId }, "reopen_closure counts failed");
@@ -31564,21 +31650,36 @@
           }
           const told = tellCancelledGuests && reachable > 0;
           let notified: number;
+          let saved: ReopenResult;
           try {
-            const saved = await api.availability.reopenClosure(venueId, rule.id, told, NO_REPLAY);
+            saved = await api.availability.reopenClosure(venueId, rule.id, told, NO_REPLAY);
             // The server counts who the notice really reached; an older one does not say.
             notified = told ? (saved.notified ?? reachable) : 0;
           } catch (err) {
             log.error({ err, venueId }, "reopen_closure failed");
             return closureFailure(err, SAVE_UNSURE);
           }
-          return {
-            reopened: true,
+          const stays = stillClosedFields(saved, config);
+          const shared = {
             ...spanOf(rule),
             scope: scopeText,
             guestsCancelled: cancelled,
             noticeRequested: notified > 0,
-            note: reopenNote(cancelled, notified, tellCancelledGuests && reachable === 0),
+            ...(stays.stillClosed ? { stillClosed: stays.stillClosed } : {}),
+          };
+          // Every date stays shut: the rule is gone, but saying "reopened" would be false (#8006).
+          if (saved.stillClosed?.everyDate) {
+            return {
+              reopened: false,
+              closureRemoved: true,
+              ...shared,
+              note: `This closure was removed, but its dates did not reopen.${stays.note} Guests can't book until that closure is reopened too, so no guest was told to rebook.`,
+            };
+          }
+          return {
+            reopened: true,
+            ...shared,
+            note: `${reopenNote(cancelled, notified, tellCancelledGuests && reachable === 0)}${stays.note}`,
           };
         },
       });
@@ -36462,7 +36563,8 @@
             now: new Date(),
           });
           if (outcome.kind === "reopened") {
-            if (request.body.tellCancelledGuests) {
+            // The same call the command counted: no notice to rebook a date that stays closed (#8006).
+            if (request.body.tellCancelledGuests && !outcome.result.stillClosed?.everyDate) {
               await enqueueNotices(
                 closureNoticeService.enqueueForReopen,
                 { venueId, ruleId: request.params.ruleId },
@@ -44564,6 +44666,23 @@
       /** One result per item, in the order sent. */
       results: z.array(ClosureResultSchema),
     });
+    export const ClosedByRuleSchema = z.object({
+      ruleId: z.string(),
+      targetKind: DateRuleTargetKindSchema,
+      venueServiceId: z.string().nullish(),
+      bookingTypes: z.array(z.enum(RULE_BOOKING_TYPES)).nullish(),
+      startsOn: ServiceDateSchema,
+      endsOn: ServiceDateSchema.nullish(),
+      repeat: RepeatSchema.nullish(),
+      window: WindowSchema.nullish(),
+      /** The dates in question it closes, in order: not all of its own. */
+      dates: z.array(ServiceDateSchema),
+    });
+    export const ClosureOverlapSchema = z.object({
+      /** Every date in question stays shut, so nothing the reopen names comes back to guests. */
+      everyDate: z.boolean(),
+      by: z.array(ClosedByRuleSchema),
+    });
     export const ReopenResultSchema = z.object({
       version: z.number().int(),
       changeId: z.string(),
@@ -44573,6 +44692,11 @@
        * `notified ?? null`.
        */
       notified: z.number().int().nonnegative().nullable().optional(),
+      /**
+       * Other closures that still close the reopened rule's dates, as stored when it committed. Absent
+       * from an older API and from ending Tonight.
+       */
+      stillClosed: ClosureOverlapSchema.optional(),
     });
     export const RefundFailureSchema = z.object({
       outcomeId: z.string(),
@@ -44657,6 +44781,8 @@
     export type ClosureResult = z.infer<typeof ClosureResultSchema>;
     export type CreateClosuresBody = z.infer<typeof CreateClosuresBodySchema>;
     export type ClosuresResult = z.infer<typeof ClosuresResultSchema>;
+    export type ClosedByRule = z.infer<typeof ClosedByRuleSchema>;
+    export type ClosureOverlap = z.infer<typeof ClosureOverlapSchema>;
     export type ReopenResult = z.infer<typeof ReopenResultSchema>;
     export type RefundFailure = z.infer<typeof RefundFailureSchema>;
     export type ClosureSummary = z.infer<typeof ClosureSummarySchema>;
@@ -53569,11 +53695,18 @@
             select: { id: true },
           });
           const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
+          const stillClosed = stillClosedAfterReopen(
+            state.stored.dateRules,
+            rule,
+            civilDateIn(now, state.timezone)
+          );
           // Only guests whose booking has not started get the notice (`listNotifiable`); the audit
-          // row, Undo and the caller's count must agree with who it actually reaches.
-          const notified = input.tellCancelledGuests
-            ? await upcomingCancelled(db, venueId, ruleId, now)
-            : 0;
+          // row, Undo and the caller's count must agree with who it actually reaches. With every date
+          // still closed by another closure there is nothing to rebook, so nobody is told to (#8006).
+          const notified =
+            input.tellCancelledGuests && !stillClosed.everyDate
+              ? await upcomingCancelled(db, venueId, ruleId, now)
+              : 0;
           const change = await db.availabilityChange.create({
             data: {
               venueId,
@@ -53595,7 +53728,7 @@
           });
           return {
             kind: "reopened" as const,
-            result: { version: bumped.availabilityVersion, changeId: change.id, notified },
+            result: { version: bumped.availabilityVersion, changeId: change.id, notified, stillClosed },
           };
         });
       } catch (error) {
@@ -75254,6 +75387,105 @@
     }
     export function weekdayIndexOf(date: ServiceDate): number {
       return new Date(toUtcMs(date)).getUTCDay();
+    }
+  </file>
+  <file path="packages/availability/src/closure-overlap.ts">
+    type Closure = RuleOf<"closure">;
+    function datesOf(rule: DateRule, from: ServiceDate): ServiceDate[] {
+      const first = rule.startsOn > from ? rule.startsOn : from;
+      // A skip or one-date edit of a series never outgrows its date (see `date-rules.ts`).
+      if (rule.seriesId != null) return rule.startsOn >= from ? [rule.startsOn] : [];
+      const last = rule.endsOn ?? addDays(first, OPEN_END_DAYS);
+      const dates: ServiceDate[] = [];
+      for (let date = first; date <= last; date = addDays(date, 1)) {
+        if (rule.repeat == null || rule.repeat.weekdays.includes(weekdayIndexOf(date))) {
+          dates.push(date);
+        }
+      }
+      return dates;
+    }
+    function targetCovers(wide: DateRule, narrow: DateRule): boolean {
+      if (wide.targetKind === "venue") return true;
+      if (wide.targetKind !== narrow.targetKind) return false;
+      switch (wide.targetKind) {
+        case "service":
+          return wide.venueServiceId === narrow.venueServiceId;
+        case "booking":
+          return (narrow.bookingTypes ?? []).every((t) => wide.bookingTypes?.includes(t));
+        default:
+          return (narrow.tableIds ?? []).every((t) => wide.tableIds?.includes(t));
+      }
+    }
+    function windowCovers(wide: DateRule, narrow: DateRule): boolean {
+      const [w, n] = [wide.window ?? WHOLE_DAY, narrow.window ?? WHOLE_DAY];
+      return w.from <= n.from && w.to >= n.to;
+    }
+    function closedBy(rule: Closure, dates: readonly ServiceDate[]): ClosedByRule {
+      return {
+        ruleId: rule.id,
+        targetKind: rule.targetKind,
+        venueServiceId: rule.venueServiceId,
+        bookingTypes: rule.bookingTypes,
+        startsOn: rule.startsOn,
+        endsOn: rule.endsOn,
+        repeat: rule.repeat,
+        window: rule.window,
+        dates: [...dates],
+      };
+    }
+    function overlap(
+      found: readonly { readonly date: ServiceDate; readonly rules: readonly Closure[] }[],
+      everyDate: boolean
+    ): ClosureOverlap {
+      const rules = new Map(found.flatMap((f) => f.rules.map((r) => [r.id, r] as const)));
+      return {
+        everyDate,
+        by: [...rules.values()].map((rule) =>
+          closedBy(
+            rule,
+            found.filter((f) => f.rules.some((r) => r.id === rule.id)).map((f) => f.date)
+          )
+        ),
+      };
+    }
+    export function alreadyClosed(
+      rules: readonly DateRule[],
+      draft: DateRule,
+      from: ServiceDate
+    ): ClosureOverlap {
+      const counts = (rule: Closure) =>
+        rule.id !== draft.id &&
+        rule.id !== draft.seriesId &&
+        (draft.seriesId == null || rule.seriesId !== draft.seriesId) &&
+        (draft.targetKind !== "booking" || rule.targetKind === "booking") &&
+        covers(rule, draft);
+      const dates = datesOf(draft, from);
+      const found = dates.map((date) => ({
+        date,
+        rules: activeRules(rules, date).filter(isClosure).filter(counts),
+      }));
+      const hits = found.filter((f) => f.rules.length > 0);
+      return overlap(hits, dates.length > 0 && hits.length === dates.length);
+    }
+    export function stillClosedAfterReopen(
+      rules: readonly DateRule[],
+      rule: DateRule,
+      from: ServiceDate
+    ): ClosureOverlap {
+      if (rule.kind !== "closure") return { everyDate: false, by: [] };
+      const after = rules.filter((r) => r.id !== rule.id && r.seriesId !== rule.id);
+      const dates = datesOf(rule, from).filter((date) =>
+        activeRules(rules, date).some((r) => r.id === rule.id)
+      );
+      const staying = (other: Closure) =>
+        targetCovers(other, rule) || (rule.targetKind === "venue" && other.targetKind === "service");
+      const found = dates.map((date) => ({
+        date,
+        rules: activeRules(after, date).filter(isClosure).filter(staying),
+      }));
+      const hits = found.filter((f) => f.rules.length > 0);
+      const shut = found.filter((f) => f.rules.some((other) => covers(other, rule)));
+      return overlap(hits, dates.length > 0 && shut.length === dates.length);
     }
   </file>
   <file path="packages/availability/src/date-rules.ts">

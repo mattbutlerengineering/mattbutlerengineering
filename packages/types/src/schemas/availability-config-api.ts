@@ -6,12 +6,14 @@ import {
   DateRuleTargetKindSchema,
   GUEST_MESSAGE_MAX_LENGTH,
   MinuteSchema,
+  RepeatSchema,
   RULE_BOOKING_TYPES,
   ScheduleAssignmentSchema,
   ScheduleSchema,
   ScheduleServiceSchema,
   ServiceDateSchema,
   VenueServiceSchema,
+  WindowSchema,
 } from "./availability-config.js";
 
 /**
@@ -510,6 +512,27 @@ export const ClosuresResultSchema = z.object({
   results: z.array(ClosureResultSchema),
 });
 
+/** A closure that closes some of the dates in question: what names it, and which dates. */
+export const ClosedByRuleSchema = z.object({
+  ruleId: z.string(),
+  targetKind: DateRuleTargetKindSchema,
+  venueServiceId: z.string().nullish(),
+  bookingTypes: z.array(z.enum(RULE_BOOKING_TYPES)).nullish(),
+  startsOn: ServiceDateSchema,
+  endsOn: ServiceDateSchema.nullish(),
+  repeat: RepeatSchema.nullish(),
+  window: WindowSchema.nullish(),
+  /** The dates in question it closes, in order: not all of its own. */
+  dates: z.array(ServiceDateSchema),
+});
+
+/** Other closures over a set of dates (`@mbe/availability`'s `closure-overlap.ts`). */
+export const ClosureOverlapSchema = z.object({
+  /** Every date in question stays shut, so nothing the reopen names comes back to guests. */
+  everyDate: z.boolean(),
+  by: z.array(ClosedByRuleSchema),
+});
+
 export const ReopenResultSchema = z.object({
   version: z.number().int(),
   changeId: z.string(),
@@ -519,6 +542,11 @@ export const ReopenResultSchema = z.object({
    * `notified ?? null`.
    */
   notified: z.number().int().nonnegative().nullable().optional(),
+  /**
+   * Other closures that still close the reopened rule's dates, as stored when it committed. Absent
+   * from an older API and from ending Tonight.
+   */
+  stillClosed: ClosureOverlapSchema.optional(),
 });
 
 /**
@@ -633,6 +661,8 @@ export type ReopenClosureBody = z.infer<typeof ReopenClosureBodySchema>;
 export type ClosureResult = z.infer<typeof ClosureResultSchema>;
 export type CreateClosuresBody = z.infer<typeof CreateClosuresBodySchema>;
 export type ClosuresResult = z.infer<typeof ClosuresResultSchema>;
+export type ClosedByRule = z.infer<typeof ClosedByRuleSchema>;
+export type ClosureOverlap = z.infer<typeof ClosureOverlapSchema>;
 export type ReopenResult = z.infer<typeof ReopenResultSchema>;
 export type RefundFailure = z.infer<typeof RefundFailureSchema>;
 export type ClosureSummary = z.infer<typeof ClosureSummarySchema>;

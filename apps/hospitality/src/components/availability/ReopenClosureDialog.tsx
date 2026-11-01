@@ -2,10 +2,20 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { Alert, Button, Checkbox, Dialog, Text, useToast } from "@mattbutlerengineering/rialto";
-import { AvailabilityConfigProblemSchema } from "@mbe/types";
+import { stillClosedAfterReopen } from "@mbe/availability";
+import {
+  AvailabilityConfigProblemSchema,
+  type ClosureOverlap,
+  type DateRule,
+  type VenueService,
+} from "@mbe/types";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useReopenClosure } from "../../hooks/useClosures.js";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
+import { overlapLines } from "./closure-overlap-text.js";
+
+const NOTHING_STAYS: ClosureOverlap = { everyDate: false, by: [] };
 
 export interface ReopenClosureDialogProps {
   readonly venueId: string;
@@ -29,6 +39,12 @@ export interface ReopenClosureDialogProps {
   readonly isSeriesEdit?: boolean;
   /** The subject covers many dates (a range, an open end or a repeat), not one. */
   readonly subjectIsSpan?: boolean;
+  /** The venue's date rules, and the one being reopened, to say what stays closed without it. */
+  readonly rules: readonly DateRule[];
+  readonly rule: DateRule;
+  /** Today on the venue clock. */
+  readonly today: string;
+  readonly services: readonly VenueService[];
   readonly onClose: () => void;
 }
 
@@ -60,12 +76,15 @@ function doneKey(props: ReopenClosureDialogProps): "doneSeriesEdit" | "doneSpan"
 }
 
 function descriptionKey(
-  props: ReopenClosureDialogProps
+  props: ReopenClosureDialogProps,
+  everyDateStaysClosed: boolean
 ):
   | "availabilitySpecial.reopen.descriptionSeriesEdit"
+  | "availabilitySpecial.reopen.descriptionStillClosed"
   | "availabilitySpecial.reopen.descriptionCancelled"
   | "availabilitySpecial.reopen.description" {
   if (props.isSeriesEdit) return "availabilitySpecial.reopen.descriptionSeriesEdit";
+  if (everyDateStaysClosed) return "availabilitySpecial.reopen.descriptionStillClosed";
   return (props.cancelled ?? 0) > 0
     ? "availabilitySpecial.reopen.descriptionCancelled"
     : "availabilitySpecial.reopen.description";
@@ -86,15 +105,34 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
   const reachable = props.notifiable ?? cancelled ?? 0;
   const [tell, setTell] = useState(true);
   const [failure, setFailure] = useState<string | null>(null);
+  const format = useVenueFormat();
+  // A series edit has its own wording: the date goes back to the series, closed or not.
+  const stays = isSeriesEdit
+    ? NOTHING_STAYS
+    : stillClosedAfterReopen(props.rules, props.rule, props.today);
+  const staysLines = (overlap: ClosureOverlap) =>
+    overlapLines(overlap, "stays", props.services, t, format);
 
   const reopen = async () => {
     if (cancelled === null) return;
     setFailure(null);
     try {
-      // A date handed back to the series stays closed: its guests are never told to rebook.
-      const told = !isSeriesEdit && reachable > 0 && tell;
+      // A date handed back to the series, or shut by another closure, stays closed: its guests
+      // are never told to rebook.
+      const told = !isSeriesEdit && !stays.everyDate && reachable > 0 && tell;
       const saved = await mutateAsync({ venueId, ruleId, tellCancelledGuests: told });
-      const title = t(`availabilitySpecial.reopen.${doneKey(props)}`, { date: subject });
+      // The server read the rules as it committed; the page's copy may be older.
+      const final = isSeriesEdit ? NOTHING_STAYS : (saved.stillClosed ?? stays);
+      const done = final.everyDate
+        ? t("availabilitySpecial.reopen.doneStillClosed", { date: subject })
+        : t(`availabilitySpecial.reopen.${doneKey(props)}`, { date: subject });
+      const title =
+        final.by.length === 0
+          ? done
+          : t("availability.closureOverlap.doneAndStays", {
+              done,
+              stays: staysLines(final).join(" "),
+            });
       // A reopen that told guests cannot be reverted (ux.md F6 step 3); one that told none can.
       // The server says how many it reached; an older one does not, and `told` stands in.
       const toldGuests = saved.notified == null ? told : saved.notified > 0;
@@ -111,7 +149,7 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
       open
       onClose={onClose}
       title={t(`availabilitySpecial.reopen.${titleKey(props)}`, { date: subject })}
-      description={t(descriptionKey(props))}
+      description={t(descriptionKey(props, stays.everyDate))}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
@@ -137,6 +175,13 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
       }
     >
       {failure && <Alert variant="error">{failure}</Alert>}
+      {stays.by.length > 0 && (
+        <Alert variant="warning">
+          {staysLines(stays).map((line) => (
+            <Text key={line}>{line}</Text>
+          ))}
+        </Alert>
+      )}
       {cancelled === null && !props.countFailed && (
         <Text>{t("availabilitySpecial.reopen.countLoading")}</Text>
       )}
@@ -151,7 +196,7 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
       {editedDates > 0 && (
         <Text>{t("availabilitySpecial.reopen.editedDates", { count: editedDates })}</Text>
       )}
-      {!isSeriesEdit && cancelled !== null && reachable > 0 && (
+      {!isSeriesEdit && !stays.everyDate && cancelled !== null && reachable > 0 && (
         <Checkbox
           label={t("availabilitySpecial.reopen.tell", { count: reachable })}
           checked={tell}

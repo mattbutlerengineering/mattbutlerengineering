@@ -1681,7 +1681,9 @@
       "stranded_other": "{{count}} bookings would be left without service if this date went back to the series. Nothing was changed.",
       "stranded_many": "{{count}} bookings would be left without service if this date went back to the series. Nothing was changed.",
       "countUnknown": "Couldn't check how many guests this closure cancelled. Reopen waits until the count loads.",
-      "retryCount": "Retry"
+      "retryCount": "Retry",
+      "descriptionStillClosed": "This removes one closure, but another still closes these dates, so guests can't book them yet.",
+      "doneStillClosed": "Closure removed: {{date}}. Not reopened"
     },
     "series": {
       "editDates": "Edit dates…",
@@ -2564,6 +2566,19 @@
       "onlineOn": "online booking on",
       "onlineOff": "online booking off",
       "onlinePartial": "online booking off some days"
+    },
+    "closureOverlap": {
+      "alreadyTitle": "Already closed",
+      "alreadySomeTitle": "Some dates are already closed",
+      "already": "Already closed on {{dates}}: {{closure}}.",
+      "alreadyHint": "You can still save this. Reopening one closure leaves the date closed until the other is reopened too.",
+      "stays": "Stays closed on {{dates}}: {{closure}}.",
+      "moreDates_one": "{{dates}} and {{count}} more date",
+      "moreDates_other": "{{dates}} and {{count}} more dates",
+      "service": "A service",
+      "booking": "Booking: {{channels}}",
+      "tables": "Some tables",
+      "doneAndStays": "{{done}}. {{stays}}"
     }
   },
   "setup": {

@@ -299,6 +299,31 @@ test.describe("Availability close dialog (F5)", () => {
     await expect(calendar.locator(`[data-date="${CLOSE_DATE}"]`)).toContainText("Closed all day");
   });
 
+  test("closing the same date again warns, naming the closure, without blocking it (#8006)", async ({
+    mockedPage,
+  }) => {
+    const CLOSE_DATE = midNextMonth();
+    await mockedPage.clock.setFixedTime(pinnedNoon());
+    await mockAvailability(mockedPage, CLOSE_DATE);
+    const { dialog } = await openCloseStepTwo(mockedPage, CLOSE_DATE);
+    const cancelRadio = mockedPage.getByRole("radio", { name: /Cancel, notify & refund/ });
+    await dialog.locator("label").filter({ has: cancelRadio }).click();
+    await dialog.getByTestId("close-primary").click();
+    await expect(dialog).toBeHidden();
+
+    const notifications = mockedPage.getByRole("region", { name: "Notifications" });
+    await expect(notifications.getByText(/reservations notified/)).toBeVisible();
+    await mockedPage.locator(`[data-date="${CLOSE_DATE}"]`).click();
+    await mockedPage
+      .getByRole("dialog")
+      .getByRole("button", { name: "Close…", exact: true })
+      .click();
+
+    const again = mockedPage.getByRole("dialog", { name: "Close", exact: true });
+    await expect(again.getByRole("alert")).toContainText(/Already closed on .*: Whole venue\./);
+    await expect(again.getByTestId("close-primary")).toBeEnabled();
+  });
+
   test("a close whose response was lost reports success when retried, under the same key", async ({
     mockedPage,
   }) => {

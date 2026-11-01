@@ -1708,7 +1708,9 @@
       "stranded_other": "{{count}} réservations resteraient sans service si cette date retournait à la série. Rien n'a été modifié.",
       "stranded_many": "{{count}} de réservations resteraient sans service si cette date retournait à la série. Rien n'a été modifié.",
       "countUnknown": "Impossible de vérifier combien de clients cette fermeture a annulés. La réouverture attend le chargement du compte.",
-      "retryCount": "Réessayer"
+      "retryCount": "Réessayer",
+      "descriptionStillClosed": "Ceci retire une fermeture, mais une autre ferme encore ces dates : les clients ne peuvent pas encore les réserver.",
+      "doneStillClosed": "Fermeture retirée : {{date}}. Pas rouvert"
     },
     "series": {
       "editDates": "Modifier les dates…",
@@ -2621,6 +2623,20 @@
       "onlineOn": "réservation en ligne activée",
       "onlineOff": "réservation en ligne désactivée",
       "onlinePartial": "réservation en ligne désactivée certains jours"
+    },
+    "closureOverlap": {
+      "alreadyTitle": "Déjà fermé",
+      "alreadySomeTitle": "Certaines dates sont déjà fermées",
+      "already": "Déjà fermé le {{dates}} : {{closure}}.",
+      "alreadyHint": "Vous pouvez quand même enregistrer. Si vous rouvrez une fermeture, la date reste fermée jusqu’à ce que l’autre soit aussi rouverte.",
+      "stays": "Reste fermé le {{dates}} : {{closure}}.",
+      "moreDates_one": "{{dates}} et {{count}} autre date",
+      "moreDates_many": "{{dates}} et {{count}} d’autres dates",
+      "moreDates_other": "{{dates}} et {{count}} autres dates",
+      "service": "Un service",
+      "booking": "Réservations : {{channels}}",
+      "tables": "Certaines tables",
+      "doneAndStays": "{{done}}. {{stays}}"
     }
   },
   "setup": {
