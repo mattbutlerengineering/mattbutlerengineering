@@ -23,4 +23,18 @@ describe("buildManageUrl", () => {
       "https://example.com/hospitality/reservations/manage?token=t&rebook=2026-12-23T19%3A00"
     );
   });
+
+  // #7892: eat-sheet.com is served at the root (no /hospitality basename) —
+  // mirrors apps/hospitality/src/lib/host-brand.ts's basename split.
+  it("drops the /hospitality basename for an eat-sheet.com base", () => {
+    expect(buildManageUrl("https://eat-sheet.com", "tok_1")).toBe(
+      "https://eat-sheet.com/reservations/manage?token=tok_1"
+    );
+  });
+
+  it("drops the /hospitality basename for www.eat-sheet.com too", () => {
+    expect(buildManageUrl("https://www.eat-sheet.com", "tok_1")).toBe(
+      "https://www.eat-sheet.com/reservations/manage?token=tok_1"
+    );
+  });
 });

@@ -49,6 +49,8 @@ export const ReservationSchema = z.object({
   userId: z.string().nullable(),
   /** Why staff booked past a soft availability limit; absent or null for an ordinary booking. */
   overrideReason: z.string().nullable().optional(),
+  /** The host the guest booked on (#7892); absent or null for a staff/walk-in booking. */
+  originHost: z.string().nullable().optional(),
   tableId: z.string(),
   table: TableSchema.optional(),
   guest: z

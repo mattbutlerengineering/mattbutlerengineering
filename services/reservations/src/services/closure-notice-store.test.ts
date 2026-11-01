@@ -16,7 +16,7 @@ vi.mock("@mbe/availability", async (importOriginal) => ({
   rebookOffers,
 }));
 
-const { loadRebookSlots, listNotifiable, listSummaries } =
+const { loadNoticeOutcome, loadRebookSlots, listNotifiable, listSummaries } =
   await import("./closure-notice-store.js");
 
 const now = new Date("2026-10-20T12:00:00Z");
@@ -40,6 +40,7 @@ const outcome = {
   refund: null,
   venueName: "Rialto",
   timezone: "America/Los_Angeles",
+  originHost: null,
 } satisfies NoticeOutcome;
 
 describe("loadRebookSlots", () => {
@@ -62,6 +63,51 @@ describe("loadRebookSlots", () => {
     rebookRequiresDeposit.mockResolvedValue(true);
     await expect(loadRebookSlots(outcome, now)).resolves.toEqual([]);
     expect(loadAvailabilitySnapshot).not.toHaveBeenCalled();
+  });
+});
+
+// #7892: the closure notice carries the reservation's origin host so the
+// email it sends can brand by it.
+describe("loadNoticeOutcome", () => {
+  function makeRow(reservationOverrides: Record<string, unknown> = {}) {
+    return {
+      id: "out_1",
+      venueId: "v1",
+      reservationId: "res_1",
+      action: "cancel",
+      deliveries: {},
+      rebookedReservationId: null,
+      dateRule: { guestMessage: null },
+      venue: { name: "Rialto", ianaTimezone: "America/Los_Angeles" },
+      reservation: {
+        date: new Date("2026-10-21"),
+        startTime: new Date("2026-10-22T01:00:00Z"),
+        partySize: 2,
+        guestName: "Ana",
+        guestEmail: "ana@example.com",
+        guestPhone: "+15555550100",
+        guest: null,
+        deposit: null,
+        originHost: null,
+        ...reservationOverrides,
+      },
+    };
+  }
+
+  it("carries the reservation's originHost", async () => {
+    const db = {
+      closureOutcome: {
+        findUnique: vi.fn().mockResolvedValue(makeRow({ originHost: "eat-sheet.com" })),
+      },
+    };
+    const result = await loadNoticeOutcome("out_1", db as never);
+    expect(result?.originHost).toBe("eat-sheet.com");
+  });
+
+  it("is null for a booking with no origin", async () => {
+    const db = { closureOutcome: { findUnique: vi.fn().mockResolvedValue(makeRow()) } };
+    const result = await loadNoticeOutcome("out_1", db as never);
+    expect(result?.originHost).toBeNull();
   });
 });
 

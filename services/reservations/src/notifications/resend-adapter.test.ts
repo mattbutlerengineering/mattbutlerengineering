@@ -186,6 +186,99 @@ describe("ResendNotificationAdapter", () => {
     expect(call.html).not.toContain("https://api.mbe.dev");
   });
 
+  // #7892: guest emails brand by the host the booking came from.
+  describe("brand by origin host", () => {
+    const brandFor = (originHost: string | null) =>
+      originHost === "eat-sheet.com"
+        ? { fromAddress: "eat-sheet <bookings@mbe.dev>", manageBaseUrl: "https://eat-sheet.com" }
+        : { fromAddress: "bookings@mbe.dev", manageBaseUrl: "https://app.mbe.dev" };
+
+    function makeBrandedAdapter() {
+      return new ResendNotificationAdapter({
+        resend: mockResend as never,
+        fromAddress: "bookings@mbe.dev",
+        manageBaseUrl: "https://app.mbe.dev",
+        publicApiBaseUrl: "https://api.mbe.dev",
+        brandFor,
+      });
+    }
+
+    it("sendBookingConfirmation uses the eat-sheet brand and manage link for an eat-sheet.com booking", async () => {
+      const adapter = makeBrandedAdapter();
+
+      await adapter.sendBookingConfirmation({ ...defaultInput, originHost: "eat-sheet.com" });
+
+      const call = mockSend.mock.calls[0]![0];
+      expect(call.from).toBe("eat-sheet <bookings@mbe.dev>");
+      expect(call.html).toContain("https://eat-sheet.com/reservations/manage?token=tok_abc123");
+    });
+
+    it("sendBookingReminder uses the eat-sheet brand for an eat-sheet.com booking", async () => {
+      const adapter = makeBrandedAdapter();
+
+      await adapter.sendBookingReminder({ ...defaultInput, originHost: "eat-sheet.com" });
+
+      const call = mockSend.mock.calls[0]![0];
+      expect(call.from).toBe("eat-sheet <bookings@mbe.dev>");
+    });
+
+    it("sendBookingModified uses the eat-sheet brand for an eat-sheet.com booking", async () => {
+      const adapter = makeBrandedAdapter();
+
+      await adapter.sendBookingModified({ ...defaultInput, originHost: "eat-sheet.com" });
+
+      const call = mockSend.mock.calls[0]![0];
+      expect(call.from).toBe("eat-sheet <bookings@mbe.dev>");
+    });
+
+    it("sendBookingCancelled uses the eat-sheet brand for an eat-sheet.com booking", async () => {
+      const adapter = makeBrandedAdapter();
+
+      await adapter.sendBookingCancelled({ ...defaultInput, originHost: "eat-sheet.com" });
+
+      const call = mockSend.mock.calls[0]![0];
+      expect(call.from).toBe("eat-sheet <bookings@mbe.dev>");
+    });
+
+    it("sendClosureNotice uses the eat-sheet brand for an eat-sheet.com booking", async () => {
+      const adapter = makeBrandedAdapter();
+
+      await adapter.sendClosureNotice({
+        to: "jane@example.com",
+        subject: "Closed",
+        html: "<p>closed</p>",
+        originHost: "eat-sheet.com",
+      });
+
+      const call = mockSend.mock.calls[0]![0];
+      expect(call.from).toBe("eat-sheet <bookings@mbe.dev>");
+    });
+
+    it("keeps the mattbutlerengineering.com brand when originHost is null", async () => {
+      const adapter = makeBrandedAdapter();
+
+      await adapter.sendBookingConfirmation({ ...defaultInput, originHost: null });
+
+      const call = mockSend.mock.calls[0]![0];
+      expect(call.from).toBe("bookings@mbe.dev");
+      expect(call.html).toContain("https://app.mbe.dev/hospitality/reservations/manage");
+    });
+
+    it("keeps the mattbutlerengineering.com brand when brandFor is not configured", async () => {
+      const adapter = new ResendNotificationAdapter({
+        resend: mockResend as never,
+        fromAddress: "bookings@mbe.dev",
+        manageBaseUrl: "https://app.mbe.dev",
+        publicApiBaseUrl: "https://api.mbe.dev",
+      });
+
+      await adapter.sendBookingConfirmation({ ...defaultInput, originHost: "eat-sheet.com" });
+
+      const call = mockSend.mock.calls[0]![0];
+      expect(call.from).toBe("bookings@mbe.dev");
+    });
+  });
+
   describe("sendThankYouEmail", () => {
     const thankYouInput: ThankYouEmailInput = {
       guestEmail: "jane@example.com",

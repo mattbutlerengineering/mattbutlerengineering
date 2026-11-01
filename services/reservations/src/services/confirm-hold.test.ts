@@ -258,6 +258,55 @@ describe("confirmHold", () => {
     });
   });
 
+  describe("Slice 1d: Origin host is persisted (#7892)", () => {
+    it("copies the caller-supplied originHost onto the reservation", async () => {
+      const hold = makePrismaHold();
+      const create = vi.fn().mockResolvedValue(makeReservationResult(hold));
+
+      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(hold as never);
+      vi.mocked(prisma.$transaction).mockImplementationOnce(
+        async (fn: (tx: never) => Promise<unknown>) =>
+          fn(makeTxMock({ reservation: { ...makeTxMock().reservation, create } }) as never)
+      );
+
+      const result = await confirmHold({
+        holdId: "hold-1",
+        guestDetails: { guestName: "Jane Doe", guestPhone: "+15551234567" },
+        originHost: "eat-sheet.com",
+      });
+
+      expect(result.success).toBe(true);
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ originHost: "eat-sheet.com" }),
+        })
+      );
+    });
+
+    it("stores null when the caller supplies no originHost", async () => {
+      const hold = makePrismaHold();
+      const create = vi.fn().mockResolvedValue(makeReservationResult(hold));
+
+      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(hold as never);
+      vi.mocked(prisma.$transaction).mockImplementationOnce(
+        async (fn: (tx: never) => Promise<unknown>) =>
+          fn(makeTxMock({ reservation: { ...makeTxMock().reservation, create } }) as never)
+      );
+
+      const result = await confirmHold({
+        holdId: "hold-1",
+        guestDetails: { guestName: "Jane Doe", guestPhone: "+15551234567" },
+      });
+
+      expect(result.success).toBe(true);
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ originHost: null }),
+        })
+      );
+    });
+  });
+
   describe("Slice 1c: occasion and seatingPreference are persisted (#6597)", () => {
     it("writes both fields from guestDetails onto the reservation", async () => {
       const hold = makePrismaHold();

@@ -46,6 +46,7 @@ const bookingPayload = {
   venueAddress: null,
   manageToken: "tok",
   updatedAt: "2030-06-01T10:00:00.000Z",
+  originHost: null,
 };
 
 function setup(getVenue = vi.fn().mockResolvedValue(venue)) {
@@ -70,6 +71,21 @@ describe("dispatcher messaging adapter (send halves moved verbatim)", () => {
     const { messaging, dispatcher } = setup();
     await messaging.send({ kind: "booking-confirmation", reservation: res(), manageToken: "tok" });
     expect(dispatcher.sendBookingConfirmation).toHaveBeenCalledWith(bookingPayload);
+  });
+
+  // #7892: the reservation's origin host carries into every booking email so
+  // the adapter can brand by it.
+  it("booking-confirmation: carries the reservation's originHost", async () => {
+    const { messaging, dispatcher } = setup();
+    await messaging.send({
+      kind: "booking-confirmation",
+      reservation: res({ originHost: "eat-sheet.com" }),
+      manageToken: "tok",
+    });
+    expect(dispatcher.sendBookingConfirmation).toHaveBeenCalledWith({
+      ...bookingPayload,
+      originHost: "eat-sheet.com",
+    });
   });
 
   it.each([

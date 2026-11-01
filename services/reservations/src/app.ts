@@ -85,6 +85,7 @@ import type { JobsPort, PaymentsPort } from "./transitions/ports.js";
 import { StripeService } from "./services/stripe.js";
 import { DepositService } from "./services/deposit.js";
 import { resolveManageBaseUrl } from "./config/manage-base-url.js";
+import { createHostBrandResolver } from "./config/host-brand.js";
 
 export interface ReservationsAppOptions extends AppOptions {
   notificationPort?: NotificationDispatcher;
@@ -389,6 +390,8 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
             dispatcher: notificationPort,
             generateManageToken,
             manageBaseUrl: resolveManageBaseUrl(process.env),
+            // Closure-notice manage links follow the booking's origin host (#7892).
+            hostBrand: createHostBrandResolver(process.env),
             logger: fastify.log,
           }),
           handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),

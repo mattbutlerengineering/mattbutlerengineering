@@ -3404,6 +3404,7 @@
           venueAddress: null,
           manageToken,
           updatedAt: reservation.updatedAt,
+          originHost: reservation.originHost ?? null,
         });
       }
     
@@ -3435,6 +3436,7 @@
               venueAddress: null,
               manageToken,
               updatedAt: reservation.updatedAt,
+              originHost: reservation.originHost ?? null,
             },
             preference
           );
@@ -3470,6 +3472,7 @@
               venueAddress: null,
               manageToken,
               updatedAt: updated.updatedAt,
+              originHost: updated.originHost ?? null,
             },
             preference
           );
@@ -10364,11 +10367,83 @@
   </file>
   </section>
   <section priority="medium" role="config">
+  <file path="services/reservations/src/config/host-brand.ts">
+    export type OriginHost = "eat-sheet.com" | "mattbutlerengineering.com";
+    export function resolveOriginHost(
+      origin: string | readonly string[] | undefined | null
+    ): OriginHost | null {
+      const value = Array.isArray(origin) ? origin[0] : origin;
+      if (!value) return null;
+    
+      let hostname: string;
+      try {
+        hostname = new URL(value).hostname.toLowerCase();
+      } catch {
+        return null;
+      }
+    
+      if (EAT_SHEET_HOSTNAMES.has(hostname)) return "eat-sheet.com";
+      if (MBE_HOSTNAMES.has(hostname)) return "mattbutlerengineering.com";
+      return null;
+    }
+    export interface ReservationHostBrand {
+      readonly brandName: string;
+      readonly fromAddress: string;
+      readonly manageBaseUrl: string;
+    }
+    export interface HostBrandEnv {
+      /**
+       * The verified Resend sending domain's address. Never varies by host:
+       * eat-sheet.com is not (yet) a verified sending domain, so the envelope
+       * from-address always stays here — only the display name changes (#7892).
+       */
+      readonly verifiedFromAddress: string;
+      readonly mbeManageBaseUrl: string;
+      readonly eatSheetManageBaseUrl: string;
+    }
+    function withDisplayName(name: string, address: string): string {
+      const email = address.match(/<([^>]+)>/)?.[1] ?? address;
+      return `${name} <${email}>`;
+    }
+    export function hostBrandFor(originHost: string | null, env: HostBrandEnv): ReservationHostBrand {
+      if (originHost === "eat-sheet.com") {
+        return {
+          brandName: EAT_SHEET_BRAND_NAME,
+          fromAddress: withDisplayName(EAT_SHEET_BRAND_NAME, env.verifiedFromAddress),
+          manageBaseUrl: env.eatSheetManageBaseUrl,
+        };
+      }
+      return {
+        brandName: MBE_BRAND_NAME,
+        fromAddress: env.verifiedFromAddress,
+        manageBaseUrl: env.mbeManageBaseUrl,
+      };
+    }
+    export function createHostBrandResolver(env: {
+      EMAIL_FROM?: string | undefined;
+      MANAGE_BASE_URL?: string | undefined;
+      EAT_SHEET_MANAGE_BASE_URL?: string | undefined;
+    }): (originHost: string | null) => ReservationHostBrand {
+      const brandEnv: HostBrandEnv = {
+        verifiedFromAddress: env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
+        mbeManageBaseUrl: resolveManageBaseUrl(env),
+        eatSheetManageBaseUrl: resolveEatSheetManageBaseUrl(env),
+      };
+      return (originHost) => hostBrandFor(originHost, brandEnv);
+    }
+  </file>
   <file path="services/reservations/src/config/manage-base-url.ts">
     export const DEFAULT_MANAGE_BASE_URL = "https://mattbutlerengineering.com";
     export function resolveManageBaseUrl(env: { MANAGE_BASE_URL?: string | undefined }): string {
       const raw = (env.MANAGE_BASE_URL ?? "").trim();
       return raw === "" ? DEFAULT_MANAGE_BASE_URL : raw.replace(/\/+$/, "");
+    }
+    export const DEFAULT_EAT_SHEET_MANAGE_BASE_URL = "https://eat-sheet.com";
+    export function resolveEatSheetManageBaseUrl(env: {
+      EAT_SHEET_MANAGE_BASE_URL?: string | undefined;
+    }): string {
+      const raw = (env.EAT_SHEET_MANAGE_BASE_URL ?? "").trim();
+      return raw === "" ? DEFAULT_EAT_SHEET_MANAGE_BASE_URL : raw.replace(/\/+$/, "");
     }
   </file>
   <file path="services/reservations/src/config/manage-token.ts">
@@ -25819,10 +25894,19 @@
   </file>
   <file path="services/reservations/src/notifications/manage-url.ts">
     export const MANAGE_PATH = "/hospitality/reservations/manage";
+    function managePathFor(origin: string): string {
+      try {
+        return EAT_SHEET_HOSTNAMES.has(new URL(origin).hostname.toLowerCase())
+          ? EAT_SHEET_MANAGE_PATH
+          : MANAGE_PATH;
+      } catch {
+        return MANAGE_PATH;
+      }
+    }
     export function buildManageUrl(baseUrl: string, token: string, rebook?: string): string {
       const origin = baseUrl.replace(/\/+$/, "");
       const rebookParam = rebook === undefined ? "" : `&rebook=${encodeURIComponent(rebook)}`;
-      return `${origin}${MANAGE_PATH}?token=${encodeURIComponent(token)}${rebookParam}`;
+      return `${origin}${managePathFor(origin)}?token=${encodeURIComponent(token)}${rebookParam}`;
     }
   </file>
   <file path="services/reservations/src/notifications/notification-dispatcher.ts">
@@ -26031,6 +26115,11 @@
       updatedAt?: string;
       /** Explicit SEQUENCE override; takes precedence over `updatedAt`. */
       sequence?: number;
+      /**
+       * The host the guest booked on (#7892) — `null`/absent keeps the
+       * mattbutlerengineering.com brand and from-address.
+       */
+      originHost?: string | null;
     }
     export interface WinBackNotificationInput {
       guestName: string;
@@ -26049,6 +26138,8 @@
       to: string;
       subject: string;
       html: string;
+      /** The host the guest booked on (#7892) — `null`/absent keeps the mattbutlerengineering.com brand. */
+      originHost?: string | null;
     }
     export interface NotificationPort {
       /** A closure notice, already rendered (see closure-content.ts). */
@@ -26091,18 +26182,32 @@
        * sent with a link built from a guessed host.
        */
       publicApiBaseUrl: string | null;
+      /**
+       * Resolves the from-address and manage-link base for a booking's origin
+       * host (#7892) — e.g. eat-sheet.com's booking emails get that brand's
+       * display name and manage link. Omitted (or an unrecognized host) keeps
+       * `fromAddress` / `manageBaseUrl` above for every send, today's behavior.
+       */
+      brandFor?(originHost: string | null): { fromAddress: string; manageBaseUrl: string };
     }
     export class ResendNotificationAdapter implements NotificationPort {
       private readonly resend: ResendClient | null;
       private readonly fromAddress: string;
       private readonly manageBaseUrl: string;
       private readonly publicApiBaseUrl: string | null;
+      private readonly brandFor: (originHost: string | null) => {
+        fromAddress: string;
+        manageBaseUrl: string;
+      };
     
       constructor(config: ResendAdapterConfig) {
         this.resend = config.resend;
         this.fromAddress = config.fromAddress;
         this.manageBaseUrl = config.manageBaseUrl;
         this.publicApiBaseUrl = config.publicApiBaseUrl;
+        this.brandFor =
+          config.brandFor ??
+          (() => ({ fromAddress: this.fromAddress, manageBaseUrl: this.manageBaseUrl }));
       }
     
       /**
@@ -26120,8 +26225,9 @@
       }
     
       async sendClosureNotice(input: ClosureEmailInput): Promise<void> {
+        const brand = this.brandFor(input.originHost ?? null);
         await this.send({
-          from: this.fromAddress,
+          from: brand.fromAddress,
           to: input.to,
           subject: input.subject,
           html: input.html,
@@ -26130,9 +26236,10 @@
     
       async sendBookingConfirmation(input: BookingNotificationInput): Promise<void> {
         if (!this.resend) return;
-        const content = buildBookingEmailContent(input, "confirmation", this.manageBaseUrl);
+        const brand = this.brandFor(input.originHost ?? null);
+        const content = buildBookingEmailContent(input, "confirmation", brand.manageBaseUrl);
         await this.send({
-          from: this.fromAddress,
+          from: brand.fromAddress,
           to: input.guestEmail,
           subject: content.subject,
           html: content.html,
@@ -26148,9 +26255,10 @@
     
       async sendBookingReminder(input: BookingNotificationInput): Promise<void> {
         if (!this.resend) return;
-        const content = buildBookingEmailContent(input, "reminder", this.manageBaseUrl);
+        const brand = this.brandFor(input.originHost ?? null);
+        const content = buildBookingEmailContent(input, "reminder", brand.manageBaseUrl);
         await this.send({
-          from: this.fromAddress,
+          from: brand.fromAddress,
           to: input.guestEmail,
           subject: content.subject,
           html: content.html,
@@ -26159,9 +26267,10 @@
     
       async sendBookingModified(input: BookingNotificationInput): Promise<void> {
         if (!this.resend) return;
-        const content = buildBookingEmailContent(input, "modified", this.manageBaseUrl);
+        const brand = this.brandFor(input.originHost ?? null);
+        const content = buildBookingEmailContent(input, "modified", brand.manageBaseUrl);
         await this.send({
-          from: this.fromAddress,
+          from: brand.fromAddress,
           to: input.guestEmail,
           subject: content.subject,
           html: content.html,
@@ -26177,9 +26286,10 @@
     
       async sendBookingCancelled(input: BookingNotificationInput): Promise<void> {
         if (!this.resend) return;
-        const content = buildBookingEmailContent(input, "cancelled", this.manageBaseUrl);
+        const brand = this.brandFor(input.originHost ?? null);
+        const content = buildBookingEmailContent(input, "cancelled", brand.manageBaseUrl);
         await this.send({
-          from: this.fromAddress,
+          from: brand.fromAddress,
           to: input.guestEmail,
           subject: content.subject,
           html: content.html,
@@ -39486,6 +39596,8 @@
                 guestDetails: { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference },
                 // No guest record exists yet, so the guest actor carries no id.
                 actor: guestActor(null),
+                // Captured from the request so later guest emails brand by it (#7892).
+                originHost: resolveOriginHost(request.headers.origin),
               },
               {
                 door: "public-hold",
@@ -39720,6 +39832,8 @@
                   guestId: link.ok ? (link.guestId ?? undefined) : undefined,
                 },
                 actor: guestActor(link.ok ? link.guestId : null),
+                // Captured from the request so later guest emails brand by it (#7892).
+                originHost: resolveOriginHost(request.headers.origin),
               },
               {
                 door: "public-booking",
@@ -45878,6 +45992,8 @@
       userId: z.string().nullable(),
       /** Why staff booked past a soft availability limit; absent or null for an ordinary booking. */
       overrideReason: z.string().nullable().optional(),
+      /** The host the guest booked on (#7892); absent or null for a staff/walk-in booking. */
+      originHost: z.string().nullable().optional(),
       tableId: z.string(),
       table: TableSchema.optional(),
       guest: z
@@ -53880,17 +53996,24 @@
       dispatcher: Pick<NotificationDispatcher, "sendClosureEmail" | "sendClosureSms" | "smsEnabled">;
       generateManageToken(reservationId: string, guestEmail: string): string;
       manageBaseUrl: string;
+      /**
+       * Resolves the manage-link base for an outcome's origin host (#7892) — a
+       * closure notice for an eat-sheet.com booking links back to eat-sheet.com.
+       * Omitted keeps `manageBaseUrl` above for every outcome, today's behavior.
+       */
+      hostBrand?: (originHost: string | null) => { manageBaseUrl: string };
       logger: ClosureNoticeDeps["logger"];
       now?: () => Date;
     }): ClosureNoticeDeps {
       const now = input.now ?? (() => new Date());
+      const hostBrand = input.hostBrand ?? (() => ({ manageBaseUrl: input.manageBaseUrl }));
       return {
         load: loadNoticeOutcome,
         offers: (o) => loadRebookSlots(o, now()),
         // The signed email is checked on the manage page; a phone-only guest has none.
         manageUrl: (o, rebook) =>
           buildManageUrl(
-            input.manageBaseUrl,
+            hostBrand(o.originHost).manageBaseUrl,
             input.generateManageToken(o.reservationId, o.guestEmail ?? ""),
             rebook
           ),
@@ -54069,6 +54192,7 @@
               guestPhone: true,
               guest: { select: { communicationPreference: true } },
               deposit: { select: { amountCents: true, currency: true } },
+              originHost: true,
             },
           },
         },
@@ -54093,6 +54217,7 @@
         refund: r.deposit ? { amountCents: r.deposit.amountCents, currency: r.deposit.currency } : null,
         venueName: row.venue.name,
         timezone: row.venue.ianaTimezone,
+        originHost: r.originHost,
       };
     }
     export async function recordDeliveries(
@@ -54304,6 +54429,8 @@
       refund: { amountCents: number; currency: string } | null;
       venueName: string;
       timezone: string;
+      /** The host the guest booked on (#7892); null keeps the mattbutlerengineering.com brand. */
+      originHost: string | null;
     }
     export interface ClosureNoticeDeps {
       load(outcomeId: string): Promise<NoticeOutcome | null>;
@@ -54362,7 +54489,7 @@
     ): Promise<void> {
       if (channel === "email") {
         const { subject, html } = buildClosureEmail(content);
-        return deps.sendEmail({ to: o.guestEmail!, subject, html });
+        return deps.sendEmail({ to: o.guestEmail!, subject, html, originHost: o.originHost });
       }
       return deps.sendSms({ to: o.guestPhone!, body: buildClosureSms(content) });
     }
@@ -54984,6 +55111,13 @@
        * Checked in the same lookup as the session id, before any write.
        */
       venueId?: string;
+      /**
+       * The host the guest booked on (e.g. "eat-sheet.com"), resolved by the
+       * calling public route from the request's Origin header (#7892). Stored on
+       * the reservation so later guest emails brand by it. Undefined/null for
+       * non-public confirm paths or an unrecognized origin.
+       */
+      originHost?: string | null;
       /** Who confirmed; recorded on the `created` event. Defaults to {@link SYSTEM_ACTOR}. */
       actor?: ReservationEventActor;
       /**
@@ -55066,6 +55200,9 @@
               userId: userId ?? null,
               // Ownership proof for the public deposit route (#6304).
               originSessionId: hold.sessionId,
+              // The host the guest booked on (#7892); null for non-public confirm
+              // paths or an unrecognized origin.
+              originHost: input.originHost ?? null,
               status: "CONFIRMED",
             },
             include: {
@@ -58067,6 +58204,7 @@
             venueAddress: null,
             updatedAt: reservation.updatedAt,
             manageToken: deps.generateManageToken(reservation.id, reservation.guestEmail),
+            originHost: reservation.originHost ?? null,
           };
     
           // Dispatcher failures propagate so BullMQ retries per the queue policy.
@@ -61388,6 +61526,8 @@
       userId: string | null;
       /** Staff override reason; selected rows predating the column or partial selects omit it. */
       overrideReason?: string | null;
+      /** The host the guest booked on (#7892); selected rows predating the column omit it. */
+      originHost?: string | null;
       tableId: string;
       table?: PrismaTableRow | null;
       guest?: {
@@ -61465,6 +61605,7 @@
         guestId: row.guestId,
         userId: row.userId,
         overrideReason: row.overrideReason ?? null,
+        originHost: row.originHost ?? null,
         tableId: row.tableId,
         table: row.table ? toTable(row.table) : undefined,
         guest: row.guest ?? null,
@@ -81117,6 +81258,13 @@
       seatingPreference: SeatingPreference | null;
       /** Why staff booked past a soft availability limit; absent or null for an ordinary booking. */
       overrideReason?: string | null;
+      /**
+       * The host the guest booked on (e.g. "eat-sheet.com",
+       * "mattbutlerengineering.com"), captured from the public booking page's
+       * request at creation time (#7892). Null for staff/walk-in bookings or an
+       * unrecognized origin — those keep the mattbutlerengineering.com brand.
+       */
+      originHost?: string | null;
       tableId: string;
       table?: Table;
       guest?: {
@@ -82301,6 +82449,8 @@
                 dispatcher: notificationPort,
                 generateManageToken,
                 manageBaseUrl: resolveManageBaseUrl(process.env),
+                // Closure-notice manage links follow the booking's origin host (#7892).
+                hostBrand: createHostBrandResolver(process.env),
                 logger: fastify.log,
               }),
               handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),
@@ -82358,6 +82508,9 @@
         fromAddress: process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
         manageBaseUrl: resolveManageBaseUrl(process.env),
         publicApiBaseUrl,
+        // Brands confirmation/reminder/modified/cancelled/closure emails by the
+        // booking's origin host (#7892), always on the verified sending domain.
+        brandFor: createHostBrandResolver(process.env),
       });
     }
     export function createNotificationPort(): NotificationDispatcher {
