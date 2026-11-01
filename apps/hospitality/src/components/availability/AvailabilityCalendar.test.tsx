@@ -92,7 +92,7 @@ describe("AvailabilityCalendar", () => {
   });
 
   it("marks the day that holds an unsaved draft with a dot and says so in its name", () => {
-    const { container } = renderCalendar({ draftDate: "2026-10-30" });
+    const { container } = renderCalendar({ draftDates: ["2026-10-30"] });
     expect(container.querySelectorAll("[data-draft-dot]")).toHaveLength(1);
     expect(
       screen.getByRole("button", { name: /^Friday, October 30: .*, unsaved changes$/ })

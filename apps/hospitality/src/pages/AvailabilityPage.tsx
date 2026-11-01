@@ -47,6 +47,7 @@ import {
   futureDates,
   weekdayDatesInMonth,
 } from "../components/availability/selection.js";
+import { pickHoursSource } from "../components/availability/selection-hours.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
 import { PageHeader } from "../components/PageHeader.js";
 import { periodLabel, weekSummary } from "../components/availability/period.js";
@@ -68,6 +69,8 @@ interface Closing {
 interface OpenTarget {
   readonly date: string | null;
   readonly fixedDates?: readonly string[];
+  /** With `fixedDates`: the picked dates do not all have the hours of `date`. */
+  readonly hoursDiffer?: boolean;
   readonly closing?: Closing;
 }
 const CLOSED: OpenTarget = { date: null };
@@ -92,6 +95,8 @@ export function AvailabilityPage() {
   const [closing, setClosing] = useState<Closing | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [tab, setTab] = useState<AvailabilityTab>("calendar");
+  // A range drag holds the selection bar back, so the grid does not move under the pointer.
+  const [dragging, setDragging] = useState(false);
   const [selectionAction, setSelectionAction] = useState<"use" | "clear" | null>(null);
   const anchor = chosenAnchor ?? today;
   // Picked days belong to one venue; derive "none" on a venue switch rather than clearing in an effect.
@@ -175,8 +180,15 @@ export function AvailabilityPage() {
     if (date !== openDate || target.fixedDates) guard.request({ date });
     else if (selection.length > 0) setSelection([]);
   };
-  const editSelection = (dates: readonly string[]) =>
-    guard.request({ date: dates[0] ?? null, fixedDates: dates });
+  const editSelection = (dates: readonly string[]) => {
+    // The rows come from the first picked date that has a service, so a closed Monday picked with
+    // an open Friday cannot hide that Friday has hours; the drawer says when the dates differ.
+    const loaded = config.data;
+    const source = loaded
+      ? pickHoursSource(dates, (d) => resolveDay({ timezone: timeZone, config: loaded.config }, d))
+      : { date: dates[0] ?? null, differs: false };
+    guard.request({ date: source.date, fixedDates: dates, hoursDiffer: source.differs });
+  };
   const anchorSummary = days.data?.find((d) => d.serviceDate === anchor);
   // The schedule's own name, not the day's label ("Closed", "Special hours").
   const anchorSchedule = config.data?.config.schedules.find(
@@ -356,7 +368,7 @@ export function AvailabilityPage() {
         />
       )}
       <AvailabilitySelectionBar
-        selection={selection}
+        selection={dragging ? EMPTY : selection}
         canEdit={isManager}
         onEditHours={editSelection}
         onClear={() => setSelection([])}
@@ -395,9 +407,10 @@ export function AvailabilityPage() {
         days={days.data ?? undefined}
         isLoading={days.isLoading}
         selectedDate={openDate}
-        draftDate={guard.dirty ? openDate : null}
+        draftDates={guard.dirty && openDate !== null ? (target.fixedDates ?? [openDate]) : EMPTY}
         selection={selection}
         onSelectionChange={setSelection}
+        onDragChange={setDragging}
         onOpenDay={openDay}
         onAnchorChange={setChosenAnchor}
       />
@@ -415,7 +428,7 @@ export function AvailabilityPage() {
                 timezone: timeZone,
                 today,
                 onDirtyChange: guard.setDirty,
-                dirty: guard.dirty,
+                hoursDiffer: target.hoursDiffer,
                 onFinished: () => guard.release(CLOSED),
                 fixedDates: target.fixedDates,
                 onStale: () => void config.refetch(),
@@ -451,6 +464,11 @@ export function AvailabilityPage() {
       <DiscardChangesDialog
         open={guard.pending !== null}
         date={openDate}
+        title={
+          target.fixedDates && target.fixedDates.length > 1
+            ? t("availability.discard.titleSelection", { total: target.fixedDates.length })
+            : undefined
+        }
         onDiscard={guard.confirmDiscard}
         onKeepEditing={guard.keepEditing}
       />

@@ -1,3 +1,4 @@
+import { useId } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import {
@@ -13,7 +14,9 @@ import type { Layer, ResolvedDay, ResolvedDaySummary } from "@mbe/availability";
 import type { AvailabilityConfigState, TeamRole } from "@mbe/types";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
 import { useViewport } from "../../hooks/useViewport.js";
+import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
 import { AvailabilityDayEditor } from "./AvailabilityDayEditor.js";
+import { useEditorOpen } from "./editor-open.js";
 import { CopyDayAction } from "./CopyDayAction.js";
 import { ScheduleNudge } from "./ScheduleNudge.js";
 import type { SeriesScope } from "./series-edit.js";
@@ -41,8 +44,11 @@ export interface DayEditing {
   readonly onStale?: () => void;
   /** "Close…" (F5): open the Close dialog for this date. */
   readonly onCloseDay?: (date: string) => void;
-  /** The draft has unsaved edits; Copy and the nudge wait for it to be saved or discarded. */
-  readonly dirty?: boolean;
+  /**
+   * With `fixedDates`: the picked dates do not all have the same hours, so the rows shown are
+   * one date's and a save replaces the others' (said above the rows).
+   */
+  readonly hoursDiffer?: boolean;
 }
 
 export interface AvailabilityDayDrawerProps {
@@ -147,7 +153,9 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
 
   // Several picked dates: the first date's summary, Close… and Copy would describe or act on one.
   const picked = editing?.fixedDates && editing.fixedDates.length > 1 ? editing.fixedDates : null;
-  const waitForDraft = editing?.dirty === true;
+  // Any open editor, even one with no change yet, has pinned the version it will save against.
+  const waitForDraft = useEditorOpen();
+  const reasonId = useId();
 
   let body;
   if (date === null) {
@@ -165,11 +173,25 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
       <>
         {/* A failed refresh must not unmount an open draft; the error sits above it. */}
         {error && (
-          <Alert variant="error" title={t("availability.drawer.refreshError")}>
-            {error}
-          </Alert>
+          <ErrorRetryBanner
+            title={t("availability.drawer.refreshError")}
+            error={error}
+            onRetry={editing?.onStale}
+          />
         )}
         {!picked && <DayBody day={day} date={date} />}
+        {picked && editing?.hoursDiffer && (
+          <Text variant="body" color="primary">
+            {t("availability.drawer.hoursDiffer", {
+              date: format.formatCalendarDate(date, {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+              }),
+              total: picked.length,
+            })}
+          </Text>
+        )}
         {viewerRole === "manager" && editing && (
           <AvailabilityDayEditor
             // A new date, or a new pick for the same date, is a new draft.
@@ -195,13 +217,18 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
         )}
         {viewerRole === "manager" && editing && !picked && (
           <>
-            {waitForDraft && (
-              <Text variant="caption" color="secondary">
-                {t("availability.drawer.finishDraftFirst")}
-              </Text>
-            )}
+            {/* Always mounted, so the reason is announced when it appears. */}
+            <div aria-live="polite">
+              {waitForDraft && (
+                <Text id={reasonId} variant="caption" color="secondary">
+                  {t("availability.drawer.finishDraftFirst")}
+                </Text>
+              )}
+            </div>
             <CopyDayAction
-              disabled={waitForDraft}
+              waiting={waitForDraft}
+              reasonId={reasonId}
+              today={editing.today}
               venueId={editing.venueId}
               state={editing.state}
               date={date}
@@ -209,7 +236,8 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
               onStale={editing.onStale ?? noop}
             />
             <ScheduleNudge
-              disabled={waitForDraft}
+              waiting={waitForDraft}
+              reasonId={reasonId}
               venueId={editing.venueId}
               state={editing.state}
               date={date}

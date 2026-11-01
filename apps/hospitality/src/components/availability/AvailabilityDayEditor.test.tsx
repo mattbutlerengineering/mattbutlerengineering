@@ -312,12 +312,15 @@ describe("AvailabilityDayEditor", () => {
 
   it("offers Undo on the save toast, reverting that save against the version it produced", async () => {
     revertAsync.mockResolvedValue({ version: 6, changeId: "chg-2" });
-    renderEditor();
+    const { rerender } = renderEditor();
     fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
     fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
     fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
 
-    fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+    const undo = await screen.findByRole("button", { name: "Undo" });
+    // Saved means finished: the drawer takes the editor away, and only then can Undo run.
+    rerender(<ToastProvider>{null}</ToastProvider>);
+    fireEvent.click(undo);
     await waitFor(() =>
       expect(revertAsync).toHaveBeenCalledWith({
         venueId: "venue-1",
@@ -586,69 +589,6 @@ describe("AvailabilityDayEditor", () => {
         "This date only"
       );
       expect(screen.getByRole("button", { name: "Save 1 date" })).toBeInTheDocument();
-    });
-  });
-
-  describe("inside the drawer, around a draft", () => {
-    const state: AvailabilityConfigState = {
-      config: fixtureConfig(),
-      version: 4,
-      source: "rows",
-    };
-
-    function drawer(
-      extra: { error?: string | null; dirty?: boolean; fixedDates?: readonly string[] } = {}
-    ) {
-      return (
-        <ToastProvider>
-          <main>
-            <AvailabilityDayDrawer
-              date={FIXTURE_DATE}
-              day={resolveFixtureDay()}
-              isLoading={false}
-              error={extra.error ?? null}
-              viewerRole="manager"
-              onClose={vi.fn()}
-              editing={{
-                venueId: "venue-1",
-                state,
-                timezone: FIXTURE_TIMEZONE,
-                today: "2026-10-28",
-                onDirtyChange: vi.fn(),
-                onFinished: vi.fn(),
-                onCloseDay: vi.fn(),
-                dirty: extra.dirty,
-                fixedDates: extra.fixedDates,
-              }}
-            />
-          </main>
-        </ToastProvider>
-      );
-    }
-
-    it("keeps an open draft, with the error above it, when a refetch of the config fails", () => {
-      const { rerender } = render(drawer());
-      fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
-      fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
-      rerender(drawer({ error: "Network down" }));
-      expect(screen.getByRole("alert")).toHaveTextContent("Network down");
-      expect(screen.getByRole("button", { name: "Save 1 date" })).toBeInTheDocument();
-    });
-
-    it("describes the selection, and offers no single-date actions, for several dates", () => {
-      render(drawer({ fixedDates: [FIXTURE_DATE, "2026-11-02", "2026-11-03"] }));
-      const dialog = screen.getByRole("dialog", { name: "3 dates selected" });
-      expect(within(dialog).queryByRole("button", { name: "Close…" })).not.toBeInTheDocument();
-      expect(
-        within(dialog).queryByRole("button", { name: "Copy to other days…" })
-      ).not.toBeInTheDocument();
-      expect(within(dialog).queryByText(/^Open for/)).not.toBeInTheDocument();
-    });
-
-    it("asks to save or discard first, rather than copying beside a draft", () => {
-      render(drawer({ dirty: true }));
-      expect(screen.getByRole("button", { name: "Copy to other days…" })).toBeDisabled();
-      expect(screen.getByText("Save or discard your changes to this day first.")).toBeVisible();
     });
   });
 

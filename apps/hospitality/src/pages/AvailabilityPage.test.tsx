@@ -24,7 +24,11 @@ const configSource = vi.hoisted(() => ({
 }));
 const configError = vi.hoisted(() => ({ value: null as Error | null }));
 const team = vi.hoisted(() => ({ value: undefined as Partial<VenueTeam> | undefined }));
-const resolved = vi.hoisted(() => ({ services: [] as unknown[] }));
+const resolved = vi.hoisted(() => ({
+  services: [] as unknown[],
+  /** Hours for one date, where it differs from `services`. */
+  byDate: {} as Record<string, unknown[]>,
+}));
 const venue = vi.hoisted(() => ({
   selectedVenueId: "venue-1" as string | null,
   selectedVenue: { id: "venue-1", ianaTimezone: "America/Los_Angeles", currencyCode: "USD" },
@@ -112,10 +116,10 @@ vi.mock("../hooks/useAvailabilityPreview.js", () => ({
 vi.mock("../contexts/VenueContext.js", () => ({ useVenue: () => venue }));
 vi.mock("@mbe/availability", async (importOriginal) => ({
   ...(await importOriginal<typeof Engine>()),
-  resolveDay: () => ({
-    serviceDate: "2026-10-30",
+  resolveDay: (_context: unknown, date: string) => ({
+    serviceDate: date,
     scheduleId: "s1",
-    services: resolved.services,
+    services: resolved.byDate[date] ?? resolved.services,
     closures: [],
     bookingOpen: { online: true, phone: true, waitlist: true },
     explanation: [],
@@ -159,6 +163,7 @@ describe("AvailabilityPage", () => {
     configError.value = null;
     team.value = { viewerRole: "manager" };
     resolved.services = [];
+    resolved.byDate = {};
     daysQuery.value = {
       data: ["2026-10-29", "2026-10-30"].map(summaryFor),
       isLoading: false,
@@ -449,13 +454,13 @@ describe("AvailabilityPage", () => {
       expect(screen.getByRole("alert")).toHaveTextContent("Couldn’t check for newer hours");
     });
 
-    it("makes Copy wait while the day holds a draft", () => {
+    it("makes Copy wait as soon as an editor is open, even before any change", () => {
       renderPage();
       openFriday();
-      expect(screen.getByRole("button", { name: "Copy to other days…" })).toBeEnabled();
+      const copy = () => screen.getByRole("button", { name: "Copy to other days…" });
+      expect(copy()).not.toHaveAttribute("aria-disabled");
       fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
-      fireEvent.click(screen.getByRole("button", { name: "Remove Dinner" }));
-      expect(screen.getByRole("button", { name: "Copy to other days…" })).toBeDisabled();
+      expect(copy()).toHaveAttribute("aria-disabled", "true");
     });
 
     function closeFromDrawer() {
@@ -533,13 +538,93 @@ describe("AvailabilityPage", () => {
       expect(screen.getByRole("status")).toHaveTextContent("1 date selected");
     });
 
-    it("skips past dates when a range is dragged across them", () => {
+    it("skips past dates when a range is Shift-clicked across them", () => {
       renderPage();
       pick(/Monday, October 26/);
       fireEvent.click(screen.getByRole("button", { name: /Thursday, October 29/ }), {
         shiftKey: true,
       });
       expect(screen.getByRole("status")).toHaveTextContent("2 dates selected");
+    });
+
+    it("keeps the selection bar out of the page until a drag across today ends", () => {
+      renderPage();
+      const cell = (re: RegExp) => screen.getByRole("button", { name: re });
+      fireEvent.mouseDown(cell(/Monday, October 26/), { button: 0 });
+      fireEvent.mouseEnter(cell(/Tuesday, October 27/));
+      fireEvent.mouseEnter(cell(/Wednesday, October 28/));
+      fireEvent.mouseEnter(cell(/Thursday, October 29/));
+      // Mid-drag nothing is announced and nothing mounts that could move the grid.
+      expect(screen.getByRole("status")).toBeEmptyDOMElement();
+      expect(screen.queryByRole("button", { name: "Edit hours" })).not.toBeInTheDocument();
+      fireEvent.mouseUp(window);
+      // Today and later only; the two past days are dropped.
+      expect(screen.getByRole("status")).toHaveTextContent("2 dates selected");
+      expect(screen.getByRole("button", { name: "Edit hours" })).toBeInTheDocument();
+    });
+
+    describe("when the picked dates have different hours", () => {
+      const dinner = (closesAt: number) => ({
+        venueServiceId: "vs1",
+        name: "Dinner",
+        opensAt: 1020,
+        lastSeatingAt: closesAt - 60,
+        closesAt,
+        seating: { version: 1, interval: 15 },
+        bookingTypes: ["online"],
+        scheduleServiceId: null,
+      });
+
+      beforeEach(() => {
+        window.HTMLElement.prototype.scrollIntoView = vi.fn();
+      });
+
+      it("takes the rows from a date that has a service, not from a closed first date", () => {
+        resolved.byDate = { "2026-10-28": [], "2026-10-30": [dinner(1380)] };
+        renderPage();
+        pick(/Wednesday, October 28/);
+        pick(/Friday, October 30/);
+        fireEvent.click(screen.getByRole("button", { name: "Edit hours" }));
+        const drawer = screen.getByRole("dialog", { name: "2 dates selected" });
+        expect(within(drawer).getByRole("button", { name: "Edit Dinner" })).toBeInTheDocument();
+        expect(drawer).toHaveTextContent("The rows below are from Friday, October 30.");
+        expect(drawer).toHaveTextContent("Saving replaces the hours on all 2 selected dates.");
+      });
+
+      it("names the date the rows came from when two open dates close at different times", () => {
+        resolved.byDate = { "2026-10-29": [dinner(1320)], "2026-10-30": [dinner(1380)] };
+        renderPage();
+        pick(/Thursday, October 29/);
+        pick(/Friday, October 30/);
+        fireEvent.click(screen.getByRole("button", { name: "Edit hours" }));
+        expect(screen.getByRole("dialog", { name: "2 dates selected" })).toHaveTextContent(
+          "The rows below are from Thursday, October 29."
+        );
+      });
+
+      it("says nothing about differing hours when the dates agree", () => {
+        resolved.services = [dinner(1380)];
+        renderPage();
+        pick(/Thursday, October 29/);
+        pick(/Friday, October 30/);
+        fireEvent.click(screen.getByRole("button", { name: "Edit hours" }));
+        expect(screen.queryByText(/different hours/)).not.toBeInTheDocument();
+      });
+
+      it("marks every selected date with the draft dot and names the selection in the prompt", () => {
+        resolved.services = [dinner(1380)];
+        const { container } = renderPage();
+        pick(/Thursday, October 29/);
+        pick(/Friday, October 30/);
+        fireEvent.click(screen.getByRole("button", { name: "Edit hours" }));
+        fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
+        fireEvent.click(screen.getByRole("button", { name: "Remove Dinner" }));
+        expect(container.querySelectorAll("[data-draft-dot]")).toHaveLength(2);
+        fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+        expect(
+          screen.getByRole("dialog", { name: "Discard changes to the 2 selected dates?" })
+        ).toBeInTheDocument();
+      });
     });
 
     it("announces the count and opens the drawer for the first date with a fixed scope", () => {

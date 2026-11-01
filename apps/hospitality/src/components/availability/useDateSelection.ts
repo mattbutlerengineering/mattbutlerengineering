@@ -8,6 +8,11 @@ export interface DateSelectionOptions {
   readonly selection: readonly string[];
   readonly onSelectionChange: (dates: string[]) => void;
   readonly onOpenDay: (date: string) => void;
+  /**
+   * A range drag is under way (`true`) or over (`false`). The page holds back anything that would
+   * move the grid under the pointer until the drag ends.
+   */
+  readonly onDragChange?: (dragging: boolean) => void;
 }
 
 export interface DateGestureHandlers {
@@ -26,7 +31,7 @@ export interface DateGestureHandlers {
  * more. A plain click is still "open this day"; the opener decides when that drops the selection.
  */
 export function useDateSelection(options: DateSelectionOptions) {
-  const { selection, onSelectionChange, onOpenDay } = options;
+  const { selection, onSelectionChange, onOpenDay, onDragChange } = options;
   const pivot = useRef<string | null>(null);
   const drag = useRef<{ from: string; moved: boolean } | null>(null);
   const suppressClick = useRef(false);
@@ -42,12 +47,13 @@ export function useDateSelection(options: DateSelectionOptions) {
         setTimeout(() => {
           suppressClick.current = false;
         }, 0);
+        onDragChange?.(false);
       }
       drag.current = null;
     };
     window.addEventListener("mouseup", endDrag);
     return () => window.removeEventListener("mouseup", endDrag);
-  }, []);
+  }, [onDragChange]);
 
   const clearTimer = () => {
     if (pressTimer.current) clearTimeout(pressTimer.current);
@@ -75,6 +81,7 @@ export function useDateSelection(options: DateSelectionOptions) {
     onMouseEnter: () => {
       const d = drag.current;
       if (!d || (date === d.from && !d.moved)) return;
+      if (!d.moved) onDragChange?.(true);
       d.moved = true;
       extendSelection(d.from, date);
     },

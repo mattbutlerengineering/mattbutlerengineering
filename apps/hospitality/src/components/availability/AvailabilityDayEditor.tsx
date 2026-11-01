@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
@@ -34,6 +34,7 @@ import {
   type DraftService,
   type EditScope,
 } from "./draft-changes.js";
+import { markEditorOpen } from "./editor-open.js";
 import { ownChangeDates, scopeDates } from "./scope-dates.js";
 import type { SeriesScope } from "./series-edit.js";
 import { ServicesEditor } from "./ServicesEditor.js";
@@ -161,7 +162,19 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
     onDirtyChange(holdsEdits(next));
   };
 
+  // From the first edit until the editor goes, other saves (Copy, the nudge, Undo) wait: they
+  // would move the version this draft will be saved against.
+  const releaseOpenRef = useRef<(() => void) | null>(null);
+  useEffect(
+    () => () => {
+      releaseOpenRef.current?.();
+      releaseOpenRef.current = null;
+    },
+    []
+  );
+
   const begin = () => {
+    releaseOpenRef.current ??= markEditorOpen();
     const first: EditScope = fixedDates
       ? { kind: "dates", dates: fixedDates }
       : ruleScope

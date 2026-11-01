@@ -14,8 +14,8 @@ export interface AvailabilityAgendaProps {
   readonly byDate: ReadonlyMap<string, AvailabilityDaySummary>;
   readonly today: string;
   readonly selectedDate?: string | null;
-  /** The day whose drawer holds an unsaved draft; its row shows a dot. */
-  readonly draftDate?: string | null;
+  /** The days whose drawer draft holds unsaved edits; each row shows a dot. */
+  readonly draftDates?: readonly string[];
   readonly picked: ReadonlySet<string>;
   readonly isLoading: boolean;
   /** Click and long-press handlers for one row (see `useDateSelection`). */
@@ -28,7 +28,7 @@ export interface AvailabilityAgendaProps {
  * Tab walks the days in order and no grid roles are promised on a stacked layout.
  */
 export function AvailabilityAgenda(props: AvailabilityAgendaProps) {
-  const { dates, byDate, today, selectedDate, draftDate, picked, isLoading, handlersFor } = props;
+  const { dates, byDate, today, selectedDate, draftDates, picked, isLoading, handlersFor } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
 
@@ -54,11 +54,11 @@ export function AvailabilityAgenda(props: AvailabilityAgendaProps) {
                 (picked.has(date)
                   ? t("availability.selection.selectedName", { name: view.accessibleName })
                   : view.accessibleName) +
-                (date === draftDate ? `, ${t("availability.calendar.draftName")}` : "")
+                (draftDates?.includes(date) ? `, ${t("availability.calendar.draftName")}` : "")
               }
               {...handlersFor(date)}
             >
-              {date === draftDate && (
+              {draftDates?.includes(date) && (
                 <span className={styles.draftDot} data-draft-dot aria-hidden="true" />
               )}
               <span className={styles.date} aria-hidden="true">

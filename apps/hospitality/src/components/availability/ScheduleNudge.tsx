@@ -5,6 +5,7 @@ import type { AvailabilityConfigState } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { NUDGE_THRESHOLD, singleDateChangeCount } from "./copy-day.js";
 import { seedServices } from "./draft-changes.js";
+import { waitingProps } from "./draft-wait.js";
 import { buildNewScheduleChanges } from "./schedule-changes.js";
 import { SaveFailure } from "./ScheduleFormParts.js";
 import { useScheduleSave } from "./use-schedule-save.js";
@@ -15,8 +16,10 @@ export interface ScheduleNudgeProps {
   readonly date: string;
   readonly day: ResolvedDay;
   readonly onStale: () => void;
-  /** A draft is open on this day: the nudge's save would make the draft's own save conflict. */
-  readonly disabled?: boolean;
+  /** An editor is open: the nudge's save would make the editor's own save conflict. */
+  readonly waiting?: boolean;
+  /** The element that says why the nudge is waiting. */
+  readonly reasonId?: string;
 }
 
 /**
@@ -26,7 +29,7 @@ export interface ScheduleNudgeProps {
  * schedule needs no suggestion.
  */
 export function ScheduleNudge(props: ScheduleNudgeProps) {
-  const { venueId, state, date, day, onStale, disabled } = props;
+  const { venueId, state, date, day, onStale, waiting = false, reasonId } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const { toast } = useToast();
@@ -39,6 +42,7 @@ export function ScheduleNudge(props: ScheduleNudgeProps) {
 
   const weekdayName = format.formatCalendarDate(date, { weekday: "long" });
   const make = async () => {
+    if (waiting) return;
     const changes = buildNewScheduleChanges({
       config: state.config,
       name: weekdayName,
@@ -64,7 +68,7 @@ export function ScheduleNudge(props: ScheduleNudgeProps) {
       <Button
         variant="secondary"
         size="sm"
-        disabled={disabled}
+        {...waitingProps(waiting, reasonId)}
         isLoading={saver.isPending}
         onClick={() => void make()}
       >
