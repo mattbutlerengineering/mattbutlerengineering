@@ -5,6 +5,7 @@ import {
   useEffect,
   type KeyboardEvent,
   type ChangeEvent,
+  type MouseEvent,
 } from "react";
 import { Button } from "@mattbutlerengineering/rialto";
 import styles from "./PromptBar.module.css";
@@ -34,6 +35,12 @@ const WARN_CHARS = 1500;
 const MAX_HISTORY = 50;
 const MAX_ROWS = 6;
 const LINE_HEIGHT_PX = 24;
+/**
+ * A double-click's second click lands on Stop: the first click flips
+ * `isStreaming`, React swaps the button under the pointer, and Stop aborts
+ * the run before any tokens arrive. The OS double-click window is ~500ms.
+ */
+const DOUBLE_CLICK_GUARD_MS = 500;
 
 /**
  * Bottom bar with text input and Generate/Stop toggle button.
@@ -56,6 +63,7 @@ export function PromptBar({
   const [history, setHistory] = useState<readonly string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const submittedAtRef = useRef(0);
 
   // Restore the failing prompt into the input so it isn't lost. Render-time
   // "seed on change" (React's documented alternative to an effect for
@@ -102,6 +110,7 @@ export function PromptBar({
   const handleSubmit = useCallback(() => {
     const trimmed = value.trim();
     if (!trimmed || disabled) return;
+    submittedAtRef.current = performance.now();
     onSubmit(trimmed);
     setHistory((prev) => {
       const withoutDuplicate = prev.filter((entry) => entry !== trimmed);
@@ -111,6 +120,19 @@ export function PromptBar({
     setHistoryIndex(-1);
     setValue("");
   }, [value, disabled, onSubmit]);
+
+  const handleStop = useCallback(
+    (event: MouseEvent<HTMLButtonElement>) => {
+      // The click that completes a double-click on Generate. Ignoring it
+      // leaves the in-flight generation running.
+      if (performance.now() - submittedAtRef.current < DOUBLE_CLICK_GUARD_MS) {
+        event.preventDefault();
+        return;
+      }
+      onStop();
+    },
+    [onStop]
+  );
 
   const handleChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => {
     // A paste longer than the cap used to be ignored. The browser had already
@@ -187,7 +209,7 @@ export function PromptBar({
           </span>
         </div>
         {isStreaming ? (
-          <Button variant="secondary" size="md" onClick={onStop} disabled={disabled} data-stop>
+          <Button variant="secondary" size="md" onClick={handleStop} disabled={disabled} data-stop>
             Stop
           </Button>
         ) : (

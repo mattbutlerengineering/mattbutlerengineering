@@ -1,4 +1,11 @@
-import { forwardRef, useRef, useCallback, useEffect, type InputHTMLAttributes } from "react";
+import {
+  forwardRef,
+  useRef,
+  useCallback,
+  useEffect,
+  useState,
+  type InputHTMLAttributes,
+} from "react";
 import { Lock } from "lucide-react";
 import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { cn, variantClass } from "../../utils/class-composer";
@@ -10,7 +17,9 @@ import styles from "./NumberInput.module.css";
 
 /**
  * Numeric input with increment/decrement stepper buttons and hold-to-repeat.
- * Always controlled — requires `value` and `onChange`. Values are clamped to `min`/`max` when provided.
+ * Always controlled — requires `value` and `onChange`. Stepper buttons and arrow keys
+ * clamp on each press. Typed text stays as entered and is clamped to `min`/`max`
+ * when the field commits (blur).
  *
  * @example
  * <NumberInput label="Quantity" value={qty} onChange={setQty} min={0} max={99} />
@@ -22,7 +31,10 @@ export interface NumberInputProps extends Pick<
   "id" | "name" | "required" | "readOnly"
 > {
   value: number;
-  /** Called with the clamped numeric value on every change */
+  /**
+   * Called with the clamped numeric value when the field commits, or when a
+   * stepper or arrow key changes it. Not called for each keystroke.
+   */
   onChange: (value: number) => void;
   min?: number;
   max?: number;
@@ -43,6 +55,26 @@ export interface NumberInputProps extends Pick<
 /* ── Hold-to-repeat constants ────────────────── */
 const INITIAL_DELAY = 400;
 const REPEAT_INTERVAL = 80;
+
+/**
+ * Number in an in-progress field, or null while it is empty or only a sign
+ * or decimal point — the next keystroke can still complete those.
+ */
+function parseTypedNumber(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (
+    trimmed === "" ||
+    trimmed === "-" ||
+    trimmed === "+" ||
+    trimmed === "." ||
+    trimmed === "-." ||
+    trimmed === "+."
+  ) {
+    return null;
+  }
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : null;
+}
 
 /* ── Component ──────────────────────────────── */
 export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
@@ -71,6 +103,14 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
     const field = useField({ id, hint, error, required, showOptional: showOptionalProp });
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    /** In-progress text. Null once the field is showing the committed `value`. */
+    const [draft, setDraft] = useState<string | null>(null);
+    // Mirrors `draft` so a stepper press and the blur it causes can't both commit.
+    const draftRef = useRef<string | null>(null);
+    const setDraftText = useCallback((next: string | null) => {
+      draftRef.current = next;
+      setDraft(next);
+    }, []);
 
     const clamp = useCallback(
       (v: number) => {
@@ -82,13 +122,22 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
       [min, max]
     );
 
+    /** Committed value a step should start from, dropping any in-progress text. */
+    const baseForStep = useCallback((): number => {
+      const raw = draftRef.current;
+      if (raw === null) return value;
+      setDraftText(null);
+      const parsed = parseTypedNumber(raw);
+      return parsed === null ? value : clamp(parsed);
+    }, [value, clamp, setDraftText]);
+
     const increment = useCallback(() => {
-      onChange(clamp(value + step));
-    }, [onChange, clamp, value, step]);
+      onChange(clamp(baseForStep() + step));
+    }, [onChange, clamp, baseForStep, step]);
 
     const decrement = useCallback(() => {
-      onChange(clamp(value - step));
-    }, [onChange, clamp, value, step]);
+      onChange(clamp(baseForStep() - step));
+    }, [onChange, clamp, baseForStep, step]);
 
     /* ── Hold-to-repeat ──────────────────────── */
     const stopRepeat = useCallback(() => {
@@ -107,16 +156,27 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
 
     useEffect(() => stopRepeat, [stopRepeat]);
 
-    /* ── Direct input ────────────────────────── */
+    /* ── Direct input — clamp when the field commits, not per keystroke ── */
     const handleInputChange = useCallback(
       (e: React.ChangeEvent<HTMLInputElement>) => {
+        // type="text" so a leading "-" or "0" survives until blur. A number input
+        // sanitizes both, which is what made "-5" and "07" clamp a digit at a time.
         const raw = e.target.value;
-        if (raw === "" || raw === "-") return;
-        const parsed = parseFloat(raw);
-        if (!Number.isNaN(parsed)) onChange(clamp(parsed));
+        if (raw !== "" && !/^[+-]?\d*\.?\d*$/.test(raw)) return;
+        setDraftText(raw);
       },
-      [onChange, clamp]
+      [setDraftText]
     );
+
+    const handleBlur = useCallback(() => {
+      const raw = draftRef.current;
+      if (raw === null) return;
+      setDraftText(null);
+      const parsed = parseTypedNumber(raw);
+      if (parsed === null) return;
+      const next = clamp(parsed);
+      if (next !== value) onChange(next);
+    }, [clamp, value, onChange, setDraftText]);
 
     const handleKeyDown = useCallback(
       (e: React.KeyboardEvent) => {
@@ -132,8 +192,12 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
       [increment, decrement, rest.readOnly]
     );
 
-    const atMin = min != null && value <= min;
-    const atMax = max != null && value >= max;
+    const parsedDraft = draft === null ? null : parseTypedNumber(draft);
+    const live = parsedDraft === null ? value : clamp(parsedDraft);
+    const atMin = min != null && live <= min;
+    const atMax = max != null && live >= max;
+    const shown =
+      draft ?? (typeof value === "number" && Number.isFinite(value) ? String(value) : "");
 
     const wrapperClasses = cn(
       styles.wrapper,
@@ -172,10 +236,12 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
             </button>
             <input
               {...field.controlProps}
-              type="number"
+              type="text"
+              inputMode="decimal"
               className={styles.input}
-              value={value}
+              value={shown}
               onChange={handleInputChange}
+              onBlur={handleBlur}
               onKeyDown={handleKeyDown}
               min={min}
               max={max}

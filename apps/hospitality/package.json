@@ -37,7 +37,7 @@
     {
       "name": "Floor Plan Shared (floor-plan-* incl. any geometry split, lazy chunks)",
       "path": "dist/assets/floor-plan-*.js",
-      "limit": "9.05 kB"
+      "limit": "9.1 kB"
     },
     {
       "name": "Dress Rehearsal (shared by the timeline and floor plan pages)",
@@ -52,7 +52,7 @@
     {
       "name": "Close Dialog (shared by the availability page and the timeline's Tonight panel)",
       "path": "dist/assets/CloseDialog-*.js",
-      "limit": "5.5 kB"
+      "limit": "6.9 kB"
     },
     {
       "name": "Service-day helpers (current-service-date, service-day-start and tonight-blocks, shared by the timeline's Tonight panel and the staff waitlist/booking form)",
@@ -111,8 +111,8 @@
     },
     {
       "name": "Copilot context + catalog registry (shared by dashboard drawer and chat page)",
-      "path": "dist/assets/copilotContext-*.js",
-      "limit": "11 kB"
+      "path": "dist/assets/useRefreshingChatStream-*.js",
+      "limit": "11.3 kB"
     }
   ],
   "dependencies": {

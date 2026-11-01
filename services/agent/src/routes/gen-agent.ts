@@ -2,7 +2,13 @@
 // eslint-disable-next-line no-restricted-imports -- agent tools call reservation API on behalf of authenticated user
 import { createApiClient } from "@mbe/api-client";
 import { z } from "zod";
-import { buildAgentSystemPrompt, chatComponentReference } from "./gen-agent-prompt.js";
+import {
+  CHAT_FOCUS_KINDS,
+  CHAT_PAGE_NAMES,
+  buildAgentSystemPrompt,
+  chatComponentReference,
+  type AgentPromptContext,
+} from "./gen-agent-prompt.js";
 import { createAgentTools } from "./gen-agent-tools.js";
 import { createGenRoute } from "./gen-route-factory.js";
 import { GEN_WRITE_TOOL_NAMES } from "./gen-runner.js";
@@ -49,6 +55,21 @@ const GenAgentBodySchema = z.object({
     .refine(isTimeZone, { message: "timeZone must be an IANA time zone" })
     .optional(),
   /**
+   * The page the chat was opened on, and the record and date it shows (#7924).
+   * The app sends them from its URL; a value that doesn't fit is dropped rather
+   * than refusing the whole message.
+   */
+  page: z.enum(CHAT_PAGE_NAMES).optional().catch(undefined),
+  focus: z
+    .object({ kind: z.enum(CHAT_FOCUS_KINDS), id: z.string().regex(/^[\w-]{1,64}$/) })
+    .optional()
+    .catch(undefined),
+  focusDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .catch(undefined),
+  /**
    * Present on the resend after the user clicks Confirm on an action_request.
    * Carries the exact toolName + toolInput the user saw: the confirmation gate
    * (gen-agent-tools.ts) executes that input verbatim, at most once.
@@ -64,12 +85,15 @@ const GenAgentBodySchema = z.object({
 
 /** The chat's system prompt: assistant guidance plus the component list only. */
 export function genAgentSystemPrompt(
-  parsed: { readonly venueId?: string | undefined; readonly timeZone?: string | undefined },
+  parsed: Pick<AgentPromptContext, "venueId" | "timeZone" | "page" | "focus" | "focusDate">,
   catalogPrompt: string
 ): string {
   return buildAgentSystemPrompt({
     venueId: parsed.venueId,
     timeZone: parsed.timeZone,
+    page: parsed.page,
+    focus: parsed.focus,
+    focusDate: parsed.focusDate,
     now: new Date(),
     catalogPrompt: chatComponentReference(catalogPrompt),
   });

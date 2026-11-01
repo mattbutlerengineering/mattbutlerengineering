@@ -625,6 +625,69 @@ describe("VenueOnboardingPage", () => {
     expect(screen.getByText("Launch Venue")).toBeTruthy();
   });
 
+  function goToHoursStep() {
+    fireEvent.change(screen.getByLabelText("Venue Name"), { target: { value: "My Venue" } });
+    fireEvent.click(screen.getByText("Next"));
+    fireEvent.change(screen.getByLabelText("Timezone"), { target: { value: "America/New_York" } });
+    fireEvent.click(screen.getByText("Next"));
+  }
+
+  it("keeps the service name when leaving Hours and coming back", () => {
+    renderPage();
+    goToHoursStep();
+
+    fireEvent.click(screen.getByRole("button", { name: "Lunch" }));
+    fireEvent.change(screen.getByLabelText("Service name"), { target: { value: "Midday" } });
+    expect(screen.getByText(/Last seating 1:45 PM, 45 min before close/)).toBeTruthy();
+
+    fireEvent.click(screen.getByText("Back"));
+    fireEvent.click(screen.getByText("Next"));
+
+    expect(screen.getByLabelText("Service name")).toHaveValue("Midday");
+    expect(screen.getByText(/Last seating 1:45 PM, 45 min before close/)).toBeTruthy();
+    expect(screen.queryByText("Add a service to see the times guests get.")).toBeNull();
+  });
+
+  it("keeps a typed service name that has no times yet", () => {
+    renderPage();
+    goToHoursStep();
+
+    fireEvent.change(screen.getByLabelText("Service name"), { target: { value: "Supper" } });
+    fireEvent.click(screen.getByText("Back"));
+    fireEvent.click(screen.getByText("Next"));
+
+    expect(screen.getByLabelText("Service name")).toHaveValue("Supper");
+  });
+
+  it("does not flag a newly added service until it is edited or Next is pressed", () => {
+    renderPage();
+    goToHoursStep();
+    fireEvent.click(screen.getByRole("button", { name: "Dinner" }));
+    fireEvent.click(screen.getByRole("button", { name: "Weekdays" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add another service" }));
+
+    expect(screen.queryByText("Choose a time.")).toBeNull();
+    expect(screen.queryByText("Give this service a name.")).toBeNull();
+
+    fireEvent.change(screen.getAllByLabelText("Service name")[1]!, {
+      target: { value: "Lunch" },
+    });
+    expect(screen.getAllByText("Choose a time.")).toHaveLength(3);
+  });
+
+  it("shows a new service's time errors when Next is pressed before that service is edited", () => {
+    renderPage();
+    goToHoursStep();
+    fireEvent.click(screen.getByRole("button", { name: "Dinner" }));
+    fireEvent.click(screen.getByRole("button", { name: "Weekdays" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add another service" }));
+    fireEvent.click(screen.getByText("Next"));
+
+    expect(screen.getAllByText("Choose a time.")).toHaveLength(3);
+    expect(screen.getByText("Give this service a name.")).toBeTruthy();
+    expect(screen.getByText("Operating Hours")).toBeTruthy();
+  });
+
   it("keeps Next gated while the quick-setup card is invalid, and says why", () => {
     renderPage();
     const nameInput = screen.getByLabelText("Venue Name") as HTMLInputElement;

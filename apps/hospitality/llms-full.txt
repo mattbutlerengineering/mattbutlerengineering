@@ -20,6 +20,11 @@
       readonly sameAs: number;
       /** The hours a Special hours or Same as row writes. */
       readonly services: readonly DraftService[];
+      /**
+       * The weekday `services` were copied from while the Manager has not edited them, so a new date
+       * can replace them; absent once edited (their hours are then theirs).
+       */
+      readonly seededFor?: number;
       /** This row's message for guests; the shared one wins while `shareMessage` is on. */
       readonly message: string;
     }
@@ -310,6 +315,79 @@
         ...(message ? { guestMessage: message } : {}),
       };
     }
+    type ClosureSpan = Pick<DateRule, "startsOn" | "endsOn" | "repeat">;
+    export function firstDateOf(when: CloseWhen, today: string): string {
+      return spanOf(when, today).startsOn;
+    }
+    export function guestDateOf(when: CloseWhen, today: string): string | null {
+      const { startsOn, endsOn, weekdays } = spanOf(when, today);
+      if (!weekdays || !startsOn) return startsOn;
+      const repeat = { version: 1 as const, weekdays: [...weekdays] };
+      return firstOccurrenceOnOrAfter({ startsOn, endsOn, repeat }, startsOn);
+    }
+    export function closedDates(closure: ClosureSpan): readonly string[] {
+      const first = firstOccurrenceOnOrAfter(closure, closure.startsOn);
+      if (first === null) return [];
+      const last = closure.endsOn ?? addDays(first, CLOSED_DATES_SCAN_DAYS);
+      const dates: string[] = [];
+      for (let date = first, n = 0; date <= last && n <= CLOSED_DATES_SCAN_DAYS; n += 1) {
+        if (closure.repeat == null || closure.repeat.weekdays.includes(weekdayIndexOf(date))) {
+          dates.push(date);
+        }
+        date = addDays(date, 1);
+      }
+      return dates;
+    }
+    export function replacedSpecialDate(
+      rules: readonly DateRule[],
+      closure: ClosureSpan
+    ): string | null {
+      const replaced = closedDates(closure).find((date) =>
+        activeRules(rules, date).some((r) => r.kind === "special_hours")
+      );
+      return replaced ?? null;
+    }
+    function distinctDays(config: AvailabilityConfig, dates: readonly string[]): readonly string[] {
+      const kinds = new Map<string, string>();
+      for (const date of dates) {
+        const season = config.assignments.filter(
+          (a) => (a.startsOn ?? date) <= date && date <= (a.endsOn ?? date)
+        );
+        const ids = [...season, ...activeRules(config.dateRules, date)].map((row) => row.id);
+        kinds.set(`${weekdayIndexOf(date)}:${ids.join()}`, date);
+      }
+      return [...kinds.values()];
+    }
+    export function startMinutes(
+      config: AvailabilityConfig,
+      timezone: string,
+      dates: readonly string[],
+      keep: number | null
+    ): readonly number[] {
+      const services = distinctDays(config, dates).flatMap(
+        (date) => resolveDay({ timezone, config }, date).services
+      );
+      const lastClose = lastCloseOf(services);
+      const end = Math.max(lastClose, keep ?? 0);
+      const firstOpen = services.reduce((min, s) => Math.min(min, s.opensAt), MINUTES_PER_DAY);
+      const first = lastClose > MINUTES_PER_DAY ? firstOpen - (firstOpen % HALF_HOUR) : 0;
+      const options: number[] = [];
+      // Starting at the close itself closes nothing, so the last option is the half hour before it.
+      for (
+        let m = first;
+        m < Math.min(Math.max(end, MINUTES_PER_DAY), END_OF_SERVICE_DAY);
+        m += HALF_HOUR
+      ) {
+        options.push(m);
+      }
+      return keep !== null && !options.includes(keep)
+        ? [...options, keep].sort((a, b) => a - b)
+        : options;
+    }
+    export function sameRequest(a: CloseForm, b: CloseForm): boolean {
+      const key = (f: CloseForm) => JSON.stringify([f.what, f.when, f.fromMinute]);
+      return key(a) === key(b);
+    }
     export function actionsFor(kind: ClosureImpactKind): readonly ClosureAction[] {
       return kind === "shortened"
         ? ["cancel", "move", "keep_notify", "keep_silent"]
@@ -370,12 +448,16 @@
       return startMinute - nowMinute <= URGENT_WITHIN_MINUTES;
     }
     export function activeOnlinePause(
-      rules: readonly DateRule[],
+      config: AvailabilityConfig,
+      timezone: string,
       today: string,
       nowMinute: number
     ): DateRule | null {
+      const yesterdayMinute = nowMinute + MINUTES_PER_DAY;
+      const yesterdayRunning = () =>
+        yesterdayMinute < lastCloseOf(resolveDay({ timezone, config }, addDays(today, -1)).services);
       return (
-        rules.find(
+        config.dateRules.find(
           (r) =>
             r.kind === "closure" &&
             r.targetKind === "booking" &&
@@ -383,7 +465,9 @@
             r.startsOn <= today &&
             (r.endsOn === null || r.endsOn === undefined) &&
             !r.repeat &&
-            (!r.window || r.window.from <= nowMinute)
+            (!r.window ||
+              r.window.from <= nowMinute ||
+              (r.startsOn < today && r.window.from <= yesterdayMinute && yesterdayRunning()))
         ) ?? null
       );
     }
@@ -441,9 +525,14 @@
         const [text, name] = copy.allDay(t);
         return { key: closure.ruleId, text, name };
       }
+      // A closure from a set time is stored as running to the two-day maximum: it ends when the
+      // service day does, which reads "close", not "12:00 AM (next day)".
       const [text, name] = copy.band(t, {
         from: minuteText(closure.from, t, format),
-        to: minuteText(closure.to, t, format),
+        to:
+          closure.to >= 2 * MINUTES_PER_DAY
+            ? t("availability.calendar.untilClose")
+            : minuteText(closure.to, t, format),
       });
       return { key: closure.ruleId, text, name };
     }
@@ -526,6 +615,82 @@
         return { code: "version-conflict", winningChange: problem.data.winningChange ?? null };
       }
       return problem.data.code === "closure-exists" ? { code: "closure-exists" } : null;
+    }
+  </file>
+  <file path="src/components/availability/conflict-review.ts">
+    export interface ScheduleChangeSince {
+      /** The schedule no longer exists (deleted or archived). */
+      readonly gone: boolean;
+      /** Another schedule now holds this one's place (a newer regular week); its name. */
+      readonly replacedBy: string | null;
+      readonly renamedTo: string | null;
+      /** Service names. */
+      readonly added: readonly string[];
+      readonly removed: readonly string[];
+      readonly changed: readonly string[];
+    }
+    function rowsByService(config: AvailabilityConfig, scheduleId: string) {
+      const names = new Map(config.venueServices.map((v) => [v.id, v.name]));
+      return new Map(
+        config.scheduleServices
+          .filter((s) => s.scheduleId === scheduleId)
+          .map((s) => [
+            s.venueServiceId,
+            { row: s, name: names.get(s.venueServiceId) ?? s.venueServiceId },
+          ])
+      );
+    }
+    export function scheduleChangesSince(
+      before: AvailabilityConfig,
+      after: AvailabilityConfig,
+      scheduleId: string,
+      latestId: string = scheduleId
+    ): ScheduleChangeSince {
+      const was = before.schedules.find((s) => s.id === scheduleId);
+      const now = after.schedules.find((s) => s.id === latestId && !s.archivedAt);
+      if (!now) {
+        return { gone: true, replacedBy: null, renamedTo: null, added: [], removed: [], changed: [] };
+      }
+      const old = rowsByService(before, scheduleId);
+      const next = rowsByService(after, latestId);
+      return {
+        gone: false,
+        replacedBy: latestId !== scheduleId ? now.name : null,
+        renamedTo: latestId === scheduleId && was && was.name !== now.name ? now.name : null,
+        added: [...next].filter(([id]) => !old.has(id)).map(([, v]) => v.name),
+        removed: [...old].filter(([id]) => !next.has(id)).map(([, v]) => v.name),
+        changed: [...next]
+          .filter(([id, v]) => {
+            const prior = old.get(id);
+            return prior !== undefined && HOURS_FIELDS.some((f) => !same(prior.row[f], v.row[f]));
+          })
+          .map(([, v]) => v.name),
+      };
+    }
+    interface ReapplyInput {
+      /** The rows the draft was seeded from. */
+      readonly base: readonly DraftService[];
+      /** The rows as the Manager has them now. */
+      readonly draft: readonly DraftService[];
+      /** The schedule's rows in the version that won. */
+      readonly latest: readonly DraftService[];
+    }
+    export function reapplyDraft({ base, draft, latest }: ReapplyInput): DraftService[] {
+      const baseById = new Map(base.map((s) => [s.venueServiceId, s]));
+      const draftById = new Map(draft.map((s) => [s.venueServiceId, s]));
+      const kept = latest.flatMap((row) => {
+        const was = baseById.get(row.venueServiceId);
+        const mine = draftById.get(row.venueServiceId);
+        if (was && !mine) return []; // the Manager removed it
+        if (!was || !mine) return [row]; // the colleague's, or nothing of the Manager's to apply
+        const edited = HOURS_FIELDS.filter((f) => !same(was[f], mine[f]));
+        return [{ ...row, ...Object.fromEntries(edited.map((f) => [f, mine[f]])) } as DraftService];
+      });
+      const added = draft.filter((s) => s.venueServiceId === null || !baseById.has(s.venueServiceId));
+      const fresh = added.filter(
+        (s) => s.venueServiceId === null || !latest.some((l) => l.venueServiceId === s.venueServiceId)
+      );
+      return [...kept, ...fresh];
     }
   </file>
   <file path="src/components/availability/copy-day.ts">
@@ -734,6 +899,15 @@
           readonly mode: SeriesScope;
           readonly from: string;
         };
+    export function overnightHintDate(
+      scope: EditScope,
+      date: string,
+      dates: readonly string[]
+    ): string | undefined {
+      if (scope.kind === "date" || scope.kind === "weekday") return date;
+      if (scope.kind === "rule" && dates.length === 1) return date;
+      return undefined;
+    }
     export interface DraftService {
       /** React key; stable across edits. */
       readonly key: string;
@@ -810,6 +984,8 @@
       readonly leaveOut?: readonly string[];
       /** Today on the venue clock: a rule edit's "All dates" starts here, so past dates keep their hours. */
       readonly today?: string;
+      /** The config the draft was seeded from; a schedule save removes only rows it contained. */
+      readonly baseline?: AvailabilityConfig;
     }
     function ownDateRule(config: AvailabilityConfig, date: string): DateRule | undefined {
       return config.dateRules.find(
@@ -848,10 +1024,14 @@
       config: AvailabilityConfig,
       scheduleId: string,
       services: readonly (DraftService & { venueServiceId: string })[],
-      makeId: () => string
+      makeId: () => string,
+      baseline?: AvailabilityConfig
     ): { upsert: ScheduleService[]; removed: string[] } {
       const stored = config.scheduleServices.filter((s) => s.scheduleId === scheduleId);
       const kept = new Set(services.map((s) => s.venueServiceId));
+      // Only rows the draft started with can be ones the Manager removed. A row that appeared since
+      // (a colleague's new service) was never in front of them, so a save must not delete it.
+      const seen = baseline && new Set(baseline.scheduleServices.map((s) => s.id));
       return {
         upsert: services.map((s) => ({
           ...hoursOf(s),
@@ -863,7 +1043,9 @@
           scheduleId,
           venueServiceId: s.venueServiceId,
         })),
-        removed: stored.filter((s) => !kept.has(s.venueServiceId)).map((s) => s.id),
+        removed: stored
+          .filter((s) => !kept.has(s.venueServiceId) && (!seen || seen.has(s.id)))
+          .map((s) => s.id),
       };
     }
     export function buildDraftChanges(input: BuildInput): AvailabilityConfigChanges {
@@ -880,7 +1062,13 @@
       const venueServices = created.length > 0 ? { venueServices: created } : {};
     
       if (scope.kind === "schedule") {
-        const { upsert, removed } = scheduleServiceRows(config, scope.scheduleId, services, makeId);
+        const { upsert, removed } = scheduleServiceRows(
+          config,
+          scope.scheduleId,
+          services,
+          makeId,
+          input.baseline
+        );
         return {
           upsert: { ...venueServices, scheduleServices: upsert },
           remove: removed.length > 0 ? { scheduleServices: removed } : {},
@@ -925,6 +1113,12 @@
     }
   </file>
   <file path="src/components/availability/outcome-label.ts">
+    export function outcomeSummary(counts: OutcomeCounts, t: TFunction): string {
+      return (["cancel", "move", "keep_notify", "keep_silent"] as const)
+        .filter((a) => counts[a] > 0)
+        .map((a) => t(`availability.close.button.part.${a}`, { count: counts[a] }))
+        .join(" · ");
+    }
     export function outcomeLabel(counts: OutcomeCounts, t: TFunction): string {
       const parts = (["cancel", "move", "keep_notify", "keep_silent"] as const)
         .filter((a) => counts[a] > 0)
@@ -1761,12 +1955,22 @@
       readonly startsOn: string;
       readonly endsOn: string | null;
     }
+    export function regularWeekdays(config: AvailabilityConfig, from: string): number[] {
+      const regular = liveSchedules(config).find((s) => s.isRegular);
+      const days = new Set(
+        config.assignments
+          .filter((a) => a.scheduleId === regular?.id && (a.endsOn == null || a.endsOn >= from))
+          .flatMap((a) => a.weekdays)
+      );
+      return days.size > 0 ? [...days].sort((x, y) => x - y) : EVERY_DAY;
+    }
     export function buildRegularWeekChanges(input: RegularWeekInput): AvailabilityConfigChanges {
       const { config, startsOn, endsOn } = input;
+      const weekdays = regularWeekdays(config, startsOn);
       if (endsOn !== null) {
         return buildNewScheduleChanges({
           ...input,
-          useOn: { weekdays: EVERY_DAY, startsOn, endsOn },
+          useOn: { weekdays, startsOn, endsOn },
         });
       }
       const scheduleId = input.makeId();
@@ -1798,7 +2002,7 @@
             {
               id: input.makeId(),
               scheduleId,
-              weekdays: EVERY_DAY,
+              weekdays,
               startsOn,
               endsOn: null,
               precedence: 0,
@@ -1816,6 +2020,8 @@
       readonly name: string;
       readonly services: readonly DraftService[];
       readonly makeId: () => string;
+      /** The config the drawer was seeded from, so a save removes only rows the Manager saw. */
+      readonly baseline: AvailabilityConfig;
     }): AvailabilityConfigChanges {
       const { config, scheduleId, name, makeId } = input;
       const rows = buildDraftChanges({
@@ -1823,6 +2029,7 @@
         scope: { kind: "schedule", scheduleId },
         services: input.services,
         makeId,
+        baseline: input.baseline,
       });
       const stored = config.schedules.find((s) => s.id === scheduleId);
       const rename = stored && stored.name !== name ? { schedules: [{ ...stored, name }] } : {};
@@ -1903,6 +2110,83 @@
       return dates.filter((date) =>
         rules.some((rule) => coversDate(rule, date) && !skipped.has(`${rule.id}@${date}`))
       );
+    }
+  </file>
+  <file path="src/components/availability/scope-switch.ts">
+    export interface ParkedEdit {
+      readonly base: DraftService;
+      readonly draft: DraftService | null;
+    }
+    interface SwitchInput {
+      /** The rows the draft started from, in the scope it leaves. */
+      readonly baseline: readonly DraftService[];
+      readonly services: readonly DraftService[];
+      readonly parked: readonly ParkedEdit[];
+      /** The rows of the scope it lands in. */
+      readonly seed: DraftService[];
+    }
+    export interface Switched {
+      readonly services: DraftService[];
+      readonly baseline: DraftService[];
+      readonly parked: ParkedEdit[];
+      /** Services the new scope lacks, whose edits are held rather than saved. */
+      readonly unsaved: string[];
+      /** Services the new scope already has with these hours: the ones just set change nothing there. */
+      readonly overridden: string[];
+    }
+    export function switchScope(input: SwitchInput): Switched {
+      const { baseline, services, parked, seed } = input;
+      const ids = (rows: readonly DraftService[]) => new Set(rows.map((r) => r.venueServiceId));
+      const baselineIds = ids(baseline);
+      const serviceIds = ids(services);
+      // Edits parked earlier rejoin the draft, so a scope that has the service takes them up again.
+      const base = [
+        ...baseline,
+        ...parked.map((p) => p.base).filter((b) => !baselineIds.has(b.venueServiceId)),
+      ];
+      const draft = [
+        ...services,
+        ...parked.flatMap((p) => (p.draft && !serviceIds.has(p.draft.venueServiceId) ? [p.draft] : [])),
+      ];
+      const draftIds = ids(draft);
+      const baseById = new Map(base.map((r) => [r.venueServiceId, r]));
+      const seedById = new Map(seed.map((r) => [r.venueServiceId, r]));
+    
+      const edits = draft.flatMap((d) => {
+        const was = baseById.get(d.venueServiceId);
+        return d.venueServiceId !== null && was && !same(was, d) && !seedById.has(d.venueServiceId)
+          ? [{ base: was, draft: d }]
+          : [];
+      });
+      // A removal of a row the new scope has no row for is held too: it would not otherwise survive
+      // the trip back, where the row is seeded afresh.
+      const removals = base.flatMap((b) =>
+        b.venueServiceId !== null && !draftIds.has(b.venueServiceId) && !seedById.has(b.venueServiceId)
+          ? [{ base: b, draft: null }]
+          : []
+      );
+      const nextParked: ParkedEdit[] = [...edits, ...removals];
+      // An edit that leaves the row equal to what the new scope has changes nothing there.
+      const matched = draft.flatMap((d) => {
+        const there = d.venueServiceId === null ? undefined : seedById.get(d.venueServiceId);
+        const was = baseById.get(d.venueServiceId);
+        return there && was && !same(was, d) && same(there, d) ? [d.name] : [];
+      });
+      // An added service the new scope already has keeps that scope's hours, not the ones just set.
+      const overridden = draft.flatMap((d) => {
+        const there = d.venueServiceId === null ? undefined : seedById.get(d.venueServiceId);
+        return there && !baseById.has(d.venueServiceId) && !same(there, d)
+          ? [d.name || there.name]
+          : [];
+      });
+    
+      return {
+        services: reapplyDraft({ base, draft, latest: seed }),
+        baseline: seed,
+        parked: nextParked,
+        unsaved: [...new Set(edits.map((p) => p.draft.name))],
+        overridden: [...new Set([...overridden, ...matched])],
+      };
     }
   </file>
   <file path="src/components/availability/selection-actions.ts">
@@ -2035,6 +2319,15 @@
       }
       return series.startsOn;
     }
+    export function sameRow(a: DateRule, b: DateRule): boolean {
+      const key = (rule: DateRule) =>
+        JSON.stringify(
+          Object.entries({ ...rule, repeat: [...(rule.repeat?.weekdays ?? [])].sort((x, y) => x - y) })
+            .filter(([, value]) => value != null)
+            .sort(([x], [y]) => x.localeCompare(y))
+        );
+      return key(a) === key(b);
+    }
     export function dateOverride(
       rules: readonly DateRule[],
       seriesId: string,
@@ -2089,6 +2382,20 @@
       if (from === series.startsOn) return { rule, alongside: { upsert: moved, remove: [series.id] } };
       const ended: DateRule = { ...series, endsOn: addDays(from, -1) };
       return { rule, alongside: { upsert: [ended, ...moved], remove: [] } };
+    }
+    export function growthAttempt(
+      plan: { readonly rule: DateRule; readonly alongside: ClosureAlongside },
+      ruleId: string
+    ): { rule: DateRule; alongside: ClosureAlongside } {
+      return {
+        rule: { ...plan.rule, id: ruleId },
+        alongside: {
+          ...plan.alongside,
+          upsert: plan.alongside.upsert.map((r) =>
+            r.seriesId === plan.rule.id ? { ...r, seriesId: ruleId } : r
+          ),
+        },
+      };
     }
     export function editHoursRule(
       rule: SpecialHoursRule,
@@ -2174,6 +2481,53 @@
       return summaries.filter(
         (s) => s.refundFailed + s.refundPending > 0 && !listedRuleIds.includes(s.ruleId)
       );
+    }
+  </file>
+  <file path="src/components/availability/step-two-refusal.ts">
+    export type Refusal =
+      /** A group's bookings changed since the Manager chose: the choices are void. */
+      | { readonly kind: "groups-changed" }
+      /** Someone saved first; `winningChange` is `null` when the server recorded none. */
+      | { readonly kind: "version-conflict"; readonly winningChange: AvailabilityChangeSummary | null }
+      /** This attempt already committed (a response was lost). */
+      | { readonly kind: "closure-exists" }
+      /**
+       * `outcomeUnknown`: no answer the server stands behind (a lost response, a timeout, a 5xx from
+       * something in front of it), so the save may have committed.
+       */
+      | {
+          readonly kind: "other";
+          readonly detail: string;
+          readonly outcomeUnknown: boolean;
+          readonly category: ApiErrorCategory;
+        };
+    export function refusalOf(error: unknown): Refusal {
+      if (isDecisionRequired(error)) return { kind: "groups-changed" };
+      const conflict = conflictOf(error);
+      if (conflict?.code === "version-conflict") {
+        return { kind: "version-conflict", winningChange: conflict.winningChange };
+      }
+      if (conflict?.code === "closure-exists") return { kind: "closure-exists" };
+      const { category, detail } = describeApiError(error);
+      return { kind: "other", detail, outcomeUnknown: UNKNOWN_OUTCOME.has(category), category };
+    }
+    export function mayHaveSaved(refusal: Refusal): boolean {
+      return refusal.kind === "closure-exists" || (refusal.kind === "other" && refusal.outcomeUnknown);
+    }
+    export function refusalText(refusal: Refusal, t: TFunction): string {
+      switch (refusal.kind) {
+        case "groups-changed":
+          return t("availability.close.groupsChanged");
+        case "version-conflict":
+          return t("availability.close.versionConflict");
+        case "closure-exists":
+          return t("availability.close.alreadySaved");
+        case "other":
+          // The house sentence for a 5xx says nothing was changed, which a gateway cannot know.
+          return refusal.outcomeUnknown && refusal.category === "serverError"
+            ? t("availability.close.maybeSaved")
+            : refusal.detail;
+      }
     }
   </file>
   <file path="src/components/availability/tonight-state.ts">
@@ -2265,10 +2619,114 @@
       });
     }
   </file>
+  <file path="src/components/availability/use-conflict-review.ts">
+    interface Baseline {
+      readonly config: AvailabilityConfig;
+      readonly version: number;
+      /** The schedule the draft's rows were seeded from, fixed when the drawer opened. */
+      readonly scheduleId: string | undefined;
+    }
+    export type ConflictReviewKind = "edit" | "regularWeek" | "draft";
+    export interface ConflictReview {
+      readonly kind: ConflictReviewKind;
+      /** The refetch has landed; until then there is nothing to compare with. */
+      readonly loaded: boolean;
+      readonly changes: ScheduleChangeSince;
+    }
+    interface Input {
+      readonly kind: ConflictReviewKind;
+      readonly state: AvailabilityConfigState;
+      /**
+       * The schedule whose rows the draft starts from, as the latest state has it (the regular week
+       * can move to another schedule); none for a draft with nothing to compare. The drawer reads
+       * it once, when it opens, and keeps that as where its rows came from.
+       */
+      readonly scheduleId: string | undefined;
+      readonly services: readonly DraftService[];
+      /** The name field is a rename of `scheduleId` (edit), not the name of a new schedule. */
+      readonly name: string | null;
+      readonly conflicted: boolean;
+      readonly clearConflict: () => void;
+      /** Replaces the draft with the answer the Manager chose. */
+      readonly apply: (next: { services: DraftService[]; name: string | null }) => void;
+      /** Starts the whole draft again (name, dates and all) from these rows; for non-edit drafts. */
+      readonly startOver: (services: DraftService[]) => void;
+      /** The schedule is gone, so there is nothing left to edit. */
+      readonly onGone: () => void;
+    }
+    export function useConflictReview(input: Input) {
+      const { kind, state, services, name, conflicted } = input;
+      const [baseline, setBaseline] = useState<Baseline>(() => ({
+        config: state.config,
+        version: state.version,
+        scheduleId: input.scheduleId,
+      }));
+      const pinned = baseline.scheduleId;
+      const latestId = kind === "regularWeek" ? input.scheduleId : pinned;
+      const nameIn = (config: AvailabilityConfig) =>
+        config.schedules.find((s) => s.id === pinned)?.name ?? "";
+    
+      const baselineServices = rowsOf(baseline.config, pinned);
+      const loaded = state.version !== baseline.version;
+      const compared =
+        conflicted && loaded && kind !== "draft" && pinned && latestId
+          ? scheduleChangesSince(baseline.config, state.config, pinned, latestId)
+          : NO_CHANGES;
+      // A new regular week saves a new schedule, so a missing regular week is not a dead end.
+      const changes = kind === "regularWeek" ? { ...compared, gone: false } : compared;
+      const review: ConflictReview | null = conflicted ? { kind, loaded, changes } : null;
+    
+      const rebase = () =>
+        setBaseline({ config: state.config, version: state.version, scheduleId: input.scheduleId });
+      const settle = (next: () => void) => {
+        rebase();
+        next();
+        input.clearConflict();
+      };
+      const latestRows = () => rowsOf(state.config, kind === "draft" ? pinned : latestId);
+    
+      return {
+        baseline: baseline.config,
+        /** The version a save is checked against: the one the draft was built from. */
+        baselineVersion: baseline.version,
+        baselineServices,
+        baselineName: nameIn(baseline.config),
+        review,
+        /** The winning version with only the Manager's own changes on top. */
+        reapply: () =>
+          settle(() => {
+            if (kind === "draft") return; // a new schedule depends on nothing that moved
+            const latest = latestId && !changes.gone ? rowsOf(state.config, latestId) : null;
+            input.apply({
+              services: latest
+                ? reapplyDraft({ base: baselineServices, draft: services, latest })
+                : [...services],
+              name: name === null || name !== nameIn(baseline.config) ? name : nameIn(state.config),
+            });
+          }),
+        /** The winning version as it is; the draft is dropped. */
+        discard: () => {
+          if (kind === "edit") {
+            if (changes.gone) input.onGone();
+            else
+              settle(() =>
+                input.apply({
+                  services: latestRows(),
+                  name: name === null ? null : nameIn(state.config),
+                })
+              );
+            return;
+          }
+          settle(() => input.startOver(latestRows()));
+        },
+      };
+    }
+  </file>
   <file path="src/components/availability/use-discard-guard.ts">
-    export function useDiscardGuard<T>(apply: (next: T) => void) {
-      const [dirty, setDirty] = useState(false);
+    export function useDiscardGuard<T>(apply: (next: T) => void, derivedDirty?: boolean) {
+      const [reported, setDirty] = useState(false);
       const [pending, setPending] = useState<{ readonly next: T } | null>(null);
+      const dirty = derivedDirty ?? reported;
     
       /** Moves on now, with the draft gone: after a save, or once it has been thrown away. */
       const release = (next: T) => {
@@ -2290,6 +2748,84 @@
       };
     }
   </file>
+  <file path="src/components/availability/use-save-attempts.ts">
+    export interface TriedAttempt {
+      readonly key: string;
+      readonly ruleIds: readonly string[];
+      readonly dates: readonly string[];
+      readonly summary: string;
+    }
+    export interface SaveAttemptsOptions {
+      /** The first attempt's rule id, when the rule already has one (a Tonight close-early). */
+      readonly firstRuleId?: string;
+      /** Reloads the config: leaving after a save leaves the calendar stale otherwise. */
+      readonly reload: () => void;
+      readonly onLeave: () => void;
+    }
+    export function useSaveAttempts(rules: readonly DateRule[], options: SaveAttemptsOptions) {
+      const { firstRuleId, reload, onLeave } = options;
+      const [attempt, setAttempt] = useState(() => newAttempt(firstRuleId));
+      const [tried, setTried] = useState<readonly TriedAttempt[]>([]);
+      const [failedSave, setFailedSave] = useState(false);
+      const [maybeSaved, setMaybeSaved] = useState(false);
+      const earlier = tried.find((a) => rules.some((r) => a.ruleIds.includes(r.id)));
+    
+      const finish = () => {
+        if (tried.length > 0) reload();
+        onLeave();
+      };
+      const guard = useDiscardGuard<null>(() => finish());
+    
+      const restart = (ruleId?: string) => {
+        setAttempt(newAttempt(ruleId));
+        setFailedSave(false);
+      };
+    
+      return {
+        ...attempt,
+        tried,
+        earlier,
+        /** Some attempt got no definite answer. Later refusals do not settle it. */
+        maybeSaved,
+        restart,
+        finish,
+        setDirty: guard.setDirty,
+        /** A choice or field moved from `before` to `after`: after a failure, that is a new attempt. */
+        edited: (before: unknown, after: unknown) => {
+          if (failedSave && JSON.stringify(before) !== JSON.stringify(after)) restart();
+        },
+        /**
+         * Call before sending. One rule id can be sent more than once (a refused send keeps it, and
+         * the Manager may then choose differently), and the send that commits is the last one.
+         */
+        record: (
+          summary: string,
+          ruleIds: readonly string[] = [attempt.ruleId],
+          dates: readonly string[] = []
+        ) => {
+          const sent = { key: attempt.idempotencyKey, ruleIds, dates, summary };
+          setTried((all) => [...all.filter((a) => a.key !== sent.key), sent]);
+        },
+        /** The save was refused, or lost: a changed request is now a new attempt, and leaving asks. */
+        failed: (refusal: Refusal) => {
+          setFailedSave(true);
+          if (mayHaveSaved(refusal)) setMaybeSaved(true);
+          guard.setDirty(true);
+        },
+        /** Escape during a save would close the dialog while the save still commits. */
+        leave: (busy = false) => {
+          if (busy) return;
+          // Nothing to discard once it is saved: the question would be false.
+          if (earlier) finish();
+          else guard.request(null);
+        },
+        asking: guard.pending !== null,
+        confirmLeave: guard.confirmDiscard,
+        keepEditing: guard.keepEditing,
+      };
+    }
+    export type SaveAttempts = ReturnType<typeof useSaveAttempts>;
+  </file>
   <file path="src/components/availability/use-schedule-save.ts">
     export function useScheduleSave(
       onStale: () => void,
@@ -2301,6 +2837,9 @@
       const { t } = useTranslation();
       const { mutateAsync, isPending } = useSaveAvailabilityConfig();
       const [failure, setFailure] = useState<readonly string[]>([]);
+      // A lost race. The draft was built from a version that is gone, so a drawer that edits rows
+      // must show what changed and get an answer (reapply or discard) before it saves again.
+      const [conflicted, setConflicted] = useState(false);
     
       const reject = (error: unknown) => {
         const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
@@ -2308,6 +2847,7 @@
         const problem = parsed.success ? parsed.data : null;
         if (problem?.code === "version-conflict") {
           onStale();
+          setConflicted(true);
           setFailure([t("availabilitySchedules.conflict")]);
         } else if (problem?.code === "invalid-config" && problem.issues?.length) {
           setFailure(problem.issues.map((i) => i.message));
@@ -2337,7 +2877,18 @@
         }
       };
     
-      return { save, isPending, failure, clearFailure: () => setFailure([]) };
+      return {
+        save,
+        isPending,
+        failure,
+        conflicted,
+        clearFailure: () => setFailure([]),
+        /** The Manager has answered the conflict; the next save is against the version they saw. */
+        clearConflict: () => {
+          setConflicted(false);
+          setFailure([]);
+        },
+      };
     }
   </file>
   <file path="src/components/availability/use-winning-change-text.ts">
@@ -3358,6 +3909,50 @@
       };
     }
   </file>
+  <file path="src/constants/chatPageContext.ts">
+    export interface ChatFocus {
+      readonly kind: "reservation" | "floorPlan" | "menu";
+      readonly id: string;
+    }
+    export interface ChatPageContext {
+      readonly page?: string;
+      readonly focus?: ChatFocus;
+      readonly focusDate?: string;
+    }
+    function focusFor(page: string, rest: readonly string[], params: URLSearchParams) {
+      const pathId = rest[0];
+      const raw =
+        page === "timeline"
+          ? { kind: "reservation" as const, id: params.get("selected") }
+          : page === "floor-plans"
+            ? { kind: "floorPlan" as const, id: pathId }
+            : page === "menus"
+              ? { kind: "menu" as const, id: pathId }
+              : undefined;
+      return raw?.id && RECORD_ID.test(raw.id) ? { kind: raw.kind, id: raw.id } : undefined;
+    }
+    export function chatPageContext(pathname: string, search: string): ChatPageContext {
+      const segments = pathname
+        .replace(/^\/hospitality/, "")
+        .split("/")
+        .filter(Boolean);
+      const page = segments[0] ?? "timeline";
+      if (!CHAT_PAGES.has(page)) return {};
+      const params = new URLSearchParams(search);
+      const focus = focusFor(page, segments.slice(1), params);
+      const date = params.get("date");
+      const focusDate = DATED_PAGES.has(page) && date && CALENDAR_DATE.test(date) ? date : undefined;
+      return { page, ...(focus ? { focus } : {}), ...(focusDate ? { focusDate } : {}) };
+    }
+    export type ChatSuggestionKey =
+      | (typeof GENERAL_SUGGESTIONS)[number]
+      | (typeof PAGE_SUGGESTIONS)[keyof typeof PAGE_SUGGESTIONS][number];
+    export function chatSuggestionKeys(page: string | undefined): readonly ChatSuggestionKey[] {
+      return page && Object.hasOwn(PAGE_SUGGESTIONS, page)
+        ? PAGE_SUGGESTIONS[page as keyof typeof PAGE_SUGGESTIONS]
+        : GENERAL_SUGGESTIONS;
+    }
+  </file>
   <file path="src/constants/copilotContext.ts">
     export const HOSPITALITY_DOMAIN_CONTEXT: DomainContext = {
       schemas: [
@@ -3389,36 +3984,48 @@
       const timeZone = resolveTimeZone(venue.ianaTimezone);
       return timeZone ? { venueId: venue.id, timeZone } : { venueId: venue.id };
     }
-    export function useChatRequestContext(): Record<string, string> {
+    export function useChatRequestContext(): Readonly<Record<string, unknown>> {
       const { selectedVenue } = useVenue();
-      return useMemo(() => chatRequestContext(selectedVenue), [selectedVenue]);
+      const { pathname, search } = useLocation();
+      // A record the page publishes (its live selection) wins over one named in the URL.
+      const published = useChatFocus();
+      return useMemo(
+        () => ({
+          ...chatRequestContext(selectedVenue),
+          ...chatPageContext(pathname, search),
+          ...(published ? { focus: published } : {}),
+        }),
+        [selectedVenue, pathname, search, published]
+      );
     }
     export function useChatSuggestions(): readonly string[] {
       const { t } = useTranslation();
-      return useMemo(
-        () => [
-          t("chat.suggestions.tonight"),
-          t("chat.suggestions.openTables"),
-          t("chat.suggestions.availability"),
-          t("chat.suggestions.walkIn"),
-        ],
-        [t]
-      );
+      const { pathname } = useLocation();
+      const { page } = chatPageContext(pathname, "");
+      return useMemo(() => chatSuggestionKeys(page).map((key) => t(key)), [t, page]);
     }
     type ChatActionKey =
-      | (typeof ACTION_TITLES)[keyof typeof ACTION_TITLES]
-      | (typeof ACTION_FIELDS)[keyof typeof ACTION_FIELDS]
-      | (typeof TABLE_STATUSES)[keyof typeof TABLE_STATUSES];
+      | `chat.actions.${(typeof ACTION_TITLES)[number]}`
+      | (typeof YES_NO)[keyof typeof YES_NO]
+      | (typeof SCOPES)[keyof typeof SCOPES]
+      | (typeof OPEN_END)[keyof typeof OPEN_END]
+      | `chat.actions.fields.${(typeof ACTION_FIELDS)[number]}`
+      | (typeof TABLE_STATUSES)[keyof typeof TABLE_STATUSES]
+      | (typeof TONIGHT_CHANGES)[keyof typeof TONIGHT_CHANGES]
+      | (typeof CANCEL_REASONS)[keyof typeof CANCEL_REASONS]
+      | (typeof MENU_AVAILABILITY)[keyof typeof MENU_AVAILABILITY];
     type Translate = (key: ChatActionKey) => string;
     function formatWhen(key: string, value: string, locale?: string): string {
-      if (key === "date" && CALENDAR_DATE.test(value) && isRealDate(value)) {
+      if (DATE_FIELDS.has(key) && CALENDAR_DATE.test(value) && isRealDate(value)) {
         return formatCalendarDate(value, { weekday: "long", month: "short", day: "numeric" }, locale);
       }
       if (TIME_FIELDS.has(key) && WALL_TIME.test(value)) return formatLocalTime(value, locale);
       return value;
     }
-    function lookup<T extends Record<string, string>>(map: T, key: string): T[keyof T] | undefined {
-      return Object.hasOwn(map, key) ? map[key as keyof T] : undefined;
+    function valueKey(key: string, value: string): ChatActionKey | undefined {
+      if (!Object.hasOwn(VALUE_KEYS, key)) return undefined;
+      const map = VALUE_KEYS[key]!;
+      return Object.hasOwn(map, value) ? map[value] : undefined;
     }
     export function describeChatAction(
       action: PendingAction,
@@ -3426,20 +4033,25 @@
       tableName: (id: string) => string | undefined,
       locale?: string
     ): ActionDescription {
-      const titleKey = lookup(ACTION_TITLES, action.toolName);
+      const hasTitle = ACTION_TITLES.includes(action.toolName as (typeof ACTION_TITLES)[number]);
       return {
-        title: titleKey ? t(titleKey) : action.toolName.replace(/_/g, " "),
+        title: hasTitle
+          ? t(`chat.actions.${action.toolName}` as ChatActionKey)
+          : action.toolName.replace(/_/g, " "),
         details: Object.entries(action.toolInput).map(([key, raw]) => {
-          const value = String(raw);
-          const statusKey = key === "status" ? lookup(TABLE_STATUSES, value) : undefined;
+          const value = Array.isArray(raw) ? raw.join(", ") : String(raw);
+          const statusKey = valueKey(key, value);
           const shown =
             key === "tableId"
               ? (tableName(value) ?? value)
               : statusKey
                 ? t(statusKey)
                 : formatWhen(key, value, locale);
-          const labelKey = lookup(ACTION_FIELDS, key);
-          return { label: labelKey ? t(labelKey) : key, value: shown };
+          const hasLabel = ACTION_FIELDS.includes(key as (typeof ACTION_FIELDS)[number]);
+          return {
+            label: hasLabel ? t(`chat.actions.fields.${key}` as ChatActionKey) : key,
+            value: shown,
+          };
         }),
       };
     }
@@ -4371,8 +4983,15 @@
       // (useDashboardStatsQuery's DEPOSITS_QUERY_KEY). Two pending/held deposits
       // (depositAtRiskCount) plus one forfeited (noShowExposureCents), matching
       // the shape computeDepositStats expects.
+      // `?reservationId=` is the details surface's single-deposit lookup (getByReservation), which
+      // expects one deposit or null: these reservations have none.
       await page.route("**/api/v1/deposits?*", (route) =>
-        jsonOk(route, buildDepositsFixture(new Date()))
+        jsonOk(
+          route,
+          new URL(route.request().url()).searchParams.has("reservationId")
+            ? null
+            : buildDepositsFixture(new Date())
+        )
       );
     
       // Waitlist
@@ -5504,6 +6123,7 @@
     export const TABLE_SURFACE_NAME = "table-surface";
     export const TABLE_SHADOW_NAME = "table-shadow";
     export const SEAT_NAME = "seat";
+    export const FURNITURE_GROUP_NAME = "table-furniture";
     export const FURNITURE_PALETTE = {
       /**
        * The wood tone the art was drawn in. The table surface is filled with the
@@ -6958,6 +7578,28 @@
       return { status, error, selectSlot, confirm, abandon };
     }
   </file>
+  <file path="src/hooks/useChatFocus.ts">
+    function publish(next: ChatFocus | undefined): void {
+      if (current?.kind === next?.kind && current?.id === next?.id) return;
+      current = next;
+      for (const listener of listeners) listener();
+    }
+    function subscribe(listener: () => void): () => void {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    }
+    export function useChatFocus(): ChatFocus | undefined {
+      return useSyncExternalStore(subscribe, snapshot, snapshot);
+    }
+    export function usePublishChatFocus(focus: ChatFocus | undefined): void {
+      const kind = focus?.kind;
+      const id = focus?.id;
+      useEffect(() => {
+        publish(kind && id ? { kind, id } : undefined);
+        return () => publish(undefined);
+      }, [kind, id]);
+    }
+  </file>
   <file path="src/hooks/useClosures.ts">
     export const useClosureImpact = createQueryHook<
       ClosureImpact | null,
@@ -6991,7 +7633,11 @@
       idempotencyKey: string;
     };
     export const useCreateClosure = createMutationHook<CreateClosureVariables, ClosureResult>({
-      invalidateKeys: [AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY],
+      invalidateKeys: [
+        AVAILABILITY_CONFIG_QUERY_KEY,
+        AVAILABILITY_DAYS_QUERY_KEY,
+        CLOSURE_SUMMARIES_QUERY_KEY,
+      ],
       mutationFn: (api, { venueId, body, idempotencyKey }) =>
         api.availability.createClosure(venueId, body, idempotencyKey),
     });
@@ -7436,6 +8082,8 @@
     export type FocusTarget =
       | { readonly kind: "element"; readonly element: HTMLElement }
       | { readonly kind: "testId"; readonly testId: string }
+      /** The first enabled control inside the `data-testid` container, a dismiss control excepted. */
+      | { readonly kind: "firstIn"; readonly testId: string }
       /** The `PageHeader` h1, which carries `tabIndex={-1}` for this purpose. */
       | { readonly kind: "pageHeading" };
     export interface FocusAfterApi {
@@ -7446,9 +8094,9 @@
         case "element":
           return target.element;
         case "testId":
-          return document.querySelector<HTMLElement>(
-            `[data-testid="${target.testId.replace(/["\\]/g, "\\$&")}"]`
-          );
+          return byTestId(target.testId);
+        case "firstIn":
+          return byTestId(target.testId)?.querySelector<HTMLElement>(FIRST_CONTROL) ?? null;
         case "pageHeading":
           return document.querySelector<HTMLElement>("h1");
       }
@@ -8016,6 +8664,27 @@
         void queryClient.invalidateQueries({ queryKey: [AVAILABILITY_CONFIG_QUERY_KEY] });
         void queryClient.invalidateQueries({ queryKey: [AVAILABILITY_DAYS_QUERY_KEY] });
       }, [queryClient]);
+    }
+  </file>
+  <file path="src/hooks/useRefreshingChatStream.ts">
+    function isConfirmedAction(body: unknown): boolean {
+      return typeof body === "object" && body !== null && "actionConfirm" in body;
+    }
+    export function refreshAfterConfirm(stream: ChatStreamFn, refresh: () => void): ChatStreamFn {
+      return async function* (request) {
+        try {
+          yield* stream(request);
+        } finally {
+          if (isConfirmedAction(request.body)) refresh();
+        }
+      };
+    }
+    export function useRefreshingChatStream(): ChatStreamFn {
+      const queryClient = useQueryClient();
+      return useMemo(
+        () => refreshAfterConfirm(streamNDJSON, () => void queryClient.invalidateQueries()),
+        [queryClient]
+      );
     }
   </file>
   <file path="src/hooks/useReservationDisplay.ts">
@@ -9208,11 +9877,22 @@
       const headers: Record<string, string> = { Authorization: `Bearer ${accessToken}` };
       if (body !== undefined) headers["Content-Type"] = "application/json";
     
-      return fetch(`${API_BASE_URL}${path}`, {
-        method,
-        headers,
-        body: body !== undefined ? JSON.stringify(body) : undefined,
-      });
+      const send = (): Promise<Response> =>
+        fetch(`${API_BASE_URL}${path}`, {
+          method,
+          headers,
+          body: body !== undefined ? JSON.stringify(body) : undefined,
+        });
+    
+      // A single dropped connection ("fetch failed") must not fail the daily
+      // journey (#7921). Only idempotent methods are retried, so a POST can never
+      // create a venue twice.
+      if (method !== "GET" && method !== "DELETE") return send();
+      try {
+        return await send();
+      } catch {
+        return send();
+      }
     }
     export async function listSyntheticVenues(accessToken: string): Promise<VenueSummary[]> {
       const response = await apiRequest(accessToken, "/api/v1/venues?limit=100", "GET");
@@ -10945,6 +11625,7 @@
     }
   </file>
   <file path="src/components/timeline/seat-guest.ts">
+    export const RESERVATION_EDIT_TEST_ID = "reservation-edit";
     export function findReservationTable(
       reservation: Reservation,
       tables: readonly Table[]
@@ -11717,6 +12398,11 @@
     export function minutesOfDayIn(instant: Date, timeZone?: string): number {
       const clock = timeZone ? venueWallClock(timeZone, instant) : null;
       return clock ? clock.nowMin : instant.getHours() * 60 + instant.getMinutes();
+    }
+    export function serviceMinuteOf(instant: Date, timeZone: string, serviceDate: string): number {
+      return (
+        minutesOfDayIn(instant, timeZone) + (venueDate(instant, timeZone) > serviceDate ? 1440 : 0)
+      );
     }
     export function venueWallClock(timeZone: string, now: Date): VenueWallClock | null {
       try {
@@ -12685,6 +13371,11 @@
       operatingHours: OperatingHours;
       settings: SettingsData;
       floorPlan: FloorPlanDraft;
+      /**
+       * The hours step's own form. Legacy `operatingHours` has no service name, so the step
+       * reads this draft back after Back/Next instead of rebuilding from the open/close map.
+       */
+      hoursDraft: QuickSetupDraft;
     }
     export interface OnboardingWizardErrors {
       basicInfo: Partial<Record<keyof BasicInfoData, string>>;
@@ -12705,6 +13396,7 @@
       | { type: "SET_STEP_DATA"; step: "basicInfo"; data: BasicInfoData }
       | { type: "SET_STEP_DATA"; step: "locationTime"; data: LocationTimeData }
       | { type: "SET_STEP_DATA"; step: "operatingHours"; data: OperatingHours }
+      | { type: "SET_STEP_DATA"; step: "hoursDraft"; data: QuickSetupDraft }
       | { type: "SET_STEP_DATA"; step: "settings"; data: SettingsData }
       | { type: "NEXT" }
       | { type: "BACK" }
@@ -12718,6 +13410,9 @@
       | { type: "MOVE_DRAFT_TABLE"; localId: string; x: number; y: number }
       | { type: "REMOVE_DRAFT_TABLE"; localId: string }
       | { type: "SET_LAUNCH_PROGRESS"; progress: LaunchProgress };
+    function hoursFromDraft(draft: QuickSetupDraft): OperatingHours {
+      return validateDraft(draft, { legacyReader: true }).length === 0 ? draftToLegacyHours(draft) : {};
+    }
     function runStepValidation(state: OnboardingWizardState): {
       state: OnboardingWizardState;
       valid: boolean;
@@ -12789,6 +13484,16 @@
               return {
                 ...state,
                 data: { ...state.data, operatingHours: action.data },
+                errors: { ...state.errors, operatingHours: null },
+              };
+            case "hoursDraft":
+              return {
+                ...state,
+                data: {
+                  ...state.data,
+                  hoursDraft: action.data,
+                  operatingHours: hoursFromDraft(action.data),
+                },
                 errors: { ...state.errors, operatingHours: null },
               };
             case "settings":
@@ -12965,6 +13670,13 @@
                 type: "SET_STEP_DATA",
                 step: "operatingHours",
                 data: data as OperatingHours,
+              });
+              return;
+            case "hoursDraft":
+              dispatch({
+                type: "SET_STEP_DATA",
+                step: "hoursDraft",
+                data: data as QuickSetupDraft,
               });
               return;
             case "settings":

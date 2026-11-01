@@ -36,8 +36,8 @@ export interface ServicesEditorProps {
   readonly services: readonly DraftService[];
   /** The venue's services, so one it has had before can be added back. */
   readonly venueServices: readonly VenueService[];
-  /** The date being looked at, for the "next day" hint. */
-  readonly date: string;
+  /** The date being looked at, for the "next day" hint. Omit it where the hours span many dates. */
+  readonly date?: string;
   /** Offer "New service…" (default). Off where only the venue's existing services can be saved. */
   readonly allowNew?: boolean;
   readonly onChange: (services: DraftService[]) => void;
@@ -56,7 +56,7 @@ function withOpensAt(service: DraftService, clock: string): DraftService {
 
 function ServiceRow(props: {
   readonly service: DraftService;
-  readonly date: string;
+  readonly date: string | undefined;
   readonly onChange: (service: DraftService) => void;
   readonly onRemove: () => void;
 }) {
@@ -106,10 +106,14 @@ function ServiceRow(props: {
       </div>
       {overnight && (
         <Text variant="caption" color="secondary">
-          {t("availability.editor.overnight", {
-            time: minuteText(service.closesAt % MINUTES_PER_DAY, t, format),
-            weekday: format.formatCalendarDate(addDays(date, 1), { weekday: "long" }),
-          })}
+          {date
+            ? t("availability.editor.overnight", {
+                time: minuteText(service.closesAt % MINUTES_PER_DAY, t, format),
+                weekday: format.formatCalendarDate(addDays(date, 1), { weekday: "long" }),
+              })
+            : t("availability.editor.overnightNextDay", {
+                time: minuteText(service.closesAt % MINUTES_PER_DAY, t, format),
+              })}
         </Text>
       )}
       <div className={styles.times}>

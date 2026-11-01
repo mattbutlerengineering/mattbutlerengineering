@@ -113,6 +113,7 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
     const inputRef = useRef<HTMLInputElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
     const panelRef = useRef<HTMLDivElement>(null);
+    const pendingFocusRef = useRef(false);
 
     /* ── Global ⌘K / Ctrl+K shortcut ────────── */
     useEffect(() => {
@@ -198,8 +199,17 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
       if (open) {
         setQuery("");
         setActiveIndex(0);
-        requestAnimationFrame(() => inputRef.current?.focus());
+        pendingFocusRef.current = true;
       }
+    }, [open]);
+
+    // Move DOM focus onto the search input only after it opens — a
+    // mount-guarded effect (never requestAnimationFrame, which testing-library
+    // does not await).
+    useEffect(() => {
+      if (!pendingFocusRef.current) return;
+      pendingFocusRef.current = false;
+      inputRef.current?.focus();
     }, [open]);
 
     /* ── Focus trap inside panel when open ───── */

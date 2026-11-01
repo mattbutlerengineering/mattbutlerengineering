@@ -45,6 +45,9 @@ vi.mock("../hooks/useSSESync.js", () => ({
 
 vi.mock("../hooks/useIsAdmin.js", () => ({ useIsAdmin: () => false }));
 vi.mock("../hooks/useTables.js", () => ({ useTables: () => ({ data: undefined }) }));
+vi.mock("../hooks/useRefreshingChatStream.js", () => ({
+  useRefreshingChatStream: () => vi.fn(),
+}));
 
 describe("DashboardLayout when the venues fetch fails", () => {
   it("does not redirect to /onboarding and shows an error with a Retry action", async () => {

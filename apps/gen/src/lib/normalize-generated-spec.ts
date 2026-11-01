@@ -5,7 +5,20 @@ import { materializeCatalogProps } from "@mbe/rialto-catalog";
  * A dashboard prompt asks for a chart, and the catalog used to have none, so
  * the model emits the series as a sentence ("Jan $18.2k · Feb $19.9k · …").
  * When that shape is still what comes back, render it as a BarChart.
+ *
+ * flatToTree only links `parentKey`. A DataTable whose parentKey misses, or
+ * one gated on `{ $state }` (this playground has no state model), stays in
+ * the JSON and never mounts — so the heading shows, the seam fallback does
+ * not, and sample rows never run.
  */
+
+interface GenElement {
+  type: string;
+  props?: Record<string, unknown>;
+  children?: string[];
+  visible?: unknown;
+  slots?: Record<string, string[]>;
+}
 
 // The value must read as money ("$18.2k") or a percent ("12%"); bare numbers
 // such as "Jan 15, Feb 20, Mar 10" are ordinary prose and stay Text.
@@ -32,6 +45,59 @@ function textContent(props: unknown): string | null {
   if (typeof record.children === "string") return record.children;
   if (typeof record.text === "string") return record.text;
   return null;
+}
+
+function elementsOf(spec: Spec): Record<string, GenElement> {
+  return spec.elements as Record<string, GenElement>;
+}
+
+function reachableKeys(elements: Record<string, GenElement>, root: string): Set<string> {
+  const seen = new Set<string>();
+  const walk = (key: string) => {
+    if (seen.has(key)) return;
+    const element = elements[key];
+    if (!element) return;
+    seen.add(key);
+    for (const child of element.children ?? []) walk(child);
+    for (const slot of Object.values(element.slots ?? {})) {
+      if (!Array.isArray(slot)) continue;
+      for (const child of slot) walk(child);
+    }
+  };
+  walk(root);
+  return seen;
+}
+
+/** State visibility never resolves here, so a gated table mounts as nothing. */
+function revealStateGated(element: GenElement): GenElement {
+  if (element.visible === undefined || typeof element.visible === "boolean") return element;
+  const next = { ...element };
+  delete next.visible;
+  return next;
+}
+
+/**
+ * Attach elements flatToTree left out of the root. A child of an orphan stays
+ * under that orphan; only the orphan subtree root is added.
+ */
+function linkOrphans(spec: Spec, elements: Record<string, GenElement>): Record<string, GenElement> {
+  if (!spec.root || !elements[spec.root]) return elements;
+  const seen = reachableKeys(elements, spec.root);
+  const orphans = Object.keys(elements).filter((key) => !seen.has(key));
+  if (orphans.length === 0) return elements;
+  const referenced = new Set<string>();
+  for (const key of orphans) {
+    for (const child of elements[key]?.children ?? []) referenced.add(child);
+  }
+  const roots = orphans.filter((key) => !referenced.has(key));
+  const attach = roots.length > 0 ? roots : orphans;
+  if (attach.length === 0) return elements;
+  const root = elements[spec.root];
+  if (!root) return elements;
+  return {
+    ...elements,
+    [spec.root]: { ...root, children: [...(root.children ?? []), ...attach] },
+  };
 }
 
 const CHART_ALIASES = new Set(["LineChart", "AreaChart", "Chart"]);
@@ -73,8 +139,8 @@ function chartProps(props: unknown): { label: string; data: Point[] } | null {
  */
 function repairImage(
   key: string,
-  element: Spec["elements"][string],
-  elements: Spec["elements"]
+  element: GenElement | undefined,
+  elements: Record<string, GenElement>
 ): boolean {
   if (!element || (element.type !== "Image" && element.type !== "Img")) return false;
   const props = (element.props ?? {}) as Record<string, unknown>;
@@ -104,11 +170,29 @@ function repairImage(
   return true;
 }
 
-/** Return a spec whose trend sentences, unknown charts, and images can render. */
+function prepareTree(spec: Spec): Spec {
+  const source = elementsOf(spec);
+  let changed = false;
+  const revealed: Record<string, GenElement> = {};
+  for (const [key, element] of Object.entries(source)) {
+    const next = revealStateGated(element);
+    if (next !== element) changed = true;
+    revealed[key] = next;
+  }
+  const linked = linkOrphans(spec, revealed);
+  if (!changed && linked === revealed) return spec;
+  return { ...spec, elements: linked as Spec["elements"] };
+}
+
+/**
+ * Return a spec whose trend sentences, unknown charts, and images can render,
+ * and whose tree actually mounts.
+ */
 export function normalizeGeneratedSpec(spec: Spec): Spec {
   if (!spec.elements) return spec;
-  let changed = false;
-  const elements: Spec["elements"] = { ...spec.elements };
+  const prepared = prepareTree(spec);
+  let changed = prepared !== spec;
+  const elements: Record<string, GenElement> = { ...elementsOf(prepared) };
   for (const [key, element] of Object.entries(elements)) {
     if (!element) continue;
     const materialized = materializeCatalogProps(element.type, element.props);
@@ -139,5 +223,5 @@ export function normalizeGeneratedSpec(spec: Spec): Spec {
     }
     if (repairImage(key, element, elements)) changed = true;
   }
-  return changed ? { ...spec, elements } : spec;
+  return changed ? { ...prepared, elements: elements as Spec["elements"] } : prepared;
 }

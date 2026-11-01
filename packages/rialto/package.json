@@ -1,6 +1,6 @@
 {
   "name": "@mattbutlerengineering/rialto",
-  "version": "0.9.4",
+  "version": "0.9.5",
   "type": "module",
   "main": "./dist/lib/rialto.js",
   "module": "./dist/lib/rialto.js",
@@ -533,7 +533,7 @@
         "dist/lib/components/Dialog/index.js",
         "dist/lib/chunks/Dialog-*.js"
       ],
-      "limit": "1450 B"
+      "limit": "1550 B"
     },
     {
       "name": "Select (subpath)",

@@ -13,6 +13,13 @@ test.describe("404 Not Found page", () => {
     await expect(page.getByText("Wrong door. That page never made the list.")).toBeVisible();
   });
 
+  test("Back to home is one link, not a button nested in a link", async ({ page }) => {
+    await page.goto("/this-page-does-not-exist");
+
+    await expect(page.getByRole("link", { name: "Back to home" })).toHaveCount(1);
+    await expect(page.getByRole("button", { name: "Back to home" })).toHaveCount(0);
+  });
+
   test("Back to home button navigates to homepage", async ({ page }) => {
     await page.goto("/this-page-does-not-exist");
 

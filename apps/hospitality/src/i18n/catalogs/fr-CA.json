@@ -1543,7 +1543,9 @@
       "tonight": "De quoi a l’air la soirée?",
       "openTables": "Quelles tables sont libres en ce moment?",
       "availability": "Avons-nous une table pour 4 à 19 h ce soir?",
-      "walkIn": "Deux personnes viennent d’arriver sans réservation. Où les placer?"
+      "walkIn": "Deux personnes viennent d’arriver sans réservation. Où les placer?",
+      "tonightChanges": "Qu'avons-nous changé pour ce soir?",
+      "stopOnline": "Arrêter les réservations en ligne pour le reste de la soirée"
     },
     "actions": {
       "create_reservation": "Créer une réservation",
@@ -1551,6 +1553,25 @@
       "cancel_reservation": "Annuler une réservation",
       "seat_walk_in": "Placer un client sans réservation",
       "update_table_status": "Mettre une table à jour",
+      "change_tonight_availability": "Modifier la disponibilité de ce soir",
+      "end_tonight_change": "Mettre fin à un changement de ce soir",
+      "undo_availability_change": "Annuler un changement de disponibilité",
+      "close_dates": "Fermer à certaines dates",
+      "set_special_hours": "Définir des heures spéciales pour une date",
+      "reopen_closure": "Rouvrir une fermeture",
+      "add_guest": "Ajouter un client",
+      "update_guest": "Modifier un client",
+      "add_guest_note": "Ajouter une note du personnel",
+      "send_win_back": "Inviter un client à revenir",
+      "add_to_waitlist": "Ajouter à la liste d'attente",
+      "notify_waitlist_party": "Avertir un groupe que sa table est prête",
+      "seat_waitlist_party": "Placer un groupe en attente",
+      "remove_from_waitlist": "Retirer de la liste d'attente",
+      "set_menu_item_availability": "Marquer un article comme épuisé ou disponible",
+      "update_menu_item": "Modifier un article du menu",
+      "activate_floor_plan": "Changer le plan de salle actif",
+      "seat_reservation": "Placer un groupe réservé",
+      "mark_no_show": "Marquer une absence",
       "fields": {
         "guestName": "Client",
         "partySize": "Personnes",
@@ -1561,7 +1582,60 @@
         "table": "Table",
         "status": "Statut",
         "notes": "Notes",
-        "reservationId": "Réservation"
+        "reservationId": "Réservation",
+        "change": "Changement",
+        "closeAt": "Fermer à",
+        "from": "De",
+        "to": "À",
+        "service": "Service",
+        "tables": "Tables",
+        "covers": "Couverts par créneau",
+        "summary": "Changement",
+        "guest": "Client",
+        "contact": "Téléphone ou courriel",
+        "name": "Nom",
+        "phone": "Téléphone",
+        "email": "Courriel",
+        "addTags": "Ajouter des étiquettes",
+        "removeTags": "Retirer des étiquettes",
+        "dietaryRestrictions": "Restrictions alimentaires",
+        "text": "Note",
+        "guestPhone": "Téléphone",
+        "reason": "Raison",
+        "note": "Note",
+        "menu": "Menu",
+        "item": "Article",
+        "section": "Section",
+        "availability": "Disponibilité",
+        "price": "Prix",
+        "description": "Description",
+        "floorPlan": "Plan de salle",
+        "endDate": "Dernière date",
+        "opensAt": "Ouverture",
+        "lastSeating": "Dernier placement",
+        "closesAt": "Fermeture",
+        "tellCancelledGuests": "Aviser les clients annulés",
+        "scope": "S'applique à"
+      },
+      "yesNo": {
+        "yes": "Oui",
+        "no": "Non"
+      },
+      "scopes": {
+        "whole_venue": "Tout l'établissement",
+        "service": "Un seul service"
+      },
+      "untilReopened": "Jusqu'à la réouverture",
+      "menuAvailability": {
+        "sold_out": "Épuisé",
+        "available": "Disponible"
+      },
+      "tonightChanges": {
+        "pause_online": "Suspendre les réservations en ligne",
+        "close_early": "Fermer plus tôt",
+        "stop_window": "Bloquer une plage horaire",
+        "block_tables": "Bloquer des tables",
+        "pacing": "Régler le rythme"
       }
     }
   },
@@ -1605,6 +1679,7 @@
     },
     "reopen": {
       "title": "Rouvrir le {{date}} ?",
+      "titleSpan": "Rouvrir cette fermeture ? ({{date}})",
       "description": "Les clients pourront de nouveau réserver.",
       "descriptionCancelled": "Les clients pourront de nouveau réserver. Les réservations que vous avez annulées restent annulées.",
       "editedDates_one": "Rouvre aussi {{count}} date modifiée.",
@@ -1613,7 +1688,22 @@
       "tell": "Informer les clients annulés de la réouverture, avec un lien pour réserver ({{count}})",
       "confirm": "Rouvrir",
       "keep": "Garder fermé",
-      "done": "{{date}} rouvert"
+      "done": "{{date}} rouvert",
+      "titleSeriesEdit": "Remettre le {{date}} dans la série ?",
+      "confirmSeriesEdit": "Remettre",
+      "keepSeriesEdit": "Garder cette modification",
+      "doneSeriesEdit": "Le {{date}} est de retour dans la série",
+      "doneSpan": "Réouverture : {{date}}",
+      "countLoading": "Vérification du nombre de clients que cette fermeture a annulés…",
+      "fromOn": "à partir du {{from}}",
+      "subjectOpen": "toutes les dates à partir du {{from}}",
+      "subjectRepeat": "chaque {{days}} ({{span}})",
+      "descriptionSeriesEdit": "Cette date retourne à la fermeture récurrente; les clients pourraient donc ne pas pouvoir réserver. Les réservations déjà faites sont vérifiées d'abord.",
+      "stranded_one": "{{count}} réservation resterait sans service si cette date retournait à la série. Rien n'a été modifié.",
+      "stranded_other": "{{count}} réservations resteraient sans service si cette date retournait à la série. Rien n'a été modifié.",
+      "stranded_many": "{{count}} de réservations resteraient sans service si cette date retournait à la série. Rien n'a été modifié.",
+      "countUnknown": "Impossible de vérifier combien de clients cette fermeture a annulés. La réouverture attend le chargement du compte.",
+      "retryCount": "Réessayer"
     },
     "series": {
       "editDates": "Modifier les dates…",
@@ -1641,7 +1731,9 @@
       "alreadySkipped": "Cette date est déjà ignorée.",
       "restore": "Rétablir cette date",
       "restoreDate": "Rétablir le {{date}}",
-      "restoredToast": "{{date}} rétablie. La série la ferme de nouveau."
+      "restoredToast": "{{date}} rétablie. La série la ferme de nouveau.",
+      "changed": "Quelqu'un d'autre a modifié cette série. Les jours et la date de fin ci-dessous sont maintenant les siens; vérifiez-les avant d'enregistrer.",
+      "gone": "Quelqu'un d'autre a retiré cette fermeture récurrente; il n'y a plus rien à modifier."
     },
     "rowStranded_one": "{{count}} réservation resterait sans service avec ce changement. Rien n’a été annulé.",
     "rowStranded_other": "{{count}} réservations resteraient sans service avec ce changement. Rien n’a été annulé.",
@@ -1676,7 +1768,8 @@
       "phone": "Téléphone",
       "unnamed": "Client sans nom",
       "print": "Imprimer",
-      "close": "Fermer"
+      "close": "Fermer",
+      "date": "Date"
     },
     "add": {
       "open": "Ajouter une date spéciale",
@@ -1709,7 +1802,13 @@
       "savedNotified_one": "{{count}} date spéciale enregistrée · {{notified}} avisés",
       "savedNotified_other": "{{count}} dates spéciales enregistrées · {{notified}} avisés",
       "savedNotified_many": "{{count}} dates spéciales enregistrées · {{notified}} avisés",
-      "nothingCancelled": "Aucune réservation n’a été annulée et aucun client n’a été avisé. Corrigez et enregistrez à nouveau."
+      "nothingCancelled": "Aucune réservation n’a été annulée et aucun client n’a été avisé. Corrigez et enregistrez à nouveau.",
+      "maybeSaved": "Impossible de confirmer cet enregistrement. Il a peut-être été appliqué et des réservations annulées. Enregistrez de nouveau sans modification pour voir ce qui s'est passé, ou consultez les dates spéciales.",
+      "savedEarlier": {
+        "title": "Déjà enregistré",
+        "body": "Un essai précédent pour {{dates}} a été enregistré : {{summary}}. Les clients ont été traités selon les choix de cet essai; les modifications faites ensuite n'ont pas été appliquées. Ouvrez les dates spéciales pour voir le résultat.",
+        "bodyPlain": "Un essai précédent pour {{dates}} a été enregistré. Les modifications faites ensuite n'ont pas été appliquées. Ouvrez les dates spéciales pour voir le résultat."
+      }
     }
   },
   "availabilitySchedules": {
@@ -1731,6 +1830,10 @@
     "deleteDescription": "Aucune date n’utilise cet horaire; rien ne change pour les clients. Cette action est irréversible.",
     "deleteBlocked": "Utilisé le {{where}}; transférez d’abord ces jours à un autre horaire",
     "notUsed": "Pas encore utilisé",
+    "usedByRules_one": "Utilisé par {{count}} règle Utiliser un horaire",
+    "usedByRules_other": "Utilisé par {{count}} règles Utiliser un horaire",
+    "usedByRules_many": "Utilisé par {{count}} de règles Utiliser un horaire",
+    "deleteBlockedRules": "{{where}}; transférez d’abord ces dates à un autre horaire",
     "everyDay": "tous les jours",
     "usageRange": "{{from}} – {{to}}, {{days}}",
     "usageFrom": "À partir du {{from}}, {{days}}",
@@ -1764,9 +1867,34 @@
     "stranded_one": "{{count}} réservation à venir serait hors du nouvel horaire.",
     "stranded_other": "{{count}} réservations à venir seraient hors du nouvel horaire.",
     "stranded_many": "{{count}} de réservations à venir seraient hors du nouvel horaire.",
+    "discard": {
+      "title": "Abandonner vos modifications ?"
+    },
+    "conflictReview": {
+      "title": "Quelqu’un a modifié cet horaire avant vous",
+      "loading": "Chargement de la dernière version…",
+      "gone": "Cet horaire a été supprimé; vos modifications ne peuvent pas être enregistrées. Abandonnez-les pour fermer.",
+      "nothing": "Rien n’a changé dans cet horaire. Vos modifications peuvent être réappliquées telles quelles.",
+      "added": "Ajouté : {{names}}",
+      "removed": "Retiré : {{names}}",
+      "changed": "Heures modifiées : {{names}}",
+      "renamed": "Renommé en {{name}}",
+      "hint": "Réappliquer conserve les modifications de l’autre personne et ajoute les vôtres par-dessus. Vérifiez le résultat, puis enregistrez.",
+      "reapply": "Réappliquer mes modifications",
+      "discard": "Abandonner mes modifications",
+      "draftTitle": "La disponibilité a changé pendant votre modification",
+      "draftBody": "Quelqu’un a enregistré un changement de disponibilité avant vous. Rien de ce que vous avez saisi n’a été enregistré.",
+      "draftHint": "Conservez votre horaire pour l’enregistrer par-dessus leur changement, ou recommencez.",
+      "draftKeep": "Conserver mon horaire",
+      "startOver": "Recommencer",
+      "regularReplaced": "La semaine habituelle est maintenant {{name}}",
+      "regularNothing": "Rien n’a changé dans la semaine habituelle.",
+      "regularHint": "Réappliquer place vos heures par-dessus la semaine habituelle actuelle. Vérifiez le résultat, puis enregistrez."
+    },
     "regularWeek": {
       "open": "Modifier la semaine habituelle…",
       "title": "Modifier la semaine habituelle",
+      "appliesTo": "S’applique à {{days}}, les jours de la semaine habituelle. Les autres jours gardent leurs heures.",
       "noEnd": "Sans fin : elle devient la nouvelle semaine habituelle",
       "save": "Enregistrer les heures dès le {{date}}",
       "saved": "{{name}} dès le {{date}}"
@@ -1875,7 +2003,8 @@
       "serviceLine": "{{name}} {{from}} – {{to}}",
       "nextDay": "{{time}} (lendemain)",
       "draftName": "changements non enregistrés",
-      "labelWithPeriod": "{{label}}, {{period}}"
+      "labelWithPeriod": "{{label}}, {{period}}",
+      "untilClose": "fermeture"
     },
     "drawer": {
       "summaryOpen": "Ouvert pour {{services}}.",
@@ -2053,6 +2182,13 @@
         "walkIn": "Sans réservation seulement"
       },
       "overnight": "Ferme à {{time}} le lendemain ({{weekday}})",
+      "overnightNextDay": "Ferme à {{time}} le lendemain",
+      "held_one": "Votre modification de {{names}} ne sera pas enregistrée : ce service n’est pas dans ce que vous modifiez maintenant.",
+      "held_many": "Vos modifications de {{names}} ne seront pas enregistrées : ces services ne sont pas dans ce que vous modifiez maintenant.",
+      "held_other": "Vos modifications de {{names}} ne seront pas enregistrées : ces services ne sont pas dans ce que vous modifiez maintenant.",
+      "overridden_one": "Vos heures pour {{names}} ne seront pas utilisées : ce que vous modifiez les définit déjà.",
+      "overridden_many": "Vos heures pour {{names}} ne seront pas utilisées : ce que vous modifiez les définit déjà.",
+      "overridden_other": "Vos heures pour {{names}} ne seront pas utilisées : ce que vous modifiez les définit déjà.",
       "remove": "Retirer {{name}}",
       "scope": {
         "label": "Vous modifiez",
@@ -2146,6 +2282,7 @@
     "discard": {
       "title": "Abandonner les changements du {{date}} ?",
       "description": "Vos changements non enregistrés à ces heures seront perdus.",
+      "leavePage": "Tous les changements non enregistrés sur cette page seront perdus.",
       "confirm": "Abandonner",
       "keep": "Continuer à modifier"
     },
@@ -2159,6 +2296,21 @@
       "saveError": "Impossible de fermer",
       "versionConflict": "Les disponibilités ont changé depuis l'ouverture de cette fenêtre. Fermez-la et réessayez.",
       "groupsChanged": "Les réservations ont changé pendant votre décision. Passez en revue la liste à jour et choisissez de nouveau.",
+      "alreadySaved": "Cette fermeture est déjà enregistrée et ses réservations ont été traitées. Consultez les dates spéciales avant de fermer de nouveau.",
+      "maybeSaved": "Le service de réservations a eu un problème et nous n'avons pas pu confirmer cet enregistrement. Il a peut-être été appliqué. Réessayez sans modification pour voir ce qui s'est passé.",
+      "savedEarlier": {
+        "title": "Déjà fermé",
+        "body": "Un essai précédent de cette fermeture a été enregistré : {{summary}}. Les clients ont été traités selon les choix de cet essai; les modifications faites ensuite n'ont pas été appliquées. Ouvrez les dates spéciales pour voir le résultat.",
+        "bodyPlain": "Un essai précédent de cette fermeture a été enregistré. Les modifications faites ensuite n'ont pas été appliquées. Ouvrez les dates spéciales pour voir le résultat.",
+        "done": "Terminé"
+      },
+      "discard": {
+        "title": "Abandonner cette fermeture ?",
+        "description": "Rien n'a été fermé. Les choix faits ici seront perdus.",
+        "titleMaybeSaved": "Quitter cette fermeture ?",
+        "descriptionMaybeSaved": "Le dernier enregistrement ne s'est pas terminé; il a peut-être été appliqué et des réservations annulées. Consultez les dates spéciales avant de fermer de nouveau.",
+        "leave": "Quitter"
+      },
       "staffNote": "Note pour le personnel",
       "guestMessage": "Message pour les clients",
       "guestMessageTooLong": "Limitez-vous à {{max}} caractères.",
@@ -2197,7 +2349,8 @@
       "window": {
         "label": "À partir de",
         "allDay": "Toute la journée",
-        "from": "À partir de {{time}}"
+        "from": "À partir de {{time}}",
+        "hostNote": "Une fermeture d'urgence couvre toute la journée. Seul un gérant peut fermer à partir d'une heure précise."
       },
       "replaces": "Le {{date}} a des heures spéciales; la fermeture les remplace.",
       "impactLabel": "Réservations touchées par cette fermeture",
@@ -2206,8 +2359,8 @@
       "impact_many": "{{count}} de réservations · {{guests}} personnes sont réservées durant cette fermeture",
       "impactNone": "Aucune réservation durant cette fermeture.",
       "impactError": "Impossible de vérifier les réservations existantes. Modifiez un champ pour réessayer.",
-      "guestsWillSee": "Les clients verront : {{date}} · Fermé",
-      "guestsWillSeeMessage": "Les clients verront : {{date}} · Fermé · « {{message}} »",
+      "guestsWillSee": "Les clients verront : {{date}} · {{status}}",
+      "guestsWillSeeMessage": "Les clients verront : {{date}} · {{status}} · « {{message}} »",
       "button": {
         "close": "Fermer le {{date}}",
         "pause": "Suspendre les réservations en ligne",
@@ -2238,7 +2391,10 @@
           "keep_silent_one": "garder {{count}} sans aviser",
           "keep_silent_other": "garder {{count}} sans aviser",
           "keep_silent_many": "garder {{count}} sans aviser"
-        }
+        },
+        "pausePhone": "Suspendre les réservations par téléphone",
+        "pauseWaitlist": "Suspendre la liste d'attente",
+        "pauseBooking": "Suspendre les réservations"
       },
       "toast": {
         "closed": "{{date}} fermé",
@@ -2285,7 +2441,15 @@
           "move": "Nous avons modifié nos heures le {{date}}. {{message}}\nVotre table est déplacée à l'heure libre la plus proche. Vous ne pouvez pas venir? Annulez sans frais.",
           "keep_notify": "Nous avons modifié nos heures le {{date}}. {{message}}\nVotre table est toujours réservée."
         },
+        "loading": "Chargement des réservations…",
+        "loadFailed": "Impossible de charger les réservations. Revenez en arrière et réessayez.",
         "irreversible": "Les clients sont avisés immédiatement. Cette action est irréversible."
+      },
+      "status": {
+        "closed": "Fermé",
+        "closedFrom": "Fermé à partir de {{time}}",
+        "serviceClosed": "{{service}} fermé",
+        "serviceClosedFrom": "{{service}} fermé à partir de {{time}}"
       }
     },
     "paused": {
@@ -2339,7 +2503,14 @@
     "tonight": {
       "title": "Ce soir",
       "decisions": {
-        "title": "Réservations après la nouvelle fermeture"
+        "title": "Réservations après la nouvelle fermeture",
+        "impactError": "Impossible de vérifier les réservations après la nouvelle fermeture.",
+        "retry": "Réessayer",
+        "discardMaybeSaved": "Le dernier enregistrement ne s'est pas terminé; il a peut-être été appliqué et des réservations annulées. Consultez les changements de ce soir avant de fermer de nouveau.",
+        "savedEarlier": {
+          "body": "Un essai précédent a été enregistré : {{summary}}. Les clients ont été traités selon les choix de cet essai; les modifications faites ensuite n'ont pas été appliquées.",
+          "bodyPlain": "Un essai précédent a été enregistré. Les modifications faites ensuite n'ont pas été appliquées."
+        }
       },
       "open": "Ce soir",
       "chips": "Changements de ce soir",
@@ -2385,6 +2556,13 @@
         "pacing_one": "Cadence de {{count}} couvert",
         "pacing_other": "Cadence de {{count}} couverts",
         "pacing_many": "Cadence de {{count}} couverts"
+      },
+      "toast": {
+        "closed": "Fermeture hâtive à {{time}}",
+        "closedNotified_one": "Fermeture hâtive à {{time}} · {{count}} réservation avisée",
+        "closedNotified_other": "Fermeture hâtive à {{time}} · {{count}} réservations avisées",
+        "closedNotified_many": "Fermeture hâtive à {{time}} · {{count}} réservations avisées",
+        "callList": "Liste d'appels"
       }
     },
     "venueTime": "Heure de l'établissement ({{zone}})",

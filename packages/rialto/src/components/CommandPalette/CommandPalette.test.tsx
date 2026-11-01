@@ -78,6 +78,13 @@ describe("CommandPalette", () => {
       await user.type(screen.getByRole("combobox"), "xyzxyz");
       expect(screen.getByText("No results found")).toBeInTheDocument();
     });
+
+    it("focuses the search input once the palette opens, without requestAnimationFrame", () => {
+      const rafSpy = vi.spyOn(window, "requestAnimationFrame");
+      render(<CommandPalette open onOpenChange={() => {}} items={items} />);
+      expect(screen.getByRole("combobox")).toHaveFocus();
+      expect(rafSpy).not.toHaveBeenCalled();
+    });
   });
 
   describe("search filtering", () => {

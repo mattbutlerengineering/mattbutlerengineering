@@ -14,12 +14,19 @@ afterEach(() => {
 });
 
 describe("pending prompt", () => {
-  it("returns the stashed prompt once, then nothing", () => {
+  it("returns the stashed prompt and leaves it for a later load", () => {
     rememberPendingPrompt("a 500-row table of users");
     expect(sessionStorage.getItem(PENDING_PROMPT_KEY)).toBe("a 500-row table of users");
     expect(readInterruptedPrompt()).toBe("a 500-row table of users");
-    expect(sessionStorage.getItem(PENDING_PROMPT_KEY)).toBeNull();
+    expect(sessionStorage.getItem(PENDING_PROMPT_KEY)).toBe("a 500-row table of users");
     expect(readInterruptedPrompt()).toBe("a 500-row table of users");
+  });
+
+  it("keeps the stash when the page hides before the stream settles", () => {
+    rememberPendingPrompt("a 500-row table of users");
+    window.dispatchEvent(new Event("pagehide"));
+    clearPendingPrompt();
+    expect(sessionStorage.getItem(PENDING_PROMPT_KEY)).toBe("a 500-row table of users");
   });
 
   it("returns null when nothing was stashed", () => {

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
+  createVenueAs,
   deleteVenue,
   NON_ADMIN_AUTH_ENV_VARS,
   readTokenPermissions,
@@ -134,6 +135,41 @@ describe("deleteVenue", () => {
 
     expect(result).toEqual({ ok: false, status: 409 });
     expect(vi.mocked(fetch)).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("transient network errors (#7921)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("retries a DELETE once when fetch rejects with a network error", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError("fetch failed"))
+      .mockResolvedValueOnce({ ok: true, status: 204, json: () => Promise.resolve({}) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await deleteVenue("token", "venue-1");
+
+    expect(result).toEqual({ ok: true, status: 204 });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("rethrows when the retry also fails at the network layer", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError("fetch failed"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(deleteVenue("token", "venue-1")).rejects.toThrow("fetch failed");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry a POST (not idempotent)", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError("fetch failed"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(createVenueAs("token", "synthetic-journey-x")).rejects.toThrow("fetch failed");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
 

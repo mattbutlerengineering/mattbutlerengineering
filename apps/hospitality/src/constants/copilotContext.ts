@@ -5,7 +5,10 @@ import type {
   DomainContext,
   PendingAction,
 } from "@mattbutlerengineering/rialto";
+import { useLocation } from "react-router";
 import { useVenue } from "../contexts/VenueContext.js";
+import { useChatFocus } from "../hooks/useChatFocus.js";
+import { chatPageContext, chatSuggestionKeys } from "./chatPageContext.js";
 import { useTables } from "../hooks/useTables.js";
 import { formatCalendarDate, formatLocalTime, resolveTimeZone } from "../utils/format.js";
 
@@ -53,45 +56,102 @@ export function chatRequestContext(venue: ChatVenue | null | undefined): Record<
   return timeZone ? { venueId: venue.id, timeZone } : { venueId: venue.id };
 }
 
-export function useChatRequestContext(): Record<string, string> {
+/** The venue fields plus the page the chat is open on and the record it shows (#7924). */
+export function useChatRequestContext(): Readonly<Record<string, unknown>> {
   const { selectedVenue } = useVenue();
-  return useMemo(() => chatRequestContext(selectedVenue), [selectedVenue]);
-}
-
-/** Starter prompts for an empty chat: the questions the chat can answer well today. */
-export function useChatSuggestions(): readonly string[] {
-  const { t } = useTranslation();
+  const { pathname, search } = useLocation();
+  // A record the page publishes (its live selection) wins over one named in the URL.
+  const published = useChatFocus();
   return useMemo(
-    () => [
-      t("chat.suggestions.tonight"),
-      t("chat.suggestions.openTables"),
-      t("chat.suggestions.availability"),
-      t("chat.suggestions.walkIn"),
-    ],
-    [t]
+    () => ({
+      ...chatRequestContext(selectedVenue),
+      ...chatPageContext(pathname, search),
+      ...(published ? { focus: published } : {}),
+    }),
+    [selectedVenue, pathname, search, published]
   );
 }
 
-const ACTION_TITLES = {
-  create_reservation: "chat.actions.create_reservation",
-  modify_reservation: "chat.actions.modify_reservation",
-  cancel_reservation: "chat.actions.cancel_reservation",
-  seat_walk_in: "chat.actions.seat_walk_in",
-  update_table_status: "chat.actions.update_table_status",
-} as const;
+/** Starter prompts for an empty chat: the questions the chat answers well on this page. */
+export function useChatSuggestions(): readonly string[] {
+  const { t } = useTranslation();
+  const { pathname } = useLocation();
+  const { page } = chatPageContext(pathname, "");
+  return useMemo(() => chatSuggestionKeys(page).map((key) => t(key)), [t, page]);
+}
 
-const ACTION_FIELDS = {
-  guestName: "chat.actions.fields.guestName",
-  partySize: "chat.actions.fields.partySize",
-  date: "chat.actions.fields.date",
-  startTime: "chat.actions.fields.startTime",
-  endTime: "chat.actions.fields.endTime",
-  tableId: "chat.actions.fields.tableId",
-  table: "chat.actions.fields.table",
-  status: "chat.actions.fields.status",
-  notes: "chat.actions.fields.notes",
-  reservationId: "chat.actions.fields.reservationId",
-} as const;
+const ACTION_TITLES = [
+  "create_reservation",
+  "modify_reservation",
+  "cancel_reservation",
+  "seat_walk_in",
+  "update_table_status",
+  "change_tonight_availability",
+  "end_tonight_change",
+  "undo_availability_change",
+  "close_dates",
+  "set_special_hours",
+  "reopen_closure",
+  "add_guest",
+  "update_guest",
+  "add_guest_note",
+  "send_win_back",
+  "add_to_waitlist",
+  "notify_waitlist_party",
+  "seat_waitlist_party",
+  "remove_from_waitlist",
+  "set_menu_item_availability",
+  "update_menu_item",
+  "activate_floor_plan",
+  "seat_reservation",
+  "mark_no_show",
+] as const;
+
+const ACTION_FIELDS = [
+  "guestName",
+  "partySize",
+  "date",
+  "startTime",
+  "endTime",
+  "tableId",
+  "table",
+  "status",
+  "notes",
+  "reservationId",
+  "change",
+  "closeAt",
+  "from",
+  "to",
+  "service",
+  "tables",
+  "covers",
+  "summary",
+  "guest",
+  "contact",
+  "name",
+  "phone",
+  "email",
+  "addTags",
+  "removeTags",
+  "dietaryRestrictions",
+  "text",
+  "guestPhone",
+  "reason",
+  "note",
+  "menu",
+  "item",
+  "section",
+  "availability",
+  "price",
+  "description",
+  "floorPlan",
+  "endDate",
+  "opensAt",
+  "lastSeating",
+  "closesAt",
+  "tellCancelledGuests",
+  "scope",
+] as const;
 
 const TABLE_STATUSES = {
   AVAILABLE: "floorPlan.tableStatus.available",
@@ -100,12 +160,64 @@ const TABLE_STATUSES = {
   READY: "floorPlan.tableStatus.ready",
 } as const;
 
+const TONIGHT_CHANGES = {
+  pause_online: "chat.actions.tonightChanges.pause_online",
+  close_early: "chat.actions.tonightChanges.close_early",
+  stop_window: "chat.actions.tonightChanges.stop_window",
+  block_tables: "chat.actions.tonightChanges.block_tables",
+  pacing: "chat.actions.tonightChanges.pacing",
+} as const;
+
+/** The cancel reasons as the timeline's cancel dialog words them. */
+const CANCEL_REASONS = {
+  guest_cancelled: "timeline.cancel.reasons.guestCancelled",
+  no_show: "timeline.cancel.reasons.noShow",
+  restaurant_cancelled: "timeline.cancel.reasons.restaurantCancelled",
+  other: "timeline.cancel.reasons.other",
+} as const;
+
+const MENU_AVAILABILITY = {
+  sold_out: "chat.actions.menuAvailability.sold_out",
+  available: "chat.actions.menuAvailability.available",
+} as const;
+
+const YES_NO = {
+  true: "chat.actions.yesNo.yes",
+  false: "chat.actions.yesNo.no",
+} as const;
+
+/** What a closure or reopen covers, as the confirm bar states it. */
+const SCOPES = {
+  whole_venue: "chat.actions.scopes.whole_venue",
+  service: "chat.actions.scopes.service",
+} as const;
+
+/** A closure with no end date is confirmed as this word, not as a date. */
+const OPEN_END = { "until reopened": "chat.actions.untilReopened" } as const;
+
 type ChatActionKey =
-  | (typeof ACTION_TITLES)[keyof typeof ACTION_TITLES]
-  | (typeof ACTION_FIELDS)[keyof typeof ACTION_FIELDS]
-  | (typeof TABLE_STATUSES)[keyof typeof TABLE_STATUSES];
+  | `chat.actions.${(typeof ACTION_TITLES)[number]}`
+  | (typeof YES_NO)[keyof typeof YES_NO]
+  | (typeof SCOPES)[keyof typeof SCOPES]
+  | (typeof OPEN_END)[keyof typeof OPEN_END]
+  | `chat.actions.fields.${(typeof ACTION_FIELDS)[number]}`
+  | (typeof TABLE_STATUSES)[keyof typeof TABLE_STATUSES]
+  | (typeof TONIGHT_CHANGES)[keyof typeof TONIGHT_CHANGES]
+  | (typeof CANCEL_REASONS)[keyof typeof CANCEL_REASONS]
+  | (typeof MENU_AVAILABILITY)[keyof typeof MENU_AVAILABILITY];
 
 type Translate = (key: ChatActionKey) => string;
+
+/** The fields whose value is one of a fixed set, worded by a translation key. */
+const VALUE_KEYS: Readonly<Record<string, Readonly<Record<string, ChatActionKey>>>> = {
+  status: TABLE_STATUSES,
+  change: TONIGHT_CHANGES,
+  reason: CANCEL_REASONS,
+  availability: MENU_AVAILABILITY,
+  tellCancelledGuests: YES_NO,
+  scope: SCOPES,
+  to: OPEN_END,
+};
 
 const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const isRealDate = (value: string): boolean => {
@@ -113,19 +225,32 @@ const isRealDate = (value: string): boolean => {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 };
 const WALL_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
-const TIME_FIELDS: ReadonlySet<string> = new Set(["startTime", "endTime"]);
+// `from` and `to` carry a time for a Tonight window and a date for a reopened closure.
+const DATE_FIELDS: ReadonlySet<string> = new Set(["date", "endDate", "from", "to"]);
+const TIME_FIELDS: ReadonlySet<string> = new Set([
+  "startTime",
+  "endTime",
+  "closeAt",
+  "from",
+  "to",
+  "opensAt",
+  "lastSeating",
+  "closesAt",
+]);
 
 /** A tool's YYYY-MM-DD date or HH:MM wall time as people read it; anything else as sent. */
 function formatWhen(key: string, value: string, locale?: string): string {
-  if (key === "date" && CALENDAR_DATE.test(value) && isRealDate(value)) {
+  if (DATE_FIELDS.has(key) && CALENDAR_DATE.test(value) && isRealDate(value)) {
     return formatCalendarDate(value, { weekday: "long", month: "short", day: "numeric" }, locale);
   }
   if (TIME_FIELDS.has(key) && WALL_TIME.test(value)) return formatLocalTime(value, locale);
   return value;
 }
 
-function lookup<T extends Record<string, string>>(map: T, key: string): T[keyof T] | undefined {
-  return Object.hasOwn(map, key) ? map[key as keyof T] : undefined;
+function valueKey(key: string, value: string): ChatActionKey | undefined {
+  if (!Object.hasOwn(VALUE_KEYS, key)) return undefined;
+  const map = VALUE_KEYS[key]!;
+  return Object.hasOwn(map, value) ? map[value] : undefined;
 }
 
 /**
@@ -142,20 +267,25 @@ export function describeChatAction(
   tableName: (id: string) => string | undefined,
   locale?: string
 ): ActionDescription {
-  const titleKey = lookup(ACTION_TITLES, action.toolName);
+  const hasTitle = ACTION_TITLES.includes(action.toolName as (typeof ACTION_TITLES)[number]);
   return {
-    title: titleKey ? t(titleKey) : action.toolName.replace(/_/g, " "),
+    title: hasTitle
+      ? t(`chat.actions.${action.toolName}` as ChatActionKey)
+      : action.toolName.replace(/_/g, " "),
     details: Object.entries(action.toolInput).map(([key, raw]) => {
-      const value = String(raw);
-      const statusKey = key === "status" ? lookup(TABLE_STATUSES, value) : undefined;
+      const value = Array.isArray(raw) ? raw.join(", ") : String(raw);
+      const statusKey = valueKey(key, value);
       const shown =
         key === "tableId"
           ? (tableName(value) ?? value)
           : statusKey
             ? t(statusKey)
             : formatWhen(key, value, locale);
-      const labelKey = lookup(ACTION_FIELDS, key);
-      return { label: labelKey ? t(labelKey) : key, value: shown };
+      const hasLabel = ACTION_FIELDS.includes(key as (typeof ACTION_FIELDS)[number]);
+      return {
+        label: hasLabel ? t(`chat.actions.fields.${key}` as ChatActionKey) : key,
+        value: shown,
+      };
     }),
   };
 }

@@ -7,6 +7,7 @@ import { draftFromTemplate } from "./floor-plan-templates.js";
 import { ONBOARDING_STEPS } from "./onboarding-steps.js";
 import { INITIAL_LAUNCH_PROGRESS } from "./launch-sequence.js";
 import type { LaunchProgress } from "./launch-sequence.js";
+import { applyPreset, emptyDraft } from "../availability/quick-setup-draft.js";
 import { useOnboardingWizard, buildOnboardingPayload, TOTAL_STEPS } from "./useOnboardingWizard.js";
 
 /** Minimal valid CreateTableRequest for addDraftTable — localId ends up === name. */
@@ -129,6 +130,46 @@ describe("useOnboardingWizard", () => {
       act(() => result.current.actions.next());
       expect(result.current.step).toBe(2);
       expect(result.current.highestStepReached).toBe(2);
+    });
+
+    it("keeps the hours draft, including the service name, across back and next", () => {
+      const { result } = renderHook(() => useOnboardingWizard());
+      const lunch = applyPreset(emptyDraft("s1").services[0]!, "lunch", "Lunch");
+      act(() =>
+        result.current.actions.setStepData("hoursDraft", {
+          services: [lunch],
+          days: [1, 2, 3, 4, 5],
+        })
+      );
+
+      expect(result.current.data.hoursDraft.services[0]?.name).toBe("Lunch");
+      expect(result.current.data.operatingHours.monday).toEqual({
+        open: "11:30",
+        close: "14:30",
+      });
+
+      act(() =>
+        result.current.actions.setStepData("basicInfo", {
+          name: "My Venue",
+          slug: "my-venue",
+          venueGroupId: "",
+        })
+      );
+      act(() => result.current.actions.next());
+      act(() =>
+        result.current.actions.setStepData("locationTime", {
+          ianaTimezone: "America/New_York",
+          currencyCode: "USD",
+        })
+      );
+      act(() => result.current.actions.next());
+      expect(result.current.step).toBe(3);
+      act(() => result.current.actions.next());
+      act(() => result.current.actions.back());
+
+      expect(result.current.step).toBe(3);
+      expect(result.current.data.hoursDraft.services[0]?.name).toBe("Lunch");
+      expect(result.current.data.operatingHours.monday?.open).toBe("11:30");
     });
 
     it("blocks advancing from step 3 when no operating-hours day is enabled", () => {
@@ -433,6 +474,7 @@ describe("buildOnboardingPayload", () => {
       operatingHours: {},
       settings: { defaultReservationDuration: "", maxPartySize: "", advanceBookingDays: "" },
       floorPlan: EMPTY_FLOOR_PLAN_DRAFT,
+      hoursDraft: emptyDraft("s1"),
     });
     expect(payload).toEqual({
       name: "My Venue",
@@ -449,6 +491,7 @@ describe("buildOnboardingPayload", () => {
       operatingHours: { monday: { open: "09:00", close: "22:00" } },
       settings: { defaultReservationDuration: "60", maxPartySize: "8", advanceBookingDays: "" },
       floorPlan: EMPTY_FLOOR_PLAN_DRAFT,
+      hoursDraft: emptyDraft("s1"),
     });
     expect(payload.operatingHours).toEqual({ monday: { open: "09:00", close: "22:00" } });
     expect(payload.settings).toEqual({ defaultReservationDuration: 60, maxPartySize: 8 });

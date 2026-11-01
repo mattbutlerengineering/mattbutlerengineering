@@ -1,5 +1,19 @@
 # @mattbutlerengineering/rialto
 
+## 0.9.5
+
+### Patch Changes
+
+- [#7910](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7910) [`e6d2411`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/e6d241134ec347a1e2ce458294159313b1f1be4b) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - BarChart scales a k/m/b suffix only when it directly follows the number (optionally after one space) and is not the start of a word. "5 per week" and "12 kg" read as 5 and 12, while "$20k", "12 k" and "$3.4M revenue" still scale.
+
+- [#7913](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7913) [`2637138`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/263713898dc271ab10f8830ca6a194c633de3dff) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - CommandPalette moves focus into the search input on open via the documented mount-guard-ref `useEffect` pattern instead of `requestAnimationFrame`, matching Calendar/DateRange/TimeList. No behavior change; the search input still receives focus when the palette opens.
+
+- [#7907](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7907) [`083fbaa`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/083fbaa093622694fdf83a735aa6a3fe6a561fa3) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Drop a repeated month that is only the suffixed spelling of another point. Ignore a k/m/b suffix only when that written number matches a plain point in the same series, so $40 beside $20k still scales by the suffix.
+
+- [#7883](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7883) [`eaa1c66`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/eaa1c669de429e7ad17ba8ffc9352c5c9da00172) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Draw BarChart bars below a zero line when values are negative, and skip bars for NaN, null, and non-finite numbers; values such as "12 tickets" still read by their digits. Portal a nested Dialog beside the outer panel so it is not trapped inside it, while every Dialog stays inside its RialtoProvider subtree and keeps its vibe and `dir`. Let the app bar grow and wrap instead of clipping its actions.
+
+- [#7917](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7917) [`7e8e5c8`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/7e8e5c870be2f6560f35ff14e4fb0afd13f0ce17) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - NumberInput keeps what you type and clamps to min/max when the field commits, instead of on every keystroke. Stepper buttons and arrow keys still clamp immediately.
+
 ## 0.9.4
 
 ### Patch Changes

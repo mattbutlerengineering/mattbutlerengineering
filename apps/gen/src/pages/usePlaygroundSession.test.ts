@@ -121,6 +121,25 @@ describe("usePlaygroundSession", () => {
     expect(sessionStorage.getItem("gen.pendingPrompt")).toBeNull();
   });
 
+  it("keeps the stashed prompt when the stream fails the way a refresh abort does", () => {
+    const { result } = renderHook(() => usePlaygroundSession());
+    act(() => result.current.submit("a 500-row table of users"));
+    act(() => {
+      capturedOnError?.(new TypeError("Failed to fetch"));
+    });
+    expect(sessionStorage.getItem("gen.pendingPrompt")).toBe("a 500-row table of users");
+  });
+
+  it("keeps the stashed prompt when the page hides as the stream completes", async () => {
+    const { result } = renderHook(() => usePlaygroundSession());
+    act(() => result.current.submit("pricing page"));
+    window.dispatchEvent(new Event("pagehide"));
+    await act(async () => {
+      capturedOnComplete?.({ root: "r", elements: {} }, []);
+    });
+    expect(sessionStorage.getItem("gen.pendingPrompt")).toBe("pricing page");
+  });
+
   describe("submit", () => {
     it("stops an in-flight generation before sending, so send is not ignored", () => {
       genStreamState = { spec: null, isStreaming: true, error: null, rawLines: [] };

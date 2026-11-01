@@ -1517,7 +1517,9 @@
       "tonight": "How does tonight look?",
       "openTables": "Which tables are open right now?",
       "availability": "Do we have a table for 4 at 7 tonight?",
-      "walkIn": "Party of 2 just walked in. Where can I seat them?"
+      "walkIn": "Party of 2 just walked in. Where can I seat them?",
+      "tonightChanges": "What have we changed for tonight?",
+      "stopOnline": "Stop online bookings for the rest of tonight"
     },
     "actions": {
       "create_reservation": "Book a reservation",
@@ -1525,6 +1527,25 @@
       "cancel_reservation": "Cancel a reservation",
       "seat_walk_in": "Seat a walk-in",
       "update_table_status": "Update a table",
+      "change_tonight_availability": "Change tonight's availability",
+      "end_tonight_change": "End a Tonight change",
+      "undo_availability_change": "Undo an availability change",
+      "close_dates": "Close on dates",
+      "set_special_hours": "Set special hours for a date",
+      "reopen_closure": "Reopen a closure",
+      "add_guest": "Add a guest",
+      "update_guest": "Update a guest",
+      "add_guest_note": "Add a staff note",
+      "send_win_back": "Invite a guest back",
+      "add_to_waitlist": "Add to the waitlist",
+      "notify_waitlist_party": "Tell a party their table is ready",
+      "seat_waitlist_party": "Seat a waiting party",
+      "remove_from_waitlist": "Remove from the waitlist",
+      "set_menu_item_availability": "Mark a menu item sold out or available",
+      "update_menu_item": "Change a menu item",
+      "activate_floor_plan": "Switch the active floor plan",
+      "seat_reservation": "Seat a booked party",
+      "mark_no_show": "Mark a no-show",
       "fields": {
         "guestName": "Guest",
         "partySize": "Party size",
@@ -1535,7 +1556,60 @@
         "table": "Table",
         "status": "Status",
         "notes": "Notes",
-        "reservationId": "Reservation"
+        "reservationId": "Reservation",
+        "change": "Change",
+        "closeAt": "Close at",
+        "from": "From",
+        "to": "To",
+        "service": "Service",
+        "tables": "Tables",
+        "covers": "Covers per slot",
+        "summary": "Change",
+        "guest": "Guest",
+        "contact": "Phone or email",
+        "name": "Name",
+        "phone": "Phone",
+        "email": "Email",
+        "addTags": "Add tags",
+        "removeTags": "Remove tags",
+        "dietaryRestrictions": "Dietary restrictions",
+        "text": "Note",
+        "guestPhone": "Phone",
+        "reason": "Reason",
+        "note": "Note",
+        "menu": "Menu",
+        "item": "Item",
+        "section": "Section",
+        "availability": "Availability",
+        "price": "Price",
+        "description": "Description",
+        "floorPlan": "Floor plan",
+        "endDate": "Last date",
+        "opensAt": "Opens",
+        "lastSeating": "Last seating",
+        "closesAt": "Closes",
+        "tellCancelledGuests": "Tell cancelled guests",
+        "scope": "Applies to"
+      },
+      "yesNo": {
+        "yes": "Yes",
+        "no": "No"
+      },
+      "scopes": {
+        "whole_venue": "The whole venue",
+        "service": "One service"
+      },
+      "untilReopened": "Until reopened",
+      "menuAvailability": {
+        "sold_out": "Sold out",
+        "available": "Available"
+      },
+      "tonightChanges": {
+        "pause_online": "Pause online booking",
+        "close_early": "Close early",
+        "stop_window": "Stop bookings for a window",
+        "block_tables": "Block tables",
+        "pacing": "Set pacing"
       }
     }
   },
@@ -1579,6 +1653,7 @@
     },
     "reopen": {
       "title": "Reopen {{date}}?",
+      "titleSpan": "Reopen {{date}}?",
       "description": "Guests can book again.",
       "descriptionCancelled": "Guests can book again. The reservations you cancelled stay cancelled.",
       "editedDates_one": "Also reopens {{count}} edited date.",
@@ -1586,7 +1661,22 @@
       "tell": "Tell the cancelled guests we've reopened, with a link to rebook ({{count}})",
       "confirm": "Reopen",
       "keep": "Keep closed",
-      "done": "{{date}} reopened"
+      "done": "{{date}} reopened",
+      "titleSeriesEdit": "Put {{date}} back in the series?",
+      "confirmSeriesEdit": "Put back",
+      "keepSeriesEdit": "Keep this edit",
+      "doneSeriesEdit": "{{date}} is back in the series",
+      "doneSpan": "Reopened: {{date}}",
+      "countLoading": "Checking how many guests this closure cancelled…",
+      "fromOn": "from {{from}} on",
+      "subjectOpen": "all dates from {{from}} on",
+      "subjectRepeat": "every {{days}} ({{span}})",
+      "descriptionSeriesEdit": "This date goes back to the repeating closure, so guests may not be able to book it. Bookings already made are checked first.",
+      "stranded_one": "{{count}} booking would be left without service if this date went back to the series. Nothing was changed.",
+      "stranded_other": "{{count}} bookings would be left without service if this date went back to the series. Nothing was changed.",
+      "stranded_many": "{{count}} bookings would be left without service if this date went back to the series. Nothing was changed.",
+      "countUnknown": "Couldn't check how many guests this closure cancelled. Reopen waits until the count loads.",
+      "retryCount": "Retry"
     },
     "series": {
       "editDates": "Edit dates…",
@@ -1613,7 +1703,9 @@
       "alreadySkipped": "This date is already skipped.",
       "restore": "Restore this date",
       "restoreDate": "Restore {{date}}",
-      "restoredToast": "{{date}} restored. The series closes it again."
+      "restoredToast": "{{date}} restored. The series closes it again.",
+      "changed": "Someone else changed this series. The days and end date below are now theirs, so check them before saving.",
+      "gone": "Someone else removed this repeating closure, so there is nothing left to edit."
     },
     "rowStranded_one": "{{count}} booking would be left without service by this change. Nothing was cancelled.",
     "rowStranded_other": "{{count}} bookings would be left without service by this change. Nothing was cancelled.",
@@ -1647,7 +1739,8 @@
       "phone": "Phone",
       "unnamed": "Unnamed guest",
       "print": "Print",
-      "close": "Close"
+      "close": "Close",
+      "date": "Date"
     },
     "add": {
       "open": "Add special date",
@@ -1680,7 +1773,13 @@
       "savedNotified_one": "{{count}} special date saved · {{notified}} notified",
       "savedNotified_other": "{{count}} special dates saved · {{notified}} notified",
       "savedNotified_many": "{{count}} special dates saved · {{notified}} notified",
-      "nothingCancelled": "No booking was cancelled and no guest was told. Fix this and save again."
+      "nothingCancelled": "No booking was cancelled and no guest was told. Fix this and save again.",
+      "maybeSaved": "We couldn't confirm this save. It may have gone through and cancelled guests. Save again without changes to see what happened, or check Special dates.",
+      "savedEarlier": {
+        "title": "Already saved",
+        "body": "An earlier try for {{dates}} was saved: {{summary}}. Guests were handled as that try chose; changes you made afterwards did not apply. Open Special dates to see the outcome.",
+        "bodyPlain": "An earlier try for {{dates}} was saved. Changes you made afterwards did not apply. Open Special dates to see the outcome."
+      }
     }
   },
   "availabilitySchedules": {
@@ -1702,6 +1801,9 @@
     "deleteDescription": "No date uses this schedule, so nothing changes for guests. This can't be undone.",
     "deleteBlocked": "Used on {{where}}; move those days to another schedule first",
     "notUsed": "Not used yet",
+    "usedByRules_one": "Used by {{count}} Use schedule rule",
+    "usedByRules_other": "Used by {{count}} Use schedule rules",
+    "deleteBlockedRules": "{{where}}; change those dates to another schedule first",
     "everyDay": "every day",
     "usageRange": "{{from}} – {{to}}, {{days}}",
     "usageFrom": "From {{from}}, {{days}}",
@@ -1732,9 +1834,34 @@
     "ownChanges_other": "{{count}} dates already have their own changes",
     "stranded_one": "{{count}} upcoming booking would fall outside the new hours.",
     "stranded_other": "{{count}} upcoming bookings would fall outside the new hours.",
+    "discard": {
+      "title": "Discard your changes?"
+    },
+    "conflictReview": {
+      "title": "Someone changed this schedule first",
+      "loading": "Loading the latest version…",
+      "gone": "This schedule was deleted, so your changes can’t be saved. Discard them to close.",
+      "nothing": "Nothing in this schedule changed. Your changes can be reapplied as they are.",
+      "added": "Added: {{names}}",
+      "removed": "Removed: {{names}}",
+      "changed": "Hours changed: {{names}}",
+      "renamed": "Renamed to {{name}}",
+      "hint": "Reapply keeps the other person’s changes and puts yours on top. Check the result, then save.",
+      "reapply": "Reapply my changes",
+      "discard": "Discard my changes",
+      "draftTitle": "Availability changed while you were editing",
+      "draftBody": "Someone saved a change to availability first. Nothing you entered has been saved.",
+      "draftHint": "Keep your schedule to save it on top of their change, or start over.",
+      "draftKeep": "Keep my schedule",
+      "startOver": "Start over",
+      "regularReplaced": "The regular week is now {{name}}",
+      "regularNothing": "Nothing in the regular week changed.",
+      "regularHint": "Reapply lays your hours over the current regular week. Check the result, then save."
+    },
     "regularWeek": {
       "open": "Change regular week…",
       "title": "Change regular week",
+      "appliesTo": "Applies to {{days}}, the days your regular week runs. Other days keep their hours.",
       "noEnd": "No end — this becomes the new regular week",
       "save": "Save hours from {{date}}",
       "saved": "{{name}} from {{date}}"
@@ -1836,7 +1963,8 @@
       "serviceLine": "{{name}} {{from}}–{{to}}",
       "nextDay": "{{time}} (next day)",
       "draftName": "unsaved changes",
-      "labelWithPeriod": "{{label}}, {{period}}"
+      "labelWithPeriod": "{{label}}, {{period}}",
+      "untilClose": "close"
     },
     "drawer": {
       "summaryOpen": "Open for {{services}}.",
@@ -2011,6 +2139,11 @@
         "walkIn": "Walk-in only"
       },
       "overnight": "Closes {{time}} the next day ({{weekday}})",
+      "overnightNextDay": "Closes {{time}} the next day",
+      "held_one": "Your edit to {{names}} won’t be saved: it isn’t in what you’re changing now.",
+      "held_other": "Your edits to {{names}} won’t be saved: they aren’t in what you’re changing now.",
+      "overridden_one": "Your hours for {{names}} won’t be used: what you’re changing already has them.",
+      "overridden_other": "Your hours for {{names}} won’t be used: what you’re changing already has them.",
       "remove": "Remove {{name}}",
       "scope": {
         "label": "You’re changing",
@@ -2094,6 +2227,7 @@
     "discard": {
       "title": "Discard changes to {{date}}?",
       "description": "Your unsaved changes to these hours will be lost.",
+      "leavePage": "All unsaved changes on this page will be lost.",
       "confirm": "Discard",
       "keep": "Keep editing"
     },
@@ -2107,6 +2241,21 @@
       "saveError": "Couldn't close",
       "versionConflict": "Availability changed since you opened this. Close this dialog and try again.",
       "groupsChanged": "The bookings changed while you were deciding. Review the updated list and choose again.",
+      "alreadySaved": "This closure was already saved, and its bookings handled. Check Special dates before closing again.",
+      "maybeSaved": "The reservations service hit a snag, so we couldn't confirm this save. It may have gone through. Try again without changes to see what happened.",
+      "savedEarlier": {
+        "title": "Already closed",
+        "body": "An earlier try of this closure was saved: {{summary}}. Guests were handled as that try chose; changes you made afterwards did not apply. Open Special dates to see the outcome.",
+        "bodyPlain": "An earlier try of this closure was saved. Changes you made afterwards did not apply. Open Special dates to see the outcome.",
+        "done": "Done"
+      },
+      "discard": {
+        "title": "Discard this closure?",
+        "description": "Nothing has been closed. The choices you made here will be lost.",
+        "titleMaybeSaved": "Leave this closure?",
+        "descriptionMaybeSaved": "The last save didn't finish, so it may have gone through and cancelled guests. Check Special dates before closing again.",
+        "leave": "Leave"
+      },
       "staffNote": "Note for staff",
       "guestMessage": "Message for guests",
       "guestMessageTooLong": "Keep it to {{max}} characters.",
@@ -2145,7 +2294,8 @@
       "window": {
         "label": "Starting at",
         "allDay": "All day",
-        "from": "From {{time}}"
+        "from": "From {{time}}",
+        "hostNote": "An emergency close covers the whole day. Only a manager can close from a set time."
       },
       "replaces": "{{date}} has special hours; the closure replaces them.",
       "impactLabel": "Bookings in this closure",
@@ -2154,8 +2304,8 @@
       "impact_many": "{{count}} reservations · {{guests}} guests are booked in this closure",
       "impactNone": "No reservations are booked in this closure.",
       "impactError": "Couldn't check existing reservations. Change a field to try again.",
-      "guestsWillSee": "Guests will see: {{date}} · Closed",
-      "guestsWillSeeMessage": "Guests will see: {{date}} · Closed · “{{message}}”",
+      "guestsWillSee": "Guests will see: {{date}} · {{status}}",
+      "guestsWillSeeMessage": "Guests will see: {{date}} · {{status}} · “{{message}}”",
       "button": {
         "close": "Close {{date}}",
         "pause": "Pause online booking",
@@ -2186,7 +2336,10 @@
           "keep_silent_one": "keep {{count}} silently",
           "keep_silent_other": "keep {{count}} silently",
           "keep_silent_many": "keep {{count}} silently"
-        }
+        },
+        "pausePhone": "Pause phone booking",
+        "pauseWaitlist": "Pause waitlist",
+        "pauseBooking": "Pause booking"
       },
       "toast": {
         "closed": "{{date}} closed",
@@ -2233,7 +2386,15 @@
           "move": "We've changed our hours on {{date}}. {{message}}\nYour table is moved to the nearest open time. Can't make it? Cancel free.",
           "keep_notify": "We've changed our hours on {{date}}. {{message}}\nYour table is still booked."
         },
+        "loading": "Loading the bookings…",
+        "loadFailed": "Couldn't load the bookings to decide on. Go back and try again.",
         "irreversible": "Guests are told right away. This can't be undone."
+      },
+      "status": {
+        "closed": "Closed",
+        "closedFrom": "Closed from {{time}}",
+        "serviceClosed": "{{service}} closed",
+        "serviceClosedFrom": "{{service}} closed from {{time}}"
       }
     },
     "paused": {
@@ -2287,7 +2448,14 @@
     "tonight": {
       "title": "Tonight",
       "decisions": {
-        "title": "Bookings after the new close"
+        "title": "Bookings after the new close",
+        "impactError": "Couldn't check the bookings after the new close.",
+        "retry": "Try again",
+        "discardMaybeSaved": "The last save didn't finish, so it may have gone through and cancelled guests. Check tonight's changes before closing again.",
+        "savedEarlier": {
+          "body": "An earlier try was saved: {{summary}}. Guests were handled as that try chose; changes you made afterwards did not apply.",
+          "bodyPlain": "An earlier try was saved. Changes you made afterwards did not apply."
+        }
       },
       "open": "Tonight",
       "chips": "Tonight's changes",
@@ -2333,6 +2501,13 @@
         "pacing_one": "Pacing {{count}} cover",
         "pacing_other": "Pacing {{count}} covers",
         "pacing_many": "Pacing {{count}} covers"
+      },
+      "toast": {
+        "closed": "Closing early at {{time}}",
+        "closedNotified_one": "Closing early at {{time}} · {{count}} reservation notified",
+        "closedNotified_other": "Closing early at {{time}} · {{count}} reservations notified",
+        "closedNotified_many": "Closing early at {{time}} · {{count}} reservations notified",
+        "callList": "Call list"
       }
     },
     "venueTime": "Venue time ({{zone}})",

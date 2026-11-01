@@ -15,7 +15,7 @@ export function OnlinePausedPill() {
   const today = venueDate(now, timeZone);
   const config = useAvailabilityConfig({ venueId: selectedVenueId });
   const paused = config.data
-    ? activeOnlinePause(config.data.config.dateRules, today, minutesOfDayIn(now, timeZone))
+    ? activeOnlinePause(config.data.config, timeZone, today, minutesOfDayIn(now, timeZone))
     : null;
   return paused ? <Tag variant="accent">{t("availability.paused.pill")}</Tag> : null;
 }
