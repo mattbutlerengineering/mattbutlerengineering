@@ -154,7 +154,7 @@ export function AddDateRow(props: AddDateRowProps) {
             <ServicesEditor
               services={row.services}
               venueServices={config.venueServices}
-              date={row.date || today}
+              date={row.date || undefined}
               allowNew={false}
               onChange={(services) => onChange({ ...row, services })}
             />

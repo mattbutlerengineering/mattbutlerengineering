@@ -1805,6 +1805,10 @@
     "deleteDescription": "Ninguna fecha usa este horario, así que nada cambia para los comensales. No se puede deshacer.",
     "deleteBlocked": "Se usa en {{where}}; primero pasa esos días a otro horario",
     "notUsed": "Aún sin uso",
+    "usedByRules_one": "Lo usa {{count}} regla de Usar horario",
+    "usedByRules_other": "Lo usan {{count}} reglas de Usar horario",
+    "usedByRules_many": "Lo usan {{count}} de reglas de Usar horario",
+    "deleteBlockedRules": "{{where}}; primero cambia esas fechas a otro horario",
     "everyDay": "todos los días",
     "usageRange": "{{from}} – {{to}}, {{days}}",
     "usageFrom": "Desde el {{from}}, {{days}}",
@@ -1838,9 +1842,34 @@
     "stranded_one": "{{count}} reservación próxima quedaría fuera del nuevo horario.",
     "stranded_other": "{{count}} reservaciones próximas quedarían fuera del nuevo horario.",
     "stranded_many": "{{count}} de reservaciones próximas quedarían fuera del nuevo horario.",
+    "discard": {
+      "title": "¿Descartar tus cambios?"
+    },
+    "conflictReview": {
+      "title": "Alguien cambió este horario antes",
+      "loading": "Cargando la última versión…",
+      "gone": "Este horario se eliminó, así que no se pueden guardar tus cambios. Descártalos para cerrar.",
+      "nothing": "Nada cambió en este horario. Tus cambios se pueden volver a aplicar tal cual.",
+      "added": "Agregado: {{names}}",
+      "removed": "Quitado: {{names}}",
+      "changed": "Horario modificado: {{names}}",
+      "renamed": "Ahora se llama {{name}}",
+      "hint": "Al volver a aplicar se conservan los cambios de la otra persona y se ponen los tuyos encima. Revisa el resultado y guarda.",
+      "reapply": "Volver a aplicar mis cambios",
+      "discard": "Descartar mis cambios",
+      "draftTitle": "La disponibilidad cambió mientras editabas",
+      "draftBody": "Alguien guardó un cambio de disponibilidad antes. No se guardó nada de lo que escribiste.",
+      "draftHint": "Conserva tu horario para guardarlo encima de su cambio, o empieza de nuevo.",
+      "draftKeep": "Conservar mi horario",
+      "startOver": "Empezar de nuevo",
+      "regularReplaced": "La semana regular ahora es {{name}}",
+      "regularNothing": "Nada cambió en la semana regular.",
+      "regularHint": "Al volver a aplicar, tus horarios se ponen sobre la semana regular actual. Revisa el resultado y guarda."
+    },
     "regularWeek": {
       "open": "Cambiar la semana habitual…",
       "title": "Cambiar la semana habitual",
+      "appliesTo": "Se aplica a {{days}}, los días que usa la semana habitual. Los demás días conservan su horario.",
       "noEnd": "Sin fin: esta pasa a ser la nueva semana habitual",
       "save": "Guardar horario desde el {{date}}",
       "saved": "{{name}} desde el {{date}}"
@@ -2127,6 +2156,13 @@
         "walkIn": "Solo sin reserva"
       },
       "overnight": "Cierra a las {{time}} del día siguiente ({{weekday}})",
+      "overnightNextDay": "Cierra a las {{time}} del día siguiente",
+      "held_one": "Tu cambio en {{names}} no se guardará: no está en lo que estás modificando ahora.",
+      "held_many": "Tus cambios en {{names}} no se guardarán: no están en lo que estás modificando ahora.",
+      "held_other": "Tus cambios en {{names}} no se guardarán: no están en lo que estás modificando ahora.",
+      "overridden_one": "No se usarán tus horarios de {{names}}: lo que estás modificando ya los tiene.",
+      "overridden_many": "No se usarán tus horarios de {{names}}: lo que estás modificando ya los tiene.",
+      "overridden_other": "No se usarán tus horarios de {{names}}: lo que estás modificando ya los tiene.",
       "remove": "Quitar {{name}}",
       "scope": {
         "label": "Estás cambiando",
@@ -2220,6 +2256,7 @@
     "discard": {
       "title": "¿Descartar los cambios del {{date}}?",
       "description": "Se perderán tus cambios sin guardar en estos horarios.",
+      "leavePage": "Se perderán todos los cambios sin guardar en esta página.",
       "confirm": "Descartar",
       "keep": "Seguir editando"
     },

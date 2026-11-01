@@ -1805,6 +1805,10 @@
     "deleteDescription": "Aucune date n’utilise cet horaire; rien ne change pour les clients. Cette action est irréversible.",
     "deleteBlocked": "Utilisé le {{where}}; transférez d’abord ces jours à un autre horaire",
     "notUsed": "Pas encore utilisé",
+    "usedByRules_one": "Utilisé par {{count}} règle Utiliser un horaire",
+    "usedByRules_other": "Utilisé par {{count}} règles Utiliser un horaire",
+    "usedByRules_many": "Utilisé par {{count}} de règles Utiliser un horaire",
+    "deleteBlockedRules": "{{where}}; transférez d’abord ces dates à un autre horaire",
     "everyDay": "tous les jours",
     "usageRange": "{{from}} – {{to}}, {{days}}",
     "usageFrom": "À partir du {{from}}, {{days}}",
@@ -1838,9 +1842,34 @@
     "stranded_one": "{{count}} réservation à venir serait hors du nouvel horaire.",
     "stranded_other": "{{count}} réservations à venir seraient hors du nouvel horaire.",
     "stranded_many": "{{count}} de réservations à venir seraient hors du nouvel horaire.",
+    "discard": {
+      "title": "Abandonner vos modifications ?"
+    },
+    "conflictReview": {
+      "title": "Quelqu’un a modifié cet horaire avant vous",
+      "loading": "Chargement de la dernière version…",
+      "gone": "Cet horaire a été supprimé; vos modifications ne peuvent pas être enregistrées. Abandonnez-les pour fermer.",
+      "nothing": "Rien n’a changé dans cet horaire. Vos modifications peuvent être réappliquées telles quelles.",
+      "added": "Ajouté : {{names}}",
+      "removed": "Retiré : {{names}}",
+      "changed": "Heures modifiées : {{names}}",
+      "renamed": "Renommé en {{name}}",
+      "hint": "Réappliquer conserve les modifications de l’autre personne et ajoute les vôtres par-dessus. Vérifiez le résultat, puis enregistrez.",
+      "reapply": "Réappliquer mes modifications",
+      "discard": "Abandonner mes modifications",
+      "draftTitle": "La disponibilité a changé pendant votre modification",
+      "draftBody": "Quelqu’un a enregistré un changement de disponibilité avant vous. Rien de ce que vous avez saisi n’a été enregistré.",
+      "draftHint": "Conservez votre horaire pour l’enregistrer par-dessus leur changement, ou recommencez.",
+      "draftKeep": "Conserver mon horaire",
+      "startOver": "Recommencer",
+      "regularReplaced": "La semaine habituelle est maintenant {{name}}",
+      "regularNothing": "Rien n’a changé dans la semaine habituelle.",
+      "regularHint": "Réappliquer place vos heures par-dessus la semaine habituelle actuelle. Vérifiez le résultat, puis enregistrez."
+    },
     "regularWeek": {
       "open": "Modifier la semaine habituelle…",
       "title": "Modifier la semaine habituelle",
+      "appliesTo": "S’applique à {{days}}, les jours de la semaine habituelle. Les autres jours gardent leurs heures.",
       "noEnd": "Sans fin : elle devient la nouvelle semaine habituelle",
       "save": "Enregistrer les heures dès le {{date}}",
       "saved": "{{name}} dès le {{date}}"
@@ -2127,6 +2156,13 @@
         "walkIn": "Sans réservation seulement"
       },
       "overnight": "Ferme à {{time}} le lendemain ({{weekday}})",
+      "overnightNextDay": "Ferme à {{time}} le lendemain",
+      "held_one": "Votre modification de {{names}} ne sera pas enregistrée : ce service n’est pas dans ce que vous modifiez maintenant.",
+      "held_many": "Vos modifications de {{names}} ne seront pas enregistrées : ces services ne sont pas dans ce que vous modifiez maintenant.",
+      "held_other": "Vos modifications de {{names}} ne seront pas enregistrées : ces services ne sont pas dans ce que vous modifiez maintenant.",
+      "overridden_one": "Vos heures pour {{names}} ne seront pas utilisées : ce que vous modifiez les définit déjà.",
+      "overridden_many": "Vos heures pour {{names}} ne seront pas utilisées : ce que vous modifiez les définit déjà.",
+      "overridden_other": "Vos heures pour {{names}} ne seront pas utilisées : ce que vous modifiez les définit déjà.",
       "remove": "Retirer {{name}}",
       "scope": {
         "label": "Vous modifiez",
@@ -2220,6 +2256,7 @@
     "discard": {
       "title": "Abandonner les changements du {{date}} ?",
       "description": "Vos changements non enregistrés à ces heures seront perdus.",
+      "leavePage": "Tous les changements non enregistrés sur cette page seront perdus.",
       "confirm": "Abandonner",
       "keep": "Continuer à modifier"
     },

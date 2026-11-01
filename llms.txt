@@ -1679,6 +1679,38 @@
       export function conflictOf(error: unknown): Conflict | null { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/conflict-review.ts">
+    <item priority="low">
+      interface ScheduleChangeSince {
+        gone: boolean;
+        replacedBy: string | null;
+        renamedTo: string | null;
+        added: readonly string[];
+        removed: readonly string[];
+      }
+    </item>
+    <item priority="medium">
+      function rowsByService(config: AvailabilityConfig, scheduleId: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function scheduleChangesSince(
+        before: AvailabilityConfig,
+        after: AvailabilityConfig,
+        scheduleId: string,
+        latestId: string = scheduleId
+      ): ScheduleChangeSince { /* ... */ }
+    </item>
+    <item priority="high">
+      interface ReapplyInput {
+        base: readonly DraftService[];
+        draft: readonly DraftService[];
+        latest: readonly DraftService[];
+      }
+    </item>
+    <item priority="high">
+      export function reapplyDraft({ base, draft, latest }: ReapplyInput): DraftService[] { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/copy-day.ts">
     <item priority="low">
       interface CopyTarget {
@@ -1764,6 +1796,13 @@
       type EditScope = { readonly kind: "date"; reado | { readonly kind: "weekday"; re | { readonly kind: "schedule"; r | { readonly kind: "dates"; read | {
             readonly kind: "rule";;
     </item>
+    <item priority="high">
+      export function overnightHintDate(
+        scope: EditScope,
+        date: string,
+        dates: readonly string[]
+      ): string | undefined { /* ... */ }
+    </item>
     <item priority="low">
       interface DraftService {
         key: string;
@@ -1819,7 +1858,8 @@
         config: AvailabilityConfig,
         scheduleId: string,
         services: readonly (DraftService & { venueServiceId: string })[],
-        makeId: () => string
+        makeId: () => string,
+        baseline?: AvailabilityConfig
       ): { upsert: ScheduleService[]; removed: string[] } { /* ... */ }
     </item>
     <item priority="high">
@@ -2157,6 +2197,9 @@
       }
     </item>
     <item priority="high">
+      export function regularWeekdays(config: AvailabilityConfig, from: string): number[] { /* ... */ }
+    </item>
+    <item priority="high">
       export function buildRegularWeekChanges(input: RegularWeekInput): AvailabilityConfigChanges { /* ... */ }
     </item>
     <item priority="high">
@@ -2166,6 +2209,8 @@
         readonly name: string;
         readonly services: readonly DraftService[];
         readonly makeId: () => string;
+        /** The config the drawer was seeded from, so a save removes only rows the Manager saw. */
+        readonly baseline: AvailabilityConfig;
       }): AvailabilityConfigChanges { /* ... */ }
     </item>
     <item priority="medium">
@@ -2201,6 +2246,34 @@
         dates: readonly string[],
         ignoreRuleId: string | null
       ): string[] { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/scope-switch.ts">
+    <item priority="low">
+      interface ParkedEdit {
+        base: DraftService;
+        draft: DraftService | null;
+      }
+    </item>
+    <item priority="high">
+      interface SwitchInput {
+        baseline: readonly DraftService[];
+        services: readonly DraftService[];
+        parked: readonly ParkedEdit[];
+        seed: DraftService[];
+      }
+    </item>
+    <item priority="low">
+      interface Switched {
+        services: DraftService[];
+        baseline: DraftService[];
+        parked: ParkedEdit[];
+        unsaved: string[];
+        overridden: string[];
+      }
+    </item>
+    <item priority="high">
+      export function switchScope(input: SwitchInput): Switched { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/selection-actions.ts">
@@ -2420,9 +2493,40 @@
       ): readonly TonightChange[] { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/use-conflict-review.ts">
+    <item priority="high">
+      interface Baseline {
+        config: AvailabilityConfig;
+        version: number;
+        scheduleId: string | undefined;
+      }
+    </item>
+    <item priority="low">
+      type ConflictReviewKind = "edit" | "regularWeek" | "draft";
+    </item>
+    <item priority="low">
+      interface ConflictReview {
+        kind: ConflictReviewKind;
+        loaded: boolean;
+        changes: ScheduleChangeSince;
+      }
+    </item>
+    <item priority="high">
+      interface Input {
+        kind: ConflictReviewKind;
+        state: AvailabilityConfigState;
+        scheduleId: string | undefined;
+        services: readonly DraftService[];
+        name: string | null;
+      }
+    </item>
+    <item priority="high">
+      export function useConflictReview(input: Input) { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/use-discard-guard.ts">
     <item priority="high">
-      export function useDiscardGuard<T>(apply: (next: T) => void) { /* ... */ }
+      export function useDiscardGuard<T>(apply: (next: T) => void, derivedDirty?: boolean) { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/use-schedule-save.ts">

@@ -104,6 +104,15 @@ export function AvailabilityPage() {
     if (next.date !== null && !next.fixedDates) setSelection([]);
     if (nextClosing) setClosing(nextClosing);
   });
+  // Compare services' unsaved rows are lost when the Schedules tab goes, so leaving it asks first.
+  const [schedulesDirty, setSchedulesDirty] = useState(false);
+  const tabGuard = useDiscardGuard<AvailabilityTab>(
+    (next) => {
+      setSchedulesDirty(false);
+      setTab(next);
+    },
+    tab === "schedules" && schedulesDirty
+  );
   const format = useVenueFormat();
 
   const dates = useMemo(() => visibleDates(view, anchor), [view, anchor]);
@@ -196,7 +205,13 @@ export function AvailabilityPage() {
         today={today}
         tab={tab}
         // Leaving the calendar with an unsaved draft asks first; the tab changes on the next try.
-        onTabChange={(next) => (guard.dirty ? guard.request(CLOSED) : setTab(next))}
+        onTabChange={(next) =>
+          guard.dirty
+            ? guard.request(CLOSED)
+            : tab === "schedules"
+              ? tabGuard.request(next)
+              : setTab(next)
+        }
         onStale={() => void config.refetch()}
       />
     ) : null;
@@ -212,6 +227,14 @@ export function AvailabilityPage() {
           timezone={timeZone}
           today={today}
           onStale={() => void config.refetch()}
+          onDirtyChange={setSchedulesDirty}
+        />
+        <DiscardChangesDialog
+          open={tabGuard.pending !== null}
+          date={null}
+          title={t("availabilitySchedules.discard.title")}
+          onDiscard={tabGuard.confirmDiscard}
+          onKeepEditing={tabGuard.keepEditing}
         />
       </Stack>
     );

@@ -6,7 +6,7 @@
   align-items: center;
   justify-content: center;
   padding: var(--rialto-space-lg);
-  z-index: 100;
+  z-index: 10000;
 }
 
 .panel {
