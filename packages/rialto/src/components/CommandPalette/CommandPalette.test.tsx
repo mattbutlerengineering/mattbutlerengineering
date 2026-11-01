@@ -85,6 +85,35 @@ describe("CommandPalette", () => {
       expect(screen.getByRole("combobox")).toHaveFocus();
       expect(rafSpy).not.toHaveBeenCalled();
     });
+
+    it("keeps focus inside the panel after a click on something that is not a control", async () => {
+      const user = userEvent.setup();
+      render(<CommandPalette open onOpenChange={() => {}} items={items} />);
+      const panel = screen.getByRole("dialog", { name: "Command palette" });
+
+      await user.click(panel);
+
+      expect(panel).toHaveFocus();
+    });
+
+    it.each([[false], [true]])(
+      "returns focus from the panel to the search input on Tab (shift: %s)",
+      async (shift) => {
+        const user = userEvent.setup();
+        render(
+          <>
+            <button>behind</button>
+            <CommandPalette open onOpenChange={() => {}} items={items} />
+            <button>after</button>
+          </>
+        );
+        await user.click(screen.getByRole("dialog", { name: "Command palette" }));
+
+        await user.tab({ shift });
+
+        expect(screen.getByRole("combobox")).toHaveFocus();
+      }
+    );
   });
 
   describe("search filtering", () => {
