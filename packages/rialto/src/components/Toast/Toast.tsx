@@ -8,7 +8,14 @@ const ToastAnimated = lazy(() =>
 );
 
 /* ── Provider ────────────────────────────────── */
-export function ToastProvider({ children }: { children: ReactNode }) {
+export function ToastProvider({
+  children,
+  placement = "bottom-end",
+}: {
+  children: ReactNode;
+  /** Viewport corner the toasts stack from. Use "top-end" when the bottom edge holds the primary action. */
+  placement?: "bottom-end" | "top-end";
+}) {
   const { messages } = useRialtoLocale();
   const [toasts, setToasts] = useState<ToastData[]>([]);
   // Once true, keeps ToastAnimated mounted so exit animations play correctly.
@@ -59,7 +66,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast, dismiss }}>
       {children}
-      <div className={styles.container} role="region" aria-label={messages.notifications}>
+      <div
+        className={styles.container}
+        data-placement={placement}
+        role="region"
+        aria-label={messages.notifications}
+      >
         {/* Polite region — info, success, accent, default (non-critical) */}
         <div aria-live="polite" aria-atomic="false">
           {everHadToasts && (

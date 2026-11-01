@@ -551,7 +551,7 @@
         onGenerationComplete: () =>
           toast({ title: "Generation complete", variant: "success", duration: 3000 }),
       });
-      const { reset, error, openGallery } = session;
+      const { reset, openGallery } = session;
     
       const onSignOut = useCallback(() => {
         reset();
@@ -565,18 +565,6 @@
       const onTemplatesOpen = useCallback(() => {
         openGallery();
       }, [openGallery]);
-    
-      // Show error toast when generation fails
-      useEffect(() => {
-        if (error) {
-          toast({
-            title: "Generation failed",
-            description: error.message,
-            variant: "error",
-            duration: 5000,
-          });
-        }
-      }, [error, toast]);
     
       return { session, toggleTheme, onSignOut, onLogoClick, onTemplatesOpen };
     }
