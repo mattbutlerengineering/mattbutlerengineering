@@ -35,3 +35,5 @@
 {"issue":4706,"last_human_touch_at":"2026-08-30T20:17:45.000Z","days_stale":20,"detected_at":"2026-09-20T18:13:25.350Z","labeled":true}
 {"issue":4876,"last_human_touch_at":"2026-09-01T13:10:25.000Z","days_stale":19,"detected_at":"2026-09-20T18:13:25.350Z","labeled":true}
 {"issue":4487,"last_human_touch_at":"2026-08-23T09:43:29.000Z","days_stale":28,"detected_at":"2026-09-20T18:13:25.350Z","labeled":false}
+{"issue":1262,"last_human_touch_at":"2026-05-12T05:40:57.000Z","days_stale":173,"detected_at":"2026-11-01T19:48:18.478Z","labeled":true}
+{"issue":6881,"last_human_touch_at":"2026-10-16T23:17:53.000Z","days_stale":15,"detected_at":"2026-11-01T19:48:18.478Z","labeled":true}
