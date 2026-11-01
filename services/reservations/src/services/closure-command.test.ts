@@ -99,6 +99,9 @@ interface Where {
   startTime: { lt: Date };
   endTime: { gt: Date };
   dateRuleId: string;
+  action: string;
+  /** The outcome's booking, filtered by when it starts (a notice is only worth sending ahead of it). */
+  reservation: { startTime: { gt: Date } };
   inverse: { path: string[]; equals: unknown };
 }
 
@@ -140,7 +143,14 @@ function outcomeDelegate(w: World) {
   return {
     count: vi.fn(
       async ({ where }: { where: Where }) =>
-        w.outcomes.filter((o) => o.dateRuleId === where.dateRuleId).length
+        w.outcomes.filter((o) => {
+          if (o.dateRuleId !== where.dateRuleId) return false;
+          if (where.action && o.action !== where.action) return false;
+          const after = where.reservation?.startTime.gt;
+          if (!after) return true;
+          const booking = w.reservations.find((r) => r.id === o.reservationId);
+          return booking !== undefined && booking.startTime > after;
+        }).length
     ),
     createMany: vi.fn(async ({ data }: { data: Record<string, unknown>[] }) => {
       w.outcomes = [
@@ -1288,6 +1298,133 @@ describe("reopenClosure", () => {
       const deleted = JSON.stringify(tx.dateRule.updateMany.mock.calls);
       expect(deleted).toContain("other");
       for (const id of ["s1", "k1", "e1"]) expect(deleted).not.toContain(id);
+    });
+
+    // Thursday Dec 24: the series closes the whole day; the edit opens it until 10 PM.
+    const editedThursday = () => {
+      const w = world();
+      w.dateRules = [
+        series,
+        {
+          ...child("e1", "closure", "2026-12-24"),
+          window: { version: 1, from: 1320, to: 1440 },
+        },
+      ];
+      return w;
+    };
+
+    it("refuses to remove a one-date edit when the series would close a booking out (#7975)", async () => {
+      const w = editedThursday(); // res-1 is booked at 7 PM that day
+      const before = { rules: w.dateRules, version: w.version, changes: w.changes.length };
+
+      const { outcome } = await reopen(w, MANAGER, "e1");
+
+      expect(outcome).toMatchObject({
+        kind: "invalid",
+        issues: expect.arrayContaining([
+          expect.objectContaining({ path: "reservations.res-1", code: "strands_booking" }),
+        ]),
+      });
+      expect({ rules: w.dateRules, version: w.version, changes: w.changes.length }).toEqual(before);
+    });
+
+    it("takes the venue row before it scans bookings, so an in-flight booking is seen (#7975)", async () => {
+      const w = editedThursday();
+      w.reservations = [];
+      const { tx } = await reopen(w, MANAGER, "e1");
+
+      const firstWrite = Math.min(
+        ...tx.venue.update.mock.invocationCallOrder,
+        ...tx.venue.updateMany.mock.invocationCallOrder
+      );
+      expect(tx.reservation.findMany).toHaveBeenCalled();
+      expect(firstWrite).toBeLessThan(tx.reservation.findMany.mock.invocationCallOrder[0]!);
+    });
+
+    it("ignores a cancelled booking when deciding whether the date is stranded", async () => {
+      const w = editedThursday();
+      w.reservations = w.reservations.map((r) => ({ ...r, status: "CANCELLED" }));
+
+      const { outcome } = await reopen(w, MANAGER, "e1");
+
+      expect(outcome.kind).toBe("reopened");
+    });
+
+    it("refuses when only an overnight booking depends on the edit", async () => {
+      const w = editedThursday();
+      // A 22:00-02:00 service: Friday 00:30 local is still Thursday's service day. The edit only
+      // closes from 01:00, so it is what keeps the 00:30 booking open against the series.
+      w.service = { opensAt: 1320, lastSeatingAt: 1500, closesAt: 1560 };
+      w.dateRules = w.dateRules.map((r) =>
+        r.id === "e1" ? { ...r, window: { version: 1, from: 1500, to: 1560 } } : r
+      );
+      w.reservations = [
+        res("res-night", "2026-12-24", "2026-12-25T08:30:00.000Z", "2026-12-25T10:00:00.000Z"),
+      ];
+
+      const { outcome } = await reopen(w, MANAGER, "e1");
+
+      expect(outcome).toMatchObject({
+        kind: "invalid",
+        issues: [expect.objectContaining({ path: "reservations.res-night" })],
+      });
+    });
+
+    it("still removes a one-date edit when no booking depends on it", async () => {
+      const w = editedThursday();
+      w.reservations = [];
+
+      const { outcome } = await reopen(w, MANAGER, "e1");
+
+      expect(outcome.kind).toBe("reopened");
+    });
+  });
+
+  describe("who a reopen notice can reach (#7975)", () => {
+    const closedWithTwoGuests = async () => {
+      const w = world();
+      await run(w, body());
+      w.dateRules = [rowFor("closure")];
+      return w;
+    };
+
+    it("counts only the cancelled guests whose booking is still ahead, and says so on the audit row", async () => {
+      const w = await closedWithTwoGuests();
+      // res-2's booking has started by the time the closure is reopened.
+      w.reservations = w.reservations.map((r) =>
+        r.id === "res-2" ? { ...r, startTime: new Date("2026-10-20T01:00:00.000Z") } : r
+      );
+
+      const { outcome } = await reopen(w);
+
+      expect(outcome).toMatchObject({ kind: "reopened", result: { notified: 1 } });
+      expect(w.changes.at(-1)).toMatchObject({ kind: "reopen", notifiedGuests: true });
+    });
+
+    it("records no guests told when every cancelled booking is already over", async () => {
+      const w = await closedWithTwoGuests();
+      w.reservations = w.reservations.map((r) => ({
+        ...r,
+        startTime: new Date("2026-10-20T01:00:00.000Z"),
+      }));
+
+      const { outcome } = await reopen(w);
+
+      expect(outcome).toMatchObject({ kind: "reopened", result: { notified: 0 } });
+      expect(w.changes.at(-1)).toMatchObject({ notifiedGuests: false });
+    });
+
+    it("tells nobody when the Manager did not ask to", async () => {
+      const w = await closedWithTwoGuests();
+      const { client } = fakeClient(w);
+
+      const outcome = await reopenClosure(
+        { venueId: "v", ruleId: "dr-new", caller: MANAGER, tellCancelledGuests: false, now: NOW },
+        client
+      );
+
+      expect(outcome).toMatchObject({ kind: "reopened", result: { notified: 0 } });
+      expect(w.changes.at(-1)).toMatchObject({ notifiedGuests: false });
     });
   });
 

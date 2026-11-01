@@ -1,0 +1,1407 @@
+import type { Page, Request } from "@playwright/test";
+import { test, expect } from "./fixtures.js";
+import { localDay } from "./local-day.js";
+
+// #8004 / #8010 / #8017: on a phone the reservation details are a Rialto Drawer (overlay above the
+// page); at tablet width they are a bottom-sheet Drawer. Cancel, Mark No-Show and Walk-in open
+// dialogs while the drawer is still open, so the dialogs must stack above it, and dismissing one
+// must leave focus inside the drawer rather than on the grid block behind it.
+test.use({ viewport: { width: 375, height: 812 } });
+
+// Bob Smith (res_e2e_002) is PENDING, which offers Cancel; Carol Davis (res_e2e_003) is CONFIRMED,
+// the only status that offers Mark No-Show.
+async function openDetailsDrawer(page: Page, reservationId: string, drawerName: string) {
+  await page.clock.setFixedTime(new Date(`${localDay()}T19:30:00`));
+  await page.goto("timeline");
+  await page.getByTestId(`reservation-block-${reservationId}`).click();
+  await expect(page.getByRole("dialog", { name: drawerName })).toBeVisible();
+}
+
+const openPhoneDrawer = (page: Page, reservationId: string) =>
+  openDetailsDrawer(page, reservationId, "Reservation Details");
+
+const isReservationPatch = (request: Request, id: string, status: string) =>
+  request.method() === "PATCH" &&
+  request.url().endsWith(`/reservations/${id}`) &&
+  (request.postData() ?? "").includes(status);
+
+test.describe("Timeline phone drawer dialogs (#8004)", () => {
+  test("Cancel Reservation dialog is clickable above the details drawer", async ({
+    mockedPage,
+  }) => {
+    await openPhoneDrawer(mockedPage, "res_e2e_002");
+    await mockedPage.getByRole("button", { name: "Cancel Reservation", exact: true }).click();
+
+    const dialog = mockedPage.getByRole("dialog", { name: "Cancel Reservation" });
+    await expect(dialog).toBeVisible();
+    // The Reason menu is portaled; it must still open above the dialog.
+    await dialog.getByRole("combobox").click();
+    await mockedPage.getByRole("option", { name: "Restaurant Cancelled" }).click({ timeout: 3000 });
+    // A real pointer click: Playwright fails if another element (the drawer overlay) intercepts it.
+    await dialog.getByRole("button", { name: "Keep Reservation" }).click({ timeout: 3000 });
+    await expect(dialog).toHaveCount(0);
+  });
+
+  test("confirming Cancel Reservation sends the PATCH and closes the drawer", async ({
+    mockedPage,
+  }) => {
+    await openPhoneDrawer(mockedPage, "res_e2e_002");
+    await mockedPage.getByRole("button", { name: "Cancel Reservation", exact: true }).click();
+    const dialog = mockedPage.getByRole("dialog", { name: "Cancel Reservation" });
+
+    const sent = mockedPage.waitForRequest((r) =>
+      isReservationPatch(r, "res_e2e_002", "CANCELLED")
+    );
+    await dialog
+      .getByRole("button", { name: "Cancel Reservation", exact: true })
+      .click({ timeout: 3000 });
+    await sent;
+
+    await expect(dialog).toHaveCount(0);
+    await expect(mockedPage.getByRole("dialog", { name: "Reservation Details" })).toHaveCount(0);
+  });
+
+  test("Mark No-Show dialog is clickable above the details drawer", async ({ mockedPage }) => {
+    await openPhoneDrawer(mockedPage, "res_e2e_003");
+    await mockedPage.getByRole("button", { name: "Mark No-Show", exact: true }).click();
+
+    const dialog = mockedPage.getByRole("dialog", { name: "Mark No-Show" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Keep Reservation" }).click({ timeout: 3000 });
+    await expect(dialog).toHaveCount(0);
+  });
+
+  test("confirming Mark No-Show sends the PATCH and closes the drawer", async ({ mockedPage }) => {
+    await openPhoneDrawer(mockedPage, "res_e2e_003");
+    await mockedPage.getByRole("button", { name: "Mark No-Show", exact: true }).click();
+    const dialog = mockedPage.getByRole("dialog", { name: "Mark No-Show" });
+
+    const sent = mockedPage.waitForRequest((r) => isReservationPatch(r, "res_e2e_003", "NO_SHOW"));
+    await dialog
+      .getByRole("button", { name: "Mark No-Show", exact: true })
+      .click({ timeout: 3000 });
+    await sent;
+
+    await expect(dialog).toHaveCount(0);
+    await expect(mockedPage.getByRole("dialog", { name: "Reservation Details" })).toHaveCount(0);
+  });
+});
+
+// #8010: the command palette (z-index 10001, above the walk-in dialog's 10000 and the drawer's
+// 9998/9999) opens the walk-in dialog over the open drawer.
+test.describe("Walk-in dialog over the details drawer (#8010)", () => {
+  async function openWalkInOverDrawer(page: Page) {
+    await openPhoneDrawer(page, "res_e2e_002");
+    // Lowercase key: the palette compares `e.key === "k"`, which "Meta+K" would not send. The
+    // choice is made from the keyboard; the palette's own layering is #7996's, not this spec's.
+    await page.keyboard.press("ControlOrMeta+k");
+    const palette = page.getByRole("dialog", { name: "Command palette", exact: true });
+    await palette.getByRole("combobox", { name: "Search commands", exact: true }).fill("walk");
+    await expect(palette.getByRole("option", { name: "Walk-in guest", exact: true })).toBeVisible();
+    await page.keyboard.press("Enter");
+    const dialog = page.getByRole("dialog", { name: "Seat walk-in" });
+    await expect(dialog).toBeVisible();
+    return dialog;
+  }
+
+  test("party size and Cancel take clicks", async ({ mockedPage }) => {
+    const dialog = await openWalkInOverDrawer(mockedPage);
+    const four = dialog.getByRole("button", { name: "4", exact: true });
+    await four.click({ timeout: 3000 });
+    await expect(four).toHaveAttribute("aria-pressed", "true");
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click({ timeout: 3000 });
+    await expect(dialog).toHaveCount(0);
+  });
+
+  test("Seat now posts the walk-in", async ({ mockedPage }) => {
+    const dialog = await openWalkInOverDrawer(mockedPage);
+    const sent = mockedPage.waitForRequest(
+      (r) => r.method() === "POST" && r.url().endsWith("/reservations/walk-in")
+    );
+    await dialog.getByRole("button", { name: "Seat now" }).click({ timeout: 3000 });
+    await sent;
+    await expect(dialog).toHaveCount(0);
+  });
+});
+
+// #8017: Keep and Escape leave the drawer open, so focus goes back to the button that opened the
+// dialog, not to the grid block behind the drawer's modal overlay.
+test.describe("Focus after dismissing a drawer dialog (#8017)", () => {
+  const dialogs = [
+    { id: "res_e2e_002", opener: "Cancel Reservation", dialog: "Cancel Reservation" },
+    { id: "res_e2e_003", opener: "Mark No-Show", dialog: "Mark No-Show" },
+  ];
+
+  for (const { id, opener, dialog: dialogName } of dialogs) {
+    for (const how of ["Keep", "Escape"] as const) {
+      test(`${dialogName}: ${how} returns focus to ${opener} in the drawer`, async ({
+        mockedPage,
+      }) => {
+        await openPhoneDrawer(mockedPage, id);
+        const openerButton = mockedPage
+          .getByRole("dialog", { name: "Reservation Details" })
+          .getByRole("button", { name: opener, exact: true });
+        await openerButton.click();
+        const dialog = mockedPage.getByRole("dialog", { name: dialogName });
+        await expect(dialog).toBeVisible();
+
+        if (how === "Keep") {
+          await dialog.getByRole("button", { name: "Keep Reservation" }).click();
+        } else {
+          await mockedPage.keyboard.press("Escape");
+        }
+
+        await expect(dialog).toHaveCount(0);
+        await expect(mockedPage.getByRole("dialog", { name: "Reservation Details" })).toBeVisible();
+        await expect(openerButton).toBeFocused();
+      });
+    }
+  }
+
+  test.describe("at tablet width", () => {
+    test.use({ viewport: { width: 900, height: 1100 } });
+
+    test("Keep, then ArrowRight and Enter, does not switch the sheet", async ({ mockedPage }) => {
+      await openDetailsDrawer(mockedPage, "res_e2e_002", "Bob Smith");
+      const sheet = mockedPage.getByRole("dialog", { name: "Bob Smith" });
+      const openerButton = sheet.getByRole("button", { name: "Cancel reservation", exact: true });
+      await openerButton.click();
+      await mockedPage
+        .getByRole("dialog", { name: "Cancel Reservation" })
+        .getByRole("button", { name: "Keep Reservation" })
+        .click();
+
+      await expect(openerButton).toBeFocused();
+      await mockedPage.keyboard.press("ArrowRight");
+      await mockedPage.keyboard.press("Enter");
+
+      // Still Bob's sheet (Enter on the focused Cancel button only reopens its dialog).
+      await expect(mockedPage.getByRole("dialog", { name: "Bob Smith" })).toBeVisible();
+      await expect(mockedPage.getByRole("dialog", { name: "Carol Davis" })).toHaveCount(0);
+    });
+  });
+});
+
+// #8018 / #8021: while the details surface is open (a modal Drawer at 375x812 and 900x1100),
+// focus must be inside it: on open, after the walk-in dialog closes, and after a walk-in is seated.
+// Closing the surface hands focus back to the block that opened it.
+const SURFACES = [
+  { label: "phone", viewport: { width: 375, height: 812 }, dialog: "Reservation Details" },
+  { label: "tablet", viewport: { width: 900, height: 1100 }, dialog: "Bob Smith" },
+];
+
+for (const { label, viewport, dialog: surfaceName } of SURFACES) {
+  test.describe(`Focus and the details surface at ${label} width (#8018, #8021)`, () => {
+    test.use({ viewport });
+
+    const surface = (page: Page) => page.getByRole("dialog", { name: surfaceName });
+    const focused = (page: Page) => surface(page).locator(":focus");
+    const modalFocus = (page: Page) => page.locator('[role="dialog"][aria-modal="true"] :focus');
+
+    async function openWalkInFromPalette(page: Page) {
+      await page.keyboard.press("ControlOrMeta+k");
+      const palette = page.getByRole("dialog", { name: "Command palette", exact: true });
+      await palette.getByRole("combobox", { name: "Search commands", exact: true }).fill("walk");
+      await page.keyboard.press("Enter");
+      const dialog = page.getByRole("dialog", { name: "Seat walk-in" });
+      await expect(dialog).toBeVisible();
+      return dialog;
+    }
+
+    test("opening the surface moves focus inside it", async ({ mockedPage }) => {
+      await openDetailsDrawer(mockedPage, "res_e2e_002", surfaceName);
+      await expect(focused(mockedPage)).toHaveCount(1);
+    });
+
+    test("closing the surface returns focus to the block", async ({ mockedPage }) => {
+      await openDetailsDrawer(mockedPage, "res_e2e_002", surfaceName);
+      await mockedPage.keyboard.press("Escape");
+      await expect(surface(mockedPage)).toHaveCount(0);
+      await expect(mockedPage.getByTestId("reservation-block-res_e2e_002")).toBeFocused();
+    });
+
+    test("Cancel in the walk-in dialog leaves focus inside the surface", async ({ mockedPage }) => {
+      await openDetailsDrawer(mockedPage, "res_e2e_002", surfaceName);
+      const dialog = await openWalkInFromPalette(mockedPage);
+      await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+      await expect(dialog).toHaveCount(0);
+      await expect(focused(mockedPage)).toHaveCount(1);
+    });
+
+    test("Escape in the walk-in dialog leaves focus inside the surface", async ({ mockedPage }) => {
+      await openDetailsDrawer(mockedPage, "res_e2e_002", surfaceName);
+      const dialog = await openWalkInFromPalette(mockedPage);
+      await mockedPage.keyboard.press("Escape");
+      await expect(dialog).toHaveCount(0);
+      await expect(focused(mockedPage)).toHaveCount(1);
+    });
+
+    test("Seat now leaves focus inside the surface, not on the block behind it", async ({
+      mockedPage,
+    }) => {
+      await openDetailsDrawer(mockedPage, "res_e2e_002", surfaceName);
+      const dialog = await openWalkInFromPalette(mockedPage);
+      await dialog.getByRole("button", { name: "Seat now" }).click();
+      await expect(dialog).toHaveCount(0);
+      await expect(mockedPage.locator('[role="dialog"][aria-modal="true"] :focus')).toHaveCount(1);
+    });
+
+    // The Drawer opens in the commit that unmounts the walk-in dialog, so it captures no live
+    // opener: closing it has to find the new block itself.
+    test("closing the surface Seat now opened focuses the new block", async ({ mockedPage }) => {
+      await mockedPage.clock.setFixedTime(new Date(`${localDay()}T19:30:00`));
+      await mockedPage.goto("timeline");
+      await mockedPage.getByRole("button", { name: "Walk-in", exact: true }).click();
+      const dialog = mockedPage.getByRole("dialog", { name: "Seat walk-in" });
+      await dialog.getByRole("button", { name: "Seat now" }).click();
+      await expect(dialog).toHaveCount(0);
+      await expect(modalFocus(mockedPage)).toHaveCount(1);
+
+      await mockedPage.keyboard.press("Escape");
+
+      await expect(mockedPage.locator('[role="dialog"][aria-modal="true"]')).toHaveCount(0);
+      await expect(
+        mockedPage.locator('[data-testid^="reservation-block-res_e2e_walkin_"]')
+      ).toBeFocused();
+    });
+
+    test("closing a surface opened from ?selected= focuses that block", async ({ mockedPage }) => {
+      await mockedPage.clock.setFixedTime(new Date(`${localDay()}T19:30:00`));
+      await mockedPage.goto("timeline?selected=res_e2e_002");
+      await expect(surface(mockedPage)).toBeVisible();
+
+      await mockedPage.keyboard.press("Escape");
+
+      await expect(surface(mockedPage)).toHaveCount(0);
+      await expect(mockedPage.getByTestId("reservation-block-res_e2e_002")).toBeFocused();
+    });
+
+    test("Seat Guest leaves focus inside the surface, so keys cannot reach the blocks", async ({
+      mockedPage,
+    }) => {
+      await openDetailsDrawer(mockedPage, "res_e2e_002", surfaceName);
+      await surface(mockedPage).getByRole("button", { name: "Seat Guest" }).click();
+      await expect(mockedPage.getByRole("status")).toContainText("Seated");
+      // The refetch removes Seat Guest, so focus must not have settled on it.
+      await expect(surface(mockedPage).getByRole("button", { name: "Seat Guest" })).toHaveCount(0);
+      await expect(focused(mockedPage)).toHaveCount(1);
+
+      await mockedPage.keyboard.press("ArrowRight");
+      await mockedPage.keyboard.press("Enter");
+
+      await expect(surface(mockedPage)).toBeVisible();
+      await expect(mockedPage.getByRole("dialog", { name: "Carol Davis" })).toHaveCount(0);
+    });
+
+    // A browser whose click does not focus its button: focus rests on the block at the click.
+    test("saving an edit opened by a non-focusing click returns focus to Edit", async ({
+      mockedPage,
+    }) => {
+      await openDetailsDrawer(mockedPage, "res_e2e_002", surfaceName);
+      const edit = surface(mockedPage).getByRole("button", { name: /^Edit/ });
+      await mockedPage
+        .getByTestId("reservation-block-res_e2e_002")
+        .evaluate((block) => (block as HTMLElement).focus());
+      await edit.evaluate((button) => (button as HTMLElement).click());
+      const drawer = mockedPage.getByRole("dialog", { name: "Edit Reservation" });
+      await drawer.getByRole("button", { name: /^Save/ }).click();
+
+      await expect(drawer).toHaveCount(0);
+      await expect(edit).toBeFocused();
+    });
+
+    test("a reservation without a deposit shows no error alert", async ({ mockedPage }) => {
+      await openDetailsDrawer(mockedPage, "res_e2e_002", surfaceName);
+      if (label === "tablet") {
+        await surface(mockedPage).getByRole("button", { name: /More/ }).click();
+      }
+      await expect(surface(mockedPage).getByRole("alert")).toHaveCount(0);
+    });
+  });
+}
+
+const DESKTOP = { width: 1280, height: 900 };
+const TABLET = { width: 900, height: 1100 };
+const PHONE = { width: 375, height: 812 };
+const BOB = /\/api\/v1\/reservations\/res_e2e_002$/;
+
+const modalFocus = (page: Page) => page.locator('[role="dialog"][aria-modal="true"] :focus');
+const block = (page: Page, id: string) => page.getByTestId(`reservation-block-${id}`);
+
+async function loadTimeline(page: Page) {
+  await page.clock.setFixedTime(new Date(`${localDay()}T19:30:00`));
+  await page.goto("timeline");
+}
+
+/** Holds matching requests until `release`, which lets them through or answers with a 500. */
+async function holdRequests(page: Page, url: RegExp, method: string) {
+  let release: (outcome: "ok" | "fail") => void = () => undefined;
+  const gate = new Promise<"ok" | "fail">((resolve) => {
+    release = resolve;
+  });
+  const held: string[] = [];
+  await page.route(url, async (route) => {
+    if (route.request().method() !== method) return route.fallback();
+    held.push(route.request().url());
+    if ((await gate) === "ok") return route.fallback();
+    return route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({ error: { code: "X", message: "boom" } }),
+    });
+  });
+  return { release: (outcome: "ok" | "fail") => release(outcome), held };
+}
+
+/** Every write to a reservation from here on: what a stray key press would send. */
+function recordWrites(page: Page) {
+  const writes: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() !== "GET" && request.url().includes("/reservations")) {
+      writes.push(`${request.method()} ${request.postData()}`);
+    }
+  });
+  return writes;
+}
+
+async function openWalkInFromPaletteAt(page: Page) {
+  await page.keyboard.press("ControlOrMeta+k");
+  const palette = page.getByRole("dialog", { name: "Command palette", exact: true });
+  await palette.getByRole("combobox", { name: "Search commands", exact: true }).fill("walk");
+  await page.keyboard.press("Enter");
+  const dialog = page.getByRole("dialog", { name: "Seat walk-in" });
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
+// #8029 item 3: a dialog open across a resize stays on top of the surface it was opened from. The
+// surface beneath it does not change form until the dialog closes, because the sheet or drawer that
+// would replace it takes focus and the Escape layer when it mounts.
+test.describe("Resizing with a dialog open (#8029)", () => {
+  const dialogs = [
+    {
+      name: "Cancel Reservation",
+      id: "res_e2e_002",
+      open: (page: Page) =>
+        page
+          .getByTestId("reservation-detail-sidebar")
+          .getByRole("button", { name: "Cancel Reservation", exact: true })
+          .click(),
+    },
+    {
+      name: "Mark No-Show",
+      id: "res_e2e_003",
+      open: (page: Page) =>
+        page
+          .getByTestId("reservation-detail-sidebar")
+          .getByRole("button", { name: "Mark No-Show", exact: true })
+          .click(),
+    },
+    {
+      name: "Seat walk-in",
+      id: "res_e2e_002",
+      open: (page: Page) => page.getByRole("button", { name: "Walk-in", exact: true }).click(),
+    },
+  ];
+
+  test.describe("from desktop to tablet", () => {
+    test.use({ viewport: DESKTOP });
+
+    for (const { name, id, open } of dialogs) {
+      test(`Enter under ${name} sends nothing behind it`, async ({ mockedPage }) => {
+        await loadTimeline(mockedPage);
+        await block(mockedPage, id).click();
+        await open(mockedPage);
+        const dialog = mockedPage.getByRole("dialog", { name });
+        await expect(dialog).toBeVisible();
+        const writes = recordWrites(mockedPage);
+
+        await mockedPage.setViewportSize(TABLET);
+        await mockedPage.waitForTimeout(500);
+
+        await expect(dialog.locator(":focus")).toHaveCount(1);
+        await mockedPage.keyboard.press("Enter");
+        await mockedPage.waitForTimeout(300);
+        // Enter acts in the dialog (on Mark No-Show its first control is Keep, which closes it).
+        expect(writes).toEqual([]);
+      });
+    }
+
+    test("Escape closes the dialog, then focus lands in the sheet that replaces the sidebar", async ({
+      mockedPage,
+    }) => {
+      await loadTimeline(mockedPage);
+      await block(mockedPage, "res_e2e_002").click();
+      await dialogs[0]!.open(mockedPage);
+      const dialog = mockedPage.getByRole("dialog", { name: "Cancel Reservation" });
+      await expect(dialog).toBeVisible();
+
+      await mockedPage.setViewportSize(TABLET);
+      await mockedPage.waitForTimeout(500);
+      await expect(mockedPage.getByRole("dialog", { name: "Bob Smith" })).toHaveCount(0);
+      await mockedPage.keyboard.press("Escape");
+
+      await expect(dialog).toHaveCount(0);
+      const sheet = mockedPage.getByRole("dialog", { name: "Bob Smith" });
+      await expect(sheet).toBeVisible();
+      await expect(sheet.locator(":focus")).toHaveCount(1);
+    });
+
+    test("the command palette closes rather than sit over a sheet that took its focus", async ({
+      mockedPage,
+    }) => {
+      await loadTimeline(mockedPage);
+      await block(mockedPage, "res_e2e_002").click();
+      await mockedPage.keyboard.press("ControlOrMeta+k");
+      const palette = mockedPage.getByRole("dialog", { name: "Command palette", exact: true });
+      await expect(palette).toBeVisible();
+
+      await mockedPage.setViewportSize(TABLET);
+      await expect(palette).toHaveCount(0);
+      await mockedPage.waitForTimeout(500);
+
+      const sheet = mockedPage.getByRole("dialog", { name: "Bob Smith" });
+      await expect(sheet.locator(":focus")).toHaveCount(1);
+    });
+  });
+
+  test.describe("from tablet to desktop", () => {
+    test.use({ viewport: TABLET });
+
+    test("focus stays in the Cancel dialog, not on the block the sheet restores to", async ({
+      mockedPage,
+    }) => {
+      await loadTimeline(mockedPage);
+      await block(mockedPage, "res_e2e_002").click();
+      const sheet = mockedPage.getByRole("dialog", { name: "Bob Smith" });
+      await sheet.getByRole("button", { name: "Cancel reservation", exact: true }).click();
+      const dialog = mockedPage.getByRole("dialog", { name: "Cancel Reservation" });
+      await expect(dialog).toBeVisible();
+
+      await mockedPage.setViewportSize(DESKTOP);
+      await mockedPage.waitForTimeout(500);
+
+      await expect(dialog.locator(":focus")).toHaveCount(1);
+    });
+  });
+});
+
+// #8029 item 7: the Edit button the drawer opened from is gone once the surface changes form.
+test.describe("Edit across a tablet-to-desktop resize (#8029)", () => {
+  test.use({ viewport: TABLET });
+
+  for (const how of ["Save", "Escape"] as const) {
+    test(`${how} lands on the block, not the body`, async ({ mockedPage }) => {
+      await loadTimeline(mockedPage);
+      await block(mockedPage, "res_e2e_002").click();
+      await mockedPage.getByTestId("reservation-edit").click();
+      const drawer = mockedPage.getByRole("dialog", { name: "Edit Reservation" });
+      await expect(drawer).toBeVisible();
+
+      await mockedPage.setViewportSize(DESKTOP);
+      await mockedPage.waitForTimeout(300);
+      if (how === "Save") await drawer.getByRole("button", { name: /^Save/ }).click();
+      else await mockedPage.keyboard.press("Escape");
+
+      await expect(drawer).toHaveCount(0);
+      await expect(block(mockedPage, "res_e2e_002")).toBeFocused();
+    });
+  }
+});
+
+// #8029 item 1: Seat now removes the selected reservation until the refetch finds the new one.
+test.describe("Seat now over an open sheet (#8029)", () => {
+  test.use({ viewport: TABLET });
+
+  test("the old sheet's restore cannot land behind the new sheet", async ({ mockedPage }) => {
+    await loadTimeline(mockedPage);
+    await block(mockedPage, "res_e2e_002").click();
+    await expect(mockedPage.getByRole("dialog", { name: "Bob Smith" })).toBeVisible();
+    const dialog = await openWalkInFromPaletteAt(mockedPage);
+    // Pins the race the reservation-list response wins about half the time: every animation frame
+    // runs late, so the new sheet is always up before the old one's focus restore fires. Installed
+    // here, not in an init script: `page.clock` replaces requestAnimationFrame when it installs.
+    await mockedPage.evaluate(() => {
+      window.requestAnimationFrame = (callback) =>
+        window.setTimeout(() => callback(performance.now()), 500);
+      window.cancelAnimationFrame = (frame) => window.clearTimeout(frame);
+    });
+
+    await dialog.getByRole("button", { name: "Seat now" }).click();
+    await expect(dialog).toHaveCount(0);
+    await mockedPage.waitForTimeout(1000);
+
+    await expect(modalFocus(mockedPage)).toHaveCount(1);
+    await expect(mockedPage.getByRole("dialog", { name: "Bob Smith" })).toHaveCount(0);
+    await mockedPage.keyboard.press("Enter");
+    await expect(mockedPage.getByRole("dialog", { name: "Bob Smith" })).toHaveCount(0);
+  });
+
+  for (const [label, viewport, surface] of [
+    ["tablet", TABLET, "Bob Smith"],
+    ["phone", PHONE, "Reservation Details"],
+  ] as const) {
+    test.describe(`until the new reservation loads, at ${label} width`, () => {
+      test.use({ viewport });
+
+      test("the old party's controls take no keys", async ({ mockedPage }) => {
+        await loadTimeline(mockedPage);
+        await block(mockedPage, "res_e2e_002").click();
+        await expect(mockedPage.getByRole("dialog", { name: surface })).toBeVisible();
+        const dialog = await openWalkInFromPaletteAt(mockedPage);
+        const list = await holdRequests(mockedPage, /\/api\/v1\/reservations\?/, "GET");
+        const writes = recordWrites(mockedPage);
+
+        await dialog.getByRole("button", { name: "Seat now" }).click();
+        await expect(dialog).toHaveCount(0);
+        await mockedPage.keyboard.press("Enter");
+        await mockedPage.waitForTimeout(300);
+        const walkInOnly = writes.filter((write) => !write.includes("partySize"));
+        list.release("ok");
+
+        expect(walkInOnly).toEqual([]);
+        await expect(modalFocus(mockedPage)).toHaveCount(1);
+      });
+    });
+  }
+});
+
+// #8029 item 2: where focus goes after Seat Guest is decided when the response arrives.
+test.describe("A Seat Guest response that arrives late (#8029)", () => {
+  test.describe("at tablet width", () => {
+    test.use({ viewport: TABLET });
+
+    test("after a resize and another selection, focus stays with that party", async ({
+      mockedPage,
+    }) => {
+      const seat = await holdRequests(mockedPage, BOB, "PATCH");
+      await loadTimeline(mockedPage);
+      await block(mockedPage, "res_e2e_002").click();
+      await mockedPage.getByRole("button", { name: "Seat Guest" }).click();
+      await expect.poll(() => seat.held.length).toBe(1);
+
+      await mockedPage.setViewportSize(DESKTOP);
+      await expect(mockedPage.getByTestId("reservation-detail-sidebar")).toBeVisible();
+      await block(mockedPage, "res_e2e_003").click();
+      await expect(block(mockedPage, "res_e2e_003")).toBeFocused();
+      seat.release("ok");
+      await expect(mockedPage.getByRole("status")).toContainText("Seated");
+      await mockedPage.waitForTimeout(300);
+
+      await expect(block(mockedPage, "res_e2e_003")).toBeFocused();
+    });
+  });
+
+  for (const [label, viewport, surface] of [
+    ["phone", PHONE, "Reservation Details"],
+    ["tablet", TABLET, "Bob Smith"],
+  ] as const) {
+    test.describe(`at ${label} width`, () => {
+      test.use({ viewport });
+
+      test("under the walk-in dialog, focus stays in the dialog", async ({ mockedPage }) => {
+        const seat = await holdRequests(mockedPage, BOB, "PATCH");
+        await loadTimeline(mockedPage);
+        await block(mockedPage, "res_e2e_002").click();
+        await mockedPage.getByRole("button", { name: "Seat Guest" }).click();
+        await expect.poll(() => seat.held.length).toBe(1);
+        const dialog = await openWalkInFromPaletteAt(mockedPage);
+        seat.release("ok");
+        await expect(mockedPage.getByRole("status").first()).toContainText("Seated");
+        await mockedPage.waitForTimeout(300);
+
+        await expect(dialog.locator(":focus")).toHaveCount(1);
+      });
+
+      test("a rejected seat under the walk-in dialog leaves focus in the dialog", async ({
+        mockedPage,
+      }) => {
+        const seat = await holdRequests(mockedPage, BOB, "PATCH");
+        await loadTimeline(mockedPage);
+        await block(mockedPage, "res_e2e_002").click();
+        await mockedPage.getByRole("button", { name: "Seat Guest" }).click();
+        await expect.poll(() => seat.held.length).toBe(1);
+        const dialog = await openWalkInFromPaletteAt(mockedPage);
+        seat.release("fail");
+        await expect(
+          mockedPage.getByRole("dialog", { name: surface }).getByRole("alert")
+        ).toHaveCount(1);
+        await mockedPage.waitForTimeout(300);
+
+        await expect(dialog.locator(":focus")).toHaveCount(1);
+      });
+
+      test("Escape cannot close the surface over a seat in flight, so a failure still shows", async ({
+        mockedPage,
+      }) => {
+        const seat = await holdRequests(mockedPage, BOB, "PATCH");
+        await loadTimeline(mockedPage);
+        await block(mockedPage, "res_e2e_002").click();
+        const details = mockedPage.getByRole("dialog", { name: surface });
+        await details.getByRole("button", { name: "Seat Guest" }).click();
+        await expect.poll(() => seat.held.length).toBe(1);
+
+        await mockedPage.keyboard.press("Escape");
+        // Longer than the Drawer's exit, which would keep it visible for a while.
+        await mockedPage.waitForTimeout(1000);
+        await expect(details).toBeVisible();
+        seat.release("fail");
+
+        await expect(details.getByRole("alert")).toHaveCount(1);
+      });
+
+      test("a seat that lands after that Escape leaves focus in the surface", async ({
+        mockedPage,
+      }) => {
+        const seat = await holdRequests(mockedPage, BOB, "PATCH");
+        await loadTimeline(mockedPage);
+        await block(mockedPage, "res_e2e_002").click();
+        const details = mockedPage.getByRole("dialog", { name: surface });
+        await details.getByRole("button", { name: "Seat Guest" }).click();
+        await expect.poll(() => seat.held.length).toBe(1);
+        await mockedPage.keyboard.press("Escape");
+        seat.release("ok");
+        await expect(details.getByRole("button", { name: "Seat Guest" })).toHaveCount(0);
+        // Longer than the Drawer's exit: focus must not have been on a panel on its way out.
+        await mockedPage.waitForTimeout(1000);
+
+        await expect(details).toBeVisible();
+        await expect(mockedPage.getByTestId("reservation-edit")).toBeFocused();
+      });
+    });
+  }
+});
+
+// #8029 item 5: Escape during a save would close the dialog and hide how the save ended.
+test.describe("Escape while a save is in flight (#8029)", () => {
+  for (const [label, viewport] of [
+    ["phone", PHONE],
+    ["tablet", TABLET],
+  ] as const) {
+    test.describe(`at ${label} width`, () => {
+      test.use({ viewport });
+
+      test("a failed cancel still shows its failure", async ({ mockedPage }) => {
+        const save = await holdRequests(mockedPage, BOB, "PATCH");
+        await loadTimeline(mockedPage);
+        await block(mockedPage, "res_e2e_002").click();
+        await mockedPage.getByRole("button", { name: /^cancel reservation$/i }).click();
+        const dialog = mockedPage.getByRole("dialog", { name: "Cancel Reservation" });
+        await dialog.getByRole("button", { name: "Cancel Reservation", exact: true }).click();
+        await expect.poll(() => save.held.length).toBe(1);
+
+        await mockedPage.keyboard.press("Escape");
+        await expect(dialog).toBeVisible();
+        save.release("fail");
+
+        await expect(dialog.getByRole("alert")).toHaveCount(1);
+      });
+
+      test("a failed no-show still shows its failure", async ({ mockedPage }) => {
+        const save = await holdRequests(
+          mockedPage,
+          /\/api\/v1\/reservations\/res_e2e_003$/,
+          "PATCH"
+        );
+        await loadTimeline(mockedPage);
+        await block(mockedPage, "res_e2e_003").click();
+        await mockedPage.getByRole("button", { name: /^mark no-show$/i }).click();
+        const dialog = mockedPage.getByRole("dialog", { name: "Mark No-Show" });
+        await dialog.getByRole("button", { name: "Mark No-Show", exact: true }).click();
+        await expect.poll(() => save.held.length).toBe(1);
+
+        await mockedPage.keyboard.press("Escape");
+        await expect(dialog).toBeVisible();
+        save.release("fail");
+
+        await expect(dialog.getByRole("alert")).toHaveCount(1);
+      });
+
+      test("a failed edit still shows its failure", async ({ mockedPage }) => {
+        const save = await holdRequests(mockedPage, BOB, "PATCH");
+        await loadTimeline(mockedPage);
+        await block(mockedPage, "res_e2e_002").click();
+        await mockedPage.getByTestId("reservation-edit").click();
+        const drawer = mockedPage.getByRole("dialog", { name: "Edit Reservation" });
+        await drawer.getByRole("button", { name: /^Save/ }).click();
+        await expect.poll(() => save.held.length).toBe(1);
+
+        await mockedPage.keyboard.press("Escape");
+        await expect(drawer).toBeVisible();
+        save.release("fail");
+
+        await expect(drawer.getByRole("alert")).toHaveCount(1);
+      });
+
+      test("a failed walk-in still shows its failure", async ({ mockedPage }) => {
+        const save = await holdRequests(mockedPage, /\/reservations\/walk-in$/, "POST");
+        await loadTimeline(mockedPage);
+        await mockedPage.getByRole("button", { name: "Walk-in", exact: true }).click();
+        const dialog = mockedPage.getByRole("dialog", { name: "Seat walk-in" });
+        await dialog.getByRole("button", { name: "Seat now" }).click();
+        await expect.poll(() => save.held.length).toBe(1);
+
+        await mockedPage.keyboard.press("Escape");
+        await expect(dialog).toBeVisible();
+        save.release("fail");
+
+        await expect(dialog.getByRole("alert")).toHaveCount(1);
+      });
+    });
+  }
+});
+
+// #8029 item 6: a table-status result that lands while something covers the table's trigger.
+test.describe("A table status result under an overlay (#8029)", () => {
+  test.use({ viewport: TABLET });
+
+  test("focus stays in the Cancel dialog", async ({ mockedPage }) => {
+    await loadTimeline(mockedPage);
+    await mockedPage.locator('[data-testid^="table-status-"]').first().click();
+    const status = await holdRequests(mockedPage, /\/api\/v1\/tables\/[^/?]+\/status$/, "PATCH");
+    await mockedPage.getByRole("menuitem").first().click();
+    await expect.poll(() => status.held.length).toBe(1);
+
+    await block(mockedPage, "res_e2e_002").click();
+    const sheet = mockedPage.getByRole("dialog", { name: "Bob Smith" });
+    await sheet.getByRole("button", { name: "Cancel reservation", exact: true }).click();
+    const dialog = mockedPage.getByRole("dialog", { name: "Cancel Reservation" });
+    await expect(dialog).toBeVisible();
+    status.release("ok");
+    await mockedPage.waitForTimeout(500);
+
+    await expect(dialog.locator(":focus")).toHaveCount(1);
+  });
+
+  test("focus stays in the sheet when no dialog is on top of it", async ({ mockedPage }) => {
+    await loadTimeline(mockedPage);
+    await mockedPage.locator('[data-testid^="table-status-"]').first().click();
+    const status = await holdRequests(mockedPage, /\/api\/v1\/tables\/[^/?]+\/status$/, "PATCH");
+    await mockedPage.getByRole("menuitem").first().click();
+    await expect.poll(() => status.held.length).toBe(1);
+
+    await block(mockedPage, "res_e2e_002").click();
+    const sheet = mockedPage.getByRole("dialog", { name: "Bob Smith" });
+    await expect(sheet.locator(":focus")).toHaveCount(1);
+    status.release("ok");
+    await mockedPage.waitForTimeout(500);
+
+    await expect(sheet.locator(":focus")).toHaveCount(1);
+  });
+});
+
+// #8031 review: a dialog, a seat and its failure all belong to one party.
+const SHEET_AND_SIDEBAR = [
+  ["tablet", TABLET],
+  ["desktop", DESKTOP],
+] as const;
+
+const walkInBlock = (page: Page) =>
+  page.locator('[data-testid^="reservation-block-res_e2e_walkin_"]');
+
+const seatNowOverIt = async (page: Page) => {
+  const walkIn = await openWalkInFromPaletteAt(page);
+  await walkIn.getByRole("button", { name: "Seat now" }).click();
+  await expect(walkIn).toHaveCount(0);
+  await expect(walkInBlock(page)).toHaveCount(1);
+};
+
+test.describe("A confirmation stays with its party (#8031)", () => {
+  for (const [label, viewport] of SHEET_AND_SIDEBAR) {
+    test.describe(`at ${label} width`, () => {
+      test.use({ viewport });
+
+      for (const { name, id, url } of [
+        { name: "Cancel Reservation", id: "res_e2e_002", url: BOB },
+        { name: "Mark No-Show", id: "res_e2e_003", url: /\/api\/v1\/reservations\/res_e2e_003$/ },
+      ]) {
+        test(`${name} held, then Seat now: nothing confirms against the new party`, async ({
+          mockedPage,
+        }) => {
+          const save = await holdRequests(mockedPage, url, "PATCH");
+          await loadTimeline(mockedPage);
+          await block(mockedPage, id).click();
+          await mockedPage.getByRole("button", { name, exact: false }).first().click();
+          const dialog = mockedPage.getByRole("dialog", { name });
+          await dialog.getByRole("button", { name, exact: true }).click();
+          await expect.poll(() => save.held.length).toBe(1);
+
+          await seatNowOverIt(mockedPage);
+          save.release("ok");
+          await mockedPage.waitForTimeout(500);
+
+          await expect(dialog).toHaveCount(0);
+        });
+
+        test(`${name} held, then Seat now, and it fails: the failure names the party`, async ({
+          mockedPage,
+        }) => {
+          const save = await holdRequests(mockedPage, url, "PATCH");
+          await loadTimeline(mockedPage);
+          await block(mockedPage, id).click();
+          await mockedPage.getByRole("button", { name, exact: false }).first().click();
+          const dialog = mockedPage.getByRole("dialog", { name });
+          await dialog.getByRole("button", { name, exact: true }).click();
+          await expect.poll(() => save.held.length).toBe(1);
+
+          await seatNowOverIt(mockedPage);
+          save.release("fail");
+
+          const guest = id === "res_e2e_002" ? "Bob Smith" : "Carol Davis";
+          await expect(
+            mockedPage.getByText(`The change to ${guest} did not go through.`)
+          ).toBeVisible();
+        });
+      }
+    });
+  }
+});
+
+test.describe("A seat stays with its party (#8031)", () => {
+  test.describe("at tablet width", () => {
+    test.use({ viewport: TABLET });
+
+    test("a failed seat does not carry to the next party's sheet", async ({ mockedPage }) => {
+      const seat = await holdRequests(mockedPage, BOB, "PATCH");
+      seat.release("fail");
+      await loadTimeline(mockedPage);
+      await block(mockedPage, "res_e2e_002").click();
+      await mockedPage.getByRole("button", { name: "Seat Guest" }).click();
+      await expect(mockedPage.getByRole("alert")).toHaveCount(1);
+
+      await seatNowOverIt(mockedPage);
+      await mockedPage.waitForTimeout(700);
+
+      await expect(mockedPage.getByRole("alert")).toHaveCount(0);
+      await expect(modalFocus(mockedPage)).toHaveCount(1);
+      await expect(modalFocus(mockedPage)).not.toHaveText(/Show details/);
+    });
+
+    test("a held seat does not lock the next party's sheet or carry to it", async ({
+      mockedPage,
+    }) => {
+      const seat = await holdRequests(mockedPage, BOB, "PATCH");
+      await loadTimeline(mockedPage);
+      await block(mockedPage, "res_e2e_002").click();
+      await mockedPage.getByRole("button", { name: "Seat Guest" }).click();
+      await expect.poll(() => seat.held.length).toBe(1);
+
+      await seatNowOverIt(mockedPage);
+      await mockedPage.waitForTimeout(700);
+      await expect(mockedPage.getByTestId("reservation-edit")).toBeEnabled();
+      await mockedPage.keyboard.press("Escape");
+      await expect(mockedPage.locator('[role="dialog"][aria-modal="true"]')).toHaveCount(0);
+
+      seat.release("fail");
+      await expect(
+        mockedPage.getByText(
+          "Seating Bob Smith did not finish. Check the reservation and the table."
+        )
+      ).toBeVisible();
+    });
+  });
+
+  test.describe("at desktop width", () => {
+    test.use({ viewport: DESKTOP });
+
+    test("with Carol selected, Bob's seat neither locks her panel nor fails on it", async ({
+      mockedPage,
+    }) => {
+      const seat = await holdRequests(mockedPage, BOB, "PATCH");
+      await loadTimeline(mockedPage);
+      await block(mockedPage, "res_e2e_002").click();
+      await mockedPage.getByRole("button", { name: "Seat Guest" }).click();
+      await expect.poll(() => seat.held.length).toBe(1);
+      await block(mockedPage, "res_e2e_003").click();
+      const sidebar = mockedPage.getByTestId("reservation-detail-sidebar");
+      await expect(sidebar).toContainText("Carol Davis");
+
+      seat.release("fail");
+
+      await expect(
+        mockedPage.getByText(
+          "Seating Bob Smith did not finish. Check the reservation and the table."
+        )
+      ).toBeVisible();
+      await expect(sidebar.getByText("Guest not seated.")).toHaveCount(0);
+      await expect(block(mockedPage, "res_e2e_003")).toBeFocused();
+      await mockedPage.getByRole("button", { name: "Close reservation details" }).click();
+      await expect(sidebar).toHaveCount(0);
+    });
+
+    test("with Carol selected and Bob's seat held, Close closes her panel", async ({
+      mockedPage,
+    }) => {
+      const seat = await holdRequests(mockedPage, BOB, "PATCH");
+      await loadTimeline(mockedPage);
+      await block(mockedPage, "res_e2e_002").click();
+      await mockedPage.getByRole("button", { name: "Seat Guest" }).click();
+      await expect.poll(() => seat.held.length).toBe(1);
+      await block(mockedPage, "res_e2e_003").click();
+      await mockedPage.getByRole("button", { name: "Close reservation details" }).click();
+
+      await expect(mockedPage.getByTestId("reservation-detail-sidebar")).toHaveCount(0);
+    });
+  });
+});
+
+// #8031 review: the in-flight seat outlives the surface instance that sent it.
+test.describe("A resize during a seat (#8031)", () => {
+  for (const [label, from, to, surface] of [
+    ["tablet to desktop", TABLET, DESKTOP, null],
+    ["desktop to tablet", DESKTOP, TABLET, "Bob Smith"],
+    ["phone to tablet", PHONE, TABLET, "Bob Smith"],
+  ] as const) {
+    test.describe(label, () => {
+      test.use({ viewport: from });
+
+      test("Seat Guest stays disabled and only one PATCH goes out", async ({ mockedPage }) => {
+        const seat = await holdRequests(mockedPage, BOB, "PATCH");
+        await loadTimeline(mockedPage);
+        await block(mockedPage, "res_e2e_002").click();
+        await mockedPage.getByRole("button", { name: "Seat Guest" }).click();
+        await expect.poll(() => seat.held.length).toBe(1);
+
+        await mockedPage.setViewportSize(to);
+        await mockedPage.waitForTimeout(500);
+        await expect(mockedPage.getByRole("button", { name: /Seat Guest|Seating/ })).toBeDisabled();
+        seat.release("ok");
+
+        await expect(mockedPage.getByRole("status").first()).toContainText("Seated");
+        expect(seat.held.length).toBe(1);
+        await expect(mockedPage.getByRole("alert")).toHaveCount(0);
+      });
+
+      test("the failure shows in the surface that replaced the one that sent it", async ({
+        mockedPage,
+      }) => {
+        const seat = await holdRequests(mockedPage, BOB, "PATCH");
+        await loadTimeline(mockedPage);
+        await block(mockedPage, "res_e2e_002").click();
+        await mockedPage.getByRole("button", { name: "Seat Guest" }).click();
+        await expect.poll(() => seat.held.length).toBe(1);
+
+        await mockedPage.setViewportSize(to);
+        await mockedPage.waitForTimeout(500);
+        if (surface) {
+          await mockedPage.keyboard.press("Escape");
+          await mockedPage.waitForTimeout(1000);
+          await expect(mockedPage.getByRole("dialog", { name: surface })).toBeVisible();
+        }
+        seat.release("fail");
+
+        await expect(mockedPage.getByText("Guest not seated.")).toBeVisible();
+      });
+    });
+  }
+});
+
+// #8031 review: Cmd+K reaches the page during a held save, so anything can be on top by the response.
+test.describe("A late response under the walk-in dialog (#8031)", () => {
+  for (const [label, viewport] of SHEET_AND_SIDEBAR) {
+    test.describe(`at ${label} width`, () => {
+      test.use({ viewport });
+
+      test("an Edit save leaves focus in the dialog", async ({ mockedPage }) => {
+        const save = await holdRequests(mockedPage, BOB, "PATCH");
+        await loadTimeline(mockedPage);
+        await block(mockedPage, "res_e2e_002").click();
+        await mockedPage.getByTestId("reservation-edit").click();
+        const drawer = mockedPage.getByRole("dialog", { name: "Edit Reservation" });
+        await drawer.getByRole("button", { name: /^Save/ }).click();
+        await expect.poll(() => save.held.length).toBe(1);
+        const walkIn = await openWalkInFromPaletteAt(mockedPage);
+
+        save.release("ok");
+        await expect(drawer).toHaveCount(0);
+        await mockedPage.waitForTimeout(300);
+
+        await expect(walkIn.locator(":focus")).toHaveCount(1);
+      });
+
+      for (const { name, id, url } of [
+        { name: "Cancel Reservation", id: "res_e2e_002", url: BOB },
+        { name: "Mark No-Show", id: "res_e2e_003", url: /\/api\/v1\/reservations\/res_e2e_003$/ },
+      ]) {
+        test(`a failed ${name} leaves focus in it, and Enter sends nothing more`, async ({
+          mockedPage,
+        }) => {
+          const save = await holdRequests(mockedPage, url, "PATCH");
+          await loadTimeline(mockedPage);
+          await block(mockedPage, id).click();
+          await mockedPage.getByRole("button", { name, exact: false }).first().click();
+          const dialog = mockedPage.getByRole("dialog", { name });
+          await dialog.getByRole("button", { name, exact: true }).click();
+          await expect.poll(() => save.held.length).toBe(1);
+          const walkIn = await openWalkInFromPaletteAt(mockedPage);
+
+          save.release("fail");
+          await expect(dialog.getByRole("alert")).toHaveCount(1);
+          await mockedPage.waitForTimeout(300);
+
+          await expect(walkIn.locator(":focus")).toHaveCount(1);
+          await mockedPage.keyboard.press("Enter");
+          await mockedPage.waitForTimeout(300);
+          expect(save.held.length).toBe(1);
+          await expect(walkIn).toBeVisible();
+        });
+
+        test(`a successful ${name} leaves the dialog open and focused`, async ({ mockedPage }) => {
+          const save = await holdRequests(mockedPage, url, "PATCH");
+          await loadTimeline(mockedPage);
+          await block(mockedPage, id).click();
+          await mockedPage.getByRole("button", { name, exact: false }).first().click();
+          const dialog = mockedPage.getByRole("dialog", { name });
+          await dialog.getByRole("button", { name, exact: true }).click();
+          await expect.poll(() => save.held.length).toBe(1);
+          const walkIn = await openWalkInFromPaletteAt(mockedPage);
+
+          save.release("ok");
+          await expect(dialog).toHaveCount(0);
+          await mockedPage.waitForTimeout(500);
+
+          await expect(walkIn).toBeVisible();
+          await expect(walkIn.locator(":focus")).toHaveCount(1);
+        });
+      }
+    });
+  }
+});
+
+// #8031 second review: a failure whose dialog has gone still has to reach someone.
+test.describe("A failure after its dialog has gone, with the party open again (#8031)", () => {
+  test.use({ viewport: DESKTOP });
+
+  const flows = [
+    {
+      name: "Cancel Reservation",
+      guest: "Bob Smith",
+      id: "res_e2e_002",
+      url: BOB,
+      send: async (page: Page) => {
+        await page.getByRole("button", { name: "Cancel Reservation", exact: true }).first().click();
+        await page
+          .getByRole("dialog", { name: "Cancel Reservation" })
+          .getByRole("button", { name: "Cancel Reservation", exact: true })
+          .click();
+      },
+    },
+    {
+      name: "Mark No-Show",
+      guest: "Carol Davis",
+      id: "res_e2e_003",
+      url: /\/api\/v1\/reservations\/res_e2e_003$/,
+      send: async (page: Page) => {
+        await page.getByRole("button", { name: "Mark No-Show", exact: true }).first().click();
+        await page
+          .getByRole("dialog", { name: "Mark No-Show" })
+          .getByRole("button", { name: "Mark No-Show", exact: true })
+          .click();
+      },
+    },
+    {
+      name: "Edit",
+      guest: "Bob Smith",
+      id: "res_e2e_002",
+      url: BOB,
+      send: async (page: Page) => {
+        await page.getByTestId("reservation-edit").click();
+        await page
+          .getByRole("dialog", { name: "Edit Reservation" })
+          .getByRole("button", { name: /^Save/ })
+          .click();
+      },
+    },
+  ];
+
+  for (const { name, guest, id, url, send } of flows) {
+    test(`${name} failing is reported by name`, async ({ mockedPage }) => {
+      const save = await holdRequests(mockedPage, url, "PATCH");
+      await loadTimeline(mockedPage);
+      await block(mockedPage, id).click();
+      await send(mockedPage);
+      await expect.poll(() => save.held.length).toBe(1);
+
+      await seatNowOverIt(mockedPage);
+      await block(mockedPage, id).click();
+      await expect(mockedPage.getByTestId("reservation-detail-sidebar")).toContainText(guest);
+      save.release("fail");
+
+      await expect(
+        mockedPage.getByText(`The change to ${guest} did not go through.`)
+      ).toBeVisible();
+    });
+  }
+});
+
+// #8031 second review: what a seat's late failure says, and for how long.
+test.describe("A late seat failure's message (#8031)", () => {
+  test.use({ viewport: DESKTOP });
+  const SEAT_MESSAGE = "Seating Bob Smith did not finish. Check the reservation and the table.";
+
+  test("stays long enough to read", async ({ mockedPage }) => {
+    const seat = await holdRequests(mockedPage, BOB, "PATCH");
+    await loadTimeline(mockedPage);
+    await block(mockedPage, "res_e2e_002").click();
+    await mockedPage.getByRole("button", { name: "Seat Guest" }).click();
+    await expect.poll(() => seat.held.length).toBe(1);
+    await block(mockedPage, "res_e2e_003").click();
+    seat.release("fail");
+
+    await expect(mockedPage.getByText(SEAT_MESSAGE)).toBeVisible();
+    await mockedPage.waitForTimeout(6000);
+    await expect(mockedPage.getByText(SEAT_MESSAGE)).toBeVisible();
+  });
+
+  test("does not claim nothing changed when only the table step failed", async ({ mockedPage }) => {
+    const table = await holdRequests(mockedPage, /\/api\/v1\/tables\/[^/?]+\/status$/, "PATCH");
+    await loadTimeline(mockedPage);
+    await block(mockedPage, "res_e2e_002").click();
+    await mockedPage.getByRole("button", { name: "Seat Guest" }).click();
+    await expect.poll(() => table.held.length).toBe(1);
+    await block(mockedPage, "res_e2e_003").click();
+    table.release("fail");
+
+    await expect(mockedPage.getByText(SEAT_MESSAGE)).toBeVisible();
+    await expect(mockedPage.getByText("did not go through")).toHaveCount(0);
+  });
+});
+
+// #8031 second review: a late seat success moves focus only if the Host has not gone elsewhere.
+test.describe("A late seat success leaves focus where the Host took it (#8031)", () => {
+  const holdSeat = async (page: Page) => {
+    const seat = await holdRequests(page, BOB, "PATCH");
+    await loadTimeline(page);
+    await block(page, "res_e2e_002").click();
+    await page.getByRole("button", { name: "Seat Guest" }).click();
+    await expect.poll(() => seat.held.length).toBe(1);
+    return seat;
+  };
+  const settled = async (page: Page) => {
+    await expect(page.getByRole("status").first()).toContainText("Seated");
+    await page.waitForTimeout(400);
+  };
+
+  test.describe("at desktop width", () => {
+    test.use({ viewport: DESKTOP });
+
+    test("on the Walk-in button", async ({ mockedPage }) => {
+      const seat = await holdSeat(mockedPage);
+      const walkIn = mockedPage.getByRole("button", { name: "Walk-in", exact: true });
+      await walkIn.focus();
+      seat.release("ok");
+      await settled(mockedPage);
+
+      await expect(walkIn).toBeFocused();
+    });
+
+    test("on a table status button, with another party opened and closed", async ({
+      mockedPage,
+    }) => {
+      const seat = await holdSeat(mockedPage);
+      await block(mockedPage, "res_e2e_003").click();
+      await mockedPage.getByRole("button", { name: "Close reservation details" }).click();
+      const trigger = mockedPage.locator('[data-testid^="table-status-"]').first();
+      await trigger.focus();
+      seat.release("ok");
+      await settled(mockedPage);
+
+      await expect(trigger).toBeFocused();
+    });
+
+    test("on another day, and coming back does not replay the request", async ({ mockedPage }) => {
+      const seat = await holdSeat(mockedPage);
+      await mockedPage.getByRole("button", { name: "Next day" }).click();
+      await expect(block(mockedPage, "res_e2e_002")).toHaveCount(0);
+      seat.release("ok");
+      await settled(mockedPage);
+      const previous = mockedPage.getByRole("button", { name: "Previous day" });
+      await previous.click();
+      await expect(block(mockedPage, "res_e2e_002")).toHaveCount(1);
+      await mockedPage.waitForTimeout(300);
+
+      await expect(previous).toBeFocused();
+    });
+  });
+
+  test.describe("at tablet width", () => {
+    test.use({ viewport: TABLET });
+
+    test("on the new party's block, after Seat now and Escape", async ({ mockedPage }) => {
+      const seat = await holdSeat(mockedPage);
+      await seatNowOverIt(mockedPage);
+      await mockedPage.waitForTimeout(700);
+      await mockedPage.keyboard.press("Escape");
+      await expect(mockedPage.locator('[role="dialog"][aria-modal="true"]')).toHaveCount(0);
+      // Past the closed sheet's own focus restore, which would otherwise undo this. The test puts
+      // focus on the block itself: it proves the late seat leaves focus there, and nothing about
+      // where Escape lands.
+      await mockedPage.waitForTimeout(300);
+      await walkInBlock(mockedPage).focus();
+      seat.release("ok");
+      await settled(mockedPage);
+
+      await expect(walkInBlock(mockedPage)).toBeFocused();
+    });
+  });
+});
+
+// #8031 third review: the sheet under a dialog does not cover that dialog.
+test.describe("A failed save with the details surface under its dialog (#8031)", () => {
+  const CAROL = /\/api\/v1\/reservations\/res_e2e_003$/;
+  const saves = [
+    {
+      name: "Cancel Reservation",
+      party: "res_e2e_002",
+      url: BOB,
+      method: "PATCH",
+      open: (page: Page) => page.getByRole("button", { name: /^cancel reservation$/i }).click(),
+      action: "Cancel Reservation",
+    },
+    {
+      name: "Mark No-Show",
+      party: "res_e2e_003",
+      url: CAROL,
+      method: "PATCH",
+      open: (page: Page) => page.getByRole("button", { name: /^mark no-show$/i }).click(),
+      action: "Mark No-Show",
+    },
+    {
+      name: "Edit Reservation",
+      party: "res_e2e_002",
+      url: BOB,
+      method: "PATCH",
+      open: (page: Page) => page.getByTestId("reservation-edit").click(),
+      action: /^Save/,
+    },
+    {
+      name: "Seat walk-in",
+      party: "res_e2e_002",
+      url: /\/reservations\/walk-in$/,
+      method: "POST",
+      open: (page: Page) => openWalkInFromPaletteAt(page),
+      action: "Seat now",
+    },
+  ];
+
+  for (const [label, viewport] of [
+    ["phone", PHONE],
+    ["tablet", TABLET],
+  ] as const) {
+    test.describe(`at ${label} width`, () => {
+      test.use({ viewport });
+
+      for (const { name, party, url, method, open, action } of saves) {
+        test(`${name}: focus lands on the action, and Enter retries`, async ({ mockedPage }) => {
+          const save = await holdRequests(mockedPage, url, method);
+          await loadTimeline(mockedPage);
+          await block(mockedPage, party).click();
+          await open(mockedPage);
+          const dialog = mockedPage.getByRole("dialog", { name });
+          const button = dialog.getByRole("button", {
+            name: action,
+            exact: typeof action === "string",
+          });
+          await button.click();
+          await expect.poll(() => save.held.length).toBe(1);
+
+          save.release("fail");
+          await expect(dialog.getByRole("alert")).toHaveCount(1);
+
+          await expect(button).toBeFocused();
+          await mockedPage.keyboard.press("Enter");
+          await expect.poll(() => save.held.length).toBe(2);
+        });
+      }
+    });
+  }
+
+  test.describe("with the command palette over it", () => {
+    test.use({ viewport: TABLET });
+
+    test("focus stays in the palette, which comes earlier in the page", async ({ mockedPage }) => {
+      const save = await holdRequests(mockedPage, BOB, "PATCH");
+      await loadTimeline(mockedPage);
+      await block(mockedPage, "res_e2e_002").click();
+      await mockedPage.getByRole("button", { name: /^cancel reservation$/i }).click();
+      const dialog = mockedPage.getByRole("dialog", { name: "Cancel Reservation" });
+      await dialog.getByRole("button", { name: "Cancel Reservation", exact: true }).click();
+      await expect.poll(() => save.held.length).toBe(1);
+      await mockedPage.keyboard.press("ControlOrMeta+k");
+      const search = mockedPage.getByRole("combobox", { name: "Search commands", exact: true });
+      await expect(search).toBeFocused();
+
+      save.release("fail");
+      await expect(dialog.getByRole("alert")).toHaveCount(1);
+      await mockedPage.waitForTimeout(300);
+
+      await expect(search).toBeFocused();
+    });
+  });
+});
+
+// #8031 third review: the common case, with the menu still animating out when the response lands.
+test.describe("A table status change (#8031)", () => {
+  test.use({ viewport: DESKTOP });
+
+  for (const delay of [50, 500]) {
+    test(`returns focus to its trigger when the response takes ${delay} ms`, async ({
+      mockedPage,
+    }) => {
+      await loadTimeline(mockedPage);
+      const trigger = mockedPage.locator('[data-testid^="table-status-"]').first();
+      const testId = await trigger.getAttribute("data-testid");
+      await trigger.click();
+      const status = await holdRequests(mockedPage, /\/api\/v1\/tables\/[^/?]+\/status$/, "PATCH");
+      await mockedPage.getByRole("menuitem").first().click();
+      await expect.poll(() => status.held.length).toBe(1);
+
+      await mockedPage.waitForTimeout(delay);
+      status.release("ok");
+
+      await expect(mockedPage.getByRole("menu")).toHaveCount(0);
+      await expect(mockedPage.getByTestId(testId ?? "")).toBeFocused();
+    });
+  }
+});
+
+// #8031 third review: 10 s is how long a request may take focus from the Host, not how long a slow
+// refetch may leave focus nowhere.
+test.describe("A walk-in whose refetch takes over 10 s (#8031)", () => {
+  test.use({ viewport: DESKTOP });
+  const OVER_THE_LIMIT_MS = 11_000;
+
+  async function seatWithRefetchHeld(page: Page) {
+    await loadTimeline(page);
+    await expect(block(page, "res_e2e_002")).toHaveCount(1);
+    const refetch = await holdRequests(page, /\/api\/v1\/reservations(\?.*)?$/, "GET");
+    const walkIn = await openWalkInFromPaletteAt(page);
+    await walkIn.getByRole("button", { name: "Seat now" }).click();
+    await expect(walkIn).toHaveCount(0);
+    await expect.poll(() => refetch.held.length).toBeGreaterThan(0);
+    await expect(walkInBlock(page)).toHaveCount(0);
+    await page.waitForTimeout(OVER_THE_LIMIT_MS);
+    return refetch;
+  }
+
+  test("still lands on the new block while focus is loose", async ({ mockedPage }) => {
+    test.slow();
+    const refetch = await seatWithRefetchHeld(mockedPage);
+    await expect(mockedPage.locator("body")).toBeFocused();
+    refetch.release("ok");
+
+    await expect(walkInBlock(mockedPage)).toBeFocused();
+  });
+
+  test("leaves focus alone once the Host has moved it", async ({ mockedPage }) => {
+    test.slow();
+    const refetch = await seatWithRefetchHeld(mockedPage);
+    const previous = mockedPage.getByRole("button", { name: "Walk-in", exact: true });
+    await previous.focus();
+    refetch.release("ok");
+    await expect(walkInBlock(mockedPage)).toHaveCount(1);
+    await mockedPage.waitForTimeout(300);
+
+    await expect(previous).toBeFocused();
+  });
+});

@@ -176,6 +176,10 @@ export const StrandedReservationSchema = z.object({
   startTime: z.string(),
   partySize: z.number().int(),
   reason: z.enum(["closed", "outside_service", "table_blocked"]),
+  /** Who it is for; absent when the booking has no name. */
+  guestName: z.string().optional(),
+  /** The service date it belongs to, where a past-midnight booking's start time would mislead. */
+  serviceDate: ServiceDateSchema.optional(),
 });
 
 export const AVAILABILITY_CONFIG_PROBLEM_CODES = [
@@ -506,7 +510,16 @@ export const ClosuresResultSchema = z.object({
   results: z.array(ClosureResultSchema),
 });
 
-export const ReopenResultSchema = z.object({ version: z.number().int(), changeId: z.string() });
+export const ReopenResultSchema = z.object({
+  version: z.number().int(),
+  changeId: z.string(),
+  /**
+   * Guests a reopen notice was requested for: cancelled guests whose booking had not started,
+   * `0` when none were asked. Absent from an older API (and from ending Tonight); read it as
+   * `notified ?? null`.
+   */
+  notified: z.number().int().nonnegative().nullable().optional(),
+});
 
 /**
  * What became of the reservations one closure (or Tonight close-early) touched,
@@ -528,6 +541,11 @@ export const ClosureSummarySchema = z.object({
   total: z.number().int(),
   /** Bookings the closure cancelled (the guests a reopen notice would go to). */
   cancelled: z.number().int(),
+  /**
+   * Of those, the guests a reopen notice can still reach: their booking has not started.
+   * Absent from an older API; read it as `upcomingCancelled ?? cancelled`.
+   */
+  upcomingCancelled: z.number().int().nonnegative().nullable().optional(),
   /** Guests with a confirmed email or SMS delivery. */
   sent: z.number().int(),
   /** Guests who rebooked after the cancel. */

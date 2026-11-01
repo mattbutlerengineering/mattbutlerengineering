@@ -1,3 +1,4 @@
+import { useId } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import {
@@ -13,7 +14,12 @@ import type { Layer, ResolvedDay, ResolvedDaySummary } from "@mbe/availability";
 import type { AvailabilityConfigState, TeamRole } from "@mbe/types";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
 import { useViewport } from "../../hooks/useViewport.js";
+import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
 import { AvailabilityDayEditor } from "./AvailabilityDayEditor.js";
+import { useEditorOpen } from "./editor-open.js";
+import { useHeldFor } from "./use-held-for.js";
+import { useHoldFocus } from "./use-hold-focus.js";
+import { useReloadHold } from "./use-reload-hold.js";
 import { CopyDayAction } from "./CopyDayAction.js";
 import { ScheduleNudge } from "./ScheduleNudge.js";
 import type { SeriesScope } from "./series-edit.js";
@@ -41,6 +47,11 @@ export interface DayEditing {
   readonly onStale?: () => void;
   /** "Close…" (F5): open the Close dialog for this date. */
   readonly onCloseDay?: (date: string) => void;
+  /**
+   * With `fixedDates`: the picked dates do not all have the same hours, so the rows shown are
+   * one date's and a save replaces the others' (said above the rows).
+   */
+  readonly hoursDiffer?: boolean;
 }
 
 export interface AvailabilityDayDrawerProps {
@@ -57,6 +68,7 @@ export interface AvailabilityDayDrawerProps {
 }
 
 const noop = () => undefined;
+const RELOAD_OFFER_AFTER_MS = 2000;
 
 function serviceNames(day: ResolvedDaySummary, locale: string): string {
   return new Intl.ListFormat(locale, { type: "conjunction" }).format(
@@ -143,10 +155,32 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
   const { t } = useTranslation();
   const format = useVenueFormat();
 
+  // Several picked dates: the first date's summary, Close… and Copy would describe or act on one.
+  const picked = editing?.fixedDates && editing.fixedDates.length > 1 ? editing.fixedDates : null;
+  // Any open editor, even one with no change yet, has pinned the version it will save against.
+  const editorOpen = useEditorOpen();
+  // Past the Manager's own save, the config on hand is behind it: a draft made on it would conflict.
+  const { behind, reloadDue } = useReloadHold(editing?.venueId, editing?.state.version);
+  const waiting = editorOpen || behind;
+  const reasonId = useId();
+  const reason = editorOpen
+    ? picked
+      ? null
+      : t("availability.drawer.finishDraftFirst")
+    : behind
+      ? t("availability.drawer.waitForReload")
+      : null;
+  // A normal reload ends within this; only one that has not is worth a button of its own.
+  const offerReload = useHeldFor(reloadDue, RELOAD_OFFER_AFTER_MS);
+
+  const { editorRef, bannerRef, reloadRef, track } = useHoldFocus(
+    error ? "banner" : offerReload ? "reload" : null
+  );
+
   let body;
   if (date === null) {
     body = null;
-  } else if (error) {
+  } else if (error && !day) {
     body = (
       <Alert variant="error" title={t("availability.drawer.loadError")}>
         {error}
@@ -157,32 +191,61 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
   } else {
     body = (
       <>
-        <DayBody day={day} date={date} />
-        {viewerRole === "manager" && editing && (
-          <AvailabilityDayEditor
-            // A new date, or a new pick for the same date, is a new draft.
-            key={`${date}|${editing.fixedDates?.join(",") ?? ""}`}
-            venueId={editing.venueId}
-            state={editing.state}
-            timezone={editing.timezone}
-            today={editing.today}
-            onDirtyChange={editing.onDirtyChange}
-            onFinished={editing.onFinished}
-            fixedDates={editing.fixedDates}
-            ruleScope={editing.ruleScope}
-            date={date}
-            day={day}
-            onCancel={onClose}
-          />
+        {/* A failed refresh must not unmount an open draft; the error sits above it. */}
+        {error && (
+          <div ref={bannerRef} {...track}>
+            <ErrorRetryBanner
+              title={t("availability.drawer.refreshError")}
+              error={error}
+              onRetry={editing?.onStale}
+            />
+          </div>
         )}
-        {viewerRole === "manager" && editing?.onCloseDay && (
+        {!picked && <DayBody day={day} date={date} />}
+        {picked && editing?.hoursDiffer && (
+          <Text variant="body" color="primary">
+            {t("availability.drawer.hoursDiffer", {
+              date: format.formatCalendarDate(date, {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+              }),
+            })}
+          </Text>
+        )}
+        {viewerRole === "manager" && editing && (
+          <div ref={editorRef}>
+            <AvailabilityDayEditor
+              held={behind}
+              heldReasonId={reasonId}
+              // A new date, or a new pick for the same date, is a new draft.
+              key={`${date}|${editing.fixedDates?.join(",") ?? ""}`}
+              venueId={editing.venueId}
+              state={editing.state}
+              timezone={editing.timezone}
+              today={editing.today}
+              onDirtyChange={editing.onDirtyChange}
+              onFinished={editing.onFinished}
+              fixedDates={editing.fixedDates}
+              ruleScope={editing.ruleScope}
+              onStale={editing.onStale}
+              date={date}
+              day={day}
+              onCancel={onClose}
+            />
+          </div>
+        )}
+        {viewerRole === "manager" && !picked && editing?.onCloseDay && (
           <Button variant="secondary" onClick={() => editing.onCloseDay?.(date)}>
             {t("availability.close.open")}
           </Button>
         )}
-        {viewerRole === "manager" && editing && (
+        {viewerRole === "manager" && editing && !picked && (
           <>
             <CopyDayAction
+              waiting={waiting}
+              reasonId={reasonId}
+              today={editing.today}
               venueId={editing.venueId}
               state={editing.state}
               date={date}
@@ -190,6 +253,8 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
               onStale={editing.onStale ?? noop}
             />
             <ScheduleNudge
+              waiting={waiting}
+              reasonId={reasonId}
               venueId={editing.venueId}
               state={editing.state}
               date={date}
@@ -197,6 +262,27 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
               onStale={editing.onStale ?? noop}
             />
           </>
+        )}
+        {/* Below Copy and the nudge, so what a reload brings and takes away never moves a control
+            under a pointer. */}
+        {viewerRole === "manager" && editing && (
+          // Always mounted, so the reason is announced when it appears.
+          <div aria-live="polite">
+            {reason && (
+              <Text id={reasonId} variant="caption" color="secondary">
+                {reason}
+              </Text>
+            )}
+          </div>
+        )}
+        {/* Beside a failure the banner's Retry is the way out; otherwise this is, so a read older
+            than the save (which nothing else would refresh) cannot lock Edit. */}
+        {viewerRole === "manager" && offerReload && !error && editing?.onStale && (
+          <div ref={reloadRef} {...track}>
+            <Button variant="ghost" size="sm" onClick={() => editing.onStale?.()}>
+              {t("availability.drawer.reloadHours")}
+            </Button>
+          </div>
         )}
       </>
     );
@@ -210,7 +296,9 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
       title={
         date === null
           ? undefined
-          : format.formatCalendarDate(date, { weekday: "long", month: "long", day: "numeric" })
+          : picked
+            ? t("availability.selection.count", { count: picked.length })
+            : format.formatCalendarDate(date, { weekday: "long", month: "long", day: "numeric" })
       }
     >
       <Stack gap="md">

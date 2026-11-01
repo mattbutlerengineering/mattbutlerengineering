@@ -29,7 +29,12 @@ vi.mock("react-konva", () => {
     listening?: boolean;
   }
   function shapeMock(kind: string) {
-    return function ShapeMock(props: ShapeMockProps) {
+    return React.forwardRef(function ShapeMock(props: ShapeMockProps, ref: React.Ref<unknown>) {
+      React.useEffect(() => {
+        if (ref && typeof ref === "object" && "current" in ref) {
+          (ref as React.MutableRefObject<unknown>).current = { to: toSpy };
+        }
+      });
       return (
         <div
           data-testid={`konva-${kind}`}
@@ -42,7 +47,7 @@ vi.mock("react-konva", () => {
           data-listening={String(props.listening)}
         />
       );
-    };
+    });
   }
   const GroupMock = React.forwardRef(function GroupMock(
     { children, name }: { children?: React.ReactNode; name?: string },
@@ -254,6 +259,7 @@ describe("static furniture is cached per table (#7845)", () => {
     // Still drawn above the furniture.
     const group = document.querySelector('[data-name="table-group"]')!;
     expect(Array.from(group.children).map((c) => c.getAttribute("data-name"))).toEqual([
+      "table-drag-shadow",
       FURNITURE_GROUP_NAME,
       "table-label-group",
     ]);

@@ -38,6 +38,16 @@ describe("scopeDates", () => {
     expect(fridays).toHaveLength(53);
   });
 
+  it("every Friday from a past date counts only the Fridays still ahead", () => {
+    // Fri Oct 2 is three Fridays before Wed Oct 21; the year's reach is still counted from Oct 2.
+    const fridays = scopeDates(
+      { kind: "weekday", from: "2026-10-02", until: null },
+      { config: fixtureConfig(), timezone: FIXTURE_TIMEZONE, today: "2026-10-21" }
+    );
+    expect(fridays[0]).toBe("2026-10-23");
+    expect(fridays).toHaveLength(50);
+  });
+
   it("everywhere a schedule is used lists the future dates that schedule runs", () => {
     const run = dates({ kind: "schedule", scheduleId: "regular" });
     expect(run[0]).toBe("2026-10-30");

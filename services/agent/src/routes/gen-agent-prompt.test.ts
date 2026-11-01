@@ -338,6 +338,19 @@ describe("waitlist in the prompt", () => {
   });
 });
 
+// #8035: tool results aren't shown again on a later turn, so the rule has to live here too.
+describe("a change a tool couldn't confirm", () => {
+  it("is never called unchanged, and a win-back is never re-proposed blindly", () => {
+    const prompt = buildAgentSystemPrompt({ venueId: "v", now: NOW, catalogPrompt: "CATALOG" });
+    const line = prompt.split("\n").find((l) => /couldn't confirm/i.test(l));
+
+    expect(line).toMatch(/may have been saved/);
+    expect(line).toMatch(/never say nothing changed/);
+    expect(line).toMatch(/before proposing it again/);
+    expect(line).toMatch(/send_win_back.*twice/);
+  });
+});
+
 // #7925: the timeline's own actions are confirmable changes too; deposits stay on the page.
 describe("timeline actions in the prompt", () => {
   it("lists seating and no-shows among the changes the user confirms, and keeps deposits page-only", () => {

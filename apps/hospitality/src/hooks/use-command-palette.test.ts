@@ -37,6 +37,27 @@ describe("useCommandPalette", () => {
     expect(result.current.open).toBe(false);
   });
 
+  it("closes when the viewport changes form, since the page beneath may mount a focus-taking surface (#8029)", () => {
+    const listeners: (() => void)[] = [];
+    let tablet = false;
+    const original = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      matches: tablet && query === "(max-width: 1024px)",
+      addEventListener: (_type: string, listener: () => void) => listeners.push(listener),
+      removeEventListener: vi.fn(),
+    })) as unknown as typeof window.matchMedia;
+
+    const { result } = renderHook(() => useCommandPalette(defaultOptions));
+    act(() => result.current.setOpen(true));
+    expect(result.current.open).toBe(true);
+
+    tablet = true;
+    act(() => listeners.forEach((listener) => listener()));
+
+    expect(result.current.open).toBe(false);
+    window.matchMedia = original;
+  });
+
   it("setOpen toggles the open state", () => {
     const { result } = renderHook(() => useCommandPalette(defaultOptions));
 

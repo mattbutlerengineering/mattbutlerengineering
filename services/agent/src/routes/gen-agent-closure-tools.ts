@@ -38,7 +38,7 @@ import {
   type Impact,
   type SpecialHoursRule,
 } from "./gen-agent-closure-support.js";
-import { NO_VENUE, todayIn, type ApiClient } from "./gen-tool-support.js";
+import { NO_REPLAY, NO_VENUE, todayIn, type ApiClient } from "./gen-tool-support.js";
 
 /**
  * Chat tools for closures and special hours on dates after tonight (#7929):
@@ -295,12 +295,19 @@ function setSpecialHours({ log, api, venueId, timeZone }: ToolContext) {
  * The guest note for a finished reopen. A notice is only requested here: it is
  * sent in the background, so delivery is never claimed.
  */
-function reopenNote(cancelled: number, requested: boolean): string {
+function reopenNote(cancelled: number, notified: number, datesPassed: boolean): string {
   if (cancelled === 0) return "No guest was cancelled by this closure, so no notice was requested.";
-  const guests = cancelled === 1 ? "1 guest" : `${cancelled} guests`;
-  return requested
-    ? `Asked to notify the ${guests} the closure cancelled that it has reopened; delivery isn't confirmed here. They stay cancelled.`
-    : `The ${guests} the closure cancelled ${cancelled === 1 ? "was" : "were"} not asked to be notified that it has reopened. They stay cancelled.`;
+  const guestsOf = (n: number) => (n === 1 ? "1 guest" : `${n} guests`);
+  if (notified > 0) {
+    const rest =
+      notified < cancelled
+        ? ` The other ${cancelled - notified} were not asked: their booking date has passed.`
+        : "";
+    return `Asked to notify the ${guestsOf(notified)} the closure cancelled that it has reopened; delivery isn't confirmed here. They stay cancelled.${rest}`;
+  }
+  // `datesPassed`: a notice was wanted but every cancelled booking has already started.
+  const why = datesPassed ? ": their booking dates have passed" : "";
+  return `The ${guestsOf(cancelled)} the closure cancelled ${cancelled === 1 ? "was" : "were"} not asked to be notified that it has reopened${why}. They stay cancelled.`;
 }
 
 function reopenClosure({ log, api, venueId }: ToolContext) {
@@ -334,6 +341,8 @@ function reopenClosure({ log, api, venueId }: ToolContext) {
       let rule: ClosureRule;
       let scopeText: string;
       let cancelled: number;
+      // The guests a notice can still reach: those whose booking has not started.
+      let reachable: number;
       try {
         const state = await api.availability.getConfig(venueId);
         const target = scope === "service" ? resolveService(state.config, service!) : undefined;
@@ -357,14 +366,19 @@ function reopenClosure({ log, api, venueId }: ToolContext) {
               "Couldn't read how many guests this closure cancelled, so it can't decide whether to tell them. Nothing was changed. Ask the user to try again shortly.",
           };
         }
-        cancelled = counts.find((c) => c.ruleId === rule.id)?.cancelled ?? 0;
+        const summary = counts.find((c) => c.ruleId === rule.id);
+        cancelled = summary?.cancelled ?? 0;
+        reachable = summary?.upcomingCancelled ?? cancelled;
       } catch (err) {
         log.error({ err, venueId }, "reopen_closure failed to read");
         return closureFailure(err, "Couldn't read the closures. Nothing was changed.");
       }
-      const told = tellCancelledGuests && cancelled > 0;
+      const told = tellCancelledGuests && reachable > 0;
+      let notified: number;
       try {
-        await api.availability.reopenClosure(venueId, rule.id, told);
+        const saved = await api.availability.reopenClosure(venueId, rule.id, told, NO_REPLAY);
+        // The server counts who the notice really reached; an older one does not say.
+        notified = told ? (saved.notified ?? reachable) : 0;
       } catch (err) {
         log.error({ err, venueId }, "reopen_closure failed");
         return closureFailure(err, SAVE_UNSURE);
@@ -374,8 +388,8 @@ function reopenClosure({ log, api, venueId }: ToolContext) {
         ...spanOf(rule),
         scope: scopeText,
         guestsCancelled: cancelled,
-        noticeRequested: told,
-        note: reopenNote(cancelled, told),
+        noticeRequested: notified > 0,
+        note: reopenNote(cancelled, notified, tellCancelledGuests && reachable === 0),
       };
     },
   });

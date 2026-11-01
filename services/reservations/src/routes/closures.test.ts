@@ -422,6 +422,23 @@ describe("closure routes", () => {
       expect((await del()).statusCode).toBe(403);
     });
 
+    it("422s a reopen that would leave bookings without service, and sends no notices (#7975)", async () => {
+      commandSvc.reopen.mockResolvedValueOnce({
+        kind: "invalid",
+        issues: [{ path: "reservations.r1", code: "strands_booking", message: "no service" }],
+      });
+      noticeSvc.enqueueForReopen.mockClear();
+
+      const res = await del();
+
+      expect(res.statusCode).toBe(422);
+      expect(res.json()).toMatchObject({
+        code: "invalid-config",
+        issues: [{ path: "reservations.r1", code: "strands_booking" }],
+      });
+      expect(noticeSvc.enqueueForReopen).not.toHaveBeenCalled();
+    });
+
     it("rejects a body without tellCancelledGuests", async () => {
       expect((await del({})).statusCode).toBe(400);
     });
