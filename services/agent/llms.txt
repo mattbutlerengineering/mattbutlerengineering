@@ -766,6 +766,9 @@
     <item priority="high">
       export function localTimeIn(iso: unknown, timeZone: string | undefined): string | undefined { /* ... */ }
     </item>
+    <item priority="high">
+      export function failureLog(err: unknown) { /* ... */ }
+    </item>
     <item priority="low">
       interface Refusal {
         status: number;

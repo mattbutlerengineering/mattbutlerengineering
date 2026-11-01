@@ -1927,7 +1927,8 @@
       "save_many": "Guardar {{count}} de horarios",
       "saved_one": "{{count}} horario actualizado",
       "saved_other": "{{count}} horarios actualizados",
-      "saved_many": "{{count}} de horarios actualizados"
+      "saved_many": "{{count}} de horarios actualizados",
+      "blocked": "Cambia una fila para guardar."
     },
     "copy": {
       "action": "Copiar a otros días…",
@@ -1940,13 +1941,27 @@
       "save_many": "Copiar a {{count}} de fechas",
       "saved_one": "Copiado a {{count}} fecha",
       "saved_other": "Copiado a {{count}} fechas",
-      "saved_many": "Copiado a {{count}} de fechas"
+      "saved_many": "Copiado a {{count}} de fechas",
+      "blocked": {
+        "fromRequired": "Elige una fecha de inicio para copiar.",
+        "endBeforeStart": "La fecha de fin es anterior a la de inicio.",
+        "daysRequired": "Elige al menos un día al que copiar.",
+        "noDates": "Esos días no caen entre estas fechas."
+      }
     },
     "nudge": {
       "label": "Sugerencia",
       "text": "{{weekday}} ha tenido {{count}} cambios aislados.",
       "make": "Crear un horario de {{weekday}}",
       "created": "Horario de {{weekday}} creado"
+    },
+    "blocked": {
+      "conflict": "Responde el mensaje de arriba para guardar.",
+      "startRequired": "Elige una fecha de inicio para guardar.",
+      "endBeforeStart": "La fecha de fin es anterior a la de inicio.",
+      "nameRequired": "Ponle nombre a este horario para guardar.",
+      "servicesRequired": "Agrega un servicio para guardar.",
+      "serviceNameRequired": "Ponle nombre al nuevo servicio para guardar."
     }
   },
   "availability": {
@@ -2107,13 +2122,13 @@
     "undo": {
       "action": "Deshacer",
       "done": "Cambio deshecho",
-      "finishFirst": "Primero guarda o descarta tus cambios y luego deshaz.",
+      "finishFirst": "Primero descarta tus cambios y luego deshaz.",
       "errors": {
         "guests-notified": "Este cambio avisó a los comensales, así que no se puede deshacer.",
         "already-reverted": "Este cambio ya se deshizo.",
         "superseded": "Hay un cambio más reciente. Solo se puede deshacer el último cambio.",
         "not-revertable": "Este cambio no se puede deshacer.",
-        "version-conflict": "Alguien acaba de cambiar la disponibilidad. Recarga e inténtalo de nuevo.",
+        "version-conflict": "La disponibilidad cambió desde entonces. Solo se puede deshacer el último cambio.",
         "stranded-bookings": "Al deshacerlo, quedarían reservaciones existentes sin servicio.",
         "invalid-config": "Este cambio ya no se puede deshacer con tus horarios actuales."
       }
@@ -2243,6 +2258,12 @@
         "theirsHeading": "Su cambio",
         "yoursHeading": "Tu borrador",
         "yourService": "{{name}} {{from}} – {{to}}"
+      },
+      "blocked": {
+        "serviceName": "Ponle nombre al nuevo servicio para guardar.",
+        "noChange": "Cambia el horario para guardar.",
+        "noDates": "Lo que estás cambiando no incluye ninguna fecha, así que no hay nada que guardar.",
+        "keptOwn": "Cada fecha conserva sus propios cambios. Elige Reemplazarlos para guardar."
       }
     },
     "preview": {
@@ -2270,7 +2291,7 @@
       "stranded_one": "{{count}} reservación quedaría fuera de este horario",
       "stranded_many": "{{count}} reservaciones quedarían fuera de este horario",
       "stranded_other": "{{count}} reservaciones quedarían fuera de este horario",
-      "strandedItem": "{{date}} · {{time}} · {{size}} personas · {{reason}}",
+      "strandedItem": "{{name}} · {{date}} · {{time}} · {{size}} personas · {{reason}}",
       "strandedMore": "y {{count}} más en fechas posteriores del alcance",
       "compare": "Comparar con",
       "compareSaved": "Último guardado",
@@ -2284,7 +2305,8 @@
         "closed": "cerrado",
         "outside_service": "fuera de servicio",
         "table_blocked": "mesa bloqueada"
-      }
+      },
+      "strandedOpens": "{{line}} (se abre en otra pestaña)"
     },
     "discard": {
       "title": "¿Descartar los cambios del {{date}}?",
@@ -2452,7 +2474,8 @@
         },
         "loading": "Cargando las reservaciones…",
         "loadFailed": "No se pudieron cargar las reservaciones. Regresa e inténtalo de nuevo.",
-        "irreversible": "Se avisa a los comensales de inmediato. No se puede deshacer."
+        "irreversible": "Se avisa a los comensales de inmediato. No se puede deshacer.",
+        "blocked": "Elige qué pasa con cada grupo de reservaciones para continuar."
       },
       "status": {
         "closed": "Cerrado",
@@ -2500,7 +2523,9 @@
         "save_many": "Aplicar a {{count}} fechas",
         "saved_one": "{{count}} fecha actualizada",
         "saved_other": "{{count}} fechas actualizadas",
-        "saved_many": "{{count}} fechas actualizadas"
+        "saved_many": "{{count}} fechas actualizadas",
+        "blockedDay": "Elige un día del que copiar el horario.",
+        "blockedClosed": "Ese día no tiene horario. Elige un día abierto."
       },
       "clearDialog": {
         "title_one": "¿Borrar los cambios de {{count}} fecha?",
@@ -2577,7 +2602,8 @@
         "closedNotified_other": "Cierre anticipado a las {{time}} · {{count}} reservas notificadas",
         "closedNotified_many": "Cierre anticipado a las {{time}} · {{count}} reservas notificadas",
         "callList": "Lista de llamadas"
-      }
+      },
+      "loadError": "No se pudo cargar Esta noche, incluido el cierre de emergencia."
     },
     "venueTime": "Hora del local ({{zone}})",
     "weekSummary": {

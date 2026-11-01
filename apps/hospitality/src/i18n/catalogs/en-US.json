@@ -1889,7 +1889,8 @@
       "save_one": "Save {{count}} schedule",
       "save_other": "Save {{count}} schedules",
       "saved_one": "{{count}} schedule updated",
-      "saved_other": "{{count}} schedules updated"
+      "saved_other": "{{count}} schedules updated",
+      "blocked": "Change a row to save."
     },
     "copy": {
       "action": "Copy to other days…",
@@ -1900,13 +1901,27 @@
       "save_one": "Copy to {{count}} date",
       "save_other": "Copy to {{count}} dates",
       "saved_one": "Copied to {{count}} date",
-      "saved_other": "Copied to {{count}} dates"
+      "saved_other": "Copied to {{count}} dates",
+      "blocked": {
+        "fromRequired": "Choose a start date to copy.",
+        "endBeforeStart": "The end date is before the start date.",
+        "daysRequired": "Choose at least one day to copy to.",
+        "noDates": "Those days don’t fall between these dates."
+      }
     },
     "nudge": {
       "label": "Suggestion",
       "text": "{{weekday}} has had {{count}} one-off changes.",
       "make": "Make a {{weekday}} schedule",
       "created": "{{weekday}} schedule created"
+    },
+    "blocked": {
+      "conflict": "Answer the message above to save.",
+      "startRequired": "Choose a start date to save.",
+      "endBeforeStart": "The end date is before the start date.",
+      "nameRequired": "Name this schedule to save.",
+      "servicesRequired": "Add a service to save.",
+      "serviceNameRequired": "Name the new service to save."
     }
   },
   "availability": {
@@ -2067,13 +2082,13 @@
     "undo": {
       "action": "Undo",
       "done": "Change undone",
-      "finishFirst": "Save or discard your changes first, then undo.",
+      "finishFirst": "Discard your changes first, then undo.",
       "errors": {
         "guests-notified": "This change told guests, so it can’t be undone.",
         "already-reverted": "This change was already undone.",
         "superseded": "A newer change exists. Only the latest change can be undone.",
         "not-revertable": "This change can’t be undone.",
-        "version-conflict": "Someone else just changed availability. Reload and try again.",
+        "version-conflict": "Availability has changed since then. Only the latest change can be undone.",
         "stranded-bookings": "Undoing this would leave existing bookings without service.",
         "invalid-config": "This change can no longer be undone against your current hours."
       }
@@ -2192,6 +2207,12 @@
         "theirsHeading": "Their change",
         "yoursHeading": "Your draft",
         "yourService": "{{name}} {{from}} – {{to}}"
+      },
+      "blocked": {
+        "serviceName": "Name the new service to save.",
+        "noChange": "Change the hours to save.",
+        "noDates": "What you’re changing reaches no dates, so there is nothing to save.",
+        "keptOwn": "Every date keeps its own changes. Choose Replace them to save."
       }
     },
     "preview": {
@@ -2215,7 +2236,7 @@
       "retry": "Retry",
       "stranded_one": "{{count}} booking would fall outside these hours",
       "stranded_other": "{{count}} bookings would fall outside these hours",
-      "strandedItem": "{{date}} · {{time}} · party of {{size}} · {{reason}}",
+      "strandedItem": "{{name}} · {{date}} · {{time}} · party of {{size}} · {{reason}}",
       "strandedMore": "plus {{count}} more on later dates in scope",
       "compare": "Compare with",
       "compareSaved": "Last saved",
@@ -2229,7 +2250,8 @@
         "closed": "closed",
         "outside_service": "outside service",
         "table_blocked": "table blocked"
-      }
+      },
+      "strandedOpens": "{{line}} (opens in a new tab)"
     },
     "discard": {
       "title": "Discard changes to {{date}}?",
@@ -2397,7 +2419,8 @@
         },
         "loading": "Loading the bookings…",
         "loadFailed": "Couldn't load the bookings to decide on. Go back and try again.",
-        "irreversible": "Guests are told right away. This can't be undone."
+        "irreversible": "Guests are told right away. This can't be undone.",
+        "blocked": "Choose what happens to each group of bookings to continue."
       },
       "status": {
         "closed": "Closed",
@@ -2445,7 +2468,9 @@
         "save_many": "Apply to {{count}} dates",
         "saved_one": "{{count}} date updated",
         "saved_other": "{{count}} dates updated",
-        "saved_many": "{{count}} dates updated"
+        "saved_many": "{{count}} dates updated",
+        "blockedDay": "Choose a day to copy the hours from.",
+        "blockedClosed": "That day has no hours. Choose a day that is open."
       },
       "clearDialog": {
         "title_one": "Clear changes on {{count}} date?",
@@ -2522,7 +2547,8 @@
         "closedNotified_other": "Closing early at {{time}} · {{count}} reservations notified",
         "closedNotified_many": "Closing early at {{time}} · {{count}} reservations notified",
         "callList": "Call list"
-      }
+      },
+      "loadError": "Couldn't load Tonight, including Emergency close."
     },
     "venueTime": "Venue time ({{zone}})",
     "weekSummary": {

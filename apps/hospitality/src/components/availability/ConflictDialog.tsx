@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Button, Dialog, Heading, Stack, Text } from "@mattbutlerengineering/rialto";
-import type { AvailabilityChangeSummary } from "@mbe/types";
+import type { AvailabilityChangeSummary, StrandedReservation } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { minuteText } from "./closure-band.js";
 import type { DraftService } from "./draft-changes.js";
+import { StrandedBookings } from "./StrandedBookings.js";
 import styles from "./ConflictDialog.module.css";
 
 export interface ConflictDialogProps {
@@ -15,6 +16,8 @@ export interface ConflictDialogProps {
   readonly isSaving: boolean;
   /** Why the last Overwrite was refused; shown here because the page behind the modal is not. */
   readonly failure?: readonly string[];
+  /** The bookings behind a stranded refusal of that Overwrite. */
+  readonly stranded?: readonly StrandedReservation[];
   readonly onOverwrite: () => void;
   readonly onDiscard: () => void;
 }
@@ -68,6 +71,8 @@ export function ConflictDialog(props: ConflictDialogProps) {
             ))}
           </Alert>
         )}
+        {/* Outside the alert, which would read every row aloud. */}
+        {failure.length > 0 && <StrandedBookings reservations={props.stranded ?? []} />}
         <Text variant="body" color="primary">
           {theirs}
         </Text>

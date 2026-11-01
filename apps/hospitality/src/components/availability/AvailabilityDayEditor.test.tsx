@@ -491,6 +491,74 @@ describe("AvailabilityDayEditor", () => {
     expect(screen.getByRole("button", { name: "Save 2 dates" })).toBeEnabled();
   });
 
+  describe("+ Add service (ux.md S3, #7979)", () => {
+    function renderClosed() {
+      const state: AvailabilityConfigState = {
+        config: fixtureConfig(VENUE_CLOSURE),
+        version: 4,
+        source: "rows",
+      };
+      const onDirtyChange = vi.fn();
+      render(
+        <ToastProvider>
+          <main>
+            <AvailabilityDayEditor
+              venueId="venue-1"
+              date={FIXTURE_DATE}
+              day={resolveFixtureDay(VENUE_CLOSURE)}
+              state={state}
+              timezone={FIXTURE_TIMEZONE}
+              today="2026-10-28"
+              onDirtyChange={onDirtyChange}
+              onCancel={vi.fn()}
+              onFinished={vi.fn()}
+            />
+          </main>
+        </ToastProvider>
+      );
+      return { onDirtyChange };
+    }
+
+    it("adds a row at once, moves focus to it and leaves something to save", () => {
+      const { onDirtyChange } = renderClosed();
+      fireEvent.click(screen.getByRole("button", { name: "Add service" }));
+      const groups = screen.getAllByRole("group");
+      expect(groups.length).toBeGreaterThan(0);
+      const row = groups.at(-1)!;
+      expect(row).toContainElement(document.activeElement as HTMLElement);
+      expect(onDirtyChange).toHaveBeenLastCalledWith(true);
+      expect(screen.getByRole("button", { name: /^Save/ })).toBeEnabled();
+    });
+  });
+
+  describe("why Save is off (#7979)", () => {
+    it("says there is nothing to save yet, then that the new service needs a name", () => {
+      renderEditor();
+      fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+      expect(screen.getByRole("button", { name: /^Save/ })).toBeDisabled();
+      expect(screen.getByText("Change the hours to save.")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("combobox", { name: "Add service" }));
+      fireEvent.click(screen.getByRole("option", { name: "A new service…" }));
+      expect(screen.getByText("Name the new service to save.")).toBeInTheDocument();
+    });
+
+    it("says when every date keeps its own changes", () => {
+      const second = {
+        ...EARLY_DINNER,
+        id: "r-special-2",
+        startsOn: "2026-11-02",
+        endsOn: "2026-11-02",
+      };
+      renderEditor([EARLY_DINNER, second], [FIXTURE_DATE, "2026-11-02"]);
+      fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+      fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+      expect(screen.getByRole("button", { name: "Save 0 dates" })).toBeDisabled();
+      expect(
+        screen.getByText("Every date keeps its own changes. Choose Replace them to save.")
+      ).toBeInTheDocument();
+    });
+  });
+
   it("explains a save that would strand bookings", async () => {
     save.mockRejectedValueOnce(
       conflict("stranded-bookings", {
@@ -871,23 +939,22 @@ describe("AvailabilityDayEditor", () => {
           </main>
         </ToastProvider>
       );
+      // The button adds the venue's first spare service, Lunch.
       fireEvent.click(screen.getByRole("button", { name: "Add service" }));
-      fireEvent.click(screen.getByRole("combobox", { name: "Add service" }));
-      fireEvent.click(screen.getByRole("option", { name: "Dinner" }));
       chooseScope(/Your regular week/);
-      // The regular week already has Dinner, so the hours just set are not the ones it keeps.
+      // The regular week already has Lunch, so the hours just set are not the ones it keeps.
       expect(screen.getByRole("status")).toHaveTextContent(
-        "Your hours for Dinner won’t be used: what you’re changing already has them."
+        "Your hours for Lunch won’t be used: what you’re changing already has them."
       );
-      expect(screen.getByRole("button", { name: "Remove Lunch" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Remove Dinner" })).toBeInTheDocument();
       // Nothing differs from the regular week yet, so there is nothing to save.
       expect(screen.getByRole("button", { name: /^Save/ })).toBeDisabled();
 
       // Only what the Manager removes afterwards is removed.
-      fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+      fireEvent.click(screen.getByRole("button", { name: "Remove Dinner" }));
       fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
       await waitFor(() => expect(save).toHaveBeenCalled());
-      expect(sentBody().body.changes.remove.scheduleServices).toEqual(["ss-lunch"]);
+      expect(sentBody().body.changes.remove.scheduleServices).toEqual(["ss-dinner"]);
     });
 
     it("keeps the regular week's other services: nothing the Manager did not remove is deleted", async () => {

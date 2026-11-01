@@ -19,6 +19,8 @@ import { addDays } from "../../utils/service-day.js";
 import { WEEK_STARTS_ON } from "./calendar-dates.js";
 import { minuteText } from "./closure-band.js";
 import {
+  closeFieldId,
+  closeWhenId,
   firstDateOf,
   guestDateOf,
   type BookingChannel,
@@ -152,7 +154,7 @@ export function CloseStepOne(props: CloseStepOneProps) {
             />
           )}
           {what.kind === "booking" && (
-            <Stack gap="xs">
+            <Stack gap="xs" id={closeFieldId("what")}>
               {CHANNELS.map((channel) => (
                 <Checkbox
                   key={channel}
@@ -199,7 +201,7 @@ export function CloseStepOne(props: CloseStepOneProps) {
                 <Radio value="repeats" label={t("availability.close.when.repeats")} />
                 <Radio value="until-reopen" label={t("availability.close.when.untilReopen")} />
               </RadioGroup>
-              <div className={styles.row}>
+              <div className={styles.row} id={closeWhenId(when, false)}>
                 {when.kind === "date" &&
                   dateField(t("availability.close.when.dateLabel"), when.date, (date) =>
                     patch({ when: { kind: "date", date } })
@@ -220,7 +222,7 @@ export function CloseStepOne(props: CloseStepOneProps) {
                 )}
               </div>
               {when.kind === "repeats" && (
-                <fieldset className={styles.weekdays}>
+                <fieldset className={styles.weekdays} id={closeWhenId(when, true)}>
                   <legend className={styles.legend}>{t("availability.close.when.weekdays")}</legend>
                   {[1, 2, 3, 4, 5, 6, 0].map((day) => (
                     <Checkbox
@@ -285,6 +287,7 @@ export function CloseStepOne(props: CloseStepOneProps) {
         onChange={(e) => patch({ staffNote: e.target.value })}
       />
       <TextArea
+        id={closeFieldId("guestMessage")}
         label={t("availability.close.guestMessage")}
         value={form.guestMessage}
         maxLength={GUEST_MESSAGE_MAX_LENGTH}

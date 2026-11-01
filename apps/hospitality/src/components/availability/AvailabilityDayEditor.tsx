@@ -17,6 +17,7 @@ import {
   type AvailabilityConfigSaveResult,
   type AvailabilityConfigState,
   type ScopeConflictMode,
+  type StrandedReservation,
 } from "@mbe/types";
 import { useSaveAvailabilityConfig } from "../../hooks/useAvailability.js";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
@@ -38,7 +39,9 @@ import { waitingProps } from "./draft-wait.js";
 import { markEditorOpen } from "./editor-open.js";
 import { ownChangeDates, scopeDates } from "./scope-dates.js";
 import type { SeriesScope } from "./series-edit.js";
-import { ServicesEditor } from "./ServicesEditor.js";
+import { BlockedReason } from "./ScheduleFormParts.js";
+import { nextServiceRow, ServicesEditor } from "./ServicesEditor.js";
+import { StrandedBookings } from "./StrandedBookings.js";
 import { minuteText } from "./closure-band.js";
 import styles from "./AvailabilityDayEditor.module.css";
 
@@ -89,6 +92,8 @@ interface EditState {
 
 interface Failure {
   readonly messages: string[];
+  /** The bookings behind a stranded refusal. */
+  readonly stranded?: readonly StrandedReservation[];
 }
 
 /** Something to save: the rows differ from where this scope started. */
@@ -121,6 +126,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   const offerUndo = useAvailabilityUndo();
   const { mutateAsync, isPending } = useSaveAvailabilityConfig();
   const choiceLabelId = useId();
+  const saveBlockId = useId();
 
   const [edit, setEdit] = useState<EditState | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
@@ -179,6 +185,8 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   // From the first edit until the editor goes, other saves (Copy, the nudge, Undo) wait: they
   // would move the version this draft will be saved against.
   const releaseOpenRef = useRef<(() => void) | null>(null);
+  const focusNewRowRef = useRef(false);
+  const servicesRef = useRef<HTMLDivElement>(null);
   useEffect(
     () => () => {
       releaseOpenRef.current?.();
@@ -187,7 +195,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
     []
   );
 
-  const begin = () => {
+  const begin = (addService = false) => {
     if (held) return;
     releaseOpenRef.current ??= markEditorOpen();
     const first: EditScope = fixedDates
@@ -196,10 +204,12 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
         ? { kind: "rule", ...ruleScope, from: date }
         : { kind: "date", date };
     const seed = seedServices(config, day, first);
-    setEdit({
+    focusNewRowRef.current = addService;
+    update({
       base: state,
       scope: first,
-      services: seed,
+      // "+ Add service" adds one: the Manager asked for a row, not for the editor around it.
+      services: addService ? [...seed, nextServiceRow(seed, config.venueServices)] : seed,
       baseline: seed,
       parked: [],
       unsaved: [],
@@ -207,6 +217,14 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
       mode: "keep",
     });
   };
+
+  // The button that added the row is gone, so focus goes to the row it added.
+  useEffect(() => {
+    if (!focusNewRowRef.current) return;
+    focusNewRowRef.current = false;
+    const rows = servicesRef.current?.querySelectorAll("fieldset");
+    rows?.[rows.length - 1]?.querySelector("input")?.focus();
+  }, [edit]);
 
   const chooseScope = (kind: string) => {
     if (!edit) return;
@@ -302,6 +320,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
             count: problem.reservations?.length ?? 0,
           }),
         ],
+        stranded: problem.reservations ?? [],
       });
     } else {
       setFailure({ messages: [describeApiError(error).detail] });
@@ -332,7 +351,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
                 variant="ghost"
                 size="sm"
                 {...waitingProps(held, heldReasonId)}
-                onClick={begin}
+                onClick={() => begin()}
               >
                 {t("availability.editor.edit", { name: service.name })}
               </Button>
@@ -344,7 +363,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
             variant="secondary"
             size="sm"
             {...waitingProps(held, heldReasonId)}
-            onClick={begin}
+            onClick={() => begin(true)}
           >
             {t("availability.editor.addService")}
           </Button>
@@ -354,6 +373,15 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   }
 
   const nameless = edit.services.some((s) => s.venueServiceId === null && !s.name.trim());
+  const saveBlock = nameless
+    ? t("availability.editor.blocked.serviceName")
+    : !isDirty(edit)
+      ? t("availability.editor.blocked.noChange")
+      : dates.length === 0
+        ? t("availability.editor.blocked.noDates")
+        : writtenCount === 0
+          ? t("availability.editor.blocked.keptOwn")
+          : null;
   const scopeOptions = [
     { value: "date", label: t("availability.editor.scope.date") },
     {
@@ -431,25 +459,27 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
       <Text variant="caption" color="secondary">
         {t("availability.editor.scopeCount", { count: dates.length })}
       </Text>
-      <ServicesEditor
-        services={edit.services}
-        venueServices={config.venueServices}
-        date={overnightHintDate(edit.scope, date, dates)}
-        onChange={(services) => {
-          // Hours set again here are the Manager's own, so the line about the old ones goes, and
-          // a held edit or removal for a service added back in this scope is dropped with its name.
-          const present = new Set(services.map((s) => s.venueServiceId));
-          const parked = edit.parked.filter((p) => !present.has(p.base.venueServiceId));
-          const held = new Set(parked.flatMap((p) => (p.draft ? [p.draft.name] : [])));
-          update({
-            ...edit,
-            services,
-            parked,
-            overridden: [],
-            unsaved: edit.unsaved.filter((name) => held.has(name)),
-          });
-        }}
-      />
+      <div ref={servicesRef}>
+        <ServicesEditor
+          services={edit.services}
+          venueServices={config.venueServices}
+          date={overnightHintDate(edit.scope, date, dates)}
+          onChange={(services) => {
+            // Hours set again here are the Manager's own, so the line about the old ones goes, and
+            // a held edit or removal for a service added back in this scope is dropped with its name.
+            const present = new Set(services.map((s) => s.venueServiceId));
+            const parked = edit.parked.filter((p) => !present.has(p.base.venueServiceId));
+            const held = new Set(parked.flatMap((p) => (p.draft ? [p.draft.name] : [])));
+            update({
+              ...edit,
+              services,
+              parked,
+              overridden: [],
+              unsaved: edit.unsaved.filter((name) => held.has(name)),
+            });
+          }}
+        />
+      </div>
     </>
   );
   // A scope that reaches no dates (a schedule used only by a use_schedule rule) has nothing to preview; the server refuses an empty scope.
@@ -484,13 +514,17 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   return (
     <Stack gap="md">
       {failure && !conflict && (
-        <Alert variant="error" title={t("availability.editor.saveError")}>
-          {failure.messages.map((message) => (
-            <Text key={message} variant="body" color="primary">
-              {message}
-            </Text>
-          ))}
-        </Alert>
+        <>
+          <Alert variant="error" title={t("availability.editor.saveError")}>
+            {failure.messages.map((message) => (
+              <Text key={message} variant="body" color="primary">
+                {message}
+              </Text>
+            ))}
+          </Alert>
+          {/* Outside the alert, which would read every row aloud. */}
+          <StrandedBookings reservations={failure.stranded ?? []} />
+        </>
       )}
       {/* On a phone the preview is a tab of its own, so the drawer is not one long scroll. */}
       {phone ? (
@@ -528,13 +562,15 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
           {choice}
         </>
       )}
+      <BlockedReason id={saveBlockId} reason={saveBlock} />
       <div className={styles.actions}>
         <Button variant="secondary" onClick={onCancel}>
           {t("availability.editor.cancel")}
         </Button>
         <Button
           variant="primary"
-          disabled={!isDirty(edit) || nameless || writtenCount === 0}
+          disabled={saveBlock !== null}
+          aria-describedby={saveBlock ? saveBlockId : undefined}
           isLoading={isPending && !conflict}
           onClick={() => void submit(false)}
         >
@@ -548,6 +584,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
           services={edit.services}
           isSaving={isPending}
           failure={failure?.messages ?? []}
+          stranded={failure?.stranded ?? []}
           onOverwrite={() => void submit(true)}
           onDiscard={discardMine}
         />

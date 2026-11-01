@@ -11,6 +11,8 @@ import {
   decisionsReady,
   isUrgent,
   outcomeCounts,
+  stepTwoNote,
+  stepTwoNoteId,
   toDecisions,
   type ChoiceMap,
 } from "./close-draft.js";
@@ -137,14 +139,20 @@ export function SeriesGrowthStepTwo(props: SeriesGrowthStepTwoProps) {
       description={t("availability.close.step", { step: 2 })}
       footer={
         <div className={styles.footer}>
-          <Text variant="caption" color="secondary" className={styles.footerNote}>
-            {t("availability.close.step2.irreversible")}
+          <Text
+            id={stepTwoNoteId}
+            variant="caption"
+            color="secondary"
+            className={styles.footerNote}
+          >
+            {stepTwoNote(decisionsReady(impact.groups, choices), t)}
           </Text>
           <Button variant="secondary" disabled={isPending} onClick={onBack}>
             {t("availability.close.back")}
           </Button>
           <Button
             variant="primary"
+            aria-describedby={stepTwoNoteId}
             isLoading={isPending}
             disabled={savedEarlier || !decisionsReady(impact.groups, choices)}
             onClick={() => void save()}

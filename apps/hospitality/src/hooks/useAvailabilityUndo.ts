@@ -10,6 +10,24 @@ import { useRevertAvailabilityChange } from "./useAvailability.js";
 const UNDO_TOAST_MS = 10_000;
 
 /**
+ * A pressed toast button goes with its toast, which would drop focus to the page. Moved before it
+ * goes: back where it was when Undo was offered, else into the drawer or dialog still open, else
+ * to the page heading or main landmark. A press that never took focus (Safari) leaves it be.
+ */
+function focusOffToast(offeredFrom: Element | null) {
+  const active = document.activeElement;
+  if (active && active !== document.body && !active.closest("[aria-live]")) return;
+  const dialogs = document.querySelectorAll('[role="dialog"]');
+  const target =
+    offeredFrom instanceof HTMLElement && offeredFrom.isConnected && offeredFrom !== document.body
+      ? offeredFrom
+      : (dialogs[dialogs.length - 1]?.querySelector<HTMLElement>("button:not([disabled])") ??
+        document.querySelector<HTMLElement>("h1[tabindex]") ??
+        document.querySelector<HTMLElement>("main"));
+  target?.focus();
+}
+
+/**
  * The undo toast after a save: `offerUndo` shows "<what happened> · Undo", and Undo reverts
  * that one save against the version it produced. A save that told guests something is never
  * offered here; the server would refuse it with `guests-notified` anyway.
@@ -21,11 +39,18 @@ export function useAvailabilityUndo() {
 
   return useCallback(
     (input: { venueId: string; title: string; saved: AvailabilityConfigSaveResult }) => {
+      const offeredFrom = document.activeElement;
       const undo = async () => {
         // An open day editor has pinned a version this revert would move on from: its own save
-        // would then be refused as out of date. Ask the Manager to finish that first.
+        // would then be refused as out of date. Ask the Manager to discard it first, and keep Undo
+        // there for when they have. Saving it instead moves the version, so this Undo then refuses.
         if (isEditorOpen()) {
-          toast({ title: t("availability.undo.finishFirst"), variant: "default", duration: 8000 });
+          toast({
+            title: t("availability.undo.finishFirst"),
+            variant: "default",
+            duration: UNDO_TOAST_MS,
+            action: undoAction(),
+          });
           return;
         }
         try {
@@ -39,11 +64,26 @@ export function useAvailabilityUndo() {
           toast({ title: revertErrorText(error, t), variant: "error", duration: 8000 });
         }
       };
+      // One press per button: a double click must not send a second revert, which the first would
+      // have made out of date.
+      const undoAction = () => {
+        let pressed = false;
+        return {
+          label: t("availability.undo.action"),
+          onClick: () => {
+            // Before the guard: a second click's press has put focus back on this button.
+            focusOffToast(offeredFrom);
+            if (pressed) return;
+            pressed = true;
+            void undo();
+          },
+        };
+      };
       toast({
         title: input.title,
         variant: "success",
         duration: UNDO_TOAST_MS,
-        action: { label: t("availability.undo.action"), onClick: () => void undo() },
+        action: undoAction(),
       });
     },
     [revert, t, toast]

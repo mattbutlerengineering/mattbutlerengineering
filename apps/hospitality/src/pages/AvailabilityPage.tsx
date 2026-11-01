@@ -133,7 +133,23 @@ export function AvailabilityPage() {
     to: dates.at(-1) ?? anchor,
   });
   const config = useAvailabilityConfig({ venueId: selectedVenueId });
-  const { data: team } = useVenueTeam({ venueId: selectedVenueId });
+  const teamRead = useVenueTeam({ venueId: selectedVenueId });
+  const team = teamRead.data;
+  // A read that has never answered. A refresh failing over data on hand is the drawer's to say.
+  const failedReads = [
+    days.error ? days : null,
+    !config.data && config.error ? config : null,
+    !team && teamRead.error ? teamRead : null,
+  ].filter((read) => read !== null);
+  const loadFailure = failedReads[0]?.error ? describeApiError(failedReads[0].error) : null;
+  const loadFailureBanner = loadFailure && (
+    <ErrorRetryBanner
+      title={t("availability.loadError")}
+      error={loadFailure.detail}
+      details={loadFailure.raw}
+      onRetry={() => failedReads.forEach((read) => void read.refetch())}
+    />
+  );
 
   const resolved = useMemo(
     () =>
@@ -169,6 +185,8 @@ export function AvailabilityPage() {
           <Text variant="body" color="secondary">
             {t("availability.quickSetup.hostEmpty")}
           </Text>
+        ) : teamRead.error ? (
+          loadFailureBanner
         ) : (
           <Skeleton variant="text" lines={3} />
         )}
@@ -277,6 +295,8 @@ export function AvailabilityPage() {
   }
 
   const isManager = team?.viewerRole === "manager";
+  // Every Manager action below opens on the config: with none loaded it could open nothing.
+  const canAct = isManager && !!config.data;
   const activeScheduleCount =
     config.data?.config.schedules.filter((s) => !s.archivedAt).length ?? 0;
   const ownChangeCount = config.data ? ownSingleDateRules(config.data.config, selection).length : 0;
@@ -287,7 +307,6 @@ export function AvailabilityPage() {
   const pause = config.data
     ? shownOnlinePause(config.data.config, timeZone, today, minutesOfDayIn(now, timeZone))
     : null;
-  const failure = days.error ? describeApiError(days.error) : null;
   const drawerFailure = config.error ? describeApiError(config.error).detail : null;
 
   const summary = weekSummary(anchor, days.data ?? undefined, t);
@@ -334,12 +353,12 @@ export function AvailabilityPage() {
           trigger={<Button variant="secondary">{t("availability.selection.selectMenu")}</Button>}
           items={selectItems}
         />
-        {isManager && (
+        {canAct && (
           <Button variant="secondary" onClick={() => setClosing({ date: null, pause: false })}>
             {t("availability.close.open")}
           </Button>
         )}
-        {isManager && !pause && (
+        {canAct && !pause && (
           <Button variant="secondary" onClick={() => setClosing({ date: null, pause: true })}>
             {t("availability.paused.open")}
           </Button>
@@ -365,17 +384,10 @@ export function AvailabilityPage() {
           canResume={isManager}
         />
       )}
-      {failure && (
-        <ErrorRetryBanner
-          title={t("availability.loadError")}
-          error={failure.detail}
-          details={failure.raw}
-          onRetry={() => void days.refetch()}
-        />
-      )}
+      {loadFailureBanner}
       <AvailabilitySelectionBar
         selection={barDuringDrag ?? selection}
-        canEdit={isManager}
+        canEdit={canAct}
         onEditHours={editSelection}
         onClear={() => setSelection([])}
         onUseSchedule={() => setSelectionAction("use")}
@@ -412,6 +424,7 @@ export function AvailabilityPage() {
         today={today}
         days={days.data ?? undefined}
         isLoading={days.isLoading}
+        loadFailed={days.error !== null}
         selectedDate={openDate}
         draftDates={guard.dirty && openDate !== null ? (target.fixedDates ?? [openDate]) : EMPTY}
         selection={selection}

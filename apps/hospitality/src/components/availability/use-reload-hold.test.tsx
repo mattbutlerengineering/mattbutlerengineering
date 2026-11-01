@@ -107,6 +107,8 @@ describe("the hold after the Manager's own save", () => {
   }
 
   const edit = () => screen.getByRole("button", { name: "Edit Lunch" });
+  /** The button appears only once the hold has lasted about 2 s. */
+  const findReload = () => screen.findByRole("button", { name: "Reload hours" }, { timeout: 3000 });
 
   async function copyToFriday() {
     fireEvent.click(screen.getByRole("button", { name: "Copy to other days…" }));
@@ -133,14 +135,140 @@ describe("the hold after the Manager's own save", () => {
     render(tree({ onStale }));
     await copyToFriday();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    fireEvent.click(await screen.findByRole("button", { name: "Reload hours" }));
+    fireEvent.click(await findReload());
     expect(onStale).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers no reload during a normal reload: only once the hold has lasted", async () => {
+    render(tree());
+    await copyToFriday();
+    expect(screen.queryByRole("button", { name: "Reload hours" })).not.toBeInTheDocument();
+    const wellIntoTheHoldMs = 1000;
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, wellIntoTheHoldMs));
+    });
+    expect(screen.queryByRole("button", { name: "Reload hours" })).not.toBeInTheDocument();
+    await findReload();
+  });
+
+  it("keeps Copy above everything the hold adds, so no control moves under a pointer", async () => {
+    render(tree());
+    const copy = screen.getByRole("button", { name: "Copy to other days…" });
+    await copyToFriday();
+    const reload = await findReload();
+    const after = (el: Element) =>
+      copy.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING;
+    expect(after(reload)).toBeTruthy();
+    expect(after(screen.getByText(WAIT))).toBeTruthy();
+  });
+
+  it("moves focus to Edit when a click on Reload hours ends the hold", async () => {
+    const onStale = vi.fn();
+    const view = render(tree({ onStale }));
+    await copyToFriday();
+    (await findReload()).focus();
+    fireEvent.click(screen.getByRole("button", { name: "Reload hours" }));
+    view.rerender(tree({ onStale, version: 5 }));
+    expect(screen.queryByRole("button", { name: "Reload hours" })).not.toBeInTheDocument();
+    expect(edit()).toHaveFocus();
+  });
+
+  describe("focus after a click on Reload hours has moved on (#7979)", () => {
+    it("stays on the control it moved to, inside the drawer", async () => {
+      const onStale = vi.fn();
+      const view = render(tree({ onStale }));
+      await copyToFriday();
+      const reload = await findReload();
+      reload.focus();
+      fireEvent.click(reload);
+      screen.getByRole("button", { name: "Copy to other days…" }).focus();
+      view.rerender(tree({ onStale, version: 5 }));
+      expect(screen.getByRole("button", { name: "Copy to other days…" })).toHaveFocus();
+    });
+
+    it("stays in a field outside the drawer, where the Manager is typing", async () => {
+      const onStale = vi.fn();
+      const field = <input aria-label="Guest message" />;
+      const view = render(tree({ onStale, children: field }));
+      await copyToFriday();
+      const reload = await findReload();
+      reload.focus();
+      fireEvent.click(reload);
+      screen.getByLabelText("Guest message").focus();
+      view.rerender(tree({ onStale, version: 5, children: field }));
+      expect(screen.getByLabelText("Guest message")).toHaveFocus();
+    });
+
+    it("is not taken later, if focus came and went before the hold ended", async () => {
+      const onStale = vi.fn();
+      const field = <input aria-label="Guest message" />;
+      const view = render(tree({ onStale, children: field }));
+      await copyToFriday();
+      const reload = await findReload();
+      reload.focus();
+      fireEvent.click(reload);
+      screen.getByLabelText("Guest message").focus();
+      (document.activeElement as HTMLElement).blur();
+      view.rerender(tree({ onStale, version: 5, children: field }));
+      expect(document.body).toHaveFocus();
+    });
+  });
+
+  describe("focus on a control that goes away (#7979)", () => {
+    it("lands on Edit when the hold ends while focus is on Reload hours, with no click", async () => {
+      const onStale = vi.fn();
+      const view = render(tree({ onStale }));
+      await copyToFriday();
+      (await findReload()).focus();
+      view.rerender(tree({ onStale, version: 5 }));
+      expect(edit()).toHaveFocus();
+    });
+
+    it("lands on Edit when Retry succeeds and the banner goes", async () => {
+      const onStale = vi.fn();
+      const view = render(tree({ onStale }));
+      await copyToFriday();
+      view.rerender(tree({ onStale, reloadError: "Network down" }));
+      within(screen.getByRole("alert")).getByRole("button", { name: "Retry" }).focus();
+      view.rerender(tree({ onStale, version: 5 }));
+      expect(edit()).toHaveFocus();
+    });
+
+    it("lands on Reload hours when Retry answers but the read is still behind", async () => {
+      const onStale = vi.fn();
+      const view = render(tree({ onStale }));
+      await copyToFriday();
+      await findReload();
+      view.rerender(tree({ onStale, reloadError: "Network down" }));
+      within(screen.getByRole("alert")).getByRole("button", { name: "Retry" }).focus();
+      view.rerender(tree({ onStale }));
+      expect(screen.getByRole("button", { name: "Reload hours" })).toHaveFocus();
+    });
+  });
+
+  it("leaves focus alone when the hold ends with no click on Reload hours", async () => {
+    const view = render(tree());
+    await copyToFriday();
+    const copy = screen.getByRole("button", { name: "Copy to other days…" });
+    copy.focus();
+    view.rerender(tree({ version: 5 }));
+    expect(copy).toHaveFocus();
+  });
+
+  it("moves focus to Retry when a click on Reload hours fails", async () => {
+    const onStale = vi.fn();
+    const view = render(tree({ onStale }));
+    await copyToFriday();
+    (await findReload()).focus();
+    fireEvent.click(screen.getByRole("button", { name: "Reload hours" }));
+    view.rerender(tree({ onStale, reloadError: "Network down" }));
+    expect(within(screen.getByRole("alert")).getByRole("button", { name: "Retry" })).toHaveFocus();
   });
 
   it("offers one way to reload, not two, beside a failed reload", async () => {
     const view = render(tree());
     await copyToFriday();
-    await screen.findByRole("button", { name: "Reload hours" });
+    await findReload();
     view.rerender(tree({ reloadError: "Network down" }));
     expect(screen.queryByRole("button", { name: "Reload hours" })).not.toBeInTheDocument();
   });

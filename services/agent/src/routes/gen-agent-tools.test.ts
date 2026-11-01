@@ -443,6 +443,89 @@ describe("createAgentTools", () => {
     });
   });
 
+  describe("guest details stay out of the logs", () => {
+    /** What pino writes for an error: its message as well, where the client puts the query. */
+    const written = () =>
+      JSON.stringify(
+        [...vi.mocked(log.info).mock.calls, ...vi.mocked(log.error).mock.calls],
+        (_key, value: unknown) =>
+          value instanceof Error ? { ...value, message: value.message } : value
+      );
+    const failure = () =>
+      Object.assign(new Error("GET /guests?query=Okafor failed: 409 Okafor is booked"), {
+        path: "/guests?query=Okafor",
+        problemDetails: { status: 409, code: "conflict", detail: "Okafor is booked" },
+      });
+    const WRITE_INPUT = {
+      guestName: "Okafor",
+      date: "2026-12-01",
+      startTime: "18:00",
+      endTime: "20:00",
+      partySize: 2,
+      tableId: "t1",
+    };
+
+    it.each([
+      ["search_guests", { query: "Okafor" }],
+      ["lookup_reservation", { guestName: "Okafor" }],
+      ["create_reservation", WRITE_INPUT],
+      ["modify_reservation", { reservationId: "r1", notes: "Okafor, call 555-0100" }],
+      ["seat_walk_in", { partySize: 2, tableId: "t1", guestName: "Okafor" }],
+      ["cancel_reservation", { reservationId: "r1" }],
+    ] as const)("%s logs neither its input nor the failure's echo of it", async (name, input) => {
+      api.reservations.list.mockResolvedValue({ data: [] });
+      api.reservations.get.mockResolvedValue({ id: "r1", venueId: "v1" });
+      api.guests.search.mockRejectedValue(failure());
+      for (const fn of ["create", "update", "walkIn", "cancel"] as const) {
+        api.reservations[fn].mockRejectedValue(failure());
+      }
+      const tools = createConfirmedTools(name, input);
+
+      await tools[name]!.execute!(input as never, toolCtx);
+
+      // It reached the call and failed: a refused input would pass this test without testing it.
+      expect(log.error).toHaveBeenCalledWith(expect.anything(), `${name} failed`);
+      expect(written()).not.toMatch(/Okafor|555-0100/);
+    });
+
+    it("logs the failure's status and code, and the ids", async () => {
+      api.guests.search.mockRejectedValue(failure());
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
+
+      await tools.search_guests!.execute!({ query: "Okafor" }, toolCtx);
+
+      expect(log.error).toHaveBeenCalledWith(
+        { status: 409, code: "conflict", venueId: "v1" },
+        "search_guests failed"
+      );
+    });
+
+    it("keeps a failed response validation's query out too", async () => {
+      api.guests.search.mockRejectedValue(
+        Object.assign(new Error("GET /guests?query=Okafor failed validation: bad"), {
+          name: "ApiValidationError",
+          path: "/guests?query=Okafor",
+        })
+      );
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
+
+      await tools.search_guests!.execute!({ query: "Okafor" }, toolCtx);
+
+      expect(written()).not.toContain("Okafor");
+      expect(written()).toContain("ApiValidationError");
+    });
+
+    it("still logs a network failure whole, which holds no request data", async () => {
+      const down = new TypeError("fetch failed");
+      api.guests.search.mockRejectedValue(down);
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
+
+      await tools.search_guests!.execute!({ query: "Okafor" }, toolCtx);
+
+      expect(log.error).toHaveBeenCalledWith({ err: down, venueId: "v1" }, "search_guests failed");
+    });
+  });
+
   describe("search_guests", () => {
     it("calls api.guests.search with query and venueId", async () => {
       const mockGuests = {

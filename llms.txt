@@ -1555,6 +1555,21 @@
     <item priority="high">
       export function validateClose(form: CloseForm, today: string): CloseField | null { /* ... */ }
     </item>
+    <item priority="high">
+      export const closeFieldId: unknown;
+    </item>
+    <item priority="high">
+      export const closeWhenId: unknown;
+    </item>
+    <item priority="high">
+      export function focusCloseField(field: CloseField) { /* ... */ }
+    </item>
+    <item priority="high">
+      export const stepTwoNoteId: unknown;
+    </item>
+    <item priority="high">
+      export function stepTwoNote(ready: boolean, t: TFunction): string { /* ... */ }
+    </item>
     <item priority="medium">
       function targetOf(what: CloseWhat) { /* ... */ }
     </item>
@@ -2040,7 +2055,7 @@
       function toClock(minutes: number): string { /* ... */ }
     </item>
     <item priority="high">
-      export function autoLastSeating(closes: string): string { /* ... */ }
+      export function autoLastSeating(closes: string, opens: string | null = null): string { /* ... */ }
     </item>
     <item priority="high">
       export function applyPreset(service: ServiceDraft, preset: ServicePresetId, name: string) { /* ... */ }
@@ -2250,6 +2265,19 @@
     </item>
     <item priority="high">
       export function buildDeleteScheduleChanges(scheduleId: string): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="low">
+      type ScheduleSaveBlock = "conflict" | "startRequired" | "endBeforeStart" | "nameRequired" | "servicesRequired" | "serviceNameRequired";
+    </item>
+    <item priority="high">
+      export function scheduleSaveBlock(draft: {
+        readonly conflicted: boolean;
+        readonly name: string;
+        readonly services: readonly DraftService[];
+        readonly startsOn: string | null;
+        readonly endsOn: string | null;
+        readonly startRequired?: boolean;
+      }): ScheduleSaveBlock | null { /* ... */ }
     </item>
     <item priority="medium">
       function meets(a: UseOn, b: UseOn): boolean { /* ... */ }
@@ -2667,6 +2695,19 @@
   <file path="apps/hospitality/src/components/availability/use-discard-guard.ts">
     <item priority="high">
       export function useDiscardGuard<T>(apply: (next: T) => void, derivedDirty?: boolean) { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/use-held-for.ts">
+    <item priority="high">
+      export function useHeldFor(active: boolean, ms: number): boolean { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/use-hold-focus.ts">
+    <item priority="low">
+      type HoldWayOut = "banner" | "reload" | null;
+    </item>
+    <item priority="high">
+      export function useHoldFocus(wayOut: HoldWayOut) { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/use-reload-hold.ts">
@@ -6238,6 +6279,9 @@
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useAvailabilityUndo.ts">
+    <item priority="medium">
+      function focusOffToast(offeredFrom: Element | null) { /* ... */ }
+    </item>
     <item priority="high">
       export function useAvailabilityUndo() { /* ... */ }
     </item>
@@ -10924,6 +10968,9 @@
     </item>
     <item priority="high">
       export function localTimeIn(iso: unknown, timeZone: string | undefined): string | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function failureLog(err: unknown) { /* ... */ }
     </item>
     <item priority="low">
       interface Refusal {

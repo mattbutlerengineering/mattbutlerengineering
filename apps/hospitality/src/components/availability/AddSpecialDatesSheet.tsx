@@ -32,7 +32,14 @@ import {
   type DateRow,
 } from "./add-dates-draft.js";
 import { AddDateRow } from "./AddDateRow.js";
-import { decisionsReady, isUrgent, outcomeCounts, type ChoiceMap } from "./close-draft.js";
+import {
+  decisionsReady,
+  isUrgent,
+  outcomeCounts,
+  stepTwoNote,
+  stepTwoNoteId,
+  type ChoiceMap,
+} from "./close-draft.js";
 import { CloseStepTwo } from "./CloseStepTwo.js";
 import { LeaveSaveDialog } from "./LeaveSaveDialog.js";
 import { outcomeSummary } from "./outcome-label.js";
@@ -287,8 +294,13 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
         footer={
           <div className={styles.footer}>
             {step === 2 && (
-              <Text variant="caption" color="secondary" className={styles.footerNote}>
-                {t("availability.close.step2.irreversible")}
+              <Text
+                id={stepTwoNoteId}
+                variant="caption"
+                color="secondary"
+                className={styles.footerNote}
+              >
+                {stepTwoNote(decisionsReady(combined.groups, choices), t)}
               </Text>
             )}
             <Button
@@ -300,6 +312,7 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
             <Button
               variant="primary"
               data-testid="add-dates-primary"
+              aria-describedby={step === 2 ? stepTwoNoteId : undefined}
               isLoading={busy}
               disabled={
                 savedEarlier || (step === 2 ? !decisionsReady(combined.groups, choices) : false)

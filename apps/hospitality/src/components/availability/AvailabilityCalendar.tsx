@@ -21,6 +21,8 @@ export interface AvailabilityCalendarProps {
   readonly today: string;
   readonly days: readonly AvailabilityDaySummary[] | undefined;
   readonly isLoading: boolean;
+  /** The read failed (the page says so): a day with no summary is not still on its way. */
+  readonly loadFailed?: boolean;
   /** The day whose drawer is open. */
   readonly selectedDate?: string | null;
   /** The days whose drawer draft holds unsaved edits (one, or every picked date); each shows a dot. */
@@ -38,6 +40,7 @@ interface CellProps {
   readonly date: string;
   readonly summary: AvailabilityDaySummary | undefined;
   readonly isLoading: boolean;
+  readonly loadFailed: boolean;
   readonly detailed: boolean;
   readonly isToday: boolean;
   readonly isSelected: boolean;
@@ -93,7 +96,7 @@ function Cell(props: CellProps) {
           {format.formatCalendarDate(date, { day: "numeric" })}
         </span>
         {isLoading || !summary ? (
-          <Skeleton variant="text" width="100%" height={16} />
+          !props.loadFailed && <Skeleton variant="text" width="100%" height={16} />
         ) : (
           <span className={styles.details} aria-hidden="true">
             <span className={styles.label}>{summary.label}</span>
@@ -149,7 +152,7 @@ function targetFor(key: string, date: string): string | null {
  */
 export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
   const { view, anchor, today, days, isLoading, selectedDate, draftDates } = props;
-  const { selection, onAnchorChange } = props;
+  const { selection, onAnchorChange, loadFailed = false } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const gridRef = useRef<HTMLDivElement>(null);
@@ -214,6 +217,7 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
         draftDates={draftDates}
         picked={picked}
         isLoading={isLoading}
+        loadFailed={loadFailed}
         handlersFor={handlersFor}
       />
     );
@@ -246,6 +250,7 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
               date={date}
               summary={byDate.get(date)}
               isLoading={isLoading}
+              loadFailed={loadFailed}
               detailed={view === "week"}
               isToday={date === today}
               isSelected={date === selectedDate}

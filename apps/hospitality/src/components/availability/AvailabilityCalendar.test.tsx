@@ -163,6 +163,12 @@ describe("AvailabilityCalendar", () => {
     expect(screen.getAllByRole("gridcell")).toHaveLength(7);
   });
 
+  it("shows no skeleton once the read has failed: nothing is coming (#7979)", () => {
+    const { container } = renderCalendar({ days: undefined, loadFailed: true });
+    expect(container.querySelector('[class*="skeleton" i]')).toBeNull();
+    expect(screen.getAllByRole("gridcell")).toHaveLength(7);
+  });
+
   it("lays a month out as whole Monday-first weeks", () => {
     renderCalendar({ view: "month", anchor: "2026-10-15", days: [] });
     expect(screen.getAllByRole("gridcell")).toHaveLength(35);

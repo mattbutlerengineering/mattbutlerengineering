@@ -17,6 +17,7 @@ import {
   buildCloseRule,
   closedDates,
   decisionsReady,
+  focusCloseField,
   inSeries,
   isUrgent,
   outcomeCounts,
@@ -25,6 +26,8 @@ import {
   seriesForm,
   settleStartMinute,
   startMinutes,
+  stepTwoNote,
+  stepTwoNoteId,
   toDecisions,
   validateClose,
   type BookingChannel,
@@ -175,7 +178,7 @@ export function CloseDialog(props: CloseDialogProps) {
   const next = () => {
     const problem = validateClose(form, today);
     setInvalid(problem);
-    if (problem) return;
+    if (problem) return focusCloseField(problem);
     if (groups.length > 0) setStep(2);
     else void save();
   };
@@ -267,8 +270,13 @@ export function CloseDialog(props: CloseDialogProps) {
           ) : (
             <div className={styles.footer}>
               {step === 2 && (
-                <Text variant="caption" color="secondary" className={styles.footerNote}>
-                  {t("availability.close.step2.irreversible")}
+                <Text
+                  id={stepTwoNoteId}
+                  variant="caption"
+                  color="secondary"
+                  className={styles.footerNote}
+                >
+                  {stepTwoNote(decisionsReady(groups, choices), t)}
                 </Text>
               )}
               <Button
@@ -281,6 +289,7 @@ export function CloseDialog(props: CloseDialogProps) {
               <Button
                 variant="primary"
                 data-testid="close-primary"
+                aria-describedby={step === 2 ? stepTwoNoteId : undefined}
                 onClick={step === 2 ? () => void save() : next}
                 isLoading={isPending}
                 disabled={primaryDisabled}

@@ -23,6 +23,10 @@ const configSource = vi.hoisted(() => ({
   migrated: false,
 }));
 const configError = vi.hoisted(() => ({ value: null as Error | null }));
+/** No config has ever loaded: the read failed the first time. */
+const configAbsent = vi.hoisted(() => ({ value: false }));
+const teamError = vi.hoisted(() => ({ value: null as Error | null }));
+const teamRefetch = vi.hoisted(() => vi.fn());
 const team = vi.hoisted(() => ({ value: undefined as Partial<VenueTeam> | undefined }));
 const resolved = vi.hoisted(() => ({
   services: [] as unknown[],
@@ -41,6 +45,9 @@ vi.mock("../hooks/useAvailability.js", () => ({
   },
   useAvailabilityConfig: (params: unknown) => {
     configHook(params);
+    if (configAbsent.value) {
+      return { data: undefined, isLoading: false, error: configError.value, refetch };
+    }
     return {
       data: {
         config: {
@@ -107,7 +114,12 @@ vi.mock("../utils/format.js", async (importOriginal) => ({
   deviceTimeZone: () => device.zone,
 }));
 vi.mock("../hooks/useVenueTeam.js", () => ({
-  useVenueTeam: () => ({ data: team.value, isLoading: false, error: null }),
+  useVenueTeam: () => ({
+    data: team.value,
+    isLoading: false,
+    error: teamError.value,
+    refetch: teamRefetch,
+  }),
 }));
 // The drawer's guest preview has its own suite (AvailabilityGuestPreview.test.tsx); here it idles.
 vi.mock("../hooks/useAvailabilityPreview.js", () => ({
@@ -161,6 +173,8 @@ describe("AvailabilityPage", () => {
     configSource.value = "rows";
     configSource.migrated = false;
     configError.value = null;
+    configAbsent.value = false;
+    teamError.value = null;
     team.value = { viewerRole: "manager" };
     resolved.services = [];
     resolved.byDate = {};
@@ -217,6 +231,68 @@ describe("AvailabilityPage", () => {
     renderPage();
     fireEvent.click(screen.getByRole("radio", { name: "Week" }));
     expect(screen.getByRole("grid", { name: /Oct 26 – Nov 1, 2026/ })).toBeVisible();
+  });
+
+  describe("a read that failed (#7979)", () => {
+    const retry = () =>
+      fireEvent.click(within(screen.getByRole("alert")).getByRole("button", { name: "Retry" }));
+
+    it("gives a failed config read a banner with Retry, and no controls that cannot open", () => {
+      configAbsent.value = true;
+      configError.value = new Error("Network down");
+      renderPage();
+      expect(screen.getByRole("alert")).toHaveTextContent("Couldn't load availability");
+      expect(screen.queryByRole("button", { name: /^Close…/ })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Pause online booking" })
+      ).not.toBeInTheDocument();
+      retry();
+      expect(refetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("gives a failed Team read a banner with Retry", () => {
+      team.value = undefined;
+      teamError.value = new Error("Network down");
+      renderPage();
+      expect(screen.getByRole("alert")).toHaveTextContent("Couldn't load availability");
+      retry();
+      expect(teamRefetch).toHaveBeenCalledTimes(1);
+      expect(refetch).not.toHaveBeenCalled();
+    });
+
+    it("replaces the endless Skeleton on a venue with no hours when the Team read fails", () => {
+      configSource.value = "empty";
+      team.value = undefined;
+      teamError.value = new Error("Network down");
+      const { container } = renderPage();
+      expect(container.querySelector('[class*="skeleton" i]')).toBeNull();
+      retry();
+      expect(teamRefetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("retries each read that failed, under one banner", () => {
+      daysQuery.value = { data: undefined, isLoading: false, error: new Error("Network down") };
+      team.value = undefined;
+      teamError.value = new Error("Network down");
+      renderPage();
+      retry();
+      expect(refetch).toHaveBeenCalledTimes(1);
+      expect(teamRefetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("stops the cells' skeletons when the days read fails", () => {
+      daysQuery.value = { data: undefined, isLoading: false, error: new Error("Network down") };
+      const { container } = renderPage();
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+      expect(container.querySelector('[class*="skeleton" i]')).toBeNull();
+    });
+
+    it("leaves the page alone when a refresh fails over a config already loaded", () => {
+      configError.value = new Error("Network down");
+      renderPage();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^Close…/ })).toBeInTheDocument();
+    });
   });
 
   describe("venue time note", () => {

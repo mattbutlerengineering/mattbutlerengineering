@@ -176,6 +176,10 @@ export const StrandedReservationSchema = z.object({
   startTime: z.string(),
   partySize: z.number().int(),
   reason: z.enum(["closed", "outside_service", "table_blocked"]),
+  /** Who it is for; absent when the booking has no name. */
+  guestName: z.string().optional(),
+  /** The service date it belongs to, where a past-midnight booking's start time would mislead. */
+  serviceDate: ServiceDateSchema.optional(),
 });
 
 export const AVAILABILITY_CONFIG_PROBLEM_CODES = [

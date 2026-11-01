@@ -6,6 +6,7 @@ import {
   shownOnlinePause,
   buildCloseRule,
   closedDates,
+  closeWhenId,
   decisionsReady,
   isPauseInForce,
   isUrgent,
@@ -129,6 +130,32 @@ describe("validateClose", () => {
     expect(validateClose(form({ when: { kind: "date", date: "" } }), TODAY)).toBe("when");
     expect(validateClose(form({ guestMessage: "x".repeat(201) }), TODAY)).toBe("guestMessage");
     expect(validateClose(form(), TODAY)).toBeNull();
+  });
+});
+
+describe("closeWhenId: where a failed Next sends focus (#7979)", () => {
+  const repeats = (from: string, to: string) => ({
+    kind: "repeats" as const,
+    from,
+    to,
+    weekdays: [],
+  });
+
+  it.each([
+    ["no start date", repeats("", "2026-11-10")],
+    ["no dates at all", repeats("", "")],
+    ["no end date", repeats("2026-11-10", "")],
+    ["dates out of order", repeats("2026-11-10", "2026-11-09")],
+    ["a single date", { kind: "date" as const, date: "" }],
+  ])("%s: the dates", (_name, when) => {
+    expect(closeWhenId(when, false)).toBe("close-field-when");
+    expect(closeWhenId(when, true)).toBeUndefined();
+  });
+
+  it("a repeat whose dates are in order: its days", () => {
+    const when = repeats("2026-11-09", "2026-11-10");
+    expect(closeWhenId(when, true)).toBe("close-field-when");
+    expect(closeWhenId(when, false)).toBeUndefined();
   });
 });
 

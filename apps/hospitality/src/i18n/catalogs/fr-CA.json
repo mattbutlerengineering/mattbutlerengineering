@@ -1927,7 +1927,8 @@
       "save_many": "Enregistrer {{count}} d’horaires",
       "saved_one": "{{count}} horaire mis à jour",
       "saved_other": "{{count}} horaires mis à jour",
-      "saved_many": "{{count}} d’horaires mis à jour"
+      "saved_many": "{{count}} d’horaires mis à jour",
+      "blocked": "Modifiez une ligne pour enregistrer."
     },
     "copy": {
       "action": "Copier vers d’autres jours…",
@@ -1940,13 +1941,27 @@
       "save_many": "Copier vers {{count}} de dates",
       "saved_one": "Copié vers {{count}} date",
       "saved_other": "Copié vers {{count}} dates",
-      "saved_many": "Copié vers {{count}} de dates"
+      "saved_many": "Copié vers {{count}} de dates",
+      "blocked": {
+        "fromRequired": "Choisissez une date de début pour copier.",
+        "endBeforeStart": "La date de fin est avant la date de début.",
+        "daysRequired": "Choisissez au moins un jour où copier.",
+        "noDates": "Ces jours ne tombent pas entre ces dates."
+      }
     },
     "nudge": {
       "label": "Suggestion",
       "text": "{{weekday}} a connu {{count}} changements ponctuels.",
       "make": "Créer un horaire pour {{weekday}}",
       "created": "Horaire pour {{weekday}} créé"
+    },
+    "blocked": {
+      "conflict": "Répondez au message ci-dessus pour enregistrer.",
+      "startRequired": "Choisissez une date de début pour enregistrer.",
+      "endBeforeStart": "La date de fin est avant la date de début.",
+      "nameRequired": "Nommez cet horaire pour enregistrer.",
+      "servicesRequired": "Ajoutez un service pour enregistrer.",
+      "serviceNameRequired": "Nommez le nouveau service pour enregistrer."
     }
   },
   "availability": {
@@ -2107,13 +2122,13 @@
     "undo": {
       "action": "Annuler",
       "done": "Modification annulée",
-      "finishFirst": "Enregistrez ou annulez d’abord vos modifications, puis annulez le changement.",
+      "finishFirst": "Abandonnez d’abord vos modifications, puis annulez le changement.",
       "errors": {
         "guests-notified": "Cette modification a averti les clients; elle ne peut pas être annulée.",
         "already-reverted": "Cette modification a déjà été annulée.",
         "superseded": "Une modification plus récente existe. Seule la dernière peut être annulée.",
         "not-revertable": "Cette modification ne peut pas être annulée.",
-        "version-conflict": "Quelqu’un vient de modifier les disponibilités. Rechargez et réessayez.",
+        "version-conflict": "Les disponibilités ont changé depuis. Seule la dernière modification peut être annulée.",
         "stranded-bookings": "L’annuler laisserait des réservations existantes sans service.",
         "invalid-config": "Cette modification ne peut plus être annulée avec vos heures actuelles."
       }
@@ -2243,6 +2258,12 @@
         "theirsHeading": "Son changement",
         "yoursHeading": "Votre brouillon",
         "yourService": "{{name}} {{from}} – {{to}}"
+      },
+      "blocked": {
+        "serviceName": "Nommez le nouveau service pour enregistrer.",
+        "noChange": "Modifiez les heures pour enregistrer.",
+        "noDates": "Ce que vous modifiez ne touche aucune date : il n’y a rien à enregistrer.",
+        "keptOwn": "Chaque date garde ses propres modifications. Choisissez Les remplacer pour enregistrer."
       }
     },
     "preview": {
@@ -2270,7 +2291,7 @@
       "stranded_one": "{{count}} réservation serait hors de ces heures",
       "stranded_many": "{{count}} réservations seraient hors de ces heures",
       "stranded_other": "{{count}} réservations seraient hors de ces heures",
-      "strandedItem": "{{date}} · {{time}} · {{size}} personnes · {{reason}}",
+      "strandedItem": "{{name}} · {{date}} · {{time}} · {{size}} personnes · {{reason}}",
       "strandedMore": "et {{count}} de plus à des dates ultérieures de la portée",
       "compare": "Comparer avec",
       "compareSaved": "Dernier enregistrement",
@@ -2284,7 +2305,8 @@
         "closed": "fermé",
         "outside_service": "hors service",
         "table_blocked": "table bloquée"
-      }
+      },
+      "strandedOpens": "{{line}} (s’ouvre dans un nouvel onglet)"
     },
     "discard": {
       "title": "Abandonner les changements du {{date}} ?",
@@ -2452,7 +2474,8 @@
         },
         "loading": "Chargement des réservations…",
         "loadFailed": "Impossible de charger les réservations. Revenez en arrière et réessayez.",
-        "irreversible": "Les clients sont avisés immédiatement. Cette action est irréversible."
+        "irreversible": "Les clients sont avisés immédiatement. Cette action est irréversible.",
+        "blocked": "Choisissez ce qui arrive à chaque groupe de réservations pour continuer."
       },
       "status": {
         "closed": "Fermé",
@@ -2500,7 +2523,9 @@
         "save_many": "Appliquer à {{count}} dates",
         "saved_one": "{{count}} date mise à jour",
         "saved_other": "{{count}} dates mises à jour",
-        "saved_many": "{{count}} dates mises à jour"
+        "saved_many": "{{count}} dates mises à jour",
+        "blockedDay": "Choisissez un jour dont copier les heures.",
+        "blockedClosed": "Ce jour n’a pas d’heures. Choisissez un jour ouvert."
       },
       "clearDialog": {
         "title_one": "Effacer les modifications de {{count}} date ?",
@@ -2577,7 +2602,8 @@
         "closedNotified_other": "Fermeture hâtive à {{time}} · {{count}} réservations avisées",
         "closedNotified_many": "Fermeture hâtive à {{time}} · {{count}} réservations avisées",
         "callList": "Liste d'appels"
-      }
+      },
+      "loadError": "Impossible de charger Ce soir, y compris la fermeture d’urgence."
     },
     "venueTime": "Heure de l'établissement ({{zone}})",
     "weekSummary": {

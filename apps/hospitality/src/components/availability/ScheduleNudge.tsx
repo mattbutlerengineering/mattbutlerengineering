@@ -1,7 +1,8 @@
 import { useTranslation } from "react-i18next";
-import { Button, Text, useToast } from "@mattbutlerengineering/rialto";
+import { Button, Text } from "@mattbutlerengineering/rialto";
 import { weekdayIndexOf, type ResolvedDay } from "@mbe/availability";
 import type { AvailabilityConfigState } from "@mbe/types";
+import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { NUDGE_THRESHOLD, singleDateChangeCount } from "./copy-day.js";
 import { seedServices } from "./draft-changes.js";
@@ -32,7 +33,7 @@ export function ScheduleNudge(props: ScheduleNudgeProps) {
   const { venueId, state, date, day, onStale, waiting = false, reasonId } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
-  const { toast } = useToast();
+  const offerUndo = useAvailabilityUndo();
   const saver = useScheduleSave(onStale);
 
   const weekday = weekdayIndexOf(date);
@@ -51,9 +52,11 @@ export function ScheduleNudge(props: ScheduleNudgeProps) {
       winner: "new",
       makeId: () => crypto.randomUUID(),
     });
-    if (await saver.save(venueId, state, changes, "keep")) {
-      toast({
-        variant: "success",
+    const saved = await saver.save(venueId, state, changes, "keep");
+    if (saved) {
+      offerUndo({
+        venueId,
+        saved,
         title: t("availabilitySchedules.nudge.created", { weekday: weekdayName }),
       });
     }
@@ -64,7 +67,7 @@ export function ScheduleNudge(props: ScheduleNudgeProps) {
       <Text variant="body" color="primary">
         {t("availabilitySchedules.nudge.text", { weekday: weekdayName, count })}
       </Text>
-      <SaveFailure messages={saver.failure} />
+      <SaveFailure messages={saver.failure} stranded={saver.stranded} />
       <Button
         variant="secondary"
         size="sm"

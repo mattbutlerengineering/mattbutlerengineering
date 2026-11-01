@@ -7,6 +7,7 @@ import type { AvailabilityConfig, DateRule, TonightChange } from "@mbe/types";
 import {
   NO_REPLAY,
   NO_VENUE,
+  failureLog,
   localTimeIn,
   refusalOf,
   saveUnsure,
@@ -343,7 +344,7 @@ export function createAvailabilityTools(
             undoable: newest?.revertible ? { summary: newest.summary, at: newest.at } : null,
           };
         } catch (err) {
-          log.error({ err, venueId }, "list_tonight_changes failed");
+          log.error({ ...failureLog(err), venueId }, "list_tonight_changes failed");
           return { error: "Couldn't read tonight's availability. Ask the user to try again." };
         }
       },
@@ -375,7 +376,10 @@ export function createAvailabilityTools(
             ...(until ? { until } : {}),
           };
         } catch (err) {
-          log.error({ err, venueId, change: input.change }, "change_tonight_availability failed");
+          log.error(
+            { ...failureLog(err), venueId, change: input.change },
+            "change_tonight_availability failed"
+          );
           return availabilityWriteFailure(err, "make the change", unsure);
         }
       },
@@ -414,7 +418,7 @@ export function createAvailabilityTools(
           await api.availability.endTonight(venueId, matches[0]!.id, NO_REPLAY);
           return { ended: true, change };
         } catch (err) {
-          log.error({ err, venueId, change }, "end_tonight_change failed");
+          log.error({ ...failureLog(err), venueId, change }, "end_tonight_change failed");
           return availabilityWriteFailure(err, "end the change", unsure);
         }
       },
@@ -449,7 +453,7 @@ export function createAvailabilityTools(
           await api.availability.revertChange(venueId, newest.id, version);
           return { undone: true, summary };
         } catch (err) {
-          log.error({ err, venueId }, "undo_availability_change failed");
+          log.error({ ...failureLog(err), venueId }, "undo_availability_change failed");
           return availabilityWriteFailure(err, "undo the change", unsure);
         }
       },

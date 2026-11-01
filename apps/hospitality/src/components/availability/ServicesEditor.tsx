@@ -161,28 +161,48 @@ function ServiceRow(props: {
   );
 }
 
+/** The venue's services this draft does not run yet. */
+function addableServices(
+  services: readonly DraftService[],
+  venueServices: readonly VenueService[]
+): readonly VenueService[] {
+  const used = new Set(services.map((s) => s.venueServiceId));
+  return venueServices.filter((v) => !v.archivedAt && !used.has(v.id));
+}
+
+/** A row for one of the venue's services, or for a new one to name. */
+function serviceRow(
+  services: readonly DraftService[],
+  venueServices: readonly VenueService[],
+  id: string
+): DraftService {
+  const existing = venueServices.find((v) => v.id === id);
+  const created = id === NEW_SERVICE || !existing;
+  return {
+    ...NEW_SERVICE_HOURS,
+    key: created ? `new-${services.length}-${Date.now()}` : id,
+    venueServiceId: created ? null : id,
+    scheduleServiceId: null,
+    name: created ? "" : (existing?.name ?? ""),
+  };
+}
+
+/** "+ Add service" with nothing chosen yet: the first service the venue has spare, else a new one. */
+export function nextServiceRow(
+  services: readonly DraftService[],
+  venueServices: readonly VenueService[]
+): DraftService {
+  const [first] = addableServices(services, venueServices);
+  return serviceRow(services, venueServices, first?.id ?? NEW_SERVICE);
+}
+
 /** The services of a draft: hours, seating and booking type per row, plus add and remove. */
 export function ServicesEditor(props: ServicesEditorProps) {
   const { services, venueServices, date, onChange } = props;
   const { t } = useTranslation();
 
-  const used = new Set(services.map((s) => s.venueServiceId));
-  const addable = venueServices.filter((v) => !v.archivedAt && !used.has(v.id));
-
-  const add = (id: string) => {
-    const existing = venueServices.find((v) => v.id === id);
-    const created = id === NEW_SERVICE || !existing;
-    onChange([
-      ...services,
-      {
-        ...NEW_SERVICE_HOURS,
-        key: created ? `new-${services.length}-${Date.now()}` : id,
-        venueServiceId: created ? null : id,
-        scheduleServiceId: null,
-        name: created ? "" : (existing?.name ?? ""),
-      },
-    ]);
-  };
+  const addable = addableServices(services, venueServices);
+  const add = (id: string) => onChange([...services, serviceRow(services, venueServices, id)]);
 
   return (
     <Stack gap="md">

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, Checkbox, Select, Stack, Text, TimePicker } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState, ScopeConflictMode } from "@mbe/types";
@@ -13,7 +13,7 @@ import {
 } from "./compare-changes.js";
 import { DiscardChangesDialog } from "./DiscardChangesDialog.js";
 import { ownChangeDates, scopeDates } from "./scope-dates.js";
-import { OwnChangesChoice, SaveFailure } from "./ScheduleFormParts.js";
+import { BlockedReason, OwnChangesChoice, SaveFailure } from "./ScheduleFormParts.js";
 import { useDiscardGuard } from "./use-discard-guard.js";
 import { useScheduleSave } from "./use-schedule-save.js";
 import styles from "./CompareServices.module.css";
@@ -111,6 +111,7 @@ export function CompareServices(props: CompareServicesProps) {
   const { t } = useTranslation();
   const offerUndo = useAvailabilityUndo();
   const saver = useScheduleSave(onStale);
+  const blockedId = useId();
 
   const options = useMemo(() => compareServiceOptions(config), [config]);
   const [chosen, setChosen] = useState<string | null>(null);
@@ -189,7 +190,7 @@ export function CompareServices(props: CompareServicesProps) {
 
   return (
     <Stack gap="md">
-      <SaveFailure messages={saver.failure} />
+      <SaveFailure messages={saver.failure} stranded={saver.stranded} />
       <Select
         label={t("availabilitySchedules.compare.service")}
         value={serviceId}
@@ -259,6 +260,10 @@ export function CompareServices(props: CompareServicesProps) {
         </div>
       )}
       <OwnChangesChoice count={dates.length > 1 ? own.length : 0} value={mode} onChange={setMode} />
+      <BlockedReason
+        id={blockedId}
+        reason={changed.length === 0 ? t("availabilitySchedules.compare.blocked") : null}
+      />
       <div className={styles.footer}>
         <Text variant="body" color="primary" role="status">
           {t("availabilitySchedules.compare.impact", {
@@ -269,6 +274,7 @@ export function CompareServices(props: CompareServicesProps) {
         <Button
           variant="primary"
           disabled={changed.length === 0}
+          aria-describedby={changed.length === 0 ? blockedId : undefined}
           isLoading={saver.isPending}
           onClick={() => void submit()}
         >

@@ -28,6 +28,7 @@ import { SeriesEditDialog } from "./SeriesEditDialog.js";
 import { isSeries, restoreDate, skipRows, type SeriesScope } from "./series-edit.js";
 import { SpecialHoursEditDrawer } from "./SpecialHoursEditDrawer.js";
 import { SpecialHoursScopeDialog } from "./SpecialHoursScopeDialog.js";
+import { StrandedBookings } from "./StrandedBookings.js";
 import { useScheduleSave } from "./use-schedule-save.js";
 import {
   coversManyDates,
@@ -429,6 +430,8 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           ))}
         </Alert>
       )}
+      {/* Outside the alert, which would read every row aloud. */}
+      {rowSave.failure.length > 0 && <StrandedBookings reservations={rowSave.stranded} />}
       {summaries.error && <Alert variant="error">{describeApiError(summaries.error).detail}</Alert>}
       {summaries.isLoading ? (
         <Skeleton variant="text" lines={3} />

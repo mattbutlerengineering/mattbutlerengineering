@@ -4930,6 +4930,20 @@
       if (form.guestMessage.trim().length > GUEST_MESSAGE_MAX_LENGTH) return "guestMessage";
       return null;
     }
+    export const closeFieldId = (field: CloseField) => `close-field-${field}`;
+    export const closeWhenId = (when: CloseWhen, days: boolean) =>
+      (when.kind === "repeats" && when.from !== "" && when.to >= when.from) === days
+        ? closeFieldId("when")
+        : undefined;
+    export function focusCloseField(field: CloseField) {
+      const target = document.getElementById(closeFieldId(field));
+      (target?.querySelector("input") ?? target)?.focus();
+    }
+    export const stepTwoNoteId = "close-step-two-note";
+    export function stepTwoNote(ready: boolean, t: TFunction): string {
+      const irreversible = t("availability.close.step2.irreversible");
+      return ready ? irreversible : `${t("availability.close.step2.blocked")} ${irreversible}`;
+    }
     function targetOf(what: CloseWhat) {
       switch (what.kind) {
         case "venue":
@@ -6004,8 +6018,12 @@
       const mm = String(wrapped % 60).padStart(2, "0");
       return `${hh}:${mm}`;
     }
-    export function autoLastSeating(closes: string): string {
-      return toClock(toMinutes(closes) - LAST_SEATING_LEAD_MINUTES);
+    export function autoLastSeating(closes: string, opens: string | null = null): string {
+      const lead = toMinutes(closes) - LAST_SEATING_LEAD_MINUTES;
+      if (opens === null) return toClock(lead);
+      const opensAt = toMinutes(opens);
+      const closesAfter = toMinutes(closes) <= opensAt ? MINUTES_PER_DAY : 0;
+      return toClock(Math.max(lead + closesAfter, opensAt));
     }
     export function applyPreset(service: ServiceDraft, preset: ServicePresetId, name: string) {
       const { opens, closes } = SERVICE_PRESETS[preset];
@@ -6014,7 +6032,7 @@
         name,
         opens,
         closes,
-        lastSeating: autoLastSeating(closes),
+        lastSeating: autoLastSeating(closes, opens),
         lastSeatingLinked: true,
       };
     }
@@ -6024,14 +6042,13 @@
       value: string | null
     ): ServiceDraft {
       if (field === "lastSeating") return { ...service, lastSeating: value, lastSeatingLinked: false };
-      if (field === "closes" && service.lastSeatingLinked) {
-        return {
-          ...service,
-          closes: value,
-          lastSeating: value === null ? null : autoLastSeating(value),
-        };
-      }
-      return { ...service, [field]: value };
+      const next = { ...service, [field]: value };
+      // Both ends bound a linked last seating, so moving either one keeps it in step.
+      if (!service.lastSeatingLinked) return next;
+      return {
+        ...next,
+        lastSeating: next.closes === null ? null : autoLastSeating(next.closes, next.opens),
+      };
     }
     export function replaceService(draft: QuickSetupDraft, next: ServiceDraft): QuickSetupDraft {
       return { ...draft, services: draft.services.map((s) => (s.id === next.id ? next : s)) };
@@ -6271,7 +6288,7 @@
             ...emptyService(serviceId),
             opens: first.open,
             closes: first.close,
-            lastSeating: autoLastSeating(first.close),
+            lastSeating: autoLastSeating(first.close, first.open),
           },
         ],
         days: open.map((o) => o.index),
@@ -6610,6 +6627,32 @@
     }
     export function buildDeleteScheduleChanges(scheduleId: string): AvailabilityConfigChanges {
       return { upsert: {}, remove: { schedules: [scheduleId] } };
+    }
+    export type ScheduleSaveBlock =
+      | "conflict"
+      | "startRequired"
+      | "endBeforeStart"
+      | "nameRequired"
+      | "servicesRequired"
+      | "serviceNameRequired";
+    export function scheduleSaveBlock(draft: {
+      readonly conflicted: boolean;
+      readonly name: string;
+      readonly services: readonly DraftService[];
+      readonly startsOn: string | null;
+      readonly endsOn: string | null;
+      readonly startRequired?: boolean;
+    }): ScheduleSaveBlock | null {
+      const { startsOn, endsOn, services } = draft;
+      if (draft.conflicted) return "conflict";
+      if (draft.startRequired && !startsOn) return "startRequired";
+      if (startsOn && endsOn && endsOn < startsOn) return "endBeforeStart";
+      if (draft.name.trim() === "") return "nameRequired";
+      if (services.length === 0) return "servicesRequired";
+      if (services.some((s) => s.venueServiceId === null && !s.name.trim())) {
+        return "serviceNameRequired";
+      }
+      return null;
     }
     function meets(a: UseOn, b: UseOn): boolean {
       const shared = a.weekdays.filter((d) => b.weekdays.includes(d));
@@ -7559,6 +7602,54 @@
       };
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/use-held-for.ts">
+    export function useHeldFor(active: boolean, ms: number): boolean {
+      const [elapsed, setElapsed] = useState(false);
+      useEffect(() => {
+        if (!active) return undefined;
+        const timer = setTimeout(() => setElapsed(true), ms);
+        return () => {
+          clearTimeout(timer);
+          setElapsed(false);
+        };
+      }, [active, ms]);
+      return active && elapsed;
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/use-hold-focus.ts">
+    export type HoldWayOut = "banner" | "reload" | null;
+    export function useHoldFocus(wayOut: HoldWayOut) {
+      const editorRef = useRef<HTMLDivElement>(null);
+      const bannerRef = useRef<HTMLDivElement>(null);
+      const reloadRef = useRef<HTMLDivElement>(null);
+      const hasFocusRef = useRef(false);
+    
+      useEffect(() => {
+        if (!hasFocusRef.current) return;
+        hasFocusRef.current = false;
+        if (document.activeElement && document.activeElement !== document.body) return;
+        const landing = wayOut === "banner" ? bannerRef : wayOut === "reload" ? reloadRef : editorRef;
+        landing.current?.querySelector("button")?.focus();
+      }, [wayOut]);
+    
+      // A click counts too: Safari does not focus a button it clicks.
+      const claim = useCallback(() => {
+        hasFocusRef.current = true;
+      }, []);
+      const track = useMemo(
+        () => ({
+          onFocus: claim,
+          onClick: claim,
+          onBlur: (event: FocusEvent) => {
+            if (event.relatedTarget) hasFocusRef.current = false;
+          },
+        }),
+        [claim]
+      );
+    
+      return { editorRef, bannerRef, reloadRef, track };
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/use-reload-hold.ts">
     function emit() {
       for (const listener of listeners) listener();
@@ -7685,9 +7776,16 @@
       const { t } = useTranslation();
       const { mutateAsync, isPending } = useSaveAvailabilityConfig();
       const [failure, setFailure] = useState<readonly string[]>([]);
+      // The bookings behind a stranded refusal, listed beneath its message.
+      const [stranded, setStranded] = useState<readonly StrandedReservation[]>([]);
       // A lost race. The draft was built from a version that is gone, so a drawer that edits rows
       // must show what changed and get an answer (reapply or discard) before it saves again.
       const [conflicted, setConflicted] = useState(false);
+    
+      const clearFailure = () => {
+        setFailure([]);
+        setStranded([]);
+      };
     
       const reject = (error: unknown) => {
         const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
@@ -7701,6 +7799,7 @@
           setFailure(problem.issues.map((i) => i.message));
         } else if (problem?.code === "stranded-bookings") {
           setFailure([t(strandedKey, { count: problem.reservations?.length ?? 0 })]);
+          setStranded(problem.reservations ?? []);
         } else {
           setFailure([describeApiError(error).detail]);
         }
@@ -7713,7 +7812,7 @@
         changes: AvailabilityConfigChanges,
         scopeConflicts: ScopeConflictMode
       ): Promise<AvailabilityConfigSaveResult | null> => {
-        setFailure([]);
+        clearFailure();
         try {
           return await mutateAsync({
             venueId,
@@ -7729,12 +7828,13 @@
         save,
         isPending,
         failure,
+        stranded,
         conflicted,
-        clearFailure: () => setFailure([]),
+        clearFailure,
         /** The Manager has answered the conflict; the next save is against the version they saw. */
         clearConflict: () => {
           setConflicted(false);
-          setFailure([]);
+          clearFailure();
         },
       };
     }
@@ -18654,6 +18754,18 @@
     }
   </file>
   <file path="apps/hospitality/src/hooks/useAvailabilityUndo.ts">
+    function focusOffToast(offeredFrom: Element | null) {
+      const active = document.activeElement;
+      if (active && active !== document.body && !active.closest("[aria-live]")) return;
+      const dialogs = document.querySelectorAll('[role="dialog"]');
+      const target =
+        offeredFrom instanceof HTMLElement && offeredFrom.isConnected && offeredFrom !== document.body
+          ? offeredFrom
+          : (dialogs[dialogs.length - 1]?.querySelector<HTMLElement>("button:not([disabled])") ??
+            document.querySelector<HTMLElement>("h1[tabindex]") ??
+            document.querySelector<HTMLElement>("main"));
+      target?.focus();
+    }
     export function useAvailabilityUndo() {
       const { t } = useTranslation();
       const { toast } = useToast();
@@ -18661,11 +18773,18 @@
     
       return useCallback(
         (input: { venueId: string; title: string; saved: AvailabilityConfigSaveResult }) => {
+          const offeredFrom = document.activeElement;
           const undo = async () => {
             // An open day editor has pinned a version this revert would move on from: its own save
-            // would then be refused as out of date. Ask the Manager to finish that first.
+            // would then be refused as out of date. Ask the Manager to discard it first, and keep Undo
+            // there for when they have. Saving it instead moves the version, so this Undo then refuses.
             if (isEditorOpen()) {
-              toast({ title: t("availability.undo.finishFirst"), variant: "default", duration: 8000 });
+              toast({
+                title: t("availability.undo.finishFirst"),
+                variant: "default",
+                duration: UNDO_TOAST_MS,
+                action: undoAction(),
+              });
               return;
             }
             try {
@@ -18679,11 +18798,26 @@
               toast({ title: revertErrorText(error, t), variant: "error", duration: 8000 });
             }
           };
+          // One press per button: a double click must not send a second revert, which the first would
+          // have made out of date.
+          const undoAction = () => {
+            let pressed = false;
+            return {
+              label: t("availability.undo.action"),
+              onClick: () => {
+                // Before the guard: a second click's press has put focus back on this button.
+                focusOffToast(offeredFrom);
+                if (pressed) return;
+                pressed = true;
+                void undo();
+              },
+            };
+          };
           toast({
             title: input.title,
             variant: "success",
             duration: UNDO_TOAST_MS,
-            action: { label: t("availability.undo.action"), onClick: () => void undo() },
+            action: undoAction(),
           });
         },
         [revert, t, toast]
@@ -30430,7 +30564,7 @@
                 undoable: newest?.revertible ? { summary: newest.summary, at: newest.at } : null,
               };
             } catch (err) {
-              log.error({ err, venueId }, "list_tonight_changes failed");
+              log.error({ ...failureLog(err), venueId }, "list_tonight_changes failed");
               return { error: "Couldn't read tonight's availability. Ask the user to try again." };
             }
           },
@@ -30462,7 +30596,10 @@
                 ...(until ? { until } : {}),
               };
             } catch (err) {
-              log.error({ err, venueId, change: input.change }, "change_tonight_availability failed");
+              log.error(
+                { ...failureLog(err), venueId, change: input.change },
+                "change_tonight_availability failed"
+              );
               return availabilityWriteFailure(err, "make the change", unsure);
             }
           },
@@ -30501,7 +30638,7 @@
               await api.availability.endTonight(venueId, matches[0]!.id, NO_REPLAY);
               return { ended: true, change };
             } catch (err) {
-              log.error({ err, venueId, change }, "end_tonight_change failed");
+              log.error({ ...failureLog(err), venueId, change }, "end_tonight_change failed");
               return availabilityWriteFailure(err, "end the change", unsure);
             }
           },
@@ -30536,7 +30673,7 @@
               await api.availability.revertChange(venueId, newest.id, version);
               return { undone: true, summary };
             } catch (err) {
-              log.error({ err, venueId }, "undo_availability_change failed");
+              log.error({ ...failureLog(err), venueId }, "undo_availability_change failed");
               return availabilityWriteFailure(err, "undo the change", unsure);
             }
           },
@@ -31449,7 +31586,7 @@
                   })),
               };
             } catch (err) {
-              log.error({ err, venueId }, "list_lapsing_guests failed");
+              log.error({ ...failureLog(err), venueId }, "list_lapsing_guests failed");
               return { error: "Couldn't read lapsing guests. Ask the user to try again." };
             }
           },
@@ -31486,7 +31623,7 @@
               });
               return { saved: true, guest: shown(saved) };
             } catch (err) {
-              log.error({ err, venueId }, "add_guest failed");
+              log.error({ ...failureLog(err), venueId }, "add_guest failed");
               // The write is the tool's first call, so any failure may have saved.
               return guestFailure(err, "add the guest", GUEST_SAVE_UNSURE);
             }
@@ -31525,7 +31662,7 @@
               });
               return { updated: true, guest: shown(updated) };
             } catch (err) {
-              log.error({ err, venueId }, "update_guest failed");
+              log.error({ ...failureLog(err), venueId }, "update_guest failed");
               return guestFailure(err, "update the guest", unsure);
             }
           },
@@ -31549,7 +31686,7 @@
               await api.guests.addNote(found.guest.id, text);
               return { noted: true, guest: found.guest.name };
             } catch (err) {
-              log.error({ err, venueId }, "add_guest_note failed");
+              log.error({ ...failureLog(err), venueId }, "add_guest_note failed");
               return guestFailure(err, "add the note", unsure);
             }
           },
@@ -31586,7 +31723,7 @@
                     note: "The message wasn't sent, usually because of the guest's contact preferences. Say so.",
                   };
             } catch (err) {
-              log.error({ err, venueId }, "send_win_back failed");
+              log.error({ ...failureLog(err), venueId }, "send_win_back failed");
               return guestFailure(err, "send the win-back message", unsure);
             }
           },
@@ -32013,7 +32150,7 @@
               await api.tables.updateStatus(tableId, "OCCUPIED");
               return { seated: true, table: tableLabel };
             } catch (err) {
-              log.error({ err, venueId, reservationId }, "seat_reservation failed");
+              log.error({ ...failureLog(err), venueId, reservationId }, "seat_reservation failed");
               return bookingWriteFailure(err, "seat the party", unsure, saved);
             }
           },
@@ -32033,7 +32170,7 @@
               const { warning } = await api.reservations.markNoShow(reservationId);
               return { noShow: true, ...(warning ? { warning } : {}) };
             } catch (err) {
-              log.error({ err, venueId, reservationId }, "mark_no_show failed");
+              log.error({ ...failureLog(err), venueId, reservationId }, "mark_no_show failed");
               return bookingWriteFailure(err, "mark the no-show", unsure);
             }
           },
@@ -32070,7 +32207,7 @@
                   : await api.reservations.cancel(reservationId, NO_REPLAY);
               return { reservation };
             } catch (err) {
-              log.error({ err, reservationId }, "cancel_reservation failed");
+              log.error({ ...failureLog(err), reservationId }, "cancel_reservation failed");
               // The write is the tool's first call, so any failure may have saved.
               return bookingWriteFailure(
                 err,
@@ -32384,7 +32521,7 @@
               );
               return { reservations: reservations.map(toLocal) };
             } catch (err) {
-              log.error({ err, date, venueId }, "lookup_reservation failed");
+              log.error({ ...failureLog(err), date, venueId }, "lookup_reservation failed");
               return { error: "Failed to look up reservations. Please try again." };
             }
           },
@@ -32397,12 +32534,12 @@
           }),
           execute: async ({ query }) => {
             if (!venueId) return NO_VENUE;
-            log.info({ query, venueId }, "search_guests tool called");
+            log.info({ venueId }, "search_guests tool called");
             try {
               const result = await api.guests.search({ venueId, query });
               return { guests: result.data };
             } catch (err) {
-              log.error({ err, query, venueId }, "search_guests failed");
+              log.error({ ...failureLog(err), venueId }, "search_guests failed");
               return { error: "Failed to search guests. Please try again." };
             }
           },
@@ -32485,7 +32622,7 @@
           }),
           execute: async ({ guestName, date, startTime, endTime, partySize, tableId, notes }) => {
             if (!venueId) return NO_VENUE;
-            log.info({ guestName, date, startTime, partySize }, "create_reservation tool called");
+            log.info({ venueId, date, startTime, partySize }, "create_reservation tool called");
             const window = reservationWindow(date, startTime, endTime, timeZone);
             if (!window) return { error: UNREADABLE_TIME };
             try {
@@ -32501,7 +32638,7 @@
               });
               return { reservation };
             } catch (err) {
-              log.error({ err, guestName, date }, "create_reservation failed");
+              log.error({ ...failureLog(err), venueId, date }, "create_reservation failed");
               return createFailureResult(err);
             }
           },
@@ -32520,7 +32657,8 @@
             notes: z.string().optional().describe("Updated notes"),
           }),
           execute: async ({ reservationId, ...updates }) => {
-            log.info({ reservationId, ...updates }, "modify_reservation tool called");
+            // Field names only: notes are free text, and can say anything about a guest.
+            log.info({ reservationId, fields: Object.keys(updates) }, "modify_reservation tool called");
             try {
               const cleanUpdates = Object.fromEntries(
                 Object.entries(updates).filter(([, v]) => v !== undefined)
@@ -32528,7 +32666,7 @@
               const reservation = await api.reservations.update(reservationId, cleanUpdates);
               return { reservation };
             } catch (err) {
-              log.error({ err, reservationId }, "modify_reservation failed");
+              log.error({ ...failureLog(err), reservationId }, "modify_reservation failed");
               // The write is the tool's first call, so any failure may have saved.
               return bookingWriteFailure(
                 err,
@@ -32552,7 +32690,7 @@
           }),
           execute: async ({ partySize, tableId, guestName }) => {
             if (!venueId) return NO_VENUE;
-            log.info({ venueId, partySize, tableId, guestName }, "seat_walk_in tool called");
+            log.info({ venueId, partySize, tableId }, "seat_walk_in tool called");
             try {
               if (!tableId) {
                 return {
@@ -32567,7 +32705,7 @@
               });
               return { reservation };
             } catch (err) {
-              log.error({ err, venueId, partySize }, "seat_walk_in failed");
+              log.error({ ...failureLog(err), venueId, partySize }, "seat_walk_in failed");
               // The write is the tool's first call, so any failure may have saved.
               return bookingWriteFailure(err, "seat the walk-in", saveUnsure("get_table_status"));
             }
@@ -32688,7 +32826,7 @@
                 });
               return { parties };
             } catch (err) {
-              log.error({ err, venueId }, "list_waitlist failed");
+              log.error({ ...failureLog(err), venueId }, "list_waitlist failed");
               const refusal = refusalOf(err);
               return refusal?.status === 403
                 ? { refused: true, error: "The user doesn't have permission to see the waitlist." }
@@ -32717,7 +32855,7 @@
                 quotedWaitMinutes: added.estimatedWaitMinutes,
               };
             } catch (err) {
-              log.error({ err, venueId }, "add_to_waitlist failed");
+              log.error({ ...failureLog(err), venueId }, "add_to_waitlist failed");
               // The write is the tool's first call, so any failure may have saved.
               return waitlistFailure(err, "add the party", WAITLIST_SAVE_UNSURE);
             }
@@ -32746,7 +32884,7 @@
               await api.waitlist.notify(found.entry.id);
               return { notified: true, guestName: found.entry.guestName };
             } catch (err) {
-              log.error({ err, venueId }, "notify_waitlist_party failed");
+              log.error({ ...failureLog(err), venueId }, "notify_waitlist_party failed");
               return waitlistFailure(err, "notify the party", unsure);
             }
           },
@@ -32790,7 +32928,7 @@
               await api.waitlist.seat(entry.id);
               return { seated: true, guestName: entry.guestName, table: label };
             } catch (err) {
-              log.error({ err, venueId }, "seat_waitlist_party failed");
+              log.error({ ...failureLog(err), venueId }, "seat_waitlist_party failed");
               // The walk-in exists, so the party is seated; only the waitlist row is stale (as WaitlistPage reports it).
               if (seatedAt) {
                 return {
@@ -32820,7 +32958,7 @@
               await api.waitlist.cancel(found.entry.id);
               return { removed: true, guestName: found.entry.guestName };
             } catch (err) {
-              log.error({ err, venueId }, "remove_from_waitlist failed");
+              log.error({ ...failureLog(err), venueId }, "remove_from_waitlist failed");
               return waitlistFailure(err, "remove the party", unsure);
             }
           },
@@ -33870,6 +34008,19 @@
       } catch {
         return undefined; // unknown time zone (RangeError)
       }
+    }
+    export function failureLog(err: unknown) {
+      const {
+        problemDetails: problem,
+        path,
+        name,
+      } = (err ?? {}) as {
+        problemDetails?: { status?: unknown; code?: unknown };
+        path?: unknown;
+        name?: unknown;
+      };
+      if (problem) return { status: problem.status, code: problem.code };
+      return path === undefined ? { err } : { failure: name };
     }
     export interface Refusal {
       readonly status: number;
@@ -43926,6 +44077,10 @@
       startTime: z.string(),
       partySize: z.number().int(),
       reason: z.enum(["closed", "outside_service", "table_blocked"]),
+      /** Who it is for; absent when the booking has no name. */
+      guestName: z.string().optional(),
+      /** The service date it belongs to, where a past-midnight booking's start time would mislead. */
+      serviceDate: ServiceDateSchema.optional(),
     });
     export const AVAILABILITY_CONFIG_PROBLEM_CODES = [
       "version-conflict",
@@ -49889,6 +50044,8 @@
       partySize: number;
       /** The service date it belongs to; set where a scope needs it. */
       date?: Date;
+      /** Who it is for; a refusal lists it so the Manager can find the booking. */
+      guestName?: string | null;
     }
     type StrandReason = StrandedReservation["reason"];
     export function strandReason(
@@ -49932,6 +50089,8 @@
             startTime: booking.startTime.toISOString(),
             partySize: booking.partySize,
             reason,
+            ...(booking.guestName ? { guestName: booking.guestName } : {}),
+            ...(booking.date ? { serviceDate: booking.date.toISOString().slice(0, 10) } : {}),
           },
         ];
       });
@@ -50688,7 +50847,14 @@
           ...stillToServeWhere(now),
           status: { notIn: [...NOT_BOOKED_STATUSES] },
         },
-        select: { id: true, tableId: true, startTime: true, partySize: true, date: true },
+        select: {
+          id: true,
+          tableId: true,
+          startTime: true,
+          partySize: true,
+          date: true,
+          guestName: true,
+        },
       });
     }
     export async function refuseStale(db: StoreDb, venueId: string): Promise<SaveOutcome> {

@@ -262,6 +262,26 @@ describe("schedule drawers", () => {
       expect(assignments[0].weekdays).toEqual(TUE_SAT);
     });
 
+    it("explains each disabled Save, one problem at a time (#7979)", () => {
+      renderWeek();
+      const save = screen.getByRole("button", { name: /^Save/ });
+      expect(save).toBeDisabled();
+      expect(screen.getByText("Choose a start date to save.")).toBeInTheDocument();
+      fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-30" } });
+      expect(screen.getByText("Name this schedule to save.")).toBeInTheDocument();
+      fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Winter" } });
+      expect(screen.queryByText(/to save\.$/)).not.toBeInTheDocument();
+    });
+
+    it("refuses a start date after the end date, and says so (#7979)", () => {
+      renderWeek();
+      fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Winter" } });
+      fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-02" } });
+      fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-30" } });
+      expect(screen.getByRole("button", { name: /^Save/ })).toBeDisabled();
+      expect(screen.getByText("The end date is before the start date.")).toBeInTheDocument();
+    });
+
     it("an end date can be taken back with No end", () => {
       renderWeek();
       fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
@@ -269,6 +289,40 @@ describe("schedule drawers", () => {
       fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-30" } });
       fireEvent.click(screen.getByRole("button", { name: "No end" }));
       expect(screen.getByLabelText("Ending")).toHaveValue("");
+    });
+  });
+
+  describe("New schedule, why Save is off (#7979)", () => {
+    const renderNew = () =>
+      render(
+        <main>
+          <ScheduleEditorDrawer
+            {...common}
+            state={stateOf(tueSat())}
+            mode="new"
+            onStale={vi.fn()}
+            onClose={vi.fn()}
+          />
+        </main>
+      );
+
+    it("names what is missing, then the date order", () => {
+      renderNew();
+      expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+      expect(screen.getByText("Name this schedule to save.")).toBeInTheDocument();
+      fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Winter" } });
+      expect(screen.getByText("Add a service to save.")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("combobox", { name: "Add service" }));
+      fireEvent.click(screen.getByRole("option", { name: "A new service…" }));
+      expect(screen.getByText("Name the new service to save.")).toBeInTheDocument();
+      fireEvent.change(screen.getByRole("textbox", { name: /Service name/ }), {
+        target: { value: "Brunch" },
+      });
+      expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+      fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-02" } });
+      fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-30" } });
+      expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+      expect(screen.getByText("The end date is before the start date.")).toBeInTheDocument();
     });
   });
 
