@@ -4553,7 +4553,7 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 | Closure Rate                                                                              | 117%                                     | Green (>80%)                                           |
 | Time-to-Close (mean)                                                                      | 30.4h                                    | Yellow (24-72h)                                        |
 | Agent Success (has-pr/(has-pr+failed), open snapshot)                                     | 4/4 = 100%                               | Green (>70%)                                           |
-| CI Pass (main, last 20 runs, skipped excluded)                                            | 12/12 = 100%*                            | Green (>95%)                                           |
+| CI Pass (main, last 20 runs, skipped excluded)                                            | 12/12 = 100%\*                           | Green (>95%)                                           |
 | Queue (ready, open)                                                                       | 1                                        | Green (<5)                                             |
 | Stale (ready>7d)                                                                          | 0                                        | Green                                                  |
 | Blocked (agent-failed, open)                                                              | 0                                        | Green                                                  |
@@ -4579,6 +4579,7 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 ### Skipped Issues
 
 0 `agent-skip` issues open — nothing to manually review.
+
 ## 2026-10-31 — mbe-learning-loop
 
 **Sensors:** 15/17 available (e2eStability not available; queueEfficiency query failed — `GET /pulls/7491` fetch failed, transient network error, not a regression since metricsFreshness still reports it fresh at 0.75d) — status Healthy
