@@ -1821,13 +1821,19 @@
         text: string;
       }
     </item>
+    <item priority="high">
+      export function scheduleNameText(name: string, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function dayLabelText(label: string, t: TFunction): string { /* ... */ }
+    </item>
     <item priority="low">
       interface DayPresentation {
+        label: string | null;
         bands: readonly ClosureBandText[];
         count: string | null;
         services: readonly ServiceLineText[];
         onlineOff: boolean;
-        accessibleDetails: string;
       }
     </item>
     <item priority="medium">
@@ -2775,6 +2781,7 @@
         selection: readonly string[];
         onSelectionChange: (dates: string[]) => void;
         onOpenDay: (date: string) => void;
+        selecting?: boolean;
         onDragChange?: (dragging: boolean) => void;
       }
     </item>
