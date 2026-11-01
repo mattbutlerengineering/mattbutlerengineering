@@ -40,6 +40,13 @@ export function noShowSentence(reservation: Reservation, t: TFunction): string {
     : t("timeline.announce.noShow");
 }
 
+/** Seating takes two writes, so a failure may leave the first applied: it cannot say nothing changed. */
+export function seatNotFinishedSentence(reservation: Reservation, t: TFunction): string {
+  return reservation.guestName
+    ? t("timeline.announce.seatNotFinishedNamed", { name: reservation.guestName })
+    : t("timeline.announce.seatNotFinished");
+}
+
 /** For a save that failed once its dialog or surface had gone: nothing else can say so now. */
 export function notAppliedSentence(reservation: Reservation, t: TFunction): string {
   return reservation.guestName

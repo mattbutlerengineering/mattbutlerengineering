@@ -9421,7 +9421,7 @@
       export function tableStatusFocusTarget(tableId: string): FocusTarget | null { /* ... */ }
     </item>
     <item priority="high">
-      export function closeHoldingFocus(close: () => void): void { /* ... */ }
+      export function useCloseHoldingFocus(): (close: () => void) => void { /* ... */ }
     </item>
     <item priority="high">
       export function useOnChange<T>(value: T, onChange: () => void): void { /* ... */ }

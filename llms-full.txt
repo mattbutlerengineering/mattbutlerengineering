@@ -27668,14 +27668,22 @@
         ? { kind: "testId", testId }
         : null;
     }
-    export function closeHoldingFocus(close: () => void): void {
-      const active = document.activeElement;
-      const held =
-        active instanceof HTMLElement && active.closest('[role="dialog"][aria-modal="true"]')
-          ? active
-          : null;
-      flushSync(close);
-      if (held) requestAnimationFrame(() => held.focus());
+    export function useCloseHoldingFocus(): (close: () => void) => void {
+      const heldRef = useRef<HTMLElement | null>(null);
+      useEffect(() => {
+        const held = heldRef.current;
+        if (!held) return;
+        heldRef.current = null;
+        requestAnimationFrame(() => held.focus());
+      });
+      return (close) => {
+        const active = document.activeElement;
+        heldRef.current =
+          active instanceof HTMLElement && active.closest('[role="dialog"][aria-modal="true"]')
+            ? active
+            : null;
+        close();
+      };
     }
     export function useOnChange<T>(value: T, onChange: () => void): void {
       const [seen, setSeen] = useState(value);

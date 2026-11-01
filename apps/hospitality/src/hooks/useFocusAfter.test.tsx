@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import {
   UNLESS_COVERED,
@@ -109,6 +109,21 @@ describe("useFocusAfter", () => {
     render(<Harness request={{ kind: "testId", testId: 'weird"id' }} />);
 
     expect(() => fireEvent.click(screen.getByText("request"))).not.toThrow();
+  });
+});
+
+describe("a request whose target never rendered (#8031)", () => {
+  it("expires, so a target rendering much later does not take focus", () => {
+    const now = vi.spyOn(performance, "now").mockReturnValue(1000);
+    const request: FocusTarget = { kind: "testId", testId: "late-block" };
+    const { rerender } = render(<Harness request={request} />);
+    fireEvent.click(screen.getByText("request"));
+
+    now.mockReturnValue(1000 + 60_000);
+    rerender(<Harness request={request} showLate />);
+
+    expect(document.activeElement).not.toBe(screen.getByTestId("late-block"));
+    now.mockRestore();
   });
 });
 

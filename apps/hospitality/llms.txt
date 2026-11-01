@@ -4367,6 +4367,9 @@
       export const DETAILS_SURFACE_TEST_ID: unknown;
     </item>
     <item priority="high">
+      export const DETAILS_SIDEBAR_TEST_ID: unknown;
+    </item>
+    <item priority="high">
       export function blockTarget(reservationId: string): FocusTarget { /* ... */ }
     </item>
     <item priority="low">
@@ -4374,6 +4377,7 @@
         openId: string | null;
         modal: boolean;
         changingForm: boolean;
+        dialogEpoch: number;
       }
     </item>
     <item priority="medium">
@@ -4399,6 +4403,12 @@
       ): FocusTarget | null { /* ... */ }
     </item>
     <item priority="high">
+      export function tableStatusFocusTarget(tableId: string): FocusTarget | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useCloseHoldingFocus(): (close: () => void) => void { /* ... */ }
+    </item>
+    <item priority="high">
       export function useOnChange<T>(value: T, onChange: () => void): void { /* ... */ }
     </item>
     <item priority="high">
@@ -4407,6 +4417,7 @@
         selectedId: string | null;
         selectedReservation: Reservation | null;
         dialogOpen: boolean;
+        dialogEpoch: number;
       }
     </item>
     <item priority="high">
@@ -4422,6 +4433,7 @@
         selectedId,
         selectedReservation,
         dialogOpen,
+        dialogEpoch,
       }: DetailsSurfaceInput): DetailsSurface { /* ... */ }
     </item>
   </file>
@@ -4445,6 +4457,9 @@
     </item>
     <item priority="high">
       export function noShowSentence(reservation: Reservation, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function seatNotFinishedSentence(reservation: Reservation, t: TFunction): string { /* ... */ }
     </item>
     <item priority="high">
       export function notAppliedSentence(reservation: Reservation, t: TFunction): string { /* ... */ }

@@ -55,11 +55,14 @@ import {
   stripTimelineIntent,
 } from "../utils/timeline-intent.js";
 import {
+  DETAILS_SIDEBAR_TEST_ID,
   DETAILS_SURFACE_TEST_ID,
   blockTarget,
   captureOpener,
   returnFocusTarget,
   seatedFocusTarget,
+  tableStatusFocusTarget,
+  useCloseHoldingFocus,
   useDetailsSurface,
   useOnChange,
   walkInFocusTarget,
@@ -69,12 +72,17 @@ import {
   loadedSentence,
   noShowSentence,
   notAppliedSentence,
+  seatNotFinishedSentence,
   savedSentence,
   seatedSentence,
   walkInSentence,
 } from "./timeline-sentences.js";
 import { RehearsalTimelinePage } from "./RehearsalTimelinePage.js";
+import { ChevronLeftIcon, ChevronRightIcon, CloseIcon } from "./timeline-icons.js";
 import styles from "./TimelinePage.module.css";
+
+/** Longer than the 4 s default: this reports something the Host did not see happen. */
+const LATE_FAILURE_TOAST_MS = 8000;
 
 /* ── URL filter schema ──────────────────────── */
 
@@ -92,32 +100,6 @@ interface TableStatusFailure {
   readonly tableId: string;
   readonly next: TableStatus;
   readonly error: ApiErrorDescription;
-}
-
-/* ── Icons ──────────────────────────────────── */
-
-function ChevronLeftIcon() {
-  return (
-    <svg className={styles.navIcon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-    </svg>
-  );
-}
-
-function ChevronRightIcon() {
-  return (
-    <svg className={styles.navIcon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-    </svg>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg className={styles.closeIcon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-    </svg>
-  );
 }
 
 /* ── Page ───────────────────────────────────── */
@@ -138,6 +120,7 @@ function LiveTimelinePage() {
   const { status, announce } = useStatusMessage();
   const { focusAfter } = useFocusAfter();
   const { toast } = useToast();
+  const closeHoldingFocus = useCloseHoldingFocus();
 
   const { params, setParam } = useUrlParams(timelineFilterSchema, TIMELINE_DEFAULTS);
   // The Walk-in controls elsewhere (⌘K, Dashboard) and the Waitlist hand-off land here as
@@ -200,13 +183,16 @@ function LiveTimelinePage() {
   const seatFlights = useSeatFlights(openPartyId);
   // A dialog belongs to the party it was opened for: when that party stops being the one on the
   // surface (Seat now, a venue switch, gone from the list), so does the dialog (#8031).
+  const [dialogEpoch, setDialogEpoch] = useState(0);
   useOnChange(openPartyId, () => {
+    setDialogEpoch((epoch) => epoch + 1);
     setShowCancelDialog(false);
     setShowNoShowDialog(false);
     setShowEditDrawer(false);
   });
   const walkInDialogOpen = (intent.walkIn || showWalkInDialog) && !isLoading && !!selectedVenueId;
   const { surfaceViewport, sheetReservation, surfaceRef } = useDetailsSurface({
+    dialogEpoch,
     viewport,
     selectedId,
     selectedReservation,
@@ -346,21 +332,36 @@ function LiveTimelinePage() {
 
   /* ── Mutation axis: the dialogs reject on failure, so only success reaches here ── */
 
-  // What shows a failure is the party's surface or dialog. If that has gone by the time the response
-  // lands, it is on this page to say which party the failure was for.
-  const sendFor = async <T,>(reservation: Reservation, send: () => Promise<T>): Promise<T> => {
+  const reportLateFailure = (title: string) =>
+    toast({ title, variant: "error", duration: LATE_FAILURE_TOAST_MS });
+
+  // A dialog shows its own failure, while it is still there. Once its party has left the surface it
+  // is gone, even if that party is back, so this page says which party the failure was for.
+  const sendFromDialog = async <T,>(
+    reservation: Reservation,
+    send: () => Promise<T>
+  ): Promise<T> => {
+    const { dialogEpoch: sentAt } = surfaceRef.current;
     try {
       return await send();
     } catch (err) {
-      if (surfaceRef.current.openId !== reservation.id) {
-        toast({ title: notAppliedSentence(reservation, t), variant: "error" });
+      if (surfaceRef.current.dialogEpoch !== sentAt) {
+        reportLateFailure(notAppliedSentence(reservation, t));
       }
       throw err;
     }
   };
 
   const handleSeat = async (reservation: Reservation) => {
-    await sendFor(reservation, () => seatGuest(reservation));
+    try {
+      await seatGuest(reservation);
+    } catch (err) {
+      // The surface shows a seat's failure, whenever this party is on it.
+      if (surfaceRef.current.openId !== reservation.id) {
+        reportLateFailure(seatNotFinishedSentence(reservation, t));
+      }
+      throw err;
+    }
     announce(seatedSentence(reservation, tableName(reservation.tableId), t));
     const target = seatedFocusTarget(surfaceRef.current, reservation.id);
     if (target) focusAfter(target, UNLESS_COVERED);
@@ -370,15 +371,17 @@ function LiveTimelinePage() {
   // and that one is not this response's to close.
   const closeAfterOutcome = (close: (shown: boolean) => void, reservationId: string) => {
     if (surfaceRef.current.openId !== reservationId) return;
-    close(false);
-    clearSelection();
+    closeHoldingFocus(() => {
+      close(false);
+      clearSelection();
+    });
     focusAfter(blockTarget(reservationId), UNLESS_COVERED);
   };
 
   const handleCancel = async (reason: string, note: string) => {
     if (!selectedReservation) return;
     const { id } = selectedReservation;
-    await sendFor(selectedReservation, () =>
+    await sendFromDialog(selectedReservation, () =>
       cancelReservation(id, { reason, note, quote: cancellationQuote })
     );
     announce(cancelledSentence(selectedReservation, t));
@@ -393,7 +396,7 @@ function LiveTimelinePage() {
   const handleMarkNoShow = async () => {
     if (!selectedReservation) return;
     const { id } = selectedReservation;
-    const { warning } = await sendFor(selectedReservation, () => markNoShow(id));
+    const { warning } = await sendFromDialog(selectedReservation, () => markNoShow(id));
     const sentence = noShowSentence(selectedReservation, t);
     announce(warning ? t("timeline.announce.withWarning", { sentence, warning }) : sentence);
     closeAfterOutcome(setShowNoShowDialog, selectedReservation.id);
@@ -409,8 +412,8 @@ function LiveTimelinePage() {
 
   const handleEdit = async (id: string, data: UpdateReservationRequest) => {
     if (!selectedReservation) return;
-    const updated = await sendFor(selectedReservation, () => updateReservation(id, data));
-    setShowEditDrawer(false);
+    const updated = await sendFromDialog(selectedReservation, () => updateReservation(id, data));
+    closeHoldingFocus(() => setShowEditDrawer(false));
     announce(savedSentence(updated, t));
     const target = returnFocusTarget(surfaceRef.current, editOpenerRef.current, blockTarget(id));
     if (target) focusAfter(target, UNLESS_COVERED);
@@ -441,7 +444,8 @@ function LiveTimelinePage() {
     } finally {
       // The trigger is disabled while pending; focus lands in the commit that re-enables it.
       setPendingTableId(null);
-      focusAfter({ kind: "testId", testId: `table-status-${tableId}` }, UNLESS_COVERED);
+      const target = tableStatusFocusTarget(tableId);
+      if (target) focusAfter(target, UNLESS_COVERED);
     }
   };
 
@@ -664,11 +668,7 @@ function LiveTimelinePage() {
 
         {/* Desktop (≥ 1025 px): the detail sidebar */}
         {surfaceViewport === "desktop" && selectedReservation && (
-          <Card
-            className={styles.sidebar}
-            variant="elevated"
-            data-testid="reservation-detail-sidebar"
-          >
+          <Card className={styles.sidebar} variant="elevated" data-testid={DETAILS_SIDEBAR_TEST_ID}>
             <div className={styles.sidebarHeader}>
               <Text variant="display" as="h2" className={styles.sidebarTitle}>
                 {t("timeline.page.detailsTitle")}

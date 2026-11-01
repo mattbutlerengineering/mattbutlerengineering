@@ -5,8 +5,8 @@ import { useCallback, useEffect, useReducer, useRef } from "react";
  *
  * Pages call `focusAfter(target)` from the event handler that knows the outcome — a walk-in
  * created, a reservation cancelled — and the target is focused after the next commit in which it
- * can be found: a block still loading focuses when it renders; a target that never renders leaves
- * focus where it was until another request replaces it. One pending target at a time.
+ * can be found: a block still loading focuses when it renders; a target that does not render soon
+ * leaves focus where it was, and the request expires. One pending target at a time.
  */
 export type FocusTarget =
   | { readonly kind: "element"; readonly element: HTMLElement }
@@ -30,6 +30,9 @@ export const UNLESS_COVERED: FocusOptions = { unlessCovered: true };
 export interface FocusAfterApi {
   readonly focusAfter: (target: FocusTarget, options?: FocusOptions) => void;
 }
+
+/** A request still unmet after this has lost its moment: the Host is doing something else by now. */
+const PENDING_TTL_MS = 10_000;
 
 const FIRST_CONTROL =
   'button:not(:disabled):not([data-focus-trap-skip-initial]), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
@@ -61,12 +64,16 @@ export function isCoveredByDialog(element: Element | null): boolean {
 }
 
 export function useFocusAfter(): FocusAfterApi {
-  const pendingRef = useRef<{ target: FocusTarget; options?: FocusOptions } | null>(null);
+  const pendingRef = useRef<{
+    target: FocusTarget;
+    options?: FocusOptions;
+    requestedAt: number;
+  } | null>(null);
   // A request re-renders the owner so the effect below runs even when nothing else changed.
   const [, requestRender] = useReducer((count: number) => count + 1, 0);
 
   const focusAfter = useCallback((target: FocusTarget, options?: FocusOptions) => {
-    pendingRef.current = { target, options };
+    pendingRef.current = { target, options, requestedAt: performance.now() };
     requestRender();
   }, []);
 
@@ -74,6 +81,10 @@ export function useFocusAfter(): FocusAfterApi {
   useEffect(() => {
     const pending = pendingRef.current;
     if (!pending) return;
+    if (performance.now() - pending.requestedAt > PENDING_TTL_MS) {
+      pendingRef.current = null;
+      return;
+    }
     const element = resolveTarget(pending.target);
     if (!element) return;
     pendingRef.current = null;

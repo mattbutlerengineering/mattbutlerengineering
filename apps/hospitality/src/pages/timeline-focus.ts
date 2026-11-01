@@ -8,6 +8,9 @@ import type { Viewport } from "../hooks/useViewport.js";
 /** Wraps the phone and tablet details surfaces: where focus goes while one of them is open. */
 export const DETAILS_SURFACE_TEST_ID = "reservation-details-surface";
 
+/** The desktop surface, beside the grid. */
+export const DETAILS_SIDEBAR_TEST_ID = "reservation-detail-sidebar";
+
 const SURFACE_TARGET: FocusTarget = { kind: "firstIn", testId: DETAILS_SURFACE_TEST_ID };
 
 /** The grid block's test id — `useFocusAfter`'s target after a mutation lands on a party. */
@@ -23,6 +26,12 @@ export interface SurfaceState {
   readonly modal: boolean;
   /** A dialog held the surface in its old form, and the one its buttons are in is about to go. */
   readonly changingForm: boolean;
+  /**
+   * Counts the times the dialogs were closed because their party left the surface. Nothing else can
+   * close a dialog mid-save, so a send that sees this change has lost the dialog that would show its
+   * failure, even if the same party is back on the surface.
+   */
+  readonly dialogEpoch: number;
 }
 
 function insideSurface(element: HTMLElement): boolean {
@@ -61,21 +70,67 @@ export function captureOpener(clicked?: HTMLElement): HTMLElement | null {
   return active instanceof HTMLElement && active !== document.body ? active : null;
 }
 
+const byTestId = (testId: string) => document.querySelector(`[data-testid="${testId}"]`);
+
+/** Nothing holds focus. The usual case for a sender, whose button went disabled while it waited. */
+const focusIsLoose = () => !document.activeElement || document.activeElement === document.body;
+
+const focusIsInSurface = () =>
+  [DETAILS_SURFACE_TEST_ID, DETAILS_SIDEBAR_TEST_ID].some((testId) =>
+    byTestId(testId)?.contains(document.activeElement)
+  );
+
 /**
- * Where focus goes when a Seat Guest response lands. Another party's surface: nowhere, the Host has
- * moved on. A modal surface stays open after seating, and keys on a block behind it would switch the
- * party, so Edit (not the first control: the refetch removes Seat Guest, which may be first). Else,
- * the surface having closed or being the sidebar, the block.
+ * Where focus goes when a Seat Guest response lands, if anywhere. The Host may have moved on while
+ * it was in flight: unless focus is loose or still in the surface that sent it, it stays where they
+ * took it, and with another party on the surface it stays regardless. A modal surface stays open
+ * after seating, and keys on a block behind it would switch the party, so Edit (not the first
+ * control: the refetch removes Seat Guest, which may be first). Else the block, if it is on the page:
+ * a request left waiting would take focus whenever that day next renders.
  */
 export function seatedFocusTarget(
   surface: SurfaceState,
   reservationId: string
 ): FocusTarget | null {
   if (surface.openId !== null && surface.openId !== reservationId) return null;
-  if (surface.openId !== null && surface.modal) {
-    return { kind: "testId", testId: RESERVATION_EDIT_TEST_ID };
-  }
-  return blockTarget(reservationId);
+  if (!focusIsLoose() && !focusIsInSurface()) return null;
+  const onModal = surface.openId !== null && surface.modal;
+  const testId = onModal ? RESERVATION_EDIT_TEST_ID : `reservation-block-${reservationId}`;
+  return byTestId(testId) ? { kind: "testId", testId } : null;
+}
+
+/** Back to the trigger a status change disabled, unless the Host has taken focus elsewhere. */
+export function tableStatusFocusTarget(tableId: string): FocusTarget | null {
+  const testId = `table-status-${tableId}`;
+  const trigger = byTestId(testId);
+  return trigger && (focusIsLoose() || trigger === document.activeElement)
+    ? { kind: "testId", testId }
+    : null;
+}
+
+/**
+ * Closes an overlay from a late response without pulling focus out of a dialog opened over it since.
+ * A Rialto Drawer restores focus to its trigger a frame after it goes, behind that dialog. That frame
+ * is scheduled in the commit's layout phase and this one after it, in the passive phase, so what held
+ * focus gets it back. If what held focus was inside the overlay it is gone by then, the focus call
+ * does nothing and the restore stands. `close` must change state, or no commit follows.
+ */
+export function useCloseHoldingFocus(): (close: () => void) => void {
+  const heldRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const held = heldRef.current;
+    if (!held) return;
+    heldRef.current = null;
+    requestAnimationFrame(() => held.focus());
+  });
+  return (close) => {
+    const active = document.activeElement;
+    heldRef.current =
+      active instanceof HTMLElement && active.closest('[role="dialog"][aria-modal="true"]')
+        ? active
+        : null;
+    close();
+  };
 }
 
 /** Runs `onChange` in the render where `value` changes, before anything commits with the old state. */
@@ -92,6 +147,7 @@ interface DetailsSurfaceInput {
   readonly selectedId: string | null;
   readonly selectedReservation: Reservation | null;
   readonly dialogOpen: boolean;
+  readonly dialogEpoch: number;
 }
 
 interface DetailsSurface {
@@ -109,6 +165,7 @@ export function useDetailsSurface({
   selectedId,
   selectedReservation,
   dialogOpen,
+  dialogEpoch,
 }: DetailsSurfaceInput): DetailsSurface {
   // It follows the viewport, except while a dialog is open: a sheet mounting under a dialog takes
   // focus and the Escape layer from it. A frame late, so a closing overlay's own focus restore has
@@ -127,13 +184,19 @@ export function useDetailsSurface({
   const sheetReservation = selectedReservation ?? (selectedId ? heldReservation : null);
   if (sheetReservation !== heldReservation) setHeldReservation(sheetReservation);
 
-  const surfaceRef = useRef<SurfaceState>({ openId: null, modal: false, changingForm: false });
+  const surfaceRef = useRef<SurfaceState>({
+    openId: null,
+    modal: false,
+    changingForm: false,
+    dialogEpoch: 0,
+  });
   useLayoutEffect(() => {
     const open = selectedReservation !== null;
     surfaceRef.current = {
       openId: selectedReservation?.id ?? null,
       modal: viewport !== "desktop" && open,
       changingForm: open && surfaceViewport !== viewport,
+      dialogEpoch,
     };
   });
 

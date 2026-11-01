@@ -8446,12 +8446,16 @@
       );
     }
     export function useFocusAfter(): FocusAfterApi {
-      const pendingRef = useRef<{ target: FocusTarget; options?: FocusOptions } | null>(null);
+      const pendingRef = useRef<{
+        target: FocusTarget;
+        options?: FocusOptions;
+        requestedAt: number;
+      } | null>(null);
       // A request re-renders the owner so the effect below runs even when nothing else changed.
       const [, requestRender] = useReducer((count: number) => count + 1, 0);
     
       const focusAfter = useCallback((target: FocusTarget, options?: FocusOptions) => {
-        pendingRef.current = { target, options };
+        pendingRef.current = { target, options, requestedAt: performance.now() };
         requestRender();
       }, []);
     
@@ -8459,6 +8463,10 @@
       useEffect(() => {
         const pending = pendingRef.current;
         if (!pending) return;
+        if (performance.now() - pending.requestedAt > PENDING_TTL_MS) {
+          pendingRef.current = null;
+          return;
+        }
         const element = resolveTarget(pending.target);
         if (!element) return;
         pendingRef.current = null;
@@ -11193,6 +11201,7 @@
   <section priority="medium" role="pages">
   <file path="src/pages/timeline-focus.ts">
     export const DETAILS_SURFACE_TEST_ID = "reservation-details-surface";
+    export const DETAILS_SIDEBAR_TEST_ID = "reservation-detail-sidebar";
     export function blockTarget(reservationId: string): FocusTarget {
       return { kind: "testId", testId: `reservation-block-${reservationId}` };
     }
@@ -11203,6 +11212,12 @@
       readonly modal: boolean;
       /** A dialog held the surface in its old form, and the one its buttons are in is about to go. */
       readonly changingForm: boolean;
+      /**
+       * Counts the times the dialogs were closed because their party left the surface. Nothing else can
+       * close a dialog mid-save, so a send that sees this change has lost the dialog that would show its
+       * failure, even if the same party is back on the surface.
+       */
+      readonly dialogEpoch: number;
     }
     function insideSurface(element: HTMLElement): boolean {
       return (
@@ -11232,10 +11247,34 @@
       reservationId: string
     ): FocusTarget | null {
       if (surface.openId !== null && surface.openId !== reservationId) return null;
-      if (surface.openId !== null && surface.modal) {
-        return { kind: "testId", testId: RESERVATION_EDIT_TEST_ID };
-      }
-      return blockTarget(reservationId);
+      if (!focusIsLoose() && !focusIsInSurface()) return null;
+      const onModal = surface.openId !== null && surface.modal;
+      const testId = onModal ? RESERVATION_EDIT_TEST_ID : `reservation-block-${reservationId}`;
+      return byTestId(testId) ? { kind: "testId", testId } : null;
+    }
+    export function tableStatusFocusTarget(tableId: string): FocusTarget | null {
+      const testId = `table-status-${tableId}`;
+      const trigger = byTestId(testId);
+      return trigger && (focusIsLoose() || trigger === document.activeElement)
+        ? { kind: "testId", testId }
+        : null;
+    }
+    export function useCloseHoldingFocus(): (close: () => void) => void {
+      const heldRef = useRef<HTMLElement | null>(null);
+      useEffect(() => {
+        const held = heldRef.current;
+        if (!held) return;
+        heldRef.current = null;
+        requestAnimationFrame(() => held.focus());
+      });
+      return (close) => {
+        const active = document.activeElement;
+        heldRef.current =
+          active instanceof HTMLElement && active.closest('[role="dialog"][aria-modal="true"]')
+            ? active
+            : null;
+        close();
+      };
     }
     export function useOnChange<T>(value: T, onChange: () => void): void {
       const [seen, setSeen] = useState(value);
@@ -11249,6 +11288,7 @@
       readonly selectedId: string | null;
       readonly selectedReservation: Reservation | null;
       readonly dialogOpen: boolean;
+      readonly dialogEpoch: number;
     }
     interface DetailsSurface {
       /** Which form the surface takes. */
@@ -11263,6 +11303,7 @@
       selectedId,
       selectedReservation,
       dialogOpen,
+      dialogEpoch,
     }: DetailsSurfaceInput): DetailsSurface {
       // It follows the viewport, except while a dialog is open: a sheet mounting under a dialog takes
       // focus and the Escape layer from it. A frame late, so a closing overlay's own focus restore has
@@ -11281,13 +11322,19 @@
       const sheetReservation = selectedReservation ?? (selectedId ? heldReservation : null);
       if (sheetReservation !== heldReservation) setHeldReservation(sheetReservation);
     
-      const surfaceRef = useRef<SurfaceState>({ openId: null, modal: false, changingForm: false });
+      const surfaceRef = useRef<SurfaceState>({
+        openId: null,
+        modal: false,
+        changingForm: false,
+        dialogEpoch: 0,
+      });
       useLayoutEffect(() => {
         const open = selectedReservation !== null;
         surfaceRef.current = {
           openId: selectedReservation?.id ?? null,
           modal: viewport !== "desktop" && open,
           changingForm: open && surfaceViewport !== viewport,
+          dialogEpoch,
         };
       });
     
@@ -11325,6 +11372,11 @@
       return reservation.guestName
         ? t("timeline.announce.noShowNamed", { name: reservation.guestName })
         : t("timeline.announce.noShow");
+    }
+    export function seatNotFinishedSentence(reservation: Reservation, t: TFunction): string {
+      return reservation.guestName
+        ? t("timeline.announce.seatNotFinishedNamed", { name: reservation.guestName })
+        : t("timeline.announce.seatNotFinished");
     }
     export function notAppliedSentence(reservation: Reservation, t: TFunction): string {
       return reservation.guestName

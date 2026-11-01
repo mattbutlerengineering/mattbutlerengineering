@@ -698,6 +698,8 @@
       "tableStatusBanner": "Table status not changed."
     },
     "announce": {
+      "seatNotFinishedNamed": "Seating {{name}} did not finish. Check the reservation and the table.",
+      "seatNotFinished": "Seating the guest did not finish. Check the reservation and the table.",
       "changeFailedNamed": "The change to {{name}} did not go through.",
       "changeFailed": "A reservation change did not go through.",
       "loadedTonight": "Tonight's grid loaded.",
