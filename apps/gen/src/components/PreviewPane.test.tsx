@@ -42,12 +42,6 @@ vi.mock("@mbe/rialto-catalog", () => ({
 }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  getIcon: (concept: string) => {
-    const Glyph = ({ "aria-hidden": ariaHidden }: { "aria-hidden"?: boolean }) => (
-      <svg data-testid={`icon-${concept}`} aria-hidden={ariaHidden} />
-    );
-    return Glyph;
-  },
   Alert: ({ children }: { children: React.ReactNode }) => <div data-testid="alert">{children}</div>,
   Button: ({
     children,
@@ -99,9 +93,9 @@ vi.mock("./PreviewPane.module.css", () => ({
     welcomeContent: "welcomeContent",
     welcomeHeading: "welcomeHeading",
     welcomeSubtitle: "welcomeSubtitle",
-    suggestionsGrid: "suggestionsGrid",
-    suggestionCard: "suggestionCard",
-    suggestionIcon: "suggestionIcon",
+    suggestionsList: "suggestionsList",
+    suggestionListItem: "suggestionListItem",
+    suggestionRow: "suggestionRow",
     suggestionTitle: "suggestionTitle",
     suggestionDescription: "suggestionDescription",
     rendererWrapper: "rendererWrapper",
@@ -194,12 +188,12 @@ describe("PreviewPane", () => {
     expect(screen.getByText("E-commerce")).toBeDefined();
   });
 
-  it("renders suggestion cards with themed Rialto icons instead of emoji", () => {
+  it("renders prompt suggestions as a plain list, with no emoji or icon-card chrome", () => {
     const { container } = render(<PreviewPane {...defaultProps} />);
-    const grid = container.querySelector(".suggestionsGrid");
-    expect(grid?.textContent).not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u);
-    expect(screen.getByTestId("icon-chart")).toBeDefined();
-    expect(screen.getByTestId("icon-cart")).toBeDefined();
+    const list = screen.getByRole("list", { name: /prompt suggestions/i });
+    expect(list.textContent).not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u);
+    expect(screen.getAllByRole("listitem")).toHaveLength(6);
+    expect(container.querySelector("svg")).toBeNull();
   });
 
   it("calls onSuggestionClick when a suggestion card is clicked", () => {

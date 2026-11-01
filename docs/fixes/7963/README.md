@@ -5,14 +5,24 @@ empty state, plus the blank streaming preview, both found by the #7463 browser a
 
 ## Changes
 
-- `PreviewPane`'s six prompt-suggestion cards now render a Rialto icon glyph
-  (`getIcon`, from `@mattbutlerengineering/rialto`'s icon vocabulary) instead of an
-  OS colour emoji. The glyph is `currentColor`, sized off `--rialto-text-xl`, and
-  colored with `--rialto-text-secondary`, so it follows the active theme.
+- `PreviewPane`'s six prompt suggestions dropped the OS colour emoji entirely
+  and the card grid (icon-over-title-over-description, bordered, in a 3-column
+  grid) that is itself the `agent-built/icon-card-grid` tell — a themed icon in
+  the same card shape would still be that tell. They are now a plain list
+  (`role="list"` / `role="listitem"`, no card background, border or icon): a
+  title and description per row, divided by `--rialto-border` rules, matching
+  the issue's explicit "or reduced to a plain list of prompts" acceptance
+  criterion.
 - The TTFT streaming state (`isStreaming && !spec`) now shows a visible
   "Generating…" label next to the existing pulse bar, instead of only the bar
   with an `aria-label`.
 - Element renderers (`SpecRenderer`, the catalog registry) are untouched.
+
+An earlier version of this fix kept the card grid and only swapped the emoji
+for a Rialto icon glyph via `getIcon()`; review correctly flagged that as
+still the icon-card-grid pattern (a themed icon is still decorative, not
+"something true about the product"), so it was replaced with the plain list
+above instead of adding a live per-prompt preview.
 
 ## How the screenshots were captured
 

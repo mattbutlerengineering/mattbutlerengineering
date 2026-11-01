@@ -76,58 +76,43 @@
   margin-block-end: var(--rialto-space-sm);
 }
 
-.suggestionsGrid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--rialto-space-md);
+.suggestionsList {
+  display: flex;
+  flex-direction: column;
   inline-size: 100%;
+  max-inline-size: 28rem;
+  margin-inline: auto;
+  border-block-start: 1px solid var(--rialto-border);
 }
 
-/* The preview column is narrower than the viewport, so size to it. */
-@container (max-width: 600px) {
-  .suggestionsGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+.suggestionListItem {
+  border-block-end: 1px solid var(--rialto-border);
 }
 
-@container (max-width: 360px) {
-  .suggestionsGrid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.suggestionCard {
+.suggestionRow {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--rialto-space-xs);
-  padding: var(--rialto-space-md);
-  background: var(--rialto-surface);
-  border: 1px solid var(--rialto-border);
-  border-radius: var(--rialto-radius-soft);
+  gap: var(--rialto-space-2xs);
+  inline-size: 100%;
+  padding-block: var(--rialto-space-sm);
+  padding-inline: var(--rialto-space-xs);
+  background: transparent;
+  border: none;
   cursor: pointer;
   text-align: start;
-  /* Rialto Button is nowrap; card descriptions must wrap inside the card. */
+  /* Rialto Button is nowrap; description text must wrap inside the row. */
   white-space: normal;
   font-family: var(--rialto-font-sans);
-  transition:
-    transform var(--rialto-duration-standard) var(--rialto-ease-precision),
-    border-color var(--rialto-duration-standard) var(--rialto-ease-precision),
-    box-shadow var(--rialto-duration-standard) var(--rialto-ease-precision);
-  animation: cardFadeIn 0.35s var(--rialto-ease-smooth) both;
+  transition: background-color var(--rialto-duration-standard) var(--rialto-ease-precision);
+  animation: rowFadeIn 0.35s var(--rialto-ease-smooth) both;
 }
 
-.suggestionCard:hover {
-  transform: translateY(-2px);
-  border-color: var(--rialto-accent);
-  box-shadow: var(--rialto-shadow-md);
+.suggestionRow:hover {
+  background: var(--rialto-surface);
 }
 
-.suggestionCard:active {
-  transform: translateY(0);
-}
-
-@keyframes cardFadeIn {
+@keyframes rowFadeIn {
   from {
     opacity: 0;
     transform: translateY(8px);
@@ -136,12 +121,6 @@
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-.suggestionIcon {
-  inline-size: var(--rialto-text-xl);
-  block-size: var(--rialto-text-xl);
-  color: var(--rialto-text-secondary);
 }
 
 .suggestionTitle {
@@ -221,13 +200,9 @@
 
 /* ── Reduced motion ──────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
-  .suggestionCard {
+  .suggestionRow {
     animation: none;
     transition: none;
-  }
-
-  .suggestionCard:hover {
-    transform: none;
   }
 
   .pulse {

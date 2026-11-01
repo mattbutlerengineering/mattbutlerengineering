@@ -7,7 +7,6 @@ import {
   Divider,
   Text,
   SegmentedControl,
-  getIcon,
   useToast,
 } from "@mattbutlerengineering/rialto";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard.js";
@@ -30,48 +29,37 @@ const VIEWPORT_WIDTHS = {
 
 const PROMPT_SUGGESTIONS = [
   {
-    icon: "chart",
     title: "Dashboard",
     description: "Analytics dashboard with a revenue BarChart and KPIs",
     prompt:
       "Analytics dashboard with KPI stats and a BarChart of monthly revenue (Jan through Jun), not a paragraph of numbers",
   },
   {
-    icon: "checklist",
     title: "Form",
     description: "Multi-step registration form with validation",
     prompt: "Multi-step registration form with validation",
   },
   {
-    icon: "cart",
     title: "E-commerce",
     description: "Product card grid with filters and cart",
     prompt: "Product card grid with filters and cart",
   },
   {
-    icon: "message",
     title: "Chat",
     description: "Real-time messaging interface with threads",
     prompt: "Real-time messaging interface with threads",
   },
   {
-    icon: "sort",
     title: "Data Table",
     description: "Sortable, filterable data table with pagination",
     prompt: "Sortable, filterable data table with pagination",
   },
   {
-    icon: "home",
     title: "Landing Page",
     description: "SaaS landing page with hero and features",
     prompt: "SaaS landing page with hero and features",
   },
 ] as const;
-
-const SUGGESTIONS_WITH_ICONS = PROMPT_SUGGESTIONS.map((suggestion) => ({
-  ...suggestion,
-  Icon: getIcon(suggestion.icon),
-}));
 
 export interface PreviewPaneProps {
   spec: Spec | null;
@@ -276,25 +264,23 @@ export function PreviewPane({
               <Text variant="body" className={styles.welcomeSubtitle}>
                 Describe a UI component or layout and watch it come to life
               </Text>
-              <div className={styles.suggestionsGrid}>
-                {SUGGESTIONS_WITH_ICONS.map((suggestion, index) => (
-                  <Button
-                    key={suggestion.title}
-                    type="button"
-                    className={styles.suggestionCard}
-                    style={{ animationDelay: `${index * 80}ms` }}
-                    onClick={() => onSuggestionClick?.(suggestion.prompt)}
-                  >
-                    {suggestion.Icon && (
-                      <suggestion.Icon aria-hidden="true" className={styles.suggestionIcon} />
-                    )}
-                    <Text variant="label" className={styles.suggestionTitle}>
-                      {suggestion.title}
-                    </Text>
-                    <Text variant="body" className={styles.suggestionDescription}>
-                      {suggestion.description}
-                    </Text>
-                  </Button>
+              <div className={styles.suggestionsList} role="list" aria-label="Prompt suggestions">
+                {PROMPT_SUGGESTIONS.map((suggestion, index) => (
+                  <div key={suggestion.title} role="listitem" className={styles.suggestionListItem}>
+                    <Button
+                      type="button"
+                      className={styles.suggestionRow}
+                      style={{ animationDelay: `${index * 80}ms` }}
+                      onClick={() => onSuggestionClick?.(suggestion.prompt)}
+                    >
+                      <Text variant="label" className={styles.suggestionTitle}>
+                        {suggestion.title}
+                      </Text>
+                      <Text variant="body" className={styles.suggestionDescription}>
+                        {suggestion.description}
+                      </Text>
+                    </Button>
+                  </div>
                 ))}
               </div>
             </div>
