@@ -354,19 +354,58 @@ describe("availability chat tools", () => {
       expect(result).toMatchObject({ refused: true, error: expect.stringMatching(/permission/i) });
     });
 
-    it("reports a transient failure without claiming the change was made", async () => {
-      api.availability.setTonight.mockRejectedValue(new Error("socket hang up"));
+    it.each([
+      ["a 502", () => problem(502)],
+      ["a timeout", () => new DOMException("The operation timed out.", "TimeoutError")],
+      ["a lost response", () => new TypeError("fetch failed")],
+    ])(
+      "after %s, may have saved: says to check list_tonight_changes first",
+      async (_n, failure) => {
+        api.availability.setTonight.mockRejectedValue(failure());
+
+        const result = await run("change_tonight_availability", { change: "pause_online" });
+
+        expect(result).toMatchObject({
+          error: expect.stringMatching(
+            /Couldn't confirm.*list_tonight_changes before trying again/
+          ),
+        });
+        expect(result).not.toHaveProperty("applied");
+      }
+    );
+
+    it("says to try again when the read before the write fails", async () => {
+      api.availability.getConfig.mockRejectedValue(problem(502));
 
       const result = await run("change_tonight_availability", { change: "pause_online" });
 
-      expect(result).toMatchObject({ error: expect.stringMatching(/try again/i) });
-      expect(result).not.toHaveProperty("applied");
+      expect(result).toMatchObject({ error: expect.stringMatching(/try again shortly/) });
+      expect(api.availability.setTonight).not.toHaveBeenCalled();
     });
   });
 
   describe("end_tonight_change", () => {
     beforeEach(() => {
       api.availability.endTonight.mockResolvedValue({ version: 8, changeId: "ch9" });
+    });
+
+    it("after no answer, may have saved: says to check list_tonight_changes first", async () => {
+      api.availability.getConfig.mockResolvedValue(
+        configState([
+          tonightRule("r1", {
+            targetKind: "booking",
+            payload: { version: 1, stop: { from: 0, to: 2880 } },
+          }),
+        ])
+      );
+      api.availability.endTonight.mockRejectedValue(problem(502));
+
+      const result = await run("end_tonight_change", { change: "pause_online" });
+
+      expect(result).toEqual({
+        error:
+          "Couldn't confirm the change was saved. Check list_tonight_changes before trying again.",
+      });
     });
 
     it("ends the one Tonight change of that kind", async () => {
@@ -428,6 +467,18 @@ describe("availability chat tools", () => {
       at: "2026-10-28T19:00:00Z",
       revertible: true,
     };
+
+    it("after no answer, may have saved: says to check list_tonight_changes first", async () => {
+      api.availability.listChanges.mockResolvedValue({ total: 1, offset: 0, items: [entry] });
+      api.availability.revertChange.mockRejectedValue(problem(502));
+
+      const result = await run("undo_availability_change", { summary: entry.summary });
+
+      expect(result).toEqual({
+        error:
+          "Couldn't confirm the change was saved. Check list_tonight_changes before trying again.",
+      });
+    });
 
     it("undoes the newest change when it is the one the user confirmed", async () => {
       api.availability.listChanges.mockResolvedValue({ total: 1, offset: 0, items: [entry] });

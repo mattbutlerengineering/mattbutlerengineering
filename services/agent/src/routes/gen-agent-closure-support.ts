@@ -1,7 +1,7 @@
 import type { z } from "zod";
 import type { AvailabilityConfig, DateRule } from "@mbe/types";
 import { AVAILABILITY_PAGE, clockToMinute } from "./gen-agent-availability-tools.js";
-import { refusalOf, type ApiClient } from "./gen-tool-support.js";
+import { refusalOf, saveUnsure, type ApiClient } from "./gen-tool-support.js";
 
 /**
  * The closure tools' pure helpers (#7929): dates read in the venue's calendar,
@@ -35,8 +35,7 @@ const UNREADABLE_DATE = "The date can't be read. Use a real date as YYYY-MM-DD."
 export const UNREADABLE_SPAN_DATE = `The date can't be read. Use a real date as YYYY-MM-DD, or "${UNTIL_REOPENED}" as the last date of a closure with no end.`;
 export const CHECK_FAILED =
   "Couldn't check which bookings this would affect. Nothing was changed. Ask the user to try again shortly.";
-export const SAVE_UNSURE =
-  "Couldn't confirm the change was saved. Check list_closures before trying again.";
+export const SAVE_UNSURE = saveUnsure("list_closures");
 export const NO_REGULAR_HOURS = `That date has no regular hours to build special hours on. ${AVAILABILITY_PAGE}`;
 const HOURS_ORDER =
   "Opening, last seating and closing don't fit: the last seating must fall between opening and closing, and closing can't be the same time as opening.";

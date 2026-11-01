@@ -231,6 +231,81 @@ describe("timeline chat tools", () => {
     });
   });
 
+  describe("a write the server never answered (#8035)", () => {
+    const NO_ANSWER = [
+      ["a 502", () => problem(502)],
+      ["a timeout", () => new DOMException("The operation timed out.", "TimeoutError")],
+      ["a lost response", () => new TypeError("fetch failed")],
+    ] as const;
+
+    beforeEach(() => {
+      api.reservations.get.mockResolvedValue(reservation());
+    });
+
+    describe.each(NO_ANSWER)("after %s", (_name, failure) => {
+      it("mark_no_show may have saved: says to check lookup_reservation first", async () => {
+        api.reservations.markNoShow.mockRejectedValue(failure());
+
+        const result = await run("mark_no_show", { reservationId: "r1" });
+
+        expect(result).toMatchObject({
+          error: expect.stringMatching(/Couldn't confirm.*lookup_reservation before trying again/),
+        });
+        expect(JSON.stringify(result)).not.toMatch(/Nothing was changed/);
+      });
+
+      it("seat_reservation may have saved: says to check first", async () => {
+        api.tables.updateStatus.mockRejectedValue(failure());
+
+        const result = await run("seat_reservation", { reservationId: "r1" });
+
+        expect(result).toMatchObject({
+          error: expect.stringMatching(/Couldn't confirm.*get_table_status before trying again/),
+        });
+        expect(JSON.stringify(result)).not.toMatch(/Nothing was changed/);
+      });
+
+      it("seat_reservation names what an earlier step saved, and still says to check", async () => {
+        api.reservations.get.mockResolvedValue(reservation({ status: "PENDING" }));
+        api.reservations.update.mockResolvedValue(reservation());
+        api.tables.updateStatus.mockRejectedValue(failure());
+
+        const result = await run("seat_reservation", { reservationId: "r1" });
+
+        expect(result).toMatchObject({
+          error: expect.stringMatching(/already saved.*Couldn't confirm.*before trying again/),
+        });
+      });
+
+      it("cancel_reservation may have saved: says to check lookup_reservation first", async () => {
+        api.reservations.cancel.mockRejectedValue(failure());
+
+        const result = await run("cancel_reservation", { reservationId: "r1" });
+
+        expect(result).toMatchObject({
+          error: expect.stringMatching(/Couldn't confirm.*lookup_reservation before trying again/),
+        });
+      });
+    });
+
+    it("still says nothing changed on a definite refusal", async () => {
+      api.reservations.cancel.mockRejectedValue(problem(409));
+
+      const result = await run("cancel_reservation", { reservationId: "r1" });
+
+      expect(result).toEqual({ refused: true, error: "Refused. Nothing was changed." });
+    });
+
+    it("still says nothing changed when the read before the write fails", async () => {
+      api.reservations.get.mockRejectedValue(problem(502));
+
+      const result = await run("mark_no_show", { reservationId: "r1" });
+
+      expect(result).toMatchObject({ error: expect.stringMatching(/Nothing was changed/) });
+      expect(api.reservations.markNoShow).not.toHaveBeenCalled();
+    });
+  });
+
   describe("cancel_reservation with a reason", () => {
     it("records the reason and note the user gave", async () => {
       api.reservations.cancelWithReason.mockResolvedValue(reservation({ status: "CANCELLED" }));

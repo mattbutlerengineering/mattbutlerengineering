@@ -368,12 +368,13 @@ describe("createAgentTools", () => {
       expect(JSON.stringify(result)).not.toMatch(/try again/i);
     });
 
-    it("still says to try again for a 5xx", async () => {
+    it("says to check before trying again for a 5xx: it may have saved", async () => {
       api.reservations.create.mockRejectedValue(problem(503));
       const tools = createConfirmedTools("create_reservation", input);
 
       expect(await tools.create_reservation!.execute!(input, toolCtx)).toEqual({
-        error: "Failed to create reservation. Please try again.",
+        error:
+          "Couldn't confirm the change was saved. Check lookup_reservation before trying again.",
       });
     });
 
@@ -755,7 +756,10 @@ describe("createAgentTools", () => {
         toolCtx
       );
 
-      expect(result).toEqual({ error: "Failed to create reservation. Please try again." });
+      expect(result).toEqual({
+        error:
+          "Couldn't confirm the change was saved. Check lookup_reservation before trying again.",
+      });
     });
   });
 
@@ -797,7 +801,21 @@ describe("createAgentTools", () => {
         toolCtx
       );
 
-      expect(result).toEqual({ error: "Failed to modify reservation. Please try again." });
+      expect(result).toEqual({
+        error:
+          "Couldn't confirm the change was saved. Check lookup_reservation before trying again.",
+      });
+    });
+
+    it("says nothing changed on a definite refusal", async () => {
+      api.reservations.update.mockRejectedValue(problem(409, { detail: "Table is taken." }));
+      const input = { reservationId: "r1", startTime: "20:00" };
+      const tools = createConfirmedTools("modify_reservation", input);
+
+      expect(await tools.modify_reservation!.execute!(input, toolCtx)).toEqual({
+        refused: true,
+        error: "Table is taken. Nothing was changed.",
+      });
     });
   });
 
@@ -823,7 +841,10 @@ describe("createAgentTools", () => {
       if (!cancelReservationTool) throw new Error("expected cancel_reservation tool");
       const result = await cancelReservationTool.execute!({ reservationId: "r1" }, toolCtx);
 
-      expect(result).toEqual({ error: "Failed to cancel reservation. Please try again." });
+      expect(result).toEqual({
+        error:
+          "Couldn't confirm the change was saved. Check lookup_reservation before trying again.",
+      });
     });
   });
 
@@ -880,7 +901,20 @@ describe("createAgentTools", () => {
         toolCtx
       );
 
-      expect(result).toEqual({ error: "Failed to seat walk-in. Please try again." });
+      expect(result).toEqual({
+        error: "Couldn't confirm the change was saved. Check get_table_status before trying again.",
+      });
+    });
+
+    it("says nothing changed on a definite refusal", async () => {
+      api.reservations.walkIn.mockRejectedValue(problem(409, { detail: "Table is taken." }));
+      const input = { partySize: 2, tableId: "t1" };
+      const tools = createConfirmedTools("seat_walk_in", input);
+
+      expect(await tools.seat_walk_in!.execute!(input, toolCtx)).toEqual({
+        refused: true,
+        error: "Table is taken. Nothing was changed.",
+      });
     });
   });
 
@@ -1233,7 +1267,7 @@ describe("createAgentTools", () => {
       expect(result).toEqual({ error: "Table 99 not found in this venue." });
     });
 
-    it("returns error on API failure", async () => {
+    it("says nothing changed when the read before the write fails", async () => {
       api.tables.list.mockRejectedValue(new Error("fail"));
 
       const tools = createConfirmedTools("update_table_status", {
@@ -1248,7 +1282,21 @@ describe("createAgentTools", () => {
         toolCtx
       );
 
-      expect(result).toEqual({ error: "Failed to update table status. Please try again." });
+      expect(result).toEqual({
+        error:
+          "Couldn't update the table status right now. Nothing was changed. Ask the user to try again shortly.",
+      });
+    });
+
+    it("says to check before trying again when the status write gets no answer", async () => {
+      api.tables.list.mockResolvedValue({ data: [{ id: "t1", tableNumber: "1" }] });
+      api.tables.updateStatus.mockRejectedValue(problem(502));
+      const input = { table: "1", status: "READY" as const };
+      const tools = createConfirmedTools("update_table_status", input);
+
+      expect(await tools.update_table_status!.execute!(input, toolCtx)).toEqual({
+        error: "Couldn't confirm the change was saved. Check get_table_status before trying again.",
+      });
     });
   });
 
