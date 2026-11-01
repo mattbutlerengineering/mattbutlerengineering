@@ -18,12 +18,18 @@ import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { addDays } from "../../utils/service-day.js";
 import { WEEK_STARTS_ON } from "./calendar-dates.js";
 import { minuteText } from "./closure-band.js";
-import type { BookingChannel, CloseForm, CloseWhat, CloseWhen } from "./close-draft.js";
+import {
+  firstDateOf,
+  guestDateOf,
+  type BookingChannel,
+  type CloseForm,
+  type CloseWhat,
+  type CloseWhen,
+} from "./close-draft.js";
 import styles from "./CloseDialog.module.css";
 
 const CHANNELS: readonly BookingChannel[] = ["online", "phone", "waitlist"];
 const SUGGESTIONS = ["private", "weather", "holiday"] as const;
-const HALF_HOURS = Array.from({ length: 48 }, (_, i) => i * 30);
 /** 2026-01-04 is a Sunday; weekday index n is that date plus n days. */
 const SUNDAY = "2026-01-04";
 const ALL_DAY = "all";
@@ -44,6 +50,8 @@ export interface CloseStepOneProps {
   readonly locked?: boolean;
   /** An edit of one date of a series: When is fixed to that single date (the engine applies it on its start only). */
   readonly dateLocked?: boolean;
+  /** The start times "Starting at" offers, including after midnight on an overnight day. */
+  readonly startOptions: readonly number[];
 }
 
 function whenKindDefaults(kind: CloseWhen["kind"], today: string): CloseWhen {
@@ -88,14 +96,24 @@ export function CloseStepOne(props: CloseStepOneProps) {
       onChange={(v) => set(v ?? "")}
     />
   );
-  const firstDate =
-    when.kind === "date"
-      ? when.date
-      : when.kind === "tonight"
-        ? today
-        : "from" in when
-          ? when.from
-          : "";
+  const firstDate = firstDateOf(when, today);
+  const guestDate = guestDateOf(when, today);
+
+  // What the guest reads on the calendar: a closure from a set time, or of one service, is not
+  // "Closed" for the whole day.
+  const from = form.fromMinute === null ? null : minuteText(form.fromMinute, t, format);
+  const service = what.kind === "service" ? services.find((s) => s.id === what.serviceId) : null;
+  const status = service
+    ? t(
+        from === null
+          ? "availability.close.status.serviceClosed"
+          : "availability.close.status.serviceClosedFrom",
+        { service: service.name, time: from }
+      )
+    : t(
+        from === null ? "availability.close.status.closed" : "availability.close.status.closedFrom",
+        { time: from }
+      );
 
   return (
     <Stack gap="md">
@@ -230,18 +248,32 @@ export function CloseStepOne(props: CloseStepOneProps) {
           )}
         </>
       )}
-      <Select
-        label={t("availability.close.window.label")}
-        value={form.fromMinute === null ? ALL_DAY : String(form.fromMinute)}
-        options={[
-          { value: ALL_DAY, label: t("availability.close.window.allDay") },
-          ...HALF_HOURS.map((m) => ({
-            value: String(m),
-            label: t("availability.close.window.from", { time: minuteText(m, t, format) }),
-          })),
-        ]}
-        onChange={(v) => patch({ fromMinute: v === ALL_DAY ? null : Number(v) })}
-      />
+      {props.locked ? (
+        // The server refuses a Host a close from a set time (it is not the emergency close), so
+        // the choice is not offered: the preview and the save would both be a dead end.
+        <dl className={styles.locked}>
+          <dt>{t("availability.close.window.label")}</dt>
+          <dd>{t("availability.close.window.allDay")}</dd>
+          <dd>
+            <Text variant="caption" color="secondary">
+              {t("availability.close.window.hostNote")}
+            </Text>
+          </dd>
+        </dl>
+      ) : (
+        <Select
+          label={t("availability.close.window.label")}
+          value={form.fromMinute === null ? ALL_DAY : String(form.fromMinute)}
+          options={[
+            { value: ALL_DAY, label: t("availability.close.window.allDay") },
+            ...props.startOptions.map((m) => ({
+              value: String(m),
+              label: t("availability.close.window.from", { time: minuteText(m, t, format) }),
+            })),
+          ]}
+          onChange={(v) => patch({ fromMinute: v === ALL_DAY ? null : Number(v) })}
+        />
+      )}
 
       <Input
         label={t("availability.close.staffNote")}
@@ -304,14 +336,15 @@ export function CloseStepOne(props: CloseStepOneProps) {
                 })}
           </Text>
         )}
-        {firstDate && what.kind !== "booking" && (
+        {guestDate && what.kind !== "booking" && (
           <Text variant="caption" color="secondary">
             {form.guestMessage.trim()
               ? t("availability.close.guestsWillSeeMessage", {
-                  date: fullDate(firstDate),
+                  date: fullDate(guestDate),
+                  status,
                   message: form.guestMessage.trim(),
                 })
-              : t("availability.close.guestsWillSee", { date: fullDate(firstDate) })}
+              : t("availability.close.guestsWillSee", { date: fullDate(guestDate), status })}
           </Text>
         )}
       </section>
