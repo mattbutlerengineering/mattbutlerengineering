@@ -229,6 +229,27 @@ describe("guest chat tools", () => {
     });
   });
 
+  describe("guest details stay out of the logs", () => {
+    it.each([
+      ["add_guest", "findOrCreate", { name: "Kim Lee", phone: "+15555550111" }],
+      ["update_guest", "update", { guest: "Ana Lopez", addTags: ["vip"] }],
+      ["add_guest_note", "addNote", { guest: "Ana Lopez", text: "Prefers booth 4" }],
+    ] as const)(
+      "%s logs status and code, not a refusal's echo of them",
+      async (tool, fn, input) => {
+        api.guests[fn].mockRejectedValue(
+          problem(409, { code: "conflict", detail: "Kim Lee, +15555550111 already exists" })
+        );
+
+        await run(tool, input);
+
+        const logged = JSON.stringify(vi.mocked(log.error).mock.calls);
+        expect(logged).not.toMatch(/Kim Lee|5550111/);
+        expect(logged).toContain("conflict");
+      }
+    );
+  });
+
   describe("a write the server never answered (#8035)", () => {
     const NO_ANSWER = [
       ["a 502", () => problem(502)],

@@ -2,7 +2,7 @@ import { tool } from "ai";
 import type { ToolSet } from "ai";
 import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
-import { NO_VENUE, refusalOf, saveUnsure, type ApiClient } from "./gen-tool-support.js";
+import { NO_VENUE, failureLog, refusalOf, saveUnsure, type ApiClient } from "./gen-tool-support.js";
 
 /**
  * Chat tools for the guest directory (#7927): add a guest, update tags, dietary
@@ -151,7 +151,7 @@ export function createGuestTools(
               })),
           };
         } catch (err) {
-          log.error({ err, venueId }, "list_lapsing_guests failed");
+          log.error({ ...failureLog(err), venueId }, "list_lapsing_guests failed");
           return { error: "Couldn't read lapsing guests. Ask the user to try again." };
         }
       },
@@ -188,7 +188,7 @@ export function createGuestTools(
           });
           return { saved: true, guest: shown(saved) };
         } catch (err) {
-          log.error({ err, venueId }, "add_guest failed");
+          log.error({ ...failureLog(err), venueId }, "add_guest failed");
           // The write is the tool's first call, so any failure may have saved.
           return guestFailure(err, "add the guest", GUEST_SAVE_UNSURE);
         }
@@ -227,7 +227,7 @@ export function createGuestTools(
           });
           return { updated: true, guest: shown(updated) };
         } catch (err) {
-          log.error({ err, venueId }, "update_guest failed");
+          log.error({ ...failureLog(err), venueId }, "update_guest failed");
           return guestFailure(err, "update the guest", unsure);
         }
       },
@@ -251,7 +251,7 @@ export function createGuestTools(
           await api.guests.addNote(found.guest.id, text);
           return { noted: true, guest: found.guest.name };
         } catch (err) {
-          log.error({ err, venueId }, "add_guest_note failed");
+          log.error({ ...failureLog(err), venueId }, "add_guest_note failed");
           return guestFailure(err, "add the note", unsure);
         }
       },
@@ -288,7 +288,7 @@ export function createGuestTools(
                 note: "The message wasn't sent, usually because of the guest's contact preferences. Say so.",
               };
         } catch (err) {
-          log.error({ err, venueId }, "send_win_back failed");
+          log.error({ ...failureLog(err), venueId }, "send_win_back failed");
           return guestFailure(err, "send the win-back message", unsure);
         }
       },

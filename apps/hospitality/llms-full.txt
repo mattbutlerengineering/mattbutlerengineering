@@ -7875,7 +7875,9 @@
       const target =
         offeredFrom instanceof HTMLElement && offeredFrom.isConnected && offeredFrom !== document.body
           ? offeredFrom
-          : dialogs[dialogs.length - 1]?.querySelector<HTMLElement>("button:not([disabled])");
+          : (dialogs[dialogs.length - 1]?.querySelector<HTMLElement>("button:not([disabled])") ??
+            document.querySelector<HTMLElement>("h1[tabindex]") ??
+            document.querySelector<HTMLElement>("main"));
       target?.focus();
     }
     export function useAvailabilityUndo() {
@@ -7888,8 +7890,8 @@
           const offeredFrom = document.activeElement;
           const undo = async () => {
             // An open day editor has pinned a version this revert would move on from: its own save
-            // would then be refused as out of date. Ask the Manager to finish that first, and keep
-            // Undo there for when they have.
+            // would then be refused as out of date. Ask the Manager to discard it first, and keep Undo
+            // there for when they have. Saving it instead moves the version, so this Undo then refuses.
             if (isEditorOpen()) {
               toast({
                 title: t("availability.undo.finishFirst"),

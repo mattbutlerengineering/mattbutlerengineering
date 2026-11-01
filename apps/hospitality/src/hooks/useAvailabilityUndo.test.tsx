@@ -43,7 +43,8 @@ describe("useAvailabilityUndo", () => {
     release();
     expect(revert).not.toHaveBeenCalled();
     expect(toast).toHaveBeenLastCalledWith(
-      expect.objectContaining({ title: "Save or discard your changes first, then undo." })
+      // Not "save": a save moves the version, and the older Undo then always refuses.
+      expect.objectContaining({ title: "Discard your changes first, then undo." })
     );
   });
 
@@ -116,6 +117,28 @@ describe("useAvailabilityUndo", () => {
       expect(document.activeElement?.id).toBe("in");
     });
 
+    it("goes to the page heading when that control has gone and no dialog is open", () => {
+      const gone = append(`<button id="from">From</button>`);
+      gone.querySelector<HTMLElement>("#from")!.focus();
+      const click = offered();
+      gone.remove();
+      const host = append(`<main tabindex="-1"><h1 id="h" tabindex="-1">P</h1></main>${TOAST}`);
+      host.querySelector<HTMLElement>("#toast")!.focus();
+      click();
+      expect(document.activeElement?.id).toBe("h");
+    });
+
+    it("goes to the main landmark when the heading cannot take focus", () => {
+      const gone = append(`<button id="from">From</button>`);
+      gone.querySelector<HTMLElement>("#from")!.focus();
+      const click = offered();
+      gone.remove();
+      const host = append(`<main id="m" tabindex="-1"><h1>P</h1></main>${TOAST}`);
+      host.querySelector<HTMLElement>("#toast")!.focus();
+      click();
+      expect(document.activeElement?.id).toBe("m");
+    });
+
     it("stays put when focus has already moved on from the toast", () => {
       const host = append(`<button id="from">From</button><input id="typing" />`);
       host.querySelector<HTMLElement>("#from")!.focus();
@@ -138,6 +161,8 @@ describe("revertErrorText", () => {
     });
     const text = revertErrorText(conflict, defaultT);
     expect(text).not.toMatch(/reload|try again/i);
+    // It can be the Manager's own save that moved the version, so it blames no one else.
+    expect(text).not.toMatch(/someone else/i);
     expect(text).toMatch(/only the latest change can be undone/i);
   });
 });

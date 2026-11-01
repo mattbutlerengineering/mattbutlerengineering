@@ -11,8 +11,8 @@ const UNDO_TOAST_MS = 10_000;
 
 /**
  * A pressed toast button goes with its toast, which would drop focus to the page. Moved before it
- * goes: back where it was when Undo was offered, else into the drawer or dialog still open. A press
- * that never took focus (Safari) leaves focus where it is.
+ * goes: back where it was when Undo was offered, else into the drawer or dialog still open, else
+ * to the page heading or main landmark. A press that never took focus (Safari) leaves it be.
  */
 function focusOffToast(offeredFrom: Element | null) {
   const active = document.activeElement;
@@ -21,7 +21,9 @@ function focusOffToast(offeredFrom: Element | null) {
   const target =
     offeredFrom instanceof HTMLElement && offeredFrom.isConnected && offeredFrom !== document.body
       ? offeredFrom
-      : dialogs[dialogs.length - 1]?.querySelector<HTMLElement>("button:not([disabled])");
+      : (dialogs[dialogs.length - 1]?.querySelector<HTMLElement>("button:not([disabled])") ??
+        document.querySelector<HTMLElement>("h1[tabindex]") ??
+        document.querySelector<HTMLElement>("main"));
   target?.focus();
 }
 
@@ -40,8 +42,8 @@ export function useAvailabilityUndo() {
       const offeredFrom = document.activeElement;
       const undo = async () => {
         // An open day editor has pinned a version this revert would move on from: its own save
-        // would then be refused as out of date. Ask the Manager to finish that first, and keep
-        // Undo there for when they have.
+        // would then be refused as out of date. Ask the Manager to discard it first, and keep Undo
+        // there for when they have. Saving it instead moves the version, so this Undo then refuses.
         if (isEditorOpen()) {
           toast({
             title: t("availability.undo.finishFirst"),

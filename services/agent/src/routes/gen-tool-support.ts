@@ -40,6 +40,26 @@ export function localTimeIn(iso: unknown, timeZone: string | undefined): string 
   }
 }
 
+/**
+ * What a failed tool logs. A logger writes every field of an error it is given: a refusal's problem
+ * details can name guests, and the client's message and `path` hold the request's query, which can
+ * be a guest search. So status and code, or the error's name, never the error itself. An error with
+ * neither (a network failure) came from no response and holds no request data.
+ */
+export function failureLog(err: unknown) {
+  const {
+    problemDetails: problem,
+    path,
+    name,
+  } = (err ?? {}) as {
+    problemDetails?: { status?: unknown; code?: unknown };
+    path?: unknown;
+    name?: unknown;
+  };
+  if (problem) return { status: problem.status, code: problem.code };
+  return path === undefined ? { err } : { failure: name };
+}
+
 /** A 4xx the server answered on purpose: what the caller sent was refused, so retrying cannot help. */
 export interface Refusal {
   readonly status: number;

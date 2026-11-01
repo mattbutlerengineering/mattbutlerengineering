@@ -325,6 +325,10 @@ test("Undo is offered after saving a new schedule, and reverts it", async ({
   await page.getByRole("textbox", { name: /Service name/ }).fill("Brunch");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Spare saved")).toBeVisible();
-  await page.getByRole("button", { name: "Undo" }).click();
+  // By keyboard, with the drawer that offered it gone: focus must not fall to the page body.
+  await page.getByRole("button", { name: "Undo" }).focus();
+  await page.keyboard.press("Enter");
   await expect.poll(() => mock.reverts).toBe(1);
+  await expect(page.getByRole("button", { name: "Undo" })).toHaveCount(0);
+  expect(await page.evaluate(() => !!document.activeElement?.closest("main"))).toBe(true);
 });

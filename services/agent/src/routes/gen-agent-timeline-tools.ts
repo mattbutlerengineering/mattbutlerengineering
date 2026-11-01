@@ -5,6 +5,7 @@ import type { FastifyBaseLogger } from "fastify";
 import {
   NO_REPLAY,
   NO_VENUE,
+  failureLog,
   refusalOf,
   resolveTable,
   saveUnsure,
@@ -130,7 +131,7 @@ export function createTimelineTools(
           await api.tables.updateStatus(tableId, "OCCUPIED");
           return { seated: true, table: tableLabel };
         } catch (err) {
-          log.error({ err, venueId, reservationId }, "seat_reservation failed");
+          log.error({ ...failureLog(err), venueId, reservationId }, "seat_reservation failed");
           return bookingWriteFailure(err, "seat the party", unsure, saved);
         }
       },
@@ -150,7 +151,7 @@ export function createTimelineTools(
           const { warning } = await api.reservations.markNoShow(reservationId);
           return { noShow: true, ...(warning ? { warning } : {}) };
         } catch (err) {
-          log.error({ err, venueId, reservationId }, "mark_no_show failed");
+          log.error({ ...failureLog(err), venueId, reservationId }, "mark_no_show failed");
           return bookingWriteFailure(err, "mark the no-show", unsure);
         }
       },
@@ -187,7 +188,7 @@ export function createTimelineTools(
               : await api.reservations.cancel(reservationId, NO_REPLAY);
           return { reservation };
         } catch (err) {
-          log.error({ err, reservationId }, "cancel_reservation failed");
+          log.error({ ...failureLog(err), reservationId }, "cancel_reservation failed");
           // The write is the tool's first call, so any failure may have saved.
           return bookingWriteFailure(
             err,

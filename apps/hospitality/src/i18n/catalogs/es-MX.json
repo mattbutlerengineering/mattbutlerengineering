@@ -2122,13 +2122,13 @@
     "undo": {
       "action": "Deshacer",
       "done": "Cambio deshecho",
-      "finishFirst": "Primero guarda o descarta tus cambios y luego deshaz.",
+      "finishFirst": "Primero descarta tus cambios y luego deshaz.",
       "errors": {
         "guests-notified": "Este cambio avisó a los comensales, así que no se puede deshacer.",
         "already-reverted": "Este cambio ya se deshizo.",
         "superseded": "Hay un cambio más reciente. Solo se puede deshacer el último cambio.",
         "not-revertable": "Este cambio no se puede deshacer.",
-        "version-conflict": "Alguien acaba de cambiar la disponibilidad. Solo se puede deshacer el último cambio.",
+        "version-conflict": "La disponibilidad cambió desde entonces. Solo se puede deshacer el último cambio.",
         "stranded-bookings": "Al deshacerlo, quedarían reservaciones existentes sin servicio.",
         "invalid-config": "Este cambio ya no se puede deshacer con tus horarios actuales."
       }

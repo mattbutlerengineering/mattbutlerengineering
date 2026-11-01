@@ -18761,7 +18761,9 @@
       const target =
         offeredFrom instanceof HTMLElement && offeredFrom.isConnected && offeredFrom !== document.body
           ? offeredFrom
-          : dialogs[dialogs.length - 1]?.querySelector<HTMLElement>("button:not([disabled])");
+          : (dialogs[dialogs.length - 1]?.querySelector<HTMLElement>("button:not([disabled])") ??
+            document.querySelector<HTMLElement>("h1[tabindex]") ??
+            document.querySelector<HTMLElement>("main"));
       target?.focus();
     }
     export function useAvailabilityUndo() {
@@ -18774,8 +18776,8 @@
           const offeredFrom = document.activeElement;
           const undo = async () => {
             // An open day editor has pinned a version this revert would move on from: its own save
-            // would then be refused as out of date. Ask the Manager to finish that first, and keep
-            // Undo there for when they have.
+            // would then be refused as out of date. Ask the Manager to discard it first, and keep Undo
+            // there for when they have. Saving it instead moves the version, so this Undo then refuses.
             if (isEditorOpen()) {
               toast({
                 title: t("availability.undo.finishFirst"),
@@ -30485,11 +30487,6 @@
         }
       }
     }
-    function failureLog(err: unknown) {
-      const problem = (err as { problemDetails?: { status?: unknown; code?: unknown } } | null)
-        ?.problemDetails;
-      return problem ? { status: problem.status, code: problem.code } : { err };
-    }
     function availabilityWriteFailure(err: unknown, action: string, unsure: string | undefined) {
       const refusal = refusalOf(err);
       if (!refusal) {
@@ -31589,7 +31586,7 @@
                   })),
               };
             } catch (err) {
-              log.error({ err, venueId }, "list_lapsing_guests failed");
+              log.error({ ...failureLog(err), venueId }, "list_lapsing_guests failed");
               return { error: "Couldn't read lapsing guests. Ask the user to try again." };
             }
           },
@@ -31626,7 +31623,7 @@
               });
               return { saved: true, guest: shown(saved) };
             } catch (err) {
-              log.error({ err, venueId }, "add_guest failed");
+              log.error({ ...failureLog(err), venueId }, "add_guest failed");
               // The write is the tool's first call, so any failure may have saved.
               return guestFailure(err, "add the guest", GUEST_SAVE_UNSURE);
             }
@@ -31665,7 +31662,7 @@
               });
               return { updated: true, guest: shown(updated) };
             } catch (err) {
-              log.error({ err, venueId }, "update_guest failed");
+              log.error({ ...failureLog(err), venueId }, "update_guest failed");
               return guestFailure(err, "update the guest", unsure);
             }
           },
@@ -31689,7 +31686,7 @@
               await api.guests.addNote(found.guest.id, text);
               return { noted: true, guest: found.guest.name };
             } catch (err) {
-              log.error({ err, venueId }, "add_guest_note failed");
+              log.error({ ...failureLog(err), venueId }, "add_guest_note failed");
               return guestFailure(err, "add the note", unsure);
             }
           },
@@ -31726,7 +31723,7 @@
                     note: "The message wasn't sent, usually because of the guest's contact preferences. Say so.",
                   };
             } catch (err) {
-              log.error({ err, venueId }, "send_win_back failed");
+              log.error({ ...failureLog(err), venueId }, "send_win_back failed");
               return guestFailure(err, "send the win-back message", unsure);
             }
           },
@@ -32153,7 +32150,7 @@
               await api.tables.updateStatus(tableId, "OCCUPIED");
               return { seated: true, table: tableLabel };
             } catch (err) {
-              log.error({ err, venueId, reservationId }, "seat_reservation failed");
+              log.error({ ...failureLog(err), venueId, reservationId }, "seat_reservation failed");
               return bookingWriteFailure(err, "seat the party", unsure, saved);
             }
           },
@@ -32173,7 +32170,7 @@
               const { warning } = await api.reservations.markNoShow(reservationId);
               return { noShow: true, ...(warning ? { warning } : {}) };
             } catch (err) {
-              log.error({ err, venueId, reservationId }, "mark_no_show failed");
+              log.error({ ...failureLog(err), venueId, reservationId }, "mark_no_show failed");
               return bookingWriteFailure(err, "mark the no-show", unsure);
             }
           },
@@ -32210,7 +32207,7 @@
                   : await api.reservations.cancel(reservationId, NO_REPLAY);
               return { reservation };
             } catch (err) {
-              log.error({ err, reservationId }, "cancel_reservation failed");
+              log.error({ ...failureLog(err), reservationId }, "cancel_reservation failed");
               // The write is the tool's first call, so any failure may have saved.
               return bookingWriteFailure(
                 err,
@@ -32524,7 +32521,7 @@
               );
               return { reservations: reservations.map(toLocal) };
             } catch (err) {
-              log.error({ err, date, venueId }, "lookup_reservation failed");
+              log.error({ ...failureLog(err), date, venueId }, "lookup_reservation failed");
               return { error: "Failed to look up reservations. Please try again." };
             }
           },
@@ -32537,12 +32534,12 @@
           }),
           execute: async ({ query }) => {
             if (!venueId) return NO_VENUE;
-            log.info({ query, venueId }, "search_guests tool called");
+            log.info({ venueId }, "search_guests tool called");
             try {
               const result = await api.guests.search({ venueId, query });
               return { guests: result.data };
             } catch (err) {
-              log.error({ err, query, venueId }, "search_guests failed");
+              log.error({ ...failureLog(err), venueId }, "search_guests failed");
               return { error: "Failed to search guests. Please try again." };
             }
           },
@@ -32625,7 +32622,7 @@
           }),
           execute: async ({ guestName, date, startTime, endTime, partySize, tableId, notes }) => {
             if (!venueId) return NO_VENUE;
-            log.info({ guestName, date, startTime, partySize }, "create_reservation tool called");
+            log.info({ venueId, date, startTime, partySize }, "create_reservation tool called");
             const window = reservationWindow(date, startTime, endTime, timeZone);
             if (!window) return { error: UNREADABLE_TIME };
             try {
@@ -32641,7 +32638,7 @@
               });
               return { reservation };
             } catch (err) {
-              log.error({ err, guestName, date }, "create_reservation failed");
+              log.error({ ...failureLog(err), venueId, date }, "create_reservation failed");
               return createFailureResult(err);
             }
           },
@@ -32660,7 +32657,8 @@
             notes: z.string().optional().describe("Updated notes"),
           }),
           execute: async ({ reservationId, ...updates }) => {
-            log.info({ reservationId, ...updates }, "modify_reservation tool called");
+            // Field names only: notes are free text, and can say anything about a guest.
+            log.info({ reservationId, fields: Object.keys(updates) }, "modify_reservation tool called");
             try {
               const cleanUpdates = Object.fromEntries(
                 Object.entries(updates).filter(([, v]) => v !== undefined)
@@ -32668,7 +32666,7 @@
               const reservation = await api.reservations.update(reservationId, cleanUpdates);
               return { reservation };
             } catch (err) {
-              log.error({ err, reservationId }, "modify_reservation failed");
+              log.error({ ...failureLog(err), reservationId }, "modify_reservation failed");
               // The write is the tool's first call, so any failure may have saved.
               return bookingWriteFailure(
                 err,
@@ -32692,7 +32690,7 @@
           }),
           execute: async ({ partySize, tableId, guestName }) => {
             if (!venueId) return NO_VENUE;
-            log.info({ venueId, partySize, tableId, guestName }, "seat_walk_in tool called");
+            log.info({ venueId, partySize, tableId }, "seat_walk_in tool called");
             try {
               if (!tableId) {
                 return {
@@ -32707,7 +32705,7 @@
               });
               return { reservation };
             } catch (err) {
-              log.error({ err, venueId, partySize }, "seat_walk_in failed");
+              log.error({ ...failureLog(err), venueId, partySize }, "seat_walk_in failed");
               // The write is the tool's first call, so any failure may have saved.
               return bookingWriteFailure(err, "seat the walk-in", saveUnsure("get_table_status"));
             }
@@ -32828,7 +32826,7 @@
                 });
               return { parties };
             } catch (err) {
-              log.error({ err, venueId }, "list_waitlist failed");
+              log.error({ ...failureLog(err), venueId }, "list_waitlist failed");
               const refusal = refusalOf(err);
               return refusal?.status === 403
                 ? { refused: true, error: "The user doesn't have permission to see the waitlist." }
@@ -32857,7 +32855,7 @@
                 quotedWaitMinutes: added.estimatedWaitMinutes,
               };
             } catch (err) {
-              log.error({ err, venueId }, "add_to_waitlist failed");
+              log.error({ ...failureLog(err), venueId }, "add_to_waitlist failed");
               // The write is the tool's first call, so any failure may have saved.
               return waitlistFailure(err, "add the party", WAITLIST_SAVE_UNSURE);
             }
@@ -32886,7 +32884,7 @@
               await api.waitlist.notify(found.entry.id);
               return { notified: true, guestName: found.entry.guestName };
             } catch (err) {
-              log.error({ err, venueId }, "notify_waitlist_party failed");
+              log.error({ ...failureLog(err), venueId }, "notify_waitlist_party failed");
               return waitlistFailure(err, "notify the party", unsure);
             }
           },
@@ -32930,7 +32928,7 @@
               await api.waitlist.seat(entry.id);
               return { seated: true, guestName: entry.guestName, table: label };
             } catch (err) {
-              log.error({ err, venueId }, "seat_waitlist_party failed");
+              log.error({ ...failureLog(err), venueId }, "seat_waitlist_party failed");
               // The walk-in exists, so the party is seated; only the waitlist row is stale (as WaitlistPage reports it).
               if (seatedAt) {
                 return {
@@ -32960,7 +32958,7 @@
               await api.waitlist.cancel(found.entry.id);
               return { removed: true, guestName: found.entry.guestName };
             } catch (err) {
-              log.error({ err, venueId }, "remove_from_waitlist failed");
+              log.error({ ...failureLog(err), venueId }, "remove_from_waitlist failed");
               return waitlistFailure(err, "remove the party", unsure);
             }
           },
@@ -34010,6 +34008,19 @@
       } catch {
         return undefined; // unknown time zone (RangeError)
       }
+    }
+    export function failureLog(err: unknown) {
+      const {
+        problemDetails: problem,
+        path,
+        name,
+      } = (err ?? {}) as {
+        problemDetails?: { status?: unknown; code?: unknown };
+        path?: unknown;
+        name?: unknown;
+      };
+      if (problem) return { status: problem.status, code: problem.code };
+      return path === undefined ? { err } : { failure: name };
     }
     export interface Refusal {
       readonly status: number;

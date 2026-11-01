@@ -408,9 +408,7 @@ for (const size of SIZES) {
       drawer = mockedPage.getByRole("dialog").first();
       await drawer.getByRole("button", { name: "Edit Dinner" }).click();
       await undo.click({ force: true });
-      await expect(
-        mockedPage.getByText("Save or discard your changes first, then undo.")
-      ).toBeVisible();
+      await expect(mockedPage.getByText("Discard your changes first, then undo.")).toBeVisible();
       expect(mock.reverts).toBe(0);
 
       await drawer.getByRole("button", { name: "Remove Dinner" }).click();

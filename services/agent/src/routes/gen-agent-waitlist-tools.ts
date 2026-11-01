@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
 import {
   NO_VENUE,
+  failureLog,
   localTimeIn,
   refusalOf,
   resolveTable,
@@ -120,7 +121,7 @@ export function createWaitlistTools(
             });
           return { parties };
         } catch (err) {
-          log.error({ err, venueId }, "list_waitlist failed");
+          log.error({ ...failureLog(err), venueId }, "list_waitlist failed");
           const refusal = refusalOf(err);
           return refusal?.status === 403
             ? { refused: true, error: "The user doesn't have permission to see the waitlist." }
@@ -149,7 +150,7 @@ export function createWaitlistTools(
             quotedWaitMinutes: added.estimatedWaitMinutes,
           };
         } catch (err) {
-          log.error({ err, venueId }, "add_to_waitlist failed");
+          log.error({ ...failureLog(err), venueId }, "add_to_waitlist failed");
           // The write is the tool's first call, so any failure may have saved.
           return waitlistFailure(err, "add the party", WAITLIST_SAVE_UNSURE);
         }
@@ -178,7 +179,7 @@ export function createWaitlistTools(
           await api.waitlist.notify(found.entry.id);
           return { notified: true, guestName: found.entry.guestName };
         } catch (err) {
-          log.error({ err, venueId }, "notify_waitlist_party failed");
+          log.error({ ...failureLog(err), venueId }, "notify_waitlist_party failed");
           return waitlistFailure(err, "notify the party", unsure);
         }
       },
@@ -222,7 +223,7 @@ export function createWaitlistTools(
           await api.waitlist.seat(entry.id);
           return { seated: true, guestName: entry.guestName, table: label };
         } catch (err) {
-          log.error({ err, venueId }, "seat_waitlist_party failed");
+          log.error({ ...failureLog(err), venueId }, "seat_waitlist_party failed");
           // The walk-in exists, so the party is seated; only the waitlist row is stale (as WaitlistPage reports it).
           if (seatedAt) {
             return {
@@ -252,7 +253,7 @@ export function createWaitlistTools(
           await api.waitlist.cancel(found.entry.id);
           return { removed: true, guestName: found.entry.guestName };
         } catch (err) {
-          log.error({ err, venueId }, "remove_from_waitlist failed");
+          log.error({ ...failureLog(err), venueId }, "remove_from_waitlist failed");
           return waitlistFailure(err, "remove the party", unsure);
         }
       },

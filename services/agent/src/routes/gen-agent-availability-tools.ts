@@ -7,6 +7,7 @@ import type { AvailabilityConfig, DateRule, TonightChange } from "@mbe/types";
 import {
   NO_REPLAY,
   NO_VENUE,
+  failureLog,
   localTimeIn,
   refusalOf,
   saveUnsure,
@@ -257,16 +258,6 @@ async function buildChange(
       };
     }
   }
-}
-
-/**
- * What a failed availability call logs. A refusal's problem details can list bookings with guests'
- * names, and a logger writes every field of an error it is given, so never the error itself.
- */
-function failureLog(err: unknown) {
-  const problem = (err as { problemDetails?: { status?: unknown; code?: unknown } } | null)
-    ?.problemDetails;
-  return problem ? { status: problem.status, code: problem.code } : { err };
 }
 
 const TONIGHT_SAVE_UNSURE = saveUnsure("list_tonight_changes");

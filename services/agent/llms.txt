@@ -92,9 +92,6 @@
       ): Promise<{ change: TonightChange } | { error: string }> { /* ... */ }
     </item>
     <item priority="medium">
-      function failureLog(err: unknown) { /* ... */ }
-    </item>
-    <item priority="medium">
       function availabilityWriteFailure(err: unknown, action: string, unsure: string | undefined) { /* ... */ }
     </item>
     <item priority="high">
@@ -768,6 +765,9 @@
     </item>
     <item priority="high">
       export function localTimeIn(iso: unknown, timeZone: string | undefined): string | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function failureLog(err: unknown) { /* ... */ }
     </item>
     <item priority="low">
       interface Refusal {

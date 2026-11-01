@@ -2082,13 +2082,13 @@
     "undo": {
       "action": "Undo",
       "done": "Change undone",
-      "finishFirst": "Save or discard your changes first, then undo.",
+      "finishFirst": "Discard your changes first, then undo.",
       "errors": {
         "guests-notified": "This change told guests, so it can’t be undone.",
         "already-reverted": "This change was already undone.",
         "superseded": "A newer change exists. Only the latest change can be undone.",
         "not-revertable": "This change can’t be undone.",
-        "version-conflict": "Someone else just changed availability. Only the latest change can be undone.",
+        "version-conflict": "Availability has changed since then. Only the latest change can be undone.",
         "stranded-bookings": "Undoing this would leave existing bookings without service.",
         "invalid-config": "This change can no longer be undone against your current hours."
       }
