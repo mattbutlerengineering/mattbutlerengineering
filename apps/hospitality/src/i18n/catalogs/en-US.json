@@ -1948,6 +1948,8 @@
       "changes_other": "{{count}} changes from your regular {{weekday}}.",
       "changes_many": "{{count}} changes from your regular {{weekday}}.",
       "whyTitle": "Why this day",
+      "refreshError": "Couldn’t check for newer hours",
+      "finishDraftFirst": "Save or discard your changes to this day first.",
       "ifRemoved": "If removed: {{result}}",
       "removalNone": "no change to this day",
       "removal": {

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button, Dialog, Heading, Stack, Text } from "@mattbutlerengineering/rialto";
+import { Alert, Button, Dialog, Heading, Stack, Text } from "@mattbutlerengineering/rialto";
 import type { AvailabilityChangeSummary } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { minuteText } from "./closure-band.js";
@@ -13,6 +13,8 @@ export interface ConflictDialogProps {
   readonly winningChange: AvailabilityChangeSummary | null;
   readonly services: readonly DraftService[];
   readonly isSaving: boolean;
+  /** Why the last Overwrite was refused; shown here because the page behind the modal is not. */
+  readonly failure?: readonly string[];
   readonly onOverwrite: () => void;
   readonly onDiscard: () => void;
 }
@@ -22,7 +24,7 @@ export interface ConflictDialogProps {
  * the draft, or Discard it. Review shows their change and the draft side by side.
  */
 export function ConflictDialog(props: ConflictDialogProps) {
-  const { open, winningChange, services, isSaving, onOverwrite, onDiscard } = props;
+  const { open, winningChange, services, isSaving, failure = [], onOverwrite, onDiscard } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const [reviewing, setReviewing] = useState(false);
@@ -57,6 +59,15 @@ export function ConflictDialog(props: ConflictDialogProps) {
       }
     >
       <Stack gap="md">
+        {failure.length > 0 && (
+          <Alert variant="error" title={t("availability.editor.saveError")}>
+            {failure.map((message) => (
+              <Text key={message} variant="body" color="primary">
+                {message}
+              </Text>
+            ))}
+          </Alert>
+        )}
         <Text variant="body" color="primary">
           {theirs}
         </Text>

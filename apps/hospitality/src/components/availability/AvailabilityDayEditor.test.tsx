@@ -47,6 +47,7 @@ function renderEditor(rules: DateRule[] = [], fixedDates?: readonly string[]) {
     onDirtyChange: vi.fn(),
     onCancel: vi.fn(),
     onFinished: vi.fn(),
+    onStale: vi.fn(),
   };
   const utils = render(
     <ToastProvider>
@@ -413,6 +414,21 @@ describe("AvailabilityDayEditor", () => {
     expect(screen.getByRole("button", { name: "Save 1 date" })).toBeInTheDocument();
   });
 
+  it("disables Save when Keep theirs would write no dates", () => {
+    const second = {
+      ...EARLY_DINNER,
+      id: "r-special-2",
+      startsOn: "2026-11-02",
+      endsOn: "2026-11-02",
+    };
+    renderEditor([EARLY_DINNER, second], [FIXTURE_DATE, "2026-11-02"]);
+    fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+    expect(screen.getByRole("button", { name: "Save 0 dates" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("radio", { name: "Replace them" }));
+    expect(screen.getByRole("button", { name: "Save 2 dates" })).toBeEnabled();
+  });
+
   it("explains a save that would strand bookings", async () => {
     save.mockRejectedValueOnce(
       conflict("stranded-bookings", {
@@ -474,6 +490,29 @@ describe("AvailabilityDayEditor", () => {
       fireEvent.click(within(dialog).getByRole("button", { name: "Overwrite" }));
       await waitFor(() => expect(onFinished).toHaveBeenCalled());
       expect(sentBody().overwrite).toBe(true);
+    });
+
+    it("reloads the config when Discard mine drops the draft, so the next edit starts current", async () => {
+      const { dialog, onStale } = await raiseConflict();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Discard mine" }));
+      expect(onStale).toHaveBeenCalled();
+    });
+
+    it("reloads the config when the save is refused as out of date", async () => {
+      const { onStale } = await raiseConflict();
+      expect(onStale).toHaveBeenCalled();
+    });
+
+    it("shows a failed Overwrite inside the conflict dialog, not behind it", async () => {
+      const { dialog, onFinished } = await raiseConflict();
+      save.mockRejectedValueOnce(
+        conflict("invalid-config", {
+          issues: [{ path: "x", code: "overlap", message: "Lunch overlaps Dinner." }],
+        })
+      );
+      fireEvent.click(within(dialog).getByRole("button", { name: "Overwrite" }));
+      expect(await within(dialog).findByRole("alert")).toHaveTextContent("Lunch overlaps Dinner.");
+      expect(onFinished).not.toHaveBeenCalled();
     });
 
     it("Discard mine drops the draft without saving again", async () => {
@@ -547,6 +586,69 @@ describe("AvailabilityDayEditor", () => {
         "This date only"
       );
       expect(screen.getByRole("button", { name: "Save 1 date" })).toBeInTheDocument();
+    });
+  });
+
+  describe("inside the drawer, around a draft", () => {
+    const state: AvailabilityConfigState = {
+      config: fixtureConfig(),
+      version: 4,
+      source: "rows",
+    };
+
+    function drawer(
+      extra: { error?: string | null; dirty?: boolean; fixedDates?: readonly string[] } = {}
+    ) {
+      return (
+        <ToastProvider>
+          <main>
+            <AvailabilityDayDrawer
+              date={FIXTURE_DATE}
+              day={resolveFixtureDay()}
+              isLoading={false}
+              error={extra.error ?? null}
+              viewerRole="manager"
+              onClose={vi.fn()}
+              editing={{
+                venueId: "venue-1",
+                state,
+                timezone: FIXTURE_TIMEZONE,
+                today: "2026-10-28",
+                onDirtyChange: vi.fn(),
+                onFinished: vi.fn(),
+                onCloseDay: vi.fn(),
+                dirty: extra.dirty,
+                fixedDates: extra.fixedDates,
+              }}
+            />
+          </main>
+        </ToastProvider>
+      );
+    }
+
+    it("keeps an open draft, with the error above it, when a refetch of the config fails", () => {
+      const { rerender } = render(drawer());
+      fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+      fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+      rerender(drawer({ error: "Network down" }));
+      expect(screen.getByRole("alert")).toHaveTextContent("Network down");
+      expect(screen.getByRole("button", { name: "Save 1 date" })).toBeInTheDocument();
+    });
+
+    it("describes the selection, and offers no single-date actions, for several dates", () => {
+      render(drawer({ fixedDates: [FIXTURE_DATE, "2026-11-02", "2026-11-03"] }));
+      const dialog = screen.getByRole("dialog", { name: "3 dates selected" });
+      expect(within(dialog).queryByRole("button", { name: "Close…" })).not.toBeInTheDocument();
+      expect(
+        within(dialog).queryByRole("button", { name: "Copy to other days…" })
+      ).not.toBeInTheDocument();
+      expect(within(dialog).queryByText(/^Open for/)).not.toBeInTheDocument();
+    });
+
+    it("asks to save or discard first, rather than copying beside a draft", () => {
+      render(drawer({ dirty: true }));
+      expect(screen.getByRole("button", { name: "Copy to other days…" })).toBeDisabled();
+      expect(screen.getByText("Save or discard your changes to this day first.")).toBeVisible();
     });
   });
 

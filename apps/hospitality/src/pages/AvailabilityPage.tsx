@@ -42,7 +42,11 @@ import { OnlinePausedBanner } from "../components/availability/OnlinePausedBanne
 import { DiscardChangesDialog } from "../components/availability/DiscardChangesDialog.js";
 import { LeaveGuard } from "../components/availability/LeaveGuard.js";
 import { useDiscardGuard } from "../components/availability/use-discard-guard.js";
-import { datesUsingSchedule, weekdayDatesInMonth } from "../components/availability/selection.js";
+import {
+  datesUsingSchedule,
+  futureDates,
+  weekdayDatesInMonth,
+} from "../components/availability/selection.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
 import { PageHeader } from "../components/PageHeader.js";
 import { periodLabel, weekSummary } from "../components/availability/period.js";
@@ -96,7 +100,9 @@ export function AvailabilityPage() {
     dates: [],
   });
   const selection = picked.venueId === selectedVenueId ? picked.dates : EMPTY;
-  const setSelection = (dates: string[]) => setPicked({ venueId: selectedVenueId, dates });
+  // Past dates are history, not something to edit (the server settles a save from today on).
+  const setSelection = (dates: string[]) =>
+    setPicked({ venueId: selectedVenueId, dates: futureDates(dates, today) });
   // Moving off a day with an unsaved draft asks first (ux.md F2 step 6), selection actions included.
   // Opening a single day drops the selection, but only once the guard lets the move happen.
   const guard = useDiscardGuard<OpenTarget>(({ closing: nextClosing, ...next }) => {
@@ -409,6 +415,7 @@ export function AvailabilityPage() {
                 timezone: timeZone,
                 today,
                 onDirtyChange: guard.setDirty,
+                dirty: guard.dirty,
                 onFinished: () => guard.release(CLOSED),
                 fixedDates: target.fixedDates,
                 onStale: () => void config.refetch(),

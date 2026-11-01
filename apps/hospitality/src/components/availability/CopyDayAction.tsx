@@ -18,6 +18,8 @@ export interface CopyDayActionProps {
   readonly date: string;
   readonly day: ResolvedDay;
   readonly onStale: () => void;
+  /** A draft is open on this day: saving a copy now would make the draft's own save conflict. */
+  readonly disabled?: boolean;
 }
 
 /**
@@ -25,7 +27,7 @@ export interface CopyDayActionProps {
  * until a date (or until changed again), with the same keep/replace choice as any dated save.
  */
 export function CopyDayAction(props: CopyDayActionProps) {
-  const { venueId, state, date, day, onStale } = props;
+  const { venueId, state, date, day, onStale, disabled } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const offerUndo = useAvailabilityUndo();
@@ -74,7 +76,7 @@ export function CopyDayAction(props: CopyDayActionProps) {
 
   return (
     <>
-      <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
+      <Button variant="ghost" size="sm" disabled={disabled} onClick={() => setOpen(true)}>
         {t("availabilitySchedules.copy.action")}
       </Button>
       <Dialog

@@ -22,6 +22,7 @@ const configSource = vi.hoisted(() => ({
   value: "rows" as "rows" | "empty" | "legacy",
   migrated: false,
 }));
+const configError = vi.hoisted(() => ({ value: null as Error | null }));
 const team = vi.hoisted(() => ({ value: undefined as Partial<VenueTeam> | undefined }));
 const resolved = vi.hoisted(() => ({ services: [] as unknown[] }));
 const venue = vi.hoisted(() => ({
@@ -50,7 +51,7 @@ vi.mock("../hooks/useAvailability.js", () => ({
         ...(configSource.migrated ? { migrated: true } : {}),
       },
       isLoading: false,
-      error: null,
+      error: configError.value,
       refetch,
     };
   },
@@ -155,6 +156,7 @@ describe("AvailabilityPage", () => {
     venue.selectedVenueId = "venue-1";
     configSource.value = "rows";
     configSource.migrated = false;
+    configError.value = null;
     team.value = { viewerRole: "manager" };
     resolved.services = [];
     daysQuery.value = {
@@ -432,6 +434,30 @@ describe("AvailabilityPage", () => {
       expect(screen.getByRole("dialog", { name: /Thursday, October 29/ })).toBeTruthy();
     });
 
+    it("keeps the draft, with the error above it, when a background refetch of the config fails", () => {
+      const view = renderPage();
+      startDraft();
+      configError.value = new Error("Network down");
+      view.rerender(
+        <ToastProvider>
+          <main>
+            <AvailabilityPage />
+          </main>
+        </ToastProvider>
+      );
+      expect(screen.getByRole("button", { name: "Save 1 date" })).toBeInTheDocument();
+      expect(screen.getByRole("alert")).toHaveTextContent("Couldn’t check for newer hours");
+    });
+
+    it("makes Copy wait while the day holds a draft", () => {
+      renderPage();
+      openFriday();
+      expect(screen.getByRole("button", { name: "Copy to other days…" })).toBeEnabled();
+      fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
+      fireEvent.click(screen.getByRole("button", { name: "Remove Dinner" }));
+      expect(screen.getByRole("button", { name: "Copy to other days…" })).toBeDisabled();
+    });
+
     function closeFromDrawer() {
       const drawer = screen.getByRole("dialog", { name: /Friday, October 30/ });
       fireEvent.click(within(drawer).getByRole("button", { name: "Close…" }));
@@ -499,13 +525,30 @@ describe("AvailabilityPage", () => {
     const pick = (re: RegExp) =>
       fireEvent.click(screen.getByRole("button", { name: re }), { ctrlKey: true });
 
+    it("selects the weekday's dates from the Select… menu, skipping the past ones", () => {
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "Select…" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: "Every Wednesday in October" }));
+      // Today is Wed Oct 28; the 7th, 14th and 21st are behind us.
+      expect(screen.getByRole("status")).toHaveTextContent("1 date selected");
+    });
+
+    it("skips past dates when a range is dragged across them", () => {
+      renderPage();
+      pick(/Monday, October 26/);
+      fireEvent.click(screen.getByRole("button", { name: /Thursday, October 29/ }), {
+        shiftKey: true,
+      });
+      expect(screen.getByRole("status")).toHaveTextContent("2 dates selected");
+    });
+
     it("announces the count and opens the drawer for the first date with a fixed scope", () => {
       renderPage();
       pick(/Friday, October 30/);
       pick(/Thursday, October 29/);
       expect(screen.getByRole("status")).toHaveTextContent("2 dates selected");
       fireEvent.click(screen.getByRole("button", { name: "Edit hours" }));
-      expect(screen.getByRole("dialog", { name: /Thursday, October 29/ })).toBeInTheDocument();
+      expect(screen.getByRole("dialog", { name: "2 dates selected" })).toBeInTheDocument();
       expect(drawerProps).toHaveBeenLastCalledWith(
         expect.objectContaining({
           date: "2026-10-29",
@@ -564,13 +607,6 @@ describe("AvailabilityPage", () => {
       pick(/Friday, October 30/);
       fireEvent.click(screen.getByRole("button", { name: "Clear selection" }));
       expect(screen.queryByRole("button", { name: "Edit hours" })).not.toBeInTheDocument();
-    });
-
-    it("selects every weekday of the month from the Select… menu", () => {
-      renderPage();
-      fireEvent.click(screen.getByRole("button", { name: "Select…" }));
-      fireEvent.click(screen.getByRole("menuitem", { name: "Every Wednesday in October" }));
-      expect(screen.getByRole("status")).toHaveTextContent("4 dates selected");
     });
 
     it("selects the loaded dates that use the anchor day's schedule", () => {

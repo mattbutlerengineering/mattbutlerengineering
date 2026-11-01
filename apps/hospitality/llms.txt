@@ -927,6 +927,9 @@
       export function dateRange(a: string, b: string): string[] { /* ... */ }
     </item>
     <item priority="high">
+      export function futureDates(dates: readonly string[], today: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
       export function toggleDate(selection: readonly string[], date: string): string[] { /* ... */ }
     </item>
     <item priority="high">

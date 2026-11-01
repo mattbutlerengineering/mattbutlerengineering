@@ -58,6 +58,8 @@ export interface AvailabilityDayEditorProps {
   readonly fixedDates?: readonly string[];
   /** A range or repeating special-hours rule is being edited (F-SER); its scope is already chosen. */
   readonly ruleScope?: { readonly ruleId: string; readonly mode: SeriesScope };
+  /** Reload the config: a refused save or a discarded draft leaves the cells and version behind. */
+  readonly onStale?: () => void;
 }
 
 interface EditState {
@@ -104,7 +106,7 @@ function problemOf(error: unknown) {
  */
 export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   const { venueId, date, day, state, timezone, today } = props;
-  const { onDirtyChange, onCancel, onFinished, fixedDates, ruleScope } = props;
+  const { onDirtyChange, onCancel, onFinished, onStale, fixedDates, ruleScope } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const phone = useViewport() === "phone";
@@ -261,6 +263,8 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
     const problem = problemOf(error);
     if (problem?.code === "version-conflict") {
       setConflict({ winningChange: problem.winningChange ?? null });
+      // Someone else's change is in; reload so the calendar and the next edit see it.
+      onStale?.();
     } else if (problem?.code === "invalid-config" && problem.issues?.length) {
       setFailure({ messages: problem.issues.map((i) => i.message) });
     } else if (problem?.code === "stranded-bookings") {
@@ -279,6 +283,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   const discardMine = () => {
     setConflict(null);
     onDirtyChange(false);
+    onStale?.();
     onFinished();
   };
 
@@ -440,7 +445,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
 
   return (
     <Stack gap="md">
-      {failure && (
+      {failure && !conflict && (
         <Alert variant="error" title={t("availability.editor.saveError")}>
           {failure.messages.map((message) => (
             <Text key={message} variant="body" color="primary">
@@ -491,7 +496,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
         </Button>
         <Button
           variant="primary"
-          disabled={!isDirty(edit) || nameless}
+          disabled={!isDirty(edit) || nameless || writtenCount === 0}
           isLoading={isPending && !conflict}
           onClick={() => void submit(false)}
         >
@@ -504,6 +509,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
           winningChange={conflict.winningChange}
           services={edit.services}
           isSaving={isPending}
+          failure={failure?.messages ?? []}
           onOverwrite={() => void submit(true)}
           onDiscard={discardMine}
         />

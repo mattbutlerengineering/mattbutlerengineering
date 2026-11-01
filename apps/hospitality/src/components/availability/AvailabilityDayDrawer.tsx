@@ -41,6 +41,8 @@ export interface DayEditing {
   readonly onStale?: () => void;
   /** "Close…" (F5): open the Close dialog for this date. */
   readonly onCloseDay?: (date: string) => void;
+  /** The draft has unsaved edits; Copy and the nudge wait for it to be saved or discarded. */
+  readonly dirty?: boolean;
 }
 
 export interface AvailabilityDayDrawerProps {
@@ -143,10 +145,14 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
   const { t } = useTranslation();
   const format = useVenueFormat();
 
+  // Several picked dates: the first date's summary, Close… and Copy would describe or act on one.
+  const picked = editing?.fixedDates && editing.fixedDates.length > 1 ? editing.fixedDates : null;
+  const waitForDraft = editing?.dirty === true;
+
   let body;
   if (date === null) {
     body = null;
-  } else if (error) {
+  } else if (error && !day) {
     body = (
       <Alert variant="error" title={t("availability.drawer.loadError")}>
         {error}
@@ -157,7 +163,13 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
   } else {
     body = (
       <>
-        <DayBody day={day} date={date} />
+        {/* A failed refresh must not unmount an open draft; the error sits above it. */}
+        {error && (
+          <Alert variant="error" title={t("availability.drawer.refreshError")}>
+            {error}
+          </Alert>
+        )}
+        {!picked && <DayBody day={day} date={date} />}
         {viewerRole === "manager" && editing && (
           <AvailabilityDayEditor
             // A new date, or a new pick for the same date, is a new draft.
@@ -170,19 +182,26 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
             onFinished={editing.onFinished}
             fixedDates={editing.fixedDates}
             ruleScope={editing.ruleScope}
+            onStale={editing.onStale}
             date={date}
             day={day}
             onCancel={onClose}
           />
         )}
-        {viewerRole === "manager" && editing?.onCloseDay && (
+        {viewerRole === "manager" && !picked && editing?.onCloseDay && (
           <Button variant="secondary" onClick={() => editing.onCloseDay?.(date)}>
             {t("availability.close.open")}
           </Button>
         )}
-        {viewerRole === "manager" && editing && (
+        {viewerRole === "manager" && editing && !picked && (
           <>
+            {waitForDraft && (
+              <Text variant="caption" color="secondary">
+                {t("availability.drawer.finishDraftFirst")}
+              </Text>
+            )}
             <CopyDayAction
+              disabled={waitForDraft}
               venueId={editing.venueId}
               state={editing.state}
               date={date}
@@ -190,6 +209,7 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
               onStale={editing.onStale ?? noop}
             />
             <ScheduleNudge
+              disabled={waitForDraft}
               venueId={editing.venueId}
               state={editing.state}
               date={date}
@@ -210,7 +230,9 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
       title={
         date === null
           ? undefined
-          : format.formatCalendarDate(date, { weekday: "long", month: "long", day: "numeric" })
+          : picked
+            ? t("availability.selection.count", { count: picked.length })
+            : format.formatCalendarDate(date, { weekday: "long", month: "long", day: "numeric" })
       }
     >
       <Stack gap="md">

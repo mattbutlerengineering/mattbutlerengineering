@@ -6812,6 +6812,9 @@
       for (let d = from; d <= to; d = addDays(d, 1)) dates.push(d);
       return dates;
     }
+    export function futureDates(dates: readonly string[], today: string): string[] {
+      return dates.filter((d) => d >= today);
+    }
     export function toggleDate(selection: readonly string[], date: string): string[] {
       return selection.includes(date)
         ? selection.filter((d) => d !== date)

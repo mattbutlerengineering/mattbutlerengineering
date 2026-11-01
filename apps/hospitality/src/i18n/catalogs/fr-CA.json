@@ -1988,6 +1988,8 @@
       "changes_other": "{{count}} changements par rapport à votre {{weekday}} habituel.",
       "changes_many": "{{count}} changements par rapport à votre {{weekday}} habituel.",
       "whyTitle": "Pourquoi ce jour",
+      "refreshError": "Impossible de vérifier s’il y a des horaires plus récents",
+      "finishDraftFirst": "Enregistrez ou annulez d’abord vos modifications de ce jour.",
       "ifRemoved": "Si retiré : {{result}}",
       "removalNone": "aucun changement pour ce jour",
       "removal": {

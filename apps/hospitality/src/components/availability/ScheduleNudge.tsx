@@ -15,6 +15,8 @@ export interface ScheduleNudgeProps {
   readonly date: string;
   readonly day: ResolvedDay;
   readonly onStale: () => void;
+  /** A draft is open on this day: the nudge's save would make the draft's own save conflict. */
+  readonly disabled?: boolean;
 }
 
 /**
@@ -24,7 +26,7 @@ export interface ScheduleNudgeProps {
  * schedule needs no suggestion.
  */
 export function ScheduleNudge(props: ScheduleNudgeProps) {
-  const { venueId, state, date, day, onStale } = props;
+  const { venueId, state, date, day, onStale, disabled } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const { toast } = useToast();
@@ -59,7 +61,13 @@ export function ScheduleNudge(props: ScheduleNudgeProps) {
         {t("availabilitySchedules.nudge.text", { weekday: weekdayName, count })}
       </Text>
       <SaveFailure messages={saver.failure} />
-      <Button variant="secondary" size="sm" isLoading={saver.isPending} onClick={() => void make()}>
+      <Button
+        variant="secondary"
+        size="sm"
+        disabled={disabled}
+        isLoading={saver.isPending}
+        onClick={() => void make()}
+      >
         {t("availabilitySchedules.nudge.make", { weekday: weekdayName })}
       </Button>
     </aside>
