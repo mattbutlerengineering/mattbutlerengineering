@@ -38,9 +38,9 @@ import { test, expect } from "./fixtures.js";
 import { pickBookingDate } from "./booking-date.js";
 import { hasReadableLiteral } from "./fixtures/locale-sweep-readable.js";
 
-// A third of the suite. Whole on one worker, it alone sets the CI job's length
-// (#8038). Each test stages its own page and every request is mocked, and
-// module-level values here are read-only, so the tests need no order.
+// A third of the suite, so CI's shards would come out 241 and 115 tests if it
+// stayed whole (#8038). Runs still use one worker, so nothing here overlaps;
+// each test stages its own page and module-level values are read-only.
 test.describe.configure({ mode: "parallel" });
 
 const VENUE_SLUG = "e2e-test-bistro";
