@@ -6,16 +6,32 @@ import { ApiClientError } from "@mbe/api-client";
 import type { AvailabilityConfigState, ClosureImpact, DateRule } from "@mbe/types";
 
 const create = vi.hoisted(() => vi.fn());
+const saving = vi.hoisted(() => ({ value: false }));
 const impactState = vi.hoisted(() => ({ value: null as unknown }));
 const refetchImpact = vi.hoisted(() => vi.fn());
+/**
+ * How the impact query answers. By default it always has data. `keyed` models react-query: only
+ * the first rule it saw has cached data, so a rule that changes (a new id included) starts empty.
+ */
+const impactQuery = vi.hoisted(() => ({
+  keyed: false,
+  firstKey: null as string | null,
+  loading: false,
+  error: null as unknown,
+}));
 vi.mock("../../hooks/useClosures.js", () => ({
-  useCreateClosure: () => ({ mutateAsync: create, isPending: false }),
-  useClosureImpact: () => ({
-    data: impactState.value,
-    isLoading: false,
-    error: null,
-    refetch: refetchImpact,
-  }),
+  useCreateClosure: () => ({ mutateAsync: create, isPending: saving.value }),
+  useClosureImpact: ({ rule }: { rule: unknown }) => {
+    const key = JSON.stringify(rule);
+    if (impactQuery.keyed && impactQuery.firstKey === null) impactQuery.firstKey = key;
+    const absent = impactQuery.loading || (impactQuery.keyed && key !== impactQuery.firstKey);
+    return {
+      data: absent ? undefined : impactState.value,
+      isLoading: absent && impactQuery.error === null,
+      error: impactQuery.error,
+      refetch: refetchImpact,
+    };
+  },
 }));
 const refresh = vi.hoisted(() => vi.fn());
 vi.mock("../../hooks/useRefreshAvailability.js", () => ({ useRefreshAvailability: () => refresh }));
@@ -96,7 +112,9 @@ describe("CloseDialog", () => {
   beforeEach(() => {
     create.mockReset();
     refresh.mockReset();
+    saving.value = false;
     impactState.value = IMPACT;
+    Object.assign(impactQuery, { keyed: false, firstKey: null, loading: false, error: null });
   });
 
   it("shows the guest-message character counter once", () => {
@@ -398,6 +416,545 @@ describe("CloseDialog", () => {
       targetKind: "venue",
       startsOn: "2026-12-01",
       endsOn: "2026-12-01",
+    });
+  });
+
+  describe("a retried or interrupted close (#7975)", () => {
+    const RESULT = {
+      ruleId: "rule",
+      version: 8,
+      changeId: "c",
+      outcomes: { cancel: 14, move: 0, keep_notify: 0, keep_silent: 0 },
+    };
+    const toStepTwo = (dialog: HTMLElement) => {
+      fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+      fireEvent.click(within(dialog).getByRole("radio", { name: /Cancel, notify & refund/ }));
+    };
+    type Call = { idempotencyKey: string; body: { rule: { id: string }; decisions: unknown } };
+
+    it("retries a lost response under the same key and rule id, then reports success", async () => {
+      create.mockRejectedValueOnce(new Error("lost")).mockResolvedValueOnce(RESULT);
+      const { onClose } = renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+      expect(await within(dialog).findByText("Couldn't close")).toBeTruthy();
+
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+      const [first, second] = create.mock.calls.map((c) => c[0] as Call);
+      expect(second!.idempotencyKey).toBe(first!.idempotencyKey);
+      expect(second!.body.rule.id).toBe(first!.body.rule.id);
+      expect(await screen.findByText("Thu, Dec 24 closed · 14 reservations notified")).toBeTruthy();
+    });
+
+    it("starts a new attempt when the Manager changes the request after a failure", async () => {
+      create.mockRejectedValueOnce(new Error("lost")).mockResolvedValueOnce(RESULT);
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+      await within(dialog).findByText("Couldn't close");
+
+      fireEvent.click(within(dialog).getByRole("button", { name: "Back" }));
+      fireEvent.click(within(dialog).getByRole("radio", { name: "Tonight" }));
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+
+      await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+      const [first, second] = create.mock.calls.map((c) => c[0] as Call);
+      expect(second!.idempotencyKey).not.toBe(first!.idempotencyKey);
+      expect(second!.body.rule.id).not.toBe(first!.body.rule.id);
+    });
+
+    // A lost response may still have committed. A retry under the same key would replay it and
+    // hide that the Manager's later edit was ignored, so an edit after a failed save is a new
+    // attempt: the stale expected version then gets an honest conflict.
+    const failFirstSave = async (dialog: HTMLElement) => {
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+      await within(dialog).findByText("Couldn't close");
+      fireEvent.click(within(dialog).getByRole("button", { name: "Back" }));
+    };
+
+    it("starts a new attempt, keeping the decisions, when the guest message changes after a failed save", async () => {
+      create.mockRejectedValueOnce(new Error("lost")).mockResolvedValueOnce(RESULT);
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      await failFirstSave(dialog);
+
+      fireEvent.change(within(dialog).getByLabelText(/Message for guests/), {
+        target: { value: "Closed for the holiday" },
+      });
+      fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+
+      await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+      const [first, second] = create.mock.calls.map((c) => c[0] as Call);
+      expect(second!.idempotencyKey).not.toBe(first!.idempotencyKey);
+      expect(second!.body.rule.id).not.toBe(first!.body.rule.id);
+      expect(second!.body.decisions).toEqual(first!.body.decisions);
+    });
+
+    it("starts a new attempt when a decision changes after a failed save", async () => {
+      create.mockRejectedValueOnce(new Error("lost")).mockResolvedValueOnce(RESULT);
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+      await within(dialog).findByText("Couldn't close");
+
+      fireEvent.click(within(dialog).getByRole("radio", { name: "Keep them and notify" }));
+      fireEvent.click(within(dialog).getByTestId("close-primary"));
+
+      await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+      const [first, second] = create.mock.calls.map((c) => c[0] as Call);
+      expect(second!.idempotencyKey).not.toBe(first!.idempotencyKey);
+      expect(second!.body.rule.id).not.toBe(first!.body.rule.id);
+    });
+
+    const dialogElement = (state: AvailabilityConfigState, onClose: () => void = vi.fn()) => (
+      <ToastProvider>
+        <main>
+          <CloseDialog
+            venueId="venue-1"
+            state={state}
+            timezone="America/Los_Angeles"
+            today="2026-12-01"
+            initialDate={DATE}
+            onClose={onClose}
+          />
+        </main>
+      </ToastProvider>
+    );
+    const STATE: AvailabilityConfigState = { config: fixtureConfig(), version: 7, source: "rows" };
+
+    it("keeps Step 2 and the choice when a decision changes after a failed save", async () => {
+      impactQuery.keyed = true; // a new rule id would be a new query, with no data yet
+      create.mockRejectedValueOnce(new Error("lost")).mockResolvedValueOnce(RESULT);
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+      await within(dialog).findByText("Couldn't close");
+
+      fireEvent.click(within(dialog).getByRole("radio", { name: "Keep them and notify" }));
+
+      expect(within(dialog).getByRole("radio", { name: "Keep them and notify" })).toBeChecked();
+      const primary = within(dialog).getByTestId("close-primary");
+      expect(primary).toBeEnabled();
+      fireEvent.click(primary);
+      await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+      const second = create.mock.calls[1]![0] as Call;
+      expect(second.body.decisions).toEqual([
+        expect.objectContaining({ groupKey: `${DATE}:closed`, action: "keep_notify" }),
+      ]);
+    });
+
+    it("waits on Step 2, saving nothing, while the bookings to decide on are loading", () => {
+      const view = renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+
+      impactQuery.loading = true;
+      view.rerender(dialogElement(STATE));
+
+      expect(within(dialog).getByTestId("close-primary")).toBeDisabled();
+      expect(within(dialog).getByText("Loading the bookings…")).toBeTruthy();
+      expect(create).not.toHaveBeenCalled();
+    });
+
+    it("says so on Step 2, with the save disabled, when the bookings could not be read", () => {
+      const view = renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+
+      impactQuery.error = new Error("down");
+      impactQuery.loading = true;
+      view.rerender(dialogElement(STATE));
+
+      expect(within(dialog).getByTestId("close-primary")).toBeDisabled();
+      expect(within(dialog).getByText(/Couldn't load the bookings/)).toBeTruthy();
+    });
+
+    describe("when an earlier attempt turns out to have been saved", () => {
+      const conflict = () =>
+        new ApiClientError(
+          {
+            type: "about:blank",
+            title: "Conflict",
+            status: 409,
+            detail: "Availability changed since you loaded it.",
+            code: "version-conflict",
+          } as never,
+          "POST",
+          "closures"
+        );
+      /** Attempt 1 cancels and loses its response; attempt 2 keeps and gets a 409. */
+      const savedThenChanged = async () => {
+        create.mockRejectedValueOnce(new Error("lost")).mockRejectedValueOnce(conflict());
+        const onClose = vi.fn();
+        const view = renderDialog({ onClose });
+        const dialog = screen.getByRole("dialog");
+        toStepTwo(dialog);
+        fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+        await within(dialog).findByText("Couldn't close");
+        // The first response was lost but it committed; the Manager now picks the other choice.
+        fireEvent.click(within(dialog).getByRole("radio", { name: "Keep them and notify" }));
+        fireEvent.click(within(dialog).getByTestId("close-primary"));
+        await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+        await waitFor(() => expect(refresh).toHaveBeenCalled());
+        return { view, dialog, onClose };
+      };
+      const withFirstRule = () => {
+        const firstRuleId = (create.mock.calls[0]![0] as Call).body.rule.id;
+        const base = fixtureConfig();
+        return {
+          config: {
+            ...base,
+            dateRules: [
+              ...base.dateRules,
+              {
+                id: firstRuleId,
+                kind: "closure",
+                targetKind: "venue",
+                startsOn: DATE,
+                endsOn: DATE,
+              },
+            ],
+          } as AvailabilityConfigState["config"],
+          version: 8,
+          source: "rows" as const,
+        };
+      };
+
+      it("reports the first attempt's outcome, not a failure, and never says to try again", async () => {
+        const { view, dialog, onClose } = await savedThenChanged();
+        view.rerender(dialogElement(withFirstRule(), onClose));
+
+        expect(within(dialog).getByText("Already closed")).toBeTruthy();
+        expect(within(dialog).getByText(/cancel 14/)).toBeTruthy();
+        expect(within(dialog).getByText(/did not apply/)).toBeTruthy();
+        // No failure alert, and nothing that invites another save.
+        expect(within(dialog).queryByText("Couldn't close")).toBeNull();
+        expect(within(dialog).queryByText(/try again/i)).toBeNull();
+        expect(within(dialog).queryByText(/changed first by a teammate/i)).toBeNull();
+        // The Step 2 form, still showing the second choice, is gone.
+        expect(within(dialog).queryAllByRole("radio")).toHaveLength(0);
+        expect(within(dialog).queryByRole("button", { name: /Close and/ })).toBeNull();
+      });
+
+      it("names the choices of the send that committed, not of an earlier send of the same rule id", async () => {
+        const decisionRequired = new ApiClientError(
+          {
+            type: "about:blank",
+            title: "decision-required",
+            status: 422,
+            detail: "Every affected group needs a choice.",
+            code: "decision-required",
+            groupKeys: [`${DATE}:closed`],
+          } as never,
+          "POST",
+          "closures"
+        );
+        create
+          .mockRejectedValueOnce(decisionRequired) // send 1: cancel, rolled back
+          .mockRejectedValueOnce(new Error("lost")) // send 2: keep, same id, committed
+          .mockRejectedValueOnce(conflict()); // send 3: a later edit
+        const onClose = vi.fn();
+        const view = renderDialog({ onClose });
+        const dialog = screen.getByRole("dialog");
+        toStepTwo(dialog);
+        fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+        await within(dialog).findByText(/bookings changed while you were deciding/i);
+
+        // The choices were cleared and the rule id kept: the Manager now keeps the guests.
+        fireEvent.click(within(dialog).getByRole("radio", { name: "Keep them and notify" }));
+        fireEvent.click(within(dialog).getByRole("button", { name: "Close and keep 14" }));
+        await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+        expect((create.mock.calls[1]![0] as Call).body.rule.id).toBe(
+          (create.mock.calls[0]![0] as Call).body.rule.id
+        );
+        await within(dialog).findByText("Couldn't close");
+
+        // Send 2 committed with its response lost; an edit is sent, and gets a 409.
+        fireEvent.click(within(dialog).getByRole("radio", { name: /Cancel, notify & refund/ }));
+        fireEvent.click(within(dialog).getByTestId("close-primary"));
+        await waitFor(() => expect(create).toHaveBeenCalledTimes(3));
+        await waitFor(() => expect(refresh).toHaveBeenCalled());
+
+        const committedId = (create.mock.calls[1]![0] as Call).body.rule.id;
+        const base = fixtureConfig();
+        view.rerender(
+          dialogElement(
+            {
+              config: {
+                ...base,
+                dateRules: [
+                  ...base.dateRules,
+                  {
+                    id: committedId,
+                    kind: "closure",
+                    targetKind: "venue",
+                    startsOn: DATE,
+                    endsOn: DATE,
+                  },
+                ],
+              } as AvailabilityConfigState["config"],
+              version: 8,
+              source: "rows",
+            },
+            onClose
+          )
+        );
+
+        expect(within(dialog).getByText(/keep 14/)).toBeTruthy();
+        expect(within(dialog).queryByText(/cancel 14/)).toBeNull();
+      });
+
+      it("saves nothing more and closes, refreshing the calendar, on Done", async () => {
+        const { view, dialog, onClose } = await savedThenChanged();
+        view.rerender(dialogElement(withFirstRule(), onClose));
+        refresh.mockClear();
+
+        fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
+
+        expect(create).toHaveBeenCalledTimes(2);
+        expect(onClose).toHaveBeenCalledTimes(1);
+        expect(refresh).toHaveBeenCalled();
+      });
+
+      it("leaves at once on Escape, without asking to discard, and refreshes", async () => {
+        const { view, onClose } = await savedThenChanged();
+        view.rerender(dialogElement(withFirstRule(), onClose));
+        refresh.mockClear();
+
+        fireEvent.keyDown(document, { key: "Escape" });
+
+        expect(screen.queryByRole("dialog", { name: /Discard|Leave/ })).toBeNull();
+        expect(onClose).toHaveBeenCalledTimes(1);
+        expect(refresh).toHaveBeenCalled();
+      });
+    });
+
+    describe("leaving after a save that may have gone through", () => {
+      it("asks in words that say it may have saved, then refreshes the calendar on leaving", async () => {
+        create.mockRejectedValueOnce(new Error("lost"));
+        const { onClose } = renderDialog();
+        const dialog = screen.getByRole("dialog");
+        toStepTwo(dialog);
+        fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+        await within(dialog).findByText("Couldn't close");
+        refresh.mockClear();
+
+        fireEvent.keyDown(document, { key: "Escape" });
+
+        expect(screen.queryByText("Nothing has been closed.", { exact: false })).toBeNull();
+        const ask = screen.getByRole("dialog", { name: "Leave this closure?" });
+        expect(within(ask).getByText(/may have gone through/)).toBeTruthy();
+        expect(onClose).not.toHaveBeenCalled();
+        fireEvent.click(within(ask).getByRole("button", { name: "Leave" }));
+        expect(onClose).toHaveBeenCalledTimes(1);
+        expect(refresh).toHaveBeenCalled();
+      });
+
+      it("asks even when nothing was edited, since a save was attempted", async () => {
+        impactState.value = { reservations: 0, covers: 0, depositsHeld: 0, groups: [] };
+        create.mockRejectedValueOnce(new Error("lost"));
+        const { onClose } = renderDialog();
+        const dialog = screen.getByRole("dialog");
+        fireEvent.click(within(dialog).getByTestId("close-primary"));
+        await within(dialog).findByText("Couldn't close");
+
+        fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+        expect(screen.getByRole("dialog", { name: "Leave this closure?" })).toBeTruthy();
+        expect(onClose).not.toHaveBeenCalled();
+      });
+
+      it("does not refresh when the Manager never saved", () => {
+        const { onClose } = renderDialog();
+        refresh.mockClear();
+
+        fireEvent.keyDown(document, { key: "Escape" });
+
+        expect(onClose).toHaveBeenCalledTimes(1);
+        expect(refresh).not.toHaveBeenCalled();
+      });
+    });
+
+    it("keeps one attempt across edits made before the first save", async () => {
+      create.mockResolvedValueOnce(RESULT);
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      fireEvent.change(within(dialog).getByLabelText(/Message for guests/), {
+        target: { value: "Closed for the holiday" },
+      });
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("radio", { name: "Keep them and notify" }));
+      fireEvent.click(within(dialog).getByRole("radio", { name: /Cancel, notify & refund/ }));
+      fireEvent.click(within(dialog).getByTestId("close-primary"));
+
+      await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+      expect((create.mock.calls[0]![0] as Call).body.rule.id).toBeTruthy();
+    });
+
+    it("keeps the decisions when only the guest message changes", () => {
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Back" }));
+
+      fireEvent.change(within(dialog).getByLabelText(/Message for guests/), {
+        target: { value: "Closed for the holiday" },
+      });
+      fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+
+      expect(within(dialog).getByTestId("close-primary")).toHaveTextContent(
+        /^Close and cancel 14$/
+      );
+    });
+
+    it("clears the decisions when what or when changes", () => {
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Back" }));
+
+      fireEvent.click(within(dialog).getByRole("radio", { name: "Tonight" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+
+      expect(within(dialog).getByTestId("close-primary")).toHaveTextContent(
+        /^Choose for each group$/
+      );
+    });
+
+    it("asks before Escape throws away an edited draft", () => {
+      const { onClose } = renderDialog();
+      const dialog = screen.getByRole("dialog");
+      fireEvent.change(within(dialog).getByLabelText(/Message for guests/), {
+        target: { value: "Closed for the holiday" },
+      });
+
+      fireEvent.keyDown(document, { key: "Escape" });
+
+      expect(onClose).not.toHaveBeenCalled();
+      const ask = screen.getByRole("dialog", { name: "Discard this closure?" });
+      fireEvent.click(within(ask).getByRole("button", { name: "Keep editing" }));
+      expect(onClose).not.toHaveBeenCalled();
+      expect(screen.getByRole("dialog", { name: "Close" })).toBeTruthy();
+
+      fireEvent.keyDown(document, { key: "Escape" });
+      fireEvent.click(
+        within(screen.getByRole("dialog", { name: "Discard this closure?" })).getByRole("button", {
+          name: "Discard",
+        })
+      );
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it("closes straight away on Escape when nothing was edited", () => {
+      const { onClose } = renderDialog();
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it("locks Escape, Cancel and Back while the save is in flight", () => {
+      saving.value = true;
+      const { onClose } = renderDialog();
+      const dialog = screen.getByRole("dialog");
+
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(onClose).not.toHaveBeenCalled();
+      expect(within(dialog).getByRole("button", { name: "Cancel" })).toBeDisabled();
+
+      saving.value = false;
+    });
+
+    it("routes the backdrop and the X through the discard guard", () => {
+      const { onClose } = renderDialog();
+      const dialog = screen.getByRole("dialog");
+      fireEvent.change(within(dialog).getByLabelText(/Message for guests/), {
+        target: { value: "Closed for the holiday" },
+      });
+
+      fireEvent.click(dialog.parentElement!);
+      expect(screen.getByRole("dialog", { name: "Discard this closure?" })).toBeTruthy();
+      expect(onClose).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close dialog" }));
+      expect(screen.getByRole("dialog", { name: "Discard this closure?" })).toBeTruthy();
+      expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it("ignores the backdrop and the X while the save is in flight", () => {
+      saving.value = true;
+      const { onClose } = renderDialog();
+      const dialog = screen.getByRole("dialog");
+
+      fireEvent.click(dialog.parentElement!);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close dialog" }));
+
+      expect(onClose).not.toHaveBeenCalled();
+      saving.value = false;
+    });
+
+    it("locks What and When on step 1 while the save is in flight", () => {
+      saving.value = true;
+      renderDialog();
+
+      expect(
+        within(screen.getByRole("dialog")).getByRole("radio", { name: "Tonight" })
+      ).toBeDisabled();
+      saving.value = false;
+    });
+
+    it("locks the decisions on step 2 while the save is in flight", () => {
+      const view = renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+      saving.value = true;
+      view.rerender(
+        <ToastProvider>
+          <main>
+            <CloseDialog
+              venueId="venue-1"
+              state={{ config: fixtureConfig(), version: 7, source: "rows" }}
+              timezone="America/Los_Angeles"
+              today="2026-12-01"
+              initialDate={DATE}
+              onClose={vi.fn()}
+            />
+          </main>
+        </ToastProvider>
+      );
+
+      for (const radio of within(dialog).getAllByRole("radio")) expect(radio).toBeDisabled();
+      saving.value = false;
+    });
+
+    it("disables Back while the save is in flight on step 2", () => {
+      const { rerender } = renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+      saving.value = true;
+      rerender(
+        <ToastProvider>
+          <main>
+            <CloseDialog
+              venueId="venue-1"
+              state={{ config: fixtureConfig(), version: 7, source: "rows" }}
+              timezone="America/Los_Angeles"
+              today="2026-12-01"
+              initialDate={DATE}
+              onClose={vi.fn()}
+            />
+          </main>
+        </ToastProvider>
+      );
+      expect(within(dialog).getByRole("button", { name: "Back" })).toBeDisabled();
     });
   });
 

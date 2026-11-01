@@ -10,13 +10,15 @@ export interface DiscardChangesDialogProps {
   readonly title?: string;
   /** Replaces "Your unsaved changes to these hours will be lost." where more than hours would go. */
   readonly description?: string;
+  /** Replaces "Discard" where the draft may already have been saved (the Close dialog). */
+  readonly confirmLabel?: string;
   readonly onDiscard: () => void;
   readonly onKeepEditing: () => void;
 }
 
 /** "Discard changes to Fri Oct 30?" Focus starts on Keep editing, the safe answer. */
 export function DiscardChangesDialog(props: DiscardChangesDialogProps) {
-  const { open, date, title, description, onDiscard, onKeepEditing } = props;
+  const { open, date, title, description, confirmLabel, onDiscard, onKeepEditing } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
 
@@ -33,7 +35,7 @@ export function DiscardChangesDialog(props: DiscardChangesDialogProps) {
         })
       }
       description={description ?? t("availability.discard.description")}
-      confirmLabel={t("availability.discard.confirm")}
+      confirmLabel={confirmLabel ?? t("availability.discard.confirm")}
       cancelLabel={t("availability.discard.keep")}
       onConfirm={onDiscard}
       onCancel={onKeepEditing}

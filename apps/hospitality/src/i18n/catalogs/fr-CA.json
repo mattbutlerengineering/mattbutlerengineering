@@ -1679,6 +1679,7 @@
     },
     "reopen": {
       "title": "Rouvrir le {{date}} ?",
+      "titleSpan": "Rouvrir cette fermeture ? ({{date}})",
       "description": "Les clients pourront de nouveau réserver.",
       "descriptionCancelled": "Les clients pourront de nouveau réserver. Les réservations que vous avez annulées restent annulées.",
       "editedDates_one": "Rouvre aussi {{count}} date modifiée.",
@@ -1687,7 +1688,22 @@
       "tell": "Informer les clients annulés de la réouverture, avec un lien pour réserver ({{count}})",
       "confirm": "Rouvrir",
       "keep": "Garder fermé",
-      "done": "{{date}} rouvert"
+      "done": "{{date}} rouvert",
+      "titleSeriesEdit": "Remettre le {{date}} dans la série ?",
+      "confirmSeriesEdit": "Remettre",
+      "keepSeriesEdit": "Garder cette modification",
+      "doneSeriesEdit": "Le {{date}} est de retour dans la série",
+      "doneSpan": "Réouverture : {{date}}",
+      "countLoading": "Vérification du nombre de clients que cette fermeture a annulés…",
+      "fromOn": "à partir du {{from}}",
+      "subjectOpen": "toutes les dates à partir du {{from}}",
+      "subjectRepeat": "chaque {{days}} ({{span}})",
+      "descriptionSeriesEdit": "Cette date retourne à la fermeture récurrente; les clients pourraient donc ne pas pouvoir réserver. Les réservations déjà faites sont vérifiées d'abord.",
+      "stranded_one": "{{count}} réservation resterait sans service si cette date retournait à la série. Rien n'a été modifié.",
+      "stranded_other": "{{count}} réservations resteraient sans service si cette date retournait à la série. Rien n'a été modifié.",
+      "stranded_many": "{{count}} de réservations resteraient sans service si cette date retournait à la série. Rien n'a été modifié.",
+      "countUnknown": "Impossible de vérifier combien de clients cette fermeture a annulés. La réouverture attend le chargement du compte.",
+      "retryCount": "Réessayer"
     },
     "series": {
       "editDates": "Modifier les dates…",
@@ -2270,6 +2286,20 @@
       "saveError": "Impossible de fermer",
       "versionConflict": "Les disponibilités ont changé depuis l'ouverture de cette fenêtre. Fermez-la et réessayez.",
       "groupsChanged": "Les réservations ont changé pendant votre décision. Passez en revue la liste à jour et choisissez de nouveau.",
+      "alreadySaved": "Cette fermeture est déjà enregistrée et ses réservations ont été traitées. Consultez les dates spéciales avant de fermer de nouveau.",
+      "savedEarlier": {
+        "title": "Déjà fermé",
+        "body": "Un essai précédent de cette fermeture a été enregistré : {{summary}}. Les clients ont été traités selon les choix de cet essai; les modifications faites ensuite n'ont pas été appliquées. Ouvrez les dates spéciales pour voir le résultat.",
+        "bodyPlain": "Un essai précédent de cette fermeture a été enregistré. Les modifications faites ensuite n'ont pas été appliquées. Ouvrez les dates spéciales pour voir le résultat.",
+        "done": "Terminé"
+      },
+      "discard": {
+        "title": "Abandonner cette fermeture ?",
+        "description": "Rien n'a été fermé. Les choix faits ici seront perdus.",
+        "titleMaybeSaved": "Quitter cette fermeture ?",
+        "descriptionMaybeSaved": "Le dernier enregistrement ne s'est pas terminé; il a peut-être été appliqué et des réservations annulées. Consultez les dates spéciales avant de fermer de nouveau.",
+        "leave": "Quitter"
+      },
       "staffNote": "Note pour le personnel",
       "guestMessage": "Message pour les clients",
       "guestMessageTooLong": "Limitez-vous à {{max}} caractères.",
@@ -2396,6 +2426,8 @@
           "move": "Nous avons modifié nos heures le {{date}}. {{message}}\nVotre table est déplacée à l'heure libre la plus proche. Vous ne pouvez pas venir? Annulez sans frais.",
           "keep_notify": "Nous avons modifié nos heures le {{date}}. {{message}}\nVotre table est toujours réservée."
         },
+        "loading": "Chargement des réservations…",
+        "loadFailed": "Impossible de charger les réservations. Revenez en arrière et réessayez.",
         "irreversible": "Les clients sont avisés immédiatement. Cette action est irréversible."
       }
     },

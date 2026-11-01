@@ -31,6 +31,14 @@
   padding-top: var(--rialto-space-sm);
 }
 
+/* A bare fieldset that only carries `disabled` down to the controls inside. */
+.lock {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
 .footer {
   display: flex;
   flex-wrap: wrap;

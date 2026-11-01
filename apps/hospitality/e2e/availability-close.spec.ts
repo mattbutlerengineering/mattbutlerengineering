@@ -43,12 +43,25 @@ function datesBetween(from: string, to: string): string[] {
   return out;
 }
 
-async function mockAvailability(page: Page, closeDate: string) {
+/**
+ * While `dropped`, a closure POST commits and then its response is lost. The API client replays a
+ * POST that carries an Idempotency-Key on a network error, so every attempt of one click drops.
+ */
+interface Connection {
+  dropped: boolean;
+}
+
+async function mockAvailability(
+  page: Page,
+  closeDate: string,
+  connection: Connection = { dropped: false }
+) {
   const venues = JSON.parse(loadFixture("venues-list")) as { data: Array<{ id: string }> };
   const venueId = String(venues.data[0]?.id);
   const base = `**/api/v1/venues/${venueId}`;
   let version = 7;
   let saved: Record<string, unknown> | null = null;
+  const posts: Array<{ key: string | undefined; ruleId: string }> = [];
   const json = (data: unknown) => ({
     status: 200,
     contentType: "application/json",
@@ -131,8 +144,14 @@ async function mockAvailability(page: Page, closeDate: string) {
   await page.route(`${base}/closures`, (route) => {
     // The Special dates tab lists closure outcomes; none exist in this flow.
     if (route.request().method() === "GET") return route.fulfill(json([]));
-    saved = route.request().postDataJSON() as Record<string, unknown>;
-    version += 1;
+    const body = route.request().postDataJSON() as { rule: { id: string } };
+    posts.push({ key: route.request().headers()["idempotency-key"], ruleId: body.rule.id });
+    // A known key answers with the stored result and changes nothing (closure-command.ts replayOf).
+    if (saved === null) {
+      saved = body as unknown as Record<string, unknown>;
+      version += 1;
+    }
+    if (connection.dropped) return route.abort("connectionreset");
     return route.fulfill(
       json({
         ruleId: "rule-1",
@@ -142,7 +161,7 @@ async function mockAvailability(page: Page, closeDate: string) {
       })
     );
   });
-  return { saved: () => saved, venueId };
+  return { saved: () => saved, posts: () => posts, venueId };
 }
 
 /** Opens the Close dialog for `closeDate` and advances to step 2 (the 14-booking impact list). */
@@ -278,5 +297,47 @@ test.describe("Availability close dialog (F5)", () => {
       decisions: [{ groupKey: `${CLOSE_DATE}:closed`, action: "cancel" }],
     });
     await expect(calendar.locator(`[data-date="${CLOSE_DATE}"]`)).toContainText("Closed all day");
+  });
+
+  test("a close whose response was lost reports success when retried, under the same key", async ({
+    mockedPage,
+  }) => {
+    const CLOSE_DATE = midNextMonth();
+    await mockedPage.clock.setFixedTime(pinnedNoon());
+    const connection: Connection = { dropped: true };
+    const state = await mockAvailability(mockedPage, CLOSE_DATE, connection);
+    await mockedPage.goto("availability");
+
+    const calendar = mockedPage.getByRole("grid", { name: "Availability calendar" });
+    await expect(calendar).toBeVisible();
+    await mockedPage.getByRole("button", { name: "Next", exact: true }).click();
+    await calendar.locator(`[data-date="${CLOSE_DATE}"]`).click();
+    const drawer = mockedPage.getByRole("dialog");
+    await drawer.getByRole("button", { name: "Close…", exact: true }).click();
+
+    const dialog = mockedPage.getByRole("dialog", { name: "Close", exact: true });
+    await dialog.getByRole("button", { name: "Next", exact: true }).click();
+    const cancelRadio = mockedPage.getByRole("radio", { name: /Cancel, notify & refund/ });
+    await dialog.locator("label").filter({ has: cancelRadio }).click();
+    const primary = dialog.getByTestId("close-primary");
+    await primary.click();
+
+    // The cancellations committed, but the Manager only sees the dropped connection. One click
+    // makes up to four attempts (1 s, 2 s and 4 s backoff plus jitter), so the failure shows
+    // after 5.6 to 8.4 s: wait past that, not for the default 5 s.
+    await expect(dialog.getByText("Couldn't close")).toBeVisible({ timeout: 15_000 });
+    connection.dropped = false;
+    await primary.click();
+
+    const notifications = mockedPage.getByRole("region", { name: "Notifications" });
+    await expect(
+      notifications.getByText(new RegExp(`${BOOKINGS} reservations notified`))
+    ).toBeVisible();
+    const attempts = state.posts();
+    const [first, last] = [attempts[0], attempts.at(-1)];
+    expect(attempts.length).toBeGreaterThan(1);
+    expect(last?.key).toBeTruthy();
+    expect(new Set(attempts.map((a) => a.key)).size).toBe(1);
+    expect(last?.ruleId).toBe(first?.ruleId);
   });
 });

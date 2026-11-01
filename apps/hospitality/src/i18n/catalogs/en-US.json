@@ -1653,6 +1653,7 @@
     },
     "reopen": {
       "title": "Reopen {{date}}?",
+      "titleSpan": "Reopen {{date}}?",
       "description": "Guests can book again.",
       "descriptionCancelled": "Guests can book again. The reservations you cancelled stay cancelled.",
       "editedDates_one": "Also reopens {{count}} edited date.",
@@ -1660,7 +1661,22 @@
       "tell": "Tell the cancelled guests we've reopened, with a link to rebook ({{count}})",
       "confirm": "Reopen",
       "keep": "Keep closed",
-      "done": "{{date}} reopened"
+      "done": "{{date}} reopened",
+      "titleSeriesEdit": "Put {{date}} back in the series?",
+      "confirmSeriesEdit": "Put back",
+      "keepSeriesEdit": "Keep this edit",
+      "doneSeriesEdit": "{{date}} is back in the series",
+      "doneSpan": "Reopened: {{date}}",
+      "countLoading": "Checking how many guests this closure cancelled…",
+      "fromOn": "from {{from}} on",
+      "subjectOpen": "all dates from {{from}} on",
+      "subjectRepeat": "every {{days}} ({{span}})",
+      "descriptionSeriesEdit": "This date goes back to the repeating closure, so guests may not be able to book it. Bookings already made are checked first.",
+      "stranded_one": "{{count}} booking would be left without service if this date went back to the series. Nothing was changed.",
+      "stranded_other": "{{count}} bookings would be left without service if this date went back to the series. Nothing was changed.",
+      "stranded_many": "{{count}} bookings would be left without service if this date went back to the series. Nothing was changed.",
+      "countUnknown": "Couldn't check how many guests this closure cancelled. Reopen waits until the count loads.",
+      "retryCount": "Retry"
     },
     "series": {
       "editDates": "Edit dates…",
@@ -2215,6 +2231,20 @@
       "saveError": "Couldn't close",
       "versionConflict": "Availability changed since you opened this. Close this dialog and try again.",
       "groupsChanged": "The bookings changed while you were deciding. Review the updated list and choose again.",
+      "alreadySaved": "This closure was already saved, and its bookings handled. Check Special dates before closing again.",
+      "savedEarlier": {
+        "title": "Already closed",
+        "body": "An earlier try of this closure was saved: {{summary}}. Guests were handled as that try chose; changes you made afterwards did not apply. Open Special dates to see the outcome.",
+        "bodyPlain": "An earlier try of this closure was saved. Changes you made afterwards did not apply. Open Special dates to see the outcome.",
+        "done": "Done"
+      },
+      "discard": {
+        "title": "Discard this closure?",
+        "description": "Nothing has been closed. The choices you made here will be lost.",
+        "titleMaybeSaved": "Leave this closure?",
+        "descriptionMaybeSaved": "The last save didn't finish, so it may have gone through and cancelled guests. Check Special dates before closing again.",
+        "leave": "Leave"
+      },
       "staffNote": "Note for staff",
       "guestMessage": "Message for guests",
       "guestMessageTooLong": "Keep it to {{max}} characters.",
@@ -2341,6 +2371,8 @@
           "move": "We've changed our hours on {{date}}. {{message}}\nYour table is moved to the nearest open time. Can't make it? Cancel free.",
           "keep_notify": "We've changed our hours on {{date}}. {{message}}\nYour table is still booked."
         },
+        "loading": "Loading the bookings…",
+        "loadFailed": "Couldn't load the bookings to decide on. Go back and try again.",
         "irreversible": "Guests are told right away. This can't be undone."
       }
     },
