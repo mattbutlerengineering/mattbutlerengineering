@@ -1699,6 +1699,34 @@
       ): ClosureBandText { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/closure-overlap-text.ts">
+    <item priority="medium">
+      function targetText(by: ClosedByRule, services: readonly VenueService[], t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function spanText(by: ClosedByRule, t: TFunction, format: VenueFormat): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closureText(
+        by: ClosedByRule,
+        services: readonly VenueService[],
+        t: TFunction,
+        format: VenueFormat
+      ): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function datesText(dates: readonly string[], t: TFunction, format: VenueFormat): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function overlapLines(
+        overlap: ClosureOverlap,
+        kind: "already" | "stays",
+        services: readonly VenueService[],
+        t: TFunction,
+        format: VenueFormat
+      ): readonly string[] { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/compare-changes.ts">
     <item priority="high">
       type Hours = Pick<
@@ -10336,7 +10364,7 @@
       export function spanOf(rule: DatedRule) { /* ... */ }
     </item>
     <item priority="high">
-      export function spanText(rule: DatedRule): string { /* ... */ }
+      export function spanText(rule: Pick<DatedRule, "startsOn" | "endsOn">): string { /* ... */ }
     </item>
     <item priority="high">
       export const isDated: unknown;
@@ -10345,7 +10373,10 @@
       export function serviceName(config: AvailabilityConfig, id: string): string { /* ... */ }
     </item>
     <item priority="high">
-      export function scopeOf(rule: DatedRule, config: AvailabilityConfig): string { /* ... */ }
+      export function scopeOf(
+        rule: Pick<DatedRule, "targetKind" | "venueServiceId" | "bookingTypes">,
+        config: AvailabilityConfig
+      ): string { /* ... */ }
     </item>
     <item priority="medium">
       function plural(count: number, noun: string): string { /* ... */ }
@@ -10369,17 +10400,17 @@
       ): void { /* ... */ }
     </item>
     <item priority="high">
-      export function findCoveringClosure(
+      export function closedDays(
         config: AvailabilityConfig,
-        target: { readonly serviceId?: string | undefined },
+        serviceId: string | undefined,
         from: string,
         to: string
-      ): ClosureRule | undefined { /* ... */ }
+      ): { date: string; rule: ClosureRule }[] { /* ... */ }
     </item>
     <item priority="high">
       export function closureOnDay(
         config: AvailabilityConfig,
-        serviceId: string,
+        serviceId: string | undefined,
         date: string
       ): ClosureRule | undefined { /* ... */ }
     </item>
@@ -10448,6 +10479,9 @@
     </item>
     <item priority="medium">
       function reopenNote(cancelled: number, notified: number, datesPassed: boolean): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function stillClosedFields(saved: ReopenResult, config: AvailabilityConfig) { /* ... */ }
     </item>
     <item priority="medium">
       function reopenClosure({ log, api, venueId }: ToolContext) { /* ... */ }
@@ -12312,6 +12346,12 @@
       export const ClosuresResultSchema: unknown;
     </item>
     <item priority="high">
+      export const ClosedByRuleSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureOverlapSchema: unknown;
+    </item>
+    <item priority="high">
       export const ReopenResultSchema: unknown;
     </item>
     <item priority="high">
@@ -12364,6 +12404,12 @@
     </item>
     <item priority="low">
       type ClosuresResult = z.infer<typeof ClosuresResultSchema>;
+    </item>
+    <item priority="low">
+      type ClosedByRule = z.infer<typeof ClosedByRuleSchema>;
+    </item>
+    <item priority="low">
+      type ClosureOverlap = z.infer<typeof ClosureOverlapSchema>;
     </item>
     <item priority="low">
       type ReopenResult = z.infer<typeof ReopenResultSchema>;
@@ -21463,6 +21509,43 @@
     </item>
     <item priority="high">
       export function weekdayIndexOf(date: ServiceDate): number { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/closure-overlap.ts">
+    <item priority="high">
+      type Closure = RuleOf<"closure">;
+    </item>
+    <item priority="medium">
+      function datesOf(rule: DateRule, from: ServiceDate): ServiceDate[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function targetCovers(wide: DateRule, narrow: DateRule): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function windowCovers(wide: DateRule, narrow: DateRule): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closedBy(rule: Closure, dates: readonly ServiceDate[]): ClosedByRule { /* ... */ }
+    </item>
+    <item priority="medium">
+      function overlap(
+        found: readonly { readonly date: ServiceDate; readonly rules: readonly Closure[] }[],
+        everyDate: boolean
+      ): ClosureOverlap { /* ... */ }
+    </item>
+    <item priority="high">
+      export function alreadyClosed(
+        rules: readonly DateRule[],
+        draft: DateRule,
+        from: ServiceDate
+      ): ClosureOverlap { /* ... */ }
+    </item>
+    <item priority="high">
+      export function stillClosedAfterReopen(
+        rules: readonly DateRule[],
+        rule: DateRule,
+        from: ServiceDate
+      ): ClosureOverlap { /* ... */ }
     </item>
   </file>
   <file path="packages/availability/src/date-rules.ts">
