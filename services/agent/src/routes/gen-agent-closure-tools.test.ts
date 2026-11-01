@@ -911,7 +911,9 @@ describe("closure chat tools", () => {
     it("reopens a closure whose confirmed span is exactly its own", async () => {
       const result = await run("reopen_closure", input);
 
-      expect(api.availability.reopenClosure).toHaveBeenCalledWith("v1", "c1", false);
+      expect(api.availability.reopenClosure).toHaveBeenCalledWith("v1", "c1", false, {
+        maxRetries: 0,
+      });
       expect(result).toMatchObject({ reopened: true, from: "2026-12-24", to: "2026-12-26" });
     });
 
@@ -954,17 +956,23 @@ describe("closure chat tools", () => {
       ]);
 
       const told = await run("reopen_closure", { ...input, tellCancelledGuests: true });
-      expect(api.availability.reopenClosure).toHaveBeenLastCalledWith("v1", "c1", true);
+      expect(api.availability.reopenClosure).toHaveBeenLastCalledWith("v1", "c1", true, {
+        maxRetries: 0,
+      });
       expect(told).toMatchObject({ reopened: true, guestsCancelled: 3, noticeRequested: true });
 
       await run("reopen_closure", { ...input, tellCancelledGuests: false });
-      expect(api.availability.reopenClosure).toHaveBeenLastCalledWith("v1", "c1", false);
+      expect(api.availability.reopenClosure).toHaveBeenLastCalledWith("v1", "c1", false, {
+        maxRetries: 0,
+      });
     });
 
     it("says plainly that nobody was told when no guest was cancelled", async () => {
       const result = await run("reopen_closure", { ...input, tellCancelledGuests: true });
 
-      expect(api.availability.reopenClosure).toHaveBeenCalledWith("v1", "c1", false);
+      expect(api.availability.reopenClosure).toHaveBeenCalledWith("v1", "c1", false, {
+        maxRetries: 0,
+      });
       expect(result).toMatchObject({
         guestsCancelled: 0,
         noticeRequested: false,
@@ -987,7 +995,9 @@ describe("closure chat tools", () => {
 
       const result = await run("reopen_closure", { ...input, tellCancelledGuests: true });
 
-      expect(api.availability.reopenClosure).toHaveBeenCalledWith("v1", "c1", false);
+      expect(api.availability.reopenClosure).toHaveBeenCalledWith("v1", "c1", false, {
+        maxRetries: 0,
+      });
       expect(result).toMatchObject({
         guestsCancelled: 3,
         noticeRequested: false,
@@ -1063,7 +1073,9 @@ describe("closure chat tools", () => {
 
       const result = await run("reopen_closure", input);
 
-      expect(api.availability.reopenClosure).toHaveBeenCalledWith("v1", "c1", false);
+      expect(api.availability.reopenClosure).toHaveBeenCalledWith("v1", "c1", false, {
+        maxRetries: 0,
+      });
       expect(result).toMatchObject({ reopened: true });
     });
 
@@ -1129,10 +1141,14 @@ describe("closure chat tools", () => {
       );
 
       await run("reopen_closure", input);
-      expect(api.availability.reopenClosure).toHaveBeenLastCalledWith("v1", "c1", false);
+      expect(api.availability.reopenClosure).toHaveBeenLastCalledWith("v1", "c1", false, {
+        maxRetries: 0,
+      });
 
       await run("reopen_closure", { ...input, scope: "service", service: "Dinner" });
-      expect(api.availability.reopenClosure).toHaveBeenLastCalledWith("v1", "c3", false);
+      expect(api.availability.reopenClosure).toHaveBeenLastCalledWith("v1", "c3", false, {
+        maxRetries: 0,
+      });
     });
 
     it("refuses and links to the page when two closures can't be told apart", async () => {

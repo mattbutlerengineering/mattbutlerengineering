@@ -375,10 +375,11 @@
         }
       }
     }
-    function availabilityWriteFailure(err: unknown, action: string) {
+    function availabilityWriteFailure(err: unknown, action: string, unsure: string | undefined) {
       const refusal = refusalOf(err);
-      if (!refusal)
-        return { error: `Couldn't ${action} right now. Ask the user to try again shortly.` };
+      if (!refusal) {
+        return { error: unsure ?? `Couldn't ${action} right now. Ask the user to try again shortly.` };
+      }
       const base = { refused: true, ...(refusal.code ? { code: refusal.code } : {}) };
       switch (refusal.code ?? (refusal.status === 403 ? "forbidden" : undefined)) {
         case "decision-required":
@@ -465,10 +466,12 @@
           execute: async (input) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId, change: input.change }, "change_tonight_availability tool called");
+            let unsure: string | undefined;
             try {
               const state = await api.availability.getConfig(venueId);
               const built = await buildChange(input, state.config, api, venueId);
               if ("error" in built) return built;
+              unsure = TONIGHT_SAVE_UNSURE;
               const result = await api.availability.setTonight(venueId, {
                 expectedVersion: state.version,
                 ruleId: randomUUID(),
@@ -482,7 +485,7 @@
               };
             } catch (err) {
               log.error({ err, venueId, change: input.change }, "change_tonight_availability failed");
-              return availabilityWriteFailure(err, "make the change");
+              return availabilityWriteFailure(err, "make the change", unsure);
             }
           },
         }),
@@ -499,6 +502,7 @@
           execute: async ({ change, from }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId, change }, "end_tonight_change tool called");
+            let unsure: string | undefined;
             try {
               const { rules } = await readTonight();
               const ofKind = rules.filter((rule) => changeTypeOf(rule) === change);
@@ -515,11 +519,12 @@
                   error: `More than one ${change.replace(/_/g, " ")} change is in force. Ask which one, by its start time.`,
                 };
               }
-              await api.availability.endTonight(venueId, matches[0]!.id);
+              unsure = TONIGHT_SAVE_UNSURE;
+              await api.availability.endTonight(venueId, matches[0]!.id, NO_REPLAY);
               return { ended: true, change };
             } catch (err) {
               log.error({ err, venueId, change }, "end_tonight_change failed");
-              return availabilityWriteFailure(err, "end the change");
+              return availabilityWriteFailure(err, "end the change", unsure);
             }
           },
         }),
@@ -533,6 +538,7 @@
           execute: async ({ summary }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId }, "undo_availability_change tool called");
+            let unsure: string | undefined;
             try {
               const page = await api.availability.listChanges(venueId, { limit: 1 });
               const newest = page.items[0];
@@ -548,11 +554,12 @@
                 };
               }
               const { version } = await api.availability.getConfig(venueId);
+              unsure = TONIGHT_SAVE_UNSURE;
               await api.availability.revertChange(venueId, newest.id, version);
               return { undone: true, summary };
             } catch (err) {
               log.error({ err, venueId }, "undo_availability_change failed");
-              return availabilityWriteFailure(err, "undo the change");
+              return availabilityWriteFailure(err, "undo the change", unsure);
             }
           },
         }),
@@ -657,8 +664,7 @@
     export const UNREADABLE_SPAN_DATE = `The date can't be read. Use a real date as YYYY-MM-DD, or "${UNTIL_REOPENED}" as the last date of a closure with no end.`;
     export const CHECK_FAILED =
       "Couldn't check which bookings this would affect. Nothing was changed. Ask the user to try again shortly.";
-    export const SAVE_UNSURE =
-      "Couldn't confirm the change was saved. Check list_closures before trying again.";
+    export const SAVE_UNSURE = saveUnsure("list_closures");
     export const NO_REGULAR_HOURS = `That date has no regular hours to build special hours on. ${AVAILABILITY_PAGE}`;
     export function dayNumber(date: string): number | undefined {
       const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date.trim());
@@ -1214,7 +1220,7 @@
           const told = tellCancelledGuests && reachable > 0;
           let notified: number;
           try {
-            const saved = await api.availability.reopenClosure(venueId, rule.id, told);
+            const saved = await api.availability.reopenClosure(venueId, rule.id, told, NO_REPLAY);
             // The server counts who the notice really reached; an older one does not say.
             notified = told ? (saved.notified ?? reachable) : 0;
           } catch (err) {
@@ -1307,11 +1313,12 @@
         ? { refused: true, error: "The user doesn't have permission to see floor plans." }
         : { error: "Couldn't read the floor plans. Ask the user to try again." };
     }
-    function writeFailure(err: unknown) {
+    function writeFailure(err: unknown, unsure: string | undefined) {
       const refusal = refusalOf(err);
       if (!refusal) {
         return {
           error:
+            unsure ??
             "Couldn't change the floor plan right now. Nothing was changed. Ask the user to try again.",
         };
       }
@@ -1368,6 +1375,7 @@
           execute: async ({ floorPlan }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId }, "activate_floor_plan tool called");
+            let unsure: string | undefined;
             try {
               const { data } = await api.floorPlans.list({ venueId, limit: PLAN_PAGE_SIZE });
               const found = findPlan(data, floorPlan);
@@ -1375,11 +1383,12 @@
               if (found.plan.isActive) {
                 return { alreadyActive: true, floorPlan: found.plan.name };
               }
+              unsure = saveUnsure("list_floor_plans");
               await api.floorPlans.setActive(found.plan.id);
               return { updated: true, floorPlan: found.plan.name };
             } catch (err) {
               log.error({ err, venueId }, "activate_floor_plan failed");
-              return writeFailure(err);
+              return writeFailure(err, unsure);
             }
           },
         }),
@@ -1396,11 +1405,15 @@
         dietaryRestrictions: guest.dietaryRestrictions ?? [],
       };
     }
-    function guestFailure(err: unknown, action: string) {
+    function winBackUnsure(name: string): string {
+      return `Couldn't confirm the win-back message to ${name} was sent. It may already have reached them, and no tool here can check. Tell the user that, and don't send it again unless they accept the guest could get it twice.`;
+    }
+    function guestFailure(err: unknown, action: string, unsure: string | undefined) {
       const refusal = refusalOf(err);
       if (!refusal) {
         return {
-          error: `Couldn't ${action} right now. Nothing was changed. Ask the user to try again.`,
+          error:
+            unsure ?? `Couldn't ${action} right now. Nothing was changed. Ask the user to try again.`,
         };
       }
       if (refusal.status === 403) {
@@ -1496,7 +1509,8 @@
               return { saved: true, guest: shown(saved) };
             } catch (err) {
               log.error({ err, venueId }, "add_guest failed");
-              return guestFailure(err, "add the guest");
+              // The write is the tool's first call, so any failure may have saved.
+              return guestFailure(err, "add the guest", GUEST_SAVE_UNSURE);
             }
           },
         }),
@@ -1508,6 +1522,7 @@
           execute: async (input) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId }, "update_guest tool called");
+            let unsure: string | undefined;
             try {
               const found = await findGuest(api, venueId, input.guest, input.contact);
               if ("error" in found) return found;
@@ -1519,6 +1534,7 @@
                     ...(input.addTags ?? []).filter((tag) => !current.some((c) => sameText(c, tag))),
                   ]
                 : undefined;
+              unsure = GUEST_SAVE_UNSURE;
               const updated = await api.guests.update(found.guest.id, {
                 ...(input.name ? { name: input.name } : {}),
                 ...(input.phone ? { phone: input.phone } : {}),
@@ -1532,7 +1548,7 @@
               return { updated: true, guest: shown(updated) };
             } catch (err) {
               log.error({ err, venueId }, "update_guest failed");
-              return guestFailure(err, "update the guest");
+              return guestFailure(err, "update the guest", unsure);
             }
           },
         }),
@@ -1547,14 +1563,16 @@
           execute: async ({ guest, contact, text }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId }, "add_guest_note tool called");
+            let unsure: string | undefined;
             try {
               const found = await findGuest(api, venueId, guest, contact);
               if ("error" in found) return found;
+              unsure = GUEST_SAVE_UNSURE;
               await api.guests.addNote(found.guest.id, text);
               return { noted: true, guest: found.guest.name };
             } catch (err) {
               log.error({ err, venueId }, "add_guest_note failed");
-              return guestFailure(err, "add the note");
+              return guestFailure(err, "add the note", unsure);
             }
           },
         }),
@@ -1568,6 +1586,7 @@
           execute: async ({ guest }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId }, "send_win_back tool called");
+            let unsure: string | undefined;
             try {
               const lapsing = await api.guests.getLapsing(venueId);
               const matches = lapsing.filter((g) => sameText(g.name, guest));
@@ -1579,6 +1598,7 @@
                       : `More than one lapsing guest is called ${guest}. Send it from the Dashboard instead.`,
                 };
               }
+              unsure = winBackUnsure(matches[0]!.name);
               const { sent } = await api.guests.sendWinBack(matches[0]!.guestId);
               return sent
                 ? { sent: true, guest: matches[0]!.name }
@@ -1589,7 +1609,7 @@
                   };
             } catch (err) {
               log.error({ err, venueId }, "send_win_back failed");
-              return guestFailure(err, "send the win-back message");
+              return guestFailure(err, "send the win-back message", unsure);
             }
           },
         }),
@@ -1608,11 +1628,13 @@
       const [whole = "0", fraction = ""] = price.split(".");
       return Number(whole) * CENTS_PER_UNIT + Number(fraction.padEnd(2, "0"));
     }
-    function menuFailure(err: unknown) {
+    function menuFailure(err: unknown, unsure: string | undefined) {
       const refusal = refusalOf(err);
       if (!refusal) {
         return {
-          error: "Couldn't change the menu right now. Nothing was changed. Ask the user to try again.",
+          error:
+            unsure ??
+            "Couldn't change the menu right now. Nothing was changed. Ask the user to try again.",
         };
       }
       if (refusal.status === 403) {
@@ -1739,6 +1761,7 @@
           execute: async ({ menu, item, section, availability }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId, availability }, "set_menu_item_availability tool called");
+            let unsure: string | undefined;
             try {
               const target = await resolveTarget(api, venueId, menu, item, section);
               if ("error" in target) return target;
@@ -1749,13 +1772,14 @@
                 };
               }
               const status = availability === "sold_out" ? "SOLD_OUT" : "AVAILABLE";
+              unsure = MENU_SAVE_UNSURE;
               await api.menus.updateItem(venueId, target.menuId, target.section.id, target.item.id, {
                 status,
               });
               return { updated: true, item: target.item.name, status };
             } catch (err) {
               log.error({ err, venueId }, "set_menu_item_availability failed");
-              return menuFailure(err);
+              return menuFailure(err, unsure);
             }
           },
         }),
@@ -1782,9 +1806,11 @@
           execute: async ({ menu, item, section, price, name, description }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId }, "update_menu_item tool called");
+            let unsure: string | undefined;
             try {
               const target = await resolveTarget(api, venueId, menu, item, section);
               if ("error" in target) return target;
+              unsure = MENU_SAVE_UNSURE;
               await api.menus.updateItem(venueId, target.menuId, target.section.id, target.item.id, {
                 ...(price !== undefined ? { priceCents: priceToCents(price) } : {}),
                 ...(name !== undefined ? { name } : {}),
@@ -1793,7 +1819,7 @@
               return { updated: true, item: name ?? target.item.name };
             } catch (err) {
               log.error({ err, venueId }, "update_menu_item failed");
-              return menuFailure(err);
+              return menuFailure(err, unsure);
             }
           },
         }),
@@ -1883,6 +1909,7 @@
         "Never ask the user for a venue ID, reservation ID, or table ID: look them up with the tools.",
         "Your earlier replies in this conversation were based on tool results that aren't shown to you again. Treat them as accurate: don't apologize for or correct them unless a new tool result actually contradicts them. When you need an earlier detail, such as an ID, look it up again.",
         "A change (booking, seating, no-show, walk-in, cancellation, table status, Tonight availability, closures and special hours, waitlist, guest profile, menu items, the active floor plan) runs only when the user presses the Confirm or Cancel button the chat shows with it. Tell them to use those buttons, and never ask them to type yes: typing a new message dismisses the pending change.",
+        "When a tool says it couldn't confirm a change, the change may have been saved: tell the user so, never say nothing changed, and check with the read it names before proposing it again. send_win_back has no read to check, so never propose it again for that guest unless the user accepts the guest could get the message twice.",
         "Ask only for details the user has to decide, such as guest name, party size, or time. When a reservation's end time isn't given, use two hours after the start.",
         "Reply in short, plain sentences in the user's language. Don't use markdown: the chat shows plain text.",
         "Show elements only by calling render_component with an elements array: each element has a unique id, a type from the components below, its props, and children as a list of other elements' ids; an element no other element lists is shown at the top level. Never write JSON, element specs or patch lines in your reply text.",
@@ -1915,12 +1942,18 @@
   </file>
   <file path="src/routes/gen-agent-timeline-tools.ts">
     type Reservation = Awaited<ReturnType<ApiClient["reservations"]["get"]>>;
-    function bookingWriteFailure(err: unknown, action: string, saved?: string) {
+    export function bookingWriteFailure(
+      err: unknown,
+      action: string,
+      unsure: string | undefined,
+      saved?: string
+    ) {
       const outcome = saved
         ? `${saved} was already saved; check the timeline before trying again.`
         : "Nothing was changed.";
       const refusal = refusalOf(err);
       if (!refusal) {
+        if (unsure) return { error: saved ? `${saved} was already saved. ${unsure}` : unsure };
         return { error: `Couldn't ${action} right now. ${outcome} Ask the user to try again shortly.` };
       }
       if (refusal.status === 403) {
@@ -1960,6 +1993,7 @@
             if (!venueId) return NO_VENUE;
             log.info({ venueId, reservationId, tableRef }, "seat_reservation tool called");
             let saved: string | undefined;
+            let unsure: string | undefined;
             try {
               const found = await venueReservation(api, venueId, reservationId);
               if ("error" in found) return found;
@@ -1987,6 +2021,7 @@
               // The server has no CONFIRMED -> CONFIRMED edge, so only a pending booking changes
               // status; and it refuses a status change combined with a table change, so they go
               // as separate requests.
+              unsure = saveUnsure("lookup_reservation and get_table_status");
               if (reservation.status === "PENDING") {
                 await api.reservations.update(reservationId, { status: "CONFIRMED" });
                 saved = "Confirming the booking";
@@ -2001,7 +2036,7 @@
               return { seated: true, table: tableLabel };
             } catch (err) {
               log.error({ err, venueId, reservationId }, "seat_reservation failed");
-              return bookingWriteFailure(err, "seat the party", saved);
+              return bookingWriteFailure(err, "seat the party", unsure, saved);
             }
           },
         }),
@@ -2012,14 +2047,16 @@
           execute: async ({ reservationId }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId, reservationId }, "mark_no_show tool called");
+            let unsure: string | undefined;
             try {
               const found = await venueReservation(api, venueId, reservationId);
               if ("error" in found) return found;
+              unsure = saveUnsure("lookup_reservation");
               const { warning } = await api.reservations.markNoShow(reservationId);
               return { noShow: true, ...(warning ? { warning } : {}) };
             } catch (err) {
               log.error({ err, venueId, reservationId }, "mark_no_show failed");
-              return bookingWriteFailure(err, "mark the no-show");
+              return bookingWriteFailure(err, "mark the no-show", unsure);
             }
           },
         }),
@@ -2052,11 +2089,16 @@
                       ...(reason ? { cancellationReason: reason } : {}),
                       ...(note ? { cancellationNote: note } : {}),
                     })
-                  : await api.reservations.cancel(reservationId);
+                  : await api.reservations.cancel(reservationId, NO_REPLAY);
               return { reservation };
             } catch (err) {
               log.error({ err, reservationId }, "cancel_reservation failed");
-              return { error: "Failed to cancel reservation. Please try again." };
+              // The write is the tool's first call, so any failure may have saved.
+              return bookingWriteFailure(
+                err,
+                "cancel the reservation",
+                saveUnsure("lookup_reservation")
+              );
             }
           },
         }),
@@ -2157,7 +2199,7 @@
     }
     function createFailureResult(err: unknown) {
       const refusal = refusalOf(err);
-      if (!refusal) return { error: "Failed to create reservation. Please try again." };
+      if (!refusal) return { error: saveUnsure("lookup_reservation") };
       if (!FINAL_REFUSAL_STATUSES.has(refusal.status)) {
         // e.g. a 400 from our own malformed request: not the venue's decision.
         return { error: `Failed to create reservation: ${refusal.detail}` };
@@ -2397,7 +2439,7 @@
             if (!venueId) return NO_VENUE;
             log.info({ venueId }, "get_table_status tool called");
             try {
-              const result = await api.tables.list({ venueId });
+              const result = await api.tables.list({ venueId, limit: TABLES_LIMIT });
               return { tables: result.data };
             } catch (err) {
               log.error({ err, venueId }, "get_table_status failed");
@@ -2509,7 +2551,12 @@
               return { reservation };
             } catch (err) {
               log.error({ err, reservationId }, "modify_reservation failed");
-              return { error: "Failed to modify reservation. Please try again." };
+              // The write is the tool's first call, so any failure may have saved.
+              return bookingWriteFailure(
+                err,
+                "modify the reservation",
+                saveUnsure("lookup_reservation")
+              );
             }
           },
         }),
@@ -2543,7 +2590,8 @@
               return { reservation };
             } catch (err) {
               log.error({ err, venueId, partySize }, "seat_walk_in failed");
-              return { error: "Failed to seat walk-in. Please try again." };
+              // The write is the tool's first call, so any failure may have saved.
+              return bookingWriteFailure(err, "seat the walk-in", saveUnsure("get_table_status"));
             }
           },
         }),
@@ -2558,16 +2606,18 @@
           execute: async ({ table: tableRef, status: newStatus }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId, tableRef, newStatus }, "update_table_status tool called");
+            let unsure: string | undefined;
             try {
-              const tablesResult = await api.tables.list({ venueId });
+              const tablesResult = await api.tables.list({ venueId, limit: TABLES_LIMIT });
               const resolved = resolveTable(tablesResult.data, tableRef);
               if ("error" in resolved) return resolved;
               const { table } = resolved;
+              unsure = saveUnsure("get_table_status");
               const updated = await api.tables.updateStatus(table.id, newStatus);
               return { table: updated };
             } catch (err) {
               log.error({ err, venueId, tableRef }, "update_table_status failed");
-              return { error: "Failed to update table status. Please try again." };
+              return bookingWriteFailure(err, "update the table status", unsure);
             }
           },
         }),
@@ -2586,11 +2636,12 @@
   </file>
   <file path="src/routes/gen-agent-waitlist-tools.ts">
     type WaitlistEntry = Awaited<ReturnType<ApiClient["waitlist"]["list"]>>[number];
-    function waitlistFailure(err: unknown, action: string) {
+    function waitlistFailure(err: unknown, action: string, unsure: string | undefined) {
       const refusal = refusalOf(err);
       if (!refusal) {
         return {
-          error: `Couldn't ${action} right now. Nothing was changed. Ask the user to try again.`,
+          error:
+            unsure ?? `Couldn't ${action} right now. Nothing was changed. Ask the user to try again.`,
         };
       }
       if (refusal.status === 403) {
@@ -2689,7 +2740,8 @@
               };
             } catch (err) {
               log.error({ err, venueId }, "add_to_waitlist failed");
-              return waitlistFailure(err, "add the party");
+              // The write is the tool's first call, so any failure may have saved.
+              return waitlistFailure(err, "add the party", WAITLIST_SAVE_UNSURE);
             }
           },
         }),
@@ -2701,6 +2753,7 @@
           execute: async ({ guestName, partySize }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId }, "notify_waitlist_party tool called");
+            let unsure: string | undefined;
             try {
               const found = await findParty(api, venueId, guestName, partySize);
               if ("error" in found) return found;
@@ -2711,11 +2764,12 @@
                   error: `${found.entry.guestName} was already told their table is ready${at ? ` at ${at}` : ""}. No new text was sent.`,
                 };
               }
+              unsure = WAITLIST_SAVE_UNSURE;
               await api.waitlist.notify(found.entry.id);
               return { notified: true, guestName: found.entry.guestName };
             } catch (err) {
               log.error({ err, venueId }, "notify_waitlist_party failed");
-              return waitlistFailure(err, "notify the party");
+              return waitlistFailure(err, "notify the party", unsure);
             }
           },
         }),
@@ -2731,6 +2785,7 @@
             if (!venueId) return NO_VENUE;
             log.info({ venueId, tableRef }, "seat_waitlist_party tool called");
             let seatedAt: string | undefined;
+            let unsure: string | undefined;
             try {
               const found = await findParty(api, venueId, guestName, partySize);
               if ("error" in found) return found;
@@ -2745,6 +2800,8 @@
                   error: `Table ${label} is ${table.status.toLowerCase()}, so the party can't be seated there. Nothing was changed.`,
                 };
               }
+              // The walk-in is what would have saved, and the party stays listed either way.
+              unsure = saveUnsure("get_table_status");
               await api.reservations.walkIn({
                 venueId,
                 partySize: entry.partySize,
@@ -2765,7 +2822,7 @@
                   note: `The party is seated at ${seatedAt}, but they are still shown on the waitlist. Tell the user to remove them from the Waitlist page.`,
                 };
               }
-              return waitlistFailure(err, "seat the party");
+              return waitlistFailure(err, "seat the party", unsure);
             }
           },
         }),
@@ -2777,14 +2834,16 @@
           execute: async ({ guestName, partySize }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId }, "remove_from_waitlist tool called");
+            let unsure: string | undefined;
             try {
               const found = await findParty(api, venueId, guestName, partySize);
               if ("error" in found) return found;
+              unsure = WAITLIST_SAVE_UNSURE;
               await api.waitlist.cancel(found.entry.id);
               return { removed: true, guestName: found.entry.guestName };
             } catch (err) {
               log.error({ err, venueId }, "remove_from_waitlist failed");
-              return waitlistFailure(err, "remove the party");
+              return waitlistFailure(err, "remove the party", unsure);
             }
           },
         }),
@@ -3853,6 +3912,10 @@
         ...(typeof reason === "string" ? { reason } : {}),
       };
     }
+    export function saveUnsure(read: string): string {
+      return `Couldn't confirm the change was saved. Check ${read} before trying again.`;
+    }
+    export const NO_REPLAY = { maxRetries: 0 } as const;
     export interface NamedTable {
       readonly id: string;
       readonly name?: string | null;
