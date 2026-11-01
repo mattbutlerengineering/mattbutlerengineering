@@ -204,6 +204,24 @@
       ): readonly number[] { /* ... */ }
     </item>
     <item priority="high">
+      export function settleStartMinute(
+        prev: CloseForm,
+        next: CloseForm,
+        config: AvailabilityConfig,
+        timezone: string,
+        today: string
+      ): CloseForm { /* ... */ }
+    </item>
+    <item priority="medium">
+      function whatOf(series: DateRule): CloseWhat { /* ... */ }
+    </item>
+    <item priority="high">
+      export function seriesForm(series: DateRule, date: string): CloseForm { /* ... */ }
+    </item>
+    <item priority="high">
+      export function inSeries(rule: DateRule | null, series: DateRule | undefined): DateRule | null { /* ... */ }
+    </item>
+    <item priority="high">
       export function sameRequest(a: CloseForm, b: CloseForm): boolean { /* ... */ }
     </item>
     <item priority="high">
@@ -232,6 +250,15 @@
           readonly repeat?: { readonly weekdays: readonly number[] } | null;
           readonly fromMinute: number | null;
         },
+        today: string,
+        nowMinute: number
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isPauseInForce(
+        rule: DateRule,
+        config: AvailabilityConfig,
+        timezone: string,
         today: string,
         nowMinute: number
       ): boolean { /* ... */ }

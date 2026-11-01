@@ -323,6 +323,29 @@ describe("SeriesEditDialog after someone else's change (#7978)", () => {
     });
   });
 
+  it("does not say nothing changed when a config save gets a 502, which may have committed (#8032)", async () => {
+    saveConfig.mockRejectedValueOnce(
+      new ApiClientError(
+        {
+          type: "about:blank",
+          title: "Bad Gateway",
+          status: 502,
+          detail: "Bad gateway",
+          code: "bad-gateway",
+        } as never,
+        "PUT",
+        "availability/config"
+      )
+    );
+    renderSeriesDialog([{ ...SERIES, repeat: { version: 1, weekdays: [1, 3] } }]);
+    fireEvent.click(screen.getByRole("radio", { name: "All dates in the series" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Wed" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText(/hit a snag/)).toBeTruthy();
+    expect(screen.queryByText(/nothing was changed/)).toBeNull();
+  });
+
   it("leaves without asking after Back from a refusal that decided nothing (#7978)", async () => {
     create.mockRejectedValueOnce(
       new ApiClientError(

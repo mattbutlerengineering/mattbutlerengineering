@@ -7,9 +7,11 @@ import {
   buildCloseRule,
   closedDates,
   decisionsReady,
+  isPauseInForce,
   isUrgent,
   outcomeCounts,
   replacedSpecialDate,
+  settleStartMinute,
   startMinutes,
   toDecisions,
   validateClose,
@@ -226,6 +228,90 @@ describe("isUrgent", () => {
   });
 });
 
+describe("settleStartMinute (#8032)", () => {
+  const MONDAY = "2026-12-21";
+  /** The fixture week's dinner to `closesAt`; 2026-12-25, a Friday, is its only open day. */
+  const config = (closesAt: number) => {
+    const base = fixtureConfig();
+    return {
+      ...base,
+      scheduleServices: base.scheduleServices.map((s) => ({ ...s, closesAt })),
+    };
+  };
+  const monday = form({ when: { kind: "date", date: MONDAY }, fromMinute: 60 });
+  const toRange = (to: string): CloseForm => ({
+    ...monday,
+    when: { kind: "range", from: MONDAY, to },
+  });
+  const settled = (next: CloseForm, closesAt = 1560) =>
+    settleStartMinute(monday, next, config(closesAt), "America/Los_Angeles", TODAY);
+
+  it("drops a time before opening once a covered day runs past midnight", () => {
+    expect(settled(toRange("2026-12-27")).fromMinute).toBeNull();
+  });
+
+  it("keeps it when no covered day runs past midnight", () => {
+    expect(settled(toRange("2026-12-27"), 1380).fromMinute).toBe(60);
+    expect(settled(toRange("2026-12-22")).fromMinute).toBe(60);
+  });
+
+  it("keeps a time after midnight, which means what it says on the late day", () => {
+    const next = { ...toRange("2026-12-27"), fromMinute: 1500 };
+    expect(settled(next).fromMinute).toBe(1500);
+  });
+
+  it("waits for When to be complete", () => {
+    expect(settled(toRange("")).fromMinute).toBe(60);
+  });
+
+  it("leaves a time alone when When did not change: a series keeps its own", () => {
+    const friday = form({ when: { kind: "date", date: "2026-12-25" }, fromMinute: 60 });
+    const next = { ...friday, staffNote: "note" };
+    const result = settleStartMinute(friday, next, config(1560), "America/Los_Angeles", TODAY);
+    expect(result.fromMinute).toBe(60);
+  });
+});
+
+describe("a repeat with no date in its range (#8032)", () => {
+  // 2026-12-21 is a Monday: no Friday falls in Monday and Tuesday.
+  const noFriday = form({
+    when: { kind: "repeats", weekdays: [5], from: "2026-12-21", to: "2026-12-22" },
+  });
+
+  it("blocks Next and builds no rule, because it would close nothing", () => {
+    expect(validateClose(noFriday, TODAY)).toBe("when");
+    expect(buildCloseRule(noFriday, "id", TODAY)).toBeNull();
+  });
+});
+
+describe("activeOnlinePause, for a pause waiting for its time (#8032)", () => {
+  const FRIDAY = "2026-11-06";
+  const SATURDAY = "2026-11-07";
+  const pause = (id: string, window: DateRule["window"]) =>
+    ({
+      id,
+      kind: "closure",
+      targetKind: "booking",
+      bookingTypes: ["online"],
+      startsOn: FRIDAY,
+      endsOn: null,
+      window,
+    }) as DateRule;
+  const fromSix = pause("six", { version: 1, from: 18 * 60, to: 2880 });
+  const TZ = "America/Los_Angeles";
+
+  it("still finds it, the morning after and before its first evening", () => {
+    const config = fixtureConfig(fromSix);
+    expect(activeOnlinePause(config, TZ, SATURDAY, 10 * 60)?.id).toBe("six");
+    expect(activeOnlinePause(config, TZ, FRIDAY, 10 * 60)?.id).toBe("six");
+  });
+
+  it("prefers a pause in force over one that is waiting", () => {
+    const config = fixtureConfig(fromSix, pause("now", null));
+    expect(activeOnlinePause(config, TZ, SATURDAY, 10 * 60)?.id).toBe("now");
+  });
+});
+
 describe("activeOnlinePause", () => {
   const rule = (patch: Record<string, unknown>) =>
     ({
@@ -244,7 +330,9 @@ describe("activeOnlinePause", () => {
   const pausedAt = (r: DateRule, today: string, minute: number, closesAt = 1380) => {
     const base = fixtureConfig(r);
     const scheduleServices = base.scheduleServices.map((s) => ({ ...s, closesAt }));
-    return activeOnlinePause({ ...base, scheduleServices }, TZ, today, minute);
+    const config = { ...base, scheduleServices };
+    const found = activeOnlinePause(config, TZ, today, minute);
+    return found && isPauseInForce(found, config, TZ, today, minute) ? found : null;
   };
 
   it("finds an open-ended online pause that has started", () => {

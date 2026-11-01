@@ -17,10 +17,13 @@ import {
   buildCloseRule,
   closedDates,
   decisionsReady,
+  inSeries,
   isUrgent,
   outcomeCounts,
   replacedSpecialDate,
   sameRequest,
+  seriesForm,
+  settleStartMinute,
   startMinutes,
   toDecisions,
   validateClose,
@@ -83,36 +86,6 @@ function initialForm(props: CloseDialogProps): CloseForm {
   };
 }
 
-function whatOf(series: DateRule): CloseForm["what"] {
-  if (series.targetKind === "service" && series.venueServiceId) {
-    return { kind: "service", serviceId: series.venueServiceId };
-  }
-  if (series.targetKind === "booking" && series.bookingTypes?.length) {
-    return { kind: "booking", types: [...series.bookingTypes] };
-  }
-  return { kind: "venue" };
-}
-
-/** The form for editing one date of `series`: the series' target and start time, on that date. */
-function seriesForm(series: DateRule, date: string): CloseForm {
-  return {
-    what: whatOf(series),
-    when: { kind: "date", date },
-    fromMinute: series.window?.from ?? null,
-    staffNote: "",
-    guestMessage: "",
-  };
-}
-
-/**
- * An edit of one date of a series. The engine applies a rule with a `seriesId` on its start date
- * only, so the rule is pinned to that single date whatever the form says.
- */
-function inSeries(rule: DateRule | null, series: DateRule | undefined): DateRule | null {
-  if (!rule || !series) return rule;
-  return { ...rule, seriesId: series.id, endsOn: rule.startsOn, repeat: null };
-}
-
 /** The button for a booking-only closure names the channels it pauses, not always "online". */
 function pauseLabel(types: readonly BookingChannel[], t: TFunction): string {
   const only = types.length === 1 ? types[0] : undefined;
@@ -150,7 +123,8 @@ export function CloseDialog(props: CloseDialogProps) {
   const { ruleId, idempotencyKey, earlier } = attempts;
   const savedEarlier = earlier !== undefined;
   const leave = () => attempts.leave(isPending);
-  const edit = (next: CloseForm) => {
+  const edit = (changed: CloseForm) => {
+    const next = settleStartMinute(form, changed, state.config, timezone, today);
     if (!sameRequest(next, form)) {
       setChoices({});
       attempts.restart();
@@ -217,14 +191,16 @@ export function CloseDialog(props: CloseDialogProps) {
       });
       const { cancel, move, keep_notify } = result.outcomes;
       const notified = cancel + move + keep_notify;
+      // A repeat's From date may not be one of its days.
+      const date = fullDate(closedDates(rule)[0] ?? startsOn);
       const title =
         notified > 0
-          ? t("availability.close.toast.notified", { date: fullDate(startsOn), count: notified })
+          ? t("availability.close.toast.notified", { date, count: notified })
           : form.what.kind === "booking"
             ? form.what.types.length === 1 && form.what.types[0] === "online"
               ? t("availability.close.toast.paused")
-              : t("availability.close.toast.bookingPaused", { date: fullDate(startsOn) })
-            : t("availability.close.toast.closed", { date: fullDate(startsOn) });
+              : t("availability.close.toast.bookingPaused", { date })
+            : t("availability.close.toast.closed", { date });
       toast({ title, variant: "success" });
       onClose();
     } catch (error) {

@@ -58,7 +58,7 @@ export function refusalText(refusal: Refusal, t: TFunction): string {
     case "closure-exists":
       return t("availability.close.alreadySaved");
     case "other":
-      // The house sentence for a 5xx says nothing was changed, which a gateway cannot know.
+      // The house sentence for a 5xx does not say this save may have gone through; this one does.
       return refusal.outcomeUnknown && refusal.category === "serverError"
         ? t("availability.close.maybeSaved")
         : refusal.detail;

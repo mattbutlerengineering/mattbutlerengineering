@@ -1655,6 +1655,7 @@
     },
     "kind": {
       "closure": "Cerrado",
+      "bookingPaused": "Reservas en pausa: {{channels}}",
       "specialHours": "Horario especial"
     },
     "repeating": "Recurrente",
@@ -2294,7 +2295,7 @@
       "back": "Atrás",
       "cancel": "Cancelar",
       "saveError": "No se pudo cerrar",
-      "versionConflict": "La disponibilidad cambió desde que abriste esto. Cierra este diálogo e inténtalo de nuevo.",
+      "versionConflict": "La disponibilidad cambió desde que abriste esto. Ya se cargó lo más reciente: revisa tus opciones y guarda de nuevo.",
       "groupsChanged": "Las reservaciones cambiaron mientras decidías. Revisa la lista actualizada y elige de nuevo.",
       "alreadySaved": "Este cierre ya se guardó y sus reservaciones se atendieron. Revisa las fechas especiales antes de cerrar de nuevo.",
       "maybeSaved": "El servicio de reservaciones tuvo un problema y no pudimos confirmar este guardado. Pudo haberse aplicado. Intenta de nuevo sin cambios para ver qué pasó.",
@@ -2344,7 +2345,7 @@
         "fromLabel": "Desde",
         "toLabel": "Hasta",
         "weekdays": "Se repite los",
-        "invalid": "Revisa las fechas: el final no puede ser antes del inicio."
+        "invalid": "Revisa las fechas: el final no puede ser antes del inicio, y una repetición necesita un día elegido entre ambas."
       },
       "window": {
         "label": "Desde las",
@@ -2458,7 +2459,11 @@
       "resume": "Reanudar",
       "resumed": "Reservas en línea reanudadas",
       "resumeError": "No se pudieron reanudar las reservas en línea",
-      "pill": "Reservas en línea en pausa"
+      "pill": "Reservas en línea en pausa",
+      "waiting": "Las reservas en línea están abiertas ahora. Se pausan desde las {{time}} cada día.",
+      "remove": "Quitar pausa",
+      "removed": "Pausa de reservas en línea quitada",
+      "removeError": "No se pudo quitar la pausa"
     },
     "selection": {
       "selectColumn": "Seleccionar cada {{weekday}}",

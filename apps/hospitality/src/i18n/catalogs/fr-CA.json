@@ -1655,6 +1655,7 @@
     },
     "kind": {
       "closure": "Fermé",
+      "bookingPaused": "Réservations suspendues : {{channels}}",
       "specialHours": "Horaire spécial"
     },
     "repeating": "Récurrente",
@@ -2294,7 +2295,7 @@
       "back": "Retour",
       "cancel": "Annuler",
       "saveError": "Impossible de fermer",
-      "versionConflict": "Les disponibilités ont changé depuis l'ouverture de cette fenêtre. Fermez-la et réessayez.",
+      "versionConflict": "Les disponibilités ont changé depuis l'ouverture de cette fenêtre. La version la plus récente est chargée : vérifiez vos choix et enregistrez de nouveau.",
       "groupsChanged": "Les réservations ont changé pendant votre décision. Passez en revue la liste à jour et choisissez de nouveau.",
       "alreadySaved": "Cette fermeture est déjà enregistrée et ses réservations ont été traitées. Consultez les dates spéciales avant de fermer de nouveau.",
       "maybeSaved": "Le service de réservations a eu un problème et nous n'avons pas pu confirmer cet enregistrement. Il a peut-être été appliqué. Réessayez sans modification pour voir ce qui s'est passé.",
@@ -2344,7 +2345,7 @@
         "fromLabel": "Du",
         "toLabel": "Au",
         "weekdays": "Se répète le",
-        "invalid": "Vérifiez les dates : la fin ne peut pas précéder le début."
+        "invalid": "Vérifiez les dates : la fin ne peut pas précéder le début, et une répétition doit avoir un jour choisi entre les deux."
       },
       "window": {
         "label": "À partir de",
@@ -2458,7 +2459,11 @@
       "resume": "Reprendre",
       "resumed": "Réservations en ligne reprises",
       "resumeError": "Impossible de reprendre les réservations en ligne",
-      "pill": "Réservations en ligne suspendues"
+      "pill": "Réservations en ligne suspendues",
+      "waiting": "Les réservations en ligne sont ouvertes pour l'instant. Elles sont suspendues à partir de {{time}} chaque jour.",
+      "remove": "Retirer la suspension",
+      "removed": "Suspension des réservations en ligne retirée",
+      "removeError": "Impossible de retirer la suspension"
     },
     "selection": {
       "selectColumn": "Sélectionner chaque {{weekday}}",

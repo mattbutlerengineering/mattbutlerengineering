@@ -277,7 +277,8 @@
       const span = spanOf(when, today);
       if (span.startsOn === "") return false;
       if (span.endsOn !== null && (span.endsOn === "" || span.endsOn < span.startsOn)) return false;
-      return span.weekdays === undefined || span.weekdays.length > 0;
+      // A repeat with no day picked, or none in its range, would save and close nothing.
+      return guestDateOf(when, today) !== null;
     }
     export function validateClose(form: CloseForm, today: string): CloseField | null {
       if (!whatIsComplete(form.what)) return "what";
@@ -384,6 +385,47 @@
         ? [...options, keep].sort((a, b) => a - b)
         : options;
     }
+    export function settleStartMinute(
+      prev: CloseForm,
+      next: CloseForm,
+      config: AvailabilityConfig,
+      timezone: string,
+      today: string
+    ): CloseForm {
+      if (next.when === prev.when || next.fromMinute === null) return next;
+      if (!whenIsComplete(next.when, today)) return next;
+      const { startsOn, endsOn, weekdays } = spanOf(next.when, today);
+      const repeat = weekdays ? { version: 1 as const, weekdays: [...weekdays] } : null;
+      const [first = 0] = startMinutes(
+        config,
+        timezone,
+        closedDates({ startsOn, endsOn, repeat }),
+        null
+      );
+      return next.fromMinute < first ? { ...next, fromMinute: null } : next;
+    }
+    function whatOf(series: DateRule): CloseWhat {
+      if (series.targetKind === "service" && series.venueServiceId) {
+        return { kind: "service", serviceId: series.venueServiceId };
+      }
+      if (series.targetKind === "booking" && series.bookingTypes?.length) {
+        return { kind: "booking", types: [...series.bookingTypes] };
+      }
+      return { kind: "venue" };
+    }
+    export function seriesForm(series: DateRule, date: string): CloseForm {
+      return {
+        what: whatOf(series),
+        when: { kind: "date", date },
+        fromMinute: series.window?.from ?? null,
+        staffNote: "",
+        guestMessage: "",
+      };
+    }
+    export function inSeries(rule: DateRule | null, series: DateRule | undefined): DateRule | null {
+      if (!rule || !series) return rule;
+      return { ...rule, seriesId: series.id, endsOn: rule.startsOn, repeat: null };
+    }
     export function sameRequest(a: CloseForm, b: CloseForm): boolean {
       const key = (f: CloseForm) => JSON.stringify([f.what, f.when, f.fromMinute]);
       return key(a) === key(b);
@@ -447,28 +489,38 @@
       const startMinute = (startsOn === today ? 0 : MINUTES_PER_DAY) + (closure.fromMinute ?? 0);
       return startMinute - nowMinute <= URGENT_WITHIN_MINUTES;
     }
+    export function isPauseInForce(
+      rule: DateRule,
+      config: AvailabilityConfig,
+      timezone: string,
+      today: string,
+      nowMinute: number
+    ): boolean {
+      if (!rule.window || rule.window.from <= nowMinute) return true;
+      const yesterdayMinute = nowMinute + MINUTES_PER_DAY;
+      return (
+        rule.startsOn < today &&
+        rule.window.from <= yesterdayMinute &&
+        yesterdayMinute < lastCloseOf(resolveDay({ timezone, config }, addDays(today, -1)).services)
+      );
+    }
     export function activeOnlinePause(
       config: AvailabilityConfig,
       timezone: string,
       today: string,
       nowMinute: number
     ): DateRule | null {
-      const yesterdayMinute = nowMinute + MINUTES_PER_DAY;
-      const yesterdayRunning = () =>
-        yesterdayMinute < lastCloseOf(resolveDay({ timezone, config }, addDays(today, -1)).services);
+      const pauses = config.dateRules.filter(
+        (r) =>
+          r.kind === "closure" &&
+          r.targetKind === "booking" &&
+          (r.bookingTypes ?? []).includes("online") &&
+          r.startsOn <= today &&
+          (r.endsOn === null || r.endsOn === undefined) &&
+          !r.repeat
+      );
       return (
-        config.dateRules.find(
-          (r) =>
-            r.kind === "closure" &&
-            r.targetKind === "booking" &&
-            (r.bookingTypes ?? []).includes("online") &&
-            r.startsOn <= today &&
-            (r.endsOn === null || r.endsOn === undefined) &&
-            !r.repeat &&
-            (!r.window ||
-              r.window.from <= nowMinute ||
-              (r.startsOn < today && r.window.from <= yesterdayMinute && yesterdayRunning()))
-        ) ?? null
+        pauses.find((r) => isPauseInForce(r, config, timezone, today, nowMinute)) ?? pauses[0] ?? null
       );
     }
   </file>
@@ -2523,7 +2575,7 @@
         case "closure-exists":
           return t("availability.close.alreadySaved");
         case "other":
-          // The house sentence for a 5xx says nothing was changed, which a gateway cannot know.
+          // The house sentence for a 5xx does not say this save may have gone through; this one does.
           return refusal.outcomeUnknown && refusal.category === "serverError"
             ? t("availability.close.maybeSaved")
             : refusal.detail;
@@ -10129,7 +10181,8 @@
         ...RETRY,
       },
       serverError: {
-        detail: "The reservations service hit a snag — nothing was changed. Try again in a moment.",
+        // Never "nothing was changed": a 5xx from a gateway can follow a write that committed.
+        detail: "The reservations service hit a snag. Try again in a moment.",
         ...RETRY,
       },
       rateLimited: {
@@ -10164,7 +10217,7 @@
         recovery: "refresh",
       },
       unknown: {
-        detail: "That didn't go through. Try again — if it keeps happening, tell your manager.",
+        detail: "Something went wrong. Try again — if it keeps happening, tell your manager.",
         ...RETRY,
       },
     };
