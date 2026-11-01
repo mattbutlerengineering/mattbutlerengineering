@@ -145,11 +145,12 @@
   overflow: hidden;
 }
 
-/* ── Responsive: phones keep only the header controls that fit ── */
+/* ── Responsive: phones drop the keyboard-shortcut hint (no touch
+   affordance) but keep the product name — a lone diamond with no brand
+   next to it reads as a rendering bug, not a logo (#7962) ── */
 
 @media (max-width: 767px) {
-  .shortcutHint,
-  .logoText {
+  .shortcutHint {
     display: none;
   }
 }
