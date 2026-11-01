@@ -7584,6 +7584,15 @@
     }: UseCommandPaletteOptions): UseCommandPaletteResult {
       const [open, setOpen] = useState(false);
     
+      // A resize can change what the page mounts under the palette, and what mounts takes focus from
+      // it, so keys typed into the palette would act there (#8029). The palette closes instead.
+      const viewport = useViewport();
+      const [openedAt, setOpenedAt] = useState(viewport);
+      if (viewport !== openedAt) {
+        setOpenedAt(viewport);
+        setOpen(false);
+      }
+    
       const items = useMemo(
         () => [...buildNavItems(sections, runAction), ...buildActionItems(runAction, toggleTheme)],
         [sections, runAction, toggleTheme]
@@ -8641,8 +8650,17 @@
       | { readonly kind: "firstIn"; readonly testId: string }
       /** The `PageHeader` h1, which carries `tabIndex={-1}` for this purpose. */
       | { readonly kind: "pageHeading" };
+    export interface FocusOptions {
+      /**
+       * Drop the request if, once its target is found, a modal dialog covers it. For a response that may
+       * land late: keys on a covered target act behind the dialog on top. Judged after the commit, so a
+       * dialog closing with the request does not count.
+       */
+      readonly unlessCovered?: boolean;
+    }
+    export const UNLESS_COVERED: FocusOptions = { unlessCovered: true };
     export interface FocusAfterApi {
-      readonly focusAfter: (target: FocusTarget) => void;
+      readonly focusAfter: (target: FocusTarget, options?: FocusOptions) => void;
     }
     function resolveTarget(target: FocusTarget): HTMLElement | null {
       switch (target.kind) {
@@ -8656,24 +8674,43 @@
           return document.querySelector<HTMLElement>("h1");
       }
     }
+    export function isCoveredByDialog(element: Element | null): boolean {
+      const own = element?.closest(MODAL_DIALOG) ?? null;
+      return Array.from(document.querySelectorAll(MODAL_DIALOG)).some((dialog) => {
+        if (dialog === own || dialog.closest("[inert]")) return false;
+        if (!own) return true;
+        const later = own.compareDocumentPosition(dialog) & Node.DOCUMENT_POSITION_FOLLOWING;
+        return Boolean(later) || dialog.contains(document.activeElement);
+      });
+    }
     export function useFocusAfter(): FocusAfterApi {
-      const pendingRef = useRef<FocusTarget | null>(null);
+      const pendingRef = useRef<{
+        target: FocusTarget;
+        options?: FocusOptions;
+        requestedAt: number;
+      } | null>(null);
       // A request re-renders the owner so the effect below runs even when nothing else changed.
       const [, requestRender] = useReducer((count: number) => count + 1, 0);
     
-      const focusAfter = useCallback((target: FocusTarget) => {
-        pendingRef.current = target;
+      const focusAfter = useCallback((target: FocusTarget, options?: FocusOptions) => {
+        pendingRef.current = { target, options, requestedAt: performance.now() };
         requestRender();
       }, []);
     
       // After every commit: resolve the pending target, focus it once, forget it. No state is set here.
       useEffect(() => {
-        const target = pendingRef.current;
-        if (!target) return;
-        const element = resolveTarget(target);
+        const pending = pendingRef.current;
+        if (!pending) return;
+        const focusIsLoose = !document.activeElement || document.activeElement === document.body;
+        if (performance.now() - pending.requestedAt > PENDING_TTL_MS && !focusIsLoose) {
+          pendingRef.current = null;
+          return;
+        }
+        const element = resolveTarget(pending.target);
         if (!element) return;
-        element.focus();
         pendingRef.current = null;
+        if (pending.options?.unlessCovered && isCoveredByDialog(element)) return;
+        element.focus();
       });
     
       return { focusAfter };
@@ -11401,6 +11438,201 @@
     }
   </file>
   </section>
+  <section priority="medium" role="pages">
+  <file path="src/pages/timeline-focus.ts">
+    export const DETAILS_SURFACE_TEST_ID = "reservation-details-surface";
+    export const DETAILS_SIDEBAR_TEST_ID = "reservation-detail-sidebar";
+    export function blockTarget(reservationId: string): FocusTarget {
+      return { kind: "testId", testId: `reservation-block-${reservationId}` };
+    }
+    export interface SurfaceState {
+      /** The reservation the surface is showing, whichever form it takes. */
+      readonly openId: string | null;
+      /** Phone and tablet show it as a modal Drawer, so what is behind it is out of reach. */
+      readonly modal: boolean;
+      /** A dialog held the surface in its old form, and the one its buttons are in is about to go. */
+      readonly changingForm: boolean;
+      /**
+       * Counts the times the dialogs were closed because their party left the surface. Nothing else can
+       * close a dialog mid-save, so a send that sees this change has lost the dialog that would show its
+       * failure, even if the same party is back on the surface.
+       */
+      readonly dialogEpoch: number;
+    }
+    function insideSurface(element: HTMLElement): boolean {
+      return (
+        document.querySelector(`[data-testid="${DETAILS_SURFACE_TEST_ID}"]`)?.contains(element) ?? false
+      );
+    }
+    export function returnFocusTarget(
+      surface: SurfaceState,
+      opener: HTMLElement | null,
+      fallback: FocusTarget | null
+    ): FocusTarget | null {
+      const usable =
+        opener?.isConnected && !surface.changingForm && (!surface.modal || insideSurface(opener));
+      if (opener && usable) return { kind: "element", element: opener };
+      return surface.modal ? SURFACE_TARGET : fallback;
+    }
+    export function walkInFocusTarget(viewport: Viewport, reservationId: string): FocusTarget {
+      return viewport === "desktop" ? blockTarget(reservationId) : SURFACE_TARGET;
+    }
+    export function captureOpener(clicked?: HTMLElement): HTMLElement | null {
+      if (clicked) return clicked;
+      const active = document.activeElement;
+      return active instanceof HTMLElement && active !== document.body ? active : null;
+    }
+    export function seatedFocusTarget(
+      surface: SurfaceState,
+      reservationId: string
+    ): FocusTarget | null {
+      if (surface.openId !== null && surface.openId !== reservationId) return null;
+      if (!focusIsLoose() && !focusIsInSurface()) return null;
+      const onModal = surface.openId !== null && surface.modal;
+      const testId = onModal ? RESERVATION_EDIT_TEST_ID : `reservation-block-${reservationId}`;
+      return byTestId(testId) ? { kind: "testId", testId } : null;
+    }
+    export function useCloseHoldingFocus(): (close: () => void) => void {
+      const heldRef = useRef<HTMLElement | null>(null);
+      useEffect(() => {
+        const held = heldRef.current;
+        if (!held) return;
+        heldRef.current = null;
+        requestAnimationFrame(() => held.focus());
+      });
+      return (close) => {
+        const active = document.activeElement;
+        heldRef.current =
+          active instanceof HTMLElement && active.closest('[role="dialog"][aria-modal="true"]')
+            ? active
+            : null;
+        close();
+      };
+    }
+    export function useOnChange<T>(value: T, onChange: () => void): void {
+      const [seen, setSeen] = useState(value);
+      if (value !== seen) {
+        setSeen(value);
+        onChange();
+      }
+    }
+    interface DetailsSurfaceInput {
+      readonly viewport: Viewport;
+      readonly selectedId: string | null;
+      readonly selectedReservation: Reservation | null;
+      readonly dialogOpen: boolean;
+      readonly dialogEpoch: number;
+    }
+    interface DetailsSurface {
+      /** Which form the surface takes. */
+      readonly surfaceViewport: Viewport;
+      /** What the tablet sheet renders, including closed across a Seat now's selection gap. */
+      readonly sheetReservation: Reservation | null;
+      /** For use after an `await`: the surface when the response arrived, not when it was sent. */
+      readonly surfaceRef: RefObject<SurfaceState>;
+    }
+    export function useDetailsSurface({
+      viewport,
+      selectedId,
+      selectedReservation,
+      dialogOpen,
+      dialogEpoch,
+    }: DetailsSurfaceInput): DetailsSurface {
+      // It follows the viewport, except while a dialog is open: a sheet mounting under a dialog takes
+      // focus and the Escape layer from it. A frame late, so a closing overlay's own focus restore has
+      // run before a new surface takes focus.
+      const [surfaceViewport, setSurfaceViewport] = useState(viewport);
+      useEffect(() => {
+        if (dialogOpen || surfaceViewport === viewport) return;
+        const frame = requestAnimationFrame(() => setSurfaceViewport(viewport));
+        return () => cancelAnimationFrame(frame);
+      }, [dialogOpen, surfaceViewport, viewport]);
+    
+      // Seat now selects a reservation the refetch has yet to bring. The sheet stays mounted, closed,
+      // across that gap: unmounting it would schedule a focus restore that could land on the old party's
+      // block behind the new sheet, and only the same Drawer reopening can cancel it.
+      const [heldReservation, setHeldReservation] = useState<Reservation | null>(null);
+      const sheetReservation = selectedReservation ?? (selectedId ? heldReservation : null);
+      if (sheetReservation !== heldReservation) setHeldReservation(sheetReservation);
+    
+      const surfaceRef = useRef<SurfaceState>({
+        openId: null,
+        modal: false,
+        changingForm: false,
+        dialogEpoch: 0,
+      });
+      useLayoutEffect(() => {
+        const open = selectedReservation !== null;
+        surfaceRef.current = {
+          openId: selectedReservation?.id ?? null,
+          modal: viewport !== "desktop" && open,
+          changingForm: open && surfaceViewport !== viewport,
+          dialogEpoch,
+        };
+      });
+    
+      return { surfaceViewport, sheetReservation, surfaceRef };
+    }
+  </file>
+  <file path="src/pages/timeline-sentences.ts">
+    export function walkInSentence(
+      created: Reservation,
+      tableName: string | undefined,
+      t: TFunction
+    ): string {
+      const who = created.guestName ? created.guestName : t("timeline.announce.aWalkIn");
+      const size = created.partySize;
+      return tableName
+        ? t("timeline.announce.walkInSeatedAt", { who, size, table: tableName })
+        : t("timeline.announce.walkInSeated", { who, size });
+    }
+    export function seatedSentence(
+      reservation: Reservation,
+      tableName: string | undefined,
+      t: TFunction
+    ): string {
+      const guest = reservation.guestName || t("timeline.announce.theGuest");
+      return tableName
+        ? t("timeline.announce.seatedAt", { guest, table: tableName })
+        : t("timeline.announce.seated", { guest });
+    }
+    export function cancelledSentence(reservation: Reservation, t: TFunction): string {
+      return reservation.guestName
+        ? t("timeline.announce.cancelledNamed", { name: reservation.guestName })
+        : t("timeline.announce.cancelled");
+    }
+    export function noShowSentence(reservation: Reservation, t: TFunction): string {
+      return reservation.guestName
+        ? t("timeline.announce.noShowNamed", { name: reservation.guestName })
+        : t("timeline.announce.noShow");
+    }
+    export function seatNotFinishedSentence(reservation: Reservation, t: TFunction): string {
+      return reservation.guestName
+        ? t("timeline.announce.seatNotFinishedNamed", { name: reservation.guestName })
+        : t("timeline.announce.seatNotFinished");
+    }
+    export function notAppliedSentence(reservation: Reservation, t: TFunction): string {
+      return reservation.guestName
+        ? t("timeline.announce.changeFailedNamed", { name: reservation.guestName })
+        : t("timeline.announce.changeFailed");
+    }
+    export function savedSentence(reservation: Reservation, t: TFunction): string {
+      return reservation.guestName
+        ? t("timeline.announce.savedNamed", { name: reservation.guestName })
+        : t("timeline.announce.saved");
+    }
+    export function loadedSentence(
+      date: string,
+      todayStr: string,
+      locale: string,
+      t: TFunction
+    ): string {
+      return date === todayStr
+        ? t("timeline.announce.loadedTonight")
+        : t("timeline.announce.loadedDate", { date: formatServiceDate(date, locale) });
+    }
+  </file>
+  </section>
   <section priority="medium" role="rehearsal">
   <file path="src/components/rehearsal/rehearsal-state.ts">
     export interface RehearsalWaiting {
@@ -12219,27 +12451,80 @@
       readonly seatRef: RefObject<HTMLButtonElement | null>;
       readonly seat: () => Promise<void>;
     }
-    export function useSeatGuest(onSeat: () => Promise<void>): SeatGuestState {
-      const [seating, setSeating] = useState(false);
-      const [failure, setFailure] = useState<ApiErrorDescription | null>(null);
+    export interface SeatFlights {
+      /** True while a seat for this reservation is pending. */
+      readonly seating: (reservationId: string) => boolean;
+      /** The last rejection for this reservation, while it is the current one. */
+      readonly failure: (reservationId: string) => ApiErrorDescription | null;
+      /** Sends unless a seat for this reservation is already pending. Rejections become `failure`. */
+      readonly run: (reservationId: string, send: () => Promise<void>) => Promise<void>;
+    }
+    export function useSeatFlights(currentId: string | null): SeatFlights {
+      const [seatingIds, setSeatingIds] = useState<readonly string[]>([]);
+      const [failed, setFailed] = useState<{
+        readonly id: string;
+        readonly description: ApiErrorDescription;
+      } | null>(null);
+      if (failed && failed.id !== currentId) setFailed(null);
+    
+      const inFlightRef = useRef<readonly string[]>([]);
+      const currentRef = useRef(currentId);
+      useLayoutEffect(() => {
+        currentRef.current = currentId;
+      });
+    
+      const run = useCallback(async (id: string, send: () => Promise<void>) => {
+        if (inFlightRef.current.includes(id)) return;
+        inFlightRef.current = [...inFlightRef.current, id];
+        setSeatingIds(inFlightRef.current);
+        setFailed(null);
+        try {
+          await send();
+        } catch (err) {
+          if (currentRef.current === id) setFailed({ id, description: describeApiError(err) });
+        } finally {
+          inFlightRef.current = inFlightRef.current.filter((other) => other !== id);
+          setSeatingIds(inFlightRef.current);
+        }
+      }, []);
+    
+      return {
+        seating: (id) => seatingIds.includes(id),
+        failure: (id) => (failed?.id === id ? failed.description : null),
+        run,
+      };
+    }
+    export interface SeatGuestState {
+      /** True while this reservation's seat is pending: Seat Guest reads "Seating…", the rest rest. */
+      readonly seating: boolean;
+      /** This reservation's last rejection, rendered as "Guest not seated." until the next attempt. */
+      readonly failure: ApiErrorDescription | null;
+      /** Attach to the Seat Guest button so focus can return to it after a failure. */
+      readonly seatRef: RefObject<HTMLButtonElement | null>;
+      readonly seat: () => Promise<void>;
+    }
+    export function useSeatGuest(
+      reservationId: string,
+      onSeat: () => Promise<void>,
+      shared?: SeatFlights
+    ): SeatGuestState {
+      const own = useSeatFlights(reservationId);
+      const flights = shared ?? own;
+      const failure = flights.failure(reservationId);
       const seatRef = useRef<HTMLButtonElement>(null);
       const { focusAfter } = useFocusAfter();
     
-      const seat = useCallback(async () => {
-        setSeating(true);
-        setFailure(null);
-        try {
-          await onSeat();
-        } catch (err) {
-          setFailure(describeApiError(err));
-          const element = seatRef.current;
-          if (element) focusAfter({ kind: "element", element });
-        } finally {
-          setSeating(false);
-        }
-      }, [onSeat, focusAfter]);
+      useEffect(() => {
+        const element = seatRef.current;
+        if (failure && element) focusAfter({ kind: "element", element }, UNLESS_COVERED);
+      }, [failure, focusAfter]);
     
-      return { seating, failure, seatRef, seat };
+      return {
+        seating: flights.seating(reservationId),
+        failure,
+        seatRef,
+        seat: () => flights.run(reservationId, onSeat),
+      };
     }
   </file>
   <file path="src/components/timeline/sheet-size.ts">

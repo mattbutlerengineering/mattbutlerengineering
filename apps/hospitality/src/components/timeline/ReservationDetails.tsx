@@ -11,6 +11,7 @@ import {
   occupiedCaption,
   statusWord,
   useSeatGuest,
+  type SeatFlights,
 } from "./seat-guest.js";
 import { canSeat } from "../../utils/seating.js";
 import { StaffDepositSection } from "./StaffDepositSection.js";
@@ -29,6 +30,8 @@ export interface ReservationDetailsProps {
   onEdit: (opener: HTMLElement) => void;
   /** Rejects on failure — the panel owns showing it (architecture § Dialog contracts). */
   onSeat: () => Promise<void>;
+  /** The page's seats in flight, which outlive this panel across a resize. */
+  seatFlights?: SeatFlights;
   /** Receives the clicked button, the opener the page returns focus to when the dialog is dismissed. */
   onCancel: (opener: HTMLElement) => void;
   /** Opens the Mark No-Show confirmation (only offered for CONFIRMED — the only valid source state). */
@@ -63,6 +66,7 @@ export function ReservationDetails({
   now,
   onEdit,
   onSeat,
+  seatFlights,
   onCancel,
   onMarkNoShow,
 }: ReservationDetailsProps) {
@@ -70,7 +74,7 @@ export function ReservationDetails({
   const { t } = useTranslation();
   const table = findReservationTable(reservation, tables);
   const caption = occupiedCaption(reservation, table, now, t);
-  const { seating, failure, seatRef, seat } = useSeatGuest(onSeat);
+  const { seating, failure, seatRef, seat } = useSeatGuest(reservation.id, onSeat, seatFlights);
   const {
     data: deposit,
     isLoading: depositLoading,

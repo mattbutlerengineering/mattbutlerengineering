@@ -3,7 +3,7 @@ import { Trans, useTranslation } from "react-i18next";
 import { Button, Stack, Text, Heading } from "@mattbutlerengineering/rialto";
 import { useEscapeKey, useFocusTrap } from "@mattbutlerengineering/rialto/hooks";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
-import { useFocusAfter } from "../../hooks/useFocusAfter.js";
+import { UNLESS_COVERED, useFocusAfter } from "../../hooks/useFocusAfter.js";
 import { describeApiError, type ApiErrorDescription } from "../../lib/describe-api-error.js";
 import styles from "./MarkNoShowDialog.module.css";
 
@@ -44,8 +44,13 @@ export function MarkNoShowDialog({ guestName, onConfirm, onClose }: MarkNoShowDi
   const confirmRef = useRef<HTMLButtonElement>(null);
   const { focusAfter } = useFocusAfter();
 
+  // A save in flight can only be left when it ends: closing now would hide a failure.
+  const dismiss = () => {
+    if (!isLoading) onClose();
+  };
+
   useFocusTrap(panelRef, true);
-  useEscapeKey(onClose, true);
+  useEscapeKey(dismiss, true);
 
   const displayName = guestName ?? t("timeline.guest");
 
@@ -56,14 +61,15 @@ export function MarkNoShowDialog({ guestName, onConfirm, onClose }: MarkNoShowDi
       await onConfirm();
     } catch (err) {
       setFailure(describeApiError(err));
-      if (confirmRef.current) focusAfter({ kind: "element", element: confirmRef.current });
+      if (confirmRef.current)
+        focusAfter({ kind: "element", element: confirmRef.current }, UNLESS_COVERED);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) onClose();
+    if (e.target === e.currentTarget) dismiss();
   };
 
   return (

@@ -6621,12 +6621,23 @@
       type FocusTarget = { readonly kind: "element"; re | { readonly kind: "testId"; rea | { readonly kind: "firstIn"; re | { readonly kind: "pageHeading";
     </item>
     <item priority="low">
+      interface FocusOptions {
+        unlessCovered?: boolean;
+      }
+    </item>
+    <item priority="high">
+      export const UNLESS_COVERED: FocusOptions;
+    </item>
+    <item priority="low">
       interface FocusAfterApi {
-        focusAfter: (target: FocusTarget) => void;
+        focusAfter: (target: FocusTarget, options?: FocusOptions) => void;
       }
     </item>
     <item priority="medium">
       function resolveTarget(target: FocusTarget): HTMLElement | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isCoveredByDialog(element: Element | null): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function useFocusAfter(): FocusAfterApi { /* ... */ }
@@ -9451,6 +9462,117 @@
     </item>
     <item priority="high">
       export function usePlaygroundState(): PlaygroundState { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/pages/timeline-focus.ts">
+    <item priority="high">
+      export const DETAILS_SURFACE_TEST_ID: unknown;
+    </item>
+    <item priority="high">
+      export const DETAILS_SIDEBAR_TEST_ID: unknown;
+    </item>
+    <item priority="high">
+      export function blockTarget(reservationId: string): FocusTarget { /* ... */ }
+    </item>
+    <item priority="low">
+      interface SurfaceState {
+        openId: string | null;
+        modal: boolean;
+        changingForm: boolean;
+        dialogEpoch: number;
+      }
+    </item>
+    <item priority="medium">
+      function insideSurface(element: HTMLElement): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function returnFocusTarget(
+        surface: SurfaceState,
+        opener: HTMLElement | null,
+        fallback: FocusTarget | null
+      ): FocusTarget | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function walkInFocusTarget(viewport: Viewport, reservationId: string): FocusTarget { /* ... */ }
+    </item>
+    <item priority="high">
+      export function captureOpener(clicked?: HTMLElement): HTMLElement | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function seatedFocusTarget(
+        surface: SurfaceState,
+        reservationId: string
+      ): FocusTarget | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useCloseHoldingFocus(): (close: () => void) => void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useOnChange<T>(value: T, onChange: () => void): void { /* ... */ }
+    </item>
+    <item priority="high">
+      interface DetailsSurfaceInput {
+        viewport: Viewport;
+        selectedId: string | null;
+        selectedReservation: Reservation | null;
+        dialogOpen: boolean;
+        dialogEpoch: number;
+      }
+    </item>
+    <item priority="high">
+      interface DetailsSurface {
+        surfaceViewport: Viewport;
+        sheetReservation: Reservation | null;
+        surfaceRef: RefObject<SurfaceState>;
+      }
+    </item>
+    <item priority="high">
+      export function useDetailsSurface({
+        viewport,
+        selectedId,
+        selectedReservation,
+        dialogOpen,
+        dialogEpoch,
+      }: DetailsSurfaceInput): DetailsSurface { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/pages/timeline-sentences.ts">
+    <item priority="high">
+      export function walkInSentence(
+        created: Reservation,
+        tableName: string | undefined,
+        t: TFunction
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function seatedSentence(
+        reservation: Reservation,
+        tableName: string | undefined,
+        t: TFunction
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function cancelledSentence(reservation: Reservation, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function noShowSentence(reservation: Reservation, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function seatNotFinishedSentence(reservation: Reservation, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function notAppliedSentence(reservation: Reservation, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function savedSentence(reservation: Reservation, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function loadedSentence(
+        date: string,
+        todayStr: string,
+        locale: string,
+        t: TFunction
+      ): string { /* ... */ }
     </item>
   </file>
   </section>
@@ -25711,8 +25833,30 @@
         seat: () => Promise<void>;
       }
     </item>
+    <item priority="low">
+      interface SeatFlights {
+        seating: (reservationId: string) => boolean;
+        failure: (reservationId: string) => ApiErrorDescription | null;
+        run: (reservationId: string, send: () => Promise<void>) => Pro...;
+      }
+    </item>
     <item priority="high">
-      export function useSeatGuest(onSeat: () => Promise<void>): SeatGuestState { /* ... */ }
+      export function useSeatFlights(currentId: string | null): SeatFlights { /* ... */ }
+    </item>
+    <item priority="low">
+      interface SeatGuestState {
+        seating: boolean;
+        failure: ApiErrorDescription | null;
+        seatRef: RefObject<HTMLButtonElement | null>;
+        seat: () => Promise<void>;
+      }
+    </item>
+    <item priority="high">
+      export function useSeatGuest(
+        reservationId: string,
+        onSeat: () => Promise<void>,
+        shared?: SeatFlights
+      ): SeatGuestState { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/timeline/sheet-size.ts">

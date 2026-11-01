@@ -711,6 +711,10 @@
       "tableStatusBanner": "Le statut de la table n'a pas été modifié."
     },
     "announce": {
+      "seatNotFinishedNamed": "L’installation de {{name}} n’a pas abouti. Vérifiez la réservation et la table.",
+      "seatNotFinished": "L’installation du client n’a pas abouti. Vérifiez la réservation et la table.",
+      "changeFailedNamed": "La modification pour {{name}} n’a pas été appliquée.",
+      "changeFailed": "Une modification de réservation n’a pas été appliquée.",
       "loadedTonight": "La grille de ce soir est chargée.",
       "loadedDate": "Les réservations du {{date}} sont chargées.",
       "seated": "{{guest}} est installé.",

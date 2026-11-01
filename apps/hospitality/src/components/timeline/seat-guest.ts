@@ -1,8 +1,8 @@
-import { useCallback, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import type { TFunction } from "i18next";
 import type { Reservation, Table } from "@mbe/types";
 import { RESERVATION_STATUS_KEYS } from "./status-keys.js";
-import { useFocusAfter } from "../../hooks/useFocusAfter.js";
+import { UNLESS_COVERED, useFocusAfter } from "../../hooks/useFocusAfter.js";
 import { describeApiError, type ApiErrorDescription } from "../../lib/describe-api-error.js";
 import { SEATED_EARLY_WINDOW_MS } from "../../utils/seated.js";
 import { isSeatableStatus } from "../../utils/seating.js";
@@ -68,30 +68,93 @@ export interface SeatGuestState {
   readonly seat: () => Promise<void>;
 }
 
+export interface SeatFlights {
+  /** True while a seat for this reservation is pending. */
+  readonly seating: (reservationId: string) => boolean;
+  /** The last rejection for this reservation, while it is the current one. */
+  readonly failure: (reservationId: string) => ApiErrorDescription | null;
+  /** Sends unless a seat for this reservation is already pending. Rejections become `failure`. */
+  readonly run: (reservationId: string, send: () => Promise<void>) => Promise<void>;
+}
+
 /**
- * One seat attempt at a time. A rejected `onSeat` becomes the failure the surface renders; the
- * button returns to rest and focus goes back to it after the commit that re-enables it — a
- * disabled button cannot hold focus, so the request is made through `useFocusAfter` (item 12).
+ * The seats in flight, keyed by reservation. Whoever owns this outlives a surface instance, so a
+ * resize mid-seat cannot offer the button again or lose how the seat ended. Only the current
+ * reservation keeps a failure: one that lands while another is current is the sender's to report,
+ * and showing it there would blame the wrong party.
  */
-export function useSeatGuest(onSeat: () => Promise<void>): SeatGuestState {
-  const [seating, setSeating] = useState(false);
-  const [failure, setFailure] = useState<ApiErrorDescription | null>(null);
+export function useSeatFlights(currentId: string | null): SeatFlights {
+  const [seatingIds, setSeatingIds] = useState<readonly string[]>([]);
+  const [failed, setFailed] = useState<{
+    readonly id: string;
+    readonly description: ApiErrorDescription;
+  } | null>(null);
+  if (failed && failed.id !== currentId) setFailed(null);
+
+  const inFlightRef = useRef<readonly string[]>([]);
+  const currentRef = useRef(currentId);
+  useLayoutEffect(() => {
+    currentRef.current = currentId;
+  });
+
+  const run = useCallback(async (id: string, send: () => Promise<void>) => {
+    if (inFlightRef.current.includes(id)) return;
+    inFlightRef.current = [...inFlightRef.current, id];
+    setSeatingIds(inFlightRef.current);
+    setFailed(null);
+    try {
+      await send();
+    } catch (err) {
+      if (currentRef.current === id) setFailed({ id, description: describeApiError(err) });
+    } finally {
+      inFlightRef.current = inFlightRef.current.filter((other) => other !== id);
+      setSeatingIds(inFlightRef.current);
+    }
+  }, []);
+
+  return {
+    seating: (id) => seatingIds.includes(id),
+    failure: (id) => (failed?.id === id ? failed.description : null),
+    run,
+  };
+}
+
+export interface SeatGuestState {
+  /** True while this reservation's seat is pending: Seat Guest reads "Seating…", the rest rest. */
+  readonly seating: boolean;
+  /** This reservation's last rejection, rendered as "Guest not seated." until the next attempt. */
+  readonly failure: ApiErrorDescription | null;
+  /** Attach to the Seat Guest button so focus can return to it after a failure. */
+  readonly seatRef: RefObject<HTMLButtonElement | null>;
+  readonly seat: () => Promise<void>;
+}
+
+/**
+ * One reservation's seat, from `shared` when the owner passes it. A rejected `onSeat` becomes the
+ * failure the surface renders; the button returns to rest and focus goes back to it after the
+ * commit that re-enables it, since a disabled button cannot hold focus (item 12), unless a dialog
+ * has opened on top by then.
+ */
+export function useSeatGuest(
+  reservationId: string,
+  onSeat: () => Promise<void>,
+  shared?: SeatFlights
+): SeatGuestState {
+  const own = useSeatFlights(reservationId);
+  const flights = shared ?? own;
+  const failure = flights.failure(reservationId);
   const seatRef = useRef<HTMLButtonElement>(null);
   const { focusAfter } = useFocusAfter();
 
-  const seat = useCallback(async () => {
-    setSeating(true);
-    setFailure(null);
-    try {
-      await onSeat();
-    } catch (err) {
-      setFailure(describeApiError(err));
-      const element = seatRef.current;
-      if (element) focusAfter({ kind: "element", element });
-    } finally {
-      setSeating(false);
-    }
-  }, [onSeat, focusAfter]);
+  useEffect(() => {
+    const element = seatRef.current;
+    if (failure && element) focusAfter({ kind: "element", element }, UNLESS_COVERED);
+  }, [failure, focusAfter]);
 
-  return { seating, failure, seatRef, seat };
+  return {
+    seating: flights.seating(reservationId),
+    failure,
+    seatRef,
+    seat: () => flights.run(reservationId, onSeat),
+  };
 }
