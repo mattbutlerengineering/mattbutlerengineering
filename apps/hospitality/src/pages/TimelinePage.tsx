@@ -194,6 +194,8 @@ function LiveTimelinePage() {
   // Captured at event time, same pattern: whichever control opened the Walk-in dialog (the
   // toolbar button or the quiet-night CTA — #5272) is where every dismissal path restores focus.
   const walkInOpenerRef = useRef<HTMLElement | null>(null);
+  // The details-surface button that opened Cancel / Mark No-Show (#8017), captured at event time.
+  const confirmDialogOpenerRef = useRef<HTMLElement | null>(null);
   const walkInCaptionId = useId();
 
   const {
@@ -257,6 +259,27 @@ function LiveTimelinePage() {
     setSelectedIdState(null);
     setSheetExpandedFor(null);
     stripIntent();
+  };
+
+  const openConfirmDialog = (open: (shown: boolean) => void) => {
+    const active = document.activeElement;
+    // `body` means nothing held focus (a click that did not focus its button): no opener to return to.
+    confirmDialogOpenerRef.current =
+      active instanceof HTMLElement && active !== document.body ? active : null;
+    open(true);
+  };
+
+  // Keep and Escape leave the details surface open (a modal Drawer on a phone or tablet), so focus
+  // returns to the button that opened the dialog; the grid block behind it is not reachable there.
+  // Only when that button is gone does the block take focus.
+  const dismissConfirmDialog = (close: (shown: boolean) => void, reservation: Reservation) => {
+    close(false);
+    const opener = confirmDialogOpenerRef.current;
+    focusAfter(
+      opener?.isConnected
+        ? { kind: "element", element: opener }
+        : { kind: "testId", testId: blockTestId(reservation.id) }
+    );
   };
 
   const closeWalkInDialog = () => {
@@ -411,8 +434,8 @@ function LiveTimelinePage() {
       now={now}
       onEdit={openEditDrawer}
       onSeat={() => handleSeat(selectedReservation)}
-      onCancel={() => setShowCancelDialog(true)}
-      onMarkNoShow={() => setShowNoShowDialog(true)}
+      onCancel={() => openConfirmDialog(setShowCancelDialog)}
+      onMarkNoShow={() => openConfirmDialog(setShowNoShowDialog)}
     />
   );
 
@@ -639,8 +662,8 @@ function LiveTimelinePage() {
           onClose={clearSelection}
           onSeat={() => handleSeat(selectedReservation)}
           onEdit={openEditDrawer}
-          onCancel={() => setShowCancelDialog(true)}
-          onMarkNoShow={() => setShowNoShowDialog(true)}
+          onCancel={() => openConfirmDialog(setShowCancelDialog)}
+          onMarkNoShow={() => openConfirmDialog(setShowNoShowDialog)}
           expanded={sheetExpanded}
           onToggleExpanded={toggleSheetExpanded}
         />
@@ -665,10 +688,7 @@ function LiveTimelinePage() {
           reservationId={selectedReservation.id}
           guestName={selectedReservation.guestName}
           onConfirm={handleCancel}
-          onClose={() => {
-            setShowCancelDialog(false);
-            focusAfter({ kind: "testId", testId: blockTestId(selectedReservation.id) });
-          }}
+          onClose={() => dismissConfirmDialog(setShowCancelDialog, selectedReservation)}
           quote={cancellationQuote}
         />
       )}
@@ -676,10 +696,7 @@ function LiveTimelinePage() {
         <MarkNoShowDialog
           guestName={selectedReservation.guestName}
           onConfirm={handleMarkNoShow}
-          onClose={() => {
-            setShowNoShowDialog(false);
-            focusAfter({ kind: "testId", testId: blockTestId(selectedReservation.id) });
-          }}
+          onClose={() => dismissConfirmDialog(setShowNoShowDialog, selectedReservation)}
         />
       )}
       {showEditDrawer && selectedReservation && (
