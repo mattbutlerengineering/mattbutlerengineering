@@ -1562,6 +1562,9 @@
       export function buildCloseRule(form: CloseForm, id: string, today: string): DateRule | null { /* ... */ }
     </item>
     <item priority="high">
+      export function sameRequest(a: CloseForm, b: CloseForm): boolean { /* ... */ }
+    </item>
+    <item priority="high">
       export function actionsFor(kind: ClosureImpactKind): readonly ClosureAction[] { /* ... */ }
     </item>
     <item priority="high">
@@ -1867,6 +1870,9 @@
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/outcome-label.ts">
+    <item priority="high">
+      export function outcomeSummary(counts: OutcomeCounts, t: TFunction): string { /* ... */ }
+    </item>
     <item priority="high">
       export function outcomeLabel(counts: OutcomeCounts, t: TFunction): string { /* ... */ }
     </item>
@@ -10231,7 +10237,7 @@
       function setSpecialHours({ log, api, venueId, timeZone }: ToolContext) { /* ... */ }
     </item>
     <item priority="medium">
-      function reopenNote(cancelled: number, requested: boolean): string { /* ... */ }
+      function reopenNote(cancelled: number, notified: number, datesPassed: boolean): string { /* ... */ }
     </item>
     <item priority="medium">
       function reopenClosure({ log, api, venueId }: ToolContext) { /* ... */ }
@@ -15598,7 +15604,19 @@
       ): Promise<void> { /* ... */ }
     </item>
     <item priority="low">
-      type ReopenOutcome = { kind: "reopened"; result: Re | { kind: "not_found" } | { kind: "forbidden" };
+      type ReopenOutcome = { kind: "reopened"; result: Re | { kind: "not_found" } | { kind: "forbidden" } | Extract<Refusal, { kind: "inva;
+    </item>
+    <item priority="low">
+      async function refuseStrandingReopen(
+        tx: Db,
+        venueId: string,
+        state: ConfigState,
+        next: ConfigState["stored"],
+        now: Date
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function upcomingCancelled(db: Db, venueId: string, ruleId: string, now: Date): Promise<number> { /* ... */ }
     </item>
     <item priority="high">
       export async function reopenClosure(
@@ -15817,6 +15835,7 @@
         venueId: string,
         ruleId: string,
         variant: NoticeVariant,
+        now: Date,
         db: Db = prisma
       ): Promise<NotifiableOutcome[]> { /* ... */ }
     </item>
@@ -15874,8 +15893,7 @@
         id: string;
         reservation: {
           guestName: string | null;
-          deposit: {
-            amou...;
+          /** Only the summarie...;
         dateRuleId: string;
         action: NoticeOutcome["action"];
         deliveries: unknown;
@@ -15891,7 +15909,11 @@
       export function summarizeOutcomes(rows: readonly SummaryRow[]): ClosureSummary[] { /* ... */ }
     </item>
     <item priority="high">
-      export async function listSummaries(venueId: string, db: Db = prisma): Promise<ClosureSummary[]> { /* ... */ }
+      export async function listSummaries(
+        venueId: string,
+        now: Date = new Date(),
+        db: Db = prisma
+      ): Promise<ClosureSummary[]> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/closure-notice.ts">

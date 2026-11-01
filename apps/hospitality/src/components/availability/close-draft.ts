@@ -129,6 +129,16 @@ export function buildCloseRule(form: CloseForm, id: string, today: string): Date
   };
 }
 
+/**
+ * Whether two forms ask the same thing of the bookings: what, when and the start time. The
+ * impact query and the decisions depend on these alone; the notes and the guest message are
+ * words, so editing them leaves the Manager's choices valid (and a retry the same request).
+ */
+export function sameRequest(a: CloseForm, b: CloseForm): boolean {
+  const key = (f: CloseForm) => JSON.stringify([f.what, f.when, f.fromMinute]);
+  return key(a) === key(b);
+}
+
 /** The options for one group: a shortened service can move bookings, a closed one cannot. */
 export function actionsFor(kind: ClosureImpactKind): readonly ClosureAction[] {
   return kind === "shortened"
