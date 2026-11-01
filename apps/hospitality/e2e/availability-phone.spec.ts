@@ -176,10 +176,16 @@ test.describe("the first screen", () => {
   test("Create another schedule… looks like something to press", async ({ mockedPage: page }) => {
     await mockAvailability(page);
     await open(page, DESKTOP);
-    const border = await page
+    // A ghost button is transparent at rest, with a transparent border: it reads as plain text.
+    const fill = await page
       .getByRole("button", { name: "Create another schedule…" })
-      .evaluate((button) => getComputedStyle(button).borderTopWidth);
-    expect(parseFloat(border)).toBeGreaterThan(0);
+      .evaluate((button) => {
+        const { backgroundColor, backgroundImage } = getComputedStyle(button);
+        return { backgroundColor, backgroundImage };
+      });
+    expect(fill.backgroundColor !== "rgba(0, 0, 0, 0)" || fill.backgroundImage !== "none").toBe(
+      true
+    );
   });
 });
 
