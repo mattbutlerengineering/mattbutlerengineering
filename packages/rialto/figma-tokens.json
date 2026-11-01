@@ -660,17 +660,17 @@
       "toast": {
         "$value": "200",
         "$type": "number",
-        "$description": "Toast notifications"
+        "$description": "Toast notifications (nominal)"
       },
       "modal": {
         "$value": "500",
         "$type": "number",
-        "$description": "Modal/dialog overlays"
+        "$description": "Modal/dialog overlays (nominal)"
       },
       "overlay": {
         "$value": "1000",
         "$type": "number",
-        "$description": "Command palette, drawers — highest interactive"
+        "$description": "Command palette, drawers (nominal)"
       }
     }
   },

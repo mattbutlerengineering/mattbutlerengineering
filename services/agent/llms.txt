@@ -31,6 +31,12 @@
       type TonightChangeType = (typeof TONIGHT_CHANGE_TYPES)[number];
     </item>
     <item priority="high">
+      export const AVAILABILITY_PAGE: unknown;
+    </item>
+    <item priority="high">
+      export const ClockSchema: unknown;
+    </item>
+    <item priority="high">
       type ChangeField = "closeAt" | "from" | "to" | "service" | "tables" | "covers";
     </item>
     <item priority="high">
@@ -39,14 +45,14 @@
     <item priority="high">
       type TonightRule = Extract<DateRule, { kind: "tonight" }>;
     </item>
-    <item priority="medium">
-      function clockToMinute(clock: string): number { /* ... */ }
+    <item priority="high">
+      export function clockToMinute(clock: string): number { /* ... */ }
     </item>
     <item priority="medium">
       function serviceDayMinute(clock: string, config: AvailabilityConfig): number { /* ... */ }
     </item>
-    <item priority="medium">
-      function minuteToClock(minute: number): string { /* ... */ }
+    <item priority="high">
+      export function minuteToClock(minute: number): string { /* ... */ }
     </item>
     <item priority="medium">
       function activeTonightRules(config: AvailabilityConfig, today: string, now: Date): TonightRule[] { /* ... */ }
@@ -64,8 +70,8 @@
         tableName: (id: string) => string
       ) { /* ... */ }
     </item>
-    <item priority="medium">
-      function resolveService(
+    <item priority="high">
+      export function resolveService(
         config: AvailabilityConfig,
         name: string
       ): { id: string } | { error: string } { /* ... */ }
@@ -86,7 +92,7 @@
       ): Promise<{ change: TonightChange } | { error: string }> { /* ... */ }
     </item>
     <item priority="medium">
-      function availabilityWriteFailure(err: unknown, action: string) { /* ... */ }
+      function availabilityWriteFailure(err: unknown, action: string, unsure: string | undefined) { /* ... */ }
     </item>
     <item priority="high">
       export function createAvailabilityTools(
@@ -99,6 +105,232 @@
       ): ToolSet { /* ... */ }
     </item>
   </file>
+  <file path="src/routes/gen-agent-briefing-tools.ts">
+    <item priority="high">
+      type BriefingEntry = Awaited<ReturnType<ApiClient["briefing"]["list"]>>[number];
+    </item>
+    <item priority="medium">
+      function isRealDate(date: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function seatingOf(entry: BriefingEntry, timeZone: string | undefined) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function readFailure(err: unknown) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createBriefingTools(
+        log: FastifyBaseLogger,
+        api: ApiClient,
+        { venueId, timeZone }: { readonly venueId?: string | undefined; readonly timeZone?: string }
+      ): ToolSet { /* ... */ }
+    </item>
+  </file>
+  <file path="src/routes/gen-agent-closure-support.ts">
+    <item priority="low">
+      type SpecialHoursRule = Extract<DateRule, { kind: "special_hours" }>;
+    </item>
+    <item priority="low">
+      type ClosureRule = Extract<DateRule, { kind: "closure" }>;
+    </item>
+    <item priority="low">
+      type DatedRule = ClosureRule | SpecialHoursRule;
+    </item>
+    <item priority="low">
+      type Impact = Awaited<ReturnType<ApiClient["availability"]["getClosureI...;
+    </item>
+    <item priority="high">
+      export const WEEKDAYS: unknown;
+    </item>
+    <item priority="high">
+      export const UNTIL_REOPENED: unknown;
+    </item>
+    <item priority="high">
+      export const UNREADABLE_SPAN_DATE: unknown;
+    </item>
+    <item priority="high">
+      export const CHECK_FAILED: unknown;
+    </item>
+    <item priority="high">
+      export const SAVE_UNSURE: unknown;
+    </item>
+    <item priority="high">
+      export const NO_REGULAR_HOURS: unknown;
+    </item>
+    <item priority="high">
+      export function dayNumber(date: string): number | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function weekdayOf(date: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function checkSpan(
+        date: string,
+        endDate: string | undefined,
+        today: string
+      ): { from: string; to: string } | { error: string } { /* ... */ }
+    </item>
+    <item priority="medium">
+      function coversDate(rule: DatedRule, date: string, config: AvailabilityConfig): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function spanOf(rule: DatedRule) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function spanText(rule: DatedRule): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export const isDated: unknown;
+    </item>
+    <item priority="high">
+      export function serviceName(config: AvailabilityConfig, id: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function scopeOf(rule: DatedRule, config: AvailabilityConfig): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function plural(count: number, noun: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function affectedResult(impact: Pick<Impact, "reservations" | "covers" | "groups">) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function issueMessages(err: unknown): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closureFailure(err: unknown, unsure: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      export const SCOPES: unknown;
+    </item>
+    <item priority="high">
+      export function scopeNeedsService(
+        input: { readonly scope: (typeof SCOPES)[number]; readonly service?: string | undefined },
+        ctx: z.RefinementCtx
+      ): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function findCoveringClosure(
+        config: AvailabilityConfig,
+        target: { readonly serviceId?: string | undefined },
+        from: string,
+        to: string
+      ): ClosureRule | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closureOnDay(
+        config: AvailabilityConfig,
+        serviceId: string,
+        date: string
+      ): ClosureRule | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function hasSpecialHours(config: AvailabilityConfig, date: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function findReopenable(
+        config: AvailabilityConfig,
+        want: {
+          readonly from: string;
+          readonly to: string | null;
+          readonly scope: (typeof SCOPES)[number];
+          readonly serviceId?: string | undefined;
+        }
+      ): { rule: ClosureRule } | { error: string } { /* ... */ }
+    </item>
+    <item priority="medium">
+      function reopenableOnly(rule: DatedRule): { rule: ClosureRule } | { error: string } { /* ... */ }
+    </item>
+    <item priority="low">
+      interface HoursInput {
+        opensAt: string;
+        lastSeating: string;
+        closesAt: string;
+      }
+    </item>
+    <item priority="high">
+      export function checkHours(
+        input: HoursInput
+      ): { opensAt: number; lastSeatingAt: number; closesAt: number } | { error: string } { /* ... */ }
+    </item>
+  </file>
+  <file path="src/routes/gen-agent-closure-tools.ts">
+    <item priority="low">
+      async function saveIfNoBookings(
+        api: ApiClient,
+        venueId: string,
+        rule: DateRule,
+        expectedVersion: number
+      ): Promise<{ saved: true } | Record<string, unknown>> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function specialServices(
+        api: ApiClient,
+        venueId: string,
+        config: AvailabilityConfig,
+        date: string,
+        serviceId: string,
+        hours: { opensAt: number; lastSeatingAt: number; closesAt: number }
+      ): Promise<{ services: SpecialHoursService[] } | { error: string }> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function describeRule(rule: DatedRule, config: AvailabilityConfig, cancelled: number | undefined) { /* ... */ }
+    </item>
+    <item priority="high">
+      type ToolContext = {
+        readonly log: FastifyBaseLogger;
+        readonly api: ApiC...;
+    </item>
+    <item priority="medium">
+      function closeDates({ log, api, venueId, timeZone }: ToolContext) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function setSpecialHours({ log, api, venueId, timeZone }: ToolContext) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function reopenNote(cancelled: number, notified: number, datesPassed: boolean): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function reopenClosure({ log, api, venueId }: ToolContext) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function listClosures({ log, api, venueId, timeZone }: ToolContext) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createClosureTools(
+        log: FastifyBaseLogger,
+        api: ApiClient,
+        {
+          venueId,
+          timeZone,
+        }: { readonly venueId?: string | undefined; readonly timeZone?: string | undefined }
+      ): ToolSet { /* ... */ }
+    </item>
+  </file>
+  <file path="src/routes/gen-agent-floor-plan-tools.ts">
+    <item priority="high">
+      type FloorPlan = Awaited<ReturnType<ApiClient["floorPlans"]["list"]>>["dat...;
+    </item>
+    <item priority="medium">
+      function findPlan(
+        plans: readonly FloorPlan[],
+        ref: string
+      ): { plan: FloorPlan } | { error: string } { /* ... */ }
+    </item>
+    <item priority="medium">
+      function readFailure(err: unknown) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function writeFailure(err: unknown, unsure: string | undefined) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createFloorPlanTools(
+        log: FastifyBaseLogger,
+        api: ApiClient,
+        { venueId }: { readonly venueId?: string | undefined }
+      ): ToolSet { /* ... */ }
+    </item>
+  </file>
   <file path="src/routes/gen-agent-guest-tools.ts">
     <item priority="high">
       type Guest = Awaited<ReturnType<ApiClient["guests"]["get"]>>;
@@ -107,7 +339,10 @@
       function shown(guest: Guest) { /* ... */ }
     </item>
     <item priority="medium">
-      function guestFailure(err: unknown, action: string) { /* ... */ }
+      function winBackUnsure(name: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function guestFailure(err: unknown, action: string, unsure: string | undefined) { /* ... */ }
     </item>
     <item priority="low">
       async function findGuest(
@@ -123,6 +358,58 @@
         api: ApiClient,
         { venueId }: { readonly venueId?: string | undefined }
       ): ToolSet { /* ... */ }
+    </item>
+  </file>
+  <file path="src/routes/gen-agent-menu-tools.ts">
+    <item priority="high">
+      type Menu = Awaited<ReturnType<ApiClient["menus"]["list"]>>[number];
+    </item>
+    <item priority="high">
+      type MenuDetail = Awaited<ReturnType<ApiClient["menus"]["getById"]>>;
+    </item>
+    <item priority="high">
+      type MenuSection = MenuDetail["sections"][number];
+    </item>
+    <item priority="high">
+      type MenuItem = MenuSection["items"][number];
+    </item>
+    <item priority="medium">
+      function formatPrice(cents: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function priceToCents(price: string): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function menuFailure(err: unknown, unsure: string | undefined) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function findMenu(menus: readonly Menu[], ref: string): { menu: Menu } | { error: string } { /* ... */ }
+    </item>
+    <item priority="medium">
+      function findItem(
+        menu: MenuDetail,
+        itemRef: string,
+        sectionRef: string | undefined
+      ): { section: MenuSection; item: MenuItem } | { error: string } { /* ... */ }
+    </item>
+    <item priority="low">
+      async function resolveTarget(
+        api: ApiClient,
+        venueId: string,
+        menuRef: string,
+        itemRef: string,
+        sectionRef: string | undefined
+      ) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createMenuTools(
+        log: FastifyBaseLogger,
+        api: ApiClient,
+        { venueId }: { readonly venueId?: string | undefined }
+      ): ToolSet { /* ... */ }
+    </item>
+    <item priority="medium">
+      function readFailure(err: unknown) { /* ... */ }
     </item>
   </file>
   <file path="src/routes/gen-agent-prompt.ts">
@@ -170,8 +457,13 @@
     <item priority="high">
       type Reservation = Awaited<ReturnType<ApiClient["reservations"]["get"]>>;
     </item>
-    <item priority="medium">
-      function bookingWriteFailure(err: unknown, action: string, saved?: string) { /* ... */ }
+    <item priority="high">
+      export function bookingWriteFailure(
+        err: unknown,
+        action: string,
+        unsure: string | undefined,
+        saved?: string
+      ) { /* ... */ }
     </item>
     <item priority="low">
       async function venueReservation(
@@ -273,7 +565,7 @@
       type WaitlistEntry = Awaited<ReturnType<ApiClient["waitlist"]["list"]>>[number];
     </item>
     <item priority="medium">
-      function waitlistFailure(err: unknown, action: string) { /* ... */ }
+      function waitlistFailure(err: unknown, action: string, unsure: string | undefined) { /* ... */ }
     </item>
     <item priority="low">
       async function findParty(
@@ -474,6 +766,9 @@
     <item priority="high">
       export function localTimeIn(iso: unknown, timeZone: string | undefined): string | undefined { /* ... */ }
     </item>
+    <item priority="high">
+      export function failureLog(err: unknown) { /* ... */ }
+    </item>
     <item priority="low">
       interface Refusal {
         status: number;
@@ -484,6 +779,12 @@
     </item>
     <item priority="high">
       export function refusalOf(err: unknown): Refusal | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function saveUnsure(read: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export const NO_REPLAY: unknown;
     </item>
     <item priority="low">
       interface NamedTable {

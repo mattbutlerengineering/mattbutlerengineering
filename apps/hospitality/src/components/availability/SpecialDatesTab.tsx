@@ -28,6 +28,7 @@ import { SeriesEditDialog } from "./SeriesEditDialog.js";
 import { isSeries, restoreDate, skipRows, type SeriesScope } from "./series-edit.js";
 import { SpecialHoursEditDrawer } from "./SpecialHoursEditDrawer.js";
 import { SpecialHoursScopeDialog } from "./SpecialHoursScopeDialog.js";
+import { StrandedBookings } from "./StrandedBookings.js";
 import { useScheduleSave } from "./use-schedule-save.js";
 import {
   coversManyDates,
@@ -49,6 +50,8 @@ export interface SpecialDatesTabProps {
   readonly today: string;
   /** A concurrent change was refused; reload the config. */
   readonly onStale: () => void;
+  /** Why the config could not be reloaded, for the hours drawer's Retry. */
+  readonly reloadError?: string | null;
   /** Only a Manager can reopen or retry refunds; a Host views the list and the call list. */
   readonly isManager: boolean;
 }
@@ -95,6 +98,33 @@ function hoursSubject(rule: SpecialDateRule, format: VenueFormat, t: TFunction):
   return t("availabilitySpecial.hours.subjectDates", { dates: rangeLabel(rule, format, t) });
 }
 
+/**
+ * What reopening a closure takes away, named whole: one date, the full range, "all dates from
+ * Dec 24 on" for an open end, or a repeat by its weekdays and span.
+ */
+function closureSubject(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string {
+  const from = format.formatCalendarDate(rule.startsOn, DATE_FORMAT);
+  const span =
+    rule.endsOn == null
+      ? t("availabilitySpecial.reopen.fromOn", { from })
+      : rule.endsOn === rule.startsOn
+        ? from
+        : t("availabilitySpecial.range", {
+            from,
+            to: format.formatCalendarDate(rule.endsOn, DATE_FORMAT),
+          });
+  if (rule.repeat != null) {
+    const days = rule.repeat.weekdays.map((d) =>
+      format.formatCalendarDate(addDays(SUNDAY, d), { weekday: "long" })
+    );
+    return t("availabilitySpecial.reopen.subjectRepeat", {
+      days: new Intl.ListFormat(format.locale, { type: "conjunction" }).format(days),
+      span,
+    });
+  }
+  return rule.endsOn == null ? t("availabilitySpecial.reopen.subjectOpen", { from }) : span;
+}
+
 /** "11:00 AM – 3:00 PM, 5:00 PM – 10:00 PM": one range per service, so a gap between them shows (ux.md S6b). */
 function hoursRange(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string | null {
   if (rule.kind !== "special_hours" || rule.payload.services.length === 0) return null;
@@ -107,6 +137,21 @@ function hoursRange(rule: SpecialDateRule, format: VenueFormat, t: TFunction): s
       })
     )
     .join(", ");
+}
+
+/** "Closed · From 10:00 PM", or "Booking paused: Online": what a closure really closes, and from when. */
+function closureDetail(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string {
+  const channels = (rule.bookingTypes ?? []).map((c) => t(`availability.close.what.channel.${c}`));
+  const what =
+    rule.targetKind === "booking" && channels.length > 0
+      ? t("availabilitySpecial.kind.bookingPaused", { channels: channels.join(", ") })
+      : t("availabilitySpecial.kind.closure");
+  return rule.window
+    ? [
+        what,
+        t("availability.close.window.from", { time: minuteText(rule.window.from, t, format) }),
+      ].join(" · ")
+    : what;
 }
 
 interface RowProps {
@@ -260,7 +305,7 @@ function SpecialDateItem(props: RowProps) {
  * became of the bookings it touched, the call list, reopening, and refund retry.
  */
 export function SpecialDatesTab(props: SpecialDatesTabProps) {
-  const { venueId, state, timezone, today, onStale, isManager } = props;
+  const { venueId, state, timezone, today, onStale, reloadError, isManager } = props;
   const rules = state.config.dateRules;
   const { t } = useTranslation();
   const format = useVenueFormat();
@@ -287,6 +332,13 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
   const rows = specialDateRows(rules, today, filter);
   const editDateOf = (rule: DateRule) => hoursEditDate(rule, today);
   const summaryOf = (ruleId: string) => summaries.data?.find((s) => s.ruleId === ruleId);
+  /**
+   * Guests the closure cancelled. `null` when the counts failed to load (a refetch that fails
+   * leaves stale data, so the error wins) or are missing: a closure with no summary row cancelled
+   * no one, but a failed read says nothing about it.
+   */
+  const cancelledOf = (ruleId: string): number | null =>
+    summaries.error || !summaries.data ? null : (summaryOf(ruleId)?.cancelled ?? 0);
   const orphans =
     filter === "all"
       ? orphanRefundRules(
@@ -378,6 +430,8 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           ))}
         </Alert>
       )}
+      {/* Outside the alert, which would read every row aloud. */}
+      {rowSave.failure.length > 0 && <StrandedBookings reservations={rowSave.stranded} />}
       {summaries.error && <Alert variant="error">{describeApiError(summaries.error).detail}</Alert>}
       {summaries.isLoading ? (
         <Skeleton variant="text" lines={3} />
@@ -397,7 +451,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
               title={rangeLabel(rule, format, t)}
               detail={[
                 rule.kind === "closure"
-                  ? t("availabilitySpecial.kind.closure")
+                  ? closureDetail(rule, format, t)
                   : t("availabilitySpecial.kind.specialHours"),
                 hoursRange(rule, format, t),
                 rule.repeat ? t("availabilitySpecial.repeating") : null,
@@ -408,7 +462,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
               message={rule.guestMessage}
               summary={summaryOf(rule.id)}
               retrying={retryingId === rule.id}
-              onRemove={rule.kind === "closure" ? () => setReopening(rule) : undefined}
+              onRemove={rule.kind === "closure" && !past ? () => setReopening(rule) : undefined}
               onEditDates={isSeries(rule) ? () => setEditingSeries(rule) : undefined}
               skips={isSeries(rule) ? skipsOf(rule.id) : undefined}
               onRestore={(skipId) => void restoreSkip(skipId)}
@@ -512,6 +566,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           date={editingHours.date}
           ruleScope={editingHours.ruleScope}
           onStale={onStale}
+          reloadError={reloadError}
           onClose={() => setEditingHours(null)}
         />
       )}
@@ -537,9 +592,16 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
         <ReopenClosureDialog
           venueId={venueId}
           ruleId={reopening.id}
-          dateLabel={format.formatCalendarDate(reopening.startsOn, DATE_FORMAT)}
-          cancelled={summaryOf(reopening.id)?.cancelled ?? 0}
+          subject={closureSubject(reopening, format, t)}
+          cancelled={cancelledOf(reopening.id)}
+          notifiable={summaryOf(reopening.id)?.upcomingCancelled ?? null}
+          countFailed={summaries.error != null}
+          subjectIsSpan={reopening.endsOn !== reopening.startsOn || reopening.repeat != null}
+          onRetryCount={() => void summaries.refetch()}
           editedDates={rules.filter((r) => r.seriesId === reopening.id).length}
+          isSeriesEdit={
+            reopening.seriesId != null && rules.some((r) => r.id === reopening.seriesId)
+          }
           onClose={() => setReopening(null)}
         />
       )}

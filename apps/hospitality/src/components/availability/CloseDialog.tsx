@@ -12,24 +12,36 @@ import { useClosureImpact, useCreateClosure } from "../../hooks/useClosures.js";
 import { useNow } from "../../hooks/useNow.js";
 import { useRefreshAvailability } from "../../hooks/useRefreshAvailability.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { describeApiError } from "../../lib/describe-api-error.js";
-import { minutesOfDayIn } from "../../utils/service-day.js";
+import { serviceMinuteOf } from "../../utils/service-day.js";
 import {
   buildCloseRule,
+  closedDates,
   decisionsReady,
+  focusCloseField,
+  inSeries,
   isUrgent,
   outcomeCounts,
+  replacedSpecialDate,
+  sameRequest,
+  seriesForm,
+  settleStartMinute,
+  startMinutes,
+  stepTwoNote,
+  stepTwoNoteId,
   toDecisions,
   validateClose,
+  type BookingChannel,
   type ChoiceMap,
   type CloseField,
   type CloseForm,
 } from "./close-draft.js";
-import { conflictOf, isDecisionRequired } from "./conflict-problem.js";
+import { LeaveSaveDialog } from "./LeaveSaveDialog.js";
+import { useSaveAttempts } from "./use-save-attempts.js";
 import { useWinningChangeText } from "./use-winning-change-text.js";
 import { CloseStepOne } from "./CloseStepOne.js";
 import { CloseStepTwo } from "./CloseStepTwo.js";
-import { outcomeLabel } from "./outcome-label.js";
+import { outcomeLabel, outcomeSummary } from "./outcome-label.js";
+import { refusalOf, refusalText } from "./step-two-refusal.js";
 import styles from "./CloseDialog.module.css";
 
 export interface CloseDialogProps {
@@ -77,40 +89,13 @@ function initialForm(props: CloseDialogProps): CloseForm {
   };
 }
 
-function whatOf(series: DateRule): CloseForm["what"] {
-  if (series.targetKind === "service" && series.venueServiceId) {
-    return { kind: "service", serviceId: series.venueServiceId };
-  }
-  if (series.targetKind === "booking" && series.bookingTypes?.length) {
-    return { kind: "booking", types: [...series.bookingTypes] };
-  }
-  return { kind: "venue" };
-}
-
-/** The form for editing one date of `series`: the series' target and start time, on that date. */
-function seriesForm(series: DateRule, date: string): CloseForm {
-  return {
-    what: whatOf(series),
-    when: { kind: "date", date },
-    fromMinute: series.window?.from ?? null,
-    staffNote: "",
-    guestMessage: "",
-  };
-}
-
-/**
- * An edit of one date of a series. The engine applies a rule with a `seriesId` on its start date
- * only, so the rule is pinned to that single date whatever the form says.
- */
-function inSeries(rule: DateRule | null, series: DateRule | undefined): DateRule | null {
-  if (!rule || !series) return rule;
-  return { ...rule, seriesId: series.id, endsOn: rule.startsOn, repeat: null };
-}
-
-function failureText(error: unknown, t: TFunction): string {
-  return conflictOf(error)?.code === "version-conflict"
-    ? t("availability.close.versionConflict")
-    : describeApiError(error).detail;
+/** The button for a booking-only closure names the channels it pauses, not always "online". */
+function pauseLabel(types: readonly BookingChannel[], t: TFunction): string {
+  const only = types.length === 1 ? types[0] : undefined;
+  if (only === "online") return t("availability.close.button.pause");
+  if (only === "phone") return t("availability.close.button.pausePhone");
+  if (only === "waitlist") return t("availability.close.button.pauseWaitlist");
+  return t("availability.close.button.pauseBooking");
 }
 
 /**
@@ -137,14 +122,37 @@ export function CloseDialog(props: CloseDialogProps) {
     readonly change: AvailabilityChangeSummary | null;
   } | null>(null);
   const winnerText = useWinningChangeText(winner?.change ?? null);
-  // One id per dialog: the rule is created at most once, whatever the Manager retries.
-  const [ruleId] = useState(() => crypto.randomUUID());
+  const attempts = useSaveAttempts(state.config.dateRules, { reload: refresh, onLeave: onClose });
+  const { ruleId, idempotencyKey, earlier } = attempts;
+  const savedEarlier = earlier !== undefined;
+  const leave = () => attempts.leave(isPending);
+  const [startReset, setStartReset] = useState(false);
+  const edit = (changed: CloseForm) => {
+    const next = settleStartMinute(form, changed, state.config, timezone, today);
+    setStartReset(next.fromMinute !== changed.fromMinute);
+    if (!sameRequest(next, form)) {
+      setChoices({});
+      attempts.restart();
+    } else {
+      // A lost response then an edit to the message or a decision: see `useSaveAttempts`.
+      attempts.edited(form, next);
+    }
+    setForm(next);
+    setInvalid(null);
+    attempts.setDirty(true);
+  };
 
   const { series } = props;
+  // The preview has its own id, fixed for the dialog: a new attempt (new `ruleId`) must not be a
+  // new impact query, or Step 2 would lose the bookings it is deciding on until it refetched.
+  const [previewId] = useState(() => crypto.randomUUID());
   const impactRule = useMemo(
     () =>
-      inSeries(buildCloseRule({ ...form, staffNote: "", guestMessage: "" }, ruleId, today), series),
-    [form, ruleId, today, series]
+      inSeries(
+        buildCloseRule({ ...form, staffNote: "", guestMessage: "" }, previewId, today),
+        series
+      ),
+    [form, previewId, today, series]
   );
   const impactQuery = useClosureImpact({ venueId, rule: impactRule });
   const impact: ClosureImpact | null | undefined = impactRule ? impactQuery.data : null;
@@ -153,11 +161,16 @@ export function CloseDialog(props: CloseDialogProps) {
   const services = state.config.venueServices.filter((s) => !s.archivedAt);
 
   const startsOn = rule?.startsOn ?? today;
-  const hasSpecialHours = state.config.dateRules.some(
-    (r) =>
-      r.kind === "special_hours" && r.startsOn <= startsOn && (r.endsOn ?? startsOn) >= startsOn
+  // Special hours anywhere in the closure's dates (a range or a repeat too) are replaced by it.
+  const replacedDate =
+    rule && form.what.kind !== "booking" ? replacedSpecialDate(state.config.dateRules, rule) : null;
+  // Read every day the closure covers: a time must mean the same on all of them.
+  const startOptions = startMinutes(
+    state.config,
+    timezone,
+    rule ? closedDates(rule) : [startsOn],
+    form.fromMinute
   );
-  const replacedDate = hasSpecialHours && form.what.kind !== "booking" ? startsOn : null;
 
   const fullDate = (date: string) =>
     format.formatCalendarDate(date, { weekday: "short", month: "short", day: "numeric" });
@@ -165,7 +178,7 @@ export function CloseDialog(props: CloseDialogProps) {
   const next = () => {
     const problem = validateClose(form, today);
     setInvalid(problem);
-    if (problem) return;
+    if (problem) return focusCloseField(problem);
     if (groups.length > 0) setStep(2);
     else void save();
   };
@@ -174,36 +187,41 @@ export function CloseDialog(props: CloseDialogProps) {
     if (!rule) return;
     setFailure(null);
     setWinner(null);
+    attempts.record(outcomeSummary(outcomeCounts(groups, choices), t));
     try {
       const result = await mutateAsync({
         venueId,
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey,
         body: { expectedVersion: state.version, rule, decisions: toDecisions(groups, choices) },
       });
       const { cancel, move, keep_notify } = result.outcomes;
       const notified = cancel + move + keep_notify;
+      // A repeat's From date may not be one of its days.
+      const date = fullDate(closedDates(rule)[0] ?? startsOn);
       const title =
         notified > 0
-          ? t("availability.close.toast.notified", { date: fullDate(startsOn), count: notified })
+          ? t("availability.close.toast.notified", { date, count: notified })
           : form.what.kind === "booking"
             ? form.what.types.length === 1 && form.what.types[0] === "online"
               ? t("availability.close.toast.paused")
-              : t("availability.close.toast.bookingPaused", { date: fullDate(startsOn) })
-            : t("availability.close.toast.closed", { date: fullDate(startsOn) });
+              : t("availability.close.toast.bookingPaused", { date })
+            : t("availability.close.toast.closed", { date });
       toast({ title, variant: "success" });
       onClose();
     } catch (error) {
-      if (isDecisionRequired(error)) {
+      const refused = refusalOf(error);
+      setFailure(refusalText(refused, t));
+      if (refused.kind === "groups-changed") {
         // The group changed since the Manager chose: drop the stale choices and load the new one.
         setChoices({});
-        setFailure(t("availability.close.groupsChanged"));
         void impactQuery.refetch();
         return;
       }
-      setFailure(failureText(error, t));
-      const conflict = conflictOf(error);
-      if (conflict?.code === "version-conflict") {
-        setWinner({ change: conflict.winningChange });
+      attempts.failed(refused);
+      if (refused.kind === "version-conflict") {
+        setWinner({ change: refused.winningChange });
+        refresh();
+      } else if (refused.kind === "closure-exists") {
         refresh();
       }
     }
@@ -213,87 +231,138 @@ export function CloseDialog(props: CloseDialogProps) {
   const urgent = isUrgent(
     { startsOn, endsOn: rule?.endsOn, repeat: rule?.repeat, fromMinute: form.fromMinute },
     today,
-    minutesOfDayIn(now, timezone)
+    serviceMinuteOf(now, timezone, today)
   );
+  const impactFailed = impactRule !== null && impactQuery.error !== null;
+  // Step 2 decides on bookings it must be showing: with none loaded, `groups` is empty and the
+  // choices would read as complete.
   const primaryDisabled =
-    step === 2
-      ? !decisionsReady(groups, choices)
-      : impactQuery.isLoading || (impactRule !== null && impactQuery.error !== null);
+    savedEarlier ||
+    (step === 2
+      ? !impact || !decisionsReady(groups, choices)
+      : impactQuery.isLoading || impactFailed);
   const label =
     step === 2
       ? outcomeLabel(counts, t)
       : groups.length > 0
         ? t("availability.close.next")
         : form.what.kind === "booking"
-          ? t("availability.close.button.pause")
+          ? pauseLabel(form.what.types, t)
           : t("availability.close.button.close", {
               date:
                 form.when.kind === "date" || form.when.kind === "tonight" ? fullDate(startsOn) : "",
             }).trim();
 
   return (
-    <Dialog
-      open
-      onClose={onClose}
-      title={t("availability.close.title")}
-      description={t("availability.close.step", { step })}
-      footer={
-        <div className={styles.footer}>
-          {step === 2 && (
-            <Text variant="caption" color="secondary" className={styles.footerNote}>
-              {t("availability.close.step2.irreversible")}
-            </Text>
+    <>
+      <Dialog
+        open
+        onClose={leave}
+        title={t("availability.close.title")}
+        description={savedEarlier ? undefined : t("availability.close.step", { step })}
+        footer={
+          savedEarlier ? (
+            <div className={styles.footer}>
+              <Button variant="primary" onClick={attempts.finish}>
+                {t("availability.close.savedEarlier.done")}
+              </Button>
+            </div>
+          ) : (
+            <div className={styles.footer}>
+              {step === 2 && (
+                <Text
+                  id={stepTwoNoteId}
+                  variant="caption"
+                  color="secondary"
+                  className={styles.footerNote}
+                >
+                  {stepTwoNote(decisionsReady(groups, choices), t)}
+                </Text>
+              )}
+              <Button
+                variant="secondary"
+                disabled={isPending}
+                onClick={step === 2 ? () => setStep(1) : leave}
+              >
+                {step === 2 ? t("availability.close.back") : t("availability.close.cancel")}
+              </Button>
+              <Button
+                variant="primary"
+                data-testid="close-primary"
+                aria-describedby={step === 2 ? stepTwoNoteId : undefined}
+                onClick={step === 2 ? () => void save() : next}
+                isLoading={isPending}
+                disabled={primaryDisabled}
+              >
+                {label}
+              </Button>
+            </div>
+          )
+        }
+      >
+        {earlier && (
+          // The first attempt's choices are what applied: the form, which may show later edits,
+          // and any failure of the attempts after it, are not the outcome. Never invite a retry.
+          <Alert variant="info" title={t("availability.close.savedEarlier.title")}>
+            {earlier.summary
+              ? t("availability.close.savedEarlier.body", { summary: earlier.summary })
+              : t("availability.close.savedEarlier.bodyPlain")}
+          </Alert>
+        )}
+        {!savedEarlier && failure && (
+          <Alert variant="error" title={t("availability.close.saveError")}>
+            {failure}
+            {winner && <Text variant="body">{winnerText}</Text>}
+          </Alert>
+        )}
+        {/* A save in flight sends what was chosen: no control may change it meanwhile. */}
+        <fieldset className={styles.lock} disabled={isPending} hidden={savedEarlier}>
+          {step === 1 ? (
+            <CloseStepOne
+              form={form}
+              onChange={edit}
+              services={services}
+              today={today}
+              impact={impact}
+              impactLoading={impactQuery.isLoading}
+              impactFailed={impactQuery.error !== null}
+              replacedDate={replacedDate}
+              invalid={invalid}
+              locked={props.hostLocked}
+              dateLocked={series !== undefined}
+              startOptions={startOptions}
+              startReset={startReset}
+            />
+          ) : (
+            <>
+              {impact && (
+                <CloseStepTwo
+                  impact={impact}
+                  choices={choices}
+                  urgent={urgent}
+                  guestMessage={form.guestMessage}
+                  onChoose={(key, choice) => {
+                    attempts.edited(choices[key], choice);
+                    setChoices({ ...choices, [key]: choice });
+                    attempts.setDirty(true);
+                  }}
+                />
+              )}
+              {!impact && impactFailed && (
+                <Text variant="body" color="secondary">
+                  {t("availability.close.step2.loadFailed")}
+                </Text>
+              )}
+              {!impact && !impactFailed && (
+                <Text variant="body" color="secondary">
+                  {t("availability.close.step2.loading")}
+                </Text>
+              )}
+            </>
           )}
-          <Button variant="secondary" onClick={step === 2 ? () => setStep(1) : onClose}>
-            {step === 2 ? t("availability.close.back") : t("availability.close.cancel")}
-          </Button>
-          <Button
-            variant="primary"
-            data-testid="close-primary"
-            onClick={step === 2 ? () => void save() : next}
-            isLoading={isPending}
-            disabled={primaryDisabled}
-          >
-            {label}
-          </Button>
-        </div>
-      }
-    >
-      {failure && (
-        <Alert variant="error" title={t("availability.close.saveError")}>
-          {failure}
-          {winner && <Text variant="body">{winnerText}</Text>}
-        </Alert>
-      )}
-      {step === 1 ? (
-        <CloseStepOne
-          form={form}
-          onChange={(f) => {
-            setForm(f);
-            setChoices({});
-            setInvalid(null);
-          }}
-          services={services}
-          today={today}
-          impact={impact}
-          impactLoading={impactQuery.isLoading}
-          impactFailed={impactQuery.error !== null}
-          replacedDate={replacedDate}
-          invalid={invalid}
-          locked={props.hostLocked}
-          dateLocked={series !== undefined}
-        />
-      ) : (
-        impact && (
-          <CloseStepTwo
-            impact={impact}
-            choices={choices}
-            urgent={urgent}
-            guestMessage={form.guestMessage}
-            onChoose={(key, choice) => setChoices({ ...choices, [key]: choice })}
-          />
-        )
-      )}
-    </Dialog>
+        </fieldset>
+      </Dialog>
+      <LeaveSaveDialog attempts={attempts} />
+    </>
   );
 }

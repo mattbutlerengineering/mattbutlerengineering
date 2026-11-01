@@ -231,7 +231,7 @@ export function JsonInspector({ rawLines, isStreaming, error = null }: JsonInspe
   }
 
   return (
-    <aside className={styles.inspector}>
+    <aside className={styles.inspector} aria-label="JSON inspector">
       <div className={styles.toolbar}>
         <Text className={styles.label}>JSON</Text>
         <div className={styles.searchGroup}>

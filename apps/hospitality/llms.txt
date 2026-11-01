@@ -168,11 +168,76 @@
     <item priority="high">
       export function validateClose(form: CloseForm, today: string): CloseField | null { /* ... */ }
     </item>
+    <item priority="high">
+      export const closeFieldId: unknown;
+    </item>
+    <item priority="high">
+      export const closeWhenId: unknown;
+    </item>
+    <item priority="high">
+      export function focusCloseField(field: CloseField) { /* ... */ }
+    </item>
+    <item priority="high">
+      export const stepTwoNoteId: unknown;
+    </item>
+    <item priority="high">
+      export function stepTwoNote(ready: boolean, t: TFunction): string { /* ... */ }
+    </item>
     <item priority="medium">
       function targetOf(what: CloseWhat) { /* ... */ }
     </item>
     <item priority="high">
       export function buildCloseRule(form: CloseForm, id: string, today: string): DateRule | null { /* ... */ }
+    </item>
+    <item priority="high">
+      type ClosureSpan = Pick<DateRule, "startsOn" | "endsOn" | "repeat">;
+    </item>
+    <item priority="high">
+      export function firstDateOf(when: CloseWhen, today: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function guestDateOf(when: CloseWhen, today: string): string | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closedDates(closure: ClosureSpan): readonly string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function replacedSpecialDate(
+        rules: readonly DateRule[],
+        closure: ClosureSpan
+      ): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function distinctDays(config: AvailabilityConfig, dates: readonly string[]): readonly string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function startMinutes(
+        config: AvailabilityConfig,
+        timezone: string,
+        dates: readonly string[],
+        keep: number | null
+      ): readonly number[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function settleStartMinute(
+        prev: CloseForm,
+        next: CloseForm,
+        config: AvailabilityConfig,
+        timezone: string,
+        today: string
+      ): CloseForm { /* ... */ }
+    </item>
+    <item priority="medium">
+      function whatOf(series: DateRule): CloseWhat { /* ... */ }
+    </item>
+    <item priority="high">
+      export function seriesForm(series: DateRule, date: string): CloseForm { /* ... */ }
+    </item>
+    <item priority="high">
+      export function inSeries(rule: DateRule | null, series: DateRule | undefined): DateRule | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function sameRequest(a: CloseForm, b: CloseForm): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function actionsFor(kind: ClosureImpactKind): readonly ClosureAction[] { /* ... */ }
@@ -205,8 +270,18 @@
       ): boolean { /* ... */ }
     </item>
     <item priority="high">
-      export function activeOnlinePause(
-        rules: readonly DateRule[],
+      export function isPauseInForce(
+        rule: DateRule,
+        config: AvailabilityConfig,
+        timezone: string,
+        today: string,
+        nowMinute: number
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function shownOnlinePause(
+        config: AvailabilityConfig,
+        timezone: string,
         today: string,
         nowMinute: number
       ): DateRule | null { /* ... */ }
@@ -292,12 +367,45 @@
       export function conflictOf(error: unknown): Conflict | null { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/conflict-review.ts">
+    <item priority="low">
+      interface ScheduleChangeSince {
+        gone: boolean;
+        replacedBy: string | null;
+        renamedTo: string | null;
+        added: readonly string[];
+        removed: readonly string[];
+      }
+    </item>
+    <item priority="medium">
+      function rowsByService(config: AvailabilityConfig, scheduleId: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function scheduleChangesSince(
+        before: AvailabilityConfig,
+        after: AvailabilityConfig,
+        scheduleId: string,
+        latestId: string = scheduleId
+      ): ScheduleChangeSince { /* ... */ }
+    </item>
+    <item priority="high">
+      interface ReapplyInput {
+        base: readonly DraftService[];
+        draft: readonly DraftService[];
+        latest: readonly DraftService[];
+      }
+    </item>
+    <item priority="high">
+      export function reapplyDraft({ base, draft, latest }: ReapplyInput): DraftService[] { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/copy-day.ts">
     <item priority="low">
       interface CopyTarget {
         weekdays: readonly number[];
         from: string;
         until: string | null;
+        today?: string;
       }
     </item>
     <item priority="high">
@@ -377,6 +485,13 @@
       type EditScope = { readonly kind: "date"; reado | { readonly kind: "weekday"; re | { readonly kind: "schedule"; r | { readonly kind: "dates"; read | {
             readonly kind: "rule";;
     </item>
+    <item priority="high">
+      export function overnightHintDate(
+        scope: EditScope,
+        date: string,
+        dates: readonly string[]
+      ): string | undefined { /* ... */ }
+    </item>
     <item priority="low">
       interface DraftService {
         key: string;
@@ -432,14 +547,56 @@
         config: AvailabilityConfig,
         scheduleId: string,
         services: readonly (DraftService & { venueServiceId: string })[],
-        makeId: () => string
+        makeId: () => string,
+        baseline?: AvailabilityConfig
       ): { upsert: ScheduleService[]; removed: string[] } { /* ... */ }
     </item>
     <item priority="high">
       export function buildDraftChanges(input: BuildInput): AvailabilityConfigChanges { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/draft-wait.ts">
+    <item priority="high">
+      export function waitingProps(waiting: boolean, reasonId: string | undefined) { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/editor-open.ts">
+    <item priority="medium">
+      function emit() { /* ... */ }
+    </item>
+    <item priority="high">
+      export function markEditorOpen(): () => void { /* ... */ }
+    </item>
+    <item priority="high">
+      export const isEditorOpen: unknown;
+    </item>
+    <item priority="medium">
+      function subscribe(listener: () => void): () => void { /* ... */ }
+    </item>
+    <item priority="high">
+      export const useEditorOpen: unknown;
+    </item>
+  </file>
+  <file path="src/components/availability/online-seatings.ts">
+    <item priority="medium">
+      function seatingMinutes({ opensAt, lastSeatingAt, closesAt, seating }: ResolvedService): number[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closesOnline(band: ResolvedClosure, minute: number, venueServiceId: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function onlineSeatingLeft(
+        config: AvailabilityConfig,
+        timezone: string,
+        date: string,
+        nowMinute: number
+      ): boolean { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/outcome-label.ts">
+    <item priority="high">
+      export function outcomeSummary(counts: OutcomeCounts, t: TFunction): string { /* ... */ }
+    </item>
     <item priority="high">
       export function outcomeLabel(counts: OutcomeCounts, t: TFunction): string { /* ... */ }
     </item>
@@ -511,7 +668,7 @@
       function toClock(minutes: number): string { /* ... */ }
     </item>
     <item priority="high">
-      export function autoLastSeating(closes: string): string { /* ... */ }
+      export function autoLastSeating(closes: string, opens: string | null = null): string { /* ... */ }
     </item>
     <item priority="high">
       export function applyPreset(service: ServiceDraft, preset: ServicePresetId, name: string) { /* ... */ }
@@ -722,6 +879,19 @@
     <item priority="high">
       export function buildDeleteScheduleChanges(scheduleId: string): AvailabilityConfigChanges { /* ... */ }
     </item>
+    <item priority="low">
+      type ScheduleSaveBlock = "conflict" | "startRequired" | "endBeforeStart" | "nameRequired" | "servicesRequired" | "serviceNameRequired";
+    </item>
+    <item priority="high">
+      export function scheduleSaveBlock(draft: {
+        readonly conflicted: boolean;
+        readonly name: string;
+        readonly services: readonly DraftService[];
+        readonly startsOn: string | null;
+        readonly endsOn: string | null;
+        readonly startRequired?: boolean;
+      }): ScheduleSaveBlock | null { /* ... */ }
+    </item>
     <item priority="medium">
       function meets(a: UseOn, b: UseOn): boolean { /* ... */ }
     </item>
@@ -770,6 +940,9 @@
       }
     </item>
     <item priority="high">
+      export function regularWeekdays(config: AvailabilityConfig, from: string): number[] { /* ... */ }
+    </item>
+    <item priority="high">
       export function buildRegularWeekChanges(input: RegularWeekInput): AvailabilityConfigChanges { /* ... */ }
     </item>
     <item priority="high">
@@ -779,6 +952,8 @@
         readonly name: string;
         readonly services: readonly DraftService[];
         readonly makeId: () => string;
+        /** The config the drawer was seeded from, so a save removes only rows the Manager saw. */
+        readonly baseline: AvailabilityConfig;
       }): AvailabilityConfigChanges { /* ... */ }
     </item>
     <item priority="medium">
@@ -816,6 +991,34 @@
       ): string[] { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/scope-switch.ts">
+    <item priority="low">
+      interface ParkedEdit {
+        base: DraftService;
+        draft: DraftService | null;
+      }
+    </item>
+    <item priority="high">
+      interface SwitchInput {
+        baseline: readonly DraftService[];
+        services: readonly DraftService[];
+        parked: readonly ParkedEdit[];
+        seed: DraftService[];
+      }
+    </item>
+    <item priority="low">
+      interface Switched {
+        services: DraftService[];
+        baseline: DraftService[];
+        parked: ParkedEdit[];
+        unsaved: string[];
+        overridden: string[];
+      }
+    </item>
+    <item priority="high">
+      export function switchScope(input: SwitchInput): Switched { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/selection-actions.ts">
     <item priority="high">
       export function ownSingleDateRules(
@@ -846,12 +1049,26 @@
       }): AvailabilityConfigChanges { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/selection-hours.ts">
+    <item priority="medium">
+      function hoursSignature(day: ResolvedDay): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function pickHoursSource(
+        dates: readonly string[],
+        resolve: (date: string) => ResolvedDay
+      ): { readonly date: string | null; readonly differs: boolean } { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/selection.ts">
     <item priority="high">
       export function normalizeDates(dates: readonly string[]): string[] { /* ... */ }
     </item>
     <item priority="high">
       export function dateRange(a: string, b: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function futureDates(dates: readonly string[], today: string): string[] { /* ... */ }
     </item>
     <item priority="high">
       export function toggleDate(selection: readonly string[], date: string): string[] { /* ... */ }
@@ -897,6 +1114,9 @@
       export function nextOccurrence(series: DateRule, from: string): string { /* ... */ }
     </item>
     <item priority="high">
+      export function sameRow(a: DateRule, b: DateRule): boolean { /* ... */ }
+    </item>
+    <item priority="high">
       export function dateOverride(
         rules: readonly DateRule[],
         seriesId: string,
@@ -930,6 +1150,12 @@
         date: string,
         edit: SeriesEdit,
         makeId: () => string
+      ): { rule: DateRule; alongside: ClosureAlongside } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function growthAttempt(
+        plan: { readonly rule: DateRule; readonly alongside: ClosureAlongside },
+        ruleId: string
       ): { rule: DateRule; alongside: ClosureAlongside } { /* ... */ }
     </item>
     <item priority="high">
@@ -993,6 +1219,21 @@
       ): ClosureSummary[] { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/step-two-refusal.ts">
+    <item priority="low">
+      type Refusal = { readonly kind: "groups-chang | { readonly kind: "version-conf | { readonly kind: "closure-exis | {
+            readonly kind: "other";
+    </item>
+    <item priority="high">
+      export function refusalOf(error: unknown): Refusal { /* ... */ }
+    </item>
+    <item priority="high">
+      export function mayHaveSaved(refusal: Refusal): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function refusalText(refusal: Refusal, t: TFunction): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/tonight-state.ts">
     <item priority="low">
       type TonightChange = { readonly ruleId: string; rea | { readonly ruleId: string; rea | {
@@ -1033,9 +1274,96 @@
       ): readonly TonightChange[] { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/use-conflict-review.ts">
+    <item priority="high">
+      interface Baseline {
+        config: AvailabilityConfig;
+        version: number;
+        scheduleId: string | undefined;
+      }
+    </item>
+    <item priority="low">
+      type ConflictReviewKind = "edit" | "regularWeek" | "draft";
+    </item>
+    <item priority="low">
+      interface ConflictReview {
+        kind: ConflictReviewKind;
+        loaded: boolean;
+        changes: ScheduleChangeSince;
+      }
+    </item>
+    <item priority="high">
+      interface Input {
+        kind: ConflictReviewKind;
+        state: AvailabilityConfigState;
+        scheduleId: string | undefined;
+        services: readonly DraftService[];
+        name: string | null;
+      }
+    </item>
+    <item priority="high">
+      export function useConflictReview(input: Input) { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/use-discard-guard.ts">
     <item priority="high">
-      export function useDiscardGuard<T>(apply: (next: T) => void) { /* ... */ }
+      export function useDiscardGuard<T>(apply: (next: T) => void, derivedDirty?: boolean) { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/use-held-for.ts">
+    <item priority="high">
+      export function useHeldFor(active: boolean, ms: number): boolean { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/use-hold-focus.ts">
+    <item priority="low">
+      type HoldWayOut = "banner" | "reload" | null;
+    </item>
+    <item priority="high">
+      export function useHoldFocus(wayOut: HoldWayOut) { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/use-reload-hold.ts">
+    <item priority="medium">
+      function emit() { /* ... */ }
+    </item>
+    <item priority="medium">
+      function addSaveUnderWay(venueId: string, by: 1 | -1) { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function trackOwnSave<T extends { readonly version: number }>(
+        venueId: string,
+        run: () => Promise<T>
+      ): Promise<T> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function subscribe(listener: () => void): () => void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useReloadHold(venueId: string | undefined, version: number | undefined) { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/use-save-attempts.ts">
+    <item priority="low">
+      interface TriedAttempt {
+        key: string;
+        ruleIds: readonly string[];
+        dates: readonly string[];
+        summary: string;
+      }
+    </item>
+    <item priority="low">
+      interface SaveAttemptsOptions {
+        firstRuleId?: string;
+        reload: () => void;
+        onLeave: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function useSaveAttempts(rules: readonly DateRule[], options: SaveAttemptsOptions) { /* ... */ }
+    </item>
+    <item priority="low">
+      type SaveAttempts = ReturnType<typeof useSaveAttempts>;
     </item>
   </file>
   <file path="src/components/availability/use-schedule-save.ts">
@@ -1060,13 +1388,14 @@
         selection: readonly string[];
         onSelectionChange: (dates: string[]) => void;
         onOpenDay: (date: string) => void;
+        onDragChange?: (dragging: boolean) => void;
       }
     </item>
     <item priority="low">
       interface DateGestureHandlers {
         onClick: (event: MouseEvent) => void;
         onMouseDown: (event: MouseEvent) => void;
-        onMouseEnter: () => void;
+        onMouseEnter: (event: MouseEvent) => void;
         onTouchStart: () => void;
         onTouchMove: () => void;
       }
@@ -1299,7 +1628,7 @@
       export function useChatSuggestions(): readonly string[] { /* ... */ }
     </item>
     <item priority="high">
-      type ChatActionKey = `chat.actions.${(typeof ACTION | `chat.actions.fields.${(typeof | (typeof TABLE_STATUSES)[keyof  | (typeof TONIGHT_CHANGES)[keyof | (typeof CANCEL_REASONS)[keyof ;
+      type ChatActionKey = `chat.actions.${(typeof ACTION | (typeof YES_NO)[keyof typeof Y | (typeof SCOPES)[keyof typeof S | (typeof OPEN_END)[keyof typeof | `chat.actions.fields.${(typeof | (typeof TABLE_STATUSES)[keyof  | (typeof TONIGHT_CHANGES)[keyof | (typeof CANCEL_REASONS)[keyof  | (typeof MENU_AVAILABILITY)[key;
     </item>
     <item priority="high">
       type Translate = (key: ChatActionKey) => string;
@@ -1308,7 +1637,7 @@
       function formatWhen(key: string, value: string, locale?: string): string { /* ... */ }
     </item>
     <item priority="medium">
-      function lookup<T extends Record<string, string>>(map: T, key: string): T[keyof T] | undefined { /* ... */ }
+      function valueKey(key: string, value: string): ChatActionKey | undefined { /* ... */ }
     </item>
     <item priority="high">
       export function describeChatAction(
@@ -1563,6 +1892,38 @@
     </item>
     <item priority="high">
       export async function injectAuth0Session(page: Page): Promise<void> { /* ... */ }
+    </item>
+  </file>
+  <file path="e2e/availability-draft-mock.ts">
+    <item priority="low">
+      interface PutBody {
+        expectedVersion: number;
+        changes?: { upsert?: { dateRules?: Array<{ id: string; startsOn?: s...;
+      }
+    </item>
+    <item priority="low">
+      interface PutRecord {
+        expected: number;
+        status: number;
+      }
+    </item>
+    <item priority="low">
+      interface AvailabilityMock {
+        version: number;
+        configReads: number;
+        failReads: boolean;
+        readVersion: number | null;
+        bodies: PutBody[];
+      }
+    </item>
+    <item priority="medium">
+      function between(from: string, to: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function mockAvailability(
+        page: Page,
+        options: { weekdays?: number[]; rules?: unknown[] } = {}
+      ): Promise<AvailabilityMock> { /* ... */ }
     </item>
   </file>
   <file path="e2e/booking-date.ts">
@@ -1863,6 +2224,12 @@
     </item>
     <item priority="high">
       export const SEAT_NAME: unknown;
+    </item>
+    <item priority="high">
+      export const DRAG_SHADOW_NAME: unknown;
+    </item>
+    <item priority="high">
+      export const FURNITURE_GROUP_NAME: unknown;
     </item>
     <item priority="high">
       export const FURNITURE_PALETTE: unknown;
@@ -2489,6 +2856,9 @@
     </item>
   </file>
   <file path="src/hooks/useAvailabilityUndo.ts">
+    <item priority="medium">
+      function focusOffToast(offeredFrom: Element | null) { /* ... */ }
+    </item>
     <item priority="high">
       export function useAvailabilityUndo() { /* ... */ }
     </item>
@@ -2825,15 +3195,26 @@
   </file>
   <file path="src/hooks/useFocusAfter.ts">
     <item priority="low">
-      type FocusTarget = { readonly kind: "element"; re | { readonly kind: "testId"; rea | { readonly kind: "pageHeading";
+      type FocusTarget = { readonly kind: "element"; re | { readonly kind: "testId"; rea | { readonly kind: "firstIn"; re | { readonly kind: "pageHeading";
+    </item>
+    <item priority="low">
+      interface FocusOptions {
+        unlessCovered?: boolean;
+      }
+    </item>
+    <item priority="high">
+      export const UNLESS_COVERED: FocusOptions;
     </item>
     <item priority="low">
       interface FocusAfterApi {
-        focusAfter: (target: FocusTarget) => void;
+        focusAfter: (target: FocusTarget, options?: FocusOptions) => void;
       }
     </item>
     <item priority="medium">
       function resolveTarget(target: FocusTarget): HTMLElement | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isCoveredByDialog(element: Element | null): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function useFocusAfter(): FocusAfterApi { /* ... */ }
@@ -4070,6 +4451,119 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="pages">
+  <file path="src/pages/timeline-focus.ts">
+    <item priority="high">
+      export const DETAILS_SURFACE_TEST_ID: unknown;
+    </item>
+    <item priority="high">
+      export const DETAILS_SIDEBAR_TEST_ID: unknown;
+    </item>
+    <item priority="high">
+      export function blockTarget(reservationId: string): FocusTarget { /* ... */ }
+    </item>
+    <item priority="low">
+      interface SurfaceState {
+        openId: string | null;
+        modal: boolean;
+        changingForm: boolean;
+        dialogEpoch: number;
+      }
+    </item>
+    <item priority="medium">
+      function insideSurface(element: HTMLElement): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function returnFocusTarget(
+        surface: SurfaceState,
+        opener: HTMLElement | null,
+        fallback: FocusTarget | null
+      ): FocusTarget | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function walkInFocusTarget(viewport: Viewport, reservationId: string): FocusTarget { /* ... */ }
+    </item>
+    <item priority="high">
+      export function captureOpener(clicked?: HTMLElement): HTMLElement | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function seatedFocusTarget(
+        surface: SurfaceState,
+        reservationId: string
+      ): FocusTarget | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useCloseHoldingFocus(): (close: () => void) => void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useOnChange<T>(value: T, onChange: () => void): void { /* ... */ }
+    </item>
+    <item priority="high">
+      interface DetailsSurfaceInput {
+        viewport: Viewport;
+        selectedId: string | null;
+        selectedReservation: Reservation | null;
+        dialogOpen: boolean;
+        dialogEpoch: number;
+      }
+    </item>
+    <item priority="high">
+      interface DetailsSurface {
+        surfaceViewport: Viewport;
+        sheetReservation: Reservation | null;
+        surfaceRef: RefObject<SurfaceState>;
+      }
+    </item>
+    <item priority="high">
+      export function useDetailsSurface({
+        viewport,
+        selectedId,
+        selectedReservation,
+        dialogOpen,
+        dialogEpoch,
+      }: DetailsSurfaceInput): DetailsSurface { /* ... */ }
+    </item>
+  </file>
+  <file path="src/pages/timeline-sentences.ts">
+    <item priority="high">
+      export function walkInSentence(
+        created: Reservation,
+        tableName: string | undefined,
+        t: TFunction
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function seatedSentence(
+        reservation: Reservation,
+        tableName: string | undefined,
+        t: TFunction
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function cancelledSentence(reservation: Reservation, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function noShowSentence(reservation: Reservation, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function seatNotFinishedSentence(reservation: Reservation, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function notAppliedSentence(reservation: Reservation, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function savedSentence(reservation: Reservation, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function loadedSentence(
+        date: string,
+        todayStr: string,
+        locale: string,
+        t: TFunction
+      ): string { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="rehearsal">
   <file path="src/components/rehearsal/rehearsal-state.ts">
     <item priority="low">
@@ -4362,6 +4856,9 @@
   </file>
   <file path="src/components/timeline/seat-guest.ts">
     <item priority="high">
+      export const RESERVATION_EDIT_TEST_ID: unknown;
+    </item>
+    <item priority="high">
       export function findReservationTable(
         reservation: Reservation,
         tables: readonly Table[]
@@ -4389,8 +4886,30 @@
         seat: () => Promise<void>;
       }
     </item>
+    <item priority="low">
+      interface SeatFlights {
+        seating: (reservationId: string) => boolean;
+        failure: (reservationId: string) => ApiErrorDescription | null;
+        run: (reservationId: string, send: () => Promise<void>) => Pro...;
+      }
+    </item>
     <item priority="high">
-      export function useSeatGuest(onSeat: () => Promise<void>): SeatGuestState { /* ... */ }
+      export function useSeatFlights(currentId: string | null): SeatFlights { /* ... */ }
+    </item>
+    <item priority="low">
+      interface SeatGuestState {
+        seating: boolean;
+        failure: ApiErrorDescription | null;
+        seatRef: RefObject<HTMLButtonElement | null>;
+        seat: () => Promise<void>;
+      }
+    </item>
+    <item priority="high">
+      export function useSeatGuest(
+        reservationId: string,
+        onSeat: () => Promise<void>,
+        shared?: SeatFlights
+      ): SeatGuestState { /* ... */ }
     </item>
   </file>
   <file path="src/components/timeline/sheet-size.ts">
@@ -4784,6 +5303,9 @@
     </item>
     <item priority="high">
       export function minutesOfDayIn(instant: Date, timeZone?: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function serviceMinuteOf(instant: Date, timeZone: string, serviceDate: string): number { /* ... */ }
     </item>
     <item priority="high">
       export function venueWallClock(timeZone: string, now: Date): VenueWallClock | null { /* ... */ }

@@ -504,6 +504,42 @@ describe("WalkInDialog", () => {
     });
   });
 
+  describe("while a save is in flight (#8029)", () => {
+    const failure = serverError("POST", "/api/v1/reservations/walk-in");
+
+    async function renderMidSave() {
+      let fail: (error: unknown) => void = () => undefined;
+      const onConfirm = vi.fn(
+        () =>
+          new Promise<void>((_resolve, reject) => {
+            fail = reject;
+          })
+      );
+      render(<WalkInDialog {...defaultProps} onConfirm={onConfirm} />);
+      fireEvent.click(screen.getByRole("button", { name: "Seat now" }));
+      await waitFor(() => expect(onConfirm).toHaveBeenCalledOnce());
+      return { fail: (error: unknown) => fail(error) };
+    }
+
+    it("Escape does not close the dialog, so a failure still shows", async () => {
+      const { fail } = await renderMidSave();
+
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(defaultProps.onClose).not.toHaveBeenCalled();
+
+      fail(failure);
+      expect(await screen.findByRole("alert")).toBeDefined();
+    });
+
+    it("a click on the backdrop does not close the dialog", async () => {
+      await renderMidSave();
+
+      fireEvent.click(screen.getByRole("dialog").parentElement as HTMLElement);
+
+      expect(defaultProps.onClose).not.toHaveBeenCalled();
+    });
+  });
+
   describe("owns its failure (item 12, #5031; ux.md Screen 3)", () => {
     const failure = serverError("POST", "/api/v1/reservations/walk-in");
 

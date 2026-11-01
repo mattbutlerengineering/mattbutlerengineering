@@ -1,6 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import type { AvailabilityConfigState } from "@mbe/types";
+import { addDays } from "@mbe/availability";
+import type { AvailabilityConfigState, DateRule } from "@mbe/types";
 
 const save = vi.hoisted(() => vi.fn());
 const revert = vi.hoisted(() => vi.fn());
@@ -32,7 +33,15 @@ vi.mock("@mattbutlerengineering/rialto", async (importOriginal) => ({
 import { ChangeRegularWeekDrawer } from "./ChangeRegularWeekDrawer.js";
 import { CompareServices } from "./CompareServices.js";
 import { CopyDayAction } from "./CopyDayAction.js";
-import { FIXTURE_DATE, fixtureConfig, resolveFixtureDay } from "./resolved-day-fixtures.js";
+import { ScheduleEditorDrawer } from "./ScheduleEditorDrawer.js";
+import { ScheduleNudge } from "./ScheduleNudge.js";
+import { SchedulesTab } from "./SchedulesTab.js";
+import {
+  EARLY_DINNER,
+  FIXTURE_DATE,
+  fixtureConfig,
+  resolveFixtureDay,
+} from "./resolved-day-fixtures.js";
 
 const state: AvailabilityConfigState = { config: fixtureConfig(), version: 7, source: "rows" };
 
@@ -99,6 +108,7 @@ describe("Undo after a schedule save", () => {
           state={state}
           date={FIXTURE_DATE}
           day={resolveFixtureDay()}
+          today="2026-10-28"
           onStale={vi.fn()}
         />
       </main>
@@ -128,6 +138,79 @@ describe("Undo after a schedule save", () => {
     fireEvent.click(screen.getByRole("option", { name: "Phone only" }));
     fireEvent.click(screen.getByRole("button", { name: "Apply to 1 selected" }));
     fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
+    (await undoOffered())();
+    await waitFor(() => expect(revert).toHaveBeenCalledWith(REVERT_ARGS));
+  });
+
+  it.each(["edit", "duplicate"] as const)(
+    "offers Undo after a schedule %s, reverting that save",
+    async (mode) => {
+      render(
+        <main>
+          <ScheduleEditorDrawer
+            venueId="venue-1"
+            state={state}
+            timezone="America/Los_Angeles"
+            today="2026-10-25"
+            mode={mode}
+            sourceScheduleId="regular"
+            onStale={vi.fn()}
+            onClose={vi.fn()}
+          />
+        </main>
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      (await undoOffered())();
+      await waitFor(() => expect(revert).toHaveBeenCalledWith(REVERT_ARGS));
+    }
+  );
+
+  it("offers Undo after deleting a schedule, reverting that save", async () => {
+    render(
+      <main>
+        <SchedulesTab
+          venueId="venue-1"
+          state={{
+            ...state,
+            config: {
+              ...state.config,
+              schedules: [
+                ...state.config.schedules,
+                { id: "spare", name: "Spare", kind: "alternate", isRegular: false },
+              ],
+            },
+          }}
+          timezone="America/Los_Angeles"
+          today="2026-10-25"
+          onStale={vi.fn()}
+        />
+      </main>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Delete Spare" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    (await undoOffered())();
+    await waitFor(() => expect(revert).toHaveBeenCalledWith(REVERT_ARGS));
+  });
+
+  it("offers Undo after the nudge makes a schedule, reverting that save", async () => {
+    const singleDates = [1, 2, 3].map((week): DateRule => ({
+      ...EARLY_DINNER,
+      id: `single-${week}`,
+      startsOn: addDays(FIXTURE_DATE, week * 7),
+      endsOn: addDays(FIXTURE_DATE, week * 7),
+    }));
+    render(
+      <main>
+        <ScheduleNudge
+          venueId="venue-1"
+          state={{ ...state, config: fixtureConfig(...singleDates) }}
+          date={FIXTURE_DATE}
+          day={resolveFixtureDay(...singleDates)}
+          onStale={vi.fn()}
+        />
+      </main>
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^Make a .* schedule/ }));
     (await undoOffered())();
     await waitFor(() => expect(revert).toHaveBeenCalledWith(REVERT_ARGS));
   });

@@ -32,7 +32,8 @@ export function scopeDates(scope: EditScope, context: ScopeContext): string[] {
   if (scope.kind === "weekday") {
     const horizon = addDays(scope.from, SCOPE_HORIZON_DAYS - 1);
     const last = scope.until !== null && scope.until < horizon ? scope.until : horizon;
-    return eachDate(scope.from, last, 7);
+    // A past Friday is history, not part of the edit: count from the venue's today.
+    return eachDate(scope.from, last, 7).filter((d) => d >= context.today);
   }
   if (scope.kind === "rule") {
     const rule = context.config.dateRules.find((r) => r.id === scope.ruleId);

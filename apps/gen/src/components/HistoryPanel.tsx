@@ -166,7 +166,7 @@ export function HistoryPanel({
     focusedIndex >= 0 && focusedEntry ? `history-item-${focusedEntry.id}` : undefined;
 
   return (
-    <aside className={styles.panel}>
+    <aside className={styles.panel} aria-label="History">
       <div className={styles.filterBar}>
         <button
           type="button"

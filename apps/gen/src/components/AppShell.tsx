@@ -198,7 +198,7 @@ export function AppShell({
                 variant="ghost"
                 className={styles.logoButton}
                 onClick={onLogoClick}
-                aria-label="Return to empty state"
+                aria-label="Gen Playground, return to empty state"
               >
                 <Text className={styles.logoAccent} aria-hidden="true">
                   &#9670;
@@ -250,9 +250,12 @@ export function AppShell({
             </div>
           }
         />
-        <div id="main-content" className={styles.content}>
+        <main id="main-content" className={styles.content}>
+          <Text as="h1" className={styles.visuallyHidden}>
+            Gen Playground
+          </Text>
           {children}
-        </div>
+        </main>
       </div>
     </AppShellContext.Provider>
   );

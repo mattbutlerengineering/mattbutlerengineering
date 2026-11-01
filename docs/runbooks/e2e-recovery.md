@@ -7,7 +7,7 @@ The Hospitality E2E tests depend on a configured Auth0 client, live backend serv
 Check the CI failure artifacts first:
 
 1. **Navigate to the failing run** in GitHub Actions
-2. **Look for "Upload failure artifacts"** — this step generates `e2e-test-results/` and `playwright-report/`
+2. **Look for "Upload failure artifacts"** — this step generates `e2e-test-results/` and `playwright-report/`, in one artifact per shard (`e2e-test-results-shard-<n>`)
 3. **Examine `error-context.md`** (if present in the playwright report) — this DOM snapshot captures the actual page state when the test failed
 4. **Pattern recognition:**
    - **>20% of tests failing across unrelated suites** (e.g., login fails, then booking fails, then confirmation fails) → environmental/service startup issue

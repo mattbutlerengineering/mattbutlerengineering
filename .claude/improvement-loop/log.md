@@ -4579,3 +4579,36 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 ### Skipped Issues
 
 0 `agent-skip` issues open — nothing to manually review.
+## 2026-10-31 — mbe-learning-loop
+
+**Sensors:** 15/17 available (e2eStability not available; queueEfficiency query failed — `GET /pulls/7491` fetch failed, transient network error, not a regression since metricsFreshness still reports it fresh at 0.75d) — status Healthy
+**Regressions:** 0 detected, 0 issues created
+**Verifications:** 5 checked, 1 verified (#7952 ACMM L5), 0 failed/reopened, 4 skipped (no completed CI runs to verify the 4 "routine is dark" closures against)
+**Sentry triage:** skipped (MCP authorization expired — re-auth needed, same as prior runs)
+**AI issue feedback:** 7 categories, 0 unhealthy (>40% rejected); budgets unchanged at 3 for all categories
+**Skill proposals:** 0 (Saturday — Friday-only)
+**Threshold notes:** false-positive rate (wontfix+rejected)/total = 34/200 = 17% (<30%, healthy, no loosening needed); fix-effectiveness over last 30d = 5/9 = 56% among determinable (non-skip) verifications (>50%, healthy) — raw rate including the 76 "no CI evidence" skips is 5.9% but that reflects undeterminable cases, not failed fixes; auto-tuner made no adjustments this run
+
+## 2026-11-01 — mbe-ui-quality
+
+**State:** `state.mjs checkout` source `branch` (head 85e23af2, merged `origin/main` 82994485, 0 conflicts resolved). All three app builds succeeded — no `unreachable:build` rows.
+**Routes:** 40 due / 40 captured / 40 audited — all `rialto-web` (`components/*`). marketing and hospitality had nothing due; 20 hospitality rows stay `unreachable:auth` and were never captured. Unjudged: 0. Dropped tells: 0.
+**Judging:** rubric v1, model `claude-opus-5`, 80 screenshots (40 routes × 1280x720 + 375x812) all read — every route `tells: []`. The showcase pages hold a consistent warm branded palette with a display-face heading, flat token surfaces, domain-specific copy and named links, so none of the seven agent-built tells or three semantic-accessibility tells fired.
+**Findings:** 0 mechanical (axe clean, no page errors, no failed requests, no dead in-app links across all 40), 0 judged. Plan exit 0 with no actions.
+**Calibration:** stamp `stale`. `calibration-status` returned exit 3; the one permitted calibration attempt failed at `rate.mjs pairs --calibration` with exit 2 — `docs/ui-quality/calibration.json` still has no human-labelled pairs (the Verify-stage task owned by Matt, ≥10 pairs). Logged, not retried. Rating proceeded under the uncleared `stale`: 6 pairs rated against the Mantine and Chakra button-docs references, `rate.mjs record` → rialto-web 3.33. Agent-built findings stay suppressed under a `stale` stamp, which cost nothing this fire since the judge found none.
+**Issues:** 0 created / 0 reopened / 0 commented. All 34 issue numbers in the findings ledger resolved to `closed`; 36 `ui-quality`-labelled issues read in one page (`hasNextPage: false`), none unknown to the ledger, so no escalation was written. Seeds: 0.
+**Fix PR:** none — the plan carried no `fix_pr_candidate`.
+**P1 SLA:** 0 open `ui-quality:p1` issues, 0 breaches, 0 escalated.
+**Coverage before this fire:** 100% (135/135 covered, 0 uncovered, 20 `unreachable:auth` excluded), exit 0 — no breach.
+**Blockers / pipeline bugs:** none. No `blocker: no-browser` (Chromium resolved at `/opt/pw-browsers/chromium_headless_shell-1243/...`), filing never stopped, every script exited 0 except the two expected non-zero codes noted above.
+**Note:** `mcp__github__search_issues` is not in this session's MCP surface, so the two issue searches used `mcp__github__list_issues` with label filters (a `list_*` tool) rather than the `gh` CLI, which this routine forbids. Both listings were complete single pages.
+
+## 2026-11-01 — mbe-learning-loop
+
+**Sensors:** 16/17 available (e2eStability not available); metricsFreshness 0 unhealthy — all watched metrics fresh
+**Regressions:** 1 detected, 1 issue created — ciHealth.pass_rate_pct 100 → 93 (-7, high). Root-caused to the monthly `Generate Changelog` workflow (run 41323785768) tripping its own 900,000-byte ENOBUFS safety guard — predicted by the guard's own 2026-08 comment as commit volume grew. Filed #8062 (`ready,ci-fix,bug`) with root cause and suggested fix (narrow the window, e.g. two weeks). No open duplicate found via `search/issues`.
+**Verifications:** 5 checked (48h window), 1 verified (#7952 ACMM L5 72/84), 0 failed/reopened, 4 skipped (routine-heartbeat issues with no CI evidence to verify against)
+**AI issue feedback:** 7 categories collected (200 issues total); budgets unchanged at default 3 (no category >40% rejected). ci-fix has a high wontfix share (16/24 = 67%) worth separate attention, but rejection_rate (excludes wontfix) stays 0% so the auto-budget-halving rule didn't trigger — flagging here since a learning-loop skim of budgets alone would miss it.
+**Skill proposals:** 0 (Sunday — Friday-only)
+**Threshold notes:** false-positive rate (wontfix+rejected)/total = 34/200 = 17% (<30%, healthy, no loosening needed); fix-effectiveness over last 30d = 6/10 = 60% among determinable (non-skip) verifications (>50%, healthy); `verify-fixes.mjs`'s own auto-tuner applied 1 adjustment this run: acmm headroom 1.38 → 1.41.
+**Environment note:** fresh checkout had no `node_modules` — ran `pnpm bootstrap:worktree` before anything else. `gh issue list`/`gh issue create` hit the known CCR GraphQL block (403); used `gh api search/issues` for dedup search and `mcp__github__issue_write` to file #8062 instead.

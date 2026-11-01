@@ -38,6 +38,11 @@ import { test, expect } from "./fixtures.js";
 import { pickBookingDate } from "./booking-date.js";
 import { hasReadableLiteral } from "./fixtures/locale-sweep-readable.js";
 
+// A third of the suite, so CI's shards would come out 241 and 115 tests if it
+// stayed whole (#8038). Runs still use one worker, so nothing here overlaps;
+// each test stages its own page and module-level values are read-only.
+test.describe.configure({ mode: "parallel" });
+
 const VENUE_SLUG = "e2e-test-bistro";
 const VENUE_NAME = "E2E Test Bistro";
 const MANAGE_TOKEN = "locale-sweep-token";

@@ -1,8 +1,8 @@
 import {
-  createContext,
   forwardRef,
   useCallback,
   useContext,
+  useEffect,
   useId,
   useRef,
   useState,
@@ -16,6 +16,7 @@ import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { Heading } from "../Heading/Heading";
 import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
+import { DialogLayerContext } from "./DialogLayerContext";
 import styles from "./Dialog.module.css";
 
 /**
@@ -38,12 +39,6 @@ export interface DialogProps {
   className?: string;
 }
 
-/**
- * The layer a nested Dialog portals into: a node inside the outer dialog's
- * overlay, beside (not inside) its transformed panel. Null outside a Dialog.
- */
-const DialogLayerContext = createContext<HTMLElement | null>(null);
-
 export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
   ({ open, onClose, title, description, children, footer }, ref) => {
     const parentLayer = useContext(DialogLayerContext);
@@ -62,12 +57,46 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
     const motionPreset = useMotionPreset();
     const shouldReduceMotion = motionPreset.reduced;
     const panelRef = useRef<HTMLDivElement>(null);
+    const bodyRef = useRef<HTMLDivElement>(null);
     const titleId = useId();
     const descriptionId = useId();
 
     useReturnFocus(open);
     useEscapeKey(onClose, open);
     useFocusTrap(panelRef, open);
+
+    // A scroll container must be keyboard-reachable (WCAG 2.1.1) or its overflow
+    // is unreadable without a mouse. Only an overflowing body earns the tab
+    // stop, so short dialogs gain none. Imperative DOM, not state: rialto bans
+    // setState in effects. The observer sees the body resize, which is what
+    // flips it in or out of overflow once the panel caps its height.
+    useEffect(() => {
+      const body = bodyRef.current;
+      if (!open || !body) return;
+      const sync = () => {
+        if (body.scrollHeight > body.clientHeight) {
+          body.tabIndex = 0;
+          body.setAttribute("role", "region");
+          body.setAttribute("aria-label", messages.scrollableContent);
+        } else {
+          body.removeAttribute("tabindex");
+          body.removeAttribute("role");
+          body.removeAttribute("aria-label");
+        }
+      };
+      sync();
+      // The resize observer only sees the body's own box. Content that changes
+      // scrollHeight without resizing it (an absolute child, text shrinking to
+      // exactly the cap) needs the mutation observer.
+      const resize = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(sync);
+      resize?.observe(body);
+      const mutation = new MutationObserver(sync);
+      mutation.observe(body, { childList: true, subtree: true, characterData: true });
+      return () => {
+        resize?.disconnect();
+        mutation.disconnect();
+      };
+    }, [open, messages.scrollableContent]);
 
     const motionProps = shouldReduceMotion
       ? {}
@@ -133,12 +162,17 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
                   </svg>
                 </button>
               </div>
-              {description && (
-                <p id={descriptionId} className={styles.description}>
-                  {description}
-                </p>
-              )}
-              <DialogLayerContext.Provider value={layer}>{children}</DialogLayerContext.Provider>
+              {/* The description lives in the scroller so a long one scrolls instead of
+                  pushing the footer off-screen; aria-describedby still resolves by id.
+                  The body is never the initial focus. */}
+              <div ref={bodyRef} className={styles.body} data-focus-trap-skip-initial="true">
+                {description && (
+                  <p id={descriptionId} className={styles.description}>
+                    {description}
+                  </p>
+                )}
+                <DialogLayerContext.Provider value={layer}>{children}</DialogLayerContext.Provider>
+              </div>
               {footer && <div className={styles.footer}>{footer}</div>}
             </motion.div>
           </motion.div>

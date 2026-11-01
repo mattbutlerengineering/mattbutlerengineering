@@ -6,7 +6,7 @@
   align-items: center;
   justify-content: center;
   padding: var(--rialto-space-lg);
-  z-index: 100;
+  z-index: 10000;
 }
 
 .panel {
@@ -18,14 +18,46 @@
   padding: var(--rialto-space-lg);
   position: relative;
   max-height: calc(100dvh - var(--rialto-space-4xl));
+
+  /* The title and footer keep their place; .body scrolls first. The panel
+     scrolls only if the fixed chrome alone outgrows the viewport, so the
+     footer is never unreachable. */
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
 }
 
-:global([data-theme="dark"]) .panel {
+/* The glass recipe this panel composes is translucent (rgb(253 252 250 / 0.85)
+   plus a backdrop blur), so calendar text ghosted through the body. A dialog
+   is modal: it paints the opaque elevated surface in both themes. The extra
+   selector out-specifies the composed .glass rules regardless of bundle order. */
+.overlay .panel {
+  background: var(--rialto-surface-elevated);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+:global([data-theme="dark"]) .overlay .panel {
   background: var(--rialto-surface-elevated);
 }
 
+.body {
+  /* The containing block for absolute descendants (hidden radio inputs and
+     the like), so they stay inside this clip instead of resolving against the
+     panel and scrolling it. */
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+
+  /* Room for focus rings at the scroll edge, which overflow would clip. */
+  margin: calc(-1 * var(--rialto-space-xs));
+  padding: var(--rialto-space-xs);
+}
+
 .header {
+  flex-shrink: 0;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -69,8 +101,31 @@
 }
 
 .footer {
+  flex-shrink: 0;
   display: flex;
   justify-content: flex-end;
   gap: var(--rialto-space-xs);
   margin-top: var(--rialto-space-lg);
+}
+
+/* Short viewports (a landscape phone, or 1280x1024 at 400% zoom = 320x256 CSS
+   px, the WCAG reflow size): the 96px default reserve would leave the body
+   almost no height. Spend the room on the body, not on chrome. */
+@media (max-height: 480px) {
+  .overlay {
+    padding: var(--rialto-space-xs);
+  }
+
+  .panel {
+    max-height: calc(100dvh - 2 * var(--rialto-space-xs));
+    padding: var(--rialto-space-md);
+  }
+
+  .header {
+    margin-bottom: var(--rialto-space-sm);
+  }
+
+  .footer {
+    margin-top: var(--rialto-space-sm);
+  }
 }
