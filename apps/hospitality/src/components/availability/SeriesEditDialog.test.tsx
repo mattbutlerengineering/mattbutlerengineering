@@ -192,7 +192,7 @@ describe("SeriesEditDialog after someone else's change (#7978)", () => {
       .mockRejectedValueOnce(conflict());
     const { reload, onClose, onStale } = renderSeriesDialog();
     await toStepTwoAndCancel();
-    await screen.findByText(/Can't reach/);
+    await screen.findByText(/may have gone through/);
     fireEvent.click(screen.getByRole("radio", { name: "Keep them and notify" }));
     fireEvent.click(screen.getByRole("button", { name: /Close and keep/ }));
     await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
@@ -216,7 +216,7 @@ describe("SeriesEditDialog after someone else's change (#7978)", () => {
     create.mockRejectedValueOnce(new TypeError("Failed to fetch"));
     const { onClose } = renderSeriesDialog();
     await toStepTwoAndCancel();
-    await screen.findByText(/Can't reach/);
+    await screen.findByText(/may have gone through/);
 
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
@@ -321,6 +321,18 @@ describe("SeriesEditDialog after someone else's change (#7978)", () => {
 
       expect(await screen.findByText(/Someone else changed this series/)).toBeTruthy();
     });
+  });
+
+  it("refuses days that leave the series with no date in its range (#8032)", async () => {
+    // 2026-12-07 is a Monday: no Friday falls in Monday and Tuesday.
+    renderSeriesDialog([{ ...SERIES, endsOn: "2026-12-08" }]);
+    fireEvent.click(screen.getByRole("radio", { name: "All dates in the series" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Mon" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Fri" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText(/at least one weekday that falls/)).toBeTruthy();
+    expect(saveConfig).not.toHaveBeenCalled();
   });
 
   it("does not say nothing changed when a config save gets a 502, which may have committed (#8032)", async () => {

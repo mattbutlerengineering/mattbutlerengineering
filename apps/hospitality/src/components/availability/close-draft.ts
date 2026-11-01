@@ -14,6 +14,7 @@ import {
   type DateRule,
 } from "@mbe/types";
 import { addDays } from "../../utils/service-day.js";
+import { onlineSeatingLeft } from "./online-seatings.js";
 
 /** Channels a booking-only closure can close. */
 export type BookingChannel = "online" | "phone" | "waitlist";
@@ -383,11 +384,12 @@ export function isUrgent(
 }
 
 /**
- * Whether a pause holds online booking now. A start time holds it back until it is reached, each
- * day: the closure is a band of each service day, so before today's start only yesterday's service
- * can be inside it, and only while it is still running past midnight. A pause that started on an
- * earlier day counts from then; lunch the next morning is bookable, and nothing may say otherwise.
- * `today` and `nowMinute` are the venue's civil date and minute.
+ * Whether a pause is what guests meet now. Its time is a seating minute of each service day, so a
+ * pause from 6:00 PM leaves earlier seatings bookable. It holds once its time has been reached, or
+ * while yesterday's service runs past midnight into it, and also once it has taken the last online
+ * seating left today, because a Manager must not read "open" when guests cannot book online. A day
+ * with no online seating of its own is not the pause's doing. `today` and `nowMinute` are the
+ * venue's civil date and minute.
  */
 export function isPauseInForce(
   rule: DateRule,
@@ -398,20 +400,27 @@ export function isPauseInForce(
 ): boolean {
   if (!rule.window || rule.window.from <= nowMinute) return true;
   const yesterdayMinute = nowMinute + MINUTES_PER_DAY;
-  return (
+  if (
     rule.startsOn < today &&
     rule.window.from <= yesterdayMinute &&
     yesterdayMinute < lastCloseOf(resolveDay({ timezone, config }, addDays(today, -1)).services)
+  ) {
+    return true;
+  }
+  const without = { ...config, dateRules: config.dateRules.filter((r) => r.id !== rule.id) };
+  return (
+    onlineSeatingLeft(without, timezone, today, nowMinute) &&
+    !onlineSeatingLeft(config, timezone, today, nowMinute)
   );
 }
 
 /**
  * The online pause the banner shows, with its Resume (ux.md F5 step 9): one in force if there is
- * one, else one waiting for today's start time, which says so (`isPauseInForce`) and can still be
+ * one, else the earliest waiting for its time, which says so (`isPauseInForce`) and can still be
  * removed. Only the shape the Pause button creates counts: online, open-ended and not repeating,
  * so Resume never deletes a dated or recurring closure.
  */
-export function activeOnlinePause(
+export function shownOnlinePause(
   config: AvailabilityConfig,
   timezone: string,
   today: string,
@@ -426,7 +435,8 @@ export function activeOnlinePause(
       (r.endsOn === null || r.endsOn === undefined) &&
       !r.repeat
   );
+  const earliest = [...pauses].sort((a, b) => (a.window?.from ?? 0) - (b.window?.from ?? 0))[0];
   return (
-    pauses.find((r) => isPauseInForce(r, config, timezone, today, nowMinute)) ?? pauses[0] ?? null
+    pauses.find((r) => isPauseInForce(r, config, timezone, today, nowMinute)) ?? earliest ?? null
   );
 }

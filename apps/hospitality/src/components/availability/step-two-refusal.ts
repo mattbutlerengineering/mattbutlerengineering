@@ -23,7 +23,6 @@ export type Refusal =
       readonly kind: "other";
       readonly detail: string;
       readonly outcomeUnknown: boolean;
-      readonly category: ApiErrorCategory;
     };
 
 const UNKNOWN_OUTCOME: ReadonlySet<ApiErrorCategory> = new Set([
@@ -41,7 +40,7 @@ export function refusalOf(error: unknown): Refusal {
   }
   if (conflict?.code === "closure-exists") return { kind: "closure-exists" };
   const { category, detail } = describeApiError(error);
-  return { kind: "other", detail, outcomeUnknown: UNKNOWN_OUTCOME.has(category), category };
+  return { kind: "other", detail, outcomeUnknown: UNKNOWN_OUTCOME.has(category) };
 }
 
 /** Whether the save may have committed, so "nothing has been closed" could be false. */
@@ -58,9 +57,7 @@ export function refusalText(refusal: Refusal, t: TFunction): string {
     case "closure-exists":
       return t("availability.close.alreadySaved");
     case "other":
-      // The house sentence for a 5xx does not say this save may have gone through; this one does.
-      return refusal.outcomeUnknown && refusal.category === "serverError"
-        ? t("availability.close.maybeSaved")
-        : refusal.detail;
+      // The house sentences do not say this save may have gone through; this one does.
+      return refusal.outcomeUnknown ? t("availability.close.maybeSaved") : refusal.detail;
   }
 }

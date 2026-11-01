@@ -26,10 +26,10 @@ const FROM_SIX: DateRule = {
   window: { version: 1, from: 18 * 60, to: 2880 },
 };
 
-const renderAt = (iso: string) => {
+const renderAt = (iso: string, rule = FROM_SIX) => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date(iso));
-  config.value = { config: fixtureConfig(FROM_SIX), version: 7, source: "rows" };
+  config.value = { config: fixtureConfig(rule), version: 7, source: "rows" };
   render(<OnlinePausedPill />);
 };
 
@@ -41,6 +41,15 @@ describe("OnlinePausedPill (#8032)", () => {
   it("does not say paused while a pause waits for its time: online booking is open", () => {
     renderAt("2026-11-14T10:00:00-05:00");
     expect(screen.queryByText("Online booking paused")).toBeNull();
+  });
+
+  it("says paused when its time takes every online seating of the day", () => {
+    // Friday, the fixture's open day: a pause from 10:00 AM comes before lunch and dinner.
+    renderAt("2026-11-13T09:00:00-05:00", {
+      ...FROM_SIX,
+      window: { version: 1, from: 10 * 60, to: 2880 },
+    });
+    expect(screen.getByText("Online booking paused")).toBeTruthy();
   });
 
   it("says paused once its time has come", () => {

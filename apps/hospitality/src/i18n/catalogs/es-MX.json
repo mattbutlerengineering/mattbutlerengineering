@@ -1721,7 +1721,7 @@
       "weekdays": "Se repite el",
       "endsLabel": "Termina el",
       "invalidDate": "Elige una fecha que cubra la serie.",
-      "invalid": "Elige al menos un día de la semana y una fecha final igual o posterior al inicio.",
+      "invalid": "Elige al menos un día de la semana que caiga entre el inicio y la fecha final.",
       "skippedToast": "{{date}} omitido. El resto de la serie no cambia.",
       "savedToast": "Serie actualizada",
       "skipped": "Omitido: {{dates}}",
@@ -2302,10 +2302,10 @@
       "back": "Atrás",
       "cancel": "Cancelar",
       "saveError": "No se pudo cerrar",
-      "versionConflict": "La disponibilidad cambió desde que abriste esto. Ya se cargó lo más reciente: revisa tus opciones y guarda de nuevo.",
+      "versionConflict": "La disponibilidad cambió desde que abriste esto. Estamos cargando lo más reciente: revisa tus opciones y guarda de nuevo.",
       "groupsChanged": "Las reservaciones cambiaron mientras decidías. Revisa la lista actualizada y elige de nuevo.",
       "alreadySaved": "Este cierre ya se guardó y sus reservaciones se atendieron. Revisa las fechas especiales antes de cerrar de nuevo.",
-      "maybeSaved": "El servicio de reservaciones tuvo un problema y no pudimos confirmar este guardado. Pudo haberse aplicado. Intenta de nuevo sin cambios para ver qué pasó.",
+      "maybeSaved": "No pudimos confirmar este guardado. Pudo haberse aplicado. Intenta de nuevo sin cambios para ver qué pasó.",
       "savedEarlier": {
         "title": "Ya está cerrado",
         "body": "Un intento anterior de este cierre se guardó: {{summary}}. Los comensales se atendieron como eligió ese intento; los cambios posteriores no se aplicaron. Abre las fechas especiales para ver el resultado.",
@@ -2358,6 +2358,7 @@
         "label": "Desde las",
         "allDay": "Todo el día",
         "from": "Desde {{time}}",
+        "reset": "Esa hora es anterior a la apertura en un día que pasa de la medianoche, así que esto cierra todo el día.",
         "hostNote": "Un cierre de emergencia abarca todo el día. Solo un gerente puede cerrar desde una hora determinada."
       },
       "replaces": "El {{date}} tiene horario especial; el cierre lo reemplaza.",
@@ -2467,7 +2468,7 @@
       "resumed": "Reservas en línea reanudadas",
       "resumeError": "No se pudieron reanudar las reservas en línea",
       "pill": "Reservas en línea en pausa",
-      "waiting": "Las reservas en línea están abiertas ahora. Se pausan desde las {{time}} cada día.",
+      "waiting": "Las reservas en línea desde las {{time}} están en pausa todos los días. Los horarios anteriores siguen abiertos.",
       "remove": "Quitar pausa",
       "removed": "Pausa de reservas en línea quitada",
       "removeError": "No se pudo quitar la pausa"

@@ -772,9 +772,21 @@ describe("CloseDialog", () => {
       toStepTwo(dialog);
       fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
 
-      expect(await within(dialog).findByText(/save again/)).toBeTruthy();
+      // Loading, not loaded: the reload can fail, and then this sentence is all that is left.
+      expect(await within(dialog).findByText(/loading the latest.*save again/)).toBeTruthy();
       expect(within(dialog).queryByText(/Close this dialog/)).toBeNull();
       expect(within(dialog).getByRole("button", { name: "Close and cancel 14" })).toBeEnabled();
+    });
+
+    it("says a lost response may have gone through (#8032)", async () => {
+      create.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+
+      expect(await within(dialog).findByText(/may have gone through/)).toBeTruthy();
+      expect(within(dialog).queryByText(/Can't reach/)).toBeNull();
     });
 
     it("does not promise nothing changed on a 502, which may have committed (#7978)", async () => {
@@ -1193,6 +1205,7 @@ describe("CloseDialog", () => {
         expect(within(dialog).getByRole("combobox", { name: "Starting at" })).toHaveTextContent(
           "All day"
         );
+        expect(within(dialog).getByText(/comes before opening/)).toBeTruthy();
         fireEvent.click(within(dialog).getByTestId("close-primary"));
         await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
         expect(create.mock.calls[0]![0].body.rule.window).toBeNull();

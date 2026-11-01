@@ -52,6 +52,8 @@ export interface CloseStepOneProps {
   readonly dateLocked?: boolean;
   /** The start times "Starting at" offers, including after midnight on an overnight day. */
   readonly startOptions: readonly number[];
+  /** The last edit turned a time before opening into All day. */
+  readonly startReset: boolean;
 }
 
 function whenKindDefaults(kind: CloseWhen["kind"], today: string): CloseWhen {
@@ -320,6 +322,11 @@ export function CloseStepOne(props: CloseStepOneProps) {
         aria-live="polite"
         aria-label={t("availability.close.impactLabel")}
       >
+        {props.startReset && (
+          <Text variant="caption" color="secondary">
+            {t("availability.close.window.reset")}
+          </Text>
+        )}
         {impactLoading && <Skeleton variant="text" width="60%" />}
         {impactFailed && (
           <Text variant="body" color="secondary">

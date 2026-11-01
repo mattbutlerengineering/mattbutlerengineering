@@ -264,7 +264,7 @@
       ): boolean { /* ... */ }
     </item>
     <item priority="high">
-      export function activeOnlinePause(
+      export function shownOnlinePause(
         config: AvailabilityConfig,
         timezone: string,
         today: string,
@@ -560,6 +560,22 @@
     </item>
     <item priority="high">
       export const useEditorOpen: unknown;
+    </item>
+  </file>
+  <file path="src/components/availability/online-seatings.ts">
+    <item priority="medium">
+      function seatingMinutes({ opensAt, lastSeatingAt, closesAt, seating }: ResolvedService): number[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closesOnline(band: ResolvedClosure, minute: number, venueServiceId: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function onlineSeatingLeft(
+        config: AvailabilityConfig,
+        timezone: string,
+        date: string,
+        nowMinute: number
+      ): boolean { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/outcome-label.ts">

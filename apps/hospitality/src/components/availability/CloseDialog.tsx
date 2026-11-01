@@ -123,8 +123,10 @@ export function CloseDialog(props: CloseDialogProps) {
   const { ruleId, idempotencyKey, earlier } = attempts;
   const savedEarlier = earlier !== undefined;
   const leave = () => attempts.leave(isPending);
+  const [startReset, setStartReset] = useState(false);
   const edit = (changed: CloseForm) => {
     const next = settleStartMinute(form, changed, state.config, timezone, today);
+    setStartReset(next.fromMinute !== changed.fromMinute);
     if (!sameRequest(next, form)) {
       setChoices({});
       attempts.restart();
@@ -320,6 +322,7 @@ export function CloseDialog(props: CloseDialogProps) {
               locked={props.hostLocked}
               dateLocked={series !== undefined}
               startOptions={startOptions}
+              startReset={startReset}
             />
           ) : (
             <>

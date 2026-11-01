@@ -204,7 +204,7 @@ Drawer overflow → **Copy to other days…** offers weekday toggles, From [date
    - The calendar shows the band.
    - The closure's row on Special dates tracks **Sent · Rebooked · Unreachable**, and refund failures appear as "Refund failed: Rivera ($40) · Retry". The row also offers a printable **Call list**: name, party, time and phone for guests not yet confirmed delivered or rebooked.
    - If the server refuses the save, nothing is cancelled or sent, and the `Alert` stays in the dialog. If no answer comes back (a lost response, a timeout, a 5xx from a gateway), it may have gone through, and the `Alert` says so.
-9. **Pause online booking until I reopen** (PRD 19): F5 with "Online booking" and "Until I reopen". While active, a Calendar banner ("Online booking paused · **Resume**") and an app-header pill are shown. A pause from a set time holds online booking only from then, each day. Before that time the banner says so ("Online booking is open now. It pauses from 6:00 PM each day. · **Remove pause**"), and the pill is hidden, because booking is open.
+9. **Pause online booking until I reopen** (PRD 19): F5 with "Online booking" and "Until I reopen". While active, a Calendar banner ("Online booking paused · **Resume**") and an app-header pill are shown. A pause from a set time closes online seatings from that time, on every service day. While earlier seatings remain, the banner says so ("Online seatings from 6:00 PM are paused every day. Earlier seatings stay open. · **Remove pause**") and the pill is hidden. Once no online seating is left for the day, read from the service hours, it counts as paused: the pill shows and the banner offers **Resume**.
 
 ### F-SER: Change one date of something that repeats (PRD 17; scenario e)
 

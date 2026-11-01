@@ -109,7 +109,7 @@ describe("OnlinePausedBanner for a pause waiting for its time (#8032)", () => {
   const VENUE = {
     selectedVenue: { id: "venue-1", ianaTimezone: "America/New_York", currencyCode: "USD" },
   } as VenueContextValue;
-  const renderAt = (iso: string) => {
+  const renderAt = (iso: string, rule = fromSix) => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date(iso));
     render(
@@ -118,8 +118,8 @@ describe("OnlinePausedBanner for a pause waiting for its time (#8032)", () => {
           <main>
             <OnlinePausedBanner
               venueId="venue-1"
-              state={{ config: fixtureConfig(fromSix), version: 7, source: "rows" }}
-              rule={fromSix}
+              state={{ config: fixtureConfig(rule), version: 7, source: "rows" }}
+              rule={rule}
               canResume
             />
           </main>
@@ -136,7 +136,11 @@ describe("OnlinePausedBanner for a pause waiting for its time (#8032)", () => {
 
   it("says when it starts, and offers its removal, the morning after", async () => {
     renderAt("2026-11-14T10:00:00-05:00"); // Saturday, 10:00 AM at the venue
-    expect(screen.getByText(/pauses from 6:00 PM each day/)).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Online seatings from 6:00 PM are paused every day. Earlier seatings stay open."
+      )
+    ).toBeTruthy();
     expect(screen.queryByText("Online booking paused")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Remove pause" }));
@@ -149,6 +153,16 @@ describe("OnlinePausedBanner for a pause waiting for its time (#8032)", () => {
       })
     );
     expect(await screen.findByText("Online booking pause removed")).toBeTruthy();
+  });
+
+  it("reads as paused when its time takes every online seating of the day", () => {
+    // Friday, the fixture's open day: a pause from 10:00 AM comes before lunch and dinner.
+    renderAt("2026-11-13T09:00:00-05:00", {
+      ...fromSix,
+      window: { version: 1, from: 10 * 60, to: 2880 },
+    });
+    expect(screen.getByText("Online booking paused")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Resume" })).toBeTruthy();
   });
 
   it("reads as paused once its time has come", () => {

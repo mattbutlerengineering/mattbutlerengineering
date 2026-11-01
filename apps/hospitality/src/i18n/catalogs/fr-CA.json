@@ -1721,7 +1721,7 @@
       "weekdays": "Se répète le",
       "endsLabel": "Se termine le",
       "invalidDate": "Choisissez une date couverte par la série.",
-      "invalid": "Choisissez au moins un jour de la semaine et une date de fin égale ou postérieure au début.",
+      "invalid": "Choisissez au moins un jour de la semaine compris entre le début et la date de fin.",
       "skippedToast": "{{date}} ignoré. Le reste de la série reste inchangé.",
       "savedToast": "Série mise à jour",
       "skipped": "Ignoré : {{dates}}",
@@ -2302,10 +2302,10 @@
       "back": "Retour",
       "cancel": "Annuler",
       "saveError": "Impossible de fermer",
-      "versionConflict": "Les disponibilités ont changé depuis l'ouverture de cette fenêtre. La version la plus récente est chargée : vérifiez vos choix et enregistrez de nouveau.",
+      "versionConflict": "Les disponibilités ont changé depuis l'ouverture de cette fenêtre. Nous chargeons la version la plus récente : vérifiez vos choix et enregistrez de nouveau.",
       "groupsChanged": "Les réservations ont changé pendant votre décision. Passez en revue la liste à jour et choisissez de nouveau.",
       "alreadySaved": "Cette fermeture est déjà enregistrée et ses réservations ont été traitées. Consultez les dates spéciales avant de fermer de nouveau.",
-      "maybeSaved": "Le service de réservations a eu un problème et nous n'avons pas pu confirmer cet enregistrement. Il a peut-être été appliqué. Réessayez sans modification pour voir ce qui s'est passé.",
+      "maybeSaved": "Nous n'avons pas pu confirmer cet enregistrement. Il a peut-être été appliqué. Réessayez sans modification pour voir ce qui s'est passé.",
       "savedEarlier": {
         "title": "Déjà fermé",
         "body": "Un essai précédent de cette fermeture a été enregistré : {{summary}}. Les clients ont été traités selon les choix de cet essai; les modifications faites ensuite n'ont pas été appliquées. Ouvrez les dates spéciales pour voir le résultat.",
@@ -2358,6 +2358,7 @@
         "label": "À partir de",
         "allDay": "Toute la journée",
         "from": "À partir de {{time}}",
+        "reset": "Cette heure précède l'ouverture d'une journée qui se termine après minuit : la fermeture dure donc toute la journée.",
         "hostNote": "Une fermeture d'urgence couvre toute la journée. Seul un gérant peut fermer à partir d'une heure précise."
       },
       "replaces": "Le {{date}} a des heures spéciales; la fermeture les remplace.",
@@ -2467,7 +2468,7 @@
       "resumed": "Réservations en ligne reprises",
       "resumeError": "Impossible de reprendre les réservations en ligne",
       "pill": "Réservations en ligne suspendues",
-      "waiting": "Les réservations en ligne sont ouvertes pour l'instant. Elles sont suspendues à partir de {{time}} chaque jour.",
+      "waiting": "Les réservations en ligne à partir de {{time}} sont suspendues tous les jours. Les heures précédentes restent ouvertes.",
       "remove": "Retirer la suspension",
       "removed": "Suspension des réservations en ligne retirée",
       "removeError": "Impossible de retirer la suspension"

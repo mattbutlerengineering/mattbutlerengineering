@@ -3,7 +3,7 @@ import type { ClosureImpactGroup, DateRule } from "@mbe/types";
 import { EARLY_DINNER, fixtureConfig } from "./resolved-day-fixtures.js";
 import {
   actionsFor,
-  activeOnlinePause,
+  shownOnlinePause,
   buildCloseRule,
   closedDates,
   decisionsReady,
@@ -284,7 +284,7 @@ describe("a repeat with no date in its range (#8032)", () => {
   });
 });
 
-describe("activeOnlinePause, for a pause waiting for its time (#8032)", () => {
+describe("shownOnlinePause, for a pause waiting for its time (#8032)", () => {
   const FRIDAY = "2026-11-06";
   const SATURDAY = "2026-11-07";
   const pause = (id: string, window: DateRule["window"]) =>
@@ -302,17 +302,49 @@ describe("activeOnlinePause, for a pause waiting for its time (#8032)", () => {
 
   it("still finds it, the morning after and before its first evening", () => {
     const config = fixtureConfig(fromSix);
-    expect(activeOnlinePause(config, TZ, SATURDAY, 10 * 60)?.id).toBe("six");
-    expect(activeOnlinePause(config, TZ, FRIDAY, 10 * 60)?.id).toBe("six");
+    expect(shownOnlinePause(config, TZ, SATURDAY, 10 * 60)?.id).toBe("six");
+    expect(shownOnlinePause(config, TZ, FRIDAY, 10 * 60)?.id).toBe("six");
   });
 
   it("prefers a pause in force over one that is waiting", () => {
     const config = fixtureConfig(fromSix, pause("now", null));
-    expect(activeOnlinePause(config, TZ, SATURDAY, 10 * 60)?.id).toBe("now");
+    expect(shownOnlinePause(config, TZ, SATURDAY, 10 * 60)?.id).toBe("now");
+  });
+
+  it("names the earliest of two waiting pauses, whatever their order", () => {
+    const fromEight = pause("eight", { version: 1, from: 20 * 60, to: 2880 });
+    expect(shownOnlinePause(fixtureConfig(fromEight, fromSix), TZ, SATURDAY, 10 * 60)?.id).toBe(
+      "six"
+    );
+  });
+
+  describe("isPauseInForce, from the day's online seatings (#8032)", () => {
+    // The fixture's only open day, Friday, has lunch and then dinner from 5:00 PM.
+    const inForce = (from: number, today: string, minute: number) => {
+      const rule = pause("p", { version: 1, from, to: 2880 });
+      return isPauseInForce(rule, fixtureConfig(rule), TZ, today, minute);
+    };
+
+    it("is not in force while seatings before its time remain", () => {
+      expect(inForce(18 * 60, FRIDAY, 10 * 60)).toBe(false);
+    });
+
+    it("is in force when its time takes every seating of the day", () => {
+      expect(inForce(60, FRIDAY, 30)).toBe(true);
+      expect(inForce(10 * 60, FRIDAY, 9 * 60)).toBe(true);
+    });
+
+    it("is in force once the last seating before its time has gone", () => {
+      expect(inForce(18 * 60, FRIDAY, 17 * 60 + 50)).toBe(true);
+    });
+
+    it("is not in force on a day with no service, which it takes nothing from", () => {
+      expect(inForce(60, SATURDAY, 30)).toBe(false);
+    });
   });
 });
 
-describe("activeOnlinePause", () => {
+describe("shownOnlinePause", () => {
   const rule = (patch: Record<string, unknown>) =>
     ({
       id: "p1",
@@ -331,7 +363,7 @@ describe("activeOnlinePause", () => {
     const base = fixtureConfig(r);
     const scheduleServices = base.scheduleServices.map((s) => ({ ...s, closesAt }));
     const config = { ...base, scheduleServices };
-    const found = activeOnlinePause(config, TZ, today, minute);
+    const found = shownOnlinePause(config, TZ, today, minute);
     return found && isPauseInForce(found, config, TZ, today, minute) ? found : null;
   };
 
