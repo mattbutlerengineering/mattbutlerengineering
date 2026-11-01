@@ -5452,6 +5452,9 @@
       export const SEAT_NAME: unknown;
     </item>
     <item priority="high">
+      export const DRAG_SHADOW_NAME: unknown;
+    </item>
+    <item priority="high">
       export const FURNITURE_GROUP_NAME: unknown;
     </item>
     <item priority="high">

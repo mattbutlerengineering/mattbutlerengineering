@@ -16679,6 +16679,7 @@
     export const TABLE_SURFACE_NAME = "table-surface";
     export const TABLE_SHADOW_NAME = "table-shadow";
     export const SEAT_NAME = "seat";
+    export const DRAG_SHADOW_NAME = "table-drag-shadow";
     export const FURNITURE_GROUP_NAME = "table-furniture";
     export const FURNITURE_PALETTE = {
       /**
