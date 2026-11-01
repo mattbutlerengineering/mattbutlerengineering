@@ -1777,6 +1777,7 @@
         weekdays: readonly number[];
         from: string;
         until: string | null;
+        today?: string;
       }
     </item>
     <item priority="high">
@@ -1924,6 +1925,28 @@
     </item>
     <item priority="high">
       export function buildDraftChanges(input: BuildInput): AvailabilityConfigChanges { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/draft-wait.ts">
+    <item priority="high">
+      export function waitingProps(waiting: boolean, reasonId: string | undefined) { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/editor-open.ts">
+    <item priority="medium">
+      function emit() { /* ... */ }
+    </item>
+    <item priority="high">
+      export function markEditorOpen(): () => void { /* ... */ }
+    </item>
+    <item priority="high">
+      export const isEditorOpen: unknown;
+    </item>
+    <item priority="medium">
+      function subscribe(listener: () => void): () => void { /* ... */ }
+    </item>
+    <item priority="high">
+      export const useEditorOpen: unknown;
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/outcome-label.ts">
@@ -2369,12 +2392,26 @@
       }): AvailabilityConfigChanges { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/selection-hours.ts">
+    <item priority="medium">
+      function hoursSignature(day: ResolvedDay): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function pickHoursSource(
+        dates: readonly string[],
+        resolve: (date: string) => ResolvedDay
+      ): { readonly date: string | null; readonly differs: boolean } { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/selection.ts">
     <item priority="high">
       export function normalizeDates(dates: readonly string[]): string[] { /* ... */ }
     </item>
     <item priority="high">
       export function dateRange(a: string, b: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function futureDates(dates: readonly string[], today: string): string[] { /* ... */ }
     </item>
     <item priority="high">
       export function toggleDate(selection: readonly string[], date: string): string[] { /* ... */ }
@@ -2616,6 +2653,26 @@
       export function useDiscardGuard<T>(apply: (next: T) => void, derivedDirty?: boolean) { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/use-reload-hold.ts">
+    <item priority="medium">
+      function emit() { /* ... */ }
+    </item>
+    <item priority="medium">
+      function addSaveUnderWay(venueId: string, by: 1 | -1) { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function trackOwnSave<T extends { readonly version: number }>(
+        venueId: string,
+        run: () => Promise<T>
+      ): Promise<T> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function subscribe(listener: () => void): () => void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useReloadHold(venueId: string | undefined, version: number | undefined) { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/use-save-attempts.ts">
     <item priority="low">
       interface TriedAttempt {
@@ -2661,13 +2718,14 @@
         selection: readonly string[];
         onSelectionChange: (dates: string[]) => void;
         onOpenDay: (date: string) => void;
+        onDragChange?: (dragging: boolean) => void;
       }
     </item>
     <item priority="low">
       interface DateGestureHandlers {
         onClick: (event: MouseEvent) => void;
         onMouseDown: (event: MouseEvent) => void;
-        onMouseEnter: () => void;
+        onMouseEnter: (event: MouseEvent) => void;
         onTouchStart: () => void;
         onTouchMove: () => void;
       }
@@ -4207,6 +4265,38 @@
     </item>
     <item priority="high">
       export async function injectAuth0Session(page: Page): Promise<void> { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/e2e/availability-draft-mock.ts">
+    <item priority="low">
+      interface PutBody {
+        expectedVersion: number;
+        changes?: { upsert?: { dateRules?: Array<{ id: string; startsOn?: s...;
+      }
+    </item>
+    <item priority="low">
+      interface PutRecord {
+        expected: number;
+        status: number;
+      }
+    </item>
+    <item priority="low">
+      interface AvailabilityMock {
+        version: number;
+        configReads: number;
+        failReads: boolean;
+        readVersion: number | null;
+        bodies: PutBody[];
+      }
+    </item>
+    <item priority="medium">
+      function between(from: string, to: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function mockAvailability(
+        page: Page,
+        options: { weekdays?: number[]; rules?: unknown[] } = {}
+      ): Promise<AvailabilityMock> { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/e2e/booking-date.ts">

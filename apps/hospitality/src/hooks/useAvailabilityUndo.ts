@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useToast } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigSaveResult } from "@mbe/types";
+import { isEditorOpen } from "../components/availability/editor-open.js";
 import { revertErrorText } from "../components/availability/revert-error.js";
 import { useRevertAvailabilityChange } from "./useAvailability.js";
 
@@ -21,6 +22,12 @@ export function useAvailabilityUndo() {
   return useCallback(
     (input: { venueId: string; title: string; saved: AvailabilityConfigSaveResult }) => {
       const undo = async () => {
+        // An open day editor has pinned a version this revert would move on from: its own save
+        // would then be refused as out of date. Ask the Manager to finish that first.
+        if (isEditorOpen()) {
+          toast({ title: t("availability.undo.finishFirst"), variant: "default", duration: 8000 });
+          return;
+        }
         try {
           await revert.mutateAsync({
             venueId: input.venueId,

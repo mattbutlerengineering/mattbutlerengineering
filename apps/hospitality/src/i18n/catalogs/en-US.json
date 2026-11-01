@@ -1975,6 +1975,11 @@
       "changes_other": "{{count}} changes from your regular {{weekday}}.",
       "changes_many": "{{count}} changes from your regular {{weekday}}.",
       "whyTitle": "Why this day",
+      "refreshError": "Couldn’t check for newer hours",
+      "finishDraftFirst": "Save or discard your changes to this day first.",
+      "hoursDiffer": "These dates have different hours. The rows below are from {{date}}.",
+      "waitForReload": "Edit once the newest hours have loaded.",
+      "reloadHours": "Reload hours",
       "ifRemoved": "If removed: {{result}}",
       "removalNone": "no change to this day",
       "removal": {
@@ -2062,6 +2067,7 @@
     "undo": {
       "action": "Undo",
       "done": "Change undone",
+      "finishFirst": "Save or discard your changes first, then undo.",
       "errors": {
         "guests-notified": "This change told guests, so it can’t be undone.",
         "already-reverted": "This change was already undone.",
@@ -2229,6 +2235,7 @@
       "title": "Discard changes to {{date}}?",
       "description": "Your unsaved changes to these hours will be lost.",
       "leavePage": "All unsaved changes on this page will be lost.",
+      "titleSelection": "Discard changes to the {{total}} selected dates?",
       "confirm": "Discard",
       "keep": "Keep editing"
     },

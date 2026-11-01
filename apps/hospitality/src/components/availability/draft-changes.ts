@@ -266,9 +266,11 @@ export function buildDraftChanges(input: BuildInput): AvailabilityConfigChanges 
     const dateRules = singles.map((d) => dateRule(config, d, payload, makeId));
     return { upsert: { ...venueServices, dateRules }, remove: {} };
   }
+  // A rule from a past day would rewrite hours that already happened: start it today instead.
+  const startsOn = input.today !== undefined && input.today > scope.from ? input.today : scope.from;
   const rule = specialHoursRule(
     {
-      startsOn: scope.from,
+      startsOn,
       endsOn: scope.until,
       repeat: { version: 1, weekdays: [weekdayIndexOf(scope.from)] },
     },
