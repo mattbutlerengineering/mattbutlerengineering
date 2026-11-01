@@ -8597,9 +8597,6 @@
     <item priority="high">
       export const MANAGE_PATH: unknown;
     </item>
-    <item priority="high">
-      export const EAT_SHEET_MANAGE_PATH: unknown;
-    </item>
     <item priority="medium">
       function managePathFor(origin: string): string { /* ... */ }
     </item>

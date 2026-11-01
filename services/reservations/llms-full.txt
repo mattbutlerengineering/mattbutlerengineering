@@ -1233,7 +1233,6 @@
   </file>
   <file path="src/notifications/manage-url.ts">
     export const MANAGE_PATH = "/hospitality/reservations/manage";
-    export const EAT_SHEET_MANAGE_PATH = "/reservations/manage";
     function managePathFor(origin: string): string {
       try {
         return EAT_SHEET_HOSTNAMES.has(new URL(origin).hostname.toLowerCase())

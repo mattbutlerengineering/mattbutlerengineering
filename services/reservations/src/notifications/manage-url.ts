@@ -6,7 +6,7 @@ export const MANAGE_PATH = "/hospitality/reservations/manage";
  * at its root rather than under a `/hospitality` basename (#7709, #7892) —
  * mirrors apps/hospitality/src/lib/host-brand.ts's basename split.
  */
-export const EAT_SHEET_MANAGE_PATH = "/reservations/manage";
+const EAT_SHEET_MANAGE_PATH = "/reservations/manage";
 
 const EAT_SHEET_HOSTNAMES: ReadonlySet<string> = new Set(["eat-sheet.com", "www.eat-sheet.com"]);
 
