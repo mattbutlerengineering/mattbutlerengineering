@@ -1039,6 +1039,29 @@ describe("CloseDialog", () => {
     });
   });
 
+  describe("validation moves focus to the first problem (ux.md S6, #7979)", () => {
+    const next = () => fireEvent.click(screen.getByTestId("close-primary"));
+    const pick = (name: RegExp) => fireEvent.click(screen.getByRole("radio", { name }));
+
+    it("goes to the channels when none is chosen, and goes back on a second Next", () => {
+      renderDialog({ pauseOnline: true });
+      fireEvent.click(screen.getByRole("checkbox", { name: "Online" }));
+      next();
+      expect(screen.getByRole("checkbox", { name: "Online" })).toHaveFocus();
+      expect(screen.getByRole("alert")).toHaveTextContent(/at least one/i);
+      screen.getByRole("button", { name: /^Cancel/ }).focus();
+      next();
+      expect(screen.getByRole("checkbox", { name: "Online" })).toHaveFocus();
+    });
+
+    it("goes to the weekdays when a repeat has dates but no day", () => {
+      renderDialog();
+      pick(/^Repeats/);
+      next();
+      expect(screen.getAllByRole("checkbox")[0]).toHaveFocus();
+    });
+  });
+
   describe("wording and options (#7978)", () => {
     const FRIDAY = "2026-12-25";
     const NO_BOOKINGS: ClosureImpact = { reservations: 0, covers: 0, depositsHeld: 0, groups: [] };

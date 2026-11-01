@@ -35,6 +35,7 @@ import {
 import { LeaveSaveDialog } from "./LeaveSaveDialog.js";
 import { SeriesGrowthStepTwo } from "./SeriesGrowthStepTwo.js";
 import { useSaveAttempts } from "./use-save-attempts.js";
+import { StrandedBookings } from "./StrandedBookings.js";
 import { useScheduleSave } from "./use-schedule-save.js";
 import styles from "./CloseDialog.module.css";
 
@@ -74,7 +75,7 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
   const { t } = useTranslation();
   const format = useVenueFormat();
   const { toast } = useToast();
-  const { save, isPending, failure } = useScheduleSave(
+  const { save, isPending, failure, stranded } = useScheduleSave(
     onStale,
     "availabilitySpecial.series.stranded"
   );
@@ -295,6 +296,7 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
             {[...failure, ...(previewFailure ? [previewFailure] : [])].map((message) => (
               <div key={message}>{message}</div>
             ))}
+            <StrandedBookings reservations={stranded} />
           </Alert>
         )}
         {dateField(

@@ -285,6 +285,19 @@
       if (form.guestMessage.trim().length > GUEST_MESSAGE_MAX_LENGTH) return "guestMessage";
       return null;
     }
+    export const closeFieldId = (field: CloseField) => `close-field-${field}`;
+    export const closeWhenId = (when: CloseWhen, days: boolean) =>
+      (when.kind === "repeats" && when.from !== "" && when.to >= when.from) === days
+        ? closeFieldId("when")
+        : undefined;
+    export function focusCloseField(field: CloseField) {
+      const target = document.getElementById(closeFieldId(field));
+      (target?.querySelector("input") ?? target)?.focus();
+    }
+    export function stepTwoNote(ready: boolean, t: TFunction): string {
+      const irreversible = t("availability.close.step2.irreversible");
+      return ready ? irreversible : `${t("availability.close.step2.blocked")} ${irreversible}`;
+    }
     function targetOf(what: CloseWhat) {
       switch (what.kind) {
         case "venue":
@@ -1257,8 +1270,12 @@
       const mm = String(wrapped % 60).padStart(2, "0");
       return `${hh}:${mm}`;
     }
-    export function autoLastSeating(closes: string): string {
-      return toClock(toMinutes(closes) - LAST_SEATING_LEAD_MINUTES);
+    export function autoLastSeating(closes: string, opens: string | null = null): string {
+      const lead = toMinutes(closes) - LAST_SEATING_LEAD_MINUTES;
+      if (opens === null) return toClock(lead);
+      const opensAt = toMinutes(opens);
+      const closesAfter = toMinutes(closes) <= opensAt ? MINUTES_PER_DAY : 0;
+      return toClock(Math.max(lead + closesAfter, opensAt));
     }
     export function applyPreset(service: ServiceDraft, preset: ServicePresetId, name: string) {
       const { opens, closes } = SERVICE_PRESETS[preset];
@@ -1267,7 +1284,7 @@
         name,
         opens,
         closes,
-        lastSeating: autoLastSeating(closes),
+        lastSeating: autoLastSeating(closes, opens),
         lastSeatingLinked: true,
       };
     }
@@ -1277,14 +1294,13 @@
       value: string | null
     ): ServiceDraft {
       if (field === "lastSeating") return { ...service, lastSeating: value, lastSeatingLinked: false };
-      if (field === "closes" && service.lastSeatingLinked) {
-        return {
-          ...service,
-          closes: value,
-          lastSeating: value === null ? null : autoLastSeating(value),
-        };
-      }
-      return { ...service, [field]: value };
+      const next = { ...service, [field]: value };
+      // Both ends bound a linked last seating, so moving either one keeps it in step.
+      if (!service.lastSeatingLinked) return next;
+      return {
+        ...next,
+        lastSeating: next.closes === null ? null : autoLastSeating(next.closes, next.opens),
+      };
     }
     export function replaceService(draft: QuickSetupDraft, next: ServiceDraft): QuickSetupDraft {
       return { ...draft, services: draft.services.map((s) => (s.id === next.id ? next : s)) };
@@ -1524,7 +1540,7 @@
             ...emptyService(serviceId),
             opens: first.open,
             closes: first.close,
-            lastSeating: autoLastSeating(first.close),
+            lastSeating: autoLastSeating(first.close, first.open),
           },
         ],
         days: open.map((o) => o.index),
@@ -1863,6 +1879,32 @@
     }
     export function buildDeleteScheduleChanges(scheduleId: string): AvailabilityConfigChanges {
       return { upsert: {}, remove: { schedules: [scheduleId] } };
+    }
+    export type ScheduleSaveBlock =
+      | "conflict"
+      | "startRequired"
+      | "endBeforeStart"
+      | "nameRequired"
+      | "servicesRequired"
+      | "serviceNameRequired";
+    export function scheduleSaveBlock(draft: {
+      readonly conflicted: boolean;
+      readonly name: string;
+      readonly services: readonly DraftService[];
+      readonly startsOn: string | null;
+      readonly endsOn: string | null;
+      readonly startRequired?: boolean;
+    }): ScheduleSaveBlock | null {
+      const { startsOn, endsOn, services } = draft;
+      if (draft.conflicted) return "conflict";
+      if (draft.startRequired && !startsOn) return "startRequired";
+      if (startsOn && endsOn && endsOn < startsOn) return "endBeforeStart";
+      if (draft.name.trim() === "") return "nameRequired";
+      if (services.length === 0) return "servicesRequired";
+      if (services.some((s) => s.venueServiceId === null && !s.name.trim())) {
+        return "serviceNameRequired";
+      }
+      return null;
     }
     function meets(a: UseOn, b: UseOn): boolean {
       const shared = a.weekdays.filter((d) => b.weekdays.includes(d));
@@ -2815,6 +2857,20 @@
       };
     }
   </file>
+  <file path="src/components/availability/use-held-for.ts">
+    export function useHeldFor(active: boolean, ms: number): boolean {
+      const [elapsed, setElapsed] = useState(false);
+      useEffect(() => {
+        if (!active) return undefined;
+        const timer = setTimeout(() => setElapsed(true), ms);
+        return () => {
+          clearTimeout(timer);
+          setElapsed(false);
+        };
+      }, [active, ms]);
+      return active && elapsed;
+    }
+  </file>
   <file path="src/components/availability/use-reload-hold.ts">
     function emit() {
       for (const listener of listeners) listener();
@@ -2941,9 +2997,16 @@
       const { t } = useTranslation();
       const { mutateAsync, isPending } = useSaveAvailabilityConfig();
       const [failure, setFailure] = useState<readonly string[]>([]);
+      // The bookings behind a stranded refusal, listed beneath its message.
+      const [stranded, setStranded] = useState<readonly StrandedReservation[]>([]);
       // A lost race. The draft was built from a version that is gone, so a drawer that edits rows
       // must show what changed and get an answer (reapply or discard) before it saves again.
       const [conflicted, setConflicted] = useState(false);
+    
+      const clearFailure = () => {
+        setFailure([]);
+        setStranded([]);
+      };
     
       const reject = (error: unknown) => {
         const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
@@ -2957,6 +3020,7 @@
           setFailure(problem.issues.map((i) => i.message));
         } else if (problem?.code === "stranded-bookings") {
           setFailure([t(strandedKey, { count: problem.reservations?.length ?? 0 })]);
+          setStranded(problem.reservations ?? []);
         } else {
           setFailure([describeApiError(error).detail]);
         }
@@ -2969,7 +3033,7 @@
         changes: AvailabilityConfigChanges,
         scopeConflicts: ScopeConflictMode
       ): Promise<AvailabilityConfigSaveResult | null> => {
-        setFailure([]);
+        clearFailure();
         try {
           return await mutateAsync({
             venueId,
@@ -2985,12 +3049,13 @@
         save,
         isPending,
         failure,
+        stranded,
         conflicted,
-        clearFailure: () => setFailure([]),
+        clearFailure,
         /** The Manager has answered the conflict; the next save is against the version they saw. */
         clearConflict: () => {
           setConflicted(false);
-          setFailure([]);
+          clearFailure();
         },
       };
     }

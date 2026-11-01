@@ -52,6 +52,25 @@ describe("findStrandedReservations", () => {
     ]);
   });
 
+  it("names the guest and the service date, so a refusal can list and link each booking", () => {
+    const stranded = findStrandedReservations(
+      { timezone: TZ, config: CONFIG },
+      { timezone: TZ, config: closedOn("2026-11-06") },
+      [{ ...BOOKING, guestName: "Okafor", date: new Date("2026-11-06T00:00:00.000Z") }]
+    );
+
+    expect(stranded).toEqual([
+      {
+        id: "res-1",
+        startTime: "2026-11-07T03:00:00.000Z",
+        partySize: 2,
+        reason: "closed",
+        guestName: "Okafor",
+        serviceDate: "2026-11-06",
+      },
+    ]);
+  });
+
   it("reports a booking on a table the change blocks, though the snapshot lists no tables", () => {
     const blocked: AvailabilityConfig = {
       ...CONFIG,

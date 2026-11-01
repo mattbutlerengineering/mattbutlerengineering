@@ -6,7 +6,7 @@ import type { AvailabilityConfigState } from "@mbe/types";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { seedServices } from "./draft-changes.js";
 import { buildUseDayHoursChanges, buildUseScheduleChanges } from "./selection-actions.js";
-import { SaveFailure } from "./ScheduleFormParts.js";
+import { BlockedReason, SaveFailure } from "./ScheduleFormParts.js";
 import { useScheduleSave } from "./use-schedule-save.js";
 import styles from "./ScheduleFormParts.module.css";
 
@@ -81,6 +81,17 @@ export function UseScheduleDialog(props: UseScheduleDialogProps) {
       )}
       footer={
         <div className={styles.footer}>
+          <BlockedReason
+            reason={
+              ready
+                ? null
+                : t(
+                    sourceDate
+                      ? "availability.selection.use.blockedClosed"
+                      : "availability.selection.use.blockedDay"
+                  )
+            }
+          />
           <Button variant="secondary" onClick={close}>
             {t("availability.selection.use.cancel")}
           </Button>
@@ -96,7 +107,7 @@ export function UseScheduleDialog(props: UseScheduleDialogProps) {
       }
     >
       <Stack gap="md">
-        <SaveFailure messages={saver.failure} />
+        <SaveFailure messages={saver.failure} stranded={saver.stranded} />
         {byDay ? (
           <DatePicker
             label={t("availability.selection.use.from")}

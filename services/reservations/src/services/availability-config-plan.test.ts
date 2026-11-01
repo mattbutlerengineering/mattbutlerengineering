@@ -322,6 +322,70 @@ describe("diffConfig and inverseOf", () => {
   });
 });
 
+/** The saves the Schedules surfaces offer Undo on (#7979): a revert must get back to `stored`. */
+describe("undoing a schedule save", () => {
+  const stored: AvailabilityConfig = {
+    ...BASE,
+    schedules: [
+      ...BASE.schedules,
+      { id: "spare", name: "Spare", kind: "alternate", isRegular: false },
+    ],
+  };
+  const undo = (next: AvailabilityConfig) => {
+    const { restore, remove } = inverseOf(stored, diffConfig(stored, next), null);
+    return applyChanges(next, { upsert: restore, remove }, "2026-10-31T00:00:00.000Z");
+  };
+  const live = (config: AvailabilityConfig) =>
+    config.schedules.filter((s) => !s.archivedAt).map((s) => s.id);
+
+  it("brings a deleted schedule back", () => {
+    const deleted = applyChanges(
+      stored,
+      { upsert: {}, remove: { schedules: ["spare"] } },
+      "2026-10-30T00:00:00.000Z"
+    );
+    expect(live(deleted)).not.toContain("spare");
+    expect(undo(deleted)).toEqual(stored);
+  });
+
+  it("takes a new schedule, its rows and its use away again", () => {
+    const created = applyChanges(
+      stored,
+      {
+        upsert: {
+          schedules: [{ id: "new", name: "New", kind: "alternate", isRegular: false }],
+          scheduleServices: stored.scheduleServices
+            .slice(0, 1)
+            .map((s) => ({ ...s, id: "new-row", scheduleId: "new" })),
+          assignments: [{ id: "new-use", scheduleId: "new", weekdays: [5], precedence: 1 }],
+        },
+        remove: {},
+      },
+      "2026-10-30T00:00:00.000Z"
+    );
+    const undone = undo(created);
+    expect(live(undone)).toEqual(live(stored));
+    expect(undone.scheduleServices).toEqual(stored.scheduleServices);
+    expect(undone.assignments).toEqual(stored.assignments);
+  });
+
+  it("puts an edited schedule's rows and name back", () => {
+    const row = stored.scheduleServices[0]!;
+    const edited = applyChanges(
+      stored,
+      {
+        upsert: {
+          schedules: stored.schedules.map((s) => ({ ...s, name: `${s.name}!` })),
+          scheduleServices: [{ ...row, closesAt: row.closesAt + 30 }],
+        },
+        remove: {},
+      },
+      "2026-10-30T00:00:00.000Z"
+    );
+    expect(undo(edited)).toEqual(stored);
+  });
+});
+
 describe("affectedRange", () => {
   it("spans the touched date rules", () => {
     const next = { ...BASE, dateRules: [special("dr-1", "2026-11-06", "2026-11-20")] };

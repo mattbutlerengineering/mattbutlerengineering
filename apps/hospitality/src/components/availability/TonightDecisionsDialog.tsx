@@ -8,6 +8,7 @@ import {
   decisionsReady,
   isUrgent,
   outcomeCounts,
+  stepTwoNote,
   toDecisions,
   type ChoiceMap,
 } from "./close-draft.js";
@@ -138,7 +139,7 @@ export function TonightDecisionsDialog(props: TonightDecisionsDialogProps) {
         footer={
           <div className={styles.footer}>
             <Text variant="caption" color="secondary" className={styles.footerNote}>
-              {t("availability.close.step2.irreversible")}
+              {stepTwoNote(decisionsReady(groups, choices), t)}
             </Text>
             <Button variant="secondary" disabled={saving} onClick={() => attempts.leave(saving)}>
               {t("availability.close.cancel")}

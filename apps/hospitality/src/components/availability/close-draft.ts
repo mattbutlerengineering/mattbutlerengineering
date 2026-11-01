@@ -1,3 +1,4 @@
+import type { TFunction } from "i18next";
 import {
   activeRules,
   firstOccurrenceOnOrAfter,
@@ -100,6 +101,30 @@ export function validateClose(form: CloseForm, today: string): CloseField | null
   if (!whenIsComplete(form.when, today)) return "when";
   if (form.guestMessage.trim().length > GUEST_MESSAGE_MAX_LENGTH) return "guestMessage";
   return null;
+}
+
+/** The DOM id of what `focusCloseField` looks for: the control, or a block that holds it. */
+export const closeFieldId = (field: CloseField) => `close-field-${field}`;
+
+/**
+ * The "when" id goes on the block at fault: a repeat whose dates are in order can only be missing
+ * its days (`days`), anything else on the dates.
+ */
+export const closeWhenId = (when: CloseWhen, days: boolean) =>
+  (when.kind === "repeats" && when.from !== "" && when.to >= when.from) === days
+    ? closeFieldId("when")
+    : undefined;
+
+/** S6: "focus moves to the first" problem. Called by Next, so a second Next moves it again. */
+export function focusCloseField(field: CloseField) {
+  const target = document.getElementById(closeFieldId(field));
+  (target?.querySelector("input") ?? target)?.focus();
+}
+
+/** The note beside a Step 2 button: that it can't be undone, and why it is off while it is. */
+export function stepTwoNote(ready: boolean, t: TFunction): string {
+  const irreversible = t("availability.close.step2.irreversible");
+  return ready ? irreversible : `${t("availability.close.step2.blocked")} ${irreversible}`;
 }
 
 function targetOf(what: CloseWhat) {

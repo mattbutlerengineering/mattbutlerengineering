@@ -17,11 +17,13 @@ import {
   buildCloseRule,
   closedDates,
   decisionsReady,
+  focusCloseField,
   isUrgent,
   outcomeCounts,
   replacedSpecialDate,
   sameRequest,
   startMinutes,
+  stepTwoNote,
   toDecisions,
   validateClose,
   type BookingChannel,
@@ -199,7 +201,7 @@ export function CloseDialog(props: CloseDialogProps) {
   const next = () => {
     const problem = validateClose(form, today);
     setInvalid(problem);
-    if (problem) return;
+    if (problem) return focusCloseField(problem);
     if (groups.length > 0) setStep(2);
     else void save();
   };
@@ -290,7 +292,7 @@ export function CloseDialog(props: CloseDialogProps) {
             <div className={styles.footer}>
               {step === 2 && (
                 <Text variant="caption" color="secondary" className={styles.footerNote}>
-                  {t("availability.close.step2.irreversible")}
+                  {stepTwoNote(decisionsReady(groups, choices), t)}
                 </Text>
               )}
               <Button

@@ -13,7 +13,7 @@ import {
 } from "./compare-changes.js";
 import { DiscardChangesDialog } from "./DiscardChangesDialog.js";
 import { ownChangeDates, scopeDates } from "./scope-dates.js";
-import { OwnChangesChoice, SaveFailure } from "./ScheduleFormParts.js";
+import { BlockedReason, OwnChangesChoice, SaveFailure } from "./ScheduleFormParts.js";
 import { useDiscardGuard } from "./use-discard-guard.js";
 import { useScheduleSave } from "./use-schedule-save.js";
 import styles from "./CompareServices.module.css";
@@ -189,7 +189,7 @@ export function CompareServices(props: CompareServicesProps) {
 
   return (
     <Stack gap="md">
-      <SaveFailure messages={saver.failure} />
+      <SaveFailure messages={saver.failure} stranded={saver.stranded} />
       <Select
         label={t("availabilitySchedules.compare.service")}
         value={serviceId}
@@ -259,6 +259,9 @@ export function CompareServices(props: CompareServicesProps) {
         </div>
       )}
       <OwnChangesChoice count={dates.length > 1 ? own.length : 0} value={mode} onChange={setMode} />
+      <BlockedReason
+        reason={changed.length === 0 ? t("availabilitySchedules.compare.blocked") : null}
+      />
       <div className={styles.footer}>
         <Text variant="body" color="primary" role="status">
           {t("availabilitySchedules.compare.impact", {

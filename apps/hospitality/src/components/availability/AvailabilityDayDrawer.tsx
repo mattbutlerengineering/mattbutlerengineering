@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useEffect, useId, useRef } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import {
@@ -17,6 +17,7 @@ import { useViewport } from "../../hooks/useViewport.js";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
 import { AvailabilityDayEditor } from "./AvailabilityDayEditor.js";
 import { useEditorOpen } from "./editor-open.js";
+import { useHeldFor } from "./use-held-for.js";
 import { useReloadHold } from "./use-reload-hold.js";
 import { CopyDayAction } from "./CopyDayAction.js";
 import { ScheduleNudge } from "./ScheduleNudge.js";
@@ -66,6 +67,7 @@ export interface AvailabilityDayDrawerProps {
 }
 
 const noop = () => undefined;
+const RELOAD_OFFER_AFTER_MS = 2000;
 
 function serviceNames(day: ResolvedDaySummary, locale: string): string {
   return new Intl.ListFormat(locale, { type: "conjunction" }).format(
@@ -167,6 +169,21 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
     : behind
       ? t("availability.drawer.waitForReload")
       : null;
+  // A normal reload ends within this; only one that has not is worth a button of its own.
+  const offerReload = useHeldFor(reloadDue, RELOAD_OFFER_AFTER_MS);
+
+  // The button goes when the hold ends or the reload fails, so focus goes where the Manager is
+  // going next, not to the page behind the drawer. Only after a click on it: otherwise the hold
+  // ending by itself must not take focus from wherever it is.
+  const reloadClickedRef = useRef(false);
+  const editorRef = useRef<HTMLDivElement>(null);
+  const bannerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!reloadClickedRef.current || (reloadDue && !error)) return;
+    reloadClickedRef.current = false;
+    const landing = reloadDue ? bannerRef.current : editorRef.current;
+    landing?.querySelector("button")?.focus();
+  }, [reloadDue, error]);
 
   let body;
   if (date === null) {
@@ -184,11 +201,13 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
       <>
         {/* A failed refresh must not unmount an open draft; the error sits above it. */}
         {error && (
-          <ErrorRetryBanner
-            title={t("availability.drawer.refreshError")}
-            error={error}
-            onRetry={editing?.onStale}
-          />
+          <div ref={bannerRef}>
+            <ErrorRetryBanner
+              title={t("availability.drawer.refreshError")}
+              error={error}
+              onRetry={editing?.onStale}
+            />
+          </div>
         )}
         {!picked && <DayBody day={day} date={date} />}
         {picked && editing?.hoursDiffer && (
@@ -203,48 +222,31 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
           </Text>
         )}
         {viewerRole === "manager" && editing && (
-          <AvailabilityDayEditor
-            held={behind}
-            heldReasonId={reasonId}
-            // A new date, or a new pick for the same date, is a new draft.
-            key={`${date}|${editing.fixedDates?.join(",") ?? ""}`}
-            venueId={editing.venueId}
-            state={editing.state}
-            timezone={editing.timezone}
-            today={editing.today}
-            onDirtyChange={editing.onDirtyChange}
-            onFinished={editing.onFinished}
-            fixedDates={editing.fixedDates}
-            ruleScope={editing.ruleScope}
-            onStale={editing.onStale}
-            date={date}
-            day={day}
-            onCancel={onClose}
-          />
+          <div ref={editorRef}>
+            <AvailabilityDayEditor
+              held={behind}
+              heldReasonId={reasonId}
+              // A new date, or a new pick for the same date, is a new draft.
+              key={`${date}|${editing.fixedDates?.join(",") ?? ""}`}
+              venueId={editing.venueId}
+              state={editing.state}
+              timezone={editing.timezone}
+              today={editing.today}
+              onDirtyChange={editing.onDirtyChange}
+              onFinished={editing.onFinished}
+              fixedDates={editing.fixedDates}
+              ruleScope={editing.ruleScope}
+              onStale={editing.onStale}
+              date={date}
+              day={day}
+              onCancel={onClose}
+            />
+          </div>
         )}
         {viewerRole === "manager" && !picked && editing?.onCloseDay && (
           <Button variant="secondary" onClick={() => editing.onCloseDay?.(date)}>
             {t("availability.close.open")}
           </Button>
-        )}
-        {viewerRole === "manager" && editing && (
-          // Always mounted, so the reason is announced when it appears.
-          <div aria-live="polite">
-            {reason && (
-              <Text id={reasonId} variant="caption" color="secondary">
-                {reason}
-              </Text>
-            )}
-          </div>
-        )}
-        {/* Beside a failure the banner's Retry is the way out; otherwise this is, so a read older
-            than the save (which nothing else would refresh) cannot lock Edit. */}
-        {viewerRole === "manager" && reloadDue && !error && editing?.onStale && (
-          <div>
-            <Button variant="ghost" size="sm" onClick={editing.onStale}>
-              {t("availability.drawer.reloadHours")}
-            </Button>
-          </div>
         )}
         {viewerRole === "manager" && editing && !picked && (
           <>
@@ -268,6 +270,34 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
               onStale={editing.onStale ?? noop}
             />
           </>
+        )}
+        {/* Below Copy and the nudge, so what a reload brings and takes away never moves a control
+            under a pointer. */}
+        {viewerRole === "manager" && editing && (
+          // Always mounted, so the reason is announced when it appears.
+          <div aria-live="polite">
+            {reason && (
+              <Text id={reasonId} variant="caption" color="secondary">
+                {reason}
+              </Text>
+            )}
+          </div>
+        )}
+        {/* Beside a failure the banner's Retry is the way out; otherwise this is, so a read older
+            than the save (which nothing else would refresh) cannot lock Edit. */}
+        {viewerRole === "manager" && offerReload && !error && editing?.onStale && (
+          <div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                reloadClickedRef.current = true;
+                editing.onStale?.();
+              }}
+            >
+              {t("availability.drawer.reloadHours")}
+            </Button>
+          </div>
         )}
       </>
     );

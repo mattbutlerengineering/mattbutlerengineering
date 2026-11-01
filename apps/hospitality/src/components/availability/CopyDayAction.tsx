@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, DatePicker, Dialog, Stack, Text } from "@mattbutlerengineering/rialto";
 import type { ResolvedDay } from "@mbe/availability";
@@ -9,7 +9,12 @@ import { buildCopyDayChanges, copyDayDates } from "./copy-day.js";
 import { seedServices } from "./draft-changes.js";
 import { waitingProps } from "./draft-wait.js";
 import { ownChangeDates } from "./scope-dates.js";
-import { OwnChangesChoice, SaveFailure, WeekdayToggles } from "./ScheduleFormParts.js";
+import {
+  BlockedReason,
+  OwnChangesChoice,
+  SaveFailure,
+  WeekdayToggles,
+} from "./ScheduleFormParts.js";
 import { useScheduleSave } from "./use-schedule-save.js";
 import styles from "./ScheduleFormParts.module.css";
 
@@ -48,6 +53,16 @@ export function CopyDayAction(props: CopyDayActionProps) {
     [weekdays, from, until, today]
   );
   const own = useMemo(() => ownChangeDates(state.config, dates, null), [state.config, dates]);
+  const block: "fromRequired" | "endBeforeStart" | "daysRequired" | "noDates" | null = !from
+    ? "fromRequired"
+    : until && until < from
+      ? "endBeforeStart"
+      : weekdays.length === 0
+        ? "daysRequired"
+        : dates.length === 0
+          ? "noDates"
+          : null;
+  const blockedId = useId();
   const heading = format.formatCalendarDate(date, {
     weekday: "long",
     month: "short",
@@ -98,12 +113,17 @@ export function CopyDayAction(props: CopyDayActionProps) {
         title={t("availabilitySchedules.copy.title", { date: heading })}
         footer={
           <div className={styles.footer}>
+            <BlockedReason
+              id={blockedId}
+              reason={block && t(`availabilitySchedules.copy.blocked.${block}`)}
+            />
             <Button variant="secondary" onClick={close}>
               {t("availabilitySchedules.cancel")}
             </Button>
             <Button
               variant="primary"
-              disabled={dates.length === 0}
+              disabled={block !== null}
+              aria-describedby={block ? blockedId : undefined}
               isLoading={saver.isPending}
               onClick={() => void submit()}
             >
@@ -113,7 +133,7 @@ export function CopyDayAction(props: CopyDayActionProps) {
         }
       >
         <Stack gap="md">
-          <SaveFailure messages={saver.failure} />
+          <SaveFailure messages={saver.failure} stranded={saver.stranded} />
           <WeekdayToggles
             legend={t("availabilitySchedules.copy.days")}
             value={weekdays}
@@ -123,6 +143,7 @@ export function CopyDayAction(props: CopyDayActionProps) {
             <DatePicker
               label={t("availabilitySchedules.copy.from")}
               value={from}
+              max={until ?? undefined}
               onChange={setFrom}
             />
             <DatePicker

@@ -18,6 +18,8 @@ export interface AvailabilityAgendaProps {
   readonly draftDates?: readonly string[];
   readonly picked: ReadonlySet<string>;
   readonly isLoading: boolean;
+  /** The read failed: a day with no summary is not still on its way. */
+  readonly loadFailed?: boolean;
   /** Click and long-press handlers for one row (see `useDateSelection`). */
   readonly handlersFor: (date: string) => DateGestureHandlers;
 }
@@ -69,7 +71,7 @@ export function AvailabilityAgenda(props: AvailabilityAgendaProps) {
                 })}
               </span>
               {isLoading || !summary ? (
-                <Skeleton variant="text" width="100%" height={16} />
+                !props.loadFailed && <Skeleton variant="text" width="100%" height={16} />
               ) : (
                 <span className={styles.details} aria-hidden="true">
                   <span className={styles.label}>{summary.label}</span>

@@ -1,25 +1,20 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Button,
-  DatePicker,
-  Drawer,
-  Input,
-  Stack,
-  Text,
-  useToast,
-} from "@mattbutlerengineering/rialto";
+import { Button, DatePicker, Drawer, Input, Stack, Text } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState, ScopeConflictMode } from "@mbe/types";
+import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { seedServices, servicesEqual, type DraftService } from "./draft-changes.js";
 import {
   buildEditScheduleChanges,
   buildNewScheduleChanges,
   overlappingSchedules,
   datesOfUse,
+  scheduleSaveBlock,
   type Winner,
 } from "./schedule-changes.js";
 import { ownChangeDates, scopeDates } from "./scope-dates.js";
 import {
+  BlockedReason,
   ConflictReviewPanel,
   OverlapChoice,
   OwnChangesChoice,
@@ -57,7 +52,7 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
   const { venueId, state, timezone, today, mode, sourceScheduleId, onStale, onClose } = props;
   const { config } = state;
   const { t } = useTranslation();
-  const { toast } = useToast();
+  const offerUndo = useAvailabilityUndo();
   const saver = useScheduleSave(onStale);
 
   const source = config.schedules.find((s) => s.id === sourceScheduleId);
@@ -130,10 +125,14 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
   );
 
   const trimmed = name.trim();
-  const incomplete =
-    trimmed === "" ||
-    services.length === 0 ||
-    services.some((s) => s.venueServiceId === null && !s.name.trim());
+  const block = scheduleSaveBlock({
+    conflicted: saver.conflicted,
+    name,
+    services,
+    startsOn,
+    endsOn,
+  });
+  const blockedId = useId();
 
   const submit = async () => {
     const makeId = () => crypto.randomUUID();
@@ -150,14 +149,14 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
         : buildNewScheduleChanges({ config, name: trimmed, services, useOn, winner, makeId });
     // Checked against the version the draft was built from, so a change made since is a
     // conflict the Manager reviews, not something this save quietly rebases.
-    const ok = await saver.save(
+    const saved = await saver.save(
       venueId,
       { ...state, version: review.baselineVersion },
       changes,
       dates.length > 1 ? conflictMode : "replace"
     );
-    if (!ok) return;
-    toast({ variant: "success", title: t("availabilitySchedules.saved", { name: trimmed }) });
+    if (!saved) return;
+    offerUndo({ venueId, saved, title: t("availabilitySchedules.saved", { name: trimmed }) });
     onClose();
   };
 
@@ -177,12 +176,17 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
         size="wide"
         footer={
           <div className={styles.footer}>
+            <BlockedReason
+              id={blockedId}
+              reason={block && t(`availabilitySchedules.blocked.${block}`)}
+            />
             <Button variant="secondary" onClick={() => guard.request()}>
               {t("availabilitySchedules.cancel")}
             </Button>
             <Button
               variant="primary"
-              disabled={incomplete || saver.conflicted}
+              disabled={block !== null}
+              aria-describedby={block ? blockedId : undefined}
               isLoading={saver.isPending}
               onClick={() => void submit()}
             >
@@ -199,7 +203,7 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
               onDiscard={review.discard}
             />
           ) : (
-            <SaveFailure messages={saver.failure} />
+            <SaveFailure messages={saver.failure} stranded={saver.stranded} />
           )}
           <Input
             label={t("availabilitySchedules.name")}
@@ -220,6 +224,7 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
                   label={t("availabilitySchedules.startsOn")}
                   placeholder={t("availabilitySchedules.noStart")}
                   value={startsOn}
+                  max={endsOn ?? undefined}
                   onChange={setStartsOn}
                 />
                 <DatePicker

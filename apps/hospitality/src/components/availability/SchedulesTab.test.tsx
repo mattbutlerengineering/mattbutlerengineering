@@ -59,10 +59,12 @@ const common = {
   onStale: vi.fn(),
 };
 
+// At file level: the suites may run in any order, and rialto's Select scrolls in both.
+beforeAll(() => {
+  window.HTMLElement.prototype.scrollIntoView = vi.fn();
+});
+
 describe("SchedulesTab", () => {
-  beforeAll(() => {
-    window.HTMLElement.prototype.scrollIntoView = vi.fn();
-  });
   beforeEach(() => {
     vi.clearAllMocks();
     save.mockResolvedValue({ version: 8, changeId: "chg" });
