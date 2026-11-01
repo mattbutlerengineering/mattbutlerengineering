@@ -1190,6 +1190,9 @@
       ): HTMLElement | undefined { /* ... */ }
     </item>
     <item priority="high">
+      export function isCoveredByTrap(element: Element): boolean { /* ... */ }
+    </item>
+    <item priority="high">
       export function useFocusTrap(
         panelRef: RefObject<HTMLDivElement | null>,
         enabled: boolean,

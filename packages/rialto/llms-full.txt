@@ -2994,6 +2994,10 @@
       const defaultTarget = focusable.find((el) => !el.hasAttribute(FOCUS_TRAP_SKIP_INITIAL_ATTR));
       return defaultTarget ?? first;
     }
+    export function isCoveredByTrap(element: Element): boolean {
+      const top = activePanels[activePanels.length - 1];
+      return top !== undefined && top.isConnected && !top.contains(element);
+    }
     export function useFocusTrap(
       panelRef: RefObject<HTMLDivElement | null>,
       enabled: boolean,
@@ -3126,6 +3130,9 @@
           if (skip) return;
           const frame = requestAnimationFrame(() => {
             pendingRef.current = null;
+            // Another overlay opened on top in the meantime, and it holds focus now. The trigger is
+            // behind it, where keys would act on what that overlay covers.
+            if (captured && isCoveredByTrap(captured)) return;
             (captured as HTMLElement | null)?.focus();
           });
           pendingRef.current = { frame, trigger: captured };
