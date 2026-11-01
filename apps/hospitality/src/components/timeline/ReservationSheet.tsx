@@ -13,7 +13,13 @@ import {
 import { useGuest } from "../../hooks/useGuests.js";
 import { useDepositByReservation } from "../../hooks/useDeposits.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { findReservationTable, occupiedCaption, statusWord, useSeatGuest } from "./seat-guest.js";
+import {
+  RESERVATION_EDIT_TEST_ID,
+  findReservationTable,
+  occupiedCaption,
+  statusWord,
+  useSeatGuest,
+} from "./seat-guest.js";
 import { canSeat } from "../../utils/seating.js";
 import { StaffDepositSection } from "./StaffDepositSection.js";
 import { SpecialRequestsTicket } from "./SpecialRequestsTicket.js";
@@ -32,10 +38,12 @@ export interface ReservationSheetProps {
   onClose: () => void;
   /** Rejects on failure — the sheet owns showing it (architecture § Dialog contracts). */
   onSeat: () => Promise<void>;
-  onEdit: () => void;
-  onCancel: () => void;
+  /** Receives the clicked button, the opener the page returns focus to after a save. */
+  onEdit: (opener: HTMLElement) => void;
+  /** Receives the clicked button, the opener the page returns focus to when the dialog is dismissed. */
+  onCancel: (opener: HTMLElement) => void;
   /** Opens the Mark No-Show confirmation (only offered for CONFIRMED — the only valid source state). */
-  onMarkNoShow: () => void;
+  onMarkNoShow: (opener: HTMLElement) => void;
   /** Whether More ▾ is open. The page owns it, so the grid's inset can follow the sheet's height. */
   expanded: boolean;
   /** More ▾ was pressed; the owner flips `expanded`. */
@@ -164,16 +172,29 @@ export function ReservationSheet({
               {t("timeline.details.seat")}
             </Button>
           )}
-          <Button variant="primary" onClick={onEdit} disabled={seating}>
+          <Button
+            data-testid={RESERVATION_EDIT_TEST_ID}
+            variant="primary"
+            onClick={(event) => onEdit(event.currentTarget)}
+            disabled={seating}
+          >
             {t("timeline.sheet.edit")}
           </Button>
           {reservation.status !== "CANCELLED" && (
-            <Button variant="ghost" onClick={onCancel} disabled={seating}>
+            <Button
+              variant="ghost"
+              onClick={(event) => onCancel(event.currentTarget)}
+              disabled={seating}
+            >
               {t("timeline.sheet.cancel")}
             </Button>
           )}
           {reservation.status === "CONFIRMED" && (
-            <Button variant="ghost" onClick={onMarkNoShow} disabled={seating}>
+            <Button
+              variant="ghost"
+              onClick={(event) => onMarkNoShow(event.currentTarget)}
+              disabled={seating}
+            >
               {t("timeline.details.noShow")}
             </Button>
           )}

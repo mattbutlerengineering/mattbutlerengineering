@@ -4923,8 +4923,15 @@
       // (useDashboardStatsQuery's DEPOSITS_QUERY_KEY). Two pending/held deposits
       // (depositAtRiskCount) plus one forfeited (noShowExposureCents), matching
       // the shape computeDepositStats expects.
+      // `?reservationId=` is the details surface's single-deposit lookup (getByReservation), which
+      // expects one deposit or null: these reservations have none.
       await page.route("**/api/v1/deposits?*", (route) =>
-        jsonOk(route, buildDepositsFixture(new Date()))
+        jsonOk(
+          route,
+          new URL(route.request().url()).searchParams.has("reservationId")
+            ? null
+            : buildDepositsFixture(new Date())
+        )
       );
     
       // Waitlist
@@ -8015,6 +8022,8 @@
     export type FocusTarget =
       | { readonly kind: "element"; readonly element: HTMLElement }
       | { readonly kind: "testId"; readonly testId: string }
+      /** The first enabled control inside the `data-testid` container, a dismiss control excepted. */
+      | { readonly kind: "firstIn"; readonly testId: string }
       /** The `PageHeader` h1, which carries `tabIndex={-1}` for this purpose. */
       | { readonly kind: "pageHeading" };
     export interface FocusAfterApi {
@@ -8025,9 +8034,9 @@
         case "element":
           return target.element;
         case "testId":
-          return document.querySelector<HTMLElement>(
-            `[data-testid="${target.testId.replace(/["\\]/g, "\\$&")}"]`
-          );
+          return byTestId(target.testId);
+        case "firstIn":
+          return byTestId(target.testId)?.querySelector<HTMLElement>(FIRST_CONTROL) ?? null;
         case "pageHeading":
           return document.querySelector<HTMLElement>("h1");
       }
@@ -11556,6 +11565,7 @@
     }
   </file>
   <file path="src/components/timeline/seat-guest.ts">
+    export const RESERVATION_EDIT_TEST_ID = "reservation-edit";
     export function findReservationTable(
       reservation: Reservation,
       tables: readonly Table[]

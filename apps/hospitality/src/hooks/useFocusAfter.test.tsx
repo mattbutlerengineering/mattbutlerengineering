@@ -82,6 +82,23 @@ describe("useFocusAfter", () => {
     expect(document.activeElement).toBe(elsewhere); // the dropped target is not honoured
   });
 
+  it("focuses the first enabled control inside a firstIn container, skipping a dismiss control", () => {
+    render(
+      <>
+        <Harness request={{ kind: "firstIn", testId: "surface" }} />
+        <div data-testid="surface">
+          <button data-focus-trap-skip-initial="true">Close</button>
+          <button disabled>Off</button>
+          <button>Edit</button>
+        </div>
+      </>
+    );
+
+    fireEvent.click(screen.getByText("request"));
+
+    expect(document.activeElement).toBe(screen.getByText("Edit"));
+  });
+
   it("does not throw for a testId containing quotes", () => {
     render(<Harness request={{ kind: "testId", testId: 'weird"id' }} />);
 
