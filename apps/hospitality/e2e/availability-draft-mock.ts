@@ -9,6 +9,11 @@ import { loadFixture } from "./api-mocks.js";
 
 const DINNER = { opensAt: 1020, lastSeatingAt: 1260, closesAt: 1380 };
 
+export interface PutBody {
+  expectedVersion: number;
+  changes?: { upsert?: { dateRules?: Array<{ id: string; startsOn?: string }> } };
+}
+
 export interface PutRecord {
   expected: number;
   status: number;
@@ -19,6 +24,10 @@ export interface AvailabilityMock {
   configReads: number;
   /** Reads of the config answer 500 while this is set. */
   failReads: boolean;
+  /** Reads of the config take this long. */
+  getDelayMs: number;
+  /** Every save's body, in order. */
+  readonly bodies: PutBody[];
   /** Every save, in order, with the version it was checked against and how it ended. */
   readonly puts: PutRecord[];
   /** Reverts (Undo) received. */
@@ -43,7 +52,7 @@ function between(from: string, to: string): string[] {
 
 export async function mockAvailability(
   page: Page,
-  options: { weekdays?: number[] } = {}
+  options: { weekdays?: number[]; rules?: unknown[] } = {}
 ): Promise<AvailabilityMock> {
   const venues = JSON.parse(loadFixture("venues-list")) as { data: Array<{ id: string }> };
   const base = `**/api/v1/venues/${String(venues.data[0]?.id)}`;
@@ -75,6 +84,8 @@ export async function mockAvailability(
     version: 7,
     configReads: 0,
     failReads: false,
+    getDelayMs: 0,
+    bodies: [],
     puts: [],
     reverts: 0,
     nextPut: null,
@@ -83,14 +94,12 @@ export async function mockAvailability(
       winner = { ...winner, id: `chg-${mock.version}`, summary };
     },
   };
-  let rules: unknown[] = [];
+  let rules: unknown[] = options.rules ?? [];
 
-  await page.route(`${base}/availability/config`, (route) => {
+  await page.route(`${base}/availability/config`, async (route) => {
     if (route.request().method() === "PUT") {
-      const body = route.request().postDataJSON() as {
-        expectedVersion: number;
-        changes?: { upsert?: { dateRules?: Array<{ id: string }> } };
-      };
+      const body = route.request().postDataJSON() as PutBody;
+      mock.bodies.push(body);
       const record: PutRecord = { expected: body.expectedVersion, status: 0 };
       mock.puts.push(record);
       if (mock.nextPut) {
@@ -113,6 +122,7 @@ export async function mockAvailability(
       return route.fulfill(json({ version: mock.version, changeId: `chg-${mock.version}` }));
     }
     mock.configReads += 1;
+    if (mock.getDelayMs) await new Promise((resolve) => setTimeout(resolve, mock.getDelayMs));
     if (mock.failReads) return route.fulfill(problem(500, "internal"));
     return route.fulfill(
       json({

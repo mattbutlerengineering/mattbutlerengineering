@@ -34,6 +34,7 @@ import {
   type DraftService,
   type EditScope,
 } from "./draft-changes.js";
+import { waitingProps } from "./draft-wait.js";
 import { markEditorOpen } from "./editor-open.js";
 import { ownChangeDates, scopeDates } from "./scope-dates.js";
 import type { SeriesScope } from "./series-edit.js";
@@ -61,12 +62,19 @@ export interface AvailabilityDayEditorProps {
   readonly ruleScope?: { readonly ruleId: string; readonly mode: SeriesScope };
   /** Reload the config: a refused save or a discarded draft leaves the cells and version behind. */
   readonly onStale?: () => void;
+  /** Editing must not start yet: the config on hand is behind the Manager's own last save. */
+  readonly held?: boolean;
+  /** The element that says why editing is held. */
+  readonly heldReasonId?: string;
+  /** A save has started; the drawer holds further edits until the reload brings its version. */
+  readonly onOwnSave?: (save: Promise<AvailabilityConfigSaveResult | null>) => void;
 }
 
 interface EditState {
   /**
-   * The config the draft was made against. A background refetch must not move the version a
-   * save is checked against, or the compare-and-set would stop catching someone else's change.
+   * The config the draft was made against. It follows reloads until the first change; from then
+   * on a refetch must not move the version a save is checked against, or the compare-and-set
+   * would stop catching someone else's change.
    */
   readonly base: AvailabilityConfigState;
   readonly scope: EditScope;
@@ -108,6 +116,7 @@ function problemOf(error: unknown) {
 export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   const { venueId, date, day, state, timezone, today } = props;
   const { onDirtyChange, onCancel, onFinished, onStale, fixedDates, ruleScope } = props;
+  const { held = false, heldReasonId, onOwnSave } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const phone = useViewport() === "phone";
@@ -120,6 +129,13 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   const [conflict, setConflict] = useState<{
     readonly winningChange: AvailabilityChangeSummary | null;
   } | null>(null);
+
+  // Nothing to lose yet, so a reload simply replaces what the editor shows and will save against.
+  // `day` is resolved from `state` by the caller, so the two rows and the version stay in step.
+  if (edit && !holdsEdits(edit) && edit.base.version !== state.version) {
+    const seed = seedServices(state.config, day, edit.scope);
+    setEdit({ ...edit, base: state, services: seed, baseline: seed, unsaved: [], overridden: [] });
+  }
 
   const { config } = edit?.base ?? state;
   const scope = edit?.scope;
@@ -174,6 +190,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   );
 
   const begin = () => {
+    if (held) return;
     releaseOpenRef.current ??= markEditorOpen();
     const first: EditScope = fixedDates
       ? { kind: "dates", dates: fixedDates }
@@ -240,7 +257,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
     });
     let saved: AvailabilityConfigSaveResult;
     try {
-      saved = await mutateAsync({
+      const saving = mutateAsync({
         venueId,
         overwrite,
         body: {
@@ -250,6 +267,8 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
           scopeConflicts: conflictMode,
         },
       });
+      onOwnSave?.(saving);
+      saved = await saving;
     } catch (error) {
       rejectSave(error);
       return;
@@ -313,14 +332,24 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
                   to: minuteText(service.closesAt, t, format),
                 })}
               </Text>
-              <Button variant="ghost" size="sm" onClick={begin}>
+              <Button
+                variant="ghost"
+                size="sm"
+                {...waitingProps(held, heldReasonId)}
+                onClick={begin}
+              >
                 {t("availability.editor.edit", { name: service.name })}
               </Button>
             </li>
           ))}
         </ul>
         <div>
-          <Button variant="secondary" size="sm" onClick={begin}>
+          <Button
+            variant="secondary"
+            size="sm"
+            {...waitingProps(held, heldReasonId)}
+            onClick={begin}
+          >
             {t("availability.editor.addService")}
           </Button>
         </div>

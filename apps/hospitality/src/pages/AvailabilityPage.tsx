@@ -95,8 +95,8 @@ export function AvailabilityPage() {
   const [closing, setClosing] = useState<Closing | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [tab, setTab] = useState<AvailabilityTab>("calendar");
-  // A range drag holds the selection bar back, so the grid does not move under the pointer.
-  const [dragging, setDragging] = useState(false);
+  // A range drag holds the selection bar as it was, so the grid does not move under the pointer.
+  const [barDuringDrag, setBarDuringDrag] = useState<string[] | null>(null);
   const [selectionAction, setSelectionAction] = useState<"use" | "clear" | null>(null);
   const anchor = chosenAnchor ?? today;
   // Picked days belong to one venue; derive "none" on a venue switch rather than clearing in an effect.
@@ -368,7 +368,7 @@ export function AvailabilityPage() {
         />
       )}
       <AvailabilitySelectionBar
-        selection={dragging ? EMPTY : selection}
+        selection={barDuringDrag ?? selection}
         canEdit={isManager}
         onEditHours={editSelection}
         onClear={() => setSelection([])}
@@ -410,7 +410,7 @@ export function AvailabilityPage() {
         draftDates={guard.dirty && openDate !== null ? (target.fixedDates ?? [openDate]) : EMPTY}
         selection={selection}
         onSelectionChange={setSelection}
-        onDragChange={setDragging}
+        onDragChange={(dragging) => setBarDuringDrag(dragging ? selection : null)}
         onOpenDay={openDay}
         onAnchorChange={setChosenAnchor}
       />

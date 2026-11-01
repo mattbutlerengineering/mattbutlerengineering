@@ -2572,6 +2572,11 @@
       export function useDiscardGuard<T>(apply: (next: T) => void, derivedDirty?: boolean) { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/use-reload-hold.ts">
+    <item priority="high">
+      export function useReloadHold(venueId: string | undefined, version: number | undefined) { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/use-schedule-save.ts">
     <item priority="high">
       export function useScheduleSave(
@@ -2601,7 +2606,7 @@
       interface DateGestureHandlers {
         onClick: (event: MouseEvent) => void;
         onMouseDown: (event: MouseEvent) => void;
-        onMouseEnter: () => void;
+        onMouseEnter: (event: MouseEvent) => void;
         onTouchStart: () => void;
         onTouchMove: () => void;
       }
@@ -4145,6 +4150,12 @@
   </file>
   <file path="apps/hospitality/e2e/availability-draft-mock.ts">
     <item priority="low">
+      interface PutBody {
+        expectedVersion: number;
+        changes?: { upsert?: { dateRules?: Array<{ id: string; startsOn?: s...;
+      }
+    </item>
+    <item priority="low">
       interface PutRecord {
         expected: number;
         status: number;
@@ -4155,8 +4166,8 @@
         version: number;
         configReads: number;
         failReads: boolean;
-        puts: PutRecord[];
-        reverts: number;
+        getDelayMs: number;
+        bodies: PutBody[];
       }
     </item>
     <item priority="medium">
@@ -4165,7 +4176,7 @@
     <item priority="high">
       export async function mockAvailability(
         page: Page,
-        options: { weekdays?: number[] } = {}
+        options: { weekdays?: number[]; rules?: unknown[] } = {}
       ): Promise<AvailabilityMock> { /* ... */ }
     </item>
   </file>

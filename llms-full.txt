@@ -7304,6 +7304,29 @@
       };
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/use-reload-hold.ts">
+    export function useReloadHold(venueId: string | undefined, version: number | undefined) {
+      const [saving, setSaving] = useState(false);
+      const [saved, setSaved] = useState<{ venueId: string | undefined; version: number } | null>(null);
+    
+      const onOwnSave = (save: Promise<AvailabilityConfigSaveResult | null>) => {
+        setSaving(true);
+        void save.then(
+          (result) => {
+            setSaving(false);
+            if (result) setSaved({ venueId, version: result.version });
+          },
+          // The save's own caller reports the refusal; it moved nothing, so there is nothing to wait for.
+          () => setSaving(false)
+        );
+      };
+    
+      const reloadDue =
+        saved !== null && saved.venueId === venueId && version !== undefined && saved.version > version;
+    
+      return { behind: saving || reloadDue, onOwnSave };
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/use-schedule-save.ts">
     export function useScheduleSave(
       onStale: () => void,
@@ -7399,7 +7422,7 @@
     export interface DateGestureHandlers {
       readonly onClick: (event: MouseEvent) => void;
       readonly onMouseDown: (event: MouseEvent) => void;
-      readonly onMouseEnter: () => void;
+      readonly onMouseEnter: (event: MouseEvent) => void;
       readonly onTouchStart: () => void;
       readonly onTouchMove: () => void;
       readonly onTouchEnd: (event: TouchEvent) => void;
@@ -7427,8 +7450,19 @@
           drag.current = null;
         };
         window.addEventListener("mouseup", endDrag);
-        return () => window.removeEventListener("mouseup", endDrag);
+        // A release the window never sees (outside it, or after switching away) ends the drag too.
+        window.addEventListener("blur", endDrag);
+        return () => {
+          window.removeEventListener("mouseup", endDrag);
+          window.removeEventListener("blur", endDrag);
+        };
       }, [onDragChange]);
+    
+      /** A drag whose mouseup was lost: what shows it was lost ends it, without any click to swallow. */
+      const dropLostDrag = () => {
+        if (drag.current?.moved) onDragChange?.(false);
+        drag.current = null;
+      };
     
       const clearTimer = () => {
         if (pressTimer.current) clearTimeout(pressTimer.current);
@@ -7449,11 +7483,16 @@
     
       const handlersFor = (date: string): DateGestureHandlers => ({
         onMouseDown: (event) => {
+          dropLostDrag();
           if (event.button === 0 && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
             drag.current = { from: date, moved: false };
           }
         },
-        onMouseEnter: () => {
+        onMouseEnter: (event) => {
+          if (event.buttons === 0) {
+            dropLostDrag();
+            return;
+          }
           const d = drag.current;
           if (!d || (date === d.from && !d.moved)) return;
           if (!d.moved) onDragChange?.(true);
@@ -13128,6 +13167,10 @@
     }
   </file>
   <file path="apps/hospitality/e2e/availability-draft-mock.ts">
+    export interface PutBody {
+      expectedVersion: number;
+      changes?: { upsert?: { dateRules?: Array<{ id: string; startsOn?: string }> } };
+    }
     export interface PutRecord {
       expected: number;
       status: number;
@@ -13137,6 +13180,10 @@
       configReads: number;
       /** Reads of the config answer 500 while this is set. */
       failReads: boolean;
+      /** Reads of the config take this long. */
+      getDelayMs: number;
+      /** Every save's body, in order. */
+      readonly bodies: PutBody[];
       /** Every save, in order, with the version it was checked against and how it ended. */
       readonly puts: PutRecord[];
       /** Reverts (Undo) received. */
@@ -13159,7 +13206,7 @@
     }
     export async function mockAvailability(
       page: Page,
-      options: { weekdays?: number[] } = {}
+      options: { weekdays?: number[]; rules?: unknown[] } = {}
     ): Promise<AvailabilityMock> {
       const venues = JSON.parse(loadFixture("venues-list")) as { data: Array<{ id: string }> };
       const base = `**/api/v1/venues/${String(venues.data[0]?.id)}`;
@@ -13191,6 +13238,8 @@
         version: 7,
         configReads: 0,
         failReads: false,
+        getDelayMs: 0,
+        bodies: [],
         puts: [],
         reverts: 0,
         nextPut: null,
@@ -13199,14 +13248,12 @@
           winner = { ...winner, id: `chg-${mock.version}`, summary };
         },
       };
-      let rules: unknown[] = [];
+      let rules: unknown[] = options.rules ?? [];
     
-      await page.route(`${base}/availability/config`, (route) => {
+      await page.route(`${base}/availability/config`, async (route) => {
         if (route.request().method() === "PUT") {
-          const body = route.request().postDataJSON() as {
-            expectedVersion: number;
-            changes?: { upsert?: { dateRules?: Array<{ id: string }> } };
-          };
+          const body = route.request().postDataJSON() as PutBody;
+          mock.bodies.push(body);
           const record: PutRecord = { expected: body.expectedVersion, status: 0 };
           mock.puts.push(record);
           if (mock.nextPut) {
@@ -13229,6 +13276,7 @@
           return route.fulfill(json({ version: mock.version, changeId: `chg-${mock.version}` }));
         }
         mock.configReads += 1;
+        if (mock.getDelayMs) await new Promise((resolve) => setTimeout(resolve, mock.getDelayMs));
         if (mock.failReads) return route.fulfill(problem(500, "internal"));
         return route.fulfill(
           json({

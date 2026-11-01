@@ -551,9 +551,9 @@ describe("AvailabilityPage", () => {
       renderPage();
       const cell = (re: RegExp) => screen.getByRole("button", { name: re });
       fireEvent.mouseDown(cell(/Monday, October 26/), { button: 0 });
-      fireEvent.mouseEnter(cell(/Tuesday, October 27/));
-      fireEvent.mouseEnter(cell(/Wednesday, October 28/));
-      fireEvent.mouseEnter(cell(/Thursday, October 29/));
+      fireEvent.mouseEnter(cell(/Tuesday, October 27/), { buttons: 1 });
+      fireEvent.mouseEnter(cell(/Wednesday, October 28/), { buttons: 1 });
+      fireEvent.mouseEnter(cell(/Thursday, October 29/), { buttons: 1 });
       // Mid-drag nothing is announced and nothing mounts that could move the grid.
       expect(screen.getByRole("status")).toBeEmptyDOMElement();
       expect(screen.queryByRole("button", { name: "Edit hours" })).not.toBeInTheDocument();
@@ -561,6 +561,20 @@ describe("AvailabilityPage", () => {
       // Today and later only; the two past days are dropped.
       expect(screen.getByRole("status")).toHaveTextContent("2 dates selected");
       expect(screen.getByRole("button", { name: "Edit hours" })).toBeInTheDocument();
+    });
+
+    it("keeps a showing selection bar as it was until a drag ends, so the grid does not move", () => {
+      renderPage();
+      const cell = (re: RegExp) => screen.getByRole("button", { name: re });
+      pick(/Wednesday, October 28/);
+      pick(/Thursday, October 29/);
+      fireEvent.mouseDown(cell(/Thursday, October 29/), { button: 0 });
+      fireEvent.mouseEnter(cell(/Friday, October 30/), { buttons: 1 });
+      fireEvent.mouseEnter(cell(/Saturday, October 31/), { buttons: 1 });
+      expect(screen.getByRole("status")).toHaveTextContent("2 dates selected");
+      expect(screen.getByRole("button", { name: "Edit hours" })).toBeInTheDocument();
+      fireEvent.mouseUp(window);
+      expect(screen.getByRole("status")).toHaveTextContent("3 dates selected");
     });
 
     describe("when the picked dates have different hours", () => {
@@ -588,7 +602,6 @@ describe("AvailabilityPage", () => {
         const drawer = screen.getByRole("dialog", { name: "2 dates selected" });
         expect(within(drawer).getByRole("button", { name: "Edit Dinner" })).toBeInTheDocument();
         expect(drawer).toHaveTextContent("The rows below are from Friday, October 30.");
-        expect(drawer).toHaveTextContent("Saving replaces the hours on all 2 selected dates.");
       });
 
       it("names the date the rows came from when two open dates close at different times", () => {

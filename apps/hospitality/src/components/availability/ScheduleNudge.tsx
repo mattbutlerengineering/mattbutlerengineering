@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Button, Text, useToast } from "@mattbutlerengineering/rialto";
 import { weekdayIndexOf, type ResolvedDay } from "@mbe/availability";
-import type { AvailabilityConfigState } from "@mbe/types";
+import type { AvailabilityConfigSaveResult, AvailabilityConfigState } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { NUDGE_THRESHOLD, singleDateChangeCount } from "./copy-day.js";
 import { seedServices } from "./draft-changes.js";
@@ -16,10 +16,12 @@ export interface ScheduleNudgeProps {
   readonly date: string;
   readonly day: ResolvedDay;
   readonly onStale: () => void;
-  /** An editor is open: the nudge's save would make the editor's own save conflict. */
+  /** An editor is open, or a reload is due: the nudge's save would conflict with a save of ours. */
   readonly waiting?: boolean;
   /** The element that says why the nudge is waiting. */
   readonly reasonId?: string;
+  /** A save has started; the drawer holds further edits until the reload brings its version. */
+  readonly onOwnSave?: (save: Promise<AvailabilityConfigSaveResult | null>) => void;
 }
 
 /**
@@ -29,7 +31,7 @@ export interface ScheduleNudgeProps {
  * schedule needs no suggestion.
  */
 export function ScheduleNudge(props: ScheduleNudgeProps) {
-  const { venueId, state, date, day, onStale, waiting = false, reasonId } = props;
+  const { venueId, state, date, day, onStale, waiting = false, reasonId, onOwnSave } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const { toast } = useToast();
@@ -51,7 +53,9 @@ export function ScheduleNudge(props: ScheduleNudgeProps) {
       winner: "new",
       makeId: () => crypto.randomUUID(),
     });
-    if (await saver.save(venueId, state, changes, "keep")) {
+    const saving = saver.save(venueId, state, changes, "keep");
+    onOwnSave?.(saving);
+    if (await saving) {
       toast({
         variant: "success",
         title: t("availabilitySchedules.nudge.created", { weekday: weekdayName }),

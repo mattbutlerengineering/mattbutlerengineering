@@ -2006,7 +2006,8 @@
       "whyTitle": "Por qué este día",
       "refreshError": "No se pudo comprobar si hay horarios más recientes",
       "finishDraftFirst": "Guarda o descarta primero tus cambios de este día.",
-      "hoursDiffer": "Estas fechas tienen horarios distintos. Las filas de abajo son del {{date}}. Al guardar se reemplazan los horarios de las {{total}} fechas seleccionadas.",
+      "hoursDiffer": "Estas fechas tienen horarios distintos. Las filas de abajo son del {{date}}.",
+      "waitForReload": "Podrás editar cuando se carguen los horarios más recientes.",
       "ifRemoved": "Si se quita: {{result}}",
       "removalNone": "sin cambios en este día",
       "removal": {

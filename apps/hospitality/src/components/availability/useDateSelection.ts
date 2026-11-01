@@ -18,7 +18,7 @@ export interface DateSelectionOptions {
 export interface DateGestureHandlers {
   readonly onClick: (event: MouseEvent) => void;
   readonly onMouseDown: (event: MouseEvent) => void;
-  readonly onMouseEnter: () => void;
+  readonly onMouseEnter: (event: MouseEvent) => void;
   readonly onTouchStart: () => void;
   readonly onTouchMove: () => void;
   readonly onTouchEnd: (event: TouchEvent) => void;
@@ -52,8 +52,19 @@ export function useDateSelection(options: DateSelectionOptions) {
       drag.current = null;
     };
     window.addEventListener("mouseup", endDrag);
-    return () => window.removeEventListener("mouseup", endDrag);
+    // A release the window never sees (outside it, or after switching away) ends the drag too.
+    window.addEventListener("blur", endDrag);
+    return () => {
+      window.removeEventListener("mouseup", endDrag);
+      window.removeEventListener("blur", endDrag);
+    };
   }, [onDragChange]);
+
+  /** A drag whose mouseup was lost: what shows it was lost ends it, without any click to swallow. */
+  const dropLostDrag = () => {
+    if (drag.current?.moved) onDragChange?.(false);
+    drag.current = null;
+  };
 
   const clearTimer = () => {
     if (pressTimer.current) clearTimeout(pressTimer.current);
@@ -74,11 +85,16 @@ export function useDateSelection(options: DateSelectionOptions) {
 
   const handlersFor = (date: string): DateGestureHandlers => ({
     onMouseDown: (event) => {
+      dropLostDrag();
       if (event.button === 0 && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
         drag.current = { from: date, moved: false };
       }
     },
-    onMouseEnter: () => {
+    onMouseEnter: (event) => {
+      if (event.buttons === 0) {
+        dropLostDrag();
+        return;
+      }
       const d = drag.current;
       if (!d || (date === d.from && !d.moved)) return;
       if (!d.moved) onDragChange?.(true);

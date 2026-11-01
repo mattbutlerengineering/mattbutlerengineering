@@ -1966,7 +1966,8 @@
       "whyTitle": "Why this day",
       "refreshError": "Couldn’t check for newer hours",
       "finishDraftFirst": "Save or discard your changes to this day first.",
-      "hoursDiffer": "These dates have different hours. The rows below are from {{date}}. Saving replaces the hours on all {{total}} selected dates.",
+      "hoursDiffer": "These dates have different hours. The rows below are from {{date}}.",
+      "waitForReload": "Edit once the newest hours have loaded.",
       "ifRemoved": "If removed: {{result}}",
       "removalNone": "no change to this day",
       "removal": {

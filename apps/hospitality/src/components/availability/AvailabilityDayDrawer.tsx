@@ -17,6 +17,7 @@ import { useViewport } from "../../hooks/useViewport.js";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
 import { AvailabilityDayEditor } from "./AvailabilityDayEditor.js";
 import { useEditorOpen } from "./editor-open.js";
+import { useReloadHold } from "./use-reload-hold.js";
 import { CopyDayAction } from "./CopyDayAction.js";
 import { ScheduleNudge } from "./ScheduleNudge.js";
 import type { SeriesScope } from "./series-edit.js";
@@ -154,8 +155,18 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
   // Several picked dates: the first date's summary, Close… and Copy would describe or act on one.
   const picked = editing?.fixedDates && editing.fixedDates.length > 1 ? editing.fixedDates : null;
   // Any open editor, even one with no change yet, has pinned the version it will save against.
-  const waitForDraft = useEditorOpen();
+  const editorOpen = useEditorOpen();
+  // Past the Manager's own save, the config on hand is behind it: a draft made on it would conflict.
+  const { behind, onOwnSave } = useReloadHold(editing?.venueId, editing?.state.version);
+  const waiting = editorOpen || behind;
   const reasonId = useId();
+  const reason = editorOpen
+    ? picked
+      ? null
+      : t("availability.drawer.finishDraftFirst")
+    : behind
+      ? t("availability.drawer.waitForReload")
+      : null;
 
   let body;
   if (date === null) {
@@ -188,12 +199,14 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
                 month: "long",
                 day: "numeric",
               }),
-              total: picked.length,
             })}
           </Text>
         )}
         {viewerRole === "manager" && editing && (
           <AvailabilityDayEditor
+            held={behind}
+            heldReasonId={reasonId}
+            onOwnSave={onOwnSave}
             // A new date, or a new pick for the same date, is a new draft.
             key={`${date}|${editing.fixedDates?.join(",") ?? ""}`}
             venueId={editing.venueId}
@@ -215,19 +228,22 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
             {t("availability.close.open")}
           </Button>
         )}
+        {viewerRole === "manager" && editing && (
+          // Always mounted, so the reason is announced when it appears.
+          <div aria-live="polite">
+            {reason && (
+              <Text id={reasonId} variant="caption" color="secondary">
+                {reason}
+              </Text>
+            )}
+          </div>
+        )}
         {viewerRole === "manager" && editing && !picked && (
           <>
-            {/* Always mounted, so the reason is announced when it appears. */}
-            <div aria-live="polite">
-              {waitForDraft && (
-                <Text id={reasonId} variant="caption" color="secondary">
-                  {t("availability.drawer.finishDraftFirst")}
-                </Text>
-              )}
-            </div>
             <CopyDayAction
-              waiting={waitForDraft}
+              waiting={waiting}
               reasonId={reasonId}
+              onOwnSave={onOwnSave}
               today={editing.today}
               venueId={editing.venueId}
               state={editing.state}
@@ -236,8 +252,9 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
               onStale={editing.onStale ?? noop}
             />
             <ScheduleNudge
-              waiting={waitForDraft}
+              waiting={waiting}
               reasonId={reasonId}
+              onOwnSave={onOwnSave}
               venueId={editing.venueId}
               state={editing.state}
               date={date}
