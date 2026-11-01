@@ -52,7 +52,7 @@
     {
       "name": "Close Dialog (shared by the availability page and the timeline's Tonight panel)",
       "path": "dist/assets/CloseDialog-*.js",
-      "limit": "6.9 kB"
+      "limit": "6.95 kB"
     },
     {
       "name": "Service-day helpers (current-service-date, service-day-start and tonight-blocks, shared by the timeline's Tonight panel and the staff waitlist/booking form)",
@@ -62,7 +62,7 @@
     {
       "name": "Availability day resolver (@mbe/availability resolve-day, shared by the availability page and the timeline's Tonight panel)",
       "path": "dist/assets/resolve-day-*.js",
-      "limit": "2.2 kB"
+      "limit": "2.4 kB"
     },
     {
       "name": "Venue Onboarding (lazy chunk)",

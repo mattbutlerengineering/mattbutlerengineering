@@ -99,6 +99,7 @@ describe("Undo after a schedule save", () => {
           state={state}
           date={FIXTURE_DATE}
           day={resolveFixtureDay()}
+          today="2026-10-28"
           onStale={vi.fn()}
         />
       </main>

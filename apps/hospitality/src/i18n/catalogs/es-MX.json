@@ -2016,6 +2016,11 @@
       "changes_other": "{{count}} cambios respecto a tu {{weekday}} habitual.",
       "changes_many": "{{count}} cambios respecto a tu {{weekday}} habitual.",
       "whyTitle": "Por qué este día",
+      "refreshError": "No se pudo comprobar si hay horarios más recientes",
+      "finishDraftFirst": "Guarda o descarta primero tus cambios de este día.",
+      "hoursDiffer": "Estas fechas tienen horarios distintos. Las filas de abajo son del {{date}}.",
+      "waitForReload": "Podrás editar cuando se carguen los horarios más recientes.",
+      "reloadHours": "Recargar horarios",
       "ifRemoved": "Si se quita: {{result}}",
       "removalNone": "sin cambios en este día",
       "removal": {
@@ -2103,6 +2108,7 @@
     "undo": {
       "action": "Deshacer",
       "done": "Cambio deshecho",
+      "finishFirst": "Primero guarda o descarta tus cambios y luego deshaz.",
       "errors": {
         "guests-notified": "Este cambio avisó a los comensales, así que no se puede deshacer.",
         "already-reverted": "Este cambio ya se deshizo.",
@@ -2285,6 +2291,7 @@
       "title": "¿Descartar los cambios del {{date}}?",
       "description": "Se perderán tus cambios sin guardar en estos horarios.",
       "leavePage": "Se perderán todos los cambios sin guardar en esta página.",
+      "titleSelection": "¿Descartar los cambios de las {{total}} fechas seleccionadas?",
       "confirm": "Descartar",
       "keep": "Seguir editando"
     },

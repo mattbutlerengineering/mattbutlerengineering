@@ -23,13 +23,15 @@ export interface AvailabilityCalendarProps {
   readonly isLoading: boolean;
   /** The day whose drawer is open. */
   readonly selectedDate?: string | null;
-  /** The day whose drawer holds an unsaved draft; its cell shows a dot. */
-  readonly draftDate?: string | null;
+  /** The days whose drawer draft holds unsaved edits (one, or every picked date); each shows a dot. */
+  readonly draftDates?: readonly string[];
   /** The dates picked for a bulk edit (ux.md F-MS), in date order. */
   readonly selection: readonly string[];
   readonly onSelectionChange: (dates: string[]) => void;
   readonly onOpenDay: (date: string) => void;
   readonly onAnchorChange: (date: string) => void;
+  /** A range drag is under way or over (see `useDateSelection`). */
+  readonly onDragChange?: (dragging: boolean) => void;
 }
 
 interface CellProps {
@@ -146,7 +148,7 @@ function targetFor(key: string, date: string): string | null {
  * tabindex, so the whole grid is one Tab stop.
  */
 export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
-  const { view, anchor, today, days, isLoading, selectedDate, draftDate } = props;
+  const { view, anchor, today, days, isLoading, selectedDate, draftDates } = props;
   const { selection, onAnchorChange } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
@@ -209,7 +211,7 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
         byDate={byDate}
         today={today}
         selectedDate={selectedDate}
-        draftDate={draftDate}
+        draftDates={draftDates}
         picked={picked}
         isLoading={isLoading}
         handlersFor={handlersFor}
@@ -247,7 +249,7 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
               detailed={view === "week"}
               isToday={date === today}
               isSelected={date === selectedDate}
-              isDraft={date === draftDate}
+              isDraft={draftDates?.includes(date) ?? false}
               isPicked={picked.has(date)}
               isTabStop={date === tabStop}
               isMuted={view === "month" && !date.startsWith(anchorMonth)}

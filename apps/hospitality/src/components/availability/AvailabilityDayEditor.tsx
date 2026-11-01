@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
@@ -34,6 +34,8 @@ import {
   type DraftService,
   type EditScope,
 } from "./draft-changes.js";
+import { waitingProps } from "./draft-wait.js";
+import { markEditorOpen } from "./editor-open.js";
 import { ownChangeDates, scopeDates } from "./scope-dates.js";
 import type { SeriesScope } from "./series-edit.js";
 import { ServicesEditor } from "./ServicesEditor.js";
@@ -58,12 +60,19 @@ export interface AvailabilityDayEditorProps {
   readonly fixedDates?: readonly string[];
   /** A range or repeating special-hours rule is being edited (F-SER); its scope is already chosen. */
   readonly ruleScope?: { readonly ruleId: string; readonly mode: SeriesScope };
+  /** Reload the config: a refused save or a discarded draft leaves the cells and version behind. */
+  readonly onStale?: () => void;
+  /** Editing must not start yet: the config on hand is behind the Manager's own last save. */
+  readonly held?: boolean;
+  /** The element that says why editing is held. */
+  readonly heldReasonId?: string;
 }
 
 interface EditState {
   /**
-   * The config the draft was made against. A background refetch must not move the version a
-   * save is checked against, or the compare-and-set would stop catching someone else's change.
+   * The config the draft was made against. It follows reloads until the first change; from then
+   * on a refetch must not move the version a save is checked against, or the compare-and-set
+   * would stop catching someone else's change.
    */
   readonly base: AvailabilityConfigState;
   readonly scope: EditScope;
@@ -104,7 +113,8 @@ function problemOf(error: unknown) {
  */
 export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   const { venueId, date, day, state, timezone, today } = props;
-  const { onDirtyChange, onCancel, onFinished, fixedDates, ruleScope } = props;
+  const { onDirtyChange, onCancel, onFinished, onStale, fixedDates, ruleScope } = props;
+  const { held = false, heldReasonId } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const phone = useViewport() === "phone";
@@ -117,6 +127,13 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   const [conflict, setConflict] = useState<{
     readonly winningChange: AvailabilityChangeSummary | null;
   } | null>(null);
+
+  // Nothing to lose yet, so a reload simply replaces what the editor shows and will save against.
+  // `day` is resolved from `state` by the caller, so the two rows and the version stay in step.
+  if (edit && !holdsEdits(edit) && edit.base.version !== state.version) {
+    const seed = seedServices(state.config, day, edit.scope);
+    setEdit({ ...edit, base: state, services: seed, baseline: seed, unsaved: [], overridden: [] });
+  }
 
   const { config } = edit?.base ?? state;
   const scope = edit?.scope;
@@ -159,7 +176,20 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
     onDirtyChange(holdsEdits(next));
   };
 
+  // From the first edit until the editor goes, other saves (Copy, the nudge, Undo) wait: they
+  // would move the version this draft will be saved against.
+  const releaseOpenRef = useRef<(() => void) | null>(null);
+  useEffect(
+    () => () => {
+      releaseOpenRef.current?.();
+      releaseOpenRef.current = null;
+    },
+    []
+  );
+
   const begin = () => {
+    if (held) return;
+    releaseOpenRef.current ??= markEditorOpen();
     const first: EditScope = fixedDates
       ? { kind: "dates", dates: fixedDates }
       : ruleScope
@@ -261,6 +291,8 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
     const problem = problemOf(error);
     if (problem?.code === "version-conflict") {
       setConflict({ winningChange: problem.winningChange ?? null });
+      // Someone else's change is in; reload so the calendar and the next edit see it.
+      onStale?.();
     } else if (problem?.code === "invalid-config" && problem.issues?.length) {
       setFailure({ messages: problem.issues.map((i) => i.message) });
     } else if (problem?.code === "stranded-bookings") {
@@ -279,6 +311,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   const discardMine = () => {
     setConflict(null);
     onDirtyChange(false);
+    onStale?.();
     onFinished();
   };
 
@@ -295,14 +328,24 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
                   to: minuteText(service.closesAt, t, format),
                 })}
               </Text>
-              <Button variant="ghost" size="sm" onClick={begin}>
+              <Button
+                variant="ghost"
+                size="sm"
+                {...waitingProps(held, heldReasonId)}
+                onClick={begin}
+              >
                 {t("availability.editor.edit", { name: service.name })}
               </Button>
             </li>
           ))}
         </ul>
         <div>
-          <Button variant="secondary" size="sm" onClick={begin}>
+          <Button
+            variant="secondary"
+            size="sm"
+            {...waitingProps(held, heldReasonId)}
+            onClick={begin}
+          >
             {t("availability.editor.addService")}
           </Button>
         </div>
@@ -440,7 +483,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
 
   return (
     <Stack gap="md">
-      {failure && (
+      {failure && !conflict && (
         <Alert variant="error" title={t("availability.editor.saveError")}>
           {failure.messages.map((message) => (
             <Text key={message} variant="body" color="primary">
@@ -491,7 +534,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
         </Button>
         <Button
           variant="primary"
-          disabled={!isDirty(edit) || nameless}
+          disabled={!isDirty(edit) || nameless || writtenCount === 0}
           isLoading={isPending && !conflict}
           onClick={() => void submit(false)}
         >
@@ -504,6 +547,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
           winningChange={conflict.winningChange}
           services={edit.services}
           isSaving={isPending}
+          failure={failure?.messages ?? []}
           onOverwrite={() => void submit(true)}
           onDiscard={discardMine}
         />

@@ -2016,6 +2016,11 @@
       "changes_other": "{{count}} changements par rapport à votre {{weekday}} habituel.",
       "changes_many": "{{count}} changements par rapport à votre {{weekday}} habituel.",
       "whyTitle": "Pourquoi ce jour",
+      "refreshError": "Impossible de vérifier s’il y a des horaires plus récents",
+      "finishDraftFirst": "Enregistrez ou annulez d’abord vos modifications de ce jour.",
+      "hoursDiffer": "Ces dates ont des horaires différents. Les lignes ci-dessous viennent du {{date}}.",
+      "waitForReload": "Vous pourrez modifier une fois les horaires les plus récents chargés.",
+      "reloadHours": "Recharger les horaires",
       "ifRemoved": "Si retiré : {{result}}",
       "removalNone": "aucun changement pour ce jour",
       "removal": {
@@ -2103,6 +2108,7 @@
     "undo": {
       "action": "Annuler",
       "done": "Modification annulée",
+      "finishFirst": "Enregistrez ou annulez d’abord vos modifications, puis annulez le changement.",
       "errors": {
         "guests-notified": "Cette modification a averti les clients; elle ne peut pas être annulée.",
         "already-reverted": "Cette modification a déjà été annulée.",
@@ -2285,6 +2291,7 @@
       "title": "Abandonner les changements du {{date}} ?",
       "description": "Vos changements non enregistrés à ces heures seront perdus.",
       "leavePage": "Tous les changements non enregistrés sur cette page seront perdus.",
+      "titleSelection": "Annuler les modifications des {{total}} dates sélectionnées?",
       "confirm": "Abandonner",
       "keep": "Continuer à modifier"
     },

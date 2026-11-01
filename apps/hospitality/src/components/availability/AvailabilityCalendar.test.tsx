@@ -92,7 +92,7 @@ describe("AvailabilityCalendar", () => {
   });
 
   it("marks the day that holds an unsaved draft with a dot and says so in its name", () => {
-    const { container } = renderCalendar({ draftDate: "2026-10-30" });
+    const { container } = renderCalendar({ draftDates: ["2026-10-30"] });
     expect(container.querySelectorAll("[data-draft-dot]")).toHaveLength(1);
     expect(
       screen.getByRole("button", { name: /^Friday, October 30: .*, unsaved changes$/ })
@@ -284,7 +284,11 @@ describe("AvailabilityCalendar on a phone or tablet (agenda list)", () => {
 });
 
 /** A calendar that owns its selection, the way the page does. */
-function Harness(props: { readonly view?: "week" | "month"; readonly anchor?: string }) {
+function Harness(props: {
+  readonly view?: "week" | "month";
+  readonly anchor?: string;
+  readonly onDragChange?: (dragging: boolean) => void;
+}) {
   const [selection, setSelection] = useState<string[]>([]);
   return (
     <main>
@@ -296,6 +300,7 @@ function Harness(props: { readonly view?: "week" | "month"; readonly anchor?: st
         isLoading={false}
         selection={selection}
         onSelectionChange={setSelection}
+        onDragChange={props.onDragChange}
         onOpenDay={onOpenDayMock}
         onAnchorChange={vi.fn()}
       />
@@ -316,12 +321,57 @@ describe("AvailabilityCalendar multi-select", () => {
   it("selects a range by click-dragging and does not open a day", () => {
     render(<Harness />);
     fireEvent.mouseDown(cell(/Tuesday, October 27/));
-    fireEvent.mouseEnter(cell(/Wednesday, October 28/));
-    fireEvent.mouseEnter(cell(/Thursday, October 29/));
+    fireEvent.mouseEnter(cell(/Wednesday, October 28/), { buttons: 1 });
+    fireEvent.mouseEnter(cell(/Thursday, October 29/), { buttons: 1 });
     fireEvent.mouseUp(cell(/Thursday, October 29/));
     fireEvent.click(cell(/Thursday, October 29/));
     expect(picked()).toBe("2026-10-27,2026-10-28,2026-10-29");
     expect(onOpenDayMock).not.toHaveBeenCalled();
+  });
+
+  describe("a drag whose mouseup never reached the window", () => {
+    function strand(onDragChange: (dragging: boolean) => void) {
+      render(<Harness onDragChange={onDragChange} />);
+      fireEvent.mouseDown(cell(/Tuesday, October 27/));
+      fireEvent.mouseEnter(cell(/Wednesday, October 28/), { buttons: 1 });
+      expect(onDragChange).toHaveBeenLastCalledWith(true);
+    }
+
+    it("is over at the next press on a day, so the page stops holding the bar back", () => {
+      const onDragChange = vi.fn();
+      strand(onDragChange);
+      fireEvent.mouseDown(cell(/Friday, October 30/));
+      expect(onDragChange).toHaveBeenLastCalledWith(false);
+    });
+
+    it("is over at the next Ctrl-press on a day, and does not swallow that click", () => {
+      const onDragChange = vi.fn();
+      strand(onDragChange);
+      fireEvent.mouseDown(cell(/Friday, October 30/), { ctrlKey: true });
+      expect(onDragChange).toHaveBeenLastCalledWith(false);
+      fireEvent.mouseUp(cell(/Friday, October 30/));
+      fireEvent.click(cell(/Friday, October 30/), { ctrlKey: true });
+      expect(picked()).toContain("2026-10-30");
+    });
+
+    it("is over at the next hover with no button held, which does not extend it", () => {
+      const onDragChange = vi.fn();
+      strand(onDragChange);
+      const before = picked();
+      fireEvent.mouseEnter(cell(/Friday, October 30/), { buttons: 0 });
+      expect(onDragChange).toHaveBeenLastCalledWith(false);
+      expect(picked()).toBe(before);
+    });
+
+    it("is over when the window loses focus, and moving on no longer extends it", () => {
+      const onDragChange = vi.fn();
+      strand(onDragChange);
+      fireEvent.blur(window);
+      expect(onDragChange).toHaveBeenLastCalledWith(false);
+      const before = picked();
+      fireEvent.mouseEnter(cell(/Friday, October 30/), { buttons: 1 });
+      expect(picked()).toBe(before);
+    });
   });
 
   it("extends from the last clicked day with Shift-click", () => {
