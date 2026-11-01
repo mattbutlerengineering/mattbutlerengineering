@@ -12,6 +12,9 @@ import { isSeatableStatus } from "../../utils/seating.js";
  * `ReservationDetails` and `ReservationSheet` cannot drift apart.
  */
 
+/** The surfaces' Edit button: always there, so it can hold focus after Seat Guest is gone. */
+export const RESERVATION_EDIT_TEST_ID = "reservation-edit";
+
 /** The reservation's table from the authoritative list — `undefined` reads as "table unknown". */
 export function findReservationTable(
   reservation: Reservation,

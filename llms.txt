@@ -6364,7 +6364,7 @@
   </file>
   <file path="apps/hospitality/src/hooks/useFocusAfter.ts">
     <item priority="low">
-      type FocusTarget = { readonly kind: "element"; re | { readonly kind: "testId"; rea | { readonly kind: "pageHeading";
+      type FocusTarget = { readonly kind: "element"; re | { readonly kind: "testId"; rea | { readonly kind: "firstIn"; re | { readonly kind: "pageHeading";
     </item>
     <item priority="low">
       interface FocusAfterApi {
@@ -25409,6 +25409,9 @@
     </item>
   </file>
   <file path="apps/hospitality/src/components/timeline/seat-guest.ts">
+    <item priority="high">
+      export const RESERVATION_EDIT_TEST_ID: unknown;
+    </item>
     <item priority="high">
       export function findReservationTable(
         reservation: Reservation,

@@ -434,10 +434,12 @@ describe("ReservationSheet", () => {
   describe("action row (NF INCLUSIVE)", () => {
     it("routes Edit, Cancel and Close to the page", () => {
       const { props } = renderSheet();
-      fireEvent.click(screen.getByRole("button", { name: "Edit reservation" }));
+      const edit = screen.getByRole("button", { name: "Edit reservation" });
+      fireEvent.click(edit);
       fireEvent.click(screen.getByRole("button", { name: "Cancel reservation" }));
       fireEvent.click(screen.getByRole("button", { name: "Close" }));
       expect(props.onEdit).toHaveBeenCalledTimes(1);
+      expect(props.onEdit).toHaveBeenCalledWith(edit);
       expect(props.onCancel).toHaveBeenCalledTimes(1);
       expect(props.onClose).toHaveBeenCalledTimes(1);
     });
