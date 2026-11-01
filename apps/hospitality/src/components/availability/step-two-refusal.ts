@@ -19,7 +19,12 @@ export type Refusal =
    * `outcomeUnknown`: no answer the server stands behind (a lost response, a timeout, a 5xx from
    * something in front of it), so the save may have committed.
    */
-  | { readonly kind: "other"; readonly detail: string; readonly outcomeUnknown: boolean };
+  | {
+      readonly kind: "other";
+      readonly detail: string;
+      readonly outcomeUnknown: boolean;
+      readonly category: ApiErrorCategory;
+    };
 
 const UNKNOWN_OUTCOME: ReadonlySet<ApiErrorCategory> = new Set([
   "network",
@@ -36,7 +41,12 @@ export function refusalOf(error: unknown): Refusal {
   }
   if (conflict?.code === "closure-exists") return { kind: "closure-exists" };
   const { category, detail } = describeApiError(error);
-  return { kind: "other", detail, outcomeUnknown: UNKNOWN_OUTCOME.has(category) };
+  return { kind: "other", detail, outcomeUnknown: UNKNOWN_OUTCOME.has(category), category };
+}
+
+/** Whether the save may have committed, so "nothing has been closed" could be false. */
+export function mayHaveSaved(refusal: Refusal): boolean {
+  return refusal.kind === "closure-exists" || (refusal.kind === "other" && refusal.outcomeUnknown);
 }
 
 export function refusalText(refusal: Refusal, t: TFunction): string {
@@ -48,6 +58,9 @@ export function refusalText(refusal: Refusal, t: TFunction): string {
     case "closure-exists":
       return t("availability.close.alreadySaved");
     case "other":
-      return refusal.detail;
+      // The house sentence for a 5xx says nothing was changed, which a gateway cannot know.
+      return refusal.outcomeUnknown && refusal.category === "serverError"
+        ? t("availability.close.maybeSaved")
+        : refusal.detail;
   }
 }

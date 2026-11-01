@@ -80,7 +80,7 @@ export function TonightDecisionsDialog(props: TonightDecisionsDialogProps) {
         void impactQuery.refetch();
         return;
       }
-      attempts.failed();
+      attempts.failed(refused);
       if (refused.kind === "version-conflict") {
         // The next try is against the version that won, not the one this dialog was opened on.
         setWinner({ change: refused.winningChange });

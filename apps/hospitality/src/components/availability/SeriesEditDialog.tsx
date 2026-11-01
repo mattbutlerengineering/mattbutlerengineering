@@ -28,6 +28,7 @@ import {
   growthClosure,
   nextOccurrence,
   restoreDate,
+  sameRow,
   skipDate,
   type SeriesScope,
 } from "./series-edit.js";
@@ -84,24 +85,30 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
   const [invalid, setInvalid] = useState<"date" | "edit" | "taken" | "skipped" | null>(null);
   const previewImpact = usePreviewClosureImpact();
   const [previewFailure, setPreviewFailure] = useState<string | null>(null);
-  const [growth, setGrowth] = useState<(GrowthPlan & { impact: ClosureImpact }) | null>(null);
+  const [growth, setGrowth] = useState<
+    (GrowthPlan & { impact: ClosureImpact; expectedVersion: number }) | null
+  >(null);
   const attempts = useSaveAttempts(state.config.dateRules, { reload: onStale, onLeave: onClose });
   const [seen, setSeen] = useState(series);
   const [changedUnderneath, setChangedUnderneath] = useState(false);
+  // What the last config save sent for this row: its response can be lost after it committed.
+  const [sentRow, setSentRow] = useState<DateRule | null>(null);
   if (JSON.stringify(seen) !== JSON.stringify(series)) {
-    // Someone else changed it. The fields follow, and any plan built from the old row is void.
+    // The row changed. The fields follow, and any plan built from the old row is void. Unless it
+    // is what this dialog sent, someone else changed it.
     setSeen(series);
     setWeekdays(series.repeat?.weekdays ?? []);
     setEndsOn(series.endsOn ?? null);
     setGrowth(null);
     setPreviewFailure(null);
-    setChangedUnderneath(true);
+    if (!sentRow || !sameRow(sentRow, series)) setChangedUnderneath(true);
   }
 
   const label = (d: string) =>
     format.formatCalendarDate(d, { weekday: "short", month: "short", day: "numeric" });
 
   const commit = async (changes: AvailabilityConfigChanges, title: string) => {
+    setSentRow(changes.upsert.dateRules?.find((r) => r.id === series.id) ?? null);
     if (await save(venueId, state, changes, "keep")) {
       toast({ title, variant: "success" });
       onClose();
@@ -168,7 +175,8 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
       if (impact.groups.length === 0) return await saveAsConfig();
       // A new plan is a new request: a retry must not replay the save of an earlier one.
       attempts.restart(plan.rule.id);
-      setGrowth({ ...plan, impact });
+      // `state` is the one `plan` was built from: the config can reload during the preview.
+      setGrowth({ ...plan, impact, expectedVersion: state.version });
     } catch (error) {
       setPreviewFailure(describeApiError(error).detail);
     }
@@ -211,14 +219,13 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
       <>
         <SeriesGrowthStepTwo
           venueId={venueId}
-          state={state}
           timezone={timezone}
           today={today}
           {...growth}
           attempts={attempts}
           onBack={() => {
-            // The choices go with Step 2; only a save that was sent is still worth a warning.
-            if (attempts.tried.length === 0) attempts.setDirty(false);
+            // The choices go with Step 2; only a save that may have applied is still worth a warning.
+            if (!attempts.maybeSaved) attempts.setDirty(false);
             setGrowth(null);
           }}
           onClose={onClose}

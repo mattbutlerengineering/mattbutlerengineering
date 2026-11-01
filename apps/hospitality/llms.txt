@@ -175,19 +175,31 @@
       export function buildCloseRule(form: CloseForm, id: string, today: string): DateRule | null { /* ... */ }
     </item>
     <item priority="high">
-      export function replacedSpecialDate(
-        rules: readonly DateRule[],
-        closure: Pick<DateRule, "startsOn" | "endsOn" | "repeat">
-      ): string | null { /* ... */ }
+      type ClosureSpan = Pick<DateRule, "startsOn" | "endsOn" | "repeat">;
     </item>
     <item priority="high">
-      export function firstClosedDate(closure: Pick<DateRule, "startsOn" | "endsOn" | "repeat">): string { /* ... */ }
+      export function firstDateOf(when: CloseWhen, today: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function guestDateOf(when: CloseWhen, today: string): string | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closedDates(closure: ClosureSpan): readonly string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function replacedSpecialDate(
+        rules: readonly DateRule[],
+        closure: ClosureSpan
+      ): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function distinctDays(config: AvailabilityConfig, dates: readonly string[]): readonly string[] { /* ... */ }
     </item>
     <item priority="high">
       export function startMinutes(
         config: AvailabilityConfig,
         timezone: string,
-        date: string,
+        dates: readonly string[],
         keep: number | null
       ): readonly number[] { /* ... */ }
     </item>
@@ -226,7 +238,8 @@
     </item>
     <item priority="high">
       export function activeOnlinePause(
-        rules: readonly DateRule[],
+        config: AvailabilityConfig,
+        timezone: string,
         today: string,
         nowMinute: number
       ): DateRule | null { /* ... */ }
@@ -993,6 +1006,9 @@
       export function nextOccurrence(series: DateRule, from: string): string { /* ... */ }
     </item>
     <item priority="high">
+      export function sameRow(a: DateRule, b: DateRule): boolean { /* ... */ }
+    </item>
+    <item priority="high">
       export function dateOverride(
         rules: readonly DateRule[],
         seriesId: string,
@@ -1097,10 +1113,14 @@
   </file>
   <file path="src/components/availability/step-two-refusal.ts">
     <item priority="low">
-      type Refusal = { readonly kind: "groups-chang | { readonly kind: "version-conf | { readonly kind: "closure-exis | { readonly kind: "other"; read;
+      type Refusal = { readonly kind: "groups-chang | { readonly kind: "version-conf | { readonly kind: "closure-exis | {
+            readonly kind: "other";
     </item>
     <item priority="high">
       export function refusalOf(error: unknown): Refusal { /* ... */ }
+    </item>
+    <item priority="high">
+      export function mayHaveSaved(refusal: Refusal): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function refusalText(refusal: Refusal, t: TFunction): string { /* ... */ }
@@ -1187,6 +1207,7 @@
       interface TriedAttempt {
         key: string;
         ruleIds: readonly string[];
+        dates: readonly string[];
         summary: string;
       }
     </item>

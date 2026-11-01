@@ -266,7 +266,7 @@ export function AvailabilityPage() {
     setSelection([]);
   };
   const pause = config.data
-    ? activeOnlinePause(config.data.config.dateRules, today, minutesOfDayIn(now, timeZone))
+    ? activeOnlinePause(config.data.config, timeZone, today, minutesOfDayIn(now, timeZone))
     : null;
   const failure = days.error ? describeApiError(days.error) : null;
   const drawerFailure = config.error ? describeApiError(config.error).detail : null;

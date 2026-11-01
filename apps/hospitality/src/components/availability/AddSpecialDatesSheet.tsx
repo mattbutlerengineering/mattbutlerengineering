@@ -17,6 +17,7 @@ import {
 } from "@mbe/types";
 import { useCreateClosures, usePreviewClosureImpacts } from "../../hooks/useClosures.js";
 import { useNow } from "../../hooks/useNow.js";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { minutesOfDayIn } from "../../utils/service-day.js";
 import {
   combineImpacts,
@@ -60,6 +61,7 @@ const SHARED_MESSAGE_ID = "add-dates-shared-message";
 export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
   const { venueId, state, timezone, today, onStale, onClose } = props;
   const { t } = useTranslation();
+  const format = useVenueFormat();
   const { toast } = useToast();
   const now = useNow();
   const previewImpacts = usePreviewClosureImpacts();
@@ -134,7 +136,8 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
     const decisions = decisionsFor(found, choices);
     attempts.record(
       outcomeSummary(outcomeCounts(combineImpacts(found).groups, choices), t),
-      items.map((item) => item.rule.id)
+      items.map((item) => item.rule.id),
+      items.map((item) => item.rule.startsOn)
     );
     try {
       const result = await createClosures.mutateAsync({
@@ -173,7 +176,7 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
         }
         return;
       }
-      attempts.failed();
+      attempts.failed(refused);
       if (refused.kind === "closure-exists") {
         onStale();
         setSavedEarlier(true);
@@ -246,6 +249,10 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
   })();
 
   if (earlier) {
+    // Named: the form may show other dates by now, and the notice is about these.
+    const dates = earlier.dates
+      .map((d) => format.formatCalendarDate(d, { month: "short", day: "numeric" }))
+      .join(", ");
     return (
       <Drawer
         open
@@ -263,8 +270,8 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
         {/* The first attempt's choices are what applied; never invite a retry. */}
         <Alert variant="info" title={t("availabilitySpecial.add.savedEarlier.title")}>
           {earlier.summary
-            ? t("availabilitySpecial.add.savedEarlier.body", { summary: earlier.summary })
-            : t("availabilitySpecial.add.savedEarlier.bodyPlain")}
+            ? t("availabilitySpecial.add.savedEarlier.body", { dates, summary: earlier.summary })
+            : t("availabilitySpecial.add.savedEarlier.bodyPlain", { dates })}
         </Alert>
       </Drawer>
     );

@@ -1777,8 +1777,8 @@
       "maybeSaved": "We couldn't confirm this save. It may have gone through and cancelled guests. Save again without changes to see what happened, or check Special dates.",
       "savedEarlier": {
         "title": "Already saved",
-        "body": "An earlier try of these dates was saved: {{summary}}. Guests were handled as that try chose; changes you made afterwards did not apply. Open Special dates to see the outcome.",
-        "bodyPlain": "An earlier try of these dates was saved. Changes you made afterwards did not apply. Open Special dates to see the outcome."
+        "body": "An earlier try for {{dates}} was saved: {{summary}}. Guests were handled as that try chose; changes you made afterwards did not apply. Open Special dates to see the outcome.",
+        "bodyPlain": "An earlier try for {{dates}} was saved. Changes you made afterwards did not apply. Open Special dates to see the outcome."
       }
     }
   },
@@ -2242,6 +2242,7 @@
       "versionConflict": "Availability changed since you opened this. Close this dialog and try again.",
       "groupsChanged": "The bookings changed while you were deciding. Review the updated list and choose again.",
       "alreadySaved": "This closure was already saved, and its bookings handled. Check Special dates before closing again.",
+      "maybeSaved": "The reservations service hit a snag, so we couldn't confirm this save. It may have gone through. Try again without changes to see what happened.",
       "savedEarlier": {
         "title": "Already closed",
         "body": "An earlier try of this closure was saved: {{summary}}. Guests were handled as that try chose; changes you made afterwards did not apply. Open Special dates to see the outcome.",

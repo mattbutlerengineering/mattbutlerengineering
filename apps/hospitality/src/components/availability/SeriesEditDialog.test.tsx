@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import { ApiClientError } from "@mbe/api-client";
 import type { AvailabilityConfigState, ClosureImpact, DateRule } from "@mbe/types";
@@ -78,7 +78,7 @@ const conflict = () =>
     "closures"
   );
 
-function renderSeriesDialog() {
+function renderSeriesDialog(initial: readonly DateRule[] = [SERIES]) {
   const onClose = vi.fn();
   const onStale = vi.fn();
   const element = (rules: readonly DateRule[], version: number) => (
@@ -99,7 +99,7 @@ function renderSeriesDialog() {
       </main>
     </ToastProvider>
   );
-  const view = render(element([SERIES], 7));
+  const view = render(element(initial, 7));
   return {
     onClose,
     onStale,
@@ -232,6 +232,119 @@ describe("SeriesEditDialog after someone else's change (#7978)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  describe("a plan older than the config (#7978)", () => {
+    const SKIP_DEC_14: DateRule = {
+      id: "skip-dec14",
+      kind: "skip",
+      targetKind: "venue",
+      startsOn: "2026-12-14",
+      endsOn: "2026-12-14",
+      seriesId: SERIES.id,
+    };
+    const sendCancel = () =>
+      fireEvent.click(screen.getByRole("button", { name: /Close and cancel/ }));
+
+    it("sends the version it was built on when the winner arrives during the preview", async () => {
+      let answer: (impact: ClosureImpact) => void = () => undefined;
+      preview.mockReturnValueOnce(
+        new Promise<ClosureImpact>((resolve) => {
+          answer = resolve;
+        })
+      );
+      create.mockRejectedValueOnce(conflict());
+      const { reload, onStale } = renderSeriesDialog();
+      allDatesAddingTuesday();
+      await waitFor(() => expect(preview).toHaveBeenCalledTimes(1));
+
+      reload([WINNER], 8);
+      await act(async () => answer(IMPACT));
+      fireEvent.click(await screen.findByRole("radio", { name: /Cancel, notify & refund/ }));
+      sendCancel();
+
+      await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+      const { body } = create.mock.calls[0]![0];
+      // The plan is the old series: only the version it was built on can get it refused.
+      expect(body.rule.guestMessage).toBe("Old message");
+      expect(body.expectedVersion).toBe(7);
+      expect(await screen.findByText(/Availability changed since you opened this/)).toBeTruthy();
+      expect(onStale).toHaveBeenCalled();
+    });
+
+    it("sends the version it was built on when a colleague skips a date during Step 2", async () => {
+      create.mockRejectedValueOnce(conflict());
+      const { reload } = renderSeriesDialog();
+      allDatesAddingTuesday();
+      fireEvent.click(await screen.findByRole("radio", { name: /Cancel, notify & refund/ }));
+
+      // The series row is unchanged, so nothing voids the plan, which has not moved this skip.
+      reload([SERIES, SKIP_DEC_14], 8);
+      sendCancel();
+
+      await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+      const { body } = create.mock.calls[0]![0];
+      expect(body.alongside.upsert).toEqual([]);
+      expect(body.expectedVersion).toBe(7);
+      expect(await screen.findByText(/Availability changed since you opened this/)).toBeTruthy();
+    });
+  });
+
+  describe("the Manager's own config save whose response was lost (#7978)", () => {
+    const TWO_DAYS: DateRule = { ...SERIES, repeat: { version: 1, weekdays: [1, 3] } };
+    const dropWednesday = async () => {
+      saveConfig.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+      const view = renderSeriesDialog([TWO_DAYS]);
+      fireEvent.click(screen.getByRole("radio", { name: "All dates in the series" }));
+      fireEvent.click(screen.getByRole("checkbox", { name: "Wed" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      await screen.findByText(/Can't reach/);
+      return view;
+    };
+
+    it("does not call the committed save someone else's change", async () => {
+      const { reload } = await dropWednesday();
+
+      // What the server sends back may spell the row differently from what was sent.
+      const { id, ...rest } = TWO_DAYS;
+      reload([{ ...rest, repeat: { version: 1, weekdays: [1] }, window: null, id } as DateRule], 8);
+
+      await waitFor(() => expect(screen.getByRole("checkbox", { name: "Wed" })).not.toBeChecked());
+      expect(screen.queryByText(/Someone else changed this series/)).toBeNull();
+    });
+
+    it("still names a colleague's different change after it", async () => {
+      const { reload } = await dropWednesday();
+
+      reload([{ ...TWO_DAYS, repeat: { version: 1, weekdays: [1, 5] } }], 8);
+
+      expect(await screen.findByText(/Someone else changed this series/)).toBeTruthy();
+    });
+  });
+
+  it("leaves without asking after Back from a refusal that decided nothing (#7978)", async () => {
+    create.mockRejectedValueOnce(
+      new ApiClientError(
+        {
+          type: "about:blank",
+          title: "Decision required",
+          status: 422,
+          detail: "Refused.",
+          code: "decision-required",
+        } as never,
+        "POST",
+        "closures"
+      )
+    );
+    const { onClose } = renderSeriesDialog();
+    await toStepTwoAndCancel();
+    await screen.findByText(/bookings changed while you were deciding/i);
+
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("dialog", { name: "Leave this closure?" })).toBeNull();
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

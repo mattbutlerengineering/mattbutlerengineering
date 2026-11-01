@@ -8,25 +8,25 @@ export interface LeaveSaveDialogProps {
   readonly maybeSavedDescription?: string;
 }
 
-/** The question before leaving a Step 2. After a save was sent, "nothing has been closed" is false. */
+/** The question before leaving a Step 2. After a save with no answer, "nothing has been closed" may be false. */
 export function LeaveSaveDialog({ attempts, maybeSavedDescription }: LeaveSaveDialogProps) {
   const { t } = useTranslation();
-  const sent = attempts.tried.length > 0;
+  const { maybeSaved } = attempts;
   return (
     <DiscardChangesDialog
       open={attempts.asking}
       date={null}
       title={
-        sent
+        maybeSaved
           ? t("availability.close.discard.titleMaybeSaved")
           : t("availability.close.discard.title")
       }
       description={
-        sent
+        maybeSaved
           ? (maybeSavedDescription ?? t("availability.close.discard.descriptionMaybeSaved"))
           : t("availability.close.discard.description")
       }
-      confirmLabel={sent ? t("availability.close.discard.leave") : undefined}
+      confirmLabel={maybeSaved ? t("availability.close.discard.leave") : undefined}
       onDiscard={attempts.confirmLeave}
       onKeepEditing={attempts.keepEditing}
     />

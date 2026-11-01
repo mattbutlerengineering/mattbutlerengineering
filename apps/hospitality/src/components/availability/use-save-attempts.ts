@@ -1,11 +1,13 @@
 import { useState } from "react";
 import type { DateRule } from "@mbe/types";
+import { mayHaveSaved, type Refusal } from "./step-two-refusal.js";
 import { useDiscardGuard } from "./use-discard-guard.js";
 
-/** A save that was sent: its key, its rule ids and, as text, the outcomes it chose. */
+/** A save that was sent: its key, its rule ids, the dates they close and, as text, its outcomes. */
 export interface TriedAttempt {
   readonly key: string;
   readonly ruleIds: readonly string[];
+  readonly dates: readonly string[];
   readonly summary: string;
 }
 
@@ -32,13 +34,15 @@ export interface SaveAttemptsOptions {
  *   honestly (a 409) instead of replaying the old result as if the change had applied.
  * - Once any attempt shows up in the config (`earlier`), nothing more is saved, and its choices
  *   are what applied.
- * - Leaving after a save was sent warns that it may have gone through, and reloads.
+ * - Leaving after a save with no definite answer warns that it may have gone through. Leaving after
+ *   any save reloads.
  */
 export function useSaveAttempts(rules: readonly DateRule[], options: SaveAttemptsOptions) {
   const { firstRuleId, reload, onLeave } = options;
   const [attempt, setAttempt] = useState(() => newAttempt(firstRuleId));
   const [tried, setTried] = useState<readonly TriedAttempt[]>([]);
   const [failedSave, setFailedSave] = useState(false);
+  const [maybeSaved, setMaybeSaved] = useState(false);
   const earlier = tried.find((a) => rules.some((r) => a.ruleIds.includes(r.id)));
 
   const finish = () => {
@@ -56,6 +60,8 @@ export function useSaveAttempts(rules: readonly DateRule[], options: SaveAttempt
     ...attempt,
     tried,
     earlier,
+    /** Some attempt got no definite answer. Later refusals do not settle it. */
+    maybeSaved,
     restart,
     finish,
     setDirty: guard.setDirty,
@@ -67,13 +73,18 @@ export function useSaveAttempts(rules: readonly DateRule[], options: SaveAttempt
      * Call before sending. One rule id can be sent more than once (a refused send keeps it, and
      * the Manager may then choose differently), and the send that commits is the last one.
      */
-    record: (summary: string, ruleIds: readonly string[] = [attempt.ruleId]) => {
-      const sent = { key: attempt.idempotencyKey, ruleIds, summary };
+    record: (
+      summary: string,
+      ruleIds: readonly string[] = [attempt.ruleId],
+      dates: readonly string[] = []
+    ) => {
+      const sent = { key: attempt.idempotencyKey, ruleIds, dates, summary };
       setTried((all) => [...all.filter((a) => a.key !== sent.key), sent]);
     },
-    /** The save failed and may have committed: leaving is no longer "nothing has been closed". */
-    failed: () => {
+    /** The save was refused, or lost: a changed request is now a new attempt, and leaving asks. */
+    failed: (refusal: Refusal) => {
       setFailedSave(true);
+      if (mayHaveSaved(refusal)) setMaybeSaved(true);
       guard.setDirty(true);
     },
     /** Escape during a save would close the dialog while the save still commits. */

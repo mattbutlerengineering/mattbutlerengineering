@@ -136,8 +136,41 @@ export function buildCloseRule(form: CloseForm, id: string, today: string): Date
 }
 
 const HALF_HOUR = 30;
-/** A scan of a long or open-ended closure stops after a year: special hours that far out are rare. */
-const SPECIAL_HOURS_SCAN_DAYS = 366;
+/** A scan of a long or open-ended closure stops after a year: hours that differ that far out are rare. */
+const CLOSED_DATES_SCAN_DAYS = 366;
+
+type ClosureSpan = Pick<DateRule, "startsOn" | "endsOn" | "repeat">;
+
+/** The date the When fields start from, which a new choice of When carries over. */
+export function firstDateOf(when: CloseWhen, today: string): string {
+  return spanOf(when, today).startsOn;
+}
+
+/**
+ * The date "Guests will see" names: a repeat's From date may not be one of its days, and with no
+ * day picked, or none in its range, it closes nothing and this is `null`.
+ */
+export function guestDateOf(when: CloseWhen, today: string): string | null {
+  const { startsOn, endsOn, weekdays } = spanOf(when, today);
+  if (!weekdays || !startsOn) return startsOn;
+  const repeat = { version: 1 as const, weekdays: [...weekdays] };
+  return firstOccurrenceOnOrAfter({ startsOn, endsOn, repeat }, startsOn);
+}
+
+/** Every date a closure covers, in order, honouring its range and weekdays. */
+export function closedDates(closure: ClosureSpan): readonly string[] {
+  const first = firstOccurrenceOnOrAfter(closure, closure.startsOn);
+  if (first === null) return [];
+  const last = closure.endsOn ?? addDays(first, CLOSED_DATES_SCAN_DAYS);
+  const dates: string[] = [];
+  for (let date = first, n = 0; date <= last && n <= CLOSED_DATES_SCAN_DAYS; n += 1) {
+    if (closure.repeat == null || closure.repeat.weekdays.includes(weekdayIndexOf(date))) {
+      dates.push(date);
+    }
+    date = addDays(date, 1);
+  }
+  return dates;
+}
 
 /**
  * The first date of the closure that already carries special hours, which the closure would
@@ -145,39 +178,50 @@ const SPECIAL_HOURS_SCAN_DAYS = 366;
  */
 export function replacedSpecialDate(
   rules: readonly DateRule[],
-  closure: Pick<DateRule, "startsOn" | "endsOn" | "repeat">
+  closure: ClosureSpan
 ): string | null {
-  const first = firstOccurrenceOnOrAfter(closure, closure.startsOn);
-  if (first === null) return null;
-  const last = closure.endsOn ?? addDays(first, SPECIAL_HOURS_SCAN_DAYS);
-  for (let date = first, n = 0; date <= last && n <= SPECIAL_HOURS_SCAN_DAYS; n += 1) {
-    const covered =
-      closure.repeat == null || closure.repeat.weekdays.includes(weekdayIndexOf(date));
-    if (covered && activeRules(rules, date).some((r) => r.kind === "special_hours")) return date;
-    date = addDays(date, 1);
-  }
-  return null;
+  const replaced = closedDates(closure).find((date) =>
+    activeRules(rules, date).some((r) => r.kind === "special_hours")
+  );
+  return replaced ?? null;
 }
 
-/** The first date a closure actually covers: a repeat's start date may not be one of its days. */
-export function firstClosedDate(closure: Pick<DateRule, "startsOn" | "endsOn" | "repeat">): string {
-  return firstOccurrenceOnOrAfter(closure, closure.startsOn) ?? closure.startsOn;
+/** When the last of these services closes, in minutes of its service day; 0 with none. */
+const lastCloseOf = (services: readonly { readonly closesAt: number }[]): number =>
+  services.reduce((max, s) => Math.max(max, s.closesAt), 0);
+
+/**
+ * One date per kind of day: its weekday, the assignments in season and the rules active decide its
+ * hours. A year holds few kinds, and the times are worked out on every render of the dialog.
+ */
+function distinctDays(config: AvailabilityConfig, dates: readonly string[]): readonly string[] {
+  const kinds = new Map<string, string>();
+  for (const date of dates) {
+    const season = config.assignments.filter(
+      (a) => (a.startsOn ?? date) <= date && date <= (a.endsOn ?? date)
+    );
+    const ids = [...season, ...activeRules(config.dateRules, date)].map((row) => row.id);
+    kinds.set(`${weekdayIndexOf(date)}:${ids.join()}`, date);
+  }
+  return [...kinds.values()];
 }
 
 /**
- * The start times "Starting at" offers: every half hour of the day. When the day's last service
- * runs past midnight, the half hours after it up to its close (shown as "next day"), and none
- * before the day opens: a plain "1:00 AM" reads as after midnight but closes the whole evening.
- * `keep` is a time the form already holds (a series' own), which must stay selectable.
+ * The start times "Starting at" offers across `dates`: every half hour of the day. When any of
+ * them runs past midnight, the half hours after it up to its close (shown as "next day"), and none
+ * before the earliest opening: a plain "1:00 AM" reads as after midnight but closes that whole
+ * evening. `keep` is a time the form already holds (a series' own), which must stay selectable.
  */
 export function startMinutes(
   config: AvailabilityConfig,
   timezone: string,
-  date: string,
+  dates: readonly string[],
   keep: number | null
 ): readonly number[] {
-  const { services } = resolveDay({ timezone, config }, date);
-  const lastClose = services.reduce((max, s) => Math.max(max, s.closesAt), 0);
+  const services = distinctDays(config, dates).flatMap(
+    (date) => resolveDay({ timezone, config }, date).services
+  );
+  const lastClose = lastCloseOf(services);
   const end = Math.max(lastClose, keep ?? 0);
   const firstOpen = services.reduce((min, s) => Math.min(min, s.opensAt), MINUTES_PER_DAY);
   const first = lastClose > MINUTES_PER_DAY ? firstOpen - (firstOpen % HALF_HOUR) : 0;
@@ -284,18 +328,23 @@ export function isUrgent(
 /**
  * The online pause in force now, whose banner offers Resume (ux.md F5 step 9). Only the shape
  * the Pause button creates counts: online, open-ended and not repeating, so Resume never deletes
- * a dated or recurring closure. A start time holds the pause back until it is reached, and it counts
- * from the service day's midnight: past 24:00 it is reached on the clock of the day after, and a
- * pause that started on an earlier day is still in force from yesterday's service day.
+ * a dated or recurring closure. A start time holds the pause back until it is reached, each day: the
+ * closure is a band of each service day, so before today's start only yesterday's service can be
+ * inside it, and only while it is still running past midnight. A pause that started on an earlier
+ * day counts from then; lunch the next morning is bookable, and the banner must not say otherwise.
  * `today` and `nowMinute` are the venue's civil date and minute.
  */
 export function activeOnlinePause(
-  rules: readonly DateRule[],
+  config: AvailabilityConfig,
+  timezone: string,
   today: string,
   nowMinute: number
 ): DateRule | null {
+  const yesterdayMinute = nowMinute + MINUTES_PER_DAY;
+  const yesterdayRunning = () =>
+    yesterdayMinute < lastCloseOf(resolveDay({ timezone, config }, addDays(today, -1)).services);
   return (
-    rules.find(
+    config.dateRules.find(
       (r) =>
         r.kind === "closure" &&
         r.targetKind === "booking" &&
@@ -305,7 +354,7 @@ export function activeOnlinePause(
         !r.repeat &&
         (!r.window ||
           r.window.from <= nowMinute ||
-          (r.startsOn < today && r.window.from <= nowMinute + MINUTES_PER_DAY))
+          (r.startsOn < today && r.window.from <= yesterdayMinute && yesterdayRunning()))
     ) ?? null
   );
 }

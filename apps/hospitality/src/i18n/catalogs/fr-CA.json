@@ -1806,8 +1806,8 @@
       "maybeSaved": "Impossible de confirmer cet enregistrement. Il a peut-être été appliqué et des réservations annulées. Enregistrez de nouveau sans modification pour voir ce qui s'est passé, ou consultez les dates spéciales.",
       "savedEarlier": {
         "title": "Déjà enregistré",
-        "body": "Un essai précédent de ces dates a été enregistré : {{summary}}. Les clients ont été traités selon les choix de cet essai; les modifications faites ensuite n'ont pas été appliquées. Ouvrez les dates spéciales pour voir le résultat.",
-        "bodyPlain": "Un essai précédent de ces dates a été enregistré. Les modifications faites ensuite n'ont pas été appliquées. Ouvrez les dates spéciales pour voir le résultat."
+        "body": "Un essai précédent pour {{dates}} a été enregistré : {{summary}}. Les clients ont été traités selon les choix de cet essai; les modifications faites ensuite n'ont pas été appliquées. Ouvrez les dates spéciales pour voir le résultat.",
+        "bodyPlain": "Un essai précédent pour {{dates}} a été enregistré. Les modifications faites ensuite n'ont pas été appliquées. Ouvrez les dates spéciales pour voir le résultat."
       }
     }
   },
@@ -2297,6 +2297,7 @@
       "versionConflict": "Les disponibilités ont changé depuis l'ouverture de cette fenêtre. Fermez-la et réessayez.",
       "groupsChanged": "Les réservations ont changé pendant votre décision. Passez en revue la liste à jour et choisissez de nouveau.",
       "alreadySaved": "Cette fermeture est déjà enregistrée et ses réservations ont été traitées. Consultez les dates spéciales avant de fermer de nouveau.",
+      "maybeSaved": "Le service de réservations a eu un problème et nous n'avons pas pu confirmer cet enregistrement. Il a peut-être été appliqué. Réessayez sans modification pour voir ce qui s'est passé.",
       "savedEarlier": {
         "title": "Déjà fermé",
         "body": "Un essai précédent de cette fermeture a été enregistré : {{summary}}. Les clients ont été traités selon les choix de cet essai; les modifications faites ensuite n'ont pas été appliquées. Ouvrez les dates spéciales pour voir le résultat.",

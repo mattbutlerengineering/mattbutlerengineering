@@ -581,6 +581,39 @@ describe("TonightControl", () => {
         expect(callListState.ruleIds).toContain(ruleIdOf(1));
       });
 
+      it("says nothing was closed after a refusal that decided nothing (#7978)", async () => {
+        const step2 = await toStep2();
+        setTonight.mockRejectedValueOnce(decisionRequired());
+        fireEvent.click(within(step2).getByRole("button", CANCEL));
+        await within(step2).findByText(/bookings changed while you were deciding/i);
+
+        fireEvent.click(within(step2).getByRole("button", { name: "Cancel" }));
+
+        const ask = screen.getByRole("dialog", { name: "Discard this closure?" });
+        expect(within(ask).getByText(/Nothing has been closed/)).toBeTruthy();
+      });
+
+      it("does not promise nothing changed on a 502, which may have committed (#7978)", async () => {
+        const step2 = await toStep2();
+        setTonight.mockRejectedValueOnce(
+          new ApiClientError(
+            {
+              type: "about:blank",
+              title: "Bad Gateway",
+              status: 502,
+              detail: "Bad gateway",
+              code: "bad-gateway",
+            } as never,
+            "POST",
+            "tonight"
+          )
+        );
+        fireEvent.click(within(step2).getByRole("button", CANCEL));
+
+        expect(await within(step2).findByText(/may have gone through/)).toBeTruthy();
+        expect(within(step2).queryByText(/nothing was changed/)).toBeNull();
+      });
+
       it("warns and reloads when the Manager leaves after it", async () => {
         const step2 = await toStep2();
         setTonight.mockRejectedValueOnce(lost());

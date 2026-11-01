@@ -52,6 +52,20 @@ export function nextOccurrence(series: DateRule, from: string): string {
   return series.startsOn;
 }
 
+/**
+ * Whether two rows say the same, whichever of them the server wrote: it may spell an absent field
+ * as null, order the keys its own way, or sort the weekdays.
+ */
+export function sameRow(a: DateRule, b: DateRule): boolean {
+  const key = (rule: DateRule) =>
+    JSON.stringify(
+      Object.entries({ ...rule, repeat: [...(rule.repeat?.weekdays ?? [])].sort((x, y) => x - y) })
+        .filter(([, value]) => value != null)
+        .sort(([x], [y]) => x.localeCompare(y))
+    );
+  return key(a) === key(b);
+}
+
 /** The skip or one-date edit that already replaces the series on `date`, if any. */
 export function dateOverride(
   rules: readonly DateRule[],

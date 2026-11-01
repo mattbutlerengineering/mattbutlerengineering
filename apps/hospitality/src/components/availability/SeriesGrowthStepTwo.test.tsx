@@ -2,7 +2,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import { ApiClientError } from "@mbe/api-client";
-import type { AvailabilityConfigState, ClosureImpact, DateRule } from "@mbe/types";
+import type { ClosureImpact, DateRule } from "@mbe/types";
 
 const create = vi.hoisted(() => vi.fn());
 const refresh = vi.hoisted(() => vi.fn());
@@ -73,7 +73,7 @@ type StepProps = Omit<React.ComponentProps<typeof SeriesGrowthStepTwo>, "attempt
 
 /** The step with the attempts `SeriesEditDialog` would give it. */
 function Step(props: StepProps) {
-  const attempts = useSaveAttempts(props.state.config.dateRules, {
+  const attempts = useSaveAttempts(fixtureConfig().dateRules, {
     firstRuleId: props.rule.id,
     reload: refresh,
     onLeave: props.onClose,
@@ -87,7 +87,6 @@ function Step(props: StepProps) {
 }
 
 function renderStep(props: Partial<StepProps> = {}) {
-  const state: AvailabilityConfigState = { config: fixtureConfig(), version: 7, source: "rows" };
   const handlers = {
     onBack: vi.fn(),
     onClose: vi.fn(),
@@ -99,7 +98,7 @@ function renderStep(props: Partial<StepProps> = {}) {
       <main>
         <Step
           venueId="venue-1"
-          state={state}
+          expectedVersion={7}
           timezone="America/Los_Angeles"
           today="2026-12-01"
           rule={RULE}
@@ -208,6 +207,27 @@ describe("SeriesGrowthStepTwo refusals", () => {
       expect(onClose).toHaveBeenCalledTimes(1);
       expect(refresh).toHaveBeenCalled();
     });
+  });
+
+  it("does not promise nothing changed on a 502, which may have committed (#7978)", async () => {
+    create.mockRejectedValue(
+      new ApiClientError(
+        {
+          type: "about:blank",
+          title: "Bad Gateway",
+          status: 502,
+          detail: "Bad gateway",
+          code: "bad-gateway",
+        } as never,
+        "POST",
+        "closures"
+      )
+    );
+    const { dialog } = renderStep();
+    chooseCancelAndSave(dialog);
+
+    expect(await within(dialog).findByText(/may have gone through/)).toBeTruthy();
+    expect(within(dialog).queryByText(/nothing was changed/)).toBeNull();
   });
 
   it("refreshes and says the closure was already saved when the attempt had committed", async () => {

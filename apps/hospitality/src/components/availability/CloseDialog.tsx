@@ -15,8 +15,8 @@ import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { serviceMinuteOf } from "../../utils/service-day.js";
 import {
   buildCloseRule,
+  closedDates,
   decisionsReady,
-  firstClosedDate,
   isUrgent,
   outcomeCounts,
   replacedSpecialDate,
@@ -29,7 +29,6 @@ import {
   type CloseField,
   type CloseForm,
 } from "./close-draft.js";
-import { conflictOf, isDecisionRequired } from "./conflict-problem.js";
 import { LeaveSaveDialog } from "./LeaveSaveDialog.js";
 import { useSaveAttempts } from "./use-save-attempts.js";
 import { useWinningChangeText } from "./use-winning-change-text.js";
@@ -186,11 +185,11 @@ export function CloseDialog(props: CloseDialogProps) {
   // Special hours anywhere in the closure's dates (a range or a repeat too) are replaced by it.
   const replacedDate =
     rule && form.what.kind !== "booking" ? replacedSpecialDate(state.config.dateRules, rule) : null;
-  // A repeat's start date may not be one of its days: offer the times of the first one that is.
+  // Read every day the closure covers: a time must mean the same on all of them.
   const startOptions = startMinutes(
     state.config,
     timezone,
-    rule ? firstClosedDate(rule) : startsOn,
+    rule ? closedDates(rule) : [startsOn],
     form.fromMinute
   );
 
@@ -229,20 +228,19 @@ export function CloseDialog(props: CloseDialogProps) {
       toast({ title, variant: "success" });
       onClose();
     } catch (error) {
-      if (isDecisionRequired(error)) {
+      const refused = refusalOf(error);
+      setFailure(refusalText(refused, t));
+      if (refused.kind === "groups-changed") {
         // The group changed since the Manager chose: drop the stale choices and load the new one.
         setChoices({});
-        setFailure(t("availability.close.groupsChanged"));
         void impactQuery.refetch();
         return;
       }
-      setFailure(refusalText(refusalOf(error), t));
-      attempts.failed();
-      const conflict = conflictOf(error);
-      if (conflict?.code === "version-conflict") {
-        setWinner({ change: conflict.winningChange });
+      attempts.failed(refused);
+      if (refused.kind === "version-conflict") {
+        setWinner({ change: refused.winningChange });
         refresh();
-      } else if (conflict?.code === "closure-exists") {
+      } else if (refused.kind === "closure-exists") {
         refresh();
       }
     }

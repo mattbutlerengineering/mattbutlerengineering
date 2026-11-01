@@ -18,7 +18,14 @@ import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { addDays } from "../../utils/service-day.js";
 import { WEEK_STARTS_ON } from "./calendar-dates.js";
 import { minuteText } from "./closure-band.js";
-import type { BookingChannel, CloseForm, CloseWhat, CloseWhen } from "./close-draft.js";
+import {
+  firstDateOf,
+  guestDateOf,
+  type BookingChannel,
+  type CloseForm,
+  type CloseWhat,
+  type CloseWhen,
+} from "./close-draft.js";
 import styles from "./CloseDialog.module.css";
 
 const CHANNELS: readonly BookingChannel[] = ["online", "phone", "waitlist"];
@@ -89,14 +96,8 @@ export function CloseStepOne(props: CloseStepOneProps) {
       onChange={(v) => set(v ?? "")}
     />
   );
-  const firstDate =
-    when.kind === "date"
-      ? when.date
-      : when.kind === "tonight"
-        ? today
-        : "from" in when
-          ? when.from
-          : "";
+  const firstDate = firstDateOf(when, today);
+  const guestDate = guestDateOf(when, today);
 
   // What the guest reads on the calendar: a closure from a set time, or of one service, is not
   // "Closed" for the whole day.
@@ -335,15 +336,15 @@ export function CloseStepOne(props: CloseStepOneProps) {
                 })}
           </Text>
         )}
-        {firstDate && what.kind !== "booking" && (
+        {guestDate && what.kind !== "booking" && (
           <Text variant="caption" color="secondary">
             {form.guestMessage.trim()
               ? t("availability.close.guestsWillSeeMessage", {
-                  date: fullDate(firstDate),
+                  date: fullDate(guestDate),
                   status,
                   message: form.guestMessage.trim(),
                 })
-              : t("availability.close.guestsWillSee", { date: fullDate(firstDate), status })}
+              : t("availability.close.guestsWillSee", { date: fullDate(guestDate), status })}
           </Text>
         )}
       </section>

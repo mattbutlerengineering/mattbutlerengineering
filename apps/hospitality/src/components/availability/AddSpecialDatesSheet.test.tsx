@@ -501,8 +501,10 @@ describe("AddSpecialDatesSheet", () => {
 
       reload(fixtureConfig(saved), 8);
 
-      const notice = await screen.findByText(/An earlier try of these dates was saved: cancel 2/);
+      // Named, because the form now shows Dec 26 and this reads as that date otherwise (#7978).
+      const notice = await screen.findByText(/An earlier try for Dec 24 was saved: cancel 2/);
       expect(notice).toBeTruthy();
+      expect(screen.queryByText(/Dec 26/)).toBeNull();
       expect(screen.queryByTestId("add-dates-primary")).toBeNull();
       expect(screen.queryByText(/No booking was cancelled/)).toBeNull();
       fireEvent.click(screen.getByRole("button", { name: "Done" }));

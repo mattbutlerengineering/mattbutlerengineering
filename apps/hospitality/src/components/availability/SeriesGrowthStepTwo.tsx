@@ -1,12 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Button, Dialog, Text, useToast } from "@mattbutlerengineering/rialto";
-import type {
-  AvailabilityConfigState,
-  ClosureAlongside,
-  ClosureImpact,
-  DateRule,
-} from "@mbe/types";
+import type { ClosureAlongside, ClosureImpact, DateRule } from "@mbe/types";
 import { useCreateClosure } from "../../hooks/useClosures.js";
 import { useNow } from "../../hooks/useNow.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
@@ -28,7 +23,11 @@ import styles from "./CloseDialog.module.css";
 
 export interface SeriesGrowthStepTwoProps {
   readonly venueId: string;
-  readonly state: AvailabilityConfigState;
+  /**
+   * The version the plan was built on, never the latest: a plan older than the config has to get
+   * a 409, or it overwrites what it never saw.
+   */
+  readonly expectedVersion: number;
   readonly timezone: string;
   /** Today on the venue clock. */
   readonly today: string;
@@ -57,8 +56,7 @@ export interface SeriesGrowthStepTwoProps {
  * together or not at all.
  */
 export function SeriesGrowthStepTwo(props: SeriesGrowthStepTwoProps) {
-  const { venueId, state, timezone, today, rule, alongside, impact, attempts, onBack, onClose } =
-    props;
+  const { venueId, timezone, today, rule, alongside, impact, attempts, onBack, onClose } = props;
   const refresh = useRefreshAvailability();
   const { t } = useTranslation();
   const format = useVenueFormat();
@@ -85,7 +83,7 @@ export function SeriesGrowthStepTwo(props: SeriesGrowthStepTwoProps) {
         venueId,
         idempotencyKey: attempts.idempotencyKey,
         body: {
-          expectedVersion: state.version,
+          expectedVersion: props.expectedVersion,
           ...growthAttempt({ rule, alongside }, attempts.ruleId),
           decisions: toDecisions(impact.groups, choices),
         },
@@ -117,7 +115,7 @@ export function SeriesGrowthStepTwo(props: SeriesGrowthStepTwoProps) {
         await props.onReload().catch(() => undefined);
         return;
       }
-      attempts.failed();
+      attempts.failed(refused);
       if (refused.kind === "version-conflict") {
         refresh();
         props.onStale(text);

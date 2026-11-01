@@ -1806,8 +1806,8 @@
       "maybeSaved": "No pudimos confirmar este guardado. Pudo haberse aplicado y cancelado reservaciones. Guarda de nuevo sin cambios para ver qué pasó, o revisa las fechas especiales.",
       "savedEarlier": {
         "title": "Ya está guardado",
-        "body": "Un intento anterior de estas fechas se guardó: {{summary}}. Los comensales se atendieron como eligió ese intento; los cambios posteriores no se aplicaron. Abre las fechas especiales para ver el resultado.",
-        "bodyPlain": "Un intento anterior de estas fechas se guardó. Los cambios posteriores no se aplicaron. Abre las fechas especiales para ver el resultado."
+        "body": "Un intento anterior para {{dates}} se guardó: {{summary}}. Los comensales se atendieron como eligió ese intento; los cambios posteriores no se aplicaron. Abre las fechas especiales para ver el resultado.",
+        "bodyPlain": "Un intento anterior para {{dates}} se guardó. Los cambios posteriores no se aplicaron. Abre las fechas especiales para ver el resultado."
       }
     }
   },
@@ -2297,6 +2297,7 @@
       "versionConflict": "La disponibilidad cambió desde que abriste esto. Cierra este diálogo e inténtalo de nuevo.",
       "groupsChanged": "Las reservaciones cambiaron mientras decidías. Revisa la lista actualizada y elige de nuevo.",
       "alreadySaved": "Este cierre ya se guardó y sus reservaciones se atendieron. Revisa las fechas especiales antes de cerrar de nuevo.",
+      "maybeSaved": "El servicio de reservaciones tuvo un problema y no pudimos confirmar este guardado. Pudo haberse aplicado. Intenta de nuevo sin cambios para ver qué pasó.",
       "savedEarlier": {
         "title": "Ya está cerrado",
         "body": "Un intento anterior de este cierre se guardó: {{summary}}. Los comensales se atendieron como eligió ese intento; los cambios posteriores no se aplicaron. Abre las fechas especiales para ver el resultado.",
