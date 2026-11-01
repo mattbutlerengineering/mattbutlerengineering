@@ -1,9 +1,15 @@
-import { firstOccurrenceOnOrAfter } from "@mbe/availability";
+import {
+  activeRules,
+  firstOccurrenceOnOrAfter,
+  resolveDay,
+  weekdayIndexOf,
+} from "@mbe/availability";
 import {
   GUEST_MESSAGE_MAX_LENGTH,
   type ClosureAction,
   type ClosureDecision,
   type ClosureImpactGroup,
+  type AvailabilityConfig,
   type ClosureImpactKind,
   type DateRule,
 } from "@mbe/types";
@@ -127,6 +133,58 @@ export function buildCloseRule(form: CloseForm, id: string, today: string): Date
     ...(note ? { staffNote: note } : {}),
     ...(message ? { guestMessage: message } : {}),
   };
+}
+
+const HALF_HOUR = 30;
+/** A scan of a long or open-ended closure stops after a year: special hours that far out are rare. */
+const SPECIAL_HOURS_SCAN_DAYS = 366;
+
+/**
+ * The first date of the closure that already carries special hours, which the closure would
+ * replace, or `null`. Honours the closure's range and weekdays, and a series' skipped dates.
+ */
+export function replacedSpecialDate(
+  rules: readonly DateRule[],
+  closure: Pick<DateRule, "startsOn" | "endsOn" | "repeat">
+): string | null {
+  const first = firstOccurrenceOnOrAfter(closure, closure.startsOn);
+  if (first === null) return null;
+  const last = closure.endsOn ?? addDays(first, SPECIAL_HOURS_SCAN_DAYS);
+  for (let date = first, n = 0; date <= last && n <= SPECIAL_HOURS_SCAN_DAYS; n += 1) {
+    const covered =
+      closure.repeat == null || closure.repeat.weekdays.includes(weekdayIndexOf(date));
+    if (covered && activeRules(rules, date).some((r) => r.kind === "special_hours")) return date;
+    date = addDays(date, 1);
+  }
+  return null;
+}
+
+/**
+ * The start times "Starting at" offers: every half hour of the day, then, when the day's last
+ * service runs past midnight, the half hours after it up to its close (shown as "next day").
+ * `keep` is a time the form already holds (a series' own), which must stay selectable.
+ */
+export function startMinutes(
+  config: AvailabilityConfig,
+  timezone: string,
+  date: string,
+  keep: number | null
+): readonly number[] {
+  const { services } = resolveDay({ timezone, config }, date);
+  const lastClose = services.reduce((max, s) => Math.max(max, s.closesAt), 0);
+  const end = Math.max(lastClose, keep ?? 0);
+  const options: number[] = [];
+  // Starting at the close itself closes nothing, so the last option is the half hour before it.
+  for (
+    let m = 0;
+    m < Math.min(Math.max(end, MINUTES_PER_DAY), END_OF_SERVICE_DAY);
+    m += HALF_HOUR
+  ) {
+    options.push(m);
+  }
+  return keep !== null && !options.includes(keep)
+    ? [...options, keep].sort((a, b) => a - b)
+    : options;
 }
 
 /**

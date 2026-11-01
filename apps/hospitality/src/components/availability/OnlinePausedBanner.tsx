@@ -1,25 +1,45 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Banner, Button, useToast } from "@mattbutlerengineering/rialto";
+import type { AvailabilityConfigState, DateRule } from "@mbe/types";
+import { useSaveAvailabilityConfig } from "../../hooks/useAvailability.js";
 import { useReopenClosure } from "../../hooks/useClosures.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 
 export interface OnlinePausedBannerProps {
   readonly venueId: string;
-  /** The open pause's rule id. */
-  readonly ruleId: string;
+  readonly state: AvailabilityConfigState;
+  /** The open pause. It may also pause phone or waitlist, which Resume leaves paused. */
+  readonly rule: DateRule;
   /** Only a Manager can resume; a Host sees the banner without the button. */
   readonly canResume: boolean;
 }
 
 /** "Online booking paused · Resume" above the calendar (ux.md F5 step 9). */
-export function OnlinePausedBanner({ venueId, ruleId, canResume }: OnlinePausedBannerProps) {
+export function OnlinePausedBanner({ venueId, state, rule, canResume }: OnlinePausedBannerProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const { mutateAsync, isPending } = useReopenClosure();
+  const reopen = useReopenClosure();
+  const saveConfig = useSaveAvailabilityConfig();
+  const [resuming, setResuming] = useState(false);
+  const others = (rule.bookingTypes ?? []).filter((channel) => channel !== "online");
 
   const resume = async () => {
+    setResuming(true);
     try {
-      await mutateAsync({ venueId, ruleId, tellCancelledGuests: false });
+      if (others.length === 0) {
+        await reopen.mutateAsync({ venueId, ruleId: rule.id, tellCancelledGuests: false });
+      } else {
+        // The pause also holds another channel: take online out of it and leave the rest paused.
+        await saveConfig.mutateAsync({
+          venueId,
+          body: {
+            expectedVersion: state.version,
+            changes: { upsert: { dateRules: [{ ...rule, bookingTypes: others }] }, remove: {} },
+            scopeConflicts: "keep",
+          },
+        });
+      }
       toast({ title: t("availability.paused.resumed"), variant: "success" });
     } catch (error) {
       toast({
@@ -27,6 +47,8 @@ export function OnlinePausedBanner({ venueId, ruleId, canResume }: OnlinePausedB
         description: describeApiError(error).detail,
         variant: "error",
       });
+    } finally {
+      setResuming(false);
     }
   };
 
@@ -35,7 +57,7 @@ export function OnlinePausedBanner({ venueId, ruleId, canResume }: OnlinePausedB
       variant="warning"
       action={
         canResume ? (
-          <Button variant="secondary" onClick={() => void resume()} isLoading={isPending}>
+          <Button variant="secondary" onClick={() => void resume()} isLoading={resuming}>
             {t("availability.paused.resume")}
           </Button>
         ) : undefined

@@ -12,16 +12,18 @@ import { useClosureImpact, useCreateClosure } from "../../hooks/useClosures.js";
 import { useNow } from "../../hooks/useNow.js";
 import { useRefreshAvailability } from "../../hooks/useRefreshAvailability.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { describeApiError } from "../../lib/describe-api-error.js";
 import { minutesOfDayIn } from "../../utils/service-day.js";
 import {
   buildCloseRule,
   decisionsReady,
   isUrgent,
   outcomeCounts,
+  replacedSpecialDate,
   sameRequest,
+  startMinutes,
   toDecisions,
   validateClose,
+  type BookingChannel,
   type ChoiceMap,
   type CloseField,
   type CloseForm,
@@ -33,6 +35,7 @@ import { useWinningChangeText } from "./use-winning-change-text.js";
 import { CloseStepOne } from "./CloseStepOne.js";
 import { CloseStepTwo } from "./CloseStepTwo.js";
 import { outcomeLabel, outcomeSummary } from "./outcome-label.js";
+import { refusalOf, refusalText } from "./step-two-refusal.js";
 import styles from "./CloseDialog.module.css";
 
 export interface CloseDialogProps {
@@ -110,11 +113,13 @@ function inSeries(rule: DateRule | null, series: DateRule | undefined): DateRule
   return { ...rule, seriesId: series.id, endsOn: rule.startsOn, repeat: null };
 }
 
-function failureText(error: unknown, t: TFunction): string {
-  const code = conflictOf(error)?.code;
-  if (code === "version-conflict") return t("availability.close.versionConflict");
-  if (code === "closure-exists") return t("availability.close.alreadySaved");
-  return describeApiError(error).detail;
+/** The button for a booking-only closure names the channels it pauses, not always "online". */
+function pauseLabel(types: readonly BookingChannel[], t: TFunction): string {
+  const only = types.length === 1 ? types[0] : undefined;
+  if (only === "online") return t("availability.close.button.pause");
+  if (only === "phone") return t("availability.close.button.pausePhone");
+  if (only === "waitlist") return t("availability.close.button.pauseWaitlist");
+  return t("availability.close.button.pauseBooking");
 }
 
 /** A save that was sent: its rule id and, as text, the outcomes it chose for the bookings. */
@@ -214,11 +219,10 @@ export function CloseDialog(props: CloseDialogProps) {
   const services = state.config.venueServices.filter((s) => !s.archivedAt);
 
   const startsOn = rule?.startsOn ?? today;
-  const hasSpecialHours = state.config.dateRules.some(
-    (r) =>
-      r.kind === "special_hours" && r.startsOn <= startsOn && (r.endsOn ?? startsOn) >= startsOn
-  );
-  const replacedDate = hasSpecialHours && form.what.kind !== "booking" ? startsOn : null;
+  // Special hours anywhere in the closure's dates (a range or a repeat too) are replaced by it.
+  const replacedDate =
+    rule && form.what.kind !== "booking" ? replacedSpecialDate(state.config.dateRules, rule) : null;
+  const startOptions = startMinutes(state.config, timezone, startsOn, form.fromMinute);
 
   const fullDate = (date: string) =>
     format.formatCalendarDate(date, { weekday: "short", month: "short", day: "numeric" });
@@ -265,7 +269,7 @@ export function CloseDialog(props: CloseDialogProps) {
         void impactQuery.refetch();
         return;
       }
-      setFailure(failureText(error, t));
+      setFailure(refusalText(refusalOf(error), t));
       setFailedSave(true);
       // The save may have committed: leaving is no longer "nothing has been closed".
       guard.setDirty(true);
@@ -299,7 +303,7 @@ export function CloseDialog(props: CloseDialogProps) {
       : groups.length > 0
         ? t("availability.close.next")
         : form.what.kind === "booking"
-          ? t("availability.close.button.pause")
+          ? pauseLabel(form.what.types, t)
           : t("availability.close.button.close", {
               date:
                 form.when.kind === "date" || form.when.kind === "tonight" ? fullDate(startsOn) : "",
@@ -376,6 +380,7 @@ export function CloseDialog(props: CloseDialogProps) {
               invalid={invalid}
               locked={props.hostLocked}
               dateLocked={series !== undefined}
+              startOptions={startOptions}
             />
           ) : (
             <>

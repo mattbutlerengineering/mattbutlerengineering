@@ -29,6 +29,11 @@ export interface DateRow {
   readonly sameAs: number;
   /** The hours a Special hours or Same as row writes. */
   readonly services: readonly DraftService[];
+  /**
+   * The weekday `services` were copied from while the Manager has not edited them, so a new date
+   * can replace them; absent once edited (their hours are then theirs).
+   */
+  readonly seededFor?: number;
   /** This row's message for guests; the shared one wins while `shareMessage` is on. */
   readonly message: string;
 }

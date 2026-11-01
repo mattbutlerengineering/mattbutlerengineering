@@ -43,7 +43,7 @@ vi.mock("../../contexts/VenueContext.js", () => ({
 }));
 
 import { CloseDialog } from "./CloseDialog.js";
-import { fixtureConfig } from "./resolved-day-fixtures.js";
+import { EARLY_DINNER, fixtureConfig } from "./resolved-day-fixtures.js";
 
 const AXE_OPTIONS = { rules: { "color-contrast": { enabled: false } } };
 const DATE = "2026-12-24";
@@ -314,6 +314,21 @@ describe("CloseDialog", () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(await screen.findByText("Online booking paused")).toBeTruthy();
     expect(screen.queryByText(/closed$/)).toBeNull();
+  });
+
+  it("names the channels the button pauses, not always online (#7978)", () => {
+    impactState.value = { reservations: 0, covers: 0, depositsHeld: 0, groups: [] };
+    renderDialog({ initialDate: null, pauseOnline: true });
+    const dialog = screen.getByRole("dialog");
+    const primary = () => within(dialog).getByTestId("close-primary").textContent;
+    expect(primary()).toBe("Pause online booking");
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Phone" }));
+    expect(primary()).toBe("Pause booking");
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Online" }));
+    expect(primary()).toBe("Pause phone booking");
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Phone" }));
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Waitlist" }));
+    expect(primary()).toBe("Pause waitlist");
   });
 
   it("does not claim online booking paused when only another channel was paused", async () => {
@@ -955,6 +970,75 @@ describe("CloseDialog", () => {
         </ToastProvider>
       );
       expect(within(dialog).getByRole("button", { name: "Back" })).toBeDisabled();
+    });
+  });
+
+  describe("wording and options (#7978)", () => {
+    const FRIDAY = "2026-12-25";
+    const NO_BOOKINGS: ClosureImpact = { reservations: 0, covers: 0, depositsHeld: 0, groups: [] };
+
+    /** The fixture week with its dinner running to 2:00 AM (minute 1560 of the service day). */
+    function overnightState(...rules: DateRule[]): AvailabilityConfigState {
+      const base = fixtureConfig(...rules);
+      return {
+        config: {
+          ...base,
+          scheduleServices: base.scheduleServices.map((s) => ({ ...s, closesAt: 1560 })),
+        },
+        version: 7,
+        source: "rows",
+      };
+    }
+
+    it("offers start times after midnight on a day that runs past it, and sends them", async () => {
+      impactState.value = NO_BOOKINGS;
+      create.mockResolvedValue({
+        ruleId: "r",
+        version: 8,
+        changeId: "c",
+        outcomes: { cancel: 0, move: 0, keep_notify: 0, keep_silent: 0 },
+      });
+      renderDialog({ state: overnightState(), initialDate: FRIDAY });
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("combobox", { name: "Starting at" }));
+      fireEvent.click(screen.getByRole("option", { name: "From 1:00 AM (next day)" }));
+      fireEvent.click(within(dialog).getByTestId("close-primary"));
+      await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+      expect(create.mock.calls[0]![0].body.rule.window).toEqual({
+        version: 1,
+        from: 1500,
+        to: 2880,
+      });
+    });
+
+    it("offers none on a day that closes before midnight", () => {
+      renderDialog({ initialDate: FRIDAY });
+      fireEvent.click(screen.getByRole("combobox", { name: "Starting at" }));
+      expect(screen.queryByRole("option", { name: /next day/ })).toBeNull();
+    });
+
+    it("warns that a range replaces the special hours inside it, not only on its first day", () => {
+      const special: DateRule = { ...EARLY_DINNER, id: "sh", startsOn: FRIDAY, endsOn: FRIDAY };
+      renderDialog({ state: overnightState(special), initialDate: "2026-12-24" });
+      expect(screen.queryByText(/has special hours/)).toBeNull();
+      fireEvent.click(screen.getByRole("radio", { name: "Date range" }));
+      expect(screen.getByText(/Fri, Dec 25 has special hours/)).toBeTruthy();
+    });
+
+    it("says a Host's emergency close is all day, with no start time to pick", () => {
+      renderDialog({ hostLocked: true, initialDate: null });
+      const dialog = screen.getByRole("dialog");
+      expect(within(dialog).queryByRole("combobox", { name: "Starting at" })).toBeNull();
+      expect(within(dialog).getByText("All day")).toBeTruthy();
+    });
+
+    it("does not say the guest sees the whole day closed when only the evening is", () => {
+      renderDialog({ initialDate: FRIDAY });
+      expect(screen.getByText(/Fri, Dec 25 · Closed$/)).toBeTruthy();
+      fireEvent.click(screen.getByRole("combobox", { name: "Starting at" }));
+      fireEvent.click(screen.getByRole("option", { name: "From 8:00 PM" }));
+      expect(screen.queryByText(/Fri, Dec 25 · Closed$/)).toBeNull();
+      expect(screen.getByText(/Fri, Dec 25 · Closed from 8:00 PM/)).toBeTruthy();
     });
   });
 

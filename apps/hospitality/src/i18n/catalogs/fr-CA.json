@@ -1766,7 +1766,8 @@
       "phone": "Téléphone",
       "unnamed": "Client sans nom",
       "print": "Imprimer",
-      "close": "Fermer"
+      "close": "Fermer",
+      "date": "Date"
     },
     "add": {
       "open": "Ajouter une date spéciale",
@@ -1994,7 +1995,8 @@
       "serviceLine": "{{name}} {{from}} – {{to}}",
       "nextDay": "{{time}} (lendemain)",
       "draftName": "changements non enregistrés",
-      "labelWithPeriod": "{{label}}, {{period}}"
+      "labelWithPeriod": "{{label}}, {{period}}",
+      "untilClose": "fermeture"
     },
     "drawer": {
       "summaryOpen": "Ouvert pour {{services}}.",
@@ -2338,7 +2340,8 @@
       "window": {
         "label": "À partir de",
         "allDay": "Toute la journée",
-        "from": "À partir de {{time}}"
+        "from": "À partir de {{time}}",
+        "hostNote": "Une fermeture d'urgence couvre toute la journée. Seul un gérant peut fermer à partir d'une heure précise."
       },
       "replaces": "Le {{date}} a des heures spéciales; la fermeture les remplace.",
       "impactLabel": "Réservations touchées par cette fermeture",
@@ -2347,8 +2350,8 @@
       "impact_many": "{{count}} de réservations · {{guests}} personnes sont réservées durant cette fermeture",
       "impactNone": "Aucune réservation durant cette fermeture.",
       "impactError": "Impossible de vérifier les réservations existantes. Modifiez un champ pour réessayer.",
-      "guestsWillSee": "Les clients verront : {{date}} · Fermé",
-      "guestsWillSeeMessage": "Les clients verront : {{date}} · Fermé · « {{message}} »",
+      "guestsWillSee": "Les clients verront : {{date}} · {{status}}",
+      "guestsWillSeeMessage": "Les clients verront : {{date}} · {{status}} · « {{message}} »",
       "button": {
         "close": "Fermer le {{date}}",
         "pause": "Suspendre les réservations en ligne",
@@ -2379,7 +2382,10 @@
           "keep_silent_one": "garder {{count}} sans aviser",
           "keep_silent_other": "garder {{count}} sans aviser",
           "keep_silent_many": "garder {{count}} sans aviser"
-        }
+        },
+        "pausePhone": "Suspendre les réservations par téléphone",
+        "pauseWaitlist": "Suspendre la liste d'attente",
+        "pauseBooking": "Suspendre les réservations"
       },
       "toast": {
         "closed": "{{date}} fermé",
@@ -2429,6 +2435,12 @@
         "loading": "Chargement des réservations…",
         "loadFailed": "Impossible de charger les réservations. Revenez en arrière et réessayez.",
         "irreversible": "Les clients sont avisés immédiatement. Cette action est irréversible."
+      },
+      "status": {
+        "closed": "Fermé",
+        "closedFrom": "Fermé à partir de {{time}}",
+        "serviceClosed": "{{service}} fermé",
+        "serviceClosedFrom": "{{service}} fermé à partir de {{time}}"
       }
     },
     "paused": {
@@ -2482,7 +2494,9 @@
     "tonight": {
       "title": "Ce soir",
       "decisions": {
-        "title": "Réservations après la nouvelle fermeture"
+        "title": "Réservations après la nouvelle fermeture",
+        "impactError": "Impossible de vérifier les réservations après la nouvelle fermeture.",
+        "retry": "Réessayer"
       },
       "open": "Ce soir",
       "chips": "Changements de ce soir",
@@ -2528,6 +2542,13 @@
         "pacing_one": "Cadence de {{count}} couvert",
         "pacing_other": "Cadence de {{count}} couverts",
         "pacing_many": "Cadence de {{count}} couverts"
+      },
+      "toast": {
+        "closed": "Fermeture hâtive à {{time}}",
+        "closedNotified_one": "Fermeture hâtive à {{time}} · {{count}} réservation avisée",
+        "closedNotified_other": "Fermeture hâtive à {{time}} · {{count}} réservations avisées",
+        "closedNotified_many": "Fermeture hâtive à {{time}} · {{count}} réservations avisées",
+        "callList": "Liste d'appels"
       }
     },
     "venueTime": "Heure de l'établissement ({{zone}})",

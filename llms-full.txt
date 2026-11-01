@@ -4664,6 +4664,11 @@
       readonly sameAs: number;
       /** The hours a Special hours or Same as row writes. */
       readonly services: readonly DraftService[];
+      /**
+       * The weekday `services` were copied from while the Manager has not edited them, so a new date
+       * can replace them; absent once edited (their hours are then theirs).
+       */
+      readonly seededFor?: number;
       /** This row's message for guests; the shared one wins while `shareMessage` is on. */
       readonly message: string;
     }
@@ -4954,6 +4959,43 @@
         ...(message ? { guestMessage: message } : {}),
       };
     }
+    export function replacedSpecialDate(
+      rules: readonly DateRule[],
+      closure: Pick<DateRule, "startsOn" | "endsOn" | "repeat">
+    ): string | null {
+      const first = firstOccurrenceOnOrAfter(closure, closure.startsOn);
+      if (first === null) return null;
+      const last = closure.endsOn ?? addDays(first, SPECIAL_HOURS_SCAN_DAYS);
+      for (let date = first, n = 0; date <= last && n <= SPECIAL_HOURS_SCAN_DAYS; n += 1) {
+        const covered =
+          closure.repeat == null || closure.repeat.weekdays.includes(weekdayIndexOf(date));
+        if (covered && activeRules(rules, date).some((r) => r.kind === "special_hours")) return date;
+        date = addDays(date, 1);
+      }
+      return null;
+    }
+    export function startMinutes(
+      config: AvailabilityConfig,
+      timezone: string,
+      date: string,
+      keep: number | null
+    ): readonly number[] {
+      const { services } = resolveDay({ timezone, config }, date);
+      const lastClose = services.reduce((max, s) => Math.max(max, s.closesAt), 0);
+      const end = Math.max(lastClose, keep ?? 0);
+      const options: number[] = [];
+      // Starting at the close itself closes nothing, so the last option is the half hour before it.
+      for (
+        let m = 0;
+        m < Math.min(Math.max(end, MINUTES_PER_DAY), END_OF_SERVICE_DAY);
+        m += HALF_HOUR
+      ) {
+        options.push(m);
+      }
+      return keep !== null && !options.includes(keep)
+        ? [...options, keep].sort((a, b) => a - b)
+        : options;
+    }
     export function sameRequest(a: CloseForm, b: CloseForm): boolean {
       const key = (f: CloseForm) => JSON.stringify([f.what, f.when, f.fromMinute]);
       return key(a) === key(b);
@@ -5089,9 +5131,14 @@
         const [text, name] = copy.allDay(t);
         return { key: closure.ruleId, text, name };
       }
+      // A closure from a set time is stored as running to the two-day maximum: it ends when the
+      // service day does, which reads "close", not "12:00 AM (next day)".
       const [text, name] = copy.band(t, {
         from: minuteText(closure.from, t, format),
-        to: minuteText(closure.to, t, format),
+        to:
+          closure.to >= 2 * MINUTES_PER_DAY
+            ? t("availability.calendar.untilClose")
+            : minuteText(closure.to, t, format),
       });
       return { key: closure.ruleId, text, name };
     }
@@ -7017,6 +7064,37 @@
       return summaries.filter(
         (s) => s.refundFailed + s.refundPending > 0 && !listedRuleIds.includes(s.ruleId)
       );
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/step-two-refusal.ts">
+    export type Refusal =
+      /** A group's bookings changed since the Manager chose: the choices are void. */
+      | { readonly kind: "groups-changed" }
+      /** Someone saved first; `winningChange` is `null` when the server recorded none. */
+      | { readonly kind: "version-conflict"; readonly winningChange: AvailabilityChangeSummary | null }
+      /** This attempt already committed (a response was lost). */
+      | { readonly kind: "closure-exists" }
+      | { readonly kind: "other"; readonly detail: string };
+    export function refusalOf(error: unknown): Refusal {
+      if (isDecisionRequired(error)) return { kind: "groups-changed" };
+      const conflict = conflictOf(error);
+      if (conflict?.code === "version-conflict") {
+        return { kind: "version-conflict", winningChange: conflict.winningChange };
+      }
+      if (conflict?.code === "closure-exists") return { kind: "closure-exists" };
+      return { kind: "other", detail: describeApiError(error).detail };
+    }
+    export function refusalText(refusal: Refusal, t: TFunction): string {
+      switch (refusal.kind) {
+        case "groups-changed":
+          return t("availability.close.groupsChanged");
+        case "version-conflict":
+          return t("availability.close.versionConflict");
+        case "closure-exists":
+          return t("availability.close.alreadySaved");
+        case "other":
+          return refusal.detail;
+      }
     }
   </file>
   <file path="apps/hospitality/src/components/availability/tonight-state.ts">

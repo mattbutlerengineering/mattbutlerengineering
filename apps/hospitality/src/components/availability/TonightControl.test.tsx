@@ -21,13 +21,32 @@ const refresh = vi.hoisted(() => vi.fn());
 vi.mock("../../hooks/useRefreshAvailability.js", () => ({ useRefreshAvailability: () => refresh }));
 vi.mock("@mbe/auth/react", () => ({ useAuth: () => ({ user: { id: "auth0|me" } }) }));
 vi.mock("../../hooks/useViewport.js", () => ({ useViewport: () => viewport.value }));
+const refetchImpact = vi.hoisted(() => vi.fn());
+const impactError = vi.hoisted(() => ({ value: null as unknown }));
+const callListState = vi.hoisted(() => ({ ruleIds: [] as unknown[] }));
 vi.mock("../../hooks/useClosures.js", () => ({
   useClosureImpact: (args: unknown) => ({
     data: (impactCalls.push(args), impactState.value),
     isLoading: false,
-    error: null,
-    refetch: vi.fn(),
+    error: impactError.value,
+    refetch: refetchImpact,
   }),
+  useClosureCallList: (args: { ruleId: string | null }) => {
+    callListState.ruleIds.push(args.ruleId);
+    return {
+      data: [
+        {
+          outcomeId: "o1",
+          guestName: "Guest 1",
+          partySize: 3,
+          startTime: "2026-10-31T05:30:00Z",
+          guestPhone: "555-0100",
+        },
+      ],
+      isLoading: false,
+      error: null,
+    };
+  },
 }));
 vi.mock("./CloseDialog.js", () => ({
   CloseDialog: (props: { hostLocked?: boolean; onClose: () => void }) => (
@@ -165,6 +184,8 @@ describe("TonightControl", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     impactState.value = null;
+    impactError.value = null;
+    callListState.ruleIds = [];
     viewport.value = "desktop";
     setTonight.mockResolvedValue({
       outcomes: { cancel: 0, move: 0, keep_notify: 0, keep_silent: 0 },
@@ -449,6 +470,73 @@ describe("TonightControl", () => {
         );
       }
     );
+  });
+
+  describe("Tonight decisions: refusals and outcome (#7978)", () => {
+    const STEP2 = { name: "Bookings after the new close" };
+
+    async function toStep2() {
+      impactState.value = IMPACT;
+      setTonight.mockRejectedValueOnce(decisionRequired());
+      renderControl();
+      open();
+      fireEvent.click(screen.getAllByRole("button", { name: "Apply" })[0]!);
+      const step2 = await screen.findByRole("dialog", STEP2);
+      fireEvent.click(within(step2).getByRole("radio", { name: /Cancel, notify & refund/ }));
+      return step2;
+    }
+
+    it("drops the stale choice and reloads the bookings when a group changed", async () => {
+      const step2 = await toStep2();
+      setTonight.mockRejectedValueOnce(decisionRequired());
+      fireEvent.click(within(step2).getByRole("button", { name: "Close and cancel 2" }));
+
+      expect(
+        await within(step2).findByText(/bookings changed while you were deciding/i)
+      ).toBeTruthy();
+      expect(refetchImpact).toHaveBeenCalled();
+      expect(within(step2).getByRole("button", { name: "Choose for each group" })).toBeDisabled();
+    });
+
+    it("refreshes the calendar and names the winning change on a version conflict", async () => {
+      const step2 = await toStep2();
+      setTonight.mockRejectedValueOnce(conflict("version-conflict"));
+      fireEvent.click(within(step2).getByRole("button", { name: "Close and cancel 2" }));
+
+      expect(
+        await within(step2).findByText(/Availability changed since you opened this/)
+      ).toBeTruthy();
+      expect(refresh).toHaveBeenCalled();
+    });
+
+    it("reports the outcome in a toast and offers the call list", async () => {
+      const step2 = await toStep2();
+      setTonight.mockResolvedValueOnce({
+        ruleId: "rule-1",
+        outcomes: { cancel: 2, move: 0, keep_notify: 0, keep_silent: 0 },
+      });
+      fireEvent.click(within(step2).getByRole("button", { name: "Close and cancel 2" }));
+
+      expect(
+        await screen.findByText(/Closing early at 10:00 PM · 2 reservations notified/)
+      ).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Call list" }));
+      expect(await screen.findByRole("dialog", { name: "Call list" })).toBeInTheDocument();
+      expect(callListState.ruleIds).toContain(setTonight.mock.calls[0]![0].body.ruleId);
+    });
+
+    it("does not tell the Manager to change a field when the bookings could not be read", async () => {
+      impactError.value = new Error("boom");
+      impactState.value = null;
+      setTonight.mockRejectedValueOnce(decisionRequired());
+      renderControl();
+      open();
+      fireEvent.click(screen.getAllByRole("button", { name: "Apply" })[0]!);
+      const step2 = await screen.findByRole("dialog", STEP2);
+      expect(within(step2).queryByText(/Change a field/)).toBeNull();
+      fireEvent.click(within(step2).getByRole("button", { name: "Try again" }));
+      expect(refetchImpact).toHaveBeenCalled();
+    });
   });
 
   describe("desktop popover selects", () => {

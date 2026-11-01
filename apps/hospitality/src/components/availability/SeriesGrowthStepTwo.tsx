@@ -10,7 +10,7 @@ import type {
 import { useCreateClosure } from "../../hooks/useClosures.js";
 import { useNow } from "../../hooks/useNow.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { describeApiError } from "../../lib/describe-api-error.js";
+import { useRefreshAvailability } from "../../hooks/useRefreshAvailability.js";
 import { minutesOfDayIn } from "../../utils/service-day.js";
 import {
   decisionsReady,
@@ -21,6 +21,7 @@ import {
 } from "./close-draft.js";
 import { CloseStepTwo } from "./CloseStepTwo.js";
 import { outcomeLabel } from "./outcome-label.js";
+import { refusalOf, refusalText } from "./step-two-refusal.js";
 import styles from "./CloseDialog.module.css";
 
 export interface SeriesGrowthStepTwoProps {
@@ -36,6 +37,13 @@ export interface SeriesGrowthStepTwoProps {
   readonly impact: ClosureImpact;
   readonly onBack: () => void;
   readonly onClose: () => void;
+  /** A group's bookings changed: ask for the impact again and hand it back as `impact`. */
+  readonly onReload: () => Promise<void>;
+  /**
+   * Someone saved first. The edit was built from a config that is gone, so it cannot be sent
+   * again: the caller reloads the config and returns to the form with `message`.
+   */
+  readonly onStale: (message: string) => void;
 }
 
 /**
@@ -46,6 +54,7 @@ export interface SeriesGrowthStepTwoProps {
  */
 export function SeriesGrowthStepTwo(props: SeriesGrowthStepTwoProps) {
   const { venueId, state, timezone, today, rule, alongside, impact, onBack, onClose } = props;
+  const refresh = useRefreshAvailability();
   const { t } = useTranslation();
   const format = useVenueFormat();
   const { toast } = useToast();
@@ -53,6 +62,8 @@ export function SeriesGrowthStepTwo(props: SeriesGrowthStepTwoProps) {
   const { mutateAsync, isPending } = useCreateClosure();
   const [choices, setChoices] = useState<ChoiceMap>({});
   const [failure, setFailure] = useState<string | null>(null);
+  // This attempt's key already committed (a lost response): nothing more is sent from here.
+  const [savedEarlier, setSavedEarlier] = useState(false);
   // One key per dialog: a retry of the same save replays the first result.
   const [idempotencyKey] = useState(() => crypto.randomUUID());
 
@@ -94,7 +105,25 @@ export function SeriesGrowthStepTwo(props: SeriesGrowthStepTwoProps) {
       });
       onClose();
     } catch (error) {
-      setFailure(describeApiError(error).detail);
+      const refused = refusalOf(error);
+      const text = refusalText(refused, t);
+      if (refused.kind === "groups-changed") {
+        // The bookings changed since the Manager chose: drop the choices and load the new ones.
+        setChoices({});
+        setFailure(text);
+        await props.onReload().catch(() => undefined);
+        return;
+      }
+      if (refused.kind === "version-conflict") {
+        refresh();
+        props.onStale(text);
+        return;
+      }
+      if (refused.kind === "closure-exists") {
+        refresh();
+        setSavedEarlier(true);
+      }
+      setFailure(text);
     }
   };
 
@@ -115,7 +144,7 @@ export function SeriesGrowthStepTwo(props: SeriesGrowthStepTwoProps) {
           <Button
             variant="primary"
             isLoading={isPending}
-            disabled={!decisionsReady(impact.groups, choices)}
+            disabled={savedEarlier || !decisionsReady(impact.groups, choices)}
             onClick={() => void save()}
           >
             {outcomeLabel(outcomeCounts(impact.groups, choices), t)}

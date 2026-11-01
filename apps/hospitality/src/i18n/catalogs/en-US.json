@@ -1737,7 +1737,8 @@
       "phone": "Phone",
       "unnamed": "Unnamed guest",
       "print": "Print",
-      "close": "Close"
+      "close": "Close",
+      "date": "Date"
     },
     "add": {
       "open": "Add special date",
@@ -1954,7 +1955,8 @@
       "serviceLine": "{{name}} {{from}}–{{to}}",
       "nextDay": "{{time}} (next day)",
       "draftName": "unsaved changes",
-      "labelWithPeriod": "{{label}}, {{period}}"
+      "labelWithPeriod": "{{label}}, {{period}}",
+      "untilClose": "close"
     },
     "drawer": {
       "summaryOpen": "Open for {{services}}.",
@@ -2283,7 +2285,8 @@
       "window": {
         "label": "Starting at",
         "allDay": "All day",
-        "from": "From {{time}}"
+        "from": "From {{time}}",
+        "hostNote": "An emergency close covers the whole day. Only a manager can close from a set time."
       },
       "replaces": "{{date}} has special hours; the closure replaces them.",
       "impactLabel": "Bookings in this closure",
@@ -2292,8 +2295,8 @@
       "impact_many": "{{count}} reservations · {{guests}} guests are booked in this closure",
       "impactNone": "No reservations are booked in this closure.",
       "impactError": "Couldn't check existing reservations. Change a field to try again.",
-      "guestsWillSee": "Guests will see: {{date}} · Closed",
-      "guestsWillSeeMessage": "Guests will see: {{date}} · Closed · “{{message}}”",
+      "guestsWillSee": "Guests will see: {{date}} · {{status}}",
+      "guestsWillSeeMessage": "Guests will see: {{date}} · {{status}} · “{{message}}”",
       "button": {
         "close": "Close {{date}}",
         "pause": "Pause online booking",
@@ -2324,7 +2327,10 @@
           "keep_silent_one": "keep {{count}} silently",
           "keep_silent_other": "keep {{count}} silently",
           "keep_silent_many": "keep {{count}} silently"
-        }
+        },
+        "pausePhone": "Pause phone booking",
+        "pauseWaitlist": "Pause waitlist",
+        "pauseBooking": "Pause booking"
       },
       "toast": {
         "closed": "{{date}} closed",
@@ -2374,6 +2380,12 @@
         "loading": "Loading the bookings…",
         "loadFailed": "Couldn't load the bookings to decide on. Go back and try again.",
         "irreversible": "Guests are told right away. This can't be undone."
+      },
+      "status": {
+        "closed": "Closed",
+        "closedFrom": "Closed from {{time}}",
+        "serviceClosed": "{{service}} closed",
+        "serviceClosedFrom": "{{service}} closed from {{time}}"
       }
     },
     "paused": {
@@ -2427,7 +2439,9 @@
     "tonight": {
       "title": "Tonight",
       "decisions": {
-        "title": "Bookings after the new close"
+        "title": "Bookings after the new close",
+        "impactError": "Couldn't check the bookings after the new close.",
+        "retry": "Try again"
       },
       "open": "Tonight",
       "chips": "Tonight's changes",
@@ -2473,6 +2487,13 @@
         "pacing_one": "Pacing {{count}} cover",
         "pacing_other": "Pacing {{count}} covers",
         "pacing_many": "Pacing {{count}} covers"
+      },
+      "toast": {
+        "closed": "Closing early at {{time}}",
+        "closedNotified_one": "Closing early at {{time}} · {{count}} reservation notified",
+        "closedNotified_other": "Closing early at {{time}} · {{count}} reservations notified",
+        "closedNotified_many": "Closing early at {{time}} · {{count}} reservations notified",
+        "callList": "Call list"
       }
     },
     "venueTime": "Venue time ({{zone}})",

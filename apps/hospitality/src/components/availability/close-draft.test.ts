@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ClosureImpactGroup, DateRule } from "@mbe/types";
+import { EARLY_DINNER, fixtureConfig } from "./resolved-day-fixtures.js";
 import {
   actionsFor,
   activeOnlinePause,
@@ -7,6 +8,8 @@ import {
   decisionsReady,
   isUrgent,
   outcomeCounts,
+  replacedSpecialDate,
+  startMinutes,
   toDecisions,
   validateClose,
   type CloseForm,
@@ -264,5 +267,59 @@ describe("activeOnlinePause", () => {
     const late = rule({ startsOn: TODAY, window: { version: 1, from: 22 * 60, to: 2880 } });
     expect(activeOnlinePause([late], TODAY, NOON)).toBeNull();
     expect(activeOnlinePause([late], TODAY, 22 * 60)?.id).toBe("p1");
+  });
+});
+
+describe("replacedSpecialDate (#7978)", () => {
+  // 2026-12-25 is a Friday.
+  const special = [{ ...EARLY_DINNER, id: "sh", startsOn: "2026-12-25", endsOn: "2026-12-25" }];
+
+  it("finds special hours inside a range, not only on its first day", () => {
+    expect(replacedSpecialDate(special, { startsOn: "2026-12-20", endsOn: "2026-12-31" })).toBe(
+      "2026-12-25"
+    );
+    expect(
+      replacedSpecialDate(special, { startsOn: "2026-12-26", endsOn: "2026-12-31" })
+    ).toBeNull();
+  });
+
+  it("only counts the weekdays a repeat covers", () => {
+    const range = { startsOn: "2026-12-20", endsOn: "2026-12-31" };
+    expect(replacedSpecialDate(special, { ...range, repeat: { version: 1, weekdays: [5] } })).toBe(
+      "2026-12-25"
+    );
+    expect(
+      replacedSpecialDate(special, { ...range, repeat: { version: 1, weekdays: [1, 2] } })
+    ).toBeNull();
+  });
+
+  it("scans an open-ended closure forward", () => {
+    expect(replacedSpecialDate(special, { startsOn: "2026-12-01", endsOn: null })).toBe(
+      "2026-12-25"
+    );
+  });
+});
+
+describe("startMinutes (#7978)", () => {
+  const FRIDAY = "2026-12-25";
+  const late = (closesAt: number) => {
+    const base = fixtureConfig();
+    return { ...base, scheduleServices: base.scheduleServices.map((s) => ({ ...s, closesAt })) };
+  };
+  const TZ = "America/Los_Angeles";
+
+  it("offers the whole day in half hours when the day closes before midnight", () => {
+    const options = startMinutes(fixtureConfig(), TZ, FRIDAY, null);
+    expect(options).toHaveLength(48);
+    expect(options.at(-1)).toBe(1410);
+  });
+
+  it("continues past midnight to the half hour before a 2:00 AM close", () => {
+    const options = startMinutes(late(1560), TZ, FRIDAY, null);
+    expect(options.slice(-5)).toEqual([1410, 1440, 1470, 1500, 1530]);
+  });
+
+  it("keeps a start time the form already holds selectable", () => {
+    expect(startMinutes(fixtureConfig(), TZ, FRIDAY, 1500)).toContain(1500);
   });
 });

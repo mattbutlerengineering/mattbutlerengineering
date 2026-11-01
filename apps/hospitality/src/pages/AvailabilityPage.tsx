@@ -338,8 +338,13 @@ export function AvailabilityPage() {
       {(config.data?.source === "legacy" || config.data?.migrated) && (
         <AvailabilityMigrationBanner key={selectedVenueId} venueId={selectedVenueId} />
       )}
-      {pause && (
-        <OnlinePausedBanner venueId={selectedVenueId} ruleId={pause.id} canResume={isManager} />
+      {pause && config.data && (
+        <OnlinePausedBanner
+          venueId={selectedVenueId}
+          state={config.data}
+          rule={pause}
+          canResume={isManager}
+        />
       )}
       {failure && (
         <ErrorRetryBanner

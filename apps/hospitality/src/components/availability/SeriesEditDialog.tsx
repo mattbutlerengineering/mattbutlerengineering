@@ -163,6 +163,16 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
         {...growth}
         onBack={() => setGrowth(null)}
         onClose={onClose}
+        onReload={async () => {
+          const { rule, alongside } = growth;
+          const impact = await previewImpact.mutateAsync({ venueId, rule, alongside });
+          setGrowth((current) => (current ? { ...current, impact } : current));
+        }}
+        onStale={(message) => {
+          onStale();
+          setGrowth(null);
+          setPreviewFailure(message);
+        }}
       />
     );
   }

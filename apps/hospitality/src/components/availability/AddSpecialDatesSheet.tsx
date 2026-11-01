@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
 import {
   Alert,
   Button,
@@ -12,14 +11,12 @@ import {
   useToast,
 } from "@mattbutlerengineering/rialto";
 import {
-  AvailabilityConfigProblemSchema,
   GUEST_MESSAGE_MAX_LENGTH,
   type AvailabilityConfigState,
   type ClosureImpact,
 } from "@mbe/types";
 import { useCreateClosures, usePreviewClosureImpacts } from "../../hooks/useClosures.js";
 import { useNow } from "../../hooks/useNow.js";
-import { describeApiError } from "../../lib/describe-api-error.js";
 import { minutesOfDayIn } from "../../utils/service-day.js";
 import {
   combineImpacts,
@@ -36,6 +33,7 @@ import {
 import { AddDateRow } from "./AddDateRow.js";
 import { decisionsReady, isUrgent, outcomeCounts, type ChoiceMap } from "./close-draft.js";
 import { CloseStepTwo } from "./CloseStepTwo.js";
+import { refusalOf, refusalText } from "./step-two-refusal.js";
 import styles from "./AddSpecialDatesSheet.module.css";
 
 export interface AddSpecialDatesSheetProps {
@@ -49,18 +47,6 @@ export interface AddSpecialDatesSheetProps {
 }
 
 const SHARED_MESSAGE_ID = "add-dates-shared-message";
-
-function isVersionConflict(error: unknown): boolean {
-  const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
-  const problem = AvailabilityConfigProblemSchema.safeParse(details);
-  return problem.success && problem.data.code === "version-conflict";
-}
-
-function closureFailure(error: unknown, t: TFunction): string {
-  return isVersionConflict(error)
-    ? t("availability.close.versionConflict")
-    : describeApiError(error).detail;
-}
 
 /**
  * + Add special date (ux.md F6, S7 "Several dates"): rows of Closed, Special hours or Same as a
@@ -86,6 +72,8 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
   const [choices, setChoices] = useState<ChoiceMap>({});
   const [invalid, setInvalid] = useState<{ key: string; field: RowField } | null>(null);
   const [failure, setFailure] = useState<readonly string[]>([]);
+  // This sheet's key already committed (a lost response): nothing more is sent from it.
+  const [savedEarlier, setSavedEarlier] = useState(false);
   // One rule id per row and one key per sheet: a retried save never creates a rule twice.
   const [ruleIds] = useState(() => new Map<string, string>());
   const [idempotencyKey] = useState(() => crypto.randomUUID());
@@ -153,8 +141,29 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
       });
       onClose();
     } catch (error) {
-      setFailure([closureFailure(error, t), t("availabilitySpecial.add.nothingCancelled")]);
-      if (isVersionConflict(error)) {
+      const refused = refusalOf(error);
+      const text = refusalText(refused, t);
+      if (refused.kind === "groups-changed") {
+        // A group changed since the Manager chose: drop the choices and ask again on the new one.
+        setChoices({});
+        setFailure([text]);
+        try {
+          setImpacts(
+            await previewImpacts.mutateAsync({ venueId, rules: items.map((i) => i.rule) })
+          );
+        } catch {
+          setFailure([text, t("availability.close.impactError")]);
+        }
+        return;
+      }
+      if (refused.kind === "closure-exists") {
+        onStale();
+        setSavedEarlier(true);
+        setFailure([text]);
+        return;
+      }
+      setFailure([text, t("availabilitySpecial.add.nothingCancelled")]);
+      if (refused.kind === "version-conflict") {
         // Reload the config, and ask again from it: the impact and the version are both stale.
         onStale();
         setStep(1);
@@ -232,7 +241,9 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
             variant="primary"
             data-testid="add-dates-primary"
             isLoading={busy}
-            disabled={step === 2 ? !decisionsReady(combined.groups, choices) : false}
+            disabled={
+              savedEarlier || (step === 2 ? !decisionsReady(combined.groups, choices) : false)
+            }
             onClick={() => void (step === 2 ? save(impacts) : next())}
           >
             {label}

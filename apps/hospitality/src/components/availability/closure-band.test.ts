@@ -26,6 +26,16 @@ describe("closureBandText", () => {
     );
   });
 
+  it("ends a closure from a set time at close, not at 12:00 AM next day (#7978)", () => {
+    const fromTen = { ruleId: "r", targetKind: "venue" as const, from: 1320, to: 2880 };
+    expect(closureBandText(fromTen, t, format).text).toBe(
+      "availability.calendar.closedBand 22:00|availability.calendar.untilClose"
+    );
+    expect(closureBandText(fromTen, t, format).name).toBe(
+      "availability.calendar.closedBandName 22:00|availability.calendar.untilClose"
+    );
+  });
+
   it("does not call a booking pause closed", () => {
     expect(
       closureBandText({ ruleId: "r", targetKind: "booking", ...WHOLE_DAY }, t, format)

@@ -30,6 +30,7 @@ function CallListTable({ entries }: { readonly entries: readonly ClosureCallList
         <tr>
           <th scope="col">{t("availabilitySpecial.callList.name")}</th>
           <th scope="col">{t("availabilitySpecial.callList.party")}</th>
+          <th scope="col">{t("availabilitySpecial.callList.date")}</th>
           <th scope="col">{t("availabilitySpecial.callList.time")}</th>
           <th scope="col">{t("availabilitySpecial.callList.phone")}</th>
         </tr>
@@ -39,6 +40,13 @@ function CallListTable({ entries }: { readonly entries: readonly ClosureCallList
           <tr key={entry.outcomeId}>
             <td>{entry.guestName ?? t("availabilitySpecial.callList.unnamed")}</td>
             <td>{entry.partySize}</td>
+            <td>
+              {format.formatInstant(entry.startTime, {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+              })}
+            </td>
             <td>{format.formatTime(entry.startTime)}</td>
             <td>{entry.guestPhone ?? "—"}</td>
           </tr>

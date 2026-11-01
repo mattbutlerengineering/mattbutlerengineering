@@ -1766,7 +1766,8 @@
       "phone": "Teléfono",
       "unnamed": "Cliente sin nombre",
       "print": "Imprimir",
-      "close": "Cerrar"
+      "close": "Cerrar",
+      "date": "Fecha"
     },
     "add": {
       "open": "Agregar fecha especial",
@@ -1994,7 +1995,8 @@
       "serviceLine": "{{name}} {{from}}–{{to}}",
       "nextDay": "{{time}} (día siguiente)",
       "draftName": "cambios sin guardar",
-      "labelWithPeriod": "{{label}}, {{period}}"
+      "labelWithPeriod": "{{label}}, {{period}}",
+      "untilClose": "cierre"
     },
     "drawer": {
       "summaryOpen": "Abierto para {{services}}.",
@@ -2338,7 +2340,8 @@
       "window": {
         "label": "Desde las",
         "allDay": "Todo el día",
-        "from": "Desde {{time}}"
+        "from": "Desde {{time}}",
+        "hostNote": "Un cierre de emergencia abarca todo el día. Solo un gerente puede cerrar desde una hora determinada."
       },
       "replaces": "El {{date}} tiene horario especial; el cierre lo reemplaza.",
       "impactLabel": "Reservas en este cierre",
@@ -2347,8 +2350,8 @@
       "impact_many": "{{count}} de reservaciones · {{guests}} comensales tienen reserva en este cierre",
       "impactNone": "No hay reservaciones en este cierre.",
       "impactError": "No se pudieron revisar las reservaciones existentes. Cambia un campo para reintentar.",
-      "guestsWillSee": "Los comensales verán: {{date}} · Cerrado",
-      "guestsWillSeeMessage": "Los comensales verán: {{date}} · Cerrado · “{{message}}”",
+      "guestsWillSee": "Los comensales verán: {{date}} · {{status}}",
+      "guestsWillSeeMessage": "Los comensales verán: {{date}} · {{status}} · “{{message}}”",
       "button": {
         "close": "Cerrar {{date}}",
         "pause": "Pausar reservas en línea",
@@ -2379,7 +2382,10 @@
           "keep_silent_one": "mantener {{count}} sin avisar",
           "keep_silent_other": "mantener {{count}} sin avisar",
           "keep_silent_many": "mantener {{count}} sin avisar"
-        }
+        },
+        "pausePhone": "Pausar reservas por teléfono",
+        "pauseWaitlist": "Pausar lista de espera",
+        "pauseBooking": "Pausar reservas"
       },
       "toast": {
         "closed": "{{date}} cerrado",
@@ -2429,6 +2435,12 @@
         "loading": "Cargando las reservaciones…",
         "loadFailed": "No se pudieron cargar las reservaciones. Regresa e inténtalo de nuevo.",
         "irreversible": "Se avisa a los comensales de inmediato. No se puede deshacer."
+      },
+      "status": {
+        "closed": "Cerrado",
+        "closedFrom": "Cerrado desde las {{time}}",
+        "serviceClosed": "{{service}} cerrado",
+        "serviceClosedFrom": "{{service}} cerrado desde las {{time}}"
       }
     },
     "paused": {
@@ -2482,7 +2494,9 @@
     "tonight": {
       "title": "Esta noche",
       "decisions": {
-        "title": "Reservas después del nuevo cierre"
+        "title": "Reservas después del nuevo cierre",
+        "impactError": "No se pudieron revisar las reservas posteriores al nuevo cierre.",
+        "retry": "Intentar de nuevo"
       },
       "open": "Esta noche",
       "chips": "Cambios de esta noche",
@@ -2528,6 +2542,13 @@
         "pacing_one": "Ritmo de {{count}} cubierto",
         "pacing_other": "Ritmo de {{count}} cubiertos",
         "pacing_many": "Ritmo de {{count}} cubiertos"
+      },
+      "toast": {
+        "closed": "Cierre anticipado a las {{time}}",
+        "closedNotified_one": "Cierre anticipado a las {{time}} · {{count}} reserva notificada",
+        "closedNotified_other": "Cierre anticipado a las {{time}} · {{count}} reservas notificadas",
+        "closedNotified_many": "Cierre anticipado a las {{time}} · {{count}} reservas notificadas",
+        "callList": "Lista de llamadas"
       }
     },
     "venueTime": "Hora del local ({{zone}})",

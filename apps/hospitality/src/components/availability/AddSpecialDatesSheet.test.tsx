@@ -61,9 +61,38 @@ const result = (ruleId: string, cancel: number, keep: number) => ({
   outcomes: { cancel, move: 0, keep_notify: keep, keep_silent: 0 },
 });
 
-function renderSheet() {
+/** The fixture week plus a Saturday that closes at 8:00 PM, so a second weekday has other hours. */
+function withSaturday() {
+  const base = fixtureConfig();
+  return {
+    ...base,
+    schedules: [
+      ...base.schedules,
+      { id: "sat", name: "Saturday", kind: "regular" as const, isRegular: false },
+    ],
+    scheduleServices: [
+      ...base.scheduleServices,
+      {
+        id: "ss-sat",
+        scheduleId: "sat",
+        venueServiceId: "vs-dinner",
+        opensAt: 1020,
+        lastSeatingAt: 1100,
+        closesAt: 1200,
+        seating: { version: 1 as const, interval: 15 },
+        bookingTypes: ["online" as const],
+      },
+    ],
+    assignments: [
+      ...base.assignments,
+      { id: "as-sat", scheduleId: "sat", weekdays: [6], precedence: 1 },
+    ],
+  };
+}
+
+function renderSheet(config = fixtureConfig()) {
   const onStale = vi.fn();
-  const state: AvailabilityConfigState = { config: fixtureConfig(), version: 7, source: "rows" };
+  const state: AvailabilityConfigState = { config, version: 7, source: "rows" };
   const onClose = vi.fn();
   render(
     <ToastProvider>
@@ -297,6 +326,67 @@ describe("AddSpecialDatesSheet", () => {
     // Back on Step 1 with a fresh preview due, not a retry of the stale save.
     expect(primary().textContent).toBe("Next");
     expect(create).toHaveBeenCalledTimes(1);
+  });
+
+  const problem = (status: number, code: string) => ({
+    message: code,
+    problemDetails: { type: "about:blank", title: code, status, detail: "Refused.", code },
+  });
+
+  it("asks again on the fresh bookings when a group changed before the save", async () => {
+    preview
+      .mockResolvedValueOnce([impact("2026-12-24", 2)])
+      .mockResolvedValueOnce([impact("2026-12-24", 3)]);
+    create.mockRejectedValueOnce(problem(422, "decision-required"));
+    renderSheet();
+    await pickDate(0, "2026-12-24");
+    fireEvent.click(primary());
+    await screen.findByText(/closed · 2 bookings/);
+    fireEvent.click(screen.getByRole("radio", { name: /Cancel, notify & refund/ }));
+    fireEvent.click(primary());
+
+    expect(await screen.findByText(/bookings changed while you were deciding/i)).toBeTruthy();
+    // The new group replaces the old one, and the old choice is gone.
+    await screen.findByText(/closed · 3 bookings/);
+    expect(preview).toHaveBeenCalledTimes(2);
+    expect(primary().textContent).toBe("Choose for each group");
+    // Deciding again sends the fresh reservation ids, not the first group's.
+    create.mockResolvedValue({ version: 8, results: [result("a", 3, 0)] });
+    fireEvent.click(screen.getByRole("radio", { name: /Cancel, notify & refund/ }));
+    fireEvent.click(primary());
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+    expect(create.mock.calls[1]![0].body.items[0].decisions[0].reservationIds).toHaveLength(3);
+  });
+
+  it("refreshes and stops when the attempt had already been saved", async () => {
+    preview.mockResolvedValue([impact("2026-12-24", 2)]);
+    create.mockRejectedValueOnce(problem(409, "closure-exists"));
+    const { onStale } = renderSheet();
+    await pickDate(0, "2026-12-24");
+    fireEvent.click(primary());
+    await screen.findByText(/closed · 2 bookings/);
+    fireEvent.click(screen.getByRole("radio", { name: /Cancel, notify & refund/ }));
+    fireEvent.click(primary());
+
+    expect(await screen.findByText(/already saved/i)).toBeTruthy();
+    expect(onStale).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/No booking was cancelled/)).toBeNull();
+  });
+
+  it("refreshes the special hours to the new date's weekday when the date changes (#7978)", async () => {
+    preview.mockResolvedValue([impact("2026-12-26", 0)]);
+    create.mockResolvedValue({ version: 8, results: [result("a", 0, 0)] });
+    renderSheet(withSaturday());
+    await pickDate(0, "2026-12-25"); // a Friday: dinner closes at 11:00 PM
+    fireEvent.click(screen.getByRole("radio", { name: "Special hours" }));
+    await pickDate(0, "2026-12-26"); // a Saturday: dinner closes at 8:00 PM
+    fireEvent.click(primary());
+
+    await waitFor(() => expect(preview).toHaveBeenCalledTimes(1));
+    const dinner = preview.mock.calls[0]![0].rules[0].payload.services.find(
+      (service: { venueServiceId: string }) => service.venueServiceId === "vs-dinner"
+    );
+    expect(dinner.closesAt).toBe(1200);
   });
 
   it("blocks Next on a missing date", () => {

@@ -56,23 +56,27 @@ export function AddDateRow(props: AddDateRowProps) {
   const ownWeekday = (date: string, fallback: number) => (date ? weekdayIndexOf(date) : fallback);
 
   const chooseKind = (kind: RowKind) => {
-    const services =
-      kind === "same"
-        ? seed(row.sameAs)
-        : kind === "hours" && row.services.length === 0
-          ? seed(ownWeekday(row.date, row.sameAs))
-          : row.services;
-    onChange({ ...row, kind, services });
+    if (kind === "same") {
+      return onChange({ ...row, kind, services: seed(row.sameAs), seededFor: undefined });
+    }
+    if (kind === "hours" && row.services.length === 0) {
+      const weekday = ownWeekday(row.date, row.sameAs);
+      return onChange({ ...row, kind, services: seed(weekday), seededFor: weekday });
+    }
+    onChange({ ...row, kind });
   };
 
   const chooseDate = (date: string) => {
     const weekday = ownWeekday(date, row.sameAs);
+    // Hours still as copied from a weekday follow the date; hours the Manager edited stay theirs.
+    const follows =
+      row.kind === "hours" && (row.services.length === 0 || row.seededFor !== undefined);
     onChange({
       ...row,
       date,
-      // "Same as" starts on the date's own weekday; hours rows that are still empty get its hours.
+      // "Same as" starts on the date's own weekday.
       sameAs: row.kind === "closed" ? weekday : row.sameAs,
-      services: row.kind === "hours" && row.services.length === 0 ? seed(weekday) : row.services,
+      ...(follows ? { services: seed(weekday), seededFor: weekday } : {}),
     });
   };
 
@@ -156,7 +160,7 @@ export function AddDateRow(props: AddDateRowProps) {
               venueServices={config.venueServices}
               date={row.date || undefined}
               allowNew={false}
-              onChange={(services) => onChange({ ...row, services })}
+              onChange={(services) => onChange({ ...row, services, seededFor: undefined })}
             />
           </div>
           {invalid === "hours" && (

@@ -39,6 +39,7 @@ vi.mock("../../hooks/useClosures.js", () => ({
   useCreateClosure: () => ({ mutateAsync: createClosure, isPending: false }),
 }));
 const revertChange = vi.hoisted(() => vi.fn());
+vi.mock("../../hooks/useRefreshAvailability.js", () => ({ useRefreshAvailability: () => vi.fn() }));
 
 vi.mock("../../hooks/useAvailability.js", () => ({
   useSaveAvailabilityConfig: () => ({ mutateAsync: saveConfig, isPending: false }),
@@ -1308,6 +1309,35 @@ describe("SpecialDatesTab", () => {
     expect(within(dialog).getByText("Rivera")).toBeTruthy();
     expect(within(dialog).getByText("+15555550100")).toBeTruthy();
     expect(within(dialog).getAllByRole("row")).toHaveLength(2);
+  });
+
+  it("shows the date of each booking, since one list can span several days (#7978)", () => {
+    summaries.value = [summary("mondays", { unreachable: 2 })];
+    callList.value = [
+      {
+        outcomeId: "o-1",
+        reservationId: "r-1",
+        guestName: "Rivera",
+        partySize: 4,
+        startTime: "2027-01-06T01:30:00.000Z",
+        guestPhone: "+15555550100",
+      },
+      {
+        outcomeId: "o-2",
+        reservationId: "r-2",
+        guestName: "Okafor",
+        partySize: 2,
+        startTime: "2027-01-13T01:30:00.000Z",
+        guestPhone: null,
+      },
+    ];
+    renderTab();
+    fireEvent.click(screen.getByRole("button", { name: /^Call list for/ }));
+
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("columnheader", { name: "Date" })).toBeTruthy();
+    expect(within(dialog).getByText("Tue, Jan 5")).toBeTruthy();
+    expect(within(dialog).getByText("Tue, Jan 12")).toBeTruthy();
   });
 
   it("prints the call list from a chrome-free copy, only while the dialog is open", () => {

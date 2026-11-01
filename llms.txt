@@ -1562,6 +1562,20 @@
       export function buildCloseRule(form: CloseForm, id: string, today: string): DateRule | null { /* ... */ }
     </item>
     <item priority="high">
+      export function replacedSpecialDate(
+        rules: readonly DateRule[],
+        closure: Pick<DateRule, "startsOn" | "endsOn" | "repeat">
+      ): string | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function startMinutes(
+        config: AvailabilityConfig,
+        timezone: string,
+        date: string,
+        keep: number | null
+      ): readonly number[] { /* ... */ }
+    </item>
+    <item priority="high">
       export function sameRequest(a: CloseForm, b: CloseForm): boolean { /* ... */ }
     </item>
     <item priority="high">
@@ -2457,6 +2471,17 @@
         summaries: readonly ClosureSummary[],
         listedRuleIds: readonly string[]
       ): ClosureSummary[] { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/step-two-refusal.ts">
+    <item priority="low">
+      type Refusal = { readonly kind: "groups-chang | { readonly kind: "version-conf | { readonly kind: "closure-exis | { readonly kind: "other"; read;
+    </item>
+    <item priority="high">
+      export function refusalOf(error: unknown): Refusal { /* ... */ }
+    </item>
+    <item priority="high">
+      export function refusalText(refusal: Refusal, t: TFunction): string { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/tonight-state.ts">
