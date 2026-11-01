@@ -14,6 +14,7 @@ import {
   editHoursRule,
   editSeriesDates,
   growsSeries,
+  growthAttempt,
   growthClosure,
   isSeries,
   nextOccurrence,
@@ -172,6 +173,24 @@ describe("growsSeries", () => {
     expect(growsSeries(SERIES, { weekdays: [], endsOn: "2026-12-31" })).toBe(false);
     expect(growsSeries(SERIES, { weekdays: [5], endsOn: "2026-11-30" })).toBe(false);
     expect(growsSeries({ ...SERIES, endsOn: null }, { weekdays: [5], endsOn: null })).toBe(false);
+  });
+});
+
+describe("growthAttempt", () => {
+  it("renames the draft and the rows that moved onto it, and nothing else", () => {
+    const moved = { id: "skip-1", kind: "skip", seriesId: "draft" } as DateRule;
+    const other = { id: "kept", kind: "closure", seriesId: "older" } as DateRule;
+    const rule = { id: "draft", kind: "closure" } as DateRule;
+
+    const attempt = growthAttempt(
+      { rule, alongside: { upsert: [moved, other], remove: ["s"] } },
+      "n"
+    );
+
+    expect(attempt.rule.id).toBe("n");
+    expect(attempt.alongside.upsert).toEqual([{ ...moved, seriesId: "n" }, other]);
+    expect(attempt.alongside.remove).toEqual(["s"]);
+    expect(rule.id).toBe("draft");
   });
 });
 

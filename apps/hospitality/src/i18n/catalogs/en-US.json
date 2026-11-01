@@ -1703,7 +1703,9 @@
       "alreadySkipped": "This date is already skipped.",
       "restore": "Restore this date",
       "restoreDate": "Restore {{date}}",
-      "restoredToast": "{{date}} restored. The series closes it again."
+      "restoredToast": "{{date}} restored. The series closes it again.",
+      "changed": "Someone else changed this series. The days and end date below are now theirs, so check them before saving.",
+      "gone": "Someone else removed this repeating closure, so there is nothing left to edit."
     },
     "rowStranded_one": "{{count}} booking would be left without service by this change. Nothing was cancelled.",
     "rowStranded_other": "{{count}} bookings would be left without service by this change. Nothing was cancelled.",
@@ -1737,7 +1739,8 @@
       "phone": "Phone",
       "unnamed": "Unnamed guest",
       "print": "Print",
-      "close": "Close"
+      "close": "Close",
+      "date": "Date"
     },
     "add": {
       "open": "Add special date",
@@ -1770,7 +1773,13 @@
       "savedNotified_one": "{{count}} special date saved · {{notified}} notified",
       "savedNotified_other": "{{count}} special dates saved · {{notified}} notified",
       "savedNotified_many": "{{count}} special dates saved · {{notified}} notified",
-      "nothingCancelled": "No booking was cancelled and no guest was told. Fix this and save again."
+      "nothingCancelled": "No booking was cancelled and no guest was told. Fix this and save again.",
+      "maybeSaved": "We couldn't confirm this save. It may have gone through and cancelled guests. Save again without changes to see what happened, or check Special dates.",
+      "savedEarlier": {
+        "title": "Already saved",
+        "body": "An earlier try for {{dates}} was saved: {{summary}}. Guests were handled as that try chose; changes you made afterwards did not apply. Open Special dates to see the outcome.",
+        "bodyPlain": "An earlier try for {{dates}} was saved. Changes you made afterwards did not apply. Open Special dates to see the outcome."
+      }
     }
   },
   "availabilitySchedules": {
@@ -1954,7 +1963,8 @@
       "serviceLine": "{{name}} {{from}}–{{to}}",
       "nextDay": "{{time}} (next day)",
       "draftName": "unsaved changes",
-      "labelWithPeriod": "{{label}}, {{period}}"
+      "labelWithPeriod": "{{label}}, {{period}}",
+      "untilClose": "close"
     },
     "drawer": {
       "summaryOpen": "Open for {{services}}.",
@@ -2232,6 +2242,7 @@
       "versionConflict": "Availability changed since you opened this. Close this dialog and try again.",
       "groupsChanged": "The bookings changed while you were deciding. Review the updated list and choose again.",
       "alreadySaved": "This closure was already saved, and its bookings handled. Check Special dates before closing again.",
+      "maybeSaved": "The reservations service hit a snag, so we couldn't confirm this save. It may have gone through. Try again without changes to see what happened.",
       "savedEarlier": {
         "title": "Already closed",
         "body": "An earlier try of this closure was saved: {{summary}}. Guests were handled as that try chose; changes you made afterwards did not apply. Open Special dates to see the outcome.",
@@ -2283,7 +2294,8 @@
       "window": {
         "label": "Starting at",
         "allDay": "All day",
-        "from": "From {{time}}"
+        "from": "From {{time}}",
+        "hostNote": "An emergency close covers the whole day. Only a manager can close from a set time."
       },
       "replaces": "{{date}} has special hours; the closure replaces them.",
       "impactLabel": "Bookings in this closure",
@@ -2292,8 +2304,8 @@
       "impact_many": "{{count}} reservations · {{guests}} guests are booked in this closure",
       "impactNone": "No reservations are booked in this closure.",
       "impactError": "Couldn't check existing reservations. Change a field to try again.",
-      "guestsWillSee": "Guests will see: {{date}} · Closed",
-      "guestsWillSeeMessage": "Guests will see: {{date}} · Closed · “{{message}}”",
+      "guestsWillSee": "Guests will see: {{date}} · {{status}}",
+      "guestsWillSeeMessage": "Guests will see: {{date}} · {{status}} · “{{message}}”",
       "button": {
         "close": "Close {{date}}",
         "pause": "Pause online booking",
@@ -2324,7 +2336,10 @@
           "keep_silent_one": "keep {{count}} silently",
           "keep_silent_other": "keep {{count}} silently",
           "keep_silent_many": "keep {{count}} silently"
-        }
+        },
+        "pausePhone": "Pause phone booking",
+        "pauseWaitlist": "Pause waitlist",
+        "pauseBooking": "Pause booking"
       },
       "toast": {
         "closed": "{{date}} closed",
@@ -2374,6 +2389,12 @@
         "loading": "Loading the bookings…",
         "loadFailed": "Couldn't load the bookings to decide on. Go back and try again.",
         "irreversible": "Guests are told right away. This can't be undone."
+      },
+      "status": {
+        "closed": "Closed",
+        "closedFrom": "Closed from {{time}}",
+        "serviceClosed": "{{service}} closed",
+        "serviceClosedFrom": "{{service}} closed from {{time}}"
       }
     },
     "paused": {
@@ -2427,7 +2448,14 @@
     "tonight": {
       "title": "Tonight",
       "decisions": {
-        "title": "Bookings after the new close"
+        "title": "Bookings after the new close",
+        "impactError": "Couldn't check the bookings after the new close.",
+        "retry": "Try again",
+        "discardMaybeSaved": "The last save didn't finish, so it may have gone through and cancelled guests. Check tonight's changes before closing again.",
+        "savedEarlier": {
+          "body": "An earlier try was saved: {{summary}}. Guests were handled as that try chose; changes you made afterwards did not apply.",
+          "bodyPlain": "An earlier try was saved. Changes you made afterwards did not apply."
+        }
       },
       "open": "Tonight",
       "chips": "Tonight's changes",
@@ -2473,6 +2501,13 @@
         "pacing_one": "Pacing {{count}} cover",
         "pacing_other": "Pacing {{count}} covers",
         "pacing_many": "Pacing {{count}} covers"
+      },
+      "toast": {
+        "closed": "Closing early at {{time}}",
+        "closedNotified_one": "Closing early at {{time}} · {{count}} reservation notified",
+        "closedNotified_other": "Closing early at {{time}} · {{count}} reservations notified",
+        "closedNotified_many": "Closing early at {{time}} · {{count}} reservations notified",
+        "callList": "Call list"
       }
     },
     "venueTime": "Venue time ({{zone}})",

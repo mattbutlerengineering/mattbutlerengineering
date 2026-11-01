@@ -1562,6 +1562,35 @@
       export function buildCloseRule(form: CloseForm, id: string, today: string): DateRule | null { /* ... */ }
     </item>
     <item priority="high">
+      type ClosureSpan = Pick<DateRule, "startsOn" | "endsOn" | "repeat">;
+    </item>
+    <item priority="high">
+      export function firstDateOf(when: CloseWhen, today: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function guestDateOf(when: CloseWhen, today: string): string | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closedDates(closure: ClosureSpan): readonly string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function replacedSpecialDate(
+        rules: readonly DateRule[],
+        closure: ClosureSpan
+      ): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function distinctDays(config: AvailabilityConfig, dates: readonly string[]): readonly string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function startMinutes(
+        config: AvailabilityConfig,
+        timezone: string,
+        dates: readonly string[],
+        keep: number | null
+      ): readonly number[] { /* ... */ }
+    </item>
+    <item priority="high">
       export function sameRequest(a: CloseForm, b: CloseForm): boolean { /* ... */ }
     </item>
     <item priority="high">
@@ -1596,7 +1625,8 @@
     </item>
     <item priority="high">
       export function activeOnlinePause(
-        rules: readonly DateRule[],
+        config: AvailabilityConfig,
+        timezone: string,
         today: string,
         nowMinute: number
       ): DateRule | null { /* ... */ }
@@ -2363,6 +2393,9 @@
       export function nextOccurrence(series: DateRule, from: string): string { /* ... */ }
     </item>
     <item priority="high">
+      export function sameRow(a: DateRule, b: DateRule): boolean { /* ... */ }
+    </item>
+    <item priority="high">
       export function dateOverride(
         rules: readonly DateRule[],
         seriesId: string,
@@ -2396,6 +2429,12 @@
         date: string,
         edit: SeriesEdit,
         makeId: () => string
+      ): { rule: DateRule; alongside: ClosureAlongside } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function growthAttempt(
+        plan: { readonly rule: DateRule; readonly alongside: ClosureAlongside },
+        ruleId: string
       ): { rule: DateRule; alongside: ClosureAlongside } { /* ... */ }
     </item>
     <item priority="high">
@@ -2457,6 +2496,21 @@
         summaries: readonly ClosureSummary[],
         listedRuleIds: readonly string[]
       ): ClosureSummary[] { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/step-two-refusal.ts">
+    <item priority="low">
+      type Refusal = { readonly kind: "groups-chang | { readonly kind: "version-conf | { readonly kind: "closure-exis | {
+            readonly kind: "other";
+    </item>
+    <item priority="high">
+      export function refusalOf(error: unknown): Refusal { /* ... */ }
+    </item>
+    <item priority="high">
+      export function mayHaveSaved(refusal: Refusal): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function refusalText(refusal: Refusal, t: TFunction): string { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/tonight-state.ts">
@@ -2533,6 +2587,29 @@
   <file path="apps/hospitality/src/components/availability/use-discard-guard.ts">
     <item priority="high">
       export function useDiscardGuard<T>(apply: (next: T) => void, derivedDirty?: boolean) { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/use-save-attempts.ts">
+    <item priority="low">
+      interface TriedAttempt {
+        key: string;
+        ruleIds: readonly string[];
+        dates: readonly string[];
+        summary: string;
+      }
+    </item>
+    <item priority="low">
+      interface SaveAttemptsOptions {
+        firstRuleId?: string;
+        reload: () => void;
+        onLeave: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function useSaveAttempts(rules: readonly DateRule[], options: SaveAttemptsOptions) { /* ... */ }
+    </item>
+    <item priority="low">
+      type SaveAttempts = ReturnType<typeof useSaveAttempts>;
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/use-schedule-save.ts">
@@ -26509,6 +26586,9 @@
     </item>
     <item priority="high">
       export function minutesOfDayIn(instant: Date, timeZone?: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function serviceMinuteOf(instant: Date, timeZone: string, serviceDate: string): number { /* ... */ }
     </item>
     <item priority="high">
       export function venueWallClock(timeZone: string, now: Date): VenueWallClock | null { /* ... */ }
