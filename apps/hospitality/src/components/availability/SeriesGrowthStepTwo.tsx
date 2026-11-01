@@ -20,8 +20,10 @@ import {
   type ChoiceMap,
 } from "./close-draft.js";
 import { CloseStepTwo } from "./CloseStepTwo.js";
-import { outcomeLabel } from "./outcome-label.js";
+import { outcomeLabel, outcomeSummary } from "./outcome-label.js";
+import { growthAttempt } from "./series-edit.js";
 import { refusalOf, refusalText } from "./step-two-refusal.js";
+import type { SaveAttempts } from "./use-save-attempts.js";
 import styles from "./CloseDialog.module.css";
 
 export interface SeriesGrowthStepTwoProps {
@@ -35,6 +37,8 @@ export interface SeriesGrowthStepTwoProps {
   readonly alongside: ClosureAlongside;
   /** The bookings the edited series would newly close. */
   readonly impact: ClosureImpact;
+  /** Held by `SeriesEditDialog`: going Back must not forget a save that may have gone through. */
+  readonly attempts: SaveAttempts;
   readonly onBack: () => void;
   readonly onClose: () => void;
   /** A group's bookings changed: ask for the impact again and hand it back as `impact`. */
@@ -53,7 +57,8 @@ export interface SeriesGrowthStepTwoProps {
  * together or not at all.
  */
 export function SeriesGrowthStepTwo(props: SeriesGrowthStepTwoProps) {
-  const { venueId, state, timezone, today, rule, alongside, impact, onBack, onClose } = props;
+  const { venueId, state, timezone, today, rule, alongside, impact, attempts, onBack, onClose } =
+    props;
   const refresh = useRefreshAvailability();
   const { t } = useTranslation();
   const format = useVenueFormat();
@@ -64,8 +69,6 @@ export function SeriesGrowthStepTwo(props: SeriesGrowthStepTwoProps) {
   const [failure, setFailure] = useState<string | null>(null);
   // This attempt's key already committed (a lost response): nothing more is sent from here.
   const [savedEarlier, setSavedEarlier] = useState(false);
-  // One key per dialog: a retry of the same save replays the first result.
-  const [idempotencyKey] = useState(() => crypto.randomUUID());
 
   const firstDate = impact.groups[0]?.date ?? rule.startsOn;
   const urgent = isUrgent(
@@ -76,14 +79,14 @@ export function SeriesGrowthStepTwo(props: SeriesGrowthStepTwoProps) {
 
   const save = async () => {
     setFailure(null);
+    attempts.record(outcomeSummary(outcomeCounts(impact.groups, choices), t));
     try {
       const result = await mutateAsync({
         venueId,
-        idempotencyKey,
+        idempotencyKey: attempts.idempotencyKey,
         body: {
           expectedVersion: state.version,
-          rule,
-          alongside,
+          ...growthAttempt({ rule, alongside }, attempts.ruleId),
           decisions: toDecisions(impact.groups, choices),
         },
       });
@@ -114,6 +117,7 @@ export function SeriesGrowthStepTwo(props: SeriesGrowthStepTwoProps) {
         await props.onReload().catch(() => undefined);
         return;
       }
+      attempts.failed();
       if (refused.kind === "version-conflict") {
         refresh();
         props.onStale(text);
@@ -130,7 +134,7 @@ export function SeriesGrowthStepTwo(props: SeriesGrowthStepTwoProps) {
   return (
     <Dialog
       open
-      onClose={onClose}
+      onClose={() => attempts.leave(isPending)}
       title={t("availabilitySpecial.series.title")}
       description={t("availability.close.step", { step: 2 })}
       footer={
@@ -138,7 +142,7 @@ export function SeriesGrowthStepTwo(props: SeriesGrowthStepTwoProps) {
           <Text variant="caption" color="secondary" className={styles.footerNote}>
             {t("availability.close.step2.irreversible")}
           </Text>
-          <Button variant="secondary" onClick={onBack}>
+          <Button variant="secondary" disabled={isPending} onClick={onBack}>
             {t("availability.close.back")}
           </Button>
           <Button
@@ -162,7 +166,11 @@ export function SeriesGrowthStepTwo(props: SeriesGrowthStepTwoProps) {
         choices={choices}
         urgent={urgent}
         guestMessage={rule.guestMessage ?? ""}
-        onChoose={(key, choice) => setChoices({ ...choices, [key]: choice })}
+        onChoose={(key, choice) => {
+          attempts.edited(choices[key], choice);
+          setChoices({ ...choices, [key]: choice });
+          attempts.setDirty(true);
+        }}
       />
     </Dialog>
   );

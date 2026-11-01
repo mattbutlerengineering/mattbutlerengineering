@@ -188,3 +188,121 @@ for (const { width, height } of sizes) {
     await expect(callList.getByText("Rivera")).toBeVisible();
   });
 }
+
+test("Tonight decisions: a changed choice after a lost response shows what really applied", async ({
+  mockedPage,
+}) => {
+  const today = venueToday();
+  await mockedPage.clock.setFixedTime(new Date(`${today}T19:30:00-04:00`));
+  await mockTonight(mockedPage, today);
+  const venues = JSON.parse(loadFixture("venues-list")) as { data: Array<{ id: string }> };
+  const base = `**/api/v1/venues/${String(venues.data[0]?.id)}`;
+
+  // The first save with decisions commits and its response is lost; the config then shows it.
+  let committed: string | null = null;
+  let sends = 0;
+  await mockedPage.route(`${base}/availability/config`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: {
+          config: {
+            schedules: [{ id: "regular", name: "Regular week", kind: "regular", isRegular: true }],
+            venueServices: [{ id: "vs-dinner", name: "Dinner", position: 0 }],
+            scheduleServices: [
+              {
+                id: "ss-dinner",
+                scheduleId: "regular",
+                venueServiceId: "vs-dinner",
+                ...DINNER,
+                seating: { version: 1, interval: 15 },
+                bookingTypes: ["online", "phone"],
+              },
+            ],
+            assignments: [
+              { id: "as", scheduleId: "regular", weekdays: [0, 1, 2, 3, 4, 5, 6], precedence: 0 },
+            ],
+            dateRules: committed
+              ? [
+                  {
+                    id: committed,
+                    kind: "tonight",
+                    targetKind: "venue",
+                    startsOn: today,
+                    endsOn: today,
+                    expiresAt: `${today}T23:59:00Z`,
+                    payload: { version: 1, closeAt: 1320 },
+                  },
+                ]
+              : [],
+          },
+          version: committed ? 8 : 7,
+          source: "rows",
+        },
+      }),
+    })
+  );
+  await mockedPage.route(`${base}/tonight`, (route) => {
+    const body = route.request().postDataJSON() as { ruleId: string; decisions?: unknown[] };
+    sends += 1;
+    if (!body.decisions) {
+      return route.fulfill({
+        status: 422,
+        contentType: "application/problem+json",
+        body: JSON.stringify({
+          type: "about:blank",
+          title: "decision-required",
+          status: 422,
+          detail: "Every affected group needs a choice.",
+          code: "decision-required",
+          groupKeys: [`${today}:shortened`],
+        }),
+      });
+    }
+    if (committed === null || committed === body.ruleId) {
+      committed = body.ruleId;
+      return route.abort("connectionreset");
+    }
+    return route.fulfill({
+      status: 409,
+      contentType: "application/problem+json",
+      body: JSON.stringify({
+        type: "about:blank",
+        title: "Conflict",
+        status: 409,
+        detail: "Availability changed since you loaded it.",
+        code: "version-conflict",
+      }),
+    });
+  });
+  await mockedPage.goto("timeline");
+
+  await mockedPage.getByRole("button", { name: /^Tonight(?!'s)/ }).click();
+  await mockedPage.getByRole("button", { name: "Apply", exact: true }).first().click();
+  const dialog = mockedPage.getByRole("dialog", { name: "Bookings after the new close" });
+  await expect(dialog.getByText(/Guest 1/)).toBeVisible();
+
+  await dialog
+    .locator("label")
+    .filter({ has: mockedPage.getByRole("radio", { name: /Cancel, notify & refund/ }) })
+    .click();
+  await dialog.getByRole("button", { name: "Close and cancel 3" }).click();
+  await expect(dialog.getByText(/Can't reach/)).toBeVisible({ timeout: 40_000 });
+
+  await dialog
+    .locator("label")
+    .filter({ has: mockedPage.getByRole("radio", { name: "Keep them and notify" }) })
+    .click();
+  await dialog.getByRole("button", { name: "Close and keep 3" }).click();
+
+  await expect(dialog.getByText(/An earlier try was saved: cancel 3/)).toBeVisible();
+  await expect(dialog.getByRole("radio")).toHaveCount(0);
+  await expect(
+    mockedPage.getByRole("region", { name: "Notifications" }).getByText(/notified/)
+  ).toHaveCount(0);
+  expect(sends).toBeGreaterThanOrEqual(3);
+
+  await dialog.getByRole("button", { name: "Done" }).click();
+  await expect(dialog).toBeHidden();
+});

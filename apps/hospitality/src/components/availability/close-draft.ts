@@ -159,9 +159,15 @@ export function replacedSpecialDate(
   return null;
 }
 
+/** The first date a closure actually covers: a repeat's start date may not be one of its days. */
+export function firstClosedDate(closure: Pick<DateRule, "startsOn" | "endsOn" | "repeat">): string {
+  return firstOccurrenceOnOrAfter(closure, closure.startsOn) ?? closure.startsOn;
+}
+
 /**
- * The start times "Starting at" offers: every half hour of the day, then, when the day's last
- * service runs past midnight, the half hours after it up to its close (shown as "next day").
+ * The start times "Starting at" offers: every half hour of the day. When the day's last service
+ * runs past midnight, the half hours after it up to its close (shown as "next day"), and none
+ * before the day opens: a plain "1:00 AM" reads as after midnight but closes the whole evening.
  * `keep` is a time the form already holds (a series' own), which must stay selectable.
  */
 export function startMinutes(
@@ -173,10 +179,12 @@ export function startMinutes(
   const { services } = resolveDay({ timezone, config }, date);
   const lastClose = services.reduce((max, s) => Math.max(max, s.closesAt), 0);
   const end = Math.max(lastClose, keep ?? 0);
+  const firstOpen = services.reduce((min, s) => Math.min(min, s.opensAt), MINUTES_PER_DAY);
+  const first = lastClose > MINUTES_PER_DAY ? firstOpen - (firstOpen % HALF_HOUR) : 0;
   const options: number[] = [];
   // Starting at the close itself closes nothing, so the last option is the half hour before it.
   for (
-    let m = 0;
+    let m = first;
     m < Math.min(Math.max(end, MINUTES_PER_DAY), END_OF_SERVICE_DAY);
     m += HALF_HOUR
   ) {
@@ -276,7 +284,10 @@ export function isUrgent(
 /**
  * The online pause in force now, whose banner offers Resume (ux.md F5 step 9). Only the shape
  * the Pause button creates counts: online, open-ended and not repeating, so Resume never deletes
- * a dated or recurring closure. A start time holds the pause back until it is reached.
+ * a dated or recurring closure. A start time holds the pause back until it is reached, and it counts
+ * from the service day's midnight: past 24:00 it is reached on the clock of the day after, and a
+ * pause that started on an earlier day is still in force from yesterday's service day.
+ * `today` and `nowMinute` are the venue's civil date and minute.
  */
 export function activeOnlinePause(
   rules: readonly DateRule[],
@@ -292,7 +303,9 @@ export function activeOnlinePause(
         r.startsOn <= today &&
         (r.endsOn === null || r.endsOn === undefined) &&
         !r.repeat &&
-        (!r.window || r.window.from <= nowMinute)
+        (!r.window ||
+          r.window.from <= nowMinute ||
+          (r.startsOn < today && r.window.from <= nowMinute + MINUTES_PER_DAY))
     ) ?? null
   );
 }

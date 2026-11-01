@@ -31,7 +31,9 @@ import {
   skipDate,
   type SeriesScope,
 } from "./series-edit.js";
+import { LeaveSaveDialog } from "./LeaveSaveDialog.js";
 import { SeriesGrowthStepTwo } from "./SeriesGrowthStepTwo.js";
+import { useSaveAttempts } from "./use-save-attempts.js";
 import { useScheduleSave } from "./use-schedule-save.js";
 import styles from "./CloseDialog.module.css";
 
@@ -45,6 +47,7 @@ const WEEK = [1, 2, 3, 4, 5, 6, 0] as const;
 export interface SeriesEditDialogProps {
   readonly venueId: string;
   readonly state: AvailabilityConfigState;
+  /** The series as it was opened; `state.config` is what is true now. */
   readonly series: DateRule;
   readonly timezone: string;
   /** Today on the venue clock. */
@@ -62,7 +65,11 @@ export interface SeriesEditDialogProps {
  * stranded; editing one date to something else goes through the closure flow.
  */
 export function SeriesEditDialog(props: SeriesEditDialogProps) {
-  const { venueId, state, series, timezone, today, onStale, onEditDate, onClose } = props;
+  const { venueId, state, timezone, today, onStale, onEditDate, onClose } = props;
+  // The state can reload under the dialog (a conflict, a refetch), so the series is read from it
+  // on every render: a plan built from the one captured on open would overwrite the winner's edit.
+  const live = state.config.dateRules.find((r) => r.id === props.series.id);
+  const series = live ?? props.series;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const { toast } = useToast();
@@ -78,6 +85,18 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
   const previewImpact = usePreviewClosureImpact();
   const [previewFailure, setPreviewFailure] = useState<string | null>(null);
   const [growth, setGrowth] = useState<(GrowthPlan & { impact: ClosureImpact }) | null>(null);
+  const attempts = useSaveAttempts(state.config.dateRules, { reload: onStale, onLeave: onClose });
+  const [seen, setSeen] = useState(series);
+  const [changedUnderneath, setChangedUnderneath] = useState(false);
+  if (JSON.stringify(seen) !== JSON.stringify(series)) {
+    // Someone else changed it. The fields follow, and any plan built from the old row is void.
+    setSeen(series);
+    setWeekdays(series.repeat?.weekdays ?? []);
+    setEndsOn(series.endsOn ?? null);
+    setGrowth(null);
+    setPreviewFailure(null);
+    setChangedUnderneath(true);
+  }
 
   const label = (d: string) =>
     format.formatCalendarDate(d, { weekday: "short", month: "short", day: "numeric" });
@@ -147,33 +166,75 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
     try {
       const impact = await previewImpact.mutateAsync({ venueId, ...plan });
       if (impact.groups.length === 0) return await saveAsConfig();
+      // A new plan is a new request: a retry must not replay the save of an earlier one.
+      attempts.restart(plan.rule.id);
       setGrowth({ ...plan, impact });
     } catch (error) {
       setPreviewFailure(describeApiError(error).detail);
     }
   };
 
+  const notice = (alert: React.ReactNode) => (
+    <Dialog
+      open
+      onClose={attempts.finish}
+      title={t("availabilitySpecial.series.title")}
+      footer={
+        <div className={styles.footer}>
+          <Button variant="primary" onClick={attempts.finish}>
+            {t("availability.close.savedEarlier.done")}
+          </Button>
+        </div>
+      }
+    >
+      {alert}
+    </Dialog>
+  );
+
+  const { earlier } = attempts;
+  if (earlier) {
+    // The first attempt's choices are what applied, even if the series is now gone because of it.
+    return notice(
+      <Alert variant="info" title={t("availability.close.savedEarlier.title")}>
+        {earlier.summary
+          ? t("availability.close.savedEarlier.body", { summary: earlier.summary })
+          : t("availability.close.savedEarlier.bodyPlain")}
+      </Alert>
+    );
+  }
+  if (!live) {
+    return notice(<Alert variant="warning">{t("availabilitySpecial.series.gone")}</Alert>);
+  }
+
   if (growth) {
     return (
-      <SeriesGrowthStepTwo
-        venueId={venueId}
-        state={state}
-        timezone={timezone}
-        today={today}
-        {...growth}
-        onBack={() => setGrowth(null)}
-        onClose={onClose}
-        onReload={async () => {
-          const { rule, alongside } = growth;
-          const impact = await previewImpact.mutateAsync({ venueId, rule, alongside });
-          setGrowth((current) => (current ? { ...current, impact } : current));
-        }}
-        onStale={(message) => {
-          onStale();
-          setGrowth(null);
-          setPreviewFailure(message);
-        }}
-      />
+      <>
+        <SeriesGrowthStepTwo
+          venueId={venueId}
+          state={state}
+          timezone={timezone}
+          today={today}
+          {...growth}
+          attempts={attempts}
+          onBack={() => {
+            // The choices go with Step 2; only a save that was sent is still worth a warning.
+            if (attempts.tried.length === 0) attempts.setDirty(false);
+            setGrowth(null);
+          }}
+          onClose={onClose}
+          onReload={async () => {
+            const { rule, alongside } = growth;
+            const impact = await previewImpact.mutateAsync({ venueId, rule, alongside });
+            setGrowth((current) => (current ? { ...current, impact } : current));
+          }}
+          onStale={(message) => {
+            onStale();
+            setGrowth(null);
+            setPreviewFailure(message);
+          }}
+        />
+        <LeaveSaveDialog attempts={attempts} />
+      </>
     );
   }
 
@@ -188,110 +249,116 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
   );
 
   return (
-    <Dialog
-      open
-      onClose={onClose}
-      title={t("availabilitySpecial.series.title")}
-      footer={
-        <div className={styles.footer}>
-          <Button variant="secondary" onClick={onClose}>
-            {t("availabilitySpecial.series.cancel")}
-          </Button>
-          {scope === "only" ? (
-            <>
-              <Button variant="secondary" onClick={editThis}>
-                {t("availabilitySpecial.series.editThis")}
-              </Button>
-              <Button variant="primary" isLoading={isPending} onClick={skip}>
-                {t("availabilitySpecial.series.skip")}
-              </Button>
-            </>
-          ) : (
-            <Button
-              variant="primary"
-              isLoading={isPending || previewImpact.isPending}
-              onClick={saveSeries}
-            >
-              {t("availabilitySpecial.series.save")}
+    <>
+      <Dialog
+        open
+        onClose={() => attempts.leave()}
+        title={t("availabilitySpecial.series.title")}
+        footer={
+          <div className={styles.footer}>
+            <Button variant="secondary" onClick={() => attempts.leave()}>
+              {t("availabilitySpecial.series.cancel")}
             </Button>
-          )}
-        </div>
-      }
-    >
-      {(failure.length > 0 || previewFailure) && (
-        <Alert variant="error">
-          {[...failure, ...(previewFailure ? [previewFailure] : [])].map((message) => (
-            <div key={message}>{message}</div>
-          ))}
-        </Alert>
-      )}
-      {dateField(
-        date,
-        (next) => {
-          // Every alert above was about the previous date.
-          setInvalid(null);
-          setDate(next);
-        },
-        t("availabilitySpecial.series.dateLabel")
-      )}
-      {invalid === "skipped" && (
-        <Alert variant="warning">
-          <div>{t("availabilitySpecial.series.alreadySkipped")}</div>
-          <Button
-            variant="secondary"
-            size="sm"
-            isLoading={isPending}
-            onClick={() => void restore()}
-          >
-            {t("availabilitySpecial.series.restore")}
-          </Button>
-        </Alert>
-      )}
-      {invalid === "taken" && (
-        <Alert variant="warning">{t("availabilitySpecial.series.dateChanged")}</Alert>
-      )}
-      {invalid === "date" && (
-        <Alert variant="warning">{t("availabilitySpecial.series.invalidDate")}</Alert>
-      )}
-      <RadioGroup
-        label={t("availabilitySpecial.series.scopeLabel")}
-        name="series-scope"
-        value={scope}
-        onChange={(value) => setScope(value as Scope)}
+            {scope === "only" ? (
+              <>
+                <Button variant="secondary" onClick={editThis}>
+                  {t("availabilitySpecial.series.editThis")}
+                </Button>
+                <Button variant="primary" isLoading={isPending} onClick={skip}>
+                  {t("availabilitySpecial.series.skip")}
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="primary"
+                isLoading={isPending || previewImpact.isPending}
+                onClick={saveSeries}
+              >
+                {t("availabilitySpecial.series.save")}
+              </Button>
+            )}
+          </div>
+        }
       >
-        <Radio
-          value="only"
-          label={t("availabilitySpecial.series.scopeOnly", { date: label(date) })}
-        />
-        <Radio value="following" label={t("availabilitySpecial.series.scopeFollowing")} />
-        <Radio value="all" label={t("availabilitySpecial.series.scopeAll")} />
-      </RadioGroup>
-      {scope !== "only" && (
-        <>
-          <fieldset className={styles.weekdays}>
-            <legend className={styles.legend}>{t("availabilitySpecial.series.weekdays")}</legend>
-            {WEEK.map((day) => (
-              <Checkbox
-                key={day}
-                label={format.formatCalendarDate(addDays(SUNDAY, day), { weekday: "short" })}
-                checked={weekdays.includes(day)}
-                onCheckedChange={(on) =>
-                  setWeekdays(on ? [...weekdays, day] : weekdays.filter((d) => d !== day))
-                }
-              />
+        {changedUnderneath && (
+          <Alert variant="warning">{t("availabilitySpecial.series.changed")}</Alert>
+        )}
+        {(failure.length > 0 || previewFailure) && (
+          <Alert variant="error">
+            {[...failure, ...(previewFailure ? [previewFailure] : [])].map((message) => (
+              <div key={message}>{message}</div>
             ))}
-          </fieldset>
-          {dateField(
-            endsOn ?? "",
-            (v) => setEndsOn(v || null),
-            t("availabilitySpecial.series.endsLabel"),
-            today
-          )}
-          {invalid === "edit" && (
-            <Alert variant="warning">{t("availabilitySpecial.series.invalid")}</Alert>
-          )}
-        </>
-      )}
-    </Dialog>
+          </Alert>
+        )}
+        {dateField(
+          date,
+          (next) => {
+            // Every alert above was about the previous date.
+            setInvalid(null);
+            setDate(next);
+          },
+          t("availabilitySpecial.series.dateLabel")
+        )}
+        {invalid === "skipped" && (
+          <Alert variant="warning">
+            <div>{t("availabilitySpecial.series.alreadySkipped")}</div>
+            <Button
+              variant="secondary"
+              size="sm"
+              isLoading={isPending}
+              onClick={() => void restore()}
+            >
+              {t("availabilitySpecial.series.restore")}
+            </Button>
+          </Alert>
+        )}
+        {invalid === "taken" && (
+          <Alert variant="warning">{t("availabilitySpecial.series.dateChanged")}</Alert>
+        )}
+        {invalid === "date" && (
+          <Alert variant="warning">{t("availabilitySpecial.series.invalidDate")}</Alert>
+        )}
+        <RadioGroup
+          label={t("availabilitySpecial.series.scopeLabel")}
+          name="series-scope"
+          value={scope}
+          onChange={(value) => setScope(value as Scope)}
+        >
+          <Radio
+            value="only"
+            label={t("availabilitySpecial.series.scopeOnly", { date: label(date) })}
+          />
+          <Radio value="following" label={t("availabilitySpecial.series.scopeFollowing")} />
+          <Radio value="all" label={t("availabilitySpecial.series.scopeAll")} />
+        </RadioGroup>
+        {scope !== "only" && (
+          <>
+            <fieldset className={styles.weekdays}>
+              <legend className={styles.legend}>{t("availabilitySpecial.series.weekdays")}</legend>
+              {WEEK.map((day) => (
+                <Checkbox
+                  key={day}
+                  label={format.formatCalendarDate(addDays(SUNDAY, day), { weekday: "short" })}
+                  checked={weekdays.includes(day)}
+                  onCheckedChange={(on) =>
+                    setWeekdays(on ? [...weekdays, day] : weekdays.filter((d) => d !== day))
+                  }
+                />
+              ))}
+            </fieldset>
+            {dateField(
+              endsOn ?? "",
+              (v) => setEndsOn(v || null),
+              t("availabilitySpecial.series.endsLabel"),
+              today
+            )}
+            {invalid === "edit" && (
+              <Alert variant="warning">{t("availabilitySpecial.series.invalid")}</Alert>
+            )}
+          </>
+        )}
+      </Dialog>
+      <LeaveSaveDialog attempts={attempts} />
+    </>
   );
 }

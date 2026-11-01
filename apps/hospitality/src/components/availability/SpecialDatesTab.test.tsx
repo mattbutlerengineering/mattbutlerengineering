@@ -54,6 +54,7 @@ vi.mock("../../contexts/VenueContext.js", () => ({
   }),
 }));
 
+import { VenueContext, type VenueContextValue } from "../../contexts/venue-context-object.js";
 import { SpecialDatesTab } from "./SpecialDatesTab.js";
 import { EARLY_DINNER, fixtureConfig } from "./resolved-day-fixtures.js";
 
@@ -100,20 +101,27 @@ const STATE = {
   },
 } as unknown as AvailabilityConfigState;
 
+/** `useVenueFormat` reads this context, so times are on the venue clock in any test zone. */
+const VENUE = {
+  selectedVenue: { id: "venue-1", ianaTimezone: "America/Los_Angeles", currencyCode: "USD" },
+} as VenueContextValue;
+
 function tabElement(isManager = true, state: AvailabilityConfigState = STATE) {
   return (
-    <ToastProvider>
-      <main>
-        <SpecialDatesTab
-          venueId="venue-1"
-          state={state}
-          timezone="America/Los_Angeles"
-          today="2026-12-01"
-          onStale={vi.fn()}
-          isManager={isManager}
-        />
-      </main>
-    </ToastProvider>
+    <VenueContext.Provider value={VENUE}>
+      <ToastProvider>
+        <main>
+          <SpecialDatesTab
+            venueId="venue-1"
+            state={state}
+            timezone="America/Los_Angeles"
+            today="2026-12-01"
+            onStale={vi.fn()}
+            isManager={isManager}
+          />
+        </main>
+      </ToastProvider>
+    </VenueContext.Provider>
   );
 }
 

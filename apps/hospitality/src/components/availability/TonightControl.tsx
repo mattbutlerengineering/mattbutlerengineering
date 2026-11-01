@@ -40,7 +40,7 @@ import {
   type TonightChange,
 } from "./tonight-state.js";
 import { currentServiceDate } from "../../utils/current-service-date.js";
-import { minutesOfDayIn, venueDate } from "../../utils/service-day.js";
+import { serviceMinuteOf } from "../../utils/service-day.js";
 import styles from "./TonightControl.module.css";
 
 export interface TonightControlProps {
@@ -58,7 +58,6 @@ type TonightBody = SetTonightRequest["change"];
 
 /**`MinuteSchema` allows a service day up to two days of minutes (ADR-029). */
 const MAX_MINUTE = 2880;
-const MINUTES_PER_DAY = 1440;
 const ALL_TABLES = "all";
 const PICK_TABLES = "pick";
 const UNSET = "unset";
@@ -203,8 +202,7 @@ export function TonightControl(props: TonightControlProps) {
   const activeTables = tables.filter((tb) => tb.isActive);
   const blockIds = tableTargets(tables, blockTarget, pickedTables);
   // "Now" is the current minute of the service day; past midnight on the same service day it is 1440+.
-  const nowServiceMinute =
-    minutesOfDayIn(now, timezone) + (venueDate(now, timezone) > today ? MINUTES_PER_DAY : 0);
+  const nowServiceMinute = serviceMinuteOf(now, timezone, today);
   const effectiveFrom = blockFrom ?? nowServiceMinute;
   const blockWindowInvalid = blockTo !== null && blockTo <= effectiveFrom;
   const tonightMinutes = tonightTimeMinutes(state.config, timezone, today);
@@ -270,9 +268,9 @@ export function TonightControl(props: TonightControlProps) {
       }
     );
 
-  const confirmDecisions = async (decisions: ClosureDecision[]) => {
+  const confirmDecisions = async (decisions: ClosureDecision[], ruleId: string) => {
     if (!needsDecisions) return;
-    const { ruleId, closeAt: closedAt } = needsDecisions;
+    const { closeAt: closedAt } = needsDecisions;
     const result = await setTonight.mutateAsync({
       venueId,
       body: {
@@ -550,10 +548,12 @@ export function TonightControl(props: TonightControlProps) {
         <TonightDecisionsDialog
           venueId={venueId}
           rule={closeEarlyRule(needsDecisions.ruleId, today, needsDecisions.closeAt)}
+          rules={rules}
           today={today}
           closeAt={needsDecisions.closeAt}
           nowMinute={nowServiceMinute}
           onConfirm={confirmDecisions}
+          onCallList={setCallListFor}
           onClose={() => setNeedsDecisions(null)}
         />
       )}

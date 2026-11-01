@@ -4,7 +4,9 @@ import { Banner, Button, useToast } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState, DateRule } from "@mbe/types";
 import { useSaveAvailabilityConfig } from "../../hooks/useAvailability.js";
 import { useReopenClosure } from "../../hooks/useClosures.js";
+import { useRefreshAvailability } from "../../hooks/useRefreshAvailability.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
+import { conflictOf } from "./conflict-problem.js";
 
 export interface OnlinePausedBannerProps {
   readonly venueId: string;
@@ -21,6 +23,7 @@ export function OnlinePausedBanner({ venueId, state, rule, canResume }: OnlinePa
   const { toast } = useToast();
   const reopen = useReopenClosure();
   const saveConfig = useSaveAvailabilityConfig();
+  const refresh = useRefreshAvailability();
   const [resuming, setResuming] = useState(false);
   const others = (rule.bookingTypes ?? []).filter((channel) => channel !== "online");
 
@@ -42,6 +45,8 @@ export function OnlinePausedBanner({ venueId, state, rule, canResume }: OnlinePa
       }
       toast({ title: t("availability.paused.resumed"), variant: "success" });
     } catch (error) {
+      // A retry must not resend the version that just lost.
+      if (conflictOf(error)?.code === "version-conflict") refresh();
       toast({
         title: t("availability.paused.resumeError"),
         description: describeApiError(error).detail,

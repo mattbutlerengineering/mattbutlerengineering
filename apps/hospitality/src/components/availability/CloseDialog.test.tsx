@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, it, expect, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, within, fireEvent, waitFor } from "@testing-library/react";
 import { axe } from "vitest-axe";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
@@ -1008,6 +1008,35 @@ describe("CloseDialog", () => {
         version: 1,
         from: 1500,
         to: 2880,
+      });
+    });
+
+    it("offers them from the closure's first real date, not the From date of a repeat (#7978)", () => {
+      // 2026-12-21 is a Monday, with no service; the repeat first falls on Friday the 25th.
+      renderDialog({ state: overnightState(), initialDate: "2026-12-21" });
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("radio", { name: "Repeats" }));
+      fireEvent.click(within(dialog).getByRole("checkbox", { name: "Fri" }));
+      fireEvent.click(within(dialog).getByRole("combobox", { name: "Starting at" }));
+      expect(screen.getByRole("option", { name: "From 1:30 AM (next day)" })).toBeTruthy();
+    });
+
+    describe("Step 2 at 01:05 on Friday's service (#7978)", () => {
+      beforeEach(() => {
+        vi.useFakeTimers({ toFake: ["Date"] });
+        vi.setSystemTime(new Date("2026-12-26T09:05:00Z")); // 1:05 AM Saturday in Los Angeles
+      });
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      it("shows the Urgent notice for a start later that night", () => {
+        renderDialog({ state: overnightState(), today: FRIDAY, initialDate: FRIDAY });
+        const dialog = screen.getByRole("dialog");
+        fireEvent.click(within(dialog).getByRole("combobox", { name: "Starting at" }));
+        fireEvent.click(screen.getByRole("option", { name: "From 1:30 AM (next day)" }));
+        fireEvent.click(within(dialog).getByTestId("close-primary"));
+        expect(within(dialog).getByText(/^Urgent/)).toBeTruthy();
       });
     });
 

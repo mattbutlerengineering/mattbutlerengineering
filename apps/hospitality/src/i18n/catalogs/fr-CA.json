@@ -1731,7 +1731,9 @@
       "alreadySkipped": "Cette date est déjà ignorée.",
       "restore": "Rétablir cette date",
       "restoreDate": "Rétablir le {{date}}",
-      "restoredToast": "{{date}} rétablie. La série la ferme de nouveau."
+      "restoredToast": "{{date}} rétablie. La série la ferme de nouveau.",
+      "changed": "Quelqu'un d'autre a modifié cette série. Les jours et la date de fin ci-dessous sont maintenant les siens; vérifiez-les avant d'enregistrer.",
+      "gone": "Quelqu'un d'autre a retiré cette fermeture récurrente; il n'y a plus rien à modifier."
     },
     "rowStranded_one": "{{count}} réservation resterait sans service avec ce changement. Rien n’a été annulé.",
     "rowStranded_other": "{{count}} réservations resteraient sans service avec ce changement. Rien n’a été annulé.",
@@ -1800,7 +1802,13 @@
       "savedNotified_one": "{{count}} date spéciale enregistrée · {{notified}} avisés",
       "savedNotified_other": "{{count}} dates spéciales enregistrées · {{notified}} avisés",
       "savedNotified_many": "{{count}} dates spéciales enregistrées · {{notified}} avisés",
-      "nothingCancelled": "Aucune réservation n’a été annulée et aucun client n’a été avisé. Corrigez et enregistrez à nouveau."
+      "nothingCancelled": "Aucune réservation n’a été annulée et aucun client n’a été avisé. Corrigez et enregistrez à nouveau.",
+      "maybeSaved": "Impossible de confirmer cet enregistrement. Il a peut-être été appliqué et des réservations annulées. Enregistrez de nouveau sans modification pour voir ce qui s'est passé, ou consultez les dates spéciales.",
+      "savedEarlier": {
+        "title": "Déjà enregistré",
+        "body": "Un essai précédent de ces dates a été enregistré : {{summary}}. Les clients ont été traités selon les choix de cet essai; les modifications faites ensuite n'ont pas été appliquées. Ouvrez les dates spéciales pour voir le résultat.",
+        "bodyPlain": "Un essai précédent de ces dates a été enregistré. Les modifications faites ensuite n'ont pas été appliquées. Ouvrez les dates spéciales pour voir le résultat."
+      }
     }
   },
   "availabilitySchedules": {
@@ -2496,7 +2504,12 @@
       "decisions": {
         "title": "Réservations après la nouvelle fermeture",
         "impactError": "Impossible de vérifier les réservations après la nouvelle fermeture.",
-        "retry": "Réessayer"
+        "retry": "Réessayer",
+        "discardMaybeSaved": "Le dernier enregistrement ne s'est pas terminé; il a peut-être été appliqué et des réservations annulées. Consultez les changements de ce soir avant de fermer de nouveau.",
+        "savedEarlier": {
+          "body": "Un essai précédent a été enregistré : {{summary}}. Les clients ont été traités selon les choix de cet essai; les modifications faites ensuite n'ont pas été appliquées.",
+          "bodyPlain": "Un essai précédent a été enregistré. Les modifications faites ensuite n'ont pas été appliquées."
+        }
       },
       "open": "Ce soir",
       "chips": "Changements de ce soir",

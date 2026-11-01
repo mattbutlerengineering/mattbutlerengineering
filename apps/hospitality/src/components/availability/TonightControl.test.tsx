@@ -152,8 +152,8 @@ function stateWith(...rules: DateRule[]): AvailabilityConfigState {
   return { config: fixtureConfig(...rules), version: 7, source: "rows" };
 }
 
-function renderControl(props: Partial<TonightControlProps> = {}) {
-  return render(
+function controlElement(props: Partial<TonightControlProps> = {}) {
+  return (
     <MemoryRouter>
       <ToastProvider>
         <main>
@@ -171,6 +171,10 @@ function renderControl(props: Partial<TonightControlProps> = {}) {
       </ToastProvider>
     </MemoryRouter>
   );
+}
+
+function renderControl(props: Partial<TonightControlProps> = {}) {
+  return render(controlElement(props));
 }
 
 function open() {
@@ -507,6 +511,107 @@ describe("TonightControl", () => {
         await within(step2).findByText(/Availability changed since you opened this/)
       ).toBeTruthy();
       expect(refresh).toHaveBeenCalled();
+    });
+
+    describe("a save whose response was lost (#7978)", () => {
+      const lost = () => new TypeError("Failed to fetch");
+      const CANCEL = { name: "Close and cancel 2" };
+      const KEEP = { name: "Close and keep 2" };
+      const ruleIdOf = (call: number) => setTonight.mock.calls[call]![0].body.ruleId;
+
+      async function lostThenKeep(step2: HTMLElement) {
+        setTonight
+          .mockRejectedValueOnce(lost())
+          .mockRejectedValueOnce(conflict("version-conflict"));
+        fireEvent.click(within(step2).getByRole("button", CANCEL));
+        await within(step2).findByText(/Can't reach/);
+        fireEvent.click(within(step2).getByRole("radio", { name: "Keep them and notify" }));
+        fireEvent.click(within(step2).getByRole("button", KEEP));
+      }
+
+      it("retries an unchanged choice under the same rule id, which replays the truth", async () => {
+        const step2 = await toStep2();
+        setTonight.mockRejectedValueOnce(lost()).mockResolvedValueOnce({
+          ruleId: "r",
+          outcomes: { cancel: 2, move: 0, keep_notify: 0, keep_silent: 0 },
+        });
+        fireEvent.click(within(step2).getByRole("button", CANCEL));
+        await within(step2).findByText(/Can't reach/);
+        fireEvent.click(within(step2).getByRole("button", CANCEL));
+
+        await waitFor(() => expect(setTonight).toHaveBeenCalledTimes(3));
+        expect(ruleIdOf(2)).toBe(ruleIdOf(1));
+      });
+
+      it("sends a changed choice as a new attempt, never a replay of the old one", async () => {
+        const step2 = await toStep2();
+        await lostThenKeep(step2);
+
+        await waitFor(() => expect(setTonight).toHaveBeenCalledTimes(3));
+        expect(ruleIdOf(2)).not.toBe(ruleIdOf(1));
+        expect(setTonight.mock.calls[2]![0].body.decisions[0].action).toBe("keep_notify");
+      });
+
+      it("shows what really applied once the reload finds the earlier try saved", async () => {
+        impactState.value = IMPACT;
+        setTonight.mockRejectedValueOnce(decisionRequired());
+        const view = renderControl();
+        open();
+        fireEvent.click(screen.getAllByRole("button", { name: "Apply" })[0]!);
+        const step2 = await screen.findByRole("dialog", STEP2);
+        fireEvent.click(within(step2).getByRole("radio", { name: /Cancel, notify & refund/ }));
+        await lostThenKeep(step2);
+        await waitFor(() => expect(refresh).toHaveBeenCalled());
+
+        const saved = {
+          id: ruleIdOf(1),
+          kind: "tonight",
+          targetKind: "venue",
+          startsOn: TODAY,
+          endsOn: TODAY,
+          payload: { version: 1, closeAt: 1320 },
+        } as DateRule;
+        view.rerender(controlElement({ state: { ...stateWith(saved), version: 8 } }));
+
+        expect(await within(step2).findByText(/An earlier try was saved: cancel 2/)).toBeTruthy();
+        expect(within(step2).queryByRole("radio")).toBeNull();
+        expect(within(step2).queryByRole("button", KEEP)).toBeNull();
+        fireEvent.click(within(step2).getByRole("button", { name: "Call list" }));
+        expect(await screen.findByRole("dialog", { name: "Call list" })).toBeInTheDocument();
+        expect(callListState.ruleIds).toContain(ruleIdOf(1));
+      });
+
+      it("warns and reloads when the Manager leaves after it", async () => {
+        const step2 = await toStep2();
+        setTonight.mockRejectedValueOnce(lost());
+        fireEvent.click(within(step2).getByRole("button", CANCEL));
+        await within(step2).findByText(/Can't reach/);
+        refresh.mockClear();
+
+        fireEvent.click(within(step2).getByRole("button", { name: "Cancel" }));
+
+        const ask = screen.getByRole("dialog", { name: "Leave this closure?" });
+        expect(within(ask).getByText(/may have gone through/)).toBeTruthy();
+        expect(refresh).not.toHaveBeenCalled();
+        fireEvent.click(within(ask).getByRole("button", { name: "Leave" }));
+        expect(screen.queryByRole("dialog", STEP2)).toBeNull();
+        expect(refresh).toHaveBeenCalled();
+      });
+
+      it("leaves without asking or reloading when nothing was saved or chosen", async () => {
+        impactState.value = IMPACT;
+        setTonight.mockRejectedValueOnce(decisionRequired());
+        renderControl();
+        open();
+        fireEvent.click(screen.getAllByRole("button", { name: "Apply" })[0]!);
+        const step2 = await screen.findByRole("dialog", STEP2);
+        refresh.mockClear();
+
+        fireEvent.click(within(step2).getByRole("button", { name: "Cancel" }));
+
+        expect(screen.queryByRole("dialog", STEP2)).toBeNull();
+        expect(refresh).not.toHaveBeenCalled();
+      });
     });
 
     it("reports the outcome in a toast and offers the call list", async () => {

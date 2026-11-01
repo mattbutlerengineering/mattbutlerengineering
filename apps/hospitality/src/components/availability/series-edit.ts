@@ -136,6 +136,25 @@ export function growthClosure(
 }
 
 /**
+ * The plan under another rule id, for a new attempt of the same save: the draft and the rows that
+ * moved onto it are renamed together, or the moved rows would point at nothing.
+ */
+export function growthAttempt(
+  plan: { readonly rule: DateRule; readonly alongside: ClosureAlongside },
+  ruleId: string
+): { rule: DateRule; alongside: ClosureAlongside } {
+  return {
+    rule: { ...plan.rule, id: ruleId },
+    alongside: {
+      ...plan.alongside,
+      upsert: plan.alongside.upsert.map((r) =>
+        r.seriesId === plan.rule.id ? { ...r, seriesId: ruleId } : r
+      ),
+    },
+  };
+}
+
+/**
  * Change the hours of a range or repeating special-hours rule (ux.md F-SER). "All dates" edits
  * the rule itself. "This and following" ends it the day before `date` and starts a new rule on
  * `date` with the edited hours; from the rule's first date it is the same as "All dates". The

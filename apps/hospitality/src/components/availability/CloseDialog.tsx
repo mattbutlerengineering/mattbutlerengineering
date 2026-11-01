@@ -12,10 +12,11 @@ import { useClosureImpact, useCreateClosure } from "../../hooks/useClosures.js";
 import { useNow } from "../../hooks/useNow.js";
 import { useRefreshAvailability } from "../../hooks/useRefreshAvailability.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { minutesOfDayIn } from "../../utils/service-day.js";
+import { serviceMinuteOf } from "../../utils/service-day.js";
 import {
   buildCloseRule,
   decisionsReady,
+  firstClosedDate,
   isUrgent,
   outcomeCounts,
   replacedSpecialDate,
@@ -29,8 +30,8 @@ import {
   type CloseForm,
 } from "./close-draft.js";
 import { conflictOf, isDecisionRequired } from "./conflict-problem.js";
-import { DiscardChangesDialog } from "./DiscardChangesDialog.js";
-import { useDiscardGuard } from "./use-discard-guard.js";
+import { LeaveSaveDialog } from "./LeaveSaveDialog.js";
+import { useSaveAttempts } from "./use-save-attempts.js";
 import { useWinningChangeText } from "./use-winning-change-text.js";
 import { CloseStepOne } from "./CloseStepOne.js";
 import { CloseStepTwo } from "./CloseStepTwo.js";
@@ -122,15 +123,6 @@ function pauseLabel(types: readonly BookingChannel[], t: TFunction): string {
   return t("availability.close.button.pauseBooking");
 }
 
-/** A save that was sent: its rule id and, as text, the outcomes it chose for the bookings. */
-interface TriedAttempt {
-  readonly id: string;
-  readonly summary: string;
-}
-
-/** One rule id and one idempotency key per request: a retry of it replays the first result. */
-const newAttempt = () => ({ ruleId: crypto.randomUUID(), idempotencyKey: crypto.randomUUID() });
-
 /**
  * Close, in two steps (ux.md F5): Step 1 says what, when and why with a live count of the
  * bookings it touches; Step 2, only when bookings are affected, makes the Manager decide
@@ -155,49 +147,21 @@ export function CloseDialog(props: CloseDialogProps) {
     readonly change: AvailabilityChangeSummary | null;
   } | null>(null);
   const winnerText = useWinningChangeText(winner?.change ?? null);
-  // The rule is created at most once per request, whatever the Manager retries; a lost response
-  // then a retry replays the first result. Changing the request starts a new attempt.
-  const [attempt, setAttempt] = useState(newAttempt);
-  const { ruleId, idempotencyKey } = attempt;
-  // Every attempt sent, with the outcomes it chose. A lost response may still have committed, and
-  // a version conflict then refreshes the version so a blind retry would save a second closure of
-  // the same dates. Once any earlier attempt shows up in the config, nothing more is saved from
-  // this dialog, and the first one's choices are what applied.
-  const [tried, setTried] = useState<readonly TriedAttempt[]>([]);
-  const earlier = tried.find((a) => state.config.dateRules.some((r) => r.id === a.id));
+  const attempts = useSaveAttempts(state.config.dateRules, { reload: refresh, onLeave: onClose });
+  const { ruleId, idempotencyKey, earlier } = attempts;
   const savedEarlier = earlier !== undefined;
-  // Leaving after any save was sent, or while one is known saved, leaves the calendar stale:
-  // invalidation only runs on success.
-  const finish = () => {
-    if (tried.length > 0) refresh();
-    onClose();
-  };
-  const guard = useDiscardGuard<null>(() => finish());
-  const leave = () => {
-    // Escape during a save would close the dialog while the save still commits.
-    if (isPending) return;
-    // Nothing to discard once it is saved: the question would be false.
-    if (savedEarlier) finish();
-    else guard.request(null);
-  };
-  // A failed save may still have committed (a lost response). The server replays a retry of its
-  // key as the original success, hiding any later edit, so after a failure an edit to the
-  // message or a decision is a new attempt: a stale expected version then answers honestly.
-  const [failedSave, setFailedSave] = useState(false);
-  const restart = () => {
-    setAttempt(newAttempt());
-    setFailedSave(false);
-  };
+  const leave = () => attempts.leave(isPending);
   const edit = (next: CloseForm) => {
     if (!sameRequest(next, form)) {
       setChoices({});
-      restart();
-    } else if (failedSave && JSON.stringify(next) !== JSON.stringify(form)) {
-      restart();
+      attempts.restart();
+    } else {
+      // A lost response then an edit to the message or a decision: see `useSaveAttempts`.
+      attempts.edited(form, next);
     }
     setForm(next);
     setInvalid(null);
-    guard.setDirty(true);
+    attempts.setDirty(true);
   };
 
   const { series } = props;
@@ -222,7 +186,13 @@ export function CloseDialog(props: CloseDialogProps) {
   // Special hours anywhere in the closure's dates (a range or a repeat too) are replaced by it.
   const replacedDate =
     rule && form.what.kind !== "booking" ? replacedSpecialDate(state.config.dateRules, rule) : null;
-  const startOptions = startMinutes(state.config, timezone, startsOn, form.fromMinute);
+  // A repeat's start date may not be one of its days: offer the times of the first one that is.
+  const startOptions = startMinutes(
+    state.config,
+    timezone,
+    rule ? firstClosedDate(rule) : startsOn,
+    form.fromMinute
+  );
 
   const fullDate = (date: string) =>
     format.formatCalendarDate(date, { weekday: "short", month: "short", day: "numeric" });
@@ -239,10 +209,7 @@ export function CloseDialog(props: CloseDialogProps) {
     if (!rule) return;
     setFailure(null);
     setWinner(null);
-    // One rule id can be sent more than once (a refused send keeps it, and the Manager may then
-    // choose differently), and the send that commits is the last one: record its choices.
-    const sent = { id: ruleId, summary: outcomeSummary(outcomeCounts(groups, choices), t) };
-    setTried((all) => [...all.filter((a) => a.id !== ruleId), sent]);
+    attempts.record(outcomeSummary(outcomeCounts(groups, choices), t));
     try {
       const result = await mutateAsync({
         venueId,
@@ -270,9 +237,7 @@ export function CloseDialog(props: CloseDialogProps) {
         return;
       }
       setFailure(refusalText(refusalOf(error), t));
-      setFailedSave(true);
-      // The save may have committed: leaving is no longer "nothing has been closed".
-      guard.setDirty(true);
+      attempts.failed();
       const conflict = conflictOf(error);
       if (conflict?.code === "version-conflict") {
         setWinner({ change: conflict.winningChange });
@@ -287,7 +252,7 @@ export function CloseDialog(props: CloseDialogProps) {
   const urgent = isUrgent(
     { startsOn, endsOn: rule?.endsOn, repeat: rule?.repeat, fromMinute: form.fromMinute },
     today,
-    minutesOfDayIn(now, timezone)
+    serviceMinuteOf(now, timezone, today)
   );
   const impactFailed = impactRule !== null && impactQuery.error !== null;
   // Step 2 decides on bookings it must be showing: with none loaded, `groups` is empty and the
@@ -319,7 +284,7 @@ export function CloseDialog(props: CloseDialogProps) {
         footer={
           savedEarlier ? (
             <div className={styles.footer}>
-              <Button variant="primary" onClick={finish}>
+              <Button variant="primary" onClick={attempts.finish}>
                 {t("availability.close.savedEarlier.done")}
               </Button>
             </div>
@@ -391,10 +356,9 @@ export function CloseDialog(props: CloseDialogProps) {
                   urgent={urgent}
                   guestMessage={form.guestMessage}
                   onChoose={(key, choice) => {
-                    if (failedSave && JSON.stringify(choices[key]) !== JSON.stringify(choice))
-                      restart();
+                    attempts.edited(choices[key], choice);
                     setChoices({ ...choices, [key]: choice });
-                    guard.setDirty(true);
+                    attempts.setDirty(true);
                   }}
                 />
               )}
@@ -412,24 +376,7 @@ export function CloseDialog(props: CloseDialogProps) {
           )}
         </fieldset>
       </Dialog>
-      <DiscardChangesDialog
-        open={guard.pending !== null}
-        date={null}
-        // After a save was sent it may have committed, so "nothing has been closed" is false.
-        title={
-          tried.length > 0
-            ? t("availability.close.discard.titleMaybeSaved")
-            : t("availability.close.discard.title")
-        }
-        description={
-          tried.length > 0
-            ? t("availability.close.discard.descriptionMaybeSaved")
-            : t("availability.close.discard.description")
-        }
-        confirmLabel={tried.length > 0 ? t("availability.close.discard.leave") : undefined}
-        onDiscard={guard.confirmDiscard}
-        onKeepEditing={guard.keepEditing}
-      />
+      <LeaveSaveDialog attempts={attempts} />
     </>
   );
 }

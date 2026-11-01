@@ -1,6 +1,6 @@
 import type { TFunction } from "i18next";
 import type { AvailabilityChangeSummary } from "@mbe/types";
-import { describeApiError } from "../../lib/describe-api-error.js";
+import { describeApiError, type ApiErrorCategory } from "../../lib/describe-api-error.js";
 import { conflictOf, isDecisionRequired } from "./conflict-problem.js";
 
 /**
@@ -15,7 +15,18 @@ export type Refusal =
   | { readonly kind: "version-conflict"; readonly winningChange: AvailabilityChangeSummary | null }
   /** This attempt already committed (a response was lost). */
   | { readonly kind: "closure-exists" }
-  | { readonly kind: "other"; readonly detail: string };
+  /**
+   * `outcomeUnknown`: no answer the server stands behind (a lost response, a timeout, a 5xx from
+   * something in front of it), so the save may have committed.
+   */
+  | { readonly kind: "other"; readonly detail: string; readonly outcomeUnknown: boolean };
+
+const UNKNOWN_OUTCOME: ReadonlySet<ApiErrorCategory> = new Set([
+  "network",
+  "timeout",
+  "serverError",
+  "unknown",
+]);
 
 export function refusalOf(error: unknown): Refusal {
   if (isDecisionRequired(error)) return { kind: "groups-changed" };
@@ -24,7 +35,8 @@ export function refusalOf(error: unknown): Refusal {
     return { kind: "version-conflict", winningChange: conflict.winningChange };
   }
   if (conflict?.code === "closure-exists") return { kind: "closure-exists" };
-  return { kind: "other", detail: describeApiError(error).detail };
+  const { category, detail } = describeApiError(error);
+  return { kind: "other", detail, outcomeUnknown: UNKNOWN_OUTCOME.has(category) };
 }
 
 export function refusalText(refusal: Refusal, t: TFunction): string {

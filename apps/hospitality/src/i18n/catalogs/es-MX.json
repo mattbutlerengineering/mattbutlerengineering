@@ -1731,7 +1731,9 @@
       "alreadySkipped": "Esta fecha ya está omitida.",
       "restore": "Restablecer esta fecha",
       "restoreDate": "Restablecer {{date}}",
-      "restoredToast": "{{date}} restablecida. La serie la cierra de nuevo."
+      "restoredToast": "{{date}} restablecida. La serie la cierra de nuevo.",
+      "changed": "Alguien más cambió esta serie. Los días y la fecha de fin de abajo ahora son los suyos; revísalos antes de guardar.",
+      "gone": "Alguien más eliminó este cierre recurrente, así que ya no hay nada que editar."
     },
     "rowStranded_one": "{{count}} reservación quedaría sin servicio con este cambio. No se canceló nada.",
     "rowStranded_other": "{{count}} reservaciones quedarían sin servicio con este cambio. No se canceló nada.",
@@ -1800,7 +1802,13 @@
       "savedNotified_one": "{{count}} fecha especial guardada · {{notified}} avisados",
       "savedNotified_other": "{{count}} fechas especiales guardadas · {{notified}} avisados",
       "savedNotified_many": "{{count}} fechas especiales guardadas · {{notified}} avisados",
-      "nothingCancelled": "No se canceló ninguna reservación ni se avisó a ningún invitado. Corrige esto y guarda de nuevo."
+      "nothingCancelled": "No se canceló ninguna reservación ni se avisó a ningún invitado. Corrige esto y guarda de nuevo.",
+      "maybeSaved": "No pudimos confirmar este guardado. Pudo haberse aplicado y cancelado reservaciones. Guarda de nuevo sin cambios para ver qué pasó, o revisa las fechas especiales.",
+      "savedEarlier": {
+        "title": "Ya está guardado",
+        "body": "Un intento anterior de estas fechas se guardó: {{summary}}. Los comensales se atendieron como eligió ese intento; los cambios posteriores no se aplicaron. Abre las fechas especiales para ver el resultado.",
+        "bodyPlain": "Un intento anterior de estas fechas se guardó. Los cambios posteriores no se aplicaron. Abre las fechas especiales para ver el resultado."
+      }
     }
   },
   "availabilitySchedules": {
@@ -2438,9 +2446,9 @@
       },
       "status": {
         "closed": "Cerrado",
-        "closedFrom": "Cerrado desde las {{time}}",
+        "closedFrom": "Cerrado desde {{time}}",
         "serviceClosed": "{{service}} cerrado",
-        "serviceClosedFrom": "{{service}} cerrado desde las {{time}}"
+        "serviceClosedFrom": "{{service}} cerrado desde {{time}}"
       }
     },
     "paused": {
@@ -2496,7 +2504,12 @@
       "decisions": {
         "title": "Reservas después del nuevo cierre",
         "impactError": "No se pudieron revisar las reservas posteriores al nuevo cierre.",
-        "retry": "Intentar de nuevo"
+        "retry": "Intentar de nuevo",
+        "discardMaybeSaved": "El último guardado no terminó, así que pudo haberse aplicado y cancelado reservaciones. Revisa los cambios de esta noche antes de cerrar de nuevo.",
+        "savedEarlier": {
+          "body": "Un intento anterior se guardó: {{summary}}. Los comensales se atendieron como eligió ese intento; los cambios posteriores no se aplicaron.",
+          "bodyPlain": "Un intento anterior se guardó. Los cambios posteriores no se aplicaron."
+        }
       },
       "open": "Esta noche",
       "chips": "Cambios de esta noche",

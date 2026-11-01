@@ -59,8 +59,11 @@ export function AddDateRow(props: AddDateRowProps) {
     if (kind === "same") {
       return onChange({ ...row, kind, services: seed(row.sameAs), seededFor: undefined });
     }
-    if (kind === "hours" && row.services.length === 0) {
-      const weekday = ownWeekday(row.date, row.sameAs);
+    const weekday = ownWeekday(row.date, row.sameAs);
+    // Hours copied from another weekday (the date changed while the row was Closed) follow the
+    // date too; hours the Manager edited carry no `seededFor` and stay theirs.
+    const stale = row.seededFor !== undefined && row.seededFor !== weekday;
+    if (kind === "hours" && (row.services.length === 0 || stale)) {
       return onChange({ ...row, kind, services: seed(weekday), seededFor: weekday });
     }
     onChange({ ...row, kind });

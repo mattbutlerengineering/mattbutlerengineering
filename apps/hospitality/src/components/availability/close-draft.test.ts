@@ -263,6 +263,26 @@ describe("activeOnlinePause", () => {
     expect(activeOnlinePause([rule({ startsOn: TODAY, endsOn: TODAY })], TODAY, NOON)).toBeNull();
   });
 
+  describe("a pause from a next-day time (#7978)", () => {
+    const FRIDAY = "2026-11-06";
+    const SATURDAY = "2026-11-07";
+    const fromNextDay = rule({ startsOn: FRIDAY, window: { version: 1, from: 1500, to: 2880 } });
+
+    it("is not in force until that time on the night it starts", () => {
+      expect(activeOnlinePause([fromNextDay], FRIDAY, 20 * 60)).toBeNull();
+      expect(activeOnlinePause([fromNextDay], SATURDAY, 30)).toBeNull();
+    });
+
+    it("is in force once the clock passes it, after midnight", () => {
+      expect(activeOnlinePause([fromNextDay], SATURDAY, 90)?.id).toBe("p1");
+    });
+
+    it("stays in force past midnight when it started the evening before", () => {
+      const evening = rule({ startsOn: FRIDAY, window: { version: 1, from: 22 * 60, to: 2880 } });
+      expect(activeOnlinePause([evening], SATURDAY, 30)?.id).toBe("p1");
+    });
+  });
+
   it("waits for a later-today window to start", () => {
     const late = rule({ startsOn: TODAY, window: { version: 1, from: 22 * 60, to: 2880 } });
     expect(activeOnlinePause([late], TODAY, NOON)).toBeNull();
@@ -321,5 +341,28 @@ describe("startMinutes (#7978)", () => {
 
   it("keeps a start time the form already holds selectable", () => {
     expect(startMinutes(fixtureConfig(), TZ, FRIDAY, 1500)).toContain(1500);
+  });
+
+  describe("on a day that runs past midnight", () => {
+    /** Dinner alone, 5:00 PM to 2:00 AM. */
+    const overnight = () => {
+      const base = late(1560);
+      return {
+        ...base,
+        scheduleServices: base.scheduleServices.filter((s) => s.venueServiceId === "vs-dinner"),
+      };
+    };
+
+    it("never offers a morning time, which reads as after midnight and closes the evening", () => {
+      const options = startMinutes(overnight(), TZ, FRIDAY, null);
+      expect(options).not.toContain(60);
+      expect(options[0]).toBe(1020);
+      expect(options).toContain(1500);
+      expect(options).toHaveLength(18);
+    });
+
+    it("still keeps a morning time the form already holds", () => {
+      expect(startMinutes(overnight(), TZ, FRIDAY, 60)).toContain(60);
+    });
   });
 });

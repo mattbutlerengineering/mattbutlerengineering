@@ -1703,7 +1703,9 @@
       "alreadySkipped": "This date is already skipped.",
       "restore": "Restore this date",
       "restoreDate": "Restore {{date}}",
-      "restoredToast": "{{date}} restored. The series closes it again."
+      "restoredToast": "{{date}} restored. The series closes it again.",
+      "changed": "Someone else changed this series. The days and end date below are now theirs, so check them before saving.",
+      "gone": "Someone else removed this repeating closure, so there is nothing left to edit."
     },
     "rowStranded_one": "{{count}} booking would be left without service by this change. Nothing was cancelled.",
     "rowStranded_other": "{{count}} bookings would be left without service by this change. Nothing was cancelled.",
@@ -1771,7 +1773,13 @@
       "savedNotified_one": "{{count}} special date saved · {{notified}} notified",
       "savedNotified_other": "{{count}} special dates saved · {{notified}} notified",
       "savedNotified_many": "{{count}} special dates saved · {{notified}} notified",
-      "nothingCancelled": "No booking was cancelled and no guest was told. Fix this and save again."
+      "nothingCancelled": "No booking was cancelled and no guest was told. Fix this and save again.",
+      "maybeSaved": "We couldn't confirm this save. It may have gone through and cancelled guests. Save again without changes to see what happened, or check Special dates.",
+      "savedEarlier": {
+        "title": "Already saved",
+        "body": "An earlier try of these dates was saved: {{summary}}. Guests were handled as that try chose; changes you made afterwards did not apply. Open Special dates to see the outcome.",
+        "bodyPlain": "An earlier try of these dates was saved. Changes you made afterwards did not apply. Open Special dates to see the outcome."
+      }
     }
   },
   "availabilitySchedules": {
@@ -2441,7 +2449,12 @@
       "decisions": {
         "title": "Bookings after the new close",
         "impactError": "Couldn't check the bookings after the new close.",
-        "retry": "Try again"
+        "retry": "Try again",
+        "discardMaybeSaved": "The last save didn't finish, so it may have gone through and cancelled guests. Check tonight's changes before closing again.",
+        "savedEarlier": {
+          "body": "An earlier try was saved: {{summary}}. Guests were handled as that try chose; changes you made afterwards did not apply.",
+          "bodyPlain": "An earlier try was saved. Changes you made afterwards did not apply."
+        }
       },
       "open": "Tonight",
       "chips": "Tonight's changes",

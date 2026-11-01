@@ -17,7 +17,9 @@ vi.mock("../../contexts/VenueContext.js", () => ({
   }),
 }));
 
+import { LeaveSaveDialog } from "./LeaveSaveDialog.js";
 import { SeriesGrowthStepTwo } from "./SeriesGrowthStepTwo.js";
+import { useSaveAttempts } from "./use-save-attempts.js";
 import { fixtureConfig } from "./resolved-day-fixtures.js";
 
 const DATE = "2026-12-24";
@@ -67,7 +69,24 @@ const refusal = (code: string, extra: Record<string, unknown> = {}) =>
     "closures"
   );
 
-function renderStep(props: Partial<React.ComponentProps<typeof SeriesGrowthStepTwo>> = {}) {
+type StepProps = Omit<React.ComponentProps<typeof SeriesGrowthStepTwo>, "attempts">;
+
+/** The step with the attempts `SeriesEditDialog` would give it. */
+function Step(props: StepProps) {
+  const attempts = useSaveAttempts(props.state.config.dateRules, {
+    firstRuleId: props.rule.id,
+    reload: refresh,
+    onLeave: props.onClose,
+  });
+  return (
+    <>
+      <SeriesGrowthStepTwo {...props} attempts={attempts} />
+      <LeaveSaveDialog attempts={attempts} />
+    </>
+  );
+}
+
+function renderStep(props: Partial<StepProps> = {}) {
   const state: AvailabilityConfigState = { config: fixtureConfig(), version: 7, source: "rows" };
   const handlers = {
     onBack: vi.fn(),
@@ -78,7 +97,7 @@ function renderStep(props: Partial<React.ComponentProps<typeof SeriesGrowthStepT
   render(
     <ToastProvider>
       <main>
-        <SeriesGrowthStepTwo
+        <Step
           venueId="venue-1"
           state={state}
           timezone="America/Los_Angeles"
@@ -141,6 +160,54 @@ describe("SeriesGrowthStepTwo refusals", () => {
     await waitFor(() => expect(onStale).toHaveBeenCalledTimes(1));
     expect(refresh).toHaveBeenCalled();
     expect(onStale.mock.calls[0]![0]).toMatch(/Availability changed since you opened this/);
+  });
+
+  describe("a save whose response was lost", () => {
+    const lost = () => new TypeError("Failed to fetch");
+    const SAVED = { ruleId: "r", outcomes: { cancel: 2, move: 0, keep_notify: 0, keep_silent: 0 } };
+
+    it("retries an unchanged choice under the same key and rule, which replays the truth", async () => {
+      create.mockRejectedValueOnce(lost()).mockResolvedValueOnce(SAVED);
+      const { dialog } = renderStep();
+      chooseCancelAndSave(dialog);
+      await within(dialog).findByText(/Can't reach/);
+      fireEvent.click(within(dialog).getByRole("button", { name: /Close and cancel/ }));
+
+      await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+      const [first, second] = create.mock.calls.map((c) => c[0]);
+      expect(second.idempotencyKey).toBe(first.idempotencyKey);
+      expect(second.body.rule.id).toBe(first.body.rule.id);
+    });
+
+    it("sends a changed choice as a new attempt, never a replay of the old one", async () => {
+      create.mockRejectedValueOnce(lost()).mockRejectedValueOnce(refusal("version-conflict"));
+      const { dialog } = renderStep();
+      chooseCancelAndSave(dialog);
+      await within(dialog).findByText(/Can't reach/);
+      fireEvent.click(within(dialog).getByRole("radio", { name: "Keep them and notify" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: /Close and keep/ }));
+
+      await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+      const [first, second] = create.mock.calls.map((c) => c[0]);
+      expect(second.idempotencyKey).not.toBe(first.idempotencyKey);
+      expect(second.body.rule.id).not.toBe(first.body.rule.id);
+    });
+
+    it("warns and reloads when the Manager leaves after it", async () => {
+      create.mockRejectedValueOnce(lost());
+      const { dialog, onClose } = renderStep();
+      chooseCancelAndSave(dialog);
+      await within(dialog).findByText(/Can't reach/);
+      refresh.mockClear();
+
+      fireEvent.keyDown(document, { key: "Escape" });
+
+      const ask = screen.getByRole("dialog", { name: "Leave this closure?" });
+      expect(onClose).not.toHaveBeenCalled();
+      fireEvent.click(within(ask).getByRole("button", { name: "Leave" }));
+      expect(onClose).toHaveBeenCalledTimes(1);
+      expect(refresh).toHaveBeenCalled();
+    });
   });
 
   it("refreshes and says the closure was already saved when the attempt had committed", async () => {
