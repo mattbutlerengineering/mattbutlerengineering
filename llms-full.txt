@@ -19583,6 +19583,15 @@
         requestRender();
       }, []);
     
+      // Capture, on window: a handler that stops propagation must not hide the action from this.
+      useEffect(() => {
+        const cancel = () => {
+          pendingRef.current = null;
+        };
+        HOST_ACTIONS.forEach((type) => window.addEventListener(type, cancel, true));
+        return () => HOST_ACTIONS.forEach((type) => window.removeEventListener(type, cancel, true));
+      }, []);
+    
       // After every commit: resolve the pending target, focus it once, forget it. No state is set here.
       useEffect(() => {
         const pending = pendingRef.current;

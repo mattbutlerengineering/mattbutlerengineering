@@ -143,6 +143,34 @@ describe("a request whose target renders much later (#8031)", () => {
   });
 });
 
+describe("a request the Host has moved on from (#8047)", () => {
+  it.each([
+    ["pointerdown", () => fireEvent.pointerDown(screen.getByText("elsewhere"))],
+    ["keydown", () => fireEvent.keyDown(document.body, { key: "Shift" })],
+    ["popstate", () => fireEvent.popState(window)],
+  ])("%s cancels it", (_name, touch) => {
+    const request: FocusTarget = { kind: "testId", testId: "late-block" };
+    const { rerender } = render(<Harness request={request} />);
+    fireEvent.click(screen.getByText("request"));
+
+    touch();
+    rerender(<Harness request={request} showLate />);
+
+    expect(document.activeElement).toBe(document.body);
+  });
+
+  it("a touch before the request does not cancel it", () => {
+    const request: FocusTarget = { kind: "testId", testId: "late-block" };
+    const { rerender } = render(<Harness request={request} />);
+    fireEvent.pointerDown(screen.getByText("request"));
+    fireEvent.click(screen.getByText("request"));
+
+    rerender(<Harness request={request} showLate />);
+
+    expect(document.activeElement).toBe(screen.getByTestId("late-block"));
+  });
+});
+
 describe("focusAfter with unlessCovered (#8031)", () => {
   function CoveredHarness({ covered }: { readonly covered: boolean }) {
     const { focusAfter } = useFocusAfter();
