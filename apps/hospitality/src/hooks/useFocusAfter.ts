@@ -6,7 +6,8 @@ import { useCallback, useEffect, useReducer, useRef } from "react";
  * Pages call `focusAfter(target)` from the event handler that knows the outcome — a walk-in
  * created, a reservation cancelled — and the target is focused after the next commit in which it
  * can be found: a block still loading focuses when it renders; a target that does not render soon
- * leaves focus where it was, and the request expires. One pending target at a time.
+ * leaves focus where it was, and the request expires once the Host has moved focus. One pending
+ * target at a time.
  */
 export type FocusTarget =
   | { readonly kind: "element"; readonly element: HTMLElement }
@@ -31,7 +32,10 @@ export interface FocusAfterApi {
   readonly focusAfter: (target: FocusTarget, options?: FocusOptions) => void;
 }
 
-/** A request still unmet after this has lost its moment: the Host is doing something else by now. */
+/**
+ * A request still unmet after this may no longer take focus from the Host, who is doing something
+ * else by now. While focus is still loose it stands: landing late beats leaving focus nowhere.
+ */
 const PENDING_TTL_MS = 10_000;
 
 const FIRST_CONTROL =
@@ -53,14 +57,23 @@ function resolveTarget(target: FocusTarget): HTMLElement | null {
   }
 }
 
+const MODAL_DIALOG = '[role="dialog"][aria-modal="true"]';
+
 /**
- * True when a modal dialog is open that does not contain `element`, so keys on it would act behind
- * that dialog. A panel inside an `inert` subtree is on its way out and covers nothing.
+ * True when a modal dialog sits above `element`, so keys on it would act behind that dialog. Outside
+ * any dialog, every open one is above it. Inside one, those above it are the dialogs later in the
+ * document (the page renders them in stacking order) and whichever other one holds focus (the command
+ * palette, which comes earlier in the document but stacks over everything). A panel inside an `inert`
+ * subtree is on its way out and covers nothing.
  */
 export function isCoveredByDialog(element: Element | null): boolean {
-  return Array.from(document.querySelectorAll('[role="dialog"][aria-modal="true"]')).some(
-    (dialog) => !dialog.closest("[inert]") && !(element && dialog.contains(element))
-  );
+  const own = element?.closest(MODAL_DIALOG) ?? null;
+  return Array.from(document.querySelectorAll(MODAL_DIALOG)).some((dialog) => {
+    if (dialog === own || dialog.closest("[inert]")) return false;
+    if (!own) return true;
+    const later = own.compareDocumentPosition(dialog) & Node.DOCUMENT_POSITION_FOLLOWING;
+    return Boolean(later) || dialog.contains(document.activeElement);
+  });
 }
 
 export function useFocusAfter(): FocusAfterApi {
@@ -81,7 +94,8 @@ export function useFocusAfter(): FocusAfterApi {
   useEffect(() => {
     const pending = pendingRef.current;
     if (!pending) return;
-    if (performance.now() - pending.requestedAt > PENDING_TTL_MS) {
+    const focusIsLoose = !document.activeElement || document.activeElement === document.body;
+    if (performance.now() - pending.requestedAt > PENDING_TTL_MS && !focusIsLoose) {
       pendingRef.current = null;
       return;
     }

@@ -112,18 +112,34 @@ describe("useFocusAfter", () => {
   });
 });
 
-describe("a request whose target never rendered (#8031)", () => {
-  it("expires, so a target rendering much later does not take focus", () => {
+describe("a request whose target renders much later (#8031)", () => {
+  function requestLate() {
     const now = vi.spyOn(performance, "now").mockReturnValue(1000);
     const request: FocusTarget = { kind: "testId", testId: "late-block" };
     const { rerender } = render(<Harness request={request} />);
     fireEvent.click(screen.getByText("request"));
-
     now.mockReturnValue(1000 + 60_000);
-    rerender(<Harness request={request} showLate />);
+    return () => {
+      rerender(<Harness request={request} showLate />);
+      now.mockRestore();
+    };
+  }
 
-    expect(document.activeElement).not.toBe(screen.getByTestId("late-block"));
-    now.mockRestore();
+  it("does not take focus the Host has moved elsewhere", () => {
+    const renderLate = requestLate();
+    act(() => screen.getByText("elsewhere").focus());
+
+    renderLate();
+
+    expect(document.activeElement).toBe(screen.getByText("elsewhere"));
+  });
+
+  it("still lands if focus is loose, rather than leaving it nowhere", () => {
+    const renderLate = requestLate();
+
+    renderLate();
+
+    expect(document.activeElement).toBe(screen.getByTestId("late-block"));
   });
 });
 
@@ -208,6 +224,27 @@ describe("isCoveredByDialog (#8029)", () => {
         {modal(<button>on top</button>)}
       </>
     );
+    expect(isCoveredByDialog(screen.getByText("control"))).toBe(true);
+  });
+
+  it("is false for a control in the top modal, whatever is under it", () => {
+    render(
+      <>
+        {modal(<button>under</button>)}
+        {modal(<button>control</button>)}
+      </>
+    );
+    expect(isCoveredByDialog(screen.getByText("control"))).toBe(false);
+  });
+
+  it("is true for a control in a later modal while an earlier one holds focus on top of it", () => {
+    render(
+      <>
+        {modal(<input aria-label="palette" />)}
+        {modal(<button>control</button>)}
+      </>
+    );
+    act(() => screen.getByLabelText("palette").focus());
     expect(isCoveredByDialog(screen.getByText("control"))).toBe(true);
   });
 

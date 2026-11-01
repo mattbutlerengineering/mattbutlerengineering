@@ -61,7 +61,6 @@ import {
   captureOpener,
   returnFocusTarget,
   seatedFocusTarget,
-  tableStatusFocusTarget,
   useCloseHoldingFocus,
   useDetailsSurface,
   useOnChange,
@@ -444,8 +443,7 @@ function LiveTimelinePage() {
     } finally {
       // The trigger is disabled while pending; focus lands in the commit that re-enables it.
       setPendingTableId(null);
-      const target = tableStatusFocusTarget(tableId);
-      if (target) focusAfter(target, UNLESS_COVERED);
+      focusAfter({ kind: "testId", testId: `table-status-${tableId}` }, UNLESS_COVERED);
     }
   };
 

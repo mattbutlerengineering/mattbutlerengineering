@@ -99,15 +99,6 @@ export function seatedFocusTarget(
   return byTestId(testId) ? { kind: "testId", testId } : null;
 }
 
-/** Back to the trigger a status change disabled, unless the Host has taken focus elsewhere. */
-export function tableStatusFocusTarget(tableId: string): FocusTarget | null {
-  const testId = `table-status-${tableId}`;
-  const trigger = byTestId(testId);
-  return trigger && (focusIsLoose() || trigger === document.activeElement)
-    ? { kind: "testId", testId }
-    : null;
-}
-
 /**
  * Closes an overlay from a late response without pulling focus out of a dialog opened over it since.
  * A Rialto Drawer restores focus to its trigger a frame after it goes, behind that dialog. That frame

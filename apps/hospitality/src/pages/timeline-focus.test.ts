@@ -8,7 +8,6 @@ import {
   captureOpener,
   returnFocusTarget,
   seatedFocusTarget,
-  tableStatusFocusTarget,
   useCloseHoldingFocus,
   walkInFocusTarget,
   type SurfaceState,
@@ -117,23 +116,6 @@ describe("returnFocusTarget", () => {
       kind: "element",
       element: opener,
     });
-  });
-});
-
-describe("tableStatusFocusTarget", () => {
-  const target = { kind: "testId", testId: "table-status-t1" };
-
-  it("returns to the trigger when focus is on it or nowhere", () => {
-    const trigger = append("button", { "data-testid": "table-status-t1" });
-    expect(tableStatusFocusTarget("t1")).toEqual(target);
-    trigger.focus();
-    expect(tableStatusFocusTarget("t1")).toEqual(target);
-  });
-
-  it("stays out of the way when the Host has taken focus elsewhere", () => {
-    append("button", { "data-testid": "table-status-t1" });
-    append("button").focus();
-    expect(tableStatusFocusTarget("t1")).toBeNull();
   });
 });
 

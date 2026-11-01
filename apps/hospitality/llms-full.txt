@@ -8541,9 +8541,13 @@
       }
     }
     export function isCoveredByDialog(element: Element | null): boolean {
-      return Array.from(document.querySelectorAll('[role="dialog"][aria-modal="true"]')).some(
-        (dialog) => !dialog.closest("[inert]") && !(element && dialog.contains(element))
-      );
+      const own = element?.closest(MODAL_DIALOG) ?? null;
+      return Array.from(document.querySelectorAll(MODAL_DIALOG)).some((dialog) => {
+        if (dialog === own || dialog.closest("[inert]")) return false;
+        if (!own) return true;
+        const later = own.compareDocumentPosition(dialog) & Node.DOCUMENT_POSITION_FOLLOWING;
+        return Boolean(later) || dialog.contains(document.activeElement);
+      });
     }
     export function useFocusAfter(): FocusAfterApi {
       const pendingRef = useRef<{
@@ -8563,7 +8567,8 @@
       useEffect(() => {
         const pending = pendingRef.current;
         if (!pending) return;
-        if (performance.now() - pending.requestedAt > PENDING_TTL_MS) {
+        const focusIsLoose = !document.activeElement || document.activeElement === document.body;
+        if (performance.now() - pending.requestedAt > PENDING_TTL_MS && !focusIsLoose) {
           pendingRef.current = null;
           return;
         }
@@ -11352,13 +11357,6 @@
       const onModal = surface.openId !== null && surface.modal;
       const testId = onModal ? RESERVATION_EDIT_TEST_ID : `reservation-block-${reservationId}`;
       return byTestId(testId) ? { kind: "testId", testId } : null;
-    }
-    export function tableStatusFocusTarget(tableId: string): FocusTarget | null {
-      const testId = `table-status-${tableId}`;
-      const trigger = byTestId(testId);
-      return trigger && (focusIsLoose() || trigger === document.activeElement)
-        ? { kind: "testId", testId }
-        : null;
     }
     export function useCloseHoldingFocus(): (close: () => void) => void {
       const heldRef = useRef<HTMLElement | null>(null);
