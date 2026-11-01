@@ -4,6 +4,7 @@ import { Button, DatePicker, Dialog, Select, Stack } from "@mattbutlerengineerin
 import { resolveDay } from "@mbe/availability";
 import type { AvailabilityConfigState } from "@mbe/types";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
+import { scheduleNameText } from "./day-summary.js";
 import { seedServices } from "./draft-changes.js";
 import { buildUseDayHoursChanges, buildUseScheduleChanges } from "./selection-actions.js";
 import { BlockedReason, SaveFailure } from "./ScheduleFormParts.js";
@@ -120,7 +121,7 @@ export function UseScheduleDialog(props: UseScheduleDialogProps) {
         ) : (
           <Select
             label={t("availability.selection.use.schedule")}
-            options={schedules.map((s) => ({ value: s.id, label: s.name }))}
+            options={schedules.map((s) => ({ value: s.id, label: scheduleNameText(s.name, t) }))}
             value={scheduleId ?? ""}
             onChange={setChosenSchedule}
           />

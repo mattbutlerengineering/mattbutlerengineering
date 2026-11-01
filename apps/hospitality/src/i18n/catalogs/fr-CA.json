@@ -1962,7 +1962,9 @@
       "nameRequired": "Nommez cet horaire pour enregistrer.",
       "servicesRequired": "Ajoutez un service pour enregistrer.",
       "serviceNameRequired": "Nommez le nouveau service pour enregistrer."
-    }
+    },
+    "edit": "Modifier",
+    "duplicate": "Dupliquer"
   },
   "availability": {
     "title": "Disponibilité",
@@ -1977,7 +1979,8 @@
       "previous": "Précédent",
       "next": "Suivant",
       "today": "Aujourd'hui",
-      "range": "{{from}} – {{to}}"
+      "range": "{{from}} – {{to}}",
+      "more": "Plus d’actions"
     },
     "calendar": {
       "label": "Calendrier de disponibilité",
@@ -2020,7 +2023,12 @@
       "nextDay": "{{time}} (lendemain)",
       "draftName": "changements non enregistrés",
       "labelWithPeriod": "{{label}}, {{period}}",
-      "untilClose": "fermeture"
+      "untilClose": "fermeture",
+      "dayLabel": {
+        "closed": "Fermé",
+        "specialHours": "Horaire spécial",
+        "open": "Ouvert"
+      }
     },
     "drawer": {
       "summaryOpen": "Ouvert pour {{services}}.",
@@ -2537,7 +2545,9 @@
         "saved_one": "Modifications effacées pour {{count}} date",
         "saved_other": "Modifications effacées pour {{count}} dates",
         "saved_many": "Modifications effacées pour {{count}} dates"
-      }
+      },
+      "selectDays": "Sélectionner des jours",
+      "selectingHint": "Touchez les jours voulus"
     },
     "tonight": {
       "title": "Ce soir",

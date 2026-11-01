@@ -36,19 +36,18 @@
   display: none;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin-block: calc(-1 * var(--rialto-space-xs));
+  margin-inline-start: var(--rialto-space-sm);
   padding: 0;
   border: none;
   border-radius: var(--rialto-radius-default);
   background: var(--rialto-surface-elevated);
   color: var(--rialto-text-secondary);
   cursor: pointer;
-  position: fixed;
-  inset-block-end: var(--rialto-space-lg);
-  inset-inline-start: var(--rialto-space-lg);
-  z-index: 90;
-  box-shadow: var(--rialto-shadow-md);
+  box-shadow: var(--rialto-shadow-sm);
   transition:
     color 0.15s ease,
     background-color 0.15s ease;
@@ -154,7 +153,12 @@
     padding: var(--rialto-space-md);
   }
 
+  /* Stays in reach while the page scrolls under it, as the floating button did. */
   .breadcrumbBar {
+    position: sticky;
+    /* A sticky offset counts from inside the scroller's padding, which the bar pulls out of. */
+    inset-block-start: calc(-1 * var(--rialto-space-md));
+    z-index: 1;
     margin-inline: calc(-1 * var(--rialto-space-md));
     margin-block-start: calc(-1 * var(--rialto-space-md));
     padding-inline: var(--rialto-space-md);

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
-import { render, screen, within, fireEvent, waitFor } from "@testing-library/react";
+import { act, render, screen, within, fireEvent, waitFor } from "@testing-library/react";
 import { axe } from "vitest-axe";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type * as Engine from "@mbe/availability";
@@ -731,6 +731,33 @@ describe("AvailabilityPage", () => {
       );
     });
 
+    describe("after a bulk edit of hours (#7980)", () => {
+      const finish = (saved: boolean) => {
+        const props = drawerProps.mock.lastCall?.[0] as {
+          editing: { onFinished: (saved: boolean) => void };
+        };
+        act(() => props.editing.onFinished(saved));
+      };
+
+      it("a save clears the selection, like the other bulk actions, and focus lands on a day", () => {
+        renderPage();
+        pick(/Friday, October 30/);
+        pick(/Thursday, October 29/);
+        fireEvent.click(screen.getByRole("button", { name: "Edit hours" }));
+        finish(true);
+        expect(screen.getByRole("status")).toBeEmptyDOMElement();
+        expect(screen.getByRole("button", { name: /Thursday, October 29/ })).toHaveFocus();
+      });
+
+      it("a discarded draft keeps the selection", () => {
+        renderPage();
+        pick(/Friday, October 30/);
+        fireEvent.click(screen.getByRole("button", { name: "Edit hours" }));
+        finish(false);
+        expect(screen.getByRole("status")).toHaveTextContent("1 date selected");
+      });
+    });
+
     it("drops the fixed scope when a single day is opened afterwards", () => {
       renderPage();
       pick(/Friday, October 30/);
@@ -857,6 +884,61 @@ describe("AvailabilityPage", () => {
       expect(screen.getByRole("status")).toHaveTextContent("1 date selected");
       expect(screen.queryByRole("button", { name: "Edit hours" })).not.toBeInTheDocument();
     });
+  });
+
+  describe("on a phone (#7980)", () => {
+    beforeEach(() => {
+      window.matchMedia = vi.fn((query: string) => {
+        const max = /\(max-width:\s*(\d+)px\)/.exec(query);
+        return {
+          media: query,
+          matches: max ? 375 <= Number(max[1]) : false,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        };
+      }) as unknown as typeof window.matchMedia;
+    });
+
+    afterEach(() => {
+      Reflect.deleteProperty(window, "matchMedia");
+    });
+
+    it("keeps secondary actions in one menu", () => {
+      renderPage();
+      expect(screen.queryByRole("button", { name: "History" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Select…" })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+      const menu = screen.getByRole("menu");
+      for (const name of ["History", "Select days", "Change regular week…"]) {
+        expect(within(menu).getByRole("menuitem", { name })).toBeInTheDocument();
+      }
+    });
+
+    it("gives a Host only what a Host can do", () => {
+      team.value = { viewerRole: "host" };
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+      const menu = screen.getByRole("menu");
+      expect(within(menu).getByRole("menuitem", { name: "History" })).toBeInTheDocument();
+      expect(within(menu).queryByRole("menuitem", { name: /^Close…/ })).not.toBeInTheDocument();
+      expect(
+        within(menu).queryByRole("menuitem", { name: "Change regular week…" })
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it("hands focus to the calendar when quick setup's save removes the focused button (#7980)", () => {
+    configSource.value = "empty";
+    const { rerender } = renderPage();
+    configSource.value = "rows";
+    rerender(
+      <ToastProvider>
+        <main>
+          <AvailabilityPage />
+        </main>
+      </ToastProvider>
+    );
+    expect(document.activeElement).toHaveAttribute("data-date");
   });
 
   it("has no axe violations", async () => {

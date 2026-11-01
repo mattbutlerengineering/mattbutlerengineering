@@ -296,6 +296,16 @@ describe("TonightControl", () => {
     it("blocks for a window that crosses midnight", async () => {
       renderControl({ state: lateState() });
       open();
+      const from = screen.getByRole("combobox", { name: "Block from" });
+      const until = screen.getByRole("combobox", { name: "Block until" });
+      const block = screen.getByRole("button", { name: "Block" });
+      // From, Until, then Block: the button comes after what it acts on (#7980).
+      expect(from.compareDocumentPosition(until) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING
+      );
+      expect(until.compareDocumentPosition(block) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING
+      );
       fireEvent.click(screen.getByRole("combobox", { name: "Block from" }));
       fireEvent.click(screen.getByRole("option", { name: "11:30 PM" }));
       fireEvent.click(screen.getByRole("combobox", { name: "Block until" }));

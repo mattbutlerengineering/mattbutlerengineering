@@ -390,21 +390,6 @@ export function TonightControl(props: TonightControlProps) {
             disabled={busy !== null}
             onChange={setBlockTarget}
           />
-          <Button
-            variant="secondary"
-            disabled={busy !== null || blockIds.length === 0 || blockWindowInvalid}
-            isLoading={busy === "block"}
-            onClick={() =>
-              void apply("block", {
-                type: "block_tables",
-                tableIds: [...blockIds],
-                from: effectiveFrom,
-                ...(blockTo !== null ? { to: blockTo } : {}),
-              })
-            }
-          >
-            {t("availability.tonight.block.button")}
-          </Button>
         </div>
         {blockTarget === PICK_TABLES && (
           <div
@@ -436,6 +421,21 @@ export function TonightControl(props: TonightControlProps) {
             blockTo,
             setBlockTo
           )}
+          <Button
+            variant="secondary"
+            disabled={busy !== null || blockIds.length === 0 || blockWindowInvalid}
+            isLoading={busy === "block"}
+            onClick={() =>
+              void apply("block", {
+                type: "block_tables",
+                tableIds: [...blockIds],
+                from: effectiveFrom,
+                ...(blockTo !== null ? { to: blockTo } : {}),
+              })
+            }
+          >
+            {t("availability.tonight.block.button")}
+          </Button>
         </div>
         <div className={styles.row}>
           <NumberInput

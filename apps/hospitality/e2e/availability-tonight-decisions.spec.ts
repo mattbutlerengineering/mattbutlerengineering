@@ -187,7 +187,10 @@ for (const { width, height } of sizes) {
     // A real click on the toast's action: Playwright fails if anything covers it.
     await notifications.getByRole("button", { name: "Call list" }).click();
     const callList = mockedPage.getByRole("dialog", { name: "Call list" });
-    await expect(callList.getByRole("columnheader", { name: "Date" })).toBeVisible();
+    // Five columns cannot fit a phone: there the headers go and each guest stacks (#7980).
+    if (width >= 768) {
+      await expect(callList.getByRole("columnheader", { name: "Date" })).toBeVisible();
+    }
     await expect(callList.getByText("Rivera")).toBeVisible();
   });
 }

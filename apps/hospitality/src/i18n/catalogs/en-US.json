@@ -1922,7 +1922,9 @@
       "nameRequired": "Name this schedule to save.",
       "servicesRequired": "Add a service to save.",
       "serviceNameRequired": "Name the new service to save."
-    }
+    },
+    "edit": "Edit",
+    "duplicate": "Duplicate"
   },
   "availability": {
     "title": "Availability",
@@ -1937,7 +1939,8 @@
       "previous": "Previous",
       "next": "Next",
       "today": "Today",
-      "range": "{{from}} – {{to}}"
+      "range": "{{from}} – {{to}}",
+      "more": "More actions"
     },
     "calendar": {
       "label": "Availability calendar",
@@ -1980,7 +1983,12 @@
       "nextDay": "{{time}} (next day)",
       "draftName": "unsaved changes",
       "labelWithPeriod": "{{label}}, {{period}}",
-      "untilClose": "close"
+      "untilClose": "close",
+      "dayLabel": {
+        "closed": "Closed",
+        "specialHours": "Special hours",
+        "open": "Open"
+      }
     },
     "drawer": {
       "summaryOpen": "Open for {{services}}.",
@@ -2482,7 +2490,9 @@
         "saved_one": "Cleared changes on {{count}} date",
         "saved_other": "Cleared changes on {{count}} dates",
         "saved_many": "Cleared changes on {{count}} dates"
-      }
+      },
+      "selectDays": "Select days",
+      "selectingHint": "Tap the days you want"
     },
     "tonight": {
       "title": "Tonight",

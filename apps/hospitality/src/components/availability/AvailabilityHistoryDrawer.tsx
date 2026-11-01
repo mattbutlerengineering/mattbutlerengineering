@@ -22,6 +22,7 @@ import {
   useRevertAvailabilityChange,
 } from "../../hooks/useAvailability.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
+import { useViewport } from "../../hooks/useViewport.js";
 import { describeChange } from "./describe-change.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import { revertErrorText } from "./revert-error.js";
@@ -108,6 +109,7 @@ function EntryRow({ entry, mine, canRevert, reverting, onRevert, onOpenDay }: En
 /** History (F12): who changed availability, when and what, newest first, with Revert. */
 export function AvailabilityHistoryDrawer(props: AvailabilityHistoryDrawerProps) {
   const { open, venueId, viewerRole, onClose, onOpenDay } = props;
+  const viewport = useViewport();
   const { t } = useTranslation();
   const { toast } = useToast();
   const format = useVenueFormat();
@@ -193,7 +195,12 @@ export function AvailabilityHistoryDrawer(props: AvailabilityHistoryDrawerProps)
   }
 
   return (
-    <Drawer open={open} onClose={onClose} title={t("availability.history.title")}>
+    <Drawer
+      open={open}
+      onClose={onClose}
+      title={t("availability.history.title")}
+      size={viewport === "phone" ? "full" : "default"}
+    >
       <Stack gap="md">
         <div className={styles.filters}>
           <Select
