@@ -44,8 +44,13 @@ export function MarkNoShowDialog({ guestName, onConfirm, onClose }: MarkNoShowDi
   const confirmRef = useRef<HTMLButtonElement>(null);
   const { focusAfter } = useFocusAfter();
 
+  // A save in flight can only be left when it ends: closing now would hide a failure.
+  const dismiss = () => {
+    if (!isLoading) onClose();
+  };
+
   useFocusTrap(panelRef, true);
-  useEscapeKey(onClose, true);
+  useEscapeKey(dismiss, true);
 
   const displayName = guestName ?? t("timeline.guest");
 
@@ -63,7 +68,7 @@ export function MarkNoShowDialog({ guestName, onConfirm, onClose }: MarkNoShowDi
   };
 
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) onClose();
+    if (e.target === e.currentTarget) dismiss();
   };
 
   return (

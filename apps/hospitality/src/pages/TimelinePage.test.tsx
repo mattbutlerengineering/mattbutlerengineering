@@ -2093,21 +2093,6 @@ describe("TimelinePage", () => {
       });
     });
 
-    it("closing the surface drops an open confirmation, so the next selection does not reopen it", async () => {
-      setMobile();
-      renderPage();
-      fireEvent.click(await waitFor(() => screen.getByTestId("res-r1")));
-      const drawer = await waitFor(() => screen.getByTestId("drawer"));
-      fireEvent.click(within(drawer).getByText("Cancel Reservation"));
-      await waitFor(() => expect(screen.getByTestId("cancel-dialog")).toBeDefined());
-      // A resize stacks the sheet above the dialog, so its Escape closes the surface first.
-      fireEvent.click(within(drawer).getByText("Close drawer"));
-      await waitFor(() => expect(screen.queryByTestId("drawer")).toBeNull());
-      fireEvent.click(screen.getByTestId("res-r1"));
-      await waitFor(() => expect(screen.getByTestId("drawer")).toBeDefined());
-      expect(screen.queryByTestId("cancel-dialog")).toBeNull();
-    });
-
     // ── #8021: while the modal details surface is open, focus never lands on the block or the
     // toolbar behind it ──
 
@@ -2311,6 +2296,115 @@ describe("TimelinePage", () => {
         expect(document.activeElement).toBe(cta);
       });
       expect(document.activeElement).not.toBe(screen.getByRole("button", { name: "Walk-in" }));
+    });
+  });
+
+  // ── #8029: a response decides what to do from the page as it is when the response arrives ──
+
+  describe("a late response never touches another party's surface (#8029)", () => {
+    const carol = makeReservation({ id: "r2", guestName: "Carol" });
+
+    function holdMutations() {
+      let finish: () => void = () => undefined;
+      const held = new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({
+          reservations: [defaultReservation, carol],
+          cancelReservation: vi.fn(() => held),
+          markNoShow: vi.fn(() => held.then(() => ({ reservation: defaultReservation }))),
+        })
+      );
+      return () => act(async () => finish());
+    }
+
+    const flows = [
+      ["cancel", "Cancel Reservation", "cancel-confirm", "cancel-close"],
+      ["no-show", "Mark No-Show", "no-show-confirm", "no-show-close"],
+    ] as const;
+
+    for (const [label, opener, confirm, close] of flows) {
+      it(`a ${label} landing after Carol is selected leaves Carol's panel open`, async () => {
+        const release = holdMutations();
+        renderPage();
+        fireEvent.click(await waitFor(() => screen.getByTestId("res-r1")));
+        fireEvent.click(await waitFor(() => screen.getByText(opener)));
+        fireEvent.click(await waitFor(() => screen.getByTestId(confirm)));
+        fireEvent.click(screen.getByTestId(close));
+        fireEvent.click(screen.getByTestId("res-r2"));
+        const carolBlock = await waitFor(() => screen.getByTestId("reservation-block-r2"));
+        await waitFor(() => expect(carolBlock).toHaveAttribute("aria-pressed", "true"));
+        carolBlock.focus();
+
+        await release();
+
+        expect(carolBlock).toHaveAttribute("aria-pressed", "true");
+        expect(document.activeElement).toBe(carolBlock);
+        // The outcome is still spoken: it happened.
+        expect(screen.getByRole("status")).not.toHaveTextContent("");
+      });
+    }
+  });
+
+  describe("a dialog open across a resize (#8029)", () => {
+    const setWidth = (width: "desktop" | "tablet") => {
+      vi.mocked(window.matchMedia).mockImplementation((query: string) => ({
+        matches: width === "tablet" && query === "(max-width: 1024px)",
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: (_type: string, listener: unknown) => {
+          changeListeners.push(listener as () => void);
+        },
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }));
+    };
+    let changeListeners: (() => void)[] = [];
+    const resizeTo = (width: "desktop" | "tablet") => {
+      setWidth(width);
+      act(() => changeListeners.forEach((listener) => listener()));
+    };
+
+    beforeEach(() => {
+      changeListeners = [];
+      setWidth("desktop");
+    });
+
+    afterEach(() => setWidth("desktop"));
+
+    it("keeps the sidebar under the dialog, then the sheet replaces it when the dialog closes", async () => {
+      renderPage();
+      fireEvent.click(await waitFor(() => screen.getByTestId("res-r1")));
+      fireEvent.click(await waitFor(() => screen.getByText("Cancel Reservation")));
+      await waitFor(() => screen.getByTestId("cancel-dialog"));
+
+      resizeTo("tablet");
+      // Past the frame the surface would wait before it changes form.
+      await act(async () => {
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      });
+
+      expect(screen.queryByTestId("reservation-sheet")).toBeNull();
+      expect(screen.getByTestId("cancel-dialog")).toBeDefined();
+
+      fireEvent.click(screen.getByTestId("cancel-close"));
+
+      await waitFor(() => expect(screen.queryByTestId("cancel-dialog")).toBeNull());
+      await waitFor(() => expect(screen.getByTestId("reservation-sheet")).toBeDefined());
+    });
+
+    it("with no dialog open, the surface follows the viewport at once", async () => {
+      renderPage();
+      fireEvent.click(await waitFor(() => screen.getByTestId("res-r1")));
+      await waitFor(() => screen.getByText("Cancel Reservation"));
+
+      resizeTo("tablet");
+
+      await waitFor(() => expect(screen.getByTestId("reservation-sheet")).toBeDefined());
     });
   });
 

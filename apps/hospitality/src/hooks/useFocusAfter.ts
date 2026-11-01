@@ -39,6 +39,19 @@ function resolveTarget(target: FocusTarget): HTMLElement | null {
   }
 }
 
+/**
+ * True when a modal dialog is open that does not contain `element`, so keys on it would act behind
+ * that dialog. A response that lands late asks this before it moves focus. A panel inside an `inert`
+ * subtree is on its way out and covers nothing.
+ */
+export function isCoveredByDialog(element: Element | null): boolean {
+  return Array.from(document.querySelectorAll('[role="dialog"][aria-modal="true"]')).some(
+    (dialog) => !dialog.closest("[inert]") && !(element && dialog.contains(element))
+  );
+}
+
+export const isTestIdCovered = (testId: string): boolean => isCoveredByDialog(byTestId(testId));
+
 export function useFocusAfter(): FocusAfterApi {
   const pendingRef = useRef<FocusTarget | null>(null);
   // A request re-renders the owner so the effect below runs even when nothing else changed.

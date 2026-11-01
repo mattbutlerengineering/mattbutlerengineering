@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { useFocusAfter, type FocusTarget } from "./useFocusAfter.js";
+import { isCoveredByDialog, useFocusAfter, type FocusTarget } from "./useFocusAfter.js";
 import { PageHeader } from "../components/PageHeader.js";
 
 interface HarnessProps {
@@ -103,5 +103,56 @@ describe("useFocusAfter", () => {
     render(<Harness request={{ kind: "testId", testId: 'weird"id' }} />);
 
     expect(() => fireEvent.click(screen.getByText("request"))).not.toThrow();
+  });
+});
+
+describe("isCoveredByDialog (#8029)", () => {
+  const modal = (children: React.ReactNode, inert = false) => (
+    <div inert={inert}>
+      <div role="dialog" aria-modal="true">
+        {children}
+      </div>
+    </div>
+  );
+
+  it("is false with no modal open", () => {
+    render(<button>control</button>);
+    expect(isCoveredByDialog(screen.getByText("control"))).toBe(false);
+  });
+
+  it("is false for a control inside the only modal", () => {
+    render(modal(<button>control</button>));
+    expect(isCoveredByDialog(screen.getByText("control"))).toBe(false);
+  });
+
+  it("is true for a control inside a modal under another modal", () => {
+    render(
+      <>
+        {modal(<button>control</button>)}
+        {modal(<button>on top</button>)}
+      </>
+    );
+    expect(isCoveredByDialog(screen.getByText("control"))).toBe(true);
+  });
+
+  it("is true for a control outside an open modal, and for one not rendered", () => {
+    render(
+      <>
+        <button>control</button>
+        {modal(<button>on top</button>)}
+      </>
+    );
+    expect(isCoveredByDialog(screen.getByText("control"))).toBe(true);
+    expect(isCoveredByDialog(null)).toBe(true);
+  });
+
+  it("ignores a modal on its way out, inside an inert subtree", () => {
+    render(
+      <>
+        <button>control</button>
+        {modal(<button>leaving</button>, true)}
+      </>
+    );
+    expect(isCoveredByDialog(screen.getByText("control"))).toBe(false);
   });
 });

@@ -2,7 +2,7 @@ import { useCallback, useRef, useState, type RefObject } from "react";
 import type { TFunction } from "i18next";
 import type { Reservation, Table } from "@mbe/types";
 import { RESERVATION_STATUS_KEYS } from "./status-keys.js";
-import { useFocusAfter } from "../../hooks/useFocusAfter.js";
+import { isCoveredByDialog, useFocusAfter } from "../../hooks/useFocusAfter.js";
 import { describeApiError, type ApiErrorDescription } from "../../lib/describe-api-error.js";
 import { SEATED_EARLY_WINDOW_MS } from "../../utils/seated.js";
 import { isSeatableStatus } from "../../utils/seating.js";
@@ -87,7 +87,7 @@ export function useSeatGuest(onSeat: () => Promise<void>): SeatGuestState {
     } catch (err) {
       setFailure(describeApiError(err));
       const element = seatRef.current;
-      if (element) focusAfter({ kind: "element", element });
+      if (element && !isCoveredByDialog(element)) focusAfter({ kind: "element", element });
     } finally {
       setSeating(false);
     }

@@ -122,8 +122,13 @@ export function EditReservationDrawer({
   const validationError =
     errors.partySize?.message ?? errors.startTime?.message ?? errors.endTime?.message;
 
+  // A save in flight can only be left when it ends: closing now would hide a failure.
+  const dismiss = () => {
+    if (!isLoading) onClose();
+  };
+
   return (
-    <Drawer open={true} onClose={onClose} title={t("timeline.edit.title")} size="default">
+    <Drawer open={true} onClose={dismiss} title={t("timeline.edit.title")} size="default">
       <div data-testid="edit-reservation-drawer">
         <form noValidate onSubmit={handleSubmit(onFormSubmit)}>
           <Stack gap="lg" style={{ padding: "var(--rialto-space-md)" }}>

@@ -6839,6 +6839,15 @@
     }: UseCommandPaletteOptions): UseCommandPaletteResult {
       const [open, setOpen] = useState(false);
     
+      // A resize can change what the page mounts under the palette, and what mounts takes focus from
+      // it, so keys typed into the palette would act there (#8029). The palette closes instead.
+      const viewport = useViewport();
+      const [openedAt, setOpenedAt] = useState(viewport);
+      if (viewport !== openedAt) {
+        setOpenedAt(viewport);
+        setOpen(false);
+      }
+    
       const items = useMemo(
         () => [...buildNavItems(sections, runAction), ...buildActionItems(runAction, toggleTheme)],
         [sections, runAction, toggleTheme]
@@ -7868,6 +7877,12 @@
           return document.querySelector<HTMLElement>("h1");
       }
     }
+    export function isCoveredByDialog(element: Element | null): boolean {
+      return Array.from(document.querySelectorAll('[role="dialog"][aria-modal="true"]')).some(
+        (dialog) => !dialog.closest("[inert]") && !(element && dialog.contains(element))
+      );
+    }
+    export const isTestIdCovered = (testId: string): boolean => isCoveredByDialog(byTestId(testId));
     export function useFocusAfter(): FocusAfterApi {
       const pendingRef = useRef<FocusTarget | null>(null);
       // A request re-renders the owner so the effect below runs even when nothing else changed.
@@ -11442,7 +11457,7 @@
         } catch (err) {
           setFailure(describeApiError(err));
           const element = seatRef.current;
-          if (element) focusAfter({ kind: "element", element });
+          if (element && !isCoveredByDialog(element)) focusAfter({ kind: "element", element });
         } finally {
           setSeating(false);
         }

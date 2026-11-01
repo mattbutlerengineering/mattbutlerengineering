@@ -67,7 +67,11 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
   useEffect(() => {
     pressedRef.current?.focus();
   }, []);
-  useEscapeKey(onClose, true);
+  // A save in flight can only be left when it ends: closing now would hide a failure.
+  const dismiss = () => {
+    if (!isLoading) onClose();
+  };
+  useEscapeKey(dismiss, true);
 
   const { register, handleSubmit, setValue, setFocus, watch } = useForm<WalkInFormData>({
     defaultValues: { guestName: "" },
@@ -138,7 +142,7 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
   };
 
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) onClose();
+    if (e.target === e.currentTarget) dismiss();
   };
 
   return (

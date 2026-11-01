@@ -38,6 +38,51 @@ describe("CancelReservationDialog", () => {
     vi.clearAllMocks();
   });
 
+  describe("while a save is in flight (#8029)", () => {
+    const failure = serverError("PATCH", "/api/v1/reservations/res-123");
+
+    function renderMidSave() {
+      let fail: (error: unknown) => void = () => undefined;
+      const onConfirm = vi.fn(
+        () =>
+          new Promise<void>((_resolve, reject) => {
+            fail = reject;
+          })
+      );
+      render(<CancelReservationDialog {...defaultProps} onConfirm={onConfirm} />);
+      fireEvent.click(screen.getByRole("button", { name: "Cancel Reservation" }));
+      return { fail: (error: unknown) => fail(error) };
+    }
+
+    it("Escape does not close the dialog, so a failure still shows", async () => {
+      const { fail } = renderMidSave();
+
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(defaultProps.onClose).not.toHaveBeenCalled();
+
+      fail(failure);
+      expect(await screen.findByRole("alert")).toBeDefined();
+    });
+
+    it("a click on the backdrop does not close the dialog", () => {
+      renderMidSave();
+
+      fireEvent.click(screen.getByRole("dialog").parentElement as HTMLElement);
+
+      expect(defaultProps.onClose).not.toHaveBeenCalled();
+    });
+
+    it("Escape closes it again once the save has failed", async () => {
+      const { fail } = renderMidSave();
+      fail(failure);
+      await screen.findByRole("alert");
+
+      fireEvent.keyDown(document, { key: "Escape" });
+
+      expect(defaultProps.onClose).toHaveBeenCalledOnce();
+    });
+  });
+
   it("labels the dialog with a semantic heading", () => {
     render(<CancelReservationDialog {...defaultProps} />);
     const titleId = screen.getByRole("dialog").getAttribute("aria-labelledby");

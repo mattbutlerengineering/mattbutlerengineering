@@ -6375,6 +6375,12 @@
       function resolveTarget(target: FocusTarget): HTMLElement | null { /* ... */ }
     </item>
     <item priority="high">
+      export function isCoveredByDialog(element: Element | null): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export const isTestIdCovered: unknown;
+    </item>
+    <item priority="high">
       export function useFocusAfter(): FocusAfterApi { /* ... */ }
     </item>
   </file>
