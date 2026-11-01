@@ -38,6 +38,11 @@ import { test, expect } from "./fixtures.js";
 import { pickBookingDate } from "./booking-date.js";
 import { hasReadableLiteral } from "./fixtures/locale-sweep-readable.js";
 
+// A third of the suite. Whole on one worker, it alone sets the CI job's length
+// (#8038). Each test stages its own page and every request is mocked, and
+// module-level values here are read-only, so the tests need no order.
+test.describe.configure({ mode: "parallel" });
+
 const VENUE_SLUG = "e2e-test-bistro";
 const VENUE_NAME = "E2E Test Bistro";
 const MANAGE_TOKEN = "locale-sweep-token";
