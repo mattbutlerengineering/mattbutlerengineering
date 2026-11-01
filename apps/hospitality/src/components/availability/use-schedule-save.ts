@@ -25,6 +25,9 @@ export function useScheduleSave(
   const { t } = useTranslation();
   const { mutateAsync, isPending } = useSaveAvailabilityConfig();
   const [failure, setFailure] = useState<readonly string[]>([]);
+  // A lost race. The draft was built from a version that is gone, so a drawer that edits rows
+  // must show what changed and get an answer (reapply or discard) before it saves again.
+  const [conflicted, setConflicted] = useState(false);
 
   const reject = (error: unknown) => {
     const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
@@ -32,6 +35,7 @@ export function useScheduleSave(
     const problem = parsed.success ? parsed.data : null;
     if (problem?.code === "version-conflict") {
       onStale();
+      setConflicted(true);
       setFailure([t("availabilitySchedules.conflict")]);
     } else if (problem?.code === "invalid-config" && problem.issues?.length) {
       setFailure(problem.issues.map((i) => i.message));
@@ -61,5 +65,16 @@ export function useScheduleSave(
     }
   };
 
-  return { save, isPending, failure, clearFailure: () => setFailure([]) };
+  return {
+    save,
+    isPending,
+    failure,
+    conflicted,
+    clearFailure: () => setFailure([]),
+    /** The Manager has answered the conflict; the next save is against the version they saw. */
+    clearConflict: () => {
+      setConflicted(false);
+      setFailure([]);
+    },
+  };
 }

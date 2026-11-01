@@ -32,6 +32,21 @@ export type EditScope =
       readonly from: string;
     };
 
+/**
+ * The date an overnight close can be named against: only a save that governs exactly one date, or
+ * one weekday every time (a regular week, picked dates and a multi-date rule span several), so
+ * "the next day (Saturday)" is never said of a close that also lands on other weekdays.
+ */
+export function overnightHintDate(
+  scope: EditScope,
+  date: string,
+  dates: readonly string[]
+): string | undefined {
+  if (scope.kind === "date" || scope.kind === "weekday") return date;
+  if (scope.kind === "rule" && dates.length === 1) return date;
+  return undefined;
+}
+
 /** One editable service row. */
 export interface DraftService {
   /** React key; stable across edits. */
@@ -127,6 +142,8 @@ interface BuildInput {
   readonly leaveOut?: readonly string[];
   /** Today on the venue clock: a rule edit's "All dates" starts here, so past dates keep their hours. */
   readonly today?: string;
+  /** The config the draft was seeded from; a schedule save removes only rows it contained. */
+  readonly baseline?: AvailabilityConfig;
 }
 
 /** The venue's own single-date special-hours rule for `date`, which a date edit changes in place. */
@@ -171,10 +188,14 @@ function scheduleServiceRows(
   config: AvailabilityConfig,
   scheduleId: string,
   services: readonly (DraftService & { venueServiceId: string })[],
-  makeId: () => string
+  makeId: () => string,
+  baseline?: AvailabilityConfig
 ): { upsert: ScheduleService[]; removed: string[] } {
   const stored = config.scheduleServices.filter((s) => s.scheduleId === scheduleId);
   const kept = new Set(services.map((s) => s.venueServiceId));
+  // Only rows the draft started with can be ones the Manager removed. A row that appeared since
+  // (a colleague's new service) was never in front of them, so a save must not delete it.
+  const seen = baseline && new Set(baseline.scheduleServices.map((s) => s.id));
   return {
     upsert: services.map((s) => ({
       ...hoursOf(s),
@@ -186,7 +207,9 @@ function scheduleServiceRows(
       scheduleId,
       venueServiceId: s.venueServiceId,
     })),
-    removed: stored.filter((s) => !kept.has(s.venueServiceId)).map((s) => s.id),
+    removed: stored
+      .filter((s) => !kept.has(s.venueServiceId) && (!seen || seen.has(s.id)))
+      .map((s) => s.id),
   };
 }
 
@@ -205,7 +228,13 @@ export function buildDraftChanges(input: BuildInput): AvailabilityConfigChanges 
   const venueServices = created.length > 0 ? { venueServices: created } : {};
 
   if (scope.kind === "schedule") {
-    const { upsert, removed } = scheduleServiceRows(config, scope.scheduleId, services, makeId);
+    const { upsert, removed } = scheduleServiceRows(
+      config,
+      scope.scheduleId,
+      services,
+      makeId,
+      input.baseline
+    );
     return {
       upsert: { ...venueServices, scheduleServices: upsert },
       remove: removed.length > 0 ? { scheduleServices: removed } : {},

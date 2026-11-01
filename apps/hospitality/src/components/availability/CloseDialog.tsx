@@ -410,19 +410,18 @@ export function CloseDialog(props: CloseDialogProps) {
       <DiscardChangesDialog
         open={guard.pending !== null}
         date={null}
-        wording={
-          // After a save was sent it may have committed, so "nothing has been closed" is false.
+        // After a save was sent it may have committed, so "nothing has been closed" is false.
+        title={
           tried.length > 0
-            ? {
-                title: t("availability.close.discard.titleMaybeSaved"),
-                description: t("availability.close.discard.descriptionMaybeSaved"),
-                confirmLabel: t("availability.close.discard.leave"),
-              }
-            : {
-                title: t("availability.close.discard.title"),
-                description: t("availability.close.discard.description"),
-              }
+            ? t("availability.close.discard.titleMaybeSaved")
+            : t("availability.close.discard.title")
         }
+        description={
+          tried.length > 0
+            ? t("availability.close.discard.descriptionMaybeSaved")
+            : t("availability.close.discard.description")
+        }
+        confirmLabel={tried.length > 0 ? t("availability.close.discard.leave") : undefined}
         onDiscard={guard.confirmDiscard}
         onKeepEditing={guard.keepEditing}
       />
