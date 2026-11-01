@@ -4189,6 +4189,104 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="pages">
+  <file path="src/pages/timeline-focus.ts">
+    <item priority="high">
+      export const DETAILS_SURFACE_TEST_ID: unknown;
+    </item>
+    <item priority="high">
+      export function blockTarget(reservationId: string): FocusTarget { /* ... */ }
+    </item>
+    <item priority="low">
+      interface SurfaceState {
+        openId: string | null;
+        modal: boolean;
+        changingForm: boolean;
+      }
+    </item>
+    <item priority="medium">
+      function insideSurface(element: HTMLElement): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function returnFocusTarget(
+        surface: SurfaceState,
+        opener: HTMLElement | null,
+        fallback: FocusTarget | null
+      ): FocusTarget | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function walkInFocusTarget(viewport: Viewport, reservationId: string): FocusTarget { /* ... */ }
+    </item>
+    <item priority="high">
+      export function captureOpener(clicked?: HTMLElement): HTMLElement | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function uncoveredTarget(testId: string): FocusTarget | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function seatedFocusTarget(
+        surface: SurfaceState,
+        reservationId: string
+      ): FocusTarget | null { /* ... */ }
+    </item>
+    <item priority="high">
+      interface DetailsSurfaceInput {
+        viewport: Viewport;
+        selectedId: string | null;
+        selectedReservation: Reservation | null;
+        dialogOpen: boolean;
+      }
+    </item>
+    <item priority="high">
+      interface DetailsSurface {
+        surfaceViewport: Viewport;
+        sheetReservation: Reservation | null;
+        surfaceRef: RefObject<SurfaceState>;
+      }
+    </item>
+    <item priority="high">
+      export function useDetailsSurface({
+        viewport,
+        selectedId,
+        selectedReservation,
+        dialogOpen,
+      }: DetailsSurfaceInput): DetailsSurface { /* ... */ }
+    </item>
+  </file>
+  <file path="src/pages/timeline-sentences.ts">
+    <item priority="high">
+      export function walkInSentence(
+        created: Reservation,
+        tableName: string | undefined,
+        t: TFunction
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function seatedSentence(
+        reservation: Reservation,
+        tableName: string | undefined,
+        t: TFunction
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function cancelledSentence(reservation: Reservation, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function noShowSentence(reservation: Reservation, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function savedSentence(reservation: Reservation, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function loadedSentence(
+        date: string,
+        todayStr: string,
+        locale: string,
+        t: TFunction
+      ): string { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="rehearsal">
   <file path="src/components/rehearsal/rehearsal-state.ts">
     <item priority="low">

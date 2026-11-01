@@ -10625,6 +10625,153 @@
     }
   </file>
   </section>
+  <section priority="medium" role="pages">
+  <file path="src/pages/timeline-focus.ts">
+    export const DETAILS_SURFACE_TEST_ID = "reservation-details-surface";
+    export function blockTarget(reservationId: string): FocusTarget {
+      return { kind: "testId", testId: `reservation-block-${reservationId}` };
+    }
+    export interface SurfaceState {
+      /** The reservation the surface is showing, whichever form it takes. */
+      readonly openId: string | null;
+      /** Phone and tablet show it as a modal Drawer, so what is behind it is out of reach. */
+      readonly modal: boolean;
+      /** A dialog held the surface in its old form, and the one its buttons are in is about to go. */
+      readonly changingForm: boolean;
+    }
+    function insideSurface(element: HTMLElement): boolean {
+      return (
+        document.querySelector(`[data-testid="${DETAILS_SURFACE_TEST_ID}"]`)?.contains(element) ?? false
+      );
+    }
+    export function returnFocusTarget(
+      surface: SurfaceState,
+      opener: HTMLElement | null,
+      fallback: FocusTarget | null
+    ): FocusTarget | null {
+      const usable =
+        opener?.isConnected && !surface.changingForm && (!surface.modal || insideSurface(opener));
+      if (opener && usable) return { kind: "element", element: opener };
+      return surface.modal ? SURFACE_TARGET : fallback;
+    }
+    export function walkInFocusTarget(viewport: Viewport, reservationId: string): FocusTarget {
+      return viewport === "desktop" ? blockTarget(reservationId) : SURFACE_TARGET;
+    }
+    export function captureOpener(clicked?: HTMLElement): HTMLElement | null {
+      if (clicked) return clicked;
+      const active = document.activeElement;
+      return active instanceof HTMLElement && active !== document.body ? active : null;
+    }
+    export function uncoveredTarget(testId: string): FocusTarget | null {
+      return isTestIdCovered(testId) ? null : { kind: "testId", testId };
+    }
+    export function seatedFocusTarget(
+      surface: SurfaceState,
+      reservationId: string
+    ): FocusTarget | null {
+      if (surface.openId !== null && surface.openId !== reservationId) return null;
+      if (surface.openId !== null && surface.modal) return uncoveredTarget(RESERVATION_EDIT_TEST_ID);
+      return uncoveredTarget(`reservation-block-${reservationId}`);
+    }
+    interface DetailsSurfaceInput {
+      readonly viewport: Viewport;
+      readonly selectedId: string | null;
+      readonly selectedReservation: Reservation | null;
+      readonly dialogOpen: boolean;
+    }
+    interface DetailsSurface {
+      /** Which form the surface takes. */
+      readonly surfaceViewport: Viewport;
+      /** What the tablet sheet renders, including closed across a Seat now's selection gap. */
+      readonly sheetReservation: Reservation | null;
+      /** For use after an `await`: the surface when the response arrived, not when it was sent. */
+      readonly surfaceRef: RefObject<SurfaceState>;
+    }
+    export function useDetailsSurface({
+      viewport,
+      selectedId,
+      selectedReservation,
+      dialogOpen,
+    }: DetailsSurfaceInput): DetailsSurface {
+      // It follows the viewport, except while a dialog is open: a sheet mounting under a dialog takes
+      // focus and the Escape layer from it. A frame late, so a closing overlay's own focus restore has
+      // run before a new surface takes focus.
+      const [surfaceViewport, setSurfaceViewport] = useState(viewport);
+      useEffect(() => {
+        if (dialogOpen || surfaceViewport === viewport) return;
+        const frame = requestAnimationFrame(() => setSurfaceViewport(viewport));
+        return () => cancelAnimationFrame(frame);
+      }, [dialogOpen, surfaceViewport, viewport]);
+    
+      // Seat now selects a reservation the refetch has yet to bring. The sheet stays mounted, closed,
+      // across that gap: unmounting it would schedule a focus restore that could land on the old party's
+      // block behind the new sheet, and only the same Drawer reopening can cancel it.
+      const [heldReservation, setHeldReservation] = useState<Reservation | null>(null);
+      const sheetReservation = selectedReservation ?? (selectedId ? heldReservation : null);
+      if (sheetReservation !== heldReservation) setHeldReservation(sheetReservation);
+    
+      const surfaceRef = useRef<SurfaceState>({ openId: null, modal: false, changingForm: false });
+      useLayoutEffect(() => {
+        const open = selectedReservation !== null;
+        surfaceRef.current = {
+          openId: selectedReservation?.id ?? null,
+          modal: viewport !== "desktop" && open,
+          changingForm: open && surfaceViewport !== viewport,
+        };
+      });
+    
+      return { surfaceViewport, sheetReservation, surfaceRef };
+    }
+  </file>
+  <file path="src/pages/timeline-sentences.ts">
+    export function walkInSentence(
+      created: Reservation,
+      tableName: string | undefined,
+      t: TFunction
+    ): string {
+      const who = created.guestName ? created.guestName : t("timeline.announce.aWalkIn");
+      const size = created.partySize;
+      return tableName
+        ? t("timeline.announce.walkInSeatedAt", { who, size, table: tableName })
+        : t("timeline.announce.walkInSeated", { who, size });
+    }
+    export function seatedSentence(
+      reservation: Reservation,
+      tableName: string | undefined,
+      t: TFunction
+    ): string {
+      const guest = reservation.guestName || t("timeline.announce.theGuest");
+      return tableName
+        ? t("timeline.announce.seatedAt", { guest, table: tableName })
+        : t("timeline.announce.seated", { guest });
+    }
+    export function cancelledSentence(reservation: Reservation, t: TFunction): string {
+      return reservation.guestName
+        ? t("timeline.announce.cancelledNamed", { name: reservation.guestName })
+        : t("timeline.announce.cancelled");
+    }
+    export function noShowSentence(reservation: Reservation, t: TFunction): string {
+      return reservation.guestName
+        ? t("timeline.announce.noShowNamed", { name: reservation.guestName })
+        : t("timeline.announce.noShow");
+    }
+    export function savedSentence(reservation: Reservation, t: TFunction): string {
+      return reservation.guestName
+        ? t("timeline.announce.savedNamed", { name: reservation.guestName })
+        : t("timeline.announce.saved");
+    }
+    export function loadedSentence(
+      date: string,
+      todayStr: string,
+      locale: string,
+      t: TFunction
+    ): string {
+      return date === todayStr
+        ? t("timeline.announce.loadedTonight")
+        : t("timeline.announce.loadedDate", { date: formatServiceDate(date, locale) });
+    }
+  </file>
+  </section>
   <section priority="medium" role="rehearsal">
   <file path="src/components/rehearsal/rehearsal-state.ts">
     export interface RehearsalWaiting {
