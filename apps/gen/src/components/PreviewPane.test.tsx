@@ -42,6 +42,12 @@ vi.mock("@mbe/rialto-catalog", () => ({
 }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
+  getIcon: (concept: string) => {
+    const Glyph = ({ "aria-hidden": ariaHidden }: { "aria-hidden"?: boolean }) => (
+      <svg data-testid={`icon-${concept}`} aria-hidden={ariaHidden} />
+    );
+    return Glyph;
+  },
   Alert: ({ children }: { children: React.ReactNode }) => <div data-testid="alert">{children}</div>,
   Button: ({
     children,
@@ -87,6 +93,7 @@ vi.mock("./PreviewPane.module.css", () => ({
     viewportBar: "viewportBar",
     errorState: "errorState",
     loadingState: "loadingState",
+    loadingLabel: "loadingLabel",
     pulse: "pulse",
     welcomeState: "welcomeState",
     welcomeContent: "welcomeContent",
@@ -187,6 +194,14 @@ describe("PreviewPane", () => {
     expect(screen.getByText("E-commerce")).toBeDefined();
   });
 
+  it("renders suggestion cards with themed Rialto icons instead of emoji", () => {
+    const { container } = render(<PreviewPane {...defaultProps} />);
+    const grid = container.querySelector(".suggestionsGrid");
+    expect(grid?.textContent).not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u);
+    expect(screen.getByTestId("icon-chart")).toBeDefined();
+    expect(screen.getByTestId("icon-cart")).toBeDefined();
+  });
+
   it("calls onSuggestionClick when a suggestion card is clicked", () => {
     const onSuggestionClick = vi.fn();
     render(<PreviewPane {...defaultProps} onSuggestionClick={onSuggestionClick} />);
@@ -201,6 +216,11 @@ describe("PreviewPane", () => {
     const pulse = screen.getByRole("status");
     expect(pulse).toBeDefined();
     expect(pulse.getAttribute("aria-label")).toBe("Generating…");
+  });
+
+  it("shows a visible Generating label alongside the pulse bar while streaming", () => {
+    render(<PreviewPane {...defaultProps} isStreaming={true} spec={null} />);
+    expect(screen.getAllByText("Generating…").length).toBeGreaterThan(0);
   });
 
   it("shows error alert when error is provided", () => {

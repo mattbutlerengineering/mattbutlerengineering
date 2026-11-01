@@ -139,8 +139,9 @@
 }
 
 .suggestionIcon {
-  font-size: var(--rialto-text-xl);
-  line-height: 1;
+  inline-size: var(--rialto-text-xl);
+  block-size: var(--rialto-text-xl);
+  color: var(--rialto-text-secondary);
 }
 
 .suggestionTitle {
@@ -158,8 +159,14 @@
 .loadingState {
   flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: flex-start;
+  gap: var(--rialto-space-sm);
   padding-block-start: var(--rialto-space-sm);
+}
+
+.loadingLabel {
+  font-size: var(--rialto-text-sm);
 }
 
 .pulse {
