@@ -1,5 +1,15 @@
 # @mattbutlerengineering/rialto
 
+## 0.9.6
+
+### Patch Changes
+
+- [#7996](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7996) [`dd6a0cd`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/dd6a0cd9429e4b37a7870aa864f063baddf6594b) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Dialog now stacks above Drawer. A confirm opened beside a Drawer (such as "Discard your changes?") sat underneath the Drawer's overlay, so its buttons could not be clicked. The overlay order is now Drawer, Dialog, CommandPalette, Select menu, Toast, so a command palette opened while a Dialog is up, a Select menu inside a Dialog and a Toast all stay on top.
+
+- [#7998](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7998) [`36ade63`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/36ade637fd4df05bfb4a9cbce99708abfba9c694) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Dialog panel is now opaque in light and dark (it used the translucent glass recipe, so content behind it ghosted through). A long dialog scrolls its body, description included, while the title and footer stay in view, and short viewports (down to the 320x256 reflow size) tighten the chrome so the footer stays reachable. An overflowing body is a keyboard-focusable region; one that fits adds no tab stop. A Popover opened inside a Dialog (DatePicker, DateRangePicker, TimePicker) now renders in the dialog's layer, flipping to the roomier side, so the scrolling body no longer clips it.
+
+- [#8025](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8025) [`29379c3`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/29379c34e90f5a68ab580fd7c008796e9948aa0b) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - An overlay that mounts already open (Drawer, Dialog, Popover and the other `useReturnFocus` users) no longer loses focus to its trigger under React StrictMode. StrictMode replays the mount effects, and the first pass's pending focus restore then pulled focus out of the overlay and back to the element that opened it. A re-run before the restore frame now cancels it and keeps the original trigger, so closing still returns focus there.
+
 ## 0.9.5
 
 ### Patch Changes
