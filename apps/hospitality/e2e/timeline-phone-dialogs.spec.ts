@@ -196,6 +196,7 @@ for (const { label, viewport, dialog: surfaceName } of SURFACES) {
 
     const surface = (page: Page) => page.getByRole("dialog", { name: surfaceName });
     const focused = (page: Page) => surface(page).locator(":focus");
+    const modalFocus = (page: Page) => page.locator('[role="dialog"][aria-modal="true"] :focus');
 
     async function openWalkInFromPalette(page: Page) {
       await page.keyboard.press("ControlOrMeta+k");
@@ -245,6 +246,70 @@ for (const { label, viewport, dialog: surfaceName } of SURFACES) {
       await expect(mockedPage.locator('[role="dialog"][aria-modal="true"] :focus')).toHaveCount(1);
     });
 
+    // The Drawer opens in the commit that unmounts the walk-in dialog, so it captures no live
+    // opener: closing it has to find the new block itself.
+    test("closing the surface Seat now opened focuses the new block", async ({ mockedPage }) => {
+      await mockedPage.clock.setFixedTime(new Date(`${localDay()}T19:30:00`));
+      await mockedPage.goto("timeline");
+      await mockedPage.getByRole("button", { name: "Walk-in", exact: true }).click();
+      const dialog = mockedPage.getByRole("dialog", { name: "Seat walk-in" });
+      await dialog.getByRole("button", { name: "Seat now" }).click();
+      await expect(dialog).toHaveCount(0);
+      await expect(modalFocus(mockedPage)).toHaveCount(1);
+
+      await mockedPage.keyboard.press("Escape");
+
+      await expect(mockedPage.locator('[role="dialog"][aria-modal="true"]')).toHaveCount(0);
+      await expect(
+        mockedPage.locator('[data-testid^="reservation-block-res_e2e_walkin_"]')
+      ).toBeFocused();
+    });
+
+    test("closing a surface opened from ?selected= focuses that block", async ({ mockedPage }) => {
+      await mockedPage.clock.setFixedTime(new Date(`${localDay()}T19:30:00`));
+      await mockedPage.goto("timeline?selected=res_e2e_002");
+      await expect(surface(mockedPage)).toBeVisible();
+
+      await mockedPage.keyboard.press("Escape");
+
+      await expect(surface(mockedPage)).toHaveCount(0);
+      await expect(mockedPage.getByTestId("reservation-block-res_e2e_002")).toBeFocused();
+    });
+
+    test("Seat Guest leaves focus inside the surface, so keys cannot reach the blocks", async ({
+      mockedPage,
+    }) => {
+      await openDetailsDrawer(mockedPage, "res_e2e_002", surfaceName);
+      await surface(mockedPage).getByRole("button", { name: "Seat Guest" }).click();
+      await expect(mockedPage.getByRole("status")).toContainText("Seated");
+      // The refetch removes Seat Guest, so focus must not have settled on it.
+      await expect(surface(mockedPage).getByRole("button", { name: "Seat Guest" })).toHaveCount(0);
+      await expect(focused(mockedPage)).toHaveCount(1);
+
+      await mockedPage.keyboard.press("ArrowRight");
+      await mockedPage.keyboard.press("Enter");
+
+      await expect(surface(mockedPage)).toBeVisible();
+      await expect(mockedPage.getByRole("dialog", { name: "Carol Davis" })).toHaveCount(0);
+    });
+
+    // A browser whose click does not focus its button: focus rests on the block at the click.
+    test("saving an edit opened by a non-focusing click returns focus to Edit", async ({
+      mockedPage,
+    }) => {
+      await openDetailsDrawer(mockedPage, "res_e2e_002", surfaceName);
+      const edit = surface(mockedPage).getByRole("button", { name: /^Edit/ });
+      await mockedPage
+        .getByTestId("reservation-block-res_e2e_002")
+        .evaluate((block) => (block as HTMLElement).focus());
+      await edit.evaluate((button) => (button as HTMLElement).click());
+      const drawer = mockedPage.getByRole("dialog", { name: "Edit Reservation" });
+      await drawer.getByRole("button", { name: /^Save/ }).click();
+
+      await expect(drawer).toHaveCount(0);
+      await expect(edit).toBeFocused();
+    });
+
     test("a reservation without a deposit shows no error alert", async ({ mockedPage }) => {
       await openDetailsDrawer(mockedPage, "res_e2e_002", surfaceName);
       if (label === "tablet") {
@@ -254,3 +319,34 @@ for (const { label, viewport, dialog: surfaceName } of SURFACES) {
     });
   });
 }
+
+// The sidebar's dialog survives a resize; the sheet that replaces the sidebar mounts behind it.
+test.describe("Resizing from desktop to tablet with a dialog open", () => {
+  test.use({ viewport: { width: 1280, height: 900 } });
+
+  test("Escape lands on the block, not the body", async ({ mockedPage }) => {
+    await mockedPage.clock.setFixedTime(new Date(`${localDay()}T19:30:00`));
+    await mockedPage.goto("timeline");
+    await mockedPage.getByTestId("reservation-block-res_e2e_002").click();
+    await mockedPage
+      .getByTestId("reservation-detail-sidebar")
+      .getByRole("button", { name: "Cancel Reservation", exact: true })
+      .click();
+    const dialog = mockedPage.getByRole("dialog", { name: "Cancel Reservation" });
+    await expect(dialog).toBeVisible();
+
+    await mockedPage.setViewportSize({ width: 900, height: 1100 });
+    await expect(mockedPage.getByRole("dialog", { name: "Bob Smith" })).toBeVisible();
+    await mockedPage.keyboard.press("Escape");
+
+    // The sheet mounted last, so it is the top Escape layer: it closes, and the dialog goes with it.
+    await expect(dialog).toHaveCount(0);
+    await expect(mockedPage.getByRole("dialog", { name: "Bob Smith" })).toHaveCount(0);
+    await expect(mockedPage.getByTestId("reservation-block-res_e2e_002")).toBeFocused();
+
+    // Selecting another party must not bring the dialog back, now aimed at that party.
+    await mockedPage.getByTestId("reservation-block-res_e2e_003").click();
+    await expect(mockedPage.getByRole("dialog", { name: "Carol Davis" })).toBeVisible();
+    await expect(dialog).toHaveCount(0);
+  });
+});

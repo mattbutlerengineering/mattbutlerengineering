@@ -13,7 +13,13 @@ import {
 import { useGuest } from "../../hooks/useGuests.js";
 import { useDepositByReservation } from "../../hooks/useDeposits.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { findReservationTable, occupiedCaption, statusWord, useSeatGuest } from "./seat-guest.js";
+import {
+  RESERVATION_EDIT_TEST_ID,
+  findReservationTable,
+  occupiedCaption,
+  statusWord,
+  useSeatGuest,
+} from "./seat-guest.js";
 import { canSeat } from "../../utils/seating.js";
 import { StaffDepositSection } from "./StaffDepositSection.js";
 import { SpecialRequestsTicket } from "./SpecialRequestsTicket.js";
@@ -32,7 +38,8 @@ export interface ReservationSheetProps {
   onClose: () => void;
   /** Rejects on failure — the sheet owns showing it (architecture § Dialog contracts). */
   onSeat: () => Promise<void>;
-  onEdit: () => void;
+  /** Receives the clicked button, the opener the page returns focus to after a save. */
+  onEdit: (opener: HTMLElement) => void;
   /** Receives the clicked button, the opener the page returns focus to when the dialog is dismissed. */
   onCancel: (opener: HTMLElement) => void;
   /** Opens the Mark No-Show confirmation (only offered for CONFIRMED — the only valid source state). */
@@ -165,7 +172,12 @@ export function ReservationSheet({
               {t("timeline.details.seat")}
             </Button>
           )}
-          <Button variant="primary" onClick={onEdit} disabled={seating}>
+          <Button
+            data-testid={RESERVATION_EDIT_TEST_ID}
+            variant="primary"
+            onClick={(event) => onEdit(event.currentTarget)}
+            disabled={seating}
+          >
             {t("timeline.sheet.edit")}
           </Button>
           {reservation.status !== "CANCELLED" && (

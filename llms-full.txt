@@ -84088,6 +84088,7 @@
     }
   </file>
   <file path="apps/hospitality/src/components/timeline/seat-guest.ts">
+    export const RESERVATION_EDIT_TEST_ID = "reservation-edit";
     export function findReservationTable(
       reservation: Reservation,
       tables: readonly Table[]

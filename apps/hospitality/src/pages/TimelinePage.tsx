@@ -22,6 +22,7 @@ import { WalkInDialog } from "../components/timeline/WalkInDialog";
 import { ReservationDetails } from "../components/timeline/ReservationDetails.js";
 import { tableStatusInline } from "../components/timeline/table-status-menu.js";
 // By path, not the barrel: TimelinePage.test.tsx mocks the barrel wholesale.
+import { RESERVATION_EDIT_TEST_ID } from "../components/timeline/seat-guest.js";
 import { SHEET_BLOCK_SIZE, reservationSheetSize } from "../components/timeline/sheet-size.js";
 import { RehearsalTimeline } from "../components/rehearsal/RehearsalTimeline.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
@@ -291,6 +292,21 @@ function LiveTimelinePage() {
     return active instanceof HTMLElement && active !== document.body ? active : null;
   };
 
+  // Closing the surface itself (Escape, backdrop, Close). The Drawer restores focus to what held it
+  // when it opened, but one opened by Seat now or `?selected=` captured nothing live, and the
+  // sidebar's Close button unmounts: focus would fall to <body>. Asking for the block covers those;
+  // a live opener's restore frame runs after this and still wins. A dialog a resize left open under
+  // the sheet closes with it, or the next selection would reopen it for another party.
+  const closeDetails = () => {
+    setShowCancelDialog(false);
+    setShowNoShowDialog(false);
+    setShowEditDrawer(false);
+    clearSelection();
+    if (selectedReservation) {
+      focusAfter({ kind: "testId", testId: blockTestId(selectedReservation.id) });
+    }
+  };
+
   const openConfirmDialog = (open: (shown: boolean) => void, clicked?: HTMLElement) => {
     confirmDialogOpenerRef.current = captureOpener(clicked);
     open(true);
@@ -369,7 +385,12 @@ function LiveTimelinePage() {
   const handleSeat = async (reservation: Reservation) => {
     await seatGuest(reservation);
     announce(seatedSentence(reservation, tableName(reservation.tableId), t));
-    focusAfter({ kind: "testId", testId: blockTestId(reservation.id) });
+    // A modal surface stays open after seating, and keys on a block behind it would switch the
+    // party. Edit, not the first control: the refetch removes Seat Guest, which may be first.
+    focusAfter({
+      kind: "testId",
+      testId: modalSurfaceOpen ? RESERVATION_EDIT_TEST_ID : blockTestId(reservation.id),
+    });
   };
 
   const handleCancel = async (reason: string, note: string) => {
@@ -396,9 +417,11 @@ function LiveTimelinePage() {
     focusAfter({ kind: "testId", testId: blockTestId(updated.id) });
   };
 
-  const openEditDrawer = () => {
-    const active = document.activeElement;
-    editOpenerRef.current = active instanceof HTMLElement ? active : null;
+  const openEditDrawer = (clicked: HTMLElement) => {
+    // The Edit Drawer restores focus to `activeElement` a frame after it closes, so that has to be
+    // the button even when the click did not focus it, or the restore lands behind the surface.
+    clicked.focus();
+    editOpenerRef.current = clicked;
     setShowEditDrawer(true);
   };
 
@@ -406,8 +429,8 @@ function LiveTimelinePage() {
     const updated = await updateReservation(id, data);
     setShowEditDrawer(false);
     announce(savedSentence(updated, t));
-    const opener = editOpenerRef.current;
-    if (opener) focusAfter({ kind: "element", element: opener });
+    const target = returnFocusTarget(editOpenerRef.current, null);
+    if (target) focusAfter(target);
   };
 
   const handleWalkIn = async (data: WalkInRequest) => {
@@ -674,7 +697,7 @@ function LiveTimelinePage() {
                 aria-label={t("timeline.page.closeDetails")}
                 variant="ghost"
                 size="md"
-                onClick={clearSelection}
+                onClick={closeDetails}
                 className={styles.closeButton}
               />
             </div>
@@ -692,7 +715,7 @@ function LiveTimelinePage() {
             seated={seatedIds.has(selectedReservation.id)}
             now={now}
             open
-            onClose={clearSelection}
+            onClose={closeDetails}
             onSeat={() => handleSeat(selectedReservation)}
             onEdit={openEditDrawer}
             onCancel={(opener) => openConfirmDialog(setShowCancelDialog, opener)}
@@ -708,7 +731,7 @@ function LiveTimelinePage() {
             side="right"
             size="default"
             open={selectedReservation !== null}
-            onClose={clearSelection}
+            onClose={closeDetails}
             title={t("timeline.page.detailsTitle")}
           >
             {detailSurface}
