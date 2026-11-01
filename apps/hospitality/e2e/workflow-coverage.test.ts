@@ -83,12 +83,16 @@ describe("hospitality e2e workflow coverage", () => {
       ).toBeGreaterThan(0);
 
       for (const line of invocationLines) {
+        // Sharding is the one allowed argument, and only this form: the total
+        // comes from the matrix, so the shards still add up to the whole suite.
         expect(
           line.trim(),
           `${workflowPath} must invoke the bare test:e2e script (relying on Playwright's testDir ` +
             `auto-discovery) — a narrowed invocation silently drops every spec not explicitly listed, ` +
             `including offline-shell.spec.ts and any future spec. Line: "${line.trim()}"`
-        ).toMatch(/^run:\s*pnpm --dir apps\/hospitality test:e2e\s*$/);
+        ).toMatch(
+          /^run:\s*pnpm --dir apps\/hospitality test:e2e(\s+--shard=\$\{\{ matrix\.shard \}\}\/\$\{\{ strategy\.job-total \}\})?\s*$/
+        );
       }
     }
   });
