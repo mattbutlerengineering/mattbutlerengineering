@@ -24,8 +24,11 @@ export interface AvailabilityMock {
   configReads: number;
   /** Reads of the config answer 500 while this is set. */
   failReads: boolean;
-  /** Reads of the config take this long. */
-  getDelayMs: number;
+  /** Reads of the config answer this version while it is set: a replica behind the writes. */
+  readVersion: number | null;
+  /** Reads of the config wait from here until `releaseReads`: a slow reload, without a race. */
+  holdReads(): void;
+  releaseReads(): void;
   /** Every save's body, in order. */
   readonly bodies: PutBody[];
   /** Every save, in order, with the version it was checked against and how it ended. */
@@ -80,11 +83,22 @@ export async function mockAvailability(
     kind: "config",
     summary: "Dinner closes at 10:00 PM",
   };
+  let readsHeld: Promise<void> = Promise.resolve();
+  let releaseHeld: () => void = () => undefined;
   const mock: AvailabilityMock = {
     version: 7,
     configReads: 0,
     failReads: false,
-    getDelayMs: 0,
+    readVersion: null,
+    holdReads() {
+      readsHeld = new Promise((resolve) => {
+        releaseHeld = resolve;
+      });
+    },
+    releaseReads() {
+      releaseHeld();
+      readsHeld = Promise.resolve();
+    },
     bodies: [],
     puts: [],
     reverts: 0,
@@ -122,7 +136,7 @@ export async function mockAvailability(
       return route.fulfill(json({ version: mock.version, changeId: `chg-${mock.version}` }));
     }
     mock.configReads += 1;
-    if (mock.getDelayMs) await new Promise((resolve) => setTimeout(resolve, mock.getDelayMs));
+    await readsHeld;
     if (mock.failReads) return route.fulfill(problem(500, "internal"));
     return route.fulfill(
       json({
@@ -149,7 +163,7 @@ export async function mockAvailability(
           ],
           dateRules: rules,
         },
-        version: mock.version,
+        version: mock.readVersion ?? mock.version,
         source: "rows",
       })
     );

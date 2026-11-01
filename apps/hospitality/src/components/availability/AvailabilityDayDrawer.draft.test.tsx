@@ -4,10 +4,18 @@ import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState, DateRule } from "@mbe/types";
 
 const save = vi.hoisted(() => vi.fn());
-vi.mock("../../hooks/useAvailability.js", () => ({
-  useSaveAvailabilityConfig: () => ({ mutateAsync: save, isPending: false }),
-  useRevertAvailabilityChange: () => ({ mutateAsync: vi.fn() }),
-}));
+vi.mock("../../hooks/useAvailability.js", async (importActual) => {
+  const { trackOwnSave } = await import("./use-reload-hold.js");
+  return {
+    ...(await importActual<object>()),
+    // The real hook's bookkeeping, without a query client: what the drawer's hold is fed by.
+    useSaveAvailabilityConfig: () => ({
+      mutateAsync: (vars: { venueId: string }) => trackOwnSave(vars.venueId, () => save(vars)),
+      isPending: false,
+    }),
+    useRevertAvailabilityChange: () => ({ mutateAsync: vi.fn() }),
+  };
+});
 vi.mock("./AvailabilityGuestPreview.js", () => ({ AvailabilityGuestPreview: () => null }));
 vi.mock("../../contexts/VenueContext.js", () => ({
   useVenue: () => ({
@@ -29,8 +37,13 @@ describe("AvailabilityDayDrawer around a draft", () => {
   beforeAll(() => {
     window.HTMLElement.prototype.scrollIntoView = vi.fn();
   });
+  // The hold is kept per venue beyond any one drawer, so each test has a venue of its own.
+  let venueCount = 0;
+  let venueId = "";
   beforeEach(() => {
     vi.clearAllMocks();
+    venueId = `venue-${++venueCount}`;
+    save.mockResolvedValue({ version: 4, changeId: "chg-0" });
   });
 
   const state: AvailabilityConfigState = {
@@ -65,7 +78,7 @@ describe("AvailabilityDayDrawer around a draft", () => {
             viewerRole="manager"
             onClose={vi.fn()}
             editing={{
-              venueId: extra.venueId ?? "venue-1",
+              venueId: extra.venueId ?? venueId,
               state: rules.length > 0 ? { ...loaded, config: fixtureConfig(...rules) } : loaded,
               timezone: FIXTURE_TIMEZONE,
               today: extra.today ?? "2026-10-28",

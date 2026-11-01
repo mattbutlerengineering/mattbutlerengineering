@@ -2573,6 +2573,21 @@
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/use-reload-hold.ts">
+    <item priority="medium">
+      function emit() { /* ... */ }
+    </item>
+    <item priority="medium">
+      function addSaveUnderWay(venueId: string, by: 1 | -1) { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function trackOwnSave<T extends { readonly version: number }>(
+        venueId: string,
+        run: () => Promise<T>
+      ): Promise<T> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function subscribe(listener: () => void): () => void { /* ... */ }
+    </item>
     <item priority="high">
       export function useReloadHold(venueId: string | undefined, version: number | undefined) { /* ... */ }
     </item>
@@ -4166,7 +4181,7 @@
         version: number;
         configReads: number;
         failReads: boolean;
-        getDelayMs: number;
+        readVersion: number | null;
         bodies: PutBody[];
       }
     </item>

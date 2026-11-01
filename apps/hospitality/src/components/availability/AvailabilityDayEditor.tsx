@@ -66,8 +66,6 @@ export interface AvailabilityDayEditorProps {
   readonly held?: boolean;
   /** The element that says why editing is held. */
   readonly heldReasonId?: string;
-  /** A save has started; the drawer holds further edits until the reload brings its version. */
-  readonly onOwnSave?: (save: Promise<AvailabilityConfigSaveResult | null>) => void;
 }
 
 interface EditState {
@@ -116,7 +114,7 @@ function problemOf(error: unknown) {
 export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   const { venueId, date, day, state, timezone, today } = props;
   const { onDirtyChange, onCancel, onFinished, onStale, fixedDates, ruleScope } = props;
-  const { held = false, heldReasonId, onOwnSave } = props;
+  const { held = false, heldReasonId } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const phone = useViewport() === "phone";
@@ -257,7 +255,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
     });
     let saved: AvailabilityConfigSaveResult;
     try {
-      const saving = mutateAsync({
+      saved = await mutateAsync({
         venueId,
         overwrite,
         body: {
@@ -267,8 +265,6 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
           scopeConflicts: conflictMode,
         },
       });
-      onOwnSave?.(saving);
-      saved = await saving;
     } catch (error) {
       rejectSave(error);
       return;

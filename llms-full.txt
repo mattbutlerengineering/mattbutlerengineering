@@ -7305,26 +7305,40 @@
     }
   </file>
   <file path="apps/hospitality/src/components/availability/use-reload-hold.ts">
+    function emit() {
+      for (const listener of listeners) listener();
+    }
+    function addSaveUnderWay(venueId: string, by: 1 | -1) {
+      savesUnderWay.set(venueId, (savesUnderWay.get(venueId) ?? 0) + by);
+      emit();
+    }
+    export async function trackOwnSave<T extends { readonly version: number }>(
+      venueId: string,
+      run: () => Promise<T>
+    ): Promise<T> {
+      addSaveUnderWay(venueId, 1);
+      try {
+        const result = await run();
+        savedVersions.set(venueId, Math.max(savedVersions.get(venueId) ?? 0, result.version));
+        return result;
+      } finally {
+        // A refused save moved nothing, so there is no version to wait for.
+        addSaveUnderWay(venueId, -1);
+      }
+    }
+    function subscribe(listener: () => void): () => void {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    }
     export function useReloadHold(venueId: string | undefined, version: number | undefined) {
-      const [saving, setSaving] = useState(false);
-      const [saved, setSaved] = useState<{ venueId: string | undefined; version: number } | null>(null);
-    
-      const onOwnSave = (save: Promise<AvailabilityConfigSaveResult | null>) => {
-        setSaving(true);
-        void save.then(
-          (result) => {
-            setSaving(false);
-            if (result) setSaved({ venueId, version: result.version });
-          },
-          // The save's own caller reports the refusal; it moved nothing, so there is nothing to wait for.
-          () => setSaving(false)
-        );
-      };
-    
-      const reloadDue =
-        saved !== null && saved.venueId === venueId && version !== undefined && saved.version > version;
-    
-      return { behind: saving || reloadDue, onOwnSave };
+      const saving = useSyncExternalStore(subscribe, () =>
+        venueId === undefined ? 0 : (savesUnderWay.get(venueId) ?? 0)
+      );
+      const saved = useSyncExternalStore(subscribe, () =>
+        venueId === undefined ? 0 : (savedVersions.get(venueId) ?? 0)
+      );
+      const reloadDue = version !== undefined && saved > version;
+      return { behind: saving > 0 || reloadDue, reloadDue };
     }
   </file>
   <file path="apps/hospitality/src/components/availability/use-schedule-save.ts">
@@ -13187,8 +13201,11 @@
       configReads: number;
       /** Reads of the config answer 500 while this is set. */
       failReads: boolean;
-      /** Reads of the config take this long. */
-      getDelayMs: number;
+      /** Reads of the config answer this version while it is set: a replica behind the writes. */
+      readVersion: number | null;
+      /** Reads of the config wait from here until `releaseReads`: a slow reload, without a race. */
+      holdReads(): void;
+      releaseReads(): void;
       /** Every save's body, in order. */
       readonly bodies: PutBody[];
       /** Every save, in order, with the version it was checked against and how it ended. */
@@ -13241,11 +13258,22 @@
         kind: "config",
         summary: "Dinner closes at 10:00 PM",
       };
+      let readsHeld: Promise<void> = Promise.resolve();
+      let releaseHeld: () => void = () => undefined;
       const mock: AvailabilityMock = {
         version: 7,
         configReads: 0,
         failReads: false,
-        getDelayMs: 0,
+        readVersion: null,
+        holdReads() {
+          readsHeld = new Promise((resolve) => {
+            releaseHeld = resolve;
+          });
+        },
+        releaseReads() {
+          releaseHeld();
+          readsHeld = Promise.resolve();
+        },
         bodies: [],
         puts: [],
         reverts: 0,
@@ -13283,7 +13311,7 @@
           return route.fulfill(json({ version: mock.version, changeId: `chg-${mock.version}` }));
         }
         mock.configReads += 1;
-        if (mock.getDelayMs) await new Promise((resolve) => setTimeout(resolve, mock.getDelayMs));
+        await readsHeld;
         if (mock.failReads) return route.fulfill(problem(500, "internal"));
         return route.fulfill(
           json({
@@ -13310,7 +13338,7 @@
               ],
               dateRules: rules,
             },
-            version: mock.version,
+            version: mock.readVersion ?? mock.version,
             source: "rows",
           })
         );
@@ -18228,12 +18256,13 @@
         AVAILABILITY_CHANGES_QUERY_KEY,
         VENUES_QUERY_KEY,
       ],
-      mutationFn: async (api, { venueId, body, overwrite }) => {
-        const expectedVersion = overwrite
-          ? (await api.availability.getConfig(venueId)).version
-          : body.expectedVersion;
-        return api.availability.saveConfig(venueId, { ...body, expectedVersion });
-      },
+      mutationFn: (api, { venueId, body, overwrite }) =>
+        trackOwnSave(venueId, async () => {
+          const expectedVersion = overwrite
+            ? (await api.availability.getConfig(venueId)).version
+            : body.expectedVersion;
+          return api.availability.saveConfig(venueId, { ...body, expectedVersion });
+        }),
     });
     export const useAvailabilityChanges = createQueryHook<
       AvailabilityChangesPage | null,
@@ -18255,7 +18284,7 @@
         VENUES_QUERY_KEY,
       ],
       mutationFn: (api, { venueId, changeId, expectedVersion }) =>
-        api.availability.revertChange(venueId, changeId, expectedVersion),
+        trackOwnSave(venueId, () => api.availability.revertChange(venueId, changeId, expectedVersion)),
     });
   </file>
   <file path="apps/hospitality/src/hooks/useAvailabilityPreview.ts">
@@ -18582,7 +18611,7 @@
         CLOSURE_SUMMARIES_QUERY_KEY,
       ],
       mutationFn: (api, { venueId, body, idempotencyKey }) =>
-        api.availability.createClosure(venueId, body, idempotencyKey),
+        trackOwnSave(venueId, () => api.availability.createClosure(venueId, body, idempotencyKey)),
     });
     export const useClosureSummaries = createQueryHook<
       ClosureSummary[] | null,
@@ -18624,7 +18653,9 @@
         CLOSURE_SUMMARIES_QUERY_KEY,
       ],
       mutationFn: (api, { venueId, ruleId, tellCancelledGuests }) =>
-        api.availability.reopenClosure(venueId, ruleId, tellCancelledGuests),
+        trackOwnSave(venueId, () =>
+          api.availability.reopenClosure(venueId, ruleId, tellCancelledGuests)
+        ),
     });
     export type PreviewClosureImpactsVariables = {
       venueId: string;
@@ -18652,7 +18683,7 @@
         CLOSURE_SUMMARIES_QUERY_KEY,
       ],
       mutationFn: (api, { venueId, body, idempotencyKey }) =>
-        api.availability.createClosures(venueId, body, idempotencyKey),
+        trackOwnSave(venueId, () => api.availability.createClosures(venueId, body, idempotencyKey)),
     });
   </file>
   <file path="apps/hospitality/src/hooks/useDashboardStatsQuery.ts">
@@ -20300,11 +20331,13 @@
       TonightResult
     >({
       invalidateKeys: [AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY],
-      mutationFn: (api, { venueId, body }) => api.availability.setTonight(venueId, body),
+      mutationFn: (api, { venueId, body }) =>
+        trackOwnSave(venueId, () => api.availability.setTonight(venueId, body)),
     });
     export const useEndTonight = createMutationHook<{ venueId: string; ruleId: string }, ReopenResult>({
       invalidateKeys: [AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY],
-      mutationFn: (api, { venueId, ruleId }) => api.availability.endTonight(venueId, ruleId),
+      mutationFn: (api, { venueId, ruleId }) =>
+        trackOwnSave(venueId, () => api.availability.endTonight(venueId, ruleId)),
     });
   </file>
   <file path="apps/hospitality/src/hooks/useUsers.ts">

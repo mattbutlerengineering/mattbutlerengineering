@@ -2,11 +2,7 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, DatePicker, Dialog, Stack, Text } from "@mattbutlerengineering/rialto";
 import type { ResolvedDay } from "@mbe/availability";
-import type {
-  AvailabilityConfigSaveResult,
-  AvailabilityConfigState,
-  ScopeConflictMode,
-} from "@mbe/types";
+import type { AvailabilityConfigState, ScopeConflictMode } from "@mbe/types";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { buildCopyDayChanges, copyDayDates } from "./copy-day.js";
@@ -29,8 +25,6 @@ export interface CopyDayActionProps {
   readonly waiting?: boolean;
   /** The element that says why Copy is waiting. */
   readonly reasonId?: string;
-  /** A save has started; the drawer holds further edits until the reload brings its version. */
-  readonly onOwnSave?: (save: Promise<AvailabilityConfigSaveResult | null>) => void;
 }
 
 /**
@@ -38,7 +32,7 @@ export interface CopyDayActionProps {
  * until a date (or until changed again), with the same keep/replace choice as any dated save.
  */
 export function CopyDayAction(props: CopyDayActionProps) {
-  const { venueId, state, date, day, onStale, today, waiting = false, reasonId, onOwnSave } = props;
+  const { venueId, state, date, day, onStale, today, waiting = false, reasonId } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const offerUndo = useAvailabilityUndo();
@@ -76,9 +70,7 @@ export function CopyDayAction(props: CopyDayActionProps) {
       today,
       makeId: () => crypto.randomUUID(),
     });
-    const saving = saver.save(venueId, state, changes, dates.length > 1 ? mode : "replace");
-    onOwnSave?.(saving);
-    const saved = await saving;
+    const saved = await saver.save(venueId, state, changes, dates.length > 1 ? mode : "replace");
     if (!saved) return;
     offerUndo({
       venueId,

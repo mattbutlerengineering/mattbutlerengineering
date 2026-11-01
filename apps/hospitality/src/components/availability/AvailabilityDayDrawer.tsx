@@ -157,7 +157,7 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
   // Any open editor, even one with no change yet, has pinned the version it will save against.
   const editorOpen = useEditorOpen();
   // Past the Manager's own save, the config on hand is behind it: a draft made on it would conflict.
-  const { behind, onOwnSave } = useReloadHold(editing?.venueId, editing?.state.version);
+  const { behind, reloadDue } = useReloadHold(editing?.venueId, editing?.state.version);
   const waiting = editorOpen || behind;
   const reasonId = useId();
   const reason = editorOpen
@@ -206,7 +206,6 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
           <AvailabilityDayEditor
             held={behind}
             heldReasonId={reasonId}
-            onOwnSave={onOwnSave}
             // A new date, or a new pick for the same date, is a new draft.
             key={`${date}|${editing.fixedDates?.join(",") ?? ""}`}
             venueId={editing.venueId}
@@ -238,12 +237,20 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
             )}
           </div>
         )}
+        {/* Beside a failure the banner's Retry is the way out; otherwise this is, so a read older
+            than the save (which nothing else would refresh) cannot lock Edit. */}
+        {viewerRole === "manager" && reloadDue && !error && editing?.onStale && (
+          <div>
+            <Button variant="ghost" size="sm" onClick={editing.onStale}>
+              {t("availability.drawer.reloadHours")}
+            </Button>
+          </div>
+        )}
         {viewerRole === "manager" && editing && !picked && (
           <>
             <CopyDayAction
               waiting={waiting}
               reasonId={reasonId}
-              onOwnSave={onOwnSave}
               today={editing.today}
               venueId={editing.venueId}
               state={editing.state}
@@ -254,7 +261,6 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
             <ScheduleNudge
               waiting={waiting}
               reasonId={reasonId}
-              onOwnSave={onOwnSave}
               venueId={editing.venueId}
               state={editing.state}
               date={date}

@@ -94,6 +94,18 @@ function ownHours(iso: string) {
   };
 }
 
+/** The hours drawer of the first row on the Special dates tab. */
+async function openSpecialDateRow(page: Page, navigate = true): Promise<Locator> {
+  if (navigate) {
+    await open(page);
+    await page.getByRole("radio", { name: "Special dates" }).click({ force: true });
+  }
+  await page.getByRole("button", { name: /^Edit/ }).first().click();
+  const drawer = page.getByRole("dialog").first();
+  await expect(drawer.getByRole("button", { name: "Edit Dinner" })).toBeVisible();
+  return drawer;
+}
+
 async function copyToMonday(page: Page, drawer: Locator) {
   await drawer.getByRole("button", { name: "Copy to other days…" }).click();
   const copy = page.getByRole("dialog", { name: /Copy .* to other days/ });
@@ -107,7 +119,8 @@ async function expectEditHeld(drawer: Locator) {
   const edit = drawer.getByRole("button", { name: "Edit Dinner" });
   await expect(edit).toHaveAttribute("aria-disabled", "true");
   await expect(edit).toHaveAccessibleDescription(WAIT_FOR_RELOAD);
-  await edit.click({ force: true });
+  // Not a pointer click: the drawer may still be sliding in, and only the handler is under test.
+  await edit.dispatchEvent("click");
   await expect(drawer.getByRole("button", { name: "Remove Dinner" })).toHaveCount(0);
 }
 
@@ -236,11 +249,11 @@ for (const size of SIZES) {
       const mock = await mockAvailability(mockedPage);
       const drawer = await openNextMonthDay(mockedPage, midNextMonth());
 
-      mock.getDelayMs = 1500;
+      mock.holdReads();
       await copyToMonday(mockedPage, drawer);
       await expectEditHeld(drawer);
 
-      mock.getDelayMs = 0;
+      mock.releaseReads();
       await removeDinner(drawer);
       await drawer.getByRole("button", { name: "Save 1 date" }).click();
       await expect(mockedPage.getByRole("dialog")).toHaveCount(0);
@@ -256,12 +269,12 @@ for (const size of SIZES) {
       });
       const drawer = await openNextMonthDay(mockedPage, friday);
 
-      mock.getDelayMs = 1500;
+      mock.holdReads();
       await drawer.getByRole("button", { name: "Make a Friday schedule" }).click();
       await expect.poll(() => mock.puts.length).toBe(1);
       await expectEditHeld(drawer);
 
-      mock.getDelayMs = 0;
+      mock.releaseReads();
       await removeDinner(drawer);
       await drawer.getByRole("button", { name: "Save 1 date" }).click();
       await expect(mockedPage.getByRole("dialog")).toHaveCount(0);
@@ -282,6 +295,99 @@ for (const size of SIZES) {
         mockedPage.getByRole("dialog", { name: "Someone changed availability first" })
       ).toBeVisible();
       expect(saves(mock)).toEqual(["7 -> 200", "8 -> 409"]);
+    });
+
+    test("a slow reload after Undo holds Edit until it lands, so the Manager's own Undo is no conflict", async ({
+      mockedPage,
+    }) => {
+      const mock = await mockAvailability(mockedPage);
+      const drawer = await openNextMonthDay(mockedPage, midNextMonth());
+      await copyToMonday(mockedPage, drawer);
+      await expect(drawer.getByText(WAIT_FOR_RELOAD)).toHaveCount(0);
+
+      mock.holdReads();
+      await mockedPage
+        .getByRole("region", { name: "Notifications" })
+        .getByRole("button", { name: "Undo" })
+        .click();
+      await expect.poll(() => mock.reverts).toBe(1);
+      await expectEditHeld(drawer);
+
+      mock.releaseReads();
+      await removeDinner(drawer);
+      await drawer.getByRole("button", { name: "Save 1 date" }).click();
+      await expect(mockedPage.getByRole("dialog")).toHaveCount(0);
+      expect(saves(mock)).toEqual(["7 -> 200", "9 -> 200"]);
+    });
+
+    test("a read older than the Manager's save holds Edit with a way to reload, not a lockout", async ({
+      mockedPage,
+    }) => {
+      const mock = await mockAvailability(mockedPage);
+      const drawer = await openNextMonthDay(mockedPage, midNextMonth());
+
+      mock.readVersion = 7;
+      await copyToMonday(mockedPage, drawer);
+      await expect(drawer.getByRole("alert")).toHaveCount(0);
+      await expectEditHeld(drawer);
+
+      mock.readVersion = null;
+      await drawer.getByRole("button", { name: "Reload hours" }).click();
+      await removeDinner(drawer);
+      await drawer.getByRole("button", { name: "Save 1 date" }).click();
+      await expect(mockedPage.getByRole("dialog")).toHaveCount(0);
+      expect(saves(mock)).toEqual(["7 -> 200", "8 -> 200"]);
+    });
+
+    test("Special dates: a failed reload offers Retry, survives closing the drawer, and the save is not a 409", async ({
+      mockedPage,
+    }) => {
+      const mock = await mockAvailability(mockedPage, {
+        rules: [ownHours(midNextMonth())],
+      });
+      let drawer = await openSpecialDateRow(mockedPage);
+
+      mock.failReads = true;
+      await copyToMonday(mockedPage, drawer);
+      const alert = () => drawer.getByRole("alert").filter({ hasText: DRAFT_ERROR });
+      await expect(alert()).toBeVisible();
+      await expectEditHeld(drawer);
+
+      await mockedPage.keyboard.press("Escape");
+      await expect(mockedPage.getByRole("dialog")).toHaveCount(0);
+      drawer = await openSpecialDateRow(mockedPage, false);
+      await expect(alert()).toBeVisible();
+      await expectEditHeld(drawer);
+
+      mock.failReads = false;
+      await alert().getByRole("button", { name: "Retry" }).click();
+      await expect(alert()).toBeHidden();
+      await removeDinner(drawer);
+      await drawer.getByRole("button", { name: /^Save/ }).click();
+      await expect(mockedPage.getByRole("dialog")).toHaveCount(0);
+      expect(saves(mock)).toEqual(["7 -> 200", "8 -> 200"]);
+    });
+
+    test("Special dates: closing during a slow reload does not forget it, so the save is not a 409", async ({
+      mockedPage,
+    }) => {
+      const mock = await mockAvailability(mockedPage, {
+        rules: [ownHours(midNextMonth())],
+      });
+      let drawer = await openSpecialDateRow(mockedPage);
+
+      mock.holdReads();
+      await copyToMonday(mockedPage, drawer);
+      await mockedPage.keyboard.press("Escape");
+      await expect(mockedPage.getByRole("dialog")).toHaveCount(0);
+      drawer = await openSpecialDateRow(mockedPage, false);
+      await expectEditHeld(drawer);
+
+      mock.releaseReads();
+      await removeDinner(drawer);
+      await drawer.getByRole("button", { name: /^Save/ }).click();
+      await expect(mockedPage.getByRole("dialog")).toHaveCount(0);
+      expect(saves(mock)).toEqual(["7 -> 200", "8 -> 200"]);
     });
 
     test("Undo waits for an open editor and says so, and the draft then saves without a 409", async ({

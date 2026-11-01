@@ -17,6 +17,8 @@ export interface SpecialHoursEditDrawerProps {
   /** Set for "This and following" / "All dates" of a range or repeating rule; absent: this date only. */
   readonly ruleScope?: { readonly ruleId: string; readonly mode: SeriesScope };
   readonly onStale: () => void;
+  /** Why the config could not be reloaded; the drawer shows it with a Retry. */
+  readonly reloadError?: string | null;
   readonly onClose: () => void;
 }
 
@@ -26,7 +28,7 @@ export interface SpecialHoursEditDrawerProps {
  * there. Closing with an unsaved draft asks first.
  */
 export function SpecialHoursEditDrawer(props: SpecialHoursEditDrawerProps) {
-  const { venueId, state, timezone, today, date, ruleScope, onStale, onClose } = props;
+  const { venueId, state, timezone, today, date, ruleScope, onStale, reloadError, onClose } = props;
   const guard = useDiscardGuard<null>(onClose);
   const day = useMemo(
     () => resolveDay({ timezone, config: state.config }, date),
@@ -39,7 +41,7 @@ export function SpecialHoursEditDrawer(props: SpecialHoursEditDrawerProps) {
         date={date}
         day={day}
         isLoading={false}
-        error={null}
+        error={reloadError ?? null}
         viewerRole="manager"
         editing={{
           venueId,

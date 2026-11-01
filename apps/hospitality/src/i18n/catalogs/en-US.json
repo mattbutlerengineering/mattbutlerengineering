@@ -1968,6 +1968,7 @@
       "finishDraftFirst": "Save or discard your changes to this day first.",
       "hoursDiffer": "These dates have different hours. The rows below are from {{date}}.",
       "waitForReload": "Edit once the newest hours have loaded.",
+      "reloadHours": "Reload hours",
       "ifRemoved": "If removed: {{result}}",
       "removalNone": "no change to this day",
       "removal": {

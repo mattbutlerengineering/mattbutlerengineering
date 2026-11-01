@@ -269,6 +269,7 @@ export function AvailabilityPage() {
           timezone={timeZone}
           today={today}
           onStale={() => void config.refetch()}
+          reloadError={config.error ? describeApiError(config.error).detail : null}
           isManager={team?.viewerRole === "manager"}
         />
       </Stack>

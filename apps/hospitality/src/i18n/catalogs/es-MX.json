@@ -2008,6 +2008,7 @@
       "finishDraftFirst": "Guarda o descarta primero tus cambios de este día.",
       "hoursDiffer": "Estas fechas tienen horarios distintos. Las filas de abajo son del {{date}}.",
       "waitForReload": "Podrás editar cuando se carguen los horarios más recientes.",
+      "reloadHours": "Recargar horarios",
       "ifRemoved": "Si se quita: {{result}}",
       "removalNone": "sin cambios en este día",
       "removal": {

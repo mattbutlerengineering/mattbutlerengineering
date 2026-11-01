@@ -2008,6 +2008,7 @@
       "finishDraftFirst": "Enregistrez ou annulez d’abord vos modifications de ce jour.",
       "hoursDiffer": "Ces dates ont des horaires différents. Les lignes ci-dessous viennent du {{date}}.",
       "waitForReload": "Vous pourrez modifier une fois les horaires les plus récents chargés.",
+      "reloadHours": "Recharger les horaires",
       "ifRemoved": "Si retiré : {{result}}",
       "removalNone": "aucun changement pour ce jour",
       "removal": {
