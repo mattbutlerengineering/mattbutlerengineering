@@ -1629,6 +1629,7 @@
     },
     "kind": {
       "closure": "Closed",
+      "bookingPaused": "Booking paused: {{channels}}",
       "specialHours": "Special hours"
     },
     "repeating": "Repeating",
@@ -1693,7 +1694,7 @@
       "weekdays": "Repeats on",
       "endsLabel": "Ends on",
       "invalidDate": "Pick a date the series covers.",
-      "invalid": "Pick at least one weekday and an end date on or after the start.",
+      "invalid": "Pick at least one weekday that falls between the start and the end date.",
       "skippedToast": "{{date}} skipped. The rest of the series is unchanged.",
       "savedToast": "Series updated",
       "skipped": "Skipped {{dates}}",
@@ -2268,10 +2269,10 @@
       "back": "Back",
       "cancel": "Cancel",
       "saveError": "Couldn't close",
-      "versionConflict": "Availability changed since you opened this. Close this dialog and try again.",
+      "versionConflict": "Availability changed since you opened this. We're loading the latest, so check your choices and save again.",
       "groupsChanged": "The bookings changed while you were deciding. Review the updated list and choose again.",
       "alreadySaved": "This closure was already saved, and its bookings handled. Check Special dates before closing again.",
-      "maybeSaved": "The reservations service hit a snag, so we couldn't confirm this save. It may have gone through. Try again without changes to see what happened.",
+      "maybeSaved": "We couldn't confirm this save. It may have gone through. Try again without changes to see what happened.",
       "savedEarlier": {
         "title": "Already closed",
         "body": "An earlier try of this closure was saved: {{summary}}. Guests were handled as that try chose; changes you made afterwards did not apply. Open Special dates to see the outcome.",
@@ -2318,12 +2319,13 @@
         "fromLabel": "From",
         "toLabel": "To",
         "weekdays": "Repeats on",
-        "invalid": "Check the dates: the end can't be before the start."
+        "invalid": "Check the dates: the end can't be before the start, and a repeat needs a chosen day between them."
       },
       "window": {
         "label": "Starting at",
         "allDay": "All day",
         "from": "From {{time}}",
+        "reset": "That time comes before opening on a day that runs past midnight, so this closes all day.",
         "hostNote": "An emergency close covers the whole day. Only a manager can close from a set time."
       },
       "replaces": "{{date}} has special hours; the closure replaces them.",
@@ -2433,7 +2435,12 @@
       "resume": "Resume",
       "resumed": "Online booking resumed",
       "resumeError": "Couldn't resume online booking",
-      "pill": "Online booking paused"
+      "pill": "Online booking paused",
+      "waiting": "Online seatings from {{time}} are paused every day. Earlier seatings stay open.",
+      "waitingNoneToday": "Online seatings from {{time}} are paused every day.",
+      "remove": "Remove pause",
+      "removed": "Online booking pause removed",
+      "removeError": "Couldn't remove the pause"
     },
     "selection": {
       "selectColumn": "Select every {{weekday}}",

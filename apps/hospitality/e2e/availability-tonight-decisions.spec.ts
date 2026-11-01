@@ -288,7 +288,7 @@ test("Tonight decisions: a changed choice after a lost response shows what reall
     .filter({ has: mockedPage.getByRole("radio", { name: /Cancel, notify & refund/ }) })
     .click();
   await dialog.getByRole("button", { name: "Close and cancel 3" }).click();
-  await expect(dialog.getByText(/Can't reach/)).toBeVisible({ timeout: 40_000 });
+  await expect(dialog.getByText(/may have gone through/)).toBeVisible({ timeout: 40_000 });
 
   await dialog
     .locator("label")

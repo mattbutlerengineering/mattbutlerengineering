@@ -155,6 +155,39 @@ describe("SpecialDatesTab", () => {
     expect(screen.getByText("Closed · Repeating")).toBeTruthy();
   });
 
+  it("names a pause's channels and start time, and offers its removal (#8032)", () => {
+    const fromSix: DateRule = {
+      id: "pause",
+      kind: "closure",
+      targetKind: "booking",
+      bookingTypes: ["online"],
+      startsOn: "2026-11-13",
+      endsOn: null,
+      window: { version: 1, from: 18 * 60, to: 2880 },
+    };
+    renderTab(true, {
+      ...STATE,
+      config: { ...STATE.config, dateRules: [fromSix] },
+    });
+    expect(screen.getByText("Booking paused: Online · From 6:00 PM")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Remove closure for Fri, Nov 13 until reopened" })
+    ).toBeTruthy();
+  });
+
+  it("names a closure's start time (#8032)", () => {
+    const fromTen: DateRule = {
+      id: "late",
+      kind: "closure",
+      targetKind: "venue",
+      startsOn: "2026-12-24",
+      endsOn: "2026-12-24",
+      window: { version: 1, from: 22 * 60, to: 2880 },
+    };
+    renderTab(true, { ...STATE, config: { ...STATE.config, dateRules: [fromTen] } });
+    expect(screen.getByText("Closed · From 10:00 PM")).toBeTruthy();
+  });
+
   it("names each closure row's buttons with its date", () => {
     summaries.value = [summary("xmas"), summary("mondays")];
     renderTab();

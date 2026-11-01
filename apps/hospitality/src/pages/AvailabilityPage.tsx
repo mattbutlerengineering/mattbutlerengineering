@@ -37,7 +37,7 @@ import { ClearChangesDialog } from "../components/availability/ClearChangesDialo
 import { UseScheduleDialog } from "../components/availability/UseScheduleDialog.js";
 import { ownSingleDateRules } from "../components/availability/selection-actions.js";
 import { CloseDialog } from "../components/availability/CloseDialog.js";
-import { activeOnlinePause } from "../components/availability/close-draft.js";
+import { shownOnlinePause } from "../components/availability/close-draft.js";
 import { OnlinePausedBanner } from "../components/availability/OnlinePausedBanner.js";
 import { DiscardChangesDialog } from "../components/availability/DiscardChangesDialog.js";
 import { LeaveGuard } from "../components/availability/LeaveGuard.js";
@@ -305,7 +305,7 @@ export function AvailabilityPage() {
     setSelection([]);
   };
   const pause = config.data
-    ? activeOnlinePause(config.data.config, timeZone, today, minutesOfDayIn(now, timeZone))
+    ? shownOnlinePause(config.data.config, timeZone, today, minutesOfDayIn(now, timeZone))
     : null;
   const drawerFailure = config.error ? describeApiError(config.error).detail : null;
 

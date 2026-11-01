@@ -110,13 +110,13 @@ describe("ErrorRetryBanner", () => {
     render(
       <ErrorRetryBanner
         title="Walk-in not seated."
-        error="The reservations service hit a snag — nothing was changed. Try again in a moment."
+        error="The reservations service hit a snag. Try again in a moment."
       />
     );
 
     expect(screen.getByTestId("alert-title")).toHaveTextContent("Walk-in not seated.");
     expect(screen.getByTestId("alert-content")).toHaveTextContent(
-      "The reservations service hit a snag — nothing was changed. Try again in a moment."
+      "The reservations service hit a snag. Try again in a moment."
     );
   });
 
@@ -139,7 +139,7 @@ describe("ErrorRetryBanner", () => {
     render(
       <ErrorRetryBanner
         title="Walk-in not seated."
-        error="That didn't go through. Try again — if it keeps happening, tell your manager."
+        error="Something went wrong. Try again — if it keeps happening, tell your manager."
         details="POST /api/v1/reservations/walk-in failed: 500 Internal Server Error"
       />
     );

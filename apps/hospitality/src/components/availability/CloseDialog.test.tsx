@@ -753,6 +753,42 @@ describe("CloseDialog", () => {
       });
     });
 
+    it("says on a 409 to save again, which works, not to close and lose the edit (#8032)", async () => {
+      create.mockRejectedValueOnce(
+        new ApiClientError(
+          {
+            type: "about:blank",
+            title: "Conflict",
+            status: 409,
+            detail: "Availability changed since you loaded it.",
+            code: "version-conflict",
+          } as never,
+          "POST",
+          "closures"
+        )
+      );
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+
+      // Loading, not loaded: the reload can fail, and then this sentence is all that is left.
+      expect(await within(dialog).findByText(/loading the latest.*save again/)).toBeTruthy();
+      expect(within(dialog).queryByText(/Close this dialog/)).toBeNull();
+      expect(within(dialog).getByRole("button", { name: "Close and cancel 14" })).toBeEnabled();
+    });
+
+    it("says a lost response may have gone through (#8032)", async () => {
+      create.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+
+      expect(await within(dialog).findByText(/may have gone through/)).toBeTruthy();
+      expect(within(dialog).queryByText(/Can't reach/)).toBeNull();
+    });
+
     it("does not promise nothing changed on a 502, which may have committed (#7978)", async () => {
       create.mockRejectedValueOnce(
         new ApiClientError(
@@ -1175,6 +1211,29 @@ describe("CloseDialog", () => {
         expect(morning).toBeNull();
       });
 
+      it("does not keep a time before opening once a covered day runs past midnight (#8032)", async () => {
+        impactState.value = NO_BOOKINGS;
+        create.mockResolvedValue({
+          ruleId: "r",
+          version: 8,
+          changeId: "c",
+          outcomes: { cancel: 0, move: 0, keep_notify: 0, keep_silent: 0 },
+        });
+        renderDialog({ state: fridayRunsLate(), initialDate: MONDAY });
+        const dialog = screen.getByRole("dialog");
+        fireEvent.click(within(dialog).getByRole("combobox", { name: "Starting at" }));
+        fireEvent.click(screen.getByRole("option", { name: "From 1:00 AM" }));
+        fireEvent.click(within(dialog).getByRole("radio", { name: "Date range" }));
+
+        expect(within(dialog).getByRole("combobox", { name: "Starting at" })).toHaveTextContent(
+          "All day"
+        );
+        expect(within(dialog).getByText(/comes before opening/)).toBeTruthy();
+        fireEvent.click(within(dialog).getByTestId("close-primary"));
+        await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+        expect(create.mock.calls[0]![0].body.rule.window).toBeNull();
+      });
+
       it("reads a repeat's Friday, not only its first Monday", () => {
         renderDialog({ state: fridayRunsLate(), initialDate: MONDAY });
         const dialog = screen.getByRole("dialog");
@@ -1206,6 +1265,42 @@ describe("CloseDialog", () => {
       it("names no date before a day is picked", () => {
         const dialog = repeatFrom("2026-12-21");
         expect(within(dialog).queryByText(/Guests will see/)).toBeNull();
+      });
+    });
+
+    describe("the toast on a repeat that does not fall on its From date (#8032)", () => {
+      const fridays = (outcomes = { cancel: 0, move: 0, keep_notify: 0, keep_silent: 0 }) => {
+        create.mockResolvedValue({ ruleId: "r", version: 8, changeId: "c", outcomes });
+        impactState.value = NO_BOOKINGS;
+        // 2026-12-21 is a Monday; the repeat first falls on Friday the 25th.
+        renderDialog({ initialDate: "2026-12-21" });
+        const dialog = screen.getByRole("dialog");
+        fireEvent.click(within(dialog).getByRole("radio", { name: "Repeats" }));
+        fireEvent.click(within(dialog).getByRole("checkbox", { name: "Fri" }));
+        return dialog;
+      };
+
+      it("names the first date it closes", async () => {
+        const dialog = fridays();
+        fireEvent.click(within(dialog).getByTestId("close-primary"));
+        expect(await screen.findByText("Fri, Dec 25 closed")).toBeTruthy();
+      });
+
+      it("names it when guests were notified", async () => {
+        const dialog = fridays({ cancel: 2, move: 0, keep_notify: 0, keep_silent: 0 });
+        fireEvent.click(within(dialog).getByTestId("close-primary"));
+        expect(
+          await screen.findByText("Fri, Dec 25 closed · 2 reservations notified")
+        ).toBeTruthy();
+      });
+
+      it("names it when a booking channel was paused", async () => {
+        const dialog = fridays();
+        fireEvent.click(within(dialog).getByRole("radio", { name: "Booking only" }));
+        fireEvent.click(within(dialog).getByRole("checkbox", { name: "Phone" }));
+        fireEvent.click(within(dialog).getByRole("checkbox", { name: "Online" }));
+        fireEvent.click(within(dialog).getByTestId("close-primary"));
+        expect(await screen.findByText("Booking paused on Fri, Dec 25")).toBeTruthy();
       });
     });
 

@@ -524,7 +524,7 @@ describe("TonightControl", () => {
           .mockRejectedValueOnce(lost())
           .mockRejectedValueOnce(conflict("version-conflict"));
         fireEvent.click(within(step2).getByRole("button", CANCEL));
-        await within(step2).findByText(/Can't reach/);
+        await within(step2).findByText(/may have gone through/);
         fireEvent.click(within(step2).getByRole("radio", { name: "Keep them and notify" }));
         fireEvent.click(within(step2).getByRole("button", KEEP));
       }
@@ -536,7 +536,7 @@ describe("TonightControl", () => {
           outcomes: { cancel: 2, move: 0, keep_notify: 0, keep_silent: 0 },
         });
         fireEvent.click(within(step2).getByRole("button", CANCEL));
-        await within(step2).findByText(/Can't reach/);
+        await within(step2).findByText(/may have gone through/);
         fireEvent.click(within(step2).getByRole("button", CANCEL));
 
         await waitFor(() => expect(setTonight).toHaveBeenCalledTimes(3));
@@ -618,7 +618,7 @@ describe("TonightControl", () => {
         const step2 = await toStep2();
         setTonight.mockRejectedValueOnce(lost());
         fireEvent.click(within(step2).getByRole("button", CANCEL));
-        await within(step2).findByText(/Can't reach/);
+        await within(step2).findByText(/may have gone through/);
         refresh.mockClear();
 
         fireEvent.click(within(step2).getByRole("button", { name: "Cancel" }));

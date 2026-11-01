@@ -175,7 +175,7 @@ test.describe("Briefing: Tonight's Service", () => {
       .filter({ hasText: "Couldn't load tonight's briefing." });
     await expect(alert).toContainText("Couldn't load tonight's briefing.");
     await expect(alert).toContainText(
-      "The reservations service hit a snag — nothing was changed. Try again in a moment."
+      "The reservations service hit a snag. Try again in a moment."
     );
     await expect(mockedPage.getByText(/failed: 500/)).toHaveCount(0);
     // Segments stay operable beside the banner.

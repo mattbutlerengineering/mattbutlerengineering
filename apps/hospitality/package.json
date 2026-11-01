@@ -55,6 +55,11 @@
       "limit": "6.95 kB"
     },
     {
+      "name": "Close draft helpers (shared by the Close dialog, the availability page and the header pill)",
+      "path": "dist/assets/close-draft-*.js",
+      "limit": "2.5 kB"
+    },
+    {
       "name": "Service-day helpers (current-service-date, service-day-start and tonight-blocks, shared by the timeline's Tonight panel and the staff waitlist/booking form)",
       "path": "dist/assets/tonight-blocks-*.js",
       "limit": "3.5 kB"
