@@ -538,7 +538,27 @@ describe("POST /public/v1/venues/:slug/holds/:holdId/confirm", () => {
         notes: "Window seat",
       },
       actor: { type: "guest", id: null },
+      originHost: null,
     });
+  });
+
+  // #7892: the booking's origin host is captured from the request so later
+  // guest emails can brand by it.
+  it("resolves the allowlisted Origin header into confirmHold's originHost", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(confirmHold).mockResolvedValueOnce({
+      success: true,
+      reservation: mockReservation,
+    });
+
+    await app.inject({
+      method: "POST",
+      url: CONFIRM_URL,
+      headers: { "x-session-id": "sess_1", origin: "https://eat-sheet.com" },
+      payload: { guestName: "Ada Lovelace", guestEmail: "ada@example.com" },
+    });
+
+    expect(vi.mocked(confirmHold).mock.calls.at(-1)?.[0].originHost).toBe("eat-sheet.com");
   });
 
   // An anonymous caller must not be able to attach its reservation to an

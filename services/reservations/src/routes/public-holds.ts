@@ -24,6 +24,7 @@ import {
 } from "../middleware/public-rate-limit.js";
 import { guestActor } from "../services/reservation-events.js";
 import { gateProblem } from "../services/assert-bookable.js";
+import { resolveOriginHost } from "../config/host-brand.js";
 
 const SESSION_ID_HEADER = "x-session-id";
 
@@ -285,6 +286,8 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
             guestDetails: { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference },
             // No guest record exists yet, so the guest actor carries no id.
             actor: guestActor(null),
+            // Captured from the request so later guest emails brand by it (#7892).
+            originHost: resolveOriginHost(request.headers.origin),
           },
           {
             door: "public-hold",

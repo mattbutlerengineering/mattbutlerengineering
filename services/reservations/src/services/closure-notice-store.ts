@@ -116,6 +116,7 @@ export async function loadNoticeOutcome(
           guestPhone: true,
           guest: { select: { communicationPreference: true } },
           deposit: { select: { amountCents: true, currency: true } },
+          originHost: true,
         },
       },
     },
@@ -140,6 +141,7 @@ export async function loadNoticeOutcome(
     refund: r.deposit ? { amountCents: r.deposit.amountCents, currency: r.deposit.currency } : null,
     venueName: row.venue.name,
     timezone: row.venue.ianaTimezone,
+    originHost: r.originHost,
   };
 }
 

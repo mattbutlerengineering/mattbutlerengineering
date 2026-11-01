@@ -64,6 +64,13 @@ export interface Reservation {
   seatingPreference: SeatingPreference | null;
   /** Why staff booked past a soft availability limit; absent or null for an ordinary booking. */
   overrideReason?: string | null;
+  /**
+   * The host the guest booked on (e.g. "eat-sheet.com",
+   * "mattbutlerengineering.com"), captured from the public booking page's
+   * request at creation time (#7892). Null for staff/walk-in bookings or an
+   * unrecognized origin — those keep the mattbutlerengineering.com brand.
+   */
+  originHost?: string | null;
   tableId: string;
   table?: Table;
   guest?: {

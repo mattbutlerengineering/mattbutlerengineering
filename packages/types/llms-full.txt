@@ -2274,6 +2274,8 @@
       userId: z.string().nullable(),
       /** Why staff booked past a soft availability limit; absent or null for an ordinary booking. */
       overrideReason: z.string().nullable().optional(),
+      /** The host the guest booked on (#7892); absent or null for a staff/walk-in booking. */
+      originHost: z.string().nullable().optional(),
       tableId: z.string(),
       table: TableSchema.optional(),
       guest: z
@@ -2963,6 +2965,13 @@
       seatingPreference: SeatingPreference | null;
       /** Why staff booked past a soft availability limit; absent or null for an ordinary booking. */
       overrideReason?: string | null;
+      /**
+       * The host the guest booked on (e.g. "eat-sheet.com",
+       * "mattbutlerengineering.com"), captured from the public booking page's
+       * request at creation time (#7892). Null for staff/walk-in bookings or an
+       * unrecognized origin — those keep the mattbutlerengineering.com brand.
+       */
+      originHost?: string | null;
       tableId: string;
       table?: Table;
       guest?: {

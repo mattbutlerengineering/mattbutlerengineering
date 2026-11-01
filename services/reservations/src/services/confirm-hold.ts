@@ -27,6 +27,13 @@ export interface ConfirmHoldInput {
    * Checked in the same lookup as the session id, before any write.
    */
   venueId?: string;
+  /**
+   * The host the guest booked on (e.g. "eat-sheet.com"), resolved by the
+   * calling public route from the request's Origin header (#7892). Stored on
+   * the reservation so later guest emails brand by it. Undefined/null for
+   * non-public confirm paths or an unrecognized origin.
+   */
+  originHost?: string | null;
   /** Who confirmed; recorded on the `created` event. Defaults to {@link SYSTEM_ACTOR}. */
   actor?: ReservationEventActor;
   /**
@@ -127,6 +134,9 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
           userId: userId ?? null,
           // Ownership proof for the public deposit route (#6304).
           originSessionId: hold.sessionId,
+          // The host the guest booked on (#7892); null for non-public confirm
+          // paths or an unrecognized origin.
+          originHost: input.originHost ?? null,
           status: "CONFIRMED",
         },
         include: {

@@ -26,6 +26,7 @@ const outcome = (over: Partial<NoticeOutcome> = {}): NoticeOutcome => ({
   refund: { amountCents: 4000, currency: "usd" },
   venueName: "Bistro Lune",
   timezone: "UTC",
+  originHost: null,
   ...over,
 });
 
@@ -62,6 +63,19 @@ describe("CLOSURE_NOTICE handler", () => {
     expect(t.sendEmail.mock.calls[0]![0].subject).toContain("is cancelled");
     expect(t.sendSms).not.toHaveBeenCalled();
     expect(t.recorded.at(-1)).toMatchObject({ email: "sent", sms: "skipped" });
+  });
+
+  // #7892: the closure email brands by the host the booking came from.
+  it("carries the outcome's originHost onto the email input", async () => {
+    const t = setup(outcome({ originHost: "eat-sheet.com" }));
+    await t.run();
+    expect(t.sendEmail.mock.calls[0]![0].originHost).toBe("eat-sheet.com");
+  });
+
+  it("originHost is null for a booking with no origin", async () => {
+    const t = setup(outcome());
+    await t.run();
+    expect(t.sendEmail.mock.calls[0]![0].originHost).toBeNull();
   });
 
   it("urgent sends SMS and email, and the rebook offer is a one-tap link", async () => {

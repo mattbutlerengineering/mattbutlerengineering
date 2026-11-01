@@ -20,12 +20,57 @@
   </file>
   </section>
   <section priority="medium" role="config">
+  <file path="src/config/host-brand.ts">
+    <item priority="low">
+      type OriginHost = "eat-sheet.com" | "mattbutlerengineering.com";
+    </item>
+    <item priority="high">
+      export function resolveOriginHost(
+        origin: string | readonly string[] | undefined | null
+      ): OriginHost | null { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ReservationHostBrand {
+        brandName: string;
+        fromAddress: string;
+        manageBaseUrl: string;
+      }
+    </item>
+    <item priority="low">
+      interface HostBrandEnv {
+        verifiedFromAddress: string;
+        mbeManageBaseUrl: string;
+        eatSheetManageBaseUrl: string;
+      }
+    </item>
+    <item priority="medium">
+      function withDisplayName(name: string, address: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function hostBrandFor(originHost: string | null, env: HostBrandEnv): ReservationHostBrand { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createHostBrandResolver(env: {
+        EMAIL_FROM?: string | undefined;
+        MANAGE_BASE_URL?: string | undefined;
+        EAT_SHEET_MANAGE_BASE_URL?: string | undefined;
+      }): (originHost: string | null) => ReservationHostBrand { /* ... */ }
+    </item>
+  </file>
   <file path="src/config/manage-base-url.ts">
     <item priority="high">
       export const DEFAULT_MANAGE_BASE_URL: unknown;
     </item>
     <item priority="high">
       export function resolveManageBaseUrl(env: { MANAGE_BASE_URL?: string | undefined }): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export const DEFAULT_EAT_SHEET_MANAGE_BASE_URL: unknown;
+    </item>
+    <item priority="high">
+      export function resolveEatSheetManageBaseUrl(env: {
+        EAT_SHEET_MANAGE_BASE_URL?: string | undefined;
+      }): string { /* ... */ }
     </item>
   </file>
   <file path="src/config/manage-token.ts">
@@ -463,6 +508,12 @@
       export const MANAGE_PATH: unknown;
     </item>
     <item priority="high">
+      export const EAT_SHEET_MANAGE_PATH: unknown;
+    </item>
+    <item priority="medium">
+      function managePathFor(origin: string): string { /* ... */ }
+    </item>
+    <item priority="high">
       export function buildManageUrl(baseUrl: string, token: string, rebook?: string): string { /* ... */ }
     </item>
   </file>
@@ -526,6 +577,7 @@
         to: string;
         subject: string;
         html: string;
+        originHost?: string | null;
       }
     </item>
     <item priority="low">
@@ -555,6 +607,8 @@
         fromAddress: string;
         manageBaseUrl: string;
         publicApiBaseUrl: string | null;
+        brandFor: (originHost: string | null) => {
+          fromAddress: string;...;
       }
     </item>
   </file>
@@ -3147,6 +3201,12 @@
         dispatcher: Pick<NotificationDispatcher, "sendClosureEmail" | "sendClosureSms" | "smsEnabled">;
         generateManageToken(reservationId: string, guestEmail: string): string;
         manageBaseUrl: string;
+        /**
+         * Resolves the manage-link base for an outcome's origin host (#7892) — a
+         * closure notice for an eat-sheet.com booking links back to eat-sheet.com.
+         * Omitted keeps `manageBaseUrl` above for every outcome, today's behavior.
+         */
+        hostBrand?: (originHost: string | null) => { manageBaseUrl: string };
         logger: ClosureNoticeDeps["logger"];
         now?: () => Date;
       }): ClosureNoticeDeps { /* ... */ }

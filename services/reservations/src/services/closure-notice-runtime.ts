@@ -12,17 +12,24 @@ export function createClosureNoticeDeps(input: {
   dispatcher: Pick<NotificationDispatcher, "sendClosureEmail" | "sendClosureSms" | "smsEnabled">;
   generateManageToken(reservationId: string, guestEmail: string): string;
   manageBaseUrl: string;
+  /**
+   * Resolves the manage-link base for an outcome's origin host (#7892) — a
+   * closure notice for an eat-sheet.com booking links back to eat-sheet.com.
+   * Omitted keeps `manageBaseUrl` above for every outcome, today's behavior.
+   */
+  hostBrand?: (originHost: string | null) => { manageBaseUrl: string };
   logger: ClosureNoticeDeps["logger"];
   now?: () => Date;
 }): ClosureNoticeDeps {
   const now = input.now ?? (() => new Date());
+  const hostBrand = input.hostBrand ?? (() => ({ manageBaseUrl: input.manageBaseUrl }));
   return {
     load: loadNoticeOutcome,
     offers: (o) => loadRebookSlots(o, now()),
     // The signed email is checked on the manage page; a phone-only guest has none.
     manageUrl: (o, rebook) =>
       buildManageUrl(
-        input.manageBaseUrl,
+        hostBrand(o.originHost).manageBaseUrl,
         input.generateManageToken(o.reservationId, o.guestEmail ?? ""),
         rebook
       ),
