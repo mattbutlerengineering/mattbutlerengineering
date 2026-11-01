@@ -40,6 +40,13 @@ export function noShowSentence(reservation: Reservation, t: TFunction): string {
     : t("timeline.announce.noShow");
 }
 
+/** For a save that failed once its dialog or surface had gone: nothing else can say so now. */
+export function notAppliedSentence(reservation: Reservation, t: TFunction): string {
+  return reservation.guestName
+    ? t("timeline.announce.changeFailedNamed", { name: reservation.guestName })
+    : t("timeline.announce.changeFailed");
+}
+
 export function savedSentence(reservation: Reservation, t: TFunction): string {
   return reservation.guestName
     ? t("timeline.announce.savedNamed", { name: reservation.guestName })

@@ -1,6 +1,12 @@
+import { useState } from "react";
 import { describe, it, expect } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { isCoveredByDialog, useFocusAfter, type FocusTarget } from "./useFocusAfter.js";
+import {
+  UNLESS_COVERED,
+  isCoveredByDialog,
+  useFocusAfter,
+  type FocusTarget,
+} from "./useFocusAfter.js";
 import { PageHeader } from "../components/PageHeader.js";
 
 interface HarnessProps {
@@ -103,6 +109,61 @@ describe("useFocusAfter", () => {
     render(<Harness request={{ kind: "testId", testId: 'weird"id' }} />);
 
     expect(() => fireEvent.click(screen.getByText("request"))).not.toThrow();
+  });
+});
+
+describe("focusAfter with unlessCovered (#8031)", () => {
+  function CoveredHarness({ covered }: { readonly covered: boolean }) {
+    const { focusAfter } = useFocusAfter();
+    return (
+      <>
+        <button onClick={() => focusAfter({ kind: "testId", testId: "target" }, UNLESS_COVERED)}>
+          request
+        </button>
+        <button data-testid="target">target</button>
+        {covered && <div role="dialog" aria-modal="true" />}
+      </>
+    );
+  }
+
+  it("focuses the target when nothing covers it", () => {
+    render(<CoveredHarness covered={false} />);
+    fireEvent.click(screen.getByText("request"));
+    expect(document.activeElement).toBe(screen.getByTestId("target"));
+  });
+
+  it("drops the request when a dialog covers the target", () => {
+    const { rerender } = render(<CoveredHarness covered />);
+    fireEvent.click(screen.getByText("request"));
+    expect(document.activeElement).not.toBe(screen.getByTestId("target"));
+
+    // Dropped, not pending: the dialog closing later does not pull focus behind where it went.
+    rerender(<CoveredHarness covered={false} />);
+    expect(document.activeElement).not.toBe(screen.getByTestId("target"));
+  });
+
+  it("judges after the commit, so the dialog that closes with the request does not count", () => {
+    function Closing() {
+      const { focusAfter } = useFocusAfter();
+      const [open, setOpen] = useState(true);
+      return (
+        <>
+          <button
+            onClick={() => {
+              setOpen(false);
+              focusAfter({ kind: "testId", testId: "target" }, UNLESS_COVERED);
+            }}
+          >
+            request
+          </button>
+          <button data-testid="target">target</button>
+          {open && <div role="dialog" aria-modal="true" />}
+        </>
+      );
+    }
+    render(<Closing />);
+    fireEvent.click(screen.getByText("request"));
+    expect(document.activeElement).toBe(screen.getByTestId("target"));
   });
 });
 

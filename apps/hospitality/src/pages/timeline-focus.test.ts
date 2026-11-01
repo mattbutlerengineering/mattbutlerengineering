@@ -5,7 +5,6 @@ import {
   captureOpener,
   returnFocusTarget,
   seatedFocusTarget,
-  uncoveredTarget,
   walkInFocusTarget,
   type SurfaceState,
 } from "./timeline-focus.js";
@@ -56,19 +55,6 @@ describe("seatedFocusTarget", () => {
     append("button", { "data-testid": "reservation-block-bob" });
     expect(seatedFocusTarget(surface({ openId: "bob" }), "bob")).toEqual(blockTarget("bob"));
   });
-
-  it("moves nothing under a dialog on top of this party's surface", () => {
-    const sheet = openModal();
-    append("button", { "data-testid": "reservation-edit" }, sheet);
-    openModal();
-    expect(seatedFocusTarget(surface({ openId: "bob", modal: true }), "bob")).toBeNull();
-  });
-
-  it("moves nothing when the surface has closed under a dialog", () => {
-    append("button", { "data-testid": "reservation-block-bob" });
-    openModal();
-    expect(seatedFocusTarget(surface(), "bob")).toBeNull();
-  });
 });
 
 describe("returnFocusTarget", () => {
@@ -114,18 +100,6 @@ describe("walkInFocusTarget", () => {
     expect(walkInFocusTarget("desktop", "alice")).toEqual(blockTarget("alice"));
     expect(walkInFocusTarget("tablet", "alice")).toEqual(SURFACE);
     expect(walkInFocusTarget("phone", "alice")).toEqual(SURFACE);
-  });
-});
-
-describe("uncoveredTarget", () => {
-  it("is a request while nothing covers the target, and null under a dialog", () => {
-    append("button", { "data-testid": "table-status-1" });
-    expect(uncoveredTarget("table-status-1")).toEqual({
-      kind: "testId",
-      testId: "table-status-1",
-    });
-    openModal();
-    expect(uncoveredTarget("table-status-1")).toBeNull();
   });
 });
 

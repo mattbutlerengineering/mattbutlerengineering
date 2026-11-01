@@ -16,8 +16,19 @@ export type FocusTarget =
   /** The `PageHeader` h1, which carries `tabIndex={-1}` for this purpose. */
   | { readonly kind: "pageHeading" };
 
+export interface FocusOptions {
+  /**
+   * Drop the request if, once its target is found, a modal dialog covers it. For a response that may
+   * land late: keys on a covered target act behind the dialog on top. Judged after the commit, so a
+   * dialog closing with the request does not count.
+   */
+  readonly unlessCovered?: boolean;
+}
+
+export const UNLESS_COVERED: FocusOptions = { unlessCovered: true };
+
 export interface FocusAfterApi {
-  readonly focusAfter: (target: FocusTarget) => void;
+  readonly focusAfter: (target: FocusTarget, options?: FocusOptions) => void;
 }
 
 const FIRST_CONTROL =
@@ -41,8 +52,7 @@ function resolveTarget(target: FocusTarget): HTMLElement | null {
 
 /**
  * True when a modal dialog is open that does not contain `element`, so keys on it would act behind
- * that dialog. A response that lands late asks this before it moves focus. A panel inside an `inert`
- * subtree is on its way out and covers nothing.
+ * that dialog. A panel inside an `inert` subtree is on its way out and covers nothing.
  */
 export function isCoveredByDialog(element: Element | null): boolean {
   return Array.from(document.querySelectorAll('[role="dialog"][aria-modal="true"]')).some(
@@ -50,26 +60,25 @@ export function isCoveredByDialog(element: Element | null): boolean {
   );
 }
 
-export const isTestIdCovered = (testId: string): boolean => isCoveredByDialog(byTestId(testId));
-
 export function useFocusAfter(): FocusAfterApi {
-  const pendingRef = useRef<FocusTarget | null>(null);
+  const pendingRef = useRef<{ target: FocusTarget; options?: FocusOptions } | null>(null);
   // A request re-renders the owner so the effect below runs even when nothing else changed.
   const [, requestRender] = useReducer((count: number) => count + 1, 0);
 
-  const focusAfter = useCallback((target: FocusTarget) => {
-    pendingRef.current = target;
+  const focusAfter = useCallback((target: FocusTarget, options?: FocusOptions) => {
+    pendingRef.current = { target, options };
     requestRender();
   }, []);
 
   // After every commit: resolve the pending target, focus it once, forget it. No state is set here.
   useEffect(() => {
-    const target = pendingRef.current;
-    if (!target) return;
-    const element = resolveTarget(target);
+    const pending = pendingRef.current;
+    if (!pending) return;
+    const element = resolveTarget(pending.target);
     if (!element) return;
-    element.focus();
     pendingRef.current = null;
+    if (pending.options?.unlessCovered && isCoveredByDialog(element)) return;
+    element.focus();
   });
 
   return { focusAfter };

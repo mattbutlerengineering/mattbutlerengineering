@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
+import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type { LapsingGuest, Reservation, Table } from "@mbe/types";
 import type { ReservationEvent } from "../hooks/useSSESync.js";
 import { localeRuntime } from "./runtime.js";
@@ -361,9 +362,11 @@ describe("home and timeline in es-MX", () => {
 
   it("translates the Timeline page", () => {
     render(
-      <MemoryRouter>
-        <TimelinePage />
-      </MemoryRouter>
+      <ToastProvider>
+        <MemoryRouter>
+          <TimelinePage />
+        </MemoryRouter>
+      </ToastProvider>
     );
     expect(screen.getByRole("heading", { name: "Cronograma" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Día anterior" })).toBeInTheDocument();
@@ -400,9 +403,11 @@ describe("home and timeline in fr-CA", () => {
 
   it("translates the Timeline page", () => {
     render(
-      <MemoryRouter>
-        <TimelinePage />
-      </MemoryRouter>
+      <ToastProvider>
+        <MemoryRouter>
+          <TimelinePage />
+        </MemoryRouter>
+      </ToastProvider>
     );
     expect(screen.getByRole("heading", { name: "Chronologie" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Jour suivant" })).toBeInTheDocument();

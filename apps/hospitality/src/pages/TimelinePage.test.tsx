@@ -329,6 +329,7 @@ vi.mock("../components/timeline/WalkInDialog", async () => {
 });
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
+  useToast: () => ({ toast: vi.fn() }),
   Drawer: ({
     children,
     open,
@@ -601,15 +602,16 @@ describe("TimelinePage", () => {
     );
   }
 
-  const renderPage = (initialEntries: string[] = ["/timeline"]) =>
-    render(
-      <QueryClientProvider client={testQueryClient}>
-        <MemoryRouter initialEntries={initialEntries}>
-          <TimelinePage />
-          <LocationProbe />
-        </MemoryRouter>
-      </QueryClientProvider>
-    );
+  const pageTree = (initialEntries: string[] = ["/timeline"]) => (
+    <QueryClientProvider client={testQueryClient}>
+      <MemoryRouter initialEntries={initialEntries}>
+        <TimelinePage />
+        <LocationProbe />
+      </MemoryRouter>
+    </QueryClientProvider>
+  );
+
+  const renderPage = (initialEntries: string[] = ["/timeline"]) => render(pageTree(initialEntries));
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -2345,6 +2347,68 @@ describe("TimelinePage", () => {
         expect(screen.getByRole("status")).not.toHaveTextContent("");
       });
     }
+  });
+
+  describe("a dialog belongs to the party it was opened for (#8031)", () => {
+    const carol = makeReservation({ id: "r2", guestName: "Carol" });
+    const listed = (reservations: Reservation[]) =>
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ reservations }));
+
+    const flows = [
+      ["Cancel Reservation", "cancel-dialog"],
+      ["Mark No-Show", "no-show-dialog"],
+      ["Edit Reservation", "edit-drawer"],
+    ] as const;
+
+    for (const [opener, dialog] of flows) {
+      it(`${opener} does not reopen for Carol after the party leaves the list`, async () => {
+        listed([defaultReservation, carol]);
+        const { rerender } = renderPage();
+        fireEvent.click(await waitFor(() => screen.getByTestId("res-r1")));
+        fireEvent.click(await waitFor(() => screen.getByText(opener)));
+        await waitFor(() => screen.getByTestId(dialog));
+
+        // A venue switch or another terminal's change: the party is gone, with its dialog.
+        listed([carol]);
+        rerender(pageTree());
+        await waitFor(() => expect(screen.queryByTestId(dialog)).toBeNull());
+        fireEvent.click(screen.getByTestId("res-r2"));
+        await waitFor(() =>
+          expect(screen.getByTestId("reservation-block-r2")).toHaveAttribute("aria-pressed", "true")
+        );
+
+        expect(screen.queryByTestId(dialog)).toBeNull();
+      });
+    }
+
+    it("a Cancel landing after the party left the list opens nothing for Carol", async () => {
+      let finish: () => void = () => undefined;
+      const cancelReservation = vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            finish = resolve;
+          })
+      );
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({ reservations: [defaultReservation, carol], cancelReservation })
+      );
+      const { rerender } = renderPage();
+      fireEvent.click(await waitFor(() => screen.getByTestId("res-r1")));
+      fireEvent.click(await waitFor(() => screen.getByText("Cancel Reservation")));
+      fireEvent.click(await waitFor(() => screen.getByTestId("cancel-confirm")));
+
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({ reservations: [carol], cancelReservation })
+      );
+      rerender(pageTree());
+      await act(async () => finish());
+      fireEvent.click(screen.getByTestId("res-r2"));
+      await waitFor(() =>
+        expect(screen.getByTestId("reservation-block-r2")).toHaveAttribute("aria-pressed", "true")
+      );
+
+      expect(screen.queryByTestId("cancel-dialog")).toBeNull();
+    });
   });
 
   describe("a dialog open across a resize (#8029)", () => {

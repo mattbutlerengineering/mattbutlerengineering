@@ -21,7 +21,7 @@ import type {
 import { OccasionSeatingFields } from "../reservations/OccasionSeatingFields.js";
 import { GuestCard } from "../crm/GuestCard.js";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
-import { useFocusAfter } from "../../hooks/useFocusAfter.js";
+import { UNLESS_COVERED, useFocusAfter } from "../../hooks/useFocusAfter.js";
 import { describeApiError, type ApiErrorDescription } from "../../lib/describe-api-error.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { venueWallTimeToInstant, wallTimeInputValue } from "../../utils/venue-wall-time.js";
@@ -113,7 +113,8 @@ export function EditReservationDrawer({
       await onSave(reservation.id, payload);
     } catch (err) {
       setFailure(describeApiError(err));
-      if (saveRef.current) focusAfter({ kind: "element", element: saveRef.current });
+      if (saveRef.current)
+        focusAfter({ kind: "element", element: saveRef.current }, UNLESS_COVERED);
     } finally {
       setIsLoading(false);
     }

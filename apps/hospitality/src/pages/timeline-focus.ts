@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "re
 import type { Reservation } from "@mbe/types";
 // By path, not the barrel: TimelinePage.test.tsx mocks the barrel wholesale.
 import { RESERVATION_EDIT_TEST_ID } from "../components/timeline/seat-guest.js";
-import { isTestIdCovered, type FocusTarget } from "../hooks/useFocusAfter.js";
+import type { FocusTarget } from "../hooks/useFocusAfter.js";
 import type { Viewport } from "../hooks/useViewport.js";
 
 /** Wraps the phone and tablet details surfaces: where focus goes while one of them is open. */
@@ -61,24 +61,30 @@ export function captureOpener(clicked?: HTMLElement): HTMLElement | null {
   return active instanceof HTMLElement && active !== document.body ? active : null;
 }
 
-/** A request for focus on `testId`, unless keys there would act behind an open dialog. */
-export function uncoveredTarget(testId: string): FocusTarget | null {
-  return isTestIdCovered(testId) ? null : { kind: "testId", testId };
-}
-
 /**
  * Where focus goes when a Seat Guest response lands. Another party's surface: nowhere, the Host has
  * moved on. A modal surface stays open after seating, and keys on a block behind it would switch the
  * party, so Edit (not the first control: the refetch removes Seat Guest, which may be first). Else,
- * the surface having closed or being the sidebar, the block. Nothing moves under a dialog.
+ * the surface having closed or being the sidebar, the block.
  */
 export function seatedFocusTarget(
   surface: SurfaceState,
   reservationId: string
 ): FocusTarget | null {
   if (surface.openId !== null && surface.openId !== reservationId) return null;
-  if (surface.openId !== null && surface.modal) return uncoveredTarget(RESERVATION_EDIT_TEST_ID);
-  return uncoveredTarget(`reservation-block-${reservationId}`);
+  if (surface.openId !== null && surface.modal) {
+    return { kind: "testId", testId: RESERVATION_EDIT_TEST_ID };
+  }
+  return blockTarget(reservationId);
+}
+
+/** Runs `onChange` in the render where `value` changes, before anything commits with the old state. */
+export function useOnChange<T>(value: T, onChange: () => void): void {
+  const [seen, setSeen] = useState(value);
+  if (value !== seen) {
+    setSeen(value);
+    onChange();
+  }
 }
 
 interface DetailsSurfaceInput {

@@ -698,6 +698,8 @@
       "tableStatusBanner": "Table status not changed."
     },
     "announce": {
+      "changeFailedNamed": "The change to {{name}} did not go through.",
+      "changeFailed": "A reservation change did not go through.",
       "loadedTonight": "Tonight's grid loaded.",
       "loadedDate": "Reservations for {{date}} loaded.",
       "seated": "Seated {{guest}}.",

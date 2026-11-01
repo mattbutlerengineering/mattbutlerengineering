@@ -5,7 +5,15 @@ import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router";
 import { z } from "zod";
 import { useUrlParams } from "../hooks/use-url-params.js";
-import { Button, Card, Drawer, EmptyState, IconButton, Text } from "@mattbutlerengineering/rialto";
+import {
+  Button,
+  Card,
+  Drawer,
+  EmptyState,
+  IconButton,
+  Text,
+  useToast,
+} from "@mattbutlerengineering/rialto";
 import type { Reservation, TableStatus, UpdateReservationRequest, WalkInRequest } from "@mbe/types";
 import {
   ReservationSheet,
@@ -20,8 +28,8 @@ import { TimelineTonight } from "../components/availability/TimelineTonight";
 import { WalkInDialog } from "../components/timeline/WalkInDialog";
 import { ReservationDetails } from "../components/timeline/ReservationDetails.js";
 import { tableStatusInline } from "../components/timeline/table-status-menu.js";
+import { useSeatFlights } from "../components/timeline/seat-guest.js";
 import { SHEET_BLOCK_SIZE, reservationSheetSize } from "../components/timeline/sheet-size.js";
-import { RehearsalTimeline } from "../components/rehearsal/RehearsalTimeline.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
 import { KpiStat } from "../components/KpiStat.js";
 import { LiveStatus } from "../components/LiveStatus.js";
@@ -29,10 +37,9 @@ import { OfflineBanner } from "../components/OfflineBanner.js";
 import { PageHeader } from "../components/PageHeader";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useSSEStatus } from "../hooks/useSSESync.js";
-import { useTables } from "../hooks/useTables.js";
 import { useTimelineData } from "../hooks/useTimelineData.js";
 import { useCancellationQuote } from "../hooks/useCancellationQuote.js";
-import { useFocusAfter } from "../hooks/useFocusAfter.js";
+import { UNLESS_COVERED, useFocusAfter } from "../hooks/useFocusAfter.js";
 import { useNow } from "../hooks/useNow.js";
 import { useStaffTonight } from "../hooks/useStaffTonight.js";
 import { useAvailabilityConfig } from "../hooks/useAvailability.js";
@@ -53,18 +60,20 @@ import {
   captureOpener,
   returnFocusTarget,
   seatedFocusTarget,
-  uncoveredTarget,
   useDetailsSurface,
+  useOnChange,
   walkInFocusTarget,
 } from "./timeline-focus.js";
 import {
   cancelledSentence,
   loadedSentence,
   noShowSentence,
+  notAppliedSentence,
   savedSentence,
   seatedSentence,
   walkInSentence,
 } from "./timeline-sentences.js";
+import { RehearsalTimelinePage } from "./RehearsalTimelinePage.js";
 import styles from "./TimelinePage.module.css";
 
 /* ── URL filter schema ──────────────────────── */
@@ -128,6 +137,7 @@ function LiveTimelinePage() {
   const now = useNow();
   const { status, announce } = useStatusMessage();
   const { focusAfter } = useFocusAfter();
+  const { toast } = useToast();
 
   const { params, setParam } = useUrlParams(timelineFilterSchema, TIMELINE_DEFAULTS);
   // The Walk-in controls elsewhere (⌘K, Dashboard) and the Waitlist hand-off land here as
@@ -150,7 +160,6 @@ function LiveTimelinePage() {
   const [showNoShowDialog, setShowNoShowDialog] = useState(false);
   const [showEditDrawer, setShowEditDrawer] = useState(false);
   const [showWalkInDialog, setShowWalkInDialog] = useState(false);
-  const seatInFlightRef = useRef(false);
   const [dismissedLoadError, setDismissedLoadError] = useState<Error | null>(null);
   const [pendingTableId, setPendingTableId] = useState<string | null>(null);
   const [tableStatusFailure, setTableStatusFailure] = useState<TableStatusFailure | null>(null);
@@ -187,6 +196,15 @@ function LiveTimelinePage() {
     () => (selectedId ? (reservations.find((r) => r.id === selectedId) ?? null) : null),
     [reservations, selectedId]
   );
+  const openPartyId = selectedReservation?.id ?? null;
+  const seatFlights = useSeatFlights(openPartyId);
+  // A dialog belongs to the party it was opened for: when that party stops being the one on the
+  // surface (Seat now, a venue switch, gone from the list), so does the dialog (#8031).
+  useOnChange(openPartyId, () => {
+    setShowCancelDialog(false);
+    setShowNoShowDialog(false);
+    setShowEditDrawer(false);
+  });
   const walkInDialogOpen = (intent.walkIn || showWalkInDialog) && !isLoading && !!selectedVenueId;
   const { surfaceViewport, sheetReservation, surfaceRef } = useDetailsSurface({
     viewport,
@@ -230,19 +248,21 @@ function LiveTimelinePage() {
     [intent.selectedId, stripIntent]
   );
 
+  // Only when the URL carries `selected`. A late response calls this from the render that sent it,
+  // whose `setSearchParams` would write back that render's URL, dropping a walk-in opened since.
   const clearSelection = () => {
     setSelectedIdState(null);
     setSheetExpandedFor(null);
-    stripIntent();
+    if (intent.selectedId) stripIntent();
   };
 
   // Closing the surface itself (Escape, backdrop, Close). The Drawer restores focus to what held it
   // when it opened, but one opened by Seat now or `?selected=` captured nothing live, and the
   // sidebar's Close button unmounts: focus would fall to <body>. Asking for the block covers those;
-  // a live opener's restore frame runs after this and still wins. A seat in flight holds the surface
-  // open, because the surface is where its failure shows.
+  // a live opener's restore frame runs after this and still wins. This party's seat in flight holds
+  // the surface open, because the surface is where its failure shows.
   const closeDetails = () => {
-    if (seatInFlightRef.current) return;
+    if (openPartyId && seatFlights.seating(openPartyId)) return;
     clearSelection();
     if (selectedReservation) {
       focusAfter(blockTarget(selectedReservation.id));
@@ -326,16 +346,24 @@ function LiveTimelinePage() {
 
   /* ── Mutation axis: the dialogs reject on failure, so only success reaches here ── */
 
-  const handleSeat = async (reservation: Reservation) => {
-    seatInFlightRef.current = true;
+  // What shows a failure is the party's surface or dialog. If that has gone by the time the response
+  // lands, it is on this page to say which party the failure was for.
+  const sendFor = async <T,>(reservation: Reservation, send: () => Promise<T>): Promise<T> => {
     try {
-      await seatGuest(reservation);
-    } finally {
-      seatInFlightRef.current = false;
+      return await send();
+    } catch (err) {
+      if (surfaceRef.current.openId !== reservation.id) {
+        toast({ title: notAppliedSentence(reservation, t), variant: "error" });
+      }
+      throw err;
     }
+  };
+
+  const handleSeat = async (reservation: Reservation) => {
+    await sendFor(reservation, () => seatGuest(reservation));
     announce(seatedSentence(reservation, tableName(reservation.tableId), t));
     const target = seatedFocusTarget(surfaceRef.current, reservation.id);
-    if (target) focusAfter(target);
+    if (target) focusAfter(target, UNLESS_COVERED);
   };
 
   // A terminal outcome closes the surface it was for. By now the surface may be another party's,
@@ -344,12 +372,15 @@ function LiveTimelinePage() {
     if (surfaceRef.current.openId !== reservationId) return;
     close(false);
     clearSelection();
-    focusAfter(blockTarget(reservationId));
+    focusAfter(blockTarget(reservationId), UNLESS_COVERED);
   };
 
   const handleCancel = async (reason: string, note: string) => {
     if (!selectedReservation) return;
-    await cancelReservation(selectedReservation.id, { reason, note, quote: cancellationQuote });
+    const { id } = selectedReservation;
+    await sendFor(selectedReservation, () =>
+      cancelReservation(id, { reason, note, quote: cancellationQuote })
+    );
     announce(cancelledSentence(selectedReservation, t));
     closeAfterOutcome(setShowCancelDialog, selectedReservation.id);
   };
@@ -361,7 +392,8 @@ function LiveTimelinePage() {
   // owns showing it.
   const handleMarkNoShow = async () => {
     if (!selectedReservation) return;
-    const { warning } = await markNoShow(selectedReservation.id);
+    const { id } = selectedReservation;
+    const { warning } = await sendFor(selectedReservation, () => markNoShow(id));
     const sentence = noShowSentence(selectedReservation, t);
     announce(warning ? t("timeline.announce.withWarning", { sentence, warning }) : sentence);
     closeAfterOutcome(setShowNoShowDialog, selectedReservation.id);
@@ -376,11 +408,12 @@ function LiveTimelinePage() {
   };
 
   const handleEdit = async (id: string, data: UpdateReservationRequest) => {
-    const updated = await updateReservation(id, data);
+    if (!selectedReservation) return;
+    const updated = await sendFor(selectedReservation, () => updateReservation(id, data));
     setShowEditDrawer(false);
     announce(savedSentence(updated, t));
     const target = returnFocusTarget(surfaceRef.current, editOpenerRef.current, blockTarget(id));
-    if (target) focusAfter(target);
+    if (target) focusAfter(target, UNLESS_COVERED);
   };
 
   const handleWalkIn = async (data: WalkInRequest) => {
@@ -408,8 +441,7 @@ function LiveTimelinePage() {
     } finally {
       // The trigger is disabled while pending; focus lands in the commit that re-enables it.
       setPendingTableId(null);
-      const target = uncoveredTarget(`table-status-${tableId}`);
-      if (target) focusAfter(target);
+      focusAfter({ kind: "testId", testId: `table-status-${tableId}` }, UNLESS_COVERED);
     }
   };
 
@@ -437,6 +469,7 @@ function LiveTimelinePage() {
       now={now}
       onEdit={openEditDrawer}
       onSeat={() => handleSeat(selectedReservation)}
+      seatFlights={seatFlights}
       onCancel={(opener) => openConfirmDialog(setShowCancelDialog, opener)}
       onMarkNoShow={(opener) => openConfirmDialog(setShowNoShowDialog, opener)}
     />
@@ -670,6 +703,7 @@ function LiveTimelinePage() {
             open={selectedReservation !== null}
             onClose={closeDetails}
             onSeat={() => handleSeat(sheetReservation)}
+            seatFlights={seatFlights}
             onEdit={openEditDrawer}
             onCancel={(opener) => openConfirmDialog(setShowCancelDialog, opener)}
             onMarkNoShow={(opener) => openConfirmDialog(setShowNoShowDialog, opener)}
@@ -726,55 +760,6 @@ function LiveTimelinePage() {
           onClose={handleWalkInClose}
         />
       )}
-    </div>
-  );
-}
-
-/**
- * Rehearsal mode (`?rehearsal=true`, Dress Rehearsal): the floor plan's tables are read, then a
- * client-side simulated service fills the grid. It mounts none of the live page's data or
- * mutation hooks, so it cannot write to the API.
- */
-function RehearsalTimelinePage() {
-  const { t } = useTranslation();
-  const { selectedVenueId } = useVenue();
-  const now = useNow();
-  const { data: tables, isLoading } = useTables({
-    venueId: selectedVenueId ?? undefined,
-    limit: 100,
-    enabled: !!selectedVenueId,
-  });
-
-  return (
-    <div className={styles.root}>
-      <div className={styles.header}>
-        <div className={styles.headerTop}>
-          <PageHeader
-            title={t("timeline.page.title")}
-            description={t("timeline.page.description")}
-          />
-        </div>
-      </div>
-      <div className={styles.content} data-testid="primary-content">
-        <div className={styles.timelineArea}>
-          {isLoading || !tables ? (
-            <TimelineSkeleton />
-          ) : tables.length === 0 ? (
-            <EmptyState
-              variant="flat"
-              heading={t("timeline.page.noTablesHeading")}
-              description={t("timeline.page.noTablesDescription")}
-              action={
-                <Link to="/floor-plans" className={styles.emptyStateLink}>
-                  {t("timeline.page.floorPlans")}
-                </Link>
-              }
-            />
-          ) : (
-            <RehearsalTimeline tables={tables} date={deviceDate(now)} />
-          )}
-        </div>
-      </div>
     </div>
   );
 }

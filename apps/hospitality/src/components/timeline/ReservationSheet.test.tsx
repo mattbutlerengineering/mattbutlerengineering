@@ -6,6 +6,7 @@ import { useState } from "react";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { ApiClientError } from "@mbe/api-client";
 import { ReservationSheet, type ReservationSheetProps } from "./ReservationSheet.js";
+import { RESERVATION_EDIT_TEST_ID } from "./seat-guest.js";
 import { ERROR_COPY } from "../../lib/describe-api-error.js";
 import enUS from "../../i18n/catalogs/en-US.json";
 import type { Guest, Reservation, Table } from "@mbe/types";
@@ -428,6 +429,29 @@ describe("ReservationSheet", () => {
         expect(seatButton()).toHaveFocus();
       });
       expect(seatButton()).not.toBeDisabled();
+    });
+
+    // #8031: the page keeps one sheet mounted across a selection change.
+    it("does not carry a failure to the next reservation", async () => {
+      const onSeat = vi.fn().mockRejectedValue(serverError("POST", "/api/v1/reservations/r1/seat"));
+      const { rerender, props } = renderSheet({ onSeat });
+      fireEvent.click(seatButton()!);
+      await screen.findByRole("alert");
+
+      rerender(<SheetHarness {...props} reservation={makeReservation({ id: "r2" })} />);
+
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+
+    it("does not carry a seat in flight to the next reservation", () => {
+      const onSeat = vi.fn(() => new Promise<void>(() => undefined));
+      const { rerender, props } = renderSheet({ onSeat });
+      fireEvent.click(seatButton()!);
+      expect(screen.getByTestId(RESERVATION_EDIT_TEST_ID)).toBeDisabled();
+
+      rerender(<SheetHarness {...props} reservation={makeReservation({ id: "r2" })} />);
+
+      expect(screen.getByTestId(RESERVATION_EDIT_TEST_ID)).not.toBeDisabled();
     });
   });
 

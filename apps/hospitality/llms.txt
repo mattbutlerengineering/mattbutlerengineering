@@ -3018,8 +3018,16 @@
       type FocusTarget = { readonly kind: "element"; re | { readonly kind: "testId"; rea | { readonly kind: "firstIn"; re | { readonly kind: "pageHeading";
     </item>
     <item priority="low">
+      interface FocusOptions {
+        unlessCovered?: boolean;
+      }
+    </item>
+    <item priority="high">
+      export const UNLESS_COVERED: FocusOptions;
+    </item>
+    <item priority="low">
       interface FocusAfterApi {
-        focusAfter: (target: FocusTarget) => void;
+        focusAfter: (target: FocusTarget, options?: FocusOptions) => void;
       }
     </item>
     <item priority="medium">
@@ -3027,9 +3035,6 @@
     </item>
     <item priority="high">
       export function isCoveredByDialog(element: Element | null): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export const isTestIdCovered: unknown;
     </item>
     <item priority="high">
       export function useFocusAfter(): FocusAfterApi { /* ... */ }
@@ -4298,13 +4303,13 @@
       export function captureOpener(clicked?: HTMLElement): HTMLElement | null { /* ... */ }
     </item>
     <item priority="high">
-      export function uncoveredTarget(testId: string): FocusTarget | null { /* ... */ }
-    </item>
-    <item priority="high">
       export function seatedFocusTarget(
         surface: SurfaceState,
         reservationId: string
       ): FocusTarget | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useOnChange<T>(value: T, onChange: () => void): void { /* ... */ }
     </item>
     <item priority="high">
       interface DetailsSurfaceInput {
@@ -4350,6 +4355,9 @@
     </item>
     <item priority="high">
       export function noShowSentence(reservation: Reservation, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function notAppliedSentence(reservation: Reservation, t: TFunction): string { /* ... */ }
     </item>
     <item priority="high">
       export function savedSentence(reservation: Reservation, t: TFunction): string { /* ... */ }
@@ -4686,8 +4694,30 @@
         seat: () => Promise<void>;
       }
     </item>
+    <item priority="low">
+      interface SeatFlights {
+        seating: (reservationId: string) => boolean;
+        failure: (reservationId: string) => ApiErrorDescription | null;
+        run: (reservationId: string, send: () => Promise<void>) => Pro...;
+      }
+    </item>
     <item priority="high">
-      export function useSeatGuest(onSeat: () => Promise<void>): SeatGuestState { /* ... */ }
+      export function useSeatFlights(currentId: string | null): SeatFlights { /* ... */ }
+    </item>
+    <item priority="low">
+      interface SeatGuestState {
+        seating: boolean;
+        failure: ApiErrorDescription | null;
+        seatRef: RefObject<HTMLButtonElement | null>;
+        seat: () => Promise<void>;
+      }
+    </item>
+    <item priority="high">
+      export function useSeatGuest(
+        reservationId: string,
+        onSeat: () => Promise<void>,
+        shared?: SeatFlights
+      ): SeatGuestState { /* ... */ }
     </item>
   </file>
   <file path="src/components/timeline/sheet-size.ts">

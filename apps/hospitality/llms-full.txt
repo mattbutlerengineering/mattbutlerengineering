@@ -8095,8 +8095,17 @@
       | { readonly kind: "firstIn"; readonly testId: string }
       /** The `PageHeader` h1, which carries `tabIndex={-1}` for this purpose. */
       | { readonly kind: "pageHeading" };
+    export interface FocusOptions {
+      /**
+       * Drop the request if, once its target is found, a modal dialog covers it. For a response that may
+       * land late: keys on a covered target act behind the dialog on top. Judged after the commit, so a
+       * dialog closing with the request does not count.
+       */
+      readonly unlessCovered?: boolean;
+    }
+    export const UNLESS_COVERED: FocusOptions = { unlessCovered: true };
     export interface FocusAfterApi {
-      readonly focusAfter: (target: FocusTarget) => void;
+      readonly focusAfter: (target: FocusTarget, options?: FocusOptions) => void;
     }
     function resolveTarget(target: FocusTarget): HTMLElement | null {
       switch (target.kind) {
@@ -8115,25 +8124,25 @@
         (dialog) => !dialog.closest("[inert]") && !(element && dialog.contains(element))
       );
     }
-    export const isTestIdCovered = (testId: string): boolean => isCoveredByDialog(byTestId(testId));
     export function useFocusAfter(): FocusAfterApi {
-      const pendingRef = useRef<FocusTarget | null>(null);
+      const pendingRef = useRef<{ target: FocusTarget; options?: FocusOptions } | null>(null);
       // A request re-renders the owner so the effect below runs even when nothing else changed.
       const [, requestRender] = useReducer((count: number) => count + 1, 0);
     
-      const focusAfter = useCallback((target: FocusTarget) => {
-        pendingRef.current = target;
+      const focusAfter = useCallback((target: FocusTarget, options?: FocusOptions) => {
+        pendingRef.current = { target, options };
         requestRender();
       }, []);
     
       // After every commit: resolve the pending target, focus it once, forget it. No state is set here.
       useEffect(() => {
-        const target = pendingRef.current;
-        if (!target) return;
-        const element = resolveTarget(target);
+        const pending = pendingRef.current;
+        if (!pending) return;
+        const element = resolveTarget(pending.target);
         if (!element) return;
-        element.focus();
         pendingRef.current = null;
+        if (pending.options?.unlessCovered && isCoveredByDialog(element)) return;
+        element.focus();
       });
     
       return { focusAfter };
@@ -10895,16 +10904,22 @@
       const active = document.activeElement;
       return active instanceof HTMLElement && active !== document.body ? active : null;
     }
-    export function uncoveredTarget(testId: string): FocusTarget | null {
-      return isTestIdCovered(testId) ? null : { kind: "testId", testId };
-    }
     export function seatedFocusTarget(
       surface: SurfaceState,
       reservationId: string
     ): FocusTarget | null {
       if (surface.openId !== null && surface.openId !== reservationId) return null;
-      if (surface.openId !== null && surface.modal) return uncoveredTarget(RESERVATION_EDIT_TEST_ID);
-      return uncoveredTarget(`reservation-block-${reservationId}`);
+      if (surface.openId !== null && surface.modal) {
+        return { kind: "testId", testId: RESERVATION_EDIT_TEST_ID };
+      }
+      return blockTarget(reservationId);
+    }
+    export function useOnChange<T>(value: T, onChange: () => void): void {
+      const [seen, setSeen] = useState(value);
+      if (value !== seen) {
+        setSeen(value);
+        onChange();
+      }
     }
     interface DetailsSurfaceInput {
       readonly viewport: Viewport;
@@ -10987,6 +11002,11 @@
       return reservation.guestName
         ? t("timeline.announce.noShowNamed", { name: reservation.guestName })
         : t("timeline.announce.noShow");
+    }
+    export function notAppliedSentence(reservation: Reservation, t: TFunction): string {
+      return reservation.guestName
+        ? t("timeline.announce.changeFailedNamed", { name: reservation.guestName })
+        : t("timeline.announce.changeFailed");
     }
     export function savedSentence(reservation: Reservation, t: TFunction): string {
       return reservation.guestName
@@ -11823,27 +11843,80 @@
       readonly seatRef: RefObject<HTMLButtonElement | null>;
       readonly seat: () => Promise<void>;
     }
-    export function useSeatGuest(onSeat: () => Promise<void>): SeatGuestState {
-      const [seating, setSeating] = useState(false);
-      const [failure, setFailure] = useState<ApiErrorDescription | null>(null);
+    export interface SeatFlights {
+      /** True while a seat for this reservation is pending. */
+      readonly seating: (reservationId: string) => boolean;
+      /** The last rejection for this reservation, while it is the current one. */
+      readonly failure: (reservationId: string) => ApiErrorDescription | null;
+      /** Sends unless a seat for this reservation is already pending. Rejections become `failure`. */
+      readonly run: (reservationId: string, send: () => Promise<void>) => Promise<void>;
+    }
+    export function useSeatFlights(currentId: string | null): SeatFlights {
+      const [seatingIds, setSeatingIds] = useState<readonly string[]>([]);
+      const [failed, setFailed] = useState<{
+        readonly id: string;
+        readonly description: ApiErrorDescription;
+      } | null>(null);
+      if (failed && failed.id !== currentId) setFailed(null);
+    
+      const inFlightRef = useRef<readonly string[]>([]);
+      const currentRef = useRef(currentId);
+      useLayoutEffect(() => {
+        currentRef.current = currentId;
+      });
+    
+      const run = useCallback(async (id: string, send: () => Promise<void>) => {
+        if (inFlightRef.current.includes(id)) return;
+        inFlightRef.current = [...inFlightRef.current, id];
+        setSeatingIds(inFlightRef.current);
+        setFailed(null);
+        try {
+          await send();
+        } catch (err) {
+          if (currentRef.current === id) setFailed({ id, description: describeApiError(err) });
+        } finally {
+          inFlightRef.current = inFlightRef.current.filter((other) => other !== id);
+          setSeatingIds(inFlightRef.current);
+        }
+      }, []);
+    
+      return {
+        seating: (id) => seatingIds.includes(id),
+        failure: (id) => (failed?.id === id ? failed.description : null),
+        run,
+      };
+    }
+    export interface SeatGuestState {
+      /** True while this reservation's seat is pending: Seat Guest reads "Seating…", the rest rest. */
+      readonly seating: boolean;
+      /** This reservation's last rejection, rendered as "Guest not seated." until the next attempt. */
+      readonly failure: ApiErrorDescription | null;
+      /** Attach to the Seat Guest button so focus can return to it after a failure. */
+      readonly seatRef: RefObject<HTMLButtonElement | null>;
+      readonly seat: () => Promise<void>;
+    }
+    export function useSeatGuest(
+      reservationId: string,
+      onSeat: () => Promise<void>,
+      shared?: SeatFlights
+    ): SeatGuestState {
+      const own = useSeatFlights(reservationId);
+      const flights = shared ?? own;
+      const failure = flights.failure(reservationId);
       const seatRef = useRef<HTMLButtonElement>(null);
       const { focusAfter } = useFocusAfter();
     
-      const seat = useCallback(async () => {
-        setSeating(true);
-        setFailure(null);
-        try {
-          await onSeat();
-        } catch (err) {
-          setFailure(describeApiError(err));
-          const element = seatRef.current;
-          if (element && !isCoveredByDialog(element)) focusAfter({ kind: "element", element });
-        } finally {
-          setSeating(false);
-        }
-      }, [onSeat, focusAfter]);
+      useEffect(() => {
+        const element = seatRef.current;
+        if (failure && element) focusAfter({ kind: "element", element }, UNLESS_COVERED);
+      }, [failure, focusAfter]);
     
-      return { seating, failure, seatRef, seat };
+      return {
+        seating: flights.seating(reservationId),
+        failure,
+        seatRef,
+        seat: () => flights.run(reservationId, onSeat),
+      };
     }
   </file>
   <file path="src/components/timeline/sheet-size.ts">

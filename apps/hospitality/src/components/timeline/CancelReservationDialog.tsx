@@ -4,7 +4,7 @@ import { Button, Select, TextArea, Stack, Text, Heading } from "@mattbutlerengin
 import { useEscapeKey, useFocusTrap } from "@mattbutlerengineering/rialto/hooks";
 import type { CancellationQuote } from "../../hooks/useCancellationQuote.js";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
-import { useFocusAfter } from "../../hooks/useFocusAfter.js";
+import { UNLESS_COVERED, useFocusAfter } from "../../hooks/useFocusAfter.js";
 import { describeApiError, type ApiErrorDescription } from "../../lib/describe-api-error.js";
 import styles from "./CancelReservationDialog.module.css";
 
@@ -69,7 +69,8 @@ export function CancelReservationDialog({
       await onConfirm(reason, note);
     } catch (err) {
       setFailure(describeApiError(err));
-      if (confirmRef.current) focusAfter({ kind: "element", element: confirmRef.current });
+      if (confirmRef.current)
+        focusAfter({ kind: "element", element: confirmRef.current }, UNLESS_COVERED);
     } finally {
       setIsLoading(false);
     }
