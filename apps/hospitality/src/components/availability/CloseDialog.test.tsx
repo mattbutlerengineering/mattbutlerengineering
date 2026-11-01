@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, it, expect, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, within, fireEvent, waitFor } from "@testing-library/react";
 import { axe } from "vitest-axe";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
@@ -43,7 +43,7 @@ vi.mock("../../contexts/VenueContext.js", () => ({
 }));
 
 import { CloseDialog } from "./CloseDialog.js";
-import { fixtureConfig } from "./resolved-day-fixtures.js";
+import { EARLY_DINNER, fixtureConfig } from "./resolved-day-fixtures.js";
 
 const AXE_OPTIONS = { rules: { "color-contrast": { enabled: false } } };
 const DATE = "2026-12-24";
@@ -314,6 +314,21 @@ describe("CloseDialog", () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(await screen.findByText("Online booking paused")).toBeTruthy();
     expect(screen.queryByText(/closed$/)).toBeNull();
+  });
+
+  it("names the channels the button pauses, not always online (#7978)", () => {
+    impactState.value = { reservations: 0, covers: 0, depositsHeld: 0, groups: [] };
+    renderDialog({ initialDate: null, pauseOnline: true });
+    const dialog = screen.getByRole("dialog");
+    const primary = () => within(dialog).getByTestId("close-primary").textContent;
+    expect(primary()).toBe("Pause online booking");
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Phone" }));
+    expect(primary()).toBe("Pause booking");
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Online" }));
+    expect(primary()).toBe("Pause phone booking");
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Phone" }));
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Waitlist" }));
+    expect(primary()).toBe("Pause waitlist");
   });
 
   it("does not claim online booking paused when only another channel was paused", async () => {
@@ -738,7 +753,73 @@ describe("CloseDialog", () => {
       });
     });
 
+    it("does not promise nothing changed on a 502, which may have committed (#7978)", async () => {
+      create.mockRejectedValueOnce(
+        new ApiClientError(
+          {
+            type: "about:blank",
+            title: "Bad Gateway",
+            status: 502,
+            detail: "Bad gateway",
+            code: "bad-gateway",
+          } as never,
+          "POST",
+          "closures"
+        )
+      );
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+
+      expect(await within(dialog).findByText(/may have gone through/)).toBeTruthy();
+      expect(within(dialog).queryByText(/nothing was changed/)).toBeNull();
+    });
+
     describe("leaving after a save that may have gone through", () => {
+      const decisionRequired = () =>
+        new ApiClientError(
+          {
+            type: "about:blank",
+            title: "decision-required",
+            status: 422,
+            detail: "Refused.",
+            code: "decision-required",
+          } as never,
+          "POST",
+          "closures"
+        );
+
+      it("says nothing was closed after a refusal that decided nothing (#7978)", async () => {
+        create.mockRejectedValueOnce(decisionRequired());
+        renderDialog();
+        const dialog = screen.getByRole("dialog");
+        toStepTwo(dialog);
+        fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+        await within(dialog).findByText(/bookings changed while you were deciding/i);
+
+        fireEvent.keyDown(document, { key: "Escape" });
+
+        const ask = screen.getByRole("dialog", { name: "Discard this closure?" });
+        expect(within(ask).getByText(/Nothing has been closed/)).toBeTruthy();
+      });
+
+      it("keeps the warning when a lost response came before that refusal (#7978)", async () => {
+        create.mockRejectedValueOnce(new Error("lost")).mockRejectedValueOnce(decisionRequired());
+        renderDialog();
+        const dialog = screen.getByRole("dialog");
+        toStepTwo(dialog);
+        fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+        await within(dialog).findByText("Couldn't close");
+        fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+        await within(dialog).findByText(/bookings changed while you were deciding/i);
+
+        fireEvent.keyDown(document, { key: "Escape" });
+
+        const ask = screen.getByRole("dialog", { name: "Leave this closure?" });
+        expect(within(ask).getByText(/may have gone through/)).toBeTruthy();
+      });
+
       it("asks in words that say it may have saved, then refreshes the calendar on leaving", async () => {
         create.mockRejectedValueOnce(new Error("lost"));
         const { onClose } = renderDialog();
@@ -955,6 +1036,184 @@ describe("CloseDialog", () => {
         </ToastProvider>
       );
       expect(within(dialog).getByRole("button", { name: "Back" })).toBeDisabled();
+    });
+  });
+
+  describe("wording and options (#7978)", () => {
+    const FRIDAY = "2026-12-25";
+    const NO_BOOKINGS: ClosureImpact = { reservations: 0, covers: 0, depositsHeld: 0, groups: [] };
+
+    /** The fixture week with its dinner running to 2:00 AM (minute 1560 of the service day). */
+    function overnightState(...rules: DateRule[]): AvailabilityConfigState {
+      const base = fixtureConfig(...rules);
+      return {
+        config: {
+          ...base,
+          scheduleServices: base.scheduleServices.map((s) => ({ ...s, closesAt: 1560 })),
+        },
+        version: 7,
+        source: "rows",
+      };
+    }
+
+    it("offers start times after midnight on a day that runs past it, and sends them", async () => {
+      impactState.value = NO_BOOKINGS;
+      create.mockResolvedValue({
+        ruleId: "r",
+        version: 8,
+        changeId: "c",
+        outcomes: { cancel: 0, move: 0, keep_notify: 0, keep_silent: 0 },
+      });
+      renderDialog({ state: overnightState(), initialDate: FRIDAY });
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("combobox", { name: "Starting at" }));
+      fireEvent.click(screen.getByRole("option", { name: "From 1:00 AM (next day)" }));
+      fireEvent.click(within(dialog).getByTestId("close-primary"));
+      await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+      expect(create.mock.calls[0]![0].body.rule.window).toEqual({
+        version: 1,
+        from: 1500,
+        to: 2880,
+      });
+    });
+
+    it("offers them from the closure's first real date, not the From date of a repeat (#7978)", () => {
+      // 2026-12-21 is a Monday, with no service; the repeat first falls on Friday the 25th.
+      renderDialog({ state: overnightState(), initialDate: "2026-12-21" });
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("radio", { name: "Repeats" }));
+      fireEvent.click(within(dialog).getByRole("checkbox", { name: "Fri" }));
+      fireEvent.click(within(dialog).getByRole("combobox", { name: "Starting at" }));
+      expect(screen.getByRole("option", { name: "From 1:30 AM (next day)" })).toBeTruthy();
+    });
+
+    describe("Step 2 at 01:05 on Friday's service (#7978)", () => {
+      beforeEach(() => {
+        vi.useFakeTimers({ toFake: ["Date"] });
+        vi.setSystemTime(new Date("2026-12-26T09:05:00Z")); // 1:05 AM Saturday in Los Angeles
+      });
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      it("shows the Urgent notice for a start later that night", () => {
+        renderDialog({ state: overnightState(), today: FRIDAY, initialDate: FRIDAY });
+        const dialog = screen.getByRole("dialog");
+        fireEvent.click(within(dialog).getByRole("combobox", { name: "Starting at" }));
+        fireEvent.click(screen.getByRole("option", { name: "From 1:30 AM (next day)" }));
+        fireEvent.click(within(dialog).getByTestId("close-primary"));
+        expect(within(dialog).getByText(/^Urgent/)).toBeTruthy();
+      });
+    });
+
+    describe("a closure whose days do not all run past midnight (#7978)", () => {
+      /** Friday, dinner to 2:00 AM; every other day, dinner to 11:00 PM. */
+      function fridayRunsLate(): AvailabilityConfigState {
+        const base = overnightState().config;
+        const dinner = fixtureConfig().scheduleServices.find(
+          (s) => s.venueServiceId === "vs-dinner"
+        )!;
+        return {
+          config: {
+            ...base,
+            schedules: [
+              ...base.schedules,
+              { id: "week", name: "Week", kind: "regular", isRegular: false },
+            ],
+            scheduleServices: [
+              ...base.scheduleServices,
+              { ...dinner, id: "ss-week", scheduleId: "week" },
+            ],
+            assignments: [
+              ...base.assignments,
+              { id: "as-week", scheduleId: "week", weekdays: [0, 1, 2, 3, 4, 6], precedence: 1 },
+            ],
+          },
+          version: 7,
+          source: "rows",
+        };
+      }
+      const fridayOptions = (dialog: HTMLElement) => {
+        fireEvent.click(within(dialog).getByRole("combobox", { name: "Starting at" }));
+        return {
+          afterMidnight: screen.queryByRole("option", { name: "From 1:00 AM (next day)" }),
+          morning: screen.queryByRole("option", { name: "From 1:00 AM" }),
+        };
+      };
+      // 2026-12-21 is a Monday.
+      const MONDAY = "2026-12-21";
+
+      it("reads a date range's Friday, not only its Monday", () => {
+        renderDialog({ state: fridayRunsLate(), initialDate: MONDAY });
+        const dialog = screen.getByRole("dialog");
+        fireEvent.click(within(dialog).getByRole("radio", { name: "Date range" }));
+        const { afterMidnight, morning } = fridayOptions(dialog);
+        expect(afterMidnight).toBeTruthy();
+        expect(morning).toBeNull();
+      });
+
+      it("reads a repeat's Friday, not only its first Monday", () => {
+        renderDialog({ state: fridayRunsLate(), initialDate: MONDAY });
+        const dialog = screen.getByRole("dialog");
+        fireEvent.click(within(dialog).getByRole("radio", { name: "Repeats" }));
+        fireEvent.click(within(dialog).getByRole("checkbox", { name: "Mon" }));
+        fireEvent.click(within(dialog).getByRole("checkbox", { name: "Fri" }));
+        const { afterMidnight, morning } = fridayOptions(dialog);
+        expect(afterMidnight).toBeTruthy();
+        expect(morning).toBeNull();
+      });
+    });
+
+    describe("Guests will see, on a repeat (#7978)", () => {
+      // 2026-12-21 is a Monday; Friday is the 25th.
+      const repeatFrom = (date: string) => {
+        renderDialog({ initialDate: date });
+        const dialog = screen.getByRole("dialog");
+        fireEvent.click(within(dialog).getByRole("radio", { name: "Repeats" }));
+        return dialog;
+      };
+
+      it("names the first date it really closes, not its From date", () => {
+        const dialog = repeatFrom("2026-12-21");
+        fireEvent.click(within(dialog).getByRole("checkbox", { name: "Fri" }));
+        expect(within(dialog).getByText(/Guests will see: Fri, Dec 25/)).toBeTruthy();
+        expect(within(dialog).queryByText(/Mon, Dec 21/)).toBeNull();
+      });
+
+      it("names no date before a day is picked", () => {
+        const dialog = repeatFrom("2026-12-21");
+        expect(within(dialog).queryByText(/Guests will see/)).toBeNull();
+      });
+    });
+
+    it("offers none on a day that closes before midnight", () => {
+      renderDialog({ initialDate: FRIDAY });
+      fireEvent.click(screen.getByRole("combobox", { name: "Starting at" }));
+      expect(screen.queryByRole("option", { name: /next day/ })).toBeNull();
+    });
+
+    it("warns that a range replaces the special hours inside it, not only on its first day", () => {
+      const special: DateRule = { ...EARLY_DINNER, id: "sh", startsOn: FRIDAY, endsOn: FRIDAY };
+      renderDialog({ state: overnightState(special), initialDate: "2026-12-24" });
+      expect(screen.queryByText(/has special hours/)).toBeNull();
+      fireEvent.click(screen.getByRole("radio", { name: "Date range" }));
+      expect(screen.getByText(/Fri, Dec 25 has special hours/)).toBeTruthy();
+    });
+
+    it("says a Host's emergency close is all day, with no start time to pick", () => {
+      renderDialog({ hostLocked: true, initialDate: null });
+      const dialog = screen.getByRole("dialog");
+      expect(within(dialog).queryByRole("combobox", { name: "Starting at" })).toBeNull();
+      expect(within(dialog).getByText("All day")).toBeTruthy();
+    });
+
+    it("does not say the guest sees the whole day closed when only the evening is", () => {
+      renderDialog({ initialDate: FRIDAY });
+      expect(screen.getByText(/Fri, Dec 25 · Closed$/)).toBeTruthy();
+      fireEvent.click(screen.getByRole("combobox", { name: "Starting at" }));
+      fireEvent.click(screen.getByRole("option", { name: "From 8:00 PM" }));
+      expect(screen.queryByText(/Fri, Dec 25 · Closed$/)).toBeNull();
+      expect(screen.getByText(/Fri, Dec 25 · Closed from 8:00 PM/)).toBeTruthy();
     });
   });
 

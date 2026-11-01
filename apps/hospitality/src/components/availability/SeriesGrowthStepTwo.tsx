@@ -1,16 +1,11 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Button, Dialog, Text, useToast } from "@mattbutlerengineering/rialto";
-import type {
-  AvailabilityConfigState,
-  ClosureAlongside,
-  ClosureImpact,
-  DateRule,
-} from "@mbe/types";
+import type { ClosureAlongside, ClosureImpact, DateRule } from "@mbe/types";
 import { useCreateClosure } from "../../hooks/useClosures.js";
 import { useNow } from "../../hooks/useNow.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { describeApiError } from "../../lib/describe-api-error.js";
+import { useRefreshAvailability } from "../../hooks/useRefreshAvailability.js";
 import { minutesOfDayIn } from "../../utils/service-day.js";
 import {
   decisionsReady,
@@ -20,12 +15,19 @@ import {
   type ChoiceMap,
 } from "./close-draft.js";
 import { CloseStepTwo } from "./CloseStepTwo.js";
-import { outcomeLabel } from "./outcome-label.js";
+import { outcomeLabel, outcomeSummary } from "./outcome-label.js";
+import { growthAttempt } from "./series-edit.js";
+import { refusalOf, refusalText } from "./step-two-refusal.js";
+import type { SaveAttempts } from "./use-save-attempts.js";
 import styles from "./CloseDialog.module.css";
 
 export interface SeriesGrowthStepTwoProps {
   readonly venueId: string;
-  readonly state: AvailabilityConfigState;
+  /**
+   * The version the plan was built on, never the latest: a plan older than the config has to get
+   * a 409, or it overwrites what it never saw.
+   */
+  readonly expectedVersion: number;
   readonly timezone: string;
   /** Today on the venue clock. */
   readonly today: string;
@@ -34,8 +36,17 @@ export interface SeriesGrowthStepTwoProps {
   readonly alongside: ClosureAlongside;
   /** The bookings the edited series would newly close. */
   readonly impact: ClosureImpact;
+  /** Held by `SeriesEditDialog`: going Back must not forget a save that may have gone through. */
+  readonly attempts: SaveAttempts;
   readonly onBack: () => void;
   readonly onClose: () => void;
+  /** A group's bookings changed: ask for the impact again and hand it back as `impact`. */
+  readonly onReload: () => Promise<void>;
+  /**
+   * Someone saved first. The edit was built from a config that is gone, so it cannot be sent
+   * again: the caller reloads the config and returns to the form with `message`.
+   */
+  readonly onStale: (message: string) => void;
 }
 
 /**
@@ -45,7 +56,8 @@ export interface SeriesGrowthStepTwoProps {
  * together or not at all.
  */
 export function SeriesGrowthStepTwo(props: SeriesGrowthStepTwoProps) {
-  const { venueId, state, timezone, today, rule, alongside, impact, onBack, onClose } = props;
+  const { venueId, timezone, today, rule, alongside, impact, attempts, onBack, onClose } = props;
+  const refresh = useRefreshAvailability();
   const { t } = useTranslation();
   const format = useVenueFormat();
   const { toast } = useToast();
@@ -53,8 +65,8 @@ export function SeriesGrowthStepTwo(props: SeriesGrowthStepTwoProps) {
   const { mutateAsync, isPending } = useCreateClosure();
   const [choices, setChoices] = useState<ChoiceMap>({});
   const [failure, setFailure] = useState<string | null>(null);
-  // One key per dialog: a retry of the same save replays the first result.
-  const [idempotencyKey] = useState(() => crypto.randomUUID());
+  // This attempt's key already committed (a lost response): nothing more is sent from here.
+  const [savedEarlier, setSavedEarlier] = useState(false);
 
   const firstDate = impact.groups[0]?.date ?? rule.startsOn;
   const urgent = isUrgent(
@@ -65,14 +77,14 @@ export function SeriesGrowthStepTwo(props: SeriesGrowthStepTwoProps) {
 
   const save = async () => {
     setFailure(null);
+    attempts.record(outcomeSummary(outcomeCounts(impact.groups, choices), t));
     try {
       const result = await mutateAsync({
         venueId,
-        idempotencyKey,
+        idempotencyKey: attempts.idempotencyKey,
         body: {
-          expectedVersion: state.version,
-          rule,
-          alongside,
+          expectedVersion: props.expectedVersion,
+          ...growthAttempt({ rule, alongside }, attempts.ruleId),
           decisions: toDecisions(impact.groups, choices),
         },
       });
@@ -94,14 +106,33 @@ export function SeriesGrowthStepTwo(props: SeriesGrowthStepTwoProps) {
       });
       onClose();
     } catch (error) {
-      setFailure(describeApiError(error).detail);
+      const refused = refusalOf(error);
+      const text = refusalText(refused, t);
+      if (refused.kind === "groups-changed") {
+        // The bookings changed since the Manager chose: drop the choices and load the new ones.
+        setChoices({});
+        setFailure(text);
+        await props.onReload().catch(() => undefined);
+        return;
+      }
+      attempts.failed(refused);
+      if (refused.kind === "version-conflict") {
+        refresh();
+        props.onStale(text);
+        return;
+      }
+      if (refused.kind === "closure-exists") {
+        refresh();
+        setSavedEarlier(true);
+      }
+      setFailure(text);
     }
   };
 
   return (
     <Dialog
       open
-      onClose={onClose}
+      onClose={() => attempts.leave(isPending)}
       title={t("availabilitySpecial.series.title")}
       description={t("availability.close.step", { step: 2 })}
       footer={
@@ -109,13 +140,13 @@ export function SeriesGrowthStepTwo(props: SeriesGrowthStepTwoProps) {
           <Text variant="caption" color="secondary" className={styles.footerNote}>
             {t("availability.close.step2.irreversible")}
           </Text>
-          <Button variant="secondary" onClick={onBack}>
+          <Button variant="secondary" disabled={isPending} onClick={onBack}>
             {t("availability.close.back")}
           </Button>
           <Button
             variant="primary"
             isLoading={isPending}
-            disabled={!decisionsReady(impact.groups, choices)}
+            disabled={savedEarlier || !decisionsReady(impact.groups, choices)}
             onClick={() => void save()}
           >
             {outcomeLabel(outcomeCounts(impact.groups, choices), t)}
@@ -133,7 +164,11 @@ export function SeriesGrowthStepTwo(props: SeriesGrowthStepTwoProps) {
         choices={choices}
         urgent={urgent}
         guestMessage={rule.guestMessage ?? ""}
-        onChoose={(key, choice) => setChoices({ ...choices, [key]: choice })}
+        onChoose={(key, choice) => {
+          attempts.edited(choices[key], choice);
+          setChoices({ ...choices, [key]: choice });
+          attempts.setDirty(true);
+        }}
       />
     </Dialog>
   );
