@@ -5258,12 +5258,16 @@
       readonly from: string;
       /** `null`: until changed again. */
       readonly until: string | null;
+      /** Today on the venue clock: dates before it are history and are not copied to. */
+      readonly today?: string;
     }
     export function copyDayDates(target: CopyTarget): string[] {
       const last = addDays(target.from, SCOPE_HORIZON_DAYS - 1);
       const end = target.until !== null && target.until < last ? target.until : last;
+      const first =
+        target.today !== undefined && target.today > target.from ? target.today : target.from;
       const dates: string[] = [];
-      for (let d = target.from; d <= end; d = addDays(d, 1)) {
+      for (let d = first; d <= end; d = addDays(d, 1)) {
         if (target.weekdays.includes(weekdayIndexOf(d))) dates.push(d);
       }
       return dates;
@@ -5280,6 +5284,7 @@
         scope: { kind: "weekday", from: input.from, until: input.until },
         services: input.services,
         makeId: input.makeId,
+        today: input.today,
       });
       const weekdays = [...input.weekdays].sort((a, b) => a - b);
       return {
@@ -5659,9 +5664,11 @@
         const dateRules = singles.map((d) => dateRule(config, d, payload, makeId));
         return { upsert: { ...venueServices, dateRules }, remove: {} };
       }
+      // A rule from a past day would rewrite hours that already happened: start it today instead.
+      const startsOn = input.today !== undefined && input.today > scope.from ? input.today : scope.from;
       const rule = specialHoursRule(
         {
-          startsOn: scope.from,
+          startsOn,
           endsOn: scope.until,
           repeat: { version: 1, weekdays: [weekdayIndexOf(scope.from)] },
         },
@@ -5670,6 +5677,35 @@
       );
       return { upsert: { ...venueServices, dateRules: [rule] }, remove: {} };
     }
+  </file>
+  <file path="apps/hospitality/src/components/availability/draft-wait.ts">
+    export function waitingProps(waiting: boolean, reasonId: string | undefined) {
+      return waiting
+        ? { "aria-disabled": true, "aria-describedby": reasonId, className: styles.waiting }
+        : {};
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/editor-open.ts">
+    function emit() {
+      for (const listener of listeners) listener();
+    }
+    export function markEditorOpen(): () => void {
+      openCount += 1;
+      emit();
+      let released = false;
+      return () => {
+        if (released) return;
+        released = true;
+        openCount -= 1;
+        emit();
+      };
+    }
+    export const isEditorOpen = (): boolean => openCount > 0;
+    function subscribe(listener: () => void): () => void {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    }
+    export const useEditorOpen = (): boolean => useSyncExternalStore(subscribe, isEditorOpen);
   </file>
   <file path="apps/hospitality/src/components/availability/outcome-label.ts">
     export function outcomeSummary(counts: OutcomeCounts, t: TFunction): string {
@@ -6631,7 +6667,8 @@
       if (scope.kind === "weekday") {
         const horizon = addDays(scope.from, SCOPE_HORIZON_DAYS - 1);
         const last = scope.until !== null && scope.until < horizon ? scope.until : horizon;
-        return eachDate(scope.from, last, 7);
+        // A past Friday is history, not part of the edit: count from the venue's today.
+        return eachDate(scope.from, last, 7).filter((d) => d >= context.today);
       }
       if (scope.kind === "rule") {
         const rule = context.config.dateRules.find((r) => r.id === scope.ruleId);
@@ -6810,6 +6847,33 @@
         makeId,
       });
       return { upsert: built.upsert, remove: removal(own) };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/selection-hours.ts">
+    function hoursSignature(day: ResolvedDay): string {
+      return JSON.stringify(
+        day.services.map((s) => [
+          s.venueServiceId,
+          s.opensAt,
+          s.lastSeatingAt,
+          s.closesAt,
+          s.seating,
+          s.bookingTypes,
+        ])
+      );
+    }
+    export function pickHoursSource(
+      dates: readonly string[],
+      resolve: (date: string) => ResolvedDay
+    ): { readonly date: string | null; readonly differs: boolean } {
+      const days = dates.map((date) => ({ date, day: resolve(date) }));
+      const source = days.find((d) => d.day.services.length > 0) ?? days[0];
+      if (!source) return { date: null, differs: false };
+      const wanted = hoursSignature(source.day);
+      return {
+        date: source.date,
+        differs: days.some((d) => hoursSignature(d.day) !== wanted),
+      };
     }
   </file>
   <file path="apps/hospitality/src/components/availability/selection.ts">
@@ -7326,6 +7390,11 @@
       readonly selection: readonly string[];
       readonly onSelectionChange: (dates: string[]) => void;
       readonly onOpenDay: (date: string) => void;
+      /**
+       * A range drag is under way (`true`) or over (`false`). The page holds back anything that would
+       * move the grid under the pointer until the drag ends.
+       */
+      readonly onDragChange?: (dragging: boolean) => void;
     }
     export interface DateGestureHandlers {
       readonly onClick: (event: MouseEvent) => void;
@@ -7337,7 +7406,7 @@
       readonly onContextMenu: (event: MouseEvent) => void;
     }
     export function useDateSelection(options: DateSelectionOptions) {
-      const { selection, onSelectionChange, onOpenDay } = options;
+      const { selection, onSelectionChange, onOpenDay, onDragChange } = options;
       const pivot = useRef<string | null>(null);
       const drag = useRef<{ from: string; moved: boolean } | null>(null);
       const suppressClick = useRef(false);
@@ -7353,12 +7422,13 @@
             setTimeout(() => {
               suppressClick.current = false;
             }, 0);
+            onDragChange?.(false);
           }
           drag.current = null;
         };
         window.addEventListener("mouseup", endDrag);
         return () => window.removeEventListener("mouseup", endDrag);
-      }, []);
+      }, [onDragChange]);
     
       const clearTimer = () => {
         if (pressTimer.current) clearTimeout(pressTimer.current);
@@ -7386,6 +7456,7 @@
         onMouseEnter: () => {
           const d = drag.current;
           if (!d || (date === d.from && !d.moved)) return;
+          if (!d.moved) onDragChange?.(true);
           d.moved = true;
           extendSelection(d.from, date);
         },
@@ -13056,6 +13127,168 @@
       await page.reload();
     }
   </file>
+  <file path="apps/hospitality/e2e/availability-draft-mock.ts">
+    export interface PutRecord {
+      expected: number;
+      status: number;
+    }
+    export interface AvailabilityMock {
+      version: number;
+      configReads: number;
+      /** Reads of the config answer 500 while this is set. */
+      failReads: boolean;
+      /** Every save, in order, with the version it was checked against and how it ended. */
+      readonly puts: PutRecord[];
+      /** Reverts (Undo) received. */
+      reverts: number;
+      /** The next save answers this instead of being applied. */
+      nextPut: { status: number; code: string; extra?: object } | null;
+      /** Someone else saves: the version moves on and the next save here is refused. */
+      colleague(summary?: string): void;
+    }
+    function between(from: string, to: string): string[] {
+      const out: string[] = [];
+      for (
+        let d = new Date(`${from}T00:00:00Z`);
+        d <= new Date(`${to}T00:00:00Z`);
+        d.setUTCDate(d.getUTCDate() + 1)
+      ) {
+        out.push(d.toISOString().slice(0, 10));
+      }
+      return out;
+    }
+    export async function mockAvailability(
+      page: Page,
+      options: { weekdays?: number[] } = {}
+    ): Promise<AvailabilityMock> {
+      const venues = JSON.parse(loadFixture("venues-list")) as { data: Array<{ id: string }> };
+      const base = `**/api/v1/venues/${String(venues.data[0]?.id)}`;
+      const json = (data: unknown) => ({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data }),
+      });
+      const problem = (status: number, code: string, extra: object = {}) => ({
+        status,
+        contentType: "application/problem+json",
+        body: JSON.stringify({
+          type: "about:blank",
+          title: code,
+          status,
+          detail: "Server said no.",
+          code,
+          ...extra,
+        }),
+      });
+      let winner = {
+        id: "chg-0",
+        actorId: "auth0|ana",
+        at: new Date().toISOString(),
+        kind: "config",
+        summary: "Dinner closes at 10:00 PM",
+      };
+      const mock: AvailabilityMock = {
+        version: 7,
+        configReads: 0,
+        failReads: false,
+        puts: [],
+        reverts: 0,
+        nextPut: null,
+        colleague(summary = "Dinner closes at 10:00 PM") {
+          mock.version += 1;
+          winner = { ...winner, id: `chg-${mock.version}`, summary };
+        },
+      };
+      let rules: unknown[] = [];
+    
+      await page.route(`${base}/availability/config`, (route) => {
+        if (route.request().method() === "PUT") {
+          const body = route.request().postDataJSON() as {
+            expectedVersion: number;
+            changes?: { upsert?: { dateRules?: Array<{ id: string }> } };
+          };
+          const record: PutRecord = { expected: body.expectedVersion, status: 0 };
+          mock.puts.push(record);
+          if (mock.nextPut) {
+            const refused = mock.nextPut;
+            mock.nextPut = null;
+            record.status = refused.status;
+            return route.fulfill(problem(refused.status, refused.code, refused.extra));
+          }
+          if (body.expectedVersion !== mock.version) {
+            record.status = 409;
+            return route.fulfill(problem(409, "version-conflict", { winningChange: winner }));
+          }
+          const upserted = body.changes?.upsert?.dateRules ?? [];
+          rules = [
+            ...rules.filter((r) => !upserted.some((u) => u.id === (r as { id: string }).id)),
+            ...upserted,
+          ];
+          mock.version += 1;
+          record.status = 200;
+          return route.fulfill(json({ version: mock.version, changeId: `chg-${mock.version}` }));
+        }
+        mock.configReads += 1;
+        if (mock.failReads) return route.fulfill(problem(500, "internal"));
+        return route.fulfill(
+          json({
+            config: {
+              schedules: [{ id: "regular", name: "Regular week", kind: "regular", isRegular: true }],
+              venueServices: [{ id: "vs-dinner", name: "Dinner", position: 0 }],
+              scheduleServices: [
+                {
+                  id: "ss-dinner",
+                  scheduleId: "regular",
+                  venueServiceId: "vs-dinner",
+                  ...DINNER,
+                  seating: { version: 1, interval: 15 },
+                  bookingTypes: ["online", "phone"],
+                },
+              ],
+              assignments: [
+                {
+                  id: "as",
+                  scheduleId: "regular",
+                  weekdays: options.weekdays ?? [0, 1, 2, 3, 4, 5, 6],
+                  precedence: 0,
+                },
+              ],
+              dateRules: rules,
+            },
+            version: mock.version,
+            source: "rows",
+          })
+        );
+      });
+      await page.route(`${base}/availability/days*`, (route) => {
+        const url = new URL(route.request().url());
+        const open = options.weekdays ?? [0, 1, 2, 3, 4, 5, 6];
+        const days = between(url.searchParams.get("from")!, url.searchParams.get("to")!).map(
+          (serviceDate) => {
+            const isOpen = open.includes(new Date(`${serviceDate}T00:00:00Z`).getUTCDay());
+            return {
+              serviceDate,
+              label: isOpen ? "Regular week" : "Closed",
+              scheduleId: isOpen ? "regular" : null,
+              serviceCount: isOpen ? 1 : 0,
+              closures: [],
+              bookingOpen: { online: isOpen, phone: isOpen, waitlist: isOpen },
+            };
+          }
+        );
+        return route.fulfill(json(days));
+      });
+      await page.route(`${base}/availability/preview*`, (route) =>
+        route.fulfill(problem(500, "internal"))
+      );
+      await page.route("**/availability/changes/*/revert", (route) => {
+        mock.reverts += 1;
+        mock.version += 1;
+        return route.fulfill(json({ version: mock.version, changeId: `chg-${mock.version}` }));
+      });
+      return mock;
+    }
+  </file>
   <file path="apps/hospitality/e2e/booking-date.ts">
     export async function pickBookingDate(page: Page, isoDate: string): Promise<void> {
       await expect(page.getByRole("grid")).toBeVisible();
@@ -18012,6 +18245,12 @@
       return useCallback(
         (input: { venueId: string; title: string; saved: AvailabilityConfigSaveResult }) => {
           const undo = async () => {
+            // An open day editor has pinned a version this revert would move on from: its own save
+            // would then be refused as out of date. Ask the Manager to finish that first.
+            if (isEditorOpen()) {
+              toast({ title: t("availability.undo.finishFirst"), variant: "default", duration: 8000 });
+              return;
+            }
             try {
               await revert.mutateAsync({
                 venueId: input.venueId,
