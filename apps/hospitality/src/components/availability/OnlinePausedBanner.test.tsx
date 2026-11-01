@@ -109,7 +109,7 @@ describe("OnlinePausedBanner for a pause waiting for its time (#8032)", () => {
   const VENUE = {
     selectedVenue: { id: "venue-1", ianaTimezone: "America/New_York", currencyCode: "USD" },
   } as VenueContextValue;
-  const renderAt = (iso: string, rule = fromSix) => {
+  const renderAt = (iso: string, rule = fromSix, ...others: DateRule[]) => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date(iso));
     render(
@@ -118,7 +118,7 @@ describe("OnlinePausedBanner for a pause waiting for its time (#8032)", () => {
           <main>
             <OnlinePausedBanner
               venueId="venue-1"
-              state={{ config: fixtureConfig(rule), version: 7, source: "rows" }}
+              state={{ config: fixtureConfig(rule, ...others), version: 7, source: "rows" }}
               rule={rule}
               canResume
             />
@@ -134,8 +134,8 @@ describe("OnlinePausedBanner for a pause waiting for its time (#8032)", () => {
     vi.useRealTimers();
   });
 
-  it("says when it starts, and offers its removal, the morning after", async () => {
-    renderAt("2026-11-14T10:00:00-05:00"); // Saturday, 10:00 AM at the venue
+  it("says when it starts, and offers its removal, while earlier seatings remain", async () => {
+    renderAt("2026-11-13T10:00:00-05:00"); // Friday, the fixture's open day, 10:00 AM at the venue
     expect(
       screen.getByText(
         "Online seatings from 6:00 PM are paused every day. Earlier seatings stay open."
@@ -153,6 +153,29 @@ describe("OnlinePausedBanner for a pause waiting for its time (#8032)", () => {
       })
     );
     expect(await screen.findByText("Online booking pause removed")).toBeTruthy();
+  });
+
+  describe("with no online seating left today, for a reason other than a pause", () => {
+    const BARE = "Online seatings from 6:00 PM are paused every day.";
+
+    it("claims nothing about earlier seatings on a day with no service", () => {
+      renderAt("2026-11-14T10:00:00-05:00"); // Saturday: the fixture has no service
+      expect(screen.getByText(BARE)).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Remove pause" })).toBeTruthy();
+    });
+
+    it("claims nothing about earlier seatings when the venue is closed today", () => {
+      const closed = {
+        ...pause(["online"]),
+        id: "venue",
+        targetKind: "venue",
+        bookingTypes: undefined,
+        startsOn: "2026-11-13",
+        endsOn: "2026-11-13",
+      } as DateRule;
+      renderAt("2026-11-13T10:00:00-05:00", fromSix, closed);
+      expect(screen.getByText(BARE)).toBeTruthy();
+    });
   });
 
   it("reads as paused when its time takes every online seating of the day", () => {

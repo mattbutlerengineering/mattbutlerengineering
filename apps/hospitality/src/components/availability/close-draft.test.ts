@@ -341,6 +341,34 @@ describe("shownOnlinePause, for a pause waiting for its time (#8032)", () => {
     it("is not in force on a day with no service, which it takes nothing from", () => {
       expect(inForce(60, SATURDAY, 30)).toBe(false);
     });
+
+    describe("alongside another closure", () => {
+      const beforeLunch = { version: 1, from: 10 * 60, to: 2880 } as const;
+      const judged = pause("judged", beforeLunch);
+      const inForceWith = (other: DateRule) =>
+        isPauseInForce(judged, fixtureConfig(judged, other), TZ, FRIDAY, 9 * 60);
+
+      it("is in force when a second pause takes the same seatings", () => {
+        expect(inForceWith(pause("second", beforeLunch))).toBe(true);
+      });
+
+      it("is in force when a dated online closure takes the same seatings", () => {
+        expect(inForceWith({ ...pause("dated", beforeLunch), endsOn: FRIDAY })).toBe(true);
+      });
+
+      it("is not in force when the venue is closed: no pause took those seatings", () => {
+        const fromSix = pause("judged", { version: 1, from: 18 * 60, to: 2880 });
+        const closed = {
+          ...pause("venue", null),
+          targetKind: "venue",
+          bookingTypes: undefined,
+          endsOn: FRIDAY,
+          window: undefined,
+        } as DateRule;
+        const config = fixtureConfig(fromSix, closed);
+        expect(isPauseInForce(fromSix, config, TZ, FRIDAY, 10 * 60)).toBe(false);
+      });
+    });
   });
 });
 

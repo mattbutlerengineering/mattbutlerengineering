@@ -505,7 +505,15 @@
       ) {
         return true;
       }
-      const without = { ...config, dateRules: config.dateRules.filter((r) => r.id !== rule.id) };
+      const isWindowedOnlineClosure = (r: DateRule) =>
+        r.kind === "closure" &&
+        r.targetKind === "booking" &&
+        (r.bookingTypes ?? []).includes("online") &&
+        r.window != null;
+      const without = {
+        ...config,
+        dateRules: config.dateRules.filter((r) => !isWindowedOnlineClosure(r)),
+      };
       return (
         onlineSeatingLeft(without, timezone, today, nowMinute) &&
         !onlineSeatingLeft(config, timezone, today, nowMinute)

@@ -12,6 +12,7 @@ import { minutesOfDayIn, venueDate } from "../../utils/service-day.js";
 import { isPauseInForce } from "./close-draft.js";
 import { minuteText } from "./closure-band.js";
 import { conflictOf } from "./conflict-problem.js";
+import { onlineSeatingLeft } from "./online-seatings.js";
 
 export interface OnlinePausedBannerProps {
   readonly venueId: string;
@@ -36,15 +37,10 @@ export function OnlinePausedBanner({ venueId, state, rule, canResume }: OnlinePa
   const format = useVenueFormat();
   const now = useNow();
   const { timeZone } = format;
+  const today = venueDate(now, timeZone);
+  const minute = minutesOfDayIn(now, timeZone);
   const waitingFrom =
-    rule.window &&
-    !isPauseInForce(
-      rule,
-      state.config,
-      timeZone,
-      venueDate(now, timeZone),
-      minutesOfDayIn(now, timeZone)
-    )
+    rule.window && !isPauseInForce(rule, state.config, timeZone, today, minute)
       ? rule.window.from
       : null;
   const waiting = waitingFrom !== null;
@@ -95,7 +91,13 @@ export function OnlinePausedBanner({ venueId, state, rule, canResume }: OnlinePa
       }
     >
       {waiting
-        ? t("availability.paused.waiting", { time: minuteText(waitingFrom, t, format) })
+        ? t(
+            // A closed day or a day with no online service has no earlier seatings to promise.
+            onlineSeatingLeft(state.config, timeZone, today, minute)
+              ? "availability.paused.waiting"
+              : "availability.paused.waitingNoneToday",
+            { time: minuteText(waitingFrom, t, format) }
+          )
         : t("availability.paused.banner")}
     </Banner>
   );

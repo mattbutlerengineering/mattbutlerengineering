@@ -2469,6 +2469,7 @@
       "resumeError": "Impossible de reprendre les réservations en ligne",
       "pill": "Réservations en ligne suspendues",
       "waiting": "Les réservations en ligne à partir de {{time}} sont suspendues tous les jours. Les heures précédentes restent ouvertes.",
+      "waitingNoneToday": "Les réservations en ligne à partir de {{time}} sont suspendues tous les jours.",
       "remove": "Retirer la suspension",
       "removed": "Suspension des réservations en ligne retirée",
       "removeError": "Impossible de retirer la suspension"

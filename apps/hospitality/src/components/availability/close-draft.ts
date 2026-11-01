@@ -386,10 +386,11 @@ export function isUrgent(
 /**
  * Whether a pause is what guests meet now. Its time is a seating minute of each service day, so a
  * pause from 6:00 PM leaves earlier seatings bookable. It holds once its time has been reached, or
- * while yesterday's service runs past midnight into it, and also once it has taken the last online
- * seating left today, because a Manager must not read "open" when guests cannot book online. A day
- * with no online seating of its own is not the pause's doing. `today` and `nowMinute` are the
- * venue's civil date and minute.
+ * while yesterday's service runs past midnight into it, and also once windowed online closures
+ * (this pause, alone or with others) have taken the last online seating left today, because a
+ * Manager must not read "open" when guests cannot book online. A day with no online seating of its
+ * own, or a venue closed all day, is not a pause's doing. `today` and `nowMinute` are the venue's
+ * civil date and minute.
  */
 export function isPauseInForce(
   rule: DateRule,
@@ -407,7 +408,15 @@ export function isPauseInForce(
   ) {
     return true;
   }
-  const without = { ...config, dateRules: config.dateRules.filter((r) => r.id !== rule.id) };
+  const isWindowedOnlineClosure = (r: DateRule) =>
+    r.kind === "closure" &&
+    r.targetKind === "booking" &&
+    (r.bookingTypes ?? []).includes("online") &&
+    r.window != null;
+  const without = {
+    ...config,
+    dateRules: config.dateRules.filter((r) => !isWindowedOnlineClosure(r)),
+  };
   return (
     onlineSeatingLeft(without, timezone, today, nowMinute) &&
     !onlineSeatingLeft(config, timezone, today, nowMinute)

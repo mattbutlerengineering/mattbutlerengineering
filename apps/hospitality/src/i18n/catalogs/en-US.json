@@ -2414,6 +2414,7 @@
       "resumeError": "Couldn't resume online booking",
       "pill": "Online booking paused",
       "waiting": "Online seatings from {{time}} are paused every day. Earlier seatings stay open.",
+      "waitingNoneToday": "Online seatings from {{time}} are paused every day.",
       "remove": "Remove pause",
       "removed": "Online booking pause removed",
       "removeError": "Couldn't remove the pause"

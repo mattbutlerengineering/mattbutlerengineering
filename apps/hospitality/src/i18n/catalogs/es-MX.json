@@ -2469,6 +2469,7 @@
       "resumeError": "No se pudieron reanudar las reservas en línea",
       "pill": "Reservas en línea en pausa",
       "waiting": "Las reservas en línea desde las {{time}} están en pausa todos los días. Los horarios anteriores siguen abiertos.",
+      "waitingNoneToday": "Las reservas en línea desde las {{time}} están en pausa todos los días.",
       "remove": "Quitar pausa",
       "removed": "Pausa de reservas en línea quitada",
       "removeError": "No se pudo quitar la pausa"
