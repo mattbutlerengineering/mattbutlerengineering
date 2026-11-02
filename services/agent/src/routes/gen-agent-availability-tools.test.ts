@@ -190,6 +190,37 @@ describe("availability chat tools", () => {
       expect(result).toMatchObject({ undoable: { summary: "Paused online booking tonight" } });
     });
 
+    it("offers the change the server names as undoable, not the newest row of the page (#8120)", async () => {
+      // After a lock-wait race the newest row by time is the save; Undo is on the reopen.
+      api.availability.listChanges.mockResolvedValue({
+        total: 2,
+        offset: 0,
+        items: [{ id: "save", summary: "Renamed", at: "2026-10-28T19:05:00Z", revertible: false }],
+        undoable: {
+          id: "reopen",
+          actorId: "a",
+          kind: "reopen",
+          summary: "Closure reopened (2026-12-24)",
+          at: "2026-10-28T19:00:00Z",
+        },
+      });
+
+      await expect(list()).resolves.toMatchObject({
+        undoable: { summary: "Closure reopened (2026-12-24)" },
+      });
+    });
+
+    it("trusts a null undoable from the server over a revertible row", async () => {
+      api.availability.listChanges.mockResolvedValue({
+        total: 1,
+        offset: 0,
+        items: [{ id: "x", summary: "s", at: "2026-10-28T19:00:00Z", revertible: true }],
+        undoable: null,
+      });
+
+      await expect(list()).resolves.toMatchObject({ undoable: null });
+    });
+
     it("reports no undoable change when the newest one can't be undone", async () => {
       api.availability.listChanges.mockResolvedValue({
         total: 1,
@@ -488,6 +519,41 @@ describe("availability chat tools", () => {
 
       expect(api.availability.revertChange).toHaveBeenCalledWith("v1", "ch1", 7);
       expect(result).toMatchObject({ undone: true });
+    });
+
+    it("undoes the change the server names as undoable, though the page's newest row is another (#8120)", async () => {
+      api.availability.listChanges.mockResolvedValue({
+        total: 2,
+        offset: 0,
+        items: [{ ...entry, id: "save", summary: "Renamed", revertible: false }],
+        undoable: {
+          id: "reopen",
+          actorId: "a",
+          kind: "reopen",
+          summary: "Closure reopened",
+          at: entry.at,
+        },
+      });
+      api.availability.revertChange.mockResolvedValue({ version: 8, changeId: "ch2" });
+
+      const result = await run("undo_availability_change", { summary: "Closure reopened" });
+
+      expect(api.availability.revertChange).toHaveBeenCalledWith("v1", "reopen", 7);
+      expect(result).toMatchObject({ undone: true });
+    });
+
+    it("refuses when the server names nothing undoable, whatever the page's rows say", async () => {
+      api.availability.listChanges.mockResolvedValue({
+        total: 1,
+        offset: 0,
+        items: [entry],
+        undoable: null,
+      });
+
+      const result = await run("undo_availability_change", { summary: entry.summary });
+
+      expect(result).toHaveProperty("error");
+      expect(api.availability.revertChange).not.toHaveBeenCalled();
     });
 
     it("refuses when the newest change is no longer the confirmed one", async () => {

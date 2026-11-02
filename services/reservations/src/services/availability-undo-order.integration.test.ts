@@ -187,6 +187,11 @@ describe.skipIf(!DATABASE_URL)(
       expect(reopenRow.revertible).toBe(true);
       expect(saveRow.revertible).toBe(false);
 
+      // The agent reads one row: newest by time is the save, but the page still names the reopen.
+      const onePage = (await listAvailabilityChanges(venueId, { limit: 1, offset: 0 }, client))!;
+      expect(onePage.items[0]?.id).toBe(saveRow.id);
+      expect(onePage.undoable).toMatchObject({ id: reopenRow.id, kind: "reopen" });
+
       const staleUndo = await revertAvailabilityChange(
         { venueId, changeId: saveRow.id, actorId: "auth0|mgr", expectedVersion: 7, now: at(180) },
         client
@@ -273,6 +278,83 @@ describe.skipIf(!DATABASE_URL)(
         tx.availabilityChange.findFirst({ where: { venueId, kind: "tonight_end" } })
       );
       expect(change?.version).toBe(7);
+    });
+
+    it("refuses a reopen from a view of the rule a teammate has since extended, and keeps the extension", async () => {
+      const venueId = await seed(4);
+      const ruleId = `rule-${randomUUID()}`;
+      const closed = await createClosure(
+        {
+          venueId,
+          caller: manager,
+          body: {
+            expectedVersion: 4,
+            rule: {
+              id: ruleId,
+              kind: "closure",
+              targetKind: "venue",
+              startsOn: "2026-12-24",
+              endsOn: "2026-12-24",
+            },
+            decisions: [],
+          } as never,
+          idempotencyKey: `k-${ruleId}`,
+          now: NOW,
+        },
+        client
+      );
+      expect(closed).toMatchObject({ kind: "saved", result: { version: 5 } });
+      // Manager B's screen: the config at v5, with the rule and nothing under it.
+      const viewed = (await getAvailabilityConfig(venueId, NOW, client))!;
+      const seen = { rule: viewed.config.dateRules.find((r) => r.id === ruleId)!, children: [] };
+
+      // Manager A extends the same rule to Dec 31 (v6).
+      const extended = await saveAvailabilityConfig(
+        {
+          venueId,
+          actorId: "auth0|a",
+          body: {
+            expectedVersion: 5,
+            changes: {
+              upsert: { dateRules: [{ ...seen.rule, endsOn: "2026-12-31" }] },
+              remove: {},
+            },
+            scopeConflicts: "keep",
+          } as never,
+          now: at(10),
+        },
+        client
+      );
+      expect(extended).toMatchObject({ kind: "saved", version: 6 });
+
+      const stale = await reopenClosure(
+        { venueId, ruleId, caller: manager, tellCancelledGuests: false, now: at(20), seen },
+        client
+      );
+
+      expect(stale).toMatchObject({
+        kind: "version_conflict",
+        currentVersion: 6,
+        winningChange: { actorId: "auth0|a" },
+      });
+      const after = (await getAvailabilityConfig(venueId, at(30), client))!;
+      expect(after.version).toBe(6);
+      expect(after.config.dateRules.find((r) => r.id === ruleId)).toMatchObject({
+        endsOn: "2026-12-31",
+      });
+
+      // The view B now holds is current, so the same reopen goes through; an unrelated save would
+      // not have stopped it, and a caller that sends no `seen` is not stopped either.
+      const fresh = {
+        rule: after.config.dateRules.find((r) => r.id === ruleId)!,
+        children: [],
+      };
+      await rename(venueId, "Unrelated", 6, at(40));
+      const reopened = await reopenClosure(
+        { venueId, ruleId, caller: manager, tellCancelledGuests: false, now: at(50), seen: fresh },
+        client
+      );
+      expect(reopened).toMatchObject({ kind: "reopened", result: { version: 8 } });
     });
   }
 );

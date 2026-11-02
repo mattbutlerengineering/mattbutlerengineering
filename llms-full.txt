@@ -14542,6 +14542,11 @@
           401: authRequired,
           403: notClosureCaller,
           404: problem("Venue or closure not found"),
+          409: {
+            description:
+              "`version-conflict`: the body's `seen` rule (or its skips and one-date edits) differs from the stored one, so it changed since the caller read it. Nothing is changed; `winningChange` names the latest change. Only possible when `seen` is sent",
+            body: AvailabilityConfigProblemSchema,
+          },
           422: {
             description:
               "`invalid-config` with a `strands_booking` issue per booking: removing a one-date edit hands its date back to the series, which would leave these bookings without service. Each issue carries its `reservation` (guest, date, time, party) for the first 50; the issue count is the true count. Nothing is changed",
@@ -19618,6 +19623,8 @@
       venueId: string;
       ruleId: string;
       tellCancelledGuests: boolean;
+      /** The rule and its skips and one-date edits as the screen read them; a change since is refused. */
+      seen?: ReopenSeen;
     };
     export const useReopenClosure = createMutationHook<ReopenClosureVariables, ReopenResult>({
       invalidateKeys: [
@@ -19625,9 +19632,9 @@
         AVAILABILITY_DAYS_QUERY_KEY,
         CLOSURE_SUMMARIES_QUERY_KEY,
       ],
-      mutationFn: (api, { venueId, ruleId, tellCancelledGuests }) =>
+      mutationFn: (api, { venueId, ruleId, tellCancelledGuests, seen }) =>
         trackOwnSave(venueId, () =>
-          api.availability.reopenClosure(venueId, ruleId, tellCancelledGuests)
+          api.availability.reopenClosure(venueId, ruleId, tellCancelledGuests, undefined, seen)
         ),
     });
     export type PreviewClosureImpactsVariables = {
@@ -31433,6 +31440,13 @@
         }
       }
     }
+    function undoableOf(
+      page: AvailabilityChangesPage
+    ): { id: string; summary: string; at: string } | null {
+      if (page.undoable !== undefined) return page.undoable;
+      const newest = page.items[0];
+      return newest?.revertible ? newest : null;
+    }
     function availabilityWriteFailure(err: unknown, action: string, unsure: string | undefined) {
       const refusal = refusalOf(err);
       if (!refusal) {
@@ -31503,11 +31517,10 @@
                 const table = tables.find((t) => t.id === id);
                 return table?.name ?? table?.tableNumber ?? id;
               };
-              const page = await api.availability.listChanges(venueId, { limit: 1 });
-              const newest = page.items[0];
+              const undoable = undoableOf(await api.availability.listChanges(venueId, { limit: 1 }));
               return {
                 changes: rules.map((rule) => describeRule(rule, serviceName, tableName)),
-                undoable: newest?.revertible ? { summary: newest.summary, at: newest.at } : null,
+                undoable: undoable ? { summary: undoable.summary, at: undoable.at } : null,
               };
             } catch (err) {
               log.error({ ...failureLog(err), venueId }, "list_tonight_changes failed");
@@ -31601,9 +31614,8 @@
             log.info({ venueId }, "undo_availability_change tool called");
             let unsure: string | undefined;
             try {
-              const page = await api.availability.listChanges(venueId, { limit: 1 });
-              const newest = page.items[0];
-              if (!newest?.revertible) {
+              const newest = undoableOf(await api.availability.listChanges(venueId, { limit: 1 }));
+              if (!newest) {
                 return {
                   error: "No availability change can be undone right now. Nothing was changed.",
                 };
@@ -37195,7 +37207,7 @@
           summary: "Reopen a closure",
           operationId: "reopenClosure",
           description:
-            "Removes a closure (or special hours) saved through `POST …/closures` so its slots return. Guests it cancelled stay cancelled. Takes no `expectedVersion`: it acts on the rule named, against the current state (it takes the venue lock before reading it), so a reopen from a stale view is applied, never refused as a version conflict; an already-removed rule answers 404. Manager, or a Host for the emergency close they made themselves on the current service day when the venue grants it.",
+            "Removes a closure (or special hours) saved through `POST …/closures` so its slots return. Guests it cancelled stay cancelled. Takes no `expectedVersion`: a save to anything else never stops a reopen. Optional `seen` is the rule and its skips and one-date edits as the caller read them (they are deleted together): if they differ now (a teammate extended or edited the rule), nothing is changed and the answer is 409 `version-conflict` naming the latest change, so the caller refreshes. A caller that sends no `seen` (an older client, the agent) reopens the rule as it is now, whatever changed since it read it; an already-removed rule answers 404. Manager, or a Host for the emergency close they made themselves on the current service day when the venue grants it.",
           tags: ["Availability"],
           security: [{ bearerAuth: [] }],
         },
@@ -37207,6 +37219,7 @@
             ruleId: request.params.ruleId,
             caller,
             tellCancelledGuests: request.body.tellCancelledGuests,
+            seen: request.body.seen,
             now: new Date(),
           });
           if (outcome.kind === "reopened") {
@@ -45129,6 +45142,12 @@
       offset: z.number().int(),
       /** Newest first. */
       items: z.array(AvailabilityChangeEntrySchema),
+      /**
+       * The change Undo is offered on now: the newest still in force, when it told no guest; `null`
+       * when there is none. Independent of the filters, `limit` and `offset`, so a one-row page can
+       * still name it. Absent from an older API, whose caller falls back to the page's `revertible`.
+       */
+      undoable: AvailabilityChangeSummarySchema.nullish(),
     });
     export const RevertAvailabilityChangeBodySchema = z.object({
       expectedVersion: z.number().int().min(0),
@@ -45408,7 +45427,14 @@
         .min(1)
         .max(MAX_CLOSURE_BATCH),
     });
-    export const ReopenClosureBodySchema = z.object({ tellCancelledGuests: z.boolean() });
+    export const ReopenSeenSchema = z.object({
+      rule: DateRuleSchema,
+      children: z.array(DateRuleSchema),
+    });
+    export const ReopenClosureBodySchema = z.object({
+      tellCancelledGuests: z.boolean(),
+      seen: ReopenSeenSchema.optional(),
+    });
     export const ClosureOutcomeCountsSchema = z.object({
       cancel: z.number().int(),
       move: z.number().int(),
@@ -45540,6 +45566,7 @@
     export type ClosureDecision = z.infer<typeof ClosureDecisionSchema>;
     export type CreateClosureBody = z.infer<typeof CreateClosureBodySchema>;
     export type ReopenClosureBody = z.infer<typeof ReopenClosureBodySchema>;
+    export type ReopenSeen = z.infer<typeof ReopenSeenSchema>;
     export type ClosureResult = z.infer<typeof ClosureResultSchema>;
     export type CreateClosuresBody = z.infer<typeof CreateClosuresBodySchema>;
     export type ClosuresResult = z.infer<typeof ClosuresResultSchema>;
@@ -50999,7 +51026,7 @@
       return db.availabilityChange.findFirst({
         where: { venueId, revertedById: null, kind: { not: REVERT_KIND } },
         orderBy: [{ version: { sort: "desc", nulls: "last" } }, { at: "desc" }, { id: "desc" }],
-        select: { id: true },
+        select: { id: true, actorId: true, at: true, kind: true, summary: true, notifiedGuests: true },
       });
     }
     type StoreTx = Pick<PrismaClient, "venue" | "availabilityChange">;
@@ -51045,7 +51072,19 @@
             r.revertedById == null &&
             r.kind !== REVERT_KIND,
         }));
-        return { total, offset: query.offset, items };
+        // The change Undo is on, whatever this page holds: a caller reading one row (the agent) would
+        // otherwise see the newest by `at`, which after a lock-wait race is not the one in force.
+        const undoable =
+          newest && !newest.notifiedGuests
+            ? {
+                id: newest.id,
+                actorId: newest.actorId,
+                at: newest.at.toISOString(),
+                kind: newest.kind,
+                summary: newest.summary,
+              }
+            : null;
+        return { total, offset: query.offset, items, undoable };
       });
     }
     export type RevertRefusalReason =
@@ -53551,6 +53590,21 @@
       const { id, startsOn, endsOn, repeat } = series;
       return !same({ ...draft, id, startsOn, endsOn, repeat }, series);
     }
+    export function ruleChangedSinceSeen(
+      stored: readonly DateRule[],
+      ruleId: string,
+      seen: ReopenSeen
+    ): boolean {
+      const rule = stored.find((r) => r.id === ruleId);
+      if (!rule || !same(seen.rule, rule)) return true;
+      const children = stored.filter((r) => r.seriesId === ruleId);
+      if (children.length !== seen.children.length) return true;
+      const seenById = new Map(seen.children.map((c) => [c.id, c]));
+      return children.some((c) => {
+        const was = seenById.get(c.id);
+        return !was || !same(was, c);
+      });
+    }
     export function checkAlongside(
       stored: readonly DateRule[],
       draft: DateRule,
@@ -54467,7 +54521,7 @@
       | { kind: "reopened"; result: ReopenResult }
       | { kind: "not_found" }
       | { kind: "forbidden" }
-      | Extract<Refusal, { kind: "invalid" }>;
+      | Extract<Refusal, { kind: "invalid" | "version_conflict" }>;
     async function refuseStrandingReopen(
       tx: Db,
       venueId: string,
@@ -54509,6 +54563,7 @@
         caller: ClosureCaller;
         tellCancelledGuests: boolean;
         now: Date;
+        seen?: ReopenSeen | undefined;
       },
       client: StoreClient = prisma
     ): Promise<ReopenOutcome> {
@@ -54532,6 +54587,11 @@
           }
           await guard(db, { venueId, caller, rule, now });
           if (!caller.isManager) await requireAuthor(db, venueId, ruleId, caller.actorId);
+          if (input.seen && ruleChangedSinceSeen(state.stored.dateRules, ruleId, input.seen)) {
+            // The venue is on the version before this transaction's own bump, which is rolled back.
+            const current = bumped.availabilityVersion - 1;
+            throw new Refused((await refuseSeriesChanged(db, venueId, current)) as Refusal);
+          }
     
           const next = {
             ...state.stored,
@@ -74288,18 +74348,23 @@
         return response.data;
       }
     
-      /** Reopens a closure; guests it cancelled stay cancelled. */
+      /**
+       * Reopens a closure; guests it cancelled stay cancelled. `seen` is the rule and its skips and
+       * one-date edits as this caller read them: if they differ now the server answers 409
+       * `version-conflict` and changes nothing. Without it the rule is reopened as it is.
+       */
       async reopenClosure(
         venueId: string,
         ruleId: string,
         tellCancelledGuests: boolean,
-        override?: PerRequestOptions
+        override?: PerRequestOptions,
+        seen?: ReopenSeen
       ): Promise<ReopenResult> {
         const response = await this.client.call(
           availabilityConfigEndpoints.reopenClosure,
           {
             params: { id: venueId, ruleId },
-            body: { tellCancelledGuests },
+            body: { tellCancelledGuests, ...(seen ? { seen } : {}) },
           },
           override
         );

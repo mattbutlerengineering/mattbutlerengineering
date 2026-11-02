@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  AvailabilityChangesPageSchema,
   AvailabilityCheckBodySchema,
+  ReopenClosureBodySchema,
   AvailabilityCheckResultSchema,
   AvailabilityConfigProblemSchema,
   AvailabilityDaySummarySchema,
@@ -348,6 +350,36 @@ describe("SetTonightBodySchema", () => {
     expect(parse({ type: "close_venue" })).toBe(false);
     expect(parse({ type: "block_tables", tableIds: [] })).toBe(false);
     expect(parse({ type: "pause_online", closeAt: 5 })).toBe(false);
+  });
+});
+
+describe("ReopenClosureBodySchema.seen and AvailabilityChangesPageSchema.undoable", () => {
+  const rule = { id: "r1", kind: "closure", targetKind: "venue", startsOn: "2026-12-24" };
+
+  it("takes the body of an older client, with no `seen`", () => {
+    expect(ReopenClosureBodySchema.parse({ tellCancelledGuests: true }).seen).toBeUndefined();
+  });
+
+  it("takes the rule and children the caller saw, and refuses a half of them", () => {
+    const seen = { rule, children: [{ ...rule, id: "k1", kind: "skip", seriesId: "r1" }] };
+    expect(ReopenClosureBodySchema.parse({ tellCancelledGuests: false, seen }).seen).toEqual(seen);
+    expect(
+      ReopenClosureBodySchema.safeParse({ tellCancelledGuests: false, seen: { rule } }).success
+    ).toBe(false);
+  });
+
+  it("names the undoable change, null for none, and is absent from an older API", () => {
+    const page = { total: 0, offset: 0, items: [] };
+    const undoable = {
+      id: "c",
+      actorId: "a",
+      at: "2026-11-01T00:00:00.000Z",
+      kind: "k",
+      summary: "s",
+    };
+    expect(AvailabilityChangesPageSchema.parse(page).undoable).toBeUndefined();
+    expect(AvailabilityChangesPageSchema.parse({ ...page, undoable: null }).undoable).toBeNull();
+    expect(AvailabilityChangesPageSchema.parse({ ...page, undoable }).undoable).toEqual(undoable);
   });
 });
 

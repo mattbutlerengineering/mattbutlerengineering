@@ -272,6 +272,25 @@ describe("AvailabilityClient config API", () => {
     expect(JSON.parse(String(init?.body))).toEqual({ tellCancelledGuests: true });
   });
 
+  it("reopenClosure sends what the caller saw of the rule, when it has it", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: { version: 6, changeId: "chg-2" } }));
+    const seen = {
+      rule: {
+        id: "dr-new",
+        kind: "closure" as const,
+        targetKind: "venue" as const,
+        startsOn: "2026-12-24",
+        endsOn: "2026-12-24",
+      },
+      children: [],
+    };
+
+    await client().reopenClosure("v1", "dr-new", false, undefined, seen);
+
+    const [, init] = mockFetch.mock.calls[0]!;
+    expect(JSON.parse(String(init?.body))).toEqual({ tellCancelledGuests: false, seen });
+  });
+
   it("listClosures GETs the per-closure summaries", async () => {
     const summary = {
       ruleId: "dr-1",

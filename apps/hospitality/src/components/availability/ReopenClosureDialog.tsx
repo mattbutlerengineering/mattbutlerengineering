@@ -12,9 +12,11 @@ import {
 } from "@mbe/types";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useReopenClosure } from "../../hooks/useClosures.js";
+import { useRefreshAvailability } from "../../hooks/useRefreshAvailability.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import { overlapLines } from "./closure-overlap-text.js";
+import { conflictOf } from "./conflict-problem.js";
 import { StrandedBookings } from "./StrandedBookings.js";
 
 const NOTHING_STAYS: ClosureOverlap = { everyDate: false, by: [] };
@@ -115,6 +117,7 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
   const { toast } = useToast();
   const offerUndo = useAvailabilityUndo();
   const { mutateAsync, isPending } = useReopenClosure();
+  const refresh = useRefreshAvailability();
   // The guests a notice can still reach: their booking has not started. An older API does not
   // say, so every cancelled guest counts.
   const reachable = props.notifiable ?? cancelled ?? 0;
@@ -135,7 +138,10 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
       // A date handed back to the series, or shut by another closure, stays closed: its guests
       // are never told to rebook.
       const told = !isSeriesEdit && !stays.everyDate && reachable > 0 && tell;
-      const saved = await mutateAsync({ venueId, ruleId, tellCancelledGuests: told });
+      // What this screen read of the rule and its skips and edits: if a teammate changed them since,
+      // the server refuses rather than delete their work.
+      const seen = { rule: props.rule, children: props.rules.filter((r) => r.seriesId === ruleId) };
+      const saved = await mutateAsync({ venueId, ruleId, tellCancelledGuests: told, seen });
       // The server read the rules as it committed; the page's copy may be older.
       const final = isSeriesEdit ? NOTHING_STAYS : (saved.stillClosed ?? stays);
       const done = final.everyDate
@@ -155,6 +161,14 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
       else offerUndo({ venueId, title, saved });
       onClose();
     } catch (error) {
+      if (conflictOf(error)?.code === "version-conflict") {
+        // The closure changed under this dialog, whose copy of it is now stale: bring the page to
+        // what is saved and close, so the next Reopen is built from the new one.
+        refresh();
+        toast({ title: t("availabilitySpecial.reopen.changed"), variant: "error" });
+        onClose();
+        return;
+      }
       setFailure(failureOf(error, t));
     }
   };

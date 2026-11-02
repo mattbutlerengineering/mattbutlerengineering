@@ -3,7 +3,12 @@ import { tool } from "ai";
 import type { ToolSet } from "ai";
 import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
-import type { AvailabilityConfig, DateRule, TonightChange } from "@mbe/types";
+import type {
+  AvailabilityChangesPage,
+  AvailabilityConfig,
+  DateRule,
+  TonightChange,
+} from "@mbe/types";
 import {
   NO_REPLAY,
   NO_VENUE,
@@ -263,6 +268,19 @@ async function buildChange(
 const TONIGHT_SAVE_UNSURE = saveUnsure("list_tonight_changes");
 
 /**
+ * The change Undo is offered on. The server names it (`undoable`), because the newest row of a
+ * one-row page is the newest by time, which after a lock-wait race is not the last change. An
+ * older API sends no field, so its newest row stands in.
+ */
+function undoableOf(
+  page: AvailabilityChangesPage
+): { id: string; summary: string; at: string } | null {
+  if (page.undoable !== undefined) return page.undoable;
+  const newest = page.items[0];
+  return newest?.revertible ? newest : null;
+}
+
+/**
  * A refused availability write, in words the model can pass on. `unsure` is set
  * once the write is on its way: until then a failure can't have changed anything.
  */
@@ -337,11 +355,10 @@ export function createAvailabilityTools(
             const table = tables.find((t) => t.id === id);
             return table?.name ?? table?.tableNumber ?? id;
           };
-          const page = await api.availability.listChanges(venueId, { limit: 1 });
-          const newest = page.items[0];
+          const undoable = undoableOf(await api.availability.listChanges(venueId, { limit: 1 }));
           return {
             changes: rules.map((rule) => describeRule(rule, serviceName, tableName)),
-            undoable: newest?.revertible ? { summary: newest.summary, at: newest.at } : null,
+            undoable: undoable ? { summary: undoable.summary, at: undoable.at } : null,
           };
         } catch (err) {
           log.error({ ...failureLog(err), venueId }, "list_tonight_changes failed");
@@ -435,9 +452,8 @@ export function createAvailabilityTools(
         log.info({ venueId }, "undo_availability_change tool called");
         let unsure: string | undefined;
         try {
-          const page = await api.availability.listChanges(venueId, { limit: 1 });
-          const newest = page.items[0];
-          if (!newest?.revertible) {
+          const newest = undoableOf(await api.availability.listChanges(venueId, { limit: 1 }));
+          if (!newest) {
             return {
               error: "No availability change can be undone right now. Nothing was changed.",
             };

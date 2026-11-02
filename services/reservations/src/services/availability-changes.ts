@@ -85,7 +85,7 @@ function newestInForce(db: Pick<StoreTx, "availabilityChange">, venueId: string)
   return db.availabilityChange.findFirst({
     where: { venueId, revertedById: null, kind: { not: REVERT_KIND } },
     orderBy: [{ version: { sort: "desc", nulls: "last" } }, { at: "desc" }, { id: "desc" }],
-    select: { id: true },
+    select: { id: true, actorId: true, at: true, kind: true, summary: true, notifiedGuests: true },
   });
 }
 
@@ -133,7 +133,19 @@ export async function listAvailabilityChanges(
         r.revertedById == null &&
         r.kind !== REVERT_KIND,
     }));
-    return { total, offset: query.offset, items };
+    // The change Undo is on, whatever this page holds: a caller reading one row (the agent) would
+    // otherwise see the newest by `at`, which after a lock-wait race is not the one in force.
+    const undoable =
+      newest && !newest.notifiedGuests
+        ? {
+            id: newest.id,
+            actorId: newest.actorId,
+            at: newest.at.toISOString(),
+            kind: newest.kind,
+            summary: newest.summary,
+          }
+        : null;
+    return { total, offset: query.offset, items, undoable };
   });
 }
 

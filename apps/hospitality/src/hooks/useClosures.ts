@@ -7,6 +7,7 @@ import type {
   ClosureSummary,
   DateRule,
   ReopenResult,
+  ReopenSeen,
   RetryRefundsResult,
 } from "@mbe/types";
 import type { AvailabilityClient } from "@mbe/api-client";
@@ -111,6 +112,8 @@ export type ReopenClosureVariables = {
   venueId: string;
   ruleId: string;
   tellCancelledGuests: boolean;
+  /** The rule and its skips and one-date edits as the screen read them; a change since is refused. */
+  seen?: ReopenSeen;
 };
 
 /** Reopens a closure (Resume on the paused-online banner; Remove on Special dates). */
@@ -120,9 +123,9 @@ export const useReopenClosure = createMutationHook<ReopenClosureVariables, Reope
     AVAILABILITY_DAYS_QUERY_KEY,
     CLOSURE_SUMMARIES_QUERY_KEY,
   ],
-  mutationFn: (api, { venueId, ruleId, tellCancelledGuests }) =>
+  mutationFn: (api, { venueId, ruleId, tellCancelledGuests, seen }) =>
     trackOwnSave(venueId, () =>
-      api.availability.reopenClosure(venueId, ruleId, tellCancelledGuests)
+      api.availability.reopenClosure(venueId, ruleId, tellCancelledGuests, undefined, seen)
     ),
 });
 

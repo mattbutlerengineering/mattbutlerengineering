@@ -375,6 +375,13 @@
         }
       }
     }
+    function undoableOf(
+      page: AvailabilityChangesPage
+    ): { id: string; summary: string; at: string } | null {
+      if (page.undoable !== undefined) return page.undoable;
+      const newest = page.items[0];
+      return newest?.revertible ? newest : null;
+    }
     function availabilityWriteFailure(err: unknown, action: string, unsure: string | undefined) {
       const refusal = refusalOf(err);
       if (!refusal) {
@@ -445,11 +452,10 @@
                 const table = tables.find((t) => t.id === id);
                 return table?.name ?? table?.tableNumber ?? id;
               };
-              const page = await api.availability.listChanges(venueId, { limit: 1 });
-              const newest = page.items[0];
+              const undoable = undoableOf(await api.availability.listChanges(venueId, { limit: 1 }));
               return {
                 changes: rules.map((rule) => describeRule(rule, serviceName, tableName)),
-                undoable: newest?.revertible ? { summary: newest.summary, at: newest.at } : null,
+                undoable: undoable ? { summary: undoable.summary, at: undoable.at } : null,
               };
             } catch (err) {
               log.error({ ...failureLog(err), venueId }, "list_tonight_changes failed");
@@ -543,9 +549,8 @@
             log.info({ venueId }, "undo_availability_change tool called");
             let unsure: string | undefined;
             try {
-              const page = await api.availability.listChanges(venueId, { limit: 1 });
-              const newest = page.items[0];
-              if (!newest?.revertible) {
+              const newest = undoableOf(await api.availability.listChanges(venueId, { limit: 1 }));
+              if (!newest) {
                 return {
                   error: "No availability change can be undone right now. Nothing was changed.",
                 };

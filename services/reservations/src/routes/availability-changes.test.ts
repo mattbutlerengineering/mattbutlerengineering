@@ -90,6 +90,29 @@ describe("availability history routes", () => {
       });
     });
 
+    it("keeps the undoable change on the page through response serialization (#8120)", async () => {
+      const undoable = {
+        id: "chg-7",
+        actorId: "auth0|ana",
+        at: "2026-10-25T17:00:00.000Z",
+        kind: "reopen",
+        summary: "Closure reopened (2026-12-24)",
+      };
+      svc.list.mockResolvedValueOnce({ total: 2, offset: 0, items: [ENTRY], undoable });
+
+      const res = await app.inject({ method: "GET", url: `${BASE}?limit=1`, headers: ADMIN });
+
+      expect(res.json().data.undoable).toEqual(undoable);
+    });
+
+    it("answers a null undoable when the newest change cannot be undone", async () => {
+      svc.list.mockResolvedValueOnce({ total: 1, offset: 0, items: [ENTRY], undoable: null });
+
+      const res = await app.inject({ method: "GET", url: BASE, headers: ADMIN });
+
+      expect(res.json().data).toHaveProperty("undoable", null);
+    });
+
     it("404s for an unknown venue and 400s a bad date", async () => {
       svc.list.mockResolvedValueOnce(null);
       expect((await app.inject({ method: "GET", url: BASE, headers: ADMIN })).statusCode).toBe(404);
