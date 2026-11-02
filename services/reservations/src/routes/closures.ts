@@ -6,13 +6,14 @@ import {
 } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
 import { registerEndpoint } from "@mbe/service-bootstrap";
-import { resolveManageBaseUrl } from "../config/manage-base-url.js";
+import { createHostBrandResolver } from "../config/host-brand.js";
 import { previewClosureNotice } from "../notifications/closure-preview.js";
 import { SCOPE_CONFLICT_HORIZON_DAYS } from "../services/availability-config-plan.js";
 import type { CreateClosureOutcome } from "../services/closure-command.js";
 import { ClosureRefundEnqueueError } from "../services/closure-refund.js";
 import { CLOSURE_FORBIDDEN, closureCaller } from "./closure-caller.js";
 import { enqueueClosureJobs, enqueueNotices } from "./closure-post-commit.js";
+import { generateManageToken } from "./public-reservations.js";
 import { venueScoped } from "./venue-scope.js";
 
 /**
@@ -24,6 +25,14 @@ import { venueScoped } from "./venue-scope.js";
 
 const VENUE_FROM_ID = { venue: { from: "params", field: "id" } } as const;
 const VENUE_NOT_FOUND = "Venue not found";
+
+/**
+ * A signed link's length depends on the booking id and the guest's email, and the notice's SMS
+ * picks its body by length, so the preview signs for a booking of a typical size: a cuid and a
+ * 35-character address (about 187 characters, as a real token is).
+ */
+const SAMPLE_BOOKING_ID = "c".repeat(25);
+const SAMPLE_GUEST_EMAIL = `${"g".repeat(22)}@example.com`;
 
 type Refusal = Exclude<CreateClosureOutcome, { kind: "saved" }>;
 
@@ -113,6 +122,7 @@ export function sendRefusal(reply: FastifyReply, outcome: Refusal) {
 
 export const closureRoutes: FastifyPluginAsync = async (fastify) => {
   const { closureCommandService, closureNoticeService } = fastify.services;
+  const hostBrandFor = createHostBrandResolver(process.env);
 
   registerEndpoint(fastify, availabilityConfigEndpoints.createClosure, {
     docs: {
@@ -165,11 +175,22 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
       if (!venue) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
       }
+      const { action, closureDate, startTime, partySize, guestName, message, refund } =
+        request.body;
+      const brand = hostBrandFor(request.body.originHost ?? null);
       const preview = previewClosureNotice({
-        ...request.body,
+        action,
+        closureDate,
+        startTime,
+        partySize,
+        guestName,
+        message,
+        refund,
         venueName: venue.name,
         timezone: venue.ianaTimezone,
-        manageBaseUrl: resolveManageBaseUrl(process.env),
+        manageBaseUrl: brand.manageBaseUrl,
+        manageToken: generateManageToken(SAMPLE_BOOKING_ID, SAMPLE_GUEST_EMAIL),
+        from: brand.fromAddress,
       });
       return { data: preview };
     }),

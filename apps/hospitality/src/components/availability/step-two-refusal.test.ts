@@ -84,11 +84,14 @@ describe("a move the server refused", () => {
     expect(text).not.toContain("Guest 7");
   });
 
-  it("still speaks when the booking is no longer in the list", () => {
-    const text = refusalText(refusalOf(moveUnavailable(["gone"])), defaultT, {
+  it("counts the bookings when none can be named, rather than naming nobody", () => {
+    const text = refusalText(refusalOf(moveUnavailable(["gone", "gone-too"])), defaultT, {
       groups: GROUPS,
       format,
     });
+    expect(text).toContain("Couldn't move 2 bookings: no open time fits.");
     expect(text).toContain("Nothing was saved");
+    const one = refusalText(refusalOf(moveUnavailable(["gone"])), defaultT);
+    expect(one).toContain("Couldn't move 1 booking: no open time fits.");
   });
 });

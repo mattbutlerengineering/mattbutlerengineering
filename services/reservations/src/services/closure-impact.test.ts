@@ -89,6 +89,21 @@ describe("computeClosureImpact", () => {
     expect(result.groups[0]!.reservations.every((r) => !r.runsIntoClosure)).toBe(true);
   });
 
+  it("carries the host each booking came from, allowlisted, so its notice previews in that brand (#8013)", () => {
+    const result = impact(closure(), [
+      booking("eat", "2026-12-24", 19, 0, { originHost: "eat-sheet.com" }),
+      booking("home", "2026-12-24", 19, 15, { originHost: "mattbutlerengineering.com" }),
+      booking("odd", "2026-12-24", 19, 30, { originHost: "evil.example" }),
+      booking("none", "2026-12-24", 19, 45),
+    ]);
+    expect(result.groups[0]!.reservations.map((r) => [r.id, r.originHost])).toEqual([
+      ["eat", "eat-sheet.com"],
+      ["home", "mattbutlerengineering.com"],
+      ["odd", null],
+      ["none", null],
+    ]);
+  });
+
   it("groups a shortened service's stranded bookings as shortened", () => {
     const shortened: DateRule = {
       id: "dr-new",
@@ -154,6 +169,83 @@ describe("computeClosureImpact", () => {
       const stuck = { ...long, endTime: new Date(long.startTime.getTime() + 300 * 60_000) };
       const result = impact(shortened, [stuck]);
       expect(result.groups[0]!.reservations[0]!.proposedStart).toBeNull();
+    });
+
+    describe("the tables the move lands on (closure-apply's targetTaken)", () => {
+      /** An hour-long booking on a table, `hh:mm` PST on Dec 24. */
+      const hour = (id: string, tableId: string, hh: number, mm = 0): ImpactBooking => {
+        const b = booking(id, "2026-12-24", hh, mm, { tableId });
+        return { ...b, endTime: new Date(b.startTime.getTime() + 60 * 60_000) };
+      };
+      const slim = (b: ImpactBooking) => ({
+        id: b.id,
+        tableId: b.tableId as string,
+        startTime: b.startTime,
+        endTime: b.endTime,
+        partySize: b.partySize,
+      });
+      const proposals = (
+        bookings: ImpactBooking[],
+        occupancy: Parameters<typeof computeClosureImpact>[0]["occupancy"]
+      ) =>
+        Object.fromEntries(
+          computeClosureImpact({
+            timezone: TZ,
+            config: CONFIG,
+            rule: shortened,
+            bookings,
+            now: NOW,
+            occupancy,
+          }).groups[0]!.reservations.map((r) => [r.id, r.proposedStart])
+        );
+
+      const a = hour("a", "t1", 20);
+      const b = hour("b", "t1", 21);
+      const c = hour("c", "t2", 21);
+      const SIX_PM = "2026-12-25T02:00:00.000Z";
+
+      it("proposes a table's second booking nothing when the first has already taken the slot", () => {
+        // All three would go to 6:00 PM; a gets there first, so b (same table) cannot, c (other table) can.
+        expect(proposals([a, b, c], { reservations: [a, b, c].map(slim), holds: [] })).toEqual({
+          a: SIX_PM,
+          b: null,
+          c: SIX_PM,
+        });
+      });
+
+      it("is null when an unaffected booking sits in the target window", () => {
+        const kept = hour("kept", "t1", 17, 30); // 5:30-6:30 PM, inside the new hours
+        expect(proposals([a], { reservations: [slim(a), slim(kept)], holds: [] })).toEqual({
+          a: null,
+        });
+      });
+
+      it("is null under an active hold, and not under an expired one", () => {
+        const hold = (expiresAt: Date) => ({
+          id: "h1",
+          tableId: "t1",
+          startTime: new Date(SIX_PM),
+          endTime: new Date(Date.parse(SIX_PM) + 60 * 60_000),
+          partySize: 2,
+          expiresAt,
+        });
+        const live = new Date(NOW.getTime() + 60_000);
+        const dead = new Date(NOW.getTime() - 60_000);
+        expect(proposals([a], { reservations: [slim(a)], holds: [hold(live)] })).toEqual({
+          a: null,
+        });
+        expect(proposals([a], { reservations: [slim(a)], holds: [hold(dead)] })).toEqual({
+          a: SIX_PM,
+        });
+      });
+
+      it("does not collide with itself, and leaves a booking with no table unchecked", () => {
+        const loose = { ...hour("loose", "t1", 20), tableId: null };
+        expect(proposals([a, loose], { reservations: [slim(a)], holds: [] })).toEqual({
+          a: SIX_PM,
+          loose: SIX_PM,
+        });
+      });
     });
 
     it("is absent on a closed day, where a move is not offered", () => {

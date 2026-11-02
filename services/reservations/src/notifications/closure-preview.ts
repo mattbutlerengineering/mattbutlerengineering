@@ -15,8 +15,8 @@ const KIND_OF_ACTION: Record<PreviewAction, ClosureNoticeKind> = {
   keep_notify: "kept",
 };
 
-/** Stands in for the guest's own signed token, which only exists when a notice is really sent. */
-const PREVIEW_TOKEN = "preview";
+/** Stands where the guest's own link goes: it is made, signed, only when a notice is sent. */
+export const PREVIEW_LINK_TEXT = "[the guest's own link]";
 
 export interface ClosurePreviewInput {
   action: PreviewAction;
@@ -30,11 +30,19 @@ export interface ClosurePreviewInput {
   guestName: string | null;
   message: string | null;
   refund: { amountCents: number; currency: string } | null;
+  /** The booking's origin host brand: where the link points. */
   manageBaseUrl: string;
+  /**
+   * A token as long as a real signed one. `buildClosureSms` picks its body by segment count, so a
+   * short stand-in would keep a venue message the real, longer link makes it drop.
+   */
+  manageToken: string;
+  /** The sender, display name included, as the guest's mail client shows it. */
+  from: string;
 }
 
 export interface ClosurePreview {
-  email: { subject: string; text: string };
+  email: { from: string; subject: string; text: string };
   sms: string;
 }
 
@@ -46,18 +54,29 @@ const ENTITIES: Readonly<Record<string, string>> = {
   "&#39;": "'",
 };
 
-/** The email body as read: one line per paragraph, tags dropped, entities decoded (link text kept). */
+/** The text outside every `<...>` tag. Content is escaped, so a `<` in it is always a tag's. */
+function withoutTags(line: string): string {
+  let text = "";
+  let inTag = false;
+  for (const ch of line) {
+    if (ch === "<") inTag = true;
+    else if (ch === ">" && inTag) inTag = false;
+    else if (!inTag) text += ch;
+  }
+  return text;
+}
+
+/** The email body as read: one line per paragraph, tags dropped, entities decoded once (link text kept). */
 function emailText(html: string): string {
   return html
     .split("\n")
-    .map((line) =>
-      line.replace(/<[^>]+>/g, "").replace(/&(?:amp|lt|gt|quot|#39);/g, (e) => ENTITIES[e]!)
-    )
+    .map((line) => withoutTags(line).replace(/&(?:amp|lt|gt|quot|#39);/g, (e) => ENTITIES[e] ?? e))
     .filter((line) => line.trim() !== "")
     .join("\n");
 }
 
 export function previewClosureNotice(input: ClosurePreviewInput): ClosurePreview {
+  const manageUrl = buildManageUrl(input.manageBaseUrl, input.manageToken);
   const content = {
     kind: KIND_OF_ACTION[input.action],
     venueName: input.venueName,
@@ -68,10 +87,13 @@ export function previewClosureNotice(input: ClosurePreviewInput): ClosurePreview
     partySize: input.partySize,
     message: input.message?.trim() ? input.message.trim() : null,
     refund: input.action === "cancel" ? input.refund : null,
-    manageUrl: buildManageUrl(input.manageBaseUrl, PREVIEW_TOKEN),
+    manageUrl,
     // Open rebook times are looked up when the notice is sent, so they are still open then.
     offers: [],
   };
   const { subject, html } = buildClosureEmail(content);
-  return { email: { subject, text: emailText(html) }, sms: buildClosureSms(content) };
+  return {
+    email: { from: input.from, subject, text: emailText(html) },
+    sms: buildClosureSms(content).split(manageUrl).join(PREVIEW_LINK_TEXT),
+  };
 }

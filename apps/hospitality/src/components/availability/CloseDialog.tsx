@@ -216,6 +216,8 @@ export function CloseDialog(props: CloseDialogProps) {
       if (refused.kind === "move-unavailable") {
         // Nothing was saved. The groups holding those bookings need another choice.
         setChoices(withoutChoicesFor(groups, choices, refused.reservationIds));
+        // What Step 2 proposed no longer matches what the save does: ask again before Move is offered.
+        void impactQuery.refetch();
       }
       if (refused.kind === "groups-changed") {
         // The group changed since the Manager chose: drop the stale choices and load the new one.

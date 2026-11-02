@@ -366,9 +366,33 @@ describe("AddSpecialDatesSheet", () => {
     expect(create).toHaveBeenCalledTimes(1);
   });
 
-  const problem = (status: number, code: string) => ({
+  const problem = (status: number, code: string, reservationIds?: string[]) => ({
     message: code,
-    problemDetails: { type: "about:blank", title: code, status, detail: "Refused.", code },
+    problemDetails: {
+      type: "about:blank",
+      title: code,
+      status,
+      detail: "Refused.",
+      code,
+      ...(reservationIds ? { reservationIds } : {}),
+    },
+  });
+
+  it("asks again after a refused move, so the proposals match what the save will do (#7983)", async () => {
+    preview
+      .mockResolvedValueOnce([impact("2026-12-24", 2)])
+      .mockResolvedValueOnce([impact("2026-12-24", 2)]);
+    create.mockRejectedValueOnce(problem(422, "move-unavailable", ["2026-12-24-1"]));
+    renderSheet();
+    await pickDate(0, "2026-12-24");
+    fireEvent.click(primary());
+    await screen.findByText(/closed · 2 bookings/);
+    fireEvent.click(screen.getByRole("radio", { name: /Cancel, notify & refund/ }));
+    fireEvent.click(primary());
+
+    expect(await screen.findByText(/Couldn't move Guest 2026-12-24 2/)).toBeTruthy();
+    await waitFor(() => expect(preview).toHaveBeenCalledTimes(2));
+    expect(primary().textContent).toBe("Choose for each group");
   });
 
   it("asks again on the fresh bookings when a group changed before the save", async () => {

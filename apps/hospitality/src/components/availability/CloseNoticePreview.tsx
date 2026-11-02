@@ -34,6 +34,7 @@ export function noticeRequest(
       guestName: sample.guestName,
       message: guestMessage.trim() === "" ? null : guestMessage.trim(),
       refund: action === "cancel" ? sample.deposit : null,
+      originHost: sample.originHost ?? null,
     },
   };
 }
@@ -73,7 +74,7 @@ function Rendered(props: {
       </Text>
       <Text variant="body" color="primary" className={styles.preview}>
         <strong>{t("availability.close.step2.previewEmail")}</strong>
-        {`\n${email.subject}\n${email.text}`}
+        {`\n${t("availability.close.step2.previewFrom", { from: email.from })}\n${email.subject}\n${email.text}`}
       </Text>
       <Text variant="body" color="primary" className={styles.preview}>
         <strong>{t("availability.close.step2.previewSms")}</strong>

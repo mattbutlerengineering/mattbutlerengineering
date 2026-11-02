@@ -150,6 +150,7 @@ async function mockAvailability(
     return route.fulfill(
       json({
         email: {
+          from: "Matt Butler Engineering <reservations@example.com>",
           subject: "Your reservation at Rivera Bistro is cancelled",
           text: `Rivera Bistro is closed.\n${body.message ?? ""}`,
         },
@@ -332,6 +333,7 @@ test.describe("Availability close dialog (F5)", () => {
     await expect(region).toContainText("Your reservation at Rivera Bistro is cancelled");
     await expect(region).toContainText("Closed for a private event");
     await expect(region).toContainText("Rebook: https://example.com/m");
+    await expect(region).toContainText("From: Matt Butler Engineering <reservations@example.com>");
     await expect(region).toContainText(/Example: Guest 1 at /);
     await expect(region).toContainText("Messages are in English.");
     expect(state.notices()).toEqual([

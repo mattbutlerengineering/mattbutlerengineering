@@ -61,6 +61,7 @@ const SHORTENED: ClosureImpact = {
       reservations: [
         booking("r1", "Rivera", "2026-12-25T03:30:00.000Z", "2026-12-25T02:00:00.000Z", {
           deposit: { amountCents: 4000, currency: "usd" },
+          originHost: "eat-sheet.com",
         }),
         booking("r2", "Chen", "2026-12-25T04:00:00.000Z", "2026-12-25T02:30:00.000Z"),
       ],
@@ -83,6 +84,7 @@ const STUCK: ClosureImpact = {
 
 const NOTICE: ClosureNoticePreview = {
   email: {
+    from: "eat-sheet <reservations@example.com>",
     subject: "Your reservation at Rivera Bistro on Thu, Dec 24 is cancelled",
     text: "Hi Rivera,\nRivera Bistro is closed on Thu, Dec 24.\nClosed for a private event",
   },
@@ -135,14 +137,41 @@ describe("CloseStepTwo: proposed moves and failed moves", () => {
   it("names a booking with no open time, and says Move is unavailable and what to do instead", () => {
     renderStep(STUCK);
 
-    expect(screen.getByText(/Okafor.*no open time to move to/)).toBeTruthy();
+    const rows = screen.getAllByRole("listitem");
+    expect(rows[1]).toHaveTextContent(/Okafor.*no open time to move to/);
     const move = screen.getByRole("radio", { name: /Move to the nearest open time/ });
     expect(move).toBeDisabled();
+    // The choice is for the group: it says so, and names the booking that blocks it.
     expect(
-      screen.getByText("1 booking has no open time to move to. Cancel it or keep its time instead.")
+      screen.getByText(
+        "Move is unavailable for this group: 7:45 PM Okafor · 4 has no open time to move to. Any other choice applies to the whole group of 2."
+      )
     ).toBeTruthy();
     // The other outcomes stay open.
     expect(screen.getByRole("radio", { name: /Keep them and notify/ })).not.toBeDisabled();
+  });
+
+  it("names a stuck booking in the hint even when the list is collapsed past it", () => {
+    const many = Array.from({ length: 7 }, (_, i) =>
+      booking(
+        `m${i}`,
+        `Guest ${i}`,
+        `2026-12-25T03:${String(i * 5).padStart(2, "0")}:00.000Z`,
+        `2026-12-25T02:00:00.000Z`
+      )
+    );
+    const hidden = booking("hidden", "Okafor", "2026-12-25T04:30:00.000Z", null);
+    renderStep({
+      ...SHORTENED,
+      groups: [{ ...SHORTENED.groups[0]!, reservations: [...many, hidden] }],
+    });
+
+    // Five rows are shown; the sixth to eighth are behind "Show all", and Okafor is the eighth.
+    expect(screen.getAllByRole("listitem")).toHaveLength(5);
+    expect(screen.getAllByRole("listitem").some((row) => row.textContent?.includes("Okafor"))).toBe(
+      false
+    );
+    expect(screen.getByText(/Move is unavailable for this group: .*Okafor/)).toBeTruthy();
   });
 
   it("offers Move when every booking has a time", () => {
@@ -182,6 +211,7 @@ describe("CloseStepTwo: the guest message", () => {
         guestName: "Rivera",
         message: "Closed for a private event",
         refund: { amountCents: 4000, currency: "usd" },
+        originHost: "eat-sheet.com",
       },
     });
   });
@@ -191,6 +221,7 @@ describe("CloseStepTwo: the guest message", () => {
     fireEvent.click(screen.getByRole("button", { name: "Preview message" }));
 
     const region = screen.getByRole("region", { name: "Preview message" });
+    expect(region.textContent).toContain("From: eat-sheet <reservations@example.com>");
     expect(region.textContent).toContain(NOTICE.email.subject);
     expect(region.textContent).toContain(NOTICE.email.text);
     expect(region.textContent).toContain(NOTICE.sms);

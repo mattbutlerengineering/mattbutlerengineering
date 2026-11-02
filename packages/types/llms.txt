@@ -241,6 +241,9 @@
       export const CLOSURE_IMPACT_KINDS: unknown;
     </item>
     <item priority="high">
+      export const BOOKING_ORIGIN_HOSTS: unknown;
+    </item>
+    <item priority="high">
       export const ClosureImpactKindSchema: unknown;
     </item>
     <item priority="high">

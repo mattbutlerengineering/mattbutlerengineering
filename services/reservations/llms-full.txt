@@ -1065,6 +1065,7 @@
   </file>
   <file path="src/notifications/closure-preview.ts">
     export type PreviewAction = "cancel" | "move" | "keep_notify";
+    export const PREVIEW_LINK_TEXT = "[the guest's own link]";
     export interface ClosurePreviewInput {
       action: PreviewAction;
       venueName: string;
@@ -1077,22 +1078,39 @@
       guestName: string | null;
       message: string | null;
       refund: { amountCents: number; currency: string } | null;
+      /** The booking's origin host brand: where the link points. */
       manageBaseUrl: string;
+      /**
+       * A token as long as a real signed one. `buildClosureSms` picks its body by segment count, so a
+       * short stand-in would keep a venue message the real, longer link makes it drop.
+       */
+      manageToken: string;
+      /** The sender, display name included, as the guest's mail client shows it. */
+      from: string;
     }
     export interface ClosurePreview {
-      email: { subject: string; text: string };
+      email: { from: string; subject: string; text: string };
       sms: string;
+    }
+    function withoutTags(line: string): string {
+      let text = "";
+      let inTag = false;
+      for (const ch of line) {
+        if (ch === "<") inTag = true;
+        else if (ch === ">" && inTag) inTag = false;
+        else if (!inTag) text += ch;
+      }
+      return text;
     }
     function emailText(html: string): string {
       return html
         .split("\n")
-        .map((line) =>
-          line.replace(/<[^>]+>/g, "").replace(/&(?:amp|lt|gt|quot|#39);/g, (e) => ENTITIES[e]!)
-        )
+        .map((line) => withoutTags(line).replace(/&(?:amp|lt|gt|quot|#39);/g, (e) => ENTITIES[e] ?? e))
         .filter((line) => line.trim() !== "")
         .join("\n");
     }
     export function previewClosureNotice(input: ClosurePreviewInput): ClosurePreview {
+      const manageUrl = buildManageUrl(input.manageBaseUrl, input.manageToken);
       const content = {
         kind: KIND_OF_ACTION[input.action],
         venueName: input.venueName,
@@ -1103,12 +1121,15 @@
         partySize: input.partySize,
         message: input.message?.trim() ? input.message.trim() : null,
         refund: input.action === "cancel" ? input.refund : null,
-        manageUrl: buildManageUrl(input.manageBaseUrl, PREVIEW_TOKEN),
+        manageUrl,
         // Open rebook times are looked up when the notice is sent, so they are still open then.
         offers: [],
       };
       const { subject, html } = buildClosureEmail(content);
-      return { email: { subject, text: emailText(html) }, sms: buildClosureSms(content) };
+      return {
+        email: { from: input.from, subject, text: emailText(html) },
+        sms: buildClosureSms(content).split(manageUrl).join(PREVIEW_LINK_TEXT),
+      };
     }
   </file>
   <file path="src/notifications/email-content.ts">
@@ -3304,6 +3325,7 @@
     }
     export const closureRoutes: FastifyPluginAsync = async (fastify) => {
       const { closureCommandService, closureNoticeService } = fastify.services;
+      const hostBrandFor = createHostBrandResolver(process.env);
     
       registerEndpoint(fastify, availabilityConfigEndpoints.createClosure, {
         docs: {
@@ -3356,11 +3378,22 @@
           if (!venue) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
           }
+          const { action, closureDate, startTime, partySize, guestName, message, refund } =
+            request.body;
+          const brand = hostBrandFor(request.body.originHost ?? null);
           const preview = previewClosureNotice({
-            ...request.body,
+            action,
+            closureDate,
+            startTime,
+            partySize,
+            guestName,
+            message,
+            refund,
             venueName: venue.name,
             timezone: venue.ianaTimezone,
-            manageBaseUrl: resolveManageBaseUrl(process.env),
+            manageBaseUrl: brand.manageBaseUrl,
+            manageToken: generateManageToken(SAMPLE_BOOKING_ID, SAMPLE_GUEST_EMAIL),
+            from: brand.fromAddress,
           });
           return { data: preview };
         }),
@@ -14841,7 +14874,7 @@
   </file>
   <file path="src/services/closure-impact-store.ts">
     type StoreClient = Pick<PrismaClient, "$transaction">;
-    type ImpactDb = Pick<PrismaClient, "table" | "reservation">;
+    type ImpactDb = Pick<PrismaClient, "table" | "reservation" | "reservationHold">;
     export type ClosureImpactOutcome =
       | { kind: "ok"; impact: ClosureImpact }
       | { kind: "not_found" }
@@ -14854,6 +14887,39 @@
       // ago (an "All dates" edit keeps its start) is not "too long".
       if (rule.endsOn && rule.endsOn > addDays(from, SCOPE_CONFLICT_HORIZON_DAYS)) return null;
       return { from, to: rule.endsOn ?? addDays(from, SCOPE_CONFLICT_HORIZON_DAYS) };
+    }
+    async function loadOccupancy(
+      tx: ImpactDb,
+      venueId: string,
+      tableIds: readonly string[],
+      range: { from: string; to: string },
+      now: Date
+    ): Promise<Occupancy> {
+      if (tableIds.length === 0) return { reservations: [], holds: [] };
+      const date = { gte: toDbDate(addDays(range.from, -1)), lte: toDbDate(addDays(range.to, 1)) };
+      const [reservations, holds] = await Promise.all([
+        tx.reservation.findMany({
+          where: {
+            venueId,
+            tableId: { in: [...tableIds] },
+            date,
+            status: { notIn: [...NOT_BOOKED_STATUSES] },
+          },
+          select: { id: true, tableId: true, startTime: true, endTime: true, partySize: true },
+        }),
+        tx.reservationHold.findMany({
+          where: { venueId, tableId: { in: [...tableIds] }, date, expiresAt: activeHoldWindow(now) },
+          select: {
+            id: true,
+            tableId: true,
+            startTime: true,
+            endTime: true,
+            partySize: true,
+            expiresAt: true,
+          },
+        }),
+      ]);
+      return { reservations, holds };
     }
     export async function impactInTransaction(
       tx: ImpactDb,
@@ -14889,6 +14955,7 @@
           endTime: true,
           partySize: true,
           guestName: true,
+          originHost: true,
           deposit: {
             select: {
               amountCents: true,
@@ -14906,6 +14973,7 @@
             ? { amountCents: deposit.amountCents, currency: deposit.currency }
             : null,
       }));
+      const tableIds = [...new Set(bookings.flatMap((b) => (b.tableId ? [b.tableId] : [])))];
       const impact = computeClosureImpact({
         timezone: state.timezone,
         config: state.effective,
@@ -14913,6 +14981,7 @@
         alongside,
         bookings,
         now,
+        occupancy: await loadOccupancy(tx, venueId, tableIds, range, now),
       });
       return { kind: "ok", impact };
     }
@@ -14942,6 +15011,8 @@
       endTime: Date;
       partySize: number;
       guestName: string | null;
+      /** The host the guest booked on (#7892); anything but the allowlisted hosts reads as none. */
+      originHost?: string | null;
       /** Set for a deposit a cancel owes a refund or void on: live (`pending`/`held`) or captured with a payment intent. Named for the common case. */
       heldDeposit: { amountCents: number; currency: string } | null;
     }
@@ -15052,18 +15123,52 @@
         guestName: booking.guestName,
         deposit: booking.heldDeposit,
         runsIntoClosure: runsInto,
+        originHost: BOOKING_ORIGIN_HOSTS.find((h) => h === booking.originHost) ?? null,
       };
+    }
+    export interface Occupancy {
+      reservations: readonly ReservationSlim[];
+      holds: readonly HoldSlim[];
     }
     function withProposedStarts(
       after: AvailabilitySnapshot,
-      date: string,
-      reservations: readonly ClosureImpactReservation[],
+      group: ClosureImpactGroup,
+      tableOf: ReadonlyMap<string, string | null>,
+      occupancy: Occupancy,
       now: Date
-    ): ClosureImpactReservation[] {
-      return reservations.map((r) => ({
-        ...r,
-        proposedStart: moveTarget(after, date, r, now)?.startTime.toISOString() ?? null,
-      }));
+    ): { group: ClosureImpactGroup; standing: readonly ReservationSlim[] } {
+      const placed = group.reservations.reduce(
+        (acc, r) => {
+          const target = moveTarget(after, group.date, r, now);
+          const tableId = tableOf.get(r.id) ?? null;
+          const taken =
+            target !== null &&
+            tableId !== null &&
+            checkTableConflict(
+              tableId,
+              target.startTime,
+              target.endTime,
+              acc.standing.filter((s) => s.id !== r.id),
+              occupancy.holds,
+              now
+            );
+          const landed = taken ? null : target;
+          const standing = landed
+            ? acc.standing.map((s) =>
+                s.id === r.id ? { ...s, startTime: landed.startTime, endTime: landed.endTime } : s
+              )
+            : acc.standing;
+          return {
+            standing,
+            reservations: [
+              ...acc.reservations,
+              { ...r, proposedStart: landed?.startTime.toISOString() ?? null },
+            ],
+          };
+        },
+        { standing: occupancy.reservations, reservations: [] as ClosureImpactReservation[] }
+      );
+      return { group: { ...group, reservations: placed.reservations }, standing: placed.standing };
     }
     function toGroup(
       date: string,
@@ -15088,8 +15193,12 @@
       bookings: readonly ImpactBooking[];
       /** For the proposed move times: a move never lands before now. */
       now: Date;
+      /** Who else holds the tables a move lands on; absent, no table is taken. */
+      occupancy?: Occupancy;
     }): ClosureImpact {
       const { timezone, config, rule, bookings, alongside, now } = input;
+      const occupancy = input.occupancy ?? { reservations: [], holds: [] };
+      const tableOf = new Map(bookings.map((b) => [b.id, b.tableId] as const));
       const before = { timezone, config };
       const after = { timezone, config: withClosure(config, rule, alongside) };
       const kind = kindOf(rule);
@@ -15106,15 +15215,22 @@
         byDate.set(date, [...(byDate.get(date) ?? []), toReservation(booking, verdict.runsInto)]);
       }
     
-      const groups = [...byDate.entries()]
+      const unmoved = [...byDate.entries()]
         .sort(([a], [b]) => a.localeCompare(b))
-        .map(([date, reservations]) =>
-          toGroup(
-            date,
-            kind,
-            kind === "shortened" ? withProposedStarts(after, date, reservations, now) : reservations
-          )
-        );
+        .map(([date, reservations]) => toGroup(date, kind, reservations));
+      const groups =
+        kind === "shortened"
+          ? unmoved.reduce(
+              (acc, g) => {
+                const next = withProposedStarts(after, g, tableOf, acc.occupancy, now);
+                return {
+                  groups: [...acc.groups, next.group],
+                  occupancy: { ...acc.occupancy, reservations: next.standing },
+                };
+              },
+              { groups: [] as ClosureImpactGroup[], occupancy }
+            ).groups
+          : unmoved;
       return {
         reservations: groups.reduce((n, g) => n + g.reservations.length, 0),
         covers: groups.reduce((n, g) => n + g.covers, 0),

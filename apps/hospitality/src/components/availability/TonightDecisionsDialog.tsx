@@ -81,6 +81,7 @@ export function TonightDecisionsDialog(props: TonightDecisionsDialogProps) {
       setFailure(refusalText(refused, t, { groups, format }));
       if (refused.kind === "move-unavailable") {
         setChoices(withoutChoicesFor(groups, choices, refused.reservationIds));
+        void impactQuery.refetch();
       }
       if (refused.kind === "groups-changed") {
         // The group changed since the Manager chose: drop the stale choices and load the new one.

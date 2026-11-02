@@ -868,6 +868,7 @@
       alongside: ClosureAlongsideSchema.optional(),
     });
     export const CLOSURE_IMPACT_KINDS = ["closed", "shortened"] as const;
+    export const BOOKING_ORIGIN_HOSTS = ["eat-sheet.com", "mattbutlerengineering.com"] as const;
     export const ClosureImpactKindSchema = z.enum(CLOSURE_IMPACT_KINDS);
     export const ClosureImpactReservationSchema = z.object({
       id: z.string(),
@@ -879,6 +880,8 @@
       deposit: z.object({ amountCents: z.number().int(), currency: z.string() }).nullable(),
       /** Starts before the closure and runs into it. */
       runsIntoClosure: z.boolean(),
+      /** The host the guest booked on; it picks the brand of the notice they are sent. */
+      originHost: z.enum(BOOKING_ORIGIN_HOSTS).nullable().optional(),
       /**
        * Only on a `shortened` group: the start "Move to the nearest open time" would give this booking,
        * from the logic the closure command moves with. `null`: no open time, so a move is refused.
@@ -911,13 +914,18 @@
       partySize: z.number().int().min(1),
       guestName: z.string().max(200).nullable(),
       message: z.string().max(GUEST_MESSAGE_MAX_LENGTH).nullable(),
-      /** The deposit a cancel refunds. */
+      /** The deposit a cancel refunds. `currency` goes to `Intl.NumberFormat`, which throws on anything else. */
       refund: z
-        .object({ amountCents: z.number().int().min(0), currency: z.string().min(3).max(3) })
+        .object({
+          amountCents: z.number().int().min(0),
+          currency: z.string().regex(/^[A-Za-z]{3}$/),
+        })
         .nullable(),
+      /** The booking's host: the notice is sent from, and links to, that host's brand. */
+      originHost: z.enum(BOOKING_ORIGIN_HOSTS).nullable().optional(),
     });
     export const ClosureNoticePreviewSchema = z.object({
-      email: z.object({ subject: z.string(), text: z.string() }),
+      email: z.object({ from: z.string(), subject: z.string(), text: z.string() }),
       sms: z.string(),
     });
     export type ClosureNoticePreviewBody = z.infer<typeof ClosureNoticePreviewBodySchema>;

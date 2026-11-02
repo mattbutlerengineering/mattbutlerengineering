@@ -179,8 +179,17 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
     } catch (error) {
       const refused = refusalOf(error);
       const text = refusalText(refused, t, { groups: combined.groups, format });
+      let reloadFailed = false;
       if (refused.kind === "move-unavailable") {
         setChoices(withoutChoicesFor(combined.groups, choices, refused.reservationIds));
+        // What Step 2 proposed no longer matches what the save does: ask again.
+        try {
+          setImpacts(
+            await previewImpacts.mutateAsync({ venueId, rules: items.map((i) => i.rule) })
+          );
+        } catch {
+          reloadFailed = true;
+        }
       }
       if (refused.kind === "groups-changed") {
         // A group changed since the Manager chose: drop the choices and ask again on the new one.
@@ -207,7 +216,11 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
       setFailure(
         unknown
           ? [t("availabilitySpecial.add.maybeSaved")]
-          : [text, t("availabilitySpecial.add.nothingCancelled")]
+          : [
+              text,
+              t("availabilitySpecial.add.nothingCancelled"),
+              ...(reloadFailed ? [t("availability.close.impactError")] : []),
+            ]
       );
       if (refused.kind === "version-conflict") {
         // Reload the config, and ask again from it: the impact and the version are both stale.

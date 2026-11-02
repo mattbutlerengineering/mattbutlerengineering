@@ -636,6 +636,37 @@ describe("closure routes", () => {
       expect(text).not.toContain("deposit");
     });
 
+    it("sends from, and links to, the brand of the host the booking came from (#8013)", async () => {
+      const eat = await post({ ...body, originHost: "eat-sheet.com" });
+      const home = await post({ ...body, originHost: null });
+      const none = await post(body);
+
+      expect(eat.statusCode).toBe(200);
+      expect(eat.json().data.email.from).toMatch(/^eat-sheet <.+@.+>$/);
+      expect(home.json().data.email.from).toMatch(/^Matt Butler Engineering|^[^<]+@/);
+      expect(home.json().data.email.from).not.toContain("eat-sheet");
+      expect(none.json().data.email.from).toBe(home.json().data.email.from);
+    });
+
+    it("refuses a host outside the allowlist, and a currency Intl cannot format", async () => {
+      expect((await post({ ...body, originHost: "evil.example" })).statusCode).toBe(400);
+      expect(
+        (await post({ ...body, refund: { amountCents: 4000, currency: "$$$" } })).statusCode
+      ).toBe(400);
+      expect(
+        (await post({ ...body, refund: { amountCents: 4000, currency: "us" } })).statusCode
+      ).toBe(400);
+    });
+
+    it("drops a long venue message from a kept notice's text as the real, longer link makes it (#7983)", async () => {
+      const message = "m".repeat(150);
+      const res = await post({ ...body, action: "keep_notify", refund: null, message });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json().data.sms).not.toContain(message);
+      expect(res.json().data.sms).toContain("[the guest's own link]");
+    });
+
     it("404s an unknown venue and 400s an unknown action", async () => {
       venueSvc.getById.mockResolvedValueOnce(null);
       expect((await post()).statusCode).toBe(404);

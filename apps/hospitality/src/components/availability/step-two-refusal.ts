@@ -105,10 +105,14 @@ function moveUnavailableText(
   });
   const shown = named.slice(0, MOVE_NAMED_MAX);
   const more = named.length - shown.length;
-  const bookings = [
-    ...shown,
-    ...(more > 0 ? [t("availability.close.moveUnavailableMore", { count: more })] : []),
-  ].join("; ");
+  // Bookings no longer in the list cannot be named; say how many rather than naming nobody.
+  const bookings =
+    named.length === 0
+      ? t("availability.close.moveUnavailableCount", { count: ids.length })
+      : [
+          ...shown,
+          ...(more > 0 ? [t("availability.close.moveUnavailableMore", { count: more })] : []),
+        ].join("; ");
   return t("availability.close.moveUnavailable", { count: Math.max(ids.length, 1), bookings });
 }
 

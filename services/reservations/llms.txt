@@ -438,6 +438,9 @@
     <item priority="low">
       type PreviewAction = "cancel" | "move" | "keep_notify";
     </item>
+    <item priority="high">
+      export const PREVIEW_LINK_TEXT: unknown;
+    </item>
     <item priority="low">
       interface ClosurePreviewInput {
         action: PreviewAction;
@@ -449,9 +452,12 @@
     </item>
     <item priority="low">
       interface ClosurePreview {
-        email: { subject: string; text: string };
+        email: { from: string; subject: string; text: string };
         sms: string;
       }
+    </item>
+    <item priority="medium">
+      function withoutTags(line: string): string { /* ... */ }
     </item>
     <item priority="medium">
       function emailText(html: string): string { /* ... */ }
@@ -3184,13 +3190,22 @@
       type StoreClient = Pick<PrismaClient, "$transaction">;
     </item>
     <item priority="high">
-      type ImpactDb = Pick<PrismaClient, "table" | "reservation">;
+      type ImpactDb = Pick<PrismaClient, "table" | "reservation" | "reservation...;
     </item>
     <item priority="low">
       type ClosureImpactOutcome = { kind: "ok"; impact: ClosureI | { kind: "not_found" } | { kind: "too_long" } | { kind: "invalid"; issues: { p;
     </item>
     <item priority="medium">
       function scanRange(rule: DateRule, today: string): { from: string; to: string } | null { /* ... */ }
+    </item>
+    <item priority="low">
+      async function loadOccupancy(
+        tx: ImpactDb,
+        venueId: string,
+        tableIds: readonly string[],
+        range: { from: string; to: string },
+        now: Date
+      ): Promise<Occupancy> { /* ... */ }
     </item>
     <item priority="high">
       export async function impactInTransaction(
@@ -3272,13 +3287,20 @@
     <item priority="medium">
       function toReservation(booking: ImpactBooking, runsInto: boolean): ClosureImpactReservation { /* ... */ }
     </item>
+    <item priority="low">
+      interface Occupancy {
+        reservations: readonly ReservationSlim[];
+        holds: readonly HoldSlim[];
+      }
+    </item>
     <item priority="medium">
       function withProposedStarts(
         after: AvailabilitySnapshot,
-        date: string,
-        reservations: readonly ClosureImpactReservation[],
+        group: ClosureImpactGroup,
+        tableOf: ReadonlyMap<string, string | null>,
+        occupancy: Occupancy,
         now: Date
-      ): ClosureImpactReservation[] { /* ... */ }
+      ): { group: ClosureImpactGroup; standing: readonly ReservationSlim[] } { /* ... */ }
     </item>
     <item priority="medium">
       function toGroup(
@@ -3296,6 +3318,8 @@
         bookings: readonly ImpactBooking[];
         /** For the proposed move times: a move never lands before now. */
         now: Date;
+        /** Who else holds the tables a move lands on; absent, no table is taken. */
+        occupancy?: Occupancy;
       }): ClosureImpact { /* ... */ }
     </item>
   </file>

@@ -271,6 +271,7 @@ describe("CloseDialog", () => {
       ],
     };
     impactState.value = shortened;
+    refetchImpact.mockReset();
     create.mockRejectedValue(
       new ApiClientError(
         {
@@ -303,6 +304,8 @@ describe("CloseDialog", () => {
       within(dialog).getByRole("radio", { name: /Move to the nearest open time/ })
     ).not.toBeChecked();
     expect(within(dialog).getByTestId("close-primary")).toBeDisabled();
+    // The proposals are asked for again: what was shown no longer matches what the save does.
+    expect(refetchImpact).toHaveBeenCalledTimes(1);
   });
 
   it("refetches the impact and asks again when the group changed before the save", async () => {

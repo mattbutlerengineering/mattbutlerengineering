@@ -18,6 +18,7 @@ import { CloseNoticePreview } from "./CloseNoticePreview.js";
 import styles from "./CloseDialog.module.css";
 
 const COLLAPSED_ROWS = 5;
+const STUCK_NAMED_MAX = 5;
 
 export interface CloseStepTwoProps {
   readonly venueId: string;
@@ -47,15 +48,32 @@ function GroupBlock(props: {
     month: "short",
     day: "numeric",
   });
+  const bookingText = (r: ClosureImpactReservation): string =>
+    t("availability.close.step2.booking", {
+      time: format.formatTime(r.startTime),
+      name: r.guestName ?? t("availability.close.step2.guestUnnamed"),
+      size: r.partySize,
+    });
+  const stuck = unmovable(group);
+  // Named in full, not only the rows on show: the choice is for the whole group.
+  const stuckNames = [
+    ...stuck.slice(0, STUCK_NAMED_MAX).map(bookingText),
+    ...(stuck.length > STUCK_NAMED_MAX
+      ? [t("availability.close.moveUnavailableMore", { count: stuck.length - STUCK_NAMED_MAX })]
+      : []),
+  ].join("; ");
   const optionHint = (a: string): string | undefined => {
     if (a === "cancel") return t("availability.close.step2.cancelHint");
-    return a === "move" && stuck > 0
-      ? t("availability.close.step2.moveBlocked", { count: stuck })
+    return a === "move" && stuck.length > 0
+      ? t("availability.close.step2.moveBlocked", {
+          count: stuck.length,
+          total: count,
+          bookings: stuckNames,
+        })
       : undefined;
   };
   const rows = showAll ? group.reservations : group.reservations.slice(0, COLLAPSED_ROWS);
   const action = choice?.action;
-  const stuck = unmovable(group).length;
 
   const moveNote = (r: ClosureImpactReservation, chosen: GroupChoice["action"]): string => {
     if (r.proposedStart === null) return ` · ${t("availability.close.step2.noOpenTime")}`;
@@ -73,11 +91,7 @@ function GroupBlock(props: {
         {rows.map((r) => (
           <li key={r.id}>
             <Text as="span" variant="body" color="primary">
-              {t("availability.close.step2.booking", {
-                time: format.formatTime(r.startTime),
-                name: r.guestName ?? t("availability.close.step2.guestUnnamed"),
-                size: r.partySize,
-              })}
+              {bookingText(r)}
               {r.deposit
                 ? ` · ${t("availability.close.step2.deposit", { amount: format.formatMoney(r.deposit.amountCents) })}`
                 : ""}
@@ -106,7 +120,7 @@ function GroupBlock(props: {
             value={a}
             label={t(`availability.close.step2.action.${a}`)}
             description={optionHint(a)}
-            disabled={a === "move" && stuck > 0}
+            disabled={a === "move" && stuck.length > 0}
           />
         ))}
       </RadioGroup>
