@@ -176,6 +176,19 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
       expect(screen.getByText("Edit once the newest hours have loaded.")).toBeInTheDocument();
     });
 
+    it("keeps the time pickers shut during the hold, even from their clock icon", async () => {
+      await saveOwn("hold-g");
+      await waitFor(() =>
+        expect(screen.getByText("Edit once the newest hours have loaded.")).toBeInTheDocument()
+      );
+      const field = screen.getByLabelText("Weekend · Last seating");
+      const icon = field.parentElement?.querySelector("svg");
+      expect(icon).toBeTruthy();
+      fireEvent.click(icon as Element);
+      expect(screen.queryAllByRole("option")).toHaveLength(0);
+      expect(screen.getByRole("button", { name: /^Save/ })).toBeDisabled();
+    });
+
     it("lets the next edit start from the refetched rows, keeping the first save's change", async () => {
       const venue = "hold-b";
       const { rerender } = await saveOwn(venue);

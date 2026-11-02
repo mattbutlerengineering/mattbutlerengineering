@@ -627,6 +627,15 @@ describe("AvailabilityPage", () => {
       expect(screen.queryByText("Past dates can’t be selected.")).not.toBeInTheDocument();
     });
 
+    it("says so when Shift+Arrow extends from today onto a past date", () => {
+      renderPage();
+      fireEvent.keyDown(screen.getByRole("button", { name: /Wednesday, October 28/ }), {
+        key: "ArrowLeft",
+        shiftKey: true,
+      });
+      expect(screen.getByRole("status")).toHaveTextContent("Past dates can’t be selected.");
+    });
+
     it("announces again when the same gesture repeats on another past date", () => {
       renderPage();
       const space = (re: RegExp) =>

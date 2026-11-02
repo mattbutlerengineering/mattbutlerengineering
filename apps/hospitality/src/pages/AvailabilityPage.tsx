@@ -127,31 +127,31 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   });
   const selection = picked.venueId === selectedVenueId ? picked.dates : EMPTY;
   // Past dates are history, not something to edit (the server settles a save from today on).
-  // Which gesture last lost past dates, and where: it belongs to that venue, month and view, so
-  // navigating away drops it. `count` makes a repeat of the gesture a new announcement.
+  // Which gesture last lost past dates. It belongs to that venue, and moving the calendar drops it
+  // (`moveTo`, `changeView`). `count` makes a repeat of the gesture a new announcement.
   const [dropped, setDropped] = useState<{
     venueId: string | null;
-    anchor: string;
-    view: CalendarView;
     count: number;
   } | null>(null);
+  const moveTo = (next: string | null) => {
+    setChosenAnchor(next);
+    setDropped(null);
+  };
+  const changeView = (next: CalendarView) => {
+    setView(next);
+    setDropped(null);
+  };
   const setSelection = (dates: string[]) => {
     const kept = futureDates(dates, today);
     // A gesture that lost dates says so, rather than appearing to do nothing.
     setDropped(
       kept.length < dates.length
-        ? { venueId: selectedVenueId, anchor, view, count: (dropped?.count ?? 0) + 1 }
+        ? { venueId: selectedVenueId, count: (dropped?.count ?? 0) + 1 }
         : null
     );
     setPicked({ venueId: selectedVenueId, dates: kept });
   };
-  const pastNotice =
-    dropped &&
-    dropped.venueId === selectedVenueId &&
-    dropped.anchor === anchor &&
-    dropped.view === view
-      ? dropped
-      : null;
+  const pastNotice = dropped && dropped.venueId === selectedVenueId ? dropped : null;
   // Moving off a day with an unsaved draft asks first (ux.md F2 step 6), selection actions included.
   // Opening a single day drops the selection, but only once the guard lets the move happen.
   const guard = useDiscardGuard<OpenTarget>(({ closing: nextClosing, ...next }) => {
@@ -429,11 +429,11 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
       <AvailabilityToolbar
         viewport={viewport}
         view={view}
-        onViewChange={setView}
+        onViewChange={changeView}
         period={periodLabel(view, anchor, t, format)}
-        onPrevious={() => setChosenAnchor(shiftAnchor(view, anchor, -1))}
-        onNext={() => setChosenAnchor(shiftAnchor(view, anchor, 1))}
-        onToday={() => setChosenAnchor(null)}
+        onPrevious={() => moveTo(shiftAnchor(view, anchor, -1))}
+        onNext={() => moveTo(shiftAnchor(view, anchor, 1))}
+        onToday={() => moveTo(null)}
         onHistory={() => setHistoryOpen(true)}
         selectItems={selectItems}
         onClose={canAct ? () => setClosing({ date: null, pause: false }) : undefined}
@@ -506,7 +506,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         selecting={selecting}
         onDragChange={(dragging) => setBarDuringDrag(dragging ? selection : null)}
         onOpenDay={openDay}
-        onAnchorChange={setChosenAnchor}
+        onAnchorChange={moveTo}
       />
       <AvailabilityDayDrawer
         date={openDate}
@@ -547,7 +547,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         onOpenDay={(date) => {
           setHistoryOpen(false);
           guard.request({ date });
-          setChosenAnchor(date);
+          moveTo(date);
         }}
       />
       {changingWeek && config.data && (

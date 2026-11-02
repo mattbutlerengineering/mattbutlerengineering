@@ -206,7 +206,10 @@ export function CompareServices(props: CompareServicesProps) {
     );
   }
 
-  const setRow = (row: CompareRow) => commitEdits({ ...edits, [row.scheduleServiceId]: row });
+  const setRow = (row: CompareRow) => {
+    if (held) return; // an edit now would pin the version the held rows are behind
+    commitEdits({ ...edits, [row.scheduleServiceId]: row });
+  };
   const toggle = (id: string, on: boolean) =>
     setSelected((prev) => (on ? [...prev, id] : prev.filter((x) => x !== id)));
 
@@ -307,8 +310,14 @@ export function CompareServices(props: CompareServicesProps) {
           </Button>
         </div>
       )}
-      {/* A disabled fieldset also stops the time pickers, which have no disabled prop of their own. */}
-      <fieldset className={styles.held} disabled={held}>
+      {/* The time pickers have no disabled prop and their popover opens from a click on a wrapper,
+          which a disabled fieldset does not stop. So a held fieldset also swallows clicks (capture,
+          before the popover sees them) and takes no pointer events. */}
+      <fieldset
+        className={styles.held}
+        disabled={held}
+        onClickCapture={held ? (event) => event.stopPropagation() : undefined}
+      >
         <ul className={styles.rows}>
           {rows.map((row) => (
             <li key={row.scheduleServiceId} className={styles.row}>
