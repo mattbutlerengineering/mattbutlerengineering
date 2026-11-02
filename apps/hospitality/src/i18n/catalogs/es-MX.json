@@ -2275,7 +2275,7 @@
         "yourService": "{{name}} {{from}} – {{to}}",
         "back": "Volver a mi borrador",
         "again": "Alguien guardó otra vez mientras decidías. Revisa su último cambio y luego sobrescribe o vuelve a tu borrador.",
-        "waiting": "Cargando la versión más reciente…"
+        "unavailable": "Sobrescribir no está disponible ahora. Vuelve a tu borrador, o descártalo y empieza de nuevo."
       },
       "blocked": {
         "serviceName": "Ponle nombre al nuevo servicio para guardar.",

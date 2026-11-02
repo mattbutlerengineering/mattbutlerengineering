@@ -617,8 +617,25 @@ describe("AvailabilityPage", () => {
     it("says so when a Ctrl-click on a past date selects nothing", () => {
       renderPage();
       pick(/Monday, October 26/);
-      expect(screen.getByText("Past dates can’t be selected.")).toBeInTheDocument();
-      expect(screen.getByRole("status")).toBeEmptyDOMElement();
+      expect(screen.getByRole("status")).toHaveTextContent("Past dates can’t be selected.");
+    });
+
+    it("drops the message when the Manager moves to another month", () => {
+      renderPage();
+      pick(/Monday, October 26/);
+      fireEvent.click(screen.getByRole("button", { name: "Next" }));
+      expect(screen.queryByText("Past dates can’t be selected.")).not.toBeInTheDocument();
+    });
+
+    it("announces again when the same gesture repeats on another past date", () => {
+      renderPage();
+      const space = (re: RegExp) =>
+        fireEvent.keyDown(screen.getByRole("button", { name: re }), { key: " " });
+      space(/Monday, October 26/);
+      const first = screen.getByText("Past dates can’t be selected.");
+      space(/Tuesday, October 27/);
+      // A new node, so the live region speaks again.
+      expect(screen.getByText("Past dates can’t be selected.")).not.toBe(first);
     });
 
     it("says so when Space on a past date selects nothing", () => {

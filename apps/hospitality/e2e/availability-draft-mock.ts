@@ -124,7 +124,9 @@ export async function mockAvailability(
       }
       if (body.expectedVersion !== mock.version) {
         record.status = 409;
-        return route.fulfill(problem(409, "version-conflict", { winningChange: winner }));
+        return route.fulfill(
+          problem(409, "version-conflict", { winningChange: winner, currentVersion: mock.version })
+        );
       }
       const upserted = body.changes?.upsert?.dateRules ?? [];
       rules = [

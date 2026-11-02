@@ -603,8 +603,8 @@ describe("AvailabilityDayEditor", () => {
       summary: "Dinner closes at 10:00 PM on Fri, Oct 30",
     };
 
-    async function raiseConflict() {
-      save.mockRejectedValueOnce(conflict("version-conflict", { winningChange }));
+    async function raiseConflict(extra: Record<string, unknown> = { currentVersion: 5 }) {
+      save.mockRejectedValueOnce(conflict("version-conflict", { winningChange, ...extra }));
       const utils = renderEditor();
       fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
       fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
@@ -650,10 +650,8 @@ describe("AvailabilityDayEditor", () => {
       </ToastProvider>
     );
 
-    it("Overwrite saves against the version the dialog showed, once it has loaded", async () => {
-      const { dialog, rerender } = await raiseConflict();
-      expect(within(dialog).getByRole("button", { name: "Overwrite" })).toBeDisabled();
-      rerender(atVersion(5));
+    it("Overwrite goes against the version the 409 named, with no reload needed", async () => {
+      const { dialog } = await raiseConflict();
       const overwrite = within(dialog).getByRole("button", { name: "Overwrite" });
       expect(overwrite).toBeEnabled();
       fireEvent.click(overwrite);
@@ -661,36 +659,46 @@ describe("AvailabilityDayEditor", () => {
       expect(sentBody().body.expectedVersion).toBe(5);
     });
 
-    it("does not send a change it never showed: a later save does not move the version", async () => {
+    it("does not send a change the dialog never named: a later reload does not move the version", async () => {
       const { dialog, rerender } = await raiseConflict();
-      rerender(atVersion(5));
+      // A second colleague saved (v6) before the reload read the config.
       rerender(atVersion(6));
       fireEvent.click(within(dialog).getByRole("button", { name: "Overwrite" }));
       await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
       expect(sentBody().body.expectedVersion).toBe(5);
     });
 
-    it("refreshes the dialog when Overwrite finds a newer change, and asks again", async () => {
+    it("keeps Overwrite off, and says nothing false, when the 409 names no version", async () => {
+      const { dialog } = await raiseConflict({});
+      expect(within(dialog).getByRole("button", { name: "Overwrite" })).toBeDisabled();
+      expect(within(dialog).queryByText(/Loading the latest version/)).toBeNull();
+      expect(within(dialog).getByRole("button", { name: "Back to my draft" })).toBeEnabled();
+    });
+
+    it("says nothing about a second save when the Manager has only reviewed", async () => {
       const { dialog, rerender } = await raiseConflict();
       rerender(atVersion(5));
+      expect(within(dialog).queryByText(/Someone saved again/)).toBeNull();
+    });
+
+    it("refreshes the dialog when Overwrite finds a newer change, and asks again", async () => {
+      const { dialog } = await raiseConflict();
       save.mockRejectedValueOnce(
         conflict("version-conflict", {
+          currentVersion: 6,
           winningChange: { ...winningChange, id: "chg-10", summary: "Lunch opens at 11:00 AM" },
         })
       );
       fireEvent.click(within(dialog).getByRole("button", { name: "Overwrite" }));
       expect(await within(dialog).findByText(/Lunch opens at 11:00 AM/)).toBeTruthy();
       expect(within(dialog).getByText(/Someone saved again/)).toBeTruthy();
-      expect(within(dialog).getByRole("button", { name: "Overwrite" })).toBeDisabled();
-      rerender(atVersion(6));
       fireEvent.click(within(dialog).getByRole("button", { name: "Overwrite" }));
       await waitFor(() => expect(save).toHaveBeenCalledTimes(3));
       expect(sentBody().body.expectedVersion).toBe(6);
     });
 
     it("lets the Manager go back to the draft after a refused Overwrite, edits intact", async () => {
-      const { dialog, rerender, onFinished } = await raiseConflict();
-      rerender(atVersion(5));
+      const { dialog, onFinished } = await raiseConflict();
       save.mockRejectedValueOnce(
         conflict("stranded-bookings", {
           reservations: [
@@ -713,10 +721,11 @@ describe("AvailabilityDayEditor", () => {
     });
 
     it("starts the next conflict from scratch after going back, not from the old version", async () => {
-      const { dialog, rerender } = await raiseConflict();
-      rerender(atVersion(5));
+      const { dialog } = await raiseConflict();
       fireEvent.click(within(dialog).getByRole("button", { name: "Back to my draft" }));
-      save.mockRejectedValueOnce(conflict("version-conflict", { winningChange }));
+      save.mockRejectedValueOnce(
+        conflict("version-conflict", { winningChange, currentVersion: 6 })
+      );
       fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
       const again = await screen.findByRole("dialog", {
         name: "Someone changed availability first",
@@ -736,8 +745,7 @@ describe("AvailabilityDayEditor", () => {
     });
 
     it("shows a failed Overwrite inside the conflict dialog, not behind it", async () => {
-      const { dialog, onFinished, rerender } = await raiseConflict();
-      rerender(atVersion(5));
+      const { dialog, onFinished } = await raiseConflict();
       save.mockRejectedValueOnce(
         conflict("invalid-config", {
           issues: [{ path: "x", code: "overlap", message: "Lunch overlaps Dinner." }],

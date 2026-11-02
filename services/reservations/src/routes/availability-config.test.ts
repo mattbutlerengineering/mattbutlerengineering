@@ -147,13 +147,18 @@ describe("availability config routes", () => {
         kind: "config",
         summary: "Availability updated: 1 added, 0 changed, 0 removed",
       };
-      svc.save.mockResolvedValueOnce({ kind: "version_conflict", winningChange });
+      svc.save.mockResolvedValueOnce({
+        kind: "version_conflict",
+        winningChange,
+        currentVersion: 6,
+      });
 
       const res = await put(app);
 
       expect(res.statusCode).toBe(409);
       const problem = AvailabilityConfigProblemSchema.parse(res.json());
       expect(problem.code).toBe("version-conflict");
+      expect(problem.currentVersion).toBe(6);
       expect(problem.winningChange).toEqual(winningChange);
     });
 

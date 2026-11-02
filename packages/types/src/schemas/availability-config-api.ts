@@ -209,6 +209,11 @@ export const AvailabilityConfigProblemSchema = z.object({
   code: z.enum(AVAILABILITY_CONFIG_PROBLEM_CODES),
   /** version-conflict: the latest change; `null` when none is recorded. */
   winningChange: AvailabilityChangeSummarySchema.nullable().optional(),
+  /**
+   * version-conflict on a config save: the version read just before `winningChange`. An Overwrite
+   * sent against it is refused again if anyone saved after. Absent from an older server.
+   */
+  currentVersion: z.number().int().optional(),
   /** invalid-config: `validateConfig` issues, path-addressed into the next config. */
   issues: z.array(z.object({ path: z.string(), code: z.string(), message: z.string() })).optional(),
   /** stranded-bookings: future reservations the change would leave outside service. */

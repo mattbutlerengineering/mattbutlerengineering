@@ -2224,7 +2224,7 @@
         "yourService": "{{name}} {{from}} – {{to}}",
         "back": "Back to my draft",
         "again": "Someone saved again while you were deciding. Check their latest change, then Overwrite or go back to your draft.",
-        "waiting": "Loading the latest version…"
+        "unavailable": "Overwrite isn’t available right now. Go back to your draft, or discard it and start again."
       },
       "blocked": {
         "serviceName": "Name the new service to save.",

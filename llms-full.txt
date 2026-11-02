@@ -13951,7 +13951,9 @@
           }
           if (body.expectedVersion !== mock.version) {
             record.status = 409;
-            return route.fulfill(problem(409, "version-conflict", { winningChange: winner }));
+            return route.fulfill(
+              problem(409, "version-conflict", { winningChange: winner, currentVersion: mock.version })
+            );
           }
           const upserted = body.changes?.upsert?.dateRules ?? [];
           rules = [
@@ -35866,6 +35868,7 @@
             configProblem(409, "Conflict", "Availability changed since you loaded it.", {
               code: "version-conflict",
               winningChange: outcome.winningChange,
+              currentVersion: outcome.currentVersion,
             })
           );
         case "invalid":
@@ -44620,6 +44623,11 @@
       code: z.enum(AVAILABILITY_CONFIG_PROBLEM_CODES),
       /** version-conflict: the latest change; `null` when none is recorded. */
       winningChange: AvailabilityChangeSummarySchema.nullable().optional(),
+      /**
+       * version-conflict on a config save: the version read just before `winningChange`. An Overwrite
+       * sent against it is refused again if anyone saved after. Absent from an older server.
+       */
+      currentVersion: z.number().int().optional(),
       /** invalid-config: `validateConfig` issues, path-addressed into the next config. */
       issues: z.array(z.object({ path: z.string(), code: z.string(), message: z.string() })).optional(),
       /** stranded-bookings: future reservations the change would leave outside service. */
@@ -51352,7 +51360,12 @@
     }
     export type SaveOutcome =
       | { kind: "saved"; version: number; changeId: string }
-      | { kind: "version_conflict"; winningChange: AvailabilityChangeSummary | null }
+      | {
+          kind: "version_conflict";
+          winningChange: AvailabilityChangeSummary | null;
+          /** The version read before `winningChange`, so a later save can only make the winner newer. */
+          currentVersion: number;
+        }
       | { kind: "not_found" }
       | Exclude<SavePlan, { kind: "write" }>;
     class SaveRefused extends Error {
@@ -51399,8 +51412,13 @@
       });
     }
     export async function refuseStale(db: StoreDb, venueId: string): Promise<SaveOutcome> {
-      const exists = await db.venue.findUnique({ where: { id: venueId }, select: { id: true } });
+      const exists = await db.venue.findUnique({
+        where: { id: venueId },
+        select: { id: true, availabilityVersion: true },
+      });
       if (!exists) return { kind: "not_found" };
+      // Read before the winner: a save landing between the two reads makes the winner newer than this
+      // version, so an Overwrite against it is refused again, never applied over a change unnamed.
       const winner = await db.availabilityChange.findFirst({
         where: { venueId },
         orderBy: { at: "desc" },
@@ -51408,6 +51426,7 @@
       });
       return {
         kind: "version_conflict",
+        currentVersion: exists.availabilityVersion,
         winningChange: winner && { ...winner, at: winner.at.toISOString() },
       };
     }

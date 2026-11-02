@@ -132,11 +132,10 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
 
   const [edit, setEdit] = useState<EditState | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
-  // `after` is the version the refused save was against; `seen` is the first version loaded past
-  // it, fixed there so a later save cannot slip into an Overwrite the dialog never showed.
+  // `seen` is the version the 409 reported, read by the server just before the change it names, so
+  // Overwrite goes against what the dialog shows. Absent from an older server: no Overwrite then.
   const [conflict, setConflict] = useState<{
     readonly winningChange: AvailabilityChangeSummary | null;
-    readonly after: number;
     readonly seen: number | null;
     readonly again: boolean;
   } | null>(null);
@@ -146,10 +145,6 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   if (edit && !holdsEdits(edit) && edit.base.version !== state.version) {
     const seed = seedServices(state.config, day, edit.scope);
     setEdit({ ...edit, base: state, services: seed, baseline: seed, unsaved: [], overridden: [] });
-  }
-
-  if (conflict && conflict.seen === null && state.version > conflict.after) {
-    setConflict({ ...conflict, seen: state.version });
   }
 
   const { config } = edit?.base ?? state;
@@ -301,7 +296,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
         },
       });
     } catch (error) {
-      rejectSave(error);
+      rejectSave(error, overwrite);
       return;
     }
     offerUndo({
@@ -322,14 +317,13 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
     onFinished(true);
   };
 
-  const rejectSave = (error: unknown) => {
+  const rejectSave = (error: unknown, overwrote: boolean) => {
     const problem = problemOf(error);
     if (problem?.code === "version-conflict") {
       setConflict({
         winningChange: problem.winningChange ?? null,
-        after: conflict?.seen ?? edit?.base.version ?? state.version,
-        seen: null,
-        again: conflict !== null,
+        seen: problem.currentVersion ?? null,
+        again: overwrote,
       });
       // Someone else's change is in; reload so the calendar and the next edit see it.
       onStale?.();

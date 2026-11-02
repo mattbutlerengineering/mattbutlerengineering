@@ -2275,7 +2275,7 @@
         "yourService": "{{name}} {{from}} – {{to}}",
         "back": "Retourner à mon brouillon",
         "again": "Quelqu’un a enregistré de nouveau pendant votre réflexion. Vérifiez son dernier changement, puis écrasez ou retournez à votre brouillon.",
-        "waiting": "Chargement de la dernière version…"
+        "unavailable": "L’écrasement n’est pas disponible pour le moment. Retournez à votre brouillon, ou abandonnez-le et recommencez."
       },
       "blocked": {
         "serviceName": "Nommez le nouveau service pour enregistrer.",

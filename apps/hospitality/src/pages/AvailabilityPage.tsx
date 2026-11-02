@@ -127,13 +127,31 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   });
   const selection = picked.venueId === selectedVenueId ? picked.dates : EMPTY;
   // Past dates are history, not something to edit (the server settles a save from today on).
-  const [droppedPast, setDroppedPast] = useState(false);
+  // Which gesture last lost past dates, and where: it belongs to that venue, month and view, so
+  // navigating away drops it. `count` makes a repeat of the gesture a new announcement.
+  const [dropped, setDropped] = useState<{
+    venueId: string | null;
+    anchor: string;
+    view: CalendarView;
+    count: number;
+  } | null>(null);
   const setSelection = (dates: string[]) => {
     const kept = futureDates(dates, today);
     // A gesture that lost dates says so, rather than appearing to do nothing.
-    setDroppedPast(kept.length < dates.length);
+    setDropped(
+      kept.length < dates.length
+        ? { venueId: selectedVenueId, anchor, view, count: (dropped?.count ?? 0) + 1 }
+        : null
+    );
     setPicked({ venueId: selectedVenueId, dates: kept });
   };
+  const pastNotice =
+    dropped &&
+    dropped.venueId === selectedVenueId &&
+    dropped.anchor === anchor &&
+    dropped.view === view
+      ? dropped
+      : null;
   // Moving off a day with an unsaved draft asks first (ux.md F2 step 6), selection actions included.
   // Opening a single day drops the selection, but only once the guard lets the move happen.
   const guard = useDiscardGuard<OpenTarget>(({ closing: nextClosing, ...next }) => {
@@ -437,15 +455,10 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         />
       )}
       {loadFailureBanner}
-      {/* Held back during a drag, like the bar, so the grid does not move under the pointer. */}
-      <div aria-live="polite">
-        {droppedPast && barDuringDrag === null && (
-          <Text variant="caption" color="secondary">
-            {t("availability.selection.pastDates")}
-          </Text>
-        )}
-      </div>
       <AvailabilitySelectionBar
+        // Held back during a drag, like the bar, so the grid does not move under the pointer.
+        notice={barDuringDrag === null && pastNotice ? t("availability.selection.pastDates") : null}
+        noticeKey={pastNotice?.count}
         selection={barDuringDrag ?? selection}
         canEdit={canAct}
         onEditHours={editSelection}

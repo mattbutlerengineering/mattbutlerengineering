@@ -18,7 +18,7 @@ export interface ConflictDialogProps {
   readonly failure?: readonly string[];
   /** The bookings behind a stranded refusal of that Overwrite. */
   readonly stranded?: readonly StrandedReservation[];
-  /** The latest version has loaded, so Overwrite is against what this dialog shows. */
+  /** The 409 named the version Overwrite goes against; without it Overwrite is not offered. */
   readonly ready: boolean;
   /** Overwrite found a newer change; the dialog now shows that one. */
   readonly changedAgain: boolean;
@@ -93,7 +93,7 @@ export function ConflictDialog(props: ConflictDialogProps) {
         </Text>
         {!ready && (
           <Text variant="caption" color="secondary" role="status">
-            {t("availability.editor.conflict.waiting")}
+            {t("availability.editor.conflict.unavailable")}
           </Text>
         )}
         {reviewing && (
