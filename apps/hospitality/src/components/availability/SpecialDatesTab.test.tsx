@@ -930,6 +930,83 @@ describe("SpecialDatesTab", () => {
 
         expect(await screen.findByText(/2 bookings would be left without service/)).toBeTruthy();
       });
+
+      describe("naming the stranded bookings (#8043)", () => {
+        const stranded = (id: string, guestName: string | undefined, withBooking = true) => ({
+          path: `reservations.${id}`,
+          code: "strands_booking",
+          message: "x",
+          ...(withBooking
+            ? {
+                reservation: {
+                  id,
+                  startTime: "2026-12-25T03:00:00.000Z",
+                  partySize: 4,
+                  reason: "closed",
+                  serviceDate: "2026-12-24",
+                  ...(guestName ? { guestName } : {}),
+                },
+              }
+            : {}),
+        });
+        const refuse = (issues: unknown[]) =>
+          reopen.mockRejectedValue({
+            problemDetails: {
+              type: "about:blank",
+              title: "Unprocessable Entity",
+              status: 422,
+              detail: "The closure is not valid.",
+              code: "invalid-config",
+              issues,
+            },
+          });
+        const putBack = () => {
+          openEdit();
+          fireEvent.click(
+            within(screen.getByRole("dialog")).getByRole("button", { name: "Put back" })
+          );
+        };
+
+        it("lists each booking with a link, outside the alert", async () => {
+          refuse([stranded("res-okafor", "Okafor"), stranded("res-nameless", undefined)]);
+          putBack();
+
+          const alert = await screen.findByRole("alert");
+          expect(alert).toHaveTextContent(/2 bookings would be left without service/);
+          const dialog = screen.getByRole("dialog");
+          const link = within(dialog).getByRole("link", { name: /Okafor/ });
+          expect(link).toHaveTextContent("party of 4");
+          expect(link.getAttribute("href")).toMatch(
+            /timeline\?date=2026-12-24&selected=res-okafor$/
+          );
+          expect(within(dialog).getByRole("link", { name: /^Guest ·/ })).toBeTruthy();
+          // A long list read out whole would drown the sentence.
+          expect(within(alert).queryAllByRole("link")).toEqual([]);
+          expect(alert).not.toHaveTextContent("Okafor");
+        });
+
+        it("counts every booking and says how many are not listed when the server named only some", async () => {
+          refuse([
+            stranded("res-okafor", "Okafor"),
+            stranded("res-2", undefined, false),
+            stranded("res-3", undefined, false),
+          ]);
+          putBack();
+
+          expect(await screen.findByText(/3 bookings would be left without service/)).toBeTruthy();
+          expect(screen.getAllByRole("link")).toHaveLength(1);
+          expect(screen.getByText(/and 2 more not listed/)).toBeTruthy();
+        });
+
+        it("keeps the count alone for an older server that names nobody", async () => {
+          refuse([stranded("res-2", undefined, false)]);
+          putBack();
+
+          expect(await screen.findByText(/1 booking would be left without service/)).toBeTruthy();
+          expect(screen.queryByRole("link")).toBeNull();
+          expect(screen.queryByText(/not listed/)).toBeNull();
+        });
+      });
     });
 
     describe("when the guest count is unknown (#7975)", () => {

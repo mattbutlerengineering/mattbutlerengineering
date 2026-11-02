@@ -332,3 +332,89 @@ test("Undo is offered after saving a new schedule, and reverts it", async ({
   await expect(page.getByRole("button", { name: "Undo" })).toHaveCount(0);
   expect(await page.evaluate(() => !!document.activeElement?.closest("main"))).toBe(true);
 });
+
+test("a refused reopen lists each booking with a link, outside its alert (#8043)", async ({
+  mockedPage: page,
+}) => {
+  await mockAvailability(page, {
+    rules: [
+      {
+        id: "xmas",
+        kind: "closure",
+        targetKind: "venue",
+        startsOn: "2031-12-24",
+        endsOn: "2031-12-24",
+      },
+    ],
+  });
+  await page.route(`${base}/closures`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: [
+          {
+            ruleId: "xmas",
+            total: 2,
+            cancelled: 2,
+            sent: 0,
+            rebooked: 0,
+            unreachable: 0,
+            refundFailed: 0,
+            refundFailures: [],
+            refundPending: 0,
+          },
+        ],
+      }),
+    })
+  );
+  const stranded = (id: string, guestName: string, startTime: string) => ({
+    path: `reservations.${id}`,
+    code: "strands_booking",
+    message: "Removing this would leave this booking without service.",
+    reservation: {
+      id,
+      startTime,
+      partySize: 4,
+      reason: "closed",
+      guestName,
+      serviceDate: "2031-12-24",
+    },
+  });
+  await page.route(`${base}/closures/xmas`, (route) =>
+    route.fulfill({
+      status: 422,
+      contentType: "application/problem+json",
+      body: JSON.stringify({
+        type: "about:blank",
+        title: "Unprocessable",
+        status: 422,
+        detail: "The closure is not valid.",
+        code: "invalid-config",
+        issues: [
+          stranded("res-okafor", "Okafor", "2031-12-25T02:30:00.000Z"),
+          stranded("res-lindqvist", "Lindqvist", "2031-12-25T03:00:00.000Z"),
+          {
+            path: "reservations.res-3",
+            code: "strands_booking",
+            message: "Removing this would leave this booking without service.",
+          },
+        ],
+      }),
+    })
+  );
+  await page.goto("availability");
+  await page.getByRole("radio", { name: "Special dates" }).click({ force: true });
+  await page.getByRole("button", { name: /^Remove closure for/ }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "Reopen", exact: true }).click();
+
+  const alert = dialog.getByRole("alert");
+  await expect(alert).toContainText("3 bookings would be left without service");
+  const link = dialog.getByRole("link", { name: /Okafor/ });
+  await expect(link).toHaveAttribute("href", /timeline\?date=2031-12-24&selected=res-okafor$/);
+  await expect(dialog.getByRole("link", { name: /Lindqvist/ })).toBeVisible();
+  await expect(dialog.getByText("and 1 more not listed")).toBeVisible();
+  // The list is outside the live region, so a long one is not read out whole.
+  await expect(alert.getByRole("link")).toHaveCount(0);
+});

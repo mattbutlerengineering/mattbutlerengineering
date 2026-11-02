@@ -12487,6 +12487,9 @@
       export const StrandedReservationSchema: unknown;
     </item>
     <item priority="high">
+      export const STRANDED_ISSUE_DETAIL_MAX: unknown;
+    </item>
+    <item priority="high">
       export const AVAILABILITY_CONFIG_PROBLEM_CODES: unknown;
     </item>
     <item priority="high">
@@ -16069,7 +16072,18 @@
       }
     </item>
     <item priority="low">
-      type CreateClosureOutcome = { kind: "saved"; result: Closu | { kind: "not_found" } | { kind: "forbidden" } | { kind: "too_long" } | { kind: "version_conflict"; wi | { kind: "key_reused" } | { kind: "closure_exists" } | { kind: "invalid"; issues: { p | { kind: "decision_required"; g | { kind: "invalid_decision"; gr | { kind: "move_unavailable"; re;
+      interface RefusalIssue {
+        path: string;
+        code: string;
+        message: string;
+        reservation?: StrandedReservation;
+      }
+    </item>
+    <item priority="medium">
+      function strandedIssues(stranded: readonly StrandedReservation[], message: string): RefusalIssue[] { /* ... */ }
+    </item>
+    <item priority="low">
+      type CreateClosureOutcome = { kind: "saved"; result: Closu | { kind: "not_found" } | { kind: "forbidden" } | { kind: "too_long" } | { kind: "version_conflict"; wi | { kind: "key_reused" } | { kind: "closure_exists" } | { kind: "invalid"; issues: Ref | { kind: "decision_required"; g | { kind: "invalid_decision"; gr | { kind: "move_unavailable"; re;
     </item>
     <item priority="high">
       type Refusal = Exclude<CreateClosureOutcome, { kind: "saved" }>;

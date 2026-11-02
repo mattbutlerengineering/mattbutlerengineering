@@ -1271,6 +1271,46 @@ describe("closure chat tools", () => {
       expect(api.availability.reopenClosure).not.toHaveBeenCalled();
     });
 
+    it("a stranded refusal reaches neither the model nor the log with a guest's name (#8043)", async () => {
+      const reservation = {
+        id: "r1",
+        startTime: "2026-12-25T03:00:00.000Z",
+        partySize: 4,
+        reason: "closed",
+        guestName: "Okafor-Zielinski",
+        serviceDate: "2026-12-24",
+      };
+      api.availability.reopenClosure.mockRejectedValue(
+        problem(422, {
+          code: "invalid-config",
+          detail: "The closure is not valid.",
+          issues: [
+            {
+              path: "reservations.r1",
+              code: "strands_booking",
+              message: "Removing this would leave this booking without service.",
+              reservation,
+            },
+          ],
+        })
+      );
+
+      const result = await run("reopen_closure", input);
+
+      expect(log.error).toHaveBeenCalledWith(expect.anything(), "reopen_closure failed");
+      expect(result).toMatchObject({
+        refused: true,
+        error: expect.stringContaining("without service"),
+      });
+      expect(JSON.stringify(result)).not.toContain("Okafor-Zielinski");
+      const written = JSON.stringify(
+        [...vi.mocked(log.info).mock.calls, ...vi.mocked(log.error).mock.calls],
+        (_key, value: unknown) =>
+          value instanceof Error ? { ...value, message: value.message } : value
+      );
+      expect(written).not.toContain("Okafor-Zielinski");
+    });
+
     it("tells two closures of the same span apart by scope", async () => {
       api.availability.getConfig.mockResolvedValue(
         configState([

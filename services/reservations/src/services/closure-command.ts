@@ -11,7 +11,9 @@ import type {
   CreateClosuresBody,
   DateRule,
   ReopenResult,
+  StrandedReservation,
 } from "@mbe/types";
+import { STRANDED_ISSUE_DETAIL_MAX } from "@mbe/types";
 import type { Prisma, PrismaClient } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
 import { affectedRange, diffConfig, inverseOf } from "./availability-config-plan.js";
@@ -72,6 +74,27 @@ export interface ClosureCaller {
   actorName?: string | null;
 }
 
+export interface RefusalIssue {
+  path: string;
+  code: string;
+  message: string;
+  reservation?: StrandedReservation;
+}
+
+/**
+ * One `strands_booking` issue per stranded booking, so the issue count is the true count. Only the
+ * first `STRANDED_ISSUE_DETAIL_MAX` carry the booking. `message` never names the guest: the agent
+ * hands it to a model.
+ */
+function strandedIssues(stranded: readonly StrandedReservation[], message: string): RefusalIssue[] {
+  return stranded.map((r, i) => ({
+    path: `reservations.${r.id}`,
+    code: "strands_booking",
+    message,
+    ...(i < STRANDED_ISSUE_DETAIL_MAX ? { reservation: r } : {}),
+  }));
+}
+
 export type CreateClosureOutcome =
   | { kind: "saved"; result: ClosureResult }
   | { kind: "not_found" }
@@ -80,7 +103,7 @@ export type CreateClosureOutcome =
   | { kind: "version_conflict"; winningChange: AvailabilityChangeSummary | null }
   | { kind: "key_reused" }
   | { kind: "closure_exists" }
-  | { kind: "invalid"; issues: { path: string; code: string; message: string }[] }
+  | { kind: "invalid"; issues: RefusalIssue[] }
   | { kind: "decision_required"; groupKeys: string[] }
   | { kind: "invalid_decision"; groupKeys: string[] }
   | { kind: "move_unavailable"; reservationIds: string[] };
@@ -327,11 +350,10 @@ async function refuseBadAlongside(tx: Db, input: CommitInput, state: ConfigState
   if (stranded.length > 0) {
     throw new Refused({
       kind: "invalid",
-      issues: stranded.map((r) => ({
-        path: `reservations.${r.id}`,
-        code: "strands_booking",
-        message: "The rows replaced beside the closure would leave this booking without service.",
-      })),
+      issues: strandedIssues(
+        stranded,
+        "The rows replaced beside the closure would leave this booking without service."
+      ),
     });
   }
 }
@@ -604,11 +626,7 @@ async function refuseStrandingReopen(
   if (stranded.length === 0) return;
   throw new Refused({
     kind: "invalid",
-    issues: stranded.map((r) => ({
-      path: `reservations.${r.id}`,
-      code: "strands_booking",
-      message: "Removing this would leave this booking without service.",
-    })),
+    issues: strandedIssues(stranded, "Removing this would leave this booking without service."),
   });
 }
 

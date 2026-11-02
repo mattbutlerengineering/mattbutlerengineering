@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { CreateClosureBody, CreateClosuresBody, DateRule } from "@mbe/types";
+import { STRANDED_ISSUE_DETAIL_MAX } from "@mbe/types";
 
 vi.mock("./database.js", () => ({ prisma: {} }));
 
@@ -1326,6 +1327,51 @@ describe("reopenClosure", () => {
         ]),
       });
       expect({ rules: w.dateRules, version: w.version, changes: w.changes.length }).toEqual(before);
+    });
+
+    it("names each stranded booking on its issue, so the client can list and link it (#8043)", async () => {
+      const w = editedThursday();
+
+      const { outcome } = await reopen(w, MANAGER, "e1");
+
+      expect(outcome).toMatchObject({
+        kind: "invalid",
+        issues: expect.arrayContaining([
+          expect.objectContaining({
+            path: "reservations.res-1",
+            code: "strands_booking",
+            reservation: {
+              id: "res-1",
+              guestName: "res-1",
+              serviceDate: "2026-12-24",
+              startTime: "2026-12-25T03:00:00.000Z",
+              partySize: 2,
+              reason: expect.any(String),
+            },
+          }),
+        ]),
+      });
+      // The message is what the agent relays to a model: it never carries a name.
+      for (const issue of (outcome as { issues: { message: string }[] }).issues) {
+        expect(issue.message).not.toMatch(/res-\d/);
+      }
+    });
+
+    it("keeps one issue per booking but names only the first few, so the count stays true (#8043)", async () => {
+      const w = editedThursday();
+      const total = STRANDED_ISSUE_DETAIL_MAX + 7;
+      w.reservations = Array.from({ length: total }, (_, i) =>
+        res(`res-${i}`, "2026-12-24", "2026-12-25T03:00:00.000Z", "2026-12-25T04:30:00.000Z")
+      );
+
+      const { outcome } = await reopen(w, MANAGER, "e1");
+
+      const issues = (outcome as { issues: { reservation?: unknown }[] }).issues;
+      expect(issues).toHaveLength(total);
+      expect(issues.filter((i) => i.reservation !== undefined)).toHaveLength(
+        STRANDED_ISSUE_DETAIL_MAX
+      );
+      expect(issues.slice(0, STRANDED_ISSUE_DETAIL_MAX).every((i) => i.reservation)).toBe(true);
     });
 
     it("takes the venue row before it scans bookings, so an in-flight booking is seen (#7975)", async () => {
