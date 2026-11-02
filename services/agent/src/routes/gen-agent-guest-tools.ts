@@ -2,7 +2,15 @@ import { tool } from "ai";
 import type { ToolSet } from "ai";
 import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
-import { NO_VENUE, failureLog, refusalOf, saveUnsure, type ApiClient } from "./gen-tool-support.js";
+import {
+  NO_VENUE,
+  failedBeforeWrite,
+  failureLog,
+  notExecuted,
+  refusalOf,
+  saveUnsure,
+  type ApiClient,
+} from "./gen-tool-support.js";
 
 /**
  * Chat tools for the guest directory (#7927): add a guest, update tags, dietary
@@ -179,7 +187,7 @@ export function createGuestTools(
           message: "A phone number or an email is required to add a guest",
         }),
       execute: async ({ name, phone, email, dietaryRestrictions }) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ venueId }, "add_guest tool called");
         try {
           const saved = await api.guests.findOrCreate({
@@ -203,12 +211,12 @@ export function createGuestTools(
         "Update a guest's profile: correct their name, phone or email, add or remove tags, or replace their dietary restrictions. Requires confirmation.",
       inputSchema: UpdateGuestInputSchema,
       execute: async (input) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ venueId }, "update_guest tool called");
         let unsure: string | undefined;
         try {
           const found = await findGuest(api, venueId, input.guest, input.contact);
-          if ("error" in found) return found;
+          if ("error" in found) return notExecuted(found);
           const current = found.guest.tags ?? [];
           const tagsChange = input.addTags || input.removeTags;
           const tags = tagsChange
@@ -231,7 +239,7 @@ export function createGuestTools(
           return { updated: true, guest: shown(updated) };
         } catch (err) {
           log.error({ ...failureLog(err), venueId }, "update_guest failed");
-          return guestFailure(err, "update the guest", unsure);
+          return failedBeforeWrite(unsure, guestFailure(err, "update the guest", unsure));
         }
       },
     }),
@@ -244,18 +252,18 @@ export function createGuestTools(
         text: z.string().min(1).max(1000).describe("The note"),
       }),
       execute: async ({ guest, contact, text }) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ venueId }, "add_guest_note tool called");
         let unsure: string | undefined;
         try {
           const found = await findGuest(api, venueId, guest, contact);
-          if ("error" in found) return found;
+          if ("error" in found) return notExecuted(found);
           unsure = GUEST_SAVE_UNSURE;
           await api.guests.addNote(found.guest.id, text);
           return { noted: true, guest: found.guest.name };
         } catch (err) {
           log.error({ ...failureLog(err), venueId }, "add_guest_note failed");
-          return guestFailure(err, "add the note", unsure);
+          return failedBeforeWrite(unsure, guestFailure(err, "add the note", unsure));
         }
       },
     }),
@@ -267,19 +275,19 @@ export function createGuestTools(
         guest: z.string().min(1).describe("The lapsing guest's name, as listed"),
       }),
       execute: async ({ guest }) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ venueId }, "send_win_back tool called");
         let unsure: string | undefined;
         try {
           const lapsing = await api.guests.getLapsing(venueId);
           const matches = lapsing.filter((g) => sameText(g.name, guest));
           if (matches.length !== 1) {
-            return {
+            return notExecuted({
               error:
                 matches.length === 0
                   ? `${guest} isn't on the lapsing guest list, so no win-back was sent.`
                   : `More than one lapsing guest is called ${guest}. Send it from the Dashboard instead.`,
-            };
+            });
           }
           unsure = winBackUnsure(matches[0]!.name);
           const { sent } = await api.guests.sendWinBack(matches[0]!.guestId);
@@ -292,7 +300,7 @@ export function createGuestTools(
               };
         } catch (err) {
           log.error({ ...failureLog(err), venueId }, "send_win_back failed");
-          return guestFailure(err, "send the win-back message", unsure);
+          return failedBeforeWrite(unsure, guestFailure(err, "send the win-back message", unsure));
         }
       },
     }),

@@ -44,6 +44,7 @@ import {
   failureLog,
   NO_REPLAY,
   NO_VENUE,
+  notExecuted,
   refusalOf,
   todayIn,
   type ApiClient,
@@ -76,12 +77,14 @@ async function saveIfNoBookings(
   try {
     impact = await api.availability.getClosureImpact(venueId, rule);
   } catch (err) {
-    return closureFailure(err, CHECK_FAILED);
+    return notExecuted(closureFailure(err, CHECK_FAILED));
   }
   if (typeof impact?.reservations !== "number" || !Array.isArray(impact.groups)) {
-    return { error: CHECK_FAILED };
+    return notExecuted({ error: CHECK_FAILED });
   }
-  if (impact.reservations > 0 || impact.groups.length > 0) return affectedResult(impact);
+  if (impact.reservations > 0 || impact.groups.length > 0) {
+    return notExecuted(affectedResult(impact));
+  }
   try {
     await api.availability.createClosure(
       venueId,
@@ -190,21 +193,21 @@ function closeDates({ log, api, venueId, timeZone }: ToolContext) {
       })
       .superRefine(scopeNeedsService),
     execute: async ({ scope, service, date, endDate }) => {
-      if (!venueId) return NO_VENUE;
+      if (!venueId) return notExecuted(NO_VENUE);
       log.info({ venueId, scope }, "close_dates tool called");
       try {
         const span = checkSpan(date, endDate, todayIn(timeZone));
-        if ("error" in span) return span;
+        if ("error" in span) return notExecuted(span);
         const state = await api.availability.getConfig(venueId);
         const target = scope === "service" ? resolveService(state.config, service!) : undefined;
-        if (target && "error" in target) return target;
+        if (target && "error" in target) return notExecuted(target);
         const closed = closedDays(state.config, target?.id, span.from, span.to);
         const named = (rule: ClosureRule) => `${scopeOf(rule, state.config)} ${spanText(rule)}`;
         if (closed.length === dayNumber(span.to)! - dayNumber(span.from)! + 1) {
           const closures = [...new Set(closed.map((c) => named(c.rule)))].join("; ");
-          return {
+          return notExecuted({
             error: `This is already closed (${closures}), which covers those dates. Nothing was changed.`,
-          };
+          });
         }
         const rule: ClosureRule = {
           id: randomUUID(),
@@ -229,7 +232,10 @@ function closeDates({ log, api, venueId, timeZone }: ToolContext) {
         };
       } catch (err) {
         log.error({ ...failureLog(err), venueId }, "close_dates failed");
-        return closureFailure(err, "Couldn't close the dates right now. Nothing was changed.");
+        // The save's own failures are caught in saveIfNoBookings: anything thrown here was a read.
+        return notExecuted(
+          closureFailure(err, "Couldn't close the dates right now. Nothing was changed.")
+        );
       }
     },
   });
@@ -247,26 +253,26 @@ function setSpecialHours({ log, api, venueId, timeZone }: ToolContext) {
       closesAt: ClockSchema.describe("Closing time, HH:MM venue-local; after midnight is fine"),
     }),
     execute: async ({ date, service, ...times }) => {
-      if (!venueId) return NO_VENUE;
+      if (!venueId) return notExecuted(NO_VENUE);
       log.info({ venueId }, "set_special_hours tool called");
       try {
         const span = checkSpan(date, undefined, todayIn(timeZone));
-        if ("error" in span) return span;
+        if ("error" in span) return notExecuted(span);
         const hours = checkHours(times);
-        if ("error" in hours) return hours;
+        if ("error" in hours) return notExecuted(hours);
         const state = await api.availability.getConfig(venueId);
         if (hasSpecialHours(state.config, span.from)) {
-          return {
+          return notExecuted({
             error: `${span.from} already has special hours. Change or remove them on the Availability page.`,
-          };
+          });
         }
         const target = resolveService(state.config, service);
-        if ("error" in target) return target;
+        if ("error" in target) return notExecuted(target);
         const closed = closureOnDay(state.config, target.id, span.from);
         if (closed) {
-          return {
+          return notExecuted({
             error: `${serviceName(state.config, target.id)} is closed on ${span.from} by an existing closure (${scopeOf(closed, state.config)}), so special hours would change nothing guests can see. Change or remove that closure on the Availability page first.`,
-          };
+          });
         }
         const built = await specialServices(
           api,
@@ -276,7 +282,7 @@ function setSpecialHours({ log, api, venueId, timeZone }: ToolContext) {
           target.id,
           hours
         );
-        if ("error" in built) return built;
+        if ("error" in built) return notExecuted(built);
         const rule: SpecialHoursRule = {
           id: randomUUID(),
           kind: "special_hours",
@@ -295,7 +301,10 @@ function setSpecialHours({ log, api, venueId, timeZone }: ToolContext) {
         };
       } catch (err) {
         log.error({ ...failureLog(err), venueId }, "set_special_hours failed");
-        return closureFailure(err, "Couldn't set the hours right now. Nothing was changed.");
+        // The save's own failures are caught in saveIfNoBookings: anything thrown here was a read.
+        return notExecuted(
+          closureFailure(err, "Couldn't set the hours right now. Nothing was changed.")
+        );
       }
     },
   });
@@ -336,13 +345,18 @@ function stillClosedFields(saved: ReopenResult, config: AvailabilityConfig) {
   };
 }
 
-/** A recoverable refusal: nothing was reopened, and the same call must not be repeated. */
-const CLOSURE_CHANGED = {
+/**
+ * A recoverable refusal: nothing was reopened, and the same call must not be repeated.
+ * Both ways to reach it write nothing: the token mismatch is found before any request,
+ * and the server's version-conflict rolls its transaction back (and is the first
+ * attempt's answer, because the reopen is sent with NO_REPLAY).
+ */
+const CLOSURE_CHANGED = notExecuted({
   refused: true,
   changed: true,
   error:
     "This closure changed since it was listed (a teammate may have edited it), so it wasn't reopened. Tell the user it changed and they should look again: call list_closures, show what is there now, and ask whether to reopen it. Don't repeat the same call. Nothing was changed.",
-};
+});
 
 function reopenClosure({ log, api, venueId }: ToolContext) {
   return tool({
@@ -370,13 +384,15 @@ function reopenClosure({ log, api, venueId }: ToolContext) {
       })
       .superRefine(scopeNeedsService),
     execute: async ({ from, to, scope, service, tellCancelledGuests, readAs }) => {
-      if (!venueId) return NO_VENUE;
+      if (!venueId) return notExecuted(NO_VENUE);
       log.info({ venueId, scope }, "reopen_closure tool called");
       const start = dayNumber(from);
       const end = to.trim() === UNTIL_REOPENED ? null : dayNumber(to);
-      if (start === undefined || end === undefined) return { error: UNREADABLE_SPAN_DATE };
+      if (start === undefined || end === undefined) {
+        return notExecuted({ error: UNREADABLE_SPAN_DATE });
+      }
       if (end !== null && end < start) {
-        return { error: `The last date (${to}) is before the first (${from}).` };
+        return notExecuted({ error: `The last date (${to}) is before the first (${from}).` });
       }
       let rule: ClosureRule;
       let children: DateRule[];
@@ -388,14 +404,14 @@ function reopenClosure({ log, api, venueId }: ToolContext) {
       try {
         const state = await api.availability.getConfig(venueId);
         const target = scope === "service" ? resolveService(state.config, service!) : undefined;
-        if (target && "error" in target) return target;
+        if (target && "error" in target) return notExecuted(target);
         const found = findReopenable(state.config, {
           from: from.trim(),
           to: end === null ? null : to.trim(),
           scope,
           serviceId: target?.id,
         });
-        if ("error" in found) return { refused: true, ...found };
+        if ("error" in found) return notExecuted({ refused: true, ...found });
         rule = found.rule;
         children = childrenOf(state.config, rule.id);
         // The Host confirmed what the list showed. Reading the closure now is not that: if it
@@ -408,17 +424,17 @@ function reopenClosure({ log, api, venueId }: ToolContext) {
           return undefined;
         });
         if (!counts) {
-          return {
+          return notExecuted({
             error:
               "Couldn't read how many guests this closure cancelled, so it can't decide whether to tell them. Nothing was changed. Ask the user to try again shortly.",
-          };
+          });
         }
         const summary = counts.find((c) => c.ruleId === rule.id);
         cancelled = summary?.cancelled ?? 0;
         reachable = summary?.upcomingCancelled ?? cancelled;
       } catch (err) {
         log.error({ ...failureLog(err), venueId }, "reopen_closure failed to read");
-        return closureFailure(err, "Couldn't read the closures. Nothing was changed.");
+        return notExecuted(closureFailure(err, "Couldn't read the closures. Nothing was changed."));
       }
       const told = tellCancelledGuests && reachable > 0;
       let notified: number;

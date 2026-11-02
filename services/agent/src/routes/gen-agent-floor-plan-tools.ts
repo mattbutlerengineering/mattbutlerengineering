@@ -2,7 +2,14 @@ import { tool } from "ai";
 import type { ToolSet } from "ai";
 import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
-import { NO_VENUE, refusalOf, saveUnsure, type ApiClient } from "./gen-tool-support.js";
+import {
+  NO_VENUE,
+  failedBeforeWrite,
+  notExecuted,
+  refusalOf,
+  saveUnsure,
+  type ApiClient,
+} from "./gen-tool-support.js";
 
 /**
  * Chat tools for floor plans (#7930): read the venue's plans, and switch which
@@ -105,22 +112,22 @@ export function createFloorPlanTools(
           .describe("The floor plan's name, as list_floor_plans gives it"),
       }),
       execute: async ({ floorPlan }) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ venueId }, "activate_floor_plan tool called");
         let unsure: string | undefined;
         try {
           const { data } = await api.floorPlans.list({ venueId, limit: PLAN_PAGE_SIZE });
           const found = findPlan(data, floorPlan);
-          if ("error" in found) return found;
+          if ("error" in found) return notExecuted(found);
           if (found.plan.isActive) {
-            return { alreadyActive: true, floorPlan: found.plan.name };
+            return notExecuted({ alreadyActive: true, floorPlan: found.plan.name });
           }
           unsure = saveUnsure("list_floor_plans");
           await api.floorPlans.setActive(found.plan.id);
           return { updated: true, floorPlan: found.plan.name };
         } catch (err) {
           log.error({ err, venueId }, "activate_floor_plan failed");
-          return writeFailure(err, unsure);
+          return failedBeforeWrite(unsure, writeFailure(err, unsure));
         }
       },
     }),

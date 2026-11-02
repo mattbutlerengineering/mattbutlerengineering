@@ -12,8 +12,10 @@ import type {
 import {
   NO_REPLAY,
   NO_VENUE,
+  failedBeforeWrite,
   failureLog,
   localTimeIn,
+  notExecuted,
   refusalOf,
   saveUnsure,
   resolveTable,
@@ -373,13 +375,13 @@ export function createAvailabilityTools(
         "Make one Tonight change for the venue's current service day; it ends on its own when the day does. Requires confirmation. For a closure, special hours or a schedule change on another day, point the user to the Availability page instead.",
       inputSchema: ChangeTonightInputSchema,
       execute: async (input) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ venueId, change: input.change }, "change_tonight_availability tool called");
         let unsure: string | undefined;
         try {
           const state = await api.availability.getConfig(venueId);
           const built = await buildChange(input, state.config, api, venueId);
-          if ("error" in built) return built;
+          if ("error" in built) return notExecuted(built);
           unsure = TONIGHT_SAVE_UNSURE;
           const result = await api.availability.setTonight(venueId, {
             expectedVersion: state.version,
@@ -397,7 +399,10 @@ export function createAvailabilityTools(
             { ...failureLog(err), venueId, change: input.change },
             "change_tonight_availability failed"
           );
-          return availabilityWriteFailure(err, "make the change", unsure);
+          return failedBeforeWrite(
+            unsure,
+            availabilityWriteFailure(err, "make the change", unsure)
+          );
         }
       },
     }),
@@ -412,7 +417,7 @@ export function createAvailabilityTools(
         ),
       }),
       execute: async ({ change, from }) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ venueId, change }, "end_tonight_change tool called");
         let unsure: string | undefined;
         try {
@@ -424,19 +429,21 @@ export function createAvailabilityTools(
               )
             : ofKind;
           if (matches.length === 0) {
-            return { error: `No ${change.replace(/_/g, " ")} change is in force tonight.` };
+            return notExecuted({
+              error: `No ${change.replace(/_/g, " ")} change is in force tonight.`,
+            });
           }
           if (matches.length > 1) {
-            return {
+            return notExecuted({
               error: `More than one ${change.replace(/_/g, " ")} change is in force. Ask which one, by its start time.`,
-            };
+            });
           }
           unsure = TONIGHT_SAVE_UNSURE;
           await api.availability.endTonight(venueId, matches[0]!.id, NO_REPLAY);
           return { ended: true, change };
         } catch (err) {
           log.error({ ...failureLog(err), venueId, change }, "end_tonight_change failed");
-          return availabilityWriteFailure(err, "end the change", unsure);
+          return failedBeforeWrite(unsure, availabilityWriteFailure(err, "end the change", unsure));
         }
       },
     }),
@@ -448,21 +455,21 @@ export function createAvailabilityTools(
         summary: z.string().min(1).describe("The undoable change's summary, copied exactly"),
       }),
       execute: async ({ summary }) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ venueId }, "undo_availability_change tool called");
         let unsure: string | undefined;
         try {
           const newest = undoableOf(await api.availability.listChanges(venueId, { limit: 1 }));
           if (!newest) {
-            return {
+            return notExecuted({
               error: "No availability change can be undone right now. Nothing was changed.",
-            };
+            });
           }
           // The user confirmed this summary: undo only that change, never whatever is newest now.
           if (newest.summary !== summary) {
-            return {
+            return notExecuted({
               error: `The newest change is now "${newest.summary}", not the one confirmed. Nothing was changed; ask the user again.`,
-            };
+            });
           }
           const { version } = await api.availability.getConfig(venueId);
           unsure = TONIGHT_SAVE_UNSURE;
@@ -470,7 +477,10 @@ export function createAvailabilityTools(
           return { undone: true, summary };
         } catch (err) {
           log.error({ ...failureLog(err), venueId }, "undo_availability_change failed");
-          return availabilityWriteFailure(err, "undo the change", unsure);
+          return failedBeforeWrite(
+            unsure,
+            availabilityWriteFailure(err, "undo the change", unsure)
+          );
         }
       },
     }),
