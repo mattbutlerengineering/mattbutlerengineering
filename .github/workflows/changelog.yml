@@ -52,22 +52,33 @@ jobs:
           # Node's 1 MB default child_process maxBuffer, which throws a bare
           # ENOBUFS before changelogen ever writes CHANGELOG.md. This is a
           # monthly job, so bound the range to the preceding calendar month.
-          FROM_REF=$(git rev-list -1 --before="$(date -u -d '1 month ago' +%Y-%m-01)" HEAD)
-          if [ -z "$FROM_REF" ]; then
-            echo "No commit found before the 1-month boundary; nothing to summarize."
-            exit 0
-          fi
+          #
+          # A fixed month is not a permanent fix: the log crossed the byte
+          # margin on 2026-11-01 (1,043,665 bytes) and commit volume keeps
+          # growing (#8062). Start at the month boundary and narrow the
+          # window step by step until the `git log` changelogen shells out to
+          # fits under the safety margin below Node's 1 MB maxBuffer.
+          MAX_SAFE_BYTES="${CHANGELOG_MAX_SAFE_BYTES:-900000}"
+          FROM_REF=""
+          LOG_BYTES=0
+          for BOUND in "$(date -u -d '1 month ago' +%Y-%m-01)" "14 days ago" "7 days ago" "3 days ago" "1 day ago"; do
+            FROM_REF=$(git rev-list -1 --before="$BOUND" HEAD)
+            if [ -z "$FROM_REF" ]; then
+              echo "No commit found before the ${BOUND} boundary; nothing to summarize."
+              exit 0
+            fi
+            LOG_BYTES=$(git log "${FROM_REF}..HEAD" --format='%H%n%B' | wc -c)
+            if [ "$LOG_BYTES" -le "$MAX_SAFE_BYTES" ]; then
+              echo "Changelog window: ${BOUND} (${FROM_REF}..HEAD, ${LOG_BYTES} bytes)"
+              break
+            fi
+            echo "Window ${BOUND} is ${LOG_BYTES} bytes, over ${MAX_SAFE_BYTES}; narrowing."
+          done
 
-          # A month-bound is not a permanent fix -- one month's log is
-          # already 758,785 bytes across 701 commits as of 2026-08, and this
-          # repo's commit volume will cross the 1 MB maxBuffer again within a
-          # few months. Fail loud and diagnosable here instead of letting
-          # changelogen's internal git-log shell-out die with a bare,
-          # undiagnosable ENOBUFS like it has every month since 2026-07.
-          LOG_BYTES=$(git log "${FROM_REF}..HEAD" --format='%H%n%B' | wc -c)
-          MAX_SAFE_BYTES=900000
+          # Even the narrowest window is too big: fail loud and diagnosable
+          # instead of letting changelogen die with a bare ENOBUFS.
           if [ "$LOG_BYTES" -gt "$MAX_SAFE_BYTES" ]; then
-            echo "::error::Commit log for ${FROM_REF}..HEAD is ${LOG_BYTES} bytes, over the ${MAX_SAFE_BYTES}-byte safety margin below Node's 1 MB child_process maxBuffer that broke this job with a bare ENOBUFS from 2026-07 onward. Narrow the range (e.g. two weeks instead of a month) rather than widening it."
+            echo "::error::Commit log for ${FROM_REF}..HEAD is ${LOG_BYTES} bytes even for the narrowest window, over the ${MAX_SAFE_BYTES}-byte safety margin below Node's 1 MB child_process maxBuffer (bare ENOBUFS from 2026-07 onward)."
             exit 1
           fi
 
