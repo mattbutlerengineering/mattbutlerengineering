@@ -265,6 +265,26 @@ describe("growthClosure", () => {
     expect(closuresOn(after, FIXTURE_DATE)).toHaveLength(0);
     expect(closuresOn(after, "2026-10-03")).toHaveLength(1);
   });
+
+  it("all dates: moves every skip of the series, even one dated before it starts (#8028)", () => {
+    // The server refuses a removal that leaves a skip pointing at the removed series.
+    const before = {
+      ...skipDate(SERIES, "2026-09-24", makeId).upsert.dateRules![0]!,
+      startsOn: "2026-09-24",
+    };
+    const config = fixtureConfig(SERIES, before);
+    const plan = growthClosure(
+      config,
+      SERIES,
+      "all",
+      NEXT_FRIDAY,
+      { weekdays: [5, 6], endsOn: null },
+      makeId
+    );
+
+    expect(plan.alongside.remove).toEqual([SERIES.id]);
+    expect(plan.alongside.upsert).toEqual([{ ...before, seriesId: plan.rule.id }]);
+  });
 });
 
 describe("nextOccurrence", () => {

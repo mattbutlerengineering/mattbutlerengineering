@@ -13649,7 +13649,10 @@
       if (value === null || typeof value !== "object") return value;
       return Object.fromEntries(
         Object.entries(value)
-          .filter(([, v]) => v != null && !(Array.isArray(v) && v.length === 0))
+          .filter(
+            ([k, v]) =>
+              v != null && !(Array.isArray(v) && v.length === 0) && !(OPTIONAL_TEXT.has(k) && v === "")
+          )
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([k, v]) => [k, canonical(v)])
       );
@@ -13676,6 +13679,8 @@
       const [seriesId] = alongside.remove;
       const series = stored.find((r) => r.id === seriesId);
       if (!series) return false;
+      const moved = new Set(alongside.upsert.map((r) => r.id));
+      if (stored.some((r) => r.seriesId === series.id && !moved.has(r.id))) return true;
       if (alongside.replaces) return !same(alongside.replaces, series);
       const { id, startsOn, endsOn, repeat } = series;
       return !same({ ...draft, id, startsOn, endsOn, repeat }, series);

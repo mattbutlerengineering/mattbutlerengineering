@@ -7,8 +7,11 @@ import {
   ClosuresResultSchema,
   ClosureSummariesSchema,
   ReopenResultSchema,
+  type CreateClosureBody,
+  type DateRule,
 } from "@mbe/types";
 import { buildApp } from "../app.js";
+import { checkAlongside, seriesChangedSinceRead } from "../services/closure-alongside.js";
 import { ClosureRefundEnqueueError } from "../services/closure-refund.js";
 import { jwtVerify } from "jose";
 
@@ -101,6 +104,61 @@ describe("closure routes", () => {
           body: BODY,
         })
       );
+    });
+
+    describe("a series edit of rows with no guest message or staff note (#8028)", () => {
+      // GET answers these as null; Ajv coerces a null in the body to "", so the stored row and the
+      // row the command receives must still compare equal.
+      const text = { guestMessage: null, staffNote: null };
+      const series = {
+        id: "s1",
+        kind: "closure",
+        targetKind: "venue",
+        startsOn: "2026-12-01",
+        endsOn: null,
+        repeat: { version: 1, weekdays: [4] },
+        ...text,
+      };
+      const skip = {
+        id: "k1",
+        kind: "skip",
+        targetKind: "venue",
+        startsOn: "2026-12-03",
+        endsOn: "2026-12-03",
+        seriesId: "s1",
+        ...text,
+      };
+      const draft = { ...series, id: "s2", repeat: { version: 1, weekdays: [4, 5] } };
+      const stored = [series, skip] as DateRule[];
+
+      /** What the command receives after the route's real validation. */
+      const received = async (alongside: unknown) => {
+        commandSvc.create.mockResolvedValueOnce({ kind: "saved", result: RESULT });
+        const res = await post({ expectedVersion: 4, rule: draft, alongside, decisions: [] });
+        expect(res.statusCode).toBe(200);
+        return commandSvc.create.mock.calls[0]![0].body as CreateClosureBody;
+      };
+      const moved = { ...skip, seriesId: "s2" };
+
+      it.each([
+        ["names the series it replaces", { replaces: series }],
+        ["is from an older client that names none", {}],
+      ])("accepts a remove-path edit that %s", async (_name, extra) => {
+        const body = await received({ upsert: [moved], remove: ["s1"], ...extra });
+        expect(seriesChangedSinceRead(stored, body.rule, body.alongside!)).toBe(false);
+        expect(checkAlongside(stored, body.rule, body.alongside!)).toBeNull();
+      });
+
+      it("accepts a this-and-following edit, which ends the series", async () => {
+        const ended = { ...series, endsOn: "2026-12-09" };
+        const body = await received({ upsert: [ended, moved], remove: [] });
+        expect(checkAlongside(stored, body.rule, body.alongside!)).toBeNull();
+      });
+
+      it("accepts moving a skip beside a series that is removed", async () => {
+        const body = await received({ upsert: [moved], remove: ["s1"] });
+        expect(checkAlongside(stored, body.rule, body.alongside!)).toBeNull();
+      });
     });
 
     it("enqueues the notices for the saved closure, replays included", async () => {

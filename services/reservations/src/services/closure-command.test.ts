@@ -1040,6 +1040,48 @@ describe("createClosure", () => {
       expect(tx.dateRule.update).not.toHaveBeenCalled();
     });
 
+    describe("a skip a teammate added after the plan was built", () => {
+      const storedSkip = {
+        ...stored,
+        id: "k1",
+        kind: "skip",
+        startsOn: new Date("2026-12-03T00:00:00.000Z"),
+        endsOn: new Date("2026-12-03T00:00:00.000Z"),
+        repeat: null,
+        seriesId: "s1",
+      };
+      const moved = {
+        id: "k1",
+        kind: "skip",
+        targetKind: "venue",
+        startsOn: "2026-12-03",
+        endsOn: "2026-12-03",
+        seriesId: "s2",
+      } as DateRule;
+      const withSkip = (): World => world({ dateRules: [stored, storedSkip], reservations: [] });
+      const planned = (upsert: DateRule[], replaces?: DateRule): Partial<CreateClosureBody> => ({
+        ...edit(replaces),
+        alongside: { upsert, remove: ["s1"], ...(replaces ? { replaces } : {}) },
+      });
+
+      it.each([
+        ["names the series", readSeries],
+        ["is from an older client", undefined],
+      ])("refuses a plan that leaves it behind (%s)", async (_n, replaces) => {
+        const w = withSkip();
+        const { outcome, tx } = await run(w, body(planned([], replaces)));
+
+        expect(outcome.kind).toBe("version_conflict");
+        expect(w.version).toBe(4);
+        expect(tx.dateRule.create).not.toHaveBeenCalled();
+      });
+
+      it("saves a plan that moves every skip of the series", async () => {
+        const { outcome } = await run(withSkip(), body(planned([moved], readSeries)));
+        expect(outcome.kind).toBe("saved");
+      });
+    });
+
     it("saves when the series is still the one the edit was built from", async () => {
       const { outcome } = await run(changedBy({}), body(edit(readSeries)));
       expect(outcome.kind).toBe("saved");

@@ -141,11 +141,14 @@ export function growthClosure(
 ): { rule: DateRule; alongside: ClosureAlongside } {
   const from = scope === "all" || date <= series.startsOn ? series.startsOn : date;
   const rule: DateRule = { ...withEdit(series, edit), id: makeId(), startsOn: from };
+  const removing = from === series.startsOn;
+  // A removed series takes every child with it, even one dated before it starts: the server refuses
+  // a removal that leaves a skip pointing at the series it removed.
   const moved = config.dateRules
-    .filter((r) => r.seriesId === series.id && r.startsOn >= from)
+    .filter((r) => r.seriesId === series.id && (removing || r.startsOn >= from))
     .map((r) => ({ ...r, seriesId: rule.id }));
   // `replaces` is the row this draft was built from; the server refuses if the stored one differs.
-  if (from === series.startsOn) {
+  if (removing) {
     return { rule, alongside: { upsert: moved, remove: [series.id], replaces: series } };
   }
   const ended: DateRule = { ...series, endsOn: addDays(from, -1) };
