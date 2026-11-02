@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
 import { test, expect } from "./fixtures.js";
 import { loadFixture } from "./api-mocks.js";
 import { localDay } from "./local-day.js";
@@ -283,3 +284,108 @@ test("a series edit the server refuses as built from a changed series returns to
   expect(saves).toHaveLength(1);
   expect(saves[0]?.alongside?.replaces).toMatchObject({ id: "series-1" });
 });
+
+/**
+ * #7984. Skipping one date of a repeating closure is a config save that tells no guest, so it
+ * offers Undo, and Undo reverts that change against the version the skip produced.
+ */
+const SKIP_LOCALES = [
+  {
+    tag: "en-US",
+    special: "Special dates",
+    edit: "Edit dates…",
+    dialog: "Edit dates",
+    skip: "Skip this date",
+    undo: "Undo",
+  },
+  {
+    tag: "fr-CA",
+    special: "Dates spéciales",
+    edit: "Modifier les dates…",
+    dialog: "Modifier les dates",
+    skip: "Ignorer cette date",
+    undo: "Annuler",
+  },
+] as const;
+
+for (const locale of SKIP_LOCALES) {
+  for (const { width, height } of sizes) {
+    test(`skipping a date of a repeating closure offers Undo in ${locale.tag} (${width}x${height}, #7984)`, async ({
+      mockedPage,
+    }) => {
+      const month = localDay().slice(0, 8);
+      const series = {
+        id: "series-1",
+        kind: "closure",
+        targetKind: "venue",
+        startsOn: `${month}08`,
+        endsOn: null,
+        repeat: { version: 1, weekdays: [1] },
+        guestMessage: "Closed on Mondays",
+      };
+      const venues = JSON.parse(loadFixture("venues-list")) as { data: Array<{ id: string }> };
+      const base = `**/api/v1/venues/${String(venues.data[0]?.id)}`;
+      const json = (data: unknown) => ({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data }),
+      });
+      const saves: Array<{ expectedVersion: number }> = [];
+      const reverts: Array<{ expectedVersion: number }> = [];
+
+      await mockedPage.addInitScript(
+        (tag) => localStorage.setItem("mbe-hospitality-locale", tag),
+        locale.tag
+      );
+      await mockedPage.setViewportSize({ width, height });
+      await mockedPage.clock.setFixedTime(firstOfMonthNoon());
+      const config = {
+        schedules: [{ id: "regular", name: "Regular week", kind: "regular", isRegular: true }],
+        venueServices: [{ id: "vs-dinner", name: "Dinner", position: 0 }],
+        scheduleServices: [
+          {
+            id: "ss-dinner",
+            scheduleId: "regular",
+            venueServiceId: "vs-dinner",
+            ...DINNER,
+            seating: { version: 1, interval: 15 },
+            bookingTypes: ["online", "phone"],
+          },
+        ],
+        assignments: [
+          { id: "as", scheduleId: "regular", weekdays: [0, 1, 2, 3, 4, 5, 6], precedence: 0 },
+        ],
+        dateRules: [series],
+      };
+      await mockedPage.route(`${base}/availability/config`, (route) => {
+        if (route.request().method() === "PUT") {
+          saves.push(route.request().postDataJSON() as { expectedVersion: number });
+          return route.fulfill(json({ version: 8, changeId: "chg-8" }));
+        }
+        return route.fulfill(json({ config, version: 7, source: "rows" }));
+      });
+      await mockedPage.route(`${base}/availability/days*`, (route) => route.fulfill(json([])));
+      await mockedPage.route(`${base}/closures`, (route) => route.fulfill(json([])));
+      await mockedPage.route(`${base}/availability/changes/**`, (route) => {
+        reverts.push(route.request().postDataJSON() as { expectedVersion: number });
+        return route.fulfill(json({ version: 9, changeId: "chg-9" }));
+      });
+
+      await mockedPage.goto("availability");
+      await mockedPage.getByRole("radio", { name: locale.special }).click();
+      await mockedPage.getByRole("button", { name: locale.edit }).click();
+      const dialog = mockedPage.getByRole("dialog", { name: locale.dialog });
+      await dialog.getByRole("button", { name: locale.skip }).click();
+
+      const undo = mockedPage.getByRole("button", { name: locale.undo });
+      await expect(undo).toBeVisible();
+      const results = await new AxeBuilder({ page: mockedPage }).include("main").analyze();
+      expect(results.violations).toEqual([]);
+      await undo.click();
+
+      await expect.poll(() => reverts.length).toBe(1);
+      expect(saves).toHaveLength(1);
+      expect(reverts[0]?.expectedVersion).toBe(8);
+    });
+  }
+}

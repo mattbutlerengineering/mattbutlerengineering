@@ -9,6 +9,9 @@ const refresh = vi.hoisted(() => vi.fn());
 vi.mock("../../hooks/useClosures.js", () => ({
   useCreateClosure: () => ({ mutateAsync: create, isPending: false }),
 }));
+vi.mock("../../hooks/useAvailability.js", () => ({
+  useRevertAvailabilityChange: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
 vi.mock("../../hooks/useRefreshAvailability.js", () => ({ useRefreshAvailability: () => refresh }));
 vi.mock("@mbe/auth/react", () => ({ useAuth: () => ({ user: { id: "auth0|me" } }) }));
 vi.mock("../../contexts/VenueContext.js", () => ({

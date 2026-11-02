@@ -17,6 +17,8 @@ interface EnqueueInput {
   venueId: string;
   ruleId: string;
   now: Date;
+  /** Outcomes moved in from a replaced series: told when they were decided, not again. */
+  carried?: readonly string[];
 }
 
 /** The closure's earliest covered service date on or after today in venue time, or `null` when none is left. */
@@ -77,7 +79,10 @@ export function createClosureNoticeService(deps: { scheduler: Scheduler; store?:
   const store = deps.store ?? defaultStore;
 
   async function enqueue(variant: NoticeVariant, input: EnqueueInput): Promise<number> {
-    const outcomes = await store.listNotifiable(input.venueId, input.ruleId, variant, input.now);
+    const carried = new Set(input.carried);
+    const outcomes = (
+      await store.listNotifiable(input.venueId, input.ruleId, variant, input.now)
+    ).filter((o) => !carried.has(o.outcomeId));
     if (outcomes.length === 0) return 0;
     const urgent = await isUrgent(store, input);
     await Promise.all(

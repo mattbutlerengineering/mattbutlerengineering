@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import { ApiClientError } from "@mbe/api-client";
@@ -8,12 +8,14 @@ const create = vi.hoisted(() => vi.fn());
 const preview = vi.hoisted(() => vi.fn());
 const saveConfig = vi.hoisted(() => vi.fn());
 const refresh = vi.hoisted(() => vi.fn());
+const revert = vi.hoisted(() => vi.fn());
 vi.mock("../../hooks/useClosures.js", () => ({
   useCreateClosure: () => ({ mutateAsync: create, isPending: false }),
   usePreviewClosureImpact: () => ({ mutateAsync: preview, isPending: false }),
 }));
 vi.mock("../../hooks/useAvailability.js", () => ({
   useSaveAvailabilityConfig: () => ({ mutateAsync: saveConfig, isPending: false }),
+  useRevertAvailabilityChange: () => ({ mutateAsync: revert, isPending: false }),
 }));
 vi.mock("../../hooks/useRefreshAvailability.js", () => ({ useRefreshAvailability: () => refresh }));
 vi.mock("../../contexts/VenueContext.js", () => ({
@@ -22,6 +24,8 @@ vi.mock("../../contexts/VenueContext.js", () => ({
   }),
 }));
 
+import { localeRuntime } from "../../i18n/runtime.js";
+import frCA from "../../i18n/catalogs/fr-CA.json";
 import { SeriesEditDialog } from "./SeriesEditDialog.js";
 import { fixtureConfig } from "./resolved-day-fixtures.js";
 
@@ -107,16 +111,25 @@ function renderSeriesDialog(initial: readonly DateRule[] = [SERIES]) {
   };
 }
 
-const allDatesAddingTuesday = () => {
-  fireEvent.click(screen.getByRole("radio", { name: "All dates in the series" }));
-  fireEvent.click(screen.getByRole("checkbox", { name: "Tue" }));
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+/** The controls the growth flow presses, by the name they carry in a locale. */
+const NAMES = {
+  scopeAll: "All dates in the series",
+  tuesday: "Tue" as string | RegExp,
+  save: "Save",
+  cancelChoice: /Cancel, notify & refund/ as RegExp,
+  closeAndCancel: /Close and cancel/ as RegExp,
 };
 
-async function toStepTwoAndCancel() {
-  allDatesAddingTuesday();
-  fireEvent.click(await screen.findByRole("radio", { name: /Cancel, notify & refund/ }));
-  fireEvent.click(screen.getByRole("button", { name: /Close and cancel/ }));
+const allDatesAddingTuesday = (names = NAMES) => {
+  fireEvent.click(screen.getByRole("radio", { name: names.scopeAll }));
+  fireEvent.click(screen.getByRole("checkbox", { name: names.tuesday }));
+  fireEvent.click(screen.getByRole("button", { name: names.save }));
+};
+
+async function toStepTwoAndCancel(names = NAMES) {
+  allDatesAddingTuesday(names);
+  fireEvent.click(await screen.findByRole("radio", { name: names.cancelChoice }));
+  fireEvent.click(screen.getByRole("button", { name: names.closeAndCancel }));
 }
 
 describe("SeriesEditDialog after someone else's change (#7978)", () => {
@@ -124,8 +137,85 @@ describe("SeriesEditDialog after someone else's change (#7978)", () => {
     window.HTMLElement.prototype.scrollIntoView = vi.fn();
   });
   beforeEach(() => {
-    [create, preview, saveConfig, refresh].forEach((mock) => mock.mockReset());
+    [create, preview, saveConfig, refresh, revert].forEach((mock) => mock.mockReset());
     preview.mockResolvedValue(IMPACT);
+  });
+
+  it("offers Undo of a series edit that only reopens dates, reverting that change (F-SER 4)", async () => {
+    saveConfig.mockResolvedValue({ version: 8, changeId: "chg-8" });
+    revert.mockResolvedValue({ version: 9, changeId: "chg-9" });
+    const wide = { ...SERIES, repeat: { version: 1 as const, weekdays: [1, 3] } };
+    renderSeriesDialog([wide]);
+    fireEvent.click(screen.getByRole("radio", { name: "All dates in the series" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Wed" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+    await waitFor(() =>
+      expect(revert).toHaveBeenCalledWith({
+        venueId: "venue-1",
+        changeId: "chg-8",
+        expectedVersion: 8,
+      })
+    );
+  });
+
+  describe("a growth that kept every group silently (#7984)", () => {
+    const SILENT = { cancel: 0, move: 0, keep_notify: 0, keep_silent: 1 };
+    const grewSilently = async (undo: string, names = NAMES) => {
+      create.mockResolvedValue({
+        ruleId: "r-new",
+        version: 8,
+        changeId: "chg-8",
+        outcomes: SILENT,
+      });
+      revert.mockResolvedValue({ version: 9, changeId: "chg-9" });
+      renderSeriesDialog();
+      await toStepTwoAndCancel(names);
+      fireEvent.click(await screen.findByRole("button", { name: undo }));
+      await waitFor(() =>
+        expect(revert).toHaveBeenCalledWith({
+          venueId: "venue-1",
+          changeId: "chg-8",
+          expectedVersion: 8,
+        })
+      );
+    };
+
+    afterEach(async () => {
+      await localeRuntime.i18n.changeLanguage("en-US");
+    });
+
+    it("offers Undo in en-US, reverting that change", async () => {
+      await grewSilently("Undo");
+      expect(revert).toHaveBeenCalledTimes(1);
+    });
+
+    it("offers Undo in fr-CA, reverting that change", async () => {
+      localeRuntime.i18n.addResourceBundle("fr-CA", "translation", frCA, true, true);
+      await localeRuntime.i18n.changeLanguage("fr-CA");
+      await grewSilently(frCA.availability.undo.action, {
+        scopeAll: frCA.availabilitySpecial.series.scopeAll,
+        tuesday: /^mar/i,
+        save: frCA.availabilitySpecial.series.save,
+        cancelChoice: new RegExp(frCA.availability.close.step2.action.cancel),
+        closeAndCancel: /^Fermer et annuler/,
+      });
+      expect(revert).toHaveBeenCalledTimes(1);
+    });
+
+    it("offers no Undo once a guest was told", async () => {
+      create.mockResolvedValue({
+        ruleId: "r-new",
+        version: 8,
+        changeId: "chg-8",
+        outcomes: { ...SILENT, cancel: 1 },
+      });
+      renderSeriesDialog();
+      await toStepTwoAndCancel();
+      await screen.findByText(/notified/);
+      expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+    });
   });
 
   it("names the series it replaces on the save, so the server can tell a changed one (#8028)", async () => {
