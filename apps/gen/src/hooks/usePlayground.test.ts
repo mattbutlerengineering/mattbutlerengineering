@@ -222,15 +222,10 @@ describe("usePlayground", () => {
     );
   });
 
-  it("toasts an error when the session reports one", () => {
+  it("does not toast a failure the prompt bar and preview already report inline", () => {
     const { rerender } = renderHook(() => usePlayground());
     h.sessionError = new Error("boom");
     act(() => rerender());
-    expect(h.toast).toHaveBeenCalledWith({
-      title: "Generation failed",
-      description: "boom",
-      variant: "error",
-      duration: 5000,
-    });
+    expect(h.toast).not.toHaveBeenCalledWith(expect.objectContaining({ variant: "error" }));
   });
 });

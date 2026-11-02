@@ -6,6 +6,7 @@ import {
 } from "./notifications/index.js";
 import { getPublicApiBaseUrlConfig } from "./config/public-api-base-url.js";
 import { resolveManageBaseUrl } from "./config/manage-base-url.js";
+import { createHostBrandResolver } from "./config/host-brand.js";
 
 /**
  * Reads Resend env vars once and constructs a ResendNotificationAdapter.
@@ -41,6 +42,9 @@ export function createResendAdapter(): ResendNotificationAdapter {
     fromAddress: process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
     manageBaseUrl: resolveManageBaseUrl(process.env),
     publicApiBaseUrl,
+    // Brands confirmation/reminder/modified/cancelled/closure emails by the
+    // booking's origin host (#7892), always on the verified sending domain.
+    brandFor: createHostBrandResolver(process.env),
   });
 }
 

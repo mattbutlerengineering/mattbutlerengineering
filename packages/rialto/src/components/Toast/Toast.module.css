@@ -12,6 +12,12 @@
   width: 100%;
 }
 
+.container[data-placement="top-end"] {
+  bottom: auto;
+  top: var(--rialto-space-lg);
+  flex-direction: column;
+}
+
 /* ── Individual toast ────────────────────────── */
 .toast {
   composes: glass from "../../styles/surfaces.module.css";
@@ -175,5 +181,10 @@
        base rule's width: 100% over-constrains the fixed box (insets lose to
        width) and pushes it inset-inline-start px past the viewport edge. */
     width: auto;
+  }
+
+  .container[data-placement="top-end"] {
+    bottom: auto;
+    top: var(--rialto-space-sm);
   }
 }

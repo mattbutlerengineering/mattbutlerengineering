@@ -177,6 +177,42 @@ describe("POST /public/v1/venues/:slug/reservations", () => {
     expect(body.data.manageToken).toBeDefined();
   });
 
+  // #7892: the booking's origin host is captured from the request so later
+  // guest emails can brand by it.
+  it("resolves the allowlisted Origin header into confirmHold's originHost", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(confirmHold).mockResolvedValueOnce({
+      success: true,
+      reservation: mockReservation,
+    });
+
+    await app.inject({
+      method: "POST",
+      url: "/public/v1/venues/the-oak-table/reservations",
+      headers: { ...SESSION_HEADERS, origin: "https://eat-sheet.com" },
+      payload: { holdId: "hold_1", guestName: "Jane Doe", guestEmail: "jane@example.com" },
+    });
+
+    expect(vi.mocked(confirmHold).mock.calls.at(-1)?.[0].originHost).toBe("eat-sheet.com");
+  });
+
+  it("resolves originHost to null when the Origin header is missing or unrecognized", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(confirmHold).mockResolvedValueOnce({
+      success: true,
+      reservation: mockReservation,
+    });
+
+    await app.inject({
+      method: "POST",
+      url: "/public/v1/venues/the-oak-table/reservations",
+      headers: SESSION_HEADERS,
+      payload: { holdId: "hold_1", guestName: "Jane Doe", guestEmail: "jane@example.com" },
+    });
+
+    expect(vi.mocked(confirmHold).mock.calls.at(-1)?.[0].originHost).toBeNull();
+  });
+
   it("returns 410 when hold is expired", async () => {
     vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
     vi.mocked(confirmHold).mockResolvedValueOnce({

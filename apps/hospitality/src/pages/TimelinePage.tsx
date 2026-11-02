@@ -424,7 +424,7 @@ function LiveTimelinePage() {
     closeWalkInDialog();
     announce(walkInSentence(created, tableName(created.tableId) ?? created.table?.name, t));
     // The new reservation opens in the details surface on phone and tablet; the block is behind it.
-    focusAfter(walkInFocusTarget(viewport, created.id));
+    focusAfter(walkInFocusTarget(viewport, created.id), UNLESS_COVERED);
   };
 
   const handleTableStatusChange = async (tableId: string, next: TableStatus) => {
