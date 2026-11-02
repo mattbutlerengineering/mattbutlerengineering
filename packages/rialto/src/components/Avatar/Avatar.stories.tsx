@@ -34,14 +34,16 @@ export const Default: Story = {
 
 export const WithImage: Story = {
   args: {
-    src: "https://i.pravatar.cc/150?u=mbe",
+    // Deterministic failure: nothing listens on port 1, so the load errors at once and
+    // the fallback shows. A real remote URL would make this story depend on the network.
+    src: "http://127.0.0.1:1/avatar.png",
     name: "User Name",
     size: "lg",
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     // Test fallback - when image fails to load, shows initials
-    const avatar = canvas.getByText("UN");
+    const avatar = await canvas.findByText("UN");
     await expect(avatar).toBeInTheDocument();
   },
 };

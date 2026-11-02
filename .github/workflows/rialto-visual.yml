@@ -8,12 +8,18 @@ on:
       - "packages/rialto/.storybook/**"
       - "packages/rialto/playwright.visual.config.ts"
       - "packages/rialto/src/test/visual/**"
+      - "packages/rialto/vitest.config.storybook.ts"
+      - "packages/rialto/storybook-quarantine.json"
+      - "scripts/storybook-test-gate.mjs"
   pull_request:
     paths:
       - "packages/rialto/src/**"
       - "packages/rialto/.storybook/**"
       - "packages/rialto/playwright.visual.config.ts"
       - "packages/rialto/src/test/visual/**"
+      - "packages/rialto/vitest.config.storybook.ts"
+      - "packages/rialto/storybook-quarantine.json"
+      - "scripts/storybook-test-gate.mjs"
 
 permissions:
   contents: read
@@ -42,3 +48,27 @@ jobs:
           name: visual-regression-diffs
           path: packages/rialto/src/test/visual/__screenshots__/
           retention-days: 14
+
+  # Storybook play functions and axe checks in real Chromium (#8088). jsdom has no
+  # layout, so Dialog.overlays.stories.tsx (an overlay is not clipped inside a
+  # Dialog) can only be guarded here. Advisory like the rest of this workflow,
+  # deliberately not a CI Gate dependency; see the PR for the promotion criteria.
+  # The gate script judges each story against packages/rialto/storybook-quarantine.json
+  # rather than trusting the exit code, and is itself the failing step.
+  storybook-tests:
+    name: Storybook browser tests (rialto)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Playwright browsers
+        run: pnpm --dir packages/rialto exec playwright install --with-deps chromium
+      - name: Run Storybook browser tests
+        run: node scripts/storybook-test-gate.mjs

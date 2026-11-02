@@ -297,6 +297,7 @@
         "sentry-triage-dedup.mjs",
         "stale-human-blocked-latest.mjs",
         "stale-human-blocked.mjs",
+        "storybook-test-gate.mjs",
         "summarize-task-failure.mjs",
         "sweep-nightly-compliance.mjs",
         "threshold-tuner.mjs",

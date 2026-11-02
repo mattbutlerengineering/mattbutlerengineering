@@ -31,9 +31,10 @@ export const Default: Story = {
   ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const target = canvas.getByText("Right-click this area");
+    const target = canvas.getByText(/Right-click this area/);
     await userEvent.pointer({ keys: "[MouseRight]", target: target });
-    await expect(canvas.getByText("Copy")).toBeInTheDocument();
+    // The menu renders in a portal outside the canvas, so query the whole document.
+    await expect(await within(document.body).findByText("Copy")).toBeInTheDocument();
   },
 };
 

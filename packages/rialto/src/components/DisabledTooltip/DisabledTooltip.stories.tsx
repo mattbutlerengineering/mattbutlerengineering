@@ -37,10 +37,12 @@ export const DisabledWithReason: Story = {
     const canvas = within(canvasElement);
     const trigger = canvas.getByRole("button");
     await expect(trigger).toBeInTheDocument();
-    await userEvent.hover(trigger);
+    // A disabled button has pointer-events: none, so hover the Tooltip wrapper that owns the listeners.
+    const wrapper = trigger.parentElement as HTMLElement;
+    await userEvent.hover(wrapper);
     const tooltip = await canvas.findByRole("tooltip");
     await expect(tooltip).toHaveTextContent(/permission/i);
-    await userEvent.unhover(trigger);
+    await userEvent.unhover(wrapper);
   },
 };
 

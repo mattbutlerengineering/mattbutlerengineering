@@ -40,7 +40,12 @@ export const InvalidSubmit: Story = {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole("button", { name: "Submit" }));
     await expect(canvas.getByLabelText("Email")).toHaveAttribute("aria-invalid", "true");
-    await expect(canvas.getByRole("alert")).toHaveTextContent("Email is required");
+    // The error summary and the field's inline error both announce as role="alert".
+    const announced = canvas
+      .getAllByRole("alert")
+      .map((alert) => alert.textContent)
+      .join(" ");
+    await expect(announced).toContain("Email is required");
   },
 };
 
