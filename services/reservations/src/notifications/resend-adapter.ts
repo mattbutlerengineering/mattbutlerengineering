@@ -38,6 +38,13 @@ export interface ResendAdapterConfig {
    * sent with a link built from a guessed host.
    */
   publicApiBaseUrl: string | null;
+  /**
+   * Resolves the from-address and manage-link base for a booking's origin
+   * host (#7892) — e.g. eat-sheet.com's booking emails get that brand's
+   * display name and manage link. Omitted (or an unrecognized host) keeps
+   * `fromAddress` / `manageBaseUrl` above for every send, today's behavior.
+   */
+  brandFor?(originHost: string | null): { fromAddress: string; manageBaseUrl: string };
 }
 
 export class ResendNotificationAdapter implements NotificationPort {
@@ -45,12 +52,19 @@ export class ResendNotificationAdapter implements NotificationPort {
   private readonly fromAddress: string;
   private readonly manageBaseUrl: string;
   private readonly publicApiBaseUrl: string | null;
+  private readonly brandFor: (originHost: string | null) => {
+    fromAddress: string;
+    manageBaseUrl: string;
+  };
 
   constructor(config: ResendAdapterConfig) {
     this.resend = config.resend;
     this.fromAddress = config.fromAddress;
     this.manageBaseUrl = config.manageBaseUrl;
     this.publicApiBaseUrl = config.publicApiBaseUrl;
+    this.brandFor =
+      config.brandFor ??
+      (() => ({ fromAddress: this.fromAddress, manageBaseUrl: this.manageBaseUrl }));
   }
 
   /**
@@ -68,8 +82,9 @@ export class ResendNotificationAdapter implements NotificationPort {
   }
 
   async sendClosureNotice(input: ClosureEmailInput): Promise<void> {
+    const brand = this.brandFor(input.originHost ?? null);
     await this.send({
-      from: this.fromAddress,
+      from: brand.fromAddress,
       to: input.to,
       subject: input.subject,
       html: input.html,
@@ -78,9 +93,10 @@ export class ResendNotificationAdapter implements NotificationPort {
 
   async sendBookingConfirmation(input: BookingNotificationInput): Promise<void> {
     if (!this.resend) return;
-    const content = buildBookingEmailContent(input, "confirmation", this.manageBaseUrl);
+    const brand = this.brandFor(input.originHost ?? null);
+    const content = buildBookingEmailContent(input, "confirmation", brand.manageBaseUrl);
     await this.send({
-      from: this.fromAddress,
+      from: brand.fromAddress,
       to: input.guestEmail,
       subject: content.subject,
       html: content.html,
@@ -96,9 +112,10 @@ export class ResendNotificationAdapter implements NotificationPort {
 
   async sendBookingReminder(input: BookingNotificationInput): Promise<void> {
     if (!this.resend) return;
-    const content = buildBookingEmailContent(input, "reminder", this.manageBaseUrl);
+    const brand = this.brandFor(input.originHost ?? null);
+    const content = buildBookingEmailContent(input, "reminder", brand.manageBaseUrl);
     await this.send({
-      from: this.fromAddress,
+      from: brand.fromAddress,
       to: input.guestEmail,
       subject: content.subject,
       html: content.html,
@@ -107,9 +124,10 @@ export class ResendNotificationAdapter implements NotificationPort {
 
   async sendBookingModified(input: BookingNotificationInput): Promise<void> {
     if (!this.resend) return;
-    const content = buildBookingEmailContent(input, "modified", this.manageBaseUrl);
+    const brand = this.brandFor(input.originHost ?? null);
+    const content = buildBookingEmailContent(input, "modified", brand.manageBaseUrl);
     await this.send({
-      from: this.fromAddress,
+      from: brand.fromAddress,
       to: input.guestEmail,
       subject: content.subject,
       html: content.html,
@@ -125,9 +143,10 @@ export class ResendNotificationAdapter implements NotificationPort {
 
   async sendBookingCancelled(input: BookingNotificationInput): Promise<void> {
     if (!this.resend) return;
-    const content = buildBookingEmailContent(input, "cancelled", this.manageBaseUrl);
+    const brand = this.brandFor(input.originHost ?? null);
+    const content = buildBookingEmailContent(input, "cancelled", brand.manageBaseUrl);
     await this.send({
-      from: this.fromAddress,
+      from: brand.fromAddress,
       to: input.guestEmail,
       subject: content.subject,
       html: content.html,

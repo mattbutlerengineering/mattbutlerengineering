@@ -6,8 +6,8 @@ import { useCallback, useEffect, useReducer, useRef } from "react";
  * Pages call `focusAfter(target)` from the event handler that knows the outcome — a walk-in
  * created, a reservation cancelled — and the target is focused after the next commit in which it
  * can be found: a block still loading focuses when it renders; a target that does not render soon
- * leaves focus where it was, and the request expires once the Host has moved focus. One pending
- * target at a time.
+ * leaves focus where it was, and the request is cancelled by anything the Host does after it. One
+ * pending target at a time.
  */
 export type FocusTarget =
   | { readonly kind: "element"; readonly element: HTMLElement }
@@ -37,6 +37,9 @@ export interface FocusAfterApi {
  * else by now. While focus is still loose it stands: landing late beats leaving focus nowhere.
  */
 const PENDING_TTL_MS = 10_000;
+
+/** The Host doing something else. `popstate` is browser Back, which raises neither of the others. */
+const HOST_ACTIONS = ["pointerdown", "keydown", "popstate"] as const;
 
 const FIRST_CONTROL =
   'button:not(:disabled):not([data-focus-trap-skip-initial]), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
@@ -88,6 +91,15 @@ export function useFocusAfter(): FocusAfterApi {
   const focusAfter = useCallback((target: FocusTarget, options?: FocusOptions) => {
     pendingRef.current = { target, options, requestedAt: performance.now() };
     requestRender();
+  }, []);
+
+  // Capture, on window: a handler that stops propagation must not hide the action from this.
+  useEffect(() => {
+    const cancel = () => {
+      pendingRef.current = null;
+    };
+    HOST_ACTIONS.forEach((type) => window.addEventListener(type, cancel, true));
+    return () => HOST_ACTIONS.forEach((type) => window.removeEventListener(type, cancel, true));
   }, []);
 
   // After every commit: resolve the pending target, focus it once, forget it. No state is set here.

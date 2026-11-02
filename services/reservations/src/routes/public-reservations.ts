@@ -10,6 +10,7 @@ import { getManageTokenConfig } from "../config/manage-token.js";
 import { publicVenueScoped } from "./public-venue-scope.js";
 import { guestActor } from "../services/reservation-events.js";
 import { gateProblem } from "../services/assert-bookable.js";
+import { resolveOriginHost } from "../config/host-brand.js";
 
 const TOKEN_SECRET = getManageTokenConfig({
   nodeEnv: process.env.NODE_ENV,
@@ -161,6 +162,8 @@ export const publicReservationRoutes: FastifyPluginAsync = async (fastify) => {
               guestId: link.ok ? (link.guestId ?? undefined) : undefined,
             },
             actor: guestActor(link.ok ? link.guestId : null),
+            // Captured from the request so later guest emails brand by it (#7892).
+            originHost: resolveOriginHost(request.headers.origin),
           },
           {
             door: "public-booking",

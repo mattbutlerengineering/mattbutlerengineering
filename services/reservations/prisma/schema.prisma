@@ -340,6 +340,12 @@ model Reservation {
   /// reservation. Proof of ownership for the public deposit route (#6304).
   /// Null for reservations created outside the widget.
   originSessionId    String?            @map("origin_session_id")
+  /// The host the guest booked on (e.g. "eat-sheet.com", "mattbutlerengineering.com"),
+  /// captured from the public booking request's Origin header when the reservation is
+  /// created (#7892). NULL for reservations created outside the public booking page
+  /// (staff/walk-in) or whose Origin did not match a known host — those keep the
+  /// mattbutlerengineering.com brand in guest emails, today's behavior.
+  originHost         String?            @map("origin_host")
   /// Staff reason for booking past a soft availability limit (ADR-030 `judge`).
   overrideReason     String?            @map("override_reason")
   /// The soft limits that were overridden (after_last_seating, pacing, ...). NULL = none.

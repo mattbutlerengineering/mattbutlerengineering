@@ -3,7 +3,7 @@ import { tool } from "ai";
 import type { ToolSet } from "ai";
 import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
-import type { AvailabilityConfig, DateRule, SpecialHoursService } from "@mbe/types";
+import type { AvailabilityConfig, DateRule, ReopenResult, SpecialHoursService } from "@mbe/types";
 import {
   AVAILABILITY_PAGE,
   ClockSchema,
@@ -21,10 +21,10 @@ import {
   affectedResult,
   checkHours,
   checkSpan,
+  closedDays,
   closureFailure,
   closureOnDay,
   dayNumber,
-  findCoveringClosure,
   findReopenable,
   hasSpecialHours,
   isDated,
@@ -188,15 +188,12 @@ function closeDates({ log, api, venueId, timeZone }: ToolContext) {
         const state = await api.availability.getConfig(venueId);
         const target = scope === "service" ? resolveService(state.config, service!) : undefined;
         if (target && "error" in target) return target;
-        const same = findCoveringClosure(
-          state.config,
-          { serviceId: target?.id },
-          span.from,
-          span.to
-        );
-        if (same) {
+        const closed = closedDays(state.config, target?.id, span.from, span.to);
+        const named = (rule: ClosureRule) => `${scopeOf(rule, state.config)} ${spanText(rule)}`;
+        if (closed.length === dayNumber(span.to)! - dayNumber(span.from)! + 1) {
+          const closures = [...new Set(closed.map((c) => named(c.rule)))].join("; ");
           return {
-            error: `This is already closed (${scopeOf(same, state.config)} ${spanText(same)}), which covers those dates. Nothing was changed.`,
+            error: `This is already closed (${closures}), which covers those dates. Nothing was changed.`,
           };
         }
         const rule: ClosureRule = {
@@ -215,7 +212,10 @@ function closeDates({ log, api, venueId, timeZone }: ToolContext) {
           ...spanOf(rule),
           to: span.to,
           scope: scopeOf(rule, state.config),
-          note: "No booking was affected, so no guest was told.",
+          note: `No booking was affected, so no guest was told.${closed.map((c) => ` ${c.date} was already closed (${named(c.rule)}): it stays closed until that closure is reopened too.`).join("")}`,
+          ...(closed.length > 0
+            ? { alreadyClosed: closed.map((c) => ({ date: c.date, by: named(c.rule) })) }
+            : {}),
         };
       } catch (err) {
         log.error({ err, venueId }, "close_dates failed");
@@ -310,9 +310,25 @@ function reopenNote(cancelled: number, notified: number, datesPassed: boolean): 
   return `The ${guestsOf(cancelled)} the closure cancelled ${cancelled === 1 ? "was" : "were"} not asked to be notified that it has reopened${why}. They stay cancelled.`;
 }
 
+/** Each closure that keeps some of the reopened dates closed, in words; an older API says none. */
+function stillClosedFields(saved: ReopenResult, config: AvailabilityConfig) {
+  const by = saved.stillClosed?.by ?? [];
+  if (by.length === 0) return { stillClosed: undefined, note: "" };
+  const stillClosed = by.map((rule) => {
+    const from = rule.window ? ` from ${minuteToClock(rule.window.from)}` : "";
+    return { dates: rule.dates, by: `${scopeOf(rule, config)}${from} ${spanText(rule)}` };
+  });
+  return {
+    stillClosed,
+    note: stillClosed
+      .map((s) => ` ${s.dates.join(", ")} stays closed by another closure (${s.by}).`)
+      .join(""),
+  };
+}
+
 function reopenClosure({ log, api, venueId }: ToolContext) {
   return tool({
-    description: `Reopen a closure of the whole venue or one service so its slots return. Pass the closure's full span exactly as list_closures gives it (to is "${UNTIL_REOPENED}" for one with no end) and its scope; a different span is refused with the real one. Guests it already cancelled stay cancelled. Requires confirmation. Special hours, repeating closures and booking or table pauses are changed on the Availability page. Call list_closures first; if the closure cancelled guests, ask whether to tell them.`,
+    description: `Reopen a closure of the whole venue or one service so its slots return, unless another closure also closes those dates: stillClosed then names it, and reopened is false when no date came back, so say so instead of saying it reopened. Pass the closure's full span exactly as list_closures gives it (to is "${UNTIL_REOPENED}" for one with no end) and its scope; a different span is refused with the real one. Guests it already cancelled stay cancelled. Requires confirmation. Special hours, repeating closures and booking or table pauses are changed on the Availability page. Call list_closures first; if the closure cancelled guests, ask whether to tell them.`,
     inputSchema: z
       .object({
         from: DateField.describe("The closure's first date, as YYYY-MM-DD"),
@@ -339,6 +355,7 @@ function reopenClosure({ log, api, venueId }: ToolContext) {
         return { error: `The last date (${to}) is before the first (${from}).` };
       }
       let rule: ClosureRule;
+      let config: AvailabilityConfig;
       let scopeText: string;
       let cancelled: number;
       // The guests a notice can still reach: those whose booking has not started.
@@ -355,6 +372,7 @@ function reopenClosure({ log, api, venueId }: ToolContext) {
         });
         if ("error" in found) return { refused: true, ...found };
         rule = found.rule;
+        config = state.config;
         scopeText = scopeOf(rule, state.config);
         const counts = await api.availability.listClosures(venueId).catch((err: unknown) => {
           log.error({ err, venueId }, "reopen_closure counts failed");
@@ -375,21 +393,36 @@ function reopenClosure({ log, api, venueId }: ToolContext) {
       }
       const told = tellCancelledGuests && reachable > 0;
       let notified: number;
+      let saved: ReopenResult;
       try {
-        const saved = await api.availability.reopenClosure(venueId, rule.id, told, NO_REPLAY);
+        saved = await api.availability.reopenClosure(venueId, rule.id, told, NO_REPLAY);
         // The server counts who the notice really reached; an older one does not say.
         notified = told ? (saved.notified ?? reachable) : 0;
       } catch (err) {
         log.error({ err, venueId }, "reopen_closure failed");
         return closureFailure(err, SAVE_UNSURE);
       }
-      return {
-        reopened: true,
+      const stays = stillClosedFields(saved, config);
+      const shared = {
         ...spanOf(rule),
         scope: scopeText,
         guestsCancelled: cancelled,
         noticeRequested: notified > 0,
-        note: reopenNote(cancelled, notified, tellCancelledGuests && reachable === 0),
+        ...(stays.stillClosed ? { stillClosed: stays.stillClosed } : {}),
+      };
+      // Every date stays shut: the rule is gone, but saying "reopened" would be false (#8006).
+      if (saved.stillClosed?.everyDate) {
+        return {
+          reopened: false,
+          closureRemoved: true,
+          ...shared,
+          note: `This closure was removed, but its dates did not reopen.${stays.note} Guests can't book until that closure is reopened too, so no guest was told to rebook.`,
+        };
+      }
+      return {
+        reopened: true,
+        ...shared,
+        note: `${reopenNote(cancelled, notified, tellCancelledGuests && reachable === 0)}${stays.note}`,
       };
     },
   });
