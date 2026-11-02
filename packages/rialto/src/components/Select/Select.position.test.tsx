@@ -76,6 +76,20 @@ describe("Select viewport positioning", () => {
     expect(list.style.maxHeight).toBe("138px");
   });
 
+  it("measures the list at the trigger's width, so wrapped labels count on first open", async () => {
+    // Narrow lists wrap: 400px tall at the trigger's 200px width, one line tall before it.
+    Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
+      configurable: true,
+      get(this: HTMLElement) {
+        return this.style.width === "200px" ? 400 : 100;
+      },
+    });
+    const { list } = await openAt(560);
+    // below: 720 - 600 - 4 - 8 = 108, so a 100px list would stay put; a 240px one flips.
+    expect(list.style.bottom).toBe("164px");
+    expect(list.style.top).toBe("");
+  });
+
   it("follows the trigger on scroll", async () => {
     const { trigger, list } = await openAt(100);
     vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue(rectAt(200));

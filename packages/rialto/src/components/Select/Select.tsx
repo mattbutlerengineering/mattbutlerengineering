@@ -154,6 +154,11 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
 
       const updatePosition = () => {
         const rect = trigger.getBoundingClientRect();
+        // Width first: long labels wrap at the trigger's width, which sets scrollHeight.
+        list.style.position = "fixed";
+        list.style.left = `${rect.left}px`;
+        list.style.width = `${rect.width}px`;
+
         const below = window.innerHeight - rect.bottom - LIST_GAP - VIEWPORT_MARGIN;
         const above = rect.top - LIST_GAP - VIEWPORT_MARGIN;
         const natural = Math.min(list.scrollHeight, LIST_MAX_HEIGHT);
@@ -161,12 +166,9 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
         const flip = natural > below && above > below;
         const available = Math.max(flip ? above : below, 0);
 
-        list.style.position = "fixed";
         list.style.top = flip ? "" : `${rect.bottom + LIST_GAP}px`;
         list.style.bottom = flip ? `${window.innerHeight - rect.top + LIST_GAP}px` : "";
         list.style.maxHeight = `${Math.min(LIST_MAX_HEIGHT, available)}px`;
-        list.style.left = `${rect.left}px`;
-        list.style.width = `${rect.width}px`;
       };
 
       updatePosition();
