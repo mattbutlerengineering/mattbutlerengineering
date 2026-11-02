@@ -42,7 +42,8 @@ export const ERROR_COPY: Readonly<Record<ApiErrorCategory, CopyRow>> = {
     ...RETRY,
   },
   serverError: {
-    detail: "The reservations service hit a snag — nothing was changed. Try again in a moment.",
+    // Never "nothing was changed": a 5xx from a gateway can follow a write that committed.
+    detail: "The reservations service hit a snag. Try again in a moment.",
     ...RETRY,
   },
   rateLimited: {
@@ -77,7 +78,7 @@ export const ERROR_COPY: Readonly<Record<ApiErrorCategory, CopyRow>> = {
     recovery: "refresh",
   },
   unknown: {
-    detail: "That didn't go through. Try again — if it keeps happening, tell your manager.",
+    detail: "Something went wrong. Try again — if it keeps happening, tell your manager.",
     ...RETRY,
   },
 };

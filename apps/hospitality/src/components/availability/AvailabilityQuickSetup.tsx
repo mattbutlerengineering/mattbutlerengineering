@@ -7,6 +7,7 @@ import { useSaveAvailabilityConfig } from "../../hooks/useAvailability.js";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
+import { LeaveGuard } from "./LeaveGuard.js";
 import { QuickSetupCard } from "./QuickSetupCard.js";
 import { WEEK_DISPLAY_ORDER, draftToChanges, type QuickSetupDraft } from "./quick-setup-draft.js";
 
@@ -27,6 +28,8 @@ export function AvailabilityQuickSetup({ venueId, state, onStale }: Availability
   const format = useVenueFormat();
   const save = useSaveAvailabilityConfig();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Hours typed but not saved: closing the tab or leaving the page asks first.
+  const [dirty, setDirty] = useState(false);
 
   const openDays = (draft: QuickSetupDraft) => {
     const names = WEEK_DISPLAY_ORDER.flatMap((day, position) =>
@@ -47,6 +50,7 @@ export function AvailabilityQuickSetup({ venueId, state, onStale }: Availability
         },
       });
       setErrorMessage(null);
+      setDirty(false);
       offerUndo({
         venueId,
         saved,
@@ -62,5 +66,10 @@ export function AvailabilityQuickSetup({ venueId, state, onStale }: Availability
     }
   };
 
-  return <QuickSetupCard onSave={onSave} errorMessage={errorMessage} />;
+  return (
+    <>
+      <QuickSetupCard onSave={onSave} errorMessage={errorMessage} onDirtyChange={setDirty} />
+      <LeaveGuard active={dirty} date={null} title={t("availabilitySchedules.discard.title")} />
+    </>
+  );
 }

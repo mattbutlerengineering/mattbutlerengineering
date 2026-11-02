@@ -185,7 +185,7 @@ Drawer overflow → **Copy to other days…** offers weekday toggles, From [date
 4. **Messages:**
    - "Note for staff", internal.
    - "Message for guests", optional, at most 200 characters with a counter. Suggested phrasings are offered as chips ("Closed for a private event", "Closed due to weather", "Closed for the holiday").
-5. **Conflicts** are listed before Step 2 when relevant. Example: "Wine Dinner (Phase 5) is on Thu Dec 24: **Cancel it too** / **Keep it running**". So is a date already changed: "Thu Dec 24 has special hours; the closure replaces them."
+5. **Conflicts** are listed before Step 2 when relevant. Example: "Wine Dinner (Phase 5) is on Thu Dec 24: **Cancel it too** / **Keep it running**". So is a date already changed: "Thu Dec 24 has special hours; the closure replaces them." A date another closure already shuts is named with that closure ("Already closed on Fri, Dec 25: Whole venue."), for one date or for one date inside a range or repeat. This warns and never blocks; a channel pause is not warned about a closed venue, nor a wider closure about a narrower one.
 6. **Next**, with nothing affected: the final button names the result ("Close Thu, Dec 24").
 7. **Step 2 of 2: affected bookings** (S7), only when bookings are affected:
    - **Header:** "14 reservations · 52 guests · 3 deposits held · Thu, Dec 24 (5:00–11:00 PM)".
@@ -203,8 +203,8 @@ Drawer overflow → **Copy to other days…** offers weekday toggles, From [date
    - Toast: "Thu, Dec 24 closed · 14 reservations notified" (it counts reservations told, not the guests booked).
    - The calendar shows the band.
    - The closure's row on Special dates tracks **Sent · Rebooked · Unreachable**, and refund failures appear as "Refund failed: Rivera ($40) · Retry". The row also offers a printable **Call list**: name, party, time and phone for guests not yet confirmed delivered or rebooked.
-   - If the save fails, nothing is cancelled or sent, and the `Alert` stays in the dialog.
-9. **Pause online booking until I reopen** (PRD 19): F5 with "Online booking" and "Until I reopen". While active, a Calendar banner ("Online booking paused · **Resume**") and an app-header pill are shown.
+   - If the server refuses the save, nothing is cancelled or sent, and the `Alert` stays in the dialog. If no answer comes back (a lost response, a timeout, a 5xx from a gateway), it may have gone through, and the `Alert` says so.
+9. **Pause online booking until I reopen** (PRD 19): F5 with "Online booking" and "Until I reopen". While active, a Calendar banner ("Online booking paused · **Resume**") and an app-header pill are shown. A pause from a set time closes online seatings from that time, on every service day. While earlier seatings remain, the banner says so ("Online seatings from 6:00 PM are paused every day. Earlier seatings stay open. · **Remove pause**") and the pill is hidden. Once online pauses have taken the last online seating of the day, read from the service hours, it counts as paused: the pill shows and the banner offers **Resume**. On a day with no online seating for another reason (no service, or the venue closed), the banner keeps **Remove pause** and drops the sentence about earlier seatings.
 
 ### F-SER: Change one date of something that repeats (PRD 17; scenario e)
 
@@ -221,6 +221,7 @@ Drawer overflow → **Copy to other days…** offers weekday toggles, From [date
    - **+ Add special date** opens a multi-date sheet. Each row has a date, **Closed / Special hours / Same as [day]**, and an optional message for guests (one shared message can be applied to every row). Special hours open the inline service editor. Every row that affects bookings then goes through **one** Step 2, which shows a separate choice for each group (see S7). Christmas Eve hours and Christmas Day closed are one sitting.
 2. **Reopen**: row → **Remove closure** → `ConfirmDialog`: "Reopen Thu, Dec 24? Guests can book again. The 14 reservations you cancelled stay cancelled." A checkbox, on by default, reads "Tell the 14 cancelled guests we've reopened (with a link to rebook)". Buttons: **Reopen** / **Keep closed**.
 3. Toast "Thu, Dec 24 reopened". Removing a change that told no guests offers **Undo**.
+4. **A date another closure also closes** stays closed, and the dialog and the toast say so, naming it: "Stays closed on Fri, Dec 25: Whole venue." When every date stays closed, nothing comes back: the description says guests can't book them yet, the notice checkbox is gone, the server asks no notice even if one is requested, and the toast reads "Closure removed: Fri, Dec 25. Not reopened."
 
 ### F7: Tonight panel (PRD 26, 27, 28; scenarios b, c)
 

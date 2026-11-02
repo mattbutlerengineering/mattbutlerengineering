@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, Checkbox, Select, Stack, Text, TimePicker } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState, ScopeConflictMode } from "@mbe/types";
@@ -11,8 +11,10 @@ import {
   compareServiceOptions,
   type CompareRow,
 } from "./compare-changes.js";
+import { DiscardChangesDialog } from "./DiscardChangesDialog.js";
 import { ownChangeDates, scopeDates } from "./scope-dates.js";
-import { OwnChangesChoice, SaveFailure } from "./ScheduleFormParts.js";
+import { BlockedReason, OwnChangesChoice, SaveFailure } from "./ScheduleFormParts.js";
+import { useDiscardGuard } from "./use-discard-guard.js";
 import { useScheduleSave } from "./use-schedule-save.js";
 import styles from "./CompareServices.module.css";
 
@@ -34,6 +36,8 @@ export interface CompareServicesProps {
   /** Today on the venue clock. */
   readonly today: string;
   readonly onStale: () => void;
+  /** Reports whether rows are edited but not saved, so the surface around can ask before closing. */
+  readonly onDirtyChange?: (dirty: boolean) => void;
 }
 
 /** Fields "Set selected to…" applies; an empty one leaves that field alone. */
@@ -102,11 +106,12 @@ function RowFields(props: {
  * impact line.
  */
 export function CompareServices(props: CompareServicesProps) {
-  const { venueId, state, timezone, today, onStale } = props;
+  const { venueId, state, timezone, today, onStale, onDirtyChange } = props;
   const { config } = state;
   const { t } = useTranslation();
   const offerUndo = useAvailabilityUndo();
   const saver = useScheduleSave(onStale);
+  const blockedId = useId();
 
   const options = useMemo(() => compareServiceOptions(config), [config]);
   const [chosen, setChosen] = useState<string | null>(null);
@@ -133,6 +138,17 @@ export function CompareServices(props: CompareServicesProps) {
   const own = useMemo(() => ownChangeDates(config, dates, null), [config, dates]);
   const scheduleCount = new Set(changed.map((r) => r.scheduleId)).size;
 
+  const commitEdits = (next: Readonly<Record<string, CompareRow>>) => {
+    setEdits(next);
+    onDirtyChange?.(changedRows(config, Object.values(next)).length > 0);
+  };
+  // Choosing another service drops the rows edited for this one, so it asks first.
+  const serviceGuard = useDiscardGuard<string>((id) => {
+    setChosen(id);
+    commitEdits({});
+    setSelected([]);
+  }, changed.length > 0);
+
   if (options.length === 0 || serviceId === null) {
     return (
       <Text variant="body" color="secondary">
@@ -141,15 +157,16 @@ export function CompareServices(props: CompareServicesProps) {
     );
   }
 
-  const setRow = (row: CompareRow) =>
-    setEdits((prev) => ({ ...prev, [row.scheduleServiceId]: row }));
+  const setRow = (row: CompareRow) => commitEdits({ ...edits, [row.scheduleServiceId]: row });
   const toggle = (id: string, on: boolean) =>
     setSelected((prev) => (on ? [...prev, id] : prev.filter((x) => x !== id)));
 
   const applyToSelected = () => {
-    rows
-      .filter((r) => selected.includes(r.scheduleServiceId))
-      .forEach((r) => setRow(applyBulk(r, bulk)));
+    commitEdits(
+      rows
+        .filter((r) => selected.includes(r.scheduleServiceId))
+        .reduce((acc, r) => ({ ...acc, [r.scheduleServiceId]: applyBulk(r, bulk) }), edits)
+    );
     setBulk(NO_BULK);
     setBulkOpen(false);
   };
@@ -167,22 +184,25 @@ export function CompareServices(props: CompareServicesProps) {
       saved,
       title: t("availabilitySchedules.compare.saved", { count: scheduleCount }),
     });
-    setEdits({});
+    commitEdits({});
     setSelected([]);
   };
 
   return (
     <Stack gap="md">
-      <SaveFailure messages={saver.failure} />
+      <SaveFailure messages={saver.failure} stranded={saver.stranded} />
       <Select
         label={t("availabilitySchedules.compare.service")}
         value={serviceId}
         options={options.map((o) => ({ value: o.id, label: o.name }))}
-        onChange={(id) => {
-          setChosen(id);
-          setEdits({});
-          setSelected([]);
-        }}
+        onChange={(id) => serviceGuard.request(id)}
+      />
+      <DiscardChangesDialog
+        open={serviceGuard.pending !== null}
+        date={null}
+        title={t("availabilitySchedules.discard.title")}
+        onDiscard={serviceGuard.confirmDiscard}
+        onKeepEditing={serviceGuard.keepEditing}
       />
       <ul className={styles.rows}>
         {rows.map((row) => (
@@ -240,6 +260,10 @@ export function CompareServices(props: CompareServicesProps) {
         </div>
       )}
       <OwnChangesChoice count={dates.length > 1 ? own.length : 0} value={mode} onChange={setMode} />
+      <BlockedReason
+        id={blockedId}
+        reason={changed.length === 0 ? t("availabilitySchedules.compare.blocked") : null}
+      />
       <div className={styles.footer}>
         <Text variant="body" color="primary" role="status">
           {t("availabilitySchedules.compare.impact", {
@@ -250,6 +274,7 @@ export function CompareServices(props: CompareServicesProps) {
         <Button
           variant="primary"
           disabled={changed.length === 0}
+          aria-describedby={changed.length === 0 ? blockedId : undefined}
           isLoading={saver.isPending}
           onClick={() => void submit()}
         >

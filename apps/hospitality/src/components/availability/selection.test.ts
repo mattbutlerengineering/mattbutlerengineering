@@ -3,6 +3,7 @@ import {
   columnDates,
   dateRange,
   datesUsingSchedule,
+  futureDates,
   toggleDate,
   weekdayDatesInMonth,
 } from "./selection.js";
@@ -74,5 +75,14 @@ describe("datesUsingSchedule", () => {
       { serviceDate: "2026-10-29", scheduleId: "a" },
     ];
     expect(datesUsingSchedule(days, "a")).toEqual(["2026-10-29", "2026-10-30"]);
+  });
+});
+
+describe("futureDates", () => {
+  it("drops dates before today and keeps today", () => {
+    expect(futureDates(["2026-10-27", "2026-10-28", "2026-10-29"], "2026-10-28")).toEqual([
+      "2026-10-28",
+      "2026-10-29",
+    ]);
   });
 });

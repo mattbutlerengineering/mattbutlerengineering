@@ -785,6 +785,9 @@
       },
     } satisfies CatalogMeta;
   </file>
+  <file path="packages/rialto/src/components/Dialog/DialogLayerContext.ts">
+    export const DialogLayerContext = createContext<HTMLElement | null>(null);
+  </file>
   </section>
   <section priority="medium" role="Divider">
   <file path="packages/rialto/src/components/Divider/Divider.catalog.ts">
@@ -3401,6 +3404,7 @@
           venueAddress: null,
           manageToken,
           updatedAt: reservation.updatedAt,
+          originHost: reservation.originHost ?? null,
         });
       }
     
@@ -3432,6 +3436,7 @@
               venueAddress: null,
               manageToken,
               updatedAt: reservation.updatedAt,
+              originHost: reservation.originHost ?? null,
             },
             preference
           );
@@ -3467,6 +3472,7 @@
               venueAddress: null,
               manageToken,
               updatedAt: updated.updatedAt,
+              originHost: updated.originHost ?? null,
             },
             preference
           );
@@ -4661,6 +4667,11 @@
       readonly sameAs: number;
       /** The hours a Special hours or Same as row writes. */
       readonly services: readonly DraftService[];
+      /**
+       * The weekday `services` were copied from while the Manager has not edited them, so a new date
+       * can replace them; absent once edited (their hours are then theirs).
+       */
+      readonly seededFor?: number;
       /** This row's message for guests; the shared one wins while `shareMessage` is on. */
       readonly message: string;
     }
@@ -4913,13 +4924,28 @@
       const span = spanOf(when, today);
       if (span.startsOn === "") return false;
       if (span.endsOn !== null && (span.endsOn === "" || span.endsOn < span.startsOn)) return false;
-      return span.weekdays === undefined || span.weekdays.length > 0;
+      // A repeat with no day picked, or none in its range, would save and close nothing.
+      return guestDateOf(when, today) !== null;
     }
     export function validateClose(form: CloseForm, today: string): CloseField | null {
       if (!whatIsComplete(form.what)) return "what";
       if (!whenIsComplete(form.when, today)) return "when";
       if (form.guestMessage.trim().length > GUEST_MESSAGE_MAX_LENGTH) return "guestMessage";
       return null;
+    }
+    export const closeFieldId = (field: CloseField) => `close-field-${field}`;
+    export const closeWhenId = (when: CloseWhen, days: boolean) =>
+      (when.kind === "repeats" && when.from !== "" && when.to >= when.from) === days
+        ? closeFieldId("when")
+        : undefined;
+    export function focusCloseField(field: CloseField) {
+      const target = document.getElementById(closeFieldId(field));
+      (target?.querySelector("input") ?? target)?.focus();
+    }
+    export const stepTwoNoteId = "close-step-two-note";
+    export function stepTwoNote(ready: boolean, t: TFunction): string {
+      const irreversible = t("availability.close.step2.irreversible");
+      return ready ? irreversible : `${t("availability.close.step2.blocked")} ${irreversible}`;
     }
     function targetOf(what: CloseWhat) {
       switch (what.kind) {
@@ -4950,6 +4976,120 @@
         ...(note ? { staffNote: note } : {}),
         ...(message ? { guestMessage: message } : {}),
       };
+    }
+    type ClosureSpan = Pick<DateRule, "startsOn" | "endsOn" | "repeat">;
+    export function firstDateOf(when: CloseWhen, today: string): string {
+      return spanOf(when, today).startsOn;
+    }
+    export function guestDateOf(when: CloseWhen, today: string): string | null {
+      const { startsOn, endsOn, weekdays } = spanOf(when, today);
+      if (!weekdays || !startsOn) return startsOn;
+      const repeat = { version: 1 as const, weekdays: [...weekdays] };
+      return firstOccurrenceOnOrAfter({ startsOn, endsOn, repeat }, startsOn);
+    }
+    export function closedDates(closure: ClosureSpan): readonly string[] {
+      const first = firstOccurrenceOnOrAfter(closure, closure.startsOn);
+      if (first === null) return [];
+      const last = closure.endsOn ?? addDays(first, CLOSED_DATES_SCAN_DAYS);
+      const dates: string[] = [];
+      for (let date = first, n = 0; date <= last && n <= CLOSED_DATES_SCAN_DAYS; n += 1) {
+        if (closure.repeat == null || closure.repeat.weekdays.includes(weekdayIndexOf(date))) {
+          dates.push(date);
+        }
+        date = addDays(date, 1);
+      }
+      return dates;
+    }
+    export function replacedSpecialDate(
+      rules: readonly DateRule[],
+      closure: ClosureSpan
+    ): string | null {
+      const replaced = closedDates(closure).find((date) =>
+        activeRules(rules, date).some((r) => r.kind === "special_hours")
+      );
+      return replaced ?? null;
+    }
+    function distinctDays(config: AvailabilityConfig, dates: readonly string[]): readonly string[] {
+      const kinds = new Map<string, string>();
+      for (const date of dates) {
+        const season = config.assignments.filter(
+          (a) => (a.startsOn ?? date) <= date && date <= (a.endsOn ?? date)
+        );
+        const ids = [...season, ...activeRules(config.dateRules, date)].map((row) => row.id);
+        kinds.set(`${weekdayIndexOf(date)}:${ids.join()}`, date);
+      }
+      return [...kinds.values()];
+    }
+    export function startMinutes(
+      config: AvailabilityConfig,
+      timezone: string,
+      dates: readonly string[],
+      keep: number | null
+    ): readonly number[] {
+      const services = distinctDays(config, dates).flatMap(
+        (date) => resolveDay({ timezone, config }, date).services
+      );
+      const lastClose = lastCloseOf(services);
+      const end = Math.max(lastClose, keep ?? 0);
+      const firstOpen = services.reduce((min, s) => Math.min(min, s.opensAt), MINUTES_PER_DAY);
+      const first = lastClose > MINUTES_PER_DAY ? firstOpen - (firstOpen % HALF_HOUR) : 0;
+      const options: number[] = [];
+      // Starting at the close itself closes nothing, so the last option is the half hour before it.
+      for (
+        let m = first;
+        m < Math.min(Math.max(end, MINUTES_PER_DAY), END_OF_SERVICE_DAY);
+        m += HALF_HOUR
+      ) {
+        options.push(m);
+      }
+      return keep !== null && !options.includes(keep)
+        ? [...options, keep].sort((a, b) => a - b)
+        : options;
+    }
+    export function settleStartMinute(
+      prev: CloseForm,
+      next: CloseForm,
+      config: AvailabilityConfig,
+      timezone: string,
+      today: string
+    ): CloseForm {
+      if (next.when === prev.when || next.fromMinute === null) return next;
+      if (!whenIsComplete(next.when, today)) return next;
+      const { startsOn, endsOn, weekdays } = spanOf(next.when, today);
+      const repeat = weekdays ? { version: 1 as const, weekdays: [...weekdays] } : null;
+      const [first = 0] = startMinutes(
+        config,
+        timezone,
+        closedDates({ startsOn, endsOn, repeat }),
+        null
+      );
+      return next.fromMinute < first ? { ...next, fromMinute: null } : next;
+    }
+    function whatOf(series: DateRule): CloseWhat {
+      if (series.targetKind === "service" && series.venueServiceId) {
+        return { kind: "service", serviceId: series.venueServiceId };
+      }
+      if (series.targetKind === "booking" && series.bookingTypes?.length) {
+        return { kind: "booking", types: [...series.bookingTypes] };
+      }
+      return { kind: "venue" };
+    }
+    export function seriesForm(series: DateRule, date: string): CloseForm {
+      return {
+        what: whatOf(series),
+        when: { kind: "date", date },
+        fromMinute: series.window?.from ?? null,
+        staffNote: "",
+        guestMessage: "",
+      };
+    }
+    export function inSeries(rule: DateRule | null, series: DateRule | undefined): DateRule | null {
+      if (!rule || !series) return rule;
+      return { ...rule, seriesId: series.id, endsOn: rule.startsOn, repeat: null };
+    }
+    export function sameRequest(a: CloseForm, b: CloseForm): boolean {
+      const key = (f: CloseForm) => JSON.stringify([f.what, f.when, f.fromMinute]);
+      return key(a) === key(b);
     }
     export function actionsFor(kind: ClosureImpactKind): readonly ClosureAction[] {
       return kind === "shortened"
@@ -5010,22 +5150,54 @@
       const startMinute = (startsOn === today ? 0 : MINUTES_PER_DAY) + (closure.fromMinute ?? 0);
       return startMinute - nowMinute <= URGENT_WITHIN_MINUTES;
     }
-    export function activeOnlinePause(
-      rules: readonly DateRule[],
+    export function isPauseInForce(
+      rule: DateRule,
+      config: AvailabilityConfig,
+      timezone: string,
+      today: string,
+      nowMinute: number
+    ): boolean {
+      if (!rule.window || rule.window.from <= nowMinute) return true;
+      const yesterdayMinute = nowMinute + MINUTES_PER_DAY;
+      if (
+        rule.startsOn < today &&
+        rule.window.from <= yesterdayMinute &&
+        yesterdayMinute < lastCloseOf(resolveDay({ timezone, config }, addDays(today, -1)).services)
+      ) {
+        return true;
+      }
+      const isWindowedOnlineClosure = (r: DateRule) =>
+        r.kind === "closure" &&
+        r.targetKind === "booking" &&
+        (r.bookingTypes ?? []).includes("online") &&
+        r.window != null;
+      const without = {
+        ...config,
+        dateRules: config.dateRules.filter((r) => !isWindowedOnlineClosure(r)),
+      };
+      return (
+        onlineSeatingLeft(without, timezone, today, nowMinute) &&
+        !onlineSeatingLeft(config, timezone, today, nowMinute)
+      );
+    }
+    export function shownOnlinePause(
+      config: AvailabilityConfig,
+      timezone: string,
       today: string,
       nowMinute: number
     ): DateRule | null {
+      const pauses = config.dateRules.filter(
+        (r) =>
+          r.kind === "closure" &&
+          r.targetKind === "booking" &&
+          (r.bookingTypes ?? []).includes("online") &&
+          r.startsOn <= today &&
+          (r.endsOn === null || r.endsOn === undefined) &&
+          !r.repeat
+      );
+      const earliest = [...pauses].sort((a, b) => (a.window?.from ?? 0) - (b.window?.from ?? 0))[0];
       return (
-        rules.find(
-          (r) =>
-            r.kind === "closure" &&
-            r.targetKind === "booking" &&
-            (r.bookingTypes ?? []).includes("online") &&
-            r.startsOn <= today &&
-            (r.endsOn === null || r.endsOn === undefined) &&
-            !r.repeat &&
-            (!r.window || r.window.from <= nowMinute)
-        ) ?? null
+        pauses.find((r) => isPauseInForce(r, config, timezone, today, nowMinute)) ?? earliest ?? null
       );
     }
   </file>
@@ -5082,11 +5254,89 @@
         const [text, name] = copy.allDay(t);
         return { key: closure.ruleId, text, name };
       }
+      // A closure from a set time is stored as running to the two-day maximum: it ends when the
+      // service day does, which reads "close", not "12:00 AM (next day)".
       const [text, name] = copy.band(t, {
         from: minuteText(closure.from, t, format),
-        to: minuteText(closure.to, t, format),
+        to:
+          closure.to >= 2 * MINUTES_PER_DAY
+            ? t("availability.calendar.untilClose")
+            : minuteText(closure.to, t, format),
       });
       return { key: closure.ruleId, text, name };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/closure-overlap-text.ts">
+    function targetText(by: ClosedByRule, services: readonly VenueService[], t: TFunction): string {
+      switch (by.targetKind) {
+        case "venue":
+          return t("availability.close.what.venue");
+        case "service":
+          return (
+            services.find((s) => s.id === by.venueServiceId)?.name ??
+            t("availability.closureOverlap.service")
+          );
+        case "booking":
+          return t("availability.closureOverlap.booking", {
+            channels: (by.bookingTypes ?? [])
+              .map((c) => t(`availability.close.what.channel.${c}`))
+              .join(", "),
+          });
+        default:
+          return t("availability.closureOverlap.tables");
+      }
+    }
+    function spanText(by: ClosedByRule, t: TFunction, format: VenueFormat): string | null {
+      const date = (d: string) => format.formatCalendarDate(d, DATE_FORMAT);
+      const from = date(by.startsOn);
+      const span =
+        by.endsOn == null
+          ? t("availabilitySpecial.untilReopened", { from })
+          : by.endsOn === by.startsOn
+            ? null
+            : t("availabilitySpecial.range", { from, to: date(by.endsOn) });
+      if (by.repeat == null) return span;
+      const days = by.repeat.weekdays.map((d) =>
+        format.formatCalendarDate(addDays(SUNDAY, d), { weekday: "long" })
+      );
+      return t("availabilitySpecial.reopen.subjectRepeat", {
+        days: new Intl.ListFormat(format.locale, { type: "conjunction" }).format(days),
+        span: span ?? from,
+      });
+    }
+    function closureText(
+      by: ClosedByRule,
+      services: readonly VenueService[],
+      t: TFunction,
+      format: VenueFormat
+    ): string {
+      const from = by.window
+        ? t("availability.close.window.from", { time: minuteText(by.window.from, t, format) })
+        : null;
+      return [targetText(by, services, t), from, spanText(by, t, format)]
+        .filter((part) => part !== null)
+        .join(SEPARATOR);
+    }
+    function datesText(dates: readonly string[], t: TFunction, format: VenueFormat): string {
+      const named = dates.slice(0, DATES_NAMED).map((d) => format.formatCalendarDate(d, DATE_FORMAT));
+      const rest = dates.length - named.length;
+      return rest === 0
+        ? new Intl.ListFormat(format.locale, { type: "conjunction" }).format(named)
+        : t("availability.closureOverlap.moreDates", { dates: named.join(", "), count: rest });
+    }
+    export function overlapLines(
+      overlap: ClosureOverlap,
+      kind: "already" | "stays",
+      services: readonly VenueService[],
+      t: TFunction,
+      format: VenueFormat
+    ): readonly string[] {
+      return overlap.by.map((by) =>
+        t(`availability.closureOverlap.${kind}`, {
+          dates: datesText(by.dates, t, format),
+          closure: closureText(by, services, t, format),
+        })
+      );
     }
   </file>
   <file path="apps/hospitality/src/components/availability/compare-changes.ts">
@@ -5169,18 +5419,98 @@
       return problem.data.code === "closure-exists" ? { code: "closure-exists" } : null;
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/conflict-review.ts">
+    export interface ScheduleChangeSince {
+      /** The schedule no longer exists (deleted or archived). */
+      readonly gone: boolean;
+      /** Another schedule now holds this one's place (a newer regular week); its name. */
+      readonly replacedBy: string | null;
+      readonly renamedTo: string | null;
+      /** Service names. */
+      readonly added: readonly string[];
+      readonly removed: readonly string[];
+      readonly changed: readonly string[];
+    }
+    function rowsByService(config: AvailabilityConfig, scheduleId: string) {
+      const names = new Map(config.venueServices.map((v) => [v.id, v.name]));
+      return new Map(
+        config.scheduleServices
+          .filter((s) => s.scheduleId === scheduleId)
+          .map((s) => [
+            s.venueServiceId,
+            { row: s, name: names.get(s.venueServiceId) ?? s.venueServiceId },
+          ])
+      );
+    }
+    export function scheduleChangesSince(
+      before: AvailabilityConfig,
+      after: AvailabilityConfig,
+      scheduleId: string,
+      latestId: string = scheduleId
+    ): ScheduleChangeSince {
+      const was = before.schedules.find((s) => s.id === scheduleId);
+      const now = after.schedules.find((s) => s.id === latestId && !s.archivedAt);
+      if (!now) {
+        return { gone: true, replacedBy: null, renamedTo: null, added: [], removed: [], changed: [] };
+      }
+      const old = rowsByService(before, scheduleId);
+      const next = rowsByService(after, latestId);
+      return {
+        gone: false,
+        replacedBy: latestId !== scheduleId ? now.name : null,
+        renamedTo: latestId === scheduleId && was && was.name !== now.name ? now.name : null,
+        added: [...next].filter(([id]) => !old.has(id)).map(([, v]) => v.name),
+        removed: [...old].filter(([id]) => !next.has(id)).map(([, v]) => v.name),
+        changed: [...next]
+          .filter(([id, v]) => {
+            const prior = old.get(id);
+            return prior !== undefined && HOURS_FIELDS.some((f) => !same(prior.row[f], v.row[f]));
+          })
+          .map(([, v]) => v.name),
+      };
+    }
+    interface ReapplyInput {
+      /** The rows the draft was seeded from. */
+      readonly base: readonly DraftService[];
+      /** The rows as the Manager has them now. */
+      readonly draft: readonly DraftService[];
+      /** The schedule's rows in the version that won. */
+      readonly latest: readonly DraftService[];
+    }
+    export function reapplyDraft({ base, draft, latest }: ReapplyInput): DraftService[] {
+      const baseById = new Map(base.map((s) => [s.venueServiceId, s]));
+      const draftById = new Map(draft.map((s) => [s.venueServiceId, s]));
+      const kept = latest.flatMap((row) => {
+        const was = baseById.get(row.venueServiceId);
+        const mine = draftById.get(row.venueServiceId);
+        if (was && !mine) return []; // the Manager removed it
+        if (!was || !mine) return [row]; // the colleague's, or nothing of the Manager's to apply
+        const edited = HOURS_FIELDS.filter((f) => !same(was[f], mine[f]));
+        return [{ ...row, ...Object.fromEntries(edited.map((f) => [f, mine[f]])) } as DraftService];
+      });
+      const added = draft.filter((s) => s.venueServiceId === null || !baseById.has(s.venueServiceId));
+      const fresh = added.filter(
+        (s) => s.venueServiceId === null || !latest.some((l) => l.venueServiceId === s.venueServiceId)
+      );
+      return [...kept, ...fresh];
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/copy-day.ts">
     export interface CopyTarget {
       readonly weekdays: readonly number[];
       readonly from: string;
       /** `null`: until changed again. */
       readonly until: string | null;
+      /** Today on the venue clock: dates before it are history and are not copied to. */
+      readonly today?: string;
     }
     export function copyDayDates(target: CopyTarget): string[] {
       const last = addDays(target.from, SCOPE_HORIZON_DAYS - 1);
       const end = target.until !== null && target.until < last ? target.until : last;
+      const first =
+        target.today !== undefined && target.today > target.from ? target.today : target.from;
       const dates: string[] = [];
-      for (let d = target.from; d <= end; d = addDays(d, 1)) {
+      for (let d = first; d <= end; d = addDays(d, 1)) {
         if (target.weekdays.includes(weekdayIndexOf(d))) dates.push(d);
       }
       return dates;
@@ -5197,6 +5527,7 @@
         scope: { kind: "weekday", from: input.from, until: input.until },
         services: input.services,
         makeId: input.makeId,
+        today: input.today,
       });
       const weekdays = [...input.weekdays].sort((a, b) => a - b);
       return {
@@ -5375,6 +5706,15 @@
           readonly mode: SeriesScope;
           readonly from: string;
         };
+    export function overnightHintDate(
+      scope: EditScope,
+      date: string,
+      dates: readonly string[]
+    ): string | undefined {
+      if (scope.kind === "date" || scope.kind === "weekday") return date;
+      if (scope.kind === "rule" && dates.length === 1) return date;
+      return undefined;
+    }
     export interface DraftService {
       /** React key; stable across edits. */
       readonly key: string;
@@ -5451,6 +5791,8 @@
       readonly leaveOut?: readonly string[];
       /** Today on the venue clock: a rule edit's "All dates" starts here, so past dates keep their hours. */
       readonly today?: string;
+      /** The config the draft was seeded from; a schedule save removes only rows it contained. */
+      readonly baseline?: AvailabilityConfig;
     }
     function ownDateRule(config: AvailabilityConfig, date: string): DateRule | undefined {
       return config.dateRules.find(
@@ -5489,10 +5831,14 @@
       config: AvailabilityConfig,
       scheduleId: string,
       services: readonly (DraftService & { venueServiceId: string })[],
-      makeId: () => string
+      makeId: () => string,
+      baseline?: AvailabilityConfig
     ): { upsert: ScheduleService[]; removed: string[] } {
       const stored = config.scheduleServices.filter((s) => s.scheduleId === scheduleId);
       const kept = new Set(services.map((s) => s.venueServiceId));
+      // Only rows the draft started with can be ones the Manager removed. A row that appeared since
+      // (a colleague's new service) was never in front of them, so a save must not delete it.
+      const seen = baseline && new Set(baseline.scheduleServices.map((s) => s.id));
       return {
         upsert: services.map((s) => ({
           ...hoursOf(s),
@@ -5504,7 +5850,9 @@
           scheduleId,
           venueServiceId: s.venueServiceId,
         })),
-        removed: stored.filter((s) => !kept.has(s.venueServiceId)).map((s) => s.id),
+        removed: stored
+          .filter((s) => !kept.has(s.venueServiceId) && (!seen || seen.has(s.id)))
+          .map((s) => s.id),
       };
     }
     export function buildDraftChanges(input: BuildInput): AvailabilityConfigChanges {
@@ -5521,7 +5869,13 @@
       const venueServices = created.length > 0 ? { venueServices: created } : {};
     
       if (scope.kind === "schedule") {
-        const { upsert, removed } = scheduleServiceRows(config, scope.scheduleId, services, makeId);
+        const { upsert, removed } = scheduleServiceRows(
+          config,
+          scope.scheduleId,
+          services,
+          makeId,
+          input.baseline
+        );
         return {
           upsert: { ...venueServices, scheduleServices: upsert },
           remove: removed.length > 0 ? { scheduleServices: removed } : {},
@@ -5553,9 +5907,11 @@
         const dateRules = singles.map((d) => dateRule(config, d, payload, makeId));
         return { upsert: { ...venueServices, dateRules }, remove: {} };
       }
+      // A rule from a past day would rewrite hours that already happened: start it today instead.
+      const startsOn = input.today !== undefined && input.today > scope.from ? input.today : scope.from;
       const rule = specialHoursRule(
         {
-          startsOn: scope.from,
+          startsOn,
           endsOn: scope.until,
           repeat: { version: 1, weekdays: [weekdayIndexOf(scope.from)] },
         },
@@ -5565,7 +5921,77 @@
       return { upsert: { ...venueServices, dateRules: [rule] }, remove: {} };
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/draft-wait.ts">
+    export function waitingProps(waiting: boolean, reasonId: string | undefined) {
+      return waiting
+        ? { "aria-disabled": true, "aria-describedby": reasonId, className: styles.waiting }
+        : {};
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/editor-open.ts">
+    function emit() {
+      for (const listener of listeners) listener();
+    }
+    export function markEditorOpen(): () => void {
+      openCount += 1;
+      emit();
+      let released = false;
+      return () => {
+        if (released) return;
+        released = true;
+        openCount -= 1;
+        emit();
+      };
+    }
+    export const isEditorOpen = (): boolean => openCount > 0;
+    function subscribe(listener: () => void): () => void {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    }
+    export const useEditorOpen = (): boolean => useSyncExternalStore(subscribe, isEditorOpen);
+  </file>
+  <file path="apps/hospitality/src/components/availability/online-seatings.ts">
+    function seatingMinutes({ opensAt, lastSeatingAt, closesAt, seating }: ResolvedService): number[] {
+      const bookable = (m: number) => m >= opensAt && m <= lastSeatingAt && m < closesAt;
+      if ("fixed" in seating) return seating.fixed.filter(bookable);
+      const count = Math.floor((lastSeatingAt - opensAt) / seating.interval) + 1;
+      return Array.from(
+        { length: Math.max(count, 0) },
+        (_, k) => opensAt + k * seating.interval
+      ).filter(bookable);
+    }
+    function closesOnline(band: ResolvedClosure, minute: number, venueServiceId: string): boolean {
+      if (minute < band.from || minute >= band.to) return false;
+      if (band.targetKind === "venue") return true;
+      if (band.targetKind === "service") return band.venueServiceId === venueServiceId;
+      return band.targetKind === "booking" && (band.bookingTypes ?? []).includes("online");
+    }
+    export function onlineSeatingLeft(
+      config: AvailabilityConfig,
+      timezone: string,
+      date: string,
+      nowMinute: number
+    ): boolean {
+      const day = resolveDay({ timezone, config }, date);
+      if (!day.bookingOpen.online) return false;
+      return day.services.some(
+        (service) =>
+          service.bookingTypes.includes("online") &&
+          seatingMinutes(service).some(
+            (minute) =>
+              minute >= nowMinute &&
+              !day.closures.some((band) => closesOnline(band, minute, service.venueServiceId))
+          )
+      );
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/outcome-label.ts">
+    export function outcomeSummary(counts: OutcomeCounts, t: TFunction): string {
+      return (["cancel", "move", "keep_notify", "keep_silent"] as const)
+        .filter((a) => counts[a] > 0)
+        .map((a) => t(`availability.close.button.part.${a}`, { count: counts[a] }))
+        .join(" · ");
+    }
     export function outcomeLabel(counts: OutcomeCounts, t: TFunction): string {
       const parts = (["cancel", "move", "keep_notify", "keep_silent"] as const)
         .filter((a) => counts[a] > 0)
@@ -5668,8 +6094,12 @@
       const mm = String(wrapped % 60).padStart(2, "0");
       return `${hh}:${mm}`;
     }
-    export function autoLastSeating(closes: string): string {
-      return toClock(toMinutes(closes) - LAST_SEATING_LEAD_MINUTES);
+    export function autoLastSeating(closes: string, opens: string | null = null): string {
+      const lead = toMinutes(closes) - LAST_SEATING_LEAD_MINUTES;
+      if (opens === null) return toClock(lead);
+      const opensAt = toMinutes(opens);
+      const closesAfter = toMinutes(closes) <= opensAt ? MINUTES_PER_DAY : 0;
+      return toClock(Math.max(lead + closesAfter, opensAt));
     }
     export function applyPreset(service: ServiceDraft, preset: ServicePresetId, name: string) {
       const { opens, closes } = SERVICE_PRESETS[preset];
@@ -5678,7 +6108,7 @@
         name,
         opens,
         closes,
-        lastSeating: autoLastSeating(closes),
+        lastSeating: autoLastSeating(closes, opens),
         lastSeatingLinked: true,
       };
     }
@@ -5688,14 +6118,13 @@
       value: string | null
     ): ServiceDraft {
       if (field === "lastSeating") return { ...service, lastSeating: value, lastSeatingLinked: false };
-      if (field === "closes" && service.lastSeatingLinked) {
-        return {
-          ...service,
-          closes: value,
-          lastSeating: value === null ? null : autoLastSeating(value),
-        };
-      }
-      return { ...service, [field]: value };
+      const next = { ...service, [field]: value };
+      // Both ends bound a linked last seating, so moving either one keeps it in step.
+      if (!service.lastSeatingLinked) return next;
+      return {
+        ...next,
+        lastSeating: next.closes === null ? null : autoLastSeating(next.closes, next.opens),
+      };
     }
     export function replaceService(draft: QuickSetupDraft, next: ServiceDraft): QuickSetupDraft {
       return { ...draft, services: draft.services.map((s) => (s.id === next.id ? next : s)) };
@@ -5935,7 +6364,7 @@
             ...emptyService(serviceId),
             opens: first.open,
             closes: first.close,
-            lastSeating: autoLastSeating(first.close),
+            lastSeating: autoLastSeating(first.close, first.open),
           },
         ],
         days: open.map((o) => o.index),
@@ -6275,6 +6704,32 @@
     export function buildDeleteScheduleChanges(scheduleId: string): AvailabilityConfigChanges {
       return { upsert: {}, remove: { schedules: [scheduleId] } };
     }
+    export type ScheduleSaveBlock =
+      | "conflict"
+      | "startRequired"
+      | "endBeforeStart"
+      | "nameRequired"
+      | "servicesRequired"
+      | "serviceNameRequired";
+    export function scheduleSaveBlock(draft: {
+      readonly conflicted: boolean;
+      readonly name: string;
+      readonly services: readonly DraftService[];
+      readonly startsOn: string | null;
+      readonly endsOn: string | null;
+      readonly startRequired?: boolean;
+    }): ScheduleSaveBlock | null {
+      const { startsOn, endsOn, services } = draft;
+      if (draft.conflicted) return "conflict";
+      if (draft.startRequired && !startsOn) return "startRequired";
+      if (startsOn && endsOn && endsOn < startsOn) return "endBeforeStart";
+      if (draft.name.trim() === "") return "nameRequired";
+      if (services.length === 0) return "servicesRequired";
+      if (services.some((s) => s.venueServiceId === null && !s.name.trim())) {
+        return "serviceNameRequired";
+      }
+      return null;
+    }
     function meets(a: UseOn, b: UseOn): boolean {
       const shared = a.weekdays.filter((d) => b.weekdays.includes(d));
       if (shared.length === 0) return false;
@@ -6402,12 +6857,22 @@
       readonly startsOn: string;
       readonly endsOn: string | null;
     }
+    export function regularWeekdays(config: AvailabilityConfig, from: string): number[] {
+      const regular = liveSchedules(config).find((s) => s.isRegular);
+      const days = new Set(
+        config.assignments
+          .filter((a) => a.scheduleId === regular?.id && (a.endsOn == null || a.endsOn >= from))
+          .flatMap((a) => a.weekdays)
+      );
+      return days.size > 0 ? [...days].sort((x, y) => x - y) : EVERY_DAY;
+    }
     export function buildRegularWeekChanges(input: RegularWeekInput): AvailabilityConfigChanges {
       const { config, startsOn, endsOn } = input;
+      const weekdays = regularWeekdays(config, startsOn);
       if (endsOn !== null) {
         return buildNewScheduleChanges({
           ...input,
-          useOn: { weekdays: EVERY_DAY, startsOn, endsOn },
+          useOn: { weekdays, startsOn, endsOn },
         });
       }
       const scheduleId = input.makeId();
@@ -6439,7 +6904,7 @@
             {
               id: input.makeId(),
               scheduleId,
-              weekdays: EVERY_DAY,
+              weekdays,
               startsOn,
               endsOn: null,
               precedence: 0,
@@ -6457,6 +6922,8 @@
       readonly name: string;
       readonly services: readonly DraftService[];
       readonly makeId: () => string;
+      /** The config the drawer was seeded from, so a save removes only rows the Manager saw. */
+      readonly baseline: AvailabilityConfig;
     }): AvailabilityConfigChanges {
       const { config, scheduleId, name, makeId } = input;
       const rows = buildDraftChanges({
@@ -6464,6 +6931,7 @@
         scope: { kind: "schedule", scheduleId },
         services: input.services,
         makeId,
+        baseline: input.baseline,
       });
       const stored = config.schedules.find((s) => s.id === scheduleId);
       const rename = stored && stored.name !== name ? { schedules: [{ ...stored, name }] } : {};
@@ -6506,7 +6974,8 @@
       if (scope.kind === "weekday") {
         const horizon = addDays(scope.from, SCOPE_HORIZON_DAYS - 1);
         const last = scope.until !== null && scope.until < horizon ? scope.until : horizon;
-        return eachDate(scope.from, last, 7);
+        // A past Friday is history, not part of the edit: count from the venue's today.
+        return eachDate(scope.from, last, 7).filter((d) => d >= context.today);
       }
       if (scope.kind === "rule") {
         const rule = context.config.dateRules.find((r) => r.id === scope.ruleId);
@@ -6544,6 +7013,83 @@
       return dates.filter((date) =>
         rules.some((rule) => coversDate(rule, date) && !skipped.has(`${rule.id}@${date}`))
       );
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/scope-switch.ts">
+    export interface ParkedEdit {
+      readonly base: DraftService;
+      readonly draft: DraftService | null;
+    }
+    interface SwitchInput {
+      /** The rows the draft started from, in the scope it leaves. */
+      readonly baseline: readonly DraftService[];
+      readonly services: readonly DraftService[];
+      readonly parked: readonly ParkedEdit[];
+      /** The rows of the scope it lands in. */
+      readonly seed: DraftService[];
+    }
+    export interface Switched {
+      readonly services: DraftService[];
+      readonly baseline: DraftService[];
+      readonly parked: ParkedEdit[];
+      /** Services the new scope lacks, whose edits are held rather than saved. */
+      readonly unsaved: string[];
+      /** Services the new scope already has with these hours: the ones just set change nothing there. */
+      readonly overridden: string[];
+    }
+    export function switchScope(input: SwitchInput): Switched {
+      const { baseline, services, parked, seed } = input;
+      const ids = (rows: readonly DraftService[]) => new Set(rows.map((r) => r.venueServiceId));
+      const baselineIds = ids(baseline);
+      const serviceIds = ids(services);
+      // Edits parked earlier rejoin the draft, so a scope that has the service takes them up again.
+      const base = [
+        ...baseline,
+        ...parked.map((p) => p.base).filter((b) => !baselineIds.has(b.venueServiceId)),
+      ];
+      const draft = [
+        ...services,
+        ...parked.flatMap((p) => (p.draft && !serviceIds.has(p.draft.venueServiceId) ? [p.draft] : [])),
+      ];
+      const draftIds = ids(draft);
+      const baseById = new Map(base.map((r) => [r.venueServiceId, r]));
+      const seedById = new Map(seed.map((r) => [r.venueServiceId, r]));
+    
+      const edits = draft.flatMap((d) => {
+        const was = baseById.get(d.venueServiceId);
+        return d.venueServiceId !== null && was && !same(was, d) && !seedById.has(d.venueServiceId)
+          ? [{ base: was, draft: d }]
+          : [];
+      });
+      // A removal of a row the new scope has no row for is held too: it would not otherwise survive
+      // the trip back, where the row is seeded afresh.
+      const removals = base.flatMap((b) =>
+        b.venueServiceId !== null && !draftIds.has(b.venueServiceId) && !seedById.has(b.venueServiceId)
+          ? [{ base: b, draft: null }]
+          : []
+      );
+      const nextParked: ParkedEdit[] = [...edits, ...removals];
+      // An edit that leaves the row equal to what the new scope has changes nothing there.
+      const matched = draft.flatMap((d) => {
+        const there = d.venueServiceId === null ? undefined : seedById.get(d.venueServiceId);
+        const was = baseById.get(d.venueServiceId);
+        return there && was && !same(was, d) && same(there, d) ? [d.name] : [];
+      });
+      // An added service the new scope already has keeps that scope's hours, not the ones just set.
+      const overridden = draft.flatMap((d) => {
+        const there = d.venueServiceId === null ? undefined : seedById.get(d.venueServiceId);
+        return there && !baseById.has(d.venueServiceId) && !same(there, d)
+          ? [d.name || there.name]
+          : [];
+      });
+    
+      return {
+        services: reapplyDraft({ base, draft, latest: seed }),
+        baseline: seed,
+        parked: nextParked,
+        unsaved: [...new Set(edits.map((p) => p.draft.name))],
+        overridden: [...new Set([...overridden, ...matched])],
+      };
     }
   </file>
   <file path="apps/hospitality/src/components/availability/selection-actions.ts">
@@ -6610,6 +7156,33 @@
       return { upsert: built.upsert, remove: removal(own) };
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/selection-hours.ts">
+    function hoursSignature(day: ResolvedDay): string {
+      return JSON.stringify(
+        day.services.map((s) => [
+          s.venueServiceId,
+          s.opensAt,
+          s.lastSeatingAt,
+          s.closesAt,
+          s.seating,
+          s.bookingTypes,
+        ])
+      );
+    }
+    export function pickHoursSource(
+      dates: readonly string[],
+      resolve: (date: string) => ResolvedDay
+    ): { readonly date: string | null; readonly differs: boolean } {
+      const days = dates.map((date) => ({ date, day: resolve(date) }));
+      const source = days.find((d) => d.day.services.length > 0) ?? days[0];
+      if (!source) return { date: null, differs: false };
+      const wanted = hoursSignature(source.day);
+      return {
+        date: source.date,
+        differs: days.some((d) => hoursSignature(d.day) !== wanted),
+      };
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/selection.ts">
     export function normalizeDates(dates: readonly string[]): string[] {
       return [...new Set(dates)].sort();
@@ -6619,6 +7192,9 @@
       const dates: string[] = [];
       for (let d = from; d <= to; d = addDays(d, 1)) dates.push(d);
       return dates;
+    }
+    export function futureDates(dates: readonly string[], today: string): string[] {
+      return dates.filter((d) => d >= today);
     }
     export function toggleDate(selection: readonly string[], date: string): string[] {
       return selection.includes(date)
@@ -6676,6 +7252,15 @@
       }
       return series.startsOn;
     }
+    export function sameRow(a: DateRule, b: DateRule): boolean {
+      const key = (rule: DateRule) =>
+        JSON.stringify(
+          Object.entries({ ...rule, repeat: [...(rule.repeat?.weekdays ?? [])].sort((x, y) => x - y) })
+            .filter(([, value]) => value != null)
+            .sort(([x], [y]) => x.localeCompare(y))
+        );
+      return key(a) === key(b);
+    }
     export function dateOverride(
       rules: readonly DateRule[],
       seriesId: string,
@@ -6730,6 +7315,20 @@
       if (from === series.startsOn) return { rule, alongside: { upsert: moved, remove: [series.id] } };
       const ended: DateRule = { ...series, endsOn: addDays(from, -1) };
       return { rule, alongside: { upsert: [ended, ...moved], remove: [] } };
+    }
+    export function growthAttempt(
+      plan: { readonly rule: DateRule; readonly alongside: ClosureAlongside },
+      ruleId: string
+    ): { rule: DateRule; alongside: ClosureAlongside } {
+      return {
+        rule: { ...plan.rule, id: ruleId },
+        alongside: {
+          ...plan.alongside,
+          upsert: plan.alongside.upsert.map((r) =>
+            r.seriesId === plan.rule.id ? { ...r, seriesId: ruleId } : r
+          ),
+        },
+      };
     }
     export function editHoursRule(
       rule: SpecialHoursRule,
@@ -6815,6 +7414,50 @@
       return summaries.filter(
         (s) => s.refundFailed + s.refundPending > 0 && !listedRuleIds.includes(s.ruleId)
       );
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/step-two-refusal.ts">
+    export type Refusal =
+      /** A group's bookings changed since the Manager chose: the choices are void. */
+      | { readonly kind: "groups-changed" }
+      /** Someone saved first; `winningChange` is `null` when the server recorded none. */
+      | { readonly kind: "version-conflict"; readonly winningChange: AvailabilityChangeSummary | null }
+      /** This attempt already committed (a response was lost). */
+      | { readonly kind: "closure-exists" }
+      /**
+       * `outcomeUnknown`: no answer the server stands behind (a lost response, a timeout, a 5xx from
+       * something in front of it), so the save may have committed.
+       */
+      | {
+          readonly kind: "other";
+          readonly detail: string;
+          readonly outcomeUnknown: boolean;
+        };
+    export function refusalOf(error: unknown): Refusal {
+      if (isDecisionRequired(error)) return { kind: "groups-changed" };
+      const conflict = conflictOf(error);
+      if (conflict?.code === "version-conflict") {
+        return { kind: "version-conflict", winningChange: conflict.winningChange };
+      }
+      if (conflict?.code === "closure-exists") return { kind: "closure-exists" };
+      const { category, detail } = describeApiError(error);
+      return { kind: "other", detail, outcomeUnknown: UNKNOWN_OUTCOME.has(category) };
+    }
+    export function mayHaveSaved(refusal: Refusal): boolean {
+      return refusal.kind === "closure-exists" || (refusal.kind === "other" && refusal.outcomeUnknown);
+    }
+    export function refusalText(refusal: Refusal, t: TFunction): string {
+      switch (refusal.kind) {
+        case "groups-changed":
+          return t("availability.close.groupsChanged");
+        case "version-conflict":
+          return t("availability.close.versionConflict");
+        case "closure-exists":
+          return t("availability.close.alreadySaved");
+        case "other":
+          // The house sentences do not say this save may have gone through; this one does.
+          return refusal.outcomeUnknown ? t("availability.close.maybeSaved") : refusal.detail;
+      }
     }
   </file>
   <file path="apps/hospitality/src/components/availability/tonight-state.ts">
@@ -6906,10 +7549,114 @@
       });
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/use-conflict-review.ts">
+    interface Baseline {
+      readonly config: AvailabilityConfig;
+      readonly version: number;
+      /** The schedule the draft's rows were seeded from, fixed when the drawer opened. */
+      readonly scheduleId: string | undefined;
+    }
+    export type ConflictReviewKind = "edit" | "regularWeek" | "draft";
+    export interface ConflictReview {
+      readonly kind: ConflictReviewKind;
+      /** The refetch has landed; until then there is nothing to compare with. */
+      readonly loaded: boolean;
+      readonly changes: ScheduleChangeSince;
+    }
+    interface Input {
+      readonly kind: ConflictReviewKind;
+      readonly state: AvailabilityConfigState;
+      /**
+       * The schedule whose rows the draft starts from, as the latest state has it (the regular week
+       * can move to another schedule); none for a draft with nothing to compare. The drawer reads
+       * it once, when it opens, and keeps that as where its rows came from.
+       */
+      readonly scheduleId: string | undefined;
+      readonly services: readonly DraftService[];
+      /** The name field is a rename of `scheduleId` (edit), not the name of a new schedule. */
+      readonly name: string | null;
+      readonly conflicted: boolean;
+      readonly clearConflict: () => void;
+      /** Replaces the draft with the answer the Manager chose. */
+      readonly apply: (next: { services: DraftService[]; name: string | null }) => void;
+      /** Starts the whole draft again (name, dates and all) from these rows; for non-edit drafts. */
+      readonly startOver: (services: DraftService[]) => void;
+      /** The schedule is gone, so there is nothing left to edit. */
+      readonly onGone: () => void;
+    }
+    export function useConflictReview(input: Input) {
+      const { kind, state, services, name, conflicted } = input;
+      const [baseline, setBaseline] = useState<Baseline>(() => ({
+        config: state.config,
+        version: state.version,
+        scheduleId: input.scheduleId,
+      }));
+      const pinned = baseline.scheduleId;
+      const latestId = kind === "regularWeek" ? input.scheduleId : pinned;
+      const nameIn = (config: AvailabilityConfig) =>
+        config.schedules.find((s) => s.id === pinned)?.name ?? "";
+    
+      const baselineServices = rowsOf(baseline.config, pinned);
+      const loaded = state.version !== baseline.version;
+      const compared =
+        conflicted && loaded && kind !== "draft" && pinned && latestId
+          ? scheduleChangesSince(baseline.config, state.config, pinned, latestId)
+          : NO_CHANGES;
+      // A new regular week saves a new schedule, so a missing regular week is not a dead end.
+      const changes = kind === "regularWeek" ? { ...compared, gone: false } : compared;
+      const review: ConflictReview | null = conflicted ? { kind, loaded, changes } : null;
+    
+      const rebase = () =>
+        setBaseline({ config: state.config, version: state.version, scheduleId: input.scheduleId });
+      const settle = (next: () => void) => {
+        rebase();
+        next();
+        input.clearConflict();
+      };
+      const latestRows = () => rowsOf(state.config, kind === "draft" ? pinned : latestId);
+    
+      return {
+        baseline: baseline.config,
+        /** The version a save is checked against: the one the draft was built from. */
+        baselineVersion: baseline.version,
+        baselineServices,
+        baselineName: nameIn(baseline.config),
+        review,
+        /** The winning version with only the Manager's own changes on top. */
+        reapply: () =>
+          settle(() => {
+            if (kind === "draft") return; // a new schedule depends on nothing that moved
+            const latest = latestId && !changes.gone ? rowsOf(state.config, latestId) : null;
+            input.apply({
+              services: latest
+                ? reapplyDraft({ base: baselineServices, draft: services, latest })
+                : [...services],
+              name: name === null || name !== nameIn(baseline.config) ? name : nameIn(state.config),
+            });
+          }),
+        /** The winning version as it is; the draft is dropped. */
+        discard: () => {
+          if (kind === "edit") {
+            if (changes.gone) input.onGone();
+            else
+              settle(() =>
+                input.apply({
+                  services: latestRows(),
+                  name: name === null ? null : nameIn(state.config),
+                })
+              );
+            return;
+          }
+          settle(() => input.startOver(latestRows()));
+        },
+      };
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/use-discard-guard.ts">
-    export function useDiscardGuard<T>(apply: (next: T) => void) {
-      const [dirty, setDirty] = useState(false);
+    export function useDiscardGuard<T>(apply: (next: T) => void, derivedDirty?: boolean) {
+      const [reported, setDirty] = useState(false);
       const [pending, setPending] = useState<{ readonly next: T } | null>(null);
+      const dirty = derivedDirty ?? reported;
     
       /** Moves on now, with the draft gone: after a save, or once it has been thrown away. */
       const release = (next: T) => {
@@ -6931,6 +7678,169 @@
       };
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/use-held-for.ts">
+    export function useHeldFor(active: boolean, ms: number): boolean {
+      const [elapsed, setElapsed] = useState(false);
+      useEffect(() => {
+        if (!active) return undefined;
+        const timer = setTimeout(() => setElapsed(true), ms);
+        return () => {
+          clearTimeout(timer);
+          setElapsed(false);
+        };
+      }, [active, ms]);
+      return active && elapsed;
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/use-hold-focus.ts">
+    export type HoldWayOut = "banner" | "reload" | null;
+    export function useHoldFocus(wayOut: HoldWayOut) {
+      const editorRef = useRef<HTMLDivElement>(null);
+      const bannerRef = useRef<HTMLDivElement>(null);
+      const reloadRef = useRef<HTMLDivElement>(null);
+      const hasFocusRef = useRef(false);
+    
+      useEffect(() => {
+        if (!hasFocusRef.current) return;
+        hasFocusRef.current = false;
+        if (document.activeElement && document.activeElement !== document.body) return;
+        const landing = wayOut === "banner" ? bannerRef : wayOut === "reload" ? reloadRef : editorRef;
+        landing.current?.querySelector("button")?.focus();
+      }, [wayOut]);
+    
+      // A click counts too: Safari does not focus a button it clicks.
+      const claim = useCallback(() => {
+        hasFocusRef.current = true;
+      }, []);
+      const track = useMemo(
+        () => ({
+          onFocus: claim,
+          onClick: claim,
+          onBlur: (event: FocusEvent) => {
+            if (event.relatedTarget) hasFocusRef.current = false;
+          },
+        }),
+        [claim]
+      );
+    
+      return { editorRef, bannerRef, reloadRef, track };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/use-reload-hold.ts">
+    function emit() {
+      for (const listener of listeners) listener();
+    }
+    function addSaveUnderWay(venueId: string, by: 1 | -1) {
+      savesUnderWay.set(venueId, (savesUnderWay.get(venueId) ?? 0) + by);
+      emit();
+    }
+    export async function trackOwnSave<T extends { readonly version: number }>(
+      venueId: string,
+      run: () => Promise<T>
+    ): Promise<T> {
+      addSaveUnderWay(venueId, 1);
+      try {
+        const result = await run();
+        savedVersions.set(venueId, Math.max(savedVersions.get(venueId) ?? 0, result.version));
+        return result;
+      } finally {
+        // A refused save moved nothing, so there is no version to wait for.
+        addSaveUnderWay(venueId, -1);
+      }
+    }
+    function subscribe(listener: () => void): () => void {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    }
+    export function useReloadHold(venueId: string | undefined, version: number | undefined) {
+      const saving = useSyncExternalStore(subscribe, () =>
+        venueId === undefined ? 0 : (savesUnderWay.get(venueId) ?? 0)
+      );
+      const saved = useSyncExternalStore(subscribe, () =>
+        venueId === undefined ? 0 : (savedVersions.get(venueId) ?? 0)
+      );
+      const reloadDue = version !== undefined && saved > version;
+      return { behind: saving > 0 || reloadDue, reloadDue };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/use-save-attempts.ts">
+    export interface TriedAttempt {
+      readonly key: string;
+      readonly ruleIds: readonly string[];
+      readonly dates: readonly string[];
+      readonly summary: string;
+    }
+    export interface SaveAttemptsOptions {
+      /** The first attempt's rule id, when the rule already has one (a Tonight close-early). */
+      readonly firstRuleId?: string;
+      /** Reloads the config: leaving after a save leaves the calendar stale otherwise. */
+      readonly reload: () => void;
+      readonly onLeave: () => void;
+    }
+    export function useSaveAttempts(rules: readonly DateRule[], options: SaveAttemptsOptions) {
+      const { firstRuleId, reload, onLeave } = options;
+      const [attempt, setAttempt] = useState(() => newAttempt(firstRuleId));
+      const [tried, setTried] = useState<readonly TriedAttempt[]>([]);
+      const [failedSave, setFailedSave] = useState(false);
+      const [maybeSaved, setMaybeSaved] = useState(false);
+      const earlier = tried.find((a) => rules.some((r) => a.ruleIds.includes(r.id)));
+    
+      const finish = () => {
+        if (tried.length > 0) reload();
+        onLeave();
+      };
+      const guard = useDiscardGuard<null>(() => finish());
+    
+      const restart = (ruleId?: string) => {
+        setAttempt(newAttempt(ruleId));
+        setFailedSave(false);
+      };
+    
+      return {
+        ...attempt,
+        tried,
+        earlier,
+        /** Some attempt got no definite answer. Later refusals do not settle it. */
+        maybeSaved,
+        restart,
+        finish,
+        setDirty: guard.setDirty,
+        /** A choice or field moved from `before` to `after`: after a failure, that is a new attempt. */
+        edited: (before: unknown, after: unknown) => {
+          if (failedSave && JSON.stringify(before) !== JSON.stringify(after)) restart();
+        },
+        /**
+         * Call before sending. One rule id can be sent more than once (a refused send keeps it, and
+         * the Manager may then choose differently), and the send that commits is the last one.
+         */
+        record: (
+          summary: string,
+          ruleIds: readonly string[] = [attempt.ruleId],
+          dates: readonly string[] = []
+        ) => {
+          const sent = { key: attempt.idempotencyKey, ruleIds, dates, summary };
+          setTried((all) => [...all.filter((a) => a.key !== sent.key), sent]);
+        },
+        /** The save was refused, or lost: a changed request is now a new attempt, and leaving asks. */
+        failed: (refusal: Refusal) => {
+          setFailedSave(true);
+          if (mayHaveSaved(refusal)) setMaybeSaved(true);
+          guard.setDirty(true);
+        },
+        /** Escape during a save would close the dialog while the save still commits. */
+        leave: (busy = false) => {
+          if (busy) return;
+          // Nothing to discard once it is saved: the question would be false.
+          if (earlier) finish();
+          else guard.request(null);
+        },
+        asking: guard.pending !== null,
+        confirmLeave: guard.confirmDiscard,
+        keepEditing: guard.keepEditing,
+      };
+    }
+    export type SaveAttempts = ReturnType<typeof useSaveAttempts>;
+  </file>
   <file path="apps/hospitality/src/components/availability/use-schedule-save.ts">
     export function useScheduleSave(
       onStale: () => void,
@@ -6942,6 +7852,16 @@
       const { t } = useTranslation();
       const { mutateAsync, isPending } = useSaveAvailabilityConfig();
       const [failure, setFailure] = useState<readonly string[]>([]);
+      // The bookings behind a stranded refusal, listed beneath its message.
+      const [stranded, setStranded] = useState<readonly StrandedReservation[]>([]);
+      // A lost race. The draft was built from a version that is gone, so a drawer that edits rows
+      // must show what changed and get an answer (reapply or discard) before it saves again.
+      const [conflicted, setConflicted] = useState(false);
+    
+      const clearFailure = () => {
+        setFailure([]);
+        setStranded([]);
+      };
     
       const reject = (error: unknown) => {
         const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
@@ -6949,11 +7869,13 @@
         const problem = parsed.success ? parsed.data : null;
         if (problem?.code === "version-conflict") {
           onStale();
+          setConflicted(true);
           setFailure([t("availabilitySchedules.conflict")]);
         } else if (problem?.code === "invalid-config" && problem.issues?.length) {
           setFailure(problem.issues.map((i) => i.message));
         } else if (problem?.code === "stranded-bookings") {
           setFailure([t(strandedKey, { count: problem.reservations?.length ?? 0 })]);
+          setStranded(problem.reservations ?? []);
         } else {
           setFailure([describeApiError(error).detail]);
         }
@@ -6966,7 +7888,7 @@
         changes: AvailabilityConfigChanges,
         scopeConflicts: ScopeConflictMode
       ): Promise<AvailabilityConfigSaveResult | null> => {
-        setFailure([]);
+        clearFailure();
         try {
           return await mutateAsync({
             venueId,
@@ -6978,7 +7900,19 @@
         }
       };
     
-      return { save, isPending, failure, clearFailure: () => setFailure([]) };
+      return {
+        save,
+        isPending,
+        failure,
+        stranded,
+        conflicted,
+        clearFailure,
+        /** The Manager has answered the conflict; the next save is against the version they saw. */
+        clearConflict: () => {
+          setConflicted(false);
+          clearFailure();
+        },
+      };
     }
   </file>
   <file path="apps/hospitality/src/components/availability/use-winning-change-text.ts">
@@ -7002,18 +7936,23 @@
       readonly selection: readonly string[];
       readonly onSelectionChange: (dates: string[]) => void;
       readonly onOpenDay: (date: string) => void;
+      /**
+       * A range drag is under way (`true`) or over (`false`). The page holds back anything that would
+       * move the grid under the pointer until the drag ends.
+       */
+      readonly onDragChange?: (dragging: boolean) => void;
     }
     export interface DateGestureHandlers {
       readonly onClick: (event: MouseEvent) => void;
       readonly onMouseDown: (event: MouseEvent) => void;
-      readonly onMouseEnter: () => void;
+      readonly onMouseEnter: (event: MouseEvent) => void;
       readonly onTouchStart: () => void;
       readonly onTouchMove: () => void;
       readonly onTouchEnd: (event: TouchEvent) => void;
       readonly onContextMenu: (event: MouseEvent) => void;
     }
     export function useDateSelection(options: DateSelectionOptions) {
-      const { selection, onSelectionChange, onOpenDay } = options;
+      const { selection, onSelectionChange, onOpenDay, onDragChange } = options;
       const pivot = useRef<string | null>(null);
       const drag = useRef<{ from: string; moved: boolean } | null>(null);
       const suppressClick = useRef(false);
@@ -7029,12 +7968,24 @@
             setTimeout(() => {
               suppressClick.current = false;
             }, 0);
+            onDragChange?.(false);
           }
           drag.current = null;
         };
         window.addEventListener("mouseup", endDrag);
-        return () => window.removeEventListener("mouseup", endDrag);
-      }, []);
+        // A release the window never sees (outside it, or after switching away) ends the drag too.
+        window.addEventListener("blur", endDrag);
+        return () => {
+          window.removeEventListener("mouseup", endDrag);
+          window.removeEventListener("blur", endDrag);
+        };
+      }, [onDragChange]);
+    
+      /** A drag whose mouseup was lost: what shows it was lost ends it, without any click to swallow. */
+      const dropLostDrag = () => {
+        if (drag.current?.moved) onDragChange?.(false);
+        drag.current = null;
+      };
     
       const clearTimer = () => {
         if (pressTimer.current) clearTimeout(pressTimer.current);
@@ -7055,13 +8006,19 @@
     
       const handlersFor = (date: string): DateGestureHandlers => ({
         onMouseDown: (event) => {
+          dropLostDrag();
           if (event.button === 0 && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
             drag.current = { from: date, moved: false };
           }
         },
-        onMouseEnter: () => {
+        onMouseEnter: (event) => {
+          if (event.buttons === 0) {
+            dropLostDrag();
+            return;
+          }
           const d = drag.current;
           if (!d || (date === d.from && !d.moved)) return;
+          if (!d.moved) onDragChange?.(true);
           d.moved = true;
           extendSelection(d.from, date);
         },
@@ -9483,11 +10440,83 @@
   </file>
   </section>
   <section priority="medium" role="config">
+  <file path="services/reservations/src/config/host-brand.ts">
+    export type OriginHost = "eat-sheet.com" | "mattbutlerengineering.com";
+    export function resolveOriginHost(
+      origin: string | readonly string[] | undefined | null
+    ): OriginHost | null {
+      const value = Array.isArray(origin) ? origin[0] : origin;
+      if (!value) return null;
+    
+      let hostname: string;
+      try {
+        hostname = new URL(value).hostname.toLowerCase();
+      } catch {
+        return null;
+      }
+    
+      if (EAT_SHEET_HOSTNAMES.has(hostname)) return "eat-sheet.com";
+      if (MBE_HOSTNAMES.has(hostname)) return "mattbutlerengineering.com";
+      return null;
+    }
+    export interface ReservationHostBrand {
+      readonly brandName: string;
+      readonly fromAddress: string;
+      readonly manageBaseUrl: string;
+    }
+    export interface HostBrandEnv {
+      /**
+       * The verified Resend sending domain's address. Never varies by host:
+       * eat-sheet.com is not (yet) a verified sending domain, so the envelope
+       * from-address always stays here — only the display name changes (#7892).
+       */
+      readonly verifiedFromAddress: string;
+      readonly mbeManageBaseUrl: string;
+      readonly eatSheetManageBaseUrl: string;
+    }
+    function withDisplayName(name: string, address: string): string {
+      const email = address.match(/<([^>]+)>/)?.[1] ?? address;
+      return `${name} <${email}>`;
+    }
+    export function hostBrandFor(originHost: string | null, env: HostBrandEnv): ReservationHostBrand {
+      if (originHost === "eat-sheet.com") {
+        return {
+          brandName: EAT_SHEET_BRAND_NAME,
+          fromAddress: withDisplayName(EAT_SHEET_BRAND_NAME, env.verifiedFromAddress),
+          manageBaseUrl: env.eatSheetManageBaseUrl,
+        };
+      }
+      return {
+        brandName: MBE_BRAND_NAME,
+        fromAddress: env.verifiedFromAddress,
+        manageBaseUrl: env.mbeManageBaseUrl,
+      };
+    }
+    export function createHostBrandResolver(env: {
+      EMAIL_FROM?: string | undefined;
+      MANAGE_BASE_URL?: string | undefined;
+      EAT_SHEET_MANAGE_BASE_URL?: string | undefined;
+    }): (originHost: string | null) => ReservationHostBrand {
+      const brandEnv: HostBrandEnv = {
+        verifiedFromAddress: env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
+        mbeManageBaseUrl: resolveManageBaseUrl(env),
+        eatSheetManageBaseUrl: resolveEatSheetManageBaseUrl(env),
+      };
+      return (originHost) => hostBrandFor(originHost, brandEnv);
+    }
+  </file>
   <file path="services/reservations/src/config/manage-base-url.ts">
     export const DEFAULT_MANAGE_BASE_URL = "https://mattbutlerengineering.com";
     export function resolveManageBaseUrl(env: { MANAGE_BASE_URL?: string | undefined }): string {
       const raw = (env.MANAGE_BASE_URL ?? "").trim();
       return raw === "" ? DEFAULT_MANAGE_BASE_URL : raw.replace(/\/+$/, "");
+    }
+    export const DEFAULT_EAT_SHEET_MANAGE_BASE_URL = "https://eat-sheet.com";
+    export function resolveEatSheetManageBaseUrl(env: {
+      EAT_SHEET_MANAGE_BASE_URL?: string | undefined;
+    }): string {
+      const raw = (env.EAT_SHEET_MANAGE_BASE_URL ?? "").trim();
+      return raw === "" ? DEFAULT_EAT_SHEET_MANAGE_BASE_URL : raw.replace(/\/+$/, "");
     }
   </file>
   <file path="services/reservations/src/config/manage-token.ts">
@@ -12103,8 +13132,15 @@
       // (useDashboardStatsQuery's DEPOSITS_QUERY_KEY). Two pending/held deposits
       // (depositAtRiskCount) plus one forfeited (noShowExposureCents), matching
       // the shape computeDepositStats expects.
+      // `?reservationId=` is the details surface's single-deposit lookup (getByReservation), which
+      // expects one deposit or null: these reservations have none.
       await page.route("**/api/v1/deposits?*", (route) =>
-        jsonOk(route, buildDepositsFixture(new Date()))
+        jsonOk(
+          route,
+          new URL(route.request().url()).searchParams.has("reservationId")
+            ? null
+            : buildDepositsFixture(new Date())
+        )
       );
     
       // Waitlist
@@ -12732,6 +13768,191 @@
       await page.reload();
     }
   </file>
+  <file path="apps/hospitality/e2e/availability-draft-mock.ts">
+    export interface PutBody {
+      expectedVersion: number;
+      changes?: { upsert?: { dateRules?: Array<{ id: string; startsOn?: string }> } };
+    }
+    export interface PutRecord {
+      expected: number;
+      status: number;
+    }
+    export interface AvailabilityMock {
+      version: number;
+      configReads: number;
+      /** Reads of the config answer 500 while this is set. */
+      failReads: boolean;
+      /** Reads of the config answer this version while it is set: a replica behind the writes. */
+      readVersion: number | null;
+      /** Reads of the config wait from here until `releaseReads`: a slow reload, without a race. */
+      holdReads(): void;
+      releaseReads(): void;
+      /** Every save's body, in order. */
+      readonly bodies: PutBody[];
+      /** Every save, in order, with the version it was checked against and how it ended. */
+      readonly puts: PutRecord[];
+      /** Reverts (Undo) received. */
+      reverts: number;
+      /** The next save answers this instead of being applied. */
+      nextPut: { status: number; code: string; extra?: object } | null;
+      /** Someone else saves: the version moves on and the next save here is refused. */
+      colleague(summary?: string): void;
+    }
+    function between(from: string, to: string): string[] {
+      const out: string[] = [];
+      for (
+        let d = new Date(`${from}T00:00:00Z`);
+        d <= new Date(`${to}T00:00:00Z`);
+        d.setUTCDate(d.getUTCDate() + 1)
+      ) {
+        out.push(d.toISOString().slice(0, 10));
+      }
+      return out;
+    }
+    export async function mockAvailability(
+      page: Page,
+      options: { weekdays?: number[]; rules?: unknown[] } = {}
+    ): Promise<AvailabilityMock> {
+      const venues = JSON.parse(loadFixture("venues-list")) as { data: Array<{ id: string }> };
+      const base = `**/api/v1/venues/${String(venues.data[0]?.id)}`;
+      const json = (data: unknown) => ({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data }),
+      });
+      const problem = (status: number, code: string, extra: object = {}) => ({
+        status,
+        contentType: "application/problem+json",
+        body: JSON.stringify({
+          type: "about:blank",
+          title: code,
+          status,
+          detail: "Server said no.",
+          code,
+          ...extra,
+        }),
+      });
+      let winner = {
+        id: "chg-0",
+        actorId: "auth0|ana",
+        at: new Date().toISOString(),
+        kind: "config",
+        summary: "Dinner closes at 10:00 PM",
+      };
+      let readsHeld: Promise<void> = Promise.resolve();
+      let releaseHeld: () => void = () => undefined;
+      const mock: AvailabilityMock = {
+        version: 7,
+        configReads: 0,
+        failReads: false,
+        readVersion: null,
+        holdReads() {
+          readsHeld = new Promise((resolve) => {
+            releaseHeld = resolve;
+          });
+        },
+        releaseReads() {
+          releaseHeld();
+          readsHeld = Promise.resolve();
+        },
+        bodies: [],
+        puts: [],
+        reverts: 0,
+        nextPut: null,
+        colleague(summary = "Dinner closes at 10:00 PM") {
+          mock.version += 1;
+          winner = { ...winner, id: `chg-${mock.version}`, summary };
+        },
+      };
+      let rules: unknown[] = options.rules ?? [];
+    
+      await page.route(`${base}/availability/config`, async (route) => {
+        if (route.request().method() === "PUT") {
+          const body = route.request().postDataJSON() as PutBody;
+          mock.bodies.push(body);
+          const record: PutRecord = { expected: body.expectedVersion, status: 0 };
+          mock.puts.push(record);
+          if (mock.nextPut) {
+            const refused = mock.nextPut;
+            mock.nextPut = null;
+            record.status = refused.status;
+            return route.fulfill(problem(refused.status, refused.code, refused.extra));
+          }
+          if (body.expectedVersion !== mock.version) {
+            record.status = 409;
+            return route.fulfill(problem(409, "version-conflict", { winningChange: winner }));
+          }
+          const upserted = body.changes?.upsert?.dateRules ?? [];
+          rules = [
+            ...rules.filter((r) => !upserted.some((u) => u.id === (r as { id: string }).id)),
+            ...upserted,
+          ];
+          mock.version += 1;
+          record.status = 200;
+          return route.fulfill(json({ version: mock.version, changeId: `chg-${mock.version}` }));
+        }
+        mock.configReads += 1;
+        await readsHeld;
+        if (mock.failReads) return route.fulfill(problem(500, "internal"));
+        return route.fulfill(
+          json({
+            config: {
+              schedules: [{ id: "regular", name: "Regular week", kind: "regular", isRegular: true }],
+              venueServices: [{ id: "vs-dinner", name: "Dinner", position: 0 }],
+              scheduleServices: [
+                {
+                  id: "ss-dinner",
+                  scheduleId: "regular",
+                  venueServiceId: "vs-dinner",
+                  ...DINNER,
+                  seating: { version: 1, interval: 15 },
+                  bookingTypes: ["online", "phone"],
+                },
+              ],
+              assignments: [
+                {
+                  id: "as",
+                  scheduleId: "regular",
+                  weekdays: options.weekdays ?? [0, 1, 2, 3, 4, 5, 6],
+                  precedence: 0,
+                },
+              ],
+              dateRules: rules,
+            },
+            version: mock.readVersion ?? mock.version,
+            source: "rows",
+          })
+        );
+      });
+      await page.route(`${base}/availability/days*`, (route) => {
+        const url = new URL(route.request().url());
+        const open = options.weekdays ?? [0, 1, 2, 3, 4, 5, 6];
+        const days = between(url.searchParams.get("from")!, url.searchParams.get("to")!).map(
+          (serviceDate) => {
+            const isOpen = open.includes(new Date(`${serviceDate}T00:00:00Z`).getUTCDay());
+            return {
+              serviceDate,
+              label: isOpen ? "Regular week" : "Closed",
+              scheduleId: isOpen ? "regular" : null,
+              serviceCount: isOpen ? 1 : 0,
+              closures: [],
+              bookingOpen: { online: isOpen, phone: isOpen, waitlist: isOpen },
+            };
+          }
+        );
+        return route.fulfill(json(days));
+      });
+      await page.route(`${base}/availability/preview*`, (route) =>
+        route.fulfill(problem(500, "internal"))
+      );
+      await page.route("**/availability/changes/*/revert", (route) => {
+        mock.reverts += 1;
+        mock.version += 1;
+        return route.fulfill(json({ version: mock.version, changeId: `chg-${mock.version}` }));
+      });
+      return mock;
+    }
+  </file>
   <file path="apps/hospitality/e2e/booking-date.ts">
     export async function pickBookingDate(page: Page, isoDate: string): Promise<void> {
       await expect(page.getByRole("grid")).toBeVisible();
@@ -12979,6 +14200,11 @@
           401: authRequired,
           403: notClosureCaller,
           404: problem("Venue or closure not found"),
+          422: {
+            description:
+              "`invalid-config` with a `strands_booking` issue per booking: removing a one-date edit hands its date back to the series, which would leave these bookings without service. Nothing is changed",
+            body: AvailabilityConfigProblemSchema,
+          },
         },
       }),
       setTonight: defineEndpoint({
@@ -15601,6 +16827,7 @@
     export const TABLE_SURFACE_NAME = "table-surface";
     export const TABLE_SHADOW_NAME = "table-shadow";
     export const SEAT_NAME = "seat";
+    export const DRAG_SHADOW_NAME = "table-drag-shadow";
     export const FURNITURE_GROUP_NAME = "table-furniture";
     export const FURNITURE_PALETTE = {
       /**
@@ -16685,7 +17912,7 @@
         onGenerationComplete: () =>
           toast({ title: "Generation complete", variant: "success", duration: 3000 }),
       });
-      const { reset, error, openGallery } = session;
+      const { reset, openGallery } = session;
     
       const onSignOut = useCallback(() => {
         reset();
@@ -16699,18 +17926,6 @@
       const onTemplatesOpen = useCallback(() => {
         openGallery();
       }, [openGallery]);
-    
-      // Show error toast when generation fails
-      useEffect(() => {
-        if (error) {
-          toast({
-            title: "Generation failed",
-            description: error.message,
-            variant: "error",
-            duration: 5000,
-          });
-        }
-      }, [error, toast]);
     
       return { session, toggleTheme, onSignOut, onLogoClick, onTemplatesOpen };
     }
@@ -17392,6 +18607,15 @@
     }: UseCommandPaletteOptions): UseCommandPaletteResult {
       const [open, setOpen] = useState(false);
     
+      // A resize can change what the page mounts under the palette, and what mounts takes focus from
+      // it, so keys typed into the palette would act there (#8029). The palette closes instead.
+      const viewport = useViewport();
+      const [openedAt, setOpenedAt] = useState(viewport);
+      if (viewport !== openedAt) {
+        setOpenedAt(viewport);
+        setOpen(false);
+      }
+    
       const items = useMemo(
         () => [...buildNavItems(sections, runAction), ...buildActionItems(runAction, toggleTheme)],
         [sections, runAction, toggleTheme]
@@ -17611,12 +18835,13 @@
         AVAILABILITY_CHANGES_QUERY_KEY,
         VENUES_QUERY_KEY,
       ],
-      mutationFn: async (api, { venueId, body, overwrite }) => {
-        const expectedVersion = overwrite
-          ? (await api.availability.getConfig(venueId)).version
-          : body.expectedVersion;
-        return api.availability.saveConfig(venueId, { ...body, expectedVersion });
-      },
+      mutationFn: (api, { venueId, body, overwrite }) =>
+        trackOwnSave(venueId, async () => {
+          const expectedVersion = overwrite
+            ? (await api.availability.getConfig(venueId)).version
+            : body.expectedVersion;
+          return api.availability.saveConfig(venueId, { ...body, expectedVersion });
+        }),
     });
     export const useAvailabilityChanges = createQueryHook<
       AvailabilityChangesPage | null,
@@ -17638,7 +18863,7 @@
         VENUES_QUERY_KEY,
       ],
       mutationFn: (api, { venueId, changeId, expectedVersion }) =>
-        api.availability.revertChange(venueId, changeId, expectedVersion),
+        trackOwnSave(venueId, () => api.availability.revertChange(venueId, changeId, expectedVersion)),
     });
   </file>
   <file path="apps/hospitality/src/hooks/useAvailabilityPreview.ts">
@@ -17675,6 +18900,18 @@
     }
   </file>
   <file path="apps/hospitality/src/hooks/useAvailabilityUndo.ts">
+    function focusOffToast(offeredFrom: Element | null) {
+      const active = document.activeElement;
+      if (active && active !== document.body && !active.closest("[aria-live]")) return;
+      const dialogs = document.querySelectorAll('[role="dialog"]');
+      const target =
+        offeredFrom instanceof HTMLElement && offeredFrom.isConnected && offeredFrom !== document.body
+          ? offeredFrom
+          : (dialogs[dialogs.length - 1]?.querySelector<HTMLElement>("button:not([disabled])") ??
+            document.querySelector<HTMLElement>("h1[tabindex]") ??
+            document.querySelector<HTMLElement>("main"));
+      target?.focus();
+    }
     export function useAvailabilityUndo() {
       const { t } = useTranslation();
       const { toast } = useToast();
@@ -17682,7 +18919,20 @@
     
       return useCallback(
         (input: { venueId: string; title: string; saved: AvailabilityConfigSaveResult }) => {
+          const offeredFrom = document.activeElement;
           const undo = async () => {
+            // An open day editor has pinned a version this revert would move on from: its own save
+            // would then be refused as out of date. Ask the Manager to discard it first, and keep Undo
+            // there for when they have. Saving it instead moves the version, so this Undo then refuses.
+            if (isEditorOpen()) {
+              toast({
+                title: t("availability.undo.finishFirst"),
+                variant: "default",
+                duration: UNDO_TOAST_MS,
+                action: undoAction(),
+              });
+              return;
+            }
             try {
               await revert.mutateAsync({
                 venueId: input.venueId,
@@ -17694,11 +18944,26 @@
               toast({ title: revertErrorText(error, t), variant: "error", duration: 8000 });
             }
           };
+          // One press per button: a double click must not send a second revert, which the first would
+          // have made out of date.
+          const undoAction = () => {
+            let pressed = false;
+            return {
+              label: t("availability.undo.action"),
+              onClick: () => {
+                // Before the guard: a second click's press has put focus back on this button.
+                focusOffToast(offeredFrom);
+                if (pressed) return;
+                pressed = true;
+                void undo();
+              },
+            };
+          };
           toast({
             title: input.title,
             variant: "success",
             duration: UNDO_TOAST_MS,
-            action: { label: t("availability.undo.action"), onClick: () => void undo() },
+            action: undoAction(),
           });
         },
         [revert, t, toast]
@@ -17953,9 +19218,13 @@
       idempotencyKey: string;
     };
     export const useCreateClosure = createMutationHook<CreateClosureVariables, ClosureResult>({
-      invalidateKeys: [AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY],
+      invalidateKeys: [
+        AVAILABILITY_CONFIG_QUERY_KEY,
+        AVAILABILITY_DAYS_QUERY_KEY,
+        CLOSURE_SUMMARIES_QUERY_KEY,
+      ],
       mutationFn: (api, { venueId, body, idempotencyKey }) =>
-        api.availability.createClosure(venueId, body, idempotencyKey),
+        trackOwnSave(venueId, () => api.availability.createClosure(venueId, body, idempotencyKey)),
     });
     export const useClosureSummaries = createQueryHook<
       ClosureSummary[] | null,
@@ -17997,7 +19266,9 @@
         CLOSURE_SUMMARIES_QUERY_KEY,
       ],
       mutationFn: (api, { venueId, ruleId, tellCancelledGuests }) =>
-        api.availability.reopenClosure(venueId, ruleId, tellCancelledGuests),
+        trackOwnSave(venueId, () =>
+          api.availability.reopenClosure(venueId, ruleId, tellCancelledGuests)
+        ),
     });
     export type PreviewClosureImpactsVariables = {
       venueId: string;
@@ -18025,7 +19296,7 @@
         CLOSURE_SUMMARIES_QUERY_KEY,
       ],
       mutationFn: (api, { venueId, body, idempotencyKey }) =>
-        api.availability.createClosures(venueId, body, idempotencyKey),
+        trackOwnSave(venueId, () => api.availability.createClosures(venueId, body, idempotencyKey)),
     });
   </file>
   <file path="apps/hospitality/src/hooks/useDashboardStatsQuery.ts">
@@ -18398,41 +19669,80 @@
     export type FocusTarget =
       | { readonly kind: "element"; readonly element: HTMLElement }
       | { readonly kind: "testId"; readonly testId: string }
+      /** The first enabled control inside the `data-testid` container, a dismiss control excepted. */
+      | { readonly kind: "firstIn"; readonly testId: string }
       /** The `PageHeader` h1, which carries `tabIndex={-1}` for this purpose. */
       | { readonly kind: "pageHeading" };
+    export interface FocusOptions {
+      /**
+       * Drop the request if, once its target is found, a modal dialog covers it. For a response that may
+       * land late: keys on a covered target act behind the dialog on top. Judged after the commit, so a
+       * dialog closing with the request does not count.
+       */
+      readonly unlessCovered?: boolean;
+    }
+    export const UNLESS_COVERED: FocusOptions = { unlessCovered: true };
     export interface FocusAfterApi {
-      readonly focusAfter: (target: FocusTarget) => void;
+      readonly focusAfter: (target: FocusTarget, options?: FocusOptions) => void;
     }
     function resolveTarget(target: FocusTarget): HTMLElement | null {
       switch (target.kind) {
         case "element":
           return target.element;
         case "testId":
-          return document.querySelector<HTMLElement>(
-            `[data-testid="${target.testId.replace(/["\\]/g, "\\$&")}"]`
-          );
+          return byTestId(target.testId);
+        case "firstIn":
+          return byTestId(target.testId)?.querySelector<HTMLElement>(FIRST_CONTROL) ?? null;
         case "pageHeading":
           return document.querySelector<HTMLElement>("h1");
       }
     }
+    export function isCoveredByDialog(element: Element | null): boolean {
+      const own = element?.closest(MODAL_DIALOG) ?? null;
+      return Array.from(document.querySelectorAll(MODAL_DIALOG)).some((dialog) => {
+        if (dialog === own || dialog.closest("[inert]")) return false;
+        if (!own) return true;
+        const later = own.compareDocumentPosition(dialog) & Node.DOCUMENT_POSITION_FOLLOWING;
+        return Boolean(later) || dialog.contains(document.activeElement);
+      });
+    }
     export function useFocusAfter(): FocusAfterApi {
-      const pendingRef = useRef<FocusTarget | null>(null);
+      const pendingRef = useRef<{
+        target: FocusTarget;
+        options?: FocusOptions;
+        requestedAt: number;
+      } | null>(null);
       // A request re-renders the owner so the effect below runs even when nothing else changed.
       const [, requestRender] = useReducer((count: number) => count + 1, 0);
     
-      const focusAfter = useCallback((target: FocusTarget) => {
-        pendingRef.current = target;
+      const focusAfter = useCallback((target: FocusTarget, options?: FocusOptions) => {
+        pendingRef.current = { target, options, requestedAt: performance.now() };
         requestRender();
+      }, []);
+    
+      // Capture, on window: a handler that stops propagation must not hide the action from this.
+      useEffect(() => {
+        const cancel = () => {
+          pendingRef.current = null;
+        };
+        HOST_ACTIONS.forEach((type) => window.addEventListener(type, cancel, true));
+        return () => HOST_ACTIONS.forEach((type) => window.removeEventListener(type, cancel, true));
       }, []);
     
       // After every commit: resolve the pending target, focus it once, forget it. No state is set here.
       useEffect(() => {
-        const target = pendingRef.current;
-        if (!target) return;
-        const element = resolveTarget(target);
+        const pending = pendingRef.current;
+        if (!pending) return;
+        const focusIsLoose = !document.activeElement || document.activeElement === document.body;
+        if (performance.now() - pending.requestedAt > PENDING_TTL_MS && !focusIsLoose) {
+          pendingRef.current = null;
+          return;
+        }
+        const element = resolveTarget(pending.target);
         if (!element) return;
-        element.focus();
         pendingRef.current = null;
+        if (pending.options?.unlessCovered && isCoveredByDialog(element)) return;
+        element.focus();
       });
     
       return { focusAfter };
@@ -19671,11 +20981,13 @@
       TonightResult
     >({
       invalidateKeys: [AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY],
-      mutationFn: (api, { venueId, body }) => api.availability.setTonight(venueId, body),
+      mutationFn: (api, { venueId, body }) =>
+        trackOwnSave(venueId, () => api.availability.setTonight(venueId, body)),
     });
     export const useEndTonight = createMutationHook<{ venueId: string; ruleId: string }, ReopenResult>({
       invalidateKeys: [AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY],
-      mutationFn: (api, { venueId, ruleId }) => api.availability.endTonight(venueId, ruleId),
+      mutationFn: (api, { venueId, ruleId }) =>
+        trackOwnSave(venueId, () => api.availability.endTonight(venueId, ruleId)),
     });
   </file>
   <file path="apps/hospitality/src/hooks/useUsers.ts">
@@ -20790,9 +22102,18 @@
         skipRef.current = true;
       }, []);
     
+      const pendingRef = useRef<{ frame: number; trigger: Element | null } | null>(null);
+    
       useLayoutEffect(() => {
         if (!open) return;
-        triggerRef.current = document.activeElement;
+        // An effect that re-runs before its restore frame (StrictMode replaying a mount) is the same
+        // opening, not a new one: cancel the restore and keep the original trigger. Capturing again
+        // would record the element the overlay just focused, and the stale restore would pull focus
+        // out of the overlay.
+        const pending = pendingRef.current;
+        pendingRef.current = null;
+        if (pending) cancelAnimationFrame(pending.frame);
+        triggerRef.current = pending ? pending.trigger : document.activeElement;
     
         // Cleanup runs both when `open` transitions to `false` and on unmount
         // while `open` is still `true` — so restoring focus here covers both.
@@ -20802,9 +22123,11 @@
           const skip = skipRef.current;
           skipRef.current = false;
           if (skip) return;
-          requestAnimationFrame(() => {
+          const frame = requestAnimationFrame(() => {
+            pendingRef.current = null;
             (captured as HTMLElement | null)?.focus();
           });
+          pendingRef.current = { frame, trigger: captured };
         };
       }, [open]);
     
@@ -22938,7 +24261,8 @@
         ...RETRY,
       },
       serverError: {
-        detail: "The reservations service hit a snag — nothing was changed. Try again in a moment.",
+        // Never "nothing was changed": a 5xx from a gateway can follow a write that committed.
+        detail: "The reservations service hit a snag. Try again in a moment.",
         ...RETRY,
       },
       rateLimited: {
@@ -22973,7 +24297,7 @@
         recovery: "refresh",
       },
       unknown: {
-        detail: "That didn't go through. Try again — if it keeps happening, tell your manager.",
+        detail: "Something went wrong. Try again — if it keeps happening, tell your manager.",
         ...RETRY,
       },
     };
@@ -24640,10 +25964,19 @@
   </file>
   <file path="services/reservations/src/notifications/manage-url.ts">
     export const MANAGE_PATH = "/hospitality/reservations/manage";
+    function managePathFor(origin: string): string {
+      try {
+        return EAT_SHEET_HOSTNAMES.has(new URL(origin).hostname.toLowerCase())
+          ? EAT_SHEET_MANAGE_PATH
+          : MANAGE_PATH;
+      } catch {
+        return MANAGE_PATH;
+      }
+    }
     export function buildManageUrl(baseUrl: string, token: string, rebook?: string): string {
       const origin = baseUrl.replace(/\/+$/, "");
       const rebookParam = rebook === undefined ? "" : `&rebook=${encodeURIComponent(rebook)}`;
-      return `${origin}${MANAGE_PATH}?token=${encodeURIComponent(token)}${rebookParam}`;
+      return `${origin}${managePathFor(origin)}?token=${encodeURIComponent(token)}${rebookParam}`;
     }
   </file>
   <file path="services/reservations/src/notifications/notification-dispatcher.ts">
@@ -24852,6 +26185,11 @@
       updatedAt?: string;
       /** Explicit SEQUENCE override; takes precedence over `updatedAt`. */
       sequence?: number;
+      /**
+       * The host the guest booked on (#7892) — `null`/absent keeps the
+       * mattbutlerengineering.com brand and from-address.
+       */
+      originHost?: string | null;
     }
     export interface WinBackNotificationInput {
       guestName: string;
@@ -24870,6 +26208,8 @@
       to: string;
       subject: string;
       html: string;
+      /** The host the guest booked on (#7892) — `null`/absent keeps the mattbutlerengineering.com brand. */
+      originHost?: string | null;
     }
     export interface NotificationPort {
       /** A closure notice, already rendered (see closure-content.ts). */
@@ -24912,18 +26252,32 @@
        * sent with a link built from a guessed host.
        */
       publicApiBaseUrl: string | null;
+      /**
+       * Resolves the from-address and manage-link base for a booking's origin
+       * host (#7892) — e.g. eat-sheet.com's booking emails get that brand's
+       * display name and manage link. Omitted (or an unrecognized host) keeps
+       * `fromAddress` / `manageBaseUrl` above for every send, today's behavior.
+       */
+      brandFor?(originHost: string | null): { fromAddress: string; manageBaseUrl: string };
     }
     export class ResendNotificationAdapter implements NotificationPort {
       private readonly resend: ResendClient | null;
       private readonly fromAddress: string;
       private readonly manageBaseUrl: string;
       private readonly publicApiBaseUrl: string | null;
+      private readonly brandFor: (originHost: string | null) => {
+        fromAddress: string;
+        manageBaseUrl: string;
+      };
     
       constructor(config: ResendAdapterConfig) {
         this.resend = config.resend;
         this.fromAddress = config.fromAddress;
         this.manageBaseUrl = config.manageBaseUrl;
         this.publicApiBaseUrl = config.publicApiBaseUrl;
+        this.brandFor =
+          config.brandFor ??
+          (() => ({ fromAddress: this.fromAddress, manageBaseUrl: this.manageBaseUrl }));
       }
     
       /**
@@ -24941,8 +26295,9 @@
       }
     
       async sendClosureNotice(input: ClosureEmailInput): Promise<void> {
+        const brand = this.brandFor(input.originHost ?? null);
         await this.send({
-          from: this.fromAddress,
+          from: brand.fromAddress,
           to: input.to,
           subject: input.subject,
           html: input.html,
@@ -24951,9 +26306,10 @@
     
       async sendBookingConfirmation(input: BookingNotificationInput): Promise<void> {
         if (!this.resend) return;
-        const content = buildBookingEmailContent(input, "confirmation", this.manageBaseUrl);
+        const brand = this.brandFor(input.originHost ?? null);
+        const content = buildBookingEmailContent(input, "confirmation", brand.manageBaseUrl);
         await this.send({
-          from: this.fromAddress,
+          from: brand.fromAddress,
           to: input.guestEmail,
           subject: content.subject,
           html: content.html,
@@ -24969,9 +26325,10 @@
     
       async sendBookingReminder(input: BookingNotificationInput): Promise<void> {
         if (!this.resend) return;
-        const content = buildBookingEmailContent(input, "reminder", this.manageBaseUrl);
+        const brand = this.brandFor(input.originHost ?? null);
+        const content = buildBookingEmailContent(input, "reminder", brand.manageBaseUrl);
         await this.send({
-          from: this.fromAddress,
+          from: brand.fromAddress,
           to: input.guestEmail,
           subject: content.subject,
           html: content.html,
@@ -24980,9 +26337,10 @@
     
       async sendBookingModified(input: BookingNotificationInput): Promise<void> {
         if (!this.resend) return;
-        const content = buildBookingEmailContent(input, "modified", this.manageBaseUrl);
+        const brand = this.brandFor(input.originHost ?? null);
+        const content = buildBookingEmailContent(input, "modified", brand.manageBaseUrl);
         await this.send({
-          from: this.fromAddress,
+          from: brand.fromAddress,
           to: input.guestEmail,
           subject: content.subject,
           html: content.html,
@@ -24998,9 +26356,10 @@
     
       async sendBookingCancelled(input: BookingNotificationInput): Promise<void> {
         if (!this.resend) return;
-        const content = buildBookingEmailContent(input, "cancelled", this.manageBaseUrl);
+        const brand = this.brandFor(input.originHost ?? null);
+        const content = buildBookingEmailContent(input, "cancelled", brand.manageBaseUrl);
         await this.send({
-          from: this.fromAddress,
+          from: brand.fromAddress,
           to: input.guestEmail,
           subject: content.subject,
           html: content.html,
@@ -26668,6 +28027,199 @@
         closeShortcuts,
         toggleShortcuts,
       };
+    }
+  </file>
+  <file path="apps/hospitality/src/pages/timeline-focus.ts">
+    export const DETAILS_SURFACE_TEST_ID = "reservation-details-surface";
+    export const DETAILS_SIDEBAR_TEST_ID = "reservation-detail-sidebar";
+    export function blockTarget(reservationId: string): FocusTarget {
+      return { kind: "testId", testId: `reservation-block-${reservationId}` };
+    }
+    export interface SurfaceState {
+      /** The reservation the surface is showing, whichever form it takes. */
+      readonly openId: string | null;
+      /** Phone and tablet show it as a modal Drawer, so what is behind it is out of reach. */
+      readonly modal: boolean;
+      /** A dialog held the surface in its old form, and the one its buttons are in is about to go. */
+      readonly changingForm: boolean;
+      /**
+       * Counts the times the dialogs were closed because their party left the surface. Nothing else can
+       * close a dialog mid-save, so a send that sees this change has lost the dialog that would show its
+       * failure, even if the same party is back on the surface.
+       */
+      readonly dialogEpoch: number;
+    }
+    function insideSurface(element: HTMLElement): boolean {
+      return (
+        document.querySelector(`[data-testid="${DETAILS_SURFACE_TEST_ID}"]`)?.contains(element) ?? false
+      );
+    }
+    export function returnFocusTarget(
+      surface: SurfaceState,
+      opener: HTMLElement | null,
+      fallback: FocusTarget | null
+    ): FocusTarget | null {
+      const usable =
+        opener?.isConnected && !surface.changingForm && (!surface.modal || insideSurface(opener));
+      if (opener && usable) return { kind: "element", element: opener };
+      return surface.modal ? SURFACE_TARGET : fallback;
+    }
+    export function walkInFocusTarget(viewport: Viewport, reservationId: string): FocusTarget {
+      return viewport === "desktop" ? blockTarget(reservationId) : SURFACE_TARGET;
+    }
+    export function captureOpener(clicked?: HTMLElement): HTMLElement | null {
+      if (clicked) return clicked;
+      const active = document.activeElement;
+      return active instanceof HTMLElement && active !== document.body ? active : null;
+    }
+    export function seatedFocusTarget(
+      surface: SurfaceState,
+      reservationId: string
+    ): FocusTarget | null {
+      if (surface.openId !== null && surface.openId !== reservationId) return null;
+      if (!focusIsLoose() && !focusIsInSurface()) return null;
+      const onModal = surface.openId !== null && surface.modal;
+      const testId = onModal ? RESERVATION_EDIT_TEST_ID : `reservation-block-${reservationId}`;
+      return byTestId(testId) ? { kind: "testId", testId } : null;
+    }
+    export function useCloseHoldingFocus(): (close: () => void) => void {
+      const heldRef = useRef<HTMLElement | null>(null);
+      useEffect(() => {
+        const held = heldRef.current;
+        if (!held) return;
+        heldRef.current = null;
+        requestAnimationFrame(() => held.focus());
+      });
+      return (close) => {
+        const active = document.activeElement;
+        heldRef.current =
+          active instanceof HTMLElement && active.closest('[role="dialog"][aria-modal="true"]')
+            ? active
+            : null;
+        close();
+      };
+    }
+    export function useOnChange<T>(value: T, onChange: () => void): void {
+      const [seen, setSeen] = useState(value);
+      if (value !== seen) {
+        setSeen(value);
+        onChange();
+      }
+    }
+    interface DetailsSurfaceInput {
+      readonly viewport: Viewport;
+      readonly selectedId: string | null;
+      readonly selectedReservation: Reservation | null;
+      readonly dialogOpen: boolean;
+      readonly dialogEpoch: number;
+    }
+    interface DetailsSurface {
+      /** Which form the surface takes. */
+      readonly surfaceViewport: Viewport;
+      /** What the tablet sheet renders, including closed across a Seat now's selection gap. */
+      readonly sheetReservation: Reservation | null;
+      /** For use after an `await`: the surface when the response arrived, not when it was sent. */
+      readonly surfaceRef: RefObject<SurfaceState>;
+    }
+    export function useDetailsSurface({
+      viewport,
+      selectedId,
+      selectedReservation,
+      dialogOpen,
+      dialogEpoch,
+    }: DetailsSurfaceInput): DetailsSurface {
+      // It follows the viewport, except while a dialog is open: a sheet mounting under a dialog takes
+      // focus and the Escape layer from it. A frame late, so a closing overlay's own focus restore has
+      // run before a new surface takes focus.
+      const [surfaceViewport, setSurfaceViewport] = useState(viewport);
+      useEffect(() => {
+        if (dialogOpen || surfaceViewport === viewport) return;
+        const frame = requestAnimationFrame(() => setSurfaceViewport(viewport));
+        return () => cancelAnimationFrame(frame);
+      }, [dialogOpen, surfaceViewport, viewport]);
+    
+      // Seat now selects a reservation the refetch has yet to bring. The sheet stays mounted, closed,
+      // across that gap: unmounting it would schedule a focus restore that could land on the old party's
+      // block behind the new sheet, and only the same Drawer reopening can cancel it.
+      const [heldReservation, setHeldReservation] = useState<Reservation | null>(null);
+      const sheetReservation = selectedReservation ?? (selectedId ? heldReservation : null);
+      if (sheetReservation !== heldReservation) setHeldReservation(sheetReservation);
+    
+      const surfaceRef = useRef<SurfaceState>({
+        openId: null,
+        modal: false,
+        changingForm: false,
+        dialogEpoch: 0,
+      });
+      useLayoutEffect(() => {
+        const open = selectedReservation !== null;
+        surfaceRef.current = {
+          openId: selectedReservation?.id ?? null,
+          modal: viewport !== "desktop" && open,
+          changingForm: open && surfaceViewport !== viewport,
+          dialogEpoch,
+        };
+      });
+    
+      return { surfaceViewport, sheetReservation, surfaceRef };
+    }
+  </file>
+  <file path="apps/hospitality/src/pages/timeline-sentences.ts">
+    export function walkInSentence(
+      created: Reservation,
+      tableName: string | undefined,
+      t: TFunction
+    ): string {
+      const who = created.guestName ? created.guestName : t("timeline.announce.aWalkIn");
+      const size = created.partySize;
+      return tableName
+        ? t("timeline.announce.walkInSeatedAt", { who, size, table: tableName })
+        : t("timeline.announce.walkInSeated", { who, size });
+    }
+    export function seatedSentence(
+      reservation: Reservation,
+      tableName: string | undefined,
+      t: TFunction
+    ): string {
+      const guest = reservation.guestName || t("timeline.announce.theGuest");
+      return tableName
+        ? t("timeline.announce.seatedAt", { guest, table: tableName })
+        : t("timeline.announce.seated", { guest });
+    }
+    export function cancelledSentence(reservation: Reservation, t: TFunction): string {
+      return reservation.guestName
+        ? t("timeline.announce.cancelledNamed", { name: reservation.guestName })
+        : t("timeline.announce.cancelled");
+    }
+    export function noShowSentence(reservation: Reservation, t: TFunction): string {
+      return reservation.guestName
+        ? t("timeline.announce.noShowNamed", { name: reservation.guestName })
+        : t("timeline.announce.noShow");
+    }
+    export function seatNotFinishedSentence(reservation: Reservation, t: TFunction): string {
+      return reservation.guestName
+        ? t("timeline.announce.seatNotFinishedNamed", { name: reservation.guestName })
+        : t("timeline.announce.seatNotFinished");
+    }
+    export function notAppliedSentence(reservation: Reservation, t: TFunction): string {
+      return reservation.guestName
+        ? t("timeline.announce.changeFailedNamed", { name: reservation.guestName })
+        : t("timeline.announce.changeFailed");
+    }
+    export function savedSentence(reservation: Reservation, t: TFunction): string {
+      return reservation.guestName
+        ? t("timeline.announce.savedNamed", { name: reservation.guestName })
+        : t("timeline.announce.saved");
+    }
+    export function loadedSentence(
+      date: string,
+      todayStr: string,
+      locale: string,
+      t: TFunction
+    ): string {
+      return date === todayStr
+        ? t("timeline.announce.loadedTonight")
+        : t("timeline.announce.loadedDate", { date: formatServiceDate(date, locale) });
     }
   </file>
   </section>
@@ -29346,10 +30898,11 @@
         }
       }
     }
-    function availabilityWriteFailure(err: unknown, action: string) {
+    function availabilityWriteFailure(err: unknown, action: string, unsure: string | undefined) {
       const refusal = refusalOf(err);
-      if (!refusal)
-        return { error: `Couldn't ${action} right now. Ask the user to try again shortly.` };
+      if (!refusal) {
+        return { error: unsure ?? `Couldn't ${action} right now. Ask the user to try again shortly.` };
+      }
       const base = { refused: true, ...(refusal.code ? { code: refusal.code } : {}) };
       switch (refusal.code ?? (refusal.status === 403 ? "forbidden" : undefined)) {
         case "decision-required":
@@ -29422,7 +30975,7 @@
                 undoable: newest?.revertible ? { summary: newest.summary, at: newest.at } : null,
               };
             } catch (err) {
-              log.error({ err, venueId }, "list_tonight_changes failed");
+              log.error({ ...failureLog(err), venueId }, "list_tonight_changes failed");
               return { error: "Couldn't read tonight's availability. Ask the user to try again." };
             }
           },
@@ -29436,10 +30989,12 @@
           execute: async (input) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId, change: input.change }, "change_tonight_availability tool called");
+            let unsure: string | undefined;
             try {
               const state = await api.availability.getConfig(venueId);
               const built = await buildChange(input, state.config, api, venueId);
               if ("error" in built) return built;
+              unsure = TONIGHT_SAVE_UNSURE;
               const result = await api.availability.setTonight(venueId, {
                 expectedVersion: state.version,
                 ruleId: randomUUID(),
@@ -29452,8 +31007,11 @@
                 ...(until ? { until } : {}),
               };
             } catch (err) {
-              log.error({ err, venueId, change: input.change }, "change_tonight_availability failed");
-              return availabilityWriteFailure(err, "make the change");
+              log.error(
+                { ...failureLog(err), venueId, change: input.change },
+                "change_tonight_availability failed"
+              );
+              return availabilityWriteFailure(err, "make the change", unsure);
             }
           },
         }),
@@ -29470,6 +31028,7 @@
           execute: async ({ change, from }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId, change }, "end_tonight_change tool called");
+            let unsure: string | undefined;
             try {
               const { rules } = await readTonight();
               const ofKind = rules.filter((rule) => changeTypeOf(rule) === change);
@@ -29486,11 +31045,12 @@
                   error: `More than one ${change.replace(/_/g, " ")} change is in force. Ask which one, by its start time.`,
                 };
               }
-              await api.availability.endTonight(venueId, matches[0]!.id);
+              unsure = TONIGHT_SAVE_UNSURE;
+              await api.availability.endTonight(venueId, matches[0]!.id, NO_REPLAY);
               return { ended: true, change };
             } catch (err) {
-              log.error({ err, venueId, change }, "end_tonight_change failed");
-              return availabilityWriteFailure(err, "end the change");
+              log.error({ ...failureLog(err), venueId, change }, "end_tonight_change failed");
+              return availabilityWriteFailure(err, "end the change", unsure);
             }
           },
         }),
@@ -29504,6 +31064,7 @@
           execute: async ({ summary }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId }, "undo_availability_change tool called");
+            let unsure: string | undefined;
             try {
               const page = await api.availability.listChanges(venueId, { limit: 1 });
               const newest = page.items[0];
@@ -29519,11 +31080,12 @@
                 };
               }
               const { version } = await api.availability.getConfig(venueId);
+              unsure = TONIGHT_SAVE_UNSURE;
               await api.availability.revertChange(venueId, newest.id, version);
               return { undone: true, summary };
             } catch (err) {
-              log.error({ err, venueId }, "undo_availability_change failed");
-              return availabilityWriteFailure(err, "undo the change");
+              log.error({ ...failureLog(err), venueId }, "undo_availability_change failed");
+              return availabilityWriteFailure(err, "undo the change", unsure);
             }
           },
         }),
@@ -29628,8 +31190,7 @@
     export const UNREADABLE_SPAN_DATE = `The date can't be read. Use a real date as YYYY-MM-DD, or "${UNTIL_REOPENED}" as the last date of a closure with no end.`;
     export const CHECK_FAILED =
       "Couldn't check which bookings this would affect. Nothing was changed. Ask the user to try again shortly.";
-    export const SAVE_UNSURE =
-      "Couldn't confirm the change was saved. Check list_closures before trying again.";
+    export const SAVE_UNSURE = saveUnsure("list_closures");
     export const NO_REGULAR_HOURS = `That date has no regular hours to build special hours on. ${AVAILABILITY_PAGE}`;
     export function dayNumber(date: string): number | undefined {
       const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date.trim());
@@ -29689,7 +31250,7 @@
     export function spanOf(rule: DatedRule) {
       return { from: rule.startsOn, to: rule.endsOn ?? UNTIL_REOPENED };
     }
-    export function spanText(rule: DatedRule): string {
+    export function spanText(rule: Pick<DatedRule, "startsOn" | "endsOn">): string {
       return rule.endsOn == null
         ? `from ${rule.startsOn} until reopened`
         : `from ${rule.startsOn} to ${rule.endsOn}`;
@@ -29699,7 +31260,10 @@
     export function serviceName(config: AvailabilityConfig, id: string): string {
       return config.venueServices.find((s) => s.id === id)?.name ?? "a service";
     }
-    export function scopeOf(rule: DatedRule, config: AvailabilityConfig): string {
+    export function scopeOf(
+      rule: Pick<DatedRule, "targetKind" | "venueServiceId" | "bookingTypes">,
+      config: AvailabilityConfig
+    ): string {
       switch (rule.targetKind) {
         case "service":
           return rule.venueServiceId ? serviceName(config, rule.venueServiceId) : "a service";
@@ -29776,29 +31340,23 @@
         });
       }
     }
-    export function findCoveringClosure(
+    export function closedDays(
       config: AvailabilityConfig,
-      target: { readonly serviceId?: string | undefined },
+      serviceId: string | undefined,
       from: string,
       to: string
-    ): ClosureRule | undefined {
-      return config.dateRules.find(
-        (r): r is ClosureRule =>
-          r.kind === "closure" &&
-          !r.repeat &&
-          !r.seriesId &&
-          !r.window &&
-          (r.targetKind === "venue" ||
-            (target.serviceId !== undefined &&
-              r.targetKind === "service" &&
-              r.venueServiceId === target.serviceId)) &&
-          r.startsOn <= from &&
-          (r.endsOn == null || r.endsOn >= to)
-      );
+    ): { date: string; rule: ClosureRule }[] {
+      const [first, last] = [dayNumber(from)!, dayNumber(to)!]; // `checkSpan` read both
+      return Array.from({ length: last - first + 1 }, (_, i) =>
+        new Date((first + i) * MS_PER_DAY).toISOString().slice(0, 10)
+      ).flatMap((date) => {
+        const rule = closureOnDay(config, serviceId, date);
+        return rule ? [{ date, rule }] : [];
+      });
     }
     export function closureOnDay(
       config: AvailabilityConfig,
-      serviceId: string,
+      serviceId: string | undefined,
       date: string
     ): ClosureRule | undefined {
       return config.dateRules.find(
@@ -30004,15 +31562,12 @@
             const state = await api.availability.getConfig(venueId);
             const target = scope === "service" ? resolveService(state.config, service!) : undefined;
             if (target && "error" in target) return target;
-            const same = findCoveringClosure(
-              state.config,
-              { serviceId: target?.id },
-              span.from,
-              span.to
-            );
-            if (same) {
+            const closed = closedDays(state.config, target?.id, span.from, span.to);
+            const named = (rule: ClosureRule) => `${scopeOf(rule, state.config)} ${spanText(rule)}`;
+            if (closed.length === dayNumber(span.to)! - dayNumber(span.from)! + 1) {
+              const closures = [...new Set(closed.map((c) => named(c.rule)))].join("; ");
               return {
-                error: `This is already closed (${scopeOf(same, state.config)} ${spanText(same)}), which covers those dates. Nothing was changed.`,
+                error: `This is already closed (${closures}), which covers those dates. Nothing was changed.`,
               };
             }
             const rule: ClosureRule = {
@@ -30031,7 +31586,10 @@
               ...spanOf(rule),
               to: span.to,
               scope: scopeOf(rule, state.config),
-              note: "No booking was affected, so no guest was told.",
+              note: `No booking was affected, so no guest was told.${closed.map((c) => ` ${c.date} was already closed (${named(c.rule)}): it stays closed until that closure is reopened too.`).join("")}`,
+              ...(closed.length > 0
+                ? { alreadyClosed: closed.map((c) => ({ date: c.date, by: named(c.rule) })) }
+                : {}),
             };
           } catch (err) {
             log.error({ err, venueId }, "close_dates failed");
@@ -30105,16 +31663,37 @@
         },
       });
     }
-    function reopenNote(cancelled: number, requested: boolean): string {
+    function reopenNote(cancelled: number, notified: number, datesPassed: boolean): string {
       if (cancelled === 0) return "No guest was cancelled by this closure, so no notice was requested.";
-      const guests = cancelled === 1 ? "1 guest" : `${cancelled} guests`;
-      return requested
-        ? `Asked to notify the ${guests} the closure cancelled that it has reopened; delivery isn't confirmed here. They stay cancelled.`
-        : `The ${guests} the closure cancelled ${cancelled === 1 ? "was" : "were"} not asked to be notified that it has reopened. They stay cancelled.`;
+      const guestsOf = (n: number) => (n === 1 ? "1 guest" : `${n} guests`);
+      if (notified > 0) {
+        const rest =
+          notified < cancelled
+            ? ` The other ${cancelled - notified} were not asked: their booking date has passed.`
+            : "";
+        return `Asked to notify the ${guestsOf(notified)} the closure cancelled that it has reopened; delivery isn't confirmed here. They stay cancelled.${rest}`;
+      }
+      // `datesPassed`: a notice was wanted but every cancelled booking has already started.
+      const why = datesPassed ? ": their booking dates have passed" : "";
+      return `The ${guestsOf(cancelled)} the closure cancelled ${cancelled === 1 ? "was" : "were"} not asked to be notified that it has reopened${why}. They stay cancelled.`;
+    }
+    function stillClosedFields(saved: ReopenResult, config: AvailabilityConfig) {
+      const by = saved.stillClosed?.by ?? [];
+      if (by.length === 0) return { stillClosed: undefined, note: "" };
+      const stillClosed = by.map((rule) => {
+        const from = rule.window ? ` from ${minuteToClock(rule.window.from)}` : "";
+        return { dates: rule.dates, by: `${scopeOf(rule, config)}${from} ${spanText(rule)}` };
+      });
+      return {
+        stillClosed,
+        note: stillClosed
+          .map((s) => ` ${s.dates.join(", ")} stays closed by another closure (${s.by}).`)
+          .join(""),
+      };
     }
     function reopenClosure({ log, api, venueId }: ToolContext) {
       return tool({
-        description: `Reopen a closure of the whole venue or one service so its slots return. Pass the closure's full span exactly as list_closures gives it (to is "${UNTIL_REOPENED}" for one with no end) and its scope; a different span is refused with the real one. Guests it already cancelled stay cancelled. Requires confirmation. Special hours, repeating closures and booking or table pauses are changed on the Availability page. Call list_closures first; if the closure cancelled guests, ask whether to tell them.`,
+        description: `Reopen a closure of the whole venue or one service so its slots return, unless another closure also closes those dates: stillClosed then names it, and reopened is false when no date came back, so say so instead of saying it reopened. Pass the closure's full span exactly as list_closures gives it (to is "${UNTIL_REOPENED}" for one with no end) and its scope; a different span is refused with the real one. Guests it already cancelled stay cancelled. Requires confirmation. Special hours, repeating closures and booking or table pauses are changed on the Availability page. Call list_closures first; if the closure cancelled guests, ask whether to tell them.`,
         inputSchema: z
           .object({
             from: DateField.describe("The closure's first date, as YYYY-MM-DD"),
@@ -30141,8 +31720,11 @@
             return { error: `The last date (${to}) is before the first (${from}).` };
           }
           let rule: ClosureRule;
+          let config: AvailabilityConfig;
           let scopeText: string;
           let cancelled: number;
+          // The guests a notice can still reach: those whose booking has not started.
+          let reachable: number;
           try {
             const state = await api.availability.getConfig(venueId);
             const target = scope === "service" ? resolveService(state.config, service!) : undefined;
@@ -30155,6 +31737,7 @@
             });
             if ("error" in found) return { refused: true, ...found };
             rule = found.rule;
+            config = state.config;
             scopeText = scopeOf(rule, state.config);
             const counts = await api.availability.listClosures(venueId).catch((err: unknown) => {
               log.error({ err, venueId }, "reopen_closure counts failed");
@@ -30166,25 +31749,45 @@
                   "Couldn't read how many guests this closure cancelled, so it can't decide whether to tell them. Nothing was changed. Ask the user to try again shortly.",
               };
             }
-            cancelled = counts.find((c) => c.ruleId === rule.id)?.cancelled ?? 0;
+            const summary = counts.find((c) => c.ruleId === rule.id);
+            cancelled = summary?.cancelled ?? 0;
+            reachable = summary?.upcomingCancelled ?? cancelled;
           } catch (err) {
             log.error({ err, venueId }, "reopen_closure failed to read");
             return closureFailure(err, "Couldn't read the closures. Nothing was changed.");
           }
-          const told = tellCancelledGuests && cancelled > 0;
+          const told = tellCancelledGuests && reachable > 0;
+          let notified: number;
+          let saved: ReopenResult;
           try {
-            await api.availability.reopenClosure(venueId, rule.id, told);
+            saved = await api.availability.reopenClosure(venueId, rule.id, told, NO_REPLAY);
+            // The server counts who the notice really reached; an older one does not say.
+            notified = told ? (saved.notified ?? reachable) : 0;
           } catch (err) {
             log.error({ err, venueId }, "reopen_closure failed");
             return closureFailure(err, SAVE_UNSURE);
           }
-          return {
-            reopened: true,
+          const stays = stillClosedFields(saved, config);
+          const shared = {
             ...spanOf(rule),
             scope: scopeText,
             guestsCancelled: cancelled,
-            noticeRequested: told,
-            note: reopenNote(cancelled, told),
+            noticeRequested: notified > 0,
+            ...(stays.stillClosed ? { stillClosed: stays.stillClosed } : {}),
+          };
+          // Every date stays shut: the rule is gone, but saying "reopened" would be false (#8006).
+          if (saved.stillClosed?.everyDate) {
+            return {
+              reopened: false,
+              closureRemoved: true,
+              ...shared,
+              note: `This closure was removed, but its dates did not reopen.${stays.note} Guests can't book until that closure is reopened too, so no guest was told to rebook.`,
+            };
+          }
+          return {
+            reopened: true,
+            ...shared,
+            note: `${reopenNote(cancelled, notified, tellCancelledGuests && reachable === 0)}${stays.note}`,
           };
         },
       });
@@ -30264,11 +31867,12 @@
         ? { refused: true, error: "The user doesn't have permission to see floor plans." }
         : { error: "Couldn't read the floor plans. Ask the user to try again." };
     }
-    function writeFailure(err: unknown) {
+    function writeFailure(err: unknown, unsure: string | undefined) {
       const refusal = refusalOf(err);
       if (!refusal) {
         return {
           error:
+            unsure ??
             "Couldn't change the floor plan right now. Nothing was changed. Ask the user to try again.",
         };
       }
@@ -30325,6 +31929,7 @@
           execute: async ({ floorPlan }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId }, "activate_floor_plan tool called");
+            let unsure: string | undefined;
             try {
               const { data } = await api.floorPlans.list({ venueId, limit: PLAN_PAGE_SIZE });
               const found = findPlan(data, floorPlan);
@@ -30332,11 +31937,12 @@
               if (found.plan.isActive) {
                 return { alreadyActive: true, floorPlan: found.plan.name };
               }
+              unsure = saveUnsure("list_floor_plans");
               await api.floorPlans.setActive(found.plan.id);
               return { updated: true, floorPlan: found.plan.name };
             } catch (err) {
               log.error({ err, venueId }, "activate_floor_plan failed");
-              return writeFailure(err);
+              return writeFailure(err, unsure);
             }
           },
         }),
@@ -30353,11 +31959,15 @@
         dietaryRestrictions: guest.dietaryRestrictions ?? [],
       };
     }
-    function guestFailure(err: unknown, action: string) {
+    function winBackUnsure(name: string): string {
+      return `Couldn't confirm the win-back message to ${name} was sent. It may already have reached them, and no tool here can check. Tell the user that, and don't send it again unless they accept the guest could get it twice.`;
+    }
+    function guestFailure(err: unknown, action: string, unsure: string | undefined) {
       const refusal = refusalOf(err);
       if (!refusal) {
         return {
-          error: `Couldn't ${action} right now. Nothing was changed. Ask the user to try again.`,
+          error:
+            unsure ?? `Couldn't ${action} right now. Nothing was changed. Ask the user to try again.`,
         };
       }
       if (refusal.status === 403) {
@@ -30415,7 +32025,7 @@
                   })),
               };
             } catch (err) {
-              log.error({ err, venueId }, "list_lapsing_guests failed");
+              log.error({ ...failureLog(err), venueId }, "list_lapsing_guests failed");
               return { error: "Couldn't read lapsing guests. Ask the user to try again." };
             }
           },
@@ -30452,8 +32062,9 @@
               });
               return { saved: true, guest: shown(saved) };
             } catch (err) {
-              log.error({ err, venueId }, "add_guest failed");
-              return guestFailure(err, "add the guest");
+              log.error({ ...failureLog(err), venueId }, "add_guest failed");
+              // The write is the tool's first call, so any failure may have saved.
+              return guestFailure(err, "add the guest", GUEST_SAVE_UNSURE);
             }
           },
         }),
@@ -30465,6 +32076,7 @@
           execute: async (input) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId }, "update_guest tool called");
+            let unsure: string | undefined;
             try {
               const found = await findGuest(api, venueId, input.guest, input.contact);
               if ("error" in found) return found;
@@ -30476,6 +32088,7 @@
                     ...(input.addTags ?? []).filter((tag) => !current.some((c) => sameText(c, tag))),
                   ]
                 : undefined;
+              unsure = GUEST_SAVE_UNSURE;
               const updated = await api.guests.update(found.guest.id, {
                 ...(input.name ? { name: input.name } : {}),
                 ...(input.phone ? { phone: input.phone } : {}),
@@ -30488,8 +32101,8 @@
               });
               return { updated: true, guest: shown(updated) };
             } catch (err) {
-              log.error({ err, venueId }, "update_guest failed");
-              return guestFailure(err, "update the guest");
+              log.error({ ...failureLog(err), venueId }, "update_guest failed");
+              return guestFailure(err, "update the guest", unsure);
             }
           },
         }),
@@ -30504,14 +32117,16 @@
           execute: async ({ guest, contact, text }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId }, "add_guest_note tool called");
+            let unsure: string | undefined;
             try {
               const found = await findGuest(api, venueId, guest, contact);
               if ("error" in found) return found;
+              unsure = GUEST_SAVE_UNSURE;
               await api.guests.addNote(found.guest.id, text);
               return { noted: true, guest: found.guest.name };
             } catch (err) {
-              log.error({ err, venueId }, "add_guest_note failed");
-              return guestFailure(err, "add the note");
+              log.error({ ...failureLog(err), venueId }, "add_guest_note failed");
+              return guestFailure(err, "add the note", unsure);
             }
           },
         }),
@@ -30525,6 +32140,7 @@
           execute: async ({ guest }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId }, "send_win_back tool called");
+            let unsure: string | undefined;
             try {
               const lapsing = await api.guests.getLapsing(venueId);
               const matches = lapsing.filter((g) => sameText(g.name, guest));
@@ -30536,6 +32152,7 @@
                       : `More than one lapsing guest is called ${guest}. Send it from the Dashboard instead.`,
                 };
               }
+              unsure = winBackUnsure(matches[0]!.name);
               const { sent } = await api.guests.sendWinBack(matches[0]!.guestId);
               return sent
                 ? { sent: true, guest: matches[0]!.name }
@@ -30545,8 +32162,8 @@
                     note: "The message wasn't sent, usually because of the guest's contact preferences. Say so.",
                   };
             } catch (err) {
-              log.error({ err, venueId }, "send_win_back failed");
-              return guestFailure(err, "send the win-back message");
+              log.error({ ...failureLog(err), venueId }, "send_win_back failed");
+              return guestFailure(err, "send the win-back message", unsure);
             }
           },
         }),
@@ -30565,11 +32182,13 @@
       const [whole = "0", fraction = ""] = price.split(".");
       return Number(whole) * CENTS_PER_UNIT + Number(fraction.padEnd(2, "0"));
     }
-    function menuFailure(err: unknown) {
+    function menuFailure(err: unknown, unsure: string | undefined) {
       const refusal = refusalOf(err);
       if (!refusal) {
         return {
-          error: "Couldn't change the menu right now. Nothing was changed. Ask the user to try again.",
+          error:
+            unsure ??
+            "Couldn't change the menu right now. Nothing was changed. Ask the user to try again.",
         };
       }
       if (refusal.status === 403) {
@@ -30696,6 +32315,7 @@
           execute: async ({ menu, item, section, availability }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId, availability }, "set_menu_item_availability tool called");
+            let unsure: string | undefined;
             try {
               const target = await resolveTarget(api, venueId, menu, item, section);
               if ("error" in target) return target;
@@ -30706,13 +32326,14 @@
                 };
               }
               const status = availability === "sold_out" ? "SOLD_OUT" : "AVAILABLE";
+              unsure = MENU_SAVE_UNSURE;
               await api.menus.updateItem(venueId, target.menuId, target.section.id, target.item.id, {
                 status,
               });
               return { updated: true, item: target.item.name, status };
             } catch (err) {
               log.error({ err, venueId }, "set_menu_item_availability failed");
-              return menuFailure(err);
+              return menuFailure(err, unsure);
             }
           },
         }),
@@ -30739,9 +32360,11 @@
           execute: async ({ menu, item, section, price, name, description }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId }, "update_menu_item tool called");
+            let unsure: string | undefined;
             try {
               const target = await resolveTarget(api, venueId, menu, item, section);
               if ("error" in target) return target;
+              unsure = MENU_SAVE_UNSURE;
               await api.menus.updateItem(venueId, target.menuId, target.section.id, target.item.id, {
                 ...(price !== undefined ? { priceCents: priceToCents(price) } : {}),
                 ...(name !== undefined ? { name } : {}),
@@ -30750,7 +32373,7 @@
               return { updated: true, item: name ?? target.item.name };
             } catch (err) {
               log.error({ err, venueId }, "update_menu_item failed");
-              return menuFailure(err);
+              return menuFailure(err, unsure);
             }
           },
         }),
@@ -30840,6 +32463,7 @@
         "Never ask the user for a venue ID, reservation ID, or table ID: look them up with the tools.",
         "Your earlier replies in this conversation were based on tool results that aren't shown to you again. Treat them as accurate: don't apologize for or correct them unless a new tool result actually contradicts them. When you need an earlier detail, such as an ID, look it up again.",
         "A change (booking, seating, no-show, walk-in, cancellation, table status, Tonight availability, closures and special hours, waitlist, guest profile, menu items, the active floor plan) runs only when the user presses the Confirm or Cancel button the chat shows with it. Tell them to use those buttons, and never ask them to type yes: typing a new message dismisses the pending change.",
+        "When a tool says it couldn't confirm a change, the change may have been saved: tell the user so, never say nothing changed, and check with the read it names before proposing it again. send_win_back has no read to check, so never propose it again for that guest unless the user accepts the guest could get the message twice.",
         "Ask only for details the user has to decide, such as guest name, party size, or time. When a reservation's end time isn't given, use two hours after the start.",
         "Reply in short, plain sentences in the user's language. Don't use markdown: the chat shows plain text.",
         "Show elements only by calling render_component with an elements array: each element has a unique id, a type from the components below, its props, and children as a list of other elements' ids; an element no other element lists is shown at the top level. Never write JSON, element specs or patch lines in your reply text.",
@@ -30872,12 +32496,18 @@
   </file>
   <file path="services/agent/src/routes/gen-agent-timeline-tools.ts">
     type Reservation = Awaited<ReturnType<ApiClient["reservations"]["get"]>>;
-    function bookingWriteFailure(err: unknown, action: string, saved?: string) {
+    export function bookingWriteFailure(
+      err: unknown,
+      action: string,
+      unsure: string | undefined,
+      saved?: string
+    ) {
       const outcome = saved
         ? `${saved} was already saved; check the timeline before trying again.`
         : "Nothing was changed.";
       const refusal = refusalOf(err);
       if (!refusal) {
+        if (unsure) return { error: saved ? `${saved} was already saved. ${unsure}` : unsure };
         return { error: `Couldn't ${action} right now. ${outcome} Ask the user to try again shortly.` };
       }
       if (refusal.status === 403) {
@@ -30917,6 +32547,7 @@
             if (!venueId) return NO_VENUE;
             log.info({ venueId, reservationId, tableRef }, "seat_reservation tool called");
             let saved: string | undefined;
+            let unsure: string | undefined;
             try {
               const found = await venueReservation(api, venueId, reservationId);
               if ("error" in found) return found;
@@ -30944,6 +32575,7 @@
               // The server has no CONFIRMED -> CONFIRMED edge, so only a pending booking changes
               // status; and it refuses a status change combined with a table change, so they go
               // as separate requests.
+              unsure = saveUnsure("lookup_reservation and get_table_status");
               if (reservation.status === "PENDING") {
                 await api.reservations.update(reservationId, { status: "CONFIRMED" });
                 saved = "Confirming the booking";
@@ -30957,8 +32589,8 @@
               await api.tables.updateStatus(tableId, "OCCUPIED");
               return { seated: true, table: tableLabel };
             } catch (err) {
-              log.error({ err, venueId, reservationId }, "seat_reservation failed");
-              return bookingWriteFailure(err, "seat the party", saved);
+              log.error({ ...failureLog(err), venueId, reservationId }, "seat_reservation failed");
+              return bookingWriteFailure(err, "seat the party", unsure, saved);
             }
           },
         }),
@@ -30969,14 +32601,16 @@
           execute: async ({ reservationId }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId, reservationId }, "mark_no_show tool called");
+            let unsure: string | undefined;
             try {
               const found = await venueReservation(api, venueId, reservationId);
               if ("error" in found) return found;
+              unsure = saveUnsure("lookup_reservation");
               const { warning } = await api.reservations.markNoShow(reservationId);
               return { noShow: true, ...(warning ? { warning } : {}) };
             } catch (err) {
-              log.error({ err, venueId, reservationId }, "mark_no_show failed");
-              return bookingWriteFailure(err, "mark the no-show");
+              log.error({ ...failureLog(err), venueId, reservationId }, "mark_no_show failed");
+              return bookingWriteFailure(err, "mark the no-show", unsure);
             }
           },
         }),
@@ -31009,11 +32643,16 @@
                       ...(reason ? { cancellationReason: reason } : {}),
                       ...(note ? { cancellationNote: note } : {}),
                     })
-                  : await api.reservations.cancel(reservationId);
+                  : await api.reservations.cancel(reservationId, NO_REPLAY);
               return { reservation };
             } catch (err) {
-              log.error({ err, reservationId }, "cancel_reservation failed");
-              return { error: "Failed to cancel reservation. Please try again." };
+              log.error({ ...failureLog(err), reservationId }, "cancel_reservation failed");
+              // The write is the tool's first call, so any failure may have saved.
+              return bookingWriteFailure(
+                err,
+                "cancel the reservation",
+                saveUnsure("lookup_reservation")
+              );
             }
           },
         }),
@@ -31114,7 +32753,7 @@
     }
     function createFailureResult(err: unknown) {
       const refusal = refusalOf(err);
-      if (!refusal) return { error: "Failed to create reservation. Please try again." };
+      if (!refusal) return { error: saveUnsure("lookup_reservation") };
       if (!FINAL_REFUSAL_STATUSES.has(refusal.status)) {
         // e.g. a 400 from our own malformed request: not the venue's decision.
         return { error: `Failed to create reservation: ${refusal.detail}` };
@@ -31321,7 +32960,7 @@
               );
               return { reservations: reservations.map(toLocal) };
             } catch (err) {
-              log.error({ err, date, venueId }, "lookup_reservation failed");
+              log.error({ ...failureLog(err), date, venueId }, "lookup_reservation failed");
               return { error: "Failed to look up reservations. Please try again." };
             }
           },
@@ -31334,12 +32973,12 @@
           }),
           execute: async ({ query }) => {
             if (!venueId) return NO_VENUE;
-            log.info({ query, venueId }, "search_guests tool called");
+            log.info({ venueId }, "search_guests tool called");
             try {
               const result = await api.guests.search({ venueId, query });
               return { guests: result.data };
             } catch (err) {
-              log.error({ err, query, venueId }, "search_guests failed");
+              log.error({ ...failureLog(err), venueId }, "search_guests failed");
               return { error: "Failed to search guests. Please try again." };
             }
           },
@@ -31354,7 +32993,7 @@
             if (!venueId) return NO_VENUE;
             log.info({ venueId }, "get_table_status tool called");
             try {
-              const result = await api.tables.list({ venueId });
+              const result = await api.tables.list({ venueId, limit: TABLES_LIMIT });
               return { tables: result.data };
             } catch (err) {
               log.error({ err, venueId }, "get_table_status failed");
@@ -31422,7 +33061,7 @@
           }),
           execute: async ({ guestName, date, startTime, endTime, partySize, tableId, notes }) => {
             if (!venueId) return NO_VENUE;
-            log.info({ guestName, date, startTime, partySize }, "create_reservation tool called");
+            log.info({ venueId, date, startTime, partySize }, "create_reservation tool called");
             const window = reservationWindow(date, startTime, endTime, timeZone);
             if (!window) return { error: UNREADABLE_TIME };
             try {
@@ -31438,7 +33077,7 @@
               });
               return { reservation };
             } catch (err) {
-              log.error({ err, guestName, date }, "create_reservation failed");
+              log.error({ ...failureLog(err), venueId, date }, "create_reservation failed");
               return createFailureResult(err);
             }
           },
@@ -31457,7 +33096,8 @@
             notes: z.string().optional().describe("Updated notes"),
           }),
           execute: async ({ reservationId, ...updates }) => {
-            log.info({ reservationId, ...updates }, "modify_reservation tool called");
+            // Field names only: notes are free text, and can say anything about a guest.
+            log.info({ reservationId, fields: Object.keys(updates) }, "modify_reservation tool called");
             try {
               const cleanUpdates = Object.fromEntries(
                 Object.entries(updates).filter(([, v]) => v !== undefined)
@@ -31465,8 +33105,13 @@
               const reservation = await api.reservations.update(reservationId, cleanUpdates);
               return { reservation };
             } catch (err) {
-              log.error({ err, reservationId }, "modify_reservation failed");
-              return { error: "Failed to modify reservation. Please try again." };
+              log.error({ ...failureLog(err), reservationId }, "modify_reservation failed");
+              // The write is the tool's first call, so any failure may have saved.
+              return bookingWriteFailure(
+                err,
+                "modify the reservation",
+                saveUnsure("lookup_reservation")
+              );
             }
           },
         }),
@@ -31484,7 +33129,7 @@
           }),
           execute: async ({ partySize, tableId, guestName }) => {
             if (!venueId) return NO_VENUE;
-            log.info({ venueId, partySize, tableId, guestName }, "seat_walk_in tool called");
+            log.info({ venueId, partySize, tableId }, "seat_walk_in tool called");
             try {
               if (!tableId) {
                 return {
@@ -31499,8 +33144,9 @@
               });
               return { reservation };
             } catch (err) {
-              log.error({ err, venueId, partySize }, "seat_walk_in failed");
-              return { error: "Failed to seat walk-in. Please try again." };
+              log.error({ ...failureLog(err), venueId, partySize }, "seat_walk_in failed");
+              // The write is the tool's first call, so any failure may have saved.
+              return bookingWriteFailure(err, "seat the walk-in", saveUnsure("get_table_status"));
             }
           },
         }),
@@ -31515,16 +33161,18 @@
           execute: async ({ table: tableRef, status: newStatus }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId, tableRef, newStatus }, "update_table_status tool called");
+            let unsure: string | undefined;
             try {
-              const tablesResult = await api.tables.list({ venueId });
+              const tablesResult = await api.tables.list({ venueId, limit: TABLES_LIMIT });
               const resolved = resolveTable(tablesResult.data, tableRef);
               if ("error" in resolved) return resolved;
               const { table } = resolved;
+              unsure = saveUnsure("get_table_status");
               const updated = await api.tables.updateStatus(table.id, newStatus);
               return { table: updated };
             } catch (err) {
               log.error({ err, venueId, tableRef }, "update_table_status failed");
-              return { error: "Failed to update table status. Please try again." };
+              return bookingWriteFailure(err, "update the table status", unsure);
             }
           },
         }),
@@ -31543,11 +33191,12 @@
   </file>
   <file path="services/agent/src/routes/gen-agent-waitlist-tools.ts">
     type WaitlistEntry = Awaited<ReturnType<ApiClient["waitlist"]["list"]>>[number];
-    function waitlistFailure(err: unknown, action: string) {
+    function waitlistFailure(err: unknown, action: string, unsure: string | undefined) {
       const refusal = refusalOf(err);
       if (!refusal) {
         return {
-          error: `Couldn't ${action} right now. Nothing was changed. Ask the user to try again.`,
+          error:
+            unsure ?? `Couldn't ${action} right now. Nothing was changed. Ask the user to try again.`,
         };
       }
       if (refusal.status === 403) {
@@ -31616,7 +33265,7 @@
                 });
               return { parties };
             } catch (err) {
-              log.error({ err, venueId }, "list_waitlist failed");
+              log.error({ ...failureLog(err), venueId }, "list_waitlist failed");
               const refusal = refusalOf(err);
               return refusal?.status === 403
                 ? { refused: true, error: "The user doesn't have permission to see the waitlist." }
@@ -31645,8 +33294,9 @@
                 quotedWaitMinutes: added.estimatedWaitMinutes,
               };
             } catch (err) {
-              log.error({ err, venueId }, "add_to_waitlist failed");
-              return waitlistFailure(err, "add the party");
+              log.error({ ...failureLog(err), venueId }, "add_to_waitlist failed");
+              // The write is the tool's first call, so any failure may have saved.
+              return waitlistFailure(err, "add the party", WAITLIST_SAVE_UNSURE);
             }
           },
         }),
@@ -31658,6 +33308,7 @@
           execute: async ({ guestName, partySize }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId }, "notify_waitlist_party tool called");
+            let unsure: string | undefined;
             try {
               const found = await findParty(api, venueId, guestName, partySize);
               if ("error" in found) return found;
@@ -31668,11 +33319,12 @@
                   error: `${found.entry.guestName} was already told their table is ready${at ? ` at ${at}` : ""}. No new text was sent.`,
                 };
               }
+              unsure = WAITLIST_SAVE_UNSURE;
               await api.waitlist.notify(found.entry.id);
               return { notified: true, guestName: found.entry.guestName };
             } catch (err) {
-              log.error({ err, venueId }, "notify_waitlist_party failed");
-              return waitlistFailure(err, "notify the party");
+              log.error({ ...failureLog(err), venueId }, "notify_waitlist_party failed");
+              return waitlistFailure(err, "notify the party", unsure);
             }
           },
         }),
@@ -31688,6 +33340,7 @@
             if (!venueId) return NO_VENUE;
             log.info({ venueId, tableRef }, "seat_waitlist_party tool called");
             let seatedAt: string | undefined;
+            let unsure: string | undefined;
             try {
               const found = await findParty(api, venueId, guestName, partySize);
               if ("error" in found) return found;
@@ -31702,6 +33355,8 @@
                   error: `Table ${label} is ${table.status.toLowerCase()}, so the party can't be seated there. Nothing was changed.`,
                 };
               }
+              // The walk-in is what would have saved, and the party stays listed either way.
+              unsure = saveUnsure("get_table_status");
               await api.reservations.walkIn({
                 venueId,
                 partySize: entry.partySize,
@@ -31712,7 +33367,7 @@
               await api.waitlist.seat(entry.id);
               return { seated: true, guestName: entry.guestName, table: label };
             } catch (err) {
-              log.error({ err, venueId }, "seat_waitlist_party failed");
+              log.error({ ...failureLog(err), venueId }, "seat_waitlist_party failed");
               // The walk-in exists, so the party is seated; only the waitlist row is stale (as WaitlistPage reports it).
               if (seatedAt) {
                 return {
@@ -31722,7 +33377,7 @@
                   note: `The party is seated at ${seatedAt}, but they are still shown on the waitlist. Tell the user to remove them from the Waitlist page.`,
                 };
               }
-              return waitlistFailure(err, "seat the party");
+              return waitlistFailure(err, "seat the party", unsure);
             }
           },
         }),
@@ -31734,14 +33389,16 @@
           execute: async ({ guestName, partySize }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId }, "remove_from_waitlist tool called");
+            let unsure: string | undefined;
             try {
               const found = await findParty(api, venueId, guestName, partySize);
               if ("error" in found) return found;
+              unsure = WAITLIST_SAVE_UNSURE;
               await api.waitlist.cancel(found.entry.id);
               return { removed: true, guestName: found.entry.guestName };
             } catch (err) {
-              log.error({ err, venueId }, "remove_from_waitlist failed");
-              return waitlistFailure(err, "remove the party");
+              log.error({ ...failureLog(err), venueId }, "remove_from_waitlist failed");
+              return waitlistFailure(err, "remove the party", unsure);
             }
           },
         }),
@@ -32791,6 +34448,19 @@
         return undefined; // unknown time zone (RangeError)
       }
     }
+    export function failureLog(err: unknown) {
+      const {
+        problemDetails: problem,
+        path,
+        name,
+      } = (err ?? {}) as {
+        problemDetails?: { status?: unknown; code?: unknown };
+        path?: unknown;
+        name?: unknown;
+      };
+      if (problem) return { status: problem.status, code: problem.code };
+      return path === undefined ? { err } : { failure: name };
+    }
     export interface Refusal {
       readonly status: number;
       readonly detail: string;
@@ -32810,6 +34480,10 @@
         ...(typeof reason === "string" ? { reason } : {}),
       };
     }
+    export function saveUnsure(read: string): string {
+      return `Couldn't confirm the change was saved. Check ${read} before trying again.`;
+    }
+    export const NO_REPLAY = { maxRetries: 0 } as const;
     export interface NamedTable {
       readonly id: string;
       readonly name?: string | null;
@@ -34997,7 +36671,8 @@
             now: new Date(),
           });
           if (outcome.kind === "reopened") {
-            if (request.body.tellCancelledGuests) {
+            // The same call the command counted: no notice to rebook a date that stays closed (#8006).
+            if (request.body.tellCancelledGuests && !outcome.result.stillClosed?.everyDate) {
               await enqueueNotices(
                 closureNoticeService.enqueueForReopen,
                 { venueId, ruleId: request.params.ruleId },
@@ -37898,22 +39573,29 @@
             tags: ["Public"],
           },
         },
-        async (request, reply) => {
-          const { holdId } = request.params;
-          const ip = request.ip;
+        publicVenueScoped(
+          {
+            slug: (request) => request.params.slug,
+            notFound: venueNotFound,
+            // Session-id ownership check — see readSessionId's doc comment for why
+            // the hold id itself is not proof of ownership. Answers 401 before the
+            // slug lookup, as it always did.
+            before: (request, reply) =>
+              readSessionId(request, reply, "release") === null ? reply : undefined,
+          },
+          async (request, reply) => {
+            const { holdId } = request.params;
+            const ip = request.ip;
+            const sessionId = sessionIdOf(request);
     
-          // Session-id ownership check — see readSessionId's doc comment for why
-          // the hold id itself is not proof of ownership.
-          const sessionId = readSessionId(request, reply, "release");
-          if (sessionId === null) return reply;
+            const released = await holdService.release(holdId, sessionId);
+            if (released) {
+              decrementHoldCount(ip);
+            }
     
-          const released = await holdService.release(holdId, sessionId);
-          if (released) {
-            decrementHoldCount(ip);
+            return reply.status(204).send();
           }
-    
-          return reply.status(204).send();
-        }
+        )
       );
     
       // GET the hold's status. The staff counterpart (/api/v1/holds/:id) is
@@ -38020,6 +39702,8 @@
                 guestDetails: { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference },
                 // No guest record exists yet, so the guest actor carries no id.
                 actor: guestActor(null),
+                // Captured from the request so later guest emails brand by it (#7892).
+                originHost: resolveOriginHost(request.headers.origin),
               },
               {
                 door: "public-hold",
@@ -38254,6 +39938,8 @@
                   guestId: link.ok ? (link.guestId ?? undefined) : undefined,
                 },
                 actor: guestActor(link.ok ? link.guestId : null),
+                // Captured from the request so later guest emails brand by it (#7892).
+                originHost: resolveOriginHost(request.headers.origin),
               },
               {
                 door: "public-booking",
@@ -42842,6 +44528,10 @@
       startTime: z.string(),
       partySize: z.number().int(),
       reason: z.enum(["closed", "outside_service", "table_blocked"]),
+      /** Who it is for; absent when the booking has no name. */
+      guestName: z.string().optional(),
+      /** The service date it belongs to, where a past-midnight booking's start time would mislead. */
+      serviceDate: ServiceDateSchema.optional(),
     });
     export const AVAILABILITY_CONFIG_PROBLEM_CODES = [
       "version-conflict",
@@ -43095,7 +44785,38 @@
       /** One result per item, in the order sent. */
       results: z.array(ClosureResultSchema),
     });
-    export const ReopenResultSchema = z.object({ version: z.number().int(), changeId: z.string() });
+    export const ClosedByRuleSchema = z.object({
+      ruleId: z.string(),
+      targetKind: DateRuleTargetKindSchema,
+      venueServiceId: z.string().nullish(),
+      bookingTypes: z.array(z.enum(RULE_BOOKING_TYPES)).nullish(),
+      startsOn: ServiceDateSchema,
+      endsOn: ServiceDateSchema.nullish(),
+      repeat: RepeatSchema.nullish(),
+      window: WindowSchema.nullish(),
+      /** The dates in question it closes, in order: not all of its own. */
+      dates: z.array(ServiceDateSchema),
+    });
+    export const ClosureOverlapSchema = z.object({
+      /** Every date in question stays shut, so nothing the reopen names comes back to guests. */
+      everyDate: z.boolean(),
+      by: z.array(ClosedByRuleSchema),
+    });
+    export const ReopenResultSchema = z.object({
+      version: z.number().int(),
+      changeId: z.string(),
+      /**
+       * Guests a reopen notice was requested for: cancelled guests whose booking had not started,
+       * `0` when none were asked. Absent from an older API (and from ending Tonight); read it as
+       * `notified ?? null`.
+       */
+      notified: z.number().int().nonnegative().nullable().optional(),
+      /**
+       * Other closures that still close the reopened rule's dates, as stored when it committed. Absent
+       * from an older API and from ending Tonight.
+       */
+      stillClosed: ClosureOverlapSchema.optional(),
+    });
     export const RefundFailureSchema = z.object({
       outcomeId: z.string(),
       /** The guest's name as booked; no email or phone travels here. */
@@ -43110,6 +44831,11 @@
       total: z.number().int(),
       /** Bookings the closure cancelled (the guests a reopen notice would go to). */
       cancelled: z.number().int(),
+      /**
+       * Of those, the guests a reopen notice can still reach: their booking has not started.
+       * Absent from an older API; read it as `upcomingCancelled ?? cancelled`.
+       */
+      upcomingCancelled: z.number().int().nonnegative().nullable().optional(),
       /** Guests with a confirmed email or SMS delivery. */
       sent: z.number().int(),
       /** Guests who rebooked after the cancel. */
@@ -43174,6 +44900,8 @@
     export type ClosureResult = z.infer<typeof ClosureResultSchema>;
     export type CreateClosuresBody = z.infer<typeof CreateClosuresBodySchema>;
     export type ClosuresResult = z.infer<typeof ClosuresResultSchema>;
+    export type ClosedByRule = z.infer<typeof ClosedByRuleSchema>;
+    export type ClosureOverlap = z.infer<typeof ClosureOverlapSchema>;
     export type ReopenResult = z.infer<typeof ReopenResultSchema>;
     export type RefundFailure = z.infer<typeof RefundFailureSchema>;
     export type ClosureSummary = z.infer<typeof ClosureSummarySchema>;
@@ -44394,6 +46122,8 @@
       userId: z.string().nullable(),
       /** Why staff booked past a soft availability limit; absent or null for an ordinary booking. */
       overrideReason: z.string().nullable().optional(),
+      /** The host the guest booked on (#7892); absent or null for a staff/walk-in booking. */
+      originHost: z.string().nullable().optional(),
       tableId: z.string(),
       table: TableSchema.optional(),
       guest: z
@@ -48791,6 +50521,8 @@
       partySize: number;
       /** The service date it belongs to; set where a scope needs it. */
       date?: Date;
+      /** Who it is for; a refusal lists it so the Manager can find the booking. */
+      guestName?: string | null;
     }
     type StrandReason = StrandedReservation["reason"];
     export function strandReason(
@@ -48834,6 +50566,8 @@
             startTime: booking.startTime.toISOString(),
             partySize: booking.partySize,
             reason,
+            ...(booking.guestName ? { guestName: booking.guestName } : {}),
+            ...(booking.date ? { serviceDate: booking.date.toISOString().slice(0, 10) } : {}),
           },
         ];
       });
@@ -49590,7 +51324,14 @@
           ...stillToServeWhere(now),
           status: { notIn: [...NOT_BOOKED_STATUSES] },
         },
-        select: { id: true, tableId: true, startTime: true, partySize: true, date: true },
+        select: {
+          id: true,
+          tableId: true,
+          startTime: true,
+          partySize: true,
+          date: true,
+          guestName: true,
+        },
       });
     }
     export async function refuseStale(db: StoreDb, venueId: string): Promise<SaveOutcome> {
@@ -51988,7 +53729,48 @@
       if (saved?.actorId !== actorId) throw new Refused({ kind: "forbidden" });
     }
     export type ReopenOutcome =
-      { kind: "reopened"; result: ReopenResult } | { kind: "not_found" } | { kind: "forbidden" };
+      | { kind: "reopened"; result: ReopenResult }
+      | { kind: "not_found" }
+      | { kind: "forbidden" }
+      | Extract<Refusal, { kind: "invalid" }>;
+    async function refuseStrandingReopen(
+      tx: Db,
+      venueId: string,
+      state: ConfigState,
+      next: ConfigState["stored"],
+      now: Date
+    ): Promise<void> {
+      const removed = new Set(state.stored.dateRules.map((r) => r.id));
+      for (const r of next.dateRules) removed.delete(r.id);
+      const after = {
+        ...state.effective,
+        dateRules: state.effective.dateRules.filter((r) => !removed.has(r.id)),
+      };
+      const stranded = findStrandedReservations(
+        { timezone: state.timezone, config: state.effective },
+        { timezone: state.timezone, config: after },
+        await futureBookings(tx, venueId, civilDateIn(now, state.timezone), now)
+      );
+      if (stranded.length === 0) return;
+      throw new Refused({
+        kind: "invalid",
+        issues: stranded.map((r) => ({
+          path: `reservations.${r.id}`,
+          code: "strands_booking",
+          message: "Removing this would leave this booking without service.",
+        })),
+      });
+    }
+    function upcomingCancelled(db: Db, venueId: string, ruleId: string, now: Date): Promise<number> {
+      return db.closureOutcome.count({
+        where: {
+          venueId,
+          dateRuleId: ruleId,
+          action: "cancel",
+          reservation: { startTime: { gt: now } },
+        },
+      });
+    }
     export async function reopenClosure(
       input: {
         venueId: string;
@@ -52004,6 +53786,14 @@
         return await client.$transaction(async (tx) => {
           await setVenueContext(tx, venueId);
           const db = tx as unknown as Db;
+          // Take the venue row first, as `commit` does: an in-flight booking holds it FOR SHARE, so
+          // this waits for that commit and the stranded scan below sees the booking (book-slot.ts).
+          // A refusal rolls the bump back with the rest of the transaction.
+          const bumped = await db.venue.update({
+            where: { id: venueId },
+            data: { availabilityVersion: { increment: 1 } },
+            select: { availabilityVersion: true },
+          });
           const state = await loadConfigState(db, venueId, now);
           const rule = state?.stored.dateRules.find((r) => r.id === ruleId);
           if (!state || !rule || !CLOSURE_RULE_KINDS.has(rule.kind)) {
@@ -52017,17 +53807,27 @@
             // Reopening a series also removes its skips and one-date edits (#7685).
             dateRules: state.stored.dateRules.filter((r) => r.id !== ruleId && r.seriesId !== ruleId),
           };
+          await refuseStrandingReopen(db, venueId, state, next, now);
           const diff = diffConfig(state.stored, next);
           await writeConfigDiff(db, venueId, diff, { actorId: caller.actorId, now });
-          const bumped = await db.venue.update({
+          await db.venue.update({
             where: { id: venueId },
-            data: {
-              availabilityVersion: { increment: 1 },
-              operatingHours: projectLegacyOperatingHours(next),
-            },
-            select: { availabilityVersion: true },
+            data: { operatingHours: projectLegacyOperatingHours(next) },
+            select: { id: true },
           });
           const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
+          const stillClosed = stillClosedAfterReopen(
+            state.stored.dateRules,
+            rule,
+            civilDateIn(now, state.timezone)
+          );
+          // Only guests whose booking has not started get the notice (`listNotifiable`); the audit
+          // row, Undo and the caller's count must agree with who it actually reaches. With every date
+          // still closed by another closure there is nothing to rebook, so nobody is told to (#8006).
+          const notified =
+            input.tellCancelledGuests && !stillClosed.everyDate
+              ? await upcomingCancelled(db, venueId, ruleId, now)
+              : 0;
           const change = await db.availabilityChange.create({
             data: {
               venueId,
@@ -52043,13 +53843,13 @@
                 diff,
                 state.operatingHours
               ) as unknown as Prisma.InputJsonValue,
-              notifiedGuests: input.tellCancelledGuests,
+              notifiedGuests: notified > 0,
             },
             select: { id: true },
           });
           return {
             kind: "reopened" as const,
-            result: { version: bumped.availabilityVersion, changeId: change.id },
+            result: { version: bumped.availabilityVersion, changeId: change.id, notified, stillClosed },
           };
         });
       } catch (error) {
@@ -52333,17 +54133,24 @@
       dispatcher: Pick<NotificationDispatcher, "sendClosureEmail" | "sendClosureSms" | "smsEnabled">;
       generateManageToken(reservationId: string, guestEmail: string): string;
       manageBaseUrl: string;
+      /**
+       * Resolves the manage-link base for an outcome's origin host (#7892) — a
+       * closure notice for an eat-sheet.com booking links back to eat-sheet.com.
+       * Omitted keeps `manageBaseUrl` above for every outcome, today's behavior.
+       */
+      hostBrand?: (originHost: string | null) => { manageBaseUrl: string };
       logger: ClosureNoticeDeps["logger"];
       now?: () => Date;
     }): ClosureNoticeDeps {
       const now = input.now ?? (() => new Date());
+      const hostBrand = input.hostBrand ?? (() => ({ manageBaseUrl: input.manageBaseUrl }));
       return {
         load: loadNoticeOutcome,
         offers: (o) => loadRebookSlots(o, now()),
         // The signed email is checked on the manage page; a phone-only guest has none.
         manageUrl: (o, rebook) =>
           buildManageUrl(
-            input.manageBaseUrl,
+            hostBrand(o.originHost).manageBaseUrl,
             input.generateManageToken(o.reservationId, o.guestEmail ?? ""),
             rebook
           ),
@@ -52397,7 +54204,7 @@
       const store = deps.store ?? defaultStore;
     
       async function enqueue(variant: NoticeVariant, input: EnqueueInput): Promise<number> {
-        const outcomes = await store.listNotifiable(input.venueId, input.ruleId, variant);
+        const outcomes = await store.listNotifiable(input.venueId, input.ruleId, variant, input.now);
         if (outcomes.length === 0) return 0;
         const urgent = await isUrgent(store, input);
         await Promise.all(
@@ -52485,14 +54292,14 @@
       venueId: string,
       ruleId: string,
       variant: NoticeVariant,
+      now: Date,
       db: Db = prisma
     ): Promise<NotifiableOutcome[]> {
       const rows = await db.closureOutcome.findMany({
-        where: {
-          venueId,
-          dateRuleId: ruleId,
-          action: variant === "reopened" ? "cancel" : { not: "keep_silent" },
-        },
+        where:
+          variant === "reopened"
+            ? { venueId, dateRuleId: ruleId, action: "cancel", reservation: { startTime: { gt: now } } }
+            : { venueId, dateRuleId: ruleId, action: { not: "keep_silent" } },
         select: { id: true },
       });
       return rows.map((r) => ({ outcomeId: r.id }));
@@ -52522,6 +54329,7 @@
               guestPhone: true,
               guest: { select: { communicationPreference: true } },
               deposit: { select: { amountCents: true, currency: true } },
+              originHost: true,
             },
           },
         },
@@ -52546,6 +54354,7 @@
         refund: r.deposit ? { amountCents: r.deposit.amountCents, currency: r.deposit.currency } : null,
         venueName: row.venue.name,
         timezone: row.venue.ianaTimezone,
+        originHost: r.originHost,
       };
     }
     export async function recordDeliveries(
@@ -52632,6 +54441,8 @@
       id: string;
       reservation: {
         guestName: string | null;
+        /** Only the summaries listing reads when the booking starts. */
+        startTime?: Date;
         deposit: {
           amountCents: number;
           currency: string;
@@ -52684,7 +54495,11 @@
       }
       return [...byRule.values()];
     }
-    export async function listSummaries(venueId: string, db: Db = prisma): Promise<ClosureSummary[]> {
+    export async function listSummaries(
+      venueId: string,
+      now: Date = new Date(),
+      db: Db = prisma
+    ): Promise<ClosureSummary[]> {
       const rows = await db.closureOutcome.findMany({
         where: { venueId },
         orderBy: { createdAt: "asc" },
@@ -52698,6 +54513,7 @@
           reservation: {
             select: {
               guestName: true,
+              startTime: true,
               deposit: {
                 select: {
                   amountCents: true,
@@ -52711,7 +54527,18 @@
           },
         },
       });
-      return summarizeOutcomes(rows);
+      // A reopen notice goes only to cancelled guests whose booking has not started
+      // (`listNotifiable`), so that is the count the Reopen dialog may promise.
+      const upcoming = new Map<string, number>();
+      for (const row of rows) {
+        if (row.action !== "cancel" || !row.reservation.startTime) continue;
+        if (row.reservation.startTime.getTime() <= now.getTime()) continue;
+        upcoming.set(row.dateRuleId, (upcoming.get(row.dateRuleId) ?? 0) + 1);
+      }
+      return summarizeOutcomes(rows).map((s) => ({
+        ...s,
+        upcomingCancelled: upcoming.get(s.ruleId) ?? 0,
+      }));
     }
   </file>
   <file path="services/reservations/src/services/closure-notice.ts">
@@ -52739,6 +54566,8 @@
       refund: { amountCents: number; currency: string } | null;
       venueName: string;
       timezone: string;
+      /** The host the guest booked on (#7892); null keeps the mattbutlerengineering.com brand. */
+      originHost: string | null;
     }
     export interface ClosureNoticeDeps {
       load(outcomeId: string): Promise<NoticeOutcome | null>;
@@ -52797,7 +54626,7 @@
     ): Promise<void> {
       if (channel === "email") {
         const { subject, html } = buildClosureEmail(content);
-        return deps.sendEmail({ to: o.guestEmail!, subject, html });
+        return deps.sendEmail({ to: o.guestEmail!, subject, html, originHost: o.originHost });
       }
       return deps.sendSms({ to: o.guestPhone!, body: buildClosureSms(content) });
     }
@@ -53419,6 +55248,13 @@
        * Checked in the same lookup as the session id, before any write.
        */
       venueId?: string;
+      /**
+       * The host the guest booked on (e.g. "eat-sheet.com"), resolved by the
+       * calling public route from the request's Origin header (#7892). Stored on
+       * the reservation so later guest emails brand by it. Undefined/null for
+       * non-public confirm paths or an unrecognized origin.
+       */
+      originHost?: string | null;
       /** Who confirmed; recorded on the `created` event. Defaults to {@link SYSTEM_ACTOR}. */
       actor?: ReservationEventActor;
       /**
@@ -53501,6 +55337,9 @@
               userId: userId ?? null,
               // Ownership proof for the public deposit route (#6304).
               originSessionId: hold.sessionId,
+              // The host the guest booked on (#7892); null for non-public confirm
+              // paths or an unrecognized origin.
+              originHost: input.originHost ?? null,
               status: "CONFIRMED",
             },
             include: {
@@ -56502,6 +58341,7 @@
             venueAddress: null,
             updatedAt: reservation.updatedAt,
             manageToken: deps.generateManageToken(reservation.id, reservation.guestEmail),
+            originHost: reservation.originHost ?? null,
           };
     
           // Dispatcher failures propagate so BullMQ retries per the queue policy.
@@ -59823,6 +61663,8 @@
       userId: string | null;
       /** Staff override reason; selected rows predating the column or partial selects omit it. */
       overrideReason?: string | null;
+      /** The host the guest booked on (#7892); selected rows predating the column omit it. */
+      originHost?: string | null;
       tableId: string;
       table?: PrismaTableRow | null;
       guest?: {
@@ -59900,6 +61742,7 @@
         guestId: row.guestId,
         userId: row.userId,
         overrideReason: row.overrideReason ?? null,
+        originHost: row.originHost ?? null,
         tableId: row.tableId,
         table: row.table ? toTable(row.table) : undefined,
         guest: row.guest ?? null,
@@ -71490,12 +73333,17 @@
       async reopenClosure(
         venueId: string,
         ruleId: string,
-        tellCancelledGuests: boolean
+        tellCancelledGuests: boolean,
+        override?: PerRequestOptions
       ): Promise<ReopenResult> {
-        const response = await this.client.call(availabilityConfigEndpoints.reopenClosure, {
-          params: { id: venueId, ruleId },
-          body: { tellCancelledGuests },
-        });
+        const response = await this.client.call(
+          availabilityConfigEndpoints.reopenClosure,
+          {
+            params: { id: venueId, ruleId },
+            body: { tellCancelledGuests },
+          },
+          override
+        );
         return response.data;
       }
     
@@ -71516,10 +73364,16 @@
       }
     
       /** Ends a Tonight change early; bookings a close-early cancelled stay cancelled. */
-      async endTonight(venueId: string, ruleId: string): Promise<ReopenResult> {
-        const response = await this.client.call(availabilityConfigEndpoints.endTonight, {
-          params: { id: venueId, ruleId },
-        });
+      async endTonight(
+        venueId: string,
+        ruleId: string,
+        override?: PerRequestOptions
+      ): Promise<ReopenResult> {
+        const response = await this.client.call(
+          availabilityConfigEndpoints.endTonight,
+          { params: { id: venueId, ruleId } },
+          override
+        );
         return response.data;
       }
     
@@ -72981,8 +74835,12 @@
       /**
        * Cancel a reservation
        */
-      async cancel(id: string): Promise<Reservation> {
-        return this.client.deleteOne<Reservation>(`${RESERVATION_BASE_PATH}/${id}`, ReservationSchema);
+      async cancel(id: string, override?: PerRequestOptions): Promise<Reservation> {
+        return this.client.deleteOne<Reservation>(
+          `${RESERVATION_BASE_PATH}/${id}`,
+          ReservationSchema,
+          override
+        );
       }
     
       /**
@@ -73675,6 +75533,105 @@
     }
     export function weekdayIndexOf(date: ServiceDate): number {
       return new Date(toUtcMs(date)).getUTCDay();
+    }
+  </file>
+  <file path="packages/availability/src/closure-overlap.ts">
+    type Closure = RuleOf<"closure">;
+    function datesOf(rule: DateRule, from: ServiceDate): ServiceDate[] {
+      const first = rule.startsOn > from ? rule.startsOn : from;
+      // A skip or one-date edit of a series never outgrows its date (see `date-rules.ts`).
+      if (rule.seriesId != null) return rule.startsOn >= from ? [rule.startsOn] : [];
+      const last = rule.endsOn ?? addDays(first, OPEN_END_DAYS);
+      const dates: ServiceDate[] = [];
+      for (let date = first; date <= last; date = addDays(date, 1)) {
+        if (rule.repeat == null || rule.repeat.weekdays.includes(weekdayIndexOf(date))) {
+          dates.push(date);
+        }
+      }
+      return dates;
+    }
+    function targetCovers(wide: DateRule, narrow: DateRule): boolean {
+      if (wide.targetKind === "venue") return true;
+      if (wide.targetKind !== narrow.targetKind) return false;
+      switch (wide.targetKind) {
+        case "service":
+          return wide.venueServiceId === narrow.venueServiceId;
+        case "booking":
+          return (narrow.bookingTypes ?? []).every((t) => wide.bookingTypes?.includes(t));
+        default:
+          return (narrow.tableIds ?? []).every((t) => wide.tableIds?.includes(t));
+      }
+    }
+    function windowCovers(wide: DateRule, narrow: DateRule): boolean {
+      const [w, n] = [wide.window ?? WHOLE_DAY, narrow.window ?? WHOLE_DAY];
+      return w.from <= n.from && w.to >= n.to;
+    }
+    function closedBy(rule: Closure, dates: readonly ServiceDate[]): ClosedByRule {
+      return {
+        ruleId: rule.id,
+        targetKind: rule.targetKind,
+        venueServiceId: rule.venueServiceId,
+        bookingTypes: rule.bookingTypes,
+        startsOn: rule.startsOn,
+        endsOn: rule.endsOn,
+        repeat: rule.repeat,
+        window: rule.window,
+        dates: [...dates],
+      };
+    }
+    function overlap(
+      found: readonly { readonly date: ServiceDate; readonly rules: readonly Closure[] }[],
+      everyDate: boolean
+    ): ClosureOverlap {
+      const rules = new Map(found.flatMap((f) => f.rules.map((r) => [r.id, r] as const)));
+      return {
+        everyDate,
+        by: [...rules.values()].map((rule) =>
+          closedBy(
+            rule,
+            found.filter((f) => f.rules.some((r) => r.id === rule.id)).map((f) => f.date)
+          )
+        ),
+      };
+    }
+    export function alreadyClosed(
+      rules: readonly DateRule[],
+      draft: DateRule,
+      from: ServiceDate
+    ): ClosureOverlap {
+      const counts = (rule: Closure) =>
+        rule.id !== draft.id &&
+        rule.id !== draft.seriesId &&
+        (draft.seriesId == null || rule.seriesId !== draft.seriesId) &&
+        (draft.targetKind !== "booking" || rule.targetKind === "booking") &&
+        covers(rule, draft);
+      const dates = datesOf(draft, from);
+      const found = dates.map((date) => ({
+        date,
+        rules: activeRules(rules, date).filter(isClosure).filter(counts),
+      }));
+      const hits = found.filter((f) => f.rules.length > 0);
+      return overlap(hits, dates.length > 0 && hits.length === dates.length);
+    }
+    export function stillClosedAfterReopen(
+      rules: readonly DateRule[],
+      rule: DateRule,
+      from: ServiceDate
+    ): ClosureOverlap {
+      if (rule.kind !== "closure") return { everyDate: false, by: [] };
+      const after = rules.filter((r) => r.id !== rule.id && r.seriesId !== rule.id);
+      const dates = datesOf(rule, from).filter((date) =>
+        activeRules(rules, date).some((r) => r.id === rule.id)
+      );
+      const staying = (other: Closure) =>
+        targetCovers(other, rule) || (rule.targetKind === "venue" && other.targetKind === "service");
+      const found = dates.map((date) => ({
+        date,
+        rules: activeRules(after, date).filter(isClosure).filter(staying),
+      }));
+      const hits = found.filter((f) => f.rules.length > 0);
+      const shut = found.filter((f) => f.rules.some((other) => covers(other, rule)));
+      return overlap(hits, dates.length > 0 && shut.length === dates.length);
     }
   </file>
   <file path="packages/availability/src/date-rules.ts">
@@ -79537,6 +81494,13 @@
       seatingPreference: SeatingPreference | null;
       /** Why staff booked past a soft availability limit; absent or null for an ordinary booking. */
       overrideReason?: string | null;
+      /**
+       * The host the guest booked on (e.g. "eat-sheet.com",
+       * "mattbutlerengineering.com"), captured from the public booking page's
+       * request at creation time (#7892). Null for staff/walk-in bookings or an
+       * unrecognized origin — those keep the mattbutlerengineering.com brand.
+       */
+      originHost?: string | null;
       tableId: string;
       table?: Table;
       guest?: {
@@ -80721,6 +82685,8 @@
                 dispatcher: notificationPort,
                 generateManageToken,
                 manageBaseUrl: resolveManageBaseUrl(process.env),
+                // Closure-notice manage links follow the booking's origin host (#7892).
+                hostBrand: createHostBrandResolver(process.env),
                 logger: fastify.log,
               }),
               handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),
@@ -80778,6 +82744,9 @@
         fromAddress: process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
         manageBaseUrl: resolveManageBaseUrl(process.env),
         publicApiBaseUrl,
+        // Brands confirmation/reminder/modified/cancelled/closure emails by the
+        // booking's origin host (#7892), always on the verified sending domain.
+        brandFor: createHostBrandResolver(process.env),
       });
     }
     export function createNotificationPort(): NotificationDispatcher {
@@ -83640,6 +85609,7 @@
     }
   </file>
   <file path="apps/hospitality/src/components/timeline/seat-guest.ts">
+    export const RESERVATION_EDIT_TEST_ID = "reservation-edit";
     export function findReservationTable(
       reservation: Reservation,
       tables: readonly Table[]
@@ -83675,27 +85645,80 @@
       readonly seatRef: RefObject<HTMLButtonElement | null>;
       readonly seat: () => Promise<void>;
     }
-    export function useSeatGuest(onSeat: () => Promise<void>): SeatGuestState {
-      const [seating, setSeating] = useState(false);
-      const [failure, setFailure] = useState<ApiErrorDescription | null>(null);
+    export interface SeatFlights {
+      /** True while a seat for this reservation is pending. */
+      readonly seating: (reservationId: string) => boolean;
+      /** The last rejection for this reservation, while it is the current one. */
+      readonly failure: (reservationId: string) => ApiErrorDescription | null;
+      /** Sends unless a seat for this reservation is already pending. Rejections become `failure`. */
+      readonly run: (reservationId: string, send: () => Promise<void>) => Promise<void>;
+    }
+    export function useSeatFlights(currentId: string | null): SeatFlights {
+      const [seatingIds, setSeatingIds] = useState<readonly string[]>([]);
+      const [failed, setFailed] = useState<{
+        readonly id: string;
+        readonly description: ApiErrorDescription;
+      } | null>(null);
+      if (failed && failed.id !== currentId) setFailed(null);
+    
+      const inFlightRef = useRef<readonly string[]>([]);
+      const currentRef = useRef(currentId);
+      useLayoutEffect(() => {
+        currentRef.current = currentId;
+      });
+    
+      const run = useCallback(async (id: string, send: () => Promise<void>) => {
+        if (inFlightRef.current.includes(id)) return;
+        inFlightRef.current = [...inFlightRef.current, id];
+        setSeatingIds(inFlightRef.current);
+        setFailed(null);
+        try {
+          await send();
+        } catch (err) {
+          if (currentRef.current === id) setFailed({ id, description: describeApiError(err) });
+        } finally {
+          inFlightRef.current = inFlightRef.current.filter((other) => other !== id);
+          setSeatingIds(inFlightRef.current);
+        }
+      }, []);
+    
+      return {
+        seating: (id) => seatingIds.includes(id),
+        failure: (id) => (failed?.id === id ? failed.description : null),
+        run,
+      };
+    }
+    export interface SeatGuestState {
+      /** True while this reservation's seat is pending: Seat Guest reads "Seating…", the rest rest. */
+      readonly seating: boolean;
+      /** This reservation's last rejection, rendered as "Guest not seated." until the next attempt. */
+      readonly failure: ApiErrorDescription | null;
+      /** Attach to the Seat Guest button so focus can return to it after a failure. */
+      readonly seatRef: RefObject<HTMLButtonElement | null>;
+      readonly seat: () => Promise<void>;
+    }
+    export function useSeatGuest(
+      reservationId: string,
+      onSeat: () => Promise<void>,
+      shared?: SeatFlights
+    ): SeatGuestState {
+      const own = useSeatFlights(reservationId);
+      const flights = shared ?? own;
+      const failure = flights.failure(reservationId);
       const seatRef = useRef<HTMLButtonElement>(null);
       const { focusAfter } = useFocusAfter();
     
-      const seat = useCallback(async () => {
-        setSeating(true);
-        setFailure(null);
-        try {
-          await onSeat();
-        } catch (err) {
-          setFailure(describeApiError(err));
-          const element = seatRef.current;
-          if (element) focusAfter({ kind: "element", element });
-        } finally {
-          setSeating(false);
-        }
-      }, [onSeat, focusAfter]);
+      useEffect(() => {
+        const element = seatRef.current;
+        if (failure && element) focusAfter({ kind: "element", element }, UNLESS_COVERED);
+      }, [failure, focusAfter]);
     
-      return { seating, failure, seatRef, seat };
+      return {
+        seating: flights.seating(reservationId),
+        failure,
+        seatRef,
+        seat: () => flights.run(reservationId, onSeat),
+      };
     }
   </file>
   <file path="apps/hospitality/src/components/timeline/sheet-size.ts">
@@ -85993,6 +88016,11 @@
     export function minutesOfDayIn(instant: Date, timeZone?: string): number {
       const clock = timeZone ? venueWallClock(timeZone, instant) : null;
       return clock ? clock.nowMin : instant.getHours() * 60 + instant.getMinutes();
+    }
+    export function serviceMinuteOf(instant: Date, timeZone: string, serviceDate: string): number {
+      return (
+        minutesOfDayIn(instant, timeZone) + (venueDate(instant, timeZone) > serviceDate ? 1440 : 0)
+      );
     }
     export function venueWallClock(timeZone: string, now: Date): VenueWallClock | null {
       try {

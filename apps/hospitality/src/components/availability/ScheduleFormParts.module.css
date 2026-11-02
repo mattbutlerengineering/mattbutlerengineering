@@ -30,3 +30,8 @@
   gap: var(--rialto-space-sm);
   justify-content: flex-end;
 }
+
+.blocked {
+  flex: 1 1 100%;
+  text-align: end;
+}

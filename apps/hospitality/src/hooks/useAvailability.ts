@@ -7,6 +7,7 @@ import type {
   PutAvailabilityConfigBody,
   ScopeConflictMode,
 } from "@mbe/types";
+import { trackOwnSave } from "../components/availability/use-reload-hold.js";
 import { createMutationHook } from "./create-mutation-hook.js";
 import { createQueryHook } from "./create-query-hook.js";
 import { VENUES_QUERY_KEY } from "./useVenues.js";
@@ -64,12 +65,13 @@ export const useSaveAvailabilityConfig = createMutationHook<
     AVAILABILITY_CHANGES_QUERY_KEY,
     VENUES_QUERY_KEY,
   ],
-  mutationFn: async (api, { venueId, body, overwrite }) => {
-    const expectedVersion = overwrite
-      ? (await api.availability.getConfig(venueId)).version
-      : body.expectedVersion;
-    return api.availability.saveConfig(venueId, { ...body, expectedVersion });
-  },
+  mutationFn: (api, { venueId, body, overwrite }) =>
+    trackOwnSave(venueId, async () => {
+      const expectedVersion = overwrite
+        ? (await api.availability.getConfig(venueId)).version
+        : body.expectedVersion;
+      return api.availability.saveConfig(venueId, { ...body, expectedVersion });
+    }),
 });
 
 /** The History drawer (F12): who changed availability, newest first. */
@@ -98,5 +100,5 @@ export const useRevertAvailabilityChange = createMutationHook<
     VENUES_QUERY_KEY,
   ],
   mutationFn: (api, { venueId, changeId, expectedVersion }) =>
-    api.availability.revertChange(venueId, changeId, expectedVersion),
+    trackOwnSave(venueId, () => api.availability.revertChange(venueId, changeId, expectedVersion)),
 });

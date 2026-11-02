@@ -330,7 +330,7 @@ describe("Select — dropdown escapes ancestor Card stacking context", () => {
     const listboxZIndex = Number(getComputedStyle(listbox).zIndex);
     const overlayZIndex = Number(getComputedStyle(overlay).zIndex);
 
-    // Dialog's overlay (z-index: 100) is NOT portaled, so it occupies the
+    // Dialog's overlay (z-index: 10000) is NOT portaled, so it occupies the
     // same root stacking context as Select's portaled dropdown. The
     // dropdown must win, or a click on an option lands on the dialog
     // instead — the exact occlusion bug this component was fixed for,

@@ -33,6 +33,7 @@
           venueAddress: null,
           manageToken,
           updatedAt: reservation.updatedAt,
+          originHost: reservation.originHost ?? null,
         });
       }
     
@@ -64,6 +65,7 @@
               venueAddress: null,
               manageToken,
               updatedAt: reservation.updatedAt,
+              originHost: reservation.originHost ?? null,
             },
             preference
           );
@@ -99,6 +101,7 @@
               venueAddress: null,
               manageToken,
               updatedAt: updated.updatedAt,
+              originHost: updated.originHost ?? null,
             },
             preference
           );
@@ -152,11 +155,83 @@
   </file>
   </section>
   <section priority="medium" role="config">
+  <file path="src/config/host-brand.ts">
+    export type OriginHost = "eat-sheet.com" | "mattbutlerengineering.com";
+    export function resolveOriginHost(
+      origin: string | readonly string[] | undefined | null
+    ): OriginHost | null {
+      const value = Array.isArray(origin) ? origin[0] : origin;
+      if (!value) return null;
+    
+      let hostname: string;
+      try {
+        hostname = new URL(value).hostname.toLowerCase();
+      } catch {
+        return null;
+      }
+    
+      if (EAT_SHEET_HOSTNAMES.has(hostname)) return "eat-sheet.com";
+      if (MBE_HOSTNAMES.has(hostname)) return "mattbutlerengineering.com";
+      return null;
+    }
+    export interface ReservationHostBrand {
+      readonly brandName: string;
+      readonly fromAddress: string;
+      readonly manageBaseUrl: string;
+    }
+    export interface HostBrandEnv {
+      /**
+       * The verified Resend sending domain's address. Never varies by host:
+       * eat-sheet.com is not (yet) a verified sending domain, so the envelope
+       * from-address always stays here — only the display name changes (#7892).
+       */
+      readonly verifiedFromAddress: string;
+      readonly mbeManageBaseUrl: string;
+      readonly eatSheetManageBaseUrl: string;
+    }
+    function withDisplayName(name: string, address: string): string {
+      const email = address.match(/<([^>]+)>/)?.[1] ?? address;
+      return `${name} <${email}>`;
+    }
+    export function hostBrandFor(originHost: string | null, env: HostBrandEnv): ReservationHostBrand {
+      if (originHost === "eat-sheet.com") {
+        return {
+          brandName: EAT_SHEET_BRAND_NAME,
+          fromAddress: withDisplayName(EAT_SHEET_BRAND_NAME, env.verifiedFromAddress),
+          manageBaseUrl: env.eatSheetManageBaseUrl,
+        };
+      }
+      return {
+        brandName: MBE_BRAND_NAME,
+        fromAddress: env.verifiedFromAddress,
+        manageBaseUrl: env.mbeManageBaseUrl,
+      };
+    }
+    export function createHostBrandResolver(env: {
+      EMAIL_FROM?: string | undefined;
+      MANAGE_BASE_URL?: string | undefined;
+      EAT_SHEET_MANAGE_BASE_URL?: string | undefined;
+    }): (originHost: string | null) => ReservationHostBrand {
+      const brandEnv: HostBrandEnv = {
+        verifiedFromAddress: env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
+        mbeManageBaseUrl: resolveManageBaseUrl(env),
+        eatSheetManageBaseUrl: resolveEatSheetManageBaseUrl(env),
+      };
+      return (originHost) => hostBrandFor(originHost, brandEnv);
+    }
+  </file>
   <file path="src/config/manage-base-url.ts">
     export const DEFAULT_MANAGE_BASE_URL = "https://mattbutlerengineering.com";
     export function resolveManageBaseUrl(env: { MANAGE_BASE_URL?: string | undefined }): string {
       const raw = (env.MANAGE_BASE_URL ?? "").trim();
       return raw === "" ? DEFAULT_MANAGE_BASE_URL : raw.replace(/\/+$/, "");
+    }
+    export const DEFAULT_EAT_SHEET_MANAGE_BASE_URL = "https://eat-sheet.com";
+    export function resolveEatSheetManageBaseUrl(env: {
+      EAT_SHEET_MANAGE_BASE_URL?: string | undefined;
+    }): string {
+      const raw = (env.EAT_SHEET_MANAGE_BASE_URL ?? "").trim();
+      return raw === "" ? DEFAULT_EAT_SHEET_MANAGE_BASE_URL : raw.replace(/\/+$/, "");
     }
   </file>
   <file path="src/config/manage-token.ts">
@@ -1158,10 +1233,19 @@
   </file>
   <file path="src/notifications/manage-url.ts">
     export const MANAGE_PATH = "/hospitality/reservations/manage";
+    function managePathFor(origin: string): string {
+      try {
+        return EAT_SHEET_HOSTNAMES.has(new URL(origin).hostname.toLowerCase())
+          ? EAT_SHEET_MANAGE_PATH
+          : MANAGE_PATH;
+      } catch {
+        return MANAGE_PATH;
+      }
+    }
     export function buildManageUrl(baseUrl: string, token: string, rebook?: string): string {
       const origin = baseUrl.replace(/\/+$/, "");
       const rebookParam = rebook === undefined ? "" : `&rebook=${encodeURIComponent(rebook)}`;
-      return `${origin}${MANAGE_PATH}?token=${encodeURIComponent(token)}${rebookParam}`;
+      return `${origin}${managePathFor(origin)}?token=${encodeURIComponent(token)}${rebookParam}`;
     }
   </file>
   <file path="src/notifications/notification-dispatcher.ts">
@@ -1370,6 +1454,11 @@
       updatedAt?: string;
       /** Explicit SEQUENCE override; takes precedence over `updatedAt`. */
       sequence?: number;
+      /**
+       * The host the guest booked on (#7892) — `null`/absent keeps the
+       * mattbutlerengineering.com brand and from-address.
+       */
+      originHost?: string | null;
     }
     export interface WinBackNotificationInput {
       guestName: string;
@@ -1388,6 +1477,8 @@
       to: string;
       subject: string;
       html: string;
+      /** The host the guest booked on (#7892) — `null`/absent keeps the mattbutlerengineering.com brand. */
+      originHost?: string | null;
     }
     export interface NotificationPort {
       /** A closure notice, already rendered (see closure-content.ts). */
@@ -1430,18 +1521,32 @@
        * sent with a link built from a guessed host.
        */
       publicApiBaseUrl: string | null;
+      /**
+       * Resolves the from-address and manage-link base for a booking's origin
+       * host (#7892) — e.g. eat-sheet.com's booking emails get that brand's
+       * display name and manage link. Omitted (or an unrecognized host) keeps
+       * `fromAddress` / `manageBaseUrl` above for every send, today's behavior.
+       */
+      brandFor?(originHost: string | null): { fromAddress: string; manageBaseUrl: string };
     }
     export class ResendNotificationAdapter implements NotificationPort {
       private readonly resend: ResendClient | null;
       private readonly fromAddress: string;
       private readonly manageBaseUrl: string;
       private readonly publicApiBaseUrl: string | null;
+      private readonly brandFor: (originHost: string | null) => {
+        fromAddress: string;
+        manageBaseUrl: string;
+      };
     
       constructor(config: ResendAdapterConfig) {
         this.resend = config.resend;
         this.fromAddress = config.fromAddress;
         this.manageBaseUrl = config.manageBaseUrl;
         this.publicApiBaseUrl = config.publicApiBaseUrl;
+        this.brandFor =
+          config.brandFor ??
+          (() => ({ fromAddress: this.fromAddress, manageBaseUrl: this.manageBaseUrl }));
       }
     
       /**
@@ -1459,8 +1564,9 @@
       }
     
       async sendClosureNotice(input: ClosureEmailInput): Promise<void> {
+        const brand = this.brandFor(input.originHost ?? null);
         await this.send({
-          from: this.fromAddress,
+          from: brand.fromAddress,
           to: input.to,
           subject: input.subject,
           html: input.html,
@@ -1469,9 +1575,10 @@
     
       async sendBookingConfirmation(input: BookingNotificationInput): Promise<void> {
         if (!this.resend) return;
-        const content = buildBookingEmailContent(input, "confirmation", this.manageBaseUrl);
+        const brand = this.brandFor(input.originHost ?? null);
+        const content = buildBookingEmailContent(input, "confirmation", brand.manageBaseUrl);
         await this.send({
-          from: this.fromAddress,
+          from: brand.fromAddress,
           to: input.guestEmail,
           subject: content.subject,
           html: content.html,
@@ -1487,9 +1594,10 @@
     
       async sendBookingReminder(input: BookingNotificationInput): Promise<void> {
         if (!this.resend) return;
-        const content = buildBookingEmailContent(input, "reminder", this.manageBaseUrl);
+        const brand = this.brandFor(input.originHost ?? null);
+        const content = buildBookingEmailContent(input, "reminder", brand.manageBaseUrl);
         await this.send({
-          from: this.fromAddress,
+          from: brand.fromAddress,
           to: input.guestEmail,
           subject: content.subject,
           html: content.html,
@@ -1498,9 +1606,10 @@
     
       async sendBookingModified(input: BookingNotificationInput): Promise<void> {
         if (!this.resend) return;
-        const content = buildBookingEmailContent(input, "modified", this.manageBaseUrl);
+        const brand = this.brandFor(input.originHost ?? null);
+        const content = buildBookingEmailContent(input, "modified", brand.manageBaseUrl);
         await this.send({
-          from: this.fromAddress,
+          from: brand.fromAddress,
           to: input.guestEmail,
           subject: content.subject,
           html: content.html,
@@ -1516,9 +1625,10 @@
     
       async sendBookingCancelled(input: BookingNotificationInput): Promise<void> {
         if (!this.resend) return;
-        const content = buildBookingEmailContent(input, "cancelled", this.manageBaseUrl);
+        const brand = this.brandFor(input.originHost ?? null);
+        const content = buildBookingEmailContent(input, "cancelled", brand.manageBaseUrl);
         await this.send({
-          from: this.fromAddress,
+          from: brand.fromAddress,
           to: input.guestEmail,
           subject: content.subject,
           html: content.html,
@@ -3263,7 +3373,8 @@
             now: new Date(),
           });
           if (outcome.kind === "reopened") {
-            if (request.body.tellCancelledGuests) {
+            // The same call the command counted: no notice to rebook a date that stays closed (#8006).
+            if (request.body.tellCancelledGuests && !outcome.result.stillClosed?.everyDate) {
               await enqueueNotices(
                 closureNoticeService.enqueueForReopen,
                 { venueId, ruleId: request.params.ruleId },
@@ -6164,22 +6275,29 @@
             tags: ["Public"],
           },
         },
-        async (request, reply) => {
-          const { holdId } = request.params;
-          const ip = request.ip;
+        publicVenueScoped(
+          {
+            slug: (request) => request.params.slug,
+            notFound: venueNotFound,
+            // Session-id ownership check — see readSessionId's doc comment for why
+            // the hold id itself is not proof of ownership. Answers 401 before the
+            // slug lookup, as it always did.
+            before: (request, reply) =>
+              readSessionId(request, reply, "release") === null ? reply : undefined,
+          },
+          async (request, reply) => {
+            const { holdId } = request.params;
+            const ip = request.ip;
+            const sessionId = sessionIdOf(request);
     
-          // Session-id ownership check — see readSessionId's doc comment for why
-          // the hold id itself is not proof of ownership.
-          const sessionId = readSessionId(request, reply, "release");
-          if (sessionId === null) return reply;
+            const released = await holdService.release(holdId, sessionId);
+            if (released) {
+              decrementHoldCount(ip);
+            }
     
-          const released = await holdService.release(holdId, sessionId);
-          if (released) {
-            decrementHoldCount(ip);
+            return reply.status(204).send();
           }
-    
-          return reply.status(204).send();
-        }
+        )
       );
     
       // GET the hold's status. The staff counterpart (/api/v1/holds/:id) is
@@ -6286,6 +6404,8 @@
                 guestDetails: { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference },
                 // No guest record exists yet, so the guest actor carries no id.
                 actor: guestActor(null),
+                // Captured from the request so later guest emails brand by it (#7892).
+                originHost: resolveOriginHost(request.headers.origin),
               },
               {
                 door: "public-hold",
@@ -6520,6 +6640,8 @@
                   guestId: link.ok ? (link.guestId ?? undefined) : undefined,
                 },
                 actor: guestActor(link.ok ? link.guestId : null),
+                // Captured from the request so later guest emails brand by it (#7892).
+                originHost: resolveOriginHost(request.headers.origin),
               },
               {
                 door: "public-booking",
@@ -11109,6 +11231,8 @@
       partySize: number;
       /** The service date it belongs to; set where a scope needs it. */
       date?: Date;
+      /** Who it is for; a refusal lists it so the Manager can find the booking. */
+      guestName?: string | null;
     }
     type StrandReason = StrandedReservation["reason"];
     export function strandReason(
@@ -11152,6 +11276,8 @@
             startTime: booking.startTime.toISOString(),
             partySize: booking.partySize,
             reason,
+            ...(booking.guestName ? { guestName: booking.guestName } : {}),
+            ...(booking.date ? { serviceDate: booking.date.toISOString().slice(0, 10) } : {}),
           },
         ];
       });
@@ -11908,7 +12034,14 @@
           ...stillToServeWhere(now),
           status: { notIn: [...NOT_BOOKED_STATUSES] },
         },
-        select: { id: true, tableId: true, startTime: true, partySize: true, date: true },
+        select: {
+          id: true,
+          tableId: true,
+          startTime: true,
+          partySize: true,
+          date: true,
+          guestName: true,
+        },
       });
     }
     export async function refuseStale(db: StoreDb, venueId: string): Promise<SaveOutcome> {
@@ -14306,7 +14439,48 @@
       if (saved?.actorId !== actorId) throw new Refused({ kind: "forbidden" });
     }
     export type ReopenOutcome =
-      { kind: "reopened"; result: ReopenResult } | { kind: "not_found" } | { kind: "forbidden" };
+      | { kind: "reopened"; result: ReopenResult }
+      | { kind: "not_found" }
+      | { kind: "forbidden" }
+      | Extract<Refusal, { kind: "invalid" }>;
+    async function refuseStrandingReopen(
+      tx: Db,
+      venueId: string,
+      state: ConfigState,
+      next: ConfigState["stored"],
+      now: Date
+    ): Promise<void> {
+      const removed = new Set(state.stored.dateRules.map((r) => r.id));
+      for (const r of next.dateRules) removed.delete(r.id);
+      const after = {
+        ...state.effective,
+        dateRules: state.effective.dateRules.filter((r) => !removed.has(r.id)),
+      };
+      const stranded = findStrandedReservations(
+        { timezone: state.timezone, config: state.effective },
+        { timezone: state.timezone, config: after },
+        await futureBookings(tx, venueId, civilDateIn(now, state.timezone), now)
+      );
+      if (stranded.length === 0) return;
+      throw new Refused({
+        kind: "invalid",
+        issues: stranded.map((r) => ({
+          path: `reservations.${r.id}`,
+          code: "strands_booking",
+          message: "Removing this would leave this booking without service.",
+        })),
+      });
+    }
+    function upcomingCancelled(db: Db, venueId: string, ruleId: string, now: Date): Promise<number> {
+      return db.closureOutcome.count({
+        where: {
+          venueId,
+          dateRuleId: ruleId,
+          action: "cancel",
+          reservation: { startTime: { gt: now } },
+        },
+      });
+    }
     export async function reopenClosure(
       input: {
         venueId: string;
@@ -14322,6 +14496,14 @@
         return await client.$transaction(async (tx) => {
           await setVenueContext(tx, venueId);
           const db = tx as unknown as Db;
+          // Take the venue row first, as `commit` does: an in-flight booking holds it FOR SHARE, so
+          // this waits for that commit and the stranded scan below sees the booking (book-slot.ts).
+          // A refusal rolls the bump back with the rest of the transaction.
+          const bumped = await db.venue.update({
+            where: { id: venueId },
+            data: { availabilityVersion: { increment: 1 } },
+            select: { availabilityVersion: true },
+          });
           const state = await loadConfigState(db, venueId, now);
           const rule = state?.stored.dateRules.find((r) => r.id === ruleId);
           if (!state || !rule || !CLOSURE_RULE_KINDS.has(rule.kind)) {
@@ -14335,17 +14517,27 @@
             // Reopening a series also removes its skips and one-date edits (#7685).
             dateRules: state.stored.dateRules.filter((r) => r.id !== ruleId && r.seriesId !== ruleId),
           };
+          await refuseStrandingReopen(db, venueId, state, next, now);
           const diff = diffConfig(state.stored, next);
           await writeConfigDiff(db, venueId, diff, { actorId: caller.actorId, now });
-          const bumped = await db.venue.update({
+          await db.venue.update({
             where: { id: venueId },
-            data: {
-              availabilityVersion: { increment: 1 },
-              operatingHours: projectLegacyOperatingHours(next),
-            },
-            select: { availabilityVersion: true },
+            data: { operatingHours: projectLegacyOperatingHours(next) },
+            select: { id: true },
           });
           const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
+          const stillClosed = stillClosedAfterReopen(
+            state.stored.dateRules,
+            rule,
+            civilDateIn(now, state.timezone)
+          );
+          // Only guests whose booking has not started get the notice (`listNotifiable`); the audit
+          // row, Undo and the caller's count must agree with who it actually reaches. With every date
+          // still closed by another closure there is nothing to rebook, so nobody is told to (#8006).
+          const notified =
+            input.tellCancelledGuests && !stillClosed.everyDate
+              ? await upcomingCancelled(db, venueId, ruleId, now)
+              : 0;
           const change = await db.availabilityChange.create({
             data: {
               venueId,
@@ -14361,13 +14553,13 @@
                 diff,
                 state.operatingHours
               ) as unknown as Prisma.InputJsonValue,
-              notifiedGuests: input.tellCancelledGuests,
+              notifiedGuests: notified > 0,
             },
             select: { id: true },
           });
           return {
             kind: "reopened" as const,
-            result: { version: bumped.availabilityVersion, changeId: change.id },
+            result: { version: bumped.availabilityVersion, changeId: change.id, notified, stillClosed },
           };
         });
       } catch (error) {
@@ -14651,17 +14843,24 @@
       dispatcher: Pick<NotificationDispatcher, "sendClosureEmail" | "sendClosureSms" | "smsEnabled">;
       generateManageToken(reservationId: string, guestEmail: string): string;
       manageBaseUrl: string;
+      /**
+       * Resolves the manage-link base for an outcome's origin host (#7892) — a
+       * closure notice for an eat-sheet.com booking links back to eat-sheet.com.
+       * Omitted keeps `manageBaseUrl` above for every outcome, today's behavior.
+       */
+      hostBrand?: (originHost: string | null) => { manageBaseUrl: string };
       logger: ClosureNoticeDeps["logger"];
       now?: () => Date;
     }): ClosureNoticeDeps {
       const now = input.now ?? (() => new Date());
+      const hostBrand = input.hostBrand ?? (() => ({ manageBaseUrl: input.manageBaseUrl }));
       return {
         load: loadNoticeOutcome,
         offers: (o) => loadRebookSlots(o, now()),
         // The signed email is checked on the manage page; a phone-only guest has none.
         manageUrl: (o, rebook) =>
           buildManageUrl(
-            input.manageBaseUrl,
+            hostBrand(o.originHost).manageBaseUrl,
             input.generateManageToken(o.reservationId, o.guestEmail ?? ""),
             rebook
           ),
@@ -14715,7 +14914,7 @@
       const store = deps.store ?? defaultStore;
     
       async function enqueue(variant: NoticeVariant, input: EnqueueInput): Promise<number> {
-        const outcomes = await store.listNotifiable(input.venueId, input.ruleId, variant);
+        const outcomes = await store.listNotifiable(input.venueId, input.ruleId, variant, input.now);
         if (outcomes.length === 0) return 0;
         const urgent = await isUrgent(store, input);
         await Promise.all(
@@ -14803,14 +15002,14 @@
       venueId: string,
       ruleId: string,
       variant: NoticeVariant,
+      now: Date,
       db: Db = prisma
     ): Promise<NotifiableOutcome[]> {
       const rows = await db.closureOutcome.findMany({
-        where: {
-          venueId,
-          dateRuleId: ruleId,
-          action: variant === "reopened" ? "cancel" : { not: "keep_silent" },
-        },
+        where:
+          variant === "reopened"
+            ? { venueId, dateRuleId: ruleId, action: "cancel", reservation: { startTime: { gt: now } } }
+            : { venueId, dateRuleId: ruleId, action: { not: "keep_silent" } },
         select: { id: true },
       });
       return rows.map((r) => ({ outcomeId: r.id }));
@@ -14840,6 +15039,7 @@
               guestPhone: true,
               guest: { select: { communicationPreference: true } },
               deposit: { select: { amountCents: true, currency: true } },
+              originHost: true,
             },
           },
         },
@@ -14864,6 +15064,7 @@
         refund: r.deposit ? { amountCents: r.deposit.amountCents, currency: r.deposit.currency } : null,
         venueName: row.venue.name,
         timezone: row.venue.ianaTimezone,
+        originHost: r.originHost,
       };
     }
     export async function recordDeliveries(
@@ -14950,6 +15151,8 @@
       id: string;
       reservation: {
         guestName: string | null;
+        /** Only the summaries listing reads when the booking starts. */
+        startTime?: Date;
         deposit: {
           amountCents: number;
           currency: string;
@@ -15002,7 +15205,11 @@
       }
       return [...byRule.values()];
     }
-    export async function listSummaries(venueId: string, db: Db = prisma): Promise<ClosureSummary[]> {
+    export async function listSummaries(
+      venueId: string,
+      now: Date = new Date(),
+      db: Db = prisma
+    ): Promise<ClosureSummary[]> {
       const rows = await db.closureOutcome.findMany({
         where: { venueId },
         orderBy: { createdAt: "asc" },
@@ -15016,6 +15223,7 @@
           reservation: {
             select: {
               guestName: true,
+              startTime: true,
               deposit: {
                 select: {
                   amountCents: true,
@@ -15029,7 +15237,18 @@
           },
         },
       });
-      return summarizeOutcomes(rows);
+      // A reopen notice goes only to cancelled guests whose booking has not started
+      // (`listNotifiable`), so that is the count the Reopen dialog may promise.
+      const upcoming = new Map<string, number>();
+      for (const row of rows) {
+        if (row.action !== "cancel" || !row.reservation.startTime) continue;
+        if (row.reservation.startTime.getTime() <= now.getTime()) continue;
+        upcoming.set(row.dateRuleId, (upcoming.get(row.dateRuleId) ?? 0) + 1);
+      }
+      return summarizeOutcomes(rows).map((s) => ({
+        ...s,
+        upcomingCancelled: upcoming.get(s.ruleId) ?? 0,
+      }));
     }
   </file>
   <file path="src/services/closure-notice.ts">
@@ -15057,6 +15276,8 @@
       refund: { amountCents: number; currency: string } | null;
       venueName: string;
       timezone: string;
+      /** The host the guest booked on (#7892); null keeps the mattbutlerengineering.com brand. */
+      originHost: string | null;
     }
     export interface ClosureNoticeDeps {
       load(outcomeId: string): Promise<NoticeOutcome | null>;
@@ -15115,7 +15336,7 @@
     ): Promise<void> {
       if (channel === "email") {
         const { subject, html } = buildClosureEmail(content);
-        return deps.sendEmail({ to: o.guestEmail!, subject, html });
+        return deps.sendEmail({ to: o.guestEmail!, subject, html, originHost: o.originHost });
       }
       return deps.sendSms({ to: o.guestPhone!, body: buildClosureSms(content) });
     }
@@ -15737,6 +15958,13 @@
        * Checked in the same lookup as the session id, before any write.
        */
       venueId?: string;
+      /**
+       * The host the guest booked on (e.g. "eat-sheet.com"), resolved by the
+       * calling public route from the request's Origin header (#7892). Stored on
+       * the reservation so later guest emails brand by it. Undefined/null for
+       * non-public confirm paths or an unrecognized origin.
+       */
+      originHost?: string | null;
       /** Who confirmed; recorded on the `created` event. Defaults to {@link SYSTEM_ACTOR}. */
       actor?: ReservationEventActor;
       /**
@@ -15819,6 +16047,9 @@
               userId: userId ?? null,
               // Ownership proof for the public deposit route (#6304).
               originSessionId: hold.sessionId,
+              // The host the guest booked on (#7892); null for non-public confirm
+              // paths or an unrecognized origin.
+              originHost: input.originHost ?? null,
               status: "CONFIRMED",
             },
             include: {
@@ -18820,6 +19051,7 @@
             venueAddress: null,
             updatedAt: reservation.updatedAt,
             manageToken: deps.generateManageToken(reservation.id, reservation.guestEmail),
+            originHost: reservation.originHost ?? null,
           };
     
           // Dispatcher failures propagate so BullMQ retries per the queue policy.
@@ -22141,6 +22373,8 @@
       userId: string | null;
       /** Staff override reason; selected rows predating the column or partial selects omit it. */
       overrideReason?: string | null;
+      /** The host the guest booked on (#7892); selected rows predating the column omit it. */
+      originHost?: string | null;
       tableId: string;
       table?: PrismaTableRow | null;
       guest?: {
@@ -22218,6 +22452,7 @@
         guestId: row.guestId,
         userId: row.userId,
         overrideReason: row.overrideReason ?? null,
+        originHost: row.originHost ?? null,
         tableId: row.tableId,
         table: row.table ? toTable(row.table) : undefined,
         guest: row.guest ?? null,
@@ -25356,6 +25591,8 @@
                 dispatcher: notificationPort,
                 generateManageToken,
                 manageBaseUrl: resolveManageBaseUrl(process.env),
+                // Closure-notice manage links follow the booking's origin host (#7892).
+                hostBrand: createHostBrandResolver(process.env),
                 logger: fastify.log,
               }),
               handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),
@@ -25413,6 +25650,9 @@
         fromAddress: process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
         manageBaseUrl: resolveManageBaseUrl(process.env),
         publicApiBaseUrl,
+        // Brands confirmation/reminder/modified/cancelled/closure emails by the
+        // booking's origin host (#7892), always on the verified sending domain.
+        brandFor: createHostBrandResolver(process.env),
       });
     }
     export function createNotificationPort(): NotificationDispatcher {

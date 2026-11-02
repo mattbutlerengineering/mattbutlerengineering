@@ -181,6 +181,35 @@ describe("reservations JobWorker wiring — schedule → dequeue → deliver", (
     expect(bus.schedulerClosed).toBe(true);
   });
 
+  // #7892: the reminder email brands by the host the booking came from.
+  it("BOOKING_REMINDER: carries the reservation's originHost", async () => {
+    const deps = makeDeps();
+    deps.getReservation.mockResolvedValue(makeReservation({ originHost: "eat-sheet.com" }));
+    const handlers = createReservationJobHandlers(deps);
+
+    await handlers[JOB_TYPES.BOOKING_REMINDER]!(reminderPayload, {
+      updateData: vi.fn(),
+      isFinalAttempt: false,
+    });
+
+    expect(deps.dispatcher.sendBookingReminder).toHaveBeenCalledOnce();
+    const [input] = deps.dispatcher.sendBookingReminder.mock.calls[0]!;
+    expect(input.originHost).toBe("eat-sheet.com");
+  });
+
+  it("BOOKING_REMINDER: originHost is null for a booking with no origin", async () => {
+    const deps = makeDeps();
+    const handlers = createReservationJobHandlers(deps);
+
+    await handlers[JOB_TYPES.BOOKING_REMINDER]!(reminderPayload, {
+      updateData: vi.fn(),
+      isFinalAttempt: false,
+    });
+
+    const [input] = deps.dispatcher.sendBookingReminder.mock.calls[0]!;
+    expect(input.originHost).toBeNull();
+  });
+
   it("DAY_OF_REMINDER: enqueued job is dequeued and delivers via the dispatcher", async () => {
     const deps = makeDeps();
     const scheduler = new JobScheduler({ redisUrl: "redis://localhost:6379" });

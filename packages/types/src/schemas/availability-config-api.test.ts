@@ -11,6 +11,7 @@ import {
   PreviewAvailabilityBodySchema,
   PreviewResultSchema,
   PutAvailabilityConfigBodySchema,
+  ReopenResultSchema,
   SetTonightBodySchema,
 } from "./availability-config-api.js";
 
@@ -303,5 +304,35 @@ describe("SetTonightBodySchema", () => {
     expect(parse({ type: "close_venue" })).toBe(false);
     expect(parse({ type: "block_tables", tableIds: [] })).toBe(false);
     expect(parse({ type: "pause_online", closeAt: 5 })).toBe(false);
+  });
+});
+
+describe("ReopenResultSchema.stillClosed", () => {
+  const result = { version: 8, changeId: "c" };
+  const by = {
+    ruleId: "other",
+    targetKind: "venue",
+    startsOn: "2026-12-25",
+    endsOn: "2026-12-25",
+    dates: ["2026-12-25"],
+  };
+
+  it("is absent from an older API, and from ending Tonight", () => {
+    expect(ReopenResultSchema.parse(result).stillClosed).toBeUndefined();
+  });
+
+  it("carries which closure keeps which dates closed, and whether every date stays closed", () => {
+    const stillClosed = { everyDate: true, by: [by] };
+    expect(ReopenResultSchema.parse({ ...result, stillClosed }).stillClosed).toEqual(stillClosed);
+  });
+
+  it("accepts nothing staying closed", () => {
+    const stillClosed = { everyDate: false, by: [] };
+    expect(ReopenResultSchema.parse({ ...result, stillClosed }).stillClosed).toEqual(stillClosed);
+  });
+
+  it("refuses a date that is not a service date", () => {
+    const stillClosed = { everyDate: false, by: [{ ...by, dates: ["Dec 25"] }] };
+    expect(ReopenResultSchema.safeParse({ ...result, stillClosed }).success).toBe(false);
   });
 });

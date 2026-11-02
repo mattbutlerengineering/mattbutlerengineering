@@ -24,6 +24,8 @@ export interface BookedReservation {
   partySize: number;
   /** The service date it belongs to; set where a scope needs it. */
   date?: Date;
+  /** Who it is for; a refusal lists it so the Manager can find the booking. */
+  guestName?: string | null;
 }
 
 type StrandReason = StrandedReservation["reason"];
@@ -77,6 +79,8 @@ export function findStrandedReservations(
         startTime: booking.startTime.toISOString(),
         partySize: booking.partySize,
         reason,
+        ...(booking.guestName ? { guestName: booking.guestName } : {}),
+        ...(booking.date ? { serviceDate: booking.date.toISOString().slice(0, 10) } : {}),
       },
     ];
   });

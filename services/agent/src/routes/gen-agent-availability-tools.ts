@@ -5,9 +5,12 @@ import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
 import type { AvailabilityConfig, DateRule, TonightChange } from "@mbe/types";
 import {
+  NO_REPLAY,
   NO_VENUE,
+  failureLog,
   localTimeIn,
   refusalOf,
+  saveUnsure,
   resolveTable,
   todayIn,
   type ApiClient,
@@ -257,11 +260,17 @@ async function buildChange(
   }
 }
 
-/** A refused availability write, in words the model can pass on. */
-function availabilityWriteFailure(err: unknown, action: string) {
+const TONIGHT_SAVE_UNSURE = saveUnsure("list_tonight_changes");
+
+/**
+ * A refused availability write, in words the model can pass on. `unsure` is set
+ * once the write is on its way: until then a failure can't have changed anything.
+ */
+function availabilityWriteFailure(err: unknown, action: string, unsure: string | undefined) {
   const refusal = refusalOf(err);
-  if (!refusal)
-    return { error: `Couldn't ${action} right now. Ask the user to try again shortly.` };
+  if (!refusal) {
+    return { error: unsure ?? `Couldn't ${action} right now. Ask the user to try again shortly.` };
+  }
   const base = { refused: true, ...(refusal.code ? { code: refusal.code } : {}) };
   switch (refusal.code ?? (refusal.status === 403 ? "forbidden" : undefined)) {
     case "decision-required":
@@ -335,7 +344,7 @@ export function createAvailabilityTools(
             undoable: newest?.revertible ? { summary: newest.summary, at: newest.at } : null,
           };
         } catch (err) {
-          log.error({ err, venueId }, "list_tonight_changes failed");
+          log.error({ ...failureLog(err), venueId }, "list_tonight_changes failed");
           return { error: "Couldn't read tonight's availability. Ask the user to try again." };
         }
       },
@@ -349,10 +358,12 @@ export function createAvailabilityTools(
       execute: async (input) => {
         if (!venueId) return NO_VENUE;
         log.info({ venueId, change: input.change }, "change_tonight_availability tool called");
+        let unsure: string | undefined;
         try {
           const state = await api.availability.getConfig(venueId);
           const built = await buildChange(input, state.config, api, venueId);
           if ("error" in built) return built;
+          unsure = TONIGHT_SAVE_UNSURE;
           const result = await api.availability.setTonight(venueId, {
             expectedVersion: state.version,
             ruleId: randomUUID(),
@@ -365,8 +376,11 @@ export function createAvailabilityTools(
             ...(until ? { until } : {}),
           };
         } catch (err) {
-          log.error({ err, venueId, change: input.change }, "change_tonight_availability failed");
-          return availabilityWriteFailure(err, "make the change");
+          log.error(
+            { ...failureLog(err), venueId, change: input.change },
+            "change_tonight_availability failed"
+          );
+          return availabilityWriteFailure(err, "make the change", unsure);
         }
       },
     }),
@@ -383,6 +397,7 @@ export function createAvailabilityTools(
       execute: async ({ change, from }) => {
         if (!venueId) return NO_VENUE;
         log.info({ venueId, change }, "end_tonight_change tool called");
+        let unsure: string | undefined;
         try {
           const { rules } = await readTonight();
           const ofKind = rules.filter((rule) => changeTypeOf(rule) === change);
@@ -399,11 +414,12 @@ export function createAvailabilityTools(
               error: `More than one ${change.replace(/_/g, " ")} change is in force. Ask which one, by its start time.`,
             };
           }
-          await api.availability.endTonight(venueId, matches[0]!.id);
+          unsure = TONIGHT_SAVE_UNSURE;
+          await api.availability.endTonight(venueId, matches[0]!.id, NO_REPLAY);
           return { ended: true, change };
         } catch (err) {
-          log.error({ err, venueId, change }, "end_tonight_change failed");
-          return availabilityWriteFailure(err, "end the change");
+          log.error({ ...failureLog(err), venueId, change }, "end_tonight_change failed");
+          return availabilityWriteFailure(err, "end the change", unsure);
         }
       },
     }),
@@ -417,6 +433,7 @@ export function createAvailabilityTools(
       execute: async ({ summary }) => {
         if (!venueId) return NO_VENUE;
         log.info({ venueId }, "undo_availability_change tool called");
+        let unsure: string | undefined;
         try {
           const page = await api.availability.listChanges(venueId, { limit: 1 });
           const newest = page.items[0];
@@ -432,11 +449,12 @@ export function createAvailabilityTools(
             };
           }
           const { version } = await api.availability.getConfig(venueId);
+          unsure = TONIGHT_SAVE_UNSURE;
           await api.availability.revertChange(venueId, newest.id, version);
           return { undone: true, summary };
         } catch (err) {
-          log.error({ err, venueId }, "undo_availability_change failed");
-          return availabilityWriteFailure(err, "undo the change");
+          log.error({ ...failureLog(err), venueId }, "undo_availability_change failed");
+          return availabilityWriteFailure(err, "undo the change", unsure);
         }
       },
     }),

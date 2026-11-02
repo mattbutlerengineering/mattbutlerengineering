@@ -181,5 +181,8 @@ describe("UseScheduleDialog", () => {
     renderUse(stateOf());
     expect(screen.getByText("Use another day’s hours")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Apply to 2 dates" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Apply to 2 dates" })).toHaveAccessibleDescription(
+      /day/i
+    );
   });
 });

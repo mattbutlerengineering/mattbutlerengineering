@@ -77,7 +77,7 @@ export function createClosureNoticeService(deps: { scheduler: Scheduler; store?:
   const store = deps.store ?? defaultStore;
 
   async function enqueue(variant: NoticeVariant, input: EnqueueInput): Promise<number> {
-    const outcomes = await store.listNotifiable(input.venueId, input.ruleId, variant);
+    const outcomes = await store.listNotifiable(input.venueId, input.ruleId, variant, input.now);
     if (outcomes.length === 0) return 0;
     const urgent = await isUrgent(store, input);
     await Promise.all(

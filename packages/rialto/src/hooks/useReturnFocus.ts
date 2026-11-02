@@ -37,9 +37,18 @@ export function useReturnFocus(open: boolean): () => void {
     skipRef.current = true;
   }, []);
 
+  const pendingRef = useRef<{ frame: number; trigger: Element | null } | null>(null);
+
   useLayoutEffect(() => {
     if (!open) return;
-    triggerRef.current = document.activeElement;
+    // An effect that re-runs before its restore frame (StrictMode replaying a mount) is the same
+    // opening, not a new one: cancel the restore and keep the original trigger. Capturing again
+    // would record the element the overlay just focused, and the stale restore would pull focus
+    // out of the overlay.
+    const pending = pendingRef.current;
+    pendingRef.current = null;
+    if (pending) cancelAnimationFrame(pending.frame);
+    triggerRef.current = pending ? pending.trigger : document.activeElement;
 
     // Cleanup runs both when `open` transitions to `false` and on unmount
     // while `open` is still `true` — so restoring focus here covers both.
@@ -49,9 +58,11 @@ export function useReturnFocus(open: boolean): () => void {
       const skip = skipRef.current;
       skipRef.current = false;
       if (skip) return;
-      requestAnimationFrame(() => {
+      const frame = requestAnimationFrame(() => {
+        pendingRef.current = null;
         (captured as HTMLElement | null)?.focus();
       });
+      pendingRef.current = { frame, trigger: captured };
     };
   }, [open]);
 

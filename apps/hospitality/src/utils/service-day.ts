@@ -70,6 +70,16 @@ export function minutesOfDayIn(instant: Date, timeZone?: string): number {
   return clock ? clock.nowMin : instant.getHours() * 60 + instant.getMinutes();
 }
 
+/**
+ * The minute of the service day `serviceDate` at `instant`: past midnight on the same service day
+ * it is 1440+, the terms a closure's start time and "next day" options are in (ADR-029).
+ */
+export function serviceMinuteOf(instant: Date, timeZone: string, serviceDate: string): number {
+  return (
+    minutesOfDayIn(instant, timeZone) + (venueDate(instant, timeZone) > serviceDate ? 1440 : 0)
+  );
+}
+
 /** Venue-local weekday and minute of `now`; `null` when the zone cannot be resolved. */
 export function venueWallClock(timeZone: string, now: Date): VenueWallClock | null {
   try {

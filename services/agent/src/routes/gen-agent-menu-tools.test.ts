@@ -107,6 +107,56 @@ describe("menu chat tools", () => {
     return tools[toolName]!.execute!(input as never, toolCtx);
   }
 
+  describe("a write the server never answered (#8035)", () => {
+    const input = { menu: "Dinner", item: "Burrata", price: "16.50" };
+
+    it.each([
+      ["a 502", () => problem(502)],
+      ["a timeout", () => new DOMException("The operation timed out.", "TimeoutError")],
+      ["a lost response", () => new TypeError("fetch failed")],
+    ])("after %s, may have saved: says to check get_menu first", async (_name, failure) => {
+      api.menus.updateItem.mockRejectedValue(failure());
+
+      const result = await run("update_menu_item", input);
+
+      expect(result).toMatchObject({
+        error: expect.stringMatching(/Couldn't confirm.*get_menu before trying again/),
+      });
+      expect(JSON.stringify(result)).not.toMatch(/Nothing was changed/);
+    });
+
+    it("set_menu_item_availability may have saved too", async () => {
+      api.menus.updateItem.mockRejectedValue(problem(502));
+
+      const result = await run("set_menu_item_availability", {
+        menu: "Dinner",
+        item: "Burrata",
+        availability: "sold_out",
+      });
+
+      expect(result).toEqual({
+        error: "Couldn't confirm the change was saved. Check get_menu before trying again.",
+      });
+    });
+
+    it("still says nothing changed on a definite refusal", async () => {
+      api.menus.updateItem.mockRejectedValue(problem(409));
+
+      const result = await run("update_menu_item", input);
+
+      expect(result).toEqual({ refused: true, error: "Refused. Nothing was changed." });
+    });
+
+    it("still says nothing changed when the read before the write fails", async () => {
+      api.menus.list.mockRejectedValue(problem(502));
+
+      const result = await run("update_menu_item", input);
+
+      expect(result).toMatchObject({ error: expect.stringMatching(/Nothing was changed/) });
+      expect(api.menus.updateItem).not.toHaveBeenCalled();
+    });
+  });
+
   it("lists the venue's menus", async () => {
     const result = await read("list_menus", {});
 

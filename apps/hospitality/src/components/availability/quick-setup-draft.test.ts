@@ -2,11 +2,13 @@ import { describe, it, expect } from "vitest";
 import { validateConfig } from "@mbe/availability";
 import {
   applyPreset,
+  autoLastSeating,
   draftFromLegacyHours,
   draftToChanges,
   draftToConfig,
   draftToLegacyHours,
   emptyDraft,
+  emptyService,
   replaceService,
   setServiceTime,
   toggleDay,
@@ -15,6 +17,7 @@ import {
   WEEKDAY_SHORTCUT,
   WEEK_DISPLAY_ORDER,
   type QuickSetupDraft,
+  type ServiceDraft,
 } from "./quick-setup-draft.js";
 
 function counter() {
@@ -49,6 +52,40 @@ describe("quick setup draft", () => {
     });
     const later = setServiceTime(draft.services[0]!, "closes", "23:00");
     expect(later.lastSeating).toBe("22:15");
+  });
+
+  describe("a service shorter than the last-seating lead", () => {
+    const short = (): ServiceDraft =>
+      setServiceTime(setServiceTime(emptyService("s1"), "opens", "17:00"), "closes", "17:30");
+
+    it("fills last seating at the opening, not before it", () => {
+      expect(short().lastSeating).toBe("17:00");
+    });
+
+    it("passes validation with no last-seating error", () => {
+      const draft = { services: [{ ...short(), name: "Early" }], days: WEEKDAY_SHORTCUT };
+      expect(validateDraft(draft)).toEqual([]);
+    });
+
+    it("corrects a linked last seating when the opening is set after the close", () => {
+      const closesFirst = setServiceTime(emptyService("s1"), "closes", "17:30");
+      expect(setServiceTime(closesFirst, "opens", "17:00").lastSeating).toBe("17:00");
+    });
+
+    it("leaves a last seating the Manager set when the opening moves", () => {
+      const edited = setServiceTime(short(), "lastSeating", "17:15");
+      expect(setServiceTime(edited, "opens", "17:10").lastSeating).toBe("17:15");
+    });
+
+    it("counts a close past midnight from the opening", () => {
+      const late = setServiceTime(
+        setServiceTime(emptyService("s1"), "opens", "23:45"),
+        "closes",
+        "00:15"
+      );
+      expect(late.lastSeating).toBe("23:45");
+      expect(autoLastSeating("01:00", "22:00")).toBe("00:15");
+    });
   });
 
   it("stops following close once last seating is edited", () => {
