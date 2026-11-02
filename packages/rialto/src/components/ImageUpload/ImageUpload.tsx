@@ -189,87 +189,91 @@ export const ImageUpload = forwardRef<HTMLDivElement, ImageUploadProps>(
 
     return (
       <div ref={ref} className={wrapperClass}>
-        <motion.div
-          className={tileClass}
-          // Only the empty tile is a control. The preview tile holds the Replace
-          // button, so it must not be a role=button itself (nested-interactive).
-          role={hasPreview ? undefined : "button"}
-          tabIndex={hasPreview ? undefined : disabled ? -1 : 0}
-          // The name is built from the visible "Add image" text (plus the label),
-          // so it always contains what sighted users read (label-content-name-mismatch).
-          aria-labelledby={
-            hasPreview ? undefined : label ? `${autoId}-add ${autoId}-label` : `${autoId}-add`
-          }
-          aria-describedby={error ? `${autoId}-error` : undefined}
-          aria-disabled={hasPreview ? undefined : disabled || undefined}
-          onClick={hasPreview ? undefined : openPicker}
-          onKeyDown={hasPreview ? undefined : handleKeyDown}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          animate={
-            error && !shouldReduceMotion
-              ? { x: [0, -4, 4, -4, 4, 0] }
-              : dragOver && !shouldReduceMotion
-                ? { scale: 1.02 }
-                : { scale: 1, x: 0 }
-          }
-          transition={error && !shouldReduceMotion ? { duration: 0.4 } : spring}
-        >
-          {hasPreview ? (
-            <>
-              <img
-                className={styles.preview}
-                src={value}
-                alt={label ?? messages.uploadedImage}
-                width="100%"
-                height="100%"
-                style={isUploading ? { opacity: 0.5 } : undefined}
-              />
-              {isUploading && (
-                <div className={styles.progressContainer}>
-                  <div
-                    className={styles.progressBar}
-                    role="progressbar"
-                    aria-valuenow={progress}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-label={messages.uploadProgress}
-                    style={{ width: `${progress}%` }}
-                  />
+        <div className={styles.frame}>
+          <motion.div
+            className={tileClass}
+            // Only the empty tile is a control. The preview tile holds the Replace
+            // button, so it must not be a role=button itself (nested-interactive).
+            role={hasPreview ? undefined : "button"}
+            tabIndex={hasPreview ? undefined : disabled ? -1 : 0}
+            // The name is built from the visible "Add image" text (plus the label),
+            // so it always contains what sighted users read (label-content-name-mismatch).
+            aria-labelledby={
+              hasPreview ? undefined : label ? `${autoId}-add ${autoId}-label` : `${autoId}-add`
+            }
+            aria-describedby={error ? `${autoId}-error` : undefined}
+            aria-disabled={hasPreview ? undefined : disabled || undefined}
+            onClick={hasPreview ? undefined : openPicker}
+            onKeyDown={hasPreview ? undefined : handleKeyDown}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            animate={
+              error && !shouldReduceMotion
+                ? { x: [0, -4, 4, -4, 4, 0] }
+                : dragOver && !shouldReduceMotion
+                  ? { scale: 1.02 }
+                  : { scale: 1, x: 0 }
+            }
+            transition={error && !shouldReduceMotion ? { duration: 0.4 } : spring}
+          >
+            {hasPreview ? (
+              <>
+                <img
+                  className={styles.preview}
+                  src={value}
+                  alt={label ?? messages.uploadedImage}
+                  width="100%"
+                  height="100%"
+                  style={isUploading ? { opacity: 0.5 } : undefined}
+                />
+                {isUploading && (
+                  <div className={styles.progressContainer}>
+                    <div
+                      className={styles.progressBar}
+                      role="progressbar"
+                      aria-valuenow={progress}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-label={messages.uploadProgress}
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                )}
+                {done && (
+                  <span
+                    className={styles.checkmark}
+                    role="status"
+                    aria-live="polite"
+                    aria-label={messages.uploadComplete}
+                  >
+                    <Check size={14} aria-hidden="true" />
+                  </span>
+                )}
+                {!isUploading && !done && (
+                  <button
+                    type="button"
+                    className={styles.replaceButton}
+                    onClick={handleReplace}
+                    disabled={disabled}
+                  >
+                    {messages.replaceImage}
+                  </button>
+                )}
+              </>
+            ) : (
+              <div className={styles.emptyContent}>
+                <div className={styles.addIcon}>
+                  <Plus size={20} aria-hidden="true" />
                 </div>
-              )}
-              {done && (
-                <span
-                  className={styles.checkmark}
-                  role="status"
-                  aria-live="polite"
-                  aria-label={messages.uploadComplete}
-                >
-                  <Check size={14} aria-hidden="true" />
+                <span id={`${autoId}-add`} className={styles.addLabel}>
+                  {messages.addImage}
                 </span>
-              )}
-              {!isUploading && !done && (
-                <button
-                  type="button"
-                  className={styles.replaceButton}
-                  onClick={handleReplace}
-                  disabled={disabled}
-                >
-                  {messages.replaceImage}
-                </button>
-              )}
-            </>
-          ) : (
-            <div className={styles.emptyContent}>
-              <div className={styles.addIcon}>
-                <Plus size={20} aria-hidden="true" />
               </div>
-              <span id={`${autoId}-add`} className={styles.addLabel}>
-                {messages.addImage}
-              </span>
-            </div>
-          )}
+            )}
+          </motion.div>
+          {/* Outside the role=button tile: its text would otherwise count as part of the
+              tile's visible label and trip label-content-name-mismatch. */}
           {error && !hasPreview && (
             <div
               className={styles.errorOverlay}
@@ -293,7 +297,7 @@ export const ImageUpload = forwardRef<HTMLDivElement, ImageUploadProps>(
               <span className={styles.errorText}>{error}</span>
             </div>
           )}
-        </motion.div>
+        </div>
 
         <input
           ref={inputRef}
@@ -315,7 +319,9 @@ export const ImageUpload = forwardRef<HTMLDivElement, ImageUploadProps>(
               </span>
             )}
             {error && hasPreview ? (
-              <span className={styles.hintError}>{error}</span>
+              <span id={`${autoId}-error`} className={styles.hintError}>
+                {error}
+              </span>
             ) : (
               hint && <span className={styles.hint}>{hint}</span>
             )}

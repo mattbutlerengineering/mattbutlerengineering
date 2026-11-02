@@ -480,7 +480,9 @@ describe("AvailabilityPage", () => {
       fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
       // No discard prompt: the only thing left is the drawer leaving.
-      expect(screen.queryByRole("dialog", { name: /Discard changes/ })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("alertdialog", { name: /Discard changes/ })
+      ).not.toBeInTheDocument();
       await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     });
 
@@ -501,6 +503,7 @@ describe("AvailabilityPage", () => {
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
       fireEvent.click(screen.getByRole("button", { name: "Discard" }));
       await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
       expect(container.querySelector("[data-draft-dot]")).toBeNull();
     });
 

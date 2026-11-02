@@ -29,6 +29,7 @@ describe("DiscardChangesDialog", () => {
 
   it("renders nothing while closed", () => {
     renderDialog(false);
+    expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 

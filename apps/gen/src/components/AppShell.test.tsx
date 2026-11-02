@@ -453,6 +453,23 @@ describe("AppShell overlay panels", () => {
     expect(escape.defaultPrevented).toBe(false);
   });
 
+  it("leaves Escape to an alertdialog that is already open above the overlay", () => {
+    panelLayoutState = { ...panelLayoutState, breakpoint: "mobile" };
+    render(
+      <AppShell>
+        <AppShell.HistoryRegion>
+          <button type="button">All</button>
+        </AppShell.HistoryRegion>
+        <div role="alertdialog" aria-modal="true" aria-label="Sure?">
+          <button type="button">Keep</button>
+        </div>
+      </AppShell>
+    );
+    const escape = pressEscape();
+    expect(mockCloseOverlays).not.toHaveBeenCalled();
+    expect(escape.defaultPrevented).toBe(false);
+  });
+
   it("closes a narrow JSON inspector overlay on Escape", () => {
     panelLayoutState = {
       ...panelLayoutState,

@@ -39,6 +39,8 @@ export interface FieldDescriptionProps {
 /**
  * Props spread onto the error message element (e.g. `<span role="alert">`).
  * `id` is undefined when error=false — the element should not be rendered.
+ * `role`/`aria-atomic` are omitted only when the enclosing `Form`'s error
+ * summary already carries this exact message (so it is announced once).
  *
  * `role="alert"` is spec-reliable on insertion-with-content (unlike
  * `role="status"`/`aria-live="polite"` on a conditionally mounted region,
@@ -120,7 +122,8 @@ export interface UseFieldResult {
  * `error=true`:
  * - `controlProps["aria-invalid"]` is set to `true`
  * - `errorProps.id` is `${id}-hint` (consumers render this element, with
- *   `role="alert"`, instead of the plain `descriptionProps` hint element)
+ *   `role="alert"` unless a Form summary carries the error, instead of the
+ *   plain `descriptionProps` hint element)
  * - `controlProps["aria-describedby"]` includes that id
  *
  * This fixes the previously missing error-message association:
@@ -152,9 +155,18 @@ export function useField({
 
   const showRequired = !!required;
 
-  // A field alone announces its own error. Inside a Form that renders its
-  // assertive summary, the summary is the one live region (#8115).
-  const announces = !useContext(FormContext)?.announcesErrors;
+  // A field announces its own error unless the enclosing Form's assertive
+  // summary already carries this exact message: only a submit fills the
+  // summary, so a server-set or blur error, or one after a valid submit, still
+  // needs its own alert (#8115).
+  const form = useContext(FormContext);
+  const summaryCarriesError =
+    !!form?.announcesErrors &&
+    form.submitAttempted &&
+    !!error &&
+    hint !== undefined &&
+    Object.values(form.errors).includes(hint);
+  const announces = !summaryCarriesError;
 
   return {
     id,

@@ -19236,7 +19236,7 @@
     function focusOffToast(offeredFrom: Element | null) {
       const active = document.activeElement;
       if (active && active !== document.body && !active.closest("[aria-live]")) return;
-      const dialogs = document.querySelectorAll('[role="dialog"]');
+      const dialogs = document.querySelectorAll('[role="dialog"], [role="alertdialog"]');
       const target =
         offeredFrom instanceof HTMLElement && offeredFrom.isConnected && offeredFrom !== document.body
           ? offeredFrom
@@ -22323,9 +22323,18 @@
     
       const showRequired = !!required;
     
-      // A field alone announces its own error. Inside a Form that renders its
-      // assertive summary, the summary is the one live region (#8115).
-      const announces = !useContext(FormContext)?.announcesErrors;
+      // A field announces its own error unless the enclosing Form's assertive
+      // summary already carries this exact message: only a submit fills the
+      // summary, so a server-set or blur error, or one after a valid submit, still
+      // needs its own alert (#8115).
+      const form = useContext(FormContext);
+      const summaryCarriesError =
+        !!form?.announcesErrors &&
+        form.submitAttempted &&
+        !!error &&
+        hint !== undefined &&
+        Object.values(form.errors).includes(hint);
+      const announces = !summaryCarriesError;
     
       return {
         id,
@@ -23067,8 +23076,6 @@
       readonly scrollableContent: string;
       /** Accessible name of a SkeletonGroup. */
       readonly loadingContent: string;
-      /** Fallback accessible name of the ImageUpload tile. */
-      readonly uploadImage: string;
       /** Fallback alt text of an uploaded ImageUpload preview. */
       readonly uploadedImage: string;
       /** ImageUpload progress bar name. */
@@ -23253,7 +23260,6 @@
       closeMenu: "Close menu",
       scrollableContent: "Scrollable content",
       loadingContent: "Loading content",
-      uploadImage: "Upload image",
       uploadedImage: "Uploaded image",
       uploadProgress: "Upload progress",
       uploadComplete: "Upload complete",
@@ -25541,7 +25547,6 @@
       closeMenu: "Cerrar menú",
       scrollableContent: "Contenido desplazable",
       loadingContent: "Cargando contenido",
-      uploadImage: "Subir imagen",
       uploadedImage: "Imagen subida",
       uploadProgress: "Progreso de carga",
       uploadComplete: "Carga completa",
@@ -25705,7 +25710,6 @@
       closeMenu: "Fermer le menu",
       scrollableContent: "Contenu défilable",
       loadingContent: "Chargement du contenu",
-      uploadImage: "Téléverser une image",
       uploadedImage: "Image téléversée",
       uploadProgress: "Progression du téléversement",
       uploadComplete: "Téléversement terminé",
@@ -28590,7 +28594,8 @@
       return (close) => {
         const active = document.activeElement;
         heldRef.current =
-          active instanceof HTMLElement && active.closest('[role="dialog"][aria-modal="true"]')
+          active instanceof HTMLElement &&
+          active.closest('[role="dialog"][aria-modal="true"], [role="alertdialog"][aria-modal="true"]')
             ? active
             : null;
         close();

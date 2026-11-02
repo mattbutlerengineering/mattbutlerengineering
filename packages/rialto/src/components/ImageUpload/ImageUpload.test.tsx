@@ -174,6 +174,22 @@ describe("ImageUpload", () => {
       expect(screen.getByText("Upload failed")).toBeInTheDocument();
     });
 
+    it("renders the error alert outside the button tile, still described by it", () => {
+      render(<ImageUpload label="Logo" error="Too big" />);
+      const tile = screen.getByRole("button", { name: "Add image Logo" });
+      const alert = screen.getByRole("alert");
+      expect(alert).toHaveTextContent("Too big");
+      expect(tile).not.toContainElement(alert);
+      expect(tile).toHaveAttribute("aria-describedby", alert.id);
+    });
+
+    it("points aria-describedby at an element that exists when a preview shows the error", () => {
+      const { container } = render(<ImageUpload value="blob:x" error="Too big" />);
+      const tile = container.querySelector("[aria-describedby]")!;
+      const target = document.getElementById(tile.getAttribute("aria-describedby")!);
+      expect(target).toHaveTextContent("Too big");
+    });
+
     it("sets aria-describedby when error is present", () => {
       render(<ImageUpload error="Upload failed" />);
       const tile = screen.getByRole("button");

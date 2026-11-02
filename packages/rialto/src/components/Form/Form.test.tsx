@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RialtoLocaleProvider } from "../../i18n/RialtoLocaleProvider";
@@ -134,6 +134,35 @@ describe("Form", () => {
       const described = document.getElementById(email.getAttribute("aria-describedby") ?? "");
       expect(described).toHaveTextContent("Email is required");
       expect(described).not.toHaveAttribute("role");
+    });
+
+    it("announces a server-set field error raised before any submit", () => {
+      render(
+        <Form>
+          <Input label="Email" value="" onChange={() => {}} error hint="Email already taken" />
+        </Form>
+      );
+      const alerts = screen.getAllByRole("alert").filter((a) => a.textContent);
+      expect(alerts).toHaveLength(1);
+      expect(alerts[0]).toHaveTextContent("Email already taken");
+    });
+
+    it("announces a server error set after a valid submit, which the summary does not carry", async () => {
+      const user = userEvent.setup();
+      function ServerError() {
+        const [message, setMessage] = useState<string | undefined>();
+        return (
+          <Form onValidSubmit={() => setMessage("Email already registered (409)")}>
+            <Input label="Email" value="" onChange={() => {}} error={!!message} hint={message} />
+            <button type="submit">Submit</button>
+          </Form>
+        );
+      }
+      render(<ServerError />);
+      await user.click(screen.getByRole("button", { name: "Submit" }));
+      const alerts = screen.getAllByRole("alert").filter((a) => a.textContent);
+      expect(alerts).toHaveLength(1);
+      expect(alerts[0]).toHaveTextContent("Email already registered (409)");
     });
 
     it("lets the field announce its own error when the summary is turned off", async () => {

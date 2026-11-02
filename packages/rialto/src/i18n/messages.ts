@@ -141,8 +141,6 @@ export interface RialtoMessages {
   readonly scrollableContent: string;
   /** Accessible name of a SkeletonGroup. */
   readonly loadingContent: string;
-  /** Fallback accessible name of the ImageUpload tile. */
-  readonly uploadImage: string;
   /** Fallback alt text of an uploaded ImageUpload preview. */
   readonly uploadedImage: string;
   /** ImageUpload progress bar name. */
@@ -328,7 +326,6 @@ export const enUS: RialtoMessages = {
   closeMenu: "Close menu",
   scrollableContent: "Scrollable content",
   loadingContent: "Loading content",
-  uploadImage: "Upload image",
   uploadedImage: "Uploaded image",
   uploadProgress: "Upload progress",
   uploadComplete: "Upload complete",

@@ -117,6 +117,19 @@ describe("useAvailabilityUndo", () => {
       expect(document.activeElement?.id).toBe("in");
     });
 
+    it("goes into an open alertdialog (a destructive confirm) when that control has gone", () => {
+      const gone = append(`<button id="from">From</button>`);
+      gone.querySelector<HTMLElement>("#from")!.focus();
+      const click = offered();
+      gone.remove();
+      const host = append(
+        `<div role="alertdialog" aria-modal="true"><button id="keep">Keep editing</button></div>${TOAST}`
+      );
+      host.querySelector<HTMLElement>("#toast")!.focus();
+      click();
+      expect(document.activeElement?.id).toBe("keep");
+    });
+
     it("goes to the page heading when that control has gone and no dialog is open", () => {
       const gone = append(`<button id="from">From</button>`);
       gone.querySelector<HTMLElement>("#from")!.focus();

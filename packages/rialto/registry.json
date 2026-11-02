@@ -2111,7 +2111,7 @@
     },
     {
       "name": "Form",
-      "description": "Owns submit-time validation across its `FormField` descendants: collects\neach field's error, blocks submission while any field is invalid, and\nannounces failures through an assertive error summary. While the summary is\nshown it is the only live region: field errors stay visible and linked via\n`aria-describedby` but are not announced a second time.",
+      "description": "Owns submit-time validation across its `FormField` descendants: collects\neach field's error, blocks submission while any field is invalid, and\nannounces submit failures through an assertive error summary. A field error\nthe summary carries stays visible and linked via `aria-describedby` but is\nnot announced a second time. An error the summary does not carry (set by the\nserver, raised on blur, or after a valid submit) is still announced by the\nfield itself, as is every field error when `showErrorSummary` is false.",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {

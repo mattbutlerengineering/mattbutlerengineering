@@ -748,7 +748,7 @@ describe("CloseDialog", () => {
 
         fireEvent.keyDown(document, { key: "Escape" });
 
-        expect(screen.queryByRole("dialog", { name: /Discard|Leave/ })).toBeNull();
+        expect(screen.queryByRole("alertdialog", { name: /Discard|Leave/ })).toBeNull();
         expect(onClose).toHaveBeenCalledTimes(1);
         expect(refresh).toHaveBeenCalled();
       });

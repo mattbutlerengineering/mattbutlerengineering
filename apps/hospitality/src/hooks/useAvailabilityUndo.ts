@@ -17,7 +17,7 @@ const UNDO_TOAST_MS = 10_000;
 function focusOffToast(offeredFrom: Element | null) {
   const active = document.activeElement;
   if (active && active !== document.body && !active.closest("[aria-live]")) return;
-  const dialogs = document.querySelectorAll('[role="dialog"]');
+  const dialogs = document.querySelectorAll('[role="dialog"], [role="alertdialog"]');
   const target =
     offeredFrom instanceof HTMLElement && offeredFrom.isConnected && offeredFrom !== document.body
       ? offeredFrom

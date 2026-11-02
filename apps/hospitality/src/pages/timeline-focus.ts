@@ -117,7 +117,8 @@ export function useCloseHoldingFocus(): (close: () => void) => void {
   return (close) => {
     const active = document.activeElement;
     heldRef.current =
-      active instanceof HTMLElement && active.closest('[role="dialog"][aria-modal="true"]')
+      active instanceof HTMLElement &&
+      active.closest('[role="dialog"][aria-modal="true"], [role="alertdialog"][aria-modal="true"]')
         ? active
         : null;
     close();
