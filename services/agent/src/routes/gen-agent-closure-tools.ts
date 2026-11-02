@@ -341,12 +341,12 @@ const CLOSURE_CHANGED = {
   refused: true,
   changed: true,
   error:
-    "A teammate changed this closure after the user last looked at it, so it wasn't reopened. Tell the user a teammate changed it and they should look again: call list_closures, show what is there now, and ask whether to reopen it. Don't repeat the same call. Nothing was changed.",
+    "This closure changed since it was listed (a teammate may have edited it), so it wasn't reopened. Tell the user it changed and they should look again: call list_closures, show what is there now, and ask whether to reopen it. Don't repeat the same call. Nothing was changed.",
 };
 
 function reopenClosure({ log, api, venueId }: ToolContext) {
   return tool({
-    description: `Reopen a closure of the whole venue or one service so its slots return, unless another closure also closes those dates: stillClosed then names it, and reopened is false when no date came back, so say so instead of saying it reopened. Pass the closure's full span exactly as list_closures gives it (to is "${UNTIL_REOPENED}" for one with no end) and its scope; a different span is refused with the real one. Guests it already cancelled stay cancelled. Requires confirmation. Special hours, repeating closures and booking or table pauses are changed on the Availability page. Call list_closures first and pass the closure's readAs: the reopen goes ahead only if the closure is still as that list showed it. If it says a teammate changed the closure, nothing was reopened: call list_closures again, tell the user what is there now, and ask before proposing again; never repeat the same call. If the closure cancelled guests, ask whether to tell them.`,
+    description: `Reopen a closure of the whole venue or one service so its slots return, unless another closure also closes those dates: stillClosed then names it, and reopened is false when no date came back, so say so instead of saying it reopened. Pass the closure's full span exactly as list_closures gives it (to is "${UNTIL_REOPENED}" for one with no end) and its scope; a different span is refused with the real one. Guests it already cancelled stay cancelled. Requires confirmation. Special hours, repeating closures and booking or table pauses are changed on the Availability page. Call list_closures first and pass the closure's readAs: the reopen goes ahead only if the closure is still as that list showed it. If it says the closure changed since it was listed, nothing was reopened: call list_closures again, tell the user what is there now, and ask before proposing again; never repeat the same call. If the closure cancelled guests, ask whether to tell them.`,
     inputSchema: z
       .object({
         from: DateField.describe("The closure's first date, as YYYY-MM-DD"),
@@ -399,7 +399,7 @@ function reopenClosure({ log, api, venueId }: ToolContext) {
         rule = found.rule;
         children = childrenOf(state.config, rule.id);
         // The Host confirmed what the list showed. Reading the closure now is not that: if it
-        // differs from what that list gave, a teammate changed it since.
+        // differs from what that list gave, it changed since (or the token was not from a list).
         if (closureReadToken(rule, children) !== readAs) return CLOSURE_CHANGED;
         config = state.config;
         scopeText = scopeOf(rule, state.config);

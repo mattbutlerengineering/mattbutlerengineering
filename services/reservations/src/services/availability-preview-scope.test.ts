@@ -144,3 +144,78 @@ describe("a schedule edit's stranded list", () => {
     expect(previewIds([SATURDAY, "2026-11-08"])).toEqual(["res-sat"]);
   });
 });
+
+// The day drawer lets a Manager save a schedule that no week day uses and only a use_schedule rule
+// reaches. What its Save sends must write the schedule's rows and nothing else, and the preview of
+// that same draft must show what the save refuses on.
+describe("a schedule reached only through a use_schedule rule", () => {
+  const RULE_DATE = "2026-11-12";
+  const rowsOnly: AvailabilityConfig = {
+    ...CONFIG,
+    schedules: [
+      ...CONFIG.schedules,
+      { id: "brunch", name: "Brunch", kind: "alternate", isRegular: false },
+    ],
+    scheduleServices: [
+      ...CONFIG.scheduleServices,
+      { ...service("ss-b-lunch", "vs-lunch", 660, 900), scheduleId: "brunch" },
+    ],
+    dateRules: [
+      {
+        id: "rule-brunch",
+        kind: "use_schedule",
+        targetKind: "venue",
+        startsOn: RULE_DATE,
+        endsOn: RULE_DATE,
+        useScheduleId: "brunch",
+      },
+    ],
+  };
+  const state = { ...STATE, stored: rowsOnly, effective: rowsOnly };
+  const remove = { upsert: {}, remove: { scheduleServices: ["ss-b-lunch"] } };
+  const booking = lunch("res-brunch", RULE_DATE);
+
+  it.each(["keep", "replace"] as const)(
+    "refuses the booking the preview lists, and writes only the schedule's rows (%s)",
+    (scopeConflicts) => {
+      const save = planSave({
+        state,
+        body: { expectedVersion: 7, changes: remove, scopeConflicts },
+        bookings: [booking],
+        tableIds: new Set(),
+        now: NOW,
+      });
+      const preview = planPreview({
+        state,
+        body: PreviewAvailabilityBodySchema.parse({
+          draft: { changes: remove, scopeConflicts },
+          scope: { from: "2026-10-25" },
+          focusDate: RULE_DATE,
+        }),
+        bookings: [booking],
+        tableIds: new Set(),
+        now: NOW,
+      });
+      if (preview.kind !== "ok") throw new Error("preview refused");
+      expect(save.kind).toBe("stranded");
+      expect(preview.result.stranded.items.map((i) => i.id)).toEqual(["res-brunch"]);
+    }
+  );
+
+  it.each(["keep", "replace"] as const)(
+    "with no booking, the save leaves the date rule alone (%s)",
+    (scopeConflicts) => {
+      const save = planSave({
+        state,
+        body: { expectedVersion: 7, changes: remove, scopeConflicts },
+        bookings: [],
+        tableIds: new Set(),
+        now: NOW,
+      });
+      if (save.kind !== "write") throw new Error(`expected a write, got ${save.kind}`);
+      expect(save.next.dateRules).toEqual(rowsOnly.dateRules);
+      expect(save.next.assignments).toEqual(rowsOnly.assignments);
+      expect(save.next.scheduleServices.map((s) => s.id)).not.toContain("ss-b-lunch");
+    }
+  );
+});

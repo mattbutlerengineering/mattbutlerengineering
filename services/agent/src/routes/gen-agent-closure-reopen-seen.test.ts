@@ -66,11 +66,12 @@ describe("reopen_closure sends what the Host's conversation read (#8128)", () =>
     readAs,
   };
 
-  function tools(confirmed: boolean) {
+  // The gate runs the confirmed input, never the one passed to execute.
+  function tools(confirmed: boolean, toolInput: Record<string, unknown> = input) {
     return createAgentTools(log, api as never, {
       venueId: "v1",
       ...(confirmed
-        ? { confirmedAction: { actionId: "call-1", toolName: "reopen_closure", toolInput: input } }
+        ? { confirmedAction: { actionId: "call-1", toolName: "reopen_closure", toolInput } }
         : {}),
     });
   }
@@ -115,7 +116,33 @@ describe("reopen_closure sends what the Host's conversation read (#8128)", () =>
     expect(result).toMatchObject({ reopened: true });
   });
 
-  it("does not reopen a closure a teammate changed after the Host read it", async () => {
+  it("sends the closure's skips and one-date edits as `seen.children`", async () => {
+    const child = { ...CLOSURE, id: "skip-1", kind: "skip", seriesId: "c1" } as DateRule;
+    const withChild = { ...input, readAs: closureReadToken(CLOSURE, [child]) };
+    api.availability.getConfig.mockResolvedValue(configState([CLOSURE, child]));
+
+    await tools(true, withChild).reopen_closure!.execute!(withChild as never, toolCtx);
+
+    expect(api.availability.reopenClosure).toHaveBeenCalledWith(
+      "v1",
+      "c1",
+      false,
+      { maxRetries: 0 },
+      { rule: CLOSURE, children: [child] }
+    );
+  });
+
+  it("does not reopen when a skip was added since the Host read the closure", async () => {
+    const child = { ...CLOSURE, id: "skip-1", kind: "skip", seriesId: "c1" } as DateRule;
+    api.availability.getConfig.mockResolvedValue(configState([CLOSURE, child]));
+
+    const result = await tools(true).reopen_closure!.execute!(input as never, toolCtx);
+
+    expect(api.availability.reopenClosure).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ refused: true, changed: true });
+  });
+
+  it("does not reopen a closure changed after the Host read it", async () => {
     api.availability.getConfig.mockResolvedValue(configState([EXTENDED]));
 
     const result = await tools(true).reopen_closure!.execute!(input as never, toolCtx);
@@ -124,7 +151,7 @@ describe("reopen_closure sends what the Host's conversation read (#8128)", () =>
     expect(result).toMatchObject({
       refused: true,
       changed: true,
-      error: expect.stringMatching(/teammate changed.*look again.*Nothing was changed/s),
+      error: expect.stringMatching(/changed since it was listed.*look again.*Nothing was changed/s),
     });
   });
 
@@ -147,7 +174,7 @@ describe("reopen_closure sends what the Host's conversation read (#8128)", () =>
     expect(result).toMatchObject({
       refused: true,
       changed: true,
-      error: expect.stringMatching(/teammate changed.*look again.*Nothing was changed/s),
+      error: expect.stringMatching(/changed since it was listed.*look again.*Nothing was changed/s),
     });
   });
 

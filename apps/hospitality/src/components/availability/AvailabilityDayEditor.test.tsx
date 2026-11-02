@@ -183,8 +183,11 @@ describe("AvailabilityDayEditor", () => {
     });
   });
 
-  it("previews a schedule edit from today, with the dates a use_schedule rule sends to it", () => {
-    // "Brunch" is in no regular-week day; only a use_schedule rule on the fixture date uses it.
+  /**
+   * "Brunch" has a use_schedule rule on the fixture date; `saturdays` also puts it in the week.
+   * The drawer is open on the fixture date, which therefore runs Brunch.
+   */
+  function renderBrunch(saturdays = false) {
     const base = fixtureConfig();
     const lunch = base.scheduleServices[0]!;
     const config = {
@@ -197,6 +200,12 @@ describe("AvailabilityDayEditor", () => {
         ...base.scheduleServices,
         { ...lunch, id: "ss-brunch", scheduleId: "brunch" },
       ],
+      assignments: saturdays
+        ? [
+            ...base.assignments,
+            { id: "as-brunch", scheduleId: "brunch", weekdays: [6], precedence: 9 },
+          ]
+        : base.assignments,
       dateRules: [
         {
           id: "dr-brunch",
@@ -225,16 +234,51 @@ describe("AvailabilityDayEditor", () => {
         </main>
       </ToastProvider>
     );
+  }
+
+  it("previews a schedule edit from today, with the dates a use_schedule rule sends to it", () => {
+    renderBrunch();
     fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
     fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
     expect(screen.getByTestId("guest-preview")).toHaveTextContent(`${FIXTURE_DATE} x1`);
     chooseScope(/Everywhere “Brunch” is used/);
     // The week alone reaches no date, but the rule sends the fixture date here: the preview
     // checks every booking from today, as the save does.
-    expect(screen.getByText("Applies to 0 dates")).toBeTruthy();
     expect(screen.getByTestId("guest-preview")).toHaveTextContent(
       `${FIXTURE_DATE} x1 from 2026-10-28`
     );
+  });
+
+  it("agrees with its own preview: a rule-only schedule reaches one date and can be saved", async () => {
+    renderBrunch();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+    chooseScope(/Everywhere “Brunch” is used/);
+
+    expect(screen.getByText("Applies to 1 date")).toBeTruthy();
+    expect(screen.queryByText(/reaches no dates/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
+
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    const { body } = sentBody();
+    // Only the schedule's own rows: no date rule is written for the rule's date.
+    expect(body.changes.upsert.dateRules).toBeUndefined();
+    expect(body.changes.remove).toEqual({ scheduleServices: ["ss-brunch"] });
+    expect(body.scopeConflicts).toBe("replace");
+    expect(await screen.findByRole("button", { name: "Undo" })).toBeTruthy();
+  });
+
+  it("counts the week's dates and the rule's date, as the preview strip does", () => {
+    renderBrunch(true);
+    fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+    chooseScope(/Everywhere “Brunch” is used/);
+
+    const strip = screen.getByTestId("guest-preview").textContent ?? "";
+    const reached = Number(/x(\d+)/.exec(strip)?.[1]);
+    expect(reached).toBeGreaterThan(50);
+    expect(screen.getByText(`Applies to ${reached} dates`)).toBeTruthy();
+    expect(screen.getByRole("button", { name: `Save ${reached} dates` })).toBeEnabled();
   });
 
   it("keeps a one-date edit scoped to that date", () => {
