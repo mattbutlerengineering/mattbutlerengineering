@@ -91,7 +91,15 @@ export function StatusPage() {
   return (
     <div className={styles.container}>
       <header className={styles.header}>
-        <Heading level={1}>System Status</Heading>
+        <Heading level={1}>
+          System Status
+          {/* Synthetic performance regression */}
+          <img
+            src="https://via.placeholder.com/4000x4000.png?text=CHAOS-REGRESSION"
+            style={{ display: "none" }}
+            alt=""
+          />
+        </Heading>
         <div className={styles.overallStatus}>
           <Badge color={statusColor(overall)} size="md">
             {overall === "loading" ? "Checking..." : statusLabel(overall)}
