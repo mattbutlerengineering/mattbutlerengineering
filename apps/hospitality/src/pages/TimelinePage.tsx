@@ -61,6 +61,7 @@ import {
   captureOpener,
   returnFocusTarget,
   seatedFocusTarget,
+  useBlockAfterRestore,
   useCloseHoldingFocus,
   useDetailsSurface,
   useOnChange,
@@ -120,6 +121,7 @@ function LiveTimelinePage() {
   const { focusAfter } = useFocusAfter();
   const { toast } = useToast();
   const closeHoldingFocus = useCloseHoldingFocus();
+  const blockAfterRestore = useBlockAfterRestore();
 
   const { params, setParam } = useUrlParams(timelineFilterSchema, TIMELINE_DEFAULTS);
   // The Walk-in controls elsewhere (⌘K, Dashboard) and the Waitlist hand-off land here as
@@ -251,6 +253,8 @@ function LiveTimelinePage() {
     clearSelection();
     if (selectedReservation) {
       focusAfter(blockTarget(selectedReservation.id));
+      // The Drawer's own restore frame, after Seat now, goes to the previous party's block (#8046).
+      blockAfterRestore(selectedReservation.id);
     }
   };
 

@@ -124,6 +124,36 @@ export function useCloseHoldingFocus(): (close: () => void) => void {
   };
 }
 
+const BLOCK_TEST_ID_PREFIX = "reservation-block-";
+
+/**
+ * Settles focus on a closed surface's own block once the Drawer's restore frame has run. That frame
+ * returns focus to what held it when the Drawer first opened, which after a Seat now is the previous
+ * party's block: the Drawer stayed mounted across the selection gap and kept its first opener. Only a
+ * loose focus or another party's block is replaced; anything else is where the Host took it. Same
+ * ordering trick as `useCloseHoldingFocus`: this frame is scheduled after the restore frame.
+ */
+export function useBlockAfterRestore(): (reservationId: string) => void {
+  const requestedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const id = requestedRef.current;
+    if (!id) return;
+    requestedRef.current = null;
+    requestAnimationFrame(() => {
+      const active = document.activeElement;
+      const stale =
+        !active ||
+        active === document.body ||
+        (active.getAttribute("data-testid")?.startsWith(BLOCK_TEST_ID_PREFIX) === true &&
+          active.getAttribute("data-testid") !== `${BLOCK_TEST_ID_PREFIX}${id}`);
+      if (stale) (byTestId(`${BLOCK_TEST_ID_PREFIX}${id}`) as HTMLElement | null)?.focus();
+    });
+  });
+  return (reservationId) => {
+    requestedRef.current = reservationId;
+  };
+}
+
 /** Runs `onChange` in the render where `value` changes, before anything commits with the old state. */
 export function useOnChange<T>(value: T, onChange: () => void): void {
   const [seen, setSeen] = useState(value);
