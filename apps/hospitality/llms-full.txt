@@ -4057,7 +4057,7 @@
         fetchSlots()
           .then((listing) => dispatch({ type: "SET_SLOTS", listing }))
           .catch((err: unknown) => {
-            dispatch({ type: "SET_SLOTS_ERROR", error: describeApiError(err).detail });
+            dispatch({ type: "SET_SLOTS_ERROR", error: describeApiError(err, i18n.t).detail });
           });
       }, [flowState.data.hold, releaseHold, fetchSlots, venueSlug, i18n]);
     
@@ -4088,7 +4088,7 @@
             });
             dispatch({ type: "HOLD_SUCCESS", hold, slot });
           } catch (err) {
-            dispatch({ type: "HOLD_ERROR", error: describeApiError(err).detail });
+            dispatch({ type: "HOLD_ERROR", error: describeApiError(err, i18n.t).detail });
           }
         },
         [api, venueSlug, flowState.data.selectedDate, flowState.data.partySize, i18n]
@@ -4152,7 +4152,7 @@
           } catch (err) {
             const closure = outsideAvailabilityMessage(err);
             if (closure === null) {
-              dispatch({ type: "CONFIRM_ERROR", error: describeApiError(err).detail });
+              dispatch({ type: "CONFIRM_ERROR", error: describeApiError(err, i18n.t).detail });
               return;
             }
             // A closure saved after the hold was made (ux.md F9.5): the hold is
@@ -10829,26 +10829,31 @@
       if (detail === "" || detail === "undefined" || /^\d{3}$/.test(detail)) return null;
       return detail;
     }
-    function describe(category: ApiErrorCategory, raw: string, detail?: string): ApiErrorDescription {
+    function describe(
+      category: ApiErrorCategory,
+      raw: string,
+      t: TFunction,
+      detail?: string
+    ): ApiErrorDescription {
       return {
         category,
         ...COPY_BEHAVIOUR[category],
-        detail: detail ?? defaultT(`apiError.${category}`),
+        detail: detail ?? t(`apiError.${category}`),
         raw,
       };
     }
-    export function describeApiError(error: unknown): ApiErrorDescription {
+    export function describeApiError(error: unknown, t: TFunction = defaultT): ApiErrorDescription {
       const raw = rawMessage(error);
     
       if (isApiClientError(error)) {
         const shown = SHOWS_PROBLEM_DETAIL.has(error.category)
           ? humanProblemDetail(error.problemDetails)
           : null;
-        return describe(error.category, raw, shown ?? undefined);
+        return describe(error.category, raw, t, shown ?? undefined);
       }
-      if (isTimeout(error)) return describe("timeout", raw);
-      if (error instanceof TypeError) return describe("network", raw);
-      return describe("unknown", raw);
+      if (isTimeout(error)) return describe("timeout", raw, t);
+      if (error instanceof TypeError) return describe("network", raw, t);
+      return describe("unknown", raw, t);
     }
   </file>
   <file path="src/lib/describe-auth-error.ts">

@@ -1,6 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
 import { test, expect } from "./fixtures.js";
-import { ERROR_COPY } from "../src/lib/describe-api-error.js";
 import { SERVER_ERROR_BODY } from "./problem-details.js";
 // Screenshots saved to e2e/screenshots/{spec}-{state}.png on test run
 
@@ -139,7 +138,9 @@ test.describe("Hospitality waitlist [6/6]: add -> list -> seat", () => {
 
     // Filtered by title: DashboardLayout's session Banner is also role=alert in CI.
     const alert = mockedPage.getByRole("alert").filter({ hasText: "Not added." });
-    await expect(alert).toContainText(ERROR_COPY.serverError.detail);
+    await expect(alert).toContainText(
+      "The reservations service hit a snag. Try again in a moment."
+    );
     await expect(mockedPage.getByText(/failed: 500/)).toHaveCount(0);
     // Nothing was added, so nothing is spoken as an outcome and nothing typed is thrown away.
     await expect(spoken(mockedPage, "Added Priya Shah")).toHaveCount(0);

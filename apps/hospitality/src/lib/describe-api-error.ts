@@ -1,4 +1,5 @@
 import type { ErrorCategory } from "@mbe/api-client";
+import type { TFunction } from "i18next";
 import enUS from "../i18n/catalogs/en-US.json";
 import { defaultT } from "../i18n/default-t.js";
 
@@ -117,25 +118,35 @@ function humanProblemDetail(problemDetails: ApiClientErrorLike["problemDetails"]
   return detail;
 }
 
-function describe(category: ApiErrorCategory, raw: string, detail?: string): ApiErrorDescription {
+function describe(
+  category: ApiErrorCategory,
+  raw: string,
+  t: TFunction,
+  detail?: string
+): ApiErrorDescription {
   return {
     category,
     ...COPY_BEHAVIOUR[category],
-    detail: detail ?? defaultT(`apiError.${category}`),
+    detail: detail ?? t(`apiError.${category}`),
     raw,
   };
 }
 
-export function describeApiError(error: unknown): ApiErrorDescription {
+/**
+ * `t` defaults to the dashboard runtime's. Guest surfaces (booking widget, waitlist join) run
+ * their own i18next instance, so they pass theirs — otherwise the sentence follows the staff
+ * language instead of the one the guest picked.
+ */
+export function describeApiError(error: unknown, t: TFunction = defaultT): ApiErrorDescription {
   const raw = rawMessage(error);
 
   if (isApiClientError(error)) {
     const shown = SHOWS_PROBLEM_DETAIL.has(error.category)
       ? humanProblemDetail(error.problemDetails)
       : null;
-    return describe(error.category, raw, shown ?? undefined);
+    return describe(error.category, raw, t, shown ?? undefined);
   }
-  if (isTimeout(error)) return describe("timeout", raw);
-  if (error instanceof TypeError) return describe("network", raw);
-  return describe("unknown", raw);
+  if (isTimeout(error)) return describe("timeout", raw, t);
+  if (error instanceof TypeError) return describe("network", raw, t);
+  return describe("unknown", raw, t);
 }

@@ -1,7 +1,6 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 import { test, expect } from "./fixtures.js";
-import { ERROR_COPY } from "../src/lib/describe-api-error.js";
 import { SERVER_ERROR_BODY } from "./problem-details.js";
 
 // mockApi serves /users/me but has no handler for /users/<id>, so a GET here must not fall
@@ -34,7 +33,9 @@ test.describe("Profile — save failure (B1 / R4)", () => {
 
     // Filtered by title: DashboardLayout's session Banner is also role=alert in CI.
     const alert = mockedPage.getByRole("alert").filter({ hasText: "Changes not saved." });
-    await expect(alert).toContainText(ERROR_COPY.serverError.detail);
+    await expect(alert).toContainText(
+      "The reservations service hit a snag. Try again in a moment."
+    );
     await expect(mockedPage.getByText(/failed: 500/)).toHaveCount(0);
     // The form stays open with the edit intact — nothing was changed, so nothing is thrown away.
     await expect(nameField).toHaveValue("E2E Renamed");

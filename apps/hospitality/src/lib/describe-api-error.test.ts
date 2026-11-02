@@ -1,6 +1,8 @@
 import { afterEach, describe, it, expect } from "vitest";
 import { ApiClientError } from "@mbe/api-client";
-import { localeRuntime } from "../i18n/runtime.js";
+import esMX from "../i18n/catalogs/es-MX.json";
+import frCA from "../i18n/catalogs/fr-CA.json";
+import { browserDeps, createLocaleRuntime, localeRuntime } from "../i18n/runtime.js";
 import { describeApiError, ERROR_COPY } from "./describe-api-error.js";
 
 const PATH = "/api/v1/reservations/walk-in";
@@ -193,14 +195,30 @@ describe("describeApiError", () => {
       const network = describeApiError(new TypeError("Failed to fetch"));
       expect(network.detail).toMatch(pattern);
 
+      const catalog = tag === "es-MX" ? esMX : frCA;
       for (const status of [400, 401, 403, 404, 409, 418, 422, 429, 500]) {
-        const { detail } = describeApiError(apiError(status));
-        expect(detail).not.toBe(ERROR_COPY[describeApiError(apiError(status)).category].detail);
+        const { category, detail } = describeApiError(apiError(status));
+        expect(detail).toBe(catalog.apiError[category]);
+        expect(detail).not.toBe(ERROR_COPY[category].detail);
       }
-      expect(describeApiError(new DOMException("t", "TimeoutError")).detail).not.toBe(
-        ERROR_COPY.timeout.detail
+      expect(describeApiError(new DOMException("t", "TimeoutError")).detail).toBe(
+        catalog.apiError.timeout
       );
-      expect(describeApiError(undefined).detail).not.toBe(ERROR_COPY.unknown.detail);
+      expect(describeApiError(undefined).detail).toBe(catalog.apiError.unknown);
+    });
+
+    it("a guest's own runtime wins over the dashboard's language when its `t` is passed", async () => {
+      await localeRuntime.changeLocale("fr-CA");
+      const widget = createLocaleRuntime({
+        ...browserDeps,
+        setDocumentLang: () => {},
+        storageKey: "mbe-booking-widget-locale",
+      });
+      await widget.changeLocale("en-US");
+
+      const error = new TypeError("Failed to fetch");
+      expect(describeApiError(error, widget.i18n.t).detail).toBe(ERROR_COPY.network.detail);
+      expect(describeApiError(error).detail).toBe(frCA.apiError.network);
     });
   });
 
