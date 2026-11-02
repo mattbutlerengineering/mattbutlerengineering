@@ -1,18 +1,22 @@
 import {
   forwardRef,
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
   type KeyboardEvent,
 } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import { useCombobox } from "../../hooks/useCombobox";
 import { useField } from "../../hooks/useField";
+import { useLayerFloating, placeListbox } from "../../hooks/useLayerFloating";
+import { DialogLayerContext } from "../Dialog/DialogLayerContext";
 import styles from "./Combobox.module.css";
 import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 
@@ -190,6 +194,11 @@ export const Combobox = forwardRef<HTMLInputElement, ComboboxProps>(
 
     const wrapperRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement | null>(null);
+    const controlRef = useRef<HTMLDivElement>(null);
+    const listRef = useRef<HTMLUListElement>(null);
+    // Inside a Dialog the listbox is lifted into the dialog's layer so the
+    // scrolling body cannot clip it, and placed by the control's viewport rect.
+    const dialogLayer = useContext(DialogLayerContext);
     const { precision, reduced: shouldReduceMotion } = useMotionPreset();
 
     // ── Selection state (controlled or internal) ──
@@ -223,6 +232,7 @@ export const Combobox = forwardRef<HTMLInputElement, ComboboxProps>(
     } = useCombobox({
       items: visible,
       containerRef: wrapperRef,
+      extraContainerRefs: [listRef],
       inputMode: "input",
     });
 
@@ -325,9 +335,11 @@ export const Combobox = forwardRef<HTMLInputElement, ComboboxProps>(
     // Scroll the focused option into view.
     useEffect(() => {
       if (!open || focusedIndex < 0) return;
-      const el = wrapperRef.current?.querySelector(`[data-option-index="${focusedIndex}"]`);
+      const el = listRef.current?.querySelector(`[data-option-index="${focusedIndex}"]`);
       el?.scrollIntoView({ block: "nearest" });
     }, [open, focusedIndex]);
+
+    useLayerFloating(open && dialogLayer !== null, controlRef, listRef, placeListbox);
 
     const setInputRef = (node: HTMLInputElement | null) => {
       inputRef.current = node;
@@ -351,6 +363,63 @@ export const Combobox = forwardRef<HTMLInputElement, ComboboxProps>(
       messages.resultsAvailable
     );
 
+    const listbox = (
+      <AnimatePresence>
+        {open && (
+          <motion.ul
+            ref={listRef}
+            id={listboxId}
+            role="listbox"
+            aria-label={label}
+            aria-multiselectable={multiple || undefined}
+            className={cn(styles.dropdown, dialogLayer && styles.floating)}
+            initial={shouldReduceMotion ? false : { opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={shouldReduceMotion ? undefined : { opacity: 0, y: -4 }}
+            transition={precision}
+          >
+            {loading ? (
+              <li className={styles.status} role="option" aria-selected={false} aria-disabled>
+                <span className={styles.spinner} aria-hidden />
+                {loadingText}
+              </li>
+            ) : showEmpty ? (
+              <li className={styles.status} role="option" aria-selected={false} aria-disabled>
+                {emptyText}
+              </li>
+            ) : (
+              visible.map((option, index) => {
+                const isSelected = multiple
+                  ? selectedValues.includes(option.value)
+                  : option.value === selectedValue;
+                return (
+                  <li
+                    key={option.value}
+                    id={optionId(index)}
+                    role="option"
+                    aria-selected={isSelected}
+                    aria-disabled={option.disabled || undefined}
+                    data-option-index={index}
+                    data-selected={isSelected || undefined}
+                    data-disabled={option.disabled || undefined}
+                    className={cn(styles.option, focusedIndex === index && styles.optionActive)}
+                    onMouseDown={(e) => {
+                      e.preventDefault(); // keep focus on the input
+                      handleSelect(option);
+                    }}
+                    onMouseEnter={() => setFocusedIndex(index)}
+                  >
+                    <CheckIcon />
+                    {option.label}
+                  </li>
+                );
+              })
+            )}
+          </motion.ul>
+        )}
+      </AnimatePresence>
+    );
+
     return (
       <div ref={wrapperRef} className={cn(styles.wrapper, className)}>
         {label && (
@@ -366,7 +435,12 @@ export const Combobox = forwardRef<HTMLInputElement, ComboboxProps>(
           </label>
         )}
 
-        <div className={styles.control} data-open={open} data-disabled={disabled || undefined}>
+        <div
+          ref={controlRef}
+          className={styles.control}
+          data-open={open}
+          data-disabled={disabled || undefined}
+        >
           {chips.map((opt) => (
             <ComboboxChip
               key={opt.value}
@@ -398,59 +472,7 @@ export const Combobox = forwardRef<HTMLInputElement, ComboboxProps>(
           />
         </div>
 
-        <AnimatePresence>
-          {open && (
-            <motion.ul
-              id={listboxId}
-              role="listbox"
-              aria-label={label}
-              aria-multiselectable={multiple || undefined}
-              className={styles.dropdown}
-              initial={shouldReduceMotion ? false : { opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={shouldReduceMotion ? undefined : { opacity: 0, y: -4 }}
-              transition={precision}
-            >
-              {loading ? (
-                <li className={styles.status} role="option" aria-selected={false} aria-disabled>
-                  <span className={styles.spinner} aria-hidden />
-                  {loadingText}
-                </li>
-              ) : showEmpty ? (
-                <li className={styles.status} role="option" aria-selected={false} aria-disabled>
-                  {emptyText}
-                </li>
-              ) : (
-                visible.map((option, index) => {
-                  const isSelected = multiple
-                    ? selectedValues.includes(option.value)
-                    : option.value === selectedValue;
-                  return (
-                    <li
-                      key={option.value}
-                      id={optionId(index)}
-                      role="option"
-                      aria-selected={isSelected}
-                      aria-disabled={option.disabled || undefined}
-                      data-option-index={index}
-                      data-selected={isSelected || undefined}
-                      data-disabled={option.disabled || undefined}
-                      className={cn(styles.option, focusedIndex === index && styles.optionActive)}
-                      onMouseDown={(e) => {
-                        e.preventDefault(); // keep focus on the input
-                        handleSelect(option);
-                      }}
-                      onMouseEnter={() => setFocusedIndex(index)}
-                    >
-                      <CheckIcon />
-                      {option.label}
-                    </li>
-                  );
-                })
-              )}
-            </motion.ul>
-          )}
-        </AnimatePresence>
+        {dialogLayer ? createPortal(listbox, dialogLayer) : listbox}
 
         <div id={liveId} className={styles.srOnly} role="status" aria-live="polite">
           {liveMessage}

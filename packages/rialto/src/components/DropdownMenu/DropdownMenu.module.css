@@ -57,6 +57,15 @@
   transform-origin: bottom left;
 }
 
+/* Inside a Dialog: lifted into the dialog's layer and placed by inline
+   coordinates from the trigger's viewport rect. Declared after the side and
+   align variants so its inset reset wins on order. */
+.floating {
+  position: fixed;
+  inset: auto;
+  overflow-y: auto;
+}
+
 /* ── Item ────────────────────────────────────── */
 .item {
   composes: focusRing from "../../styles/surfaces.module.css";
