@@ -256,7 +256,7 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
       summary: "Reopen a closure",
       operationId: "reopenClosure",
       description:
-        "Removes a closure (or special hours) saved through `POST …/closures` so its slots return. Guests it cancelled stay cancelled. Manager, or a Host for the emergency close they made themselves on the current service day when the venue grants it.",
+        "Removes a closure (or special hours) saved through `POST …/closures` so its slots return. Guests it cancelled stay cancelled. Takes no `expectedVersion`: it acts on the rule named, against the current state (it takes the venue lock before reading it), so a reopen from a stale view is applied, never refused as a version conflict; an already-removed rule answers 404. Manager, or a Host for the emergency close they made themselves on the current service day when the venue grants it.",
       tags: ["Availability"],
       security: [{ bearerAuth: [] }],
     },

@@ -112,6 +112,26 @@ describe("listAvailabilityChanges", () => {
     });
   });
 
+  it("picks the change Undo is offered on by the version it produced, rows without one after, by time", async () => {
+    const findFirst = vi.fn(async () => ({ id: "chg-1" }));
+    const client = fakeClient({
+      venue: { findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: TZ })) },
+      availabilityChange: {
+        findMany: vi.fn(async () => []),
+        count: vi.fn(async () => 0),
+        findFirst,
+      },
+    });
+
+    await listAvailabilityChanges("venue-1", { limit: 25, offset: 0 }, client);
+
+    expect(findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [{ version: { sort: "desc", nulls: "last" } }, { at: "desc" }, { id: "desc" }],
+      })
+    );
+  });
+
   it("never offers Revert on a change that told guests, was reverted, or is itself a revert", async () => {
     const rows = [
       row({ id: "a", notifiedGuests: true }),

@@ -659,6 +659,11 @@ function upcomingCancelled(db: Db, venueId: string, ruleId: string, now: Date): 
  * Removes the rule (a soft delete through the same writer, with its inverse),
  * so the slots return. Guests the closure cancelled stay cancelled. Whether
  * to tell them is recorded on the audit row for the reopen notice (#7523).
+ *
+ * No `expectedVersion` and no compare-and-set, on purpose (#8121): a reopen names its rule and is
+ * idempotent in effect (a rule already gone is `not_found`), and the venue lock is taken before the
+ * state is read, so the diff and the inverse are exact against the current state however stale the
+ * caller's view. Refusing would only make a Manager re-read to do the same thing.
  */
 export async function reopenClosure(
   input: {

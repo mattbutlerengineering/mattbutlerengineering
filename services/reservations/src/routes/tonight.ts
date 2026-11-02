@@ -65,7 +65,7 @@ export const tonightRoutes: FastifyPluginAsync = async (fastify) => {
       summary: "End a Tonight change early",
       operationId: "endTonight",
       description:
-        "Removes a Tonight change before its service day ends so its slots and tables return. Bookings a close-early cancelled stay cancelled. Host or Manager.",
+        "Removes a Tonight change before its service day ends so its slots and tables return. Bookings a close-early cancelled stay cancelled. Takes no `expectedVersion`: a Host in live service is never refused for a version they could not know. It acts on the rule named, against the current state (it takes the venue lock before reading it), so a change saved while it waited is kept; an already-ended rule answers 404. Host or Manager.",
       tags: ["Availability"],
       security: [{ bearerAuth: [] }],
     },

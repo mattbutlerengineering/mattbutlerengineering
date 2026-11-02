@@ -420,11 +420,39 @@ export async function endTonight(
   client: StoreClient = prisma
 ): Promise<EndTonightOutcome> {
   const { venueId, ruleId, caller, now } = input;
+  try {
+    return await endTonightIn(client, { venueId, ruleId, caller, now });
+  } catch (error) {
+    if (error instanceof Refused) return error.outcome as EndTonightOutcome;
+    throw error;
+  }
+}
+
+async function endTonightIn(
+  client: StoreClient,
+  input: {
+    venueId: string;
+    ruleId: string;
+    caller: Pick<ClosureCaller, "actorId" | "actorName">;
+    now: Date;
+  }
+): Promise<EndTonightOutcome> {
+  const { venueId, ruleId, caller, now } = input;
   return client.$transaction(async (tx): Promise<EndTonightOutcome> => {
     await setVenueContext(tx, venueId);
+    // Take the venue row first, as `reopenClosure` does: the state read below, the diff and the
+    // inverse are then the current ones, never a save's that committed while this waited. No
+    // expectedVersion is asked for: ending is by rule id, idempotent in effect, and a Host ending
+    // Tonight in live service must not be refused for a version they could not know (#8121). A
+    // refusal below rolls the bump back with the rest of the transaction.
+    await tx.venue.update({
+      where: { id: venueId },
+      data: { availabilityVersion: { increment: 1 } },
+      select: { id: true },
+    });
     const state = await loadConfigState(tx, venueId, now);
     const rule = state?.stored.dateRules.find((r) => r.id === ruleId);
-    if (!state || !rule || rule.kind !== "tonight") return { kind: "not_found" };
+    if (!state || !rule || rule.kind !== "tonight") throw new Refused({ kind: "not_found" });
 
     const next = {
       ...state.stored,
@@ -434,10 +462,7 @@ export async function endTonight(
     await writeConfigDiff(tx, venueId, diff, { actorId: caller.actorId, now });
     const bumped = await tx.venue.update({
       where: { id: venueId },
-      data: {
-        availabilityVersion: { increment: 1 },
-        operatingHours: projectLegacyOperatingHours(next),
-      },
+      data: { operatingHours: projectLegacyOperatingHours(next) },
       select: { availabilityVersion: true },
     });
     const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));

@@ -74,11 +74,17 @@ function whereOf(
   };
 }
 
-/** The newest change that is still in force: unreverted and not itself a revert. */
+/**
+ * The newest change that is still in force: unreverted and not itself a revert. "Newest" is the
+ * version a change produced, never `at`: `at` is stamped before the venue row lock is taken, so a
+ * change that waited on the lock commits a higher version with an older `at`, and its inverse is the
+ * one exact against the current state. Rows from before the version was recorded (NULL) are older
+ * than every versioned row, and keep their order among themselves by `at`.
+ */
 function newestInForce(db: Pick<StoreTx, "availabilityChange">, venueId: string) {
   return db.availabilityChange.findFirst({
     where: { venueId, revertedById: null, kind: { not: REVERT_KIND } },
-    orderBy: [{ at: "desc" }, { id: "desc" }],
+    orderBy: [{ version: { sort: "desc", nulls: "last" } }, { at: "desc" }, { id: "desc" }],
     select: { id: true },
   });
 }
