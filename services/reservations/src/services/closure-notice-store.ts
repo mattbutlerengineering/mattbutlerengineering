@@ -107,6 +107,7 @@ export async function loadNoticeOutcome(
       action: true,
       deliveries: true,
       rebookedReservationId: true,
+      refund: true,
       dateRule: { select: { guestMessage: true } },
       venue: { select: { name: true, ianaTimezone: true } },
       reservation: {
@@ -141,7 +142,12 @@ export async function loadNoticeOutcome(
     guestEmail: r.guestEmail,
     guestPhone: r.guestPhone,
     preference: r.guest?.communicationPreference ?? null,
-    refund: r.deposit ? { amountCents: r.deposit.amountCents, currency: r.deposit.currency } : null,
+    // The decision the closure stored (from `owesRefund`), not the deposit's status now: the
+    // refund job moves held -> refunded before or after this runs, and a retry must not flip.
+    refund:
+      r.deposit && row.refund !== "none"
+        ? { amountCents: r.deposit.amountCents, currency: r.deposit.currency }
+        : null,
     venueName: row.venue.name,
     timezone: row.venue.ianaTimezone,
     originHost: r.originHost,

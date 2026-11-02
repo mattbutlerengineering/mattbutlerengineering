@@ -109,6 +109,40 @@ describe("loadNoticeOutcome", () => {
     const result = await loadNoticeOutcome("out_1", db as never);
     expect(result?.originHost).toBeNull();
   });
+
+  // #8131: the notice promises a refund only where the closure recorded one. The outcome's own
+  // `refund` is the decision (the closure command sets it from `owesRefund`), and it is stable
+  // at send time: the deposit's status moves held -> refunded once the refund job has run.
+  describe("refund promise (#8131)", () => {
+    const refundOf = async (refund: string, status: string) => {
+      const row = {
+        ...makeRow({ deposit: { amountCents: 4000, currency: "usd", status } }),
+        refund,
+      };
+      const db = { closureOutcome: { findUnique: vi.fn().mockResolvedValue(row) } };
+      return (await loadNoticeOutcome("out_1", db as never))?.refund;
+    };
+
+    it.each(["held", "pending", "refunded", "applied", "forfeited", "partial_refunded"])(
+      "promises nothing when the outcome recorded none, whatever the deposit status (%s)",
+      async (status) => {
+        expect(await refundOf("none", status)).toBeNull();
+      }
+    );
+
+    it.each(["pending", "done", "failed"])(
+      "still promises the refund once the job has moved the deposit on (outcome %s, deposit refunded)",
+      async (refund) => {
+        expect(await refundOf(refund, "refunded")).toEqual({ amountCents: 4000, currency: "usd" });
+      }
+    );
+
+    it("promises nothing when there is no deposit", async () => {
+      const row = { ...makeRow(), refund: "pending" };
+      const db = { closureOutcome: { findUnique: vi.fn().mockResolvedValue(row) } };
+      expect((await loadNoticeOutcome("out_1", db as never))?.refund).toBeNull();
+    });
+  });
 });
 
 describe("listSummaries", () => {
