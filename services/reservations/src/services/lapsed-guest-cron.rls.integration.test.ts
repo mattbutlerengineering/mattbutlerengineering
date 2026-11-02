@@ -4,6 +4,15 @@ import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma/index.js";
 import { findGuestsForVenue, getAllVenueIds } from "./lapsed-guest-cron.js";
+import { runWithVenueContext } from "./venue-context-store.js";
+import { withVenueScopedQueries } from "./venue-scoped-prisma.js";
+import {
+  claimWinBack,
+  markWinBackSent,
+  releaseWinBackClaim,
+  winBackStatusFor,
+  WIN_BACK_COOLDOWN_MS,
+} from "./win-back-store.js";
 
 /**
  * Real-Postgres regression test for issue #5401: the lapsed-guest cron
@@ -227,3 +236,153 @@ describe.skipIf(!DATABASE_URL)(
     });
   }
 );
+/**
+ * Real-Postgres proof of the win-back claim (#8041): the claim, its renewal after the cooldown,
+ * the refusal inside it and the release all run through the venue-scoped client (FORCE RLS, the
+ * `app_reservations` role) against the real UNIQUE `guest_id`, so the "exactly one of N
+ * simultaneous sends wins" guarantee is the database's, not a mock's. Lives in this file because
+ * the CI job's suite list is pinned; it takes the shared advisory lock like its siblings.
+ */
+describe.skipIf(!process.env.DATABASE_URL)("win-back claim (real Postgres)", () => {
+  const RACERS = 12;
+  const venueId = `winback-it-${randomUUID()}`;
+  const now = new Date("2026-11-01T12:00:00Z");
+  const at = (ms: number) => new Date(now.getTime() + ms);
+
+  let lockClient: pg.Client;
+  let pool: pg.Pool;
+  let client: PrismaClient;
+  let scoped: PrismaClient;
+
+  const inVenue = <T>(work: () => Promise<T>) => runWithVenueContext(venueId, work);
+
+  /** A fresh guest in the venue, so no test sees another's row. */
+  async function newGuest(): Promise<string> {
+    const id = `g-${randomUUID()}`;
+    await client.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT set_config('app.venue_id', ${venueId}, true)`;
+      await tx.guest.create({ data: { id, venueId, name: "Win-back IT" } });
+    });
+    return id;
+  }
+
+  const claim = (guestId: string, when: Date) =>
+    inVenue(() => claimWinBack(venueId, guestId, when, scoped));
+
+  beforeAll(async () => {
+    lockClient = new pg.Client({
+      connectionString: process.env.DATABASE_URL!,
+    });
+    await lockClient.connect();
+    await lockClient.query("SELECT pg_advisory_lock($1)", [5369]);
+    pool = new pg.Pool({
+      connectionString: process.env.DATABASE_URL!,
+      max: RACERS + 2,
+    });
+    client = new PrismaClient({ adapter: new PrismaPg(pool) });
+    scoped = withVenueScopedQueries(client);
+    await client.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT set_config('app.venue_id', ${venueId}, true)`;
+      await tx.venue.create({
+        data: {
+          id: venueId,
+          name: "Win-back IT",
+          slug: venueId,
+          ianaTimezone: "UTC",
+        },
+      });
+    });
+  });
+
+  afterAll(async () => {
+    await client.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT set_config('app.venue_id', ${venueId}, true)`;
+      await tx.guestWinBack.deleteMany({ where: { venueId } });
+      await tx.guest.deleteMany({ where: { venueId } });
+      await tx.venue.deleteMany({ where: { id: venueId } });
+    });
+    await client.$disconnect();
+    await pool.end();
+    await lockClient.query("SELECT pg_advisory_unlock($1)", [5369]);
+    await lockClient.end();
+  });
+
+  it("lets exactly one of simultaneous first sends claim the guest", async () => {
+    const guestId = await newGuest();
+    const results = await Promise.all(Array.from({ length: RACERS }, () => claim(guestId, now)));
+    expect(results.filter((r) => r.claimed)).toHaveLength(1);
+    expect(results.filter((r) => !r.claimed)).toHaveLength(RACERS - 1);
+  });
+
+  it("lets exactly one of simultaneous sends after the cooldown renew the claim", async () => {
+    const guestId = await newGuest();
+    await claim(guestId, now);
+    const later = at(WIN_BACK_COOLDOWN_MS + 1000);
+    const results = await Promise.all(Array.from({ length: RACERS }, () => claim(guestId, later)));
+    expect(results.filter((r) => r.claimed)).toHaveLength(1);
+  });
+
+  it("refuses inside the cooldown, reporting an unconfirmed attempt, then a confirmed send", async () => {
+    const guestId = await newGuest();
+    await claim(guestId, now);
+    expect(await claim(guestId, at(1000))).toEqual({
+      claimed: false,
+      claimedAt: now,
+      sentAt: null,
+    });
+
+    await inVenue(() => markWinBackSent(venueId, guestId, now, at(500), scoped));
+    expect(await claim(guestId, at(2000))).toEqual({
+      claimed: false,
+      claimedAt: now,
+      sentAt: at(500),
+    });
+    const status = await inVenue(() => winBackStatusFor(venueId, [guestId], scoped));
+    expect(status.get(guestId)).toEqual({
+      sentAt: at(500),
+      attemptedAt: null,
+    });
+  });
+
+  it("lets a released claim be claimed again at once, and never clears a newer claim", async () => {
+    const guestId = await newGuest();
+    await claim(guestId, now);
+    await inVenue(() => releaseWinBackClaim(venueId, guestId, now, null, scoped));
+    expect(await claim(guestId, at(1000))).toEqual({ claimed: true, previousClaimedAt: null });
+
+    // A stale release (for the first claim) must not clear the claim made at +1000.
+    await inVenue(() => releaseWinBackClaim(venueId, guestId, now, null, scoped));
+    expect(await claim(guestId, at(2000))).toMatchObject({
+      claimed: false,
+      claimedAt: at(1000),
+    });
+  });
+
+  it("reads an unconfirmed attempt apart from the earlier confirmed send it renewed over", async () => {
+    const guestId = await newGuest();
+    await claim(guestId, now);
+    await inVenue(() => markWinBackSent(venueId, guestId, now, now, scoped));
+    const later = at(WIN_BACK_COOLDOWN_MS);
+    expect(await claim(guestId, later)).toEqual({ claimed: true, previousClaimedAt: now });
+    const status = await inVenue(() => winBackStatusFor(venueId, [guestId], scoped));
+    expect(status.get(guestId)).toEqual({ sentAt: now, attemptedAt: later });
+  });
+
+  it("restores an older UNCONFIRMED attempt when the renewal is rejected, instead of erasing it", async () => {
+    const guestId = await newGuest();
+    await claim(guestId, now); // T0 ends ambiguously: claimed, never marked sent
+    const later = at(WIN_BACK_COOLDOWN_MS + 1000);
+    const renewal = await claim(guestId, later);
+    expect(renewal).toEqual({ claimed: true, previousClaimedAt: now });
+
+    await inVenue(() => releaseWinBackClaim(venueId, guestId, later, now, scoped));
+
+    const status = await inVenue(() => winBackStatusFor(venueId, [guestId], scoped));
+    expect(status.get(guestId)).toEqual({ sentAt: null, attemptedAt: now });
+    // The cooldown is over, so the guest can be claimed again.
+    expect(await claim(guestId, at(WIN_BACK_COOLDOWN_MS + 2000))).toMatchObject({
+      claimed: true,
+      previousClaimedAt: now,
+    });
+  });
+});

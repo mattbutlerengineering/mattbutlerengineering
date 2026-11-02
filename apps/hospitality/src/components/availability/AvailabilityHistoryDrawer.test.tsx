@@ -15,6 +15,12 @@ vi.mock("../../hooks/useAvailability.js", () => ({
   useRevertAvailabilityChange: () => ({ mutateAsync, isPending: false }),
 }));
 vi.mock("@mbe/auth/react", () => ({ useAuth: () => ({ user: { id: "auth0|me" } }) }));
+// The stranded-bookings dialog keeps to the venue the refusal came from.
+vi.mock("../../contexts/venue-context-object.js", () => ({
+  useOptionalVenue: () => ({
+    selectedVenue: { id: "venue-1", ianaTimezone: "America/Los_Angeles", currencyCode: "USD" },
+  }),
+}));
 import type * as Rialto from "@mattbutlerengineering/rialto";
 vi.mock("@mattbutlerengineering/rialto", async (importOriginal) => ({
   ...(await importOriginal<typeof Rialto>()),
@@ -22,6 +28,7 @@ vi.mock("@mattbutlerengineering/rialto", async (importOriginal) => ({
 }));
 
 import { AvailabilityHistoryDrawer } from "./AvailabilityHistoryDrawer.js";
+import { StrandedRevertDialog } from "./StrandedRevertDialog.js";
 
 // jsdom cannot compute colour contrast; token contrast is covered in rialto.
 const AXE_OPTIONS = { rules: { "color-contrast": { enabled: false } } };
@@ -165,6 +172,109 @@ describe("AvailabilityHistoryDrawer", () => {
         })
       )
     );
+  });
+
+  it("names each stranded booking with a link, outside the alert, when Revert is refused", async () => {
+    mutateAsync.mockRejectedValue(
+      new ApiClientError(
+        {
+          type: "about:blank",
+          title: "Conflict",
+          status: 409,
+          detail: "x",
+          code: "stranded-bookings",
+          reservations: [
+            {
+              id: "res-okafor",
+              startTime: "2026-10-31T01:30:00.000Z",
+              partySize: 4,
+              reason: "closed",
+              guestName: "Okafor",
+              serviceDate: "2026-10-30",
+            },
+          ],
+        } as never,
+        "POST",
+        "/revert"
+      )
+    );
+    render(
+      <main>
+        <AvailabilityHistoryDrawer
+          open
+          venueId="venue-1"
+          viewerRole="manager"
+          onClose={vi.fn()}
+          onOpenDay={vi.fn()}
+        />
+        <StrandedRevertDialog />
+      </main>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Revert" }));
+
+    const link = await screen.findByRole("link", { name: /Okafor/ });
+    expect(link.getAttribute("href")).toMatch(/selected=res-okafor$/);
+    expect(link.closest('[role="alert"]')).toBeNull();
+    expect(toast).not.toHaveBeenCalledWith(expect.objectContaining({ variant: "error" }));
+  });
+
+  it("keeps focus on Revert while it is in flight, so closing the list returns to it", async () => {
+    const refusal = new ApiClientError(
+      {
+        type: "about:blank",
+        title: "Conflict",
+        status: 409,
+        detail: "x",
+        code: "stranded-bookings",
+        reservations: [
+          {
+            id: "res-okafor",
+            startTime: "2026-10-31T01:30:00.000Z",
+            partySize: 4,
+            reason: "closed",
+            guestName: "Okafor",
+            serviceDate: "2026-10-30",
+          },
+        ],
+      } as never,
+      "POST",
+      "/revert"
+    );
+    let reject: (reason: unknown) => void = () => undefined;
+    mutateAsync.mockReturnValue(
+      new Promise((_, r) => {
+        reject = r;
+      })
+    );
+    render(
+      <main>
+        <AvailabilityHistoryDrawer
+          open
+          venueId="venue-1"
+          viewerRole="manager"
+          onClose={vi.fn()}
+          onOpenDay={vi.fn()}
+        />
+        <StrandedRevertDialog />
+      </main>
+    );
+    const revertButton = screen.getByRole("button", { name: "Revert" });
+    revertButton.focus();
+    fireEvent.click(revertButton);
+
+    // In flight: it is not pressable again, but it has not gone from the keyboard.
+    expect(revertButton).toHaveAttribute("aria-disabled", "true");
+    expect(revertButton).not.toBeDisabled();
+    expect(revertButton).toHaveFocus();
+    fireEvent.click(revertButton);
+    expect(mutateAsync).toHaveBeenCalledTimes(1);
+
+    reject(refusal);
+    await screen.findByRole("link", { name: /Okafor/ });
+    const list = screen.getByRole("dialog", { name: "These bookings would lose their service" });
+    fireEvent.click(within(list).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(revertButton).toHaveFocus());
   });
 
   it("marks entries that told guests or were already undone", () => {

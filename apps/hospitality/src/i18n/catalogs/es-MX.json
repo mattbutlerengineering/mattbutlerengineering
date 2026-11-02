@@ -629,6 +629,9 @@
     "welcomeNamed": "Bienvenido de nuevo, {{name}}",
     "loadFailed": "No se pudo cargar el panel.",
     "lapsingLoadFailed": "No se pudieron cargar los huéspedes inactivos.",
+    "winBackFailed": "No se pudo enviar la invitación para volver.",
+    "winBackUnconfirmed": "No se pudo confirmar la invitación para volver.",
+    "winBackUnconfirmedDetail": "Puede que haya llegado al huésped, o no. Si llegó, volver a enviarla queda bloqueado por una semana.",
     "actions": {
       "walkIn": "Sin reservación",
       "floorPlan": "Ver plano de sala",
@@ -2154,6 +2157,8 @@
       "action": "Deshacer",
       "done": "Cambio deshecho",
       "finishFirst": "Primero descarta tus cambios y luego deshaz.",
+      "strandedTitle": "Estas reservaciones se quedarían sin servicio",
+      "strandedClose": "Cerrar",
       "errors": {
         "guests-notified": "Este cambio avisó a los comensales, así que no se puede deshacer.",
         "already-reverted": "Este cambio ya se deshizo.",

@@ -618,6 +618,9 @@
     "welcomeNamed": "Welcome back, {{name}}",
     "loadFailed": "Couldn't load the dashboard.",
     "lapsingLoadFailed": "Couldn't load lapsing guests.",
+    "winBackFailed": "Couldn't send the win-back message.",
+    "winBackUnconfirmed": "Couldn't confirm the win-back message.",
+    "winBackUnconfirmedDetail": "It may or may not have reached the guest. If it did, sending again is blocked for a week.",
     "actions": {
       "walkIn": "Walk-in",
       "floorPlan": "View Floor Plan",
@@ -2114,6 +2117,8 @@
       "action": "Undo",
       "done": "Change undone",
       "finishFirst": "Discard your changes first, then undo.",
+      "strandedTitle": "These bookings would lose their service",
+      "strandedClose": "Close",
       "errors": {
         "guests-notified": "This change told guests, so it can’t be undone.",
         "already-reverted": "This change was already undone.",
