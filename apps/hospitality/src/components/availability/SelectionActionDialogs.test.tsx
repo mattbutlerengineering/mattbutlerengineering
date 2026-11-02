@@ -9,6 +9,10 @@ vi.mock("../../hooks/useAvailability.js", () => ({
   useSaveAvailabilityConfig: () => ({ mutateAsync: save, isPending: false }),
   useRevertAvailabilityChange: () => ({ mutateAsync: revertAsync }),
 }));
+// The preview has its own tests (ScheduleFlowPreview.test.tsx); here it never answers.
+vi.mock("../../hooks/useAvailabilityPreview.js", () => ({
+  useAvailabilityPreview: () => ({ result: null, isFetching: false, error: null, retry: () => {} }),
+}));
 vi.mock("../../contexts/VenueContext.js", () => ({
   useVenue: () => ({
     selectedVenue: { id: "venue-1", ianaTimezone: "America/Los_Angeles", currencyCode: "USD" },
