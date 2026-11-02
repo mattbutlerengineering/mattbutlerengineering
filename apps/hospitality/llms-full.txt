@@ -2471,6 +2471,14 @@
       const there = findRow(seed, holdId(p));
       return p.base === null ? there === undefined : there !== undefined && same(there, p.base);
     }
+    type HeldLine = "overridden" | "unsaved" | null;
+    function heldLine(p: ParkedEdit, seed: readonly DraftService[]): HeldLine {
+      const there = findRow(seed, holdId(p));
+      if (p.base === null) return there !== undefined && !same(there, p.draft) ? "overridden" : null;
+      if (there === undefined || p.draft === null) return "unsaved";
+      const [landed] = reapplyDraft({ base: [p.base], draft: [p.draft], latest: [there] });
+      return landed !== undefined && same(there, landed) ? "overridden" : "unsaved";
+    }
     function restoreHolds(input: SwitchInput, restored: readonly ParkedEdit[]) {
       return restored.reduce(
         (rows, p) =>
@@ -2549,20 +2557,18 @@
           : [];
       });
     
-      // The line names every hold the Manager's hours are not used by: those just made, and any
-      // carried on from an earlier switch.
-      const unused = (p: ParkedEdit) => {
-        const there = findRow(seed, holdId(p));
-        return p.base !== null || (there !== undefined && !same(there, p.draft));
-      };
-      const named = [...adds.filter(unused), ...matched, ...carried.filter(unused)];
+      // Every hold the Manager's hours are not used by is named: those just made, any carried on from
+      // an earlier switch, and any let go because the Manager touched that row since.
+      const lost = holds.filter((p) => !untouched(p, input));
+      const lines = [...adds, ...matched, ...carried].map((p) => ({ p, line: heldLine(p, seed) }));
+      const named = (kind: HeldLine) => lines.filter((l) => l.line === kind).map((l) => l.p);
     
       return {
         services: merged,
         baseline: seed,
         parked: [...edits, ...removals, ...adds, ...matched, ...carried],
-        unsaved: [...new Set([...edits, ...removals].map(parkedName))],
-        overridden: [...new Set(named.map(parkedName))],
+        unsaved: [...new Set([...edits, ...removals, ...lost, ...named("unsaved")].map(parkedName))],
+        overridden: [...new Set(named("overridden").map(parkedName))],
       };
     }
   </file>

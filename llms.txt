@@ -2472,6 +2472,12 @@
     <item priority="medium">
       function restorable(p: ParkedEdit, seed: readonly DraftService[]) { /* ... */ }
     </item>
+    <item priority="high">
+      type HeldLine = "overridden" | "unsaved" | null;
+    </item>
+    <item priority="medium">
+      function heldLine(p: ParkedEdit, seed: readonly DraftService[]): HeldLine { /* ... */ }
+    </item>
     <item priority="medium">
       function restoreHolds(input: SwitchInput, restored: readonly ParkedEdit[]) { /* ... */ }
     </item>

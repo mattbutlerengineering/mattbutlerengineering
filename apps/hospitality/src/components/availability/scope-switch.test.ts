@@ -224,6 +224,50 @@ describe("switchScope", () => {
     expect(back.parked).toEqual([]);
   });
 
+  describe("a held equal-value edit", () => {
+    const onDate = row("vs-dinner", "Dinner", { closesAt: 1200, lastSeatingAt: 1140 });
+    const weekly = row("vs-dinner", "Dinner", { closesAt: 1320, lastSeatingAt: 1260 });
+    const edited = { ...onDate, closesAt: 1320 };
+    const held = () => {
+      const out = switchScope({
+        baseline: [onDate],
+        services: [edited],
+        parked: [],
+        seed: [weekly],
+      });
+      return { baseline: out.baseline, services: out.services, parked: out.parked };
+    };
+
+    it("is named when the Manager touches that row, since it is let go", () => {
+      const there = held();
+      const back = switchScope({
+        ...there,
+        services: there.services.map(phoneOnly),
+        seed: [onDate],
+      });
+      expect(back.services).toEqual([phoneOnly(onDate)]);
+      expect(back.unsaved).toEqual(["Dinner"]);
+      expect(back.parked).toEqual([]);
+    });
+
+    it("stays held, not restored, when the scope it returns to has changed that row", () => {
+      const changed = { ...onDate, lastSeatingAt: 1000 };
+      const onward = switchScope({ ...held(), seed: [changed] });
+      expect(onward.services).toEqual([changed]);
+      expect(onward.parked).toHaveLength(1);
+      expect(onward.unsaved).toEqual(["Dinner"]);
+      expect(onward.overridden).toEqual([]);
+    });
+
+    it("is said to be unsaved, not unused, in a scope that lacks the service, and survives it", () => {
+      const away = switchScope({ ...held(), seed: [late] });
+      expect(away.unsaved).toEqual(["Dinner"]);
+      expect(away.overridden).toEqual([]);
+      const back = switchScope({ ...away, seed: [onDate] });
+      expect(back.services).toEqual([edited]);
+    });
+  });
+
   it("carries the names of held hours on to another scope that has the service", () => {
     const newLate = row("vs-late", "Late", { opensAt: 1000 });
     const there = switchScope({

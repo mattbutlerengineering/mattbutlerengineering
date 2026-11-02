@@ -1053,7 +1053,21 @@ describe("AvailabilityDayEditor", () => {
       chooseScope("This date only");
       expect(screen.getByRole("status")).toHaveTextContent("Late");
       chooseScope(/^Every/);
-      expect(screen.getByRole("status")).toBeInTheDocument();
+      expect(screen.getByRole("status")).toHaveTextContent("Late");
+    });
+
+    it("an edit the Manager touched on the regular week is named when the date returns without it", () => {
+      // The date's Dinner closes 8:00 PM, last seating 7:00 PM; the regular week 11:00 PM and 9:00 PM.
+      withOwnDay("r-own", { lastSeatingAt: 1140, closesAt: 1200 });
+      fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
+      setTime("Closes", 0, "11:00 PM");
+      chooseScope(/Your regular week/);
+      expect(screen.getByRole("status")).toHaveTextContent("Dinner");
+      phoneOnlyOn(2);
+      chooseScope("This date only");
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Your edit to Dinner won’t be saved: it isn’t in what you’re changing now."
+      );
     });
 
     it("keeps the regular week's other services: nothing the Manager did not remove is deleted", async () => {

@@ -85,6 +85,21 @@ function restorable(p: ParkedEdit, seed: readonly DraftService[]) {
   return p.base === null ? there === undefined : there !== undefined && same(there, p.base);
 }
 
+type HeldLine = "overridden" | "unsaved" | null;
+
+/**
+ * Which line tells the Manager of a hold in the scope now showing. "Overridden": that scope has
+ * the hours (or applying the edit leaves its row as it is), so they change nothing there.
+ * "Unsaved": the scope lacks the service, or the edit would change its row and is not applied.
+ */
+function heldLine(p: ParkedEdit, seed: readonly DraftService[]): HeldLine {
+  const there = findRow(seed, holdId(p));
+  if (p.base === null) return there !== undefined && !same(there, p.draft) ? "overridden" : null;
+  if (there === undefined || p.draft === null) return "unsaved";
+  const [landed] = reapplyDraft({ base: [p.base], draft: [p.draft], latest: [there] });
+  return landed !== undefined && same(there, landed) ? "overridden" : "unsaved";
+}
+
 /** The rows the draft is made of once the holds that are returning have rejoined it. */
 function restoreHolds(input: SwitchInput, restored: readonly ParkedEdit[]) {
   return restored.reduce(
@@ -165,19 +180,17 @@ export function switchScope(input: SwitchInput): Switched {
       : [];
   });
 
-  // The line names every hold the Manager's hours are not used by: those just made, and any
-  // carried on from an earlier switch.
-  const unused = (p: ParkedEdit) => {
-    const there = findRow(seed, holdId(p));
-    return p.base !== null || (there !== undefined && !same(there, p.draft));
-  };
-  const named = [...adds.filter(unused), ...matched, ...carried.filter(unused)];
+  // Every hold the Manager's hours are not used by is named: those just made, any carried on from
+  // an earlier switch, and any let go because the Manager touched that row since.
+  const lost = holds.filter((p) => !untouched(p, input));
+  const lines = [...adds, ...matched, ...carried].map((p) => ({ p, line: heldLine(p, seed) }));
+  const named = (kind: HeldLine) => lines.filter((l) => l.line === kind).map((l) => l.p);
 
   return {
     services: merged,
     baseline: seed,
     parked: [...edits, ...removals, ...adds, ...matched, ...carried],
-    unsaved: [...new Set([...edits, ...removals].map(parkedName))],
-    overridden: [...new Set(named.map(parkedName))],
+    unsaved: [...new Set([...edits, ...removals, ...lost, ...named("unsaved")].map(parkedName))],
+    overridden: [...new Set(named("overridden").map(parkedName))],
   };
 }
