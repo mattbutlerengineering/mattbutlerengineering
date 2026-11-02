@@ -2,4 +2,4 @@
 "@mattbutlerengineering/rialto": patch
 ---
 
-Popover panel is now opaque in light and dark (it used the translucent glass fill, so what sat behind it blended into the text's background). A DatePicker opened inside a Dialog failed axe `color-contrast` on its weekday row (#747070 on #efeeec, 4.21:1); the panel now paints `--rialto-surface-elevated` and keeps the glass border, shine and shadow.
+A Popover opened inside a Dialog (DatePicker, DateRangePicker, TimePicker) now paints the opaque `--rialto-surface-elevated` in light and dark, with no backdrop blur. The translucent glass fill let the dialog body and scrim blend into the text's background, so a DatePicker's weekday row failed axe `color-contrast` (#747070 on #efeeec, 4.21:1). A Popover on a plain page keeps its glass surface.
