@@ -1,7 +1,12 @@
 import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, Checkbox, Select, Stack, Text, TimePicker } from "@mattbutlerengineering/rialto";
-import type { AvailabilityConfig, AvailabilityConfigState, ScopeConflictMode } from "@mbe/types";
+import type {
+  AvailabilityConfig,
+  AvailabilityConfigState,
+  ScheduleService,
+  ScopeConflictMode,
+} from "@mbe/types";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { closeFromClock, lastSeatingFromClock, openFromClock, toClock } from "./clock-minutes.js";
 import {
@@ -11,6 +16,7 @@ import {
   compareServiceOptions,
   reapplyEdits,
   rowsChangedSince,
+  rowsRemovedSince,
   type CompareRow,
 } from "./compare-changes.js";
 import { DiscardChangesDialog } from "./DiscardChangesDialog.js";
@@ -128,10 +134,18 @@ export function CompareServices(props: CompareServicesProps) {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulk, setBulk] = useState<BulkFields>(NO_BULK);
   const [mode, setMode] = useState<ScopeConflictMode>("keep");
-  // The config the first edit was made against. A save is checked against this version, so a
+  // What the edits were made against. A save is checked against `version` (the first edit's), so a
   // colleague's change to any field of an edited row is a conflict the Manager reviews, never
-  // silently overwritten by the whole-row save.
-  const [base, setBase] = useState<{ config: AvailabilityConfig; version: number } | null>(null);
+  // silently overwritten by the whole-row save. `rows` holds each edited row as it was when that
+  // row was first edited, because that, not the session's first version, is what its edit means.
+  const [base, setBase] = useState<{
+    version: number;
+    rows: Readonly<Record<string, ScheduleService>>;
+  } | null>(null);
+  const baselineOf = (b: NonNullable<typeof base>): AvailabilityConfig => ({
+    ...config,
+    scheduleServices: Object.values(b.rows),
+  });
 
   const rows = useMemo(
     () =>
@@ -151,9 +165,17 @@ export function CompareServices(props: CompareServicesProps) {
 
   const commitEdits = (next: Readonly<Record<string, CompareRow>>) => {
     setEdits(next);
-    setBase((prev) =>
-      Object.keys(next).length === 0 ? null : (prev ?? { config, version: state.version })
-    );
+    // The view stays on the service being edited even if a refetch reorders the services.
+    if (Object.keys(next).length > 0) setChosen(serviceId);
+    setBase((prev) => {
+      if (Object.keys(next).length === 0) return null;
+      const stored = new Map(config.scheduleServices.map((s) => [s.id, s]));
+      const rows = Object.keys(next).reduce<Record<string, ScheduleService>>((acc, id) => {
+        const row = prev?.rows[id] ?? stored.get(id);
+        return row ? { ...acc, [id]: row } : acc;
+      }, {});
+      return { version: prev?.version ?? state.version, rows };
+    });
     onDirtyChange?.(changedRows(config, Object.values(next)).length > 0);
   };
   // Choosing another service drops the rows edited for this one, so it asks first.
@@ -161,6 +183,7 @@ export function CompareServices(props: CompareServicesProps) {
     setChosen(id);
     commitEdits({});
     setSelected([]);
+    saver.clearConflict();
   }, changed.length > 0);
 
   if (options.length === 0 || serviceId === null) {
@@ -186,13 +209,13 @@ export function CompareServices(props: CompareServicesProps) {
   };
 
   const submit = async () => {
-    const pinned = base ?? { config, version: state.version };
+    if (!base) return; // nothing is edited, so there is nothing to save
     const saved = await saver.save(
       venueId,
       state,
-      buildCompareChanges(pinned.config, Object.values(edits)),
+      buildCompareChanges(baselineOf(base), Object.values(edits)),
       dates.length > 1 ? mode : "replace",
-      pinned.version
+      base.version
     );
     if (!saved) return;
     offerUndo({
@@ -205,10 +228,15 @@ export function CompareServices(props: CompareServicesProps) {
   };
 
   const reapply = () => {
-    const next = base ? reapplyEdits(base.config, config, Object.values(edits)) : edits;
+    const next = base ? reapplyEdits(baselineOf(base), config, Object.values(edits)) : edits;
     commitEdits(next);
     // The rows are now built on the winning version, so the next save is checked against it.
-    setBase(Object.keys(next).length > 0 ? { config, version: state.version } : null);
+    const stored = new Map(config.scheduleServices.map((s) => [s.id, s]));
+    const rows = Object.keys(next).flatMap((id) => {
+      const row = stored.get(id);
+      return row ? [[id, row] as const] : [];
+    });
+    setBase(rows.length > 0 ? { version: state.version, rows: Object.fromEntries(rows) } : null);
     saver.clearConflict();
   };
   const discard = () => {
@@ -225,8 +253,8 @@ export function CompareServices(props: CompareServicesProps) {
           replacedBy: null,
           renamedTo: null,
           added: [],
-          removed: [],
-          changed: base ? rowsChangedSince(base.config, config, Object.values(edits)) : [],
+          removed: rowsRemovedSince(config, Object.values(edits)),
+          changed: base ? rowsChangedSince(baselineOf(base), config, Object.values(edits)) : [],
         },
       }
     : null;

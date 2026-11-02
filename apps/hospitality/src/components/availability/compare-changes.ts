@@ -81,6 +81,15 @@ export function rowsChangedSince(
     .map((e) => e.scheduleName);
 }
 
+/** Names of the edited rows that no longer exist in the version that won. */
+export function rowsRemovedSince(
+  after: AvailabilityConfig,
+  edits: readonly CompareRow[]
+): string[] {
+  const now = new Set(after.scheduleServices.map((s) => s.id));
+  return edits.filter((e) => !now.has(e.scheduleServiceId)).map((e) => e.scheduleName);
+}
+
 /**
  * The Manager's edits laid on the winning version: per row, only the fields they changed from
  * `before` are applied, so a colleague's change to another field stays. Rows that no longer exist

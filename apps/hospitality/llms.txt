@@ -385,6 +385,12 @@
       ): string[] { /* ... */ }
     </item>
     <item priority="high">
+      export function rowsRemovedSince(
+        after: AvailabilityConfig,
+        edits: readonly CompareRow[]
+      ): string[] { /* ... */ }
+    </item>
+    <item priority="high">
       export function reapplyEdits(
         before: AvailabilityConfig,
         after: AvailabilityConfig,
