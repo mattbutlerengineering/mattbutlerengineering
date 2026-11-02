@@ -81,12 +81,15 @@ export function rowsChangedSince(
     .map((e) => e.scheduleName);
 }
 
-/** Names of the edited rows that no longer exist in the version that won. */
+/**
+ * Names of the edited rows that Compare no longer offers in the version that won: deleted, or
+ * their schedule archived. The same source `reapplyEdits` uses, so a row it drops is named here.
+ */
 export function rowsRemovedSince(
   after: AvailabilityConfig,
   edits: readonly CompareRow[]
 ): string[] {
-  const now = new Set(after.scheduleServices.map((s) => s.id));
+  const now = compareRowsById(after);
   return edits.filter((e) => !now.has(e.scheduleServiceId)).map((e) => e.scheduleName);
 }
 

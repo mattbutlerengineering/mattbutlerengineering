@@ -37,6 +37,26 @@ const atV5: AvailabilityConfigState = (() => {
   };
 })();
 
+/** A third schedule runs Lunch too, so Compare still lists it after one row goes. */
+const threeSchedules: AvailabilityConfigState = {
+  ...atV5,
+  config: {
+    ...atV5.config,
+    schedules: [
+      ...atV5.config.schedules,
+      { id: "x3", name: "Third", kind: "alternate", isRegular: false },
+    ],
+    scheduleServices: [
+      ...atV5.config.scheduleServices,
+      ...fixtureConfig().scheduleServices.map((r) => ({
+        ...r,
+        id: `${r.id}-x3`,
+        scheduleId: "x3",
+      })),
+    ],
+  },
+};
+
 /** A colleague moves Weekend Lunch's last seating, making v6. */
 const atV6: AvailabilityConfigState = {
   ...atV5,
@@ -184,25 +204,32 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
     expect(screen.queryByText("Loading the latest version…")).not.toBeInTheDocument();
   });
 
-  it("names an edited row a colleague removed instead of dropping it silently", async () => {
-    const three: AvailabilityConfigState = {
-      ...atV5,
+  it("names an edited row whose schedule a colleague archived", async () => {
+    const archived: AvailabilityConfigState = {
+      ...threeSchedules,
+      version: 6,
       config: {
-        ...atV5.config,
-        schedules: [
-          ...atV5.config.schedules,
-          { id: "x3", name: "Third", kind: "alternate", isRegular: false },
-        ],
-        scheduleServices: [
-          ...atV5.config.scheduleServices,
-          ...fixtureConfig().scheduleServices.map((r) => ({
-            ...r,
-            id: `${r.id}-x3`,
-            scheduleId: "x3",
-          })),
-        ],
+        ...threeSchedules.config,
+        schedules: threeSchedules.config.schedules.map((s) =>
+          s.id === "wk" ? { ...s, archivedAt: "2026-10-31T12:00:00Z" } : s
+        ),
       },
     };
+    save.mockRejectedValueOnce(conflict);
+    const { rerender } = render(ui(threeSchedules));
+    editBooking("Weekend", "Phone only");
+    await listClosed();
+    editBooking("Weeknight", "Online only");
+    await listClosed();
+    rerender(ui(archived));
+    fireEvent.click(screen.getByRole("button", { name: /^Save \d+ schedule/ }));
+
+    await screen.findByText("Someone changed these schedules first");
+    expect(screen.getByText("Removed: Weeknight")).toBeInTheDocument();
+  });
+
+  it("names an edited row a colleague removed instead of dropping it silently", async () => {
+    const three = threeSchedules;
     const gone: AvailabilityConfigState = {
       ...three,
       version: 6,

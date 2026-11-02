@@ -754,7 +754,7 @@
       after: AvailabilityConfig,
       edits: readonly CompareRow[]
     ): string[] {
-      const now = new Set(after.scheduleServices.map((s) => s.id));
+      const now = compareRowsById(after);
       return edits.filter((e) => !now.has(e.scheduleServiceId)).map((e) => e.scheduleName);
     }
     export function reapplyEdits(
