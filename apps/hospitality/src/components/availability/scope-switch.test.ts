@@ -202,6 +202,47 @@ describe("switchScope", () => {
     expect(back.unsaved).toEqual(["Dinner"]);
   });
 
+  it("holds a named equal-value edit, so the scope it was made in gets it back", () => {
+    const onDate = row("vs-dinner", "Dinner", { closesAt: 1200, lastSeatingAt: 1140 });
+    const weekly = row("vs-dinner", "Dinner", { closesAt: 1320, lastSeatingAt: 1260 });
+    const edited = { ...onDate, closesAt: 1320 };
+    const there = switchScope({
+      baseline: [onDate],
+      services: [edited],
+      parked: [],
+      seed: [weekly],
+    });
+    expect(there.overridden).toEqual(["Dinner"]);
+    const back = switchScope({
+      baseline: there.baseline,
+      services: there.services,
+      parked: there.parked,
+      seed: [onDate],
+    });
+    expect(back.services).toEqual([edited]);
+    expect(back.overridden).toEqual([]);
+    expect(back.parked).toEqual([]);
+  });
+
+  it("carries the names of held hours on to another scope that has the service", () => {
+    const newLate = row("vs-late", "Late", { opensAt: 1000 });
+    const there = switchScope({
+      baseline: regular,
+      services: [...regular, newLate],
+      parked: [],
+      seed: date,
+    });
+    expect(there.overridden).toEqual(["Late"]);
+    const onward = switchScope({
+      baseline: there.baseline,
+      services: there.services,
+      parked: there.parked,
+      seed: [dinner, late],
+    });
+    expect(onward.overridden).toEqual(["Late"]);
+    expect(onward.parked).toHaveLength(1);
+  });
+
   it("keeps a real removal: a row the Manager took out stays out", () => {
     const out = switchScope({
       baseline: regular,

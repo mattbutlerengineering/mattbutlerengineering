@@ -1079,6 +1079,15 @@
         baseline: readonly DraftService[]
       ): ParkedEdit[] { /* ... */ }
     </item>
+    <item priority="medium">
+      function untouched(p: ParkedEdit, input: SwitchInput) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function restorable(p: ParkedEdit, seed: readonly DraftService[]) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function restoreHolds(input: SwitchInput, restored: readonly ParkedEdit[]) { /* ... */ }
+    </item>
     <item priority="high">
       export function switchScope(input: SwitchInput): Switched { /* ... */ }
     </item>
