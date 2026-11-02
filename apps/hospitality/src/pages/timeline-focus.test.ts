@@ -149,6 +149,20 @@ describe("useCloseHoldingFocus", () => {
     expect(document.activeElement).toBe(inDialog);
   });
 
+  it("gives focus back to an alertdialog on top, after the closing overlay's restore frame", async () => {
+    const trigger = append("button");
+    const alertDialog = append("div", { role: "alertdialog", "aria-modal": "true" });
+    const inDialog = append("button", {}, alertDialog);
+    inDialog.focus();
+    const { result } = closer(() => requestAnimationFrame(() => trigger.focus()));
+
+    act(() => result.current());
+    await nextFrame();
+    await nextFrame();
+
+    expect(document.activeElement).toBe(inDialog);
+  });
+
   it("leaves the restore alone when what held focus went with the overlay", async () => {
     const trigger = append("button");
     const overlay = openModal();

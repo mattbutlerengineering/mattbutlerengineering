@@ -421,6 +421,9 @@
       export const CreateClosuresBodySchema: unknown;
     </item>
     <item priority="high">
+      export const ReopenSeenSchema: unknown;
+    </item>
+    <item priority="high">
       export const ReopenClosureBodySchema: unknown;
     </item>
     <item priority="high">
@@ -482,6 +485,9 @@
     </item>
     <item priority="low">
       type ReopenClosureBody = z.infer<typeof ReopenClosureBodySchema>;
+    </item>
+    <item priority="low">
+      type ReopenSeen = z.infer<typeof ReopenSeenSchema>;
     </item>
     <item priority="low">
       type ClosureResult = z.infer<typeof ClosureResultSchema>;

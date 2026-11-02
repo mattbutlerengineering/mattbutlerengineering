@@ -318,7 +318,9 @@ function tabbables(panel: HTMLElement): HTMLElement[] {
 /** A dialog that is not one of these shell overlays (gallery, shortcuts, palette). */
 function otherModalOpen(): boolean {
   return Array.from(
-    document.querySelectorAll<HTMLElement>("[role='dialog'][aria-modal='true']")
+    document.querySelectorAll<HTMLElement>(
+      "[role='dialog'][aria-modal='true'], [role='alertdialog'][aria-modal='true']"
+    )
   ).some((el) => el.dataset.shellOverlay === undefined);
 }
 

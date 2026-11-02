@@ -366,7 +366,7 @@ describe("SpecialDatesTab", () => {
 
     const removeHours = () => {
       fireEvent.click(screen.getByRole("button", { name: "Remove special hours for Thu, Dec 31" }));
-      const dialog = screen.getByRole("dialog");
+      const dialog = screen.getByRole("alertdialog");
       fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
     };
 
@@ -477,7 +477,7 @@ describe("SpecialDatesTab", () => {
         fireEvent.click(
           screen.getByRole("button", { name: "Remove special hours for Sun, Dec 20 to Fri, Jan 1" })
         );
-        const dialog = screen.getByRole("dialog");
+        const dialog = screen.getByRole("alertdialog");
         expect(
           within(dialog).getByText("Remove special hours for Sun, Dec 20 to Fri, Jan 1?")
         ).toBeTruthy();
@@ -515,7 +515,7 @@ describe("SpecialDatesTab", () => {
         ).toBeTruthy();
 
         fireEvent.click(screen.getByRole("button", { name: "Remove special hours every Friday" }));
-        const dialog = screen.getByRole("dialog");
+        const dialog = screen.getByRole("alertdialog");
         expect(within(dialog).getByText("Remove special hours every Friday?")).toBeTruthy();
         fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
 
@@ -895,6 +895,7 @@ describe("SpecialDatesTab", () => {
             venueId: "venue-1",
             ruleId: "edit-1",
             tellCancelledGuests: false,
+            seen: { rule: expect.objectContaining({ id: "edit-1" }), children: [] },
           })
         );
       });
@@ -1331,8 +1332,29 @@ describe("SpecialDatesTab", () => {
         venueId: "venue-1",
         ruleId: "xmas",
         tellCancelledGuests: true,
+        seen: { rule: expect.objectContaining({ id: "xmas" }), children: [] },
       })
     );
+  });
+
+  it("closes the dialog with the refresh notice when the closure changed since it was read (#8121)", async () => {
+    reopen.mockRejectedValueOnce({
+      problemDetails: {
+        type: "about:blank",
+        title: "Conflict",
+        status: 409,
+        detail: "Availability changed since you loaded it.",
+        code: "version-conflict",
+        winningChange: null,
+      },
+    });
+    renderTab();
+    fireEvent.click(screen.getByRole("button", { name: "Remove closure for Thu, Dec 24" }));
+
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Reopen" }));
+
+    expect(await screen.findByText(/A teammate changed this closure/)).toBeTruthy();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
   describe("a date another closure also closes (#8006)", () => {

@@ -40,7 +40,6 @@ export const frCA: RialtoMessages = {
   closeMenu: "Fermer le menu",
   scrollableContent: "Contenu défilable",
   loadingContent: "Chargement du contenu",
-  uploadImage: "Téléverser une image",
   uploadedImage: "Image téléversée",
   uploadProgress: "Progression du téléversement",
   uploadComplete: "Téléversement terminé",

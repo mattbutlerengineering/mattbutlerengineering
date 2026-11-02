@@ -824,7 +824,7 @@ describe("CloseDialog", () => {
 
         fireEvent.keyDown(document, { key: "Escape" });
 
-        expect(screen.queryByRole("dialog", { name: /Discard|Leave/ })).toBeNull();
+        expect(screen.queryByRole("alertdialog", { name: /Discard|Leave/ })).toBeNull();
         expect(onClose).toHaveBeenCalledTimes(1);
         expect(refresh).toHaveBeenCalled();
       });
@@ -913,7 +913,7 @@ describe("CloseDialog", () => {
 
         fireEvent.keyDown(document, { key: "Escape" });
 
-        const ask = screen.getByRole("dialog", { name: "Discard this closure?" });
+        const ask = screen.getByRole("alertdialog", { name: "Discard this closure?" });
         expect(within(ask).getByText(/Nothing has been closed/)).toBeTruthy();
       });
 
@@ -929,7 +929,7 @@ describe("CloseDialog", () => {
 
         fireEvent.keyDown(document, { key: "Escape" });
 
-        const ask = screen.getByRole("dialog", { name: "Leave this closure?" });
+        const ask = screen.getByRole("alertdialog", { name: "Leave this closure?" });
         expect(within(ask).getByText(/may have gone through/)).toBeTruthy();
       });
 
@@ -945,7 +945,7 @@ describe("CloseDialog", () => {
         fireEvent.keyDown(document, { key: "Escape" });
 
         expect(screen.queryByText("Nothing has been closed.", { exact: false })).toBeNull();
-        const ask = screen.getByRole("dialog", { name: "Leave this closure?" });
+        const ask = screen.getByRole("alertdialog", { name: "Leave this closure?" });
         expect(within(ask).getByText(/may have gone through/)).toBeTruthy();
         expect(onClose).not.toHaveBeenCalled();
         fireEvent.click(within(ask).getByRole("button", { name: "Leave" }));
@@ -963,7 +963,7 @@ describe("CloseDialog", () => {
 
         fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
 
-        expect(screen.getByRole("dialog", { name: "Leave this closure?" })).toBeTruthy();
+        expect(screen.getByRole("alertdialog", { name: "Leave this closure?" })).toBeTruthy();
         expect(onClose).not.toHaveBeenCalled();
       });
 
@@ -1034,16 +1034,19 @@ describe("CloseDialog", () => {
       fireEvent.keyDown(document, { key: "Escape" });
 
       expect(onClose).not.toHaveBeenCalled();
-      const ask = screen.getByRole("dialog", { name: "Discard this closure?" });
+      const ask = screen.getByRole("alertdialog", { name: "Discard this closure?" });
       fireEvent.click(within(ask).getByRole("button", { name: "Keep editing" }));
       expect(onClose).not.toHaveBeenCalled();
       expect(screen.getByRole("dialog", { name: "Close" })).toBeTruthy();
 
       fireEvent.keyDown(document, { key: "Escape" });
       fireEvent.click(
-        within(screen.getByRole("dialog", { name: "Discard this closure?" })).getByRole("button", {
-          name: "Discard",
-        })
+        within(screen.getByRole("alertdialog", { name: "Discard this closure?" })).getByRole(
+          "button",
+          {
+            name: "Discard",
+          }
+        )
       );
       expect(onClose).toHaveBeenCalledTimes(1);
     });
@@ -1074,12 +1077,12 @@ describe("CloseDialog", () => {
       });
 
       fireEvent.click(dialog.parentElement!);
-      expect(screen.getByRole("dialog", { name: "Discard this closure?" })).toBeTruthy();
+      expect(screen.getByRole("alertdialog", { name: "Discard this closure?" })).toBeTruthy();
       expect(onClose).not.toHaveBeenCalled();
       fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
 
       fireEvent.click(within(dialog).getByRole("button", { name: "Close dialog" }));
-      expect(screen.getByRole("dialog", { name: "Discard this closure?" })).toBeTruthy();
+      expect(screen.getByRole("alertdialog", { name: "Discard this closure?" })).toBeTruthy();
       expect(onClose).not.toHaveBeenCalled();
     });
 

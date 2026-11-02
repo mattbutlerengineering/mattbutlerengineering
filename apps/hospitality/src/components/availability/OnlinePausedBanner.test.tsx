@@ -150,6 +150,7 @@ describe("OnlinePausedBanner for a pause waiting for its time (#8032)", () => {
         venueId: "venue-1",
         ruleId: "pause-1",
         tellCancelledGuests: false,
+        seen: { rule: expect.objectContaining({ id: "pause-1" }), children: [] },
       })
     );
     expect(await screen.findByText("Online booking pause removed")).toBeTruthy();

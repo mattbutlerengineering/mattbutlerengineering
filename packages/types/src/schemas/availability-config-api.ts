@@ -180,6 +180,12 @@ export const AvailabilityChangesPageSchema = z.object({
   offset: z.number().int(),
   /** Newest first. */
   items: z.array(AvailabilityChangeEntrySchema),
+  /**
+   * The change Undo is offered on now: the newest still in force, when it told no guest; `null`
+   * when there is none. Independent of the filters, `limit` and `offset`, so a one-row page can
+   * still name it. Absent from an older API, whose caller falls back to the page's `revertible`.
+   */
+  undoable: AvailabilityChangeSummarySchema.nullish(),
 });
 
 /** `POST …/availability/changes/:changeId/revert`: the version the client read, for the compare-and-set. */
@@ -583,8 +589,24 @@ export const CreateClosuresBodySchema = z.object({
     .max(MAX_CLOSURE_BATCH),
 });
 
-/** `DELETE …/closures/:ruleId`. */
-export const ReopenClosureBodySchema = z.object({ tellCancelledGuests: z.boolean() });
+/**
+ * What the caller saw of the rule it reopens: the rule and the rows that go with it (its skips and
+ * one-date edits, which have `seriesId` = the rule's id). A reopen deletes all of them.
+ */
+export const ReopenSeenSchema = z.object({
+  rule: DateRuleSchema,
+  children: z.array(DateRuleSchema),
+});
+
+/**
+ * `DELETE …/closures/:ruleId`. `seen` is optional: with it, a reopen whose rule (or whose skips and
+ * one-date edits) changed since the caller read it is refused as `version-conflict`; without it
+ * (an older client, the agent) the reopen acts on the rule as it is now.
+ */
+export const ReopenClosureBodySchema = z.object({
+  tellCancelledGuests: z.boolean(),
+  seen: ReopenSeenSchema.optional(),
+});
 
 export const ClosureOutcomeCountsSchema = z.object({
   cancel: z.number().int(),
@@ -754,6 +776,7 @@ export type TonightResult = z.infer<typeof TonightResultSchema>;
 export type ClosureDecision = z.infer<typeof ClosureDecisionSchema>;
 export type CreateClosureBody = z.infer<typeof CreateClosureBodySchema>;
 export type ReopenClosureBody = z.infer<typeof ReopenClosureBodySchema>;
+export type ReopenSeen = z.infer<typeof ReopenSeenSchema>;
 export type ClosureResult = z.infer<typeof ClosureResultSchema>;
 export type CreateClosuresBody = z.infer<typeof CreateClosuresBodySchema>;
 export type ClosuresResult = z.infer<typeof ClosuresResultSchema>;

@@ -26,6 +26,7 @@ import type {
   CreateClosuresBodySchema,
   DateRule,
   ReopenResult,
+  ReopenSeen,
   SetTonightBodySchema,
   TonightResult,
   AvailabilityCheckBody,
@@ -299,18 +300,23 @@ export class AvailabilityClient {
     return response.data;
   }
 
-  /** Reopens a closure; guests it cancelled stay cancelled. */
+  /**
+   * Reopens a closure; guests it cancelled stay cancelled. `seen` is the rule and its skips and
+   * one-date edits as this caller read them: if they differ now the server answers 409
+   * `version-conflict` and changes nothing. Without it the rule is reopened as it is.
+   */
   async reopenClosure(
     venueId: string,
     ruleId: string,
     tellCancelledGuests: boolean,
-    override?: PerRequestOptions
+    override?: PerRequestOptions,
+    seen?: ReopenSeen
   ): Promise<ReopenResult> {
     const response = await this.client.call(
       availabilityConfigEndpoints.reopenClosure,
       {
         params: { id: venueId, ruleId },
-        body: { tellCancelledGuests },
+        body: { tellCancelledGuests, ...(seen ? { seen } : {}) },
       },
       override
     );

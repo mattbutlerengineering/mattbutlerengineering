@@ -92,6 +92,11 @@
       ): Promise<{ change: TonightChange } | { error: string }> { /* ... */ }
     </item>
     <item priority="medium">
+      function undoableOf(
+        page: AvailabilityChangesPage
+      ): { id: string; summary: string; at: string } | null { /* ... */ }
+    </item>
+    <item priority="medium">
       function availabilityWriteFailure(err: unknown, action: string, unsure: string | undefined) { /* ... */ }
     </item>
     <item priority="high">

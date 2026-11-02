@@ -240,6 +240,16 @@ describe("isCoveredByDialog (#8029)", () => {
     expect(isCoveredByDialog(screen.getByText("control"))).toBe(false);
   });
 
+  it("is true for a control under an open alertdialog (a destructive confirm)", () => {
+    render(
+      <>
+        <button>control</button>
+        <div role="alertdialog" aria-modal="true" />
+      </>
+    );
+    expect(isCoveredByDialog(screen.getByText("control"))).toBe(true);
+  });
+
   it("is false for a control inside the only modal", () => {
     render(modal(<button>control</button>));
     expect(isCoveredByDialog(screen.getByText("control"))).toBe(false);

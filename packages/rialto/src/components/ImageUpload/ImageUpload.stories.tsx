@@ -28,6 +28,19 @@ export const WithProgress: Story = {
   },
 };
 
+export const WithLabelAndError: Story = {
+  args: {
+    onChange: () => {},
+    label: "Logo",
+    error: "Too big",
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("button", { name: "Add image Logo" })).toBeInTheDocument();
+    await expect(canvas.getByRole("alert")).toHaveTextContent("Too big");
+  },
+};
+
 export const WithExistingImage: Story = {
   args: {
     value: "https://placehold.co/400x300/f8f6f3/1a1918?text=Preview",

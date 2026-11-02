@@ -580,7 +580,7 @@ describe("AddSpecialDatesSheet", () => {
       fireEvent.click(screen.getByRole("button", { name: "Back" }));
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
-      const ask = screen.getByRole("dialog", { name: "Leave this closure?" });
+      const ask = screen.getByRole("alertdialog", { name: "Leave this closure?" });
       expect(onClose).not.toHaveBeenCalled();
       fireEvent.click(within(ask).getByRole("button", { name: "Leave" }));
       expect(onClose).toHaveBeenCalledTimes(1);

@@ -151,7 +151,7 @@ const CASES: readonly Case[] = [
   {
     name: "ImageUpload empty",
     ui: () => <ImageUpload />,
-    checks: [["button", "Upload image", esMX.uploadImage]],
+    checks: [["button", "Add image", esMX.addImage]],
   },
   {
     name: "ImageUpload uploading",
@@ -237,7 +237,7 @@ describe("navigation and data components localize their built-in text (ADR-028)"
     );
     expect(screen.getByRole("navigation", { name: "Site" })).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Find")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Logo" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: `${esMX.addImage} Logo` })).toBeInTheDocument();
   });
 
   it("en-GB reuses en-US wording and fr-CA defines every key", () => {

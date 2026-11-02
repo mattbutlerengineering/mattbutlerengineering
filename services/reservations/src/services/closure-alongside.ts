@@ -1,4 +1,4 @@
-import type { ClosureAlongside, DateRule } from "@mbe/types";
+import type { ClosureAlongside, DateRule, ReopenSeen } from "@mbe/types";
 
 /**
  * What a series edit may write beside its closure (`alongside`). The closure's own scan covers
@@ -15,11 +15,18 @@ export interface AlongsideIssue {
 }
 
 /**
- * The free-text fields a row may leave out. The route's Ajv coerces a `null` here to `""` (its
+ * The string fields a row may leave out. The route's Ajv coerces a `null` here to `""` (its
  * schema is a string-then-null `anyOf`), so a stored row with no message (`null`) and the same row
- * after a round trip through the request (`""`) must read as one.
+ * after a round trip through the request (`""`) must read as one. None of them is ever a real `""`.
  */
-const OPTIONAL_TEXT = new Set(["guestMessage", "staffNote"]);
+const OPTIONAL_TEXT = new Set([
+  "guestMessage",
+  "staffNote",
+  "venueServiceId",
+  "seriesId",
+  "endsOn",
+  "expiresAt",
+]);
 
 /**
  * Drops null, undefined, empty lists and empty optional text, and orders keys, so two spellings of
@@ -92,6 +99,27 @@ export function seriesChangedSinceRead(
   if (alongside.replaces) return !same(alongside.replaces, series);
   const { id, startsOn, endsOn, repeat } = series;
   return !same({ ...draft, id, startsOn, endsOn, repeat }, series);
+}
+
+/**
+ * Whether the rule a reopen names, or the skips and one-date edits that go with it (the rows with
+ * its id as `seriesId`, which the reopen also deletes), differ from what the caller saw. Only this
+ * rule's rows count: a save to anything else leaves the reopen valid.
+ */
+export function ruleChangedSinceSeen(
+  stored: readonly DateRule[],
+  ruleId: string,
+  seen: ReopenSeen
+): boolean {
+  const rule = stored.find((r) => r.id === ruleId);
+  if (!rule || !same(seen.rule, rule)) return true;
+  const children = stored.filter((r) => r.seriesId === ruleId);
+  if (children.length !== seen.children.length) return true;
+  const seenById = new Map(seen.children.map((c) => [c.id, c]));
+  return children.some((c) => {
+    const was = seenById.get(c.id);
+    return !was || !same(was, c);
+  });
 }
 
 /** Null when `alongside` is a series edit of one stored series for `draft`; else the first issue. */

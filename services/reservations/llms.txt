@@ -2830,6 +2830,13 @@
       ): boolean { /* ... */ }
     </item>
     <item priority="high">
+      export function ruleChangedSinceSeen(
+        stored: readonly DateRule[],
+        ruleId: string,
+        seen: ReopenSeen
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
       export function checkAlongside(
         stored: readonly DateRule[],
         draft: DateRule,
@@ -3177,6 +3184,7 @@
           caller: ClosureCaller;
           tellCancelledGuests: boolean;
           now: Date;
+          seen?: ReopenSeen | undefined;
         },
         client: StoreClient = prisma
       ): Promise<ReopenOutcome> { /* ... */ }
@@ -5349,6 +5357,17 @@
           now: Date;
         },
         client: StoreClient = prisma
+      ): Promise<EndTonightOutcome> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function endTonightIn(
+        client: StoreClient,
+        input: {
+          venueId: string;
+          ruleId: string;
+          caller: Pick<ClosureCaller, "actorId" | "actorName">;
+          now: Date;
+        }
       ): Promise<EndTonightOutcome> { /* ... */ }
     </item>
     <item priority="high">

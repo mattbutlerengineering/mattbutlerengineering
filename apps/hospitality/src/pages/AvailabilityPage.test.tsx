@@ -480,7 +480,9 @@ describe("AvailabilityPage", () => {
       fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
       // No discard prompt: the only thing left is the drawer leaving.
-      expect(screen.queryByRole("dialog", { name: /Discard changes/ })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("alertdialog", { name: /Discard changes/ })
+      ).not.toBeInTheDocument();
       await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     });
 
@@ -489,7 +491,7 @@ describe("AvailabilityPage", () => {
       startDraft();
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
       expect(
-        screen.getByRole("dialog", { name: /Discard changes to Friday, October 30\?/ })
+        screen.getByRole("alertdialog", { name: /Discard changes to Friday, October 30\?/ })
       ).toBeTruthy();
       fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
       expect(screen.getByRole("button", { name: "Save 1 date" })).toBeInTheDocument();
@@ -501,6 +503,7 @@ describe("AvailabilityPage", () => {
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
       fireEvent.click(screen.getByRole("button", { name: "Discard" }));
       await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
       expect(container.querySelector("[data-draft-dot]")).toBeNull();
     });
 
@@ -509,7 +512,7 @@ describe("AvailabilityPage", () => {
       startDraft();
       fireEvent.click(screen.getByRole("button", { name: /Thursday, October 29/ }));
       expect(
-        screen.getByRole("dialog", { name: /Discard changes to Friday, October 30\?/ })
+        screen.getByRole("alertdialog", { name: /Discard changes to Friday, October 30\?/ })
       ).toBeTruthy();
       fireEvent.click(screen.getByRole("button", { name: "Discard" }));
       expect(screen.getByRole("dialog", { name: /Thursday, October 29/ })).toBeTruthy();
@@ -549,7 +552,7 @@ describe("AvailabilityPage", () => {
       startDraft();
       closeFromDrawer();
       expect(
-        screen.getByRole("dialog", { name: /Discard changes to Friday, October 30\?/ })
+        screen.getByRole("alertdialog", { name: /Discard changes to Friday, October 30\?/ })
       ).toBeTruthy();
       expect(screen.queryByRole("dialog", { name: "Close" })).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
@@ -768,7 +771,7 @@ describe("AvailabilityPage", () => {
         expect(container.querySelectorAll("[data-draft-dot]")).toHaveLength(2);
         fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
         expect(
-          screen.getByRole("dialog", { name: "Discard changes to the 2 selected dates?" })
+          screen.getByRole("alertdialog", { name: "Discard changes to the 2 selected dates?" })
         ).toBeInTheDocument();
       });
     });
@@ -928,7 +931,7 @@ describe("AvailabilityPage", () => {
       pick(/Thursday, October 29/);
       fireEvent.click(screen.getByRole("button", { name: "Edit hours" }));
       expect(
-        screen.getByRole("dialog", { name: /Discard changes to Friday, October 30\?/ })
+        screen.getByRole("alertdialog", { name: /Discard changes to Friday, October 30\?/ })
       ).toBeTruthy();
       // The draft is still the open one until the Manager answers.
       expect(drawerProps).toHaveBeenLastCalledWith(expect.objectContaining({ date: "2026-10-30" }));

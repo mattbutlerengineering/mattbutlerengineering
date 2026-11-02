@@ -11,6 +11,7 @@ import type {
   CreateClosuresBody,
   DateRule,
   ReopenResult,
+  ReopenSeen,
   StrandedReservation,
 } from "@mbe/types";
 import { STRANDED_ISSUE_DETAIL_MAX } from "@mbe/types";
@@ -39,7 +40,11 @@ import {
   isEmergencyTonightClose,
   moveTarget,
 } from "./closure-command-plan.js";
-import { checkAlongside, seriesChangedSinceRead } from "./closure-alongside.js";
+import {
+  checkAlongside,
+  ruleChangedSinceSeen,
+  seriesChangedSinceRead,
+} from "./closure-alongside.js";
 import { withAlongside, withClosure } from "./closure-impact.js";
 import { impactInTransaction } from "./closure-impact-store.js";
 import { prisma } from "./database.js";
@@ -612,7 +617,7 @@ export type ReopenOutcome =
   | { kind: "reopened"; result: ReopenResult }
   | { kind: "not_found" }
   | { kind: "forbidden" }
-  | Extract<Refusal, { kind: "invalid" }>;
+  | Extract<Refusal, { kind: "invalid" | "version_conflict" }>;
 
 /**
  * Removing a one-date edit hands its date back to the series, which can close a day the edit kept
@@ -659,6 +664,16 @@ function upcomingCancelled(db: Db, venueId: string, ruleId: string, now: Date): 
  * Removes the rule (a soft delete through the same writer, with its inverse),
  * so the slots return. Guests the closure cancelled stay cancelled. Whether
  * to tell them is recorded on the audit row for the reopen notice (#7523).
+ *
+ * There is no venue-wide `expectedVersion` (#8121): an unrelated save since the caller's read must
+ * not stop a reopen, and a Host ending a closure in service cannot be refused for one. What
+ * matters is whether THIS rule changed: a teammate who extended it, or added a skip or one-date
+ * edit, would lose that work to a reopen from the older view (the rule and its children are
+ * deleted together), and a reopen that told guests cannot be undone. So a caller may send `seen`,
+ * the rule and its children as it read them, and a difference is refused as a version conflict,
+ * under the venue lock, changing nothing. A caller that sends none (an older client, the agent)
+ * reopens the rule as it is now. The venue lock is taken before the state is read either way, so
+ * the diff and the inverse are exact against the current state.
  */
 export async function reopenClosure(
   input: {
@@ -667,6 +682,7 @@ export async function reopenClosure(
     caller: ClosureCaller;
     tellCancelledGuests: boolean;
     now: Date;
+    seen?: ReopenSeen | undefined;
   },
   client: StoreClient = prisma
 ): Promise<ReopenOutcome> {
@@ -690,6 +706,11 @@ export async function reopenClosure(
       }
       await guard(db, { venueId, caller, rule, now });
       if (!caller.isManager) await requireAuthor(db, venueId, ruleId, caller.actorId);
+      if (input.seen && ruleChangedSinceSeen(state.stored.dateRules, ruleId, input.seen)) {
+        // The venue is on the version before this transaction's own bump, which is rolled back.
+        const current = bumped.availabilityVersion - 1;
+        throw new Refused((await refuseSeriesChanged(db, venueId, current)) as Refusal);
+      }
 
       const next = {
         ...state.stored,

@@ -271,6 +271,11 @@ export const availabilityConfigEndpoints = {
       401: authRequired,
       403: notClosureCaller,
       404: problem("Venue or closure not found"),
+      409: {
+        description:
+          "`version-conflict`: the body's `seen` rule (or its skips and one-date edits) differs from the stored one, so it changed since the caller read it. Nothing is changed; `winningChange` names the latest change. Only possible when `seen` is sent",
+        body: AvailabilityConfigProblemSchema,
+      },
       422: {
         description:
           "`invalid-config` with a `strands_booking` issue per booking: removing a one-date edit hands its date back to the series, which would leave these bookings without service. Each issue carries its `reservation` (guest, date, time, party) for the first 50; the issue count is the true count. Nothing is changed",

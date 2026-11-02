@@ -135,6 +135,7 @@ export const generatedSchemas = {
     title: z.string().max(60).optional(),
     description: z.string().max(120).optional(),
     footer: z.string().optional(),
+    role: z.enum(["alertdialog", "dialog"]).optional(),
   }),
   Divider: z.object({
     orientation: z.enum(["horizontal", "vertical"]).optional(),

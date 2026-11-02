@@ -231,7 +231,7 @@ describe("SeriesEditDialog after someone else's change (#7978)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
-    expect(screen.getByRole("dialog", { name: "Leave this closure?" })).toBeTruthy();
+    expect(screen.getByRole("alertdialog", { name: "Leave this closure?" })).toBeTruthy();
     expect(onClose).not.toHaveBeenCalled();
   });
 
@@ -389,7 +389,7 @@ describe("SeriesEditDialog after someone else's change (#7978)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
-    expect(screen.queryByRole("dialog", { name: "Leave this closure?" })).toBeNull();
+    expect(screen.queryByRole("alertdialog", { name: "Leave this closure?" })).toBeNull();
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
