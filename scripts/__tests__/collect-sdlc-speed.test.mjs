@@ -84,6 +84,14 @@ describe("normalizers", () => {
     expect(normalizePull(pull({ labels, head: { ref: "metrics/learning-loop" } }))).toBeNull();
     expect(normalizePull(pull({ head: { ref: "metrics/learning-loop" } }))).toBeNull();
   });
+  it("keeps dependabot and github-actions PRs in their own classes", () => {
+    expect(
+      normalizePull(pull({ user: { login: "dependabot[bot]" }, head: { ref: "dependabot/npm/x" } }))
+    ).toMatchObject({ authorClass: "dependabot" });
+    expect(
+      normalizePull(pull({ user: { login: "github-actions[bot]" }, head: { ref: "foo" } }))
+    ).toMatchObject({ authorClass: "github-actions" });
+  });
 });
 
 describe("mergedWithin", () => {

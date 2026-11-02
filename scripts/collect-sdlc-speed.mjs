@@ -70,20 +70,21 @@ export function normalizePull(item) {
   const mergedAt = item?.merged_at;
   if (!mergedAt || !item.created_at) return null;
   const labels = (item.labels ?? []).map((l) => l.name);
+  const headRefName = item.head?.ref;
+  const authorClass = classifyAuthor({ author: item.user?.login, labels, headRefName });
   // Bookkeeping PRs (metrics/ etc.) sit open for hours by design; counting them as
-  // "human" inflated the human p90 (#8068).
-  if (isBookkeepingPr({ author: item.user?.login, labels, headRefName: item.head?.ref })) {
+  // "human" inflated the human p90 (#8068). Bot classes keep their own buckets.
+  if (
+    authorClass === "human" &&
+    isBookkeepingPr({ author: item.user?.login, labels, headRefName })
+  ) {
     return null;
   }
   const minutes = minutesBetween(item.created_at, mergedAt);
   if (!Number.isFinite(minutes)) return null;
   return {
     number: item.number,
-    authorClass: classifyAuthor({
-      author: item.user?.login,
-      labels,
-      headRefName: item.head?.ref,
-    }),
+    authorClass,
     openToMergeMin: round1(minutes),
   };
 }
