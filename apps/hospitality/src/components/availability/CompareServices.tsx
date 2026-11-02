@@ -20,7 +20,8 @@ import {
   type CompareRow,
 } from "./compare-changes.js";
 import { DiscardChangesDialog } from "./DiscardChangesDialog.js";
-import { ownChangeDates, scopeDates } from "./scope-dates.js";
+import { DraftPreview } from "./DraftPreview.js";
+import { ownChangeDates, scheduleReach, scopeDates } from "./scope-dates.js";
 import {
   BlockedReason,
   ConflictReviewPanel,
@@ -173,7 +174,25 @@ export function CompareServices(props: CompareServicesProps) {
     return [...new Set(all)];
   }, [changed, config, timezone, today]);
   const own = useMemo(() => ownChangeDates(config, dates, null), [config, dates]);
+  // What the preview reaches: the same dates plus any a use_schedule rule sends to these schedules.
+  const reach = useMemo(() => {
+    const ids = [...new Set(changed.map((r) => r.scheduleId))];
+    const all = ids.flatMap((scheduleId) => scheduleReach(scheduleId, { config, timezone, today }));
+    return [...new Set(all)].sort();
+  }, [changed, config, timezone, today]);
   const scheduleCount = new Set(changed.map((r) => r.scheduleId)).size;
+  // Built the way the save builds it, from the rows the edits were made against, so the preview
+  // shows what Save would send. A lost race has its own review panel, and nothing to preview.
+  const previewChanges = useMemo(
+    () =>
+      base && changed.length > 0 && !saver.conflicted
+        ? buildCompareChanges(
+            { ...config, scheduleServices: Object.values(base.rows) },
+            Object.values(edits)
+          )
+        : null,
+    [base, changed.length, saver.conflicted, config, edits]
+  );
 
   const commitEdits = (next: Readonly<Record<string, CompareRow>>) => {
     setEdits(next);
@@ -397,6 +416,17 @@ export function CompareServices(props: CompareServicesProps) {
           {t("availabilitySchedules.compare.save", { count: scheduleCount })}
         </Button>
       </div>
+      {/* Below Save, so the button does not move as the preview loads and grows. */}
+      <DraftPreview
+        venueId={venueId}
+        changes={previewChanges}
+        scopeConflicts={dates.length > 1 ? mode : "replace"}
+        dates={reach}
+        scope={{ from: today }}
+        baseVersion={base?.version ?? state.version}
+        held={held}
+        idle={saver.conflicted ? "conflict" : "untouched"}
+      />
     </Stack>
   );
 }

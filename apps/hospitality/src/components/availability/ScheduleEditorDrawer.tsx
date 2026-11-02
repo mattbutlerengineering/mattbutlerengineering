@@ -13,7 +13,7 @@ import {
   scheduleSaveBlock,
   type Winner,
 } from "./schedule-changes.js";
-import { ownChangeDates, scopeDates } from "./scope-dates.js";
+import { ownChangeDates, scheduleReach, scopeDates } from "./scope-dates.js";
 import {
   BlockedReason,
   ConflictReviewPanel,
@@ -23,6 +23,7 @@ import {
   ScheduleDraftGuard,
   WeekdayToggles,
 } from "./ScheduleFormParts.js";
+import { DraftPreview, previewIds } from "./DraftPreview.js";
 import { ServicesEditor } from "./ServicesEditor.js";
 import { useConflictReview } from "./use-conflict-review.js";
 import { useDiscardGuard } from "./use-discard-guard.js";
@@ -121,6 +122,14 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
     [editing, sourceScheduleId, config, timezone, today, useOn]
   );
   const own = useMemo(() => ownChangeDates(config, dates, null), [config, dates]);
+  // What the preview reaches: the schedule's week plus the dates a use_schedule rule sends to it.
+  const reach = useMemo(
+    () =>
+      editing && sourceScheduleId
+        ? scheduleReach(sourceScheduleId, { config, timezone, today })
+        : [],
+    [editing, sourceScheduleId, config, timezone, today]
+  );
   const overlaps = useMemo(
     () => (editing ? [] : overlappingSchedules(config, useOn).map((s) => s.name)),
     [editing, config, useOn]
@@ -135,6 +144,31 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
     endsOn,
   });
   const blockedId = useId();
+  const previewChanges = useMemo(() => {
+    if (block !== null || !dirty) return null;
+    const makeId = previewIds();
+    return editing && sourceScheduleId
+      ? buildEditScheduleChanges({
+          config,
+          scheduleId: sourceScheduleId,
+          name: trimmed,
+          services,
+          makeId,
+          baseline: review.baseline,
+        })
+      : buildNewScheduleChanges({ config, name: trimmed, services, useOn, winner, makeId });
+  }, [
+    block,
+    dirty,
+    editing,
+    sourceScheduleId,
+    config,
+    trimmed,
+    services,
+    review.baseline,
+    useOn,
+    winner,
+  ]);
 
   const submit = async () => {
     const makeId = () => crypto.randomUUID();
@@ -264,6 +298,15 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
             count={dates.length > 1 ? own.length : 0}
             value={conflictMode}
             onChange={setConflictMode}
+          />
+          <DraftPreview
+            venueId={venueId}
+            changes={previewChanges}
+            scopeConflicts={dates.length > 1 ? conflictMode : "replace"}
+            dates={editing && sourceScheduleId ? reach : dates}
+            scope={editing ? { from: today } : undefined}
+            baseVersion={review.baselineVersion}
+            idle={block === "conflict" ? "conflict" : dirty ? "fields" : "untouched"}
           />
         </Stack>
       </Drawer>

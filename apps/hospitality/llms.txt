@@ -1075,6 +1075,9 @@
       export function scopeDates(scope: EditScope, context: ScopeContext): string[] { /* ... */ }
     </item>
     <item priority="high">
+      export function scheduleReach(scheduleId: string, context: ScopeContext): string[] { /* ... */ }
+    </item>
+    <item priority="high">
       export function coversDate(rule: DateRule, date: string): boolean { /* ... */ }
     </item>
     <item priority="high">
@@ -3003,7 +3006,13 @@
     <item priority="high">
       export function useAvailabilityPreview(
         venueId: string,
-        body: PreviewAvailabilityBody | null
+        body: PreviewAvailabilityBody | null,
+        /**
+         * The config version the draft is built on. It is part of the request's identity: the same body
+         * over a different base is a different question, so a reload that moves the base asks again
+         * rather than replaying an answer cached for the old one.
+         */
+        baseVersion?: number
       ): AvailabilityPreviewState { /* ... */ }
     </item>
   </file>
