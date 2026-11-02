@@ -87,6 +87,79 @@ export const AutocompleteInDialog: Story = {
   },
 };
 
+/**
+ * A field inside a short, clipping, transformed box. `transform` makes the box
+ * the containing block of any `position: fixed` descendant and `overflow:
+ * hidden` clips whatever is in it, so only a list that is portalled out to the
+ * dialog layer AND fixed-positioned stays visible. Dropping either half of
+ * `.floating` / `createPortal(listbox, dialogLayer)` leaves the list clipped.
+ */
+function ClippingTrap({ children }: { children: React.ReactNode }) {
+  return (
+    <Host>
+      <div style={{ transform: "translateZ(0)", overflow: "hidden", height: 80 }}>{children}</div>
+    </Host>
+  );
+}
+
+async function expectLastOptionPainted() {
+  const options = await within(document.body).findAllByRole("option");
+  await waitFor(() => expect(isPainted(options[options.length - 1]!)).toBe(true));
+}
+
+async function expectListboxFixed() {
+  const listbox = await within(document.body).findByRole("listbox");
+  expect(getComputedStyle(listbox).position).toBe("fixed");
+}
+
+export const ComboboxEscapesClippingAncestor: Story = {
+  render: () => (
+    <ClippingTrap>
+      <Combobox label="Fruit" options={fruits} />
+    </ClippingTrap>
+  ),
+  play: async () => {
+    await userEvent.click(await within(document.body).findByRole("combobox"));
+    await expectLastOptionPainted();
+  },
+};
+
+export const ComboboxListboxIsFixedInDialog: Story = {
+  render: () => (
+    <Host>
+      <Combobox label="Fruit" options={fruits} />
+    </Host>
+  ),
+  play: async () => {
+    await userEvent.click(await within(document.body).findByRole("combobox"));
+    await expectListboxFixed();
+  },
+};
+
+export const AutocompleteEscapesClippingAncestor: Story = {
+  render: () => (
+    <ClippingTrap>
+      <Autocomplete label="Fruit" options={fruits} />
+    </ClippingTrap>
+  ),
+  play: async () => {
+    await userEvent.type(await within(document.body).findByRole("combobox"), "e");
+    await expectLastOptionPainted();
+  },
+};
+
+export const AutocompleteListboxIsFixedInDialog: Story = {
+  render: () => (
+    <Host>
+      <Autocomplete label="Fruit" options={fruits} />
+    </Host>
+  ),
+  play: async () => {
+    await userEvent.type(await within(document.body).findByRole("combobox"), "e");
+    await expectListboxFixed();
+  },
+};
+
 export const DropdownMenuInDialog: Story = {
   render: () => (
     <Host>
