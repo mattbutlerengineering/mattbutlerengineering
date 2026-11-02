@@ -1974,7 +1974,11 @@
       "next": "Next",
       "today": "Today",
       "range": "{{from}} – {{to}}",
-      "more": "More actions"
+      "more": "More actions",
+      "goToDate": "Go to date",
+      "goToDateLabel": "Date",
+      "goToDateSubmit": "Go",
+      "goToDateCancel": "Cancel"
     },
     "calendar": {
       "label": "Availability calendar",
@@ -2025,6 +2029,9 @@
       }
     },
     "drawer": {
+      "useOtherDay": "Use another day’s hours…",
+      "useSchedule": "Use schedule…",
+      "useBlockedClosed": "Closed all day. Remove the closure to use other hours.",
       "summaryOpen": "Open for {{services}}.",
       "summaryClosed": "Closed.",
       "closedRegular": "Closed. Your regular week has no hours on {{weekday}}.",
@@ -2591,6 +2598,9 @@
       "use": {
         "titleSchedule": "Use a schedule on the selected dates",
         "titleDay": "Use another day’s hours",
+        "titleScheduleOne": "Use a schedule on {{date}}",
+        "titleDayOne": "Use another day’s hours on {{date}}",
+        "blockedSame": "That is the date you are changing. Choose another day.",
         "schedule": "Schedule",
         "from": "Copy hours from",
         "cancel": "Cancel",

@@ -21,6 +21,7 @@ import { useHeldFor } from "./use-held-for.js";
 import { useHoldFocus } from "./use-hold-focus.js";
 import { useReloadHold } from "./use-reload-hold.js";
 import { CopyDayAction } from "./CopyDayAction.js";
+import { UseDayHoursAction } from "./UseDayHoursAction.js";
 import { ScheduleNudge } from "./ScheduleNudge.js";
 import type { SeriesScope } from "./series-edit.js";
 import { diffRemoval, removalChangeText } from "./removal-diff.js";
@@ -240,6 +241,24 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
           <Button variant="secondary" onClick={() => editing.onCloseDay?.(date)}>
             {t("availability.close.open")}
           </Button>
+        )}
+        {viewerRole === "manager" && editing && !picked && date >= editing.today && (
+          <UseDayHoursAction
+            waiting={waiting}
+            reasonId={reasonId}
+            venueId={editing.venueId}
+            state={editing.state}
+            timezone={editing.timezone}
+            date={date}
+            closedReason={
+              day.services.length === 0 &&
+              day.explanation.some((layer) => layer.kind === "closure" && !layer.window)
+                ? t("availability.drawer.useBlockedClosed")
+                : null
+            }
+            onFinished={() => editing.onFinished(true)}
+            onStale={editing.onStale ?? noop}
+          />
         )}
         {viewerRole === "manager" && editing && !picked && (
           <>
