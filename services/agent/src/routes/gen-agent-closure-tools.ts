@@ -21,8 +21,10 @@ import {
   affectedResult,
   checkHours,
   checkSpan,
+  childrenOf,
   closedDays,
   closureFailure,
+  closureReadToken,
   closureOnDay,
   dayNumber,
   findReopenable,
@@ -38,7 +40,14 @@ import {
   type Impact,
   type SpecialHoursRule,
 } from "./gen-agent-closure-support.js";
-import { failureLog, NO_REPLAY, NO_VENUE, todayIn, type ApiClient } from "./gen-tool-support.js";
+import {
+  failureLog,
+  NO_REPLAY,
+  NO_VENUE,
+  refusalOf,
+  todayIn,
+  type ApiClient,
+} from "./gen-tool-support.js";
 
 /**
  * Chat tools for closures and special hours on dates after tonight (#7929):
@@ -147,6 +156,7 @@ function describeRule(rule: DatedRule, config: AvailabilityConfig, cancelled: nu
     scope: scopeOf(rule, config),
     ...(rule.window ? { fromTime: minuteToClock(rule.window.from) } : {}),
     ...guests,
+    readAs: closureReadToken(rule, childrenOf(config, rule.id)),
   };
 }
 
@@ -326,9 +336,17 @@ function stillClosedFields(saved: ReopenResult, config: AvailabilityConfig) {
   };
 }
 
+/** A recoverable refusal: nothing was reopened, and the same call must not be repeated. */
+const CLOSURE_CHANGED = {
+  refused: true,
+  changed: true,
+  error:
+    "A teammate changed this closure after the user last looked at it, so it wasn't reopened. Tell the user a teammate changed it and they should look again: call list_closures, show what is there now, and ask whether to reopen it. Don't repeat the same call. Nothing was changed.",
+};
+
 function reopenClosure({ log, api, venueId }: ToolContext) {
   return tool({
-    description: `Reopen a closure of the whole venue or one service so its slots return, unless another closure also closes those dates: stillClosed then names it, and reopened is false when no date came back, so say so instead of saying it reopened. Pass the closure's full span exactly as list_closures gives it (to is "${UNTIL_REOPENED}" for one with no end) and its scope; a different span is refused with the real one. Guests it already cancelled stay cancelled. Requires confirmation. Special hours, repeating closures and booking or table pauses are changed on the Availability page. Call list_closures first; if the closure cancelled guests, ask whether to tell them.`,
+    description: `Reopen a closure of the whole venue or one service so its slots return, unless another closure also closes those dates: stillClosed then names it, and reopened is false when no date came back, so say so instead of saying it reopened. Pass the closure's full span exactly as list_closures gives it (to is "${UNTIL_REOPENED}" for one with no end) and its scope; a different span is refused with the real one. Guests it already cancelled stay cancelled. Requires confirmation. Special hours, repeating closures and booking or table pauses are changed on the Availability page. Call list_closures first and pass the closure's readAs: the reopen goes ahead only if the closure is still as that list showed it. If it says a teammate changed the closure, nothing was reopened: call list_closures again, tell the user what is there now, and ask before proposing again; never repeat the same call. If the closure cancelled guests, ask whether to tell them.`,
     inputSchema: z
       .object({
         from: DateField.describe("The closure's first date, as YYYY-MM-DD"),
@@ -343,9 +361,15 @@ function reopenClosure({ log, api, venueId }: ToolContext) {
         tellCancelledGuests: z
           .boolean()
           .describe("Whether to tell the guests the closure cancelled that it has reopened"),
+        readAs: z
+          .string()
+          .min(1)
+          .describe(
+            "The closure's readAs exactly as list_closures gave it; never invent or reuse one from an earlier list"
+          ),
       })
       .superRefine(scopeNeedsService),
-    execute: async ({ from, to, scope, service, tellCancelledGuests }) => {
+    execute: async ({ from, to, scope, service, tellCancelledGuests, readAs }) => {
       if (!venueId) return NO_VENUE;
       log.info({ venueId, scope }, "reopen_closure tool called");
       const start = dayNumber(from);
@@ -355,6 +379,7 @@ function reopenClosure({ log, api, venueId }: ToolContext) {
         return { error: `The last date (${to}) is before the first (${from}).` };
       }
       let rule: ClosureRule;
+      let children: DateRule[];
       let config: AvailabilityConfig;
       let scopeText: string;
       let cancelled: number;
@@ -372,6 +397,10 @@ function reopenClosure({ log, api, venueId }: ToolContext) {
         });
         if ("error" in found) return { refused: true, ...found };
         rule = found.rule;
+        children = childrenOf(state.config, rule.id);
+        // The Host confirmed what the list showed. Reading the closure now is not that: if it
+        // differs from what that list gave, a teammate changed it since.
+        if (closureReadToken(rule, children) !== readAs) return CLOSURE_CHANGED;
         config = state.config;
         scopeText = scopeOf(rule, state.config);
         const counts = await api.availability.listClosures(venueId).catch((err: unknown) => {
@@ -395,11 +424,17 @@ function reopenClosure({ log, api, venueId }: ToolContext) {
       let notified: number;
       let saved: ReopenResult;
       try {
-        saved = await api.availability.reopenClosure(venueId, rule.id, told, NO_REPLAY);
+        // `seen` is the closure the Host confirmed (matched above), so a change in the gap before
+        // the write is refused by the server rather than deleted. NO_REPLAY: a refusal is final.
+        saved = await api.availability.reopenClosure(venueId, rule.id, told, NO_REPLAY, {
+          rule,
+          children,
+        });
         // The server counts who the notice really reached; an older one does not say.
         notified = told ? (saved.notified ?? reachable) : 0;
       } catch (err) {
         log.error({ ...failureLog(err), venueId }, "reopen_closure failed");
+        if (refusalOf(err)?.code === "version-conflict") return CLOSURE_CHANGED;
         return closureFailure(err, SAVE_UNSURE);
       }
       const stays = stillClosedFields(saved, config);

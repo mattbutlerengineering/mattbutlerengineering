@@ -3,6 +3,7 @@ import type { FastifyBaseLogger } from "fastify";
 // eslint-disable-next-line no-restricted-imports -- the retry this pins lives in the real client, so a mock can't show it
 import { createApiClient } from "@mbe/api-client";
 import { createAgentTools } from "./gen-agent-tools.js";
+import { closureReadToken } from "./gen-agent-closure-support.js";
 
 /**
  * #8035: the api-client replays a DELETE after a 502 or a lost response. If the
@@ -152,6 +153,7 @@ describe("write tools the api-client would replay", () => {
         to: "2026-12-26",
         scope: "whole_venue",
         tellCancelledGuests: false,
+        readAs: closureReadToken(CLOSURE as never, []),
       });
 
       expect(fetchMock).toHaveBeenCalledTimes(1);

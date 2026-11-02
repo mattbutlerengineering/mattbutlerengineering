@@ -13,8 +13,15 @@ vi.mock("../../hooks/useAvailability.js", () => ({
   useRevertAvailabilityChange: () => ({ mutateAsync: revertAsync }),
 }));
 vi.mock("./AvailabilityGuestPreview.js", () => ({
-  AvailabilityGuestPreview: (props: { dates: string[]; focusDate: string }) => (
-    <div data-testid="guest-preview">{`${props.focusDate} x${props.dates.length}`}</div>
+  AvailabilityGuestPreview: (props: {
+    dates: string[];
+    focusDate: string;
+    scope?: { from: string };
+  }) => (
+    <div data-testid="guest-preview">
+      {`${props.focusDate} x${props.dates.length}`}
+      {props.scope ? ` from ${props.scope.from}` : ""}
+    </div>
   ),
 }));
 vi.mock("../../contexts/VenueContext.js", () => ({
@@ -176,7 +183,7 @@ describe("AvailabilityDayEditor", () => {
     });
   });
 
-  it("makes no preview when the chosen scope reaches no dates", () => {
+  it("previews a schedule edit from today, with the dates a use_schedule rule sends to it", () => {
     // "Brunch" is in no regular-week day; only a use_schedule rule on the fixture date uses it.
     const base = fixtureConfig();
     const lunch = base.scheduleServices[0]!;
@@ -222,8 +229,19 @@ describe("AvailabilityDayEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
     expect(screen.getByTestId("guest-preview")).toHaveTextContent(`${FIXTURE_DATE} x1`);
     chooseScope(/Everywhere “Brunch” is used/);
+    // The week alone reaches no date, but the rule sends the fixture date here: the preview
+    // checks every booking from today, as the save does.
     expect(screen.getByText("Applies to 0 dates")).toBeTruthy();
-    expect(screen.queryByTestId("guest-preview")).not.toBeInTheDocument();
+    expect(screen.getByTestId("guest-preview")).toHaveTextContent(
+      `${FIXTURE_DATE} x1 from 2026-10-28`
+    );
+  });
+
+  it("keeps a one-date edit scoped to that date", () => {
+    renderEditor();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+    expect(screen.getByTestId("guest-preview").textContent).not.toContain("from");
   });
 
   it("holds the preview while a new service has no name (the server would refuse it)", () => {

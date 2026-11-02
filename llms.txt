@@ -10870,6 +10870,15 @@
       ): { rule: ClosureRule } | { error: string } { /* ... */ }
     </item>
     <item priority="medium">
+      function stableJson(value: unknown): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export const childrenOf: unknown;
+    </item>
+    <item priority="high">
+      export function closureReadToken(rule: DateRule, children: readonly DateRule[]): string { /* ... */ }
+    </item>
+    <item priority="medium">
       function reopenableOnly(rule: DatedRule): { rule: ClosureRule } | { error: string } { /* ... */ }
     </item>
     <item priority="low">

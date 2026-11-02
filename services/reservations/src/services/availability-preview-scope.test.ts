@@ -109,6 +109,37 @@ describe("a schedule edit's stranded list", () => {
     expect(previewIds({ from: "2026-10-25" }).sort()).toEqual(saved);
   });
 
+  // #8125: the day drawer previews a schedule edit the same way, in either conflict mode (it
+  // sends "replace" when the week reaches one date and the Manager's choice otherwise).
+  it.each(["keep", "replace"] as const)(
+    "matches the save under %s when the day drawer's schedule edit is open from today",
+    (scopeConflicts) => {
+      const save = planSave({
+        state: STATE,
+        body: { expectedVersion: 7, changes: REMOVE_LUNCH, scopeConflicts },
+        bookings: BOOKINGS,
+        tableIds: new Set(),
+        now: NOW,
+      });
+      const saved = save.kind === "stranded" ? save.reservations.map((r) => r.id).sort() : [];
+      const body = PreviewAvailabilityBodySchema.parse({
+        draft: { changes: REMOVE_LUNCH, scopeConflicts },
+        scope: { from: "2026-10-25" },
+        focusDate: SATURDAY,
+      });
+      const plan = planPreview({
+        state: STATE,
+        body,
+        bookings: BOOKINGS,
+        tableIds: new Set(),
+        now: NOW,
+      });
+      if (plan.kind !== "ok") throw new Error("preview refused");
+      expect(saved).toEqual(["res-rule-thu", "res-sat"]);
+      expect(plan.result.stranded.items.map((i) => i.id).sort()).toEqual(saved);
+    }
+  );
+
   it("misses a date a use_schedule rule sends to the schedule when only the week's dates are listed", () => {
     expect(previewIds([SATURDAY, "2026-11-08"])).toEqual(["res-sat"]);
   });

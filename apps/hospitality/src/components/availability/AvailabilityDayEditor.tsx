@@ -38,7 +38,7 @@ import {
 } from "./draft-changes.js";
 import { waitingProps } from "./draft-wait.js";
 import { markEditorOpen } from "./editor-open.js";
-import { ownChangeDates, scopeDates } from "./scope-dates.js";
+import { ownChangeDates, scheduleReach, scopeDates } from "./scope-dates.js";
 import type { SeriesScope } from "./series-edit.js";
 import { BlockedReason } from "./ScheduleFormParts.js";
 import { nextServiceRow, ServicesEditor } from "./ServicesEditor.js";
@@ -154,6 +154,13 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   const dates = useMemo(
     () => (scope ? scopeDates(scope, { config, timezone, today }) : []),
     [scope, config, timezone, today]
+  );
+  // A schedule edit is checked by the save against every booking, so its preview reaches the
+  // dates a use_schedule rule sends to the schedule too, and checks from today like the save.
+  const scheduleId = scope?.kind === "schedule" ? scope.scheduleId : null;
+  const previewDates = useMemo(
+    () => (scheduleId ? scheduleReach(scheduleId, { config, timezone, today }) : dates),
+    [scheduleId, config, timezone, today, dates]
   );
   const own = useMemo(
     () => ownChangeDates(config, dates, scope?.kind === "rule" ? scope.ruleId : null),
@@ -502,14 +509,15 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
       </div>
     </>
   );
-  // A scope that reaches no dates (a schedule used only by a use_schedule rule) has nothing to preview; the server refuses an empty scope.
+  // A scope that reaches no dates has nothing to preview; the server refuses an empty scope.
   const preview =
-    previewChanges && dates.length > 0 ? (
+    previewChanges && previewDates.length > 0 ? (
       <AvailabilityGuestPreview
         venueId={venueId}
         changes={previewChanges}
         scopeConflicts={conflictMode}
-        dates={dates}
+        dates={previewDates}
+        scope={scheduleId ? { from: today } : undefined}
         focusDate={date}
       />
     ) : null;
