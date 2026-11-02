@@ -2065,6 +2065,7 @@
     "drawer": {
       "useOtherDay": "Usar el horario de otro día…",
       "useSchedule": "Usar horario…",
+      "useBlockedClosed": "Cerrado todo el día. Quita el cierre para usar otro horario.",
       "summaryOpen": "Abierto para {{services}}.",
       "summaryClosed": "Cerrado.",
       "closedRegular": "Cerrado. Tu semana habitual no tiene horario el {{weekday}}.",
@@ -2622,6 +2623,9 @@
       "use": {
         "titleSchedule": "Usar un horario en las fechas seleccionadas",
         "titleDay": "Usar el horario de otro día",
+        "titleScheduleOne": "Usar un horario el {{date}}",
+        "titleDayOne": "Usar el horario de otro día el {{date}}",
+        "blockedSame": "Esa es la fecha que estás cambiando. Elige otro día.",
         "schedule": "Horario",
         "from": "Copiar el horario de",
         "cancel": "Cancelar",

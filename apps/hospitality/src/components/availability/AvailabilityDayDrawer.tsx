@@ -250,6 +250,12 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
             state={editing.state}
             timezone={editing.timezone}
             date={date}
+            closedReason={
+              day.services.length === 0 &&
+              day.explanation.some((layer) => layer.kind === "closure" && !layer.window)
+                ? t("availability.drawer.useBlockedClosed")
+                : null
+            }
             onFinished={() => editing.onFinished(true)}
             onStale={editing.onStale ?? noop}
           />

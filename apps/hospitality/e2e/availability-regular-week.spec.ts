@@ -291,6 +291,12 @@ test.describe("Change regular week (F-UW)", () => {
   });
 });
 
+/** The last day of the current month: far down a month grid, and still ahead of today. */
+function lastDayOfThisMonth(): string {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0).toLocaleDateString("en-CA");
+}
+
 /** Local calendar date of `day` in the current month, as `YYYY-MM-DD`. */
 function dayOfThisMonth(day: number): string {
   const d = new Date();
@@ -334,21 +340,16 @@ test.describe("navigation and day-drawer controls (#7981)", () => {
         c.locale
       );
       await mockedPage.goto("availability");
-      // A week on show, so a date a few weeks away is off screen until the jump.
-      await mockedPage.getByRole("radio", { name: /^(Week|Semaine)$/ }).click();
-      if (c.size.width < 500) {
-        await mockedPage.getByRole("button", { name: c.more }).click();
-        await mockedPage.getByRole("menuitem", { name: c.goTo }).click();
-      } else {
-        await mockedPage.getByRole("button", { name: c.goTo }).click();
-      }
+      await mockedPage.getByRole("button", { name: c.more }).click();
+      await mockedPage.getByRole("menuitem", { name: c.goTo }).click();
       const dialog = mockedPage.getByRole("dialog", { name: c.goTo });
       await expect(dialog).toBeVisible();
-      // The picker opens on this month; its first or 28th day is more than a week from today.
-      const target = new Date().getDate() >= 15 ? dayOfThisMonth(1) : dayOfThisMonth(28);
+      // The picker opens on this month; the last day is far down the grid or the agenda.
+      const target = lastDayOfThisMonth();
       await dialog.getByLabel(c.date).click();
       await mockedPage.locator(`[role="gridcell"][data-date="${target}"]`).click();
-      await expect(mockedPage.getByRole("dialog", { name: "Popover" })).toBeHidden();
+      // The popover's own cells are the only gridcells that carry a date; none is left once it shuts.
+      await expect(mockedPage.locator('[role="gridcell"][data-date]')).toHaveCount(0);
       await dialog.evaluate((el) => el.setAttribute("data-axe-scope", ""));
       const results = await new AxeBuilder({ page: mockedPage })
         .include("[data-axe-scope]")
@@ -356,9 +357,30 @@ test.describe("navigation and day-drawer controls (#7981)", () => {
       expect(results.violations).toEqual([]);
       await dialog.getByRole("button", { name: c.go, exact: true }).click();
       await expect(dialog).toBeHidden();
-      await expect(
-        mockedPage.locator(`button[data-date="${target}"]:not([role="gridcell"])`)
-      ).toBeVisible();
+      // Focus lands on the day itself, which is really on screen (toBeVisible passes off screen).
+      const cell = mockedPage.locator(`button[data-date="${target}"]`);
+      await expect(cell).toBeFocused();
+      await expect(cell).toBeInViewport({ ratio: 1 });
+    });
+
+    test(`Escape on Go to date puts focus back on the menu button (${c.name}, ${c.locale})`, async ({
+      mockedPage,
+    }) => {
+      await mockedPage.setViewportSize(c.size);
+      await mockTueSatVenue(mockedPage);
+      await mockedPage.addInitScript(
+        (locale) => localStorage.setItem("mbe-hospitality-locale", locale),
+        c.locale
+      );
+      await mockedPage.goto("availability");
+      const more = mockedPage.getByRole("button", { name: c.more });
+      await more.click();
+      await mockedPage.getByRole("menuitem", { name: c.goTo }).click();
+      const dialog = mockedPage.getByRole("dialog", { name: c.goTo });
+      await expect(dialog).toBeVisible();
+      await mockedPage.keyboard.press("Escape");
+      await expect(dialog).toBeHidden();
+      await expect(more).toBeFocused();
     });
 
     test(`Use another day's hours saves one date against the loaded version (${c.name}, ${c.locale})`, async ({
@@ -404,7 +426,7 @@ test.describe("navigation and day-drawer controls (#7981)", () => {
       }
       await dialog.getByLabel(c.from).click();
       await mockedPage.locator(`[role="gridcell"][data-date="${dayOfThisMonth(source)}"]`).click();
-      await expect(mockedPage.getByRole("dialog", { name: "Popover" })).toBeHidden();
+      await expect(mockedPage.locator('[role="gridcell"][data-date]')).toHaveCount(0);
       await dialog.evaluate((el) => el.setAttribute("data-axe-scope", ""));
       const results = await new AxeBuilder({ page: mockedPage })
         .include("[data-axe-scope]")

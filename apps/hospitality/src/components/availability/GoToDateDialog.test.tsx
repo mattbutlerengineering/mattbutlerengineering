@@ -34,13 +34,36 @@ describe("GoToDateDialog (ux.md S2 Go to date)", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("goes to the date typed, as the venue calendar date, and closes", () => {
+  it("goes to the date chosen, as the venue calendar date, and closes", () => {
     const { onGo, onClose } = renderDialog();
     expect(screen.getByRole("dialog", { name: "Go to date" })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2027-01-15" } });
     fireEvent.click(screen.getByRole("button", { name: "Go" }));
     expect(onGo).toHaveBeenCalledWith("2027-01-15");
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("starts on the date it is given, not on today", () => {
+    renderDialog();
+    expect(screen.getByLabelText("Date")).toHaveValue("2026-11-02");
+  });
+
+  it("Cancel closes without going, and a reopened dialog starts again from where the calendar is", () => {
+    const onGo = vi.fn();
+    const onClose = vi.fn();
+    const ui = (open: boolean) => (
+      <main>
+        <GoToDateDialog open={open} initial="2026-11-02" onGo={onGo} onClose={onClose} />
+      </main>
+    );
+    const { rerender } = render(ui(true));
+    fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2027-01-15" } });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(onGo).not.toHaveBeenCalled();
+    rerender(ui(false));
+    rerender(ui(true));
+    expect(screen.getByLabelText("Date")).toHaveValue("2026-11-02");
   });
 
   it("cannot go before a date is chosen", () => {

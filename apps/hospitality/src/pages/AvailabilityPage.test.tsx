@@ -239,9 +239,16 @@ describe("AvailabilityPage", () => {
     ).toBeVisible();
   });
 
-  it("goes to a chosen date in the month or week on show (Go to date)", async () => {
+  async function openGoToDate() {
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Go to date" }));
+    await screen.findByRole("dialog", { name: "Go to date" });
+  }
+  const frame = () => new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+
+  it("goes to a chosen date in the month on show, from the More actions menu (Go to date)", async () => {
     renderPage();
-    fireEvent.click(screen.getByRole("button", { name: "Go to date" }));
+    await openGoToDate();
     expect(screen.getByLabelText("Date")).toHaveValue("2026-10-28");
     fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2027-03-15" } });
     fireEvent.click(screen.getByRole("button", { name: "Go" }));
@@ -252,6 +259,49 @@ describe("AvailabilityPage", () => {
     await waitFor(() =>
       expect(screen.queryByRole("dialog", { name: "Go to date" })).not.toBeInTheDocument()
     );
+  });
+
+  it("opens the dialog only after the menu has closed and returned its focus", async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Go to date" }));
+    // Opened in the same frame, the dialog would lose its focus to the menu's restore.
+    expect(screen.queryByRole("dialog", { name: "Go to date" })).not.toBeInTheDocument();
+    await screen.findByRole("dialog", { name: "Go to date" });
+  });
+
+  it("starts the picker on the calendar's date, not on today", async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await openGoToDate();
+    expect(screen.getByLabelText("Date")).toHaveValue("2026-11-28");
+  });
+
+  it("puts focus on the day it went to, after the dialog has handed focus back", async () => {
+    renderPage();
+    await openGoToDate();
+    fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2027-03-15" } });
+    fireEvent.click(screen.getByRole("button", { name: "Go" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Go to date" })).not.toBeInTheDocument()
+    );
+    await frame();
+    await frame();
+    expect(document.activeElement).toHaveAttribute("data-date", "2027-03-15");
+  });
+
+  it("leaves focus on the menu button when Go to date is dismissed", async () => {
+    renderPage();
+    // A pointer click does not focus in jsdom; a real one does.
+    screen.getByRole("button", { name: "More actions" }).focus();
+    await openGoToDate();
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Go to date" })).not.toBeInTheDocument()
+    );
+    await frame();
+    await frame();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "More actions" }));
   });
 
   it("names the date range in week view", () => {
@@ -416,15 +466,14 @@ describe("AvailabilityPage", () => {
     expect(screen.queryByText(/Only managers change hours/)).not.toBeInTheDocument();
   });
 
-  it("opens History from the toolbar and lets an entry open its day", () => {
+  it("opens History from the More actions menu and lets an entry open its day", async () => {
     renderPage();
     expect(screen.queryByRole("region", { name: "History drawer" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "History" }));
-    fireEvent.click(
-      within(screen.getByRole("region", { name: "History drawer" })).getByRole("button", {
-        name: "Go to day",
-      })
-    );
+    expect(screen.queryByRole("button", { name: "History" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "History" }));
+    const history = await screen.findByRole("region", { name: "History drawer" });
+    fireEvent.click(within(history).getByRole("button", { name: "Go to day" }));
     expect(screen.queryByRole("region", { name: "History drawer" })).not.toBeInTheDocument();
     expect(screen.getByRole("dialog", { name: /Friday, October 30/ })).toBeInTheDocument();
   });
@@ -996,9 +1045,16 @@ describe("AvailabilityPage", () => {
       expect(screen.queryByRole("button", { name: "Select…" })).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "More actions" }));
       const menu = screen.getByRole("menu");
-      for (const name of ["History", "Select days", "Change regular week…"]) {
+      for (const name of ["History", "Go to date", "Select days", "Change regular week…"]) {
         expect(within(menu).getByRole("menuitem", { name })).toBeInTheDocument();
       }
+    });
+
+    it("goes to a date from the phone menu", async () => {
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: "Go to date" }));
+      expect(await screen.findByRole("dialog", { name: "Go to date" })).toBeInTheDocument();
     });
 
     it("gives a Host only what a Host can do", () => {
@@ -1007,6 +1063,7 @@ describe("AvailabilityPage", () => {
       fireEvent.click(screen.getByRole("button", { name: "More actions" }));
       const menu = screen.getByRole("menu");
       expect(within(menu).getByRole("menuitem", { name: "History" })).toBeInTheDocument();
+      expect(within(menu).getByRole("menuitem", { name: "Go to date" })).toBeInTheDocument();
       expect(within(menu).queryByRole("menuitem", { name: /^Close…/ })).not.toBeInTheDocument();
       expect(
         within(menu).queryByRole("menuitem", { name: "Change regular week…" })
