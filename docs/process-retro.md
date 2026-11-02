@@ -11,6 +11,326 @@ no retro.
 
 ---
 
+## 2026-11-01
+
+Window: **2026-10-25 → 2026-11-01**. Sources: `node scripts/collect-sdlc-speed.mjs
+--days 7 --regressions` run live in this session, `node
+scripts/stale-human-blocked-latest.mjs --open …`, `node
+scripts/main-strictness.mjs`, GitHub REST via `gh api` (`actions/runs`,
+`search/issues`, `pulls`, `issues`; `actions/permissions` and
+`branches/main/protection/*` are both 403 here), heartbeat issue #6211 (386
+comments, 189 in-window), `scripts/routine-manifest.mjs`,
+`scripts/routine-liveness.mjs`, `scripts/scheduled-workflow-health.mjs`,
+`scripts/sensors-registry.mjs`, `metrics/stale-human-blocked.jsonl`,
+`.claude/improvement-loop/log.md`, and the working tree at `d88af3d`.
+
+**Every claude.ai routine stopped for 61 hours — last heartbeat
+2026-10-28T20:07:16Z, next 2026-10-31T09:04:47Z — and nothing in the repo can
+say why.** Zero heartbeats, zero routine PRs and zero routine issues in that
+span; `.claude/improvement-loop/log.md` has no 10-29 or 10-30 section either.
+Unlike 2026-07-10 (19 days unnoticed), **the detector built after that incident
+worked**: `routine-liveness.mjs` filed nine `ci-fix: routine … is dark` issues —
+#7914 (10-28), #7948–#7951 (10-30), #7966–#7969 (10-31) — first alarm ~43 h in,
+and all nine self-closed when the routines resumed. The GitHub Actions half ran
+unbroken straight through the blackout, which is why the week still looks
+productive from the commit log.
+
+What it cost: **both Friday weeklies lost their only slot of the week.**
+`mbe-weekly-improve` and `mbe-doc-rot` fire once, Fri 07:00/08:00 PT — 2026-10-30
+fell inside the blackout. Neither has a replacement slot, so a week of
+codebase-improvement and doc-rot coverage is simply gone.
+
+### Routine liveness
+
+**Heartbeat routines** (days with ≥1 heartbeat on #6211, 10-25 → 11-01, 8 days):
+
+| Routine             | Heartbeat days                    | Verdict                       |
+| ------------------- | --------------------------------- | ----------------------------- |
+| `mbe-feature-drain` | 25,26,27,28,—,—,31,01 — 162 fires | ALIVE 6/8 (blackout 29–30)    |
+| `mbe-prune`         | 25,26,27,28,—,—,31,01 — 8 fires   | ALIVE 6/8 (blackout 29–30)    |
+| `mbe-auditor`       | 25,26,27,28,—,—,31,01             | ALIVE 6/8 (blackout 29–30)    |
+| `mbe-morning`       | 25,26,27,28,—,—,31,01             | ALIVE 6/8 (blackout 29–30)    |
+| `mbe-ui-quality`    | 25,26,27,28,—,—,—,01              | ALIVE 5/8 (also missed 10-31) |
+| `mbe-daily-issue`   | **only 31,01**                    | RAN but UNDER-REPORTS (below) |
+
+`mbe-daily-issue` posted heartbeats on only 2 of 8 days, yet demonstrably ran on
+10-26 (PR #7701, `… (mbe-daily-issue #7694)`) and 11-01 (PR #8057). Its declared
+signature is the heartbeat, so four fires left no liveness trace at all.
+
+**PR-signature routines**, verified against the pattern each one declares in
+`scripts/routine-manifest.mjs`:
+
+| Routine                   | Expected     | Observed                                                          |
+| ------------------------- | ------------ | ----------------------------------------------------------------- |
+| `mbe-evening`             | daily        | 5/8 — #7454, #7612, #7748, #7866, #8016; nothing 10-29/30/31      |
+| `mbe-learning-loop`       | daily        | 6/8 — #7551, #7716, #7809, #7919, #7992, #8063; nothing 10-29/30  |
+| `mbe-weekly-improve`      | Fri          | **DARK** — see below                                              |
+| `mbe-doc-rot`             | Fri          | **DARK** — last `docs: weekly rot sweep` PR is #7353 (2026-10-23) |
+| `mbe-monthly-meta-audit`  | 1st of month | ALIVE — #8054 opened 2026-11-01                                   |
+| `mbe-weekly-retro`        | Sun          | ALIVE — this entry                                                |
+| `mbe-night`, `mbe-midday` | —            | `paused` by design since 2026-09-25 (manifest), not checked       |
+
+**`mbe-weekly-improve` is DARK and is not credited.** Both halves of the
+cross-check are absent: no PR matching `<type>(<scope>): weekly improve <date> —
+<desc>` since #7345 (`fix(lint): weekly improve 2026-10-23 …`), and
+`.claude/improvement-loop/log.md`'s last `mbe-weekly-improve` section is
+`## 2026-10-23` (line 4243). No Friday 10-30 entry, and no entry recording that
+none opened. The window's other Friday PRs (#7954–#7974, all 10-31) carry no
+such title and are ordinary drain traffic.
+
+Note the detector cannot catch either weekly miss quickly: `periodDays: 7` with
+a `2 × period` dark threshold means a weekly routine that skips one Friday stays
+unflagged for two weeks.
+
+**GitHub Actions half — fully healthy, every cadence met, every run `success`,
+including across the blackout:**
+
+| Workflow                  | Cadence | Observed                                     |
+| ------------------------- | ------- | -------------------------------------------- |
+| `drift-fix.yml`           | daily   | 8/8 (10-25 → 11-01)                          |
+| `metrics-collectors.yml`  | daily   | 8/8                                          |
+| `acmm-regression.yml`     | daily   | 8/8                                          |
+| `audit-sweep.yml`         | weekly  | 1/1 (10-26) — `mbe-deep-audit`'s Actions arm |
+| `stale-human-blocked.yml` | weekly  | 1/1 (11-01, → PR #8064)                      |
+
+### Blockers
+
+`node scripts/stale-human-blocked-latest.mjs --open 1262,6881,7074,7257,7493,7715,7961,7995,8012`
+→ verdict `fresh`, `detected_at: 2026-11-01T19:48:18.478Z`. Ages are the
+persisted `days_stale`; nothing here is derived from `updatedAt`.
+
+| Issue | `days_stale` | Label set                                     | The one thing a human must do                                              |
+| ----- | ------------ | --------------------------------------------- | -------------------------------------------------------------------------- |
+| #1262 | **173**      | `audit,acmm,ready-for-human`                  | Close it as superseded, or state which ACMM L4 feedback-loop gap it tracks |
+| #6881 | 15           | `blocked,security,ready-for-human,area:infra` | Rotate `DATABASE_URL` in DO + Pulumi and tick the issue                    |
+
+Age **unknown** (no row in the latest batch — not computed from `updatedAt`), all
+explained rather than missing: #7074, #7257, #7493 carry `tracking`, which is in
+the detector's `EXCLUDED_LABELS` ("age by design"); #7715 (10-26), #7961 (10-31),
+#7995 (10-31) and #8012 (11-01) are all newer than the 14-day threshold.
+
+`ready-for-human` reached #1262 only at 2026-11-01T19:48 — applied by this week's
+detector run itself (timeline: `audit`/`acmm` 2026-05-12, `ready-for-human`
+2026-11-01). The six-week gap in `stale-human-blocked.jsonl` (batches jump
+2026-09-20 → 2026-11-01) is therefore **not** a dead collector: those five runs
+all concluded `success` and correctly had nothing over threshold to append.
+
+All four of the long-standing escalations carried in this file are now closed:
+#3253 (`not_planned`, 09-23), #3277 (09-23), #3388 (09-25), #3389 (08-17). So is
+#7376, last week's Auth0-E2E blocker (10-31).
+
+**Only one item exceeds seven days of genuine human silence.** The human-blocked
+backlog is not this week's throughput ceiling — the merge classifier is.
+
+### Friction
+
+`collect-sdlc-speed.mjs --days 7 --regressions`, run live this session. Per
+class, never blended:
+
+| Class            |   n | p50 (min) | p90 (min) |    max | 3 slowest           |
+| ---------------- | --: | --------: | --------: | -----: | ------------------- |
+| `human`          | 154 |        41 |     273.1 | 1136.5 | #8016, #8015, #7762 |
+| `agent`          |  67 |      47.3 |     423.5 | 1493.7 | #7993, #8011, #7935 |
+| `dependabot`     |   4 |      33.5 |      57.6 |   57.6 | #7713, #7711, #7710 |
+| `github-actions` |  53 |       8.2 |    1068.8 | 2353.3 | #7899, #7946, #7947 |
+
+`ci.yml` pull_request wall-clock: 557 runs, p50 **8.6 min**, p90 **22.2 min**.
+Slowest job by median: `Test (Node 22, hospitality)` at 4.3 min. `pnpm-lock.yaml`
+share of sampled runs: **0** — no cold-turbo tax this week.
+
+**`mainStrict` is `null` / `mainStrictSource: "unavailable"`, and re-measuring
+here failed too**: `branches/main/protection/required_status_checks` returns
+`403 Resource not accessible by integration`. `node scripts/main-strictness.mjs`
+printed `{"strictMain":true}`, but that is its ADR-027 fail-closed default on
+exactly that error, not a measurement — **it is not cited as a value.** The last
+genuine measurement on record is 2026-08-17, `{"strict": false, "contexts":
+["CI Gate"]}` (gotchas.md). Because the flag is unmeasured, **no
+`gh pr update-branch` churn cost is reported this week.**
+
+**Slowest PR: #7993, 24 h 54 m** (10-31T18:13 → 11-01T19:07) — which _is_ the
+agent-class max of 1493.7 min. It was not slow to write or to go green. The
+drain reviewed it and had the merge denied **32 separate times** before a human
+merged it. #8011 is the same shape: 18 h 38 m, 29 denials.
+
+The regression the sensor proposes — human p90 145.9 → 273.1 min — has the same
+cause, not a human one: its two slowest human-class PRs, #8016 and #8015, are
+`chore(metrics)` PRs created at 01:42/01:29 and merged at 20:38/20:23, ~19 h
+spent waiting for a human to press merge. Filed verbatim as the pass requires,
+but read it as merge-gate latency, not as humans getting slower. Expect it to
+unwind on its own if the classifier is fixed.
+
+Hand-measured, from the 1000 most recent of 1325 failed runs:
+
+- **Red before merge:** 36 distinct dev branches had ≥1 `ci.yml` failure and 110
+  had ≥1 failure in any workflow, against 361 PRs merged — roughly 10% red on
+  the required gate, ~30% red somewhere. Floor, not a total (sampled 1000/1325).
+- **Reverts:** four `revert: #N (fixes broken main)` PRs opened — #7485, #7834,
+  #7889, #7897 — and **all four closed unmerged**; `main` was fixed forward every
+  time, so the auto-revert arm produced four abandoned PRs and no merges.
+  Three `🚨 CRITICAL: Broken Main` issues (#7833, #7888, #7896) plus #7890.
+- **Follow-up within 48 h:** one explicit rework chain — #8027 → #8034 ("close
+  the gaps left after #8027") → #8037 → #8048, four `fix(availability)` PRs
+  inside 24 h, each closing gaps the previous one left.
+
+### Recurring causes
+
+**1325 failed runs in the window** (per-day API totals: 216 / 376 / 244 / 256 /
+51 / 14 / 99 / 69 — the 10-29 and 10-30 troughs are the blackout). Grouped by
+cause over the 1000 most recent:
+
+**1. Phantom approval-parked runs on bot branches — 563 of 1000 sampled (56%),
+a third straight week of growth (161 → 425 → 563).** Seven to eight
+`pull_request` workflows fire together on every `github-actions[bot]` PR and
+conclude `failure` with **`jobs: 0`** — verified on runs `41353401579`,
+`41353401585`, `41353401693`, `41353401641`, `41353401619`, and corroborated by
+all **200** `action_required` runs in the window being actored by
+`github-actions[bot]` on `automation/*`, `changeset-release/*` and `chore/*`.
+Documented (#3684, #6344, `docs/SECRETS.md`). **Still no flow impact, and now
+provably fenced off:** `partitionPhantomRuns` (`scripts/phantom-runs.mjs`)
+excludes them from `ciHealth`, and both `ciHealth` and
+`mainPushRunArgs` are `--branch main` scoped, so none of this reaches a sensor
+denominator. Not re-filed; escalation only (the repo Actions approval setting
+cannot be read from here — `actions/permissions` is proxy-blocked).
+
+**2. `apps-visual.yml` stale-baseline churn — 250 failures, 87 of 156 `main`
+runs red (56%), and ZERO issues filed.** Four red-`main` episodes:
+10-25T00:30–05:41 (9 runs), **10-25T23:09 → 10-26T17:58 (34 runs, ~19 h)**,
+10-27T01:44–15:57 (14 runs), 10-28T03:19–06:30 (11 runs) — and red again on the
+latest run, 11-01T19:07. The _cause_ is documented (a shared primitive's
+`line-height` flipping ±1px baselines). The _detection_ failure is new and is
+change #1 below. It was resolved only by human-dispatched regen PRs: #7971 (2
+snapshots), #8019 (47), #8053 (19, still open).
+
+**3. The `[Merge Without Review]` CCR classifier — 138 of 189 heartbeats (73%)
+report a merge denial; `mbe-feature-drain` closed 111 of its 162 fires (68.5%)
+`throttled`.** Documented (#6125), but the documented remedy — "on the first
+denial, stop calling merge for the session" — is scoped to a session, and the
+drain fires ~48×/day. So each fire re-runs the whole review gate on a PR that
+already passed it: #7993 ×32, #8011 ×29, #7899 ×19, #7763 ×17, #7972 ×16,
+#7762 ×15, #7744 ×14, #7766 ×12, #7689 ×10, #7671 ×9. This is the week's single
+largest consumer of factory capacity and the direct cause of both slow-PR tails.
+
+**4. Ordinary dev-branch PR validation** — `e2e-screenshots.yml` 72 dev / 11 bot,
+`e2e.yml` 40 / 27, `ci.yml` 53 / 72, `rialto-web-e2e.yml` 20 / 3. Spread across
+110 branches with no dominant defect; genuine churn, not a cause to chase.
+
+**5. `Generate Changelog` ENOBUFS** (its own 900,000-byte guard) dropped
+`ciHealth.pass_rate_pct` 100 → 93. Already root-caused and filed by
+`mbe-learning-loop` as #8062 (`ready,ci-fix,bug`). Not re-filed.
+
+**Two causes have now bitten twice or more and are NOT in
+`.claude/rules/gotchas.md`.** Proposed wording, for human review — this routine
+does not write `gotchas.md`:
+
+> **A routine's `error` heartbeat is proof it RAN, but `routine-liveness.mjs`
+> maps `error` → `dark`** (`classifyHeartbeat`, line 93), so a
+> blocked-but-healthy routine is filed as
+> `ci-fix: routine <name> is dark — no expected artifact observed` with the
+> observed artifact's own timestamp printed inside the body. #8059 (2026-11-01):
+> artifact at `14:55:06Z`, issue filed `15:02:38Z`, labelled `ready`. `throttled`
+> already has a non-dark state; `error` does not. Never read a "routine is dark"
+> issue as evidence a routine did not fire — check #6211 for a same-day `error`
+> heartbeat first.
+
+> **`classifyScheduledWorkflowHealth` inspects only the `threshold` (default 3)
+> most recent runs**, so a workflow that _flaps_ never shows three consecutive
+> failures at sampling time and is classified `healthy` however red it is.
+> `apps-visual.yml` was red on 87 of 156 `main` runs in the week to 2026-11-01
+> with no `ci-fix` issue filed, while listed in `MAIN_PUSH_WORKFLOW_FILES`. An
+> absent `has failed N consecutive runs` issue is not evidence a workflow is
+> green — measure the rate, not only the streak (the sibling of #7601's gap).
+
+### Throughput
+
+| Week               | Issues filed | Issues closed | Net |
+| ------------------ | -----------: | ------------: | --: |
+| 2026-10-25 → 11-01 |          233 |           208 | +25 |
+| 2026-10-18 → 10-24 |          156 |           145 | +11 |
+
+Open issues now **42**; open `ready` **6**; open PRs **12**. Both weeks net
+positive and volume up ~50% week over week, but **two points are not a trend and
+no trend is claimed here.** The load-bearing observation is the level, not the
+direction: 42 open issues and 6 `ready` is a small backlog, and
+`mbe-daily-issue` found the ready queue outright **empty** on 10-31. Work is not
+queuing up waiting to be started; it is queuing up waiting to be _merged_.
+
+### Top 3 changes
+
+**1. Give the main-push health detector a failure-RATE axis beside its streak
+axis.** `classifyScheduledWorkflowHealth` takes `runs.slice(0, 3)` and requires
+all three to be `failure`; a flapping workflow is structurally invisible to it.
+`apps-visual.yml` spent 56% of its `main` runs red for a week — including one
+34-run, ~19-hour streak — and produced no issue, while sitting in the very list
+built to watch it. This is the same shape as #5815, where recency had to become a
+separate axis because a streak detector cannot see a workflow that never ran; a
+streak detector equally cannot see one that never _stays_ red. One pure function
+plus a test, in a file that already has both. **Filed as #8066.**
+
+**2. Stop an `error` heartbeat classifying as `dark`.** One line
+(`routine-liveness.mjs:93`) makes the factory's own liveness detector lie about a
+routine that ran, worked, reported honestly and was blocked by a known external
+denial — and file it `ready`, so a worker claims it and can do nothing. #8059 is
+open right now with its own evidence of the routine's fire inside it, and it will
+recur every single day the classifier stays broken. `throttled` already models
+"ran, blocked, not dark"; `error` needs the same treatment and a title that does
+not claim nothing was observed. **Filed as #8067.**
+
+**3. Make the `[Merge Without Review]` denial sticky across fires of
+`mbe-feature-drain`.** 111 of 162 fires throttled, the same PR re-reviewed up to
+32 times, and the two slowest PRs of the week are exactly the two most-denied
+ones. The gotcha's "stop for the session" rule is right but scoped one fire wide;
+what is needed is a durable marker on the PR (a label, or the denial recorded at
+the reviewed head SHA) so a later fire skips the review gate on a PR already
+green, reviewed and denied, and spends the fire on the next rung instead.
+**Not filed as `ready`:** the change lives in the routine's prompt
+(`docs/routines/mbe-feature-drain.md` plus applying it to the live trigger), and
+applying a live trigger is not something an agent can finish — it is an
+escalation below, with the exact ask.
+
+Filed this week: **#8066**, **#8067**, and **#8068** — the sdlcSpeed regression
+proposal the pass mandates, with the sensor's title and body unchanged.
+
+### Escalations
+
+1. **Find out why every routine stopped for 61 h (2026-10-28T20:07:16Z →
+   2026-10-31T09:04:47Z).** Nothing in the repo or the GitHub API can see it.
+   **Ask:** open <https://claude.ai/code/routines>, check whether the `mbe-*`
+   triggers show failed or skipped fires across 10-29/10-30 and whether the
+   account hit a plan or usage limit then; if the triggers themselves were
+   disabled, re-enable and say so in #6211.
+2. **Decide what to do about the two weeklies that lost 2026-10-30.**
+   `mbe-weekly-improve` and `mbe-doc-rot` fire once a week and will not retry.
+   **Ask:** either `fire_trigger` on `trig_01G12wULcCweXSb2jmVkChPW` and
+   `trig_0176gF6ty4Jg8oyyXYApKWyi` now, or accept the gap — and note it, because
+   `routine-liveness.mjs` will not flag either one until 2026-11-06.
+3. **Unblock the merge classifier — the week's biggest single cost.**
+   `[Merge Without Review]` denied 138 of 189 heartbeat fires; #8057 was green
+   and reviewed 9/10 and still needed a human. **Ask:** merge the standing
+   green-and-reviewed PRs (#8013, #8048, #8051, #8052, #7972) and raise the CCR
+   permission-classifier denial (#6125) with Anthropic, since no repo-side change
+   can route around it.
+4. **Approve change #3's prompt edit for `mbe-feature-drain`.** **Ask:** review
+   the `docs/routines/mbe-feature-drain.md` PR when it is opened and paste the
+   result into the two live triggers (`trig_01RT7JnCPWyxw4fcKKVmCTb8`,
+   `trig_013Yd7dJ2X98nAwME7fi7iqx`) — `update_trigger` refuses prompts it did not
+   create (same wall as #7219).
+5. **Re-authorize the Sentry MCP connector.** `/sentry-triage` has been skipped
+   every `mbe-learning-loop` run with "MCP authorization expired — re-auth
+   needed, same as prior runs"; production error triage is dark meanwhile.
+6. **Label ≥10 pairs in `docs/ui-quality/calibration.json`.** The stamp has been
+   `stale` for the whole window, and a `stale` stamp suppresses every agent-built
+   finding `mbe-ui-quality` would file — 0 findings on 11-01 was partly that
+   suppression, not only a clean app.
+7. **Confirm the repo Actions approval setting.** 563 phantom `failure` runs this
+   week and 200 pending `action_required`; harmless to the sensors but it buries
+   the real failure signal for a human reading the Actions tab. **Ask:** check
+   Settings → Actions → General → "Approval for running fork pull request
+   workflows" / bot-PR approval; `actions/permissions` is proxy-blocked from
+   here, so this cannot be measured in-session.
+8. **#1262 (173 days) and #6881 (15 days)** — the two asks in the Blockers table.
+
+---
+
 ## 2026-10-25
 
 Window: **2026-10-18 → 2026-10-25**. Sources: `scripts/collect-sdlc-speed.mjs

@@ -8,12 +8,13 @@ import {
   Stack,
   Text,
 } from "@mattbutlerengineering/rialto";
-import type { ScopeConflictMode } from "@mbe/types";
+import type { ScopeConflictMode, StrandedReservation } from "@mbe/types";
 import { addDays } from "@mbe/availability";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { DiscardChangesDialog } from "./DiscardChangesDialog.js";
 import { LeaveGuard } from "./LeaveGuard.js";
 import { weekdayRuns, type Winner } from "./schedule-changes.js";
+import { StrandedBookings } from "./StrandedBookings.js";
 import type { ConflictReview } from "./use-conflict-review.js";
 import styles from "./ScheduleFormParts.module.css";
 
@@ -258,17 +259,34 @@ export function ScheduleDraftGuard(props: {
   );
 }
 
-/** The failure `Alert` the Schedules surfaces share. */
-export function SaveFailure(props: { readonly messages: readonly string[] }) {
+/** The failure `Alert` the Schedules surfaces share; `stranded` lists the bookings behind one. */
+export function SaveFailure(props: {
+  readonly messages: readonly string[];
+  readonly stranded?: readonly StrandedReservation[];
+}) {
   const { t } = useTranslation();
   if (props.messages.length === 0) return null;
   return (
-    <Alert variant="error" title={t("availabilitySchedules.saveError")}>
-      {props.messages.map((message) => (
-        <Text key={message} variant="body" color="primary">
-          {message}
-        </Text>
-      ))}
-    </Alert>
+    <>
+      <Alert variant="error" title={t("availabilitySchedules.saveError")}>
+        {props.messages.map((message) => (
+          <Text key={message} variant="body" color="primary">
+            {message}
+          </Text>
+        ))}
+      </Alert>
+      {/* Outside the alert, which would read every row aloud. */}
+      <StrandedBookings reservations={props.stranded ?? []} />
+    </>
+  );
+}
+
+/** Why a Save is off, said where the Save is: a disabled button cannot say it for itself. */
+export function BlockedReason(props: { readonly id?: string; readonly reason: string | null }) {
+  if (props.reason === null) return null;
+  return (
+    <Text id={props.id} variant="caption" color="secondary" className={styles.blocked}>
+      {props.reason}
+    </Text>
   );
 }

@@ -60,6 +60,36 @@ export function buildDeleteScheduleChanges(scheduleId: string): AvailabilityConf
   return { upsert: {}, remove: { schedules: [scheduleId] } };
 }
 
+/** What stops a schedule draft being saved; `availabilitySchedules.blocked.<code>` says it. */
+export type ScheduleSaveBlock =
+  | "conflict"
+  | "startRequired"
+  | "endBeforeStart"
+  | "nameRequired"
+  | "servicesRequired"
+  | "serviceNameRequired";
+
+/** The first problem, in form order, or `null` when the draft can be saved. */
+export function scheduleSaveBlock(draft: {
+  readonly conflicted: boolean;
+  readonly name: string;
+  readonly services: readonly DraftService[];
+  readonly startsOn: string | null;
+  readonly endsOn: string | null;
+  readonly startRequired?: boolean;
+}): ScheduleSaveBlock | null {
+  const { startsOn, endsOn, services } = draft;
+  if (draft.conflicted) return "conflict";
+  if (draft.startRequired && !startsOn) return "startRequired";
+  if (startsOn && endsOn && endsOn < startsOn) return "endBeforeStart";
+  if (draft.name.trim() === "") return "nameRequired";
+  if (services.length === 0) return "servicesRequired";
+  if (services.some((s) => s.venueServiceId === null && !s.name.trim())) {
+    return "serviceNameRequired";
+  }
+  return null;
+}
+
 /** Do the two uses cover at least one common date? */
 function meets(a: UseOn, b: UseOn): boolean {
   const shared = a.weekdays.filter((d) => b.weekdays.includes(d));

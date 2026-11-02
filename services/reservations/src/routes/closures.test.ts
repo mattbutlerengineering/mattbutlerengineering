@@ -415,6 +415,31 @@ describe("closure routes", () => {
       expect(noticeSvc.enqueueForReopen).not.toHaveBeenCalled();
     });
 
+    it("tells no guest to rebook when another closure keeps every date closed (#8006)", async () => {
+      noticeSvc.enqueueForReopen.mockClear();
+      const stillClosed = {
+        everyDate: true,
+        by: [
+          {
+            ruleId: "other",
+            targetKind: "venue",
+            startsOn: "2026-12-24",
+            endsOn: "2026-12-24",
+            dates: ["2026-12-24"],
+          },
+        ],
+      };
+      commandSvc.reopen.mockResolvedValueOnce({
+        kind: "reopened",
+        result: { version: 6, changeId: "chg-2", notified: 0, stillClosed },
+      });
+
+      const response = await del({ tellCancelledGuests: true });
+
+      expect(noticeSvc.enqueueForReopen).not.toHaveBeenCalled();
+      expect(response.json().data.stillClosed).toEqual(stillClosed);
+    });
+
     it("404s an unknown closure and 403s a Host outside the limits", async () => {
       commandSvc.reopen.mockResolvedValueOnce({ kind: "not_found" });
       expect((await del()).statusCode).toBe(404);

@@ -6,6 +6,7 @@ import {
   type AvailabilityConfigSaveResult,
   type AvailabilityConfigState,
   type ScopeConflictMode,
+  type StrandedReservation,
 } from "@mbe/types";
 import { useSaveAvailabilityConfig } from "../../hooks/useAvailability.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
@@ -25,9 +26,16 @@ export function useScheduleSave(
   const { t } = useTranslation();
   const { mutateAsync, isPending } = useSaveAvailabilityConfig();
   const [failure, setFailure] = useState<readonly string[]>([]);
+  // The bookings behind a stranded refusal, listed beneath its message.
+  const [stranded, setStranded] = useState<readonly StrandedReservation[]>([]);
   // A lost race. The draft was built from a version that is gone, so a drawer that edits rows
   // must show what changed and get an answer (reapply or discard) before it saves again.
   const [conflicted, setConflicted] = useState(false);
+
+  const clearFailure = () => {
+    setFailure([]);
+    setStranded([]);
+  };
 
   const reject = (error: unknown) => {
     const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
@@ -41,6 +49,7 @@ export function useScheduleSave(
       setFailure(problem.issues.map((i) => i.message));
     } else if (problem?.code === "stranded-bookings") {
       setFailure([t(strandedKey, { count: problem.reservations?.length ?? 0 })]);
+      setStranded(problem.reservations ?? []);
     } else {
       setFailure([describeApiError(error).detail]);
     }
@@ -53,7 +62,7 @@ export function useScheduleSave(
     changes: AvailabilityConfigChanges,
     scopeConflicts: ScopeConflictMode
   ): Promise<AvailabilityConfigSaveResult | null> => {
-    setFailure([]);
+    clearFailure();
     try {
       return await mutateAsync({
         venueId,
@@ -69,12 +78,13 @@ export function useScheduleSave(
     save,
     isPending,
     failure,
+    stranded,
     conflicted,
-    clearFailure: () => setFailure([]),
+    clearFailure,
     /** The Manager has answered the conflict; the next save is against the version they saw. */
     clearConflict: () => {
       setConflicted(false);
-      setFailure([]);
+      clearFailure();
     },
   };
 }

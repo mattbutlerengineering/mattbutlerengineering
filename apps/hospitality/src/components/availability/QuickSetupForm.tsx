@@ -149,7 +149,7 @@ function ServiceRow({ service, index, removable, issues, onChange, onRemove }: S
         {service.lastSeatingLinked && service.closes !== null && (
           <Text variant="caption" color="secondary">
             {t("availability.quickSetup.lastSeatingHint", {
-              time: format.formatLocalTime(autoLastSeating(service.closes)),
+              time: format.formatLocalTime(autoLastSeating(service.closes, service.opens)),
             })}
           </Text>
         )}

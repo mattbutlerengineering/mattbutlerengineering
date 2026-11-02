@@ -115,6 +115,30 @@ test.describe("Availability quick setup (F1)", () => {
     ).toBeVisible();
   });
 
+  test("a service shorter than the lead seats at its opening, and saves (#7979)", async ({
+    mockedPage,
+  }) => {
+    const state = await mockEmptyVenue(mockedPage);
+    await mockedPage.goto("availability");
+
+    const choose = async (label: string, time: string) => {
+      await mockedPage.getByRole("combobox", { name: label }).click();
+      await mockedPage
+        .getByRole("listbox", { name: label })
+        .getByRole("option", { name: time, exact: true })
+        .click();
+    };
+    await mockedPage.getByRole("textbox", { name: /name/i }).first().fill("Early");
+    await choose("Opens", "5:00 PM");
+    await choose("Closes", "5:30 PM");
+    await expect(mockedPage.getByRole("combobox", { name: "Last seating" })).toHaveValue("5:00 PM");
+    await mockedPage.getByRole("button", { name: "Weekdays" }).click();
+    await mockedPage.getByRole("button", { name: "Save and open bookings" }).click();
+
+    await expect(mockedPage.getByRole("grid")).toBeVisible();
+    expect(state.savedBody()).toMatchObject({ expectedVersion: 3 });
+  });
+
   test("invalid input sends nothing and names the problem", async ({ mockedPage }) => {
     const state = await mockEmptyVenue(mockedPage);
     await mockedPage.goto("availability");

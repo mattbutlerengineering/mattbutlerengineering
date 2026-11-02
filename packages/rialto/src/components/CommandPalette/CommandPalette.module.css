@@ -22,6 +22,8 @@
   flex-direction: column;
   border-radius: var(--rialto-radius-soft);
   overflow: hidden;
+  /* Focusable only so a click on it keeps focus inside; it is not a control. */
+  outline: none;
   box-shadow:
     0 24px 80px rgb(0 0 0 / 0.25),
     0 8px 24px rgb(0 0 0 / 0.15),

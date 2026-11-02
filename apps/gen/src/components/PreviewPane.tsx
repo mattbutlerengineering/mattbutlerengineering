@@ -29,38 +29,32 @@ const VIEWPORT_WIDTHS = {
 
 const PROMPT_SUGGESTIONS = [
   {
-    icon: "🎨",
     title: "Dashboard",
     description: "Analytics dashboard with a revenue BarChart and KPIs",
     prompt:
       "Analytics dashboard with KPI stats and a BarChart of monthly revenue (Jan through Jun), not a paragraph of numbers",
   },
   {
-    icon: "📋",
     title: "Form",
     description: "Multi-step registration form with validation",
     prompt: "Multi-step registration form with validation",
   },
   {
-    icon: "🛒",
     title: "E-commerce",
     description: "Product card grid with filters and cart",
     prompt: "Product card grid with filters and cart",
   },
   {
-    icon: "💬",
     title: "Chat",
     description: "Real-time messaging interface with threads",
     prompt: "Real-time messaging interface with threads",
   },
   {
-    icon: "📊",
     title: "Data Table",
     description: "Sortable, filterable data table with pagination",
     prompt: "Sortable, filterable data table with pagination",
   },
   {
-    icon: "🗺️",
     title: "Landing Page",
     description: "SaaS landing page with hero and features",
     prompt: "SaaS landing page with hero and features",
@@ -257,6 +251,9 @@ export function PreviewPane({
         {error && !spec ? null : isStreaming && !spec ? (
           <div className={styles.loadingState}>
             <div className={styles.pulse} aria-label="Generating…" role="status" />
+            <Text variant="body" color="secondary" className={styles.loadingLabel}>
+              Generating…
+            </Text>
           </div>
         ) : !spec && !isStreaming ? (
           <div className={styles.welcomeState}>
@@ -267,23 +264,23 @@ export function PreviewPane({
               <Text variant="body" className={styles.welcomeSubtitle}>
                 Describe a UI component or layout and watch it come to life
               </Text>
-              <div className={styles.suggestionsGrid}>
+              <div className={styles.suggestionsList} role="list" aria-label="Prompt suggestions">
                 {PROMPT_SUGGESTIONS.map((suggestion, index) => (
-                  <Button
-                    key={suggestion.title}
-                    type="button"
-                    className={styles.suggestionCard}
-                    style={{ animationDelay: `${index * 80}ms` }}
-                    onClick={() => onSuggestionClick?.(suggestion.prompt)}
-                  >
-                    <Text className={styles.suggestionIcon}>{suggestion.icon}</Text>
-                    <Text variant="label" className={styles.suggestionTitle}>
-                      {suggestion.title}
-                    </Text>
-                    <Text variant="body" className={styles.suggestionDescription}>
-                      {suggestion.description}
-                    </Text>
-                  </Button>
+                  <div key={suggestion.title} role="listitem" className={styles.suggestionListItem}>
+                    <Button
+                      type="button"
+                      className={styles.suggestionRow}
+                      style={{ animationDelay: `${index * 80}ms` }}
+                      onClick={() => onSuggestionClick?.(suggestion.prompt)}
+                    >
+                      <Text variant="label" className={styles.suggestionTitle}>
+                        {suggestion.title}
+                      </Text>
+                      <Text variant="body" className={styles.suggestionDescription}>
+                        {suggestion.description}
+                      </Text>
+                    </Button>
+                  </div>
                 ))}
               </div>
             </div>

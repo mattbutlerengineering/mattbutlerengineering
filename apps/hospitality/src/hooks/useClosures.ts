@@ -11,6 +11,7 @@ import type {
 } from "@mbe/types";
 import type { AvailabilityClient } from "@mbe/api-client";
 import { AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY } from "./useAvailability.js";
+import { trackOwnSave } from "../components/availability/use-reload-hold.js";
 import { createMutationHook } from "./create-mutation-hook.js";
 import { createQueryHook } from "./create-query-hook.js";
 
@@ -66,7 +67,7 @@ export const useCreateClosure = createMutationHook<CreateClosureVariables, Closu
     CLOSURE_SUMMARIES_QUERY_KEY,
   ],
   mutationFn: (api, { venueId, body, idempotencyKey }) =>
-    api.availability.createClosure(venueId, body, idempotencyKey),
+    trackOwnSave(venueId, () => api.availability.createClosure(venueId, body, idempotencyKey)),
 });
 
 const CLOSURE_CALL_LIST_QUERY_KEY = "closureCallList" as const;
@@ -120,7 +121,9 @@ export const useReopenClosure = createMutationHook<ReopenClosureVariables, Reope
     CLOSURE_SUMMARIES_QUERY_KEY,
   ],
   mutationFn: (api, { venueId, ruleId, tellCancelledGuests }) =>
-    api.availability.reopenClosure(venueId, ruleId, tellCancelledGuests),
+    trackOwnSave(venueId, () =>
+      api.availability.reopenClosure(venueId, ruleId, tellCancelledGuests)
+    ),
 });
 
 export type PreviewClosureImpactsVariables = {
@@ -159,5 +162,5 @@ export const useCreateClosures = createMutationHook<CreateClosuresVariables, Clo
     CLOSURE_SUMMARIES_QUERY_KEY,
   ],
   mutationFn: (api, { venueId, body, idempotencyKey }) =>
-    api.availability.createClosures(venueId, body, idempotencyKey),
+    trackOwnSave(venueId, () => api.availability.createClosures(venueId, body, idempotencyKey)),
 });

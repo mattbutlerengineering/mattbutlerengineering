@@ -28,6 +28,7 @@ import { SeriesEditDialog } from "./SeriesEditDialog.js";
 import { isSeries, restoreDate, skipRows, type SeriesScope } from "./series-edit.js";
 import { SpecialHoursEditDrawer } from "./SpecialHoursEditDrawer.js";
 import { SpecialHoursScopeDialog } from "./SpecialHoursScopeDialog.js";
+import { StrandedBookings } from "./StrandedBookings.js";
 import { useScheduleSave } from "./use-schedule-save.js";
 import {
   coversManyDates,
@@ -49,6 +50,8 @@ export interface SpecialDatesTabProps {
   readonly today: string;
   /** A concurrent change was refused; reload the config. */
   readonly onStale: () => void;
+  /** Why the config could not be reloaded, for the hours drawer's Retry. */
+  readonly reloadError?: string | null;
   /** Only a Manager can reopen or retry refunds; a Host views the list and the call list. */
   readonly isManager: boolean;
 }
@@ -134,6 +137,21 @@ function hoursRange(rule: SpecialDateRule, format: VenueFormat, t: TFunction): s
       })
     )
     .join(", ");
+}
+
+/** "Closed · From 10:00 PM", or "Booking paused: Online": what a closure really closes, and from when. */
+function closureDetail(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string {
+  const channels = (rule.bookingTypes ?? []).map((c) => t(`availability.close.what.channel.${c}`));
+  const what =
+    rule.targetKind === "booking" && channels.length > 0
+      ? t("availabilitySpecial.kind.bookingPaused", { channels: channels.join(", ") })
+      : t("availabilitySpecial.kind.closure");
+  return rule.window
+    ? [
+        what,
+        t("availability.close.window.from", { time: minuteText(rule.window.from, t, format) }),
+      ].join(" · ")
+    : what;
 }
 
 interface RowProps {
@@ -287,7 +305,7 @@ function SpecialDateItem(props: RowProps) {
  * became of the bookings it touched, the call list, reopening, and refund retry.
  */
 export function SpecialDatesTab(props: SpecialDatesTabProps) {
-  const { venueId, state, timezone, today, onStale, isManager } = props;
+  const { venueId, state, timezone, today, onStale, reloadError, isManager } = props;
   const rules = state.config.dateRules;
   const { t } = useTranslation();
   const format = useVenueFormat();
@@ -412,6 +430,8 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           ))}
         </Alert>
       )}
+      {/* Outside the alert, which would read every row aloud. */}
+      {rowSave.failure.length > 0 && <StrandedBookings reservations={rowSave.stranded} />}
       {summaries.error && <Alert variant="error">{describeApiError(summaries.error).detail}</Alert>}
       {summaries.isLoading ? (
         <Skeleton variant="text" lines={3} />
@@ -431,7 +451,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
               title={rangeLabel(rule, format, t)}
               detail={[
                 rule.kind === "closure"
-                  ? t("availabilitySpecial.kind.closure")
+                  ? closureDetail(rule, format, t)
                   : t("availabilitySpecial.kind.specialHours"),
                 hoursRange(rule, format, t),
                 rule.repeat ? t("availabilitySpecial.repeating") : null,
@@ -546,6 +566,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           date={editingHours.date}
           ruleScope={editingHours.ruleScope}
           onStale={onStale}
+          reloadError={reloadError}
           onClose={() => setEditingHours(null)}
         />
       )}
@@ -577,6 +598,10 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           countFailed={summaries.error != null}
           subjectIsSpan={reopening.endsOn !== reopening.startsOn || reopening.repeat != null}
           onRetryCount={() => void summaries.refetch()}
+          rules={state.config.dateRules}
+          rule={reopening}
+          today={today}
+          services={state.config.venueServices}
           editedDates={rules.filter((r) => r.seriesId === reopening.id).length}
           isSeriesEdit={
             reopening.seriesId != null && rules.some((r) => r.id === reopening.seriesId)

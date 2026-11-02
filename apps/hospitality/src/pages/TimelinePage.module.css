@@ -5,6 +5,11 @@
   flex-direction: column;
 }
 
+/* Marks the phone/tablet details surface for focus return; takes no part in layout. */
+.detailsSurface {
+  display: contents;
+}
+
 /* Header bar */
 .header {
   padding: var(--rialto-space-md);

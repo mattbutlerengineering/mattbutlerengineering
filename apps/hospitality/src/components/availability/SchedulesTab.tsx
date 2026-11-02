@@ -8,9 +8,9 @@ import {
   Stack,
   Tag,
   Text,
-  useToast,
 } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState, Schedule } from "@mbe/types";
+import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { CompareServices } from "./CompareServices.js";
 import { buildDeleteScheduleChanges, isScheduleUnused } from "./schedule-changes.js";
@@ -75,7 +75,7 @@ function useUsageText(state: AvailabilityConfigState) {
 export function SchedulesTab(props: SchedulesTabProps) {
   const { venueId, state, timezone, today, onStale, onDirtyChange } = props;
   const { t } = useTranslation();
-  const { toast } = useToast();
+  const offerUndo = useAvailabilityUndo();
   const usage = useUsageText(state);
   const saver = useScheduleSave(onStale);
   const [editor, setEditor] = useState<{ mode: ScheduleEditorMode; sourceId?: string } | null>(
@@ -98,12 +98,19 @@ export function SchedulesTab(props: SchedulesTabProps) {
 
   const confirmDelete = async () => {
     if (!deleting) return;
-    const ok = await saver.save(venueId, state, buildDeleteScheduleChanges(deleting.id), "replace");
-    if (ok)
-      toast({
-        variant: "success",
+    const saved = await saver.save(
+      venueId,
+      state,
+      buildDeleteScheduleChanges(deleting.id),
+      "replace"
+    );
+    if (saved) {
+      offerUndo({
+        venueId,
+        saved,
         title: t("availabilitySchedules.deleted", { name: deleting.name }),
       });
+    }
     setDeleting(null);
   };
 
@@ -125,7 +132,7 @@ export function SchedulesTab(props: SchedulesTabProps) {
           </Button>
         </div>
       </div>
-      <SaveFailure messages={saver.failure} />
+      <SaveFailure messages={saver.failure} stranded={saver.stranded} />
       <ul className={styles.list}>
         {schedules.map((schedule) => {
           const unused = isScheduleUnused(state.config, schedule.id);

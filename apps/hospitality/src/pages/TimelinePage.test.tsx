@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
-import { MemoryRouter, useLocation } from "react-router";
+import { Link, MemoryRouter, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TimelinePage } from "./TimelinePage.js";
 import { SHEET_BLOCK_SIZE } from "../components/timeline/sheet-size.js";
@@ -329,8 +329,24 @@ vi.mock("../components/timeline/WalkInDialog", async () => {
 });
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Drawer: ({ children, open }: { children: React.ReactNode; open: boolean }) =>
-    open ? <div data-testid="drawer">{children}</div> : null,
+  useToast: () => ({ toast: vi.fn() }),
+  Drawer: ({
+    children,
+    open,
+    onClose,
+  }: {
+    children: React.ReactNode;
+    open: boolean;
+    onClose?: () => void;
+  }) =>
+    open ? (
+      <div data-testid="drawer">
+        {children}
+        <button data-focus-trap-skip-initial onClick={onClose}>
+          Close drawer
+        </button>
+      </div>
+    ) : null,
   Button: ({
     children,
     onClick,
@@ -348,11 +364,13 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     size?: string;
     "aria-label"?: string;
     "aria-describedby"?: string;
+    "data-testid"?: string;
   }) => (
     <button
       ref={ref}
       onClick={onClick}
       disabled={disabled}
+      data-testid={rest["data-testid"]}
       aria-label={rest["aria-label"]}
       aria-describedby={rest["aria-describedby"]}
       data-variant={variant}
@@ -575,18 +593,25 @@ describe("TimelinePage", () => {
   // Renders the router's current search string so a stripped intent can be asserted.
   function LocationProbe() {
     const { search } = useLocation();
-    return <span data-testid="location-search">{search}</span>;
+    return (
+      <>
+        <span data-testid="location-search">{search}</span>
+        {/* What the command palette does: navigate to the walk-in intent. */}
+        <Link to="/timeline?walkin=true">Open walk-in by URL</Link>
+      </>
+    );
   }
 
-  const renderPage = (initialEntries: string[] = ["/timeline"]) =>
-    render(
-      <QueryClientProvider client={testQueryClient}>
-        <MemoryRouter initialEntries={initialEntries}>
-          <TimelinePage />
-          <LocationProbe />
-        </MemoryRouter>
-      </QueryClientProvider>
-    );
+  const pageTree = (initialEntries: string[] = ["/timeline"]) => (
+    <QueryClientProvider client={testQueryClient}>
+      <MemoryRouter initialEntries={initialEntries}>
+        <TimelinePage />
+        <LocationProbe />
+      </MemoryRouter>
+    </QueryClientProvider>
+  );
+
+  const renderPage = (initialEntries: string[] = ["/timeline"]) => render(pageTree(initialEntries));
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -1046,9 +1071,9 @@ describe("TimelinePage", () => {
       await waitFor(() => {
         expect(screen.queryByTestId("cancel-dialog")).toBeNull();
       });
-      // WCAG 2.4.3: dismissing without confirming returns focus to the originating block.
+      // WCAG 2.4.3: dismissing without confirming returns focus to the button that opened the dialog.
       await waitFor(() => {
-        expect(screen.getByTestId("reservation-block-r1")).toHaveFocus();
+        expect(screen.getByText("Cancel Reservation")).toHaveFocus();
       });
     });
 
@@ -1169,9 +1194,9 @@ describe("TimelinePage", () => {
       await waitFor(() => {
         expect(screen.queryByTestId("no-show-dialog")).toBeNull();
       });
-      // WCAG 2.4.3: dismissing without confirming returns focus to the originating block.
+      // WCAG 2.4.3: dismissing without confirming returns focus to the button that opened the dialog.
       await waitFor(() => {
-        expect(screen.getByTestId("reservation-block-r1")).toHaveFocus();
+        expect(screen.getByText("Mark No-Show")).toHaveFocus();
       });
     });
 
@@ -1984,7 +2009,8 @@ describe("TimelinePage", () => {
     // `TimelineMobileView` had no `reservation-block-<id>` node for `focusAfter` to resolve,
     // so focus dropped to `<body>` on all three success paths.
 
-    it("focuses the mobile reservation block after a successful seat (B3.2)", async () => {
+    // The drawer stays open after seating, so the block is behind it (#8025 review).
+    it("keeps focus inside the drawer after a successful seat (B3.2)", async () => {
       setMobile();
       const seatGuest = vi.fn().mockResolvedValue(defaultReservation);
       vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ seatGuest }));
@@ -1996,10 +2022,10 @@ describe("TimelinePage", () => {
       await waitFor(() => {
         expect(seatGuest).toHaveBeenCalled();
       });
+      // Edit, not the first control: on the tablet sheet that is Seat Guest, which the refetch removes.
       await waitFor(() => {
-        expect(document.activeElement).toBe(screen.getByTestId("reservation-block-r1"));
+        expect(document.activeElement).toBe(within(drawer).getByText("Edit Reservation"));
       });
-      expect(document.activeElement).not.toBe(document.body);
     });
 
     it("focuses the mobile reservation block after a successful cancel (B3.2)", async () => {
@@ -2021,7 +2047,7 @@ describe("TimelinePage", () => {
       expect(document.activeElement).not.toBe(document.body);
     });
 
-    it("focuses the new mobile reservation block after a successful walk-in (B3.2)", async () => {
+    it("focuses the new reservation's drawer after a successful walk-in (B3.2, #8021)", async () => {
       setMobile();
       const createWalkIn = vi.fn().mockResolvedValue(WALK_IN_RESERVATION);
       vi.mocked(useTimelineData).mockReturnValue(
@@ -2034,10 +2060,122 @@ describe("TimelinePage", () => {
       await waitFor(() => {
         expect(screen.queryByTestId("walkin-dialog")).toBeNull();
       });
+      // The new reservation opens in the drawer, which covers the block (#8021).
+      await waitFor(() => {
+        expect(screen.getByTestId("drawer").contains(document.activeElement)).toBe(true);
+      });
+      expect(document.activeElement).not.toBe(screen.getByTestId("reservation-block-r-walkin"));
+    });
+
+    // ── #8025 review: a surface with no live opener captured nothing for Rialto to restore ──
+
+    it("closing the drawer Seat now opened focuses the new reservation's block", async () => {
+      setMobile();
+      const createWalkIn = vi.fn().mockResolvedValue(WALK_IN_RESERVATION);
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({ reservations: [defaultReservation, WALK_IN_RESERVATION], createWalkIn })
+      );
+      renderPage();
+      fireEvent.click(await waitFor(() => screen.getByText("Walk-in")));
+      fireEvent.click(await waitFor(() => screen.getByTestId("walkin-confirm")));
+      fireEvent.click(await waitFor(() => screen.getByText("Close drawer")));
+      await waitFor(() => expect(screen.queryByTestId("drawer")).toBeNull());
       await waitFor(() => {
         expect(document.activeElement).toBe(screen.getByTestId("reservation-block-r-walkin"));
       });
-      expect(document.activeElement).not.toBe(document.body);
+    });
+
+    it("closing a drawer opened from ?selected= focuses that block", async () => {
+      setMobile();
+      renderPage(["/timeline?selected=r1"]);
+      fireEvent.click(await waitFor(() => screen.getByText("Close drawer")));
+      await waitFor(() => expect(screen.queryByTestId("drawer")).toBeNull());
+      await waitFor(() => {
+        expect(document.activeElement).toBe(screen.getByTestId("reservation-block-r1"));
+      });
+    });
+
+    // ── #8021: while the modal details surface is open, focus never lands on the block or the
+    // toolbar behind it ──
+
+    describe("focus stays inside the open details surface (#8021)", () => {
+      const openDrawer = async () => {
+        setMobile();
+        renderPage();
+        fireEvent.click(await waitFor(() => screen.getByTestId("res-r1")));
+        return waitFor(() => screen.getByTestId("drawer"));
+      };
+
+      it("Keep returns focus to the button that was focused and clicked", async () => {
+        const drawer = await openDrawer();
+        const cancel = within(drawer).getByText("Cancel Reservation");
+        cancel.focus();
+        fireEvent.click(cancel);
+        fireEvent.click(await waitFor(() => screen.getByTestId("cancel-close")));
+        await waitFor(() => expect(screen.queryByTestId("cancel-dialog")).toBeNull());
+        await waitFor(() => expect(document.activeElement).toBe(cancel));
+      });
+
+      it("takes the opener from the click when the browser did not focus the button", async () => {
+        const drawer = await openDrawer();
+        // Focus rests on the block, as in a browser whose click does not focus its button.
+        screen.getByTestId("reservation-block-r1").focus();
+        const cancel = within(drawer).getByText("Cancel Reservation");
+        fireEvent.click(cancel);
+        fireEvent.click(await waitFor(() => screen.getByTestId("cancel-close")));
+        await waitFor(() => expect(screen.queryByTestId("cancel-dialog")).toBeNull());
+        await waitFor(() => expect(document.activeElement).toBe(cancel));
+        expect(document.activeElement).not.toBe(screen.getByTestId("reservation-block-r1"));
+      });
+
+      it("closing a URL-opened Walk-in lands inside the surface, not on the toolbar button", async () => {
+        const drawer = await openDrawer();
+        fireEvent.click(screen.getByText("Open walk-in by URL"));
+        await waitFor(() => expect(screen.getByTestId("walkin-dialog")).toBeDefined());
+        fireEvent.click(screen.getByTestId("walkin-close"));
+        await waitFor(() => expect(screen.queryByTestId("walkin-dialog")).toBeNull());
+        await waitFor(() => expect(drawer.contains(document.activeElement)).toBe(true));
+        expect(document.activeElement).not.toBe(screen.getByRole("button", { name: "Walk-in" }));
+      });
+
+      it("an Edit save returns to the clicked button when the click did not focus it", async () => {
+        const drawer = await openDrawer();
+        // Focus rests on the block, as in a browser whose click does not focus its button.
+        screen.getByTestId("reservation-block-r1").focus();
+        const edit = within(drawer).getByText("Edit Reservation");
+        fireEvent.click(edit);
+        fireEvent.click(await waitFor(() => screen.getByTestId("edit-save")));
+        await waitFor(() => expect(screen.queryByTestId("edit-drawer")).toBeNull());
+        await waitFor(() => expect(document.activeElement).toBe(edit));
+      });
+
+      it("opening Edit moves focus to the clicked button, the element the Drawer will restore", async () => {
+        const drawer = await openDrawer();
+        screen.getByTestId("reservation-block-r1").focus();
+        const edit = within(drawer).getByText("Edit Reservation");
+        fireEvent.click(edit);
+        await waitFor(() => expect(screen.getByTestId("edit-drawer")).toBeDefined());
+        expect(document.activeElement).toBe(edit);
+      });
+
+      it("Seat now lands inside the surface, not on the block behind it", async () => {
+        setMobile();
+        const createWalkIn = vi.fn().mockResolvedValue(WALK_IN_RESERVATION);
+        vi.mocked(useTimelineData).mockReturnValue(
+          makeTimelineData({
+            reservations: [defaultReservation, WALK_IN_RESERVATION],
+            createWalkIn,
+          })
+        );
+        renderPage();
+        fireEvent.click(await waitFor(() => screen.getByTestId("res-r1")));
+        await waitFor(() => screen.getByTestId("drawer"));
+        fireEvent.click(screen.getByText("Open walk-in by URL"));
+        fireEvent.click(await waitFor(() => screen.getByTestId("walkin-confirm")));
+        await waitFor(() => expect(screen.queryByTestId("walkin-dialog")).toBeNull());
+        const drawer = screen.getByTestId("drawer");
+        await waitFor(() => expect(drawer.contains(document.activeElement)).toBe(true));
+      });
     });
   });
 
@@ -2163,6 +2301,177 @@ describe("TimelinePage", () => {
     });
   });
 
+  // ── #8029: a response decides what to do from the page as it is when the response arrives ──
+
+  describe("a late response never touches another party's surface (#8029)", () => {
+    const carol = makeReservation({ id: "r2", guestName: "Carol" });
+
+    function holdMutations() {
+      let finish: () => void = () => undefined;
+      const held = new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({
+          reservations: [defaultReservation, carol],
+          cancelReservation: vi.fn(() => held),
+          markNoShow: vi.fn(() => held.then(() => ({ reservation: defaultReservation }))),
+        })
+      );
+      return () => act(async () => finish());
+    }
+
+    const flows = [
+      ["cancel", "Cancel Reservation", "cancel-confirm", "cancel-close"],
+      ["no-show", "Mark No-Show", "no-show-confirm", "no-show-close"],
+    ] as const;
+
+    for (const [label, opener, confirm, close] of flows) {
+      it(`a ${label} landing after Carol is selected leaves Carol's panel open`, async () => {
+        const release = holdMutations();
+        renderPage();
+        fireEvent.click(await waitFor(() => screen.getByTestId("res-r1")));
+        fireEvent.click(await waitFor(() => screen.getByText(opener)));
+        fireEvent.click(await waitFor(() => screen.getByTestId(confirm)));
+        fireEvent.click(screen.getByTestId(close));
+        fireEvent.click(screen.getByTestId("res-r2"));
+        const carolBlock = await waitFor(() => screen.getByTestId("reservation-block-r2"));
+        await waitFor(() => expect(carolBlock).toHaveAttribute("aria-pressed", "true"));
+        carolBlock.focus();
+
+        await release();
+
+        expect(carolBlock).toHaveAttribute("aria-pressed", "true");
+        expect(document.activeElement).toBe(carolBlock);
+        // The outcome is still spoken: it happened.
+        expect(screen.getByRole("status")).not.toHaveTextContent("");
+      });
+    }
+  });
+
+  describe("a dialog belongs to the party it was opened for (#8031)", () => {
+    const carol = makeReservation({ id: "r2", guestName: "Carol" });
+    const listed = (reservations: Reservation[]) =>
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ reservations }));
+
+    const flows = [
+      ["Cancel Reservation", "cancel-dialog"],
+      ["Mark No-Show", "no-show-dialog"],
+      ["Edit Reservation", "edit-drawer"],
+    ] as const;
+
+    for (const [opener, dialog] of flows) {
+      it(`${opener} does not reopen for Carol after the party leaves the list`, async () => {
+        listed([defaultReservation, carol]);
+        const { rerender } = renderPage();
+        fireEvent.click(await waitFor(() => screen.getByTestId("res-r1")));
+        fireEvent.click(await waitFor(() => screen.getByText(opener)));
+        await waitFor(() => screen.getByTestId(dialog));
+
+        // A venue switch or another terminal's change: the party is gone, with its dialog.
+        listed([carol]);
+        rerender(pageTree());
+        await waitFor(() => expect(screen.queryByTestId(dialog)).toBeNull());
+        fireEvent.click(screen.getByTestId("res-r2"));
+        await waitFor(() =>
+          expect(screen.getByTestId("reservation-block-r2")).toHaveAttribute("aria-pressed", "true")
+        );
+
+        expect(screen.queryByTestId(dialog)).toBeNull();
+      });
+    }
+
+    it("a Cancel landing after the party left the list opens nothing for Carol", async () => {
+      let finish: () => void = () => undefined;
+      const cancelReservation = vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            finish = resolve;
+          })
+      );
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({ reservations: [defaultReservation, carol], cancelReservation })
+      );
+      const { rerender } = renderPage();
+      fireEvent.click(await waitFor(() => screen.getByTestId("res-r1")));
+      fireEvent.click(await waitFor(() => screen.getByText("Cancel Reservation")));
+      fireEvent.click(await waitFor(() => screen.getByTestId("cancel-confirm")));
+
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({ reservations: [carol], cancelReservation })
+      );
+      rerender(pageTree());
+      await act(async () => finish());
+      fireEvent.click(screen.getByTestId("res-r2"));
+      await waitFor(() =>
+        expect(screen.getByTestId("reservation-block-r2")).toHaveAttribute("aria-pressed", "true")
+      );
+
+      expect(screen.queryByTestId("cancel-dialog")).toBeNull();
+    });
+  });
+
+  describe("a dialog open across a resize (#8029)", () => {
+    const setWidth = (width: "desktop" | "tablet") => {
+      vi.mocked(window.matchMedia).mockImplementation((query: string) => ({
+        matches: width === "tablet" && query === "(max-width: 1024px)",
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: (_type: string, listener: unknown) => {
+          changeListeners.push(listener as () => void);
+        },
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }));
+    };
+    let changeListeners: (() => void)[] = [];
+    const resizeTo = (width: "desktop" | "tablet") => {
+      setWidth(width);
+      act(() => changeListeners.forEach((listener) => listener()));
+    };
+
+    beforeEach(() => {
+      changeListeners = [];
+      setWidth("desktop");
+    });
+
+    afterEach(() => setWidth("desktop"));
+
+    it("keeps the sidebar under the dialog, then the sheet replaces it when the dialog closes", async () => {
+      renderPage();
+      fireEvent.click(await waitFor(() => screen.getByTestId("res-r1")));
+      fireEvent.click(await waitFor(() => screen.getByText("Cancel Reservation")));
+      await waitFor(() => screen.getByTestId("cancel-dialog"));
+
+      resizeTo("tablet");
+      // Past the frame the surface would wait before it changes form.
+      await act(async () => {
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      });
+
+      expect(screen.queryByTestId("reservation-sheet")).toBeNull();
+      expect(screen.getByTestId("cancel-dialog")).toBeDefined();
+
+      fireEvent.click(screen.getByTestId("cancel-close"));
+
+      await waitFor(() => expect(screen.queryByTestId("cancel-dialog")).toBeNull());
+      await waitFor(() => expect(screen.getByTestId("reservation-sheet")).toBeDefined());
+    });
+
+    it("with no dialog open, the surface follows the viewport at once", async () => {
+      renderPage();
+      fireEvent.click(await waitFor(() => screen.getByTestId("res-r1")));
+      await waitFor(() => screen.getByText("Cancel Reservation"));
+
+      resizeTo("tablet");
+
+      await waitFor(() => expect(screen.getByTestId("reservation-sheet")).toBeDefined());
+    });
+  });
+
   describe("mutation outcomes: one sentence, one focus target (item 15)", () => {
     it("mounts the page's single live region empty from the first render", async () => {
       renderPage();
@@ -2228,6 +2537,19 @@ describe("TimelinePage", () => {
       });
       expect(screen.getByText("Reservation Details")).toBeDefined();
       expect(screen.getAllByRole("status")).toHaveLength(1);
+    });
+
+    it("closing the sidebar focuses the block instead of dropping focus to the body", async () => {
+      renderPage();
+      fireEvent.click(await waitFor(() => screen.getByTestId("res-r1")));
+      const close = await waitFor(() =>
+        screen.getByRole("button", { name: "Close reservation details" })
+      );
+      close.focus();
+      fireEvent.click(close);
+      await waitFor(() => {
+        expect(document.activeElement).toBe(screen.getByTestId("reservation-block-r1"));
+      });
     });
 
     it("cancel success: clears the selection, speaks once and focuses the block", async () => {

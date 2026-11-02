@@ -91,9 +91,18 @@ jobs:
             echo "gen=${{ steps.filter.outputs.gen }}" >> "$GITHUB_OUTPUT"
           fi
 
+  # Two shards because one runner sat at the 20-minute limit and got cancelled
+  # with its last tests unrun (#8038). Each shard has its own dev server,
+  # Postgres and Redis, and still one worker. `hospitality-e2e-result` below is
+  # the combined result, under the original check name. Pinned by
+  # scripts/__tests__/e2e-hospitality-shards.test.mjs.
   hospitality-e2e:
-    name: Hospitality E2E
+    name: Hospitality E2E (shard ${{ matrix.shard }})
     needs: changes
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     # Dependabot PRs run with the Dependabot secret scope, which is empty here
     # (`gh api repos/.../dependabot/secrets` -> total_count: 0), not the Actions
     # scope that holds the credentials below. So this job cannot authenticate on
@@ -279,7 +288,7 @@ jobs:
           E2E_AUTH_PASSWORD: ${{ secrets.E2E_AUTH_PASSWORD }}
 
       - name: Run E2E tests
-        run: pnpm --dir apps/hospitality test:e2e
+        run: pnpm --dir apps/hospitality test:e2e --shard=${{ matrix.shard }}/${{ strategy.job-total }}
         env:
           VITE_AUTH_AUTHORITY: https://${{ secrets.E2E_AUTH0_DOMAIN }}
           VITE_AUTH_CLIENT_ID: ${{ secrets.E2E_AUTH0_CLIENT_ID }}
@@ -340,7 +349,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: e2e-test-results
+          name: e2e-test-results-shard-${{ matrix.shard }}
           path: |
             apps/hospitality/e2e/test-results/
             apps/hospitality/playwright-report/
@@ -429,9 +438,29 @@ jobs:
         if: steps.gather-diagnostics.outcome == 'success'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: e2e-diagnostics
+          name: e2e-diagnostics-shard-${{ matrix.shard }}
           path: /tmp/e2e-diagnostics/
           retention-days: 7
+
+  # The one result for both shards. `needs.<job>.result` is `success` only when
+  # every shard succeeded, so a shard that failed or hit its time limit fails
+  # this. Skipped with the shards when the suite did not need to run, and left
+  # out when a newer push cancels the workflow.
+  hospitality-e2e-result:
+    name: Hospitality E2E
+    needs: hospitality-e2e
+    if: ${{ !cancelled() && needs.hospitality-e2e.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: All shards passed
+        env:
+          SHARDS_RESULT: ${{ needs.hospitality-e2e.result }}
+        run: |
+          [ "$SHARDS_RESULT" = "success" ] || {
+            echo "::error::Hospitality E2E shards finished as: $SHARDS_RESULT"
+            exit 1
+          }
 
   # Marketing is a static Vite site with no backend proxy — no Postgres,
   # Redis, migrations, or Auth0 preflight needed. Playwright serves the

@@ -333,7 +333,14 @@ export async function futureBookings(
       ...stillToServeWhere(now),
       status: { notIn: [...NOT_BOOKED_STATUSES] },
     },
-    select: { id: true, tableId: true, startTime: true, partySize: true, date: true },
+    select: {
+      id: true,
+      tableId: true,
+      startTime: true,
+      partySize: true,
+      date: true,
+      guestName: true,
+    },
   });
 }
 

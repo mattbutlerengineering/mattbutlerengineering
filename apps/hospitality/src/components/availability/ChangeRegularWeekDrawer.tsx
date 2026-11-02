@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, DatePicker, Drawer, Input, Stack, Text } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState, ScopeConflictMode } from "@mbe/types";
@@ -10,10 +10,12 @@ import {
   overlappingSchedules,
   datesOfUse,
   regularWeekdays,
+  scheduleSaveBlock,
   type Winner,
 } from "./schedule-changes.js";
 import { ownChangeDates } from "./scope-dates.js";
 import {
+  BlockedReason,
   ConflictReviewPanel,
   OverlapChoice,
   OwnChangesChoice,
@@ -111,11 +113,15 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
   );
 
   const trimmed = name.trim();
-  const incomplete =
-    !startsOn ||
-    trimmed === "" ||
-    services.length === 0 ||
-    services.some((s) => s.venueServiceId === null && !s.name.trim());
+  const block = scheduleSaveBlock({
+    conflicted: saver.conflicted,
+    name,
+    services,
+    startsOn,
+    endsOn,
+    startRequired: true,
+  });
+  const blockedId = useId();
   const startText = startsOn
     ? format.formatCalendarDate(startsOn, { month: "short", day: "numeric" })
     : "";
@@ -157,12 +163,17 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
         size="wide"
         footer={
           <div className={styles.footer}>
+            <BlockedReason
+              id={blockedId}
+              reason={block && t(`availabilitySchedules.blocked.${block}`)}
+            />
             <Button variant="secondary" onClick={() => guard.request()}>
               {t("availabilitySchedules.cancel")}
             </Button>
             <Button
               variant="primary"
-              disabled={incomplete || saver.conflicted}
+              disabled={block !== null}
+              aria-describedby={block ? blockedId : undefined}
               isLoading={saver.isPending}
               onClick={() => void submit()}
             >
@@ -181,13 +192,14 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
               onDiscard={review.discard}
             />
           ) : (
-            <SaveFailure messages={saver.failure} />
+            <SaveFailure messages={saver.failure} stranded={saver.stranded} />
           )}
           <div className={styles.dates}>
             <DatePicker
               label={t("availabilitySchedules.startsOn")}
               value={startsOn}
               min={today}
+              max={endsOn ?? undefined}
               onChange={setStartsOn}
             />
             <DatePicker

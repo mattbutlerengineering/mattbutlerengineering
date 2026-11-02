@@ -163,6 +163,21 @@ describe("buildDraftChanges", () => {
     expect(parses(open) && parses(bounded)).toBe(true);
   });
 
+  it("every Friday from a past date starts the rule today, so past Fridays keep their hours", () => {
+    const { config, services } = seeded();
+    const changes = buildDraftChanges({
+      config,
+      scope: { kind: "weekday", from: "2026-10-02", until: null },
+      services,
+      makeId: counter(),
+      today: "2026-10-21",
+    });
+    expect(changes.upsert.dateRules?.[0]).toMatchObject({
+      startsOn: "2026-10-21",
+      repeat: { version: 1, weekdays: [5] },
+    });
+  });
+
   it("everywhere a schedule is used: rewrites the schedule's services and drops removed ones", () => {
     const { config, services } = seeded({ kind: "schedule", scheduleId: "regular" });
     const edited = services
