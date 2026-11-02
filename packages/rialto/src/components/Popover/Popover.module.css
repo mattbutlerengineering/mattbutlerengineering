@@ -16,7 +16,15 @@
   border-radius: var(--rialto-radius-soft);
 }
 
-:global([data-theme="dark"]) .panel {
+/* The glass recipe this panel composes is translucent (rgb(253 252 250 / 0.85)
+   in light, 0.9 in dark), so whatever sits behind it (a Dialog's body, its
+   scrim) blends into the background of the text on it and a DatePicker's
+   weekday row fell to 4.21:1 (#8140). The panel paints the opaque elevated
+   surface in both themes and keeps the glass border, shine and shadow. The
+   doubled selectors out-specify the composed .glass rules (light, and dark at
+   the same weight) whatever the bundle order. */
+.panel.panel,
+:global([data-theme="dark"]) .panel.panel {
   background: var(--rialto-surface-elevated);
 }
 

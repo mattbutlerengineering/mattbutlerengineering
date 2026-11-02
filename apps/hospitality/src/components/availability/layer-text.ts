@@ -2,7 +2,7 @@ import type { TFunction } from "i18next";
 import type { Layer, LayerSeries, LayerTarget } from "@mbe/availability";
 import type { VenueFormat } from "../../hooks/useVenueFormat.js";
 import { closureEndText, minuteText } from "./closure-band.js";
-import { clockHour } from "./clock-hour.js";
+import { clockHour } from "../../utils/clock-hour.js";
 import { scheduleNameText } from "./day-summary.js";
 
 /**

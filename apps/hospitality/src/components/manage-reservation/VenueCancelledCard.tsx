@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Alert, Button, Card, Stack, Text } from "@mattbutlerengineering/rialto";
 import { ApiClientError, type ManagedVenueCancellation } from "@mbe/api-client";
 import { usePublicApiClient } from "../../hooks/usePublicApiClient.js";
+import { clockHourOfInstant } from "../../utils/clock-hour.js";
 import styles from "./VenueCancelledCard.module.css";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
@@ -155,6 +156,7 @@ export function VenueCancelledCard({
                 {t("manageReservation.venueCancelled.rebook", {
                   date: format.formatCalendarDate(offer.date, DATE_FIELDS),
                   time: format.formatTime(offer.startTime),
+                  count: clockHourOfInstant(offer.startTime, format),
                 })}
               </Button>
             ))}

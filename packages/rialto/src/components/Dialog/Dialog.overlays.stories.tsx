@@ -7,6 +7,8 @@ import { Combobox } from "../Combobox/Combobox";
 import { Autocomplete } from "../Autocomplete/Autocomplete";
 import { DropdownMenu } from "../DropdownMenu/DropdownMenu";
 import { Popover } from "../Popover/Popover";
+import { DatePicker } from "../DatePicker/DatePicker";
+import axe from "axe-core";
 
 /**
  * Real-browser checks that floating controls hosted in a Dialog are not clipped
@@ -230,6 +232,76 @@ export const DropdownMenuIsOpaqueInDialog: Story = {
     await userEvent.click(await body.findByRole("button", { name: "Actions" }));
     const menu = await body.findByRole("menu");
     await waitFor(() => expect(alphaOf(getComputedStyle(menu).backgroundColor)).toBe(1));
+  },
+};
+
+/** Runs `check` with `data-theme` set, restoring the previous theme. */
+async function inTheme(theme: "light" | "dark", check: () => Promise<void>) {
+  const root = document.documentElement;
+  const previous = root.getAttribute("data-theme");
+  root.setAttribute("data-theme", theme);
+  try {
+    await check();
+  } finally {
+    if (previous === null) root.removeAttribute("data-theme");
+    else root.setAttribute("data-theme", previous);
+  }
+}
+
+function PopoverInDialog() {
+  return (
+    <Host>
+      <Popover trigger={<Button>Details</Button>} placement="bottom">
+        <p>Panel text</p>
+      </Popover>
+    </Host>
+  );
+}
+
+async function expectPopoverOpaque() {
+  const body = within(document.body);
+  await userEvent.click(await body.findByRole("button", { name: "Details" }));
+  const panel = await body.findByRole("dialog", { name: "Popover" });
+  await waitFor(() => expect(alphaOf(getComputedStyle(panel).backgroundColor)).toBe(1));
+}
+
+/** A glass panel blends with the dialog behind it, so its text has no fixed background (#8140). */
+export const PopoverIsOpaqueInDialog: Story = {
+  render: () => <PopoverInDialog />,
+  play: async () => {
+    await inTheme("light", expectPopoverOpaque);
+  },
+};
+
+export const PopoverIsOpaqueInDialogDark: Story = {
+  render: () => <PopoverInDialog />,
+  play: async () => {
+    await inTheme("dark", expectPopoverOpaque);
+  },
+};
+
+/** jsdom cannot compute colour contrast; Chromium can. */
+export const DatePickerPassesContrastInDialog: Story = {
+  render: () => (
+    <Host>
+      <DatePicker label="Day" value="2026-12-01" onChange={() => {}} />
+    </Host>
+  ),
+  play: async () => {
+    const body = within(document.body);
+    await userEvent.click(await body.findByRole("combobox", { name: "Day" }));
+    const panel = await body.findByRole("dialog", { name: "Popover" });
+    // Mid-entrance the panel is partly transparent, which axe reads as a low-contrast blend.
+    await waitFor(() => expect(document.getAnimations()).toHaveLength(0));
+    const result = await axe.run(panel, {
+      runOnly: ["color-contrast"],
+    });
+    expect(
+      result.violations.map((v) => ({
+        id: v.id,
+        nodes: v.nodes.map((n) => `${n.target.join(" ")}: ${n.any[0]?.message ?? ""}`),
+      }))
+    ).toEqual([]);
   },
 };
 

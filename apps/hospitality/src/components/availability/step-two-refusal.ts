@@ -5,7 +5,7 @@ import {
   type ClosureImpactGroup,
 } from "@mbe/types";
 import type { VenueFormat } from "../../hooks/useVenueFormat.js";
-import { clockHourOfInstant } from "./clock-hour.js";
+import { clockHourOfInstant } from "../../utils/clock-hour.js";
 import { describeApiError, type ApiErrorCategory } from "../../lib/describe-api-error.js";
 import { conflictOf, isDecisionRequired } from "./conflict-problem.js";
 

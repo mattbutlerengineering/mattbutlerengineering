@@ -345,7 +345,7 @@ Positioned floating content.
 
 ### Visual Design {#popover-visual-design}
 
-- **Surface**: `glass` composition
+- **Surface**: opaque `--rialto-surface-elevated` in both themes, with the `glass` border, shine and shadow. The panel composes `glass` but overrides its translucent fill: text on it (a DatePicker calendar) needs a fixed background, or `color-contrast` depends on what sits behind it (#8140).
 - **Radius**: `--rialto-radius-soft`
 - **Spacing**: `--rialto-space-md` padding, `--rialto-space-sm` header
 - **Close button**: `--rialto-radius-sharp`

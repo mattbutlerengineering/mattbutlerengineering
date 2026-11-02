@@ -599,10 +599,14 @@
   "home": {
     "title": "Dashboard",
     "openSign": {
-      "open": "Open until {{time}}",
-      "openingSoon": "Opens at {{time}}",
-      "closedToday": "Closed, opens at {{time}}",
-      "closedOn": "Closed, opens {{weekday}} at {{time}}",
+      "open_one": "Open until {{time}}",
+      "open_other": "Open until {{time}}",
+      "openingSoon_one": "Opens at {{time}}",
+      "openingSoon_other": "Opens at {{time}}",
+      "closedToday_one": "Closed, opens at {{time}}",
+      "closedToday_other": "Closed, opens at {{time}}",
+      "closedOn_one": "Closed, opens {{weekday}} at {{time}}",
+      "closedOn_other": "Closed, opens {{weekday}} at {{time}}",
       "unset": "No operating hours set",
       "weekdays": {
         "monday": "Monday",
@@ -741,7 +745,8 @@
     "visitOrdinalFew": "{{count}}rd visit",
     "visitOrdinalOther": "{{count}}th visit",
     "block": {
-      "title": "{{guest}} - {{party}} at {{time}}",
+      "title_one": "{{guest}} - {{party}} at {{time}}",
+      "title_other": "{{guest}} - {{party}} at {{time}}",
       "seatedWord": "seated",
       "overrideTag": "Override",
       "overrideLabel": "Override: {{reason}}"
@@ -1490,7 +1495,8 @@
         "failed": "We couldn't refund your deposit automatically. {{venue}} will be in touch, or you can call them."
       },
       "rebookHeading": "Rebook in one tap",
-      "rebook": "Rebook {{date}} at {{time}}",
+      "rebook_one": "Rebook {{date}} at {{time}}",
+      "rebook_other": "Rebook {{date}} at {{time}}",
       "rebooking": "Rebooking…",
       "rebooked": "You're rebooked for {{when}}.",
       "viewRebooked": "View your new reservation",

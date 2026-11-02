@@ -5,6 +5,7 @@ import type { Reservation, ReservationStatus } from "@mbe/types";
 import { RESERVATION_STATUS_KEYS } from "./status-keys.js";
 import { visitLabel } from "./visit-label.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
+import { clockHourOfInstant } from "../../utils/clock-hour.js";
 import styles from "./ReservationBlock.module.css";
 
 export interface ReservationBlockProps {
@@ -47,6 +48,7 @@ function ReservationBlockComponent({
       guest: guestName,
       party: t("timeline.guests", { count: reservation.partySize }),
       time: startTime,
+      count: clockHourOfInstant(reservation.startTime, fmt),
     }),
     visitText,
   ]
