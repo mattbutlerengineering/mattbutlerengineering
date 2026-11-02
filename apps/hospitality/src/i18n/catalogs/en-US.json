@@ -2028,6 +2028,12 @@
       "reloadHours": "Reload hours",
       "ifRemoved": "If removed: {{result}}",
       "removalNone": "no change to this day",
+      "layer": {
+        "tonight": "Tonight",
+        "allDay": "All day",
+        "window": "{{from}} – {{to}}",
+        "bookableAsUsual": "Bookable as usual"
+      },
       "removal": {
         "serviceOpens": "{{name}} opens {{from}} – {{to}}",
         "serviceCloses": "{{name}} no longer open",

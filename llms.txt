@@ -2021,6 +2021,22 @@
       export const useEditorOpen: unknown;
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/layer-text.ts">
+    <item priority="medium">
+      function closureOf(day: ResolvedDay, layer: Layer) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function layerLabelText(day: ResolvedDay, layer: Layer, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function layerEffectText(
+        day: ResolvedDay,
+        layer: Layer,
+        t: TFunction,
+        format: VenueFormat
+      ): string { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/online-seatings.ts">
     <item priority="medium">
       function seatingMinutes({ opensAt, lastSeatingAt, closesAt, seating }: ResolvedService): number[] { /* ... */ }

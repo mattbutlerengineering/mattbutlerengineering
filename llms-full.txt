@@ -6012,6 +6012,42 @@
     }
     export const useEditorOpen = (): boolean => useSyncExternalStore(subscribe, isEditorOpen);
   </file>
+  <file path="apps/hospitality/src/components/availability/layer-text.ts">
+    function closureOf(day: ResolvedDay, layer: Layer) {
+      return layer.kind === "closure" ? day.closures.find((c) => c.ruleId === layer.id) : undefined;
+    }
+    export function layerLabelText(day: ResolvedDay, layer: Layer, t: TFunction): string {
+      switch (layer.kind) {
+        case "schedule":
+          return scheduleNameText(layer.label, t);
+        case "special_hours":
+          return t("availability.calendar.dayLabel.specialHours");
+        case "tonight":
+          return t("availability.drawer.layer.tonight");
+        case "closure":
+          return closureOf(day, layer)?.targetKind === "venue"
+            ? t("availability.calendar.dayLabel.closed")
+            : layer.label;
+        default:
+          return layer.label;
+      }
+    }
+    export function layerEffectText(
+      day: ResolvedDay,
+      layer: Layer,
+      t: TFunction,
+      format: VenueFormat
+    ): string {
+      if (layer.kind === "skip") return t("availability.drawer.layer.bookableAsUsual");
+      const closure = closureOf(day, layer);
+      if (!closure) return layer.effect;
+      if (isWholeDay(closure)) return t("availability.drawer.layer.allDay");
+      return t("availability.drawer.layer.window", {
+        from: minuteText(closure.from, t, format),
+        to: minuteText(closure.to, t, format),
+      });
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/online-seatings.ts">
     function seatingMinutes({ opensAt, lastSeatingAt, closesAt, seating }: ResolvedService): number[] {
       const bookable = (m: number) => m >= opensAt && m <= lastSeatingAt && m < closesAt;

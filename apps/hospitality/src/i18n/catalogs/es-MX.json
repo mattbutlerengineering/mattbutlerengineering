@@ -2068,6 +2068,12 @@
       "reloadHours": "Recargar horarios",
       "ifRemoved": "Si se quita: {{result}}",
       "removalNone": "sin cambios en este día",
+      "layer": {
+        "tonight": "Esta noche",
+        "allDay": "Todo el día",
+        "window": "{{from}} – {{to}}",
+        "bookableAsUsual": "Reservable como siempre"
+      },
       "removal": {
         "serviceOpens": "{{name}} abre {{from}} – {{to}}",
         "serviceCloses": "{{name}} ya no abre",
