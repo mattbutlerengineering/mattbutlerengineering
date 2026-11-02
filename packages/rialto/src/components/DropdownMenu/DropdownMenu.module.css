@@ -66,6 +66,12 @@
   overflow-y: auto;
 }
 
+/* The opaque rule above is `.wrapper .menu`; a menu portaled out of the wrapper
+   misses it and would fall back to the translucent glass surface. */
+.menu.floating {
+  background: var(--rialto-surface-elevated);
+}
+
 /* ── Item ────────────────────────────────────── */
 .item {
   composes: focusRing from "../../styles/surfaces.module.css";

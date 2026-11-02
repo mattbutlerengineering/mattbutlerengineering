@@ -47,6 +47,9 @@ export function useLayerFloating(
             frame = requestAnimationFrame(update);
           });
     resizes?.observe(panel);
+    // The anchor moves the panel too: a multi-select control that wraps its
+    // chips grows downward under an open list.
+    resizes?.observe(anchor);
     return () => {
       cancelAnimationFrame(frame);
       window.removeEventListener("resize", update);
@@ -80,14 +83,20 @@ export const placeListbox: Place = (anchor, panel) => {
   };
 };
 
-/** Menu sized to its content, aligned to the trigger's start or end edge. */
+/**
+ * Menu sized to its content, aligned to the trigger's inline start (`"left"`) or
+ * inline end (`"right"`) edge. The values are logical, like the non-floating
+ * CSS's `inset-inline-start`, so in RTL `"left"` shares the trigger's right edge.
+ */
 export function placeMenu(align: "left" | "right", side: "top" | "bottom"): Place {
   return (anchor, panel) => {
     const { width, height } = viewportSize();
     // Measure at the viewport's start so the width is not squeezed by `left`.
     panel.style.left = "0px";
     panel.style.right = "auto";
-    const desired = align === "right" ? anchor.right - panel.offsetWidth : anchor.left;
+    const rtl = getComputedStyle(panel).direction === "rtl";
+    const alignsRight = (align === "right") !== rtl;
+    const desired = alignsRight ? anchor.right - panel.offsetWidth : anchor.left;
     return {
       ...placeVertical(anchor, panel.scrollHeight, side, LIST_GAP, height),
       left: `${placeHorizontal(desired, panel.offsetWidth, width)}px`,

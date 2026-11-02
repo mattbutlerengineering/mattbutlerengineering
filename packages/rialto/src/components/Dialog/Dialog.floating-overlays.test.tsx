@@ -53,6 +53,24 @@ describe("floating controls hosted in a Dialog", () => {
     expect(list.className).toMatch(/floating/);
   });
 
+  it("watches the control, not just the list, so a control that grows moves the list", async () => {
+    const observed: Element[] = [];
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe(el: Element) {
+          observed.push(el);
+        }
+        disconnect() {}
+      }
+    );
+    inDialog(<Combobox label="Fruit" options={options} />);
+    await userEvent.click(screen.getByRole("combobox"));
+    const control = screen.getByRole("combobox").parentElement;
+    expect(observed).toContain(control);
+    vi.unstubAllGlobals();
+  });
+
   it("lifts an Autocomplete listbox out of the dialog body", async () => {
     inDialog(<Autocomplete label="Fruit" options={options} />);
     await userEvent.type(screen.getByRole("combobox"), "a");
