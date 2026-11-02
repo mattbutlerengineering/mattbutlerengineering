@@ -5,9 +5,14 @@ import { setVenueContext } from "../middleware/venue-context.js";
 import { referenceIssues, SCOPE_CONFLICT_HORIZON_DAYS } from "./availability-config-plan.js";
 import { loadConfigState, stillToServeWhere, type ConfigState } from "./availability-config.js";
 import { civilDateIn } from "./availability-migration.js";
-import { computeClosureImpact, withClosure, type ImpactBooking } from "./closure-impact.js";
+import {
+  computeClosureImpact,
+  withClosure,
+  type ImpactBooking,
+  type Occupancy,
+} from "./closure-impact.js";
 import { prisma } from "./database.js";
-import { NOT_BOOKED_STATUSES } from "./slot-rules.js";
+import { activeHoldWindow, NOT_BOOKED_STATUSES } from "./slot-rules.js";
 
 /**
  * Loads what `computeClosureImpact` needs for a draft date rule, read-only and
@@ -16,7 +21,7 @@ import { NOT_BOOKED_STATUSES } from "./slot-rules.js";
  */
 
 type StoreClient = Pick<PrismaClient, "$transaction">;
-type ImpactDb = Pick<PrismaClient, "table" | "reservation">;
+type ImpactDb = Pick<PrismaClient, "table" | "reservation" | "reservationHold">;
 
 export type ClosureImpactOutcome =
   | { kind: "ok"; impact: ClosureImpact }
@@ -61,6 +66,46 @@ function scanRange(rule: DateRule, today: string): { from: string; to: string } 
 }
 
 /**
+ * Who holds the tables the affected bookings sit on, over the days a move can land on: every live
+ * booking (the unaffected ones too) and every unexpired hold, the two things `closure-apply`'s
+ * `targetTaken` refuses a move for. A move stays within a service day (ADR-029), so a day either
+ * side of the scanned range covers a service that runs past midnight.
+ */
+async function loadOccupancy(
+  tx: ImpactDb,
+  venueId: string,
+  tableIds: readonly string[],
+  range: { from: string; to: string },
+  now: Date
+): Promise<Occupancy> {
+  if (tableIds.length === 0) return { reservations: [], holds: [] };
+  const date = { gte: toDbDate(addDays(range.from, -1)), lte: toDbDate(addDays(range.to, 1)) };
+  const [reservations, holds] = await Promise.all([
+    tx.reservation.findMany({
+      where: {
+        venueId,
+        tableId: { in: [...tableIds] },
+        date,
+        status: { notIn: [...NOT_BOOKED_STATUSES] },
+      },
+      select: { id: true, tableId: true, startTime: true, endTime: true, partySize: true },
+    }),
+    tx.reservationHold.findMany({
+      where: { venueId, tableId: { in: [...tableIds] }, date, expiresAt: activeHoldWindow(now) },
+      select: {
+        id: true,
+        tableId: true,
+        startTime: true,
+        endTime: true,
+        partySize: true,
+        expiresAt: true,
+      },
+    }),
+  ]);
+  return { reservations, holds };
+}
+
+/**
  * The impact of a draft rule against an already-loaded config state, inside
  * the caller's transaction. The closure command runs this same query before
  * it writes.
@@ -99,6 +144,7 @@ export async function impactInTransaction(
       endTime: true,
       partySize: true,
       guestName: true,
+      originHost: true,
       deposit: {
         select: {
           amountCents: true,
@@ -116,12 +162,15 @@ export async function impactInTransaction(
         ? { amountCents: deposit.amountCents, currency: deposit.currency }
         : null,
   }));
+  const tableIds = [...new Set(bookings.flatMap((b) => (b.tableId ? [b.tableId] : [])))];
   const impact = computeClosureImpact({
     timezone: state.timezone,
     config: state.effective,
     rule,
     alongside,
     bookings,
+    now,
+    occupancy: await loadOccupancy(tx, venueId, tableIds, range, now),
   });
   return { kind: "ok", impact };
 }

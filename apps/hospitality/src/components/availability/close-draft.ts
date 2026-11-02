@@ -10,6 +10,7 @@ import {
   type ClosureAction,
   type ClosureDecision,
   type ClosureImpactGroup,
+  type ClosureImpactReservation,
   type AvailabilityConfig,
   type ClosureImpactKind,
   type DateRule,
@@ -342,12 +343,34 @@ export function actionsFor(kind: ClosureImpactKind): readonly ClosureAction[] {
     : ["cancel", "keep_notify", "keep_silent"];
 }
 
+/**
+ * The bookings of a group the server found no open time for (`proposedStart: null`), so a move is
+ * refused while any is in it. A booking with no proposal at all (an older server) is not counted.
+ */
+export function unmovable(group: ClosureImpactGroup): ClosureImpactReservation[] {
+  return group.reservations.filter((r) => r.proposedStart === null);
+}
+
 /** Every group has a choice, and keeping silent carries its acknowledgement. */
 export function decisionsReady(groups: readonly ClosureImpactGroup[], choices: ChoiceMap): boolean {
   return groups.every((g) => {
     const choice = choices[g.groupKey];
+    if (choice?.action === "move" && unmovable(g).length > 0) return false;
     return choice?.action !== undefined && (choice.action !== "keep_silent" || choice.acknowledged);
   });
+}
+
+/** The choices without those of the groups that hold any of `reservationIds`: they must be made again. */
+export function withoutChoicesFor(
+  groups: readonly ClosureImpactGroup[],
+  choices: ChoiceMap,
+  reservationIds: readonly string[]
+): ChoiceMap {
+  const ids = new Set(reservationIds);
+  const dropped = new Set(
+    groups.filter((g) => g.reservations.some((r) => ids.has(r.id))).map((g) => g.groupKey)
+  );
+  return Object.fromEntries(Object.entries(choices).filter(([key]) => !dropped.has(key)));
 }
 
 /**

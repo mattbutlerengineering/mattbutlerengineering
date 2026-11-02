@@ -1631,7 +1631,17 @@
       export function actionsFor(kind: ClosureImpactKind): readonly ClosureAction[] { /* ... */ }
     </item>
     <item priority="high">
+      export function unmovable(group: ClosureImpactGroup): ClosureImpactReservation[] { /* ... */ }
+    </item>
+    <item priority="high">
       export function decisionsReady(groups: readonly ClosureImpactGroup[], choices: ChoiceMap): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function withoutChoicesFor(
+        groups: readonly ClosureImpactGroup[],
+        choices: ChoiceMap,
+        reservationIds: readonly string[]
+      ): ChoiceMap { /* ... */ }
     </item>
     <item priority="high">
       export function toDecisions(
@@ -2728,8 +2738,11 @@
   </file>
   <file path="apps/hospitality/src/components/availability/step-two-refusal.ts">
     <item priority="low">
-      type Refusal = { readonly kind: "groups-chang | { readonly kind: "version-conf | { readonly kind: "closure-exis | {
+      type Refusal = { readonly kind: "groups-chang | { readonly kind: "version-conf | { readonly kind: "move-unavail | { readonly kind: "closure-exis | {
             readonly kind: "other";
+    </item>
+    <item priority="medium">
+      function moveUnavailableIds(error: unknown): readonly string[] | null { /* ... */ }
     </item>
     <item priority="high">
       export function refusalOf(error: unknown): Refusal { /* ... */ }
@@ -2737,8 +2750,21 @@
     <item priority="high">
       export function mayHaveSaved(refusal: Refusal): boolean { /* ... */ }
     </item>
+    <item priority="low">
+      interface RefusalContext {
+        groups: readonly ClosureImpactGroup[];
+        format: Pick<VenueFormat, "formatTime" | "formatCalendarDate">;
+      }
+    </item>
+    <item priority="medium">
+      function moveUnavailableText(
+        ids: readonly string[],
+        t: TFunction,
+        context: RefusalContext | undefined
+      ): string { /* ... */ }
+    </item>
     <item priority="high">
-      export function refusalText(refusal: Refusal, t: TFunction): string { /* ... */ }
+      export function refusalText(refusal: Refusal, t: TFunction, context?: RefusalContext): string { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/stranded-revert.ts">
@@ -6602,6 +6628,9 @@
     <item priority="high">
       export const useClosureImpact: unknown;
     </item>
+    <item priority="high">
+      export const useClosureNoticePreview: unknown;
+    </item>
     <item priority="low">
       type PreviewClosureImpactVariables = {
         venueId: string;
@@ -9126,6 +9155,38 @@
     </item>
     <item priority="high">
       export function buildClosureEmail(c: ClosureNoticeContent): { subject: string; html: string } { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/notifications/closure-preview.ts">
+    <item priority="low">
+      type PreviewAction = "cancel" | "move" | "keep_notify";
+    </item>
+    <item priority="high">
+      export const PREVIEW_LINK_TEXT: unknown;
+    </item>
+    <item priority="low">
+      interface ClosurePreviewInput {
+        action: PreviewAction;
+        venueName: string;
+        timezone: string;
+        closureDate: string;
+        startTime: string;
+      }
+    </item>
+    <item priority="low">
+      interface ClosurePreview {
+        email: { from: string; subject: string; text: string };
+        sms: string;
+      }
+    </item>
+    <item priority="medium">
+      function withoutTags(line: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function emailText(html: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function previewClosureNotice(input: ClosurePreviewInput): ClosurePreview { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/notifications/email-content.ts">
@@ -12648,6 +12709,9 @@
       export const CLOSURE_IMPACT_KINDS: unknown;
     </item>
     <item priority="high">
+      export const BOOKING_ORIGIN_HOSTS: unknown;
+    </item>
+    <item priority="high">
       export const ClosureImpactKindSchema: unknown;
     </item>
     <item priority="high">
@@ -12658,6 +12722,21 @@
     </item>
     <item priority="high">
       export const ClosureImpactSchema: unknown;
+    </item>
+    <item priority="high">
+      export const CLOSURE_NOTICE_ACTIONS: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureNoticePreviewBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureNoticePreviewSchema: unknown;
+    </item>
+    <item priority="low">
+      type ClosureNoticePreviewBody = z.infer<typeof ClosureNoticePreviewBodySchema>;
+    </item>
+    <item priority="low">
+      type ClosureNoticePreview = z.infer<typeof ClosureNoticePreviewSchema>;
     </item>
     <item priority="low">
       type ClosureAlongside = z.infer<typeof ClosureAlongsideSchema>;
@@ -16432,13 +16511,22 @@
       type StoreClient = Pick<PrismaClient, "$transaction">;
     </item>
     <item priority="high">
-      type ImpactDb = Pick<PrismaClient, "table" | "reservation">;
+      type ImpactDb = Pick<PrismaClient, "table" | "reservation" | "reservation...;
     </item>
     <item priority="low">
       type ClosureImpactOutcome = { kind: "ok"; impact: ClosureI | { kind: "not_found" } | { kind: "too_long" } | { kind: "invalid"; issues: { p;
     </item>
     <item priority="medium">
       function scanRange(rule: DateRule, today: string): { from: string; to: string } | null { /* ... */ }
+    </item>
+    <item priority="low">
+      async function loadOccupancy(
+        tx: ImpactDb,
+        venueId: string,
+        tableIds: readonly string[],
+        range: { from: string; to: string },
+        now: Date
+      ): Promise<Occupancy> { /* ... */ }
     </item>
     <item priority="high">
       export async function impactInTransaction(
@@ -16520,6 +16608,21 @@
     <item priority="medium">
       function toReservation(booking: ImpactBooking, runsInto: boolean): ClosureImpactReservation { /* ... */ }
     </item>
+    <item priority="low">
+      interface Occupancy {
+        reservations: readonly ReservationSlim[];
+        holds: readonly HoldSlim[];
+      }
+    </item>
+    <item priority="medium">
+      function withProposedStarts(
+        after: AvailabilitySnapshot,
+        group: ClosureImpactGroup,
+        tableOf: ReadonlyMap<string, string | null>,
+        occupancy: Occupancy,
+        now: Date
+      ): { group: ClosureImpactGroup; standing: readonly ReservationSlim[] } { /* ... */ }
+    </item>
     <item priority="medium">
       function toGroup(
         date: string,
@@ -16534,6 +16637,10 @@
         rule: DateRule;
         alongside?: ClosureAlongside;
         bookings: readonly ImpactBooking[];
+        /** For the proposed move times: a move never lands before now. */
+        now: Date;
+        /** Who else holds the tables a move lands on; absent, no table is taken. */
+        occupancy?: Occupancy;
       }): ClosureImpact { /* ... */ }
     </item>
   </file>
