@@ -261,6 +261,15 @@ describe("AvailabilityPage", () => {
     );
   });
 
+  it("keeps the wide row to one line: the menu trigger is an icon with a name, not a label", () => {
+    renderPage();
+    const more = screen.getByRole("button", { name: "More actions" });
+    // Visible text is the glyph alone; the name comes from aria-label.
+    expect(more).toHaveTextContent(/^⋯$/);
+    expect(more).toHaveAttribute("aria-label", "More actions");
+    expect(more).toHaveAttribute("aria-haspopup", "menu");
+  });
+
   it("opens the dialog only after the menu has closed and returned its focus", async () => {
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: "More actions" }));

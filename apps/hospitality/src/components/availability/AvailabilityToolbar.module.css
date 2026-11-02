@@ -20,6 +20,14 @@
   margin-inline-start: auto;
 }
 
+/* NF INCLUSIVE: 44 px targets on tablets and any coarse pointer; a mouse keeps the 36 px row. */
+@media (pointer: coarse), (max-width: 1024px) {
+  .moreTrigger {
+    min-block-size: 44px;
+    min-inline-size: 44px;
+  }
+}
+
 .phoneRow {
   display: flex;
   align-items: center;

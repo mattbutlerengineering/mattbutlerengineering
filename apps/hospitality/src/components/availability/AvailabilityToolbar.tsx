@@ -169,7 +169,15 @@ export function AvailabilityToolbar(props: AvailabilityToolbarProps) {
       {viewSwitch}
       <div className={styles.actions}>
         <DropdownMenu
-          trigger={<Button variant="secondary">{t("availability.toolbar.more")}</Button>}
+          align="right"
+          trigger={
+            <IconButton
+              variant="secondary"
+              className={styles.moreTrigger}
+              aria-label={t("availability.toolbar.more")}
+              icon={<Text aria-hidden="true">⋯</Text>}
+            />
+          }
           items={[
             {
               id: "history",
