@@ -45,10 +45,16 @@ describe("change detail builders", () => {
     ).toMatchObject({ code: "close_early_saved", endsOn: null });
   });
 
-  it("names a reopened closure by its first day", () => {
-    expect(reopenedDetail("2026-12-24")).toEqual({
+  it("names a reopened closure by its first and last day, null for an open end", () => {
+    expect(reopenedDetail({ startsOn: "2026-12-24", endsOn: "2026-12-24" } as never)).toEqual({
       code: "closure_reopened",
       startsOn: "2026-12-24",
+      endsOn: "2026-12-24",
+    });
+    expect(reopenedDetail({ startsOn: "2026-12-24", endsOn: undefined } as never)).toEqual({
+      code: "closure_reopened",
+      startsOn: "2026-12-24",
+      endsOn: null,
     });
   });
 

@@ -11262,9 +11262,12 @@
         kept: counts.keep_notify + counts.keep_silent,
       };
     }
-    export const reopenedDetail = (startsOn: string): AvailabilityChangeDetail => ({
+    export const reopenedDetail = (
+      rule: Pick<DateRule, "startsOn" | "endsOn">
+    ): AvailabilityChangeDetail => ({
       code: "closure_reopened",
-      startsOn,
+      startsOn: rule.startsOn,
+      endsOn: rule.endsOn ?? null,
     });
     export function tonightDetail(change: TonightChange): AvailabilityChangeDetail {
       switch (change.type) {
@@ -14948,7 +14951,7 @@
               at: now,
               kind: "reopen",
               summary: `Closure reopened (${rule.startsOn})`,
-              ...detailData(reopenedDetail(rule.startsOn)),
+              ...detailData(reopenedDetail(rule)),
               affectedFrom: toDbDate(range.from),
               affectedTo: toDbDate(range.to),
               inverse: inverseOf(

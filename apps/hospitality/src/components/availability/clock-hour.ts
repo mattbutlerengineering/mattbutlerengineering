@@ -11,7 +11,10 @@ export function clockHour(minute: number): number {
 }
 
 /** The same for an instant, read on the venue's clock (never the machine's). */
-export function clockHourOfInstant(at: string | number | Date, format: VenueFormat): number {
+export function clockHourOfInstant(
+  at: string | number | Date,
+  format: Pick<VenueFormat, "formatInstant">
+): number {
   const hour = Number.parseInt(format.formatInstant(at, { hour: "numeric", hourCycle: "h23" }), 10);
   return hour % 12 || 12;
 }

@@ -4878,8 +4878,8 @@
       format: VenueFormat,
       t: TFunction
     ): string | null {
-      const { startsOn, cancelled, moved, kept } = detail;
-      if (!startsOn) return null;
+      const { code, startsOn, cancelled, moved, kept } = detail;
+      if (!CLOSURE_CODES.has(code) || !startsOn) return null;
       const when = whenOf(startsOn, detail.endsOn, format, t);
       if (detail.code === "closure_reopened") {
         return when ? t("availability.history.entry.reopened", { when }) : null;
@@ -4919,7 +4919,10 @@
     export function clockHour(minute: number): number {
       return Math.floor((minute % MINUTES_PER_DAY) / 60) % 12 || 12;
     }
-    export function clockHourOfInstant(at: string | number | Date, format: VenueFormat): number {
+    export function clockHourOfInstant(
+      at: string | number | Date,
+      format: Pick<VenueFormat, "formatInstant">
+    ): number {
       const hour = Number.parseInt(format.formatInstant(at, { hour: "numeric", hourCycle: "h23" }), 10);
       return hour % 12 || 12;
     }
@@ -5312,6 +5315,11 @@
       const time = format.formatLocalTime(`${hh}:${mm}`);
       return minute >= MINUTES_PER_DAY ? t("availability.calendar.nextDay", { time }) : time;
     }
+    export function closureEndText(minute: number, t: TFunction, format: VenueFormat): string {
+      return minute >= 2 * MINUTES_PER_DAY
+        ? t("availability.calendar.untilClose")
+        : minuteText(minute, t, format);
+    }
     export function isWholeDay(closure: Pick<Closure, "from" | "to">): boolean {
       return closure.from === 0 && closure.to >= 2 * MINUTES_PER_DAY;
     }
@@ -5349,14 +5357,9 @@
         const [text, name] = copy.allDay(t);
         return { key: closure.ruleId, text, name };
       }
-      // A closure from a set time is stored as running to the two-day maximum: it ends when the
-      // service day does, which reads "close", not "12:00 AM (next day)".
       const [text, name] = copy.band(t, {
         from: minuteText(closure.from, t, format),
-        to:
-          closure.to >= 2 * MINUTES_PER_DAY
-            ? t("availability.calendar.untilClose")
-            : minuteText(closure.to, t, format),
+        to: closureEndText(closure.to, t, format),
       });
       return { key: closure.ruleId, text, name };
     }
@@ -6215,7 +6218,7 @@
           return layer.window
             ? t("availability.drawer.layer.window", {
                 from: minuteText(layer.window.from, t, format),
-                to: minuteText(layer.window.to, t, format),
+                to: closureEndText(layer.window.to, t, format),
               })
             : t("availability.drawer.layer.allDay");
         case "tonight":
@@ -6763,7 +6766,7 @@
       if (isWholeDay(closure)) return t("availability.drawer.removal.reopensAllDay");
       const range = {
         from: minuteText(closure.from, t, format),
-        to: minuteText(closure.to, t, format),
+        to: closureEndText(closure.to, t, format),
       };
       if (closure.targetKind === "booking") {
         const channels = (closure.bookingTypes ?? []).map((c) =>
@@ -6820,7 +6823,7 @@
             ? t("availability.calendar.closedAllDayName")
             : t("availability.drawer.removal.closes", {
                 from: at(change.closure.from),
-                to: at(change.closure.to),
+                to: closureEndText(change.closure.to, t, format),
               });
         case "bookingOn":
           return t(`availability.drawer.removal.bookingOn.${change.channel}`);
@@ -7823,7 +7826,7 @@
     }
     export interface RefusalContext {
       readonly groups: readonly ClosureImpactGroup[];
-      readonly format: Pick<VenueFormat, "formatTime" | "formatCalendarDate">;
+      readonly format: Pick<VenueFormat, "formatTime" | "formatCalendarDate" | "formatInstant">;
     }
     function moveUnavailableText(
       ids: readonly string[],
@@ -7846,6 +7849,7 @@
               day: "numeric",
             }),
             time: context.format.formatTime(r.startTime),
+            count: clockHourOfInstant(r.startTime, context.format),
           }),
         ];
       });
@@ -8391,17 +8395,36 @@
     }
   </file>
   <file path="apps/hospitality/src/components/availability/use-winning-change-text.ts">
+    type ChangeSummaryText = typeof changeSummaryText;
+    function useChangeSummaryText(coded: boolean): ChangeSummaryText | null {
+      const [text, setText] = useState<ChangeSummaryText | null>(null);
+      useEffect(() => {
+        if (!coded) return;
+        let live = true;
+        import("./change-summary-text.js").then(
+          (m) => {
+            if (live) setText(() => m.changeSummaryText);
+          },
+          () => undefined
+        );
+        return () => {
+          live = false;
+        };
+      }, [coded]);
+      return text;
+    }
     export function useWinningChangeText(winningChange: AvailabilityChangeSummary | null): string {
       const { t } = useTranslation();
       const format = useVenueFormat();
       const { user } = useAuth();
+      const worded = useChangeSummaryText(Boolean(winningChange?.detail));
       if (!winningChange) return t("availability.conflict.unknown");
       return t("availability.conflict.winning", {
         who:
           user?.id === winningChange.actorId
             ? t("availability.history.you")
             : t("availability.history.teammate"),
-        summary: changeSummaryText(winningChange, format, t),
+        summary: worded ? worded(winningChange, format, t) : winningChange.summary,
         when: format.formatInstant(winningChange.at, { hour: "numeric", minute: "2-digit" }),
       });
     }
@@ -51408,9 +51431,12 @@
         kept: counts.keep_notify + counts.keep_silent,
       };
     }
-    export const reopenedDetail = (startsOn: string): AvailabilityChangeDetail => ({
+    export const reopenedDetail = (
+      rule: Pick<DateRule, "startsOn" | "endsOn">
+    ): AvailabilityChangeDetail => ({
       code: "closure_reopened",
-      startsOn,
+      startsOn: rule.startsOn,
+      endsOn: rule.endsOn ?? null,
     });
     export function tonightDetail(change: TonightChange): AvailabilityChangeDetail {
       switch (change.type) {
@@ -55094,7 +55120,7 @@
               at: now,
               kind: "reopen",
               summary: `Closure reopened (${rule.startsOn})`,
-              ...detailData(reopenedDetail(rule.startsOn)),
+              ...detailData(reopenedDetail(rule)),
               affectedFrom: toDbDate(range.from),
               affectedTo: toDbDate(range.to),
               inverse: inverseOf(

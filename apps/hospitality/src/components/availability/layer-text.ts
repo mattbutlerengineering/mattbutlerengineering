@@ -1,7 +1,7 @@
 import type { TFunction } from "i18next";
 import type { Layer, LayerSeries, LayerTarget } from "@mbe/availability";
 import type { VenueFormat } from "../../hooks/useVenueFormat.js";
-import { minuteText } from "./closure-band.js";
+import { closureEndText, minuteText } from "./closure-band.js";
 import { clockHour } from "./clock-hour.js";
 import { scheduleNameText } from "./day-summary.js";
 
@@ -145,7 +145,7 @@ export function layerEffectText(layer: Layer, t: TFunction, format: VenueFormat)
       return layer.window
         ? t("availability.drawer.layer.window", {
             from: minuteText(layer.window.from, t, format),
-            to: minuteText(layer.window.to, t, format),
+            to: closureEndText(layer.window.to, t, format),
           })
         : t("availability.drawer.layer.allDay");
     case "tonight":

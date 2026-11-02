@@ -40,13 +40,20 @@ function tonightText(detail: AvailabilityChangeDetail, t: TFunction): string | n
   }
 }
 
+/** The only codes `closureText` words; any other, whatever fields it carries, is unknown. */
+const CLOSURE_CODES: ReadonlySet<string> = new Set([
+  "closure_saved",
+  "close_early_saved",
+  "closure_reopened",
+]);
+
 function closureText(
   detail: AvailabilityChangeDetail,
   format: VenueFormat,
   t: TFunction
 ): string | null {
-  const { startsOn, cancelled, moved, kept } = detail;
-  if (!startsOn) return null;
+  const { code, startsOn, cancelled, moved, kept } = detail;
+  if (!CLOSURE_CODES.has(code) || !startsOn) return null;
   const when = whenOf(startsOn, detail.endsOn, format, t);
   if (detail.code === "closure_reopened") {
     return when ? t("availability.history.entry.reopened", { when }) : null;

@@ -7,6 +7,7 @@ import type {
 } from "@mbe/types";
 import { useClosureNoticePreview } from "../../hooks/useClosures.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
+import { clockHourOfInstant } from "./clock-hour.js";
 import styles from "./CloseDialog.module.css";
 
 export type NoticeAction = ClosureNoticePreviewBody["action"];
@@ -70,6 +71,7 @@ function Rendered(props: {
         {t("availability.close.step2.previewFor", {
           name: sample.guestName ?? t("availability.close.step2.guestUnnamed"),
           time: format.formatTime(sample.startTime),
+          count: clockHourOfInstant(sample.startTime, format),
         })}
       </Text>
       <Text variant="body" color="primary" className={styles.preview}>

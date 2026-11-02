@@ -90,9 +90,21 @@ describe("changeSummaryText from a code", () => {
     const reopened = change("Closure reopened (2026-12-24)", {
       code: "closure_reopened",
       startsOn: "2026-12-24",
+      endsOn: "2026-12-24",
     });
-    expect(await textOf("en-US", reopened)).toBe("Reopened from Thu, Dec 24 onward");
-    expect(await textOf("fr-CA", reopened)).toMatch(/^Rouvert à partir du jeu/);
+    // A one-day rule is not open-ended, here and in a revert of it.
+    expect(await textOf("en-US", reopened)).toBe("Reopened Thu, Dec 24");
+    expect(await textOf("es-MX", reopened)).toMatch(/^Reabierto jue 24 de dic$/);
+    expect(await textOf("fr-CA", reopened)).toMatch(/^Rouvert jeu\. 24 déc\.$/);
+    expect(
+      await textOf("en-US", { ...reopened, detail: { ...reopened.detail!, reverted: true } })
+    ).toBe("Reverted: Reopened Thu, Dec 24");
+    const open = change("Closure reopened (2026-12-24)", {
+      code: "closure_reopened",
+      startsOn: "2026-12-24",
+      endsOn: null,
+    });
+    expect(await textOf("en-US", open)).toBe("Reopened from Thu, Dec 24 onward");
   });
 
   it("words each Tonight change, with plurals where it counts", async () => {
@@ -133,6 +145,12 @@ describe("changeSummaryText falls back to the stored English summary", () => {
     expect(await textOf("fr-CA", change("Something new", { code: "from_the_future" }))).toBe(
       "Something new"
     );
+  });
+
+  it("for an unknown code, even one that carries closure fields", async () => {
+    expect(
+      await textOf("es-MX", change("Something new", { ...CLOSURE, code: "from_the_future" }))
+    ).toBe("Something new");
   });
 
   it("for a known code missing the data its sentence needs", async () => {

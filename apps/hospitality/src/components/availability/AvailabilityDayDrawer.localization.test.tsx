@@ -250,4 +250,22 @@ describe("AvailabilityDayDrawer past-midnight times", () => {
       expect(effectOf(1380)).toBe(early);
     }
   );
+
+  // A closure from a set time is stored as running to the two-day maximum: it reads "close", as on
+  // the calendar, never "12:00 AM (next day)".
+  const FROM_NINE: DateRule = {
+    ...VENUE_CLOSURE,
+    id: "r-from-nine",
+    window: { version: 1, from: 1260, to: 2880 },
+  } as DateRule;
+  it.each([
+    ["en-US", undefined, "9:00 PM – close"],
+    ["es-MX", esMX, "9:00 p.m. – cierre"],
+    ["fr-CA", frCA, "21 h 00 – fermeture"],
+  ] as const)("ends a closure from a set time at close in %s", async (tag, catalog, effect) => {
+    if (catalog) await useLocale(tag as "es-MX" | "fr-CA", catalog);
+    else await localeRuntime.i18n.changeLanguage("en-US");
+    const rows = rowsOf(dayOf(withSchedules(fixtureConfig(FROM_NINE), "Regular week")));
+    expect(rows.map((r) => r[1])).toContain(effect);
+  });
 });

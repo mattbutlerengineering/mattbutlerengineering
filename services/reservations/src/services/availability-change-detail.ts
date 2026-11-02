@@ -40,9 +40,13 @@ export function closureDetail(
   };
 }
 
-export const reopenedDetail = (startsOn: string): AvailabilityChangeDetail => ({
+/** A reopened closure, with its own first and last day: a one-day reopen is not open-ended. */
+export const reopenedDetail = (
+  rule: Pick<DateRule, "startsOn" | "endsOn">
+): AvailabilityChangeDetail => ({
   code: "closure_reopened",
-  startsOn,
+  startsOn: rule.startsOn,
+  endsOn: rule.endsOn ?? null,
 });
 
 export function tonightDetail(change: TonightChange): AvailabilityChangeDetail {

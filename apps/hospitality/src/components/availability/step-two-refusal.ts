@@ -5,6 +5,7 @@ import {
   type ClosureImpactGroup,
 } from "@mbe/types";
 import type { VenueFormat } from "../../hooks/useVenueFormat.js";
+import { clockHourOfInstant } from "./clock-hour.js";
 import { describeApiError, type ApiErrorCategory } from "../../lib/describe-api-error.js";
 import { conflictOf, isDecisionRequired } from "./conflict-problem.js";
 
@@ -72,7 +73,7 @@ export function mayHaveSaved(refusal: Refusal): boolean {
 /** The bookings a flow is deciding on, and the formats that name them as the screen does. */
 export interface RefusalContext {
   readonly groups: readonly ClosureImpactGroup[];
-  readonly format: Pick<VenueFormat, "formatTime" | "formatCalendarDate">;
+  readonly format: Pick<VenueFormat, "formatTime" | "formatCalendarDate" | "formatInstant">;
 }
 
 /** Bookings named in a refused move; the rest are counted. */
@@ -100,6 +101,7 @@ function moveUnavailableText(
           day: "numeric",
         }),
         time: context.format.formatTime(r.startTime),
+        count: clockHourOfInstant(r.startTime, context.format),
       }),
     ];
   });

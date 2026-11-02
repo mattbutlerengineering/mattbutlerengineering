@@ -1391,7 +1391,11 @@ describe("reopenClosure", () => {
       notifiedGuests: true,
       version: w.version,
       summary: "Closure reopened (2026-12-24)",
-      summaryDetail: { code: "closure_reopened", startsOn: "2026-12-24" },
+      summaryDetail: {
+        code: "closure_reopened",
+        startsOn: "2026-12-24",
+        endsOn: "2026-12-24",
+      },
     });
   });
 

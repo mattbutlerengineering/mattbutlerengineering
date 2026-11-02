@@ -749,7 +749,7 @@ export async function reopenClosure(
           at: now,
           kind: "reopen",
           summary: `Closure reopened (${rule.startsOn})`,
-          ...detailData(reopenedDetail(rule.startsOn)),
+          ...detailData(reopenedDetail(rule)),
           affectedFrom: toDbDate(range.from),
           affectedTo: toDbDate(range.to),
           inverse: inverseOf(

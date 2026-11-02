@@ -25,6 +25,9 @@ const SENTENCES = [
   ["availability.paused.waiting", "desde"],
   ["availability.paused.waitingNoneToday", "desde"],
   ["availability.tonight.toast.closed", "a"],
+  ["availability.close.moveUnavailableBooking", "a"],
+  ["availability.close.step2.movesTo", "a"],
+  ["availability.close.step2.previewFor", "a"],
 ] as const;
 
 async function textOf(tag: "es-MX" | "fr-CA", catalog: unknown, key: string, minute: number) {

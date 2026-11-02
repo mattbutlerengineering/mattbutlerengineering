@@ -1518,7 +1518,10 @@
       export function clockHour(minute: number): number { /* ... */ }
     </item>
     <item priority="high">
-      export function clockHourOfInstant(at: string | number | Date, format: VenueFormat): number { /* ... */ }
+      export function clockHourOfInstant(
+        at: string | number | Date,
+        format: Pick<VenueFormat, "formatInstant">
+      ): number { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/clock-minutes.ts">
@@ -1731,6 +1734,9 @@
     </item>
     <item priority="high">
       export function minuteText(minute: number, t: TFunction, format: VenueFormat): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closureEndText(minute: number, t: TFunction, format: VenueFormat): string { /* ... */ }
     </item>
     <item priority="high">
       export function isWholeDay(closure: Pick<Closure, "from" | "to">): boolean { /* ... */ }
@@ -2788,7 +2794,7 @@
     <item priority="low">
       interface RefusalContext {
         groups: readonly ClosureImpactGroup[];
-        format: Pick<VenueFormat, "formatTime" | "formatCalendarDate">;
+        format: Pick<VenueFormat, "formatTime" | "formatCalendarDate" | "...;
       }
     </item>
     <item priority="medium">
@@ -2981,6 +2987,12 @@
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/use-winning-change-text.ts">
+    <item priority="high">
+      type ChangeSummaryText = typeof changeSummaryText;
+    </item>
+    <item priority="medium">
+      function useChangeSummaryText(coded: boolean): ChangeSummaryText | null { /* ... */ }
+    </item>
     <item priority="high">
       export function useWinningChangeText(winningChange: AvailabilityChangeSummary | null): string { /* ... */ }
     </item>

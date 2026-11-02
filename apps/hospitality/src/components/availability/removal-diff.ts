@@ -7,7 +7,7 @@ import type {
 } from "@mbe/availability";
 import type { VenueFormat } from "../../hooks/useVenueFormat.js";
 import { clockHour } from "./clock-hour.js";
-import { isWholeDay, minuteText } from "./closure-band.js";
+import { closureEndText, isWholeDay, minuteText } from "./closure-band.js";
 
 type Channel = keyof BookingOpen;
 
@@ -140,7 +140,7 @@ function liftedText(
   if (isWholeDay(closure)) return t("availability.drawer.removal.reopensAllDay");
   const range = {
     from: minuteText(closure.from, t, format),
-    to: minuteText(closure.to, t, format),
+    to: closureEndText(closure.to, t, format),
   };
   if (closure.targetKind === "booking") {
     const channels = (closure.bookingTypes ?? []).map((c) =>
@@ -199,7 +199,7 @@ export function removalChangeText(
         ? t("availability.calendar.closedAllDayName")
         : t("availability.drawer.removal.closes", {
             from: at(change.closure.from),
-            to: at(change.closure.to),
+            to: closureEndText(change.closure.to, t, format),
           });
     case "bookingOn":
       return t(`availability.drawer.removal.bookingOn.${change.channel}`);
