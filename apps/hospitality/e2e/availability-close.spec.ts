@@ -62,6 +62,7 @@ async function mockAvailability(
   let version = 7;
   let saved: Record<string, unknown> | null = null;
   const posts: Array<{ key: string | undefined; ruleId: string }> = [];
+  const notices: Array<{ action: string; message: string | null }> = [];
   const json = (data: unknown) => ({
     status: 200,
     contentType: "application/json",
@@ -141,6 +142,21 @@ async function mockAvailability(
       })
     );
   });
+  // The server renders the notice (closure-content.ts); the browser shows it as sent. This answer
+  // stands in for that render and echoes the request, so the spec checks what the screen asks for.
+  await page.route(`${base}/closures/notice-preview`, (route) => {
+    const body = route.request().postDataJSON() as { action: string; message: string | null };
+    notices.push(body);
+    return route.fulfill(
+      json({
+        email: {
+          subject: "Your reservation at Rivera Bistro is cancelled",
+          text: `Rivera Bistro is closed.\n${body.message ?? ""}`,
+        },
+        sms: `Rivera Bistro is closed. ${body.message ?? ""} Rebook: https://example.com/m`,
+      })
+    );
+  });
   await page.route(`${base}/closures`, (route) => {
     // The Special dates tab lists closure outcomes; none exist in this flow.
     if (route.request().method() === "GET") return route.fulfill(json([]));
@@ -161,7 +177,7 @@ async function mockAvailability(
       })
     );
   });
-  return { saved: () => saved, posts: () => posts, venueId };
+  return { saved: () => saved, posts: () => posts, notices: () => notices, venueId };
 }
 
 /** Opens the Close dialog for `closeDate` and advances to step 2 (the 14-booking impact list). */
@@ -297,6 +313,32 @@ test.describe("Availability close dialog (F5)", () => {
       decisions: [{ groupKey: `${CLOSE_DATE}:closed`, action: "cancel" }],
     });
     await expect(calendar.locator(`[data-date="${CLOSE_DATE}"]`)).toContainText("Closed all day");
+  });
+
+  test("Preview message shows the notice the server renders for the chosen outcome (#7983)", async ({
+    mockedPage,
+  }) => {
+    const CLOSE_DATE = midNextMonth();
+    await mockedPage.clock.setFixedTime(pinnedNoon());
+    const state = await mockAvailability(mockedPage, CLOSE_DATE);
+    const { dialog } = await openCloseStepTwo(mockedPage, CLOSE_DATE);
+    const cancelRadio = mockedPage.getByRole("radio", { name: /Cancel, notify & refund/ });
+    await dialog.locator("label").filter({ has: cancelRadio }).click();
+    await expect(state.notices()).toHaveLength(0);
+
+    await dialog.getByRole("button", { name: "Preview message" }).click();
+
+    const region = dialog.getByRole("region", { name: "Preview message" });
+    await expect(region).toContainText("Your reservation at Rivera Bistro is cancelled");
+    await expect(region).toContainText("Closed for a private event");
+    await expect(region).toContainText("Rebook: https://example.com/m");
+    await expect(region).toContainText(/Example: Guest 1 at /);
+    await expect(region).toContainText("Messages are in English.");
+    expect(state.notices()).toEqual([
+      expect.objectContaining({ action: "cancel", message: "Closed for a private event" }),
+    ]);
+    // Nothing in the preview clips or pushes the primary action out of the panel.
+    await expect(dialog.getByTestId("close-primary")).toBeInViewport({ ratio: 1 });
   });
 
   test("closing the same date again warns, naming the closure, without blocking it (#8006)", async ({

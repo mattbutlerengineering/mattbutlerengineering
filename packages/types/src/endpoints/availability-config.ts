@@ -20,6 +20,8 @@ import {
   ClosureSummariesSchema,
   ClosureImpactBodySchema,
   ClosureImpactSchema,
+  ClosureNoticePreviewBodySchema,
+  ClosureNoticePreviewSchema,
   ClosureResultSchema,
   ClosuresResultSchema,
   CreateClosureBodySchema,
@@ -113,6 +115,21 @@ export const availabilityConfigEndpoints = {
         description: "`invalid-config`: the draft rule does not validate against the config",
         body: AvailabilityConfigProblemSchema,
       },
+    },
+  }),
+  closureNoticePreview: defineEndpoint({
+    method: "POST",
+    path: `${AVAILABILITY_CONFIG_PREFIX}/:id/closures/notice-preview`,
+    params: VenueParamsSchema,
+    body: ClosureNoticePreviewBodySchema,
+    responses: {
+      200: {
+        description: "The email and SMS a guest would be sent for the outcome (read-only)",
+        body: z.object({ data: ClosureNoticePreviewSchema }),
+      },
+      401: authRequired,
+      403: notMember,
+      404: venueNotFound,
     },
   }),
   createClosure: defineEndpoint({

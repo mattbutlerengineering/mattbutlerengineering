@@ -7,8 +7,13 @@ import type { AvailabilityConfigState, ClosureImpact } from "@mbe/types";
 const preview = vi.hoisted(() => vi.fn());
 const create = vi.hoisted(() => vi.fn());
 const saveConfig = vi.hoisted(() => vi.fn());
+const noticePreview = vi.hoisted(() => vi.fn());
 
 vi.mock("../../hooks/useClosures.js", () => ({
+  useClosureNoticePreview: (params: unknown) => {
+    noticePreview(params);
+    return { data: undefined, isLoading: true, error: null, refetch: vi.fn() };
+  },
   usePreviewClosureImpacts: () => ({ mutateAsync: preview, isPending: false }),
   useCreateClosures: () => ({ mutateAsync: create, isPending: false }),
 }));
@@ -286,6 +291,35 @@ describe("AddSpecialDatesSheet", () => {
     ]);
     expect(saveConfig).not.toHaveBeenCalled();
     await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
+  it("previews each date's own message when the rows differ (#7983)", async () => {
+    preview.mockResolvedValue([impact("2026-12-24", 2), impact("2026-12-25", 2)]);
+    renderSheet();
+    await pickDate(0, "2026-12-24");
+    addRow();
+    await pickDate(1, "2026-12-25");
+    fireEvent.change(screen.getAllByLabelText(/Message for guests/)[0]!, {
+      target: { value: "Early close for Christmas Eve" },
+    });
+    fireEvent.change(screen.getAllByLabelText(/Message for guests/)[1]!, {
+      target: { value: "Closed for the holiday" },
+    });
+    fireEvent.click(primary());
+    await screen.findByText("Step 2 of 2");
+
+    for (const radio of screen.getAllByRole("radio", { name: /Cancel, notify & refund/ })) {
+      fireEvent.click(radio);
+    }
+    for (const button of screen.getAllByRole("button", { name: "Preview message" })) {
+      fireEvent.click(button);
+    }
+
+    const asked = noticePreview.mock.calls.map(
+      ([params]) => [params.body.closureDate, params.body.message] as const
+    );
+    expect(asked).toContainEqual(["2026-12-24", "Early close for Christmas Eve"]);
+    expect(asked).toContainEqual(["2026-12-25", "Closed for the holiday"]);
   });
 
   it("applies one shared message to every closure", async () => {

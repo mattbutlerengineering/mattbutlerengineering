@@ -122,6 +122,7 @@ export async function impactInTransaction(
     rule,
     alongside,
     bookings,
+    now,
   });
   return { kind: "ok", impact };
 }

@@ -193,11 +193,11 @@ Drawer overflow → **Copy to other days…** offers weekday toggles, From [date
    - **List** sorted by time (guest · party · deposit), collapsed after 5. Bookings that start before the closure and run into it are marked "runs into closure".
    - **A required choice, worded for what is being closed:**
      - **Whole service or day:** **Cancel, notify & refund** ("Guests get up to 3 open times in the next 14 days to rebook") or **Keep them and notify** (for a Manager who will honour them anyway).
-     - **Shortened service:** a booking can no longer run as booked, so **Cancel, notify & refund**, **Move to the nearest open time and notify** (the proposed new times are listed), or **Keep their times and notify**.
+     - **Shortened service:** a booking can no longer run as booked, so **Cancel, notify & refund**, **Move to the nearest open time and notify** (the proposed new times are listed), or **Keep their times and notify**. Each proposed time is the one the save would move the booking to. A booking with no open time is named as such, **Move** is unavailable for its group (the save refuses a move while any booking cannot be moved) and the other choices stay open. If a move is still refused at save, the screen names those bookings, says nothing was saved and no guest was told, and asks for a new choice for their groups.
      - **Booking-only closures** (online/phone): existing bookings aren't affected, so Step 2 is skipped.
      - Every case also offers **Keep, don't tell guests**, which reveals a required checkbox: "I understand 14 guests won't be told."
    - **Notice timing:** if the closure starts within 6 hours, the header shows "Urgent: guests will get a text and an email". Delivery is by SMS and email wherever the guest has that contact, within the contact policy. Otherwise each guest's preferred channel is used.
-   - **Preview message ▸** shows the exact email and SMS for the chosen option.
+   - **Preview message ▸** shows the email and SMS for the chosen option, rendered by the server with the same builders the notice job sends with, for the group's first booking (named above the message) and with that closure's own guest message (each date of Add special date has its own). Two parts of a real notice cannot exist before it is sent, so the preview says so: the guest's own link, and the open rebooking times a cancel offers. Notices are English only today (the guest's language is not stored), and the preview says that too.
    - **The button names the outcome:** "Close and cancel 14", "Close and move 9", "Close and keep 14". Beside it: "Guests are told right away. This can't be undone."
 8. **Result:**
    - Toast: "Thu, Dec 24 closed · 14 reservations notified" (it counts reservations told, not the guests booked).

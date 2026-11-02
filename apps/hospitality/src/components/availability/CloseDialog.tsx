@@ -17,6 +17,7 @@ import {
   buildCloseRule,
   closedDates,
   decisionsReady,
+  withoutChoicesFor,
   focusCloseField,
   inSeries,
   isUrgent,
@@ -211,7 +212,11 @@ export function CloseDialog(props: CloseDialogProps) {
       onClose();
     } catch (error) {
       const refused = refusalOf(error);
-      setFailure(refusalText(refused, t));
+      setFailure(refusalText(refused, t, { groups, format }));
+      if (refused.kind === "move-unavailable") {
+        // Nothing was saved. The groups holding those bookings need another choice.
+        setChoices(withoutChoicesFor(groups, choices, refused.reservationIds));
+      }
       if (refused.kind === "groups-changed") {
         // The group changed since the Manager chose: drop the stale choices and load the new one.
         setChoices({});
@@ -346,6 +351,7 @@ export function CloseDialog(props: CloseDialogProps) {
             <>
               {impact && (
                 <CloseStepTwo
+                  venueId={venueId}
                   impact={impact}
                   choices={choices}
                   urgent={urgent}

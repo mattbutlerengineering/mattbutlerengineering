@@ -52,12 +52,12 @@
     {
       "name": "Close Dialog (shared by the availability page and the timeline's Tonight panel)",
       "path": "dist/assets/CloseDialog-*.js",
-      "limit": "7.9 kB"
+      "limit": "8.6 kB"
     },
     {
       "name": "Close draft helpers (shared by the Close dialog, the availability page and the header pill)",
       "path": "dist/assets/close-draft-*.js",
-      "limit": "2.5 kB"
+      "limit": "2.6 kB"
     },
     {
       "name": "Service-day helpers (current-service-date, service-day-start and tonight-blocks, shared by the timeline's Tonight panel and the staff waitlist/booking form)",

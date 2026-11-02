@@ -6,6 +6,8 @@ import {
 } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
 import { registerEndpoint } from "@mbe/service-bootstrap";
+import { resolveManageBaseUrl } from "../config/manage-base-url.js";
+import { previewClosureNotice } from "../notifications/closure-preview.js";
 import { SCOPE_CONFLICT_HORIZON_DAYS } from "../services/availability-config-plan.js";
 import type { CreateClosureOutcome } from "../services/closure-command.js";
 import { ClosureRefundEnqueueError } from "../services/closure-refund.js";
@@ -145,6 +147,31 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
         cancelled: outcome.result.outcomes.cancel,
       });
       return { data: outcome.result };
+    }),
+  });
+
+  registerEndpoint(fastify, availabilityConfigEndpoints.closureNoticePreview, {
+    docs: {
+      summary: "Preview the notice a guest would be sent for a Step 2 outcome",
+      operationId: "previewClosureNotice",
+      description:
+        "Read-only. Renders one booking's email and SMS with the same builders the CLOSURE_NOTICE job sends with, in the venue's name and time zone. The email body is returned as the plain text a guest reads. The guest's own manage link and any open rebooking times are only made when a notice is really sent, so the preview shows neither. The body names the guest it is for; nothing here logs it. Any venue member (a Host's emergency close shows it too).",
+      tags: ["Availability"],
+      security: [{ bearerAuth: [] }],
+    },
+    preHandler: requireAuth,
+    handler: venueScoped(VENUE_FROM_ID, async (request, reply, { venueId }) => {
+      const venue = await fastify.services.venueService.getById(venueId);
+      if (!venue) {
+        return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
+      }
+      const preview = previewClosureNotice({
+        ...request.body,
+        venueName: venue.name,
+        timezone: venue.ianaTimezone,
+        manageBaseUrl: resolveManageBaseUrl(process.env),
+      });
+      return { data: preview };
     }),
   });
 

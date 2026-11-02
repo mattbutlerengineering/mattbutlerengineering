@@ -11,28 +11,33 @@ import {
   Stack,
   Text,
 } from "@mattbutlerengineering/rialto";
-import type { ClosureImpact, ClosureImpactGroup } from "@mbe/types";
+import type { ClosureImpact, ClosureImpactGroup, ClosureImpactReservation } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { actionsFor, type ChoiceMap, type GroupChoice } from "./close-draft.js";
+import { actionsFor, unmovable, type ChoiceMap, type GroupChoice } from "./close-draft.js";
+import { CloseNoticePreview } from "./CloseNoticePreview.js";
 import styles from "./CloseDialog.module.css";
 
 const COLLAPSED_ROWS = 5;
 
 export interface CloseStepTwoProps {
+  readonly venueId: string;
   readonly impact: ClosureImpact;
   readonly choices: ChoiceMap;
   readonly onChoose: (groupKey: string, choice: GroupChoice) => void;
   readonly urgent: boolean;
   readonly guestMessage: string;
+  /** The message of each group's own closure, when the groups come from several (Add special dates). */
+  readonly messageFor?: (groupKey: string) => string;
 }
 
 function GroupBlock(props: {
+  readonly venueId: string;
   readonly group: ClosureImpactGroup;
   readonly choice: GroupChoice | undefined;
   readonly onChoose: (choice: GroupChoice) => void;
   readonly guestMessage: string;
 }) {
-  const { group, choice, onChoose, guestMessage } = props;
+  const { venueId, group, choice, onChoose, guestMessage } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const [showAll, setShowAll] = useState(false);
@@ -42,8 +47,22 @@ function GroupBlock(props: {
     month: "short",
     day: "numeric",
   });
+  const optionHint = (a: string): string | undefined => {
+    if (a === "cancel") return t("availability.close.step2.cancelHint");
+    return a === "move" && stuck > 0
+      ? t("availability.close.step2.moveBlocked", { count: stuck })
+      : undefined;
+  };
   const rows = showAll ? group.reservations : group.reservations.slice(0, COLLAPSED_ROWS);
   const action = choice?.action;
+  const stuck = unmovable(group).length;
+
+  const moveNote = (r: ClosureImpactReservation, chosen: GroupChoice["action"]): string => {
+    if (r.proposedStart === null) return ` · ${t("availability.close.step2.noOpenTime")}`;
+    return chosen === "move" && r.proposedStart
+      ? ` · ${t("availability.close.step2.movesTo", { time: format.formatTime(r.proposedStart) })}`
+      : "";
+  };
 
   return (
     <section className={styles.group} aria-labelledby={`close-group-${group.groupKey}`}>
@@ -63,6 +82,7 @@ function GroupBlock(props: {
                 ? ` · ${t("availability.close.step2.deposit", { amount: format.formatMoney(r.deposit.amountCents) })}`
                 : ""}
               {r.runsIntoClosure ? ` · ${t("availability.close.step2.runsInto")}` : ""}
+              {moveNote(r, action)}
             </Text>
           </li>
         ))}
@@ -85,7 +105,8 @@ function GroupBlock(props: {
             key={a}
             value={a}
             label={t(`availability.close.step2.action.${a}`)}
-            description={a === "cancel" ? t("availability.close.step2.cancelHint") : undefined}
+            description={optionHint(a)}
+            disabled={a === "move" && stuck > 0}
           />
         ))}
       </RadioGroup>
@@ -98,12 +119,12 @@ function GroupBlock(props: {
       )}
       {action && action !== "keep_silent" && (
         <Collapsible trigger={t("availability.close.step2.preview")}>
-          <Text className={styles.preview}>
-            {t(`availability.close.step2.previewText.${action}`, {
-              date,
-              message: guestMessage.trim(),
-            }).trim()}
-          </Text>
+          <CloseNoticePreview
+            venueId={venueId}
+            group={group}
+            action={action}
+            guestMessage={guestMessage}
+          />
         </Collapsible>
       )}
     </section>
@@ -112,7 +133,7 @@ function GroupBlock(props: {
 
 /** Step 2 of 2 (ux.md S7): the totals, then one required choice per affected group. */
 export function CloseStepTwo(props: CloseStepTwoProps) {
-  const { impact, choices, onChoose, urgent, guestMessage } = props;
+  const { venueId, impact, choices, onChoose, urgent, guestMessage, messageFor } = props;
   const { t } = useTranslation();
 
   return (
@@ -128,9 +149,10 @@ export function CloseStepTwo(props: CloseStepTwoProps) {
       {impact.groups.map((group) => (
         <GroupBlock
           key={group.groupKey}
+          venueId={venueId}
           group={group}
           choice={choices[group.groupKey]}
-          guestMessage={guestMessage}
+          guestMessage={messageFor ? messageFor(group.groupKey) : guestMessage}
           onChoose={(choice) => onChoose(group.groupKey, choice)}
         />
       ))}

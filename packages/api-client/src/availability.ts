@@ -15,6 +15,8 @@ import type {
   AvailabilityDaySummary,
   ClosureAlongside,
   ClosureImpact,
+  ClosureNoticePreview,
+  ClosureNoticePreviewBody,
   ClosureResult,
   ClosuresResult,
   ClosureSummary,
@@ -171,6 +173,18 @@ export class AvailabilityClient {
     const response = await this.client.call(availabilityConfigEndpoints.closureImpact, {
       params: { id: venueId },
       body: alongside ? { rule, alongside } : { rule },
+    });
+    return response.data;
+  }
+
+  /** The email and SMS a guest would be sent for one Step 2 outcome, rendered by the server. */
+  async getClosureNoticePreview(
+    venueId: string,
+    body: ClosureNoticePreviewBody
+  ): Promise<ClosureNoticePreview> {
+    const response = await this.client.call(availabilityConfigEndpoints.closureNoticePreview, {
+      params: { id: venueId },
+      body,
     });
     return response.data;
   }

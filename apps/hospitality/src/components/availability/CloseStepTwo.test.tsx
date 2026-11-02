@@ -1,0 +1,232 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { axe } from "vitest-axe";
+import type { ClosureImpact, ClosureNoticePreview } from "@mbe/types";
+
+const preview = vi.hoisted(() => vi.fn());
+const refetchPreview = vi.hoisted(() => vi.fn());
+const previewState = vi.hoisted(() => ({
+  data: undefined as unknown,
+  isLoading: false,
+  error: null as unknown,
+}));
+vi.mock("../../hooks/useClosures.js", () => ({
+  useClosureNoticePreview: (params: unknown) => {
+    preview(params);
+    return { ...previewState, refetch: refetchPreview };
+  },
+}));
+vi.mock("../../contexts/VenueContext.js", () => ({
+  useVenue: () => ({
+    selectedVenue: { id: "venue-1", ianaTimezone: "America/Los_Angeles", currencyCode: "USD" },
+  }),
+}));
+
+import { CloseStepTwo } from "./CloseStepTwo.js";
+import type { ChoiceMap } from "./close-draft.js";
+
+const DATE = "2026-12-24";
+const AXE_OPTIONS = { rules: { "color-contrast": { enabled: false } } };
+
+const booking = (
+  id: string,
+  name: string,
+  start: string,
+  proposedStart?: string | null,
+  extra: object = {}
+) => ({
+  id,
+  startTime: start,
+  endTime: new Date(Date.parse(start) + 90 * 60_000).toISOString(),
+  partySize: 4,
+  guestName: name,
+  deposit: null,
+  runsIntoClosure: false,
+  ...(proposedStart === undefined ? {} : { proposedStart }),
+  ...extra,
+});
+
+/** Dec 24 shortened to 4-8 PM: Rivera (7:30 PM) can move to 6:00 PM, Chen (8:00 PM) to 6:30 PM. */
+const SHORTENED: ClosureImpact = {
+  reservations: 2,
+  covers: 8,
+  depositsHeld: 1,
+  groups: [
+    {
+      groupKey: `${DATE}:shortened`,
+      date: DATE,
+      kind: "shortened",
+      covers: 8,
+      depositsHeld: 1,
+      reservations: [
+        booking("r1", "Rivera", "2026-12-25T03:30:00.000Z", "2026-12-25T02:00:00.000Z", {
+          deposit: { amountCents: 4000, currency: "usd" },
+        }),
+        booking("r2", "Chen", "2026-12-25T04:00:00.000Z", "2026-12-25T02:30:00.000Z"),
+      ],
+    },
+  ],
+};
+
+const STUCK: ClosureImpact = {
+  ...SHORTENED,
+  groups: [
+    {
+      ...SHORTENED.groups[0]!,
+      reservations: [
+        SHORTENED.groups[0]!.reservations[0]!,
+        booking("r3", "Okafor", "2026-12-25T03:45:00.000Z", null),
+      ],
+    },
+  ],
+};
+
+const NOTICE: ClosureNoticePreview = {
+  email: {
+    subject: "Your reservation at Rivera Bistro on Thu, Dec 24 is cancelled",
+    text: "Hi Rivera,\nRivera Bistro is closed on Thu, Dec 24.\nClosed for a private event",
+  },
+  sms: "Rivera Bistro is closed Thu Dec 24. Rebook: https://example.com/m?token=preview",
+};
+
+function renderStep(impact: ClosureImpact, choices: ChoiceMap = {}, guestMessage = "") {
+  return render(
+    <main>
+      <CloseStepTwo
+        venueId="venue-1"
+        impact={impact}
+        choices={choices}
+        onChoose={vi.fn()}
+        urgent={false}
+        guestMessage={guestMessage}
+      />
+    </main>
+  );
+}
+
+describe("CloseStepTwo: proposed moves and failed moves", () => {
+  beforeEach(() => {
+    preview.mockReset();
+    refetchPreview.mockReset();
+    Object.assign(previewState, { data: undefined, isLoading: false, error: null });
+  });
+
+  it("lists the time each booking moves to once Move is chosen, and not before", () => {
+    const { rerender } = renderStep(SHORTENED);
+    expect(screen.queryByText(/moves to/)).toBeNull();
+
+    rerender(
+      <main>
+        <CloseStepTwo
+          venueId="venue-1"
+          impact={SHORTENED}
+          choices={{ [`${DATE}:shortened`]: { action: "move", acknowledged: false } }}
+          onChoose={vi.fn()}
+          urgent={false}
+          guestMessage=""
+        />
+      </main>
+    );
+    const rows = screen.getAllByRole("listitem");
+    expect(rows[0]).toHaveTextContent(/Rivera.*moves to 6:00 PM/);
+    expect(rows[1]).toHaveTextContent(/Chen.*moves to 6:30 PM/);
+  });
+
+  it("names a booking with no open time, and says Move is unavailable and what to do instead", () => {
+    renderStep(STUCK);
+
+    expect(screen.getByText(/Okafor.*no open time to move to/)).toBeTruthy();
+    const move = screen.getByRole("radio", { name: /Move to the nearest open time/ });
+    expect(move).toBeDisabled();
+    expect(
+      screen.getByText("1 booking has no open time to move to. Cancel it or keep its time instead.")
+    ).toBeTruthy();
+    // The other outcomes stay open.
+    expect(screen.getByRole("radio", { name: /Keep them and notify/ })).not.toBeDisabled();
+  });
+
+  it("offers Move when every booking has a time", () => {
+    renderStep(SHORTENED);
+    expect(screen.getByRole("radio", { name: /Move to the nearest open time/ })).not.toBeDisabled();
+  });
+
+  it("is axe-clean with a stuck booking", async () => {
+    const { container } = renderStep(STUCK);
+    expect((await axe(container, AXE_OPTIONS)).violations).toEqual([]);
+  });
+});
+
+describe("CloseStepTwo: the guest message", () => {
+  beforeEach(() => {
+    preview.mockReset();
+    Object.assign(previewState, { data: NOTICE, isLoading: false, error: null });
+  });
+
+  const chosen = (action: "cancel" | "move" | "keep_notify" | "keep_silent"): ChoiceMap => ({
+    [`${DATE}:shortened`]: { action, acknowledged: false },
+  });
+
+  it("asks the server for the first booking's notice only after Preview message is opened", () => {
+    renderStep(SHORTENED, chosen("cancel"), " Closed for a private event ");
+    expect(preview).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Preview message" }));
+
+    expect(preview).toHaveBeenLastCalledWith({
+      venueId: "venue-1",
+      body: {
+        action: "cancel",
+        closureDate: DATE,
+        startTime: "2026-12-25T03:30:00.000Z",
+        partySize: 4,
+        guestName: "Rivera",
+        message: "Closed for a private event",
+        refund: { amountCents: 4000, currency: "usd" },
+      },
+    });
+  });
+
+  it("shows what the server rendered, the email and the text message", () => {
+    renderStep(SHORTENED, chosen("cancel"));
+    fireEvent.click(screen.getByRole("button", { name: "Preview message" }));
+
+    const region = screen.getByRole("region", { name: "Preview message" });
+    expect(region.textContent).toContain(NOTICE.email.subject);
+    expect(region.textContent).toContain(NOTICE.email.text);
+    expect(region.textContent).toContain(NOTICE.sms);
+    expect(within(region).getByText("Email")).toBeTruthy();
+    expect(within(region).getByText("Text message")).toBeTruthy();
+    expect(within(region).getByText("Example: Rivera at 7:30 PM")).toBeTruthy();
+  });
+
+  it("previews a move at the proposed time, with no refund and a null message when none is typed", () => {
+    renderStep(SHORTENED, chosen("move"));
+    fireEvent.click(screen.getByRole("button", { name: "Preview message" }));
+
+    expect(preview).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        body: expect.objectContaining({
+          action: "move",
+          startTime: "2026-12-25T02:00:00.000Z",
+          message: null,
+          refund: null,
+        }),
+      })
+    );
+  });
+
+  it("says so, with a retry, when the message cannot be loaded", () => {
+    Object.assign(previewState, { data: undefined, error: new Error("boom") });
+    renderStep(SHORTENED, chosen("cancel"));
+    fireEvent.click(screen.getByRole("button", { name: "Preview message" }));
+
+    expect(screen.getByText("Couldn't load the message.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(refetchPreview).toHaveBeenCalled();
+  });
+
+  it("has no preview for a booking the guest is not told about", () => {
+    renderStep(SHORTENED, chosen("keep_silent"));
+    expect(screen.queryByRole("button", { name: "Preview message" })).toBeNull();
+  });
+});

@@ -35,6 +35,7 @@ import {
 import { AddDateRow } from "./AddDateRow.js";
 import {
   decisionsReady,
+  withoutChoicesFor,
   isUrgent,
   outcomeCounts,
   stepTwoNote,
@@ -136,9 +137,15 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
     editForm({ ...form, rows: form.rows.map((r) => (r.key === next.key ? next : r)) });
     setInvalid(null);
   };
-  // The preview shows the message every closure shares; rows with different messages show none.
+  // The message each group's guests get is its own row's. `impacts[i]` was asked for `items[i]`.
   const messages = new Set(items.map((i) => i.rule.guestMessage ?? ""));
   const previewMessage = messages.size === 1 ? [...messages][0]! : "";
+  const messageByGroup = new Map(
+    impacts.flatMap((impact, i) =>
+      impact.groups.map((g) => [g.groupKey, items[i]?.rule.guestMessage ?? ""] as const)
+    )
+  );
+  const messageFor = (groupKey: string): string => messageByGroup.get(groupKey) ?? "";
 
   const save = async (found: readonly ClosureImpact[]) => {
     setFailure([]);
@@ -171,7 +178,10 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
       onClose();
     } catch (error) {
       const refused = refusalOf(error);
-      const text = refusalText(refused, t);
+      const text = refusalText(refused, t, { groups: combined.groups, format });
+      if (refused.kind === "move-unavailable") {
+        setChoices(withoutChoicesFor(combined.groups, choices, refused.reservationIds));
+      }
       if (refused.kind === "groups-changed") {
         // A group changed since the Manager chose: drop the choices and ask again on the new one.
         setChoices({});
@@ -398,10 +408,12 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
             </>
           ) : (
             <CloseStepTwo
+              venueId={venueId}
               impact={combined}
               choices={choices}
               urgent={urgent}
-              guestMessage={form.shareMessage ? form.sharedMessage : previewMessage}
+              guestMessage=""
+              messageFor={messageFor}
               onChoose={(key, choice) => {
                 attempts.edited(choices[key], choice);
                 setChoices({ ...choices, [key]: choice });

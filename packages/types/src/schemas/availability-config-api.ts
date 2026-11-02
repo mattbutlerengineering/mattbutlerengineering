@@ -343,6 +343,11 @@ export const ClosureImpactReservationSchema = z.object({
   deposit: z.object({ amountCents: z.number().int(), currency: z.string() }).nullable(),
   /** Starts before the closure and runs into it. */
   runsIntoClosure: z.boolean(),
+  /**
+   * Only on a `shortened` group: the start "Move to the nearest open time" would give this booking,
+   * from the logic the closure command moves with. `null`: no open time, so a move is refused.
+   */
+  proposedStart: z.string().nullable().optional(),
 });
 
 /** Bookings on one service date that the draft affects the same way. */
@@ -365,6 +370,34 @@ export const ClosureImpactSchema = z.object({
   groups: z.array(ClosureImpactGroupSchema),
 });
 
+/** What a Step 2 outcome tells a guest; a kept-silent booking is told nothing. */
+export const CLOSURE_NOTICE_ACTIONS = ["cancel", "move", "keep_notify"] as const;
+
+/**
+ * `POST …/closures/notice-preview`: one booking's notice, rendered by the builders the notice job
+ * sends with. The booking's own details are sent, so the response never names a guest it was not given.
+ */
+export const ClosureNoticePreviewBodySchema = z.object({
+  action: z.enum(CLOSURE_NOTICE_ACTIONS),
+  closureDate: ServiceDateSchema,
+  /** The booking's start as the notice states it: the proposed new start, for a move. */
+  startTime: z.string().datetime(),
+  partySize: z.number().int().min(1),
+  guestName: z.string().max(200).nullable(),
+  message: z.string().max(GUEST_MESSAGE_MAX_LENGTH).nullable(),
+  /** The deposit a cancel refunds. */
+  refund: z
+    .object({ amountCents: z.number().int().min(0), currency: z.string().min(3).max(3) })
+    .nullable(),
+});
+
+export const ClosureNoticePreviewSchema = z.object({
+  email: z.object({ subject: z.string(), text: z.string() }),
+  sms: z.string(),
+});
+
+export type ClosureNoticePreviewBody = z.infer<typeof ClosureNoticePreviewBodySchema>;
+export type ClosureNoticePreview = z.infer<typeof ClosureNoticePreviewSchema>;
 export type ClosureAlongside = z.infer<typeof ClosureAlongsideSchema>;
 export type ClosureImpactBody = z.infer<typeof ClosureImpactBodySchema>;
 export type ClosureImpactKind = z.infer<typeof ClosureImpactKindSchema>;

@@ -10,6 +10,7 @@ import type {
   DateRule,
 } from "@mbe/types";
 import { strandReason } from "./availability-config-checks.js";
+import { moveTarget } from "./closure-command-plan.js";
 
 /**
  * The affected-set preview of a closure, special hours or Tonight change
@@ -167,6 +168,22 @@ function toReservation(booking: ImpactBooking, runsInto: boolean): ClosureImpact
   };
 }
 
+/**
+ * Where "Move to the nearest open time" would put each booking, from `moveTarget`, the function the
+ * closure command moves with, so the preview never promises a move the save would refuse.
+ */
+function withProposedStarts(
+  after: AvailabilitySnapshot,
+  date: string,
+  reservations: readonly ClosureImpactReservation[],
+  now: Date
+): ClosureImpactReservation[] {
+  return reservations.map((r) => ({
+    ...r,
+    proposedStart: moveTarget(after, date, r, now)?.startTime.toISOString() ?? null,
+  }));
+}
+
 function toGroup(
   date: string,
   kind: ClosureImpactKind,
@@ -189,8 +206,10 @@ export function computeClosureImpact(input: {
   rule: DateRule;
   alongside?: ClosureAlongside;
   bookings: readonly ImpactBooking[];
+  /** For the proposed move times: a move never lands before now. */
+  now: Date;
 }): ClosureImpact {
-  const { timezone, config, rule, bookings, alongside } = input;
+  const { timezone, config, rule, bookings, alongside, now } = input;
   const before = { timezone, config };
   const after = { timezone, config: withClosure(config, rule, alongside) };
   const kind = kindOf(rule);
@@ -209,7 +228,13 @@ export function computeClosureImpact(input: {
 
   const groups = [...byDate.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, reservations]) => toGroup(date, kind, reservations));
+    .map(([date, reservations]) =>
+      toGroup(
+        date,
+        kind,
+        kind === "shortened" ? withProposedStarts(after, date, reservations, now) : reservations
+      )
+    );
   return {
     reservations: groups.reduce((n, g) => n + g.reservations.length, 0),
     covers: groups.reduce((n, g) => n + g.covers, 0),

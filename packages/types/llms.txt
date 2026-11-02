@@ -252,6 +252,21 @@
     <item priority="high">
       export const ClosureImpactSchema: unknown;
     </item>
+    <item priority="high">
+      export const CLOSURE_NOTICE_ACTIONS: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureNoticePreviewBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureNoticePreviewSchema: unknown;
+    </item>
+    <item priority="low">
+      type ClosureNoticePreviewBody = z.infer<typeof ClosureNoticePreviewBodySchema>;
+    </item>
+    <item priority="low">
+      type ClosureNoticePreview = z.infer<typeof ClosureNoticePreviewSchema>;
+    </item>
     <item priority="low">
       type ClosureAlongside = z.infer<typeof ClosureAlongsideSchema>;
     </item>

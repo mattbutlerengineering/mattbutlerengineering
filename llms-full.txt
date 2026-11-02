@@ -5096,11 +5096,26 @@
         ? ["cancel", "move", "keep_notify", "keep_silent"]
         : ["cancel", "keep_notify", "keep_silent"];
     }
+    export function unmovable(group: ClosureImpactGroup): ClosureImpactReservation[] {
+      return group.reservations.filter((r) => r.proposedStart === null);
+    }
     export function decisionsReady(groups: readonly ClosureImpactGroup[], choices: ChoiceMap): boolean {
       return groups.every((g) => {
         const choice = choices[g.groupKey];
+        if (choice?.action === "move" && unmovable(g).length > 0) return false;
         return choice?.action !== undefined && (choice.action !== "keep_silent" || choice.acknowledged);
       });
+    }
+    export function withoutChoicesFor(
+      groups: readonly ClosureImpactGroup[],
+      choices: ChoiceMap,
+      reservationIds: readonly string[]
+    ): ChoiceMap {
+      const ids = new Set(reservationIds);
+      const dropped = new Set(
+        groups.filter((g) => g.reservations.some((r) => ids.has(r.id))).map((g) => g.groupKey)
+      );
+      return Object.fromEntries(Object.entries(choices).filter(([key]) => !dropped.has(key)));
     }
     export function toDecisions(
       groups: readonly ClosureImpactGroup[],
@@ -7684,6 +7699,11 @@
       | { readonly kind: "groups-changed" }
       /** Someone saved first; `winningChange` is `null` when the server recorded none. */
       | { readonly kind: "version-conflict"; readonly winningChange: AvailabilityChangeSummary | null }
+      /**
+       * "Move" was chosen and some bookings have no open time (or the time was taken since): the server
+       * saved nothing and told no guest. `reservationIds` are the ones it could not move.
+       */
+      | { readonly kind: "move-unavailable"; readonly reservationIds: readonly string[] }
       /** This attempt already committed (a response was lost). */
       | { readonly kind: "closure-exists" }
       /**
@@ -7695,8 +7715,17 @@
           readonly detail: string;
           readonly outcomeUnknown: boolean;
         };
+    function moveUnavailableIds(error: unknown): readonly string[] | null {
+      const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
+      const problem = AvailabilityConfigProblemSchema.safeParse(details);
+      return problem.success && problem.data.code === "move-unavailable"
+        ? (problem.data.reservationIds ?? [])
+        : null;
+    }
     export function refusalOf(error: unknown): Refusal {
       if (isDecisionRequired(error)) return { kind: "groups-changed" };
+      const stuck = moveUnavailableIds(error);
+      if (stuck) return { kind: "move-unavailable", reservationIds: stuck };
       const conflict = conflictOf(error);
       if (conflict?.code === "version-conflict") {
         return { kind: "version-conflict", winningChange: conflict.winningChange };
@@ -7708,8 +7737,46 @@
     export function mayHaveSaved(refusal: Refusal): boolean {
       return refusal.kind === "closure-exists" || (refusal.kind === "other" && refusal.outcomeUnknown);
     }
-    export function refusalText(refusal: Refusal, t: TFunction): string {
+    export interface RefusalContext {
+      readonly groups: readonly ClosureImpactGroup[];
+      readonly format: Pick<VenueFormat, "formatTime" | "formatCalendarDate">;
+    }
+    function moveUnavailableText(
+      ids: readonly string[],
+      t: TFunction,
+      context: RefusalContext | undefined
+    ): string {
+      const known = new Map(
+        (context?.groups ?? []).flatMap((g) => g.reservations.map((r) => [r.id, { g, r }] as const))
+      );
+      const named = ids.flatMap((id) => {
+        const found = known.get(id);
+        if (!found || !context) return [];
+        const { g, r } = found;
+        return [
+          t("availability.close.moveUnavailableBooking", {
+            name: r.guestName ?? t("availability.close.step2.guestUnnamed"),
+            date: context.format.formatCalendarDate(g.date, {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+            }),
+            time: context.format.formatTime(r.startTime),
+          }),
+        ];
+      });
+      const shown = named.slice(0, MOVE_NAMED_MAX);
+      const more = named.length - shown.length;
+      const bookings = [
+        ...shown,
+        ...(more > 0 ? [t("availability.close.moveUnavailableMore", { count: more })] : []),
+      ].join("; ");
+      return t("availability.close.moveUnavailable", { count: Math.max(ids.length, 1), bookings });
+    }
+    export function refusalText(refusal: Refusal, t: TFunction, context?: RefusalContext): string {
       switch (refusal.kind) {
+        case "move-unavailable":
+          return moveUnavailableText(refusal.reservationIds, t, context);
         case "groups-changed":
           return t("availability.close.groupsChanged");
         case "version-conflict":
@@ -14403,6 +14470,21 @@
           },
         },
       }),
+      closureNoticePreview: defineEndpoint({
+        method: "POST",
+        path: `${AVAILABILITY_CONFIG_PREFIX}/:id/closures/notice-preview`,
+        params: VenueParamsSchema,
+        body: ClosureNoticePreviewBodySchema,
+        responses: {
+          200: {
+            description: "The email and SMS a guest would be sent for the outcome (read-only)",
+            body: z.object({ data: ClosureNoticePreviewSchema }),
+          },
+          401: authRequired,
+          403: notMember,
+          404: venueNotFound,
+        },
+      }),
       createClosure: defineEndpoint({
         method: "POST",
         path: `${AVAILABILITY_CONFIG_PREFIX}/:id/closures`,
@@ -19556,6 +19638,15 @@
           ? api.availability.getClosureImpact(params.venueId, params.rule)
           : null,
       getEnabled: (params) => !!params?.venueId && !!params.rule && params.enabled !== false,
+    });
+    export const useClosureNoticePreview = createQueryHook<
+      ClosureNoticePreview | null,
+      { venueId: string; body: ClosureNoticePreviewBody }
+    >({
+      key: "closureNoticePreview",
+      fetcher: async (params, api) =>
+        params ? api.availability.getClosureNoticePreview(params.venueId, params.body) : null,
+      getEnabled: (params) => !!params?.venueId && params.enabled !== false,
     });
     export type PreviewClosureImpactVariables = {
       venueId: string;
@@ -26266,6 +26357,54 @@
         subject: emailSubject(c),
         html: [...hello, ...emailLines(c)].join("\n"),
       };
+    }
+  </file>
+  <file path="services/reservations/src/notifications/closure-preview.ts">
+    export type PreviewAction = "cancel" | "move" | "keep_notify";
+    export interface ClosurePreviewInput {
+      action: PreviewAction;
+      venueName: string;
+      timezone: string;
+      /** Venue-local service date the closure affects, "YYYY-MM-DD". */
+      closureDate: string;
+      /** The booking's start as the notice states it: the new time, for a move. */
+      startTime: string;
+      partySize: number;
+      guestName: string | null;
+      message: string | null;
+      refund: { amountCents: number; currency: string } | null;
+      manageBaseUrl: string;
+    }
+    export interface ClosurePreview {
+      email: { subject: string; text: string };
+      sms: string;
+    }
+    function emailText(html: string): string {
+      return html
+        .split("\n")
+        .map((line) =>
+          line.replace(/<[^>]+>/g, "").replace(/&(?:amp|lt|gt|quot|#39);/g, (e) => ENTITIES[e]!)
+        )
+        .filter((line) => line.trim() !== "")
+        .join("\n");
+    }
+    export function previewClosureNotice(input: ClosurePreviewInput): ClosurePreview {
+      const content = {
+        kind: KIND_OF_ACTION[input.action],
+        venueName: input.venueName,
+        guestName: input.guestName,
+        closureDate: input.closureDate,
+        startTime: input.startTime,
+        timezone: input.timezone,
+        partySize: input.partySize,
+        message: input.message?.trim() ? input.message.trim() : null,
+        refund: input.action === "cancel" ? input.refund : null,
+        manageUrl: buildManageUrl(input.manageBaseUrl, PREVIEW_TOKEN),
+        // Open rebook times are looked up when the notice is sent, so they are still open then.
+        offers: [],
+      };
+      const { subject, html } = buildClosureEmail(content);
+      return { email: { subject, text: emailText(html) }, sms: buildClosureSms(content) };
     }
   </file>
   <file path="services/reservations/src/notifications/email-content.ts">
@@ -37087,6 +37226,31 @@
         }),
       });
     
+      registerEndpoint(fastify, availabilityConfigEndpoints.closureNoticePreview, {
+        docs: {
+          summary: "Preview the notice a guest would be sent for a Step 2 outcome",
+          operationId: "previewClosureNotice",
+          description:
+            "Read-only. Renders one booking's email and SMS with the same builders the CLOSURE_NOTICE job sends with, in the venue's name and time zone. The email body is returned as the plain text a guest reads. The guest's own manage link and any open rebooking times are only made when a notice is really sent, so the preview shows neither. The body names the guest it is for; nothing here logs it. Any venue member (a Host's emergency close shows it too).",
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(VENUE_FROM_ID, async (request, reply, { venueId }) => {
+          const venue = await fastify.services.venueService.getById(venueId);
+          if (!venue) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
+          }
+          const preview = previewClosureNotice({
+            ...request.body,
+            venueName: venue.name,
+            timezone: venue.ianaTimezone,
+            manageBaseUrl: resolveManageBaseUrl(process.env),
+          });
+          return { data: preview };
+        }),
+      });
+    
       registerEndpoint(fastify, availabilityConfigEndpoints.createClosures, {
         docs: {
           summary: "Save several closures in one transaction",
@@ -45262,6 +45426,11 @@
       deposit: z.object({ amountCents: z.number().int(), currency: z.string() }).nullable(),
       /** Starts before the closure and runs into it. */
       runsIntoClosure: z.boolean(),
+      /**
+       * Only on a `shortened` group: the start "Move to the nearest open time" would give this booking,
+       * from the logic the closure command moves with. `null`: no open time, so a move is refused.
+       */
+      proposedStart: z.string().nullable().optional(),
     });
     export const ClosureImpactGroupSchema = z.object({
       /** `<date>:<kind>`; the closure command's decisions are keyed by it. */
@@ -45280,6 +45449,26 @@
       /** By date, then kind. Empty when no booking is affected (e.g. a booking-only closure). */
       groups: z.array(ClosureImpactGroupSchema),
     });
+    export const CLOSURE_NOTICE_ACTIONS = ["cancel", "move", "keep_notify"] as const;
+    export const ClosureNoticePreviewBodySchema = z.object({
+      action: z.enum(CLOSURE_NOTICE_ACTIONS),
+      closureDate: ServiceDateSchema,
+      /** The booking's start as the notice states it: the proposed new start, for a move. */
+      startTime: z.string().datetime(),
+      partySize: z.number().int().min(1),
+      guestName: z.string().max(200).nullable(),
+      message: z.string().max(GUEST_MESSAGE_MAX_LENGTH).nullable(),
+      /** The deposit a cancel refunds. */
+      refund: z
+        .object({ amountCents: z.number().int().min(0), currency: z.string().min(3).max(3) })
+        .nullable(),
+    });
+    export const ClosureNoticePreviewSchema = z.object({
+      email: z.object({ subject: z.string(), text: z.string() }),
+      sms: z.string(),
+    });
+    export type ClosureNoticePreviewBody = z.infer<typeof ClosureNoticePreviewBodySchema>;
+    export type ClosureNoticePreview = z.infer<typeof ClosureNoticePreviewSchema>;
     export type ClosureAlongside = z.infer<typeof ClosureAlongsideSchema>;
     export type ClosureImpactBody = z.infer<typeof ClosureImpactBodySchema>;
     export type ClosureImpactKind = z.infer<typeof ClosureImpactKindSchema>;
@@ -54669,6 +54858,7 @@
         rule,
         alongside,
         bookings,
+        now,
       });
       return { kind: "ok", impact };
     }
@@ -54810,6 +55000,17 @@
         runsIntoClosure: runsInto,
       };
     }
+    function withProposedStarts(
+      after: AvailabilitySnapshot,
+      date: string,
+      reservations: readonly ClosureImpactReservation[],
+      now: Date
+    ): ClosureImpactReservation[] {
+      return reservations.map((r) => ({
+        ...r,
+        proposedStart: moveTarget(after, date, r, now)?.startTime.toISOString() ?? null,
+      }));
+    }
     function toGroup(
       date: string,
       kind: ClosureImpactKind,
@@ -54831,8 +55032,10 @@
       rule: DateRule;
       alongside?: ClosureAlongside;
       bookings: readonly ImpactBooking[];
+      /** For the proposed move times: a move never lands before now. */
+      now: Date;
     }): ClosureImpact {
-      const { timezone, config, rule, bookings, alongside } = input;
+      const { timezone, config, rule, bookings, alongside, now } = input;
       const before = { timezone, config };
       const after = { timezone, config: withClosure(config, rule, alongside) };
       const kind = kindOf(rule);
@@ -54851,7 +55054,13 @@
     
       const groups = [...byDate.entries()]
         .sort(([a], [b]) => a.localeCompare(b))
-        .map(([date, reservations]) => toGroup(date, kind, reservations));
+        .map(([date, reservations]) =>
+          toGroup(
+            date,
+            kind,
+            kind === "shortened" ? withProposedStarts(after, date, reservations, now) : reservations
+          )
+        );
       return {
         reservations: groups.reduce((n, g) => n + g.reservations.length, 0),
         covers: groups.reduce((n, g) => n + g.covers, 0),
@@ -74150,6 +74359,18 @@
         const response = await this.client.call(availabilityConfigEndpoints.closureImpact, {
           params: { id: venueId },
           body: alongside ? { rule, alongside } : { rule },
+        });
+        return response.data;
+      }
+    
+      /** The email and SMS a guest would be sent for one Step 2 outcome, rendered by the server. */
+      async getClosureNoticePreview(
+        venueId: string,
+        body: ClosureNoticePreviewBody
+      ): Promise<ClosureNoticePreview> {
+        const response = await this.client.call(availabilityConfigEndpoints.closureNoticePreview, {
+          params: { id: venueId },
+          body,
         });
         return response.data;
       }

@@ -3,6 +3,7 @@ import type { AvailabilityConfig, DateRule } from "@mbe/types";
 import { computeClosureImpact, type ImpactBooking } from "./closure-impact.js";
 
 const TZ = "America/Los_Angeles";
+const NOW = new Date("2026-12-01T20:00:00.000Z");
 
 const CONFIG: AvailabilityConfig = {
   schedules: [{ id: "sch-1", name: "Regular", kind: "regular", isRegular: true }],
@@ -58,7 +59,7 @@ const closure = (patch: Partial<DateRule> = {}): DateRule =>
   }) as DateRule;
 
 const impact = (rule: DateRule, bookings: ImpactBooking[]) =>
-  computeClosureImpact({ timezone: TZ, config: CONFIG, rule, bookings });
+  computeClosureImpact({ timezone: TZ, config: CONFIG, rule, bookings, now: NOW });
 
 describe("computeClosureImpact", () => {
   it("groups a whole-day closure's bookings as closed, with covers and held deposits", () => {
@@ -120,6 +121,47 @@ describe("computeClosureImpact", () => {
     ]);
   });
 
+  describe("the start a move would give each booking", () => {
+    const shortened: DateRule = {
+      id: "dr-new",
+      kind: "special_hours",
+      targetKind: "venue",
+      startsOn: "2026-12-24",
+      endsOn: "2026-12-24",
+      payload: {
+        version: 1,
+        services: [
+          {
+            venueServiceId: "vs-dinner",
+            opensAt: 960,
+            lastSeatingAt: 1080,
+            closesAt: 1200,
+            seating: { version: 1, interval: 15 },
+            bookingTypes: ["online", "phone"],
+          },
+        ],
+      },
+    };
+
+    it("is the nearest open start from the logic the closure command moves with", () => {
+      const result = impact(shortened, [booking("late", "2026-12-24", 20, 0)]);
+      // 8:00 PM cannot seat after 6:00 PM last seating: 6:00 PM PST is 02:00Z the next day.
+      expect(result.groups[0]!.reservations[0]!.proposedStart).toBe("2026-12-25T02:00:00.000Z");
+    });
+
+    it("is null for a booking too long for any open service, so a move is refused", () => {
+      const long = booking("long", "2026-12-24", 20, 0);
+      const stuck = { ...long, endTime: new Date(long.startTime.getTime() + 300 * 60_000) };
+      const result = impact(shortened, [stuck]);
+      expect(result.groups[0]!.reservations[0]!.proposedStart).toBeNull();
+    });
+
+    it("is absent on a closed day, where a move is not offered", () => {
+      const result = impact(closure(), [booking("a", "2026-12-24", 19, 0)]);
+      expect(result.groups[0]!.reservations[0]!.proposedStart).toBeUndefined();
+    });
+  });
+
   it("has no groups for a booking-only closure", () => {
     const onlineOnly = closure({ targetKind: "booking", bookingTypes: ["online", "phone"] });
     expect(impact(onlineOnly, [booking("a", "2026-12-24", 19, 0)])).toEqual({
@@ -170,6 +212,7 @@ describe("computeClosureImpact", () => {
       ],
     };
     const result = computeClosureImpact({
+      now: NOW,
       timezone: TZ,
       config: base,
       rule: closure({ id: "dr-new" }),
@@ -201,6 +244,7 @@ describe("computeClosureImpact", () => {
     const config = { ...CONFIG, dateRules: [series, skip] };
 
     const result = computeClosureImpact({
+      now: NOW,
       timezone: TZ,
       config,
       rule: edited,
@@ -219,6 +263,7 @@ describe("computeClosureImpact", () => {
       window: { version: 1, from: 1290, to: 1440 }, // closed from 9:30 PM
     });
     const result = computeClosureImpact({
+      now: NOW,
       timezone: TZ,
       config: { ...CONFIG, dateRules: [existing] },
       rule: closure({ id: "c2", window: { version: 1, from: 1260, to: 1440 } }), // from 9:00 PM
@@ -241,6 +286,7 @@ describe("computeClosureImpact", () => {
     const edited: DateRule = { ...series, id: "s2", repeat: { version: 1, weekdays: [4, 5] } };
 
     const result = computeClosureImpact({
+      now: NOW,
       timezone: TZ,
       config: { ...CONFIG, dateRules: [series] },
       rule: edited,

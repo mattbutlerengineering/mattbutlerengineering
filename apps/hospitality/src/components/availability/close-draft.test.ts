@@ -15,7 +15,9 @@ import {
   settleStartMinute,
   startMinutes,
   toDecisions,
+  unmovable,
   validateClose,
+  withoutChoicesFor,
   type CloseForm,
 } from "./close-draft.js";
 
@@ -177,6 +179,45 @@ describe("decisions", () => {
     expect(decisionsReady(groups, { [key]: { action: "keep_silent", acknowledged: true } })).toBe(
       true
     );
+  });
+
+  it("does not take a move for a group with a booking that has no open time", () => {
+    const stuck = group({
+      groupKey: "2026-12-24:shortened",
+      kind: "shortened",
+      reservations: [
+        { ...group().reservations[0]!, id: "ok", proposedStart: "2026-12-25T02:00:00.000Z" },
+        { ...group().reservations[0]!, id: "stuck", proposedStart: null },
+      ],
+    });
+    const key = stuck.groupKey;
+    expect(unmovable(stuck).map((r) => r.id)).toEqual(["stuck"]);
+    expect(decisionsReady([stuck], { [key]: { action: "move", acknowledged: false } })).toBe(false);
+    expect(decisionsReady([stuck], { [key]: { action: "cancel", acknowledged: false } })).toBe(
+      true
+    );
+    // A server that sent no proposals (an older one) leaves the choice to the server.
+    const unknown = group({
+      groupKey: key,
+      kind: "shortened",
+      reservations: [{ ...group().reservations[0]!, id: "x" }],
+    });
+    expect(unmovable(unknown)).toEqual([]);
+  });
+
+  it("drops the choice of every group holding a booking that could not be moved", () => {
+    const a = group();
+    const b = group({
+      groupKey: "2026-12-25:closed",
+      date: "2026-12-25",
+      reservations: [{ ...group().reservations[0]!, id: "other" }],
+    });
+    const choices = {
+      [a.groupKey]: { action: "move", acknowledged: false },
+      [b.groupKey]: { action: "cancel", acknowledged: false },
+    } as const;
+    const ids = [a.reservations[0]!.id];
+    expect(Object.keys(withoutChoicesFor([a, b], choices, ids))).toEqual([b.groupKey]);
   });
 
   it("sends the acknowledgement only with keep_silent, and the bookings each choice was made on", () => {

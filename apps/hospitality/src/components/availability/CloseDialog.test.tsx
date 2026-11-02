@@ -21,6 +21,7 @@ const impactQuery = vi.hoisted(() => ({
 }));
 vi.mock("../../hooks/useClosures.js", () => ({
   useCreateClosure: () => ({ mutateAsync: create, isPending: saving.value }),
+  useClosureNoticePreview: () => ({ data: undefined, isLoading: true, error: null }),
   useClosureImpact: ({ rule }: { rule: unknown }) => {
     const key = JSON.stringify(rule);
     if (impactQuery.keyed && impactQuery.firstKey === null) impactQuery.firstKey = key;
@@ -230,6 +231,78 @@ describe("CloseDialog", () => {
         reservationIds: IMPACT.groups[0]!.reservations.map((r) => r.id),
       },
     ]);
+  });
+
+  it("lists proposed move times, and names the bookings a refused move could not make", async () => {
+    const shortened: ClosureImpact = {
+      reservations: 2,
+      covers: 8,
+      depositsHeld: 0,
+      groups: [
+        {
+          groupKey: `${DATE}:shortened`,
+          date: DATE,
+          kind: "shortened",
+          covers: 8,
+          depositsHeld: 0,
+          reservations: [
+            {
+              id: "m1",
+              startTime: `${DATE}T20:00:00Z`,
+              endTime: `${DATE}T21:30:00Z`,
+              partySize: 4,
+              guestName: "Rivera",
+              deposit: null,
+              runsIntoClosure: false,
+              proposedStart: `${DATE}T18:00:00Z`,
+            },
+            {
+              id: "m2",
+              startTime: `${DATE}T20:30:00Z`,
+              endTime: `${DATE}T22:00:00Z`,
+              partySize: 2,
+              guestName: "Chen",
+              deposit: null,
+              runsIntoClosure: false,
+              proposedStart: `${DATE}T18:30:00Z`,
+            },
+          ],
+        },
+      ],
+    };
+    impactState.value = shortened;
+    create.mockRejectedValue(
+      new ApiClientError(
+        {
+          type: "about:blank",
+          title: "Unprocessable Entity",
+          status: 422,
+          detail: "Some bookings have no open time to move to; choose another outcome.",
+          code: "move-unavailable",
+          reservationIds: ["m2"],
+        } as never,
+        "POST",
+        "closures"
+      )
+    );
+    renderDialog();
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+    fireEvent.click(within(dialog).getByRole("radio", { name: /Move to the nearest open time/ }));
+
+    const rows = within(dialog).getAllByRole("listitem");
+    expect(rows[0]).toHaveTextContent(/Rivera.*moves to 10:00 AM/);
+    expect(rows[1]).toHaveTextContent(/Chen.*moves to 10:30 AM/);
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close and move 2" }));
+
+    const alert = await within(dialog).findByText(/Couldn't move Chen, Thu, Dec 24 at 12:30 PM/);
+    expect(alert.textContent).toContain("Nothing was saved, no guest was told");
+    // The choice is void: the Manager must decide again before anything can be sent.
+    expect(
+      within(dialog).getByRole("radio", { name: /Move to the nearest open time/ })
+    ).not.toBeChecked();
+    expect(within(dialog).getByTestId("close-primary")).toBeDisabled();
   });
 
   it("refetches the impact and asks again when the group changed before the save", async () => {

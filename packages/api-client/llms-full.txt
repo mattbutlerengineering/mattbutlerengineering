@@ -191,6 +191,18 @@
         return response.data;
       }
     
+      /** The email and SMS a guest would be sent for one Step 2 outcome, rendered by the server. */
+      async getClosureNoticePreview(
+        venueId: string,
+        body: ClosureNoticePreviewBody
+      ): Promise<ClosureNoticePreview> {
+        const response = await this.client.call(availabilityConfigEndpoints.closureNoticePreview, {
+          params: { id: venueId },
+          body,
+        });
+        return response.data;
+      }
+    
       /**
        * Saves a closure (or special hours / Tonight change) with one decision per
        * affected group. `idempotencyKey` makes a retry safe: a replay returns the

@@ -2,6 +2,8 @@ import type {
   ClosureAlongside,
   ClosureCallListEntry,
   ClosureImpact,
+  ClosureNoticePreview,
+  ClosureNoticePreviewBody,
   ClosureResult,
   ClosuresResult,
   ClosureSummary,
@@ -29,6 +31,20 @@ export const useClosureImpact = createQueryHook<
       ? api.availability.getClosureImpact(params.venueId, params.rule)
       : null,
   getEnabled: (params) => !!params?.venueId && !!params.rule && params.enabled !== false,
+});
+
+/**
+ * The email and text a guest would be sent for one Step 2 outcome, rendered by the server. Asked
+ * only once a Manager opens the preview, and cached by the booking it was asked about.
+ */
+export const useClosureNoticePreview = createQueryHook<
+  ClosureNoticePreview | null,
+  { venueId: string; body: ClosureNoticePreviewBody }
+>({
+  key: "closureNoticePreview",
+  fetcher: async (params, api) =>
+    params ? api.availability.getClosureNoticePreview(params.venueId, params.body) : null,
+  getEnabled: (params) => !!params?.venueId && params.enabled !== false,
 });
 
 export type PreviewClosureImpactVariables = {
