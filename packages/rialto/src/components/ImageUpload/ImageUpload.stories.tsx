@@ -17,7 +17,7 @@ export const Default: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText(/drop/i)).toBeInTheDocument();
+    await expect(canvas.getByText(/add image/i)).toBeInTheDocument();
   },
 };
 

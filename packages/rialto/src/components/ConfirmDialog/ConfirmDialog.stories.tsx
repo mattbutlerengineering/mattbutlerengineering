@@ -47,7 +47,8 @@ export const Default: Story = {
     const canvas = within(canvasElement);
     const button = canvas.getByRole("button", { name: "Confirm Action" });
     await userEvent.click(button);
-    await expect(canvas.getByRole("alertdialog")).toBeInTheDocument();
+    // ConfirmDialog is a plain Dialog (role="dialog"); it does not render role="alertdialog".
+    await expect(canvas.getByRole("dialog")).toBeInTheDocument();
   },
 };
 

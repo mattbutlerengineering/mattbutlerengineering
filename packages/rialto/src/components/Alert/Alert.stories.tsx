@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { within, userEvent, expect } from "@storybook/test";
+import { within, userEvent, expect, waitFor } from "@storybook/test";
 import { Alert } from "./Alert";
 import { Button } from "../Button/Button";
 
@@ -71,11 +71,12 @@ export const Dismissible: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const alert = canvas.getByRole("alert");
+    // The info variant renders role="status"; only error/warning use role="alert".
+    const alert = canvas.getByRole("status");
     await expect(alert).toBeInTheDocument();
-    const closeButton = canvas.getByRole("button", { name: /close/i });
+    const closeButton = canvas.getByRole("button", { name: /dismiss/i });
     await userEvent.click(closeButton);
-    // After dismiss, alert should be removed
-    await expect(alert).not.toBeInTheDocument();
+    // The alert animates out, so it leaves the DOM after the exit transition.
+    await waitFor(() => expect(alert).not.toBeInTheDocument());
   },
 };
