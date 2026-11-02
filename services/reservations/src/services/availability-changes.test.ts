@@ -129,6 +129,26 @@ describe("listAvailabilityChanges", () => {
     });
   });
 
+  it("carries each row's code and data, on the entry and on the undoable change", async () => {
+    const detail = { code: "tonight_ended" };
+    const saved = row({ id: "save", kind: "tonight_end", summaryDetail: detail });
+    const page = await listAvailabilityChanges(
+      "venue-1",
+      { limit: 2, offset: 0 },
+      fakeClient({
+        venue: { findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: TZ })) },
+        availabilityChange: {
+          findMany: vi.fn(async () => [saved, row({ id: "old" })]),
+          count: vi.fn(async () => 2),
+          findFirst: vi.fn(async () => ({ ...inForce(saved), summaryDetail: detail })),
+        },
+      })
+    );
+    expect(page?.items[0]).toMatchObject({ id: "save", detail });
+    expect(page?.items[1]).not.toHaveProperty("detail");
+    expect(page?.undoable).toMatchObject({ id: "save", detail });
+  });
+
   it("names the undoable change even when the page holds another, and none when it told guests (#8120)", async () => {
     const page = (inForceRow: Record<string, unknown> | null) =>
       listAvailabilityChanges(
@@ -425,6 +445,26 @@ describe("revertAvailabilityChange", () => {
         data: expect.objectContaining({ kind: "revert", actorName: "Ben Ito" }),
       })
     );
+  });
+
+  it("marks the revert's code when the undone change had one, and writes none when it had none", async () => {
+    const detail = { code: "config_saved", added: 0, changed: 1, removed: 0 };
+    const withDetail = revertingTx({
+      change: row({ id: "chg-5", inverse: inverse(), summaryDetail: detail }),
+    });
+    await revertAvailabilityChange({ ...request, expectedVersion: 5 }, fakeClient(withDetail));
+    expect(withDetail.availabilityChange.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ summaryDetail: { ...detail, reverted: true } }),
+      })
+    );
+
+    const without = revertingTx({});
+    await revertAvailabilityChange({ ...request, expectedVersion: 5 }, fakeClient(without));
+    const data = (
+      without.availabilityChange.create.mock.calls[0] as unknown as [{ data: object }]
+    )[0].data;
+    expect(data).not.toHaveProperty("summaryDetail");
   });
 
   it("applies the inverse as a new save and links the original to it", async () => {

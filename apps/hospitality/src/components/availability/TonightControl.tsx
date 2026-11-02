@@ -31,6 +31,7 @@ import { CallListDialog } from "./CallListDialog.js";
 import { CloseDialog } from "./CloseDialog.js";
 import { conflictOf, type Conflict } from "./conflict-problem.js";
 import { useWinningChangeText } from "./use-winning-change-text.js";
+import { clockHour } from "./clock-hour.js";
 import { minuteText } from "./closure-band.js";
 import { TonightDecisionsDialog } from "./TonightDecisionsDialog.js";
 import {
@@ -285,12 +286,15 @@ export function TonightControl(props: TonightControlProps) {
     // The Manager decided on real bookings: say what happened to them, and where to call.
     const { cancel, move, keep_notify } = result.outcomes;
     const notified = cancel + move + keep_notify;
-    const time = minuteText(closedAt, t, format);
+    const closed = t("availability.tonight.toast.closed", {
+      time: minuteText(closedAt, t, format),
+      count: clockHour(closedAt),
+    });
     toast({
       title:
         notified > 0
-          ? t("availability.tonight.toast.closedNotified", { time, count: notified })
-          : t("availability.tonight.toast.closed", { time }),
+          ? t("availability.tonight.toast.closedNotified", { closed, count: notified })
+          : closed,
       variant: "success",
       ...(notified > 0
         ? {

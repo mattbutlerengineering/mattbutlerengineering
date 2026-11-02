@@ -6,11 +6,23 @@ import type {
   ConflictChangesSince,
   StrandedReservation,
 } from "@mbe/types";
-import { useVenueFormat } from "../../hooks/useVenueFormat.js";
+import type { TFunction } from "i18next";
+import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
+import { changeSummaryText } from "./change-summary-text.js";
+import { clockHourOfInstant } from "./clock-hour.js";
 import { minuteText } from "./closure-band.js";
 import type { DraftService } from "./draft-changes.js";
 import { StrandedBookings } from "./StrandedBookings.js";
 import styles from "./ConflictDialog.module.css";
+
+/** "Closed Thu, Dec 24 (saved at 1:00 AM)": a change worded in the viewer's language, on the venue's clock. */
+function theirsText(change: AvailabilityChangeSummary, t: TFunction, format: VenueFormat): string {
+  return t("availability.editor.conflict.theirs", {
+    summary: changeSummaryText(change, format, t),
+    time: format.formatInstant(change.at, { hour: "numeric", minute: "2-digit" }),
+    count: clockHourOfInstant(change.at, format),
+  });
+}
 
 export interface ConflictDialogProps {
   readonly open: boolean;
@@ -53,11 +65,8 @@ export function ConflictDialog(props: ConflictDialogProps) {
     ? Math.max(props.changesSince.total - Math.max(listed.length, 1), 0)
     : 0;
 
-  const time = winningChange
-    ? format.formatInstant(winningChange.at, { hour: "numeric", minute: "2-digit" })
-    : "";
   const theirs = winningChange
-    ? t("availability.editor.conflict.theirs", { summary: winningChange.summary, time })
+    ? theirsText(winningChange, t, format)
     : t("availability.editor.conflict.theirsUnknown");
 
   return (
@@ -111,10 +120,7 @@ export function ConflictDialog(props: ConflictDialogProps) {
               {listed.map((change) => (
                 <li key={change.id}>
                   <Text as="span" variant="body" color="primary">
-                    {t("availability.editor.conflict.theirs", {
-                      summary: change.summary,
-                      time: format.formatInstant(change.at, { hour: "numeric", minute: "2-digit" }),
-                    })}
+                    {theirsText(change, t, format)}
                   </Text>
                 </li>
               ))}
@@ -142,7 +148,9 @@ export function ConflictDialog(props: ConflictDialogProps) {
                 {t("availability.editor.conflict.theirsHeading")}
               </Heading>
               <Text variant="body" color="secondary">
-                {winningChange?.summary ?? t("availability.editor.conflict.theirsUnknown")}
+                {winningChange
+                  ? changeSummaryText(winningChange, format, t)
+                  : t("availability.editor.conflict.theirsUnknown")}
               </Text>
             </section>
             <section aria-labelledby="conflict-yours">

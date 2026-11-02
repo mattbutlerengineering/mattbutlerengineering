@@ -11242,6 +11242,59 @@
       await tx.$executeRawUnsafe(appRoleSetStatement());
     }
   </file>
+  <file path="src/services/availability-change-detail.ts">
+    export function configSavedDetail(diff: ConfigDiff): AvailabilityChangeDetail {
+      return {
+        code: "config_saved",
+        added: count(diff.create),
+        changed: count(diff.update),
+        removed: count(diff.remove),
+      };
+    }
+    export function closureDetail(
+      rule: Pick<DateRule, "kind" | "startsOn" | "endsOn">,
+      counts: Record<ClosureAction, number>
+    ): AvailabilityChangeDetail {
+      return {
+        code: rule.kind === "tonight" ? "close_early_saved" : "closure_saved",
+        startsOn: rule.startsOn,
+        endsOn: rule.endsOn ?? null,
+        cancelled: counts.cancel,
+        moved: counts.move,
+        kept: counts.keep_notify + counts.keep_silent,
+      };
+    }
+    export const reopenedDetail = (
+      rule: Pick<DateRule, "startsOn" | "endsOn">
+    ): AvailabilityChangeDetail => ({
+      code: "closure_reopened",
+      startsOn: rule.startsOn,
+      endsOn: rule.endsOn ?? null,
+    });
+    export function tonightDetail(change: TonightChange): AvailabilityChangeDetail {
+      switch (change.type) {
+        case "pause_online":
+          return { code: "tonight_pause_online" };
+        case "close_early":
+          return { code: "tonight_close_early" };
+        case "stop_window":
+          return { code: "tonight_stop_window" };
+        case "block_tables":
+          return { code: "tonight_block_tables", tables: change.tableIds.length };
+        case "pacing":
+          return { code: "tonight_pacing", covers: change.covers };
+      }
+    }
+    export const tonightEndedDetail = (): AvailabilityChangeDetail => ({ code: "tonight_ended" });
+    export function readDetail(value: unknown): AvailabilityChangeDetail | null {
+      const parsed = AvailabilityChangeDetailSchema.safeParse(value);
+      return parsed.success ? parsed.data : null;
+    }
+    export function revertedDetail(original: unknown): AvailabilityChangeDetail | null {
+      const detail = readDetail(original);
+      return detail ? { ...detail, reverted: true } : null;
+    }
+  </file>
   <file path="src/services/availability-changes.ts">
     function dayStart(d: string, timezone: string): Date {
       return (
@@ -11278,7 +11331,15 @@
       return db.availabilityChange.findFirst({
         where: { venueId, revertedById: null, kind: { not: REVERT_KIND } },
         orderBy: [{ version: { sort: "desc", nulls: "last" } }, { at: "desc" }, { id: "desc" }],
-        select: { id: true, actorId: true, at: true, kind: true, summary: true, notifiedGuests: true },
+        select: {
+          id: true,
+          actorId: true,
+          at: true,
+          kind: true,
+          summary: true,
+          summaryDetail: true,
+          notifiedGuests: true,
+        },
       });
     }
     type StoreTx = Pick<PrismaClient, "venue" | "availabilityChange">;
@@ -11307,12 +11368,8 @@
           newestInForce(db, venueId),
         ]);
         const items: AvailabilityChangeEntry[] = rows.map((r) => ({
-          id: r.id,
-          actorId: r.actorId,
+          ...toSummary(r),
           actorName: r.actorName ?? null,
-          at: r.at.toISOString(),
-          kind: r.kind,
-          summary: r.summary,
           affectedFrom: toDay(r.affectedFrom),
           affectedTo: toDay(r.affectedTo),
           notifiedGuests: r.notifiedGuests,
@@ -11326,16 +11383,7 @@
         }));
         // The change Undo is on, whatever this page holds: a caller reading one row (the agent) would
         // otherwise see the newest by `at`, which after a lock-wait race is not the one in force.
-        const undoable =
-          newest && !newest.notifiedGuests
-            ? {
-                id: newest.id,
-                actorId: newest.actorId,
-                at: newest.at.toISOString(),
-                kind: newest.kind,
-                summary: newest.summary,
-              }
-            : null;
+        const undoable = newest && !newest.notifiedGuests ? toSummary(newest) : null;
         return { total, offset: query.offset, items, undoable };
       });
     }
@@ -11387,6 +11435,7 @@
             exact: true,
             kind: REVERT_KIND,
             summary: `Reverted: ${change.summary}`,
+            detail: revertedDetail(change.summaryDetail),
             // The column exactly as it was (null included), so undoing a venue's first
             // save puts its hours back rather than projecting an empty week over them.
             operatingHours: inverse.operatingHours == null ? Prisma.DbNull : inverse.operatingHours,
@@ -12170,11 +12219,10 @@
           inverse: ConfigInverse;
           range: { from: string | null; to: string | null };
           summary: string;
+          detail: AvailabilityChangeDetail;
         };
-    function describeDiff(diff: ConfigDiff): string {
-      const count = (part: Record<string, unknown[]>) =>
-        Object.values(part).reduce((n, rows) => n + rows.length, 0);
-      return `Availability updated: ${count(diff.create)} added, ${count(diff.update)} changed, ${count(diff.remove)} removed`;
+    function describeDiff(detail: AvailabilityChangeDetail): string {
+      return `Availability updated: ${detail.added} added, ${detail.changed} changed, ${detail.removed} removed`;
     }
     export function planSave(input: {
       state: ConfigState;
@@ -12215,13 +12263,15 @@
       if (reservations.length > 0) return { kind: "stranded", reservations };
     
       const diff = diffConfig(state.stored, next);
+      const detail = configSavedDetail(diff);
       return {
         kind: "write",
         next,
         diff,
         inverse: inverseOf(state.stored, diff, state.operatingHours),
         range: affectedRange(state.stored, diff, civilDateIn(now, state.timezone)),
-        summary: describeDiff(diff),
+        summary: describeDiff(detail),
+        detail,
       };
     }
     export type SaveOutcome =
@@ -12279,6 +12329,24 @@
         },
       });
     }
+    export const toSummary = (row: {
+      id: string;
+      actorId: string;
+      at: Date;
+      kind: string;
+      summary: string;
+      summaryDetail?: unknown;
+    }): AvailabilityChangeSummary => {
+      const detail = readDetail(row.summaryDetail);
+      return {
+        id: row.id,
+        actorId: row.actorId,
+        at: row.at.toISOString(),
+        kind: row.kind,
+        summary: row.summary,
+        ...(detail ? { detail } : {}),
+      };
+    };
     export async function refuseStale(
       db: StoreDb,
       venueId: string,
@@ -12351,6 +12419,8 @@
     }
     export const toDbDate = (d: string | null): Date | null =>
       d ? new Date(`${d}T00:00:00.000Z`) : null;
+    export const detailData = (detail: AvailabilityChangeDetail | null) =>
+      detail ? { summaryDetail: detail as unknown as Prisma.InputJsonValue } : {};
     export interface SaveRequest {
       changes: PutAvailabilityConfigBody["changes"];
       scopeConflicts: PutAvailabilityConfigBody["scopeConflicts"];
@@ -12358,6 +12428,8 @@
       kind: string;
       /** Replaces the generated summary. */
       summary?: string;
+      /** Replaces the generated code and data; `null` for none (a revert of a change that had none). */
+      detail?: AvailabilityChangeDetail | null;
       /** Written to `Venue.operatingHours` in place of the projection of the next config. */
       operatingHours?: Prisma.InputJsonValue | typeof Prisma.DbNull;
       /** Permit the result to have no live schedule (an undone first save). */
@@ -12443,6 +12515,7 @@
           at: now,
           kind: request.kind,
           summary: request.summary ?? plan.summary,
+          ...detailData(request.detail === undefined ? plan.detail : request.detail),
           affectedFrom: toDbDate(plan.range.from),
           affectedTo: toDbDate(plan.range.to),
           inverse: plan.inverse as unknown as Prisma.InputJsonValue,
@@ -14643,6 +14716,7 @@
           at: now,
           kind: "closure",
           summary: describe(rule, plan.counts),
+          ...detailData(closureDetail(rule, plan.counts)),
           affectedFrom: toDbDate(range.from),
           affectedTo: toDbDate(range.to),
           inverse: inverse as unknown as Prisma.InputJsonValue,
@@ -14882,6 +14956,7 @@
               at: now,
               kind: "reopen",
               summary: `Closure reopened (${rule.startsOn})`,
+              ...detailData(reopenedDetail(rule)),
               affectedFrom: toDbDate(range.from),
               affectedTo: toDbDate(range.to),
               inverse: inverseOf(
@@ -24228,6 +24303,7 @@
           at: now,
           kind: "tonight",
           summary: describeChange(body.change),
+          ...detailData(tonightDetail(body.change)),
           affectedFrom: toDbDate(range.from),
           affectedTo: toDbDate(range.to),
           inverse: {
@@ -24375,6 +24451,7 @@
             at: now,
             kind: "tonight_end",
             summary: "Tonight change ended",
+            ...detailData(tonightEndedDetail()),
             affectedFrom: toDbDate(range.from),
             affectedTo: toDbDate(range.to),
             inverse: inverseOf(
