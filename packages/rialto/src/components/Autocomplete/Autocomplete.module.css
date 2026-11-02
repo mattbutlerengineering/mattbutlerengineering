@@ -74,6 +74,14 @@
   overscroll-behavior: contain;
 }
 
+/* Inside a Dialog: lifted into the dialog's layer and placed by inline
+   coordinates from the field's viewport rect. */
+.floating {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+}
+
 /* ── Option ──────────────────────────────────── */
 .option {
   display: flex;

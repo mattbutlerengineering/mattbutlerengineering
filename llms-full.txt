@@ -21484,6 +21484,64 @@
       return { loaded, textures };
     }
   </file>
+  <file path="packages/rialto/src/hooks/floating-position.ts">
+    export interface FloatingStyle {
+      left: string;
+      top: string;
+      bottom: string;
+      right: string;
+      maxHeight: string;
+    }
+    export function placeHorizontal(
+      desired: number,
+      panelWidth: number,
+      viewportWidth: number
+    ): number {
+      const max = Math.max(FLOAT_MARGIN, viewportWidth - panelWidth - FLOAT_MARGIN);
+      return clamp(desired, FLOAT_MARGIN, max);
+    }
+    export function placeVertical(
+      anchor: DOMRect,
+      panelHeight: number,
+      side: "top" | "bottom",
+      gap: number,
+      viewportHeight: number
+    ): Pick<FloatingStyle, "top" | "bottom" | "maxHeight"> {
+      const below = viewportHeight - anchor.bottom - gap;
+      const above = anchor.top - gap;
+      const fitsPreferred = panelHeight <= (side === "bottom" ? below : above);
+      const useBottom = fitsPreferred ? side === "bottom" : below >= above;
+      const room = Math.floor(useBottom ? below : above);
+      const maxHeight = panelHeight > room ? `${Math.max(room, 0)}px` : "";
+      return useBottom
+        ? { top: `${anchor.bottom + gap}px`, bottom: "auto", maxHeight }
+        : { top: "auto", bottom: `${viewportHeight - anchor.top + gap}px`, maxHeight };
+    }
+    export function placeBeside(
+      anchor: DOMRect,
+      side: "left" | "right",
+      panel: { width: number; height: number },
+      gap: number,
+      viewportWidth: number,
+      viewportHeight: number
+    ): FloatingStyle {
+      const desired = side === "left" ? anchor.left - gap - panel.width : anchor.right + gap;
+      const room = viewportHeight - 2 * FLOAT_MARGIN;
+      const height = Math.min(panel.height, room);
+      const top = clamp(
+        anchor.top + anchor.height / 2 - height / 2,
+        FLOAT_MARGIN,
+        Math.max(FLOAT_MARGIN, viewportHeight - height - FLOAT_MARGIN)
+      );
+      return {
+        left: `${placeHorizontal(desired, panel.width, viewportWidth)}px`,
+        right: "auto",
+        top: `${top}px`,
+        bottom: "auto",
+        maxHeight: panel.height > room ? `${room}px` : "",
+      };
+    }
+  </file>
   <file path="packages/rialto/src/hooks/useBoop.ts">
     export function useBoop(): {
       style: MotionStyle;
@@ -22117,6 +22175,97 @@
           if (index !== -1) activePanels.splice(index, 1);
         };
       }, [enabled, panelRef, initialFocus]);
+    }
+  </file>
+  <file path="packages/rialto/src/hooks/useLayerFloating.ts">
+    type Place = (anchor: DOMRect, panel: HTMLElement) => Partial<FloatingStyle>;
+    export function useLayerFloating(
+      active: boolean,
+      anchorRef: RefObject<HTMLElement | null>,
+      panelRef: RefObject<HTMLElement | null>,
+      place: Place
+    ): void {
+      useLayoutEffect(() => {
+        const anchor = anchorRef.current;
+        const panel = panelRef.current;
+        if (!active || !anchor || !panel) return;
+        const update = () => Object.assign(panel.style, place(anchor.getBoundingClientRect(), panel));
+        update();
+        window.addEventListener("resize", update);
+        window.addEventListener("scroll", update, true);
+        const mutations = new MutationObserver(update);
+        mutations.observe(panel, { childList: true, subtree: true, characterData: true });
+        // Deferred a frame: re-capping resizes the panel, and doing that inside the
+        // observer callback raises "ResizeObserver loop completed".
+        let frame = 0;
+        const resizes =
+          typeof ResizeObserver === "undefined"
+            ? null
+            : new ResizeObserver(() => {
+                cancelAnimationFrame(frame);
+                frame = requestAnimationFrame(update);
+              });
+        resizes?.observe(panel);
+        // The anchor moves the panel too: a multi-select control that wraps its
+        // chips grows downward under an open list.
+        resizes?.observe(anchor);
+        return () => {
+          cancelAnimationFrame(frame);
+          window.removeEventListener("resize", update);
+          window.removeEventListener("scroll", update, true);
+          mutations.disconnect();
+          resizes?.disconnect();
+        };
+      }, [active, anchorRef, panelRef, place]);
+    }
+    export const placeListbox: Place = (anchor, panel) => {
+      const { height } = viewportSize();
+      // Width first: long labels wrap at the field's width, which sets scrollHeight.
+      panel.style.width = `${anchor.width}px`;
+      return {
+        ...placeVertical(
+          anchor,
+          Math.min(panel.scrollHeight, LISTBOX_MAX_HEIGHT),
+          "bottom",
+          LIST_GAP,
+          height
+        ),
+        left: `${anchor.left}px`,
+        right: "auto",
+      };
+    };
+    export function placeMenu(align: "left" | "right", side: "top" | "bottom"): Place {
+      return (anchor, panel) => {
+        const { width, height } = viewportSize();
+        // Measure at the viewport's start so the width is not squeezed by `left`.
+        panel.style.left = "0px";
+        panel.style.right = "auto";
+        const rtl = getComputedStyle(panel).direction === "rtl";
+        const alignsRight = (align === "right") !== rtl;
+        const desired = alignsRight ? anchor.right - panel.offsetWidth : anchor.left;
+        return {
+          ...placeVertical(anchor, panel.scrollHeight, side, LIST_GAP, height),
+          left: `${placeHorizontal(desired, panel.offsetWidth, width)}px`,
+          right: "auto",
+        };
+      };
+    }
+    export function placePopover(placement: "top" | "bottom" | "left" | "right", gap = 8): Place {
+      return (anchor, panel) => {
+        const { width, height } = viewportSize();
+        panel.style.left = "0px";
+        panel.style.right = "auto";
+        const size = { width: panel.offsetWidth, height: panel.scrollHeight };
+        if (placement === "left" || placement === "right") {
+          return placeBeside(anchor, placement, size, gap, width, height);
+        }
+        const centred = anchor.left + anchor.width / 2 - size.width / 2;
+        return {
+          ...placeVertical(anchor, size.height, placement, gap, height),
+          left: `${placeHorizontal(centred, size.width, width)}px`,
+          right: "auto",
+        };
+      };
     }
   </file>
   <file path="packages/rialto/src/hooks/usePointerActivation.ts">

@@ -1026,6 +1026,43 @@
   </file>
   </section>
   <section priority="medium" role="hooks">
+  <file path="src/hooks/floating-position.ts">
+    <item priority="low">
+      interface FloatingStyle {
+        left: string;
+        top: string;
+        bottom: string;
+        right: string;
+        maxHeight: string;
+      }
+    </item>
+    <item priority="high">
+      export function placeHorizontal(
+        desired: number,
+        panelWidth: number,
+        viewportWidth: number
+      ): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function placeVertical(
+        anchor: DOMRect,
+        panelHeight: number,
+        side: "top" | "bottom",
+        gap: number,
+        viewportHeight: number
+      ): Pick<FloatingStyle, "top" | "bottom" | "maxHeight"> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function placeBeside(
+        anchor: DOMRect,
+        side: "left" | "right",
+        panel: { width: number; height: number },
+        gap: number,
+        viewportWidth: number,
+        viewportHeight: number
+      ): FloatingStyle { /* ... */ }
+    </item>
+  </file>
   <file path="src/hooks/useBoop.ts">
     <item priority="high">
       export function useBoop(): {
@@ -1195,6 +1232,28 @@
         enabled: boolean,
         options?: UseFocusTrapOptions
       ): void { /* ... */ }
+    </item>
+  </file>
+  <file path="src/hooks/useLayerFloating.ts">
+    <item priority="high">
+      type Place = (anchor: DOMRect, panel: HTMLElement) => Partial<Floating...;
+    </item>
+    <item priority="high">
+      export function useLayerFloating(
+        active: boolean,
+        anchorRef: RefObject<HTMLElement | null>,
+        panelRef: RefObject<HTMLElement | null>,
+        place: Place
+      ): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export const placeListbox: Place;
+    </item>
+    <item priority="high">
+      export function placeMenu(align: "left" | "right", side: "top" | "bottom"): Place { /* ... */ }
+    </item>
+    <item priority="high">
+      export function placePopover(placement: "top" | "bottom" | "left" | "right", gap = 8): Place { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/usePointerActivation.ts">

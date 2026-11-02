@@ -4,7 +4,7 @@ import {
   useCallback,
   useContext,
   useId,
-  useLayoutEffect,
+  useMemo,
   forwardRef,
   cloneElement,
   type ForwardedRef,
@@ -18,6 +18,7 @@ import { useReturnFocus } from "../../hooks/useReturnFocus";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useDismiss } from "../../hooks/useDismiss";
+import { useLayerFloating, placePopover } from "../../hooks/useLayerFloating";
 import { cn } from "../../utils/class-composer";
 import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { DialogLayerContext } from "../Dialog/DialogLayerContext";
@@ -62,38 +63,6 @@ const motionOrigin: Record<Placement, { y?: number; x?: number; scale: number }>
   left: { x: 6, scale: 0.96 },
   right: { x: -6, scale: 0.96 },
 };
-
-/**
- * Viewport-fixed coordinates for a panel anchored to `rect`. The placement
- * class still supplies the centring `translate`; these supply the anchor point.
- * Unused edges are returned as "" so a flip clears the previous side. A top or
- * bottom panel that does not fit on its side flips to the roomier one, and is
- * capped (scrolling) to the room it has, so it is never cut off by the viewport.
- */
-function floatingPosition(
-  rect: DOMRect,
-  placement: Placement,
-  panelHeight: number,
-  gap = 8
-): Record<string, string> {
-  const vw = document.documentElement.clientWidth;
-  const vh = document.documentElement.clientHeight;
-  const midX = rect.left + rect.width / 2;
-  const midY = rect.top + rect.height / 2;
-  const none = { left: "", right: "", top: "", bottom: "", maxHeight: "" };
-  if (placement === "left")
-    return { ...none, right: `${vw - rect.left + gap}px`, top: `${midY}px` };
-  if (placement === "right") return { ...none, left: `${rect.right + gap}px`, top: `${midY}px` };
-  const below = vh - rect.bottom - gap;
-  const above = rect.top - gap;
-  const fitsPreferred = panelHeight <= (placement === "bottom" ? below : above);
-  const useBottom = fitsPreferred ? placement === "bottom" : below >= above;
-  const room = Math.floor(useBottom ? below : above);
-  const cap = panelHeight > room ? { maxHeight: `${Math.max(room, 0)}px` } : {};
-  return useBottom
-    ? { ...none, ...cap, left: `${midX}px`, top: `${rect.bottom + gap}px` }
-    : { ...none, ...cap, left: `${midX}px`, bottom: `${vh - rect.top + gap}px` };
-}
 
 /* ── Ref merge helper ────────────────────────── */
 function mergeRefs<T>(...refs: (ForwardedRef<T> | React.RefObject<T | null>)[]) {
@@ -152,27 +121,11 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
   // (position: absolute is trapped by any overflow ancestor). Lift it into the
   // dialog's layer, beside the panel, and place it by the wrapper's viewport
   // rect, as Select does. Outside a Dialog nothing changes. Imperative style
-  // writes (no setState), re-run on resize and on any scroll, including the
-  // dialog body's, so the panel tracks its trigger.
+  // writes (no setState), re-run on resize, on any scroll (including the dialog
+  // body's) and when the panel's content grows, so the panel tracks its trigger.
   const dialogLayer = useContext(DialogLayerContext);
-  useLayoutEffect(() => {
-    const wrapper = wrapperRef.current;
-    const panel = panelRef.current;
-    if (!open || !dialogLayer || !wrapper || !panel) return;
-    const update = () => {
-      Object.assign(
-        panel.style,
-        floatingPosition(wrapper.getBoundingClientRect(), placement, panel.scrollHeight)
-      );
-    };
-    update();
-    window.addEventListener("resize", update);
-    window.addEventListener("scroll", update, true);
-    return () => {
-      window.removeEventListener("resize", update);
-      window.removeEventListener("scroll", update, true);
-    };
-  }, [open, dialogLayer, placement]);
+  const place = useMemo(() => placePopover(placement), [placement]);
+  useLayerFloating(open && dialogLayer !== null, wrapperRef, panelRef, place);
 
   const panelNode = (
     <AnimatePresence>

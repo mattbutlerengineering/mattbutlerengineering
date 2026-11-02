@@ -4,14 +4,18 @@ import {
   useRef,
   useCallback,
   useId,
+  useContext,
   useEffect,
   useMemo,
   type InputHTMLAttributes,
 } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import { useCombobox } from "../../hooks/useCombobox";
+import { useLayerFloating, placeListbox } from "../../hooks/useLayerFloating";
+import { DialogLayerContext } from "../Dialog/DialogLayerContext";
 import styles from "./Autocomplete.module.css";
 import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 
@@ -68,6 +72,11 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
 
     const wrapperRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement | null>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const listRef = useRef<HTMLUListElement>(null);
+    // Inside a Dialog the listbox is lifted into the dialog's layer so the
+    // scrolling body cannot clip it, and placed by the input's viewport rect.
+    const dialogLayer = useContext(DialogLayerContext);
 
     const filtered = useMemo(
       () => options.filter((opt) => opt.label.toLowerCase().includes(inputValue.toLowerCase())),
@@ -107,6 +116,7 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
       useCombobox({
         items: comboboxItems,
         containerRef: wrapperRef,
+        extraContainerRefs: [listRef],
         inputMode: "input",
         wrap: true,
         onSelect: handleCommit,
@@ -123,9 +133,11 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
     // Scroll active option into view
     useEffect(() => {
       if (focusedIndex < 0) return;
-      const activeEl = wrapperRef.current?.querySelector(`[data-option-index="${focusedIndex}"]`);
+      const activeEl = listRef.current?.querySelector(`[data-option-index="${focusedIndex}"]`);
       activeEl?.scrollIntoView({ block: "nearest" });
     }, [focusedIndex]);
+
+    useLayerFloating(open && dialogLayer !== null, containerRef, listRef, placeListbox);
 
     // Only reference an option that is actually rendered: the listbox is
     // unmounted when closed, and the "No results" row has no id.
@@ -136,6 +148,50 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
     const hintId = hint ? `${inputId}-hint` : undefined;
     const labelId = label ? `${inputId}-label` : undefined;
     const describedBy = [ariaDescribedBy, hintId].filter(Boolean).join(" ") || undefined;
+
+    const listbox = (
+      <AnimatePresence>
+        {open && (
+          <motion.ul
+            ref={listRef}
+            id={listboxId}
+            role="listbox"
+            aria-labelledby={labelId}
+            aria-label={labelId ? undefined : ariaLabel}
+            className={cn(styles.dropdown, dialogLayer && styles.floating)}
+            initial={shouldReduceMotion ? false : { opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={shouldReduceMotion ? undefined : { opacity: 0, y: -4 }}
+            transition={precision}
+          >
+            {filtered.length === 0 ? (
+              <li className={styles.empty} role="option" aria-selected={false} aria-disabled>
+                {emptyText}
+              </li>
+            ) : (
+              filtered.map((option, index) => (
+                <li
+                  key={option.value}
+                  id={`${inputId}-option-${index}`}
+                  role="option"
+                  aria-selected={focusedIndex === index}
+                  data-option-index={index}
+                  className={cn(styles.option, focusedIndex === index && styles.optionActive)}
+                  onMouseDown={(e) => {
+                    e.preventDefault(); // keep focus on input
+                    handleSelectOption(option);
+                    close();
+                  }}
+                  onMouseEnter={() => setFocusedIndex(index)}
+                >
+                  {option.label}
+                </li>
+              ))
+            )}
+          </motion.ul>
+        )}
+      </AnimatePresence>
+    );
 
     return (
       <div ref={wrapperRef} className={cn(styles.wrapper, className)}>
@@ -154,7 +210,7 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
           </label>
         )}
 
-        <div className={styles.inputContainer}>
+        <div ref={containerRef} className={styles.inputContainer}>
           <span className={styles.searchIcon} aria-hidden>
             <svg
               width="16"
@@ -195,46 +251,7 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
           />
         </div>
 
-        <AnimatePresence>
-          {open && (
-            <motion.ul
-              id={listboxId}
-              role="listbox"
-              aria-labelledby={labelId}
-              aria-label={labelId ? undefined : ariaLabel}
-              className={styles.dropdown}
-              initial={shouldReduceMotion ? false : { opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={shouldReduceMotion ? undefined : { opacity: 0, y: -4 }}
-              transition={precision}
-            >
-              {filtered.length === 0 ? (
-                <li className={styles.empty} role="option" aria-selected={false} aria-disabled>
-                  {emptyText}
-                </li>
-              ) : (
-                filtered.map((option, index) => (
-                  <li
-                    key={option.value}
-                    id={`${inputId}-option-${index}`}
-                    role="option"
-                    aria-selected={focusedIndex === index}
-                    data-option-index={index}
-                    className={cn(styles.option, focusedIndex === index && styles.optionActive)}
-                    onMouseDown={(e) => {
-                      e.preventDefault(); // keep focus on input
-                      handleSelectOption(option);
-                      close();
-                    }}
-                    onMouseEnter={() => setFocusedIndex(index)}
-                  >
-                    {option.label}
-                  </li>
-                ))
-              )}
-            </motion.ul>
-          )}
-        </AnimatePresence>
+        {dialogLayer ? createPortal(listbox, dialogLayer) : listbox}
 
         {hint && (
           <span id={hintId} className={styles.hint}>
