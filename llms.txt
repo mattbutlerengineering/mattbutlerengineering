@@ -456,6 +456,7 @@
       interface FormContextValue {
         submitAttempted: boolean;
         errors: Readonly<Record<string, string>>;
+        announcesErrors: boolean;
         registerField: (name: string, validate: (() => string | undefined) | und...;
         unregisterField: (name: string) => void;
       }
@@ -7718,8 +7719,8 @@
     <item priority="low">
       interface FieldErrorProps {
         id: string | undefined;
-        role: "alert";
-        "aria-atomic": true;
+        role: "alert" | undefined;
+        "aria-atomic": true | undefined;
       }
     </item>
     <item priority="low">

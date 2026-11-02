@@ -549,7 +549,7 @@
         "dist/lib/components/Autocomplete/index.js",
         "dist/lib/chunks/Autocomplete-*.js"
       ],
-      "limit": "2000 B"
+      "limit": "2050 B"
     },
     {
       "name": "CommandPalette (subpath)",

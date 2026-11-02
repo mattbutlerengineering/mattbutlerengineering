@@ -40,7 +40,6 @@ export const esMX: RialtoMessages = {
   closeMenu: "Cerrar menú",
   scrollableContent: "Contenido desplazable",
   loadingContent: "Cargando contenido",
-  uploadImage: "Subir imagen",
   uploadedImage: "Imagen subida",
   uploadProgress: "Progreso de carga",
   uploadComplete: "Carga completa",

@@ -1,4 +1,5 @@
-import { createElement, useId, type ReactElement } from "react";
+import { createElement, useContext, useId, type ReactElement } from "react";
+import { FormContext } from "../components/Form/FormContext";
 import styles from "./useField.module.css";
 
 /**
@@ -38,6 +39,8 @@ export interface FieldDescriptionProps {
 /**
  * Props spread onto the error message element (e.g. `<span role="alert">`).
  * `id` is undefined when error=false — the element should not be rendered.
+ * `role`/`aria-atomic` are omitted only when the enclosing `Form`'s error
+ * summary already carries this exact message (so it is announced once).
  *
  * `role="alert"` is spec-reliable on insertion-with-content (unlike
  * `role="status"`/`aria-live="polite"` on a conditionally mounted region,
@@ -48,8 +51,9 @@ export interface FieldDescriptionProps {
  */
 export interface FieldErrorProps {
   readonly id: string | undefined;
-  readonly role: "alert";
-  readonly "aria-atomic": true;
+  /** Undefined inside a `Form` whose error summary already announces (#8115). */
+  readonly role: "alert" | undefined;
+  readonly "aria-atomic": true | undefined;
 }
 
 /**
@@ -118,7 +122,8 @@ export interface UseFieldResult {
  * `error=true`:
  * - `controlProps["aria-invalid"]` is set to `true`
  * - `errorProps.id` is `${id}-hint` (consumers render this element, with
- *   `role="alert"`, instead of the plain `descriptionProps` hint element)
+ *   `role="alert"` unless a Form summary carries the error, instead of the
+ *   plain `descriptionProps` hint element)
  * - `controlProps["aria-describedby"]` includes that id
  *
  * This fixes the previously missing error-message association:
@@ -150,13 +155,30 @@ export function useField({
 
   const showRequired = !!required;
 
+  // A field announces its own error unless the enclosing Form's assertive
+  // summary already carries this exact message: only a submit fills the
+  // summary, so a server-set or blur error, or one after a valid submit, still
+  // needs its own alert (#8115).
+  const form = useContext(FormContext);
+  const summaryCarriesError =
+    !!form?.announcesErrors &&
+    form.submitAttempted &&
+    !!error &&
+    hint !== undefined &&
+    Object.values(form.errors).includes(hint);
+  const announces = !summaryCarriesError;
+
   return {
     id,
     labelProps: { htmlFor: id },
     descriptionProps: { id: hintId },
     // errorProps.id is only exposed when error=true so callers know the
     // element should receive role="alert" / be identified as the error region.
-    errorProps: { id: error ? hintId : undefined, role: "alert", "aria-atomic": true },
+    errorProps: {
+      id: error ? hintId : undefined,
+      role: announces ? "alert" : undefined,
+      "aria-atomic": announces ? true : undefined,
+    },
     controlProps: {
       id,
       required: required || undefined,

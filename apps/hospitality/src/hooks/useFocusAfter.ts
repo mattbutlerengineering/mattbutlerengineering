@@ -60,7 +60,7 @@ function resolveTarget(target: FocusTarget): HTMLElement | null {
   }
 }
 
-const MODAL_DIALOG = '[role="dialog"][aria-modal="true"]';
+const MODAL_DIALOG = '[role="dialog"][aria-modal="true"], [role="alertdialog"][aria-modal="true"]';
 
 /**
  * True when a modal dialog sits above `element`, so keys on it would act behind that dialog. Outside

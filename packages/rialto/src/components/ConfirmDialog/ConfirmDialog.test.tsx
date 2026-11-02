@@ -107,8 +107,15 @@ describe("ConfirmDialog", () => {
           variant="destructive"
         />
       );
-      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: /confirm/i })).toBeInTheDocument();
+    });
+
+    it("keeps the default variant a plain dialog", () => {
+      render(<ConfirmDialog open onConfirm={() => {}} onCancel={() => {}} title="Confirm?" />);
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     });
   });
 

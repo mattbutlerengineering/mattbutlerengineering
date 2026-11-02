@@ -218,7 +218,7 @@ describe("SeriesGrowthStepTwo refusals", () => {
 
       fireEvent.keyDown(document, { key: "Escape" });
 
-      const ask = screen.getByRole("dialog", { name: "Leave this closure?" });
+      const ask = screen.getByRole("alertdialog", { name: "Leave this closure?" });
       expect(onClose).not.toHaveBeenCalled();
       fireEvent.click(within(ask).getByRole("button", { name: "Leave" }));
       expect(onClose).toHaveBeenCalledTimes(1);
