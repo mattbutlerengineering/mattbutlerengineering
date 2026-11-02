@@ -125,10 +125,10 @@ function DayBody({ day, date }: { readonly day: ResolvedDay; readonly date: stri
             {day.explanation.map((layer) => (
               <li key={layer.id} className={styles.layer}>
                 <Text as="span" variant="body" color="primary" data-layer-label>
-                  {layerLabelText(day, layer, t)}
+                  {layerLabelText(layer, t, format)}
                 </Text>
                 <Text as="span" variant="caption" color="secondary">
-                  {layerEffectText(day, layer, t, format)}
+                  {layerEffectText(layer, t, format)}
                 </Text>
                 <Text as="span" variant="caption" color="secondary">
                   {t("availability.drawer.ifRemoved", {

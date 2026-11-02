@@ -5,6 +5,13 @@ export { alreadyClosed, stillClosedAfterReopen } from "./closure-overlap.js";
 export { firstOccurrenceOnOrAfter, type OccurrenceRule } from "./first-occurrence.js";
 export { diffDays, type DayDiff, type DiffDaysOptions } from "./diff-days.js";
 export { localDateTimeOf, serviceDayInstant } from "./instant.js";
+export type {
+  LayerDetail,
+  LayerHoursService,
+  LayerSeries,
+  LayerTarget,
+  LayerTonight,
+} from "./layer-detail.js";
 export {
   resolveDay,
   type AvailabilitySnapshot,
