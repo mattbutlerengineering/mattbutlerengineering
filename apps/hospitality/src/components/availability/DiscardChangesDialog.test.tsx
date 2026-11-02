@@ -19,7 +19,7 @@ describe("DiscardChangesDialog", () => {
   it("names the date and offers Discard or Keep editing", () => {
     const { onDiscard, onKeepEditing } = renderDialog();
     expect(
-      screen.getByRole("dialog", { name: /Discard changes to Friday, October 30\?/ })
+      screen.getByRole("alertdialog", { name: /Discard changes to Friday, October 30\?/ })
     ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
     expect(onKeepEditing).toHaveBeenCalled();

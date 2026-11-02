@@ -117,7 +117,7 @@ describe("schedule drawers", () => {
       });
       fireEvent.keyDown(document, { key: "Escape" });
       expect(onClose).not.toHaveBeenCalled();
-      const dialog = screen.getByRole("dialog", { name: "Discard your changes?" });
+      const dialog = screen.getByRole("alertdialog", { name: "Discard your changes?" });
       expect(within(dialog).getByText("Discard your changes?")).toBeInTheDocument();
       fireEvent.click(within(dialog).getByRole("button", { name: "Keep editing" }));
       expect(onClose).not.toHaveBeenCalled();
@@ -132,9 +132,12 @@ describe("schedule drawers", () => {
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
       expect(onClose).not.toHaveBeenCalled();
       fireEvent.click(
-        within(screen.getByRole("dialog", { name: "Discard your changes?" })).getByRole("button", {
-          name: "Discard",
-        })
+        within(screen.getByRole("alertdialog", { name: "Discard your changes?" })).getByRole(
+          "button",
+          {
+            name: "Discard",
+          }
+        )
       );
       expect(onClose).toHaveBeenCalledTimes(1);
     });
@@ -157,7 +160,9 @@ describe("schedule drawers", () => {
       fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Summer" } });
       fireEvent.keyDown(document, { key: "Escape" });
       expect(onClose).toHaveBeenCalledTimes(1);
-      expect(screen.getByRole("dialog", { name: "Discard your changes?" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("alertdialog", { name: "Discard your changes?" })
+      ).toBeInTheDocument();
     });
   });
 
@@ -607,15 +612,18 @@ describe("schedule drawers", () => {
       fireEvent.click(screen.getByRole("button", { name: "Apply to 1 selected" }));
 
       fireEvent.click(screen.getByRole("button", { name: "Compare services" }));
-      const dialog = screen.getByRole("dialog", { name: "Discard your changes?" });
+      const dialog = screen.getByRole("alertdialog", { name: "Discard your changes?" });
       fireEvent.click(within(dialog).getByRole("button", { name: "Keep editing" }));
       expect(screen.getByRole("checkbox", { name: "Select Weekend" })).toBeInTheDocument();
 
       fireEvent.click(screen.getByRole("button", { name: "Compare services" }));
       fireEvent.click(
-        within(screen.getByRole("dialog", { name: "Discard your changes?" })).getByRole("button", {
-          name: "Discard",
-        })
+        within(screen.getByRole("alertdialog", { name: "Discard your changes?" })).getByRole(
+          "button",
+          {
+            name: "Discard",
+          }
+        )
       );
       expect(screen.queryByRole("checkbox", { name: "Select Weekend" })).not.toBeInTheDocument();
     });

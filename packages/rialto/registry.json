@@ -1157,7 +1157,7 @@
     },
     {
       "name": "ConfirmDialog",
-      "description": "A purpose-built confirmation dialog with confirm/cancel actions and an icon.\nWhen `variant` is `\"destructive\"`, the cancel button receives initial focus\nto prevent accidental confirmations.",
+      "description": "A purpose-built confirmation dialog with confirm/cancel actions and an icon.\nWhen `variant` is `\"destructive\"`, the cancel button receives initial focus\nto prevent accidental confirmations, and the panel is `role=\"alertdialog\"`.\nThe default variant is a plain `role=\"dialog\"`.",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
@@ -1667,6 +1667,12 @@
           "description": "Content rendered below the body in a fixed footer area"
         },
         {
+          "name": "role",
+          "type": "\"alertdialog\" | \"dialog\" | undefined",
+          "required": false,
+          "description": "ARIA role of the panel. Use `\"alertdialog\"` for an interruption that needs\nan immediate response (e.g. a destructive confirmation). Default `\"dialog\"`."
+        },
+        {
           "name": "className",
           "type": "string | undefined",
           "required": false
@@ -2105,7 +2111,7 @@
     },
     {
       "name": "Form",
-      "description": "Owns submit-time validation across its `FormField` descendants: collects\neach field's error, blocks submission while any field is invalid, and\nannounces failures through an assertive error summary.",
+      "description": "Owns submit-time validation across its `FormField` descendants: collects\neach field's error, blocks submission while any field is invalid, and\nannounces failures through an assertive error summary. While the summary is\nshown it is the only live region: field errors stay visible and linked via\n`aria-describedby` but are not announced a second time.",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {

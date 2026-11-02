@@ -47,7 +47,7 @@ export const Default: Story = {
     const canvas = within(canvasElement);
     const button = canvas.getByRole("button", { name: "Confirm Action" });
     await userEvent.click(button);
-    // ConfirmDialog is a plain Dialog (role="dialog"); it does not render role="alertdialog".
+    // The default variant is a plain role="dialog"; only destructive is an alertdialog.
     await expect(canvas.getByRole("dialog")).toBeInTheDocument();
   },
 };
@@ -60,6 +60,11 @@ export const Destructive: Story = {
       description="This action cannot be undone. The item will be permanently removed."
     />
   ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Delete Item" }));
+    await expect(canvas.getByRole("alertdialog")).toBeInTheDocument();
+  },
 };
 
 const CustomLabelsDialog = () => {

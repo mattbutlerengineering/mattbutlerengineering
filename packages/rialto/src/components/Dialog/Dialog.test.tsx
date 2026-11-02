@@ -59,6 +59,12 @@ describe("Dialog", () => {
       expect(screen.getByRole("dialog")).toHaveAttribute("aria-modal", "true");
     });
 
+    it("renders role=alertdialog when asked", () => {
+      render(<Dialog open onClose={() => {}} role="alertdialog" />);
+      expect(screen.getByRole("alertdialog")).toHaveAttribute("aria-modal", "true");
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
     it("sets aria-labelledby when title is provided", () => {
       render(<Dialog open onClose={() => {}} title="My Dialog" />);
       const dialog = screen.getByRole("dialog");

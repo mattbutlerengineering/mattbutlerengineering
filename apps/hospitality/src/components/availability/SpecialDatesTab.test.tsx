@@ -366,7 +366,7 @@ describe("SpecialDatesTab", () => {
 
     const removeHours = () => {
       fireEvent.click(screen.getByRole("button", { name: "Remove special hours for Thu, Dec 31" }));
-      const dialog = screen.getByRole("dialog");
+      const dialog = screen.getByRole("alertdialog");
       fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
     };
 
@@ -477,7 +477,7 @@ describe("SpecialDatesTab", () => {
         fireEvent.click(
           screen.getByRole("button", { name: "Remove special hours for Sun, Dec 20 to Fri, Jan 1" })
         );
-        const dialog = screen.getByRole("dialog");
+        const dialog = screen.getByRole("alertdialog");
         expect(
           within(dialog).getByText("Remove special hours for Sun, Dec 20 to Fri, Jan 1?")
         ).toBeTruthy();
@@ -515,7 +515,7 @@ describe("SpecialDatesTab", () => {
         ).toBeTruthy();
 
         fireEvent.click(screen.getByRole("button", { name: "Remove special hours every Friday" }));
-        const dialog = screen.getByRole("dialog");
+        const dialog = screen.getByRole("alertdialog");
         expect(within(dialog).getByText("Remove special hours every Friday?")).toBeTruthy();
         fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
 

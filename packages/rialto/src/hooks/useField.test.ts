@@ -5,7 +5,9 @@
  * Key assertion: the error message MUST be programmatically associated with
  * the control via aria-describedby when error=true.
  */
+import { createElement, type ReactNode } from "react";
 import { render, renderHook } from "@testing-library/react";
+import { FormContext } from "../components/Form/FormContext";
 import { useField } from "./useField";
 
 describe("useField", () => {
@@ -97,6 +99,29 @@ describe("useField", () => {
     it("errorProps.role is always alert", () => {
       const { result } = renderHook(() => useField({ error: true }));
       expect(result.current.errorProps.role).toBe("alert");
+    });
+
+    // Inside a Form whose summary is the live region, the field error stays
+    // visible and linked but is not a second alert (#8115).
+    it("errorProps is not a live region inside a Form that announces its summary", () => {
+      const wrapper = ({ children }: { children: ReactNode }) =>
+        createElement(
+          FormContext.Provider,
+          {
+            value: {
+              submitAttempted: true,
+              errors: {},
+              announcesErrors: true,
+              registerField: () => {},
+              unregisterField: () => {},
+            },
+          },
+          children
+        );
+      const { result } = renderHook(() => useField({ hint: "bad", error: true }), { wrapper });
+      expect(result.current.errorProps.role).toBeUndefined();
+      expect(result.current.errorProps["aria-atomic"]).toBeUndefined();
+      expect(result.current.errorProps.id).toBe(result.current.descriptionProps.id);
     });
 
     it("errorProps['aria-atomic'] is true", () => {

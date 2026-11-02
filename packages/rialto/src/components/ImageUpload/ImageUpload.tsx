@@ -191,11 +191,17 @@ export const ImageUpload = forwardRef<HTMLDivElement, ImageUploadProps>(
       <div ref={ref} className={wrapperClass}>
         <motion.div
           className={tileClass}
-          role="button"
-          tabIndex={disabled ? -1 : 0}
-          aria-label={label ?? messages.uploadImage}
+          // Only the empty tile is a control. The preview tile holds the Replace
+          // button, so it must not be a role=button itself (nested-interactive).
+          role={hasPreview ? undefined : "button"}
+          tabIndex={hasPreview ? undefined : disabled ? -1 : 0}
+          // The name is built from the visible "Add image" text (plus the label),
+          // so it always contains what sighted users read (label-content-name-mismatch).
+          aria-labelledby={
+            hasPreview ? undefined : label ? `${autoId}-add ${autoId}-label` : `${autoId}-add`
+          }
           aria-describedby={error ? `${autoId}-error` : undefined}
-          aria-disabled={disabled || undefined}
+          aria-disabled={hasPreview ? undefined : disabled || undefined}
           onClick={hasPreview ? undefined : openPicker}
           onKeyDown={hasPreview ? undefined : handleKeyDown}
           onDragOver={handleDragOver}
@@ -248,7 +254,7 @@ export const ImageUpload = forwardRef<HTMLDivElement, ImageUploadProps>(
                   type="button"
                   className={styles.replaceButton}
                   onClick={handleReplace}
-                  tabIndex={0}
+                  disabled={disabled}
                 >
                   {messages.replaceImage}
                 </button>
@@ -259,7 +265,9 @@ export const ImageUpload = forwardRef<HTMLDivElement, ImageUploadProps>(
               <div className={styles.addIcon}>
                 <Plus size={20} aria-hidden="true" />
               </div>
-              <span className={styles.addLabel}>{messages.addImage}</span>
+              <span id={`${autoId}-add`} className={styles.addLabel}>
+                {messages.addImage}
+              </span>
             </div>
           )}
           {error && !hasPreview && (
@@ -301,7 +309,11 @@ export const ImageUpload = forwardRef<HTMLDivElement, ImageUploadProps>(
 
         {(label || hint || (error && hasPreview)) && (
           <div className={styles.meta}>
-            {label && <span className={styles.label}>{label}</span>}
+            {label && (
+              <span id={`${autoId}-label`} className={styles.label}>
+                {label}
+              </span>
+            )}
             {error && hasPreview ? (
               <span className={styles.hintError}>{error}</span>
             ) : (

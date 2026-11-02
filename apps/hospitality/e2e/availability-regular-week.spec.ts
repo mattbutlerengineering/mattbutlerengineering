@@ -114,14 +114,14 @@ test.describe("Change regular week (F-UW)", () => {
     await mockedPage.getByLabel(/Schedule name/).fill("Summer hours");
 
     await mockedPage.keyboard.press("Escape");
-    const ask = mockedPage.getByRole("dialog", { name: "Discard your changes?" });
+    const ask = mockedPage.getByRole("alertdialog", { name: "Discard your changes?" });
     await expect(ask).toBeVisible();
     await ask.getByRole("button", { name: "Keep editing" }).click();
     await expect(mockedPage.getByLabel(/Schedule name/)).toHaveValue("Summer hours");
 
     await mockedPage.keyboard.press("Escape");
     await mockedPage
-      .getByRole("dialog", { name: "Discard your changes?" })
+      .getByRole("alertdialog", { name: "Discard your changes?" })
       .getByRole("button", { name: "Discard" })
       .click();
     await expect(drawer).toBeHidden();
@@ -138,7 +138,7 @@ test.describe("Change regular week (F-UW)", () => {
     await mockedPage.getByLabel(/Schedule name/).fill("Summer hours");
 
     await mockedPage.getByRole("button", { name: "Cancel" }).click();
-    const ask = mockedPage.getByRole("dialog", { name: "Discard your changes?" });
+    const ask = mockedPage.getByRole("alertdialog", { name: "Discard your changes?" });
     await expect(ask).toBeVisible();
     // A real click: the prompt must stack above the drawer's overlay, not under it.
     await ask.getByRole("button", { name: "Discard" }).click();

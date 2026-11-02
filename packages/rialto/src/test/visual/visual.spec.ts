@@ -92,9 +92,10 @@ async function interactButtonPrimary(page: Page): Promise<void> {
 
 async function interactConfirmDialog(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Confirm Action" }).click();
-  // ConfirmDialog renders via Dialog, whose panel role is "dialog" (it does
-  // not set role="alertdialog"); the confirm button gets auto-focused after
-  // a 50ms delay, so wait on that rather than a fixed sleep.
+  // This story is the default (non-destructive) variant, so the panel role is
+  // "dialog" (only the destructive variant is "alertdialog"); the confirm
+  // button gets auto-focused after a 50ms delay, so wait on that rather than
+  // a fixed sleep.
   await expect(page.getByRole("dialog")).toBeVisible();
   await expect(page.getByRole("button", { name: "Confirm", exact: true })).toBeFocused();
 }

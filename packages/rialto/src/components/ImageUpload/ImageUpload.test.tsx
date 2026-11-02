@@ -19,6 +19,16 @@ describe("ImageUpload", () => {
       render(<ImageUpload />);
       expect(screen.getByText("Add image")).toBeInTheDocument();
     });
+
+    it("names the tile from its visible text", () => {
+      render(<ImageUpload />);
+      expect(screen.getByRole("button", { name: "Add image" })).toBeInTheDocument();
+    });
+
+    it("keeps the visible text in the tile name when a label is given", () => {
+      render(<ImageUpload label="Logo" />);
+      expect(screen.getByRole("button", { name: "Add image Logo" })).toBeInTheDocument();
+    });
   });
 
   describe("file selection via click", () => {
@@ -129,17 +139,17 @@ describe("ImageUpload", () => {
       expect(clickSpy).toHaveBeenCalled();
     });
 
-    it("does not open file picker on Enter when preview is showing", async () => {
-      const user = userEvent.setup();
-      render(<ImageUpload value="https://example.com/logo.png" />);
+    it("does not nest the Replace button inside a role=button tile", () => {
+      const { container } = render(<ImageUpload value="https://example.com/logo.png" />);
 
-      const tile = document.querySelector('[role="button"]') as HTMLElement;
-      const input = document.querySelector("input[type='file']") as HTMLInputElement;
-      const clickSpy = vi.spyOn(input, "click");
+      expect(container.querySelector('[role="button"]')).toBeNull();
+      expect(screen.getAllByRole("button")).toHaveLength(1);
+      expect(screen.getByRole("button", { name: "Replace" })).toBeInTheDocument();
+    });
 
-      tile.focus();
-      await user.keyboard("{Enter}");
-      expect(clickSpy).not.toHaveBeenCalled();
+    it("disables the Replace button when the upload is disabled", () => {
+      render(<ImageUpload value="https://example.com/logo.png" disabled />);
+      expect(screen.getByRole("button", { name: "Replace" })).toBeDisabled();
     });
   });
 

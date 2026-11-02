@@ -1159,6 +1159,11 @@
       readonly submitAttempted: boolean;
       /** Current error message per field name, populated after a failed submit. */
       readonly errors: Readonly<Record<string, string>>;
+      /**
+       * True when the Form renders its own assertive error summary. Fields inside
+       * it then leave announcing to the summary so one error is read out once.
+       */
+      readonly announcesErrors: boolean;
       /** Registers (or replaces) a field's validator under `name`. */
       registerField: (name: string, validate: (() => string | undefined) | undefined) => void;
       /** Removes a field's validator, e.g. on unmount. */
@@ -2924,8 +2929,9 @@
     }
     export interface FieldErrorProps {
       readonly id: string | undefined;
-      readonly role: "alert";
-      readonly "aria-atomic": true;
+      /** Undefined inside a `Form` whose error summary already announces (#8115). */
+      readonly role: "alert" | undefined;
+      readonly "aria-atomic": true | undefined;
     }
     export interface FieldControlProps {
       id: string;
@@ -2990,13 +2996,21 @@
     
       const showRequired = !!required;
     
+      // A field alone announces its own error. Inside a Form that renders its
+      // assertive summary, the summary is the one live region (#8115).
+      const announces = !useContext(FormContext)?.announcesErrors;
+    
       return {
         id,
         labelProps: { htmlFor: id },
         descriptionProps: { id: hintId },
         // errorProps.id is only exposed when error=true so callers know the
         // element should receive role="alert" / be identified as the error region.
-        errorProps: { id: error ? hintId : undefined, role: "alert", "aria-atomic": true },
+        errorProps: {
+          id: error ? hintId : undefined,
+          role: announces ? "alert" : undefined,
+          "aria-atomic": announces ? true : undefined,
+        },
         controlProps: {
           id,
           required: required || undefined,

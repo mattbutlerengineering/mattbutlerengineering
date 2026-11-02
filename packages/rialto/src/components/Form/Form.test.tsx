@@ -5,6 +5,8 @@ import { RialtoLocaleProvider } from "../../i18n/RialtoLocaleProvider";
 import { esMX } from "../../i18n/locales/es-MX";
 import { frCA } from "../../i18n/locales/fr-CA";
 import type { RialtoMessages } from "../../i18n/messages";
+import { FormField } from "../FormField/FormField";
+import { Input } from "../Input/Input";
 import { Form } from "./Form";
 import { useFormContext } from "./FormContext";
 
@@ -114,6 +116,38 @@ describe("Form", () => {
       const alert = screen.getByRole("alert");
       expect(alert).toHaveAttribute("aria-live", "assertive");
       expect(alert).toHaveTextContent("Email is required");
+    });
+
+    it("announces a field error once: the summary is the only alert, the field error stays linked", async () => {
+      const user = userEvent.setup();
+      render(
+        <Form>
+          <FormField name="email" validate={() => "Email is required"}>
+            <Input label="Email" value="" onChange={() => {}} />
+          </FormField>
+          <button type="submit">Submit</button>
+        </Form>
+      );
+      await user.click(screen.getByRole("button", { name: "Submit" }));
+      expect(screen.getAllByRole("alert")).toHaveLength(1);
+      const email = screen.getByLabelText("Email");
+      const described = document.getElementById(email.getAttribute("aria-describedby") ?? "");
+      expect(described).toHaveTextContent("Email is required");
+      expect(described).not.toHaveAttribute("role");
+    });
+
+    it("lets the field announce its own error when the summary is turned off", async () => {
+      const user = userEvent.setup();
+      render(
+        <Form showErrorSummary={false}>
+          <FormField name="email" validate={() => "Email is required"}>
+            <Input label="Email" value="" onChange={() => {}} />
+          </FormField>
+          <button type="submit">Submit</button>
+        </Form>
+      );
+      await user.click(screen.getByRole("button", { name: "Submit" }));
+      expect(screen.getByRole("alert")).toHaveTextContent("Email is required");
     });
 
     it("omits the error summary entirely when showErrorSummary is false", async () => {

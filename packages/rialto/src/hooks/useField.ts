@@ -1,4 +1,5 @@
-import { createElement, useId, type ReactElement } from "react";
+import { createElement, useContext, useId, type ReactElement } from "react";
+import { FormContext } from "../components/Form/FormContext";
 import styles from "./useField.module.css";
 
 /**
@@ -48,8 +49,9 @@ export interface FieldDescriptionProps {
  */
 export interface FieldErrorProps {
   readonly id: string | undefined;
-  readonly role: "alert";
-  readonly "aria-atomic": true;
+  /** Undefined inside a `Form` whose error summary already announces (#8115). */
+  readonly role: "alert" | undefined;
+  readonly "aria-atomic": true | undefined;
 }
 
 /**
@@ -150,13 +152,21 @@ export function useField({
 
   const showRequired = !!required;
 
+  // A field alone announces its own error. Inside a Form that renders its
+  // assertive summary, the summary is the one live region (#8115).
+  const announces = !useContext(FormContext)?.announcesErrors;
+
   return {
     id,
     labelProps: { htmlFor: id },
     descriptionProps: { id: hintId },
     // errorProps.id is only exposed when error=true so callers know the
     // element should receive role="alert" / be identified as the error region.
-    errorProps: { id: error ? hintId : undefined, role: "alert", "aria-atomic": true },
+    errorProps: {
+      id: error ? hintId : undefined,
+      role: announces ? "alert" : undefined,
+      "aria-atomic": announces ? true : undefined,
+    },
     controlProps: {
       id,
       required: required || undefined,
