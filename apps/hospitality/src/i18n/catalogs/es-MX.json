@@ -610,10 +610,18 @@
   "home": {
     "title": "Panel",
     "openSign": {
-      "open": "Abierto hasta las {{time}}",
-      "openingSoon": "Abre a las {{time}}",
-      "closedToday": "Cerrado, abre a las {{time}}",
-      "closedOn": "Cerrado, abre el {{weekday}} a las {{time}}",
+      "open_one": "Abierto hasta la {{time}}",
+      "open_other": "Abierto hasta las {{time}}",
+      "open_many": "Abierto hasta las {{time}}",
+      "openingSoon_one": "Abre a la {{time}}",
+      "openingSoon_other": "Abre a las {{time}}",
+      "openingSoon_many": "Abre a las {{time}}",
+      "closedToday_one": "Cerrado, abre a la {{time}}",
+      "closedToday_other": "Cerrado, abre a las {{time}}",
+      "closedToday_many": "Cerrado, abre a las {{time}}",
+      "closedOn_one": "Cerrado, abre el {{weekday}} a la {{time}}",
+      "closedOn_other": "Cerrado, abre el {{weekday}} a las {{time}}",
+      "closedOn_many": "Cerrado, abre el {{weekday}} a las {{time}}",
       "unset": "Sin horario de operación definido",
       "weekdays": {
         "monday": "lunes",
@@ -755,7 +763,9 @@
     "visitOrdinalFew": "{{count}}.ª visita",
     "visitOrdinalOther": "{{count}}.ª visita",
     "block": {
-      "title": "{{guest}} - {{party}} a las {{time}}",
+      "title_one": "{{guest}} - {{party}} a la {{time}}",
+      "title_other": "{{guest}} - {{party}} a las {{time}}",
+      "title_many": "{{guest}} - {{party}} a las {{time}}",
       "seatedWord": "sentados",
       "overrideTag": "Excepción",
       "overrideLabel": "Excepción: {{reason}}"
@@ -1516,7 +1526,9 @@
         "failed": "No pudimos reembolsar tu depósito automáticamente. {{venue}} se pondrá en contacto contigo, o puedes llamar al restaurante."
       },
       "rebookHeading": "Reserva de nuevo con un toque",
-      "rebook": "Reservar {{date}} a las {{time}}",
+      "rebook_one": "Reservar {{date}} a la {{time}}",
+      "rebook_other": "Reservar {{date}} a las {{time}}",
+      "rebook_many": "Reservar {{date}} a las {{time}}",
       "rebooking": "Reservando…",
       "rebooked": "Tu reservación quedó para {{when}}.",
       "viewRebooked": "Ver tu nueva reservación",

@@ -12,7 +12,7 @@ import {
 } from "@mattbutlerengineering/rialto";
 import { addDays } from "@mbe/availability";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { clockHour } from "./clock-hour.js";
+import { clockHour } from "../../utils/clock-hour.js";
 import {
   SERVICE_NAME_MAX_LENGTH,
   SERVICE_PRESET_IDS,

@@ -20,6 +20,20 @@
   background: var(--rialto-surface-elevated);
 }
 
+/* A Popover on a plain page keeps the translucent glass recipe it composes. One
+   opened inside a Dialog (.floating) sits over the dialog body and its scrim, which
+   blend into the background of the text on it: a DatePicker's weekday row fell to
+   4.21:1 (#8140). There it paints the opaque elevated surface in both themes, with
+   no backdrop blur behind a fill that hides it, and keeps the glass border, shine
+   and shadow. The extra class out-specifies the composed .glass rules (light, and
+   dark at the same weight) whatever the bundle order. */
+.panel.floating,
+:global([data-theme="dark"]) .panel.floating {
+  background: var(--rialto-surface-elevated);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 /* ── Placement ───────────────────────────────── */
 .top {
   bottom: calc(100% + 8px);

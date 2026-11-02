@@ -1,9 +1,9 @@
 import { afterAll, describe, expect, it } from "vitest";
-import { localeRuntime } from "../../i18n/runtime.js";
-import esMX from "../../i18n/catalogs/es-MX.json";
-import frCA from "../../i18n/catalogs/fr-CA.json";
-import { formatLocalTime } from "../../utils/format.js";
-import type { VenueFormat } from "../../hooks/useVenueFormat.js";
+import { localeRuntime } from "../i18n/runtime.js";
+import esMX from "../i18n/catalogs/es-MX.json";
+import frCA from "../i18n/catalogs/fr-CA.json";
+import { formatLocalTime } from "./format.js";
+import type { VenueFormat } from "../hooks/useVenueFormat.js";
 import { clockHour, clockHourOfInstant } from "./clock-hour.js";
 
 /**
@@ -28,6 +28,12 @@ const SENTENCES = [
   ["availability.close.moveUnavailableBooking", "a"],
   ["availability.close.step2.movesTo", "a"],
   ["availability.close.step2.previewFor", "a"],
+  ["home.openSign.open", "hasta"],
+  ["home.openSign.openingSoon", "a"],
+  ["home.openSign.closedToday", "a"],
+  ["home.openSign.closedOn", "a"],
+  ["timeline.block.title", "a"],
+  ["manageReservation.venueCancelled.rebook", "a"],
 ] as const;
 
 async function textOf(tag: "es-MX" | "fr-CA", catalog: unknown, key: string, minute: number) {
@@ -44,6 +50,9 @@ async function textOf(tag: "es-MX" | "fr-CA", catalog: unknown, key: string, min
     name: "Cena",
     weekday: "lunes",
     summary: "Cambio",
+    date: "lun, 5 oct",
+    guest: "Ana",
+    party: "2 personas",
   });
   return { text, time };
 }

@@ -1,5 +1,5 @@
 import { MINUTES_PER_DAY } from "@mbe/availability";
-import type { VenueFormat } from "../../hooks/useVenueFormat.js";
+import type { VenueFormat } from "../hooks/useVenueFormat.js";
 
 /**
  * The hour on a 12-hour clock (1 to 12) of a service-day minute; past midnight wraps. A catalog
@@ -17,4 +17,9 @@ export function clockHourOfInstant(
 ): number {
   const hour = Number.parseInt(format.formatInstant(at, { hour: "numeric", hourCycle: "h23" }), 10);
   return hour % 12 || 12;
+}
+
+/** The same for a venue-local "HH:MM" clock string, which is already on the venue's clock. */
+export function clockHourOfClock(hhmm: string): number {
+  return Number.parseInt(hhmm.slice(0, 2), 10) % 12 || 12;
 }

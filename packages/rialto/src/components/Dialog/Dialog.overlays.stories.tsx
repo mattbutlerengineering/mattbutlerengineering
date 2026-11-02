@@ -6,7 +6,10 @@ import { Button } from "../Button/Button";
 import { Combobox } from "../Combobox/Combobox";
 import { Autocomplete } from "../Autocomplete/Autocomplete";
 import { DropdownMenu } from "../DropdownMenu/DropdownMenu";
+import { Drawer } from "../Drawer/Drawer";
 import { Popover } from "../Popover/Popover";
+import { DatePicker } from "../DatePicker/DatePicker";
+import axe from "axe-core";
 
 /**
  * Real-browser checks that floating controls hosted in a Dialog are not clipped
@@ -230,6 +233,117 @@ export const DropdownMenuIsOpaqueInDialog: Story = {
     await userEvent.click(await body.findByRole("button", { name: "Actions" }));
     const menu = await body.findByRole("menu");
     await waitFor(() => expect(alphaOf(getComputedStyle(menu).backgroundColor)).toBe(1));
+  },
+};
+
+/** Runs `check` with `data-theme` set, restoring the previous theme. */
+async function inTheme(theme: "light" | "dark", check: () => Promise<void>) {
+  const root = document.documentElement;
+  const previous = root.getAttribute("data-theme");
+  root.setAttribute("data-theme", theme);
+  try {
+    await check();
+  } finally {
+    if (previous === null) root.removeAttribute("data-theme");
+    else root.setAttribute("data-theme", previous);
+  }
+}
+
+function PopoverInDialog() {
+  return (
+    <Host>
+      <Popover trigger={<Button>Details</Button>} placement="bottom">
+        <p>Panel text</p>
+      </Popover>
+    </Host>
+  );
+}
+
+async function openPopoverPanel() {
+  const body = within(document.body);
+  await userEvent.click(await body.findByRole("button", { name: "Details" }));
+  return body.findByRole("dialog", { name: "Popover" });
+}
+
+async function expectPopoverOpaque() {
+  const panel = await openPopoverPanel();
+  await waitFor(() => expect(alphaOf(getComputedStyle(panel).backgroundColor)).toBe(1));
+  // A blur behind an alpha-1 fill is wasted paint.
+  expect(getComputedStyle(panel).backdropFilter).toBe("none");
+}
+
+/** A glass panel blends with the dialog behind it, so its text has no fixed background (#8140). */
+export const PopoverIsOpaqueInDialog: Story = {
+  render: () => <PopoverInDialog />,
+  play: async () => {
+    await inTheme("light", expectPopoverOpaque);
+  },
+};
+
+export const PopoverIsOpaqueInDialogDark: Story = {
+  render: () => <PopoverInDialog />,
+  play: async () => {
+    await inTheme("dark", expectPopoverOpaque);
+  },
+};
+
+/** On a plain page nothing blends through the panel, so it keeps its glass. */
+export const PopoverKeepsGlassOnPlainPage: Story = {
+  render: () => (
+    <Popover trigger={<Button>Details</Button>} placement="bottom">
+      <p>Panel text</p>
+    </Popover>
+  ),
+  play: async () => {
+    await inTheme("light", async () => {
+      const panel = await openPopoverPanel();
+      await waitFor(() => expect(alphaOf(getComputedStyle(panel).backgroundColor)).toBeLessThan(1));
+      expect(getComputedStyle(panel).backdropFilter).not.toBe("none");
+    });
+  },
+};
+
+async function expectNoContrastViolations(panel: HTMLElement) {
+  // Mid-entrance the panel is partly transparent, which axe reads as a low-contrast blend.
+  await waitFor(() => expect(document.getAnimations()).toHaveLength(0));
+  const result = await axe.run(panel, { runOnly: ["color-contrast"] });
+  expect(
+    result.violations.map((v) => ({
+      id: v.id,
+      nodes: v.nodes.map((n) => `${n.target.join(" ")}: ${n.any[0]?.message ?? ""}`),
+    }))
+  ).toEqual([]);
+}
+
+/** jsdom cannot compute colour contrast; Chromium can. */
+export const DatePickerPassesContrastInDialog: Story = {
+  render: () => (
+    <Host>
+      <DatePicker label="Day" value="2026-12-01" onChange={() => {}} />
+    </Host>
+  ),
+  play: async () => {
+    const body = within(document.body);
+    await userEvent.click(await body.findByRole("combobox", { name: "Day" }));
+    await expectNoContrastViolations(await body.findByRole("dialog", { name: "Popover" }));
+  },
+};
+
+function DrawerHost() {
+  const [open, setOpen] = useState(true);
+  return (
+    <Drawer open={open} onClose={() => setOpen(false)} title="Hosted">
+      <DatePicker label="Day" value="2026-12-01" onChange={() => {}} />
+    </Drawer>
+  );
+}
+
+export const DatePickerPassesContrastInDrawer: Story = {
+  render: () => <DrawerHost />,
+  play: async () => {
+    const body = within(document.body);
+    await userEvent.click(await body.findByRole("combobox", { name: "Day" }));
+    await expectNoContrastViolations(await body.findByRole("dialog", { name: "Popover" }));
   },
 };
 

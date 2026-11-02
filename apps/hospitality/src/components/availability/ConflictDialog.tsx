@@ -9,7 +9,7 @@ import type {
 import type { TFunction } from "i18next";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
 import { changeSummaryText } from "./change-summary-text.js";
-import { clockHourOfInstant } from "./clock-hour.js";
+import { clockHourOfInstant } from "../../utils/clock-hour.js";
 import { minuteText } from "./closure-band.js";
 import type { DraftService } from "./draft-changes.js";
 import { StrandedBookings } from "./StrandedBookings.js";

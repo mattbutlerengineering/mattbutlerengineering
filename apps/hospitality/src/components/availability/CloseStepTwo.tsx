@@ -13,7 +13,7 @@ import {
 } from "@mattbutlerengineering/rialto";
 import type { ClosureImpact, ClosureImpactGroup, ClosureImpactReservation } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { clockHourOfInstant } from "./clock-hour.js";
+import { clockHourOfInstant } from "../../utils/clock-hour.js";
 import { actionsFor, unmovable, type ChoiceMap, type GroupChoice } from "./close-draft.js";
 import { CloseNoticePreview } from "./CloseNoticePreview.js";
 import styles from "./CloseDialog.module.css";

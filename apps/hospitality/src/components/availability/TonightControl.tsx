@@ -31,7 +31,7 @@ import { CallListDialog } from "./CallListDialog.js";
 import { CloseDialog } from "./CloseDialog.js";
 import { conflictOf, type Conflict } from "./conflict-problem.js";
 import { useWinningChangeText } from "./use-winning-change-text.js";
-import { clockHour } from "./clock-hour.js";
+import { clockHour } from "../../utils/clock-hour.js";
 import { minuteText } from "./closure-band.js";
 import { TonightDecisionsDialog } from "./TonightDecisionsDialog.js";
 import {

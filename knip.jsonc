@@ -85,9 +85,9 @@
         "src/components/*/*.catalog.ts",
         "src/showcase/main.tsx",
       ],
-      // axe-core: peer of the Storybook a11y addon. eslint-plugin-storybook:
-      // loaded from eslint.config.js (ignored above).
-      "ignoreDependencies": ["axe-core", "eslint-plugin-storybook"],
+      // eslint-plugin-storybook: loaded from eslint.config.js (ignored above).
+      // axe-core is imported by Dialog.overlays.stories.tsx.
+      "ignoreDependencies": ["eslint-plugin-storybook"],
     },
     "packages/rialto-plugin": {
       "entry": ["hooks/*.mjs"],
