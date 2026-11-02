@@ -711,6 +711,10 @@
       "tableStatusBanner": "No se cambió el estado de la mesa."
     },
     "announce": {
+      "seatNotFinishedNamed": "No se terminó de sentar a {{name}}. Revisa la reservación y la mesa.",
+      "seatNotFinished": "No se terminó de sentar al huésped. Revisa la reservación y la mesa.",
+      "changeFailedNamed": "El cambio para {{name}} no se aplicó.",
+      "changeFailed": "Un cambio de reservación no se aplicó.",
       "loadedTonight": "Se cargó la cuadrícula de esta noche.",
       "loadedDate": "Se cargaron las reservaciones del {{date}}.",
       "seated": "Se sentó a {{guest}}.",

@@ -9,7 +9,7 @@ import { LiveStatus } from "../LiveStatus.js";
 import { GuestLookup } from "../crm/GuestLookup.js";
 import { GuestHistoryStrip } from "../crm/GuestHistoryStrip.js";
 import { pickAnnouncement } from "../crm/guest-lookup-rows.js";
-import { useFocusAfter } from "../../hooks/useFocusAfter.js";
+import { UNLESS_COVERED, useFocusAfter } from "../../hooks/useFocusAfter.js";
 import { useStatusMessage } from "../../hooks/useStatusMessage.js";
 import { describeApiError, type ApiErrorDescription } from "../../lib/describe-api-error.js";
 import { tablesThatFit } from "../../utils/seating.js";
@@ -67,7 +67,11 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
   useEffect(() => {
     pressedRef.current?.focus();
   }, []);
-  useEscapeKey(onClose, true);
+  // A save in flight can only be left when it ends: closing now would hide a failure.
+  const dismiss = () => {
+    if (!isLoading) onClose();
+  };
+  useEscapeKey(dismiss, true);
 
   const { register, handleSubmit, setValue, setFocus, watch } = useForm<WalkInFormData>({
     defaultValues: { guestName: "" },
@@ -131,14 +135,14 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
           ? tableFieldRef.current?.querySelector<HTMLElement>('[role="combobox"]')
           : null;
       const element = tableControl ?? submitRef.current;
-      if (element) focusAfter({ kind: "element", element });
+      if (element) focusAfter({ kind: "element", element }, UNLESS_COVERED);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) onClose();
+    if (e.target === e.currentTarget) dismiss();
   };
 
   return (

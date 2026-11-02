@@ -1,6 +1,12 @@
-import { describe, it, expect } from "vitest";
+import { useState } from "react";
+import { describe, it, expect, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { useFocusAfter, type FocusTarget } from "./useFocusAfter.js";
+import {
+  UNLESS_COVERED,
+  isCoveredByDialog,
+  useFocusAfter,
+  type FocusTarget,
+} from "./useFocusAfter.js";
 import { PageHeader } from "../components/PageHeader.js";
 
 interface HarnessProps {
@@ -103,5 +109,163 @@ describe("useFocusAfter", () => {
     render(<Harness request={{ kind: "testId", testId: 'weird"id' }} />);
 
     expect(() => fireEvent.click(screen.getByText("request"))).not.toThrow();
+  });
+});
+
+describe("a request whose target renders much later (#8031)", () => {
+  function requestLate() {
+    const now = vi.spyOn(performance, "now").mockReturnValue(1000);
+    const request: FocusTarget = { kind: "testId", testId: "late-block" };
+    const { rerender } = render(<Harness request={request} />);
+    fireEvent.click(screen.getByText("request"));
+    now.mockReturnValue(1000 + 60_000);
+    return () => {
+      rerender(<Harness request={request} showLate />);
+      now.mockRestore();
+    };
+  }
+
+  it("does not take focus the Host has moved elsewhere", () => {
+    const renderLate = requestLate();
+    act(() => screen.getByText("elsewhere").focus());
+
+    renderLate();
+
+    expect(document.activeElement).toBe(screen.getByText("elsewhere"));
+  });
+
+  it("still lands if focus is loose, rather than leaving it nowhere", () => {
+    const renderLate = requestLate();
+
+    renderLate();
+
+    expect(document.activeElement).toBe(screen.getByTestId("late-block"));
+  });
+});
+
+describe("focusAfter with unlessCovered (#8031)", () => {
+  function CoveredHarness({ covered }: { readonly covered: boolean }) {
+    const { focusAfter } = useFocusAfter();
+    return (
+      <>
+        <button onClick={() => focusAfter({ kind: "testId", testId: "target" }, UNLESS_COVERED)}>
+          request
+        </button>
+        <button data-testid="target">target</button>
+        {covered && <div role="dialog" aria-modal="true" />}
+      </>
+    );
+  }
+
+  it("focuses the target when nothing covers it", () => {
+    render(<CoveredHarness covered={false} />);
+    fireEvent.click(screen.getByText("request"));
+    expect(document.activeElement).toBe(screen.getByTestId("target"));
+  });
+
+  it("drops the request when a dialog covers the target", () => {
+    const { rerender } = render(<CoveredHarness covered />);
+    fireEvent.click(screen.getByText("request"));
+    expect(document.activeElement).not.toBe(screen.getByTestId("target"));
+
+    // Dropped, not pending: the dialog closing later does not pull focus behind where it went.
+    rerender(<CoveredHarness covered={false} />);
+    expect(document.activeElement).not.toBe(screen.getByTestId("target"));
+  });
+
+  it("judges after the commit, so the dialog that closes with the request does not count", () => {
+    function Closing() {
+      const { focusAfter } = useFocusAfter();
+      const [open, setOpen] = useState(true);
+      return (
+        <>
+          <button
+            onClick={() => {
+              setOpen(false);
+              focusAfter({ kind: "testId", testId: "target" }, UNLESS_COVERED);
+            }}
+          >
+            request
+          </button>
+          <button data-testid="target">target</button>
+          {open && <div role="dialog" aria-modal="true" />}
+        </>
+      );
+    }
+    render(<Closing />);
+    fireEvent.click(screen.getByText("request"));
+    expect(document.activeElement).toBe(screen.getByTestId("target"));
+  });
+});
+
+describe("isCoveredByDialog (#8029)", () => {
+  const modal = (children: React.ReactNode, inert = false) => (
+    <div inert={inert}>
+      <div role="dialog" aria-modal="true">
+        {children}
+      </div>
+    </div>
+  );
+
+  it("is false with no modal open", () => {
+    render(<button>control</button>);
+    expect(isCoveredByDialog(screen.getByText("control"))).toBe(false);
+  });
+
+  it("is false for a control inside the only modal", () => {
+    render(modal(<button>control</button>));
+    expect(isCoveredByDialog(screen.getByText("control"))).toBe(false);
+  });
+
+  it("is true for a control inside a modal under another modal", () => {
+    render(
+      <>
+        {modal(<button>control</button>)}
+        {modal(<button>on top</button>)}
+      </>
+    );
+    expect(isCoveredByDialog(screen.getByText("control"))).toBe(true);
+  });
+
+  it("is false for a control in the top modal, whatever is under it", () => {
+    render(
+      <>
+        {modal(<button>under</button>)}
+        {modal(<button>control</button>)}
+      </>
+    );
+    expect(isCoveredByDialog(screen.getByText("control"))).toBe(false);
+  });
+
+  it("is true for a control in a later modal while an earlier one holds focus on top of it", () => {
+    render(
+      <>
+        {modal(<input aria-label="palette" />)}
+        {modal(<button>control</button>)}
+      </>
+    );
+    act(() => screen.getByLabelText("palette").focus());
+    expect(isCoveredByDialog(screen.getByText("control"))).toBe(true);
+  });
+
+  it("is true for a control outside an open modal, and for one not rendered", () => {
+    render(
+      <>
+        <button>control</button>
+        {modal(<button>on top</button>)}
+      </>
+    );
+    expect(isCoveredByDialog(screen.getByText("control"))).toBe(true);
+    expect(isCoveredByDialog(null)).toBe(true);
+  });
+
+  it("ignores a modal on its way out, inside an inert subtree", () => {
+    render(
+      <>
+        <button>control</button>
+        {modal(<button>leaving</button>, true)}
+      </>
+    );
+    expect(isCoveredByDialog(screen.getByText("control"))).toBe(false);
   });
 });

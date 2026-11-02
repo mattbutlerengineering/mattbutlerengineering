@@ -5,8 +5,9 @@ import { useCallback, useEffect, useReducer, useRef } from "react";
  *
  * Pages call `focusAfter(target)` from the event handler that knows the outcome — a walk-in
  * created, a reservation cancelled — and the target is focused after the next commit in which it
- * can be found: a block still loading focuses when it renders; a target that never renders leaves
- * focus where it was until another request replaces it. One pending target at a time.
+ * can be found: a block still loading focuses when it renders; a target that does not render soon
+ * leaves focus where it was, and the request expires once the Host has moved focus. One pending
+ * target at a time.
  */
 export type FocusTarget =
   | { readonly kind: "element"; readonly element: HTMLElement }
@@ -16,9 +17,26 @@ export type FocusTarget =
   /** The `PageHeader` h1, which carries `tabIndex={-1}` for this purpose. */
   | { readonly kind: "pageHeading" };
 
-export interface FocusAfterApi {
-  readonly focusAfter: (target: FocusTarget) => void;
+export interface FocusOptions {
+  /**
+   * Drop the request if, once its target is found, a modal dialog covers it. For a response that may
+   * land late: keys on a covered target act behind the dialog on top. Judged after the commit, so a
+   * dialog closing with the request does not count.
+   */
+  readonly unlessCovered?: boolean;
 }
+
+export const UNLESS_COVERED: FocusOptions = { unlessCovered: true };
+
+export interface FocusAfterApi {
+  readonly focusAfter: (target: FocusTarget, options?: FocusOptions) => void;
+}
+
+/**
+ * A request still unmet after this may no longer take focus from the Host, who is doing something
+ * else by now. While focus is still loose it stands: landing late beats leaving focus nowhere.
+ */
+const PENDING_TTL_MS = 10_000;
 
 const FIRST_CONTROL =
   'button:not(:disabled):not([data-focus-trap-skip-initial]), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
@@ -39,24 +57,53 @@ function resolveTarget(target: FocusTarget): HTMLElement | null {
   }
 }
 
+const MODAL_DIALOG = '[role="dialog"][aria-modal="true"]';
+
+/**
+ * True when a modal dialog sits above `element`, so keys on it would act behind that dialog. Outside
+ * any dialog, every open one is above it. Inside one, those above it are the dialogs later in the
+ * document (the page renders them in stacking order) and whichever other one holds focus (the command
+ * palette, which comes earlier in the document but stacks over everything). A panel inside an `inert`
+ * subtree is on its way out and covers nothing.
+ */
+export function isCoveredByDialog(element: Element | null): boolean {
+  const own = element?.closest(MODAL_DIALOG) ?? null;
+  return Array.from(document.querySelectorAll(MODAL_DIALOG)).some((dialog) => {
+    if (dialog === own || dialog.closest("[inert]")) return false;
+    if (!own) return true;
+    const later = own.compareDocumentPosition(dialog) & Node.DOCUMENT_POSITION_FOLLOWING;
+    return Boolean(later) || dialog.contains(document.activeElement);
+  });
+}
+
 export function useFocusAfter(): FocusAfterApi {
-  const pendingRef = useRef<FocusTarget | null>(null);
+  const pendingRef = useRef<{
+    target: FocusTarget;
+    options?: FocusOptions;
+    requestedAt: number;
+  } | null>(null);
   // A request re-renders the owner so the effect below runs even when nothing else changed.
   const [, requestRender] = useReducer((count: number) => count + 1, 0);
 
-  const focusAfter = useCallback((target: FocusTarget) => {
-    pendingRef.current = target;
+  const focusAfter = useCallback((target: FocusTarget, options?: FocusOptions) => {
+    pendingRef.current = { target, options, requestedAt: performance.now() };
     requestRender();
   }, []);
 
   // After every commit: resolve the pending target, focus it once, forget it. No state is set here.
   useEffect(() => {
-    const target = pendingRef.current;
-    if (!target) return;
-    const element = resolveTarget(target);
+    const pending = pendingRef.current;
+    if (!pending) return;
+    const focusIsLoose = !document.activeElement || document.activeElement === document.body;
+    if (performance.now() - pending.requestedAt > PENDING_TTL_MS && !focusIsLoose) {
+      pendingRef.current = null;
+      return;
+    }
+    const element = resolveTarget(pending.target);
     if (!element) return;
-    element.focus();
     pendingRef.current = null;
+    if (pending.options?.unlessCovered && isCoveredByDialog(element)) return;
+    element.focus();
   });
 
   return { focusAfter };
