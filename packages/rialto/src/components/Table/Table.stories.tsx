@@ -103,9 +103,11 @@ export const SortedByPoints: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const pointsHeader = canvas.getByRole("columnheader", { name: /Points/i });
-    await userEvent.click(pointsHeader);
+    // The sort handler is on the button inside the header cell, not the cell itself.
+    const sortButton = within(pointsHeader).getByRole("button");
+    await userEvent.click(sortButton);
     await expect(pointsHeader).toHaveAttribute("aria-sort", "ascending");
-    await userEvent.click(pointsHeader);
+    await userEvent.click(sortButton);
     await expect(pointsHeader).toHaveAttribute("aria-sort", "descending");
   },
 };

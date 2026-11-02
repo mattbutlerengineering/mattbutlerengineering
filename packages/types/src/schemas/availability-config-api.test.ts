@@ -65,6 +65,19 @@ describe("alongside (series growth edits)", () => {
     });
     expect(body.alongside?.remove).toEqual(["r0"]);
   });
+
+  it("carries the series being replaced as the client read it, and keeps it optional (#8028)", () => {
+    const series = { ...rule, id: "r0", repeat: { version: 1, weekdays: [4] } };
+    const body = CreateClosureBodySchema.parse({
+      expectedVersion: 0,
+      rule,
+      alongside: { upsert: [], remove: ["r0"], replaces: series },
+    });
+    expect(body.alongside?.replaces).toEqual(series);
+    expect(ClosureImpactBodySchema.parse({ rule, alongside: {} }).alongside?.replaces).toBe(
+      undefined
+    );
+  });
 });
 
 describe("ClosureImpactSchema", () => {

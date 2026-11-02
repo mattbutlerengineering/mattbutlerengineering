@@ -44,7 +44,7 @@ export const Success: Story = {
     const canvas = within(canvasElement);
     const button = canvas.getByRole("button", { name: "Show Success Toast" });
     await userEvent.click(button);
-    await expect(canvas.getByText("Success!")).toBeInTheDocument();
+    await expect(await canvas.findByText("Success!")).toBeInTheDocument();
   },
 };
 

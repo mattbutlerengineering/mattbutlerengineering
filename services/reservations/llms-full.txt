@@ -13672,7 +13672,10 @@
       if (value === null || typeof value !== "object") return value;
       return Object.fromEntries(
         Object.entries(value)
-          .filter(([, v]) => v != null && !(Array.isArray(v) && v.length === 0))
+          .filter(
+            ([k, v]) =>
+              v != null && !(Array.isArray(v) && v.length === 0) && !(OPTIONAL_TEXT.has(k) && v === "")
+          )
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([k, v]) => [k, canonical(v)])
       );
@@ -13690,6 +13693,20 @@
         (edited.seriesId === seriesId || edited.seriesId === draftId) &&
         same({ ...edited, seriesId: stored.seriesId }, stored)
       );
+    }
+    export function seriesChangedSinceRead(
+      stored: readonly DateRule[],
+      draft: DateRule,
+      alongside: ClosureAlongside
+    ): boolean {
+      const [seriesId] = alongside.remove;
+      const series = stored.find((r) => r.id === seriesId);
+      if (!series) return false;
+      const moved = new Set(alongside.upsert.map((r) => r.id));
+      if (stored.some((r) => r.seriesId === series.id && !moved.has(r.id))) return true;
+      if (alongside.replaces) return !same(alongside.replaces, series);
+      const { id, startsOn, endsOn, repeat } = series;
+      return !same({ ...draft, id, startsOn, endsOn, repeat }, series);
     }
     export function checkAlongside(
       stored: readonly DateRule[],
@@ -14359,6 +14376,11 @@
       if (!caller.isManager) throw new Refused({ kind: "forbidden" });
       const issue = checkAlongside(state.stored.dateRules, rule, alongside);
       if (issue) throw new Refused({ kind: "invalid", issues: [issue] });
+      // The version matched, yet the series is not the one this edit was built from: answer as a stale
+      // version, so the Manager gets the same recovery and the winner's change is named.
+      if (seriesChangedSinceRead(state.stored.dateRules, rule, alongside)) {
+        throw new Refused((await refuseStale(tx, venueId)) as Refusal);
+      }
       const today = civilDateIn(now, state.timezone);
       const stranded = findStrandedReservations(
         { timezone: state.timezone, config: state.effective },

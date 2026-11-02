@@ -128,6 +128,16 @@ describe("SeriesEditDialog after someone else's change (#7978)", () => {
     preview.mockResolvedValue(IMPACT);
   });
 
+  it("names the series it replaces on the save, so the server can tell a changed one (#8028)", async () => {
+    create.mockRejectedValueOnce(conflict());
+    renderSeriesDialog();
+    await toStepTwoAndCancel();
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+    const { alongside } = create.mock.calls[0]![0].body;
+    expect(alongside.remove).toEqual(["s1"]);
+    expect(alongside.replaces).toEqual(SERIES);
+  });
+
   it("builds the retry from the series that won, not the one captured on open", async () => {
     create.mockRejectedValueOnce(conflict());
     const { reload } = renderSeriesDialog();

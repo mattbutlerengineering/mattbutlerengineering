@@ -38,7 +38,7 @@ import {
   isEmergencyTonightClose,
   moveTarget,
 } from "./closure-command-plan.js";
-import { checkAlongside } from "./closure-alongside.js";
+import { checkAlongside, seriesChangedSinceRead } from "./closure-alongside.js";
 import { withAlongside, withClosure } from "./closure-impact.js";
 import { impactInTransaction } from "./closure-impact-store.js";
 import { prisma } from "./database.js";
@@ -345,6 +345,11 @@ async function refuseBadAlongside(tx: Db, input: CommitInput, state: ConfigState
   if (!caller.isManager) throw new Refused({ kind: "forbidden" });
   const issue = checkAlongside(state.stored.dateRules, rule, alongside);
   if (issue) throw new Refused({ kind: "invalid", issues: [issue] });
+  // The version matched, yet the series is not the one this edit was built from: answer as a stale
+  // version, so the Manager gets the same recovery and the winner's change is named.
+  if (seriesChangedSinceRead(state.stored.dateRules, rule, alongside)) {
+    throw new Refused((await refuseStale(tx, venueId)) as Refusal);
+  }
   const today = civilDateIn(now, state.timezone);
   const stranded = findStrandedReservations(
     { timezone: state.timezone, config: state.effective },

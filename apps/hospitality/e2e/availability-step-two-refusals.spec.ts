@@ -165,3 +165,121 @@ for (const { width, height } of sizes) {
     ]);
   });
 }
+
+/**
+ * #8028. A series edit from the first date names the series it was built from (`alongside.replaces`).
+ * When the server finds the stored series changed since, it answers with the version conflict, and
+ * the Manager lands back on the form with the same "Availability changed" recovery, not a dead end.
+ */
+test("a series edit the server refuses as built from a changed series returns to the form (#8028)", async ({
+  mockedPage,
+}) => {
+  const month = localDay().slice(0, 8);
+  const date = `${month}15`;
+  const series = {
+    id: "series-1",
+    kind: "closure",
+    targetKind: "venue",
+    startsOn: `${month}08`,
+    endsOn: null,
+    repeat: { version: 1, weekdays: [1] },
+    guestMessage: "Closed on Mondays",
+  };
+  const venues = JSON.parse(loadFixture("venues-list")) as { data: Array<{ id: string }> };
+  const base = `**/api/v1/venues/${String(venues.data[0]?.id)}`;
+  const json = (data: unknown) => ({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({ data }),
+  });
+  const saves: Array<{ alongside?: { replaces?: unknown } }> = [];
+
+  await mockedPage.clock.setFixedTime(firstOfMonthNoon());
+  await mockedPage.route(`${base}/availability/config`, (route) =>
+    route.fulfill(
+      json({
+        config: {
+          schedules: [{ id: "regular", name: "Regular week", kind: "regular", isRegular: true }],
+          venueServices: [{ id: "vs-dinner", name: "Dinner", position: 0 }],
+          scheduleServices: [
+            {
+              id: "ss-dinner",
+              scheduleId: "regular",
+              venueServiceId: "vs-dinner",
+              ...DINNER,
+              seating: { version: 1, interval: 15 },
+              bookingTypes: ["online", "phone"],
+            },
+          ],
+          assignments: [
+            { id: "as", scheduleId: "regular", weekdays: [0, 1, 2, 3, 4, 5, 6], precedence: 0 },
+          ],
+          dateRules: [series],
+        },
+        version: 7,
+        source: "rows",
+      })
+    )
+  );
+  await mockedPage.route(`${base}/availability/days*`, (route) => route.fulfill(json([])));
+  await mockedPage.route(`${base}/closures/impact`, (route) =>
+    route.fulfill(
+      json({
+        reservations: 2,
+        covers: 4,
+        depositsHeld: 0,
+        groups: [
+          {
+            groupKey: `${date}:closed`,
+            date,
+            kind: "closed",
+            covers: 4,
+            depositsHeld: 0,
+            reservations: ["res-1", "res-2"].map((id, i) => ({
+              id,
+              startTime: `${date}T23:${String(10 + i * 5).padStart(2, "0")}:00Z`,
+              endTime: `${date}T23:50:00Z`,
+              partySize: 2,
+              guestName: `Guest ${i + 1}`,
+              deposit: null,
+              runsIntoClosure: false,
+            })),
+          },
+        ],
+      })
+    )
+  );
+  await mockedPage.route(`${base}/closures`, (route) => {
+    if (route.request().method() !== "POST") return route.fulfill(json([]));
+    saves.push((route.request().postDataJSON() as { alongside: { replaces?: unknown } }) ?? {});
+    return route.fulfill({
+      status: 409,
+      contentType: "application/problem+json",
+      body: JSON.stringify({
+        type: "about:blank",
+        title: "Conflict",
+        status: 409,
+        detail: "Availability changed since you loaded it.",
+        code: "version-conflict",
+        winningChange: null,
+      }),
+    });
+  });
+
+  await mockedPage.goto("availability");
+  await mockedPage.getByRole("radio", { name: "Special dates" }).click();
+  await mockedPage.getByRole("button", { name: "Edit dates…" }).click();
+  const dialog = mockedPage.getByRole("dialog", { name: "Edit dates" });
+  const labelOf = (role: "radio" | "checkbox", name: string | RegExp) =>
+    dialog.locator("label").filter({ has: mockedPage.getByRole(role, { name }) });
+  await labelOf("radio", "All dates in the series").click();
+  await labelOf("checkbox", "Tue").click();
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await labelOf("radio", /Cancel, notify & refund/).click();
+  await dialog.getByRole("button", { name: /Close and cancel/ }).click();
+
+  await expect(dialog.getByText(/Availability changed since you opened this/)).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Save" })).toBeVisible();
+  expect(saves).toHaveLength(1);
+  expect(saves[0]?.alongside?.replaces).toMatchObject({ id: "series-1" });
+});

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { fn, expect, userEvent, within } from "storybook/test";
+import { fn, expect, userEvent, waitFor, within } from "storybook/test";
 import { Tag, AnimatedTag, TagGroup } from "./Tag";
 
 const meta: Meta<typeof Tag> = {
@@ -123,6 +123,7 @@ export const AnimatedGroup: Story = {
     const dismissBtn = canvas.getByRole("button", { name: /Remove DRS/i });
     await expect(dismissBtn).toBeInTheDocument();
     await userEvent.click(dismissBtn);
-    await expect(canvas.queryByText("DRS")).not.toBeInTheDocument();
+    // The tag animates out, so it leaves the DOM after the exit transition.
+    await waitFor(() => expect(canvas.queryByText("DRS")).not.toBeInTheDocument());
   },
 };

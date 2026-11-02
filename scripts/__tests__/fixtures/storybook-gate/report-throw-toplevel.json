@@ -1,0 +1,193 @@
+{
+  "success": false,
+  "numFailedTests": 3,
+  "numPendingTests": 0,
+  "testResults": [
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [],
+          "fullName": "Combobox In Dialog",
+          "status": "passed",
+          "title": "Combobox In Dialog",
+          "duration": 856,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [],
+          "fullName": "Autocomplete In Dialog",
+          "status": "passed",
+          "title": "Autocomplete In Dialog",
+          "duration": 57.40000009536743,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [],
+          "fullName": "Dropdown Menu In Dialog",
+          "status": "passed",
+          "title": "Dropdown Menu In Dialog",
+          "duration": 44.39999985694885,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [],
+          "fullName": "Popover Recaps When Content Grows",
+          "status": "passed",
+          "title": "Popover Recaps When Content Grows",
+          "duration": 131.20000004768372,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [],
+          "fullName": "Dropdown Menu Is Opaque In Dialog",
+          "status": "passed",
+          "title": "Dropdown Menu Is Opaque In Dialog",
+          "duration": 35.700000047683716,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [],
+          "fullName": "Dropdown Menu Start Aligns To Trigger In Rtl",
+          "status": "passed",
+          "title": "Dropdown Menu Start Aligns To Trigger In Rtl",
+          "duration": 39.59999990463257,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [],
+          "fullName": "Dropdown Menu End Aligns To Trigger In Rtl",
+          "status": "passed",
+          "title": "Dropdown Menu End Aligns To Trigger In Rtl",
+          "duration": 34,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [],
+          "fullName": "Multi Combobox List Follows Wrapping Chips",
+          "status": "passed",
+          "title": "Multi Combobox List Follows Wrapping Chips",
+          "duration": 218.10000014305115,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [],
+          "fullName": "Combobox List Follows Control Resize",
+          "status": "passed",
+          "title": "Combobox List Follows Control Resize",
+          "duration": 53.299999952316284,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [],
+          "fullName": "Popover Left Placement Clamps At Left Edge",
+          "status": "passed",
+          "title": "Popover Left Placement Clamps At Left Edge",
+          "duration": 440.2000000476837,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [],
+          "fullName": "Popover Right Placement Clamps At Right Edge",
+          "status": "passed",
+          "title": "Popover Right Placement Clamps At Right Edge",
+          "duration": 434.2999999523163,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        }
+      ],
+      "startTime": 1793609240122,
+      "endTime": 1793609242466.3,
+      "status": "passed",
+      "message": "",
+      "name": "/packages/rialto/src/components/Dialog/Dialog.overlays.stories.tsx"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [],
+          "fullName": "Default",
+          "status": "failed",
+          "title": "Default",
+          "duration": 1383.2000000476837,
+          "failureMessages": [
+            "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).toHaveNoViolations(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected the HTML found at $('._tile_pt9b5_10') to have no "
+          ],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [],
+          "fullName": "With Progress",
+          "status": "failed",
+          "title": "With Progress",
+          "duration": 22.100000143051147,
+          "failureMessages": [
+            "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).toHaveNoViolations(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected the HTML found at $('._tile_pt9b5_10') to have no "
+          ],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [],
+          "fullName": "With Existing Image",
+          "status": "failed",
+          "title": "With Existing Image",
+          "duration": 19,
+          "failureMessages": [
+            "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).toHaveNoViolations(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected the HTML found at $('._tile_pt9b5_10') to have no "
+          ],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        }
+      ],
+      "startTime": 1793609240098,
+      "endTime": 1793609241523,
+      "status": "failed",
+      "message": "",
+      "name": "/packages/rialto/src/components/ImageUpload/ImageUpload.stories.tsx"
+    },
+    {
+      "assertionResults": [],
+      "startTime": 1793609237600,
+      "endTime": 1793609237600,
+      "status": "failed",
+      "message": "Failed to import test file /private/tmp/claude-501/-Users-mbutler-github-mattbutlerengineering/9e4cfbea-e276-421d-864e-c4d95cc18395/scratchpad/review-8113/clone",
+      "name": "/packages/rialto/src/components/Tag/Tag.stories.tsx"
+    }
+  ]
+}
