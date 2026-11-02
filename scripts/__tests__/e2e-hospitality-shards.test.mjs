@@ -10,15 +10,17 @@ const LOCALE_SWEEP = new URL("../../apps/hospitality/e2e/locale-sweep.spec.ts", 
  * finished, `cancelled` with its last tests unrun when it did not (#8038). Two
  * workers on one runner barely helped, because they contend for one Vite dev
  * server (11.0 to 11.9 minutes, and a new networkidle timeout), so the suite is
- * split across two runners, each with its own server, Postgres and Redis, and
- * one worker as before.
+ * split across runners, each with its own server, Postgres and Redis, and one
+ * worker as before. Two runners reached the limit again as the availability specs
+ * grew (18 to 19 minutes, then `cancelled` with every test passed on #8137), so
+ * there are three. When a shard nears 20 minutes, add a shard rather than time.
  */
 describe("e2e.yml hospitality shards", () => {
   const shard = getJob(WORKFLOW, "hospitality-e2e");
   const result = getJob(WORKFLOW, "hospitality-e2e-result");
 
-  it("runs two shards and lets both finish when one fails", () => {
-    expect(shard.strategy.matrix.shard).toEqual([1, 2]);
+  it("runs three shards and lets all finish when one fails", () => {
+    expect(shard.strategy.matrix.shard).toEqual([1, 2, 3]);
     expect(shard.strategy["fail-fast"]).toBe(false);
   });
 
@@ -28,9 +30,9 @@ describe("e2e.yml hospitality shards", () => {
     );
   });
 
-  // Sharding keeps a file whole unless the file opts out, and this one holds 126
-  // of the 355 tests, which leaves the shards at 241 and 115. One worker per
-  // shard means parallel mode only lets the file split; its tests never overlap.
+  // Sharding keeps a file whole unless the file opts out, and this one is the
+  // largest by far (126 of 355 tests when it opted out). One worker per shard
+  // means parallel mode only lets the file split; its tests never overlap.
   it("lets the locale sweep split across the shards", () => {
     expect(readFileSync(LOCALE_SWEEP, "utf8")).toMatch(
       /^test\.describe\.configure\(\{ mode: "parallel" \}\);$/m
