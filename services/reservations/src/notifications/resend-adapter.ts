@@ -7,40 +7,14 @@ import type {
 } from "./port.js";
 import { buildBookingEmailContent } from "./booking-email-content.js";
 import { escapeHtml, sanitizeUrl } from "./email-content.js";
-import { EmailNotConfiguredError, ProviderRejectedError } from "./provider-rejected-error.js";
 
-export interface ResendClient {
+interface ResendClient {
   emails: {
-    // The SDK resolves `{ data, error }` on EVERY failure rather than throwing: a network
-    // failure is `statusCode: null`, an HTTP failure carries the response's status.
+    // The SDK resolves `{ data, error }` on API failures rather than throwing.
     send(
-      payload: Record<string, unknown>,
-      options?: { idempotencyKey: string }
-    ): Promise<{
-      data?: unknown;
-      error?: { name?: string; message: string; statusCode?: number | null } | null;
-    }>;
+      payload: Record<string, unknown>
+    ): Promise<{ data?: unknown; error?: { name?: string; message: string } | null }>;
   };
-}
-
-/** 4xx statuses that do NOT prove the message went unsent: a timeout, a rate limit whose request may have been accepted first, and an idempotent request still in flight. */
-const AMBIGUOUS_CLIENT_STATUSES: ReadonlySet<number> = new Set([408, 429]);
-const IN_FLIGHT_ERROR_NAME = "concurrent_idempotent_requests";
-
-/**
- * Whether the provider's answer proves the message was NOT accepted: a 4xx it returned about
- * this request. A network failure (`statusCode: null`), a 5xx or a gateway page says nothing
- * about whether the provider delivered, so those stay ambiguous.
- */
-function isDefiniteRejection(error: { name?: string; statusCode?: number | null }): boolean {
-  const status = error.statusCode;
-  return (
-    typeof status === "number" &&
-    status >= 400 &&
-    status <= 499 &&
-    !AMBIGUOUS_CLIENT_STATUSES.has(status) &&
-    error.name !== IN_FLIGHT_ERROR_NAME
-  );
 }
 
 export interface ResendAdapterConfig {
@@ -97,18 +71,13 @@ export class ResendNotificationAdapter implements NotificationPort {
    * Single send path: converts the SDK's `{ error }` result into a rejection so
    * the dispatcher, retry policy and failure log see a failed email as failed.
    */
-  private async send(
-    payload: Record<string, unknown>,
-    options?: { idempotencyKey: string }
-  ): Promise<void> {
+  private async send(payload: Record<string, unknown>): Promise<void> {
     if (!this.resend) return;
-    const { error } = options
-      ? await this.resend.emails.send(payload, options)
-      : await this.resend.emails.send(payload);
+    const { error } = await this.resend.emails.send(payload);
     if (error) {
-      const message = `Resend send failed${error.name ? ` (${error.name})` : ""}: ${error.message}`;
-      // Only a proven refusal is a ProviderRejectedError; callers may retry after one (win-back).
-      throw isDefiniteRejection(error) ? new ProviderRejectedError(message) : new Error(message);
+      throw new Error(
+        `Resend send failed${error.name ? ` (${error.name})` : ""}: ${error.message}`
+      );
     }
   }
 
@@ -192,20 +161,15 @@ export class ResendNotificationAdapter implements NotificationPort {
   }
 
   async sendWinBack(input: WinBackNotificationInput): Promise<void> {
-    // Unlike the other senders, win-back must not report "sent" for an email that never left:
-    // the caller records the send and starts a cooldown on it.
-    if (!this.resend) throw new EmailNotConfiguredError();
+    if (!this.resend) return;
     const safeGuestName = escapeHtml(input.guestName);
     const safeVenueName = escapeHtml(input.venueName);
-    await this.send(
-      {
-        from: this.fromAddress,
-        to: input.guestEmail,
-        subject: `We miss you, ${input.guestName}!`,
-        html: `<p>Hi ${safeGuestName},</p><p>It&apos;s been a while since we&apos;ve seen you at ${safeVenueName}. We&apos;d love to welcome you back — book your next visit any time.</p>`,
-      },
-      input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : undefined
-    );
+    await this.send({
+      from: this.fromAddress,
+      to: input.guestEmail,
+      subject: `We miss you, ${input.guestName}!`,
+      html: `<p>Hi ${safeGuestName},</p><p>It&apos;s been a while since we&apos;ve seen you at ${safeVenueName}. We&apos;d love to welcome you back — book your next visit any time.</p>`,
+    });
   }
 
   async sendThankYouEmail(input: ThankYouEmailInput): Promise<void> {

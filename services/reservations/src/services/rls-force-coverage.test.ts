@@ -114,7 +114,6 @@ describe("committed reservations migrations (ADR-026 / #5369)", () => {
       "deposits",
       "floor_plan_sections",
       "floor_plans",
-      "guest_win_backs",
       "guests",
       "menu_items",
       "menu_sections",

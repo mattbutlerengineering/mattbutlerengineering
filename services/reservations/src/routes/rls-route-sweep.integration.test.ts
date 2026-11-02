@@ -393,25 +393,7 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
     process.env.RLS_CONTEXT_MODE = "throw";
 
     const { buildApp } = await import("../app.js");
-    // A configured email adapter whose Resend client accepts and drops every send: no network,
-    // but win-back (which refuses to report "sent" when email is unconfigured, #8041) reaches
-    // its claim and its sent-time write under FORCE RLS, as every other route reaches its own.
-    const { NotificationDispatcher, ResendNotificationAdapter } =
-      await import("../notifications/index.js");
-    const acceptingResend = {
-      emails: { send: () => Promise.resolve({ data: { id: "sweep" }, error: null }) },
-    };
-    const notificationPort = new NotificationDispatcher({
-      emailAdapter: new ResendNotificationAdapter({
-        resend: acceptingResend,
-        fromAddress: "sweep@example.invalid",
-        manageBaseUrl: "https://sweep.example.invalid",
-        publicApiBaseUrl: "https://api.sweep.example.invalid",
-      }),
-      smsAdapter: null,
-      smsManageBaseUrl: "https://sweep.example.invalid",
-    });
-    app = await buildApp({ logger: false, notificationPort });
+    app = await buildApp({ logger: false });
 
     // Captures the RAW thrown error's name for `expectBroken` — the response
     // BODY alone can't distinguish `RlsUnscopedQueryError` from any other

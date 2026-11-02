@@ -4,7 +4,6 @@ import {
   TwilioSmsAdapter,
   NotificationDispatcher,
 } from "./notifications/index.js";
-import type { ResendClient } from "./notifications/resend-adapter.js";
 import { getPublicApiBaseUrlConfig } from "./config/public-api-base-url.js";
 import { resolveManageBaseUrl } from "./config/manage-base-url.js";
 import { createHostBrandResolver } from "./config/host-brand.js";
@@ -24,7 +23,13 @@ import { createHostBrandResolver } from "./config/host-brand.js";
  */
 export function createResendAdapter(): ResendNotificationAdapter {
   const resendClient = process.env.RESEND_API_KEY
-    ? (new Resend(process.env.RESEND_API_KEY) as unknown as ResendClient)
+    ? (new Resend(process.env.RESEND_API_KEY) as unknown as {
+        emails: {
+          send(
+            payload: Record<string, unknown>
+          ): Promise<{ data?: unknown; error?: { name?: string; message: string } | null }>;
+        };
+      })
     : null;
 
   const { baseUrl: publicApiBaseUrl } = getPublicApiBaseUrlConfig({

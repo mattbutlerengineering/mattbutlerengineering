@@ -35,13 +35,12 @@ function shown(guest: Guest) {
 const GUEST_SAVE_UNSURE = saveUnsure("search_guests");
 
 /**
- * A win-back with no answer may or may not have gone out. The server claims a send before it
- * calls the email provider and records the send only once the provider accepts it, so
- * `list_lapsing_guests` tells a confirmed send (`lastWinBackAt`) from an attempt that was never
- * confirmed (`winBackAttemptedAt`). The server refuses a second send for a week after either.
+ * A win-back with no answer may already be in the guest's inbox. Nothing records a
+ * sent one (the lapsing list doesn't change, and no read shows a guest's last
+ * message), and the server sends again on every call, so there is nothing to check.
  */
 function winBackUnsure(name: string): string {
-  return `Couldn't confirm the win-back message to ${name} was sent. Check ${name} in list_lapsing_guests: lastWinBackAt is the last send the email provider confirmed, and winBackAttemptedAt is an attempt that may not have gone out. The server won't send another for a week after either; both null means nothing was recorded. Tell the user which it is.`;
+  return `Couldn't confirm the win-back message to ${name} was sent. It may already have reached them, and no tool here can check. Tell the user that, and don't send it again unless they accept the guest could get it twice.`;
 }
 
 /**
@@ -135,7 +134,7 @@ export function createGuestTools(
     // ── Read ───────────────────────────────────────────────
     list_lapsing_guests: tool({
       description:
-        "List regular guests who are overdue for a visit (win-back candidates), most overdue first, with lastWinBackAt (the last win-back the email provider confirmed, null = none) and winBackAttemptedAt (an attempt never confirmed, which may not have gone out, null = none).",
+        "List regular guests who are overdue for a visit (win-back candidates), most overdue first.",
       inputSchema: z.object({}),
       execute: async () => {
         if (!venueId) return NO_VENUE;
@@ -149,8 +148,6 @@ export function createGuestTools(
                 name: g.name,
                 daysSinceLastVisit: g.daysSinceLastVisit,
                 daysOverdue: g.daysOverdue,
-                lastWinBackAt: g.lastWinBackAt ?? null,
-                winBackAttemptedAt: g.winBackAttemptedAt ?? null,
               })),
           };
         } catch (err) {

@@ -30,8 +30,6 @@ export interface WinBackNotificationInput {
   guestName: string;
   guestEmail: string;
   venueName: string;
-  /** Sent to the provider so a retried call for the same claim delivers once. */
-  idempotencyKey?: string;
 }
 
 export interface ThankYouEmailInput {

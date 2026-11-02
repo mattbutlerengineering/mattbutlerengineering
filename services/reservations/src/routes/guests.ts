@@ -8,13 +8,7 @@ import {
 import { parsePaginationQuery } from "@mbe/database";
 import { requireAuth } from "@mbe/auth/fastify";
 import { registerEndpoint } from "@mbe/service-bootstrap";
-import {
-  cooldownDetail,
-  defaultWinBackDeps,
-  sendWinBack,
-  type WinBackResult,
-} from "../services/win-back.js";
-import { winBackStatusFor } from "../services/win-back-store.js";
+import { sendWinBack } from "../services/win-back.js";
 import { venueScoped } from "./venue-scope.js";
 
 /**
@@ -24,40 +18,6 @@ import { venueScoped } from "./venue-scope.js";
  * venue's RLS context.
  */
 const GUEST_NOT_FOUND = "Guest not found";
-
-/**
- * The refusal a win-back that did not go out answers with, or `null` when it was sent or
- * skipped. 409: a repeat inside the cooldown. 424: the send was refused or impossible, the claim
- * is released and nothing went out, so the caller may try again.
- */
-function winBackProblem(
-  result: WinBackResult,
-  guestName: string,
-  timeZone: string
-): { status: 409 | 424; title: string; detail: string } | null {
-  switch (result.status) {
-    case "cooldown":
-      return {
-        status: 409,
-        title: "Conflict",
-        detail: cooldownDetail(guestName, result, timeZone),
-      };
-    case "failed":
-      return {
-        status: 424,
-        title: "Failed Dependency",
-        detail: `The email provider rejected the win-back message to ${guestName}. Nothing was sent. You can try again.`,
-      };
-    case "unavailable":
-      return {
-        status: 424,
-        title: "Failed Dependency",
-        detail: `Email sending isn't set up here, so the win-back message to ${guestName} was not sent. Nothing was sent.`,
-      };
-    default:
-      return null;
-  }
-}
 
 export const guestRoutes: FastifyPluginAsync = async (fastify) => {
   const { guestService, venueService } = fastify.services;
@@ -268,18 +228,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
       const lapsing = await guestService.scanLapsedGuests(venueId, (vid, guests) =>
         fastify.reservationEvents.emitLapsingGuests(vid, guests)
       );
-      const status = await winBackStatusFor(
-        venueId,
-        lapsing.map((g) => g.guestId)
-      );
-      return {
-        data: lapsing.map((g) => ({
-          ...g,
-          // Only a send the provider accepted; an unconfirmed claim is reported apart.
-          lastWinBackAt: status.get(g.guestId)?.sentAt?.toISOString() ?? null,
-          winBackAttemptedAt: status.get(g.guestId)?.attemptedAt?.toISOString() ?? null,
-        })),
-      };
+      return { data: lapsing };
     }),
   });
 
@@ -303,27 +252,14 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
             const guest = await guestService.getById(id);
             if (!guest) return null;
             const venue = await venueService.getById(guest.venueId);
-            return {
-              guest,
-              venueName: venue?.name ?? guest.venueId,
-              timeZone: venue?.ianaTimezone ?? "UTC",
-            };
+            return { guest, venueName: venue?.name ?? guest.venueId };
           },
           notFound: GUEST_NOT_FOUND,
         },
       },
-      async (request, reply, { entity }) => {
-        const result = await sendWinBack(entity.guest, fastify.notificationPort, entity.venueName, {
-          ...defaultWinBackDeps,
-          log: request.log,
-        });
-        const problem = winBackProblem(result, entity.guest.name, entity.timeZone);
-        if (problem) {
-          return reply
-            .code(problem.status)
-            .send(createProblemDetails(problem.status, problem.title, problem.detail));
-        }
-        return { data: { sent: result.status === "sent" } };
+      async (_request, _reply, { entity }) => {
+        const sent = await sendWinBack(entity.guest, fastify.notificationPort, entity.venueName);
+        return { data: { sent } };
       }
     ),
   });

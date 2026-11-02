@@ -34,7 +34,6 @@ export const RLS_MODELS: ReadonlySet<string> = new Set([
   "dateRuleTable",
   "availabilityChange",
   "closureOutcome",
-  "guestWinBack",
 ]);
 
 /** A Prisma model delegate — its query methods, keyed by name. */
