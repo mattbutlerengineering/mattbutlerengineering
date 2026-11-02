@@ -1,5 +1,5 @@
 /** Minimum clearance kept between a floating panel and the viewport edge, px. */
-export const FLOAT_MARGIN = 8;
+const FLOAT_MARGIN = 8;
 
 /** Inline styles for a viewport-fixed panel. Unused edges are "auto", never "", so a stylesheet inset cannot stretch it. */
 export interface FloatingStyle {

@@ -2415,7 +2415,6 @@
   </section>
   <section priority="medium" role="hooks">
   <file path="src/hooks/floating-position.ts">
-    export const FLOAT_MARGIN = 8;
     export interface FloatingStyle {
       left: string;
       top: string;

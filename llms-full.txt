@@ -21414,7 +21414,6 @@
     }
   </file>
   <file path="packages/rialto/src/hooks/floating-position.ts">
-    export const FLOAT_MARGIN = 8;
     export interface FloatingStyle {
       left: string;
       top: string;

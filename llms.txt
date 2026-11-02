@@ -7447,9 +7447,6 @@
     </item>
   </file>
   <file path="packages/rialto/src/hooks/floating-position.ts">
-    <item priority="high">
-      export const FLOAT_MARGIN: unknown;
-    </item>
     <item priority="low">
       interface FloatingStyle {
         left: string;
