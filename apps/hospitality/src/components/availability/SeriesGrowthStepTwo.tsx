@@ -9,6 +9,7 @@ import { useRefreshAvailability } from "../../hooks/useRefreshAvailability.js";
 import { minutesOfDayIn } from "../../utils/service-day.js";
 import {
   decisionsReady,
+  withoutChoicesFor,
   isUrgent,
   outcomeCounts,
   stepTwoNote,
@@ -109,7 +110,11 @@ export function SeriesGrowthStepTwo(props: SeriesGrowthStepTwoProps) {
       onClose();
     } catch (error) {
       const refused = refusalOf(error);
-      const text = refusalText(refused, t);
+      const text = refusalText(refused, t, { groups: impact.groups, format });
+      if (refused.kind === "move-unavailable") {
+        setChoices(withoutChoicesFor(impact.groups, choices, refused.reservationIds));
+        void props.onReload().catch(() => undefined);
+      }
       if (refused.kind === "groups-changed") {
         // The bookings changed since the Manager chose: drop the choices and load the new ones.
         setChoices({});
@@ -168,6 +173,7 @@ export function SeriesGrowthStepTwo(props: SeriesGrowthStepTwoProps) {
         </Alert>
       )}
       <CloseStepTwo
+        venueId={venueId}
         impact={impact}
         choices={choices}
         urgent={urgent}

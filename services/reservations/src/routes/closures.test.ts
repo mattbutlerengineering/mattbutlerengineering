@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import {
   AVAILABILITY_CONFIG_PREFIX,
   AvailabilityConfigProblemSchema,
+  ClosureNoticePreviewSchema,
   ClosureResultSchema,
   ClosuresResultSchema,
   ClosureSummariesSchema,
@@ -632,6 +633,116 @@ describe("closure routes", () => {
 
     it("rejects a body without tellCancelledGuests", async () => {
       expect((await del({})).statusCode).toBe(400);
+    });
+  });
+
+  describe("POST /closures/notice-preview", () => {
+    const venueSvc = { getById: vi.fn() };
+    const PREVIEW = `${URL}/notice-preview`;
+    const body = {
+      action: "cancel",
+      closureDate: "2026-12-24",
+      startTime: "2026-12-25T02:30:00.000Z",
+      partySize: 4,
+      guestName: "Okafor-Zielinski",
+      message: "Closed for a private event",
+      refund: { amountCents: 4000, currency: "usd" },
+    };
+    let previewApp: FastifyInstance;
+    const lines: string[] = [];
+
+    beforeEach(async () => {
+      lines.length = 0;
+      venueSvc.getById.mockResolvedValue({
+        name: "Rivera Bistro",
+        ianaTimezone: "America/Los_Angeles",
+      });
+      previewApp = await buildApp({
+        logger: { level: "trace", stream: { write: (line: string) => void lines.push(line) } },
+        services: {
+          closureCommandService: commandSvc as never,
+          closureNoticeService: noticeSvc as never,
+          venueService: venueSvc as never,
+        },
+        closureRefunds,
+      });
+      await previewApp.ready();
+    });
+
+    afterEach(async () => {
+      await previewApp.close();
+    });
+
+    const post = (payload: unknown = body) =>
+      previewApp.inject({
+        method: "POST",
+        url: PREVIEW,
+        headers: ADMIN,
+        payload: payload as object,
+      });
+
+    it("answers with the notice the job would send, in the venue's name and zone", async () => {
+      const res = await post();
+
+      expect(res.statusCode).toBe(200);
+      const data = ClosureNoticePreviewSchema.parse(res.json().data);
+      expect(data.sms).toContain("Rivera Bistro is closed Thu Dec 24");
+      expect(data.sms).toContain("6:30 PM table for 4 is cancelled");
+      expect(data.email.text).toContain("Hi Okafor-Zielinski,");
+      expect(data.email.text).toContain("Closed for a private event");
+      expect(venueSvc.getById).toHaveBeenCalledWith("venue-1");
+    });
+
+    it("takes a booking with no name, no message and no deposit (null survives Ajv)", async () => {
+      const res = await post({ ...body, guestName: null, message: null, refund: null });
+
+      expect(res.statusCode).toBe(200);
+      const text = res.json().data.email.text as string;
+      expect(text).not.toContain("Hi ");
+      expect(text).not.toContain("deposit");
+    });
+
+    it("sends from, and links to, the brand of the host the booking came from (#8013)", async () => {
+      const eat = await post({ ...body, originHost: "eat-sheet.com" });
+      const home = await post({ ...body, originHost: null });
+      const none = await post(body);
+
+      expect(eat.statusCode).toBe(200);
+      expect(eat.json().data.email.from).toMatch(/^eat-sheet <.+@.+>$/);
+      expect(home.json().data.email.from).toMatch(/^Matt Butler Engineering|^[^<]+@/);
+      expect(home.json().data.email.from).not.toContain("eat-sheet");
+      expect(none.json().data.email.from).toBe(home.json().data.email.from);
+    });
+
+    it("refuses a host outside the allowlist, and a currency Intl cannot format", async () => {
+      expect((await post({ ...body, originHost: "evil.example" })).statusCode).toBe(400);
+      expect(
+        (await post({ ...body, refund: { amountCents: 4000, currency: "$$$" } })).statusCode
+      ).toBe(400);
+      expect(
+        (await post({ ...body, refund: { amountCents: 4000, currency: "us" } })).statusCode
+      ).toBe(400);
+    });
+
+    it("drops a long venue message from a kept notice's text as the real, longer link makes it (#7983)", async () => {
+      const message = "m".repeat(150);
+      const res = await post({ ...body, action: "keep_notify", refund: null, message });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json().data.sms).not.toContain(message);
+      expect(res.json().data.sms).toContain("[the guest's own link]");
+    });
+
+    it("404s an unknown venue and 400s an unknown action", async () => {
+      venueSvc.getById.mockResolvedValueOnce(null);
+      expect((await post()).statusCode).toBe(404);
+      expect((await post({ ...body, action: "keep_silent" })).statusCode).toBe(400);
+    });
+
+    it("keeps the guest's name out of every log line (#8099)", async () => {
+      await post();
+      expect(lines.length).toBeGreaterThan(0);
+      expect(lines.join("")).not.toContain("Okafor-Zielinski");
     });
   });
 });

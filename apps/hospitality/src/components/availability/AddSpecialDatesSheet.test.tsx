@@ -7,8 +7,13 @@ import type { AvailabilityConfigState, ClosureImpact } from "@mbe/types";
 const preview = vi.hoisted(() => vi.fn());
 const create = vi.hoisted(() => vi.fn());
 const saveConfig = vi.hoisted(() => vi.fn());
+const noticePreview = vi.hoisted(() => vi.fn());
 
 vi.mock("../../hooks/useClosures.js", () => ({
+  useClosureNoticePreview: (params: unknown) => {
+    noticePreview(params);
+    return { data: undefined, isLoading: true, error: null, refetch: vi.fn() };
+  },
   usePreviewClosureImpacts: () => ({ mutateAsync: preview, isPending: false }),
   useCreateClosures: () => ({ mutateAsync: create, isPending: false }),
 }));
@@ -288,6 +293,35 @@ describe("AddSpecialDatesSheet", () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 
+  it("previews each date's own message when the rows differ (#7983)", async () => {
+    preview.mockResolvedValue([impact("2026-12-24", 2), impact("2026-12-25", 2)]);
+    renderSheet();
+    await pickDate(0, "2026-12-24");
+    addRow();
+    await pickDate(1, "2026-12-25");
+    fireEvent.change(screen.getAllByLabelText(/Message for guests/)[0]!, {
+      target: { value: "Early close for Christmas Eve" },
+    });
+    fireEvent.change(screen.getAllByLabelText(/Message for guests/)[1]!, {
+      target: { value: "Closed for the holiday" },
+    });
+    fireEvent.click(primary());
+    await screen.findByText("Step 2 of 2");
+
+    for (const radio of screen.getAllByRole("radio", { name: /Cancel, notify & refund/ })) {
+      fireEvent.click(radio);
+    }
+    for (const button of screen.getAllByRole("button", { name: "Preview message" })) {
+      fireEvent.click(button);
+    }
+
+    const asked = noticePreview.mock.calls.map(
+      ([params]) => [params.body.closureDate, params.body.message] as const
+    );
+    expect(asked).toContainEqual(["2026-12-24", "Early close for Christmas Eve"]);
+    expect(asked).toContainEqual(["2026-12-25", "Closed for the holiday"]);
+  });
+
   it("applies one shared message to every closure", async () => {
     preview.mockResolvedValue([impact("2026-12-24", 0), impact("2026-12-25", 0)]);
     create.mockResolvedValue({ version: 9, results: [result("a", 0, 0), result("b", 0, 0)] });
@@ -332,9 +366,33 @@ describe("AddSpecialDatesSheet", () => {
     expect(create).toHaveBeenCalledTimes(1);
   });
 
-  const problem = (status: number, code: string) => ({
+  const problem = (status: number, code: string, reservationIds?: string[]) => ({
     message: code,
-    problemDetails: { type: "about:blank", title: code, status, detail: "Refused.", code },
+    problemDetails: {
+      type: "about:blank",
+      title: code,
+      status,
+      detail: "Refused.",
+      code,
+      ...(reservationIds ? { reservationIds } : {}),
+    },
+  });
+
+  it("asks again after a refused move, so the proposals match what the save will do (#7983)", async () => {
+    preview
+      .mockResolvedValueOnce([impact("2026-12-24", 2)])
+      .mockResolvedValueOnce([impact("2026-12-24", 2)]);
+    create.mockRejectedValueOnce(problem(422, "move-unavailable", ["2026-12-24-1"]));
+    renderSheet();
+    await pickDate(0, "2026-12-24");
+    fireEvent.click(primary());
+    await screen.findByText(/closed · 2 bookings/);
+    fireEvent.click(screen.getByRole("radio", { name: /Cancel, notify & refund/ }));
+    fireEvent.click(primary());
+
+    expect(await screen.findByText(/Couldn't move Guest 2026-12-24 2/)).toBeTruthy();
+    await waitFor(() => expect(preview).toHaveBeenCalledTimes(2));
+    expect(primary().textContent).toBe("Choose for each group");
   });
 
   it("asks again on the fresh bookings when a group changed before the save", async () => {

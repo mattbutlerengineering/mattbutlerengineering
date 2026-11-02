@@ -64,6 +64,7 @@ const rows = () => ({
     })),
   },
   table: { findMany: vi.fn(async () => [{ id: "t-1" }]) },
+  reservationHold: { findMany: vi.fn(async () => []) },
   reservation: {
     findMany: vi.fn(async () => [
       {
@@ -140,6 +141,30 @@ describe("getClosureImpact", () => {
               endTime: { gt: NOW },
             },
           ],
+        }),
+      })
+    );
+  });
+
+  it("reads the bookings and unexpired holds on the affected tables, for the move check", async () => {
+    const { client, tx } = fakeClient(rows());
+
+    await getClosureImpact("venue-1", closure(), NOW, client);
+
+    expect(tx.reservationHold.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          venueId: "venue-1",
+          tableId: { in: ["t-1"] },
+          expiresAt: { gt: NOW },
+        }),
+      })
+    );
+    expect(tx.reservation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tableId: { in: ["t-1"] },
+          status: { notIn: ["CANCELLED", "NO_SHOW"] },
         }),
       })
     );

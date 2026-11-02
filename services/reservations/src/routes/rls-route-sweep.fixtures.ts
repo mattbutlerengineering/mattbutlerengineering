@@ -1055,6 +1055,25 @@ const availabilityFixtures: Record<string, RouteFixture> = {
     expectOk(await asAdmin(ctx, impact(ctx.venueB.id)), "admin venue B");
     expectDenied(await asMember(ctx, impact(ctx.venueB.id)), "member venue B");
   }),
+  // Read-only: renders a notice from the posted booking and the venue's own name and zone.
+  "POST /api/v1/venues/:id/closures/notice-preview": ok(async (ctx) => {
+    const preview = (venueId: string) => ({
+      method: "POST" as const,
+      url: `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/closures/notice-preview`,
+      payload: {
+        action: "cancel",
+        closureDate: "2026-12-24",
+        startTime: "2026-12-25T02:30:00.000Z",
+        partySize: 2,
+        guestName: null,
+        message: null,
+        refund: null,
+      },
+    });
+    expectOk(await asAdmin(ctx, preview(ctx.venueA.id)), "admin venue A");
+    expectOk(await asAdmin(ctx, preview(ctx.venueB.id)), "admin venue B");
+    expectDenied(await asMember(ctx, preview(ctx.venueB.id)), "member venue B");
+  }),
   // A closure save rewrites the venue's operating hours, so it lands only on a
   // disposable venue, after a config save gives it a week to close. The empty
   // venue has no bookings to decide on. The reopen is the same venue's rule.

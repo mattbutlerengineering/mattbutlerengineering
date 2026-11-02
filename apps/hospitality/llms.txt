@@ -276,7 +276,17 @@
       export function actionsFor(kind: ClosureImpactKind): readonly ClosureAction[] { /* ... */ }
     </item>
     <item priority="high">
+      export function unmovable(group: ClosureImpactGroup): ClosureImpactReservation[] { /* ... */ }
+    </item>
+    <item priority="high">
       export function decisionsReady(groups: readonly ClosureImpactGroup[], choices: ChoiceMap): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function withoutChoicesFor(
+        groups: readonly ClosureImpactGroup[],
+        choices: ChoiceMap,
+        reservationIds: readonly string[]
+      ): ChoiceMap { /* ... */ }
     </item>
     <item priority="high">
       export function toDecisions(
@@ -1375,8 +1385,11 @@
   </file>
   <file path="src/components/availability/step-two-refusal.ts">
     <item priority="low">
-      type Refusal = { readonly kind: "groups-chang | { readonly kind: "version-conf | { readonly kind: "closure-exis | {
+      type Refusal = { readonly kind: "groups-chang | { readonly kind: "version-conf | { readonly kind: "move-unavail | { readonly kind: "closure-exis | {
             readonly kind: "other";
+    </item>
+    <item priority="medium">
+      function moveUnavailableIds(error: unknown): readonly string[] | null { /* ... */ }
     </item>
     <item priority="high">
       export function refusalOf(error: unknown): Refusal { /* ... */ }
@@ -1384,8 +1397,21 @@
     <item priority="high">
       export function mayHaveSaved(refusal: Refusal): boolean { /* ... */ }
     </item>
+    <item priority="low">
+      interface RefusalContext {
+        groups: readonly ClosureImpactGroup[];
+        format: Pick<VenueFormat, "formatTime" | "formatCalendarDate">;
+      }
+    </item>
+    <item priority="medium">
+      function moveUnavailableText(
+        ids: readonly string[],
+        t: TFunction,
+        context: RefusalContext | undefined
+      ): string { /* ... */ }
+    </item>
     <item priority="high">
-      export function refusalText(refusal: Refusal, t: TFunction): string { /* ... */ }
+      export function refusalText(refusal: Refusal, t: TFunction, context?: RefusalContext): string { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/stranded-revert.ts">
@@ -3164,6 +3190,9 @@
   <file path="src/hooks/useClosures.ts">
     <item priority="high">
       export const useClosureImpact: unknown;
+    </item>
+    <item priority="high">
+      export const useClosureNoticePreview: unknown;
     </item>
     <item priority="low">
       type PreviewClosureImpactVariables = {

@@ -328,6 +328,46 @@ describe("availability config routes", () => {
 
     beforeEach(() => commandSvc.mayClose.mockResolvedValue(true));
 
+    it("sends each booking's proposed move start, and a null one, through the response schema", async () => {
+      const reservation = {
+        id: "r1",
+        startTime: "2026-12-25T04:00:00.000Z",
+        endTime: "2026-12-25T05:30:00.000Z",
+        partySize: 4,
+        guestName: "Rivera",
+        deposit: null,
+        runsIntoClosure: false,
+      };
+      const impact = {
+        reservations: 2,
+        covers: 8,
+        depositsHeld: 0,
+        groups: [
+          {
+            groupKey: "2026-12-24:shortened",
+            date: "2026-12-24",
+            kind: "shortened",
+            covers: 8,
+            depositsHeld: 0,
+            reservations: [
+              { ...reservation, proposedStart: "2026-12-25T02:00:00.000Z" },
+              { ...reservation, id: "r2", proposedStart: null },
+            ],
+          },
+        ],
+      };
+      impactSvc.impact.mockResolvedValueOnce({ kind: "ok", impact });
+
+      const res = await post(app);
+
+      expect(res.statusCode).toBe(200);
+      const sent = ClosureImpactSchema.parse(res.json().data);
+      expect(sent.groups[0]!.reservations.map((r) => r.proposedStart)).toEqual([
+        "2026-12-25T02:00:00.000Z",
+        null,
+      ]);
+    });
+
     it("returns the affected bookings", async () => {
       const impact = { reservations: 0, covers: 0, depositsHeld: 0, groups: [] };
       impactSvc.impact.mockResolvedValueOnce({ kind: "ok", impact });
