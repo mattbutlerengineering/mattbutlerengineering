@@ -9706,6 +9706,9 @@
       export function useCloseHoldingFocus(): (close: () => void) => void { /* ... */ }
     </item>
     <item priority="high">
+      export function useBlockAfterRestore(): (reservationId: string) => void { /* ... */ }
+    </item>
+    <item priority="high">
       export function useOnChange<T>(value: T, onChange: () => void): void { /* ... */ }
     </item>
     <item priority="high">
