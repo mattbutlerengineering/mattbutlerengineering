@@ -290,3 +290,130 @@ test.describe("Change regular week (F-UW)", () => {
     });
   });
 });
+
+/** Local calendar date of `day` in the current month, as `YYYY-MM-DD`. */
+function dayOfThisMonth(day: number): string {
+  const d = new Date();
+  d.setDate(day);
+  return d.toLocaleDateString("en-CA");
+}
+
+// #7981: Go to date (toolbar) and Use another day's hours (day drawer), at both widths and locales.
+test.describe("navigation and day-drawer controls (#7981)", () => {
+  const EN = {
+    locale: "en-US",
+    more: "More actions",
+    goTo: "Go to date",
+    go: "Go",
+    date: "Date",
+    use: "Use another day’s hours…",
+    useTitle: "Use another day’s hours",
+    from: "Copy hours from",
+  };
+  const FR = {
+    locale: "fr-CA",
+    more: "Plus d’actions",
+    goTo: "Aller à une date",
+    go: "Aller",
+    date: "Date",
+    use: "Utiliser les heures d’un autre jour…",
+    useTitle: "Utiliser les heures d’un autre jour",
+    from: "Copier les heures du",
+  };
+  const SIZES = [
+    { name: "desktop", size: { width: 1280, height: 720 } },
+    { name: "phone", size: { width: 375, height: 812 } },
+  ];
+  const cases = SIZES.flatMap((s) => [EN, FR].map((words) => ({ ...s, ...words })));
+  for (const c of cases) {
+    test(`Go to date moves the calendar (${c.name}, ${c.locale})`, async ({ mockedPage }) => {
+      await mockedPage.setViewportSize(c.size);
+      await mockTueSatVenue(mockedPage);
+      await mockedPage.addInitScript(
+        (locale) => localStorage.setItem("mbe-hospitality-locale", locale),
+        c.locale
+      );
+      await mockedPage.goto("availability");
+      // A week on show, so a date a few weeks away is off screen until the jump.
+      await mockedPage.getByRole("radio", { name: /^(Week|Semaine)$/ }).click();
+      if (c.size.width < 500) {
+        await mockedPage.getByRole("button", { name: c.more }).click();
+        await mockedPage.getByRole("menuitem", { name: c.goTo }).click();
+      } else {
+        await mockedPage.getByRole("button", { name: c.goTo }).click();
+      }
+      const dialog = mockedPage.getByRole("dialog", { name: c.goTo });
+      await expect(dialog).toBeVisible();
+      // The picker opens on this month; its first or 28th day is more than a week from today.
+      const target = new Date().getDate() >= 15 ? dayOfThisMonth(1) : dayOfThisMonth(28);
+      await dialog.getByLabel(c.date).click();
+      await mockedPage.locator(`[role="gridcell"][data-date="${target}"]`).click();
+      await expect(mockedPage.getByRole("dialog", { name: "Popover" })).toBeHidden();
+      await dialog.evaluate((el) => el.setAttribute("data-axe-scope", ""));
+      const results = await new AxeBuilder({ page: mockedPage })
+        .include("[data-axe-scope]")
+        .analyze();
+      expect(results.violations).toEqual([]);
+      await dialog.getByRole("button", { name: c.go, exact: true }).click();
+      await expect(dialog).toBeHidden();
+      await expect(
+        mockedPage.locator(`button[data-date="${target}"]:not([role="gridcell"])`)
+      ).toBeVisible();
+    });
+
+    test(`Use another day's hours saves one date against the loaded version (${c.name}, ${c.locale})`, async ({
+      mockedPage,
+    }) => {
+      await mockedPage.setViewportSize(c.size);
+      await mockTueSatVenue(mockedPage);
+      let sent: {
+        expectedVersion: number;
+        changes: { upsert: { dateRules?: Array<{ startsOn: string }> } };
+      } | null = null;
+      await mockedPage.route("**/availability/config", (route) => {
+        if (route.request().method() !== "PUT") return route.fallback();
+        sent = route.request().postDataJSON();
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ data: { version: 8, changeId: "change-2" } }),
+        });
+      });
+      await mockedPage.route("**/availability/preview*", (route) =>
+        route.fulfill({ status: 500, contentType: "application/problem+json", body: "{}" })
+      );
+      await mockedPage.addInitScript(
+        (locale) => localStorage.setItem("mbe-hospitality-locale", locale),
+        c.locale
+      );
+      await mockedPage.goto("availability");
+      const day = localDay(1);
+      // Phone and tablet list the days; the grid is desktop only. Either way the date is a button.
+      await mockedPage.locator(`button[data-date="${day}"]`).click();
+      const drawer = mockedPage.getByRole("dialog").first();
+      await drawer.getByRole("button", { name: c.use }).click();
+      const dialog = mockedPage.getByRole("dialog", { name: c.useTitle });
+      await expect(dialog).toBeVisible();
+      // A Tuesday to Saturday day in this month other than the target, so it has hours to copy.
+      let source = 1;
+      while (
+        !TUE_SAT.includes(new Date(`${dayOfThisMonth(source)}T00:00:00`).getDay()) ||
+        dayOfThisMonth(source) === day
+      ) {
+        source += 1;
+      }
+      await dialog.getByLabel(c.from).click();
+      await mockedPage.locator(`[role="gridcell"][data-date="${dayOfThisMonth(source)}"]`).click();
+      await expect(mockedPage.getByRole("dialog", { name: "Popover" })).toBeHidden();
+      await dialog.evaluate((el) => el.setAttribute("data-axe-scope", ""));
+      const results = await new AxeBuilder({ page: mockedPage })
+        .include("[data-axe-scope]")
+        .analyze();
+      expect(results.violations).toEqual([]);
+      await dialog.getByRole("button", { name: /^(Apply to|Appliquer à) 1 date$/ }).click();
+      await expect.poll(() => sent).not.toBeNull();
+      expect(sent!.expectedVersion).toBe(7);
+      expect(sent!.changes.upsert.dateRules?.every((r) => r.startsOn === day)).toBe(true);
+    });
+  }
+});

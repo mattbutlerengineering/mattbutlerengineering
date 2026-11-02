@@ -35,6 +35,7 @@ import { ClearChangesDialog } from "../components/availability/ClearChangesDialo
 import { UseScheduleDialog } from "../components/availability/UseScheduleDialog.js";
 import { ownSingleDateRules } from "../components/availability/selection-actions.js";
 import { CloseDialog } from "../components/availability/CloseDialog.js";
+import { GoToDateDialog } from "../components/availability/GoToDateDialog.js";
 import { shownOnlinePause } from "../components/availability/close-draft.js";
 import { OnlinePausedBanner } from "../components/availability/OnlinePausedBanner.js";
 import { DiscardChangesDialog } from "../components/availability/DiscardChangesDialog.js";
@@ -113,6 +114,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   const openDate = target.date;
   const [closing, setClosing] = useState<Closing | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [goToOpen, setGoToOpen] = useState(false);
   const [tab, setTab] = useState<AvailabilityTab>("calendar");
   // A range drag holds the selection bar as it was, so the grid does not move under the pointer.
   const [barDuringDrag, setBarDuringDrag] = useState<string[] | null>(null);
@@ -438,6 +440,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         onNext={() => moveTo(shiftAnchor(view, anchor, 1))}
         onToday={() => moveTo(null)}
         onHistory={() => setHistoryOpen(true)}
+        onGoToDate={() => setGoToOpen(true)}
         selectItems={selectItems}
         onClose={canAct ? () => setClosing({ date: null, pause: false }) : undefined}
         onPause={canAct && !pause ? () => setClosing({ date: null, pause: true }) : undefined}
@@ -552,6 +555,15 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           guard.request({ date });
           moveTo(date);
         }}
+      />
+      <GoToDateDialog
+        open={goToOpen}
+        initial={anchor}
+        onGo={(date) => {
+          moveTo(date);
+          focusAfterBulk.current = date;
+        }}
+        onClose={() => setGoToOpen(false)}
       />
       {changingWeek && config.data && (
         <ChangeRegularWeekDrawer

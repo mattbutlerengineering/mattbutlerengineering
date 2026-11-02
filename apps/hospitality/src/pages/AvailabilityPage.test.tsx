@@ -107,6 +107,18 @@ vi.mock("../components/availability/AvailabilityDayDrawer.js", async (importOrig
     },
   };
 });
+import type * as Rialto from "@mattbutlerengineering/rialto";
+vi.mock("@mattbutlerengineering/rialto", async (importOriginal) => ({
+  ...(await importOriginal<typeof Rialto>()),
+  // The calendar popover is not what these tests are about: a plain input stands in for it.
+  DatePicker: (props: { label: string; value: string | null; onChange: (v: string) => void }) => (
+    <input
+      aria-label={props.label}
+      value={props.value ?? ""}
+      onChange={(e) => props.onChange(e.target.value)}
+    />
+  ),
+}));
 vi.mock("../hooks/useRefreshAvailability.js", () => ({ useRefreshAvailability: () => vi.fn() }));
 vi.mock("@mbe/auth/react", () => ({ useAuth: () => ({ user: { id: "auth0|me" } }) }));
 vi.mock("../utils/format.js", async (importOriginal) => ({
@@ -225,6 +237,21 @@ describe("AvailabilityPage", () => {
     expect(
       screen.getByRole("grid", { name: "Availability calendar, November 2026" })
     ).toBeVisible();
+  });
+
+  it("goes to a chosen date in the month or week on show (Go to date)", async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Go to date" }));
+    expect(screen.getByLabelText("Date")).toHaveValue("2026-10-28");
+    fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2027-03-15" } });
+    fireEvent.click(screen.getByRole("button", { name: "Go" }));
+    expect(screen.getByText("March 2027")).toBeVisible();
+    expect(daysHook).toHaveBeenLastCalledWith(
+      expect.objectContaining({ from: "2027-03-01", to: "2027-04-04" })
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Go to date" })).not.toBeInTheDocument()
+    );
   });
 
   it("names the date range in week view", () => {

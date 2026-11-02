@@ -24,6 +24,7 @@ export interface AvailabilityToolbarProps {
   readonly onNext: () => void;
   readonly onToday: () => void;
   readonly onHistory: () => void;
+  readonly onGoToDate: () => void;
   /** Ways to pick days (the Select… menu). */
   readonly selectItems: MenuItems;
   /** Absent for anyone who cannot close (a Host, or no config loaded). */
@@ -138,6 +139,11 @@ export function AvailabilityToolbar(props: AvailabilityToolbarProps) {
         label: t("availability.historyButton"),
         onSelect: afterMenuCloses(onHistory),
       },
+      {
+        id: "go-to-date",
+        label: t("availability.toolbar.goToDate"),
+        onSelect: afterMenuCloses(props.onGoToDate),
+      },
       ...selectItems,
       ...(actionItems.length > 0 ? [DIVIDER, ...actionItems] : []),
       ...(scheduleItems.length > 0 ? [DIVIDER, ...scheduleItems] : []),
@@ -164,6 +170,9 @@ export function AvailabilityToolbar(props: AvailabilityToolbarProps) {
       <div className={styles.actions}>
         <Button variant="secondary" onClick={onHistory}>
           {t("availability.historyButton")}
+        </Button>
+        <Button variant="secondary" onClick={props.onGoToDate}>
+          {t("availability.toolbar.goToDate")}
         </Button>
         {selectItems.length > 0 && (
           <DropdownMenu

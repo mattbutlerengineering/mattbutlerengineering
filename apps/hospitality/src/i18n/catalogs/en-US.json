@@ -1968,7 +1968,11 @@
       "next": "Next",
       "today": "Today",
       "range": "{{from}} – {{to}}",
-      "more": "More actions"
+      "more": "More actions",
+      "goToDate": "Go to date",
+      "goToDateLabel": "Date",
+      "goToDateSubmit": "Go",
+      "goToDateCancel": "Cancel"
     },
     "calendar": {
       "label": "Availability calendar",
@@ -2019,6 +2023,8 @@
       }
     },
     "drawer": {
+      "useOtherDay": "Use another day’s hours…",
+      "useSchedule": "Use schedule…",
       "summaryOpen": "Open for {{services}}.",
       "summaryClosed": "Closed.",
       "closedRegular": "Closed. Your regular week has no hours on {{weekday}}.",

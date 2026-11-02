@@ -121,6 +121,21 @@ describe("AvailabilityDayDrawer around a draft", () => {
     expect(within(dialog).queryByText(/^Open for/)).not.toBeInTheDocument();
   });
 
+  it("offers Use another day’s hours for one upcoming date, and not for several or a past one", () => {
+    const { unmount } = render(drawer());
+    expect(screen.getByRole("button", { name: "Use another day’s hours…" })).toBeInTheDocument();
+    unmount();
+    const several = render(drawer({ fixedDates: [FIXTURE_DATE, "2026-11-02"] }));
+    expect(
+      screen.queryByRole("button", { name: "Use another day’s hours…" })
+    ).not.toBeInTheDocument();
+    several.unmount();
+    render(drawer({ today: "2026-11-15" }));
+    expect(
+      screen.queryByRole("button", { name: "Use another day’s hours…" })
+    ).not.toBeInTheDocument();
+  });
+
   it("says when the selected dates have different hours, and which date the rows are from", () => {
     render(drawer({ fixedDates: [FIXTURE_DATE, "2026-11-02"], hoursDiffer: true }));
     const dialog = screen.getByRole("dialog", { name: "2 dates selected" });

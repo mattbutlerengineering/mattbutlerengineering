@@ -2008,7 +2008,11 @@
       "next": "Siguiente",
       "today": "Hoy",
       "range": "{{from}} – {{to}}",
-      "more": "Más acciones"
+      "more": "Más acciones",
+      "goToDate": "Ir a una fecha",
+      "goToDateLabel": "Fecha",
+      "goToDateSubmit": "Ir",
+      "goToDateCancel": "Cancelar"
     },
     "calendar": {
       "label": "Calendario de disponibilidad",
@@ -2059,6 +2063,8 @@
       }
     },
     "drawer": {
+      "useOtherDay": "Usar el horario de otro día…",
+      "useSchedule": "Usar horario…",
       "summaryOpen": "Abierto para {{services}}.",
       "summaryClosed": "Cerrado.",
       "closedRegular": "Cerrado. Tu semana habitual no tiene horario el {{weekday}}.",
