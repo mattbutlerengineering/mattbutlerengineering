@@ -12,6 +12,7 @@ import {
 } from "@mattbutlerengineering/rialto";
 import { addDays } from "@mbe/availability";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
+import { clockHour } from "./clock-hour.js";
 import {
   SERVICE_NAME_MAX_LENGTH,
   SERVICE_PRESET_IDS,
@@ -97,6 +98,8 @@ function ServiceRow({ service, index, removable, issues, onChange, onRemove }: S
   const nameProblems = issuesFor(issues, service.id, "name");
   const presetName = (id: (typeof SERVICE_PRESET_IDS)[number]) =>
     t(`availability.quickSetup.presets.${id}`);
+  const lastSeating =
+    service.closes === null ? null : autoLastSeating(service.closes, service.opens);
   return (
     <fieldset className={styles.service}>
       <legend className={styles.legend}>
@@ -146,10 +149,11 @@ function ServiceRow({ service, index, removable, issues, onChange, onRemove }: S
             onChange={onChange}
           />
         </div>
-        {service.lastSeatingLinked && service.closes !== null && (
+        {service.lastSeatingLinked && lastSeating !== null && (
           <Text variant="caption" color="secondary">
             {t("availability.quickSetup.lastSeatingHint", {
-              time: format.formatLocalTime(autoLastSeating(service.closes, service.opens)),
+              time: format.formatLocalTime(lastSeating),
+              count: clockHour(Number.parseInt(lastSeating, 10) * 60),
             })}
           </Text>
         )}

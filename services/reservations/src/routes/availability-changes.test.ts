@@ -105,6 +105,25 @@ describe("availability history routes", () => {
       expect(res.json().data.undoable).toEqual(undoable);
     });
 
+    it("keeps each entry's and the undoable change's code and data through response serialization (#8105)", async () => {
+      const detail = { code: "tonight_block_tables", tables: 2 };
+      const entry = { ...ENTRY, detail };
+      const undoable = {
+        id: "chg-1",
+        actorId: "auth0|ana",
+        at: "2026-10-25T18:00:00.000Z",
+        kind: "tonight",
+        summary: "Tonight: 2 table(s) blocked",
+        detail,
+      };
+      svc.list.mockResolvedValueOnce({ total: 1, offset: 0, items: [entry], undoable });
+
+      const res = await app.inject({ method: "GET", url: BASE, headers: ADMIN });
+
+      expect(res.json().data.items[0].detail).toEqual(detail);
+      expect(res.json().data.undoable.detail).toEqual(detail);
+    });
+
     it("answers a null undoable when the newest change cannot be undone", async () => {
       svc.list.mockResolvedValueOnce({ total: 1, offset: 0, items: [ENTRY], undoable: null });
 
@@ -169,6 +188,28 @@ describe("availability history routes", () => {
       const res = await post(app);
       expect(res.statusCode).toBe(409);
       expect(res.json().code).toBe("version-conflict");
+    });
+
+    it("keeps the winning change's code and data through response serialization (#8105)", async () => {
+      const winningChange = {
+        id: "chg-9",
+        actorId: "auth0|ana",
+        at: "2026-10-25T18:42:00.000Z",
+        kind: "closure",
+        summary: "Closure saved for 2026-12-24: 2 cancelled, 0 moved, 1 kept",
+        detail: {
+          code: "closure_saved",
+          startsOn: "2026-12-24",
+          endsOn: null,
+          cancelled: 2,
+          moved: 0,
+          kept: 1,
+        },
+      };
+      svc.revert.mockResolvedValueOnce({ kind: "version_conflict", winningChange });
+      const res = await post(app);
+      expect(res.statusCode).toBe(409);
+      expect(res.json().winningChange).toEqual(winningChange);
     });
 
     it("answers bookings the revert would strand with 409 stranded-bookings", async () => {

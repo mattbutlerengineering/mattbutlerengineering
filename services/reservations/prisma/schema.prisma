@@ -719,6 +719,9 @@ model AvailabilityChange {
   at             DateTime  @default(now())
   kind           String
   summary        String
+  /// The same change as a stable code plus data (`AvailabilityChangeDetail`), for a client to word
+  /// in its own language. `summary` stays the English text. Null on rows written before it existed.
+  summaryDetail  Json?     @map("summary_detail")
   affectedFrom   DateTime? @map("affected_from") @db.Date
   affectedTo     DateTime? @map("affected_to") @db.Date
   /// Rows to restore/delete to undo this change.

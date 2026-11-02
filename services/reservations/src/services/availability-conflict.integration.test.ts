@@ -113,7 +113,12 @@ describe.skipIf(!DATABASE_URL)(
       expect(manager).toMatchObject({
         kind: "version_conflict",
         currentVersion: 6,
-        winningChange: { actorId: "auth0|B" },
+        // The code and data the save wrote to `summary_detail`, read back with the English summary.
+        winningChange: {
+          actorId: "auth0|B",
+          summary: expect.stringMatching(/^Availability updated: /),
+          detail: { code: "config_saved", changed: expect.any(Number) },
+        },
         changesSince: {
           total: 2,
           changes: [{ actorId: "auth0|B" }, { actorId: "auth0|A" }],

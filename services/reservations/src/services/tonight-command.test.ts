@@ -239,6 +239,10 @@ describe("setTonight", () => {
       createdBy: "host-1",
     });
     expect(w.changes[0]).toMatchObject({ kind: "tonight", actorId: "host-1", version: 5 });
+    expect(w.changes[0]).toMatchObject({
+      summary: "Tonight: online booking paused",
+      summaryDetail: { code: "tonight_pause_online" },
+    });
   });
 
   it("blocks tables for the rest of tonight through DateRuleTable", async () => {
@@ -604,6 +608,8 @@ describe("endTonight", () => {
       kind: "tonight_end",
       actorId: "host-1",
       version: 6,
+      summary: "Tonight change ended",
+      summaryDetail: { code: "tonight_ended" },
     });
   });
 

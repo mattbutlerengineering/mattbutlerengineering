@@ -33,6 +33,11 @@ const format = {
   formatTime: (iso: string) => formatTimeIn(iso, "America/Los_Angeles", "en-US"),
   formatCalendarDate: (date: string, options: Intl.DateTimeFormatOptions) =>
     formatCalendarDate(date, options, "en-US"),
+  // The venue's clock, never the machine's: the article for the time is picked from this hour.
+  formatInstant: (value: string | number | Date, options: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat("en-US", { ...options, timeZone: "America/Los_Angeles" }).format(
+      new Date(value)
+    ),
 };
 
 const GROUPS: ClosureImpactGroup[] = [

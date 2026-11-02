@@ -11,9 +11,11 @@ import {
   commitSave,
   inSaveTransaction,
   refuseSave,
+  toSummary,
   type SaveOutcome,
   type StoreClient,
 } from "./availability-config.js";
+import { revertedDetail } from "./availability-change-detail.js";
 import { CONFIG_TABLES, type ConfigInverse } from "./availability-config-plan.js";
 import { prisma } from "./database.js";
 
@@ -85,7 +87,15 @@ function newestInForce(db: Pick<StoreTx, "availabilityChange">, venueId: string)
   return db.availabilityChange.findFirst({
     where: { venueId, revertedById: null, kind: { not: REVERT_KIND } },
     orderBy: [{ version: { sort: "desc", nulls: "last" } }, { at: "desc" }, { id: "desc" }],
-    select: { id: true, actorId: true, at: true, kind: true, summary: true, notifiedGuests: true },
+    select: {
+      id: true,
+      actorId: true,
+      at: true,
+      kind: true,
+      summary: true,
+      summaryDetail: true,
+      notifiedGuests: true,
+    },
   });
 }
 
@@ -116,12 +126,8 @@ export async function listAvailabilityChanges(
       newestInForce(db, venueId),
     ]);
     const items: AvailabilityChangeEntry[] = rows.map((r) => ({
-      id: r.id,
-      actorId: r.actorId,
+      ...toSummary(r),
       actorName: r.actorName ?? null,
-      at: r.at.toISOString(),
-      kind: r.kind,
-      summary: r.summary,
       affectedFrom: toDay(r.affectedFrom),
       affectedTo: toDay(r.affectedTo),
       notifiedGuests: r.notifiedGuests,
@@ -135,16 +141,7 @@ export async function listAvailabilityChanges(
     }));
     // The change Undo is on, whatever this page holds: a caller reading one row (the agent) would
     // otherwise see the newest by `at`, which after a lock-wait race is not the one in force.
-    const undoable =
-      newest && !newest.notifiedGuests
-        ? {
-            id: newest.id,
-            actorId: newest.actorId,
-            at: newest.at.toISOString(),
-            kind: newest.kind,
-            summary: newest.summary,
-          }
-        : null;
+    const undoable = newest && !newest.notifiedGuests ? toSummary(newest) : null;
     return { total, offset: query.offset, items, undoable };
   });
 }
@@ -203,6 +200,7 @@ export async function revertAvailabilityChange(
         exact: true,
         kind: REVERT_KIND,
         summary: `Reverted: ${change.summary}`,
+        detail: revertedDetail(change.summaryDetail),
         // The column exactly as it was (null included), so undoing a venue's first
         // save puts its hours back rather than projecting an empty week over them.
         operatingHours: inverse.operatingHours == null ? Prisma.DbNull : inverse.operatingHours,
