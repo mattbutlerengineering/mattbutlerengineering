@@ -294,6 +294,13 @@ export const ClosureAlongsideSchema = z.object({
   upsert: z.array(DateRuleSchema).default([]),
   /** Rule ids to remove (soft delete): the series the draft replaces. */
   remove: IdListSchema.default([]),
+  /**
+   * The series being replaced, exactly as the client read it when it built the draft. When `remove`
+   * names the series, the closure command refuses with the version conflict if the stored series
+   * is no longer this row (a teammate changed its message, weekdays or end date since). Optional
+   * for clients from before this field: without it only the draft's other fields are compared.
+   */
+  replaces: DateRuleSchema.optional(),
 });
 
 /** `POST …/closures/impact`: the draft date rule whose effect on bookings is asked about. */

@@ -13668,6 +13668,18 @@
         same({ ...edited, seriesId: stored.seriesId }, stored)
       );
     }
+    export function seriesChangedSinceRead(
+      stored: readonly DateRule[],
+      draft: DateRule,
+      alongside: ClosureAlongside
+    ): boolean {
+      const [seriesId] = alongside.remove;
+      const series = stored.find((r) => r.id === seriesId);
+      if (!series) return false;
+      if (alongside.replaces) return !same(alongside.replaces, series);
+      const { id, startsOn, endsOn, repeat } = series;
+      return !same({ ...draft, id, startsOn, endsOn, repeat }, series);
+    }
     export function checkAlongside(
       stored: readonly DateRule[],
       draft: DateRule,
@@ -14336,6 +14348,11 @@
       if (!caller.isManager) throw new Refused({ kind: "forbidden" });
       const issue = checkAlongside(state.stored.dateRules, rule, alongside);
       if (issue) throw new Refused({ kind: "invalid", issues: [issue] });
+      // The version matched, yet the series is not the one this edit was built from: answer as a stale
+      // version, so the Manager gets the same recovery and the winner's change is named.
+      if (seriesChangedSinceRead(state.stored.dateRules, rule, alongside)) {
+        throw new Refused((await refuseStale(tx, venueId)) as Refusal);
+      }
       const today = civilDateIn(now, state.timezone);
       const stranded = findStrandedReservations(
         { timezone: state.timezone, config: state.effective },

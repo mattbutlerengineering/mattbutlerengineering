@@ -256,6 +256,8 @@ describe("growthClosure", () => {
     );
 
     expect(plan.alongside.remove).toEqual([SERIES.id]);
+    // The server refuses the save if the stored series is no longer the row this was built from.
+    expect(plan.alongside.replaces).toEqual(SERIES);
     expect(plan.rule).toMatchObject({ startsOn: SERIES.startsOn, endsOn: "2026-12-31" });
     expect(plan.alongside.upsert).toEqual([{ ...early, seriesId: plan.rule.id }]);
     const after = apply(config, plan);

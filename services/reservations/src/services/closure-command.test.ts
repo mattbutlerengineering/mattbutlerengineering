@@ -981,6 +981,83 @@ describe("createClosure", () => {
     });
   });
 
+  describe("a remove-path series edit built from a series that has since changed (#8028)", () => {
+    /** The series as the Manager's client read it: Thursdays from Dec 1, no end. */
+    const readSeries: DateRule = {
+      id: "s1",
+      kind: "closure",
+      targetKind: "venue",
+      startsOn: "2026-12-01",
+      endsOn: null,
+      repeat: { version: 1, weekdays: [4] },
+    } as DateRule;
+    const stored = {
+      id: "s1",
+      venueId: "v",
+      kind: "closure",
+      targetKind: "venue",
+      venueServiceId: null,
+      bookingTypes: [],
+      startsOn: new Date("2026-12-01T00:00:00.000Z"),
+      endsOn: null,
+      repeat: { version: 1, weekdays: [4] },
+      window: null,
+      payload: null,
+      useScheduleId: null,
+      seriesId: null,
+      guestMessage: null,
+      staffNote: null,
+      expiresAt: null,
+      deletedAt: null,
+      tables: [],
+    };
+    /** The draft a client builds from `readSeries` for "All dates": Fridays added. */
+    const draft = closure({
+      id: "s2",
+      startsOn: "2026-12-01",
+      endsOn: null,
+      repeat: { version: 1, weekdays: [4, 5] },
+    });
+    const edit = (replaces?: DateRule): Partial<CreateClosureBody> => ({
+      rule: draft,
+      alongside: { upsert: [], remove: ["s1"], ...(replaces ? { replaces } : {}) },
+      decisions: [],
+    });
+    const changedBy = (teammate: Record<string, unknown>): World =>
+      world({ dateRules: [{ ...stored, ...teammate }], reservations: [] });
+
+    it.each([
+      ["guest message", { guestMessage: "Closed for a private event" }],
+      ["weekdays", { repeat: { version: 1, weekdays: [3, 4] } }],
+      ["end date", { endsOn: new Date("2027-03-31T00:00:00.000Z") }],
+    ])("answers a changed %s with the version conflict, saving nothing", async (_n, teammate) => {
+      const w = changedBy(teammate);
+      const { outcome, tx } = await run(w, body(edit(readSeries)));
+
+      expect(outcome.kind).toBe("version_conflict");
+      expect(w.version).toBe(4);
+      expect(tx.dateRule.create).not.toHaveBeenCalled();
+      expect(tx.dateRule.update).not.toHaveBeenCalled();
+    });
+
+    it("saves when the series is still the one the edit was built from", async () => {
+      const { outcome } = await run(changedBy({}), body(edit(readSeries)));
+      expect(outcome.kind).toBe("saved");
+    });
+
+    it("from an older client that names no series, still refuses a changed guest message", async () => {
+      const w = changedBy({ guestMessage: "Closed for a private event" });
+      const { outcome } = await run(w, body(edit()));
+      expect(outcome.kind).toBe("version_conflict");
+      expect(w.version).toBe(4);
+    });
+
+    it("from an older client that names no series, still accepts the draft's own changes", async () => {
+      const { outcome } = await run(changedBy({}), body(edit()));
+      expect(outcome.kind).toBe("saved");
+    });
+  });
+
   describe("Host emergency limits", () => {
     const tonight = closure({ id: "dr-tonight", startsOn: "2026-10-25", endsOn: "2026-10-25" });
     const none = { reservations: [] };

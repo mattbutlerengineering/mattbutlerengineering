@@ -56,6 +56,26 @@ function onlyMoved(edited: DateRule, stored: DateRule, seriesId: string, draftId
   );
 }
 
+/**
+ * Whether a remove-path series edit was built from a series that has since changed. Call it after
+ * `checkAlongside` accepted `alongside`. With `replaces` the stored row must still be that row.
+ * Without it (a client from before the field) the draft is all there is to compare: it must equal
+ * the stored series apart from the fields an edit sets (`id`, `startsOn`, `endsOn`, `repeat`), so
+ * a changed guest message or payload is caught but changed weekdays or end date are not.
+ */
+export function seriesChangedSinceRead(
+  stored: readonly DateRule[],
+  draft: DateRule,
+  alongside: ClosureAlongside
+): boolean {
+  const [seriesId] = alongside.remove;
+  const series = stored.find((r) => r.id === seriesId);
+  if (!series) return false;
+  if (alongside.replaces) return !same(alongside.replaces, series);
+  const { id, startsOn, endsOn, repeat } = series;
+  return !same({ ...draft, id, startsOn, endsOn, repeat }, series);
+}
+
 /** Null when `alongside` is a series edit of one stored series for `draft`; else the first issue. */
 export function checkAlongside(
   stored: readonly DateRule[],

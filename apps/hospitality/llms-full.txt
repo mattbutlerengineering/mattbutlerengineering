@@ -2792,7 +2792,10 @@
       const moved = config.dateRules
         .filter((r) => r.seriesId === series.id && r.startsOn >= from)
         .map((r) => ({ ...r, seriesId: rule.id }));
-      if (from === series.startsOn) return { rule, alongside: { upsert: moved, remove: [series.id] } };
+      // `replaces` is the row this draft was built from; the server refuses if the stored one differs.
+      if (from === series.startsOn) {
+        return { rule, alongside: { upsert: moved, remove: [series.id], replaces: series } };
+      }
       const ended: DateRule = { ...series, endsOn: addDays(from, -1) };
       return { rule, alongside: { upsert: [ended, ...moved], remove: [] } };
     }
