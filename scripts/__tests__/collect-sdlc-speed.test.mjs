@@ -75,19 +75,14 @@ describe("normalizers", () => {
       authorClass: "agent",
     });
   });
-  it("does not count a bookkeeping branch as agent even when labeled agent-authored", () => {
+  it("excludes bookkeeping PRs from the sample instead of counting them as human", () => {
     const labels = [{ name: "agent-authored" }];
     expect(
       normalizePull(pull({ labels, head: { ref: "chore/queue-telemetry-2026-10-15" } }))
-    ).toMatchObject({
-      authorClass: "human",
-    });
-    expect(normalizePull(pull({ labels, head: { ref: "automation/drift-fix" } }))).toMatchObject({
-      authorClass: "human",
-    });
-    expect(normalizePull(pull({ labels, head: { ref: "metrics/learning-loop" } }))).toMatchObject({
-      authorClass: "human",
-    });
+    ).toBeNull();
+    expect(normalizePull(pull({ labels, head: { ref: "automation/drift-fix" } }))).toBeNull();
+    expect(normalizePull(pull({ labels, head: { ref: "metrics/learning-loop" } }))).toBeNull();
+    expect(normalizePull(pull({ head: { ref: "metrics/learning-loop" } }))).toBeNull();
   });
 });
 

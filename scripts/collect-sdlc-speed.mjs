@@ -24,7 +24,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { isAgentPr } from "../plugins/acmm/scripts/agent-pr.js";
+import { isAgentPr, isBookkeepingPr } from "../plugins/acmm/scripts/agent-pr.js";
 import { resolvePath } from "./metrics-store.mjs";
 
 export const SENSOR = "sdlcSpeed";
@@ -70,6 +70,11 @@ export function normalizePull(item) {
   const mergedAt = item?.merged_at;
   if (!mergedAt || !item.created_at) return null;
   const labels = (item.labels ?? []).map((l) => l.name);
+  // Bookkeeping PRs (metrics/ etc.) sit open for hours by design; counting them as
+  // "human" inflated the human p90 (#8068).
+  if (isBookkeepingPr({ author: item.user?.login, labels, headRefName: item.head?.ref })) {
+    return null;
+  }
   const minutes = minutesBetween(item.created_at, mergedAt);
   if (!Number.isFinite(minutes)) return null;
   return {
