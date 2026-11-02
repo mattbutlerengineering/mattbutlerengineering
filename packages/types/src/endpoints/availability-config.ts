@@ -256,7 +256,7 @@ export const availabilityConfigEndpoints = {
       404: problem("Venue or closure not found"),
       422: {
         description:
-          "`invalid-config` with a `strands_booking` issue per booking: removing a one-date edit hands its date back to the series, which would leave these bookings without service. Nothing is changed",
+          "`invalid-config` with a `strands_booking` issue per booking: removing a one-date edit hands its date back to the series, which would leave these bookings without service. Each issue carries its `reservation` (guest, date, time, party) for the first 50; the issue count is the true count. Nothing is changed",
         body: AvailabilityConfigProblemSchema,
       },
     },

@@ -8,6 +8,7 @@ import {
   captureOpener,
   returnFocusTarget,
   seatedFocusTarget,
+  useBlockAfterRestore,
   useCloseHoldingFocus,
   walkInFocusTarget,
   type SurfaceState,
@@ -162,6 +163,58 @@ describe("useCloseHoldingFocus", () => {
     await nextFrame();
 
     expect(document.activeElement).toBe(trigger);
+  });
+});
+
+describe("useBlockAfterRestore", () => {
+  const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+  const block = (id: string) => append("button", { "data-testid": `reservation-block-${id}` });
+
+  // What the page does: the request is made in a handler whose state change commits afterwards.
+  function requester() {
+    return renderHook(() => {
+      const blockAfterRestore = useBlockAfterRestore();
+      const [commits, setCommits] = useState(0);
+      return (id: string) => {
+        blockAfterRestore(id);
+        setCommits(commits + 1);
+      };
+    });
+  }
+
+  async function request(id: string) {
+    const { result } = requester();
+    act(() => result.current(id));
+    await nextFrame();
+    await nextFrame();
+  }
+
+  it("focuses the block when focus is on body", async () => {
+    const own = block("walkin");
+    await request("walkin");
+    expect(document.activeElement).toBe(own);
+  });
+
+  it("replaces another party's block, the Drawer's stale restore", async () => {
+    const own = block("walkin");
+    block("bob").focus();
+    await request("walkin");
+    expect(document.activeElement).toBe(own);
+  });
+
+  it("leaves focus on a control that is not a block", async () => {
+    block("walkin");
+    const control = append("button", { "data-testid": "table-status-t1" });
+    control.focus();
+    await request("walkin");
+    expect(document.activeElement).toBe(control);
+  });
+
+  it("leaves focus alone when the block is not on the page", async () => {
+    const other = block("bob");
+    other.focus();
+    await request("walkin");
+    expect(document.activeElement).toBe(other);
   });
 });
 

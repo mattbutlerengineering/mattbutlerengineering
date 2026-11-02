@@ -115,6 +115,36 @@ describe("AvailabilityConfigProblemSchema", () => {
   });
 });
 
+describe("AvailabilityConfigProblemSchema strands_booking issues", () => {
+  const problem = {
+    type: "about:blank",
+    title: "Unprocessable",
+    status: 422,
+    detail: "x",
+    code: "invalid-config",
+  };
+  const reservation = {
+    id: "r1",
+    startTime: "2026-12-25T03:00:00.000Z",
+    partySize: 4,
+    reason: "closed",
+    guestName: "Okafor",
+    serviceDate: "2026-12-24",
+  };
+
+  it("carries the booking on an issue, and still parses an issue without one", () => {
+    const parsed = AvailabilityConfigProblemSchema.parse({
+      ...problem,
+      issues: [
+        { path: "reservations.r1", code: "strands_booking", message: "m", reservation },
+        { path: "reservations.r2", code: "strands_booking", message: "m" },
+      ],
+    });
+    expect(parsed.issues?.[0]?.reservation).toEqual(reservation);
+    expect(parsed.issues?.[1]?.reservation).toBeUndefined();
+  });
+});
+
 describe("AvailabilityCheckBodySchema", () => {
   const body = { start: "2026-11-06T19:00:00.000Z", partySize: 4, channel: "phone" };
 

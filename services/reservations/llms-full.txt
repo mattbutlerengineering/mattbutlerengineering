@@ -14112,6 +14112,24 @@
       /** Display name snapshotted on the audit row; absent or `null` when the token has none. */
       actorName?: string | null;
     }
+    export interface RefusalIssue {
+      path: string;
+      code: string;
+      message: string;
+      reservation?: StrandedReservation;
+    }
+    function strandedIssues(stranded: readonly StrandedReservation[], message: string): RefusalIssue[] {
+      // The database returns bookings in no order; the soonest are the ones to name, the same ones on a retry.
+      const soonestFirst = [...stranded].sort(
+        (a, b) => a.startTime.localeCompare(b.startTime) || a.id.localeCompare(b.id)
+      );
+      return soonestFirst.map((r, i) => ({
+        path: `reservations.${r.id}`,
+        code: "strands_booking",
+        message,
+        ...(i < STRANDED_ISSUE_DETAIL_MAX ? { reservation: r } : {}),
+      }));
+    }
     export type CreateClosureOutcome =
       | { kind: "saved"; result: ClosureResult }
       | { kind: "not_found" }
@@ -14120,7 +14138,7 @@
       | { kind: "version_conflict"; winningChange: AvailabilityChangeSummary | null }
       | { kind: "key_reused" }
       | { kind: "closure_exists" }
-      | { kind: "invalid"; issues: { path: string; code: string; message: string }[] }
+      | { kind: "invalid"; issues: RefusalIssue[] }
       | { kind: "decision_required"; groupKeys: string[] }
       | { kind: "invalid_decision"; groupKeys: string[] }
       | { kind: "move_unavailable"; reservationIds: string[] };
@@ -14327,11 +14345,10 @@
       if (stranded.length > 0) {
         throw new Refused({
           kind: "invalid",
-          issues: stranded.map((r) => ({
-            path: `reservations.${r.id}`,
-            code: "strands_booking",
-            message: "The rows replaced beside the closure would leave this booking without service.",
-          })),
+          issues: strandedIssues(
+            stranded,
+            "The rows replaced beside the closure would leave this booking without service."
+          ),
         });
       }
     }
@@ -14581,11 +14598,7 @@
       if (stranded.length === 0) return;
       throw new Refused({
         kind: "invalid",
-        issues: stranded.map((r) => ({
-          path: `reservations.${r.id}`,
-          code: "strands_booking",
-          message: "Removing this would leave this booking without service.",
-        })),
+        issues: strandedIssues(stranded, "Removing this would leave this booking without service."),
       });
     }
     function upcomingCancelled(db: Db, venueId: string, ruleId: string, now: Date): Promise<number> {

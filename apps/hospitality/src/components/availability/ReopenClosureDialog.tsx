@@ -7,6 +7,7 @@ import {
   AvailabilityConfigProblemSchema,
   type ClosureOverlap,
   type DateRule,
+  type StrandedReservation,
   type VenueService,
 } from "@mbe/types";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
@@ -14,6 +15,7 @@ import { useReopenClosure } from "../../hooks/useClosures.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import { overlapLines } from "./closure-overlap-text.js";
+import { StrandedBookings } from "./StrandedBookings.js";
 
 const NOTHING_STAYS: ClosureOverlap = { everyDate: false, by: [] };
 
@@ -48,20 +50,33 @@ export interface ReopenClosureDialogProps {
   readonly onClose: () => void;
 }
 
-/** The count of bookings a refused reopen would leave without service, or `null` for any other refusal. */
-function strandedCount(error: unknown): number | null {
+/** What a refused reopen shows: the sentence, the bookings the server named, and how many it did not. */
+interface Failure {
+  readonly text: string;
+  readonly listed: readonly StrandedReservation[];
+  readonly unlisted: number;
+}
+
+/**
+ * The bookings a refused reopen would leave without service, or `null` for any other refusal. The
+ * server sends one issue per booking, so their count is the true count; only some carry the
+ * booking, and an older server names none.
+ */
+function strandedOf(error: unknown): Failure | null {
   const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
   const problem = AvailabilityConfigProblemSchema.safeParse(details);
   if (!problem.success || problem.data.code !== "invalid-config") return null;
   const stranded = problem.data.issues?.filter((i) => i.code === "strands_booking") ?? [];
-  return stranded.length > 0 ? stranded.length : null;
+  if (stranded.length === 0) return null;
+  const listed = stranded.flatMap((i) => (i.reservation ? [i.reservation] : []));
+  return { text: "", listed, unlisted: stranded.length - listed.length };
 }
 
-function failureText(error: unknown, t: TFunction): string {
-  const count = strandedCount(error);
-  return count === null
-    ? describeApiError(error).detail
-    : t("availabilitySpecial.reopen.stranded", { count });
+function failureOf(error: unknown, t: TFunction): Failure {
+  const stranded = strandedOf(error);
+  if (stranded === null) return { text: describeApiError(error).detail, listed: [], unlisted: 0 };
+  const count = stranded.listed.length + stranded.unlisted;
+  return { ...stranded, text: t("availabilitySpecial.reopen.stranded", { count }) };
 }
 
 /** A span has no singular article to agree with ("el todas las fechas…"), so it gets its own title. */
@@ -104,7 +119,7 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
   // say, so every cancelled guest counts.
   const reachable = props.notifiable ?? cancelled ?? 0;
   const [tell, setTell] = useState(true);
-  const [failure, setFailure] = useState<string | null>(null);
+  const [failure, setFailure] = useState<Failure | null>(null);
   const format = useVenueFormat();
   // A series edit has its own wording: the date goes back to the series, closed or not.
   const stays = isSeriesEdit
@@ -140,7 +155,7 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
       else offerUndo({ venueId, title, saved });
       onClose();
     } catch (error) {
-      setFailure(failureText(error, t));
+      setFailure(failureOf(error, t));
     }
   };
 
@@ -174,7 +189,11 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
         </>
       }
     >
-      {failure && <Alert variant="error">{failure}</Alert>}
+      {failure && <Alert variant="error">{failure.text}</Alert>}
+      {failure && <StrandedBookings reservations={failure.listed} />}
+      {failure && failure.listed.length > 0 && failure.unlisted > 0 && (
+        <Text>{t("availabilitySpecial.reopen.strandedMore", { count: failure.unlisted })}</Text>
+      )}
       {stays.by.length > 0 && (
         <Alert variant="warning">
           {staysLines(stays).map((line) => (

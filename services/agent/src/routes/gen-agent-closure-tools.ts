@@ -38,7 +38,7 @@ import {
   type Impact,
   type SpecialHoursRule,
 } from "./gen-agent-closure-support.js";
-import { NO_REPLAY, NO_VENUE, todayIn, type ApiClient } from "./gen-tool-support.js";
+import { failureLog, NO_REPLAY, NO_VENUE, todayIn, type ApiClient } from "./gen-tool-support.js";
 
 /**
  * Chat tools for closures and special hours on dates after tonight (#7929):
@@ -218,7 +218,7 @@ function closeDates({ log, api, venueId, timeZone }: ToolContext) {
             : {}),
         };
       } catch (err) {
-        log.error({ err, venueId }, "close_dates failed");
+        log.error({ ...failureLog(err), venueId }, "close_dates failed");
         return closureFailure(err, "Couldn't close the dates right now. Nothing was changed.");
       }
     },
@@ -284,7 +284,7 @@ function setSpecialHours({ log, api, venueId, timeZone }: ToolContext) {
           ...times,
         };
       } catch (err) {
-        log.error({ err, venueId }, "set_special_hours failed");
+        log.error({ ...failureLog(err), venueId }, "set_special_hours failed");
         return closureFailure(err, "Couldn't set the hours right now. Nothing was changed.");
       }
     },
@@ -375,7 +375,7 @@ function reopenClosure({ log, api, venueId }: ToolContext) {
         config = state.config;
         scopeText = scopeOf(rule, state.config);
         const counts = await api.availability.listClosures(venueId).catch((err: unknown) => {
-          log.error({ err, venueId }, "reopen_closure counts failed");
+          log.error({ ...failureLog(err), venueId }, "reopen_closure counts failed");
           return undefined;
         });
         if (!counts) {
@@ -388,7 +388,7 @@ function reopenClosure({ log, api, venueId }: ToolContext) {
         cancelled = summary?.cancelled ?? 0;
         reachable = summary?.upcomingCancelled ?? cancelled;
       } catch (err) {
-        log.error({ err, venueId }, "reopen_closure failed to read");
+        log.error({ ...failureLog(err), venueId }, "reopen_closure failed to read");
         return closureFailure(err, "Couldn't read the closures. Nothing was changed.");
       }
       const told = tellCancelledGuests && reachable > 0;
@@ -399,7 +399,7 @@ function reopenClosure({ log, api, venueId }: ToolContext) {
         // The server counts who the notice really reached; an older one does not say.
         notified = told ? (saved.notified ?? reachable) : 0;
       } catch (err) {
-        log.error({ err, venueId }, "reopen_closure failed");
+        log.error({ ...failureLog(err), venueId }, "reopen_closure failed");
         return closureFailure(err, SAVE_UNSURE);
       }
       const stays = stillClosedFields(saved, config);
@@ -441,7 +441,7 @@ function listClosures({ log, api, venueId, timeZone }: ToolContext) {
           api.availability.getConfig(venueId),
           // The closures are still worth showing, but without counts: never as zero.
           api.availability.listClosures(venueId).catch((err: unknown) => {
-            log.error({ err, venueId }, "list_closures counts failed");
+            log.error({ ...failureLog(err), venueId }, "list_closures counts failed");
             return undefined;
           }),
         ]);
@@ -459,7 +459,7 @@ function listClosures({ log, api, venueId, timeZone }: ToolContext) {
           );
         return { closures, ...(counts ? {} : { countsUnavailable: true }) };
       } catch (err) {
-        log.error({ err, venueId }, "list_closures failed");
+        log.error({ ...failureLog(err), venueId }, "list_closures failed");
         return { error: "Couldn't read the closures. Ask the user to try again." };
       }
     },

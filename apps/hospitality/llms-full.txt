@@ -11860,6 +11860,26 @@
         close();
       };
     }
+    export function useBlockAfterRestore(): (reservationId: string) => void {
+      const requestedRef = useRef<string | null>(null);
+      useEffect(() => {
+        const id = requestedRef.current;
+        if (!id) return;
+        requestedRef.current = null;
+        requestAnimationFrame(() => {
+          const active = document.activeElement;
+          const stale =
+            !active ||
+            active === document.body ||
+            (active.getAttribute("data-testid")?.startsWith(BLOCK_TEST_ID_PREFIX) === true &&
+              active.getAttribute("data-testid") !== `${BLOCK_TEST_ID_PREFIX}${id}`);
+          if (stale) (byTestId(`${BLOCK_TEST_ID_PREFIX}${id}`) as HTMLElement | null)?.focus();
+        });
+      });
+      return (reservationId) => {
+        requestedRef.current = reservationId;
+      };
+    }
     export function useOnChange<T>(value: T, onChange: () => void): void {
       const [seen, setSeen] = useState(value);
       if (value !== seen) {

@@ -205,6 +205,9 @@
       export const StrandedReservationSchema: unknown;
     </item>
     <item priority="high">
+      export const STRANDED_ISSUE_DETAIL_MAX: unknown;
+    </item>
+    <item priority="high">
       export const AVAILABILITY_CONFIG_PROBLEM_CODES: unknown;
     </item>
     <item priority="high">
