@@ -1743,7 +1743,11 @@
       "retryCount": "Reintentar",
       "changed": "Un compañero cambió este cierre mientras lo tenías abierto, así que no se reabrió. La lista ya está actualizada: revísala y vuelve a reabrirlo si todavía quieres hacerlo.",
       "descriptionStillClosed": "Esto quita un cierre, pero otro sigue cerrando estas fechas, así que los clientes aún no pueden reservarlas.",
-      "doneStillClosed": "Cierre eliminado: {{date}}. No se reabrió"
+      "doneStillClosed": "Cierre eliminado: {{date}}. No se reabrió",
+      "dateLabel": "Qué reabrir",
+      "allDates": "Todas las fechas",
+      "descriptionDate": "Los invitados pueden volver a reservar el {{date}}. Las demás fechas de este rango siguen cerradas.",
+      "tellDate": "Avisar a los invitados cuya reservación cancelamos el {{date}} que reabrimos, con un enlace para volver a reservar"
     },
     "series": {
       "editDates": "Editar fechas…",

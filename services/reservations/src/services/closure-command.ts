@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { projectLegacyOperatingHours, stillClosedAfterReopen } from "@mbe/availability";
 import type {
   AvailabilityChangeOutcome,
@@ -19,6 +20,7 @@ import type { Prisma, PrismaClient } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
 import { affectedRange, diffConfig, inverseOf } from "./availability-config-plan.js";
 import { carryOutcomes, type CarriedOutcomes } from "./closure-carry-outcomes.js";
+import { carryByDate, rangeAround } from "./closure-reopen-date.js";
 import { findStrandedReservations } from "./availability-config-checks.js";
 import {
   conflictIssue,
@@ -665,9 +667,11 @@ async function refuseStrandingReopen(
 ): Promise<void> {
   const removed = new Set(state.stored.dateRules.map((r) => r.id));
   for (const r of next.dateRules) removed.delete(r.id);
+  // The dates a one-date reopen keeps closed are new rules, which the effective config lacks.
+  const added = next.dateRules.filter((r) => !state.stored.dateRules.some((s) => s.id === r.id));
   const after = {
     ...state.effective,
-    dateRules: state.effective.dateRules.filter((r) => !removed.has(r.id)),
+    dateRules: [...state.effective.dateRules.filter((r) => !removed.has(r.id)), ...added],
   };
   const stranded = findStrandedReservations(
     { timezone: state.timezone, config: state.effective },
@@ -679,6 +683,35 @@ async function refuseStrandingReopen(
     kind: "invalid",
     issues: strandedIssues(stranded, "Removing this would leave this booking without service."),
   });
+}
+
+const refuseReopen = (code: string, path: string, message: string) =>
+  new Refused({ kind: "invalid", issues: [{ path, code, message }] });
+
+/**
+ * The rules that keep a range's other dates closed when `date` of it is reopened. A Manager's, and
+ * built only from the range the caller saw (`seen` was compared first, under the venue lock).
+ */
+function splitFor(
+  input: { caller: ClosureCaller; seen?: ReopenSeen | undefined },
+  rule: DateRule,
+  date: string,
+  stored: readonly DateRule[]
+): DateRule[] {
+  if (!input.caller.isManager) throw new Refused({ kind: "forbidden" });
+  if (!input.seen) {
+    throw refuseReopen(
+      "seen_required",
+      "seen",
+      "Reopening one date needs the closure as you saw it."
+    );
+  }
+  if (stored.some((r) => r.seriesId === rule.id)) {
+    throw refuseReopen("has_edits", "date", "This closure has edited dates; reopen all of it.");
+  }
+  const split = rangeAround(rule, date, randomUUID);
+  if (split.kind === "invalid") throw refuseReopen("invalid_date", "date", split.message);
+  return split.parts;
 }
 
 /** Cancelled guests of the rule whose booking has not started: the ones a reopen notice reaches. */
@@ -716,6 +749,8 @@ export async function reopenClosure(
     tellCancelledGuests: boolean;
     now: Date;
     seen?: ReopenSeen | undefined;
+    /** Reopen only this date of a bounded range; the range's other dates stay closed. */
+    date?: string | undefined;
   },
   client: StoreClient = prisma
 ): Promise<ReopenOutcome> {
@@ -745,14 +780,22 @@ export async function reopenClosure(
         throw new Refused((await refuseSeriesChanged(db, venueId, current)) as Refusal);
       }
 
+      const keep = input.date ? splitFor(input, rule, input.date, state.stored.dateRules) : [];
+      // What is reopened: the one date, or the whole rule.
+      const reopened = input.date ? { ...rule, startsOn: input.date, endsOn: input.date } : rule;
       const next = {
         ...state.stored,
         // Reopening a series also removes its skips and one-date edits (#7685).
-        dateRules: state.stored.dateRules.filter((r) => r.id !== ruleId && r.seriesId !== ruleId),
+        dateRules: [
+          ...state.stored.dateRules.filter((r) => r.id !== ruleId && r.seriesId !== ruleId),
+          ...keep,
+        ],
       };
       await refuseStrandingReopen(db, venueId, state, next, now);
       const diff = diffConfig(state.stored, next);
       await writeConfigDiff(db, venueId, diff, { actorId: caller.actorId, now });
+      // Each guest follows their date to the rule that still closes it; the reopened date's stay.
+      const carried = await carryByDate(db, venueId, ruleId, keep);
       await db.venue.update({
         where: { id: venueId },
         data: { operatingHours: projectLegacyOperatingHours(next) },
@@ -761,7 +804,7 @@ export async function reopenClosure(
       const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
       const stillClosed = stillClosedAfterReopen(
         state.stored.dateRules,
-        rule,
+        reopened,
         civilDateIn(now, state.timezone)
       );
       // Only guests whose booking has not started get the notice (`listNotifiable`); the audit
@@ -778,15 +821,15 @@ export async function reopenClosure(
           actorName: caller.actorName ?? null,
           at: now,
           kind: "reopen",
-          summary: `Closure reopened (${rule.startsOn})`,
-          ...detailData(reopenedDetail(rule)),
+          summary: `Closure reopened (${reopened.startsOn})`,
+          ...detailData(reopenedDetail(reopened)),
           affectedFrom: toDbDate(range.from),
           affectedTo: toDbDate(range.to),
-          inverse: inverseOf(
-            state.stored,
-            diff,
-            state.operatingHours
-          ) as unknown as Prisma.InputJsonValue,
+          inverse: {
+            ...inverseOf(state.stored, diff, state.operatingHours),
+            // Undo returns the guests this moved (offered only when the reopen told none).
+            ...(carried ? { closure: { carried } } : {}),
+          } as unknown as Prisma.InputJsonValue,
           notifiedGuests: notified > 0,
           version: bumped.availabilityVersion,
         },

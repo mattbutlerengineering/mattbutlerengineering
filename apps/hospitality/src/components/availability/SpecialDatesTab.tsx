@@ -620,6 +620,12 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           notifiable={summaryOf(reopening.id)?.upcomingCancelled ?? null}
           countFailed={summaries.error != null}
           subjectIsSpan={reopening.endsOn !== reopening.startsOn || reopening.repeat != null}
+          canPickDate={
+            isManager &&
+            reopening.repeat == null &&
+            reopening.endsOn != null &&
+            reopening.endsOn > reopening.startsOn
+          }
           onRetryCount={() => void summaries.refetch()}
           rules={state.config.dateRules}
           rule={reopening}

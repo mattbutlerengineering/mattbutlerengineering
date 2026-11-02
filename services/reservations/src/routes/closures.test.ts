@@ -461,6 +461,44 @@ describe("closure routes", () => {
       );
     });
 
+    describe("one date of a range (#7984)", () => {
+      it("hands the date to the store through Ajv, and refuses one that is not a date", async () => {
+        commandSvc.reopen.mockResolvedValue({
+          kind: "reopened",
+          result: { version: 6, changeId: "chg-2" },
+        });
+        const seen = { rule, children: [] };
+
+        await del({ tellCancelledGuests: false, seen, date: "2026-12-26" });
+        expect(commandSvc.reopen).toHaveBeenLastCalledWith(
+          expect.objectContaining({ date: "2026-12-26", seen })
+        );
+
+        commandSvc.reopen.mockClear();
+        const bad = await del({ tellCancelledGuests: false, seen, date: "Dec 26" });
+        expect(bad.statusCode).toBe(400);
+        expect(commandSvc.reopen).not.toHaveBeenCalled();
+        commandSvc.reopen.mockReset();
+      });
+
+      it("answers an invalid split as 422 invalid-config naming the issue", async () => {
+        commandSvc.reopen.mockResolvedValueOnce({
+          kind: "invalid",
+          issues: [{ path: "date", code: "invalid_date", message: "Not one of its dates." }],
+        });
+        const res = await del({
+          tellCancelledGuests: false,
+          seen: { rule, children: [] },
+          date: "2027-01-02",
+        });
+        expect(res.statusCode).toBe(422);
+        expect(res.json()).toMatchObject({
+          code: "invalid-config",
+          issues: [{ path: "date", code: "invalid_date" }],
+        });
+      });
+    });
+
     describe("what the caller saw of the rule (#8121)", () => {
       const seen = { rule, children: [] };
 

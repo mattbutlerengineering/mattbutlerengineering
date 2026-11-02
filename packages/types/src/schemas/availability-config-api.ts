@@ -639,10 +639,14 @@ export const ReopenSeenSchema = z.object({
  * `DELETE …/closures/:ruleId`. `seen` is optional: with it, a reopen whose rule (or whose skips and
  * one-date edits) changed since the caller read it is refused as `version-conflict`; without it
  * (an older client) the reopen acts on the rule as it is now.
+ *
+ * `date` reopens that one date of a bounded range and keeps the range's other dates closed. It
+ * needs `seen` (the split must be built from the range the caller saw) and a Manager.
  */
 export const ReopenClosureBodySchema = z.object({
   tellCancelledGuests: z.boolean(),
   seen: ReopenSeenSchema.optional(),
+  date: ServiceDateSchema.optional(),
 });
 
 export const ClosureOutcomeCountsSchema = z.object({

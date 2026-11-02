@@ -1,7 +1,15 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { Alert, Button, Checkbox, Dialog, Text, useToast } from "@mattbutlerengineering/rialto";
+import {
+  Alert,
+  Button,
+  Checkbox,
+  Dialog,
+  Select,
+  Text,
+  useToast,
+} from "@mattbutlerengineering/rialto";
 import { stillClosedAfterReopen } from "@mbe/availability";
 import {
   AvailabilityConfigProblemSchema,
@@ -15,6 +23,7 @@ import { useReopenClosure } from "../../hooks/useClosures.js";
 import { useRefreshAvailability } from "../../hooks/useRefreshAvailability.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
+import { addDays } from "../../utils/service-day.js";
 import { overlapLines } from "./closure-overlap-text.js";
 import { conflictOf } from "./conflict-problem.js";
 import { StrandedBookings } from "./StrandedBookings.js";
@@ -43,6 +52,8 @@ export interface ReopenClosureDialogProps {
   readonly isSeriesEdit?: boolean;
   /** The subject covers many dates (a range, an open end or a repeat), not one. */
   readonly subjectIsSpan?: boolean;
+  /** A Manager may reopen one date of this bounded range and keep the rest closed. */
+  readonly canPickDate?: boolean;
   /** The venue's date rules, and the one being reopened, to say what stays closed without it. */
   readonly rules: readonly DateRule[];
   readonly rule: DateRule;
@@ -92,6 +103,16 @@ function doneKey(props: ReopenClosureDialogProps): "doneSeriesEdit" | "doneSpan"
   return props.subjectIsSpan ? "doneSpan" : "done";
 }
 
+/** The dates of a bounded range a Manager can still reopen: today on, up to its last day. */
+function reopenableDates(rule: DateRule, today: string): string[] {
+  const dates: string[] = [];
+  for (let d = rule.startsOn < today ? today : rule.startsOn; rule.endsOn && d <= rule.endsOn;) {
+    dates.push(d);
+    d = addDays(d, 1);
+  }
+  return dates;
+}
+
 function descriptionKey(
   props: ReopenClosureDialogProps,
   everyDateStaysClosed: boolean
@@ -112,7 +133,7 @@ function descriptionKey(
  * on by default, sends them the opt-in "we've reopened, rebook" notice.
  */
 export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
-  const { venueId, ruleId, subject, cancelled, editedDates = 0, isSeriesEdit, onClose } = props;
+  const { venueId, ruleId, cancelled, editedDates = 0, isSeriesEdit, onClose } = props;
   const { t } = useTranslation();
   const { toast } = useToast();
   const offerUndo = useAvailabilityUndo();
@@ -124,10 +145,19 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
   const [tell, setTell] = useState(true);
   const [failure, setFailure] = useState<Failure | null>(null);
   const format = useVenueFormat();
+  // One date of a range, or "" for all of it. Only a bounded range can give a date back.
+  const [date, setDate] = useState("");
+  const dates = props.canPickDate ? reopenableDates(props.rule, props.today) : [];
+  const dateText = (d: string) =>
+    format.formatCalendarDate(d, { weekday: "short", month: "short", day: "numeric" });
+  const one = date !== "";
+  const subject = one ? dateText(date) : props.subject;
+  // What stays closed is judged for what is being reopened: the one date, or the whole rule.
+  const reopening = one ? { ...props.rule, startsOn: date, endsOn: date } : props.rule;
   // A series edit has its own wording: the date goes back to the series, closed or not.
   const stays = isSeriesEdit
     ? NOTHING_STAYS
-    : stillClosedAfterReopen(props.rules, props.rule, props.today);
+    : stillClosedAfterReopen(props.rules, reopening, props.today);
   const staysLines = (overlap: ClosureOverlap) =>
     overlapLines(overlap, "stays", props.services, t, format);
 
@@ -141,12 +171,18 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
       // What this screen read of the rule and its skips and edits: if a teammate changed them since,
       // the server refuses rather than delete their work.
       const seen = { rule: props.rule, children: props.rules.filter((r) => r.seriesId === ruleId) };
-      const saved = await mutateAsync({ venueId, ruleId, tellCancelledGuests: told, seen });
+      const saved = await mutateAsync({
+        venueId,
+        ruleId,
+        tellCancelledGuests: told,
+        seen,
+        ...(one ? { date } : {}),
+      });
       // The server read the rules as it committed; the page's copy may be older.
       const final = isSeriesEdit ? NOTHING_STAYS : (saved.stillClosed ?? stays);
       const done = final.everyDate
         ? t("availabilitySpecial.reopen.doneStillClosed", { date: subject })
-        : t(`availabilitySpecial.reopen.${doneKey(props)}`, { date: subject });
+        : t(`availabilitySpecial.reopen.${one ? "done" : doneKey(props)}`, { date: subject });
       const title =
         final.by.length === 0
           ? done
@@ -177,8 +213,12 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
     <Dialog
       open
       onClose={onClose}
-      title={t(`availabilitySpecial.reopen.${titleKey(props)}`, { date: subject })}
-      description={t(descriptionKey(props, stays.everyDate))}
+      title={t(`availabilitySpecial.reopen.${one ? "title" : titleKey(props)}`, { date: subject })}
+      description={
+        one && !stays.everyDate
+          ? t("availabilitySpecial.reopen.descriptionDate", { date: subject })
+          : t(descriptionKey(props, stays.everyDate))
+      }
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
@@ -208,6 +248,17 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
       {failure && failure.listed.length > 0 && failure.unlisted > 0 && (
         <Text>{t("availabilitySpecial.reopen.strandedMore", { count: failure.unlisted })}</Text>
       )}
+      {dates.length > 1 && (
+        <Select
+          label={t("availabilitySpecial.reopen.dateLabel")}
+          value={date}
+          options={[
+            { value: "", label: t("availabilitySpecial.reopen.allDates") },
+            ...dates.map((d) => ({ value: d, label: dateText(d) })),
+          ]}
+          onChange={setDate}
+        />
+      )}
       {stays.by.length > 0 && (
         <Alert variant="warning">
           {staysLines(stays).map((line) => (
@@ -231,7 +282,12 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
       )}
       {!isSeriesEdit && !stays.everyDate && cancelled !== null && reachable > 0 && (
         <Checkbox
-          label={t("availabilitySpecial.reopen.tell", { count: reachable })}
+          label={
+            // The count is of the whole range; a single date's guests are counted by the server.
+            one
+              ? t("availabilitySpecial.reopen.tellDate", { date: subject })
+              : t("availabilitySpecial.reopen.tell", { count: reachable })
+          }
           checked={tell}
           onCheckedChange={setTell}
         />

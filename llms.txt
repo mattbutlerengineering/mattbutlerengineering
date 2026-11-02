@@ -16328,8 +16328,8 @@
         outcomeIds: string[];
       }
     </item>
-    <item priority="low">
-      async function rekey(tx: Pick<Db, "$executeRaw">, ids: readonly string[], ruleId: string) { /* ... */ }
+    <item priority="high">
+      export async function rekey(tx: Pick<Db, "$executeRaw">, ids: readonly string[], ruleId: string) { /* ... */ }
     </item>
     <item priority="high">
       export async function carryOutcomes(
@@ -16626,6 +16626,14 @@
       ): Promise<void> { /* ... */ }
     </item>
     <item priority="medium">
+      function splitFor(
+        input: { caller: ClosureCaller; seen?: ReopenSeen | undefined },
+        rule: DateRule,
+        date: string,
+        stored: readonly DateRule[]
+      ): DateRule[] { /* ... */ }
+    </item>
+    <item priority="medium">
       function upcomingCancelled(db: Db, venueId: string, ruleId: string, now: Date): Promise<number> { /* ... */ }
     </item>
     <item priority="high">
@@ -16637,6 +16645,8 @@
           tellCancelledGuests: boolean;
           now: Date;
           seen?: ReopenSeen | undefined;
+          /** Reopen only this date of a bounded range; the range's other dates stay closed. */
+          date?: string | undefined;
         },
         client: StoreClient = prisma
       ): Promise<ReopenOutcome> { /* ... */ }
@@ -17247,6 +17257,25 @@
         jobs: Pick<JobScheduler, "schedule">;
         log?: RefundLogger;
       }): ClosureRefunds { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/closure-reopen-date.ts">
+    <item priority="low">
+      type RangeParts = { kind: "parts"; parts: DateRu | { kind: "invalid"; message: st;
+    </item>
+    <item priority="high">
+      export function rangeAround(rule: DateRule, date: string, newId: () => string): RangeParts { /* ... */ }
+    </item>
+    <item priority="high">
+      type Db = Pick<PrismaClient, "closureOutcome" | "$executeRaw">;
+    </item>
+    <item priority="high">
+      export async function carryByDate(
+        tx: Db,
+        venueId: string,
+        from: string,
+        parts: readonly DateRule[]
+      ): Promise<CarriedOutcomes | null> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/confirm-hold.ts">

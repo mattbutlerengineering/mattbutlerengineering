@@ -1743,7 +1743,11 @@
       "retryCount": "Réessayer",
       "changed": "Un collègue a modifié cette fermeture pendant que vous l'aviez ouverte, elle n'a donc pas été rouverte. La liste est à jour : examinez-la et rouvrez de nouveau si vous le souhaitez toujours.",
       "descriptionStillClosed": "Ceci retire une fermeture, mais une autre ferme encore ces dates : les clients ne peuvent pas encore les réserver.",
-      "doneStillClosed": "Fermeture retirée : {{date}}. Pas rouvert"
+      "doneStillClosed": "Fermeture retirée : {{date}}. Pas rouvert",
+      "dateLabel": "À rouvrir",
+      "allDates": "Toutes les dates",
+      "descriptionDate": "Les clients peuvent de nouveau réserver le {{date}}. Les autres dates de cette plage restent fermées.",
+      "tellDate": "Aviser les clients dont nous avons annulé la réservation le {{date}} que nous avons rouvert, avec un lien pour réserver à nouveau"
     },
     "series": {
       "editDates": "Modifier les dates…",

@@ -951,6 +951,7 @@ jobs:
             src/services/availability-undo-order.integration.test.ts \
             src/services/closure-notice-refund.integration.test.ts \
             src/services/series-edit-carry.integration.test.ts \
+            src/services/closure-reopen-date.integration.test.ts \
             --reporter=default --reporter=json --outputFile=rls-integration-results.json
 
       # `describe.skipIf` reports as a file-level PASS when its guard is

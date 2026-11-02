@@ -19822,6 +19822,8 @@
       tellCancelledGuests: boolean;
       /** The rule and its skips and one-date edits as the screen read them; a change since is refused. */
       seen?: ReopenSeen;
+      /** Reopen only this date of a bounded range. */
+      date?: string;
     };
     export const useReopenClosure = createMutationHook<ReopenClosureVariables, ReopenResult>({
       invalidateKeys: [
@@ -19829,9 +19831,9 @@
         AVAILABILITY_DAYS_QUERY_KEY,
         CLOSURE_SUMMARIES_QUERY_KEY,
       ],
-      mutationFn: (api, { venueId, ruleId, tellCancelledGuests, seen }) =>
+      mutationFn: (api, { venueId, ruleId, tellCancelledGuests, seen, date }) =>
         trackOwnSave(venueId, () =>
-          api.availability.reopenClosure(venueId, ruleId, tellCancelledGuests, undefined, seen)
+          api.availability.reopenClosure(venueId, ruleId, tellCancelledGuests, undefined, seen, date)
         ),
     });
     export type PreviewClosureImpactsVariables = {
@@ -37617,7 +37619,7 @@
           summary: "Reopen a closure",
           operationId: "reopenClosure",
           description:
-            "Removes a closure (or special hours) saved through `POST …/closures` so its slots return. Guests it cancelled stay cancelled. Takes no `expectedVersion`: a save to anything else never stops a reopen. Optional `seen` is the rule and its skips and one-date edits as the caller read them (they are deleted together): if they differ now (a teammate extended or edited the rule), nothing is changed and the answer is 409 `version-conflict` naming the latest change, so the caller refreshes. A caller that sends no `seen` (an older client) reopens the rule as it is now, whatever changed since it read it; an already-removed rule answers 404. Manager, or a Host for the emergency close they made themselves on the current service day when the venue grants it.",
+            "Removes a closure (or special hours) saved through `POST …/closures` so its slots return. Guests it cancelled stay cancelled. Takes no `expectedVersion`: a save to anything else never stops a reopen. Optional `seen` is the rule and its skips and one-date edits as the caller read them (they are deleted together): if they differ now (a teammate extended or edited the rule), nothing is changed and the answer is 409 `version-conflict` naming the latest change, so the caller refreshes. A caller that sends no `seen` (an older client) reopens the rule as it is now, whatever changed since it read it; an already-removed rule answers 404. Optional `date` (Manager, needs `seen`) reopens only that date of a bounded, non-repeating range: the range is removed and its other dates are saved as new rules, each cancelled guest's outcome follows their date to the rule that still closes it, and the reopen notice reaches only guests on the reopened date. Undo of a reopen that told no guest puts the range and its outcomes back exactly. Manager, or a Host for the emergency close they made themselves on the current service day when the venue grants it.",
           tags: ["Availability"],
           security: [{ bearerAuth: [] }],
         },
@@ -37630,6 +37632,7 @@
             caller,
             tellCancelledGuests: request.body.tellCancelledGuests,
             seen: request.body.seen,
+            date: request.body.date,
             now: new Date(),
           });
           if (outcome.kind === "reopened") {
@@ -45904,6 +45907,7 @@
     export const ReopenClosureBodySchema = z.object({
       tellCancelledGuests: z.boolean(),
       seen: ReopenSeenSchema.optional(),
+      date: ServiceDateSchema.optional(),
     });
     export const ClosureOutcomeCountsSchema = z.object({
       cancel: z.number().int(),
@@ -54351,7 +54355,7 @@
       from: string;
       outcomeIds: string[];
     }
-    async function rekey(tx: Pick<Db, "$executeRaw">, ids: readonly string[], ruleId: string) {
+    export async function rekey(tx: Pick<Db, "$executeRaw">, ids: readonly string[], ruleId: string) {
       for (let i = 0; i < ids.length; i += CHUNK) {
         const chunk = ids.slice(i, i + CHUNK);
         await tx.$executeRaw`UPDATE closure_outcomes SET date_rule_id = ${ruleId} WHERE id IN (${Prisma.join(chunk)})`;
@@ -55165,9 +55169,11 @@
     ): Promise<void> {
       const removed = new Set(state.stored.dateRules.map((r) => r.id));
       for (const r of next.dateRules) removed.delete(r.id);
+      // The dates a one-date reopen keeps closed are new rules, which the effective config lacks.
+      const added = next.dateRules.filter((r) => !state.stored.dateRules.some((s) => s.id === r.id));
       const after = {
         ...state.effective,
-        dateRules: state.effective.dateRules.filter((r) => !removed.has(r.id)),
+        dateRules: [...state.effective.dateRules.filter((r) => !removed.has(r.id)), ...added],
       };
       const stranded = findStrandedReservations(
         { timezone: state.timezone, config: state.effective },
@@ -55179,6 +55185,27 @@
         kind: "invalid",
         issues: strandedIssues(stranded, "Removing this would leave this booking without service."),
       });
+    }
+    function splitFor(
+      input: { caller: ClosureCaller; seen?: ReopenSeen | undefined },
+      rule: DateRule,
+      date: string,
+      stored: readonly DateRule[]
+    ): DateRule[] {
+      if (!input.caller.isManager) throw new Refused({ kind: "forbidden" });
+      if (!input.seen) {
+        throw refuseReopen(
+          "seen_required",
+          "seen",
+          "Reopening one date needs the closure as you saw it."
+        );
+      }
+      if (stored.some((r) => r.seriesId === rule.id)) {
+        throw refuseReopen("has_edits", "date", "This closure has edited dates; reopen all of it.");
+      }
+      const split = rangeAround(rule, date, randomUUID);
+      if (split.kind === "invalid") throw refuseReopen("invalid_date", "date", split.message);
+      return split.parts;
     }
     function upcomingCancelled(db: Db, venueId: string, ruleId: string, now: Date): Promise<number> {
       return db.closureOutcome.count({
@@ -55198,6 +55225,8 @@
         tellCancelledGuests: boolean;
         now: Date;
         seen?: ReopenSeen | undefined;
+        /** Reopen only this date of a bounded range; the range's other dates stay closed. */
+        date?: string | undefined;
       },
       client: StoreClient = prisma
     ): Promise<ReopenOutcome> {
@@ -55227,14 +55256,22 @@
             throw new Refused((await refuseSeriesChanged(db, venueId, current)) as Refusal);
           }
     
+          const keep = input.date ? splitFor(input, rule, input.date, state.stored.dateRules) : [];
+          // What is reopened: the one date, or the whole rule.
+          const reopened = input.date ? { ...rule, startsOn: input.date, endsOn: input.date } : rule;
           const next = {
             ...state.stored,
             // Reopening a series also removes its skips and one-date edits (#7685).
-            dateRules: state.stored.dateRules.filter((r) => r.id !== ruleId && r.seriesId !== ruleId),
+            dateRules: [
+              ...state.stored.dateRules.filter((r) => r.id !== ruleId && r.seriesId !== ruleId),
+              ...keep,
+            ],
           };
           await refuseStrandingReopen(db, venueId, state, next, now);
           const diff = diffConfig(state.stored, next);
           await writeConfigDiff(db, venueId, diff, { actorId: caller.actorId, now });
+          // Each guest follows their date to the rule that still closes it; the reopened date's stay.
+          const carried = await carryByDate(db, venueId, ruleId, keep);
           await db.venue.update({
             where: { id: venueId },
             data: { operatingHours: projectLegacyOperatingHours(next) },
@@ -55243,7 +55280,7 @@
           const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
           const stillClosed = stillClosedAfterReopen(
             state.stored.dateRules,
-            rule,
+            reopened,
             civilDateIn(now, state.timezone)
           );
           // Only guests whose booking has not started get the notice (`listNotifiable`); the audit
@@ -55260,15 +55297,15 @@
               actorName: caller.actorName ?? null,
               at: now,
               kind: "reopen",
-              summary: `Closure reopened (${rule.startsOn})`,
-              ...detailData(reopenedDetail(rule)),
+              summary: `Closure reopened (${reopened.startsOn})`,
+              ...detailData(reopenedDetail(reopened)),
               affectedFrom: toDbDate(range.from),
               affectedTo: toDbDate(range.to),
-              inverse: inverseOf(
-                state.stored,
-                diff,
-                state.operatingHours
-              ) as unknown as Prisma.InputJsonValue,
+              inverse: {
+                ...inverseOf(state.stored, diff, state.operatingHours),
+                // Undo returns the guests this moved (offered only when the reopen told none).
+                ...(carried ? { closure: { carried } } : {}),
+              } as unknown as Prisma.InputJsonValue,
               notifiedGuests: notified > 0,
               version: bumped.availabilityVersion,
             },
@@ -56830,6 +56867,50 @@
         retry: (venueId, ruleId) =>
           enqueueClosureRefunds(deps, venueId, ruleId, ["failed", "pending"], { retry: true }),
       };
+    }
+  </file>
+  <file path="services/reservations/src/services/closure-reopen-date.ts">
+    export type RangeParts =
+      { kind: "parts"; parts: DateRule[] } | { kind: "invalid"; message: string };
+    export function rangeAround(rule: DateRule, date: string, newId: () => string): RangeParts {
+      if (rule.repeat != null) return invalid("A repeating closure skips a date instead.");
+      if (rule.endsOn == null) return invalid("An open-ended closure has no last date to split at.");
+      if (date < rule.startsOn || date > rule.endsOn) {
+        return invalid("That date is not one of the closure's dates.");
+      }
+      const parts: DateRule[] = [];
+      if (date > rule.startsOn) {
+        parts.push({ ...rule, id: newId(), endsOn: addDays(date, -1) });
+      }
+      if (date < rule.endsOn) {
+        parts.push({ ...rule, id: newId(), startsOn: addDays(date, 1) });
+      }
+      return { kind: "parts", parts };
+    }
+    type Db = Pick<PrismaClient, "closureOutcome" | "$executeRaw">;
+    export async function carryByDate(
+      tx: Db,
+      venueId: string,
+      from: string,
+      parts: readonly DateRule[]
+    ): Promise<CarriedOutcomes | null> {
+      const moved: string[] = [];
+      for (const part of parts) {
+        const rows = await tx.closureOutcome.findMany({
+          where: {
+            venueId,
+            dateRuleId: from,
+            reservation: {
+              date: { gte: toDbDate(part.startsOn)!, lte: toDbDate(part.endsOn ?? part.startsOn)! },
+            },
+          },
+          select: { id: true },
+        });
+        const ids = rows.map((r) => r.id);
+        if (ids.length > 0) await rekey(tx, ids, part.id);
+        moved.push(...ids);
+      }
+      return moved.length > 0 ? { from, outcomeIds: moved } : null;
     }
   </file>
   <file path="services/reservations/src/services/confirm-hold.ts">
@@ -75173,20 +75254,22 @@
       /**
        * Reopens a closure; guests it cancelled stay cancelled. `seen` is the rule and its skips and
        * one-date edits as this caller read them: if they differ now the server answers 409
-       * `version-conflict` and changes nothing. Without it the rule is reopened as it is.
+       * `version-conflict` and changes nothing. Without it the rule is reopened as it is. `date`
+       * (Manager, with `seen`) reopens only that date of a bounded range.
        */
       async reopenClosure(
         venueId: string,
         ruleId: string,
         tellCancelledGuests: boolean,
         override?: PerRequestOptions,
-        seen?: ReopenSeen
+        seen?: ReopenSeen,
+        date?: string
       ): Promise<ReopenResult> {
         const response = await this.client.call(
           availabilityConfigEndpoints.reopenClosure,
           {
             params: { id: venueId, ruleId },
-            body: { tellCancelledGuests, ...(seen ? { seen } : {}) },
+            body: { tellCancelledGuests, ...(seen ? { seen } : {}), ...(date ? { date } : {}) },
           },
           override
         );

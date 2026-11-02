@@ -1204,6 +1204,89 @@ describe("SpecialDatesTab", () => {
       expect(await screen.findByText("Thu, Dec 24 reopened")).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
     });
+
+    describe("one date of a range (#7984)", () => {
+      const holidays = {
+        id: "holidays",
+        kind: "closure",
+        targetKind: "venue",
+        startsOn: "2026-12-24",
+        endsOn: "2026-12-27",
+      } as DateRule;
+      beforeEach(() => {
+        // jsdom has no scrollIntoView; the Select's listbox calls it when it opens.
+        window.HTMLElement.prototype.scrollIntoView = vi.fn();
+      });
+      const openRange = (isManager = true) => {
+        summaries.value = [summary("holidays", { cancelled: 5, upcomingCancelled: 5 })];
+        renderTab(isManager, {
+          ...STATE,
+          config: { ...STATE.config, dateRules: [holidays] },
+        } as AvailabilityConfigState);
+        fireEvent.click(
+          screen.getByRole("button", { name: "Remove closure for Thu, Dec 24 to Sun, Dec 27" })
+        );
+        return screen.getByRole("dialog");
+      };
+      const pick = (dialog: HTMLElement, date: string) => {
+        fireEvent.click(within(dialog).getByRole("combobox", { name: "What to reopen" }));
+        fireEvent.click(screen.getByRole("option", { name: date }));
+      };
+
+      it("sends the date and the range as it was read, and words the reopen for that date", async () => {
+        const dialog = openRange();
+        pick(dialog, "Fri, Dec 25");
+
+        expect(within(dialog).getByText("Reopen Fri, Dec 25?")).toBeTruthy();
+        expect(
+          within(dialog).getByText(
+            "Guests can book Fri, Dec 25 again. The other dates in this range stay closed."
+          )
+        ).toBeTruthy();
+        expect(
+          within(dialog).getByRole("checkbox", {
+            name: /Tell the guests we cancelled on Fri, Dec 25/,
+          })
+        ).toBeTruthy();
+
+        fireEvent.click(within(dialog).getByRole("button", { name: "Reopen" }));
+        await waitFor(() =>
+          expect(reopen).toHaveBeenCalledWith({
+            venueId: "venue-1",
+            ruleId: "holidays",
+            tellCancelledGuests: true,
+            seen: { rule: holidays, children: [] },
+            date: "2026-12-25",
+          })
+        );
+        expect(await screen.findByText("Fri, Dec 25 reopened")).toBeTruthy();
+      });
+
+      it("reopens the whole range, with no date, when no date is picked", async () => {
+        const dialog = openRange();
+        fireEvent.click(within(dialog).getByRole("button", { name: "Reopen" }));
+        await waitFor(() => expect(reopen).toHaveBeenCalled());
+        expect(reopen.mock.lastCall?.[0]).not.toHaveProperty("date");
+      });
+
+      it("offers the dates from today on, not ones already past", () => {
+        const dialog = openRange();
+        fireEvent.click(within(dialog).getByRole("combobox", { name: "What to reopen" }));
+        expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
+          "All dates",
+          "Thu, Dec 24",
+          "Fri, Dec 25",
+          "Sat, Dec 26",
+          "Sun, Dec 27",
+        ]);
+      });
+
+      it("offers no date for a single-date closure", () => {
+        renderTab();
+        fireEvent.click(screen.getByRole("button", { name: "Remove closure for Thu, Dec 24" }));
+        expect(within(screen.getByRole("dialog")).queryByRole("combobox")).toBeNull();
+      });
+    });
   });
 
   it("names the closure, not the hours, when a series edit would strand bookings", async () => {
