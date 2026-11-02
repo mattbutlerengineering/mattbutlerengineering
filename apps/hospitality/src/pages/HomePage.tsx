@@ -1,5 +1,6 @@
 import { useVenueFormat } from "../hooks/useVenueFormat.js";
 import { useCallback } from "react";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { useAuth } from "@mbe/auth/react";
@@ -22,6 +23,41 @@ import { useSSEStatus, useSSEEventFeed } from "../hooks/useSSESync.js";
 import { deriveVenueOpenState } from "../utils/venueOpenState.js";
 import { formatVenueOpenLabel } from "../utils/venueOpenLabel.js";
 import styles from "./HomePage.module.css";
+
+/** Statuses where the server's own `detail` says exactly what happened: the cooldown (409) and a send it refused or could not make (424). */
+const WIN_BACK_REASON_STATUSES: ReadonlySet<number> = new Set([409, 424]);
+
+/** 4xx answers that do NOT prove the server finished with the request (a timeout, a rate limit). */
+const WIN_BACK_UNSURE_CLIENT_STATUSES: ReadonlySet<number> = new Set([408, 429]);
+
+/**
+ * Why a win-back send did not go out, for the Host. Only a definite refusal (a 4xx) may say the
+ * message was not sent: the server's own sentence for the cooldown and for a refused send, the
+ * house sentence for any other 4xx. Everything else (a 5xx, a timeout, no answer) can follow a
+ * send that went through, so it only says the outcome could not be confirmed.
+ */
+function describeWinBackFailure(error: unknown, t: TFunction): { title: string; detail: string } {
+  const { statusCode, problemDetails } = (error ?? {}) as {
+    statusCode?: unknown;
+    problemDetails?: { detail?: unknown };
+  };
+  const status = typeof statusCode === "number" ? statusCode : null;
+  const notSent = t("home.winBackFailed");
+  const serverDetail =
+    typeof problemDetails?.detail === "string" ? problemDetails.detail.trim() : "";
+  if (status !== null && WIN_BACK_REASON_STATUSES.has(status) && serverDetail) {
+    return { title: notSent, detail: serverDetail };
+  }
+  if (
+    status !== null &&
+    status >= 400 &&
+    status <= 499 &&
+    !WIN_BACK_UNSURE_CLIENT_STATUSES.has(status)
+  ) {
+    return { title: notSent, detail: describeApiError(error).detail };
+  }
+  return { title: t("home.winBackUnconfirmed"), detail: t("home.winBackUnconfirmedDetail") };
+}
 
 function StatsLoading() {
   return (
@@ -50,6 +86,9 @@ export function HomePage() {
   } = useLapsingGuests(selectedVenueId);
   const lapsingFailure = lapsingError ? describeApiError(lapsingError) : null;
   const sendWinBack = useSendWinBack();
+  const sendWinBackFailure = sendWinBack.isError
+    ? describeWinBackFailure(sendWinBack.error, t)
+    : null;
   const now = useNow();
   // Render-time derivation on the venue's own clock; `null` means "no sign".
   const openState = selectedVenue
@@ -128,6 +167,9 @@ export function HomePage() {
             />
           ) : (
             <LapsingGuestsWidget guests={lapsingGuests} onSendWinBack={handleSendWinBack} />
+          )}
+          {sendWinBackFailure && (
+            <ErrorRetryBanner title={sendWinBackFailure.title} error={sendWinBackFailure.detail} />
           )}
           {!isLoading && (
             <DepositExposureWidget

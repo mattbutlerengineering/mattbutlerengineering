@@ -1437,7 +1437,7 @@
       };
     }
     function winBackUnsure(name: string): string {
-      return `Couldn't confirm the win-back message to ${name} was sent. It may already have reached them, and no tool here can check. Tell the user that, and don't send it again unless they accept the guest could get it twice.`;
+      return `Couldn't confirm the win-back message to ${name} was sent. Check ${name} in list_lapsing_guests: lastWinBackAt is the last send the email provider confirmed, and winBackAttemptedAt is an attempt that may not have gone out. The server won't send another for a week after either; both null means nothing was recorded. Tell the user which it is.`;
     }
     function guestFailure(err: unknown, action: string, unsure: string | undefined) {
       const refusal = refusalOf(err);
@@ -1485,7 +1485,7 @@
         // ── Read ───────────────────────────────────────────────
         list_lapsing_guests: tool({
           description:
-            "List regular guests who are overdue for a visit (win-back candidates), most overdue first.",
+            "List regular guests who are overdue for a visit (win-back candidates), most overdue first, with lastWinBackAt (the last win-back the email provider confirmed, null = none) and winBackAttemptedAt (an attempt never confirmed, which may not have gone out, null = none).",
           inputSchema: z.object({}),
           execute: async () => {
             if (!venueId) return NO_VENUE;
@@ -1499,6 +1499,8 @@
                     name: g.name,
                     daysSinceLastVisit: g.daysSinceLastVisit,
                     daysOverdue: g.daysOverdue,
+                    lastWinBackAt: g.lastWinBackAt ?? null,
+                    winBackAttemptedAt: g.winBackAttemptedAt ?? null,
                   })),
               };
             } catch (err) {
@@ -1940,7 +1942,7 @@
         "Never ask the user for a venue ID, reservation ID, or table ID: look them up with the tools.",
         "Your earlier replies in this conversation were based on tool results that aren't shown to you again. Treat them as accurate: don't apologize for or correct them unless a new tool result actually contradicts them. When you need an earlier detail, such as an ID, look it up again.",
         "A change (booking, seating, no-show, walk-in, cancellation, table status, Tonight availability, closures and special hours, waitlist, guest profile, menu items, the active floor plan) runs only when the user presses the Confirm or Cancel button the chat shows with it. Tell them to use those buttons, and never ask them to type yes: typing a new message dismisses the pending change.",
-        "When a tool says it couldn't confirm a change, the change may have been saved: tell the user so, never say nothing changed, and check with the read it names before proposing it again. send_win_back has no read to check, so never propose it again for that guest unless the user accepts the guest could get the message twice.",
+        "When a tool says it couldn't confirm a change, the change may have been saved: tell the user so, never say nothing changed, and check with the read it names before proposing it again. for send_win_back that read is list_lapsing_guests: lastWinBackAt is a send the email provider confirmed, and winBackAttemptedAt is an attempt that may not have gone out; never propose it again for that guest while either is recent.",
         "Ask only for details the user has to decide, such as guest name, party size, or time. When a reservation's end time isn't given, use two hours after the start.",
         "Reply in short, plain sentences in the user's language. Don't use markdown: the chat shows plain text.",
         "Show elements only by calling render_component with an elements array: each element has a unique id, a type from the components below, its props, and children as a list of other elements' ids; an element no other element lists is shown at the top level. Never write JSON, element specs or patch lines in your reply text.",

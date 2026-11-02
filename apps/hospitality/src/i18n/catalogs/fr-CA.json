@@ -629,6 +629,9 @@
     "welcomeNamed": "Bon retour, {{name}}",
     "loadFailed": "Impossible de charger le tableau de bord.",
     "lapsingLoadFailed": "Impossible de charger les clients inactifs.",
+    "winBackFailed": "Impossible d’envoyer l’invitation de retour.",
+    "winBackUnconfirmed": "Impossible de confirmer l’invitation de retour.",
+    "winBackUnconfirmedDetail": "Elle a pu atteindre le client, ou non. Si c’est le cas, un nouvel envoi est bloqué pendant une semaine.",
     "actions": {
       "walkIn": "Sans réservation",
       "floorPlan": "Voir le plan de salle",
