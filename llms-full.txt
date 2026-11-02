@@ -14396,7 +14396,7 @@
           404: problem("Venue or closure not found"),
           422: {
             description:
-              "`invalid-config` with a `strands_booking` issue per booking: removing a one-date edit hands its date back to the series, which would leave these bookings without service. Nothing is changed",
+              "`invalid-config` with a `strands_booking` issue per booking: removing a one-date edit hands its date back to the series, which would leave these bookings without service. Each issue carries its `reservation` (guest, date, time, party) for the first 50; the issue count is the true count. Nothing is changed",
             body: AvailabilityConfigProblemSchema,
           },
         },
@@ -31960,7 +31960,7 @@
                 : {}),
             };
           } catch (err) {
-            log.error({ err, venueId }, "close_dates failed");
+            log.error({ ...failureLog(err), venueId }, "close_dates failed");
             return closureFailure(err, "Couldn't close the dates right now. Nothing was changed.");
           }
         },
@@ -32025,7 +32025,7 @@
               ...times,
             };
           } catch (err) {
-            log.error({ err, venueId }, "set_special_hours failed");
+            log.error({ ...failureLog(err), venueId }, "set_special_hours failed");
             return closureFailure(err, "Couldn't set the hours right now. Nothing was changed.");
           }
         },
@@ -32108,7 +32108,7 @@
             config = state.config;
             scopeText = scopeOf(rule, state.config);
             const counts = await api.availability.listClosures(venueId).catch((err: unknown) => {
-              log.error({ err, venueId }, "reopen_closure counts failed");
+              log.error({ ...failureLog(err), venueId }, "reopen_closure counts failed");
               return undefined;
             });
             if (!counts) {
@@ -32121,7 +32121,7 @@
             cancelled = summary?.cancelled ?? 0;
             reachable = summary?.upcomingCancelled ?? cancelled;
           } catch (err) {
-            log.error({ err, venueId }, "reopen_closure failed to read");
+            log.error({ ...failureLog(err), venueId }, "reopen_closure failed to read");
             return closureFailure(err, "Couldn't read the closures. Nothing was changed.");
           }
           const told = tellCancelledGuests && reachable > 0;
@@ -32132,7 +32132,7 @@
             // The server counts who the notice really reached; an older one does not say.
             notified = told ? (saved.notified ?? reachable) : 0;
           } catch (err) {
-            log.error({ err, venueId }, "reopen_closure failed");
+            log.error({ ...failureLog(err), venueId }, "reopen_closure failed");
             return closureFailure(err, SAVE_UNSURE);
           }
           const stays = stillClosedFields(saved, config);
@@ -32173,7 +32173,7 @@
               api.availability.getConfig(venueId),
               // The closures are still worth showing, but without counts: never as zero.
               api.availability.listClosures(venueId).catch((err: unknown) => {
-                log.error({ err, venueId }, "list_closures counts failed");
+                log.error({ ...failureLog(err), venueId }, "list_closures counts failed");
                 return undefined;
               }),
             ]);
@@ -32191,7 +32191,7 @@
               );
             return { closures, ...(counts ? {} : { countsUnavailable: true }) };
           } catch (err) {
-            log.error({ err, venueId }, "list_closures failed");
+            log.error({ ...failureLog(err), venueId }, "list_closures failed");
             return { error: "Couldn't read the closures. Ask the user to try again." };
           }
         },
@@ -44968,6 +44968,7 @@
       /** The service date it belongs to, where a past-midnight booking's start time would mislead. */
       serviceDate: ServiceDateSchema.optional(),
     });
+    export const STRANDED_ISSUE_DETAIL_MAX = 50;
     export const AVAILABILITY_CONFIG_PROBLEM_CODES = [
       "version-conflict",
       "invalid-config",
@@ -44997,7 +44998,20 @@
        */
       currentVersion: z.number().int().optional(),
       /** invalid-config: `validateConfig` issues, path-addressed into the next config. */
-      issues: z.array(z.object({ path: z.string(), code: z.string(), message: z.string() })).optional(),
+      issues: z
+        .array(
+          z.object({
+            path: z.string(),
+            code: z.string(),
+            message: z.string(),
+            /**
+             * `strands_booking`: the booking, for the first `STRANDED_ISSUE_DETAIL_MAX` issues. Never
+             * repeated in `message`, which an agent passes to a model.
+             */
+            reservation: StrandedReservationSchema.optional(),
+          })
+        )
+        .optional(),
       /** stranded-bookings: future reservations the change would leave outside service. */
       reservations: z.array(StrandedReservationSchema).optional(),
       /** decision-required / invalid-decision: the impact groups at fault. */
@@ -53740,6 +53754,24 @@
       /** Display name snapshotted on the audit row; absent or `null` when the token has none. */
       actorName?: string | null;
     }
+    export interface RefusalIssue {
+      path: string;
+      code: string;
+      message: string;
+      reservation?: StrandedReservation;
+    }
+    function strandedIssues(stranded: readonly StrandedReservation[], message: string): RefusalIssue[] {
+      // The database returns bookings in no order; the soonest are the ones to name, the same ones on a retry.
+      const soonestFirst = [...stranded].sort(
+        (a, b) => a.startTime.localeCompare(b.startTime) || a.id.localeCompare(b.id)
+      );
+      return soonestFirst.map((r, i) => ({
+        path: `reservations.${r.id}`,
+        code: "strands_booking",
+        message,
+        ...(i < STRANDED_ISSUE_DETAIL_MAX ? { reservation: r } : {}),
+      }));
+    }
     export type CreateClosureOutcome =
       | { kind: "saved"; result: ClosureResult }
       | { kind: "not_found" }
@@ -53748,7 +53780,7 @@
       | { kind: "version_conflict"; winningChange: AvailabilityChangeSummary | null }
       | { kind: "key_reused" }
       | { kind: "closure_exists" }
-      | { kind: "invalid"; issues: { path: string; code: string; message: string }[] }
+      | { kind: "invalid"; issues: RefusalIssue[] }
       | { kind: "decision_required"; groupKeys: string[] }
       | { kind: "invalid_decision"; groupKeys: string[] }
       | { kind: "move_unavailable"; reservationIds: string[] };
@@ -53955,11 +53987,10 @@
       if (stranded.length > 0) {
         throw new Refused({
           kind: "invalid",
-          issues: stranded.map((r) => ({
-            path: `reservations.${r.id}`,
-            code: "strands_booking",
-            message: "The rows replaced beside the closure would leave this booking without service.",
-          })),
+          issues: strandedIssues(
+            stranded,
+            "The rows replaced beside the closure would leave this booking without service."
+          ),
         });
       }
     }
@@ -54209,11 +54240,7 @@
       if (stranded.length === 0) return;
       throw new Refused({
         kind: "invalid",
-        issues: stranded.map((r) => ({
-          path: `reservations.${r.id}`,
-          code: "strands_booking",
-          message: "Removing this would leave this booking without service.",
-        })),
+        issues: strandedIssues(stranded, "Removing this would leave this booking without service."),
       });
     }
     function upcomingCancelled(db: Db, venueId: string, ruleId: string, now: Date): Promise<number> {

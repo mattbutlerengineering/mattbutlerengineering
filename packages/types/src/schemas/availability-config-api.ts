@@ -184,6 +184,13 @@ export const StrandedReservationSchema = z.object({
   serviceDate: ServiceDateSchema.optional(),
 });
 
+/**
+ * Most `strands_booking` issues of one refusal that carry their booking. The list is complete (one
+ * issue per booking, so its length is the true count); only the first this many are named, which
+ * bounds the guest data one refusal exposes and the body a client must render.
+ */
+export const STRANDED_ISSUE_DETAIL_MAX = 50;
+
 export const AVAILABILITY_CONFIG_PROBLEM_CODES = [
   "version-conflict",
   "invalid-config",
@@ -215,7 +222,20 @@ export const AvailabilityConfigProblemSchema = z.object({
    */
   currentVersion: z.number().int().optional(),
   /** invalid-config: `validateConfig` issues, path-addressed into the next config. */
-  issues: z.array(z.object({ path: z.string(), code: z.string(), message: z.string() })).optional(),
+  issues: z
+    .array(
+      z.object({
+        path: z.string(),
+        code: z.string(),
+        message: z.string(),
+        /**
+         * `strands_booking`: the booking, for the first `STRANDED_ISSUE_DETAIL_MAX` issues. Never
+         * repeated in `message`, which an agent passes to a model.
+         */
+        reservation: StrandedReservationSchema.optional(),
+      })
+    )
+    .optional(),
   /** stranded-bookings: future reservations the change would leave outside service. */
   reservations: z.array(StrandedReservationSchema).optional(),
   /** decision-required / invalid-decision: the impact groups at fault. */

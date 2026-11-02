@@ -464,6 +464,48 @@ describe("closure routes", () => {
       expect(noticeSvc.enqueueForReopen).not.toHaveBeenCalled();
     });
 
+    it("sends each stranded booking on its issue, and no guest name reaches a log (#8043)", async () => {
+      const lines: string[] = [];
+      const logged = await buildApp({
+        logger: { level: "trace", stream: { write: (line: string) => void lines.push(line) } },
+        services: {
+          closureCommandService: commandSvc as never,
+          closureNoticeService: noticeSvc as never,
+        },
+        closureRefunds,
+      });
+      await logged.ready();
+      const reservation = {
+        id: "r1",
+        startTime: "2026-12-25T03:00:00.000Z",
+        partySize: 4,
+        reason: "closed",
+        guestName: "Okafor-Zielinski",
+        serviceDate: "2026-12-24",
+      };
+      commandSvc.reopen.mockResolvedValueOnce({
+        kind: "invalid",
+        issues: [
+          { path: "reservations.r1", code: "strands_booking", message: "no service", reservation },
+        ],
+      });
+
+      const res = await logged.inject({
+        method: "DELETE",
+        url: `${URL}/dr-1`,
+        headers: ADMIN,
+        payload: { tellCancelledGuests: false },
+      });
+      await logged.close();
+
+      expect(res.statusCode).toBe(422);
+      expect(AvailabilityConfigProblemSchema.parse(res.json()).issues?.[0]?.reservation).toEqual(
+        reservation
+      );
+      expect(lines.length).toBeGreaterThan(0);
+      expect(lines.join("")).not.toContain("Okafor-Zielinski");
+    });
+
     it("rejects a body without tellCancelledGuests", async () => {
       expect((await del({})).statusCode).toBe(400);
     });
