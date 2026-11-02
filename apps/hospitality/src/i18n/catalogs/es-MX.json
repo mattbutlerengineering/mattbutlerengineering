@@ -1728,6 +1728,7 @@
       "strandedMore_many": "y {{count}} más sin mostrar",
       "countUnknown": "No se pudo comprobar a cuántos clientes canceló este cierre. Reabrir espera a que cargue el conteo.",
       "retryCount": "Reintentar",
+      "changed": "Un compañero cambió este cierre mientras lo tenías abierto, así que no se reabrió. La lista ya está actualizada: revísala y vuelve a reabrirlo si todavía quieres hacerlo.",
       "descriptionStillClosed": "Esto quita un cierre, pero otro sigue cerrando estas fechas, así que los clientes aún no pueden reservarlas.",
       "doneStillClosed": "Cierre eliminado: {{date}}. No se reabrió"
     },

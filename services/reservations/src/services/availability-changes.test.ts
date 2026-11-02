@@ -36,6 +36,16 @@ const row = (over: Record<string, unknown>) => ({
   ...over,
 });
 
+/** What `newestInForce` selects of an audit row. */
+const inForce = (r: ReturnType<typeof row>) => ({
+  id: r.id,
+  actorId: r.actorId,
+  at: r.at,
+  kind: r.kind,
+  summary: r.summary,
+  notifiedGuests: r.notifiedGuests,
+});
+
 describe("listAvailabilityChanges", () => {
   const query = { limit: 25, offset: 0 };
 
@@ -83,7 +93,7 @@ describe("listAvailabilityChanges", () => {
       availabilityChange: {
         findMany,
         count: vi.fn(async () => 7),
-        findFirst: vi.fn(async () => ({ id: "chg-3" })),
+        findFirst: vi.fn(async () => inForce(newest)),
       },
     });
 
@@ -99,6 +109,13 @@ describe("listAvailabilityChanges", () => {
     expect(page).toEqual({
       total: 7,
       offset: 4,
+      undoable: {
+        id: "chg-3",
+        actorId: "auth0|ana",
+        at: "2026-10-25T18:30:00.000Z",
+        kind: "config",
+        summary: "Availability updated: 0 added, 1 changed, 0 removed",
+      },
       items: [
         expect.objectContaining({
           id: "chg-3",
@@ -112,6 +129,49 @@ describe("listAvailabilityChanges", () => {
     });
   });
 
+  it("names the undoable change even when the page holds another, and none when it told guests (#8120)", async () => {
+    const page = (inForceRow: Record<string, unknown> | null) =>
+      listAvailabilityChanges(
+        "venue-1",
+        { limit: 1, offset: 0 },
+        fakeClient({
+          venue: { findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: TZ })) },
+          availabilityChange: {
+            // The page's one row is the save; the change Undo is on is the older-stamped reopen.
+            findMany: vi.fn(async () => [row({ id: "save" })]),
+            count: vi.fn(async () => 2),
+            findFirst: vi.fn(async () => inForceRow),
+          },
+        })
+      );
+
+    const reopen = row({ id: "reopen", kind: "reopen", summary: "Closure reopened (2026-12-24)" });
+    expect((await page(inForce(reopen)))?.undoable).toMatchObject({ id: "reopen", kind: "reopen" });
+    expect((await page(inForce(reopen)))?.items[0]?.revertible).toBe(false);
+    expect((await page(inForce({ ...reopen, notifiedGuests: true })))?.undoable).toBeNull();
+    expect((await page(null))?.undoable).toBeNull();
+  });
+
+  it("picks the change Undo is offered on by the version it produced, rows without one after, by time", async () => {
+    const findFirst = vi.fn(async () => null);
+    const client = fakeClient({
+      venue: { findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: TZ })) },
+      availabilityChange: {
+        findMany: vi.fn(async () => []),
+        count: vi.fn(async () => 0),
+        findFirst,
+      },
+    });
+
+    await listAvailabilityChanges("venue-1", { limit: 25, offset: 0 }, client);
+
+    expect(findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [{ version: { sort: "desc", nulls: "last" } }, { at: "desc" }, { id: "desc" }],
+      })
+    );
+  });
+
   it("never offers Revert on a change that told guests, was reverted, or is itself a revert", async () => {
     const rows = [
       row({ id: "a", notifiedGuests: true }),
@@ -123,7 +183,7 @@ describe("listAvailabilityChanges", () => {
       availabilityChange: {
         findMany: vi.fn(async () => rows),
         count: vi.fn(async () => 3),
-        findFirst: vi.fn(async () => ({ id: "a" })),
+        findFirst: vi.fn(async () => inForce(rows[0]!)),
       },
     });
 

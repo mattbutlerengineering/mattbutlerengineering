@@ -607,6 +607,32 @@ describe("endTonight", () => {
     });
   });
 
+  it("takes the venue row lock before it reads the config, so what it ends is the current state", async () => {
+    const w = world();
+    await run(w, body({ type: "pause_online" }));
+    const { client, tx } = fakeClient(w);
+
+    await endTonight({ venueId: "v", ruleId: "t-new", caller: HOST, now: NOW }, client);
+
+    const lock = tx.venue.update.mock.invocationCallOrder[0]!;
+    const read = tx.schedule.findMany.mock.invocationCallOrder[0]!;
+    expect(lock).toBeLessThan(read);
+    expect(w.changes.at(-1)).toMatchObject({ kind: "tonight_end", version: 6 });
+  });
+
+  it("rolls the lock's version bump back when the rule is not found", async () => {
+    const w = world();
+    const { client } = fakeClient(w);
+
+    const outcome = await endTonight(
+      { venueId: "v", ruleId: "gone", caller: HOST, now: NOW },
+      client
+    );
+
+    expect(outcome.kind).toBe("not_found");
+    expect(w.version).toBe(4);
+  });
+
   it("does not find a rule that is not a Tonight change", async () => {
     const w = world();
     w.dateRules = [

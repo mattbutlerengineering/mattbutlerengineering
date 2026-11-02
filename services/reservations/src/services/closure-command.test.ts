@@ -1375,6 +1375,117 @@ describe("reopenClosure", () => {
     });
   });
 
+  describe("a reopen from a view of the rule that has since changed (#8121)", () => {
+    // The rule as a client read it: the shape of the config response.
+    const seenRule = (patch: Record<string, unknown> = {}) => ({
+      id: "dr-new",
+      kind: "closure",
+      targetKind: "venue",
+      startsOn: "2026-12-24",
+      endsOn: "2026-12-24",
+      ...patch,
+    });
+    const seenChild = (id: string, day: string) => ({
+      id,
+      kind: "skip",
+      targetKind: "venue",
+      seriesId: "dr-new",
+      startsOn: day,
+      endsOn: day,
+    });
+    const reopenSeen = (w: World, seen: unknown) => {
+      const { client } = fakeClient(w);
+      const before = { version: w.version, changes: w.changes.length };
+      return reopenClosure(
+        {
+          venueId: "v",
+          ruleId: "dr-new",
+          caller: MANAGER,
+          tellCancelledGuests: false,
+          now: NOW,
+          seen: seen as never,
+        },
+        client
+      ).then((outcome) => ({ outcome, before }));
+    };
+    const storedRule = (patch: Record<string, unknown> = {}) => ({
+      ...rowFor("closure"),
+      ...patch,
+    });
+
+    it("reopens a rule the caller saw as it is, whatever else was saved since", async () => {
+      const w = world({ version: 9 });
+      w.dateRules = [storedRule(), { ...rowFor("closure"), id: "unrelated" }];
+
+      const { outcome } = await reopenSeen(w, { rule: seenRule(), children: [] });
+
+      expect(outcome.kind).toBe("reopened");
+    });
+
+    it("refuses as a version conflict when a teammate extended the rule, changing nothing", async () => {
+      const w = world({ version: 6 });
+      w.dateRules = [storedRule({ endsOn: new Date("2026-12-31T00:00:00.000Z") })];
+
+      const { outcome, before } = await reopenSeen(w, { rule: seenRule(), children: [] });
+
+      expect(outcome).toMatchObject({ kind: "version_conflict" });
+      expect(w.version).toBe(before.version);
+      expect(w.changes).toHaveLength(before.changes);
+      expect(w.dateRules).toHaveLength(1);
+    });
+
+    it("refuses when a skip was added to the rule since the caller read it", async () => {
+      const w = world();
+      w.dateRules = [storedRule(), { ...rowFor("skip"), id: "k9", seriesId: "dr-new" }];
+
+      const { outcome } = await reopenSeen(w, { rule: seenRule(), children: [] });
+
+      expect(outcome).toMatchObject({ kind: "version_conflict" });
+    });
+
+    it("refuses when a skip the caller saw is gone", async () => {
+      const w = world();
+      w.dateRules = [storedRule()];
+
+      const { outcome } = await reopenSeen(w, {
+        rule: seenRule(),
+        children: [seenChild("k1", "2026-12-24")],
+      });
+
+      expect(outcome).toMatchObject({ kind: "version_conflict" });
+    });
+
+    it("reads an empty message and a missing one as the same, as the route's Ajv turns null into an empty string", async () => {
+      const w = world();
+      w.dateRules = [storedRule()];
+
+      const { outcome } = await reopenSeen(w, {
+        rule: seenRule({ guestMessage: "", staffNote: "", venueServiceId: "", seriesId: "" }),
+        children: [],
+      });
+
+      expect(outcome.kind).toBe("reopened");
+    });
+
+    it("reports the version the venue is on, not the bump it took to read the rule", async () => {
+      const w = world({ version: 6 });
+      w.dateRules = [storedRule({ endsOn: new Date("2026-12-31T00:00:00.000Z") })];
+
+      const { outcome } = await reopenSeen(w, { rule: seenRule(), children: [] });
+
+      expect(outcome).toMatchObject({ kind: "version_conflict", currentVersion: 6 });
+    });
+
+    it("keeps today's behaviour when the caller sends nothing it saw", async () => {
+      const w = world();
+      w.dateRules = [storedRule({ endsOn: new Date("2026-12-31T00:00:00.000Z") })];
+
+      const { outcome } = await reopenSeen(w, undefined);
+
+      expect(outcome.kind).toBe("reopened");
+    });
+  });
+
   describe("a series (#7685)", () => {
     const series = {
       ...rowFor("closure"),

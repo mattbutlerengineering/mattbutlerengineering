@@ -3401,7 +3401,7 @@
           summary: "Reopen a closure",
           operationId: "reopenClosure",
           description:
-            "Removes a closure (or special hours) saved through `POST …/closures` so its slots return. Guests it cancelled stay cancelled. Manager, or a Host for the emergency close they made themselves on the current service day when the venue grants it.",
+            "Removes a closure (or special hours) saved through `POST …/closures` so its slots return. Guests it cancelled stay cancelled. Takes no `expectedVersion`: a save to anything else never stops a reopen. Optional `seen` is the rule and its skips and one-date edits as the caller read them (they are deleted together): if they differ now (a teammate extended or edited the rule), nothing is changed and the answer is 409 `version-conflict` naming the latest change, so the caller refreshes. A caller that sends no `seen` (an older client, the agent) reopens the rule as it is now, whatever changed since it read it; an already-removed rule answers 404. Manager, or a Host for the emergency close they made themselves on the current service day when the venue grants it.",
           tags: ["Availability"],
           security: [{ bearerAuth: [] }],
         },
@@ -3413,6 +3413,7 @@
             ruleId: request.params.ruleId,
             caller,
             tellCancelledGuests: request.body.tellCancelledGuests,
+            seen: request.body.seen,
             now: new Date(),
           });
           if (outcome.kind === "reopened") {
@@ -9295,7 +9296,7 @@
           summary: "End a Tonight change early",
           operationId: "endTonight",
           description:
-            "Removes a Tonight change before its service day ends so its slots and tables return. Bookings a close-early cancelled stay cancelled. Host or Manager.",
+            "Removes a Tonight change before its service day ends so its slots and tables return. Bookings a close-early cancelled stay cancelled. Takes no `expectedVersion`: a Host in live service is never refused for a version they could not know. It acts on the rule named, against the current state (it takes the venue lock before reading it), so a change saved while it waited is kept; an already-ended rule answers 404. Host or Manager.",
           tags: ["Availability"],
           security: [{ bearerAuth: [] }],
         },
@@ -11168,8 +11169,8 @@
     function newestInForce(db: Pick<StoreTx, "availabilityChange">, venueId: string) {
       return db.availabilityChange.findFirst({
         where: { venueId, revertedById: null, kind: { not: REVERT_KIND } },
-        orderBy: [{ at: "desc" }, { id: "desc" }],
-        select: { id: true },
+        orderBy: [{ version: { sort: "desc", nulls: "last" } }, { at: "desc" }, { id: "desc" }],
+        select: { id: true, actorId: true, at: true, kind: true, summary: true, notifiedGuests: true },
       });
     }
     type StoreTx = Pick<PrismaClient, "venue" | "availabilityChange">;
@@ -11215,7 +11216,19 @@
             r.revertedById == null &&
             r.kind !== REVERT_KIND,
         }));
-        return { total, offset: query.offset, items };
+        // The change Undo is on, whatever this page holds: a caller reading one row (the agent) would
+        // otherwise see the newest by `at`, which after a lock-wait race is not the one in force.
+        const undoable =
+          newest && !newest.notifiedGuests
+            ? {
+                id: newest.id,
+                actorId: newest.actorId,
+                at: newest.at.toISOString(),
+                kind: newest.kind,
+                summary: newest.summary,
+              }
+            : null;
+        return { total, offset: query.offset, items, undoable };
       });
     }
     export type RevertRefusalReason =
@@ -13721,6 +13734,21 @@
       const { id, startsOn, endsOn, repeat } = series;
       return !same({ ...draft, id, startsOn, endsOn, repeat }, series);
     }
+    export function ruleChangedSinceSeen(
+      stored: readonly DateRule[],
+      ruleId: string,
+      seen: ReopenSeen
+    ): boolean {
+      const rule = stored.find((r) => r.id === ruleId);
+      if (!rule || !same(seen.rule, rule)) return true;
+      const children = stored.filter((r) => r.seriesId === ruleId);
+      if (children.length !== seen.children.length) return true;
+      const seenById = new Map(seen.children.map((c) => [c.id, c]));
+      return children.some((c) => {
+        const was = seenById.get(c.id);
+        return !was || !same(was, c);
+      });
+    }
     export function checkAlongside(
       stored: readonly DateRule[],
       draft: DateRule,
@@ -14637,7 +14665,7 @@
       | { kind: "reopened"; result: ReopenResult }
       | { kind: "not_found" }
       | { kind: "forbidden" }
-      | Extract<Refusal, { kind: "invalid" }>;
+      | Extract<Refusal, { kind: "invalid" | "version_conflict" }>;
     async function refuseStrandingReopen(
       tx: Db,
       venueId: string,
@@ -14679,6 +14707,7 @@
         caller: ClosureCaller;
         tellCancelledGuests: boolean;
         now: Date;
+        seen?: ReopenSeen | undefined;
       },
       client: StoreClient = prisma
     ): Promise<ReopenOutcome> {
@@ -14702,6 +14731,11 @@
           }
           await guard(db, { venueId, caller, rule, now });
           if (!caller.isManager) await requireAuthor(db, venueId, ruleId, caller.actorId);
+          if (input.seen && ruleChangedSinceSeen(state.stored.dateRules, ruleId, input.seen)) {
+            // The venue is on the version before this transaction's own bump, which is rolled back.
+            const current = bumped.availabilityVersion - 1;
+            throw new Refused((await refuseSeriesChanged(db, venueId, current)) as Refusal);
+          }
     
           const next = {
             ...state.stored,
@@ -24014,11 +24048,38 @@
       client: StoreClient = prisma
     ): Promise<EndTonightOutcome> {
       const { venueId, ruleId, caller, now } = input;
+      try {
+        return await endTonightIn(client, { venueId, ruleId, caller, now });
+      } catch (error) {
+        if (error instanceof Refused) return error.outcome as EndTonightOutcome;
+        throw error;
+      }
+    }
+    async function endTonightIn(
+      client: StoreClient,
+      input: {
+        venueId: string;
+        ruleId: string;
+        caller: Pick<ClosureCaller, "actorId" | "actorName">;
+        now: Date;
+      }
+    ): Promise<EndTonightOutcome> {
+      const { venueId, ruleId, caller, now } = input;
       return client.$transaction(async (tx): Promise<EndTonightOutcome> => {
         await setVenueContext(tx, venueId);
+        // Take the venue row first, as `reopenClosure` does: the state read below, the diff and the
+        // inverse are then the current ones, never a save's that committed while this waited. No
+        // expectedVersion is asked for: ending is by rule id, idempotent in effect, and a Host ending
+        // Tonight in live service must not be refused for a version they could not know (#8121). A
+        // refusal below rolls the bump back with the rest of the transaction.
+        await tx.venue.update({
+          where: { id: venueId },
+          data: { availabilityVersion: { increment: 1 } },
+          select: { id: true },
+        });
         const state = await loadConfigState(tx, venueId, now);
         const rule = state?.stored.dateRules.find((r) => r.id === ruleId);
-        if (!state || !rule || rule.kind !== "tonight") return { kind: "not_found" };
+        if (!state || !rule || rule.kind !== "tonight") throw new Refused({ kind: "not_found" });
     
         const next = {
           ...state.stored,
@@ -24028,10 +24089,7 @@
         await writeConfigDiff(tx, venueId, diff, { actorId: caller.actorId, now });
         const bumped = await tx.venue.update({
           where: { id: venueId },
-          data: {
-            availabilityVersion: { increment: 1 },
-            operatingHours: projectLegacyOperatingHours(next),
-          },
+          data: { operatingHours: projectLegacyOperatingHours(next) },
           select: { availabilityVersion: true },
         });
         const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));

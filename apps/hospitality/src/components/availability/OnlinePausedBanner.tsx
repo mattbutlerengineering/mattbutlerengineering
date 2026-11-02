@@ -50,7 +50,14 @@ export function OnlinePausedBanner({ venueId, state, rule, canResume }: OnlinePa
     setResuming(true);
     try {
       if (others.length === 0) {
-        await reopen.mutateAsync({ venueId, ruleId: rule.id, tellCancelledGuests: false });
+        // What this banner read of the pause: a channel a teammate added since would go with it.
+        const children = state.config.dateRules.filter((r) => r.seriesId === rule.id);
+        await reopen.mutateAsync({
+          venueId,
+          ruleId: rule.id,
+          tellCancelledGuests: false,
+          seen: { rule, children },
+        });
       } else {
         // The pause also holds another channel: take online out of it and leave the rest paused.
         await saveConfig.mutateAsync({

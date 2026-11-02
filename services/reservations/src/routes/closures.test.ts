@@ -460,6 +460,72 @@ describe("closure routes", () => {
       );
     });
 
+    describe("what the caller saw of the rule (#8121)", () => {
+      const seen = { rule, children: [] };
+
+      it("hands the rule and children it saw to the store, and nothing when it sent none", async () => {
+        commandSvc.reopen.mockResolvedValue({
+          kind: "reopened",
+          result: { version: 6, changeId: "chg-2" },
+        });
+
+        await del({ tellCancelledGuests: false, seen });
+        expect(commandSvc.reopen).toHaveBeenLastCalledWith(expect.objectContaining({ seen }));
+
+        await del({ tellCancelledGuests: false });
+        expect(commandSvc.reopen.mock.lastCall?.[0].seen).toBeUndefined();
+        commandSvc.reopen.mockReset();
+      });
+
+      it("accepts null messages through Ajv, which hands them on as empty strings", async () => {
+        commandSvc.reopen.mockResolvedValueOnce({
+          kind: "reopened",
+          result: { version: 6, changeId: "chg-2" },
+        });
+
+        const response = await del({
+          tellCancelledGuests: false,
+          seen: { rule: { ...rule, guestMessage: null, staffNote: null }, children: [] },
+        });
+
+        expect(response.statusCode).toBe(200);
+        expect(commandSvc.reopen.mock.lastCall?.[0].seen.rule).toMatchObject({
+          guestMessage: "",
+          staffNote: "",
+        });
+      });
+
+      it("refuses a seen that is not a rule row, before the store", async () => {
+        commandSvc.reopen.mockClear();
+
+        const response = await del({ tellCancelledGuests: false, seen: { rule: { id: "x" } } });
+
+        expect(response.statusCode).toBe(400);
+        expect(commandSvc.reopen).not.toHaveBeenCalled();
+      });
+
+      it("409s a changed rule as a version conflict naming the change, and tells no guest", async () => {
+        noticeSvc.enqueueForReopen.mockClear();
+        const winningChange = {
+          id: "chg-9",
+          actorId: "auth0|ana",
+          at: "2026-11-01T12:00:00.000Z",
+          kind: "closure",
+          summary: "Closure extended",
+        };
+        commandSvc.reopen.mockResolvedValueOnce({ kind: "version_conflict", winningChange });
+
+        const response = await del({ tellCancelledGuests: true, seen });
+
+        expect(response.statusCode).toBe(409);
+        expect(AvailabilityConfigProblemSchema.parse(response.json())).toMatchObject({
+          code: "version-conflict",
+          winningChange,
+        });
+        expect(noticeSvc.enqueueForReopen).not.toHaveBeenCalled();
+      });
+    });
+
     it("enqueues reopen notices only when the Manager chose to tell cancelled guests", async () => {
       const reopened = { kind: "reopened", result: { version: 6, changeId: "chg-2" } };
       commandSvc.reopen.mockResolvedValueOnce(reopened);

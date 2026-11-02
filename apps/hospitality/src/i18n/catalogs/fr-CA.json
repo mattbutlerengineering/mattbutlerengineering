@@ -1728,6 +1728,7 @@
       "strandedMore_many": "et {{count}} autres non affichées",
       "countUnknown": "Impossible de vérifier combien de clients cette fermeture a annulés. La réouverture attend le chargement du compte.",
       "retryCount": "Réessayer",
+      "changed": "Un collègue a modifié cette fermeture pendant que vous l'aviez ouverte, elle n'a donc pas été rouverte. La liste est à jour : examinez-la et rouvrez de nouveau si vous le souhaitez toujours.",
       "descriptionStillClosed": "Ceci retire une fermeture, mais une autre ferme encore ces dates : les clients ne peuvent pas encore les réserver.",
       "doneStillClosed": "Fermeture retirée : {{date}}. Pas rouvert"
     },

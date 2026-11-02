@@ -201,6 +201,11 @@
           401: authRequired,
           403: notClosureCaller,
           404: problem("Venue or closure not found"),
+          409: {
+            description:
+              "`version-conflict`: the body's `seen` rule (or its skips and one-date edits) differs from the stored one, so it changed since the caller read it. Nothing is changed; `winningChange` names the latest change. Only possible when `seen` is sent",
+            body: AvailabilityConfigProblemSchema,
+          },
           422: {
             description:
               "`invalid-config` with a `strands_booking` issue per booking: removing a one-date edit hands its date back to the series, which would leave these bookings without service. Each issue carries its `reservation` (guest, date, time, party) for the first 50; the issue count is the true count. Nothing is changed",
@@ -731,6 +736,12 @@
       offset: z.number().int(),
       /** Newest first. */
       items: z.array(AvailabilityChangeEntrySchema),
+      /**
+       * The change Undo is offered on now: the newest still in force, when it told no guest; `null`
+       * when there is none. Independent of the filters, `limit` and `offset`, so a one-row page can
+       * still name it. Absent from an older API, whose caller falls back to the page's `revertible`.
+       */
+      undoable: AvailabilityChangeSummarySchema.nullish(),
     });
     export const RevertAvailabilityChangeBodySchema = z.object({
       expectedVersion: z.number().int().min(0),
@@ -1010,7 +1021,14 @@
         .min(1)
         .max(MAX_CLOSURE_BATCH),
     });
-    export const ReopenClosureBodySchema = z.object({ tellCancelledGuests: z.boolean() });
+    export const ReopenSeenSchema = z.object({
+      rule: DateRuleSchema,
+      children: z.array(DateRuleSchema),
+    });
+    export const ReopenClosureBodySchema = z.object({
+      tellCancelledGuests: z.boolean(),
+      seen: ReopenSeenSchema.optional(),
+    });
     export const ClosureOutcomeCountsSchema = z.object({
       cancel: z.number().int(),
       move: z.number().int(),
@@ -1142,6 +1160,7 @@
     export type ClosureDecision = z.infer<typeof ClosureDecisionSchema>;
     export type CreateClosureBody = z.infer<typeof CreateClosureBodySchema>;
     export type ReopenClosureBody = z.infer<typeof ReopenClosureBodySchema>;
+    export type ReopenSeen = z.infer<typeof ReopenSeenSchema>;
     export type ClosureResult = z.infer<typeof ClosureResultSchema>;
     export type CreateClosuresBody = z.infer<typeof CreateClosuresBodySchema>;
     export type ClosuresResult = z.infer<typeof ClosuresResultSchema>;

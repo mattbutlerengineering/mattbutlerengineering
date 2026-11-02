@@ -10715,6 +10715,11 @@
       ): Promise<{ change: TonightChange } | { error: string }> { /* ... */ }
     </item>
     <item priority="medium">
+      function undoableOf(
+        page: AvailabilityChangesPage
+      ): { id: string; summary: string; at: string } | null { /* ... */ }
+    </item>
+    <item priority="medium">
       function availabilityWriteFailure(err: unknown, action: string, unsure: string | undefined) { /* ... */ }
     </item>
     <item priority="high">
@@ -12795,6 +12800,9 @@
       export const CreateClosuresBodySchema: unknown;
     </item>
     <item priority="high">
+      export const ReopenSeenSchema: unknown;
+    </item>
+    <item priority="high">
       export const ReopenClosureBodySchema: unknown;
     </item>
     <item priority="high">
@@ -12856,6 +12864,9 @@
     </item>
     <item priority="low">
       type ReopenClosureBody = z.infer<typeof ReopenClosureBodySchema>;
+    </item>
+    <item priority="low">
+      type ReopenSeen = z.infer<typeof ReopenSeenSchema>;
     </item>
     <item priority="low">
       type ClosureResult = z.infer<typeof ClosureResultSchema>;
@@ -16043,6 +16054,13 @@
       ): boolean { /* ... */ }
     </item>
     <item priority="high">
+      export function ruleChangedSinceSeen(
+        stored: readonly DateRule[],
+        ruleId: string,
+        seen: ReopenSeen
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
       export function checkAlongside(
         stored: readonly DateRule[],
         draft: DateRule,
@@ -16390,6 +16408,7 @@
           caller: ClosureCaller;
           tellCancelledGuests: boolean;
           now: Date;
+          seen?: ReopenSeen | undefined;
         },
         client: StoreClient = prisma
       ): Promise<ReopenOutcome> { /* ... */ }
@@ -18534,6 +18553,17 @@
           now: Date;
         },
         client: StoreClient = prisma
+      ): Promise<EndTonightOutcome> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function endTonightIn(
+        client: StoreClient,
+        input: {
+          venueId: string;
+          ruleId: string;
+          caller: Pick<ClosureCaller, "actorId" | "actorName">;
+          now: Date;
+        }
       ): Promise<EndTonightOutcome> { /* ... */ }
     </item>
     <item priority="high">
