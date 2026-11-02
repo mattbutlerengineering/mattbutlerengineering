@@ -216,6 +216,13 @@ describe("buildRoutineFindingTitle / extractRoutineNameFromIssueTitle", () => {
     expect(extractRoutineNameFromIssueTitle({ title })).toBe("mbe-daily-issue");
   });
 
+  it("round-trips a blocked finding's status through its title (#8067)", () => {
+    const title = buildRoutineFindingTitle("mbe-daily-issue", "blocked");
+    expect(title).not.toContain("is dark");
+    expect(extractRoutineFindingStatusFromTitle({ title })).toBe("blocked");
+    expect(extractRoutineNameFromIssueTitle({ title })).toBe("mbe-daily-issue");
+  });
+
   it("returns null for a title that isn't a routine-liveness finding", () => {
     expect(extractRoutineNameFromIssueTitle({ title: "ci-fix: something unrelated" })).toBe(null);
   });
@@ -269,6 +276,12 @@ describe("buildRoutineFindingBody / buildRoutineFindingCreateArgs", () => {
     expect(body).not.toContain("**Most recent matching artifact:** []");
     expect(body).toContain("error");
     expect(body).toContain("awaiting human merge");
+  });
+
+  it("a blocked finding is labelled ready-for-human, never ready (#8067)", () => {
+    const args = buildRoutineFindingCreateArgs("title", "body", "blocked");
+    expect(args).toContain("ready-for-human");
+    expect(args).not.toContain(COORDINATION_LABELS.READY);
   });
 
   it("builds create args carrying the ci-fix and ready labels", () => {
@@ -1583,8 +1596,16 @@ describe("heartbeat classification (#6190)", () => {
     expect(classify([beat("throttled", "2026-10-10T09:40:00Z")]).status).toBe("throttled");
   });
 
-  it("error is dark", () => {
-    expect(classify([beat("error", "2026-10-10T09:40:00Z")]).status).toBe("dark");
+  it("a fresh error heartbeat is blocked, not dark (#8067)", () => {
+    expect(
+      classify([beat("error", "2026-11-01T14:55:06Z")], { now: new Date("2026-11-01T15:02:38Z") })
+        .status
+    ).toBe("blocked");
+    expect(classify([beat("error", "2026-10-10T09:40:00Z")]).status).toBe("blocked");
+  });
+
+  it("an error heartbeat older than 2 periods is still dark (#8067)", () => {
+    expect(classify([beat("error", "2026-10-05T09:40:00Z")]).status).toBe("dark");
   });
 
   it("the newest heartbeat wins over an older one", () => {
@@ -1593,7 +1614,7 @@ describe("heartbeat classification (#6190)", () => {
     ).toBe("alive");
     expect(
       classify([beat("ok", "2026-10-09T09:40:00Z"), beat("error", "2026-10-10T09:40:00Z")]).status
-    ).toBe("dark");
+    ).toBe("blocked");
   });
 
   it("a stale heartbeat is dark", () => {
