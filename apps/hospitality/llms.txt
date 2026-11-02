@@ -1313,6 +1313,40 @@
       export function refusalText(refusal: Refusal, t: TFunction): string { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/stranded-revert.ts">
+    <item priority="medium">
+      function emit() { /* ... */ }
+    </item>
+    <item priority="medium">
+      function subscribe(listener: () => void): () => void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function registerStrandedRevertHost(): () => void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function dismissStrandedRevert() { /* ... */ }
+    </item>
+    <item priority="high">
+      export const useStrandedRevert: unknown;
+    </item>
+    <item priority="medium">
+      function strandedReservations(error: unknown): readonly StrandedReservation[] { /* ... */ }
+    </item>
+    <item priority="high">
+      interface ToastInput {
+        title: string;
+        variant: "error";
+        duration: number;
+      }
+    </item>
+    <item priority="high">
+      export function reportRevertFailure(
+        error: unknown,
+        t: TFunction,
+        toast: (input: ToastInput) => unknown
+      ) { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/tonight-state.ts">
     <item priority="low">
       type TonightChange = { readonly ruleId: string; rea | { readonly ruleId: string; rea | {

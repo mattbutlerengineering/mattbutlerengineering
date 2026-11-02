@@ -12,6 +12,7 @@ import { useViewport } from "../hooks/useViewport.js";
 import { describeApiError } from "../lib/describe-api-error.js";
 import { AvailabilityCalendar } from "../components/availability/AvailabilityCalendar.js";
 import { AvailabilityHistoryDrawer } from "../components/availability/AvailabilityHistoryDrawer.js";
+import { StrandedRevertDialog } from "../components/availability/StrandedRevertDialog.js";
 import { AvailabilityMigrationBanner } from "../components/availability/AvailabilityMigrationBanner.js";
 import { AvailabilityQuickSetup } from "../components/availability/AvailabilityQuickSetup.js";
 import { AvailabilitySelectionBar } from "../components/availability/AvailabilitySelectionBar.js";
@@ -515,6 +516,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           setChosenAnchor(date);
         }}
       />
+      <StrandedRevertDialog />
       {changingWeek && config.data && (
         <ChangeRegularWeekDrawer
           venueId={selectedVenueId}

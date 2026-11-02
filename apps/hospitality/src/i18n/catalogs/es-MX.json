@@ -2151,6 +2151,8 @@
       "action": "Deshacer",
       "done": "Cambio deshecho",
       "finishFirst": "Primero descarta tus cambios y luego deshaz.",
+      "strandedTitle": "Estas reservaciones se quedarían sin servicio",
+      "strandedClose": "Cerrar",
       "errors": {
         "guests-notified": "Este cambio avisó a los comensales, así que no se puede deshacer.",
         "already-reverted": "Este cambio ya se deshizo.",

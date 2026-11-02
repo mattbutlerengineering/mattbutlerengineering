@@ -25,7 +25,7 @@ import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { useViewport } from "../../hooks/useViewport.js";
 import { describeChange } from "./describe-change.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
-import { revertErrorText } from "./revert-error.js";
+import { reportRevertFailure } from "./stranded-revert.js";
 import styles from "./AvailabilityHistoryDrawer.module.css";
 
 /** Entries per page; "Show more" grows the window by one page. */
@@ -141,7 +141,7 @@ export function AvailabilityHistoryDrawer(props: AvailabilityHistoryDrawerProps)
       await revert.mutateAsync({ venueId, changeId, expectedVersion: config.data.version });
       toast({ title: t("availability.undo.done"), variant: "success", duration: 5000 });
     } catch (error) {
-      toast({ title: revertErrorText(error, t), variant: "error", duration: 8000 });
+      reportRevertFailure(error, t, toast);
     } finally {
       setRevertingId(null);
     }

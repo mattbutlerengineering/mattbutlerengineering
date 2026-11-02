@@ -332,3 +332,49 @@ test("Undo is offered after saving a new schedule, and reverts it", async ({
   await expect(page.getByRole("button", { name: "Undo" })).toHaveCount(0);
   expect(await page.evaluate(() => !!document.activeElement?.closest("main"))).toBe(true);
 });
+
+test("a refused Undo names each stranded booking with a link, outside the alert (#8042)", async ({
+  mockedPage: page,
+}) => {
+  await mockAvailability(page);
+  await page.route("**/availability/changes/*/revert", (route) =>
+    route.fulfill({
+      status: 409,
+      contentType: "application/problem+json",
+      body: JSON.stringify({
+        type: "about:blank",
+        title: "Conflict",
+        status: 409,
+        detail: "stranded",
+        code: "stranded-bookings",
+        reservations: [
+          {
+            id: "res-okafor",
+            startTime: "2026-11-21T01:30:00.000Z",
+            partySize: 4,
+            reason: "closed",
+            guestName: "Okafor",
+            serviceDate: "2026-11-20",
+          },
+        ],
+      }),
+    })
+  );
+  await page.goto("availability");
+  await page.getByRole("button", { name: "Create another schedule…" }).click();
+  await page.getByRole("button", { name: "New schedule" }).click();
+  await page.getByRole("textbox", { name: /Schedule name/ }).fill("Spare");
+  await page.getByRole("combobox", { name: "Add service" }).click();
+  await page.getByRole("option", { name: "A new service…" }).click();
+  await page.getByRole("textbox", { name: /Service name/ }).fill("Brunch");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByText("Spare saved")).toBeVisible();
+  await page.getByRole("button", { name: "Undo" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "These bookings would lose their service" });
+  const link = dialog.getByRole("link", { name: /Okafor/ });
+  await expect(link).toHaveAttribute("href", /timeline\?date=2026-11-20&selected=res-okafor$/);
+  await expect(page.getByRole("alert").getByRole("link")).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+});

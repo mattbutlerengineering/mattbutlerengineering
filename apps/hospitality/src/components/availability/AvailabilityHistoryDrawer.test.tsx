@@ -22,6 +22,7 @@ vi.mock("@mattbutlerengineering/rialto", async (importOriginal) => ({
 }));
 
 import { AvailabilityHistoryDrawer } from "./AvailabilityHistoryDrawer.js";
+import { StrandedRevertDialog } from "./StrandedRevertDialog.js";
 
 // jsdom cannot compute colour contrast; token contrast is covered in rialto.
 const AXE_OPTIONS = { rules: { "color-contrast": { enabled: false } } };
@@ -165,6 +166,51 @@ describe("AvailabilityHistoryDrawer", () => {
         })
       )
     );
+  });
+
+  it("names each stranded booking with a link, outside the alert, when Revert is refused", async () => {
+    mutateAsync.mockRejectedValue(
+      new ApiClientError(
+        {
+          type: "about:blank",
+          title: "Conflict",
+          status: 409,
+          detail: "x",
+          code: "stranded-bookings",
+          reservations: [
+            {
+              id: "res-okafor",
+              startTime: "2026-10-31T01:30:00.000Z",
+              partySize: 4,
+              reason: "closed",
+              guestName: "Okafor",
+              serviceDate: "2026-10-30",
+            },
+          ],
+        } as never,
+        "POST",
+        "/revert"
+      )
+    );
+    render(
+      <main>
+        <AvailabilityHistoryDrawer
+          open
+          venueId="venue-1"
+          viewerRole="manager"
+          onClose={vi.fn()}
+          onOpenDay={vi.fn()}
+        />
+        <StrandedRevertDialog />
+      </main>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Revert" }));
+
+    const link = await screen.findByRole("link", { name: /Okafor/ });
+    expect(link.getAttribute("href")).toMatch(/selected=res-okafor$/);
+    expect(link.closest('[role="alert"]')).toBeNull();
+    expect(toast).not.toHaveBeenCalledWith(expect.objectContaining({ variant: "error" }));
   });
 
   it("marks entries that told guests or were already undone", () => {

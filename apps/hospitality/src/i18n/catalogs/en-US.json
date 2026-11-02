@@ -2111,6 +2111,8 @@
       "action": "Undo",
       "done": "Change undone",
       "finishFirst": "Discard your changes first, then undo.",
+      "strandedTitle": "These bookings would lose their service",
+      "strandedClose": "Close",
       "errors": {
         "guests-notified": "This change told guests, so it can’t be undone.",
         "already-reverted": "This change was already undone.",
