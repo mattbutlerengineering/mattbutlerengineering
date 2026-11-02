@@ -517,10 +517,18 @@ for (const size of SIZES) {
       ).toBe(third);
 
       await mockedPage.mouse.up();
-      await expect(status(mockedPage)).toHaveText("3 dates selected");
+      // Starting on yesterday (a desktop month grid lists it) drags across today, so the past day
+      // is dropped and the notice says so beside the count; elsewhere there is no notice.
+      const droppedPast = start === past;
+      const notice = "Past dates can’t be selected.";
+      await expect(status(mockedPage)).toContainText("3 dates selected");
+      if (droppedPast) await expect(status(mockedPage)).toContainText(notice);
+      else await expect(status(mockedPage)).not.toContainText(notice);
       // One announcement for the whole drag, not one per cell crossed.
-      expect(await seq()).toEqual(["", "3 dates selected"]);
-      void today;
+      expect(await seq()).toEqual([
+        "",
+        droppedPast ? `3 dates selected ${notice}` : "3 dates selected",
+      ]);
     });
 
     test("a date with its own hours picked beside a regular one: the drawer claims no count, and Keep theirs writes one date", async ({

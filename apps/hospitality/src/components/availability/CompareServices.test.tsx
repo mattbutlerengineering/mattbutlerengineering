@@ -185,7 +185,8 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
       const icon = field.parentElement?.querySelector("svg");
       expect(icon).toBeTruthy();
       fireEvent.click(icon as Element);
-      expect(screen.queryAllByRole("option")).toHaveLength(0);
+      // Any time list would hold "1:45 PM"; the Selects' options never do.
+      expect(screen.queryByRole("option", { name: "1:45 PM" })).toBeNull();
       expect(screen.getByRole("button", { name: /^Save/ })).toBeDisabled();
     });
 
@@ -201,7 +202,8 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
       );
       fireEvent.click(screen.getByLabelText("Weekend · Last seating"));
       fireEvent.click(await screen.findByRole("option", { name: "1:45 PM" }));
-      await listClosed();
+      // The time list takes close to a second to leave the DOM (its exit animation), and nothing
+      // below reads it, so this does not wait for it.
       fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
 
       await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
