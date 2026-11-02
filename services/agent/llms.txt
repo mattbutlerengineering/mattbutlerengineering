@@ -177,7 +177,7 @@
       export function spanOf(rule: DatedRule) { /* ... */ }
     </item>
     <item priority="high">
-      export function spanText(rule: DatedRule): string { /* ... */ }
+      export function spanText(rule: Pick<DatedRule, "startsOn" | "endsOn">): string { /* ... */ }
     </item>
     <item priority="high">
       export const isDated: unknown;
@@ -186,7 +186,10 @@
       export function serviceName(config: AvailabilityConfig, id: string): string { /* ... */ }
     </item>
     <item priority="high">
-      export function scopeOf(rule: DatedRule, config: AvailabilityConfig): string { /* ... */ }
+      export function scopeOf(
+        rule: Pick<DatedRule, "targetKind" | "venueServiceId" | "bookingTypes">,
+        config: AvailabilityConfig
+      ): string { /* ... */ }
     </item>
     <item priority="medium">
       function plural(count: number, noun: string): string { /* ... */ }
@@ -210,17 +213,17 @@
       ): void { /* ... */ }
     </item>
     <item priority="high">
-      export function findCoveringClosure(
+      export function closedDays(
         config: AvailabilityConfig,
-        target: { readonly serviceId?: string | undefined },
+        serviceId: string | undefined,
         from: string,
         to: string
-      ): ClosureRule | undefined { /* ... */ }
+      ): { date: string; rule: ClosureRule }[] { /* ... */ }
     </item>
     <item priority="high">
       export function closureOnDay(
         config: AvailabilityConfig,
-        serviceId: string,
+        serviceId: string | undefined,
         date: string
       ): ClosureRule | undefined { /* ... */ }
     </item>
@@ -289,6 +292,9 @@
     </item>
     <item priority="medium">
       function reopenNote(cancelled: number, notified: number, datesPassed: boolean): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function stillClosedFields(saved: ReopenResult, config: AvailabilityConfig) { /* ... */ }
     </item>
     <item priority="medium">
       function reopenClosure({ log, api, venueId }: ToolContext) { /* ... */ }

@@ -52,7 +52,7 @@
     {
       "name": "Close Dialog (shared by the availability page and the timeline's Tonight panel)",
       "path": "dist/assets/CloseDialog-*.js",
-      "limit": "6.95 kB"
+      "limit": "7.9 kB"
     },
     {
       "name": "Close draft helpers (shared by the Close dialog, the availability page and the header pill)",

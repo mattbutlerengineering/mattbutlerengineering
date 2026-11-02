@@ -1708,7 +1708,9 @@
       "stranded_other": "{{count}} reservaciones se quedarían sin servicio si esta fecha volviera a la serie. No se cambió nada.",
       "stranded_many": "{{count}} de reservaciones se quedarían sin servicio si esta fecha volviera a la serie. No se cambió nada.",
       "countUnknown": "No se pudo comprobar a cuántos clientes canceló este cierre. Reabrir espera a que cargue el conteo.",
-      "retryCount": "Reintentar"
+      "retryCount": "Reintentar",
+      "descriptionStillClosed": "Esto quita un cierre, pero otro sigue cerrando estas fechas, así que los clientes aún no pueden reservarlas.",
+      "doneStillClosed": "Cierre eliminado: {{date}}. No se reabrió"
     },
     "series": {
       "editDates": "Editar fechas…",
@@ -2621,6 +2623,20 @@
       "onlineOn": "reservas en línea activas",
       "onlineOff": "reservas en línea desactivadas",
       "onlinePartial": "reservas en línea desactivadas algunos días"
+    },
+    "closureOverlap": {
+      "alreadyTitle": "Ya está cerrado",
+      "alreadySomeTitle": "Algunas fechas ya están cerradas",
+      "already": "Ya está cerrado el {{dates}}: {{closure}}.",
+      "alreadyHint": "Aun así puedes guardarlo. Si reabres un cierre, la fecha sigue cerrada hasta que reabras también el otro.",
+      "stays": "Sigue cerrado el {{dates}}: {{closure}}.",
+      "moreDates_one": "{{dates}} y {{count}} fecha más",
+      "moreDates_many": "{{dates}} y {{count}} de fechas más",
+      "moreDates_other": "{{dates}} y {{count}} fechas más",
+      "service": "Un servicio",
+      "booking": "Reservas: {{channels}}",
+      "tables": "Algunas mesas",
+      "doneAndStays": "{{done}}. {{stays}}"
     }
   },
   "setup": {

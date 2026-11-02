@@ -598,6 +598,10 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           countFailed={summaries.error != null}
           subjectIsSpan={reopening.endsOn !== reopening.startsOn || reopening.repeat != null}
           onRetryCount={() => void summaries.refetch()}
+          rules={state.config.dateRules}
+          rule={reopening}
+          today={today}
+          services={state.config.venueServices}
           editedDates={rules.filter((r) => r.seriesId === reopening.id).length}
           isSeriesEdit={
             reopening.seriesId != null && rules.some((r) => r.id === reopening.seriesId)

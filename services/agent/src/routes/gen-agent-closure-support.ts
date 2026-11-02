@@ -112,7 +112,7 @@ export function spanOf(rule: DatedRule) {
   return { from: rule.startsOn, to: rule.endsOn ?? UNTIL_REOPENED };
 }
 
-export function spanText(rule: DatedRule): string {
+export function spanText(rule: Pick<DatedRule, "startsOn" | "endsOn">): string {
   return rule.endsOn == null
     ? `from ${rule.startsOn} until reopened`
     : `from ${rule.startsOn} to ${rule.endsOn}`;
@@ -127,7 +127,10 @@ export function serviceName(config: AvailabilityConfig, id: string): string {
   return config.venueServices.find((s) => s.id === id)?.name ?? "a service";
 }
 
-export function scopeOf(rule: DatedRule, config: AvailabilityConfig): string {
+export function scopeOf(
+  rule: Pick<DatedRule, "targetKind" | "venueServiceId" | "bookingTypes">,
+  config: AvailabilityConfig
+): string {
   switch (rule.targetKind) {
     case "service":
       return rule.venueServiceId ? serviceName(config, rule.venueServiceId) : "a service";
@@ -217,32 +220,30 @@ export function scopeNeedsService(
   }
 }
 
-/** An existing whole-day closure that already covers `target` on every date from `from` to `to`. */
-export function findCoveringClosure(
+/**
+ * The dates from `from` to `to` that a whole-day closure already shuts `serviceId` on (the whole
+ * venue when `serviceId` is undefined), each with the closure that does. A repeat and a skip of it
+ * count as they do on the calendar; a service or a from-time closure does not shut a whole venue.
+ */
+export function closedDays(
   config: AvailabilityConfig,
-  target: { readonly serviceId?: string | undefined },
+  serviceId: string | undefined,
   from: string,
   to: string
-): ClosureRule | undefined {
-  return config.dateRules.find(
-    (r): r is ClosureRule =>
-      r.kind === "closure" &&
-      !r.repeat &&
-      !r.seriesId &&
-      !r.window &&
-      (r.targetKind === "venue" ||
-        (target.serviceId !== undefined &&
-          r.targetKind === "service" &&
-          r.venueServiceId === target.serviceId)) &&
-      r.startsOn <= from &&
-      (r.endsOn == null || r.endsOn >= to)
-  );
+): { date: string; rule: ClosureRule }[] {
+  const [first, last] = [dayNumber(from)!, dayNumber(to)!]; // `checkSpan` read both
+  return Array.from({ length: last - first + 1 }, (_, i) =>
+    new Date((first + i) * MS_PER_DAY).toISOString().slice(0, 10)
+  ).flatMap((date) => {
+    const rule = closureOnDay(config, serviceId, date);
+    return rule ? [{ date, rule }] : [];
+  });
 }
 
-/** A whole-day closure that already shuts `serviceId` on `date`. */
+/** A whole-day closure that already shuts `serviceId` (or, undefined, the whole venue) on `date`. */
 export function closureOnDay(
   config: AvailabilityConfig,
-  serviceId: string,
+  serviceId: string | undefined,
   date: string
 ): ClosureRule | undefined {
   return config.dateRules.find(
