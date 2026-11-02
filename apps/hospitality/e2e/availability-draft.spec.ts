@@ -141,7 +141,7 @@ for (const size of SIZES) {
   test.describe(`availability day drafts at ${size.width}x${size.height}`, () => {
     test.use({ viewport: size });
 
-    test("a draft survives a failed reload, and a refused Overwrite explains itself in the dialog", async ({
+    test("Overwrite goes against the version the 409 named, and a refused one can go back to the draft", async ({
       mockedPage,
     }) => {
       const mock = await mockAvailability(mockedPage);
@@ -162,15 +162,39 @@ for (const size of SIZES) {
       await expect(mockedPage.getByText(DRAFT_ERROR)).toBeAttached();
       await expect(drawer.getByRole("button", { name: "Save 1 date" })).toBeAttached();
 
-      // Overwrite re-reads the version first; that read fails, and the dialog says so itself.
+      // Overwrite needs no read: it goes against the version the 409 named. The server refuses it
+      // (stranded bookings), and the reason shows in the dialog.
+      mock.nextPut = {
+        status: 409,
+        code: "stranded-bookings",
+        extra: {
+          reservations: [
+            {
+              id: "r1",
+              startTime: "2026-12-30T20:00:00Z",
+              partySize: 4,
+              reason: "outside_service",
+            },
+          ],
+        },
+      };
       await conflict.getByRole("button", { name: "Overwrite" }).click();
       await expect(conflict.getByRole("alert")).toBeVisible();
-      await expect(conflict).toBeVisible();
+      expect(mock.puts[1]?.expected).toBe(mock.version);
 
-      // A real click: the dialog stacks above the drawer, so its buttons are reachable.
-      mock.failReads = false;
-      await conflict.getByRole("button", { name: "Discard mine" }).click();
+      // From the refused Overwrite the Manager goes back to the draft, edits intact.
+      await conflict.getByRole("button", { name: "Back to my draft" }).click();
       await expect(conflict).toBeHidden();
+      await expect(drawer.getByRole("button", { name: "Save 1 date" })).toBeEnabled();
+      await expect(drawer.getByText(/would fall outside/)).toBeVisible();
+
+      // Saving again meets the same conflict afresh, and this Overwrite goes through.
+      mock.failReads = false;
+      await drawer.getByRole("button", { name: "Save 1 date" }).click();
+      await expect(conflict).toBeVisible();
+      await conflict.getByRole("button", { name: "Overwrite" }).click();
+      await expect(conflict).toBeHidden();
+      expect(saves(mock).at(-1)).toBe(`${mock.version - 1} -> 200`);
     });
 
     test("a refresh error offers Retry, and clears once the reload succeeds", async ({
@@ -493,10 +517,18 @@ for (const size of SIZES) {
       ).toBe(third);
 
       await mockedPage.mouse.up();
-      await expect(status(mockedPage)).toHaveText("3 dates selected");
+      // Starting on yesterday (a desktop month grid lists it) drags across today, so the past day
+      // is dropped and the notice says so beside the count; elsewhere there is no notice.
+      const droppedPast = start === past;
+      const notice = "Past dates can’t be selected.";
+      await expect(status(mockedPage)).toContainText("3 dates selected");
+      if (droppedPast) await expect(status(mockedPage)).toContainText(notice);
+      else await expect(status(mockedPage)).not.toContainText(notice);
       // One announcement for the whole drag, not one per cell crossed.
-      expect(await seq()).toEqual(["", "3 dates selected"]);
-      void today;
+      expect(await seq()).toEqual([
+        "",
+        droppedPast ? `3 dates selected ${notice}` : "3 dates selected",
+      ]);
     });
 
     test("a date with its own hours picked beside a regular one: the drawer claims no count, and Keep theirs writes one date", async ({

@@ -18,8 +18,14 @@ export interface ConflictDialogProps {
   readonly failure?: readonly string[];
   /** The bookings behind a stranded refusal of that Overwrite. */
   readonly stranded?: readonly StrandedReservation[];
+  /** The 409 named the version Overwrite goes against; without it Overwrite is not offered. */
+  readonly ready: boolean;
+  /** Overwrite found a newer change; the dialog now shows that one. */
+  readonly changedAgain: boolean;
   readonly onOverwrite: () => void;
   readonly onDiscard: () => void;
+  /** Close the dialog and return to the draft, edits intact. */
+  readonly onBack: () => void;
 }
 
 /**
@@ -28,6 +34,7 @@ export interface ConflictDialogProps {
  */
 export function ConflictDialog(props: ConflictDialogProps) {
   const { open, winningChange, services, isSaving, failure = [], onOverwrite, onDiscard } = props;
+  const { ready, changedAgain, onBack } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const [reviewing, setReviewing] = useState(false);
@@ -52,10 +59,13 @@ export function ConflictDialog(props: ConflictDialogProps) {
               {t("availability.editor.conflict.review")}
             </Button>
           )}
+          <Button variant="secondary" onClick={onBack} disabled={isSaving}>
+            {t("availability.editor.conflict.back")}
+          </Button>
           <Button variant="secondary" onClick={onDiscard} disabled={isSaving}>
             {t("availability.editor.conflict.discard")}
           </Button>
-          <Button variant="primary" onClick={onOverwrite} isLoading={isSaving}>
+          <Button variant="primary" onClick={onOverwrite} isLoading={isSaving} disabled={!ready}>
             {t("availability.editor.conflict.overwrite")}
           </Button>
         </div>
@@ -73,9 +83,19 @@ export function ConflictDialog(props: ConflictDialogProps) {
         )}
         {/* Outside the alert, which would read every row aloud. */}
         {failure.length > 0 && <StrandedBookings reservations={props.stranded ?? []} />}
+        {changedAgain && (
+          <Text variant="body" color="primary">
+            {t("availability.editor.conflict.again")}
+          </Text>
+        )}
         <Text variant="body" color="primary">
           {theirs}
         </Text>
+        {!ready && (
+          <Text variant="caption" color="secondary" role="status">
+            {t("availability.editor.conflict.unavailable")}
+          </Text>
+        )}
         {reviewing && (
           <div className={styles.columns}>
             <section aria-labelledby="conflict-theirs">

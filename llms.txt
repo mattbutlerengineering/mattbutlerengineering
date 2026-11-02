@@ -15362,7 +15362,8 @@
       }): SavePlan { /* ... */ }
     </item>
     <item priority="low">
-      type SaveOutcome = { kind: "saved"; version: numb | { kind: "version_conflict"; wi | { kind: "not_found" } | Exclude<SavePlan, { kind: "wri;
+      type SaveOutcome = { kind: "saved"; version: numb | {
+            kind: "version_conflic | { kind: "not_found" } | Exclude<SavePlan, { kind: "wri;
     </item>
     <item priority="medium">
       class SaveRefused {

@@ -250,12 +250,21 @@ describe("saveAvailabilityConfig", () => {
       kind: "config",
       summary: "Availability updated: 1 added, 0 changed, 0 removed",
     };
+    const reads: string[] = [];
     const client = fakeClient({
       venue: {
         updateMany: vi.fn(async () => ({ count: 0 })),
-        findUnique: vi.fn(async () => ({ id: "venue-1" })),
+        findUnique: vi.fn(async () => {
+          reads.push("version");
+          return { id: "venue-1", availabilityVersion: 6 };
+        }),
       },
-      availabilityChange: { findFirst: vi.fn(async () => winner) },
+      availabilityChange: {
+        findFirst: vi.fn(async () => {
+          reads.push("winner");
+          return winner;
+        }),
+      },
     });
 
     const outcome = await saveAvailabilityConfig(
@@ -263,8 +272,12 @@ describe("saveAvailabilityConfig", () => {
       client
     );
 
+    // The version is read before the winner: a save landing between the two reads makes the
+    // winner newer than the version, so an Overwrite against it is refused rather than blind.
+    expect(reads).toEqual(["version", "winner"]);
     expect(outcome).toEqual({
       kind: "version_conflict",
+      currentVersion: 6,
       winningChange: { ...winner, at: "2026-10-25T18:42:00.000Z" },
     });
   });

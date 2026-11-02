@@ -189,10 +189,11 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
     if (!next) return;
     event.preventDefault();
     // Shift+Arrow is the keyboard twin of Shift-click: grow the range from where it started.
-    if (event.shiftKey && event.key.startsWith("Arrow"))
-      extendSelection(pivot.current ?? date, next);
     focusRequested.current = true;
     onAnchorChange(next);
+    // After the anchor moves, so a notice the extension raises is not cleared by that move.
+    if (event.shiftKey && event.key.startsWith("Arrow"))
+      extendSelection(pivot.current ?? date, next);
   };
 
   const handleHeaderKeyDown = (event: KeyboardEvent<HTMLButtonElement>, column: number) => {

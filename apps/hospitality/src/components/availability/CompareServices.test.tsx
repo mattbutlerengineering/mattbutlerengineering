@@ -5,7 +5,16 @@ import type { AvailabilityConfigState, ScheduleService } from "@mbe/types";
 
 const save = vi.hoisted(() => vi.fn());
 vi.mock("../../hooks/useAvailability.js", () => ({
-  useSaveAvailabilityConfig: () => ({ mutateAsync: save, isPending: false }),
+  // Venues named "hold-…" record their saves the way the real hook does (use-reload-hold.ts), so a
+  // test can leave the config behind its own save; every other venue calls the mock directly.
+  useSaveAvailabilityConfig: () => ({
+    isPending: false,
+    mutateAsync: async (variables: { venueId: string }) => {
+      if (!variables.venueId.startsWith("hold-")) return save(variables);
+      const { trackOwnSave } = await import("./use-reload-hold.js");
+      return trackOwnSave(variables.venueId, () => save(variables));
+    },
+  }),
   useRevertAvailabilityChange: () => ({ mutateAsync: vi.fn() }),
 }));
 vi.mock("../../contexts/VenueContext.js", () => ({
@@ -86,11 +95,11 @@ const conflict = Object.assign(new Error("409"), {
   },
 });
 
-function ui(state: AvailabilityConfigState) {
+function ui(state: AvailabilityConfigState, venueId = common.venueId) {
   return (
     <ToastProvider>
       <main>
-        <CompareServices {...common} state={state} />
+        <CompareServices {...common} venueId={venueId} state={state} />
       </main>
     </ToastProvider>
   );
@@ -135,6 +144,107 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
     const body = save.mock.calls[0]?.[0].body;
     expect(body.expectedVersion).toBe(5);
     expect(body.changes.upsert.scheduleServices[0].lastSeatingAt).toBe(840);
+  });
+
+  describe("after the Manager's own save, until the refetch lands (#8081)", () => {
+    const phoneOnly = (state: AvailabilityConfigState) => {
+      const sent = save.mock.calls[0]?.[0].body.changes.upsert.scheduleServices[0];
+      return withRows(6, (r) => (r.id === sent.id ? sent : r), state);
+    };
+    async function saveOwn(venue: string) {
+      save.mockResolvedValueOnce({ version: 6, changeId: "chg-own" });
+      const utils = render(ui(atV5, venue));
+      editWeekendBooking();
+      fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
+      await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+      await listClosed();
+      return utils;
+    }
+
+    it("holds editing, so a second edit cannot be built on rows older than its pin", async () => {
+      await saveOwn("hold-a");
+      await waitFor(() =>
+        expect(screen.getByRole("combobox", { name: "Weekend · Booking" })).toHaveAttribute(
+          "aria-disabled",
+          "true"
+        )
+      );
+      expect(screen.getByRole("combobox", { name: "Weeknight · Booking" })).toHaveAttribute(
+        "aria-disabled",
+        "true"
+      );
+      expect(screen.getByText("Edit once the newest hours have loaded.")).toBeInTheDocument();
+    });
+
+    it("keeps the time pickers shut during the hold, even from their clock icon", async () => {
+      await saveOwn("hold-g");
+      await waitFor(() =>
+        expect(screen.getByText("Edit once the newest hours have loaded.")).toBeInTheDocument()
+      );
+      const field = screen.getByLabelText("Weekend · Last seating");
+      const icon = field.parentElement?.querySelector("svg");
+      expect(icon).toBeTruthy();
+      fireEvent.click(icon as Element);
+      // Any time list would hold "1:45 PM"; the Selects' options never do.
+      expect(screen.queryByRole("option", { name: "1:45 PM" })).toBeNull();
+      expect(screen.getByRole("button", { name: /^Save/ })).toBeDisabled();
+    });
+
+    it("lets the next edit start from the refetched rows, keeping the first save's change", async () => {
+      const venue = "hold-b";
+      const { rerender } = await saveOwn(venue);
+      save.mockResolvedValueOnce({ version: 7, changeId: "chg-2" });
+      rerender(ui(phoneOnly(atV5), venue));
+      await waitFor(() =>
+        expect(screen.getByRole("combobox", { name: "Weekend · Booking" })).not.toHaveAttribute(
+          "aria-disabled"
+        )
+      );
+      fireEvent.click(screen.getByLabelText("Weekend · Last seating"));
+      fireEvent.click(await screen.findByRole("option", { name: "1:45 PM" }));
+      // The time list takes close to a second to leave the DOM (its exit animation), and nothing
+      // below reads it, so this does not wait for it.
+      fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
+
+      await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+      const body = save.mock.calls[1]?.[0].body;
+      expect(body.expectedVersion).toBe(6);
+      expect(body.changes.upsert.scheduleServices[0].lastSeatingAt).toBe(825);
+      expect(body.changes.upsert.scheduleServices[0].bookingTypes).toEqual(
+        save.mock.calls[0]?.[0].body.changes.upsert.scheduleServices[0].bookingTypes
+      );
+    });
+
+    it("offers a reload when the refetch never lands, so the hold cannot last forever", async () => {
+      const onStale = vi.fn();
+      save.mockResolvedValueOnce({ version: 6, changeId: "chg-own" });
+      render(
+        <ToastProvider>
+          <main>
+            <CompareServices {...common} onStale={onStale} venueId="hold-c" state={atV5} />
+          </main>
+        </ToastProvider>
+      );
+      editWeekendBooking();
+      fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
+      const reload = await screen.findByRole("button", { name: "Reload hours" }, { timeout: 4000 });
+      fireEvent.click(reload);
+      expect(onStale).toHaveBeenCalled();
+    });
+
+    it("does not hold another venue for a version the first venue reached", async () => {
+      save.mockResolvedValueOnce({ version: 100, changeId: "chg-a" });
+      const { rerender } = render(ui({ ...atV5, version: 99 }, "hold-d"));
+      editWeekendBooking();
+      fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
+      await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+      await listClosed();
+      rerender(ui(atV5, "hold-f"));
+      editWeekendBooking();
+      fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
+      await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+      expect(save.mock.calls[1]?.[0].body.expectedVersion).toBe(5);
+    });
   });
 
   it("after the refused save, names the colleague's change and keeps it when reapplying", async () => {

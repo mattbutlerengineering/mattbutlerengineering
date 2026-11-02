@@ -2285,7 +2285,10 @@
         "discard": "Abandonner le mien",
         "theirsHeading": "Son changement",
         "yoursHeading": "Votre brouillon",
-        "yourService": "{{name}} {{from}} – {{to}}"
+        "yourService": "{{name}} {{from}} – {{to}}",
+        "back": "Retourner à mon brouillon",
+        "again": "Quelqu’un a enregistré de nouveau pendant votre réflexion. Vérifiez son dernier changement, puis écrasez ou retournez à votre brouillon.",
+        "unavailable": "L’écrasement n’est pas disponible pour le moment. Retournez à votre brouillon, ou abandonnez-le et recommencez."
       },
       "blocked": {
         "serviceName": "Nommez le nouveau service pour enregistrer.",
@@ -2537,6 +2540,7 @@
       "selectMenu": "Sélectionner…",
       "weekdayInMonth": "Chaque {{weekday}} de {{month}}",
       "usingSchedule": "Toutes les dates avec {{schedule}}",
+      "pastDates": "Les dates passées ne peuvent pas être sélectionnées.",
       "useSchedule": "Utiliser un horaire",
       "useOtherDay": "Utiliser les heures d’un autre jour",
       "clearChanges": "Effacer les modifications",

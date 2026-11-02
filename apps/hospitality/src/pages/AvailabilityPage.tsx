@@ -127,8 +127,31 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   });
   const selection = picked.venueId === selectedVenueId ? picked.dates : EMPTY;
   // Past dates are history, not something to edit (the server settles a save from today on).
-  const setSelection = (dates: string[]) =>
-    setPicked({ venueId: selectedVenueId, dates: futureDates(dates, today) });
+  // Which gesture last lost past dates. It belongs to that venue, and moving the calendar drops it
+  // (`moveTo`, `changeView`). `count` makes a repeat of the gesture a new announcement.
+  const [dropped, setDropped] = useState<{
+    venueId: string | null;
+    count: number;
+  } | null>(null);
+  const moveTo = (next: string | null) => {
+    setChosenAnchor(next);
+    setDropped(null);
+  };
+  const changeView = (next: CalendarView) => {
+    setView(next);
+    setDropped(null);
+  };
+  const setSelection = (dates: string[]) => {
+    const kept = futureDates(dates, today);
+    // A gesture that lost dates says so, rather than appearing to do nothing.
+    setDropped(
+      kept.length < dates.length
+        ? { venueId: selectedVenueId, count: (dropped?.count ?? 0) + 1 }
+        : null
+    );
+    setPicked({ venueId: selectedVenueId, dates: kept });
+  };
+  const pastNotice = dropped && dropped.venueId === selectedVenueId ? dropped : null;
   // Moving off a day with an unsaved draft asks first (ux.md F2 step 6), selection actions included.
   // Opening a single day drops the selection, but only once the guard lets the move happen.
   const guard = useDiscardGuard<OpenTarget>(({ closing: nextClosing, ...next }) => {
@@ -252,6 +275,10 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   const anchorSchedule = config.data?.config.schedules.find(
     (s) => s.id === anchorSummary?.scheduleId
   );
+  const weekdayDates = futureDates(weekdayDatesInMonth(anchor), today);
+  const scheduleDates = anchorSchedule
+    ? futureDates(datesUsingSchedule(days.data ?? [], anchorSchedule.id), today)
+    : [];
   const selectItems = [
     // The grid has Ctrl-click and drag; the agenda list has only this and a long press.
     ...(viewport !== "desktop"
@@ -263,15 +290,20 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           },
         ]
       : []),
-    {
-      id: "weekday",
-      label: t("availability.selection.weekdayInMonth", {
-        weekday: format.formatCalendarDate(anchor, { weekday: "long" }),
-        month: format.formatCalendarDate(anchor, { month: "long" }),
-      }),
-      onSelect: () => setSelection(weekdayDatesInMonth(anchor)),
-    },
-    ...(anchorSchedule
+    // An entry that would select nothing (a month already over) is not offered.
+    ...(weekdayDates.length > 0
+      ? [
+          {
+            id: "weekday",
+            label: t("availability.selection.weekdayInMonth", {
+              weekday: format.formatCalendarDate(anchor, { weekday: "long" }),
+              month: format.formatCalendarDate(anchor, { month: "long" }),
+            }),
+            onSelect: () => setSelection(weekdayDatesInMonth(anchor)),
+          },
+        ]
+      : []),
+    ...(anchorSchedule && scheduleDates.length > 0
       ? [
           {
             id: "schedule",
@@ -397,11 +429,11 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
       <AvailabilityToolbar
         viewport={viewport}
         view={view}
-        onViewChange={setView}
+        onViewChange={changeView}
         period={periodLabel(view, anchor, t, format)}
-        onPrevious={() => setChosenAnchor(shiftAnchor(view, anchor, -1))}
-        onNext={() => setChosenAnchor(shiftAnchor(view, anchor, 1))}
-        onToday={() => setChosenAnchor(null)}
+        onPrevious={() => moveTo(shiftAnchor(view, anchor, -1))}
+        onNext={() => moveTo(shiftAnchor(view, anchor, 1))}
+        onToday={() => moveTo(null)}
         onHistory={() => setHistoryOpen(true)}
         selectItems={selectItems}
         onClose={canAct ? () => setClosing({ date: null, pause: false }) : undefined}
@@ -424,6 +456,9 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
       )}
       {loadFailureBanner}
       <AvailabilitySelectionBar
+        // Held back during a drag, like the bar, so the grid does not move under the pointer.
+        notice={barDuringDrag === null && pastNotice ? t("availability.selection.pastDates") : null}
+        noticeKey={pastNotice?.count}
         selection={barDuringDrag ?? selection}
         canEdit={canAct}
         onEditHours={editSelection}
@@ -471,7 +506,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         selecting={selecting}
         onDragChange={(dragging) => setBarDuringDrag(dragging ? selection : null)}
         onOpenDay={openDay}
-        onAnchorChange={setChosenAnchor}
+        onAnchorChange={moveTo}
       />
       <AvailabilityDayDrawer
         date={openDate}
@@ -512,7 +547,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         onOpenDay={(date) => {
           setHistoryOpen(false);
           guard.request({ date });
-          setChosenAnchor(date);
+          moveTo(date);
         }}
       />
       {changingWeek && config.data && (

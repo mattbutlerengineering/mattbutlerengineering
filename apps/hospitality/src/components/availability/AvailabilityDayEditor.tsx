@@ -132,8 +132,12 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
 
   const [edit, setEdit] = useState<EditState | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
+  // `seen` is the version the 409 reported, read by the server just before the change it names, so
+  // Overwrite goes against what the dialog shows. Absent from an older server: no Overwrite then.
   const [conflict, setConflict] = useState<{
     readonly winningChange: AvailabilityChangeSummary | null;
+    readonly seen: number | null;
+    readonly again: boolean;
   } | null>(null);
 
   // Nothing to lose yet, so a reload simply replaces what the editor shows and will save against.
@@ -267,6 +271,9 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
 
   const submit = async (overwrite: boolean) => {
     if (!edit) return;
+    // Overwrite goes against the version the dialog showed, never one read at click time.
+    const expectedVersion = overwrite ? conflict?.seen : edit.base.version;
+    if (expectedVersion === null || expectedVersion === undefined) return;
     setFailure(null);
     const changes = buildDraftChanges({
       config,
@@ -281,16 +288,15 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
     try {
       saved = await mutateAsync({
         venueId,
-        overwrite,
         body: {
-          expectedVersion: edit.base.version,
+          expectedVersion,
           changes,
           // A single date is an explicit choice; there is nothing to keep or replace.
           scopeConflicts: conflictMode,
         },
       });
     } catch (error) {
-      rejectSave(error);
+      rejectSave(error, overwrite);
       return;
     }
     offerUndo({
@@ -311,10 +317,14 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
     onFinished(true);
   };
 
-  const rejectSave = (error: unknown) => {
+  const rejectSave = (error: unknown, overwrote: boolean) => {
     const problem = problemOf(error);
     if (problem?.code === "version-conflict") {
-      setConflict({ winningChange: problem.winningChange ?? null });
+      setConflict({
+        winningChange: problem.winningChange ?? null,
+        seen: problem.currentVersion ?? null,
+        again: overwrote,
+      });
       // Someone else's change is in; reload so the calendar and the next edit see it.
       onStale?.();
     } else if (problem?.code === "invalid-config" && problem.issues?.length) {
@@ -592,8 +602,11 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
           isSaving={isPending}
           failure={failure?.messages ?? []}
           stranded={failure?.stranded ?? []}
+          ready={conflict.seen !== null}
+          changedAgain={conflict.again}
           onOverwrite={() => void submit(true)}
           onDiscard={discardMine}
+          onBack={() => setConflict(null)}
         />
       )}
     </Stack>

@@ -28,6 +28,8 @@ import {
   SaveFailure,
 } from "./ScheduleFormParts.js";
 import { useDiscardGuard } from "./use-discard-guard.js";
+import { useHeldFor } from "./use-held-for.js";
+import { useReloadHold } from "./use-reload-hold.js";
 import { useScheduleSave } from "./use-schedule-save.js";
 import styles from "./CompareServices.module.css";
 
@@ -41,6 +43,9 @@ const BOOKING_OPTIONS: readonly { id: BookingId; types: BookingTypes }[] = [
 ];
 const bookingId = (types: BookingTypes): BookingId =>
   BOOKING_OPTIONS.find((o) => o.types.join() === types.join())?.id ?? "walkIn";
+
+/** A normal reload ends within this; only one that has not is worth a button of its own. */
+const RELOAD_OFFER_AFTER_MS = 2000;
 
 export interface CompareServicesProps {
   readonly venueId: string;
@@ -79,8 +84,9 @@ function applyBulk(row: CompareRow, bulk: BulkFields): CompareRow {
 function RowFields(props: {
   readonly row: CompareRow;
   readonly onChange: (row: CompareRow) => void;
+  readonly disabled: boolean;
 }) {
-  const { row, onChange } = props;
+  const { row, onChange, disabled } = props;
   const { t } = useTranslation();
   const label = (field: string) => `${row.scheduleName} · ${field}`;
   return (
@@ -102,6 +108,7 @@ function RowFields(props: {
       />
       <Select
         label={label(t("availabilitySchedules.compare.booking"))}
+        disabled={disabled}
         value={bookingId(row.bookingTypes)}
         options={BOOKING_OPTIONS.map((o) => ({
           value: o.id,
@@ -142,6 +149,11 @@ export function CompareServices(props: CompareServicesProps) {
     version: number;
     rows: Readonly<Record<string, ScheduleService>>;
   } | null>(null);
+  // Past the Manager's own save, the config on hand is behind it: rows edited on it would be pinned
+  // to the old version and could write the save back. A draft already begun keeps its own pin.
+  const { behind, reloadDue } = useReloadHold(venueId, state.version);
+  const held = behind && base === null;
+  const offerReload = useHeldFor(held && reloadDue, RELOAD_OFFER_AFTER_MS);
   const baselineOf = (b: NonNullable<typeof base>): AvailabilityConfig => ({
     ...config,
     scheduleServices: Object.values(b.rows),
@@ -194,7 +206,10 @@ export function CompareServices(props: CompareServicesProps) {
     );
   }
 
-  const setRow = (row: CompareRow) => commitEdits({ ...edits, [row.scheduleServiceId]: row });
+  const setRow = (row: CompareRow) => {
+    if (held) return; // an edit now would pin the version the held rows are behind
+    commitEdits({ ...edits, [row.scheduleServiceId]: row });
+  };
   const toggle = (id: string, on: boolean) =>
     setSelected((prev) => (on ? [...prev, id] : prev.filter((x) => x !== id)));
 
@@ -283,18 +298,40 @@ export function CompareServices(props: CompareServicesProps) {
         onDiscard={serviceGuard.confirmDiscard}
         onKeepEditing={serviceGuard.keepEditing}
       />
-      <ul className={styles.rows}>
-        {rows.map((row) => (
-          <li key={row.scheduleServiceId} className={styles.row}>
-            <Checkbox
-              label={t("availabilitySchedules.compare.select", { name: row.scheduleName })}
-              checked={selected.includes(row.scheduleServiceId)}
-              onCheckedChange={(on) => toggle(row.scheduleServiceId, on)}
-            />
-            <RowFields row={row} onChange={setRow} />
-          </li>
-        ))}
-      </ul>
+      {held && (
+        <Text variant="caption" color="secondary" role="status">
+          {t("availability.drawer.waitForReload")}
+        </Text>
+      )}
+      {offerReload && (
+        <div>
+          <Button variant="ghost" size="sm" onClick={onStale}>
+            {t("availability.drawer.reloadHours")}
+          </Button>
+        </div>
+      )}
+      {/* The time pickers have no disabled prop and their popover opens from a click on a wrapper,
+          which a disabled fieldset does not stop. So a held fieldset also swallows clicks (capture,
+          before the popover sees them) and takes no pointer events. */}
+      <fieldset
+        className={styles.held}
+        disabled={held}
+        onClickCapture={held ? (event) => event.stopPropagation() : undefined}
+      >
+        <ul className={styles.rows}>
+          {rows.map((row) => (
+            <li key={row.scheduleServiceId} className={styles.row}>
+              <Checkbox
+                label={t("availabilitySchedules.compare.select", { name: row.scheduleName })}
+                checked={selected.includes(row.scheduleServiceId)}
+                disabled={held}
+                onCheckedChange={(on) => toggle(row.scheduleServiceId, on)}
+              />
+              <RowFields row={row} onChange={setRow} disabled={held} />
+            </li>
+          ))}
+        </ul>
+      </fieldset>
       {bulkOpen ? (
         <div className={styles.fields}>
           <TimePicker
@@ -331,7 +368,7 @@ export function CompareServices(props: CompareServicesProps) {
           <Button
             variant="secondary"
             size="sm"
-            disabled={selected.length === 0}
+            disabled={held || selected.length === 0}
             onClick={() => setBulkOpen(true)}
           >
             {t("availabilitySchedules.compare.setSelected")}

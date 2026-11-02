@@ -614,6 +614,59 @@ describe("AvailabilityPage", () => {
       expect(screen.getByRole("status")).toHaveTextContent("1 date selected");
     });
 
+    it("says so when a Ctrl-click on a past date selects nothing", () => {
+      renderPage();
+      pick(/Monday, October 26/);
+      expect(screen.getByRole("status")).toHaveTextContent("Past dates can’t be selected.");
+    });
+
+    it("drops the message when the Manager moves to another month", () => {
+      renderPage();
+      pick(/Monday, October 26/);
+      fireEvent.click(screen.getByRole("button", { name: "Next" }));
+      expect(screen.queryByText("Past dates can’t be selected.")).not.toBeInTheDocument();
+    });
+
+    it("says so when Shift+Arrow extends from today onto a past date", () => {
+      renderPage();
+      fireEvent.keyDown(screen.getByRole("button", { name: /Wednesday, October 28/ }), {
+        key: "ArrowLeft",
+        shiftKey: true,
+      });
+      expect(screen.getByRole("status")).toHaveTextContent("Past dates can’t be selected.");
+    });
+
+    it("announces again when the same gesture repeats on another past date", () => {
+      renderPage();
+      const space = (re: RegExp) =>
+        fireEvent.keyDown(screen.getByRole("button", { name: re }), { key: " " });
+      space(/Monday, October 26/);
+      const first = screen.getByText("Past dates can’t be selected.");
+      space(/Tuesday, October 27/);
+      // A new node, so the live region speaks again.
+      expect(screen.getByText("Past dates can’t be selected.")).not.toBe(first);
+    });
+
+    it("says so when Space on a past date selects nothing", () => {
+      renderPage();
+      fireEvent.keyDown(screen.getByRole("button", { name: /Monday, October 26/ }), { key: " " });
+      expect(screen.getByText("Past dates can’t be selected.")).toBeInTheDocument();
+    });
+
+    it("drops the message once a selection lands entirely on future dates", () => {
+      renderPage();
+      pick(/Monday, October 26/);
+      pick(/Thursday, October 29/);
+      expect(screen.queryByText("Past dates can’t be selected.")).not.toBeInTheDocument();
+    });
+
+    it("offers no weekday entry in a month that is already over, and no empty menu", () => {
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "Previous" }));
+      // The anchor is Mon Sep 28; every Monday in September is behind us, and nothing else is on offer.
+      expect(screen.queryByRole("button", { name: "Select…" })).not.toBeInTheDocument();
+    });
+
     it("skips past dates when a range is Shift-clicked across them", () => {
       renderPage();
       pick(/Monday, October 26/);

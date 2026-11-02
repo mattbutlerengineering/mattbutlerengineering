@@ -46,13 +46,11 @@ export type SaveAvailabilityConfigVariables = {
   body: Omit<PutAvailabilityConfigBody, "scopeConflicts"> & {
     scopeConflicts?: ScopeConflictMode;
   };
-  /** Save against the version the server holds now, not the one the draft was made on. */
-  overwrite?: boolean;
 };
 
 /**
- * Saves a config change (Manager only). `overwrite` is the Manager's answer to "someone changed
- * this meanwhile". Venue readiness reads the legacy hours the server projects from the regular
+ * Saves a config change (Manager only), against the `expectedVersion` the caller names; it never
+ * re-reads one, so an overwrite cannot land on a change its Manager did not see. Venue readiness reads the legacy hours the server projects from the regular
  * week, so the venues list refreshes with the config and the days.
  */
 export const useSaveAvailabilityConfig = createMutationHook<
@@ -65,13 +63,8 @@ export const useSaveAvailabilityConfig = createMutationHook<
     AVAILABILITY_CHANGES_QUERY_KEY,
     VENUES_QUERY_KEY,
   ],
-  mutationFn: (api, { venueId, body, overwrite }) =>
-    trackOwnSave(venueId, async () => {
-      const expectedVersion = overwrite
-        ? (await api.availability.getConfig(venueId)).version
-        : body.expectedVersion;
-      return api.availability.saveConfig(venueId, { ...body, expectedVersion });
-    }),
+  mutationFn: (api, { venueId, body }) =>
+    trackOwnSave(venueId, () => api.availability.saveConfig(venueId, body)),
 });
 
 /** The History drawer (F12): who changed availability, newest first. */

@@ -19,6 +19,10 @@ export interface AvailabilitySelectionBarProps {
   readonly canClearChanges?: boolean;
   /** Select days is on: the bar shows even before a day is picked, with the way out. */
   readonly selecting?: boolean;
+  /** Why a gesture picked less than it was asked to; said in the live region, beside the count. */
+  readonly notice?: string | null;
+  /** Changes when the same notice is raised again, so it is announced again. */
+  readonly noticeKey?: number;
 }
 
 /**
@@ -41,6 +45,7 @@ export function AvailabilitySelectionBar(props: AvailabilitySelectionBarProps) {
           : props.selecting
             ? t("availability.selection.selectingHint")
             : null}
+        {props.notice && <span key={props.noticeKey}> {props.notice}</span>}
       </div>
       {showing && (
         <div

@@ -2285,7 +2285,10 @@
         "discard": "Descartar el mío",
         "theirsHeading": "Su cambio",
         "yoursHeading": "Tu borrador",
-        "yourService": "{{name}} {{from}} – {{to}}"
+        "yourService": "{{name}} {{from}} – {{to}}",
+        "back": "Volver a mi borrador",
+        "again": "Alguien guardó otra vez mientras decidías. Revisa su último cambio y luego sobrescribe o vuelve a tu borrador.",
+        "unavailable": "Sobrescribir no está disponible ahora. Vuelve a tu borrador, o descártalo y empieza de nuevo."
       },
       "blocked": {
         "serviceName": "Ponle nombre al nuevo servicio para guardar.",
@@ -2537,6 +2540,7 @@
       "selectMenu": "Seleccionar…",
       "weekdayInMonth": "Cada {{weekday}} de {{month}}",
       "usingSchedule": "Todas las fechas con {{schedule}}",
+      "pastDates": "No se pueden seleccionar fechas pasadas.",
       "useSchedule": "Usar horario",
       "useOtherDay": "Usar el horario de otro día",
       "clearChanges": "Borrar cambios",
