@@ -4664,3 +4664,18 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 **queueEfficiency:** composite 0.846 (baseline n/a) — healthy
 **Difficulty distribution:** size:s:19, size:xs:10, size:xl:12, size:l:9, size:m:15
 **Issues filed:** 0
+
+## 2026-11-02 — mbe-ui-quality
+
+- **State:** `state.mjs checkout` exit 0, `source: branch` (ui-quality/ledger at 1496ed1, merged origin/main abc6811, no conflicts resolved).
+- **Routes:** 40 due (marketing 2, rialto-web 34, hospitality 4), 40 captured, 40 audited. 20 hospitality rows `unreachable:auth` (never captured, as designed). All three app builds succeeded.
+- **Coverage before this fire:** 100% (135/135 covered, 0 uncovered), `coverage.mjs --json` exit 0.
+- **Judging:** rubric v1. 40 routes judged, **0 unjudged**, **0 dropped tells**. Every screenshot (80 images across both viewports) read successfully — no `tool-error` routes. 0 judged findings: no `agent-built/*` or semantic-accessibility tells observed. Mechanical detectors found 2 findings (`hospitality book/:venueSlug — accessibility/axe-serious`, `marketing status — bugs/failed-request`).
+- **Calibration stamp:** `stale`. `calibration-status --model-id claude-opus-5` returned exit 3; `rate.mjs pairs --calibration` exited 2 — `docs/ui-quality/calibration.json` still has no labelled pairs (Verify-owned: Matt labels ≥ 10 pairs once). Logged, not retried. Re-queried status: still `stale`. Rating proceeded: 16 pairs over 3 apps viewed and `rate.mjs record` run (hospitality 0, marketing 0, rialto-web 0 — agent-built findings stay suppressed while uncalibrated, as intended).
+- **Rubric migration:** none needed — every key in `metrics/ui-quality-findings.json` is already `r1`, matching the current `rubric_version`.
+- **Issue states:** all 34 issues referenced by the findings ledger fetched; all `closed`. `ui-quality`-labelled search returned 36 issues on a single complete page, all closed (the two extras, #7477 and #7908, are the closed escalation issues). No refusal, no adoptions.
+- **Filing:** plan = create 1, skip 1, 0 seeds, no `fix_pr_candidate`. **Created #8106** (`ui-quality: hospitality book/:venueSlug — accessibility/axe-serious (rubric v1)`); `ui-quality` label confirmed present, so filing was not stopped. 0 reopened, 0 commented, 0 seeds appended to `docs/backlog.md`.
+- **Fix PR:** none — no action carried `fix_pr_candidate: true`.
+- **P1 SLA:** 0 open `ui-quality:p1` issues, 0 breaches, 0 escalated.
+- **Checkpoint:** committed and pushed to `ui-quality/ledger` (c6c18a4) before the fix-PR step, push accepted.
+- No `blocker: no-browser` (Chromium resolved), no stopped filing, no pipeline bug.
