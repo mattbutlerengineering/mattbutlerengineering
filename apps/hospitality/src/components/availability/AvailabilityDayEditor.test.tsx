@@ -654,6 +654,23 @@ describe("AvailabilityDayEditor", () => {
       expect(within(dialog).getByText("And 23 earlier changes that aren’t listed.")).toBeTruthy();
     });
 
+    it("does not count the winning change again when only unplaceable rows lie in the window", async () => {
+      const one = await raiseConflict({
+        currentVersion: 5,
+        changesSince: { total: 1, changes: [] },
+      });
+      expect(within(one.dialog).getByText(/Dinner closes at 10:00 PM on Fri, Oct 30/)).toBeTruthy();
+      expect(within(one.dialog).queryByText(/earlier change/)).toBeNull();
+    });
+
+    it("counts the other legacy changes once the winner is named", async () => {
+      const { dialog } = await raiseConflict({
+        currentVersion: 7,
+        changesSince: { total: 3, changes: [] },
+      });
+      expect(within(dialog).getByText("And 2 earlier changes that aren’t listed.")).toBeTruthy();
+    });
+
     it("names only the winning change when an older server sends no list", async () => {
       const { dialog } = await raiseConflict();
       expect(within(dialog).queryByText(/saved after you opened this day/)).toBeNull();

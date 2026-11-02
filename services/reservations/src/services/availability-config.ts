@@ -402,13 +402,7 @@ export async function refuseStale(
   });
   // Rows from before changes recorded their version cannot be placed after the draft; the newest by
   // `at` still names a winner, and `total` below still counts them.
-  const winner =
-    since[0] ??
-    (await db.availabilityChange.findFirst({
-      where: { venueId },
-      orderBy: { at: "desc" },
-      select: CHANGE_SUMMARY_SELECT,
-    }));
+  const winner = since[0] ?? (await newestChange(db, venueId));
   const total = currentVersion - expectedVersion;
   return {
     kind: "version_conflict",
@@ -416,6 +410,34 @@ export async function refuseStale(
     winningChange: winner && toSummary(winner),
     // A draft ahead of the venue (`total < 1`) has nothing to name.
     ...(total >= 1 ? { changesSince: { total, changes: since.map(toSummary) } } : {}),
+  };
+}
+
+/** The latest change by the version it produced; rows without one (older) come after, by `at`. */
+function newestChange(db: StoreDb, venueId: string) {
+  return db.availabilityChange.findFirst({
+    where: { venueId },
+    orderBy: [{ version: { sort: "desc", nulls: "last" } }, { at: "desc" }],
+    select: CHANGE_SUMMARY_SELECT,
+  });
+}
+
+/**
+ * Refuses a save that already won its compare-and-set on `committedVersion` but must still be
+ * answered as stale (a series a teammate changed since the draft read it). The transaction has
+ * bumped the version and is about to roll that back, so the venue's version here is not one that
+ * will exist: report `committedVersion`, and name the latest change under it.
+ */
+export async function refuseSeriesChanged(
+  db: StoreDb,
+  venueId: string,
+  committedVersion: number
+): Promise<SaveOutcome> {
+  const winner = await newestChange(db, venueId);
+  return {
+    kind: "version_conflict",
+    currentVersion: committedVersion,
+    winningChange: winner && toSummary(winner),
   };
 }
 

@@ -15501,6 +15501,16 @@
         expectedVersion: number
       ): Promise<SaveOutcome> { /* ... */ }
     </item>
+    <item priority="medium">
+      function newestChange(db: StoreDb, venueId: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function refuseSeriesChanged(
+        db: StoreDb,
+        venueId: string,
+        committedVersion: number
+      ): Promise<SaveOutcome> { /* ... */ }
+    </item>
     <item priority="high">
       export function conflictIssue(error: ConfigRowConflict, next: AvailabilityConfig): SaveOutcome { /* ... */ }
     </item>

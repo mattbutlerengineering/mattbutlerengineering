@@ -47,7 +47,11 @@ export function ConflictDialog(props: ConflictDialogProps) {
 
   // An older server sends no `changesSince`: the winning change alone is named, as before.
   const listed = props.changesSince?.changes ?? [];
-  const unlisted = props.changesSince ? Math.max(props.changesSince.total - listed.length, 0) : 0;
+  // With none listed, the sentence below still names the winner (or says another change was
+  // saved), so that one is not "earlier" either.
+  const unlisted = props.changesSince
+    ? Math.max(props.changesSince.total - Math.max(listed.length, 1), 0)
+    : 0;
 
   const time = winningChange
     ? format.formatInstant(winningChange.at, { hour: "numeric", minute: "2-digit" })

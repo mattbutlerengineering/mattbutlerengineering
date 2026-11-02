@@ -22,6 +22,7 @@ import {
   conflictIssue,
   futureBookings,
   loadConfigState,
+  refuseSeriesChanged,
   refuseStale,
   toDbDate,
   type ConfigState,
@@ -348,7 +349,8 @@ async function refuseBadAlongside(tx: Db, input: CommitInput, state: ConfigState
   // The version matched, yet the series is not the one this edit was built from: answer as a stale
   // version, so the Manager gets the same recovery and the winner's change is named.
   if (seriesChangedSinceRead(state.stored.dateRules, rule, alongside)) {
-    throw new Refused((await refuseStale(tx, venueId)) as Refusal);
+    // After this transaction's own bump, which rolls back: answer against the version it matched.
+    throw new Refused((await refuseSeriesChanged(tx, venueId, body.expectedVersion)) as Refusal);
   }
   const today = civilDateIn(now, state.timezone);
   const stranded = findStrandedReservations(

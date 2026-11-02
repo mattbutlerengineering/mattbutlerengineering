@@ -12180,13 +12180,7 @@
       });
       // Rows from before changes recorded their version cannot be placed after the draft; the newest by
       // `at` still names a winner, and `total` below still counts them.
-      const winner =
-        since[0] ??
-        (await db.availabilityChange.findFirst({
-          where: { venueId },
-          orderBy: { at: "desc" },
-          select: CHANGE_SUMMARY_SELECT,
-        }));
+      const winner = since[0] ?? (await newestChange(db, venueId));
       const total = currentVersion - expectedVersion;
       return {
         kind: "version_conflict",
@@ -12194,6 +12188,25 @@
         winningChange: winner && toSummary(winner),
         // A draft ahead of the venue (`total < 1`) has nothing to name.
         ...(total >= 1 ? { changesSince: { total, changes: since.map(toSummary) } } : {}),
+      };
+    }
+    function newestChange(db: StoreDb, venueId: string) {
+      return db.availabilityChange.findFirst({
+        where: { venueId },
+        orderBy: [{ version: { sort: "desc", nulls: "last" } }, { at: "desc" }],
+        select: CHANGE_SUMMARY_SELECT,
+      });
+    }
+    export async function refuseSeriesChanged(
+      db: StoreDb,
+      venueId: string,
+      committedVersion: number
+    ): Promise<SaveOutcome> {
+      const winner = await newestChange(db, venueId);
+      return {
+        kind: "version_conflict",
+        currentVersion: committedVersion,
+        winningChange: winner && toSummary(winner),
       };
     }
     export function conflictIssue(error: ConfigRowConflict, next: AvailabilityConfig): SaveOutcome {
@@ -14379,7 +14392,8 @@
       // The version matched, yet the series is not the one this edit was built from: answer as a stale
       // version, so the Manager gets the same recovery and the winner's change is named.
       if (seriesChangedSinceRead(state.stored.dateRules, rule, alongside)) {
-        throw new Refused((await refuseStale(tx, venueId)) as Refusal);
+        // After this transaction's own bump, which rolls back: answer against the version it matched.
+        throw new Refused((await refuseSeriesChanged(tx, venueId, body.expectedVersion)) as Refusal);
       }
       const today = civilDateIn(now, state.timezone);
       const stranded = findStrandedReservations(
