@@ -40,9 +40,13 @@ const WEEKDAY_NAME = [
   "availability.drawer.layer.weekdays.6",
 ] as const;
 
-function bookingTypesText(types: NonNullable<LayerTarget["bookingTypes"]>, t: TFunction): string {
+function bookingTypesText(
+  types: NonNullable<LayerTarget["bookingTypes"]>,
+  t: TFunction,
+  locale: string
+): string {
   const names = types.map((type) => t(BOOKING_TYPE_NAME[type]));
-  return names.join(` ${t("availability.drawer.layer.and")} `);
+  return new Intl.ListFormat(locale, { type: "conjunction" }).format(names);
 }
 
 function targetText(target: LayerTarget, t: TFunction, format: VenueFormat): string {
@@ -56,7 +60,7 @@ function targetText(target: LayerTarget, t: TFunction, format: VenueFormat): str
     case "booking":
       return upperFirst(
         t("availability.drawer.layer.bookingClosed", {
-          types: bookingTypesText(target.bookingTypes ?? [], t),
+          types: bookingTypesText(target.bookingTypes ?? [], t, format.locale),
         }),
         format.locale
       );
@@ -99,7 +103,7 @@ function tonightText(
       to: clockText(tonight.stop.to, format),
     });
   }
-  return t("availability.drawer.layer.pacing", { covers: tonight.pacingCovers });
+  return t("availability.drawer.layer.pacing", { count: tonight.pacingCovers });
 }
 
 /** A layer's title in the viewer's language. */

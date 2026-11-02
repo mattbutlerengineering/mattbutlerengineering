@@ -2039,7 +2039,6 @@
         "serviceFallback": "Service",
         "bookingClosed": "{{types}} booking closed",
         "tablesBlocked": "Tables blocked",
-        "and": "and",
         "bookingType": {
           "online": "online",
           "phone": "phone",
@@ -2059,7 +2058,8 @@
         },
         "closesAt": "Closes at {{time}}",
         "stopped": "Stopped {{from}} – {{to}}",
-        "pacing": "Pacing {{covers}} covers"
+        "pacing_one": "Pacing {{count}} cover",
+        "pacing_other": "Pacing {{count}} covers"
       },
       "removal": {
         "serviceOpens": "{{name}} opens {{from}} – {{to}}",

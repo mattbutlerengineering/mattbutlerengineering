@@ -105,6 +105,35 @@ const STACKED = () =>
     )
   );
 
+const BARE = () =>
+  dayOf(
+    withSchedules(
+      {
+        ...fixtureConfig(EARLY_DINNER, VENUE_CLOSURE, TONIGHT_STOP, TONIGHT_PACING),
+        scheduleServices: [],
+      },
+      "Regular week"
+    )
+  );
+
+const ALL_CHANNELS: DateRule = {
+  startsOn: FIXTURE_DATE,
+  endsOn: FIXTURE_DATE,
+  id: "r-all-channels",
+  kind: "closure",
+  targetKind: "booking",
+  bookingTypes: ["online", "phone", "waitlist"],
+};
+const ONE_COVER: DateRule = {
+  startsOn: FIXTURE_DATE,
+  endsOn: FIXTURE_DATE,
+  id: "r-one-cover",
+  kind: "tonight",
+  targetKind: "venue",
+  payload: { version: 1, pacing: { covers: 1 } },
+};
+const EDGES = () => dayOf(withSchedules(fixtureConfig(ALL_CHANNELS, ONE_COVER), "Regular week"));
+
 const CASES = [
   {
     tag: "fr-CA" as const,
@@ -116,9 +145,14 @@ const CASES = [
         "Série ignorée : Fermé · vendredis · 2026-10-01 – 2026-12-31",
         "Réservable comme d'habitude",
       ],
-      ["Lunch fermé", "12 h 00 – 13 h 00"],
+      ["Fermé : Lunch", "12 h 00 – 13 h 00"],
       ["Réservation fermée : en ligne", "Toute la journée"],
       ["Ce soir", "Ferme à 21 h 00"],
+    ],
+    edges: [
+      ["Semaine habituelle", "Lunch 11 h 30 – 15 h 00, Dinner 17 h 00 – 23 h 00"],
+      ["Réservation fermée : en ligne, par téléphone et liste d'attente", "Toute la journée"],
+      ["Ce soir", "Cadence de 1 couvert"],
     ],
     bareClosed: [
       ["Semaine habituelle", "Fermé"],
@@ -135,9 +169,14 @@ const CASES = [
       ["Semana habitual", "Lunch 11:30 a.m. – 3:00 p.m., Dinner 5:00 p.m. – 11:00 p.m."],
       ["Usar Summer", "Lunch 11:30 a.m. – 3:00 p.m."],
       ["Serie omitida: Cerrado · viernes · 2026-10-01 – 2026-12-31", "Reservable como siempre"],
-      ["Lunch cerrado", "12:00 p.m. – 1:00 p.m."],
+      ["Cerrado: Lunch", "12:00 p.m. – 1:00 p.m."],
       ["Reservas cerradas: en línea", "Todo el día"],
       ["Esta noche", "Cierra a las 9:00 p.m."],
+    ],
+    edges: [
+      ["Semana habitual", "Lunch 11:30 a.m. – 3:00 p.m., Dinner 5:00 p.m. – 11:00 p.m."],
+      ["Reservas cerradas: en línea, por teléfono y lista de espera", "Todo el día"],
+      ["Esta noche", "Ritmo de 1 cubierto"],
     ],
     bareClosed: [
       ["Semana habitual", "Cerrado"],
@@ -155,6 +194,15 @@ describe("AvailabilityDayDrawer layers in en-US", () => {
     const day = STACKED();
     expect(rowsOf(day)).toEqual(day.explanation.map((l) => [l.label, l.effect]));
   });
+
+  it.each([
+    ["special hours, a venue closure, a stop and pacing", BARE],
+    ["three channels and a single cover", EDGES],
+  ])("read exactly as the engine words %s", async (_name, make) => {
+    await localeRuntime.i18n.changeLanguage("en-US");
+    const day = make();
+    expect(rowsOf(day)).toEqual(day.explanation.map((l) => [l.label, l.effect]));
+  });
 });
 
 describe("AvailabilityDayDrawer layers read in the viewer's language", () => {
@@ -166,13 +214,13 @@ describe("AvailabilityDayDrawer layers read in the viewer's language", () => {
 
     it(`renders special hours, a venue closure and Tonight in ${c.tag}`, async () => {
       await useLocale(c.tag, c.catalog);
-      const noServices: AvailabilityConfig = {
-        ...fixtureConfig(EARLY_DINNER, VENUE_CLOSURE, TONIGHT_STOP, TONIGHT_PACING),
-        scheduleServices: [],
-      };
-      const day = dayOf(withSchedules(noServices, "Regular week"));
-      const rows = rowsOf(day);
+      const rows = rowsOf(BARE());
       expect(rows).toEqual(c.bareClosed);
+    });
+
+    it(`renders three channels and a single cover in ${c.tag}`, async () => {
+      await useLocale(c.tag, c.catalog);
+      expect(rowsOf(EDGES())).toEqual(c.edges);
     });
   }
 });

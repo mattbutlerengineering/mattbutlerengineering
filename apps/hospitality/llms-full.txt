@@ -1375,9 +1375,13 @@
     function upperFirst(text: string, locale: string): string {
       return `${text.charAt(0).toLocaleUpperCase(locale)}${text.slice(1)}`;
     }
-    function bookingTypesText(types: NonNullable<LayerTarget["bookingTypes"]>, t: TFunction): string {
+    function bookingTypesText(
+      types: NonNullable<LayerTarget["bookingTypes"]>,
+      t: TFunction,
+      locale: string
+    ): string {
       const names = types.map((type) => t(BOOKING_TYPE_NAME[type]));
-      return names.join(` ${t("availability.drawer.layer.and")} `);
+      return new Intl.ListFormat(locale, { type: "conjunction" }).format(names);
     }
     function targetText(target: LayerTarget, t: TFunction, format: VenueFormat): string {
       switch (target.kind) {
@@ -1390,7 +1394,7 @@
         case "booking":
           return upperFirst(
             t("availability.drawer.layer.bookingClosed", {
-              types: bookingTypesText(target.bookingTypes ?? [], t),
+              types: bookingTypesText(target.bookingTypes ?? [], t, format.locale),
             }),
             format.locale
           );
@@ -1430,7 +1434,7 @@
           to: clockText(tonight.stop.to, format),
         });
       }
-      return t("availability.drawer.layer.pacing", { covers: tonight.pacingCovers });
+      return t("availability.drawer.layer.pacing", { count: tonight.pacingCovers });
     }
     export function layerLabelText(layer: Layer, t: TFunction, format: VenueFormat): string {
       switch (layer.kind) {

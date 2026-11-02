@@ -642,7 +642,11 @@
       function upperFirst(text: string, locale: string): string { /* ... */ }
     </item>
     <item priority="medium">
-      function bookingTypesText(types: NonNullable<LayerTarget["bookingTypes"]>, t: TFunction): string { /* ... */ }
+      function bookingTypesText(
+        types: NonNullable<LayerTarget["bookingTypes"]>,
+        t: TFunction,
+        locale: string
+      ): string { /* ... */ }
     </item>
     <item priority="medium">
       function targetText(target: LayerTarget, t: TFunction, format: VenueFormat): string { /* ... */ }

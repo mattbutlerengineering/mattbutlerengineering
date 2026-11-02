@@ -67,7 +67,7 @@
     {
       "name": "Availability day resolver (@mbe/availability resolve-day, shared by the availability page and the timeline's Tonight panel)",
       "path": "dist/assets/resolve-day-*.js",
-      "limit": "2.4 kB"
+      "limit": "2.7 kB"
     },
     {
       "name": "Venue Onboarding (lazy chunk)",

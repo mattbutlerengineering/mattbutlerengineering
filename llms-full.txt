@@ -6022,9 +6022,13 @@
     function upperFirst(text: string, locale: string): string {
       return `${text.charAt(0).toLocaleUpperCase(locale)}${text.slice(1)}`;
     }
-    function bookingTypesText(types: NonNullable<LayerTarget["bookingTypes"]>, t: TFunction): string {
+    function bookingTypesText(
+      types: NonNullable<LayerTarget["bookingTypes"]>,
+      t: TFunction,
+      locale: string
+    ): string {
       const names = types.map((type) => t(BOOKING_TYPE_NAME[type]));
-      return names.join(` ${t("availability.drawer.layer.and")} `);
+      return new Intl.ListFormat(locale, { type: "conjunction" }).format(names);
     }
     function targetText(target: LayerTarget, t: TFunction, format: VenueFormat): string {
       switch (target.kind) {
@@ -6037,7 +6041,7 @@
         case "booking":
           return upperFirst(
             t("availability.drawer.layer.bookingClosed", {
-              types: bookingTypesText(target.bookingTypes ?? [], t),
+              types: bookingTypesText(target.bookingTypes ?? [], t, format.locale),
             }),
             format.locale
           );
@@ -6077,7 +6081,7 @@
           to: clockText(tonight.stop.to, format),
         });
       }
-      return t("availability.drawer.layer.pacing", { covers: tonight.pacingCovers });
+      return t("availability.drawer.layer.pacing", { count: tonight.pacingCovers });
     }
     export function layerLabelText(layer: Layer, t: TFunction, format: VenueFormat): string {
       switch (layer.kind) {
@@ -76417,7 +76421,9 @@
         case "service":
           return `${serviceName ?? "Service"} closed`;
         case "booking": {
-          const types = (rule.bookingTypes ?? []).join(" and ");
+          const types = new Intl.ListFormat("en", { type: "conjunction" }).format(
+            rule.bookingTypes ?? []
+          );
           return `${types.charAt(0).toUpperCase()}${types.slice(1)} booking closed`;
         }
         case "tables":
@@ -76436,7 +76442,8 @@
       const { payload } = rule;
       if ("closeAt" in payload) return `Closes at ${formatMinute(payload.closeAt)}`;
       if ("stop" in payload) return `Stopped ${timeRange(payload.stop.from, payload.stop.to)}`;
-      return `Pacing ${payload.pacing.covers} covers`;
+      const { covers } = payload.pacing;
+      return `Pacing ${covers} ${covers === 1 ? "cover" : "covers"}`;
     }
     export function hoursEffect(
       services: readonly { name: string; opensAt: number; closesAt: number }[]
@@ -77435,6 +77442,10 @@
         return series ? { skippedFrom: seriesOf(series, serviceName(series)) } : {};
       };
       const scheduleName = (id: string) => schedules.get(id)?.name ?? "Schedule";
+      const scheduleDetail = (id: string) => {
+        const inForce = servicesOf(id);
+        return { effect: hoursEffect(inForce), scheduleName: scheduleName(id), hours: hoursOf(inForce) };
+      };
     
       const assignment = assignmentFor(config, serviceDate);
       const useSchedule = ofKind(rules, "use_schedule")
@@ -77470,9 +77481,7 @@
                 kind: "schedule" as const,
                 id: assignment.id,
                 label: scheduleName(assignment.scheduleId),
-                effect: hoursEffect(servicesOf(assignment.scheduleId)),
-                scheduleName: scheduleName(assignment.scheduleId),
-                hours: hoursOf(servicesOf(assignment.scheduleId)),
+                ...scheduleDetail(assignment.scheduleId),
               },
             ]
           : []),
@@ -77482,9 +77491,7 @@
                 kind: "use_schedule" as const,
                 id: useSchedule.id,
                 label: `Use ${scheduleName(useSchedule.useScheduleId)}`,
-                effect: hoursEffect(servicesOf(useSchedule.useScheduleId)),
-                scheduleName: scheduleName(useSchedule.useScheduleId),
-                hours: hoursOf(servicesOf(useSchedule.useScheduleId)),
+                ...scheduleDetail(useSchedule.useScheduleId),
               },
             ]
           : []),

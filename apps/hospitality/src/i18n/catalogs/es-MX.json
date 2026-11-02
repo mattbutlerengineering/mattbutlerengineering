@@ -2075,11 +2075,10 @@
         "bookableAsUsual": "Reservable como siempre",
         "serviceHours": "{{name}} {{from}} – {{to}}",
         "useSchedule": "Usar {{name}}",
-        "serviceClosed": "{{name}} cerrado",
+        "serviceClosed": "Cerrado: {{name}}",
         "serviceFallback": "Servicio",
         "bookingClosed": "Reservas cerradas: {{types}}",
         "tablesBlocked": "Mesas bloqueadas",
-        "and": "y",
         "bookingType": {
           "online": "en línea",
           "phone": "por teléfono",
@@ -2099,7 +2098,9 @@
         },
         "closesAt": "Cierra a las {{time}}",
         "stopped": "Detenido {{from}} – {{to}}",
-        "pacing": "Ritmo de {{covers}} cubiertos"
+        "pacing_one": "Ritmo de {{count}} cubierto",
+        "pacing_other": "Ritmo de {{count}} cubiertos",
+        "pacing_many": "Ritmo de {{count}} cubiertos"
       },
       "removal": {
         "serviceOpens": "{{name}} abre {{from}} – {{to}}",

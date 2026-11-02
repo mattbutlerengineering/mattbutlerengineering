@@ -256,6 +256,14 @@ function resolveLayers(config: AvailabilityConfig, serviceDate: ServiceDate): Re
     return series ? { skippedFrom: seriesOf(series, serviceName(series)) } : {};
   };
   const scheduleName = (id: string) => schedules.get(id)?.name ?? "Schedule";
+  const scheduleDetail = (id: string) => {
+    const inForce = servicesOf(id);
+    return {
+      effect: hoursEffect(inForce),
+      scheduleName: scheduleName(id),
+      hours: hoursOf(inForce),
+    };
+  };
 
   const assignment = assignmentFor(config, serviceDate);
   const useSchedule = ofKind(rules, "use_schedule")
@@ -291,9 +299,7 @@ function resolveLayers(config: AvailabilityConfig, serviceDate: ServiceDate): Re
             kind: "schedule" as const,
             id: assignment.id,
             label: scheduleName(assignment.scheduleId),
-            effect: hoursEffect(servicesOf(assignment.scheduleId)),
-            scheduleName: scheduleName(assignment.scheduleId),
-            hours: hoursOf(servicesOf(assignment.scheduleId)),
+            ...scheduleDetail(assignment.scheduleId),
           },
         ]
       : []),
@@ -303,9 +309,7 @@ function resolveLayers(config: AvailabilityConfig, serviceDate: ServiceDate): Re
             kind: "use_schedule" as const,
             id: useSchedule.id,
             label: `Use ${scheduleName(useSchedule.useScheduleId)}`,
-            effect: hoursEffect(servicesOf(useSchedule.useScheduleId)),
-            scheduleName: scheduleName(useSchedule.useScheduleId),
-            hours: hoursOf(servicesOf(useSchedule.useScheduleId)),
+            ...scheduleDetail(useSchedule.useScheduleId),
           },
         ]
       : []),
