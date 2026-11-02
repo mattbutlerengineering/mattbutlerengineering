@@ -91,7 +91,7 @@ Modal dialog for focused interactions.
 - **Radius**: `--rialto-radius-soft`
 - **Spacing**: `--rialto-space-lg` padding, `--rialto-space-md` header gap
 - **Close button**: `--rialto-radius-default`, hover `--rialto-surface-recessed`
-- **Z-index**: 100
+- **Z-index**: 10000
 
 ### Animation {#dialog-animation}
 
@@ -589,7 +589,7 @@ interface CommandItem {
 - **Shortcuts**: `--rialto-font-mono`, `--rialto-text-xs`
 - **Empty state**: Centered icon + text
 - **Radius**: `--rialto-radius-soft` panel, `--rialto-radius-default` items
-- **Z-index**: 9999
+- **Z-index**: 10001
 
 ### Animation {#command-palette-animation}
 

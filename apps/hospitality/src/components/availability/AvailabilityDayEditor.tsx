@@ -26,7 +26,7 @@ import { useViewport } from "../../hooks/useViewport.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import { AvailabilityGuestPreview } from "./AvailabilityGuestPreview.js";
 import { ConflictDialog } from "./ConflictDialog.js";
-import { switchScope, type ParkedEdit } from "./scope-switch.js";
+import { keepParked, parkedName, switchScope, type ParkedEdit } from "./scope-switch.js";
 import {
   buildDraftChanges,
   overnightHintDate,
@@ -475,9 +475,8 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
           onChange={(services) => {
             // Hours set again here are the Manager's own, so the line about the old ones goes, and
             // a held edit or removal for a service added back in this scope is dropped with its name.
-            const present = new Set(services.map((s) => s.venueServiceId));
-            const parked = edit.parked.filter((p) => !present.has(p.base.venueServiceId));
-            const held = new Set(parked.flatMap((p) => (p.draft ? [p.draft.name] : [])));
+            const parked = keepParked(edit.parked, services, edit.baseline);
+            const held = new Set(parked.map(parkedName));
             update({
               ...edit,
               services,

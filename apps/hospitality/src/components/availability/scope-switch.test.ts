@@ -107,7 +107,7 @@ describe("switchScope", () => {
       parked: [],
       seed: date,
     });
-    expect(there.parked.map((p) => [p.base.name, p.draft])).toEqual([["Lunch", null]]);
+    expect(there.parked.map((p) => [p.base?.name, p.draft])).toEqual([["Lunch", null]]);
     const back = switchScope({
       baseline: there.baseline,
       services: there.services,
@@ -137,6 +137,69 @@ describe("switchScope", () => {
       seed: [dinner],
     });
     expect(out.overridden).toEqual(["Dinner"]);
+  });
+
+  it("names a close edit that, laid over the new scope's last seating, leaves the row equal to it", () => {
+    const onDate = row("vs-dinner", "Dinner", { closesAt: 1200, lastSeatingAt: 1140 });
+    const weekly = row("vs-dinner", "Dinner", { closesAt: 1320, lastSeatingAt: 1260 });
+    const out = switchScope({
+      baseline: [onDate],
+      services: [{ ...onDate, closesAt: 1320 }],
+      parked: [],
+      seed: [weekly],
+    });
+    expect(out.services).toEqual([weekly]);
+    expect(out.overridden).toEqual(["Dinner"]);
+  });
+
+  it("names a removal the new scope cannot show, not only the edits", () => {
+    const out = switchScope({
+      baseline: regular,
+      services: [phoneOnly(dinner), brunch],
+      parked: [],
+      seed: date,
+    });
+    expect(out.unsaved).toEqual(["Lunch"]);
+  });
+
+  it("gives back hours added on a closed day once the Manager returns to it", () => {
+    const added = row("vs-dinner", "Dinner", { opensAt: 1100 });
+    const there = switchScope({ baseline: [], services: [added], parked: [], seed: regular });
+    expect(there.overridden).toEqual(["Dinner"]);
+    const back = switchScope({
+      baseline: there.baseline,
+      services: there.services,
+      parked: there.parked,
+      seed: [],
+    });
+    expect(back.services).toEqual([added]);
+    expect(back.parked).toEqual([]);
+  });
+
+  it("gives back added hours the new scope happened to share", () => {
+    const there = switchScope({ baseline: [], services: [dinner], parked: [], seed: regular });
+    const back = switchScope({
+      baseline: there.baseline,
+      services: there.services,
+      parked: there.parked,
+      seed: [],
+    });
+    expect(back.services).toEqual([dinner]);
+  });
+
+  it("lets go of added hours once the Manager edits that row in the scope they were held in", () => {
+    const added = row("vs-dinner", "Dinner", { opensAt: 1100 });
+    const there = switchScope({ baseline: [], services: [added], parked: [], seed: regular });
+    const back = switchScope({
+      baseline: there.baseline,
+      services: there.services.map((s) => (s.name === "Dinner" ? phoneOnly(s) : s)),
+      parked: there.parked,
+      seed: [],
+    });
+    // The Manager's later edit is held like any other; the earlier added hours are not resurrected.
+    expect(back.services).toEqual([]);
+    expect(back.parked.map((p) => p.draft?.bookingTypes)).toEqual([["phone"]]);
+    expect(back.unsaved).toEqual(["Dinner"]);
   });
 
   it("keeps a real removal: a row the Manager took out stays out", () => {

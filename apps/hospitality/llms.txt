@@ -1050,10 +1050,7 @@
   </file>
   <file path="src/components/availability/scope-switch.ts">
     <item priority="low">
-      interface ParkedEdit {
-        base: DraftService;
-        draft: DraftService | null;
-      }
+      type ParkedEdit = { readonly base: DraftService; | { readonly base: null; readonl;
     </item>
     <item priority="high">
       interface SwitchInput {
@@ -1071,6 +1068,16 @@
         unsaved: string[];
         overridden: string[];
       }
+    </item>
+    <item priority="high">
+      export const parkedName: unknown;
+    </item>
+    <item priority="high">
+      export function keepParked(
+        parked: readonly ParkedEdit[],
+        services: readonly DraftService[],
+        baseline: readonly DraftService[]
+      ): ParkedEdit[] { /* ... */ }
     </item>
     <item priority="high">
       export function switchScope(input: SwitchInput): Switched { /* ... */ }
