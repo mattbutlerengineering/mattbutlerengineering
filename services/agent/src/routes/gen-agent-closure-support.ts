@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { z } from "zod";
 import type { AvailabilityConfig, DateRule } from "@mbe/types";
 import { AVAILABILITY_PAGE, clockToMinute } from "./gen-agent-availability-tools.js";
@@ -319,6 +320,31 @@ export function findReopenable(
     };
   }
   return reopenableOnly(named[0]!);
+}
+
+/** JSON with object keys in sorted order, so equal rules always make the same text. */
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (value !== null && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, v]) => v !== undefined)
+      .sort(([a], [b]) => a.localeCompare(b));
+    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableJson(v)}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+/** The rows that go with a rule: its skips and one-date edits, which a reopen deletes too. */
+export const childrenOf = (config: AvailabilityConfig, ruleId: string): DateRule[] =>
+  config.dateRules.filter((r) => r.seriesId === ruleId);
+
+/**
+ * A short fingerprint of a closure and its children as `list_closures` showed them. The model
+ * copies it into `reopen_closure`, so the confirmed call names the closure the Host's conversation
+ * read, not whatever the tool reads moments before it writes.
+ */
+export function closureReadToken(rule: DateRule, children: readonly DateRule[]): string {
+  return createHash("sha256").update(stableJson({ rule, children })).digest("hex").slice(0, 16);
 }
 
 /** What the chat won't reopen: removing these skips checks the Availability page makes. */
