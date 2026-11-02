@@ -81,7 +81,7 @@
     "dependency-cruiser": "^18.7.0",
     "esbuild": "^0.28.2",
     "husky": "^9.1.7",
-    "knip": "6.42.1",
+    "knip": "6.44.1",
     "lint-staged": "^17.6.0",
     "size-limit": "^14.3.0",
     "turbo": "^2.11.10",
