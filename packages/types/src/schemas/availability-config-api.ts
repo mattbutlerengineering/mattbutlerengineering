@@ -348,7 +348,7 @@ export const ClosureImpactReservationSchema = z.object({
   endTime: z.string(),
   partySize: z.number().int(),
   guestName: z.string().nullable(),
-  /** The deposit held against this booking, if any. */
+  /** The deposit a cancel owes the guest a refund or void on, if any; the amount is an estimate of what is still owed. */
   deposit: z.object({ amountCents: z.number().int(), currency: z.string() }).nullable(),
   /** Starts before the closure and runs into it. */
   runsIntoClosure: z.boolean(),

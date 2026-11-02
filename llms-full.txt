@@ -26278,7 +26278,8 @@
       return name?.trim().split(/\s+/)[0] ?? "";
     }
     function cancelledSms(c: ClosureNoticeContent, offers: readonly ClosureOffer[]): string {
-      const refund = c.refund ? ` ${money(c.refund)} deposit will be refunded.` : "";
+      const refund =
+        c.refund && promisesRefund(c) ? ` ${money(c.refund)} deposit will be refunded.` : "";
       const head = `${c.venueName} is closed ${shortDate(c.closureDate)}. Your ${timeOf(c)} table for ${c.partySize} is cancelled.${refund}`;
       const times = offers.map((o) => `${o.label} ${o.url}`);
       if (times.length === 0) return `${head} Rebook: ${c.manageUrl}`;
@@ -26348,9 +26349,10 @@
       const message = c.message ? [`<p>${escapeHtml(c.message)}</p>`] : [];
       switch (c.kind) {
         case "cancelled": {
-          const refund = c.refund
-            ? [`<p>Your ${escapeHtml(money(c.refund))} deposit will be refunded.</p>`]
-            : [];
+          const refund =
+            c.refund && promisesRefund(c)
+              ? [`<p>Your ${escapeHtml(money(c.refund))} deposit will be refunded.</p>`]
+              : [];
           const offers = c.offers.map((o) => `<p>${link(o.url, `Rebook ${o.label}`)}</p>`);
           return [
             `<h1>Your reservation is cancelled</h1>`,
@@ -45535,7 +45537,7 @@
       endTime: z.string(),
       partySize: z.number().int(),
       guestName: z.string().nullable(),
-      /** The deposit held against this booking, if any. */
+      /** The deposit a cancel owes the guest a refund or void on, if any; the amount is an estimate of what is still owed. */
       deposit: z.object({ amountCents: z.number().int(), currency: z.string() }).nullable(),
       /** Starts before the closure and runs into it. */
       runsIntoClosure: z.boolean(),
@@ -54510,6 +54512,9 @@
             action,
             movedTo: target?.startTime ?? null,
             refund: action === "cancel" && r.deposit ? "pending" : "none",
+            // `r.deposit` is what the cancel still owes (closure-impact-store), kept so the notice
+            // promises the same amount before and after the refund job runs.
+            refundCents: action === "cancel" && r.deposit ? r.deposit.amountCents : null,
             acknowledgedBy: action === "keep_silent" ? actorId : null,
           });
         }
@@ -54946,6 +54951,31 @@
       mayClose,
     };
   </file>
+  <file path="services/reservations/src/services/closure-deposit.ts">
+    export interface RefundableDeposit {
+      amountCents: number;
+      status: string;
+      stripePaymentIntentId: string | null;
+      refundAmountCents?: number | null;
+      postCaptureRefundCents?: number | null;
+    }
+    export function refundOwedCents(
+      deposit: Pick<
+        RefundableDeposit,
+        "amountCents" | "status" | "refundAmountCents" | "postCaptureRefundCents"
+      >
+    ): number {
+      const ownLeg = deposit.status === "partial_refunded" ? (deposit.refundAmountCents ?? 0) : 0;
+      return Math.max(0, deposit.amountCents - ownLeg - (deposit.postCaptureRefundCents ?? 0));
+    }
+    export function owesRefund(deposit: RefundableDeposit): boolean {
+      if (deposit.status === "pending" && !deposit.stripePaymentIntentId) return false;
+      return (
+        LIVE_DEPOSIT_STATUSES.has(deposit.status) ||
+        (CAPTURED_DEPOSIT_STATUSES.has(deposit.status) && Boolean(deposit.stripePaymentIntentId))
+      );
+    }
+  </file>
   <file path="services/reservations/src/services/closure-impact-store.ts">
     type StoreClient = Pick<PrismaClient, "$transaction">;
     type ImpactDb = Pick<PrismaClient, "table" | "reservation" | "reservationHold">;
@@ -55036,15 +55066,19 @@
               currency: true,
               status: true,
               stripePaymentIntentId: true,
+              refundAmountCents: true,
+              postCaptureRefundCents: true,
             },
           },
         },
       });
+      // `owesRefund` alone puts a deposit in the plan, so the refund job runs for it. The amount is
+      // only the estimate of what is still owed (it can be 0); the command stores it for the notice.
       const bookings: ImpactBooking[] = rows.map(({ deposit, ...row }) => ({
         ...row,
         heldDeposit:
           deposit && owesRefund(deposit)
-            ? { amountCents: deposit.amountCents, currency: deposit.currency }
+            ? { amountCents: refundOwedCents(deposit), currency: deposit.currency }
             : null,
       }));
       const tableIds = [...new Set(bookings.flatMap((b) => (b.tableId ? [b.tableId] : [])))];
@@ -55087,7 +55121,7 @@
       guestName: string | null;
       /** The host the guest booked on (#7892); anything but the allowlisted hosts reads as none. */
       originHost?: string | null;
-      /** Set for a deposit a cancel owes a refund or void on: live (`pending`/`held`) or captured with a payment intent. Named for the common case. */
+      /** Set for a deposit a cancel owes a refund or void on: live (`pending`/`held`) or captured with a payment intent. `amountCents` is the estimate of what is still owed (the deposit less refunds already recorded; can be 0), not the deposit's amount. */
       heldDeposit: { amountCents: number; currency: string } | null;
     }
     function kindOf(rule: DateRule): ClosureImpactKind {
@@ -55489,6 +55523,26 @@
       });
       return rows.map((r) => ({ outcomeId: r.id }));
     }
+    function promisedRefund(
+      refund: string,
+      refundCents: number | null,
+      deposit: {
+        amountCents: number;
+        currency: string;
+        status: string;
+        stripePaymentIntentId: string | null;
+        refundAmountCents: number | null;
+        postCaptureRefundCents: number | null;
+      } | null
+    ): NoticeOutcome["refund"] {
+      if (!deposit || refund === "none") return null;
+      if (deposit.status === "pending" && !deposit.stripePaymentIntentId) return null;
+      // A row from before `refundCents` existed: once the job is done the closure's own refund is
+      // already off the row (it would compute 0), so promise the deposit; before that, estimate.
+      const amountCents =
+        refundCents ?? (refund === "done" ? deposit.amountCents : refundOwedCents(deposit));
+      return amountCents > 0 ? { amountCents, currency: deposit.currency } : null;
+    }
     export async function loadNoticeOutcome(
       outcomeId: string,
       db: Db = prisma
@@ -55502,6 +55556,8 @@
           action: true,
           deliveries: true,
           rebookedReservationId: true,
+          refund: true,
+          refundCents: true,
           dateRule: { select: { guestMessage: true } },
           venue: { select: { name: true, ianaTimezone: true } },
           reservation: {
@@ -55513,7 +55569,16 @@
               guestEmail: true,
               guestPhone: true,
               guest: { select: { communicationPreference: true } },
-              deposit: { select: { amountCents: true, currency: true } },
+              deposit: {
+                select: {
+                  amountCents: true,
+                  currency: true,
+                  status: true,
+                  stripePaymentIntentId: true,
+                  refundAmountCents: true,
+                  postCaptureRefundCents: true,
+                },
+              },
               originHost: true,
             },
           },
@@ -55536,7 +55601,7 @@
         guestEmail: r.guestEmail,
         guestPhone: r.guestPhone,
         preference: r.guest?.communicationPreference ?? null,
-        refund: r.deposit ? { amountCents: r.deposit.amountCents, currency: r.deposit.currency } : null,
+        refund: promisedRefund(row.refund, row.refundCents, r.deposit),
         venueName: row.venue.name,
         timezone: row.venue.ianaTimezone,
         originHost: r.originHost,
@@ -55641,17 +55706,16 @@
       deliveries: unknown;
       rebookedReservationId: string | null;
       refund: string;
-    }
-    function refundOwedCents(deposit: NonNullable<SummaryRow["reservation"]["deposit"]>): number {
-      const ownLeg = deposit.status === "partial_refunded" ? (deposit.refundAmountCents ?? 0) : 0;
-      return Math.max(0, deposit.amountCents - ownLeg - (deposit.postCaptureRefundCents ?? 0));
+      /** What the guest was promised, as stored with the outcome; null on rows from before it. */
+      refundCents?: number | null;
     }
     function refundFailureOf(row: SummaryRow): RefundFailure {
       const { guestName, deposit } = row.reservation;
       return {
         outcomeId: row.id,
         guestName,
-        amountCents: deposit ? refundOwedCents(deposit) : null,
+        // What the guest was promised, from the outcome; the live deposit only for older rows.
+        amountCents: deposit ? (row.refundCents ?? refundOwedCents(deposit)) : null,
         currency: deposit?.currency ?? null,
       };
     }
@@ -55695,6 +55759,7 @@
           deliveries: true,
           rebookedReservationId: true,
           refund: true,
+          refundCents: true,
           reservation: {
             select: {
               guestName: true,

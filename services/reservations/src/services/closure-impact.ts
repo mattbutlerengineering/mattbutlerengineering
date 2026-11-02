@@ -38,7 +38,7 @@ export interface ImpactBooking {
   guestName: string | null;
   /** The host the guest booked on (#7892); anything but the allowlisted hosts reads as none. */
   originHost?: string | null;
-  /** Set for a deposit a cancel owes a refund or void on: live (`pending`/`held`) or captured with a payment intent. Named for the common case. */
+  /** Set for a deposit a cancel owes a refund or void on: live (`pending`/`held`) or captured with a payment intent. `amountCents` is the estimate of what is still owed (the deposit less refunds already recorded; can be 0), not the deposit's amount. */
   heldDeposit: { amountCents: number; currency: string } | null;
 }
 
