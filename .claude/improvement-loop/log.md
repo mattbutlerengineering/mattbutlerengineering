@@ -4658,6 +4658,7 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 ### Skipped Issues
 
 0 `agent-skip` issues open — nothing to manually review.
+
 ## 2026-11-02
 
 **queueEfficiency:** composite 0.846 (baseline n/a) — healthy
