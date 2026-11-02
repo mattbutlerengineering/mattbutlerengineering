@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useToast } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigSaveResult } from "@mbe/types";
 import { isEditorOpen } from "../components/availability/editor-open.js";
-import { reportRevertFailure } from "../components/availability/stranded-revert.js";
+import { revertErrorText } from "../components/availability/revert-error.js";
 import { useRevertAvailabilityChange } from "./useAvailability.js";
 
 /** How long the Undo stays on offer (ux.md § Undo: 10 s). */
@@ -61,7 +61,7 @@ export function useAvailabilityUndo() {
           });
           toast({ title: t("availability.undo.done"), variant: "success", duration: 5000 });
         } catch (error) {
-          reportRevertFailure(error, t, toast, input.venueId);
+          toast({ title: revertErrorText(error, t), variant: "error", duration: 8000 });
         }
       };
       // One press per button: a double click must not send a second revert, which the first would

@@ -12,7 +12,6 @@ import { useViewport } from "../hooks/useViewport.js";
 import { describeApiError } from "../lib/describe-api-error.js";
 import { AvailabilityCalendar } from "../components/availability/AvailabilityCalendar.js";
 import { AvailabilityHistoryDrawer } from "../components/availability/AvailabilityHistoryDrawer.js";
-import { StrandedRevertDialog } from "../components/availability/StrandedRevertDialog.js";
 import { AvailabilityMigrationBanner } from "../components/availability/AvailabilityMigrationBanner.js";
 import { AvailabilityQuickSetup } from "../components/availability/AvailabilityQuickSetup.js";
 import { AvailabilitySelectionBar } from "../components/availability/AvailabilitySelectionBar.js";
@@ -83,8 +82,6 @@ export function AvailabilityPage() {
   return (
     <div ref={rootRef} className={styles.page}>
       <AvailabilityContent rootRef={rootRef} />
-      {/* Last, so it paints above any other overlay the tab has open, and on every tab. */}
-      <StrandedRevertDialog />
     </div>
   );
 }
