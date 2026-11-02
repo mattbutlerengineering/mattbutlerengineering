@@ -6,7 +6,7 @@ import type {
   ResolvedService,
 } from "@mbe/availability";
 import type { VenueFormat } from "../../hooks/useVenueFormat.js";
-import { clockHour } from "./clock-hour.js";
+import { clockHour } from "../../utils/clock-hour.js";
 import { closureEndText, isWholeDay, minuteText } from "./closure-band.js";
 
 type Channel = keyof BookingOpen;

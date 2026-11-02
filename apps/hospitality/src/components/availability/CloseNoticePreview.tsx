@@ -7,7 +7,7 @@ import type {
 } from "@mbe/types";
 import { useClosureNoticePreview } from "../../hooks/useClosures.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { clockHourOfInstant } from "./clock-hour.js";
+import { clockHourOfInstant } from "../../utils/clock-hour.js";
 import styles from "./CloseDialog.module.css";
 
 export type NoticeAction = ClosureNoticePreviewBody["action"];

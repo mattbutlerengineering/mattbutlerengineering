@@ -610,10 +610,18 @@
   "home": {
     "title": "Tableau de bord",
     "openSign": {
-      "open": "Ouvert jusqu'à {{time}}",
-      "openingSoon": "Ouvre à {{time}}",
-      "closedToday": "Fermé, ouvre à {{time}}",
-      "closedOn": "Fermé, ouvre {{weekday}} à {{time}}",
+      "open_one": "Ouvert jusqu'à {{time}}",
+      "open_other": "Ouvert jusqu'à {{time}}",
+      "open_many": "Ouvert jusqu'à {{time}}",
+      "openingSoon_one": "Ouvre à {{time}}",
+      "openingSoon_other": "Ouvre à {{time}}",
+      "openingSoon_many": "Ouvre à {{time}}",
+      "closedToday_one": "Fermé, ouvre à {{time}}",
+      "closedToday_other": "Fermé, ouvre à {{time}}",
+      "closedToday_many": "Fermé, ouvre à {{time}}",
+      "closedOn_one": "Fermé, ouvre {{weekday}} à {{time}}",
+      "closedOn_other": "Fermé, ouvre {{weekday}} à {{time}}",
+      "closedOn_many": "Fermé, ouvre {{weekday}} à {{time}}",
       "unset": "Aucun horaire d'ouverture défini",
       "weekdays": {
         "monday": "lundi",
@@ -755,7 +763,9 @@
     "visitOrdinalFew": "{{count}}e visite",
     "visitOrdinalOther": "{{count}}e visite",
     "block": {
-      "title": "{{guest}} - {{party}} à {{time}}",
+      "title_one": "{{guest}} - {{party}} à {{time}}",
+      "title_other": "{{guest}} - {{party}} à {{time}}",
+      "title_many": "{{guest}} - {{party}} à {{time}}",
       "seatedWord": "installés",
       "overrideTag": "Dérogation",
       "overrideLabel": "Dérogation : {{reason}}"
@@ -1516,7 +1526,9 @@
         "failed": "Nous n'avons pas pu rembourser votre dépôt automatiquement. {{venue}} communiquera avec vous, ou vous pouvez l'appeler."
       },
       "rebookHeading": "Réservez de nouveau en un geste",
-      "rebook": "Réserver le {{date}} à {{time}}",
+      "rebook_one": "Réserver le {{date}} à {{time}}",
+      "rebook_other": "Réserver le {{date}} à {{time}}",
+      "rebook_many": "Réserver le {{date}} à {{time}}",
       "rebooking": "Réservation en cours…",
       "rebooked": "Votre réservation est confirmée pour le {{when}}.",
       "viewRebooked": "Voir votre nouvelle réservation",

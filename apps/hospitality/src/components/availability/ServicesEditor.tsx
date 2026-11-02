@@ -5,7 +5,7 @@ import type { Seating, VenueService } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { closeFromClock, lastSeatingFromClock, openFromClock, toClock } from "./clock-minutes.js";
 import type { DraftService } from "./draft-changes.js";
-import { clockHour } from "./clock-hour.js";
+import { clockHour } from "../../utils/clock-hour.js";
 import { minuteText } from "./closure-band.js";
 import styles from "./ServicesEditor.module.css";
 

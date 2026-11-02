@@ -1513,17 +1513,6 @@
       export function changeSummaryText(change: Change, format: VenueFormat, t: TFunction): string { /* ... */ }
     </item>
   </file>
-  <file path="apps/hospitality/src/components/availability/clock-hour.ts">
-    <item priority="high">
-      export function clockHour(minute: number): number { /* ... */ }
-    </item>
-    <item priority="high">
-      export function clockHourOfInstant(
-        at: string | number | Date,
-        format: Pick<VenueFormat, "formatInstant">
-      ): number { /* ... */ }
-    </item>
-  </file>
   <file path="apps/hospitality/src/components/availability/clock-minutes.ts">
     <item priority="high">
       export function toClock(minute: number): string { /* ... */ }
@@ -27439,6 +27428,20 @@
         venue: IcsVenue,
         opts: BuildCalendarLinkOptions = {}
       ): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/utils/clock-hour.ts">
+    <item priority="high">
+      export function clockHour(minute: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function clockHourOfInstant(
+        at: string | number | Date,
+        format: Pick<VenueFormat, "formatInstant">
+      ): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function clockHourOfClock(hhmm: string): number { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/utils/current-service-date.ts">
