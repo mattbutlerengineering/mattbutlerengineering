@@ -2549,7 +2549,7 @@
         },
         "booking": "{{time}}  {{name}} · {{size}}",
         "guestUnnamed": "Comensal",
-        "deposit": "depósito {{amount}}",
+        "deposit": "{{amount}} por reembolsar",
         "runsInto": "se extiende al cierre",
         "showAll_one": "Mostrar las {{count}}",
         "showAll_other": "Mostrar las {{count}}",

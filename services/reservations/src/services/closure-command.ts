@@ -280,6 +280,9 @@ function planOutcomes(
         action,
         movedTo: target?.startTime ?? null,
         refund: action === "cancel" && r.deposit ? "pending" : "none",
+        // `r.deposit` is what the cancel still owes (closure-impact-store), kept so the notice
+        // promises the same amount before and after the refund job runs.
+        refundCents: action === "cancel" && r.deposit ? r.deposit.amountCents : null,
         acknowledgedBy: action === "keep_silent" ? actorId : null,
       });
     }

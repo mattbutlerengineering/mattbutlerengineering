@@ -109,6 +109,93 @@ describe("loadNoticeOutcome", () => {
     const result = await loadNoticeOutcome("out_1", db as never);
     expect(result?.originHost).toBeNull();
   });
+
+  // #8131: the notice promises what the closure recorded it owed: the outcome's `refund` says
+  // whether, its `refundCents` says how much. Both are written with the row, so they read the
+  // same before and after the refund job moves the deposit on (held -> refunded, a webhook
+  // lifting postCaptureRefundCents), and on every retry of the notice job.
+  describe("refund promise (#8131)", () => {
+    const deposit = (over: Record<string, unknown> = {}) => ({
+      amountCents: 4000,
+      currency: "usd",
+      status: "applied",
+      stripePaymentIntentId: "pi_1",
+      refundAmountCents: null,
+      postCaptureRefundCents: null,
+      ...over,
+    });
+    const refundOf = async (
+      outcome: { refund: string; refundCents?: number | null },
+      dep: Record<string, unknown> | null
+    ) => {
+      const row = { ...makeRow({ deposit: dep }), refundCents: null, ...outcome };
+      const db = { closureOutcome: { findUnique: vi.fn().mockResolvedValue(row) } };
+      return (await loadNoticeOutcome("out_1", db as never))?.refund;
+    };
+
+    it.each(["held", "pending", "refunded", "applied", "forfeited", "partial_refunded"])(
+      "promises nothing when the outcome recorded none, whatever the deposit status (%s)",
+      async (status) => {
+        expect(await refundOf({ refund: "none" }, deposit({ status }))).toBeNull();
+      }
+    );
+
+    it.each(["pending", "done", "failed"])(
+      "promises the stored amount once the job has moved the deposit on (outcome %s)",
+      async (refund) => {
+        expect(
+          await refundOf({ refund, refundCents: 4000 }, deposit({ status: "refunded" }))
+        ).toEqual({ amountCents: 4000, currency: "usd" });
+      }
+    );
+
+    it("promises the part still owed after a dashboard refund, before the job runs", async () => {
+      expect(
+        await refundOf(
+          { refund: "pending", refundCents: 2500 },
+          deposit({ postCaptureRefundCents: 1500 })
+        )
+      ).toEqual({ amountCents: 2500, currency: "usd" });
+    });
+
+    it("promises that same part after the job: the closure's own refund now sits in postCaptureRefundCents", async () => {
+      expect(
+        await refundOf(
+          { refund: "done", refundCents: 2500 },
+          deposit({ postCaptureRefundCents: 4000 })
+        )
+      ).toEqual({ amountCents: 2500, currency: "usd" });
+    });
+
+    it("promises nothing when the stored amount is zero", async () => {
+      expect(await refundOf({ refund: "pending", refundCents: 0 }, deposit())).toBeNull();
+    });
+
+    it("promises nothing for a pending deposit that never reached Stripe, even on a row stored as pending", async () => {
+      expect(
+        await refundOf(
+          { refund: "pending", refundCents: 4000 },
+          deposit({ status: "pending", stripePaymentIntentId: null })
+        )
+      ).toBeNull();
+    });
+
+    it("estimates the amount for a row from before refundCents existed", async () => {
+      expect(
+        await refundOf({ refund: "pending" }, deposit({ postCaptureRefundCents: 1500 }))
+      ).toEqual({ amountCents: 2500, currency: "usd" });
+    });
+
+    it("promises the deposit for a row from before refundCents existed once the job is done: the closure's own refund is already off the row", async () => {
+      expect(await refundOf({ refund: "done" }, deposit({ postCaptureRefundCents: 4000 }))).toEqual(
+        { amountCents: 4000, currency: "usd" }
+      );
+    });
+
+    it("promises nothing when there is no deposit", async () => {
+      expect(await refundOf({ refund: "pending", refundCents: 4000 }, null)).toBeNull();
+    });
+  });
 });
 
 describe("listSummaries", () => {

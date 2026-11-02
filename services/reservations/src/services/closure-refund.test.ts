@@ -150,6 +150,19 @@ describe("settleClosureRefund", () => {
     expect(state.row.refund).toBe("done");
   });
 
+  // #8131: why a pending deposit with no payment intent may stay out of the closure plan
+  // (`owesRefund`): the job settles it as none with no Stripe call, so no refund is lost.
+  it("settles a pending deposit with no payment intent as none, with no Stripe call", async () => {
+    seedDeposit({ status: "pending", stripePaymentIntentId: null });
+    const { deps, payments, state } = setup();
+
+    await settleClosureRefund(deps, PAYLOAD);
+
+    expect(payments.calls).toEqual([]);
+    expect(depositRows.get("dep-1")?.status).toBe("pending");
+    expect(state.row.refund).toBe("none");
+  });
+
   it("voids the intent of a pending deposit the guest never authorized; nothing was charged", async () => {
     seedDeposit({ status: "pending" });
     const { deps, payments, state } = setup();

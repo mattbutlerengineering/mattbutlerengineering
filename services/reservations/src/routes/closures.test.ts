@@ -702,6 +702,22 @@ describe("closure routes", () => {
       expect(text).not.toContain("deposit");
     });
 
+    // #8131: the impact's deposit is the estimate of what is still owed and can be 0 (a refund
+    // already made in the Stripe dashboard). The preview must say nothing of a refund then, as the
+    // notice the job sends does.
+    it("says nothing of a refund when the estimate is 0, as the notice does", async () => {
+      const res = await post({ ...body, refund: { amountCents: 0, currency: "usd" } });
+
+      expect(res.statusCode).toBe(200);
+      const data = ClosureNoticePreviewSchema.parse(res.json().data);
+      expect(data.email.text).not.toContain("deposit");
+      expect(data.email.text).not.toContain("$0");
+      expect(data.sms).not.toContain("deposit");
+      expect(data.sms).not.toContain("$0");
+      const withRefund = await post();
+      expect(withRefund.json().data.sms).toContain("$40 deposit will be refunded");
+    });
+
     it("sends from, and links to, the brand of the host the booking came from (#8013)", async () => {
       const eat = await post({ ...body, originHost: "eat-sheet.com" });
       const home = await post({ ...body, originHost: null });

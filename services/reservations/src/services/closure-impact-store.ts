@@ -5,6 +5,7 @@ import { setVenueContext } from "../middleware/venue-context.js";
 import { referenceIssues, SCOPE_CONFLICT_HORIZON_DAYS } from "./availability-config-plan.js";
 import { loadConfigState, stillToServeWhere, type ConfigState } from "./availability-config.js";
 import { civilDateIn } from "./availability-migration.js";
+import { owesRefund, refundOwedCents } from "./closure-deposit.js";
 import {
   computeClosureImpact,
   withClosure,
@@ -28,25 +29,6 @@ export type ClosureImpactOutcome =
   | { kind: "not_found" }
   | { kind: "too_long" }
   | { kind: "invalid"; issues: { path: string; code: string; message: string }[] };
-
-/** Deposits that still hold or await the guest's money: a cancel owes them a refund or void. */
-const LIVE_DEPOSIT_STATUSES: ReadonlySet<string> = new Set(["pending", "held"]);
-
-/**
- * Deposits staff captured (`/deposits/:id/capture` takes any held deposit, seated or not) or
- * forfeited before the closure: the money is gone from the authorization, but a cancel still owes
- * it back through Stripe's refund API. Only with a payment intent; without one there is nothing to
- * refund through Stripe.
- */
-const CAPTURED_DEPOSIT_STATUSES: ReadonlySet<string> = new Set([
-  "applied",
-  "forfeited",
-  "partial_refunded",
-]);
-
-const owesRefund = (d: { status: string; stripePaymentIntentId: string | null }): boolean =>
-  LIVE_DEPOSIT_STATUSES.has(d.status) ||
-  (CAPTURED_DEPOSIT_STATUSES.has(d.status) && Boolean(d.stripePaymentIntentId));
 
 const toDbDate = (d: string): Date => new Date(`${d}T00:00:00.000Z`);
 
@@ -151,15 +133,19 @@ export async function impactInTransaction(
           currency: true,
           status: true,
           stripePaymentIntentId: true,
+          refundAmountCents: true,
+          postCaptureRefundCents: true,
         },
       },
     },
   });
+  // `owesRefund` alone puts a deposit in the plan, so the refund job runs for it. The amount is
+  // only the estimate of what is still owed (it can be 0); the command stores it for the notice.
   const bookings: ImpactBooking[] = rows.map(({ deposit, ...row }) => ({
     ...row,
     heldDeposit:
       deposit && owesRefund(deposit)
-        ? { amountCents: deposit.amountCents, currency: deposit.currency }
+        ? { amountCents: refundOwedCents(deposit), currency: deposit.currency }
         : null,
   }));
   const tableIds = [...new Set(bookings.flatMap((b) => (b.tableId ? [b.tableId] : [])))];

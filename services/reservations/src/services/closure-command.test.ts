@@ -730,12 +730,53 @@ describe("createClosure", () => {
 
   it("marks a cancelled booking's pending deposit for refund, like a held one", async () => {
     const w = world();
-    w.reservations[0]!.deposit = { amountCents: 4000, currency: "usd", status: "pending" };
+    w.reservations[0]!.deposit = {
+      amountCents: 4000,
+      currency: "usd",
+      status: "pending",
+      stripePaymentIntentId: "pi_1",
+    } as never;
     const { tx } = await run(w, body());
     expect(tx.closureOutcome.createMany.mock.calls[0]![0].data[0]).toMatchObject({
       reservationId: "res-1",
       refund: "pending",
+      refundCents: 4000,
     });
+  });
+
+  // #8131: staff-created pending deposit, never sent to Stripe: no money was taken.
+  it("owes nothing on a pending deposit that never reached Stripe", async () => {
+    const w = world();
+    w.reservations[0]!.deposit = { amountCents: 4000, currency: "usd", status: "pending" };
+    const { tx } = await run(w, body());
+    expect(tx.closureOutcome.createMany.mock.calls[0]![0].data[0]).toMatchObject({
+      reservationId: "res-1",
+      refund: "none",
+      refundCents: null,
+    });
+  });
+
+  // #8131: the outcome stores the estimate of what is owed for the notice, but the estimate never
+  // decides whether the refund job runs: an estimate of 0 is still `pending` for the job to check
+  // against Stripe (a failed dashboard refund stays counted in the row).
+  it("stores the estimate after a partial dashboard refund, and keeps a 0 estimate pending for the job", async () => {
+    const w = world();
+    const captured = (post: number) =>
+      ({
+        amountCents: 4000,
+        currency: "usd",
+        status: "applied",
+        stripePaymentIntentId: "pi_1",
+        refundAmountCents: null,
+        postCaptureRefundCents: post,
+      }) as never;
+    w.reservations[0]!.deposit = captured(1500);
+    w.reservations[1]!.deposit = captured(4000);
+    const { tx } = await run(w, body());
+    expect(tx.closureOutcome.createMany.mock.calls[0]![0].data).toEqual([
+      expect.objectContaining({ reservationId: "res-1", refund: "pending", refundCents: 2500 }),
+      expect.objectContaining({ reservationId: "res-2", refund: "pending", refundCents: 0 }),
+    ]);
   });
 
   it("marks a cancelled booking's already-captured deposit for refund", async () => {

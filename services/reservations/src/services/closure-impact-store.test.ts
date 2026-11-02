@@ -191,6 +191,82 @@ describe("getClosureImpact", () => {
     expect(outcome).toMatchObject({ kind: "ok", impact: { depositsHeld: 3 } });
   });
 
+  // #8131: the impact (and so the stored outcome and the notice) carries what is still owed.
+  it("carries the estimate of what is still owed, and keeps a deposit estimating 0 in the plan", async () => {
+    const { client, tx } = fakeClient(rows());
+    const base = (await tx.reservation.findMany())[0]!;
+    const withDeposit = (id: string, status: string, pi: string | null, post: number | null) => ({
+      ...base,
+      id,
+      deposit: {
+        amountCents: 4000,
+        currency: "usd",
+        status,
+        stripePaymentIntentId: pi,
+        refundAmountCents: null,
+        postCaptureRefundCents: post,
+      },
+    });
+    tx.reservation.findMany.mockResolvedValueOnce([
+      withDeposit("res-dashboard-part", "applied", "pi_1", 1500),
+      withDeposit("res-dashboard-full", "applied", "pi_2", 4000),
+      withDeposit("res-pending-no-pi", "pending", null, null),
+      withDeposit("res-held", "held", "pi_3", null),
+    ] as never);
+
+    const outcome = await getClosureImpact("venue-1", closure(), NOW, client);
+
+    const deposits =
+      outcome.kind === "ok"
+        ? outcome.impact.groups.flatMap((g) => g.reservations.map((r) => [r.id, r.deposit]))
+        : [];
+    expect(Object.fromEntries(deposits)).toEqual({
+      "res-dashboard-part": { amountCents: 2500, currency: "usd" },
+      // Estimates 0, but stays in the plan so the refund job checks Stripe.
+      "res-dashboard-full": { amountCents: 0, currency: "usd" },
+      "res-pending-no-pi": null,
+      "res-held": { amountCents: 4000, currency: "usd" },
+    });
+  });
+
+  // #8130 reads `originHost` and the table ids off the same row, and `withProposedStarts` spreads
+  // each reservation: the deposit estimate must survive both.
+  it("keeps the deposit estimate beside the booking's origin host and proposed start", async () => {
+    const { client, tx } = fakeClient(rows());
+    const base = (await tx.reservation.findMany())[0]!;
+    tx.reservation.findMany.mockResolvedValueOnce([
+      {
+        ...base,
+        id: "res-host",
+        originHost: "eat-sheet.com",
+        deposit: {
+          amountCents: 4000,
+          currency: "usd",
+          status: "applied",
+          stripePaymentIntentId: "pi_1",
+          refundAmountCents: null,
+          postCaptureRefundCents: 1500,
+        },
+      },
+    ] as never);
+
+    const outcome = await getClosureImpact(
+      "venue-1",
+      closure({ window: { version: 1, from: 0, to: 1440 } } as never),
+      NOW,
+      client
+    );
+
+    const reservation =
+      outcome.kind === "ok" ? outcome.impact.groups[0]?.reservations[0] : undefined;
+    expect(reservation).toMatchObject({
+      id: "res-host",
+      originHost: "eat-sheet.com",
+      deposit: { amountCents: 2500, currency: "usd" },
+    });
+    expect(reservation).toHaveProperty("proposedStart");
+  });
+
   it("scans from yesterday's service day when the closure starts in the past", async () => {
     const { client, tx } = fakeClient(rows());
 

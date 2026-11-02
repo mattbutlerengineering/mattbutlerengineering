@@ -2492,7 +2492,7 @@
         },
         "booking": "{{time}}  {{name}} · {{size}}",
         "guestUnnamed": "Guest",
-        "deposit": "deposit {{amount}}",
+        "deposit": "{{amount}} to refund",
         "runsInto": "runs into closure",
         "showAll_one": "Show all {{count}}",
         "showAll_other": "Show all {{count}}",
