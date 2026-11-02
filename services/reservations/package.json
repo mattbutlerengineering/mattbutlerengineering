@@ -35,13 +35,13 @@
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
     "@prisma/client-runtime-utils": "^7.10.1",
-    "bullmq": "^6.4.0",
+    "bullmq": "^6.5.2",
     "fastify": "catalog:",
     "ioredis": "^6.0.0",
-    "jose": "^6.2.13",
+    "jose": "^6.2.14",
     "pg": "^8.23.1",
-    "resend": "^6.34.1",
-    "stripe": "^23.0.1",
+    "resend": "^6.36.0",
+    "stripe": "^23.1.0",
     "twilio": "^6.2.0"
   },
   "prisma": {
