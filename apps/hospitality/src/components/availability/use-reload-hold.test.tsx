@@ -108,7 +108,15 @@ describe("the hold after the Manager's own save", () => {
 
   const edit = () => screen.getByRole("button", { name: "Edit Lunch" });
   /** The button appears only once the hold has lasted about 2 s. */
-  const findReload = () => screen.findByRole("button", { name: "Reload hours" }, { timeout: 3000 });
+  const findReload = async () => {
+    const button = await screen.findByRole("button", { name: "Reload hours" }, { timeout: 3000 });
+    // The button is in the DOM when its commit lands, but the focus hook's effect for that commit
+    // runs after. React runs a pending effect before the next render, so a test that moves focus
+    // first has that effect read the focus it just made, and spend the claim the hook is holding
+    // for the click: the hold then ends with nowhere to send focus. Let it run before going on.
+    await act(async () => {});
+    return button;
+  };
 
   async function copyToFriday() {
     fireEvent.click(screen.getByRole("button", { name: "Copy to other days…" }));
@@ -119,6 +127,21 @@ describe("the hold after the Manager's own save", () => {
     await act(async () => {
       await Promise.resolve();
     });
+    // The Dialog hands focus back to the control that opened it in an animation frame after it
+    // closes. Until that frame has passed, focus is still on its way, and a test that moves focus
+    // now races it. Wait for the dialog to be gone and for focus to have landed.
+    await vi.waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: /Copy .* to other days/ })
+      ).not.toBeInTheDocument();
+      expect(edit()).toHaveFocus();
+    });
+  }
+
+  /** Focuses the button as it is now: one found earlier may have been replaced since. */
+  async function focusReload() {
+    await findReload();
+    screen.getByRole("button", { name: "Reload hours" }).focus();
   }
 
   it("shows a failed reload with Retry on the Special dates drawer", async () => {
@@ -166,7 +189,7 @@ describe("the hold after the Manager's own save", () => {
     const onStale = vi.fn();
     const view = render(tree({ onStale }));
     await copyToFriday();
-    (await findReload()).focus();
+    await focusReload();
     fireEvent.click(screen.getByRole("button", { name: "Reload hours" }));
     view.rerender(tree({ onStale, version: 5 }));
     expect(screen.queryByRole("button", { name: "Reload hours" })).not.toBeInTheDocument();
@@ -178,9 +201,8 @@ describe("the hold after the Manager's own save", () => {
       const onStale = vi.fn();
       const view = render(tree({ onStale }));
       await copyToFriday();
-      const reload = await findReload();
-      reload.focus();
-      fireEvent.click(reload);
+      await focusReload();
+      fireEvent.click(screen.getByRole("button", { name: "Reload hours" }));
       screen.getByRole("button", { name: "Copy to other days…" }).focus();
       view.rerender(tree({ onStale, version: 5 }));
       expect(screen.getByRole("button", { name: "Copy to other days…" })).toHaveFocus();
@@ -191,9 +213,8 @@ describe("the hold after the Manager's own save", () => {
       const field = <input aria-label="Guest message" />;
       const view = render(tree({ onStale, children: field }));
       await copyToFriday();
-      const reload = await findReload();
-      reload.focus();
-      fireEvent.click(reload);
+      await focusReload();
+      fireEvent.click(screen.getByRole("button", { name: "Reload hours" }));
       screen.getByLabelText("Guest message").focus();
       view.rerender(tree({ onStale, version: 5, children: field }));
       expect(screen.getByLabelText("Guest message")).toHaveFocus();
@@ -204,9 +225,8 @@ describe("the hold after the Manager's own save", () => {
       const field = <input aria-label="Guest message" />;
       const view = render(tree({ onStale, children: field }));
       await copyToFriday();
-      const reload = await findReload();
-      reload.focus();
-      fireEvent.click(reload);
+      await focusReload();
+      fireEvent.click(screen.getByRole("button", { name: "Reload hours" }));
       screen.getByLabelText("Guest message").focus();
       (document.activeElement as HTMLElement).blur();
       view.rerender(tree({ onStale, version: 5, children: field }));
@@ -219,7 +239,7 @@ describe("the hold after the Manager's own save", () => {
       const onStale = vi.fn();
       const view = render(tree({ onStale }));
       await copyToFriday();
-      (await findReload()).focus();
+      await focusReload();
       view.rerender(tree({ onStale, version: 5 }));
       expect(edit()).toHaveFocus();
     });
@@ -259,7 +279,7 @@ describe("the hold after the Manager's own save", () => {
     const onStale = vi.fn();
     const view = render(tree({ onStale }));
     await copyToFriday();
-    (await findReload()).focus();
+    await focusReload();
     fireEvent.click(screen.getByRole("button", { name: "Reload hours" }));
     view.rerender(tree({ onStale, reloadError: "Network down" }));
     expect(within(screen.getByRole("alert")).getByRole("button", { name: "Retry" })).toHaveFocus();
