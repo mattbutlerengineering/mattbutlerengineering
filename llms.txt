@@ -12568,6 +12568,12 @@
       export const AvailabilityChangeSummarySchema: unknown;
     </item>
     <item priority="high">
+      export const CONFLICT_CHANGES_MAX: unknown;
+    </item>
+    <item priority="high">
+      export const ConflictChangesSinceSchema: unknown;
+    </item>
+    <item priority="high">
       export const AvailabilityChangeOutcomeSchema: unknown;
     </item>
     <item priority="high">
@@ -12734,6 +12740,9 @@
     </item>
     <item priority="low">
       type AvailabilityChangeSummary = z.infer<typeof AvailabilityChangeSummarySchema>;
+    </item>
+    <item priority="low">
+      type ConflictChangesSince = z.infer<typeof ConflictChangesSinceSchema>;
     </item>
     <item priority="low">
       type AvailabilityChangeOutcome = z.infer<typeof AvailabilityChangeOutcomeSchema>;
@@ -15487,7 +15496,21 @@
       ): Promise<BookedReservation[]> { /* ... */ }
     </item>
     <item priority="high">
-      export async function refuseStale(db: StoreDb, venueId: string): Promise<SaveOutcome> { /* ... */ }
+      export async function refuseStale(
+        db: StoreDb,
+        venueId: string,
+        expectedVersion: number
+      ): Promise<SaveOutcome> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function newestChange(db: StoreDb, venueId: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function refuseSeriesChanged(
+        db: StoreDb,
+        venueId: string,
+        committedVersion: number
+      ): Promise<SaveOutcome> { /* ... */ }
     </item>
     <item priority="high">
       export function conflictIssue(error: ConfigRowConflict, next: AvailabilityConfig): SaveOutcome { /* ... */ }

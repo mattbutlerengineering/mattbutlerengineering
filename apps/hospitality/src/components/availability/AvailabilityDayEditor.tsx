@@ -16,6 +16,7 @@ import {
   type AvailabilityChangeSummary,
   type AvailabilityConfigSaveResult,
   type AvailabilityConfigState,
+  type ConflictChangesSince,
   type ScopeConflictMode,
   type StrandedReservation,
 } from "@mbe/types";
@@ -136,6 +137,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   // Overwrite goes against what the dialog shows. Absent from an older server: no Overwrite then.
   const [conflict, setConflict] = useState<{
     readonly winningChange: AvailabilityChangeSummary | null;
+    readonly changesSince?: ConflictChangesSince;
     readonly seen: number | null;
     readonly again: boolean;
   } | null>(null);
@@ -322,6 +324,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
     if (problem?.code === "version-conflict") {
       setConflict({
         winningChange: problem.winningChange ?? null,
+        ...(problem.changesSince ? { changesSince: problem.changesSince } : {}),
         seen: problem.currentVersion ?? null,
         again: overwrote,
       });
@@ -598,6 +601,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
         <ConflictDialog
           open
           winningChange={conflict.winningChange}
+          {...(conflict.changesSince ? { changesSince: conflict.changesSince } : {})}
           services={edit.services}
           isSaving={isPending}
           failure={failure?.messages ?? []}

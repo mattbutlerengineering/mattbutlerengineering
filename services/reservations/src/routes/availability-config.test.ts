@@ -162,6 +162,44 @@ describe("availability config routes", () => {
       expect(problem.winningChange).toEqual(winningChange);
     });
 
+    it("sends every change since the draft's version through response validation", async () => {
+      const change = (id: string, minute: number) => ({
+        id,
+        actorId: `auth0|${id}`,
+        at: `2026-10-25T18:0${minute}:00.000Z`,
+        kind: "config",
+        summary: "Availability updated: 1 added, 0 changed, 0 removed",
+      });
+      svc.save.mockResolvedValueOnce({
+        kind: "version_conflict",
+        winningChange: change("B", 2),
+        currentVersion: 6,
+        changesSince: { total: 3, changes: [change("B", 2), change("A", 1)] },
+      });
+
+      const res = await put(app, { ...PUT_BODY, expectedVersion: 3 });
+
+      expect(res.statusCode).toBe(409);
+      const problem = AvailabilityConfigProblemSchema.parse(res.json());
+      expect(problem.changesSince).toEqual({
+        total: 3,
+        changes: [change("B", 2), change("A", 1)],
+      });
+    });
+
+    it("omits changesSince when the service sends none (an older conflict shape)", async () => {
+      svc.save.mockResolvedValueOnce({
+        kind: "version_conflict",
+        winningChange: null,
+        currentVersion: 6,
+      });
+
+      const res = await put(app);
+
+      expect(res.statusCode).toBe(409);
+      expect(res.json()).not.toHaveProperty("changesSince");
+    });
+
     it("answers an invalid config with 422 and the issue paths", async () => {
       const issues = [
         {

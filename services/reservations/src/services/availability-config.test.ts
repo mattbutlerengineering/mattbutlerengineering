@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { CONFLICT_CHANGES_MAX } from "@mbe/types";
 import type { AvailabilityConfig, PutAvailabilityConfigBody } from "@mbe/types";
 
 vi.mock("./database.js", () => ({ prisma: {} }));
@@ -260,6 +261,8 @@ describe("saveAvailabilityConfig", () => {
         }),
       },
       availabilityChange: {
+        // Rows written before changes recorded their version: none can be placed after the draft.
+        findMany: vi.fn(async () => []),
         findFirst: vi.fn(async () => {
           reads.push("winner");
           return winner;
@@ -279,6 +282,116 @@ describe("saveAvailabilityConfig", () => {
       kind: "version_conflict",
       currentVersion: 6,
       winningChange: { ...winner, at: "2026-10-25T18:42:00.000Z" },
+      // Four versions passed (2 to 6), none of them placeable: counted, not named.
+      changesSince: { total: 4, changes: [] },
+    });
+  });
+
+  it("names every change since the draft's version, newest first (draft on v4, A makes v5, B makes v6)", async () => {
+    const row = (id: string, version: number, minute: number) => ({
+      id,
+      actorId: `auth0|${id}`,
+      at: new Date(Date.UTC(2026, 9, 25, 18, minute)),
+      kind: "config",
+      summary: `change ${id}`,
+      version,
+    });
+    const findMany = vi.fn(async () => [row("B", 6, 2), row("A", 5, 1)]);
+    const client = fakeClient({
+      venue: {
+        updateMany: vi.fn(async () => ({ count: 0 })),
+        findUnique: vi.fn(async () => ({ id: "venue-1", availabilityVersion: 6 })),
+      },
+      availabilityChange: { findMany, findFirst: vi.fn(async () => null) },
+    });
+
+    const outcome = await saveAvailabilityConfig(
+      { venueId: "venue-1", actorId: "auth0|manager", body: body({}, 4), now: NOW },
+      client
+    );
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { venueId: "venue-1", version: { gt: 4 } },
+        orderBy: { version: "desc" },
+        take: CONFLICT_CHANGES_MAX,
+      })
+    );
+    expect(outcome).toMatchObject({
+      kind: "version_conflict",
+      currentVersion: 6,
+      winningChange: { id: "B", at: "2026-10-25T18:02:00.000Z" },
+      changesSince: {
+        total: 2,
+        changes: [
+          { id: "B", at: "2026-10-25T18:02:00.000Z" },
+          { id: "A", at: "2026-10-25T18:01:00.000Z" },
+        ],
+      },
+    });
+    expect(JSON.stringify(outcome)).not.toContain('"version":5');
+  });
+
+  it("counts the changes it does not name for a draft many versions behind", async () => {
+    const newest = Array.from({ length: CONFLICT_CHANGES_MAX }, (_, i) => ({
+      id: `c${200 - i}`,
+      actorId: "auth0|ana",
+      at: new Date("2026-10-25T18:00:00.000Z"),
+      kind: "config",
+      summary: "s",
+      version: 200 - i,
+    }));
+    const client = fakeClient({
+      venue: {
+        updateMany: vi.fn(async () => ({ count: 0 })),
+        findUnique: vi.fn(async () => ({ id: "venue-1", availabilityVersion: 200 })),
+      },
+      availabilityChange: { findMany: vi.fn(async () => newest), findFirst: vi.fn() },
+    });
+
+    const outcome = await saveAvailabilityConfig(
+      { venueId: "venue-1", actorId: "auth0|manager", body: body({}, 1), now: NOW },
+      client
+    );
+
+    expect(outcome).toMatchObject({ changesSince: { total: 199 } });
+    expect(outcome.kind === "version_conflict" && outcome.changesSince?.changes).toHaveLength(
+      CONFLICT_CHANGES_MAX
+    );
+  });
+
+  it("picks the winner by the version it produced, not by when it was stamped", async () => {
+    // A reopen stamped before a save but committed after it holds the higher version.
+    const reopen = {
+      id: "reopen",
+      actorId: "auth0|ana",
+      at: new Date("2026-10-25T18:00:00.000Z"),
+      kind: "reopen",
+      summary: "Closure reopened (2026-11-01)",
+      version: 6,
+    };
+    const save = { ...reopen, id: "save", kind: "config", version: 5, summary: "s" };
+    save.at = new Date("2026-10-25T18:00:00.500Z");
+    const client = fakeClient({
+      venue: {
+        updateMany: vi.fn(async () => ({ count: 0 })),
+        findUnique: vi.fn(async () => ({ id: "venue-1", availabilityVersion: 6 })),
+      },
+      availabilityChange: {
+        // The store honours the orderBy: version descending.
+        findMany: vi.fn(async () => [reopen, save]),
+        findFirst: vi.fn(),
+      },
+    });
+
+    const outcome = await saveAvailabilityConfig(
+      { venueId: "venue-1", actorId: "auth0|manager", body: body({}, 4), now: NOW },
+      client
+    );
+
+    expect(outcome).toMatchObject({
+      winningChange: { id: "reopen" },
+      changesSince: { changes: [{ id: "reopen" }, { id: "save" }] },
     });
   });
 
@@ -334,6 +447,17 @@ describe("saveAvailabilityConfig", () => {
     );
     expect(anonymous.availabilityChange.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ actorName: null }) })
+    );
+  });
+
+  it("records the version a save produced on its audit row", async () => {
+    const tx = savingTx();
+    await saveAvailabilityConfig(
+      { venueId: "venue-1", actorId: "auth0|ben", body: WHOLE_WEEK, now: NOW },
+      fakeClient(tx)
+    );
+    expect(tx.availabilityChange.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ version: 4 }) })
     );
   });
 

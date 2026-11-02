@@ -1,7 +1,11 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Button, Dialog, Heading, Stack, Text } from "@mattbutlerengineering/rialto";
-import type { AvailabilityChangeSummary, StrandedReservation } from "@mbe/types";
+import type {
+  AvailabilityChangeSummary,
+  ConflictChangesSince,
+  StrandedReservation,
+} from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { minuteText } from "./closure-band.js";
 import type { DraftService } from "./draft-changes.js";
@@ -12,6 +16,8 @@ export interface ConflictDialogProps {
   readonly open: boolean;
   /** The change that won; `null` when the server recorded none. */
   readonly winningChange: AvailabilityChangeSummary | null;
+  /** Every change since the draft's version (the newest few and the true count); absent from an older server. */
+  readonly changesSince?: ConflictChangesSince;
   readonly services: readonly DraftService[];
   readonly isSaving: boolean;
   /** Why the last Overwrite was refused; shown here because the page behind the modal is not. */
@@ -38,6 +44,14 @@ export function ConflictDialog(props: ConflictDialogProps) {
   const { t } = useTranslation();
   const format = useVenueFormat();
   const [reviewing, setReviewing] = useState(false);
+
+  // An older server sends no `changesSince`: the winning change alone is named, as before.
+  const listed = props.changesSince?.changes ?? [];
+  // With none listed, the sentence below still names the winner (or says another change was
+  // saved), so that one is not "earlier" either.
+  const unlisted = props.changesSince
+    ? Math.max(props.changesSince.total - Math.max(listed.length, 1), 0)
+    : 0;
 
   const time = winningChange
     ? format.formatInstant(winningChange.at, { hour: "numeric", minute: "2-digit" })
@@ -88,9 +102,34 @@ export function ConflictDialog(props: ConflictDialogProps) {
             {t("availability.editor.conflict.again")}
           </Text>
         )}
-        <Text variant="body" color="primary">
-          {theirs}
-        </Text>
+        {listed.length > 1 ? (
+          <Stack gap="sm">
+            <Text variant="body" color="primary">
+              {t("availability.editor.conflict.since")}
+            </Text>
+            <ul className={styles.list}>
+              {listed.map((change) => (
+                <li key={change.id}>
+                  <Text as="span" variant="body" color="primary">
+                    {t("availability.editor.conflict.theirs", {
+                      summary: change.summary,
+                      time: format.formatInstant(change.at, { hour: "numeric", minute: "2-digit" }),
+                    })}
+                  </Text>
+                </li>
+              ))}
+            </ul>
+          </Stack>
+        ) : (
+          <Text variant="body" color="primary">
+            {theirs}
+          </Text>
+        )}
+        {unlisted > 0 && (
+          <Text variant="body" color="primary">
+            {t("availability.editor.conflict.earlier", { count: unlisted })}
+          </Text>
+        )}
         {!ready && (
           <Text variant="caption" color="secondary" role="status">
             {t("availability.editor.conflict.unavailable")}

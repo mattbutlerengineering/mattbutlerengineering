@@ -111,6 +111,20 @@ export const AvailabilityChangeSummarySchema = z.object({
   summary: z.string(),
 });
 
+/**
+ * Most changes one version-conflict names. A draft older than this many versions gets the newest
+ * ones plus the true `total`, which bounds the query and the body however stale the draft is.
+ */
+export const CONFLICT_CHANGES_MAX = 10;
+
+/** The changes between a draft's version and the current one, for a conflict to name. */
+export const ConflictChangesSinceSchema = z.object({
+  /** How many versions passed since the draft's: the true count, named or not. */
+  total: z.number().int().min(1),
+  /** The newest changes among them, newest first, at most `CONFLICT_CHANGES_MAX`. */
+  changes: z.array(AvailabilityChangeSummarySchema).max(CONFLICT_CHANGES_MAX),
+});
+
 /** What a saved closure or close-early did to the bookings it touched; the History drawer words it. */
 export const AvailabilityChangeOutcomeSchema = z.object({
   cancelled: z.number().int(),
@@ -221,6 +235,12 @@ export const AvailabilityConfigProblemSchema = z.object({
    * sent against it is refused again if anyone saved after. Absent from an older server.
    */
   currentVersion: z.number().int().optional(),
+  /**
+   * version-conflict on a config save: every change between the draft's version and
+   * `currentVersion` (the newest few plus the true count). Absent from an older server, which
+   * names only `winningChange`.
+   */
+  changesSince: ConflictChangesSinceSchema.optional(),
   /** invalid-config: `validateConfig` issues, path-addressed into the next config. */
   issues: z
     .array(
@@ -462,6 +482,7 @@ export type AvailabilityConfigSource = z.infer<typeof AvailabilityConfigSourceSc
 export type AvailabilityConfigState = z.infer<typeof AvailabilityConfigStateSchema>;
 export type AvailabilityConfigSaveResult = z.infer<typeof AvailabilityConfigSaveResultSchema>;
 export type AvailabilityChangeSummary = z.infer<typeof AvailabilityChangeSummarySchema>;
+export type ConflictChangesSince = z.infer<typeof ConflictChangesSinceSchema>;
 export type AvailabilityChangeOutcome = z.infer<typeof AvailabilityChangeOutcomeSchema>;
 export type AvailabilityChangeEntry = z.infer<typeof AvailabilityChangeEntrySchema>;
 export type AvailabilityChangesQuery = z.input<typeof AvailabilityChangesQuerySchema>;

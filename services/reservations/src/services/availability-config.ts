@@ -5,11 +5,13 @@ import {
   resolveDay,
   type ConfigIssue,
 } from "@mbe/availability";
+import { CONFLICT_CHANGES_MAX } from "@mbe/types";
 import type {
   AvailabilityChangeSummary,
   AvailabilityConfig,
   AvailabilityConfigSource,
   AvailabilityDaySummary,
+  ConflictChangesSince,
   PreviewAvailabilityParsed,
   PutAvailabilityConfigBody,
   StrandedReservation,
@@ -286,6 +288,8 @@ export type SaveOutcome =
       winningChange: AvailabilityChangeSummary | null;
       /** The version read before `winningChange`, so a later save can only make the winner newer. */
       currentVersion: number;
+      /** Every change since the draft's version: the newest few and the true count. */
+      changesSince?: ConflictChangesSince;
     }
   | { kind: "not_found" }
   | Exclude<SavePlan, { kind: "write" }>;
@@ -349,23 +353,91 @@ export async function futureBookings(
   });
 }
 
-export async function refuseStale(db: StoreDb, venueId: string): Promise<SaveOutcome> {
+const CHANGE_SUMMARY_SELECT = {
+  id: true,
+  actorId: true,
+  at: true,
+  kind: true,
+  summary: true,
+} as const;
+
+const toSummary = (row: {
+  id: string;
+  actorId: string;
+  at: Date;
+  kind: string;
+  summary: string;
+}): AvailabilityChangeSummary => ({
+  id: row.id,
+  actorId: row.actorId,
+  at: row.at.toISOString(),
+  kind: row.kind,
+  summary: row.summary,
+});
+
+/**
+ * Refuses a save whose draft is on `expectedVersion`. The changes are ordered by the version they
+ * produced, never by `at`: `at` is stamped before the venue row lock is taken, so a change that waited
+ * on the lock can commit a higher version with an older `at`.
+ */
+export async function refuseStale(
+  db: StoreDb,
+  venueId: string,
+  expectedVersion: number
+): Promise<SaveOutcome> {
   const exists = await db.venue.findUnique({
     where: { id: venueId },
     select: { id: true, availabilityVersion: true },
   });
   if (!exists) return { kind: "not_found" };
-  // Read before the winner: a save landing between the two reads makes the winner newer than this
-  // version, so an Overwrite against it is refused again, never applied over a change unnamed.
-  const winner = await db.availabilityChange.findFirst({
-    where: { venueId },
-    orderBy: { at: "desc" },
-    select: { id: true, actorId: true, at: true, kind: true, summary: true },
+  const currentVersion = exists.availabilityVersion;
+  // Read before the changes: a save landing between the two reads makes the newest change newer than
+  // this version, so an Overwrite against it is refused again, never applied over a change unnamed.
+  // Bounded by `take`, on the (venue, version) index, however far behind the draft is.
+  const since = await db.availabilityChange.findMany({
+    where: { venueId, version: { gt: expectedVersion } },
+    orderBy: { version: "desc" },
+    take: CONFLICT_CHANGES_MAX,
+    select: CHANGE_SUMMARY_SELECT,
   });
+  // Rows from before changes recorded their version cannot be placed after the draft; the newest by
+  // `at` still names a winner, and `total` below still counts them.
+  const winner = since[0] ?? (await newestChange(db, venueId));
+  const total = currentVersion - expectedVersion;
   return {
     kind: "version_conflict",
-    currentVersion: exists.availabilityVersion,
-    winningChange: winner && { ...winner, at: winner.at.toISOString() },
+    currentVersion,
+    winningChange: winner && toSummary(winner),
+    // A draft ahead of the venue (`total < 1`) has nothing to name.
+    ...(total >= 1 ? { changesSince: { total, changes: since.map(toSummary) } } : {}),
+  };
+}
+
+/** The latest change by the version it produced; rows without one (older) come after, by `at`. */
+function newestChange(db: StoreDb, venueId: string) {
+  return db.availabilityChange.findFirst({
+    where: { venueId },
+    orderBy: [{ version: { sort: "desc", nulls: "last" } }, { at: "desc" }],
+    select: CHANGE_SUMMARY_SELECT,
+  });
+}
+
+/**
+ * Refuses a save that already won its compare-and-set on `committedVersion` but must still be
+ * answered as stale (a series a teammate changed since the draft read it). The transaction has
+ * bumped the version and is about to roll that back, so the venue's version here is not one that
+ * will exist: report `committedVersion`, and name the latest change under it.
+ */
+export async function refuseSeriesChanged(
+  db: StoreDb,
+  venueId: string,
+  committedVersion: number
+): Promise<SaveOutcome> {
+  const winner = await newestChange(db, venueId);
+  return {
+    kind: "version_conflict",
+    currentVersion: committedVersion,
+    winningChange: winner && toSummary(winner),
   };
 }
 
@@ -462,7 +534,7 @@ export async function commitSave(
     where: { id: venueId, availabilityVersion: expectedVersion },
     data: { availabilityVersion: { increment: 1 } },
   });
-  if (cas.count === 0) return refuseStale(tx, venueId);
+  if (cas.count === 0) return refuseStale(tx, venueId, expectedVersion);
 
   const state = await loadConfigState(tx, venueId, now);
   if (!state) throw new SaveRefused({ kind: "not_found" });
@@ -504,6 +576,7 @@ export async function commitSave(
       affectedFrom: toDbDate(plan.range.from),
       affectedTo: toDbDate(plan.range.to),
       inverse: plan.inverse as unknown as Prisma.InputJsonValue,
+      version: expectedVersion + 1,
     },
     select: { id: true },
   });

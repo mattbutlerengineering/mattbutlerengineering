@@ -631,6 +631,52 @@ describe("AvailabilityDayEditor", () => {
       expect(within(dialog).getByText("Dinner 5:00 PM – 11:00 PM")).toBeTruthy();
     });
 
+    it("names every change since the draft, and Overwrite goes against the version they end at", async () => {
+      const mine = { ...winningChange, id: "chg-8", summary: "Lunch opens at 11:00 AM" };
+      const { dialog } = await raiseConflict({
+        currentVersion: 6,
+        changesSince: { total: 2, changes: [winningChange, mine] },
+      });
+      expect(within(dialog).getByText(/Dinner closes at 10:00 PM on Fri, Oct 30/)).toBeTruthy();
+      expect(within(dialog).getByText(/Lunch opens at 11:00 AM/)).toBeTruthy();
+      expect(within(dialog).queryByText(/earlier change/)).toBeNull();
+
+      fireEvent.click(within(dialog).getByRole("button", { name: "Overwrite" }));
+      await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+      expect(sentBody().body.expectedVersion).toBe(6);
+    });
+
+    it("counts the changes the list does not name", async () => {
+      const { dialog } = await raiseConflict({
+        currentVersion: 30,
+        changesSince: { total: 25, changes: [winningChange, { ...winningChange, id: "chg-8" }] },
+      });
+      expect(within(dialog).getByText("And 23 earlier changes that aren’t listed.")).toBeTruthy();
+    });
+
+    it("does not count the winning change again when only unplaceable rows lie in the window", async () => {
+      const one = await raiseConflict({
+        currentVersion: 5,
+        changesSince: { total: 1, changes: [] },
+      });
+      expect(within(one.dialog).getByText(/Dinner closes at 10:00 PM on Fri, Oct 30/)).toBeTruthy();
+      expect(within(one.dialog).queryByText(/earlier change/)).toBeNull();
+    });
+
+    it("counts the other legacy changes once the winner is named", async () => {
+      const { dialog } = await raiseConflict({
+        currentVersion: 7,
+        changesSince: { total: 3, changes: [] },
+      });
+      expect(within(dialog).getByText("And 2 earlier changes that aren’t listed.")).toBeTruthy();
+    });
+
+    it("names only the winning change when an older server sends no list", async () => {
+      const { dialog } = await raiseConflict();
+      expect(within(dialog).queryByText(/saved after you opened this day/)).toBeNull();
+      expect(within(dialog).queryByText(/earlier change/)).toBeNull();
+    });
+
     const atVersion = (version: number) => (
       <ToastProvider>
         <main>
