@@ -122,12 +122,16 @@ export function ConfirmDialogPage() {
               value: "Default: confirm button focused. Destructive: cancel focused",
             },
             { label: "Escape", value: "Closes dialog, equivalent to cancel" },
-            { label: "Role", value: "Inherits Dialog accessibility (role=dialog, aria-modal)" },
+            {
+              label: "Role",
+              value:
+                "Destructive: role=alertdialog. Default: role=dialog. Both set aria-modal (via Dialog's role prop)",
+            },
             { label: "Label", value: "aria-labelledby and aria-describedby on the dialog" },
             {
               label: "Screen reader",
               value:
-                "Announced as alertdialog with title and description read immediately; focus trapped; Cancel and Confirm buttons announced with their labels",
+                "Destructive: announced as alertdialog with title and description read immediately. Default: announced as dialog. Focus trapped; Cancel and Confirm buttons announced with their labels",
             },
           ]}
         />

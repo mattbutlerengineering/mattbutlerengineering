@@ -45,6 +45,25 @@ describe("Stack adapter", () => {
   });
 });
 
+describe("Dialog adapter", () => {
+  const dialogSpec = (props: Record<string, unknown>) => ({
+    root: "d1",
+    elements: {
+      d1: { type: "Dialog", props: { open: true, title: "Sure?", ...props }, children: [] },
+    },
+  });
+
+  it("forwards role=alertdialog", () => {
+    renderSpec(dialogSpec({ role: "alertdialog" }));
+    expect(screen.getByRole("alertdialog", { name: "Sure?" })).toBeTruthy();
+  });
+
+  it("stays a dialog by default", () => {
+    renderSpec(dialogSpec({}));
+    expect(screen.getByRole("dialog", { name: "Sure?" })).toBeTruthy();
+  });
+});
+
 describe("Text adapter", () => {
   it("forwards mono", () => {
     const { container } = renderSpec(textSpec({ mono: true }));

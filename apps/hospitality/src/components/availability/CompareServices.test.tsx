@@ -329,7 +329,9 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
 
     fireEvent.click(screen.getByRole("combobox", { name: "Service" }));
     fireEvent.click(screen.getByRole("option", { name: "Dinner" }));
-    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: /discard/i }));
+    fireEvent.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", { name: /discard/i })
+    );
 
     expect(screen.queryByText("Someone changed these schedules first")).not.toBeInTheDocument();
     expect(screen.queryByText("Loading the latest version…")).not.toBeInTheDocument();

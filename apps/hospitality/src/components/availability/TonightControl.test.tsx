@@ -599,7 +599,7 @@ describe("TonightControl", () => {
 
         fireEvent.click(within(step2).getByRole("button", { name: "Cancel" }));
 
-        const ask = screen.getByRole("dialog", { name: "Discard this closure?" });
+        const ask = screen.getByRole("alertdialog", { name: "Discard this closure?" });
         expect(within(ask).getByText(/Nothing has been closed/)).toBeTruthy();
       });
 
@@ -633,7 +633,7 @@ describe("TonightControl", () => {
 
         fireEvent.click(within(step2).getByRole("button", { name: "Cancel" }));
 
-        const ask = screen.getByRole("dialog", { name: "Leave this closure?" });
+        const ask = screen.getByRole("alertdialog", { name: "Leave this closure?" });
         expect(within(ask).getByText(/may have gone through/)).toBeTruthy();
         expect(refresh).not.toHaveBeenCalled();
         fireEvent.click(within(ask).getByRole("button", { name: "Leave" }));

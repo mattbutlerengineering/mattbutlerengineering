@@ -657,7 +657,7 @@ for (const size of SIZES) {
 
       await drawer.getByRole("button", { name: "Cancel" }).click();
       await expect(
-        mockedPage.getByRole("dialog", { name: "Discard changes to the 2 selected dates?" })
+        mockedPage.getByRole("alertdialog", { name: "Discard changes to the 2 selected dates?" })
       ).toBeVisible();
     });
   });

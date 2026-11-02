@@ -36,11 +36,16 @@ export interface DialogProps {
   children?: ReactNode;
   /** Content rendered below the body in a fixed footer area */
   footer?: ReactNode;
+  /**
+   * ARIA role of the panel. Use `"alertdialog"` for an interruption that needs
+   * an immediate response (e.g. a destructive confirmation). Default `"dialog"`.
+   */
+  role?: "dialog" | "alertdialog";
   className?: string;
 }
 
 export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
-  ({ open, onClose, title, description, children, footer }, ref) => {
+  ({ open, onClose, title, description, children, footer, role = "dialog" }, ref) => {
     const parentLayer = useContext(DialogLayerContext);
     // Created up front so a nested dialog can portal into it on its first
     // render; the overlay's ref attaches it before any effect runs.
@@ -127,7 +132,7 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
                 else if (ref) ref.current = node;
               }}
               className={styles.panel}
-              role="dialog"
+              role={role}
               aria-modal
               aria-labelledby={title ? titleId : undefined}
               aria-label={title ? undefined : messages.dialog}

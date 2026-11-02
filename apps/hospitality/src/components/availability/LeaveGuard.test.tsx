@@ -26,7 +26,7 @@ describe("LeaveGuard", () => {
   it("asks before leaving while a draft is unsaved", async () => {
     const router = renderGuards([{ active: true, title: "Compare edits" }]);
     await act(() => router.navigate("/other"));
-    expect(screen.getByRole("dialog", { name: "Compare edits" })).toBeInTheDocument();
+    expect(screen.getByRole("alertdialog", { name: "Compare edits" })).toBeInTheDocument();
     expect(screen.queryByText("Other page")).not.toBeInTheDocument();
   });
 
@@ -36,7 +36,7 @@ describe("LeaveGuard", () => {
       { active: false, title: "New schedule" },
     ]);
     await act(() => router.navigate("/other"));
-    expect(screen.getByRole("dialog", { name: "Compare edits" })).toBeInTheDocument();
+    expect(screen.getByRole("alertdialog", { name: "Compare edits" })).toBeInTheDocument();
     expect(screen.queryByText("Other page")).not.toBeInTheDocument();
   });
 
@@ -46,7 +46,7 @@ describe("LeaveGuard", () => {
       { active: true, title: "New schedule" },
     ]);
     await act(() => router.navigate("/other"));
-    const dialog = screen.getByRole("dialog");
+    const dialog = screen.getByRole("alertdialog");
     expect(dialog).toHaveTextContent("All unsaved changes on this page will be lost.");
     expect(dialog).not.toHaveTextContent("these hours");
   });

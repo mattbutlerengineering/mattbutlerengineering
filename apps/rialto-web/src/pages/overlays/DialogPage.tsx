@@ -149,7 +149,10 @@ export function DialogPage() {
       <Section title="Accessibility">
         <DataList
           items={[
-            { label: "Role", value: "role=dialog with aria-modal=true" },
+            {
+              label: "Role",
+              value: "role=dialog (or role=alertdialog via the role prop) with aria-modal=true",
+            },
             { label: "Focus", value: "Focus trapped inside dialog while open" },
             { label: "Close", value: "Escape key and outside click close the dialog" },
             { label: "Label", value: "aria-labelledby points to the dialog title" },

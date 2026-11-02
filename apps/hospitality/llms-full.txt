@@ -8308,7 +8308,7 @@
     function focusOffToast(offeredFrom: Element | null) {
       const active = document.activeElement;
       if (active && active !== document.body && !active.closest("[aria-live]")) return;
-      const dialogs = document.querySelectorAll('[role="dialog"]');
+      const dialogs = document.querySelectorAll('[role="dialog"], [role="alertdialog"]');
       const target =
         offeredFrom instanceof HTMLElement && offeredFrom.isConnected && offeredFrom !== document.body
           ? offeredFrom
@@ -11907,7 +11907,8 @@
       return (close) => {
         const active = document.activeElement;
         heldRef.current =
-          active instanceof HTMLElement && active.closest('[role="dialog"][aria-modal="true"]')
+          active instanceof HTMLElement &&
+          active.closest('[role="dialog"][aria-modal="true"], [role="alertdialog"][aria-modal="true"]')
             ? active
             : null;
         close();

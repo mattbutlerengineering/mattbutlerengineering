@@ -1159,6 +1159,11 @@
       readonly submitAttempted: boolean;
       /** Current error message per field name, populated after a failed submit. */
       readonly errors: Readonly<Record<string, string>>;
+      /**
+       * True when the Form renders its own assertive error summary. Fields inside
+       * it then leave announcing to the summary so one error is read out once.
+       */
+      readonly announcesErrors: boolean;
       /** Registers (or replaces) a field's validator under `name`. */
       registerField: (name: string, validate: (() => string | undefined) | undefined) => void;
       /** Removes a field's validator, e.g. on unmount. */
@@ -2924,8 +2929,9 @@
     }
     export interface FieldErrorProps {
       readonly id: string | undefined;
-      readonly role: "alert";
-      readonly "aria-atomic": true;
+      /** Undefined inside a `Form` whose error summary already announces (#8115). */
+      readonly role: "alert" | undefined;
+      readonly "aria-atomic": true | undefined;
     }
     export interface FieldControlProps {
       id: string;
@@ -2990,13 +2996,30 @@
     
       const showRequired = !!required;
     
+      // A field announces its own error unless the enclosing Form's assertive
+      // summary already carries this exact message: only a submit fills the
+      // summary, so a server-set or blur error, or one after a valid submit, still
+      // needs its own alert (#8115).
+      const form = useContext(FormContext);
+      const summaryCarriesError =
+        !!form?.announcesErrors &&
+        form.submitAttempted &&
+        !!error &&
+        hint !== undefined &&
+        Object.values(form.errors).includes(hint);
+      const announces = !summaryCarriesError;
+    
       return {
         id,
         labelProps: { htmlFor: id },
         descriptionProps: { id: hintId },
         // errorProps.id is only exposed when error=true so callers know the
         // element should receive role="alert" / be identified as the error region.
-        errorProps: { id: error ? hintId : undefined, role: "alert", "aria-atomic": true },
+        errorProps: {
+          id: error ? hintId : undefined,
+          role: announces ? "alert" : undefined,
+          "aria-atomic": announces ? true : undefined,
+        },
         controlProps: {
           id,
           required: required || undefined,
@@ -3613,8 +3636,6 @@
       readonly scrollableContent: string;
       /** Accessible name of a SkeletonGroup. */
       readonly loadingContent: string;
-      /** Fallback accessible name of the ImageUpload tile. */
-      readonly uploadImage: string;
       /** Fallback alt text of an uploaded ImageUpload preview. */
       readonly uploadedImage: string;
       /** ImageUpload progress bar name. */
@@ -3799,7 +3820,6 @@
       closeMenu: "Close menu",
       scrollableContent: "Scrollable content",
       loadingContent: "Loading content",
-      uploadImage: "Upload image",
       uploadedImage: "Uploaded image",
       uploadProgress: "Upload progress",
       uploadComplete: "Upload complete",
@@ -4016,7 +4036,6 @@
       closeMenu: "Cerrar menú",
       scrollableContent: "Contenido desplazable",
       loadingContent: "Cargando contenido",
-      uploadImage: "Subir imagen",
       uploadedImage: "Imagen subida",
       uploadProgress: "Progreso de carga",
       uploadComplete: "Carga completa",
@@ -4180,7 +4199,6 @@
       closeMenu: "Fermer le menu",
       scrollableContent: "Contenu défilable",
       loadingContent: "Chargement du contenu",
-      uploadImage: "Téléverser une image",
       uploadedImage: "Image téléversée",
       uploadProgress: "Progression du téléversement",
       uploadComplete: "Téléversement terminé",

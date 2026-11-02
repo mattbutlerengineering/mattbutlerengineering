@@ -10,6 +10,11 @@ export interface FormContextValue {
   readonly submitAttempted: boolean;
   /** Current error message per field name, populated after a failed submit. */
   readonly errors: Readonly<Record<string, string>>;
+  /**
+   * True when the Form renders its own assertive error summary. Fields inside
+   * it then leave announcing to the summary so one error is read out once.
+   */
+  readonly announcesErrors: boolean;
   /** Registers (or replaces) a field's validator under `name`. */
   registerField: (name: string, validate: (() => string | undefined) | undefined) => void;
   /** Removes a field's validator, e.g. on unmount. */
