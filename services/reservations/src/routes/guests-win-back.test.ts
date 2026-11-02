@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { jwtVerify } from "jose";
+import type * as WinBackStore from "../services/win-back-store.js";
 import { buildApp } from "../app.js";
+import { ProviderRejectedError } from "../notifications/provider-rejected-error.js";
 import type { DomainServices } from "../services/domain-services.js";
 
 vi.mock("../services/database.js", async () => {
@@ -15,14 +17,18 @@ vi.mock("jose", () => ({
   createRemoteJWKSet: vi.fn(() => "mock-jwks"),
   jwtVerify: vi.fn(),
 }));
-const { claimWinBack, lastWinBackSentAt } = vi.hoisted(() => ({
+const { claimWinBack, markWinBackSent, releaseWinBackClaim, winBackStatusFor } = vi.hoisted(() => ({
   claimWinBack: vi.fn(),
-  lastWinBackSentAt: vi.fn(),
+  markWinBackSent: vi.fn(),
+  releaseWinBackClaim: vi.fn(),
+  winBackStatusFor: vi.fn(),
 }));
-vi.mock("../services/win-back-store.js", () => ({
+vi.mock("../services/win-back-store.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof WinBackStore>()),
   claimWinBack,
-  lastWinBackSentAt,
-  WIN_BACK_COOLDOWN_MS: 7 * 24 * 60 * 60 * 1000,
+  markWinBackSent,
+  releaseWinBackClaim,
+  winBackStatusFor,
 }));
 
 const guest = {
@@ -79,7 +85,7 @@ describe("win-back send record (#8041)", () => {
       headers: { "x-auth-bypass": "true" },
     });
 
-  it("sends and answers sent:true when the claim is won", async () => {
+  it("sends, then records the sent time, and answers sent:true", async () => {
     claimWinBack.mockResolvedValueOnce({ claimed: true });
 
     const res = await send();
@@ -88,22 +94,69 @@ describe("win-back send record (#8041)", () => {
     expect(JSON.parse(res.body)).toEqual({ data: { sent: true } });
     expect(claimWinBack).toHaveBeenCalledWith("venue-1", "guest-1", expect.any(Date));
     expect(notificationPort.sendWinBack).toHaveBeenCalledOnce();
+    expect(markWinBackSent).toHaveBeenCalledWith(
+      "venue-1",
+      "guest-1",
+      expect.any(Date),
+      expect.any(Date)
+    );
   });
 
-  it("answers a distinct 409 win-back-cooldown with the last send time, and sends nothing", async () => {
+  it("answers 409 saying a send happened, with when, when the provider confirmed one; sends nothing", async () => {
     claimWinBack.mockResolvedValueOnce({
       claimed: false,
-      lastSentAt: new Date("2026-10-30T09:00:00Z"),
+      claimedAt: new Date("2026-10-30T09:00:00Z"),
+      sentAt: new Date("2026-10-30T09:00:01Z"),
     });
 
     const res = await send();
 
     expect(res.statusCode).toBe(409);
-    expect(JSON.parse(res.body)).toMatchObject({
-      status: 409,
-      detail: expect.stringContaining("2026-10-30T09:00:00.000Z"),
-    });
+    const { detail } = JSON.parse(res.body);
+    expect(detail).toContain("was sent a win-back message on 2026-10-30T09:00:01.000Z");
+    expect(detail).toContain("after 2026-11-06T09:00:00.000Z");
     expect(notificationPort.sendWinBack).not.toHaveBeenCalled();
+  });
+
+  it("answers 409 saying a send was attempted and may not have gone out when it was never confirmed", async () => {
+    claimWinBack.mockResolvedValueOnce({
+      claimed: false,
+      claimedAt: new Date("2026-10-30T09:00:00Z"),
+      sentAt: null,
+    });
+
+    const res = await send();
+
+    expect(res.statusCode).toBe(409);
+    const { detail } = JSON.parse(res.body);
+    expect(detail).toContain("attempted on 2026-10-30T09:00:00.000Z");
+    expect(detail).toContain("may not have gone out");
+    expect(detail).not.toMatch(/was sent a win-back/);
+  });
+
+  it("releases the claim and answers 424 when the provider rejects: nothing was sent, a retry is possible", async () => {
+    claimWinBack.mockResolvedValueOnce({ claimed: true });
+    notificationPort.sendWinBack.mockRejectedValueOnce(
+      new ProviderRejectedError("Resend send failed (rate_limit_exceeded): Too many requests")
+    );
+
+    const res = await send();
+
+    expect(res.statusCode).toBe(424);
+    expect(JSON.parse(res.body).detail).toMatch(/Nothing was sent.*try again/i);
+    expect(releaseWinBackClaim).toHaveBeenCalledWith("venue-1", "guest-1", expect.any(Date));
+    expect(markWinBackSent).not.toHaveBeenCalled();
+  });
+
+  it("keeps the claim on an ambiguous failure: a 500, no release, no sent time", async () => {
+    claimWinBack.mockResolvedValueOnce({ claimed: true });
+    notificationPort.sendWinBack.mockRejectedValueOnce(new Error("socket hang up"));
+
+    const res = await send();
+
+    expect(res.statusCode).toBe(500);
+    expect(releaseWinBackClaim).not.toHaveBeenCalled();
+    expect(markWinBackSent).not.toHaveBeenCalled();
   });
 
   it("still answers sent:false for a guest who can't be emailed, without claiming", async () => {
@@ -115,13 +168,17 @@ describe("win-back send record (#8041)", () => {
     expect(claimWinBack).not.toHaveBeenCalled();
   });
 
-  it("returns lastWinBackAt on lapsing guests, null when never sent, read for this venue", async () => {
+  it("returns lastWinBackAt (confirmed sends only) and winBackAttemptedAt (unconfirmed claims), read for this venue", async () => {
     vi.mocked(guestService.scanLapsedGuests).mockResolvedValueOnce([
       { guestId: "guest-1", name: "Alice" },
       { guestId: "guest-2", name: "Bo" },
+      { guestId: "guest-3", name: "Cy" },
     ] as never);
-    lastWinBackSentAt.mockResolvedValueOnce(
-      new Map([["guest-1", new Date("2026-10-30T09:00:00Z")]])
+    winBackStatusFor.mockResolvedValueOnce(
+      new Map([
+        ["guest-1", { sentAt: new Date("2026-10-30T09:00:00Z"), attemptedAt: null }],
+        ["guest-2", { sentAt: null, attemptedAt: new Date("2026-10-31T09:00:00Z") }],
+      ])
     );
 
     const res = await app.inject({
@@ -132,10 +189,16 @@ describe("win-back send record (#8041)", () => {
 
     expect(res.statusCode).toBe(200);
     const { data } = JSON.parse(res.body);
-    expect(data.map((g: { lastWinBackAt: string | null }) => g.lastWinBackAt)).toEqual([
-      "2026-10-30T09:00:00.000Z",
-      null,
+    expect(
+      data.map((g: { lastWinBackAt: string | null; winBackAttemptedAt: string | null }) => [
+        g.lastWinBackAt,
+        g.winBackAttemptedAt,
+      ])
+    ).toEqual([
+      ["2026-10-30T09:00:00.000Z", null],
+      [null, "2026-10-31T09:00:00.000Z"],
+      [null, null],
     ]);
-    expect(lastWinBackSentAt).toHaveBeenCalledWith("venue-1", ["guest-1", "guest-2"]);
+    expect(winBackStatusFor).toHaveBeenCalledWith("venue-1", ["guest-1", "guest-2", "guest-3"]);
   });
 });

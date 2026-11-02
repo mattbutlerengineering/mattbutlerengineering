@@ -1,13 +1,16 @@
 -- Win-back send record (#8041). Additive: one new table, no change to an existing one.
 -- guest_id is UNIQUE: that constraint, not a read-then-write check, is what stops two
--- simultaneous sends from both claiming the guest.
+-- simultaneous sends from both claiming the guest. claimed_at is written BEFORE the provider
+-- call; sent_at only after it returns success, so a claim with no matching sent_at is an
+-- unconfirmed attempt. A definite provider rejection nulls claimed_at (a retry can claim).
 
 -- CreateTable
 CREATE TABLE "guest_win_backs" (
     "id" TEXT NOT NULL,
     "venue_id" TEXT NOT NULL,
     "guest_id" TEXT NOT NULL,
-    "last_sent_at" TIMESTAMPTZ(3) NOT NULL,
+    "claimed_at" TIMESTAMPTZ(3),
+    "sent_at" TIMESTAMPTZ(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 

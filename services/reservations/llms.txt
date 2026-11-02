@@ -584,6 +584,13 @@
       }
     </item>
   </file>
+  <file path="src/notifications/provider-rejected-error.ts">
+    <item priority="high">
+      class ProviderRejectedError {
+        
+      }
+    </item>
+  </file>
   <file path="src/notifications/resend-adapter.ts">
     <item priority="high">
       interface ResendClient {
@@ -1402,6 +1409,9 @@
     </item>
     <item priority="low">
       async function createDisposableGuest(ctx: SweepContext, venueId: string): Promise<string> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function createDisposableEmailedGuest(ctx: SweepContext, venueId: string): Promise<string> { /* ... */ }
     </item>
     <item priority="low">
       async function createDisposableFloorPlan(ctx: SweepContext, venueId: string): Promise<string> { /* ... */ }
@@ -5582,7 +5592,7 @@
       export const WIN_BACK_COOLDOWN_MS: unknown;
     </item>
     <item priority="low">
-      type WinBackClaim = { claimed: true } | { claimed: false; lastSentAt: ;
+      type WinBackClaim = { claimed: true } | { claimed: false; claimedAt: D;
     </item>
     <item priority="medium">
       function isUniqueViolation(err: unknown): boolean { /* ... */ }
@@ -5596,16 +5606,49 @@
       ): Promise<WinBackClaim> { /* ... */ }
     </item>
     <item priority="high">
-      export async function lastWinBackSentAt(
+      export async function markWinBackSent(
+        venueId: string,
+        guestId: string,
+        claimedAt: Date,
+        sentAt: Date,
+        db: Db = prisma
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function releaseWinBackClaim(
+        venueId: string,
+        guestId: string,
+        claimedAt: Date,
+        db: Db = prisma
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      interface WinBackStatus {
+        sentAt: Date | null;
+        attemptedAt: Date | null;
+      }
+    </item>
+    <item priority="high">
+      export function isUnconfirmed(claimedAt: Date | null, sentAt: Date | null): claimedAt is Date { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function winBackStatusFor(
         venueId: string,
         guestIds: readonly string[],
         db: Db = prisma
-      ): Promise<Map<string, Date>> { /* ... */ }
+      ): Promise<Map<string, WinBackStatus>> { /* ... */ }
     </item>
   </file>
   <file path="src/services/win-back.ts">
     <item priority="low">
-      type WinBackResult = { status: "sent" } | { status: "skipped" } | { status: "cooldown"; lastSent;
+      interface WinBackCooldown {
+        claimedAt: Date;
+        sentAt: Date | null;
+        retryAfter: Date;
+      }
+    </item>
+    <item priority="low">
+      type WinBackResult = { status: "sent" } | { status: "skipped" } | { status: "failed" } | ({ status: "cooldown" } & WinB;
     </item>
     <item priority="low">
       interface WinBackDeps {
@@ -5619,6 +5662,9 @@
         venueName: string,
         deps: WinBackDeps = defaultDeps
       ): Promise<WinBackResult> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function cooldownDetail(guestName: string, c: WinBackCooldown): string { /* ... */ }
     </item>
   </file>
   </section>

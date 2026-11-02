@@ -362,6 +362,10 @@ exports[`guests OpenAPI baseline > matches the recorded swagger paths for the gu
                           "nullable": true,
                           "type": "string",
                         },
+                        "winBackAttemptedAt": {
+                          "nullable": true,
+                          "type": "string",
+                        },
                       },
                       "type": "object",
                     },
@@ -927,7 +931,17 @@ exports[`guests OpenAPI baseline > matches the recorded swagger paths for the gu
               },
             },
           },
-          "description": "Already sent a win-back within the cooldown; nothing was sent. \`detail\` names when the last one went.",
+          "description": "A win-back was already sent or attempted within the cooldown; nothing was sent. \`detail\` says which, and when another is allowed.",
+        },
+        "424": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-4",
+              },
+            },
+          },
+          "description": "The email provider rejected the message; nothing was sent and the guest can be tried again.",
         },
       },
       "security": [

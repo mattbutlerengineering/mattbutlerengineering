@@ -629,6 +629,7 @@
     "welcomeNamed": "Bon retour, {{name}}",
     "loadFailed": "Impossible de charger le tableau de bord.",
     "lapsingLoadFailed": "Impossible de charger les clients inactifs.",
+    "winBackFailed": "Impossible d’envoyer l’invitation de retour.",
     "actions": {
       "walkIn": "Sans réservation",
       "floorPlan": "Voir le plan de salle",

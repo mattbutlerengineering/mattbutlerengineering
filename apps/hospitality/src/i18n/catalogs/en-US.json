@@ -618,6 +618,7 @@
     "welcomeNamed": "Welcome back, {{name}}",
     "loadFailed": "Couldn't load the dashboard.",
     "lapsingLoadFailed": "Couldn't load lapsing guests.",
+    "winBackFailed": "Couldn't send the win-back message.",
     "actions": {
       "walkIn": "Walk-in",
       "floorPlan": "View Floor Plan",

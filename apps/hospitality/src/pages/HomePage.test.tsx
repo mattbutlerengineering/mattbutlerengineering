@@ -421,6 +421,60 @@ describe("HomePage", () => {
     expect(screen.getByText("Jane Doe")).toBeDefined();
   });
 
+  describe("a refused or failed win-back send (#8041)", () => {
+    const failWith = (statusCode: number, detail: string) =>
+      vi.mocked(useSendWinBack).mockReturnValue({
+        mutate: vi.fn(),
+        mutateAsync: vi.fn(),
+        isPending: false,
+        isSuccess: false,
+        isError: true,
+        error: Object.assign(new Error("request failed"), {
+          statusCode,
+          category: statusCode === 409 ? "conflict" : "unknown",
+          problemDetails: { detail },
+        }),
+      } as never);
+
+    it("shows the server's reason when the cooldown refuses the send", () => {
+      failWith(
+        409,
+        "Alice was sent a win-back message on 2026-10-30T09:00:01.000Z. Nothing was sent now."
+      );
+
+      renderPage();
+
+      const banner = screen.getByTestId("error-banner");
+      expect(banner.textContent).toContain("Couldn't send the win-back message.");
+      expect(banner.textContent).toContain("Nothing was sent now.");
+    });
+
+    it("shows the server's reason when the provider rejected the send", () => {
+      failWith(424, "The email provider rejected the win-back message. Nothing was sent.");
+
+      renderPage();
+
+      expect(screen.getByTestId("error-banner").textContent).toContain(
+        "The email provider rejected the win-back message."
+      );
+    });
+
+    it("uses the house sentence, not the server's text, for a failure that says nothing sure", () => {
+      failWith(502, "Bad Gateway");
+
+      renderPage();
+
+      const banner = screen.getByTestId("error-banner");
+      expect(banner.textContent).toContain("Couldn't send the win-back message.");
+      expect(banner.textContent).not.toContain("Bad Gateway");
+    });
+
+    it("shows no banner when the send has not failed", () => {
+      renderPage();
+      expect(screen.queryByTestId("error-banner")).toBeNull();
+    });
+  });
+
   it("shows an actionable error with retry when the lapsing-guests query fails", () => {
     const refetch = vi.fn();
     vi.mocked(useLapsingGuests).mockReturnValue({

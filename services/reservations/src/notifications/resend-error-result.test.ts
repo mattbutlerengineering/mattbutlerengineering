@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { ResendNotificationAdapter } from "./resend-adapter.js";
 import { NotificationDispatcher, PartialDeliveryError } from "./notification-dispatcher.js";
 import type { BookingNotificationInput } from "./port.js";
+import { ProviderRejectedError } from "./provider-rejected-error.js";
 import type { SmsPort } from "./sms-port.js";
 
 // #6562: the Resend SDK resolves `{ data, error }` on API failures instead of
@@ -73,6 +74,18 @@ describe("ResendNotificationAdapter — SDK { error } results (#6562)", () => {
   it.each(calls)("%s rejects when Resend returns { error }", async (_name, call) => {
     const send = vi.fn().mockResolvedValue(rateLimited);
     await expect(call(makeAdapter(send))).rejects.toThrow(/Too many requests/);
+  });
+
+  it("rejects with a ProviderRejectedError for { error }, and not for a thrown (ambiguous) failure (#8041)", async () => {
+    const rejected = await makeAdapter(vi.fn().mockResolvedValue(rateLimited))
+      .sendBookingReminder(input)
+      .catch((e: unknown) => e);
+    expect(rejected).toBeInstanceOf(ProviderRejectedError);
+
+    const thrown = await makeAdapter(vi.fn().mockRejectedValue(new Error("socket hang up")))
+      .sendBookingReminder(input)
+      .catch((e: unknown) => e);
+    expect(thrown).not.toBeInstanceOf(ProviderRejectedError);
   });
 
   it("resolves when Resend returns { data, error: null }", async () => {

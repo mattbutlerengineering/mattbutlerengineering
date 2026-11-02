@@ -7,6 +7,7 @@ import type {
 } from "./port.js";
 import { buildBookingEmailContent } from "./booking-email-content.js";
 import { escapeHtml, sanitizeUrl } from "./email-content.js";
+import { ProviderRejectedError } from "./provider-rejected-error.js";
 
 interface ResendClient {
   emails: {
@@ -81,7 +82,7 @@ export class ResendNotificationAdapter implements NotificationPort {
       ? await this.resend.emails.send(payload, options)
       : await this.resend.emails.send(payload);
     if (error) {
-      throw new Error(
+      throw new ProviderRejectedError(
         `Resend send failed${error.name ? ` (${error.name})` : ""}: ${error.message}`
       );
     }

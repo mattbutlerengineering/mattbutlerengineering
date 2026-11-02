@@ -1,12 +1,20 @@
 import { describe, it, expect, vi } from "vitest";
 import type { Guest } from "@mbe/types";
 import type { NotificationDispatcher } from "../notifications/index.js";
-import { sendWinBack, type WinBackDeps } from "./win-back.js";
+import { ProviderRejectedError } from "../notifications/provider-rejected-error.js";
+import { cooldownDetail, sendWinBack, type WinBackDeps } from "./win-back.js";
+import { WIN_BACK_COOLDOWN_MS } from "./win-back-store.js";
 
 const NOW = new Date("2026-11-01T12:00:00Z");
 
-function deps(claim: WinBackDeps["claim"] = async () => ({ claimed: true })): WinBackDeps {
-  return { claim, now: () => NOW };
+function deps(overrides: Partial<WinBackDeps> = {}): WinBackDeps {
+  return {
+    claim: () => Promise.resolve({ claimed: true }),
+    markSent: () => Promise.resolve(),
+    release: () => Promise.resolve(),
+    now: () => NOW,
+    ...overrides,
+  };
 }
 
 function makeGuest(overrides: Partial<Guest> = {}): Guest {
@@ -141,26 +149,32 @@ describe("sendWinBack", () => {
   });
 
   describe("send record and cooldown (#8041)", () => {
-    it("refuses a repeat inside the cooldown, sends nothing, and says when the last one went", async () => {
-      const lastSentAt = new Date("2026-10-30T09:00:00Z");
+    it("refuses a repeat inside the cooldown, sends nothing, and reports the record and when another is allowed", async () => {
+      const claimedAt = new Date("2026-10-30T09:00:00Z");
+      const sentAt = new Date("2026-10-30T09:00:01Z");
       const port = makeNotificationPort();
 
       const result = await sendWinBack(
         makeGuest(),
         port,
         "Any Venue",
-        deps(async () => ({ claimed: false, lastSentAt }))
+        deps({ claim: async () => ({ claimed: false, claimedAt, sentAt }) })
       );
 
-      expect(result).toEqual({ status: "cooldown", lastSentAt });
+      expect(result).toEqual({
+        status: "cooldown",
+        claimedAt,
+        sentAt,
+        retryAfter: new Date(claimedAt.getTime() + WIN_BACK_COOLDOWN_MS),
+      });
       expect(port.sendWinBack).not.toHaveBeenCalled();
     });
 
     it("claims the guest in its own venue, before the provider is called", async () => {
       const order: string[] = [];
-      const claim = vi.fn(async () => {
+      const claim = vi.fn(() => {
         order.push("claim");
-        return { claimed: true as const };
+        return Promise.resolve({ claimed: true as const });
       });
       const sendWinBackMock = vi.fn(() => {
         order.push("send");
@@ -171,16 +185,16 @@ describe("sendWinBack", () => {
         sendWinBack: sendWinBackMock,
       } as unknown as NotificationDispatcher;
 
-      await sendWinBack(makeGuest(), port, "Any Venue", deps(claim));
+      await sendWinBack(makeGuest(), port, "Any Venue", deps({ claim }));
 
       expect(claim).toHaveBeenCalledWith("venue-1", "guest-1", NOW);
       expect(order).toEqual(["claim", "send"]);
     });
 
     it("does not claim for a guest it would skip, so a skip never starts a cooldown", async () => {
-      const claim = vi.fn(async () => ({ claimed: true as const }));
+      const claim = vi.fn(() => Promise.resolve({ claimed: true as const }));
 
-      await sendWinBack(makeGuest({ email: null }), makeNotificationPort(), "V", deps(claim));
+      await sendWinBack(makeGuest({ email: null }), makeNotificationPort(), "V", deps({ claim }));
 
       expect(claim).not.toHaveBeenCalled();
     });
@@ -196,18 +210,78 @@ describe("sendWinBack", () => {
       );
     });
 
-    it("keeps the claim when the provider call fails: the next send is refused, not repeated", async () => {
-      const claimed = new Set<string>();
-      const claim: WinBackDeps["claim"] = async (_v, g) =>
-        claimed.has(g) ? { claimed: false, lastSentAt: NOW } : (claimed.add(g), { claimed: true });
+    it("records the sent time only after the provider call succeeds", async () => {
+      const markSent = vi.fn(() => Promise.resolve());
+      const later = new Date(NOW.getTime() + 800);
+      const times = [NOW, later];
       const port = makeNotificationPort();
-      (port.sendWinBack as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("502"));
 
-      await expect(sendWinBack(makeGuest(), port, "V", deps(claim))).rejects.toThrow("502");
-      const second = await sendWinBack(makeGuest(), port, "V", deps(claim));
+      const result = await sendWinBack(
+        makeGuest(),
+        port,
+        "V",
+        deps({ markSent, now: () => times.shift() ?? later })
+      );
 
-      expect(second).toEqual({ status: "cooldown", lastSentAt: NOW });
-      expect(port.sendWinBack).toHaveBeenCalledTimes(1);
+      expect(result).toEqual({ status: "sent" });
+      expect(markSent).toHaveBeenCalledWith("venue-1", "guest-1", NOW, later);
     });
+
+    it("releases the claim and reports failure when the provider definitely rejects", async () => {
+      const release = vi.fn(() => Promise.resolve());
+      const markSent = vi.fn(() => Promise.resolve());
+      const port = makeNotificationPort();
+      (port.sendWinBack as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+        new ProviderRejectedError("Resend send failed (rate_limit_exceeded): Too many requests")
+      );
+
+      const result = await sendWinBack(makeGuest(), port, "V", deps({ release, markSent }));
+
+      expect(result).toEqual({ status: "failed" });
+      expect(release).toHaveBeenCalledWith("venue-1", "guest-1", NOW);
+      expect(markSent).not.toHaveBeenCalled();
+    });
+
+    it("keeps the claim when the failure is ambiguous: the error propagates, nothing is released", async () => {
+      const release = vi.fn(() => Promise.resolve());
+      const markSent = vi.fn(() => Promise.resolve());
+      const port = makeNotificationPort();
+      (port.sendWinBack as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("timeout"));
+
+      await expect(
+        sendWinBack(makeGuest(), port, "V", deps({ release, markSent }))
+      ).rejects.toThrow("timeout");
+
+      expect(release).not.toHaveBeenCalled();
+      expect(markSent).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe("cooldownDetail", () => {
+  const claimedAt = new Date("2026-10-30T09:00:00.000Z");
+  const retryAfter = new Date("2026-11-06T09:00:00.000Z");
+
+  it("says a send happened when the provider confirmed one", () => {
+    const sentAt = new Date("2026-10-30T09:00:01.000Z");
+    const detail = cooldownDetail("Alice", { claimedAt, sentAt, retryAfter });
+    expect(detail).toContain("was sent a win-back message on 2026-10-30T09:00:01.000Z");
+    expect(detail).toContain("Nothing was sent now");
+    expect(detail).toContain("2026-11-06T09:00:00.000Z");
+  });
+
+  it("says a send was attempted and may not have gone out when it was never confirmed", () => {
+    const detail = cooldownDetail("Alice", { claimedAt, sentAt: null, retryAfter });
+    expect(detail).toContain("attempted on 2026-10-30T09:00:00.000Z");
+    expect(detail).toContain("may not have gone out");
+    expect(detail).not.toMatch(/was sent a win-back/);
+    expect(detail).toContain("2026-11-06T09:00:00.000Z");
+  });
+
+  it("treats an older confirmed send as unconfirmed for the newer claim", () => {
+    const sentAt = new Date("2026-09-01T09:00:00.000Z");
+    expect(cooldownDetail("Alice", { claimedAt, sentAt, retryAfter })).toContain(
+      "may not have gone out"
+    );
   });
 });

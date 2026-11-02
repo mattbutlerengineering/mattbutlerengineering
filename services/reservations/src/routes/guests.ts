@@ -8,8 +8,8 @@ import {
 import { parsePaginationQuery } from "@mbe/database";
 import { requireAuth } from "@mbe/auth/fastify";
 import { registerEndpoint } from "@mbe/service-bootstrap";
-import { sendWinBack } from "../services/win-back.js";
-import { lastWinBackSentAt } from "../services/win-back-store.js";
+import { cooldownDetail, sendWinBack } from "../services/win-back.js";
+import { winBackStatusFor } from "../services/win-back-store.js";
 import { venueScoped } from "./venue-scope.js";
 
 /**
@@ -229,14 +229,16 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
       const lapsing = await guestService.scanLapsedGuests(venueId, (vid, guests) =>
         fastify.reservationEvents.emitLapsingGuests(vid, guests)
       );
-      const lastSent = await lastWinBackSentAt(
+      const status = await winBackStatusFor(
         venueId,
         lapsing.map((g) => g.guestId)
       );
       return {
         data: lapsing.map((g) => ({
           ...g,
-          lastWinBackAt: lastSent.get(g.guestId)?.toISOString() ?? null,
+          // Only a send the provider accepted; an unconfirmed claim is reported apart.
+          lastWinBackAt: status.get(g.guestId)?.sentAt?.toISOString() ?? null,
+          winBackAttemptedAt: status.get(g.guestId)?.attemptedAt?.toISOString() ?? null,
         })),
       };
     }),
@@ -272,11 +274,17 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
         if (result.status === "cooldown") {
           return reply
             .code(409)
+            .send(createProblemDetails(409, "Conflict", cooldownDetail(entity.guest.name, result)));
+        }
+        if (result.status === "failed") {
+          // The provider refused it and the claim is released: nothing went out, a retry is allowed.
+          return reply
+            .code(424)
             .send(
               createProblemDetails(
-                409,
-                "Conflict",
-                `${entity.guest.name} was already sent a win-back message on ${result.lastSentAt.toISOString()}. Nothing was sent.`
+                424,
+                "Failed Dependency",
+                `The email provider rejected the win-back message to ${entity.guest.name}. Nothing was sent. You can try again.`
               )
             );
         }

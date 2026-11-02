@@ -23,6 +23,26 @@ import { deriveVenueOpenState } from "../utils/venueOpenState.js";
 import { formatVenueOpenLabel } from "../utils/venueOpenLabel.js";
 import styles from "./HomePage.module.css";
 
+/** Statuses where the server's own `detail` says exactly what happened: the cooldown (409) and a provider rejection (424). */
+const WIN_BACK_REASON_STATUSES: ReadonlySet<number> = new Set([409, 424]);
+
+/**
+ * Why a win-back send did not go out, for the Host. For the two refusals above the server's
+ * sentence is the reason (what was sent or attempted, and when another is allowed); anything
+ * else gets the house sentence for its category.
+ */
+function describeWinBackFailure(error: unknown): string {
+  const { statusCode, problemDetails } = (error ?? {}) as {
+    statusCode?: unknown;
+    problemDetails?: { detail?: unknown };
+  };
+  const detail = typeof problemDetails?.detail === "string" ? problemDetails.detail.trim() : "";
+  if (typeof statusCode === "number" && WIN_BACK_REASON_STATUSES.has(statusCode) && detail) {
+    return detail;
+  }
+  return describeApiError(error).detail;
+}
+
 function StatsLoading() {
   return (
     <div className={styles.skeletonStats}>
@@ -128,6 +148,12 @@ export function HomePage() {
             />
           ) : (
             <LapsingGuestsWidget guests={lapsingGuests} onSendWinBack={handleSendWinBack} />
+          )}
+          {sendWinBack.isError && (
+            <ErrorRetryBanner
+              title={t("home.winBackFailed")}
+              error={describeWinBackFailure(sendWinBack.error)}
+            />
           )}
           {!isLoading && (
             <DepositExposureWidget

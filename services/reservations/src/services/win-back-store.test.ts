@@ -2,13 +2,39 @@ import { describe, it, expect, vi } from "vitest";
 
 vi.mock("./database.js", () => ({ prisma: {} }));
 
-const { claimWinBack, lastWinBackSentAt, WIN_BACK_COOLDOWN_MS } =
-  await import("./win-back-store.js");
+const {
+  claimWinBack,
+  markWinBackSent,
+  releaseWinBackClaim,
+  winBackStatusFor,
+  WIN_BACK_COOLDOWN_MS,
+} = await import("./win-back-store.js");
 
 interface Row {
   venueId: string;
   guestId: string;
-  lastSentAt: Date;
+  claimedAt: Date | null;
+  sentAt: Date | null;
+}
+
+type Where = {
+  venueId: string;
+  guestId: string;
+  claimedAt?: Date;
+  OR?: ({ claimedAt: null } | { claimedAt: { lte: Date } })[];
+};
+
+function matches(row: Row | undefined, where: Where): row is Row {
+  if (!row || row.venueId !== where.venueId) return false;
+  if (where.claimedAt && row.claimedAt?.getTime() !== where.claimedAt.getTime()) return false;
+  if (where.OR) {
+    return where.OR.some((c) =>
+      c.claimedAt === null
+        ? row.claimedAt === null
+        : row.claimedAt !== null && row.claimedAt.getTime() <= c.claimedAt.lte.getTime()
+    );
+  }
+  return true;
 }
 
 /**
@@ -20,33 +46,22 @@ function fakeDb() {
   const rows = new Map<string, Row>();
   const tick = () => new Promise((r) => setImmediate(r));
   const delegate = {
-    updateMany: vi.fn(
-      async (args: {
-        where: { venueId: string; guestId: string; lastSentAt: { lte: Date } };
-        data: { lastSentAt: Date };
-      }) => {
-        await tick();
-        const row = rows.get(args.where.guestId);
-        if (
-          !row ||
-          row.venueId !== args.where.venueId ||
-          row.lastSentAt.getTime() > args.where.lastSentAt.lte.getTime()
-        ) {
-          return { count: 0 };
-        }
-        rows.set(row.guestId, { ...row, lastSentAt: args.data.lastSentAt });
-        return { count: 1 };
-      }
-    ),
+    updateMany: vi.fn(async (args: { where: Where; data: Partial<Row> }) => {
+      await tick();
+      const row = rows.get(args.where.guestId);
+      if (!matches(row, args.where)) return { count: 0 };
+      rows.set(row.guestId, { ...row, ...args.data });
+      return { count: 1 };
+    }),
     create: vi.fn(async (args: { data: Row }) => {
       await tick();
       if (rows.has(args.data.guestId)) {
         throw Object.assign(new Error("Unique constraint failed"), { code: "P2002" });
       }
-      rows.set(args.data.guestId, args.data);
+      rows.set(args.data.guestId, { ...args.data, sentAt: args.data.sentAt ?? null });
       return args.data;
     }),
-    findFirst: vi.fn(async (args: { where: { venueId: string; guestId: string } }) => {
+    findFirst: vi.fn(async (args: { where: Where }) => {
       const row = rows.get(args.where.guestId);
       return row && row.venueId === args.where.venueId ? row : null;
     }),
@@ -60,30 +75,43 @@ function fakeDb() {
 }
 
 const now = new Date("2026-11-01T12:00:00Z");
+const after = (ms: number) => new Date(now.getTime() + ms);
 
 describe("claimWinBack", () => {
-  it("claims a guest never sent to, and records the time", async () => {
+  it("claims a guest never sent to: records the claim time and no sent time", async () => {
     const { db, rows } = fakeDb();
     expect(await claimWinBack("v1", "g1", now, db)).toEqual({ claimed: true });
-    expect(rows.get("g1")?.lastSentAt).toEqual(now);
+    expect(rows.get("g1")).toMatchObject({ claimedAt: now, sentAt: null });
   });
 
-  it("refuses a repeat inside the cooldown and reports when the last one went", async () => {
+  it("refuses a repeat inside the cooldown and reports the claim and its sent time", async () => {
     const { db } = fakeDb();
     await claimWinBack("v1", "g1", now, db);
-    const later = new Date(now.getTime() + WIN_BACK_COOLDOWN_MS - 1);
-    expect(await claimWinBack("v1", "g1", later, db)).toEqual({
+    await markWinBackSent("v1", "g1", now, after(500), db);
+    expect(await claimWinBack("v1", "g1", after(WIN_BACK_COOLDOWN_MS - 1), db)).toEqual({
       claimed: false,
-      lastSentAt: now,
+      claimedAt: now,
+      sentAt: after(500),
     });
   });
 
-  it("claims again once the cooldown has passed", async () => {
+  it("refuses inside the cooldown after an unconfirmed attempt, with no sent time", async () => {
+    const { db } = fakeDb();
+    await claimWinBack("v1", "g1", now, db);
+    expect(await claimWinBack("v1", "g1", after(1000), db)).toEqual({
+      claimed: false,
+      claimedAt: now,
+      sentAt: null,
+    });
+  });
+
+  it("claims again once the cooldown has passed, keeping the earlier sent time until the new send lands", async () => {
     const { db, rows } = fakeDb();
     await claimWinBack("v1", "g1", now, db);
-    const later = new Date(now.getTime() + WIN_BACK_COOLDOWN_MS);
+    await markWinBackSent("v1", "g1", now, now, db);
+    const later = after(WIN_BACK_COOLDOWN_MS);
     expect(await claimWinBack("v1", "g1", later, db)).toEqual({ claimed: true });
-    expect(rows.get("g1")?.lastSentAt).toEqual(later);
+    expect(rows.get("g1")).toMatchObject({ claimedAt: later, sentAt: now });
   });
 
   it("lets exactly one of two simultaneous first sends claim the guest", async () => {
@@ -93,13 +121,12 @@ describe("claimWinBack", () => {
       claimWinBack("v1", "g1", now, db),
     ]);
     expect(results.filter((r) => r.claimed)).toHaveLength(1);
-    expect(results.find((r) => !r.claimed)).toEqual({ claimed: false, lastSentAt: now });
   });
 
   it("lets exactly one of several simultaneous sends after the cooldown claim the guest", async () => {
     const { db } = fakeDb();
     await claimWinBack("v1", "g1", now, db);
-    const later = new Date(now.getTime() + WIN_BACK_COOLDOWN_MS + 1000);
+    const later = after(WIN_BACK_COOLDOWN_MS + 1000);
     const results = await Promise.all([1, 2, 3, 4].map(() => claimWinBack("v1", "g1", later, db)));
     expect(results.filter((r) => r.claimed)).toHaveLength(1);
   });
@@ -114,19 +141,102 @@ describe("claimWinBack", () => {
   });
 });
 
-describe("lastWinBackSentAt", () => {
-  it("maps guest id to last send time for the venue's guests only", async () => {
+describe("markWinBackSent", () => {
+  it("records the sent time on the claim it was given", async () => {
+    const { db, rows } = fakeDb();
+    await claimWinBack("v1", "g1", now, db);
+    await markWinBackSent("v1", "g1", now, after(900), db);
+    expect(rows.get("g1")?.sentAt).toEqual(after(900));
+  });
+
+  it("does not touch a newer claim", async () => {
+    const { db, rows } = fakeDb();
+    await claimWinBack("v1", "g1", now, db);
+    const later = after(WIN_BACK_COOLDOWN_MS);
+    await claimWinBack("v1", "g1", later, db);
+    await markWinBackSent("v1", "g1", now, after(900), db);
+    expect(rows.get("g1")).toMatchObject({ claimedAt: later, sentAt: null });
+  });
+});
+
+describe("releaseWinBackClaim", () => {
+  it("clears the claim so the next send can claim at once", async () => {
+    const { db, rows } = fakeDb();
+    await claimWinBack("v1", "g1", now, db);
+    await releaseWinBackClaim("v1", "g1", now, db);
+    expect(rows.get("g1")?.claimedAt).toBeNull();
+    expect(await claimWinBack("v1", "g1", after(1000), db)).toEqual({ claimed: true });
+  });
+
+  it("cannot clear a newer claim", async () => {
+    const { db, rows } = fakeDb();
+    await claimWinBack("v1", "g1", now, db);
+    const later = after(WIN_BACK_COOLDOWN_MS);
+    await claimWinBack("v1", "g1", later, db);
+    await releaseWinBackClaim("v1", "g1", now, db);
+    expect(rows.get("g1")?.claimedAt).toEqual(later);
+  });
+
+  it("leaves an earlier confirmed send in place", async () => {
+    const { db, rows } = fakeDb();
+    await claimWinBack("v1", "g1", now, db);
+    await markWinBackSent("v1", "g1", now, now, db);
+    const later = after(WIN_BACK_COOLDOWN_MS);
+    await claimWinBack("v1", "g1", later, db);
+    await releaseWinBackClaim("v1", "g1", later, db);
+    expect(rows.get("g1")).toMatchObject({ claimedAt: null, sentAt: now });
+  });
+});
+
+describe("winBackStatusFor", () => {
+  it("reports a confirmed send as sentAt with no attempt", async () => {
+    const { db } = fakeDb();
+    await claimWinBack("v1", "g1", now, db);
+    await markWinBackSent("v1", "g1", now, after(5), db);
+    const map = await winBackStatusFor("v1", ["g1"], db);
+    expect(map.get("g1")).toEqual({ sentAt: after(5), attemptedAt: null });
+  });
+
+  it("reports a claim with no matching send as an unconfirmed attempt", async () => {
+    const { db } = fakeDb();
+    await claimWinBack("v1", "g1", now, db);
+    expect(([...(await winBackStatusFor("v1", ["g1"], db))] as const)[0]?.[1]).toEqual({
+      sentAt: null,
+      attemptedAt: now,
+    });
+  });
+
+  it("reports a renewed claim over an older send as an attempt, keeping the older sentAt", async () => {
+    const { db } = fakeDb();
+    await claimWinBack("v1", "g1", now, db);
+    await markWinBackSent("v1", "g1", now, now, db);
+    const later = after(WIN_BACK_COOLDOWN_MS);
+    await claimWinBack("v1", "g1", later, db);
+    expect((await winBackStatusFor("v1", ["g1"], db)).get("g1")).toEqual({
+      sentAt: now,
+      attemptedAt: later,
+    });
+  });
+
+  it("reports a released claim as nothing attempted", async () => {
+    const { db } = fakeDb();
+    await claimWinBack("v1", "g1", now, db);
+    await releaseWinBackClaim("v1", "g1", now, db);
+    expect((await winBackStatusFor("v1", ["g1"], db)).get("g1")).toEqual({
+      sentAt: null,
+      attemptedAt: null,
+    });
+  });
+
+  it("maps only the venue's own guests, and never queries for none", async () => {
     const { db, delegate } = fakeDb();
     await claimWinBack("v1", "g1", now, db);
     await claimWinBack("v2", "g2", now, db);
-    const map = await lastWinBackSentAt("v1", ["g1", "g2", "g3"], db);
-    expect([...map.entries()]).toEqual([["g1", now]]);
+    const map = await winBackStatusFor("v1", ["g1", "g2", "g3"], db);
+    expect([...map.keys()]).toEqual(["g1"]);
     expect(delegate.findMany.mock.calls[0]?.[0].where.venueId).toBe("v1");
-  });
-
-  it("does not query when there are no guests", async () => {
-    const { db, delegate } = fakeDb();
-    expect((await lastWinBackSentAt("v1", [], db)).size).toBe(0);
+    delegate.findMany.mockClear();
+    expect((await winBackStatusFor("v1", [], db)).size).toBe(0);
     expect(delegate.findMany).not.toHaveBeenCalled();
   });
 });

@@ -35,12 +35,13 @@ function shown(guest: Guest) {
 const GUEST_SAVE_UNSURE = saveUnsure("search_guests");
 
 /**
- * A win-back with no answer may already be in the guest's inbox. The server records a
- * send before it calls the email provider and refuses a second one within its
- * cooldown, so `list_lapsing_guests` shows the answer in `lastWinBackAt`.
+ * A win-back with no answer may or may not have gone out. The server claims a send before it
+ * calls the email provider and records the send only once the provider accepts it, so
+ * `list_lapsing_guests` tells a confirmed send (`lastWinBackAt`) from an attempt that was never
+ * confirmed (`winBackAttemptedAt`). The server refuses a second send for a week after either.
  */
 function winBackUnsure(name: string): string {
-  return `Couldn't confirm the win-back message to ${name} was sent. It may already have reached them. Check ${name}'s lastWinBackAt in list_lapsing_guests: a recent time means it was recorded as sent and the server won't send another for a week; null means nothing was recorded. Tell the user which.`;
+  return `Couldn't confirm the win-back message to ${name} was sent. Check ${name} in list_lapsing_guests: lastWinBackAt is the last send the email provider confirmed, and winBackAttemptedAt is an attempt that may not have gone out. The server won't send another for a week after either; both null means nothing was recorded. Tell the user which it is.`;
 }
 
 /**
@@ -134,7 +135,7 @@ export function createGuestTools(
     // ── Read ───────────────────────────────────────────────
     list_lapsing_guests: tool({
       description:
-        "List regular guests who are overdue for a visit (win-back candidates), most overdue first, with when each was last sent a win-back (lastWinBackAt, null = never).",
+        "List regular guests who are overdue for a visit (win-back candidates), most overdue first, with lastWinBackAt (the last win-back the email provider confirmed, null = none) and winBackAttemptedAt (an attempt never confirmed, which may not have gone out, null = none).",
       inputSchema: z.object({}),
       execute: async () => {
         if (!venueId) return NO_VENUE;
@@ -149,6 +150,7 @@ export function createGuestTools(
                 daysSinceLastVisit: g.daysSinceLastVisit,
                 daysOverdue: g.daysOverdue,
                 lastWinBackAt: g.lastWinBackAt ?? null,
+                winBackAttemptedAt: g.winBackAttemptedAt ?? null,
               })),
           };
         } catch (err) {

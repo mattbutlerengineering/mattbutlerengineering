@@ -61,8 +61,10 @@ export const LapsingGuestSchema = z.object({
   avgFrequencyDays: z.number(),
   daysSinceLastVisit: z.number(),
   daysOverdue: z.number(),
-  /** ISO time the guest's last win-back was claimed for sending; `null` = never. Set by the route, absent on the SSE push. */
+  /** ISO time the email provider last accepted a win-back for this guest; `null` = none confirmed. Set by the route, absent on the SSE push. */
   lastWinBackAt: z.string().nullable().optional(),
+  /** ISO time of a send attempt that was never confirmed (it may or may not have gone out); `null` = none outstanding. */
+  winBackAttemptedAt: z.string().nullable().optional(),
 });
 
 /** POST /api/v1/guests/:id/win-back result. */

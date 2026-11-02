@@ -14607,7 +14607,10 @@
           401: problem(),
           404: problem(),
           409: problem(
-            "Already sent a win-back within the cooldown; nothing was sent. `detail` names when the last one went."
+            "A win-back was already sent or attempted within the cooldown; nothing was sent. `detail` says which, and when another is allowed."
+          ),
+          424: problem(
+            "The email provider rejected the message; nothing was sent and the guest can be tried again."
           ),
         },
       }),
@@ -26412,6 +26415,14 @@
       sendThankYouEmail(input: ThankYouEmailInput): Promise<void>;
     }
   </file>
+  <file path="services/reservations/src/notifications/provider-rejected-error.ts">
+    export class ProviderRejectedError extends Error {
+      constructor(message: string) {
+        super(message);
+        this.name = "ProviderRejectedError";
+      }
+    }
+  </file>
   <file path="services/reservations/src/notifications/resend-adapter.ts">
     interface ResendClient {
       emails: {
@@ -26484,7 +26495,7 @@
           ? await this.resend.emails.send(payload, options)
           : await this.resend.emails.send(payload);
         if (error) {
-          throw new Error(
+          throw new ProviderRejectedError(
             `Resend send failed${error.name ? ` (${error.name})` : ""}: ${error.message}`
           );
         }
@@ -32159,7 +32170,7 @@
       };
     }
     function winBackUnsure(name: string): string {
-      return `Couldn't confirm the win-back message to ${name} was sent. It may already have reached them. Check ${name}'s lastWinBackAt in list_lapsing_guests: a recent time means it was recorded as sent and the server won't send another for a week; null means nothing was recorded. Tell the user which.`;
+      return `Couldn't confirm the win-back message to ${name} was sent. Check ${name} in list_lapsing_guests: lastWinBackAt is the last send the email provider confirmed, and winBackAttemptedAt is an attempt that may not have gone out. The server won't send another for a week after either; both null means nothing was recorded. Tell the user which it is.`;
     }
     function guestFailure(err: unknown, action: string, unsure: string | undefined) {
       const refusal = refusalOf(err);
@@ -32207,7 +32218,7 @@
         // ── Read ───────────────────────────────────────────────
         list_lapsing_guests: tool({
           description:
-            "List regular guests who are overdue for a visit (win-back candidates), most overdue first, with when each was last sent a win-back (lastWinBackAt, null = never).",
+            "List regular guests who are overdue for a visit (win-back candidates), most overdue first, with lastWinBackAt (the last win-back the email provider confirmed, null = none) and winBackAttemptedAt (an attempt never confirmed, which may not have gone out, null = none).",
           inputSchema: z.object({}),
           execute: async () => {
             if (!venueId) return NO_VENUE;
@@ -32222,6 +32233,7 @@
                     daysSinceLastVisit: g.daysSinceLastVisit,
                     daysOverdue: g.daysOverdue,
                     lastWinBackAt: g.lastWinBackAt ?? null,
+                    winBackAttemptedAt: g.winBackAttemptedAt ?? null,
                   })),
               };
             } catch (err) {
@@ -32663,7 +32675,7 @@
         "Never ask the user for a venue ID, reservation ID, or table ID: look them up with the tools.",
         "Your earlier replies in this conversation were based on tool results that aren't shown to you again. Treat them as accurate: don't apologize for or correct them unless a new tool result actually contradicts them. When you need an earlier detail, such as an ID, look it up again.",
         "A change (booking, seating, no-show, walk-in, cancellation, table status, Tonight availability, closures and special hours, waitlist, guest profile, menu items, the active floor plan) runs only when the user presses the Confirm or Cancel button the chat shows with it. Tell them to use those buttons, and never ask them to type yes: typing a new message dismisses the pending change.",
-        "When a tool says it couldn't confirm a change, the change may have been saved: tell the user so, never say nothing changed, and check with the read it names before proposing it again. for send_win_back that read is lastWinBackAt in list_lapsing_guests: a recent time means it was sent, so never propose it again for that guest.",
+        "When a tool says it couldn't confirm a change, the change may have been saved: tell the user so, never say nothing changed, and check with the read it names before proposing it again. for send_win_back that read is list_lapsing_guests: lastWinBackAt is a send the email provider confirmed, and winBackAttemptedAt is an attempt that may not have gone out; never propose it again for that guest while either is recent.",
         "Ask only for details the user has to decide, such as guest name, party size, or time. When a reservation's end time isn't given, use two hours after the start.",
         "Reply in short, plain sentences in the user's language. Don't use markdown: the chat shows plain text.",
         "Show elements only by calling render_component with an elements array: each element has a unique id, a type from the components below, its props, and children as a list of other elements' ids; an element no other element lists is shown at the top level. Never write JSON, element specs or patch lines in your reply text.",
@@ -38083,14 +38095,16 @@
           const lapsing = await guestService.scanLapsedGuests(venueId, (vid, guests) =>
             fastify.reservationEvents.emitLapsingGuests(vid, guests)
           );
-          const lastSent = await lastWinBackSentAt(
+          const status = await winBackStatusFor(
             venueId,
             lapsing.map((g) => g.guestId)
           );
           return {
             data: lapsing.map((g) => ({
               ...g,
-              lastWinBackAt: lastSent.get(g.guestId)?.toISOString() ?? null,
+              // Only a send the provider accepted; an unconfirmed claim is reported apart.
+              lastWinBackAt: status.get(g.guestId)?.sentAt?.toISOString() ?? null,
+              winBackAttemptedAt: status.get(g.guestId)?.attemptedAt?.toISOString() ?? null,
             })),
           };
         }),
@@ -38126,11 +38140,17 @@
             if (result.status === "cooldown") {
               return reply
                 .code(409)
+                .send(createProblemDetails(409, "Conflict", cooldownDetail(entity.guest.name, result)));
+            }
+            if (result.status === "failed") {
+              // The provider refused it and the claim is released: nothing went out, a retry is allowed.
+              return reply
+                .code(424)
                 .send(
                   createProblemDetails(
-                    409,
-                    "Conflict",
-                    `${entity.guest.name} was already sent a win-back message on ${result.lastSentAt.toISOString()}. Nothing was sent.`
+                    424,
+                    "Failed Dependency",
+                    `The email provider rejected the win-back message to ${entity.guest.name}. Nothing was sent. You can try again.`
                   )
                 );
             }
@@ -41764,6 +41784,18 @@
         method: "POST",
         url: "/api/v1/guests",
         payload: { venueId, name: `RLS Sweep Item-2 Guest ${randomUUID()}` },
+      });
+      return extractId(res);
+    }
+    async function createDisposableEmailedGuest(ctx: SweepContext, venueId: string): Promise<string> {
+      const res = await asAdmin(ctx, {
+        method: "POST",
+        url: "/api/v1/guests",
+        payload: {
+          venueId,
+          name: `RLS Sweep Win-back Guest ${randomUUID()}`,
+          email: `sweep-${randomUUID()}@example.invalid`,
+        },
       });
       return extractId(res);
     }
@@ -45499,8 +45531,10 @@
       avgFrequencyDays: z.number(),
       daysSinceLastVisit: z.number(),
       daysOverdue: z.number(),
-      /** ISO time the guest's last win-back was claimed for sending; `null` = never. Set by the route, absent on the SSE push. */
+      /** ISO time the email provider last accepted a win-back for this guest; `null` = none confirmed. Set by the route, absent on the SSE push. */
       lastWinBackAt: z.string().nullable().optional(),
+      /** ISO time of a send attempt that was never confirmed (it may or may not have gone out); `null` = none outstanding. */
+      winBackAttemptedAt: z.string().nullable().optional(),
     });
     export const WinBackResultSchema = z.object({ sent: z.boolean() });
   </file>
@@ -64769,7 +64803,8 @@
   <file path="services/reservations/src/services/win-back-store.ts">
     type Db = Pick<PrismaClient, "guestWinBack">;
     export const WIN_BACK_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
-    export type WinBackClaim = { claimed: true } | { claimed: false; lastSentAt: Date };
+    export type WinBackClaim =
+      { claimed: true } | { claimed: false; claimedAt: Date | null; sentAt: Date | null };
     function isUniqueViolation(err: unknown): boolean {
       return err !== null && typeof err === "object" && (err as { code?: unknown }).code === "P2002";
     }
@@ -64781,42 +64816,99 @@
     ): Promise<WinBackClaim> {
       const cutoff = new Date(now.getTime() - WIN_BACK_COOLDOWN_MS);
       const renewed = await db.guestWinBack.updateMany({
-        where: { venueId, guestId, lastSentAt: { lte: cutoff } },
-        data: { lastSentAt: now },
+        where: { venueId, guestId, OR: [{ claimedAt: null }, { claimedAt: { lte: cutoff } }] },
+        data: { claimedAt: now },
       });
       if (renewed.count === 1) return { claimed: true };
       try {
-        await db.guestWinBack.create({ data: { venueId, guestId, lastSentAt: now } });
+        await db.guestWinBack.create({ data: { venueId, guestId, claimedAt: now } });
         return { claimed: true };
       } catch (err) {
         if (!isUniqueViolation(err)) throw err;
       }
       const existing = await db.guestWinBack.findFirst({
         where: { venueId, guestId },
-        select: { lastSentAt: true },
+        select: { claimedAt: true, sentAt: true },
       });
       // Present: the unique violation proves a row exists. Absent only if it was deleted
       // between the two statements, which nothing does (guest delete cascades, then no send).
-      return { claimed: false, lastSentAt: existing?.lastSentAt ?? now };
+      return {
+        claimed: false,
+        claimedAt: existing?.claimedAt ?? now,
+        sentAt: existing?.sentAt ?? null,
+      };
     }
-    export async function lastWinBackSentAt(
+    export async function markWinBackSent(
+      venueId: string,
+      guestId: string,
+      claimedAt: Date,
+      sentAt: Date,
+      db: Db = prisma
+    ): Promise<void> {
+      await db.guestWinBack.updateMany({
+        where: { venueId, guestId, claimedAt },
+        data: { sentAt },
+      });
+    }
+    export async function releaseWinBackClaim(
+      venueId: string,
+      guestId: string,
+      claimedAt: Date,
+      db: Db = prisma
+    ): Promise<void> {
+      await db.guestWinBack.updateMany({
+        where: { venueId, guestId, claimedAt },
+        data: { claimedAt: null },
+      });
+    }
+    export interface WinBackStatus {
+      /** When the provider last accepted a send; null = never confirmed. */
+      sentAt: Date | null;
+      /** When a claim newer than `sentAt` was made (send unconfirmed); null = none outstanding. */
+      attemptedAt: Date | null;
+    }
+    export function isUnconfirmed(claimedAt: Date | null, sentAt: Date | null): claimedAt is Date {
+      return claimedAt !== null && (sentAt === null || sentAt.getTime() < claimedAt.getTime());
+    }
+    export async function winBackStatusFor(
       venueId: string,
       guestIds: readonly string[],
       db: Db = prisma
-    ): Promise<Map<string, Date>> {
+    ): Promise<Map<string, WinBackStatus>> {
       if (guestIds.length === 0) return new Map();
       const rows = await db.guestWinBack.findMany({
         where: { venueId, guestId: { in: [...guestIds] } },
-        select: { guestId: true, lastSentAt: true },
+        select: { guestId: true, claimedAt: true, sentAt: true },
       });
-      return new Map(rows.map((r) => [r.guestId, r.lastSentAt]));
+      return new Map(
+        rows.map((r) => [
+          r.guestId,
+          {
+            sentAt: r.sentAt,
+            attemptedAt: isUnconfirmed(r.claimedAt, r.sentAt) ? r.claimedAt : null,
+          },
+        ])
+      );
     }
   </file>
   <file path="services/reservations/src/services/win-back.ts">
+    export interface WinBackCooldown {
+      /** When the refusing claim was made. */
+      claimedAt: Date;
+      /** When the provider last accepted a send; may predate `claimedAt`. */
+      sentAt: Date | null;
+      /** The earliest time another send is allowed. */
+      retryAfter: Date;
+    }
     export type WinBackResult =
-      { status: "sent" } | { status: "skipped" } | { status: "cooldown"; lastSentAt: Date };
+      | { status: "sent" }
+      | { status: "skipped" }
+      | { status: "failed" }
+      | ({ status: "cooldown" } & WinBackCooldown);
     export interface WinBackDeps {
       claim(venueId: string, guestId: string, now: Date): Promise<WinBackClaim>;
+      markSent(venueId: string, guestId: string, claimedAt: Date, sentAt: Date): Promise<void>;
+      release(venueId: string, guestId: string, claimedAt: Date): Promise<void>;
       now(): Date;
     }
     export async function sendWinBack(
@@ -64845,21 +64937,43 @@
         return { status: "skipped" };
       }
     
-      const now = deps.now();
-      const claim = await deps.claim(guest.venueId, guest.id, now);
-      if (!claim.claimed) return { status: "cooldown", lastSentAt: claim.lastSentAt };
+      const claimedAt = deps.now();
+      const claim = await deps.claim(guest.venueId, guest.id, claimedAt);
+      if (!claim.claimed) {
+        const refusedAt = claim.claimedAt ?? claimedAt;
+        return {
+          status: "cooldown",
+          claimedAt: refusedAt,
+          sentAt: claim.sentAt,
+          retryAfter: new Date(refusedAt.getTime() + WIN_BACK_COOLDOWN_MS),
+        };
+      }
     
-      await notificationPort.sendWinBack(
-        {
-          guestName: guest.name,
-          guestEmail: guest.email,
-          venueName,
-          idempotencyKey: `win-back/${guest.id}/${now.toISOString()}`,
-        },
-        channel
-      );
+      try {
+        await notificationPort.sendWinBack(
+          {
+            guestName: guest.name,
+            guestEmail: guest.email,
+            venueName,
+            idempotencyKey: `win-back/${guest.id}/${claimedAt.toISOString()}`,
+          },
+          channel
+        );
+      } catch (err) {
+        if (!(err instanceof ProviderRejectedError)) throw err;
+        await deps.release(guest.venueId, guest.id, claimedAt);
+        return { status: "failed" };
+      }
     
+      await deps.markSent(guest.venueId, guest.id, claimedAt, deps.now());
       return { status: "sent" };
+    }
+    export function cooldownDetail(guestName: string, c: WinBackCooldown): string {
+      const next = `Another can be sent after ${c.retryAfter.toISOString()}.`;
+      if (c.sentAt !== null && !isUnconfirmed(c.claimedAt, c.sentAt)) {
+        return `${guestName} was sent a win-back message on ${c.sentAt.toISOString()}. Nothing was sent now. ${next}`;
+      }
+      return `A win-back message to ${guestName} was attempted on ${c.claimedAt.toISOString()} and may not have gone out. Nothing was sent now. ${next}`;
     }
   </file>
   <file path="services/users/src/services/database.ts">
