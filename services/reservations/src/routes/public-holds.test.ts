@@ -323,6 +323,56 @@ describe("DELETE /public/v1/venues/:slug/holds/:holdId", () => {
     expect(holdService.release).toHaveBeenCalledWith("hold_1", "sess_1");
   });
 
+  // #8039: the route is now wrapped in publicVenueScoped, matching its
+  // GET/POST siblings — an unknown slug must 404 before ever touching the hold.
+  it("returns 404 for an unknown venue slug without releasing", async () => {
+    vi.mocked(resolveVenueId).mockResolvedValueOnce(null);
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: "/public/v1/venues/fake/holds/hold_1",
+      headers: { "x-session-id": "sess_1" },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(holdService.release).not.toHaveBeenCalled();
+  });
+
+  // The wrong session id is still the real authorization check (#8039):
+  // `release` matches on { id, sessionId } and no-ops (count: 0 -> false)
+  // rather than throwing, so the response stays the family's idempotent 204,
+  // but the hold itself is never actually released.
+  it("still fails to release when the session id does not match the hold", async () => {
+    vi.mocked(holdService.release).mockResolvedValueOnce(false);
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: "/public/v1/venues/the-oak-table/holds/hold_1",
+      headers: { "x-session-id": "not-my-session" },
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(holdService.release).toHaveBeenCalledWith("hold_1", "not-my-session");
+  });
+
+  // #8039: `reservation_holds` has no RLS policy and `release` filters only
+  // on { id, sessionId }, not venueId — so a known-but-mismatched slug (one
+  // that resolves to a different venue than the hold's own) must not break
+  // the happy path for a legitimate owning session. Wrapping in
+  // publicVenueScoped is a consistency fix, not a new venue filter.
+  it("releases via a mismatched but resolvable slug (no regression)", async () => {
+    vi.mocked(holdService.release).mockResolvedValueOnce(true);
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: "/public/v1/venues/some-other-venue/holds/hold_1",
+      headers: { "x-session-id": "sess_1" },
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(holdService.release).toHaveBeenCalledWith("hold_1", "sess_1");
+  });
+
   it("decrements the active-hold counter on release, unblocking a rate-limited guest", async () => {
     vi.mocked(venueService.getBySlug).mockResolvedValue(mockVenue);
     vi.mocked(holdService.create).mockResolvedValue({ success: true, hold: mockHold });

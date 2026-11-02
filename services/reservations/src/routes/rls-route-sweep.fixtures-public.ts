@@ -246,21 +246,32 @@ const publicFunnelFixtures: Record<string, RouteFixture> = {
       );
     },
   },
-  // `reservation_holds` carries no RLS policy at all (ADR-026 §1) and this
-  // route never resolves the venue by slug at all — no `resolveVenueBySlug`
-  // call in `public-holds.ts`'s DELETE handler — so it's genuinely not-rls,
-  // not item-3, and `holdService.release` is idempotent (always 204,
-  // matching/nonexistent holdId alike). Unchanged by #5369 PR 8.
+  // #8039: the handler now resolves the venue via slug like its GET/POST
+  // siblings (`publicVenueScoped`, item 3), closing the coverage gap this
+  // route previously had — but `reservation_holds` carries no RLS policy at
+  // all (ADR-026 §1), and `holdService.release` still filters only on
+  // { id, sessionId }, never venueId. So the slug lookup now gates an unknown
+  // slug (404), but a known-but-mismatched slug still releases successfully
+  // — a consistency/coverage fix, not a new venue filter.
   "DELETE /public/v1/venues/:slug/holds/:holdId": {
-    kind: "not-rls",
+    kind: "ok",
     run: async (ctx) => {
+      expectDenied(
+        await asAdmin(ctx, {
+          method: "DELETE",
+          url: `/public/v1/venues/${UNKNOWN_SLUG}/holds/does-not-exist`,
+          headers: { "x-session-id": "rls-sweep-session" },
+        }),
+        "unknown slug"
+      );
+
       expectOk(
         await asAdmin(ctx, {
           method: "DELETE",
-          url: `/public/v1/venues/${ctx.venueA.slug}/holds/does-not-exist`,
+          url: `/public/v1/venues/${ctx.venueB.slug}/holds/does-not-exist`,
           headers: { "x-session-id": "rls-sweep-session" },
         }),
-        "release hold (public, always-204, not-rls)"
+        "release hold (public, always-204, no venue filter on release)"
       );
     },
   },
