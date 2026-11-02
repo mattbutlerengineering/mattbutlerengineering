@@ -22,6 +22,7 @@ import {
   conflictIssue,
   futureBookings,
   loadConfigState,
+  refuseSeriesChanged,
   refuseStale,
   toDbDate,
   type ConfigState,
@@ -348,7 +349,8 @@ async function refuseBadAlongside(tx: Db, input: CommitInput, state: ConfigState
   // The version matched, yet the series is not the one this edit was built from: answer as a stale
   // version, so the Manager gets the same recovery and the winner's change is named.
   if (seriesChangedSinceRead(state.stored.dateRules, rule, alongside)) {
-    throw new Refused((await refuseStale(tx, venueId)) as Refusal);
+    // After this transaction's own bump, which rolls back: answer against the version it matched.
+    throw new Refused((await refuseSeriesChanged(tx, venueId, body.expectedVersion)) as Refusal);
   }
   const today = civilDateIn(now, state.timezone);
   const stranded = findStrandedReservations(
@@ -400,7 +402,8 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
     where: { id: venueId, availabilityVersion: body.expectedVersion },
     data: { availabilityVersion: { increment: 1 } },
   });
-  if (cas.count === 0) throw new Refused((await refuseStale(tx, venueId)) as Refusal);
+  if (cas.count === 0)
+    throw new Refused((await refuseStale(tx, venueId, body.expectedVersion)) as Refusal);
 
   const state = await loadConfigState(tx, venueId, now);
   if (!state) throw new Refused({ kind: "not_found" });
@@ -465,6 +468,7 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
       affectedTo: toDbDate(range.to),
       inverse: inverse as unknown as Prisma.InputJsonValue,
       notifiedGuests: plan.notifiedGuests,
+      version,
     },
     select: { id: true },
   });
@@ -729,6 +733,7 @@ export async function reopenClosure(
             state.operatingHours
           ) as unknown as Prisma.InputJsonValue,
           notifiedGuests: notified > 0,
+          version: bumped.availabilityVersion,
         },
         select: { id: true },
       });

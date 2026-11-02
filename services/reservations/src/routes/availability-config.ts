@@ -49,6 +49,7 @@ function sendRefusal(
           code: "version-conflict",
           winningChange: outcome.winningChange,
           currentVersion: outcome.currentVersion,
+          ...(outcome.changesSince ? { changesSince: outcome.changesSince } : {}),
         })
       );
     case "invalid":

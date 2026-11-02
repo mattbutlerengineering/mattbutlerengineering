@@ -406,6 +406,7 @@ describe("revertAvailabilityChange", () => {
 
   it("answers a stale version with the change that won, touching nothing", async () => {
     const tx = revertingTx({ cas: 0 });
+    (tx.availabilityChange as Record<string, unknown>)["findMany"] = vi.fn(async () => []);
     tx.availabilityChange.findFirst = vi.fn(async () => ({
       id: "chg-9",
       actorId: "auth0|ana",

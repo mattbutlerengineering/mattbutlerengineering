@@ -197,6 +197,32 @@ for (const size of SIZES) {
       expect(saves(mock).at(-1)).toBe(`${mock.version - 1} -> 200`);
     });
 
+    test("a 409 names every change since the draft, not only the newest (#8093)", async ({
+      mockedPage,
+    }) => {
+      const mock = await mockAvailability(mockedPage);
+      const drawer = await openNextMonthDay(mockedPage, midNextMonth());
+      await removeDinner(drawer);
+
+      // A and B both save before the Manager does: the draft is two versions behind.
+      const draftVersion = mock.version;
+      mock.colleague("Lunch opens at 11:00 AM");
+      mock.colleague("Dinner closes at 9:00 PM");
+      await drawer.getByRole("button", { name: "Save 1 date" }).click();
+      const conflict = mockedPage.getByRole("dialog", {
+        name: "Someone changed availability first",
+      });
+      await expect(conflict).toBeVisible();
+      await expect(conflict.getByText(/Lunch opens at 11:00 AM/)).toBeVisible();
+      await expect(conflict.getByText(/Dinner closes at 9:00 PM/)).toBeVisible();
+
+      // Overwrite goes against the version the list ends at.
+      await conflict.getByRole("button", { name: "Overwrite" }).click();
+      await expect(conflict).toBeHidden();
+      expect(mock.puts[0]?.expected).toBe(draftVersion);
+      expect(saves(mock).at(-1)).toBe(`${draftVersion + 2} -> 200`);
+    });
+
     test("a refresh error offers Retry, and clears once the reload succeeds", async ({
       mockedPage,
     }) => {
