@@ -144,6 +144,12 @@ describe("toReservation", () => {
     expect(toReservation(makePrismaReservation()).overrideReason).toBeNull();
   });
 
+  it("carries the origin host, and null when the booking has none (#7892)", () => {
+    const branded = toReservation(makePrismaReservation({ originHost: "eat-sheet.com" }));
+    expect(branded.originHost).toBe("eat-sheet.com");
+    expect(toReservation(makePrismaReservation()).originHost).toBeNull();
+  });
+
   it("includes mapped table when present", () => {
     const result = toReservation(makePrismaReservation());
 

@@ -49,6 +49,8 @@ export interface NoticeOutcome {
   refund: { amountCents: number; currency: string } | null;
   venueName: string;
   timezone: string;
+  /** The host the guest booked on (#7892); null keeps the mattbutlerengineering.com brand. */
+  originHost: string | null;
 }
 
 export interface ClosureNoticeDeps {
@@ -119,7 +121,7 @@ async function send(
 ): Promise<void> {
   if (channel === "email") {
     const { subject, html } = buildClosureEmail(content);
-    return deps.sendEmail({ to: o.guestEmail!, subject, html });
+    return deps.sendEmail({ to: o.guestEmail!, subject, html, originHost: o.originHost });
   }
   return deps.sendSms({ to: o.guestPhone!, body: buildClosureSms(content) });
 }
