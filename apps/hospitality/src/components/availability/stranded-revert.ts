@@ -8,7 +8,7 @@ import { revertErrorText } from "./revert-error.js";
  * up to 200 links, and Undo can be pressed after the surface that offered it has unmounted, so the
  * list lives here, outside any one surface, and the page shows it.
  */
-let hosts = 0;
+let hostVenues: readonly string[] = [];
 let shown: readonly StrandedReservation[] = [];
 const listeners = new Set<() => void>();
 
@@ -21,15 +21,21 @@ function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
-/** Marks a dialog mounted to show the list; the returned function marks it gone (once). */
-export function registerStrandedRevertHost(): () => void {
-  hosts += 1;
+/**
+ * Marks a dialog mounted to show the list for the venue the page is on; the returned function
+ * marks it gone (once). The list shows only for that venue: its links open the selected venue's
+ * timeline and its times use that venue's clock.
+ */
+export function registerStrandedRevertHost(venueId: string): () => void {
+  hostVenues = [...hostVenues, venueId];
   let released = false;
   return () => {
     if (released) return;
     released = true;
-    hosts -= 1;
-    if (hosts === 0 && shown.length > 0) {
+    const at = hostVenues.indexOf(venueId);
+    hostVenues = hostVenues.filter((_, i) => i !== at);
+    // A list shown for the venue the host left (or for a page that has gone) is not for the next.
+    if (shown.length > 0) {
       shown = [];
       emit();
     }
@@ -59,16 +65,18 @@ interface ToastInput {
 }
 
 /**
- * Reports a refused revert: the stranded bookings go to the page's dialog; any other refusal, or a
- * page with no dialog mounted (the Manager has left it), gets its sentence in a toast.
+ * Reports a refused revert of a change in `venueId`: the stranded bookings go to the page's dialog.
+ * Any other refusal gets its sentence in a toast, and so does one with no dialog mounted for that
+ * venue: the Manager has left the Availability page, or switched venue (a link cannot name one).
  */
 export function reportRevertFailure(
   error: unknown,
   t: TFunction,
-  toast: (input: ToastInput) => unknown
+  toast: (input: ToastInput) => unknown,
+  venueId: string
 ) {
   const reservations = strandedReservations(error);
-  if (reservations.length > 0 && hosts > 0) {
+  if (reservations.length > 0 && hostVenues.includes(venueId)) {
     shown = reservations;
     emit();
     return;

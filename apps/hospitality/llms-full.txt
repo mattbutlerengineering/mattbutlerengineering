@@ -2948,14 +2948,16 @@
       listeners.add(listener);
       return () => listeners.delete(listener);
     }
-    export function registerStrandedRevertHost(): () => void {
-      hosts += 1;
+    export function registerStrandedRevertHost(venueId: string): () => void {
+      hostVenues = [...hostVenues, venueId];
       let released = false;
       return () => {
         if (released) return;
         released = true;
-        hosts -= 1;
-        if (hosts === 0 && shown.length > 0) {
+        const at = hostVenues.indexOf(venueId);
+        hostVenues = hostVenues.filter((_, i) => i !== at);
+        // A list shown for the venue the host left (or for a page that has gone) is not for the next.
+        if (shown.length > 0) {
           shown = [];
           emit();
         }
@@ -2982,10 +2984,11 @@
     export function reportRevertFailure(
       error: unknown,
       t: TFunction,
-      toast: (input: ToastInput) => unknown
+      toast: (input: ToastInput) => unknown,
+      venueId: string
     ) {
       const reservations = strandedReservations(error);
-      if (reservations.length > 0 && hosts > 0) {
+      if (reservations.length > 0 && hostVenues.includes(venueId)) {
         shown = reservations;
         emit();
         return;
@@ -8181,7 +8184,7 @@
               });
               toast({ title: t("availability.undo.done"), variant: "success", duration: 5000 });
             } catch (error) {
-              reportRevertFailure(error, t, toast);
+              reportRevertFailure(error, t, toast, input.venueId);
             }
           };
           // One press per button: a double click must not send a second revert, which the first would

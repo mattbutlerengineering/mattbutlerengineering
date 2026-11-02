@@ -61,7 +61,7 @@ export function useAvailabilityUndo() {
           });
           toast({ title: t("availability.undo.done"), variant: "success", duration: 5000 });
         } catch (error) {
-          reportRevertFailure(error, t, toast);
+          reportRevertFailure(error, t, toast, input.venueId);
         }
       };
       // One press per button: a double click must not send a second revert, which the first would

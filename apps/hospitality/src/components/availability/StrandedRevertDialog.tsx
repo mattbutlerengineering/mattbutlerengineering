@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, Dialog } from "@mattbutlerengineering/rialto";
+import { useOptionalVenue } from "../../contexts/venue-context-object.js";
 import { StrandedBookings } from "./StrandedBookings.js";
 import {
   dismissStrandedRevert,
@@ -15,7 +16,8 @@ import {
 export function StrandedRevertDialog() {
   const { t } = useTranslation();
   const reservations = useStrandedRevert();
-  useEffect(() => registerStrandedRevertHost(), []);
+  const venueId = useOptionalVenue()?.selectedVenue?.id;
+  useEffect(() => (venueId ? registerStrandedRevertHost(venueId) : undefined), [venueId]);
 
   return (
     <Dialog

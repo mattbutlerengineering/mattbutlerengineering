@@ -2708,7 +2708,7 @@
       function subscribe(listener: () => void): () => void { /* ... */ }
     </item>
     <item priority="high">
-      export function registerStrandedRevertHost(): () => void { /* ... */ }
+      export function registerStrandedRevertHost(venueId: string): () => void { /* ... */ }
     </item>
     <item priority="high">
       export function dismissStrandedRevert() { /* ... */ }
@@ -2730,7 +2730,8 @@
       export function reportRevertFailure(
         error: unknown,
         t: TFunction,
-        toast: (input: ToastInput) => unknown
+        toast: (input: ToastInput) => unknown,
+        venueId: string
       ) { /* ... */ }
     </item>
   </file>

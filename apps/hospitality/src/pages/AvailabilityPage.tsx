@@ -83,6 +83,8 @@ export function AvailabilityPage() {
   return (
     <div ref={rootRef} className={styles.page}>
       <AvailabilityContent rootRef={rootRef} />
+      {/* Last, so it paints above any other overlay the tab has open, and on every tab. */}
+      <StrandedRevertDialog />
     </div>
   );
 }
@@ -516,7 +518,6 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           setChosenAnchor(date);
         }}
       />
-      <StrandedRevertDialog />
       {changingWeek && config.data && (
         <ChangeRegularWeekDrawer
           venueId={selectedVenueId}

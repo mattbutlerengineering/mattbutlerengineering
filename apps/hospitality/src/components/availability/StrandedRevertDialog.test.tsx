@@ -48,13 +48,13 @@ const refusal = () =>
   );
 
 /** The surface that offers Undo; it can go while the toast stays. */
-function Offerer() {
+function Offerer({ venueId }: { readonly venueId: string }) {
   const offerUndo = useAvailabilityUndo();
   return (
     <button
       type="button"
       onClick={() =>
-        offerUndo({ venueId: "venue-1", title: "Saved", saved: { version: 8, changeId: "chg-8" } })
+        offerUndo({ venueId, title: "Saved", saved: { version: 8, changeId: "chg-8" } })
       }
     >
       Save it
@@ -62,11 +62,11 @@ function Offerer() {
   );
 }
 
-function renderPage(host = true) {
+function renderPage(host = true, venueId = "venue-1") {
   const tree = (withOfferer: boolean) => (
     <ToastProvider>
       <main>
-        {withOfferer && <Offerer />}
+        {withOfferer && <Offerer venueId={venueId} />}
         {host && <StrandedRevertDialog />}
       </main>
     </ToastProvider>
@@ -117,6 +117,19 @@ describe("a refused Undo for stranded bookings", () => {
       fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
     });
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("gives the sentence in a toast when the Manager has since switched to another venue", async () => {
+    renderPage(true, "venue-2");
+    fireEvent.click(screen.getByRole("button", { name: "Save it" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+
+    // A link cannot name the venue: it would open the selected venue's timeline.
+    expect(
+      await screen.findByText("Undoing this would leave existing bookings without service.")
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(revert).toHaveBeenCalledWith(expect.objectContaining({ venueId: "venue-2" }));
   });
 
   it("falls back to the sentence in a toast when no page is there to show the list", async () => {
