@@ -735,6 +735,42 @@
         return was !== undefined && hoursOf(was) !== hoursOf(r);
       });
     }
+    export function rowsChangedSince(
+      before: AvailabilityConfig,
+      after: AvailabilityConfig,
+      edits: readonly CompareRow[]
+    ): string[] {
+      const was = new Map(before.scheduleServices.map((s) => [s.id, s]));
+      const now = new Map(after.scheduleServices.map((s) => [s.id, s]));
+      return edits
+        .filter((e) => {
+          const old = was.get(e.scheduleServiceId);
+          const next = now.get(e.scheduleServiceId);
+          return old !== undefined && next !== undefined && hoursOf(old) !== hoursOf(next);
+        })
+        .map((e) => e.scheduleName);
+    }
+    export function reapplyEdits(
+      before: AvailabilityConfig,
+      after: AvailabilityConfig,
+      edits: readonly CompareRow[]
+    ): Record<string, CompareRow> {
+      const was = new Map(before.scheduleServices.map((s) => [s.id, s]));
+      const latest = compareRowsById(after);
+      const entries = edits.flatMap((e) => {
+        const old = was.get(e.scheduleServiceId);
+        const next = latest.get(e.scheduleServiceId);
+        if (!old || !next) return [];
+        const mine = HOURS_FIELDS.filter((f) => !sameValue(old[f], e[f]));
+        const merged = { ...next, ...Object.fromEntries(mine.map((f) => [f, e[f]])) } as CompareRow;
+        return [[e.scheduleServiceId, merged] as const];
+      });
+      return Object.fromEntries(entries);
+    }
+    function compareRowsById(config: AvailabilityConfig): Map<string, CompareRow> {
+      const rows = config.venueServices.flatMap((v) => compareRows(config, v.id));
+      return new Map(rows.map((r) => [r.scheduleServiceId, r]));
+    }
     export function buildCompareChanges(
       config: AvailabilityConfig,
       rows: readonly CompareRow[]
@@ -3239,13 +3275,15 @@
         venueId: string,
         state: AvailabilityConfigState,
         changes: AvailabilityConfigChanges,
-        scopeConflicts: ScopeConflictMode
+        scopeConflicts: ScopeConflictMode,
+        /** The version the changes were built against, when that is not the latest `state`. */
+        expectedVersion: number = state.version
       ): Promise<AvailabilityConfigSaveResult | null> => {
         clearFailure();
         try {
           return await mutateAsync({
             venueId,
-            body: { expectedVersion: state.version, changes, scopeConflicts },
+            body: { expectedVersion, changes, scopeConflicts },
           });
         } catch (error) {
           reject(error);

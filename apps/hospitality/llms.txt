@@ -378,6 +378,23 @@
       export function changedRows(config: AvailabilityConfig, rows: readonly CompareRow[]): CompareRow[] { /* ... */ }
     </item>
     <item priority="high">
+      export function rowsChangedSince(
+        before: AvailabilityConfig,
+        after: AvailabilityConfig,
+        edits: readonly CompareRow[]
+      ): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function reapplyEdits(
+        before: AvailabilityConfig,
+        after: AvailabilityConfig,
+        edits: readonly CompareRow[]
+      ): Record<string, CompareRow> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function compareRowsById(config: AvailabilityConfig): Map<string, CompareRow> { /* ... */ }
+    </item>
+    <item priority="high">
       export function buildCompareChanges(
         config: AvailabilityConfig,
         rows: readonly CompareRow[]

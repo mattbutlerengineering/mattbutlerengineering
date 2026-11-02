@@ -1908,6 +1908,7 @@
     },
     "compare": {
       "open": "Comparer les services",
+      "conflictTitle": "Quelqu’un a modifié ces horaires avant vous",
       "title": "Comparer les services",
       "service": "Service",
       "opens": "Ouverture",

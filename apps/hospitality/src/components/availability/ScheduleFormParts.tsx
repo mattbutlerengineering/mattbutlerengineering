@@ -141,6 +141,8 @@ export function ConflictReviewPanel(props: {
   readonly review: ConflictReview;
   readonly onReapply: () => void;
   readonly onDiscard: () => void;
+  /** Replaces the title for surfaces that span several schedules. */
+  readonly title?: string;
 }) {
   const { review, onReapply, onDiscard } = props;
   const { loaded, changes, kind } = review;
@@ -189,7 +191,7 @@ export function ConflictReviewPanel(props: {
   return (
     <Alert
       variant="warning"
-      title={copy.title}
+      title={props.title ?? copy.title}
       actions={
         <Stack direction="row" gap="sm">
           <Button

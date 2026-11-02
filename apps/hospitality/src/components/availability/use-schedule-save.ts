@@ -60,13 +60,15 @@ export function useScheduleSave(
     venueId: string,
     state: AvailabilityConfigState,
     changes: AvailabilityConfigChanges,
-    scopeConflicts: ScopeConflictMode
+    scopeConflicts: ScopeConflictMode,
+    /** The version the changes were built against, when that is not the latest `state`. */
+    expectedVersion: number = state.version
   ): Promise<AvailabilityConfigSaveResult | null> => {
     clearFailure();
     try {
       return await mutateAsync({
         venueId,
-        body: { expectedVersion: state.version, changes, scopeConflicts },
+        body: { expectedVersion, changes, scopeConflicts },
       });
     } catch (error) {
       reject(error);

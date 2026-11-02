@@ -61,6 +61,54 @@ export function changedRows(config: AvailabilityConfig, rows: readonly CompareRo
   });
 }
 
+const HOURS_FIELDS = ["opensAt", "lastSeatingAt", "closesAt", "seating", "bookingTypes"] as const;
+const sameValue = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+/** Names of the edited rows a colleague changed in the version that won, for the conflict review. */
+export function rowsChangedSince(
+  before: AvailabilityConfig,
+  after: AvailabilityConfig,
+  edits: readonly CompareRow[]
+): string[] {
+  const was = new Map(before.scheduleServices.map((s) => [s.id, s]));
+  const now = new Map(after.scheduleServices.map((s) => [s.id, s]));
+  return edits
+    .filter((e) => {
+      const old = was.get(e.scheduleServiceId);
+      const next = now.get(e.scheduleServiceId);
+      return old !== undefined && next !== undefined && hoursOf(old) !== hoursOf(next);
+    })
+    .map((e) => e.scheduleName);
+}
+
+/**
+ * The Manager's edits laid on the winning version: per row, only the fields they changed from
+ * `before` are applied, so a colleague's change to another field stays. Rows that no longer exist
+ * are dropped.
+ */
+export function reapplyEdits(
+  before: AvailabilityConfig,
+  after: AvailabilityConfig,
+  edits: readonly CompareRow[]
+): Record<string, CompareRow> {
+  const was = new Map(before.scheduleServices.map((s) => [s.id, s]));
+  const latest = compareRowsById(after);
+  const entries = edits.flatMap((e) => {
+    const old = was.get(e.scheduleServiceId);
+    const next = latest.get(e.scheduleServiceId);
+    if (!old || !next) return [];
+    const mine = HOURS_FIELDS.filter((f) => !sameValue(old[f], e[f]));
+    const merged = { ...next, ...Object.fromEntries(mine.map((f) => [f, e[f]])) } as CompareRow;
+    return [[e.scheduleServiceId, merged] as const];
+  });
+  return Object.fromEntries(entries);
+}
+
+function compareRowsById(config: AvailabilityConfig): Map<string, CompareRow> {
+  const rows = config.venueServices.flatMap((v) => compareRows(config, v.id));
+  return new Map(rows.map((r) => [r.scheduleServiceId, r]));
+}
+
 /** One save for every changed row. */
 export function buildCompareChanges(
   config: AvailabilityConfig,

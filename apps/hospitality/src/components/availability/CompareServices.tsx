@@ -1,7 +1,7 @@
 import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, Checkbox, Select, Stack, Text, TimePicker } from "@mattbutlerengineering/rialto";
-import type { AvailabilityConfigState, ScopeConflictMode } from "@mbe/types";
+import type { AvailabilityConfig, AvailabilityConfigState, ScopeConflictMode } from "@mbe/types";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { closeFromClock, lastSeatingFromClock, openFromClock, toClock } from "./clock-minutes.js";
 import {
@@ -9,11 +9,18 @@ import {
   changedRows,
   compareRows,
   compareServiceOptions,
+  reapplyEdits,
+  rowsChangedSince,
   type CompareRow,
 } from "./compare-changes.js";
 import { DiscardChangesDialog } from "./DiscardChangesDialog.js";
 import { ownChangeDates, scopeDates } from "./scope-dates.js";
-import { BlockedReason, OwnChangesChoice, SaveFailure } from "./ScheduleFormParts.js";
+import {
+  BlockedReason,
+  ConflictReviewPanel,
+  OwnChangesChoice,
+  SaveFailure,
+} from "./ScheduleFormParts.js";
 import { useDiscardGuard } from "./use-discard-guard.js";
 import { useScheduleSave } from "./use-schedule-save.js";
 import styles from "./CompareServices.module.css";
@@ -121,6 +128,10 @@ export function CompareServices(props: CompareServicesProps) {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulk, setBulk] = useState<BulkFields>(NO_BULK);
   const [mode, setMode] = useState<ScopeConflictMode>("keep");
+  // The config the first edit was made against. A save is checked against this version, so a
+  // colleague's change to any field of an edited row is a conflict the Manager reviews, never
+  // silently overwritten by the whole-row save.
+  const [base, setBase] = useState<{ config: AvailabilityConfig; version: number } | null>(null);
 
   const rows = useMemo(
     () =>
@@ -140,6 +151,9 @@ export function CompareServices(props: CompareServicesProps) {
 
   const commitEdits = (next: Readonly<Record<string, CompareRow>>) => {
     setEdits(next);
+    setBase((prev) =>
+      Object.keys(next).length === 0 ? null : (prev ?? { config, version: state.version })
+    );
     onDirtyChange?.(changedRows(config, Object.values(next)).length > 0);
   };
   // Choosing another service drops the rows edited for this one, so it asks first.
@@ -172,11 +186,13 @@ export function CompareServices(props: CompareServicesProps) {
   };
 
   const submit = async () => {
+    const pinned = base ?? { config, version: state.version };
     const saved = await saver.save(
       venueId,
       state,
-      buildCompareChanges(config, rows),
-      dates.length > 1 ? mode : "replace"
+      buildCompareChanges(pinned.config, Object.values(edits)),
+      dates.length > 1 ? mode : "replace",
+      pinned.version
     );
     if (!saved) return;
     offerUndo({
@@ -188,9 +204,44 @@ export function CompareServices(props: CompareServicesProps) {
     setSelected([]);
   };
 
+  const reapply = () => {
+    const next = base ? reapplyEdits(base.config, config, Object.values(edits)) : edits;
+    commitEdits(next);
+    // The rows are now built on the winning version, so the next save is checked against it.
+    setBase(Object.keys(next).length > 0 ? { config, version: state.version } : null);
+    saver.clearConflict();
+  };
+  const discard = () => {
+    commitEdits({});
+    setSelected([]);
+    saver.clearConflict();
+  };
+  const review = saver.conflicted
+    ? {
+        kind: "edit" as const,
+        loaded: base !== null && state.version !== base.version,
+        changes: {
+          gone: false,
+          replacedBy: null,
+          renamedTo: null,
+          added: [],
+          removed: [],
+          changed: base ? rowsChangedSince(base.config, config, Object.values(edits)) : [],
+        },
+      }
+    : null;
+
   return (
     <Stack gap="md">
       <SaveFailure messages={saver.failure} stranded={saver.stranded} />
+      {review && (
+        <ConflictReviewPanel
+          review={review}
+          title={t("availabilitySchedules.compare.conflictTitle")}
+          onReapply={reapply}
+          onDiscard={discard}
+        />
+      )}
       <Select
         label={t("availabilitySchedules.compare.service")}
         value={serviceId}
@@ -273,7 +324,7 @@ export function CompareServices(props: CompareServicesProps) {
         </Text>
         <Button
           variant="primary"
-          disabled={changed.length === 0}
+          disabled={changed.length === 0 || saver.conflicted}
           aria-describedby={changed.length === 0 ? blockedId : undefined}
           isLoading={saver.isPending}
           onClick={() => void submit()}
