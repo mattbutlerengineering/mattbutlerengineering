@@ -1238,14 +1238,16 @@ describe("SpecialDatesTab", () => {
         pick(dialog, "Fri, Dec 25");
 
         expect(within(dialog).getByText("Reopen Fri, Dec 25?")).toBeTruthy();
+        // The range cancelled guests, so the reservations that stay cancelled are named.
         expect(
           within(dialog).getByText(
-            "Guests can book Fri, Dec 25 again. The other dates in this range stay closed."
+            "Guests can book Fri, Dec 25 again. The other dates in this range stay closed. The reservations you cancelled stay cancelled."
           )
         ).toBeTruthy();
+        // The count is of the range, not the date: the box does not imply a guest exists on it.
         expect(
           within(dialog).getByRole("checkbox", {
-            name: /Tell the guests we cancelled on Fri, Dec 25/,
+            name: /Tell any guests we cancelled on Fri, Dec 25/,
           })
         ).toBeTruthy();
 
@@ -1260,6 +1262,57 @@ describe("SpecialDatesTab", () => {
           })
         );
         expect(await screen.findByText("Fri, Dec 25 reopened")).toBeTruthy();
+      });
+
+      it("does not say reservations stay cancelled when the range cancelled none", () => {
+        summaries.value = [];
+        renderTab(true, {
+          ...STATE,
+          config: { ...STATE.config, dateRules: [holidays] },
+        } as AvailabilityConfigState);
+        fireEvent.click(
+          screen.getByRole("button", { name: "Remove closure for Thu, Dec 24 to Sun, Dec 27" })
+        );
+        const dialog = screen.getByRole("dialog");
+        pick(dialog, "Fri, Dec 25");
+        expect(
+          within(dialog).getByText(
+            "Guests can book Fri, Dec 25 again. The other dates in this range stay closed."
+          )
+        ).toBeTruthy();
+      });
+
+      it("shows how many guests the server told, and offers no Undo", async () => {
+        reopen.mockResolvedValue({ version: 6, changeId: "c", notified: 2 });
+        const dialog = openRange();
+        pick(dialog, "Fri, Dec 25");
+        fireEvent.click(within(dialog).getByRole("button", { name: "Reopen" }));
+
+        expect(await screen.findByText("Fri, Dec 25 reopened. 2 guests told.")).toBeTruthy();
+        expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+      });
+
+      it("offers Undo, with no count, when the date had no guest to tell", async () => {
+        reopen.mockResolvedValue({ version: 6, changeId: "c", notified: 0 });
+        const dialog = openRange();
+        pick(dialog, "Fri, Dec 25");
+        fireEvent.click(within(dialog).getByRole("button", { name: "Reopen" }));
+
+        expect(await screen.findByText("Fri, Dec 25 reopened")).toBeTruthy();
+        expect(screen.getByRole("button", { name: "Undo" })).toBeTruthy();
+      });
+
+      it("closes with the refresh notice when a teammate's reopen removed the range first", async () => {
+        reopen.mockRejectedValueOnce({
+          statusCode: 404,
+          problemDetails: { type: "about:blank", title: "Not Found", status: 404, detail: "x" },
+        });
+        const dialog = openRange();
+        pick(dialog, "Fri, Dec 25");
+        fireEvent.click(within(dialog).getByRole("button", { name: "Reopen" }));
+
+        expect(await screen.findByText(/A teammate changed this closure/)).toBeTruthy();
+        await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
       });
 
       it("reopens the whole range, with no date, when no date is picked", async () => {

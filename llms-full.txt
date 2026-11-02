@@ -37308,7 +37308,7 @@
     }
     export async function enqueueNotices(
       enqueue: FastifyInstance["services"]["closureNoticeService"]["enqueueForClosure"],
-      input: { venueId: string; ruleId: string; carried?: readonly string[] },
+      input: { venueId: string; ruleId: string; carried?: readonly string[]; date?: string },
       log: FastifyBaseLogger
     ): Promise<void> {
       try {
@@ -37640,7 +37640,11 @@
             if (request.body.tellCancelledGuests && !outcome.result.stillClosed?.everyDate) {
               await enqueueNotices(
                 closureNoticeService.enqueueForReopen,
-                { venueId, ruleId: request.params.ruleId },
+                {
+                  venueId,
+                  ruleId: request.params.ruleId,
+                  ...(request.body.date ? { date: request.body.date } : {}),
+                },
                 request.log
               );
             }
@@ -55267,6 +55271,10 @@
               ...keep,
             ],
           };
+          // This path skips the save's validation. Only the rules the split creates are checked: a
+          // venue already holding some other invalid rule must still be able to reopen.
+          const bad = splitIssues(next, keep);
+          if (bad.length > 0) throw new Refused({ kind: "invalid", issues: bad });
           await refuseStrandingReopen(db, venueId, state, next, now);
           const diff = diffConfig(state.stored, next);
           await writeConfigDiff(db, venueId, diff, { actorId: caller.actorId, now });
@@ -55277,7 +55285,10 @@
             data: { operatingHours: projectLegacyOperatingHours(next) },
             select: { id: true },
           });
-          const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
+          // A one-date reopen links to its day in History, not to the range it was cut from.
+          const range = input.date
+            ? { from: input.date, to: input.date }
+            : affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
           const stillClosed = stillClosedAfterReopen(
             state.stored.dateRules,
             reopened,
@@ -55771,6 +55782,8 @@
       now: Date;
       /** Outcomes moved in from a replaced series: told when they were decided, not again. */
       carried?: readonly string[];
+      /** A reopen of this one date of a range: urgency is that date's, not the removed range's. */
+      date?: string;
     }
     function nextClosureDate(w: ClosureWindow, now: Date): string | null {
       return firstOccurrenceOnOrAfter(
@@ -55792,8 +55805,11 @@
         : `closure-notice_${outcomeId}`;
     }
     async function isUrgent(store: Store, input: EnqueueInput): Promise<boolean> {
-      const w = await store.loadClosureWindow(input.venueId, input.ruleId);
-      if (!w) return true;
+      const stored = await store.loadClosureWindow(input.venueId, input.ruleId);
+      if (!stored) return true;
+      const w = input.date
+        ? { ...stored, startsOn: input.date, endsOn: input.date, weekdays: null }
+        : stored;
       if (nextClosureDate(w, input.now) === null) return false;
       const startsAt = closureStartsAt(w, input.now);
       return startsAt === null || startsAt.getTime() - input.now.getTime() <= URGENT_WINDOW_MS;
@@ -56875,6 +56891,8 @@
     export function rangeAround(rule: DateRule, date: string, newId: () => string): RangeParts {
       if (rule.repeat != null) return invalid("A repeating closure skips a date instead.");
       if (rule.endsOn == null) return invalid("An open-ended closure has no last date to split at.");
+      // The date schema is a pattern only: "2027-02-31" matches it, and Date rolls it into March.
+      if (addDays(date, 0) !== date) return invalid("That date is not on the calendar.");
       if (date < rule.startsOn || date > rule.endsOn) {
         return invalid("That date is not one of the closure's dates.");
       }
@@ -56886,6 +56904,15 @@
         parts.push({ ...rule, id: newId(), startsOn: addDays(date, 1) });
       }
       return { kind: "parts", parts };
+    }
+    export function splitIssues(next: AvailabilityConfig, created: readonly DateRule[]): ConfigIssue[] {
+      const indexes = new Set(
+        created.map((c) => next.dateRules.findIndex((r) => r.id === c.id)).filter((i) => i >= 0)
+      );
+      return validateConfig(next).filter((issue) => {
+        const at = /^dateRules\[(\d+)\]/.exec(issue.path);
+        return at !== null && indexes.has(Number(at[1]));
+      });
     }
     type Db = Pick<PrismaClient, "closureOutcome" | "$executeRaw">;
     export async function carryByDate(

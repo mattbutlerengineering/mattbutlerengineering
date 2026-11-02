@@ -325,7 +325,11 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
         if (request.body.tellCancelledGuests && !outcome.result.stillClosed?.everyDate) {
           await enqueueNotices(
             closureNoticeService.enqueueForReopen,
-            { venueId, ruleId: request.params.ruleId },
+            {
+              venueId,
+              ruleId: request.params.ruleId,
+              ...(request.body.date ? { date: request.body.date } : {}),
+            },
             request.log
           );
         }

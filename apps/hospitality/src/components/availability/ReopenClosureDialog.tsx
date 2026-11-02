@@ -180,9 +180,13 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
       });
       // The server read the rules as it committed; the page's copy may be older.
       const final = isSeriesEdit ? NOTHING_STAYS : (saved.stillClosed ?? stays);
+      const toldCount = saved.notified ?? 0;
       const done = final.everyDate
         ? t("availabilitySpecial.reopen.doneStillClosed", { date: subject })
-        : t(`availabilitySpecial.reopen.${one ? "done" : doneKey(props)}`, { date: subject });
+        : one && toldCount > 0
+          ? // The server's count of the guests on this date, not the range's.
+            t("availabilitySpecial.reopen.doneTold", { date: subject, count: toldCount })
+          : t(`availabilitySpecial.reopen.${one ? "done" : doneKey(props)}`, { date: subject });
       const title =
         final.by.length === 0
           ? done
@@ -197,7 +201,10 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
       else offerUndo({ venueId, title, saved });
       onClose();
     } catch (error) {
-      if (conflictOf(error)?.code === "version-conflict") {
+      // A 404 is a teammate's reopen that removed this closure first: the same stale dialog, and
+      // retrying can only fail the same way, so it takes the same way out.
+      const gone = (error as { statusCode?: number } | null)?.statusCode === 404;
+      if (gone || conflictOf(error)?.code === "version-conflict") {
         // The closure changed under this dialog, whose copy of it is now stale: bring the page to
         // what is saved and close, so the next Reopen is built from the new one.
         refresh();
@@ -216,7 +223,12 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
       title={t(`availabilitySpecial.reopen.${one ? "title" : titleKey(props)}`, { date: subject })}
       description={
         one && !stays.everyDate
-          ? t("availabilitySpecial.reopen.descriptionDate", { date: subject })
+          ? t(
+              (cancelled ?? 0) > 0
+                ? "availabilitySpecial.reopen.descriptionDateCancelled"
+                : "availabilitySpecial.reopen.descriptionDate",
+              { date: subject }
+            )
           : t(descriptionKey(props, stays.everyDate))
       }
       footer={

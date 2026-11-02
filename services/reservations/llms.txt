@@ -906,7 +906,7 @@
     <item priority="high">
       export async function enqueueNotices(
         enqueue: FastifyInstance["services"]["closureNoticeService"]["enqueueForClosure"],
-        input: { venueId: string; ruleId: string; carried?: readonly string[] },
+        input: { venueId: string; ruleId: string; carried?: readonly string[]; date?: string },
         log: FastifyBaseLogger
       ): Promise<void> { /* ... */ }
     </item>
@@ -3480,6 +3480,7 @@
         ruleId: string;
         now: Date;
         carried?: readonly string[];
+        date?: string;
       }
     </item>
     <item priority="medium">
@@ -3895,6 +3896,9 @@
     </item>
     <item priority="high">
       export function rangeAround(rule: DateRule, date: string, newId: () => string): RangeParts { /* ... */ }
+    </item>
+    <item priority="high">
+      export function splitIssues(next: AvailabilityConfig, created: readonly DateRule[]): ConfigIssue[] { /* ... */ }
     </item>
     <item priority="high">
       type Db = Pick<PrismaClient, "closureOutcome" | "$executeRaw">;

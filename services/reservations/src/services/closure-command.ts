@@ -20,7 +20,7 @@ import type { Prisma, PrismaClient } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
 import { affectedRange, diffConfig, inverseOf } from "./availability-config-plan.js";
 import { carryOutcomes, type CarriedOutcomes } from "./closure-carry-outcomes.js";
-import { carryByDate, rangeAround } from "./closure-reopen-date.js";
+import { carryByDate, rangeAround, splitIssues } from "./closure-reopen-date.js";
 import { findStrandedReservations } from "./availability-config-checks.js";
 import {
   conflictIssue,
@@ -791,6 +791,10 @@ export async function reopenClosure(
           ...keep,
         ],
       };
+      // This path skips the save's validation. Only the rules the split creates are checked: a
+      // venue already holding some other invalid rule must still be able to reopen.
+      const bad = splitIssues(next, keep);
+      if (bad.length > 0) throw new Refused({ kind: "invalid", issues: bad });
       await refuseStrandingReopen(db, venueId, state, next, now);
       const diff = diffConfig(state.stored, next);
       await writeConfigDiff(db, venueId, diff, { actorId: caller.actorId, now });
@@ -801,7 +805,10 @@ export async function reopenClosure(
         data: { operatingHours: projectLegacyOperatingHours(next) },
         select: { id: true },
       });
-      const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
+      // A one-date reopen links to its day in History, not to the range it was cut from.
+      const range = input.date
+        ? { from: input.date, to: input.date }
+        : affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
       const stillClosed = stillClosedAfterReopen(
         state.stored.dateRules,
         reopened,

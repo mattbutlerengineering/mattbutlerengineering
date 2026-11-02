@@ -32,11 +32,12 @@ describe.skipIf(!DATABASE_URL)("reopening one date of a range (real Postgres)", 
   let client: PrismaClient;
   const venueIds: string[] = [];
 
-  async function world() {
+  async function world(opts: { hostGrant?: boolean } = {}) {
     const venueId = `reopen-it-${randomUUID()}`;
     venueIds.push(venueId);
     const P = `${randomUUID().slice(0, 8)}-`;
     let tableId = "";
+    const serviceId = `svc-${randomUUID()}`;
     const inVenue = <T>(work: (tx: PrismaClient) => Promise<T>): Promise<T> =>
       client.$transaction(async (tx) => {
         await tx.$executeRaw`SELECT set_config('app.venue_id', ${venueId}, true)`;
@@ -44,12 +45,20 @@ describe.skipIf(!DATABASE_URL)("reopening one date of a range (real Postgres)", 
       });
     await inVenue(async (tx) => {
       await tx.venue.create({
-        data: { id: venueId, name: "Reopen IT", slug: venueId, ianaTimezone: "UTC" },
+        data: {
+          id: venueId,
+          name: "Reopen IT",
+          slug: venueId,
+          ianaTimezone: "UTC",
+          hostEmergencyClose: opts.hostGrant ?? false,
+        },
       });
       const schedule = await tx.schedule.create({
         data: { venueId, name: "Regular", kind: "regular", isRegular: true },
       });
-      const service = await tx.venueService.create({ data: { venueId, name: "Dinner" } });
+      const service = await tx.venueService.create({
+        data: { id: serviceId, venueId, name: "Dinner" },
+      });
       await tx.scheduleService.create({
         data: {
           venueId,
@@ -67,8 +76,9 @@ describe.skipIf(!DATABASE_URL)("reopening one date of a range (real Postgres)", 
       });
       tableId = (await tx.table.create({ data: { venueId, name: "T1", capacity: 4 } })).id;
     });
-    const book = async (date: string) => {
-      const startTime = new Date(`${date}T20:00:00Z`);
+    /** A booking on service date `date`, at 8 PM unless `startAt` says when (it may be past midnight). */
+    const book = async (date: string, startAt = `${date}T20:00:00Z`) => {
+      const startTime = new Date(startAt);
       const id = P + date;
       await inVenue((tx) =>
         tx.reservation.create({
@@ -99,13 +109,13 @@ describe.skipIf(!DATABASE_URL)("reopening one date of a range (real Postgres)", 
       endsOn,
       guestMessage: "Closed for the holidays",
     });
-    const cancelAll = async (rule: DateRule) => {
+    const cancelAll = async (rule: DateRule, caller: typeof CALLER = CALLER) => {
       const found = await getClosureImpact(venueId, rule, NOW, client);
       if (found.kind !== "ok") throw new Error(`impact ${found.kind}`);
       const saved = await createClosure(
         {
           venueId,
-          caller: CALLER,
+          caller,
           idempotencyKey: randomUUID(),
           now: NOW,
           body: {
@@ -164,6 +174,7 @@ describe.skipIf(!DATABASE_URL)("reopening one date of a range (real Postgres)", 
       );
     return {
       venueId,
+      serviceId,
       inVenue,
       book,
       rangeOf,
@@ -350,5 +361,111 @@ describe.skipIf(!DATABASE_URL)("reopening one date of a range (real Postgres)", 
     const out = await w.reopen(range, DAYS[1], false, over as never);
     expect(out.kind).toBe(kind);
     expect((await w.activeRules()).map((r) => r.id)).toEqual([range.id]);
+  });
+
+  it("refuses a Host with the emergency grant who sends a date for their own one-date close", async () => {
+    const w = await world({ hostGrant: true });
+    const host = { isManager: false, actorId: "auth0|host", actorName: "Host" };
+    // Today's whole-venue close: the one range a Host may make, and the only one they may reopen.
+    const today = w.rangeOf("2026-12-20", "2026-12-20");
+    await w.cancelAll(today, host);
+    // Reopening it whole is theirs to do; naming a date is a Manager's split.
+    const out = await w.reopen(today, "2026-12-20", false, { caller: host });
+    expect(out.kind).toBe("forbidden");
+    expect((await w.activeRules()).map((r) => r.id)).toEqual([today.id]);
+  });
+
+  it("does not falsely refuse a split of special hours whose kept dates have a booking in the extra hours", async () => {
+    const w = await world();
+    const late = {
+      ...w.rangeOf(DAYS[0], DAYS[2]),
+      kind: "special_hours" as const,
+      // Open until 2 AM: later than the regular week, which closes at 11 PM.
+      payload: {
+        version: 1 as const,
+        services: [
+          {
+            venueServiceId: w.serviceId,
+            opensAt: 1020,
+            lastSeatingAt: 1500,
+            closesAt: 1560,
+            seating: { version: 1 as const, interval: 15 },
+            bookingTypes: ["online" as const, "phone" as const],
+          },
+        ],
+      },
+    } as DateRule;
+    await w.cancelAll(late);
+    // 12:30 AM after the third night: it belongs to DAYS[2], which keeps the late hours.
+    await w.book(DAYS[2], `${DAYS[3]}T00:30:00Z`);
+
+    const out = await w.reopen(late, DAYS[1], false);
+    expect(out.kind).toBe("reopened");
+    expect((await w.activeRules()).map((r) => r.startsOn.toISOString().slice(0, 10))).toEqual([
+      DAYS[0],
+      DAYS[2],
+    ]);
+  });
+
+  describe("a date that is not on the calendar", () => {
+    it("is refused with nothing reopened, and the next closure save still works", async () => {
+      const w = await world();
+      const range = w.rangeOf("2027-02-25", "2027-03-02");
+      await w.cancelAll(range);
+
+      const out = await w.reopen(range, "2027-02-31", false);
+      expect(out.kind).toBe("invalid");
+      expect((await w.activeRules()).map((r) => r.id)).toEqual([range.id]);
+      expect(
+        await w.inVenue((tx) =>
+          tx.availabilityChange.count({ where: { venueId: w.venueId, kind: "reopen" } })
+        )
+      ).toBe(0);
+      // On a range that runs past the 3rd the rolled-over date is a real one inside it: only the
+      // calendar check stops this from reopening 03-03 while recording 02-31.
+      const longer = w.rangeOf("2027-02-25", "2027-03-10");
+      await w.cancelAll(longer);
+      expect((await w.reopen(longer, "2027-02-31", false)).kind).toBe("invalid");
+      expect((await w.activeRules()).map((r) => r.id).sort()).toEqual([range.id, longer.id].sort());
+      // The inverted rule that used to be left behind refused every later save.
+      await expect(w.cancelAll(w.rangeOf("2027-04-01", "2027-04-02"))).resolves.toBeDefined();
+    });
+
+    it("cannot hold up a reopen on a venue that already holds some other invalid rule", async () => {
+      const w = await world();
+      const whole = w.rangeOf(DAYS[3], DAYS[4]);
+      const split = w.rangeOf(DAYS[0], DAYS[2]);
+      await w.cancelAll(whole);
+      await w.cancelAll(split);
+      // An unrelated rule that ends before it starts, as an earlier bug left behind.
+      await w.inVenue((tx) =>
+        tx.dateRule.create({
+          data: {
+            id: `bad-${randomUUID()}`,
+            venueId: w.venueId,
+            createdBy: "auth0|legacy",
+            kind: "closure",
+            targetKind: "venue",
+            startsOn: new Date("2027-03-04T00:00:00Z"),
+            endsOn: new Date("2027-03-02T00:00:00Z"),
+          },
+        })
+      );
+
+      expect((await w.reopen(whole, undefined, false)).kind).toBe("reopened");
+      expect((await w.reopen(split, DAYS[1], false)).kind).toBe("reopened");
+    });
+  });
+
+  it("links a one-date reopen to its own day in History, not to the range it was cut from", async () => {
+    const w = await world();
+    const range = w.rangeOf(DAYS[0], DAYS[3]);
+    await w.cancelAll(range);
+    await w.reopen(range, DAYS[1], false);
+    const change = await w.inVenue((tx) =>
+      tx.availabilityChange.findFirstOrThrow({ where: { venueId: w.venueId, kind: "reopen" } })
+    );
+    expect(change.affectedFrom?.toISOString().slice(0, 10)).toBe(DAYS[1]);
+    expect(change.affectedTo?.toISOString().slice(0, 10)).toBe(DAYS[1]);
   });
 });

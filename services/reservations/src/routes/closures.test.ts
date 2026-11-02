@@ -481,6 +481,39 @@ describe("closure routes", () => {
         commandSvc.reopen.mockReset();
       });
 
+      it("tells the notice step which date was reopened, so urgency is that date's", async () => {
+        noticeSvc.enqueueForReopen.mockClear();
+        commandSvc.reopen.mockResolvedValueOnce({
+          kind: "reopened",
+          result: { version: 6, changeId: "chg-2" },
+        });
+        await del({
+          tellCancelledGuests: true,
+          seen: { rule, children: [] },
+          date: "2026-12-26",
+        });
+        expect(noticeSvc.enqueueForReopen).toHaveBeenCalledWith(
+          expect.objectContaining({ ruleId: "dr-new", date: "2026-12-26" })
+        );
+      });
+
+      it("hands an impossible date through Ajv to the store, which refuses it", async () => {
+        commandSvc.reopen.mockResolvedValueOnce({
+          kind: "invalid",
+          issues: [{ path: "date", code: "invalid_date", message: "Not on the calendar." }],
+        });
+        const res = await del({
+          tellCancelledGuests: false,
+          seen: { rule, children: [] },
+          date: "2027-02-31",
+        });
+        // The date schema is a pattern, so Ajv cannot tell: the store is the one that refuses.
+        expect(commandSvc.reopen).toHaveBeenLastCalledWith(
+          expect.objectContaining({ date: "2027-02-31" })
+        );
+        expect(res.statusCode).toBe(422);
+      });
+
       it("answers an invalid split as 422 invalid-config naming the issue", async () => {
         commandSvc.reopen.mockResolvedValueOnce({
           kind: "invalid",

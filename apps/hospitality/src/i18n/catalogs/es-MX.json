@@ -1747,7 +1747,11 @@
       "dateLabel": "Qué reabrir",
       "allDates": "Todas las fechas",
       "descriptionDate": "Los invitados pueden volver a reservar el {{date}}. Las demás fechas de este rango siguen cerradas.",
-      "tellDate": "Avisar a los invitados cuya reservación cancelamos el {{date}} que reabrimos, con un enlace para volver a reservar"
+      "descriptionDateCancelled": "Los clientes podrán reservar de nuevo el {{date}}. Las demás fechas de este rango siguen cerradas. Las reservaciones que cancelaste siguen canceladas.",
+      "tellDate": "Avisar a los clientes, si los hay, cuya reservación cancelamos el {{date}} que reabrimos, con un enlace para volver a reservar",
+      "doneTold_one": "{{date}} reabierto. {{count}} cliente avisado.",
+      "doneTold_many": "{{date}} reabierto. {{count}} clientes avisados.",
+      "doneTold_other": "{{date}} reabierto. {{count}} clientes avisados."
     },
     "series": {
       "editDates": "Editar fechas…",
