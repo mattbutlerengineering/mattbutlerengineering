@@ -191,7 +191,7 @@ describe("closure routes", () => {
 
       await post();
 
-      expect(closureRefunds.enqueue).toHaveBeenCalledWith("venue-1", "dr-new");
+      expect(closureRefunds.enqueue).toHaveBeenCalledWith("venue-1", "dr-new", []);
     });
 
     it("still answers 200 when enqueueing fails; the outcomes stay pending for a retry", async () => {
@@ -289,7 +289,7 @@ describe("closure routes", () => {
       );
       // Only the item that cancelled bookings owes a refund job.
       expect(closureRefunds.enqueue).toHaveBeenCalledTimes(1);
-      expect(closureRefunds.enqueue).toHaveBeenCalledWith("venue-1", "dr-new");
+      expect(closureRefunds.enqueue).toHaveBeenCalledWith("venue-1", "dr-new", []);
     });
 
     it("enqueues nothing for a refusal", async () => {

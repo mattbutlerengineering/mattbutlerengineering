@@ -390,9 +390,12 @@ export async function enqueueClosureRefunds(
   venueId: string,
   ruleId: string,
   statuses: readonly ClosureRefundStatus[],
-  opts: { retry?: boolean; now?: () => number } = {}
+  opts: { retry?: boolean; now?: () => number; carried?: readonly string[] } = {}
 ): Promise<number> {
-  const outcomes = await deps.store.listByRule(venueId, ruleId, statuses);
+  const carried = new Set(opts.carried);
+  const outcomes = (await deps.store.listByRule(venueId, ruleId, statuses)).filter(
+    (o) => !carried.has(o.id)
+  );
   let enqueued = 0;
   for (const outcome of outcomes) {
     const base = closureRefundJobId(ruleId, outcome.reservationId);
@@ -428,7 +431,8 @@ export async function enqueueClosureRefunds(
  * ones too, which covers a closure whose enqueue itself was lost.
  */
 export interface ClosureRefunds {
-  enqueue(venueId: string, ruleId: string): Promise<number>;
+  /** `carried`: outcomes moved in from a replaced series, whose refunds are not this save's. */
+  enqueue(venueId: string, ruleId: string, carried?: readonly string[]): Promise<number>;
   retry(venueId: string, ruleId: string): Promise<number>;
 }
 
@@ -438,7 +442,8 @@ export function createClosureRefunds(deps: {
   log?: RefundLogger;
 }): ClosureRefunds {
   return {
-    enqueue: (venueId, ruleId) => enqueueClosureRefunds(deps, venueId, ruleId, ["pending"]),
+    enqueue: (venueId, ruleId, carried) =>
+      enqueueClosureRefunds(deps, venueId, ruleId, ["pending"], { carried }),
     retry: (venueId, ruleId) =>
       enqueueClosureRefunds(deps, venueId, ruleId, ["failed", "pending"], { retry: true }),
   };

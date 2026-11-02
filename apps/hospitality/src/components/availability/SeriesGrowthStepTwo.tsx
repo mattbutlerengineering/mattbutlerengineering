@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Button, Dialog, Text, useToast } from "@mattbutlerengineering/rialto";
 import type { ClosureAlongside, ClosureImpact, DateRule } from "@mbe/types";
+import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useCreateClosure } from "../../hooks/useClosures.js";
 import { useNow } from "../../hooks/useNow.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
@@ -64,6 +65,7 @@ export function SeriesGrowthStepTwo(props: SeriesGrowthStepTwoProps) {
   const { t } = useTranslation();
   const format = useVenueFormat();
   const { toast } = useToast();
+  const offerUndo = useAvailabilityUndo();
   const now = useNow();
   const { mutateAsync, isPending } = useCreateClosure();
   const [choices, setChoices] = useState<ChoiceMap>({});
@@ -93,20 +95,26 @@ export function SeriesGrowthStepTwo(props: SeriesGrowthStepTwoProps) {
       });
       const { cancel, move, keep_notify } = result.outcomes;
       const notified = cancel + move + keep_notify;
-      toast({
-        title:
-          notified > 0
-            ? t("availability.close.toast.notified", {
-                date: format.formatCalendarDate(firstDate, {
-                  weekday: "short",
-                  month: "short",
-                  day: "numeric",
-                }),
-                count: notified,
-              })
-            : t("availabilitySpecial.series.savedToast"),
-        variant: "success",
-      });
+      if (notified > 0) {
+        // Told guests: History cannot revert it, so the toast offers no Undo.
+        toast({
+          title: t("availability.close.toast.notified", {
+            date: format.formatCalendarDate(firstDate, {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+            }),
+            count: notified,
+          }),
+          variant: "success",
+        });
+      } else {
+        offerUndo({
+          venueId,
+          saved: result,
+          title: t("availabilitySpecial.series.savedToast"),
+        });
+      }
       onClose();
     } catch (error) {
       const refused = refusalOf(error);

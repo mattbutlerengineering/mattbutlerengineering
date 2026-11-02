@@ -2,7 +2,14 @@ import { tool } from "ai";
 import type { ToolSet } from "ai";
 import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
-import { NO_VENUE, refusalOf, saveUnsure, type ApiClient } from "./gen-tool-support.js";
+import {
+  NO_VENUE,
+  failedBeforeWrite,
+  notExecuted,
+  refusalOf,
+  saveUnsure,
+  type ApiClient,
+} from "./gen-tool-support.js";
 
 /**
  * Chat tools for menus (#7928): read them, mark an item sold out or available,
@@ -187,17 +194,17 @@ export function createMenuTools(
         availability: z.enum(["sold_out", "available"]).describe("The item's new state"),
       }),
       execute: async ({ menu, item, section, availability }) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ venueId, availability }, "set_menu_item_availability tool called");
         let unsure: string | undefined;
         try {
           const target = await resolveTarget(api, venueId, menu, item, section);
-          if ("error" in target) return target;
+          if ("error" in target) return notExecuted(target);
           // Either state would show guests an item staff chose to hide.
           if (target.item.status === "HIDDEN") {
-            return {
+            return notExecuted({
               error: `${target.item.name} is hidden from guests. Nothing was changed. Point the user to the Menus page to show it.`,
-            };
+            });
           }
           const status = availability === "sold_out" ? "SOLD_OUT" : "AVAILABLE";
           unsure = MENU_SAVE_UNSURE;
@@ -207,7 +214,7 @@ export function createMenuTools(
           return { updated: true, item: target.item.name, status };
         } catch (err) {
           log.error({ err, venueId }, "set_menu_item_availability failed");
-          return menuFailure(err, unsure);
+          return failedBeforeWrite(unsure, menuFailure(err, unsure));
         }
       },
     }),
@@ -232,12 +239,12 @@ export function createMenuTools(
           }
         ),
       execute: async ({ menu, item, section, price, name, description }) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ venueId }, "update_menu_item tool called");
         let unsure: string | undefined;
         try {
           const target = await resolveTarget(api, venueId, menu, item, section);
-          if ("error" in target) return target;
+          if ("error" in target) return notExecuted(target);
           unsure = MENU_SAVE_UNSURE;
           await api.menus.updateItem(venueId, target.menuId, target.section.id, target.item.id, {
             ...(price !== undefined ? { priceCents: priceToCents(price) } : {}),
@@ -247,7 +254,7 @@ export function createMenuTools(
           return { updated: true, item: name ?? target.item.name };
         } catch (err) {
           log.error({ err, venueId }, "update_menu_item failed");
-          return menuFailure(err, unsure);
+          return failedBeforeWrite(unsure, menuFailure(err, unsure));
         }
       },
     }),

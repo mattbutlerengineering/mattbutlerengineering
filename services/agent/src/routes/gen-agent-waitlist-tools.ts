@@ -4,8 +4,10 @@ import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
 import {
   NO_VENUE,
+  failedBeforeWrite,
   failureLog,
   localTimeIn,
+  notExecuted,
   refusalOf,
   resolveTable,
   saveUnsure,
@@ -140,7 +142,7 @@ export function createWaitlistTools(
         guestPhone: z.string().min(1).describe("The guest's phone number"),
       }),
       execute: async ({ guestName, partySize, guestPhone }) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ venueId, partySize }, "add_to_waitlist tool called");
         try {
           const added = await api.waitlist.create({ venueId, guestName, partySize, guestPhone });
@@ -162,25 +164,25 @@ export function createWaitlistTools(
         "Tell a waiting party their table is ready (sends them a text). Requires confirmation.",
       inputSchema: z.object(PartySchema),
       execute: async ({ guestName, partySize }) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ venueId }, "notify_waitlist_party tool called");
         let unsure: string | undefined;
         try {
           const found = await findParty(api, venueId, guestName, partySize);
-          if ("error" in found) return found;
+          if ("error" in found) return notExecuted(found);
           // The server notifies only a waiting party: a second notify sends nothing but still answers 200.
           if (found.entry.status === "notified") {
             const at = localTimeIn(found.entry.notifiedAt, timeZone);
-            return {
+            return notExecuted({
               error: `${found.entry.guestName} was already told their table is ready${at ? ` at ${at}` : ""}. No new text was sent.`,
-            };
+            });
           }
           unsure = WAITLIST_SAVE_UNSURE;
           await api.waitlist.notify(found.entry.id);
           return { notified: true, guestName: found.entry.guestName };
         } catch (err) {
           log.error({ ...failureLog(err), venueId }, "notify_waitlist_party failed");
-          return waitlistFailure(err, "notify the party", unsure);
+          return failedBeforeWrite(unsure, waitlistFailure(err, "notify the party", unsure));
         }
       },
     }),
@@ -193,23 +195,23 @@ export function createWaitlistTools(
         table: z.string().min(1).describe("The table's name or number, as staff call it"),
       }),
       execute: async ({ guestName, partySize, table: tableRef }) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ venueId, tableRef }, "seat_waitlist_party tool called");
         let seatedAt: string | undefined;
         let unsure: string | undefined;
         try {
           const found = await findParty(api, venueId, guestName, partySize);
-          if ("error" in found) return found;
+          if ("error" in found) return notExecuted(found);
           const { entry } = found;
           const { data: tables } = await api.tables.list({ venueId, limit: TABLES_LIMIT });
           const resolved = resolveTable(tables, tableRef);
-          if ("error" in resolved) return resolved;
+          if ("error" in resolved) return notExecuted(resolved);
           const { table } = resolved;
           const label = table.name ?? table.tableNumber ?? tableRef;
           if (table.status !== "AVAILABLE") {
-            return {
+            return notExecuted({
               error: `Table ${label} is ${table.status.toLowerCase()}, so the party can't be seated there. Nothing was changed.`,
-            };
+            });
           }
           // The walk-in is what would have saved, and the party stays listed either way.
           unsure = saveUnsure("get_table_status");
@@ -233,7 +235,7 @@ export function createWaitlistTools(
               note: `The party is seated at ${seatedAt}, but they are still shown on the waitlist. Tell the user to remove them from the Waitlist page.`,
             };
           }
-          return waitlistFailure(err, "seat the party", unsure);
+          return failedBeforeWrite(unsure, waitlistFailure(err, "seat the party", unsure));
         }
       },
     }),
@@ -243,18 +245,18 @@ export function createWaitlistTools(
         "Take a party off the waitlist (they left or no longer want a table). Requires confirmation.",
       inputSchema: z.object(PartySchema),
       execute: async ({ guestName, partySize }) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ venueId }, "remove_from_waitlist tool called");
         let unsure: string | undefined;
         try {
           const found = await findParty(api, venueId, guestName, partySize);
-          if ("error" in found) return found;
+          if ("error" in found) return notExecuted(found);
           unsure = WAITLIST_SAVE_UNSURE;
           await api.waitlist.cancel(found.entry.id);
           return { removed: true, guestName: found.entry.guestName };
         } catch (err) {
           log.error({ ...failureLog(err), venueId }, "remove_from_waitlist failed");
-          return waitlistFailure(err, "remove the party", unsure);
+          return failedBeforeWrite(unsure, waitlistFailure(err, "remove the party", unsure));
         }
       },
     }),

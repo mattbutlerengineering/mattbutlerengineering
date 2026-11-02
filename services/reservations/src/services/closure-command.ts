@@ -18,6 +18,7 @@ import { STRANDED_ISSUE_DETAIL_MAX } from "@mbe/types";
 import type { Prisma, PrismaClient } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
 import { affectedRange, diffConfig, inverseOf } from "./availability-config-plan.js";
+import { carryOutcomes, type CarriedOutcomes } from "./closure-carry-outcomes.js";
 import { findStrandedReservations } from "./availability-config-checks.js";
 import {
   conflictIssue,
@@ -138,6 +139,10 @@ interface ClosureMeta {
   outcome?: AvailabilityChangeOutcome;
   /** Set on every item of a batch save: what the whole batch was, so a reused key can be told apart. */
   batch?: BatchShape;
+  /** A series edit's old rule outcomes that moved onto this rule, for Undo to return. */
+  carried?: CarriedOutcomes;
+  /** What the save decided, per action: `outcome` merges the two keeps. Absent on older rows. */
+  counts?: Record<ClosureAction, number>;
 }
 
 /** A batch's identity under its Idempotency-Key: how many items, and which rules, in order. */
@@ -234,15 +239,24 @@ async function storedResult(
   venueId: string,
   replay: { id: string; closure: ClosureMeta }
 ): Promise<ClosureResult> {
-  const rows = await tx.closureOutcome.findMany({
-    where: { venueId, dateRuleId: replay.closure.ruleId },
-    select: { action: true },
-  });
+  const { closure } = replay;
+  // What the save decided, as stored with it: the rule's rows can since have moved to a later
+  // growth, and the ones it carried in were never its own.
+  const rows = closure.counts
+    ? []
+    : await tx.closureOutcome.findMany({
+        where: {
+          venueId,
+          dateRuleId: closure.ruleId,
+          id: { notIn: closure.carried?.outcomeIds ?? [] },
+        },
+        select: { action: true },
+      });
   return {
-    ruleId: replay.closure.ruleId,
-    version: replay.closure.version,
+    ruleId: closure.ruleId,
+    version: closure.version,
     changeId: replay.id,
-    outcomes: countActions(rows.map((r) => r.action)),
+    outcomes: closure.counts ?? countActions(rows.map((r) => r.action)),
   };
 }
 
@@ -450,6 +464,17 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
     throw e instanceof ConfigRowConflict ? new Refused(conflictIssue(e, next) as Refusal) : e;
   });
   const version = body.expectedVersion + 1;
+  // A series that grows is saved under a new id: what the old one did follows it (#7984).
+  const [replaced] = body.alongside?.remove ?? [];
+  const carried = replaced
+    ? await carryOutcomes(
+        tx,
+        venueId,
+        replaced,
+        rule.id,
+        plan.rows.map((r) => r.reservationId)
+      )
+    : null;
   const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
   const meta: ClosureMeta = {
     ruleId: rule.id,
@@ -464,6 +489,8 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
       endsOn: rule.endsOn ?? null,
     },
     ...(input.batch ? { batch: input.batch } : {}),
+    ...(carried ? { carried } : {}),
+    counts: plan.counts,
   };
   const inverse = { ...inverseOf(state.stored, diff, state.operatingHours), closure: meta };
   const change = await tx.availabilityChange.create({

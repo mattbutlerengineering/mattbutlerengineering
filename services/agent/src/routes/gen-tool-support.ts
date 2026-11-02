@@ -103,6 +103,28 @@ export function saveUnsure(read: string): string {
  */
 export const NO_REPLAY = { maxRetries: 0 } as const;
 
+/**
+ * Marks a write tool's result as "nothing was written": the tool returned before
+ * any write request left, or the server answered a no-replay write with a refusal
+ * that guarantees it changed nothing. `gateWriteTools` releases the confirmed
+ * action's single use on this marker and on nothing else, and strips it before the
+ * model sees the result. Set it only where that is provable: a timeout, a 5xx, a
+ * network failure or any thrown error after a write was sent may have committed.
+ */
+export const NOT_EXECUTED = "notExecuted" as const;
+
+export function notExecuted<T extends object>(result: T): T & { readonly notExecuted: true } {
+  return { ...result, [NOT_EXECUTED]: true };
+}
+
+/**
+ * A write's failure result, marked not-executed while no write is on its way.
+ * `unsure` is set (by the tool) just before the first write request is sent.
+ */
+export function failedBeforeWrite<T extends object>(unsure: string | undefined, result: T) {
+  return unsure === undefined ? notExecuted(result) : result;
+}
+
 export interface NamedTable {
   readonly id: string;
   readonly name?: string | null;

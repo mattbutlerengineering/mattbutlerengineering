@@ -285,6 +285,51 @@ describe("SpecialDatesTab", () => {
       ).toBeTruthy();
     });
 
+    it("offers Undo of the restore, reverting that change (ux.md F-SER 4)", async () => {
+      saveConfig.mockResolvedValue({ version: 8, changeId: "chg-8" });
+      revertChange.mockResolvedValue({ version: 9, changeId: "chg-9" });
+      renderTab(true, skipped);
+      fireEvent.click(screen.getByRole("button", { name: "Restore Mon, Jan 11" }));
+
+      fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+      await waitFor(() =>
+        expect(revertChange).toHaveBeenCalledWith({
+          venueId: "venue-1",
+          changeId: "chg-8",
+          expectedVersion: 8,
+        })
+      );
+    });
+
+    it("offers Undo of a skip made from the Edit dates dialog", async () => {
+      saveConfig.mockResolvedValue({ version: 8, changeId: "chg-8" });
+      revertChange.mockResolvedValue({ version: 9, changeId: "chg-9" });
+      renderTab(true);
+      fireEvent.click(screen.getByRole("button", { name: "Edit dates…" }));
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("button", { name: "Skip this date" }));
+
+      fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+      await waitFor(() =>
+        expect(revertChange).toHaveBeenCalledWith({
+          venueId: "venue-1",
+          changeId: "chg-8",
+          expectedVersion: 8,
+        })
+      );
+    });
+
+    it("offers Undo of a restore made from the Edit dates dialog", async () => {
+      saveConfig.mockResolvedValue({ version: 8, changeId: "chg-8" });
+      renderTab(true, skipped);
+      fireEvent.click(screen.getByRole("button", { name: "Edit dates…" }));
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("button", { name: "Skip this date" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Restore this date" }));
+
+      expect(await screen.findByRole("button", { name: "Undo" })).toBeTruthy();
+    });
+
     it("is offered in the Edit dates dialog when the date is already skipped", async () => {
       saveConfig.mockResolvedValue({ version: 8, changeId: "c" });
       renderTab(true, skipped);

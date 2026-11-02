@@ -8,7 +8,6 @@ import {
   Dialog,
   Radio,
   RadioGroup,
-  useToast,
 } from "@mattbutlerengineering/rialto";
 import type {
   AvailabilityConfigChanges,
@@ -17,6 +16,7 @@ import type {
   DateRule,
 } from "@mbe/types";
 import { firstOccurrenceOnOrAfter } from "@mbe/availability";
+import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { usePreviewClosureImpact } from "../../hooks/useClosures.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
@@ -75,7 +75,7 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
   const series = live ?? props.series;
   const { t } = useTranslation();
   const format = useVenueFormat();
-  const { toast } = useToast();
+  const offerUndo = useAvailabilityUndo();
   const { save, isPending, failure, stranded } = useScheduleSave(
     onStale,
     "availabilitySpecial.series.stranded"
@@ -111,8 +111,10 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
 
   const commit = async (changes: AvailabilityConfigChanges, title: string) => {
     setSentRow(changes.upsert.dateRules?.find((r) => r.id === series.id) ?? null);
-    if (await save(venueId, state, changes, "keep")) {
-      toast({ title, variant: "success" });
+    const saved = await save(venueId, state, changes, "keep");
+    if (saved) {
+      // A config save tells no guest anything, so its change is always one History can revert.
+      offerUndo({ venueId, saved, title });
       onClose();
     }
   };
