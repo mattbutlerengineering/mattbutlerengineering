@@ -433,6 +433,32 @@ test("a refused Undo names each stranded booking with a link, outside the alert 
   await expect(dialog).toHaveCount(0);
 });
 
+test("the day drawer's Why this day reads in French (#8089)", async ({ mockedPage: page }) => {
+  await page.addInitScript(() => localStorage.setItem("mbe-hospitality-locale", "fr-CA"));
+  // A venue closure on every day, so each day has two layers and "Why this day" shows.
+  await mockAvailability(page, {
+    rules: [
+      {
+        id: "closed-always",
+        kind: "closure",
+        targetKind: "venue",
+        startsOn: "2020-01-01",
+        repeat: { version: 1, weekdays: [0, 1, 2, 3, 4, 5, 6] },
+      },
+    ],
+  });
+  await page.goto("availability");
+  await page.locator("[data-date]").first().waitFor();
+  await page.locator("button[data-date]").nth(20).click();
+  const layers = page.getByRole("dialog").locator("ol li");
+  await expect(layers.nth(0)).toContainText("Semaine habituelle");
+  await expect(layers.nth(0)).toContainText("Dinner 17 h 00 – 23 h 00");
+  await expect(layers.nth(1)).toContainText("Fermé");
+  await expect(layers.nth(1)).toContainText("Toute la journée");
+  await expect(page.getByRole("dialog").getByText("Regular week")).toHaveCount(0);
+  await expect(page.getByRole("dialog").getByText("All day")).toHaveCount(0);
+});
+
 test("a refused reopen lists each booking with a link, outside its alert (#8043)", async ({
   mockedPage: page,
 }) => {

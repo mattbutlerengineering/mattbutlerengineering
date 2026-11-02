@@ -24,6 +24,7 @@ import { CopyDayAction } from "./CopyDayAction.js";
 import { ScheduleNudge } from "./ScheduleNudge.js";
 import type { SeriesScope } from "./series-edit.js";
 import { diffRemoval, removalChangeText } from "./removal-diff.js";
+import { layerEffectText, layerLabelText } from "./layer-text.js";
 import styles from "./AvailabilityDayDrawer.module.css";
 
 /** What a Manager needs to change the day; without it the drawer is read-only. */
@@ -124,10 +125,10 @@ function DayBody({ day, date }: { readonly day: ResolvedDay; readonly date: stri
             {day.explanation.map((layer) => (
               <li key={layer.id} className={styles.layer}>
                 <Text as="span" variant="body" color="primary" data-layer-label>
-                  {layer.label}
+                  {layerLabelText(layer, t, format)}
                 </Text>
                 <Text as="span" variant="caption" color="secondary">
-                  {layer.effect}
+                  {layerEffectText(layer, t, format)}
                 </Text>
                 <Text as="span" variant="caption" color="secondary">
                   {t("availability.drawer.ifRemoved", {

@@ -55,7 +55,9 @@ export function targetLabel(rule: DateRule, serviceName: string | undefined): st
     case "service":
       return `${serviceName ?? "Service"} closed`;
     case "booking": {
-      const types = (rule.bookingTypes ?? []).join(" and ");
+      const types = new Intl.ListFormat("en", { type: "conjunction" }).format(
+        rule.bookingTypes ?? []
+      );
       return `${types.charAt(0).toUpperCase()}${types.slice(1)} booking closed`;
     }
     case "tables":
@@ -88,7 +90,8 @@ export function tonightEffect(rule: RuleOf<"tonight">): string {
   const { payload } = rule;
   if ("closeAt" in payload) return `Closes at ${formatMinute(payload.closeAt)}`;
   if ("stop" in payload) return `Stopped ${timeRange(payload.stop.from, payload.stop.to)}`;
-  return `Pacing ${payload.pacing.covers} covers`;
+  const { covers } = payload.pacing;
+  return `Pacing ${covers} ${covers === 1 ? "cover" : "covers"}`;
 }
 
 export function hoursEffect(

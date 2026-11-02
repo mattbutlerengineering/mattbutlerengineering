@@ -6012,6 +6012,122 @@
     }
     export const useEditorOpen = (): boolean => useSyncExternalStore(subscribe, isEditorOpen);
   </file>
+  <file path="apps/hospitality/src/components/availability/layer-text.ts">
+    function clockText(minute: number, format: VenueFormat): string {
+      const wrapped = minute % MINUTES_PER_DAY;
+      const hh = String(Math.floor(wrapped / 60)).padStart(2, "0");
+      const mm = String(wrapped % 60).padStart(2, "0");
+      return format.formatLocalTime(`${hh}:${mm}`);
+    }
+    function upperFirst(text: string, locale: string): string {
+      return `${text.charAt(0).toLocaleUpperCase(locale)}${text.slice(1)}`;
+    }
+    function bookingTypesText(
+      types: NonNullable<LayerTarget["bookingTypes"]>,
+      t: TFunction,
+      locale: string
+    ): string {
+      const names = types.map((type) => t(BOOKING_TYPE_NAME[type]));
+      return new Intl.ListFormat(locale, { type: "conjunction" }).format(names);
+    }
+    function targetText(target: LayerTarget, t: TFunction, format: VenueFormat): string {
+      switch (target.kind) {
+        case "venue":
+          return t("availability.calendar.dayLabel.closed");
+        case "service":
+          return t("availability.drawer.layer.serviceClosed", {
+            name: target.serviceName ?? t("availability.drawer.layer.serviceFallback"),
+          });
+        case "booking":
+          return upperFirst(
+            t("availability.drawer.layer.bookingClosed", {
+              types: bookingTypesText(target.bookingTypes ?? [], t, format.locale),
+            }),
+            format.locale
+          );
+        case "tables":
+          return t("availability.drawer.layer.tablesBlocked");
+      }
+    }
+    function seriesText(series: LayerSeries, t: TFunction, format: VenueFormat): string {
+      const days = series.weekdays?.map((d) => t(WEEKDAY_NAME[d] ?? WEEKDAY_NAME[0])).join(", ");
+      const range = `${series.startsOn} – ${series.endsOn ?? t("availability.drawer.layer.untilReopened")}`;
+      return [targetText(series.target, t, format), days, range].filter(Boolean).join(" · ");
+    }
+    function hoursText(hours: NonNullable<Layer["hours"]>, t: TFunction, format: VenueFormat): string {
+      return hours.length === 0
+        ? t("availability.calendar.dayLabel.closed")
+        : hours
+            .map((s) =>
+              t("availability.drawer.layer.serviceHours", {
+                name: s.name,
+                from: clockText(s.opensAt, format),
+                to: clockText(s.closesAt, format),
+              })
+            )
+            .join(", ");
+    }
+    function tonightText(
+      tonight: NonNullable<Layer["tonight"]>,
+      t: TFunction,
+      format: VenueFormat
+    ): string {
+      if ("closeAt" in tonight) {
+        return t("availability.drawer.layer.closesAt", { time: clockText(tonight.closeAt, format) });
+      }
+      if ("stop" in tonight) {
+        return t("availability.drawer.layer.stopped", {
+          from: clockText(tonight.stop.from, format),
+          to: clockText(tonight.stop.to, format),
+        });
+      }
+      return t("availability.drawer.layer.pacing", { count: tonight.pacingCovers });
+    }
+    export function layerLabelText(layer: Layer, t: TFunction, format: VenueFormat): string {
+      switch (layer.kind) {
+        case "schedule":
+          return layer.scheduleName !== undefined
+            ? scheduleNameText(layer.scheduleName, t)
+            : layer.label;
+        case "use_schedule":
+          return layer.scheduleName !== undefined
+            ? t("availability.drawer.layer.useSchedule", {
+                name: scheduleNameText(layer.scheduleName, t),
+              })
+            : layer.label;
+        case "special_hours":
+          return t("availability.calendar.dayLabel.specialHours");
+        case "skip":
+          return layer.skippedFrom
+            ? t("availability.drawer.layer.skippedFrom", {
+                series: seriesText(layer.skippedFrom, t, format),
+              })
+            : t("availability.drawer.layer.skippedDate");
+        case "closure":
+          return layer.target ? targetText(layer.target, t, format) : layer.label;
+        case "tonight":
+          return t("availability.drawer.layer.tonight");
+      }
+    }
+    export function layerEffectText(layer: Layer, t: TFunction, format: VenueFormat): string {
+      switch (layer.kind) {
+        case "skip":
+          return t("availability.drawer.layer.bookableAsUsual");
+        case "closure":
+          if (!layer.target) return layer.effect;
+          return layer.window
+            ? t("availability.drawer.layer.window", {
+                from: clockText(layer.window.from, format),
+                to: clockText(layer.window.to, format),
+              })
+            : t("availability.drawer.layer.allDay");
+        case "tonight":
+          return layer.tonight ? tonightText(layer.tonight, t, format) : layer.effect;
+        default:
+          return layer.hours ? hoursText(layer.hours, t, format) : layer.effect;
+      }
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/online-seatings.ts">
     function seatingMinutes({ opensAt, lastSeatingAt, closesAt, seating }: ResolvedService): number[] {
       const bookable = (m: number) => m >= opensAt && m <= lastSeatingAt && m < closesAt;
@@ -76352,7 +76468,9 @@
         case "service":
           return `${serviceName ?? "Service"} closed`;
         case "booking": {
-          const types = (rule.bookingTypes ?? []).join(" and ");
+          const types = new Intl.ListFormat("en", { type: "conjunction" }).format(
+            rule.bookingTypes ?? []
+          );
           return `${types.charAt(0).toUpperCase()}${types.slice(1)} booking closed`;
         }
         case "tables":
@@ -76371,7 +76489,8 @@
       const { payload } = rule;
       if ("closeAt" in payload) return `Closes at ${formatMinute(payload.closeAt)}`;
       if ("stop" in payload) return `Stopped ${timeRange(payload.stop.from, payload.stop.to)}`;
-      return `Pacing ${payload.pacing.covers} covers`;
+      const { covers } = payload.pacing;
+      return `Pacing ${covers} ${covers === 1 ? "cover" : "covers"}`;
     }
     export function hoursEffect(
       services: readonly { name: string; opensAt: number; closesAt: number }[]
@@ -76503,6 +76622,69 @@
         date: `${String(w.year).padStart(4, "0")}-${pad(w.month)}-${pad(w.day)}`,
         minute: w.hour * 60 + w.minute,
       };
+    }
+  </file>
+  <file path="packages/availability/src/layer-detail.ts">
+    export interface LayerTarget {
+      kind: DateRule["targetKind"];
+      /** The service a `service` target closes, as stored. */
+      serviceName?: string;
+      bookingTypes?: NonNullable<DateRule["bookingTypes"]>;
+    }
+    export interface LayerHoursService {
+      name: string;
+      opensAt: number;
+      closesAt: number;
+    }
+    export interface LayerSeries {
+      target: LayerTarget;
+      /** 0 = Sunday, as stored. */
+      weekdays?: number[];
+      startsOn: string;
+      endsOn?: string;
+    }
+    export type LayerTonight =
+      { closeAt: number } | { stop: { from: number; to: number } } | { pacingCovers: number };
+    export interface LayerDetail {
+      /** `schedule` and `use_schedule`: the schedule's name as stored. */
+      scheduleName?: string;
+      /** `schedule`, `use_schedule` and `special_hours`: the services in force; empty means closed. */
+      hours?: LayerHoursService[];
+      /** `closure`: what it closes. */
+      target?: LayerTarget;
+      /** `closure`: the minutes it closes; absent means all day. */
+      window?: { from: number; to: number };
+      /** `skip` of a series; absent for a skipped date whose series is gone. */
+      skippedFrom?: LayerSeries;
+      /** `tonight`: what Tonight does. */
+      tonight?: LayerTonight;
+    }
+    export function targetOf(rule: DateRule, serviceName: string | undefined): LayerTarget {
+      return {
+        kind: rule.targetKind,
+        ...(serviceName !== undefined ? { serviceName } : {}),
+        ...(rule.bookingTypes ? { bookingTypes: [...rule.bookingTypes] } : {}),
+      };
+    }
+    export function hoursOf(
+      services: readonly { name: string; opensAt: number; closesAt: number }[]
+    ): LayerHoursService[] {
+      return services.map(({ name, opensAt, closesAt }) => ({ name, opensAt, closesAt }));
+    }
+    export function seriesOf(rule: DateRule, serviceName: string | undefined): LayerSeries {
+      return {
+        target: targetOf(rule, serviceName),
+        ...(rule.repeat ? { weekdays: [...rule.repeat.weekdays] } : {}),
+        startsOn: rule.startsOn,
+        ...(rule.endsOn != null ? { endsOn: rule.endsOn } : {}),
+      };
+    }
+    export function tonightOf(
+      payload: Extract<DateRule, { kind: "tonight" }>["payload"]
+    ): LayerTonight {
+      if ("closeAt" in payload) return { closeAt: payload.closeAt };
+      if ("stop" in payload) return { stop: { from: payload.stop.from, to: payload.stop.to } };
+      return { pacingCovers: payload.pacing.covers };
     }
   </file>
   <file path="packages/availability/src/legacy-hours.ts">
@@ -77131,7 +77313,7 @@
     }
     export type BookingOpen = Record<"online" | "phone" | "waitlist", boolean>;
     export type LayerKind = "schedule" | DateRule["kind"];
-    export interface Layer {
+    export interface Layer extends LayerDetail {
       kind: LayerKind;
       /** The assignment or date rule row. */
       id: string;
@@ -77302,7 +77484,19 @@
         const series = config.dateRules.find((r) => r.id === skip.seriesId);
         return series ? `Skipped from: ${seriesLabel(series, serviceName(series))}` : "Skipped date";
       };
+      const skippedFromOf = (skip: DateRule): Pick<LayerDetail, "skippedFrom"> => {
+        const series = config.dateRules.find((r) => r.id === skip.seriesId);
+        return series ? { skippedFrom: seriesOf(series, serviceName(series)) } : {};
+      };
       const scheduleName = (id: string) => schedules.get(id)?.name ?? "Schedule";
+      const scheduleDetail = (id: string) => {
+        const inForce = servicesOf(id);
+        return {
+          effect: hoursEffect(inForce),
+          scheduleName: scheduleName(id),
+          hours: hoursOf(inForce),
+        };
+      };
     
       const assignment = assignmentFor(config, serviceDate);
       const useSchedule = ofKind(rules, "use_schedule")
@@ -77338,7 +77532,7 @@
                 kind: "schedule" as const,
                 id: assignment.id,
                 label: scheduleName(assignment.scheduleId),
-                effect: hoursEffect(servicesOf(assignment.scheduleId)),
+                ...scheduleDetail(assignment.scheduleId),
               },
             ]
           : []),
@@ -77348,7 +77542,7 @@
                 kind: "use_schedule" as const,
                 id: useSchedule.id,
                 label: `Use ${scheduleName(useSchedule.useScheduleId)}`,
-                effect: hoursEffect(servicesOf(useSchedule.useScheduleId)),
+                ...scheduleDetail(useSchedule.useScheduleId),
               },
             ]
           : []),
@@ -77359,6 +77553,7 @@
                 id: special.id,
                 label: "Special hours",
                 effect: hoursEffect(services),
+                hours: hoursOf(services),
               },
             ]
           : []),
@@ -77367,18 +77562,22 @@
           id: r.id,
           label: skippedLabel(r),
           effect: "Bookable as usual",
+          ...skippedFromOf(r),
         })),
         ...closures.map((r) => ({
           kind: "closure" as const,
           id: r.id,
           label: targetLabel(r, serviceName(r)),
           effect: windowEffect(r),
+          target: targetOf(r, serviceName(r)),
+          ...(r.window ? { window: { from: r.window.from, to: r.window.to } } : {}),
         })),
         ...tonights.map((r) => ({
           kind: "tonight" as const,
           id: r.id,
           label: "Tonight",
           effect: tonightEffect(r),
+          tonight: tonightOf(r.payload),
         })),
       ];
     

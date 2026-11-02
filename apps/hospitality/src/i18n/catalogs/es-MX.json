@@ -2071,6 +2071,40 @@
       "reloadHours": "Recargar horarios",
       "ifRemoved": "Si se quita: {{result}}",
       "removalNone": "sin cambios en este día",
+      "layer": {
+        "tonight": "Esta noche",
+        "allDay": "Todo el día",
+        "window": "{{from}} – {{to}}",
+        "bookableAsUsual": "Reservable como siempre",
+        "serviceHours": "{{name}} {{from}} – {{to}}",
+        "useSchedule": "Usar {{name}}",
+        "serviceClosed": "Cerrado: {{name}}",
+        "serviceFallback": "Servicio",
+        "bookingClosed": "Reservas cerradas: {{types}}",
+        "tablesBlocked": "Mesas bloqueadas",
+        "bookingType": {
+          "online": "en línea",
+          "phone": "por teléfono",
+          "waitlist": "lista de espera"
+        },
+        "skippedFrom": "Serie omitida: {{series}}",
+        "skippedDate": "Fecha omitida",
+        "untilReopened": "hasta que se reabra",
+        "weekdays": {
+          "0": "domingos",
+          "1": "lunes",
+          "2": "martes",
+          "3": "miércoles",
+          "4": "jueves",
+          "5": "viernes",
+          "6": "sábados"
+        },
+        "closesAt": "Cierra a las {{time}}",
+        "stopped": "Detenido {{from}} – {{to}}",
+        "pacing_one": "Ritmo de {{count}} cubierto",
+        "pacing_other": "Ritmo de {{count}} cubiertos",
+        "pacing_many": "Ritmo de {{count}} cubiertos"
+      },
       "removal": {
         "serviceOpens": "{{name}} abre {{from}} – {{to}}",
         "serviceCloses": "{{name}} ya no abre",

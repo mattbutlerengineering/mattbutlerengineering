@@ -2031,6 +2031,39 @@
       "reloadHours": "Reload hours",
       "ifRemoved": "If removed: {{result}}",
       "removalNone": "no change to this day",
+      "layer": {
+        "tonight": "Tonight",
+        "allDay": "All day",
+        "window": "{{from}} – {{to}}",
+        "bookableAsUsual": "Bookable as usual",
+        "serviceHours": "{{name}} {{from}} – {{to}}",
+        "useSchedule": "Use {{name}}",
+        "serviceClosed": "{{name}} closed",
+        "serviceFallback": "Service",
+        "bookingClosed": "{{types}} booking closed",
+        "tablesBlocked": "Tables blocked",
+        "bookingType": {
+          "online": "online",
+          "phone": "phone",
+          "waitlist": "waitlist"
+        },
+        "skippedFrom": "Skipped from: {{series}}",
+        "skippedDate": "Skipped date",
+        "untilReopened": "until reopened",
+        "weekdays": {
+          "0": "Sundays",
+          "1": "Mondays",
+          "2": "Tuesdays",
+          "3": "Wednesdays",
+          "4": "Thursdays",
+          "5": "Fridays",
+          "6": "Saturdays"
+        },
+        "closesAt": "Closes at {{time}}",
+        "stopped": "Stopped {{from}} – {{to}}",
+        "pacing_one": "Pacing {{count}} cover",
+        "pacing_other": "Pacing {{count}} covers"
+      },
       "removal": {
         "serviceOpens": "{{name}} opens {{from}} – {{to}}",
         "serviceCloses": "{{name}} no longer open",

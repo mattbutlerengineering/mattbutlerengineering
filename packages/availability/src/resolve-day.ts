@@ -18,6 +18,7 @@ import {
   windowEffect,
   type RuleOf,
 } from "./date-rules.js";
+import { hoursOf, seriesOf, targetOf, tonightOf, type LayerDetail } from "./layer-detail.js";
 import type { ServiceDate } from "./types.js";
 
 /**
@@ -60,7 +61,7 @@ export type BookingOpen = Record<"online" | "phone" | "waitlist", boolean>;
 export type LayerKind = "schedule" | DateRule["kind"];
 
 /** One entry of "Why this day". */
-export interface Layer {
+export interface Layer extends LayerDetail {
   kind: LayerKind;
   /** The assignment or date rule row. */
   id: string;
@@ -250,7 +251,19 @@ function resolveLayers(config: AvailabilityConfig, serviceDate: ServiceDate): Re
     const series = config.dateRules.find((r) => r.id === skip.seriesId);
     return series ? `Skipped from: ${seriesLabel(series, serviceName(series))}` : "Skipped date";
   };
+  const skippedFromOf = (skip: DateRule): Pick<LayerDetail, "skippedFrom"> => {
+    const series = config.dateRules.find((r) => r.id === skip.seriesId);
+    return series ? { skippedFrom: seriesOf(series, serviceName(series)) } : {};
+  };
   const scheduleName = (id: string) => schedules.get(id)?.name ?? "Schedule";
+  const scheduleDetail = (id: string) => {
+    const inForce = servicesOf(id);
+    return {
+      effect: hoursEffect(inForce),
+      scheduleName: scheduleName(id),
+      hours: hoursOf(inForce),
+    };
+  };
 
   const assignment = assignmentFor(config, serviceDate);
   const useSchedule = ofKind(rules, "use_schedule")
@@ -286,7 +299,7 @@ function resolveLayers(config: AvailabilityConfig, serviceDate: ServiceDate): Re
             kind: "schedule" as const,
             id: assignment.id,
             label: scheduleName(assignment.scheduleId),
-            effect: hoursEffect(servicesOf(assignment.scheduleId)),
+            ...scheduleDetail(assignment.scheduleId),
           },
         ]
       : []),
@@ -296,7 +309,7 @@ function resolveLayers(config: AvailabilityConfig, serviceDate: ServiceDate): Re
             kind: "use_schedule" as const,
             id: useSchedule.id,
             label: `Use ${scheduleName(useSchedule.useScheduleId)}`,
-            effect: hoursEffect(servicesOf(useSchedule.useScheduleId)),
+            ...scheduleDetail(useSchedule.useScheduleId),
           },
         ]
       : []),
@@ -307,6 +320,7 @@ function resolveLayers(config: AvailabilityConfig, serviceDate: ServiceDate): Re
             id: special.id,
             label: "Special hours",
             effect: hoursEffect(services),
+            hours: hoursOf(services),
           },
         ]
       : []),
@@ -315,18 +329,22 @@ function resolveLayers(config: AvailabilityConfig, serviceDate: ServiceDate): Re
       id: r.id,
       label: skippedLabel(r),
       effect: "Bookable as usual",
+      ...skippedFromOf(r),
     })),
     ...closures.map((r) => ({
       kind: "closure" as const,
       id: r.id,
       label: targetLabel(r, serviceName(r)),
       effect: windowEffect(r),
+      target: targetOf(r, serviceName(r)),
+      ...(r.window ? { window: { from: r.window.from, to: r.window.to } } : {}),
     })),
     ...tonights.map((r) => ({
       kind: "tonight" as const,
       id: r.id,
       label: "Tonight",
       effect: tonightEffect(r),
+      tonight: tonightOf(r.payload),
     })),
   ];
 

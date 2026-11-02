@@ -2021,6 +2021,43 @@
       export const useEditorOpen: unknown;
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/layer-text.ts">
+    <item priority="medium">
+      function clockText(minute: number, format: VenueFormat): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function upperFirst(text: string, locale: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function bookingTypesText(
+        types: NonNullable<LayerTarget["bookingTypes"]>,
+        t: TFunction,
+        locale: string
+      ): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function targetText(target: LayerTarget, t: TFunction, format: VenueFormat): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function seriesText(series: LayerSeries, t: TFunction, format: VenueFormat): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function hoursText(hours: NonNullable<Layer["hours"]>, t: TFunction, format: VenueFormat): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function tonightText(
+        tonight: NonNullable<Layer["tonight"]>,
+        t: TFunction,
+        format: VenueFormat
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function layerLabelText(layer: Layer, t: TFunction, format: VenueFormat): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function layerEffectText(layer: Layer, t: TFunction, format: VenueFormat): string { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/online-seatings.ts">
     <item priority="medium">
       function seatingMinutes({ opensAt, lastSeatingAt, closesAt, seating }: ResolvedService): number[] { /* ... */ }
@@ -22169,6 +22206,58 @@
     </item>
     <item priority="high">
       export function localDateTimeOf(instant: Date, tz: string): { date: ServiceDate; minute: number } { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/layer-detail.ts">
+    <item priority="low">
+      interface LayerTarget {
+        kind: DateRule["targetKind"];
+        serviceName?: string;
+        bookingTypes?: NonNullable<DateRule["bookingTypes"]>;
+      }
+    </item>
+    <item priority="low">
+      interface LayerHoursService {
+        name: string;
+        opensAt: number;
+        closesAt: number;
+      }
+    </item>
+    <item priority="low">
+      interface LayerSeries {
+        target: LayerTarget;
+        weekdays?: number[];
+        startsOn: string;
+        endsOn?: string;
+      }
+    </item>
+    <item priority="low">
+      type LayerTonight = { closeAt: number } | { stop: { from: number; to: nu | { pacingCovers: number };
+    </item>
+    <item priority="low">
+      interface LayerDetail {
+        scheduleName?: string;
+        hours?: LayerHoursService[];
+        target?: LayerTarget;
+        window?: { from: number; to: number };
+        skippedFrom?: LayerSeries;
+      }
+    </item>
+    <item priority="high">
+      export function targetOf(rule: DateRule, serviceName: string | undefined): LayerTarget { /* ... */ }
+    </item>
+    <item priority="high">
+      export function hoursOf(
+        services: readonly { name: string; opensAt: number; closesAt: number }[]
+      ): LayerHoursService[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function seriesOf(rule: DateRule, serviceName: string | undefined): LayerSeries { /* ... */ }
+    </item>
+    <item priority="high">
+      export function tonightOf(
+        payload: Extract<DateRule, { kind: "tonight" }>["payload"]
+      ): LayerTonight { /* ... */ }
     </item>
   </file>
   <file path="packages/availability/src/legacy-hours.ts">
