@@ -351,6 +351,10 @@ exports[`guests OpenAPI baseline > matches the recorded swagger paths for the gu
                         "guestId": {
                           "type": "string",
                         },
+                        "lastWinBackAt": {
+                          "nullable": true,
+                          "type": "string",
+                        },
                         "name": {
                           "type": "string",
                         },
@@ -914,6 +918,16 @@ exports[`guests OpenAPI baseline > matches the recorded swagger paths for the gu
             },
           },
           "description": "Default Response",
+        },
+        "409": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-4",
+              },
+            },
+          },
+          "description": "Already sent a win-back within the cooldown; nothing was sent. \`detail\` names when the last one went.",
         },
       },
       "security": [

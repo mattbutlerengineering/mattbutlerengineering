@@ -130,6 +130,22 @@ describe("ResendNotificationAdapter", () => {
     expect(call.html).toContain("The Oak Table");
   });
 
+  it("sendWinBack hands the provider the idempotency key, and none when it has none", async () => {
+    const adapter = new ResendNotificationAdapter({
+      resend: mockResend as never,
+      fromAddress: "bookings@mbe.dev",
+      manageBaseUrl: "https://app.mbe.dev",
+      publicApiBaseUrl: "https://api.mbe.dev",
+    });
+    const input = { guestName: "Jane", guestEmail: "jane@example.com", venueName: "Oak" };
+
+    await adapter.sendWinBack({ ...input, idempotencyKey: "win-back/g1/t" });
+    await adapter.sendWinBack(input);
+
+    expect(mockSend.mock.calls[0]![1]).toEqual({ idempotencyKey: "win-back/g1/t" });
+    expect(mockSend.mock.calls[1]![1]).toBeUndefined();
+  });
+
   it("sendWinBack escapes HTML special characters in guest name and venue name", async () => {
     const adapter = new ResendNotificationAdapter({
       resend: mockResend as never,

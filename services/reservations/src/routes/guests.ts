@@ -9,6 +9,7 @@ import { parsePaginationQuery } from "@mbe/database";
 import { requireAuth } from "@mbe/auth/fastify";
 import { registerEndpoint } from "@mbe/service-bootstrap";
 import { sendWinBack } from "../services/win-back.js";
+import { lastWinBackSentAt } from "../services/win-back-store.js";
 import { venueScoped } from "./venue-scope.js";
 
 /**
@@ -228,7 +229,16 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
       const lapsing = await guestService.scanLapsedGuests(venueId, (vid, guests) =>
         fastify.reservationEvents.emitLapsingGuests(vid, guests)
       );
-      return { data: lapsing };
+      const lastSent = await lastWinBackSentAt(
+        venueId,
+        lapsing.map((g) => g.guestId)
+      );
+      return {
+        data: lapsing.map((g) => ({
+          ...g,
+          lastWinBackAt: lastSent.get(g.guestId)?.toISOString() ?? null,
+        })),
+      };
     }),
   });
 
@@ -257,9 +267,20 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
           notFound: GUEST_NOT_FOUND,
         },
       },
-      async (_request, _reply, { entity }) => {
-        const sent = await sendWinBack(entity.guest, fastify.notificationPort, entity.venueName);
-        return { data: { sent } };
+      async (_request, reply, { entity }) => {
+        const result = await sendWinBack(entity.guest, fastify.notificationPort, entity.venueName);
+        if (result.status === "cooldown") {
+          return reply
+            .code(409)
+            .send(
+              createProblemDetails(
+                409,
+                "Conflict",
+                `${entity.guest.name} was already sent a win-back message on ${result.lastSentAt.toISOString()}. Nothing was sent.`
+              )
+            );
+        }
+        return { data: { sent: result.status === "sent" } };
       }
     ),
   });

@@ -12,7 +12,8 @@ interface ResendClient {
   emails: {
     // The SDK resolves `{ data, error }` on API failures rather than throwing.
     send(
-      payload: Record<string, unknown>
+      payload: Record<string, unknown>,
+      options?: { idempotencyKey: string }
     ): Promise<{ data?: unknown; error?: { name?: string; message: string } | null }>;
   };
 }
@@ -71,9 +72,14 @@ export class ResendNotificationAdapter implements NotificationPort {
    * Single send path: converts the SDK's `{ error }` result into a rejection so
    * the dispatcher, retry policy and failure log see a failed email as failed.
    */
-  private async send(payload: Record<string, unknown>): Promise<void> {
+  private async send(
+    payload: Record<string, unknown>,
+    options?: { idempotencyKey: string }
+  ): Promise<void> {
     if (!this.resend) return;
-    const { error } = await this.resend.emails.send(payload);
+    const { error } = options
+      ? await this.resend.emails.send(payload, options)
+      : await this.resend.emails.send(payload);
     if (error) {
       throw new Error(
         `Resend send failed${error.name ? ` (${error.name})` : ""}: ${error.message}`
@@ -164,12 +170,15 @@ export class ResendNotificationAdapter implements NotificationPort {
     if (!this.resend) return;
     const safeGuestName = escapeHtml(input.guestName);
     const safeVenueName = escapeHtml(input.venueName);
-    await this.send({
-      from: this.fromAddress,
-      to: input.guestEmail,
-      subject: `We miss you, ${input.guestName}!`,
-      html: `<p>Hi ${safeGuestName},</p><p>It&apos;s been a while since we&apos;ve seen you at ${safeVenueName}. We&apos;d love to welcome you back — book your next visit any time.</p>`,
-    });
+    await this.send(
+      {
+        from: this.fromAddress,
+        to: input.guestEmail,
+        subject: `We miss you, ${input.guestName}!`,
+        html: `<p>Hi ${safeGuestName},</p><p>It&apos;s been a while since we&apos;ve seen you at ${safeVenueName}. We&apos;d love to welcome you back — book your next visit any time.</p>`,
+      },
+      input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : undefined
+    );
   }
 
   async sendThankYouEmail(input: ThankYouEmailInput): Promise<void> {

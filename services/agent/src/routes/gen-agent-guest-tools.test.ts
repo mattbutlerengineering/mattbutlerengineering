@@ -76,6 +76,7 @@ describe("guest chat tools", () => {
         avgFrequencyDays: 14,
         daysSinceLastVisit: 60,
         daysOverdue: 46,
+        lastWinBackAt: null,
       },
     ]);
   });
@@ -224,7 +225,32 @@ describe("guest chat tools", () => {
 
       expect(api.guests.getLapsing).toHaveBeenCalledWith("v1");
       expect(result).toEqual({
-        guests: [{ name: "Sam Park", daysSinceLastVisit: 60, daysOverdue: 46 }],
+        guests: [
+          { name: "Sam Park", daysSinceLastVisit: 60, daysOverdue: 46, lastWinBackAt: null },
+        ],
+      });
+    });
+
+    it("returns when each guest was last sent a win-back (#8041)", async () => {
+      api.guests.getLapsing.mockResolvedValue([
+        {
+          guestId: "g7",
+          name: "Sam Park",
+          email: null,
+          phone: null,
+          communicationPreference: "both",
+          avgFrequencyDays: 14,
+          daysSinceLastVisit: 60,
+          daysOverdue: 46,
+          lastWinBackAt: "2026-10-30T09:00:00.000Z",
+        },
+      ]);
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
+
+      const result = await tools.list_lapsing_guests!.execute!({} as never, toolCtx);
+
+      expect(result).toMatchObject({
+        guests: [{ name: "Sam Park", lastWinBackAt: "2026-10-30T09:00:00.000Z" }],
       });
     });
   });
@@ -282,12 +308,30 @@ describe("guest chat tools", () => {
         const result = await run("send_win_back", { guest: "Sam Park" });
 
         expect(result).toMatchObject({
-          error: expect.stringMatching(/Couldn't confirm.*Sam Park.*no tool here can check.*twice/),
+          error: expect.stringMatching(
+            /Couldn't confirm.*Sam Park.*lastWinBackAt.*list_lapsing_guests/
+          ),
         });
         const words = JSON.stringify(result);
         expect(words).not.toMatch(/Nothing was changed/);
         expect(words).not.toMatch(/try again/i);
         expect(api.guests.sendWinBack).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    it("relays the cooldown refusal: already sent, nothing sent now (#8041)", async () => {
+      api.guests.sendWinBack.mockRejectedValue(
+        problem(409, {
+          code: "win-back-cooldown",
+          detail: "Sam Park was already sent a win-back message on 2026-10-30. Nothing was sent.",
+        })
+      );
+
+      const result = await run("send_win_back", { guest: "Sam Park" });
+
+      expect(result).toMatchObject({
+        refused: true,
+        error: expect.stringMatching(/already sent a win-back/),
       });
     });
 

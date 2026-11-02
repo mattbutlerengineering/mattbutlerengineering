@@ -536,6 +536,9 @@
           200: { description: "Win-back result", body: z.object({ data: WinBackResultSchema }) },
           401: problem(),
           404: problem(),
+          409: problem(
+            "Already sent a win-back within the cooldown; nothing was sent. `detail` names when the last one went."
+          ),
         },
       }),
       delete: defineEndpoint({
@@ -1478,6 +1481,8 @@
       avgFrequencyDays: z.number(),
       daysSinceLastVisit: z.number(),
       daysOverdue: z.number(),
+      /** ISO time the guest's last win-back was claimed for sending; `null` = never. Set by the route, absent on the SSE push. */
+      lastWinBackAt: z.string().nullable().optional(),
     });
     export const WinBackResultSchema = z.object({ sent: z.boolean() });
   </file>

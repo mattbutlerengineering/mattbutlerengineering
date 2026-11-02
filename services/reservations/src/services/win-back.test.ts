@@ -1,7 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
 import type { Guest } from "@mbe/types";
 import type { NotificationDispatcher } from "../notifications/index.js";
-import { sendWinBack } from "./win-back.js";
+import { sendWinBack, type WinBackDeps } from "./win-back.js";
+
+const NOW = new Date("2026-11-01T12:00:00Z");
+
+function deps(claim: WinBackDeps["claim"] = async () => ({ claimed: true })): WinBackDeps {
+  return { claim, now: () => NOW };
+}
 
 function makeGuest(overrides: Partial<Guest> = {}): Guest {
   return {
@@ -41,7 +47,7 @@ describe("sendWinBack", () => {
     const guest = makeGuest();
     const port = makeNotificationPort();
 
-    await sendWinBack(guest, port, "The Grand Bistro");
+    await sendWinBack(guest, port, "The Grand Bistro", deps());
 
     expect(port.sendWinBack).toHaveBeenCalledWith(
       expect.objectContaining({ venueName: "The Grand Bistro" }),
@@ -53,7 +59,7 @@ describe("sendWinBack", () => {
     const guest = makeGuest();
     const port = makeNotificationPort();
 
-    await sendWinBack(guest, port, "Riverside Grill");
+    await sendWinBack(guest, port, "Riverside Grill", deps());
 
     const sendWinBackCall = (port.sendWinBack as ReturnType<typeof vi.fn>).mock.calls[0];
     if (!sendWinBackCall) throw new Error("expected a sendWinBack call");
@@ -65,9 +71,9 @@ describe("sendWinBack", () => {
     const guest = makeGuest({ communicationPreference: "transactional_only" });
     const port = makeNotificationPort();
 
-    const result = await sendWinBack(guest, port, "Any Venue");
+    const result = await sendWinBack(guest, port, "Any Venue", deps());
 
-    expect(result).toBe(false);
+    expect(result).toEqual({ status: "skipped" });
     expect(port.sendWinBack).not.toHaveBeenCalled();
   });
 
@@ -75,9 +81,9 @@ describe("sendWinBack", () => {
     const guest = makeGuest({ email: null });
     const port = makeNotificationPort();
 
-    const result = await sendWinBack(guest, port, "Any Venue");
+    const result = await sendWinBack(guest, port, "Any Venue", deps());
 
-    expect(result).toBe(false);
+    expect(result).toEqual({ status: "skipped" });
     expect(port.sendWinBack).not.toHaveBeenCalled();
   });
 
@@ -85,9 +91,9 @@ describe("sendWinBack", () => {
     const guest = makeGuest();
     const port = makeNotificationPort();
 
-    const result = await sendWinBack(guest, port, "The Grand Bistro");
+    const result = await sendWinBack(guest, port, "The Grand Bistro", deps());
 
-    expect(result).toBe(true);
+    expect(result).toEqual({ status: "sent" });
   });
 
   it("returns false for sms_only guest even when email is present", async () => {
@@ -98,9 +104,9 @@ describe("sendWinBack", () => {
     });
     const port = makeNotificationPort();
 
-    const result = await sendWinBack(guest, port, "Any Venue");
+    const result = await sendWinBack(guest, port, "Any Venue", deps());
 
-    expect(result).toBe(false);
+    expect(result).toEqual({ status: "skipped" });
     expect(port.sendWinBack).not.toHaveBeenCalled();
   });
 
@@ -111,9 +117,9 @@ describe("sendWinBack", () => {
     const guest = makeGuest({ communicationPreference: "sms_only", email: null });
     const port = makeNotificationPort();
 
-    const result = await sendWinBack(guest, port, "Any Venue");
+    const result = await sendWinBack(guest, port, "Any Venue", deps());
 
-    expect(result).toBe(false);
+    expect(result).toEqual({ status: "skipped" });
     expect(port.sendWinBack).not.toHaveBeenCalled();
   });
 
@@ -128,9 +134,80 @@ describe("sendWinBack", () => {
     });
     const port = makeNotificationPort();
 
-    const result = await sendWinBack(guest, port, "Any Venue");
+    const result = await sendWinBack(guest, port, "Any Venue", deps());
 
-    expect(result).toBe(false);
+    expect(result).toEqual({ status: "skipped" });
     expect(port.sendWinBack).not.toHaveBeenCalled();
+  });
+
+  describe("send record and cooldown (#8041)", () => {
+    it("refuses a repeat inside the cooldown, sends nothing, and says when the last one went", async () => {
+      const lastSentAt = new Date("2026-10-30T09:00:00Z");
+      const port = makeNotificationPort();
+
+      const result = await sendWinBack(
+        makeGuest(),
+        port,
+        "Any Venue",
+        deps(async () => ({ claimed: false, lastSentAt }))
+      );
+
+      expect(result).toEqual({ status: "cooldown", lastSentAt });
+      expect(port.sendWinBack).not.toHaveBeenCalled();
+    });
+
+    it("claims the guest in its own venue, before the provider is called", async () => {
+      const order: string[] = [];
+      const claim = vi.fn(async () => {
+        order.push("claim");
+        return { claimed: true as const };
+      });
+      const sendWinBackMock = vi.fn(() => {
+        order.push("send");
+        return Promise.resolve();
+      });
+      const port = {
+        ...makeNotificationPort(),
+        sendWinBack: sendWinBackMock,
+      } as unknown as NotificationDispatcher;
+
+      await sendWinBack(makeGuest(), port, "Any Venue", deps(claim));
+
+      expect(claim).toHaveBeenCalledWith("venue-1", "guest-1", NOW);
+      expect(order).toEqual(["claim", "send"]);
+    });
+
+    it("does not claim for a guest it would skip, so a skip never starts a cooldown", async () => {
+      const claim = vi.fn(async () => ({ claimed: true as const }));
+
+      await sendWinBack(makeGuest({ email: null }), makeNotificationPort(), "V", deps(claim));
+
+      expect(claim).not.toHaveBeenCalled();
+    });
+
+    it("gives the provider an idempotency key tied to the guest and this claim", async () => {
+      const port = makeNotificationPort();
+
+      await sendWinBack(makeGuest(), port, "Any Venue", deps());
+
+      expect(port.sendWinBack).toHaveBeenCalledWith(
+        expect.objectContaining({ idempotencyKey: `win-back/guest-1/${NOW.toISOString()}` }),
+        expect.any(String)
+      );
+    });
+
+    it("keeps the claim when the provider call fails: the next send is refused, not repeated", async () => {
+      const claimed = new Set<string>();
+      const claim: WinBackDeps["claim"] = async (_v, g) =>
+        claimed.has(g) ? { claimed: false, lastSentAt: NOW } : (claimed.add(g), { claimed: true });
+      const port = makeNotificationPort();
+      (port.sendWinBack as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("502"));
+
+      await expect(sendWinBack(makeGuest(), port, "V", deps(claim))).rejects.toThrow("502");
+      const second = await sendWinBack(makeGuest(), port, "V", deps(claim));
+
+      expect(second).toEqual({ status: "cooldown", lastSentAt: NOW });
+      expect(port.sendWinBack).toHaveBeenCalledTimes(1);
+    });
   });
 });

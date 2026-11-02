@@ -14606,6 +14606,9 @@
           200: { description: "Win-back result", body: z.object({ data: WinBackResultSchema }) },
           401: problem(),
           404: problem(),
+          409: problem(
+            "Already sent a win-back within the cooldown; nothing was sent. `detail` names when the last one went."
+          ),
         },
       }),
       delete: defineEndpoint({
@@ -26380,6 +26383,8 @@
       guestName: string;
       guestEmail: string;
       venueName: string;
+      /** Sent to the provider so a retried call for the same claim delivers once. */
+      idempotencyKey?: string;
     }
     export interface ThankYouEmailInput {
       guestEmail: string;
@@ -26412,7 +26417,8 @@
       emails: {
         // The SDK resolves `{ data, error }` on API failures rather than throwing.
         send(
-          payload: Record<string, unknown>
+          payload: Record<string, unknown>,
+          options?: { idempotencyKey: string }
         ): Promise<{ data?: unknown; error?: { name?: string; message: string } | null }>;
       };
     }
@@ -26469,9 +26475,14 @@
        * Single send path: converts the SDK's `{ error }` result into a rejection so
        * the dispatcher, retry policy and failure log see a failed email as failed.
        */
-      private async send(payload: Record<string, unknown>): Promise<void> {
+      private async send(
+        payload: Record<string, unknown>,
+        options?: { idempotencyKey: string }
+      ): Promise<void> {
         if (!this.resend) return;
-        const { error } = await this.resend.emails.send(payload);
+        const { error } = options
+          ? await this.resend.emails.send(payload, options)
+          : await this.resend.emails.send(payload);
         if (error) {
           throw new Error(
             `Resend send failed${error.name ? ` (${error.name})` : ""}: ${error.message}`
@@ -26562,12 +26573,15 @@
         if (!this.resend) return;
         const safeGuestName = escapeHtml(input.guestName);
         const safeVenueName = escapeHtml(input.venueName);
-        await this.send({
-          from: this.fromAddress,
-          to: input.guestEmail,
-          subject: `We miss you, ${input.guestName}!`,
-          html: `<p>Hi ${safeGuestName},</p><p>It&apos;s been a while since we&apos;ve seen you at ${safeVenueName}. We&apos;d love to welcome you back — book your next visit any time.</p>`,
-        });
+        await this.send(
+          {
+            from: this.fromAddress,
+            to: input.guestEmail,
+            subject: `We miss you, ${input.guestName}!`,
+            html: `<p>Hi ${safeGuestName},</p><p>It&apos;s been a while since we&apos;ve seen you at ${safeVenueName}. We&apos;d love to welcome you back — book your next visit any time.</p>`,
+          },
+          input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : undefined
+        );
       }
     
       async sendThankYouEmail(input: ThankYouEmailInput): Promise<void> {
@@ -32145,7 +32159,7 @@
       };
     }
     function winBackUnsure(name: string): string {
-      return `Couldn't confirm the win-back message to ${name} was sent. It may already have reached them, and no tool here can check. Tell the user that, and don't send it again unless they accept the guest could get it twice.`;
+      return `Couldn't confirm the win-back message to ${name} was sent. It may already have reached them. Check ${name}'s lastWinBackAt in list_lapsing_guests: a recent time means it was recorded as sent and the server won't send another for a week; null means nothing was recorded. Tell the user which.`;
     }
     function guestFailure(err: unknown, action: string, unsure: string | undefined) {
       const refusal = refusalOf(err);
@@ -32193,7 +32207,7 @@
         // ── Read ───────────────────────────────────────────────
         list_lapsing_guests: tool({
           description:
-            "List regular guests who are overdue for a visit (win-back candidates), most overdue first.",
+            "List regular guests who are overdue for a visit (win-back candidates), most overdue first, with when each was last sent a win-back (lastWinBackAt, null = never).",
           inputSchema: z.object({}),
           execute: async () => {
             if (!venueId) return NO_VENUE;
@@ -32207,6 +32221,7 @@
                     name: g.name,
                     daysSinceLastVisit: g.daysSinceLastVisit,
                     daysOverdue: g.daysOverdue,
+                    lastWinBackAt: g.lastWinBackAt ?? null,
                   })),
               };
             } catch (err) {
@@ -32648,7 +32663,7 @@
         "Never ask the user for a venue ID, reservation ID, or table ID: look them up with the tools.",
         "Your earlier replies in this conversation were based on tool results that aren't shown to you again. Treat them as accurate: don't apologize for or correct them unless a new tool result actually contradicts them. When you need an earlier detail, such as an ID, look it up again.",
         "A change (booking, seating, no-show, walk-in, cancellation, table status, Tonight availability, closures and special hours, waitlist, guest profile, menu items, the active floor plan) runs only when the user presses the Confirm or Cancel button the chat shows with it. Tell them to use those buttons, and never ask them to type yes: typing a new message dismisses the pending change.",
-        "When a tool says it couldn't confirm a change, the change may have been saved: tell the user so, never say nothing changed, and check with the read it names before proposing it again. send_win_back has no read to check, so never propose it again for that guest unless the user accepts the guest could get the message twice.",
+        "When a tool says it couldn't confirm a change, the change may have been saved: tell the user so, never say nothing changed, and check with the read it names before proposing it again. for send_win_back that read is lastWinBackAt in list_lapsing_guests: a recent time means it was sent, so never propose it again for that guest.",
         "Ask only for details the user has to decide, such as guest name, party size, or time. When a reservation's end time isn't given, use two hours after the start.",
         "Reply in short, plain sentences in the user's language. Don't use markdown: the chat shows plain text.",
         "Show elements only by calling render_component with an elements array: each element has a unique id, a type from the components below, its props, and children as a list of other elements' ids; an element no other element lists is shown at the top level. Never write JSON, element specs or patch lines in your reply text.",
@@ -38068,7 +38083,16 @@
           const lapsing = await guestService.scanLapsedGuests(venueId, (vid, guests) =>
             fastify.reservationEvents.emitLapsingGuests(vid, guests)
           );
-          return { data: lapsing };
+          const lastSent = await lastWinBackSentAt(
+            venueId,
+            lapsing.map((g) => g.guestId)
+          );
+          return {
+            data: lapsing.map((g) => ({
+              ...g,
+              lastWinBackAt: lastSent.get(g.guestId)?.toISOString() ?? null,
+            })),
+          };
         }),
       });
     
@@ -38097,9 +38121,20 @@
               notFound: GUEST_NOT_FOUND,
             },
           },
-          async (_request, _reply, { entity }) => {
-            const sent = await sendWinBack(entity.guest, fastify.notificationPort, entity.venueName);
-            return { data: { sent } };
+          async (_request, reply, { entity }) => {
+            const result = await sendWinBack(entity.guest, fastify.notificationPort, entity.venueName);
+            if (result.status === "cooldown") {
+              return reply
+                .code(409)
+                .send(
+                  createProblemDetails(
+                    409,
+                    "Conflict",
+                    `${entity.guest.name} was already sent a win-back message on ${result.lastSentAt.toISOString()}. Nothing was sent.`
+                  )
+                );
+            }
+            return { data: { sent: result.status === "sent" } };
           }
         ),
       });
@@ -45464,6 +45499,8 @@
       avgFrequencyDays: z.number(),
       daysSinceLastVisit: z.number(),
       daysOverdue: z.number(),
+      /** ISO time the guest's last win-back was claimed for sending; `null` = never. Set by the route, absent on the SSE push. */
+      lastWinBackAt: z.string().nullable().optional(),
     });
     export const WinBackResultSchema = z.object({ sent: z.boolean() });
   </file>
@@ -63396,6 +63433,7 @@
       "dateRuleTable",
       "availabilityChange",
       "closureOutcome",
+      "guestWinBack",
     ]);
     type DynamicDelegate = Record<string, (...args: unknown[]) => unknown>;
     type DynamicTransactionClient = Record<string, DynamicDelegate> & {
@@ -64728,12 +64766,65 @@
       },
     };
   </file>
+  <file path="services/reservations/src/services/win-back-store.ts">
+    type Db = Pick<PrismaClient, "guestWinBack">;
+    export const WIN_BACK_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+    export type WinBackClaim = { claimed: true } | { claimed: false; lastSentAt: Date };
+    function isUniqueViolation(err: unknown): boolean {
+      return err !== null && typeof err === "object" && (err as { code?: unknown }).code === "P2002";
+    }
+    export async function claimWinBack(
+      venueId: string,
+      guestId: string,
+      now: Date,
+      db: Db = prisma
+    ): Promise<WinBackClaim> {
+      const cutoff = new Date(now.getTime() - WIN_BACK_COOLDOWN_MS);
+      const renewed = await db.guestWinBack.updateMany({
+        where: { venueId, guestId, lastSentAt: { lte: cutoff } },
+        data: { lastSentAt: now },
+      });
+      if (renewed.count === 1) return { claimed: true };
+      try {
+        await db.guestWinBack.create({ data: { venueId, guestId, lastSentAt: now } });
+        return { claimed: true };
+      } catch (err) {
+        if (!isUniqueViolation(err)) throw err;
+      }
+      const existing = await db.guestWinBack.findFirst({
+        where: { venueId, guestId },
+        select: { lastSentAt: true },
+      });
+      // Present: the unique violation proves a row exists. Absent only if it was deleted
+      // between the two statements, which nothing does (guest delete cascades, then no send).
+      return { claimed: false, lastSentAt: existing?.lastSentAt ?? now };
+    }
+    export async function lastWinBackSentAt(
+      venueId: string,
+      guestIds: readonly string[],
+      db: Db = prisma
+    ): Promise<Map<string, Date>> {
+      if (guestIds.length === 0) return new Map();
+      const rows = await db.guestWinBack.findMany({
+        where: { venueId, guestId: { in: [...guestIds] } },
+        select: { guestId: true, lastSentAt: true },
+      });
+      return new Map(rows.map((r) => [r.guestId, r.lastSentAt]));
+    }
+  </file>
   <file path="services/reservations/src/services/win-back.ts">
+    export type WinBackResult =
+      { status: "sent" } | { status: "skipped" } | { status: "cooldown"; lastSentAt: Date };
+    export interface WinBackDeps {
+      claim(venueId: string, guestId: string, now: Date): Promise<WinBackClaim>;
+      now(): Date;
+    }
     export async function sendWinBack(
       guest: Guest,
       notificationPort: NotificationDispatcher,
-      venueName: string
-    ): Promise<boolean> {
+      venueName: string,
+      deps: WinBackDeps = defaultDeps
+    ): Promise<WinBackResult> {
       if (
         !canContact(
           {
@@ -64743,7 +64834,7 @@
           "marketing"
         )
       ) {
-        return false;
+        return { status: "skipped" };
       }
     
       const channel = resolveChannel(guest.communicationPreference);
@@ -64751,19 +64842,24 @@
       // Win-back is email-only; skip guests who opted into SMS-only
       // communication or have no email address on file.
       if (channel === "sms_only" || !guest.email) {
-        return false;
+        return { status: "skipped" };
       }
+    
+      const now = deps.now();
+      const claim = await deps.claim(guest.venueId, guest.id, now);
+      if (!claim.claimed) return { status: "cooldown", lastSentAt: claim.lastSentAt };
     
       await notificationPort.sendWinBack(
         {
           guestName: guest.name,
           guestEmail: guest.email,
           venueName,
+          idempotencyKey: `win-back/${guest.id}/${now.toISOString()}`,
         },
         channel
       );
     
-      return true;
+      return { status: "sent" };
     }
   </file>
   <file path="services/users/src/services/database.ts">

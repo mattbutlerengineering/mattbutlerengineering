@@ -35,12 +35,12 @@ function shown(guest: Guest) {
 const GUEST_SAVE_UNSURE = saveUnsure("search_guests");
 
 /**
- * A win-back with no answer may already be in the guest's inbox. Nothing records a
- * sent one (the lapsing list doesn't change, and no read shows a guest's last
- * message), and the server sends again on every call, so there is nothing to check.
+ * A win-back with no answer may already be in the guest's inbox. The server records a
+ * send before it calls the email provider and refuses a second one within its
+ * cooldown, so `list_lapsing_guests` shows the answer in `lastWinBackAt`.
  */
 function winBackUnsure(name: string): string {
-  return `Couldn't confirm the win-back message to ${name} was sent. It may already have reached them, and no tool here can check. Tell the user that, and don't send it again unless they accept the guest could get it twice.`;
+  return `Couldn't confirm the win-back message to ${name} was sent. It may already have reached them. Check ${name}'s lastWinBackAt in list_lapsing_guests: a recent time means it was recorded as sent and the server won't send another for a week; null means nothing was recorded. Tell the user which.`;
 }
 
 /**
@@ -134,7 +134,7 @@ export function createGuestTools(
     // ── Read ───────────────────────────────────────────────
     list_lapsing_guests: tool({
       description:
-        "List regular guests who are overdue for a visit (win-back candidates), most overdue first.",
+        "List regular guests who are overdue for a visit (win-back candidates), most overdue first, with when each was last sent a win-back (lastWinBackAt, null = never).",
       inputSchema: z.object({}),
       execute: async () => {
         if (!venueId) return NO_VENUE;
@@ -148,6 +148,7 @@ export function createGuestTools(
                 name: g.name,
                 daysSinceLastVisit: g.daysSinceLastVisit,
                 daysOverdue: g.daysOverdue,
+                lastWinBackAt: g.lastWinBackAt ?? null,
               })),
           };
         } catch (err) {

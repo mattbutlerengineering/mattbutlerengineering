@@ -140,6 +140,9 @@ export const guestsEndpoints = {
       200: { description: "Win-back result", body: z.object({ data: WinBackResultSchema }) },
       401: problem(),
       404: problem(),
+      409: problem(
+        "Already sent a win-back within the cooldown; nothing was sent. `detail` names when the last one went."
+      ),
     },
   }),
   delete: defineEndpoint({

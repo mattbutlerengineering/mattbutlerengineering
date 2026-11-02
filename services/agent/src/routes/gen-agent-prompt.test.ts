@@ -347,7 +347,7 @@ describe("a change a tool couldn't confirm", () => {
     expect(line).toMatch(/may have been saved/);
     expect(line).toMatch(/never say nothing changed/);
     expect(line).toMatch(/before proposing it again/);
-    expect(line).toMatch(/send_win_back.*twice/);
+    expect(line).toMatch(/send_win_back.*lastWinBackAt.*list_lapsing_guests/);
   });
 });
 

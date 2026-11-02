@@ -558,6 +558,7 @@
         guestName: string;
         guestEmail: string;
         venueName: string;
+        idempotencyKey?: string;
       }
     </item>
     <item priority="low">
@@ -5573,13 +5574,51 @@
       export const waitlistService: unknown;
     </item>
   </file>
+  <file path="src/services/win-back-store.ts">
+    <item priority="high">
+      type Db = Pick<PrismaClient, "guestWinBack">;
+    </item>
+    <item priority="high">
+      export const WIN_BACK_COOLDOWN_MS: unknown;
+    </item>
+    <item priority="low">
+      type WinBackClaim = { claimed: true } | { claimed: false; lastSentAt: ;
+    </item>
+    <item priority="medium">
+      function isUniqueViolation(err: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function claimWinBack(
+        venueId: string,
+        guestId: string,
+        now: Date,
+        db: Db = prisma
+      ): Promise<WinBackClaim> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function lastWinBackSentAt(
+        venueId: string,
+        guestIds: readonly string[],
+        db: Db = prisma
+      ): Promise<Map<string, Date>> { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/win-back.ts">
+    <item priority="low">
+      type WinBackResult = { status: "sent" } | { status: "skipped" } | { status: "cooldown"; lastSent;
+    </item>
+    <item priority="low">
+      interface WinBackDeps {
+        
+      }
+    </item>
     <item priority="high">
       export async function sendWinBack(
         guest: Guest,
         notificationPort: NotificationDispatcher,
-        venueName: string
-      ): Promise<boolean> { /* ... */ }
+        venueName: string,
+        deps: WinBackDeps = defaultDeps
+      ): Promise<WinBackResult> { /* ... */ }
     </item>
   </file>
   </section>
