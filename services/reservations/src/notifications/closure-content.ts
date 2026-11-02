@@ -111,6 +111,10 @@ export function offerLabel(start: Date, timezone: string): string {
   return `${p.weekday} ${p.day} ${when.display}`;
 }
 
+/** A refund of nothing is no refund: never worded as "$0 deposit will be refunded". */
+const promisesRefund = (c: ClosureNoticeContent): boolean =>
+  c.refund !== null && c.refund.amountCents > 0;
+
 function money(refund: { amountCents: number; currency: string }): string {
   const whole = refund.amountCents % 100 === 0;
   return new Intl.NumberFormat("en-US", {
@@ -132,7 +136,8 @@ function firstName(name: string | null): string {
 // ── SMS ─────────────────────────────────────────────────────────────────────
 
 function cancelledSms(c: ClosureNoticeContent, offers: readonly ClosureOffer[]): string {
-  const refund = c.refund ? ` ${money(c.refund)} deposit will be refunded.` : "";
+  const refund =
+    c.refund && promisesRefund(c) ? ` ${money(c.refund)} deposit will be refunded.` : "";
   const head = `${c.venueName} is closed ${shortDate(c.closureDate)}. Your ${timeOf(c)} table for ${c.partySize} is cancelled.${refund}`;
   const times = offers.map((o) => `${o.label} ${o.url}`);
   if (times.length === 0) return `${head} Rebook: ${c.manageUrl}`;
@@ -226,9 +231,10 @@ function emailLines(c: ClosureNoticeContent): string[] {
   const message = c.message ? [`<p>${escapeHtml(c.message)}</p>`] : [];
   switch (c.kind) {
     case "cancelled": {
-      const refund = c.refund
-        ? [`<p>Your ${escapeHtml(money(c.refund))} deposit will be refunded.</p>`]
-        : [];
+      const refund =
+        c.refund && promisesRefund(c)
+          ? [`<p>Your ${escapeHtml(money(c.refund))} deposit will be refunded.</p>`]
+          : [];
       const offers = c.offers.map((o) => `<p>${link(o.url, `Rebook ${o.label}`)}</p>`);
       return [
         `<h1>Your reservation is cancelled</h1>`,

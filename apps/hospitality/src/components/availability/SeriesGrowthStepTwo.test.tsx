@@ -143,6 +143,15 @@ describe("SeriesGrowthStepTwo refusals", () => {
     ).toHaveAccessibleDescription(/each group/i);
   });
 
+  it("reloads the bookings after a refused move, so the proposals match what the save will do (#7983)", async () => {
+    create.mockRejectedValue(refusal("move-unavailable", { reservationIds: ["r1"] }));
+    const { dialog, onReload } = renderStep();
+    chooseCancelAndSave(dialog);
+
+    expect(await within(dialog).findByText(/Couldn't move r1/)).toBeTruthy();
+    expect(onReload).toHaveBeenCalledTimes(1);
+  });
+
   it("sends the reservation ids it was given after a reload, never the old ones", async () => {
     create.mockRejectedValueOnce(refusal("decision-required"));
     const { dialog } = renderStep();

@@ -121,6 +121,21 @@ function decisionRequired() {
   );
 }
 
+function moveUnavailable() {
+  return new ApiClientError(
+    {
+      type: "about:blank",
+      title: "Unprocessable Entity",
+      status: 422,
+      detail: "Some bookings have no open time to move to",
+      code: "move-unavailable",
+      reservationIds: ["r2"],
+    } as never,
+    "POST",
+    "tonight"
+  );
+}
+
 function conflict(code: "version-conflict" | "closure-exists", winningChange?: unknown) {
   return new ApiClientError(
     {
@@ -509,6 +524,17 @@ describe("TonightControl", () => {
         await within(step2).findByText(/bookings changed while you were deciding/i)
       ).toBeTruthy();
       expect(refetchImpact).toHaveBeenCalled();
+      expect(within(step2).getByRole("button", { name: "Choose for each group" })).toBeDisabled();
+    });
+
+    it("reloads the bookings after a refused move, so Move cannot be picked again blind (#7983)", async () => {
+      const step2 = await toStep2();
+      refetchImpact.mockClear();
+      setTonight.mockRejectedValueOnce(moveUnavailable());
+      fireEvent.click(within(step2).getByRole("button", { name: "Close and cancel 2" }));
+
+      expect(await within(step2).findByText(/Nothing was saved, no guest was told/)).toBeTruthy();
+      expect(refetchImpact).toHaveBeenCalledTimes(1);
       expect(within(step2).getByRole("button", { name: "Choose for each group" })).toBeDisabled();
     });
 

@@ -6,6 +6,7 @@ import { useClosureImpact } from "../../hooks/useClosures.js";
 import { useRefreshAvailability } from "../../hooks/useRefreshAvailability.js";
 import {
   decisionsReady,
+  withoutChoicesFor,
   isUrgent,
   outcomeCounts,
   stepTwoNote,
@@ -13,6 +14,7 @@ import {
   toDecisions,
   type ChoiceMap,
 } from "./close-draft.js";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { CloseStepTwo } from "./CloseStepTwo.js";
 import { LeaveSaveDialog } from "./LeaveSaveDialog.js";
 import { outcomeLabel, outcomeSummary } from "./outcome-label.js";
@@ -47,6 +49,7 @@ export function TonightDecisionsDialog(props: TonightDecisionsDialogProps) {
   const { venueId, rule, rules, today, closeAt, nowMinute, onConfirm, onClose } = props;
   const { t } = useTranslation();
   const refresh = useRefreshAvailability();
+  const format = useVenueFormat();
   const impactQuery = useClosureImpact({ venueId, rule });
   const impact = impactQuery.data ?? null;
   const groups = impact?.groups ?? [];
@@ -75,7 +78,11 @@ export function TonightDecisionsDialog(props: TonightDecisionsDialogProps) {
       await onConfirm(toDecisions(groups, choices), attempts.ruleId);
     } catch (error) {
       const refused = refusalOf(error);
-      setFailure(refusalText(refused, t));
+      setFailure(refusalText(refused, t, { groups, format }));
+      if (refused.kind === "move-unavailable") {
+        setChoices(withoutChoicesFor(groups, choices, refused.reservationIds));
+        void impactQuery.refetch();
+      }
       if (refused.kind === "groups-changed") {
         // The group changed since the Manager chose: drop the stale choices and load the new one.
         setChoices({});
@@ -181,6 +188,7 @@ export function TonightDecisionsDialog(props: TonightDecisionsDialogProps) {
         {impactQuery.isLoading && <Skeleton variant="text" width="60%" />}
         {impact && (
           <CloseStepTwo
+            venueId={venueId}
             impact={impact}
             choices={choices}
             urgent={isUrgent({ startsOn: today, fromMinute: closeAt }, today, nowMinute)}

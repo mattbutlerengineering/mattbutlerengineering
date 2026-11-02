@@ -275,6 +275,13 @@ function fakeClient(w: World) {
     table: { findMany: vi.fn(async () => [{ id: "t-1" }]) },
     reservation: reservationDelegate(w),
     reservationHold: {
+      // The impact's occupancy read: every unexpired hold on the tables asked about.
+      findMany: vi.fn(
+        async ({ where }: { where: { tableId: { in: string[] }; expiresAt: { gt: Date } } }) =>
+          w.holds
+            .filter((h) => where.tableId.in.includes(h.tableId) && h.expiresAt > where.expiresAt.gt)
+            .map((h, i) => ({ ...h, id: `hold-${i}`, partySize: 2 }))
+      ),
       findFirst: vi.fn(async ({ where }: { where: HoldWhere }) => {
         const hold = w.holds.find(
           (h) =>

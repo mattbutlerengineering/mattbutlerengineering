@@ -449,11 +449,26 @@
         ? ["cancel", "move", "keep_notify", "keep_silent"]
         : ["cancel", "keep_notify", "keep_silent"];
     }
+    export function unmovable(group: ClosureImpactGroup): ClosureImpactReservation[] {
+      return group.reservations.filter((r) => r.proposedStart === null);
+    }
     export function decisionsReady(groups: readonly ClosureImpactGroup[], choices: ChoiceMap): boolean {
       return groups.every((g) => {
         const choice = choices[g.groupKey];
+        if (choice?.action === "move" && unmovable(g).length > 0) return false;
         return choice?.action !== undefined && (choice.action !== "keep_silent" || choice.acknowledged);
       });
+    }
+    export function withoutChoicesFor(
+      groups: readonly ClosureImpactGroup[],
+      choices: ChoiceMap,
+      reservationIds: readonly string[]
+    ): ChoiceMap {
+      const ids = new Set(reservationIds);
+      const dropped = new Set(
+        groups.filter((g) => g.reservations.some((r) => ids.has(r.id))).map((g) => g.groupKey)
+      );
+      return Object.fromEntries(Object.entries(choices).filter(([key]) => !dropped.has(key)));
     }
     export function toDecisions(
       groups: readonly ClosureImpactGroup[],
@@ -3037,6 +3052,11 @@
       | { readonly kind: "groups-changed" }
       /** Someone saved first; `winningChange` is `null` when the server recorded none. */
       | { readonly kind: "version-conflict"; readonly winningChange: AvailabilityChangeSummary | null }
+      /**
+       * "Move" was chosen and some bookings have no open time (or the time was taken since): the server
+       * saved nothing and told no guest. `reservationIds` are the ones it could not move.
+       */
+      | { readonly kind: "move-unavailable"; readonly reservationIds: readonly string[] }
       /** This attempt already committed (a response was lost). */
       | { readonly kind: "closure-exists" }
       /**
@@ -3048,8 +3068,17 @@
           readonly detail: string;
           readonly outcomeUnknown: boolean;
         };
+    function moveUnavailableIds(error: unknown): readonly string[] | null {
+      const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
+      const problem = AvailabilityConfigProblemSchema.safeParse(details);
+      return problem.success && problem.data.code === "move-unavailable"
+        ? (problem.data.reservationIds ?? [])
+        : null;
+    }
     export function refusalOf(error: unknown): Refusal {
       if (isDecisionRequired(error)) return { kind: "groups-changed" };
+      const stuck = moveUnavailableIds(error);
+      if (stuck) return { kind: "move-unavailable", reservationIds: stuck };
       const conflict = conflictOf(error);
       if (conflict?.code === "version-conflict") {
         return { kind: "version-conflict", winningChange: conflict.winningChange };
@@ -3061,8 +3090,50 @@
     export function mayHaveSaved(refusal: Refusal): boolean {
       return refusal.kind === "closure-exists" || (refusal.kind === "other" && refusal.outcomeUnknown);
     }
-    export function refusalText(refusal: Refusal, t: TFunction): string {
+    export interface RefusalContext {
+      readonly groups: readonly ClosureImpactGroup[];
+      readonly format: Pick<VenueFormat, "formatTime" | "formatCalendarDate">;
+    }
+    function moveUnavailableText(
+      ids: readonly string[],
+      t: TFunction,
+      context: RefusalContext | undefined
+    ): string {
+      const known = new Map(
+        (context?.groups ?? []).flatMap((g) => g.reservations.map((r) => [r.id, { g, r }] as const))
+      );
+      const named = ids.flatMap((id) => {
+        const found = known.get(id);
+        if (!found || !context) return [];
+        const { g, r } = found;
+        return [
+          t("availability.close.moveUnavailableBooking", {
+            name: r.guestName ?? t("availability.close.step2.guestUnnamed"),
+            date: context.format.formatCalendarDate(g.date, {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+            }),
+            time: context.format.formatTime(r.startTime),
+          }),
+        ];
+      });
+      const shown = named.slice(0, MOVE_NAMED_MAX);
+      const more = named.length - shown.length;
+      // Bookings no longer in the list cannot be named; say how many rather than naming nobody.
+      const bookings =
+        named.length === 0
+          ? t("availability.close.moveUnavailableCount", { count: ids.length })
+          : [
+              ...shown,
+              ...(more > 0 ? [t("availability.close.moveUnavailableMore", { count: more })] : []),
+            ].join("; ");
+      return t("availability.close.moveUnavailable", { count: Math.max(ids.length, 1), bookings });
+    }
+    export function refusalText(refusal: Refusal, t: TFunction, context?: RefusalContext): string {
       switch (refusal.kind) {
+        case "move-unavailable":
+          return moveUnavailableText(refusal.reservationIds, t, context);
         case "groups-changed":
           return t("availability.close.groupsChanged");
         case "version-conflict":
@@ -8605,6 +8676,15 @@
           ? api.availability.getClosureImpact(params.venueId, params.rule)
           : null,
       getEnabled: (params) => !!params?.venueId && !!params.rule && params.enabled !== false,
+    });
+    export const useClosureNoticePreview = createQueryHook<
+      ClosureNoticePreview | null,
+      { venueId: string; body: ClosureNoticePreviewBody }
+    >({
+      key: "closureNoticePreview",
+      fetcher: async (params, api) =>
+        params ? api.availability.getClosureNoticePreview(params.venueId, params.body) : null,
+      getEnabled: (params) => !!params?.venueId && params.enabled !== false,
     });
     export type PreviewClosureImpactVariables = {
       venueId: string;

@@ -64,6 +64,7 @@ const rows = () => ({
     })),
   },
   table: { findMany: vi.fn(async () => [{ id: "t-1" }]) },
+  reservationHold: { findMany: vi.fn(async () => []) },
   reservation: {
     findMany: vi.fn(async () => [
       {
@@ -145,6 +146,30 @@ describe("getClosureImpact", () => {
     );
   });
 
+  it("reads the bookings and unexpired holds on the affected tables, for the move check", async () => {
+    const { client, tx } = fakeClient(rows());
+
+    await getClosureImpact("venue-1", closure(), NOW, client);
+
+    expect(tx.reservationHold.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          venueId: "venue-1",
+          tableId: { in: ["t-1"] },
+          expiresAt: { gt: NOW },
+        }),
+      })
+    );
+    expect(tx.reservation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tableId: { in: ["t-1"] },
+          status: { notIn: ["CANCELLED", "NO_SHOW"] },
+        }),
+      })
+    );
+  });
+
   it("counts a captured deposit with a payment intent: a cancel owes the guest its refund", async () => {
     const { client, tx } = fakeClient(rows());
     const base = (await tx.reservation.findMany())[0]!;
@@ -202,6 +227,44 @@ describe("getClosureImpact", () => {
       "res-pending-no-pi": null,
       "res-held": { amountCents: 4000, currency: "usd" },
     });
+  });
+
+  // #8130 reads `originHost` and the table ids off the same row, and `withProposedStarts` spreads
+  // each reservation: the deposit estimate must survive both.
+  it("keeps the deposit estimate beside the booking's origin host and proposed start", async () => {
+    const { client, tx } = fakeClient(rows());
+    const base = (await tx.reservation.findMany())[0]!;
+    tx.reservation.findMany.mockResolvedValueOnce([
+      {
+        ...base,
+        id: "res-host",
+        originHost: "eat-sheet.com",
+        deposit: {
+          amountCents: 4000,
+          currency: "usd",
+          status: "applied",
+          stripePaymentIntentId: "pi_1",
+          refundAmountCents: null,
+          postCaptureRefundCents: 1500,
+        },
+      },
+    ] as never);
+
+    const outcome = await getClosureImpact(
+      "venue-1",
+      closure({ window: { version: 1, from: 0, to: 1440 } } as never),
+      NOW,
+      client
+    );
+
+    const reservation =
+      outcome.kind === "ok" ? outcome.impact.groups[0]?.reservations[0] : undefined;
+    expect(reservation).toMatchObject({
+      id: "res-host",
+      originHost: "eat-sheet.com",
+      deposit: { amountCents: 2500, currency: "usd" },
+    });
+    expect(reservation).toHaveProperty("proposedStart");
   });
 
   it("scans from yesterday's service day when the closure starts in the past", async () => {
