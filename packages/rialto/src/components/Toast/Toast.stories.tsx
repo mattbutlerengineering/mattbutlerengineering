@@ -44,8 +44,7 @@ export const Success: Story = {
     const canvas = within(canvasElement);
     const button = canvas.getByRole("button", { name: "Show Success Toast" });
     await userEvent.click(button);
-    // Toasts render in a portal outside the canvas, so query the whole document.
-    await expect(await within(document.body).findByText("Success!")).toBeInTheDocument();
+    await expect(await canvas.findByText("Success!")).toBeInTheDocument();
   },
 };
 

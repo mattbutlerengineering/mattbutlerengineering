@@ -248,6 +248,7 @@
         "lib/issue-filing.mjs",
         "lib/nightly-compliance-signature.mjs",
         "lib/nightly-compliance-sweep.mjs",
+        "lib/storybook-gate-reporter.mjs",
         "load-test-summary.mjs",
         "log-agent-cost.js",
         "main-strictness.mjs",

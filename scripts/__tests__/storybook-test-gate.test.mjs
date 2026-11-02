@@ -16,9 +16,14 @@ import { fileURLToPath } from "node:url";
 
 import {
   evaluateStorybookReport,
+  findUnrunSuites,
   REQUIRED_STORY_FILES,
   summarizeVitestJson,
 } from "../storybook-test-gate.mjs";
+import UnhandledErrorsReporter from "../lib/storybook-gate-reporter.mjs";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "../..");
@@ -116,6 +121,93 @@ describe("summarizeVitestJson", () => {
   });
 });
 
+const FIXTURES = resolve(__dirname, "fixtures/storybook-gate");
+const realQuarantine = JSON.parse(
+  readFileSync(resolve(ROOT, "packages/rialto/storybook-quarantine.json"), "utf8")
+);
+const fixture = (name) => JSON.parse(readFileSync(resolve(FIXTURES, name), "utf8"));
+
+/** The verdict the gate reaches for a real vitest json report. */
+function verdictFor(report, extras = {}) {
+  return evaluateStorybookReport(summarizeVitestJson(report), realQuarantine, {
+    unrunSuites: findUnrunSuites(report),
+    ...extras,
+  });
+}
+
+// Fixtures are trimmed real vitest json reports, produced by mutating a story
+// file in a clone: a module-level throw in Tag.stories.tsx, and a play function
+// that navigates window.top and kills the runner.
+describe("gate fails closed on runs that look green", () => {
+  it("fails when a story file does not collect (module-level throw)", () => {
+    const report = fixture("report-throw-toplevel.json");
+    const tag = report.testResults.find((s) => s.name.endsWith("Tag/Tag.stories.tsx"));
+    expect(tag.status).toBe("failed");
+    expect(tag.assertionResults).toEqual([]);
+    const verdict = verdictFor(report);
+    expect(verdict.ok).toBe(false);
+    expect(verdict.problems.join("\n")).toContain("src/components/Tag/Tag.stories.tsx");
+  });
+
+  it("fails when a story never ran to completion (runner killed, row pending)", () => {
+    const report = fixture("report-kill.json");
+    const rows = summarizeVitestJson(report);
+    expect(rows.find((r) => r.title === "Kills").status).toBe("pending");
+    const verdict = verdictFor(report);
+    expect(verdict.ok).toBe(false);
+    expect(verdict.problems.join("\n")).toContain("ZReview.stories.tsx > Kills");
+  });
+
+  it("fails on an unhandled error even when every story row looks fine", () => {
+    const verdict = verdictFor(fixture("report-throw-toplevel.json"), {
+      unrunSuites: [],
+      unhandledErrors: [{ name: "Error", message: "review-unhandled" }],
+    });
+    expect(verdict.ok).toBe(false);
+    expect(verdict.problems.join("\n")).toContain("review-unhandled");
+  });
+
+  it("fails when vitest did not report a clean finish", () => {
+    const verdict = verdictFor(fixture("report-throw-toplevel.json"), {
+      unrunSuites: [],
+      reason: "interrupted",
+    });
+    expect(verdict.ok).toBe(false);
+    expect(verdict.problems.join("\n")).toContain("interrupted");
+  });
+});
+
+describe("storybook-gate-reporter", () => {
+  it("writes the unhandled errors and the run reason where the gate reads them", () => {
+    const file = join(mkdtempSync(join(tmpdir(), "gate-reporter-")), "run.json");
+    process.env.STORYBOOK_GATE_RUN_FILE = file;
+    try {
+      new UnhandledErrorsReporter().onTestRunEnd(
+        [],
+        [{ name: "Error", message: "boom", stack: "x" }],
+        "passed"
+      );
+    } finally {
+      delete process.env.STORYBOOK_GATE_RUN_FILE;
+    }
+    expect(JSON.parse(readFileSync(file, "utf8"))).toEqual({
+      reason: "passed",
+      unhandledErrors: [{ name: "Error", message: "boom" }],
+    });
+  });
+});
+
+describe("turbo cache inputs", () => {
+  it("hash the quarantine file the scripts suite reads, for test and test:coverage", () => {
+    const turbo = JSON.parse(readFileSync(resolve(ROOT, "scripts/turbo.json"), "utf8"));
+    for (const task of ["test", "test:coverage"]) {
+      expect(turbo.tasks[task].inputs).toContain(
+        "$TURBO_ROOT$/packages/rialto/storybook-quarantine.json"
+      );
+    }
+  });
+});
+
 describe("quarantine list", () => {
   const list = JSON.parse(readFileSync(resolve(ROOT, "packages/rialto/storybook-quarantine.json")));
 
@@ -153,7 +245,11 @@ describe("rialto-visual.yml — storybook-tests job", () => {
     for (const path of [
       "packages/rialto/vitest.config.storybook.ts",
       "packages/rialto/storybook-quarantine.json",
+      "packages/rialto/package.json",
+      "pnpm-lock.yaml",
+      ".github/workflows/rialto-visual.yml",
       "scripts/storybook-test-gate.mjs",
+      "scripts/lib/storybook-gate-reporter.mjs",
     ]) {
       expect(triggers.split(path).length - 1, `${path} in push+pull_request paths`).toBe(2);
     }

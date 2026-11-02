@@ -11,6 +11,10 @@ on:
       - "packages/rialto/vitest.config.storybook.ts"
       - "packages/rialto/storybook-quarantine.json"
       - "scripts/storybook-test-gate.mjs"
+      - "scripts/lib/storybook-gate-reporter.mjs"
+      - "packages/rialto/package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/rialto-visual.yml"
   pull_request:
     paths:
       - "packages/rialto/src/**"
@@ -20,6 +24,10 @@ on:
       - "packages/rialto/vitest.config.storybook.ts"
       - "packages/rialto/storybook-quarantine.json"
       - "scripts/storybook-test-gate.mjs"
+      - "scripts/lib/storybook-gate-reporter.mjs"
+      - "packages/rialto/package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/rialto-visual.yml"
 
 permissions:
   contents: read
