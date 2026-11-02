@@ -10,6 +10,7 @@ import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import { minutesOfDayIn, venueDate } from "../../utils/service-day.js";
 import { isPauseInForce } from "./close-draft.js";
+import { clockHour } from "./clock-hour.js";
 import { minuteText } from "./closure-band.js";
 import { conflictOf } from "./conflict-problem.js";
 import { onlineSeatingLeft } from "./online-seatings.js";
@@ -103,7 +104,7 @@ export function OnlinePausedBanner({ venueId, state, rule, canResume }: OnlinePa
             onlineSeatingLeft(state.config, timeZone, today, minute)
               ? "availability.paused.waiting"
               : "availability.paused.waitingNoneToday",
-            { time: minuteText(waitingFrom, t, format) }
+            { time: minuteText(waitingFrom, t, format), count: clockHour(waitingFrom) }
           )
         : t("availability.paused.banner")}
     </Banner>

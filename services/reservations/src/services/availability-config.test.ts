@@ -287,6 +287,41 @@ describe("saveAvailabilityConfig", () => {
     });
   });
 
+  it("hands the winner's code and data to the client, and omits them for a row without any", async () => {
+    const detail = { code: "config_saved", added: 1, changed: 0, removed: 0 };
+    const at = new Date("2026-10-25T18:42:00.000Z");
+    const row = (id: string, summaryDetail: unknown) => ({
+      id,
+      actorId: "auth0|ana",
+      at,
+      kind: "config",
+      summary: "Availability updated: 1 added, 0 changed, 0 removed",
+      summaryDetail,
+    });
+    const client = fakeClient({
+      venue: {
+        updateMany: vi.fn(async () => ({ count: 0 })),
+        findUnique: vi.fn(async () => ({ id: "venue-1", availabilityVersion: 6 })),
+      },
+      availabilityChange: {
+        findMany: vi.fn(async () => [row("B", detail), row("A", null), row("C", { junk: 1 })]),
+        findFirst: vi.fn(),
+      },
+    });
+
+    const outcome = await saveAvailabilityConfig(
+      { venueId: "venue-1", actorId: "auth0|ben", body: body({}, 3), now: NOW },
+      client
+    );
+
+    const changes = (outcome as { changesSince: { changes: Record<string, unknown>[] } })
+      .changesSince.changes;
+    expect(changes[0]).toMatchObject({ id: "B", detail });
+    expect(changes[1]).not.toHaveProperty("detail");
+    expect(changes[2]).not.toHaveProperty("detail");
+    expect(changes[0]).not.toHaveProperty("summaryDetail");
+  });
+
   it("names every change since the draft's version, newest first (draft on v4, A makes v5, B makes v6)", async () => {
     const row = (id: string, version: number, minute: number) => ({
       id,
@@ -459,6 +494,20 @@ describe("saveAvailabilityConfig", () => {
     expect(tx.availabilityChange.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ version: 4 }) })
     );
+  });
+
+  it("records the change's stable code and data beside its English summary", async () => {
+    const tx = savingTx();
+    await saveAvailabilityConfig(
+      { venueId: "venue-1", actorId: "auth0|ben", body: WHOLE_WEEK, now: NOW },
+      fakeClient(tx)
+    );
+    const data = (tx.availabilityChange.create.mock.calls[0] as unknown as [{ data: unknown }])[0]
+      .data;
+    expect(data).toMatchObject({
+      summary: expect.stringMatching(/^Availability updated: \d+ added, \d+ changed, \d+ removed$/),
+      summaryDetail: { code: "config_saved", added: expect.any(Number) },
+    });
   });
 
   it("commits rows, the audit row and the legacy projection together", async () => {

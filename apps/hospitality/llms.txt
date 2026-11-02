@@ -100,6 +100,42 @@
       export function shiftAnchor(view: CalendarView, anchor: string, direction: 1 | -1): string { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/change-summary-text.ts">
+    <item priority="high">
+      type Change = Parameters<typeof describeChange>[0];
+    </item>
+    <item priority="medium">
+      function tonightText(detail: AvailabilityChangeDetail, t: TFunction): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closureText(
+        detail: AvailabilityChangeDetail,
+        format: VenueFormat,
+        t: TFunction
+      ): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function detailText(
+        detail: AvailabilityChangeDetail,
+        format: VenueFormat,
+        t: TFunction
+      ): string | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function changeSummaryText(change: Change, format: VenueFormat, t: TFunction): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/clock-hour.ts">
+    <item priority="high">
+      export function clockHour(minute: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function clockHourOfInstant(
+        at: string | number | Date,
+        format: Pick<VenueFormat, "formatInstant">
+      ): number { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/clock-minutes.ts">
     <item priority="high">
       export function toClock(minute: number): string { /* ... */ }
@@ -310,6 +346,9 @@
     </item>
     <item priority="high">
       export function minuteText(minute: number, t: TFunction, format: VenueFormat): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closureEndText(minute: number, t: TFunction, format: VenueFormat): string { /* ... */ }
     </item>
     <item priority="high">
       export function isWholeDay(closure: Pick<Closure, "from" | "to">): boolean { /* ... */ }
@@ -528,20 +567,25 @@
     </item>
   </file>
   <file path="src/components/availability/describe-change.ts">
-    <item priority="medium">
-      function whenOf(
+    <item priority="high">
+      export function whenOf(
         from: string | null | undefined,
         to: string | null | undefined,
         format: VenueFormat,
         t: TFunction
       ): string | null { /* ... */ }
     </item>
-    <item priority="medium">
-      function outcomeText(outcome: AvailabilityChangeOutcome, format: VenueFormat, t: TFunction) { /* ... */ }
+    <item priority="high">
+      export function outcomeText(
+        outcome: Pick<AvailabilityChangeOutcome, "cancelled" | "moved" | "kept">,
+        format: VenueFormat,
+        t: TFunction
+      ) { /* ... */ }
     </item>
     <item priority="high">
       export function describeChange(
-        entry: AvailabilityChangeEntry,
+        entry: AvailabilityChangeSummary &
+          Partial<Pick<AvailabilityChangeEntry, "outcome" | "affectedFrom" | "affectedTo">>,
         format: VenueFormat,
         t: TFunction
       ): string | null { /* ... */ }
@@ -645,9 +689,6 @@
     </item>
   </file>
   <file path="src/components/availability/layer-text.ts">
-    <item priority="medium">
-      function clockText(minute: number, format: VenueFormat): string { /* ... */ }
-    </item>
     <item priority="medium">
       function upperFirst(text: string, locale: string): string { /* ... */ }
     </item>
@@ -1365,7 +1406,7 @@
     <item priority="low">
       interface RefusalContext {
         groups: readonly ClosureImpactGroup[];
-        format: Pick<VenueFormat, "formatTime" | "formatCalendarDate">;
+        format: Pick<VenueFormat, "formatTime" | "formatCalendarDate" | "...;
       }
     </item>
     <item priority="medium">
@@ -1558,6 +1599,12 @@
     </item>
   </file>
   <file path="src/components/availability/use-winning-change-text.ts">
+    <item priority="high">
+      type ChangeSummaryText = typeof changeSummaryText;
+    </item>
+    <item priority="medium">
+      function useChangeSummaryText(coded: boolean): ChangeSummaryText | null { /* ... */ }
+    </item>
     <item priority="high">
       export function useWinningChangeText(winningChange: AvailabilityChangeSummary | null): string { /* ... */ }
     </item>

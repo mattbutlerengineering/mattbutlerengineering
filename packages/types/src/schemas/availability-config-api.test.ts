@@ -449,3 +449,40 @@ describe("AvailabilityConfigProblemSchema: changesSince", () => {
     ).toBe(false);
   });
 });
+
+describe("AvailabilityChangeSummarySchema.detail", () => {
+  const base = {
+    id: "chg-1",
+    actorId: "auth0|ana",
+    at: "2026-10-25T18:00:00.000Z",
+    kind: "config",
+    summary: "Availability updated: 1 added, 0 changed, 0 removed",
+  };
+  const parse = (detail?: unknown) =>
+    AvailabilityConfigProblemSchema.parse({
+      type: "about:blank",
+      title: "Conflict",
+      status: 409,
+      detail: "d",
+      code: "version-conflict",
+      winningChange: { ...base, ...(detail === undefined ? {} : { detail }) },
+    }).winningChange;
+
+  it("keeps the stable code and its data beside the English summary", () => {
+    expect(parse({ code: "config_saved", added: 1, changed: 0, removed: 0 })?.detail).toEqual({
+      code: "config_saved",
+      added: 1,
+      changed: 0,
+      removed: 0,
+    });
+  });
+
+  it("accepts a row with no detail, and a code from a newer server", () => {
+    expect(parse()?.detail).toBeUndefined();
+    expect(parse({ code: "from_the_future" })?.detail?.code).toBe("from_the_future");
+  });
+
+  it("accepts a null detail, as a row stored before codes has", () => {
+    expect(parse(null)?.detail).toBeNull();
+  });
+});

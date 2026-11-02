@@ -5,6 +5,7 @@ import type { Seating, VenueService } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { closeFromClock, lastSeatingFromClock, openFromClock, toClock } from "./clock-minutes.js";
 import type { DraftService } from "./draft-changes.js";
+import { clockHour } from "./clock-hour.js";
 import { minuteText } from "./closure-band.js";
 import styles from "./ServicesEditor.module.css";
 
@@ -109,10 +110,12 @@ function ServiceRow(props: {
           {date
             ? t("availability.editor.overnight", {
                 time: minuteText(service.closesAt % MINUTES_PER_DAY, t, format),
+                count: clockHour(service.closesAt),
                 weekday: format.formatCalendarDate(addDays(date, 1), { weekday: "long" }),
               })
             : t("availability.editor.overnightNextDay", {
                 time: minuteText(service.closesAt % MINUTES_PER_DAY, t, format),
+                count: clockHour(service.closesAt),
               })}
         </Text>
       )}

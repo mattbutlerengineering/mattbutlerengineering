@@ -689,12 +689,38 @@
       version: z.number().int(),
       changeId: z.string(),
     });
+    export const AvailabilityChangeDetailSchema = z.object({
+      code: z.string(),
+      /** The change undid the one the code names (`Reverted: …`). */
+      reverted: z.boolean().optional(),
+      /** `config_saved`: rows added, changed and removed. */
+      added: z.number().int().optional(),
+      changed: z.number().int().optional(),
+      removed: z.number().int().optional(),
+      /** `closure_saved`, `close_early_saved`, `closure_reopened`: the rule's first and last day. */
+      startsOn: ServiceDateSchema.optional(),
+      endsOn: ServiceDateSchema.nullish(),
+      /** `closure_saved`, `close_early_saved`: what happened to the bookings it touched. */
+      cancelled: z.number().int().optional(),
+      moved: z.number().int().optional(),
+      kept: z.number().int().optional(),
+      /** `tonight_block_tables`: how many tables. */
+      tables: z.number().int().optional(),
+      /** `tonight_pacing`: the cover limit. */
+      covers: z.number().int().optional(),
+    });
     export const AvailabilityChangeSummarySchema = z.object({
       id: z.string(),
       actorId: z.string(),
       at: z.string(),
       kind: z.string(),
+      /** English, kept for older clients and for rows stored before `detail`. */
       summary: z.string(),
+      /**
+       * The same change as a stable code plus data, for a client to word in its own language. Absent
+       * or `null` on older servers and on rows stored before it; the client then shows `summary`.
+       */
+      detail: AvailabilityChangeDetailSchema.nullish(),
     });
     export const CONFLICT_CHANGES_MAX = 10;
     export const ConflictChangesSinceSchema = z.object({
@@ -1030,6 +1056,7 @@
     export type AvailabilityConfigState = z.infer<typeof AvailabilityConfigStateSchema>;
     export type AvailabilityConfigSaveResult = z.infer<typeof AvailabilityConfigSaveResultSchema>;
     export type AvailabilityChangeSummary = z.infer<typeof AvailabilityChangeSummarySchema>;
+    export type AvailabilityChangeDetail = z.infer<typeof AvailabilityChangeDetailSchema>;
     export type ConflictChangesSince = z.infer<typeof ConflictChangesSinceSchema>;
     export type AvailabilityChangeOutcome = z.infer<typeof AvailabilityChangeOutcomeSchema>;
     export type AvailabilityChangeEntry = z.infer<typeof AvailabilityChangeEntrySchema>;

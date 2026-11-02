@@ -22,6 +22,7 @@ import { carryOutcomes, type CarriedOutcomes } from "./closure-carry-outcomes.js
 import { findStrandedReservations } from "./availability-config-checks.js";
 import {
   conflictIssue,
+  detailData,
   futureBookings,
   loadConfigState,
   refuseSeriesChanged,
@@ -30,6 +31,7 @@ import {
   type ConfigState,
   type StoreDb,
 } from "./availability-config.js";
+import { closureDetail, reopenedDetail } from "./availability-change-detail.js";
 import { ConfigRowConflict, writeConfigDiff } from "./availability-config-rows.js";
 import { civilDateIn } from "./availability-migration.js";
 import { applyTransitions } from "./closure-apply.js";
@@ -499,6 +501,7 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
       at: now,
       kind: "closure",
       summary: describe(rule, plan.counts),
+      ...detailData(closureDetail(rule, plan.counts)),
       affectedFrom: toDbDate(range.from),
       affectedTo: toDbDate(range.to),
       inverse: inverse as unknown as Prisma.InputJsonValue,
@@ -776,6 +779,7 @@ export async function reopenClosure(
           at: now,
           kind: "reopen",
           summary: `Closure reopened (${rule.startsOn})`,
+          ...detailData(reopenedDetail(rule)),
           affectedFrom: toDbDate(range.from),
           affectedTo: toDbDate(range.to),
           inverse: inverseOf(
