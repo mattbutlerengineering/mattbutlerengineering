@@ -275,6 +275,7 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
             scopeConflicts={dates.length > 1 ? conflictMode : "replace"}
             dates={dates}
             baseVersion={review.baselineVersion}
+            idle={block === "conflict" ? "conflict" : dirty ? "fields" : "untouched"}
           />
         </Stack>
       </Drawer>

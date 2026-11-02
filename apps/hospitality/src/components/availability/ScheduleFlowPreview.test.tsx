@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState, PreviewResult } from "@mbe/types";
@@ -215,7 +215,8 @@ describe("the schedule editor previews before saving (F3.2)", () => {
     expect(
       await screen.findByText("1 booking would fall outside these hours", {}, WAIT)
     ).toBeInTheDocument();
-    expect(lastBody().scope.length).toBeGreaterThan(30);
+    // Every booking from today on: the save refuses on all of them, not only the week's dates.
+    expect(lastBody().scope).toEqual({ from: "2026-10-25" });
     expect(screen.getByText(/party of 4/)).toBeInTheDocument();
   });
 });
@@ -230,7 +231,7 @@ describe("Compare services previews before saving (F-X.3)", () => {
       await screen.findByText("1 booking would fall outside these hours", {}, WAIT)
     ).toBeInTheDocument();
     expect(lastBody().draft.changes.upsert.scheduleServices).toHaveLength(1);
-    expect(lastBody().scope.length).toBeGreaterThan(0);
+    expect(lastBody().scope).toEqual({ from: "2026-10-25" });
   });
 });
 
@@ -256,5 +257,207 @@ describe("Use schedule previews before saving (F-MS)", () => {
     ).toBeInTheDocument();
     await waitFor(() => expect(lastBody().scope).toEqual(["2026-11-02", "2026-11-09"]), WAIT);
     expect(lastBody().draft.scopeConflicts).toBe("replace");
+  });
+});
+
+/** The regular week plus a schedule only a use_schedule rule reaches, and a rule on a Monday. */
+const withRules = (): AvailabilityConfigState => {
+  const base = stateOf();
+  const dinner = base.config.scheduleServices[0]!;
+  return {
+    ...base,
+    config: {
+      ...base.config,
+      schedules: [
+        ...base.config.schedules,
+        { id: "ruleonly", name: "Rule only", kind: "alternate", isRegular: false },
+        { id: "unused", name: "Unused", kind: "alternate", isRegular: false },
+      ],
+      scheduleServices: [
+        ...base.config.scheduleServices,
+        { ...dinner, id: "ss-ruleonly", scheduleId: "ruleonly" },
+        { ...dinner, id: "ss-unused", scheduleId: "unused" },
+      ],
+      dateRules: [
+        {
+          id: "rule-mon",
+          kind: "use_schedule",
+          targetKind: "venue",
+          startsOn: "2026-10-26",
+          endsOn: "2026-10-26",
+          useScheduleId: "regular",
+        },
+        {
+          id: "rule-only",
+          kind: "use_schedule",
+          targetKind: "venue",
+          startsOn: "2026-10-30",
+          endsOn: "2026-10-30",
+          useScheduleId: "ruleonly",
+        },
+      ],
+    },
+  };
+};
+
+describe("dates that reach a schedule through a use_schedule rule (#7982 review)", () => {
+  const editor = (scheduleId: string) =>
+    render(
+      withClient(
+        <ScheduleEditorDrawer
+          {...common}
+          state={withRules()}
+          mode="edit"
+          sourceScheduleId={scheduleId}
+          onStale={vi.fn()}
+          onClose={vi.fn()}
+        />
+      )
+    );
+
+  it("checks bookings from today on for a schedule edit, as the save does, and starts the strip on the rule's date", async () => {
+    editor("regular");
+    fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+    expect(
+      await screen.findByText("1 booking would fall outside these hours", {}, WAIT)
+    ).toBeInTheDocument();
+    expect(lastBody().scope).toEqual({ from: "2026-10-25" });
+    // Monday Oct 26 is only on the schedule through the rule, and it is the first date in reach.
+    expect(lastBody().focusDate).toBe("2026-10-26");
+  });
+
+  it("previews a schedule that only a use_schedule rule uses", async () => {
+    editor("ruleonly");
+    fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Rule only 2" } });
+    expect(
+      await screen.findByText("1 booking would fall outside these hours", {}, WAIT)
+    ).toBeInTheDocument();
+    expect(lastBody().focusDate).toBe("2026-10-30");
+  });
+
+  it("checks Compare's edits from today on too", async () => {
+    render(withClient(<CompareServices {...common} onStale={vi.fn()} state={twoSchedules()} />));
+    fireEvent.click(screen.getByRole("combobox", { name: "Weeknight · Booking" }));
+    fireEvent.click(screen.getByRole("option", { name: "Phone only" }));
+    await screen.findByText("1 booking would fall outside these hours", {}, WAIT);
+    expect(lastBody().scope).toEqual({ from: "2026-10-25" });
+  });
+});
+
+describe("what the preview says when it has nothing to show (#7982 review)", () => {
+  it("says the dates are missing, not that nothing changed, for a schedule nothing uses", async () => {
+    render(
+      withClient(
+        <ScheduleEditorDrawer
+          {...common}
+          state={withRules()}
+          mode="edit"
+          sourceScheduleId="unused"
+          onStale={vi.fn()}
+          onClose={vi.fn()}
+        />
+      )
+    );
+    fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Quiet" } });
+    expect(await screen.findByText(/No dates use this yet/)).toBeInTheDocument();
+    expect(screen.queryByText(/Make a change to see/)).not.toBeInTheDocument();
+  });
+
+  it("asks for the missing fields, and keeps the party the Manager picked when one is blanked", async () => {
+    render(
+      withClient(
+        <ChangeRegularWeekDrawer
+          venueId="venue-1"
+          state={stateOf()}
+          today="2026-10-25"
+          onStale={vi.fn()}
+          onClose={vi.fn()}
+        />
+      )
+    );
+    fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-03" } });
+    fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Winter" } });
+    await screen.findByText("Guest preview", {}, WAIT);
+    fireEvent.click(screen.getByRole("combobox", { name: "Party" }));
+    fireEvent.click(screen.getByRole("option", { name: "4" }));
+    await waitFor(() => expect(lastBody().partySize).toBe(4), WAIT);
+
+    fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "" } });
+    expect(await screen.findByText(/Fill in the required fields/)).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Party" })).toHaveTextContent("4");
+    previewConfig.mockClear();
+    fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Winter" } });
+    await waitFor(() => expect(lastBody()).toBeDefined(), WAIT);
+    expect(lastBody().partySize).toBe(4);
+  });
+});
+
+describe("Compare's Save (#7982 review)", () => {
+  it("sits above the preview, so it does not move as the preview loads", async () => {
+    render(withClient(<CompareServices {...common} onStale={vi.fn()} state={twoSchedules()} />));
+    fireEvent.click(screen.getByRole("combobox", { name: "Weeknight · Booking" }));
+    fireEvent.click(screen.getByRole("option", { name: "Phone only" }));
+    const saveButton = screen.getByRole("button", { name: "Save 1 schedule" });
+    const preview = await screen.findByText("Guest preview");
+    expect(
+      saveButton.compareDocumentPosition(preview) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+});
+
+describe("Retry in Use schedule (#7982 review)", () => {
+  it("keeps focus on Retry while it retries, and after it fails again", async () => {
+    previewConfig.mockRejectedValue(new Error("boom"));
+    render(
+      withClient(
+        <UseScheduleDialog
+          open
+          venueId="venue-1"
+          state={twoSchedules()}
+          timezone="America/Los_Angeles"
+          dates={["2026-11-02", "2026-11-09"]}
+          onClose={vi.fn()}
+          onFinished={vi.fn()}
+          onStale={vi.fn()}
+        />
+      )
+    );
+    const retry = await screen.findByRole("button", { name: "Retry" }, WAIT);
+    retry.focus();
+    let fail: (e: Error) => void = () => {};
+    previewConfig.mockImplementationOnce(
+      () => new Promise((_, reject) => (fail = reject as (e: Error) => void))
+    );
+    fireEvent.click(retry);
+    await waitFor(() => expect(previewConfig).toHaveBeenCalledTimes(2));
+    expect(retry).toBeInTheDocument();
+    expect(document.activeElement).toBe(retry);
+    await act(async () => fail(new Error("boom again")));
+    const again = await screen.findByRole("button", { name: "Retry" });
+    expect(document.activeElement).toBe(again);
+  });
+});
+
+describe("Use schedule has no review step, so it does not promise one (#7982 review)", () => {
+  it("says the hours moved on without saying Save will ask for a review", async () => {
+    previewConfig.mockResolvedValue(result({ version: 9 }));
+    render(
+      withClient(
+        <UseScheduleDialog
+          open
+          venueId="venue-1"
+          state={twoSchedules()}
+          timezone="America/Los_Angeles"
+          dates={["2026-11-02", "2026-11-09"]}
+          onClose={vi.fn()}
+          onFinished={vi.fn()}
+          onStale={vi.fn()}
+        />
+      )
+    );
+    expect(
+      await screen.findByText(/hours changed since you started/i, {}, WAIT)
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/ask you to review/i)).not.toBeInTheDocument();
   });
 });

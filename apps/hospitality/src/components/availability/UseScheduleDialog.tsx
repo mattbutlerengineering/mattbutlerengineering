@@ -146,6 +146,8 @@ export function UseScheduleDialog(props: UseScheduleDialogProps) {
           scopeConflicts="replace"
           dates={dates}
           baseVersion={state.version}
+          idle={ready ? "untouched" : "fields"}
+          reviewOnSave={false}
         />
       </Stack>
     </Dialog>

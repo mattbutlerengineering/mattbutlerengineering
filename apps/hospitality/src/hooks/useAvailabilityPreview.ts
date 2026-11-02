@@ -22,11 +22,17 @@ export interface AvailabilityPreviewState {
  */
 export function useAvailabilityPreview(
   venueId: string,
-  body: PreviewAvailabilityBody | null
+  body: PreviewAvailabilityBody | null,
+  /**
+   * The config version the draft is built on. It is part of the request's identity: the same body
+   * over a different base is a different question, so a reload that moves the base asks again
+   * rather than replaying an answer cached for the old one.
+   */
+  baseVersion?: number
 ): AvailabilityPreviewState {
   const api = useApiClient();
   const query = useQuery({
-    queryKey: [AVAILABILITY_PREVIEW_QUERY_KEY, venueId, body],
+    queryKey: [AVAILABILITY_PREVIEW_QUERY_KEY, venueId, body, baseVersion],
     queryFn: () => api.availability.previewConfig(venueId, body as PreviewAvailabilityBody),
     enabled: body !== null,
     retry: false,
@@ -35,10 +41,23 @@ export function useAvailabilityPreview(
   // Adjusting state during render (not in an effect) so the kept result is never a frame behind.
   if (query.data && query.data !== lastGood) setLastGood(query.data);
 
+  // A first request that failed has no data, so retrying it clears the error (react-query resets
+  // a query with no data to "pending"). Keep the error up while the same request is retried, so
+  // the Retry button that asked for it is not unmounted from under the Manager's focus.
+  const requestKey = JSON.stringify([venueId, body, baseVersion]);
+  const [failed, setFailed] = useState<{ key: string; error: Error } | null>(null);
+  if (query.error && failed?.error !== query.error) {
+    setFailed({ key: requestKey, error: query.error });
+  } else if (!query.error && !query.isFetching && failed) {
+    setFailed(null);
+  }
+  const retryingError =
+    !query.error && query.isFetching && failed?.key === requestKey ? failed.error : null;
+
   return {
     result: query.data ?? lastGood,
     isFetching: query.isFetching,
-    error: query.error ?? null,
+    error: query.error ?? retryingError,
     retry: () => void query.refetch(),
   };
 }

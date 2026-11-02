@@ -608,3 +608,87 @@ test.describe("axe and small print", () => {
     await expect(main).toContainText("Fermé");
   });
 });
+
+// #7982: the guest preview inside the Use schedule dialog must fit a phone, in the language that
+// runs longest, with the date arrows on one row and a long stranded list under them.
+test.describe("375 px: Use schedule's preview fits", () => {
+  const CASES = [
+    { locale: "en-US", next: "Next", use: "Use schedule", compare: "Regular week" },
+    { locale: "fr-CA", next: "Suivant", use: "Utiliser un horaire", compare: "Semaine habituelle" },
+  ];
+  for (const { locale, next, use, compare } of CASES) {
+    test(`the dialog and its preview in ${locale}`, async ({ mockedPage: page }) => {
+      await mockAvailability(page);
+      await mockTwoSchedules(page);
+      const day = new Date(Date.now() + 40 * 86_400_000).toISOString().slice(0, 10);
+      await page.route("**/availability/preview*", (route) =>
+        route.fulfill(
+          json({
+            version: 7,
+            days: [{ serviceDate: day, added: [], removed: [1350] }],
+            focusDay: {
+              serviceDate: day,
+              label: "Special hours",
+              scheduleId: null,
+              closures: [],
+              bookingOpen: { online: true, phone: true, waitlist: false },
+              serviceCount: 1,
+              services: [
+                {
+                  venueServiceId: "vs-dinner",
+                  name: "Dinner",
+                  opensAt: 1020,
+                  lastSeatingAt: 1260,
+                  closesAt: 1380,
+                },
+              ],
+            },
+            stranded: {
+              total: 120,
+              offset: 0,
+              items: Array.from({ length: 50 }, (_, i) => ({
+                id: `res-${i}`,
+                startTime: `${day}T05:30:00.000Z`,
+                partySize: 4,
+                reason: "outside_service",
+              })),
+            },
+          })
+        )
+      );
+      await setLocale(page, locale);
+      await openNextMonth(page, PHONE, next);
+      const cells = page.locator("[data-date]");
+      await cells.nth(3).click({ modifiers: ["ControlOrMeta"] });
+      await cells.nth(4).click({ modifiers: ["ControlOrMeta"] });
+      await page.getByRole("button", { name: use }).click();
+
+      const dialog = page.getByRole("dialog");
+      await expect(dialog.getByRole("button", { name: /Retry|Réessayer/ })).toHaveCount(0);
+      await expect(dialog.getByText(compare).first()).toBeVisible();
+      await expect(
+        dialog.getByRole("button", { name: /^(Previous date|Date précédente)/ })
+      ).toBeVisible();
+
+      // Nothing inside the dialog is wider than the box that holds it.
+      const wide = await dialog.evaluate((root) =>
+        [root, ...Array.from(root.querySelectorAll<HTMLElement>("*"))]
+          .filter((n) => n.clientWidth > 0 && n.scrollWidth > n.clientWidth + 1)
+          .map(
+            (n) =>
+              `${n.tagName}.${String(n.className).slice(0, 30)} ${n.scrollWidth}>${n.clientWidth}`
+          )
+      );
+      expect(wide).toEqual([]);
+
+      // The two date arrows share a row with the dates between them.
+      const prev = await dialog
+        .getByRole("button", { name: /^(Previous date|Date précédente)/ })
+        .boundingBox();
+      const nextArrow = await dialog
+        .getByRole("button", { name: /^(Next date|Date suivante)/ })
+        .boundingBox();
+      expect(Math.abs(prev!.y - nextArrow!.y)).toBeLessThan(4);
+    });
+  }
+});

@@ -53,6 +53,25 @@ export function scopeDates(scope: EditScope, context: ScopeContext): string[] {
   );
 }
 
+/**
+ * Every date from today that runs `scheduleId`: the dates its week reaches (`scopeDates`) plus
+ * the ones a `use_schedule` rule sends to it, which the week read with date rules set aside
+ * cannot see. What an edit of the schedule changes, and what a preview of it should show.
+ */
+export function scheduleReach(scheduleId: string, context: ScopeContext): string[] {
+  const horizon = addDays(context.today, SCOPE_HORIZON_DAYS - 1);
+  const viaRules = context.config.dateRules
+    .filter((r) => r.kind === "use_schedule" && r.useScheduleId === scheduleId)
+    .flatMap((rule) => {
+      const last = rule.endsOn != null && rule.endsOn < horizon ? rule.endsOn : horizon;
+      return eachDate(maxDate(rule.startsOn, context.today), last, 1).filter((d) =>
+        coversDate(rule, d)
+      );
+    });
+  const all = [...scopeDates({ kind: "schedule", scheduleId }, context), ...viaRules];
+  return [...new Set(all)].sort();
+}
+
 const isHoursRule = (rule: DateRule): boolean =>
   (rule.kind === "special_hours" || rule.kind === "use_schedule") && rule.seriesId == null;
 

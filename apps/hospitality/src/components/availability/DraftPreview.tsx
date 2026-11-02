@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Text } from "@mattbutlerengineering/rialto";
-import type { AvailabilityConfigChanges, ScopeConflictMode } from "@mbe/types";
+import type { AvailabilityConfigChanges, PreviewScope, ScopeConflictMode } from "@mbe/types";
 import { AvailabilityGuestPreview } from "./AvailabilityGuestPreview.js";
 
 /**
@@ -12,44 +13,82 @@ export function previewIds(): () => string {
   return () => `preview-${n++}`;
 }
 
+/** Why there is nothing to preview yet, when the draft has dates but no changes to send. */
+export type DraftIdle = "untouched" | "fields" | "conflict";
+
 export interface DraftPreviewProps {
   readonly venueId: string;
   /** The row operations a save would send, or `null` while there is nothing to save yet. */
   readonly changes: AvailabilityConfigChanges | null;
   readonly scopeConflicts: ScopeConflictMode;
-  /** Every service date the change reaches; the stranded check covers all of them. */
+  /** Every service date the change reaches: the date strip, and the stranded check unless `scope`. */
   readonly dates: readonly string[];
+  /** The stranded check's own scope, when a list of `dates` cannot name what a save checks. */
+  readonly scope?: PreviewScope;
   /** The version the draft was built on; a result for a later one is flagged. */
   readonly baseVersion: number;
   /** Editing is held until the newest hours load: the preview and its actions wait too. */
   readonly held?: boolean;
+  /** What to say while `changes` is `null`. */
+  readonly idle?: DraftIdle;
+  /** False for a flow whose Save has no review step, so the moved-hours note does not promise one. */
+  readonly reviewOnSave?: boolean;
+}
+
+interface Kept {
+  readonly key: string;
+  readonly changes: AvailabilityConfigChanges;
+  readonly scopeConflicts: ScopeConflictMode;
+  readonly dates: readonly string[];
+  readonly scope: PreviewScope | undefined;
 }
 
 /**
  * The guest preview and stranded list for a schedule-level draft (ux.md F-UW.2, F3.2, F-X.3),
  * shared by Change regular week, the schedule editor, Compare services and Use schedule. It is
  * advice: a failed or slow preview never blocks Save, and the save stays the guard.
+ *
+ * Once shown it stays mounted, paused, while the draft cannot be previewed (a field blanked, a
+ * conflict to review), so the party and compare choices the Manager made survive; the reason is
+ * said above the last result, which stays dimmed.
  */
 export function DraftPreview(props: DraftPreviewProps) {
-  const { venueId, changes, scopeConflicts, dates, baseVersion, held = false } = props;
+  const { venueId, changes, scopeConflicts, dates, scope, baseVersion } = props;
+  const { held = false, idle = "untouched", reviewOnSave = true } = props;
   const { t } = useTranslation();
-  if (held) return null;
-  if (!changes || dates.length === 0) {
-    return (
-      <Text variant="caption" color="secondary">
-        {t("availability.preview.empty")}
-      </Text>
-    );
+  const [kept, setKept] = useState<Kept | null>(null);
+  const active = changes !== null && dates.length > 0;
+  if (active) {
+    const key = JSON.stringify([changes, scopeConflicts, dates, scope]);
+    if (key !== kept?.key) {
+      setKept({ key, changes, scopeConflicts, dates: [...dates].sort(), scope });
+    }
   }
-  const sorted = [...dates].sort();
+  // A draft that is back to no change (saved, discarded, reverted) leaves nothing to keep.
+  if (!active && changes === null && idle === "untouched" && kept) setKept(null);
+  // Editing is held, so there is no draft to show; the hold's own line says why.
+  if (held) return null;
+  const reason = active ? null : changes !== null ? "noDates" : idle;
   return (
-    <AvailabilityGuestPreview
-      venueId={venueId}
-      changes={changes}
-      scopeConflicts={scopeConflicts}
-      dates={sorted}
-      focusDate={sorted[0] as string}
-      baseVersion={baseVersion}
-    />
+    <>
+      {reason && (
+        <Text variant="caption" color="secondary" role="status">
+          {t(`availability.preview.${reason === "untouched" ? "empty" : reason}`)}
+        </Text>
+      )}
+      {kept && (active || idle !== "untouched" || changes !== null) && (
+        <AvailabilityGuestPreview
+          venueId={venueId}
+          changes={kept.changes}
+          scopeConflicts={kept.scopeConflicts}
+          dates={kept.dates}
+          scope={kept.scope}
+          focusDate={kept.dates[0] as string}
+          baseVersion={baseVersion}
+          paused={!active}
+          reviewOnSave={reviewOnSave}
+        />
+      )}
+    </>
   );
 }

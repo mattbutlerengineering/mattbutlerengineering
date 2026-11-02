@@ -13,7 +13,7 @@ import {
   scheduleSaveBlock,
   type Winner,
 } from "./schedule-changes.js";
-import { ownChangeDates, scopeDates } from "./scope-dates.js";
+import { ownChangeDates, scheduleReach, scopeDates } from "./scope-dates.js";
 import {
   BlockedReason,
   ConflictReviewPanel,
@@ -122,6 +122,14 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
     [editing, sourceScheduleId, config, timezone, today, useOn]
   );
   const own = useMemo(() => ownChangeDates(config, dates, null), [config, dates]);
+  // What the preview reaches: the schedule's week plus the dates a use_schedule rule sends to it.
+  const reach = useMemo(
+    () =>
+      editing && sourceScheduleId
+        ? scheduleReach(sourceScheduleId, { config, timezone, today })
+        : [],
+    [editing, sourceScheduleId, config, timezone, today]
+  );
   const overlaps = useMemo(
     () => (editing ? [] : overlappingSchedules(config, useOn).map((s) => s.name)),
     [editing, config, useOn]
@@ -295,8 +303,10 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
             venueId={venueId}
             changes={previewChanges}
             scopeConflicts={dates.length > 1 ? conflictMode : "replace"}
-            dates={dates}
+            dates={editing && sourceScheduleId ? reach : dates}
+            scope={editing ? { from: today } : undefined}
             baseVersion={review.baselineVersion}
+            idle={block === "conflict" ? "conflict" : dirty ? "fields" : "untouched"}
           />
         </Stack>
       </Drawer>

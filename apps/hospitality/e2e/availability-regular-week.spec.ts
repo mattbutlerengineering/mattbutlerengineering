@@ -238,6 +238,40 @@ test.describe("Change regular week (F-UW)", () => {
       });
     }
 
+    test("fits a phone in French, where the labels run longest", async ({ mockedPage }) => {
+      await mockedPage.setViewportSize({ width: 375, height: 812 });
+      await mockTueSatVenue(mockedPage);
+      await mockedPage.route("**/availability/preview*", (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ data: previewResult }),
+        })
+      );
+      await mockedPage.addInitScript(() => localStorage.setItem("mbe-hospitality-locale", "fr-CA"));
+      await mockedPage.goto("availability");
+      await mockedPage.getByRole("button", { name: "Plus d’actions" }).click();
+      await mockedPage.getByRole("menuitem", { name: /^Modifier la semaine habituelle/ }).click();
+      const drawer = mockedPage.getByRole("dialog").first();
+      await mockedPage.getByLabel(/^Début/).click();
+      await mockedPage.locator(`[role="gridcell"][data-date="${localDay()}"]`).click();
+      await mockedPage.getByLabel(/^Nom de l’horaire/).fill("Heures d’été");
+      const stranded = drawer.getByText("1 réservation serait hors de ces heures");
+      await stranded.scrollIntoViewIfNeeded();
+      await expect(stranded).toBeVisible();
+      await expect(drawer.getByText("Semaine habituelle").first()).toBeVisible();
+
+      const wide = await drawer.evaluate((root) =>
+        [root, ...Array.from(root.querySelectorAll<HTMLElement>("*"))]
+          .filter((n) => n.clientWidth > 0 && n.scrollWidth > n.clientWidth + 1)
+          .map(
+            (n) =>
+              `${n.tagName}.${String(n.className).slice(0, 30)} ${n.scrollWidth}>${n.clientWidth}`
+          )
+      );
+      expect(wide).toEqual([]);
+    });
+
     test("a failed preview says so and Save still works", async ({ mockedPage }) => {
       const state = await mockTueSatVenue(mockedPage);
       await mockedPage.route("**/availability/preview*", (route) =>

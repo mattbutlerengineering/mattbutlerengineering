@@ -21,7 +21,7 @@ import {
 } from "./compare-changes.js";
 import { DiscardChangesDialog } from "./DiscardChangesDialog.js";
 import { DraftPreview } from "./DraftPreview.js";
-import { ownChangeDates, scopeDates } from "./scope-dates.js";
+import { ownChangeDates, scheduleReach, scopeDates } from "./scope-dates.js";
 import {
   BlockedReason,
   ConflictReviewPanel,
@@ -174,6 +174,12 @@ export function CompareServices(props: CompareServicesProps) {
     return [...new Set(all)];
   }, [changed, config, timezone, today]);
   const own = useMemo(() => ownChangeDates(config, dates, null), [config, dates]);
+  // What the preview reaches: the same dates plus any a use_schedule rule sends to these schedules.
+  const reach = useMemo(() => {
+    const ids = [...new Set(changed.map((r) => r.scheduleId))];
+    const all = ids.flatMap((scheduleId) => scheduleReach(scheduleId, { config, timezone, today }));
+    return [...new Set(all)].sort();
+  }, [changed, config, timezone, today]);
   const scheduleCount = new Set(changed.map((r) => r.scheduleId)).size;
   // Built the way the save builds it, from the rows the edits were made against, so the preview
   // shows what Save would send. A lost race has its own review panel, and nothing to preview.
@@ -389,14 +395,6 @@ export function CompareServices(props: CompareServicesProps) {
         </div>
       )}
       <OwnChangesChoice count={dates.length > 1 ? own.length : 0} value={mode} onChange={setMode} />
-      <DraftPreview
-        venueId={venueId}
-        changes={previewChanges}
-        scopeConflicts={dates.length > 1 ? mode : "replace"}
-        dates={dates}
-        baseVersion={base?.version ?? state.version}
-        held={held}
-      />
       <BlockedReason
         id={blockedId}
         reason={changed.length === 0 ? t("availabilitySchedules.compare.blocked") : null}
@@ -418,6 +416,17 @@ export function CompareServices(props: CompareServicesProps) {
           {t("availabilitySchedules.compare.save", { count: scheduleCount })}
         </Button>
       </div>
+      {/* Below Save, so the button does not move as the preview loads and grows. */}
+      <DraftPreview
+        venueId={venueId}
+        changes={previewChanges}
+        scopeConflicts={dates.length > 1 ? mode : "replace"}
+        dates={reach}
+        scope={{ from: today }}
+        baseVersion={base?.version ?? state.version}
+        held={held}
+        idle={saver.conflicted ? "conflict" : "untouched"}
+      />
     </Stack>
   );
 }
