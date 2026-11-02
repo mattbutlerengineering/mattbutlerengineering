@@ -65,6 +65,8 @@ interface World {
     kind: string;
     notifiedGuests: boolean;
     summary: string;
+    /** The venue version the change produced. */
+    version?: number;
   }[];
   outcomes: Record<string, unknown>[];
   events: { reservationId: string; kind: string; actorId: string }[];
@@ -180,6 +182,13 @@ function changeDelegate(w: World) {
           ) ?? null
       );
     }),
+    findMany: vi.fn(async ({ where, take }: { where: { version: { gt: number } }; take: number }) =>
+      w.changes
+        .filter((c) => (c.version ?? 0) > where.version.gt)
+        .sort((a, b) => (b.version ?? 0) - (a.version ?? 0))
+        .slice(0, take)
+        .map((c) => ({ ...c, at: new Date(0) }))
+    ),
     create: vi.fn(async ({ data }: { data: World["changes"][number] }) => {
       const change = { ...data, id: `chg-${w.changes.length + 1}` };
       w.changes = [...w.changes, change];
@@ -393,7 +402,7 @@ describe("createClosure", () => {
       expect.objectContaining({ reservationId: "res-2", action: "cancel", refund: "none" }),
     ]);
     expect(w.deposits.writes).toBe(0);
-    expect(w.changes[0]).toMatchObject({ kind: "closure", notifiedGuests: true });
+    expect(w.changes[0]).toMatchObject({ kind: "closure", notifiedGuests: true, version: 5 });
   });
 
   it("keeps and notifies without touching the reservations", async () => {
@@ -1240,7 +1249,11 @@ describe("reopenClosure", () => {
       expect.objectContaining({ data: { deletedAt: NOW } })
     );
     expect(active(w)).toHaveLength(0);
-    expect(w.changes.at(-1)).toMatchObject({ kind: "reopen", notifiedGuests: true });
+    expect(w.changes.at(-1)).toMatchObject({
+      kind: "reopen",
+      notifiedGuests: true,
+      version: w.version,
+    });
   });
 
   describe("a series (#7685)", () => {
@@ -1530,7 +1543,11 @@ describe("reopenClosure", () => {
       const { outcome } = await reopen(w);
 
       expect(outcome).toMatchObject({ kind: "reopened", result: { notified: 1 } });
-      expect(w.changes.at(-1)).toMatchObject({ kind: "reopen", notifiedGuests: true });
+      expect(w.changes.at(-1)).toMatchObject({
+        kind: "reopen",
+        notifiedGuests: true,
+        version: w.version,
+      });
     });
 
     it("records no guests told when every cancelled booking is already over", async () => {

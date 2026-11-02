@@ -729,7 +729,12 @@ model AvailabilityChange {
   revertedBy     AvailabilityChange?  @relation("AvailabilityChangeRevert", fields: [revertedById], references: [id], onDelete: Restrict)
   reverts        AvailabilityChange[] @relation("AvailabilityChangeRevert")
 
+  /// The `Venue.availabilityVersion` this change produced; orders changes exactly, which `at` (stamped
+  /// before the venue row lock) does not. Null on rows written before it existed.
+  version        Int?
+
   @@index([venueId, at])
+  @@index([venueId, version])
   @@index([revertedById])
   @@map("availability_changes")
 }

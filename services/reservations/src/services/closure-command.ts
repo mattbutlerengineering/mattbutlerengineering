@@ -395,7 +395,8 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
     where: { id: venueId, availabilityVersion: body.expectedVersion },
     data: { availabilityVersion: { increment: 1 } },
   });
-  if (cas.count === 0) throw new Refused((await refuseStale(tx, venueId)) as Refusal);
+  if (cas.count === 0)
+    throw new Refused((await refuseStale(tx, venueId, body.expectedVersion)) as Refusal);
 
   const state = await loadConfigState(tx, venueId, now);
   if (!state) throw new Refused({ kind: "not_found" });
@@ -460,6 +461,7 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
       affectedTo: toDbDate(range.to),
       inverse: inverse as unknown as Prisma.InputJsonValue,
       notifiedGuests: plan.notifiedGuests,
+      version,
     },
     select: { id: true },
   });
@@ -724,6 +726,7 @@ export async function reopenClosure(
             state.operatingHours
           ) as unknown as Prisma.InputJsonValue,
           notifiedGuests: notified > 0,
+          version: bumped.availabilityVersion,
         },
         select: { id: true },
       });

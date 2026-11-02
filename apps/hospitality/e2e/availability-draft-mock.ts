@@ -83,6 +83,8 @@ export async function mockAvailability(
     kind: "config",
     summary: "Dinner closes at 10:00 PM",
   };
+  /** Every change a colleague made, with the version it produced: what a 409 names. */
+  const history: Array<{ version: number; change: typeof winner }> = [];
   let readsHeld: Promise<void> = Promise.resolve();
   let releaseHeld: () => void = () => undefined;
   const mock: AvailabilityMock = {
@@ -106,6 +108,7 @@ export async function mockAvailability(
     colleague(summary = "Dinner closes at 10:00 PM") {
       mock.version += 1;
       winner = { ...winner, id: `chg-${mock.version}`, summary };
+      history.push({ version: mock.version, change: winner });
     },
   };
   let rules: unknown[] = options.rules ?? [];
@@ -125,7 +128,17 @@ export async function mockAvailability(
       if (body.expectedVersion !== mock.version) {
         record.status = 409;
         return route.fulfill(
-          problem(409, "version-conflict", { winningChange: winner, currentVersion: mock.version })
+          problem(409, "version-conflict", {
+            winningChange: winner,
+            currentVersion: mock.version,
+            changesSince: {
+              total: mock.version - body.expectedVersion,
+              changes: history
+                .filter((h) => h.version > body.expectedVersion)
+                .map((h) => h.change)
+                .reverse(),
+            },
+          })
         );
       }
       const upserted = body.changes?.upsert?.dateRules ?? [];

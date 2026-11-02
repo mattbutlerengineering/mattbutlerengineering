@@ -945,6 +945,7 @@ jobs:
             src/routes/rls-venue-resolution.integration.test.ts \
             src/services/availability-snapshot.integration.test.ts \
             src/services/venue-share-lock.integration.test.ts \
+            src/services/availability-conflict.integration.test.ts \
             --reporter=default --reporter=json --outputFile=rls-integration-results.json
 
       # `describe.skipIf` reports as a file-level PASS when its guard is

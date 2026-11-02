@@ -288,7 +288,8 @@ async function writeChange(
     where: { id: venueId, availabilityVersion: body.expectedVersion },
     data: { availabilityVersion: { increment: 1 } },
   });
-  if (cas.count === 0) throw new Refused((await refuseStale(tx, venueId)) as Refusal);
+  if (cas.count === 0)
+    throw new Refused((await refuseStale(tx, venueId, body.expectedVersion)) as Refusal);
 
   const next = await checkRule(tx, venueId, state, rule);
   const diff = diffConfig(state.stored, next);
@@ -312,6 +313,7 @@ async function writeChange(
         ...inverseOf(state.stored, diff, state.operatingHours),
         tonight: meta,
       } as unknown as Prisma.InputJsonValue,
+      version,
     },
     select: { id: true },
   });
@@ -454,6 +456,7 @@ export async function endTonight(
           diff,
           state.operatingHours
         ) as unknown as Prisma.InputJsonValue,
+        version: bumped.availabilityVersion,
       },
       select: { id: true },
     });

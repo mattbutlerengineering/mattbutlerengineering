@@ -4,6 +4,7 @@ import {
   AvailabilityCheckResultSchema,
   AvailabilityConfigProblemSchema,
   AvailabilityDaySummarySchema,
+  CONFLICT_CHANGES_MAX,
   ClosureImpactBodySchema,
   ClosureImpactSchema,
   CreateClosureBodySchema,
@@ -364,5 +365,42 @@ describe("ReopenResultSchema.stillClosed", () => {
   it("refuses a date that is not a service date", () => {
     const stillClosed = { everyDate: false, by: [{ ...by, dates: ["Dec 25"] }] };
     expect(ReopenResultSchema.safeParse({ ...result, stillClosed }).success).toBe(false);
+  });
+});
+
+describe("AvailabilityConfigProblemSchema: changesSince", () => {
+  const change = (n: number) => ({
+    id: `chg-${n}`,
+    actorId: "auth0|ana",
+    at: "2026-10-25T18:00:00.000Z",
+    kind: "config",
+    summary: "s",
+  });
+  const conflict = (changesSince?: unknown) => ({
+    type: "about:blank",
+    title: "Conflict",
+    status: 409,
+    detail: "d",
+    code: "version-conflict",
+    currentVersion: 6,
+    ...(changesSince ? { changesSince } : {}),
+  });
+
+  it("accepts a conflict from an older server, with no list", () => {
+    expect(AvailabilityConfigProblemSchema.safeParse(conflict()).success).toBe(true);
+  });
+
+  it("accepts the newest changes with the true total", () => {
+    const parsed = AvailabilityConfigProblemSchema.parse(
+      conflict({ total: 25, changes: [change(2), change(1)] })
+    );
+    expect(parsed.changesSince?.total).toBe(25);
+  });
+
+  it("refuses a list longer than the bound", () => {
+    const tooMany = Array.from({ length: CONFLICT_CHANGES_MAX + 1 }, (_, i) => change(i));
+    expect(
+      AvailabilityConfigProblemSchema.safeParse(conflict({ total: 99, changes: tooMany })).success
+    ).toBe(false);
   });
 });

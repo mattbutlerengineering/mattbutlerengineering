@@ -2259,7 +2259,11 @@
       ): Promise<BookedReservation[]> { /* ... */ }
     </item>
     <item priority="high">
-      export async function refuseStale(db: StoreDb, venueId: string): Promise<SaveOutcome> { /* ... */ }
+      export async function refuseStale(
+        db: StoreDb,
+        venueId: string,
+        expectedVersion: number
+      ): Promise<SaveOutcome> { /* ... */ }
     </item>
     <item priority="high">
       export function conflictIssue(error: ConfigRowConflict, next: AvailabilityConfig): SaveOutcome { /* ... */ }

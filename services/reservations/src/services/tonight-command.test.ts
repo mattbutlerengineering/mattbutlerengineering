@@ -22,7 +22,15 @@ interface World {
   bookingTypes: string[];
   dateRules: Record<string, unknown>[];
   ruleTables: { dateRuleId: string; tableId: string }[];
-  changes: { id: string; actorId: string; kind: string; summary: string; inverse: unknown }[];
+  changes: {
+    id: string;
+    actorId: string;
+    kind: string;
+    summary: string;
+    inverse: unknown;
+    /** The venue version the change produced. */
+    version?: number;
+  }[];
   /** Counts writes to the schedule tables: Tonight must never touch them. */
   scheduleWrites: number;
 }
@@ -159,7 +167,14 @@ function fakeClient(w: World) {
           ) ?? null
         );
       }),
-
+      findMany: vi.fn(
+        async ({ where, take }: { where: { version: { gt: number } }; take: number }) =>
+          w.changes
+            .filter((c) => (c.version ?? 0) > where.version.gt)
+            .sort((a, b) => (b.version ?? 0) - (a.version ?? 0))
+            .slice(0, take)
+            .map((c) => ({ ...c, at: new Date(0) }))
+      ),
       create: vi.fn(async ({ data }: { data: World["changes"][number] }) => {
         const change = { ...data, id: `chg-${w.changes.length + 1}` };
         w.changes = [...w.changes, change];
@@ -223,7 +238,7 @@ describe("setTonight", () => {
       expiresAt: new Date(MIDNIGHT_AFTER),
       createdBy: "host-1",
     });
-    expect(w.changes[0]).toMatchObject({ kind: "tonight", actorId: "host-1" });
+    expect(w.changes[0]).toMatchObject({ kind: "tonight", actorId: "host-1", version: 5 });
   });
 
   it("blocks tables for the rest of tonight through DateRuleTable", async () => {
@@ -585,7 +600,11 @@ describe("endTonight", () => {
 
     expect(outcome).toMatchObject({ kind: "ended", result: { version: 6 } });
     expect(w.dateRules).toEqual([]);
-    expect(w.changes.at(-1)).toMatchObject({ kind: "tonight_end", actorId: "host-1" });
+    expect(w.changes.at(-1)).toMatchObject({
+      kind: "tonight_end",
+      actorId: "host-1",
+      version: 6,
+    });
   });
 
   it("does not find a rule that is not a Tonight change", async () => {
