@@ -7,6 +7,7 @@ import {
   ConfirmDialog,
   EmptyState,
   SegmentedControl,
+  Select,
   Skeleton,
   Stack,
   Text,
@@ -16,6 +17,7 @@ import type { AvailabilityConfigState, ClosureSummary, DateRule } from "@mbe/typ
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useClosureSummaries, useRetryClosureRefunds } from "../../hooks/useClosures.js";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
+import { useViewport } from "../../hooks/useViewport.js";
 import { formatCurrencyFromCents } from "../../utils/format.js";
 import { addDays } from "../../utils/service-day.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
@@ -305,6 +307,7 @@ function SpecialDateItem(props: RowProps) {
  * became of the bookings it touched, the call list, reopening, and refund retry.
  */
 export function SpecialDatesTab(props: SpecialDatesTabProps) {
+  const viewport = useViewport();
   const { venueId, state, timezone, today, onStale, reloadError, isManager } = props;
   const rules = state.config.dateRules;
   const { t } = useTranslation();
@@ -408,15 +411,30 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
   return (
     <Stack gap="md">
       <div className={styles.toolbar}>
-        <SegmentedControl
-          aria-label={t("availabilitySpecial.filterLabel")}
-          segments={FILTERS.map((id) => ({
-            id,
-            label: t(`availabilitySpecial.filter.${id}`),
-          }))}
-          value={filter}
-          onChange={(id) => setFilter(id as SpecialDatesFilter)}
-        />
+        {viewport === "phone" ? (
+          // Five segments cannot fit 375 px, and the last one would be off-screen.
+          <div className={styles.filterSelect}>
+            <Select
+              label={t("availabilitySpecial.filterLabel")}
+              options={FILTERS.map((id) => ({
+                value: id,
+                label: t(`availabilitySpecial.filter.${id}`),
+              }))}
+              value={filter}
+              onChange={(id) => setFilter(id as SpecialDatesFilter)}
+            />
+          </div>
+        ) : (
+          <SegmentedControl
+            aria-label={t("availabilitySpecial.filterLabel")}
+            segments={FILTERS.map((id) => ({
+              id,
+              label: t(`availabilitySpecial.filter.${id}`),
+            }))}
+            value={filter}
+            onChange={(id) => setFilter(id as SpecialDatesFilter)}
+          />
+        )}
         {isManager && (
           <Button variant="primary" onClick={() => setAdding(true)}>
             {t("availabilitySpecial.add.open")}

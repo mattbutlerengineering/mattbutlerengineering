@@ -43,6 +43,7 @@ import { BlockedReason } from "./ScheduleFormParts.js";
 import { nextServiceRow, ServicesEditor } from "./ServicesEditor.js";
 import { StrandedBookings } from "./StrandedBookings.js";
 import { minuteText } from "./closure-band.js";
+import { scheduleNameText } from "./day-summary.js";
 import styles from "./AvailabilityDayEditor.module.css";
 
 export interface AvailabilityDayEditorProps {
@@ -58,7 +59,8 @@ export interface AvailabilityDayEditorProps {
   /** Cancel; the drawer decides whether unsaved edits need a discard prompt first. */
   readonly onCancel: () => void;
   /** The draft was saved or thrown away; the drawer closes without a prompt. */
-  readonly onFinished: () => void;
+  /** The editor is done: `saved` is true after a save, false when the draft was discarded. */
+  readonly onFinished: (saved: boolean) => void;
   /** Dates picked in the multi-select bar: the edit applies to exactly these, with no scope choice. */
   readonly fixedDates?: readonly string[];
   /** A range or repeating special-hours rule is being edited (F-SER); its scope is already chosen. */
@@ -185,7 +187,8 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   // From the first edit until the editor goes, other saves (Copy, the nudge, Undo) wait: they
   // would move the version this draft will be saved against.
   const releaseOpenRef = useRef<(() => void) | null>(null);
-  const focusNewRowRef = useRef(false);
+  // Which row takes focus once the editor is up: its button is gone by then.
+  const focusRowRef = useRef<number | "new" | null>(null);
   const servicesRef = useRef<HTMLDivElement>(null);
   useEffect(
     () => () => {
@@ -195,7 +198,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
     []
   );
 
-  const begin = (addService = false) => {
+  const begin = (addService = false, row = 0) => {
     if (held) return;
     releaseOpenRef.current ??= markEditorOpen();
     const first: EditScope = fixedDates
@@ -204,7 +207,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
         ? { kind: "rule", ...ruleScope, from: date }
         : { kind: "date", date };
     const seed = seedServices(config, day, first);
-    focusNewRowRef.current = addService;
+    focusRowRef.current = addService ? "new" : row;
     update({
       base: state,
       scope: first,
@@ -218,12 +221,15 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
     });
   };
 
-  // The button that added the row is gone, so focus goes to the row it added.
+  // The button that opened the editor is gone, so focus goes to the row it was about.
   useEffect(() => {
-    if (!focusNewRowRef.current) return;
-    focusNewRowRef.current = false;
+    const target = focusRowRef.current;
+    if (target === null) return;
+    focusRowRef.current = null;
     const rows = servicesRef.current?.querySelectorAll("fieldset");
-    rows?.[rows.length - 1]?.querySelector("input")?.focus();
+    if (!rows) return;
+    const row = target === "new" ? rows[rows.length - 1] : (rows[target] ?? rows[0]);
+    row?.querySelector("input")?.focus();
   }, [edit]);
 
   const chooseScope = (kind: string) => {
@@ -302,7 +308,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
             }),
     });
     setConflict(null);
-    onFinished();
+    onFinished(true);
   };
 
   const rejectSave = (error: unknown) => {
@@ -331,14 +337,14 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
     setConflict(null);
     onDirtyChange(false);
     onStale?.();
-    onFinished();
+    onFinished(false);
   };
 
   if (!edit) {
     return (
       <Stack gap="sm">
         <ul className={styles.services}>
-          {day.services.map((service) => (
+          {day.services.map((service, row) => (
             <li key={service.venueServiceId} className={styles.service}>
               <Text as="span" variant="body" color="primary">
                 {t("availability.editor.serviceLine", {
@@ -351,7 +357,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
                 variant="ghost"
                 size="sm"
                 {...waitingProps(held, heldReasonId)}
-                onClick={() => begin()}
+                onClick={() => begin(false, row)}
               >
                 {t("availability.editor.edit", { name: service.name })}
               </Button>
@@ -397,7 +403,9 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
             value: "schedule",
             label:
               scheduleCount > 1
-                ? t("availability.editor.scope.schedule", { name: schedule.name })
+                ? t("availability.editor.scope.schedule", {
+                    name: scheduleNameText(schedule.name, t),
+                  })
                 : t("availability.editor.scope.regularWeek"),
           },
         ]

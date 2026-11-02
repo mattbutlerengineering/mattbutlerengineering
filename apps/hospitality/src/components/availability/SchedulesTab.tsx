@@ -13,6 +13,7 @@ import type { AvailabilityConfigState, Schedule } from "@mbe/types";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { CompareServices } from "./CompareServices.js";
+import { scheduleNameText } from "./day-summary.js";
 import { buildDeleteScheduleChanges, isScheduleUnused } from "./schedule-changes.js";
 import { ScheduleEditorDrawer, type ScheduleEditorMode } from "./ScheduleEditorDrawer.js";
 import { SaveFailure, ScheduleDraftGuard, useWeekdaySummary } from "./ScheduleFormParts.js";
@@ -137,11 +138,12 @@ export function SchedulesTab(props: SchedulesTabProps) {
         {schedules.map((schedule) => {
           const unused = isScheduleUnused(state.config, schedule.id);
           const where = usage(schedule);
+          const shown = scheduleNameText(schedule.name, t);
           return (
             <li key={schedule.id} className={styles.item}>
               <div className={styles.name}>
                 <Text as="span" variant="body" color="primary">
-                  {schedule.name}
+                  {shown}
                 </Text>
                 {schedule.isRegular && <Tag>{t("availabilitySchedules.regularMarker")}</Tag>}
                 <Text as="span" variant="caption" color="secondary">
@@ -152,16 +154,18 @@ export function SchedulesTab(props: SchedulesTabProps) {
                 <Button
                   variant="ghost"
                   size="sm"
+                  aria-label={t("availabilitySchedules.editNamed", { name: shown })}
                   onClick={() => setEditor({ mode: "edit", sourceId: schedule.id })}
                 >
-                  {t("availabilitySchedules.editNamed", { name: schedule.name })}
+                  {t("availabilitySchedules.edit")}
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
+                  aria-label={t("availabilitySchedules.duplicateNamed", { name: shown })}
                   onClick={() => setEditor({ mode: "duplicate", sourceId: schedule.id })}
                 >
-                  {t("availabilitySchedules.duplicateNamed", { name: schedule.name })}
+                  {t("availabilitySchedules.duplicate")}
                 </Button>
                 {!schedule.isRegular && (
                   <DisabledTooltip
@@ -176,9 +180,10 @@ export function SchedulesTab(props: SchedulesTabProps) {
                       variant="ghost"
                       size="sm"
                       disabled={!unused}
+                      aria-label={t("availabilitySchedules.deleteNamed", { name: shown })}
                       onClick={() => setDeleting(schedule)}
                     >
-                      {t("availabilitySchedules.deleteNamed", { name: schedule.name })}
+                      {t("availabilitySchedules.delete")}
                     </Button>
                   </DisabledTooltip>
                 )}

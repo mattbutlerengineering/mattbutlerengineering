@@ -4,6 +4,7 @@ import { Button, DatePicker, Drawer, Input, Stack, Text } from "@mattbutlerengin
 import type { AvailabilityConfigState, ScopeConflictMode } from "@mbe/types";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
+import { useViewport } from "../../hooks/useViewport.js";
 import { seedServices, servicesEqual, type DraftService } from "./draft-changes.js";
 import {
   buildRegularWeekChanges,
@@ -46,6 +47,7 @@ export interface ChangeRegularWeekDrawerProps {
  * meets another dated schedule the Manager chooses which wins.
  */
 export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
+  const viewport = useViewport();
   const { venueId, state, today, onStale, onClose } = props;
   const { config } = state;
   const { t } = useTranslation();
@@ -160,7 +162,7 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
         open
         onClose={() => guard.request()}
         title={t("availabilitySchedules.regularWeek.title")}
-        size="wide"
+        size={viewport === "phone" ? "full" : "wide"}
         footer={
           <div className={styles.footer}>
             <BlockedReason

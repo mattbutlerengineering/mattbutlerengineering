@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Skeleton } from "@mattbutlerengineering/rialto";
 import { addDays } from "@mbe/availability";
@@ -34,6 +34,8 @@ export interface AvailabilityCalendarProps {
   readonly onAnchorChange: (date: string) => void;
   /** A range drag is under way or over (see `useDateSelection`). */
   readonly onDragChange?: (dragging: boolean) => void;
+  /** Select days is on: a tap picks a day rather than opening it. */
+  readonly selecting?: boolean;
 }
 
 interface CellProps {
@@ -94,21 +96,21 @@ function Cell(props: CellProps) {
         {isDraft && <span className={styles.draftDot} data-draft-dot aria-hidden="true" />}
         <span className={styles.dayNumber} aria-hidden="true">
           {format.formatCalendarDate(date, { day: "numeric" })}
-        </span>
+        </span>{" "}
         {isLoading || !summary ? (
           !props.loadFailed && <Skeleton variant="text" width="100%" height={16} />
         ) : (
           <span className={styles.details} aria-hidden="true">
-            <span className={styles.label}>{summary.label}</span>
-            {view.count && <span className={styles.meta}>{view.count}</span>}
+            <span className={styles.label}>{view.label} </span>
+            {view.count && <span className={styles.meta}>{view.count} </span>}
             {view.bands.map((b) => (
               <span key={b.key} className={styles.band}>
-                {b.text}
+                {b.text}{" "}
               </span>
             ))}
             {view.services.map((s) => (
               <span key={s.key} className={styles.service}>
-                {s.text}
+                {s.text}{" "}
               </span>
             ))}
             {view.onlineOff && (
@@ -157,6 +159,8 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
   const format = useVenueFormat();
   const gridRef = useRef<HTMLDivElement>(null);
   const focusRequested = useRef(false);
+  // The header row is one Tab stop of its own, so the grid's arrows keep their meaning.
+  const [headerStop, setHeaderStop] = useState(0);
 
   const dates = useMemo(() => visibleDates(view, anchor), [view, anchor]);
   const byDate = useMemo(() => new Map((days ?? []).map((d) => [d.serviceDate, d])), [days]);
@@ -191,6 +195,34 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
     onAnchorChange(next);
   };
 
+  const handleHeaderKeyDown = (event: KeyboardEvent<HTMLButtonElement>, column: number) => {
+    const moves: Record<string, number> = {
+      ArrowLeft: (column + 6) % 7,
+      ArrowRight: (column + 1) % 7,
+      Home: 0,
+      End: 6,
+    };
+    const next = moves[event.key];
+    if (next !== undefined) {
+      event.preventDefault();
+      setHeaderStop(next);
+      gridRef.current?.querySelector<HTMLElement>(`[data-column="${next}"]`)?.focus();
+      return;
+    }
+    if (event.key === "ArrowDown") {
+      const first = dates[column];
+      if (!first) return;
+      event.preventDefault();
+      focusRequested.current = true;
+      onAnchorChange(first);
+      // Already the anchor: no render is coming to carry the focus over.
+      if (first === anchor) {
+        focusRequested.current = false;
+        gridRef.current?.querySelector<HTMLElement>(`[data-date="${first}"]`)?.focus();
+      }
+    }
+  };
+
   const gridLabel = t("availability.calendar.labelWithPeriod", {
     label: t("availability.calendar.label"),
     period: periodLabel(view, anchor, t, format),
@@ -219,6 +251,7 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
         isLoading={isLoading}
         loadFailed={loadFailed}
         handlersFor={handlersFor}
+        onToggle={toggleSelected}
       />
     );
   }
@@ -231,13 +264,16 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
             <button
               type="button"
               className={styles.columnButton}
-              tabIndex={-1}
+              data-column={column}
+              tabIndex={column === headerStop ? 0 : -1}
+              onKeyDown={(event) => handleHeaderKeyDown(event, column)}
               aria-label={t("availability.selection.selectColumn", {
                 weekday: format.formatCalendarDate(date, { weekday: "long" }),
               })}
               onClick={() => props.onSelectionChange(columnDates(dates, column, view, anchor))}
             >
-              {format.formatCalendarDate(date, { weekday: "short" })}
+              {/* The whole weekday, so the button's name contains what it shows. */}
+              {format.formatCalendarDate(date, { weekday: "long" })}
             </button>
           </div>
         ))}

@@ -2,7 +2,7 @@ import type { TFunction } from "i18next";
 import { describe, expect, it } from "vitest";
 import type { AvailabilityDaySummary } from "@mbe/types";
 import type { VenueFormat } from "../../hooks/useVenueFormat.js";
-import { presentDay } from "./day-summary.js";
+import { dayLabelText, presentDay, scheduleNameText } from "./day-summary.js";
 
 const t = ((key: string, values?: Record<string, string>) =>
   values ? `${key} ${Object.values(values).join("|")}` : key) as unknown as TFunction;
@@ -23,6 +23,33 @@ const baseSummary: AvailabilityDaySummary = {
     { venueServiceId: "svc-2", name: "Dinner", opensAt: 1080, lastSeatingAt: 1290, closesAt: 1320 },
   ],
 };
+
+describe("the server's en-US words (#7980)", () => {
+  it("translates the three labels the API writes itself", () => {
+    expect(dayLabelText("Closed", t)).toBe("availability.calendar.dayLabel.closed");
+    expect(dayLabelText("Special hours", t)).toBe("availability.calendar.dayLabel.specialHours");
+    expect(dayLabelText("Open", t)).toBe("availability.calendar.dayLabel.open");
+  });
+
+  it("translates the seeded schedule name, and leaves a Manager's own name alone", () => {
+    expect(scheduleNameText("Regular week", t)).toBe("availabilitySchedules.regularMarker");
+    expect(dayLabelText("Regular week", t)).toBe("availabilitySchedules.regularMarker");
+    expect(scheduleNameText("Summer patio", t)).toBe("Summer patio");
+    expect(dayLabelText("Summer patio", t)).toBe("Summer patio");
+  });
+
+  it("speaks and shows the translated label", () => {
+    const view = presentDay(
+      "2026-10-30",
+      { ...baseSummary, label: "Closed", serviceCount: 0, services: [] },
+      false,
+      t,
+      format
+    );
+    expect(view.label).toBe("availability.calendar.dayLabel.closed");
+    expect(view.accessibleDetails).toBe("availability.calendar.dayLabel.closed");
+  });
+});
 
 describe("presentDay services", () => {
   it("emits a service line per service when detailed", () => {
@@ -86,7 +113,7 @@ describe("presentDay", () => {
     ]);
     expect(view.onlineOff).toBe(false);
     expect(view.accessibleDetails).toBe(
-      "Regular week, availability.calendar.bookingOffOnlineAllDayName"
+      "availabilitySchedules.regularMarker, availability.calendar.bookingOffOnlineAllDayName"
     );
   });
 

@@ -135,9 +135,11 @@ describe("AvailabilityCalendar", () => {
     expect(onOpenDay).toHaveBeenCalledWith("2026-10-30");
   });
 
-  it("keeps a single tab stop on the anchor day", () => {
-    renderCalendar();
-    const stops = screen.getAllByRole("button").filter((b) => b.getAttribute("tabindex") === "0");
+  it("keeps the days to a single tab stop, on the anchor day", () => {
+    const { container } = renderCalendar();
+    const stops = [...container.querySelectorAll("[data-date]")].filter(
+      (b) => b.getAttribute("tabindex") === "0"
+    );
     expect(stops).toHaveLength(1);
     expect(stops[0]).toHaveAccessibleName(/Friday, October 30/);
   });
@@ -178,6 +180,37 @@ describe("AvailabilityCalendar", () => {
   it("has no axe violations", async () => {
     const { container } = renderCalendar();
     expect((await axe(container, AXE_OPTIONS)).violations).toEqual([]);
+  });
+});
+
+describe("AvailabilityCalendar column headers from the keyboard (#7980)", () => {
+  const header = (weekday: string) =>
+    screen.getByRole("button", { name: `Select every ${weekday}` });
+
+  it("gives the header row one Tab stop", () => {
+    renderCalendar();
+    expect(header("Monday")).toHaveAttribute("tabindex", "0");
+    expect(header("Tuesday")).toHaveAttribute("tabindex", "-1");
+  });
+
+  it("walks the headers with the arrows and carries the Tab stop along", () => {
+    renderCalendar();
+    header("Monday").focus();
+    fireEvent.keyDown(header("Monday"), { key: "ArrowRight" });
+    expect(header("Tuesday")).toHaveFocus();
+    expect(header("Tuesday")).toHaveAttribute("tabindex", "0");
+    expect(header("Monday")).toHaveAttribute("tabindex", "-1");
+    fireEvent.keyDown(header("Tuesday"), { key: "ArrowLeft" });
+    expect(header("Monday")).toHaveFocus();
+    fireEvent.keyDown(header("Monday"), { key: "ArrowLeft" });
+    expect(header("Sunday")).toHaveFocus();
+  });
+
+  it("goes down into the column's first day", () => {
+    const { onAnchorChange } = renderCalendar();
+    header("Monday").focus();
+    fireEvent.keyDown(header("Monday"), { key: "ArrowDown" });
+    expect(onAnchorChange).toHaveBeenCalledWith("2026-10-26");
   });
 });
 
@@ -231,12 +264,43 @@ describe("AvailabilityCalendar on a phone or tablet (agenda list)", () => {
       today: "2026-10-28",
       days: MONTH_DAYS,
     });
-    expect(screen.getByRole("button", { name: /Wednesday, October 28/ })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: /Wed, Oct 28/ })).toHaveAttribute(
       "aria-current",
       "date"
     );
-    fireEvent.click(screen.getByRole("button", { name: /Friday, October 30/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Fri, Oct 30/ }));
     expect(onOpenDay).toHaveBeenCalledWith("2026-10-30");
+  });
+
+  it("names a row with the date it shows, so speech matches sight (#7980)", () => {
+    setViewportWidth(500);
+    renderCalendar({ view: "month", anchor: "2026-10-15", today: "2026-10-28", days: MONTH_DAYS });
+    expect(screen.getByRole("button", { name: "Fri, Oct 30: Weeknight" })).toBeInTheDocument();
+  });
+
+  it("Space picks a row without opening it (#7980)", () => {
+    setViewportWidth(500);
+    const { onOpenDay, onSelectionChange } = renderCalendar({
+      view: "month",
+      anchor: "2026-10-15",
+      days: MONTH_DAYS,
+    });
+    fireEvent.keyDown(screen.getByRole("button", { name: /Oct 30/ }), { key: " " });
+    expect(onSelectionChange).toHaveBeenCalledWith(["2026-10-30"]);
+    expect(onOpenDay).not.toHaveBeenCalled();
+  });
+
+  it("while selecting, a tap picks instead of opening, even with nothing picked yet (#7980)", () => {
+    setViewportWidth(500);
+    const { onOpenDay, onSelectionChange } = renderCalendar({
+      view: "month",
+      anchor: "2026-10-15",
+      days: MONTH_DAYS,
+      selecting: true,
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Oct 30/ }));
+    expect(onSelectionChange).toHaveBeenCalledWith(["2026-10-30"]);
+    expect(onOpenDay).not.toHaveBeenCalled();
   });
 
   it("long-press on a row selects it and names it as selected", () => {
@@ -249,7 +313,7 @@ describe("AvailabilityCalendar on a phone or tablet (agenda list)", () => {
       days: MONTH_DAYS,
       onSelectionChange,
     });
-    const row = screen.getByRole("button", { name: /Friday, October 30/ });
+    const row = screen.getByRole("button", { name: /Fri, Oct 30/ });
     fireEvent.touchStart(row);
     act(() => {
       vi.advanceTimersByTime(600);
@@ -271,14 +335,14 @@ describe("AvailabilityCalendar on a phone or tablet (agenda list)", () => {
         />
       </main>
     );
-    expect(screen.getByRole("button", { name: /Friday, October 30.*, selected$/ })).toBeVisible();
+    expect(screen.getByRole("button", { name: /Fri, Oct 30.*, selected$/ })).toBeVisible();
     vi.useRealTimers();
   });
 
   it("shows the closure band in the row", () => {
     setViewportWidth(500);
     renderCalendar({ view: "month", anchor: "2026-10-15", days: WEEK });
-    const row = screen.getByRole("button", { name: /Friday, October 30/ });
+    const row = screen.getByRole("button", { name: /Fri, Oct 30/ });
     expect(within(row).getByText("Closed 10:00 PM – 11:00 PM")).toBeInTheDocument();
   });
 

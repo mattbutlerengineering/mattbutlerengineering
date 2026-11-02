@@ -77,6 +77,15 @@ describe("SchedulesTab", () => {
     expect(screen.getByText("Not used yet")).toBeInTheDocument();
   });
 
+  it("shows short actions and keeps the schedule's name in what is spoken (#7980)", () => {
+    renderWith(<SchedulesTab {...common} state={state()} />);
+    expect(screen.getByRole("button", { name: "Edit Weeknight" })).toHaveTextContent(/^Edit$/);
+    expect(screen.getByRole("button", { name: "Duplicate Weeknight" })).toHaveTextContent(
+      /^Duplicate$/
+    );
+    expect(screen.getByRole("button", { name: "Delete Spare" })).toHaveTextContent(/^Delete$/);
+  });
+
   it("offers delete only where nothing uses the schedule", () => {
     renderWith(<SchedulesTab {...common} state={state()} />);
     expect(screen.getByRole("button", { name: "Delete Weeknight" })).toBeDisabled();

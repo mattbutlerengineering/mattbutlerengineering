@@ -245,6 +245,22 @@ describe("AvailabilityDayEditor", () => {
     expect(onDirtyChange).not.toHaveBeenCalledWith(true);
   });
 
+  it("moves focus into the row Edit opened, since the button is gone (#7980)", () => {
+    renderEditor();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
+    const rows = document.querySelectorAll("fieldset");
+    expect(rows.length).toBeGreaterThan(1);
+    expect(rows[1]!.querySelector("input")).toHaveFocus();
+  });
+
+  it("says a save finished as a save (#7980)", async () => {
+    const { onFinished } = renderEditor();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
+    await waitFor(() => expect(onFinished).toHaveBeenCalledWith(true));
+  });
+
   it("this date only: saves one single-date rule against the version it read", async () => {
     const { onDirtyChange, onFinished } = renderEditor();
     fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));

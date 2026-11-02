@@ -35,6 +35,8 @@
 .name {
   display: flex;
   flex-wrap: wrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
   gap: var(--rialto-space-sm);
   align-items: center;
 }

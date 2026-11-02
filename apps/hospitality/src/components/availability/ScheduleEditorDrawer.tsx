@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Button, DatePicker, Drawer, Input, Stack, Text } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState, ScopeConflictMode } from "@mbe/types";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
+import { useViewport } from "../../hooks/useViewport.js";
 import { seedServices, servicesEqual, type DraftService } from "./draft-changes.js";
 import {
   buildEditScheduleChanges,
@@ -49,6 +50,7 @@ export interface ScheduleEditorDrawerProps {
  * changes the schedule everywhere it runs.
  */
 export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
+  const viewport = useViewport();
   const { venueId, state, timezone, today, mode, sourceScheduleId, onStale, onClose } = props;
   const { config } = state;
   const { t } = useTranslation();
@@ -173,7 +175,7 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
         open
         onClose={() => guard.request()}
         title={title}
-        size="wide"
+        size={viewport === "phone" ? "full" : "wide"}
         footer={
           <div className={styles.footer}>
             <BlockedReason
