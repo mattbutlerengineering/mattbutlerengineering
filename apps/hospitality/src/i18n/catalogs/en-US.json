@@ -1875,6 +1875,7 @@
     },
     "compare": {
       "open": "Compare services",
+      "conflictTitle": "Someone changed these schedules first",
       "title": "Compare services",
       "service": "Service",
       "opens": "Opens",
