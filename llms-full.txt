@@ -7587,6 +7587,62 @@
       }
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/stranded-revert.ts">
+    function emit() {
+      for (const listener of listeners) listener();
+    }
+    function subscribe(listener: () => void): () => void {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    }
+    export function registerStrandedRevertHost(venueId: string): () => void {
+      hostVenues = [...hostVenues, venueId];
+      let released = false;
+      return () => {
+        if (released) return;
+        released = true;
+        const at = hostVenues.indexOf(venueId);
+        hostVenues = hostVenues.filter((_, i) => i !== at);
+        // A list shown for the venue the host left (or for a page that has gone) is not for the next.
+        if (shown.length > 0) {
+          shown = [];
+          emit();
+        }
+      };
+    }
+    export function dismissStrandedRevert() {
+      shown = [];
+      emit();
+    }
+    export const useStrandedRevert = (): readonly StrandedReservation[] =>
+      useSyncExternalStore(subscribe, () => shown);
+    function strandedReservations(error: unknown): readonly StrandedReservation[] {
+      const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
+      const problem = AvailabilityConfigProblemSchema.safeParse(details);
+      return problem.success && problem.data.code === "stranded-bookings"
+        ? (problem.data.reservations ?? [])
+        : [];
+    }
+    interface ToastInput {
+      readonly title: string;
+      readonly variant: "error";
+      readonly duration: number;
+    }
+    export function reportRevertFailure(
+      error: unknown,
+      t: TFunction,
+      toast: (input: ToastInput) => unknown,
+      venueId: string
+    ) {
+      const reservations = strandedReservations(error);
+      if (reservations.length > 0 && hostVenues.includes(venueId)) {
+        shown = reservations;
+        emit();
+        return;
+      }
+      toast({ title: revertErrorText(error, t), variant: "error", duration: 8000 });
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/tonight-state.ts">
     export type TonightChange =
       | { readonly ruleId: string; readonly kind: "pause_online" }
@@ -19072,7 +19128,7 @@
               });
               toast({ title: t("availability.undo.done"), variant: "success", duration: 5000 });
             } catch (error) {
-              toast({ title: revertErrorText(error, t), variant: "error", duration: 8000 });
+              reportRevertFailure(error, t, toast, input.venueId);
             }
           };
           // One press per button: a double click must not send a second revert, which the first would

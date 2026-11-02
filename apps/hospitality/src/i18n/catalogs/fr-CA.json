@@ -2151,6 +2151,8 @@
       "action": "Annuler",
       "done": "Modification annulée",
       "finishFirst": "Abandonnez d’abord vos modifications, puis annulez le changement.",
+      "strandedTitle": "Ces réservations se retrouveraient sans service",
+      "strandedClose": "Fermer",
       "errors": {
         "guests-notified": "Cette modification a averti les clients; elle ne peut pas être annulée.",
         "already-reverted": "Cette modification a déjà été annulée.",
