@@ -68,7 +68,7 @@
     "state": "open",
     "severity": "P2",
     "first_seen": "2026-10-01",
-    "last_seen": "2026-10-17",
+    "last_seen": "2026-11-02",
     "escalated_at": null
   },
   "rialto-web|components/aspect-ratio|r1|accessibility/axe-serious": {
@@ -609,6 +609,15 @@
     "severity": "P2",
     "first_seen": "2026-10-23",
     "last_seen": "2026-10-23",
+    "escalated_at": null
+  },
+  "hospitality|book/:venueSlug|r1|accessibility/axe-serious": {
+    "issue": 8106,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-11-02",
+    "last_seen": "2026-11-02",
     "escalated_at": null
   }
 }
