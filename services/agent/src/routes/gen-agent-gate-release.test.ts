@@ -34,6 +34,12 @@ const toolCtx = {
   context: undefined as never,
 };
 
+/** Pinned verbatim: a spent action must not claim the first attempt did or did not run. */
+const ALREADY = {
+  error:
+    "This confirmed action was already attempted in this request and may or may not have run. Go by that attempt's result; ask the user to confirm again.",
+};
+
 const TABLES = { data: [{ id: "t1", tableNumber: "3", status: "OCCUPIED" }] };
 const CONFIRMED_INPUT = { table: "3", status: "DIRTY" } as const;
 
@@ -115,7 +121,7 @@ describe("confirmation gate: releasing the single use (#8134)", () => {
     await run(t);
     const second = await run(t);
 
-    expect(second).toEqual({ error: "This confirmed action has already been executed." });
+    expect(second).toEqual(ALREADY);
     expect(api.tables.updateStatus).toHaveBeenCalledTimes(1);
   });
 
@@ -127,7 +133,21 @@ describe("confirmation gate: releasing the single use (#8134)", () => {
     await run(t);
     const second = await run(t);
 
-    expect(second).toEqual({ error: "This confirmed action has already been executed." });
+    expect(second).toEqual(ALREADY);
+    expect(api.tables.updateStatus).toHaveBeenCalledTimes(1);
+  });
+
+  it("a 403 on the write says nothing changed, and a second call is told only that it was attempted", async () => {
+    api.tables.list.mockResolvedValue(TABLES);
+    api.tables.updateStatus.mockRejectedValue(problem(403));
+    const t = tools();
+
+    const first = await run(t);
+    const second = await run(t);
+
+    expect(first).toEqual({ refused: true, error: expect.stringContaining("Nothing was changed") });
+    expect(second).toEqual(ALREADY);
+    expect(second.error).not.toMatch(/executed|Nothing was changed/);
     expect(api.tables.updateStatus).toHaveBeenCalledTimes(1);
   });
 
@@ -157,7 +177,7 @@ describe("confirmation gate: releasing the single use (#8134)", () => {
       finishList({ data: [] });
       await first;
 
-      expect(second).toEqual({ error: "This confirmed action has already been executed." });
+      expect(second).toEqual(ALREADY);
       expect(api.tables.updateStatus).not.toHaveBeenCalled();
     });
 
@@ -178,7 +198,7 @@ describe("confirmation gate: releasing the single use (#8134)", () => {
 
       expect(await first).toEqual({ table: { id: "t1", status: "DIRTY" } });
       expect(await second).toEqual({
-        error: "This confirmed action has already been executed.",
+        error: ALREADY.error,
       });
       expect(api.tables.updateStatus).toHaveBeenCalledTimes(1);
     });

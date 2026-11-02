@@ -33733,7 +33733,7 @@
               return CONFIRMATION_PENDING;
             }
             if (consumed) {
-              return { error: "This confirmed action has already been executed." };
+              return { error: ALREADY_ATTEMPTED };
             }
             const schema = original.inputSchema as z.ZodType;
             const parsed = schema.safeParse(confirmedAction.toolInput);

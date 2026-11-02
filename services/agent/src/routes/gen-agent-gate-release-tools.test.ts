@@ -11,7 +11,10 @@ import { closureReadToken } from "./gen-agent-closure-support.js";
  * listed: a thrown error or an unmarked result keeps the action spent.
  */
 
-const ALREADY = { error: "This confirmed action has already been executed." };
+const ALREADY = {
+  error:
+    "This confirmed action was already attempted in this request and may or may not have run. Go by that attempt's result; ask the user to confirm again.",
+};
 
 function createMockLogger(): FastifyBaseLogger {
   return {
@@ -200,6 +203,13 @@ const CASES: readonly Case[] = [
     writes: (api) => [api.guests!.sendWinBack!],
   },
   {
+    tool: "add_guest",
+    input: { name: "Ann", phone: "555-0100" },
+    arrange: () => undefined,
+    writes: (api) => [api.guests!.findOrCreate!],
+    venueId: null,
+  },
+  {
     tool: "add_to_waitlist",
     input: { guestName: "Ann", partySize: 2, guestPhone: "555-0100" },
     arrange: () => undefined,
@@ -322,6 +332,8 @@ describe("reopen_closure: a server version-conflict wrote nothing (#8134)", () =
     expect(first).toMatchObject({ refused: true, changed: true });
     expect(second).toEqual(first);
     expect(reopen).toHaveBeenCalledTimes(2);
+    // The 409 is only "nothing changed" because the reopen is never replayed.
+    expect(reopen).toHaveBeenCalledWith("v1", "c1", false, { maxRetries: 0 }, expect.anything());
   });
 
   it.each([
@@ -340,6 +352,22 @@ describe("reopen_closure: a server version-conflict wrote nothing (#8134)", () =
     expect(reopen).toHaveBeenCalledTimes(1);
   });
 
+  it("the tool itself throwing after the write was sent keeps the action spent", async () => {
+    // The reopen committed; building the answer from this malformed `stillClosed` then throws.
+    const reopen = vi.fn().mockResolvedValue({ version: 9, stillClosed: { by: [{}] } });
+    const tools = createAgentTools(createMockLogger(), arranged(reopen) as never, {
+      venueId: "v1",
+      confirmedAction: { actionId: "call-1", toolName: "reopen_closure", toolInput: input },
+    });
+    const call = () => tools.reopen_closure!.execute!(input as never, toolCtx);
+
+    await expect(Promise.resolve(call())).rejects.toThrow();
+    const second = await call();
+
+    expect(second).toEqual(ALREADY);
+    expect(reopen).toHaveBeenCalledTimes(1);
+  });
+
   it("a success is spent: a second call cannot reopen again", async () => {
     const reopen = vi.fn().mockResolvedValue({ version: 9, changeId: "ch2" });
     const call = gated(arranged(reopen), "reopen_closure", input);
@@ -351,52 +379,321 @@ describe("reopen_closure: a server version-conflict wrote nothing (#8134)", () =
     expect(reopen).toHaveBeenCalledTimes(1);
   });
 });
+// ── A write that was sent keeps the action spent ──────────────────────────
 
-describe("a write that was sent keeps the action spent, per tool family (#8134)", () => {
-  it("close_dates: a failed save", async () => {
-    const api = lazyApi();
-    api.availability!.getConfig!.mockResolvedValue(EMPTY_CONFIG);
-    api.availability!.getClosureImpact!.mockResolvedValue({
-      reservations: 0,
-      covers: 0,
-      depositsHeld: 0,
-      groups: [],
+const WAITING = [{ id: "w1", guestName: "Ann", partySize: 2, status: "waiting", position: 1 }];
+const FREE_TABLE = {
+  data: [{ id: "t1", tableNumber: "3", status: "AVAILABLE" }],
+};
+const ANN = { data: [{ id: "g1", name: "Ann" }] };
+const SOUP_MENU = {
+  id: "m1",
+  name: "Lunch",
+  sections: [
+    {
+      id: "s1",
+      name: "Starters",
+      items: [{ id: "i1", name: "Soup", status: "AVAILABLE" }],
+    },
+  ],
+};
+const TONIGHT_PAUSE = {
+  id: "rule-1",
+  kind: "tonight",
+  targetKind: "booking",
+  startsOn: "2099-01-01",
+  expiresAt: "2099-01-02T00:00:00Z",
+  payload: {},
+};
+
+interface SentCase {
+  readonly tool: string;
+  readonly input: Record<string, unknown>;
+  readonly arrange: (api: ReturnType<typeof lazyApi>, fail: unknown) => void;
+  /** The endpoint whose rejection is the sent write. */
+  readonly write: (api: ReturnType<typeof lazyApi>) => ReturnType<typeof vi.fn>;
+}
+
+const BOOKED = { id: "r1", venueId: "v1", status: "CONFIRMED", tableId: "t1" };
+
+const SENT: readonly SentCase[] = [
+  {
+    tool: "create_reservation",
+    input: {
+      guestName: "Smith",
+      date: "2026-05-18",
+      startTime: "19:00",
+      endTime: "21:00",
+      partySize: 4,
+      tableId: "t1",
+    },
+    arrange: (api, fail) => api.reservations!.create!.mockRejectedValue(fail),
+    write: (api) => api.reservations!.create!,
+  },
+  {
+    tool: "modify_reservation",
+    input: { reservationId: "r1", partySize: 3 },
+    arrange: (api, fail) => api.reservations!.update!.mockRejectedValue(fail),
+    write: (api) => api.reservations!.update!,
+  },
+  {
+    tool: "cancel_reservation",
+    input: { reservationId: "r1" },
+    arrange: (api, fail) => api.reservations!.cancel!.mockRejectedValue(fail),
+    write: (api) => api.reservations!.cancel!,
+  },
+  {
+    tool: "seat_walk_in",
+    input: { partySize: 2, tableId: "t1" },
+    arrange: (api, fail) => api.reservations!.walkIn!.mockRejectedValue(fail),
+    write: (api) => api.reservations!.walkIn!,
+  },
+  {
+    tool: "update_table_status",
+    input: { table: "3", status: "DIRTY" },
+    arrange: (api, fail) => {
+      api.tables!.list!.mockResolvedValue(FREE_TABLE);
+      api.tables!.updateStatus!.mockRejectedValue(fail);
+    },
+    write: (api) => api.tables!.updateStatus!,
+  },
+  {
+    tool: "seat_reservation",
+    input: { reservationId: "r1" },
+    arrange: (api, fail) => {
+      api.reservations!.get!.mockResolvedValue(BOOKED);
+      api.tables!.list!.mockResolvedValue(FREE_TABLE);
+      api.tables!.updateStatus!.mockRejectedValue(fail);
+    },
+    write: (api) => api.tables!.updateStatus!,
+  },
+  {
+    tool: "mark_no_show",
+    input: { reservationId: "r1" },
+    arrange: (api, fail) => {
+      api.reservations!.get!.mockResolvedValue(BOOKED);
+      api.reservations!.markNoShow!.mockRejectedValue(fail);
+    },
+    write: (api) => api.reservations!.markNoShow!,
+  },
+  {
+    tool: "change_tonight_availability",
+    input: { change: "pause_online" },
+    arrange: (api, fail) => {
+      api.availability!.getConfig!.mockResolvedValue(EMPTY_CONFIG);
+      api.availability!.setTonight!.mockRejectedValue(fail);
+    },
+    write: (api) => api.availability!.setTonight!,
+  },
+  {
+    tool: "end_tonight_change",
+    input: { change: "pause_online" },
+    arrange: (api, fail) => {
+      api.availability!.getConfig!.mockResolvedValue({
+        ...EMPTY_CONFIG,
+        config: { ...EMPTY_CONFIG.config, dateRules: [TONIGHT_PAUSE] },
+      });
+      api.availability!.endTonight!.mockRejectedValue(fail);
+    },
+    write: (api) => api.availability!.endTonight!,
+  },
+  {
+    tool: "undo_availability_change",
+    input: { summary: "Paused online booking" },
+    arrange: (api, fail) => {
+      api.availability!.listChanges!.mockResolvedValue({
+        items: [],
+        undoable: {
+          id: "ch1",
+          summary: "Paused online booking",
+          at: "2099-01-01T00:00:00Z",
+        },
+      });
+      api.availability!.getConfig!.mockResolvedValue(EMPTY_CONFIG);
+      api.availability!.revertChange!.mockRejectedValue(fail);
+    },
+    write: (api) => api.availability!.revertChange!,
+  },
+  {
+    tool: "close_dates",
+    input: { scope: "whole_venue", date: "2099-01-05" },
+    arrange: (api, fail) => {
+      api.availability!.getConfig!.mockResolvedValue(EMPTY_CONFIG);
+      api.availability!.getClosureImpact!.mockResolvedValue({
+        reservations: 0,
+        covers: 0,
+        depositsHeld: 0,
+        groups: [],
+      });
+      api.availability!.createClosure!.mockRejectedValue(fail);
+    },
+    write: (api) => api.availability!.createClosure!,
+  },
+  {
+    tool: "add_guest",
+    input: { name: "Ann", phone: "555-0100" },
+    arrange: (api, fail) => api.guests!.findOrCreate!.mockRejectedValue(fail),
+    write: (api) => api.guests!.findOrCreate!,
+  },
+  {
+    tool: "update_guest",
+    input: { guest: "Ann", name: "Anna" },
+    arrange: (api, fail) => {
+      api.guests!.search!.mockResolvedValue(ANN);
+      api.guests!.update!.mockRejectedValue(fail);
+    },
+    write: (api) => api.guests!.update!,
+  },
+  {
+    tool: "add_guest_note",
+    input: { guest: "Ann", text: "Likes the window" },
+    arrange: (api, fail) => {
+      api.guests!.search!.mockResolvedValue(ANN);
+      api.guests!.addNote!.mockRejectedValue(fail);
+    },
+    write: (api) => api.guests!.addNote!,
+  },
+  {
+    tool: "send_win_back",
+    input: { guest: "Ann" },
+    arrange: (api, fail) => {
+      api.guests!.getLapsing!.mockResolvedValue([{ name: "Ann", guestId: "g1" }]);
+      api.guests!.sendWinBack!.mockRejectedValue(fail);
+    },
+    write: (api) => api.guests!.sendWinBack!,
+  },
+  {
+    tool: "add_to_waitlist",
+    input: { guestName: "Ann", partySize: 2, guestPhone: "555-0100" },
+    arrange: (api, fail) => api.waitlist!.create!.mockRejectedValue(fail),
+    write: (api) => api.waitlist!.create!,
+  },
+  {
+    tool: "notify_waitlist_party",
+    input: { guestName: "Ann" },
+    arrange: (api, fail) => {
+      api.waitlist!.list!.mockResolvedValue(WAITING);
+      api.waitlist!.notify!.mockRejectedValue(fail);
+    },
+    write: (api) => api.waitlist!.notify!,
+  },
+  {
+    tool: "seat_waitlist_party",
+    input: { guestName: "Ann", table: "3" },
+    arrange: (api, fail) => {
+      api.waitlist!.list!.mockResolvedValue(WAITING);
+      api.tables!.list!.mockResolvedValue(FREE_TABLE);
+      api.reservations!.walkIn!.mockRejectedValue(fail);
+    },
+    write: (api) => api.reservations!.walkIn!,
+  },
+  {
+    tool: "remove_from_waitlist",
+    input: { guestName: "Ann" },
+    arrange: (api, fail) => {
+      api.waitlist!.list!.mockResolvedValue(WAITING);
+      api.waitlist!.cancel!.mockRejectedValue(fail);
+    },
+    write: (api) => api.waitlist!.cancel!,
+  },
+  {
+    tool: "set_menu_item_availability",
+    input: { menu: "Lunch", item: "Soup", availability: "sold_out" },
+    arrange: (api, fail) => {
+      api.menus!.list!.mockResolvedValue([SOUP_MENU]);
+      api.menus!.getById!.mockResolvedValue(SOUP_MENU);
+      api.menus!.updateItem!.mockRejectedValue(fail);
+    },
+    write: (api) => api.menus!.updateItem!,
+  },
+  {
+    tool: "update_menu_item",
+    input: { menu: "Lunch", item: "Soup", price: "5.00" },
+    arrange: (api, fail) => {
+      api.menus!.list!.mockResolvedValue([SOUP_MENU]);
+      api.menus!.getById!.mockResolvedValue(SOUP_MENU);
+      api.menus!.updateItem!.mockRejectedValue(fail);
+    },
+    write: (api) => api.menus!.updateItem!,
+  },
+  {
+    tool: "activate_floor_plan",
+    input: { floorPlan: "Patio" },
+    arrange: (api, fail) => {
+      api.floorPlans!.list!.mockResolvedValue({
+        data: [{ id: "p1", name: "Patio", isActive: false }],
+      });
+      api.floorPlans!.setActive!.mockRejectedValue(fail);
+    },
+    write: (api) => api.floorPlans!.setActive!,
+  },
+];
+
+const FAILURES: readonly (readonly [string, () => unknown])[] = [
+  ["a network failure", () => new Error("socket hang up")],
+  ["a 503", () => problem(503)],
+  ["a 403 the tool words as nothing changed", () => problem(403)],
+];
+
+describe("a write that was sent keeps the confirmed action spent, per tool (#8134)", () => {
+  for (const c of SENT) {
+    it.each(FAILURES)(`${c.tool}: %s`, async (_name, failure) => {
+      const api = lazyApi();
+      c.arrange(api, failure());
+      const call = gated(api, c.tool, c.input);
+
+      const first = await call();
+      const second = await call();
+
+      expect(first).not.toHaveProperty("notExecuted");
+      expect(second).toEqual(ALREADY);
+      expect(c.write(api)).toHaveBeenCalledTimes(1);
     });
-    api.availability!.createClosure!.mockRejectedValue(new Error("socket hang up"));
-    const future = new Date(Date.now() + 5 * 86_400_000).toISOString().slice(0, 10);
-    const call = gated(api, "close_dates", { scope: "whole_venue", date: future });
+  }
+});
 
-    await call();
+describe("a partial write keeps the confirmed action spent (#8134)", () => {
+  it("seat_reservation: the booking was confirmed, then moving it to another table failed", async () => {
+    const api = lazyApi();
+    api.reservations!.get!.mockResolvedValue({ ...BOOKED, status: "PENDING" });
+    api.tables!.list!.mockResolvedValue({
+      data: [
+        { id: "t1", tableNumber: "3", status: "AVAILABLE" },
+        { id: "t2", tableNumber: "4", status: "AVAILABLE" },
+      ],
+    });
+    api.reservations!.update!.mockResolvedValueOnce({}).mockRejectedValueOnce(problem(503));
+    const call = gated(api, "seat_reservation", {
+      reservationId: "r1",
+      table: "4",
+    });
+
+    const first = (await call()) as Record<string, unknown>;
     const second = await call();
 
+    expect(first.error).toEqual(expect.stringContaining("Confirming the booking"));
     expect(second).toEqual(ALREADY);
-    expect(api.availability!.createClosure).toHaveBeenCalledTimes(1);
+    expect(api.reservations!.update).toHaveBeenCalledTimes(2);
+    expect(api.tables!.updateStatus).not.toHaveBeenCalled();
   });
 
-  it("notify_waitlist_party: a failed notify", async () => {
+  it("seat_waitlist_party: the walk-in was created, then the waitlist row could not be updated", async () => {
     const api = lazyApi();
-    api.waitlist!.list!.mockResolvedValue([
-      { id: "w1", guestName: "Ann", partySize: 2, status: "waiting", position: 1 },
-    ]);
-    api.waitlist!.notify!.mockRejectedValue(problem(503));
-    const call = gated(api, "notify_waitlist_party", { guestName: "Ann" });
+    api.waitlist!.list!.mockResolvedValue(WAITING);
+    api.tables!.list!.mockResolvedValue(FREE_TABLE);
+    api.reservations!.walkIn!.mockResolvedValue({ id: "w-res" });
+    api.waitlist!.seat!.mockRejectedValue(problem(503));
+    const call = gated(api, "seat_waitlist_party", {
+      guestName: "Ann",
+      table: "3",
+    });
 
-    await call();
+    const first = await call();
     const second = await call();
 
+    expect(first).toMatchObject({ seated: true, waitlistStale: true });
     expect(second).toEqual(ALREADY);
-    expect(api.waitlist!.notify).toHaveBeenCalledTimes(1);
-  });
-
-  it("modify_reservation: its first call is the write, so a failure stays spent", async () => {
-    const api = lazyApi();
-    api.reservations!.update!.mockRejectedValue(new Error("socket hang up"));
-    const call = gated(api, "modify_reservation", { reservationId: "r1", partySize: 3 });
-
-    await call();
-    const second = await call();
-
-    expect(second).toEqual(ALREADY);
-    expect(api.reservations!.update).toHaveBeenCalledTimes(1);
+    expect(api.reservations!.walkIn).toHaveBeenCalledTimes(1);
+    expect(api.waitlist!.seat).toHaveBeenCalledTimes(1);
   });
 });

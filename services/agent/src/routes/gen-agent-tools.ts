@@ -237,6 +237,14 @@ const CONFIRMATION_PENDING = {
 } as const;
 
 /**
+ * What a second call is told once the confirmed action is spent. The first attempt
+ * may have refused (and said "nothing was changed") or may have committed, so this
+ * never claims either: the first attempt's own result is the answer.
+ */
+const ALREADY_ATTEMPTED =
+  "This confirmed action was already attempted in this request and may or may not have run. Go by that attempt's result; ask the user to confirm again.";
+
+/**
  * A tool's result with its not-executed marker removed. The single use is handed
  * back only when the tool stated that nothing was written; a thrown error (which
  * skips this entirely), a timeout and anything unmarked stay spent, because the
@@ -280,7 +288,7 @@ function gateWriteTools(
           return CONFIRMATION_PENDING;
         }
         if (consumed) {
-          return { error: "This confirmed action has already been executed." };
+          return { error: ALREADY_ATTEMPTED };
         }
         const schema = original.inputSchema as z.ZodType;
         const parsed = schema.safeParse(confirmedAction.toolInput);
