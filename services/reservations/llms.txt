@@ -590,13 +590,21 @@
         
       }
     </item>
+    <item priority="high">
+      class EmailNotConfiguredError {
+        
+      }
+    </item>
   </file>
   <file path="src/notifications/resend-adapter.ts">
-    <item priority="high">
+    <item priority="low">
       interface ResendClient {
         emails: {
-          // The SDK resolves `{ data, error }` on API failur...;
+          // The SDK resolves `{ data, error }` on EVERY fail...;
       }
+    </item>
+    <item priority="medium">
+      function isDefiniteRejection(error: { name?: string; statusCode?: number | null }): boolean { /* ... */ }
     </item>
     <item priority="low">
       interface ResendAdapterConfig {
@@ -958,6 +966,13 @@
     </item>
   </file>
   <file path="src/routes/guests.ts">
+    <item priority="medium">
+      function winBackProblem(
+        result: WinBackResult,
+        guestName: string,
+        timeZone: string
+      ): { status: 409 | 424; title: string; detail: string } | null { /* ... */ }
+    </item>
     <item priority="high">
       export const guestRoutes: FastifyPluginAsync;
     </item>
@@ -5592,10 +5607,13 @@
       export const WIN_BACK_COOLDOWN_MS: unknown;
     </item>
     <item priority="low">
-      type WinBackClaim = { claimed: true } | { claimed: false; claimedAt: D;
+      type WinBackClaim = { claimed: true; previousClaim | { claimed: false; claimedAt: D;
     </item>
     <item priority="medium">
       function isUniqueViolation(err: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="low">
+      async function refusal(venueId: string, guestId: string, now: Date, db: Db): Promise<WinBackClaim> { /* ... */ }
     </item>
     <item priority="high">
       export async function claimWinBack(
@@ -5619,6 +5637,7 @@
         venueId: string,
         guestId: string,
         claimedAt: Date,
+        previousClaimedAt: Date | null,
         db: Db = prisma
       ): Promise<void> { /* ... */ }
     </item>
@@ -5648,23 +5667,29 @@
       }
     </item>
     <item priority="low">
-      type WinBackResult = { status: "sent" } | { status: "skipped" } | { status: "failed" } | ({ status: "cooldown" } & WinB;
+      type WinBackResult = { status: "sent" } | { status: "skipped" } | { status: "failed" } | { status: "unavailable" } | ({ status: "cooldown" } & WinB;
     </item>
     <item priority="low">
       interface WinBackDeps {
-        
+        log?: { error(fields: object, message: string): void };
       }
+    </item>
+    <item priority="high">
+      export const defaultWinBackDeps: WinBackDeps;
     </item>
     <item priority="high">
       export async function sendWinBack(
         guest: Guest,
         notificationPort: NotificationDispatcher,
         venueName: string,
-        deps: WinBackDeps = defaultDeps
+        deps: WinBackDeps = defaultWinBackDeps
       ): Promise<WinBackResult> { /* ... */ }
     </item>
     <item priority="high">
-      export function cooldownDetail(guestName: string, c: WinBackCooldown): string { /* ... */ }
+      export function cooldownDetail(guestName: string, c: WinBackCooldown, timeZone: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function formatInZone(date: Date, timeZone: string): string { /* ... */ }
     </item>
   </file>
   </section>

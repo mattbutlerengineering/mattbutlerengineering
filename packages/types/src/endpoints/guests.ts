@@ -144,7 +144,7 @@ export const guestsEndpoints = {
         "A win-back was already sent or attempted within the cooldown; nothing was sent. `detail` says which, and when another is allowed."
       ),
       424: problem(
-        "The email provider rejected the message; nothing was sent and the guest can be tried again."
+        "The email provider rejected the message, or email isn't configured; nothing was sent and the guest can be tried again."
       ),
     },
   }),

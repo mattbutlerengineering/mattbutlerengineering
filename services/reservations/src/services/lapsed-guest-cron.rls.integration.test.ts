@@ -347,11 +347,11 @@ describe.skipIf(!process.env.DATABASE_URL)("win-back claim (real Postgres)", () 
   it("lets a released claim be claimed again at once, and never clears a newer claim", async () => {
     const guestId = await newGuest();
     await claim(guestId, now);
-    await inVenue(() => releaseWinBackClaim(venueId, guestId, now, scoped));
-    expect(await claim(guestId, at(1000))).toEqual({ claimed: true });
+    await inVenue(() => releaseWinBackClaim(venueId, guestId, now, null, scoped));
+    expect(await claim(guestId, at(1000))).toEqual({ claimed: true, previousClaimedAt: null });
 
     // A stale release (for the first claim) must not clear the claim made at +1000.
-    await inVenue(() => releaseWinBackClaim(venueId, guestId, now, scoped));
+    await inVenue(() => releaseWinBackClaim(venueId, guestId, now, null, scoped));
     expect(await claim(guestId, at(2000))).toMatchObject({
       claimed: false,
       claimedAt: at(1000),
@@ -363,8 +363,26 @@ describe.skipIf(!process.env.DATABASE_URL)("win-back claim (real Postgres)", () 
     await claim(guestId, now);
     await inVenue(() => markWinBackSent(venueId, guestId, now, now, scoped));
     const later = at(WIN_BACK_COOLDOWN_MS);
-    expect(await claim(guestId, later)).toEqual({ claimed: true });
+    expect(await claim(guestId, later)).toEqual({ claimed: true, previousClaimedAt: now });
     const status = await inVenue(() => winBackStatusFor(venueId, [guestId], scoped));
     expect(status.get(guestId)).toEqual({ sentAt: now, attemptedAt: later });
+  });
+
+  it("restores an older UNCONFIRMED attempt when the renewal is rejected, instead of erasing it", async () => {
+    const guestId = await newGuest();
+    await claim(guestId, now); // T0 ends ambiguously: claimed, never marked sent
+    const later = at(WIN_BACK_COOLDOWN_MS + 1000);
+    const renewal = await claim(guestId, later);
+    expect(renewal).toEqual({ claimed: true, previousClaimedAt: now });
+
+    await inVenue(() => releaseWinBackClaim(venueId, guestId, later, now, scoped));
+
+    const status = await inVenue(() => winBackStatusFor(venueId, [guestId], scoped));
+    expect(status.get(guestId)).toEqual({ sentAt: null, attemptedAt: now });
+    // The cooldown is over, so the guest can be claimed again.
+    expect(await claim(guestId, at(WIN_BACK_COOLDOWN_MS + 2000))).toMatchObject({
+      claimed: true,
+      previousClaimedAt: now,
+    });
   });
 });

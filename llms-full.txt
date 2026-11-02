@@ -14610,7 +14610,7 @@
             "A win-back was already sent or attempted within the cooldown; nothing was sent. `detail` says which, and when another is allowed."
           ),
           424: problem(
-            "The email provider rejected the message; nothing was sent and the guest can be tried again."
+            "The email provider rejected the message, or email isn't configured; nothing was sent and the guest can be tried again."
           ),
         },
       }),
@@ -26422,16 +26422,36 @@
         this.name = "ProviderRejectedError";
       }
     }
+    export class EmailNotConfiguredError extends Error {
+      constructor() {
+        super("Email sending is not configured");
+        this.name = "EmailNotConfiguredError";
+      }
+    }
   </file>
   <file path="services/reservations/src/notifications/resend-adapter.ts">
-    interface ResendClient {
+    export interface ResendClient {
       emails: {
-        // The SDK resolves `{ data, error }` on API failures rather than throwing.
+        // The SDK resolves `{ data, error }` on EVERY failure rather than throwing: a network
+        // failure is `statusCode: null`, an HTTP failure carries the response's status.
         send(
           payload: Record<string, unknown>,
           options?: { idempotencyKey: string }
-        ): Promise<{ data?: unknown; error?: { name?: string; message: string } | null }>;
+        ): Promise<{
+          data?: unknown;
+          error?: { name?: string; message: string; statusCode?: number | null } | null;
+        }>;
       };
+    }
+    function isDefiniteRejection(error: { name?: string; statusCode?: number | null }): boolean {
+      const status = error.statusCode;
+      return (
+        typeof status === "number" &&
+        status >= 400 &&
+        status <= 499 &&
+        !AMBIGUOUS_CLIENT_STATUSES.has(status) &&
+        error.name !== IN_FLIGHT_ERROR_NAME
+      );
     }
     export interface ResendAdapterConfig {
       resend: ResendClient | null;
@@ -26495,9 +26515,9 @@
           ? await this.resend.emails.send(payload, options)
           : await this.resend.emails.send(payload);
         if (error) {
-          throw new ProviderRejectedError(
-            `Resend send failed${error.name ? ` (${error.name})` : ""}: ${error.message}`
-          );
+          const message = `Resend send failed${error.name ? ` (${error.name})` : ""}: ${error.message}`;
+          // Only a proven refusal is a ProviderRejectedError; callers may retry after one (win-back).
+          throw isDefiniteRejection(error) ? new ProviderRejectedError(message) : new Error(message);
         }
       }
     
@@ -26581,7 +26601,9 @@
       }
     
       async sendWinBack(input: WinBackNotificationInput): Promise<void> {
-        if (!this.resend) return;
+        // Unlike the other senders, win-back must not report "sent" for an email that never left:
+        // the caller records the send and starts a cooldown on it.
+        if (!this.resend) throw new EmailNotConfiguredError();
         const safeGuestName = escapeHtml(input.guestName);
         const safeVenueName = escapeHtml(input.venueName);
         await this.send(
@@ -37886,6 +37908,34 @@
     };
   </file>
   <file path="services/reservations/src/routes/guests.ts">
+    function winBackProblem(
+      result: WinBackResult,
+      guestName: string,
+      timeZone: string
+    ): { status: 409 | 424; title: string; detail: string } | null {
+      switch (result.status) {
+        case "cooldown":
+          return {
+            status: 409,
+            title: "Conflict",
+            detail: cooldownDetail(guestName, result, timeZone),
+          };
+        case "failed":
+          return {
+            status: 424,
+            title: "Failed Dependency",
+            detail: `The email provider rejected the win-back message to ${guestName}. Nothing was sent. You can try again.`,
+          };
+        case "unavailable":
+          return {
+            status: 424,
+            title: "Failed Dependency",
+            detail: `Email sending isn't set up here, so the win-back message to ${guestName} was not sent. Nothing was sent.`,
+          };
+        default:
+          return null;
+      }
+    }
     export const guestRoutes: FastifyPluginAsync = async (fastify) => {
       const { guestService, venueService } = fastify.services;
     
@@ -38130,29 +38180,25 @@
                 const guest = await guestService.getById(id);
                 if (!guest) return null;
                 const venue = await venueService.getById(guest.venueId);
-                return { guest, venueName: venue?.name ?? guest.venueId };
+                return {
+                  guest,
+                  venueName: venue?.name ?? guest.venueId,
+                  timeZone: venue?.ianaTimezone ?? "UTC",
+                };
               },
               notFound: GUEST_NOT_FOUND,
             },
           },
-          async (_request, reply, { entity }) => {
-            const result = await sendWinBack(entity.guest, fastify.notificationPort, entity.venueName);
-            if (result.status === "cooldown") {
+          async (request, reply, { entity }) => {
+            const result = await sendWinBack(entity.guest, fastify.notificationPort, entity.venueName, {
+              ...defaultWinBackDeps,
+              log: request.log,
+            });
+            const problem = winBackProblem(result, entity.guest.name, entity.timeZone);
+            if (problem) {
               return reply
-                .code(409)
-                .send(createProblemDetails(409, "Conflict", cooldownDetail(entity.guest.name, result)));
-            }
-            if (result.status === "failed") {
-              // The provider refused it and the claim is released: nothing went out, a retry is allowed.
-              return reply
-                .code(424)
-                .send(
-                  createProblemDetails(
-                    424,
-                    "Failed Dependency",
-                    `The email provider rejected the win-back message to ${entity.guest.name}. Nothing was sent. You can try again.`
-                  )
-                );
+                .code(problem.status)
+                .send(createProblemDetails(problem.status, problem.title, problem.detail));
             }
             return { data: { sent: result.status === "sent" } };
           }
@@ -64804,9 +64850,24 @@
     type Db = Pick<PrismaClient, "guestWinBack">;
     export const WIN_BACK_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
     export type WinBackClaim =
-      { claimed: true } | { claimed: false; claimedAt: Date | null; sentAt: Date | null };
+      /** `previousClaimedAt` is what the row held (null = never or released); a release restores it. */
+      | { claimed: true; previousClaimedAt: Date | null }
+      | { claimed: false; claimedAt: Date | null; sentAt: Date | null };
     function isUniqueViolation(err: unknown): boolean {
       return err !== null && typeof err === "object" && (err as { code?: unknown }).code === "P2002";
+    }
+    async function refusal(venueId: string, guestId: string, now: Date, db: Db): Promise<WinBackClaim> {
+      const existing = await db.guestWinBack.findFirst({
+        where: { venueId, guestId },
+        select: { claimedAt: true, sentAt: true },
+      });
+      // Present: a refusal is only reached once a row exists. Absent only if it was deleted
+      // in between, which nothing does (guest delete cascades, then no send).
+      return {
+        claimed: false,
+        claimedAt: existing?.claimedAt ?? now,
+        sentAt: existing?.sentAt ?? null,
+      };
     }
     export async function claimWinBack(
       venueId: string,
@@ -64815,28 +64876,30 @@
       db: Db = prisma
     ): Promise<WinBackClaim> {
       const cutoff = new Date(now.getTime() - WIN_BACK_COOLDOWN_MS);
-      const renewed = await db.guestWinBack.updateMany({
-        where: { venueId, guestId, OR: [{ claimedAt: null }, { claimedAt: { lte: cutoff } }] },
-        data: { claimedAt: now },
-      });
-      if (renewed.count === 1) return { claimed: true };
-      try {
-        await db.guestWinBack.create({ data: { venueId, guestId, claimedAt: now } });
-        return { claimed: true };
-      } catch (err) {
-        if (!isUniqueViolation(err)) throw err;
-      }
       const existing = await db.guestWinBack.findFirst({
         where: { venueId, guestId },
-        select: { claimedAt: true, sentAt: true },
+        select: { claimedAt: true },
       });
-      // Present: the unique violation proves a row exists. Absent only if it was deleted
-      // between the two statements, which nothing does (guest delete cascades, then no send).
-      return {
-        claimed: false,
-        claimedAt: existing?.claimedAt ?? now,
-        sentAt: existing?.sentAt ?? null,
-      };
+      if (existing) {
+        const previousClaimedAt = existing.claimedAt;
+        if (previousClaimedAt !== null && previousClaimedAt.getTime() > cutoff.getTime()) {
+          return refusal(venueId, guestId, now, db);
+        }
+        const renewed = await db.guestWinBack.updateMany({
+          where: { venueId, guestId, claimedAt: previousClaimedAt },
+          data: { claimedAt: now },
+        });
+        return renewed.count === 1
+          ? { claimed: true, previousClaimedAt }
+          : refusal(venueId, guestId, now, db);
+      }
+      try {
+        await db.guestWinBack.create({ data: { venueId, guestId, claimedAt: now } });
+        return { claimed: true, previousClaimedAt: null };
+      } catch (err) {
+        if (!isUniqueViolation(err)) throw err;
+        return refusal(venueId, guestId, now, db);
+      }
     }
     export async function markWinBackSent(
       venueId: string,
@@ -64854,11 +64917,12 @@
       venueId: string,
       guestId: string,
       claimedAt: Date,
+      previousClaimedAt: Date | null,
       db: Db = prisma
     ): Promise<void> {
       await db.guestWinBack.updateMany({
         where: { venueId, guestId, claimedAt },
-        data: { claimedAt: null },
+        data: { claimedAt: previousClaimedAt },
       });
     }
     export interface WinBackStatus {
@@ -64904,18 +64968,34 @@
       | { status: "sent" }
       | { status: "skipped" }
       | { status: "failed" }
+      | { status: "unavailable" }
       | ({ status: "cooldown" } & WinBackCooldown);
     export interface WinBackDeps {
       claim(venueId: string, guestId: string, now: Date): Promise<WinBackClaim>;
       markSent(venueId: string, guestId: string, claimedAt: Date, sentAt: Date): Promise<void>;
-      release(venueId: string, guestId: string, claimedAt: Date): Promise<void>;
+      release(
+        venueId: string,
+        guestId: string,
+        claimedAt: Date,
+        previousClaimedAt: Date | null
+      ): Promise<void>;
       now(): Date;
+      /** Where a rejection is logged (the request logger). Never given guest contact details. */
+      log?: { error(fields: object, message: string): void };
     }
+    export const defaultWinBackDeps: WinBackDeps = {
+      claim: (venueId, guestId, now) => claimWinBack(venueId, guestId, now),
+      markSent: (venueId, guestId, claimedAt, sentAt) =>
+        markWinBackSent(venueId, guestId, claimedAt, sentAt),
+      release: (venueId, guestId, claimedAt, previousClaimedAt) =>
+        releaseWinBackClaim(venueId, guestId, claimedAt, previousClaimedAt),
+      now: () => new Date(),
+    };
     export async function sendWinBack(
       guest: Guest,
       notificationPort: NotificationDispatcher,
       venueName: string,
-      deps: WinBackDeps = defaultDeps
+      deps: WinBackDeps = defaultWinBackDeps
     ): Promise<WinBackResult> {
       if (
         !canContact(
@@ -64960,20 +65040,47 @@
           channel
         );
       } catch (err) {
-        if (!(err instanceof ProviderRejectedError)) throw err;
-        await deps.release(guest.venueId, guest.id, claimedAt);
-        return { status: "failed" };
+        if (!(err instanceof ProviderRejectedError) && !(err instanceof EmailNotConfiguredError)) {
+          throw err;
+        }
+        // Nothing was sent: put the previous claim back so a retry is allowed. The reason is
+        // logged (name and message only) so a revoked key or missing config is visible to operators.
+        deps.log?.error(
+          { err: { name: err.name, message: err.message }, venueId: guest.venueId, guestId: guest.id },
+          "win-back not sent"
+        );
+        await deps.release(guest.venueId, guest.id, claimedAt, claim.previousClaimedAt);
+        return { status: err instanceof EmailNotConfiguredError ? "unavailable" : "failed" };
       }
     
       await deps.markSent(guest.venueId, guest.id, claimedAt, deps.now());
       return { status: "sent" };
     }
-    export function cooldownDetail(guestName: string, c: WinBackCooldown): string {
-      const next = `Another can be sent after ${c.retryAfter.toISOString()}.`;
+    export function cooldownDetail(guestName: string, c: WinBackCooldown, timeZone: string): string {
+      const at = (d: Date) => formatInZone(d, timeZone);
+      const next = `Another can be sent after ${at(c.retryAfter)}.`;
       if (c.sentAt !== null && !isUnconfirmed(c.claimedAt, c.sentAt)) {
-        return `${guestName} was sent a win-back message on ${c.sentAt.toISOString()}. Nothing was sent now. ${next}`;
+        return `${guestName} was sent a win-back message on ${at(c.sentAt)}. Nothing was sent now. ${next}`;
       }
-      return `A win-back message to ${guestName} was attempted on ${c.claimedAt.toISOString()} and may not have gone out. Nothing was sent now. ${next}`;
+      return `A win-back message to ${guestName} was attempted on ${at(c.claimedAt)} and may not have gone out. Nothing was sent now. ${next}`;
+    }
+    function formatInZone(date: Date, timeZone: string): string {
+      const options: Intl.DateTimeFormatOptions = {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        timeZoneName: "short",
+      };
+      let text: string;
+      try {
+        text = new Intl.DateTimeFormat("en-US", { ...options, timeZone }).format(date);
+      } catch {
+        // An unrecognised stored timezone must not turn a refusal into a 500.
+        text = new Intl.DateTimeFormat("en-US", { ...options, timeZone: "UTC" }).format(date);
+      }
+      return text.replace(/\u202f/g, " ");
     }
   </file>
   <file path="services/users/src/services/database.ts">
@@ -83120,13 +83227,7 @@
   <file path="services/reservations/src/notifications.ts">
     export function createResendAdapter(): ResendNotificationAdapter {
       const resendClient = process.env.RESEND_API_KEY
-        ? (new Resend(process.env.RESEND_API_KEY) as unknown as {
-            emails: {
-              send(
-                payload: Record<string, unknown>
-              ): Promise<{ data?: unknown; error?: { name?: string; message: string } | null }>;
-            };
-          })
+        ? (new Resend(process.env.RESEND_API_KEY) as unknown as ResendClient)
         : null;
     
       const { baseUrl: publicApiBaseUrl } = getPublicApiBaseUrlConfig({

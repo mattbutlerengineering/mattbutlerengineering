@@ -459,14 +459,36 @@ describe("HomePage", () => {
       );
     });
 
-    it("uses the house sentence, not the server's text, for a failure that says nothing sure", () => {
+    it("says it could not CONFIRM, not that it failed, when the server never answered cleanly", () => {
       failWith(502, "Bad Gateway");
 
       renderPage();
 
       const banner = screen.getByTestId("error-banner");
-      expect(banner.textContent).toContain("Couldn't send the win-back message.");
+      expect(banner.textContent).toContain("Couldn't confirm the win-back message.");
+      expect(banner.textContent).toContain("may or may not have reached the guest");
       expect(banner.textContent).not.toContain("Bad Gateway");
+      expect(banner.textContent).not.toContain("Couldn't send");
+    });
+
+    it("says it could not confirm after a 500 too: the provider may have accepted the send", () => {
+      failWith(500, "Internal Server Error");
+
+      renderPage();
+
+      expect(screen.getByTestId("error-banner").textContent).toContain(
+        "Couldn't confirm the win-back message."
+      );
+    });
+
+    it("says nothing was sent, in the house sentence, for another definite refusal", () => {
+      failWith(403, "Forbidden");
+
+      renderPage();
+
+      const banner = screen.getByTestId("error-banner");
+      expect(banner.textContent).toContain("Couldn't send the win-back message.");
+      expect(banner.textContent).not.toContain("Couldn't confirm");
     });
 
     it("shows no banner when the send has not failed", () => {

@@ -19,19 +19,38 @@ type Db = Pick<PrismaClient, "guestWinBack">;
 export const WIN_BACK_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type WinBackClaim =
-  { claimed: true } | { claimed: false; claimedAt: Date | null; sentAt: Date | null };
+  /** `previousClaimedAt` is what the row held (null = never or released); a release restores it. */
+  | { claimed: true; previousClaimedAt: Date | null }
+  | { claimed: false; claimedAt: Date | null; sentAt: Date | null };
 
 function isUniqueViolation(err: unknown): boolean {
   return err !== null && typeof err === "object" && (err as { code?: unknown }).code === "P2002";
 }
 
+async function refusal(venueId: string, guestId: string, now: Date, db: Db): Promise<WinBackClaim> {
+  const existing = await db.guestWinBack.findFirst({
+    where: { venueId, guestId },
+    select: { claimedAt: true, sentAt: true },
+  });
+  // Present: a refusal is only reached once a row exists. Absent only if it was deleted
+  // in between, which nothing does (guest delete cascades, then no send).
+  return {
+    claimed: false,
+    claimedAt: existing?.claimedAt ?? now,
+    sentAt: existing?.sentAt ?? null,
+  };
+}
+
 /**
  * Claims the guest's next win-back, BEFORE the provider call. Two simultaneous
- * callers cannot both win, with no read-then-write gap:
+ * callers cannot both win, and the write is always conditional, never a blind
+ * read-then-write:
  *
- * - a guest with a row: one `UPDATE … WHERE claimed_at IS NULL OR claimed_at <= cutoff`.
- *   The second caller waits on the row lock, re-evaluates the WHERE against the
- *   first one's new time, and matches nothing.
+ * - a guest with a row that is eligible (never claimed, released, or claimed over a
+ *   cooldown ago): one `UPDATE … WHERE claimed_at = <the value just read>`. The second
+ *   caller waits on the row lock, re-evaluates the WHERE against the first one's new
+ *   time, and matches nothing. The value read is returned as `previousClaimedAt`, so a
+ *   rejected send can put it back instead of erasing an older unconfirmed attempt.
  * - a guest never sent to: `INSERT`, and `guest_id` is UNIQUE, so the loser gets
  *   P2002 instead of a second row.
  */
@@ -42,28 +61,30 @@ export async function claimWinBack(
   db: Db = prisma
 ): Promise<WinBackClaim> {
   const cutoff = new Date(now.getTime() - WIN_BACK_COOLDOWN_MS);
-  const renewed = await db.guestWinBack.updateMany({
-    where: { venueId, guestId, OR: [{ claimedAt: null }, { claimedAt: { lte: cutoff } }] },
-    data: { claimedAt: now },
-  });
-  if (renewed.count === 1) return { claimed: true };
-  try {
-    await db.guestWinBack.create({ data: { venueId, guestId, claimedAt: now } });
-    return { claimed: true };
-  } catch (err) {
-    if (!isUniqueViolation(err)) throw err;
-  }
   const existing = await db.guestWinBack.findFirst({
     where: { venueId, guestId },
-    select: { claimedAt: true, sentAt: true },
+    select: { claimedAt: true },
   });
-  // Present: the unique violation proves a row exists. Absent only if it was deleted
-  // between the two statements, which nothing does (guest delete cascades, then no send).
-  return {
-    claimed: false,
-    claimedAt: existing?.claimedAt ?? now,
-    sentAt: existing?.sentAt ?? null,
-  };
+  if (existing) {
+    const previousClaimedAt = existing.claimedAt;
+    if (previousClaimedAt !== null && previousClaimedAt.getTime() > cutoff.getTime()) {
+      return refusal(venueId, guestId, now, db);
+    }
+    const renewed = await db.guestWinBack.updateMany({
+      where: { venueId, guestId, claimedAt: previousClaimedAt },
+      data: { claimedAt: now },
+    });
+    return renewed.count === 1
+      ? { claimed: true, previousClaimedAt }
+      : refusal(venueId, guestId, now, db);
+  }
+  try {
+    await db.guestWinBack.create({ data: { venueId, guestId, claimedAt: now } });
+    return { claimed: true, previousClaimedAt: null };
+  } catch (err) {
+    if (!isUniqueViolation(err)) throw err;
+    return refusal(venueId, guestId, now, db);
+  }
 }
 
 /** Records that the provider accepted the send claimed at `claimedAt`; a newer claim is left alone. */
@@ -81,18 +102,21 @@ export async function markWinBackSent(
 }
 
 /**
- * Releases the claim made at `claimedAt` after the provider definitely rejected the send, so
- * a retry can claim at once. Conditional on the claim time: it cannot clear a newer claim.
+ * Releases the claim made at `claimedAt` after the provider definitely rejected (or could not
+ * take) the send, so a retry can claim at once. It puts `previousClaimedAt` back rather than
+ * clearing: an older attempt that ended ambiguously must stay visible. Conditional on the
+ * claim time, so it cannot clear a newer claim.
  */
 export async function releaseWinBackClaim(
   venueId: string,
   guestId: string,
   claimedAt: Date,
+  previousClaimedAt: Date | null,
   db: Db = prisma
 ): Promise<void> {
   await db.guestWinBack.updateMany({
     where: { venueId, guestId, claimedAt },
-    data: { claimedAt: null },
+    data: { claimedAt: previousClaimedAt },
   });
 }
 

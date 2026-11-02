@@ -8,7 +8,12 @@ import {
 import { parsePaginationQuery } from "@mbe/database";
 import { requireAuth } from "@mbe/auth/fastify";
 import { registerEndpoint } from "@mbe/service-bootstrap";
-import { cooldownDetail, sendWinBack } from "../services/win-back.js";
+import {
+  cooldownDetail,
+  defaultWinBackDeps,
+  sendWinBack,
+  type WinBackResult,
+} from "../services/win-back.js";
 import { winBackStatusFor } from "../services/win-back-store.js";
 import { venueScoped } from "./venue-scope.js";
 
@@ -19,6 +24,40 @@ import { venueScoped } from "./venue-scope.js";
  * venue's RLS context.
  */
 const GUEST_NOT_FOUND = "Guest not found";
+
+/**
+ * The refusal a win-back that did not go out answers with, or `null` when it was sent or
+ * skipped. 409: a repeat inside the cooldown. 424: the send was refused or impossible, the claim
+ * is released and nothing went out, so the caller may try again.
+ */
+function winBackProblem(
+  result: WinBackResult,
+  guestName: string,
+  timeZone: string
+): { status: 409 | 424; title: string; detail: string } | null {
+  switch (result.status) {
+    case "cooldown":
+      return {
+        status: 409,
+        title: "Conflict",
+        detail: cooldownDetail(guestName, result, timeZone),
+      };
+    case "failed":
+      return {
+        status: 424,
+        title: "Failed Dependency",
+        detail: `The email provider rejected the win-back message to ${guestName}. Nothing was sent. You can try again.`,
+      };
+    case "unavailable":
+      return {
+        status: 424,
+        title: "Failed Dependency",
+        detail: `Email sending isn't set up here, so the win-back message to ${guestName} was not sent. Nothing was sent.`,
+      };
+    default:
+      return null;
+  }
+}
 
 export const guestRoutes: FastifyPluginAsync = async (fastify) => {
   const { guestService, venueService } = fastify.services;
@@ -264,29 +303,25 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
             const guest = await guestService.getById(id);
             if (!guest) return null;
             const venue = await venueService.getById(guest.venueId);
-            return { guest, venueName: venue?.name ?? guest.venueId };
+            return {
+              guest,
+              venueName: venue?.name ?? guest.venueId,
+              timeZone: venue?.ianaTimezone ?? "UTC",
+            };
           },
           notFound: GUEST_NOT_FOUND,
         },
       },
-      async (_request, reply, { entity }) => {
-        const result = await sendWinBack(entity.guest, fastify.notificationPort, entity.venueName);
-        if (result.status === "cooldown") {
+      async (request, reply, { entity }) => {
+        const result = await sendWinBack(entity.guest, fastify.notificationPort, entity.venueName, {
+          ...defaultWinBackDeps,
+          log: request.log,
+        });
+        const problem = winBackProblem(result, entity.guest.name, entity.timeZone);
+        if (problem) {
           return reply
-            .code(409)
-            .send(createProblemDetails(409, "Conflict", cooldownDetail(entity.guest.name, result)));
-        }
-        if (result.status === "failed") {
-          // The provider refused it and the claim is released: nothing went out, a retry is allowed.
-          return reply
-            .code(424)
-            .send(
-              createProblemDetails(
-                424,
-                "Failed Dependency",
-                `The email provider rejected the win-back message to ${entity.guest.name}. Nothing was sent. You can try again.`
-              )
-            );
+            .code(problem.status)
+            .send(createProblemDetails(problem.status, problem.title, problem.detail));
         }
         return { data: { sent: result.status === "sent" } };
       }

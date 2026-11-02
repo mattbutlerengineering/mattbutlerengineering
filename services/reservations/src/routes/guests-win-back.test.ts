@@ -3,7 +3,10 @@ import type { FastifyInstance } from "fastify";
 import { jwtVerify } from "jose";
 import type * as WinBackStore from "../services/win-back-store.js";
 import { buildApp } from "../app.js";
-import { ProviderRejectedError } from "../notifications/provider-rejected-error.js";
+import {
+  EmailNotConfiguredError,
+  ProviderRejectedError,
+} from "../notifications/provider-rejected-error.js";
 import type { DomainServices } from "../services/domain-services.js";
 
 vi.mock("../services/database.js", async () => {
@@ -63,7 +66,11 @@ describe("win-back send record (#8041)", () => {
       protectedHeader: { alg: "RS256" },
     } as never);
     vi.mocked(guestService.getById).mockResolvedValue(guest as never);
-    vi.mocked(venueService.getById).mockResolvedValue({ id: "venue-1", name: "Oak" } as never);
+    vi.mocked(venueService.getById).mockResolvedValue({
+      id: "venue-1",
+      name: "Oak",
+      ianaTimezone: "America/Los_Angeles",
+    } as never);
     notificationPort.sendWinBack.mockResolvedValue(undefined);
     app = await buildApp({
       logger: false,
@@ -86,7 +93,7 @@ describe("win-back send record (#8041)", () => {
     });
 
   it("sends, then records the sent time, and answers sent:true", async () => {
-    claimWinBack.mockResolvedValueOnce({ claimed: true });
+    claimWinBack.mockResolvedValueOnce({ claimed: true, previousClaimedAt: null });
 
     const res = await send();
 
@@ -113,8 +120,9 @@ describe("win-back send record (#8041)", () => {
 
     expect(res.statusCode).toBe(409);
     const { detail } = JSON.parse(res.body);
-    expect(detail).toContain("was sent a win-back message on 2026-10-30T09:00:01.000Z");
-    expect(detail).toContain("after 2026-11-06T09:00:00.000Z");
+    expect(detail).toContain("was sent a win-back message on Oct 30, 2026, 2:00 AM PDT");
+    expect(detail).toContain("after Nov 6, 2026, 1:00 AM PST");
+    expect(detail).not.toMatch(/\d{4}-\d{2}-\d{2}T/);
     expect(notificationPort.sendWinBack).not.toHaveBeenCalled();
   });
 
@@ -129,13 +137,14 @@ describe("win-back send record (#8041)", () => {
 
     expect(res.statusCode).toBe(409);
     const { detail } = JSON.parse(res.body);
-    expect(detail).toContain("attempted on 2026-10-30T09:00:00.000Z");
+    expect(detail).toContain("attempted on Oct 30, 2026, 2:00 AM PDT");
+    expect(detail).not.toMatch(/\d{4}-\d{2}-\d{2}T/);
     expect(detail).toContain("may not have gone out");
     expect(detail).not.toMatch(/was sent a win-back/);
   });
 
   it("releases the claim and answers 424 when the provider rejects: nothing was sent, a retry is possible", async () => {
-    claimWinBack.mockResolvedValueOnce({ claimed: true });
+    claimWinBack.mockResolvedValueOnce({ claimed: true, previousClaimedAt: null });
     notificationPort.sendWinBack.mockRejectedValueOnce(
       new ProviderRejectedError("Resend send failed (rate_limit_exceeded): Too many requests")
     );
@@ -144,12 +153,24 @@ describe("win-back send record (#8041)", () => {
 
     expect(res.statusCode).toBe(424);
     expect(JSON.parse(res.body).detail).toMatch(/Nothing was sent.*try again/i);
-    expect(releaseWinBackClaim).toHaveBeenCalledWith("venue-1", "guest-1", expect.any(Date));
+    expect(releaseWinBackClaim).toHaveBeenCalledWith("venue-1", "guest-1", expect.any(Date), null);
+    expect(markWinBackSent).not.toHaveBeenCalled();
+  });
+
+  it("answers 424 and releases the claim when email is not configured: nothing was sent, no sent time", async () => {
+    claimWinBack.mockResolvedValueOnce({ claimed: true, previousClaimedAt: null });
+    notificationPort.sendWinBack.mockRejectedValueOnce(new EmailNotConfiguredError());
+
+    const res = await send();
+
+    expect(res.statusCode).toBe(424);
+    expect(JSON.parse(res.body).detail).toMatch(/isn't set up.*Nothing was sent/i);
+    expect(releaseWinBackClaim).toHaveBeenCalledWith("venue-1", "guest-1", expect.any(Date), null);
     expect(markWinBackSent).not.toHaveBeenCalled();
   });
 
   it("keeps the claim on an ambiguous failure: a 500, no release, no sent time", async () => {
-    claimWinBack.mockResolvedValueOnce({ claimed: true });
+    claimWinBack.mockResolvedValueOnce({ claimed: true, previousClaimedAt: null });
     notificationPort.sendWinBack.mockRejectedValueOnce(new Error("socket hang up"));
 
     const res = await send();

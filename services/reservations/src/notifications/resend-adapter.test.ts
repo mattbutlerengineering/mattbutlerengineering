@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ResendNotificationAdapter } from "./resend-adapter.js";
 import type { BookingNotificationInput, ThankYouEmailInput } from "./port.js";
+import { EmailNotConfiguredError } from "./provider-rejected-error.js";
 
 const mockSend = vi.fn().mockResolvedValue({ id: "email_123" });
 const mockResend = { emails: { send: mockSend } };
@@ -166,7 +167,7 @@ describe("ResendNotificationAdapter", () => {
     expect(call.html).toContain("O&#39;Brien&#39;s &amp; Co &lt;Bistro&gt;");
   });
 
-  it("sendWinBack no-ops gracefully when resend is null (missing API key)", async () => {
+  it("sendWinBack refuses when resend is null (missing API key): 'not configured' is not 'sent' (#8041)", async () => {
     const adapter = new ResendNotificationAdapter({
       resend: null,
       fromAddress: "bookings@mbe.dev",
@@ -180,8 +181,32 @@ describe("ResendNotificationAdapter", () => {
         guestEmail: "jane@example.com",
         venueName: "The Oak Table",
       })
-    ).resolves.toBeUndefined();
+    ).rejects.toBeInstanceOf(EmailNotConfiguredError);
 
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it("the other senders still no-op when resend is null", async () => {
+    const adapter = new ResendNotificationAdapter({
+      resend: null,
+      fromAddress: "bookings@mbe.dev",
+      manageBaseUrl: "https://app.mbe.dev",
+      publicApiBaseUrl: "https://api.mbe.dev",
+    });
+
+    await expect(
+      adapter.sendClosureNotice({ to: "j@example.com", subject: "s", html: "<p>h</p>" })
+    ).resolves.toBeUndefined();
+    await expect(
+      adapter.sendThankYouEmail({
+        guestEmail: "j@example.com",
+        guestFirstName: "J",
+        venueName: "Oak",
+        visitDate: "2026-06-15",
+        feedbackUrl: null,
+        unsubscribeToken: "t",
+      })
+    ).resolves.toBeUndefined();
     expect(mockSend).not.toHaveBeenCalled();
   });
 

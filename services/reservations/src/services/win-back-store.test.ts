@@ -17,22 +17,15 @@ interface Row {
   sentAt: Date | null;
 }
 
-type Where = {
-  venueId: string;
-  guestId: string;
-  claimedAt?: Date;
-  OR?: ({ claimedAt: null } | { claimedAt: { lte: Date } })[];
-};
+type Where = { venueId: string; guestId: string; claimedAt?: Date | null };
 
 function matches(row: Row | undefined, where: Where): row is Row {
   if (!row || row.venueId !== where.venueId) return false;
-  if (where.claimedAt && row.claimedAt?.getTime() !== where.claimedAt.getTime()) return false;
-  if (where.OR) {
-    return where.OR.some((c) =>
-      c.claimedAt === null
-        ? row.claimedAt === null
-        : row.claimedAt !== null && row.claimedAt.getTime() <= c.claimedAt.lte.getTime()
-    );
+  if ("claimedAt" in where) {
+    const wanted = where.claimedAt;
+    if (wanted == null ? row.claimedAt !== null : row.claimedAt?.getTime() !== wanted.getTime()) {
+      return false;
+    }
   }
   return true;
 }
@@ -80,7 +73,10 @@ const after = (ms: number) => new Date(now.getTime() + ms);
 describe("claimWinBack", () => {
   it("claims a guest never sent to: records the claim time and no sent time", async () => {
     const { db, rows } = fakeDb();
-    expect(await claimWinBack("v1", "g1", now, db)).toEqual({ claimed: true });
+    expect(await claimWinBack("v1", "g1", now, db)).toEqual({
+      claimed: true,
+      previousClaimedAt: null,
+    });
     expect(rows.get("g1")).toMatchObject({ claimedAt: now, sentAt: null });
   });
 
@@ -110,7 +106,10 @@ describe("claimWinBack", () => {
     await claimWinBack("v1", "g1", now, db);
     await markWinBackSent("v1", "g1", now, now, db);
     const later = after(WIN_BACK_COOLDOWN_MS);
-    expect(await claimWinBack("v1", "g1", later, db)).toEqual({ claimed: true });
+    expect(await claimWinBack("v1", "g1", later, db)).toEqual({
+      claimed: true,
+      previousClaimedAt: now,
+    });
     expect(rows.get("g1")).toMatchObject({ claimedAt: later, sentAt: now });
   });
 
@@ -163,9 +162,9 @@ describe("releaseWinBackClaim", () => {
   it("clears the claim so the next send can claim at once", async () => {
     const { db, rows } = fakeDb();
     await claimWinBack("v1", "g1", now, db);
-    await releaseWinBackClaim("v1", "g1", now, db);
+    await releaseWinBackClaim("v1", "g1", now, null, db);
     expect(rows.get("g1")?.claimedAt).toBeNull();
-    expect(await claimWinBack("v1", "g1", after(1000), db)).toEqual({ claimed: true });
+    expect(await claimWinBack("v1", "g1", after(1000), db)).toMatchObject({ claimed: true });
   });
 
   it("cannot clear a newer claim", async () => {
@@ -173,7 +172,7 @@ describe("releaseWinBackClaim", () => {
     await claimWinBack("v1", "g1", now, db);
     const later = after(WIN_BACK_COOLDOWN_MS);
     await claimWinBack("v1", "g1", later, db);
-    await releaseWinBackClaim("v1", "g1", now, db);
+    await releaseWinBackClaim("v1", "g1", now, null, db);
     expect(rows.get("g1")?.claimedAt).toEqual(later);
   });
 
@@ -183,8 +182,22 @@ describe("releaseWinBackClaim", () => {
     await markWinBackSent("v1", "g1", now, now, db);
     const later = after(WIN_BACK_COOLDOWN_MS);
     await claimWinBack("v1", "g1", later, db);
-    await releaseWinBackClaim("v1", "g1", later, db);
-    expect(rows.get("g1")).toMatchObject({ claimedAt: null, sentAt: now });
+    await releaseWinBackClaim("v1", "g1", later, now, db);
+    expect(rows.get("g1")).toMatchObject({ claimedAt: now, sentAt: now });
+  });
+
+  it("restores the previous UNCONFIRMED attempt instead of erasing it", async () => {
+    const { db } = fakeDb();
+    await claimWinBack("v1", "g1", now, db); // T0: ends ambiguously, never marked sent
+    const later = after(WIN_BACK_COOLDOWN_MS + 1000);
+    const renewal = await claimWinBack("v1", "g1", later, db);
+    expect(renewal).toEqual({ claimed: true, previousClaimedAt: now });
+
+    await releaseWinBackClaim("v1", "g1", later, now, db); // the renewal was rejected
+    expect((await winBackStatusFor("v1", ["g1"], db)).get("g1")).toEqual({
+      sentAt: null,
+      attemptedAt: now,
+    });
   });
 });
 
@@ -221,7 +234,7 @@ describe("winBackStatusFor", () => {
   it("reports a released claim as nothing attempted", async () => {
     const { db } = fakeDb();
     await claimWinBack("v1", "g1", now, db);
-    await releaseWinBackClaim("v1", "g1", now, db);
+    await releaseWinBackClaim("v1", "g1", now, null, db);
     expect((await winBackStatusFor("v1", ["g1"], db)).get("g1")).toEqual({
       sentAt: null,
       attemptedAt: null,

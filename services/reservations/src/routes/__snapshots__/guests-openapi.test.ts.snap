@@ -941,7 +941,7 @@ exports[`guests OpenAPI baseline > matches the recorded swagger paths for the gu
               },
             },
           },
-          "description": "The email provider rejected the message; nothing was sent and the guest can be tried again.",
+          "description": "The email provider rejected the message, or email isn't configured; nothing was sent and the guest can be tried again.",
         },
       },
       "security": [

@@ -1,5 +1,9 @@
 import type { Guest } from "@mbe/types";
-import { ProviderRejectedError, type NotificationDispatcher } from "../notifications/index.js";
+import {
+  EmailNotConfiguredError,
+  ProviderRejectedError,
+  type NotificationDispatcher,
+} from "../notifications/index.js";
 import { canContact, resolveChannel } from "./contact-policy.js";
 import {
   claimWinBack,
@@ -23,20 +27,29 @@ export type WinBackResult =
   | { status: "sent" }
   | { status: "skipped" }
   | { status: "failed" }
+  | { status: "unavailable" }
   | ({ status: "cooldown" } & WinBackCooldown);
 
 export interface WinBackDeps {
   claim(venueId: string, guestId: string, now: Date): Promise<WinBackClaim>;
   markSent(venueId: string, guestId: string, claimedAt: Date, sentAt: Date): Promise<void>;
-  release(venueId: string, guestId: string, claimedAt: Date): Promise<void>;
+  release(
+    venueId: string,
+    guestId: string,
+    claimedAt: Date,
+    previousClaimedAt: Date | null
+  ): Promise<void>;
   now(): Date;
+  /** Where a rejection is logged (the request logger). Never given guest contact details. */
+  log?: { error(fields: object, message: string): void };
 }
 
-const defaultDeps: WinBackDeps = {
+export const defaultWinBackDeps: WinBackDeps = {
   claim: (venueId, guestId, now) => claimWinBack(venueId, guestId, now),
   markSent: (venueId, guestId, claimedAt, sentAt) =>
     markWinBackSent(venueId, guestId, claimedAt, sentAt),
-  release: (venueId, guestId, claimedAt) => releaseWinBackClaim(venueId, guestId, claimedAt),
+  release: (venueId, guestId, claimedAt, previousClaimedAt) =>
+    releaseWinBackClaim(venueId, guestId, claimedAt, previousClaimedAt),
   now: () => new Date(),
 };
 
@@ -71,7 +84,7 @@ export async function sendWinBack(
   guest: Guest,
   notificationPort: NotificationDispatcher,
   venueName: string,
-  deps: WinBackDeps = defaultDeps
+  deps: WinBackDeps = defaultWinBackDeps
 ): Promise<WinBackResult> {
   if (
     !canContact(
@@ -116,9 +129,17 @@ export async function sendWinBack(
       channel
     );
   } catch (err) {
-    if (!(err instanceof ProviderRejectedError)) throw err;
-    await deps.release(guest.venueId, guest.id, claimedAt);
-    return { status: "failed" };
+    if (!(err instanceof ProviderRejectedError) && !(err instanceof EmailNotConfiguredError)) {
+      throw err;
+    }
+    // Nothing was sent: put the previous claim back so a retry is allowed. The reason is
+    // logged (name and message only) so a revoked key or missing config is visible to operators.
+    deps.log?.error(
+      { err: { name: err.name, message: err.message }, venueId: guest.venueId, guestId: guest.id },
+      "win-back not sent"
+    );
+    await deps.release(guest.venueId, guest.id, claimedAt, claim.previousClaimedAt);
+    return { status: err instanceof EmailNotConfiguredError ? "unavailable" : "failed" };
   }
 
   await deps.markSent(guest.venueId, guest.id, claimedAt, deps.now());
@@ -130,10 +151,31 @@ export async function sendWinBack(
  * confirmed send says sent; a claim with no matching send says one was attempted and may not
  * have gone out.
  */
-export function cooldownDetail(guestName: string, c: WinBackCooldown): string {
-  const next = `Another can be sent after ${c.retryAfter.toISOString()}.`;
+export function cooldownDetail(guestName: string, c: WinBackCooldown, timeZone: string): string {
+  const at = (d: Date) => formatInZone(d, timeZone);
+  const next = `Another can be sent after ${at(c.retryAfter)}.`;
   if (c.sentAt !== null && !isUnconfirmed(c.claimedAt, c.sentAt)) {
-    return `${guestName} was sent a win-back message on ${c.sentAt.toISOString()}. Nothing was sent now. ${next}`;
+    return `${guestName} was sent a win-back message on ${at(c.sentAt)}. Nothing was sent now. ${next}`;
   }
-  return `A win-back message to ${guestName} was attempted on ${c.claimedAt.toISOString()} and may not have gone out. Nothing was sent now. ${next}`;
+  return `A win-back message to ${guestName} was attempted on ${at(c.claimedAt)} and may not have gone out. Nothing was sent now. ${next}`;
+}
+
+/** "Oct 30, 2026, 2:00 AM PDT": readable in the venue's own time, never an ISO string. */
+function formatInZone(date: Date, timeZone: string): string {
+  const options: Intl.DateTimeFormatOptions = {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  };
+  let text: string;
+  try {
+    text = new Intl.DateTimeFormat("en-US", { ...options, timeZone }).format(date);
+  } catch {
+    // An unrecognised stored timezone must not turn a refusal into a 500.
+    text = new Intl.DateTimeFormat("en-US", { ...options, timeZone: "UTC" }).format(date);
+  }
+  return text.replace(/\u202f/g, " ");
 }

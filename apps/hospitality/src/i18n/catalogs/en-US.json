@@ -619,6 +619,8 @@
     "loadFailed": "Couldn't load the dashboard.",
     "lapsingLoadFailed": "Couldn't load lapsing guests.",
     "winBackFailed": "Couldn't send the win-back message.",
+    "winBackUnconfirmed": "Couldn't confirm the win-back message.",
+    "winBackUnconfirmedDetail": "It may or may not have reached the guest. If it did, sending again is blocked for a week.",
     "actions": {
       "walkIn": "Walk-in",
       "floorPlan": "View Floor Plan",

@@ -1,7 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
 import type { Guest } from "@mbe/types";
 import type { NotificationDispatcher } from "../notifications/index.js";
-import { ProviderRejectedError } from "../notifications/provider-rejected-error.js";
+import {
+  EmailNotConfiguredError,
+  ProviderRejectedError,
+} from "../notifications/provider-rejected-error.js";
 import { cooldownDetail, sendWinBack, type WinBackDeps } from "./win-back.js";
 import { WIN_BACK_COOLDOWN_MS } from "./win-back-store.js";
 
@@ -9,7 +12,7 @@ const NOW = new Date("2026-11-01T12:00:00Z");
 
 function deps(overrides: Partial<WinBackDeps> = {}): WinBackDeps {
   return {
-    claim: () => Promise.resolve({ claimed: true }),
+    claim: () => Promise.resolve({ claimed: true, previousClaimedAt: null }),
     markSent: () => Promise.resolve(),
     release: () => Promise.resolve(),
     now: () => NOW,
@@ -174,7 +177,7 @@ describe("sendWinBack", () => {
       const order: string[] = [];
       const claim = vi.fn(() => {
         order.push("claim");
-        return Promise.resolve({ claimed: true as const });
+        return Promise.resolve({ claimed: true as const, previousClaimedAt: null });
       });
       const sendWinBackMock = vi.fn(() => {
         order.push("send");
@@ -192,7 +195,9 @@ describe("sendWinBack", () => {
     });
 
     it("does not claim for a guest it would skip, so a skip never starts a cooldown", async () => {
-      const claim = vi.fn(() => Promise.resolve({ claimed: true as const }));
+      const claim = vi.fn(() =>
+        Promise.resolve({ claimed: true as const, previousClaimedAt: null })
+      );
 
       await sendWinBack(makeGuest({ email: null }), makeNotificationPort(), "V", deps({ claim }));
 
@@ -227,19 +232,73 @@ describe("sendWinBack", () => {
       expect(markSent).toHaveBeenCalledWith("venue-1", "guest-1", NOW, later);
     });
 
-    it("releases the claim and reports failure when the provider definitely rejects", async () => {
+    it("releases the claim, restoring the previous one, when the provider definitely rejects", async () => {
+      const previousClaimedAt = new Date("2026-10-01T00:00:00Z");
       const release = vi.fn(() => Promise.resolve());
       const markSent = vi.fn(() => Promise.resolve());
       const port = makeNotificationPort();
       (port.sendWinBack as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
-        new ProviderRejectedError("Resend send failed (rate_limit_exceeded): Too many requests")
+        new ProviderRejectedError("Resend send failed (validation_error): bad")
       );
 
-      const result = await sendWinBack(makeGuest(), port, "V", deps({ release, markSent }));
+      const result = await sendWinBack(
+        makeGuest(),
+        port,
+        "V",
+        deps({
+          release,
+          markSent,
+          claim: () => Promise.resolve({ claimed: true, previousClaimedAt }),
+        })
+      );
 
       expect(result).toEqual({ status: "failed" });
-      expect(release).toHaveBeenCalledWith("venue-1", "guest-1", NOW);
+      expect(release).toHaveBeenCalledWith("venue-1", "guest-1", NOW, previousClaimedAt);
       expect(markSent).not.toHaveBeenCalled();
+    });
+
+    it("logs a provider rejection by name and message, with no guest contact details", async () => {
+      const error = vi.fn();
+      const port = makeNotificationPort();
+      (port.sendWinBack as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+        new ProviderRejectedError("Resend send failed (restricted_api_key): API key is invalid")
+      );
+
+      await sendWinBack(makeGuest(), port, "V", deps({ log: { error } }));
+
+      expect(error).toHaveBeenCalledOnce();
+      const [fields, message] = error.mock.calls[0] as [Record<string, unknown>, string];
+      expect(fields).toMatchObject({
+        err: {
+          name: "ProviderRejectedError",
+          message: "Resend send failed (restricted_api_key): API key is invalid",
+        },
+        venueId: "venue-1",
+        guestId: "guest-1",
+      });
+      expect(JSON.stringify([fields, message])).not.toMatch(/alice@example\.com|Alice/);
+    });
+
+    it("treats 'email not configured' as not sent: releases the claim, writes no sent time, reports unavailable", async () => {
+      const release = vi.fn(() => Promise.resolve());
+      const markSent = vi.fn(() => Promise.resolve());
+      const error = vi.fn();
+      const port = makeNotificationPort();
+      (port.sendWinBack as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+        new EmailNotConfiguredError()
+      );
+
+      const result = await sendWinBack(
+        makeGuest(),
+        port,
+        "V",
+        deps({ release, markSent, log: { error } })
+      );
+
+      expect(result).toEqual({ status: "unavailable" });
+      expect(release).toHaveBeenCalledWith("venue-1", "guest-1", NOW, null);
+      expect(markSent).not.toHaveBeenCalled();
+      expect(error).toHaveBeenCalledOnce();
     });
 
     it("keeps the claim when the failure is ambiguous: the error propagates, nothing is released", async () => {
@@ -259,29 +318,37 @@ describe("sendWinBack", () => {
 });
 
 describe("cooldownDetail", () => {
+  const zone = "America/Los_Angeles";
   const claimedAt = new Date("2026-10-30T09:00:00.000Z");
   const retryAfter = new Date("2026-11-06T09:00:00.000Z");
+  const ISO = /\d{4}-\d{2}-\d{2}T\d{2}:/;
 
-  it("says a send happened when the provider confirmed one", () => {
+  it("says a send happened when the provider confirmed one, in the venue's time", () => {
     const sentAt = new Date("2026-10-30T09:00:01.000Z");
-    const detail = cooldownDetail("Alice", { claimedAt, sentAt, retryAfter });
-    expect(detail).toContain("was sent a win-back message on 2026-10-30T09:00:01.000Z");
+    const detail = cooldownDetail("Alice", { claimedAt, sentAt, retryAfter }, zone);
+    expect(detail).toContain("was sent a win-back message on Oct 30, 2026, 2:00 AM PDT");
     expect(detail).toContain("Nothing was sent now");
-    expect(detail).toContain("2026-11-06T09:00:00.000Z");
+    expect(detail).toContain("after Nov 6, 2026, 1:00 AM PST");
+    expect(detail).not.toMatch(ISO);
   });
 
   it("says a send was attempted and may not have gone out when it was never confirmed", () => {
-    const detail = cooldownDetail("Alice", { claimedAt, sentAt: null, retryAfter });
-    expect(detail).toContain("attempted on 2026-10-30T09:00:00.000Z");
+    const detail = cooldownDetail("Alice", { claimedAt, sentAt: null, retryAfter }, zone);
+    expect(detail).toContain("attempted on Oct 30, 2026, 2:00 AM PDT");
     expect(detail).toContain("may not have gone out");
     expect(detail).not.toMatch(/was sent a win-back/);
-    expect(detail).toContain("2026-11-06T09:00:00.000Z");
+    expect(detail).not.toMatch(ISO);
   });
 
   it("treats an older confirmed send as unconfirmed for the newer claim", () => {
     const sentAt = new Date("2026-09-01T09:00:00.000Z");
-    expect(cooldownDetail("Alice", { claimedAt, sentAt, retryAfter })).toContain(
+    expect(cooldownDetail("Alice", { claimedAt, sentAt, retryAfter }, zone)).toContain(
       "may not have gone out"
     );
+  });
+
+  it("falls back to UTC rather than failing on a timezone it cannot format", () => {
+    const detail = cooldownDetail("Alice", { claimedAt, sentAt: null, retryAfter }, "Not/AZone");
+    expect(detail).toContain("Oct 30, 2026, 9:00 AM UTC");
   });
 });

@@ -447,8 +447,8 @@ async function createDisposableGuest(ctx: SweepContext, venueId: string): Promis
 
 /**
  * A disposable guest WITH an email, so a win-back gets past its contact guard and reaches the
- * claim (the send record's RLS grants). The sweep's app has no Resend key, so the email send is
- * a no-op: no network.
+ * claim (the send record's RLS grants). The sweep's app is given an email adapter whose client
+ * accepts and drops every send (see the integration test's setup): no network.
  */
 async function createDisposableEmailedGuest(ctx: SweepContext, venueId: string): Promise<string> {
   const res = await asAdmin(ctx, {
@@ -1854,8 +1854,8 @@ const guestFixtures: Record<string, RouteFixture> = {
     }),
     (ctx) => ctx.guestB
   ),
-  // The guest has an email, so the route claims the send (guest_win_backs, FORCE RLS) and calls
-  // the notification port — a no-op here, the sweep's app has no Resend key — then records it.
+  // The guest has an email, so the route claims the send (guest_win_backs, FORCE RLS), calls the
+  // notification port (an accepting stub, so it is a real no-network 200) and records the send.
   "POST /api/v1/guests/:id/win-back": okEntityMutation(
     createDisposableEmailedGuest,
     (id) => ({ method: "POST", url: `/api/v1/guests/${id}/win-back` }),
