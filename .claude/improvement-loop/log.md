@@ -4679,3 +4679,14 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 - **P1 SLA:** 0 open `ui-quality:p1` issues, 0 breaches, 0 escalated.
 - **Checkpoint:** committed and pushed to `ui-quality/ledger` (c6c18a4) before the fix-PR step, push accepted.
 - No `blocker: no-browser` (Chromium resolved), no stopped filing, no pipeline bug.
+
+## 2026-11-02 — mbe-learning-loop
+
+**Sensors:** 16/17 available (`e2eStability` not available). Status: Healthy.
+**Regressions:** 0 detected, 0 issues created.
+**Verifications:** 5 checked (48h window: #8123, #8122, #8103, #8100, #8067), 0 verified, 0 failed (reopened), 5 skipped — Lighthouse inventory unavailable for the two `audit` issues, no CI runs in range for the three `ci-fix`/`bug` issues. Not a threshold problem, no reopens.
+**AI issue feedback:** 7 categories, 0 unhealthy (>40% rejected); all budgets at default 3.
+**Skill proposals:** 0 — not the configured extraction day (Friday).
+**Threshold notes:** `verify-fixes.mjs`'s auto-tuner applied 1 adjustment (`acmm`: 1.41 → 1.44, headroom). 30-day false-positive rate across sensor-labelled closed issues (`ci-fix,audit,acmm,sentry,bug`): 11/274 `not_planned` ≈ 4.0% — well under the 30% loosen-threshold. 30-day fix-effectiveness rate from `verifications.jsonl` (excluding `confidence:"skip"` rows): 6/10 ≈ 60% — above the 50% floor, no strategy review flagged.
+**Bootstrap note:** this cloud checkout had no `node_modules`/workspace `dist/` on start (not a worktree, but the same missing-build symptom) — ran `pnpm install --frozen-lockfile` then `pnpm bootstrap:worktree` before any sensor script would resolve `@mbe/*` imports.
+**Sentry triage:** skipped — Sentry MCP's stored access token is expired (`find_organizations` returned "Authorization Expired"); re-authorization needs a human. No Sentry-labelled issues filed this run.
