@@ -5,10 +5,12 @@ name: ai-attribution
 # the originating Langfuse trace ID if extractable from the PR body or
 # branch name.
 #
-# Compensates for `Co-Authored-By: Claude` being globally disabled in
-# ~/.claude/settings.json — without this workflow there's no durable
-# audit trail distinguishing agent merges from human merges in this
-# repo. See memory/REFLECTIONS.md.
+# The `Co-Authored-By: Claude` trailer IS applied to agent commits, but it
+# resolves to GitHub login `claude`, so it is not a durable, queryable
+# audit trail by itself. This workflow's `agent-authored` label is: it is
+# what distinguishes agent merges from human merges in this repo.
+# Lessons on misreading the trailer: .claude/reflections/ and
+# .claude/rules/gotchas.md (the #5638 entry).
 #
 # The runtime equivalent of attribution today is the `has-pr` label on
 # the originating issue plus the Langfuse session-ID column in the
@@ -78,8 +80,11 @@ jobs:
             signals.push(`branch name matches agent convention (${branch})`);
           }
 
-          // Signal 3: any commit on the branch carries Co-Authored-By: Claude
-          // (relevant if attribution is re-enabled in the future).
+          // Signal 3: any commit on the branch carries Co-Authored-By: Claude.
+          // Fires today on essentially every Claude-authored PR. Do NOT read
+          // this trailer as human intervention: it resolves to login `claude`,
+          // which once inverted the L6 human-touch gate (#5638; see
+          // .claude/rules/gotchas.md, "A gate that grades the automation ...").
           try {
             const log = execSync(`git log --format=%B origin/main..HEAD`, { encoding: 'utf-8' });
             if (/Co-Authored-By:\s*Claude/i.test(log)) {
