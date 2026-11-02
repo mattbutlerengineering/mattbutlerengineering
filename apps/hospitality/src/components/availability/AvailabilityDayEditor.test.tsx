@@ -973,6 +973,103 @@ describe("AvailabilityDayEditor", () => {
       expect(sentBody().body.changes.remove.scheduleServices).toEqual(["ss-dinner"]);
     });
 
+    /** Sets the nth time picker of a kind (rows run in opening order). */
+    function setTime(label: string, index: number, value: string) {
+      fireEvent.click(screen.getAllByLabelText(label)[index]!);
+      fireEvent.click(screen.getAllByRole("option", { name: value }).at(-1)!);
+    }
+
+    function startOnClosedDay() {
+      const closed = fixtureConfig(VENUE_CLOSURE);
+      const onDirtyChange = vi.fn();
+      render(
+        <ToastProvider>
+          <main>
+            <AvailabilityDayEditor
+              venueId="venue-1"
+              date={FIXTURE_DATE}
+              day={resolveFixtureDay(VENUE_CLOSURE)}
+              state={{ config: closed, version: 4, source: "rows" }}
+              timezone={FIXTURE_TIMEZONE}
+              today="2026-10-28"
+              onDirtyChange={onDirtyChange}
+              onCancel={vi.fn()}
+              onFinished={vi.fn()}
+            />
+          </main>
+        </ToastProvider>
+      );
+      // The button adds the venue's first spare service, Lunch.
+      fireEvent.click(screen.getByRole("button", { name: "Add service" }));
+      setTime("Closes", 0, "10:00 PM");
+      return { onDirtyChange };
+    }
+
+    const NOT_USED = "Your hours for Lunch won’t be used: what you’re changing already has them.";
+
+    it("an edit named as already there comes back with the scope it was made in", () => {
+      // The date's Dinner closes 8:00 PM, last seating 7:00 PM; the regular week 11:00 PM and 9:00 PM.
+      const { onDirtyChange } = withOwnDay("r-own", { lastSeatingAt: 1140, closesAt: 1200 });
+      fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
+      setTime("Closes", 0, "11:00 PM");
+      chooseScope(/Your regular week/);
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Your hours for Dinner won’t be used: what you’re changing already has them."
+      );
+      chooseScope("This date only");
+      expect(screen.getAllByLabelText("Closes")[0]).toHaveValue("11:00 PM");
+      expect(screen.getByRole("button", { name: /^Save/ })).toBeEnabled();
+      expect(onDirtyChange).toHaveBeenLastCalledWith(true);
+    });
+
+    it("hours added on a closed day survive setting a row to something else and back", () => {
+      const { onDirtyChange } = startOnClosedDay();
+      chooseScope(/Your regular week/);
+      expect(screen.getByRole("status")).toHaveTextContent(NOT_USED);
+      phoneOnlyOn(0);
+      fireEvent.click(screen.getAllByRole("combobox", { name: "Booking" })[0]!);
+      fireEvent.click(screen.getByRole("option", { name: "Online + phone" }));
+      chooseScope("This date only");
+      expect(screen.getByRole("button", { name: "Remove Lunch" })).toBeInTheDocument();
+      expect(screen.getAllByLabelText("Closes")[0]).toHaveValue("10:00 PM");
+      expect(screen.getByRole("button", { name: /^Save/ })).toBeEnabled();
+      expect(onDirtyChange).toHaveBeenLastCalledWith(true);
+    });
+
+    it("the line about held hours stays while editing another row on the regular week", () => {
+      startOnClosedDay();
+      chooseScope(/Your regular week/);
+      expect(screen.getByRole("status")).toHaveTextContent(NOT_USED);
+      phoneOnlyOn(1);
+      expect(screen.getByRole("status")).toHaveTextContent(NOT_USED);
+    });
+
+    it("the line about held hours is still there after a switch through a scope that has the service", () => {
+      withOwnDay();
+      fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
+      chooseScope(/Your regular week/);
+      fireEvent.click(screen.getByRole("combobox", { name: "Add service" }));
+      fireEvent.click(screen.getByRole("option", { name: "Late" }));
+      chooseScope("This date only");
+      expect(screen.getByRole("status")).toHaveTextContent("Late");
+      chooseScope(/^Every/);
+      expect(screen.getByRole("status")).toHaveTextContent("Late");
+    });
+
+    it("an edit the Manager touched on the regular week is named when the date returns without it", () => {
+      // The date's Dinner closes 8:00 PM, last seating 7:00 PM; the regular week 11:00 PM and 9:00 PM.
+      withOwnDay("r-own", { lastSeatingAt: 1140, closesAt: 1200 });
+      fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
+      setTime("Closes", 0, "11:00 PM");
+      chooseScope(/Your regular week/);
+      expect(screen.getByRole("status")).toHaveTextContent("Dinner");
+      phoneOnlyOn(2);
+      chooseScope("This date only");
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Your edit to Dinner won’t be saved: it isn’t in what you’re changing now."
+      );
+    });
+
     it("keeps the regular week's other services: nothing the Manager did not remove is deleted", async () => {
       withOwnDay();
       editDinnerThenSwitch();

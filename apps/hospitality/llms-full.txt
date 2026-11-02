@@ -2431,10 +2431,9 @@
     }
   </file>
   <file path="src/components/availability/scope-switch.ts">
-    export interface ParkedEdit {
-      readonly base: DraftService;
-      readonly draft: DraftService | null;
-    }
+    export type ParkedEdit =
+      | { readonly base: DraftService; readonly draft: DraftService | null }
+      | { readonly base: null; readonly draft: DraftService };
     interface SwitchInput {
       /** The rows the draft started from, in the scope it leaves. */
       readonly baseline: readonly DraftService[];
@@ -2447,20 +2446,76 @@
       readonly services: DraftService[];
       readonly baseline: DraftService[];
       readonly parked: ParkedEdit[];
-      /** Services the new scope lacks, whose edits are held rather than saved. */
+      /** Services the new scope lacks, whose edits or removals are held rather than saved. */
       readonly unsaved: string[];
       /** Services the new scope already has with these hours: the ones just set change nothing there. */
       readonly overridden: string[];
     }
+    export const parkedName = (p: ParkedEdit) => (p.base === null ? p.draft : (p.draft ?? p.base)).name;
+    export function keepParked(
+      parked: readonly ParkedEdit[],
+      services: readonly DraftService[],
+      baseline: readonly DraftService[]
+    ): ParkedEdit[] {
+      return parked.filter((p) => {
+        const inView = findRow(services, holdId(p)) !== undefined;
+        return isInViewHold(p, baseline) ? inView : !inView;
+      });
+    }
+    function untouched(p: ParkedEdit, input: SwitchInput) {
+      const was = findRow(input.baseline, holdId(p));
+      const now = findRow(input.services, holdId(p));
+      return was !== undefined && now !== undefined && same(was, now);
+    }
+    function restorable(p: ParkedEdit, seed: readonly DraftService[]) {
+      const there = findRow(seed, holdId(p));
+      return p.base === null ? there === undefined : there !== undefined && same(there, p.base);
+    }
+    type HeldLine = "overridden" | "unsaved" | null;
+    function heldLine(p: ParkedEdit, seed: readonly DraftService[]): HeldLine {
+      const there = findRow(seed, holdId(p));
+      if (p.base === null) return there !== undefined && !same(there, p.draft) ? "overridden" : null;
+      if (there === undefined || p.draft === null) return "unsaved";
+      const [landed] = reapplyDraft({ base: [p.base], draft: [p.draft], latest: [there] });
+      return landed !== undefined && same(there, landed) ? "overridden" : "unsaved";
+    }
+    function restoreHolds(input: SwitchInput, restored: readonly ParkedEdit[]) {
+      return restored.reduce(
+        (rows, p) =>
+          p.base === null
+            ? {
+                baseline: rows.baseline.filter((r) => r.venueServiceId !== p.draft.venueServiceId),
+                services: [
+                  ...rows.services.filter((r) => r.venueServiceId !== p.draft.venueServiceId),
+                  p.draft,
+                ],
+              }
+            : {
+                baseline: withRow(rows.baseline, holdId(p), p.base),
+                services: withRow(rows.services, holdId(p), p.draft ?? p.base),
+              },
+        { baseline: [...input.baseline], services: [...input.services] }
+      );
+    }
     export function switchScope(input: SwitchInput): Switched {
-      const { baseline, services, parked, seed } = input;
+      const { seed } = input;
+      const seedById = new Map(seed.map((r) => [r.venueServiceId, r]));
+      const holds = input.parked.filter((p) => isInViewHold(p, input.baseline));
+      const parked = input.parked.filter((p) => !holds.includes(p));
+    
+      // A hold on a row the draft has not touched comes back when its origin returns; one that is not
+      // the origin travels on. A touched one is let go: its row is the Manager's now.
+      const restored = holds.filter((p) => untouched(p, input) && restorable(p, seed));
+      const carried = holds.filter((p) => untouched(p, input) && !restored.includes(p));
+      const { baseline, services } = restoreHolds(input, restored);
+    
       const ids = (rows: readonly DraftService[]) => new Set(rows.map((r) => r.venueServiceId));
       const baselineIds = ids(baseline);
       const serviceIds = ids(services);
       // Edits parked earlier rejoin the draft, so a scope that has the service takes them up again.
       const base = [
         ...baseline,
-        ...parked.map((p) => p.base).filter((b) => !baselineIds.has(b.venueServiceId)),
+        ...parked.flatMap((p) => (p.base && !baselineIds.has(p.base.venueServiceId) ? [p.base] : [])),
       ];
       const draft = [
         ...services,
@@ -2468,7 +2523,6 @@
       ];
       const draftIds = ids(draft);
       const baseById = new Map(base.map((r) => [r.venueServiceId, r]));
-      const seedById = new Map(seed.map((r) => [r.venueServiceId, r]));
     
       const edits = draft.flatMap((d) => {
         const was = baseById.get(d.venueServiceId);
@@ -2483,27 +2537,38 @@
           ? [{ base: b, draft: null }]
           : []
       );
-      const nextParked: ParkedEdit[] = [...edits, ...removals];
-      // An edit that leaves the row equal to what the new scope has changes nothing there.
+      // Hours added for a service the new scope already has are not used there. They are held, so the
+      // scope they were set in gets them back, and named when they differ from what the new scope has.
+      const adds = draft.flatMap((d) =>
+        d.venueServiceId !== null && !baseById.has(d.venueServiceId) && seedById.has(d.venueServiceId)
+          ? [{ base: null, draft: d }]
+          : []
+      );
+      const merged = reapplyDraft({ base, draft, latest: seed });
+      // An edit that leaves the row equal to what the new scope has changes nothing there, so it is
+      // named and held. Judged on the row as it lands, since the Manager's other fields give way to the
+      // new scope's.
       const matched = draft.flatMap((d) => {
-        const there = d.venueServiceId === null ? undefined : seedById.get(d.venueServiceId);
+        const there = findRow(seed, d.venueServiceId);
         const was = baseById.get(d.venueServiceId);
-        return there && was && !same(was, d) && same(there, d) ? [d.name] : [];
-      });
-      // An added service the new scope already has keeps that scope's hours, not the ones just set.
-      const overridden = draft.flatMap((d) => {
-        const there = d.venueServiceId === null ? undefined : seedById.get(d.venueServiceId);
-        return there && !baseById.has(d.venueServiceId) && !same(there, d)
-          ? [d.name || there.name]
+        const landed = findRow(merged, d.venueServiceId);
+        return there && was && landed && !same(was, d) && same(there, landed)
+          ? [{ base: was, draft: d }]
           : [];
       });
     
+      // Every hold the Manager's hours are not used by is named: those just made, any carried on from
+      // an earlier switch, and any let go because the Manager touched that row since.
+      const lost = holds.filter((p) => !untouched(p, input));
+      const lines = [...adds, ...matched, ...carried].map((p) => ({ p, line: heldLine(p, seed) }));
+      const named = (kind: HeldLine) => lines.filter((l) => l.line === kind).map((l) => l.p);
+    
       return {
-        services: reapplyDraft({ base, draft, latest: seed }),
+        services: merged,
         baseline: seed,
-        parked: nextParked,
-        unsaved: [...new Set(edits.map((p) => p.draft.name))],
-        overridden: [...new Set([...overridden, ...matched])],
+        parked: [...edits, ...removals, ...adds, ...matched, ...carried],
+        unsaved: [...new Set([...edits, ...removals, ...lost, ...named("unsaved")].map(parkedName))],
+        overridden: [...new Set(named("overridden").map(parkedName))],
       };
     }
   </file>

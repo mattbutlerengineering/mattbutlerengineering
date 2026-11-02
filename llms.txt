@@ -2437,10 +2437,7 @@
   </file>
   <file path="apps/hospitality/src/components/availability/scope-switch.ts">
     <item priority="low">
-      interface ParkedEdit {
-        base: DraftService;
-        draft: DraftService | null;
-      }
+      type ParkedEdit = { readonly base: DraftService; | { readonly base: null; readonl;
     </item>
     <item priority="high">
       interface SwitchInput {
@@ -2458,6 +2455,31 @@
         unsaved: string[];
         overridden: string[];
       }
+    </item>
+    <item priority="high">
+      export const parkedName: unknown;
+    </item>
+    <item priority="high">
+      export function keepParked(
+        parked: readonly ParkedEdit[],
+        services: readonly DraftService[],
+        baseline: readonly DraftService[]
+      ): ParkedEdit[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function untouched(p: ParkedEdit, input: SwitchInput) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function restorable(p: ParkedEdit, seed: readonly DraftService[]) { /* ... */ }
+    </item>
+    <item priority="high">
+      type HeldLine = "overridden" | "unsaved" | null;
+    </item>
+    <item priority="medium">
+      function heldLine(p: ParkedEdit, seed: readonly DraftService[]): HeldLine { /* ... */ }
+    </item>
+    <item priority="medium">
+      function restoreHolds(input: SwitchInput, restored: readonly ParkedEdit[]) { /* ... */ }
     </item>
     <item priority="high">
       export function switchScope(input: SwitchInput): Switched { /* ... */ }

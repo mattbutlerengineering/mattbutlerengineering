@@ -48,7 +48,8 @@ export function ToastLocaleOverride({ children }: { children: ReactNode }) {
   const active = guest ?? dashboard;
   return (
     <RialtoLocaleProvider locale={active.locale} messages={active.messages}>
-      <ToastProvider>
+      {/* Top, because the default bottom-end sits over a right-hand Drawer's footer actions. */}
+      <ToastProvider placement="top-end">
         <RialtoLocaleProvider locale={dashboard.locale} messages={dashboard.messages}>
           {children}
         </RialtoLocaleProvider>

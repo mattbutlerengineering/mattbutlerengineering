@@ -26,7 +26,7 @@ import { useViewport } from "../../hooks/useViewport.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import { AvailabilityGuestPreview } from "./AvailabilityGuestPreview.js";
 import { ConflictDialog } from "./ConflictDialog.js";
-import { switchScope, type ParkedEdit } from "./scope-switch.js";
+import { keepParked, parkedName, switchScope, type ParkedEdit } from "./scope-switch.js";
 import {
   buildDraftChanges,
   overnightHintDate,
@@ -473,16 +473,15 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
           venueServices={config.venueServices}
           date={overnightHintDate(edit.scope, date, dates)}
           onChange={(services) => {
-            // Hours set again here are the Manager's own, so the line about the old ones goes, and
-            // a held edit or removal for a service added back in this scope is dropped with its name.
-            const present = new Set(services.map((s) => s.venueServiceId));
-            const parked = edit.parked.filter((p) => !present.has(p.base.venueServiceId));
-            const held = new Set(parked.flatMap((p) => (p.draft ? [p.draft.name] : [])));
+            // A name leaves the lines only with the hold it names: one dropped because its service
+            // was added back, or its row removed here. Editing another row changes neither.
+            const parked = keepParked(edit.parked, services, edit.baseline);
+            const held = new Set(parked.map(parkedName));
             update({
               ...edit,
               services,
               parked,
-              overridden: [],
+              overridden: edit.overridden.filter((name) => held.has(name)),
               unsaved: edit.unsaved.filter((name) => held.has(name)),
             });
           }}
