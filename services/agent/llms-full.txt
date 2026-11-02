@@ -470,13 +470,13 @@
             "Make one Tonight change for the venue's current service day; it ends on its own when the day does. Requires confirmation. For a closure, special hours or a schedule change on another day, point the user to the Availability page instead.",
           inputSchema: ChangeTonightInputSchema,
           execute: async (input) => {
-            if (!venueId) return NO_VENUE;
+            if (!venueId) return notExecuted(NO_VENUE);
             log.info({ venueId, change: input.change }, "change_tonight_availability tool called");
             let unsure: string | undefined;
             try {
               const state = await api.availability.getConfig(venueId);
               const built = await buildChange(input, state.config, api, venueId);
-              if ("error" in built) return built;
+              if ("error" in built) return notExecuted(built);
               unsure = TONIGHT_SAVE_UNSURE;
               const result = await api.availability.setTonight(venueId, {
                 expectedVersion: state.version,
@@ -494,7 +494,10 @@
                 { ...failureLog(err), venueId, change: input.change },
                 "change_tonight_availability failed"
               );
-              return availabilityWriteFailure(err, "make the change", unsure);
+              return failedBeforeWrite(
+                unsure,
+                availabilityWriteFailure(err, "make the change", unsure)
+              );
             }
           },
         }),
@@ -509,7 +512,7 @@
             ),
           }),
           execute: async ({ change, from }) => {
-            if (!venueId) return NO_VENUE;
+            if (!venueId) return notExecuted(NO_VENUE);
             log.info({ venueId, change }, "end_tonight_change tool called");
             let unsure: string | undefined;
             try {
@@ -521,19 +524,21 @@
                   )
                 : ofKind;
               if (matches.length === 0) {
-                return { error: `No ${change.replace(/_/g, " ")} change is in force tonight.` };
+                return notExecuted({
+                  error: `No ${change.replace(/_/g, " ")} change is in force tonight.`,
+                });
               }
               if (matches.length > 1) {
-                return {
+                return notExecuted({
                   error: `More than one ${change.replace(/_/g, " ")} change is in force. Ask which one, by its start time.`,
-                };
+                });
               }
               unsure = TONIGHT_SAVE_UNSURE;
               await api.availability.endTonight(venueId, matches[0]!.id, NO_REPLAY);
               return { ended: true, change };
             } catch (err) {
               log.error({ ...failureLog(err), venueId, change }, "end_tonight_change failed");
-              return availabilityWriteFailure(err, "end the change", unsure);
+              return failedBeforeWrite(unsure, availabilityWriteFailure(err, "end the change", unsure));
             }
           },
         }),
@@ -545,21 +550,21 @@
             summary: z.string().min(1).describe("The undoable change's summary, copied exactly"),
           }),
           execute: async ({ summary }) => {
-            if (!venueId) return NO_VENUE;
+            if (!venueId) return notExecuted(NO_VENUE);
             log.info({ venueId }, "undo_availability_change tool called");
             let unsure: string | undefined;
             try {
               const newest = undoableOf(await api.availability.listChanges(venueId, { limit: 1 }));
               if (!newest) {
-                return {
+                return notExecuted({
                   error: "No availability change can be undone right now. Nothing was changed.",
-                };
+                });
               }
               // The user confirmed this summary: undo only that change, never whatever is newest now.
               if (newest.summary !== summary) {
-                return {
+                return notExecuted({
                   error: `The newest change is now "${newest.summary}", not the one confirmed. Nothing was changed; ask the user again.`,
-                };
+                });
               }
               const { version } = await api.availability.getConfig(venueId);
               unsure = TONIGHT_SAVE_UNSURE;
@@ -567,7 +572,10 @@
               return { undone: true, summary };
             } catch (err) {
               log.error({ ...failureLog(err), venueId }, "undo_availability_change failed");
-              return availabilityWriteFailure(err, "undo the change", unsure);
+              return failedBeforeWrite(
+                unsure,
+                availabilityWriteFailure(err, "undo the change", unsure)
+              );
             }
           },
         }),
@@ -958,12 +966,14 @@
       try {
         impact = await api.availability.getClosureImpact(venueId, rule);
       } catch (err) {
-        return closureFailure(err, CHECK_FAILED);
+        return notExecuted(closureFailure(err, CHECK_FAILED));
       }
       if (typeof impact?.reservations !== "number" || !Array.isArray(impact.groups)) {
-        return { error: CHECK_FAILED };
+        return notExecuted({ error: CHECK_FAILED });
       }
-      if (impact.reservations > 0 || impact.groups.length > 0) return affectedResult(impact);
+      if (impact.reservations > 0 || impact.groups.length > 0) {
+        return notExecuted(affectedResult(impact));
+      }
       try {
         await api.availability.createClosure(
           venueId,
@@ -1052,21 +1062,21 @@
           })
           .superRefine(scopeNeedsService),
         execute: async ({ scope, service, date, endDate }) => {
-          if (!venueId) return NO_VENUE;
+          if (!venueId) return notExecuted(NO_VENUE);
           log.info({ venueId, scope }, "close_dates tool called");
           try {
             const span = checkSpan(date, endDate, todayIn(timeZone));
-            if ("error" in span) return span;
+            if ("error" in span) return notExecuted(span);
             const state = await api.availability.getConfig(venueId);
             const target = scope === "service" ? resolveService(state.config, service!) : undefined;
-            if (target && "error" in target) return target;
+            if (target && "error" in target) return notExecuted(target);
             const closed = closedDays(state.config, target?.id, span.from, span.to);
             const named = (rule: ClosureRule) => `${scopeOf(rule, state.config)} ${spanText(rule)}`;
             if (closed.length === dayNumber(span.to)! - dayNumber(span.from)! + 1) {
               const closures = [...new Set(closed.map((c) => named(c.rule)))].join("; ");
-              return {
+              return notExecuted({
                 error: `This is already closed (${closures}), which covers those dates. Nothing was changed.`,
-              };
+              });
             }
             const rule: ClosureRule = {
               id: randomUUID(),
@@ -1091,7 +1101,10 @@
             };
           } catch (err) {
             log.error({ ...failureLog(err), venueId }, "close_dates failed");
-            return closureFailure(err, "Couldn't close the dates right now. Nothing was changed.");
+            // The save's own failures are caught in saveIfNoBookings: anything thrown here was a read.
+            return notExecuted(
+              closureFailure(err, "Couldn't close the dates right now. Nothing was changed.")
+            );
           }
         },
       });
@@ -1108,26 +1121,26 @@
           closesAt: ClockSchema.describe("Closing time, HH:MM venue-local; after midnight is fine"),
         }),
         execute: async ({ date, service, ...times }) => {
-          if (!venueId) return NO_VENUE;
+          if (!venueId) return notExecuted(NO_VENUE);
           log.info({ venueId }, "set_special_hours tool called");
           try {
             const span = checkSpan(date, undefined, todayIn(timeZone));
-            if ("error" in span) return span;
+            if ("error" in span) return notExecuted(span);
             const hours = checkHours(times);
-            if ("error" in hours) return hours;
+            if ("error" in hours) return notExecuted(hours);
             const state = await api.availability.getConfig(venueId);
             if (hasSpecialHours(state.config, span.from)) {
-              return {
+              return notExecuted({
                 error: `${span.from} already has special hours. Change or remove them on the Availability page.`,
-              };
+              });
             }
             const target = resolveService(state.config, service);
-            if ("error" in target) return target;
+            if ("error" in target) return notExecuted(target);
             const closed = closureOnDay(state.config, target.id, span.from);
             if (closed) {
-              return {
+              return notExecuted({
                 error: `${serviceName(state.config, target.id)} is closed on ${span.from} by an existing closure (${scopeOf(closed, state.config)}), so special hours would change nothing guests can see. Change or remove that closure on the Availability page first.`,
-              };
+              });
             }
             const built = await specialServices(
               api,
@@ -1137,7 +1150,7 @@
               target.id,
               hours
             );
-            if ("error" in built) return built;
+            if ("error" in built) return notExecuted(built);
             const rule: SpecialHoursRule = {
               id: randomUUID(),
               kind: "special_hours",
@@ -1156,7 +1169,10 @@
             };
           } catch (err) {
             log.error({ ...failureLog(err), venueId }, "set_special_hours failed");
-            return closureFailure(err, "Couldn't set the hours right now. Nothing was changed.");
+            // The save's own failures are caught in saveIfNoBookings: anything thrown here was a read.
+            return notExecuted(
+              closureFailure(err, "Couldn't set the hours right now. Nothing was changed.")
+            );
           }
         },
       });
@@ -1215,13 +1231,15 @@
           })
           .superRefine(scopeNeedsService),
         execute: async ({ from, to, scope, service, tellCancelledGuests, readAs }) => {
-          if (!venueId) return NO_VENUE;
+          if (!venueId) return notExecuted(NO_VENUE);
           log.info({ venueId, scope }, "reopen_closure tool called");
           const start = dayNumber(from);
           const end = to.trim() === UNTIL_REOPENED ? null : dayNumber(to);
-          if (start === undefined || end === undefined) return { error: UNREADABLE_SPAN_DATE };
+          if (start === undefined || end === undefined) {
+            return notExecuted({ error: UNREADABLE_SPAN_DATE });
+          }
           if (end !== null && end < start) {
-            return { error: `The last date (${to}) is before the first (${from}).` };
+            return notExecuted({ error: `The last date (${to}) is before the first (${from}).` });
           }
           let rule: ClosureRule;
           let children: DateRule[];
@@ -1233,14 +1251,14 @@
           try {
             const state = await api.availability.getConfig(venueId);
             const target = scope === "service" ? resolveService(state.config, service!) : undefined;
-            if (target && "error" in target) return target;
+            if (target && "error" in target) return notExecuted(target);
             const found = findReopenable(state.config, {
               from: from.trim(),
               to: end === null ? null : to.trim(),
               scope,
               serviceId: target?.id,
             });
-            if ("error" in found) return { refused: true, ...found };
+            if ("error" in found) return notExecuted({ refused: true, ...found });
             rule = found.rule;
             children = childrenOf(state.config, rule.id);
             // The Host confirmed what the list showed. Reading the closure now is not that: if it
@@ -1253,17 +1271,17 @@
               return undefined;
             });
             if (!counts) {
-              return {
+              return notExecuted({
                 error:
                   "Couldn't read how many guests this closure cancelled, so it can't decide whether to tell them. Nothing was changed. Ask the user to try again shortly.",
-              };
+              });
             }
             const summary = counts.find((c) => c.ruleId === rule.id);
             cancelled = summary?.cancelled ?? 0;
             reachable = summary?.upcomingCancelled ?? cancelled;
           } catch (err) {
             log.error({ ...failureLog(err), venueId }, "reopen_closure failed to read");
-            return closureFailure(err, "Couldn't read the closures. Nothing was changed.");
+            return notExecuted(closureFailure(err, "Couldn't read the closures. Nothing was changed."));
           }
           const told = tellCancelledGuests && reachable > 0;
           let notified: number;
@@ -1442,22 +1460,22 @@
               .describe("The floor plan's name, as list_floor_plans gives it"),
           }),
           execute: async ({ floorPlan }) => {
-            if (!venueId) return NO_VENUE;
+            if (!venueId) return notExecuted(NO_VENUE);
             log.info({ venueId }, "activate_floor_plan tool called");
             let unsure: string | undefined;
             try {
               const { data } = await api.floorPlans.list({ venueId, limit: PLAN_PAGE_SIZE });
               const found = findPlan(data, floorPlan);
-              if ("error" in found) return found;
+              if ("error" in found) return notExecuted(found);
               if (found.plan.isActive) {
-                return { alreadyActive: true, floorPlan: found.plan.name };
+                return notExecuted({ alreadyActive: true, floorPlan: found.plan.name });
               }
               unsure = saveUnsure("list_floor_plans");
               await api.floorPlans.setActive(found.plan.id);
               return { updated: true, floorPlan: found.plan.name };
             } catch (err) {
               log.error({ err, venueId }, "activate_floor_plan failed");
-              return writeFailure(err, unsure);
+              return failedBeforeWrite(unsure, writeFailure(err, unsure));
             }
           },
         }),
@@ -1567,7 +1585,7 @@
               message: "A phone number or an email is required to add a guest",
             }),
           execute: async ({ name, phone, email, dietaryRestrictions }) => {
-            if (!venueId) return NO_VENUE;
+            if (!venueId) return notExecuted(NO_VENUE);
             log.info({ venueId }, "add_guest tool called");
             try {
               const saved = await api.guests.findOrCreate({
@@ -1591,12 +1609,12 @@
             "Update a guest's profile: correct their name, phone or email, add or remove tags, or replace their dietary restrictions. Requires confirmation.",
           inputSchema: UpdateGuestInputSchema,
           execute: async (input) => {
-            if (!venueId) return NO_VENUE;
+            if (!venueId) return notExecuted(NO_VENUE);
             log.info({ venueId }, "update_guest tool called");
             let unsure: string | undefined;
             try {
               const found = await findGuest(api, venueId, input.guest, input.contact);
-              if ("error" in found) return found;
+              if ("error" in found) return notExecuted(found);
               const current = found.guest.tags ?? [];
               const tagsChange = input.addTags || input.removeTags;
               const tags = tagsChange
@@ -1619,7 +1637,7 @@
               return { updated: true, guest: shown(updated) };
             } catch (err) {
               log.error({ ...failureLog(err), venueId }, "update_guest failed");
-              return guestFailure(err, "update the guest", unsure);
+              return failedBeforeWrite(unsure, guestFailure(err, "update the guest", unsure));
             }
           },
         }),
@@ -1632,18 +1650,18 @@
             text: z.string().min(1).max(1000).describe("The note"),
           }),
           execute: async ({ guest, contact, text }) => {
-            if (!venueId) return NO_VENUE;
+            if (!venueId) return notExecuted(NO_VENUE);
             log.info({ venueId }, "add_guest_note tool called");
             let unsure: string | undefined;
             try {
               const found = await findGuest(api, venueId, guest, contact);
-              if ("error" in found) return found;
+              if ("error" in found) return notExecuted(found);
               unsure = GUEST_SAVE_UNSURE;
               await api.guests.addNote(found.guest.id, text);
               return { noted: true, guest: found.guest.name };
             } catch (err) {
               log.error({ ...failureLog(err), venueId }, "add_guest_note failed");
-              return guestFailure(err, "add the note", unsure);
+              return failedBeforeWrite(unsure, guestFailure(err, "add the note", unsure));
             }
           },
         }),
@@ -1655,19 +1673,19 @@
             guest: z.string().min(1).describe("The lapsing guest's name, as listed"),
           }),
           execute: async ({ guest }) => {
-            if (!venueId) return NO_VENUE;
+            if (!venueId) return notExecuted(NO_VENUE);
             log.info({ venueId }, "send_win_back tool called");
             let unsure: string | undefined;
             try {
               const lapsing = await api.guests.getLapsing(venueId);
               const matches = lapsing.filter((g) => sameText(g.name, guest));
               if (matches.length !== 1) {
-                return {
+                return notExecuted({
                   error:
                     matches.length === 0
                       ? `${guest} isn't on the lapsing guest list, so no win-back was sent.`
                       : `More than one lapsing guest is called ${guest}. Send it from the Dashboard instead.`,
-                };
+                });
               }
               unsure = winBackUnsure(matches[0]!.name);
               const { sent } = await api.guests.sendWinBack(matches[0]!.guestId);
@@ -1680,7 +1698,7 @@
                   };
             } catch (err) {
               log.error({ ...failureLog(err), venueId }, "send_win_back failed");
-              return guestFailure(err, "send the win-back message", unsure);
+              return failedBeforeWrite(unsure, guestFailure(err, "send the win-back message", unsure));
             }
           },
         }),
@@ -1830,17 +1848,17 @@
             availability: z.enum(["sold_out", "available"]).describe("The item's new state"),
           }),
           execute: async ({ menu, item, section, availability }) => {
-            if (!venueId) return NO_VENUE;
+            if (!venueId) return notExecuted(NO_VENUE);
             log.info({ venueId, availability }, "set_menu_item_availability tool called");
             let unsure: string | undefined;
             try {
               const target = await resolveTarget(api, venueId, menu, item, section);
-              if ("error" in target) return target;
+              if ("error" in target) return notExecuted(target);
               // Either state would show guests an item staff chose to hide.
               if (target.item.status === "HIDDEN") {
-                return {
+                return notExecuted({
                   error: `${target.item.name} is hidden from guests. Nothing was changed. Point the user to the Menus page to show it.`,
-                };
+                });
               }
               const status = availability === "sold_out" ? "SOLD_OUT" : "AVAILABLE";
               unsure = MENU_SAVE_UNSURE;
@@ -1850,7 +1868,7 @@
               return { updated: true, item: target.item.name, status };
             } catch (err) {
               log.error({ err, venueId }, "set_menu_item_availability failed");
-              return menuFailure(err, unsure);
+              return failedBeforeWrite(unsure, menuFailure(err, unsure));
             }
           },
         }),
@@ -1875,12 +1893,12 @@
               }
             ),
           execute: async ({ menu, item, section, price, name, description }) => {
-            if (!venueId) return NO_VENUE;
+            if (!venueId) return notExecuted(NO_VENUE);
             log.info({ venueId }, "update_menu_item tool called");
             let unsure: string | undefined;
             try {
               const target = await resolveTarget(api, venueId, menu, item, section);
-              if ("error" in target) return target;
+              if ("error" in target) return notExecuted(target);
               unsure = MENU_SAVE_UNSURE;
               await api.menus.updateItem(venueId, target.menuId, target.section.id, target.item.id, {
                 ...(price !== undefined ? { priceCents: priceToCents(price) } : {}),
@@ -1890,7 +1908,7 @@
               return { updated: true, item: name ?? target.item.name };
             } catch (err) {
               log.error({ err, venueId }, "update_menu_item failed");
-              return menuFailure(err, unsure);
+              return failedBeforeWrite(unsure, menuFailure(err, unsure));
             }
           },
         }),
@@ -2061,33 +2079,35 @@
               .describe("Seat at this table instead, by its name or number; omit for the booked table"),
           }),
           execute: async ({ reservationId, table: tableRef }) => {
-            if (!venueId) return NO_VENUE;
+            if (!venueId) return notExecuted(NO_VENUE);
             log.info({ venueId, reservationId, tableRef }, "seat_reservation tool called");
             let saved: string | undefined;
             let unsure: string | undefined;
             try {
               const found = await venueReservation(api, venueId, reservationId);
-              if ("error" in found) return found;
+              if ("error" in found) return notExecuted(found);
               const { reservation } = found;
               if (!SEATABLE_STATUSES.has(reservation.status)) {
-                return {
+                return notExecuted({
                   error: `This booking is ${reservation.status.toLowerCase().replace(/_/g, " ")}, so it can't be seated.`,
-                };
+                });
               }
               const { data: tables } = await api.tables.list({ venueId, limit: TABLES_LIMIT });
               const chosen = tableRef ? resolveTable(tables, tableRef) : undefined;
-              if (chosen && "error" in chosen) return chosen;
+              if (chosen && "error" in chosen) return notExecuted(chosen);
               const tableId = chosen?.table.id ?? reservation.tableId;
               if (!tableId) {
-                return { error: "This booking has no table. Ask which table to seat them at." };
+                return notExecuted({
+                  error: "This booking has no table. Ask which table to seat them at.",
+                });
               }
               const target = tables.find((t) => t.id === tableId);
               const tableLabel = target?.name ?? target?.tableNumber ?? tableId;
               // Only an AVAILABLE table can be seated: check before writing anything.
               if (target && target.status !== "AVAILABLE") {
-                return {
+                return notExecuted({
                   error: `Table ${tableLabel} is ${target.status.toLowerCase()}, so the party can't be seated there. Nothing was changed.`,
-                };
+                });
               }
               // The server has no CONFIRMED -> CONFIRMED edge, so only a pending booking changes
               // status; and it refuses a status change combined with a table change, so they go
@@ -2107,7 +2127,10 @@
               return { seated: true, table: tableLabel };
             } catch (err) {
               log.error({ ...failureLog(err), venueId, reservationId }, "seat_reservation failed");
-              return bookingWriteFailure(err, "seat the party", unsure, saved);
+              return failedBeforeWrite(
+                unsure,
+                bookingWriteFailure(err, "seat the party", unsure, saved)
+              );
             }
           },
         }),
@@ -2116,18 +2139,18 @@
           description: "Mark a booking as a no-show: the party never arrived. Requires confirmation.",
           inputSchema: z.object({ reservationId: ReservationIdSchema }),
           execute: async ({ reservationId }) => {
-            if (!venueId) return NO_VENUE;
+            if (!venueId) return notExecuted(NO_VENUE);
             log.info({ venueId, reservationId }, "mark_no_show tool called");
             let unsure: string | undefined;
             try {
               const found = await venueReservation(api, venueId, reservationId);
-              if ("error" in found) return found;
+              if ("error" in found) return notExecuted(found);
               unsure = saveUnsure("lookup_reservation");
               const { warning } = await api.reservations.markNoShow(reservationId);
               return { noShow: true, ...(warning ? { warning } : {}) };
             } catch (err) {
               log.error({ ...failureLog(err), venueId, reservationId }, "mark_no_show failed");
-              return bookingWriteFailure(err, "mark the no-show", unsure);
+              return failedBeforeWrite(unsure, bookingWriteFailure(err, "mark the no-show", unsure));
             }
           },
         }),
@@ -2146,13 +2169,13 @@
             note: z.string().max(500).optional().describe("A note on the cancellation"),
           }),
           execute: async ({ reservationId, reason, note }) => {
-            if (!venueId) return NO_VENUE;
+            if (!venueId) return notExecuted(NO_VENUE);
             log.info({ reservationId, reason }, "cancel_reservation tool called");
             try {
               if (!reservationId) {
-                return {
+                return notExecuted({
                   error: "Reservation ID is required to cancel. Please look up the reservation first.",
-                };
+                });
               }
               const reservation =
                 reason || note
@@ -2329,6 +2352,12 @@
           : {}),
       };
     }
+    function releaseIfNotExecuted(result: unknown, release: () => void): unknown {
+      if (typeof result !== "object" || result === null || !(NOT_EXECUTED in result)) return result;
+      const { [NOT_EXECUTED]: marker, ...visible } = result as Record<string, unknown>;
+      if (marker === true) release();
+      return visible;
+    }
     function gateWriteTools(
       tools: ToolSet,
       log: FastifyBaseLogger,
@@ -2348,7 +2377,7 @@
               return CONFIRMATION_PENDING;
             }
             if (consumed) {
-              return { error: "This confirmed action has already been executed." };
+              return { error: ALREADY_ATTEMPTED };
             }
             const schema = original.inputSchema as z.ZodType;
             const parsed = schema.safeParse(confirmedAction.toolInput);
@@ -2364,7 +2393,10 @@
               { toolName: name, actionId: confirmedAction.actionId },
               "executing user-confirmed action"
             );
-            return originalExecute(parsed.data as never, ctx);
+            const result = await originalExecute(parsed.data as never, ctx);
+            return releaseIfNotExecuted(result, () => {
+              consumed = false;
+            });
           },
         } as ToolSet[string];
       }
@@ -2577,10 +2609,10 @@
             notes: z.string().optional().describe("Reservation notes"),
           }),
           execute: async ({ guestName, date, startTime, endTime, partySize, tableId, notes }) => {
-            if (!venueId) return NO_VENUE;
+            if (!venueId) return notExecuted(NO_VENUE);
             log.info({ venueId, date, startTime, partySize }, "create_reservation tool called");
             const window = reservationWindow(date, startTime, endTime, timeZone);
-            if (!window) return { error: UNREADABLE_TIME };
+            if (!window) return notExecuted({ error: UNREADABLE_TIME });
             try {
               const reservation = await api.reservations.create({
                 guestName,
@@ -2645,13 +2677,13 @@
             guestName: z.string().optional().describe("Guest name if provided"),
           }),
           execute: async ({ partySize, tableId, guestName }) => {
-            if (!venueId) return NO_VENUE;
+            if (!venueId) return notExecuted(NO_VENUE);
             log.info({ venueId, partySize, tableId }, "seat_walk_in tool called");
             try {
               if (!tableId) {
-                return {
+                return notExecuted({
                   error: "A table must be specified for walk-ins. Check available tables first.",
-                };
+                });
               }
               const reservation = await api.reservations.walkIn({
                 venueId,
@@ -2676,20 +2708,23 @@
             status: z.enum(["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]).describe("New table status"),
           }),
           execute: async ({ table: tableRef, status: newStatus }) => {
-            if (!venueId) return NO_VENUE;
+            if (!venueId) return notExecuted(NO_VENUE);
             log.info({ venueId, tableRef, newStatus }, "update_table_status tool called");
             let unsure: string | undefined;
             try {
               const tablesResult = await api.tables.list({ venueId, limit: TABLES_LIMIT });
               const resolved = resolveTable(tablesResult.data, tableRef);
-              if ("error" in resolved) return resolved;
+              if ("error" in resolved) return notExecuted(resolved);
               const { table } = resolved;
               unsure = saveUnsure("get_table_status");
               const updated = await api.tables.updateStatus(table.id, newStatus);
               return { table: updated };
             } catch (err) {
               log.error({ err, venueId, tableRef }, "update_table_status failed");
-              return bookingWriteFailure(err, "update the table status", unsure);
+              return failedBeforeWrite(
+                unsure,
+                bookingWriteFailure(err, "update the table status", unsure)
+              );
             }
           },
         }),
@@ -2801,7 +2836,7 @@
             guestPhone: z.string().min(1).describe("The guest's phone number"),
           }),
           execute: async ({ guestName, partySize, guestPhone }) => {
-            if (!venueId) return NO_VENUE;
+            if (!venueId) return notExecuted(NO_VENUE);
             log.info({ venueId, partySize }, "add_to_waitlist tool called");
             try {
               const added = await api.waitlist.create({ venueId, guestName, partySize, guestPhone });
@@ -2823,25 +2858,25 @@
             "Tell a waiting party their table is ready (sends them a text). Requires confirmation.",
           inputSchema: z.object(PartySchema),
           execute: async ({ guestName, partySize }) => {
-            if (!venueId) return NO_VENUE;
+            if (!venueId) return notExecuted(NO_VENUE);
             log.info({ venueId }, "notify_waitlist_party tool called");
             let unsure: string | undefined;
             try {
               const found = await findParty(api, venueId, guestName, partySize);
-              if ("error" in found) return found;
+              if ("error" in found) return notExecuted(found);
               // The server notifies only a waiting party: a second notify sends nothing but still answers 200.
               if (found.entry.status === "notified") {
                 const at = localTimeIn(found.entry.notifiedAt, timeZone);
-                return {
+                return notExecuted({
                   error: `${found.entry.guestName} was already told their table is ready${at ? ` at ${at}` : ""}. No new text was sent.`,
-                };
+                });
               }
               unsure = WAITLIST_SAVE_UNSURE;
               await api.waitlist.notify(found.entry.id);
               return { notified: true, guestName: found.entry.guestName };
             } catch (err) {
               log.error({ ...failureLog(err), venueId }, "notify_waitlist_party failed");
-              return waitlistFailure(err, "notify the party", unsure);
+              return failedBeforeWrite(unsure, waitlistFailure(err, "notify the party", unsure));
             }
           },
         }),
@@ -2854,23 +2889,23 @@
             table: z.string().min(1).describe("The table's name or number, as staff call it"),
           }),
           execute: async ({ guestName, partySize, table: tableRef }) => {
-            if (!venueId) return NO_VENUE;
+            if (!venueId) return notExecuted(NO_VENUE);
             log.info({ venueId, tableRef }, "seat_waitlist_party tool called");
             let seatedAt: string | undefined;
             let unsure: string | undefined;
             try {
               const found = await findParty(api, venueId, guestName, partySize);
-              if ("error" in found) return found;
+              if ("error" in found) return notExecuted(found);
               const { entry } = found;
               const { data: tables } = await api.tables.list({ venueId, limit: TABLES_LIMIT });
               const resolved = resolveTable(tables, tableRef);
-              if ("error" in resolved) return resolved;
+              if ("error" in resolved) return notExecuted(resolved);
               const { table } = resolved;
               const label = table.name ?? table.tableNumber ?? tableRef;
               if (table.status !== "AVAILABLE") {
-                return {
+                return notExecuted({
                   error: `Table ${label} is ${table.status.toLowerCase()}, so the party can't be seated there. Nothing was changed.`,
-                };
+                });
               }
               // The walk-in is what would have saved, and the party stays listed either way.
               unsure = saveUnsure("get_table_status");
@@ -2894,7 +2929,7 @@
                   note: `The party is seated at ${seatedAt}, but they are still shown on the waitlist. Tell the user to remove them from the Waitlist page.`,
                 };
               }
-              return waitlistFailure(err, "seat the party", unsure);
+              return failedBeforeWrite(unsure, waitlistFailure(err, "seat the party", unsure));
             }
           },
         }),
@@ -2904,18 +2939,18 @@
             "Take a party off the waitlist (they left or no longer want a table). Requires confirmation.",
           inputSchema: z.object(PartySchema),
           execute: async ({ guestName, partySize }) => {
-            if (!venueId) return NO_VENUE;
+            if (!venueId) return notExecuted(NO_VENUE);
             log.info({ venueId }, "remove_from_waitlist tool called");
             let unsure: string | undefined;
             try {
               const found = await findParty(api, venueId, guestName, partySize);
-              if ("error" in found) return found;
+              if ("error" in found) return notExecuted(found);
               unsure = WAITLIST_SAVE_UNSURE;
               await api.waitlist.cancel(found.entry.id);
               return { removed: true, guestName: found.entry.guestName };
             } catch (err) {
               log.error({ ...failureLog(err), venueId }, "remove_from_waitlist failed");
-              return waitlistFailure(err, "remove the party", unsure);
+              return failedBeforeWrite(unsure, waitlistFailure(err, "remove the party", unsure));
             }
           },
         }),
@@ -4001,6 +4036,13 @@
       return `Couldn't confirm the change was saved. Check ${read} before trying again.`;
     }
     export const NO_REPLAY = { maxRetries: 0 } as const;
+    export const NOT_EXECUTED = "notExecuted" as const;
+    export function notExecuted<T extends object>(result: T): T & { readonly notExecuted: true } {
+      return { ...result, [NOT_EXECUTED]: true };
+    }
+    export function failedBeforeWrite<T extends object>(unsure: string | undefined, result: T) {
+      return unsure === undefined ? notExecuted(result) : result;
+    }
     export interface NamedTable {
       readonly id: string;
       readonly name?: string | null;

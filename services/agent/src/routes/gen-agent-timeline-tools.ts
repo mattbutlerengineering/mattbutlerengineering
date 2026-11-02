@@ -5,7 +5,9 @@ import type { FastifyBaseLogger } from "fastify";
 import {
   NO_REPLAY,
   NO_VENUE,
+  failedBeforeWrite,
   failureLog,
+  notExecuted,
   refusalOf,
   resolveTable,
   saveUnsure,
@@ -86,33 +88,35 @@ export function createTimelineTools(
           .describe("Seat at this table instead, by its name or number; omit for the booked table"),
       }),
       execute: async ({ reservationId, table: tableRef }) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ venueId, reservationId, tableRef }, "seat_reservation tool called");
         let saved: string | undefined;
         let unsure: string | undefined;
         try {
           const found = await venueReservation(api, venueId, reservationId);
-          if ("error" in found) return found;
+          if ("error" in found) return notExecuted(found);
           const { reservation } = found;
           if (!SEATABLE_STATUSES.has(reservation.status)) {
-            return {
+            return notExecuted({
               error: `This booking is ${reservation.status.toLowerCase().replace(/_/g, " ")}, so it can't be seated.`,
-            };
+            });
           }
           const { data: tables } = await api.tables.list({ venueId, limit: TABLES_LIMIT });
           const chosen = tableRef ? resolveTable(tables, tableRef) : undefined;
-          if (chosen && "error" in chosen) return chosen;
+          if (chosen && "error" in chosen) return notExecuted(chosen);
           const tableId = chosen?.table.id ?? reservation.tableId;
           if (!tableId) {
-            return { error: "This booking has no table. Ask which table to seat them at." };
+            return notExecuted({
+              error: "This booking has no table. Ask which table to seat them at.",
+            });
           }
           const target = tables.find((t) => t.id === tableId);
           const tableLabel = target?.name ?? target?.tableNumber ?? tableId;
           // Only an AVAILABLE table can be seated: check before writing anything.
           if (target && target.status !== "AVAILABLE") {
-            return {
+            return notExecuted({
               error: `Table ${tableLabel} is ${target.status.toLowerCase()}, so the party can't be seated there. Nothing was changed.`,
-            };
+            });
           }
           // The server has no CONFIRMED -> CONFIRMED edge, so only a pending booking changes
           // status; and it refuses a status change combined with a table change, so they go
@@ -132,7 +136,10 @@ export function createTimelineTools(
           return { seated: true, table: tableLabel };
         } catch (err) {
           log.error({ ...failureLog(err), venueId, reservationId }, "seat_reservation failed");
-          return bookingWriteFailure(err, "seat the party", unsure, saved);
+          return failedBeforeWrite(
+            unsure,
+            bookingWriteFailure(err, "seat the party", unsure, saved)
+          );
         }
       },
     }),
@@ -141,18 +148,18 @@ export function createTimelineTools(
       description: "Mark a booking as a no-show: the party never arrived. Requires confirmation.",
       inputSchema: z.object({ reservationId: ReservationIdSchema }),
       execute: async ({ reservationId }) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ venueId, reservationId }, "mark_no_show tool called");
         let unsure: string | undefined;
         try {
           const found = await venueReservation(api, venueId, reservationId);
-          if ("error" in found) return found;
+          if ("error" in found) return notExecuted(found);
           unsure = saveUnsure("lookup_reservation");
           const { warning } = await api.reservations.markNoShow(reservationId);
           return { noShow: true, ...(warning ? { warning } : {}) };
         } catch (err) {
           log.error({ ...failureLog(err), venueId, reservationId }, "mark_no_show failed");
-          return bookingWriteFailure(err, "mark the no-show", unsure);
+          return failedBeforeWrite(unsure, bookingWriteFailure(err, "mark the no-show", unsure));
         }
       },
     }),
@@ -171,13 +178,13 @@ export function createTimelineTools(
         note: z.string().max(500).optional().describe("A note on the cancellation"),
       }),
       execute: async ({ reservationId, reason, note }) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ reservationId, reason }, "cancel_reservation tool called");
         try {
           if (!reservationId) {
-            return {
+            return notExecuted({
               error: "Reservation ID is required to cancel. Please look up the reservation first.",
-            };
+            });
           }
           const reservation =
             reason || note

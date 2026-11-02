@@ -12,8 +12,11 @@ import { createMenuTools } from "./gen-agent-menu-tools.js";
 import { createWaitlistTools } from "./gen-agent-waitlist-tools.js";
 import { bookingWriteFailure, createTimelineTools } from "./gen-agent-timeline-tools.js";
 import {
+  NOT_EXECUTED,
   NO_VENUE,
+  failedBeforeWrite,
   failureLog,
+  notExecuted,
   localTimeIn,
   refusalOf,
   resolveTable,
@@ -234,6 +237,31 @@ const CONFIRMATION_PENDING = {
 } as const;
 
 /**
+ * What a second call is told once the confirmed action is spent. The first attempt
+ * may have refused (and said "nothing was changed") or may have committed, so this
+ * never claims either: the first attempt's own result is the answer.
+ */
+const ALREADY_ATTEMPTED =
+  "This confirmed action was already attempted in this request and may or may not have run. Go by that attempt's result; ask the user to confirm again.";
+
+/**
+ * A tool's result with its not-executed marker removed. The single use is handed
+ * back only when the tool stated that nothing was written; a thrown error (which
+ * skips this entirely), a timeout and anything unmarked stay spent, because the
+ * write may have committed. The model never sees the marker.
+ *
+ * Handing it back lets the same confirmed input run again in this request: the
+ * gate still executes that exact input and no other tool, and no new
+ * action_request is emitted (gen-agent drops the confirmed tool's own).
+ */
+function releaseIfNotExecuted(result: unknown, release: () => void): unknown {
+  if (typeof result !== "object" || result === null || !(NOT_EXECUTED in result)) return result;
+  const { [NOT_EXECUTED]: marker, ...visible } = result as Record<string, unknown>;
+  if (marker === true) release();
+  return visible;
+}
+
+/**
  * Wraps every write tool so its real API call runs only for the action the
  * user explicitly confirmed — with exactly the confirmed input, at most once
  * per request. The unconfirmed path still surfaces as an action_request event
@@ -260,7 +288,7 @@ function gateWriteTools(
           return CONFIRMATION_PENDING;
         }
         if (consumed) {
-          return { error: "This confirmed action has already been executed." };
+          return { error: ALREADY_ATTEMPTED };
         }
         const schema = original.inputSchema as z.ZodType;
         const parsed = schema.safeParse(confirmedAction.toolInput);
@@ -276,7 +304,10 @@ function gateWriteTools(
           { toolName: name, actionId: confirmedAction.actionId },
           "executing user-confirmed action"
         );
-        return originalExecute(parsed.data as never, ctx);
+        const result = await originalExecute(parsed.data as never, ctx);
+        return releaseIfNotExecuted(result, () => {
+          consumed = false;
+        });
       },
     } as ToolSet[string];
   }
@@ -490,10 +521,10 @@ export function createAgentTools(
         notes: z.string().optional().describe("Reservation notes"),
       }),
       execute: async ({ guestName, date, startTime, endTime, partySize, tableId, notes }) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ venueId, date, startTime, partySize }, "create_reservation tool called");
         const window = reservationWindow(date, startTime, endTime, timeZone);
-        if (!window) return { error: UNREADABLE_TIME };
+        if (!window) return notExecuted({ error: UNREADABLE_TIME });
         try {
           const reservation = await api.reservations.create({
             guestName,
@@ -558,13 +589,13 @@ export function createAgentTools(
         guestName: z.string().optional().describe("Guest name if provided"),
       }),
       execute: async ({ partySize, tableId, guestName }) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ venueId, partySize, tableId }, "seat_walk_in tool called");
         try {
           if (!tableId) {
-            return {
+            return notExecuted({
               error: "A table must be specified for walk-ins. Check available tables first.",
-            };
+            });
           }
           const reservation = await api.reservations.walkIn({
             venueId,
@@ -589,20 +620,23 @@ export function createAgentTools(
         status: z.enum(["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]).describe("New table status"),
       }),
       execute: async ({ table: tableRef, status: newStatus }) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ venueId, tableRef, newStatus }, "update_table_status tool called");
         let unsure: string | undefined;
         try {
           const tablesResult = await api.tables.list({ venueId, limit: TABLES_LIMIT });
           const resolved = resolveTable(tablesResult.data, tableRef);
-          if ("error" in resolved) return resolved;
+          if ("error" in resolved) return notExecuted(resolved);
           const { table } = resolved;
           unsure = saveUnsure("get_table_status");
           const updated = await api.tables.updateStatus(table.id, newStatus);
           return { table: updated };
         } catch (err) {
           log.error({ err, venueId, tableRef }, "update_table_status failed");
-          return bookingWriteFailure(err, "update the table status", unsure);
+          return failedBeforeWrite(
+            unsure,
+            bookingWriteFailure(err, "update the table status", unsure)
+          );
         }
       },
     }),

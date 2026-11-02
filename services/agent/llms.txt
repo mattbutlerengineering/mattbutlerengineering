@@ -566,6 +566,9 @@
       ) { /* ... */ }
     </item>
     <item priority="medium">
+      function releaseIfNotExecuted(result: unknown, release: () => void): unknown { /* ... */ }
+    </item>
+    <item priority="medium">
       function gateWriteTools(
         tools: ToolSet,
         log: FastifyBaseLogger,
@@ -805,6 +808,15 @@
     </item>
     <item priority="high">
       export const NO_REPLAY: unknown;
+    </item>
+    <item priority="high">
+      export const NOT_EXECUTED: unknown;
+    </item>
+    <item priority="high">
+      export function notExecuted<T extends object>(result: T): T & { readonly notExecuted: true } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function failedBeforeWrite<T extends object>(unsure: string | undefined, result: T) { /* ... */ }
     </item>
     <item priority="low">
       interface NamedTable {
