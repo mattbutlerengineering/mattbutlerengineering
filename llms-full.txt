@@ -7552,10 +7552,16 @@
     ): { rule: DateRule; alongside: ClosureAlongside } {
       const from = scope === "all" || date <= series.startsOn ? series.startsOn : date;
       const rule: DateRule = { ...withEdit(series, edit), id: makeId(), startsOn: from };
+      const removing = from === series.startsOn;
+      // A removed series takes every child with it, even one dated before it starts: the server refuses
+      // a removal that leaves a skip pointing at the series it removed.
       const moved = config.dateRules
-        .filter((r) => r.seriesId === series.id && r.startsOn >= from)
+        .filter((r) => r.seriesId === series.id && (removing || r.startsOn >= from))
         .map((r) => ({ ...r, seriesId: rule.id }));
-      if (from === series.startsOn) return { rule, alongside: { upsert: moved, remove: [series.id] } };
+      // `replaces` is the row this draft was built from; the server refuses if the stored one differs.
+      if (removing) {
+        return { rule, alongside: { upsert: moved, remove: [series.id], replaces: series } };
+      }
       const ended: DateRule = { ...series, endsOn: addDays(from, -1) };
       return { rule, alongside: { upsert: [ended, ...moved], remove: [] } };
     }
@@ -45173,6 +45179,13 @@
       upsert: z.array(DateRuleSchema).default([]),
       /** Rule ids to remove (soft delete): the series the draft replaces. */
       remove: IdListSchema.default([]),
+      /**
+       * The series being replaced, exactly as the client read it when it built the draft. When `remove`
+       * names the series, the closure command refuses with the version conflict if the stored series
+       * is no longer this row (a teammate changed its message, weekdays or end date since). Optional
+       * for clients from before this field: without it only the draft's other fields are compared.
+       */
+      replaces: DateRuleSchema.optional(),
     });
     export const ClosureImpactBodySchema = z.object({
       rule: DateRuleSchema,
@@ -53407,7 +53420,10 @@
       if (value === null || typeof value !== "object") return value;
       return Object.fromEntries(
         Object.entries(value)
-          .filter(([, v]) => v != null && !(Array.isArray(v) && v.length === 0))
+          .filter(
+            ([k, v]) =>
+              v != null && !(Array.isArray(v) && v.length === 0) && !(OPTIONAL_TEXT.has(k) && v === "")
+          )
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([k, v]) => [k, canonical(v)])
       );
@@ -53425,6 +53441,20 @@
         (edited.seriesId === seriesId || edited.seriesId === draftId) &&
         same({ ...edited, seriesId: stored.seriesId }, stored)
       );
+    }
+    export function seriesChangedSinceRead(
+      stored: readonly DateRule[],
+      draft: DateRule,
+      alongside: ClosureAlongside
+    ): boolean {
+      const [seriesId] = alongside.remove;
+      const series = stored.find((r) => r.id === seriesId);
+      if (!series) return false;
+      const moved = new Set(alongside.upsert.map((r) => r.id));
+      if (stored.some((r) => r.seriesId === series.id && !moved.has(r.id))) return true;
+      if (alongside.replaces) return !same(alongside.replaces, series);
+      const { id, startsOn, endsOn, repeat } = series;
+      return !same({ ...draft, id, startsOn, endsOn, repeat }, series);
     }
     export function checkAlongside(
       stored: readonly DateRule[],
@@ -54094,6 +54124,11 @@
       if (!caller.isManager) throw new Refused({ kind: "forbidden" });
       const issue = checkAlongside(state.stored.dateRules, rule, alongside);
       if (issue) throw new Refused({ kind: "invalid", issues: [issue] });
+      // The version matched, yet the series is not the one this edit was built from: answer as a stale
+      // version, so the Manager gets the same recovery and the winner's change is named.
+      if (seriesChangedSinceRead(state.stored.dateRules, rule, alongside)) {
+        throw new Refused((await refuseStale(tx, venueId)) as Refusal);
+      }
       const today = civilDateIn(now, state.timezone);
       const stranded = findStrandedReservations(
         { timezone: state.timezone, config: state.effective },

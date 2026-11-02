@@ -164,6 +164,20 @@ describe("SeriesGrowthStepTwo refusals", () => {
     expect(onStale.mock.calls[0]![0]).toMatch(/Availability changed since you opened this/);
   });
 
+  it("sends the series it replaces, and a refusal for a changed series opens the same recovery (#8028)", async () => {
+    const replaces = { ...RULE, id: "series-1" };
+    create.mockRejectedValue(refusal("version-conflict", { winningChange: null }));
+    const { dialog, onStale } = renderStep({
+      alongside: { upsert: [], remove: ["series-1"], replaces },
+    });
+    chooseCancelAndSave(dialog);
+
+    await waitFor(() => expect(onStale).toHaveBeenCalledTimes(1));
+    expect(create.mock.calls[0]![0].body.alongside.replaces).toEqual(replaces);
+    expect(refresh).toHaveBeenCalled();
+    expect(onStale.mock.calls[0]![0]).toMatch(/Availability changed since you opened this/);
+  });
+
   describe("a save whose response was lost", () => {
     const lost = () => new TypeError("Failed to fetch");
     const SAVED = { ruleId: "r", outcomes: { cancel: 2, move: 0, keep_notify: 0, keep_silent: 0 } };

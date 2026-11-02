@@ -14,13 +14,26 @@ export interface AlongsideIssue {
   message: string;
 }
 
-/** Drops null, undefined and empty lists, and orders keys, so two spellings of one row compare equal. */
+/**
+ * The free-text fields a row may leave out. The route's Ajv coerces a `null` here to `""` (its
+ * schema is a string-then-null `anyOf`), so a stored row with no message (`null`) and the same row
+ * after a round trip through the request (`""`) must read as one.
+ */
+const OPTIONAL_TEXT = new Set(["guestMessage", "staffNote"]);
+
+/**
+ * Drops null, undefined, empty lists and empty optional text, and orders keys, so two spellings of
+ * one row compare equal.
+ */
 function canonical(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonical);
   if (value === null || typeof value !== "object") return value;
   return Object.fromEntries(
     Object.entries(value)
-      .filter(([, v]) => v != null && !(Array.isArray(v) && v.length === 0))
+      .filter(
+        ([k, v]) =>
+          v != null && !(Array.isArray(v) && v.length === 0) && !(OPTIONAL_TEXT.has(k) && v === "")
+      )
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([k, v]) => [k, canonical(v)])
   );
@@ -54,6 +67,31 @@ function onlyMoved(edited: DateRule, stored: DateRule, seriesId: string, draftId
     (edited.seriesId === seriesId || edited.seriesId === draftId) &&
     same({ ...edited, seriesId: stored.seriesId }, stored)
   );
+}
+
+/**
+ * Whether a remove-path series edit was built from a series that has since changed. Call it after
+ * `checkAlongside` accepted `alongside`. Two things make it stale, whatever the client sent:
+ * the series has a skip or one-date edit the plan does not move (a teammate added it, and it would
+ * be left pointing at the removed series), or the stored row is no longer the one the draft came
+ * from. That row is `replaces`; a client from before the field sends none, so the draft is all
+ * there is to compare: it must equal the stored series apart from the fields an edit sets (`id`,
+ * `startsOn`, `endsOn`, `repeat`). That catches a changed guest message or payload, but not changed
+ * weekdays or end date.
+ */
+export function seriesChangedSinceRead(
+  stored: readonly DateRule[],
+  draft: DateRule,
+  alongside: ClosureAlongside
+): boolean {
+  const [seriesId] = alongside.remove;
+  const series = stored.find((r) => r.id === seriesId);
+  if (!series) return false;
+  const moved = new Set(alongside.upsert.map((r) => r.id));
+  if (stored.some((r) => r.seriesId === series.id && !moved.has(r.id))) return true;
+  if (alongside.replaces) return !same(alongside.replaces, series);
+  const { id, startsOn, endsOn, repeat } = series;
+  return !same({ ...draft, id, startsOn, endsOn, repeat }, series);
 }
 
 /** Null when `alongside` is a series edit of one stored series for `draft`; else the first issue. */

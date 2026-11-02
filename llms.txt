@@ -16004,6 +16004,13 @@
       function onlyMoved(edited: DateRule, stored: DateRule, seriesId: string, draftId: string) { /* ... */ }
     </item>
     <item priority="high">
+      export function seriesChangedSinceRead(
+        stored: readonly DateRule[],
+        draft: DateRule,
+        alongside: ClosureAlongside
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
       export function checkAlongside(
         stored: readonly DateRule[],
         draft: DateRule,
