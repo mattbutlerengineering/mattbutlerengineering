@@ -379,6 +379,9 @@ function LiveTimelinePage() {
       clearSelection();
     });
     focusAfter(blockTarget(reservationId), UNLESS_COVERED);
+    // Not covered: the Drawer's own restore frame, after Seat now, goes to the previous party's
+    // block, and a focus inside a dialog opened since is not a block, so it stays (#8098).
+    blockAfterRestore(reservationId);
   };
 
   const handleCancel = async (reason: string, note: string) => {
