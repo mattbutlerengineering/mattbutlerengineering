@@ -769,5 +769,38 @@
       "review_coverage": "measured",
       "no_formal_review_stage": false
     }
+  },
+  {
+    "timestamp": "2026-11-02T20:50:34.088Z",
+    "window_days": 7,
+    "rubber_stamp_threshold_minutes": 5,
+    "total_closed_prs": 100,
+    "reviewers": [
+      {
+        "login": "github-advanced-security",
+        "prs_reviewed": 1,
+        "mean_review_minutes": 2.9,
+        "approvals": 0,
+        "rubber_stamps": 0,
+        "rubber_stamp_ratio": 0
+      },
+      {
+        "login": "mattbutlerengineering",
+        "prs_reviewed": 5,
+        "mean_review_minutes": 484.3,
+        "approvals": 5,
+        "rubber_stamps": 2,
+        "rubber_stamp_ratio": 0.4
+      }
+    ],
+    "summary": {
+      "total_reviewers": 2,
+      "total_reviews": 6,
+      "overall_rubber_stamp_ratio": 0.4,
+      "overall_rubber_stamps": 2,
+      "overall_approvals": 5,
+      "review_coverage": "measured",
+      "no_formal_review_stage": false
+    }
   }
 ]
