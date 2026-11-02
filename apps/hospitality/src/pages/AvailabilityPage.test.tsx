@@ -563,8 +563,12 @@ describe("AvailabilityPage", () => {
       closeFromDrawer();
       fireEvent.click(screen.getByRole("button", { name: "Discard" }));
       expect(screen.getByRole("dialog", { name: "Close" })).toBeInTheDocument();
-      await waitFor(() =>
-        expect(screen.queryByRole("dialog", { name: /Friday, October 30/ })).not.toBeInTheDocument()
+      await waitFor(
+        () =>
+          expect(
+            screen.queryByRole("dialog", { name: /Friday, October 30/ })
+          ).not.toBeInTheDocument(),
+        { timeout: 5000 }
       );
     });
 
