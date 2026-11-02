@@ -51,7 +51,7 @@ const authConfig = buildGenAuthConfig(
 function ThemedApp() {
   return (
     <RialtoProvider persistTheme>
-      <ToastProvider>
+      <ToastProvider placement="top-end">
         <AuthProvider config={authConfig}>
           <ErrorBoundary onError={handleErrorBoundary}>
             <RouterProvider router={router} />
