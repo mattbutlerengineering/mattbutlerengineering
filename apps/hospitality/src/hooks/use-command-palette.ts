@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from "react";
 import type { CommandItem } from "@mattbutlerengineering/rialto";
 import type { NavSection } from "../nav-sections.js";
 import type { NavAction } from "../nav-actions.js";
+import { useViewport } from "./useViewport.js";
 
 /* ── Types ──────────────────────────────────────── */
 
@@ -96,6 +97,15 @@ export function useCommandPalette({
   toggleTheme,
 }: UseCommandPaletteOptions): UseCommandPaletteResult {
   const [open, setOpen] = useState(false);
+
+  // A resize can change what the page mounts under the palette, and what mounts takes focus from
+  // it, so keys typed into the palette would act there (#8029). The palette closes instead.
+  const viewport = useViewport();
+  const [openedAt, setOpenedAt] = useState(viewport);
+  if (viewport !== openedAt) {
+    setOpenedAt(viewport);
+    setOpen(false);
+  }
 
   const items = useMemo(
     () => [...buildNavItems(sections, runAction), ...buildActionItems(runAction, toggleTheme)],

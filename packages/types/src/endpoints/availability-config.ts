@@ -254,6 +254,11 @@ export const availabilityConfigEndpoints = {
       401: authRequired,
       403: notClosureCaller,
       404: problem("Venue or closure not found"),
+      422: {
+        description:
+          "`invalid-config` with a `strands_booking` issue per booking: removing a one-date edit hands its date back to the series, which would leave these bookings without service. Nothing is changed",
+        body: AvailabilityConfigProblemSchema,
+      },
     },
   }),
   setTonight: defineEndpoint({

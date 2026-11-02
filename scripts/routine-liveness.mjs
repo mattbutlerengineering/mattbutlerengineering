@@ -23,6 +23,20 @@
  * calls `gh api` (the Actions runner has it); without `gh` that routine alone
  * reads `unobserved`, never aborting the run.
  *
+ * #8059: `mbe-daily-issue` was filed `dark` on 2026-11-01 despite having a
+ * correctly-registered `heartbeat` signature (#7043) and a live trigger that
+ * was in fact posting heartbeats. It was never a missing-signature gap —
+ * `classifyHeartbeat()`'s `error -> dark` rule (by design: the routine's one
+ * daily goal, closing an issue, wasn't met that run) fired correctly, because
+ * the merge was blocked by the known CCR merge-permission classifier issue
+ * (#6125), not by anything wrong with this file's registration. The real bug
+ * found along the way: a heartbeat artifact has no `title`/`labels`, so the
+ * finding body's `matched.title ?? JSON.stringify(matched.labels ?? [])`
+ * fallback rendered the empty-array literal `[]` in place of the heartbeat's
+ * `error` state and note — making a correctly-filed finding read as if no
+ * artifact had been observed at all. `describeMatchedArtifact()` fixes the
+ * display; the `error -> dark` classification itself is unchanged.
+ *
  * Usage:
  *   node scripts/routine-liveness.mjs
  */
@@ -276,11 +290,25 @@ export function decideIssueTransition({ status, existingIssue }) {
   return { action: "no-op" };
 }
 
+/**
+ * Pure: a human-readable label for one matched artifact. A `pr-title`/
+ * `issue-label` artifact carries a `title` or `labels`; a `heartbeat`
+ * artifact carries neither — rendering it via the same `title ?? labels`
+ * fallback produces the empty-array literal `[]`, which reads as "no
+ * artifact found" even when a real, substantive heartbeat matched (#8059).
+ */
+function describeMatchedArtifact(matched) {
+  if (matched.type === "heartbeat") {
+    return `heartbeat: ${matched.state}${matched.note ? ` — ${matched.note}` : ""}`;
+  }
+  return matched.title ?? JSON.stringify(matched.labels ?? []);
+}
+
 /** Pure: builds the issue body describing why a routine was flagged. */
 export function buildRoutineFindingBody({ name, triggerId, status, periodDays, reason, matched }) {
   const triggerLine = triggerId ? `**Trigger:** \`${triggerId}\`\n` : "";
   const matchedLine = matched
-    ? `\n**Most recent matching artifact:** ${matched.title ?? JSON.stringify(matched.labels ?? [])} (${matched.observedAt})\n`
+    ? `\n**Most recent matching artifact:** ${describeMatchedArtifact(matched)} (${matched.observedAt})\n`
     : "";
   const reasonLine = reason ? `\n${reason}\n` : "";
 
@@ -307,7 +335,7 @@ export function buildRoutineRecoveryComment({ name, runId, matched }) {
     ? `Closed automatically by run \`${runId}\`.`
     : "Closed automatically by routine-liveness.mjs.";
   const matchedLine = matched
-    ? ` Observed artifact: ${matched.title ?? JSON.stringify(matched.labels ?? [])} (${matched.observedAt}).`
+    ? ` Observed artifact: ${describeMatchedArtifact(matched)} (${matched.observedAt}).`
     : "";
 
   return `\`${name}\` reports \`alive\` again — this finding's condition has cleared.\n\n${runLine}${matchedLine}`;
@@ -682,6 +710,7 @@ function fetchHeartbeatArtifacts(ghClient, routineName) {
       {
         type: "heartbeat",
         state: beat.state,
+        note: beat.note,
         observedAt: comment.createdAt ?? comment.created_at,
       },
     ];

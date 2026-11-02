@@ -264,9 +264,11 @@ describe("ReservationDetails", () => {
   describe("other actions", () => {
     it("calls onEdit and onCancel, and hides Cancel for a CANCELLED reservation", () => {
       const { props } = renderDetails();
-      fireEvent.click(screen.getByRole("button", { name: "Edit Reservation" }));
+      const edit = screen.getByRole("button", { name: "Edit Reservation" });
+      fireEvent.click(edit);
       fireEvent.click(screen.getByRole("button", { name: "Cancel Reservation" }));
       expect(props.onEdit).toHaveBeenCalledTimes(1);
+      expect(props.onEdit).toHaveBeenCalledWith(edit);
       expect(props.onCancel).toHaveBeenCalledTimes(1);
     });
 

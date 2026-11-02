@@ -2,7 +2,7 @@ import { tool } from "ai";
 import type { ToolSet } from "ai";
 import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
-import { NO_VENUE, refusalOf, type ApiClient } from "./gen-tool-support.js";
+import { NO_VENUE, refusalOf, saveUnsure, type ApiClient } from "./gen-tool-support.js";
 
 /**
  * Chat tools for menus (#7928): read them, mark an item sold out or available,
@@ -43,12 +43,19 @@ const ItemSchema = {
     .describe("Only when two items on the menu share the name: the item's section"),
 };
 
-/** A refused or failed menu write, in words the model can pass on. */
-function menuFailure(err: unknown) {
+const MENU_SAVE_UNSURE = saveUnsure("get_menu");
+
+/**
+ * A refused or failed menu write, in words the model can pass on. `unsure` is set
+ * once the write is on its way: until then a failure can't have changed anything.
+ */
+function menuFailure(err: unknown, unsure: string | undefined) {
   const refusal = refusalOf(err);
   if (!refusal) {
     return {
-      error: "Couldn't change the menu right now. Nothing was changed. Ask the user to try again.",
+      error:
+        unsure ??
+        "Couldn't change the menu right now. Nothing was changed. Ask the user to try again.",
     };
   }
   if (refusal.status === 403) {
@@ -182,6 +189,7 @@ export function createMenuTools(
       execute: async ({ menu, item, section, availability }) => {
         if (!venueId) return NO_VENUE;
         log.info({ venueId, availability }, "set_menu_item_availability tool called");
+        let unsure: string | undefined;
         try {
           const target = await resolveTarget(api, venueId, menu, item, section);
           if ("error" in target) return target;
@@ -192,13 +200,14 @@ export function createMenuTools(
             };
           }
           const status = availability === "sold_out" ? "SOLD_OUT" : "AVAILABLE";
+          unsure = MENU_SAVE_UNSURE;
           await api.menus.updateItem(venueId, target.menuId, target.section.id, target.item.id, {
             status,
           });
           return { updated: true, item: target.item.name, status };
         } catch (err) {
           log.error({ err, venueId }, "set_menu_item_availability failed");
-          return menuFailure(err);
+          return menuFailure(err, unsure);
         }
       },
     }),
@@ -225,9 +234,11 @@ export function createMenuTools(
       execute: async ({ menu, item, section, price, name, description }) => {
         if (!venueId) return NO_VENUE;
         log.info({ venueId }, "update_menu_item tool called");
+        let unsure: string | undefined;
         try {
           const target = await resolveTarget(api, venueId, menu, item, section);
           if ("error" in target) return target;
+          unsure = MENU_SAVE_UNSURE;
           await api.menus.updateItem(venueId, target.menuId, target.section.id, target.item.id, {
             ...(price !== undefined ? { priceCents: priceToCents(price) } : {}),
             ...(name !== undefined ? { name } : {}),
@@ -236,7 +247,7 @@ export function createMenuTools(
           return { updated: true, item: name ?? target.item.name };
         } catch (err) {
           log.error({ err, venueId }, "update_menu_item failed");
-          return menuFailure(err);
+          return menuFailure(err, unsure);
         }
       },
     }),

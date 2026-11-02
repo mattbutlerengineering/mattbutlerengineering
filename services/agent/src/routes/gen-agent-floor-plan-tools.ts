@@ -2,7 +2,7 @@ import { tool } from "ai";
 import type { ToolSet } from "ai";
 import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
-import { NO_VENUE, refusalOf, type ApiClient } from "./gen-tool-support.js";
+import { NO_VENUE, refusalOf, saveUnsure, type ApiClient } from "./gen-tool-support.js";
 
 /**
  * Chat tools for floor plans (#7930): read the venue's plans, and switch which
@@ -40,12 +40,16 @@ function readFailure(err: unknown) {
     : { error: "Couldn't read the floor plans. Ask the user to try again." };
 }
 
-/** A refused or failed floor plan write, in words the model can pass on. */
-function writeFailure(err: unknown) {
+/**
+ * A refused or failed floor plan write, in words the model can pass on. `unsure` is
+ * set once the write is on its way: until then a failure can't have changed anything.
+ */
+function writeFailure(err: unknown, unsure: string | undefined) {
   const refusal = refusalOf(err);
   if (!refusal) {
     return {
       error:
+        unsure ??
         "Couldn't change the floor plan right now. Nothing was changed. Ask the user to try again.",
     };
   }
@@ -103,6 +107,7 @@ export function createFloorPlanTools(
       execute: async ({ floorPlan }) => {
         if (!venueId) return NO_VENUE;
         log.info({ venueId }, "activate_floor_plan tool called");
+        let unsure: string | undefined;
         try {
           const { data } = await api.floorPlans.list({ venueId, limit: PLAN_PAGE_SIZE });
           const found = findPlan(data, floorPlan);
@@ -110,11 +115,12 @@ export function createFloorPlanTools(
           if (found.plan.isActive) {
             return { alreadyActive: true, floorPlan: found.plan.name };
           }
+          unsure = saveUnsure("list_floor_plans");
           await api.floorPlans.setActive(found.plan.id);
           return { updated: true, floorPlan: found.plan.name };
         } catch (err) {
           log.error({ err, venueId }, "activate_floor_plan failed");
-          return writeFailure(err);
+          return writeFailure(err, unsure);
         }
       },
     }),

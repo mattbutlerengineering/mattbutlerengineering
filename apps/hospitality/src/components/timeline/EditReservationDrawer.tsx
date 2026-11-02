@@ -21,7 +21,7 @@ import type {
 import { OccasionSeatingFields } from "../reservations/OccasionSeatingFields.js";
 import { GuestCard } from "../crm/GuestCard.js";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
-import { useFocusAfter } from "../../hooks/useFocusAfter.js";
+import { UNLESS_COVERED, useFocusAfter } from "../../hooks/useFocusAfter.js";
 import { describeApiError, type ApiErrorDescription } from "../../lib/describe-api-error.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { venueWallTimeToInstant, wallTimeInputValue } from "../../utils/venue-wall-time.js";
@@ -113,7 +113,8 @@ export function EditReservationDrawer({
       await onSave(reservation.id, payload);
     } catch (err) {
       setFailure(describeApiError(err));
-      if (saveRef.current) focusAfter({ kind: "element", element: saveRef.current });
+      if (saveRef.current)
+        focusAfter({ kind: "element", element: saveRef.current }, UNLESS_COVERED);
     } finally {
       setIsLoading(false);
     }
@@ -122,8 +123,13 @@ export function EditReservationDrawer({
   const validationError =
     errors.partySize?.message ?? errors.startTime?.message ?? errors.endTime?.message;
 
+  // A save in flight can only be left when it ends: closing now would hide a failure.
+  const dismiss = () => {
+    if (!isLoading) onClose();
+  };
+
   return (
-    <Drawer open={true} onClose={onClose} title={t("timeline.edit.title")} size="default">
+    <Drawer open={true} onClose={dismiss} title={t("timeline.edit.title")} size="default">
       <div data-testid="edit-reservation-drawer">
         <form noValidate onSubmit={handleSubmit(onFormSubmit)}>
           <Stack gap="lg" style={{ padding: "var(--rialto-space-md)" }}>

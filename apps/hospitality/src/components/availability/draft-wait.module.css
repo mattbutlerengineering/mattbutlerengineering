@@ -1,0 +1,5 @@
+/* Looks like a disabled button but stays focusable, so its reason can be reached and read. */
+.waiting {
+  filter: saturate(0.6) brightness(0.95);
+  cursor: not-allowed;
+}

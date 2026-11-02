@@ -200,7 +200,7 @@ Invariants stated with their owners: "Seated" is never stored and never true out
 
 - Input: anything thrown — `ApiClientError`, `TypeError` (fetch failed after retries), `DOMException` (`TimeoutError`/`AbortError`), `Error`, or a non-error.
 - Output: the ux.md table row for the category; `detail` = `problemDetails.detail` for 409/422/400 when non-empty; `raw` = `error.message` (or `String(error)`); `retryable` per the table; `recovery` names the offered control.
-- Failure modes: never throws; unknown category → the `unknown` row ("That didn't go through. Try again — if it keeps happening, tell your manager."); never returns `undefined` or a bare status code in `detail` (snapshot test of every row).
+- Failure modes: never throws; unknown category → the `unknown` row ("Something went wrong. Try again — if it keeps happening, tell your manager."); never returns `undefined` or a bare status code in `detail` (snapshot test of every row).
 
 ### `ErrorRetryBanner` props
 

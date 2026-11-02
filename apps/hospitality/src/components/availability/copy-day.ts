@@ -10,14 +10,21 @@ export interface CopyTarget {
   readonly from: string;
   /** `null`: until changed again. */
   readonly until: string | null;
+  /** Today on the venue clock: dates before it are history and are not copied to. */
+  readonly today?: string;
 }
 
-/** The dates a copy reaches; an open end is counted to the server's one-year horizon. */
+/**
+ * The dates a copy reaches, from the later of the start and today; an open end is counted to
+ * the server's one-year horizon from the start.
+ */
 export function copyDayDates(target: CopyTarget): string[] {
   const last = addDays(target.from, SCOPE_HORIZON_DAYS - 1);
   const end = target.until !== null && target.until < last ? target.until : last;
+  const first =
+    target.today !== undefined && target.today > target.from ? target.today : target.from;
   const dates: string[] = [];
-  for (let d = target.from; d <= end; d = addDays(d, 1)) {
+  for (let d = first; d <= end; d = addDays(d, 1)) {
     if (target.weekdays.includes(weekdayIndexOf(d))) dates.push(d);
   }
   return dates;
@@ -36,6 +43,7 @@ export function buildCopyDayChanges(
     scope: { kind: "weekday", from: input.from, until: input.until },
     services: input.services,
     makeId: input.makeId,
+    today: input.today,
   });
   const weekdays = [...input.weekdays].sort((a, b) => a - b);
   return {

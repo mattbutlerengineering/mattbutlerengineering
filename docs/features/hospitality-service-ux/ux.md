@@ -137,8 +137,8 @@ Dashboard › Timeline
 │ Guest name (optional)  [ e.g. Smith        ] │
 │                                              │
 │ ┌ ⚠ Walk-in not seated. ─────────────────┐   │  ← only after a failure
-│ │ The reservations service hit a snag —   │   │
-│ │ nothing was changed. Try again in a     │   │
+│ │ The reservations service hit a snag.    │   │
+│ │ Try again in a                          │   │
 │ │ moment.                 Show details ▸  │   │
 │ └─────────────────────────────────────────┘   │
 │                      [ Cancel ]  [ Seat now ] │
@@ -318,16 +318,16 @@ Dashboard › Reservations
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------ |
 | network (fetch threw, no response) | "Can't reach the reservations service. Check the venue's connection, then try again."                      | yes          |
 | timeout (aborted)                  | "That took too long. The service didn't answer in time — try again."                                       | yes          |
-| `serverError` (5xx)                | "The reservations service hit a snag — nothing was changed. Try again in a moment."                        | yes          |
+| `serverError` (5xx)                | "The reservations service hit a snag. Try again in a moment."                                              | yes          |
 | `rateLimited` (429)                | "Too many requests at once. Give it a few seconds, then try again."                                        | yes          |
 | `conflict` (409)                   | `problemDetails.detail`, else "Someone got there first — that table or time was just taken. Pick another." | no (edit)    |
 | `validationError` / `badRequest`   | `problemDetails.detail`, else "Something in the form didn't pass. Check party size, time and table."       | no (edit)    |
 | `unauthorized` (401)               | "Your session ended. Sign in again to keep working."                                                       | no (Sign in) |
 | `forbidden` (403)                  | "That's above your role. Ask a manager to make this change."                                               | no           |
 | `notFound` (404)                   | "That reservation's gone — it may have been cancelled or moved. Refreshing the grid."                      | no (refresh) |
-| `unknown` / non-`ApiClientError`   | "That didn't go through. Try again — if it keeps happening, tell your manager."                            | yes          |
+| `unknown` / non-`ApiClientError`   | "Something went wrong. Try again — if it keeps happening, tell your manager."                              | yes          |
 
-For load failures the same sentence follows the surface title with "try again in a moment" (no "nothing was changed", since nothing was attempted).
+For load failures the same sentence follows the surface title. Neither row says what happened to the attempt: a 5xx from a gateway, or a response lost on the way back, can follow a write that committed (#8032).
 
 ### Surface titles (what did not happen)
 

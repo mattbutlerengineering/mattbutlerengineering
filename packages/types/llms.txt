@@ -403,6 +403,12 @@
       export const ClosuresResultSchema: unknown;
     </item>
     <item priority="high">
+      export const ClosedByRuleSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureOverlapSchema: unknown;
+    </item>
+    <item priority="high">
       export const ReopenResultSchema: unknown;
     </item>
     <item priority="high">
@@ -455,6 +461,12 @@
     </item>
     <item priority="low">
       type ClosuresResult = z.infer<typeof ClosuresResultSchema>;
+    </item>
+    <item priority="low">
+      type ClosedByRule = z.infer<typeof ClosedByRuleSchema>;
+    </item>
+    <item priority="low">
+      type ClosureOverlap = z.infer<typeof ClosureOverlapSchema>;
     </item>
     <item priority="low">
       type ReopenResult = z.infer<typeof ReopenResultSchema>;

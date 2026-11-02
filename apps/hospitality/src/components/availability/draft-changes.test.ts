@@ -3,6 +3,7 @@ import { PutAvailabilityConfigBodySchema } from "@mbe/types";
 import type { DateRule } from "@mbe/types";
 import {
   buildDraftChanges,
+  overnightHintDate,
   seedServices,
   servicesEqual,
   type DraftService,
@@ -162,6 +163,21 @@ describe("buildDraftChanges", () => {
     expect(parses(open) && parses(bounded)).toBe(true);
   });
 
+  it("every Friday from a past date starts the rule today, so past Fridays keep their hours", () => {
+    const { config, services } = seeded();
+    const changes = buildDraftChanges({
+      config,
+      scope: { kind: "weekday", from: "2026-10-02", until: null },
+      services,
+      makeId: counter(),
+      today: "2026-10-21",
+    });
+    expect(changes.upsert.dateRules?.[0]).toMatchObject({
+      startsOn: "2026-10-21",
+      repeat: { version: 1, weekdays: [5] },
+    });
+  });
+
   it("everywhere a schedule is used: rewrites the schedule's services and drops removed ones", () => {
     const { config, services } = seeded({ kind: "schedule", scheduleId: "regular" });
     const edited = services
@@ -184,6 +200,39 @@ describe("buildDraftChanges", () => {
     ]);
     expect(changes.remove.scheduleServices).toEqual(["ss-lunch"]);
     expect(parses(changes)).toBe(true);
+  });
+
+  it("never removes a service the Manager did not remove: a colleague's new one survives a stale draft", () => {
+    const opened = fixtureConfig();
+    const stale = seedServices(
+      opened,
+      { services: [] },
+      { kind: "schedule", scheduleId: "regular" }
+    );
+    // While the drawer was open a colleague added Brunch to the same schedule.
+    const latest = {
+      ...opened,
+      venueServices: [...opened.venueServices, { id: "vs-brunch", name: "Brunch", position: 2 }],
+      scheduleServices: [
+        ...opened.scheduleServices,
+        { ...opened.scheduleServices[0]!, id: "ss-brunch", venueServiceId: "vs-brunch" },
+      ],
+    };
+    const withoutBaseline = buildDraftChanges({
+      config: latest,
+      scope: { kind: "schedule", scheduleId: "regular" },
+      services: stale,
+      makeId: counter(),
+    });
+    expect(withoutBaseline.remove.scheduleServices).toEqual(["ss-brunch"]);
+    const changes = buildDraftChanges({
+      config: latest,
+      baseline: opened,
+      scope: { kind: "schedule", scheduleId: "regular" },
+      services: stale,
+      makeId: counter(),
+    });
+    expect(changes.remove.scheduleServices).toBeUndefined();
   });
 
   it("picked dates: keep leaves out a date with its own rule, replace updates it in place", () => {
@@ -246,5 +295,31 @@ describe("servicesEqual", () => {
         services.map((s) => ({ ...s, opensAt: s.opensAt + 15 }))
       )
     ).toBe(false);
+  });
+});
+
+describe("overnightHintDate", () => {
+  const friday = "2026-10-30";
+  it("names a day only when the save governs exactly that one weekday on one date", () => {
+    expect(overnightHintDate({ kind: "date", date: friday }, friday, [friday])).toBe(friday);
+    expect(overnightHintDate({ kind: "weekday", from: friday, until: null }, friday, [])).toBe(
+      friday
+    );
+    const rule: EditScope = { kind: "rule", ruleId: "r", mode: "all", from: friday };
+    expect(overnightHintDate(rule, friday, [friday])).toBe(friday);
+  });
+
+  it("names none for a regular week, picked dates on different weekdays, or a multi-date rule", () => {
+    expect(overnightHintDate({ kind: "schedule", scheduleId: "regular" }, friday, [])).toBe(
+      undefined
+    );
+    expect(
+      overnightHintDate({ kind: "dates", dates: ["2026-10-27", friday] }, friday, [
+        "2026-10-27",
+        friday,
+      ])
+    ).toBe(undefined);
+    const rule: EditScope = { kind: "rule", ruleId: "r", mode: "all", from: friday };
+    expect(overnightHintDate(rule, friday, [friday, "2026-10-31"])).toBe(undefined);
   });
 });

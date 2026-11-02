@@ -21,11 +21,11 @@ import {
   type PreviewCompareWith,
   type PreviewResult,
   type ScopeConflictMode,
-  type StrandedReservation,
 } from "@mbe/types";
 import { useAvailabilityPreview } from "../../hooks/useAvailabilityPreview.js";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
 import { minuteText } from "./closure-band.js";
+import { StrandedBookings } from "./StrandedBookings.js";
 import styles from "./AvailabilityGuestPreview.module.css";
 
 /** How long the draft must sit still before it is previewed. */
@@ -78,34 +78,14 @@ function StrandedList(props: {
 }) {
   const { stranded, onOffset } = props;
   const { t } = useTranslation();
-  const format = useVenueFormat();
   if (stranded.total === 0) return null;
-  const line = (r: StrandedReservation) =>
-    t("availability.preview.strandedItem", {
-      date: format.formatInstant(r.startTime, {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-      }),
-      time: format.formatTime(r.startTime),
-      size: r.partySize,
-      reason: t(`availability.preview.reason.${r.reason}`),
-    });
   const more = stranded.total - stranded.offset - stranded.items.length;
   return (
     <Stack gap="xs">
       <Text variant="label" color="warning">
         {t("availability.preview.stranded", { count: stranded.total })}
       </Text>
-      <ul className={styles.list}>
-        {stranded.items.map((r) => (
-          <li key={r.id}>
-            <Text as="span" variant="body" color="primary">
-              {line(r)}
-            </Text>
-          </li>
-        ))}
-      </ul>
+      <StrandedBookings reservations={stranded.items} />
       {(more > 0 || stranded.offset > 0) && (
         <div className={styles.pager}>
           {more > 0 && (

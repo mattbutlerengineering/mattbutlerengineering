@@ -1,19 +1,19 @@
 {
   "schema": "acmm-report/v2",
-  "generatedAt": "2026-10-31T10:16:53.695Z",
+  "generatedAt": "2026-11-01T11:08:02.031Z",
   "repo": {
     "currentLevel": 5,
     "levelName": "Semi-Automated",
     "role": "Operator",
-    "lastRun": "2026-10-31T10:16:51.219Z",
+    "lastRun": "2026-11-01T11:07:57.888Z",
     "summary": {
-      "detected": 73,
+      "detected": 72,
       "total": 84,
-      "coverage": 0.8690476190476191
+      "coverage": 0.8571428571428571
     },
     "behavioral": {
-      "ciFlakeRate": 0.017364657814096015,
-      "agentPrAcceptanceRate": 0.9973544973544973,
+      "ciFlakeRate": 0.017034068136272545,
+      "agentPrAcceptanceRate": 0.9973045822102425,
       "agentPrRevertRate": 0,
       "evalPassRate": null,
       "evalsStale": true,
@@ -105,7 +105,7 @@
         "passed": true
       },
       "acmm:nightly-compliance": {
-        "passed": true
+        "passed": false
       },
       "acmm:copilot-review-apply": {
         "passed": false
@@ -278,7 +278,7 @@
         "level": 3,
         "name": "ci-flake-rate",
         "passed": true,
-        "value": 0.017364657814096015,
+        "value": 0.017034068136272545,
         "threshold": 0.2,
         "unverifiable": false
       },
@@ -286,7 +286,7 @@
         "level": 4,
         "name": "agent-pr-acceptance",
         "passed": true,
-        "value": 0.9973544973544973,
+        "value": 0.9973045822102425,
         "threshold": 0.5,
         "unverifiable": false
       },
@@ -310,7 +310,7 @@
         "level": 6,
         "name": "human-touch-ratio",
         "passed": true,
-        "value": 0.01856763925729443,
+        "value": 0.01891891891891892,
         "threshold": 0.5,
         "unverifiable": false
       }

@@ -175,7 +175,14 @@ describe("availability config routes", () => {
 
     it("answers a change that strands bookings with 409 stranded-bookings", async () => {
       const reservations = [
-        { id: "res-1", startTime: "2026-11-07T03:00:00.000Z", partySize: 4, reason: "closed" },
+        {
+          id: "res-1",
+          startTime: "2026-11-07T03:00:00.000Z",
+          partySize: 4,
+          reason: "closed",
+          guestName: "Okafor",
+          serviceDate: "2026-11-06",
+        },
       ];
       svc.save.mockResolvedValueOnce({ kind: "stranded", reservations });
 

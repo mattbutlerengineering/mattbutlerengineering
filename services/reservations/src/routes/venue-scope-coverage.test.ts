@@ -234,6 +234,7 @@ describe("venue-scope coverage (no database)", () => {
       "GET /public/v1/venues/:slug/availability": "slug/public",
       "POST /public/v1/venues/:slug/deposits/payment-intent": "slug/public",
       "POST /public/v1/venues/:slug/holds": "slug/public",
+      "DELETE /public/v1/venues/:slug/holds/:holdId": "slug/public",
       "GET /public/v1/venues/:slug/holds/:holdId": "slug/public",
       "POST /public/v1/venues/:slug/holds/:holdId/confirm": "slug/public",
       "POST /public/v1/venues/:slug/reservations": "slug/public",

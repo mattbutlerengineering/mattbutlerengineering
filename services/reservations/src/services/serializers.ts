@@ -53,6 +53,8 @@ export interface PrismaReservationRow {
   userId: string | null;
   /** Staff override reason; selected rows predating the column or partial selects omit it. */
   overrideReason?: string | null;
+  /** The host the guest booked on (#7892); selected rows predating the column omit it. */
+  originHost?: string | null;
   tableId: string;
   table?: PrismaTableRow | null;
   guest?: {
@@ -150,6 +152,7 @@ export function toReservation(row: PrismaReservationRow): Reservation {
     guestId: row.guestId,
     userId: row.userId,
     overrideReason: row.overrideReason ?? null,
+    originHost: row.originHost ?? null,
     tableId: row.tableId,
     table: row.table ? toTable(row.table) : undefined,
     guest: row.guest ?? null,

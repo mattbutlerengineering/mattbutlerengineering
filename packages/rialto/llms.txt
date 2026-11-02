@@ -306,6 +306,11 @@
       export const dialogCatalogMeta: unknown;
     </item>
   </file>
+  <file path="src/components/Dialog/DialogLayerContext.ts">
+    <item priority="high">
+      export const DialogLayerContext: unknown;
+    </item>
+  </file>
   </section>
   <section priority="medium" role="Divider">
   <file path="src/components/Divider/Divider.catalog.ts">

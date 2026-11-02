@@ -60,6 +60,36 @@ export function buildDeleteScheduleChanges(scheduleId: string): AvailabilityConf
   return { upsert: {}, remove: { schedules: [scheduleId] } };
 }
 
+/** What stops a schedule draft being saved; `availabilitySchedules.blocked.<code>` says it. */
+export type ScheduleSaveBlock =
+  | "conflict"
+  | "startRequired"
+  | "endBeforeStart"
+  | "nameRequired"
+  | "servicesRequired"
+  | "serviceNameRequired";
+
+/** The first problem, in form order, or `null` when the draft can be saved. */
+export function scheduleSaveBlock(draft: {
+  readonly conflicted: boolean;
+  readonly name: string;
+  readonly services: readonly DraftService[];
+  readonly startsOn: string | null;
+  readonly endsOn: string | null;
+  readonly startRequired?: boolean;
+}): ScheduleSaveBlock | null {
+  const { startsOn, endsOn, services } = draft;
+  if (draft.conflicted) return "conflict";
+  if (draft.startRequired && !startsOn) return "startRequired";
+  if (startsOn && endsOn && endsOn < startsOn) return "endBeforeStart";
+  if (draft.name.trim() === "") return "nameRequired";
+  if (services.length === 0) return "servicesRequired";
+  if (services.some((s) => s.venueServiceId === null && !s.name.trim())) {
+    return "serviceNameRequired";
+  }
+  return null;
+}
+
 /** Do the two uses cover at least one common date? */
 function meets(a: UseOn, b: UseOn): boolean {
   const shared = a.weekdays.filter((d) => b.weekdays.includes(d));
@@ -203,16 +233,34 @@ interface RegularWeekInput extends Omit<NewScheduleInput, "useOn"> {
 const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6];
 
 /**
+ * The weekdays (0 = Sunday) the regular week runs on from `from` on: what its assignments cover.
+ * A Tue–Sat venue gets Tue–Sat, so changing the week never opens its closed days; days that
+ * another schedule runs (a migrated "Thu–Fri hours") are not in it and keep their own hours. A
+ * regular week with no assignment left has no days of its own to keep, so it takes every day.
+ */
+export function regularWeekdays(config: AvailabilityConfig, from: string): number[] {
+  const regular = liveSchedules(config).find((s) => s.isRegular);
+  const days = new Set(
+    config.assignments
+      .filter((a) => a.scheduleId === regular?.id && (a.endsOn == null || a.endsOn >= from))
+      .flatMap((a) => a.weekdays)
+  );
+  return days.size > 0 ? [...days].sort((x, y) => x - y) : EVERY_DAY;
+}
+
+/**
  * F-UW. With an end date the period is a dated schedule and the regular week returns by itself
  * after it. With none the new week takes over as the regular week from the start date: the old
- * regular week's assignments end the day before.
+ * regular week's assignments end the day before. Either way it covers only the weekdays the
+ * regular week used.
  */
 export function buildRegularWeekChanges(input: RegularWeekInput): AvailabilityConfigChanges {
   const { config, startsOn, endsOn } = input;
+  const weekdays = regularWeekdays(config, startsOn);
   if (endsOn !== null) {
     return buildNewScheduleChanges({
       ...input,
-      useOn: { weekdays: EVERY_DAY, startsOn, endsOn },
+      useOn: { weekdays, startsOn, endsOn },
     });
   }
   const scheduleId = input.makeId();
@@ -244,7 +292,7 @@ export function buildRegularWeekChanges(input: RegularWeekInput): AvailabilityCo
         {
           id: input.makeId(),
           scheduleId,
-          weekdays: EVERY_DAY,
+          weekdays,
           startsOn,
           endsOn: null,
           precedence: 0,
@@ -264,6 +312,8 @@ export function buildEditScheduleChanges(input: {
   readonly name: string;
   readonly services: readonly DraftService[];
   readonly makeId: () => string;
+  /** The config the drawer was seeded from, so a save removes only rows the Manager saw. */
+  readonly baseline: AvailabilityConfig;
 }): AvailabilityConfigChanges {
   const { config, scheduleId, name, makeId } = input;
   const rows = buildDraftChanges({
@@ -271,6 +321,7 @@ export function buildEditScheduleChanges(input: {
     scope: { kind: "schedule", scheduleId },
     services: input.services,
     makeId,
+    baseline: input.baseline,
   });
   const stored = config.schedules.find((s) => s.id === scheduleId);
   const rename = stored && stored.name !== name ? { schedules: [{ ...stored, name }] } : {};

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, DatePicker, Dialog, Select, Stack } from "@mattbutlerengineering/rialto";
 import { resolveDay } from "@mbe/availability";
@@ -6,7 +6,7 @@ import type { AvailabilityConfigState } from "@mbe/types";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { seedServices } from "./draft-changes.js";
 import { buildUseDayHoursChanges, buildUseScheduleChanges } from "./selection-actions.js";
-import { SaveFailure } from "./ScheduleFormParts.js";
+import { BlockedReason, SaveFailure } from "./ScheduleFormParts.js";
 import { useScheduleSave } from "./use-schedule-save.js";
 import styles from "./ScheduleFormParts.module.css";
 
@@ -29,6 +29,7 @@ export interface UseScheduleDialogProps {
 export function UseScheduleDialog(props: UseScheduleDialogProps) {
   const { open, venueId, state, timezone, dates, onClose, onFinished, onStale } = props;
   const { t } = useTranslation();
+  const blockedId = useId();
   const offerUndo = useAvailabilityUndo();
   const saver = useScheduleSave(onStale);
   const schedules = useMemo(
@@ -81,12 +82,25 @@ export function UseScheduleDialog(props: UseScheduleDialogProps) {
       )}
       footer={
         <div className={styles.footer}>
+          <BlockedReason
+            id={blockedId}
+            reason={
+              ready
+                ? null
+                : t(
+                    sourceDate
+                      ? "availability.selection.use.blockedClosed"
+                      : "availability.selection.use.blockedDay"
+                  )
+            }
+          />
           <Button variant="secondary" onClick={close}>
             {t("availability.selection.use.cancel")}
           </Button>
           <Button
             variant="primary"
             disabled={!ready}
+            aria-describedby={ready ? undefined : blockedId}
             isLoading={saver.isPending}
             onClick={() => void submit()}
           >
@@ -96,7 +110,7 @@ export function UseScheduleDialog(props: UseScheduleDialogProps) {
       }
     >
       <Stack gap="md">
-        <SaveFailure messages={saver.failure} />
+        <SaveFailure messages={saver.failure} stranded={saver.stranded} />
         {byDay ? (
           <DatePicker
             label={t("availability.selection.use.from")}

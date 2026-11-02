@@ -6,12 +6,14 @@ import {
   DateRuleTargetKindSchema,
   GUEST_MESSAGE_MAX_LENGTH,
   MinuteSchema,
+  RepeatSchema,
   RULE_BOOKING_TYPES,
   ScheduleAssignmentSchema,
   ScheduleSchema,
   ScheduleServiceSchema,
   ServiceDateSchema,
   VenueServiceSchema,
+  WindowSchema,
 } from "./availability-config.js";
 
 /**
@@ -176,6 +178,10 @@ export const StrandedReservationSchema = z.object({
   startTime: z.string(),
   partySize: z.number().int(),
   reason: z.enum(["closed", "outside_service", "table_blocked"]),
+  /** Who it is for; absent when the booking has no name. */
+  guestName: z.string().optional(),
+  /** The service date it belongs to, where a past-midnight booking's start time would mislead. */
+  serviceDate: ServiceDateSchema.optional(),
 });
 
 export const AVAILABILITY_CONFIG_PROBLEM_CODES = [
@@ -506,7 +512,42 @@ export const ClosuresResultSchema = z.object({
   results: z.array(ClosureResultSchema),
 });
 
-export const ReopenResultSchema = z.object({ version: z.number().int(), changeId: z.string() });
+/** A closure that closes some of the dates in question: what names it, and which dates. */
+export const ClosedByRuleSchema = z.object({
+  ruleId: z.string(),
+  targetKind: DateRuleTargetKindSchema,
+  venueServiceId: z.string().nullish(),
+  bookingTypes: z.array(z.enum(RULE_BOOKING_TYPES)).nullish(),
+  startsOn: ServiceDateSchema,
+  endsOn: ServiceDateSchema.nullish(),
+  repeat: RepeatSchema.nullish(),
+  window: WindowSchema.nullish(),
+  /** The dates in question it closes, in order: not all of its own. */
+  dates: z.array(ServiceDateSchema),
+});
+
+/** Other closures over a set of dates (`@mbe/availability`'s `closure-overlap.ts`). */
+export const ClosureOverlapSchema = z.object({
+  /** Every date in question stays shut, so nothing the reopen names comes back to guests. */
+  everyDate: z.boolean(),
+  by: z.array(ClosedByRuleSchema),
+});
+
+export const ReopenResultSchema = z.object({
+  version: z.number().int(),
+  changeId: z.string(),
+  /**
+   * Guests a reopen notice was requested for: cancelled guests whose booking had not started,
+   * `0` when none were asked. Absent from an older API (and from ending Tonight); read it as
+   * `notified ?? null`.
+   */
+  notified: z.number().int().nonnegative().nullable().optional(),
+  /**
+   * Other closures that still close the reopened rule's dates, as stored when it committed. Absent
+   * from an older API and from ending Tonight.
+   */
+  stillClosed: ClosureOverlapSchema.optional(),
+});
 
 /**
  * What became of the reservations one closure (or Tonight close-early) touched,
@@ -528,6 +569,11 @@ export const ClosureSummarySchema = z.object({
   total: z.number().int(),
   /** Bookings the closure cancelled (the guests a reopen notice would go to). */
   cancelled: z.number().int(),
+  /**
+   * Of those, the guests a reopen notice can still reach: their booking has not started.
+   * Absent from an older API; read it as `upcomingCancelled ?? cancelled`.
+   */
+  upcomingCancelled: z.number().int().nonnegative().nullable().optional(),
   /** Guests with a confirmed email or SMS delivery. */
   sent: z.number().int(),
   /** Guests who rebooked after the cancel. */
@@ -615,6 +661,8 @@ export type ReopenClosureBody = z.infer<typeof ReopenClosureBodySchema>;
 export type ClosureResult = z.infer<typeof ClosureResultSchema>;
 export type CreateClosuresBody = z.infer<typeof CreateClosuresBodySchema>;
 export type ClosuresResult = z.infer<typeof ClosuresResultSchema>;
+export type ClosedByRule = z.infer<typeof ClosedByRuleSchema>;
+export type ClosureOverlap = z.infer<typeof ClosureOverlapSchema>;
 export type ReopenResult = z.infer<typeof ReopenResultSchema>;
 export type RefundFailure = z.infer<typeof RefundFailureSchema>;
 export type ClosureSummary = z.infer<typeof ClosureSummarySchema>;

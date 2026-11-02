@@ -121,6 +121,7 @@ export function createReservationJobHandlers(deps: ReservationJobHandlerDeps): J
         venueAddress: null,
         updatedAt: reservation.updatedAt,
         manageToken: deps.generateManageToken(reservation.id, reservation.guestEmail),
+        originHost: reservation.originHost ?? null,
       };
 
       // Dispatcher failures propagate so BullMQ retries per the queue policy.
