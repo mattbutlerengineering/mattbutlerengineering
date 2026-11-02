@@ -210,6 +210,16 @@ describe("useBlockAfterRestore", () => {
     expect(document.activeElement).toBe(control);
   });
 
+  it("leaves focus in a dialog opened over the closing surface", async () => {
+    block("walkin");
+    const dialog = append("div", { role: "dialog", "aria-modal": "true" });
+    const inside = document.createElement("button");
+    dialog.appendChild(inside);
+    inside.focus();
+    await request("walkin");
+    expect(document.activeElement).toBe(inside);
+  });
+
   it("leaves focus alone when the block is not on the page", async () => {
     const other = block("bob");
     other.focus();
