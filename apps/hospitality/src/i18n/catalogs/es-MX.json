@@ -2360,6 +2360,8 @@
       "affectedCount_many": "{{count}} reservaciones afectadas",
       "affectedCount_other": "{{count}} reservaciones afectadas",
       "unavailableHelp": "Aún puedes guardar; la revisión de reservaciones se vuelve a hacer al guardar.",
+      "empty": "Haz un cambio para ver lo que verán los clientes y qué reservaciones se afectan.",
+      "moved": "El horario cambió desde que empezaste. Esta vista previa usa el horario más reciente, y Guardar te pedirá revisarlo antes de reemplazar algo.",
       "retry": "Reintentar",
       "stranded_one": "{{count}} reservación quedaría fuera de este horario",
       "stranded_many": "{{count}} reservaciones quedarían fuera de este horario",

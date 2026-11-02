@@ -1,7 +1,8 @@
 import type { Page } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
 import { test, expect } from "./fixtures.js";
 import { loadFixture } from "./api-mocks.js";
-import { localDay } from "./local-day.js";
+import { atLocal, localDay } from "./local-day.js";
 
 /**
  * F-UW (docs/features/venue-availability/ux.md): Change regular week must not open days the
@@ -144,5 +145,114 @@ test.describe("Change regular week (F-UW)", () => {
     await ask.getByRole("button", { name: "Discard" }).click();
     await expect(drawer).toBeHidden();
     await expect(ask).toBeHidden();
+  });
+
+  // F-UW.2 (#7982): the guest preview and the bookings the change would strand, before Save.
+  test.describe("preview before saving", () => {
+    const previewResult = {
+      version: 7,
+      days: [{ serviceDate: localDay(), added: [], removed: [1350] }],
+      focusDay: {
+        serviceDate: localDay(),
+        label: "Special hours",
+        scheduleId: null,
+        closures: [],
+        bookingOpen: { online: true, phone: true, waitlist: false },
+        serviceCount: 1,
+        services: [
+          {
+            venueServiceId: "vs-dinner",
+            name: "Dinner",
+            opensAt: 1020,
+            lastSeatingAt: 1260,
+            closesAt: 1380,
+          },
+        ],
+      },
+      stranded: {
+        total: 1,
+        offset: 0,
+        items: [
+          {
+            id: "res-1",
+            startTime: atLocal("22:30", localDay(1)),
+            partySize: 4,
+            reason: "outside_service",
+          },
+        ],
+      },
+    };
+
+    const viewports = [
+      { name: "desktop", size: { width: 1280, height: 720 } },
+      { name: "phone", size: { width: 375, height: 812 } },
+    ];
+    for (const { name, size } of viewports) {
+      test(`shows what guests will see and the stranded bookings, and fits (${name})`, async ({
+        mockedPage,
+      }) => {
+        await mockedPage.setViewportSize(size);
+        await mockTueSatVenue(mockedPage);
+        await mockedPage.route("**/availability/preview*", (route) =>
+          route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({ data: previewResult }),
+          })
+        );
+        await mockedPage.goto("availability");
+        // On a phone the toolbar keeps this action in its More menu.
+        if (size.width < 500) {
+          await mockedPage.getByRole("button", { name: "More actions" }).click();
+          await mockedPage.getByRole("menuitem", { name: "Change regular week…" }).click();
+        } else {
+          await mockedPage.getByRole("button", { name: "Change regular week…" }).click();
+        }
+        const drawer = mockedPage.getByRole("dialog", { name: "Change regular week" });
+        await expect(drawer.getByText(/Make a change to see what guests will see/)).toBeVisible();
+
+        await mockedPage.getByLabel("Starting").click();
+        await mockedPage.locator(`[role="gridcell"][data-date="${localDay()}"]`).click();
+        await mockedPage.getByLabel(/Schedule name/).fill("Summer hours");
+
+        await expect(drawer.getByText("Guest preview")).toBeVisible();
+        const stranded = drawer.getByText("1 booking would fall outside these hours");
+        await stranded.scrollIntoViewIfNeeded();
+        await expect(stranded).toBeVisible();
+        await expect(drawer.getByText(/party of 4/)).toBeVisible();
+
+        // Fits: nothing in the drawer scrolls sideways, and Save is still on screen.
+        const overflow = await drawer.evaluate((el) => {
+          const scrollers = [el, ...Array.from(el.querySelectorAll<HTMLElement>("*"))];
+          return scrollers
+            .filter((n) => n.scrollWidth > n.clientWidth + 1 && n.clientWidth > 0)
+            .map((n) => `${n.tagName}.${n.className} ${n.scrollWidth}>${n.clientWidth}`);
+        });
+        expect(overflow).toEqual([]);
+        await expect(mockedPage.getByRole("button", { name: /^Save hours from/ })).toBeInViewport();
+
+        const results = await new AxeBuilder({ page: mockedPage })
+          .include('[role="dialog"]')
+          .analyze();
+        expect(results.violations).toEqual([]);
+      });
+    }
+
+    test("a failed preview says so and Save still works", async ({ mockedPage }) => {
+      const state = await mockTueSatVenue(mockedPage);
+      await mockedPage.route("**/availability/preview*", (route) =>
+        route.fulfill({ status: 500, contentType: "application/problem+json", body: "{}" })
+      );
+      await mockedPage.goto("availability");
+      await mockedPage.getByRole("button", { name: "Change regular week…" }).click();
+      await mockedPage.getByLabel("Starting").click();
+      await mockedPage.locator(`[role="gridcell"][data-date="${localDay()}"]`).click();
+      await mockedPage.getByLabel(/Schedule name/).fill("Summer hours");
+
+      await expect(mockedPage.getByText("Preview unavailable")).toBeVisible();
+      await expect(mockedPage.getByText(/You can still save/)).toBeVisible();
+      await mockedPage.getByRole("button", { name: /^Save hours from/ }).click();
+      await expect.poll(() => state.savedBody()).not.toBeNull();
+    });
   });
 });

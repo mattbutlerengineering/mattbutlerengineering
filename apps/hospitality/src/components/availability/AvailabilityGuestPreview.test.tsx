@@ -137,6 +137,24 @@ describe("AvailabilityGuestPreview", () => {
     expect(screen.queryByText("7:45 PM added")).not.toBeInTheDocument();
   });
 
+  it("never lets a slow answer for an older draft overwrite the newer draft's result", async () => {
+    let answerOlder: (value: PreviewResult) => void = () => {};
+    previewConfig.mockImplementationOnce(
+      () => new Promise<PreviewResult>((resolve) => (answerOlder = resolve))
+    );
+    const { rerender } = render(tree(CHANGES_A));
+    await settle();
+    previewConfig.mockResolvedValue(
+      result({ days: [{ serviceDate: FOCUS, added: [], removed: [1350] }] })
+    );
+    rerender(tree(CHANGES_B));
+    await settle();
+    expect(await screen.findByText("0 times added · 1 removed")).toBeInTheDocument();
+    await act(async () => answerOlder(result()));
+    expect(screen.getByText("0 times added · 1 removed")).toBeInTheDocument();
+    expect(screen.queryByText("3 times added · 2 removed")).not.toBeInTheDocument();
+  });
+
   it("keeps the last good result on a 503 and says the preview is slow, with a retry", async () => {
     const { rerender } = render(tree(CHANGES_A));
     await settle();

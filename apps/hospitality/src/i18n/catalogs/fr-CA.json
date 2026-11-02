@@ -2360,6 +2360,8 @@
       "affectedCount_many": "{{count}} réservations touchées",
       "affectedCount_other": "{{count}} réservations touchées",
       "unavailableHelp": "Vous pouvez quand même enregistrer; la vérification des réservations est refaite à ce moment.",
+      "empty": "Faites un changement pour voir ce que verront les clients et quelles réservations sont touchées.",
+      "moved": "Les heures ont changé depuis que vous avez commencé. Cet aperçu utilise les heures les plus récentes, et Enregistrer vous demandera de les revoir avant de remplacer quoi que ce soit.",
       "retry": "Réessayer",
       "stranded_one": "{{count}} réservation serait hors de ces heures",
       "stranded_many": "{{count}} réservations seraient hors de ces heures",

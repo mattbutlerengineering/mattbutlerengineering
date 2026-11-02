@@ -20,6 +20,7 @@ import {
   type CompareRow,
 } from "./compare-changes.js";
 import { DiscardChangesDialog } from "./DiscardChangesDialog.js";
+import { DraftPreview } from "./DraftPreview.js";
 import { ownChangeDates, scopeDates } from "./scope-dates.js";
 import {
   BlockedReason,
@@ -174,6 +175,18 @@ export function CompareServices(props: CompareServicesProps) {
   }, [changed, config, timezone, today]);
   const own = useMemo(() => ownChangeDates(config, dates, null), [config, dates]);
   const scheduleCount = new Set(changed.map((r) => r.scheduleId)).size;
+  // Built the way the save builds it, from the rows the edits were made against, so the preview
+  // shows what Save would send. A lost race has its own review panel, and nothing to preview.
+  const previewChanges = useMemo(
+    () =>
+      base && changed.length > 0 && !saver.conflicted
+        ? buildCompareChanges(
+            { ...config, scheduleServices: Object.values(base.rows) },
+            Object.values(edits)
+          )
+        : null,
+    [base, changed.length, saver.conflicted, config, edits]
+  );
 
   const commitEdits = (next: Readonly<Record<string, CompareRow>>) => {
     setEdits(next);
@@ -376,6 +389,14 @@ export function CompareServices(props: CompareServicesProps) {
         </div>
       )}
       <OwnChangesChoice count={dates.length > 1 ? own.length : 0} value={mode} onChange={setMode} />
+      <DraftPreview
+        venueId={venueId}
+        changes={previewChanges}
+        scopeConflicts={dates.length > 1 ? mode : "replace"}
+        dates={dates}
+        baseVersion={base?.version ?? state.version}
+        held={held}
+      />
       <BlockedReason
         id={blockedId}
         reason={changed.length === 0 ? t("availabilitySchedules.compare.blocked") : null}

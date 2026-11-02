@@ -24,6 +24,7 @@ import {
   ScheduleDraftGuard,
   useWeekdaySummary,
 } from "./ScheduleFormParts.js";
+import { DraftPreview, previewIds } from "./DraftPreview.js";
 import { ServicesEditor } from "./ServicesEditor.js";
 import { useConflictReview } from "./use-conflict-review.js";
 import { useDiscardGuard } from "./use-discard-guard.js";
@@ -124,6 +125,21 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
     startRequired: true,
   });
   const blockedId = useId();
+  const previewChanges = useMemo(
+    () =>
+      block !== null || !startsOn
+        ? null
+        : buildRegularWeekChanges({
+            config,
+            name: trimmed,
+            services,
+            startsOn,
+            endsOn,
+            winner,
+            makeId: previewIds(),
+          }),
+    [block, config, trimmed, services, startsOn, endsOn, winner]
+  );
   const startText = startsOn
     ? format.formatCalendarDate(startsOn, { month: "short", day: "numeric" })
     : "";
@@ -252,6 +268,13 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
             count={dates.length > 1 ? own.length : 0}
             value={conflictMode}
             onChange={setConflictMode}
+          />
+          <DraftPreview
+            venueId={venueId}
+            changes={previewChanges}
+            scopeConflicts={dates.length > 1 ? conflictMode : "replace"}
+            dates={dates}
+            baseVersion={review.baselineVersion}
           />
         </Stack>
       </Drawer>

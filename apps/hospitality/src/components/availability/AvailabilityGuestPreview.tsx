@@ -24,6 +24,7 @@ import {
 } from "@mbe/types";
 import { useAvailabilityPreview } from "../../hooks/useAvailabilityPreview.js";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
+import { useViewport } from "../../hooks/useViewport.js";
 import { minuteText } from "./closure-band.js";
 import { StrandedBookings } from "./StrandedBookings.js";
 import { dayLabelText } from "./day-summary.js";
@@ -34,6 +35,8 @@ const PREVIEW_DEBOUNCE_MS = 400;
 
 /** Most dates the date strip shows at once. */
 const STRIP_SIZE = 5;
+/** Five dates are wider than a phone's drawer; the arrows reach the rest. */
+const PHONE_STRIP_SIZE = 3;
 
 export interface AvailabilityGuestPreviewProps {
   readonly venueId: string;
@@ -44,6 +47,11 @@ export interface AvailabilityGuestPreviewProps {
   readonly dates: readonly string[];
   /** The date shown in full. */
   readonly focusDate: string;
+  /**
+   * The config version the draft was started on. The server previews the draft over the newest
+   * config, so a result for a later version is flagged: the save is still checked against this one.
+   */
+  readonly baseVersion?: number;
 }
 
 interface Settled {
@@ -148,10 +156,11 @@ function DateStrip(props: {
   const { dates, value, onChange } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
+  const size = useViewport() === "phone" ? PHONE_STRIP_SIZE : STRIP_SIZE;
   if (dates.length < 2) return null;
   const at = Math.max(0, dates.indexOf(value));
-  const start = Math.max(0, Math.min(at - Math.floor(STRIP_SIZE / 2), dates.length - STRIP_SIZE));
-  const segments = dates.slice(start, start + STRIP_SIZE).map((d) => ({
+  const start = Math.max(0, Math.min(at - Math.floor(size / 2), dates.length - size));
+  const segments = dates.slice(start, start + size).map((d) => ({
     id: d,
     label: format.formatCalendarDate(d, { weekday: "short", day: "numeric" }),
   }));
@@ -369,6 +378,11 @@ export function AvailabilityGuestPreview(props: AvailabilityGuestPreviewProps) {
               </Button>
             </div>
           </Stack>
+        )}
+        {result && props.baseVersion !== undefined && result.version !== props.baseVersion && (
+          <Text variant="caption" color="warning" role="status">
+            {t("availability.preview.moved")}
+          </Text>
         )}
         {result ? (
           <div className={stale ? styles.stale : undefined} aria-busy={stale}>

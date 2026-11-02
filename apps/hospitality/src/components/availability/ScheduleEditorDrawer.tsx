@@ -23,6 +23,7 @@ import {
   ScheduleDraftGuard,
   WeekdayToggles,
 } from "./ScheduleFormParts.js";
+import { DraftPreview, previewIds } from "./DraftPreview.js";
 import { ServicesEditor } from "./ServicesEditor.js";
 import { useConflictReview } from "./use-conflict-review.js";
 import { useDiscardGuard } from "./use-discard-guard.js";
@@ -135,6 +136,31 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
     endsOn,
   });
   const blockedId = useId();
+  const previewChanges = useMemo(() => {
+    if (block !== null || !dirty) return null;
+    const makeId = previewIds();
+    return editing && sourceScheduleId
+      ? buildEditScheduleChanges({
+          config,
+          scheduleId: sourceScheduleId,
+          name: trimmed,
+          services,
+          makeId,
+          baseline: review.baseline,
+        })
+      : buildNewScheduleChanges({ config, name: trimmed, services, useOn, winner, makeId });
+  }, [
+    block,
+    dirty,
+    editing,
+    sourceScheduleId,
+    config,
+    trimmed,
+    services,
+    review.baseline,
+    useOn,
+    winner,
+  ]);
 
   const submit = async () => {
     const makeId = () => crypto.randomUUID();
@@ -264,6 +290,13 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
             count={dates.length > 1 ? own.length : 0}
             value={conflictMode}
             onChange={setConflictMode}
+          />
+          <DraftPreview
+            venueId={venueId}
+            changes={previewChanges}
+            scopeConflicts={dates.length > 1 ? conflictMode : "replace"}
+            dates={dates}
+            baseVersion={review.baselineVersion}
           />
         </Stack>
       </Drawer>
