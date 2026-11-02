@@ -7,11 +7,15 @@ import { COORDINATION_LABELS } from "@mbe/gh-client";
 import {
   DEFAULT_THRESHOLD,
   DEFAULT_OVERDUE_TOLERANCE_HOURS,
+  DEFAULT_FLAPPING_MIN_SAMPLE,
+  DEFAULT_FLAPPING_RATE_PCT,
   DEPLOY_WORKFLOW_FILES,
   MAIN_PUSH_WORKFLOW_FILES,
   findMainPushWorkflows,
   mainPushRunArgs,
+  mainPushRateRunArgs,
   classifyScheduledWorkflowHealth,
+  classifyFailureRate,
   hasScheduleTrigger,
   findScheduledWorkflows,
   findDeployWorkflows,
@@ -30,6 +34,10 @@ import {
   extractWorkflowNameFromMissedRunTitle,
   buildMissedRunBody,
   runScheduledWorkflowRecencyCheck,
+  buildFlappingFailureTitle,
+  extractWorkflowNameFromFlappingTitle,
+  buildFlappingFailureBody,
+  runWorkflowFailureRateCheck,
 } from "../scheduled-workflow-health.mjs";
 
 describe("classifyScheduledWorkflowHealth", () => {
@@ -1359,5 +1367,292 @@ describe("main-push workflow arm (#6955)", () => {
       },
     });
     expect(results[0].status).not.toBe("failing-streak");
+  });
+});
+
+// #8066: classifyScheduledWorkflowHealth only ever looks at the `threshold`
+// most recent runs, so a workflow that flaps (red, red, green, red, red,
+// red, green, ...) almost never presents a uniform window at the exact
+// moment the daily detector samples, and reads as "healthy" no matter how
+// red it actually is. apps-visual.yml sat 56% red on `main` for a week with
+// zero issues filed because of exactly this blind spot. This axis asks a
+// structurally different question — "what fraction of a wide sample
+// failed?" — independent of whether the most recent runs form a streak.
+describe("classifyFailureRate", () => {
+  it("flags a flapping workflow that never streaks 3-in-a-row at the head but fails most of the time", () => {
+    // red, red, green, red, red, red, green — the exact flap pattern quoted
+    // in #8066. classifyScheduledWorkflowHealth's 3-run head window
+    // ([failure, failure, success]) is never uniform, so it reports
+    // healthy no matter how red the workflow actually is.
+    const runs = [
+      { conclusion: "failure", url: "u1" },
+      { conclusion: "failure", url: "u2" },
+      { conclusion: "success", url: "u3" },
+      { conclusion: "failure", url: "u4" },
+      { conclusion: "failure", url: "u5" },
+      { conclusion: "failure", url: "u6" },
+      { conclusion: "success", url: "u7" },
+    ];
+
+    expect(classifyScheduledWorkflowHealth({ runs, threshold: 3 }).status).toBe("healthy");
+
+    const rate = classifyFailureRate({ runs, minSample: 7, ratePct: 40 });
+    expect(rate.status).toBe("flapping");
+    expect(rate.sample).toBe(7);
+    expect(rate.failureCount).toBe(5);
+  });
+
+  it("reports healthy when the failure rate is below the threshold", () => {
+    const runs = Array.from({ length: 10 }, (_, i) => ({
+      conclusion: i < 2 ? "failure" : "success",
+    }));
+    const rate = classifyFailureRate({ runs, minSample: 10, ratePct: 40 });
+    expect(rate.status).toBe("healthy");
+    expect(rate.failureRatePct).toBe(20);
+  });
+
+  it("excludes skipped and cancelled runs from the rate denominator (#4538/#4685)", () => {
+    const runs = [
+      { conclusion: "failure" },
+      { conclusion: "failure" },
+      { conclusion: "skipped" },
+      { conclusion: "cancelled" },
+      { conclusion: "success" },
+      { conclusion: "failure" },
+    ];
+    // Usable: failure, failure, success, failure -> 3/4 = 75%.
+    const rate = classifyFailureRate({ runs, minSample: 4, ratePct: 50 });
+    expect(rate.sample).toBe(4);
+    expect(rate.failureCount).toBe(3);
+    expect(rate.status).toBe("flapping");
+  });
+
+  it("returns insufficient-sample, never healthy, when usable runs are below the minimum", () => {
+    const runs = [{ conclusion: "failure" }, { conclusion: "success" }];
+    const rate = classifyFailureRate({ runs, minSample: 10, ratePct: 40 });
+    expect(rate.status).toBe("insufficient-sample");
+    expect(rate.status).not.toBe("healthy");
+  });
+
+  it("fails closed to insufficient-sample on an empty run list", () => {
+    expect(classifyFailureRate({ runs: [], minSample: 5, ratePct: 40 }).status).toBe(
+      "insufficient-sample"
+    );
+  });
+
+  it("fails closed to insufficient-sample on an undefined runs argument", () => {
+    expect(classifyFailureRate({ runs: undefined, minSample: 5, ratePct: 40 }).status).toBe(
+      "insufficient-sample"
+    );
+  });
+
+  it("excludes runs with a missing conclusion from the usable sample rather than guessing", () => {
+    const runs = [
+      { conclusion: "failure" },
+      { conclusion: "failure" },
+      { conclusion: undefined },
+      {},
+    ];
+    // Only 2 usable runs once the missing-conclusion ones are excluded —
+    // below the minSample of 3, so this must not guess a rate from them.
+    const rate = classifyFailureRate({ runs, minSample: 3, ratePct: 40 });
+    expect(rate.status).toBe("insufficient-sample");
+    expect(rate.sample).toBe(2);
+  });
+
+  it("falls back to the default minSample/ratePct when given invalid values", () => {
+    expect(DEFAULT_FLAPPING_MIN_SAMPLE).toBeGreaterThan(0);
+    expect(DEFAULT_FLAPPING_RATE_PCT).toBeGreaterThan(0);
+    const runs = Array.from({ length: DEFAULT_FLAPPING_MIN_SAMPLE }, () => ({
+      conclusion: "failure",
+    }));
+    const rate = classifyFailureRate({ runs, minSample: Number.NaN, ratePct: -1 });
+    expect(rate.status).toBe("flapping");
+  });
+});
+
+// Real measured history (#8066): apps-visual.yml on `main`, 2026-10-25 ->
+// 2026-11-01 — 87 of 156 runs red (56%), evenly interleaved via a
+// Bresenham-style distribution so no 3-run streak ever sits at the head
+// (the first entry here is a success), the exact shape that let this
+// workflow survive a week of red with zero issues filed.
+describe("classifyFailureRate — apps-visual.yml real history (#8066)", () => {
+  const TOTAL = 156;
+  const FAILURES = 87;
+  let acc = 0;
+  const APPS_VISUAL_REAL_HISTORY = Array.from({ length: TOTAL }, () => {
+    acc += FAILURES;
+    const isFailure = acc >= TOTAL;
+    if (isFailure) acc -= TOTAL;
+    return { conclusion: isFailure ? "failure" : "success" };
+  });
+
+  it("is built from the measured 87/156 ratio and never streaks 3 failures at the head", () => {
+    expect(APPS_VISUAL_REAL_HISTORY.filter((r) => r.conclusion === "failure")).toHaveLength(
+      FAILURES
+    );
+    expect(
+      classifyScheduledWorkflowHealth({ runs: APPS_VISUAL_REAL_HISTORY, threshold: 3 }).status
+    ).toBe("healthy");
+  });
+
+  it("is flagged flapping by classifyFailureRate even though the streak detector calls it healthy", () => {
+    const rate = classifyFailureRate({
+      runs: APPS_VISUAL_REAL_HISTORY,
+      minSample: 20,
+      ratePct: 40,
+    });
+    expect(rate.status).toBe("flapping");
+    expect(rate.failureRatePct).toBeCloseTo((FAILURES / TOTAL) * 100, 1);
+  });
+});
+
+describe("buildFlappingFailureTitle / extractWorkflowNameFromFlappingTitle", () => {
+  it("round-trips the workflow name through the deterministic title", () => {
+    const title = buildFlappingFailureTitle("apps-visual.yml", 55.8);
+    expect(title).toBe("ci-fix: apps-visual.yml is flapping at 55.8% failures");
+    expect(extractWorkflowNameFromFlappingTitle({ title })).toBe("apps-visual.yml");
+  });
+
+  it("returns null for a title that doesn't match the pattern", () => {
+    expect(extractWorkflowNameFromFlappingTitle({ title: "unrelated issue" })).toBeNull();
+  });
+
+  // The finding title must be honest — a flapping workflow has not "failed N
+  // consecutive runs" — and a streak-filed issue must never be confused with
+  // a rate-filed one, in either direction.
+  it("is never matched by the streak or missed-run title extractors, and vice versa", () => {
+    const flappingTitle = buildFlappingFailureTitle("apps-visual.yml", 55.8);
+    const streakTitle = buildScheduledFailureTitle("apps-visual.yml", 3);
+    const missedRunTitle = buildMissedRunTitle("apps-visual.yml");
+
+    expect(extractWorkflowNameFromIssueTitle({ title: flappingTitle })).toBeNull();
+    expect(extractWorkflowNameFromMissedRunTitle({ title: flappingTitle })).toBeNull();
+    expect(extractWorkflowNameFromFlappingTitle({ title: streakTitle })).toBeNull();
+    expect(extractWorkflowNameFromFlappingTitle({ title: missedRunTitle })).toBeNull();
+  });
+});
+
+describe("buildFlappingFailureBody", () => {
+  it("includes the workflow path, failure rate, and sample size", () => {
+    const body = buildFlappingFailureBody({
+      workflowPath: ".github/workflows/apps-visual.yml",
+      failureRatePct: 55.8,
+      sample: 156,
+      failureCount: 87,
+    });
+    expect(body).toContain(".github/workflows/apps-visual.yml");
+    expect(body).toContain("55.8%");
+    expect(body).toContain("87");
+    expect(body).toContain("156");
+  });
+});
+
+describe("mainPushRateRunArgs", () => {
+  it("queries a wider window than the streak arm for the same workflow", () => {
+    const streakArgs = mainPushRunArgs("apps-visual.yml", 3);
+    const rateArgs = mainPushRateRunArgs("apps-visual.yml", DEFAULT_FLAPPING_MIN_SAMPLE);
+    const streakLimit = Number(streakArgs[streakArgs.indexOf("--limit") + 1]);
+    const rateLimit = Number(rateArgs[rateArgs.indexOf("--limit") + 1]);
+    expect(rateLimit).toBeGreaterThan(streakLimit);
+    expect(rateArgs).toEqual(
+      expect.arrayContaining([
+        "--branch",
+        "main",
+        "--event",
+        "push",
+        "--workflow",
+        "apps-visual.yml",
+      ])
+    );
+  });
+});
+
+describe("runWorkflowFailureRateCheck", () => {
+  const FLAPPING_RUNS = [
+    { conclusion: "failure" },
+    { conclusion: "failure" },
+    { conclusion: "success" },
+    { conclusion: "failure" },
+    { conclusion: "failure" },
+    { conclusion: "failure" },
+    { conclusion: "success" },
+  ];
+
+  it("files one ci-fix issue for a flapping workflow and skips a healthy one", () => {
+    const workflows = [
+      { name: "apps-visual.yml", path: ".github/workflows/apps-visual.yml" },
+      { name: "healthy.yml", path: ".github/workflows/healthy.yml" },
+    ];
+    const runsByWorkflow = {
+      "apps-visual.yml": FLAPPING_RUNS,
+      "healthy.yml": Array.from({ length: 7 }, () => ({ conclusion: "success" })),
+    };
+    const created = [];
+
+    const results = runWorkflowFailureRateCheck({
+      workflows,
+      minSample: 7,
+      ratePct: 40,
+      getRuns: (name) => runsByWorkflow[name],
+      searchCiFixIssues: () => [],
+      getIssueState: () => "missing",
+      createIssue: (title, body, labels) => {
+        created.push({ title, body, labels });
+        return 321;
+      },
+    });
+
+    expect(created).toHaveLength(1);
+    expect(created[0].title).toBe("ci-fix: apps-visual.yml is flapping at 71.4% failures");
+    expect(created[0].labels).toEqual(["ci-fix", COORDINATION_LABELS.READY]);
+    expect(results).toEqual([
+      { workflow: "apps-visual.yml", status: "flapping", action: "create", issueNumber: 321 },
+      { workflow: "healthy.yml", status: "healthy" },
+    ]);
+  });
+
+  it("skips filing a duplicate when an open issue already tracks the flapping rate", () => {
+    const workflows = [{ name: "apps-visual.yml", path: ".github/workflows/apps-visual.yml" }];
+    let createCalled = false;
+
+    const results = runWorkflowFailureRateCheck({
+      workflows,
+      minSample: 7,
+      ratePct: 40,
+      getRuns: () => FLAPPING_RUNS,
+      searchCiFixIssues: () => [
+        { number: 11, title: "ci-fix: apps-visual.yml is flapping at 71.4% failures" },
+      ],
+      getIssueState: () => "open",
+      createIssue: () => {
+        createCalled = true;
+        return 999;
+      },
+    });
+
+    expect(createCalled).toBe(false);
+    expect(results).toEqual([
+      { workflow: "apps-visual.yml", status: "flapping", action: "skip", issueNumber: 11 },
+    ]);
+  });
+
+  it("does not report insufficient-sample as flapping and never creates an issue for it", () => {
+    const workflows = [{ name: "new.yml", path: ".github/workflows/new.yml" }];
+    let createCalled = false;
+
+    const results = runWorkflowFailureRateCheck({
+      workflows,
+      minSample: 20,
+      ratePct: 40,
+      getRuns: () => [{ conclusion: "failure" }],
+      createIssue: () => {
+        createCalled = true;
+        return 1;
+      },
+    });
+
+    expect(createCalled).toBe(false);
+    expect(results).toEqual([{ workflow: "new.yml", status: "insufficient-sample" }]);
   });
 });

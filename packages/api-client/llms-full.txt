@@ -305,12 +305,17 @@
       async reopenClosure(
         venueId: string,
         ruleId: string,
-        tellCancelledGuests: boolean
+        tellCancelledGuests: boolean,
+        override?: PerRequestOptions
       ): Promise<ReopenResult> {
-        const response = await this.client.call(availabilityConfigEndpoints.reopenClosure, {
-          params: { id: venueId, ruleId },
-          body: { tellCancelledGuests },
-        });
+        const response = await this.client.call(
+          availabilityConfigEndpoints.reopenClosure,
+          {
+            params: { id: venueId, ruleId },
+            body: { tellCancelledGuests },
+          },
+          override
+        );
         return response.data;
       }
     
@@ -331,10 +336,16 @@
       }
     
       /** Ends a Tonight change early; bookings a close-early cancelled stay cancelled. */
-      async endTonight(venueId: string, ruleId: string): Promise<ReopenResult> {
-        const response = await this.client.call(availabilityConfigEndpoints.endTonight, {
-          params: { id: venueId, ruleId },
-        });
+      async endTonight(
+        venueId: string,
+        ruleId: string,
+        override?: PerRequestOptions
+      ): Promise<ReopenResult> {
+        const response = await this.client.call(
+          availabilityConfigEndpoints.endTonight,
+          { params: { id: venueId, ruleId } },
+          override
+        );
         return response.data;
       }
     
@@ -1796,8 +1807,12 @@
       /**
        * Cancel a reservation
        */
-      async cancel(id: string): Promise<Reservation> {
-        return this.client.deleteOne<Reservation>(`${RESERVATION_BASE_PATH}/${id}`, ReservationSchema);
+      async cancel(id: string, override?: PerRequestOptions): Promise<Reservation> {
+        return this.client.deleteOne<Reservation>(
+          `${RESERVATION_BASE_PATH}/${id}`,
+          ReservationSchema,
+          override
+        );
       }
     
       /**

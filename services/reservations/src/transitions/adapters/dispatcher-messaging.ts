@@ -51,6 +51,7 @@ export function createDispatcherMessaging(deps: DispatcherMessagingDeps): Messag
       venueAddress: null,
       manageToken,
       updatedAt: reservation.updatedAt,
+      originHost: reservation.originHost ?? null,
     });
   }
 
@@ -82,6 +83,7 @@ export function createDispatcherMessaging(deps: DispatcherMessagingDeps): Messag
           venueAddress: null,
           manageToken,
           updatedAt: reservation.updatedAt,
+          originHost: reservation.originHost ?? null,
         },
         preference
       );
@@ -117,6 +119,7 @@ export function createDispatcherMessaging(deps: DispatcherMessagingDeps): Messag
           venueAddress: null,
           manageToken,
           updatedAt: updated.updatedAt,
+          originHost: updated.originHost ?? null,
         },
         preference
       );

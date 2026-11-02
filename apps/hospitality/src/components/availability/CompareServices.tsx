@@ -1,7 +1,12 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, Checkbox, Select, Stack, Text, TimePicker } from "@mattbutlerengineering/rialto";
-import type { AvailabilityConfigState, ScopeConflictMode } from "@mbe/types";
+import type {
+  AvailabilityConfig,
+  AvailabilityConfigState,
+  ScheduleService,
+  ScopeConflictMode,
+} from "@mbe/types";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { closeFromClock, lastSeatingFromClock, openFromClock, toClock } from "./clock-minutes.js";
 import {
@@ -9,12 +14,22 @@ import {
   changedRows,
   compareRows,
   compareServiceOptions,
+  reapplyEdits,
+  rowsChangedSince,
+  rowsRemovedSince,
   type CompareRow,
 } from "./compare-changes.js";
 import { DiscardChangesDialog } from "./DiscardChangesDialog.js";
 import { ownChangeDates, scopeDates } from "./scope-dates.js";
-import { OwnChangesChoice, SaveFailure } from "./ScheduleFormParts.js";
+import {
+  BlockedReason,
+  ConflictReviewPanel,
+  OwnChangesChoice,
+  SaveFailure,
+} from "./ScheduleFormParts.js";
 import { useDiscardGuard } from "./use-discard-guard.js";
+import { useHeldFor } from "./use-held-for.js";
+import { useReloadHold } from "./use-reload-hold.js";
 import { useScheduleSave } from "./use-schedule-save.js";
 import styles from "./CompareServices.module.css";
 
@@ -28,6 +43,9 @@ const BOOKING_OPTIONS: readonly { id: BookingId; types: BookingTypes }[] = [
 ];
 const bookingId = (types: BookingTypes): BookingId =>
   BOOKING_OPTIONS.find((o) => o.types.join() === types.join())?.id ?? "walkIn";
+
+/** A normal reload ends within this; only one that has not is worth a button of its own. */
+const RELOAD_OFFER_AFTER_MS = 2000;
 
 export interface CompareServicesProps {
   readonly venueId: string;
@@ -66,8 +84,9 @@ function applyBulk(row: CompareRow, bulk: BulkFields): CompareRow {
 function RowFields(props: {
   readonly row: CompareRow;
   readonly onChange: (row: CompareRow) => void;
+  readonly disabled: boolean;
 }) {
-  const { row, onChange } = props;
+  const { row, onChange, disabled } = props;
   const { t } = useTranslation();
   const label = (field: string) => `${row.scheduleName} · ${field}`;
   return (
@@ -89,6 +108,7 @@ function RowFields(props: {
       />
       <Select
         label={label(t("availabilitySchedules.compare.booking"))}
+        disabled={disabled}
         value={bookingId(row.bookingTypes)}
         options={BOOKING_OPTIONS.map((o) => ({
           value: o.id,
@@ -111,6 +131,7 @@ export function CompareServices(props: CompareServicesProps) {
   const { t } = useTranslation();
   const offerUndo = useAvailabilityUndo();
   const saver = useScheduleSave(onStale);
+  const blockedId = useId();
 
   const options = useMemo(() => compareServiceOptions(config), [config]);
   const [chosen, setChosen] = useState<string | null>(null);
@@ -120,6 +141,23 @@ export function CompareServices(props: CompareServicesProps) {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulk, setBulk] = useState<BulkFields>(NO_BULK);
   const [mode, setMode] = useState<ScopeConflictMode>("keep");
+  // What the edits were made against. A save is checked against `version` (the first edit's), so a
+  // colleague's change to any field of an edited row is a conflict the Manager reviews, never
+  // silently overwritten by the whole-row save. `rows` holds each edited row as it was when that
+  // row was first edited, because that, not the session's first version, is what its edit means.
+  const [base, setBase] = useState<{
+    version: number;
+    rows: Readonly<Record<string, ScheduleService>>;
+  } | null>(null);
+  // Past the Manager's own save, the config on hand is behind it: rows edited on it would be pinned
+  // to the old version and could write the save back. A draft already begun keeps its own pin.
+  const { behind, reloadDue } = useReloadHold(venueId, state.version);
+  const held = behind && base === null;
+  const offerReload = useHeldFor(held && reloadDue, RELOAD_OFFER_AFTER_MS);
+  const baselineOf = (b: NonNullable<typeof base>): AvailabilityConfig => ({
+    ...config,
+    scheduleServices: Object.values(b.rows),
+  });
 
   const rows = useMemo(
     () =>
@@ -139,6 +177,17 @@ export function CompareServices(props: CompareServicesProps) {
 
   const commitEdits = (next: Readonly<Record<string, CompareRow>>) => {
     setEdits(next);
+    // The view stays on the service being edited even if a refetch reorders the services.
+    if (Object.keys(next).length > 0) setChosen(serviceId);
+    setBase((prev) => {
+      if (Object.keys(next).length === 0) return null;
+      const stored = new Map(config.scheduleServices.map((s) => [s.id, s]));
+      const rows = Object.keys(next).reduce<Record<string, ScheduleService>>((acc, id) => {
+        const row = prev?.rows[id] ?? stored.get(id);
+        return row ? { ...acc, [id]: row } : acc;
+      }, {});
+      return { version: prev?.version ?? state.version, rows };
+    });
     onDirtyChange?.(changedRows(config, Object.values(next)).length > 0);
   };
   // Choosing another service drops the rows edited for this one, so it asks first.
@@ -146,6 +195,7 @@ export function CompareServices(props: CompareServicesProps) {
     setChosen(id);
     commitEdits({});
     setSelected([]);
+    saver.clearConflict();
   }, changed.length > 0);
 
   if (options.length === 0 || serviceId === null) {
@@ -156,7 +206,10 @@ export function CompareServices(props: CompareServicesProps) {
     );
   }
 
-  const setRow = (row: CompareRow) => commitEdits({ ...edits, [row.scheduleServiceId]: row });
+  const setRow = (row: CompareRow) => {
+    if (held) return; // an edit now would pin the version the held rows are behind
+    commitEdits({ ...edits, [row.scheduleServiceId]: row });
+  };
   const toggle = (id: string, on: boolean) =>
     setSelected((prev) => (on ? [...prev, id] : prev.filter((x) => x !== id)));
 
@@ -171,11 +224,13 @@ export function CompareServices(props: CompareServicesProps) {
   };
 
   const submit = async () => {
+    if (!base) return; // nothing is edited, so there is nothing to save
     const saved = await saver.save(
       venueId,
       state,
-      buildCompareChanges(config, rows),
-      dates.length > 1 ? mode : "replace"
+      buildCompareChanges(baselineOf(base), Object.values(edits)),
+      dates.length > 1 ? mode : "replace",
+      base.version
     );
     if (!saved) return;
     offerUndo({
@@ -187,9 +242,49 @@ export function CompareServices(props: CompareServicesProps) {
     setSelected([]);
   };
 
+  const reapply = () => {
+    const next = base ? reapplyEdits(baselineOf(base), config, Object.values(edits)) : edits;
+    commitEdits(next);
+    // The rows are now built on the winning version, so the next save is checked against it.
+    const stored = new Map(config.scheduleServices.map((s) => [s.id, s]));
+    const rows = Object.keys(next).flatMap((id) => {
+      const row = stored.get(id);
+      return row ? [[id, row] as const] : [];
+    });
+    setBase(rows.length > 0 ? { version: state.version, rows: Object.fromEntries(rows) } : null);
+    saver.clearConflict();
+  };
+  const discard = () => {
+    commitEdits({});
+    setSelected([]);
+    saver.clearConflict();
+  };
+  const review = saver.conflicted
+    ? {
+        kind: "edit" as const,
+        loaded: base !== null && state.version !== base.version,
+        changes: {
+          gone: false,
+          replacedBy: null,
+          renamedTo: null,
+          added: [],
+          removed: rowsRemovedSince(config, Object.values(edits)),
+          changed: base ? rowsChangedSince(baselineOf(base), config, Object.values(edits)) : [],
+        },
+      }
+    : null;
+
   return (
     <Stack gap="md">
-      <SaveFailure messages={saver.failure} />
+      <SaveFailure messages={saver.failure} stranded={saver.stranded} />
+      {review && (
+        <ConflictReviewPanel
+          review={review}
+          title={t("availabilitySchedules.compare.conflictTitle")}
+          onReapply={reapply}
+          onDiscard={discard}
+        />
+      )}
       <Select
         label={t("availabilitySchedules.compare.service")}
         value={serviceId}
@@ -203,18 +298,40 @@ export function CompareServices(props: CompareServicesProps) {
         onDiscard={serviceGuard.confirmDiscard}
         onKeepEditing={serviceGuard.keepEditing}
       />
-      <ul className={styles.rows}>
-        {rows.map((row) => (
-          <li key={row.scheduleServiceId} className={styles.row}>
-            <Checkbox
-              label={t("availabilitySchedules.compare.select", { name: row.scheduleName })}
-              checked={selected.includes(row.scheduleServiceId)}
-              onCheckedChange={(on) => toggle(row.scheduleServiceId, on)}
-            />
-            <RowFields row={row} onChange={setRow} />
-          </li>
-        ))}
-      </ul>
+      {held && (
+        <Text variant="caption" color="secondary" role="status">
+          {t("availability.drawer.waitForReload")}
+        </Text>
+      )}
+      {offerReload && (
+        <div>
+          <Button variant="ghost" size="sm" onClick={onStale}>
+            {t("availability.drawer.reloadHours")}
+          </Button>
+        </div>
+      )}
+      {/* The time pickers have no disabled prop and their popover opens from a click on a wrapper,
+          which a disabled fieldset does not stop. So a held fieldset also swallows clicks (capture,
+          before the popover sees them) and takes no pointer events. */}
+      <fieldset
+        className={styles.held}
+        disabled={held}
+        onClickCapture={held ? (event) => event.stopPropagation() : undefined}
+      >
+        <ul className={styles.rows}>
+          {rows.map((row) => (
+            <li key={row.scheduleServiceId} className={styles.row}>
+              <Checkbox
+                label={t("availabilitySchedules.compare.select", { name: row.scheduleName })}
+                checked={selected.includes(row.scheduleServiceId)}
+                disabled={held}
+                onCheckedChange={(on) => toggle(row.scheduleServiceId, on)}
+              />
+              <RowFields row={row} onChange={setRow} disabled={held} />
+            </li>
+          ))}
+        </ul>
+      </fieldset>
       {bulkOpen ? (
         <div className={styles.fields}>
           <TimePicker
@@ -251,7 +368,7 @@ export function CompareServices(props: CompareServicesProps) {
           <Button
             variant="secondary"
             size="sm"
-            disabled={selected.length === 0}
+            disabled={held || selected.length === 0}
             onClick={() => setBulkOpen(true)}
           >
             {t("availabilitySchedules.compare.setSelected")}
@@ -259,6 +376,10 @@ export function CompareServices(props: CompareServicesProps) {
         </div>
       )}
       <OwnChangesChoice count={dates.length > 1 ? own.length : 0} value={mode} onChange={setMode} />
+      <BlockedReason
+        id={blockedId}
+        reason={changed.length === 0 ? t("availabilitySchedules.compare.blocked") : null}
+      />
       <div className={styles.footer}>
         <Text variant="body" color="primary" role="status">
           {t("availabilitySchedules.compare.impact", {
@@ -268,7 +389,8 @@ export function CompareServices(props: CompareServicesProps) {
         </Text>
         <Button
           variant="primary"
-          disabled={changed.length === 0}
+          disabled={changed.length === 0 || saver.conflicted}
+          aria-describedby={changed.length === 0 ? blockedId : undefined}
           isLoading={saver.isPending}
           onClick={() => void submit()}
         >

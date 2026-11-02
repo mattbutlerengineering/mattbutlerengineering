@@ -167,6 +167,9 @@ for (const { width, height } of sizes) {
     await expect(dialog.getByText(/bookings changed while you were deciding/i)).toBeVisible();
     await expect(dialog.getByText(/Guest 4/)).toBeVisible();
     await expect(dialog.getByRole("button", { name: "Choose for each group" })).toBeDisabled();
+    await expect(
+      dialog.getByRole("button", { name: "Choose for each group" })
+    ).toHaveAccessibleDescription(/each group/i);
 
     await cancel.click();
     await dialog.getByRole("button", { name: "Close and cancel 4" }).click();
@@ -184,7 +187,10 @@ for (const { width, height } of sizes) {
     // A real click on the toast's action: Playwright fails if anything covers it.
     await notifications.getByRole("button", { name: "Call list" }).click();
     const callList = mockedPage.getByRole("dialog", { name: "Call list" });
-    await expect(callList.getByRole("columnheader", { name: "Date" })).toBeVisible();
+    // Five columns cannot fit a phone: there the headers go and each guest stacks (#7980).
+    if (width >= 768) {
+      await expect(callList.getByRole("columnheader", { name: "Date" })).toBeVisible();
+    }
     await expect(callList.getByText("Rivera")).toBeVisible();
   });
 }
@@ -288,7 +294,7 @@ test("Tonight decisions: a changed choice after a lost response shows what reall
     .filter({ has: mockedPage.getByRole("radio", { name: /Cancel, notify & refund/ }) })
     .click();
   await dialog.getByRole("button", { name: "Close and cancel 3" }).click();
-  await expect(dialog.getByText(/Can't reach/)).toBeVisible({ timeout: 40_000 });
+  await expect(dialog.getByText(/may have gone through/)).toBeVisible({ timeout: 40_000 });
 
   await dialog
     .locator("label")

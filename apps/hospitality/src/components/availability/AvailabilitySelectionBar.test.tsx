@@ -30,6 +30,13 @@ describe("AvailabilitySelectionBar", () => {
     expect(status).toHaveAttribute("aria-live", "polite");
   });
 
+  it("while selecting with nothing picked, says what to do and offers a way out (#7980)", () => {
+    const { onClear } = renderBar({ selection: [], selecting: true });
+    expect(screen.getByRole("status")).toHaveTextContent("Tap the days you want");
+    fireEvent.click(screen.getByRole("button", { name: "Clear selection" }));
+    expect(onClear).toHaveBeenCalled();
+  });
+
   it("uses the singular for one date", () => {
     renderBar({ selection: ["2026-10-30"] });
     expect(screen.getByRole("status")).toHaveTextContent("1 date selected");

@@ -87,14 +87,15 @@ vi.mock("./PreviewPane.module.css", () => ({
     viewportBar: "viewportBar",
     errorState: "errorState",
     loadingState: "loadingState",
+    loadingLabel: "loadingLabel",
     pulse: "pulse",
     welcomeState: "welcomeState",
     welcomeContent: "welcomeContent",
     welcomeHeading: "welcomeHeading",
     welcomeSubtitle: "welcomeSubtitle",
-    suggestionsGrid: "suggestionsGrid",
-    suggestionCard: "suggestionCard",
-    suggestionIcon: "suggestionIcon",
+    suggestionsList: "suggestionsList",
+    suggestionListItem: "suggestionListItem",
+    suggestionRow: "suggestionRow",
     suggestionTitle: "suggestionTitle",
     suggestionDescription: "suggestionDescription",
     rendererWrapper: "rendererWrapper",
@@ -187,6 +188,14 @@ describe("PreviewPane", () => {
     expect(screen.getByText("E-commerce")).toBeDefined();
   });
 
+  it("renders prompt suggestions as a plain list, with no emoji or icon-card chrome", () => {
+    const { container } = render(<PreviewPane {...defaultProps} />);
+    const list = screen.getByRole("list", { name: /prompt suggestions/i });
+    expect(list.textContent).not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u);
+    expect(screen.getAllByRole("listitem")).toHaveLength(6);
+    expect(container.querySelector("svg")).toBeNull();
+  });
+
   it("calls onSuggestionClick when a suggestion card is clicked", () => {
     const onSuggestionClick = vi.fn();
     render(<PreviewPane {...defaultProps} onSuggestionClick={onSuggestionClick} />);
@@ -201,6 +210,11 @@ describe("PreviewPane", () => {
     const pulse = screen.getByRole("status");
     expect(pulse).toBeDefined();
     expect(pulse.getAttribute("aria-label")).toBe("Generating…");
+  });
+
+  it("shows a visible Generating label alongside the pulse bar while streaming", () => {
+    render(<PreviewPane {...defaultProps} isStreaming={true} spec={null} />);
+    expect(screen.getAllByText("Generating…").length).toBeGreaterThan(0);
   });
 
   it("shows error alert when error is provided", () => {

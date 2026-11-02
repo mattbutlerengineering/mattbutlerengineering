@@ -629,6 +629,9 @@
     "welcomeNamed": "Bienvenido de nuevo, {{name}}",
     "loadFailed": "No se pudo cargar el panel.",
     "lapsingLoadFailed": "No se pudieron cargar los huéspedes inactivos.",
+    "winBackFailed": "No se pudo enviar la invitación para volver.",
+    "winBackUnconfirmed": "No se pudo confirmar la invitación para volver.",
+    "winBackUnconfirmedDetail": "Puede que haya llegado al huésped, o no. Si llegó, volver a enviarla queda bloqueado por una semana.",
     "actions": {
       "walkIn": "Sin reservación",
       "floorPlan": "Ver plano de sala",
@@ -711,6 +714,10 @@
       "tableStatusBanner": "No se cambió el estado de la mesa."
     },
     "announce": {
+      "seatNotFinishedNamed": "No se terminó de sentar a {{name}}. Revisa la reservación y la mesa.",
+      "seatNotFinished": "No se terminó de sentar al huésped. Revisa la reservación y la mesa.",
+      "changeFailedNamed": "El cambio para {{name}} no se aplicó.",
+      "changeFailed": "Un cambio de reservación no se aplicó.",
       "loadedTonight": "Se cargó la cuadrícula de esta noche.",
       "loadedDate": "Se cargaron las reservaciones del {{date}}.",
       "seated": "Se sentó a {{guest}}.",
@@ -891,6 +898,19 @@
   "errorBanner": {
     "retry": "Reintentar",
     "showDetails": "Mostrar detalles"
+  },
+  "apiError": {
+    "network": "No se puede conectar con el servicio de reservaciones. Revisa la conexión del local e inténtalo de nuevo.",
+    "timeout": "Tardó demasiado. El servicio no respondió a tiempo; inténtalo de nuevo.",
+    "serverError": "El servicio de reservaciones tuvo un problema. Inténtalo de nuevo en un momento.",
+    "rateLimited": "Demasiadas solicitudes a la vez. Espera unos segundos e inténtalo de nuevo.",
+    "conflict": "Alguien se adelantó: esa mesa u hora acaba de ocuparse. Elige otra.",
+    "validationError": "Algo del formulario no pasó. Revisa el tamaño del grupo, la hora y la mesa.",
+    "badRequest": "Algo del formulario no pasó. Revisa el tamaño del grupo, la hora y la mesa.",
+    "unauthorized": "Tu sesión terminó. Inicia sesión de nuevo para seguir trabajando.",
+    "forbidden": "Eso requiere un rol superior. Pide a un gerente que haga este cambio.",
+    "notFound": "Esa reservación ya no está; puede que se haya cancelado o movido. Actualizando la cuadrícula.",
+    "unknown": "Algo salió mal. Inténtalo de nuevo; si sigue pasando, avisa a tu gerente."
   },
   "kpi": {
     "unavailable": "{{label}}, no disponible"
@@ -1655,6 +1675,7 @@
     },
     "kind": {
       "closure": "Cerrado",
+      "bookingPaused": "Reservas en pausa: {{channels}}",
       "specialHours": "Horario especial"
     },
     "repeating": "Recurrente",
@@ -1703,7 +1724,9 @@
       "stranded_other": "{{count}} reservaciones se quedarían sin servicio si esta fecha volviera a la serie. No se cambió nada.",
       "stranded_many": "{{count}} de reservaciones se quedarían sin servicio si esta fecha volviera a la serie. No se cambió nada.",
       "countUnknown": "No se pudo comprobar a cuántos clientes canceló este cierre. Reabrir espera a que cargue el conteo.",
-      "retryCount": "Reintentar"
+      "retryCount": "Reintentar",
+      "descriptionStillClosed": "Esto quita un cierre, pero otro sigue cerrando estas fechas, así que los clientes aún no pueden reservarlas.",
+      "doneStillClosed": "Cierre eliminado: {{date}}. No se reabrió"
     },
     "series": {
       "editDates": "Editar fechas…",
@@ -1720,7 +1743,7 @@
       "weekdays": "Se repite el",
       "endsLabel": "Termina el",
       "invalidDate": "Elige una fecha que cubra la serie.",
-      "invalid": "Elige al menos un día de la semana y una fecha final igual o posterior al inicio.",
+      "invalid": "Elige al menos un día de la semana que caiga entre el inicio y la fecha final.",
       "skippedToast": "{{date}} omitido. El resto de la serie no cambia.",
       "savedToast": "Serie actualizada",
       "skipped": "Omitido: {{dates}}",
@@ -1901,6 +1924,7 @@
     },
     "compare": {
       "open": "Comparar servicios",
+      "conflictTitle": "Alguien cambió estos horarios primero",
       "title": "Comparar servicios",
       "service": "Servicio",
       "opens": "Abre",
@@ -1926,7 +1950,8 @@
       "save_many": "Guardar {{count}} de horarios",
       "saved_one": "{{count}} horario actualizado",
       "saved_other": "{{count}} horarios actualizados",
-      "saved_many": "{{count}} de horarios actualizados"
+      "saved_many": "{{count}} de horarios actualizados",
+      "blocked": "Cambia una fila para guardar."
     },
     "copy": {
       "action": "Copiar a otros días…",
@@ -1939,14 +1964,30 @@
       "save_many": "Copiar a {{count}} de fechas",
       "saved_one": "Copiado a {{count}} fecha",
       "saved_other": "Copiado a {{count}} fechas",
-      "saved_many": "Copiado a {{count}} de fechas"
+      "saved_many": "Copiado a {{count}} de fechas",
+      "blocked": {
+        "fromRequired": "Elige una fecha de inicio para copiar.",
+        "endBeforeStart": "La fecha de fin es anterior a la de inicio.",
+        "daysRequired": "Elige al menos un día al que copiar.",
+        "noDates": "Esos días no caen entre estas fechas."
+      }
     },
     "nudge": {
       "label": "Sugerencia",
       "text": "{{weekday}} ha tenido {{count}} cambios aislados.",
       "make": "Crear un horario de {{weekday}}",
       "created": "Horario de {{weekday}} creado"
-    }
+    },
+    "blocked": {
+      "conflict": "Responde el mensaje de arriba para guardar.",
+      "startRequired": "Elige una fecha de inicio para guardar.",
+      "endBeforeStart": "La fecha de fin es anterior a la de inicio.",
+      "nameRequired": "Ponle nombre a este horario para guardar.",
+      "servicesRequired": "Agrega un servicio para guardar.",
+      "serviceNameRequired": "Ponle nombre al nuevo servicio para guardar."
+    },
+    "edit": "Editar",
+    "duplicate": "Duplicar"
   },
   "availability": {
     "title": "Disponibilidad",
@@ -1961,7 +2002,8 @@
       "previous": "Anterior",
       "next": "Siguiente",
       "today": "Hoy",
-      "range": "{{from}} – {{to}}"
+      "range": "{{from}} – {{to}}",
+      "more": "Más acciones"
     },
     "calendar": {
       "label": "Calendario de disponibilidad",
@@ -2004,7 +2046,12 @@
       "nextDay": "{{time}} (día siguiente)",
       "draftName": "cambios sin guardar",
       "labelWithPeriod": "{{label}}, {{period}}",
-      "untilClose": "cierre"
+      "untilClose": "cierre",
+      "dayLabel": {
+        "closed": "Cerrado",
+        "specialHours": "Horario especial",
+        "open": "Abierto"
+      }
     },
     "drawer": {
       "summaryOpen": "Abierto para {{services}}.",
@@ -2014,6 +2061,11 @@
       "changes_other": "{{count}} cambios respecto a tu {{weekday}} habitual.",
       "changes_many": "{{count}} cambios respecto a tu {{weekday}} habitual.",
       "whyTitle": "Por qué este día",
+      "refreshError": "No se pudo comprobar si hay horarios más recientes",
+      "finishDraftFirst": "Guarda o descarta primero tus cambios de este día.",
+      "hoursDiffer": "Estas fechas tienen horarios distintos. Las filas de abajo son del {{date}}.",
+      "waitForReload": "Podrás editar cuando se carguen los horarios más recientes.",
+      "reloadHours": "Recargar horarios",
       "ifRemoved": "Si se quita: {{result}}",
       "removalNone": "sin cambios en este día",
       "removal": {
@@ -2101,12 +2153,15 @@
     "undo": {
       "action": "Deshacer",
       "done": "Cambio deshecho",
+      "finishFirst": "Primero descarta tus cambios y luego deshaz.",
+      "strandedTitle": "Estas reservaciones se quedarían sin servicio",
+      "strandedClose": "Cerrar",
       "errors": {
         "guests-notified": "Este cambio avisó a los comensales, así que no se puede deshacer.",
         "already-reverted": "Este cambio ya se deshizo.",
         "superseded": "Hay un cambio más reciente. Solo se puede deshacer el último cambio.",
         "not-revertable": "Este cambio no se puede deshacer.",
-        "version-conflict": "Alguien acaba de cambiar la disponibilidad. Recarga e inténtalo de nuevo.",
+        "version-conflict": "La disponibilidad cambió desde entonces. Solo se puede deshacer el último cambio.",
         "stranded-bookings": "Al deshacerlo, quedarían reservaciones existentes sin servicio.",
         "invalid-config": "Este cambio ya no se puede deshacer con tus horarios actuales."
       }
@@ -2235,7 +2290,16 @@
         "discard": "Descartar el mío",
         "theirsHeading": "Su cambio",
         "yoursHeading": "Tu borrador",
-        "yourService": "{{name}} {{from}} – {{to}}"
+        "yourService": "{{name}} {{from}} – {{to}}",
+        "back": "Volver a mi borrador",
+        "again": "Alguien guardó otra vez mientras decidías. Revisa su último cambio y luego sobrescribe o vuelve a tu borrador.",
+        "unavailable": "Sobrescribir no está disponible ahora. Vuelve a tu borrador, o descártalo y empieza de nuevo."
+      },
+      "blocked": {
+        "serviceName": "Ponle nombre al nuevo servicio para guardar.",
+        "noChange": "Cambia el horario para guardar.",
+        "noDates": "Lo que estás cambiando no incluye ninguna fecha, así que no hay nada que guardar.",
+        "keptOwn": "Cada fecha conserva sus propios cambios. Elige Reemplazarlos para guardar."
       }
     },
     "preview": {
@@ -2263,7 +2327,7 @@
       "stranded_one": "{{count}} reservación quedaría fuera de este horario",
       "stranded_many": "{{count}} reservaciones quedarían fuera de este horario",
       "stranded_other": "{{count}} reservaciones quedarían fuera de este horario",
-      "strandedItem": "{{date}} · {{time}} · {{size}} personas · {{reason}}",
+      "strandedItem": "{{name}} · {{date}} · {{time}} · {{size}} personas · {{reason}}",
       "strandedMore": "y {{count}} más en fechas posteriores del alcance",
       "compare": "Comparar con",
       "compareSaved": "Último guardado",
@@ -2277,12 +2341,14 @@
         "closed": "cerrado",
         "outside_service": "fuera de servicio",
         "table_blocked": "mesa bloqueada"
-      }
+      },
+      "strandedOpens": "{{line}} (se abre en otra pestaña)"
     },
     "discard": {
       "title": "¿Descartar los cambios del {{date}}?",
       "description": "Se perderán tus cambios sin guardar en estos horarios.",
       "leavePage": "Se perderán todos los cambios sin guardar en esta página.",
+      "titleSelection": "¿Descartar los cambios de las {{total}} fechas seleccionadas?",
       "confirm": "Descartar",
       "keep": "Seguir editando"
     },
@@ -2294,10 +2360,10 @@
       "back": "Atrás",
       "cancel": "Cancelar",
       "saveError": "No se pudo cerrar",
-      "versionConflict": "La disponibilidad cambió desde que abriste esto. Cierra este diálogo e inténtalo de nuevo.",
+      "versionConflict": "La disponibilidad cambió desde que abriste esto. Estamos cargando lo más reciente: revisa tus opciones y guarda de nuevo.",
       "groupsChanged": "Las reservaciones cambiaron mientras decidías. Revisa la lista actualizada y elige de nuevo.",
       "alreadySaved": "Este cierre ya se guardó y sus reservaciones se atendieron. Revisa las fechas especiales antes de cerrar de nuevo.",
-      "maybeSaved": "El servicio de reservaciones tuvo un problema y no pudimos confirmar este guardado. Pudo haberse aplicado. Intenta de nuevo sin cambios para ver qué pasó.",
+      "maybeSaved": "No pudimos confirmar este guardado. Pudo haberse aplicado. Intenta de nuevo sin cambios para ver qué pasó.",
       "savedEarlier": {
         "title": "Ya está cerrado",
         "body": "Un intento anterior de este cierre se guardó: {{summary}}. Los comensales se atendieron como eligió ese intento; los cambios posteriores no se aplicaron. Abre las fechas especiales para ver el resultado.",
@@ -2344,12 +2410,13 @@
         "fromLabel": "Desde",
         "toLabel": "Hasta",
         "weekdays": "Se repite los",
-        "invalid": "Revisa las fechas: el final no puede ser antes del inicio."
+        "invalid": "Revisa las fechas: el final no puede ser antes del inicio, y una repetición necesita un día elegido entre ambas."
       },
       "window": {
         "label": "Desde las",
         "allDay": "Todo el día",
         "from": "Desde {{time}}",
+        "reset": "Esa hora es anterior a la apertura en un día que pasa de la medianoche, así que esto cierra todo el día.",
         "hostNote": "Un cierre de emergencia abarca todo el día. Solo un gerente puede cerrar desde una hora determinada."
       },
       "replaces": "El {{date}} tiene horario especial; el cierre lo reemplaza.",
@@ -2443,7 +2510,8 @@
         },
         "loading": "Cargando las reservaciones…",
         "loadFailed": "No se pudieron cargar las reservaciones. Regresa e inténtalo de nuevo.",
-        "irreversible": "Se avisa a los comensales de inmediato. No se puede deshacer."
+        "irreversible": "Se avisa a los comensales de inmediato. No se puede deshacer.",
+        "blocked": "Elige qué pasa con cada grupo de reservaciones para continuar."
       },
       "status": {
         "closed": "Cerrado",
@@ -2458,7 +2526,12 @@
       "resume": "Reanudar",
       "resumed": "Reservas en línea reanudadas",
       "resumeError": "No se pudieron reanudar las reservas en línea",
-      "pill": "Reservas en línea en pausa"
+      "pill": "Reservas en línea en pausa",
+      "waiting": "Las reservas en línea desde las {{time}} están en pausa todos los días. Los horarios anteriores siguen abiertos.",
+      "waitingNoneToday": "Las reservas en línea desde las {{time}} están en pausa todos los días.",
+      "remove": "Quitar pausa",
+      "removed": "Pausa de reservas en línea quitada",
+      "removeError": "No se pudo quitar la pausa"
     },
     "selection": {
       "selectColumn": "Seleccionar cada {{weekday}}",
@@ -2472,6 +2545,7 @@
       "selectMenu": "Seleccionar…",
       "weekdayInMonth": "Cada {{weekday}} de {{month}}",
       "usingSchedule": "Todas las fechas con {{schedule}}",
+      "pastDates": "No se pueden seleccionar fechas pasadas.",
       "useSchedule": "Usar horario",
       "useOtherDay": "Usar el horario de otro día",
       "clearChanges": "Borrar cambios",
@@ -2486,7 +2560,9 @@
         "save_many": "Aplicar a {{count}} fechas",
         "saved_one": "{{count}} fecha actualizada",
         "saved_other": "{{count}} fechas actualizadas",
-        "saved_many": "{{count}} fechas actualizadas"
+        "saved_many": "{{count}} fechas actualizadas",
+        "blockedDay": "Elige un día del que copiar el horario.",
+        "blockedClosed": "Ese día no tiene horario. Elige un día abierto."
       },
       "clearDialog": {
         "title_one": "¿Borrar los cambios de {{count}} fecha?",
@@ -2498,7 +2574,9 @@
         "saved_one": "Se borraron los cambios de {{count}} fecha",
         "saved_other": "Se borraron los cambios de {{count}} fechas",
         "saved_many": "Se borraron los cambios de {{count}} fechas"
-      }
+      },
+      "selectDays": "Seleccionar días",
+      "selectingHint": "Toca los días que quieras"
     },
     "tonight": {
       "title": "Esta noche",
@@ -2563,7 +2641,8 @@
         "closedNotified_other": "Cierre anticipado a las {{time}} · {{count}} reservas notificadas",
         "closedNotified_many": "Cierre anticipado a las {{time}} · {{count}} reservas notificadas",
         "callList": "Lista de llamadas"
-      }
+      },
+      "loadError": "No se pudo cargar Esta noche, incluido el cierre de emergencia."
     },
     "venueTime": "Hora del local ({{zone}})",
     "weekSummary": {
@@ -2577,6 +2656,20 @@
       "onlineOn": "reservas en línea activas",
       "onlineOff": "reservas en línea desactivadas",
       "onlinePartial": "reservas en línea desactivadas algunos días"
+    },
+    "closureOverlap": {
+      "alreadyTitle": "Ya está cerrado",
+      "alreadySomeTitle": "Algunas fechas ya están cerradas",
+      "already": "Ya está cerrado el {{dates}}: {{closure}}.",
+      "alreadyHint": "Aun así puedes guardarlo. Si reabres un cierre, la fecha sigue cerrada hasta que reabras también el otro.",
+      "stays": "Sigue cerrado el {{dates}}: {{closure}}.",
+      "moreDates_one": "{{dates}} y {{count}} fecha más",
+      "moreDates_many": "{{dates}} y {{count}} de fechas más",
+      "moreDates_other": "{{dates}} y {{count}} fechas más",
+      "service": "Un servicio",
+      "booking": "Reservas: {{channels}}",
+      "tables": "Algunas mesas",
+      "doneAndStays": "{{done}}. {{stays}}"
     }
   },
   "setup": {

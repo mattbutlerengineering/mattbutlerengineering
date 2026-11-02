@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback } from "react";
 import { useAuth } from "@mbe/auth/react";
 import { useToast } from "@mattbutlerengineering/rialto";
 import type { CommandItem } from "@mattbutlerengineering/rialto";
@@ -28,7 +28,7 @@ export interface UsePlaygroundResult {
 
 /**
  * Owns the gen playground's workbench behaviour: the generation session, the
- * completion/error toasts, and the shell-level
+ * completion toast, and the shell-level
  * callbacks. Concentrating this here keeps PlaygroundPage a declarative view
  * and makes the choreography testable without rendering the page tree.
  *
@@ -47,7 +47,7 @@ export function usePlayground(): UsePlaygroundResult {
     onGenerationComplete: () =>
       toast({ title: "Generation complete", variant: "success", duration: 3000 }),
   });
-  const { reset, error, openGallery } = session;
+  const { reset, openGallery } = session;
 
   const onSignOut = useCallback(() => {
     reset();
@@ -61,18 +61,6 @@ export function usePlayground(): UsePlaygroundResult {
   const onTemplatesOpen = useCallback(() => {
     openGallery();
   }, [openGallery]);
-
-  // Show error toast when generation fails
-  useEffect(() => {
-    if (error) {
-      toast({
-        title: "Generation failed",
-        description: error.message,
-        variant: "error",
-        duration: 5000,
-      });
-    }
-  }, [error, toast]);
 
   return { session, toggleTheme, onSignOut, onLogoClick, onTemplatesOpen };
 }

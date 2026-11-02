@@ -39,7 +39,7 @@ function CallListTable({ entries }: { readonly entries: readonly ClosureCallList
         {entries.map((entry) => (
           <tr key={entry.outcomeId}>
             <td>{entry.guestName ?? t("availabilitySpecial.callList.unnamed")}</td>
-            <td>{entry.partySize}</td>
+            <td data-label={t("availabilitySpecial.callList.party")}>{entry.partySize}</td>
             <td>
               {format.formatInstant(entry.startTime, {
                 weekday: "short",

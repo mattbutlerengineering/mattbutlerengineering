@@ -24,6 +24,7 @@ import {
 } from "../middleware/public-rate-limit.js";
 import { guestActor } from "../services/reservation-events.js";
 import { gateProblem } from "../services/assert-bookable.js";
+import { resolveOriginHost } from "../config/host-brand.js";
 
 const SESSION_ID_HEADER = "x-session-id";
 
@@ -163,22 +164,29 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
         tags: ["Public"],
       },
     },
-    async (request, reply) => {
-      const { holdId } = request.params;
-      const ip = request.ip;
+    publicVenueScoped(
+      {
+        slug: (request) => request.params.slug,
+        notFound: venueNotFound,
+        // Session-id ownership check — see readSessionId's doc comment for why
+        // the hold id itself is not proof of ownership. Answers 401 before the
+        // slug lookup, as it always did.
+        before: (request, reply) =>
+          readSessionId(request, reply, "release") === null ? reply : undefined,
+      },
+      async (request, reply) => {
+        const { holdId } = request.params;
+        const ip = request.ip;
+        const sessionId = sessionIdOf(request);
 
-      // Session-id ownership check — see readSessionId's doc comment for why
-      // the hold id itself is not proof of ownership.
-      const sessionId = readSessionId(request, reply, "release");
-      if (sessionId === null) return reply;
+        const released = await holdService.release(holdId, sessionId);
+        if (released) {
+          decrementHoldCount(ip);
+        }
 
-      const released = await holdService.release(holdId, sessionId);
-      if (released) {
-        decrementHoldCount(ip);
+        return reply.status(204).send();
       }
-
-      return reply.status(204).send();
-    }
+    )
   );
 
   // GET the hold's status. The staff counterpart (/api/v1/holds/:id) is
@@ -285,6 +293,8 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
             guestDetails: { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference },
             // No guest record exists yet, so the guest actor carries no id.
             actor: guestActor(null),
+            // Captured from the request so later guest emails brand by it (#7892).
+            originHost: resolveOriginHost(request.headers.origin),
           },
           {
             door: "public-hold",

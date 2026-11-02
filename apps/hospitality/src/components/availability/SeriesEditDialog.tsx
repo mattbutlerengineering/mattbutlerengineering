@@ -16,6 +16,7 @@ import type {
   ClosureImpact,
   DateRule,
 } from "@mbe/types";
+import { firstOccurrenceOnOrAfter } from "@mbe/availability";
 import { usePreviewClosureImpact } from "../../hooks/useClosures.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
@@ -35,6 +36,7 @@ import {
 import { LeaveSaveDialog } from "./LeaveSaveDialog.js";
 import { SeriesGrowthStepTwo } from "./SeriesGrowthStepTwo.js";
 import { useSaveAttempts } from "./use-save-attempts.js";
+import { StrandedBookings } from "./StrandedBookings.js";
 import { useScheduleSave } from "./use-schedule-save.js";
 import styles from "./CloseDialog.module.css";
 
@@ -74,7 +76,7 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
   const { t } = useTranslation();
   const format = useVenueFormat();
   const { toast } = useToast();
-  const { save, isPending, failure } = useScheduleSave(
+  const { save, isPending, failure, stranded } = useScheduleSave(
     onStale,
     "availabilitySpecial.series.stranded"
   );
@@ -146,9 +148,10 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
     onEditDate(series, date);
   };
   const saveSeries = () => {
-    const bad =
-      weekdays.length === 0 ||
-      (endsOn != null && endsOn < (scope === "following" ? date : series.startsOn));
+    // No weekday, an end before the start, or no chosen day between them: it would close nothing.
+    const from = scope === "following" && date ? date : series.startsOn;
+    const repeat = { weekdays };
+    const bad = firstOccurrenceOnOrAfter({ startsOn: from, endsOn, repeat }, from) === null;
     if (bad || (scope === "following" && !coversDate(series, date))) {
       return setInvalid(bad ? "edit" : "date");
     }
@@ -297,6 +300,8 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
             ))}
           </Alert>
         )}
+        {/* Outside the alert, which would read every row aloud. */}
+        {failure.length > 0 && <StrandedBookings reservations={stranded} />}
         {dateField(
           date,
           (next) => {

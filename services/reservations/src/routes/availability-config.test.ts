@@ -147,13 +147,18 @@ describe("availability config routes", () => {
         kind: "config",
         summary: "Availability updated: 1 added, 0 changed, 0 removed",
       };
-      svc.save.mockResolvedValueOnce({ kind: "version_conflict", winningChange });
+      svc.save.mockResolvedValueOnce({
+        kind: "version_conflict",
+        winningChange,
+        currentVersion: 6,
+      });
 
       const res = await put(app);
 
       expect(res.statusCode).toBe(409);
       const problem = AvailabilityConfigProblemSchema.parse(res.json());
       expect(problem.code).toBe("version-conflict");
+      expect(problem.currentVersion).toBe(6);
       expect(problem.winningChange).toEqual(winningChange);
     });
 
@@ -175,7 +180,14 @@ describe("availability config routes", () => {
 
     it("answers a change that strands bookings with 409 stranded-bookings", async () => {
       const reservations = [
-        { id: "res-1", startTime: "2026-11-07T03:00:00.000Z", partySize: 4, reason: "closed" },
+        {
+          id: "res-1",
+          startTime: "2026-11-07T03:00:00.000Z",
+          partySize: 4,
+          reason: "closed",
+          guestName: "Okafor",
+          serviceDate: "2026-11-06",
+        },
       ];
       svc.save.mockResolvedValueOnce({ kind: "stranded", reservations });
 

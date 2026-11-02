@@ -58,11 +58,12 @@
 }
 
 /* Inside a Dialog: lifted out of the scrolling body and placed by inline
-   coordinates from the trigger's viewport rect. Keeps the placement class's
-   centring translate. */
+   coordinates from the trigger's viewport rect, which already centre and clamp
+   it, so the placement class's translate is dropped. */
 .floating {
   position: fixed;
   inset: auto;
+  translate: none;
   overflow-y: auto;
 }
 

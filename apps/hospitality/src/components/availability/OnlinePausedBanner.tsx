@@ -4,9 +4,15 @@ import { Banner, Button, useToast } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState, DateRule } from "@mbe/types";
 import { useSaveAvailabilityConfig } from "../../hooks/useAvailability.js";
 import { useReopenClosure } from "../../hooks/useClosures.js";
+import { useNow } from "../../hooks/useNow.js";
 import { useRefreshAvailability } from "../../hooks/useRefreshAvailability.js";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
+import { minutesOfDayIn, venueDate } from "../../utils/service-day.js";
+import { isPauseInForce } from "./close-draft.js";
+import { minuteText } from "./closure-band.js";
 import { conflictOf } from "./conflict-problem.js";
+import { onlineSeatingLeft } from "./online-seatings.js";
 
 export interface OnlinePausedBannerProps {
   readonly venueId: string;
@@ -17,7 +23,10 @@ export interface OnlinePausedBannerProps {
   readonly canResume: boolean;
 }
 
-/** "Online booking paused · Resume" above the calendar (ux.md F5 step 9). */
+/**
+ * "Online booking paused · Resume" above the calendar (ux.md F5 step 9). Before its start time a
+ * pause says when it starts instead, and Resume, with nothing paused yet, reads as removing it.
+ */
 export function OnlinePausedBanner({ venueId, state, rule, canResume }: OnlinePausedBannerProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -25,6 +34,16 @@ export function OnlinePausedBanner({ venueId, state, rule, canResume }: OnlinePa
   const saveConfig = useSaveAvailabilityConfig();
   const refresh = useRefreshAvailability();
   const [resuming, setResuming] = useState(false);
+  const format = useVenueFormat();
+  const now = useNow();
+  const { timeZone } = format;
+  const today = venueDate(now, timeZone);
+  const minute = minutesOfDayIn(now, timeZone);
+  const waitingFrom =
+    rule.window && !isPauseInForce(rule, state.config, timeZone, today, minute)
+      ? rule.window.from
+      : null;
+  const waiting = waitingFrom !== null;
   const others = (rule.bookingTypes ?? []).filter((channel) => channel !== "online");
 
   const resume = async () => {
@@ -43,12 +62,15 @@ export function OnlinePausedBanner({ venueId, state, rule, canResume }: OnlinePa
           },
         });
       }
-      toast({ title: t("availability.paused.resumed"), variant: "success" });
+      toast({
+        title: t(waiting ? "availability.paused.removed" : "availability.paused.resumed"),
+        variant: "success",
+      });
     } catch (error) {
       // A retry must not resend the version that just lost.
       if (conflictOf(error)?.code === "version-conflict") refresh();
       toast({
-        title: t("availability.paused.resumeError"),
+        title: t(waiting ? "availability.paused.removeError" : "availability.paused.resumeError"),
         description: describeApiError(error).detail,
         variant: "error",
       });
@@ -63,12 +85,20 @@ export function OnlinePausedBanner({ venueId, state, rule, canResume }: OnlinePa
       action={
         canResume ? (
           <Button variant="secondary" onClick={() => void resume()} isLoading={resuming}>
-            {t("availability.paused.resume")}
+            {t(waiting ? "availability.paused.remove" : "availability.paused.resume")}
           </Button>
         ) : undefined
       }
     >
-      {t("availability.paused.banner")}
+      {waiting
+        ? t(
+            // A closed day or a day with no online service has no earlier seatings to promise.
+            onlineSeatingLeft(state.config, timeZone, today, minute)
+              ? "availability.paused.waiting"
+              : "availability.paused.waitingNoneToday",
+            { time: minuteText(waitingFrom, t, format) }
+          )
+        : t("availability.paused.banner")}
     </Banner>
   );
 }

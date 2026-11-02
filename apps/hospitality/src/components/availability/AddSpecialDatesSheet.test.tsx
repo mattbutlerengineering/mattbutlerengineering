@@ -167,6 +167,7 @@ describe("AddSpecialDatesSheet", () => {
     expect(screen.getByText(/closed · 3 bookings/)).toBeTruthy();
     expect(primary().textContent).toBe("Choose for each group");
     expect(primary()).toHaveProperty("disabled", true);
+    expect(primary()).toHaveAccessibleDescription(/each group of bookings/i);
 
     const groups = screen.getAllByRole("radiogroup", { name: /What should happen/ });
     fireEvent.click(within(groups[0]!).getByRole("radio", { name: /Cancel, notify & refund/ }));

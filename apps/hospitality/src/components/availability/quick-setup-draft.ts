@@ -84,9 +84,17 @@ function toClock(minutes: number): string {
   return `${hh}:${mm}`;
 }
 
-/** Last seating that follows a close: close minus the lead time, e.g. 22:00 → 21:15. */
-export function autoLastSeating(closes: string): string {
-  return toClock(toMinutes(closes) - LAST_SEATING_LEAD_MINUTES);
+/**
+ * Last seating that follows a close: close minus the lead time, e.g. 22:00 → 21:15. With the
+ * opening known, a service shorter than the lead seats at its opening, not before it; a close
+ * earlier than the opening is the next day's.
+ */
+export function autoLastSeating(closes: string, opens: string | null = null): string {
+  const lead = toMinutes(closes) - LAST_SEATING_LEAD_MINUTES;
+  if (opens === null) return toClock(lead);
+  const opensAt = toMinutes(opens);
+  const closesAfter = toMinutes(closes) <= opensAt ? MINUTES_PER_DAY : 0;
+  return toClock(Math.max(lead + closesAfter, opensAt));
 }
 
 /** A name chip: fills the name and its typical times; last seating re-links to the close. */
@@ -97,7 +105,7 @@ export function applyPreset(service: ServiceDraft, preset: ServicePresetId, name
     name,
     opens,
     closes,
-    lastSeating: autoLastSeating(closes),
+    lastSeating: autoLastSeating(closes, opens),
     lastSeatingLinked: true,
   };
 }
@@ -109,14 +117,13 @@ export function setServiceTime(
   value: string | null
 ): ServiceDraft {
   if (field === "lastSeating") return { ...service, lastSeating: value, lastSeatingLinked: false };
-  if (field === "closes" && service.lastSeatingLinked) {
-    return {
-      ...service,
-      closes: value,
-      lastSeating: value === null ? null : autoLastSeating(value),
-    };
-  }
-  return { ...service, [field]: value };
+  const next = { ...service, [field]: value };
+  // Both ends bound a linked last seating, so moving either one keeps it in step.
+  if (!service.lastSeatingLinked) return next;
+  return {
+    ...next,
+    lastSeating: next.closes === null ? null : autoLastSeating(next.closes, next.opens),
+  };
 }
 
 export function replaceService(draft: QuickSetupDraft, next: ServiceDraft): QuickSetupDraft {
@@ -411,7 +418,7 @@ export function draftFromLegacyHours(hours: OperatingHours, serviceId: string): 
         ...emptyService(serviceId),
         opens: first.open,
         closes: first.close,
-        lastSeating: autoLastSeating(first.close),
+        lastSeating: autoLastSeating(first.close, first.open),
       },
     ],
     days: open.map((o) => o.index),

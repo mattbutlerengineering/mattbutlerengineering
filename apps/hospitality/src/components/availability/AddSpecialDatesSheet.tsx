@@ -18,6 +18,7 @@ import {
 import { useCreateClosures, usePreviewClosureImpacts } from "../../hooks/useClosures.js";
 import { useNow } from "../../hooks/useNow.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
+import { useViewport } from "../../hooks/useViewport.js";
 import { minutesOfDayIn } from "../../utils/service-day.js";
 import {
   combineImpacts,
@@ -32,7 +33,14 @@ import {
   type DateRow,
 } from "./add-dates-draft.js";
 import { AddDateRow } from "./AddDateRow.js";
-import { decisionsReady, isUrgent, outcomeCounts, type ChoiceMap } from "./close-draft.js";
+import {
+  decisionsReady,
+  isUrgent,
+  outcomeCounts,
+  stepTwoNote,
+  stepTwoNoteId,
+  type ChoiceMap,
+} from "./close-draft.js";
 import { CloseStepTwo } from "./CloseStepTwo.js";
 import { LeaveSaveDialog } from "./LeaveSaveDialog.js";
 import { outcomeSummary } from "./outcome-label.js";
@@ -59,6 +67,7 @@ const SHARED_MESSAGE_ID = "add-dates-shared-message";
  * for one date while another fails. Manager only.
  */
 export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
+  const viewport = useViewport();
   const { venueId, state, timezone, today, onStale, onClose } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
@@ -258,7 +267,7 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
         open
         onClose={attempts.finish}
         title={t("availabilitySpecial.add.title")}
-        size="wide"
+        size={viewport === "phone" ? "full" : "wide"}
         footer={
           <div className={styles.footer}>
             <Button variant="primary" onClick={attempts.finish}>
@@ -283,12 +292,17 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
         open
         onClose={() => attempts.leave(busy)}
         title={t("availabilitySpecial.add.title")}
-        size="wide"
+        size={viewport === "phone" ? "full" : "wide"}
         footer={
           <div className={styles.footer}>
             {step === 2 && (
-              <Text variant="caption" color="secondary" className={styles.footerNote}>
-                {t("availability.close.step2.irreversible")}
+              <Text
+                id={stepTwoNoteId}
+                variant="caption"
+                color="secondary"
+                className={styles.footerNote}
+              >
+                {stepTwoNote(decisionsReady(combined.groups, choices), t)}
               </Text>
             )}
             <Button
@@ -300,6 +314,7 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
             <Button
               variant="primary"
               data-testid="add-dates-primary"
+              aria-describedby={step === 2 ? stepTwoNoteId : undefined}
               isLoading={busy}
               disabled={
                 savedEarlier || (step === 2 ? !decisionsReady(combined.groups, choices) : false)

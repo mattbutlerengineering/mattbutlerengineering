@@ -1,4 +1,7 @@
 import type { ErrorCategory } from "@mbe/api-client";
+import type { TFunction } from "i18next";
+import enUS from "../i18n/catalogs/en-US.json";
+import { defaultT } from "../i18n/default-t.js";
 
 /**
  * One voice for bad news (architecture § "One voice for bad news"; ux.md § Copy).
@@ -31,56 +34,32 @@ type CopyRow = Pick<ApiErrorDescription, "detail" | "retryable" | "recovery">;
 const RETRY: Pick<CopyRow, "retryable" | "recovery"> = { retryable: true, recovery: "retry" };
 const EDIT: Pick<CopyRow, "retryable" | "recovery"> = { retryable: false, recovery: "edit" };
 
-/** ux.md § Copy, verbatim. Keyed by category; `badRequest` shares the validation row. */
-export const ERROR_COPY: Readonly<Record<ApiErrorCategory, CopyRow>> = {
-  network: {
-    detail: "Can't reach the reservations service. Check the venue's connection, then try again.",
-    ...RETRY,
-  },
-  timeout: {
-    detail: "That took too long. The service didn't answer in time — try again.",
-    ...RETRY,
-  },
-  serverError: {
-    detail: "The reservations service hit a snag — nothing was changed. Try again in a moment.",
-    ...RETRY,
-  },
-  rateLimited: {
-    detail: "Too many requests at once. Give it a few seconds, then try again.",
-    ...RETRY,
-  },
-  conflict: {
-    detail: "Someone got there first — that table or time was just taken. Pick another.",
-    ...EDIT,
-  },
-  validationError: {
-    detail: "Something in the form didn't pass. Check party size, time and table.",
-    ...EDIT,
-  },
-  badRequest: {
-    detail: "Something in the form didn't pass. Check party size, time and table.",
-    ...EDIT,
-  },
-  unauthorized: {
-    detail: "Your session ended. Sign in again to keep working.",
-    retryable: false,
-    recovery: "sign-in",
-  },
-  forbidden: {
-    detail: "That's above your role. Ask a manager to make this change.",
-    retryable: false,
-    recovery: "none",
-  },
-  notFound: {
-    detail: "That reservation's gone — it may have been cancelled or moved. Refreshing the grid.",
-    retryable: false,
-    recovery: "refresh",
-  },
-  unknown: {
-    detail: "That didn't go through. Try again — if it keeps happening, tell your manager.",
-    ...RETRY,
-  },
+const COPY_BEHAVIOUR: Readonly<Record<ApiErrorCategory, Omit<CopyRow, "detail">>> = {
+  network: RETRY,
+  timeout: RETRY,
+  // Never "nothing was changed" in serverError copy: a 5xx from a gateway can follow a write that committed.
+  serverError: RETRY,
+  rateLimited: RETRY,
+  conflict: EDIT,
+  validationError: EDIT,
+  badRequest: EDIT,
+  unauthorized: { retryable: false, recovery: "sign-in" },
+  forbidden: { retryable: false, recovery: "none" },
+  notFound: { retryable: false, recovery: "refresh" },
+  unknown: RETRY,
 };
+
+/**
+ * ux.md § Copy, verbatim, in en-US. The sentences live in the `apiError` catalog block (en-US,
+ * es-MX, fr-CA); this export is the en-US source for tests and snapshots. `describeApiError`
+ * resolves the sentence at call time in the active language.
+ */
+export const ERROR_COPY: Readonly<Record<ApiErrorCategory, CopyRow>> = Object.fromEntries(
+  (Object.keys(COPY_BEHAVIOUR) as ApiErrorCategory[]).map((category) => [
+    category,
+    { detail: enUS.apiError[category], ...COPY_BEHAVIOUR[category] },
+  ])
+) as Record<ApiErrorCategory, CopyRow>;
 
 /** Categories whose `problemDetails.detail` is written for the person filling the form. */
 const SHOWS_PROBLEM_DETAIL: ReadonlySet<ApiErrorCategory> = new Set([
@@ -139,21 +118,35 @@ function humanProblemDetail(problemDetails: ApiClientErrorLike["problemDetails"]
   return detail;
 }
 
-function describe(category: ApiErrorCategory, raw: string, detail?: string): ApiErrorDescription {
-  const row = ERROR_COPY[category];
-  return { category, ...row, detail: detail ?? row.detail, raw };
+function describe(
+  category: ApiErrorCategory,
+  raw: string,
+  t: TFunction,
+  detail?: string
+): ApiErrorDescription {
+  return {
+    category,
+    ...COPY_BEHAVIOUR[category],
+    detail: detail ?? t(`apiError.${category}`),
+    raw,
+  };
 }
 
-export function describeApiError(error: unknown): ApiErrorDescription {
+/**
+ * `t` defaults to the dashboard runtime's. Guest surfaces (booking widget, waitlist join) run
+ * their own i18next instance, so they pass theirs — otherwise the sentence follows the staff
+ * language instead of the one the guest picked.
+ */
+export function describeApiError(error: unknown, t: TFunction = defaultT): ApiErrorDescription {
   const raw = rawMessage(error);
 
   if (isApiClientError(error)) {
     const shown = SHOWS_PROBLEM_DETAIL.has(error.category)
       ? humanProblemDetail(error.problemDetails)
       : null;
-    return describe(error.category, raw, shown ?? undefined);
+    return describe(error.category, raw, t, shown ?? undefined);
   }
-  if (isTimeout(error)) return describe("timeout", raw);
-  if (error instanceof TypeError) return describe("network", raw);
-  return describe("unknown", raw);
+  if (isTimeout(error)) return describe("timeout", raw, t);
+  if (error instanceof TypeError) return describe("network", raw, t);
+  return describe("unknown", raw, t);
 }

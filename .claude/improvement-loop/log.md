@@ -4542,6 +4542,50 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 **Skill proposals:** 0 (Wednesday — Friday-only)
 **Threshold notes:** fix-effectiveness 75% (12/16 non-skip verifications over 30d, >50%, healthy); all feedback-category rejection rates ≤4% (<30%, healthy); auto-tuner applied 1 adjustment (acmm 1.35 → 1.38, headroom)
 
+## 2026-11-01
+
+**queueEfficiency:** composite 0.867 (baseline n/a) — healthy
+**Difficulty distribution:** size:l:8, size:xl:9, size:m:17, size:s:20, size:xs:11
+**Issues filed:** 0
+
+## 2026-11-01 — mbe-evening (progress-tracker)
+
+### Metrics
+
+| Metric                                                                                    | Value                                    | Status                                                 |
+| ----------------------------------------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------ |
+| Created (7d, audit+ci-fix)                                                                | 23                                       | -                                                      |
+| Closed (7d, audit+ci-fix)                                                                 | 27                                       | -                                                      |
+| Closure Rate                                                                              | 117%                                     | Green (>80%)                                           |
+| Time-to-Close (mean)                                                                      | 30.4h                                    | Yellow (24-72h)                                        |
+| Agent Success (has-pr/(has-pr+failed), open snapshot)                                     | 4/4 = 100%                               | Green (>70%)                                           |
+| CI Pass (main, last 20 runs, skipped excluded)                                            | 12/12 = 100%\*                           | Green (>95%)                                           |
+| Queue (ready, open)                                                                       | 1                                        | Green (<5)                                             |
+| Stale (ready>7d)                                                                          | 0                                        | Green                                                  |
+| Blocked (agent-failed, open)                                                              | 0                                        | Green                                                  |
+| Skipped (agent-skip, open)                                                                | 0                                        | Green                                                  |
+| Daily/7d Spend (attributed, `.claude/agent-spend/sessions.jsonl`)                         | $0                                       | Green (no `mbe agent run`/`eval` sessions this window) |
+| Queue worker usage (7d, `metrics/queue-telemetry.jsonl`, not in the Daily/7d Spend total) | 3 sessions, 725,915 tokens, cost unknown | Unmeasured — never report as $0                        |
+| Cost/Issue                                                                                | unknown                                  | Unmeasured (no `cost_usd` on queue rows)               |
+
+\* main's `gh run list --branch main` shows only push-triggered automation (Auto-Merge Policy, auto-label, `claude`), not `ci.yml`/`CI Gate` — that workflow is PR-triggered only in this repo, so this reading does not reflect real CI health. No main-branch CI Gate failures were observed in this session's PR-level checks.
+
+### Patterns
+
+- This session (mbe-evening, implement-queue iteration) ran one batch of 2 new issues (#7892, #7962) plus gated 2 pre-existing open PRs (#7993, #7972). Of 4 has-pr PRs now open, 2 are reviewed-green-awaiting-human-merge (#7993, #8011), 1 is held `needs-review` after 2 flag rounds (#7972/#7961 — admittedly-unmeetable AC: screenshots, no browser egress in this routine), 1 is CI-red on an unrelated `apps/hospitality` size-limit flake this session lacks `actions: write` to re-run (#8013/#7892).
+- Recurring, already-tracked pattern (not new): `[Merge Without Review]` session-merge denial fired again this session (on #7993's merge attempt) — same gotcha as prior days, not escalating further per the existing holding-off note in the 2026-10-28 entry below.
+- New observation, not yet 3-day-consistent: a CI job can fail transiently at the exact margin of a size-limit budget (`apps/hospitality` floor-plan chunk, 9102 B vs 9100 B limit) with zero relation to the PR's own diff, and this session had no path to re-run or dispatch CI to confirm (`actions: write` unavailable in CCR sessions generally, not just for `workflow_dispatch`). Watching for repeats before filing a `meta-improvement`.
+- Reverts (7d): 0.
+
+### Recommendations
+
+- No 3-day-consistent new pattern yet — holding off on a `meta-improvement` issue this run.
+- #7993 (raises the floor-plan budget to 9.2 kB) should be prioritized for human merge — it's the actual fix for the margin currently causing unrelated PRs' Build jobs to flake.
+
+### Skipped Issues
+
+0 `agent-skip` issues open — nothing to manually review.
+
 ## 2026-10-31 — mbe-learning-loop
 
 **Sensors:** 15/17 available (e2eStability not available; queueEfficiency query failed — `GET /pulls/7491` fetch failed, transient network error, not a regression since metricsFreshness still reports it fresh at 0.75d) — status Healthy
@@ -4565,3 +4609,58 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 **Coverage before this fire:** 100% (135/135 covered, 0 uncovered, 20 `unreachable:auth` excluded), exit 0 — no breach.
 **Blockers / pipeline bugs:** none. No `blocker: no-browser` (Chromium resolved at `/opt/pw-browsers/chromium_headless_shell-1243/...`), filing never stopped, every script exited 0 except the two expected non-zero codes noted above.
 **Note:** `mcp__github__search_issues` is not in this session's MCP surface, so the two issue searches used `mcp__github__list_issues` with label filters (a `list_*` tool) rather than the `gh` CLI, which this routine forbids. Both listings were complete single pages.
+
+## 2026-11-01 — mbe-learning-loop
+
+**Sensors:** 16/17 available (e2eStability not available); metricsFreshness 0 unhealthy — all watched metrics fresh
+**Regressions:** 1 detected, 1 issue created — ciHealth.pass_rate_pct 100 → 93 (-7, high). Root-caused to the monthly `Generate Changelog` workflow (run 41323785768) tripping its own 900,000-byte ENOBUFS safety guard — predicted by the guard's own 2026-08 comment as commit volume grew. Filed #8062 (`ready,ci-fix,bug`) with root cause and suggested fix (narrow the window, e.g. two weeks). No open duplicate found via `search/issues`.
+**Verifications:** 5 checked (48h window), 1 verified (#7952 ACMM L5 72/84), 0 failed/reopened, 4 skipped (routine-heartbeat issues with no CI evidence to verify against)
+**AI issue feedback:** 7 categories collected (200 issues total); budgets unchanged at default 3 (no category >40% rejected). ci-fix has a high wontfix share (16/24 = 67%) worth separate attention, but rejection_rate (excludes wontfix) stays 0% so the auto-budget-halving rule didn't trigger — flagging here since a learning-loop skim of budgets alone would miss it.
+**Skill proposals:** 0 (Sunday — Friday-only)
+**Threshold notes:** false-positive rate (wontfix+rejected)/total = 34/200 = 17% (<30%, healthy, no loosening needed); fix-effectiveness over last 30d = 6/10 = 60% among determinable (non-skip) verifications (>50%, healthy); `verify-fixes.mjs`'s own auto-tuner applied 1 adjustment this run: acmm headroom 1.38 → 1.41.
+**Environment note:** fresh checkout had no `node_modules` — ran `pnpm bootstrap:worktree` before anything else. `gh issue list`/`gh issue create` hit the known CCR GraphQL block (403); used `gh api search/issues` for dedup search and `mcp__github__issue_write` to file #8062 instead.
+
+## 2026-11-02 — mbe-evening (progress-tracker)
+
+### Metrics
+
+| Metric                                                                                    | Value                                    | Status                                                 |
+| ----------------------------------------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------ |
+| Created (7d, audit+ci-fix)                                                                | 25                                       | -                                                      |
+| Closed (7d, audit+ci-fix)                                                                 | 24                                       | -                                                      |
+| Closure Rate                                                                              | 24/25 = 96%                              | Green (>80%)                                           |
+| Time-to-Close (mean)                                                                      | 33.8h                                    | Yellow (24-72h)                                        |
+| Agent Success (has-pr/(has-pr+failed), open)                                              | 5/5 = 100%                               | Green (>70%)                                           |
+| CI Pass (`ci.yml` on main, last 20 runs)                                                  | 19/20 = 95%                              | Yellow/Green boundary (1 cancelled run, not a failure) |
+| Queue (ready, open)                                                                       | 6                                        | Yellow (5-10)                                          |
+| Stale (ready>7d)                                                                          | 0                                        | Green                                                  |
+| Blocked (agent-failed, open)                                                              | 0                                        | Green                                                  |
+| Skipped (agent-skip, open)                                                                | 0                                        | Green                                                  |
+| Daily/7d Spend (attributed, `.claude/agent-spend/sessions.jsonl`)                         | $0                                       | Green (no `mbe agent run`/`eval` sessions this window) |
+| Queue worker usage (7d, `metrics/queue-telemetry.jsonl`, not in the Daily/7d Spend total) | 4 sessions, 990,098 tokens, cost unknown | Unmeasured — never report as $0                        |
+| Cost/Issue                                                                                | unknown                                  | Unmeasured (no `cost_usd` on queue rows)               |
+| Reverts (7d)                                                                              | 1                                        | Green (<3/week)                                        |
+
+### Patterns
+
+- This session (mbe-evening, implement-queue iteration) claimed a priority-sorted, zone-spread batch of 3 ready issues — #8039 (security, `services/reservations` zone), #8059 (ci-fix, global zone), #8066 (ci-fix, `root` zone) — and opened PRs #8073, #8072, #8070 respectively. All three workers succeeded on the first pass (0 failures, circuit breaker never engaged). A fourth pre-existing open PR, #8013 (`feat(reservations)` host-brand email branding), was also carried through the full gate this session.
+- All 4 PRs required the universal reviewer (none qualified for the low-risk fast path); #8013 and #8073 additionally matched specialist reviewers (migration/ADR/generated-artifact-determinism for #8013; ADR/generated-artifact-determinism for #8073). All 4 passed every review dispatched (scores 8-9/10, 0 defects). Two more pre-existing trivial-tier PRs (#8069, #8054) qualified for the fast path and were classified pass with no specialist match.
+- Recurring, already-tracked pattern (not new): `[Merge Without Review]` session-merge denial fired on the first merge attempt this session (PR #8069) — per the documented fallback, no further merge attempts were made for the rest of the session; all 6 gated PRs (#8013, #8069, #8054, #8070, #8072, #8073) were posted a review-verdict comment and left reviewed/green/awaiting-human-merge. One metrics-only PR this session's own telemetry commits opened (#8071) merged on its own via the repo's separate GitHub Actions auto-merge automation (not this session), confirming that mechanism is independent of the CCR session-merge block.
+- New, substantive finding surfaced by the #8059 worker's investigation (not a code bug in #8059 itself, folded into PR #8072 instead): PR #8057 (issue #7963) is green, 9/10-reviewed, and stuck on the same `[Merge Without Review]` block — it has been sitting awaiting a human merge since before this session started. Flagging for Matt's attention since it predates tonight's run and will keep sitting there until someone merges it by hand.
+- Reverts (7d): 1 — below the 3/week circuit-breaker threshold, not investigated further this run.
+
+### Recommendations
+
+- No 3-day-consistent new pattern beyond the already-tracked `[Merge Without Review]` gotcha — holding off on a new `meta-improvement` issue this run.
+- Human merge needed for 7 PRs currently reviewed-green-awaiting-merge: #8013, #8054, #8057 (pre-existing, oldest), #8069, #8070, #8072, #8073.
+- Queue is Yellow (6 ready) — within the loop's own target of draining 3/iteration; no adjustment needed yet, but a second iteration soon would bring it back under 5.
+
+### Skipped Issues
+
+0 `agent-skip` issues open — nothing to manually review.
+
+## 2026-11-02
+
+**queueEfficiency:** composite 0.846 (baseline n/a) — healthy
+**Difficulty distribution:** size:s:19, size:xs:10, size:xl:12, size:l:9, size:m:15
+**Issues filed:** 0

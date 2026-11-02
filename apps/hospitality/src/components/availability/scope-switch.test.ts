@@ -107,7 +107,7 @@ describe("switchScope", () => {
       parked: [],
       seed: date,
     });
-    expect(there.parked.map((p) => [p.base.name, p.draft])).toEqual([["Lunch", null]]);
+    expect(there.parked.map((p) => [p.base?.name, p.draft])).toEqual([["Lunch", null]]);
     const back = switchScope({
       baseline: there.baseline,
       services: there.services,
@@ -137,6 +137,154 @@ describe("switchScope", () => {
       seed: [dinner],
     });
     expect(out.overridden).toEqual(["Dinner"]);
+  });
+
+  it("names a close edit that, laid over the new scope's last seating, leaves the row equal to it", () => {
+    const onDate = row("vs-dinner", "Dinner", { closesAt: 1200, lastSeatingAt: 1140 });
+    const weekly = row("vs-dinner", "Dinner", { closesAt: 1320, lastSeatingAt: 1260 });
+    const out = switchScope({
+      baseline: [onDate],
+      services: [{ ...onDate, closesAt: 1320 }],
+      parked: [],
+      seed: [weekly],
+    });
+    expect(out.services).toEqual([weekly]);
+    expect(out.overridden).toEqual(["Dinner"]);
+  });
+
+  it("names a removal the new scope cannot show, not only the edits", () => {
+    const out = switchScope({
+      baseline: regular,
+      services: [phoneOnly(dinner), brunch],
+      parked: [],
+      seed: date,
+    });
+    expect(out.unsaved).toEqual(["Lunch"]);
+  });
+
+  it("gives back hours added on a closed day once the Manager returns to it", () => {
+    const added = row("vs-dinner", "Dinner", { opensAt: 1100 });
+    const there = switchScope({ baseline: [], services: [added], parked: [], seed: regular });
+    expect(there.overridden).toEqual(["Dinner"]);
+    const back = switchScope({
+      baseline: there.baseline,
+      services: there.services,
+      parked: there.parked,
+      seed: [],
+    });
+    expect(back.services).toEqual([added]);
+    expect(back.parked).toEqual([]);
+  });
+
+  it("gives back added hours the new scope happened to share", () => {
+    const there = switchScope({ baseline: [], services: [dinner], parked: [], seed: regular });
+    const back = switchScope({
+      baseline: there.baseline,
+      services: there.services,
+      parked: there.parked,
+      seed: [],
+    });
+    expect(back.services).toEqual([dinner]);
+  });
+
+  it("lets go of added hours once the Manager edits that row in the scope they were held in", () => {
+    const added = row("vs-dinner", "Dinner", { opensAt: 1100 });
+    const there = switchScope({ baseline: [], services: [added], parked: [], seed: regular });
+    const back = switchScope({
+      baseline: there.baseline,
+      services: there.services.map((s) => (s.name === "Dinner" ? phoneOnly(s) : s)),
+      parked: there.parked,
+      seed: [],
+    });
+    // The Manager's later edit is held like any other; the earlier added hours are not resurrected.
+    expect(back.services).toEqual([]);
+    expect(back.parked.map((p) => p.draft?.bookingTypes)).toEqual([["phone"]]);
+    expect(back.unsaved).toEqual(["Dinner"]);
+  });
+
+  it("holds a named equal-value edit, so the scope it was made in gets it back", () => {
+    const onDate = row("vs-dinner", "Dinner", { closesAt: 1200, lastSeatingAt: 1140 });
+    const weekly = row("vs-dinner", "Dinner", { closesAt: 1320, lastSeatingAt: 1260 });
+    const edited = { ...onDate, closesAt: 1320 };
+    const there = switchScope({
+      baseline: [onDate],
+      services: [edited],
+      parked: [],
+      seed: [weekly],
+    });
+    expect(there.overridden).toEqual(["Dinner"]);
+    const back = switchScope({
+      baseline: there.baseline,
+      services: there.services,
+      parked: there.parked,
+      seed: [onDate],
+    });
+    expect(back.services).toEqual([edited]);
+    expect(back.overridden).toEqual([]);
+    expect(back.parked).toEqual([]);
+  });
+
+  describe("a held equal-value edit", () => {
+    const onDate = row("vs-dinner", "Dinner", { closesAt: 1200, lastSeatingAt: 1140 });
+    const weekly = row("vs-dinner", "Dinner", { closesAt: 1320, lastSeatingAt: 1260 });
+    const edited = { ...onDate, closesAt: 1320 };
+    const held = () => {
+      const out = switchScope({
+        baseline: [onDate],
+        services: [edited],
+        parked: [],
+        seed: [weekly],
+      });
+      return { baseline: out.baseline, services: out.services, parked: out.parked };
+    };
+
+    it("is named when the Manager touches that row, since it is let go", () => {
+      const there = held();
+      const back = switchScope({
+        ...there,
+        services: there.services.map(phoneOnly),
+        seed: [onDate],
+      });
+      expect(back.services).toEqual([phoneOnly(onDate)]);
+      expect(back.unsaved).toEqual(["Dinner"]);
+      expect(back.parked).toEqual([]);
+    });
+
+    it("stays held, not restored, when the scope it returns to has changed that row", () => {
+      const changed = { ...onDate, lastSeatingAt: 1000 };
+      const onward = switchScope({ ...held(), seed: [changed] });
+      expect(onward.services).toEqual([changed]);
+      expect(onward.parked).toHaveLength(1);
+      expect(onward.unsaved).toEqual(["Dinner"]);
+      expect(onward.overridden).toEqual([]);
+    });
+
+    it("is said to be unsaved, not unused, in a scope that lacks the service, and survives it", () => {
+      const away = switchScope({ ...held(), seed: [late] });
+      expect(away.unsaved).toEqual(["Dinner"]);
+      expect(away.overridden).toEqual([]);
+      const back = switchScope({ ...away, seed: [onDate] });
+      expect(back.services).toEqual([edited]);
+    });
+  });
+
+  it("carries the names of held hours on to another scope that has the service", () => {
+    const newLate = row("vs-late", "Late", { opensAt: 1000 });
+    const there = switchScope({
+      baseline: regular,
+      services: [...regular, newLate],
+      parked: [],
+      seed: date,
+    });
+    expect(there.overridden).toEqual(["Late"]);
+    const onward = switchScope({
+      baseline: there.baseline,
+      services: there.services,
+      parked: there.parked,
+      seed: [dinner, late],
+    });
+    expect(onward.overridden).toEqual(["Late"]);
+    expect(onward.parked).toHaveLength(1);
   });
 
   it("keeps a real removal: a row the Manager took out stays out", () => {

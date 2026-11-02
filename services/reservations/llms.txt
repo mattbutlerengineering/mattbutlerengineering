@@ -20,12 +20,57 @@
   </file>
   </section>
   <section priority="medium" role="config">
+  <file path="src/config/host-brand.ts">
+    <item priority="low">
+      type OriginHost = "eat-sheet.com" | "mattbutlerengineering.com";
+    </item>
+    <item priority="high">
+      export function resolveOriginHost(
+        origin: string | readonly string[] | undefined | null
+      ): OriginHost | null { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ReservationHostBrand {
+        brandName: string;
+        fromAddress: string;
+        manageBaseUrl: string;
+      }
+    </item>
+    <item priority="low">
+      interface HostBrandEnv {
+        verifiedFromAddress: string;
+        mbeManageBaseUrl: string;
+        eatSheetManageBaseUrl: string;
+      }
+    </item>
+    <item priority="medium">
+      function withDisplayName(name: string, address: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function hostBrandFor(originHost: string | null, env: HostBrandEnv): ReservationHostBrand { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createHostBrandResolver(env: {
+        EMAIL_FROM?: string | undefined;
+        MANAGE_BASE_URL?: string | undefined;
+        EAT_SHEET_MANAGE_BASE_URL?: string | undefined;
+      }): (originHost: string | null) => ReservationHostBrand { /* ... */ }
+    </item>
+  </file>
   <file path="src/config/manage-base-url.ts">
     <item priority="high">
       export const DEFAULT_MANAGE_BASE_URL: unknown;
     </item>
     <item priority="high">
       export function resolveManageBaseUrl(env: { MANAGE_BASE_URL?: string | undefined }): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export const DEFAULT_EAT_SHEET_MANAGE_BASE_URL: unknown;
+    </item>
+    <item priority="high">
+      export function resolveEatSheetManageBaseUrl(env: {
+        EAT_SHEET_MANAGE_BASE_URL?: string | undefined;
+      }): string { /* ... */ }
     </item>
   </file>
   <file path="src/config/manage-token.ts">
@@ -462,6 +507,9 @@
     <item priority="high">
       export const MANAGE_PATH: unknown;
     </item>
+    <item priority="medium">
+      function managePathFor(origin: string): string { /* ... */ }
+    </item>
     <item priority="high">
       export function buildManageUrl(baseUrl: string, token: string, rebook?: string): string { /* ... */ }
     </item>
@@ -510,6 +558,7 @@
         guestName: string;
         guestEmail: string;
         venueName: string;
+        idempotencyKey?: string;
       }
     </item>
     <item priority="low">
@@ -526,6 +575,7 @@
         to: string;
         subject: string;
         html: string;
+        originHost?: string | null;
       }
     </item>
     <item priority="low">
@@ -534,12 +584,27 @@
       }
     </item>
   </file>
-  <file path="src/notifications/resend-adapter.ts">
+  <file path="src/notifications/provider-rejected-error.ts">
     <item priority="high">
+      class ProviderRejectedError {
+        
+      }
+    </item>
+    <item priority="high">
+      class EmailNotConfiguredError {
+        
+      }
+    </item>
+  </file>
+  <file path="src/notifications/resend-adapter.ts">
+    <item priority="low">
       interface ResendClient {
         emails: {
-          // The SDK resolves `{ data, error }` on API failur...;
+          // The SDK resolves `{ data, error }` on EVERY fail...;
       }
+    </item>
+    <item priority="medium">
+      function isDefiniteRejection(error: { name?: string; statusCode?: number | null }): boolean { /* ... */ }
     </item>
     <item priority="low">
       interface ResendAdapterConfig {
@@ -555,6 +620,8 @@
         fromAddress: string;
         manageBaseUrl: string;
         publicApiBaseUrl: string | null;
+        brandFor: (originHost: string | null) => {
+          fromAddress: string;...;
       }
     </item>
   </file>
@@ -899,6 +966,13 @@
     </item>
   </file>
   <file path="src/routes/guests.ts">
+    <item priority="medium">
+      function winBackProblem(
+        result: WinBackResult,
+        guestName: string,
+        timeZone: string
+      ): { status: 409 | 424; title: string; detail: string } | null { /* ... */ }
+    </item>
     <item priority="high">
       export const guestRoutes: FastifyPluginAsync;
     </item>
@@ -1350,6 +1424,9 @@
     </item>
     <item priority="low">
       async function createDisposableGuest(ctx: SweepContext, venueId: string): Promise<string> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function createDisposableEmailedGuest(ctx: SweepContext, venueId: string): Promise<string> { /* ... */ }
     </item>
     <item priority="low">
       async function createDisposableFloorPlan(ctx: SweepContext, venueId: string): Promise<string> { /* ... */ }
@@ -2162,7 +2239,8 @@
       }): SavePlan { /* ... */ }
     </item>
     <item priority="low">
-      type SaveOutcome = { kind: "saved"; version: numb | { kind: "version_conflict"; wi | { kind: "not_found" } | Exclude<SavePlan, { kind: "wri;
+      type SaveOutcome = { kind: "saved"; version: numb | {
+            kind: "version_conflic | { kind: "not_found" } | Exclude<SavePlan, { kind: "wri;
     </item>
     <item priority="medium">
       class SaveRefused {
@@ -3159,6 +3237,12 @@
         dispatcher: Pick<NotificationDispatcher, "sendClosureEmail" | "sendClosureSms" | "smsEnabled">;
         generateManageToken(reservationId: string, guestEmail: string): string;
         manageBaseUrl: string;
+        /**
+         * Resolves the manage-link base for an outcome's origin host (#7892) — a
+         * closure notice for an eat-sheet.com booking links back to eat-sheet.com.
+         * Omitted keeps `manageBaseUrl` above for every outcome, today's behavior.
+         */
+        hostBrand?: (originHost: string | null) => { manageBaseUrl: string };
         logger: ClosureNoticeDeps["logger"];
         now?: () => Date;
       }): ClosureNoticeDeps { /* ... */ }
@@ -5516,13 +5600,97 @@
       export const waitlistService: unknown;
     </item>
   </file>
+  <file path="src/services/win-back-store.ts">
+    <item priority="high">
+      type Db = Pick<PrismaClient, "guestWinBack">;
+    </item>
+    <item priority="high">
+      export const WIN_BACK_COOLDOWN_MS: unknown;
+    </item>
+    <item priority="low">
+      type WinBackClaim = { claimed: true; previousClaim | { claimed: false; claimedAt: D;
+    </item>
+    <item priority="medium">
+      function isUniqueViolation(err: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="low">
+      async function refusal(venueId: string, guestId: string, now: Date, db: Db): Promise<WinBackClaim> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function claimWinBack(
+        venueId: string,
+        guestId: string,
+        now: Date,
+        db: Db = prisma
+      ): Promise<WinBackClaim> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function markWinBackSent(
+        venueId: string,
+        guestId: string,
+        claimedAt: Date,
+        sentAt: Date,
+        db: Db = prisma
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function releaseWinBackClaim(
+        venueId: string,
+        guestId: string,
+        claimedAt: Date,
+        previousClaimedAt: Date | null,
+        db: Db = prisma
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      interface WinBackStatus {
+        sentAt: Date | null;
+        attemptedAt: Date | null;
+      }
+    </item>
+    <item priority="high">
+      export function isUnconfirmed(claimedAt: Date | null, sentAt: Date | null): claimedAt is Date { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function winBackStatusFor(
+        venueId: string,
+        guestIds: readonly string[],
+        db: Db = prisma
+      ): Promise<Map<string, WinBackStatus>> { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/win-back.ts">
+    <item priority="low">
+      interface WinBackCooldown {
+        claimedAt: Date;
+        sentAt: Date | null;
+        retryAfter: Date;
+      }
+    </item>
+    <item priority="low">
+      type WinBackResult = { status: "sent" } | { status: "skipped" } | { status: "failed" } | { status: "unavailable" } | ({ status: "cooldown" } & WinB;
+    </item>
+    <item priority="low">
+      interface WinBackDeps {
+        log?: { error(fields: object, message: string): void };
+      }
+    </item>
+    <item priority="high">
+      export const defaultWinBackDeps: WinBackDeps;
+    </item>
     <item priority="high">
       export async function sendWinBack(
         guest: Guest,
         notificationPort: NotificationDispatcher,
-        venueName: string
-      ): Promise<boolean> { /* ... */ }
+        venueName: string,
+        deps: WinBackDeps = defaultWinBackDeps
+      ): Promise<WinBackResult> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function cooldownDetail(guestName: string, c: WinBackCooldown, timeZone: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function formatInZone(date: Date, timeZone: string): string { /* ... */ }
     </item>
   </file>
   </section>

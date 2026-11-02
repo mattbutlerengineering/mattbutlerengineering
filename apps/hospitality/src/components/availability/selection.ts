@@ -14,6 +14,11 @@ export function dateRange(a: string, b: string): string[] {
   return dates;
 }
 
+/** The dates from `today` on: the server settles a save from today, so a past date is not edited. */
+export function futureDates(dates: readonly string[], today: string): string[] {
+  return dates.filter((d) => d >= today);
+}
+
 export function toggleDate(selection: readonly string[], date: string): string[] {
   return selection.includes(date)
     ? selection.filter((d) => d !== date)

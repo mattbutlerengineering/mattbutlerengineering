@@ -47,6 +47,7 @@ function renderEditor(rules: DateRule[] = [], fixedDates?: readonly string[]) {
     onDirtyChange: vi.fn(),
     onCancel: vi.fn(),
     onFinished: vi.fn(),
+    onStale: vi.fn(),
   };
   const utils = render(
     <ToastProvider>
@@ -244,6 +245,22 @@ describe("AvailabilityDayEditor", () => {
     expect(onDirtyChange).not.toHaveBeenCalledWith(true);
   });
 
+  it("moves focus into the row Edit opened, since the button is gone (#7980)", () => {
+    renderEditor();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
+    const rows = document.querySelectorAll("fieldset");
+    expect(rows.length).toBeGreaterThan(1);
+    expect(rows[1]!.querySelector("input")).toHaveFocus();
+  });
+
+  it("says a save finished as a save (#7980)", async () => {
+    const { onFinished } = renderEditor();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
+    await waitFor(() => expect(onFinished).toHaveBeenCalledWith(true));
+  });
+
   it("this date only: saves one single-date rule against the version it read", async () => {
     const { onDirtyChange, onFinished } = renderEditor();
     fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
@@ -311,12 +328,15 @@ describe("AvailabilityDayEditor", () => {
 
   it("offers Undo on the save toast, reverting that save against the version it produced", async () => {
     revertAsync.mockResolvedValue({ version: 6, changeId: "chg-2" });
-    renderEditor();
+    const { rerender } = renderEditor();
     fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
     fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
     fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
 
-    fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+    const undo = await screen.findByRole("button", { name: "Undo" });
+    // Saved means finished: the drawer takes the editor away, and only then can Undo run.
+    rerender(<ToastProvider>{null}</ToastProvider>);
+    fireEvent.click(undo);
     await waitFor(() =>
       expect(revertAsync).toHaveBeenCalledWith({
         venueId: "venue-1",
@@ -396,6 +416,65 @@ describe("AvailabilityDayEditor", () => {
     expect(sentBody().body.expectedVersion).toBe(4);
   });
 
+  describe("an open editor with no change yet", () => {
+    const reloaded = (version: number, rules: DateRule[] = []) => (
+      <ToastProvider>
+        <main>
+          <AvailabilityDayEditor
+            venueId="venue-1"
+            date={FIXTURE_DATE}
+            day={resolveFixtureDay(...rules)}
+            state={{ config: fixtureConfig(...rules), version, source: "rows" }}
+            timezone={FIXTURE_TIMEZONE}
+            today="2026-10-28"
+            onDirtyChange={vi.fn()}
+            onCancel={vi.fn()}
+            onFinished={vi.fn()}
+          />
+        </main>
+      </ToastProvider>
+    );
+
+    it("follows a reload, so its save goes against the version the reload brought", async () => {
+      const { rerender } = renderEditor();
+      fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+      rerender(reloaded(9));
+      fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
+
+      await waitFor(() => expect(save).toHaveBeenCalled());
+      expect(sentBody().body.expectedVersion).toBe(9);
+    });
+
+    it("takes the reloaded rows too, so a later save cannot write the old hours back", async () => {
+      const { rerender } = renderEditor();
+      fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+      rerender(reloaded(9, [EARLY_DINNER]));
+      fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
+
+      await waitFor(() => expect(save).toHaveBeenCalled());
+      const rule = sentBody().body.changes.upsert.dateRules?.[0] as {
+        payload: { services: Array<{ venueServiceId: string; closesAt: number }> };
+      };
+      expect(rule.payload.services).toEqual([
+        expect.objectContaining({ venueServiceId: "vs-dinner", closesAt: 1320 }),
+      ]);
+    });
+
+    it("stays pinned from the first change on, so a colleague's save still conflicts", async () => {
+      const { rerender } = renderEditor();
+      fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+      rerender(reloaded(9));
+      fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+      rerender(reloaded(10));
+      fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
+
+      await waitFor(() => expect(save).toHaveBeenCalled());
+      expect(sentBody().body.expectedVersion).toBe(9);
+    });
+  });
+
   it("keeps the draft open with an alert when the server rejects the hours", async () => {
     save.mockRejectedValueOnce(
       conflict("invalid-config", {
@@ -411,6 +490,89 @@ describe("AvailabilityDayEditor", () => {
     expect(alert).toHaveTextContent("Lunch overlaps Dinner.");
     expect(onFinished).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Save 1 date" })).toBeInTheDocument();
+  });
+
+  it("disables Save when Keep theirs would write no dates", () => {
+    const second = {
+      ...EARLY_DINNER,
+      id: "r-special-2",
+      startsOn: "2026-11-02",
+      endsOn: "2026-11-02",
+    };
+    renderEditor([EARLY_DINNER, second], [FIXTURE_DATE, "2026-11-02"]);
+    fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+    expect(screen.getByRole("button", { name: "Save 0 dates" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("radio", { name: "Replace them" }));
+    expect(screen.getByRole("button", { name: "Save 2 dates" })).toBeEnabled();
+  });
+
+  describe("+ Add service (ux.md S3, #7979)", () => {
+    function renderClosed() {
+      const state: AvailabilityConfigState = {
+        config: fixtureConfig(VENUE_CLOSURE),
+        version: 4,
+        source: "rows",
+      };
+      const onDirtyChange = vi.fn();
+      render(
+        <ToastProvider>
+          <main>
+            <AvailabilityDayEditor
+              venueId="venue-1"
+              date={FIXTURE_DATE}
+              day={resolveFixtureDay(VENUE_CLOSURE)}
+              state={state}
+              timezone={FIXTURE_TIMEZONE}
+              today="2026-10-28"
+              onDirtyChange={onDirtyChange}
+              onCancel={vi.fn()}
+              onFinished={vi.fn()}
+            />
+          </main>
+        </ToastProvider>
+      );
+      return { onDirtyChange };
+    }
+
+    it("adds a row at once, moves focus to it and leaves something to save", () => {
+      const { onDirtyChange } = renderClosed();
+      fireEvent.click(screen.getByRole("button", { name: "Add service" }));
+      const groups = screen.getAllByRole("group");
+      expect(groups.length).toBeGreaterThan(0);
+      const row = groups.at(-1)!;
+      expect(row).toContainElement(document.activeElement as HTMLElement);
+      expect(onDirtyChange).toHaveBeenLastCalledWith(true);
+      expect(screen.getByRole("button", { name: /^Save/ })).toBeEnabled();
+    });
+  });
+
+  describe("why Save is off (#7979)", () => {
+    it("says there is nothing to save yet, then that the new service needs a name", () => {
+      renderEditor();
+      fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+      expect(screen.getByRole("button", { name: /^Save/ })).toBeDisabled();
+      expect(screen.getByText("Change the hours to save.")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("combobox", { name: "Add service" }));
+      fireEvent.click(screen.getByRole("option", { name: "A new service…" }));
+      expect(screen.getByText("Name the new service to save.")).toBeInTheDocument();
+    });
+
+    it("says when every date keeps its own changes", () => {
+      const second = {
+        ...EARLY_DINNER,
+        id: "r-special-2",
+        startsOn: "2026-11-02",
+        endsOn: "2026-11-02",
+      };
+      renderEditor([EARLY_DINNER, second], [FIXTURE_DATE, "2026-11-02"]);
+      fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+      fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+      expect(screen.getByRole("button", { name: "Save 0 dates" })).toBeDisabled();
+      expect(
+        screen.getByText("Every date keeps its own changes. Choose Replace them to save.")
+      ).toBeInTheDocument();
+    });
   });
 
   it("explains a save that would strand bookings", async () => {
@@ -441,8 +603,8 @@ describe("AvailabilityDayEditor", () => {
       summary: "Dinner closes at 10:00 PM on Fri, Oct 30",
     };
 
-    async function raiseConflict() {
-      save.mockRejectedValueOnce(conflict("version-conflict", { winningChange }));
+    async function raiseConflict(extra: Record<string, unknown> = { currentVersion: 5 }) {
+      save.mockRejectedValueOnce(conflict("version-conflict", { winningChange, ...extra }));
       const utils = renderEditor();
       fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
       fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
@@ -469,11 +631,129 @@ describe("AvailabilityDayEditor", () => {
       expect(within(dialog).getByText("Dinner 5:00 PM – 11:00 PM")).toBeTruthy();
     });
 
-    it("Overwrite saves again against the latest version", async () => {
-      const { dialog, onFinished } = await raiseConflict();
+    const atVersion = (version: number) => (
+      <ToastProvider>
+        <main>
+          <AvailabilityDayEditor
+            venueId="venue-1"
+            date={FIXTURE_DATE}
+            day={resolveFixtureDay()}
+            state={{ config: fixtureConfig(), version, source: "rows" }}
+            timezone={FIXTURE_TIMEZONE}
+            today="2026-10-28"
+            onDirtyChange={vi.fn()}
+            onCancel={vi.fn()}
+            onFinished={vi.fn()}
+            onStale={vi.fn()}
+          />
+        </main>
+      </ToastProvider>
+    );
+
+    it("Overwrite goes against the version the 409 named, with no reload needed", async () => {
+      const { dialog } = await raiseConflict();
+      const overwrite = within(dialog).getByRole("button", { name: "Overwrite" });
+      expect(overwrite).toBeEnabled();
+      fireEvent.click(overwrite);
+      await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+      expect(sentBody().body.expectedVersion).toBe(5);
+    });
+
+    it("does not send a change the dialog never named: a later reload does not move the version", async () => {
+      const { dialog, rerender } = await raiseConflict();
+      // A second colleague saved (v6) before the reload read the config.
+      rerender(atVersion(6));
       fireEvent.click(within(dialog).getByRole("button", { name: "Overwrite" }));
-      await waitFor(() => expect(onFinished).toHaveBeenCalled());
-      expect(sentBody().overwrite).toBe(true);
+      await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+      expect(sentBody().body.expectedVersion).toBe(5);
+    });
+
+    it("keeps Overwrite off, and says nothing false, when the 409 names no version", async () => {
+      const { dialog } = await raiseConflict({});
+      expect(within(dialog).getByRole("button", { name: "Overwrite" })).toBeDisabled();
+      expect(within(dialog).queryByText(/Loading the latest version/)).toBeNull();
+      expect(within(dialog).getByRole("button", { name: "Back to my draft" })).toBeEnabled();
+    });
+
+    it("says nothing about a second save when the Manager has only reviewed", async () => {
+      const { dialog, rerender } = await raiseConflict();
+      rerender(atVersion(5));
+      expect(within(dialog).queryByText(/Someone saved again/)).toBeNull();
+    });
+
+    it("refreshes the dialog when Overwrite finds a newer change, and asks again", async () => {
+      const { dialog } = await raiseConflict();
+      save.mockRejectedValueOnce(
+        conflict("version-conflict", {
+          currentVersion: 6,
+          winningChange: { ...winningChange, id: "chg-10", summary: "Lunch opens at 11:00 AM" },
+        })
+      );
+      fireEvent.click(within(dialog).getByRole("button", { name: "Overwrite" }));
+      expect(await within(dialog).findByText(/Lunch opens at 11:00 AM/)).toBeTruthy();
+      expect(within(dialog).getByText(/Someone saved again/)).toBeTruthy();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Overwrite" }));
+      await waitFor(() => expect(save).toHaveBeenCalledTimes(3));
+      expect(sentBody().body.expectedVersion).toBe(6);
+    });
+
+    it("lets the Manager go back to the draft after a refused Overwrite, edits intact", async () => {
+      const { dialog, onFinished } = await raiseConflict();
+      save.mockRejectedValueOnce(
+        conflict("stranded-bookings", {
+          reservations: [
+            {
+              id: "r1",
+              startTime: "2026-10-30T20:00:00Z",
+              partySize: 4,
+              reason: "outside_service",
+            },
+          ],
+        })
+      );
+      fireEvent.click(within(dialog).getByRole("button", { name: "Overwrite" }));
+      await within(dialog).findByRole("alert");
+      fireEvent.click(within(dialog).getByRole("button", { name: "Back to my draft" }));
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(screen.getByRole("alert")).toHaveTextContent("1 booking would fall outside");
+      expect(screen.getByRole("button", { name: "Save 1 date" })).toBeEnabled();
+      expect(onFinished).not.toHaveBeenCalled();
+    });
+
+    it("starts the next conflict from scratch after going back, not from the old version", async () => {
+      const { dialog } = await raiseConflict();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Back to my draft" }));
+      save.mockRejectedValueOnce(
+        conflict("version-conflict", { winningChange, currentVersion: 6 })
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
+      const again = await screen.findByRole("dialog", {
+        name: "Someone changed availability first",
+      });
+      expect(within(again).queryByText(/Someone saved again/)).toBeNull();
+    });
+
+    it("reloads the config when Discard mine drops the draft, so the next edit starts current", async () => {
+      const { dialog, onStale } = await raiseConflict();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Discard mine" }));
+      expect(onStale).toHaveBeenCalled();
+    });
+
+    it("reloads the config when the save is refused as out of date", async () => {
+      const { onStale } = await raiseConflict();
+      expect(onStale).toHaveBeenCalled();
+    });
+
+    it("shows a failed Overwrite inside the conflict dialog, not behind it", async () => {
+      const { dialog, onFinished } = await raiseConflict();
+      save.mockRejectedValueOnce(
+        conflict("invalid-config", {
+          issues: [{ path: "x", code: "overlap", message: "Lunch overlaps Dinner." }],
+        })
+      );
+      fireEvent.click(within(dialog).getByRole("button", { name: "Overwrite" }));
+      expect(await within(dialog).findByRole("alert")).toHaveTextContent("Lunch overlaps Dinner.");
+      expect(onFinished).not.toHaveBeenCalled();
     });
 
     it("Discard mine drops the draft without saving again", async () => {
@@ -770,23 +1050,119 @@ describe("AvailabilityDayEditor", () => {
           </main>
         </ToastProvider>
       );
+      // The button adds the venue's first spare service, Lunch.
       fireEvent.click(screen.getByRole("button", { name: "Add service" }));
-      fireEvent.click(screen.getByRole("combobox", { name: "Add service" }));
-      fireEvent.click(screen.getByRole("option", { name: "Dinner" }));
       chooseScope(/Your regular week/);
-      // The regular week already has Dinner, so the hours just set are not the ones it keeps.
+      // The regular week already has Lunch, so the hours just set are not the ones it keeps.
       expect(screen.getByRole("status")).toHaveTextContent(
-        "Your hours for Dinner won’t be used: what you’re changing already has them."
+        "Your hours for Lunch won’t be used: what you’re changing already has them."
       );
-      expect(screen.getByRole("button", { name: "Remove Lunch" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Remove Dinner" })).toBeInTheDocument();
       // Nothing differs from the regular week yet, so there is nothing to save.
       expect(screen.getByRole("button", { name: /^Save/ })).toBeDisabled();
 
       // Only what the Manager removes afterwards is removed.
-      fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+      fireEvent.click(screen.getByRole("button", { name: "Remove Dinner" }));
       fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
       await waitFor(() => expect(save).toHaveBeenCalled());
-      expect(sentBody().body.changes.remove.scheduleServices).toEqual(["ss-lunch"]);
+      expect(sentBody().body.changes.remove.scheduleServices).toEqual(["ss-dinner"]);
+    });
+
+    /** Sets the nth time picker of a kind (rows run in opening order). */
+    function setTime(label: string, index: number, value: string) {
+      fireEvent.click(screen.getAllByLabelText(label)[index]!);
+      fireEvent.click(screen.getAllByRole("option", { name: value }).at(-1)!);
+    }
+
+    function startOnClosedDay() {
+      const closed = fixtureConfig(VENUE_CLOSURE);
+      const onDirtyChange = vi.fn();
+      render(
+        <ToastProvider>
+          <main>
+            <AvailabilityDayEditor
+              venueId="venue-1"
+              date={FIXTURE_DATE}
+              day={resolveFixtureDay(VENUE_CLOSURE)}
+              state={{ config: closed, version: 4, source: "rows" }}
+              timezone={FIXTURE_TIMEZONE}
+              today="2026-10-28"
+              onDirtyChange={onDirtyChange}
+              onCancel={vi.fn()}
+              onFinished={vi.fn()}
+            />
+          </main>
+        </ToastProvider>
+      );
+      // The button adds the venue's first spare service, Lunch.
+      fireEvent.click(screen.getByRole("button", { name: "Add service" }));
+      setTime("Closes", 0, "10:00 PM");
+      return { onDirtyChange };
+    }
+
+    const NOT_USED = "Your hours for Lunch won’t be used: what you’re changing already has them.";
+
+    it("an edit named as already there comes back with the scope it was made in", () => {
+      // The date's Dinner closes 8:00 PM, last seating 7:00 PM; the regular week 11:00 PM and 9:00 PM.
+      const { onDirtyChange } = withOwnDay("r-own", { lastSeatingAt: 1140, closesAt: 1200 });
+      fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
+      setTime("Closes", 0, "11:00 PM");
+      chooseScope(/Your regular week/);
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Your hours for Dinner won’t be used: what you’re changing already has them."
+      );
+      chooseScope("This date only");
+      expect(screen.getAllByLabelText("Closes")[0]).toHaveValue("11:00 PM");
+      expect(screen.getByRole("button", { name: /^Save/ })).toBeEnabled();
+      expect(onDirtyChange).toHaveBeenLastCalledWith(true);
+    });
+
+    it("hours added on a closed day survive setting a row to something else and back", () => {
+      const { onDirtyChange } = startOnClosedDay();
+      chooseScope(/Your regular week/);
+      expect(screen.getByRole("status")).toHaveTextContent(NOT_USED);
+      phoneOnlyOn(0);
+      fireEvent.click(screen.getAllByRole("combobox", { name: "Booking" })[0]!);
+      fireEvent.click(screen.getByRole("option", { name: "Online + phone" }));
+      chooseScope("This date only");
+      expect(screen.getByRole("button", { name: "Remove Lunch" })).toBeInTheDocument();
+      expect(screen.getAllByLabelText("Closes")[0]).toHaveValue("10:00 PM");
+      expect(screen.getByRole("button", { name: /^Save/ })).toBeEnabled();
+      expect(onDirtyChange).toHaveBeenLastCalledWith(true);
+    });
+
+    it("the line about held hours stays while editing another row on the regular week", () => {
+      startOnClosedDay();
+      chooseScope(/Your regular week/);
+      expect(screen.getByRole("status")).toHaveTextContent(NOT_USED);
+      phoneOnlyOn(1);
+      expect(screen.getByRole("status")).toHaveTextContent(NOT_USED);
+    });
+
+    it("the line about held hours is still there after a switch through a scope that has the service", () => {
+      withOwnDay();
+      fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
+      chooseScope(/Your regular week/);
+      fireEvent.click(screen.getByRole("combobox", { name: "Add service" }));
+      fireEvent.click(screen.getByRole("option", { name: "Late" }));
+      chooseScope("This date only");
+      expect(screen.getByRole("status")).toHaveTextContent("Late");
+      chooseScope(/^Every/);
+      expect(screen.getByRole("status")).toHaveTextContent("Late");
+    });
+
+    it("an edit the Manager touched on the regular week is named when the date returns without it", () => {
+      // The date's Dinner closes 8:00 PM, last seating 7:00 PM; the regular week 11:00 PM and 9:00 PM.
+      withOwnDay("r-own", { lastSeatingAt: 1140, closesAt: 1200 });
+      fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
+      setTime("Closes", 0, "11:00 PM");
+      chooseScope(/Your regular week/);
+      expect(screen.getByRole("status")).toHaveTextContent("Dinner");
+      phoneOnlyOn(2);
+      chooseScope("This date only");
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Your edit to Dinner won’t be saved: it isn’t in what you’re changing now."
+      );
     });
 
     it("keeps the regular week's other services: nothing the Manager did not remove is deleted", async () => {

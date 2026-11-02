@@ -138,6 +138,9 @@ describe("SeriesGrowthStepTwo refusals", () => {
     expect(onReload).toHaveBeenCalledTimes(1);
     // The old choice is void: the Manager decides again on the fresh group.
     expect(within(dialog).getByRole("button", { name: "Choose for each group" })).toBeDisabled();
+    expect(
+      within(dialog).getByRole("button", { name: "Choose for each group" })
+    ).toHaveAccessibleDescription(/each group/i);
   });
 
   it("sends the reservation ids it was given after a reload, never the old ones", async () => {
@@ -169,7 +172,7 @@ describe("SeriesGrowthStepTwo refusals", () => {
       create.mockRejectedValueOnce(lost()).mockResolvedValueOnce(SAVED);
       const { dialog } = renderStep();
       chooseCancelAndSave(dialog);
-      await within(dialog).findByText(/Can't reach/);
+      await within(dialog).findByText(/may have gone through/);
       fireEvent.click(within(dialog).getByRole("button", { name: /Close and cancel/ }));
 
       await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
@@ -182,7 +185,7 @@ describe("SeriesGrowthStepTwo refusals", () => {
       create.mockRejectedValueOnce(lost()).mockRejectedValueOnce(refusal("version-conflict"));
       const { dialog } = renderStep();
       chooseCancelAndSave(dialog);
-      await within(dialog).findByText(/Can't reach/);
+      await within(dialog).findByText(/may have gone through/);
       fireEvent.click(within(dialog).getByRole("radio", { name: "Keep them and notify" }));
       fireEvent.click(within(dialog).getByRole("button", { name: /Close and keep/ }));
 
@@ -196,7 +199,7 @@ describe("SeriesGrowthStepTwo refusals", () => {
       create.mockRejectedValueOnce(lost());
       const { dialog, onClose } = renderStep();
       chooseCancelAndSave(dialog);
-      await within(dialog).findByText(/Can't reach/);
+      await within(dialog).findByText(/may have gone through/);
       refresh.mockClear();
 
       fireEvent.keyDown(document, { key: "Escape" });

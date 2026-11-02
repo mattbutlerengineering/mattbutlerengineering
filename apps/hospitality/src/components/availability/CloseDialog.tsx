@@ -17,11 +17,17 @@ import {
   buildCloseRule,
   closedDates,
   decisionsReady,
+  focusCloseField,
+  inSeries,
   isUrgent,
   outcomeCounts,
   replacedSpecialDate,
   sameRequest,
+  seriesForm,
+  settleStartMinute,
   startMinutes,
+  stepTwoNote,
+  stepTwoNoteId,
   toDecisions,
   validateClose,
   type BookingChannel,
@@ -29,6 +35,7 @@ import {
   type CloseField,
   type CloseForm,
 } from "./close-draft.js";
+import { AlreadyClosedNotice } from "./AlreadyClosedNotice.js";
 import { LeaveSaveDialog } from "./LeaveSaveDialog.js";
 import { useSaveAttempts } from "./use-save-attempts.js";
 import { useWinningChangeText } from "./use-winning-change-text.js";
@@ -83,36 +90,6 @@ function initialForm(props: CloseDialogProps): CloseForm {
   };
 }
 
-function whatOf(series: DateRule): CloseForm["what"] {
-  if (series.targetKind === "service" && series.venueServiceId) {
-    return { kind: "service", serviceId: series.venueServiceId };
-  }
-  if (series.targetKind === "booking" && series.bookingTypes?.length) {
-    return { kind: "booking", types: [...series.bookingTypes] };
-  }
-  return { kind: "venue" };
-}
-
-/** The form for editing one date of `series`: the series' target and start time, on that date. */
-function seriesForm(series: DateRule, date: string): CloseForm {
-  return {
-    what: whatOf(series),
-    when: { kind: "date", date },
-    fromMinute: series.window?.from ?? null,
-    staffNote: "",
-    guestMessage: "",
-  };
-}
-
-/**
- * An edit of one date of a series. The engine applies a rule with a `seriesId` on its start date
- * only, so the rule is pinned to that single date whatever the form says.
- */
-function inSeries(rule: DateRule | null, series: DateRule | undefined): DateRule | null {
-  if (!rule || !series) return rule;
-  return { ...rule, seriesId: series.id, endsOn: rule.startsOn, repeat: null };
-}
-
 /** The button for a booking-only closure names the channels it pauses, not always "online". */
 function pauseLabel(types: readonly BookingChannel[], t: TFunction): string {
   const only = types.length === 1 ? types[0] : undefined;
@@ -150,7 +127,10 @@ export function CloseDialog(props: CloseDialogProps) {
   const { ruleId, idempotencyKey, earlier } = attempts;
   const savedEarlier = earlier !== undefined;
   const leave = () => attempts.leave(isPending);
-  const edit = (next: CloseForm) => {
+  const [startReset, setStartReset] = useState(false);
+  const edit = (changed: CloseForm) => {
+    const next = settleStartMinute(form, changed, state.config, timezone, today);
+    setStartReset(next.fromMinute !== changed.fromMinute);
     if (!sameRequest(next, form)) {
       setChoices({});
       attempts.restart();
@@ -199,7 +179,7 @@ export function CloseDialog(props: CloseDialogProps) {
   const next = () => {
     const problem = validateClose(form, today);
     setInvalid(problem);
-    if (problem) return;
+    if (problem) return focusCloseField(problem);
     if (groups.length > 0) setStep(2);
     else void save();
   };
@@ -217,14 +197,16 @@ export function CloseDialog(props: CloseDialogProps) {
       });
       const { cancel, move, keep_notify } = result.outcomes;
       const notified = cancel + move + keep_notify;
+      // A repeat's From date may not be one of its days.
+      const date = fullDate(closedDates(rule)[0] ?? startsOn);
       const title =
         notified > 0
-          ? t("availability.close.toast.notified", { date: fullDate(startsOn), count: notified })
+          ? t("availability.close.toast.notified", { date, count: notified })
           : form.what.kind === "booking"
             ? form.what.types.length === 1 && form.what.types[0] === "online"
               ? t("availability.close.toast.paused")
-              : t("availability.close.toast.bookingPaused", { date: fullDate(startsOn) })
-            : t("availability.close.toast.closed", { date: fullDate(startsOn) });
+              : t("availability.close.toast.bookingPaused", { date })
+            : t("availability.close.toast.closed", { date });
       toast({ title, variant: "success" });
       onClose();
     } catch (error) {
@@ -289,8 +271,13 @@ export function CloseDialog(props: CloseDialogProps) {
           ) : (
             <div className={styles.footer}>
               {step === 2 && (
-                <Text variant="caption" color="secondary" className={styles.footerNote}>
-                  {t("availability.close.step2.irreversible")}
+                <Text
+                  id={stepTwoNoteId}
+                  variant="caption"
+                  color="secondary"
+                  className={styles.footerNote}
+                >
+                  {stepTwoNote(decisionsReady(groups, choices), t)}
                 </Text>
               )}
               <Button
@@ -303,6 +290,7 @@ export function CloseDialog(props: CloseDialogProps) {
               <Button
                 variant="primary"
                 data-testid="close-primary"
+                aria-describedby={step === 2 ? stepTwoNoteId : undefined}
                 onClick={step === 2 ? () => void save() : next}
                 isLoading={isPending}
                 disabled={primaryDisabled}
@@ -328,6 +316,14 @@ export function CloseDialog(props: CloseDialogProps) {
             {winner && <Text variant="body">{winnerText}</Text>}
           </Alert>
         )}
+        {!savedEarlier && step === 1 && (
+          <AlreadyClosedNotice
+            rules={state.config.dateRules}
+            draft={rule}
+            services={services}
+            today={today}
+          />
+        )}
         {/* A save in flight sends what was chosen: no control may change it meanwhile. */}
         <fieldset className={styles.lock} disabled={isPending} hidden={savedEarlier}>
           {step === 1 ? (
@@ -344,6 +340,7 @@ export function CloseDialog(props: CloseDialogProps) {
               locked={props.hostLocked}
               dateLocked={series !== undefined}
               startOptions={startOptions}
+              startReset={startReset}
             />
           ) : (
             <>

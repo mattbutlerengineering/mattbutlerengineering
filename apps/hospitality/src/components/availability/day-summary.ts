@@ -9,7 +9,38 @@ export interface ServiceLineText {
   readonly text: string;
 }
 
+/** What the quick setup and the legacy migration name the first schedule, before anyone renames it. */
+const SEEDED_REGULAR_WEEK = "Regular week";
+
+/**
+ * A schedule's name is the Manager's own words and stays as typed, except the name the system
+ * seeded in en-US, which reads in the viewer's language until someone renames it.
+ */
+export function scheduleNameText(name: string, t: TFunction): string {
+  return name === SEEDED_REGULAR_WEEK ? t("availabilitySchedules.regularMarker") : name;
+}
+
+/**
+ * `GET …/days` writes a day's label in en-US: "Closed", "Special hours" or "Open"
+ * (`dayLabel` in the reservations service), or else the schedule's name. A schedule a Manager
+ * really named "Closed" reads translated too, which says the same thing.
+ */
+export function dayLabelText(label: string, t: TFunction): string {
+  switch (label) {
+    case "Closed":
+      return t("availability.calendar.dayLabel.closed");
+    case "Special hours":
+      return t("availability.calendar.dayLabel.specialHours");
+    case "Open":
+      return t("availability.calendar.dayLabel.open");
+    default:
+      return scheduleNameText(label, t);
+  }
+}
+
 export interface DayPresentation {
+  /** The day's label in the viewer's language. */
+  readonly label: string | null;
   readonly bands: readonly ClosureBandText[];
   /** "2 services", or `null` when the count is not worth showing. */
   readonly count: string | null;
@@ -62,9 +93,10 @@ export function presentDay(
   );
   const onlineOff = summary !== undefined && !summary.bookingOpen.online && !bandNamesOnline;
 
+  const label = summary ? dayLabelText(summary.label, t) : null;
   const parts = summary
     ? [
-        summary.label,
+        label,
         ...(count ? [count] : []),
         ...bands.map((b) => b.name),
         ...services.map((s) => s.text),
@@ -78,6 +110,7 @@ export function presentDay(
     day: "numeric",
   });
   return {
+    label,
     bands,
     count,
     services,

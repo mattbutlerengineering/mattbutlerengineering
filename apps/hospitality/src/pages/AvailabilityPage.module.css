@@ -1,11 +1,5 @@
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--rialto-space-sm);
-}
-
-.summaryRow {
+/* The tabs and the week's summary share a row where they fit, so the calendar starts higher. */
+.controlsRow {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -13,6 +7,28 @@
   gap: var(--rialto-space-sm);
 }
 
-.period {
-  font-weight: 600;
+.summaryRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+}
+
+/*
+ * Rialto's controls are sized for a desktop's density. A phone needs 44 px under a finger
+ * (ux.md), on this page only: dialogs and drawers render in place, so this reaches them too.
+ * A calendar's day cells keep their size, or seven of them would not fit a dialog.
+ */
+@media (max-width: 767px) {
+  .page button:not([role="gridcell"], [role="gridcell"] *),
+  .page [role="combobox"],
+  .page [role="option"],
+  .page select,
+  .page input:not([type="checkbox"], [type="radio"]) {
+    min-height: 2.75rem;
+  }
+
+  .page button:not([role="gridcell"], [role="gridcell"] *) {
+    min-width: 2.75rem;
+  }
 }

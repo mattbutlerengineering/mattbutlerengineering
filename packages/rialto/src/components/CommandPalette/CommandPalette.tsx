@@ -263,6 +263,13 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
             e.preventDefault();
             onOpenChange(false);
             break;
+          case "Tab":
+            // The panel is not one of the trap's ends, so Shift+Tab from it would leave the palette.
+            if (e.target === panelRef.current) {
+              e.preventDefault();
+              inputRef.current?.focus();
+            }
+            break;
         }
       },
       [flatItems, activeIndex, selectItem, onOpenChange]
@@ -290,6 +297,8 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
               role="dialog"
               aria-modal="true"
               aria-label={messages.commandPalette}
+              /* A click on anything that is not a control keeps focus here, not on the page behind. */
+              tabIndex={-1}
               /* Opens 100+ times a day: opacity only, no scale or travel (docs/motion.md). */
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}

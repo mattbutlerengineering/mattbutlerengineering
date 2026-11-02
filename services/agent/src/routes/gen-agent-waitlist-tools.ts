@@ -4,9 +4,11 @@ import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
 import {
   NO_VENUE,
+  failureLog,
   localTimeIn,
   refusalOf,
   resolveTable,
+  saveUnsure,
   type ApiClient,
 } from "./gen-tool-support.js";
 
@@ -33,12 +35,18 @@ const PartySchema = {
     .describe("Only when two waiting parties share the name: this party's size"),
 };
 
-/** A refused or failed waitlist write, in words the model can pass on. */
-function waitlistFailure(err: unknown, action: string) {
+const WAITLIST_SAVE_UNSURE = saveUnsure("list_waitlist");
+
+/**
+ * A refused or failed waitlist write, in words the model can pass on. `unsure` is set
+ * once the write is on its way: until then a failure can't have changed anything.
+ */
+function waitlistFailure(err: unknown, action: string, unsure: string | undefined) {
   const refusal = refusalOf(err);
   if (!refusal) {
     return {
-      error: `Couldn't ${action} right now. Nothing was changed. Ask the user to try again.`,
+      error:
+        unsure ?? `Couldn't ${action} right now. Nothing was changed. Ask the user to try again.`,
     };
   }
   if (refusal.status === 403) {
@@ -113,7 +121,7 @@ export function createWaitlistTools(
             });
           return { parties };
         } catch (err) {
-          log.error({ err, venueId }, "list_waitlist failed");
+          log.error({ ...failureLog(err), venueId }, "list_waitlist failed");
           const refusal = refusalOf(err);
           return refusal?.status === 403
             ? { refused: true, error: "The user doesn't have permission to see the waitlist." }
@@ -142,8 +150,9 @@ export function createWaitlistTools(
             quotedWaitMinutes: added.estimatedWaitMinutes,
           };
         } catch (err) {
-          log.error({ err, venueId }, "add_to_waitlist failed");
-          return waitlistFailure(err, "add the party");
+          log.error({ ...failureLog(err), venueId }, "add_to_waitlist failed");
+          // The write is the tool's first call, so any failure may have saved.
+          return waitlistFailure(err, "add the party", WAITLIST_SAVE_UNSURE);
         }
       },
     }),
@@ -155,6 +164,7 @@ export function createWaitlistTools(
       execute: async ({ guestName, partySize }) => {
         if (!venueId) return NO_VENUE;
         log.info({ venueId }, "notify_waitlist_party tool called");
+        let unsure: string | undefined;
         try {
           const found = await findParty(api, venueId, guestName, partySize);
           if ("error" in found) return found;
@@ -165,11 +175,12 @@ export function createWaitlistTools(
               error: `${found.entry.guestName} was already told their table is ready${at ? ` at ${at}` : ""}. No new text was sent.`,
             };
           }
+          unsure = WAITLIST_SAVE_UNSURE;
           await api.waitlist.notify(found.entry.id);
           return { notified: true, guestName: found.entry.guestName };
         } catch (err) {
-          log.error({ err, venueId }, "notify_waitlist_party failed");
-          return waitlistFailure(err, "notify the party");
+          log.error({ ...failureLog(err), venueId }, "notify_waitlist_party failed");
+          return waitlistFailure(err, "notify the party", unsure);
         }
       },
     }),
@@ -185,6 +196,7 @@ export function createWaitlistTools(
         if (!venueId) return NO_VENUE;
         log.info({ venueId, tableRef }, "seat_waitlist_party tool called");
         let seatedAt: string | undefined;
+        let unsure: string | undefined;
         try {
           const found = await findParty(api, venueId, guestName, partySize);
           if ("error" in found) return found;
@@ -199,6 +211,8 @@ export function createWaitlistTools(
               error: `Table ${label} is ${table.status.toLowerCase()}, so the party can't be seated there. Nothing was changed.`,
             };
           }
+          // The walk-in is what would have saved, and the party stays listed either way.
+          unsure = saveUnsure("get_table_status");
           await api.reservations.walkIn({
             venueId,
             partySize: entry.partySize,
@@ -209,7 +223,7 @@ export function createWaitlistTools(
           await api.waitlist.seat(entry.id);
           return { seated: true, guestName: entry.guestName, table: label };
         } catch (err) {
-          log.error({ err, venueId }, "seat_waitlist_party failed");
+          log.error({ ...failureLog(err), venueId }, "seat_waitlist_party failed");
           // The walk-in exists, so the party is seated; only the waitlist row is stale (as WaitlistPage reports it).
           if (seatedAt) {
             return {
@@ -219,7 +233,7 @@ export function createWaitlistTools(
               note: `The party is seated at ${seatedAt}, but they are still shown on the waitlist. Tell the user to remove them from the Waitlist page.`,
             };
           }
-          return waitlistFailure(err, "seat the party");
+          return waitlistFailure(err, "seat the party", unsure);
         }
       },
     }),
@@ -231,14 +245,16 @@ export function createWaitlistTools(
       execute: async ({ guestName, partySize }) => {
         if (!venueId) return NO_VENUE;
         log.info({ venueId }, "remove_from_waitlist tool called");
+        let unsure: string | undefined;
         try {
           const found = await findParty(api, venueId, guestName, partySize);
           if ("error" in found) return found;
+          unsure = WAITLIST_SAVE_UNSURE;
           await api.waitlist.cancel(found.entry.id);
           return { removed: true, guestName: found.entry.guestName };
         } catch (err) {
-          log.error({ err, venueId }, "remove_from_waitlist failed");
-          return waitlistFailure(err, "remove the party");
+          log.error({ ...failureLog(err), venueId }, "remove_from_waitlist failed");
+          return waitlistFailure(err, "remove the party", unsure);
         }
       },
     }),

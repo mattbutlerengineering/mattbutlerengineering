@@ -281,7 +281,12 @@ export function planSave(input: {
 
 export type SaveOutcome =
   | { kind: "saved"; version: number; changeId: string }
-  | { kind: "version_conflict"; winningChange: AvailabilityChangeSummary | null }
+  | {
+      kind: "version_conflict";
+      winningChange: AvailabilityChangeSummary | null;
+      /** The version read before `winningChange`, so a later save can only make the winner newer. */
+      currentVersion: number;
+    }
   | { kind: "not_found" }
   | Exclude<SavePlan, { kind: "write" }>;
 
@@ -333,13 +338,25 @@ export async function futureBookings(
       ...stillToServeWhere(now),
       status: { notIn: [...NOT_BOOKED_STATUSES] },
     },
-    select: { id: true, tableId: true, startTime: true, partySize: true, date: true },
+    select: {
+      id: true,
+      tableId: true,
+      startTime: true,
+      partySize: true,
+      date: true,
+      guestName: true,
+    },
   });
 }
 
 export async function refuseStale(db: StoreDb, venueId: string): Promise<SaveOutcome> {
-  const exists = await db.venue.findUnique({ where: { id: venueId }, select: { id: true } });
+  const exists = await db.venue.findUnique({
+    where: { id: venueId },
+    select: { id: true, availabilityVersion: true },
+  });
   if (!exists) return { kind: "not_found" };
+  // Read before the winner: a save landing between the two reads makes the winner newer than this
+  // version, so an Overwrite against it is refused again, never applied over a change unnamed.
   const winner = await db.availabilityChange.findFirst({
     where: { venueId },
     orderBy: { at: "desc" },
@@ -347,6 +364,7 @@ export async function refuseStale(db: StoreDb, venueId: string): Promise<SaveOut
   });
   return {
     kind: "version_conflict",
+    currentVersion: exists.availabilityVersion,
     winningChange: winner && { ...winner, at: winner.at.toISOString() },
   };
 }

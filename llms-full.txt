@@ -3404,6 +3404,7 @@
           venueAddress: null,
           manageToken,
           updatedAt: reservation.updatedAt,
+          originHost: reservation.originHost ?? null,
         });
       }
     
@@ -3435,6 +3436,7 @@
               venueAddress: null,
               manageToken,
               updatedAt: reservation.updatedAt,
+              originHost: reservation.originHost ?? null,
             },
             preference
           );
@@ -3470,6 +3472,7 @@
               venueAddress: null,
               manageToken,
               updatedAt: updated.updatedAt,
+              originHost: updated.originHost ?? null,
             },
             preference
           );
@@ -4921,13 +4924,28 @@
       const span = spanOf(when, today);
       if (span.startsOn === "") return false;
       if (span.endsOn !== null && (span.endsOn === "" || span.endsOn < span.startsOn)) return false;
-      return span.weekdays === undefined || span.weekdays.length > 0;
+      // A repeat with no day picked, or none in its range, would save and close nothing.
+      return guestDateOf(when, today) !== null;
     }
     export function validateClose(form: CloseForm, today: string): CloseField | null {
       if (!whatIsComplete(form.what)) return "what";
       if (!whenIsComplete(form.when, today)) return "when";
       if (form.guestMessage.trim().length > GUEST_MESSAGE_MAX_LENGTH) return "guestMessage";
       return null;
+    }
+    export const closeFieldId = (field: CloseField) => `close-field-${field}`;
+    export const closeWhenId = (when: CloseWhen, days: boolean) =>
+      (when.kind === "repeats" && when.from !== "" && when.to >= when.from) === days
+        ? closeFieldId("when")
+        : undefined;
+    export function focusCloseField(field: CloseField) {
+      const target = document.getElementById(closeFieldId(field));
+      (target?.querySelector("input") ?? target)?.focus();
+    }
+    export const stepTwoNoteId = "close-step-two-note";
+    export function stepTwoNote(ready: boolean, t: TFunction): string {
+      const irreversible = t("availability.close.step2.irreversible");
+      return ready ? irreversible : `${t("availability.close.step2.blocked")} ${irreversible}`;
     }
     function targetOf(what: CloseWhat) {
       switch (what.kind) {
@@ -5028,6 +5046,47 @@
         ? [...options, keep].sort((a, b) => a - b)
         : options;
     }
+    export function settleStartMinute(
+      prev: CloseForm,
+      next: CloseForm,
+      config: AvailabilityConfig,
+      timezone: string,
+      today: string
+    ): CloseForm {
+      if (next.when === prev.when || next.fromMinute === null) return next;
+      if (!whenIsComplete(next.when, today)) return next;
+      const { startsOn, endsOn, weekdays } = spanOf(next.when, today);
+      const repeat = weekdays ? { version: 1 as const, weekdays: [...weekdays] } : null;
+      const [first = 0] = startMinutes(
+        config,
+        timezone,
+        closedDates({ startsOn, endsOn, repeat }),
+        null
+      );
+      return next.fromMinute < first ? { ...next, fromMinute: null } : next;
+    }
+    function whatOf(series: DateRule): CloseWhat {
+      if (series.targetKind === "service" && series.venueServiceId) {
+        return { kind: "service", serviceId: series.venueServiceId };
+      }
+      if (series.targetKind === "booking" && series.bookingTypes?.length) {
+        return { kind: "booking", types: [...series.bookingTypes] };
+      }
+      return { kind: "venue" };
+    }
+    export function seriesForm(series: DateRule, date: string): CloseForm {
+      return {
+        what: whatOf(series),
+        when: { kind: "date", date },
+        fromMinute: series.window?.from ?? null,
+        staffNote: "",
+        guestMessage: "",
+      };
+    }
+    export function inSeries(rule: DateRule | null, series: DateRule | undefined): DateRule | null {
+      if (!rule || !series) return rule;
+      return { ...rule, seriesId: series.id, endsOn: rule.startsOn, repeat: null };
+    }
     export function sameRequest(a: CloseForm, b: CloseForm): boolean {
       const key = (f: CloseForm) => JSON.stringify([f.what, f.when, f.fromMinute]);
       return key(a) === key(b);
@@ -5091,28 +5150,54 @@
       const startMinute = (startsOn === today ? 0 : MINUTES_PER_DAY) + (closure.fromMinute ?? 0);
       return startMinute - nowMinute <= URGENT_WITHIN_MINUTES;
     }
-    export function activeOnlinePause(
+    export function isPauseInForce(
+      rule: DateRule,
+      config: AvailabilityConfig,
+      timezone: string,
+      today: string,
+      nowMinute: number
+    ): boolean {
+      if (!rule.window || rule.window.from <= nowMinute) return true;
+      const yesterdayMinute = nowMinute + MINUTES_PER_DAY;
+      if (
+        rule.startsOn < today &&
+        rule.window.from <= yesterdayMinute &&
+        yesterdayMinute < lastCloseOf(resolveDay({ timezone, config }, addDays(today, -1)).services)
+      ) {
+        return true;
+      }
+      const isWindowedOnlineClosure = (r: DateRule) =>
+        r.kind === "closure" &&
+        r.targetKind === "booking" &&
+        (r.bookingTypes ?? []).includes("online") &&
+        r.window != null;
+      const without = {
+        ...config,
+        dateRules: config.dateRules.filter((r) => !isWindowedOnlineClosure(r)),
+      };
+      return (
+        onlineSeatingLeft(without, timezone, today, nowMinute) &&
+        !onlineSeatingLeft(config, timezone, today, nowMinute)
+      );
+    }
+    export function shownOnlinePause(
       config: AvailabilityConfig,
       timezone: string,
       today: string,
       nowMinute: number
     ): DateRule | null {
-      const yesterdayMinute = nowMinute + MINUTES_PER_DAY;
-      const yesterdayRunning = () =>
-        yesterdayMinute < lastCloseOf(resolveDay({ timezone, config }, addDays(today, -1)).services);
+      const pauses = config.dateRules.filter(
+        (r) =>
+          r.kind === "closure" &&
+          r.targetKind === "booking" &&
+          (r.bookingTypes ?? []).includes("online") &&
+          r.startsOn <= today &&
+          (r.endsOn === null || r.endsOn === undefined) &&
+          !r.repeat
+      );
+      const earliest = [...pauses].sort((a, b) => (a.window?.from ?? 0) - (b.window?.from ?? 0))[0];
       return (
-        config.dateRules.find(
-          (r) =>
-            r.kind === "closure" &&
-            r.targetKind === "booking" &&
-            (r.bookingTypes ?? []).includes("online") &&
-            r.startsOn <= today &&
-            (r.endsOn === null || r.endsOn === undefined) &&
-            !r.repeat &&
-            (!r.window ||
-              r.window.from <= nowMinute ||
-              (r.startsOn < today && r.window.from <= yesterdayMinute && yesterdayRunning()))
-        ) ?? null
+        pauses.find((r) => isPauseInForce(r, config, timezone, today, nowMinute)) ?? earliest ?? null
       );
     }
   </file>
@@ -5181,6 +5266,79 @@
       return { key: closure.ruleId, text, name };
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/closure-overlap-text.ts">
+    function targetText(by: ClosedByRule, services: readonly VenueService[], t: TFunction): string {
+      switch (by.targetKind) {
+        case "venue":
+          return t("availability.close.what.venue");
+        case "service":
+          return (
+            services.find((s) => s.id === by.venueServiceId)?.name ??
+            t("availability.closureOverlap.service")
+          );
+        case "booking":
+          return t("availability.closureOverlap.booking", {
+            channels: (by.bookingTypes ?? [])
+              .map((c) => t(`availability.close.what.channel.${c}`))
+              .join(", "),
+          });
+        default:
+          return t("availability.closureOverlap.tables");
+      }
+    }
+    function spanText(by: ClosedByRule, t: TFunction, format: VenueFormat): string | null {
+      const date = (d: string) => format.formatCalendarDate(d, DATE_FORMAT);
+      const from = date(by.startsOn);
+      const span =
+        by.endsOn == null
+          ? t("availabilitySpecial.untilReopened", { from })
+          : by.endsOn === by.startsOn
+            ? null
+            : t("availabilitySpecial.range", { from, to: date(by.endsOn) });
+      if (by.repeat == null) return span;
+      const days = by.repeat.weekdays.map((d) =>
+        format.formatCalendarDate(addDays(SUNDAY, d), { weekday: "long" })
+      );
+      return t("availabilitySpecial.reopen.subjectRepeat", {
+        days: new Intl.ListFormat(format.locale, { type: "conjunction" }).format(days),
+        span: span ?? from,
+      });
+    }
+    function closureText(
+      by: ClosedByRule,
+      services: readonly VenueService[],
+      t: TFunction,
+      format: VenueFormat
+    ): string {
+      const from = by.window
+        ? t("availability.close.window.from", { time: minuteText(by.window.from, t, format) })
+        : null;
+      return [targetText(by, services, t), from, spanText(by, t, format)]
+        .filter((part) => part !== null)
+        .join(SEPARATOR);
+    }
+    function datesText(dates: readonly string[], t: TFunction, format: VenueFormat): string {
+      const named = dates.slice(0, DATES_NAMED).map((d) => format.formatCalendarDate(d, DATE_FORMAT));
+      const rest = dates.length - named.length;
+      return rest === 0
+        ? new Intl.ListFormat(format.locale, { type: "conjunction" }).format(named)
+        : t("availability.closureOverlap.moreDates", { dates: named.join(", "), count: rest });
+    }
+    export function overlapLines(
+      overlap: ClosureOverlap,
+      kind: "already" | "stays",
+      services: readonly VenueService[],
+      t: TFunction,
+      format: VenueFormat
+    ): readonly string[] {
+      return overlap.by.map((by) =>
+        t(`availability.closureOverlap.${kind}`, {
+          dates: datesText(by.dates, t, format),
+          closure: closureText(by, services, t, format),
+        })
+      );
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/compare-changes.ts">
     type Hours = Pick<
       ScheduleService,
@@ -5223,6 +5381,49 @@
         const was = stored.get(r.scheduleServiceId);
         return was !== undefined && hoursOf(was) !== hoursOf(r);
       });
+    }
+    export function rowsChangedSince(
+      before: AvailabilityConfig,
+      after: AvailabilityConfig,
+      edits: readonly CompareRow[]
+    ): string[] {
+      const was = new Map(before.scheduleServices.map((s) => [s.id, s]));
+      const now = new Map(after.scheduleServices.map((s) => [s.id, s]));
+      return edits
+        .filter((e) => {
+          const old = was.get(e.scheduleServiceId);
+          const next = now.get(e.scheduleServiceId);
+          return old !== undefined && next !== undefined && hoursOf(old) !== hoursOf(next);
+        })
+        .map((e) => e.scheduleName);
+    }
+    export function rowsRemovedSince(
+      after: AvailabilityConfig,
+      edits: readonly CompareRow[]
+    ): string[] {
+      const now = compareRowsById(after);
+      return edits.filter((e) => !now.has(e.scheduleServiceId)).map((e) => e.scheduleName);
+    }
+    export function reapplyEdits(
+      before: AvailabilityConfig,
+      after: AvailabilityConfig,
+      edits: readonly CompareRow[]
+    ): Record<string, CompareRow> {
+      const was = new Map(before.scheduleServices.map((s) => [s.id, s]));
+      const latest = compareRowsById(after);
+      const entries = edits.flatMap((e) => {
+        const old = was.get(e.scheduleServiceId);
+        const next = latest.get(e.scheduleServiceId);
+        if (!old || !next) return [];
+        const mine = HOURS_FIELDS.filter((f) => !sameValue(old[f], e[f]));
+        const merged = { ...next, ...Object.fromEntries(mine.map((f) => [f, e[f]])) } as CompareRow;
+        return [[e.scheduleServiceId, merged] as const];
+      });
+      return Object.fromEntries(entries);
+    }
+    function compareRowsById(config: AvailabilityConfig): Map<string, CompareRow> {
+      const rows = config.venueServices.flatMap((v) => compareRows(config, v.id));
+      return new Map(rows.map((r) => [r.scheduleServiceId, r]));
     }
     export function buildCompareChanges(
       config: AvailabilityConfig,
@@ -5343,12 +5544,16 @@
       readonly from: string;
       /** `null`: until changed again. */
       readonly until: string | null;
+      /** Today on the venue clock: dates before it are history and are not copied to. */
+      readonly today?: string;
     }
     export function copyDayDates(target: CopyTarget): string[] {
       const last = addDays(target.from, SCOPE_HORIZON_DAYS - 1);
       const end = target.until !== null && target.until < last ? target.until : last;
+      const first =
+        target.today !== undefined && target.today > target.from ? target.today : target.from;
       const dates: string[] = [];
-      for (let d = target.from; d <= end; d = addDays(d, 1)) {
+      for (let d = first; d <= end; d = addDays(d, 1)) {
         if (target.weekdays.includes(weekdayIndexOf(d))) dates.push(d);
       }
       return dates;
@@ -5365,6 +5570,7 @@
         scope: { kind: "weekday", from: input.from, until: input.until },
         services: input.services,
         makeId: input.makeId,
+        today: input.today,
       });
       const weekdays = [...input.weekdays].sort((a, b) => a - b);
       return {
@@ -5398,7 +5604,24 @@
       /** "Lunch 11:00 AM – 2:00 PM". */
       readonly text: string;
     }
+    export function scheduleNameText(name: string, t: TFunction): string {
+      return name === SEEDED_REGULAR_WEEK ? t("availabilitySchedules.regularMarker") : name;
+    }
+    export function dayLabelText(label: string, t: TFunction): string {
+      switch (label) {
+        case "Closed":
+          return t("availability.calendar.dayLabel.closed");
+        case "Special hours":
+          return t("availability.calendar.dayLabel.specialHours");
+        case "Open":
+          return t("availability.calendar.dayLabel.open");
+        default:
+          return scheduleNameText(label, t);
+      }
+    }
     export interface DayPresentation {
+      /** The day's label in the viewer's language. */
+      readonly label: string | null;
       readonly bands: readonly ClosureBandText[];
       /** "2 services", or `null` when the count is not worth showing. */
       readonly count: string | null;
@@ -5448,9 +5671,10 @@
       );
       const onlineOff = summary !== undefined && !summary.bookingOpen.online && !bandNamesOnline;
     
+      const label = summary ? dayLabelText(summary.label, t) : null;
       const parts = summary
         ? [
-            summary.label,
+            label,
             ...(count ? [count] : []),
             ...bands.map((b) => b.name),
             ...services.map((s) => s.text),
@@ -5464,6 +5688,7 @@
         day: "numeric",
       });
       return {
+        label,
         bands,
         count,
         services,
@@ -5744,9 +5969,11 @@
         const dateRules = singles.map((d) => dateRule(config, d, payload, makeId));
         return { upsert: { ...venueServices, dateRules }, remove: {} };
       }
+      // A rule from a past day would rewrite hours that already happened: start it today instead.
+      const startsOn = input.today !== undefined && input.today > scope.from ? input.today : scope.from;
       const rule = specialHoursRule(
         {
-          startsOn: scope.from,
+          startsOn,
           endsOn: scope.until,
           repeat: { version: 1, weekdays: [weekdayIndexOf(scope.from)] },
         },
@@ -5754,6 +5981,70 @@
         payload
       );
       return { upsert: { ...venueServices, dateRules: [rule] }, remove: {} };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/draft-wait.ts">
+    export function waitingProps(waiting: boolean, reasonId: string | undefined) {
+      return waiting
+        ? { "aria-disabled": true, "aria-describedby": reasonId, className: styles.waiting }
+        : {};
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/editor-open.ts">
+    function emit() {
+      for (const listener of listeners) listener();
+    }
+    export function markEditorOpen(): () => void {
+      openCount += 1;
+      emit();
+      let released = false;
+      return () => {
+        if (released) return;
+        released = true;
+        openCount -= 1;
+        emit();
+      };
+    }
+    export const isEditorOpen = (): boolean => openCount > 0;
+    function subscribe(listener: () => void): () => void {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    }
+    export const useEditorOpen = (): boolean => useSyncExternalStore(subscribe, isEditorOpen);
+  </file>
+  <file path="apps/hospitality/src/components/availability/online-seatings.ts">
+    function seatingMinutes({ opensAt, lastSeatingAt, closesAt, seating }: ResolvedService): number[] {
+      const bookable = (m: number) => m >= opensAt && m <= lastSeatingAt && m < closesAt;
+      if ("fixed" in seating) return seating.fixed.filter(bookable);
+      const count = Math.floor((lastSeatingAt - opensAt) / seating.interval) + 1;
+      return Array.from(
+        { length: Math.max(count, 0) },
+        (_, k) => opensAt + k * seating.interval
+      ).filter(bookable);
+    }
+    function closesOnline(band: ResolvedClosure, minute: number, venueServiceId: string): boolean {
+      if (minute < band.from || minute >= band.to) return false;
+      if (band.targetKind === "venue") return true;
+      if (band.targetKind === "service") return band.venueServiceId === venueServiceId;
+      return band.targetKind === "booking" && (band.bookingTypes ?? []).includes("online");
+    }
+    export function onlineSeatingLeft(
+      config: AvailabilityConfig,
+      timezone: string,
+      date: string,
+      nowMinute: number
+    ): boolean {
+      const day = resolveDay({ timezone, config }, date);
+      if (!day.bookingOpen.online) return false;
+      return day.services.some(
+        (service) =>
+          service.bookingTypes.includes("online") &&
+          seatingMinutes(service).some(
+            (minute) =>
+              minute >= nowMinute &&
+              !day.closures.some((band) => closesOnline(band, minute, service.venueServiceId))
+          )
+      );
     }
   </file>
   <file path="apps/hospitality/src/components/availability/outcome-label.ts">
@@ -5865,8 +6156,12 @@
       const mm = String(wrapped % 60).padStart(2, "0");
       return `${hh}:${mm}`;
     }
-    export function autoLastSeating(closes: string): string {
-      return toClock(toMinutes(closes) - LAST_SEATING_LEAD_MINUTES);
+    export function autoLastSeating(closes: string, opens: string | null = null): string {
+      const lead = toMinutes(closes) - LAST_SEATING_LEAD_MINUTES;
+      if (opens === null) return toClock(lead);
+      const opensAt = toMinutes(opens);
+      const closesAfter = toMinutes(closes) <= opensAt ? MINUTES_PER_DAY : 0;
+      return toClock(Math.max(lead + closesAfter, opensAt));
     }
     export function applyPreset(service: ServiceDraft, preset: ServicePresetId, name: string) {
       const { opens, closes } = SERVICE_PRESETS[preset];
@@ -5875,7 +6170,7 @@
         name,
         opens,
         closes,
-        lastSeating: autoLastSeating(closes),
+        lastSeating: autoLastSeating(closes, opens),
         lastSeatingLinked: true,
       };
     }
@@ -5885,14 +6180,13 @@
       value: string | null
     ): ServiceDraft {
       if (field === "lastSeating") return { ...service, lastSeating: value, lastSeatingLinked: false };
-      if (field === "closes" && service.lastSeatingLinked) {
-        return {
-          ...service,
-          closes: value,
-          lastSeating: value === null ? null : autoLastSeating(value),
-        };
-      }
-      return { ...service, [field]: value };
+      const next = { ...service, [field]: value };
+      // Both ends bound a linked last seating, so moving either one keeps it in step.
+      if (!service.lastSeatingLinked) return next;
+      return {
+        ...next,
+        lastSeating: next.closes === null ? null : autoLastSeating(next.closes, next.opens),
+      };
     }
     export function replaceService(draft: QuickSetupDraft, next: ServiceDraft): QuickSetupDraft {
       return { ...draft, services: draft.services.map((s) => (s.id === next.id ? next : s)) };
@@ -6132,7 +6426,7 @@
             ...emptyService(serviceId),
             opens: first.open,
             closes: first.close,
-            lastSeating: autoLastSeating(first.close),
+            lastSeating: autoLastSeating(first.close, first.open),
           },
         ],
         days: open.map((o) => o.index),
@@ -6472,6 +6766,32 @@
     export function buildDeleteScheduleChanges(scheduleId: string): AvailabilityConfigChanges {
       return { upsert: {}, remove: { schedules: [scheduleId] } };
     }
+    export type ScheduleSaveBlock =
+      | "conflict"
+      | "startRequired"
+      | "endBeforeStart"
+      | "nameRequired"
+      | "servicesRequired"
+      | "serviceNameRequired";
+    export function scheduleSaveBlock(draft: {
+      readonly conflicted: boolean;
+      readonly name: string;
+      readonly services: readonly DraftService[];
+      readonly startsOn: string | null;
+      readonly endsOn: string | null;
+      readonly startRequired?: boolean;
+    }): ScheduleSaveBlock | null {
+      const { startsOn, endsOn, services } = draft;
+      if (draft.conflicted) return "conflict";
+      if (draft.startRequired && !startsOn) return "startRequired";
+      if (startsOn && endsOn && endsOn < startsOn) return "endBeforeStart";
+      if (draft.name.trim() === "") return "nameRequired";
+      if (services.length === 0) return "servicesRequired";
+      if (services.some((s) => s.venueServiceId === null && !s.name.trim())) {
+        return "serviceNameRequired";
+      }
+      return null;
+    }
     function meets(a: UseOn, b: UseOn): boolean {
       const shared = a.weekdays.filter((d) => b.weekdays.includes(d));
       if (shared.length === 0) return false;
@@ -6716,7 +7036,8 @@
       if (scope.kind === "weekday") {
         const horizon = addDays(scope.from, SCOPE_HORIZON_DAYS - 1);
         const last = scope.until !== null && scope.until < horizon ? scope.until : horizon;
-        return eachDate(scope.from, last, 7);
+        // A past Friday is history, not part of the edit: count from the venue's today.
+        return eachDate(scope.from, last, 7).filter((d) => d >= context.today);
       }
       if (scope.kind === "rule") {
         const rule = context.config.dateRules.find((r) => r.id === scope.ruleId);
@@ -6757,10 +7078,9 @@
     }
   </file>
   <file path="apps/hospitality/src/components/availability/scope-switch.ts">
-    export interface ParkedEdit {
-      readonly base: DraftService;
-      readonly draft: DraftService | null;
-    }
+    export type ParkedEdit =
+      | { readonly base: DraftService; readonly draft: DraftService | null }
+      | { readonly base: null; readonly draft: DraftService };
     interface SwitchInput {
       /** The rows the draft started from, in the scope it leaves. */
       readonly baseline: readonly DraftService[];
@@ -6773,20 +7093,76 @@
       readonly services: DraftService[];
       readonly baseline: DraftService[];
       readonly parked: ParkedEdit[];
-      /** Services the new scope lacks, whose edits are held rather than saved. */
+      /** Services the new scope lacks, whose edits or removals are held rather than saved. */
       readonly unsaved: string[];
       /** Services the new scope already has with these hours: the ones just set change nothing there. */
       readonly overridden: string[];
     }
+    export const parkedName = (p: ParkedEdit) => (p.base === null ? p.draft : (p.draft ?? p.base)).name;
+    export function keepParked(
+      parked: readonly ParkedEdit[],
+      services: readonly DraftService[],
+      baseline: readonly DraftService[]
+    ): ParkedEdit[] {
+      return parked.filter((p) => {
+        const inView = findRow(services, holdId(p)) !== undefined;
+        return isInViewHold(p, baseline) ? inView : !inView;
+      });
+    }
+    function untouched(p: ParkedEdit, input: SwitchInput) {
+      const was = findRow(input.baseline, holdId(p));
+      const now = findRow(input.services, holdId(p));
+      return was !== undefined && now !== undefined && same(was, now);
+    }
+    function restorable(p: ParkedEdit, seed: readonly DraftService[]) {
+      const there = findRow(seed, holdId(p));
+      return p.base === null ? there === undefined : there !== undefined && same(there, p.base);
+    }
+    type HeldLine = "overridden" | "unsaved" | null;
+    function heldLine(p: ParkedEdit, seed: readonly DraftService[]): HeldLine {
+      const there = findRow(seed, holdId(p));
+      if (p.base === null) return there !== undefined && !same(there, p.draft) ? "overridden" : null;
+      if (there === undefined || p.draft === null) return "unsaved";
+      const [landed] = reapplyDraft({ base: [p.base], draft: [p.draft], latest: [there] });
+      return landed !== undefined && same(there, landed) ? "overridden" : "unsaved";
+    }
+    function restoreHolds(input: SwitchInput, restored: readonly ParkedEdit[]) {
+      return restored.reduce(
+        (rows, p) =>
+          p.base === null
+            ? {
+                baseline: rows.baseline.filter((r) => r.venueServiceId !== p.draft.venueServiceId),
+                services: [
+                  ...rows.services.filter((r) => r.venueServiceId !== p.draft.venueServiceId),
+                  p.draft,
+                ],
+              }
+            : {
+                baseline: withRow(rows.baseline, holdId(p), p.base),
+                services: withRow(rows.services, holdId(p), p.draft ?? p.base),
+              },
+        { baseline: [...input.baseline], services: [...input.services] }
+      );
+    }
     export function switchScope(input: SwitchInput): Switched {
-      const { baseline, services, parked, seed } = input;
+      const { seed } = input;
+      const seedById = new Map(seed.map((r) => [r.venueServiceId, r]));
+      const holds = input.parked.filter((p) => isInViewHold(p, input.baseline));
+      const parked = input.parked.filter((p) => !holds.includes(p));
+    
+      // A hold on a row the draft has not touched comes back when its origin returns; one that is not
+      // the origin travels on. A touched one is let go: its row is the Manager's now.
+      const restored = holds.filter((p) => untouched(p, input) && restorable(p, seed));
+      const carried = holds.filter((p) => untouched(p, input) && !restored.includes(p));
+      const { baseline, services } = restoreHolds(input, restored);
+    
       const ids = (rows: readonly DraftService[]) => new Set(rows.map((r) => r.venueServiceId));
       const baselineIds = ids(baseline);
       const serviceIds = ids(services);
       // Edits parked earlier rejoin the draft, so a scope that has the service takes them up again.
       const base = [
         ...baseline,
-        ...parked.map((p) => p.base).filter((b) => !baselineIds.has(b.venueServiceId)),
+        ...parked.flatMap((p) => (p.base && !baselineIds.has(p.base.venueServiceId) ? [p.base] : [])),
       ];
       const draft = [
         ...services,
@@ -6794,7 +7170,6 @@
       ];
       const draftIds = ids(draft);
       const baseById = new Map(base.map((r) => [r.venueServiceId, r]));
-      const seedById = new Map(seed.map((r) => [r.venueServiceId, r]));
     
       const edits = draft.flatMap((d) => {
         const was = baseById.get(d.venueServiceId);
@@ -6809,27 +7184,38 @@
           ? [{ base: b, draft: null }]
           : []
       );
-      const nextParked: ParkedEdit[] = [...edits, ...removals];
-      // An edit that leaves the row equal to what the new scope has changes nothing there.
+      // Hours added for a service the new scope already has are not used there. They are held, so the
+      // scope they were set in gets them back, and named when they differ from what the new scope has.
+      const adds = draft.flatMap((d) =>
+        d.venueServiceId !== null && !baseById.has(d.venueServiceId) && seedById.has(d.venueServiceId)
+          ? [{ base: null, draft: d }]
+          : []
+      );
+      const merged = reapplyDraft({ base, draft, latest: seed });
+      // An edit that leaves the row equal to what the new scope has changes nothing there, so it is
+      // named and held. Judged on the row as it lands, since the Manager's other fields give way to the
+      // new scope's.
       const matched = draft.flatMap((d) => {
-        const there = d.venueServiceId === null ? undefined : seedById.get(d.venueServiceId);
+        const there = findRow(seed, d.venueServiceId);
         const was = baseById.get(d.venueServiceId);
-        return there && was && !same(was, d) && same(there, d) ? [d.name] : [];
-      });
-      // An added service the new scope already has keeps that scope's hours, not the ones just set.
-      const overridden = draft.flatMap((d) => {
-        const there = d.venueServiceId === null ? undefined : seedById.get(d.venueServiceId);
-        return there && !baseById.has(d.venueServiceId) && !same(there, d)
-          ? [d.name || there.name]
+        const landed = findRow(merged, d.venueServiceId);
+        return there && was && landed && !same(was, d) && same(there, landed)
+          ? [{ base: was, draft: d }]
           : [];
       });
     
+      // Every hold the Manager's hours are not used by is named: those just made, any carried on from
+      // an earlier switch, and any let go because the Manager touched that row since.
+      const lost = holds.filter((p) => !untouched(p, input));
+      const lines = [...adds, ...matched, ...carried].map((p) => ({ p, line: heldLine(p, seed) }));
+      const named = (kind: HeldLine) => lines.filter((l) => l.line === kind).map((l) => l.p);
+    
       return {
-        services: reapplyDraft({ base, draft, latest: seed }),
+        services: merged,
         baseline: seed,
-        parked: nextParked,
-        unsaved: [...new Set(edits.map((p) => p.draft.name))],
-        overridden: [...new Set([...overridden, ...matched])],
+        parked: [...edits, ...removals, ...adds, ...matched, ...carried],
+        unsaved: [...new Set([...edits, ...removals, ...lost, ...named("unsaved")].map(parkedName))],
+        overridden: [...new Set(named("overridden").map(parkedName))],
       };
     }
   </file>
@@ -6897,6 +7283,33 @@
       return { upsert: built.upsert, remove: removal(own) };
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/selection-hours.ts">
+    function hoursSignature(day: ResolvedDay): string {
+      return JSON.stringify(
+        day.services.map((s) => [
+          s.venueServiceId,
+          s.opensAt,
+          s.lastSeatingAt,
+          s.closesAt,
+          s.seating,
+          s.bookingTypes,
+        ])
+      );
+    }
+    export function pickHoursSource(
+      dates: readonly string[],
+      resolve: (date: string) => ResolvedDay
+    ): { readonly date: string | null; readonly differs: boolean } {
+      const days = dates.map((date) => ({ date, day: resolve(date) }));
+      const source = days.find((d) => d.day.services.length > 0) ?? days[0];
+      if (!source) return { date: null, differs: false };
+      const wanted = hoursSignature(source.day);
+      return {
+        date: source.date,
+        differs: days.some((d) => hoursSignature(d.day) !== wanted),
+      };
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/selection.ts">
     export function normalizeDates(dates: readonly string[]): string[] {
       return [...new Set(dates)].sort();
@@ -6906,6 +7319,9 @@
       const dates: string[] = [];
       for (let d = from; d <= to; d = addDays(d, 1)) dates.push(d);
       return dates;
+    }
+    export function futureDates(dates: readonly string[], today: string): string[] {
+      return dates.filter((d) => d >= today);
     }
     export function toggleDate(selection: readonly string[], date: string): string[] {
       return selection.includes(date)
@@ -7143,7 +7559,6 @@
           readonly kind: "other";
           readonly detail: string;
           readonly outcomeUnknown: boolean;
-          readonly category: ApiErrorCategory;
         };
     export function refusalOf(error: unknown): Refusal {
       if (isDecisionRequired(error)) return { kind: "groups-changed" };
@@ -7153,7 +7568,7 @@
       }
       if (conflict?.code === "closure-exists") return { kind: "closure-exists" };
       const { category, detail } = describeApiError(error);
-      return { kind: "other", detail, outcomeUnknown: UNKNOWN_OUTCOME.has(category), category };
+      return { kind: "other", detail, outcomeUnknown: UNKNOWN_OUTCOME.has(category) };
     }
     export function mayHaveSaved(refusal: Refusal): boolean {
       return refusal.kind === "closure-exists" || (refusal.kind === "other" && refusal.outcomeUnknown);
@@ -7167,11 +7582,65 @@
         case "closure-exists":
           return t("availability.close.alreadySaved");
         case "other":
-          // The house sentence for a 5xx says nothing was changed, which a gateway cannot know.
-          return refusal.outcomeUnknown && refusal.category === "serverError"
-            ? t("availability.close.maybeSaved")
-            : refusal.detail;
+          // The house sentences do not say this save may have gone through; this one does.
+          return refusal.outcomeUnknown ? t("availability.close.maybeSaved") : refusal.detail;
       }
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/stranded-revert.ts">
+    function emit() {
+      for (const listener of listeners) listener();
+    }
+    function subscribe(listener: () => void): () => void {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    }
+    export function registerStrandedRevertHost(venueId: string): () => void {
+      hostVenues = [...hostVenues, venueId];
+      let released = false;
+      return () => {
+        if (released) return;
+        released = true;
+        const at = hostVenues.indexOf(venueId);
+        hostVenues = hostVenues.filter((_, i) => i !== at);
+        // A list shown for the venue the host left (or for a page that has gone) is not for the next.
+        if (shown.length > 0) {
+          shown = [];
+          emit();
+        }
+      };
+    }
+    export function dismissStrandedRevert() {
+      shown = [];
+      emit();
+    }
+    export const useStrandedRevert = (): readonly StrandedReservation[] =>
+      useSyncExternalStore(subscribe, () => shown);
+    function strandedReservations(error: unknown): readonly StrandedReservation[] {
+      const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
+      const problem = AvailabilityConfigProblemSchema.safeParse(details);
+      return problem.success && problem.data.code === "stranded-bookings"
+        ? (problem.data.reservations ?? [])
+        : [];
+    }
+    interface ToastInput {
+      readonly title: string;
+      readonly variant: "error";
+      readonly duration: number;
+    }
+    export function reportRevertFailure(
+      error: unknown,
+      t: TFunction,
+      toast: (input: ToastInput) => unknown,
+      venueId: string
+    ) {
+      const reservations = strandedReservations(error);
+      if (reservations.length > 0 && hostVenues.includes(venueId)) {
+        shown = reservations;
+        emit();
+        return;
+      }
+      toast({ title: revertErrorText(error, t), variant: "error", duration: 8000 });
     }
   </file>
   <file path="apps/hospitality/src/components/availability/tonight-state.ts">
@@ -7392,6 +7861,91 @@
       };
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/use-held-for.ts">
+    export function useHeldFor(active: boolean, ms: number): boolean {
+      const [elapsed, setElapsed] = useState(false);
+      useEffect(() => {
+        if (!active) return undefined;
+        const timer = setTimeout(() => setElapsed(true), ms);
+        return () => {
+          clearTimeout(timer);
+          setElapsed(false);
+        };
+      }, [active, ms]);
+      return active && elapsed;
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/use-hold-focus.ts">
+    export type HoldWayOut = "banner" | "reload" | null;
+    export function useHoldFocus(wayOut: HoldWayOut) {
+      const editorRef = useRef<HTMLDivElement>(null);
+      const bannerRef = useRef<HTMLDivElement>(null);
+      const reloadRef = useRef<HTMLDivElement>(null);
+      const hasFocusRef = useRef(false);
+    
+      useEffect(() => {
+        if (!hasFocusRef.current) return;
+        hasFocusRef.current = false;
+        if (document.activeElement && document.activeElement !== document.body) return;
+        const landing = wayOut === "banner" ? bannerRef : wayOut === "reload" ? reloadRef : editorRef;
+        landing.current?.querySelector("button")?.focus();
+      }, [wayOut]);
+    
+      // A click counts too: Safari does not focus a button it clicks.
+      const claim = useCallback(() => {
+        hasFocusRef.current = true;
+      }, []);
+      const track = useMemo(
+        () => ({
+          onFocus: claim,
+          onClick: claim,
+          onBlur: (event: FocusEvent) => {
+            if (event.relatedTarget) hasFocusRef.current = false;
+          },
+        }),
+        [claim]
+      );
+    
+      return { editorRef, bannerRef, reloadRef, track };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/use-reload-hold.ts">
+    function emit() {
+      for (const listener of listeners) listener();
+    }
+    function addSaveUnderWay(venueId: string, by: 1 | -1) {
+      savesUnderWay.set(venueId, (savesUnderWay.get(venueId) ?? 0) + by);
+      emit();
+    }
+    export async function trackOwnSave<T extends { readonly version: number }>(
+      venueId: string,
+      run: () => Promise<T>
+    ): Promise<T> {
+      addSaveUnderWay(venueId, 1);
+      try {
+        const result = await run();
+        savedVersions.set(venueId, Math.max(savedVersions.get(venueId) ?? 0, result.version));
+        return result;
+      } finally {
+        // A refused save moved nothing, so there is no version to wait for.
+        addSaveUnderWay(venueId, -1);
+      }
+    }
+    function subscribe(listener: () => void): () => void {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    }
+    export function useReloadHold(venueId: string | undefined, version: number | undefined) {
+      const saving = useSyncExternalStore(subscribe, () =>
+        venueId === undefined ? 0 : (savesUnderWay.get(venueId) ?? 0)
+      );
+      const saved = useSyncExternalStore(subscribe, () =>
+        venueId === undefined ? 0 : (savedVersions.get(venueId) ?? 0)
+      );
+      const reloadDue = version !== undefined && saved > version;
+      return { behind: saving > 0 || reloadDue, reloadDue };
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/use-save-attempts.ts">
     export interface TriedAttempt {
       readonly key: string;
@@ -7481,9 +8035,16 @@
       const { t } = useTranslation();
       const { mutateAsync, isPending } = useSaveAvailabilityConfig();
       const [failure, setFailure] = useState<readonly string[]>([]);
+      // The bookings behind a stranded refusal, listed beneath its message.
+      const [stranded, setStranded] = useState<readonly StrandedReservation[]>([]);
       // A lost race. The draft was built from a version that is gone, so a drawer that edits rows
       // must show what changed and get an answer (reapply or discard) before it saves again.
       const [conflicted, setConflicted] = useState(false);
+    
+      const clearFailure = () => {
+        setFailure([]);
+        setStranded([]);
+      };
     
       const reject = (error: unknown) => {
         const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
@@ -7497,6 +8058,7 @@
           setFailure(problem.issues.map((i) => i.message));
         } else if (problem?.code === "stranded-bookings") {
           setFailure([t(strandedKey, { count: problem.reservations?.length ?? 0 })]);
+          setStranded(problem.reservations ?? []);
         } else {
           setFailure([describeApiError(error).detail]);
         }
@@ -7507,13 +8069,15 @@
         venueId: string,
         state: AvailabilityConfigState,
         changes: AvailabilityConfigChanges,
-        scopeConflicts: ScopeConflictMode
+        scopeConflicts: ScopeConflictMode,
+        /** The version the changes were built against, when that is not the latest `state`. */
+        expectedVersion: number = state.version
       ): Promise<AvailabilityConfigSaveResult | null> => {
-        setFailure([]);
+        clearFailure();
         try {
           return await mutateAsync({
             venueId,
-            body: { expectedVersion: state.version, changes, scopeConflicts },
+            body: { expectedVersion, changes, scopeConflicts },
           });
         } catch (error) {
           reject(error);
@@ -7525,12 +8089,13 @@
         save,
         isPending,
         failure,
+        stranded,
         conflicted,
-        clearFailure: () => setFailure([]),
+        clearFailure,
         /** The Manager has answered the conflict; the next save is against the version they saw. */
         clearConflict: () => {
           setConflicted(false);
-          setFailure([]);
+          clearFailure();
         },
       };
     }
@@ -7556,18 +8121,25 @@
       readonly selection: readonly string[];
       readonly onSelectionChange: (dates: string[]) => void;
       readonly onOpenDay: (date: string) => void;
+      /** Select days is on: a plain click or tap picks, with no long press needed to start. */
+      readonly selecting?: boolean;
+      /**
+       * A range drag is under way (`true`) or over (`false`). The page holds back anything that would
+       * move the grid under the pointer until the drag ends.
+       */
+      readonly onDragChange?: (dragging: boolean) => void;
     }
     export interface DateGestureHandlers {
       readonly onClick: (event: MouseEvent) => void;
       readonly onMouseDown: (event: MouseEvent) => void;
-      readonly onMouseEnter: () => void;
+      readonly onMouseEnter: (event: MouseEvent) => void;
       readonly onTouchStart: () => void;
       readonly onTouchMove: () => void;
       readonly onTouchEnd: (event: TouchEvent) => void;
       readonly onContextMenu: (event: MouseEvent) => void;
     }
     export function useDateSelection(options: DateSelectionOptions) {
-      const { selection, onSelectionChange, onOpenDay } = options;
+      const { selection, onSelectionChange, onOpenDay, onDragChange, selecting = false } = options;
       const pivot = useRef<string | null>(null);
       const drag = useRef<{ from: string; moved: boolean } | null>(null);
       const suppressClick = useRef(false);
@@ -7583,12 +8155,24 @@
             setTimeout(() => {
               suppressClick.current = false;
             }, 0);
+            onDragChange?.(false);
           }
           drag.current = null;
         };
         window.addEventListener("mouseup", endDrag);
-        return () => window.removeEventListener("mouseup", endDrag);
-      }, []);
+        // A release the window never sees (outside it, or after switching away) ends the drag too.
+        window.addEventListener("blur", endDrag);
+        return () => {
+          window.removeEventListener("mouseup", endDrag);
+          window.removeEventListener("blur", endDrag);
+        };
+      }, [onDragChange]);
+    
+      /** A drag whose mouseup was lost: what shows it was lost ends it, without any click to swallow. */
+      const dropLostDrag = () => {
+        if (drag.current?.moved) onDragChange?.(false);
+        drag.current = null;
+      };
     
       const clearTimer = () => {
         if (pressTimer.current) clearTimeout(pressTimer.current);
@@ -7609,13 +8193,19 @@
     
       const handlersFor = (date: string): DateGestureHandlers => ({
         onMouseDown: (event) => {
+          dropLostDrag();
           if (event.button === 0 && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
             drag.current = { from: date, moved: false };
           }
         },
-        onMouseEnter: () => {
+        onMouseEnter: (event) => {
+          if (event.buttons === 0) {
+            dropLostDrag();
+            return;
+          }
           const d = drag.current;
           if (!d || (date === d.from && !d.moved)) return;
+          if (!d.moved) onDragChange?.(true);
           d.moved = true;
           extendSelection(d.from, date);
         },
@@ -7623,7 +8213,12 @@
           if (suppressClick.current) return;
           if (event.shiftKey) {
             onSelectionChange(dateRange(pivot.current ?? date, date));
-          } else if (event.ctrlKey || event.metaKey || (touchMode.current && selection.length > 0)) {
+          } else if (
+            selecting ||
+            event.ctrlKey ||
+            event.metaKey ||
+            (touchMode.current && selection.length > 0)
+          ) {
             toggleSelected(date);
           } else {
             pivot.current = date;
@@ -8301,7 +8896,7 @@
         fetchSlots()
           .then((listing) => dispatch({ type: "SET_SLOTS", listing }))
           .catch((err: unknown) => {
-            dispatch({ type: "SET_SLOTS_ERROR", error: describeApiError(err).detail });
+            dispatch({ type: "SET_SLOTS_ERROR", error: describeApiError(err, i18n.t).detail });
           });
       }, [flowState.data.hold, releaseHold, fetchSlots, venueSlug, i18n]);
     
@@ -8332,7 +8927,7 @@
             });
             dispatch({ type: "HOLD_SUCCESS", hold, slot });
           } catch (err) {
-            dispatch({ type: "HOLD_ERROR", error: describeApiError(err).detail });
+            dispatch({ type: "HOLD_ERROR", error: describeApiError(err, i18n.t).detail });
           }
         },
         [api, venueSlug, flowState.data.selectedDate, flowState.data.partySize, i18n]
@@ -8396,7 +8991,7 @@
           } catch (err) {
             const closure = outsideAvailabilityMessage(err);
             if (closure === null) {
-              dispatch({ type: "CONFIRM_ERROR", error: describeApiError(err).detail });
+              dispatch({ type: "CONFIRM_ERROR", error: describeApiError(err, i18n.t).detail });
               return;
             }
             // A closure saved after the hold was made (ux.md F9.5): the hold is
@@ -10037,11 +10632,83 @@
   </file>
   </section>
   <section priority="medium" role="config">
+  <file path="services/reservations/src/config/host-brand.ts">
+    export type OriginHost = "eat-sheet.com" | "mattbutlerengineering.com";
+    export function resolveOriginHost(
+      origin: string | readonly string[] | undefined | null
+    ): OriginHost | null {
+      const value = Array.isArray(origin) ? origin[0] : origin;
+      if (!value) return null;
+    
+      let hostname: string;
+      try {
+        hostname = new URL(value).hostname.toLowerCase();
+      } catch {
+        return null;
+      }
+    
+      if (EAT_SHEET_HOSTNAMES.has(hostname)) return "eat-sheet.com";
+      if (MBE_HOSTNAMES.has(hostname)) return "mattbutlerengineering.com";
+      return null;
+    }
+    export interface ReservationHostBrand {
+      readonly brandName: string;
+      readonly fromAddress: string;
+      readonly manageBaseUrl: string;
+    }
+    export interface HostBrandEnv {
+      /**
+       * The verified Resend sending domain's address. Never varies by host:
+       * eat-sheet.com is not (yet) a verified sending domain, so the envelope
+       * from-address always stays here — only the display name changes (#7892).
+       */
+      readonly verifiedFromAddress: string;
+      readonly mbeManageBaseUrl: string;
+      readonly eatSheetManageBaseUrl: string;
+    }
+    function withDisplayName(name: string, address: string): string {
+      const email = address.match(/<([^>]+)>/)?.[1] ?? address;
+      return `${name} <${email}>`;
+    }
+    export function hostBrandFor(originHost: string | null, env: HostBrandEnv): ReservationHostBrand {
+      if (originHost === "eat-sheet.com") {
+        return {
+          brandName: EAT_SHEET_BRAND_NAME,
+          fromAddress: withDisplayName(EAT_SHEET_BRAND_NAME, env.verifiedFromAddress),
+          manageBaseUrl: env.eatSheetManageBaseUrl,
+        };
+      }
+      return {
+        brandName: MBE_BRAND_NAME,
+        fromAddress: env.verifiedFromAddress,
+        manageBaseUrl: env.mbeManageBaseUrl,
+      };
+    }
+    export function createHostBrandResolver(env: {
+      EMAIL_FROM?: string | undefined;
+      MANAGE_BASE_URL?: string | undefined;
+      EAT_SHEET_MANAGE_BASE_URL?: string | undefined;
+    }): (originHost: string | null) => ReservationHostBrand {
+      const brandEnv: HostBrandEnv = {
+        verifiedFromAddress: env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
+        mbeManageBaseUrl: resolveManageBaseUrl(env),
+        eatSheetManageBaseUrl: resolveEatSheetManageBaseUrl(env),
+      };
+      return (originHost) => hostBrandFor(originHost, brandEnv);
+    }
+  </file>
   <file path="services/reservations/src/config/manage-base-url.ts">
     export const DEFAULT_MANAGE_BASE_URL = "https://mattbutlerengineering.com";
     export function resolveManageBaseUrl(env: { MANAGE_BASE_URL?: string | undefined }): string {
       const raw = (env.MANAGE_BASE_URL ?? "").trim();
       return raw === "" ? DEFAULT_MANAGE_BASE_URL : raw.replace(/\/+$/, "");
+    }
+    export const DEFAULT_EAT_SHEET_MANAGE_BASE_URL = "https://eat-sheet.com";
+    export function resolveEatSheetManageBaseUrl(env: {
+      EAT_SHEET_MANAGE_BASE_URL?: string | undefined;
+    }): string {
+      const raw = (env.EAT_SHEET_MANAGE_BASE_URL ?? "").trim();
+      return raw === "" ? DEFAULT_EAT_SHEET_MANAGE_BASE_URL : raw.replace(/\/+$/, "");
     }
   </file>
   <file path="services/reservations/src/config/manage-token.ts">
@@ -13293,6 +13960,193 @@
       await page.reload();
     }
   </file>
+  <file path="apps/hospitality/e2e/availability-draft-mock.ts">
+    export interface PutBody {
+      expectedVersion: number;
+      changes?: { upsert?: { dateRules?: Array<{ id: string; startsOn?: string }> } };
+    }
+    export interface PutRecord {
+      expected: number;
+      status: number;
+    }
+    export interface AvailabilityMock {
+      version: number;
+      configReads: number;
+      /** Reads of the config answer 500 while this is set. */
+      failReads: boolean;
+      /** Reads of the config answer this version while it is set: a replica behind the writes. */
+      readVersion: number | null;
+      /** Reads of the config wait from here until `releaseReads`: a slow reload, without a race. */
+      holdReads(): void;
+      releaseReads(): void;
+      /** Every save's body, in order. */
+      readonly bodies: PutBody[];
+      /** Every save, in order, with the version it was checked against and how it ended. */
+      readonly puts: PutRecord[];
+      /** Reverts (Undo) received. */
+      reverts: number;
+      /** The next save answers this instead of being applied. */
+      nextPut: { status: number; code: string; extra?: object } | null;
+      /** Someone else saves: the version moves on and the next save here is refused. */
+      colleague(summary?: string): void;
+    }
+    function between(from: string, to: string): string[] {
+      const out: string[] = [];
+      for (
+        let d = new Date(`${from}T00:00:00Z`);
+        d <= new Date(`${to}T00:00:00Z`);
+        d.setUTCDate(d.getUTCDate() + 1)
+      ) {
+        out.push(d.toISOString().slice(0, 10));
+      }
+      return out;
+    }
+    export async function mockAvailability(
+      page: Page,
+      options: { weekdays?: number[]; rules?: unknown[] } = {}
+    ): Promise<AvailabilityMock> {
+      const venues = JSON.parse(loadFixture("venues-list")) as { data: Array<{ id: string }> };
+      const base = `**/api/v1/venues/${String(venues.data[0]?.id)}`;
+      const json = (data: unknown) => ({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data }),
+      });
+      const problem = (status: number, code: string, extra: object = {}) => ({
+        status,
+        contentType: "application/problem+json",
+        body: JSON.stringify({
+          type: "about:blank",
+          title: code,
+          status,
+          detail: "Server said no.",
+          code,
+          ...extra,
+        }),
+      });
+      let winner = {
+        id: "chg-0",
+        actorId: "auth0|ana",
+        at: new Date().toISOString(),
+        kind: "config",
+        summary: "Dinner closes at 10:00 PM",
+      };
+      let readsHeld: Promise<void> = Promise.resolve();
+      let releaseHeld: () => void = () => undefined;
+      const mock: AvailabilityMock = {
+        version: 7,
+        configReads: 0,
+        failReads: false,
+        readVersion: null,
+        holdReads() {
+          readsHeld = new Promise((resolve) => {
+            releaseHeld = resolve;
+          });
+        },
+        releaseReads() {
+          releaseHeld();
+          readsHeld = Promise.resolve();
+        },
+        bodies: [],
+        puts: [],
+        reverts: 0,
+        nextPut: null,
+        colleague(summary = "Dinner closes at 10:00 PM") {
+          mock.version += 1;
+          winner = { ...winner, id: `chg-${mock.version}`, summary };
+        },
+      };
+      let rules: unknown[] = options.rules ?? [];
+    
+      await page.route(`${base}/availability/config`, async (route) => {
+        if (route.request().method() === "PUT") {
+          const body = route.request().postDataJSON() as PutBody;
+          mock.bodies.push(body);
+          const record: PutRecord = { expected: body.expectedVersion, status: 0 };
+          mock.puts.push(record);
+          if (mock.nextPut) {
+            const refused = mock.nextPut;
+            mock.nextPut = null;
+            record.status = refused.status;
+            return route.fulfill(problem(refused.status, refused.code, refused.extra));
+          }
+          if (body.expectedVersion !== mock.version) {
+            record.status = 409;
+            return route.fulfill(
+              problem(409, "version-conflict", { winningChange: winner, currentVersion: mock.version })
+            );
+          }
+          const upserted = body.changes?.upsert?.dateRules ?? [];
+          rules = [
+            ...rules.filter((r) => !upserted.some((u) => u.id === (r as { id: string }).id)),
+            ...upserted,
+          ];
+          mock.version += 1;
+          record.status = 200;
+          return route.fulfill(json({ version: mock.version, changeId: `chg-${mock.version}` }));
+        }
+        mock.configReads += 1;
+        await readsHeld;
+        if (mock.failReads) return route.fulfill(problem(500, "internal"));
+        return route.fulfill(
+          json({
+            config: {
+              schedules: [{ id: "regular", name: "Regular week", kind: "regular", isRegular: true }],
+              venueServices: [{ id: "vs-dinner", name: "Dinner", position: 0 }],
+              scheduleServices: [
+                {
+                  id: "ss-dinner",
+                  scheduleId: "regular",
+                  venueServiceId: "vs-dinner",
+                  ...DINNER,
+                  seating: { version: 1, interval: 15 },
+                  bookingTypes: ["online", "phone"],
+                },
+              ],
+              assignments: [
+                {
+                  id: "as",
+                  scheduleId: "regular",
+                  weekdays: options.weekdays ?? [0, 1, 2, 3, 4, 5, 6],
+                  precedence: 0,
+                },
+              ],
+              dateRules: rules,
+            },
+            version: mock.readVersion ?? mock.version,
+            source: "rows",
+          })
+        );
+      });
+      await page.route(`${base}/availability/days*`, (route) => {
+        const url = new URL(route.request().url());
+        const open = options.weekdays ?? [0, 1, 2, 3, 4, 5, 6];
+        const days = between(url.searchParams.get("from")!, url.searchParams.get("to")!).map(
+          (serviceDate) => {
+            const isOpen = open.includes(new Date(`${serviceDate}T00:00:00Z`).getUTCDay());
+            return {
+              serviceDate,
+              label: isOpen ? "Regular week" : "Closed",
+              scheduleId: isOpen ? "regular" : null,
+              serviceCount: isOpen ? 1 : 0,
+              closures: [],
+              bookingOpen: { online: isOpen, phone: isOpen, waitlist: isOpen },
+            };
+          }
+        );
+        return route.fulfill(json(days));
+      });
+      await page.route(`${base}/availability/preview*`, (route) =>
+        route.fulfill(problem(500, "internal"))
+      );
+      await page.route("**/availability/changes/*/revert", (route) => {
+        mock.reverts += 1;
+        mock.version += 1;
+        return route.fulfill(json({ version: mock.version, changeId: `chg-${mock.version}` }));
+      });
+      return mock;
+    }
+  </file>
   <file path="apps/hospitality/e2e/booking-date.ts">
     export async function pickBookingDate(page: Page, isoDate: string): Promise<void> {
       await expect(page.getByRole("grid")).toBeVisible();
@@ -13875,6 +14729,12 @@
           200: { description: "Win-back result", body: z.object({ data: WinBackResultSchema }) },
           401: problem(),
           404: problem(),
+          409: problem(
+            "A win-back was already sent or attempted within the cooldown; nothing was sent. `detail` says which, and when another is allowed."
+          ),
+          424: problem(
+            "The email provider rejected the message, or email isn't configured; nothing was sent and the guest can be tried again."
+          ),
         },
       }),
       delete: defineEndpoint({
@@ -16167,6 +17027,7 @@
     export const TABLE_SURFACE_NAME = "table-surface";
     export const TABLE_SHADOW_NAME = "table-shadow";
     export const SEAT_NAME = "seat";
+    export const DRAG_SHADOW_NAME = "table-drag-shadow";
     export const FURNITURE_GROUP_NAME = "table-furniture";
     export const FURNITURE_PALETTE = {
       /**
@@ -17251,7 +18112,7 @@
         onGenerationComplete: () =>
           toast({ title: "Generation complete", variant: "success", duration: 3000 }),
       });
-      const { reset, error, openGallery } = session;
+      const { reset, openGallery } = session;
     
       const onSignOut = useCallback(() => {
         reset();
@@ -17265,18 +18126,6 @@
       const onTemplatesOpen = useCallback(() => {
         openGallery();
       }, [openGallery]);
-    
-      // Show error toast when generation fails
-      useEffect(() => {
-        if (error) {
-          toast({
-            title: "Generation failed",
-            description: error.message,
-            variant: "error",
-            duration: 5000,
-          });
-        }
-      }, [error, toast]);
     
       return { session, toggleTheme, onSignOut, onLogoClick, onTemplatesOpen };
     }
@@ -17958,6 +18807,15 @@
     }: UseCommandPaletteOptions): UseCommandPaletteResult {
       const [open, setOpen] = useState(false);
     
+      // A resize can change what the page mounts under the palette, and what mounts takes focus from
+      // it, so keys typed into the palette would act there (#8029). The palette closes instead.
+      const viewport = useViewport();
+      const [openedAt, setOpenedAt] = useState(viewport);
+      if (viewport !== openedAt) {
+        setOpenedAt(viewport);
+        setOpen(false);
+      }
+    
       const items = useMemo(
         () => [...buildNavItems(sections, runAction), ...buildActionItems(runAction, toggleTheme)],
         [sections, runAction, toggleTheme]
@@ -18164,8 +19022,6 @@
       body: Omit<PutAvailabilityConfigBody, "scopeConflicts"> & {
         scopeConflicts?: ScopeConflictMode;
       };
-      /** Save against the version the server holds now, not the one the draft was made on. */
-      overwrite?: boolean;
     };
     export const useSaveAvailabilityConfig = createMutationHook<
       SaveAvailabilityConfigVariables,
@@ -18177,12 +19033,8 @@
         AVAILABILITY_CHANGES_QUERY_KEY,
         VENUES_QUERY_KEY,
       ],
-      mutationFn: async (api, { venueId, body, overwrite }) => {
-        const expectedVersion = overwrite
-          ? (await api.availability.getConfig(venueId)).version
-          : body.expectedVersion;
-        return api.availability.saveConfig(venueId, { ...body, expectedVersion });
-      },
+      mutationFn: (api, { venueId, body }) =>
+        trackOwnSave(venueId, () => api.availability.saveConfig(venueId, body)),
     });
     export const useAvailabilityChanges = createQueryHook<
       AvailabilityChangesPage | null,
@@ -18204,7 +19056,7 @@
         VENUES_QUERY_KEY,
       ],
       mutationFn: (api, { venueId, changeId, expectedVersion }) =>
-        api.availability.revertChange(venueId, changeId, expectedVersion),
+        trackOwnSave(venueId, () => api.availability.revertChange(venueId, changeId, expectedVersion)),
     });
   </file>
   <file path="apps/hospitality/src/hooks/useAvailabilityPreview.ts">
@@ -18241,6 +19093,18 @@
     }
   </file>
   <file path="apps/hospitality/src/hooks/useAvailabilityUndo.ts">
+    function focusOffToast(offeredFrom: Element | null) {
+      const active = document.activeElement;
+      if (active && active !== document.body && !active.closest("[aria-live]")) return;
+      const dialogs = document.querySelectorAll('[role="dialog"]');
+      const target =
+        offeredFrom instanceof HTMLElement && offeredFrom.isConnected && offeredFrom !== document.body
+          ? offeredFrom
+          : (dialogs[dialogs.length - 1]?.querySelector<HTMLElement>("button:not([disabled])") ??
+            document.querySelector<HTMLElement>("h1[tabindex]") ??
+            document.querySelector<HTMLElement>("main"));
+      target?.focus();
+    }
     export function useAvailabilityUndo() {
       const { t } = useTranslation();
       const { toast } = useToast();
@@ -18248,7 +19112,20 @@
     
       return useCallback(
         (input: { venueId: string; title: string; saved: AvailabilityConfigSaveResult }) => {
+          const offeredFrom = document.activeElement;
           const undo = async () => {
+            // An open day editor has pinned a version this revert would move on from: its own save
+            // would then be refused as out of date. Ask the Manager to discard it first, and keep Undo
+            // there for when they have. Saving it instead moves the version, so this Undo then refuses.
+            if (isEditorOpen()) {
+              toast({
+                title: t("availability.undo.finishFirst"),
+                variant: "default",
+                duration: UNDO_TOAST_MS,
+                action: undoAction(),
+              });
+              return;
+            }
             try {
               await revert.mutateAsync({
                 venueId: input.venueId,
@@ -18257,14 +19134,29 @@
               });
               toast({ title: t("availability.undo.done"), variant: "success", duration: 5000 });
             } catch (error) {
-              toast({ title: revertErrorText(error, t), variant: "error", duration: 8000 });
+              reportRevertFailure(error, t, toast, input.venueId);
             }
+          };
+          // One press per button: a double click must not send a second revert, which the first would
+          // have made out of date.
+          const undoAction = () => {
+            let pressed = false;
+            return {
+              label: t("availability.undo.action"),
+              onClick: () => {
+                // Before the guard: a second click's press has put focus back on this button.
+                focusOffToast(offeredFrom);
+                if (pressed) return;
+                pressed = true;
+                void undo();
+              },
+            };
           };
           toast({
             title: input.title,
             variant: "success",
             duration: UNDO_TOAST_MS,
-            action: { label: t("availability.undo.action"), onClick: () => void undo() },
+            action: undoAction(),
           });
         },
         [revert, t, toast]
@@ -18525,7 +19417,7 @@
         CLOSURE_SUMMARIES_QUERY_KEY,
       ],
       mutationFn: (api, { venueId, body, idempotencyKey }) =>
-        api.availability.createClosure(venueId, body, idempotencyKey),
+        trackOwnSave(venueId, () => api.availability.createClosure(venueId, body, idempotencyKey)),
     });
     export const useClosureSummaries = createQueryHook<
       ClosureSummary[] | null,
@@ -18567,7 +19459,9 @@
         CLOSURE_SUMMARIES_QUERY_KEY,
       ],
       mutationFn: (api, { venueId, ruleId, tellCancelledGuests }) =>
-        api.availability.reopenClosure(venueId, ruleId, tellCancelledGuests),
+        trackOwnSave(venueId, () =>
+          api.availability.reopenClosure(venueId, ruleId, tellCancelledGuests)
+        ),
     });
     export type PreviewClosureImpactsVariables = {
       venueId: string;
@@ -18595,7 +19489,7 @@
         CLOSURE_SUMMARIES_QUERY_KEY,
       ],
       mutationFn: (api, { venueId, body, idempotencyKey }) =>
-        api.availability.createClosures(venueId, body, idempotencyKey),
+        trackOwnSave(venueId, () => api.availability.createClosures(venueId, body, idempotencyKey)),
     });
   </file>
   <file path="apps/hospitality/src/hooks/useDashboardStatsQuery.ts">
@@ -18972,8 +19866,17 @@
       | { readonly kind: "firstIn"; readonly testId: string }
       /** The `PageHeader` h1, which carries `tabIndex={-1}` for this purpose. */
       | { readonly kind: "pageHeading" };
+    export interface FocusOptions {
+      /**
+       * Drop the request if, once its target is found, a modal dialog covers it. For a response that may
+       * land late: keys on a covered target act behind the dialog on top. Judged after the commit, so a
+       * dialog closing with the request does not count.
+       */
+      readonly unlessCovered?: boolean;
+    }
+    export const UNLESS_COVERED: FocusOptions = { unlessCovered: true };
     export interface FocusAfterApi {
-      readonly focusAfter: (target: FocusTarget) => void;
+      readonly focusAfter: (target: FocusTarget, options?: FocusOptions) => void;
     }
     function resolveTarget(target: FocusTarget): HTMLElement | null {
       switch (target.kind) {
@@ -18987,24 +19890,52 @@
           return document.querySelector<HTMLElement>("h1");
       }
     }
+    export function isCoveredByDialog(element: Element | null): boolean {
+      const own = element?.closest(MODAL_DIALOG) ?? null;
+      return Array.from(document.querySelectorAll(MODAL_DIALOG)).some((dialog) => {
+        if (dialog === own || dialog.closest("[inert]")) return false;
+        if (!own) return true;
+        const later = own.compareDocumentPosition(dialog) & Node.DOCUMENT_POSITION_FOLLOWING;
+        return Boolean(later) || dialog.contains(document.activeElement);
+      });
+    }
     export function useFocusAfter(): FocusAfterApi {
-      const pendingRef = useRef<FocusTarget | null>(null);
+      const pendingRef = useRef<{
+        target: FocusTarget;
+        options?: FocusOptions;
+        requestedAt: number;
+      } | null>(null);
       // A request re-renders the owner so the effect below runs even when nothing else changed.
       const [, requestRender] = useReducer((count: number) => count + 1, 0);
     
-      const focusAfter = useCallback((target: FocusTarget) => {
-        pendingRef.current = target;
+      const focusAfter = useCallback((target: FocusTarget, options?: FocusOptions) => {
+        pendingRef.current = { target, options, requestedAt: performance.now() };
         requestRender();
+      }, []);
+    
+      // Capture, on window: a handler that stops propagation must not hide the action from this.
+      useEffect(() => {
+        const cancel = () => {
+          pendingRef.current = null;
+        };
+        HOST_ACTIONS.forEach((type) => window.addEventListener(type, cancel, true));
+        return () => HOST_ACTIONS.forEach((type) => window.removeEventListener(type, cancel, true));
       }, []);
     
       // After every commit: resolve the pending target, focus it once, forget it. No state is set here.
       useEffect(() => {
-        const target = pendingRef.current;
-        if (!target) return;
-        const element = resolveTarget(target);
+        const pending = pendingRef.current;
+        if (!pending) return;
+        const focusIsLoose = !document.activeElement || document.activeElement === document.body;
+        if (performance.now() - pending.requestedAt > PENDING_TTL_MS && !focusIsLoose) {
+          pendingRef.current = null;
+          return;
+        }
+        const element = resolveTarget(pending.target);
         if (!element) return;
-        element.focus();
         pendingRef.current = null;
+        if (pending.options?.unlessCovered && isCoveredByDialog(element)) return;
+        element.focus();
       });
     
       return { focusAfter };
@@ -20243,11 +21174,13 @@
       TonightResult
     >({
       invalidateKeys: [AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY],
-      mutationFn: (api, { venueId, body }) => api.availability.setTonight(venueId, body),
+      mutationFn: (api, { venueId, body }) =>
+        trackOwnSave(venueId, () => api.availability.setTonight(venueId, body)),
     });
     export const useEndTonight = createMutationHook<{ venueId: string; ruleId: string }, ReopenResult>({
       invalidateKeys: [AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY],
-      mutationFn: (api, { venueId, ruleId }) => api.availability.endTonight(venueId, ruleId),
+      mutationFn: (api, { venueId, ruleId }) =>
+        trackOwnSave(venueId, () => api.availability.endTonight(venueId, ruleId)),
     });
   </file>
   <file path="apps/hospitality/src/hooks/useUsers.ts">
@@ -20671,6 +21604,64 @@
       }, []);
     
       return { loaded, textures };
+    }
+  </file>
+  <file path="packages/rialto/src/hooks/floating-position.ts">
+    export interface FloatingStyle {
+      left: string;
+      top: string;
+      bottom: string;
+      right: string;
+      maxHeight: string;
+    }
+    export function placeHorizontal(
+      desired: number,
+      panelWidth: number,
+      viewportWidth: number
+    ): number {
+      const max = Math.max(FLOAT_MARGIN, viewportWidth - panelWidth - FLOAT_MARGIN);
+      return clamp(desired, FLOAT_MARGIN, max);
+    }
+    export function placeVertical(
+      anchor: DOMRect,
+      panelHeight: number,
+      side: "top" | "bottom",
+      gap: number,
+      viewportHeight: number
+    ): Pick<FloatingStyle, "top" | "bottom" | "maxHeight"> {
+      const below = viewportHeight - anchor.bottom - gap;
+      const above = anchor.top - gap;
+      const fitsPreferred = panelHeight <= (side === "bottom" ? below : above);
+      const useBottom = fitsPreferred ? side === "bottom" : below >= above;
+      const room = Math.floor(useBottom ? below : above);
+      const maxHeight = panelHeight > room ? `${Math.max(room, 0)}px` : "";
+      return useBottom
+        ? { top: `${anchor.bottom + gap}px`, bottom: "auto", maxHeight }
+        : { top: "auto", bottom: `${viewportHeight - anchor.top + gap}px`, maxHeight };
+    }
+    export function placeBeside(
+      anchor: DOMRect,
+      side: "left" | "right",
+      panel: { width: number; height: number },
+      gap: number,
+      viewportWidth: number,
+      viewportHeight: number
+    ): FloatingStyle {
+      const desired = side === "left" ? anchor.left - gap - panel.width : anchor.right + gap;
+      const room = viewportHeight - 2 * FLOAT_MARGIN;
+      const height = Math.min(panel.height, room);
+      const top = clamp(
+        anchor.top + anchor.height / 2 - height / 2,
+        FLOAT_MARGIN,
+        Math.max(FLOAT_MARGIN, viewportHeight - height - FLOAT_MARGIN)
+      );
+      return {
+        left: `${placeHorizontal(desired, panel.width, viewportWidth)}px`,
+        right: "auto",
+        top: `${top}px`,
+        bottom: "auto",
+        maxHeight: panel.height > room ? `${room}px` : "",
+      };
     }
   </file>
   <file path="packages/rialto/src/hooks/useBoop.ts">
@@ -21306,6 +22297,97 @@
           if (index !== -1) activePanels.splice(index, 1);
         };
       }, [enabled, panelRef, initialFocus]);
+    }
+  </file>
+  <file path="packages/rialto/src/hooks/useLayerFloating.ts">
+    type Place = (anchor: DOMRect, panel: HTMLElement) => Partial<FloatingStyle>;
+    export function useLayerFloating(
+      active: boolean,
+      anchorRef: RefObject<HTMLElement | null>,
+      panelRef: RefObject<HTMLElement | null>,
+      place: Place
+    ): void {
+      useLayoutEffect(() => {
+        const anchor = anchorRef.current;
+        const panel = panelRef.current;
+        if (!active || !anchor || !panel) return;
+        const update = () => Object.assign(panel.style, place(anchor.getBoundingClientRect(), panel));
+        update();
+        window.addEventListener("resize", update);
+        window.addEventListener("scroll", update, true);
+        const mutations = new MutationObserver(update);
+        mutations.observe(panel, { childList: true, subtree: true, characterData: true });
+        // Deferred a frame: re-capping resizes the panel, and doing that inside the
+        // observer callback raises "ResizeObserver loop completed".
+        let frame = 0;
+        const resizes =
+          typeof ResizeObserver === "undefined"
+            ? null
+            : new ResizeObserver(() => {
+                cancelAnimationFrame(frame);
+                frame = requestAnimationFrame(update);
+              });
+        resizes?.observe(panel);
+        // The anchor moves the panel too: a multi-select control that wraps its
+        // chips grows downward under an open list.
+        resizes?.observe(anchor);
+        return () => {
+          cancelAnimationFrame(frame);
+          window.removeEventListener("resize", update);
+          window.removeEventListener("scroll", update, true);
+          mutations.disconnect();
+          resizes?.disconnect();
+        };
+      }, [active, anchorRef, panelRef, place]);
+    }
+    export const placeListbox: Place = (anchor, panel) => {
+      const { height } = viewportSize();
+      // Width first: long labels wrap at the field's width, which sets scrollHeight.
+      panel.style.width = `${anchor.width}px`;
+      return {
+        ...placeVertical(
+          anchor,
+          Math.min(panel.scrollHeight, LISTBOX_MAX_HEIGHT),
+          "bottom",
+          LIST_GAP,
+          height
+        ),
+        left: `${anchor.left}px`,
+        right: "auto",
+      };
+    };
+    export function placeMenu(align: "left" | "right", side: "top" | "bottom"): Place {
+      return (anchor, panel) => {
+        const { width, height } = viewportSize();
+        // Measure at the viewport's start so the width is not squeezed by `left`.
+        panel.style.left = "0px";
+        panel.style.right = "auto";
+        const rtl = getComputedStyle(panel).direction === "rtl";
+        const alignsRight = (align === "right") !== rtl;
+        const desired = alignsRight ? anchor.right - panel.offsetWidth : anchor.left;
+        return {
+          ...placeVertical(anchor, panel.scrollHeight, side, LIST_GAP, height),
+          left: `${placeHorizontal(desired, panel.offsetWidth, width)}px`,
+          right: "auto",
+        };
+      };
+    }
+    export function placePopover(placement: "top" | "bottom" | "left" | "right", gap = 8): Place {
+      return (anchor, panel) => {
+        const { width, height } = viewportSize();
+        panel.style.left = "0px";
+        panel.style.right = "auto";
+        const size = { width: panel.offsetWidth, height: panel.scrollHeight };
+        if (placement === "left" || placement === "right") {
+          return placeBeside(anchor, placement, size, gap, width, height);
+        }
+        const centred = anchor.left + anchor.width / 2 - size.width / 2;
+        return {
+          ...placeVertical(anchor, size.height, placement, gap, height),
+          left: `${placeHorizontal(centred, size.width, width)}px`,
+          right: "auto",
+        };
+      };
     }
   </file>
   <file path="packages/rialto/src/hooks/usePointerActivation.ts">
@@ -23511,55 +24593,12 @@
       readonly raw: string;
     }
     type CopyRow = Pick<ApiErrorDescription, "detail" | "retryable" | "recovery">;
-    export const ERROR_COPY: Readonly<Record<ApiErrorCategory, CopyRow>> = {
-      network: {
-        detail: "Can't reach the reservations service. Check the venue's connection, then try again.",
-        ...RETRY,
-      },
-      timeout: {
-        detail: "That took too long. The service didn't answer in time — try again.",
-        ...RETRY,
-      },
-      serverError: {
-        detail: "The reservations service hit a snag — nothing was changed. Try again in a moment.",
-        ...RETRY,
-      },
-      rateLimited: {
-        detail: "Too many requests at once. Give it a few seconds, then try again.",
-        ...RETRY,
-      },
-      conflict: {
-        detail: "Someone got there first — that table or time was just taken. Pick another.",
-        ...EDIT,
-      },
-      validationError: {
-        detail: "Something in the form didn't pass. Check party size, time and table.",
-        ...EDIT,
-      },
-      badRequest: {
-        detail: "Something in the form didn't pass. Check party size, time and table.",
-        ...EDIT,
-      },
-      unauthorized: {
-        detail: "Your session ended. Sign in again to keep working.",
-        retryable: false,
-        recovery: "sign-in",
-      },
-      forbidden: {
-        detail: "That's above your role. Ask a manager to make this change.",
-        retryable: false,
-        recovery: "none",
-      },
-      notFound: {
-        detail: "That reservation's gone — it may have been cancelled or moved. Refreshing the grid.",
-        retryable: false,
-        recovery: "refresh",
-      },
-      unknown: {
-        detail: "That didn't go through. Try again — if it keeps happening, tell your manager.",
-        ...RETRY,
-      },
-    };
+    export const ERROR_COPY: Readonly<Record<ApiErrorCategory, CopyRow>> = Object.fromEntries(
+      (Object.keys(COPY_BEHAVIOUR) as ApiErrorCategory[]).map((category) => [
+        category,
+        { detail: enUS.apiError[category], ...COPY_BEHAVIOUR[category] },
+      ])
+    ) as Record<ApiErrorCategory, CopyRow>;
     interface ApiClientErrorLike {
       readonly category: ErrorCategory;
       readonly problemDetails: { readonly detail?: unknown };
@@ -23587,22 +24626,31 @@
       if (detail === "" || detail === "undefined" || /^\d{3}$/.test(detail)) return null;
       return detail;
     }
-    function describe(category: ApiErrorCategory, raw: string, detail?: string): ApiErrorDescription {
-      const row = ERROR_COPY[category];
-      return { category, ...row, detail: detail ?? row.detail, raw };
+    function describe(
+      category: ApiErrorCategory,
+      raw: string,
+      t: TFunction,
+      detail?: string
+    ): ApiErrorDescription {
+      return {
+        category,
+        ...COPY_BEHAVIOUR[category],
+        detail: detail ?? t(`apiError.${category}`),
+        raw,
+      };
     }
-    export function describeApiError(error: unknown): ApiErrorDescription {
+    export function describeApiError(error: unknown, t: TFunction = defaultT): ApiErrorDescription {
       const raw = rawMessage(error);
     
       if (isApiClientError(error)) {
         const shown = SHOWS_PROBLEM_DETAIL.has(error.category)
           ? humanProblemDetail(error.problemDetails)
           : null;
-        return describe(error.category, raw, shown ?? undefined);
+        return describe(error.category, raw, t, shown ?? undefined);
       }
-      if (isTimeout(error)) return describe("timeout", raw);
-      if (error instanceof TypeError) return describe("network", raw);
-      return describe("unknown", raw);
+      if (isTimeout(error)) return describe("timeout", raw, t);
+      if (error instanceof TypeError) return describe("network", raw, t);
+      return describe("unknown", raw, t);
     }
   </file>
   <file path="apps/hospitality/src/lib/describe-auth-error.ts">
@@ -25223,10 +26271,19 @@
   </file>
   <file path="services/reservations/src/notifications/manage-url.ts">
     export const MANAGE_PATH = "/hospitality/reservations/manage";
+    function managePathFor(origin: string): string {
+      try {
+        return EAT_SHEET_HOSTNAMES.has(new URL(origin).hostname.toLowerCase())
+          ? EAT_SHEET_MANAGE_PATH
+          : MANAGE_PATH;
+      } catch {
+        return MANAGE_PATH;
+      }
+    }
     export function buildManageUrl(baseUrl: string, token: string, rebook?: string): string {
       const origin = baseUrl.replace(/\/+$/, "");
       const rebookParam = rebook === undefined ? "" : `&rebook=${encodeURIComponent(rebook)}`;
-      return `${origin}${MANAGE_PATH}?token=${encodeURIComponent(token)}${rebookParam}`;
+      return `${origin}${managePathFor(origin)}?token=${encodeURIComponent(token)}${rebookParam}`;
     }
   </file>
   <file path="services/reservations/src/notifications/notification-dispatcher.ts">
@@ -25435,11 +26492,18 @@
       updatedAt?: string;
       /** Explicit SEQUENCE override; takes precedence over `updatedAt`. */
       sequence?: number;
+      /**
+       * The host the guest booked on (#7892) — `null`/absent keeps the
+       * mattbutlerengineering.com brand and from-address.
+       */
+      originHost?: string | null;
     }
     export interface WinBackNotificationInput {
       guestName: string;
       guestEmail: string;
       venueName: string;
+      /** Sent to the provider so a retried call for the same claim delivers once. */
+      idempotencyKey?: string;
     }
     export interface ThankYouEmailInput {
       guestEmail: string;
@@ -25453,6 +26517,8 @@
       to: string;
       subject: string;
       html: string;
+      /** The host the guest booked on (#7892) — `null`/absent keeps the mattbutlerengineering.com brand. */
+      originHost?: string | null;
     }
     export interface NotificationPort {
       /** A closure notice, already rendered (see closure-content.ts). */
@@ -25465,14 +26531,43 @@
       sendThankYouEmail(input: ThankYouEmailInput): Promise<void>;
     }
   </file>
+  <file path="services/reservations/src/notifications/provider-rejected-error.ts">
+    export class ProviderRejectedError extends Error {
+      constructor(message: string) {
+        super(message);
+        this.name = "ProviderRejectedError";
+      }
+    }
+    export class EmailNotConfiguredError extends Error {
+      constructor() {
+        super("Email sending is not configured");
+        this.name = "EmailNotConfiguredError";
+      }
+    }
+  </file>
   <file path="services/reservations/src/notifications/resend-adapter.ts">
-    interface ResendClient {
+    export interface ResendClient {
       emails: {
-        // The SDK resolves `{ data, error }` on API failures rather than throwing.
+        // The SDK resolves `{ data, error }` on EVERY failure rather than throwing: a network
+        // failure is `statusCode: null`, an HTTP failure carries the response's status.
         send(
-          payload: Record<string, unknown>
-        ): Promise<{ data?: unknown; error?: { name?: string; message: string } | null }>;
+          payload: Record<string, unknown>,
+          options?: { idempotencyKey: string }
+        ): Promise<{
+          data?: unknown;
+          error?: { name?: string; message: string; statusCode?: number | null } | null;
+        }>;
       };
+    }
+    function isDefiniteRejection(error: { name?: string; statusCode?: number | null }): boolean {
+      const status = error.statusCode;
+      return (
+        typeof status === "number" &&
+        status >= 400 &&
+        status <= 499 &&
+        !AMBIGUOUS_CLIENT_STATUSES.has(status) &&
+        error.name !== IN_FLIGHT_ERROR_NAME
+      );
     }
     export interface ResendAdapterConfig {
       resend: ResendClient | null;
@@ -25495,37 +26590,57 @@
        * sent with a link built from a guessed host.
        */
       publicApiBaseUrl: string | null;
+      /**
+       * Resolves the from-address and manage-link base for a booking's origin
+       * host (#7892) — e.g. eat-sheet.com's booking emails get that brand's
+       * display name and manage link. Omitted (or an unrecognized host) keeps
+       * `fromAddress` / `manageBaseUrl` above for every send, today's behavior.
+       */
+      brandFor?(originHost: string | null): { fromAddress: string; manageBaseUrl: string };
     }
     export class ResendNotificationAdapter implements NotificationPort {
       private readonly resend: ResendClient | null;
       private readonly fromAddress: string;
       private readonly manageBaseUrl: string;
       private readonly publicApiBaseUrl: string | null;
+      private readonly brandFor: (originHost: string | null) => {
+        fromAddress: string;
+        manageBaseUrl: string;
+      };
     
       constructor(config: ResendAdapterConfig) {
         this.resend = config.resend;
         this.fromAddress = config.fromAddress;
         this.manageBaseUrl = config.manageBaseUrl;
         this.publicApiBaseUrl = config.publicApiBaseUrl;
+        this.brandFor =
+          config.brandFor ??
+          (() => ({ fromAddress: this.fromAddress, manageBaseUrl: this.manageBaseUrl }));
       }
     
       /**
        * Single send path: converts the SDK's `{ error }` result into a rejection so
        * the dispatcher, retry policy and failure log see a failed email as failed.
        */
-      private async send(payload: Record<string, unknown>): Promise<void> {
+      private async send(
+        payload: Record<string, unknown>,
+        options?: { idempotencyKey: string }
+      ): Promise<void> {
         if (!this.resend) return;
-        const { error } = await this.resend.emails.send(payload);
+        const { error } = options
+          ? await this.resend.emails.send(payload, options)
+          : await this.resend.emails.send(payload);
         if (error) {
-          throw new Error(
-            `Resend send failed${error.name ? ` (${error.name})` : ""}: ${error.message}`
-          );
+          const message = `Resend send failed${error.name ? ` (${error.name})` : ""}: ${error.message}`;
+          // Only a proven refusal is a ProviderRejectedError; callers may retry after one (win-back).
+          throw isDefiniteRejection(error) ? new ProviderRejectedError(message) : new Error(message);
         }
       }
     
       async sendClosureNotice(input: ClosureEmailInput): Promise<void> {
+        const brand = this.brandFor(input.originHost ?? null);
         await this.send({
-          from: this.fromAddress,
+          from: brand.fromAddress,
           to: input.to,
           subject: input.subject,
           html: input.html,
@@ -25534,9 +26649,10 @@
     
       async sendBookingConfirmation(input: BookingNotificationInput): Promise<void> {
         if (!this.resend) return;
-        const content = buildBookingEmailContent(input, "confirmation", this.manageBaseUrl);
+        const brand = this.brandFor(input.originHost ?? null);
+        const content = buildBookingEmailContent(input, "confirmation", brand.manageBaseUrl);
         await this.send({
-          from: this.fromAddress,
+          from: brand.fromAddress,
           to: input.guestEmail,
           subject: content.subject,
           html: content.html,
@@ -25552,9 +26668,10 @@
     
       async sendBookingReminder(input: BookingNotificationInput): Promise<void> {
         if (!this.resend) return;
-        const content = buildBookingEmailContent(input, "reminder", this.manageBaseUrl);
+        const brand = this.brandFor(input.originHost ?? null);
+        const content = buildBookingEmailContent(input, "reminder", brand.manageBaseUrl);
         await this.send({
-          from: this.fromAddress,
+          from: brand.fromAddress,
           to: input.guestEmail,
           subject: content.subject,
           html: content.html,
@@ -25563,9 +26680,10 @@
     
       async sendBookingModified(input: BookingNotificationInput): Promise<void> {
         if (!this.resend) return;
-        const content = buildBookingEmailContent(input, "modified", this.manageBaseUrl);
+        const brand = this.brandFor(input.originHost ?? null);
+        const content = buildBookingEmailContent(input, "modified", brand.manageBaseUrl);
         await this.send({
-          from: this.fromAddress,
+          from: brand.fromAddress,
           to: input.guestEmail,
           subject: content.subject,
           html: content.html,
@@ -25581,9 +26699,10 @@
     
       async sendBookingCancelled(input: BookingNotificationInput): Promise<void> {
         if (!this.resend) return;
-        const content = buildBookingEmailContent(input, "cancelled", this.manageBaseUrl);
+        const brand = this.brandFor(input.originHost ?? null);
+        const content = buildBookingEmailContent(input, "cancelled", brand.manageBaseUrl);
         await this.send({
-          from: this.fromAddress,
+          from: brand.fromAddress,
           to: input.guestEmail,
           subject: content.subject,
           html: content.html,
@@ -25598,15 +26717,20 @@
       }
     
       async sendWinBack(input: WinBackNotificationInput): Promise<void> {
-        if (!this.resend) return;
+        // Unlike the other senders, win-back must not report "sent" for an email that never left:
+        // the caller records the send and starts a cooldown on it.
+        if (!this.resend) throw new EmailNotConfiguredError();
         const safeGuestName = escapeHtml(input.guestName);
         const safeVenueName = escapeHtml(input.venueName);
-        await this.send({
-          from: this.fromAddress,
-          to: input.guestEmail,
-          subject: `We miss you, ${input.guestName}!`,
-          html: `<p>Hi ${safeGuestName},</p><p>It&apos;s been a while since we&apos;ve seen you at ${safeVenueName}. We&apos;d love to welcome you back — book your next visit any time.</p>`,
-        });
+        await this.send(
+          {
+            from: this.fromAddress,
+            to: input.guestEmail,
+            subject: `We miss you, ${input.guestName}!`,
+            html: `<p>Hi ${safeGuestName},</p><p>It&apos;s been a while since we&apos;ve seen you at ${safeVenueName}. We&apos;d love to welcome you back — book your next visit any time.</p>`,
+          },
+          input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : undefined
+        );
       }
     
       async sendThankYouEmail(input: ThankYouEmailInput): Promise<void> {
@@ -27251,6 +28375,219 @@
         closeShortcuts,
         toggleShortcuts,
       };
+    }
+  </file>
+  <file path="apps/hospitality/src/pages/timeline-focus.ts">
+    export const DETAILS_SURFACE_TEST_ID = "reservation-details-surface";
+    export const DETAILS_SIDEBAR_TEST_ID = "reservation-detail-sidebar";
+    export function blockTarget(reservationId: string): FocusTarget {
+      return { kind: "testId", testId: `reservation-block-${reservationId}` };
+    }
+    export interface SurfaceState {
+      /** The reservation the surface is showing, whichever form it takes. */
+      readonly openId: string | null;
+      /** Phone and tablet show it as a modal Drawer, so what is behind it is out of reach. */
+      readonly modal: boolean;
+      /** A dialog held the surface in its old form, and the one its buttons are in is about to go. */
+      readonly changingForm: boolean;
+      /**
+       * Counts the times the dialogs were closed because their party left the surface. Nothing else can
+       * close a dialog mid-save, so a send that sees this change has lost the dialog that would show its
+       * failure, even if the same party is back on the surface.
+       */
+      readonly dialogEpoch: number;
+    }
+    function insideSurface(element: HTMLElement): boolean {
+      return (
+        document.querySelector(`[data-testid="${DETAILS_SURFACE_TEST_ID}"]`)?.contains(element) ?? false
+      );
+    }
+    export function returnFocusTarget(
+      surface: SurfaceState,
+      opener: HTMLElement | null,
+      fallback: FocusTarget | null
+    ): FocusTarget | null {
+      const usable =
+        opener?.isConnected && !surface.changingForm && (!surface.modal || insideSurface(opener));
+      if (opener && usable) return { kind: "element", element: opener };
+      return surface.modal ? SURFACE_TARGET : fallback;
+    }
+    export function walkInFocusTarget(viewport: Viewport, reservationId: string): FocusTarget {
+      return viewport === "desktop" ? blockTarget(reservationId) : SURFACE_TARGET;
+    }
+    export function captureOpener(clicked?: HTMLElement): HTMLElement | null {
+      if (clicked) return clicked;
+      const active = document.activeElement;
+      return active instanceof HTMLElement && active !== document.body ? active : null;
+    }
+    export function seatedFocusTarget(
+      surface: SurfaceState,
+      reservationId: string
+    ): FocusTarget | null {
+      if (surface.openId !== null && surface.openId !== reservationId) return null;
+      if (!focusIsLoose() && !focusIsInSurface()) return null;
+      const onModal = surface.openId !== null && surface.modal;
+      const testId = onModal ? RESERVATION_EDIT_TEST_ID : `reservation-block-${reservationId}`;
+      return byTestId(testId) ? { kind: "testId", testId } : null;
+    }
+    export function useCloseHoldingFocus(): (close: () => void) => void {
+      const heldRef = useRef<HTMLElement | null>(null);
+      useEffect(() => {
+        const held = heldRef.current;
+        if (!held) return;
+        heldRef.current = null;
+        requestAnimationFrame(() => held.focus());
+      });
+      return (close) => {
+        const active = document.activeElement;
+        heldRef.current =
+          active instanceof HTMLElement && active.closest('[role="dialog"][aria-modal="true"]')
+            ? active
+            : null;
+        close();
+      };
+    }
+    export function useBlockAfterRestore(): (reservationId: string) => void {
+      const requestedRef = useRef<string | null>(null);
+      useEffect(() => {
+        const id = requestedRef.current;
+        if (!id) return;
+        requestedRef.current = null;
+        requestAnimationFrame(() => {
+          const active = document.activeElement;
+          const stale =
+            !active ||
+            active === document.body ||
+            (active.getAttribute("data-testid")?.startsWith(BLOCK_TEST_ID_PREFIX) === true &&
+              active.getAttribute("data-testid") !== `${BLOCK_TEST_ID_PREFIX}${id}`);
+          if (stale) (byTestId(`${BLOCK_TEST_ID_PREFIX}${id}`) as HTMLElement | null)?.focus();
+        });
+      });
+      return (reservationId) => {
+        requestedRef.current = reservationId;
+      };
+    }
+    export function useOnChange<T>(value: T, onChange: () => void): void {
+      const [seen, setSeen] = useState(value);
+      if (value !== seen) {
+        setSeen(value);
+        onChange();
+      }
+    }
+    interface DetailsSurfaceInput {
+      readonly viewport: Viewport;
+      readonly selectedId: string | null;
+      readonly selectedReservation: Reservation | null;
+      readonly dialogOpen: boolean;
+      readonly dialogEpoch: number;
+    }
+    interface DetailsSurface {
+      /** Which form the surface takes. */
+      readonly surfaceViewport: Viewport;
+      /** What the tablet sheet renders, including closed across a Seat now's selection gap. */
+      readonly sheetReservation: Reservation | null;
+      /** For use after an `await`: the surface when the response arrived, not when it was sent. */
+      readonly surfaceRef: RefObject<SurfaceState>;
+    }
+    export function useDetailsSurface({
+      viewport,
+      selectedId,
+      selectedReservation,
+      dialogOpen,
+      dialogEpoch,
+    }: DetailsSurfaceInput): DetailsSurface {
+      // It follows the viewport, except while a dialog is open: a sheet mounting under a dialog takes
+      // focus and the Escape layer from it. A frame late, so a closing overlay's own focus restore has
+      // run before a new surface takes focus.
+      const [surfaceViewport, setSurfaceViewport] = useState(viewport);
+      useEffect(() => {
+        if (dialogOpen || surfaceViewport === viewport) return;
+        const frame = requestAnimationFrame(() => setSurfaceViewport(viewport));
+        return () => cancelAnimationFrame(frame);
+      }, [dialogOpen, surfaceViewport, viewport]);
+    
+      // Seat now selects a reservation the refetch has yet to bring. The sheet stays mounted, closed,
+      // across that gap: unmounting it would schedule a focus restore that could land on the old party's
+      // block behind the new sheet, and only the same Drawer reopening can cancel it.
+      const [heldReservation, setHeldReservation] = useState<Reservation | null>(null);
+      const sheetReservation = selectedReservation ?? (selectedId ? heldReservation : null);
+      if (sheetReservation !== heldReservation) setHeldReservation(sheetReservation);
+    
+      const surfaceRef = useRef<SurfaceState>({
+        openId: null,
+        modal: false,
+        changingForm: false,
+        dialogEpoch: 0,
+      });
+      useLayoutEffect(() => {
+        const open = selectedReservation !== null;
+        surfaceRef.current = {
+          openId: selectedReservation?.id ?? null,
+          modal: viewport !== "desktop" && open,
+          changingForm: open && surfaceViewport !== viewport,
+          dialogEpoch,
+        };
+      });
+    
+      return { surfaceViewport, sheetReservation, surfaceRef };
+    }
+  </file>
+  <file path="apps/hospitality/src/pages/timeline-sentences.ts">
+    export function walkInSentence(
+      created: Reservation,
+      tableName: string | undefined,
+      t: TFunction
+    ): string {
+      const who = created.guestName ? created.guestName : t("timeline.announce.aWalkIn");
+      const size = created.partySize;
+      return tableName
+        ? t("timeline.announce.walkInSeatedAt", { who, size, table: tableName })
+        : t("timeline.announce.walkInSeated", { who, size });
+    }
+    export function seatedSentence(
+      reservation: Reservation,
+      tableName: string | undefined,
+      t: TFunction
+    ): string {
+      const guest = reservation.guestName || t("timeline.announce.theGuest");
+      return tableName
+        ? t("timeline.announce.seatedAt", { guest, table: tableName })
+        : t("timeline.announce.seated", { guest });
+    }
+    export function cancelledSentence(reservation: Reservation, t: TFunction): string {
+      return reservation.guestName
+        ? t("timeline.announce.cancelledNamed", { name: reservation.guestName })
+        : t("timeline.announce.cancelled");
+    }
+    export function noShowSentence(reservation: Reservation, t: TFunction): string {
+      return reservation.guestName
+        ? t("timeline.announce.noShowNamed", { name: reservation.guestName })
+        : t("timeline.announce.noShow");
+    }
+    export function seatNotFinishedSentence(reservation: Reservation, t: TFunction): string {
+      return reservation.guestName
+        ? t("timeline.announce.seatNotFinishedNamed", { name: reservation.guestName })
+        : t("timeline.announce.seatNotFinished");
+    }
+    export function notAppliedSentence(reservation: Reservation, t: TFunction): string {
+      return reservation.guestName
+        ? t("timeline.announce.changeFailedNamed", { name: reservation.guestName })
+        : t("timeline.announce.changeFailed");
+    }
+    export function savedSentence(reservation: Reservation, t: TFunction): string {
+      return reservation.guestName
+        ? t("timeline.announce.savedNamed", { name: reservation.guestName })
+        : t("timeline.announce.saved");
+    }
+    export function loadedSentence(
+      date: string,
+      todayStr: string,
+      locale: string,
+      t: TFunction
+    ): string {
+      return date === todayStr
+        ? t("timeline.announce.loadedTonight")
+        : t("timeline.announce.loadedDate", { date: formatServiceDate(date, locale) });
     }
   </file>
   </section>
@@ -29929,10 +31266,11 @@
         }
       }
     }
-    function availabilityWriteFailure(err: unknown, action: string) {
+    function availabilityWriteFailure(err: unknown, action: string, unsure: string | undefined) {
       const refusal = refusalOf(err);
-      if (!refusal)
-        return { error: `Couldn't ${action} right now. Ask the user to try again shortly.` };
+      if (!refusal) {
+        return { error: unsure ?? `Couldn't ${action} right now. Ask the user to try again shortly.` };
+      }
       const base = { refused: true, ...(refusal.code ? { code: refusal.code } : {}) };
       switch (refusal.code ?? (refusal.status === 403 ? "forbidden" : undefined)) {
         case "decision-required":
@@ -30005,7 +31343,7 @@
                 undoable: newest?.revertible ? { summary: newest.summary, at: newest.at } : null,
               };
             } catch (err) {
-              log.error({ err, venueId }, "list_tonight_changes failed");
+              log.error({ ...failureLog(err), venueId }, "list_tonight_changes failed");
               return { error: "Couldn't read tonight's availability. Ask the user to try again." };
             }
           },
@@ -30019,10 +31357,12 @@
           execute: async (input) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId, change: input.change }, "change_tonight_availability tool called");
+            let unsure: string | undefined;
             try {
               const state = await api.availability.getConfig(venueId);
               const built = await buildChange(input, state.config, api, venueId);
               if ("error" in built) return built;
+              unsure = TONIGHT_SAVE_UNSURE;
               const result = await api.availability.setTonight(venueId, {
                 expectedVersion: state.version,
                 ruleId: randomUUID(),
@@ -30035,8 +31375,11 @@
                 ...(until ? { until } : {}),
               };
             } catch (err) {
-              log.error({ err, venueId, change: input.change }, "change_tonight_availability failed");
-              return availabilityWriteFailure(err, "make the change");
+              log.error(
+                { ...failureLog(err), venueId, change: input.change },
+                "change_tonight_availability failed"
+              );
+              return availabilityWriteFailure(err, "make the change", unsure);
             }
           },
         }),
@@ -30053,6 +31396,7 @@
           execute: async ({ change, from }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId, change }, "end_tonight_change tool called");
+            let unsure: string | undefined;
             try {
               const { rules } = await readTonight();
               const ofKind = rules.filter((rule) => changeTypeOf(rule) === change);
@@ -30069,11 +31413,12 @@
                   error: `More than one ${change.replace(/_/g, " ")} change is in force. Ask which one, by its start time.`,
                 };
               }
-              await api.availability.endTonight(venueId, matches[0]!.id);
+              unsure = TONIGHT_SAVE_UNSURE;
+              await api.availability.endTonight(venueId, matches[0]!.id, NO_REPLAY);
               return { ended: true, change };
             } catch (err) {
-              log.error({ err, venueId, change }, "end_tonight_change failed");
-              return availabilityWriteFailure(err, "end the change");
+              log.error({ ...failureLog(err), venueId, change }, "end_tonight_change failed");
+              return availabilityWriteFailure(err, "end the change", unsure);
             }
           },
         }),
@@ -30087,6 +31432,7 @@
           execute: async ({ summary }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId }, "undo_availability_change tool called");
+            let unsure: string | undefined;
             try {
               const page = await api.availability.listChanges(venueId, { limit: 1 });
               const newest = page.items[0];
@@ -30102,11 +31448,12 @@
                 };
               }
               const { version } = await api.availability.getConfig(venueId);
+              unsure = TONIGHT_SAVE_UNSURE;
               await api.availability.revertChange(venueId, newest.id, version);
               return { undone: true, summary };
             } catch (err) {
-              log.error({ err, venueId }, "undo_availability_change failed");
-              return availabilityWriteFailure(err, "undo the change");
+              log.error({ ...failureLog(err), venueId }, "undo_availability_change failed");
+              return availabilityWriteFailure(err, "undo the change", unsure);
             }
           },
         }),
@@ -30211,8 +31558,7 @@
     export const UNREADABLE_SPAN_DATE = `The date can't be read. Use a real date as YYYY-MM-DD, or "${UNTIL_REOPENED}" as the last date of a closure with no end.`;
     export const CHECK_FAILED =
       "Couldn't check which bookings this would affect. Nothing was changed. Ask the user to try again shortly.";
-    export const SAVE_UNSURE =
-      "Couldn't confirm the change was saved. Check list_closures before trying again.";
+    export const SAVE_UNSURE = saveUnsure("list_closures");
     export const NO_REGULAR_HOURS = `That date has no regular hours to build special hours on. ${AVAILABILITY_PAGE}`;
     export function dayNumber(date: string): number | undefined {
       const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date.trim());
@@ -30272,7 +31618,7 @@
     export function spanOf(rule: DatedRule) {
       return { from: rule.startsOn, to: rule.endsOn ?? UNTIL_REOPENED };
     }
-    export function spanText(rule: DatedRule): string {
+    export function spanText(rule: Pick<DatedRule, "startsOn" | "endsOn">): string {
       return rule.endsOn == null
         ? `from ${rule.startsOn} until reopened`
         : `from ${rule.startsOn} to ${rule.endsOn}`;
@@ -30282,7 +31628,10 @@
     export function serviceName(config: AvailabilityConfig, id: string): string {
       return config.venueServices.find((s) => s.id === id)?.name ?? "a service";
     }
-    export function scopeOf(rule: DatedRule, config: AvailabilityConfig): string {
+    export function scopeOf(
+      rule: Pick<DatedRule, "targetKind" | "venueServiceId" | "bookingTypes">,
+      config: AvailabilityConfig
+    ): string {
       switch (rule.targetKind) {
         case "service":
           return rule.venueServiceId ? serviceName(config, rule.venueServiceId) : "a service";
@@ -30359,29 +31708,23 @@
         });
       }
     }
-    export function findCoveringClosure(
+    export function closedDays(
       config: AvailabilityConfig,
-      target: { readonly serviceId?: string | undefined },
+      serviceId: string | undefined,
       from: string,
       to: string
-    ): ClosureRule | undefined {
-      return config.dateRules.find(
-        (r): r is ClosureRule =>
-          r.kind === "closure" &&
-          !r.repeat &&
-          !r.seriesId &&
-          !r.window &&
-          (r.targetKind === "venue" ||
-            (target.serviceId !== undefined &&
-              r.targetKind === "service" &&
-              r.venueServiceId === target.serviceId)) &&
-          r.startsOn <= from &&
-          (r.endsOn == null || r.endsOn >= to)
-      );
+    ): { date: string; rule: ClosureRule }[] {
+      const [first, last] = [dayNumber(from)!, dayNumber(to)!]; // `checkSpan` read both
+      return Array.from({ length: last - first + 1 }, (_, i) =>
+        new Date((first + i) * MS_PER_DAY).toISOString().slice(0, 10)
+      ).flatMap((date) => {
+        const rule = closureOnDay(config, serviceId, date);
+        return rule ? [{ date, rule }] : [];
+      });
     }
     export function closureOnDay(
       config: AvailabilityConfig,
-      serviceId: string,
+      serviceId: string | undefined,
       date: string
     ): ClosureRule | undefined {
       return config.dateRules.find(
@@ -30587,15 +31930,12 @@
             const state = await api.availability.getConfig(venueId);
             const target = scope === "service" ? resolveService(state.config, service!) : undefined;
             if (target && "error" in target) return target;
-            const same = findCoveringClosure(
-              state.config,
-              { serviceId: target?.id },
-              span.from,
-              span.to
-            );
-            if (same) {
+            const closed = closedDays(state.config, target?.id, span.from, span.to);
+            const named = (rule: ClosureRule) => `${scopeOf(rule, state.config)} ${spanText(rule)}`;
+            if (closed.length === dayNumber(span.to)! - dayNumber(span.from)! + 1) {
+              const closures = [...new Set(closed.map((c) => named(c.rule)))].join("; ");
               return {
-                error: `This is already closed (${scopeOf(same, state.config)} ${spanText(same)}), which covers those dates. Nothing was changed.`,
+                error: `This is already closed (${closures}), which covers those dates. Nothing was changed.`,
               };
             }
             const rule: ClosureRule = {
@@ -30614,7 +31954,10 @@
               ...spanOf(rule),
               to: span.to,
               scope: scopeOf(rule, state.config),
-              note: "No booking was affected, so no guest was told.",
+              note: `No booking was affected, so no guest was told.${closed.map((c) => ` ${c.date} was already closed (${named(c.rule)}): it stays closed until that closure is reopened too.`).join("")}`,
+              ...(closed.length > 0
+                ? { alreadyClosed: closed.map((c) => ({ date: c.date, by: named(c.rule) })) }
+                : {}),
             };
           } catch (err) {
             log.error({ err, venueId }, "close_dates failed");
@@ -30702,9 +32045,23 @@
       const why = datesPassed ? ": their booking dates have passed" : "";
       return `The ${guestsOf(cancelled)} the closure cancelled ${cancelled === 1 ? "was" : "were"} not asked to be notified that it has reopened${why}. They stay cancelled.`;
     }
+    function stillClosedFields(saved: ReopenResult, config: AvailabilityConfig) {
+      const by = saved.stillClosed?.by ?? [];
+      if (by.length === 0) return { stillClosed: undefined, note: "" };
+      const stillClosed = by.map((rule) => {
+        const from = rule.window ? ` from ${minuteToClock(rule.window.from)}` : "";
+        return { dates: rule.dates, by: `${scopeOf(rule, config)}${from} ${spanText(rule)}` };
+      });
+      return {
+        stillClosed,
+        note: stillClosed
+          .map((s) => ` ${s.dates.join(", ")} stays closed by another closure (${s.by}).`)
+          .join(""),
+      };
+    }
     function reopenClosure({ log, api, venueId }: ToolContext) {
       return tool({
-        description: `Reopen a closure of the whole venue or one service so its slots return. Pass the closure's full span exactly as list_closures gives it (to is "${UNTIL_REOPENED}" for one with no end) and its scope; a different span is refused with the real one. Guests it already cancelled stay cancelled. Requires confirmation. Special hours, repeating closures and booking or table pauses are changed on the Availability page. Call list_closures first; if the closure cancelled guests, ask whether to tell them.`,
+        description: `Reopen a closure of the whole venue or one service so its slots return, unless another closure also closes those dates: stillClosed then names it, and reopened is false when no date came back, so say so instead of saying it reopened. Pass the closure's full span exactly as list_closures gives it (to is "${UNTIL_REOPENED}" for one with no end) and its scope; a different span is refused with the real one. Guests it already cancelled stay cancelled. Requires confirmation. Special hours, repeating closures and booking or table pauses are changed on the Availability page. Call list_closures first; if the closure cancelled guests, ask whether to tell them.`,
         inputSchema: z
           .object({
             from: DateField.describe("The closure's first date, as YYYY-MM-DD"),
@@ -30731,6 +32088,7 @@
             return { error: `The last date (${to}) is before the first (${from}).` };
           }
           let rule: ClosureRule;
+          let config: AvailabilityConfig;
           let scopeText: string;
           let cancelled: number;
           // The guests a notice can still reach: those whose booking has not started.
@@ -30747,6 +32105,7 @@
             });
             if ("error" in found) return { refused: true, ...found };
             rule = found.rule;
+            config = state.config;
             scopeText = scopeOf(rule, state.config);
             const counts = await api.availability.listClosures(venueId).catch((err: unknown) => {
               log.error({ err, venueId }, "reopen_closure counts failed");
@@ -30767,21 +32126,36 @@
           }
           const told = tellCancelledGuests && reachable > 0;
           let notified: number;
+          let saved: ReopenResult;
           try {
-            const saved = await api.availability.reopenClosure(venueId, rule.id, told);
+            saved = await api.availability.reopenClosure(venueId, rule.id, told, NO_REPLAY);
             // The server counts who the notice really reached; an older one does not say.
             notified = told ? (saved.notified ?? reachable) : 0;
           } catch (err) {
             log.error({ err, venueId }, "reopen_closure failed");
             return closureFailure(err, SAVE_UNSURE);
           }
-          return {
-            reopened: true,
+          const stays = stillClosedFields(saved, config);
+          const shared = {
             ...spanOf(rule),
             scope: scopeText,
             guestsCancelled: cancelled,
             noticeRequested: notified > 0,
-            note: reopenNote(cancelled, notified, tellCancelledGuests && reachable === 0),
+            ...(stays.stillClosed ? { stillClosed: stays.stillClosed } : {}),
+          };
+          // Every date stays shut: the rule is gone, but saying "reopened" would be false (#8006).
+          if (saved.stillClosed?.everyDate) {
+            return {
+              reopened: false,
+              closureRemoved: true,
+              ...shared,
+              note: `This closure was removed, but its dates did not reopen.${stays.note} Guests can't book until that closure is reopened too, so no guest was told to rebook.`,
+            };
+          }
+          return {
+            reopened: true,
+            ...shared,
+            note: `${reopenNote(cancelled, notified, tellCancelledGuests && reachable === 0)}${stays.note}`,
           };
         },
       });
@@ -30861,11 +32235,12 @@
         ? { refused: true, error: "The user doesn't have permission to see floor plans." }
         : { error: "Couldn't read the floor plans. Ask the user to try again." };
     }
-    function writeFailure(err: unknown) {
+    function writeFailure(err: unknown, unsure: string | undefined) {
       const refusal = refusalOf(err);
       if (!refusal) {
         return {
           error:
+            unsure ??
             "Couldn't change the floor plan right now. Nothing was changed. Ask the user to try again.",
         };
       }
@@ -30922,6 +32297,7 @@
           execute: async ({ floorPlan }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId }, "activate_floor_plan tool called");
+            let unsure: string | undefined;
             try {
               const { data } = await api.floorPlans.list({ venueId, limit: PLAN_PAGE_SIZE });
               const found = findPlan(data, floorPlan);
@@ -30929,11 +32305,12 @@
               if (found.plan.isActive) {
                 return { alreadyActive: true, floorPlan: found.plan.name };
               }
+              unsure = saveUnsure("list_floor_plans");
               await api.floorPlans.setActive(found.plan.id);
               return { updated: true, floorPlan: found.plan.name };
             } catch (err) {
               log.error({ err, venueId }, "activate_floor_plan failed");
-              return writeFailure(err);
+              return writeFailure(err, unsure);
             }
           },
         }),
@@ -30950,11 +32327,15 @@
         dietaryRestrictions: guest.dietaryRestrictions ?? [],
       };
     }
-    function guestFailure(err: unknown, action: string) {
+    function winBackUnsure(name: string): string {
+      return `Couldn't confirm the win-back message to ${name} was sent. Check ${name} in list_lapsing_guests: lastWinBackAt is the last send the email provider confirmed, and winBackAttemptedAt is an attempt that may not have gone out. The server won't send another for a week after either; both null means nothing was recorded. Tell the user which it is.`;
+    }
+    function guestFailure(err: unknown, action: string, unsure: string | undefined) {
       const refusal = refusalOf(err);
       if (!refusal) {
         return {
-          error: `Couldn't ${action} right now. Nothing was changed. Ask the user to try again.`,
+          error:
+            unsure ?? `Couldn't ${action} right now. Nothing was changed. Ask the user to try again.`,
         };
       }
       if (refusal.status === 403) {
@@ -30995,7 +32376,7 @@
         // ── Read ───────────────────────────────────────────────
         list_lapsing_guests: tool({
           description:
-            "List regular guests who are overdue for a visit (win-back candidates), most overdue first.",
+            "List regular guests who are overdue for a visit (win-back candidates), most overdue first, with lastWinBackAt (the last win-back the email provider confirmed, null = none) and winBackAttemptedAt (an attempt never confirmed, which may not have gone out, null = none).",
           inputSchema: z.object({}),
           execute: async () => {
             if (!venueId) return NO_VENUE;
@@ -31009,10 +32390,12 @@
                     name: g.name,
                     daysSinceLastVisit: g.daysSinceLastVisit,
                     daysOverdue: g.daysOverdue,
+                    lastWinBackAt: g.lastWinBackAt ?? null,
+                    winBackAttemptedAt: g.winBackAttemptedAt ?? null,
                   })),
               };
             } catch (err) {
-              log.error({ err, venueId }, "list_lapsing_guests failed");
+              log.error({ ...failureLog(err), venueId }, "list_lapsing_guests failed");
               return { error: "Couldn't read lapsing guests. Ask the user to try again." };
             }
           },
@@ -31049,8 +32432,9 @@
               });
               return { saved: true, guest: shown(saved) };
             } catch (err) {
-              log.error({ err, venueId }, "add_guest failed");
-              return guestFailure(err, "add the guest");
+              log.error({ ...failureLog(err), venueId }, "add_guest failed");
+              // The write is the tool's first call, so any failure may have saved.
+              return guestFailure(err, "add the guest", GUEST_SAVE_UNSURE);
             }
           },
         }),
@@ -31062,6 +32446,7 @@
           execute: async (input) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId }, "update_guest tool called");
+            let unsure: string | undefined;
             try {
               const found = await findGuest(api, venueId, input.guest, input.contact);
               if ("error" in found) return found;
@@ -31073,6 +32458,7 @@
                     ...(input.addTags ?? []).filter((tag) => !current.some((c) => sameText(c, tag))),
                   ]
                 : undefined;
+              unsure = GUEST_SAVE_UNSURE;
               const updated = await api.guests.update(found.guest.id, {
                 ...(input.name ? { name: input.name } : {}),
                 ...(input.phone ? { phone: input.phone } : {}),
@@ -31085,8 +32471,8 @@
               });
               return { updated: true, guest: shown(updated) };
             } catch (err) {
-              log.error({ err, venueId }, "update_guest failed");
-              return guestFailure(err, "update the guest");
+              log.error({ ...failureLog(err), venueId }, "update_guest failed");
+              return guestFailure(err, "update the guest", unsure);
             }
           },
         }),
@@ -31101,14 +32487,16 @@
           execute: async ({ guest, contact, text }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId }, "add_guest_note tool called");
+            let unsure: string | undefined;
             try {
               const found = await findGuest(api, venueId, guest, contact);
               if ("error" in found) return found;
+              unsure = GUEST_SAVE_UNSURE;
               await api.guests.addNote(found.guest.id, text);
               return { noted: true, guest: found.guest.name };
             } catch (err) {
-              log.error({ err, venueId }, "add_guest_note failed");
-              return guestFailure(err, "add the note");
+              log.error({ ...failureLog(err), venueId }, "add_guest_note failed");
+              return guestFailure(err, "add the note", unsure);
             }
           },
         }),
@@ -31122,6 +32510,7 @@
           execute: async ({ guest }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId }, "send_win_back tool called");
+            let unsure: string | undefined;
             try {
               const lapsing = await api.guests.getLapsing(venueId);
               const matches = lapsing.filter((g) => sameText(g.name, guest));
@@ -31133,6 +32522,7 @@
                       : `More than one lapsing guest is called ${guest}. Send it from the Dashboard instead.`,
                 };
               }
+              unsure = winBackUnsure(matches[0]!.name);
               const { sent } = await api.guests.sendWinBack(matches[0]!.guestId);
               return sent
                 ? { sent: true, guest: matches[0]!.name }
@@ -31142,8 +32532,8 @@
                     note: "The message wasn't sent, usually because of the guest's contact preferences. Say so.",
                   };
             } catch (err) {
-              log.error({ err, venueId }, "send_win_back failed");
-              return guestFailure(err, "send the win-back message");
+              log.error({ ...failureLog(err), venueId }, "send_win_back failed");
+              return guestFailure(err, "send the win-back message", unsure);
             }
           },
         }),
@@ -31162,11 +32552,13 @@
       const [whole = "0", fraction = ""] = price.split(".");
       return Number(whole) * CENTS_PER_UNIT + Number(fraction.padEnd(2, "0"));
     }
-    function menuFailure(err: unknown) {
+    function menuFailure(err: unknown, unsure: string | undefined) {
       const refusal = refusalOf(err);
       if (!refusal) {
         return {
-          error: "Couldn't change the menu right now. Nothing was changed. Ask the user to try again.",
+          error:
+            unsure ??
+            "Couldn't change the menu right now. Nothing was changed. Ask the user to try again.",
         };
       }
       if (refusal.status === 403) {
@@ -31293,6 +32685,7 @@
           execute: async ({ menu, item, section, availability }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId, availability }, "set_menu_item_availability tool called");
+            let unsure: string | undefined;
             try {
               const target = await resolveTarget(api, venueId, menu, item, section);
               if ("error" in target) return target;
@@ -31303,13 +32696,14 @@
                 };
               }
               const status = availability === "sold_out" ? "SOLD_OUT" : "AVAILABLE";
+              unsure = MENU_SAVE_UNSURE;
               await api.menus.updateItem(venueId, target.menuId, target.section.id, target.item.id, {
                 status,
               });
               return { updated: true, item: target.item.name, status };
             } catch (err) {
               log.error({ err, venueId }, "set_menu_item_availability failed");
-              return menuFailure(err);
+              return menuFailure(err, unsure);
             }
           },
         }),
@@ -31336,9 +32730,11 @@
           execute: async ({ menu, item, section, price, name, description }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId }, "update_menu_item tool called");
+            let unsure: string | undefined;
             try {
               const target = await resolveTarget(api, venueId, menu, item, section);
               if ("error" in target) return target;
+              unsure = MENU_SAVE_UNSURE;
               await api.menus.updateItem(venueId, target.menuId, target.section.id, target.item.id, {
                 ...(price !== undefined ? { priceCents: priceToCents(price) } : {}),
                 ...(name !== undefined ? { name } : {}),
@@ -31347,7 +32743,7 @@
               return { updated: true, item: name ?? target.item.name };
             } catch (err) {
               log.error({ err, venueId }, "update_menu_item failed");
-              return menuFailure(err);
+              return menuFailure(err, unsure);
             }
           },
         }),
@@ -31437,6 +32833,7 @@
         "Never ask the user for a venue ID, reservation ID, or table ID: look them up with the tools.",
         "Your earlier replies in this conversation were based on tool results that aren't shown to you again. Treat them as accurate: don't apologize for or correct them unless a new tool result actually contradicts them. When you need an earlier detail, such as an ID, look it up again.",
         "A change (booking, seating, no-show, walk-in, cancellation, table status, Tonight availability, closures and special hours, waitlist, guest profile, menu items, the active floor plan) runs only when the user presses the Confirm or Cancel button the chat shows with it. Tell them to use those buttons, and never ask them to type yes: typing a new message dismisses the pending change.",
+        "When a tool says it couldn't confirm a change, the change may have been saved: tell the user so, never say nothing changed, and check with the read it names before proposing it again. for send_win_back that read is list_lapsing_guests: lastWinBackAt is a send the email provider confirmed, and winBackAttemptedAt is an attempt that may not have gone out; never propose it again for that guest while either is recent.",
         "Ask only for details the user has to decide, such as guest name, party size, or time. When a reservation's end time isn't given, use two hours after the start.",
         "Reply in short, plain sentences in the user's language. Don't use markdown: the chat shows plain text.",
         "Show elements only by calling render_component with an elements array: each element has a unique id, a type from the components below, its props, and children as a list of other elements' ids; an element no other element lists is shown at the top level. Never write JSON, element specs or patch lines in your reply text.",
@@ -31469,12 +32866,18 @@
   </file>
   <file path="services/agent/src/routes/gen-agent-timeline-tools.ts">
     type Reservation = Awaited<ReturnType<ApiClient["reservations"]["get"]>>;
-    function bookingWriteFailure(err: unknown, action: string, saved?: string) {
+    export function bookingWriteFailure(
+      err: unknown,
+      action: string,
+      unsure: string | undefined,
+      saved?: string
+    ) {
       const outcome = saved
         ? `${saved} was already saved; check the timeline before trying again.`
         : "Nothing was changed.";
       const refusal = refusalOf(err);
       if (!refusal) {
+        if (unsure) return { error: saved ? `${saved} was already saved. ${unsure}` : unsure };
         return { error: `Couldn't ${action} right now. ${outcome} Ask the user to try again shortly.` };
       }
       if (refusal.status === 403) {
@@ -31514,6 +32917,7 @@
             if (!venueId) return NO_VENUE;
             log.info({ venueId, reservationId, tableRef }, "seat_reservation tool called");
             let saved: string | undefined;
+            let unsure: string | undefined;
             try {
               const found = await venueReservation(api, venueId, reservationId);
               if ("error" in found) return found;
@@ -31541,6 +32945,7 @@
               // The server has no CONFIRMED -> CONFIRMED edge, so only a pending booking changes
               // status; and it refuses a status change combined with a table change, so they go
               // as separate requests.
+              unsure = saveUnsure("lookup_reservation and get_table_status");
               if (reservation.status === "PENDING") {
                 await api.reservations.update(reservationId, { status: "CONFIRMED" });
                 saved = "Confirming the booking";
@@ -31554,8 +32959,8 @@
               await api.tables.updateStatus(tableId, "OCCUPIED");
               return { seated: true, table: tableLabel };
             } catch (err) {
-              log.error({ err, venueId, reservationId }, "seat_reservation failed");
-              return bookingWriteFailure(err, "seat the party", saved);
+              log.error({ ...failureLog(err), venueId, reservationId }, "seat_reservation failed");
+              return bookingWriteFailure(err, "seat the party", unsure, saved);
             }
           },
         }),
@@ -31566,14 +32971,16 @@
           execute: async ({ reservationId }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId, reservationId }, "mark_no_show tool called");
+            let unsure: string | undefined;
             try {
               const found = await venueReservation(api, venueId, reservationId);
               if ("error" in found) return found;
+              unsure = saveUnsure("lookup_reservation");
               const { warning } = await api.reservations.markNoShow(reservationId);
               return { noShow: true, ...(warning ? { warning } : {}) };
             } catch (err) {
-              log.error({ err, venueId, reservationId }, "mark_no_show failed");
-              return bookingWriteFailure(err, "mark the no-show");
+              log.error({ ...failureLog(err), venueId, reservationId }, "mark_no_show failed");
+              return bookingWriteFailure(err, "mark the no-show", unsure);
             }
           },
         }),
@@ -31606,11 +33013,16 @@
                       ...(reason ? { cancellationReason: reason } : {}),
                       ...(note ? { cancellationNote: note } : {}),
                     })
-                  : await api.reservations.cancel(reservationId);
+                  : await api.reservations.cancel(reservationId, NO_REPLAY);
               return { reservation };
             } catch (err) {
-              log.error({ err, reservationId }, "cancel_reservation failed");
-              return { error: "Failed to cancel reservation. Please try again." };
+              log.error({ ...failureLog(err), reservationId }, "cancel_reservation failed");
+              // The write is the tool's first call, so any failure may have saved.
+              return bookingWriteFailure(
+                err,
+                "cancel the reservation",
+                saveUnsure("lookup_reservation")
+              );
             }
           },
         }),
@@ -31711,7 +33123,7 @@
     }
     function createFailureResult(err: unknown) {
       const refusal = refusalOf(err);
-      if (!refusal) return { error: "Failed to create reservation. Please try again." };
+      if (!refusal) return { error: saveUnsure("lookup_reservation") };
       if (!FINAL_REFUSAL_STATUSES.has(refusal.status)) {
         // e.g. a 400 from our own malformed request: not the venue's decision.
         return { error: `Failed to create reservation: ${refusal.detail}` };
@@ -31918,7 +33330,7 @@
               );
               return { reservations: reservations.map(toLocal) };
             } catch (err) {
-              log.error({ err, date, venueId }, "lookup_reservation failed");
+              log.error({ ...failureLog(err), date, venueId }, "lookup_reservation failed");
               return { error: "Failed to look up reservations. Please try again." };
             }
           },
@@ -31931,12 +33343,12 @@
           }),
           execute: async ({ query }) => {
             if (!venueId) return NO_VENUE;
-            log.info({ query, venueId }, "search_guests tool called");
+            log.info({ venueId }, "search_guests tool called");
             try {
               const result = await api.guests.search({ venueId, query });
               return { guests: result.data };
             } catch (err) {
-              log.error({ err, query, venueId }, "search_guests failed");
+              log.error({ ...failureLog(err), venueId }, "search_guests failed");
               return { error: "Failed to search guests. Please try again." };
             }
           },
@@ -31951,7 +33363,7 @@
             if (!venueId) return NO_VENUE;
             log.info({ venueId }, "get_table_status tool called");
             try {
-              const result = await api.tables.list({ venueId });
+              const result = await api.tables.list({ venueId, limit: TABLES_LIMIT });
               return { tables: result.data };
             } catch (err) {
               log.error({ err, venueId }, "get_table_status failed");
@@ -32019,7 +33431,7 @@
           }),
           execute: async ({ guestName, date, startTime, endTime, partySize, tableId, notes }) => {
             if (!venueId) return NO_VENUE;
-            log.info({ guestName, date, startTime, partySize }, "create_reservation tool called");
+            log.info({ venueId, date, startTime, partySize }, "create_reservation tool called");
             const window = reservationWindow(date, startTime, endTime, timeZone);
             if (!window) return { error: UNREADABLE_TIME };
             try {
@@ -32035,7 +33447,7 @@
               });
               return { reservation };
             } catch (err) {
-              log.error({ err, guestName, date }, "create_reservation failed");
+              log.error({ ...failureLog(err), venueId, date }, "create_reservation failed");
               return createFailureResult(err);
             }
           },
@@ -32054,7 +33466,8 @@
             notes: z.string().optional().describe("Updated notes"),
           }),
           execute: async ({ reservationId, ...updates }) => {
-            log.info({ reservationId, ...updates }, "modify_reservation tool called");
+            // Field names only: notes are free text, and can say anything about a guest.
+            log.info({ reservationId, fields: Object.keys(updates) }, "modify_reservation tool called");
             try {
               const cleanUpdates = Object.fromEntries(
                 Object.entries(updates).filter(([, v]) => v !== undefined)
@@ -32062,8 +33475,13 @@
               const reservation = await api.reservations.update(reservationId, cleanUpdates);
               return { reservation };
             } catch (err) {
-              log.error({ err, reservationId }, "modify_reservation failed");
-              return { error: "Failed to modify reservation. Please try again." };
+              log.error({ ...failureLog(err), reservationId }, "modify_reservation failed");
+              // The write is the tool's first call, so any failure may have saved.
+              return bookingWriteFailure(
+                err,
+                "modify the reservation",
+                saveUnsure("lookup_reservation")
+              );
             }
           },
         }),
@@ -32081,7 +33499,7 @@
           }),
           execute: async ({ partySize, tableId, guestName }) => {
             if (!venueId) return NO_VENUE;
-            log.info({ venueId, partySize, tableId, guestName }, "seat_walk_in tool called");
+            log.info({ venueId, partySize, tableId }, "seat_walk_in tool called");
             try {
               if (!tableId) {
                 return {
@@ -32096,8 +33514,9 @@
               });
               return { reservation };
             } catch (err) {
-              log.error({ err, venueId, partySize }, "seat_walk_in failed");
-              return { error: "Failed to seat walk-in. Please try again." };
+              log.error({ ...failureLog(err), venueId, partySize }, "seat_walk_in failed");
+              // The write is the tool's first call, so any failure may have saved.
+              return bookingWriteFailure(err, "seat the walk-in", saveUnsure("get_table_status"));
             }
           },
         }),
@@ -32112,16 +33531,18 @@
           execute: async ({ table: tableRef, status: newStatus }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId, tableRef, newStatus }, "update_table_status tool called");
+            let unsure: string | undefined;
             try {
-              const tablesResult = await api.tables.list({ venueId });
+              const tablesResult = await api.tables.list({ venueId, limit: TABLES_LIMIT });
               const resolved = resolveTable(tablesResult.data, tableRef);
               if ("error" in resolved) return resolved;
               const { table } = resolved;
+              unsure = saveUnsure("get_table_status");
               const updated = await api.tables.updateStatus(table.id, newStatus);
               return { table: updated };
             } catch (err) {
               log.error({ err, venueId, tableRef }, "update_table_status failed");
-              return { error: "Failed to update table status. Please try again." };
+              return bookingWriteFailure(err, "update the table status", unsure);
             }
           },
         }),
@@ -32140,11 +33561,12 @@
   </file>
   <file path="services/agent/src/routes/gen-agent-waitlist-tools.ts">
     type WaitlistEntry = Awaited<ReturnType<ApiClient["waitlist"]["list"]>>[number];
-    function waitlistFailure(err: unknown, action: string) {
+    function waitlistFailure(err: unknown, action: string, unsure: string | undefined) {
       const refusal = refusalOf(err);
       if (!refusal) {
         return {
-          error: `Couldn't ${action} right now. Nothing was changed. Ask the user to try again.`,
+          error:
+            unsure ?? `Couldn't ${action} right now. Nothing was changed. Ask the user to try again.`,
         };
       }
       if (refusal.status === 403) {
@@ -32213,7 +33635,7 @@
                 });
               return { parties };
             } catch (err) {
-              log.error({ err, venueId }, "list_waitlist failed");
+              log.error({ ...failureLog(err), venueId }, "list_waitlist failed");
               const refusal = refusalOf(err);
               return refusal?.status === 403
                 ? { refused: true, error: "The user doesn't have permission to see the waitlist." }
@@ -32242,8 +33664,9 @@
                 quotedWaitMinutes: added.estimatedWaitMinutes,
               };
             } catch (err) {
-              log.error({ err, venueId }, "add_to_waitlist failed");
-              return waitlistFailure(err, "add the party");
+              log.error({ ...failureLog(err), venueId }, "add_to_waitlist failed");
+              // The write is the tool's first call, so any failure may have saved.
+              return waitlistFailure(err, "add the party", WAITLIST_SAVE_UNSURE);
             }
           },
         }),
@@ -32255,6 +33678,7 @@
           execute: async ({ guestName, partySize }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId }, "notify_waitlist_party tool called");
+            let unsure: string | undefined;
             try {
               const found = await findParty(api, venueId, guestName, partySize);
               if ("error" in found) return found;
@@ -32265,11 +33689,12 @@
                   error: `${found.entry.guestName} was already told their table is ready${at ? ` at ${at}` : ""}. No new text was sent.`,
                 };
               }
+              unsure = WAITLIST_SAVE_UNSURE;
               await api.waitlist.notify(found.entry.id);
               return { notified: true, guestName: found.entry.guestName };
             } catch (err) {
-              log.error({ err, venueId }, "notify_waitlist_party failed");
-              return waitlistFailure(err, "notify the party");
+              log.error({ ...failureLog(err), venueId }, "notify_waitlist_party failed");
+              return waitlistFailure(err, "notify the party", unsure);
             }
           },
         }),
@@ -32285,6 +33710,7 @@
             if (!venueId) return NO_VENUE;
             log.info({ venueId, tableRef }, "seat_waitlist_party tool called");
             let seatedAt: string | undefined;
+            let unsure: string | undefined;
             try {
               const found = await findParty(api, venueId, guestName, partySize);
               if ("error" in found) return found;
@@ -32299,6 +33725,8 @@
                   error: `Table ${label} is ${table.status.toLowerCase()}, so the party can't be seated there. Nothing was changed.`,
                 };
               }
+              // The walk-in is what would have saved, and the party stays listed either way.
+              unsure = saveUnsure("get_table_status");
               await api.reservations.walkIn({
                 venueId,
                 partySize: entry.partySize,
@@ -32309,7 +33737,7 @@
               await api.waitlist.seat(entry.id);
               return { seated: true, guestName: entry.guestName, table: label };
             } catch (err) {
-              log.error({ err, venueId }, "seat_waitlist_party failed");
+              log.error({ ...failureLog(err), venueId }, "seat_waitlist_party failed");
               // The walk-in exists, so the party is seated; only the waitlist row is stale (as WaitlistPage reports it).
               if (seatedAt) {
                 return {
@@ -32319,7 +33747,7 @@
                   note: `The party is seated at ${seatedAt}, but they are still shown on the waitlist. Tell the user to remove them from the Waitlist page.`,
                 };
               }
-              return waitlistFailure(err, "seat the party");
+              return waitlistFailure(err, "seat the party", unsure);
             }
           },
         }),
@@ -32331,14 +33759,16 @@
           execute: async ({ guestName, partySize }) => {
             if (!venueId) return NO_VENUE;
             log.info({ venueId }, "remove_from_waitlist tool called");
+            let unsure: string | undefined;
             try {
               const found = await findParty(api, venueId, guestName, partySize);
               if ("error" in found) return found;
+              unsure = WAITLIST_SAVE_UNSURE;
               await api.waitlist.cancel(found.entry.id);
               return { removed: true, guestName: found.entry.guestName };
             } catch (err) {
-              log.error({ err, venueId }, "remove_from_waitlist failed");
-              return waitlistFailure(err, "remove the party");
+              log.error({ ...failureLog(err), venueId }, "remove_from_waitlist failed");
+              return waitlistFailure(err, "remove the party", unsure);
             }
           },
         }),
@@ -33388,6 +34818,19 @@
         return undefined; // unknown time zone (RangeError)
       }
     }
+    export function failureLog(err: unknown) {
+      const {
+        problemDetails: problem,
+        path,
+        name,
+      } = (err ?? {}) as {
+        problemDetails?: { status?: unknown; code?: unknown };
+        path?: unknown;
+        name?: unknown;
+      };
+      if (problem) return { status: problem.status, code: problem.code };
+      return path === undefined ? { err } : { failure: name };
+    }
     export interface Refusal {
       readonly status: number;
       readonly detail: string;
@@ -33407,6 +34850,10 @@
         ...(typeof reason === "string" ? { reason } : {}),
       };
     }
+    export function saveUnsure(read: string): string {
+      return `Couldn't confirm the change was saved. Check ${read} before trying again.`;
+    }
+    export const NO_REPLAY = { maxRetries: 0 } as const;
     export interface NamedTable {
       readonly id: string;
       readonly name?: string | null;
@@ -34725,6 +36172,7 @@
             configProblem(409, "Conflict", "Availability changed since you loaded it.", {
               code: "version-conflict",
               winningChange: outcome.winningChange,
+              currentVersion: outcome.currentVersion,
             })
           );
         case "invalid":
@@ -35594,7 +37042,8 @@
             now: new Date(),
           });
           if (outcome.kind === "reopened") {
-            if (request.body.tellCancelledGuests) {
+            // The same call the command counted: no notice to rebook a date that stays closed (#8006).
+            if (request.body.tellCancelledGuests && !outcome.result.stillClosed?.everyDate) {
               await enqueueNotices(
                 closureNoticeService.enqueueForReopen,
                 { venueId, ruleId: request.params.ruleId },
@@ -36596,6 +38045,34 @@
     };
   </file>
   <file path="services/reservations/src/routes/guests.ts">
+    function winBackProblem(
+      result: WinBackResult,
+      guestName: string,
+      timeZone: string
+    ): { status: 409 | 424; title: string; detail: string } | null {
+      switch (result.status) {
+        case "cooldown":
+          return {
+            status: 409,
+            title: "Conflict",
+            detail: cooldownDetail(guestName, result, timeZone),
+          };
+        case "failed":
+          return {
+            status: 424,
+            title: "Failed Dependency",
+            detail: `The email provider rejected the win-back message to ${guestName}. Nothing was sent. You can try again.`,
+          };
+        case "unavailable":
+          return {
+            status: 424,
+            title: "Failed Dependency",
+            detail: `Email sending isn't set up here, so the win-back message to ${guestName} was not sent. Nothing was sent.`,
+          };
+        default:
+          return null;
+      }
+    }
     export const guestRoutes: FastifyPluginAsync = async (fastify) => {
       const { guestService, venueService } = fastify.services;
     
@@ -36805,7 +38282,18 @@
           const lapsing = await guestService.scanLapsedGuests(venueId, (vid, guests) =>
             fastify.reservationEvents.emitLapsingGuests(vid, guests)
           );
-          return { data: lapsing };
+          const status = await winBackStatusFor(
+            venueId,
+            lapsing.map((g) => g.guestId)
+          );
+          return {
+            data: lapsing.map((g) => ({
+              ...g,
+              // Only a send the provider accepted; an unconfirmed claim is reported apart.
+              lastWinBackAt: status.get(g.guestId)?.sentAt?.toISOString() ?? null,
+              winBackAttemptedAt: status.get(g.guestId)?.attemptedAt?.toISOString() ?? null,
+            })),
+          };
         }),
       });
     
@@ -36829,14 +38317,27 @@
                 const guest = await guestService.getById(id);
                 if (!guest) return null;
                 const venue = await venueService.getById(guest.venueId);
-                return { guest, venueName: venue?.name ?? guest.venueId };
+                return {
+                  guest,
+                  venueName: venue?.name ?? guest.venueId,
+                  timeZone: venue?.ianaTimezone ?? "UTC",
+                };
               },
               notFound: GUEST_NOT_FOUND,
             },
           },
-          async (_request, _reply, { entity }) => {
-            const sent = await sendWinBack(entity.guest, fastify.notificationPort, entity.venueName);
-            return { data: { sent } };
+          async (request, reply, { entity }) => {
+            const result = await sendWinBack(entity.guest, fastify.notificationPort, entity.venueName, {
+              ...defaultWinBackDeps,
+              log: request.log,
+            });
+            const problem = winBackProblem(result, entity.guest.name, entity.timeZone);
+            if (problem) {
+              return reply
+                .code(problem.status)
+                .send(createProblemDetails(problem.status, problem.title, problem.detail));
+            }
+            return { data: { sent: result.status === "sent" } };
           }
         ),
       });
@@ -38495,22 +39996,29 @@
             tags: ["Public"],
           },
         },
-        async (request, reply) => {
-          const { holdId } = request.params;
-          const ip = request.ip;
+        publicVenueScoped(
+          {
+            slug: (request) => request.params.slug,
+            notFound: venueNotFound,
+            // Session-id ownership check — see readSessionId's doc comment for why
+            // the hold id itself is not proof of ownership. Answers 401 before the
+            // slug lookup, as it always did.
+            before: (request, reply) =>
+              readSessionId(request, reply, "release") === null ? reply : undefined,
+          },
+          async (request, reply) => {
+            const { holdId } = request.params;
+            const ip = request.ip;
+            const sessionId = sessionIdOf(request);
     
-          // Session-id ownership check — see readSessionId's doc comment for why
-          // the hold id itself is not proof of ownership.
-          const sessionId = readSessionId(request, reply, "release");
-          if (sessionId === null) return reply;
+            const released = await holdService.release(holdId, sessionId);
+            if (released) {
+              decrementHoldCount(ip);
+            }
     
-          const released = await holdService.release(holdId, sessionId);
-          if (released) {
-            decrementHoldCount(ip);
+            return reply.status(204).send();
           }
-    
-          return reply.status(204).send();
-        }
+        )
       );
     
       // GET the hold's status. The staff counterpart (/api/v1/holds/:id) is
@@ -38617,6 +40125,8 @@
                 guestDetails: { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference },
                 // No guest record exists yet, so the guest actor carries no id.
                 actor: guestActor(null),
+                // Captured from the request so later guest emails brand by it (#7892).
+                originHost: resolveOriginHost(request.headers.origin),
               },
               {
                 door: "public-hold",
@@ -38851,6 +40361,8 @@
                   guestId: link.ok ? (link.guestId ?? undefined) : undefined,
                 },
                 actor: guestActor(link.ok ? link.guestId : null),
+                // Captured from the request so later guest emails brand by it (#7892).
+                originHost: resolveOriginHost(request.headers.origin),
               },
               {
                 door: "public-booking",
@@ -40455,6 +41967,18 @@
         method: "POST",
         url: "/api/v1/guests",
         payload: { venueId, name: `RLS Sweep Item-2 Guest ${randomUUID()}` },
+      });
+      return extractId(res);
+    }
+    async function createDisposableEmailedGuest(ctx: SweepContext, venueId: string): Promise<string> {
+      const res = await asAdmin(ctx, {
+        method: "POST",
+        url: "/api/v1/guests",
+        payload: {
+          venueId,
+          name: `RLS Sweep Win-back Guest ${randomUUID()}`,
+          email: `sweep-${randomUUID()}@example.invalid`,
+        },
       });
       return extractId(res);
     }
@@ -43439,6 +44963,10 @@
       startTime: z.string(),
       partySize: z.number().int(),
       reason: z.enum(["closed", "outside_service", "table_blocked"]),
+      /** Who it is for; absent when the booking has no name. */
+      guestName: z.string().optional(),
+      /** The service date it belongs to, where a past-midnight booking's start time would mislead. */
+      serviceDate: ServiceDateSchema.optional(),
     });
     export const AVAILABILITY_CONFIG_PROBLEM_CODES = [
       "version-conflict",
@@ -43463,6 +44991,11 @@
       code: z.enum(AVAILABILITY_CONFIG_PROBLEM_CODES),
       /** version-conflict: the latest change; `null` when none is recorded. */
       winningChange: AvailabilityChangeSummarySchema.nullable().optional(),
+      /**
+       * version-conflict on a config save: the version read just before `winningChange`. An Overwrite
+       * sent against it is refused again if anyone saved after. Absent from an older server.
+       */
+      currentVersion: z.number().int().optional(),
       /** invalid-config: `validateConfig` issues, path-addressed into the next config. */
       issues: z.array(z.object({ path: z.string(), code: z.string(), message: z.string() })).optional(),
       /** stranded-bookings: future reservations the change would leave outside service. */
@@ -43692,6 +45225,23 @@
       /** One result per item, in the order sent. */
       results: z.array(ClosureResultSchema),
     });
+    export const ClosedByRuleSchema = z.object({
+      ruleId: z.string(),
+      targetKind: DateRuleTargetKindSchema,
+      venueServiceId: z.string().nullish(),
+      bookingTypes: z.array(z.enum(RULE_BOOKING_TYPES)).nullish(),
+      startsOn: ServiceDateSchema,
+      endsOn: ServiceDateSchema.nullish(),
+      repeat: RepeatSchema.nullish(),
+      window: WindowSchema.nullish(),
+      /** The dates in question it closes, in order: not all of its own. */
+      dates: z.array(ServiceDateSchema),
+    });
+    export const ClosureOverlapSchema = z.object({
+      /** Every date in question stays shut, so nothing the reopen names comes back to guests. */
+      everyDate: z.boolean(),
+      by: z.array(ClosedByRuleSchema),
+    });
     export const ReopenResultSchema = z.object({
       version: z.number().int(),
       changeId: z.string(),
@@ -43701,6 +45251,11 @@
        * `notified ?? null`.
        */
       notified: z.number().int().nonnegative().nullable().optional(),
+      /**
+       * Other closures that still close the reopened rule's dates, as stored when it committed. Absent
+       * from an older API and from ending Tonight.
+       */
+      stillClosed: ClosureOverlapSchema.optional(),
     });
     export const RefundFailureSchema = z.object({
       outcomeId: z.string(),
@@ -43785,6 +45340,8 @@
     export type ClosureResult = z.infer<typeof ClosureResultSchema>;
     export type CreateClosuresBody = z.infer<typeof CreateClosuresBodySchema>;
     export type ClosuresResult = z.infer<typeof ClosuresResultSchema>;
+    export type ClosedByRule = z.infer<typeof ClosedByRuleSchema>;
+    export type ClosureOverlap = z.infer<typeof ClosureOverlapSchema>;
     export type ReopenResult = z.infer<typeof ReopenResultSchema>;
     export type RefundFailure = z.infer<typeof RefundFailureSchema>;
     export type ClosureSummary = z.infer<typeof ClosureSummarySchema>;
@@ -44162,6 +45719,10 @@
       avgFrequencyDays: z.number(),
       daysSinceLastVisit: z.number(),
       daysOverdue: z.number(),
+      /** ISO time the email provider last accepted a win-back for this guest; `null` = none confirmed. Set by the route, absent on the SSE push. */
+      lastWinBackAt: z.string().nullable().optional(),
+      /** ISO time of a send attempt that was never confirmed (it may or may not have gone out); `null` = none outstanding. */
+      winBackAttemptedAt: z.string().nullable().optional(),
     });
     export const WinBackResultSchema = z.object({ sent: z.boolean() });
   </file>
@@ -45005,6 +46566,8 @@
       userId: z.string().nullable(),
       /** Why staff booked past a soft availability limit; absent or null for an ordinary booking. */
       overrideReason: z.string().nullable().optional(),
+      /** The host the guest booked on (#7892); absent or null for a staff/walk-in booking. */
+      originHost: z.string().nullable().optional(),
       tableId: z.string(),
       table: TableSchema.optional(),
       guest: z
@@ -49402,6 +50965,8 @@
       partySize: number;
       /** The service date it belongs to; set where a scope needs it. */
       date?: Date;
+      /** Who it is for; a refusal lists it so the Manager can find the booking. */
+      guestName?: string | null;
     }
     type StrandReason = StrandedReservation["reason"];
     export function strandReason(
@@ -49445,6 +51010,8 @@
             startTime: booking.startTime.toISOString(),
             partySize: booking.partySize,
             reason,
+            ...(booking.guestName ? { guestName: booking.guestName } : {}),
+            ...(booking.date ? { serviceDate: booking.date.toISOString().slice(0, 10) } : {}),
           },
         ];
       });
@@ -50165,7 +51732,12 @@
     }
     export type SaveOutcome =
       | { kind: "saved"; version: number; changeId: string }
-      | { kind: "version_conflict"; winningChange: AvailabilityChangeSummary | null }
+      | {
+          kind: "version_conflict";
+          winningChange: AvailabilityChangeSummary | null;
+          /** The version read before `winningChange`, so a later save can only make the winner newer. */
+          currentVersion: number;
+        }
       | { kind: "not_found" }
       | Exclude<SavePlan, { kind: "write" }>;
     class SaveRefused extends Error {
@@ -50201,12 +51773,24 @@
           ...stillToServeWhere(now),
           status: { notIn: [...NOT_BOOKED_STATUSES] },
         },
-        select: { id: true, tableId: true, startTime: true, partySize: true, date: true },
+        select: {
+          id: true,
+          tableId: true,
+          startTime: true,
+          partySize: true,
+          date: true,
+          guestName: true,
+        },
       });
     }
     export async function refuseStale(db: StoreDb, venueId: string): Promise<SaveOutcome> {
-      const exists = await db.venue.findUnique({ where: { id: venueId }, select: { id: true } });
+      const exists = await db.venue.findUnique({
+        where: { id: venueId },
+        select: { id: true, availabilityVersion: true },
+      });
       if (!exists) return { kind: "not_found" };
+      // Read before the winner: a save landing between the two reads makes the winner newer than this
+      // version, so an Overwrite against it is refused again, never applied over a change unnamed.
       const winner = await db.availabilityChange.findFirst({
         where: { venueId },
         orderBy: { at: "desc" },
@@ -50214,6 +51798,7 @@
       });
       return {
         kind: "version_conflict",
+        currentVersion: exists.availabilityVersion,
         winningChange: winner && { ...winner, at: winner.at.toISOString() },
       };
     }
@@ -52686,11 +54271,18 @@
             select: { id: true },
           });
           const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
+          const stillClosed = stillClosedAfterReopen(
+            state.stored.dateRules,
+            rule,
+            civilDateIn(now, state.timezone)
+          );
           // Only guests whose booking has not started get the notice (`listNotifiable`); the audit
-          // row, Undo and the caller's count must agree with who it actually reaches.
-          const notified = input.tellCancelledGuests
-            ? await upcomingCancelled(db, venueId, ruleId, now)
-            : 0;
+          // row, Undo and the caller's count must agree with who it actually reaches. With every date
+          // still closed by another closure there is nothing to rebook, so nobody is told to (#8006).
+          const notified =
+            input.tellCancelledGuests && !stillClosed.everyDate
+              ? await upcomingCancelled(db, venueId, ruleId, now)
+              : 0;
           const change = await db.availabilityChange.create({
             data: {
               venueId,
@@ -52712,7 +54304,7 @@
           });
           return {
             kind: "reopened" as const,
-            result: { version: bumped.availabilityVersion, changeId: change.id, notified },
+            result: { version: bumped.availabilityVersion, changeId: change.id, notified, stillClosed },
           };
         });
       } catch (error) {
@@ -52996,17 +54588,24 @@
       dispatcher: Pick<NotificationDispatcher, "sendClosureEmail" | "sendClosureSms" | "smsEnabled">;
       generateManageToken(reservationId: string, guestEmail: string): string;
       manageBaseUrl: string;
+      /**
+       * Resolves the manage-link base for an outcome's origin host (#7892) — a
+       * closure notice for an eat-sheet.com booking links back to eat-sheet.com.
+       * Omitted keeps `manageBaseUrl` above for every outcome, today's behavior.
+       */
+      hostBrand?: (originHost: string | null) => { manageBaseUrl: string };
       logger: ClosureNoticeDeps["logger"];
       now?: () => Date;
     }): ClosureNoticeDeps {
       const now = input.now ?? (() => new Date());
+      const hostBrand = input.hostBrand ?? (() => ({ manageBaseUrl: input.manageBaseUrl }));
       return {
         load: loadNoticeOutcome,
         offers: (o) => loadRebookSlots(o, now()),
         // The signed email is checked on the manage page; a phone-only guest has none.
         manageUrl: (o, rebook) =>
           buildManageUrl(
-            input.manageBaseUrl,
+            hostBrand(o.originHost).manageBaseUrl,
             input.generateManageToken(o.reservationId, o.guestEmail ?? ""),
             rebook
           ),
@@ -53185,6 +54784,7 @@
               guestPhone: true,
               guest: { select: { communicationPreference: true } },
               deposit: { select: { amountCents: true, currency: true } },
+              originHost: true,
             },
           },
         },
@@ -53209,6 +54809,7 @@
         refund: r.deposit ? { amountCents: r.deposit.amountCents, currency: r.deposit.currency } : null,
         venueName: row.venue.name,
         timezone: row.venue.ianaTimezone,
+        originHost: r.originHost,
       };
     }
     export async function recordDeliveries(
@@ -53420,6 +55021,8 @@
       refund: { amountCents: number; currency: string } | null;
       venueName: string;
       timezone: string;
+      /** The host the guest booked on (#7892); null keeps the mattbutlerengineering.com brand. */
+      originHost: string | null;
     }
     export interface ClosureNoticeDeps {
       load(outcomeId: string): Promise<NoticeOutcome | null>;
@@ -53478,7 +55081,7 @@
     ): Promise<void> {
       if (channel === "email") {
         const { subject, html } = buildClosureEmail(content);
-        return deps.sendEmail({ to: o.guestEmail!, subject, html });
+        return deps.sendEmail({ to: o.guestEmail!, subject, html, originHost: o.originHost });
       }
       return deps.sendSms({ to: o.guestPhone!, body: buildClosureSms(content) });
     }
@@ -54100,6 +55703,13 @@
        * Checked in the same lookup as the session id, before any write.
        */
       venueId?: string;
+      /**
+       * The host the guest booked on (e.g. "eat-sheet.com"), resolved by the
+       * calling public route from the request's Origin header (#7892). Stored on
+       * the reservation so later guest emails brand by it. Undefined/null for
+       * non-public confirm paths or an unrecognized origin.
+       */
+      originHost?: string | null;
       /** Who confirmed; recorded on the `created` event. Defaults to {@link SYSTEM_ACTOR}. */
       actor?: ReservationEventActor;
       /**
@@ -54182,6 +55792,9 @@
               userId: userId ?? null,
               // Ownership proof for the public deposit route (#6304).
               originSessionId: hold.sessionId,
+              // The host the guest booked on (#7892); null for non-public confirm
+              // paths or an unrecognized origin.
+              originHost: input.originHost ?? null,
               status: "CONFIRMED",
             },
             include: {
@@ -57183,6 +58796,7 @@
             venueAddress: null,
             updatedAt: reservation.updatedAt,
             manageToken: deps.generateManageToken(reservation.id, reservation.guestEmail),
+            originHost: reservation.originHost ?? null,
           };
     
           // Dispatcher failures propagate so BullMQ retries per the queue policy.
@@ -60504,6 +62118,8 @@
       userId: string | null;
       /** Staff override reason; selected rows predating the column or partial selects omit it. */
       overrideReason?: string | null;
+      /** The host the guest booked on (#7892); selected rows predating the column omit it. */
+      originHost?: string | null;
       tableId: string;
       table?: PrismaTableRow | null;
       guest?: {
@@ -60581,6 +62197,7 @@
         guestId: row.guestId,
         userId: row.userId,
         overrideReason: row.overrideReason ?? null,
+        originHost: row.originHost ?? null,
         tableId: row.tableId,
         table: row.table ? toTable(row.table) : undefined,
         guest: row.guest ?? null,
@@ -62049,6 +63666,7 @@
       "dateRuleTable",
       "availabilityChange",
       "closureOutcome",
+      "guestWinBack",
     ]);
     type DynamicDelegate = Record<string, (...args: unknown[]) => unknown>;
     type DynamicTransactionClient = Record<string, DynamicDelegate> & {
@@ -63381,12 +64999,157 @@
       },
     };
   </file>
+  <file path="services/reservations/src/services/win-back-store.ts">
+    type Db = Pick<PrismaClient, "guestWinBack">;
+    export const WIN_BACK_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+    export type WinBackClaim =
+      /** `previousClaimedAt` is what the row held (null = never or released); a release restores it. */
+      | { claimed: true; previousClaimedAt: Date | null }
+      | { claimed: false; claimedAt: Date | null; sentAt: Date | null };
+    function isUniqueViolation(err: unknown): boolean {
+      return err !== null && typeof err === "object" && (err as { code?: unknown }).code === "P2002";
+    }
+    async function refusal(venueId: string, guestId: string, now: Date, db: Db): Promise<WinBackClaim> {
+      const existing = await db.guestWinBack.findFirst({
+        where: { venueId, guestId },
+        select: { claimedAt: true, sentAt: true },
+      });
+      // Present: a refusal is only reached once a row exists. Absent only if it was deleted
+      // in between, which nothing does (guest delete cascades, then no send).
+      return {
+        claimed: false,
+        claimedAt: existing?.claimedAt ?? now,
+        sentAt: existing?.sentAt ?? null,
+      };
+    }
+    export async function claimWinBack(
+      venueId: string,
+      guestId: string,
+      now: Date,
+      db: Db = prisma
+    ): Promise<WinBackClaim> {
+      const cutoff = new Date(now.getTime() - WIN_BACK_COOLDOWN_MS);
+      const existing = await db.guestWinBack.findFirst({
+        where: { venueId, guestId },
+        select: { claimedAt: true },
+      });
+      if (existing) {
+        const previousClaimedAt = existing.claimedAt;
+        if (previousClaimedAt !== null && previousClaimedAt.getTime() > cutoff.getTime()) {
+          return refusal(venueId, guestId, now, db);
+        }
+        const renewed = await db.guestWinBack.updateMany({
+          where: { venueId, guestId, claimedAt: previousClaimedAt },
+          data: { claimedAt: now },
+        });
+        return renewed.count === 1
+          ? { claimed: true, previousClaimedAt }
+          : refusal(venueId, guestId, now, db);
+      }
+      try {
+        await db.guestWinBack.create({ data: { venueId, guestId, claimedAt: now } });
+        return { claimed: true, previousClaimedAt: null };
+      } catch (err) {
+        if (!isUniqueViolation(err)) throw err;
+        return refusal(venueId, guestId, now, db);
+      }
+    }
+    export async function markWinBackSent(
+      venueId: string,
+      guestId: string,
+      claimedAt: Date,
+      sentAt: Date,
+      db: Db = prisma
+    ): Promise<void> {
+      await db.guestWinBack.updateMany({
+        where: { venueId, guestId, claimedAt },
+        data: { sentAt },
+      });
+    }
+    export async function releaseWinBackClaim(
+      venueId: string,
+      guestId: string,
+      claimedAt: Date,
+      previousClaimedAt: Date | null,
+      db: Db = prisma
+    ): Promise<void> {
+      await db.guestWinBack.updateMany({
+        where: { venueId, guestId, claimedAt },
+        data: { claimedAt: previousClaimedAt },
+      });
+    }
+    export interface WinBackStatus {
+      /** When the provider last accepted a send; null = never confirmed. */
+      sentAt: Date | null;
+      /** When a claim newer than `sentAt` was made (send unconfirmed); null = none outstanding. */
+      attemptedAt: Date | null;
+    }
+    export function isUnconfirmed(claimedAt: Date | null, sentAt: Date | null): claimedAt is Date {
+      return claimedAt !== null && (sentAt === null || sentAt.getTime() < claimedAt.getTime());
+    }
+    export async function winBackStatusFor(
+      venueId: string,
+      guestIds: readonly string[],
+      db: Db = prisma
+    ): Promise<Map<string, WinBackStatus>> {
+      if (guestIds.length === 0) return new Map();
+      const rows = await db.guestWinBack.findMany({
+        where: { venueId, guestId: { in: [...guestIds] } },
+        select: { guestId: true, claimedAt: true, sentAt: true },
+      });
+      return new Map(
+        rows.map((r) => [
+          r.guestId,
+          {
+            sentAt: r.sentAt,
+            attemptedAt: isUnconfirmed(r.claimedAt, r.sentAt) ? r.claimedAt : null,
+          },
+        ])
+      );
+    }
+  </file>
   <file path="services/reservations/src/services/win-back.ts">
+    export interface WinBackCooldown {
+      /** When the refusing claim was made. */
+      claimedAt: Date;
+      /** When the provider last accepted a send; may predate `claimedAt`. */
+      sentAt: Date | null;
+      /** The earliest time another send is allowed. */
+      retryAfter: Date;
+    }
+    export type WinBackResult =
+      | { status: "sent" }
+      | { status: "skipped" }
+      | { status: "failed" }
+      | { status: "unavailable" }
+      | ({ status: "cooldown" } & WinBackCooldown);
+    export interface WinBackDeps {
+      claim(venueId: string, guestId: string, now: Date): Promise<WinBackClaim>;
+      markSent(venueId: string, guestId: string, claimedAt: Date, sentAt: Date): Promise<void>;
+      release(
+        venueId: string,
+        guestId: string,
+        claimedAt: Date,
+        previousClaimedAt: Date | null
+      ): Promise<void>;
+      now(): Date;
+      /** Where a rejection is logged (the request logger). Never given guest contact details. */
+      log?: { error(fields: object, message: string): void };
+    }
+    export const defaultWinBackDeps: WinBackDeps = {
+      claim: (venueId, guestId, now) => claimWinBack(venueId, guestId, now),
+      markSent: (venueId, guestId, claimedAt, sentAt) =>
+        markWinBackSent(venueId, guestId, claimedAt, sentAt),
+      release: (venueId, guestId, claimedAt, previousClaimedAt) =>
+        releaseWinBackClaim(venueId, guestId, claimedAt, previousClaimedAt),
+      now: () => new Date(),
+    };
     export async function sendWinBack(
       guest: Guest,
       notificationPort: NotificationDispatcher,
-      venueName: string
-    ): Promise<boolean> {
+      venueName: string,
+      deps: WinBackDeps = defaultWinBackDeps
+    ): Promise<WinBackResult> {
       if (
         !canContact(
           {
@@ -63396,7 +65159,7 @@
           "marketing"
         )
       ) {
-        return false;
+        return { status: "skipped" };
       }
     
       const channel = resolveChannel(guest.communicationPreference);
@@ -63404,19 +65167,73 @@
       // Win-back is email-only; skip guests who opted into SMS-only
       // communication or have no email address on file.
       if (channel === "sms_only" || !guest.email) {
-        return false;
+        return { status: "skipped" };
       }
     
-      await notificationPort.sendWinBack(
-        {
-          guestName: guest.name,
-          guestEmail: guest.email,
-          venueName,
-        },
-        channel
-      );
+      const claimedAt = deps.now();
+      const claim = await deps.claim(guest.venueId, guest.id, claimedAt);
+      if (!claim.claimed) {
+        const refusedAt = claim.claimedAt ?? claimedAt;
+        return {
+          status: "cooldown",
+          claimedAt: refusedAt,
+          sentAt: claim.sentAt,
+          retryAfter: new Date(refusedAt.getTime() + WIN_BACK_COOLDOWN_MS),
+        };
+      }
     
-      return true;
+      try {
+        await notificationPort.sendWinBack(
+          {
+            guestName: guest.name,
+            guestEmail: guest.email,
+            venueName,
+            idempotencyKey: `win-back/${guest.id}/${claimedAt.toISOString()}`,
+          },
+          channel
+        );
+      } catch (err) {
+        if (!(err instanceof ProviderRejectedError) && !(err instanceof EmailNotConfiguredError)) {
+          throw err;
+        }
+        // Nothing was sent: put the previous claim back so a retry is allowed. The reason is
+        // logged (name and message only) so a revoked key or missing config is visible to operators.
+        deps.log?.error(
+          { err: { name: err.name, message: err.message }, venueId: guest.venueId, guestId: guest.id },
+          "win-back not sent"
+        );
+        await deps.release(guest.venueId, guest.id, claimedAt, claim.previousClaimedAt);
+        return { status: err instanceof EmailNotConfiguredError ? "unavailable" : "failed" };
+      }
+    
+      await deps.markSent(guest.venueId, guest.id, claimedAt, deps.now());
+      return { status: "sent" };
+    }
+    export function cooldownDetail(guestName: string, c: WinBackCooldown, timeZone: string): string {
+      const at = (d: Date) => formatInZone(d, timeZone);
+      const next = `Another can be sent after ${at(c.retryAfter)}.`;
+      if (c.sentAt !== null && !isUnconfirmed(c.claimedAt, c.sentAt)) {
+        return `${guestName} was sent a win-back message on ${at(c.sentAt)}. Nothing was sent now. ${next}`;
+      }
+      return `A win-back message to ${guestName} was attempted on ${at(c.claimedAt)} and may not have gone out. Nothing was sent now. ${next}`;
+    }
+    function formatInZone(date: Date, timeZone: string): string {
+      const options: Intl.DateTimeFormatOptions = {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        timeZoneName: "short",
+      };
+      let text: string;
+      try {
+        text = new Intl.DateTimeFormat("en-US", { ...options, timeZone }).format(date);
+      } catch {
+        // An unrecognised stored timezone must not turn a refusal into a 500.
+        text = new Intl.DateTimeFormat("en-US", { ...options, timeZone: "UTC" }).format(date);
+      }
+      return text.replace(/\u202f/g, " ");
     }
   </file>
   <file path="services/users/src/services/database.ts">
@@ -72171,12 +73988,17 @@
       async reopenClosure(
         venueId: string,
         ruleId: string,
-        tellCancelledGuests: boolean
+        tellCancelledGuests: boolean,
+        override?: PerRequestOptions
       ): Promise<ReopenResult> {
-        const response = await this.client.call(availabilityConfigEndpoints.reopenClosure, {
-          params: { id: venueId, ruleId },
-          body: { tellCancelledGuests },
-        });
+        const response = await this.client.call(
+          availabilityConfigEndpoints.reopenClosure,
+          {
+            params: { id: venueId, ruleId },
+            body: { tellCancelledGuests },
+          },
+          override
+        );
         return response.data;
       }
     
@@ -72197,10 +74019,16 @@
       }
     
       /** Ends a Tonight change early; bookings a close-early cancelled stay cancelled. */
-      async endTonight(venueId: string, ruleId: string): Promise<ReopenResult> {
-        const response = await this.client.call(availabilityConfigEndpoints.endTonight, {
-          params: { id: venueId, ruleId },
-        });
+      async endTonight(
+        venueId: string,
+        ruleId: string,
+        override?: PerRequestOptions
+      ): Promise<ReopenResult> {
+        const response = await this.client.call(
+          availabilityConfigEndpoints.endTonight,
+          { params: { id: venueId, ruleId } },
+          override
+        );
         return response.data;
       }
     
@@ -73662,8 +75490,12 @@
       /**
        * Cancel a reservation
        */
-      async cancel(id: string): Promise<Reservation> {
-        return this.client.deleteOne<Reservation>(`${RESERVATION_BASE_PATH}/${id}`, ReservationSchema);
+      async cancel(id: string, override?: PerRequestOptions): Promise<Reservation> {
+        return this.client.deleteOne<Reservation>(
+          `${RESERVATION_BASE_PATH}/${id}`,
+          ReservationSchema,
+          override
+        );
       }
     
       /**
@@ -74356,6 +76188,105 @@
     }
     export function weekdayIndexOf(date: ServiceDate): number {
       return new Date(toUtcMs(date)).getUTCDay();
+    }
+  </file>
+  <file path="packages/availability/src/closure-overlap.ts">
+    type Closure = RuleOf<"closure">;
+    function datesOf(rule: DateRule, from: ServiceDate): ServiceDate[] {
+      const first = rule.startsOn > from ? rule.startsOn : from;
+      // A skip or one-date edit of a series never outgrows its date (see `date-rules.ts`).
+      if (rule.seriesId != null) return rule.startsOn >= from ? [rule.startsOn] : [];
+      const last = rule.endsOn ?? addDays(first, OPEN_END_DAYS);
+      const dates: ServiceDate[] = [];
+      for (let date = first; date <= last; date = addDays(date, 1)) {
+        if (rule.repeat == null || rule.repeat.weekdays.includes(weekdayIndexOf(date))) {
+          dates.push(date);
+        }
+      }
+      return dates;
+    }
+    function targetCovers(wide: DateRule, narrow: DateRule): boolean {
+      if (wide.targetKind === "venue") return true;
+      if (wide.targetKind !== narrow.targetKind) return false;
+      switch (wide.targetKind) {
+        case "service":
+          return wide.venueServiceId === narrow.venueServiceId;
+        case "booking":
+          return (narrow.bookingTypes ?? []).every((t) => wide.bookingTypes?.includes(t));
+        default:
+          return (narrow.tableIds ?? []).every((t) => wide.tableIds?.includes(t));
+      }
+    }
+    function windowCovers(wide: DateRule, narrow: DateRule): boolean {
+      const [w, n] = [wide.window ?? WHOLE_DAY, narrow.window ?? WHOLE_DAY];
+      return w.from <= n.from && w.to >= n.to;
+    }
+    function closedBy(rule: Closure, dates: readonly ServiceDate[]): ClosedByRule {
+      return {
+        ruleId: rule.id,
+        targetKind: rule.targetKind,
+        venueServiceId: rule.venueServiceId,
+        bookingTypes: rule.bookingTypes,
+        startsOn: rule.startsOn,
+        endsOn: rule.endsOn,
+        repeat: rule.repeat,
+        window: rule.window,
+        dates: [...dates],
+      };
+    }
+    function overlap(
+      found: readonly { readonly date: ServiceDate; readonly rules: readonly Closure[] }[],
+      everyDate: boolean
+    ): ClosureOverlap {
+      const rules = new Map(found.flatMap((f) => f.rules.map((r) => [r.id, r] as const)));
+      return {
+        everyDate,
+        by: [...rules.values()].map((rule) =>
+          closedBy(
+            rule,
+            found.filter((f) => f.rules.some((r) => r.id === rule.id)).map((f) => f.date)
+          )
+        ),
+      };
+    }
+    export function alreadyClosed(
+      rules: readonly DateRule[],
+      draft: DateRule,
+      from: ServiceDate
+    ): ClosureOverlap {
+      const counts = (rule: Closure) =>
+        rule.id !== draft.id &&
+        rule.id !== draft.seriesId &&
+        (draft.seriesId == null || rule.seriesId !== draft.seriesId) &&
+        (draft.targetKind !== "booking" || rule.targetKind === "booking") &&
+        covers(rule, draft);
+      const dates = datesOf(draft, from);
+      const found = dates.map((date) => ({
+        date,
+        rules: activeRules(rules, date).filter(isClosure).filter(counts),
+      }));
+      const hits = found.filter((f) => f.rules.length > 0);
+      return overlap(hits, dates.length > 0 && hits.length === dates.length);
+    }
+    export function stillClosedAfterReopen(
+      rules: readonly DateRule[],
+      rule: DateRule,
+      from: ServiceDate
+    ): ClosureOverlap {
+      if (rule.kind !== "closure") return { everyDate: false, by: [] };
+      const after = rules.filter((r) => r.id !== rule.id && r.seriesId !== rule.id);
+      const dates = datesOf(rule, from).filter((date) =>
+        activeRules(rules, date).some((r) => r.id === rule.id)
+      );
+      const staying = (other: Closure) =>
+        targetCovers(other, rule) || (rule.targetKind === "venue" && other.targetKind === "service");
+      const found = dates.map((date) => ({
+        date,
+        rules: activeRules(after, date).filter(isClosure).filter(staying),
+      }));
+      const hits = found.filter((f) => f.rules.length > 0);
+      const shut = found.filter((f) => f.rules.some((other) => covers(other, rule)));
+      return overlap(hits, dates.length > 0 && shut.length === dates.length);
     }
   </file>
   <file path="packages/availability/src/date-rules.ts">
@@ -80218,6 +82149,13 @@
       seatingPreference: SeatingPreference | null;
       /** Why staff booked past a soft availability limit; absent or null for an ordinary booking. */
       overrideReason?: string | null;
+      /**
+       * The host the guest booked on (e.g. "eat-sheet.com",
+       * "mattbutlerengineering.com"), captured from the public booking page's
+       * request at creation time (#7892). Null for staff/walk-in bookings or an
+       * unrecognized origin — those keep the mattbutlerengineering.com brand.
+       */
+      originHost?: string | null;
       tableId: string;
       table?: Table;
       guest?: {
@@ -81402,6 +83340,8 @@
                 dispatcher: notificationPort,
                 generateManageToken,
                 manageBaseUrl: resolveManageBaseUrl(process.env),
+                // Closure-notice manage links follow the booking's origin host (#7892).
+                hostBrand: createHostBrandResolver(process.env),
                 logger: fastify.log,
               }),
               handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),
@@ -81440,13 +83380,7 @@
   <file path="services/reservations/src/notifications.ts">
     export function createResendAdapter(): ResendNotificationAdapter {
       const resendClient = process.env.RESEND_API_KEY
-        ? (new Resend(process.env.RESEND_API_KEY) as unknown as {
-            emails: {
-              send(
-                payload: Record<string, unknown>
-              ): Promise<{ data?: unknown; error?: { name?: string; message: string } | null }>;
-            };
-          })
+        ? (new Resend(process.env.RESEND_API_KEY) as unknown as ResendClient)
         : null;
     
       const { baseUrl: publicApiBaseUrl } = getPublicApiBaseUrlConfig({
@@ -81459,6 +83393,9 @@
         fromAddress: process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
         manageBaseUrl: resolveManageBaseUrl(process.env),
         publicApiBaseUrl,
+        // Brands confirmation/reminder/modified/cancelled/closure emails by the
+        // booking's origin host (#7892), always on the verified sending domain.
+        brandFor: createHostBrandResolver(process.env),
       });
     }
     export function createNotificationPort(): NotificationDispatcher {
@@ -84357,27 +86294,80 @@
       readonly seatRef: RefObject<HTMLButtonElement | null>;
       readonly seat: () => Promise<void>;
     }
-    export function useSeatGuest(onSeat: () => Promise<void>): SeatGuestState {
-      const [seating, setSeating] = useState(false);
-      const [failure, setFailure] = useState<ApiErrorDescription | null>(null);
+    export interface SeatFlights {
+      /** True while a seat for this reservation is pending. */
+      readonly seating: (reservationId: string) => boolean;
+      /** The last rejection for this reservation, while it is the current one. */
+      readonly failure: (reservationId: string) => ApiErrorDescription | null;
+      /** Sends unless a seat for this reservation is already pending. Rejections become `failure`. */
+      readonly run: (reservationId: string, send: () => Promise<void>) => Promise<void>;
+    }
+    export function useSeatFlights(currentId: string | null): SeatFlights {
+      const [seatingIds, setSeatingIds] = useState<readonly string[]>([]);
+      const [failed, setFailed] = useState<{
+        readonly id: string;
+        readonly description: ApiErrorDescription;
+      } | null>(null);
+      if (failed && failed.id !== currentId) setFailed(null);
+    
+      const inFlightRef = useRef<readonly string[]>([]);
+      const currentRef = useRef(currentId);
+      useLayoutEffect(() => {
+        currentRef.current = currentId;
+      });
+    
+      const run = useCallback(async (id: string, send: () => Promise<void>) => {
+        if (inFlightRef.current.includes(id)) return;
+        inFlightRef.current = [...inFlightRef.current, id];
+        setSeatingIds(inFlightRef.current);
+        setFailed(null);
+        try {
+          await send();
+        } catch (err) {
+          if (currentRef.current === id) setFailed({ id, description: describeApiError(err) });
+        } finally {
+          inFlightRef.current = inFlightRef.current.filter((other) => other !== id);
+          setSeatingIds(inFlightRef.current);
+        }
+      }, []);
+    
+      return {
+        seating: (id) => seatingIds.includes(id),
+        failure: (id) => (failed?.id === id ? failed.description : null),
+        run,
+      };
+    }
+    export interface SeatGuestState {
+      /** True while this reservation's seat is pending: Seat Guest reads "Seating…", the rest rest. */
+      readonly seating: boolean;
+      /** This reservation's last rejection, rendered as "Guest not seated." until the next attempt. */
+      readonly failure: ApiErrorDescription | null;
+      /** Attach to the Seat Guest button so focus can return to it after a failure. */
+      readonly seatRef: RefObject<HTMLButtonElement | null>;
+      readonly seat: () => Promise<void>;
+    }
+    export function useSeatGuest(
+      reservationId: string,
+      onSeat: () => Promise<void>,
+      shared?: SeatFlights
+    ): SeatGuestState {
+      const own = useSeatFlights(reservationId);
+      const flights = shared ?? own;
+      const failure = flights.failure(reservationId);
       const seatRef = useRef<HTMLButtonElement>(null);
       const { focusAfter } = useFocusAfter();
     
-      const seat = useCallback(async () => {
-        setSeating(true);
-        setFailure(null);
-        try {
-          await onSeat();
-        } catch (err) {
-          setFailure(describeApiError(err));
-          const element = seatRef.current;
-          if (element) focusAfter({ kind: "element", element });
-        } finally {
-          setSeating(false);
-        }
-      }, [onSeat, focusAfter]);
+      useEffect(() => {
+        const element = seatRef.current;
+        if (failure && element) focusAfter({ kind: "element", element }, UNLESS_COVERED);
+      }, [failure, focusAfter]);
     
-      return { seating, failure, seatRef, seat };
+      return {
+        seating: flights.seating(reservationId),
+        failure,
+        seatRef,
+        seat: () => flights.run(reservationId, onSeat),
+      };
     }
   </file>
   <file path="apps/hospitality/src/components/timeline/sheet-size.ts">

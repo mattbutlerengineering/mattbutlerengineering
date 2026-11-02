@@ -1,4 +1,5 @@
 export { ResendNotificationAdapter } from "./resend-adapter.js";
+export { EmailNotConfiguredError, ProviderRejectedError } from "./provider-rejected-error.js";
 export type { BookingNotificationInput, ThankYouEmailInput } from "./port.js";
 export { buildBookingEmailContent } from "./booking-email-content.js";
 export type { SmsPort } from "./sms-port.js";

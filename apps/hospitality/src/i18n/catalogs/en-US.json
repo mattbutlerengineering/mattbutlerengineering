@@ -618,6 +618,9 @@
     "welcomeNamed": "Welcome back, {{name}}",
     "loadFailed": "Couldn't load the dashboard.",
     "lapsingLoadFailed": "Couldn't load lapsing guests.",
+    "winBackFailed": "Couldn't send the win-back message.",
+    "winBackUnconfirmed": "Couldn't confirm the win-back message.",
+    "winBackUnconfirmedDetail": "It may or may not have reached the guest. If it did, sending again is blocked for a week.",
     "actions": {
       "walkIn": "Walk-in",
       "floorPlan": "View Floor Plan",
@@ -698,6 +701,10 @@
       "tableStatusBanner": "Table status not changed."
     },
     "announce": {
+      "seatNotFinishedNamed": "Seating {{name}} did not finish. Check the reservation and the table.",
+      "seatNotFinished": "Seating the guest did not finish. Check the reservation and the table.",
+      "changeFailedNamed": "The change to {{name}} did not go through.",
+      "changeFailed": "A reservation change did not go through.",
       "loadedTonight": "Tonight's grid loaded.",
       "loadedDate": "Reservations for {{date}} loaded.",
       "seated": "Seated {{guest}}.",
@@ -877,6 +884,19 @@
   "errorBanner": {
     "retry": "Retry",
     "showDetails": "Show details"
+  },
+  "apiError": {
+    "network": "Can't reach the reservations service. Check the venue's connection, then try again.",
+    "timeout": "That took too long. The service didn't answer in time — try again.",
+    "serverError": "The reservations service hit a snag. Try again in a moment.",
+    "rateLimited": "Too many requests at once. Give it a few seconds, then try again.",
+    "conflict": "Someone got there first — that table or time was just taken. Pick another.",
+    "validationError": "Something in the form didn't pass. Check party size, time and table.",
+    "badRequest": "Something in the form didn't pass. Check party size, time and table.",
+    "unauthorized": "Your session ended. Sign in again to keep working.",
+    "forbidden": "That's above your role. Ask a manager to make this change.",
+    "notFound": "That reservation's gone — it may have been cancelled or moved. Refreshing the grid.",
+    "unknown": "Something went wrong. Try again — if it keeps happening, tell your manager."
   },
   "kpi": {
     "unavailable": "{{label}}, unavailable"
@@ -1629,6 +1649,7 @@
     },
     "kind": {
       "closure": "Closed",
+      "bookingPaused": "Booking paused: {{channels}}",
       "specialHours": "Special hours"
     },
     "repeating": "Repeating",
@@ -1676,7 +1697,9 @@
       "stranded_other": "{{count}} bookings would be left without service if this date went back to the series. Nothing was changed.",
       "stranded_many": "{{count}} bookings would be left without service if this date went back to the series. Nothing was changed.",
       "countUnknown": "Couldn't check how many guests this closure cancelled. Reopen waits until the count loads.",
-      "retryCount": "Retry"
+      "retryCount": "Retry",
+      "descriptionStillClosed": "This removes one closure, but another still closes these dates, so guests can't book them yet.",
+      "doneStillClosed": "Closure removed: {{date}}. Not reopened"
     },
     "series": {
       "editDates": "Edit dates…",
@@ -1693,7 +1716,7 @@
       "weekdays": "Repeats on",
       "endsLabel": "Ends on",
       "invalidDate": "Pick a date the series covers.",
-      "invalid": "Pick at least one weekday and an end date on or after the start.",
+      "invalid": "Pick at least one weekday that falls between the start and the end date.",
       "skippedToast": "{{date}} skipped. The rest of the series is unchanged.",
       "savedToast": "Series updated",
       "skipped": "Skipped {{dates}}",
@@ -1868,6 +1891,7 @@
     },
     "compare": {
       "open": "Compare services",
+      "conflictTitle": "Someone changed these schedules first",
       "title": "Compare services",
       "service": "Service",
       "opens": "Opens",
@@ -1888,7 +1912,8 @@
       "save_one": "Save {{count}} schedule",
       "save_other": "Save {{count}} schedules",
       "saved_one": "{{count}} schedule updated",
-      "saved_other": "{{count}} schedules updated"
+      "saved_other": "{{count}} schedules updated",
+      "blocked": "Change a row to save."
     },
     "copy": {
       "action": "Copy to other days…",
@@ -1899,14 +1924,30 @@
       "save_one": "Copy to {{count}} date",
       "save_other": "Copy to {{count}} dates",
       "saved_one": "Copied to {{count}} date",
-      "saved_other": "Copied to {{count}} dates"
+      "saved_other": "Copied to {{count}} dates",
+      "blocked": {
+        "fromRequired": "Choose a start date to copy.",
+        "endBeforeStart": "The end date is before the start date.",
+        "daysRequired": "Choose at least one day to copy to.",
+        "noDates": "Those days don’t fall between these dates."
+      }
     },
     "nudge": {
       "label": "Suggestion",
       "text": "{{weekday}} has had {{count}} one-off changes.",
       "make": "Make a {{weekday}} schedule",
       "created": "{{weekday}} schedule created"
-    }
+    },
+    "blocked": {
+      "conflict": "Answer the message above to save.",
+      "startRequired": "Choose a start date to save.",
+      "endBeforeStart": "The end date is before the start date.",
+      "nameRequired": "Name this schedule to save.",
+      "servicesRequired": "Add a service to save.",
+      "serviceNameRequired": "Name the new service to save."
+    },
+    "edit": "Edit",
+    "duplicate": "Duplicate"
   },
   "availability": {
     "title": "Availability",
@@ -1921,7 +1962,8 @@
       "previous": "Previous",
       "next": "Next",
       "today": "Today",
-      "range": "{{from}} – {{to}}"
+      "range": "{{from}} – {{to}}",
+      "more": "More actions"
     },
     "calendar": {
       "label": "Availability calendar",
@@ -1964,7 +2006,12 @@
       "nextDay": "{{time}} (next day)",
       "draftName": "unsaved changes",
       "labelWithPeriod": "{{label}}, {{period}}",
-      "untilClose": "close"
+      "untilClose": "close",
+      "dayLabel": {
+        "closed": "Closed",
+        "specialHours": "Special hours",
+        "open": "Open"
+      }
     },
     "drawer": {
       "summaryOpen": "Open for {{services}}.",
@@ -1974,6 +2021,11 @@
       "changes_other": "{{count}} changes from your regular {{weekday}}.",
       "changes_many": "{{count}} changes from your regular {{weekday}}.",
       "whyTitle": "Why this day",
+      "refreshError": "Couldn’t check for newer hours",
+      "finishDraftFirst": "Save or discard your changes to this day first.",
+      "hoursDiffer": "These dates have different hours. The rows below are from {{date}}.",
+      "waitForReload": "Edit once the newest hours have loaded.",
+      "reloadHours": "Reload hours",
       "ifRemoved": "If removed: {{result}}",
       "removalNone": "no change to this day",
       "removal": {
@@ -2061,12 +2113,15 @@
     "undo": {
       "action": "Undo",
       "done": "Change undone",
+      "finishFirst": "Discard your changes first, then undo.",
+      "strandedTitle": "These bookings would lose their service",
+      "strandedClose": "Close",
       "errors": {
         "guests-notified": "This change told guests, so it can’t be undone.",
         "already-reverted": "This change was already undone.",
         "superseded": "A newer change exists. Only the latest change can be undone.",
         "not-revertable": "This change can’t be undone.",
-        "version-conflict": "Someone else just changed availability. Reload and try again.",
+        "version-conflict": "Availability has changed since then. Only the latest change can be undone.",
         "stranded-bookings": "Undoing this would leave existing bookings without service.",
         "invalid-config": "This change can no longer be undone against your current hours."
       }
@@ -2184,7 +2239,16 @@
         "discard": "Discard mine",
         "theirsHeading": "Their change",
         "yoursHeading": "Your draft",
-        "yourService": "{{name}} {{from}} – {{to}}"
+        "yourService": "{{name}} {{from}} – {{to}}",
+        "back": "Back to my draft",
+        "again": "Someone saved again while you were deciding. Check their latest change, then Overwrite or go back to your draft.",
+        "unavailable": "Overwrite isn’t available right now. Go back to your draft, or discard it and start again."
+      },
+      "blocked": {
+        "serviceName": "Name the new service to save.",
+        "noChange": "Change the hours to save.",
+        "noDates": "What you’re changing reaches no dates, so there is nothing to save.",
+        "keptOwn": "Every date keeps its own changes. Choose Replace them to save."
       }
     },
     "preview": {
@@ -2208,7 +2272,7 @@
       "retry": "Retry",
       "stranded_one": "{{count}} booking would fall outside these hours",
       "stranded_other": "{{count}} bookings would fall outside these hours",
-      "strandedItem": "{{date}} · {{time}} · party of {{size}} · {{reason}}",
+      "strandedItem": "{{name}} · {{date}} · {{time}} · party of {{size}} · {{reason}}",
       "strandedMore": "plus {{count}} more on later dates in scope",
       "compare": "Compare with",
       "compareSaved": "Last saved",
@@ -2222,12 +2286,14 @@
         "closed": "closed",
         "outside_service": "outside service",
         "table_blocked": "table blocked"
-      }
+      },
+      "strandedOpens": "{{line}} (opens in a new tab)"
     },
     "discard": {
       "title": "Discard changes to {{date}}?",
       "description": "Your unsaved changes to these hours will be lost.",
       "leavePage": "All unsaved changes on this page will be lost.",
+      "titleSelection": "Discard changes to the {{total}} selected dates?",
       "confirm": "Discard",
       "keep": "Keep editing"
     },
@@ -2239,10 +2305,10 @@
       "back": "Back",
       "cancel": "Cancel",
       "saveError": "Couldn't close",
-      "versionConflict": "Availability changed since you opened this. Close this dialog and try again.",
+      "versionConflict": "Availability changed since you opened this. We're loading the latest, so check your choices and save again.",
       "groupsChanged": "The bookings changed while you were deciding. Review the updated list and choose again.",
       "alreadySaved": "This closure was already saved, and its bookings handled. Check Special dates before closing again.",
-      "maybeSaved": "The reservations service hit a snag, so we couldn't confirm this save. It may have gone through. Try again without changes to see what happened.",
+      "maybeSaved": "We couldn't confirm this save. It may have gone through. Try again without changes to see what happened.",
       "savedEarlier": {
         "title": "Already closed",
         "body": "An earlier try of this closure was saved: {{summary}}. Guests were handled as that try chose; changes you made afterwards did not apply. Open Special dates to see the outcome.",
@@ -2289,12 +2355,13 @@
         "fromLabel": "From",
         "toLabel": "To",
         "weekdays": "Repeats on",
-        "invalid": "Check the dates: the end can't be before the start."
+        "invalid": "Check the dates: the end can't be before the start, and a repeat needs a chosen day between them."
       },
       "window": {
         "label": "Starting at",
         "allDay": "All day",
         "from": "From {{time}}",
+        "reset": "That time comes before opening on a day that runs past midnight, so this closes all day.",
         "hostNote": "An emergency close covers the whole day. Only a manager can close from a set time."
       },
       "replaces": "{{date}} has special hours; the closure replaces them.",
@@ -2388,7 +2455,8 @@
         },
         "loading": "Loading the bookings…",
         "loadFailed": "Couldn't load the bookings to decide on. Go back and try again.",
-        "irreversible": "Guests are told right away. This can't be undone."
+        "irreversible": "Guests are told right away. This can't be undone.",
+        "blocked": "Choose what happens to each group of bookings to continue."
       },
       "status": {
         "closed": "Closed",
@@ -2403,7 +2471,12 @@
       "resume": "Resume",
       "resumed": "Online booking resumed",
       "resumeError": "Couldn't resume online booking",
-      "pill": "Online booking paused"
+      "pill": "Online booking paused",
+      "waiting": "Online seatings from {{time}} are paused every day. Earlier seatings stay open.",
+      "waitingNoneToday": "Online seatings from {{time}} are paused every day.",
+      "remove": "Remove pause",
+      "removed": "Online booking pause removed",
+      "removeError": "Couldn't remove the pause"
     },
     "selection": {
       "selectColumn": "Select every {{weekday}}",
@@ -2417,6 +2490,7 @@
       "selectMenu": "Select…",
       "weekdayInMonth": "Every {{weekday}} in {{month}}",
       "usingSchedule": "All dates using {{schedule}}",
+      "pastDates": "Past dates can’t be selected.",
       "useSchedule": "Use schedule",
       "useOtherDay": "Use another day’s hours",
       "clearChanges": "Clear changes",
@@ -2431,7 +2505,9 @@
         "save_many": "Apply to {{count}} dates",
         "saved_one": "{{count}} date updated",
         "saved_other": "{{count}} dates updated",
-        "saved_many": "{{count}} dates updated"
+        "saved_many": "{{count}} dates updated",
+        "blockedDay": "Choose a day to copy the hours from.",
+        "blockedClosed": "That day has no hours. Choose a day that is open."
       },
       "clearDialog": {
         "title_one": "Clear changes on {{count}} date?",
@@ -2443,7 +2519,9 @@
         "saved_one": "Cleared changes on {{count}} date",
         "saved_other": "Cleared changes on {{count}} dates",
         "saved_many": "Cleared changes on {{count}} dates"
-      }
+      },
+      "selectDays": "Select days",
+      "selectingHint": "Tap the days you want"
     },
     "tonight": {
       "title": "Tonight",
@@ -2508,7 +2586,8 @@
         "closedNotified_other": "Closing early at {{time}} · {{count}} reservations notified",
         "closedNotified_many": "Closing early at {{time}} · {{count}} reservations notified",
         "callList": "Call list"
-      }
+      },
+      "loadError": "Couldn't load Tonight, including Emergency close."
     },
     "venueTime": "Venue time ({{zone}})",
     "weekSummary": {
@@ -2520,6 +2599,19 @@
       "onlineOn": "online booking on",
       "onlineOff": "online booking off",
       "onlinePartial": "online booking off some days"
+    },
+    "closureOverlap": {
+      "alreadyTitle": "Already closed",
+      "alreadySomeTitle": "Some dates are already closed",
+      "already": "Already closed on {{dates}}: {{closure}}.",
+      "alreadyHint": "You can still save this. Reopening one closure leaves the date closed until the other is reopened too.",
+      "stays": "Stays closed on {{dates}}: {{closure}}.",
+      "moreDates_one": "{{dates}} and {{count}} more date",
+      "moreDates_other": "{{dates}} and {{count}} more dates",
+      "service": "A service",
+      "booking": "Booking: {{channels}}",
+      "tables": "Some tables",
+      "doneAndStays": "{{done}}. {{stays}}"
     }
   },
   "setup": {

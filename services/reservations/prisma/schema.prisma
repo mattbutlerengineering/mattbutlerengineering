@@ -139,6 +139,7 @@ model Venue {
   dateRuleTables            DateRuleTable[]
   availabilityChanges       AvailabilityChange[]
   closureOutcomes           ClosureOutcome[]
+  guestWinBacks             GuestWinBack[]
   /// Per-venue compare-and-set counter for availability config saves (ADR-030).
   availabilityVersion       Int               @default(0) @map("availability_version")
   /// Host "stop all online bookings" switch.
@@ -300,6 +301,7 @@ model Guest {
   stripeCustomerId        String?                 @unique @map("stripe_customer_id")
   unsubscribed            Boolean                 @default(false)
   reservations            Reservation[]
+  winBack                 GuestWinBack?
   createdAt               DateTime                @default(now()) @map("created_at")
   updatedAt               DateTime                @updatedAt @map("updated_at")
 
@@ -340,6 +342,12 @@ model Reservation {
   /// reservation. Proof of ownership for the public deposit route (#6304).
   /// Null for reservations created outside the widget.
   originSessionId    String?            @map("origin_session_id")
+  /// The host the guest booked on (e.g. "eat-sheet.com", "mattbutlerengineering.com"),
+  /// captured from the public booking request's Origin header when the reservation is
+  /// created (#7892). NULL for reservations created outside the public booking page
+  /// (staff/walk-in) or whose Origin did not match a known host — those keep the
+  /// mattbutlerengineering.com brand in guest emails, today's behavior.
+  originHost         String?            @map("origin_host")
   /// Staff reason for booking past a soft availability limit (ADR-030 `judge`).
   overrideReason     String?            @map("override_reason")
   /// The soft limits that were overridden (after_last_seating, pacing, ...). NULL = none.
@@ -752,4 +760,24 @@ model ClosureOutcome {
   @@index([reservationId])
   @@index([rebookedReservationId])
   @@map("closure_outcomes")
+}
+
+/// One row per guest. `claimedAt` is when a send was claimed, written BEFORE the provider call;
+/// `guestId` is UNIQUE, so two simultaneous sends cannot both claim the guest. `claimedAt` is
+/// null once a definite provider rejection released the claim. `sentAt` is written only after
+/// the provider call returned success: a claim without a matching `sentAt` is an UNCONFIRMED
+/// attempt (the provider may or may not have delivered).
+model GuestWinBack {
+  id        String    @id @default(cuid())
+  venueId   String    @map("venue_id")
+  venue     Venue     @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  guestId   String    @unique @map("guest_id")
+  guest     Guest     @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  claimedAt DateTime? @map("claimed_at") @db.Timestamptz(3)
+  sentAt    DateTime? @map("sent_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@index([venueId])
+  @@map("guest_win_backs")
 }

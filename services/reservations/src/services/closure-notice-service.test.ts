@@ -291,6 +291,7 @@ describe("closure notices settle within 2 minutes (time-advanced)", () => {
     timezone: "UTC",
     venueId: "v1",
     reservationId: `res-${id}`,
+    originHost: null,
   });
 
   /** A worker honouring the queue's attempts + exponential backoff against the fake clock. */

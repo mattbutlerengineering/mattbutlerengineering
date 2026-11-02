@@ -76,6 +76,7 @@ describe("guest chat tools", () => {
         avgFrequencyDays: 14,
         daysSinceLastVisit: 60,
         daysOverdue: 46,
+        lastWinBackAt: null,
       },
     ]);
   });
@@ -224,8 +225,160 @@ describe("guest chat tools", () => {
 
       expect(api.guests.getLapsing).toHaveBeenCalledWith("v1");
       expect(result).toEqual({
-        guests: [{ name: "Sam Park", daysSinceLastVisit: 60, daysOverdue: 46 }],
+        guests: [
+          {
+            name: "Sam Park",
+            daysSinceLastVisit: 60,
+            daysOverdue: 46,
+            lastWinBackAt: null,
+            winBackAttemptedAt: null,
+          },
+        ],
       });
+    });
+
+    it("returns the last confirmed win-back and any unconfirmed attempt, apart (#8041)", async () => {
+      api.guests.getLapsing.mockResolvedValue([
+        {
+          guestId: "g7",
+          name: "Sam Park",
+          email: null,
+          phone: null,
+          communicationPreference: "both",
+          avgFrequencyDays: 14,
+          daysSinceLastVisit: 60,
+          daysOverdue: 46,
+          lastWinBackAt: "2026-10-30T09:00:00.000Z",
+          winBackAttemptedAt: "2026-10-31T09:00:00.000Z",
+        },
+      ]);
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
+
+      const result = await tools.list_lapsing_guests!.execute!({} as never, toolCtx);
+
+      expect(result).toMatchObject({
+        guests: [
+          {
+            name: "Sam Park",
+            lastWinBackAt: "2026-10-30T09:00:00.000Z",
+            winBackAttemptedAt: "2026-10-31T09:00:00.000Z",
+          },
+        ],
+      });
+    });
+  });
+
+  describe("guest details stay out of the logs", () => {
+    it.each([
+      ["add_guest", "findOrCreate", { name: "Kim Lee", phone: "+15555550111" }],
+      ["update_guest", "update", { guest: "Ana Lopez", addTags: ["vip"] }],
+      ["add_guest_note", "addNote", { guest: "Ana Lopez", text: "Prefers booth 4" }],
+    ] as const)(
+      "%s logs status and code, not a refusal's echo of them",
+      async (tool, fn, input) => {
+        api.guests[fn].mockRejectedValue(
+          problem(409, { code: "conflict", detail: "Kim Lee, +15555550111 already exists" })
+        );
+
+        await run(tool, input);
+
+        const logged = JSON.stringify(vi.mocked(log.error).mock.calls);
+        expect(logged).not.toMatch(/Kim Lee|5550111/);
+        expect(logged).toContain("conflict");
+      }
+    );
+  });
+
+  describe("a write the server never answered (#8035)", () => {
+    const NO_ANSWER = [
+      ["a 502", () => problem(502)],
+      ["a timeout", () => new DOMException("The operation timed out.", "TimeoutError")],
+      ["a lost response", () => new TypeError("fetch failed")],
+    ] as const;
+
+    describe.each(NO_ANSWER)("after %s", (_name, failure) => {
+      it.each([
+        ["add_guest", "findOrCreate", { name: "Kim Lee", phone: "+15555550111" }],
+        ["update_guest", "update", { guest: "Ana Lopez", addTags: ["vip"] }],
+        ["add_guest_note", "addNote", { guest: "Ana Lopez", text: "Prefers booth 4" }],
+      ] as const)(
+        "%s may have saved: says to check search_guests first",
+        async (tool, fn, input) => {
+          api.guests[fn].mockRejectedValue(failure());
+
+          const result = await run(tool, input);
+
+          expect(result).toMatchObject({
+            error: expect.stringMatching(/Couldn't confirm.*search_guests before trying again/),
+          });
+          expect(JSON.stringify(result)).not.toMatch(/Nothing was changed/);
+        }
+      );
+
+      it("send_win_back may have reached the guest: never invites a blind resend", async () => {
+        api.guests.sendWinBack.mockRejectedValue(failure());
+
+        const result = await run("send_win_back", { guest: "Sam Park" });
+
+        expect(result).toMatchObject({
+          error: expect.stringMatching(
+            /Couldn't confirm.*Sam Park.*list_lapsing_guests.*lastWinBackAt.*winBackAttemptedAt.*may not have gone out/
+          ),
+        });
+        const words = JSON.stringify(result);
+        expect(words).not.toMatch(/Nothing was changed/);
+        expect(words).not.toMatch(/try again/i);
+        expect(api.guests.sendWinBack).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    it("relays a 409 cooldown refusal by its detail (#8041)", async () => {
+      api.guests.sendWinBack.mockRejectedValue(
+        problem(409, {
+          detail:
+            "Sam Park was already sent a win-back message on 2026-10-30. Nothing was sent now.",
+        })
+      );
+
+      const result = await run("send_win_back", { guest: "Sam Park" });
+
+      expect(result).toMatchObject({
+        refused: true,
+        error: expect.stringMatching(/already sent a win-back/),
+      });
+    });
+
+    it("relays the provider-rejected 424 as a refusal: nothing went out, a retry is allowed (#8041)", async () => {
+      api.guests.sendWinBack.mockRejectedValue(
+        problem(424, {
+          detail:
+            "The email provider rejected the win-back message to Sam Park. Nothing was sent. You can try again.",
+        })
+      );
+
+      const result = await run("send_win_back", { guest: "Sam Park" });
+
+      expect(result).toMatchObject({
+        refused: true,
+        error: expect.stringMatching(/rejected.*Nothing was sent.*try again/),
+      });
+    });
+
+    it("still says nothing changed on a definite refusal", async () => {
+      api.guests.sendWinBack.mockRejectedValue(problem(404));
+
+      const result = await run("send_win_back", { guest: "Sam Park" });
+
+      expect(result).toEqual({ refused: true, error: "Refused. Nothing was changed." });
+    });
+
+    it("still says no message went when the read before the send fails", async () => {
+      api.guests.getLapsing.mockRejectedValue(problem(502));
+
+      const result = await run("send_win_back", { guest: "Sam Park" });
+
+      expect(result).toMatchObject({ error: expect.stringMatching(/Nothing was changed/) });
+      expect(api.guests.sendWinBack).not.toHaveBeenCalled();
     });
   });
 

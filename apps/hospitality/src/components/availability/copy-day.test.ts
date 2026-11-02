@@ -31,6 +31,30 @@ describe("copy a day", () => {
     expect(copyDayDates({ weekdays: [6], from: "2026-10-31", until: null })).toHaveLength(53);
   });
 
+  it("skips dates before today when the copy starts on a past day", () => {
+    const dates = copyDayDates({
+      weekdays: [5],
+      from: "2026-10-02",
+      until: null,
+      today: "2026-10-21",
+    });
+    expect(dates[0]).toBe("2026-10-23");
+    expect(dates).toHaveLength(50);
+  });
+
+  it("sends a rule that starts today, not on the past day, so history is not rewritten", () => {
+    const changes = buildCopyDayChanges({
+      config,
+      services,
+      weekdays: [5],
+      from: "2026-10-02",
+      until: null,
+      today: "2026-10-21",
+      makeId: () => "copy-1",
+    });
+    expect(changes.upsert.dateRules?.[0]?.startsOn).toBe("2026-10-21");
+  });
+
   it("saves one repeating special-hours rule that carries the day's hours to those weekdays", () => {
     const changes = buildCopyDayChanges({
       config,

@@ -19,6 +19,7 @@ import {
   occupiedCaption,
   statusWord,
   useSeatGuest,
+  type SeatFlights,
 } from "./seat-guest.js";
 import { canSeat } from "../../utils/seating.js";
 import { StaffDepositSection } from "./StaffDepositSection.js";
@@ -38,6 +39,8 @@ export interface ReservationSheetProps {
   onClose: () => void;
   /** Rejects on failure — the sheet owns showing it (architecture § Dialog contracts). */
   onSeat: () => Promise<void>;
+  /** The page's seats in flight, which outlive this sheet across a resize. */
+  seatFlights?: SeatFlights;
   /** Receives the clicked button, the opener the page returns focus to after a save. */
   onEdit: (opener: HTMLElement) => void;
   /** Receives the clicked button, the opener the page returns focus to when the dialog is dismissed. */
@@ -64,6 +67,7 @@ export function ReservationSheet({
   open,
   onClose,
   onSeat,
+  seatFlights,
   onEdit,
   onCancel,
   onMarkNoShow,
@@ -76,7 +80,7 @@ export function ReservationSheet({
 
   const table = findReservationTable(reservation, tables);
   const caption = occupiedCaption(reservation, table, now, t);
-  const { seating, failure, seatRef, seat } = useSeatGuest(onSeat);
+  const { seating, failure, seatRef, seat } = useSeatGuest(reservation.id, onSeat, seatFlights);
   const { data: guest } = useGuest(reservation.guestId);
   const {
     data: deposit,

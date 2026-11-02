@@ -59,10 +59,12 @@ const common = {
   onStale: vi.fn(),
 };
 
+// At file level: the suites may run in any order, and rialto's Select scrolls in both.
+beforeAll(() => {
+  window.HTMLElement.prototype.scrollIntoView = vi.fn();
+});
+
 describe("SchedulesTab", () => {
-  beforeAll(() => {
-    window.HTMLElement.prototype.scrollIntoView = vi.fn();
-  });
   beforeEach(() => {
     vi.clearAllMocks();
     save.mockResolvedValue({ version: 8, changeId: "chg" });
@@ -73,6 +75,15 @@ describe("SchedulesTab", () => {
     expect(screen.getByText("Regular week")).toBeInTheDocument();
     expect(screen.getByText("Mon–Thu")).toBeInTheDocument();
     expect(screen.getByText("Not used yet")).toBeInTheDocument();
+  });
+
+  it("shows short actions and keeps the schedule's name in what is spoken (#7980)", () => {
+    renderWith(<SchedulesTab {...common} state={state()} />);
+    expect(screen.getByRole("button", { name: "Edit Weeknight" })).toHaveTextContent(/^Edit$/);
+    expect(screen.getByRole("button", { name: "Duplicate Weeknight" })).toHaveTextContent(
+      /^Duplicate$/
+    );
+    expect(screen.getByRole("button", { name: "Delete Spare" })).toHaveTextContent(/^Delete$/);
   });
 
   it("offers delete only where nothing uses the schedule", () => {
@@ -105,6 +116,13 @@ describe("CompareServices", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     save.mockResolvedValue({ version: 8, changeId: "chg" });
+  });
+
+  it("ties why Save is off to the button, so a screen reader hears it there (#7979)", () => {
+    renderWith(<CompareServices {...common} state={state()} />);
+    const save = screen.getByRole("button", { name: /^Save 0 schedules$/ });
+    expect(save).toBeDisabled();
+    expect(save).toHaveAccessibleDescription("Change a row to save.");
   });
 
   it("saves every selected schedule in one change with one impact line", async () => {

@@ -47,6 +47,12 @@ describe("ToastLocaleOverride", () => {
     expect(screen.getAllByRole("region")).toHaveLength(1);
   });
 
+  it("anchors the one live region at the top, clear of a Drawer's footer actions", async () => {
+    render(<App guest={false} />);
+    const region = await screen.findByRole("region", { name: "Notifications" });
+    expect(region).toHaveAttribute("data-placement", "top-end");
+  });
+
   it("keeps the dashboard locale on staff routes and returns to it after leaving a guest route", async () => {
     localStorage.setItem(WIDGET_LOCALE_STORAGE_KEY, "es-MX");
     const view = render(<App guest />);

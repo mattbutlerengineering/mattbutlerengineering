@@ -23,6 +23,20 @@
  * calls `gh api` (the Actions runner has it); without `gh` that routine alone
  * reads `unobserved`, never aborting the run.
  *
+ * #8059: `mbe-daily-issue` was filed `dark` on 2026-11-01 despite having a
+ * correctly-registered `heartbeat` signature (#7043) and a live trigger that
+ * was in fact posting heartbeats. It was never a missing-signature gap —
+ * `classifyHeartbeat()`'s `error -> dark` rule (by design: the routine's one
+ * daily goal, closing an issue, wasn't met that run) fired correctly, because
+ * the merge was blocked by the known CCR merge-permission classifier issue
+ * (#6125), not by anything wrong with this file's registration. The real bug
+ * found along the way: a heartbeat artifact has no `title`/`labels`, so the
+ * finding body's `matched.title ?? JSON.stringify(matched.labels ?? [])`
+ * fallback rendered the empty-array literal `[]` in place of the heartbeat's
+ * `error` state and note — making a correctly-filed finding read as if no
+ * artifact had been observed at all. `describeMatchedArtifact()` fixes the
+ * display; the `error -> dark` classification itself is unchanged.
+ *
  * Usage:
  *   node scripts/routine-liveness.mjs
  */
@@ -90,7 +104,9 @@ function classifyHeartbeat({ heartbeats, nowMs, periodMs, period, activatedAt })
   if (!newest) return noArtifactResult({ nowMs, periodMs, period, activatedAt });
   const { artifact, ageMs } = newest;
   if (ageMs > periodMs * 2) return { status: "dark", matched: artifact };
-  if (artifact.state === "error") return { status: "dark", matched: artifact };
+  // #8067: a fresh `error` heartbeat proves the routine RAN and reported honestly;
+  // it is blocked, not dark. The 2x-period age check above still runs first.
+  if (artifact.state === "error") return { status: "blocked", matched: artifact };
   if (ageMs > periodMs) return { status: "late", matched: artifact };
   return { status: artifact.state === "throttled" ? "throttled" : "alive", matched: artifact };
 }
@@ -135,7 +151,7 @@ function noArtifactResult({ nowMs, periodMs, period, activatedAt }) {
  *   activatedAt?: string,
  *   paused?: {since: string, reason: string},
  * }} args
- * @returns {{status: "alive"|"late"|"dark"|"unverifiable"|"pending"|"throttled"|"paused", matched: object|null, reason?: string}}
+ * @returns {{status: "alive"|"late"|"dark"|"blocked"|"unverifiable"|"pending"|"throttled"|"paused", matched: object|null, reason?: string}}
  */
 export function classifyRoutineLiveness({
   signature,
@@ -187,13 +203,15 @@ export function classifyRoutineLiveness({
 /** Pure: builds the deterministic finding title so re-runs dedupe by title match. */
 export function buildRoutineFindingTitle(name, status) {
   if (status === "dark") return `ci-fix: routine ${name} is dark — no expected artifact observed`;
+  if (status === "blocked")
+    return `ci-fix: routine ${name} reported an error heartbeat (blocked, not dark)`;
   if (status === "unverifiable")
     return `ci-fix: routine ${name} has no declared liveness signature (unverifiable)`;
   throw new Error(`buildRoutineFindingTitle: unexpected status "${status}"`);
 }
 
 const ROUTINE_FINDING_TITLE_PATTERN =
-  /^ci-fix: routine (\S+) (?:is dark|has no declared liveness signature)/;
+  /^ci-fix: routine (\S+) (?:is dark|reported an error heartbeat|has no declared liveness signature)/;
 
 /** Pure: extracts the routine name a finding issue was filed for, from its title. */
 export function extractRoutineNameFromIssueTitle(issue) {
@@ -208,12 +226,13 @@ export function extractRoutineNameFromIssueTitle(issue) {
  * finding (never auto-closed by a signature flip alone — see #5817).
  *
  * @param {{title?: string}} issue
- * @returns {"dark" | "unverifiable" | null}
+ * @returns {"dark" | "blocked" | "unverifiable" | null}
  */
 export function extractRoutineFindingStatusFromTitle(issue) {
   const title = issue?.title ?? "";
   if (!ROUTINE_FINDING_TITLE_PATTERN.test(title)) return null;
-  return title.includes("has no declared liveness signature") ? "unverifiable" : "dark";
+  if (title.includes("has no declared liveness signature")) return "unverifiable";
+  return title.includes("reported an error heartbeat") ? "blocked" : "dark";
 }
 
 /**
@@ -255,7 +274,7 @@ export function findPriorRoutineFindingCandidate(candidates, routineName) {
  * @returns {{action: "create"} | {action: "skip", issueNumber: number} | {action: "close", issueNumber: number} | {action: "no-op"}}
  */
 export function decideIssueTransition({ status, existingIssue }) {
-  if (status === "dark" || status === "unverifiable") {
+  if (status === "dark" || status === "blocked" || status === "unverifiable") {
     if (!existingIssue || existingIssue.state === "missing") {
       return { action: "create" };
     }
@@ -268,7 +287,7 @@ export function decideIssueTransition({ status, existingIssue }) {
   if (
     status === "alive" &&
     existingIssue?.state === "open" &&
-    existingIssue.filedStatus === "dark"
+    (existingIssue.filedStatus === "dark" || existingIssue.filedStatus === "blocked")
   ) {
     return { action: "close", issueNumber: existingIssue.number };
   }
@@ -276,18 +295,34 @@ export function decideIssueTransition({ status, existingIssue }) {
   return { action: "no-op" };
 }
 
+/**
+ * Pure: a human-readable label for one matched artifact. A `pr-title`/
+ * `issue-label` artifact carries a `title` or `labels`; a `heartbeat`
+ * artifact carries neither — rendering it via the same `title ?? labels`
+ * fallback produces the empty-array literal `[]`, which reads as "no
+ * artifact found" even when a real, substantive heartbeat matched (#8059).
+ */
+function describeMatchedArtifact(matched) {
+  if (matched.type === "heartbeat") {
+    return `heartbeat: ${matched.state}${matched.note ? ` — ${matched.note}` : ""}`;
+  }
+  return matched.title ?? JSON.stringify(matched.labels ?? []);
+}
+
 /** Pure: builds the issue body describing why a routine was flagged. */
 export function buildRoutineFindingBody({ name, triggerId, status, periodDays, reason, matched }) {
   const triggerLine = triggerId ? `**Trigger:** \`${triggerId}\`\n` : "";
   const matchedLine = matched
-    ? `\n**Most recent matching artifact:** ${matched.title ?? JSON.stringify(matched.labels ?? [])} (${matched.observedAt})\n`
+    ? `\n**Most recent matching artifact:** ${describeMatchedArtifact(matched)} (${matched.observedAt})\n`
     : "";
   const reasonLine = reason ? `\n${reason}\n` : "";
 
   const summary =
     status === "dark"
       ? `Routine \`${name}\` produced no artifact matching its declared signature within ${periodDays * 2} days (expected period: ${periodDays} day(s)).`
-      : `Routine \`${name}\` has no declared liveness signature — it cannot be verified as alive or dark.`;
+      : status === "blocked"
+        ? `Routine \`${name}\` ran this period but its newest heartbeat is \`error\` — it was blocked, not dark. A human needs to unblock it; no agent can fix this by re-investigating liveness.`
+        : `Routine \`${name}\` has no declared liveness signature — it cannot be verified as alive or dark.`;
 
   return `${summary}
 ${triggerLine}${matchedLine}${reasonLine}
@@ -307,14 +342,14 @@ export function buildRoutineRecoveryComment({ name, runId, matched }) {
     ? `Closed automatically by run \`${runId}\`.`
     : "Closed automatically by routine-liveness.mjs.";
   const matchedLine = matched
-    ? ` Observed artifact: ${matched.title ?? JSON.stringify(matched.labels ?? [])} (${matched.observedAt}).`
+    ? ` Observed artifact: ${describeMatchedArtifact(matched)} (${matched.observedAt}).`
     : "";
 
   return `\`${name}\` reports \`alive\` again — this finding's condition has cleared.\n\n${runLine}${matchedLine}`;
 }
 
 /** Pure: builds the `gh issue create` args for a routine-liveness finding. */
-export function buildRoutineFindingCreateArgs(title, body) {
+export function buildRoutineFindingCreateArgs(title, body, status) {
   return [
     "--title",
     title,
@@ -323,7 +358,7 @@ export function buildRoutineFindingCreateArgs(title, body) {
     "--label",
     "ci-fix",
     "--label",
-    COORDINATION_LABELS.READY,
+    status === "blocked" ? "ready-for-human" : COORDINATION_LABELS.READY,
   ];
 }
 
@@ -347,7 +382,7 @@ export function buildRoutineFindingCreateArgs(title, body) {
  *   now: string|number|Date,
  *   searchCiFixIssues?: () => Array<{number: number, title: string}>,
  *   getIssueState?: (issueNumber: number) => "open"|"closed"|"missing",
- *   createIssue: (title: string, body: string, labels: string[]) => number,
+ *   createIssue: (title: string, body: string, labels: string[], status: string) => number,
  *   closeIssue?: (issueNumber: number, comment: string) => void,
  *   runId?: string|number,
  *   log?: (msg: string) => void,
@@ -494,7 +529,11 @@ export function runRoutineLivenessCheck({
 
     const cands = getCandidates();
     if (cands === null) {
-      if (result.status === "dark" || result.status === "unverifiable") {
+      if (
+        result.status === "dark" ||
+        result.status === "blocked" ||
+        result.status === "unverifiable"
+      ) {
         log(
           `search for a prior routine-liveness issue failed — not filing for ${entry.name} ` +
             `this run, to avoid duplicating an issue the search could not see: ${searchError?.message}`
@@ -564,8 +603,11 @@ export function runRoutineLivenessCheck({
       reason: entry.unverifiableReason,
       matched: result.matched,
     });
-    const labels = ["ci-fix", COORDINATION_LABELS.READY];
-    const issueNumber = createIssue(title, body, labels);
+    const labels = [
+      "ci-fix",
+      result.status === "blocked" ? "ready-for-human" : COORDINATION_LABELS.READY,
+    ];
+    const issueNumber = createIssue(title, body, labels, result.status);
     log(`Created issue #${issueNumber} for ${entry.name}'s ${result.status} liveness.`);
 
     return { routine: entry.name, status: result.status, action: "create", issueNumber };
@@ -682,6 +724,7 @@ function fetchHeartbeatArtifacts(ghClient, routineName) {
       {
         type: "heartbeat",
         state: beat.state,
+        note: beat.note,
         observedAt: comment.createdAt ?? comment.created_at,
       },
     ];
@@ -795,15 +838,19 @@ function main() {
         "number,title",
       ]),
     getIssueState: (issueNumber) => issueState(ghClient, issueNumber),
-    createIssue: (title, body) =>
-      parseIssueNumberFromUrl(ghClient.issue.create(buildRoutineFindingCreateArgs(title, body))),
+    createIssue: (title, body, _labels, status) =>
+      parseIssueNumberFromUrl(
+        ghClient.issue.create(buildRoutineFindingCreateArgs(title, body, status))
+      ),
     closeIssue: (issueNumber, comment) =>
       ghClient.issue.close(issueNumber, ["--reason", "completed", "--comment", comment]),
     runId: process.env.GITHUB_RUN_ID,
     log: (msg) => console.error(msg),
   });
 
-  const findings = results.filter((r) => r.status === "dark" || r.status === "unverifiable");
+  const findings = results.filter(
+    (r) => r.status === "dark" || r.status === "blocked" || r.status === "unverifiable"
+  );
   if (findings.length > 0) {
     console.error(`${findings.length} routine(s) flagged (dark or unverifiable).`);
   }
