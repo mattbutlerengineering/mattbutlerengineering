@@ -72,11 +72,11 @@ async function open(page: Page, viewport = PHONE) {
 }
 
 /** A month ahead, so every row or cell in it is in the future whatever day the suite runs. */
-async function openNextMonth(page: Page, viewport = PHONE) {
+async function openNextMonth(page: Page, viewport = PHONE, next = "Next") {
   await open(page, viewport);
   const period = page.locator("[aria-live='polite']").filter({ hasText: /\d{4}/ });
   const before = await period.textContent();
-  await page.getByRole("button", { name: "Next", exact: true }).click();
+  await page.getByRole("button", { name: next, exact: true }).click();
   await expect(period).not.toHaveText(before ?? "");
 }
 
@@ -114,16 +114,22 @@ async function smallTargets(scope: Locator): Promise<string[]> {
 }
 
 async function setLocale(page: Page, locale: string) {
-  await page.evaluate((tag) => localStorage.setItem("mbe-hospitality-locale", tag), locale);
+  // Before the next load, not in this one: the fixture's first navigation may still be redirecting.
+  await page.addInitScript((tag) => localStorage.setItem("mbe-hospitality-locale", tag), locale);
 }
 
 test.describe("the first screen", () => {
-  test("a phone shows several days before anything is scrolled", async ({ mockedPage: page }) => {
+  test("a phone shows several whole days before anything is scrolled", async ({
+    mockedPage: page,
+  }) => {
     await mockAvailability(page);
-    await open(page);
-    const first = await page.locator("[data-date]").first().boundingBox();
-    // The toolbar used to end at 640 of 812. Room for at least five rows now, not one and a bit.
-    expect(first!.y).toBeLessThan(480);
+    // A month ahead lists every day: this month's list starts at today, and can be one row long.
+    await openNextMonth(page);
+    const bottoms = await page
+      .locator("[data-date]")
+      .evaluateAll((rows) => rows.map((row) => row.getBoundingClientRect().bottom));
+    // The old toolbar left room for three. Counted in rows: text wraps differently by platform.
+    expect(bottoms.filter((bottom) => bottom <= PHONE.height).length).toBeGreaterThanOrEqual(5);
     await expect(page.getByRole("button", { name: "Today" })).toBeVisible();
     await expect(page.getByRole("radio", { name: "Month" })).toBeVisible();
   });
@@ -186,6 +192,23 @@ test.describe("the first screen", () => {
     expect(fill.backgroundColor !== "rgba(0, 0, 0, 0)" || fill.backgroundImage !== "none").toBe(
       true
     );
+  });
+});
+
+test.describe("the first screen, with everything that adds a line", () => {
+  // A device outside the venue's zone adds the venue-time note, and fr-CA wraps the summary.
+  // A runner's wider fallback font wraps it too, which is why this counts rows and not pixels.
+  test.use({ timezoneId: "Asia/Tokyo" });
+
+  test("a phone still shows whole days", async ({ mockedPage: page }) => {
+    await mockAvailability(page);
+    await setLocale(page, "fr-CA");
+    await openNextMonth(page, PHONE, "Suivant");
+    await expect(page.getByText(/Heure de l'établissement/)).toBeVisible();
+    const bottoms = await page
+      .locator("[data-date]")
+      .evaluateAll((rows) => rows.map((row) => row.getBoundingClientRect().bottom));
+    expect(bottoms.filter((bottom) => bottom <= PHONE.height).length).toBeGreaterThanOrEqual(4);
   });
 });
 
