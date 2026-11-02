@@ -16446,10 +16446,7 @@
       ): number { /* ... */ }
     </item>
     <item priority="high">
-      export function refundDueCents(deposit: RefundableDeposit): number { /* ... */ }
-    </item>
-    <item priority="high">
-      export const owesRefund: unknown;
+      export function owesRefund(deposit: RefundableDeposit): boolean { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/closure-impact-store.ts">

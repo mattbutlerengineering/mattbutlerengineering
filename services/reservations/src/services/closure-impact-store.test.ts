@@ -167,7 +167,7 @@ describe("getClosureImpact", () => {
   });
 
   // #8131: the impact (and so the stored outcome and the notice) carries what is still owed.
-  it("carries the amount still owed, and drops a deposit that owes nothing", async () => {
+  it("carries the estimate of what is still owed, and keeps a deposit estimating 0 in the plan", async () => {
     const { client, tx } = fakeClient(rows());
     const base = (await tx.reservation.findMany())[0]!;
     const withDeposit = (id: string, status: string, pi: string | null, post: number | null) => ({
@@ -197,7 +197,8 @@ describe("getClosureImpact", () => {
         : [];
     expect(Object.fromEntries(deposits)).toEqual({
       "res-dashboard-part": { amountCents: 2500, currency: "usd" },
-      "res-dashboard-full": null,
+      // Estimates 0, but stays in the plan so the refund job checks Stripe.
+      "res-dashboard-full": { amountCents: 0, currency: "usd" },
       "res-pending-no-pi": null,
       "res-held": { amountCents: 4000, currency: "usd" },
     });

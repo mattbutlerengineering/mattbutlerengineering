@@ -122,8 +122,10 @@ function promisedRefund(
 ): NoticeOutcome["refund"] {
   if (!deposit || refund === "none") return null;
   if (deposit.status === "pending" && !deposit.stripePaymentIntentId) return null;
-  // A row from before `refundCents` existed: estimate from the deposit as the closure would.
-  const amountCents = refundCents ?? refundOwedCents(deposit);
+  // A row from before `refundCents` existed: once the job is done the closure's own refund is
+  // already off the row (it would compute 0), so promise the deposit; before that, estimate.
+  const amountCents =
+    refundCents ?? (refund === "done" ? deposit.amountCents : refundOwedCents(deposit));
   return amountCents > 0 ? { amountCents, currency: deposit.currency } : null;
 }
 
@@ -309,6 +311,8 @@ interface SummaryRow {
   deliveries: unknown;
   rebookedReservationId: string | null;
   refund: string;
+  /** What the guest was promised, as stored with the outcome; null on rows from before it. */
+  refundCents?: number | null;
 }
 
 const EMPTY_SUMMARY = {
@@ -327,7 +331,8 @@ function refundFailureOf(row: SummaryRow): RefundFailure {
   return {
     outcomeId: row.id,
     guestName,
-    amountCents: deposit ? refundOwedCents(deposit) : null,
+    // What the guest was promised, from the outcome; the live deposit only for older rows.
+    amountCents: deposit ? (row.refundCents ?? refundOwedCents(deposit)) : null,
     currency: deposit?.currency ?? null,
   };
 }
@@ -379,6 +384,7 @@ export async function listSummaries(
       deliveries: true,
       rebookedReservationId: true,
       refund: true,
+      refundCents: true,
       reservation: {
         select: {
           guestName: true,

@@ -5,7 +5,7 @@ import { setVenueContext } from "../middleware/venue-context.js";
 import { referenceIssues, SCOPE_CONFLICT_HORIZON_DAYS } from "./availability-config-plan.js";
 import { loadConfigState, stillToServeWhere, type ConfigState } from "./availability-config.js";
 import { civilDateIn } from "./availability-migration.js";
-import { refundDueCents } from "./closure-deposit.js";
+import { owesRefund, refundOwedCents } from "./closure-deposit.js";
 import { computeClosureImpact, withClosure, type ImpactBooking } from "./closure-impact.js";
 import { prisma } from "./database.js";
 import { NOT_BOOKED_STATUSES } from "./slot-rules.js";
@@ -93,15 +93,15 @@ export async function impactInTransaction(
       },
     },
   });
-  // The deposit carries what the cancel still owes (a dashboard refund comes off), which the
-  // command stores on the outcome and the notice then promises.
-  const bookings: ImpactBooking[] = rows.map(({ deposit, ...row }) => {
-    const due = deposit ? refundDueCents(deposit) : 0;
-    return {
-      ...row,
-      heldDeposit: deposit && due > 0 ? { amountCents: due, currency: deposit.currency } : null,
-    };
-  });
+  // `owesRefund` alone puts a deposit in the plan, so the refund job runs for it. The amount is
+  // only the estimate of what is still owed (it can be 0); the command stores it for the notice.
+  const bookings: ImpactBooking[] = rows.map(({ deposit, ...row }) => ({
+    ...row,
+    heldDeposit:
+      deposit && owesRefund(deposit)
+        ? { amountCents: refundOwedCents(deposit), currency: deposit.currency }
+        : null,
+  }));
   const impact = computeClosureImpact({
     timezone: state.timezone,
     config: state.effective,

@@ -186,6 +186,12 @@ describe("loadNoticeOutcome", () => {
       ).toEqual({ amountCents: 2500, currency: "usd" });
     });
 
+    it("promises the deposit for a row from before refundCents existed once the job is done: the closure's own refund is already off the row", async () => {
+      expect(await refundOf({ refund: "done" }, deposit({ postCaptureRefundCents: 4000 }))).toEqual(
+        { amountCents: 4000, currency: "usd" }
+      );
+    });
+
     it("promises nothing when there is no deposit", async () => {
       expect(await refundOf({ refund: "pending", refundCents: 4000 }, null)).toBeNull();
     });

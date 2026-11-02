@@ -749,8 +749,10 @@ describe("createClosure", () => {
     });
   });
 
-  // #8131: a dashboard refund came off before the closure; the outcome stores what is still owed.
-  it("stores the amount still owed after a partial dashboard refund, and none after a full one", async () => {
+  // #8131: the outcome stores the estimate of what is owed for the notice, but the estimate never
+  // decides whether the refund job runs: an estimate of 0 is still `pending` for the job to check
+  // against Stripe (a failed dashboard refund stays counted in the row).
+  it("stores the estimate after a partial dashboard refund, and keeps a 0 estimate pending for the job", async () => {
     const w = world();
     const captured = (post: number) =>
       ({
@@ -766,7 +768,7 @@ describe("createClosure", () => {
     const { tx } = await run(w, body());
     expect(tx.closureOutcome.createMany.mock.calls[0]![0].data).toEqual([
       expect.objectContaining({ reservationId: "res-1", refund: "pending", refundCents: 2500 }),
-      expect.objectContaining({ reservationId: "res-2", refund: "none", refundCents: null }),
+      expect.objectContaining({ reservationId: "res-2", refund: "pending", refundCents: 0 }),
     ]);
   });
 

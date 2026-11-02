@@ -14820,15 +14820,13 @@
       const ownLeg = deposit.status === "partial_refunded" ? (deposit.refundAmountCents ?? 0) : 0;
       return Math.max(0, deposit.amountCents - ownLeg - (deposit.postCaptureRefundCents ?? 0));
     }
-    export function refundDueCents(deposit: RefundableDeposit): number {
-      if (deposit.status === "pending" && !deposit.stripePaymentIntentId) return 0;
-      if (LIVE_DEPOSIT_STATUSES.has(deposit.status)) return refundOwedCents(deposit);
-      if (CAPTURED_DEPOSIT_STATUSES.has(deposit.status) && deposit.stripePaymentIntentId) {
-        return refundOwedCents(deposit);
-      }
-      return 0;
+    export function owesRefund(deposit: RefundableDeposit): boolean {
+      if (deposit.status === "pending" && !deposit.stripePaymentIntentId) return false;
+      return (
+        LIVE_DEPOSIT_STATUSES.has(deposit.status) ||
+        (CAPTURED_DEPOSIT_STATUSES.has(deposit.status) && Boolean(deposit.stripePaymentIntentId))
+      );
     }
-    export const owesRefund = (deposit: RefundableDeposit): boolean => refundDueCents(deposit) > 0;
   </file>
   <file path="src/services/closure-impact-store.ts">
     type StoreClient = Pick<PrismaClient, "$transaction">;
@@ -14892,15 +14890,15 @@
           },
         },
       });
-      // The deposit carries what the cancel still owes (a dashboard refund comes off), which the
-      // command stores on the outcome and the notice then promises.
-      const bookings: ImpactBooking[] = rows.map(({ deposit, ...row }) => {
-        const due = deposit ? refundDueCents(deposit) : 0;
-        return {
-          ...row,
-          heldDeposit: deposit && due > 0 ? { amountCents: due, currency: deposit.currency } : null,
-        };
-      });
+      // `owesRefund` alone puts a deposit in the plan, so the refund job runs for it. The amount is
+      // only the estimate of what is still owed (it can be 0); the command stores it for the notice.
+      const bookings: ImpactBooking[] = rows.map(({ deposit, ...row }) => ({
+        ...row,
+        heldDeposit:
+          deposit && owesRefund(deposit)
+            ? { amountCents: refundOwedCents(deposit), currency: deposit.currency }
+            : null,
+      }));
       const impact = computeClosureImpact({
         timezone: state.timezone,
         config: state.effective,
@@ -14936,7 +14934,7 @@
       endTime: Date;
       partySize: number;
       guestName: string | null;
-      /** Set for a deposit a cancel owes a refund or void on: live (`pending`/`held`) or captured with a payment intent. Named for the common case. */
+      /** Set for a deposit a cancel owes a refund or void on: live (`pending`/`held`) or captured with a payment intent. `amountCents` is the estimate of what is still owed (the deposit less refunds already recorded; can be 0), not the deposit's amount. */
       heldDeposit: { amountCents: number; currency: string } | null;
     }
     function kindOf(rule: DateRule): ClosureImpactKind {
@@ -15288,8 +15286,10 @@
     ): NoticeOutcome["refund"] {
       if (!deposit || refund === "none") return null;
       if (deposit.status === "pending" && !deposit.stripePaymentIntentId) return null;
-      // A row from before `refundCents` existed: estimate from the deposit as the closure would.
-      const amountCents = refundCents ?? refundOwedCents(deposit);
+      // A row from before `refundCents` existed: once the job is done the closure's own refund is
+      // already off the row (it would compute 0), so promise the deposit; before that, estimate.
+      const amountCents =
+        refundCents ?? (refund === "done" ? deposit.amountCents : refundOwedCents(deposit));
       return amountCents > 0 ? { amountCents, currency: deposit.currency } : null;
     }
     export async function loadNoticeOutcome(
@@ -15455,13 +15455,16 @@
       deliveries: unknown;
       rebookedReservationId: string | null;
       refund: string;
+      /** What the guest was promised, as stored with the outcome; null on rows from before it. */
+      refundCents?: number | null;
     }
     function refundFailureOf(row: SummaryRow): RefundFailure {
       const { guestName, deposit } = row.reservation;
       return {
         outcomeId: row.id,
         guestName,
-        amountCents: deposit ? refundOwedCents(deposit) : null,
+        // What the guest was promised, from the outcome; the live deposit only for older rows.
+        amountCents: deposit ? (row.refundCents ?? refundOwedCents(deposit)) : null,
         currency: deposit?.currency ?? null,
       };
     }
@@ -15505,6 +15508,7 @@
           deliveries: true,
           rebookedReservationId: true,
           refund: true,
+          refundCents: true,
           reservation: {
             select: {
               guestName: true,

@@ -1,7 +1,11 @@
 /**
- * What a closure cancel owes the guest for a deposit. One reading, shared by the preview, the
- * closure command (which stores the answer on the outcome) and the notice, so they cannot
- * disagree about whether a refund is coming or for how much.
+ * What a closure cancel owes the guest for a deposit. Two separate questions, never mixed:
+ *
+ * - {@link owesRefund}: does the CLOSURE_REFUND job run for it. Decided from the deposit's status
+ *   alone and never from an amount: the job settles against Stripe's own totals, and the row's
+ *   recorded refunds can lie in both directions (a dashboard refund that later failed stays
+ *   counted; a planned partial leg can fail to land). An estimate of 0 must not stop the job.
+ * - {@link refundOwedCents}: what the notice may promise the guest. An estimate from the row.
  */
 
 export interface RefundableDeposit {
@@ -43,17 +47,14 @@ export function refundOwedCents(
 }
 
 /**
- * What a cancel owes right now, in cents; 0 = nothing. A `pending` deposit with no payment intent
- * never reached Stripe, so no money was taken and none is owed (the refund job settles it as
- * `none`). A captured deposit already refunded in full, say from the Stripe dashboard, owes 0.
+ * Whether a cancel hands the deposit to the refund job. A `pending` deposit with no payment intent
+ * never reached Stripe: the job settles it as `none` without a Stripe call (`resolvePending`), so
+ * leaving it out changes no refund.
  */
-export function refundDueCents(deposit: RefundableDeposit): number {
-  if (deposit.status === "pending" && !deposit.stripePaymentIntentId) return 0;
-  if (LIVE_DEPOSIT_STATUSES.has(deposit.status)) return refundOwedCents(deposit);
-  if (CAPTURED_DEPOSIT_STATUSES.has(deposit.status) && deposit.stripePaymentIntentId) {
-    return refundOwedCents(deposit);
-  }
-  return 0;
+export function owesRefund(deposit: RefundableDeposit): boolean {
+  if (deposit.status === "pending" && !deposit.stripePaymentIntentId) return false;
+  return (
+    LIVE_DEPOSIT_STATUSES.has(deposit.status) ||
+    (CAPTURED_DEPOSIT_STATUSES.has(deposit.status) && Boolean(deposit.stripePaymentIntentId))
+  );
 }
-
-export const owesRefund = (deposit: RefundableDeposit): boolean => refundDueCents(deposit) > 0;

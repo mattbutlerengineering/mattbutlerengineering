@@ -5,6 +5,11 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma/index.js";
 import { createClosure } from "./closure-command.js";
 import { loadNoticeOutcome } from "./closure-notice-store.js";
+import { settleClosureRefund } from "./closure-refund.js";
+import { createPrismaClosureRefundStore } from "./closure-refund-store.js";
+import { DepositService } from "./deposit.js";
+import { runWithVenueContext } from "./venue-context-store.js";
+import { createInMemoryPayments } from "../transitions/in-memory.js";
 
 /**
  * Real-Postgres proof for #8131: the closure notice promises a refund only where the closure owes
@@ -16,6 +21,10 @@ import { loadNoticeOutcome } from "./closure-notice-store.js";
  * is `done`. That second read is what a delayed or retried notice job sees; it must not go silent
  * (the deposit now computes 0 owed) and must not change the amount.
  *
+ * The estimate only decides what the notice says. Every deposit the refund job handled before this
+ * change stays `pending` (even one estimating 0), and the job, with Stripe mocked at the
+ * PaymentsPort boundary, pays what Stripe says.
+ *
  * Skips when `DATABASE_URL` is unset; CI's `rls-integration` job runs it. Shares the FORCE-toggling
  * suites' advisory lock so it never sees their window.
  */
@@ -26,12 +35,20 @@ const manager = { actorId: "auth0|mgr", actorName: "Mgr", isManager: true };
 
 type Case = {
   name: string;
-  status: "pending" | "held" | "refunded" | "applied";
+  status: "pending" | "held" | "refunded" | "applied" | "partial_refunded";
   paymentIntent: string | null;
-  /** Refunded outside the app (Stripe dashboard) before the closure. */
+  amountCents?: number;
+  /** The planned partial-refund leg recorded on the deposit row. */
+  refundAmountCents?: number;
+  /** Refunded outside the app (Stripe dashboard) before the closure, as the row records it. */
   dashboardRefundCents?: number;
   /** What the guest is told; null = nothing. */
   promised: number | null;
+  /**
+   * Stripe's own totals on the charge, when the job's answer differs from the row's estimate:
+   * `pays` is what the job must then refund (0 = nothing).
+   */
+  stripe?: { capturedCents: number; refundedCents: number; pays: number };
 };
 
 const CASES: Case[] = [
@@ -47,11 +64,35 @@ const CASES: Case[] = [
     promised: 2500,
   },
   {
+    // The row estimates 0 and Stripe agrees: the job records done and moves no money.
     name: "captured, $40 refunded in the dashboard",
     status: "applied",
     paymentIntent: "pi_full",
     dashboardRefundCents: 4000,
     promised: null,
+    stripe: { capturedCents: 4000, refundedCents: 4000, pays: 0 },
+  },
+  {
+    // `postCaptureRefundCents` only ever grows: a dashboard refund that later failed stays
+    // counted. The row estimates 0, Stripe says nothing was refunded, so the guest is owed $40.
+    name: "captured, dashboard refund of $40 later failed",
+    status: "applied",
+    paymentIntent: "pi_failed",
+    dashboardRefundCents: 4000,
+    promised: null,
+    stripe: { capturedCents: 4000, refundedCents: 0, pays: 4000 },
+  },
+  {
+    // A planned $30 leg that never landed plus a $20 manual refund: the row estimates
+    // 5000 - 3000 - 2000 = 0, Stripe has refunded only the $20, so $30 is owed.
+    name: "partial_refunded, planned leg never landed",
+    status: "partial_refunded",
+    paymentIntent: "pi_leg",
+    amountCents: 5000,
+    refundAmountCents: 3000,
+    dashboardRefundCents: 2000,
+    promised: null,
+    stripe: { capturedCents: 5000, refundedCents: 2000, pays: 3000 },
   },
   { name: "pending, never sent to Stripe", status: "pending", paymentIntent: null, promised: null },
   { name: "pending with an intent", status: "pending", paymentIntent: "pi_pend", promised: 4000 },
@@ -121,14 +162,14 @@ describe.skipIf(!DATABASE_URL)("closure notice refund promise (real Postgres)", 
       for (const [i, name] of NAMES.entries()) {
         const c = CASES.find((x) => x.name === name);
         // Half-hour slots from 17:00, all inside the seated window.
-        const start = new Date(Date.parse("2026-12-24T17:00:00Z") + i * 30 * 60_000);
+        const start = new Date(Date.parse("2026-12-24T17:00:00Z") + i * 15 * 60_000);
         const reservation = await tx.reservation.create({
           data: {
             venueId,
             tableId: table.id,
             date: new Date("2026-12-24T00:00:00Z"),
             startTime: start,
-            endTime: new Date(start.getTime() + 30 * 60_000),
+            endTime: new Date(start.getTime() + 15 * 60_000),
             partySize: 2,
             status: "CONFIRMED",
             guestName: name,
@@ -140,10 +181,11 @@ describe.skipIf(!DATABASE_URL)("closure notice refund promise (real Postgres)", 
           await tx.deposit.create({
             data: {
               reservationId: reservation.id,
-              amountCents: 4000,
+              amountCents: c.amountCents ?? 4000,
               currency: "usd",
               status: c.status,
               stripePaymentIntentId: c.paymentIntent,
+              refundAmountCents: c.refundAmountCents ?? null,
               postCaptureRefundCents: c.dashboardRefundCents ?? null,
             },
           });
@@ -196,6 +238,43 @@ describe.skipIf(!DATABASE_URL)("closure notice refund promise (real Postgres)", 
   it("promises nothing to a booking with no deposit", async () => {
     expect(await noticeRefund("no deposit")).toBeNull();
   });
+
+  // The estimate decides what the notice says, never whether the job runs: every deposit the job
+  // handled before this change is `pending` here, including the ones estimating 0, and the job pays
+  // what Stripe says (mocked at the PaymentsPort boundary), not what the row says.
+  it.each(CASES.filter((c) => c.stripe))(
+    "the refund job still runs for $name and pays what Stripe says",
+    async ({ name, paymentIntent, stripe }) => {
+      const outcomeId = outcomeIds.get(name)!;
+      const stored = await inVenue((tx) =>
+        tx.closureOutcome.findUniqueOrThrow({ where: { id: outcomeId } })
+      );
+      expect(stored.refund).toBe("pending");
+
+      const payments = createInMemoryPayments();
+      payments.respond("retrievePaymentIntent", (id) => ({ id, status: "succeeded" }));
+      payments.respond("getChargeAmounts", () => ({
+        capturedCents: stripe!.capturedCents,
+        refundedCents: stripe!.refundedCents,
+      }));
+      const deps = {
+        deposits: new DepositService(payments),
+        payments,
+        store: createPrismaClosureRefundStore(),
+      };
+
+      await runWithVenueContext(venueId, () => settleClosureRefund(deps, { outcomeId, venueId }));
+
+      const refunds = payments.calls.filter((c) => c.op === "createPartialRefund");
+      expect(refunds.map((c) => [c.args[0], c.args[1]])).toEqual(
+        stripe!.pays > 0 ? [[paymentIntent, stripe!.pays]] : []
+      );
+      const settled = await inVenue((tx) =>
+        tx.closureOutcome.findUniqueOrThrow({ where: { id: outcomeId } })
+      );
+      expect(settled.refund).toBe("done");
+    }
+  );
 
   it("says the same after the refund job has run, for every case", async () => {
     await inVenue(async (tx) => {

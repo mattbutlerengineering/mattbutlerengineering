@@ -2535,7 +2535,7 @@
         },
         "booking": "{{time}}  {{name}} · {{size}}",
         "guestUnnamed": "Client",
-        "deposit": "dépôt {{amount}}",
+        "deposit": "{{amount}} à rembourser",
         "runsInto": "chevauche la fermeture",
         "showAll_one": "Tout afficher ({{count}})",
         "showAll_other": "Tout afficher ({{count}})",
