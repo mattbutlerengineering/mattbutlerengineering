@@ -403,6 +403,17 @@ describe("createClosure", () => {
     ]);
     expect(w.deposits.writes).toBe(0);
     expect(w.changes[0]).toMatchObject({ kind: "closure", notifiedGuests: true, version: 5 });
+    expect(w.changes[0]).toMatchObject({
+      summary: expect.stringMatching(/^Closure saved for 2026-12-24: 2 cancelled/),
+      summaryDetail: {
+        code: "closure_saved",
+        startsOn: "2026-12-24",
+        endsOn: "2026-12-24",
+        cancelled: 2,
+        moved: 0,
+        kept: 0,
+      },
+    });
   });
 
   it("keeps and notifies without touching the reservations", async () => {
@@ -1372,6 +1383,8 @@ describe("reopenClosure", () => {
       kind: "reopen",
       notifiedGuests: true,
       version: w.version,
+      summary: "Closure reopened (2026-12-24)",
+      summaryDetail: { code: "closure_reopened", startsOn: "2026-12-24" },
     });
   });
 
@@ -1895,6 +1908,9 @@ describe("createClosure for a Tonight close-early (#7529)", () => {
       expect.objectContaining({ reservationId: "res-t", kind: "cancelled" }),
     ]);
     expect(w.changes[0]!.summary).toMatch(/^Closing early 2026-10-25/);
+    expect(w.changes[0]).toMatchObject({
+      summaryDetail: { code: "close_early_saved", startsOn: "2026-10-25", cancelled: 1 },
+    });
     expect((w.changes[0]!.inverse as { closure: unknown }).closure).toMatchObject({
       outcome: {
         cancelled: 1,

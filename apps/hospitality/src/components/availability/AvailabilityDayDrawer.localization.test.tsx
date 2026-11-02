@@ -224,3 +224,30 @@ describe("AvailabilityDayDrawer layers read in the viewer's language", () => {
     });
   }
 });
+
+// One rule for a time past midnight: "(next day)" after the clock, here as on the calendar, and
+// "a la" for one o'clock in Spanish (#8105).
+const close = (closeAt: number): DateRule =>
+  ({
+    ...TONIGHT_CLOSE,
+    id: `r-close-${closeAt}`,
+    payload: { version: 1, closeAt },
+  }) as DateRule;
+const effectOf = (closeAt: number) =>
+  rowsOf(dayOf(withSchedules(fixtureConfig(close(closeAt)), "Regular week"))).at(-1)?.[1];
+
+describe("AvailabilityDayDrawer past-midnight times", () => {
+  it.each([
+    ["en-US", undefined, "Closes at 1:00 AM (next day)", "Closes at 11:00 PM"],
+    ["es-MX", esMX, "Cierra a la 1:00 a.m. (día siguiente)", "Cierra a las 11:00 p.m."],
+    ["fr-CA", frCA, "Ferme à 1 h 00 (lendemain)", "Ferme à 23 h 00"],
+  ] as const)(
+    "keeps the next-day suffix and the article in %s",
+    async (tag, catalog, late, early) => {
+      if (catalog) await useLocale(tag as "es-MX" | "fr-CA", catalog);
+      else await localeRuntime.i18n.changeLanguage("en-US");
+      expect(effectOf(1500)).toBe(late);
+      expect(effectOf(1380)).toBe(early);
+    }
+  );
+});

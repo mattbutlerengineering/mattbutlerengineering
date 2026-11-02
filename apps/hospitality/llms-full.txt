@@ -197,6 +197,81 @@
       return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     }
   </file>
+  <file path="src/components/availability/change-summary-text.ts">
+    type Change = Parameters<typeof describeChange>[0];
+    function tonightText(detail: AvailabilityChangeDetail, t: TFunction): string | null {
+      switch (detail.code) {
+        case "tonight_pause_online":
+          return t("availability.history.summary.tonightPauseOnline");
+        case "tonight_close_early":
+          return t("availability.history.summary.tonightCloseEarly");
+        case "tonight_stop_window":
+          return t("availability.history.summary.tonightStopWindow");
+        case "tonight_ended":
+          return t("availability.history.summary.tonightEnded");
+        case "tonight_block_tables":
+          return isCount(detail.tables)
+            ? t("availability.history.summary.tonightBlockTables", { count: detail.tables })
+            : null;
+        case "tonight_pacing":
+          return isCount(detail.covers)
+            ? t("availability.history.summary.tonightPacing", { count: detail.covers })
+            : null;
+        default:
+          return null;
+      }
+    }
+    function closureText(
+      detail: AvailabilityChangeDetail,
+      format: VenueFormat,
+      t: TFunction
+    ): string | null {
+      const { startsOn, cancelled, moved, kept } = detail;
+      if (!startsOn) return null;
+      const when = whenOf(startsOn, detail.endsOn, format, t);
+      if (detail.code === "closure_reopened") {
+        return when ? t("availability.history.entry.reopened", { when }) : null;
+      }
+      if (!isCount(cancelled) || !isCount(moved) || !isCount(kept)) return null;
+      return t(
+        detail.code === "close_early_saved"
+          ? "availability.history.entry.closedEarly"
+          : "availability.history.entry.closed",
+        { when, outcome: outcomeText({ cancelled, moved, kept }, format, t) }
+      );
+    }
+    function detailText(
+      detail: AvailabilityChangeDetail,
+      format: VenueFormat,
+      t: TFunction
+    ): string | null {
+      const { added, changed, removed } = detail;
+      const text =
+        detail.code === "config_saved"
+          ? isCount(added) && isCount(changed) && isCount(removed)
+            ? t("availability.history.summary.configSaved", { added, changed, removed })
+            : null
+          : detail.code.startsWith("tonight_")
+            ? tonightText(detail, t)
+            : closureText(detail, format, t);
+      return text !== null && detail.reverted
+        ? t("availability.history.summary.reverted", { summary: text })
+        : text;
+    }
+    export function changeSummaryText(change: Change, format: VenueFormat, t: TFunction): string {
+      const coded = change.detail ? detailText(change.detail, format, t) : null;
+      return coded ?? describeChange(change, format, t) ?? change.summary;
+    }
+  </file>
+  <file path="src/components/availability/clock-hour.ts">
+    export function clockHour(minute: number): number {
+      return Math.floor((minute % MINUTES_PER_DAY) / 60) % 12 || 12;
+    }
+    export function clockHourOfInstant(at: string | number | Date, format: VenueFormat): number {
+      const hour = Number.parseInt(format.formatInstant(at, { hour: "numeric", hourCycle: "h23" }), 10);
+      return hour % 12 || 12;
+    }
+  </file>
   <file path="src/components/availability/clock-minutes.ts">
     export function toClock(minute: number): string {
       const wrapped = minute % MINUTES_PER_DAY;
@@ -1055,7 +1130,7 @@
     }
   </file>
   <file path="src/components/availability/describe-change.ts">
-    function whenOf(
+    export function whenOf(
       from: string | null | undefined,
       to: string | null | undefined,
       format: VenueFormat,
@@ -1070,7 +1145,11 @@
         to: format.formatCalendarDate(to, DAY),
       });
     }
-    function outcomeText(outcome: AvailabilityChangeOutcome, format: VenueFormat, t: TFunction) {
+    export function outcomeText(
+      outcome: Pick<AvailabilityChangeOutcome, "cancelled" | "moved" | "kept">,
+      format: VenueFormat,
+      t: TFunction
+    ) {
       const parts = [
         outcome.cancelled > 0
           ? t("availability.history.entry.cancelled", { count: outcome.cancelled })
@@ -1082,7 +1161,8 @@
       return new Intl.ListFormat(format.locale, { style: "long", type: "conjunction" }).format(parts);
     }
     export function describeChange(
-      entry: AvailabilityChangeEntry,
+      entry: AvailabilityChangeSummary &
+        Partial<Pick<AvailabilityChangeEntry, "outcome" | "affectedFrom" | "affectedTo">>,
       format: VenueFormat,
       t: TFunction
     ): string | null {
@@ -1366,12 +1446,6 @@
     export const useEditorOpen = (): boolean => useSyncExternalStore(subscribe, isEditorOpen);
   </file>
   <file path="src/components/availability/layer-text.ts">
-    function clockText(minute: number, format: VenueFormat): string {
-      const wrapped = minute % MINUTES_PER_DAY;
-      const hh = String(Math.floor(wrapped / 60)).padStart(2, "0");
-      const mm = String(wrapped % 60).padStart(2, "0");
-      return format.formatLocalTime(`${hh}:${mm}`);
-    }
     function upperFirst(text: string, locale: string): string {
       return `${text.charAt(0).toLocaleUpperCase(locale)}${text.slice(1)}`;
     }
@@ -1414,8 +1488,8 @@
             .map((s) =>
               t("availability.drawer.layer.serviceHours", {
                 name: s.name,
-                from: clockText(s.opensAt, format),
-                to: clockText(s.closesAt, format),
+                from: minuteText(s.opensAt, t, format),
+                to: minuteText(s.closesAt, t, format),
               })
             )
             .join(", ");
@@ -1426,12 +1500,15 @@
       format: VenueFormat
     ): string {
       if ("closeAt" in tonight) {
-        return t("availability.drawer.layer.closesAt", { time: clockText(tonight.closeAt, format) });
+        return t("availability.drawer.layer.closesAt", {
+          time: minuteText(tonight.closeAt, t, format),
+          count: clockHour(tonight.closeAt),
+        });
       }
       if ("stop" in tonight) {
         return t("availability.drawer.layer.stopped", {
-          from: clockText(tonight.stop.from, format),
-          to: clockText(tonight.stop.to, format),
+          from: minuteText(tonight.stop.from, t, format),
+          to: minuteText(tonight.stop.to, t, format),
         });
       }
       return t("availability.drawer.layer.pacing", { count: tonight.pacingCovers });
@@ -1470,8 +1547,8 @@
           if (!layer.target) return layer.effect;
           return layer.window
             ? t("availability.drawer.layer.window", {
-                from: clockText(layer.window.from, format),
-                to: clockText(layer.window.to, format),
+                from: minuteText(layer.window.from, t, format),
+                to: minuteText(layer.window.to, t, format),
               })
             : t("availability.drawer.layer.allDay");
         case "tonight":
@@ -2054,18 +2131,20 @@
           return t("availability.drawer.removal.opensAt", {
             name: change.name,
             time: at(change.minute),
+            count: clockHour(change.minute),
           });
         case "closesAtChanges":
           return t(
             change.later
               ? "availability.drawer.removal.closesLater"
               : "availability.drawer.removal.closesEarlier",
-            { name: change.name, time: at(change.minute) }
+            { name: change.name, time: at(change.minute), count: clockHour(change.minute) }
           );
         case "lastSeatingChanges":
           return t("availability.drawer.removal.lastSeating", {
             name: change.name,
             time: at(change.minute),
+            count: clockHour(change.minute),
           });
         case "closureLifted":
           return liftedText(change, t, format);
@@ -3599,7 +3678,7 @@
           user?.id === winningChange.actorId
             ? t("availability.history.you")
             : t("availability.history.teammate"),
-        summary: winningChange.summary,
+        summary: changeSummaryText(winningChange, format, t),
         when: format.formatInstant(winningChange.at, { hour: "numeric", minute: "2-digit" }),
       });
     }

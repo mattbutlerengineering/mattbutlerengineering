@@ -7,6 +7,7 @@ import {
 } from "@mbe/availability";
 import { CONFLICT_CHANGES_MAX } from "@mbe/types";
 import type {
+  AvailabilityChangeDetail,
   AvailabilityChangeSummary,
   AvailabilityConfig,
   AvailabilityConfigSource,
@@ -33,6 +34,7 @@ import {
   type BookedReservation,
 } from "./availability-config-checks.js";
 import { checkAvailability } from "./availability-check.js";
+import { configSavedDetail, readDetail } from "./availability-change-detail.js";
 import {
   ConfigRowConflict,
   readStoredConfig,
@@ -223,12 +225,11 @@ export type SavePlan =
       inverse: ConfigInverse;
       range: { from: string | null; to: string | null };
       summary: string;
+      detail: AvailabilityChangeDetail;
     };
 
-function describeDiff(diff: ConfigDiff): string {
-  const count = (part: Record<string, unknown[]>) =>
-    Object.values(part).reduce((n, rows) => n + rows.length, 0);
-  return `Availability updated: ${count(diff.create)} added, ${count(diff.update)} changed, ${count(diff.remove)} removed`;
+function describeDiff(detail: AvailabilityChangeDetail): string {
+  return `Availability updated: ${detail.added} added, ${detail.changed} changed, ${detail.removed} removed`;
 }
 
 /** The decision half of a save, pure: what the change becomes, or why it is refused. */
@@ -271,13 +272,15 @@ export function planSave(input: {
   if (reservations.length > 0) return { kind: "stranded", reservations };
 
   const diff = diffConfig(state.stored, next);
+  const detail = configSavedDetail(diff);
   return {
     kind: "write",
     next,
     diff,
     inverse: inverseOf(state.stored, diff, state.operatingHours),
     range: affectedRange(state.stored, diff, civilDateIn(now, state.timezone)),
-    summary: describeDiff(diff),
+    summary: describeDiff(detail),
+    detail,
   };
 }
 
@@ -359,21 +362,28 @@ const CHANGE_SUMMARY_SELECT = {
   at: true,
   kind: true,
   summary: true,
+  summaryDetail: true,
 } as const;
 
-const toSummary = (row: {
+/** The audit row as the wire names it; `detail` only when the row has a readable one. */
+export const toSummary = (row: {
   id: string;
   actorId: string;
   at: Date;
   kind: string;
   summary: string;
-}): AvailabilityChangeSummary => ({
-  id: row.id,
-  actorId: row.actorId,
-  at: row.at.toISOString(),
-  kind: row.kind,
-  summary: row.summary,
-});
+  summaryDetail?: unknown;
+}): AvailabilityChangeSummary => {
+  const detail = readDetail(row.summaryDetail);
+  return {
+    id: row.id,
+    actorId: row.actorId,
+    at: row.at.toISOString(),
+    kind: row.kind,
+    summary: row.summary,
+    ...(detail ? { detail } : {}),
+  };
+};
 
 /**
  * Refuses a save whose draft is on `expectedVersion`. The changes are ordered by the version they
@@ -465,6 +475,10 @@ export function conflictIssue(error: ConfigRowConflict, next: AvailabilityConfig
 export const toDbDate = (d: string | null): Date | null =>
   d ? new Date(`${d}T00:00:00.000Z`) : null;
 
+/** The audit row's `summary_detail` column: written when there is a detail, left NULL otherwise. */
+export const detailData = (detail: AvailabilityChangeDetail | null) =>
+  detail ? { summaryDetail: detail as unknown as Prisma.InputJsonValue } : {};
+
 /** What a save commits: the row operations, and how its audit row reads. */
 export interface SaveRequest {
   changes: PutAvailabilityConfigBody["changes"];
@@ -473,6 +487,8 @@ export interface SaveRequest {
   kind: string;
   /** Replaces the generated summary. */
   summary?: string;
+  /** Replaces the generated code and data; `null` for none (a revert of a change that had none). */
+  detail?: AvailabilityChangeDetail | null;
   /** Written to `Venue.operatingHours` in place of the projection of the next config. */
   operatingHours?: Prisma.InputJsonValue | typeof Prisma.DbNull;
   /** Permit the result to have no live schedule (an undone first save). */
@@ -573,6 +589,7 @@ export async function commitSave(
       at: now,
       kind: request.kind,
       summary: request.summary ?? plan.summary,
+      ...detailData(request.detail === undefined ? plan.detail : request.detail),
       affectedFrom: toDbDate(plan.range.from),
       affectedTo: toDbDate(plan.range.to),
       inverse: plan.inverse as unknown as Prisma.InputJsonValue,

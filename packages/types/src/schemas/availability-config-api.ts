@@ -102,13 +102,49 @@ export const AvailabilityConfigSaveResultSchema = z.object({
   changeId: z.string(),
 });
 
+/**
+ * A change's stable code and the facts its sentence is made of. The server writes `config_saved`,
+ * `closure_saved`, `close_early_saved`, `closure_reopened`, `tonight_pause_online`,
+ * `tonight_close_early`, `tonight_stop_window`, `tonight_block_tables`, `tonight_pacing` and
+ * `tonight_ended`; the client maps each to its own catalog keys. The wire accepts any string, so a
+ * newer server's code reads as unknown (the English `summary` is shown) rather than failing the
+ * response, and the fields are flat and optional: a code missing a field its sentence needs is
+ * shown as `summary` too.
+ */
+export const AvailabilityChangeDetailSchema = z.object({
+  code: z.string(),
+  /** The change undid the one the code names (`Reverted: …`). */
+  reverted: z.boolean().optional(),
+  /** `config_saved`: rows added, changed and removed. */
+  added: z.number().int().optional(),
+  changed: z.number().int().optional(),
+  removed: z.number().int().optional(),
+  /** `closure_saved`, `close_early_saved`, `closure_reopened`: the rule's first and last day. */
+  startsOn: ServiceDateSchema.optional(),
+  endsOn: ServiceDateSchema.nullish(),
+  /** `closure_saved`, `close_early_saved`: what happened to the bookings it touched. */
+  cancelled: z.number().int().optional(),
+  moved: z.number().int().optional(),
+  kept: z.number().int().optional(),
+  /** `tonight_block_tables`: how many tables. */
+  tables: z.number().int().optional(),
+  /** `tonight_pacing`: the cover limit. */
+  covers: z.number().int().optional(),
+});
+
 /** The audit row a 409 `version-conflict` names as the change that won. */
 export const AvailabilityChangeSummarySchema = z.object({
   id: z.string(),
   actorId: z.string(),
   at: z.string(),
   kind: z.string(),
+  /** English, kept for older clients and for rows stored before `detail`. */
   summary: z.string(),
+  /**
+   * The same change as a stable code plus data, for a client to word in its own language. Absent
+   * or `null` on older servers and on rows stored before it; the client then shows `summary`.
+   */
+  detail: AvailabilityChangeDetailSchema.nullish(),
 });
 
 /**
@@ -488,6 +524,7 @@ export type AvailabilityConfigSource = z.infer<typeof AvailabilityConfigSourceSc
 export type AvailabilityConfigState = z.infer<typeof AvailabilityConfigStateSchema>;
 export type AvailabilityConfigSaveResult = z.infer<typeof AvailabilityConfigSaveResultSchema>;
 export type AvailabilityChangeSummary = z.infer<typeof AvailabilityChangeSummarySchema>;
+export type AvailabilityChangeDetail = z.infer<typeof AvailabilityChangeDetailSchema>;
 export type ConflictChangesSince = z.infer<typeof ConflictChangesSinceSchema>;
 export type AvailabilityChangeOutcome = z.infer<typeof AvailabilityChangeOutcomeSchema>;
 export type AvailabilityChangeEntry = z.infer<typeof AvailabilityChangeEntrySchema>;

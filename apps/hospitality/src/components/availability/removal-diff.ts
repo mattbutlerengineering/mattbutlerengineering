@@ -6,6 +6,7 @@ import type {
   ResolvedService,
 } from "@mbe/availability";
 import type { VenueFormat } from "../../hooks/useVenueFormat.js";
+import { clockHour } from "./clock-hour.js";
 import { isWholeDay, minuteText } from "./closure-band.js";
 
 type Channel = keyof BookingOpen;
@@ -176,18 +177,20 @@ export function removalChangeText(
       return t("availability.drawer.removal.opensAt", {
         name: change.name,
         time: at(change.minute),
+        count: clockHour(change.minute),
       });
     case "closesAtChanges":
       return t(
         change.later
           ? "availability.drawer.removal.closesLater"
           : "availability.drawer.removal.closesEarlier",
-        { name: change.name, time: at(change.minute) }
+        { name: change.name, time: at(change.minute), count: clockHour(change.minute) }
       );
     case "lastSeatingChanges":
       return t("availability.drawer.removal.lastSeating", {
         name: change.name,
         time: at(change.minute),
+        count: clockHour(change.minute),
       });
     case "closureLifted":
       return liftedText(change, t, format);

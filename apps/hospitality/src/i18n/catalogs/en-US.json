@@ -2061,7 +2061,8 @@
           "5": "Fridays",
           "6": "Saturdays"
         },
-        "closesAt": "Closes at {{time}}",
+        "closesAt_one": "Closes at {{time}}",
+        "closesAt_other": "Closes at {{time}}",
         "stopped": "Stopped {{from}} – {{to}}",
         "pacing_one": "Pacing {{count}} cover",
         "pacing_other": "Pacing {{count}} covers"
@@ -2069,10 +2070,14 @@
       "removal": {
         "serviceOpens": "{{name}} opens {{from}} – {{to}}",
         "serviceCloses": "{{name}} no longer open",
-        "opensAt": "{{name}} opens at {{time}}",
-        "closesLater": "{{name}} back to {{time}}",
-        "closesEarlier": "{{name}} closes at {{time}}",
-        "lastSeating": "{{name}} last seating {{time}}",
+        "opensAt_one": "{{name}} opens at {{time}}",
+        "opensAt_other": "{{name}} opens at {{time}}",
+        "closesLater_one": "{{name}} back to {{time}}",
+        "closesLater_other": "{{name}} back to {{time}}",
+        "closesEarlier_one": "{{name}} closes at {{time}}",
+        "closesEarlier_other": "{{name}} closes at {{time}}",
+        "lastSeating_one": "{{name}} last seating {{time}}",
+        "lastSeating_other": "{{name}} last seating {{time}}",
         "reopens": "reopens {{from}} – {{to}}",
         "reopensAllDay": "reopens all day",
         "serviceReopens": "{{name}} reopens {{from}} – {{to}}",
@@ -2113,7 +2118,8 @@
       "opens": "Opens",
       "lastSeating": "Last seating",
       "closes": "Closes",
-      "lastSeatingHint": "Last seating {{time}}, 45 min before close",
+      "lastSeatingHint_one": "Last seating {{time}}, 45 min before close",
+      "lastSeatingHint_other": "Last seating {{time}}, 45 min before close",
       "days": "Days",
       "shortcuts": {
         "weekdays": "Weekdays",
@@ -2208,6 +2214,18 @@
         "none": "no bookings affected",
         "cancelled_one": "{{count}} booking cancelled",
         "cancelled_other": "{{count}} bookings cancelled"
+      },
+      "summary": {
+        "configSaved": "Availability updated: {{added}} added, {{changed}} changed, {{removed}} removed",
+        "tonightPauseOnline": "Tonight: online booking paused",
+        "tonightCloseEarly": "Tonight: closing early",
+        "tonightStopWindow": "Tonight: booking stopped for a window",
+        "tonightEnded": "Tonight change ended",
+        "tonightBlockTables_one": "Tonight: {{count}} table blocked",
+        "tonightBlockTables_other": "Tonight: {{count}} tables blocked",
+        "tonightPacing_one": "Tonight: pacing lowered to {{count}} cover",
+        "tonightPacing_other": "Tonight: pacing lowered to {{count}} covers",
+        "reverted": "Reverted: {{summary}}"
       }
     },
     "editor": {
@@ -2231,8 +2249,10 @@
         "phoneOnly": "Phone only",
         "walkIn": "Walk-in only"
       },
-      "overnight": "Closes {{time}} the next day ({{weekday}})",
-      "overnightNextDay": "Closes {{time}} the next day",
+      "overnight_one": "Closes {{time}} the next day ({{weekday}})",
+      "overnight_other": "Closes {{time}} the next day ({{weekday}})",
+      "overnightNextDay_one": "Closes {{time}} the next day",
+      "overnightNextDay_other": "Closes {{time}} the next day",
       "held_one": "Your edit to {{names}} won’t be saved: it isn’t in what you’re changing now.",
       "held_other": "Your edits to {{names}} won’t be saved: they aren’t in what you’re changing now.",
       "overridden_one": "Your hours for {{names}} won’t be used: what you’re changing already has them.",
@@ -2270,7 +2290,8 @@
       "strandedRule_other": "{{count}} bookings would fall outside the new hours. Nothing was cancelled. Change the hours, or deal with the bookings first.",
       "conflict": {
         "title": "Someone changed availability first",
-        "theirs": "{{summary}} (saved at {{time}}).",
+        "theirs_one": "{{summary}} (saved at {{time}}).",
+        "theirs_other": "{{summary}} (saved at {{time}}).",
         "theirsUnknown": "Another change was saved after you opened this day.",
         "since": "These changes were saved after you opened this day, newest first:",
         "earlier_one": "And {{count}} earlier change that isn’t listed.",
@@ -2519,8 +2540,10 @@
       "resumed": "Online booking resumed",
       "resumeError": "Couldn't resume online booking",
       "pill": "Online booking paused",
-      "waiting": "Online seatings from {{time}} are paused every day. Earlier seatings stay open.",
-      "waitingNoneToday": "Online seatings from {{time}} are paused every day.",
+      "waiting_one": "Online seatings from {{time}} are paused every day. Earlier seatings stay open.",
+      "waiting_other": "Online seatings from {{time}} are paused every day. Earlier seatings stay open.",
+      "waitingNoneToday_one": "Online seatings from {{time}} are paused every day.",
+      "waitingNoneToday_other": "Online seatings from {{time}} are paused every day.",
       "remove": "Remove pause",
       "removed": "Online booking pause removed",
       "removeError": "Couldn't remove the pause"
@@ -2628,10 +2651,11 @@
         "pacing_many": "Pacing {{count}} covers"
       },
       "toast": {
-        "closed": "Closing early at {{time}}",
-        "closedNotified_one": "Closing early at {{time}} · {{count}} reservation notified",
-        "closedNotified_other": "Closing early at {{time}} · {{count}} reservations notified",
-        "closedNotified_many": "Closing early at {{time}} · {{count}} reservations notified",
+        "closed_one": "Closing early at {{time}}",
+        "closed_other": "Closing early at {{time}}",
+        "closedNotified_one": "{{closed}} · {{count}} reservation notified",
+        "closedNotified_other": "{{closed}} · {{count}} reservations notified",
+        "closedNotified_many": "{{closed}} · {{count}} reservations notified",
         "callList": "Call list"
       },
       "loadError": "Couldn't load Tonight, including Emergency close."

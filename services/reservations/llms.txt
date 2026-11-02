@@ -1872,6 +1872,32 @@
       export async function assumeAppRole(tx: AppRoleClient): Promise<void> { /* ... */ }
     </item>
   </file>
+  <file path="src/services/availability-change-detail.ts">
+    <item priority="high">
+      export function configSavedDetail(diff: ConfigDiff): AvailabilityChangeDetail { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closureDetail(
+        rule: Pick<DateRule, "kind" | "startsOn" | "endsOn">,
+        counts: Record<ClosureAction, number>
+      ): AvailabilityChangeDetail { /* ... */ }
+    </item>
+    <item priority="high">
+      export const reopenedDetail: unknown;
+    </item>
+    <item priority="high">
+      export function tonightDetail(change: TonightChange): AvailabilityChangeDetail { /* ... */ }
+    </item>
+    <item priority="high">
+      export const tonightEndedDetail: unknown;
+    </item>
+    <item priority="high">
+      export function readDetail(value: unknown): AvailabilityChangeDetail | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function revertedDetail(original: unknown): AvailabilityChangeDetail | null { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/availability-changes.ts">
     <item priority="medium">
       function dayStart(d: string, timezone: string): Date { /* ... */ }
@@ -2221,7 +2247,7 @@
             n;
     </item>
     <item priority="medium">
-      function describeDiff(diff: ConfigDiff): string { /* ... */ }
+      function describeDiff(detail: AvailabilityChangeDetail): string { /* ... */ }
     </item>
     <item priority="high">
       export function planSave(input: {
@@ -2259,6 +2285,9 @@
       ): Promise<BookedReservation[]> { /* ... */ }
     </item>
     <item priority="high">
+      export const toSummary: unknown;
+    </item>
+    <item priority="high">
       export async function refuseStale(
         db: StoreDb,
         venueId: string,
@@ -2281,13 +2310,16 @@
     <item priority="high">
       export const toDbDate: unknown;
     </item>
+    <item priority="high">
+      export const detailData: unknown;
+    </item>
     <item priority="low">
       interface SaveRequest {
         changes: PutAvailabilityConfigBody["changes"];
         scopeConflicts: PutAvailabilityConfigBody["scopeConflicts"];
         kind: string;
         summary?: string;
-        operatingHours?: Prisma.InputJsonValue | typeof Prisma.DbNull;
+        detail?: AvailabilityChangeDetail | null;
       }
     </item>
     <item priority="high">

@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@mbe/auth/react";
 import type { AvailabilityChangeSummary } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
+import { changeSummaryText } from "./change-summary-text.js";
 
 /** "Changed first by a teammate: Closed Thu Dec 24 · 12:15 PM" (who, what, when). */
 export function useWinningChangeText(winningChange: AvailabilityChangeSummary | null): string {
@@ -14,7 +15,7 @@ export function useWinningChangeText(winningChange: AvailabilityChangeSummary | 
       user?.id === winningChange.actorId
         ? t("availability.history.you")
         : t("availability.history.teammate"),
-    summary: winningChange.summary,
+    summary: changeSummaryText(winningChange, format, t),
     when: format.formatInstant(winningChange.at, { hour: "numeric", minute: "2-digit" }),
   });
 }

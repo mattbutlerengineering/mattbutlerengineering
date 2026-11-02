@@ -25,12 +25,14 @@ import {
 } from "./availability-config-plan.js";
 import {
   conflictIssue,
+  detailData,
   loadConfigState,
   refuseStale,
   toDbDate,
   type ConfigState,
   type StoreDb,
 } from "./availability-config.js";
+import { tonightDetail, tonightEndedDetail } from "./availability-change-detail.js";
 import { ConfigRowConflict, writeConfigDiff } from "./availability-config-rows.js";
 import { civilDateIn } from "./availability-migration.js";
 import {
@@ -307,6 +309,7 @@ async function writeChange(
       at: now,
       kind: "tonight",
       summary: describeChange(body.change),
+      ...detailData(tonightDetail(body.change)),
       affectedFrom: toDbDate(range.from),
       affectedTo: toDbDate(range.to),
       inverse: {
@@ -474,6 +477,7 @@ async function endTonightIn(
         at: now,
         kind: "tonight_end",
         summary: "Tonight change ended",
+        ...detailData(tonightEndedDetail()),
         affectedFrom: toDbDate(range.from),
         affectedTo: toDbDate(range.to),
         inverse: inverseOf(

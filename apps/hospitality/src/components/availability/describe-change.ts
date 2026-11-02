@@ -1,11 +1,15 @@
 import type { TFunction } from "i18next";
-import type { AvailabilityChangeEntry, AvailabilityChangeOutcome } from "@mbe/types";
+import type {
+  AvailabilityChangeEntry,
+  AvailabilityChangeOutcome,
+  AvailabilityChangeSummary,
+} from "@mbe/types";
 import type { VenueFormat } from "../../hooks/useVenueFormat.js";
 
 const DAY: Intl.DateTimeFormatOptions = { weekday: "short", month: "short", day: "numeric" };
 
 /** A single day, a range, or an open end ("from … onward"). */
-function whenOf(
+export function whenOf(
   from: string | null | undefined,
   to: string | null | undefined,
   format: VenueFormat,
@@ -21,7 +25,12 @@ function whenOf(
   });
 }
 
-function outcomeText(outcome: AvailabilityChangeOutcome, format: VenueFormat, t: TFunction) {
+/** What became of the bookings a closure touched: "2 bookings cancelled, 1 booking moved". */
+export function outcomeText(
+  outcome: Pick<AvailabilityChangeOutcome, "cancelled" | "moved" | "kept">,
+  format: VenueFormat,
+  t: TFunction
+) {
   const parts = [
     outcome.cancelled > 0
       ? t("availability.history.entry.cancelled", { count: outcome.cancelled })
@@ -39,7 +48,8 @@ function outcomeText(outcome: AvailabilityChangeOutcome, format: VenueFormat, t:
  * them (an older API, an older row, another kind): the caller shows the stored `summary`.
  */
 export function describeChange(
-  entry: AvailabilityChangeEntry,
+  entry: AvailabilityChangeSummary &
+    Partial<Pick<AvailabilityChangeEntry, "outcome" | "affectedFrom" | "affectedTo">>,
   format: VenueFormat,
   t: TFunction
 ): string | null {

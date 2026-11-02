@@ -1,6 +1,8 @@
 import type { TFunction } from "i18next";
 import type { Layer, LayerSeries, LayerTarget } from "@mbe/availability";
 import type { VenueFormat } from "../../hooks/useVenueFormat.js";
+import { minuteText } from "./closure-band.js";
+import { clockHour } from "./clock-hour.js";
 import { scheduleNameText } from "./day-summary.js";
 
 /**
@@ -10,15 +12,11 @@ import { scheduleNameText } from "./day-summary.js";
  * (schedules, services) stay as stored. A layer without the data keeps the engine's words.
  */
 
-const MINUTES_PER_DAY = 1440;
-
-/** A service-day minute as venue wall-clock time; past midnight wraps, as the engine's own text does. */
-function clockText(minute: number, format: VenueFormat): string {
-  const wrapped = minute % MINUTES_PER_DAY;
-  const hh = String(Math.floor(wrapped / 60)).padStart(2, "0");
-  const mm = String(wrapped % 60).padStart(2, "0");
-  return format.formatLocalTime(`${hh}:${mm}`);
-}
+/**
+ * Times read as everywhere else a service-day minute is shown (`minuteText`): a time past midnight
+ * keeps its "(next day)". The engine's own English fallback for a layer without data wraps to a
+ * plain clock; the viewer's text does not, so 1:00 AM is never mistaken for the evening's.
+ */
 
 function upperFirst(text: string, locale: string): string {
   return `${text.charAt(0).toLocaleUpperCase(locale)}${text.slice(1)}`;
@@ -82,8 +80,8 @@ function hoursText(hours: NonNullable<Layer["hours"]>, t: TFunction, format: Ven
         .map((s) =>
           t("availability.drawer.layer.serviceHours", {
             name: s.name,
-            from: clockText(s.opensAt, format),
-            to: clockText(s.closesAt, format),
+            from: minuteText(s.opensAt, t, format),
+            to: minuteText(s.closesAt, t, format),
           })
         )
         .join(", ");
@@ -95,12 +93,15 @@ function tonightText(
   format: VenueFormat
 ): string {
   if ("closeAt" in tonight) {
-    return t("availability.drawer.layer.closesAt", { time: clockText(tonight.closeAt, format) });
+    return t("availability.drawer.layer.closesAt", {
+      time: minuteText(tonight.closeAt, t, format),
+      count: clockHour(tonight.closeAt),
+    });
   }
   if ("stop" in tonight) {
     return t("availability.drawer.layer.stopped", {
-      from: clockText(tonight.stop.from, format),
-      to: clockText(tonight.stop.to, format),
+      from: minuteText(tonight.stop.from, t, format),
+      to: minuteText(tonight.stop.to, t, format),
     });
   }
   return t("availability.drawer.layer.pacing", { count: tonight.pacingCovers });
@@ -143,8 +144,8 @@ export function layerEffectText(layer: Layer, t: TFunction, format: VenueFormat)
       if (!layer.target) return layer.effect;
       return layer.window
         ? t("availability.drawer.layer.window", {
-            from: clockText(layer.window.from, format),
-            to: clockText(layer.window.to, format),
+            from: minuteText(layer.window.from, t, format),
+            to: minuteText(layer.window.to, t, format),
           })
         : t("availability.drawer.layer.allDay");
     case "tonight":
