@@ -143,3 +143,63 @@ describe("changelog.yml changelogen invocation (Defect 2)", () => {
     expect(stepBody).toMatch(/^\s*set -o pipefail\s*$/m);
   });
 });
+
+describe("changelog.yml adaptive window (#8062)", () => {
+  let repoDir;
+  afterEach(() => {
+    if (repoDir) fs.rmSync(repoDir, { recursive: true, force: true });
+    repoDir = undefined;
+  });
+
+  /** Scratch repo with one ~140-byte commit per day for the last 70 days, plus a stub `changelogen` that records its --from. */
+  function setup() {
+    repoDir = initScratchRepo();
+    const binDir = fs.mkdtempSync(path.join(os.tmpdir(), "changelog-bin-"));
+    fs.writeFileSync(path.join(binDir, "changelogen"), '#!/bin/bash\necho "$@" > "$STUB_OUT"\n', {
+      mode: 0o755,
+    });
+    for (let d = 70; d >= 0; d--) {
+      const date = new Date(Date.now() - d * 86400000).toISOString();
+      execFileSync(
+        "git",
+        ["commit", "-q", "--allow-empty", "-m", `feat: commit ${d} ${"x".repeat(80)}`],
+        {
+          cwd: repoDir,
+          env: { ...process.env, GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date },
+        }
+      );
+    }
+    return binDir;
+  }
+
+  it("narrows the window instead of failing when the month's log exceeds the byte margin", () => {
+    const binDir = setup();
+    const out = path.join(repoDir, ".stub-out");
+    const monthStart = new Date();
+    monthStart.setUTCMonth(monthStart.getUTCMonth() - 1, 1);
+    monthStart.setUTCHours(0, 0, 0, 0);
+    const result = spawnSync("bash", ["-c", runBodyOf("Generate changelog")], {
+      cwd: repoDir,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: `${binDir}:${process.env.PATH}`,
+        STUB_OUT: out,
+        CHANGELOG_MAX_SAFE_BYTES: "2000",
+      },
+    });
+    expect(result.status).toBe(0);
+    const from = fs.readFileSync(out, "utf8").trim().split(/\s+/).pop();
+    const fromDate = new Date(
+      execFileSync("git", ["log", "-1", "--format=%cI", from], {
+        cwd: repoDir,
+        encoding: "utf8",
+      }).trim()
+    );
+    expect(fromDate.getTime()).toBeGreaterThan(monthStart.getTime());
+    const bytes = execFileSync("git", ["log", `${from}..HEAD`, "--format=%H%n%B"], {
+      cwd: repoDir,
+    }).length;
+    expect(bytes).toBeLessThanOrEqual(2000);
+  });
+});
