@@ -10796,56 +10796,12 @@
       readonly raw: string;
     }
     type CopyRow = Pick<ApiErrorDescription, "detail" | "retryable" | "recovery">;
-    export const ERROR_COPY: Readonly<Record<ApiErrorCategory, CopyRow>> = {
-      network: {
-        detail: "Can't reach the reservations service. Check the venue's connection, then try again.",
-        ...RETRY,
-      },
-      timeout: {
-        detail: "That took too long. The service didn't answer in time — try again.",
-        ...RETRY,
-      },
-      serverError: {
-        // Never "nothing was changed": a 5xx from a gateway can follow a write that committed.
-        detail: "The reservations service hit a snag. Try again in a moment.",
-        ...RETRY,
-      },
-      rateLimited: {
-        detail: "Too many requests at once. Give it a few seconds, then try again.",
-        ...RETRY,
-      },
-      conflict: {
-        detail: "Someone got there first — that table or time was just taken. Pick another.",
-        ...EDIT,
-      },
-      validationError: {
-        detail: "Something in the form didn't pass. Check party size, time and table.",
-        ...EDIT,
-      },
-      badRequest: {
-        detail: "Something in the form didn't pass. Check party size, time and table.",
-        ...EDIT,
-      },
-      unauthorized: {
-        detail: "Your session ended. Sign in again to keep working.",
-        retryable: false,
-        recovery: "sign-in",
-      },
-      forbidden: {
-        detail: "That's above your role. Ask a manager to make this change.",
-        retryable: false,
-        recovery: "none",
-      },
-      notFound: {
-        detail: "That reservation's gone — it may have been cancelled or moved. Refreshing the grid.",
-        retryable: false,
-        recovery: "refresh",
-      },
-      unknown: {
-        detail: "Something went wrong. Try again — if it keeps happening, tell your manager.",
-        ...RETRY,
-      },
-    };
+    export const ERROR_COPY: Readonly<Record<ApiErrorCategory, CopyRow>> = Object.fromEntries(
+      (Object.keys(COPY_BEHAVIOUR) as ApiErrorCategory[]).map((category) => [
+        category,
+        { detail: enUS.apiError[category], ...COPY_BEHAVIOUR[category] },
+      ])
+    ) as Record<ApiErrorCategory, CopyRow>;
     interface ApiClientErrorLike {
       readonly category: ErrorCategory;
       readonly problemDetails: { readonly detail?: unknown };
@@ -10874,8 +10830,12 @@
       return detail;
     }
     function describe(category: ApiErrorCategory, raw: string, detail?: string): ApiErrorDescription {
-      const row = ERROR_COPY[category];
-      return { category, ...row, detail: detail ?? row.detail, raw };
+      return {
+        category,
+        ...COPY_BEHAVIOUR[category],
+        detail: detail ?? defaultT(`apiError.${category}`),
+        raw,
+      };
     }
     export function describeApiError(error: unknown): ApiErrorDescription {
       const raw = rawMessage(error);

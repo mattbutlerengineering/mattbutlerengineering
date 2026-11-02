@@ -896,6 +896,19 @@
     "retry": "Réessayer",
     "showDetails": "Afficher les détails"
   },
+  "apiError": {
+    "network": "Impossible de joindre le service de réservations. Vérifiez la connexion de l'établissement, puis réessayez.",
+    "timeout": "Ça a pris trop de temps. Le service n'a pas répondu à temps; réessayez.",
+    "serverError": "Le service de réservations a rencontré un problème. Réessayez dans un instant.",
+    "rateLimited": "Trop de requêtes à la fois. Patientez quelques secondes, puis réessayez.",
+    "conflict": "Quelqu'un vous a devancé : cette table ou cette heure vient d'être prise. Choisissez-en une autre.",
+    "validationError": "Un élément du formulaire n'est pas valide. Vérifiez la taille du groupe, l'heure et la table.",
+    "badRequest": "Un élément du formulaire n'est pas valide. Vérifiez la taille du groupe, l'heure et la table.",
+    "unauthorized": "Votre session est terminée. Reconnectez-vous pour continuer à travailler.",
+    "forbidden": "Cette action dépasse votre rôle. Demandez à un gestionnaire d'effectuer ce changement.",
+    "notFound": "Cette réservation n'existe plus; elle a peut-être été annulée ou déplacée. Actualisation de la grille.",
+    "unknown": "Une erreur s'est produite. Réessayez; si le problème persiste, prévenez votre gestionnaire."
+  },
   "kpi": {
     "unavailable": "{{label}}, non disponible"
   },

@@ -882,6 +882,19 @@
     "retry": "Retry",
     "showDetails": "Show details"
   },
+  "apiError": {
+    "network": "Can't reach the reservations service. Check the venue's connection, then try again.",
+    "timeout": "That took too long. The service didn't answer in time — try again.",
+    "serverError": "The reservations service hit a snag. Try again in a moment.",
+    "rateLimited": "Too many requests at once. Give it a few seconds, then try again.",
+    "conflict": "Someone got there first — that table or time was just taken. Pick another.",
+    "validationError": "Something in the form didn't pass. Check party size, time and table.",
+    "badRequest": "Something in the form didn't pass. Check party size, time and table.",
+    "unauthorized": "Your session ended. Sign in again to keep working.",
+    "forbidden": "That's above your role. Ask a manager to make this change.",
+    "notFound": "That reservation's gone — it may have been cancelled or moved. Refreshing the grid.",
+    "unknown": "Something went wrong. Try again — if it keeps happening, tell your manager."
+  },
   "kpi": {
     "unavailable": "{{label}}, unavailable"
   },

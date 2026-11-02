@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect } from "vitest";
 import { ApiClientError } from "@mbe/api-client";
+import { localeRuntime } from "../i18n/runtime.js";
 import { describeApiError, ERROR_COPY } from "./describe-api-error.js";
 
 const PATH = "/api/v1/reservations/walk-in";
@@ -176,6 +177,31 @@ describe("describeApiError", () => {
         "validationError": "Something in the form didn't pass. Check party size, time and table.",
       }
     `);
+  });
+
+  describe("resolves through the catalog in the language in effect at call time (#8036)", () => {
+    afterEach(async () => {
+      await localeRuntime.changeLocale("en-US");
+    });
+
+    it.each([
+      ["es-MX", /^No se puede conectar con el servicio de reservaciones/],
+      ["fr-CA", /^Impossible de joindre le service de réservations/],
+    ] as const)("%s speaks its own language and en-US does not leak", async (tag, pattern) => {
+      await localeRuntime.changeLocale(tag);
+
+      const network = describeApiError(new TypeError("Failed to fetch"));
+      expect(network.detail).toMatch(pattern);
+
+      for (const status of [400, 401, 403, 404, 409, 418, 422, 429, 500]) {
+        const { detail } = describeApiError(apiError(status));
+        expect(detail).not.toBe(ERROR_COPY[describeApiError(apiError(status)).category].detail);
+      }
+      expect(describeApiError(new DOMException("t", "TimeoutError")).detail).not.toBe(
+        ERROR_COPY.timeout.detail
+      );
+      expect(describeApiError(undefined).detail).not.toBe(ERROR_COPY.unknown.detail);
+    });
   });
 
   // Any of these can follow a write the server committed: a gateway cannot know, and neither can we.
