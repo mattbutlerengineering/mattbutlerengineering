@@ -19,7 +19,6 @@ import { useClosureSummaries, useRetryClosureRefunds } from "../../hooks/useClos
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
 import { useViewport } from "../../hooks/useViewport.js";
 import { formatCurrencyFromCents } from "../../utils/format.js";
-import { addDays } from "../../utils/service-day.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import { AddSpecialDatesSheet } from "./AddSpecialDatesSheet.js";
 import { minuteText } from "./closure-band.js";
@@ -27,6 +26,7 @@ import { CallListDialog } from "./CallListDialog.js";
 import { CloseDialog } from "./CloseDialog.js";
 import { ReopenClosureDialog } from "./ReopenClosureDialog.js";
 import { SeriesEditDialog } from "./SeriesEditDialog.js";
+import { closureSubject, DATE_FORMAT, hoursSubject, rangeLabel } from "./rule-subjects.js";
 import { isSeries, restoreDate, skipRows, type SeriesScope } from "./series-edit.js";
 import { SpecialHoursEditDrawer } from "./SpecialHoursEditDrawer.js";
 import { SpecialHoursScopeDialog } from "./SpecialHoursScopeDialog.js";
@@ -65,67 +65,6 @@ const FILTERS: readonly SpecialDatesFilter[] = [
   "repeating",
   "past",
 ];
-
-const DATE_FORMAT = { weekday: "short", month: "short", day: "numeric" } as const;
-
-function rangeLabel(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string {
-  const from = format.formatCalendarDate(rule.startsOn, DATE_FORMAT);
-  if (rule.endsOn == null) {
-    // Hours are not "reopened": an open-ended hours rule just runs from its start on.
-    return t(
-      rule.kind === "closure" ? "availabilitySpecial.untilReopened" : "availabilitySpecial.fromOn",
-      { from }
-    );
-  }
-  if (rule.endsOn === rule.startsOn) return from;
-  return t("availabilitySpecial.range", {
-    from,
-    to: format.formatCalendarDate(rule.endsOn, DATE_FORMAT),
-  });
-}
-
-/** 2026-01-04 is a Sunday; weekday index n is that date plus n days. */
-const SUNDAY = "2026-01-04";
-
-/** What removing a special-hours rule takes away, named whole: "for Thu, Dec 31", a range, or a repeat. */
-function hoursSubject(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string {
-  if (rule.repeat != null) {
-    const days = rule.repeat.weekdays.map((d) =>
-      format.formatCalendarDate(addDays(SUNDAY, d), { weekday: "long" })
-    );
-    return t("availabilitySpecial.hours.subjectRepeat", {
-      days: new Intl.ListFormat(format.locale, { type: "conjunction" }).format(days),
-    });
-  }
-  return t("availabilitySpecial.hours.subjectDates", { dates: rangeLabel(rule, format, t) });
-}
-
-/**
- * What reopening a closure takes away, named whole: one date, the full range, "all dates from
- * Dec 24 on" for an open end, or a repeat by its weekdays and span.
- */
-function closureSubject(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string {
-  const from = format.formatCalendarDate(rule.startsOn, DATE_FORMAT);
-  const span =
-    rule.endsOn == null
-      ? t("availabilitySpecial.reopen.fromOn", { from })
-      : rule.endsOn === rule.startsOn
-        ? from
-        : t("availabilitySpecial.range", {
-            from,
-            to: format.formatCalendarDate(rule.endsOn, DATE_FORMAT),
-          });
-  if (rule.repeat != null) {
-    const days = rule.repeat.weekdays.map((d) =>
-      format.formatCalendarDate(addDays(SUNDAY, d), { weekday: "long" })
-    );
-    return t("availabilitySpecial.reopen.subjectRepeat", {
-      days: new Intl.ListFormat(format.locale, { type: "conjunction" }).format(days),
-      span,
-    });
-  }
-  return rule.endsOn == null ? t("availabilitySpecial.reopen.subjectOpen", { from }) : span;
-}
 
 /** "11:00 AM – 3:00 PM, 5:00 PM – 10:00 PM": one range per service, so a gap between them shows (ux.md S6b). */
 function hoursRange(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string | null {

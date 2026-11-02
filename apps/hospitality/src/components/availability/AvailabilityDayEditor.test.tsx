@@ -8,7 +8,8 @@ import { resolveDay } from "@mbe/availability";
 
 const save = vi.hoisted(() => vi.fn());
 const revertAsync = vi.hoisted(() => vi.fn());
-vi.mock("../../hooks/useAvailability.js", () => ({
+vi.mock("../../hooks/useAvailability.js", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   useSaveAvailabilityConfig: () => ({ mutateAsync: save, isPending: false }),
   useRevertAvailabilityChange: () => ({ mutateAsync: revertAsync }),
 }));

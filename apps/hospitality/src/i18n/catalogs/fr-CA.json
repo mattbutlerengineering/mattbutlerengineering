@@ -1747,6 +1747,7 @@
     },
     "series": {
       "editDates": "Modifier les dates…",
+      "editDatesFor": "Modifier les dates de la fermeture du {{date}}",
       "title": "Modifier les dates",
       "dateLabel": "Date",
       "scopeLabel": "Modifier",
@@ -1886,6 +1887,15 @@
     "noStart": "Tout de suite",
     "noEnd": "Sans fin",
     "thisSchedule": "Cet horaire",
+    "suggest": {
+      "use": "Utiliser « {{name}} »",
+      "spring": "Horaire du printemps",
+      "summer": "Horaire d’été",
+      "autumn": "Horaire d’automne",
+      "winter": "Horaire d’hiver",
+      "from": "Horaire à partir du {{from}}",
+      "range": "Horaire du {{from}} au {{to}}"
+    },
     "impactNone": "Pas encore utilisé à une date",
     "overlap": "{{name}} chevauche {{other}}.",
     "overlapNewWins": "{{name}} l’emporte",
