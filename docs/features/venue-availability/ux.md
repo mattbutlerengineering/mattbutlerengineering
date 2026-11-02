@@ -47,7 +47,7 @@ Copy rules:
 
 ## Surfaces
 
-- **Availability page (new; Manager edits, Host views).** Replaces `/setup/hours`. It has a **Calendar** tab (default, with a **Month | Week** toggle), a **Special dates** tab, and a **Schedules** tab (shown once 2+ schedules exist, or through the overflow "Create another schedule…"). History and Go to date live in the overflow. The **guest preview** panel shows whenever something is being edited.
+- **Availability page (new; Manager edits, Host views).** Replaces `/setup/hours`. It has a **Calendar** tab (default, with a **Month | Week** toggle), a **Special dates** tab, and a **Schedules** tab (shown once 2+ schedules exist, or through the overflow "Create another schedule…"). History and Go to date live in the overflow, a More actions menu at every width (corrected in #7981: there is no ⌘K shortcut, which the app's command palette already owns). The **guest preview** panel shows whenever something is being edited.
 
   These entry points are repointed:
   - Setup checklist (`SetupPage.tsx:26,28`)
@@ -395,7 +395,7 @@ After tapping [Dinner] and [Weekdays]:
 ### S2: Calendar, month and week
 
 ```
-Availability   [Calendar] Special dates  Schedules*        ⋯ History · Go to date ⌘K · Create another schedule
+Availability   [Calendar] Special dates  Schedules*        ⋯ History · Go to date · Create another schedule
 This week: open 5 days · 1 closure · online booking on            Venue time (Pacific)
 [◂] October 2026 [▸] [Today]   (Month|Week)  Services [All ▾]  [Select… ▾] [Change regular week…] [Close…]
 ┌ Mon ───── Tue ───── Wed ───── Thu ───── Fri ───── Sat ───── Sun ─────┐

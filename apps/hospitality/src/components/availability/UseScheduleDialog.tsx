@@ -4,6 +4,7 @@ import { Button, DatePicker, Dialog, Select, Stack } from "@mattbutlerengineerin
 import { resolveDay } from "@mbe/availability";
 import type { AvailabilityConfigState } from "@mbe/types";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { scheduleNameText } from "./day-summary.js";
 import { DraftPreview, previewIds } from "./DraftPreview.js";
 import { seedServices } from "./draft-changes.js";
@@ -31,6 +32,7 @@ export interface UseScheduleDialogProps {
 export function UseScheduleDialog(props: UseScheduleDialogProps) {
   const { open, venueId, state, timezone, dates, onClose, onFinished, onStale } = props;
   const { t } = useTranslation();
+  const format = useVenueFormat();
   const blockedId = useId();
   const offerUndo = useAvailabilityUndo();
   const saver = useScheduleSave(onStale);
@@ -49,7 +51,30 @@ export function UseScheduleDialog(props: UseScheduleDialogProps) {
     return seedServices(state.config, day, { kind: "date", date: sourceDate });
   }, [byDay, sourceDate, timezone, state.config]);
 
-  const ready = byDay ? sourceServices.length > 0 : scheduleId !== null;
+  // One date copied onto itself would write a rule that changes nothing.
+  const sameDay = byDay && dates.length === 1 && sourceDate === dates[0];
+  const ready = byDay ? sourceServices.length > 0 && !sameDay : scheduleId !== null;
+  const blockedKey = sameDay
+    ? "availability.selection.use.blockedSame"
+    : sourceDate
+      ? "availability.selection.use.blockedClosed"
+      : "availability.selection.use.blockedDay";
+  // A single date (the day drawer) is named; a selection is counted.
+  const oneDate = dates.length === 1 && dates[0] ? dates[0] : null;
+  const title = oneDate
+    ? t(
+        byDay
+          ? "availability.selection.use.titleDayOne"
+          : "availability.selection.use.titleScheduleOne",
+        {
+          date: format.formatCalendarDate(oneDate, {
+            weekday: "long",
+            month: "short",
+            day: "numeric",
+          }),
+        }
+      )
+    : t(byDay ? "availability.selection.use.titleDay" : "availability.selection.use.titleSchedule");
 
   const previewChanges = useMemo(() => {
     if (!open || !ready) return null;
@@ -92,23 +117,10 @@ export function UseScheduleDialog(props: UseScheduleDialogProps) {
     <Dialog
       open={open}
       onClose={close}
-      title={t(
-        byDay ? "availability.selection.use.titleDay" : "availability.selection.use.titleSchedule"
-      )}
+      title={title}
       footer={
         <div className={styles.footer}>
-          <BlockedReason
-            id={blockedId}
-            reason={
-              ready
-                ? null
-                : t(
-                    sourceDate
-                      ? "availability.selection.use.blockedClosed"
-                      : "availability.selection.use.blockedDay"
-                  )
-            }
-          />
+          <BlockedReason id={blockedId} reason={ready ? null : t(blockedKey)} />
           <Button variant="secondary" onClick={close}>
             {t("availability.selection.use.cancel")}
           </Button>

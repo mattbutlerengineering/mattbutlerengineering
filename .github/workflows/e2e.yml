@@ -91,8 +91,8 @@ jobs:
             echo "gen=${{ steps.filter.outputs.gen }}" >> "$GITHUB_OUTPUT"
           fi
 
-  # Two shards because one runner sat at the 20-minute limit and got cancelled
-  # with its last tests unrun (#8038). Each shard has its own dev server,
+  # Shards because a runner sat at the 20-minute limit and got cancelled with its
+  # last tests unrun (#8038), and two reached it again (#8137). Each shard has its own dev server,
   # Postgres and Redis, and still one worker. `hospitality-e2e-result` below is
   # the combined result, under the original check name. Pinned by
   # scripts/__tests__/e2e-hospitality-shards.test.mjs.
@@ -102,7 +102,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3]
     # Dependabot PRs run with the Dependabot secret scope, which is empty here
     # (`gh api repos/.../dependabot/secrets` -> total_count: 0), not the Actions
     # scope that holds the credentials below. So this job cannot authenticate on

@@ -179,6 +179,34 @@ test.describe("the first screen", () => {
     expect(Math.abs(today!.y + today!.height / 2 - (close!.y + close!.height / 2))).toBeLessThan(4);
   });
 
+  for (const [tag, name] of [
+    ["en-US", "More actions"],
+    ["es-MX", "Más acciones"],
+    ["fr-CA", "Plus d’actions"],
+  ] as const) {
+    test(`a desktop's overflow trigger is an icon with a name, a focus ring and a finger-sized tablet target (${tag})`, async ({
+      mockedPage: page,
+    }) => {
+      await mockAvailability(page);
+      await setLocale(page, tag);
+      await open(page, DESKTOP);
+      const more = page.getByRole("button", { name });
+      await expect(more).toHaveText("⋯");
+      // The glyph is what the row spends; the label stays out of it so the row cannot wrap on it.
+      const box = await more.boundingBox();
+      expect(box!.width).toBeLessThan(48);
+      await more.focus();
+      const ring = await more.evaluate((el) => getComputedStyle(el).boxShadow);
+      expect(ring).not.toBe("none");
+      // Under 1025 px (a tablet) a finger reaches it: 44 px each way.
+      await page.setViewportSize({ width: 1000, height: 800 });
+      await expect
+        .poll(async () => (await more.boundingBox())!.height)
+        .toBeGreaterThanOrEqual(TARGET);
+      expect((await more.boundingBox())!.width).toBeGreaterThanOrEqual(TARGET);
+    });
+  }
+
   test("Create another schedule… looks like something to press", async ({ mockedPage: page }) => {
     await mockAvailability(page);
     await open(page, DESKTOP);

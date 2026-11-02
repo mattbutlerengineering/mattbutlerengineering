@@ -86,3 +86,7 @@ run was cold, and the PR run, which also touched the lockfile, was not.
 - [x] Reopen #5826 (done by the orchestrator, labelled `ready`). The re-land should re-verify the vitest-runner patch (`patches/@stryker-mutator__vitest-runner@10.0.0.patch`) per the README note in the original PR.
 - [x] Seed the revert-watchdog test-path-overlap/rerun check and the revert-reopens-issues behavior: two seeds appended to `docs/backlog.md` (from: RCA-PR-5949).
 - [x] Revert PRs reopen the issues their culprit PR closed: `extractClosedIssueNumbers` (#7397) and the merged-revert `reopen-culprit-issues` job (#7399), tracked in #7396.
+
+## Verification 2026-11 (monthly review)
+
+The "still has `\"vitest\": \"4.1.11\"`" statement above is stale: #5826 was re-landed as #6229 (`b096ab067`), and `tools/mutation-testing/package.json` now carries `"vitest": "catalog:"`. #5826 is closed. The analysis is kept as history.
