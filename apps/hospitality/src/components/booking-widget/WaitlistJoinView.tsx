@@ -72,7 +72,7 @@ export function WaitlistJoinView({
         });
         onJoined(result);
       } catch (err) {
-        setSubmitError(describeApiError(err).detail);
+        setSubmitError(describeApiError(err, t).detail);
       } finally {
         setIsLoading(false);
       }

@@ -1,5 +1,4 @@
 import { test, expect } from "./fixtures.js";
-import { ERROR_COPY } from "../src/lib/describe-api-error.js";
 import { DB_NAME } from "../src/lib/offline-cache.js";
 import { SERVER_ERROR_BODY } from "./problem-details.js";
 // Screenshots saved to e2e/screenshots/{spec}-{state}.png on test run
@@ -103,7 +102,9 @@ test.describe("CF-6: Reservations page with filtering", () => {
     // Filtered by title: DashboardLayout's session Banner is also role=alert in CI.
     const alert = mockedPage.getByRole("alert").filter({ hasText: "Couldn't load reservations." });
     await expect(alert).toContainText("Couldn't load reservations.");
-    await expect(alert).toContainText(ERROR_COPY.serverError.detail);
+    await expect(alert).toContainText(
+      "The reservations service hit a snag. Try again in a moment."
+    );
     // Raw request line stays collapsed behind "Show details".
     await expect(mockedPage.getByText(/failed: 500/)).toHaveCount(0);
 

@@ -896,6 +896,19 @@
     "retry": "Reintentar",
     "showDetails": "Mostrar detalles"
   },
+  "apiError": {
+    "network": "No se puede conectar con el servicio de reservaciones. Revisa la conexión del local e inténtalo de nuevo.",
+    "timeout": "Tardó demasiado. El servicio no respondió a tiempo; inténtalo de nuevo.",
+    "serverError": "El servicio de reservaciones tuvo un problema. Inténtalo de nuevo en un momento.",
+    "rateLimited": "Demasiadas solicitudes a la vez. Espera unos segundos e inténtalo de nuevo.",
+    "conflict": "Alguien se adelantó: esa mesa u hora acaba de ocuparse. Elige otra.",
+    "validationError": "Algo del formulario no pasó. Revisa el tamaño del grupo, la hora y la mesa.",
+    "badRequest": "Algo del formulario no pasó. Revisa el tamaño del grupo, la hora y la mesa.",
+    "unauthorized": "Tu sesión terminó. Inicia sesión de nuevo para seguir trabajando.",
+    "forbidden": "Eso requiere un rol superior. Pide a un gerente que haga este cambio.",
+    "notFound": "Esa reservación ya no está; puede que se haya cancelado o movido. Actualizando la cuadrícula.",
+    "unknown": "Algo salió mal. Inténtalo de nuevo; si sigue pasando, avisa a tu gerente."
+  },
   "kpi": {
     "unavailable": "{{label}}, no disponible"
   },

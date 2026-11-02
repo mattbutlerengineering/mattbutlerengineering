@@ -654,7 +654,7 @@ export function useBookingFlow({
     fetchSlots()
       .then((listing) => dispatch({ type: "SET_SLOTS", listing }))
       .catch((err: unknown) => {
-        dispatch({ type: "SET_SLOTS_ERROR", error: describeApiError(err).detail });
+        dispatch({ type: "SET_SLOTS_ERROR", error: describeApiError(err, i18n.t).detail });
       });
   }, [flowState.data.hold, releaseHold, fetchSlots, venueSlug, i18n]);
 
@@ -685,7 +685,7 @@ export function useBookingFlow({
         });
         dispatch({ type: "HOLD_SUCCESS", hold, slot });
       } catch (err) {
-        dispatch({ type: "HOLD_ERROR", error: describeApiError(err).detail });
+        dispatch({ type: "HOLD_ERROR", error: describeApiError(err, i18n.t).detail });
       }
     },
     [api, venueSlug, flowState.data.selectedDate, flowState.data.partySize, i18n]
@@ -749,7 +749,7 @@ export function useBookingFlow({
       } catch (err) {
         const closure = outsideAvailabilityMessage(err);
         if (closure === null) {
-          dispatch({ type: "CONFIRM_ERROR", error: describeApiError(err).detail });
+          dispatch({ type: "CONFIRM_ERROR", error: describeApiError(err, i18n.t).detail });
           return;
         }
         // A closure saved after the hold was made (ux.md F9.5): the hold is

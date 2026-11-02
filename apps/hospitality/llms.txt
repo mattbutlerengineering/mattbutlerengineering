@@ -4185,10 +4185,15 @@
       function humanProblemDetail(problemDetails: ApiClientErrorLike["problemDetails"]): string | null { /* ... */ }
     </item>
     <item priority="medium">
-      function describe(category: ApiErrorCategory, raw: string, detail?: string): ApiErrorDescription { /* ... */ }
+      function describe(
+        category: ApiErrorCategory,
+        raw: string,
+        t: TFunction,
+        detail?: string
+      ): ApiErrorDescription { /* ... */ }
     </item>
     <item priority="high">
-      export function describeApiError(error: unknown): ApiErrorDescription { /* ... */ }
+      export function describeApiError(error: unknown, t: TFunction = defaultT): ApiErrorDescription { /* ... */ }
     </item>
   </file>
   <file path="src/lib/describe-auth-error.ts">
