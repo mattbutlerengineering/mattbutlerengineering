@@ -753,7 +753,11 @@ model ClosureOutcome {
   /// {email: sent|failed|skipped, sms: ...}
   deliveries             Json                @default("{}")
   refund                 ClosureRefundStatus @default(none)
-  rebookedReservationId  String?             @map("rebooked_reservation_id")
+  /// What the cancel owed the guest when the closure was saved (cents). Written once with the
+  /// row, so the notice promises the same amount before and after the refund job runs. Null
+  /// = none owed, or a row from before this column (the notice then estimates it).
+  refundCents            Int?                @map("refund_cents")
+  rebookedReservationId String?             @map("rebooked_reservation_id")
   rebookedReservation    Reservation?        @relation("ClosureOutcomeRebooked", fields: [rebookedReservationId], references: [id], onDelete: SetNull)
   /// keep_silent: who acknowledged the guest would not be told.
   acknowledgedBy         String?             @map("acknowledged_by")

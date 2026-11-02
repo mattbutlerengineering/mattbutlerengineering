@@ -16418,6 +16418,31 @@
       export const closureCommandService: unknown;
     </item>
   </file>
+  <file path="services/reservations/src/services/closure-deposit.ts">
+    <item priority="low">
+      interface RefundableDeposit {
+        amountCents: number;
+        status: string;
+        stripePaymentIntentId: string | null;
+        refundAmountCents?: number | null;
+        postCaptureRefundCents?: number | null;
+      }
+    </item>
+    <item priority="high">
+      export function refundOwedCents(
+        deposit: Pick<
+          RefundableDeposit,
+          "amountCents" | "status" | "refundAmountCents" | "postCaptureRefundCents"
+        >
+      ): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function refundDueCents(deposit: RefundableDeposit): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export const owesRefund: unknown;
+    </item>
+  </file>
   <file path="services/reservations/src/services/closure-impact-store.ts">
     <item priority="high">
       type StoreClient = Pick<PrismaClient, "$transaction">;
@@ -16629,6 +16654,20 @@
         db: Db = prisma
       ): Promise<NotifiableOutcome[]> { /* ... */ }
     </item>
+    <item priority="medium">
+      function promisedRefund(
+        refund: string,
+        refundCents: number | null,
+        deposit: {
+          amountCents: number;
+          currency: string;
+          status: string;
+          stripePaymentIntentId: string | null;
+          refundAmountCents: number | null;
+          postCaptureRefundCents: number | null;
+        } | null
+      ): NoticeOutcome["refund"] { /* ... */ }
+    </item>
     <item priority="high">
       export async function loadNoticeOutcome(
         outcomeId: string,
@@ -16688,9 +16727,6 @@
         action: NoticeOutcome["action"];
         deliveries: unknown;
       }
-    </item>
-    <item priority="medium">
-      function refundOwedCents(deposit: NonNullable<SummaryRow["reservation"]["deposit"]>): number { /* ... */ }
     </item>
     <item priority="medium">
       function refundFailureOf(row: SummaryRow): RefundFailure { /* ... */ }

@@ -7,13 +7,14 @@ import { createClosure } from "./closure-command.js";
 import { loadNoticeOutcome } from "./closure-notice-store.js";
 
 /**
- * Real-Postgres proof for #8131: the closure notice promises a refund only where the closure
- * recorded one, and keeps promising it after the refund job has moved the deposit on.
+ * Real-Postgres proof for #8131: the closure notice promises a refund only where the closure owes
+ * one, for the amount it owes, and says the same thing before and after the refund job runs.
  *
- * A real `createClosure` cancels five bookings (a held deposit, an already refunded one, a captured
- * one with and without a payment intent, and none). The notice is then loaded twice: as the closure
- * left it, and after the refund job ran (held -> refunded, outcome pending -> done), which is the
- * state a delayed or retried notice job sees.
+ * A real `createClosure` cancels a booking per case below. The notice is loaded as the closure left
+ * it, then again after the refund job has run: a held deposit is `refunded`, a captured one has the
+ * closure's own refund in `postCaptureRefundCents` (the `charge.refunded` webhook), and the outcome
+ * is `done`. That second read is what a delayed or retried notice job sees; it must not go silent
+ * (the deposit now computes 0 owed) and must not change the amount.
  *
  * Skips when `DATABASE_URL` is unset; CI's `rls-integration` job runs it. Shares the FORCE-toggling
  * suites' advisory lock so it never sees their window.
@@ -25,17 +26,37 @@ const manager = { actorId: "auth0|mgr", actorName: "Mgr", isManager: true };
 
 type Case = {
   name: string;
-  status: "held" | "refunded" | "applied";
+  status: "pending" | "held" | "refunded" | "applied";
   paymentIntent: string | null;
-  owed: boolean;
+  /** Refunded outside the app (Stripe dashboard) before the closure. */
+  dashboardRefundCents?: number;
+  /** What the guest is told; null = nothing. */
+  promised: number | null;
 };
 
 const CASES: Case[] = [
-  { name: "held", status: "held", paymentIntent: "pi_held", owed: true },
-  { name: "refunded", status: "refunded", paymentIntent: "pi_refunded", owed: false },
-  { name: "captured with intent", status: "applied", paymentIntent: "pi_applied", owed: true },
-  { name: "captured without intent", status: "applied", paymentIntent: null, owed: false },
+  { name: "held", status: "held", paymentIntent: "pi_held", promised: 4000 },
+  { name: "refunded", status: "refunded", paymentIntent: "pi_refunded", promised: null },
+  { name: "captured with intent", status: "applied", paymentIntent: "pi_a", promised: 4000 },
+  { name: "captured without intent", status: "applied", paymentIntent: null, promised: null },
+  {
+    name: "captured, $15 refunded in the dashboard",
+    status: "applied",
+    paymentIntent: "pi_part",
+    dashboardRefundCents: 1500,
+    promised: 2500,
+  },
+  {
+    name: "captured, $40 refunded in the dashboard",
+    status: "applied",
+    paymentIntent: "pi_full",
+    dashboardRefundCents: 4000,
+    promised: null,
+  },
+  { name: "pending, never sent to Stripe", status: "pending", paymentIntent: null, promised: null },
+  { name: "pending with an intent", status: "pending", paymentIntent: "pi_pend", promised: 4000 },
 ];
+const NAMES = [...CASES.map((c) => c.name), "no deposit"];
 
 describe.skipIf(!DATABASE_URL)("closure notice refund promise (real Postgres)", () => {
   let lockClient: pg.Client;
@@ -52,8 +73,10 @@ describe.skipIf(!DATABASE_URL)("closure notice refund promise (real Postgres)", 
     });
   }
 
-  const noticeRefund = (key: string) =>
-    inVenue(async (tx) => (await loadNoticeOutcome(outcomeIds.get(key)!, tx))?.refund);
+  const noticeRefund = (name: string) =>
+    inVenue(async (tx) => (await loadNoticeOutcome(outcomeIds.get(name)!, tx))?.refund);
+  const expected = (promised: number | null) =>
+    promised === null ? null : { amountCents: promised, currency: "usd" };
 
   beforeAll(async () => {
     lockClient = new pg.Client({ connectionString: DATABASE_URL! });
@@ -94,26 +117,25 @@ describe.skipIf(!DATABASE_URL)("closure notice refund promise (real Postgres)", 
       await tx.scheduleAssignment.create({
         data: { venueId, scheduleId: schedule.id, weekdays: [0, 1, 2, 3, 4, 5, 6] },
       });
-      const table = await tx.table.create({
-        data: { name: "T1", capacity: 4, venueId },
-      });
-      const bookings = [...CASES, { name: "no deposit" }] as { name: string }[];
-      for (const [i, b] of bookings.entries()) {
-        const c = CASES.find((x) => x.name === b.name);
+      const table = await tx.table.create({ data: { name: "T1", capacity: 4, venueId } });
+      for (const [i, name] of NAMES.entries()) {
+        const c = CASES.find((x) => x.name === name);
+        // Half-hour slots from 17:00, all inside the seated window.
+        const start = new Date(Date.parse("2026-12-24T17:00:00Z") + i * 30 * 60_000);
         const reservation = await tx.reservation.create({
           data: {
             venueId,
             tableId: table.id,
             date: new Date("2026-12-24T00:00:00Z"),
-            startTime: new Date(`2026-12-24T${17 + i}:00:00Z`),
-            endTime: new Date(`2026-12-24T${18 + i}:00:00Z`),
+            startTime: start,
+            endTime: new Date(start.getTime() + 30 * 60_000),
             partySize: 2,
             status: "CONFIRMED",
-            guestName: b.name,
+            guestName: name,
             guestEmail: `${i}@example.com`,
           },
         });
-        reservationIds.set(b.name, reservation.id);
+        reservationIds.set(name, reservation.id);
         if (c) {
           await tx.deposit.create({
             data: {
@@ -122,6 +144,7 @@ describe.skipIf(!DATABASE_URL)("closure notice refund promise (real Postgres)", 
               currency: "usd",
               status: c.status,
               stripePaymentIntentId: c.paymentIntent,
+              postCaptureRefundCents: c.dashboardRefundCents ?? null,
             },
           });
         }
@@ -149,7 +172,7 @@ describe.skipIf(!DATABASE_URL)("closure notice refund promise (real Postgres)", 
       },
       client
     );
-    expect(closed).toMatchObject({ kind: "saved", result: { outcomes: { cancel: 5 } } });
+    expect(closed).toMatchObject({ kind: "saved", result: { outcomes: { cancel: NAMES.length } } });
 
     const rows = await inVenue((tx) =>
       tx.closureOutcome.findMany({ where: { venueId }, select: { id: true, reservationId: true } })
@@ -166,27 +189,36 @@ describe.skipIf(!DATABASE_URL)("closure notice refund promise (real Postgres)", 
     await pool?.end();
   });
 
-  it.each(CASES)("$name deposit: promised only if the closure owes it", async ({ name, owed }) => {
-    const expected = owed ? { amountCents: 4000, currency: "usd" } : null;
-    expect(await noticeRefund(name)).toEqual(expected);
+  it.each(CASES)("before the job, $name: promises $promised", async ({ name, promised }) => {
+    expect(await noticeRefund(name)).toEqual(expected(promised));
   });
 
   it("promises nothing to a booking with no deposit", async () => {
     expect(await noticeRefund("no deposit")).toBeNull();
   });
 
-  it("still promises the refund after the job has run (held -> refunded, pending -> done)", async () => {
+  it("says the same after the refund job has run, for every case", async () => {
     await inVenue(async (tx) => {
-      await tx.deposit.updateMany({
-        where: { reservationId: reservationIds.get("held")! },
-        data: { status: "refunded", refundedAt: NOW },
-      });
-      await tx.closureOutcome.update({
-        where: { id: outcomeIds.get("held")! },
-        data: { refund: "done" },
-      });
+      for (const c of CASES.filter((x) => x.promised !== null)) {
+        const reservationId = reservationIds.get(c.name)!;
+        // What the job leaves behind: a held deposit refunded; a captured one with the closure's
+        // own refund lifting postCaptureRefundCents to the whole deposit (so it computes 0 owed).
+        await tx.deposit.updateMany({
+          where: { reservationId },
+          data:
+            c.status === "applied"
+              ? { postCaptureRefundCents: 4000 }
+              : { status: "refunded", refundedAt: NOW },
+        });
+        await tx.closureOutcome.update({
+          where: { id: outcomeIds.get(c.name)! },
+          data: { refund: "done" },
+        });
+      }
     });
-    expect(await noticeRefund("held")).toEqual({ amountCents: 4000, currency: "usd" });
-    expect(await noticeRefund("refunded")).toBeNull();
+    const after = Object.fromEntries(
+      await Promise.all(CASES.map(async (c) => [c.name, await noticeRefund(c.name)] as const))
+    );
+    expect(after).toEqual(Object.fromEntries(CASES.map((c) => [c.name, expected(c.promised)])));
   });
 });
