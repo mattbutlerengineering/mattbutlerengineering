@@ -17,6 +17,10 @@ vi.mock("../../hooks/useAvailability.js", () => ({
   }),
   useRevertAvailabilityChange: () => ({ mutateAsync: vi.fn() }),
 }));
+// The preview has its own tests (ScheduleFlowPreview.test.tsx); here it never answers.
+vi.mock("../../hooks/useAvailabilityPreview.js", () => ({
+  useAvailabilityPreview: () => ({ result: null, isFetching: false, error: null, retry: () => {} }),
+}));
 vi.mock("../../contexts/VenueContext.js", () => ({
   useVenue: () => ({
     selectedVenue: { id: "venue-1", ianaTimezone: "America/Los_Angeles", currencyCode: "USD" },
@@ -174,6 +178,23 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
         "true"
       );
       expect(screen.getByText("Edit once the newest hours have loaded.")).toBeInTheDocument();
+      // The preview's own actions (Retry, party, dates, stranded paging) wait with the editing.
+      expect(screen.queryByText("Guest preview")).not.toBeInTheDocument();
+    });
+
+    it("shows the preview again once the hold ends and a row is edited", async () => {
+      const venue = "hold-h";
+      const { rerender } = await saveOwn(venue);
+      rerender(ui(phoneOnly(atV5), venue));
+      await waitFor(() =>
+        expect(screen.getByRole("combobox", { name: "Weekend · Booking" })).not.toHaveAttribute(
+          "aria-disabled"
+        )
+      );
+      expect(screen.queryByText("Guest preview")).not.toBeInTheDocument();
+      fireEvent.click(screen.getByLabelText("Weekend · Last seating"));
+      fireEvent.click(await screen.findByRole("option", { name: "1:45 PM" }));
+      expect(await screen.findByText("Guest preview")).toBeInTheDocument();
     });
 
     it("keeps the time pickers shut during the hold, even from their clock icon", async () => {

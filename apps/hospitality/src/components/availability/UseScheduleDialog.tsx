@@ -5,6 +5,7 @@ import { resolveDay } from "@mbe/availability";
 import type { AvailabilityConfigState } from "@mbe/types";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { scheduleNameText } from "./day-summary.js";
+import { DraftPreview, previewIds } from "./DraftPreview.js";
 import { seedServices } from "./draft-changes.js";
 import { buildUseDayHoursChanges, buildUseScheduleChanges } from "./selection-actions.js";
 import { BlockedReason, SaveFailure } from "./ScheduleFormParts.js";
@@ -49,6 +50,19 @@ export function UseScheduleDialog(props: UseScheduleDialogProps) {
   }, [byDay, sourceDate, timezone, state.config]);
 
   const ready = byDay ? sourceServices.length > 0 : scheduleId !== null;
+
+  const previewChanges = useMemo(() => {
+    if (!open || !ready) return null;
+    const makeId = previewIds();
+    return byDay
+      ? buildUseDayHoursChanges({
+          config: state.config,
+          services: sourceServices,
+          dates,
+          makeId,
+        })
+      : buildUseScheduleChanges(state.config, dates, scheduleId ?? "", makeId);
+  }, [open, ready, byDay, state.config, sourceServices, dates, scheduleId]);
 
   const close = () => {
     saver.clearFailure();
@@ -126,6 +140,15 @@ export function UseScheduleDialog(props: UseScheduleDialogProps) {
             onChange={setChosenSchedule}
           />
         )}
+        <DraftPreview
+          venueId={venueId}
+          changes={previewChanges}
+          scopeConflicts="replace"
+          dates={dates}
+          baseVersion={state.version}
+          idle={ready ? "untouched" : "fields"}
+          reviewOnSave={false}
+        />
       </Stack>
     </Dialog>
   );
