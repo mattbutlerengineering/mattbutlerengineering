@@ -3200,18 +3200,21 @@
     export async function publishClosureChanges(
       fastify: FastifyInstance,
       log: FastifyBaseLogger,
-      saved: { venueId: string; ruleId: string }
+      saved: { venueId: string; ruleId: string; carried?: readonly string[] }
     ): Promise<void> {
-      const { venueId, ruleId } = saved;
+      const { venueId, ruleId, carried } = saved;
       try {
-        await fastify.transitions.settleClosure(venueId, await loadClosureChanges(venueId, ruleId));
+        await fastify.transitions.settleClosure(
+          venueId,
+          await loadClosureChanges(venueId, ruleId, carried)
+        );
       } catch (err) {
         log.error({ err, venueId, ruleId }, "closure SSE events were not published");
       }
     }
     export async function enqueueNotices(
       enqueue: FastifyInstance["services"]["closureNoticeService"]["enqueueForClosure"],
-      input: { venueId: string; ruleId: string },
+      input: { venueId: string; ruleId: string; carried?: readonly string[] },
       log: FastifyBaseLogger
     ): Promise<void> {
       try {
@@ -3226,19 +3229,32 @@
       saved: { venueId: string; ruleId: string; cancelled: number }
     ): Promise<void> {
       const { venueId, ruleId, cancelled } = saved;
-      await publishClosureChanges(fastify, log, { venueId, ruleId });
+      const carried = await carriedOutcomes(log, venueId, ruleId);
+      await publishClosureChanges(fastify, log, { venueId, ruleId, carried });
       if (cancelled > 0) {
         try {
-          await fastify.closureRefunds.enqueue(venueId, ruleId);
+          await fastify.closureRefunds.enqueue(venueId, ruleId, carried);
         } catch (err) {
           log.error({ err, venueId, ruleId }, "Failed to enqueue closure refund jobs");
         }
       }
       await enqueueNotices(
         fastify.services.closureNoticeService.enqueueForClosure,
-        { venueId, ruleId },
+        { venueId, ruleId, carried },
         log
       );
+    }
+    async function carriedOutcomes(
+      log: FastifyBaseLogger,
+      venueId: string,
+      ruleId: string
+    ): Promise<string[]> {
+      try {
+        return await readCarriedOutcomeIds(venueId, ruleId);
+      } catch (err) {
+        log.error({ err, venueId, ruleId }, "carried closure outcomes were not read");
+        return [];
+      }
     }
   </file>
   <file path="src/routes/closures.ts">
@@ -11398,7 +11414,7 @@
                 data: { revertedById: revertId },
               });
               // A growth that moved the old series' outcomes onto its new id gives them back.
-              await returnCarriedOutcomes(db, venueId, change.inverse);
+              await returnCarriedOutcomes(db, change.inverse);
             },
           };
         })
@@ -12037,7 +12053,10 @@
   </file>
   <file path="src/services/availability-config.ts">
     export type StoreDb = ConfigRowDb &
-      Pick<PrismaClient, "venue" | "reservation" | "availabilityChange" | "table" | "closureOutcome">;
+      Pick<
+        PrismaClient,
+        "venue" | "reservation" | "availabilityChange" | "table" | "closureOutcome" | "$executeRaw"
+      >;
     export type StoreClient = Pick<PrismaClient, "$transaction">;
     function withStored(legacy: AvailabilityConfig, stored: AvailabilityConfig): AvailabilityConfig {
       return {
@@ -14052,10 +14071,16 @@
     }
   </file>
   <file path="src/services/closure-carry-outcomes.ts">
-    type Db = Pick<PrismaClient, "closureOutcome">;
+    type Db = Pick<PrismaClient, "closureOutcome" | "$executeRaw">;
     export interface CarriedOutcomes {
       from: string;
       outcomeIds: string[];
+    }
+    async function rekey(tx: Pick<Db, "$executeRaw">, ids: readonly string[], ruleId: string) {
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const chunk = ids.slice(i, i + CHUNK);
+        await tx.$executeRaw`UPDATE closure_outcomes SET date_rule_id = ${ruleId} WHERE id IN (${Prisma.join(chunk)})`;
+      }
     }
     export async function carryOutcomes(
       tx: Db,
@@ -14070,23 +14095,25 @@
       });
       if (moving.length === 0) return null;
       const outcomeIds = moving.map((o) => o.id);
-      await tx.closureOutcome.updateMany({
-        where: { venueId, id: { in: outcomeIds } },
-        data: { dateRuleId: to },
-      });
+      await rekey(tx, outcomeIds, to);
       return { from, outcomeIds };
     }
-    export async function returnCarriedOutcomes(
-      tx: Db,
+    export async function returnCarriedOutcomes(tx: Db, inverse: unknown): Promise<void> {
+      const carried = carriedOf(inverse);
+      if (carried) await rekey(tx, carried.outcomeIds, carried.from);
+    }
+    export const readCarriedOutcomeIds = (venueId: string, ruleId: string): Promise<string[]> =>
+      runWithVenueContext(venueId, () => carriedOutcomeIds(prisma, venueId, ruleId));
+    export async function carriedOutcomeIds(
+      db: Pick<PrismaClient, "availabilityChange">,
       venueId: string,
-      inverse: unknown
-    ): Promise<void> {
-      const carried = (inverse as { closure?: { carried?: CarriedOutcomes } } | null)?.closure?.carried;
-      if (!carried || carried.outcomeIds.length === 0) return;
-      await tx.closureOutcome.updateMany({
-        where: { venueId, id: { in: carried.outcomeIds } },
-        data: { dateRuleId: carried.from },
+      ruleId: string
+    ): Promise<string[]> {
+      const change = await db.availabilityChange.findFirst({
+        where: { venueId, kind: "closure", inverse: { path: ["closure", "ruleId"], equals: ruleId } },
+        select: { inverse: true },
       });
+      return carriedOf(change?.inverse)?.outcomeIds ?? [];
     }
   </file>
   <file path="src/services/closure-changes.ts">
@@ -14094,10 +14121,20 @@
       cancelled: Reservation[];
       moved: Reservation[];
     }
-    export async function loadClosureChanges(venueId: string, ruleId: string): Promise<ClosureChanges> {
+    export async function loadClosureChanges(
+      venueId: string,
+      ruleId: string,
+      /** Outcomes the save carried in from a series it replaced: not its changes to announce. */
+      carried: readonly string[] = []
+    ): Promise<ClosureChanges> {
       const outcomes = await runWithVenueContext(venueId, () =>
         prisma.closureOutcome.findMany({
-          where: { venueId, dateRuleId: ruleId, action: { in: ["cancel", "move"] } },
+          where: {
+            venueId,
+            dateRuleId: ruleId,
+            action: { in: ["cancel", "move"] },
+            id: { notIn: [...carried] },
+          },
           select: { action: true, reservation: { include: { table: true } } },
         })
       );
@@ -14387,6 +14424,8 @@
       batch?: BatchShape;
       /** A series edit's old rule outcomes that moved onto this rule, for Undo to return. */
       carried?: CarriedOutcomes;
+      /** What the save decided, per action: `outcome` merges the two keeps. Absent on older rows. */
+      counts?: Record<ClosureAction, number>;
     }
     interface BatchShape {
       count: number;
@@ -14469,15 +14508,24 @@
       venueId: string,
       replay: { id: string; closure: ClosureMeta }
     ): Promise<ClosureResult> {
-      const rows = await tx.closureOutcome.findMany({
-        where: { venueId, dateRuleId: replay.closure.ruleId },
-        select: { action: true },
-      });
+      const { closure } = replay;
+      // What the save decided, as stored with it: the rule's rows can since have moved to a later
+      // growth, and the ones it carried in were never its own.
+      const rows = closure.counts
+        ? []
+        : await tx.closureOutcome.findMany({
+            where: {
+              venueId,
+              dateRuleId: closure.ruleId,
+              id: { notIn: closure.carried?.outcomeIds ?? [] },
+            },
+            select: { action: true },
+          });
       return {
-        ruleId: replay.closure.ruleId,
-        version: replay.closure.version,
+        ruleId: closure.ruleId,
+        version: closure.version,
         changeId: replay.id,
-        outcomes: countActions(rows.map((r) => r.action)),
+        outcomes: closure.counts ?? countActions(rows.map((r) => r.action)),
       };
     }
     interface Plan {
@@ -14687,6 +14735,7 @@
         },
         ...(input.batch ? { batch: input.batch } : {}),
         ...(carried ? { carried } : {}),
+        counts: plan.counts,
       };
       const inverse = { ...inverseOf(state.stored, diff, state.operatingHours), closure: meta };
       const change = await tx.availabilityChange.create({
@@ -15406,6 +15455,8 @@
       venueId: string;
       ruleId: string;
       now: Date;
+      /** Outcomes moved in from a replaced series: told when they were decided, not again. */
+      carried?: readonly string[];
     }
     function nextClosureDate(w: ClosureWindow, now: Date): string | null {
       return firstOccurrenceOnOrAfter(
@@ -15437,7 +15488,10 @@
       const store = deps.store ?? defaultStore;
     
       async function enqueue(variant: NoticeVariant, input: EnqueueInput): Promise<number> {
-        const outcomes = await store.listNotifiable(input.venueId, input.ruleId, variant, input.now);
+        const carried = new Set(input.carried);
+        const outcomes = (
+          await store.listNotifiable(input.venueId, input.ruleId, variant, input.now)
+        ).filter((o) => !carried.has(o.outcomeId));
         if (outcomes.length === 0) return 0;
         const urgent = await isUrgent(store, input);
         await Promise.all(
@@ -16449,9 +16503,12 @@
       venueId: string,
       ruleId: string,
       statuses: readonly ClosureRefundStatus[],
-      opts: { retry?: boolean; now?: () => number } = {}
+      opts: { retry?: boolean; now?: () => number; carried?: readonly string[] } = {}
     ): Promise<number> {
-      const outcomes = await deps.store.listByRule(venueId, ruleId, statuses);
+      const carried = new Set(opts.carried);
+      const outcomes = (await deps.store.listByRule(venueId, ruleId, statuses)).filter(
+        (o) => !carried.has(o.id)
+      );
       let enqueued = 0;
       for (const outcome of outcomes) {
         const base = closureRefundJobId(ruleId, outcome.reservationId);
@@ -16481,7 +16538,8 @@
       return enqueued;
     }
     export interface ClosureRefunds {
-      enqueue(venueId: string, ruleId: string): Promise<number>;
+      /** `carried`: outcomes moved in from a replaced series, whose refunds are not this save's. */
+      enqueue(venueId: string, ruleId: string, carried?: readonly string[]): Promise<number>;
       retry(venueId: string, ruleId: string): Promise<number>;
     }
     export function createClosureRefunds(deps: {
@@ -16490,7 +16548,8 @@
       log?: RefundLogger;
     }): ClosureRefunds {
       return {
-        enqueue: (venueId, ruleId) => enqueueClosureRefunds(deps, venueId, ruleId, ["pending"]),
+        enqueue: (venueId, ruleId, carried) =>
+          enqueueClosureRefunds(deps, venueId, ruleId, ["pending"], { carried }),
         retry: (venueId, ruleId) =>
           enqueueClosureRefunds(deps, venueId, ruleId, ["failed", "pending"], { retry: true }),
       };

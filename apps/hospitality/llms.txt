@@ -3000,6 +3000,9 @@
       export const AVAILABILITY_CONFIG_QUERY_KEY: unknown;
     </item>
     <item priority="high">
+      export const CLOSURE_SUMMARIES_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
       export const useAvailabilityDays: unknown;
     </item>
     <item priority="high">

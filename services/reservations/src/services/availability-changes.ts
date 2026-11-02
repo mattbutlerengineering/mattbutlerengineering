@@ -215,7 +215,7 @@ export async function revertAvailabilityChange(
             data: { revertedById: revertId },
           });
           // A growth that moved the old series' outcomes onto its new id gives them back.
-          await returnCarriedOutcomes(db, venueId, change.inverse);
+          await returnCarriedOutcomes(db, change.inverse);
         },
       };
     })

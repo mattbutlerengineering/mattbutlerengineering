@@ -139,6 +139,8 @@ interface ClosureMeta {
   batch?: BatchShape;
   /** A series edit's old rule outcomes that moved onto this rule, for Undo to return. */
   carried?: CarriedOutcomes;
+  /** What the save decided, per action: `outcome` merges the two keeps. Absent on older rows. */
+  counts?: Record<ClosureAction, number>;
 }
 
 /** A batch's identity under its Idempotency-Key: how many items, and which rules, in order. */
@@ -235,15 +237,24 @@ async function storedResult(
   venueId: string,
   replay: { id: string; closure: ClosureMeta }
 ): Promise<ClosureResult> {
-  const rows = await tx.closureOutcome.findMany({
-    where: { venueId, dateRuleId: replay.closure.ruleId },
-    select: { action: true },
-  });
+  const { closure } = replay;
+  // What the save decided, as stored with it: the rule's rows can since have moved to a later
+  // growth, and the ones it carried in were never its own.
+  const rows = closure.counts
+    ? []
+    : await tx.closureOutcome.findMany({
+        where: {
+          venueId,
+          dateRuleId: closure.ruleId,
+          id: { notIn: closure.carried?.outcomeIds ?? [] },
+        },
+        select: { action: true },
+      });
   return {
-    ruleId: replay.closure.ruleId,
-    version: replay.closure.version,
+    ruleId: closure.ruleId,
+    version: closure.version,
     changeId: replay.id,
-    outcomes: countActions(rows.map((r) => r.action)),
+    outcomes: closure.counts ?? countActions(rows.map((r) => r.action)),
   };
 }
 
@@ -477,6 +488,7 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
     },
     ...(input.batch ? { batch: input.batch } : {}),
     ...(carried ? { carried } : {}),
+    counts: plan.counts,
   };
   const inverse = { ...inverseOf(state.stored, diff, state.operatingHours), closure: meta };
   const change = await tx.availabilityChange.create({

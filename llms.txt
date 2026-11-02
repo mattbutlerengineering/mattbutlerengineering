@@ -6472,6 +6472,9 @@
       export const AVAILABILITY_CONFIG_QUERY_KEY: unknown;
     </item>
     <item priority="high">
+      export const CLOSURE_SUMMARIES_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
       export const useAvailabilityDays: unknown;
     </item>
     <item priority="high">
@@ -11759,13 +11762,13 @@
       export async function publishClosureChanges(
         fastify: FastifyInstance,
         log: FastifyBaseLogger,
-        saved: { venueId: string; ruleId: string }
+        saved: { venueId: string; ruleId: string; carried?: readonly string[] }
       ): Promise<void> { /* ... */ }
     </item>
     <item priority="high">
       export async function enqueueNotices(
         enqueue: FastifyInstance["services"]["closureNoticeService"]["enqueueForClosure"],
-        input: { venueId: string; ruleId: string },
+        input: { venueId: string; ruleId: string; carried?: readonly string[] },
         log: FastifyBaseLogger
       ): Promise<void> { /* ... */ }
     </item>
@@ -11775,6 +11778,13 @@
         log: FastifyBaseLogger,
         saved: { venueId: string; ruleId: string; cancelled: number }
       ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function carriedOutcomes(
+        log: FastifyBaseLogger,
+        venueId: string,
+        ruleId: string
+      ): Promise<string[]> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/routes/closures.ts">
@@ -15513,7 +15523,9 @@
   <file path="services/reservations/src/services/availability-config.ts">
     <item priority="low">
       type StoreDb = ConfigRowDb &
-        Pick<PrismaClient, "venue" | "reservation...;
+        Pick<
+          PrismaClient,
+          "venue" | "re...;
     </item>
     <item priority="low">
       type StoreClient = Pick<PrismaClient, "$transaction">;
@@ -16222,13 +16234,16 @@
   </file>
   <file path="services/reservations/src/services/closure-carry-outcomes.ts">
     <item priority="high">
-      type Db = Pick<PrismaClient, "closureOutcome">;
+      type Db = Pick<PrismaClient, "closureOutcome" | "$executeRaw">;
     </item>
     <item priority="low">
       interface CarriedOutcomes {
         from: string;
         outcomeIds: string[];
       }
+    </item>
+    <item priority="low">
+      async function rekey(tx: Pick<Db, "$executeRaw">, ids: readonly string[], ruleId: string) { /* ... */ }
     </item>
     <item priority="high">
       export async function carryOutcomes(
@@ -16240,11 +16255,17 @@
       ): Promise<CarriedOutcomes | null> { /* ... */ }
     </item>
     <item priority="high">
-      export async function returnCarriedOutcomes(
-        tx: Db,
+      export async function returnCarriedOutcomes(tx: Db, inverse: unknown): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const readCarriedOutcomeIds: unknown;
+    </item>
+    <item priority="high">
+      export async function carriedOutcomeIds(
+        db: Pick<PrismaClient, "availabilityChange">,
         venueId: string,
-        inverse: unknown
-      ): Promise<void> { /* ... */ }
+        ruleId: string
+      ): Promise<string[]> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/closure-changes.ts">
@@ -16255,7 +16276,12 @@
       }
     </item>
     <item priority="high">
-      export async function loadClosureChanges(venueId: string, ruleId: string): Promise<ClosureChanges> { /* ... */ }
+      export async function loadClosureChanges(
+        venueId: string,
+        ruleId: string,
+        /** Outcomes the save carried in from a series it replaced: not its changes to announce. */
+        carried: readonly string[] = []
+      ): Promise<ClosureChanges> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/closure-command-plan.ts">
@@ -16727,6 +16753,7 @@
         venueId: string;
         ruleId: string;
         now: Date;
+        carried?: readonly string[];
       }
     </item>
     <item priority="medium">
@@ -17120,7 +17147,7 @@
         venueId: string,
         ruleId: string,
         statuses: readonly ClosureRefundStatus[],
-        opts: { retry?: boolean; now?: () => number } = {}
+        opts: { retry?: boolean; now?: () => number; carried?: readonly string[] } = {}
       ): Promise<number> { /* ... */ }
     </item>
     <item priority="low">

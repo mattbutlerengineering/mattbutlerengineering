@@ -15,6 +15,8 @@ import { VENUES_QUERY_KEY } from "./useVenues.js";
 export const AVAILABILITY_DAYS_QUERY_KEY = "availabilityDays" as const;
 export const AVAILABILITY_CONFIG_QUERY_KEY = "availabilityConfig" as const;
 const AVAILABILITY_CHANGES_QUERY_KEY = "availabilityChanges" as const;
+/** Here rather than in `useClosures`, which imports this file. */
+export const CLOSURE_SUMMARIES_QUERY_KEY = "closureSummaries" as const;
 
 /** Calendar cells: one summary per service date from `from` to `to` (<= 62 days). */
 export const useAvailabilityDays = createQueryHook<
@@ -90,6 +92,8 @@ export const useRevertAvailabilityChange = createMutationHook<
     AVAILABILITY_CONFIG_QUERY_KEY,
     AVAILABILITY_DAYS_QUERY_KEY,
     AVAILABILITY_CHANGES_QUERY_KEY,
+    // Undo of a series growth moves its carried outcomes back to the rule they came from.
+    CLOSURE_SUMMARIES_QUERY_KEY,
     VENUES_QUERY_KEY,
   ],
   mutationFn: (api, { venueId, changeId, expectedVersion }) =>

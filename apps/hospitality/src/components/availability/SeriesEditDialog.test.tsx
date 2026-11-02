@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import { ApiClientError } from "@mbe/api-client";
@@ -24,6 +24,8 @@ vi.mock("../../contexts/VenueContext.js", () => ({
   }),
 }));
 
+import { localeRuntime } from "../../i18n/runtime.js";
+import frCA from "../../i18n/catalogs/fr-CA.json";
 import { SeriesEditDialog } from "./SeriesEditDialog.js";
 import { fixtureConfig } from "./resolved-day-fixtures.js";
 
@@ -109,16 +111,25 @@ function renderSeriesDialog(initial: readonly DateRule[] = [SERIES]) {
   };
 }
 
-const allDatesAddingTuesday = () => {
-  fireEvent.click(screen.getByRole("radio", { name: "All dates in the series" }));
-  fireEvent.click(screen.getByRole("checkbox", { name: "Tue" }));
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+/** The controls the growth flow presses, by the name they carry in a locale. */
+const NAMES = {
+  scopeAll: "All dates in the series",
+  tuesday: "Tue" as string | RegExp,
+  save: "Save",
+  cancelChoice: /Cancel, notify & refund/ as RegExp,
+  closeAndCancel: /Close and cancel/ as RegExp,
 };
 
-async function toStepTwoAndCancel() {
-  allDatesAddingTuesday();
-  fireEvent.click(await screen.findByRole("radio", { name: /Cancel, notify & refund/ }));
-  fireEvent.click(screen.getByRole("button", { name: /Close and cancel/ }));
+const allDatesAddingTuesday = (names = NAMES) => {
+  fireEvent.click(screen.getByRole("radio", { name: names.scopeAll }));
+  fireEvent.click(screen.getByRole("checkbox", { name: names.tuesday }));
+  fireEvent.click(screen.getByRole("button", { name: names.save }));
+};
+
+async function toStepTwoAndCancel(names = NAMES) {
+  allDatesAddingTuesday(names);
+  fireEvent.click(await screen.findByRole("radio", { name: names.cancelChoice }));
+  fireEvent.click(screen.getByRole("button", { name: names.closeAndCancel }));
 }
 
 describe("SeriesEditDialog after someone else's change (#7978)", () => {
@@ -147,6 +158,64 @@ describe("SeriesEditDialog after someone else's change (#7978)", () => {
         expectedVersion: 8,
       })
     );
+  });
+
+  describe("a growth that kept every group silently (#7984)", () => {
+    const SILENT = { cancel: 0, move: 0, keep_notify: 0, keep_silent: 1 };
+    const grewSilently = async (undo: string, names = NAMES) => {
+      create.mockResolvedValue({
+        ruleId: "r-new",
+        version: 8,
+        changeId: "chg-8",
+        outcomes: SILENT,
+      });
+      revert.mockResolvedValue({ version: 9, changeId: "chg-9" });
+      renderSeriesDialog();
+      await toStepTwoAndCancel(names);
+      fireEvent.click(await screen.findByRole("button", { name: undo }));
+      await waitFor(() =>
+        expect(revert).toHaveBeenCalledWith({
+          venueId: "venue-1",
+          changeId: "chg-8",
+          expectedVersion: 8,
+        })
+      );
+    };
+
+    afterEach(async () => {
+      await localeRuntime.i18n.changeLanguage("en-US");
+    });
+
+    it("offers Undo in en-US, reverting that change", async () => {
+      await grewSilently("Undo");
+      expect(revert).toHaveBeenCalledTimes(1);
+    });
+
+    it("offers Undo in fr-CA, reverting that change", async () => {
+      localeRuntime.i18n.addResourceBundle("fr-CA", "translation", frCA, true, true);
+      await localeRuntime.i18n.changeLanguage("fr-CA");
+      await grewSilently(frCA.availability.undo.action, {
+        scopeAll: frCA.availabilitySpecial.series.scopeAll,
+        tuesday: /^mar/i,
+        save: frCA.availabilitySpecial.series.save,
+        cancelChoice: new RegExp(frCA.availability.close.step2.action.cancel),
+        closeAndCancel: /^Fermer et annuler/,
+      });
+      expect(revert).toHaveBeenCalledTimes(1);
+    });
+
+    it("offers no Undo once a guest was told", async () => {
+      create.mockResolvedValue({
+        ruleId: "r-new",
+        version: 8,
+        changeId: "chg-8",
+        outcomes: { ...SILENT, cancel: 1 },
+      });
+      renderSeriesDialog();
+      await toStepTwoAndCancel();
+      await screen.findByText(/notified/);
+      expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+    });
   });
 
   it("names the series it replaces on the save, so the server can tell a changed one (#8028)", async () => {
