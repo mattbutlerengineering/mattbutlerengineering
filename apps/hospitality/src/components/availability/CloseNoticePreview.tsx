@@ -15,7 +15,7 @@ export type NoticeAction = ClosureNoticePreviewBody["action"];
  * The request for the message a group's guests would get: its first booking's details (for a move,
  * the first with a proposed time), with the venue's own message. Null when no booking can show it.
  */
-export function noticeRequest(
+function noticeRequest(
   group: ClosureImpactGroup,
   action: NoticeAction,
   guestMessage: string

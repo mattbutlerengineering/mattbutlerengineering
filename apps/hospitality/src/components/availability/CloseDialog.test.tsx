@@ -37,6 +37,11 @@ vi.mock("../../hooks/useClosures.js", () => ({
 const refresh = vi.hoisted(() => vi.fn());
 vi.mock("../../hooks/useRefreshAvailability.js", () => ({ useRefreshAvailability: () => refresh }));
 vi.mock("@mbe/auth/react", () => ({ useAuth: () => ({ user: { id: "auth0|me" } }) }));
+vi.mock("../../contexts/venue-context-object.js", () => ({
+  useOptionalVenue: () => ({
+    selectedVenue: { id: "venue-1", ianaTimezone: "America/Los_Angeles", currencyCode: "USD" },
+  }),
+}));
 vi.mock("../../contexts/VenueContext.js", () => ({
   useVenue: () => ({
     selectedVenue: { id: "venue-1", ianaTimezone: "America/Los_Angeles", currencyCode: "USD" },

@@ -16,9 +16,12 @@ vi.mock("../../hooks/useClosures.js", () => ({
     return { ...previewState, refetch: refetchPreview };
   },
 }));
-vi.mock("../../contexts/VenueContext.js", () => ({
-  useVenue: () => ({
-    selectedVenue: { id: "venue-1", ianaTimezone: "America/Los_Angeles", currencyCode: "USD" },
+// `useVenueFormat` reads this context, not `useVenue`: without it the times fall back to the
+// device's zone, and the suite would pass or fail by where it runs.
+const venue = vi.hoisted(() => ({ zone: "America/Los_Angeles" }));
+vi.mock("../../contexts/venue-context-object.js", () => ({
+  useOptionalVenue: () => ({
+    selectedVenue: { id: "venue-1", ianaTimezone: venue.zone, currencyCode: "USD" },
   }),
 }));
 
@@ -111,6 +114,19 @@ describe("CloseStepTwo: proposed moves and failed moves", () => {
     preview.mockReset();
     refetchPreview.mockReset();
     Object.assign(previewState, { data: undefined, isLoading: false, error: null });
+    venue.zone = "America/Los_Angeles";
+  });
+
+  it("shows every time on the venue's clock, wherever the browser is", () => {
+    // The browser zone is whatever TZ the suite runs under; the venue is a day ahead of both
+    // Pacific and UTC. The row and its proposed time must read Tokyo time.
+    venue.zone = "Asia/Tokyo";
+    renderStep(SHORTENED, { [`${DATE}:shortened`]: { action: "move", acknowledged: false } });
+
+    const rows = screen.getAllByRole("listitem");
+    // 03:30Z is 12:30 PM in Tokyo, and its proposed 02:00Z is 11:00 AM.
+    expect(rows[0]).toHaveTextContent(/12:30 PM.*Rivera.*moves to 11:00 AM/);
+    expect(rows[1]).toHaveTextContent(/1:00 PM.*Chen.*moves to 11:30 AM/);
   });
 
   it("lists the time each booking moves to once Move is chosen, and not before", () => {
