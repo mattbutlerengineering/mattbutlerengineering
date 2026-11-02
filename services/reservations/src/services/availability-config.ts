@@ -65,7 +65,7 @@ import { NOT_BOOKED_STATUSES } from "./slot-rules.js";
  */
 
 export type StoreDb = ConfigRowDb &
-  Pick<PrismaClient, "venue" | "reservation" | "availabilityChange" | "table">;
+  Pick<PrismaClient, "venue" | "reservation" | "availabilityChange" | "table" | "closureOutcome">;
 export type StoreClient = Pick<PrismaClient, "$transaction">;
 
 export type { ConfigState, LegacyNotes } from "./availability-config-state.js";

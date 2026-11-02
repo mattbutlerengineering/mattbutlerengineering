@@ -2907,6 +2907,33 @@
       ): Promise<ApplyResult> { /* ... */ }
     </item>
   </file>
+  <file path="src/services/closure-carry-outcomes.ts">
+    <item priority="high">
+      type Db = Pick<PrismaClient, "closureOutcome">;
+    </item>
+    <item priority="low">
+      interface CarriedOutcomes {
+        from: string;
+        outcomeIds: string[];
+      }
+    </item>
+    <item priority="high">
+      export async function carryOutcomes(
+        tx: Db,
+        venueId: string,
+        from: string,
+        to: string,
+        deciding: readonly string[]
+      ): Promise<CarriedOutcomes | null> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function returnCarriedOutcomes(
+        tx: Db,
+        venueId: string,
+        inverse: unknown
+      ): Promise<void> { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/closure-changes.ts">
     <item priority="low">
       interface ClosureChanges {

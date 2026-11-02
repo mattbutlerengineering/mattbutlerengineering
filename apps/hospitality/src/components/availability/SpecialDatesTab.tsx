@@ -383,9 +383,14 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
   const restoreSkip = async (skipId: string) => {
     const skip = rules.find((r) => r.id === skipId);
     if (!skip) return;
-    if (await rowSave.save(venueId, state, restoreDate(skip), "keep")) {
+    const saved = await rowSave.save(venueId, state, restoreDate(skip), "keep");
+    if (saved) {
       const date = format.formatCalendarDate(skip.startsOn, DATE_FORMAT);
-      toast({ title: t("availabilitySpecial.series.restoredToast", { date }), variant: "success" });
+      offerUndo({
+        venueId,
+        saved,
+        title: t("availabilitySpecial.series.restoredToast", { date }),
+      });
     }
   };
   const removeHours = async (rule: SpecialDateRule) => {

@@ -11397,6 +11397,8 @@
                 where: { id: changeId },
                 data: { revertedById: revertId },
               });
+              // A growth that moved the old series' outcomes onto its new id gives them back.
+              await returnCarriedOutcomes(db, venueId, change.inverse);
             },
           };
         })
@@ -12035,7 +12037,7 @@
   </file>
   <file path="src/services/availability-config.ts">
     export type StoreDb = ConfigRowDb &
-      Pick<PrismaClient, "venue" | "reservation" | "availabilityChange" | "table">;
+      Pick<PrismaClient, "venue" | "reservation" | "availabilityChange" | "table" | "closureOutcome">;
     export type StoreClient = Pick<PrismaClient, "$transaction">;
     function withStored(legacy: AvailabilityConfig, stored: AvailabilityConfig): AvailabilityConfig {
       return {
@@ -14049,6 +14051,44 @@
         : { kind: "ok" };
     }
   </file>
+  <file path="src/services/closure-carry-outcomes.ts">
+    type Db = Pick<PrismaClient, "closureOutcome">;
+    export interface CarriedOutcomes {
+      from: string;
+      outcomeIds: string[];
+    }
+    export async function carryOutcomes(
+      tx: Db,
+      venueId: string,
+      from: string,
+      to: string,
+      deciding: readonly string[]
+    ): Promise<CarriedOutcomes | null> {
+      const moving = await tx.closureOutcome.findMany({
+        where: { venueId, dateRuleId: from, reservationId: { notIn: [...deciding] } },
+        select: { id: true },
+      });
+      if (moving.length === 0) return null;
+      const outcomeIds = moving.map((o) => o.id);
+      await tx.closureOutcome.updateMany({
+        where: { venueId, id: { in: outcomeIds } },
+        data: { dateRuleId: to },
+      });
+      return { from, outcomeIds };
+    }
+    export async function returnCarriedOutcomes(
+      tx: Db,
+      venueId: string,
+      inverse: unknown
+    ): Promise<void> {
+      const carried = (inverse as { closure?: { carried?: CarriedOutcomes } } | null)?.closure?.carried;
+      if (!carried || carried.outcomeIds.length === 0) return;
+      await tx.closureOutcome.updateMany({
+        where: { venueId, id: { in: carried.outcomeIds } },
+        data: { dateRuleId: carried.from },
+      });
+    }
+  </file>
   <file path="src/services/closure-changes.ts">
     export interface ClosureChanges {
       cancelled: Reservation[];
@@ -14345,6 +14385,8 @@
       outcome?: AvailabilityChangeOutcome;
       /** Set on every item of a batch save: what the whole batch was, so a reused key can be told apart. */
       batch?: BatchShape;
+      /** A series edit's old rule outcomes that moved onto this rule, for Undo to return. */
+      carried?: CarriedOutcomes;
     }
     interface BatchShape {
       count: number;
@@ -14619,6 +14661,17 @@
         throw e instanceof ConfigRowConflict ? new Refused(conflictIssue(e, next) as Refusal) : e;
       });
       const version = body.expectedVersion + 1;
+      // A series that grows is saved under a new id: what the old one did follows it (#7984).
+      const [replaced] = body.alongside?.remove ?? [];
+      const carried = replaced
+        ? await carryOutcomes(
+            tx,
+            venueId,
+            replaced,
+            rule.id,
+            plan.rows.map((r) => r.reservationId)
+          )
+        : null;
       const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
       const meta: ClosureMeta = {
         ruleId: rule.id,
@@ -14633,6 +14686,7 @@
           endsOn: rule.endsOn ?? null,
         },
         ...(input.batch ? { batch: input.batch } : {}),
+        ...(carried ? { carried } : {}),
       };
       const inverse = { ...inverseOf(state.stored, diff, state.operatingHours), closure: meta };
       const change = await tx.availabilityChange.create({

@@ -14,6 +14,7 @@ import {
   type SaveOutcome,
   type StoreClient,
 } from "./availability-config.js";
+import { returnCarriedOutcomes } from "./closure-carry-outcomes.js";
 import { CONFIG_TABLES, type ConfigInverse } from "./availability-config-plan.js";
 import { prisma } from "./database.js";
 
@@ -213,6 +214,8 @@ export async function revertAvailabilityChange(
             where: { id: changeId },
             data: { revertedById: revertId },
           });
+          // A growth that moved the old series' outcomes onto its new id gives them back.
+          await returnCarriedOutcomes(db, venueId, change.inverse);
         },
       };
     })

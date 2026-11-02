@@ -8,12 +8,14 @@ const create = vi.hoisted(() => vi.fn());
 const preview = vi.hoisted(() => vi.fn());
 const saveConfig = vi.hoisted(() => vi.fn());
 const refresh = vi.hoisted(() => vi.fn());
+const revert = vi.hoisted(() => vi.fn());
 vi.mock("../../hooks/useClosures.js", () => ({
   useCreateClosure: () => ({ mutateAsync: create, isPending: false }),
   usePreviewClosureImpact: () => ({ mutateAsync: preview, isPending: false }),
 }));
 vi.mock("../../hooks/useAvailability.js", () => ({
   useSaveAvailabilityConfig: () => ({ mutateAsync: saveConfig, isPending: false }),
+  useRevertAvailabilityChange: () => ({ mutateAsync: revert, isPending: false }),
 }));
 vi.mock("../../hooks/useRefreshAvailability.js", () => ({ useRefreshAvailability: () => refresh }));
 vi.mock("../../contexts/VenueContext.js", () => ({
@@ -124,8 +126,27 @@ describe("SeriesEditDialog after someone else's change (#7978)", () => {
     window.HTMLElement.prototype.scrollIntoView = vi.fn();
   });
   beforeEach(() => {
-    [create, preview, saveConfig, refresh].forEach((mock) => mock.mockReset());
+    [create, preview, saveConfig, refresh, revert].forEach((mock) => mock.mockReset());
     preview.mockResolvedValue(IMPACT);
+  });
+
+  it("offers Undo of a series edit that only reopens dates, reverting that change (F-SER 4)", async () => {
+    saveConfig.mockResolvedValue({ version: 8, changeId: "chg-8" });
+    revert.mockResolvedValue({ version: 9, changeId: "chg-9" });
+    const wide = { ...SERIES, repeat: { version: 1 as const, weekdays: [1, 3] } };
+    renderSeriesDialog([wide]);
+    fireEvent.click(screen.getByRole("radio", { name: "All dates in the series" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Wed" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+    await waitFor(() =>
+      expect(revert).toHaveBeenCalledWith({
+        venueId: "venue-1",
+        changeId: "chg-8",
+        expectedVersion: 8,
+      })
+    );
   });
 
   it("names the series it replaces on the save, so the server can tell a changed one (#8028)", async () => {
