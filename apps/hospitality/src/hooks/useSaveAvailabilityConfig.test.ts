@@ -42,12 +42,4 @@ describe("useSaveAvailabilityConfig", () => {
       expect.arrayContaining(["availabilityDays", "availabilityConfig", "venues"])
     );
   });
-
-  it("overwrite saves against the version the server holds now", async () => {
-    mockGet.mockResolvedValue({ version: 7 });
-    const { result } = setup();
-    await act(() => result.current.mutateAsync({ venueId: "v1", body: BODY, overwrite: true }));
-
-    expect(mockSave).toHaveBeenCalledWith("v1", { ...BODY, expectedVersion: 7 });
-  });
 });

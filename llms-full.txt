@@ -18893,8 +18893,6 @@
       body: Omit<PutAvailabilityConfigBody, "scopeConflicts"> & {
         scopeConflicts?: ScopeConflictMode;
       };
-      /** Save against the version the server holds now, not the one the draft was made on. */
-      overwrite?: boolean;
     };
     export const useSaveAvailabilityConfig = createMutationHook<
       SaveAvailabilityConfigVariables,
@@ -18906,13 +18904,8 @@
         AVAILABILITY_CHANGES_QUERY_KEY,
         VENUES_QUERY_KEY,
       ],
-      mutationFn: (api, { venueId, body, overwrite }) =>
-        trackOwnSave(venueId, async () => {
-          const expectedVersion = overwrite
-            ? (await api.availability.getConfig(venueId)).version
-            : body.expectedVersion;
-          return api.availability.saveConfig(venueId, { ...body, expectedVersion });
-        }),
+      mutationFn: (api, { venueId, body }) =>
+        trackOwnSave(venueId, () => api.availability.saveConfig(venueId, body)),
     });
     export const useAvailabilityChanges = createQueryHook<
       AvailabilityChangesPage | null,

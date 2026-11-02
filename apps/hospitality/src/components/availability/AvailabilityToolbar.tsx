@@ -165,10 +165,12 @@ export function AvailabilityToolbar(props: AvailabilityToolbarProps) {
         <Button variant="secondary" onClick={onHistory}>
           {t("availability.historyButton")}
         </Button>
-        <DropdownMenu
-          trigger={<Button variant="secondary">{t("availability.selection.selectMenu")}</Button>}
-          items={selectItems}
-        />
+        {selectItems.length > 0 && (
+          <DropdownMenu
+            trigger={<Button variant="secondary">{t("availability.selection.selectMenu")}</Button>}
+            items={selectItems}
+          />
+        )}
         {onClose && (
           <Button variant="secondary" onClick={onClose}>
             {t("availability.close.open")}

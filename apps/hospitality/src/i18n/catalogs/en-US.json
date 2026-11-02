@@ -2221,7 +2221,10 @@
         "discard": "Discard mine",
         "theirsHeading": "Their change",
         "yoursHeading": "Your draft",
-        "yourService": "{{name}} {{from}} – {{to}}"
+        "yourService": "{{name}} {{from}} – {{to}}",
+        "back": "Back to my draft",
+        "again": "Someone saved again while you were deciding. Check their latest change, then Overwrite or go back to your draft.",
+        "waiting": "Loading the latest version…"
       },
       "blocked": {
         "serviceName": "Name the new service to save.",
@@ -2469,6 +2472,7 @@
       "selectMenu": "Select…",
       "weekdayInMonth": "Every {{weekday}} in {{month}}",
       "usingSchedule": "All dates using {{schedule}}",
+      "pastDates": "Past dates can’t be selected.",
       "useSchedule": "Use schedule",
       "useOtherDay": "Use another day’s hours",
       "clearChanges": "Clear changes",

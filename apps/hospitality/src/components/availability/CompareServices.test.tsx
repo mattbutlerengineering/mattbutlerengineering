@@ -137,6 +137,23 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
     expect(body.changes.upsert.scheduleServices[0].lastSeatingAt).toBe(840);
   });
 
+  it("pins an edit made before the refetch of the Manager's own save to the saved version (#8081)", async () => {
+    save.mockResolvedValueOnce({ version: 6, changeId: "chg-own" });
+    const { rerender } = render(ui(atV5));
+    editWeekendBooking();
+    fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    // The refetch has not landed: the state is still v5 when the next edit is made.
+    await waitFor(() => expect(screen.getByRole("button", { name: /^Save/ })).toBeDisabled());
+    await listClosed();
+    editBooking("Weeknight", "Phone only");
+    rerender(ui({ ...atV5, version: 6 }));
+    fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
+
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+    expect(save.mock.calls[1]?.[0].body.expectedVersion).toBe(6);
+  });
+
   it("after the refused save, names the colleague's change and keeps it when reapplying", async () => {
     save.mockRejectedValueOnce(conflict);
     const { rerender } = render(ui(atV5));

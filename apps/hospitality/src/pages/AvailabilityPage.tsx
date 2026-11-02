@@ -127,8 +127,13 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   });
   const selection = picked.venueId === selectedVenueId ? picked.dates : EMPTY;
   // Past dates are history, not something to edit (the server settles a save from today on).
-  const setSelection = (dates: string[]) =>
-    setPicked({ venueId: selectedVenueId, dates: futureDates(dates, today) });
+  const [droppedPast, setDroppedPast] = useState(false);
+  const setSelection = (dates: string[]) => {
+    const kept = futureDates(dates, today);
+    // A gesture that lost dates says so, rather than appearing to do nothing.
+    setDroppedPast(kept.length < dates.length);
+    setPicked({ venueId: selectedVenueId, dates: kept });
+  };
   // Moving off a day with an unsaved draft asks first (ux.md F2 step 6), selection actions included.
   // Opening a single day drops the selection, but only once the guard lets the move happen.
   const guard = useDiscardGuard<OpenTarget>(({ closing: nextClosing, ...next }) => {
@@ -252,6 +257,10 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   const anchorSchedule = config.data?.config.schedules.find(
     (s) => s.id === anchorSummary?.scheduleId
   );
+  const weekdayDates = futureDates(weekdayDatesInMonth(anchor), today);
+  const scheduleDates = anchorSchedule
+    ? futureDates(datesUsingSchedule(days.data ?? [], anchorSchedule.id), today)
+    : [];
   const selectItems = [
     // The grid has Ctrl-click and drag; the agenda list has only this and a long press.
     ...(viewport !== "desktop"
@@ -263,15 +272,20 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           },
         ]
       : []),
-    {
-      id: "weekday",
-      label: t("availability.selection.weekdayInMonth", {
-        weekday: format.formatCalendarDate(anchor, { weekday: "long" }),
-        month: format.formatCalendarDate(anchor, { month: "long" }),
-      }),
-      onSelect: () => setSelection(weekdayDatesInMonth(anchor)),
-    },
-    ...(anchorSchedule
+    // An entry that would select nothing (a month already over) is not offered.
+    ...(weekdayDates.length > 0
+      ? [
+          {
+            id: "weekday",
+            label: t("availability.selection.weekdayInMonth", {
+              weekday: format.formatCalendarDate(anchor, { weekday: "long" }),
+              month: format.formatCalendarDate(anchor, { month: "long" }),
+            }),
+            onSelect: () => setSelection(weekdayDatesInMonth(anchor)),
+          },
+        ]
+      : []),
+    ...(anchorSchedule && scheduleDates.length > 0
       ? [
           {
             id: "schedule",
@@ -423,6 +437,14 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         />
       )}
       {loadFailureBanner}
+      {/* Held back during a drag, like the bar, so the grid does not move under the pointer. */}
+      <div aria-live="polite">
+        {droppedPast && barDuringDrag === null && (
+          <Text variant="caption" color="secondary">
+            {t("availability.selection.pastDates")}
+          </Text>
+        )}
+      </div>
       <AvailabilitySelectionBar
         selection={barDuringDrag ?? selection}
         canEdit={canAct}

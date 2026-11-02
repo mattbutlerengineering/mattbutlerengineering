@@ -142,6 +142,9 @@ export function CompareServices(props: CompareServicesProps) {
     version: number;
     rows: Readonly<Record<string, ScheduleService>>;
   } | null>(null);
+  // The version the Manager's own last save made. Until the refetch lands, `state` is behind it,
+  // and an edit pinned to `state.version` would be refused as a colleague's change.
+  const [ownVersion, setOwnVersion] = useState(0);
   const baselineOf = (b: NonNullable<typeof base>): AvailabilityConfig => ({
     ...config,
     scheduleServices: Object.values(b.rows),
@@ -174,7 +177,7 @@ export function CompareServices(props: CompareServicesProps) {
         const row = prev?.rows[id] ?? stored.get(id);
         return row ? { ...acc, [id]: row } : acc;
       }, {});
-      return { version: prev?.version ?? state.version, rows };
+      return { version: prev?.version ?? Math.max(state.version, ownVersion), rows };
     });
     onDirtyChange?.(changedRows(config, Object.values(next)).length > 0);
   };
@@ -218,6 +221,7 @@ export function CompareServices(props: CompareServicesProps) {
       base.version
     );
     if (!saved) return;
+    setOwnVersion(saved.version);
     offerUndo({
       venueId,
       saved,

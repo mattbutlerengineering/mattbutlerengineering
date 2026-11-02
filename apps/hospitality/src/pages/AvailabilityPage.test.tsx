@@ -614,6 +614,33 @@ describe("AvailabilityPage", () => {
       expect(screen.getByRole("status")).toHaveTextContent("1 date selected");
     });
 
+    it("says so when a Ctrl-click on a past date selects nothing", () => {
+      renderPage();
+      pick(/Monday, October 26/);
+      expect(screen.getByText("Past dates can’t be selected.")).toBeInTheDocument();
+      expect(screen.getByRole("status")).toBeEmptyDOMElement();
+    });
+
+    it("says so when Space on a past date selects nothing", () => {
+      renderPage();
+      fireEvent.keyDown(screen.getByRole("button", { name: /Monday, October 26/ }), { key: " " });
+      expect(screen.getByText("Past dates can’t be selected.")).toBeInTheDocument();
+    });
+
+    it("drops the message once a selection lands entirely on future dates", () => {
+      renderPage();
+      pick(/Monday, October 26/);
+      pick(/Thursday, October 29/);
+      expect(screen.queryByText("Past dates can’t be selected.")).not.toBeInTheDocument();
+    });
+
+    it("offers no weekday entry in a month that is already over, and no empty menu", () => {
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "Previous" }));
+      // The anchor is Mon Sep 28; every Monday in September is behind us, and nothing else is on offer.
+      expect(screen.queryByRole("button", { name: "Select…" })).not.toBeInTheDocument();
+    });
+
     it("skips past dates when a range is Shift-clicked across them", () => {
       renderPage();
       pick(/Monday, October 26/);
