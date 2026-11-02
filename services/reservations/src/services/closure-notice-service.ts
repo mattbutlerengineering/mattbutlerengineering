@@ -19,6 +19,8 @@ interface EnqueueInput {
   now: Date;
   /** Outcomes moved in from a replaced series: told when they were decided, not again. */
   carried?: readonly string[];
+  /** A reopen of this one date of a range: urgency is that date's, not the removed range's. */
+  date?: string;
 }
 
 /** The closure's earliest covered service date on or after today in venue time, or `null` when none is left. */
@@ -62,8 +64,11 @@ export function closureNoticeJobId(outcomeId: string, variant: NoticeVariant): s
  * imminent to be urgent about.
  */
 async function isUrgent(store: Store, input: EnqueueInput): Promise<boolean> {
-  const w = await store.loadClosureWindow(input.venueId, input.ruleId);
-  if (!w) return true;
+  const stored = await store.loadClosureWindow(input.venueId, input.ruleId);
+  if (!stored) return true;
+  const w = input.date
+    ? { ...stored, startsOn: input.date, endsOn: input.date, weekdays: null }
+    : stored;
   if (nextClosureDate(w, input.now) === null) return false;
   const startsAt = closureStartsAt(w, input.now);
   return startsAt === null || startsAt.getTime() - input.now.getTime() <= URGENT_WINDOW_MS;

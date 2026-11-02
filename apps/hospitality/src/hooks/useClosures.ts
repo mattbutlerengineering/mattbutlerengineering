@@ -133,6 +133,8 @@ export type ReopenClosureVariables = {
   tellCancelledGuests: boolean;
   /** The rule and its skips and one-date edits as the screen read them; a change since is refused. */
   seen?: ReopenSeen;
+  /** Reopen only this date of a bounded range. */
+  date?: string;
 };
 
 /** Reopens a closure (Resume on the paused-online banner; Remove on Special dates). */
@@ -142,9 +144,9 @@ export const useReopenClosure = createMutationHook<ReopenClosureVariables, Reope
     AVAILABILITY_DAYS_QUERY_KEY,
     CLOSURE_SUMMARIES_QUERY_KEY,
   ],
-  mutationFn: (api, { venueId, ruleId, tellCancelledGuests, seen }) =>
+  mutationFn: (api, { venueId, ruleId, tellCancelledGuests, seen, date }) =>
     trackOwnSave(venueId, () =>
-      api.availability.reopenClosure(venueId, ruleId, tellCancelledGuests, undefined, seen)
+      api.availability.reopenClosure(venueId, ruleId, tellCancelledGuests, undefined, seen, date)
     ),
 });
 

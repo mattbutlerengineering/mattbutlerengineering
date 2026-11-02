@@ -1710,7 +1710,14 @@
       "retryCount": "Retry",
       "changed": "A teammate changed this closure while you had it open, so it wasn't reopened. The list is up to date: review it and reopen again if you still want to.",
       "descriptionStillClosed": "This removes one closure, but another still closes these dates, so guests can't book them yet.",
-      "doneStillClosed": "Closure removed: {{date}}. Not reopened"
+      "doneStillClosed": "Closure removed: {{date}}. Not reopened",
+      "dateLabel": "What to reopen",
+      "allDates": "All dates",
+      "descriptionDate": "Guests can book {{date}} again. The other dates in this range stay closed.",
+      "descriptionDateCancelled": "Guests can book {{date}} again. The other dates in this range stay closed. The reservations you cancelled stay cancelled.",
+      "tellDate": "Tell any guests we cancelled on {{date}} that we've reopened, with a link to rebook",
+      "doneTold_one": "{{date}} reopened. {{count}} guest told.",
+      "doneTold_other": "{{date}} reopened. {{count}} guests told."
     },
     "series": {
       "editDates": "Edit dates…",

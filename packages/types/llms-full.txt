@@ -1103,6 +1103,7 @@
     export const ReopenClosureBodySchema = z.object({
       tellCancelledGuests: z.boolean(),
       seen: ReopenSeenSchema.optional(),
+      date: ServiceDateSchema.optional(),
     });
     export const ClosureOutcomeCountsSchema = z.object({
       cancel: z.number().int(),
