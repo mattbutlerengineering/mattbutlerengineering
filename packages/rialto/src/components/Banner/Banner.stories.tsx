@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { fn, expect, userEvent, within } from "storybook/test";
+import { fn, expect, userEvent, waitFor, within } from "storybook/test";
 import { Banner } from "./Banner";
 import { Button } from "../Button/Button";
 
@@ -76,7 +76,8 @@ export const Dismissible: Story = {
     const dismissButton = canvas.getByRole("button", { name: /dismiss/i });
     await expect(dismissButton).toBeInTheDocument();
     await userEvent.click(dismissButton);
-    await expect(canvas.queryByRole("status")).not.toBeInTheDocument();
+    // The banner animates out, so it leaves the DOM after the exit transition.
+    await waitFor(() => expect(canvas.queryByRole("status")).not.toBeInTheDocument());
   },
 };
 

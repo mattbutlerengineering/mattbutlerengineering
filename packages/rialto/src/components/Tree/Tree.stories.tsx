@@ -94,12 +94,14 @@ export const ExpandCollapse: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const chassisItem = canvas.getByRole("treeitem", { name: /Chassis/i });
+    // Clicking a row selects it; the chevron (role="presentation") is what toggles expansion.
+    const chevron = chassisItem.querySelector<HTMLElement>('[role="presentation"]') as HTMLElement;
     await expect(chassisItem).toHaveAttribute("aria-expanded", "false");
-    await userEvent.click(chassisItem);
+    await userEvent.click(chevron);
     await expect(chassisItem).toHaveAttribute("aria-expanded", "true");
     const floorItem = canvas.getByRole("treeitem", { name: /Floor/i });
     await expect(floorItem).toBeInTheDocument();
-    await userEvent.click(chassisItem);
+    await userEvent.click(chevron);
     await expect(chassisItem).toHaveAttribute("aria-expanded", "false");
   },
 };

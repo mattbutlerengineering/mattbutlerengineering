@@ -31,9 +31,9 @@ export const Default: Story = {
   ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const target = canvas.getByText("Right-click this area");
+    const target = canvas.getByText(/Right-click this area/);
     await userEvent.pointer({ keys: "[MouseRight]", target: target });
-    await expect(canvas.getByText("Copy")).toBeInTheDocument();
+    await expect(await canvas.findByText("Copy")).toBeInTheDocument();
   },
 };
 
