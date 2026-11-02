@@ -1374,6 +1374,30 @@ describe("reopenClosure", () => {
       expect(issues.slice(0, STRANDED_ISSUE_DETAIL_MAX).every((i) => i.reservation)).toBe(true);
     });
 
+    it("names the soonest bookings first, whatever order the database returns them (#8043)", async () => {
+      const w = editedThursday();
+      const total = STRANDED_ISSUE_DETAIL_MAX + 7;
+      // Later bookings first, and two at the same minute: the order is start time, then id.
+      w.reservations = Array.from({ length: total }, (_, i) => {
+        const minute = total - i; // res-0 is the latest, the last is the soonest
+        const start = new Date(Date.parse("2026-12-25T03:00:00.000Z") + minute * 60_000);
+        return res(`res-${i}`, "2026-12-24", start.toISOString(), start.toISOString());
+      });
+      w.reservations.push(
+        res("res-b", "2026-12-24", "2026-12-25T03:00:00.000Z", "2026-12-25T04:30:00.000Z"),
+        res("res-a", "2026-12-24", "2026-12-25T03:00:00.000Z", "2026-12-25T04:30:00.000Z")
+      );
+
+      const { outcome } = await reopen(w, MANAGER, "e1");
+
+      const issues = (outcome as { issues: { reservation?: { id: string } }[] }).issues;
+      const named = issues.flatMap((i) => (i.reservation ? [i.reservation.id] : []));
+      expect(named).toHaveLength(STRANDED_ISSUE_DETAIL_MAX);
+      expect(named.slice(0, 2)).toEqual(["res-a", "res-b"]);
+      expect(named).toContain(`res-${total - 1}`);
+      expect(named).not.toContain("res-0");
+    });
+
     it("takes the venue row before it scans bookings, so an in-flight booking is seen (#7975)", async () => {
       const w = editedThursday();
       w.reservations = [];

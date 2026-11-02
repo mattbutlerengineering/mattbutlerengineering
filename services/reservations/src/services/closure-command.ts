@@ -87,7 +87,11 @@ export interface RefusalIssue {
  * hands it to a model.
  */
 function strandedIssues(stranded: readonly StrandedReservation[], message: string): RefusalIssue[] {
-  return stranded.map((r, i) => ({
+  // The database returns bookings in no order; the soonest are the ones to name, the same ones on a retry.
+  const soonestFirst = [...stranded].sort(
+    (a, b) => a.startTime.localeCompare(b.startTime) || a.id.localeCompare(b.id)
+  );
+  return soonestFirst.map((r, i) => ({
     path: `reservations.${r.id}`,
     code: "strands_booking",
     message,
