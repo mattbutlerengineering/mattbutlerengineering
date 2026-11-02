@@ -558,7 +558,7 @@ export const ReopenSeenSchema = z.object({
 /**
  * `DELETE …/closures/:ruleId`. `seen` is optional: with it, a reopen whose rule (or whose skips and
  * one-date edits) changed since the caller read it is refused as `version-conflict`; without it
- * (an older client, the agent) the reopen acts on the rule as it is now.
+ * (an older client) the reopen acts on the rule as it is now.
  */
 export const ReopenClosureBodySchema = z.object({
   tellCancelledGuests: z.boolean(),

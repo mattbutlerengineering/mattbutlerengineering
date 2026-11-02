@@ -1198,7 +1198,8 @@
       "manage": "Manage this closure in Availability, Special dates",
       "reopening": "Reopening…",
       "reopened": "Waitlist reopened.",
-      "reopenError": "Couldn't reopen the waitlist."
+      "reopenError": "Couldn't reopen the waitlist.",
+      "changed": "A teammate changed this closure, so the waitlist wasn't reopened. What you see is now up to date: look again and reopen if you still want to."
     },
     "loadFailed": "Couldn't load the waitlist.",
     "empty": {

@@ -38,7 +38,7 @@ import {
 } from "./draft-changes.js";
 import { waitingProps } from "./draft-wait.js";
 import { markEditorOpen } from "./editor-open.js";
-import { ownChangeDates, scopeDates } from "./scope-dates.js";
+import { ownChangeDates, scheduleReach, scopeDates } from "./scope-dates.js";
 import type { SeriesScope } from "./series-edit.js";
 import { BlockedReason } from "./ScheduleFormParts.js";
 import { nextServiceRow, ServicesEditor } from "./ServicesEditor.js";
@@ -155,6 +155,13 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
     () => (scope ? scopeDates(scope, { config, timezone, today }) : []),
     [scope, config, timezone, today]
   );
+  // A schedule edit is checked by the save against every booking, so its preview reaches the
+  // dates a use_schedule rule sends to the schedule too, and checks from today like the save.
+  const scheduleId = scope?.kind === "schedule" ? scope.scheduleId : null;
+  const previewDates = useMemo(
+    () => (scheduleId ? scheduleReach(scheduleId, { config, timezone, today }) : dates),
+    [scheduleId, config, timezone, today, dates]
+  );
   const own = useMemo(
     () => ownChangeDates(config, dates, scope?.kind === "rule" ? scope.ruleId : null),
     [config, dates, scope]
@@ -174,8 +181,13 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
     });
   }, [edit, config, today]);
   // Under Keep theirs the dates with their own changes are left alone, so they are not written.
+  // The count is what the change reaches, the same dates the preview lists: for a schedule that
+  // includes the dates a use_schedule rule sends to it. `dates` still decides the conflict mode and
+  // which dates have their own changes.
   const writtenCount =
-    edit?.mode === "keep" && dates.length > 1 ? dates.length - own.length : dates.length;
+    edit?.mode === "keep" && dates.length > 1
+      ? previewDates.length - own.length
+      : previewDates.length;
   // A rule edit goes through the server's keep/replace for its dates that have their own change.
   const conflictMode: ScopeConflictMode =
     ruleScope || dates.length > 1 ? (edit?.mode ?? "keep") : "replace";
@@ -305,7 +317,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
       venueId,
       saved,
       title:
-        dates.length > 1
+        previewDates.length > 1 || (scheduleId !== null && previewDates[0] !== date)
           ? t("availability.editor.savedMany", { count: writtenCount })
           : t("availability.editor.savedOne", {
               date: format.formatCalendarDate(date, {
@@ -396,7 +408,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
     ? t("availability.editor.blocked.serviceName")
     : !isDirty(edit)
       ? t("availability.editor.blocked.noChange")
-      : dates.length === 0
+      : previewDates.length === 0
         ? t("availability.editor.blocked.noDates")
         : writtenCount === 0
           ? t("availability.editor.blocked.keptOwn")
@@ -478,7 +490,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
         </div>
       )}
       <Text variant="caption" color="secondary">
-        {t("availability.editor.scopeCount", { count: dates.length })}
+        {t("availability.editor.scopeCount", { count: previewDates.length })}
       </Text>
       <div ref={servicesRef}>
         <ServicesEditor
@@ -502,14 +514,15 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
       </div>
     </>
   );
-  // A scope that reaches no dates (a schedule used only by a use_schedule rule) has nothing to preview; the server refuses an empty scope.
+  // A scope that reaches no dates has nothing to preview; the server refuses an empty scope.
   const preview =
-    previewChanges && dates.length > 0 ? (
+    previewChanges && previewDates.length > 0 ? (
       <AvailabilityGuestPreview
         venueId={venueId}
         changes={previewChanges}
         scopeConflicts={conflictMode}
-        dates={dates}
+        dates={previewDates}
+        scope={scheduleId ? { from: today } : undefined}
         focusDate={date}
       />
     ) : null;

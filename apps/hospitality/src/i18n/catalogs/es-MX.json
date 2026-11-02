@@ -1220,7 +1220,8 @@
       "manage": "Administrar este cierre en Disponibilidad, Fechas especiales",
       "reopening": "Reabriendo…",
       "reopened": "Lista de espera reabierta.",
-      "reopenError": "No se pudo reabrir la lista de espera."
+      "reopenError": "No se pudo reabrir la lista de espera.",
+      "changed": "Un compañero cambió este cierre, así que la lista de espera no se reabrió. Lo que ves ya está actualizado: revísalo y vuelve a reabrir si aún quieres hacerlo."
     },
     "loadFailed": "No se pudo cargar la lista de espera.",
     "empty": {

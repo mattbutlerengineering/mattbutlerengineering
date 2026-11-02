@@ -674,7 +674,7 @@ function upcomingCancelled(db: Db, venueId: string, ruleId: string, now: Date): 
  * edit, would lose that work to a reopen from the older view (the rule and its children are
  * deleted together), and a reopen that told guests cannot be undone. So a caller may send `seen`,
  * the rule and its children as it read them, and a difference is refused as a version conflict,
- * under the venue lock, changing nothing. A caller that sends none (an older client, the agent)
+ * under the venue lock, changing nothing. A caller that sends none (an older client)
  * reopens the rule as it is now. The venue lock is taken before the state is read either way, so
  * the diff and the inverse are exact against the current state.
  */

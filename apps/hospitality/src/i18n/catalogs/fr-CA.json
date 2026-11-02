@@ -1220,7 +1220,8 @@
       "manage": "Gérer cette fermeture dans Disponibilités, Dates spéciales",
       "reopening": "Réouverture…",
       "reopened": "Liste d’attente rouverte.",
-      "reopenError": "Impossible de rouvrir la liste d’attente."
+      "reopenError": "Impossible de rouvrir la liste d’attente.",
+      "changed": "Un collègue a modifié cette fermeture, la liste d’attente n’a donc pas été rouverte. Ce que vous voyez est maintenant à jour : regardez à nouveau et rouvrez si vous le souhaitez toujours."
     },
     "loadFailed": "Impossible de charger la liste d’attente.",
     "empty": {

@@ -394,6 +394,31 @@ describe("describeChatAction closure actions", () => {
     expect(open.details[1]?.value).toBe("t:chat.actions.untilReopened");
   });
 
+  it("does not show the reopen's readAs token, and leaves it in the input that is confirmed", () => {
+    const action = {
+      actionId: "c",
+      toolName: "reopen_closure",
+      toolInput: {
+        from: "2026-12-24",
+        to: "2026-12-26",
+        scope: "whole_venue",
+        tellCancelledGuests: false,
+        readAs: "3fa9c1d27b04e8a6",
+      },
+    };
+
+    const { details } = describeChatAction(
+      action,
+      (key) => `t:${key}`,
+      () => undefined
+    );
+
+    expect(details.map((d) => d.label)).not.toContain("readAs");
+    expect(JSON.stringify(details)).not.toContain("3fa9c1d27b04e8a6");
+    // The server executes exactly what was confirmed: the bar hides the token, never drops it.
+    expect(action.toolInput.readAs).toBe("3fa9c1d27b04e8a6");
+  });
+
   it("shows special hours as clock times", () => {
     const { title, details } = describeIn("set_special_hours", {
       date: "2026-12-24",
