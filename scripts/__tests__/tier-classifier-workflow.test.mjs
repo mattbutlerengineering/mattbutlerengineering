@@ -612,3 +612,101 @@ describe("tier-classifier loads the escalation policy from the BASE branch", () 
     expect(reasons).toMatch(/`scripts\/tier-escalation\.mjs` -> T4/);
   });
 });
+
+/**
+ * Split the workflow's job steps into `{ name, text }` records. Textual, like
+ * the helpers above: every step starts at a `      - name:` line.
+ */
+function splitSteps(source) {
+  const lines = source.split("\n");
+  const starts = lines.flatMap((l, i) => (/^ {6}- name: /.test(l) ? [i] : []));
+  return starts.map((s, n) => ({
+    name: lines[s].replace(/^ {6}- name: /, "").trim(),
+    text: lines.slice(s, starts[n + 1] ?? lines.length).join("\n"),
+  }));
+}
+
+/** The `run:` bodies (block scalars and one-liners) of a step's text. */
+function runBodies(stepText) {
+  const lines = stepText.split("\n");
+  const bodies = [];
+  lines.forEach((l, i) => {
+    const m = l.match(/^(\s*)(?:- )?run:\s*(.*)$/);
+    if (!m) return;
+    if (m[2] && !/^[|>]/.test(m[2])) {
+      bodies.push(m[2]);
+      return;
+    }
+    const indent = m[1].length;
+    const body = [];
+    for (const next of lines.slice(i + 1)) {
+      if (next.trim() !== "" && next.search(/\S/) <= indent) break;
+      body.push(next);
+    }
+    bodies.push(body.join("\n"));
+  });
+  return bodies;
+}
+
+// Defect: tier-classifier checked out the PR HEAD and ran the head's
+// scripts/resolve-pr-metadata.mjs, so a PR chose its own base_ref and policy.
+// The workflow must execute base-side code only; the PR head is fetched as
+// git objects and read through `git diff`.
+describe("trust seam: base-only execution", () => {
+  const steps = splitSteps(WORKFLOW);
+  const onBlock = WORKFLOW.slice(WORKFLOW.indexOf("\non:") + 1, WORKFLOW.indexOf("\npermissions:"));
+
+  it("(a) triggers on pull_request_target and workflow_dispatch, never pull_request", () => {
+    expect(onBlock).toMatch(/^ {2}pull_request_target:/m);
+    expect(onBlock).toMatch(/^ {2}workflow_dispatch:/m);
+    expect(onBlock).not.toMatch(/^ {2}pull_request:/m);
+  });
+
+  it("(b) the checkout has no ref/repository and precedes the resolver", () => {
+    const checkoutIdx = steps.findIndex((s) => /uses:\s*actions\/checkout@/.test(s.text));
+    const resolverIdx = steps.findIndex((s) => /resolve-pr-metadata\.mjs/.test(s.text));
+    expect(checkoutIdx).toBeGreaterThan(-1);
+    expect(resolverIdx).toBeGreaterThan(-1);
+    expect(checkoutIdx).toBeLessThan(resolverIdx);
+    const checkoutText = steps[checkoutIdx].text.replace(/^\s*#.*$/gm, "");
+    expect(checkoutText).not.toMatch(/^\s*ref:/m);
+    expect(checkoutText).not.toMatch(/^\s*repository:/m);
+    expect(steps.filter((s) => /uses:\s*actions\/checkout@/.test(s.text))).toHaveLength(1);
+  });
+
+  it("(c) no step switches the working tree to PR code and node runs only the resolver and Classify", () => {
+    const bodies = steps.flatMap((s) => runBodies(s.text));
+    for (const body of bodies) {
+      expect(body).not.toMatch(
+        /\bgit\s+(checkout|switch|merge|worktree\s+add|pull|cherry-pick|rebase)(?![\w-])/
+      );
+    }
+    const nodeInvocations = bodies
+      .flatMap((b) => b.split("\n"))
+      .filter((l) => /(^|[\s;&|(])node\s/.test(l.replace(/^\s*#.*$/, "")))
+      .map((l) => l.trim());
+    expect(nodeInvocations).toHaveLength(2);
+    expect(nodeInvocations[0]).toMatch(
+      /^node scripts\/resolve-pr-metadata\.mjs --pr "\$PR_NUMBER"/
+    );
+    expect(nodeInvocations[1]).toBe("node - <<'NODE'");
+  });
+
+  it("(d) base_ref comes only from steps.pr.outputs.base_ref and step pr runs the resolver", () => {
+    const prStep = steps.find((s) => /^\s*id:\s*pr\s*$/m.test(s.text));
+    expect(prStep, "step with id: pr").toBeDefined();
+    expect(prStep.text).toMatch(/node scripts\/resolve-pr-metadata\.mjs/);
+    const baseRefReads = WORKFLOW.split("\n").filter((l) => /PR_BASE_REF:/.test(l));
+    expect(baseRefReads.length).toBeGreaterThan(0);
+    for (const l of baseRefReads) expect(l).toMatch(/\$\{\{ steps\.pr\.outputs\.base_ref \}\}/);
+    expect(WORKFLOW).not.toMatch(/github\.base_ref|github\.head_ref/);
+  });
+
+  it("(e) no ${{ }} expression inside any run: body", () => {
+    for (const s of steps) {
+      for (const body of runBodies(s.text)) {
+        expect(body, `step "${s.name}"`).not.toMatch(/\$\{\{/);
+      }
+    }
+  });
+});
