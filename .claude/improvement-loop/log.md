@@ -4739,3 +4739,16 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 **queueEfficiency:** composite 0.856 (baseline n/a) — healthy
 **Difficulty distribution:** size:s:26, size:xl:22, size:l:19, size:xs:14, size:m:16
 **Issues filed:** 0
+
+## 2026-11-03 — mbe-ui-quality
+
+- **State:** `state.mjs checkout` ok — `source: main` (the `ui-quality/ledger` branch did not exist remotely and was created from `origin/main`), head `49b87bd`, `merged_main: null`, no conflicts resolved.
+- **Routes:** 2 due, 2 captured, 2 audited — `rialto-web components/confirm-dialog`, `rialto-web components/dialog`. Marketing and hospitality had no routes planned (hospitality's 20 routes are `unreachable:auth`). All three app builds succeeded, so no `unreachable:build` rows.
+- **Unjudged:** 0. **Dropped tells:** 0.
+- **Judged:** both routes clean (`tells: []`) against the v1 judged tells. Mechanical detectors: 0 findings (no axe violations, no page/console errors, no failed requests, no dead in-app links).
+- **Calibration stamp:** `stale`. `calibration-status` returned exit 3, so calibration was attempted once; `rate.mjs pairs --calibration` exited 2 — `docs/ui-quality/calibration.json` still has no labelled pairs (the Verify-stage human labelling of ≥ 10 pairs has not happened). Not retried. The re-query returned exit 3 again, so rating ran anyway: 4 pairs over 1 app judged and recorded, and agent-built findings stay suppressed under a `stale` stamp (intended).
+- **Filing:** plan produced no actions and 0 seeds — nothing created, reopened or commented. All 35 issues in the findings ledger are closed; the 37 `ui-quality`-labelled issues are all closed and include no unknown titles, so no escalation issue was written.
+- **Fix PR:** none — no action carried `fix_pr_candidate`.
+- **P1 breaches escalated:** 0 (no open `ui-quality:p1` issues).
+- **Coverage before this fire:** 100% (135/135 covered, not provisional, first run 2026-10-01); 20 hospitality routes `unreachable:auth`. `coverage.mjs` exit 0 — no breach.
+- **Note (environment):** the MCP tool names this routine's prompt uses (`get_issue`, `create_issue`, `update_issue`, `search_issues`) do not exist in this session. The available equivalents are `issue_read`, `issue_write` and `list_issues`; GitHub MCP `search_*` tools are unavailable here, so the `ui-quality` and `ui-quality:p1` label sweeps were done with `list_issues` filtered by label over every page (37 and 0 results, `hasNextPage: false` on both).
