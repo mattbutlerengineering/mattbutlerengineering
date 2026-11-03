@@ -106,11 +106,11 @@ The 18:03Z read found the earlier train runs failed or cancelled at `Wait for CI
 
 `gh run list --workflow deploy-services.yml --branch main --limit 60` and `gh run view <id> --json jobs`. Since 2026-10-26 there are two `Deploy Services` runs on main that concluded `failure`, both at `Wait for CI` (so `Deploy API Services` was **skipped**, nothing partial deployed). The failure came before the backfill has run, so this section applies the step-1 re-check rule:
 
-| Run         | Commit                  | Started (UTC)    | Wait for CI | Deploy API Services | Post-Deploy Verification |
-| ----------- | ----------------------- | ---------------- | ----------- | ------------------- | ------------------------ |
-| 40531703070 | d79ac90f1               | 2026-10-27 15:30 | failure     | skipped             | skipped                  |
-| 41527058138 | 77f84aca5 (contains #8137, c3d069561) | 2026-11-02 21:17 | success | success      | success                  |
-| 41572104913 | f39c40ea3 (#8166, deps bump) | 2026-11-03 03:25 | failure | skipped             | skipped                  |
+| Run         | Commit                                | Started (UTC)    | Wait for CI | Deploy API Services | Post-Deploy Verification |
+| ----------- | ------------------------------------- | ---------------- | ----------- | ------------------- | ------------------------ |
+| 40531703070 | d79ac90f1                             | 2026-10-27 15:30 | failure     | skipped             | skipped                  |
+| 41527058138 | 77f84aca5 (contains #8137, c3d069561) | 2026-11-02 21:17 | success     | success             | success                  |
+| 41572104913 | f39c40ea3 (#8166, deps bump)          | 2026-11-03 03:25 | failure     | skipped             | skipped                  |
 
 - 40531703070 was followed by green runs from 40537439644 onward, up to 41527058138; it is superseded.
 - 41572104913 is the **latest** run on main and is red: `Wait for CI` failed and nothing deployed. `CI` for f39c40ea3 shows `cancelled` in `gh run list --workflow ci.yml --branch main`. I did not read why beyond that. `git diff --stat 77f84aca5 origin/main -- services` shows only three `package.json` files changed in `services/` (7 insertions, 7 deletions), from the dependency bump. So the last deploy (77f84aca5, 2026-11-02 ~21:40Z) carries the whole train and all post-ship availability PRs through #8137 (`git merge-base --is-ancestor c3d069561 77f84aca5` → true); origin/main (892941ac3) is 17 commits ahead and is not deployed by a successful run. Whether main redeploys is outside this stage; no dispatch was run.
