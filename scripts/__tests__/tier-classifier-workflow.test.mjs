@@ -710,3 +710,170 @@ describe("trust seam: base-only execution", () => {
     }
   });
 });
+
+// Behavioural half of the trust seam: run the real step bodies against a
+// fixture where the PR ref carries a forged resolver and a neutered policy.
+describe("trust seam: PR head is fetched as data and diffed", () => {
+  const BASE_RESOLVER = "// real resolver\n";
+  const BASE_POLICY = "export const real = true;\n";
+  const git = (cwd, ...args) => {
+    const r = spawnSync("git", args, { cwd, encoding: "utf8" });
+    if (r.status !== 0) throw new Error(`git ${args.join(" ")}: ${r.stderr}`);
+    return r.stdout.trim();
+  };
+  const commitAll = (dir, msg) => {
+    git(dir, "add", "-A");
+    git(dir, "commit", "-q", "--no-verify", "-m", msg);
+    return git(dir, "rev-parse", "HEAD");
+  };
+
+  /**
+   * `server` plays GitHub: main plus `refs/pull/7/head` (forged resolver,
+   * neutered policy, one real file) and `refs/pull/8/head` (unrelated
+   * history). `work` is the Actions runner's base-only checkout (a clone of
+   * main, no PR refs fetched yet).
+   */
+  function makeFixture() {
+    const root = mkdtempSync(join(tmpdir(), "tier-seam-"));
+    tmpDirs.push(root);
+    const server = join(root, "server");
+    mkdirSync(join(server, "scripts"), { recursive: true });
+    git(server, "init", "-q", "-b", "main");
+    git(server, "config", "user.email", "t@example.com");
+    git(server, "config", "user.name", "t");
+    git(server, "config", "commit.gpgsign", "false");
+    writeFileSync(join(server, "scripts", "resolve-pr-metadata.mjs"), BASE_RESOLVER);
+    writeFileSync(join(server, "scripts", "tier-escalation.mjs"), BASE_POLICY);
+    const baseSha = commitAll(server, "base");
+
+    git(server, "checkout", "-q", "-b", "pr7");
+    writeFileSync(
+      join(server, "scripts", "resolve-pr-metadata.mjs"),
+      "process.exit(0); // forged\n"
+    );
+    writeFileSync(join(server, "scripts", "tier-escalation.mjs"), "export const real = false;\n");
+    mkdirSync(join(server, "services", "users", "src", "auth"), { recursive: true });
+    writeFileSync(join(server, "services", "users", "src", "auth", "session.ts"), "export {};\n");
+    const headSha = commitAll(server, "pr head");
+    git(server, "update-ref", "refs/pull/7/head", headSha);
+
+    git(server, "checkout", "-q", "--orphan", "pr8");
+    git(server, "rm", "-rfq", ".");
+    writeFileSync(join(server, "unrelated.txt"), "x\n");
+    const orphanSha = commitAll(server, "unrelated history");
+    git(server, "update-ref", "refs/pull/8/head", orphanSha);
+    git(server, "checkout", "-q", "main");
+
+    const work = join(root, "work");
+    git(root, "clone", "-q", "--no-tags", "--branch", "main", server, work);
+    return { root, server, work, baseSha, headSha, orphanSha };
+  }
+
+  const run = (script, cwd, env) =>
+    spawnSync("bash", ["-e", "-c", script], {
+      cwd,
+      env: { ...process.env, ...env },
+      encoding: "utf8",
+    });
+
+  const runFetch = (fx, env) =>
+    run(extractStepRun(WORKFLOW, "Fetch PR head as data"), fx.work, env);
+
+  function runDiff(fx, env) {
+    const changed = join(fx.root, "changed-files.txt");
+    const numstat = join(fx.root, "numstat.txt");
+    const out = join(fx.root, "github-output.txt");
+    writeFileSync(out, "");
+    const script = extractStepRun(WORKFLOW, "Compute base SHA and diff")
+      .replaceAll("/tmp/changed-files.txt", changed)
+      .replaceAll("/tmp/numstat.txt", numstat);
+    const result = run(script, fx.work, { ...env, GITHUB_OUTPUT: out });
+    return { result, changed, numstat, out };
+  }
+
+  it("diffs the fetched head against the base: real file list, working tree untouched", () => {
+    const fx = makeFixture();
+    const env = { PR_NUMBER: "7", HEAD_SHA: fx.headSha, PR_BASE_REF: "main" };
+    const fetched = runFetch(fx, env);
+    expect(fetched.status, fetched.stderr).toBe(0);
+    const { result, changed, numstat, out } = runDiff(fx, env);
+    expect(result.status, result.stderr).toBe(0);
+    expect(readFileSync(changed, "utf8").split("\n").filter(Boolean).sort()).toEqual([
+      "scripts/resolve-pr-metadata.mjs",
+      "scripts/tier-escalation.mjs",
+      "services/users/src/auth/session.ts",
+    ]);
+    expect(readFileSync(numstat, "utf8")).toMatch(
+      /^1\t0\tservices\/users\/src\/auth\/session\.ts$/m
+    );
+    expect(readFileSync(out, "utf8")).toMatch(/^count=3$/m);
+    // The forged files exist only as objects; the checkout is still base.
+    expect(readFileSync(join(fx.work, "scripts", "resolve-pr-metadata.mjs"), "utf8")).toBe(
+      BASE_RESOLVER
+    );
+    expect(readFileSync(join(fx.work, "scripts", "tier-escalation.mjs"), "utf8")).toBe(BASE_POLICY);
+    expect(git(fx.work, "rev-parse", "HEAD")).toBe(fx.baseSha);
+  });
+
+  it("fails when the fetched tip is not the resolved head_sha", () => {
+    const fx = makeFixture();
+    const r = runFetch(fx, { PR_NUMBER: "7", HEAD_SHA: fx.baseSha });
+    expect(r.status).not.toBe(0);
+  });
+
+  it("fails when the PR ref cannot be fetched", () => {
+    const fx = makeFixture();
+    const r = runFetch(fx, { PR_NUMBER: "999", HEAD_SHA: fx.headSha });
+    expect(r.status).not.toBe(0);
+  });
+
+  it("fails when the head shares no ancestor with origin/<base_ref>", () => {
+    const fx = makeFixture();
+    const env = { PR_NUMBER: "8", HEAD_SHA: fx.orphanSha, PR_BASE_REF: "main" };
+    const fetched = runFetch(fx, env);
+    expect(fetched.status, fetched.stderr).toBe(0);
+    const { result, changed } = runDiff(fx, env);
+    expect(result.status).not.toBe(0);
+    expect(() => readFileSync(changed, "utf8")).toThrow();
+  });
+
+  describe("Pin dispatch to the default branch", () => {
+    const guard = (env) =>
+      run(extractStepRun(WORKFLOW, "Pin dispatch to the default branch"), ROOT, env);
+
+    it("fails a dispatch run from a non-default ref", () => {
+      const r = guard({
+        EVENT_NAME: "workflow_dispatch",
+        REF: "refs/heads/automation/drift-fix",
+        DEFAULT_BRANCH: "main",
+      });
+      expect(r.status).not.toBe(0);
+      expect(r.stdout + r.stderr).toMatch(/::error::/);
+    });
+
+    it("passes a dispatch run from the default branch", () => {
+      const r = guard({
+        EVENT_NAME: "workflow_dispatch",
+        REF: "refs/heads/main",
+        DEFAULT_BRANCH: "main",
+      });
+      expect(r.status, r.stderr).toBe(0);
+    });
+
+    it("passes a non-dispatch event regardless of ref", () => {
+      const r = guard({
+        EVENT_NAME: "pull_request_target",
+        REF: "refs/heads/other",
+        DEFAULT_BRANCH: "main",
+      });
+      expect(r.status, r.stderr).toBe(0);
+    });
+
+    it("only runs for workflow_dispatch", () => {
+      const step = splitSteps(WORKFLOW).find(
+        (s) => s.name === "Pin dispatch to the default branch"
+      );
+      expect(step.text).toMatch(/if:\s*github\.event_name == 'workflow_dispatch'/);
+    });
+  });
+});
