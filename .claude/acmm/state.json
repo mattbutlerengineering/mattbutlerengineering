@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-11-02T12:06:44.896Z",
+  "lastRun": "2026-11-03T11:43:23.841Z",
   "currentLevel": 5,
   "checks": {
     "acmm:prereq-test-suite": {
@@ -172,7 +172,7 @@
     },
     "acmm:evidence-antipatterns": {
       "passed": true,
-      "evidence": "41 distinct issue/PR citations found in gotchas.md",
+      "evidence": "42 distinct issue/PR citations found in gotchas.md",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -550,7 +550,7 @@
     },
     "meta:threshold-tuning": {
       "passed": true,
-      "evidence": "16 threshold adjustment(s) in last 30 days",
+      "evidence": "17 threshold adjustment(s) in last 30 days",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -585,7 +585,7 @@
     },
     "meta:audit-freshness": {
       "passed": true,
-      "evidence": "last audit was 1 day(s) ago (within 7-day window)",
+      "evidence": "last audit was 0 day(s) ago (within 7-day window)",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -1173,6 +1173,12 @@
       "level": 5,
       "detected": 73,
       "total": 84
+    },
+    {
+      "date": "2026-11-03",
+      "level": 5,
+      "detected": 73,
+      "total": 84
     }
   ],
   "issuesCreated": {
@@ -1366,13 +1372,13 @@
         "name": "ci-flake-rate",
         "description": "CI flake rate must be below 20%",
         "passed": true,
-        "value": 0.02004008016032064,
+        "value": 0.02002002002002002,
         "threshold": 0.2,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 998
+        "sampleSize": 999
       },
       {
         "level": 4,
@@ -1385,14 +1391,14 @@
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 357
+        "sampleSize": 350
       },
       {
         "level": 5,
         "name": "auto-qa-tuning-history",
         "description": "Auto-QA tuning history must have more than 1 entry",
         "passed": true,
-        "value": 41,
+        "value": 42,
         "threshold": 1,
         "direction": "above",
         "strict": true,
@@ -1411,28 +1417,28 @@
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 357
+        "sampleSize": 350
       },
       {
         "level": 6,
         "name": "human-touch-ratio",
         "description": "Human-touch ratio must be below 50% (merged agent PRs requiring non-author commits, 30-day window)",
         "passed": true,
-        "value": 0.019662921348314606,
+        "value": 0.022988505747126436,
         "threshold": 0.5,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 357
+        "sampleSize": 350
       }
     ],
     "capped": false
   },
   "behavioral": {
     "flake": {
-      "rate_30d": 0.02004008016032064,
-      "sample_size": 998,
+      "rate_30d": 0.02002002002002002,
+      "sample_size": 999,
       "flaky_shas": [
         "19b39178d7f04bfb702895a86a0bf2866f70c559",
         "2b2af184d05e2f27dd83bac1504abad173bda939",
@@ -1456,22 +1462,64 @@
         "f3ed4390bf06ddfd60e7c915ccb9b9ef0c6e96ee"
       ],
       "insufficient_data": false,
-      "oldest_record_at": "2026-10-08T18:26:00.000Z",
-      "measured_at": "2026-11-02T12:06:44.895Z"
+      "oldest_record_at": "2026-10-09T02:08:09.000Z",
+      "measured_at": "2026-11-03T11:43:23.840Z"
     },
     "agent_pr": {
-      "sample_size": 357,
-      "merged_count": 356,
+      "sample_size": 350,
+      "merged_count": 348,
       "closed_unmerged_count": 0,
-      "open_count": 1,
+      "open_count": 2,
       "acceptance_rate_30d": 1,
       "revert_rate_30d": 0,
       "revert_detection_unavailable_reason": null,
-      "median_time_to_merge_hours": 0.21625,
-      "human_touch_ratio": 0.019662921348314606,
+      "median_time_to_merge_hours": 0.21000000000000002,
+      "human_touch_ratio": 0.022988505747126436,
       "insufficient_data": false,
-      "oldest_record_at": "2026-10-13T07:34:51.000Z",
+      "oldest_record_at": "2026-10-14T09:23:50.000Z",
       "recent_changes": [
+        {
+          "number": 8161,
+          "title": "fix(deps): pin @opentelemetry/api to 1.9.1 until the OTel 3.0 upgrade",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8161",
+          "mergedAt": "2026-11-02T21:09:45Z"
+        },
+        {
+          "number": 8137,
+          "title": "feat(availability): Go to date and the drawer's Use another day's hours",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8137",
+          "mergedAt": "2026-11-02T20:31:35Z"
+        },
+        {
+          "number": 8153,
+          "title": "fix: es-MX \"a la 1:00\" outside availability; opaque Popover panel for contrast",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8153",
+          "mergedAt": "2026-11-02T19:50:56Z"
+        },
+        {
+          "number": 8141,
+          "title": "fix(availability): Undo for series skip, restore and edit; a grown series keeps its counts",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8141",
+          "mergedAt": "2026-11-02T14:53:14Z"
+        },
+        {
+          "number": 8142,
+          "title": "fix(agent): a refusal that wrote nothing no longer spends the confirmed action",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8142",
+          "mergedAt": "2026-11-02T14:52:57Z"
+        },
+        {
+          "number": 8138,
+          "title": "fix(availability): word change summaries and clock times in the viewer's language",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8138",
+          "mergedAt": "2026-11-02T13:38:39Z"
+        },
+        {
+          "number": 8135,
+          "title": "fix(reservations): closure notice promises a refund only where the closure recorded one",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8135",
+          "mergedAt": "2026-11-02T12:57:20Z"
+        },
         {
           "number": 8133,
           "title": "fix(availability): day drawer schedule preview reaches use_schedule dates; waitlist notice and agent reopen send what they saw",
@@ -1549,56 +1597,14 @@
           "title": "fix(hospitality): Escape after Seat now lands on the walk-in's block",
           "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8097",
           "mergedAt": "2026-11-02T07:21:14Z"
-        },
-        {
-          "number": 8095,
-          "title": "fix(reservations): record each win-back send and refuse a repeat within the cooldown",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8095",
-          "mergedAt": "2026-11-02T06:57:46Z"
-        },
-        {
-          "number": 8096,
-          "title": "fix(availability): a refused revert names each stranded booking with a link",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8096",
-          "mergedAt": "2026-11-02T06:46:10Z"
-        },
-        {
-          "number": 8094,
-          "title": "test(hospitality): stop AvailabilityPage Close-dialog test flaking under load (mbe-feature-drain #8060)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8094",
-          "mergedAt": "2026-11-02T06:26:27Z"
-        },
-        {
-          "number": 8090,
-          "title": "fix(availability): Overwrite goes against the version the dialog showed, with a way back",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8090",
-          "mergedAt": "2026-11-02T06:26:24Z"
-        },
-        {
-          "number": 8092,
-          "title": "docs: add agent-authored, ready-for-human, vetoed to the label table (mbe-feature-drain #8056)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8092",
-          "mergedAt": "2026-11-02T05:17:21Z"
-        },
-        {
-          "number": 8087,
-          "title": "docs(ci): correct stale ai-attribution.yml comments (mbe-feature-drain #8055)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8087",
-          "mergedAt": "2026-11-02T05:03:14Z"
-        },
-        {
-          "number": 8082,
-          "title": "fix(hospitality): resolve API error copy through the i18n catalogs",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8082",
-          "mergedAt": "2026-11-02T04:53:40Z"
         }
       ],
-      "measured_at": "2026-11-02T12:06:44.895Z"
+      "measured_at": "2026-11-03T11:43:23.840Z"
     },
     "evals": null,
     "auto_qa_tuning": {
-      "history_count": 41,
-      "measured_at": "2026-11-02T12:06:44.895Z"
+      "history_count": 42,
+      "measured_at": "2026-11-03T11:43:23.840Z"
     }
   },
   "honestAuditNote": "Verified 2026-05-23: Level cap removed. All 3 original concerns addressed: (1) Strategic Dashboard updated with real autonomous activity audit log (PR #1688). (2) Auto-rollback drill mechanism implemented (PR #1678) — trigger with `gh workflow run auto-rollback.yml -f drill=true`. (3) llms.txt integrity fixed — root cause was Node version mismatch + stale api-versioning refs. Substance checks 5/5, behavioral gates all pass (91% acceptance, 0% reverts). Computed level 6."
