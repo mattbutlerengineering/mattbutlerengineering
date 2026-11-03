@@ -53,6 +53,12 @@ export interface GlobalNavProps extends Pick<
    * `"gen"` is a sibling app with no nav link of its own, so no link is marked active.
    */
   currentApp: "marketing" | "hospitality" | "rialto" | "gen";
+  /**
+   * Path within the current app. Home is the marketing index, so when this is
+   * set Home is current only for `"/"`. Omit it and `currentApp="marketing"`
+   * keeps marking Home current.
+   */
+  currentPath?: string;
   /** Current resolved theme for the theme toggle icon. */
   theme?: "light" | "dark";
   /** Called when the user clicks the theme toggle. */
@@ -67,7 +73,7 @@ export interface GlobalNavProps extends Pick<
 const BRAND_NAME = "MBE";
 
 export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
-  ({ currentApp, theme, onThemeToggle, labels, menu, className, ...props }, ref) => {
+  ({ currentApp, currentPath, theme, onThemeToggle, labels, menu, className, ...props }, ref) => {
     const { messages } = useRialtoLocale();
     const [menuOpen, setMenuOpen] = useState(false);
     const mobileMenuId = useId();
@@ -119,6 +125,11 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
 
     const classes = cn(styles.globalNav, className);
     const items = NAV_ITEMS.map((item) => ({ ...item, label: labels?.[item.app] ?? item.label }));
+    // Home stands for the marketing index only. Engineering pages and the 404
+    // live in the same app, and must not light Home up beside them.
+    const homeIsCurrent = currentPath === undefined || currentPath === "/";
+    const isCurrent = (app: NavItem["app"]) =>
+      currentApp === app && (app !== "marketing" || homeIsCurrent);
 
     return (
       <nav ref={ref} className={classes} aria-label={messages.globalNavigation} {...props}>
@@ -134,8 +145,8 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
               <li key={item.app}>
                 <a
                   href={item.href}
-                  className={cn(styles.link, currentApp === item.app && styles.active)}
-                  aria-current={currentApp === item.app ? "page" : undefined}
+                  className={cn(styles.link, isCurrent(item.app) && styles.active)}
+                  aria-current={isCurrent(item.app) ? "page" : undefined}
                 >
                   {item.label}
                 </a>
@@ -207,8 +218,8 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
               <li key={item.app}>
                 <a
                   href={item.href}
-                  className={cn(styles.mobileLink, currentApp === item.app && styles.active)}
-                  aria-current={currentApp === item.app ? "page" : undefined}
+                  className={cn(styles.mobileLink, isCurrent(item.app) && styles.active)}
+                  aria-current={isCurrent(item.app) ? "page" : undefined}
                 >
                   {item.label}
                 </a>

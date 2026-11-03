@@ -41,6 +41,52 @@ describe("GlobalNav", () => {
     expect(homeLink.getAttribute("aria-current")).toBe("page");
   });
 
+  describe("currentPath", () => {
+    const engineering = {
+      label: "Engineering",
+      items: [
+        { label: "Metrics", href: "/metrics", current: true },
+        { label: "Shipped", href: "/shipped" },
+      ],
+    };
+
+    function expectHomeCurrent(current: boolean) {
+      for (const link of screen.getAllByRole("link", { name: "Home" })) {
+        expect(link.className.includes("active")).toBe(current);
+        expect(link.getAttribute("aria-current")).toBe(current ? "page" : null);
+      }
+    }
+
+    it("keeps Home current on the marketing index", () => {
+      render(<GlobalNav currentApp="marketing" currentPath="/" />);
+      expect(screen.getAllByRole("link", { name: "Home" })).toHaveLength(1);
+      expectHomeCurrent(true);
+    });
+
+    it("does not mark Home current on another marketing page, in the bar or the menu", async () => {
+      const user = userEvent.setup();
+      render(<GlobalNav currentApp="marketing" currentPath="/metrics" menu={engineering} />);
+
+      expectHomeCurrent(false);
+      expect(screen.getByRole("button", { name: "Engineering" }).getAttribute("aria-current")).toBe(
+        "true"
+      );
+
+      await user.click(screen.getByRole("button", { name: "Open menu" }));
+      expectHomeCurrent(false);
+      expect(screen.getByRole("link", { name: "Metrics" }).getAttribute("aria-current")).toBe(
+        "page"
+      );
+      expect(screen.getByRole("button", { name: "Engineering" })).toBeTruthy();
+    });
+
+    it("does not mark Home current on an unknown path such as the 404 page", () => {
+      render(<GlobalNav currentApp="marketing" currentPath="/missing" />);
+      expect(screen.getAllByRole("link", { name: "Home" }).length).toBeGreaterThan(0);
+      expectHomeCurrent(false);
+    });
+  });
+
   it("applies active class for rialto app", () => {
     render(<GlobalNav currentApp="rialto" />);
 

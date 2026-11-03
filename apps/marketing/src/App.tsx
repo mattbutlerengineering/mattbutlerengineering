@@ -76,6 +76,7 @@ export function App({ theme, onThemeToggle }: AppProps) {
       </a>
       <GlobalNav
         currentApp="marketing"
+        currentPath={pathname}
         theme={theme}
         onThemeToggle={onThemeToggle}
         menu={engineeringMenu}
