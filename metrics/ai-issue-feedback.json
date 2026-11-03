@@ -1,7 +1,14 @@
 {
-  "collected_at": "2026-11-02T20:56:15.182Z",
+  "collected_at": "2026-11-03T18:33:27.995Z",
   "period_days": 90,
   "categories": {
+    "feature": {
+      "total": 133,
+      "accepted": 122,
+      "rejected": 4,
+      "wontfix": 7,
+      "rejection_rate": 0.03007518796992481
+    },
     "audit": {
       "total": 18,
       "accepted": 18,
@@ -36,13 +43,6 @@
       "rejected": 0,
       "wontfix": 0,
       "rejection_rate": 0
-    },
-    "feature": {
-      "total": 133,
-      "accepted": 122,
-      "rejected": 4,
-      "wontfix": 7,
-      "rejection_rate": 0.03007518796992481
     },
     "sentry": {
       "total": 1,
