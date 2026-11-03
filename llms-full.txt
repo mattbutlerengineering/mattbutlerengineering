@@ -4658,6 +4658,29 @@
       return "success";
     }
   </file>
+  <file path="apps/rialto-web/src/pages/auth/use-invalid-submit-focus.ts">
+    export function useInvalidSubmitFocus(
+      formRef: RefObject<HTMLFormElement | null>,
+      fallbackSelector?: string
+    ): () => void {
+      const [attempt, setAttempt] = useState(0);
+    
+      useEffect(() => {
+        if (attempt === 0) return;
+        const form = formRef.current;
+        if (!form) return;
+        const invalid = form.querySelector<HTMLElement>(INVALID_CONTROL_SELECTOR);
+        const fallback = fallbackSelector
+          ? form.querySelector<HTMLElement>(`${fallbackSelector}:not([disabled])`)
+          : null;
+        (invalid ?? fallback)?.focus();
+      }, [attempt, fallbackSelector, formRef]);
+    
+      return useCallback(() => {
+        setAttempt((n) => n + 1);
+      }, []);
+    }
+  </file>
   </section>
   <section priority="medium" role="availability">
   <file path="apps/hospitality/src/components/availability/add-dates-draft.ts">
