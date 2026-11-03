@@ -201,3 +201,11 @@ Facts measured at resume:
 - **Operate:** the `operate:` section above stands (Matt, 2026-10-18).
   Operate runs after Ship only if that minimum signal exists, counted from
   real `tier-classifier.yml` runs.
+
+## Review decision 2026-11-02 (Matt, live — not an assumption)
+
+`review.md` (`06ca05cb2`) found one open MAJOR: PR-head code (`scripts/resolve-pr-metadata.mjs`, and the workflow file itself under `pull_request`) can steer `tier-classifier.yml` and lower its own PR's tier. Matt chose **"Separate fix run, defer here"**:
+
+- The MAJOR is deferred, still open, to a new maintenance run `docs/fixes/tier-gate-pr-head-code`. That run is started as the next autorun, after this one.
+- Because the deferral is explicit, the MAJOR no longer stops this run's Ship merge. Ship merges its artifact PR under the release authorization above and records `outcome: released` for the code release that already happened (#6701, #7078).
+- Operate then runs. Its minimum signal is met per verification.md: 885 distinct PRs were classified since #6701.

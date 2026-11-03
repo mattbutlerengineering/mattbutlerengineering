@@ -65,7 +65,7 @@ The lead from verification.md ("`Resolve PR metadata` still runs PR-head code th
   3. Interim, cheap, partial: add T4 path rules for `scripts/resolve-pr-metadata.mjs`, `scripts/merge-queue-eligibility.mjs`, `.github/workflows/auto-merge.yml` and `merge-queue.yml` (today the T4 workflow regex names only `codeql|coverage-gate|tier-classifier`, `:113`), and turn on required code-owner review for `/.github/` and `/scripts/` in branch protection. These stop accidental and noisy edits; they do not stop a hostile PR, because the classifier that applies them is still the PR's.
   4. Correct `docs/change-tiers.md:28` and the `tier-classifier.yml:78-84` comment, which currently state a guarantee that does not hold.
 - Standard: none
-- Decision: **deferred to the Owner (open, unfixed).** It is not fixed by this run and not fixable inside Review (code change). Per the brief, a major stays open for the Owner and stops Ship's merge. Raising it as a fix-forward PR is the recommended route; deferring it needs an explicit Owner decision recorded here.
+- Decision: **deferred by the Owner (Matt, live, 2026-11-02) to a separate maintenance run, `docs/fixes/tier-gate-pr-head-code`** (a security defect in the gate's trust model; expected `re-entry: architect`). The finding is still open and unfixed. It is not fixed by this run, and it remains a live weakness on `main` until that run ships. With this explicit deferral recorded, the major no longer stops this run's Ship merge (brief, "Review decision 2026-11-02"). It was not fixable inside Review because it needs a code change.
 
 ### Minor: `**/generated*` and `**/registry.json` exclusions are nameable, so size escalation can be dodged
 
@@ -102,9 +102,9 @@ The lead from verification.md ("`Resolve PR metadata` still runs PR-head code th
 
 ## Verdict
 
-**Not ready to ship the merge: one MAJOR finding is unfixed.**
+**Ready to ship the merge, with one MAJOR deferred by the Owner (2026-11-02). It is still open and unfixed.**
 
 - Critical findings: none.
-- Major findings: **1, unfixed** (PR-head code can steer the tier; not fixed by #7078, not fixed in this run). The Owner must fix it (recommended: fix-forward PR per the handling above) or explicitly defer it. Per the brief's Resume 2026-11-02 rule, a major finding stops Ship's merge.
+- Major findings: **1, unfixed, deferred by the Owner** (PR-head code can steer the tier; not fixed by #7078, not fixed in this run). On 2026-11-02 Matt chose to defer it to the maintenance run `docs/fixes/tier-gate-pr-head-code` (brief, "Review decision 2026-11-02"). With the deferral recorded, it no longer stops this run's Ship merge.
 - Minor findings: 4, all deferred with reasons above.
 - The feature's stated purpose (fewer false-positive escalations) is met and verified. The open item is the gate's trust model, which predates #6701 in the workflow file but which #7078 explicitly set out to close.
