@@ -23,12 +23,12 @@ assumptions:
   - Release authorization was not given (autorun-brief.md § Release), so this is prepare-and-stop. Nothing was deployed, tagged or backfilled by this stage. The Owner merged the train.
   - There is no feature flag. "The release" is the merge train below, deployed by `Deploy Services` on push to main (deploy-via-CI policy), plus the Owner-only backfill.
   - The pre-flight was re-run on this PR's branch head after merging origin/main at bce6d761c (the last train merge, #7705). The docs-only diff of this PR does not change what the checks see.
-  - That migration `20261025000000_add_venue_availability` is applied in production is inferred from deploy evidence (below), not read from the production database. This stage has no production database access.
+  - "Write-back 2026-11-03: the frontmatter `open-follow-ups:` list is kept unchanged as the record of what the run deferred at ship time. All seven issues are CLOSED as of 2026-11-03 (see Open follow-ups); the body is the current state."
 ---
 
 # Release: Venue availability configuration, Phase 1
 
-**Status: prepared, ready for the Owner-only steps.** All 13 PRs in the train merged into main on 2026-10-26 (17:12Z–17:59Z). The pre-flight passes on main at bce6d761c. The train is deployed: `Deploy API Services` succeeded at f3ed4390b (#7703) and again at 37de61b8b (see Deploy status). What remains is the backfill and the production checks.
+**Status: prepared, ready for the Owner-only steps (re-confirmed 2026-11-03).** All 13 PRs in the train merged into main on 2026-10-26 (17:12Z–17:59Z); `pending-merge: []` is empty, so nothing is left to wait on. The pre-flight passes on main at bce6d761c. The train is deployed: `Deploy API Services` succeeded at f3ed4390b (#7703) and again at 37de61b8b, and most recently at 77f84aca5 on 2026-11-02 (see Deploy status). The Owner reported on 2026-11-03 that the Owner-only steps (confirm the migration, the backfill dry run then `--apply`, the production checks) have **not been run**, so they remain NOT RUN and the outcome stays `prepared`.
 
 ## Review verdict and how each finding is carried
 
@@ -49,7 +49,23 @@ None of the 13 adds a Prisma migration. #7671 is the only one touching a `packag
 
 ### Open follow-ups (deferred minor findings, not ship blockers)
 
-#7682, #7683, #7685, #7687, #7688, #7696, #7706.
+State read 2026-11-03 with `gh issue view <n> --json number,state,title,closedAt`. All seven are now **CLOSED**:
+
+| Issue | State  | Closed (UTC)         |
+| ----- | ------ | -------------------- |
+| #7682 | CLOSED | 2026-10-27T15:51:13Z |
+| #7683 | CLOSED | 2026-10-27T04:29:45Z |
+| #7685 | CLOSED | 2026-10-28T01:46:35Z |
+| #7687 | CLOSED | 2026-10-26T23:31:23Z |
+| #7688 | CLOSED | 2026-10-27T13:50:40Z |
+| #7696 | CLOSED | 2026-10-26T23:23:22Z |
+| #7706 | CLOSED | 2026-10-26T23:23:35Z |
+
+This read confirms the issue state only; it did not re-verify each fix against the code. The frontmatter `open-follow-ups:` keeps the ship-time list.
+
+### Post-ship availability PRs, outside this run's breakdown
+
+These merged to main after entry 12 and touched this run's directory or the feature: #7795 (c1c4ed4ba, 2026-10-27), #7877 (8773fd9fe, 2026-10-28; adds gap-review PRD stories 79–144, unprioritized), #8034 (2f647c672, 2026-11-01), #8048 (b1d01ff4e, 2026-11-02), #8051 (8b49ecf94, 2026-11-02), #8130 (32a4c38b2, 2026-11-02), #8137 (c3d069561, 2026-11-02). #8167 is still OPEN. They sit outside this run's scope (PRD stories 1–35 and the breakdown's 38 items, all checked) and were not verified or reviewed by this run. Source: `gh pr view <n> --json number,state,mergedAt,mergeCommit,title`.
 
 ## Pre-flight
 
@@ -70,9 +86,9 @@ Ship's own pre-flight items:
 - [x] Migrations have a tested forward path. `20261025000000_add_venue_availability` is additive only (review.md, Migrations pass), checked by `Validate Migrations` and `RLS Integration` in CI. The backfill has a golden test (verification.md § Migration). No PR in the train adds a migration.
 - [x] ADRs. The run added ADR-029 and ADR-030, both with rows in `docs/adr/README.md`.
 - [x] Rollback plan is concrete (below).
-- [ ] Production-only checks verification.md left open → NOT RUN (Owner-only, release steps 3–5).
+- [ ] Production-only checks verification.md left open → NOT RUN (Owner-only, release steps 3–5). The Owner confirmed on 2026-11-03 that none has been run.
 
-## Deploy status (read-only, write-back 2026-10-26 ~19:40Z)
+## Deploy status (read-only, write-back 2026-10-26 ~19:40Z; refreshed 2026-11-03)
 
 **The train's service code is deployed.** Job-level conclusions, read with `gh run view <id> --json jobs`:
 
@@ -85,11 +101,25 @@ f3ed4390b contains every service change in the train (#7704 and #7705 touch only
 
 The 18:03Z read found the earlier train runs failed or cancelled at `Wait for CI` (run 40366669803: "The requested check was never run against this ref"). That is superseded by the table above.
 
+### Refresh, 2026-11-03
+
+`gh run list --workflow deploy-services.yml --branch main --limit 60` and `gh run view <id> --json jobs`. Since 2026-10-26 there are two `Deploy Services` runs on main that concluded `failure`, both at `Wait for CI` (so `Deploy API Services` was **skipped**, nothing partial deployed). The failure came before the backfill has run, so this section applies the step-1 re-check rule:
+
+| Run         | Commit                  | Started (UTC)    | Wait for CI | Deploy API Services | Post-Deploy Verification |
+| ----------- | ----------------------- | ---------------- | ----------- | ------------------- | ------------------------ |
+| 40531703070 | d79ac90f1               | 2026-10-27 15:30 | failure     | skipped             | skipped                  |
+| 41527058138 | 77f84aca5 (contains #8137, c3d069561) | 2026-11-02 21:17 | success | success      | success                  |
+| 41572104913 | f39c40ea3 (#8166, deps bump) | 2026-11-03 03:25 | failure | skipped             | skipped                  |
+
+- 40531703070 was followed by green runs from 40537439644 onward, up to 41527058138; it is superseded.
+- 41572104913 is the **latest** run on main and is red: `Wait for CI` failed and nothing deployed. `CI` for f39c40ea3 shows `cancelled` in `gh run list --workflow ci.yml --branch main`. I did not read why beyond that. `git diff --stat 77f84aca5 origin/main -- services` shows only three `package.json` files changed in `services/` (7 insertions, 7 deletions), from the dependency bump. So the last deploy (77f84aca5, 2026-11-02 ~21:40Z) carries the whole train and all post-ship availability PRs through #8137 (`git merge-base --is-ancestor c3d069561 77f84aca5` → true); origin/main (892941ac3) is 17 commits ahead and is not deployed by a successful run. Whether main redeploys is outside this stage; no dispatch was run.
+- Nine runs on main in the window concluded `cancelled` (for example 40583367536, 41378929403), which are superseded by newer pushes.
+
 ## Release steps (Owner-only)
 
 ### 1. Confirm the train is deployed (done)
 
-Confirmed read-only at the write-back: see Deploy status. Re-check only if a later deploy fails before the backfill runs.
+Confirmed read-only at the write-back: see Deploy status. Re-checked 2026-11-03 per the rule below: a later deploy (41572104913) failed at `Wait for CI` before the backfill ran, but the last successful deploy 77f84aca5 still carries the train. Re-check again before the backfill if a newer deploy fails.
 
 ### 2. Migration: already applied (confirm)
 
@@ -180,12 +210,17 @@ There is no feature flag, and the run is about 60 merged PRs, so reverting it on
 10. Read-only deploy evidence: `gh run list --branch main`, `gh run list --workflow deploy-services.yml`, job conclusions and the failed `Wait for CI` log of 40366669803 → train not deployed (see Deploy status).
 11. No merge, deploy, dispatch, tag or backfill was run by this stage.
 12. Write-back, 2026-10-26 ~19:40Z (autorun resume): `gh run view` job conclusions for 40373394077 and 40381545372, `gh run view 40373641775 --json conclusion` → train deployed, `CI` green on main. Deploy status, the verification item and release step 1 updated. Still no deploy, dispatch or backfill run.
+13. Write-back, 2026-11-03 (autorun resume). Owner answered live (autorun-brief.md § Resume, 2026-11-03): the Owner-only steps (migration confirmation, `backfill-availability.ts` dry run then `--apply`, production checks) have **not been run**; no release authorization; Operate not specified. Read-only evidence:
+    - `gh run list --workflow deploy-services.yml --branch main --limit 60 --json …` → failures after 2026-10-26: 40531703070 (d79ac90f1, 2026-10-27) and 41572104913 (f39c40ea3, 2026-11-03), both `Wait for CI: failure`, `Deploy API Services: skipped`; latest success 41527058138 (77f84aca5): Wait for CI success, Deploy API Services success, Post-Deploy Verification success, Report Deploy Health success.
+    - `gh issue view 7682 7683 7685 7687 7688 7696 7706 --json number,state,title,closedAt` → all seven `CLOSED`.
+    - `gh pr view 7795 7877 8034 8048 8051 8130 8137 8167 --json number,state,mergedAt,mergeCommit,title` → #7795, #7877, #8034, #8048, #8051, #8130, #8137 `MERGED`; #8167 `OPEN`. These sit outside this run's breakdown.
+    - `pending-merge: []`: there is no pull request to read, so the merge train of entry 6 (13 of 13 merged) is the record. `outcome:` stays `prepared`. No merge, deploy, dispatch, tag, `doctl` or backfill was run by this stage.
 
 ## Post-release checks
 
-- Not run: nothing was released by this stage. Steps 1–5 above are the checks the Owner runs.
-- Last production deploy: `Deploy Services` 40381545372 at 19:07Z on 2026-10-26 (37de61b8b), Post-Deploy Verification success. That covers the whole train.
+- Not run: nothing was released by this stage. Steps 1–5 above are the checks the Owner runs. The Owner reported on 2026-11-03 that they have not been run. Migration confirmation, backfill dry run, backfill `--apply`, preview p95, setup-time walkthrough, live demo and the post-deploy smoke check are all NOT RUN.
+- Last successful production deploy: `Deploy Services` 41527058138 on 2026-11-02 (77f84aca5), Post-Deploy Verification success. That covers the whole train. The latest run, 41572104913 (f39c40ea3, 2026-11-03), failed at `Wait for CI` and deployed nothing.
 
 ## Outcome
 
-Prepared. The merge train has landed and the pre-flight passes on main at bce6d761c. **Ship is ready for the Owner-only steps**: the train is deployed with `CI` green on main (step 1 done), so confirm the migration, run the backfill dry run then `--apply`, and run the production checks (preview p95 ≤ 1 s, setup-time walkthrough, live demo). Then write back `outcome: released` with `released-at:`. Operate does not run in this invocation (autorun-brief.md § Operate).
+Prepared. The merge train has landed (13 of 13 merged, `pending-merge: []`) and the pre-flight passes on main at bce6d761c. **Ship is still ready for the Owner-only steps, none of which has been run (Owner, 2026-11-03)**: the train is deployed with `CI` green on main at that time (step 1 done; see the 2026-11-03 refresh for the one later red `Deploy Services` run), so confirm the migration, run the backfill dry run then `--apply`, and run the production checks (preview p95 ≤ 1 s, setup-time walkthrough, live demo). Each of those stays NOT RUN until then, so this release is not reported as released. Then write back `outcome: released` with `released-at:`. Operate does not run in this invocation (autorun-brief.md § Operate).
