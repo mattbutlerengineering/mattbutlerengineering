@@ -6,19 +6,33 @@ name: tier-classifier
 #
 # Agents and humans applying review-criteria.md can also read
 # docs/change-tiers.md to classify by hand when needed.
+#
+# TRUST SEAM — this workflow runs from the base side and executes base code
+# only. `pull_request_target` (unlike `pull_request`) runs the workflow file
+# that lives on the base branch, so a PR cannot edit the workflow that
+# classifies it. The job holds a write-capable token, so it must NEVER check
+# out, build, import or execute anything from the PR head: the head is
+# fetched as git objects only (`git fetch` + `git diff`) and read as data.
+# PR-derived values (title, body, branch names) reach shell steps only
+# through `env:`, never through `${{ }}` inside a `run:` body.
+# Do not add `ref:`/`repository:` to the checkout or any `git checkout`,
+# `merge` or `worktree add` — tier-classifier-workflow.test.mjs enforces it.
 
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, reopened]
   workflow_dispatch:
     inputs:
       pr:
         description: >-
-          PR number to classify. Used by the four automation producers
-          (production-feedback, drift-fix, pr-metrics, acmm-regression)
-          whose GITHUB_TOKEN/AUTOMATION_PAT-authored `pull_request` event
-          never reliably runs this workflow (#4070; see
-          .claude/rules/gotchas.md § CI).
+          PR number to classify. Used by the automation producers
+          (acmm-regression, docs-audit, drift-fix, metrics-collectors,
+          pr-metrics, production-feedback, record-summary-rows,
+          shipped-features-snapshot, stale-human-blocked,
+          visual-baseline-regen) whose GITHUB_TOKEN/AUTOMATION_PAT-authored
+          PRs fire no `pull_request(_target)` event (#4070; see
+          .claude/rules/gotchas.md § CI). Dispatch from the default branch
+          only (the first step fails any other ref); never pass `--ref`.
         required: true
         type: string
 
@@ -39,47 +53,78 @@ jobs:
       PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - name: Checkout (PR head)
+      - name: Pin dispatch to the default branch
+        # A dispatch runs the workflow file as it exists at the dispatched
+        # ref. Producers must not pass `--ref`; fail closed (no label) if a
+        # run starts from any other ref.
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$REF" != "refs/heads/${DEFAULT_BRANCH}" ]; then
+            echo "::error::tier-classifier must be dispatched from the default branch (${DEFAULT_BRANCH}), not ${REF}; drop --ref from the dispatching workflow"
+            exit 1
+          fi
+
+      - name: Checkout (base only)
+        # No `ref:` and no `repository:`: under `pull_request_target` and
+        # `workflow_dispatch` this is the base repo's default checkout. The PR
+        # head is never put on disk.
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
         with:
           fetch-depth: 0
-          # For a `pull_request` event this is the real PR head commit (not
-          # the ephemeral merge ref actions/checkout would otherwise use). For
-          # `workflow_dispatch` there is no `pull_request` payload, so this
-          # expression evaluates to an empty string; actions/checkout falls
-          # back to checking out `github.ref` in that case, which is exactly
-          # the ref the four automation producers pass via `--ref` when
-          # dispatching this workflow — i.e. still the PR's own head branch.
-          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
 
       - name: Resolve PR metadata
-        # Needs the repo checked out above (it runs a script that lives in
-        # it). A `pull_request` event already carries title/body/base-ref/
-        # fork-status in its payload, but `workflow_dispatch` only carries
-        # the `pr` number input above — rather than branch the rest of this
-        # job on which fields the triggering event happened to supply, both
-        # paths resolve everything from the API by PR number here. See
+        # Runs the BASE checkout's copy of the resolver, so a PR cannot change
+        # what it does. A `pull_request_target` event carries title/body/
+        # base-ref/fork-status in its payload, but `workflow_dispatch` only
+        # carries the `pr` number input above — rather than branch the rest of
+        # this job on which fields the triggering event happened to supply,
+        # both paths resolve everything from the API by PR number here. See
         # scripts/resolve-pr-metadata.mjs.
         id: pr
         run: node scripts/resolve-pr-metadata.mjs --pr "$PR_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch PR head as data
+        # Objects only: nothing is checked out or merged. The tip must be the
+        # head_sha the resolver reported; a push that raced this run fails the
+        # step (the next `synchronize` run classifies the new head).
+        env:
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "refs/pull/${PR_NUMBER}/head"
+          fetched=$(git rev-parse FETCH_HEAD)
+          if [ "$fetched" != "$HEAD_SHA" ]; then
+            echo "::error::PR head moved during the run (fetched ${fetched}, resolved ${HEAD_SHA})"
+            exit 1
+          fi
 
       - name: Compute base SHA and diff
         id: diff
         env:
           PR_BASE_REF: ${{ steps.pr.outputs.base_ref }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
         run: |
-          base_sha=$(git merge-base "origin/${PR_BASE_REF}" HEAD)
-          git diff --name-only "${base_sha}...HEAD" > /tmp/changed-files.txt
+          set -euo pipefail
+          base_sha=$(git merge-base "origin/${PR_BASE_REF}" "$HEAD_SHA")
+          # Revisions only (no working-tree reads, no external diff/textconv
+          # drivers): the PR head is data.
+          git diff --no-ext-diff --no-textconv --name-only "$base_sha" "$HEAD_SHA" > /tmp/changed-files.txt
           # Per-file additions (path = 3rd tab column); the size rule in
           # scripts/tier-escalation.mjs needs them to exclude generated files.
-          git diff --numstat "${base_sha}...HEAD" > /tmp/numstat.txt
+          git diff --no-ext-diff --no-textconv --numstat "$base_sha" "$HEAD_SHA" > /tmp/numstat.txt
           echo "count=$(wc -l < /tmp/changed-files.txt)" >> "$GITHUB_OUTPUT"
 
       - name: Load tier policy from base branch
-        # The working tree is the PR HEAD, so importing
-        # scripts/tier-escalation.mjs from it would let a PR rewrite the
-        # escalation policy and lower its own tier. Read the module from the
-        # base branch instead; the PR-head checkout stays for the diff above.
+        # The checkout is the base repo and the PR head exists only as fetched
+        # objects, so nothing here can be rewritten by the PR. `PR_BASE_REF`
+        # comes from the base-side resolver; the policy module is read from
+        # `origin/<base_ref>`.
         # A base branch without the module fails this step, so Classify never
         # runs, no tier label lands, and merge-queue-eligibility fails closed.
         env:
@@ -152,7 +197,7 @@ jobs:
           main().catch((e) => { console.error(e); process.exit(1); });
           async function main() {
           // Base-branch copy written by "Load tier policy from base branch";
-          // never the PR-head checkout's scripts/tier-escalation.mjs.
+          // the PR head is never checked out, so none of its scripts exist on disk.
           const escalation = await import(pathToFileURL('/tmp/tier-policy/tier-escalation.mjs').href);
 
           let highest = 0;

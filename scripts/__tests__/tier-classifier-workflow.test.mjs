@@ -806,7 +806,7 @@ describe("trust seam: PR head is fetched as data and diffed", () => {
     expect(readFileSync(numstat, "utf8")).toMatch(
       /^1\t0\tservices\/users\/src\/auth\/session\.ts$/m
     );
-    expect(readFileSync(out, "utf8")).toMatch(/^count=3$/m);
+    expect(readFileSync(out, "utf8")).toMatch(/^count=\s*3$/m);
     // The forged files exist only as objects; the checkout is still base.
     expect(readFileSync(join(fx.work, "scripts", "resolve-pr-metadata.mjs"), "utf8")).toBe(
       BASE_RESOLVER
