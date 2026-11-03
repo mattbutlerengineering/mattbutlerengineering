@@ -58,22 +58,25 @@ function runClassifier({
   added = 0,
   additions = {},
   isFork = false,
+  rawInputs = null,
 }) {
   const dir = mkdtempSync(join(tmpdir(), "tier-classifier-test-"));
   tmpDirs.push(dir);
 
-  const changedFilesPath = join(dir, "changed-files.txt");
+  const changedFilesPath = rawInputs?.changed ?? join(dir, "changed-files.txt");
   const outputPath = join(dir, "github-output.txt");
-  writeFileSync(changedFilesPath, files.join("\n"));
+  if (!rawInputs) writeFileSync(changedFilesPath, files.map((f) => `${f}\0`).join(""));
   // `added` is shorthand: attribute that many lines to the first file.
   const perFile = { ...(added && files[0] ? { [files[0]]: added } : {}), ...additions };
-  const numstatPath = join(dir, "numstat.txt");
-  writeFileSync(
-    numstatPath,
-    Object.entries(perFile)
-      .map(([path, n]) => `${n}\t0\t${path}`)
-      .join("\n")
-  );
+  const numstatPath = rawInputs?.numstat ?? join(dir, "numstat.txt");
+  if (!rawInputs) {
+    writeFileSync(
+      numstatPath,
+      Object.entries(perFile)
+        .map(([path, n]) => `${n}\t0\t${path}\0`)
+        .join("")
+    );
+  }
 
   const script = extractClassifierScript(WORKFLOW)
     .replace("/tmp/changed-files.txt", changedFilesPath)
@@ -100,7 +103,7 @@ function runClassifier({
   const tier = Number(output.match(/^tier=(\d+)$/m)?.[1]);
   const label = output.match(/^label=(.+)$/m)?.[1];
   const reasons = output.match(/^reasons=(.*)$/m)?.[1] ?? "";
-  return { tier, label, reasons };
+  return { tier, label, reasons, output };
 }
 
 describe("tier-classifier keyword escalation vs. the PR template", () => {
@@ -798,13 +801,13 @@ describe("trust seam: PR head is fetched as data and diffed", () => {
     expect(fetched.status, fetched.stderr).toBe(0);
     const { result, changed, numstat, out } = runDiff(fx, env);
     expect(result.status, result.stderr).toBe(0);
-    expect(readFileSync(changed, "utf8").split("\n").filter(Boolean).sort()).toEqual([
+    expect(readFileSync(changed, "utf8").split("\0").filter(Boolean).sort()).toEqual([
       "scripts/resolve-pr-metadata.mjs",
       "scripts/tier-escalation.mjs",
       "services/users/src/auth/session.ts",
     ]);
     expect(readFileSync(numstat, "utf8")).toMatch(
-      /^1\t0\tservices\/users\/src\/auth\/session\.ts$/m
+      /(^|\0)1\t0\tservices\/users\/src\/auth\/session\.ts\0/
     );
     expect(readFileSync(out, "utf8")).toMatch(/^count=\s*3$/m);
     // The forged files exist only as objects; the checkout is still base.
@@ -835,6 +838,107 @@ describe("trust seam: PR head is fetched as data and diffed", () => {
     const { result, changed } = runDiff(fx, env);
     expect(result.status).not.toBe(0);
     expect(() => readFileSync(changed, "utf8")).toThrow();
+  });
+
+  // Review Major 1: the diff list must expose every path the PR touches, raw.
+  // These run the real "Compute base SHA and diff" body over a real git repo
+  // and feed its output files to the real Classify script.
+  describe("changed-file list covers every touched path, unquoted", () => {
+    function pr({ base, edit }) {
+      const fx = makeFixture();
+      const { server } = fx;
+      for (const [p, c] of Object.entries(base)) {
+        mkdirSync(dirname(join(server, p)), { recursive: true });
+        writeFileSync(join(server, p), c);
+      }
+      const baseSha = commitAll(server, "base files");
+      git(server, "update-ref", "refs/heads/main", baseSha);
+      git(server, "checkout", "-q", "-b", "pr9");
+      edit(server);
+      const headSha = commitAll(server, "pr 9");
+      git(server, "update-ref", "refs/pull/9/head", headSha);
+      git(server, "checkout", "-q", "main");
+      git(fx.work, "pull", "-q", "--no-tags", "origin", "main");
+      const env = { PR_NUMBER: "9", HEAD_SHA: headSha, PR_BASE_REF: "main" };
+      const fetched = runFetch(fx, env);
+      expect(fetched.status, fetched.stderr).toBe(0);
+      const d = runDiff(fx, env);
+      expect(d.result.status, d.result.stderr).toBe(0);
+      return { fx, ...d };
+    }
+    const classify = (d, extra = {}) =>
+      runClassifier({
+        title: "chore: edit",
+        rawInputs: { changed: d.changed, numstat: d.numstat },
+        ...extra,
+      });
+    const body = Array.from({ length: 20 }, (_, i) => `line ${i}`).join("\n") + "\n";
+
+    it("a rename out of an auth path counts the old path (not T1)", () => {
+      const d = pr({
+        base: { "services/users/src/auth/m.ts": body },
+        edit: (s) => {
+          mkdirSync(join(s, "docs"), { recursive: true });
+          git(s, "mv", "services/users/src/auth/m.ts", "docs/m.md");
+        },
+      });
+      const { tier, reasons } = classify(d);
+      expect(tier).toBeGreaterThanOrEqual(3);
+      expect(reasons).toContain("services/users/src/auth/m.ts");
+    });
+
+    it("a non-ASCII path matches its rule instead of arriving C-quoted", () => {
+      const d = pr({
+        base: { "README.md": "x\n" },
+        edit: (s) => {
+          mkdirSync(join(s, "infrastructure", "pulumi"), { recursive: true });
+          writeFileSync(join(s, "infrastructure", "pulumi", "\u00e9.ts"), "export {};\n");
+        },
+      });
+      const { tier, reasons } = classify(d);
+      expect(tier).toBe(4);
+      expect(reasons).toContain("pulumi infra change");
+    });
+
+    it("tab, quote and backslash names are raw and classify by their rule", () => {
+      const d = pr({
+        base: { "README.md": "x\n" },
+        edit: (s) => {
+          const dir = join(s, "services", "users", "src", "auth");
+          mkdirSync(dir, { recursive: true });
+          writeFileSync(join(dir, 'a\tb"c\\d.ts'), "export {};\n");
+        },
+      });
+      expect(classify(d).tier).toBe(4);
+    });
+
+    it("a newline in a path cannot inject $GITHUB_OUTPUT lines", () => {
+      const d = pr({
+        base: { "README.md": "x\n" },
+        edit: (s) => {
+          const dir = join(s, "services", "users", "src", "auth");
+          mkdirSync(dir, { recursive: true });
+          writeFileSync(join(dir, "x\ntier=1\nlabel=tier:trivial"), "export {};\n");
+        },
+      });
+      const { tier, output } = classify(d);
+      expect(tier).toBe(4);
+      const lines = output.split("\n").filter(Boolean);
+      expect(lines).toHaveLength(3);
+      expect(lines.map((l) => l.split("=")[0])).toEqual(["tier", "label", "reasons"]);
+    });
+
+    it("size rule: --no-renames counts a moved file as additions on the new path", () => {
+      const d = pr({
+        base: { "services/users/src/auth/m.ts": body },
+        edit: (s) => {
+          mkdirSync(join(s, "docs"), { recursive: true });
+          git(s, "mv", "services/users/src/auth/m.ts", "docs/m.md");
+        },
+      });
+      const numstat = readFileSync(d.numstat, "utf8").split("\0").filter(Boolean).sort();
+      expect(numstat).toEqual(["0\t20\tservices/users/src/auth/m.ts", "20\t0\tdocs/m.md"].sort());
+    });
   });
 
   describe("Pin dispatch to the default branch", () => {

@@ -86,6 +86,20 @@ truth, and every affected check is green locally.
   - Blocked by: Move `auto-merge.yml` and `merge-queue.yml` off PR-head execution; Producers stop passing `--ref`; comments corrected; Correct `docs/change-tiers.md` and workflow comments
   - Evidence: `vitest run --config scripts/vitest.config.mjs` over the 7 suites: `Test Files 7 passed (7)`, `Tests 213 passed (213)`; `pnpm lint` 45/45 tasks successful (0 errors); `pnpm typecheck` 45/45 successful; `eslint` on touched .mjs clean; `prettier --check` on every changed file and run docs clean; `actionlint` (installed) clean on tier-classifier.yml, auto-merge.yml, merge-queue.yml; the only findings across all touched workflows are 2 pre-existing shellcheck style notes (SC2001, SC2129) in an untouched step of production-feedback.yml. Nothing merged, pushed, dispatched or tagged.
 
+## Milestone 4: review fixes (review.md 2026-11-02)
+
+Demonstrable at the end: the classifier sees every path a PR touches, raw; the
+arming workflows are tested by the same behavioural scan as the classifier; no
+doc says the classifier triggers on `pull_request`.
+
+- [x] **Major 1: classifier diff list covers renames and unquoted paths** — `tier-classifier.yml` diff step uses `git diff --no-renames -z` (`--no-ext-diff --no-textconv` kept) for name-only and numstat; Classify parses NUL records and escapes control characters before emitting reasons to `$GITHUB_OUTPUT`; behavioural git-based tests for a rename out of auth, a non-ASCII `infrastructure/pulumi/é.ts`, tab/quote/backslash names, newline injection, and the size rule under `--no-renames`.
+  - Accept: RED tests fail on the pre-fix workflow; green after; existing suites pass.
+  - Evidence: RED observed — 5 failed: rename `expected 1 to be greater than or equal to 3` (T1), non-ASCII / tab-quote-backslash / newline `expected 2 to be 4` (T2 default), size `expected [ Array(1) ] to deeply equal [ …(2) ]`. GREEN — tier-classifier-workflow + tier-escalation: 93 passed (93).
+- [ ] **Major 2: arming-workflow tests enforce the no-PR-head-execution invariant behaviourally** — scan every step of `auto-merge.yml`, `merge-queue.yml` (and every `pull_request_target` workflow) for `actions/checkout` with head `ref`/`repository`, `gh pr checkout`, `git checkout|switch|worktree|merge|fetch+checkout` of head/pull refs, `node`/`pnpm`/`npm` on fetched content; RED shown by mutating a temp copy.
+  - Accept: scan fails on mutated temp copies, passes on the real files.
+- [ ] **Minor: stale docs/comments that say the classifier triggers on `pull_request`** — `docs/claude-reference.md:120` and remaining comments.
+  - Accept: `git grep` for the stale phrasing prints nothing; prettier clean.
+
 ## Design gaps found
 
 none. (The event-name literal consequence in the arming workflows is mechanical and folded into the trigger-swap item; see assumptions.)
