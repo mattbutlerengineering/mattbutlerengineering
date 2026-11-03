@@ -877,3 +877,29 @@ describe("trust seam: PR head is fetched as data and diffed", () => {
     });
   });
 });
+
+// Defence in depth: the execution context carries the security property, these
+// rules make an edit to any file that decides merge eligibility land T4.
+describe("tier-classifier path rules: merge-gate files are T4", () => {
+  it.each([
+    "scripts/resolve-pr-metadata.mjs",
+    "scripts/merge-queue-eligibility.mjs",
+    ".github/workflows/auto-merge.yml",
+    ".github/workflows/merge-queue.yml",
+  ])("%s lands T4", (file) => {
+    const { tier, reasons } = runClassifier({ title: "chore: edit", body: "", files: [file] });
+    expect(tier).toBe(4);
+    expect(reasons).toContain(`\`${file}\` -> T4`);
+  });
+
+  it.each([
+    [".github/workflows/auto-merge-notes.yml", 2],
+    [".github/workflows/merge-queue.yml.bak", 2],
+    ["scripts/resolve-pr-metadata.test.mjs", 2],
+    ["scripts/resolve-pr-metadata.mjs.orig", 2],
+    ["scripts/merge-queue-eligibility-notes.md", 1],
+  ])("near-miss %s stays at its existing tier T%i", (file, expected) => {
+    const { tier } = runClassifier({ title: "chore: edit", body: "", files: [file] });
+    expect(tier).toBe(expected);
+  });
+});
