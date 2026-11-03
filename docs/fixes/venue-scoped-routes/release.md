@@ -2,9 +2,11 @@
 stage: ship
 run: maintenance:venue-scoped-routes
 date: 2026-11-02
-outcome: prepared
+outcome: released
+released-at: 2026-11-03T03:26:14Z
 pending-merge: https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8173
 assumptions:
+  - "Merge authorization for the write-back: Matt gave in-session permission on 2026-11-02 to merge any PRs; PR #8173 was merged under it. The earlier prepare-and-stop rule (autorun-brief.md, Resume 2026-11-02) applied to the prepare pass and is superseded for this merge."
   - "Release authorization for this resume is prepare-and-stop (autorun-brief.md, Resume 2026-11-02, and the run's 'STOP before merging any PR' rule). No merge, deploy dispatch, publish, tag, issue comment or auto-merge was done."
   - "This run's code reached main through six already-merged squash PRs (#6132, #6193, #6224, #6323, #6363, #6365). Ship does not re-release it. What is pending is the artifact PR #8173, which changes only docs/fixes/venue-scoped-routes/."
   - "No tracker intake issue exists for this run (brief: Tracker none), so the skill's close-the-intake-issue step does not apply."
@@ -87,6 +89,7 @@ git revert --no-edit 935567ee23870c7b87f9cf5f9e96ef65b0909b22   # #6132
 5. `gh pr view 8173` → `state OPEN`, `isDraft false`, `autoMergeRequest null`, no labels, `MERGEABLE`.
 6. Deploy lookups for `3cf46fd12`, `033669bcf` and the latest main push → see the table above.
 7. Not done, by authorization: merge, deploy dispatch, publish, tag, changeset release, issue comments, auto-merge.
+8. Write-back: `gh pr view 8173 --json state,mergedAt,mergeCommit` → `MERGED`, `mergedAt 2026-11-03T03:26:14Z`, merge commit `3e1ba31c661159bb70c08c04e6d1aeb26e5e92ea`. Rewrote `outcome: prepared` → `released`, added `released-at:`, kept `pending-merge:`.
 
 ## Merge and release steps for Matt
 
@@ -101,4 +104,4 @@ git revert --no-edit 935567ee23870c7b87f9cf5f9e96ef65b0909b22   # #6132
 
 ## Outcome
 
-Prepared and stopped. PR #8173 is open, non-draft, mergeable, auto-merge off. The code was already on main through six merged PRs and its deploy runs succeeded per CI. CI on #6365's merge commit had a red `AI Antipattern Ratchet`/`CI Gate` run, recorded above and not resolved by this stage.
+Released. PR #8173 (the artifact PR, docs-only) merged at 2026-11-03T03:26:14Z as squash commit `3e1ba31c661159bb70c08c04e6d1aeb26e5e92ea`, confirmed by `gh pr view 8173 --json state,mergedAt,mergeCommit` → `state MERGED`. The merge was made under Matt's in-session permission of 2026-11-02 to merge any PRs, which satisfies the run's rule that merges stay with Matt. The code itself was already on main through six merged PRs (#6132, #6193, #6224, #6323, #6363, #6365) and its deploy runs succeeded per CI. CI on #6365's merge commit had a red `AI Antipattern Ratchet`/`CI Gate` run, recorded above and not resolved by this stage. review.md's open minors (M-1..M-4) and suspicions (S-1, S-2) remain as recorded. No deploy, publish or tag was needed; operate is skipped per the brief.
