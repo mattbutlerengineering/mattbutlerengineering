@@ -23,6 +23,7 @@ assumptions:
   - Release authorization was not given (autorun-brief.md § Release), so this is prepare-and-stop. Nothing was deployed, tagged or backfilled by this stage. The Owner merged the train.
   - There is no feature flag. "The release" is the merge train below, deployed by `Deploy Services` on push to main (deploy-via-CI policy), plus the Owner-only backfill.
   - The pre-flight was re-run on this PR's branch head after merging origin/main at bce6d761c (the last train merge, #7705). The docs-only diff of this PR does not change what the checks see.
+  - That migration `20261025000000_add_venue_availability` is applied in production is inferred from deploy evidence (below), not read from the production database. This stage has no production database access.
   - "Write-back 2026-11-03: the frontmatter `open-follow-ups:` list is kept unchanged as the record of what the run deferred at ship time. All seven issues are CLOSED as of 2026-11-03 (see Open follow-ups); the body is the current state."
 ---
 
