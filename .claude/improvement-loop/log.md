@@ -4691,6 +4691,49 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 **Bootstrap note:** this cloud checkout had no `node_modules`/workspace `dist/` on start (not a worktree, but the same missing-build symptom) — ran `pnpm install --frozen-lockfile` then `pnpm bootstrap:worktree` before any sensor script would resolve `@mbe/*` imports.
 **Sentry triage:** skipped — Sentry MCP's stored access token is expired (`find_organizations` returned "Authorization Expired"); re-authorization needs a human. No Sentry-labelled issues filed this run.
 
+## 2026-11-03 — mbe-evening
+
+### Metrics
+
+| Metric                                                                                    | Value                                      | Status                                        |
+| ----------------------------------------------------------------------------------------- | ------------------------------------------ | --------------------------------------------- |
+| Created (7d, audit+ci-fix)                                                                | 28                                         | -                                             |
+| Closed (7d, audit+ci-fix)                                                                 | 33                                         | -                                             |
+| Closure Rate                                                                              | 33/28 ≈ 118%                               | Green (>80%)                                  |
+| Time-to-Close (mean, 7d closes)                                                           | 71.9h                                      | Yellow (24-72h, right at the boundary)        |
+| Agent Success (has-pr/(has-pr+failed), open)                                              | 1/1 = 100%                                 | Green (>70%)                                  |
+| CI Pass (`main`, last 20 runs, skipped excluded)                                          | 11/11 = 100%                               | Green (>95%)                                  |
+| Queue (ready, open)                                                                       | 0                                          | Green (<5)                                    |
+| Stale (ready>7d)                                                                          | 0                                          | Green                                         |
+| Blocked (agent-failed, open)                                                              | 0                                          | Green                                         |
+| Skipped (agent-skip, open)                                                                | 0                                          | Green                                         |
+| Daily/7d Spend (attributed, `.claude/agent-spend/sessions.jsonl`)                         | $0 (0 attributed sessions)                 | Green — no `mbe agent run`/`eval` this window |
+| Queue worker usage (7d, `metrics/queue-telemetry.jsonl`, not in the Daily/7d Spend total) | 7 sessions, 1,441,887 tokens, cost unknown | Unmeasured — never reported as $0             |
+| Cost/Issue                                                                                | unknown                                    | Unmeasured (no `cost_usd` on queue rows)      |
+| Reverts (7d)                                                                              | 1                                          | Green (<3/week)                               |
+
+### Patterns
+
+- Zero `ready`-labeled issues open — nothing to claim or implement this iteration. The implement-queue iteration's entire scope was Phase 0/2 (gate) on the 6 pre-existing open PRs; no new worktree workers dispatched.
+- 4 of 6 open PRs — **#8168** (docs/bootstrap-worktree), **#8166** (dependabot 37-bump), **#8160** (fix/metrics sdlc-speed), **#8005** (changeset-release/main) — have green `CI Gate` and passed full review (fast-path was unavailable all run, see below, so every PR got the universal reviewer plus any matched specialist; no defects found, 9/10 across the board, `dependency-update-reviewer` SAFE-verdicted #8166 and #8005). All 4 are **reviewed, green, awaiting human merge** — this session's own merge action is blocked again by the documented `[Merge Without Review]` CCR permission-classifier denial (#6125); not retried, per the gotcha. Verdict comments posted on each.
+- **#8167** correctly stayed held (`needs-review`, pre-existing) — no action taken.
+- **#8157** (chaos synthetic-bug PR, opened by `github-actions[bot]`) is `gate-missing`, not `failed`: a fresh instance of the documented `GITHUB_TOKEN`-authored-push anti-recursion trap — `CI Gate`'s `pull_request` event never fired at all. The usual recovery (`gh workflow run ci.yml --ref <branch>`) was denied (`403 Resource not accessible by integration` — no `actions: write` in this session). Needs a human or an `actions: write` session to unstick; flagged on the PR.
+- **#8005** also flagged for an unusual pile-up of ~12 non-required workflow runs parked in `action_required` on its head SHA (E2E, Secret Scan, Rialto Visual Regression, Auto Review, ADR check, Merge Queue, Auto-Merge Policy, PR Preview Deploy, Deploy Storybook, ai-attribution, tier-classifier, a duplicate CI run). None is the required `CI Gate`, so it doesn't block this skill's gate, but it's unusual enough to be worth a direct look at the repo's Actions/environment-approval settings.
+- **Recurring, long-unaddressed environment cost:** this cloud session's main checkout started with **zero `node_modules` and no built workspace `dist/`s at all** (not a worktree — the primary checkout). `.claude/improvement-loop/log.md` shows this exact "fresh checkout, no `node_modules`" cold-start noted in at least 15 prior entries stretching back to 2026-06-20 (grep: lines 96, 1412, 1936, 2052, 2324, 3254, 3420, 3502, 3659, 3908, 3937, 4023, 4621, 4691, and now today), each run re-paying the same `pnpm install --frozen-lockfile` (+ a package/filter build) cost before any `@mbe/*`-importing script would resolve. No open `meta-improvement` issue tracks it despite ~4.5 months of recurrence — filing one this run (within budget; see Recommendations).
+- The dispatched PR-gate review was itself done without nested `Agent`-tool dispatch (not available to that subagent in this run) — it performed the universal + specialist review directly against the rubric instead. Noted as a one-off environment constraint, not a process change.
+- Reverts (7d): 1 — below the 3/week circuit-breaker threshold, not investigated further.
+
+### Recommendations
+
+- Human merge needed for 4 reviewed-green PRs: #8168, #8166, #8160, #8005.
+- #8157 needs a human (or an `actions: write` session) to dispatch `ci.yml` on `chaos/synthetic-bug-1793649868182` before it can be gated at all.
+- Worth a direct look at why #8005's head SHA has a dozen workflows parked in `action_required` — possibly an environment-protection-rule change that now gates bot-authored branches broadly.
+- Filed `[Meta]` issue for the recurring no-`node_modules` cold-start (see below) — a committed `SessionStart` hook (the `session-start-hook` skill exists for exactly this) running `pnpm install --frozen-lockfile` would retire ~15+ repeated manual fixes.
+
+### Skipped Issues
+
+0 `agent-skip` issues open — nothing to manually review.
+
 ## 2026-11-03
 
 **queueEfficiency:** composite 0.856 (baseline n/a) — healthy
