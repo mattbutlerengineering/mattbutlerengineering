@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { forwardRef } from "react";
 import type { ChangeEvent, FocusEvent, ReactNode } from "react";
 import { MemoryRouter, Routes, Route } from "react-router";
@@ -518,5 +519,88 @@ describe("SignIn — success handoff", () => {
     });
 
     expect(screen.getByTestId("dashboard-page")).toBeInTheDocument();
+  });
+});
+
+describe("SignIn — invalid submit focus", () => {
+  function submitButton() {
+    return screen.getByRole("button", { name: /^sign in$/i });
+  }
+
+  it("does not steal focus on first mount", () => {
+    renderSignIn();
+    expect(document.body).toHaveFocus();
+  });
+
+  it("moves focus to the email field when an invalid email is submitted from the button", () => {
+    renderSignIn();
+    fireEvent.change(screen.getByLabelText("Email address"), { target: { value: "notanemail" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret" } });
+
+    const submit = submitButton();
+    submit.focus();
+    fireEvent.click(submit);
+
+    const email = screen.getByLabelText("Email address");
+    expect(email).toHaveFocus();
+    expect(email).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText(/valid email/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/authenticator/i)).not.toBeInTheDocument();
+  });
+
+  it("moves focus to the password when that is the first invalid field", () => {
+    renderSignIn();
+    fireEvent.change(screen.getByLabelText("Email address"), {
+      target: { value: "ada@example.com" },
+    });
+
+    const submit = submitButton();
+    submit.focus();
+    fireEvent.click(submit);
+
+    expect(screen.getByLabelText("Password")).toHaveFocus();
+    expect(screen.getByLabelText("Password")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("Email address")).not.toHaveAttribute("aria-invalid");
+  });
+
+  it("returns focus to the first invalid field when the same invalid submit is repeated", () => {
+    renderSignIn();
+    fireEvent.change(screen.getByLabelText("Email address"), { target: { value: "notanemail" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret" } });
+
+    const submit = submitButton();
+    submit.focus();
+    fireEvent.click(submit);
+    expect(screen.getByLabelText("Email address")).toHaveFocus();
+
+    submit.focus();
+    fireEvent.click(submit);
+    expect(screen.getByLabelText("Email address")).toHaveFocus();
+  });
+
+  it("does not pull focus back when blur validation flags the email", () => {
+    renderSignIn();
+    const email = screen.getByLabelText("Email address");
+    const password = screen.getByLabelText("Password");
+    fireEvent.change(email, { target: { value: "notanemail" } });
+    password.focus();
+    fireEvent.blur(email);
+
+    expect(password).toHaveFocus();
+    expect(screen.getByText(/valid email/i)).toBeInTheDocument();
+  });
+
+  it("submits an invalid form with Enter from the focused Sign in button", async () => {
+    vi.useRealTimers();
+    const user = userEvent.setup({ delay: null });
+    renderSignIn();
+    fireEvent.change(screen.getByLabelText("Email address"), { target: { value: "notanemail" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret" } });
+
+    submitButton().focus();
+    await user.keyboard("{Enter}");
+
+    expect(screen.getByLabelText("Email address")).toHaveFocus();
+    expect(screen.getByText(/valid email/i)).toBeInTheDocument();
   });
 });

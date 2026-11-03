@@ -133,6 +133,14 @@
       export function meterVariantForScore(score: number): "error" | "default" | "success" { /* ... */ }
     </item>
   </file>
+  <file path="src/pages/auth/use-invalid-submit-focus.ts">
+    <item priority="high">
+      export function useInvalidSubmitFocus(
+        formRef: RefObject<HTMLFormElement | null>,
+        fallbackSelector?: string
+      ): () => void { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="component-count.config.ts">
   <file path="component-count.config.ts">
