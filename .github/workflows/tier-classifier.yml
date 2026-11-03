@@ -155,8 +155,10 @@ jobs:
             { tier: T4, when: (f) => f === 'prisma/schema.prisma', why: 'prisma schema change' },
             { tier: T4, when: (f) => /^infrastructure\/pulumi\//.test(f), why: 'pulumi infra change' },
             { tier: T4, when: (f) => f === '.github/CODEOWNERS', why: 'CODEOWNERS edit' },
-            { tier: T4, when: (f) => /^\.github\/workflows\/(codeql|coverage-gate|tier-classifier)\.yml$/.test(f), why: 'merge-gate workflow edit' },
+            { tier: T4, when: (f) => /^\.github\/workflows\/(codeql|coverage-gate|tier-classifier|auto-merge|merge-queue)\.yml$/.test(f), why: 'merge-gate workflow edit' },
             { tier: T4, when: (f) => f === 'scripts/tier-escalation.mjs', why: 'tier-escalation policy edit (merge-gate policy)' },
+            { tier: T4, when: (f) => f === 'scripts/resolve-pr-metadata.mjs', why: 'merge-gate script edit (resolves the PR metadata the classifier trusts)' },
+            { tier: T4, when: (f) => f === 'scripts/merge-queue-eligibility.mjs', why: 'merge-gate script edit (decides auto-merge eligibility)' },
             { tier: T4, when: (f) => /^services\/users\/src\/auth\//.test(f) || /^packages\/auth\/src\/middleware\//.test(f), why: 'auth-critical code path' },
             { tier: T4, when: (f) => f === 'docs/SECURITY-AI.md', why: 'SECURITY-AI.md edit' },
 
