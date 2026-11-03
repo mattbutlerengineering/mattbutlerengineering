@@ -4752,3 +4752,21 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 - **P1 breaches escalated:** 0 (no open `ui-quality:p1` issues).
 - **Coverage before this fire:** 100% (135/135 covered, not provisional, first run 2026-10-01); 20 hospitality routes `unreachable:auth`. `coverage.mjs` exit 0 — no breach.
 - **Note (environment):** the MCP tool names this routine's prompt uses (`get_issue`, `create_issue`, `update_issue`, `search_issues`) do not exist in this session. The available equivalents are `issue_read`, `issue_write` and `list_issues`; GitHub MCP `search_*` tools are unavailable here, so the `ui-quality` and `ui-quality:p1` label sweeps were done with `list_issues` filtered by label over every page (37 and 0 results, `hasNextPage: false` on both).
+
+## 2026-11-03 — mbe-learning-loop
+
+**Sensors:** 16/17 available
+**Regressions:** 0 detected, 0 issues created
+**Verifications:** 5 checked (48h window), 0 verified, 0 failed (reopened), 5 skipped (no CI runs or Lighthouse inventory to verify against)
+**Skill proposals:** 0 (not Friday — session-log analysis skipped)
+**Threshold notes:**
+
+- Threshold auto-tuner (run inside `verify-fixes.mjs`) applied 1 adjustment: `acmm` headroom 1.44 → 1.47.
+- 30-day false-positive check over the sensor-label-map categories this loop files into (`ci-fix`, `acmm`, `audit`, `sentry`) — excluding `feature`/`meta-improvement`/`agent-failed`/`dependencies`, which other routines create: 19 wontfix+rejected / 50 total ≈ **38%**, over the 30% loosen-threshold line, driven almost entirely by `ci-fix` (17/29 wontfix, 59%). Per the skill's own rule this flags for threshold loosening on the `ci-fix` sensor specifically — worth a follow-up look at why so many filed `ci-fix` issues are closed `wontfix` rather than fixed.
+- Fix-effectiveness rate over the same 30-day window, counting only conclusive (non-`skip`) verification attempts: 6/10 ≈ 60%, at/above the 50% floor — no note. The window is dominated by `skip` outcomes (90/100) because CI-run and Lighthouse-inventory lookups are frequently unavailable to this cloud session (no egress, GraphQL blocked); that's a measurement-coverage gap, not evidence of fix failure.
+
+**Environment notes:**
+
+- This cloud checkout started with **zero `node_modules` and no built workspace `dist/`s** (same recurring cold-start noted in ~15+ prior entries, e.g. earlier in this file at the 2026-11-03 implement-queue entry above) — required a full `pnpm install --frozen-lockfile` + `pnpm bootstrap:worktree` before `sensor-report.mjs` (which imports `@mbe/gh-client`) would resolve.
+- `gh`'s GraphQL-backed calls (`gh repo view --json nameWithOwner`, PR queries inside `sensor-report.mjs`'s `queueEfficiency` sensor and `collect-ai-issue-feedback.mjs`) hit the documented CCR 403 and fell back to REST/per-PR paths; sensor report still completed (16/17 sensors, exit 0).
+- Sentry MCP returned "Authorization Expired" (stored token rejected) — Step 1b (Sentry triage) skipped per the skill's own optional-step allowance.
