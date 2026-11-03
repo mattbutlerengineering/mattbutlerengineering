@@ -104,15 +104,13 @@ describe("shipped-features-snapshot PR path", () => {
     expect(step.with.labels).toBe("auto-merge");
   });
 
-  it("dispatches ci.yml and tier-classifier.yml on the automation branch", () => {
+  it("dispatches ci.yml on the automation branch and tier-classifier.yml for its PR from the default branch", () => {
     const ci = getStep(job, "Dispatch CI on the automation branch");
     expect(ci.run).toMatch(/gh workflow run ci\.yml --ref automation\/shipped-features/);
     expect(ci.if).toContain(GATE);
 
     const tier = getStep(job, "Dispatch tier-classifier on the automation branch");
-    expect(tier.run).toMatch(
-      /gh workflow run tier-classifier\.yml --ref automation\/shipped-features/
-    );
+    expect(tier.run).toMatch(/gh workflow run tier-classifier\.yml -f pr="\$PR_NUMBER"/);
     expect(tier.if).toContain(GATE);
   });
 
