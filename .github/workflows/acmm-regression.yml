@@ -187,7 +187,7 @@ jobs:
         # CI run, but that is a DIFFERENT run than the PR's own required
         # pull_request CI Gate check (gotcha #3969's gate-missing state) --
         # a green dispatch run does not make CI Gate appear on this PR.
-        # Every pull_request-triggered run on this PR (CI, tier-classifier,
+        # Every pull_request(_target)-triggered run on this PR (CI, tier-classifier,
         # Auto Review, ADR check, ...) instead parks at action_required
         # because the commit is pushed via GITHUB_TOKEN/AUTOMATION_PAT, not
         # a full collaborator identity. Nothing else in the chain unblocks

@@ -98,8 +98,9 @@ doc says the classifier triggers on `pull_request`.
 - [x] **Major 2: arming-workflow tests enforce the no-PR-head-execution invariant behaviourally** — scan every step of `auto-merge.yml`, `merge-queue.yml` (and every `pull_request_target` workflow) for `actions/checkout` with head `ref`/`repository`, `gh pr checkout`, `git checkout|switch|worktree|merge|fetch+checkout` of head/pull refs, `node`/`pnpm`/`npm` on fetched content; RED shown by mutating a temp copy.
   - Accept: scan fails on mutated temp copies, passes on the real files.
   - Evidence: new `pull-request-target-no-head-execution.test.mjs` (js-yaml parse, every step of all 4 `pull_request_target` workflows + 11 in-memory mutation cases). RED observed — with a temporary `gh pr checkout` step appended to the real `auto-merge.yml` and `merge-queue.yml` (reverted, never committed): new suite failed `auto-merge[2] MUTATION: gh pr checkout` / `evaluate[3] MUTATION: gh pr checkout`, while the existing text-pin suites stayed green (101 passed — the blind spot). GREEN on the real files: 18 passed (18).
-- [ ] **Minor: stale docs/comments that say the classifier triggers on `pull_request`** — `docs/claude-reference.md:120` and remaining comments.
+- [x] **Minor: stale docs/comments that say the classifier triggers on `pull_request`** — `docs/claude-reference.md:120` and remaining comments.
   - Accept: `git grep` for the stale phrasing prints nothing; prettier clean.
+  - Evidence: `docs/claude-reference.md:120` now says `pull_request_target`; the four producer comments naming tier-classifier among `pull_request`-triggered runs (acmm-regression, drift-fix, pr-metrics, production-feedback) now say `pull_request(_target)`. `git grep -n "triggers on .pull_request. natively" -- .github docs ':!docs/fixes'` prints nothing. Other `pull_request-triggered` comments describe other checks (CI, Auto Review) and stay accurate; `scripts/wait-for-tier-label.mjs` has no `pull_request` wording.
 
 ## Design gaps found
 
