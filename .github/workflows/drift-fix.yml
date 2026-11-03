@@ -138,17 +138,16 @@ jobs:
         run: gh workflow run ci.yml --ref automation/drift-fix
 
       - name: Dispatch tier-classifier on the automation branch
-        # tier-classifier.yml only triggers on `pull_request`, and this PR's
-        # commits are GITHUB_TOKEN/AUTOMATION_PAT-authored -- the same
-        # anti-recursion gap ci.yml has (#3684) -- so it never reliably lands
-        # a tier:* label on its own, and the Enable auto-merge step below
-        # fails closed without one (#4070). tier-classifier.yml now accepts
-        # the same workflow_dispatch escape hatch ci.yml already does.
+        # tier-classifier.yml is dispatched by hand because a GITHUB_TOKEN/AUTOMATION_PAT-authored
+        # PR fires no `pull_request(_target)` event (the anti-recursion gap ci.yml has, #3684),
+        # so no tier:* label would land and the gate below would fail closed (#4070). The
+        # dispatch runs from the default branch: never pass `--ref` (the classifier fails
+        # closed off the default branch and treats the PR head as data).
         if: steps.create-pr.outputs.pull-request-number
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ steps.create-pr.outputs.pull-request-number }}
-        run: gh workflow run tier-classifier.yml --ref automation/drift-fix -f pr="$PR_NUMBER"
+        run: gh workflow run tier-classifier.yml -f pr="$PR_NUMBER"
 
       - name: Approve pending automation workflow runs
         # #3684/#3982: the dispatch step above produces a workflow_dispatch
