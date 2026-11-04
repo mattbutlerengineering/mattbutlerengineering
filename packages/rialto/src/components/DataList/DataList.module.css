@@ -3,6 +3,9 @@
   border: 1px solid var(--rialto-border);
   border-radius: var(--rialto-radius-soft);
   overflow: hidden;
+  /* A column-flex parent (review forms) sizes this to min-content. An
+     unbreakable value would then paint past the card. */
+  min-inline-size: 0;
 }
 
 .row {
@@ -29,6 +32,7 @@
   display: flex;
   align-items: baseline;
   gap: var(--rialto-space-md);
+  min-inline-size: 0;
 }
 
 .horizontal .label {
@@ -60,4 +64,9 @@
   font-size: var(--rialto-text-sm);
   color: var(--rialto-text-primary);
   margin: 0;
+  /* Latin runs have no soft-wrap opportunity, so the default min-content
+     width is the whole string. `anywhere` wraps inside the row; the
+     min size lets the flex item actually shrink to that width. */
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
 }

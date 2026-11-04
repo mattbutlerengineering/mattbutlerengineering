@@ -148,6 +148,12 @@ describe("ReservationKanbanExamplePage — composition", () => {
     expect(button.getAttribute("aria-label")).toContain(button.textContent!.trim());
   });
 
+  it("keeps a space before the inline stage code in the first composition note", () => {
+    render(<ReservationKanbanExamplePage />);
+    const note = screen.getAllByRole("note", { name: "Composition note" })[0];
+    expect(note?.textContent).toContain("its stage");
+  });
+
   it("cards already in the last column have no move action", () => {
     render(<ReservationKanbanExamplePage />);
     const checkoutColumn = screen.getByLabelText("Checkout");

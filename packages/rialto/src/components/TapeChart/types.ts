@@ -98,7 +98,11 @@ export interface TapeChartProps {
   /** ISO date (exclusive). */
   endDate: string;
   locale?: string;
-  /** IANA time zone (e.g. "America/Los_Angeles"). Defaults to the runtime zone. */
+  /**
+   * IANA time zone used to decide which calendar day is "today"
+   * (e.g. "America/Los_Angeles"). Defaults to the runtime zone.
+   * Day labels stay on the YYYY-MM-DD calendar day and do not shift with this zone.
+   */
   timeZone?: string;
   /** ISO 4217 code used for rate display when reservations don't carry their own. */
   currency?: string;

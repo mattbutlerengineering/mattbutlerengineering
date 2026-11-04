@@ -74,6 +74,39 @@ describe("useTapeChartI18n", () => {
     });
   });
 
+  describe("civil date labels", () => {
+    // YYYY-MM-DD is a calendar day, parsed at UTC midnight. Formatting that
+    // instant in a negative-offset zone (America/Los_Angeles) used to land on
+    // the previous evening, so column headers and bar labels read one day early.
+    it("keeps the calendar day in America/Los_Angeles", () => {
+      const { result } = renderHook(() => useTapeChartI18n("en-US", "America/Los_Angeles"));
+      expect(result.current.dayLong("2026-11-04")).toBe("Wednesday, November 4, 2026");
+      expect(result.current.dayWeekdayShort("2026-11-04")).toBe("Wed");
+      expect(result.current.dayNumeric("2026-11-04")).toBe("04");
+      expect(result.current.monthYearLong("2026-11-04")).toBe("November 2026");
+      expect(result.current.dayLong("2026-10-29")).toBe("Thursday, October 29, 2026");
+      expect(result.current.dayLong("2026-04-06")).toBe("Monday, April 6, 2026");
+    });
+
+    it("keeps the calendar day when timeZone is omitted", () => {
+      const { result } = renderHook(() => useTapeChartI18n("en-US"));
+      expect(result.current.dayLong("2026-11-04")).toBe("Wednesday, November 4, 2026");
+      expect(result.current.dayNumeric("2026-10-29")).toBe("29");
+    });
+
+    it("still decides today in the chart time zone", () => {
+      vi.useFakeTimers();
+      // 06:00Z on Nov 4 is still the evening of Nov 3 in Los Angeles (UTC-8).
+      vi.setSystemTime(new Date("2026-11-04T06:00:00Z"));
+      const la = renderHook(() => useTapeChartI18n("en-US", "America/Los_Angeles"));
+      const utc = renderHook(() => useTapeChartI18n("en-US", "UTC"));
+      expect(la.result.current.todayISO()).toBe("2026-11-03");
+      expect(utc.result.current.todayISO()).toBe("2026-11-04");
+      expect(la.result.current.dayLong("2026-11-04")).toBe("Wednesday, November 4, 2026");
+      vi.useRealTimers();
+    });
+  });
+
   describe("locale fallback", () => {
     // jsdom always defines `navigator`, so calling the hook with no `locale`
     // arg exercises the `typeof navigator !== "undefined"` branch and picks

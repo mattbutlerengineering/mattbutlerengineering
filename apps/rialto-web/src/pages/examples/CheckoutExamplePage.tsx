@@ -77,16 +77,36 @@ export function formatMoney(cents: number): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
 }
 
-const EXPIRY_PATTERN = /^(0[1-9]|1[0-2])\/\d{2}$/;
+const EXPIRY_PATTERN = /^(0[1-9]|1[0-2])\/(\d{2})$/;
+
+/**
+ * True when MM/YY names a real month that has already ended.
+ * The card stays valid through the last day of its expiry month.
+ * Two-digit years are 2000–2099. Comparison uses the local calendar month of `now`.
+ */
+function isCardExpiryPast(expiry: string, now: Date = new Date()): boolean {
+  const match = EXPIRY_PATTERN.exec(expiry.trim());
+  if (!match) return false;
+  const month = Number(match[1]);
+  const year = 2000 + Number(match[2]);
+  const todayYear = now.getFullYear();
+  const todayMonth = now.getMonth() + 1;
+  return year < todayYear || (year === todayYear && month < todayMonth);
+}
 
 /** Validates the payment form; returns one message per invalid field. */
-export function validatePayment(payment: PaymentDetails): PaymentFieldErrors {
+export function validatePayment(
+  payment: PaymentDetails,
+  now: Date = new Date()
+): PaymentFieldErrors {
   const errors: PaymentFieldErrors = {};
   if (!payment.cardName.trim()) errors.cardName = "Name on card is required";
   if (!/^\d{16}$/.test(payment.cardNumber.replace(/\s+/g, ""))) {
     errors.cardNumber = "Enter a 16-digit card number";
   }
-  if (!EXPIRY_PATTERN.test(payment.expiry)) errors.expiry = "Enter expiry as MM/YY";
+  const expiry = payment.expiry.trim();
+  if (!EXPIRY_PATTERN.test(expiry)) errors.expiry = "Enter expiry as MM/YY";
+  else if (isCardExpiryPast(expiry, now)) errors.expiry = "Expiry date is in the past";
   if (!/^\d{3,4}$/.test(payment.cvc)) errors.cvc = "Enter a 3 or 4-digit security code";
   return errors;
 }

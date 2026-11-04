@@ -146,8 +146,48 @@ describe("validatePayment", () => {
     });
     expect(errors.cardName).toBeDefined();
     expect(errors.cardNumber).toBeDefined();
-    expect(errors.expiry).toBeDefined();
+    expect(errors.expiry).toMatch(/mm\/yy/i);
     expect(errors.cvc).toBeDefined();
+  });
+
+  it("rejects an expiry month that has already ended and keeps the current month", () => {
+    const now = new Date(2026, 10, 4);
+    const past = validatePayment(
+      {
+        ...completeState(),
+        payment: { ...completeState().payment, expiry: "01/20" },
+      },
+      now
+    );
+    expect(past.expiry).toMatch(/past/i);
+    expect(past.cardNumber).toBeUndefined();
+
+    const previousMonth = validatePayment(
+      {
+        ...completeState(),
+        payment: { ...completeState().payment, expiry: "10/26" },
+      },
+      now
+    );
+    expect(previousMonth.expiry).toMatch(/past/i);
+
+    const thisMonth = validatePayment(
+      {
+        ...completeState(),
+        payment: { ...completeState().payment, expiry: "11/26" },
+      },
+      now
+    );
+    expect(thisMonth).toEqual({});
+
+    const notAMonth = validatePayment(
+      {
+        ...completeState(),
+        payment: { ...completeState().payment, expiry: "00/26" },
+      },
+      now
+    );
+    expect(notAMonth.expiry).toMatch(/mm\/yy/i);
   });
 });
 

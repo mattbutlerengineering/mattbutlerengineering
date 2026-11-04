@@ -86,6 +86,43 @@ test.describe("Playground", () => {
     await expect(outer).toBeVisible();
   });
 
+  // #7907: the second click of a double-click lands on the Stop button that just replaced
+  // Generate. The guard must swallow it, so the generation it started runs to completion.
+  test("double-click on Generate does not abort the generation it started", async ({
+    authPage,
+  }) => {
+    const mocks = await mockGenApi(authPage, {
+      generate: [{ key: "root", type: "Card", props: { title: "Double click" } }],
+      refineSubtree: [],
+    });
+    // Hold the response open so the second click always hits the in-flight (Stop) state
+    // instead of racing a mock that finishes instantly. Registered last, so it wins.
+    const requests: Array<Record<string, unknown>> = [];
+    let release: () => void = () => {};
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await authPage.route("**/api/gen/ui", async (route) => {
+      requests.push(route.request().postDataJSON() as Record<string, unknown>);
+      await released;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/x-ndjson",
+        body:
+          JSON.stringify({ key: "root", type: "Card", props: { title: "Double click" } }) + "\n",
+      });
+    });
+    await authPage.goto("/");
+    await authPage.getByPlaceholder("Describe the UI you want to build...").fill("a simple card");
+
+    await authPage.getByRole("button", { name: "Generate" }).dblclick();
+    release();
+
+    await expect(authPage.getByText("Double click", { exact: true })).toBeVisible();
+    expect(requests).toHaveLength(1);
+    expect(mocks.uiRequests).toHaveLength(0);
+  });
+
   test("has no critical a11y violations", async ({ authPage }) => {
     await authPage.goto("/");
     // Wait for the playground to fully render

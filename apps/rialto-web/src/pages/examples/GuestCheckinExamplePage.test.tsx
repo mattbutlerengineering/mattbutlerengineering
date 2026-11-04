@@ -255,6 +255,13 @@ describe("GuestCheckinExamplePage", () => {
     expect(screen.getByLabelText("ID number")).toHaveValue("X1234567");
   });
 
+  it("keeps spaces around the slashes before inline field codes in the composition note", () => {
+    render(<GuestCheckinExamplePage />);
+    const notes = screen.getAllByRole("note", { name: "Composition note" });
+    const fieldsNote = notes.find((note) => note.textContent?.includes("Toggle"));
+    expect(fieldsNote?.textContent).toContain("Select / Input / Toggle");
+  });
+
   it("reaches key handoff and summarises the guest, ID, and assigned room", () => {
     render(<GuestCheckinExamplePage />);
     completeToKeyHandoff();

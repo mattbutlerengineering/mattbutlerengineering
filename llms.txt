@@ -1393,6 +1393,14 @@
       export function meterVariantForScore(score: number): "error" | "default" | "success" { /* ... */ }
     </item>
   </file>
+  <file path="apps/rialto-web/src/pages/auth/use-invalid-submit-focus.ts">
+    <item priority="high">
+      export function useInvalidSubmitFocus(
+        formRef: RefObject<HTMLFormElement | null>,
+        fallbackSelector?: string
+      ): () => void { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="availability">
   <file path="apps/hospitality/src/components/availability/add-dates-draft.ts">
@@ -5073,8 +5081,11 @@
     <item priority="high">
       export function validateGuest(state: BookingWizardState): FieldErrors { /* ... */ }
     </item>
+    <item priority="medium">
+      function isCardExpiryPast(expiry: string, now: Date): boolean { /* ... */ }
+    </item>
     <item priority="high">
-      export function validatePayment(state: BookingWizardState): FieldErrors { /* ... */ }
+      export function validatePayment(state: BookingWizardState, now: Date = new Date()): FieldErrors { /* ... */ }
     </item>
     <item priority="high">
       export function validateStep(stepIndex: number, state: BookingWizardState): FieldErrors { /* ... */ }

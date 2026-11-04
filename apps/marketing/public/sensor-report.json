@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-11-03T18:07:06.518Z",
+  "generated_at": "2026-11-04T00:42:51.986Z",
   "period": {
-    "start": "2026-10-27",
-    "end": "2026-11-03"
+    "start": "2026-10-28",
+    "end": "2026-11-04"
   },
   "sensors": {
     "acmm": {
@@ -42,80 +42,80 @@
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 0.89,
-          "latest": "2026-11-02T20:50:34.088Z",
+          "age_days": 0.26,
+          "latest": "2026-11-03T18:31:53.828Z",
           "max_age_days": 3
         },
         {
           "metric": "queue-telemetry",
           "state": "fresh",
-          "age_days": 0.95,
-          "latest": "2026-11-02T19:14:03.000Z",
+          "age_days": 0.42,
+          "latest": "2026-11-03T14:32:45.000Z",
           "max_age_days": 3
         },
         {
           "metric": "queueEfficiency",
           "state": "fresh",
-          "age_days": 0.75,
+          "age_days": 1.03,
           "latest": "2026-11-03T00:00:00.000Z",
           "max_age_days": 5
         },
         {
           "metric": "sdlcSpeed",
           "state": "fresh",
-          "age_days": 1.75,
+          "age_days": 2.03,
           "latest": "2026-11-02T00:00:00.000Z",
           "max_age_days": 14
         },
         {
           "metric": "lighthouse",
           "state": "fresh",
-          "age_days": 1.75,
+          "age_days": 2.03,
           "latest": "2026-11-02T00:00:00.000Z",
           "max_age_days": 21
         },
         {
           "metric": "mutation-score",
           "state": "fresh",
-          "age_days": 1.75,
+          "age_days": 2.03,
           "latest": "2026-11-02T00:00:00.000Z",
           "max_age_days": 21
         },
         {
           "metric": "ai-issue-feedback",
           "state": "fresh",
-          "age_days": 0.88,
-          "latest": "2026-11-02T20:56:15.182Z",
+          "age_days": 0.26,
+          "latest": "2026-11-03T18:33:27.995Z",
           "max_age_days": 5
         }
       ]
     },
     "reviewBurden": {
       "available": true,
-      "collected_at": "2026-11-02T20:50:34.088Z",
+      "collected_at": "2026-11-03T18:31:53.828Z",
       "window_days": 7,
       "total_closed_prs": 100,
       "total_reviewers": 2,
-      "total_reviews": 6,
-      "overall_rubber_stamp_ratio": 0.4,
-      "overall_approvals": 5,
-      "overall_rubber_stamps": 2,
+      "total_reviews": 3,
+      "overall_rubber_stamp_ratio": 0.5,
+      "overall_approvals": 2,
+      "overall_rubber_stamps": 1,
       "review_coverage": "measured",
       "no_formal_review_stage": false
     },
     "prCategoryMetrics": {
       "available": true,
-      "total_prs": 95,
-      "total_merged": 92,
+      "total_prs": 86,
+      "total_merged": 83,
       "total_closed_without_merge": 3,
       "by_category": {
         "tier:trivial": {
-          "merged": 35,
+          "merged": 32,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:standard": {
-          "merged": 25,
+          "merged": 23,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
@@ -125,12 +125,12 @@
           "acceptance_rate": 0.75
         },
         "tier:sensitive": {
-          "merged": 21,
+          "merged": 19,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:critical": {
-          "merged": 7,
+          "merged": 6,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
@@ -138,11 +138,6 @@
           "merged": 0,
           "closed_without_merge": 2,
           "acceptance_rate": 0
-        },
-        "meta-improvement": {
-          "merged": 1,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
         }
       }
     },
@@ -157,9 +152,9 @@
       "total_output_tokens_7d": 0,
       "avg_turns_per_session": 0,
       "queue": {
-        "sessions_7d": 7,
-        "sessions_without_usage_7d": 64,
-        "tokens_7d": 1441887,
+        "sessions_7d": 5,
+        "sessions_without_usage_7d": 54,
+        "tokens_7d": 908509,
         "cost_7d_usd": null,
         "cost_known_sessions_7d": 0
       }
@@ -169,17 +164,31 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 780967,
-      "output_tokens": 1642,
-      "cache_creation_tokens": 46050,
-      "cache_hit_rate": 0.9443,
+      "cache_read_tokens": 37575119,
+      "output_tokens": 183584,
+      "cache_creation_tokens": 728099,
+      "cache_hit_rate": 0.981,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 18,
-          "output_tokens": 1642,
-          "cache_read_tokens": 780967,
-          "cache_creation_tokens": 46050
+          "input_tokens": 484,
+          "output_tokens": 151187,
+          "cache_read_tokens": 35924142,
+          "cache_creation_tokens": 502497
+        },
+        "claude-opus-5-5": {
+          "cost": 0,
+          "input_tokens": 48,
+          "output_tokens": 11421,
+          "cache_read_tokens": 1054140,
+          "cache_creation_tokens": 56057
+        },
+        "claude-haiku-5-5": {
+          "cost": 0,
+          "input_tokens": 42,
+          "output_tokens": 20976,
+          "cache_read_tokens": 596837,
+          "cache_creation_tokens": 169545
         }
       }
     },
@@ -192,13 +201,13 @@
       "phantom": 0,
       "pass_rate_pct": 100,
       "most_recent": {
-        "databaseId": 41686241823,
+        "databaseId": 41748781685,
         "status": "completed",
-        "conclusion": "skipped",
-        "createdAt": "2026-11-03T17:38:45Z",
-        "name": "claude",
+        "conclusion": "success",
+        "createdAt": "2026-11-04T00:42:09Z",
+        "name": "Auto-Merge Policy",
         "headBranch": "main",
-        "headSha": "892941ac308831d7fa2b76662d7e0a3cfbc46875"
+        "headSha": "b2ad4cf1e1ce03d882764afed75ccf07afc9fe33"
       }
     },
     "lighthouse": {
@@ -231,18 +240,25 @@
     "issues": {
       "available": true,
       "open": 38,
-      "created_7d": 168,
-      "closed_7d": 192,
-      "closure_rate": 114,
-      "queue_depth": 13,
+      "created_7d": 140,
+      "closed_7d": 127,
+      "closure_rate": 91,
+      "queue_depth": 10,
       "agent_failed": 0
     },
     "issueFeedback": {
       "available": true,
-      "collected_at": "2026-11-02T20:56:15.182Z",
+      "collected_at": "2026-11-03T18:33:27.995Z",
       "category_count": 8,
       "unhealthy_categories": [],
       "categories": {
+        "feature": {
+          "total": 133,
+          "accepted": 122,
+          "rejected": 4,
+          "wontfix": 7,
+          "rejection_rate": 0.03007518796992481
+        },
         "audit": {
           "total": 18,
           "accepted": 18,
@@ -278,13 +294,6 @@
           "wontfix": 0,
           "rejection_rate": 0
         },
-        "feature": {
-          "total": 133,
-          "accepted": 122,
-          "rejected": 4,
-          "wontfix": 7,
-          "rejection_rate": 0.03007518796992481
-        },
         "sentry": {
           "total": 1,
           "accepted": 1,
@@ -313,17 +322,17 @@
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 0,
-      "logs_7d": 0,
-      "total_commits_7d": 0,
+      "total_logs": 10,
+      "logs_7d": 10,
+      "total_commits_7d": 70,
       "unique_branches_7d": 0,
       "branches_7d": []
     },
     "codeChurn": {
       "available": true,
       "churn_rate": 0.002,
-      "total_lines_added_7d": 966662,
-      "lines_churned_7d": 1549,
+      "total_lines_added_7d": 967105,
+      "lines_churned_7d": 1550,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -347,7 +356,7 @@
       "available": true,
       "flaky_count": 0,
       "flaky_tests": [],
-      "total_runs": 12939,
+      "total_runs": 12484,
       "window_shas": 2
     },
     "e2eStability": {
@@ -356,56 +365,56 @@
     },
     "queueEfficiency": {
       "available": true,
-      "composite": 0.851,
+      "composite": 0.847,
       "sub_metrics": {
-        "issues_merged": 94,
-        "first_pass_success_rate": 0.777,
-        "median_time_to_merge_hours": 0.9,
+        "issues_merged": 70,
+        "first_pass_success_rate": 0.771,
+        "median_time_to_merge_hours": 0.8,
         "median_rework_cycles": 1,
         "cost_per_issue_usd": null,
         "cost_coverage_n": 0,
-        "review_coverage": 0.19,
-        "review_coverage_n": 21,
+        "review_coverage": 0.308,
+        "review_coverage_n": 13,
         "review_coverage_trail": [
-          {
-            "value": 0.214,
-            "n": 14
-          },
           {
             "value": 0.188,
             "n": 16
           },
           {
-            "value": 0.19,
-            "n": 21
+            "value": 0.211,
+            "n": 19
+          },
+          {
+            "value": 0.308,
+            "n": 13
           }
         ]
       },
       "distribution": {
         "size:m": {
-          "count": 15,
-          "avg_commits": 2.3,
+          "count": 6,
+          "avg_commits": 2.5,
           "avg_ttm_hours": 2.3
         },
         "size:s": {
-          "count": 25,
+          "count": 18,
           "avg_commits": 1.4,
-          "avg_ttm_hours": 3.5
+          "avg_ttm_hours": 4.3
         },
         "size:xl": {
-          "count": 22,
-          "avg_commits": 3.5,
-          "avg_ttm_hours": 3.6
+          "count": 21,
+          "avg_commits": 3.4,
+          "avg_ttm_hours": 3.8
         },
         "size:l": {
-          "count": 19,
-          "avg_commits": 2.6,
-          "avg_ttm_hours": 0.9
+          "count": 17,
+          "avg_commits": 2.7,
+          "avg_ttm_hours": 1
         },
         "size:xs": {
-          "count": 13,
-          "avg_commits": 1.2,
-          "avg_ttm_hours": 2.2
+          "count": 8,
+          "avg_commits": 1,
+          "avg_ttm_hours": 2.8
         }
       },
       "baseline": null,

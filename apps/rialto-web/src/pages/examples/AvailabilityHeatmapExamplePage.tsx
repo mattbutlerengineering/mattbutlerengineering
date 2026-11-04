@@ -186,7 +186,6 @@ export function AvailabilityHeatmapExamplePage() {
             startDate={START_DATE}
             endDate={END_DATE}
             currency="USD"
-            viewMode="grid"
             onReservationClick={(r) => setSelectedId(r.id)}
             selectedReservationId={selectedId}
           />

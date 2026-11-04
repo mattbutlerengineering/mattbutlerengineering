@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router";
 import { DriverLayout } from "../drivers/DriverLayout";
 import {
@@ -8,6 +8,7 @@ import {
   Card,
   DataList,
   Divider,
+  Heading,
   Input,
   NumberInput,
   Select,
@@ -80,6 +81,8 @@ const STEP_ITEMS = [
   { label: "Review", description: "Confirm & submit" },
 ];
 
+const STEP_HEADING_ID = "register-team-step-heading";
+
 function validateStep(step: number, data: TeamFormData): string[] {
   if (step === 0) {
     const errs: string[] = [];
@@ -109,6 +112,20 @@ export function TeamCreate() {
   const [errors, setErrors] = useState<string[]>([]);
   const [phase, setPhase] = useState<RegisterPhase>("idle");
   const isSubmitting = phase !== "idle";
+  const stepHeadingRef = useRef<HTMLHeadingElement>(null);
+  const announcedStepRef = useRef(currentStep);
+
+  // The focused Next/Back button unmounts with the old step, which drops
+  // focus on document.body. Move it to the new step's heading so the step
+  // name is announced and the next Tab starts at that step's first field.
+  // The ref starts equal to the current step, so the first mount is left
+  // alone. An empty step 1 never reaches this: native validation rejects
+  // the submit before the step changes.
+  useEffect(() => {
+    if (announcedStepRef.current === currentStep) return;
+    announcedStepRef.current = currentStep;
+    stepHeadingRef.current?.focus();
+  }, [currentStep]);
 
   function update<K extends keyof TeamFormData>(key: K, value: TeamFormData[K]) {
     setData((prev) => ({ ...prev, [key]: value }));
@@ -161,6 +178,18 @@ export function TeamCreate() {
       />
 
       <Card variant="elevated" className={styles.wizardCard}>
+        <div className={styles.stepHeadingWrap}>
+          <Heading
+            ref={stepHeadingRef}
+            level={2}
+            size={6}
+            id={STEP_HEADING_ID}
+            tabIndex={-1}
+            className={styles.stepHeading}
+          >
+            {STEP_ITEMS[currentStep]?.label}
+          </Heading>
+        </div>
         {errors.length > 0 && (
           <Alert variant="error" title="Please fix the following:">
             <ul style={{ margin: 0, paddingLeft: "var(--rialto-space-md)" }}>

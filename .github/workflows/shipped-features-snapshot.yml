@@ -90,7 +90,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ steps.create-pr.outputs.pull-request-number }}
-        run: gh workflow run tier-classifier.yml --ref automation/shipped-features -f pr="$PR_NUMBER"
+        run: gh workflow run tier-classifier.yml -f pr="$PR_NUMBER"
 
       - name: Approve pending automation workflow runs
         # #3684/#3982: pull_request runs on this PR park at action_required.

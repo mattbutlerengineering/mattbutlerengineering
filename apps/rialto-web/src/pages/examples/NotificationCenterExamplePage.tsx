@@ -74,7 +74,7 @@ const COMPOSITION_NOTES: ReactNode = (
     </CompositionNote>
     <CompositionNote>
       The <code>SegmentedControl</code> (a WAI-ARIA radiogroup) switches between All and Unread;
-      clicking a row or pressing “Mark all read” both call the same pure <code>markRead</code> /
+      clicking a row or pressing “Mark all read” both call the same pure <code>markRead</code> /{" "}
       <code>markAllRead</code> helpers, returning new arrays rather than mutating state. Filtering
       to Unread with none left renders an EmptyState instead of a blank list.
     </CompositionNote>

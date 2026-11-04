@@ -63,7 +63,7 @@ const compositionNotes = (
     </CompositionNote>
     <CompositionNote>
       Colour, spacing, and the medallion tint all come from Rialto tokens, so the page inherits
-      light and dark themes with no per-page overrides. The entrance animation is gated behind
+      light and dark themes with no per-page overrides. The entrance animation is gated behind{" "}
       <code>prefers-reduced-motion</code>, collapsing to a static medallion when motion is reduced.
     </CompositionNote>
   </Stack>

@@ -177,7 +177,7 @@ const compositionNotes = (
     </CompositionNote>
     <CompositionNote>
       Per-step validation blocks <code>Continue</code> until the arrival is confirmed, an ID is
-      recorded, and a room is assigned, surfacing field errors from a plain <code>Select</code> /
+      recorded, and a room is assigned, surfacing field errors from a plain <code>Select</code> /{" "}
       <code>Input</code> / <code>Toggle</code> combination — no live lookups, just the fixture
       reservation and room list above.
     </CompositionNote>
