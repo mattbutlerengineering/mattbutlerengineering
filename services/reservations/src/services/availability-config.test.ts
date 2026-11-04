@@ -89,6 +89,63 @@ describe("planSave", () => {
     });
   });
 
+  describe("a varied week", () => {
+    const FRIDAY_LATE = {
+      weekdays: [4],
+      opensAt: 1020,
+      lastSeatingAt: 1320,
+      closesAt: 1380,
+      seating: { version: 1 as const, interval: 15 },
+      bookingTypes: ["online" as const, "phone" as const],
+    };
+    const scoped = (over: Partial<AvailabilityConfig["scheduleServices"][number]>) => ({
+      ...CONFIG.scheduleServices[0]!,
+      ...over,
+    });
+
+    it("plans a row carrying days and hour sets, and its inverse restores the prior row", () => {
+      const row = scoped({
+        weekdays: [1, 2, 3, 4],
+        dayHours: { version: 1, sets: [{ ...FRIDAY_LATE, weekdays: [5] }] },
+      });
+      const plan = planSave({
+        state: STATE,
+        body: body({ upsert: { scheduleServices: [row] } }),
+        bookings: [],
+        tableIds: new Set(),
+        now: NOW,
+      });
+
+      expect(plan.kind).toBe("write");
+      if (plan.kind !== "write") return;
+      expect(plan.diff.update.scheduleServices).toEqual([row]);
+      expect(plan.inverse.restore.scheduleServices).toEqual([CONFIG.scheduleServices[0]]);
+    });
+
+    it("refuses a weekday claimed twice in one row as weekday_clash, with the set's path", () => {
+      const row = scoped({
+        weekdays: [1, 2],
+        dayHours: { version: 1, sets: [{ ...FRIDAY_LATE, weekdays: [2, 3] }] },
+      });
+      const plan = planSave({
+        state: STATE,
+        body: body({ upsert: { scheduleServices: [row] } }),
+        bookings: [],
+        tableIds: new Set(),
+        now: NOW,
+      });
+
+      expect(plan.kind).toBe("invalid");
+      if (plan.kind !== "invalid") return;
+      expect(plan.issues).toEqual([
+        expect.objectContaining({
+          code: "weekday_clash",
+          path: expect.stringContaining("scheduleServices[0]"),
+        }),
+      ]);
+    });
+  });
+
   it("refuses a change that strands a booking", () => {
     const plan = planSave({
       state: STATE,

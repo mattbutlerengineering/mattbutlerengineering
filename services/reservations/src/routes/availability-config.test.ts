@@ -139,6 +139,78 @@ describe("availability config routes", () => {
       );
     });
 
+    const ROW = {
+      id: "ss-1",
+      scheduleId: "sch-1",
+      venueServiceId: "vs-dinner",
+      opensAt: 1020,
+      lastSeatingAt: 1260,
+      closesAt: 1320,
+      seating: { version: 1, interval: 15 },
+      bookingTypes: ["online", "phone"],
+    };
+    const savedRow = () => svc.save.mock.calls[0]![0].body.changes.upsert.scheduleServices[0];
+
+    it("saves a varied week and hands the store the days and hour sets as sent", async () => {
+      svc.save.mockResolvedValueOnce({ kind: "saved", version: 3, changeId: "chg-2" });
+      const varied = {
+        ...ROW,
+        weekdays: [1, 2, 3, 4],
+        dayHours: {
+          version: 1,
+          sets: [{ ...ROW, weekdays: [5], closesAt: 1380, lastSeatingAt: 1320 }],
+        },
+      };
+      const payload = {
+        ...PUT_BODY,
+        changes: { upsert: { scheduleServices: [varied] }, remove: {} },
+      };
+
+      const res = await put(app, payload);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json().data).toEqual({ version: 3, changeId: "chg-2" });
+      expect(savedRow()).toEqual(varied);
+    });
+
+    it("reads a row that omits the two fields as no scope", async () => {
+      svc.save.mockResolvedValueOnce({ kind: "saved", version: 3, changeId: "chg-3" });
+      const payload = { ...PUT_BODY, changes: { upsert: { scheduleServices: [ROW] }, remove: {} } };
+
+      const res = await put(app, payload);
+
+      expect(res.statusCode).toBe(200);
+      expect(savedRow()).toMatchObject({ weekdays: [], dayHours: { version: 1, sets: [] } });
+    });
+
+    it("answers a weekday_clash with 422 invalid-config and the issue paths", async () => {
+      svc.save.mockResolvedValueOnce({
+        kind: "invalid",
+        issues: [
+          {
+            code: "weekday_clash",
+            path: "scheduleServices[0].dayHours.sets[0].weekdays",
+            message: "Tuesday is claimed twice.",
+            weekday: 1,
+          },
+        ],
+      });
+
+      const res = await put(app);
+
+      expect(res.statusCode).toBe(422);
+      const problem = AvailabilityConfigProblemSchema.parse(res.json());
+      expect(problem).toMatchObject({
+        code: "invalid-config",
+        issues: [
+          expect.objectContaining({
+            code: "weekday_clash",
+            path: "scheduleServices[0].dayHours.sets[0].weekdays",
+          }),
+        ],
+      });
+    });
+
     it("answers a stale version with 409 version-conflict naming the winning change", async () => {
       const winningChange = {
         id: "chg-9",

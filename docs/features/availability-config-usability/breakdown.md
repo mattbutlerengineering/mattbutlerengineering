@@ -55,7 +55,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [x] **Migration forward-path integration test** — a reservations integration test on the harness `rls-isolation.integration.test.ts` uses, against Docker Postgres only.
   - Accept: the test inserts a row in the old shape (the two columns omitted), reads it through `readStoredConfig` and gets "no scope"; it writes a varied week through the store and reads it back byte-equal.
   - Blocked by: Store reads and writes day scope
-- [ ] **Config save path with day scope** — `PUT …/availability/config` accepts rows carrying the two fields, validates through `validateConfig`, and keeps the `expectedVersion` compare-and-set.
+- [x] **Config save path with day scope** — `PUT …/availability/config` accepts rows carrying the two fields, validates through `validateConfig`, and keeps the `expectedVersion` compare-and-set.
   - Accept: route tests show a varied-week save returns `{ version, changeId }`; a `weekday_clash` returns 422 `invalid-config` with the issue paths; a save with a stale `expectedVersion` returns 409 `version-conflict`; a Host gets 403; and a request that omits the two fields parses as "no scope".
   - Blocked by: validateConfig per weekday, Store reads and writes day scope
 - [ ] **regular_week_changed audit detail** — `configSavedDetail` in `availability-change-detail.ts` returns `regular_week_changed` with `startsOn` and the changed `weekdays` when a save changes which hours a regular-week weekday resolves to (compared through `decodeWeek` before and after), and `config_saved` otherwise.
