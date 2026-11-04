@@ -5,7 +5,6 @@ import type { TFunction } from "i18next";
 import {
   Badge,
   Button,
-  ConfirmDialog,
   EmptyState,
   Skeleton,
   SkeletonGroup,
@@ -21,7 +20,7 @@ import {
   createFloorPlanFromTemplate,
   type NewFloorPlanRequest,
 } from "../components/floor-plan";
-import { useFloorPlans, useCloneFloorPlan, useDeleteFloorPlan } from "../hooks/useFloorPlans.js";
+import { useFloorPlans, useCloneFloorPlan } from "../hooks/useFloorPlans.js";
 import { useApiClient } from "../hooks/useApiClient.js";
 import { useVenueFormat } from "../hooks/useVenueFormat.js";
 import styles from "./FloorPlansPage.module.css";
@@ -44,21 +43,21 @@ function FloorPlansLoadingSkeleton() {
   );
 }
 
-/* ── Clone / delete failure ──────────────────── */
+/* ── Clone failure ───────────────────────────── */
 
-interface ActionFailure {
+interface CloneFailure {
   title: string;
   detail: string;
   raw?: string;
 }
 
-function actionFailureFrom(err: unknown, title: string): ActionFailure {
+function cloneFailureFrom(err: unknown, t: TFunction): CloneFailure {
   const description = describeApiError(err);
-  return { title, detail: description.detail, raw: description.raw };
-}
-
-function cloneFailureFrom(err: unknown, t: TFunction): ActionFailure {
-  return actionFailureFrom(err, t("floorPlan.list.cloneFailed"));
+  return {
+    title: t("floorPlan.list.cloneFailed"),
+    detail: description.detail,
+    raw: description.raw,
+  };
 }
 
 /* ── Main component ─────────────────────────── */
@@ -74,8 +73,7 @@ export function FloorPlansPage() {
   const api = useApiClient();
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [liveMessage, setLiveMessage] = useState("");
-  const [actionFailure, setActionFailure] = useState<ActionFailure | null>(null);
-  const [pendingDelete, setPendingDelete] = useState<FloorPlan | null>(null);
+  const [cloneFailure, setCloneFailure] = useState<CloneFailure | null>(null);
 
   const {
     data: floorPlans = [],
@@ -86,7 +84,6 @@ export function FloorPlansPage() {
   const loadFailure = error ? describeApiError(error) : null;
 
   const cloneMutation = useCloneFloorPlan();
-  const deleteMutation = useDeleteFloorPlan();
 
   // Blank creates the plan and stops; a template goes on to add its sections
   // and tables — all through the ordinary floor-plan, section and table routes.
@@ -97,31 +94,17 @@ export function FloorPlansPage() {
 
   const handleClone = useCallback(
     async (id: string) => {
-      setActionFailure(null);
+      setCloneFailure(null);
       try {
         const cloned = await cloneMutation.mutateAsync(id);
         setLiveMessage(t("floorPlan.list.cloned", { name: cloned.name }));
         navigate(`/floor-plans/${cloned.id}`);
       } catch (err) {
-        setActionFailure(cloneFailureFrom(err, t));
+        setCloneFailure(cloneFailureFrom(err, t));
       }
     },
     [cloneMutation, navigate, t]
   );
-
-  const handleConfirmDelete = useCallback(async () => {
-    const floorPlan = pendingDelete;
-    // Invariant: the dialog is only open while a plan is pending.
-    if (!floorPlan) return;
-    setPendingDelete(null);
-    setActionFailure(null);
-    try {
-      await deleteMutation.mutateAsync(floorPlan.id);
-      setLiveMessage(t("floorPlan.list.deleted", { name: floorPlan.name }));
-    } catch (err) {
-      setActionFailure(actionFailureFrom(err, t("floorPlan.list.deleteFailed")));
-    }
-  }, [deleteMutation, pendingDelete, t]);
 
   const tableCountLabel = (floorPlan: FloorPlan) =>
     t("floorPlan.list.tableCount", { count: floorPlan.tables?.length ?? 0 });
@@ -184,16 +167,6 @@ export function FloorPlansPage() {
           />
         )}
 
-        <ConfirmDialog
-          open={pendingDelete !== null}
-          variant="destructive"
-          title={t("floorPlan.list.deleteTitle", { name: pendingDelete?.name ?? "" })}
-          description={t("floorPlan.list.deleteDescription")}
-          confirmLabel={t("floorPlan.list.deleteConfirm")}
-          onConfirm={handleConfirmDelete}
-          onCancel={() => setPendingDelete(null)}
-        />
-
         {loadFailure && (
           <ErrorRetryBanner
             title={t("floorPlan.list.loadFailed")}
@@ -204,12 +177,12 @@ export function FloorPlansPage() {
           />
         )}
 
-        {actionFailure && (
+        {cloneFailure && (
           <ErrorRetryBanner
-            title={actionFailure.title}
-            error={actionFailure.detail}
-            details={actionFailure.raw}
-            onDismiss={() => setActionFailure(null)}
+            title={cloneFailure.title}
+            error={cloneFailure.detail}
+            details={cloneFailure.raw}
+            onDismiss={() => setCloneFailure(null)}
           />
         )}
 
@@ -306,24 +279,6 @@ export function FloorPlansPage() {
                   >
                     {t("floorPlan.list.clone")}
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setPendingDelete(floorPlan)}
-                    disabled={floorPlan.isActive}
-                    aria-label={t("floorPlan.list.deleteAria", { name: floorPlan.name })}
-                    aria-describedby={
-                      floorPlan.isActive ? `delete-reason-${floorPlan.id}` : undefined
-                    }
-                    title={floorPlan.isActive ? t("floorPlan.list.deleteActiveReason") : undefined}
-                  >
-                    {t("floorPlan.list.delete")}
-                  </Button>
-                  {floorPlan.isActive && (
-                    <Text id={`delete-reason-${floorPlan.id}`} className={styles.srOnly}>
-                      {t("floorPlan.list.deleteActiveReason")}
-                    </Text>
-                  )}
                 </div>
               </article>
             ))}

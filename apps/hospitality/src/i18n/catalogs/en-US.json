@@ -383,15 +383,7 @@
       "updated": "Updated {{date}}",
       "clone": "Clone",
       "openAria": "Open floor plan: {{name}}",
-      "cloneAria": "Clone floor plan: {{name}}",
-      "delete": "Delete",
-      "deleteAria": "Delete floor plan: {{name}}",
-      "deleteActiveReason": "Activate another floor plan before deleting this one.",
-      "deleteTitle": "Delete {{name}}?",
-      "deleteDescription": "The plan and its tables leave your floor plans. Past reservations keep their tables.",
-      "deleteConfirm": "Delete floor plan",
-      "deleteFailed": "Floor plan not deleted.",
-      "deleted": "Floor plan \"{{name}}\" deleted"
+      "cloneAria": "Clone floor plan: {{name}}"
     },
     "editor": {
       "loading": "Loading",

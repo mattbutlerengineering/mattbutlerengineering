@@ -62,7 +62,6 @@ vi.mock("../hooks/useApiClient.js", () => ({ useApiClient: () => ({ floorPlans: 
 vi.mock("../hooks/useFloorPlans.js", () => ({
   useFloorPlans: () => ({ data: [FLOOR_PLAN], isLoading: false, error: null, refetch: vi.fn() }),
   useCloneFloorPlan: () => ({ mutateAsync: vi.fn() }),
-  useDeleteFloorPlan: () => ({ mutateAsync: vi.fn() }),
   useFloorPlan: () => ({ data: FLOOR_PLAN, isLoading: false, error: null, refetch: vi.fn() }),
   useActivateFloorPlan: () => ({ mutateAsync: vi.fn() }),
   useBulkUpdatePositions: () => ({ mutateAsync: vi.fn() }),

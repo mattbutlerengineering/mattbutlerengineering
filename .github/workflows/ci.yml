@@ -953,7 +953,6 @@ jobs:
             src/services/series-edit-carry.integration.test.ts \
             src/services/closure-reopen-date.integration.test.ts \
             src/services/availability-day-scope.integration.test.ts \
-            src/services/floor-plan-lifecycle.integration.test.ts \
             src/scripts/collapse-day-named-schedules.integration.test.ts \
             --reporter=default --reporter=json --outputFile=rls-integration-results.json
 

@@ -78,20 +78,6 @@ export const useActivateFloorPlan = createMutationHook<string>({
   },
 });
 
-/* ── useDeleteFloorPlan mutation ─────────────────────── */
-
-/**
- * Deletes a plan (the server archives one with booking history, #8254). The
- * list re-reads; the plan's own detail entry is dropped, since it is gone.
- */
-export const useDeleteFloorPlan = createMutationHook<string>({
-  invalidateKeys: FLOOR_PLANS_QUERY_KEY,
-  mutationFn: (api, id) => api.floorPlans.delete(id),
-  onSuccess: (queryClient, _data, id) => {
-    queryClient.removeQueries({ queryKey: floorPlanQueryKey(id) });
-  },
-});
-
 /* ── useBulkUpdatePositions mutation ─────────────────── */
 
 export interface BulkUpdatePositionsPayload {

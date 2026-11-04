@@ -13,13 +13,11 @@ vi.mock("react-router", async () => ({
   useNavigate: vi.fn(),
 }));
 
-const { mockFloorPlansList, mockFloorPlansClone, mockFloorPlansCreate, mockFloorPlansDelete } =
-  vi.hoisted(() => ({
-    mockFloorPlansList: vi.fn(),
-    mockFloorPlansClone: vi.fn(),
-    mockFloorPlansCreate: vi.fn(),
-    mockFloorPlansDelete: vi.fn(),
-  }));
+const { mockFloorPlansList, mockFloorPlansClone, mockFloorPlansCreate } = vi.hoisted(() => ({
+  mockFloorPlansList: vi.fn(),
+  mockFloorPlansClone: vi.fn(),
+  mockFloorPlansCreate: vi.fn(),
+}));
 
 vi.mock("../hooks/useApiClient.js", () => ({
   useApiClient: vi.fn(() => ({
@@ -27,7 +25,6 @@ vi.mock("../hooks/useApiClient.js", () => ({
       list: mockFloorPlansList,
       clone: mockFloorPlansClone,
       create: mockFloorPlansCreate,
-      delete: mockFloorPlansDelete,
     },
   })),
 }));
@@ -102,19 +99,10 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       data-variant={variant}
       data-size={size}
       aria-label={rest["aria-label"]}
-      aria-describedby={rest["aria-describedby"]}
     >
       {children}
     </button>
   ),
-  ConfirmDialog: ({ open, title, description, confirmLabel, onConfirm, onCancel }: any) =>
-    open ? (
-      <div role="alertdialog" aria-label={title}>
-        <p>{description}</p>
-        <button onClick={onCancel}>Cancel</button>
-        <button onClick={onConfirm}>{confirmLabel}</button>
-      </div>
-    ) : null,
   EmptyState: ({ heading, description, action }: any) => (
     <div data-testid="empty-state">
       <span>{heading}</span>
@@ -126,7 +114,6 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   SkeletonGroup: ({ children }: any) => <div data-testid="skeleton-group">{children}</div>,
   Text: ({ children, truncate, title, className, ...rest }: any) => (
     <span
-      id={rest.id}
       className={className}
       title={title}
       data-rialto-truncate={truncate ? "true" : undefined}
@@ -431,75 +418,6 @@ describe("FloorPlansPage", () => {
     await waitFor(() => {
       const liveRegion = screen.getByRole("status");
       expect(liveRegion.textContent).toContain('Floor plan "Patio (Copy)" cloned successfully');
-    });
-  });
-
-  describe("delete", () => {
-    async function openDeleteFor(name: string) {
-      renderPage();
-      await waitFor(() => expect(screen.getByText(name)).toBeDefined());
-      fireEvent.click(screen.getByLabelText(`Delete floor plan: ${name}`));
-      return screen.getByRole("alertdialog", { name: `Delete ${name}?` });
-    }
-
-    it("confirms in a dialog named for the plan, then deletes it and refreshes the list", async () => {
-      mockFloorPlansDelete.mockResolvedValue(undefined);
-      const dialog = await openDeleteFor("Patio");
-      expect(mockFloorPlansDelete).not.toHaveBeenCalled();
-
-      mockFloorPlansList.mockResolvedValue({ data: [mockFloorPlan] });
-      await act(async () => {
-        fireEvent.click(within(dialog).getByText("Delete floor plan"));
-      });
-
-      expect(mockFloorPlansDelete).toHaveBeenCalledWith("fp-2");
-      await waitFor(() => expect(screen.queryByText("Patio")).toBeNull());
-      expect(screen.getByRole("status").textContent).toContain('Floor plan "Patio" deleted');
-    });
-
-    it("cancel closes the dialog without deleting", async () => {
-      const dialog = await openDeleteFor("Patio");
-
-      fireEvent.click(within(dialog).getByText("Cancel"));
-
-      expect(screen.queryByRole("alertdialog")).toBeNull();
-      expect(mockFloorPlansDelete).not.toHaveBeenCalled();
-    });
-
-    it("disables delete on the active plan and says why", async () => {
-      renderPage();
-      await waitFor(() => expect(screen.getByText("Main Dining")).toBeDefined());
-
-      const button = screen.getByLabelText("Delete floor plan: Main Dining") as HTMLButtonElement;
-      expect(button.disabled).toBe(true);
-      const reason = document.getElementById(button.getAttribute("aria-describedby")!);
-      expect(reason?.textContent).toBe("Activate another floor plan before deleting this one.");
-    });
-
-    it("shows the server's reason in a visible alert when the delete is refused", async () => {
-      mockFloorPlansDelete.mockRejectedValue(
-        new ApiClientError(
-          {
-            type: "about:blank",
-            title: "Conflict",
-            status: 409,
-            detail: "Activate another floor plan before deleting this one",
-          },
-          "DELETE"
-        )
-      );
-      const dialog = await openDeleteFor("Patio");
-
-      await act(async () => {
-        fireEvent.click(within(dialog).getByText("Delete floor plan"));
-      });
-
-      await waitFor(() => {
-        const alert = screen.getByRole("alert");
-        expect(alert.textContent).toContain("Floor plan not deleted.");
-        expect(alert.textContent).toContain("Activate another floor plan before deleting this one");
-      });
-      expect(screen.getByText("Patio")).toBeDefined();
     });
   });
 });

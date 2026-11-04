@@ -219,9 +219,6 @@ model FloorPlan {
   name       String
   isActive   Boolean  @default(false) @map("is_active")
   layoutJson Json     @map("layout_json")
-  /// Set when a plan whose tables carry booking history is deleted (#8254):
-  /// the rows stay so reservations keep their table, but every read skips it.
-  archivedAt DateTime? @map("archived_at")
   tables     Table[]
   sections   FloorPlanSection[]
   createdAt  DateTime @default(now()) @map("created_at")

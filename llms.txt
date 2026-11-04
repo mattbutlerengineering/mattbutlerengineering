@@ -7345,9 +7345,6 @@
     <item priority="high">
       export const useActivateFloorPlan: unknown;
     </item>
-    <item priority="high">
-      export const useDeleteFloorPlan: unknown;
-    </item>
     <item priority="low">
       interface BulkUpdatePositionsPayload {
         floorPlanId: string;
@@ -18079,16 +18076,6 @@
     </item>
     <item priority="medium">
       function mapPrismaFloorPlan(floorPlan: PrismaFloorPlan): FloorPlan { /* ... */ }
-    </item>
-    <item priority="medium">
-      function venueUniqueNames(
-        desired: readonly string[],
-        taken: readonly string[],
-        candidate: (name: string, n: number) => string
-      ): string[] { /* ... */ }
-    </item>
-    <item priority="low">
-      type FloorPlanDeleteOutcome = "deleted" | "archived" | "active" | "has_upcoming" | "in_use" | "not_found";
     </item>
     <item priority="high">
       export const floorPlanService: unknown;

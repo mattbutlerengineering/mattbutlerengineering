@@ -391,15 +391,7 @@
       "updated": "Actualizado {{date}}",
       "clone": "Clonar",
       "openAria": "Abrir plano de sala: {{name}}",
-      "cloneAria": "Clonar plano de sala: {{name}}",
-      "delete": "Eliminar",
-      "deleteAria": "Eliminar plano de sala: {{name}}",
-      "deleteActiveReason": "Activa otro plano de sala antes de eliminar este.",
-      "deleteTitle": "¿Eliminar {{name}}?",
-      "deleteDescription": "El plano y sus mesas salen de tus planos de sala. Las reservaciones pasadas conservan sus mesas.",
-      "deleteConfirm": "Eliminar plano",
-      "deleteFailed": "No se eliminó el plano de sala.",
-      "deleted": "Plano de sala \"{{name}}\" eliminado"
+      "cloneAria": "Clonar plano de sala: {{name}}"
     },
     "editor": {
       "loading": "Cargando",

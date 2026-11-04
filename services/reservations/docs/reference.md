@@ -66,8 +66,6 @@ interface Venue {
 
 Visual layout of a venue. One floor plan per venue is active at a time.
 
-Deleting a plan that is not active removes it and its tables. A plan whose tables have any reservation or hold is archived instead (`archivedAt`, hidden from every read; its tables go inactive and are renamed `<name> (archived)` so the venue can reuse the names). The active plan, and a plan with an upcoming booking, answer 409. Table names are unique per venue, so a clone's tables are named `<name>-2`, `<name>-3`, ….
-
 ```typescript
 interface FloorPlan {
   id: string;
@@ -321,7 +319,7 @@ interface TableEvent {
 | POST   | `/api/v1/floor-plans/:id/clone`              | Clone floor plan (copies all tables)     |
 | POST   | `/api/v1/floor-plans/:id/activate`           | Set as active (deactivates others)       |
 | PATCH  | `/api/v1/floor-plans/:id`                    | Update floor plan metadata               |
-| DELETE | `/api/v1/floor-plans/:id`                    | Delete (or archive) floor plan           |
+| DELETE | `/api/v1/floor-plans/:id`                    | Delete floor plan                        |
 | POST   | `/api/v1/floor-plans/tables/positions`       | Bulk update table positions              |
 | POST   | `/api/v1/floor-plans/tables/:tableId/assign` | Assign table to floor plan               |
 | POST   | `/api/v1/floor-plans/tables/:tableId/remove` | Remove table from floor plan             |
