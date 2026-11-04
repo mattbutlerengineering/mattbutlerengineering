@@ -23,6 +23,13 @@ import { venueScoped } from "./venue-scope.js";
 
 /** 404 `detail` for a floor plan addressed by `:id` or a body `floorPlanId`. */
 const FLOOR_PLAN_NOT_FOUND = "Floor plan not found";
+/** 409 `detail`s for a floor plan delete the service refused (#8254). */
+const DELETE_REFUSED = {
+  active: "Activate another floor plan before deleting this one",
+  has_upcoming:
+    "Move or cancel the upcoming reservations on this floor plan's tables before deleting it",
+  in_use: "A table on this floor plan was just booked. Try deleting it again.",
+} as const;
 /** 404 `detail` for a table addressed by `:tableId`. */
 const TABLE_NOT_FOUND = "Table not found";
 
@@ -362,6 +369,9 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
       preHandler: requireAuth,
       schema: {
         summary: "Delete floor plan",
+        description:
+          "Deletes a floor plan that is not active. A plan whose tables have any " +
+          "reservation or hold is archived instead, so booking history keeps its table.",
         params: {
           type: "object",
           properties: {
@@ -371,10 +381,16 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     venueScoped({ venue: floorPlanVenue }, async (request, reply) => {
-      const success = await floorPlanService.delete(request.params.id);
-      if (!success) {
+      const outcome = await floorPlanService.delete(request.params.id);
+      if (outcome === "not_found") {
         return reply.code(404).send(createProblemDetails(404, "Not Found", FLOOR_PLAN_NOT_FOUND));
       }
+      if (outcome === "active" || outcome === "has_upcoming" || outcome === "in_use") {
+        return reply
+          .code(409)
+          .send(createProblemDetails(409, titleForStatus(409), DELETE_REFUSED[outcome]));
+      }
+      // "deleted" or "archived": either way the plan is gone for the caller.
       return reply.code(204).send();
     })
   );

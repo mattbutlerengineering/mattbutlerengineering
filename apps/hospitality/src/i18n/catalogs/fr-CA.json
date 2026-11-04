@@ -391,7 +391,15 @@
       "updated": "Mis à jour {{date}}",
       "clone": "Cloner",
       "openAria": "Ouvrir le plan de salle : {{name}}",
-      "cloneAria": "Cloner le plan de salle : {{name}}"
+      "cloneAria": "Cloner le plan de salle : {{name}}",
+      "delete": "Supprimer",
+      "deleteAria": "Supprimer le plan de salle : {{name}}",
+      "deleteActiveReason": "Activez un autre plan de salle avant de supprimer celui-ci.",
+      "deleteTitle": "Supprimer {{name}} ?",
+      "deleteDescription": "Le plan et ses tables sont retirés de vos plans de salle. Les réservations passées conservent leurs tables.",
+      "deleteConfirm": "Supprimer le plan",
+      "deleteFailed": "Le plan de salle n'a pas été supprimé.",
+      "deleted": "Plan de salle « {{name}} » supprimé"
     },
     "editor": {
       "loading": "Chargement",
