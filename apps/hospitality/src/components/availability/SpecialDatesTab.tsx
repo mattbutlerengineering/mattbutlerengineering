@@ -25,6 +25,7 @@ import { minuteText } from "./closure-band.js";
 import { CallListDialog } from "./CallListDialog.js";
 import { CloseDialog } from "./CloseDialog.js";
 import { UpcomingHolidays } from "./UpcomingHolidays.js";
+import { useHolidayNames } from "./use-holidays.js";
 import { ReopenClosureDialog } from "./ReopenClosureDialog.js";
 import { SeriesEditDialog } from "./SeriesEditDialog.js";
 import { closureSubject, DATE_FORMAT, hoursSubject, rangeLabel } from "./rule-subjects.js";
@@ -274,6 +275,12 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
 
   const scopingRule = scopingHours ? rules.find((r) => r.id === scopingHours.ruleId) : undefined;
   const rows = specialDateRows(rules, today, filter);
+  // A one-date row on a holiday says which ("Christmas Eve"), as the calendar does.
+  const holidays = useHolidayNames(
+    rows
+      .filter(({ rule }) => rule.endsOn === rule.startsOn && !rule.repeat)
+      .map(({ rule }) => rule.startsOn)
+  );
   const editDateOf = (rule: DateRule) => hoursEditDate(rule, today);
   const summaryOf = (ruleId: string) => summaries.data?.find((s) => s.ruleId === ruleId);
   /**
@@ -417,6 +424,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
               ruleId={rule.id}
               title={rangeLabel(rule, format, t)}
               detail={[
+                rule.endsOn === rule.startsOn && !rule.repeat ? holidays.get(rule.startsOn) : null,
                 rule.kind === "closure"
                   ? closureDetail(rule, format, t)
                   : t("availabilitySpecial.kind.specialHours"),
