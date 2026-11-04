@@ -300,7 +300,7 @@ none.
 
 - [x] **Build: dependency-cruiser `no-circular`** — `resolve-day.ts` and `service-days.ts` import each other (a type-only import, which `tsPreCompilationDeps` counts).
   - Accept: `pnpm check:boundaries` exits 0 (RED: `error no-circular: packages/availability/src/resolve-day.ts → packages/availability/src/service-days.ts → packages/availability/src/resolve-day.ts`); `pnpm --filter @mbe/availability test`, `typecheck`, `lint` and `build` pass; the package index exports are unchanged.
-- [ ] **Lint: knip unused export** — `toClock` in `apps/hospitality/src/components/availability/quick-setup-draft.ts` is exported and used by nothing outside the file.
+- [x] **Lint: knip unused export** — `toClock` in `apps/hospitality/src/components/availability/quick-setup-draft.ts` is exported and used by nothing outside the file.
   - Accept: `pnpm check:knip` exits 0 (RED: `Unused exports (1)`, `toClock function … quick-setup-draft.ts:117:17`); the hospitality quick-setup tests pass.
 - [ ] **Test (rest): `assert-vitest-ran`** — `collapse-day-named-schedules.integration.test.ts` is `DATABASE_URL`-gated but no CI job runs it.
   - Accept: `node --test scripts/__tests__/assert-vitest-ran.test.mjs` exits 0 (RED: `src/scripts/collapse-day-named-schedules.integration.test.ts is DATABASE_URL-gated but never runs`); the RLS integration step's list names the new file, and `availability-day-scope.integration.test.ts` is listed there too.

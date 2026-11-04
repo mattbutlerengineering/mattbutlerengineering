@@ -2297,8 +2297,8 @@
     <item priority="medium">
       function toMinutes(hhmm: string): number { /* ... */ }
     </item>
-    <item priority="high">
-      export function toClock(minutes: number): string { /* ... */ }
+    <item priority="medium">
+      function toClock(minutes: number): string { /* ... */ }
     </item>
     <item priority="high">
       export function autoLastSeating(closes: string, opens: string | null = null): string { /* ... */ }
@@ -23422,12 +23422,6 @@
       }
     </item>
     <item priority="low">
-      interface ResolvedService {
-        scheduleServiceId: string | null;
-        name: string;
-      }
-    </item>
-    <item priority="low">
       interface ResolvedClosure {
         ruleId: string;
         targetKind: DateRule["targetKind"];
@@ -23831,6 +23825,12 @@
   <file path="packages/availability/src/types.ts">
     <item priority="low">
       type ServiceDate = string;
+    </item>
+    <item priority="low">
+      interface ResolvedService {
+        scheduleServiceId: string | null;
+        name: string;
+      }
     </item>
     <item priority="high">
       export const WEEKDAYS: unknown;

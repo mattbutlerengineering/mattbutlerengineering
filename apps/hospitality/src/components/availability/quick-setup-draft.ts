@@ -114,7 +114,7 @@ function toMinutes(hhmm: string): number {
   return h * 60 + m;
 }
 
-export function toClock(minutes: number): string {
+function toClock(minutes: number): string {
   const wrapped = ((minutes % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
   const hh = String(Math.floor(wrapped / 60)).padStart(2, "0");
   const mm = String(wrapped % 60).padStart(2, "0");
