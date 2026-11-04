@@ -53,22 +53,9 @@
   margin-top: var(--rialto-space-sm);
 }
 
-.preview {
-  display: flex;
-  flex-direction: column;
-  gap: var(--rialto-space-sm);
-  padding: var(--rialto-space-md);
-  border-radius: var(--rialto-radius-default);
-  background: var(--rialto-surface-recessed);
-}
-
-.previewList {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: var(--rialto-space-xs);
+.stripColumn {
+  position: sticky;
+  top: var(--rialto-space-md);
 }
 
 .visuallyHidden {
@@ -84,5 +71,10 @@
   .layout,
   .times {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* One column: the strip follows the days, not pinned beside them. */
+  .stripColumn {
+    position: static;
   }
 }

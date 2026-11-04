@@ -2246,8 +2246,6 @@
       "blockRemovedEmpty": "Se quitaron los horarios distintos",
       "blockMatchesBase": "Coinciden con los otros días. Quítalos.",
       "previewTitle": "Vista previa para invitados",
-      "previewEmpty": "Agrega un servicio para ver los horarios que verán tus invitados.",
-      "previewLine": "{{name}}: primera mesa {{first}}, última mesa {{last}}",
       "save": "Guardar y abrir reservaciones",
       "saving": "Guardando…",
       "retry": "Reintentar",

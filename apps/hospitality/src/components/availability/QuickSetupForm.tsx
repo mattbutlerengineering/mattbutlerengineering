@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button, Heading, Stack, Text } from "@mattbutlerengineering/rialto";
-import { useVenueFormat } from "../../hooks/useVenueFormat.js";
+import { Button, Stack, Text } from "@mattbutlerengineering/rialto";
 import {
   emptyService,
   replaceService,
@@ -12,6 +11,7 @@ import {
 import { issuesFor, quickSetupFieldId } from "./quick-setup-field-helpers.js";
 import { DayPicker } from "./quick-setup-fields.js";
 import { ServiceRow } from "./QuickSetupServiceRow.js";
+import { RegularWeekStrip } from "./RegularWeekStrip.js";
 import styles from "./QuickSetupForm.module.css";
 
 export interface QuickSetupFormProps {
@@ -19,6 +19,8 @@ export interface QuickSetupFormProps {
   readonly onChange: (draft: QuickSetupDraft) => void;
   /** Problems to show; the owner decides when (after a save attempt, or live in the wizard). */
   readonly issues: readonly QuickSetupIssue[];
+  /** The venue does not exist yet (the onboarding wizard): the strip shows the typed hours only. */
+  readonly local?: boolean;
 }
 
 function DaysField({ draft, onChange, issues }: QuickSetupFormProps) {
@@ -46,43 +48,11 @@ function DaysField({ draft, onChange, issues }: QuickSetupFormProps) {
   );
 }
 
-function GuestPreview({ draft }: { readonly draft: QuickSetupDraft }) {
-  const { t } = useTranslation();
-  const format = useVenueFormat();
-  const ready = draft.services.filter(
-    (s) => s.name.trim() !== "" && s.opens !== null && s.lastSeating !== null
-  );
-  return (
-    <aside className={styles.preview} aria-label={t("availability.quickSetup.previewTitle")}>
-      <Heading level={3}>{t("availability.quickSetup.previewTitle")}</Heading>
-      {ready.length === 0 ? (
-        <Text variant="body" color="secondary">
-          {t("availability.quickSetup.previewEmpty")}
-        </Text>
-      ) : (
-        <ul className={styles.previewList}>
-          {ready.map((s) => (
-            <li key={s.id}>
-              <Text variant="body">
-                {t("availability.quickSetup.previewLine", {
-                  name: s.name.trim(),
-                  first: format.formatLocalTime(s.opens ?? ""),
-                  last: format.formatLocalTime(s.lastSeating ?? ""),
-                })}
-              </Text>
-            </li>
-          ))}
-        </ul>
-      )}
-    </aside>
-  );
-}
-
 /**
- * The S1 form: services (name chips, three times) sharing one set of days, with the guest
- * preview beside it. Controlled; the card and the onboarding wizard each own what happens next.
+ * The S1 form: services (name chips, three times, their own days and hours) over shared days,
+ * with the guest preview strip beside it. Controlled; the card and the onboarding wizard each own what happens next.
  */
-export function QuickSetupForm({ draft, onChange, issues }: QuickSetupFormProps) {
+export function QuickSetupForm({ draft, onChange, issues, local = false }: QuickSetupFormProps) {
   const { t } = useTranslation();
   const [announcement, setAnnouncement] = useState("");
   const focusAfterAdd = useRef<string | null>(null);
@@ -131,7 +101,9 @@ export function QuickSetupForm({ draft, onChange, issues }: QuickSetupFormProps)
           {announcement}
         </Text>
       </Stack>
-      <GuestPreview draft={draft} />
+      <div className={styles.stripColumn}>
+        <RegularWeekStrip draft={draft} local={local} />
+      </div>
     </div>
   );
 }

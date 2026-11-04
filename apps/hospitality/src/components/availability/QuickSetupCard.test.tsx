@@ -1,7 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { axe } from "vitest-axe";
 import { QuickSetupCard } from "./QuickSetupCard.js";
+
+vi.mock("../../hooks/useTables.js", () => ({
+  useTables: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
+}));
 
 // jsdom cannot compute colour contrast; token contrast is covered in rialto.
 const AXE_OPTIONS = { rules: { "color-contrast": { enabled: false } } };
@@ -21,6 +25,13 @@ function bistroWeek() {
   fireEvent.click(screen.getByRole("button", { name: "Weekdays" }));
 }
 
+/** Everything the polite regions on the card say: the form's own and the strip's. */
+const announced = () =>
+  screen
+    .getAllByRole("status")
+    .map((region) => region.textContent)
+    .join(" ");
+
 describe("QuickSetupCard", () => {
   it("starts empty: no name, times or days", () => {
     renderCard();
@@ -37,7 +48,11 @@ describe("QuickSetupCard", () => {
     ]) {
       expect(screen.getByRole("checkbox", { name: day })).not.toBeChecked();
     }
-    expect(screen.getByText("Add a service to see the times guests get.")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Add a service with its times and days to see what guests can book each day."
+      )
+    ).toBeInTheDocument();
   });
 
   it("fills a service from a name chip and the days from a shortcut, with the last-seating hint", () => {
@@ -47,9 +62,12 @@ describe("QuickSetupCard", () => {
     expect(screen.getByText(/Last seating 9:15 PM, 45 min before close/)).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: "Friday" })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: "Saturday" })).not.toBeChecked();
-    expect(
-      screen.getByText(/Dinner: first seating 5:00 PM, last seating 9:15 PM/)
-    ).toBeInTheDocument();
+    // The strip beside the form shows the week as a guest would book it.
+    const strip = screen.getByRole("complementary", { name: "Guest preview" });
+    expect(within(strip).getByRole("listitem", { name: /^Friday:/ })).toHaveTextContent(
+      "Dinner 5:00 PM – 9:15 PM"
+    );
+    expect(within(strip).getByRole("listitem", { name: /^Saturday:/ })).toHaveTextContent("Closed");
   });
 
   it("adds a service, focuses its name and announces it", () => {
@@ -57,7 +75,7 @@ describe("QuickSetupCard", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add another service" }));
     expect(screen.getAllByLabelText("Service name")).toHaveLength(2);
     expect(screen.getAllByLabelText("Service name")[1]).toHaveFocus();
-    expect(screen.getByRole("status")).toHaveTextContent("Service 2 added");
+    expect(announced()).toContain("Service 2 added");
   });
 
   it("sends the draft once it is valid", async () => {

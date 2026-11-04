@@ -1,6 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { axe } from "vitest-axe";
+vi.mock("../../hooks/useTables.js", () => ({
+  useTables: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
+}));
+
 import { QuickSetupCard } from "./QuickSetupCard.js";
 import { draftToConfig, type QuickSetupDraft } from "./quick-setup-draft.js";
 
@@ -15,6 +19,13 @@ function renderCard() {
 }
 
 const DIFFERENT_DAYS = "Different days for this service";
+
+/** Everything the polite regions on the card say: the form's own and the strip's. */
+const announced = () =>
+  screen
+    .getAllByRole("status")
+    .map((region) => region.textContent)
+    .join(" ");
 
 describe("QuickSetupForm per-service days", () => {
   it("keeps every disclosure closed, so no control is duplicated", () => {
@@ -128,7 +139,7 @@ describe("QuickSetupForm different hours on some days", () => {
     ).toHaveLength(0);
     expect(within(block).getAllByRole("checkbox")).toHaveLength(7);
     expect(within(block).getAllByRole("checkbox")[0]).toHaveFocus();
-    expect(screen.getByRole("status")).toHaveTextContent("Different hours added");
+    expect(announced()).toContain("Different hours added");
   });
 
   it("puts a later close on Friday and Saturday into one set of the draft", async () => {
@@ -159,7 +170,7 @@ describe("QuickSetupForm different hours on some days", () => {
     expect(
       screen.queryByRole("group", { name: "Dinner: different hours" })
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("Hours for Fri removed");
+    expect(announced()).toContain("Hours for Fri removed");
     expect(screen.getByRole("button", { name: DIFFERENT_HOURS })).toHaveFocus();
   });
 
@@ -169,8 +180,8 @@ describe("QuickSetupForm different hours on some days", () => {
     const [first, second] = screen.getAllByRole("group", { name: "Dinner: different hours" });
     fireEvent.click(within(first!).getByRole("checkbox", { name: "Fri" }));
     fireEvent.click(within(second!).getByRole("checkbox", { name: "Fri" }));
-    expect(screen.getByRole("status")).toHaveTextContent("Friday moved from the other hours");
-    expect(screen.getByRole("status")).toHaveTextContent("Hours for Fri removed");
+    expect(announced()).toContain("Friday moved from the other hours");
+    expect(announced()).toContain("Hours for Fri removed");
     expect(screen.getAllByRole("group", { name: "Dinner: different hours" })).toHaveLength(1);
   });
 

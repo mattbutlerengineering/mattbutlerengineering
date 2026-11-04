@@ -2246,8 +2246,6 @@
       "blockRemovedEmpty": "Heures différentes retirées",
       "blockMatchesBase": "Ces heures sont les mêmes que les autres jours. Retirez-les.",
       "previewTitle": "Aperçu pour les clients",
-      "previewEmpty": "Ajoutez un service pour voir les heures offertes aux clients.",
-      "previewLine": "{{name}} : première table {{first}}, dernière table {{last}}",
       "save": "Enregistrer et ouvrir les réservations",
       "saving": "Enregistrement…",
       "retry": "Réessayer",
