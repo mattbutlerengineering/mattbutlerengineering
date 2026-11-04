@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import { sentryVitePlugin } from "@sentry/vite-plugin";
 import { VitePWA } from "vite-plugin-pwa";
 import { resolve } from "path";
+import { workboxPrecacheGlobPatterns, workboxRuntimeCaching } from "./pwa/workbox-options.js";
 
 export default defineConfig({
   plugins: [
@@ -44,42 +45,15 @@ export default defineConfig({
         // Precache assets only — NOT html. JS/CSS have content hashes so
         // stale cache is harmless; HTML must always come from the network
         // to avoid serving old bundles after a deploy.
-        globPatterns: ["**/*.{js,css,ico,png,svg,woff,woff2}"],
+        globPatterns: [...workboxPrecacheGlobPatterns],
         navigateFallback: null,
         // workbox writes sw.js after sentryVitePlugin has uploaded and deleted
         // the bundle's maps, so its map would ship and fail
         // scripts/verify-sentry-sourcemaps.mjs in deploy-static.yml.
         sourcemap: false,
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: "CacheFirst",
-            options: {
-              cacheName: "google-fonts-cache",
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
-              },
-              cacheableResponse: {
-                statuses: [0, 200],
-              },
-            },
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
-            handler: "CacheFirst",
-            options: {
-              cacheName: "gstatic-fonts-cache",
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
-              },
-              cacheableResponse: {
-                statuses: [0, 200],
-              },
-            },
-          },
-        ],
+        // Intentionally no Google Fonts routes: a worker fetch() of those
+        // hosts is blocked by connect-src. See pwa/workbox-options.ts.
+        runtimeCaching: [...workboxRuntimeCaching],
       },
     }),
     sentryVitePlugin({

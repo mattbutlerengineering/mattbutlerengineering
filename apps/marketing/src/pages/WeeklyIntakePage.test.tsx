@@ -1,9 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WeeklyIntakePage } from "./WeeklyIntakePage.js";
 import { formatDate } from "../utils/formatters.js";
+
+const css = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), "WeeklyIntakePage.module.css"),
+  "utf8"
+);
+const rule = (name: string) => css.match(new RegExp(`${name}\\s*\\{([^}]*)\\}`))?.[1] ?? "";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Heading: ({ children }: any) => <h2>{children}</h2>,
@@ -124,6 +133,22 @@ describe("WeeklyIntakePage", () => {
     timeElements.forEach((el) => {
       expect(el).toHaveAttribute("dateTime", "2026-04-29");
     });
+  });
+
+  it("keeps the card list inside the column at widths where tag rows exceed it", () => {
+    // 1fr is minmax(auto, 1fr). At 320px the presenting vibe's 32px padding
+    // leaves a 256px content box, and a nowrap date+badges row is ~281px, so
+    // the track spills through the right padding while the left padding stays.
+    const grid = rule("\\.resourceGrid");
+    expect(grid).toMatch(/grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+    expect(grid).not.toMatch(/grid-template-columns:\s*1fr\s*;/);
+    expect(rule("\\.card")).toMatch(/min-width:\s*0/);
+    const meta = rule("\\.meta");
+    expect(meta).toMatch(/flex-wrap:\s*wrap/);
+    expect(rule("\\.tags")).toMatch(/flex-wrap:\s*wrap/);
+    expect(rule("\\.published")).toMatch(/white-space:\s*nowrap/);
+    const wide = css.match(/@media \(min-width:\s*768px\)\s*\{[^}]*\.resourceGrid\s*\{([^}]*)\}/);
+    expect(wide?.[1] ?? "").toMatch(/repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
   });
 
   it("renders source badge labels for each resource", () => {
