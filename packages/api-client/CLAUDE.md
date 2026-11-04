@@ -14,10 +14,12 @@ The `getAccessToken` callback is called on every request. If it returns a token,
 
 Example: [docs/reference.md](./docs/reference.md#auth-token-injection).
 
+**Refresh on 401 (#8258):** pass `refreshAccessToken: () => Promise<string | null>` to recover an expired session. When a request that carried the `getAccessToken` token answers 401, the client calls it once (concurrent 401s share one call) and, on a non-null token, replays that request exactly once — POST/PATCH included, since a 401 means the handler never ran. Null, a throw, or a second 401 surfaces the 401. Requests without a token, or with an explicit per-call `Authorization`, are never refreshed.
+
 ## Retry Logic
 
 - Retries on **502, 503, 504** and network errors (`TypeError`)
-- Does **not** retry on 400, 401, 404, 500
+- Does **not** retry on 400, 401, 404, 500 (401 has its own one-shot token refresh, above)
 - Exponential backoff: 1s, 2s, 4s... with +/-20% jitter
 - Configurable via `maxRetries` (default: 3, set 0 to disable)
 - **Method-gated: only GET, HEAD, PUT, and DELETE are retried by default.** POST and PATCH are

@@ -64,6 +64,14 @@ const SAFE_RETRY_METHODS = new Set(["GET", "HEAD", "PUT", "DELETE"]);
 export interface ClientConfig {
   baseUrl: string;
   getAccessToken?: () => string | null | Promise<string | null>;
+  /**
+   * Fetch a fresh access token, bypassing any cached one. Called at most once
+   * per request, and only when a request that carried the `getAccessToken`
+   * token answers 401 (an expired session, #8258). A non-null result replays
+   * that request exactly once with the new token; null or a throw surfaces
+   * the original 401. Concurrent 401s share one refresh.
+   */
+  refreshAccessToken?: () => Promise<string | null>;
   timeout?: number;
   maxRetries?: number;
   onError?: (error: ApiClientError) => void;
@@ -100,6 +108,7 @@ export interface PerRequestOptions {
 export class ApiClient {
   private readonly timeout: number;
   private readonly maxRetries: number;
+  private refreshInFlight: Promise<string | null> | null = null;
 
   constructor(private config: ClientConfig) {
     this.timeout = config.timeout ?? DEFAULT_TIMEOUT_MS;
@@ -122,28 +131,39 @@ export class ApiClient {
       ...override?.headers,
     };
 
-    if (getAccessToken && !hasHeader(headers, "authorization")) {
-      const token = await getAccessToken();
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
-    }
+    // Only a token this client attached is eligible for refresh-on-401 — an
+    // explicit per-call Authorization (e.g. a manage token) is the caller's.
+    const usesClientToken = Boolean(getAccessToken) && !hasHeader(headers, "authorization");
+    const token = usesClientToken ? await getAccessToken?.() : null;
 
     const effectiveTimeout = override?.timeout ?? this.timeout;
     const effectiveMaxRetries = override?.maxRetries ?? this.maxRetries;
     const idempotentRetry = override?.idempotentRetry ?? false;
 
-    const combinedSignal = createCombinedSignal(effectiveTimeout, options.signal);
-
-    const fetchOptions: RequestInit = {
-      ...options,
-      headers,
-      signal: combinedSignal,
-    };
-
     const url = `${baseUrl}${path}`;
     const canRetry = SAFE_RETRY_METHODS.has(method) || idempotentRetry;
-    const response = await fetchWithRetry(url, fetchOptions, canRetry ? effectiveMaxRetries : 0);
+    const send = (bearer: string | null | undefined) =>
+      fetchWithRetry(
+        url,
+        {
+          ...options,
+          headers: bearer ? { ...headers, Authorization: `Bearer ${bearer}` } : headers,
+          signal: createCombinedSignal(effectiveTimeout, options.signal),
+        },
+        canRetry ? effectiveMaxRetries : 0
+      );
+
+    let response = await send(token);
+
+    // A 401 is the origin refusing the bearer before running the handler, so
+    // replaying once — even a POST/PATCH — cannot duplicate a side effect.
+    if (response.status === 401 && token) {
+      const freshToken = await this.refreshToken();
+      if (freshToken) {
+        await response.body?.cancel().catch(() => undefined);
+        response = await send(freshToken);
+      }
+    }
 
     if (!response.ok) {
       const raw = await response.json().catch(() => null);
@@ -172,6 +192,18 @@ export class ApiClient {
     }
 
     return data as T;
+  }
+
+  /** One shared refresh for concurrent 401s; null when unavailable or failed. */
+  private refreshToken(): Promise<string | null> {
+    const { refreshAccessToken } = this.config;
+    if (!refreshAccessToken) return Promise.resolve(null);
+    this.refreshInFlight ??= refreshAccessToken()
+      .catch(() => null)
+      .finally(() => {
+        this.refreshInFlight = null;
+      });
+    return this.refreshInFlight;
   }
 
   /**
