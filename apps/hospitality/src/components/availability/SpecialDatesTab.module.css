@@ -19,6 +19,31 @@
   list-style: none;
 }
 
+/* Upcoming holidays: a quiet panel above the list, one row per holiday. */
+.holidays {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+  padding: var(--rialto-space-md);
+  border: 1px dashed var(--rialto-border-strong);
+  border-radius: var(--rialto-radius-default);
+}
+
+.holidaysHead {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-sm);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.holiday {
+  display: grid;
+  grid-template-columns: minmax(0, 16rem) minmax(0, 1fr) auto;
+  gap: var(--rialto-space-sm);
+  align-items: center;
+}
+
 .item {
   display: flex;
   flex-wrap: wrap;

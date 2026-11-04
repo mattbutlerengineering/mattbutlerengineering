@@ -197,7 +197,7 @@ Predecessor F-UW stands for the period case. Changes:
 
 1. **Entry** is unchanged: **Calendar → Change regular week…** (Managers only).
 2. **The editor** is the S1 editor with its new parts (different days for a service, different hours on some days), pre-filled from the saved regular week, including migrated day-named schedules read as part of it (rule below).
-3. **Starting** stays required with no default; **Ending** stays optional.
+3. **Starting** stays required with no default; **Start today** and **Start tomorrow** under the dates set it in one click. **Ending** stays optional (placeholder "No end").
    - With **Ending** set: the change is a named period. **Name** appears (with the existing name suggestion button) and works as in predecessor F-UW. A period is a schedule, and the Schedules tab shows it.
    - With no **Ending**: the note "No end — this becomes the new regular week" shows, **Name** is not asked, and Save changes the regular week in place. No schedule or assignment is shown to the Manager or named by them.
 4. **Which days.** The days a change covers follow the editor, live. The line under the dates reads:
@@ -229,10 +229,11 @@ Only these lines of predecessor F2 change.
 
 ### F-CAL (new): The calendar shows one regular week (PRD 6, 7)
 
-1. Under the existing "This week: open 5 days · …" line (S2) a second line reads, for example, "Regular week: Lunch Mon–Fri · Dinner Tue–Sun, later Fri–Sat · Brunch Sat–Sun". A service with different hours on some days adds ", later Fri–Sat", ", earlier …" or ", different hours Fri–Sat" (when it is neither plainly later nor earlier).
-2. **Details ▾** opens the same seven rows as the Guest preview, read-only (no Party, no Updated tags), as the saved week. A uniform week reads "Regular week: Dinner Mon–Fri" and shows no Details disclosure.
+1. Under the existing "This week: open 5 days · …" line (S2) a second line reads, for example, "Regular week: Lunch 11:30 AM–3:00 PM Mon–Fri · Dinner 5:00 PM–11:00 PM Tue–Sun, Fri–Sat until 12:00 AM (next day) · Brunch 10:00 AM–2:00 PM Sat–Sun". Each service gives its base hours, open to close. A set of different hours with the same opening says only its close ("Fri–Sat until 12:00 AM (next day)"); one whose opening moves says both ends ("Fri 6:00 PM–11:00 PM").
+2. **Details ▾** opens the same seven rows as the Guest preview, read-only (no Party, no Updated tags), as the saved week. A uniform week reads "Regular week: Dinner 5:00 PM–10:00 PM Mon–Fri" and shows no Details disclosure.
 3. The line is shown to Hosts too (view only). Only **Change regular week…** is Manager-only, as today.
 4. On a phone the line is the first row under the toolbar; **Details** is collapsed.
+5. In the month grid and the phone agenda, a closed day is flat with a dashed outline and a special-hours day carries an accent rule on its leading edge, so exceptions stand out among regular days; the label still names which.
 
 ### F12 (amended): History (PRD 9)
 

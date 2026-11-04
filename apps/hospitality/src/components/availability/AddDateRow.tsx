@@ -74,8 +74,10 @@ export function AddDateRow(props: AddDateRowProps) {
     // Hours still as copied from a weekday follow the date; hours the Manager edited stay theirs.
     const follows =
       row.kind === "hours" && (row.services.length === 0 || row.seededFor !== undefined);
+    // The row's name was the date it opened on; another date is not that holiday.
+    const { name: _name, ...rest } = row;
     onChange({
-      ...row,
+      ...(date === row.date ? row : rest),
       date,
       // "Same as" starts on the date's own weekday.
       sameAs: row.kind === "closed" ? weekday : row.sameAs,
@@ -86,7 +88,9 @@ export function AddDateRow(props: AddDateRowProps) {
   return (
     <fieldset className={styles.row}>
       <legend className={styles.legend}>
-        {t("availabilitySpecial.add.rowLegend", { n: index + 1 })}
+        {row.name
+          ? t("availabilitySpecial.add.rowLegendNamed", { n: index + 1, name: row.name })
+          : t("availabilitySpecial.add.rowLegend", { n: index + 1 })}
       </legend>
       <div className={styles.rowHead}>
         <DatePicker

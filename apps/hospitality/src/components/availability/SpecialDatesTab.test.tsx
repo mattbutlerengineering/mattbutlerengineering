@@ -37,6 +37,9 @@ vi.mock("../../hooks/useClosures.js", () => ({
   useRetryClosureRefunds: () => ({ mutateAsync: retry, isPending: false }),
   usePreviewClosureImpact: () => ({ mutateAsync: previewImpact, isPending: false }),
   useCreateClosure: () => ({ mutateAsync: createClosure, isPending: false }),
+  // Add special date (opened from Upcoming holidays) previews and saves several dates at once.
+  usePreviewClosureImpacts: () => ({ mutateAsync: previewImpact, isPending: false }),
+  useCreateClosures: () => ({ mutateAsync: createClosure, isPending: false }),
 }));
 const revertChange = vi.hoisted(() => vi.fn());
 vi.mock("../../hooks/useRefreshAvailability.js", () => ({ useRefreshAvailability: () => vi.fn() }));
@@ -207,6 +210,43 @@ describe("SpecialDatesTab", () => {
     unmount();
     renderTab(false);
     expect(screen.queryByRole("button", { name: "Add special date" })).toBeNull();
+  });
+
+  it("offers a Manager the coming holidays no rule covers, each opening Add special date on it", () => {
+    const { unmount } = renderTab(true);
+    const panel = screen.getByRole("region", { name: "Upcoming holidays" });
+    const names = within(panel)
+      .getAllByRole("listitem")
+      .map((li) => li.firstChild?.textContent);
+    // Dec 24 is already closed; Easter (Mar 28) is the last date inside 120 days of Dec 1.
+    expect(names).toEqual([
+      "Christmas Day",
+      "New Year’s Eve",
+      "New Year’s Day",
+      "Valentine’s Day",
+      "Easter Sunday",
+    ]);
+
+    fireEvent.click(
+      within(panel).getByRole("button", { name: "Plan Christmas Day, Fri, Dec 25…" })
+    );
+    const sheet = screen.getByRole("dialog", { name: "Add special dates" });
+    const dates = within(sheet).getAllByLabelText("Date") as HTMLInputElement[];
+    expect(dates.map((d) => d.value)).toEqual(["Dec 25, 2026"]);
+    expect(within(sheet).getByRole("group", { name: "Date 1: Christmas Day" })).toBeTruthy();
+    unmount();
+
+    renderTab(false);
+    expect(screen.queryByRole("region", { name: "Upcoming holidays" })).toBeNull();
+  });
+
+  it("plans every coming holiday at once, one Closed row each, named for its holiday", () => {
+    renderTab(true);
+    fireEvent.click(screen.getByRole("button", { name: "Plan all 5…" }));
+    const sheet = screen.getByRole("dialog", { name: "Add special dates" });
+    expect(within(sheet).getAllByLabelText("Date")).toHaveLength(5);
+    expect(within(sheet).getByRole("group", { name: "Date 5: Easter Sunday" })).toBeTruthy();
+    expect(within(sheet).getAllByRole("radio", { name: "Closed", checked: true })).toHaveLength(5);
   });
 
   it("skips one date of a repeating closure and leaves the series alone", async () => {
