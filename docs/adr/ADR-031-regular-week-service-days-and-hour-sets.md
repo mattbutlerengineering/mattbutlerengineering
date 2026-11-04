@@ -30,7 +30,7 @@ Venue availability shipped on 2026-10-26, no real venue uses it, and the product
 - **Validation moves per weekday.** Overlap is checked among the rows that run on the same weekday; a weekday claimed twice in one row is a new issue code. Legacy rows run every day, so they are rejected exactly as before.
 - **One shared encoder.** The editor, the migration and the collapse script all use `encodeWeek` and `decodeWeek`, so the pre-fill rule (the hours most of a service's days share are its base) has one owner.
 - **Readers of `scheduleServices` that skipped the engine must change.** The agent chat's special-hours seeding is one: without the change it would copy the wrong hours onto a varied day.
-- **Old History inverses and old clients** parse the two fields as absent, which is what those rows meant. A client that omits them in a save would erase a varied week; the venue's `expectedVersion` compare-and-set refuses a client that loaded before the week was saved.
+- **Old History inverses** (and stored rows) parse the two fields as absent, which is what those rows meant. The PUT config body and the preview draft require both fields on every schedule-service row: a client that omits them (one built before day scope) is refused with a 400 validation problem, because the venue's `expectedVersion` compare-and-set cannot stop a client that loaded after a varied week was saved.
 - **A future per-weekday rule** (pacing per day, say) is a new field inside a set or a new payload version, not another migration.
 - **Not solved here:** hour sets carry no dates, so a change that takes effect from a date is still a new regular-week version (a new schedule) and the old one is end-dated. Dated rows would remove that and were not worth their cost.
 

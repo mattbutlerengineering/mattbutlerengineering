@@ -25,6 +25,19 @@ import {
 const IdListSchema = z.array(z.string().min(1));
 
 /**
+ * A schedule-service row on the PUT body. Unlike `ScheduleServiceSchema` (stored
+ * rows and History inverses, where an absent day scope reads as none so entries
+ * saved before it still parse), `weekdays` and `dayHours` are required here: a
+ * client that omits them (one built before day scope) would otherwise save "no
+ * scope" over a varied week, and the version compare-and-set cannot stop a
+ * client that loaded the varied week. It gets a 422 instead.
+ */
+export const ScheduleServiceRequestSchema = ScheduleServiceSchema.extend({
+  weekdays: ScheduleServiceSchema.shape.weekdays.removeDefault(),
+  dayHours: ScheduleServiceSchema.shape.dayHours.removeDefault(),
+});
+
+/**
  * Row operations against the venue's configuration, by table. An upserted row
  * replaces the stored row with the same id, or is created. Removing a schedule
  * or a venue service archives it (other rows reference it); removing a
@@ -36,7 +49,7 @@ export const AvailabilityConfigChangesSchema = z.object({
     .object({
       schedules: z.array(ScheduleSchema).optional(),
       venueServices: z.array(VenueServiceSchema).optional(),
-      scheduleServices: z.array(ScheduleServiceSchema).optional(),
+      scheduleServices: z.array(ScheduleServiceRequestSchema).optional(),
       assignments: z.array(ScheduleAssignmentSchema).optional(),
       dateRules: z.array(DateRuleSchema).optional(),
     })

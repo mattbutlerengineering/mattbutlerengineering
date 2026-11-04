@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   AvailabilityChangeDetailSchema,
   AvailabilityChangesPageSchema,
-  AvailabilityConfigChangesSchema,
   AvailabilityCheckBodySchema,
   ReopenClosureBodySchema,
   AvailabilityCheckResultSchema,
@@ -19,6 +18,7 @@ import {
   ReopenResultSchema,
   SetTonightBodySchema,
 } from "./availability-config-api.js";
+import { ScheduleServiceSchema } from "./availability-config.js";
 
 describe("CreateClosureBodySchema", () => {
   const rule = { id: "r1", kind: "closure", targetKind: "venue", startsOn: "2026-12-24" };
@@ -504,39 +504,44 @@ describe("regular_week_changed detail and day scope on the wire", () => {
     ).toBe(false);
   });
 
-  it("parses an old History inverse (rows without the two fields) with no scope", () => {
-    const row = {
-      id: "ss-1",
-      scheduleId: "sch-1",
-      venueServiceId: "vs-1",
-      opensAt: 1020,
-      lastSeatingAt: 1260,
-      closesAt: 1380,
-      seating: { version: 1, interval: 15 },
-      bookingTypes: ["online"],
-    };
-    const inverse = AvailabilityConfigChangesSchema.parse({ upsert: { scheduleServices: [row] } });
-    expect(inverse.upsert.scheduleServices?.[0]).toMatchObject({
+  const oldRow = {
+    id: "ss-1",
+    scheduleId: "sch-1",
+    venueServiceId: "vs-1",
+    opensAt: 1020,
+    lastSeatingAt: 1260,
+    closesAt: 1380,
+    seating: { version: 1, interval: 15 },
+    bookingTypes: ["online"],
+  };
+
+  it("parses an old History inverse row (without the two fields) as no scope", () => {
+    expect(ScheduleServiceSchema.parse(oldRow)).toMatchObject({
       weekdays: [],
       dayHours: { version: 1, sets: [] },
     });
   });
 
-  it("takes both new fields as optional in the PUT body", () => {
-    const row = {
-      id: "ss-1",
-      scheduleId: "sch-1",
-      venueServiceId: "vs-1",
-      opensAt: 1020,
-      lastSeatingAt: 1260,
-      closesAt: 1380,
-      seating: { version: 1, interval: 15 },
-      bookingTypes: ["online"],
-    };
-    const parsed = PutAvailabilityConfigBodySchema.parse({
-      expectedVersion: 1,
-      changes: { upsert: { scheduleServices: [row, { ...row, id: "ss-2", weekdays: [1, 2] }] } },
-    });
-    expect(parsed.changes.upsert.scheduleServices?.map((r) => r.weekdays)).toEqual([[], [1, 2]]);
+  it("requires both new fields on a PUT body row, naming the missing one", () => {
+    const parse = (row: Record<string, unknown>) =>
+      PutAvailabilityConfigBodySchema.safeParse({
+        expectedVersion: 1,
+        changes: { upsert: { scheduleServices: [row] } },
+      });
+    const whole = { ...oldRow, weekdays: [1, 2], dayHours: { version: 1, sets: [] } };
+
+    expect(parse(whole).success).toBe(true);
+    for (const field of ["weekdays", "dayHours"]) {
+      const { [field]: _omitted, ...row } = whole as Record<string, unknown>;
+      const result = parse(row);
+      expect(result.success).toBe(false);
+      expect(result.error?.issues[0]?.path).toEqual([
+        "changes",
+        "upsert",
+        "scheduleServices",
+        0,
+        field,
+      ]);
+    }
   });
 });

@@ -641,12 +641,16 @@
       .catchall(z.unknown());
   </file>
   <file path="src/schemas/availability-config-api.ts">
+    export const ScheduleServiceRequestSchema = ScheduleServiceSchema.extend({
+      weekdays: ScheduleServiceSchema.shape.weekdays.removeDefault(),
+      dayHours: ScheduleServiceSchema.shape.dayHours.removeDefault(),
+    });
     export const AvailabilityConfigChangesSchema = z.object({
       upsert: z
         .object({
           schedules: z.array(ScheduleSchema).optional(),
           venueServices: z.array(VenueServiceSchema).optional(),
-          scheduleServices: z.array(ScheduleServiceSchema).optional(),
+          scheduleServices: z.array(ScheduleServiceRequestSchema).optional(),
           assignments: z.array(ScheduleAssignmentSchema).optional(),
           dateRules: z.array(DateRuleSchema).optional(),
         })

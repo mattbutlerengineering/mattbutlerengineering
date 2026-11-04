@@ -173,14 +173,33 @@ describe("availability config routes", () => {
       expect(savedRow()).toEqual(varied);
     });
 
-    it("reads a row that omits the two fields as no scope", async () => {
-      svc.save.mockResolvedValueOnce({ kind: "saved", version: 3, changeId: "chg-3" });
+    it("refuses a row that omits the two fields, so a stale client cannot erase a varied week", async () => {
+      // A client loaded at the current version (a varied week is stored) builds a fresh
+      // row without `weekdays` and `dayHours`: defaulting them would erase the week.
       const payload = { ...PUT_BODY, changes: { upsert: { scheduleServices: [ROW] }, remove: {} } };
 
       const res = await put(app, payload);
 
-      expect(res.statusCode).toBe(200);
-      expect(savedRow()).toMatchObject({ weekdays: [], dayHours: { version: 1, sets: [] } });
+      expect(res.statusCode).toBe(400);
+      expect(res.json()).toMatchObject({ status: 400, title: expect.any(String) });
+      expect(res.json().detail).toContain("scheduleServices/0");
+      expect(res.json().detail).toContain("weekdays");
+      expect(svc.save).not.toHaveBeenCalled();
+    });
+
+    it.each(["weekdays", "dayHours"])("refuses a row that omits only %s", async (field) => {
+      const row = { ...ROW, weekdays: [], dayHours: { version: 1, sets: [] } } as Record<
+        string,
+        unknown
+      >;
+      delete row[field];
+      const payload = { ...PUT_BODY, changes: { upsert: { scheduleServices: [row] }, remove: {} } };
+
+      const res = await put(app, payload);
+
+      expect(res.statusCode).toBe(400);
+      expect(JSON.stringify(res.json())).toContain(field);
+      expect(svc.save).not.toHaveBeenCalled();
     });
 
     it("answers a weekday_clash with 422 invalid-config and the issue paths", async () => {

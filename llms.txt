@@ -13084,6 +13084,9 @@
   </file>
   <file path="packages/types/src/schemas/availability-config-api.ts">
     <item priority="high">
+      export const ScheduleServiceRequestSchema: unknown;
+    </item>
+    <item priority="high">
       export const AvailabilityConfigChangesSchema: unknown;
     </item>
     <item priority="high">
