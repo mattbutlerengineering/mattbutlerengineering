@@ -4,7 +4,7 @@ import { Button, Heading, Text, useToast } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfig } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { upcomingHolidays } from "./holidays.js";
-import { useHolidayCountry } from "./use-holidays.js";
+import { readOpenAsUsual, useHolidayCountry, writeOpenAsUsual } from "./use-holidays.js";
 import type { PlannedDate } from "./AddSpecialDatesSheet.js";
 import styles from "./SpecialDatesTab.module.css";
 
@@ -15,27 +15,6 @@ export interface UpcomingHolidaysProps {
   readonly today: string;
   /** Opens Add special date with one Closed row per holiday; each row can become special hours. */
   readonly onPlan: (rows: readonly PlannedDate[]) => void;
-}
-
-/** Holidays a Manager said the venue keeps its usual hours on, per venue, on this browser. */
-const storageKey = (venueId: string) => `mbe-availability-open-as-usual:${venueId}`;
-
-function readOpenAsUsual(venueId: string): readonly string[] {
-  try {
-    const parsed: unknown = JSON.parse(window.localStorage.getItem(storageKey(venueId)) ?? "[]");
-    return Array.isArray(parsed) ? parsed.filter((d): d is string => typeof d === "string") : [];
-  } catch {
-    // Storage blocked or garbled: every holiday is offered again, which is harmless.
-    return [];
-  }
-}
-
-function writeOpenAsUsual(venueId: string, dates: readonly string[]): void {
-  try {
-    window.localStorage.setItem(storageKey(venueId), JSON.stringify(dates));
-  } catch {
-    // Blocked storage: the choice lasts until the page reloads.
-  }
 }
 
 /**

@@ -9195,6 +9195,22 @@
         );
       }, [country, dates, t]);
     }
+    export function readOpenAsUsual(venueId: string): readonly string[] {
+      try {
+        const parsed: unknown = JSON.parse(window.localStorage.getItem(storageKey(venueId)) ?? "[]");
+        return Array.isArray(parsed) ? parsed.filter((d): d is string => typeof d === "string") : [];
+      } catch {
+        // Storage blocked or garbled: every holiday is offered again, which is harmless.
+        return [];
+      }
+    }
+    export function writeOpenAsUsual(venueId: string, dates: readonly string[]): void {
+      try {
+        window.localStorage.setItem(storageKey(venueId), JSON.stringify(dates));
+      } catch {
+        // Blocked storage: the choice lasts until the page reloads.
+      }
+    }
   </file>
   <file path="apps/hospitality/src/components/availability/use-reload-hold.ts">
     function emit() {

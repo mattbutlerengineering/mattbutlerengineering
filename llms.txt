@@ -3289,6 +3289,12 @@
     <item priority="high">
       export function useHolidayNames(dates: readonly string[]): ReadonlyMap<string, string> { /* ... */ }
     </item>
+    <item priority="high">
+      export function readOpenAsUsual(venueId: string): readonly string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function writeOpenAsUsual(venueId: string, dates: readonly string[]): void { /* ... */ }
+    </item>
   </file>
   <file path="apps/hospitality/src/components/availability/use-reload-hold.ts">
     <item priority="medium">
