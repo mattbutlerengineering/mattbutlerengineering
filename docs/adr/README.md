@@ -35,7 +35,8 @@ This directory contains Architecture Decision Records (ADRs) documenting signifi
 | [ADR-027](ADR-027-same-zone-batching-under-nonstrict-main.md)     | Same-Zone Batching Under Non-Strict Main                                            | active                  | 2026-10-14 |
 | [ADR-028](ADR-028-rialto-localization-through-context.md)         | Localize Rialto Through an Optional Context with Typed Per-Locale Dictionaries      | active                  | 2026-10-13 |
 | [ADR-029](ADR-029-reservation-date-is-service-day.md)             | A Reservation's Date Is Its Service Day                                             | active                  | 2026-10-25 |
-| [ADR-030](ADR-030-availability-layered-rows-pure-engine.md)       | Venue Availability as Layered Rows with Typed Payloads, Resolved by One Pure Engine | active                  | 2026-10-25 |
+| [ADR-030](ADR-030-availability-layered-rows-pure-engine.md)       | Venue Availability as Layered Rows with Typed Payloads, Resolved by One Pure Engine | amended (by ADR-031)    | 2026-10-25 |
+| [ADR-031](ADR-031-regular-week-service-days-and-hour-sets.md)     | A Service Row Carries Its Own Days and Per-Weekday Hour Sets                        | provisional             | 2026-11-03 |
 
 ## Format
 
