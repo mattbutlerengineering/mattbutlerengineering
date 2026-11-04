@@ -618,6 +618,10 @@ model ScheduleService {
   bookingTypes   String[]     @default([]) @map("booking_types")
   /// Versioned value bundle (P3 turn times, pacing, party limits, windows).
   rules          Json         @default("{}")
+  /// Days the base hours apply on; empty = every day the assignment covers (less the days a set claims).
+  weekdays       Int[]        @default([])
+  /// Versioned value bundle: other hours on some weekdays. {version:1, sets:[{weekdays, ...hours}]}.
+  dayHours       Json         @default("{\"version\":1,\"sets\":[]}") @map("day_hours")
 
   @@unique([scheduleId, venueServiceId])
   @@index([venueId])
