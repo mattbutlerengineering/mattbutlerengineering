@@ -4,6 +4,7 @@ import {
   DatePicker,
   SegmentedControl,
   Select,
+  Tag,
   Text,
   TextArea,
 } from "@mattbutlerengineering/rialto";
@@ -68,6 +69,10 @@ export function AddDateRow(props: AddDateRowProps) {
     }
     onChange({ ...row, kind });
   };
+
+  const holidayMessage = row.name
+    ? t("availability.close.suggestions.holidayNamed", { name: row.name })
+    : "";
 
   const chooseDate = (date: string) => {
     const weekday = ownWeekday(date, row.sameAs);
@@ -192,6 +197,17 @@ export function AddDateRow(props: AddDateRowProps) {
           showOptional
           onChange={(e) => onChange({ ...row, message: e.target.value })}
         />
+      )}
+      {/* A row the sheet opened on a holiday offers the Close dialog's wording for it. */}
+      {!messageShared && row.name && row.kind === "closed" && (
+        <div className={styles.chips}>
+          <Tag
+            selected={row.message === holidayMessage}
+            onClick={() => onChange({ ...row, message: holidayMessage })}
+          >
+            {holidayMessage}
+          </Tag>
+        </div>
       )}
     </fieldset>
   );

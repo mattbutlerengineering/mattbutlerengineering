@@ -235,6 +235,11 @@ describe("SpecialDatesTab", () => {
     const dates = within(sheet).getAllByLabelText("Date") as HTMLInputElement[];
     expect(dates.map((d) => d.value)).toEqual(["Dec 25, 2026"]);
     expect(within(sheet).getByRole("group", { name: "Date 1: Christmas Day" })).toBeTruthy();
+    // The row offers the holiday's message, as the Close dialog does.
+    fireEvent.click(within(sheet).getByText("Closed for Christmas Day"));
+    expect(within(sheet).getByLabelText(/Message for guests/)).toHaveValue(
+      "Closed for Christmas Day"
+    );
     unmount();
 
     renderTab(false);

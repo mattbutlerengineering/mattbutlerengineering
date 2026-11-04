@@ -39,3 +39,10 @@
 .footerNote {
   margin-right: auto;
 }
+
+/* A row's message suggestion, as in the Close dialog's chips. */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-xs);
+}
