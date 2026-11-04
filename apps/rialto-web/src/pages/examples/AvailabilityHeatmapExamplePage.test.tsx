@@ -70,17 +70,20 @@ vi.mock("@mattbutlerengineering/rialto", () => {
     reservations,
     onReservationClick,
     selectedReservationId,
+    viewMode,
   }: {
     rooms: { id: string }[];
     reservations: Reservation[];
     onReservationClick?: (r: Reservation) => void;
     selectedReservationId?: string | null;
+    viewMode?: string;
   }) => (
     <div
       data-testid="tapechart-stub"
       data-rooms={rooms.length}
       data-reservations={reservations.length}
       data-selected={selectedReservationId ?? ""}
+      data-view-mode={viewMode ?? ""}
     >
       {reservations.map((r) => (
         <button key={r.id} type="button" onClick={() => onReservationClick?.(r)}>
@@ -199,5 +202,11 @@ describe("AvailabilityHeatmapExamplePage — composition", () => {
     );
 
     expect(screen.getByText(`Blocked · ${block.blockedReason}`)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`${block.start} → ${block.end}`))).toBeInTheDocument();
+  });
+
+  it("does not lock TapeChart to grid, so the Grid/List toggle can change the view", () => {
+    renderPage();
+    expect(screen.getByTestId("tapechart-stub")).toHaveAttribute("data-view-mode", "");
   });
 });

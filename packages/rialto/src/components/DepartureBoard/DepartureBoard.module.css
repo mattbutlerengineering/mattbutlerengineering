@@ -1,28 +1,56 @@
 /* ── Board wrapper ──────────────────────────── */
 .board {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
+  /* Stretch to the parent so the row below has a definite width to scale
+     into. A shrink-wrapped inline-flex would size itself to the flaps and
+     the container query would never see the narrower card. */
+  inline-size: 100%;
   max-inline-size: 100%;
+  min-inline-size: 0;
 }
 
 .sm {
   padding: var(--rialto-space-xs);
+  /* Match SplitFlap's sm cell (1.2em at 1.25rem) so the fit formula below
+     shrinks the same boxes the row actually paints. */
+  --sf-cell-em: 1.2;
+  --sf-preset-font: 1.25rem;
 }
 
 .md {
   padding: var(--rialto-space-sm);
+  --sf-cell-em: 1.4;
+  --sf-preset-font: 1.75rem;
 }
 
 .lg {
   padding: var(--rialto-space-md);
+  --sf-cell-em: 1.6;
+  --sf-preset-font: 2.5rem;
 }
 
 /* ── Flap display ───────────────────────────── */
 .display {
-  display: inline-flex;
+  display: flex;
+  /* Follows .board, so a caller that start-aligns the board start-aligns the flaps. */
+  justify-content: inherit;
+  inline-size: 100%;
   max-inline-size: 100%;
-  overflow-x: auto;
+  min-inline-size: 0;
+  container-type: inline-size;
+  overflow-x: clip;
+  /* 20px is the SplitFlap chrome (8px padding + 1px border, each side) plus
+     2px of slack so the border is not clipped. Gaps are 3px between cells.
+     min() keeps an unconstrained board at its preset size. */
+  --sf-fit-font-size: min(
+    var(--sf-preset-font, 1.75rem),
+    calc(
+      (100cqi - 3px * (var(--board-cells, 1) - 1) - 20px) /
+        (var(--board-cells, 1) * var(--sf-cell-em, 1.4))
+    )
+  );
 }
 
 /* ── Reduced-motion static fallback ─────────── */
@@ -32,6 +60,8 @@
 
 .staticText {
   display: block;
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
   font-family: var(--rialto-font-display);
   font-weight: 500;
   line-height: var(--rialto-leading-tight);

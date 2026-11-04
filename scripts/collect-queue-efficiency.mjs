@@ -46,6 +46,49 @@ export const QUEUE_EFFICIENCY_FPS_DROP = 0.1;
 export const QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE = 15;
 
 /**
+ * Total `review_coverage` fall across the trailing {@link REVIEW_COVERAGE_TREND_WINDOW}
+ * reports that counts as a sustained decline (#8184). The incident this pins,
+ * 0.286 -> 0.211 -> 0.167, fell 0.119 while the composite moved 0.918 -> 0.910.
+ */
+export const QUEUE_EFFICIENCY_REVIEW_COVERAGE_TREND_DROP = 0.08;
+
+/** Consecutive daily reports a review_coverage decline must span (#8184). */
+export const REVIEW_COVERAGE_TREND_WINDOW = 3;
+
+/**
+ * The trailing review_coverage readings, oldest first, ending with the current
+ * one: the earlier days' `queueEfficiency` rows from process-metrics.jsonl plus
+ * today's reading. Same-day, unavailable and coverage-less rows are skipped so a
+ * re-recorded day never counts twice.
+ *
+ * @param {Array<object>|null|undefined} rows - process-metrics.jsonl rows
+ * @param {{ review_coverage?: number|null, review_coverage_n?: number }} current
+ * @param {string} today - `YYYY-MM-DD` of the current report
+ * @returns {Array<{ value: number, n: number }>}
+ */
+export function buildReviewCoverageTrail(rows, current, today) {
+  if (typeof current?.review_coverage !== "number") return [];
+  const earlier = (rows ?? [])
+    .filter(
+      (r) =>
+        r?.sensor === "queueEfficiency" &&
+        r.available === true &&
+        typeof r.date === "string" &&
+        r.date < today &&
+        typeof r.sub_metrics?.review_coverage === "number"
+    )
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const byDate = new Map(earlier.map((r) => [r.date, r]));
+  return [
+    ...[...byDate.values()].slice(-(REVIEW_COVERAGE_TREND_WINDOW - 1)).map((r) => ({
+      value: r.sub_metrics.review_coverage,
+      n: r.sub_metrics.review_coverage_n ?? 0,
+    })),
+    { value: current.review_coverage, n: current.review_coverage_n ?? 0 },
+  ];
+}
+
+/**
  * Days back `readMergedAiPrsPaged`'s cheap first pass searches — one day of
  * slack past the 7-day current window `collectQueueEfficiency` computes, so
  * an exact-boundary PR is never missed to date-vs-timestamp truncation.

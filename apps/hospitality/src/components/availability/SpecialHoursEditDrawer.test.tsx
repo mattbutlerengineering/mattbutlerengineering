@@ -3,7 +3,8 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState } from "@mbe/types";
 
-vi.mock("../../hooks/useAvailability.js", () => ({
+vi.mock("../../hooks/useAvailability.js", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   useSaveAvailabilityConfig: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useRevertAvailabilityChange: () => ({ mutateAsync: vi.fn() }),
 }));
@@ -50,7 +51,7 @@ describe("SpecialHoursEditDrawer", () => {
     );
     const copy = () => screen.getByRole("button", { name: "Copy to other days…" });
     expect(copy()).not.toHaveAttribute("aria-disabled");
-    fireEvent.click(screen.getAllByRole("button", { name: /^Edit / })[0]!);
+    fireEvent.click(screen.getAllByRole("button", { name: /^Edit (Lunch|Dinner)/ })[0]!);
     expect(copy()).toHaveAttribute("aria-disabled", "true");
   });
 });

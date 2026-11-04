@@ -44,7 +44,9 @@
   overflow: hidden;
 
   font-family: var(--rialto-font-sans);
-  font-size: var(--sf-font-size);
+  /* A parent (DepartureBoard) may set --sf-fit-font-size so em-sized cells
+     shrink into a narrow container. Alone, the preset size is used. */
+  font-size: var(--sf-fit-font-size, var(--sf-font-size));
   font-weight: 500;
   color: var(--rialto-accent);
   text-transform: uppercase;

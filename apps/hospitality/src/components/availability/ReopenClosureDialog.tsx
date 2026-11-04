@@ -61,6 +61,8 @@ export interface ReopenClosureDialogProps {
   readonly today: string;
   readonly services: readonly VenueService[];
   readonly onClose: () => void;
+  /** The reopen was saved (not cancelled, not refused): the caller can close what it opened from. */
+  readonly onDone?: () => void;
 }
 
 /** What a refused reopen shows: the sentence, the bookings the server named, and how many it did not. */
@@ -199,6 +201,7 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
       const toldGuests = saved.notified == null ? told : saved.notified > 0;
       if (toldGuests) toast({ title, variant: "success" });
       else offerUndo({ venueId, title, saved });
+      props.onDone?.();
       onClose();
     } catch (error) {
       // A 404 is a teammate's reopen that removed this closure first: the same stale dialog, and

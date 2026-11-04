@@ -234,6 +234,7 @@ jobs:
             apps/rialto-web/e2e/a11y-pages.spec.ts \
             apps/rialto-web/e2e/interaction.spec.ts \
             apps/rialto-web/e2e/navigation.spec.ts \
+            apps/rialto-web/e2e/review-and-overlays.spec.ts \
             apps/rialto-web/e2e/search.spec.ts \
             apps/rialto-web/e2e/theme.spec.ts \
             apps/rialto-web/e2e/demo-nav.spec.ts \

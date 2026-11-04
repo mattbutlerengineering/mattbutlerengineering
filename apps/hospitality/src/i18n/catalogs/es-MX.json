@@ -1755,6 +1755,7 @@
     },
     "series": {
       "editDates": "Editar fechas…",
+      "editDatesFor": "Editar las fechas del cierre del {{date}}",
       "title": "Editar fechas",
       "dateLabel": "Fecha",
       "scopeLabel": "Cambiar",
@@ -1894,6 +1895,15 @@
     "noStart": "De inmediato",
     "noEnd": "Sin fin",
     "thisSchedule": "Este horario",
+    "suggest": {
+      "use": "Usar “{{name}}”",
+      "spring": "Horario de primavera",
+      "summer": "Horario de verano",
+      "autumn": "Horario de otoño",
+      "winter": "Horario de invierno",
+      "from": "Horario desde el {{from}}",
+      "range": "Horario del {{from}} al {{to}}"
+    },
     "impactNone": "Aún no se usa en ninguna fecha",
     "overlap": "{{name}} coincide con {{other}}.",
     "overlapNewWins": "Gana {{name}}",

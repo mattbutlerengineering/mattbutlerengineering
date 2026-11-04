@@ -50,8 +50,8 @@
       "limit": "8 kB"
     },
     {
-      "name": "Close Dialog (shared by the availability page and the timeline's Tonight panel)",
-      "path": "dist/assets/CloseDialog-*.js",
+      "name": "Close Dialog + Call list (shared by the availability page and the timeline's Tonight panel; rollup names the chunk for CallListDialog)",
+      "path": "dist/assets/CallListDialog-*.js",
       "limit": "8.8 kB"
     },
     {

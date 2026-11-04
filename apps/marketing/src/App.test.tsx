@@ -10,10 +10,12 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   ),
   GlobalNav: ({
     menu,
+    currentPath,
   }: {
     menu?: { label: string; items: { label: string; href: string; current?: boolean }[] };
+    currentPath?: string;
   }) => (
-    <nav data-testid="global-nav">
+    <nav data-testid="global-nav" data-current-path={currentPath}>
       {menu && (
         <ul data-testid="nav-menu" data-label={menu.label}>
           {menu.items.map((i) => (
@@ -80,4 +82,16 @@ describe("App", () => {
     );
     expect(current.map((li) => li.textContent)).toEqual(["/shipped"]);
   });
+
+  it.each(["/", "/metrics", "/shipped", "/not-a-page"])(
+    "tells the nav the current path (%s) so Home is current only on the index",
+    (path) => {
+      render(
+        <MemoryRouter initialEntries={[path]}>
+          <App theme="light" onThemeToggle={vi.fn()} />
+        </MemoryRouter>
+      );
+      expect(screen.getByTestId("global-nav").getAttribute("data-current-path")).toBe(path);
+    }
+  );
 });

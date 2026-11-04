@@ -151,7 +151,7 @@ const COMPOSITION_NOTES: ReactNode = (
   <>
     <CompositionNote>
       Three columns — Pre-Arrival, In-Progress, Checkout — are rendered from one fixture array
-      filtered by <code>stage</code>. A card moves forward through the pipeline by reassigning its
+      filtered by <code>stage</code>. A card moves forward through the pipeline by reassigning its{" "}
       <code>stage</code> field, a pure transform that returns a new array rather than mutating rows.
     </CompositionNote>
     <CompositionNote>

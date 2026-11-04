@@ -652,3 +652,40 @@ describe.each(Object.entries(PRODUCER_WORKFLOWS))(
     });
   }
 );
+
+// ---------------------------------------------------------------------------
+// Arming workflows run base code only. Under `pull_request` the workflow YAML
+// is the PR's own, so a PR could rewrite the steps (or the eligibility script
+// they run) while holding a `contents: write` token. `pull_request_target`
+// runs the base copy; the PR head must never be checked out.
+// ---------------------------------------------------------------------------
+
+describe.each([
+  { name: "auto-merge.yml", source: AUTO_MERGE_WORKFLOW },
+  { name: "merge-queue.yml", source: WORKFLOW },
+])("$name runs base code only (pull_request_target)", ({ source }) => {
+  const onBlock = source.slice(source.indexOf("\non:") + 1, source.indexOf("\npermissions:"));
+  const header = source.slice(0, source.indexOf("\non:"));
+  const code = source.replace(/^\s*#.*$/gm, "");
+
+  it("triggers on pull_request_target and never on pull_request", () => {
+    expect(onBlock).toMatch(/^ {2}pull_request_target:/m);
+    expect(onBlock).not.toMatch(/^ {2}pull_request:/m);
+  });
+
+  it("checks out with no ref: or repository: (base repo only)", () => {
+    expect(code).toMatch(/uses:\s*actions\/checkout@/);
+    expect(code).not.toMatch(/^\s*ref:/m);
+    expect(code).not.toMatch(/^\s*repository:/m);
+  });
+
+  it("carries a header comment stating the never-check-out-the-PR-head rule", () => {
+    expect(header).toMatch(/^#.*\bnever\b.*PR head/im);
+    expect(header).toMatch(/\benv:/);
+  });
+
+  it("compares the event name to pull_request_target, never the bare pull_request literal", () => {
+    expect(code).not.toMatch(/['"]pull_request['"]/);
+    expect(code).toMatch(/['"]pull_request_target['"]/);
+  });
+});

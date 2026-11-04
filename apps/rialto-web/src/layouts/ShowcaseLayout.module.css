@@ -8,9 +8,15 @@
   color: var(--rialto-text-primary);
 }
 
-/* ── Mobile sidebar toggle (hidden on desktop) ── */
-.mobileSidebarToggle {
+/* ── Mobile sidebar toggle (hidden on desktop) ──
+   In the document flow, above <main>, so it cannot cover page content or
+   drawer items the way the old fixed bottom-start button did. */
+.mobileNavBar {
   display: none;
+}
+
+.mobileSidebarToggle {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 40px;
@@ -21,14 +27,10 @@
   background: var(--rialto-surface-elevated);
   color: var(--rialto-text-secondary);
   cursor: pointer;
-  position: fixed;
-  inset-block-end: var(--rialto-space-lg);
-  inset-inline-start: var(--rialto-space-lg);
-  z-index: 90;
   box-shadow: var(--rialto-shadow-md);
   transition:
-    color 0.15s ease,
-    background-color 0.15s ease;
+    color 0.15s var(--rialto-ease-precision),
+    background-color 0.15s var(--rialto-ease-precision);
 }
 
 .mobileSidebarToggle:hover {
@@ -66,11 +68,18 @@
 
 /* ── Responsive: mobile layout ───────────────── */
 @media (max-width: 767px) {
-  .mobileSidebarToggle {
+  .body {
+    flex-direction: column;
+  }
+
+  .mobileNavBar {
     display: flex;
+    flex-shrink: 0;
+    padding: var(--rialto-space-xs) var(--rialto-space-md) 0;
   }
 
   .content {
+    min-block-size: 0;
     padding: var(--rialto-space-md);
   }
 }

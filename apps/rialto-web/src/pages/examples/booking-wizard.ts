@@ -154,15 +154,35 @@ export function validateGuest(state: BookingWizardState): FieldErrors {
   return errors;
 }
 
-export function validatePayment(state: BookingWizardState): FieldErrors {
+const EXPIRY_PATTERN = /^(0[1-9]|1[0-2])\/(\d{2})$/;
+
+/**
+ * True when MM/YY names a real month that has already ended.
+ * The card stays valid through the last day of its expiry month.
+ * Two-digit years are 2000–2099. Comparison uses the local calendar month of `now`.
+ */
+function isCardExpiryPast(expiry: string, now: Date): boolean {
+  const match = EXPIRY_PATTERN.exec(expiry.trim());
+  if (!match) return false;
+  const month = Number(match[1]);
+  const year = 2000 + Number(match[2]);
+  const todayYear = now.getFullYear();
+  const todayMonth = now.getMonth() + 1;
+  return year < todayYear || (year === todayYear && month < todayMonth);
+}
+
+export function validatePayment(state: BookingWizardState, now: Date = new Date()): FieldErrors {
   const errors: FieldErrors = {};
   const { cardName, cardNumber, expiry, cvc } = state.payment;
   if (!cardName.trim()) errors.cardName = "Name on card is required.";
   if (!/^\d{16}$/.test(cardNumber.replace(/\s+/g, ""))) {
     errors.cardNumber = "Enter the 16-digit card number.";
   }
-  if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(expiry.trim())) {
+  const expiryText = expiry.trim();
+  if (!EXPIRY_PATTERN.test(expiryText)) {
     errors.expiry = "Use MM/YY format.";
+  } else if (isCardExpiryPast(expiryText, now)) {
+    errors.expiry = "Expiry date is in the past.";
   }
   if (!/^\d{3,4}$/.test(cvc.trim())) {
     errors.cvc = "Enter the 3-4 digit security code.";

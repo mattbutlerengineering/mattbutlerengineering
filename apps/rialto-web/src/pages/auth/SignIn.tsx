@@ -4,6 +4,7 @@ import {
   useState,
   type Dispatch,
   type FormEvent,
+  type RefObject,
   type SetStateAction,
 } from "react";
 import { Link, useNavigate } from "react-router";
@@ -26,6 +27,7 @@ import type { HandshakeState } from "@mattbutlerengineering/rialto";
 import { AuthLayout } from "./AuthLayout";
 import { DEMO_ROUTES } from "../../data/demo-routes";
 import { isAcceptedMfaCode, isValidEmail, MFA_CODE_LENGTH } from "./auth-validation";
+import { useInvalidSubmitFocus } from "./use-invalid-submit-focus";
 import styles from "./AuthLayout.module.css";
 
 const SIGN_IN_STEPS = [{ label: "Credentials" }, { label: "Verification" }];
@@ -92,6 +94,7 @@ interface CredentialsStepProps {
   onPasskey: () => void;
   onSocial: (provider: string) => void;
   onForgotPassword: () => void;
+  formRef: RefObject<HTMLFormElement | null>;
 }
 
 function CredentialsStep({
@@ -108,6 +111,7 @@ function CredentialsStep({
   onPasskey,
   onSocial,
   onForgotPassword,
+  formRef,
 }: CredentialsStepProps) {
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -115,7 +119,7 @@ function CredentialsStep({
   return (
     // noValidate: the page owns validation so its error affordances render,
     // instead of the browser's native bubble pre-empting them.
-    <form onSubmit={onSubmit} className={styles.form} noValidate>
+    <form ref={formRef} onSubmit={onSubmit} className={styles.form} noValidate>
       <Input
         label="Email address"
         type="email"
@@ -319,6 +323,8 @@ export function SignIn() {
   const [passwordError, setPasswordError] = useState(false);
   const [code, setCode] = useState("");
   const [phase, setPhase] = useState<SignInPhase>("idle");
+  const credentialsFormRef = useRef<HTMLFormElement>(null);
+  const focusFirstInvalid = useInvalidSubmitFocus(credentialsFormRef);
 
   const isLoading = phase === "submitting";
   const isVerifying = phase === "verifying";
@@ -331,7 +337,10 @@ export function SignIn() {
     const passwordInvalid = password === "";
     setEmailError(emailInvalid);
     setPasswordError(passwordInvalid);
-    if (emailInvalid || passwordInvalid) return;
+    if (emailInvalid || passwordInvalid) {
+      focusFirstInvalid();
+      return;
+    }
 
     setPhase("submitting");
     await delay(SIMULATED_NETWORK_MS);
@@ -443,6 +452,7 @@ export function SignIn() {
             onPasskey={handlePasskey}
             onSocial={handleSocial}
             onForgotPassword={handleForgotPassword}
+            formRef={credentialsFormRef}
           />
         </motion.div>
       ) : (

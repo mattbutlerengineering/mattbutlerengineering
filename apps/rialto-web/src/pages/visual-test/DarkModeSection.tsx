@@ -105,8 +105,7 @@ export function DarkModeSection() {
               currency="USD"
               density="comfortable"
               viewMode="grid"
-              // Pinned so day-header text renders identically regardless of
-              // the host machine's timezone (#4450).
+              // Pins which column is "today"; day labels follow the calendar date (#4450).
               timeZone="UTC"
               onReservationClick={() => {}}
             />

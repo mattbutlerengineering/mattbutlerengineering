@@ -24,6 +24,7 @@ import {
   WeekdayToggles,
 } from "./ScheduleFormParts.js";
 import { DraftPreview, previewIds } from "./DraftPreview.js";
+import { NameSuggestionChip } from "./NameSuggestionChip.js";
 import { ServicesEditor } from "./ServicesEditor.js";
 import { useConflictReview } from "./use-conflict-review.js";
 import { useDiscardGuard } from "./use-discard-guard.js";
@@ -276,6 +277,8 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
                   </Button>
                 )}
               </div>
+              {/* Below the dates it is drawn from, so choosing them never moves a picker. */}
+              <NameSuggestionChip startsOn={startsOn} endsOn={endsOn} name={name} onUse={setName} />
             </>
           )}
           <Text variant="caption" color="secondary">
