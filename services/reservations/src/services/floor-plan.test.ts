@@ -227,6 +227,34 @@ describe("floorPlanService", () => {
       });
     });
 
+    it("creates cloned tables inactive so a clone adds no bookable capacity", async () => {
+      // Every active table in a venue is bookable whatever its plan, and
+      // activating a plan does not touch tables — an active copy would double
+      // online capacity while the cloned plan is still inactive.
+      const createMany = vi.fn().mockResolvedValue({ count: 1 });
+      const source = makePrismaFloorPlan();
+      vi.mocked(prisma.floorPlan.findFirst).mockResolvedValueOnce(source as never);
+      vi.mocked(prisma.floorPlan.findMany).mockResolvedValueOnce([] as never);
+      vi.mocked(prisma.$transaction).mockImplementationOnce(
+        async (fn: (tx: any) => Promise<unknown>) =>
+          fn({
+            $executeRawUnsafe: vi.fn().mockResolvedValue(0),
+            $executeRaw: vi.fn().mockResolvedValue(0),
+            floorPlan: {
+              create: vi.fn().mockResolvedValue({ id: "fp-2" }),
+              findUnique: vi.fn().mockResolvedValue(makePrismaFloorPlan({ id: "fp-2" })),
+            },
+            table: { findMany: vi.fn().mockResolvedValue([]), createMany },
+          })
+      );
+
+      await floorPlanService.clone("fp-1");
+
+      const rows = createMany.mock.calls[0]![0].data as Array<{ isActive: boolean }>;
+      expect(rows.length).toBeGreaterThan(0);
+      expect(rows.every((r) => r.isActive === false)).toBe(true);
+    });
+
     it("handles name collisions by appending copy number", async () => {
       const createMany = vi.fn().mockResolvedValue({ count: 1 });
       const source = makePrismaFloorPlan();

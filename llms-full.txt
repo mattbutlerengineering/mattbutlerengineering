@@ -60440,7 +60440,10 @@
                 minCovers: t.minCovers,
                 maxCovers: t.maxCovers,
                 location: t.location,
-                isActive: t.isActive,
+                // Inactive until the owner turns them on: any active table is
+                // bookable whatever its plan, so an active copy would double
+                // online capacity (#8255; plan-scoped bookability is #8276).
+                isActive: false,
                 priority: t.priority,
                 status: "AVAILABLE",
                 venueId: t.venueId,
