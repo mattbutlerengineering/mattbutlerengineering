@@ -34,6 +34,13 @@ export {
   type Week,
 } from "./service-days.js";
 export {
+  regularWeekView,
+  weekSpans,
+  type DaySpans,
+  type ServiceSpan,
+  type WeekSpansOptions,
+} from "./week-spans.js";
+export {
   normalizeLegacyHours,
   type LegacyHours,
   type LegacyHoursFailure,
