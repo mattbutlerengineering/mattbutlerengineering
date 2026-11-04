@@ -387,8 +387,11 @@
     <item priority="high">
       export function validateGuest(state: BookingWizardState): FieldErrors { /* ... */ }
     </item>
+    <item priority="medium">
+      function isCardExpiryPast(expiry: string, now: Date): boolean { /* ... */ }
+    </item>
     <item priority="high">
-      export function validatePayment(state: BookingWizardState): FieldErrors { /* ... */ }
+      export function validatePayment(state: BookingWizardState, now: Date = new Date()): FieldErrors { /* ... */ }
     </item>
     <item priority="high">
       export function validateStep(stepIndex: number, state: BookingWizardState): FieldErrors { /* ... */ }

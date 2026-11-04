@@ -4529,7 +4529,7 @@
           "name": "timeZone",
           "type": "string | undefined",
           "required": false,
-          "description": "IANA time zone (e.g. \"America/Los_Angeles\"). Defaults to the runtime zone."
+          "description": "IANA time zone used to decide which calendar day is \"today\"\n(e.g. \"America/Los_Angeles\"). Defaults to the runtime zone.\nDay labels stay on the YYYY-MM-DD calendar day and do not shift with this zone."
         },
         {
           "name": "currency",

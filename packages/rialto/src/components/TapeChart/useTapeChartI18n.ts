@@ -33,25 +33,31 @@ export function useTapeChartI18n(
     locale ?? (typeof navigator !== "undefined" ? navigator.language : "en-US");
 
   return useMemo(() => {
+    // A YYYY-MM-DD value is a calendar day, parsed at UTC midnight. Formatting
+    // that instant in any other zone (the runtime zone, or an explicit
+    // America/Los_Angeles) lands on the previous evening, so headers and bar
+    // labels read one day earlier than the date string. Labels always use UTC.
+    // `timeZone` still chooses which calendar day is "today".
+    const civilTimeZone = "UTC";
     const weekdayShort = new Intl.DateTimeFormat(effectiveLocale, {
       weekday: "short",
-      timeZone,
+      timeZone: civilTimeZone,
     });
     const dayNumeric = new Intl.DateTimeFormat(effectiveLocale, {
       day: "2-digit",
-      timeZone,
+      timeZone: civilTimeZone,
     });
     const dayLong = new Intl.DateTimeFormat(effectiveLocale, {
       weekday: "long",
       year: "numeric",
       month: "long",
       day: "numeric",
-      timeZone,
+      timeZone: civilTimeZone,
     });
     const monthYearLong = new Intl.DateTimeFormat(effectiveLocale, {
       month: "long",
       year: "numeric",
-      timeZone,
+      timeZone: civilTimeZone,
     });
     const todayParts = new Intl.DateTimeFormat("en-CA", {
       year: "numeric",

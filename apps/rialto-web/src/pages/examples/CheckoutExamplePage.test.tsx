@@ -190,13 +190,65 @@ describe("CheckoutExamplePage — money + validation helpers", () => {
   });
 
   it("validatePayment passes a fully valid demo card", () => {
-    const errors = validatePayment({
-      cardName: "Ada Lovelace",
-      cardNumber: "4242 4242 4242 4242",
-      expiry: "08/28",
-      cvc: "123",
-    });
+    const errors = validatePayment(
+      {
+        cardName: "Ada Lovelace",
+        cardNumber: "4242 4242 4242 4242",
+        expiry: "08/28",
+        cvc: "123",
+      },
+      new Date(2026, 10, 4)
+    );
     expect(errors).toEqual({});
+  });
+
+  it("validatePayment rejects an expiry month that has already ended", () => {
+    const now = new Date(2026, 10, 4);
+    const past = validatePayment(
+      {
+        cardName: "Ann Lee",
+        cardNumber: "4242424242424242",
+        expiry: "01/20",
+        cvc: "123",
+      },
+      now
+    );
+    expect(past.expiry).toMatch(/past/i);
+    expect(past.cardName).toBeUndefined();
+    expect(past.cardNumber).toBeUndefined();
+
+    const previousMonth = validatePayment(
+      {
+        cardName: "Ann Lee",
+        cardNumber: "4242424242424242",
+        expiry: "10/26",
+        cvc: "123",
+      },
+      now
+    );
+    expect(previousMonth.expiry).toMatch(/past/i);
+
+    const thisMonth = validatePayment(
+      {
+        cardName: "Ann Lee",
+        cardNumber: "4242424242424242",
+        expiry: "11/26",
+        cvc: "123",
+      },
+      now
+    );
+    expect(thisMonth).toEqual({});
+  });
+
+  it("validatePayment still rejects month 00 and 13 as a format error", () => {
+    const now = new Date(2026, 10, 4);
+    for (const expiry of ["00/28", "13/28"]) {
+      const errors = validatePayment(
+        { cardName: "Ann Lee", cardNumber: "4242424242424242", expiry, cvc: "123" },
+        now
+      );
+      expect(errors.expiry).toMatch(/mm\/yy/i);
+    }
   });
 });
 
@@ -238,6 +290,19 @@ describe("CheckoutExamplePage — rendering", () => {
 /* ── Validation ──────────────────────────────── */
 
 describe("CheckoutExamplePage — validation", () => {
+  it("rejects a past expiry and does not charge the card", () => {
+    render(<CheckoutExamplePage />);
+    setField("Name on card", "Ann Lee");
+    setField("Card number", "4242424242424242");
+    setField("Expiry (MM/YY)", "01/20");
+    setField("Security code", "123");
+    submit();
+
+    expect(screen.getByLabelText("Expiry (MM/YY)")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText(/expiry date is in the past/i)).toBeInTheDocument();
+    expect(screen.queryByText(/you.re all set/i)).not.toBeInTheDocument();
+  });
+
   it("blocks an empty submit and surfaces field-associated error messages", () => {
     render(<CheckoutExamplePage />);
     submit();

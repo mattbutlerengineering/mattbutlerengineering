@@ -264,7 +264,6 @@ export function TapeChartPage() {
               locale="en-US"
               currency="USD"
               density="comfortable"
-              viewMode="grid"
               onReservationClick={(r) => setOverlapDefaultId(r.id)}
               selectedReservationId={overlapDefaultId}
               strings={{ regionLabel: "Reservations tape chart, default overlap rule" }}
@@ -303,7 +302,6 @@ export function TapeChartPage() {
               locale="en-US"
               currency="USD"
               density="comfortable"
-              viewMode="grid"
               onReservationClick={(r) => setOverlapClassifiedId(r.id)}
               selectedReservationId={overlapClassifiedId}
               classifyOverlap={overlapClassifier}
