@@ -41,3 +41,10 @@
 .held:disabled {
   pointer-events: none;
 }
+
+.different {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-sm);
+  align-items: center;
+}

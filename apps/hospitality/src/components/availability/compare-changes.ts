@@ -1,4 +1,6 @@
+import { hoursOn } from "@mbe/availability";
 import type { AvailabilityConfig, AvailabilityConfigChanges, ScheduleService } from "@mbe/types";
+import { scheduleDays } from "./quick-setup-draft.js";
 
 /**
  * Compare services (ux.md F-X): one service's hours across every schedule that runs it, edited
@@ -15,6 +17,8 @@ export interface CompareRow extends Hours {
   readonly scheduleServiceId: string;
   readonly scheduleId: string;
   readonly scheduleName: string;
+  /** The row has its own days or different hours on some days; the hours above are its base hours. */
+  readonly different: boolean;
 }
 
 const hoursOf = (s: Hours) =>
@@ -23,6 +27,11 @@ const hoursOf = (s: Hours) =>
 const liveScheduleIds = (config: AvailabilityConfig) =>
   new Set(config.schedules.filter((s) => !s.archivedAt).map((s) => s.id));
 
+/** The row runs on at least one weekday its schedule is used on; one scoped to none never resolves. */
+function runs(config: AvailabilityConfig, row: ScheduleService): boolean {
+  return scheduleDays(config, row.scheduleId, true).some((day) => hoursOn(row, day) !== null);
+}
+
 /** Services that more than one schedule runs; comparing a service in one schedule says nothing. */
 export function compareServiceOptions(config: AvailabilityConfig) {
   const live = liveScheduleIds(config);
@@ -30,8 +39,9 @@ export function compareServiceOptions(config: AvailabilityConfig) {
     .filter((v) => !v.archivedAt)
     .filter(
       (v) =>
-        config.scheduleServices.filter((s) => s.venueServiceId === v.id && live.has(s.scheduleId))
-          .length > 1
+        config.scheduleServices.filter(
+          (s) => s.venueServiceId === v.id && live.has(s.scheduleId) && runs(config, s)
+        ).length > 1
     )
     .sort((a, b) => a.position - b.position);
 }
@@ -40,6 +50,7 @@ export function compareRows(config: AvailabilityConfig, venueServiceId: string):
   const names = new Map(config.schedules.filter((s) => !s.archivedAt).map((s) => [s.id, s.name]));
   return config.scheduleServices
     .filter((s) => s.venueServiceId === venueServiceId && names.has(s.scheduleId))
+    .filter((s) => runs(config, s))
     .map((s) => ({
       scheduleServiceId: s.id,
       scheduleId: s.scheduleId,
@@ -49,6 +60,7 @@ export function compareRows(config: AvailabilityConfig, venueServiceId: string):
       closesAt: s.closesAt,
       seating: s.seating,
       bookingTypes: s.bookingTypes,
+      different: s.weekdays.length > 0 || s.dayHours.sets.length > 0,
     }));
 }
 

@@ -1952,10 +1952,17 @@
     "regularWeek": {
       "open": "Cambiar la semana habitual…",
       "title": "Cambiar la semana habitual",
-      "appliesTo": "Se aplica a {{days}}, los días que usa la semana habitual. Los demás días conservan su horario.",
+      "appliesTo": "Se aplica a {{days}}. Los demás días conservan su horario.",
+      "becomes": "Esta pasa a ser tu semana habitual: abierto {{days}}.",
+      "closedDays_one": "{{days}} queda cerrado.",
+      "closedDays_other": "{{days}} quedan cerrados.",
+      "closedDays_many": "{{days}} quedan cerrados.",
+      "outside": "{{days}} usan «{{name}}». Edítalo en Horarios.",
+      "openSchedules": "Abrir Horarios",
       "noEnd": "Sin fin: esta pasa a ser la nueva semana habitual",
       "save": "Guardar horario desde el {{date}}",
-      "saved": "{{name}} desde el {{date}}"
+      "saved": "{{name}} desde el {{date}}",
+      "savedWeek": "Semana habitual cambiada desde el {{date}}"
     },
     "compare": {
       "open": "Comparar servicios",
@@ -1986,7 +1993,9 @@
       "saved_one": "{{count}} horario actualizado",
       "saved_other": "{{count}} horarios actualizados",
       "saved_many": "{{count}} de horarios actualizados",
-      "blocked": "Cambia una fila para guardar."
+      "blocked": "Cambia una fila para guardar.",
+      "different": "+ horario distinto",
+      "editSchedule": "Editar horario"
     },
     "copy": {
       "action": "Copiar a otros días…",
@@ -2010,14 +2019,15 @@
     "nudge": {
       "label": "Sugerencia",
       "text": "{{weekday}} ha tenido {{count}} cambios aislados.",
-      "make": "Crear un horario de {{weekday}}",
-      "created": "Horario de {{weekday}} creado"
+      "make": "Hacer habituales estas horas del {{weekday}}",
+      "created": "Horas habituales del {{weekday}} actualizadas"
     },
     "blocked": {
       "conflict": "Responde el mensaje de arriba para guardar.",
       "startRequired": "Elige una fecha de inicio para guardar.",
       "endBeforeStart": "La fecha de fin es anterior a la de inicio.",
       "nameRequired": "Ponle nombre a este horario para guardar.",
+      "nameRequiredPeriod": "Ponle nombre a este periodo para guardar.",
       "servicesRequired": "Agrega un servicio para guardar.",
       "serviceNameRequired": "Ponle nombre al nuevo servicio para guardar."
     },
@@ -2213,9 +2223,41 @@
       "addService": "Agregar otro servicio",
       "serviceAdded": "Servicio {{n}} agregado",
       "removeService": "Quitar servicio {{n}}",
+      "differentDays": "Días distintos para este servicio",
+      "useSharedDays": "Usar los días compartidos",
+      "runsOn": "{{service}} se ofrece estos días",
+      "everyServiceOwnDays": "Cada servicio tiene sus propios días.",
+      "daysSummary": "Días: {{days}}",
+      "changeDays": "Cambiar días",
+      "differentHours": "Horarios distintos en algunos días",
+      "blockLegend": "{{service}}: horarios distintos",
+      "removeBlock": "Quitar estos horarios",
+      "strip": {
+        "about": "Primera y última hora que un cliente puede reservar.",
+        "local": "Con los horarios que escribiste",
+        "empty": "Agrega un servicio con sus horarios y días para ver qué pueden reservar los clientes cada día.",
+        "chooseDays": "Elige los días para ver tu semana.",
+        "span": "{{name}} {{first}} – {{last}}",
+        "spanSpoken": "{{name}} de {{first}} a {{last}}",
+        "noTableFits": "{{name}}: Se ofrece, pero ninguna mesa alcanza para un grupo de {{size}}.",
+        "notOffered": "No se ofrece: {{services}}",
+        "closed": "Cerrado",
+        "row": "{{day}}: {{lines}}",
+        "rowUpdated": "{{day}}: {{lines}}, actualizado",
+        "updated": "Actualizado",
+        "updatedDays": "{{days}}: actualizado",
+        "notShownTime": "{{name}} aún no se muestra: elige un horario.",
+        "notShownDays": "{{name}} aún no se muestra: elige sus días.",
+        "checking": "Revisando tus mesas…",
+        "tablesFailed": "Estos son los horarios que escribiste, sin revisar contra tus mesas",
+        "checkAgain": "Revisar de nuevo"
+      },
+      "blockAdded": "Se agregaron horarios distintos",
+      "blockDayMoved": "{{day}} pasó de los otros horarios",
+      "blockRemoved": "Se quitaron los horarios de {{days}}",
+      "blockRemovedEmpty": "Se quitaron los horarios distintos",
+      "blockMatchesBase": "Coinciden con los otros días. Quítalos.",
       "previewTitle": "Vista previa para invitados",
-      "previewEmpty": "Agrega un servicio para ver los horarios que verán tus invitados.",
-      "previewLine": "{{name}}: primera mesa {{first}}, última mesa {{last}}",
       "save": "Guardar y abrir reservaciones",
       "saving": "Guardando…",
       "retry": "Reintentar",
@@ -2233,7 +2275,11 @@
         "legacy_closed_day": "Un día de exactamente 24 horas, o un servicio más corto que la ventana de 90 minutos de última sentada, dejaría el local como cerrado. Ajusta los horarios.",
         "name_too_long": "Usa 40 caracteres o menos para el nombre del servicio.",
         "overlap": "Este servicio se traslapa con otro.",
-        "days_required": "Elige al menos un día."
+        "days_required": "Elige al menos un día.",
+        "days_required_service": "Elige al menos un día para {{service}}.",
+        "block_days_required": "Elige al menos un día para estos horarios.",
+        "days_outside_use": "Estos días quedan fuera de los días en que se usa este horario. Elige días en que se use.",
+        "overlap_on": "{{service}} se traslapa con {{other}} el {{day}}."
       }
     },
     "migrationBanner": "Se conservaron tus horarios. No cambió nada para los comensales.",
@@ -2314,7 +2360,8 @@
         "tonightPacing_one": "Esta noche: ritmo reducido a {{count}} cubierto",
         "tonightPacing_other": "Esta noche: ritmo reducido a {{count}} cubiertos",
         "tonightPacing_many": "Esta noche: ritmo reducido a {{count}} de cubiertos",
-        "reverted": "Revertido: {{summary}}"
+        "reverted": "Revertido: {{summary}}",
+        "regularWeekChanged": "Semana habitual cambiada desde el {{from}}: {{days}}"
       }
     },
     "editor": {
@@ -2356,7 +2403,7 @@
         "date": "Solo esta fecha",
         "weekday": "Cada {{weekday}} desde el {{date}}",
         "schedule": "En todas partes donde se usa “{{name}}”",
-        "regularWeek": "Tu semana habitual"
+        "regularWeekday": "Todos los {{weekday}} de la semana habitual"
       },
       "until": "Hasta",
       "noEnd": "Sin fecha final",
@@ -2449,7 +2496,7 @@
       "strandedMore": "y {{count}} más en fechas posteriores del alcance",
       "compare": "Comparar con",
       "compareSaved": "Último guardado",
-      "compareRegularWeek": "Semana regular",
+      "compareRegularWeek": "Semana habitual",
       "party": "Grupo",
       "prevDate": "Fecha anterior",
       "nextDate": "Fecha siguiente",
@@ -2818,6 +2865,16 @@
       "booking": "Reservas: {{channels}}",
       "tables": "Algunas mesas",
       "doneAndStays": "{{done}}. {{stays}}"
+    },
+    "regularWeekLine": {
+      "line": "Semana habitual: {{services}}",
+      "service": "{{name}} {{days}}",
+      "serviceWith": "{{name}} {{days}}, {{changes}}",
+      "later": "más tarde {{days}}",
+      "earlier": "más temprano {{days}}",
+      "different": "horario distinto {{days}}",
+      "details": "Detalles",
+      "heading": "Semana habitual"
     }
   },
   "setup": {

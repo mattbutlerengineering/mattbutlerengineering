@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { AvailabilityConfig, ScheduleService } from "@mbe/types";
 import {
   closureDetail,
   configSavedDetail,
@@ -9,15 +10,25 @@ import {
   tonightEndedDetail,
 } from "./availability-change-detail.js";
 
+const TODAY = "2026-11-03";
+const EMPTY: AvailabilityConfig = {
+  schedules: [],
+  venueServices: [],
+  scheduleServices: [],
+  assignments: [],
+  dateRules: [],
+};
+
 describe("change detail builders", () => {
   it("counts the rows of a config save", () => {
     const part = (n: number) => ({ schedules: new Array(n).fill({}) });
     expect(
-      configSavedDetail({
-        create: part(2),
-        update: part(0),
-        remove: part(1),
-      } as never)
+      configSavedDetail(
+        { create: part(2), update: part(0), remove: part(1) } as never,
+        EMPTY,
+        EMPTY,
+        TODAY
+      )
     ).toEqual({ code: "config_saved", added: 2, changed: 0, removed: 1 });
   });
 
@@ -89,6 +100,130 @@ describe("change detail builders", () => {
     });
     expect(revertedDetail(null)).toBeNull();
     expect(revertedDetail("garbage")).toBeNull();
+  });
+
+  describe("a save that changes the regular week", () => {
+    const hours = { opensAt: 1020, lastSeatingAt: 1260, closesAt: 1320 };
+    const row = (over: Partial<ScheduleService>): ScheduleService => ({
+      id: "ss-1",
+      scheduleId: "reg",
+      venueServiceId: "vs-dinner",
+      ...hours,
+      seating: { version: 1, interval: 15 },
+      bookingTypes: ["online", "phone"],
+      weekdays: [],
+      dayHours: { version: 1, sets: [] },
+      ...over,
+    });
+    const config = (
+      rows: ScheduleService[],
+      over: Partial<AvailabilityConfig> = {}
+    ): AvailabilityConfig => ({
+      schedules: [{ id: "reg", name: "Regular", kind: "regular", isRegular: true }],
+      venueServices: [{ id: "vs-dinner", name: "Dinner", position: 0 }],
+      scheduleServices: rows,
+      assignments: [
+        { id: "as-1", scheduleId: "reg", weekdays: [0, 1, 2, 3, 4, 5, 6], precedence: 0 },
+      ],
+      dateRules: [],
+      ...over,
+    });
+    const diff = { create: {}, update: { scheduleServices: [{}] }, remove: {} } as never;
+    const fridayLater = (closesAt: number) =>
+      row({
+        weekdays: [0, 1, 2, 3, 4, 6],
+        dayHours: {
+          version: 1,
+          sets: [
+            {
+              weekdays: [5],
+              ...hours,
+              closesAt,
+              seating: { version: 1, interval: 15 },
+              bookingTypes: ["online", "phone"],
+            },
+          ],
+        },
+      });
+
+    it("names Friday alone when only Friday's close changed", () => {
+      expect(
+        configSavedDetail(diff, config([fridayLater(1380)]), config([fridayLater(1410)]), TODAY)
+      ).toMatchObject({ code: "regular_week_changed", startsOn: TODAY, weekdays: [5] });
+    });
+
+    it("names every weekday a saved uniform week newly runs on", () => {
+      expect(configSavedDetail(diff, EMPTY, config([row({})]), TODAY)).toMatchObject({
+        code: "regular_week_changed",
+        startsOn: TODAY,
+        weekdays: [0, 1, 2, 3, 4, 5, 6],
+      });
+    });
+
+    it("starts a later-dated regular version on its own start date", () => {
+      const after = config([row({ closesAt: 1380 })], {
+        assignments: [
+          {
+            id: "as-1",
+            scheduleId: "reg",
+            weekdays: [0, 1, 2, 3, 4, 5, 6],
+            startsOn: "2026-12-01",
+            precedence: 0,
+          },
+        ],
+      });
+      expect(configSavedDetail(diff, config([row({})]), after, TODAY)).toMatchObject({
+        code: "regular_week_changed",
+        startsOn: "2026-12-01",
+        weekdays: [0, 1, 2, 3, 4, 5, 6],
+      });
+    });
+
+    it("is config_saved when a service is only renamed", () => {
+      const before = config([row({})]);
+      const after = config([row({})], {
+        venueServices: [{ id: "vs-dinner", name: "Supper", position: 0 }],
+      });
+      expect(
+        configSavedDetail(
+          { create: {}, update: { venueServices: [{}] }, remove: {} } as never,
+          before,
+          after,
+          TODAY
+        )
+      ).toEqual({ code: "config_saved", added: 0, changed: 1, removed: 0 });
+    });
+
+    it("is config_saved when only a non-regular schedule's hours change", () => {
+      const alternate = (closesAt: number) =>
+        config([row({}), row({ id: "ss-2", scheduleId: "alt", closesAt })], {
+          schedules: [
+            { id: "reg", name: "Regular", kind: "regular", isRegular: true },
+            { id: "alt", name: "Summer", kind: "alternate", isRegular: false },
+          ],
+          assignments: [
+            { id: "as-1", scheduleId: "reg", weekdays: [0, 1, 2, 3, 4, 5, 6], precedence: 0 },
+            {
+              id: "as-2",
+              scheduleId: "alt",
+              weekdays: [5],
+              startsOn: "2026-12-01",
+              endsOn: "2026-12-31",
+              precedence: 1,
+            },
+          ],
+        });
+      expect(configSavedDetail(diff, alternate(1380), alternate(1410), TODAY)).toMatchObject({
+        code: "config_saved",
+      });
+    });
+
+    it("ignores a regular schedule row's id and encoding: the same week saved again is config_saved", () => {
+      const again = row({ id: "ss-other", scheduleId: "reg" });
+      expect(configSavedDetail(diff, config([row({})]), config([again]), TODAY)).toMatchObject({
+        code: "config_saved",
+      });
+    });
   });
 
   it("reads a stored detail, and refuses what is not one", () => {

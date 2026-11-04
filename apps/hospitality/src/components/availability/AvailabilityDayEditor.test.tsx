@@ -409,10 +409,10 @@ describe("AvailabilityDayEditor", () => {
     );
   });
 
-  it("everywhere the schedule is used: rewrites the schedule's services", async () => {
+  it("every regular Friday: changes that weekday of the regular week in place", async () => {
     renderEditor();
     fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
-    chooseScope(/Your regular week/);
+    chooseScope(/Every regular Friday/);
     expect(screen.getByRole("button", { name: "Save 52 dates" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
     fireEvent.click(screen.getByRole("button", { name: "Save 52 dates" }));
@@ -421,7 +421,10 @@ describe("AvailabilityDayEditor", () => {
     const { changes } = sentBody().body;
     expect(changes.upsert.dateRules).toBeUndefined();
     expect(changes.remove.scheduleServices).toEqual(["ss-lunch"]);
-    expect(changes.upsert.scheduleServices).toHaveLength(1);
+    // Only the weekday's own rows are written, in place: no schedule and no assignment appear.
+    expect(changes.upsert.scheduleServices).toBeUndefined();
+    expect(changes.upsert.schedules).toBeUndefined();
+    expect(changes.upsert.assignments).toBeUndefined();
   });
 
   it("asks keep or replace for dates that already have their own changes, defaulting to keep", async () => {
@@ -939,9 +942,14 @@ describe("AvailabilityDayEditor", () => {
     });
   });
 
-  describe("switching to Your regular week after editing", () => {
+  describe("switching to Every regular Friday after editing", () => {
     const SEATING = { version: 1, interval: 15 } as const;
-    const HOURS = { seating: SEATING, bookingTypes: ["online", "phone"] as ("online" | "phone")[] };
+    const HOURS = {
+      seating: SEATING,
+      bookingTypes: ["online", "phone"] as ("online" | "phone")[],
+      weekdays: [] as number[],
+      dayHours: { version: 1 as const, sets: [] },
+    };
 
     /** The regular week also holds a colleague's Brunch, and Fri Oct 30 has its own Dinner-only hours. */
     function withOwnDay(
@@ -1026,7 +1034,7 @@ describe("AvailabilityDayEditor", () => {
       fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
       // Dinner opens first, so its Booking select is the first.
       phoneOnlyOn(0);
-      chooseScope(/Your regular week/);
+      chooseScope(/Every regular Friday/);
     }
 
     it("round trip: the date's own services come back, and Brunch and Lunch do not join it", async () => {
@@ -1056,7 +1064,7 @@ describe("AvailabilityDayEditor", () => {
       withOwnDay();
       fireEvent.click(screen.getByRole("button", { name: "Edit Late" }));
       phoneOnlyOn(1);
-      chooseScope(/Your regular week/);
+      chooseScope(/Every regular Friday/);
       chooseScope("This date only");
       fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
       await waitFor(() => expect(save).toHaveBeenCalled());
@@ -1072,7 +1080,7 @@ describe("AvailabilityDayEditor", () => {
       const { onDirtyChange } = withOwnDay();
       fireEvent.click(screen.getByRole("button", { name: "Edit Late" }));
       phoneOnlyOn(1);
-      chooseScope(/Your regular week/);
+      chooseScope(/Every regular Friday/);
       expect(screen.getByRole("status")).toHaveTextContent(
         "Your edit to Late won’t be saved: it isn’t in what you’re changing now."
       );
@@ -1088,7 +1096,7 @@ describe("AvailabilityDayEditor", () => {
       withOwnDay();
       fireEvent.click(screen.getByRole("button", { name: "Edit Late" }));
       phoneOnlyOn(1);
-      chooseScope(/Your regular week/);
+      chooseScope(/Every regular Friday/);
       expect(screen.getByRole("status")).toBeInTheDocument();
       fireEvent.click(screen.getByRole("combobox", { name: "Add service" }));
       fireEvent.click(screen.getByRole("option", { name: "Late" }));
@@ -1103,10 +1111,10 @@ describe("AvailabilityDayEditor", () => {
     it("a removal made on the regular week is still a removal after a trip through the date", async () => {
       withOwnDay();
       fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
-      chooseScope(/Your regular week/);
+      chooseScope(/Every regular Friday/);
       fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
       chooseScope("This date only");
-      chooseScope(/Your regular week/);
+      chooseScope(/Every regular Friday/);
       expect(screen.queryByRole("button", { name: "Remove Lunch" })).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
       await waitFor(() => expect(save).toHaveBeenCalled());
@@ -1117,7 +1125,7 @@ describe("AvailabilityDayEditor", () => {
       withOwnDay();
       fireEvent.click(screen.getByRole("button", { name: "Edit Late" }));
       fireEvent.click(screen.getByRole("button", { name: "Remove Late" }));
-      chooseScope(/Your regular week/);
+      chooseScope(/Every regular Friday/);
       chooseScope("This date only");
       expect(screen.queryByRole("button", { name: "Remove Late" })).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
@@ -1134,7 +1142,7 @@ describe("AvailabilityDayEditor", () => {
       fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
       fireEvent.click(screen.getAllByRole("combobox", { name: "Booking" })[0]!);
       fireEvent.click(screen.getByRole("option", { name: "Online + phone" }));
-      chooseScope(/Your regular week/);
+      chooseScope(/Every regular Friday/);
       expect(screen.getByRole("status")).toHaveTextContent(
         "Your hours for Dinner won’t be used: what you’re changing already has them."
       );
@@ -1161,7 +1169,7 @@ describe("AvailabilityDayEditor", () => {
       );
       // The button adds the venue's first spare service, Lunch.
       fireEvent.click(screen.getByRole("button", { name: "Add service" }));
-      chooseScope(/Your regular week/);
+      chooseScope(/Every regular Friday/);
       // The regular week already has Lunch, so the hours just set are not the ones it keeps.
       expect(screen.getByRole("status")).toHaveTextContent(
         "Your hours for Lunch won’t be used: what you’re changing already has them."
@@ -1216,7 +1224,7 @@ describe("AvailabilityDayEditor", () => {
       const { onDirtyChange } = withOwnDay("r-own", { lastSeatingAt: 1140, closesAt: 1200 });
       fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
       setTime("Closes", 0, "11:00 PM");
-      chooseScope(/Your regular week/);
+      chooseScope(/Every regular Friday/);
       expect(screen.getByRole("status")).toHaveTextContent(
         "Your hours for Dinner won’t be used: what you’re changing already has them."
       );
@@ -1228,7 +1236,7 @@ describe("AvailabilityDayEditor", () => {
 
     it("hours added on a closed day survive setting a row to something else and back", () => {
       const { onDirtyChange } = startOnClosedDay();
-      chooseScope(/Your regular week/);
+      chooseScope(/Every regular Friday/);
       expect(screen.getByRole("status")).toHaveTextContent(NOT_USED);
       phoneOnlyOn(0);
       fireEvent.click(screen.getAllByRole("combobox", { name: "Booking" })[0]!);
@@ -1242,7 +1250,7 @@ describe("AvailabilityDayEditor", () => {
 
     it("the line about held hours stays while editing another row on the regular week", () => {
       startOnClosedDay();
-      chooseScope(/Your regular week/);
+      chooseScope(/Every regular Friday/);
       expect(screen.getByRole("status")).toHaveTextContent(NOT_USED);
       phoneOnlyOn(1);
       expect(screen.getByRole("status")).toHaveTextContent(NOT_USED);
@@ -1251,12 +1259,12 @@ describe("AvailabilityDayEditor", () => {
     it("the line about held hours is still there after a switch through a scope that has the service", () => {
       withOwnDay();
       fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
-      chooseScope(/Your regular week/);
+      chooseScope(/Every regular Friday/);
       fireEvent.click(screen.getByRole("combobox", { name: "Add service" }));
       fireEvent.click(screen.getByRole("option", { name: "Late" }));
       chooseScope("This date only");
       expect(screen.getByRole("status")).toHaveTextContent("Late");
-      chooseScope(/^Every/);
+      chooseScope(/^Every Friday from/);
       expect(screen.getByRole("status")).toHaveTextContent("Late");
     });
 
@@ -1265,7 +1273,7 @@ describe("AvailabilityDayEditor", () => {
       withOwnDay("r-own", { lastSeatingAt: 1140, closesAt: 1200 });
       fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
       setTime("Closes", 0, "11:00 PM");
-      chooseScope(/Your regular week/);
+      chooseScope(/Every regular Friday/);
       expect(screen.getByRole("status")).toHaveTextContent("Dinner");
       phoneOnlyOn(2);
       chooseScope("This date only");
@@ -1292,11 +1300,8 @@ describe("AvailabilityDayEditor", () => {
         venueServiceId: string;
         bookingTypes: string[];
       }[];
-      expect(rows.map((r) => r.venueServiceId).sort()).toEqual([
-        "vs-brunch",
-        "vs-dinner",
-        "vs-lunch",
-      ]);
+      // In place: only the row the Dinner edit changed is written; Lunch and Brunch are left as they are.
+      expect(rows.map((r) => r.venueServiceId)).toEqual(["vs-dinner"]);
       expect(rows.find((r) => r.venueServiceId === "vs-dinner")?.bookingTypes).toEqual(["phone"]);
     });
 
@@ -1311,7 +1316,7 @@ describe("AvailabilityDayEditor", () => {
     });
   });
 
-  it("names the weekday of a close after midnight for one date, and none for the regular week", () => {
+  it("names the weekday of a close after midnight for one date and for one regular weekday", () => {
     const base = fixtureConfig();
     const config = {
       ...base,
@@ -1338,9 +1343,9 @@ describe("AvailabilityDayEditor", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
     expect(screen.getByText(/the next day \(Saturday\)/)).toBeInTheDocument();
-    chooseScope(/Your regular week/);
-    expect(screen.queryByText(/\(Saturday\)/)).not.toBeInTheDocument();
-    expect(screen.getByText(/the next day$/)).toBeInTheDocument();
+    // One weekday of the regular week every time: Friday's close is still named against Saturday.
+    chooseScope(/Every regular Friday/);
+    expect(screen.getByText(/the next day \(Saturday\)/)).toBeInTheDocument();
   });
 
   it("has no axe violations reading or editing", async () => {

@@ -164,6 +164,8 @@ export async function writeAvailabilityConfig(
       closesAt: s.closesAt,
       seating: s.seating,
       bookingTypes: s.bookingTypes,
+      weekdays: s.weekdays,
+      dayHours: s.dayHours,
     })),
   });
   await tx.scheduleAssignment.createMany({

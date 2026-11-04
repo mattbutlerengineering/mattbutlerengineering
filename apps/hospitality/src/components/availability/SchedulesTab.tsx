@@ -204,6 +204,7 @@ export function SchedulesTab(props: SchedulesTabProps) {
             today={today}
             onStale={onStale}
             onDirtyChange={changeCompareDirty}
+            onEditSchedule={(sourceId) => setEditor({ mode: "edit", sourceId })}
           />
         </section>
       )}

@@ -38,6 +38,8 @@ import { CloseDialog } from "../components/availability/CloseDialog.js";
 import { GoToDateDialog } from "../components/availability/GoToDateDialog.js";
 import { shownOnlinePause } from "../components/availability/close-draft.js";
 import { OnlinePausedBanner } from "../components/availability/OnlinePausedBanner.js";
+import { hasOwnSchedules } from "../components/availability/schedule-changes.js";
+import { RegularWeekLine } from "../components/availability/RegularWeekLine.js";
 import { DiscardChangesDialog } from "../components/availability/DiscardChangesDialog.js";
 import { LeaveGuard } from "../components/availability/LeaveGuard.js";
 import { useDiscardGuard } from "../components/availability/use-discard-guard.js";
@@ -400,6 +402,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   const isManager = team?.viewerRole === "manager";
   // Every Manager action below opens on the config: with none loaded it could open nothing.
   const canAct = isManager && !!config.data;
+  const ownSchedules = config.data ? hasOwnSchedules(config.data.config) : false;
   const activeScheduleCount =
     config.data?.config.schedules.filter((s) => !s.archivedAt).length ?? 0;
   const ownChangeCount = config.data ? ownSingleDateRules(config.data.config, selection).length : 0;
@@ -444,6 +447,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           </div>
         )}
       </div>
+      {config.data && <RegularWeekLine config={config.data.config} timeZone={timeZone} now={now} />}
       <AvailabilityToolbar
         viewport={viewport}
         view={view}
@@ -458,9 +462,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         onClose={canAct ? () => setClosing({ date: null, pause: false }) : undefined}
         onPause={canAct && !pause ? () => setClosing({ date: null, pause: true }) : undefined}
         onChangeRegularWeek={canAct ? () => setChangingWeek(true) : undefined}
-        onCreateSchedule={
-          canAct && activeScheduleCount < 2 ? () => changeTab("schedules") : undefined
-        }
+        onCreateSchedule={canAct && !ownSchedules ? () => changeTab("schedules") : undefined}
       />
       {(config.data?.source === "legacy" || config.data?.migrated) && (
         <AvailabilityMigrationBanner key={selectedVenueId} venueId={selectedVenueId} />
@@ -585,6 +587,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           today={today}
           onStale={() => void config.refetch()}
           onClose={() => setChangingWeek(false)}
+          onOpenSchedules={() => changeTab("schedules")}
         />
       )}
       {closing && config.data && (

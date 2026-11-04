@@ -303,7 +303,8 @@ function FocusTimes(props: {
           {t("availability.editor.serviceLine", {
             name: s.name,
             from: minuteText(s.opensAt, t, format),
-            to: minuteText(s.closesAt, t, format),
+            // What a guest can book, not when the doors close.
+            to: minuteText(s.lastSeatingAt, t, format),
           })}
         </Text>
       ))}

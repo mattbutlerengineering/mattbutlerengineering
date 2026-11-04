@@ -8614,6 +8614,8 @@
               closesAt: 1320,
               seating: { version: 1, interval: 15 },
               bookingTypes: ["online", "phone"],
+              weekdays: [],
+              dayHours: { version: 1, sets: [] },
             },
           ],
           assignments: [
@@ -10946,6 +10948,143 @@
       }
     }
   </file>
+  <file path="src/scripts/collapse-day-named-schedules.ts">
+    export interface ReplacedRows {
+      schedules: unknown[];
+      scheduleServices: unknown[];
+      assignments: unknown[];
+    }
+    export interface CreatedRows {
+      schedules: string[];
+      scheduleServices: string[];
+      assignments: string[];
+    }
+    export type CollapseOutcome =
+      | {
+          venueId: string;
+          outcome: "would_collapse" | "collapsed";
+          replaced: ReplacedRows;
+          created: CreatedRows;
+        }
+      | { venueId: string; outcome: "nothing_to_collapse" | "raced" | "not_found" }
+      | { venueId: string; outcome: "refused"; issues: string[] };
+    export interface CollapseSummary {
+      apply: boolean;
+      venues: number;
+      counts: Record<string, number>;
+      errors: { venueId: string; message: string }[];
+    }
+    type Log = (line: string) => void;
+    function replacedBy(config: AvailabilityConfig, diff: ConfigDiff): ReplacedRows {
+      const pick = <T extends keyof ReplacedRows>(table: T) => {
+        const touched = new Set([
+          ...(diff.update[table] as { id: string }[]).map((r) => r.id),
+          ...diff.remove[table],
+        ]);
+        return (config[table] as { id: string }[]).filter((r) => touched.has(r.id));
+      };
+      return {
+        schedules: pick("schedules"),
+        scheduleServices: pick("scheduleServices"),
+        assignments: pick("assignments"),
+      };
+    }
+    export function introducedIssues(
+      before: readonly ConfigIssue[],
+      after: readonly ConfigIssue[]
+    ): ConfigIssue[] {
+      const key = (i: ConfigIssue) => `${i.code}|${i.path}|${i.weekday ?? ""}`;
+      const had = new Set(before.map(key));
+      return after.filter((i) => !had.has(key(i)));
+    }
+    function createdBy(diff: ConfigDiff): CreatedRows {
+      const ids = (table: keyof CreatedRows) => diff.create[table].map((r) => r.id);
+      return {
+        schedules: ids("schedules"),
+        scheduleServices: ids("scheduleServices"),
+        assignments: ids("assignments"),
+      };
+    }
+    export async function collapseVenue(
+      prisma: PrismaClient,
+      venueId: string,
+      options: { apply: boolean; now?: Date }
+    ): Promise<CollapseOutcome> {
+      const now = options.now ?? new Date();
+      return prisma.$transaction(async (tx) => {
+        await setVenueContext(tx, venueId);
+        const venue = await tx.venue.findUnique({
+          where: { id: venueId },
+          select: { availabilityVersion: true },
+        });
+        if (!venue) return { venueId, outcome: "not_found" as const };
+    
+        // The version is read before the rows: a save landing in between moves it, so the
+        // compare-and-set below misses instead of writing over a config this plan never saw.
+        const { config } = await readStoredConfig(tx, venueId);
+        const changes = collapseDayNamedSchedules(config, randomUUID);
+        if (!changes) return { venueId, outcome: "nothing_to_collapse" as const };
+    
+        const next = applyChanges(config, changes, now.toISOString());
+        const issues = validateConfig(next);
+        if (introducedIssues(validateConfig(config), issues).length > 0) {
+          return {
+            venueId,
+            outcome: "refused" as const,
+            issues: issues.map((i) => `${i.code}: ${i.message}`),
+          };
+        }
+        const diff = diffConfig(config, next);
+        const replaced = replacedBy(config, diff);
+        const created = createdBy(diff);
+        if (!options.apply) return { venueId, outcome: "would_collapse" as const, replaced, created };
+    
+        const cas = await tx.venue.updateMany({
+          where: { id: venueId, availabilityVersion: venue.availabilityVersion },
+          data: { availabilityVersion: { increment: 1 } },
+        });
+        if (cas.count === 0) return { venueId, outcome: "raced" as const };
+    
+        await writeConfigDiff(tx, venueId, diff, { actorId: COLLAPSE_ACTOR, now });
+        return { venueId, outcome: "collapsed" as const, replaced, created };
+      });
+    }
+    export async function runCollapse(
+      prisma: PrismaClient,
+      options: { apply: boolean },
+      log: Log
+    ): Promise<CollapseSummary> {
+      const venueIds = await getAllVenueIds(prisma);
+      const counts: Record<string, number> = {};
+      const errors: CollapseSummary["errors"] = [];
+    
+      for (const venueId of venueIds) {
+        try {
+          const outcome = await collapseVenue(prisma, venueId, options);
+          counts[outcome.outcome] = (counts[outcome.outcome] ?? 0) + 1;
+          log(JSON.stringify(outcome));
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          errors.push({ venueId, message });
+          log(JSON.stringify({ venueId, outcome: "error", message }));
+        }
+      }
+      return { apply: options.apply, venues: venueIds.length, counts, errors };
+    }
+    async function main(): Promise<void> {
+      const apply = process.argv.includes("--apply");
+      const prisma = db.prisma as unknown as PrismaClient;
+      try {
+        const summary = await runCollapse(prisma, { apply }, (line) =>
+          process.stdout.write(`${line}\n`)
+        );
+        process.stdout.write(`${JSON.stringify({ summary })}\n`);
+        process.exitCode = summary.errors.length > 0 ? 1 : 0;
+      } finally {
+        await prisma.$disconnect();
+      }
+    }
+  </file>
   </section>
   <section priority="medium" role="services">
   <file path="src/services/actor-name.ts">
@@ -11264,13 +11403,60 @@
     }
   </file>
   <file path="src/services/availability-change-detail.ts">
-    export function configSavedDetail(diff: ConfigDiff): AvailabilityChangeDetail {
-      return {
-        code: "config_saved",
+    function regularWeek(config: AvailabilityConfig) {
+      const schedule = config.schedules.find((s) => s.isRegular && !s.archivedAt);
+      if (!schedule) return { signatures: new Array<string>(7).fill("[]"), assignments: [] };
+      const assignments = config.assignments.filter((a) => a.scheduleId === schedule.id);
+      const live = new Set(config.venueServices.filter((v) => !v.archivedAt).map((v) => v.id));
+      const rows = config.scheduleServices.filter(
+        (r) => r.scheduleId === schedule.id && live.has(r.venueServiceId)
+      );
+      const week = decodeWeek(rows, [...new Set(assignments.flatMap((a) => a.weekdays))]);
+      const signatures = Array.from({ length: 7 }, (_, day) =>
+        JSON.stringify(
+          week
+            .flatMap((s) => {
+              const h = s.days[day];
+              return h
+                ? [
+                    [
+                      s.venueServiceId,
+                      h.opensAt,
+                      h.lastSeatingAt,
+                      h.closesAt,
+                      h.seating,
+                      [...h.bookingTypes].sort(),
+                    ],
+                  ]
+                : [];
+            })
+            .sort((a, b) => String(a[0]).localeCompare(String(b[0])))
+        )
+      );
+      return { signatures, assignments };
+    }
+    export function configSavedDetail(
+      diff: ConfigDiff,
+      before: AvailabilityConfig,
+      after: AvailabilityConfig,
+      today: string
+    ): AvailabilityChangeDetail {
+      const rows = {
         added: count(diff.create),
         changed: count(diff.update),
         removed: count(diff.remove),
       };
+      const was = regularWeek(before);
+      const now = regularWeek(after);
+      const weekdays = [0, 1, 2, 3, 4, 5, 6].filter((d) => was.signatures[d] !== now.signatures[d]);
+      if (weekdays.length === 0) return { code: "config_saved", ...rows };
+    
+      // An assignment with no start date, or one already started, takes effect with this save.
+      const starts = now.assignments
+        .filter((a) => a.weekdays.some((d) => weekdays.includes(d)))
+        .map((a) => (a.startsOn && a.startsOn > today ? a.startsOn : today));
+      const startsOn = starts.reduce((first, s) => (s < first ? s : first), starts[0] ?? today);
+      return { code: "regular_week_changed", startsOn, weekdays, ...rows };
     }
     export function closureDetail(
       rule: Pick<DateRule, "kind" | "startsOn" | "endsOn">,
@@ -11421,7 +11607,13 @@
       const tables = CONFIG_TABLES.every(
         (t) => Array.isArray(v.restore?.[t]) && Array.isArray(v.remove?.[t])
       );
-      return tables ? (v as ConfigInverse) : null;
+      if (!tables) return null;
+      const rows = (v.restore.scheduleServices as unknown[]).map((r) =>
+        ScheduleServiceSchema.safeParse(r)
+      );
+      if (!rows.every((r) => r.success)) return null;
+      const scheduleServices = rows.flatMap((r): ScheduleService[] => (r.success ? [r.data] : []));
+      return { ...v, restore: { ...v.restore, scheduleServices } } as ConfigInverse;
     }
     export async function revertAvailabilityChange(
       input: {
@@ -12248,7 +12440,10 @@
           detail: AvailabilityChangeDetail;
         };
     function describeDiff(detail: AvailabilityChangeDetail): string {
-      return `Availability updated: ${detail.added} added, ${detail.changed} changed, ${detail.removed} removed`;
+      const rows = `${detail.added} added, ${detail.changed} changed, ${detail.removed} removed`;
+      if (detail.code !== "regular_week_changed") return `Availability updated: ${rows}`;
+      const days = (detail.weekdays ?? []).map((d) => WEEKDAY_NAMES[d]).join(", ");
+      return `Regular week changed on ${days} from ${detail.startsOn}: ${rows}`;
     }
     export function planSave(input: {
       state: ConfigState;
@@ -12289,7 +12484,7 @@
       if (reservations.length > 0) return { kind: "stranded", reservations };
     
       const diff = diffConfig(state.stored, next);
-      const detail = configSavedDetail(diff);
+      const detail = configSavedDetail(diff, state.stored, next, civilDateIn(now, state.timezone));
       return {
         kind: "write",
         next,
@@ -12756,6 +12951,8 @@
           closesAt: s.closesAt,
           seating: s.seating,
           bookingTypes: s.bookingTypes,
+          weekdays: s.weekdays,
+          dayHours: s.dayHours,
         })),
       });
       await tx.scheduleAssignment.createMany({

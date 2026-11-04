@@ -104,6 +104,29 @@ describe("AvailabilityGuestPreview", () => {
     previewConfig.mockResolvedValue(result());
   });
 
+  it("prints the first and last time a guest can book, not the close", async () => {
+    previewConfig.mockResolvedValue(
+      result({
+        focusDay: {
+          ...result().focusDay,
+          services: [
+            {
+              venueServiceId: "vs-dinner",
+              name: "Dinner",
+              opensAt: 1020,
+              lastSeatingAt: 1275,
+              closesAt: 1320,
+            },
+          ],
+        },
+      })
+    );
+    render(tree(CHANGES_A, [FOCUS]));
+    await settle();
+    expect(await screen.findByText("Dinner 5:00 PM – 9:15 PM")).toBeInTheDocument();
+    expect(screen.queryByText(/10:00 PM/)).not.toBeInTheDocument();
+  });
+
   it("sends the draft, scope and focus date after the debounce and shows what changes", async () => {
     render(tree(CHANGES_A, [FOCUS, "2026-11-06"]));
     expect(previewConfig).not.toHaveBeenCalled();
@@ -118,7 +141,7 @@ describe("AvailabilityGuestPreview", () => {
       strandedOffset: 0,
     });
     expect(await screen.findByText("3 times added · 2 removed")).toBeInTheDocument();
-    expect(await screen.findByText("Dinner 5:00 PM – 11:00 PM")).toBeInTheDocument();
+    expect(await screen.findByText("Dinner 5:00 PM – 9:00 PM")).toBeInTheDocument();
     // Marks carry text, not just a sign.
     expect(await screen.findByText("7:45 PM added")).toBeInTheDocument();
     expect(await screen.findByText("10:30 PM removed")).toBeInTheDocument();

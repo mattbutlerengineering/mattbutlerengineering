@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Button, Card, Stack } from "@mattbutlerengineering/rialto";
-import { QuickSetupForm, quickSetupFieldId } from "./QuickSetupForm.js";
+import { QuickSetupForm } from "./QuickSetupForm.js";
+import { quickSetupFieldId } from "./quick-setup-field-helpers.js";
 import { emptyDraft, validateDraft, type QuickSetupDraft } from "./quick-setup-draft.js";
 import styles from "./QuickSetupCard.module.css";
 
@@ -41,7 +42,9 @@ export function QuickSetupCard({ onSave, errorMessage, onDirtyChange }: QuickSet
     setAttempted(true);
     const first = found[0];
     if (first) {
-      document.getElementById(quickSetupFieldId(first.serviceId, first.field))?.focus();
+      document
+        .getElementById(quickSetupFieldId(first.serviceId, first.field, first.blockId))
+        ?.focus();
       return;
     }
     setIsSaving(true);

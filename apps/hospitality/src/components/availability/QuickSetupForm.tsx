@@ -1,280 +1,132 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Button, Stack, Text } from "@mattbutlerengineering/rialto";
 import {
-  Button,
-  Checkbox,
-  Heading,
-  Input,
-  Stack,
-  Tag,
-  Text,
-  TimePicker,
-} from "@mattbutlerengineering/rialto";
-import { addDays } from "@mbe/availability";
-import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { clockHour } from "../../utils/clock-hour.js";
-import {
-  SERVICE_NAME_MAX_LENGTH,
-  SERVICE_PRESET_IDS,
-  WEEKDAY_SHORTCUT,
-  WEEKEND_SHORTCUT,
-  WEEK_DISPLAY_ORDER,
-  applyPreset,
-  autoLastSeating,
   emptyService,
   replaceService,
-  setServiceTime,
-  toggleDay,
+  setSharedDays,
   type QuickSetupDraft,
-  type QuickSetupField,
   type QuickSetupIssue,
-  type ServiceDraft,
 } from "./quick-setup-draft.js";
+import { issuesFor, quickSetupFieldId } from "./quick-setup-field-helpers.js";
+import { DayPicker } from "./quick-setup-fields.js";
+import { ServiceRow } from "./QuickSetupServiceRow.js";
+import { RegularWeekStrip } from "./RegularWeekStrip.js";
+import { useWeekdaySummary } from "./ScheduleFormParts.js";
 import styles from "./QuickSetupForm.module.css";
-
-/** A fixed Monday: weekday names come from the active locale, never a hand-kept list. */
-const SAMPLE_MONDAY = "2026-10-26";
-const DAYS_FIELD_ID = "quick-setup-days";
-
-/** The DOM id of a field, so the owner can move focus to the first invalid one. */
-export function quickSetupFieldId(serviceId: string | null, field: QuickSetupField | "days") {
-  return field === "days" ? DAYS_FIELD_ID : `quick-setup-${serviceId}-${field}`;
-}
 
 export interface QuickSetupFormProps {
   readonly draft: QuickSetupDraft;
   readonly onChange: (draft: QuickSetupDraft) => void;
   /** Problems to show; the owner decides when (after a save attempt, or live in the wizard). */
   readonly issues: readonly QuickSetupIssue[];
+  /** The venue does not exist yet (the onboarding wizard): the strip shows the typed hours only. */
+  readonly local?: boolean;
+  /**
+   * The form in Change regular week's drawer (ux.md S14): no strip beside it, and the shared Days
+   * as a one-line summary that opens its controls on "Change days".
+   */
+  readonly inDrawer?: boolean;
+  /** The days belong to where the schedule is used, not to this form (Edit schedule): shown, not changed. */
+  readonly fixedDays?: boolean;
 }
 
-function issuesFor(issues: readonly QuickSetupIssue[], serviceId: string | null, field: string) {
-  return issues.filter((i) => i.serviceId === serviceId && i.field === field);
-}
-
-function IssueText({ problems }: { readonly problems: readonly QuickSetupIssue[] }) {
+function DaysField({ draft, onChange, issues, inDrawer, fixedDays }: QuickSetupFormProps) {
   const { t } = useTranslation();
-  return problems.map((p) => (
-    <Text key={p.code} variant="caption" color="error" role="alert">
-      {t(`availability.quickSetup.issues.${p.code}`)}
-    </Text>
-  ));
-}
-
-interface TimeFieldProps {
-  readonly service: ServiceDraft;
-  readonly field: "opens" | "lastSeating" | "closes";
-  readonly label: string;
-  readonly issues: readonly QuickSetupIssue[];
-  readonly onChange: (next: ServiceDraft) => void;
-}
-
-function TimeField({ service, field, label, issues, onChange }: TimeFieldProps) {
-  return (
-    <div className={styles.timeField}>
-      <TimePicker
-        id={quickSetupFieldId(service.id, field)}
-        label={label}
-        value={service[field]}
-        onChange={(value) => onChange(setServiceTime(service, field, value))}
-      />
-      <IssueText problems={issuesFor(issues, service.id, field)} />
-    </div>
-  );
-}
-
-interface ServiceRowProps {
-  readonly service: ServiceDraft;
-  readonly index: number;
-  readonly removable: boolean;
-  readonly issues: readonly QuickSetupIssue[];
-  readonly onChange: (next: ServiceDraft) => void;
-  readonly onRemove: () => void;
-}
-
-function ServiceRow({ service, index, removable, issues, onChange, onRemove }: ServiceRowProps) {
-  const { t } = useTranslation();
-  const format = useVenueFormat();
-  const nameProblems = issuesFor(issues, service.id, "name");
-  const presetName = (id: (typeof SERVICE_PRESET_IDS)[number]) =>
-    t(`availability.quickSetup.presets.${id}`);
-  const lastSeating =
-    service.closes === null ? null : autoLastSeating(service.closes, service.opens);
-  return (
-    <fieldset className={styles.service}>
-      <legend className={styles.legend}>
-        {t("availability.quickSetup.serviceN", { n: index + 1 })}
-      </legend>
-      <Stack gap="sm">
-        <div
-          className={styles.chips}
-          role="group"
-          aria-label={t("availability.quickSetup.presetsLabel")}
-        >
-          {SERVICE_PRESET_IDS.map((id) => (
-            <Tag key={id} onClick={() => onChange(applyPreset(service, id, presetName(id)))}>
-              {presetName(id)}
-            </Tag>
-          ))}
-        </div>
-        <Input
-          id={quickSetupFieldId(service.id, "name")}
-          label={t("availability.quickSetup.nameLabel")}
-          value={service.name}
-          maxLength={SERVICE_NAME_MAX_LENGTH}
-          error={nameProblems.length > 0}
-          onChange={(e) => onChange({ ...service, name: e.target.value })}
-        />
-        <IssueText problems={nameProblems} />
-        <div className={styles.times}>
-          <TimeField
-            service={service}
-            field="opens"
-            label={t("availability.quickSetup.opens")}
-            issues={issues}
-            onChange={onChange}
-          />
-          <TimeField
-            service={service}
-            field="lastSeating"
-            label={t("availability.quickSetup.lastSeating")}
-            issues={issues}
-            onChange={onChange}
-          />
-          <TimeField
-            service={service}
-            field="closes"
-            label={t("availability.quickSetup.closes")}
-            issues={issues}
-            onChange={onChange}
-          />
-        </div>
-        {service.lastSeatingLinked && lastSeating !== null && (
-          <Text variant="caption" color="secondary">
-            {t("availability.quickSetup.lastSeatingHint", {
-              time: format.formatLocalTime(lastSeating),
-              count: clockHour(Number.parseInt(lastSeating, 10) * 60),
-            })}
-          </Text>
-        )}
-        {removable && (
-          <div>
-            <Button variant="ghost" size="sm" onClick={onRemove}>
-              {t("availability.quickSetup.removeService", { n: index + 1 })}
-            </Button>
-          </div>
-        )}
-      </Stack>
-    </fieldset>
-  );
-}
-
-function DaysField({ draft, onChange, issues }: QuickSetupFormProps) {
-  const { t } = useTranslation();
-  const format = useVenueFormat();
-  const shortcuts = [
-    { id: "weekdays", days: WEEKDAY_SHORTCUT },
-    { id: "weekends", days: WEEKEND_SHORTCUT },
-    { id: "everyDay", days: WEEK_DISPLAY_ORDER },
-  ] as const;
-  return (
-    <fieldset className={styles.days} id={DAYS_FIELD_ID} tabIndex={-1}>
-      <legend className={styles.legend}>{t("availability.quickSetup.days")}</legend>
-      <Stack gap="sm">
-        <div className={styles.chips}>
-          {shortcuts.map(({ id, days }) => (
-            <Button
-              key={id}
-              variant="secondary"
-              size="sm"
-              onClick={() => onChange({ ...draft, days })}
-            >
-              {t(`availability.quickSetup.shortcuts.${id}`)}
-            </Button>
-          ))}
-        </div>
-        <div className={styles.dayToggles}>
-          {WEEK_DISPLAY_ORDER.map((day, position) => (
-            <Checkbox
-              key={day}
-              label={format.formatCalendarDate(addDays(SAMPLE_MONDAY, position), {
-                weekday: "long",
-              })}
-              checked={draft.days.includes(day)}
-              onCheckedChange={() => onChange(toggleDay(draft, day))}
-            />
-          ))}
-        </div>
-        <IssueText problems={issuesFor(issues, null, "days")} />
-      </Stack>
-    </fieldset>
-  );
-}
-
-function GuestPreview({ draft }: { readonly draft: QuickSetupDraft }) {
-  const { t } = useTranslation();
-  const format = useVenueFormat();
-  const ready = draft.services.filter(
-    (s) => s.name.trim() !== "" && s.opens !== null && s.lastSeating !== null
-  );
-  return (
-    <aside className={styles.preview} aria-label={t("availability.quickSetup.previewTitle")}>
-      <Heading level={3}>{t("availability.quickSetup.previewTitle")}</Heading>
-      {ready.length === 0 ? (
+  const summarize = useWeekdaySummary();
+  const [changing, setChanging] = useState(false);
+  // F1 5: nothing follows the shared days, so there is nothing to ask.
+  if (draft.services.length > 0 && draft.services.every((s) => s.days !== null)) {
+    return (
+      <fieldset className={styles.days} id={quickSetupFieldId(null, "days")}>
+        <legend className={styles.legend}>{t("availability.quickSetup.days")}</legend>
         <Text variant="body" color="secondary">
-          {t("availability.quickSetup.previewEmpty")}
+          {t("availability.quickSetup.everyServiceOwnDays")}
         </Text>
-      ) : (
-        <ul className={styles.previewList}>
-          {ready.map((s) => (
-            <li key={s.id}>
-              <Text variant="body">
-                {t("availability.quickSetup.previewLine", {
-                  name: s.name.trim(),
-                  first: format.formatLocalTime(s.opens ?? ""),
-                  last: format.formatLocalTime(s.lastSeating ?? ""),
-                })}
-              </Text>
-            </li>
-          ))}
-        </ul>
-      )}
-    </aside>
+      </fieldset>
+    );
+  }
+  if (fixedDays) {
+    return (
+      <Text variant="body">
+        {t("availability.quickSetup.daysSummary", { days: summarize(draft.days) })}
+      </Text>
+    );
+  }
+  const problems = issuesFor(issues, null, "days");
+  if (inDrawer && !changing && problems.length === 0) {
+    return (
+      <Stack direction="row" gap="sm" align="center">
+        <Text variant="body">
+          {t("availability.quickSetup.daysSummary", { days: summarize(draft.days) })}
+        </Text>
+        <Button variant="ghost" size="sm" aria-expanded={false} onClick={() => setChanging(true)}>
+          {t("availability.quickSetup.changeDays")}
+        </Button>
+      </Stack>
+    );
+  }
+  return (
+    <DayPicker
+      id={quickSetupFieldId(null, "days")}
+      legend={t("availability.quickSetup.days")}
+      days={draft.days}
+      onChange={(days) => onChange(setSharedDays(draft, days))}
+      draft={draft}
+      problems={problems}
+    />
   );
 }
 
 /**
- * The S1 form: services (name chips, three times) sharing one set of days, with the guest
- * preview beside it. Controlled; the card and the onboarding wizard each own what happens next.
+ * The S1 form: services (name chips, three times, their own days and hours) over shared days,
+ * with the guest preview strip beside it. Controlled; the card and the onboarding wizard each own what happens next.
  */
-export function QuickSetupForm({ draft, onChange, issues }: QuickSetupFormProps) {
+export function QuickSetupForm({
+  draft,
+  onChange,
+  issues,
+  local = false,
+  inDrawer = false,
+  fixedDays = false,
+}: QuickSetupFormProps) {
   const { t } = useTranslation();
-  const [announcement, setAnnouncement] = useState("");
-  const focusAfterAdd = useRef<string | null>(null);
+  // The same sentence twice would change no DOM, so a screen reader would stay silent the second
+  // time: `repeat` flips a trailing no-break space to make each announcement a DOM change.
+  const [announcement, setAnnouncement] = useState({ message: "", repeat: false });
+  const announce = (message: string) =>
+    setAnnouncement((last) => ({ message, repeat: !last.repeat }));
+  const focusAfterChangeRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const id = focusAfterAdd.current;
+    const id = focusAfterChangeRef.current;
     if (id === null) return;
-    focusAfterAdd.current = null;
+    focusAfterChangeRef.current = null;
     document.getElementById(quickSetupFieldId(id, "name"))?.focus();
   }, [draft.services.length]);
 
   const addService = () => {
     const service = emptyService(crypto.randomUUID());
-    focusAfterAdd.current = service.id;
-    setAnnouncement(t("availability.quickSetup.serviceAdded", { n: draft.services.length + 1 }));
+    focusAfterChangeRef.current = service.id;
+    announce(t("availability.quickSetup.serviceAdded", { n: draft.services.length + 1 }));
     onChange({ ...draft, services: [...draft.services, service] });
   };
   const removeService = (id: string) => {
-    setAnnouncement("");
+    announce("");
+    // The removed row's controls are gone, so focus goes to the name of the service before it
+    // (after it, for the first).
+    const at = draft.services.findIndex((s) => s.id === id);
+    const neighbour = draft.services[at > 0 ? at - 1 : 1];
+    focusAfterChangeRef.current = neighbour?.id ?? null;
     onChange({ ...draft, services: draft.services.filter((s) => s.id !== id) });
   };
 
   return (
-    <div className={styles.layout}>
+    <div className={inDrawer ? styles.layoutSingle : styles.layout}>
       <Stack gap="md">
         {draft.services.map((service, index) => (
           <ServiceRow
+            draft={draft}
             key={service.id}
             service={service}
             index={index}
@@ -282,6 +134,7 @@ export function QuickSetupForm({ draft, onChange, issues }: QuickSetupFormProps)
             issues={issues}
             onChange={(next) => onChange(replaceService(draft, next))}
             onRemove={() => removeService(service.id)}
+            announce={announce}
           />
         ))}
         <div>
@@ -289,12 +142,23 @@ export function QuickSetupForm({ draft, onChange, issues }: QuickSetupFormProps)
             {t("availability.quickSetup.addService")}
           </Button>
         </div>
-        <DaysField draft={draft} onChange={onChange} issues={issues} />
+        <DaysField
+          draft={draft}
+          onChange={onChange}
+          issues={issues}
+          inDrawer={inDrawer}
+          fixedDays={fixedDays}
+        />
         <Text className={styles.visuallyHidden} role="status">
-          {announcement}
+          {announcement.message}
+          {announcement.repeat ? "\u00a0" : ""}
         </Text>
       </Stack>
-      <GuestPreview draft={draft} />
+      {!inDrawer && (
+        <div className={styles.stripColumn}>
+          <RegularWeekStrip draft={draft} local={local} />
+        </div>
+      )}
     </div>
   );
 }

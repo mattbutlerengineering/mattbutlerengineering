@@ -21,7 +21,8 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:migrate:status": "prisma migrate status",
     "db:studio": "prisma studio",
-    "db:backfill-availability": "tsx src/scripts/backfill-availability.ts"
+    "db:backfill-availability": "tsx src/scripts/backfill-availability.ts",
+    "db:collapse-day-named-schedules": "tsx src/scripts/collapse-day-named-schedules.ts"
   },
   "dependencies": {
     "@fastify/rate-limit": "^11.2.1",

@@ -441,6 +441,9 @@ describe("AvailabilityPage", () => {
       renderPage();
       expect(screen.getByText(/A manager sets the regular week here/)).toBeInTheDocument();
       expect(screen.queryByRole("region", { name: "Quick setup" })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("complementary", { name: "Guest preview" })
+      ).not.toBeInTheDocument();
     });
 
     it("waits for the viewer's role rather than flashing the Host note", () => {

@@ -48,6 +48,17 @@ export function scopeDates(scope: EditScope, context: ScopeContext): string[] {
     timezone: context.timezone,
     config: { ...context.config, dateRules: [] },
   };
+  if (scope.kind === "regularWeekday") {
+    // The dates the live regular week runs on that weekday: later versions and schedules of the
+    // Manager's own keep their dates, which this edit does not reach.
+    const live = context.config.schedules.find((s) => s.isRegular && !s.archivedAt)?.id;
+    const first = Array.from({ length: 7 }, (_, i) => addDays(context.today, i)).find(
+      (d) => weekdayIndexOf(d) === scope.weekday
+    )!;
+    return eachDate(first, addDays(context.today, SCOPE_HORIZON_DAYS - 1), 7).filter(
+      (d) => live !== undefined && resolveDay(week, d).scheduleId === live
+    );
+  }
   return eachDate(context.today, addDays(context.today, SCOPE_HORIZON_DAYS - 1), 1).filter(
     (d) => resolveDay(week, d).scheduleId === scope.scheduleId
   );

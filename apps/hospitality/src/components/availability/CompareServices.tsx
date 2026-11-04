@@ -57,6 +57,8 @@ export interface CompareServicesProps {
   readonly onStale: () => void;
   /** Reports whether rows are edited but not saved, so the surface around can ask before closing. */
   readonly onDirtyChange?: (dirty: boolean) => void;
+  /** Opens Edit schedule for a row that has its own days or different hours. */
+  readonly onEditSchedule?: (scheduleId: string) => void;
 }
 
 /** Fields "Set selected to…" applies; an empty one leaves that field alone. */
@@ -127,7 +129,7 @@ function RowFields(props: {
  * impact line.
  */
 export function CompareServices(props: CompareServicesProps) {
-  const { venueId, state, timezone, today, onStale, onDirtyChange } = props;
+  const { venueId, state, timezone, today, onStale, onDirtyChange, onEditSchedule } = props;
   const { config } = state;
   const { t } = useTranslation();
   const offerUndo = useAvailabilityUndo();
@@ -347,6 +349,22 @@ export function CompareServices(props: CompareServicesProps) {
                 onCheckedChange={(on) => toggle(row.scheduleServiceId, on)}
               />
               <RowFields row={row} onChange={setRow} disabled={held} />
+              {row.different && (
+                <div className={styles.different}>
+                  <Text variant="caption" color="secondary">
+                    {t("availabilitySchedules.compare.different")}
+                  </Text>
+                  {onEditSchedule && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onEditSchedule(row.scheduleId)}
+                    >
+                      {t("availabilitySchedules.compare.editSchedule")}
+                    </Button>
+                  )}
+                </div>
+              )}
             </li>
           ))}
         </ul>

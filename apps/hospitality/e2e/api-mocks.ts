@@ -1359,6 +1359,8 @@ function buildAvailabilityConfigFixture() {
     closesAt,
     seating: { version: 1, interval: 15 },
     bookingTypes: ["online", "phone"],
+    weekdays: [],
+    dayHours: { version: 1, sets: [] },
   });
   return {
     config: {

@@ -38,6 +38,7 @@ function problem(status: number, extra: Record<string, unknown> = {}) {
 
 const NOW = new Date("2026-10-28T20:00:00Z");
 const TODAY = "2026-10-28";
+const NO_SCOPE = { weekdays: [], dayHours: { version: 1, sets: [] } };
 
 /** Lunch opens 11:30 and dinner runs to midnight, so 01:00 is after midnight (minute 1500). */
 function configState(dateRules: unknown[] = []) {
@@ -51,13 +52,21 @@ function configState(dateRules: unknown[] = []) {
         { id: "svc-dinner", name: "Dinner", position: 1 },
       ],
       scheduleServices: [
-        { id: "ss1", scheduleId: "s1", venueServiceId: "svc-lunch", opensAt: 690, closesAt: 900 },
+        {
+          id: "ss1",
+          scheduleId: "s1",
+          venueServiceId: "svc-lunch",
+          opensAt: 690,
+          closesAt: 900,
+          ...NO_SCOPE,
+        },
         {
           id: "ss2",
           scheduleId: "s1",
           venueServiceId: "svc-dinner",
           opensAt: 1020,
           closesAt: 1440,
+          ...NO_SCOPE,
         },
       ],
       assignments: [],
@@ -286,6 +295,69 @@ describe("availability chat tools", () => {
         change,
       });
       expect(result).toMatchObject({ applied: true, serviceDate: TODAY });
+    });
+
+    describe("on a varied week", () => {
+      /** Brunch opens 10:00 on Sat-Sun only; Lunch opens 11:30 Mon-Fri. */
+      function variedState() {
+        const hours = (opensAt: number, closesAt: number) => ({ opensAt, closesAt });
+        return {
+          version: 7,
+          source: "rows",
+          config: {
+            ...configState().config,
+            venueServices: [
+              { id: "svc-lunch", name: "Lunch", position: 0 },
+              { id: "svc-brunch", name: "Brunch", position: 1 },
+            ],
+            scheduleServices: [
+              {
+                id: "ss-lunch",
+                scheduleId: "s1",
+                venueServiceId: "svc-lunch",
+                ...hours(690, 900),
+                weekdays: [1, 2, 3, 4, 5],
+                dayHours: { version: 1, sets: [] },
+              },
+              {
+                id: "ss-brunch",
+                scheduleId: "s1",
+                venueServiceId: "svc-brunch",
+                ...hours(600, 840),
+                weekdays: [6, 0],
+                dayHours: { version: 1, sets: [] },
+              },
+            ],
+          },
+        };
+      }
+      const window = { change: "stop_window", from: "10:30", to: "11:15" };
+
+      it("reads a time before the earliest opening that runs today as after midnight", async () => {
+        api.availability.getConfig.mockResolvedValue(variedState());
+        vi.setSystemTime(new Date("2026-11-02T20:00:00Z")); // a Monday: Brunch does not run
+
+        await run("change_tonight_availability", window);
+
+        expect(api.availability.setTonight).toHaveBeenCalledWith("v1", {
+          expectedVersion: 7,
+          ruleId: expect.any(String),
+          change: { type: "stop_window", from: 2070, to: 2115 },
+        });
+      });
+
+      it("reads the same times on the day Brunch runs as that day's own hours", async () => {
+        api.availability.getConfig.mockResolvedValue(variedState());
+        vi.setSystemTime(new Date("2026-11-07T20:00:00Z")); // a Saturday: Brunch opens at 10:00
+
+        await run("change_tonight_availability", window);
+
+        expect(api.availability.setTonight).toHaveBeenCalledWith("v1", {
+          expectedVersion: 7,
+          ruleId: expect.any(String),
+          change: { type: "stop_window", from: 630, to: 675 },
+        });
+      });
     });
 
     it("blocks tables by the names staff use", async () => {

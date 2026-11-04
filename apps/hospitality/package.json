@@ -65,9 +65,9 @@
       "limit": "3.5 kB"
     },
     {
-      "name": "Availability day resolver (@mbe/availability resolve-day, shared by the availability page and the timeline's Tonight panel)",
-      "path": "dist/assets/resolve-day-*.js",
-      "limit": "2.7 kB"
+      "name": "Schedule changes (schedule-changes.ts, shared by the schedule editor, Change regular week and the Schedules tab)",
+      "path": "dist/assets/schedule-changes-*.js",
+      "limit": "3 kB"
     },
     {
       "name": "Venue Onboarding (lazy chunk)",

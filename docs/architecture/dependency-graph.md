@@ -72,6 +72,7 @@ flowchart TD
   agent_service --> agent_core
   agent_service --> api_client
   agent_service --> auth
+  agent_service --> availability
   agent_service --> database
   agent_service --> rialto_catalog
   agent_service --> sentry

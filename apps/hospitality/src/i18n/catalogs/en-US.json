@@ -1912,10 +1912,16 @@
     "regularWeek": {
       "open": "Change regular week…",
       "title": "Change regular week",
-      "appliesTo": "Applies to {{days}}, the days your regular week runs. Other days keep their hours.",
+      "appliesTo": "Applies to {{days}}. Other days keep their hours.",
+      "becomes": "This becomes your regular week: open {{days}}.",
+      "closedDays_one": "{{days}} is closed.",
+      "closedDays_other": "{{days}} are closed.",
+      "outside": "{{days}} use “{{name}}”. Edit it on Schedules.",
+      "openSchedules": "Open Schedules",
       "noEnd": "No end — this becomes the new regular week",
       "save": "Save hours from {{date}}",
-      "saved": "{{name}} from {{date}}"
+      "saved": "{{name}} from {{date}}",
+      "savedWeek": "Regular week changed from {{date}}"
     },
     "compare": {
       "open": "Compare services",
@@ -1941,7 +1947,9 @@
       "save_other": "Save {{count}} schedules",
       "saved_one": "{{count}} schedule updated",
       "saved_other": "{{count}} schedules updated",
-      "blocked": "Change a row to save."
+      "blocked": "Change a row to save.",
+      "different": "+ different hours",
+      "editSchedule": "Edit schedule"
     },
     "copy": {
       "action": "Copy to other days…",
@@ -1963,14 +1971,15 @@
     "nudge": {
       "label": "Suggestion",
       "text": "{{weekday}} has had {{count}} one-off changes.",
-      "make": "Make a {{weekday}} schedule",
-      "created": "{{weekday}} schedule created"
+      "make": "Make these {{weekday}}’s regular hours",
+      "created": "{{weekday}}’s regular hours updated"
     },
     "blocked": {
       "conflict": "Answer the message above to save.",
       "startRequired": "Choose a start date to save.",
       "endBeforeStart": "The end date is before the start date.",
       "nameRequired": "Name this schedule to save.",
+      "nameRequiredPeriod": "Name this period to save.",
       "servicesRequired": "Add a service to save.",
       "serviceNameRequired": "Name the new service to save."
     },
@@ -2159,9 +2168,41 @@
       "addService": "Add another service",
       "serviceAdded": "Service {{n}} added",
       "removeService": "Remove service {{n}}",
+      "differentDays": "Different days for this service",
+      "useSharedDays": "Use the shared days",
+      "runsOn": "{{service}} runs on",
+      "everyServiceOwnDays": "Every service has its own days.",
+      "daysSummary": "Days: {{days}}",
+      "changeDays": "Change days",
+      "differentHours": "Different hours on some days",
+      "blockLegend": "{{service}}: different hours",
+      "removeBlock": "Remove these hours",
+      "strip": {
+        "about": "First and last time a guest can book.",
+        "local": "From the hours you typed",
+        "empty": "Add a service with its times and days to see what guests can book each day.",
+        "chooseDays": "Choose days to see your week.",
+        "span": "{{name}} {{first}} – {{last}}",
+        "spanSpoken": "{{name}} {{first}} to {{last}}",
+        "noTableFits": "{{name}}: Runs, but no table fits a party of {{size}}.",
+        "notOffered": "Not offered: {{services}}",
+        "closed": "Closed",
+        "row": "{{day}}: {{lines}}",
+        "rowUpdated": "{{day}}: {{lines}}, updated",
+        "updated": "Updated",
+        "updatedDays": "{{days}} updated",
+        "notShownTime": "{{name}} isn't shown yet: choose a time.",
+        "notShownDays": "{{name}} isn't shown yet: choose its days.",
+        "checking": "Checking your tables…",
+        "tablesFailed": "These are the hours you typed, not checked against your tables",
+        "checkAgain": "Check again"
+      },
+      "blockAdded": "Different hours added",
+      "blockDayMoved": "{{day}} moved from the other hours",
+      "blockRemoved": "Hours for {{days}} removed",
+      "blockRemovedEmpty": "Different hours removed",
+      "blockMatchesBase": "These match the other days. Remove them.",
       "previewTitle": "Guest preview",
-      "previewEmpty": "Add a service to see the times guests get.",
-      "previewLine": "{{name}}: first seating {{first}}, last seating {{last}}",
       "save": "Save and open bookings",
       "saving": "Saving…",
       "retry": "Retry",
@@ -2179,7 +2220,11 @@
         "legacy_closed_day": "A day of exactly 24 hours, or a service shorter than the 90-minute last-seating window, would show the venue as closed. Adjust the times.",
         "name_too_long": "Use 40 characters or fewer for the service name.",
         "overlap": "This service overlaps another one.",
-        "days_required": "Choose at least one day."
+        "days_required": "Choose at least one day.",
+        "days_required_service": "Choose at least one day for {{service}}.",
+        "block_days_required": "Choose at least one day for these hours.",
+        "days_outside_use": "These days are outside the days this schedule is used on. Choose days it runs on.",
+        "overlap_on": "{{service}} overlaps {{other}} on {{day}}."
       }
     },
     "migrationBanner": "Your hours were carried over. Nothing changed for guests.",
@@ -2255,7 +2300,8 @@
         "tonightBlockTables_other": "Tonight: {{count}} tables blocked",
         "tonightPacing_one": "Tonight: pacing lowered to {{count}} cover",
         "tonightPacing_other": "Tonight: pacing lowered to {{count}} covers",
-        "reverted": "Reverted: {{summary}}"
+        "reverted": "Reverted: {{summary}}",
+        "regularWeekChanged": "Changed regular week from {{from}}: {{days}}"
       }
     },
     "editor": {
@@ -2293,7 +2339,7 @@
         "date": "This date only",
         "weekday": "Every {{weekday}} from {{date}}",
         "schedule": "Everywhere “{{name}}” is used",
-        "regularWeek": "Your regular week"
+        "regularWeekday": "Every regular {{weekday}}"
       },
       "until": "Until",
       "noEnd": "No end",
@@ -2734,6 +2780,16 @@
       "booking": "Booking: {{channels}}",
       "tables": "Some tables",
       "doneAndStays": "{{done}}. {{stays}}"
+    },
+    "regularWeekLine": {
+      "line": "Regular week: {{services}}",
+      "service": "{{name}} {{days}}",
+      "serviceWith": "{{name}} {{days}}, {{changes}}",
+      "later": "later {{days}}",
+      "earlier": "earlier {{days}}",
+      "different": "different hours {{days}}",
+      "details": "Details",
+      "heading": "Regular week"
     }
   },
   "setup": {

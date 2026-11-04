@@ -29,6 +29,7 @@
     "@mbe/agent-core": "workspace:*",
     "@mbe/api-client": "workspace:^",
     "@mbe/auth": "workspace:^",
+    "@mbe/availability": "workspace:^",
     "@mbe/database": "workspace:*",
     "@mbe/rialto-catalog": "workspace:^",
     "@mbe/sentry": "workspace:*",

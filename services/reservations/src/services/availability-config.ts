@@ -231,8 +231,13 @@ export type SavePlan =
       detail: AvailabilityChangeDetail;
     };
 
+const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
 function describeDiff(detail: AvailabilityChangeDetail): string {
-  return `Availability updated: ${detail.added} added, ${detail.changed} changed, ${detail.removed} removed`;
+  const rows = `${detail.added} added, ${detail.changed} changed, ${detail.removed} removed`;
+  if (detail.code !== "regular_week_changed") return `Availability updated: ${rows}`;
+  const days = (detail.weekdays ?? []).map((d) => WEEKDAY_NAMES[d]).join(", ");
+  return `Regular week changed on ${days} from ${detail.startsOn}: ${rows}`;
 }
 
 /** The decision half of a save, pure: what the change becomes, or why it is refused. */
@@ -275,7 +280,7 @@ export function planSave(input: {
   if (reservations.length > 0) return { kind: "stranded", reservations };
 
   const diff = diffConfig(state.stored, next);
-  const detail = configSavedDetail(diff);
+  const detail = configSavedDetail(diff, state.stored, next, civilDateIn(now, state.timezone));
   return {
     kind: "write",
     next,

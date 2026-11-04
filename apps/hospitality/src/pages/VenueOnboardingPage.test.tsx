@@ -7,6 +7,11 @@ import { VenueOnboardingPage } from "./VenueOnboardingPage";
 import { OnboardingWizardProvider } from "../components/venue-onboarding/OnboardingWizardContext";
 import { generateSlug } from "../components/venue-onboarding/generate-slug";
 
+// The hours step's local strip makes no tables read; no query client is mounted here.
+vi.mock("../hooks/useTables.js", () => ({
+  useTables: () => ({ data: undefined, isLoading: false, error: null, refetch: vi.fn() }),
+}));
+
 // Mock dependencies
 const mockNavigate = vi.fn();
 vi.mock("react-router", async () => {

@@ -653,7 +653,21 @@ pnpm db:backfill-availability [--apply]
 - It is idempotent: a venue that already has a regular schedule is skipped (`already_migrated`).
 - Each venue is its own transaction in its own venue context. A venue whose hours cannot be read is left untouched and reported `unrecognised`: unknown shape or version, a time the parser cannot read on an open day (`unreadable_time`), a past-midnight window longer than 16 hours (`implausible_span`), a bad interval or buffer, or overlapping windows.
 - It only inserts, and it never touches `Venue.operatingHours`. Every outcome line (dry run and apply) carries the original `operatingHours` value, so keep the log: it is the backup. `notes.pastMidnightWindows` lists each window read as running past midnight so a typo is visible in the dry run.
-- Weekdays with the same hours share one schedule. The largest group is the regular week, the rest become `alternate` schedules, and a closed weekday gets no assignment.
+- A venue becomes one regular schedule (`Regular week`) with one assignment over every open weekday and one row per service. A service whose hours differ by weekday carries the other hours as day sets (ADR-031); a closed weekday gets no assignment.
+
+### Collapsing day-named schedules
+
+A venue backfilled before this shape holds a regular schedule plus alternate schedules named `<days> hours` ("Thu–Fri hours"). `src/scripts/collapse-day-named-schedules.ts` folds them into the regular week. Run by an operator, per environment that holds such venues; the pipeline never applies it.
+
+```bash
+node --conditions production dist/scripts/collapse-day-named-schedules.js            # dry run: reports what it would do
+node --conditions production dist/scripts/collapse-day-named-schedules.js --apply    # writes
+pnpm db:collapse-day-named-schedules [--apply]                                       # dev checkout (tsx)
+```
+
+- A schedule folds only when it is undated, `alternate`, named exactly `<days> hours` and no `use_schedule` rule points at it. Anything else stays a schedule.
+- Per venue, in one transaction in its own venue context: compare-and-set `Venue.availabilityVersion` (+1), replace the regular schedule's rows with the encoded week, delete the folded schedules' assignments, archive the schedules. No `AvailabilityChange` row is written.
+- Outcomes: `would_collapse` / `collapsed`, `nothing_to_collapse` (re-running is a no-op), `raced` (a Manager saved meanwhile; skipped), `refused` (the result would not validate), `not_found`, `error`. Every `would_collapse` / `collapsed` line carries the rows it replaced and the ids of the rows it created (`created`): keep the log, it is the backup. Rollback is manual: restore the replaced rows, delete the created ones (archived schedules can be unarchived). Exit code is 1 only if a venue errored.
 
 ## Environment Variables
 
