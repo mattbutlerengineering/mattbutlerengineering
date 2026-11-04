@@ -19,6 +19,8 @@ export type HolidayId =
   | "easter"
   | "workersDay"
   | "mothersDay"
+  | "fathersDay"
+  | "juneteenth"
   | "victoriaDay"
   | "memorialDay"
   | "canadaDay"
@@ -81,6 +83,8 @@ export function holidaysIn(country: HolidayCountry, year: number): Holiday[] {
     at("newYearsDay", iso(year, 1, 1)),
     at("valentinesDay", iso(year, 2, 14)),
     at("easter", easter),
+    // Third Sunday of June in all three countries.
+    at("fathersDay", nthWeekday(year, 6, SUNDAY, 3)),
     at("christmasEve", iso(year, 12, 24)),
     at("christmasDay", iso(year, 12, 25)),
     at("newYearsEve", iso(year, 12, 31)),
@@ -89,6 +93,7 @@ export function holidaysIn(country: HolidayCountry, year: number): Holiday[] {
     US: [
       at("mothersDay", nthWeekday(year, 5, SUNDAY, 2)),
       at("memorialDay", nthWeekday(year, 5, MONDAY, -1)),
+      at("juneteenth", iso(year, 6, 19)),
       at("independenceDay", iso(year, 7, 4)),
       at("laborDay", nthWeekday(year, 9, MONDAY, 1)),
       at("thanksgiving", nthWeekday(year, 11, THURSDAY, 4)),

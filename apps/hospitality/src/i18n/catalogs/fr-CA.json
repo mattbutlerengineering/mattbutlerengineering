@@ -391,7 +391,15 @@
       "updated": "Mis à jour {{date}}",
       "clone": "Cloner",
       "openAria": "Ouvrir le plan de salle : {{name}}",
-      "cloneAria": "Cloner le plan de salle : {{name}}"
+      "cloneAria": "Cloner le plan de salle : {{name}}",
+      "delete": "Supprimer",
+      "deleteAria": "Supprimer le plan de salle : {{name}}",
+      "deleteActiveReason": "Activez un autre plan de salle avant de supprimer celui-ci.",
+      "deleteTitle": "Supprimer {{name}} ?",
+      "deleteDescription": "Le plan et ses tables sont retirés de vos plans de salle. Les réservations passées conservent leurs tables.",
+      "deleteConfirm": "Supprimer le plan",
+      "deleteFailed": "Le plan de salle n'a pas été supprimé.",
+      "deleted": "Plan de salle « {{name}} » supprimé"
     },
     "editor": {
       "loading": "Chargement",
@@ -1867,6 +1875,9 @@
       "planAll_one": "Planifier {{count}} jour férié…",
       "planAll_many": "Tout planifier ({{count}})…",
       "planAll_other": "Tout planifier ({{count}})…",
+      "openAsUsual": "Heures habituelles",
+      "openAsUsualName": "{{name}}, {{date}} : heures habituelles",
+      "openAsUsualToast": "{{name}} : heures habituelles",
       "name": {
         "newYearsDay": "Jour de l’An",
         "constitutionDay": "Jour de la Constitution",
@@ -1877,6 +1888,8 @@
         "easter": "Dimanche de Pâques",
         "workersDay": "Fête du Travail (1er mai)",
         "mothersDay": "Fête des Mères",
+        "fathersDay": "Fête des Pères",
+        "juneteenth": "Juneteenth",
         "victoriaDay": "Journée nationale des patriotes",
         "memorialDay": "Memorial Day",
         "canadaDay": "Fête du Canada",
@@ -2594,7 +2607,8 @@
       "suggestions": {
         "private": "Fermé pour un événement privé",
         "weather": "Fermé en raison de la météo",
-        "holiday": "Fermé pour le congé"
+        "holiday": "Fermé pour le congé",
+        "holidayNamed": "Fermé pour {{name}}"
       },
       "what": {
         "label": "Quoi",
@@ -2877,7 +2891,7 @@
     },
     "venueTime": "Heure de l'établissement ({{zone}})",
     "weekSummary": {
-      "line": "Cette semaine : {{open}} · {{closures}} · {{online}}",
+      "line": "Cette semaine : {{parts}}",
       "open_one": "ouvert {{count}} jour",
       "open_other": "ouvert {{count}} jours",
       "open_many": "ouvert {{count}} jours",
@@ -2904,6 +2918,8 @@
     },
     "regularWeekLine": {
       "line": "Semaine habituelle : {{services}}",
+      "upcoming": "Dès le {{date}} : {{services}}",
+      "upcomingPeriod": "{{from}}–{{to}} : {{services}}",
       "service": "{{name}} {{hours}} {{days}}",
       "serviceWith": "{{name}} {{hours}} {{days}}, {{changes}}",
       "hours": "{{open}}–{{close}}",

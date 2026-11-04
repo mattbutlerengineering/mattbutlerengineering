@@ -375,6 +375,9 @@
       }
     </item>
     <item priority="high">
+      export const HEALTH_RATE_LIMIT: unknown;
+    </item>
+    <item priority="high">
       export const registerHealthRoutes: unknown;
     </item>
   </file>

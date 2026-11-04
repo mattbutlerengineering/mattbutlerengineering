@@ -77,6 +77,12 @@
   color: var(--rialto-text-secondary);
 }
 
+/* A holiday's name under the date. Inline-block, so today's underline stops at the date. */
+.holiday {
+  display: inline-block;
+  font-size: var(--rialto-text-xs);
+}
+
 .details {
   display: flex;
   flex-direction: column;

@@ -188,7 +188,8 @@ describe("SpecialDatesTab", () => {
       window: { version: 1, from: 22 * 60, to: 2880 },
     };
     renderTab(true, { ...STATE, config: { ...STATE.config, dateRules: [fromTen] } });
-    expect(screen.getByText("Closed · From 10:00 PM")).toBeTruthy();
+    // Dec 24: the row names the holiday first.
+    expect(screen.getByText("Christmas Eve · Closed · From 10:00 PM")).toBeTruthy();
   });
 
   it("names each closure row's buttons with its date", () => {
@@ -234,6 +235,11 @@ describe("SpecialDatesTab", () => {
     const dates = within(sheet).getAllByLabelText("Date") as HTMLInputElement[];
     expect(dates.map((d) => d.value)).toEqual(["Dec 25, 2026"]);
     expect(within(sheet).getByRole("group", { name: "Date 1: Christmas Day" })).toBeTruthy();
+    // The row offers the holiday's message, as the Close dialog does.
+    fireEvent.click(within(sheet).getByText("Closed for Christmas Day"));
+    expect(within(sheet).getByLabelText(/Message for guests/)).toHaveValue(
+      "Closed for Christmas Day"
+    );
     unmount();
 
     renderTab(false);
@@ -247,6 +253,42 @@ describe("SpecialDatesTab", () => {
     expect(within(sheet).getAllByLabelText("Date")).toHaveLength(5);
     expect(within(sheet).getByRole("group", { name: "Date 5: Easter Sunday" })).toBeTruthy();
     expect(within(sheet).getAllByRole("radio", { name: "Closed", checked: true })).toHaveLength(5);
+  });
+
+  it("Open as usual drops a holiday for this venue, and it stays dropped across a reload", () => {
+    localStorage.clear();
+    const names = () =>
+      within(screen.getByRole("region", { name: "Upcoming holidays" }))
+        .getAllByRole("listitem")
+        .map((li) => li.firstChild?.textContent);
+    const { unmount } = renderTab(true);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Valentine’s Day, Sun, Feb 14: open as usual" })
+    );
+    expect(names()).not.toContain("Valentine’s Day");
+    expect(screen.getByRole("region", { name: "Upcoming holidays" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Plan all 4…" })).toBeTruthy();
+    unmount();
+
+    // A fresh mount reads the mark back.
+    renderTab(true);
+    expect(names()).not.toContain("Valentine’s Day");
+    localStorage.clear();
+  });
+
+  it("Undo after Open as usual offers the holiday again", async () => {
+    localStorage.clear();
+    renderTab(true);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Christmas Day, Fri, Dec 25: open as usual" })
+    );
+    expect(await screen.findByText("Christmas Day: open as usual")).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+    const panel = screen.getByRole("region", { name: "Upcoming holidays" });
+    expect(within(panel).getByText("Christmas Day")).toBeTruthy();
+    expect(
+      JSON.parse(localStorage.getItem("mbe-availability-open-as-usual:venue-1") ?? "[]")
+    ).toEqual([]);
   });
 
   it("skips one date of a repeating closure and leaves the series alone", async () => {
@@ -515,7 +557,9 @@ describe("SpecialDatesTab", () => {
         config: { ...STATE.config, dateRules: [dinner] },
       } as AvailabilityConfigState);
       expect(
-        screen.getByText("Special hours · 11:00 AM – 3:00 PM, 6:00 PM – 1:00 AM (next day)")
+        screen.getByText(
+          "New Year’s Eve · Special hours · 11:00 AM – 3:00 PM, 6:00 PM – 1:00 AM (next day)"
+        )
       ).toBeTruthy();
     });
 

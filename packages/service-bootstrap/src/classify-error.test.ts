@@ -94,46 +94,59 @@ describe("classifyError", () => {
     expect(result.extensions).toMatchObject({ details: { validation: err.validation } });
   });
 
-  it("classifies a Prisma P2025 (record not found) error", () => {
-    const err = new Error("An error occurred") as TestError;
+  // #8261: Prisma's `meta` carries constraint names, column names and model
+  // names. None of it may reach the client; the error handler logs it.
+  it("classifies a Prisma P2025 (record not found) error without leaking meta", () => {
+    const err = new Error("Invalid `prisma.table.delete()` invocation") as TestError;
     err.name = "PrismaClientKnownRequestError";
     err.code = "P2025";
-    err.meta = { cause: "Venue not found" };
+    err.meta = { cause: "No record was found for a delete.", modelName: "Table" };
     const result = classifyError(err);
     expect(result).toEqual({
       status: 404,
       title: "Not Found",
-      detail: "Venue not found",
-      extensions: { prismaCode: "P2025", prismaMeta: { cause: "Venue not found" } },
+      detail: "Record not found",
+      extensions: { prismaCode: "P2025" },
     });
   });
 
-  it("classifies a Prisma P2002 (unique constraint) error", () => {
+  it("classifies a Prisma P2002 (unique constraint) error without leaking fields", () => {
     const err = new Error("An error occurred") as TestError;
     err.name = "PrismaClientKnownRequestError";
     err.code = "P2002";
-    err.meta = { target: ["name", "slug"] };
+    err.meta = { target: ["venue_id", "slug"], modelName: "Venue" };
     const result = classifyError(err);
     expect(result).toEqual({
       status: 409,
       title: "Conflict",
-      detail: "Unique constraint failed: name, slug",
-      extensions: { prismaCode: "P2002", prismaMeta: { target: ["name", "slug"] } },
+      detail: "A record with these details already exists",
+      extensions: { prismaCode: "P2002" },
     });
   });
 
-  it("classifies a Prisma P2003 (foreign key constraint) error", () => {
+  it("classifies a Prisma P2003 (foreign key constraint) error without leaking the constraint", () => {
     const err = new Error("An error occurred") as TestError;
     err.name = "PrismaClientKnownRequestError";
     err.code = "P2003";
-    err.meta = { field_name: "venueId" };
+    err.meta = { field_name: "reservations_table_id_fkey (index)", modelName: "Table" };
     const result = classifyError(err);
     expect(result).toEqual({
       status: 409,
       title: "Conflict",
-      detail: "Foreign key constraint failed on field: venueId",
-      extensions: { prismaCode: "P2003", prismaMeta: { field_name: "venueId" } },
+      detail: "This item is still in use by other records",
+      extensions: { prismaCode: "P2003" },
     });
+    expect(JSON.stringify(result)).not.toContain("fkey");
+  });
+
+  it("never attaches prismaMeta for an unmapped Prisma code", () => {
+    const err = new Error("DB error") as TestError;
+    err.name = "PrismaClientKnownRequestError";
+    err.code = "P2034";
+    err.meta = { database_host: "db.internal" };
+    const result = classifyError(err);
+    expect(result.extensions).toEqual({ prismaCode: "P2034" });
+    expect(JSON.stringify(result)).not.toContain("db.internal");
   });
 
   it("classifies other Prisma errors as 500 database error", () => {

@@ -383,7 +383,15 @@
       "updated": "Updated {{date}}",
       "clone": "Clone",
       "openAria": "Open floor plan: {{name}}",
-      "cloneAria": "Clone floor plan: {{name}}"
+      "cloneAria": "Clone floor plan: {{name}}",
+      "delete": "Delete",
+      "deleteAria": "Delete floor plan: {{name}}",
+      "deleteActiveReason": "Activate another floor plan before deleting this one.",
+      "deleteTitle": "Delete {{name}}?",
+      "deleteDescription": "The plan and its tables leave your floor plans. Past reservations keep their tables.",
+      "deleteConfirm": "Delete floor plan",
+      "deleteFailed": "Floor plan not deleted.",
+      "deleted": "Floor plan \"{{name}}\" deleted"
     },
     "editor": {
       "loading": "Loading",
@@ -1830,6 +1838,9 @@
       "planName": "Plan {{name}}, {{date}}…",
       "planAll_one": "Plan {{count}} holiday…",
       "planAll_other": "Plan all {{count}}…",
+      "openAsUsual": "Open as usual",
+      "openAsUsualName": "{{name}}, {{date}}: open as usual",
+      "openAsUsualToast": "{{name}}: open as usual",
       "name": {
         "newYearsDay": "New Year’s Day",
         "constitutionDay": "Constitution Day",
@@ -1840,6 +1851,8 @@
         "easter": "Easter Sunday",
         "workersDay": "Labor Day (May 1)",
         "mothersDay": "Mother’s Day",
+        "fathersDay": "Father’s Day",
+        "juneteenth": "Juneteenth",
         "victoriaDay": "Victoria Day",
         "memorialDay": "Memorial Day",
         "canadaDay": "Canada Day",
@@ -2516,7 +2529,8 @@
       "suggestions": {
         "private": "Closed for a private event",
         "weather": "Closed due to weather",
-        "holiday": "Closed for the holiday"
+        "holiday": "Closed for the holiday",
+        "holidayNamed": "Closed for {{name}}"
       },
       "what": {
         "label": "What",
@@ -2794,7 +2808,7 @@
     },
     "venueTime": "Venue time ({{zone}})",
     "weekSummary": {
-      "line": "This week: {{open}} · {{closures}} · {{online}}",
+      "line": "This week: {{parts}}",
       "open_one": "open {{count}} day",
       "open_other": "open {{count}} days",
       "closures_one": "{{count}} closure",
@@ -2818,6 +2832,8 @@
     },
     "regularWeekLine": {
       "line": "Regular week: {{services}}",
+      "upcoming": "From {{date}}: {{services}}",
+      "upcomingPeriod": "{{from}}–{{to}}: {{services}}",
       "service": "{{name}} {{hours}} {{days}}",
       "serviceWith": "{{name}} {{hours}} {{days}}, {{changes}}",
       "hours": "{{open}}–{{close}}",

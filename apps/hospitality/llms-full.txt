@@ -1700,6 +1700,8 @@
       | "easter"
       | "workersDay"
       | "mothersDay"
+      | "fathersDay"
+      | "juneteenth"
       | "victoriaDay"
       | "memorialDay"
       | "canadaDay"
@@ -1748,6 +1750,8 @@
         at("newYearsDay", iso(year, 1, 1)),
         at("valentinesDay", iso(year, 2, 14)),
         at("easter", easter),
+        // Third Sunday of June in all three countries.
+        at("fathersDay", nthWeekday(year, 6, SUNDAY, 3)),
         at("christmasEve", iso(year, 12, 24)),
         at("christmasDay", iso(year, 12, 25)),
         at("newYearsEve", iso(year, 12, 31)),
@@ -1756,6 +1760,7 @@
         US: [
           at("mothersDay", nthWeekday(year, 5, SUNDAY, 2)),
           at("memorialDay", nthWeekday(year, 5, MONDAY, -1)),
+          at("juneteenth", iso(year, 6, 19)),
           at("independenceDay", iso(year, 7, 4)),
           at("laborDay", nthWeekday(year, 9, MONDAY, 1)),
           at("thanksgiving", nthWeekday(year, 11, THURSDAY, 4)),
@@ -2020,11 +2025,15 @@
       const onlineOff = open.filter((d) => !d.bookingOpen.online).length;
       const online =
         onlineOff === open.length ? "onlineOff" : onlineOff === 0 ? "onlineOn" : "onlinePartial";
-      return t("availability.weekSummary.line", {
-        open: t("availability.weekSummary.open", { count: open.length }),
-        closures: t("availability.weekSummary.closures", { count: closures.size }),
-        online: t(`availability.weekSummary.${online}`),
-      });
+      const parts = [
+        t("availability.weekSummary.open", { count: open.length }),
+        // "0 closures" is a fact nobody needs: the line names closures only when there are some.
+        ...(closures.size > 0
+          ? [t("availability.weekSummary.closures", { count: closures.size })]
+          : []),
+        t(`availability.weekSummary.${online}`),
+      ];
+      return t("availability.weekSummary.line", { parts: parts.join(" · ") });
     }
   </file>
   <file path="src/components/availability/quick-setup-demo.fixture.ts">
@@ -2779,6 +2788,30 @@
       const first = services[0]?.days.join();
       const uniform = services.every((s) => s.changes.length === 0 && s.days.join() === first);
       return { services, uniform };
+    }
+    export interface UpcomingRegularWeek {
+      /** The first day the change is in force. */
+      readonly startsOn: string;
+      /** Its last day for a period; `null` when it becomes the regular week. */
+      readonly endsOn: string | null;
+      /** The line as it will read on `startsOn`. */
+      readonly line: RegularWeekLine;
+    }
+    export function upcomingRegularWeek(
+      config: AvailabilityConfig,
+      today: string
+    ): UpcomingRegularWeek | null {
+      const live = new Set(
+        config.schedules.filter((s) => s.kind === "regular" && !s.archivedAt).map((s) => s.id)
+      );
+      const next = config.assignments
+        .filter((a) => live.has(a.scheduleId) && a.startsOn != null && a.startsOn > today)
+        .sort((a, b) => a.startsOn!.localeCompare(b.startsOn!))[0];
+      if (!next?.startsOn) return null;
+      const line = regularWeekLine(config, next.startsOn);
+      return line.services.length === 0
+        ? null
+        : { startsOn: next.startsOn, endsOn: next.endsOn ?? null, line };
     }
   </file>
   <file path="src/components/availability/removal-diff.ts">
@@ -4471,6 +4504,35 @@
       );
     
       return { editorRef, bannerRef, reloadRef, track };
+    }
+  </file>
+  <file path="src/components/availability/use-holidays.ts">
+    function addressCountry(profile: unknown): string | undefined {
+      if (typeof profile !== "object" || profile === null) return undefined;
+      const address = (profile as { address?: unknown }).address;
+      if (typeof address !== "object" || address === null) return undefined;
+      const country = (address as { country?: unknown }).country;
+      return typeof country === "string" ? country : undefined;
+    }
+    export function useHolidayCountry(): HolidayCountry | null {
+      const format = useVenueFormat();
+      const venue = useOptionalVenue()?.selectedVenue;
+      return holidayCountry(addressCountry(venue?.settings?.["profile"]), format.locale);
+    }
+    export function useHolidayNames(dates: readonly string[]): ReadonlyMap<string, string> {
+      const country = useHolidayCountry();
+      const { t } = useTranslation();
+      return useMemo(() => {
+        if (!country || dates.length === 0) return new Map();
+        const shown = new Set(dates);
+        const years = [...new Set(dates.map((d) => Number(d.slice(0, 4))))];
+        return new Map(
+          years
+            .flatMap((year) => holidaysIn(country, year))
+            .filter((h) => shown.has(h.date))
+            .map((h) => [h.date, t(`availabilitySpecial.holidays.name.${h.id}`)])
+        );
+      }, [country, dates, t]);
     }
   </file>
   <file path="src/components/availability/use-reload-hold.ts">
@@ -9636,16 +9698,21 @@
   </file>
   <file path="src/hooks/useApiClient.ts">
     export function useApiClient() {
-      const { accessToken } = useAuth();
+      const { accessToken, signInSilent } = useAuth();
     
       return useMemo(
         () =>
           createApiClient({
             baseUrl: import.meta.env.VITE_API_URL ?? "",
             getAccessToken: () => accessToken,
+            // A 401 mid-session (expired token, #8258) refreshes once via a silent
+            // sign-in, which always fetches a new token. A failed refresh resolves
+            // null, and react-oidc-context records it as a silent error that
+            // DashboardLayout's "sign in again" banner already surfaces.
+            refreshAccessToken: async () => (await signInSilent())?.access_token ?? null,
             onError: reportApiError,
           }),
-        [accessToken]
+        [accessToken, signInSilent]
       );
     }
   </file>
@@ -10448,6 +10515,13 @@
       mutationFn: (api, id) => api.floorPlans.setActive(id),
       onSuccess: (queryClient, _data, id) => {
         queryClient.invalidateQueries({ queryKey: floorPlanQueryKey(id) });
+      },
+    });
+    export const useDeleteFloorPlan = createMutationHook<string>({
+      invalidateKeys: FLOOR_PLANS_QUERY_KEY,
+      mutationFn: (api, id) => api.floorPlans.delete(id),
+      onSuccess: (queryClient, _data, id) => {
+        queryClient.removeQueries({ queryKey: floorPlanQueryKey(id) });
       },
     });
     export interface BulkUpdatePositionsPayload {

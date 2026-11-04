@@ -123,6 +123,41 @@ describe("AvailabilityPage regular-week line", () => {
     expect(screen.getByText("Regular week: Dinner 5:00 PM–11:00 PM every day")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Details" })).not.toBeInTheDocument();
   });
+
+  it("shows a regular week saved for a later date before it takes over", () => {
+    const old = DEMO_WEEK_CONFIG.schedules[0]!;
+    const dinner = DEMO_WEEK_CONFIG.scheduleServices.find((r) => r.id === "demo-ss-dinner")!;
+    read.config = {
+      ...DEMO_WEEK_CONFIG,
+      schedules: [
+        { ...old, isRegular: false },
+        { ...old, id: "next", isRegular: true },
+      ],
+      scheduleServices: [
+        ...DEMO_WEEK_CONFIG.scheduleServices,
+        {
+          ...dinner,
+          id: "next-dinner",
+          scheduleId: "next",
+          weekdays: [],
+          dayHours: { version: 1, sets: [] },
+        },
+      ],
+      assignments: [
+        { ...DEMO_WEEK_CONFIG.assignments[0]!, endsOn: "2026-11-30" },
+        {
+          id: "as-next",
+          scheduleId: "next",
+          weekdays: [0, 1, 2, 3, 4, 5, 6],
+          precedence: 1,
+          startsOn: "2026-12-01",
+        },
+      ],
+    };
+    renderPage();
+    expect(screen.getByText(/^Regular week: Lunch 11:30 AM–3:00 PM Mon–Fri/)).toBeInTheDocument();
+    expect(screen.getByText("From Dec 1: Dinner 5:00 PM–11:00 PM every day")).toBeInTheDocument();
+  });
 });
 
 /**

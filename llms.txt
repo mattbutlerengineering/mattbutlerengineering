@@ -2144,7 +2144,7 @@
       type HolidayCountry = "US" | "CA" | "MX";
     </item>
     <item priority="low">
-      type HolidayId = "newYearsDay" | "constitutionDay" | "valentinesDay" | "benitoJuarez" | "holyThursday" | "goodFriday" | "easter" | "workersDay" | "mothersDay" | "victoriaDay" | "memorialDay" | "canadaDay" | "independenceDay" | "laborDay" | "thanksgiving" | "dayOfTheDead" | "revolutionDay" | "christmasEve" | "christmasDay" | "boxingDay" | "newYearsEve";
+      type HolidayId = "newYearsDay" | "constitutionDay" | "valentinesDay" | "benitoJuarez" | "holyThursday" | "goodFriday" | "easter" | "workersDay" | "mothersDay" | "fathersDay" | "juneteenth" | "victoriaDay" | "memorialDay" | "canadaDay" | "independenceDay" | "laborDay" | "thanksgiving" | "dayOfTheDead" | "revolutionDay" | "christmasEve" | "christmasDay" | "boxingDay" | "newYearsEve";
     </item>
     <item priority="low">
       interface Holiday {
@@ -2587,6 +2587,19 @@
     </item>
     <item priority="high">
       export function regularWeekLine(config: AvailabilityConfig, today: string): RegularWeekLine { /* ... */ }
+    </item>
+    <item priority="low">
+      interface UpcomingRegularWeek {
+        startsOn: string;
+        endsOn: string | null;
+        line: RegularWeekLine;
+      }
+    </item>
+    <item priority="high">
+      export function upcomingRegularWeek(
+        config: AvailabilityConfig,
+        today: string
+      ): UpcomingRegularWeek | null { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/removal-diff.ts">
@@ -3277,6 +3290,17 @@
     </item>
     <item priority="high">
       export function useHoldFocus(wayOut: HoldWayOut) { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/use-holidays.ts">
+    <item priority="medium">
+      function addressCountry(profile: unknown): string | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useHolidayCountry(): HolidayCountry | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useHolidayNames(dates: readonly string[]): ReadonlyMap<string, string> { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/use-reload-hold.ts">
@@ -7312,6 +7336,9 @@
     </item>
     <item priority="high">
       export const useActivateFloorPlan: unknown;
+    </item>
+    <item priority="high">
+      export const useDeleteFloorPlan: unknown;
     </item>
     <item priority="low">
       interface BulkUpdatePositionsPayload {
@@ -18045,6 +18072,16 @@
     <item priority="medium">
       function mapPrismaFloorPlan(floorPlan: PrismaFloorPlan): FloorPlan { /* ... */ }
     </item>
+    <item priority="medium">
+      function venueUniqueNames(
+        desired: readonly string[],
+        taken: readonly string[],
+        candidate: (name: string, n: number) => string
+      ): string[] { /* ... */ }
+    </item>
+    <item priority="low">
+      type FloorPlanDeleteOutcome = "deleted" | "archived" | "active" | "has_upcoming" | "in_use" | "not_found";
+    </item>
     <item priority="high">
       export const floorPlanService: unknown;
     </item>
@@ -22570,9 +22607,9 @@
       interface ClientConfig {
         baseUrl: string;
         getAccessToken?: () => string | null | Promise<string | null>;
+        refreshAccessToken?: () => Promise<string | null>;
         timeout?: number;
         maxRetries?: number;
-        onError?: (error: ApiClientError) => void;
       }
     </item>
     <item priority="low">
@@ -22592,8 +22629,8 @@
       class ApiClient {
         timeout: number;
         maxRetries: number;
+        refreshInFlight: Promise<string | null> | null;
         async request(): Promise<unknown>;
-        async call(): Promise<unknown>;
       }
     </item>
     <item priority="low">
@@ -22713,6 +22750,7 @@
       export function createApiClient(config: {
         baseUrl?: string;
         getAccessToken?: () => string | null | Promise<string | null>;
+        refreshAccessToken?: () => Promise<string | null>;
         timeout?: number;
         maxRetries?: number;
         onError?: (error: ApiClientError) => void;
@@ -25232,6 +25270,9 @@
         routes: readonly HealthRouteConfig[];
         checkAuth0?: () => Promise<Auth0CheckResult>;
       }
+    </item>
+    <item priority="high">
+      export const HEALTH_RATE_LIMIT: unknown;
     </item>
     <item priority="high">
       export const registerHealthRoutes: unknown;

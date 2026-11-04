@@ -391,7 +391,15 @@
       "updated": "Actualizado {{date}}",
       "clone": "Clonar",
       "openAria": "Abrir plano de sala: {{name}}",
-      "cloneAria": "Clonar plano de sala: {{name}}"
+      "cloneAria": "Clonar plano de sala: {{name}}",
+      "delete": "Eliminar",
+      "deleteAria": "Eliminar plano de sala: {{name}}",
+      "deleteActiveReason": "Activa otro plano de sala antes de eliminar este.",
+      "deleteTitle": "¿Eliminar {{name}}?",
+      "deleteDescription": "El plano y sus mesas salen de tus planos de sala. Las reservaciones pasadas conservan sus mesas.",
+      "deleteConfirm": "Eliminar plano",
+      "deleteFailed": "No se eliminó el plano de sala.",
+      "deleted": "Plano de sala \"{{name}}\" eliminado"
     },
     "editor": {
       "loading": "Cargando",
@@ -1867,6 +1875,9 @@
       "planAll_one": "Planear {{count}} día festivo…",
       "planAll_many": "Planear los {{count}}…",
       "planAll_other": "Planear los {{count}}…",
+      "openAsUsual": "Horario habitual",
+      "openAsUsualName": "{{name}}, {{date}}: horario habitual",
+      "openAsUsualToast": "{{name}}: horario habitual",
       "name": {
         "newYearsDay": "Año Nuevo",
         "constitutionDay": "Día de la Constitución",
@@ -1877,6 +1888,8 @@
         "easter": "Domingo de Pascua",
         "workersDay": "Día del Trabajo",
         "mothersDay": "Día de las Madres",
+        "fathersDay": "Día del Padre",
+        "juneteenth": "Juneteenth",
         "victoriaDay": "Día de Victoria",
         "memorialDay": "Memorial Day",
         "canadaDay": "Día de Canadá",
@@ -2594,7 +2607,8 @@
       "suggestions": {
         "private": "Cerrado por evento privado",
         "weather": "Cerrado por clima",
-        "holiday": "Cerrado por el día festivo"
+        "holiday": "Cerrado por el día festivo",
+        "holidayNamed": "Cerrado por {{name}}"
       },
       "what": {
         "label": "Qué",
@@ -2877,7 +2891,7 @@
     },
     "venueTime": "Hora del local ({{zone}})",
     "weekSummary": {
-      "line": "Esta semana: {{open}} · {{closures}} · {{online}}",
+      "line": "Esta semana: {{parts}}",
       "open_one": "abierto {{count}} día",
       "open_other": "abierto {{count}} días",
       "open_many": "abierto {{count}} días",
@@ -2904,6 +2918,8 @@
     },
     "regularWeekLine": {
       "line": "Semana habitual: {{services}}",
+      "upcoming": "Desde el {{date}}: {{services}}",
+      "upcomingPeriod": "{{from}}–{{to}}: {{services}}",
       "service": "{{name}} {{hours}} {{days}}",
       "serviceWith": "{{name}} {{hours}} {{days}}, {{changes}}",
       "hours": "{{open}}–{{close}}",

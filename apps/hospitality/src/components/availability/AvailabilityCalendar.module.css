@@ -96,6 +96,14 @@
   font-size: var(--rialto-text-sm);
 }
 
+/* A holiday's name beside the day number. Inline-block, so today's underline stops at the number. */
+.holiday {
+  display: inline-block;
+  margin-inline-start: var(--rialto-space-xs);
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-secondary);
+}
+
 .details {
   display: flex;
   flex-direction: column;

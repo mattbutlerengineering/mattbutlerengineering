@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AvailabilityConfig } from "@mbe/types";
 import { DEMO_WEEK_CONFIG } from "../../utils/demo-week.fixture.js";
-import { regularWeekLine } from "./regular-week-line.js";
+import { regularWeekLine, upcomingRegularWeek } from "./regular-week-line.js";
 
 const TODAY = "2026-11-04";
 
@@ -61,39 +61,57 @@ describe("regularWeekLine", () => {
   });
 
   it("reads the week in force today, not a dated Change regular week that starts later", () => {
-    const old = DEMO_WEEK_CONFIG.schedules[0]!;
-    const dinner = DEMO_WEEK_CONFIG.scheduleServices.find((r) => r.id === "demo-ss-dinner")!;
-    const dated: AvailabilityConfig = {
-      ...DEMO_WEEK_CONFIG,
-      schedules: [
-        { ...old, isRegular: false },
-        { ...old, id: "next", isRegular: true },
-      ],
-      scheduleServices: [
-        ...DEMO_WEEK_CONFIG.scheduleServices,
-        // The week from Dec 1: Dinner runs every day with no later Friday or Saturday.
-        {
-          ...dinner,
-          id: "next-dinner",
-          scheduleId: "next",
-          weekdays: [],
-          dayHours: { version: 1, sets: [] },
-        },
-      ],
-      assignments: [
-        { ...DEMO_WEEK_CONFIG.assignments[0]!, endsOn: "2026-11-30" },
-        {
-          id: "as-next",
-          scheduleId: "next",
-          weekdays: [0, 1, 2, 3, 4, 5, 6],
-          precedence: 1,
-          startsOn: "2026-12-01",
-        },
-      ],
-    };
-
+    const dated = datedConfig();
     expect(byName(dated, TODAY).Dinner?.changes.map((c) => c.weekdays)).toEqual([[5, 6]]);
     expect(Object.keys(byName(dated, "2026-12-01"))).toEqual(["Dinner"]);
     expect(byName(dated, "2026-12-01").Dinner?.changes).toEqual([]);
+  });
+});
+
+/** The demo week until Nov 30, then a Change regular week from Dec 1: Dinner every day, no later Fri–Sat. */
+function datedConfig(): AvailabilityConfig {
+  const old = DEMO_WEEK_CONFIG.schedules[0]!;
+  const dinner = DEMO_WEEK_CONFIG.scheduleServices.find((r) => r.id === "demo-ss-dinner")!;
+  return {
+    ...DEMO_WEEK_CONFIG,
+    schedules: [
+      { ...old, isRegular: false },
+      { ...old, id: "next", isRegular: true },
+    ],
+    scheduleServices: [
+      ...DEMO_WEEK_CONFIG.scheduleServices,
+      {
+        ...dinner,
+        id: "next-dinner",
+        scheduleId: "next",
+        weekdays: [],
+        dayHours: { version: 1, sets: [] },
+      },
+    ],
+    assignments: [
+      { ...DEMO_WEEK_CONFIG.assignments[0]!, endsOn: "2026-11-30" },
+      {
+        id: "as-next",
+        scheduleId: "next",
+        weekdays: [0, 1, 2, 3, 4, 5, 6],
+        precedence: 1,
+        startsOn: "2026-12-01",
+      },
+    ],
+  };
+}
+
+describe("upcomingRegularWeek", () => {
+  it("reads the next dated change as it will read on its first day", () => {
+    const next = upcomingRegularWeek(datedConfig(), TODAY);
+    expect(next?.startsOn).toBe("2026-12-01");
+    expect(next?.endsOn).toBeNull();
+    expect(next?.line.services.map((s) => s.name)).toEqual(["Dinner"]);
+    expect(next?.line.services[0]?.changes).toEqual([]);
+  });
+
+  it("is null once the change is in force, and with none scheduled", () => {
+    expect(upcomingRegularWeek(datedConfig(), "2026-12-01")).toBeNull();
+    expect(upcomingRegularWeek(DEMO_WEEK_CONFIG, TODAY)).toBeNull();
   });
 });

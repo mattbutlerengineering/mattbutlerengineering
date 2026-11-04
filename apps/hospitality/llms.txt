@@ -748,7 +748,7 @@
       type HolidayCountry = "US" | "CA" | "MX";
     </item>
     <item priority="low">
-      type HolidayId = "newYearsDay" | "constitutionDay" | "valentinesDay" | "benitoJuarez" | "holyThursday" | "goodFriday" | "easter" | "workersDay" | "mothersDay" | "victoriaDay" | "memorialDay" | "canadaDay" | "independenceDay" | "laborDay" | "thanksgiving" | "dayOfTheDead" | "revolutionDay" | "christmasEve" | "christmasDay" | "boxingDay" | "newYearsEve";
+      type HolidayId = "newYearsDay" | "constitutionDay" | "valentinesDay" | "benitoJuarez" | "holyThursday" | "goodFriday" | "easter" | "workersDay" | "mothersDay" | "fathersDay" | "juneteenth" | "victoriaDay" | "memorialDay" | "canadaDay" | "independenceDay" | "laborDay" | "thanksgiving" | "dayOfTheDead" | "revolutionDay" | "christmasEve" | "christmasDay" | "boxingDay" | "newYearsEve";
     </item>
     <item priority="low">
       interface Holiday {
@@ -1191,6 +1191,19 @@
     </item>
     <item priority="high">
       export function regularWeekLine(config: AvailabilityConfig, today: string): RegularWeekLine { /* ... */ }
+    </item>
+    <item priority="low">
+      interface UpcomingRegularWeek {
+        startsOn: string;
+        endsOn: string | null;
+        line: RegularWeekLine;
+      }
+    </item>
+    <item priority="high">
+      export function upcomingRegularWeek(
+        config: AvailabilityConfig,
+        today: string
+      ): UpcomingRegularWeek | null { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/removal-diff.ts">
@@ -1881,6 +1894,17 @@
     </item>
     <item priority="high">
       export function useHoldFocus(wayOut: HoldWayOut) { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/use-holidays.ts">
+    <item priority="medium">
+      function addressCountry(profile: unknown): string | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useHolidayCountry(): HolidayCountry | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useHolidayNames(dates: readonly string[]): ReadonlyMap<string, string> { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/use-reload-hold.ts">
@@ -3829,6 +3853,9 @@
     </item>
     <item priority="high">
       export const useActivateFloorPlan: unknown;
+    </item>
+    <item priority="high">
+      export const useDeleteFloorPlan: unknown;
     </item>
     <item priority="low">
       interface BulkUpdatePositionsPayload {

@@ -4838,3 +4838,17 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
   2. The floating "Copy JSX" button overlaps the page subtitle at 375 px on the example pages (`examples/availability-heatmap`, `examples/booking-confirmed`, `examples/checkout`, `examples/guest-checkin`, `examples/notification-center`, `examples/reservation-kanban`, `examples/reservation-timeline`).
      Both are real defects a human would want fixed; raising them needs either a human-authored rubric bump (a new judged tell for mobile overlap/occlusion, which only a human may make) or an issue filed outside this loop. The routine cannot file them itself.
 - **Note (environment):** the MCP tool names this routine's prompt uses (`get_issue`, `create_issue`, `update_issue`, `search_issues`) still do not exist in this session; the available equivalents are `issue_read`, `issue_write` and `list_issues`, and GitHub MCP `search_*` tools are unavailable. Both label sweeps (`ui-quality`, `ui-quality:p1`) were done with `list_issues` filtered by label, every page read (37 and 0 results, `hasNextPage: false` on both). Per-issue state came from that same authoritative listing after spot-checking #8106 and #5943 with `issue_read` and confirming the states matched; all 35 ledger issues were present in the listing, so none was recorded `missing`.
+
+## 2026-11-04
+
+**Sensors:** 15/17 available
+**Regressions:** 2 detected, 0 issues created
+**Verifications:** 2 checked, 0 verified, 0 failed, 2 skipped (no completed CI runs to compare against); threshold auto-tuner applied 1 adjustment (acmm 1.47 -> 1.5, headroom)
+**AI issue feedback:** 7 categories, 0 unhealthy (>40% rejected) — all budgets at default 3
+**Skill proposals:** 0 (Wednesday — Friday-only)
+**Sentry triage:** skipped — stored Sentry access token rejected ("Authorization Expired"), needs re-auth
+**Threshold notes:** false-positive rate 2/36 closed learning-loop issues (~5.6%, well under 30%) — no loosening needed. Fix-effectiveness over the 30-day verification log is 6/102 (5.9%) taken literally, but 92 of those 102 rows are `skip` (no CI run to compare against — a known cloud-session gh-client limitation, not a real failure); over the 10 rows actually evaluated, 6/10 = 60% (above the 50% bar). Treat the literal 5.9% as an artifact of the skip-heavy sample, not a regression in fix strategy.
+**Regression detail:**
+
+- `metricsFreshness.shipped-features`: fresh -> stale (+18.86d). Duplicate of already-open #8263 ("Metrics collection is stale or empty", `ci-fix`) plus the in-flight `shipped-features-freshness` tracking chain (#8205/#8202/#8203) already diagnosing/fixing this exact collector. No new issue filed.
+- `ciHealth.pass_rate_pct`: 100 -> 90 (-10, high). The sensor's 30-run window holds exactly one failure, at commit `59a9cfab5cde807ea4c410eb3156fb3d5aeb554f` (2026-11-04T03:46Z) — already filed and already closed as #8225 ("Broken Main at commit 59a9cfab...", closed 2026-11-04T04:28Z, same day). The metric self-corrects as the window ages the fixed run out; filing a new issue would duplicate an already-resolved incident.

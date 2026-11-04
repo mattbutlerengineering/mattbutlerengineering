@@ -29,6 +29,11 @@ describe("holidaysIn", () => {
     expect(dateOf("US", 2027, "thanksgiving")).toBe("2027-11-25");
     expect(dateOf("US", 2026, "memorialDay")).toBe("2026-05-25");
     expect(dateOf("US", 2026, "laborDay")).toBe("2026-09-07");
+    expect(dateOf("US", 2026, "juneteenth")).toBe("2026-06-19");
+    expect(dateOf("CA", 2026, "juneteenth")).toBeUndefined();
+    // Father's Day is the third Sunday of June in all three countries.
+    expect(dateOf("US", 2026, "fathersDay")).toBe("2026-06-21");
+    expect(dateOf("MX", 2027, "fathersDay")).toBe("2027-06-20");
     expect(dateOf("US", 2026, "mothersDay")).toBe("2026-05-10");
   });
 
