@@ -117,6 +117,15 @@ const healthSchema = {
   },
 };
 
+/**
+ * Per-IP limit for health and readiness probes (#8260). The round-trip and
+ * status-page probes share an egress IP and burst together, so the old
+ * 10/min limit turned a healthy service into a 429 "degraded" reading. The
+ * handler runs a `SELECT 1` and a 2 s-bounded JWKS fetch, so it stays bounded
+ * rather than exempt: 600/min is far above probe traffic and still caps floods.
+ */
+export const HEALTH_RATE_LIMIT = { max: 600, timeWindow: "1 minute" } as const;
+
 const healthRoutesPlugin: FastifyPluginAsync<HealthRoutesOptions> = async (
   fastify: FastifyInstance,
   opts: HealthRoutesOptions
@@ -226,15 +235,12 @@ const healthRoutesPlugin: FastifyPluginAsync<HealthRoutesOptions> = async (
 
   // Register each route with the shared handler
   for (const route of routes) {
-    // Exempt from @fastify/rate-limit: the round-trip and status-page probes
-    // share an egress IP and burst together, so any per-IP limit here turned a
-    // healthy service into a 429 "degraded" reading (#8260). The handler's own
-    // cost is one `SELECT 1` plus a 2 s-bounded JWKS fetch.
+    // github[js/missing-rate-limiting] — generous probe limit (#8260); see HEALTH_RATE_LIMIT.
     fastify.get<{ Reply: HealthResponse }>(
       route.path,
       {
         schema: { ...healthSchema, operationId: route.operationId } as Record<string, unknown>,
-        config: { rateLimit: false },
+        config: { rateLimit: HEALTH_RATE_LIMIT },
       },
       healthHandler
     );

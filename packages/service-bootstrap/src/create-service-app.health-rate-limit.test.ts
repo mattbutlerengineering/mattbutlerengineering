@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { createServiceApp, type ServiceAppConfig } from "./create-service-app.js";
+import { HEALTH_RATE_LIMIT } from "./health-routes.js";
 
 /**
  * Exercises the REAL @fastify/rate-limit plugin (create-service-app.test.ts
@@ -45,16 +46,16 @@ function testConfig(): ServiceAppConfig {
   };
 }
 
-async function burst(app: FastifyInstance, url: string): Promise<number[]> {
+async function burst(app: FastifyInstance, url: string, count = BURST): Promise<number[]> {
   const codes: number[] = [];
-  for (let i = 0; i < BURST; i++) {
+  for (let i = 0; i < count; i++) {
     const res = await app.inject({ method: "GET", url });
     codes.push(res.statusCode);
   }
   return codes;
 }
 
-describe("createServiceApp — health and readiness are exempt from rate limiting", () => {
+describe("createServiceApp — health and readiness get a generous probe rate limit", () => {
   let app: FastifyInstance | undefined;
 
   afterEach(async () => {
@@ -81,6 +82,16 @@ describe("createServiceApp — health and readiness are exempt from rate limitin
     const codes = await burst(app, "/ready");
 
     expect(codes).not.toContain(429);
+  });
+
+  it("still caps a flood on /health above the probe limit", async () => {
+    app = await createServiceApp(testConfig(), { logger: false });
+    await app.ready();
+
+    const codes = await burst(app, "/health", HEALTH_RATE_LIMIT.max + 1);
+
+    expect(codes.slice(0, HEALTH_RATE_LIMIT.max).every((c) => c === 200)).toBe(true);
+    expect(codes[HEALTH_RATE_LIMIT.max]).toBe(429);
   });
 
   it("still rate-limits a normal route at the global 100/min", async () => {

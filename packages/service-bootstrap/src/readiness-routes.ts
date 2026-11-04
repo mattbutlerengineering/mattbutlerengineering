@@ -4,6 +4,7 @@ import type { ReadinessResponse } from "@mbe/types";
 import { createReadinessTracker, registerStandardChecks } from "./observability/index.js";
 import type { StandardChecksOptions } from "./observability/index.js";
 import { buildJwksUrl } from "./validate-startup-config.js";
+import { HEALTH_RATE_LIMIT } from "./health-routes.js";
 
 /**
  * Options for the readiness-route factory.
@@ -78,9 +79,9 @@ const readinessRoutesPlugin: FastifyPluginAsync<ReadinessRoutesOptions> = async 
     "/ready",
     {
       schema: { ...readinessSchema, operationId: "getReady" },
-      // Exempt from @fastify/rate-limit, like /health (#8260): a 429 here reads
-      // as "not ready" to probes and orchestrators.
-      config: { rateLimit: false },
+      // Same generous probe limit as /health (#8260): a 429 here reads as
+      // "not ready" to probes and orchestrators.
+      config: { rateLimit: HEALTH_RATE_LIMIT },
     },
     async (_request, reply) => {
       const snapshot = await readiness.evaluate();

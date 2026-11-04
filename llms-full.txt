@@ -84836,6 +84836,7 @@
        */
       readonly checkAuth0?: () => Promise<Auth0CheckResult>;
     }
+    export const HEALTH_RATE_LIMIT = { max: 600, timeWindow: "1 minute" } as const;
     export const registerHealthRoutes = fp(healthRoutesPlugin, {
       name: "health-routes",
       fastify: "5.x",
