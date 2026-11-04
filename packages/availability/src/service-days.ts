@@ -23,17 +23,32 @@ function hoursFields(hours: ServiceHours): ServiceHours {
   };
 }
 
+/** Where a weekday's hours come from: an hour set (by index into `dayHours.sets`) or the base. */
+export interface HoursSource {
+  hours: ServiceHours;
+  /** Index into `dayHours.sets`; `null` for the base hours. */
+  setIndex: number | null;
+}
+
+type DayScopedRow = Pick<ScheduleService, "weekdays" | "dayHours" | keyof ServiceHours>;
+
 /**
- * The hours the row has on `weekday` (0 = Sunday), or `null` when it does not run then. A weekday
- * two sets claim resolves to the first listed; `validateConfig` refuses such a row at every save.
+ * The hours the row has on `weekday` (0 = Sunday) and which of its sets or base they come from,
+ * or `null` when it does not run then. A weekday two sets claim resolves to the first listed;
+ * `validateConfig` refuses such a row at every save.
  */
-export function hoursOn(
-  row: Pick<ScheduleService, "weekdays" | "dayHours" | keyof ServiceHours>,
-  weekday: number
-): ServiceHours | null {
-  const set = row.dayHours.sets.find((s) => s.weekdays.includes(weekday));
-  if (set) return hoursFields(set);
-  return row.weekdays.length === 0 || row.weekdays.includes(weekday) ? hoursFields(row) : null;
+export function hoursSourceOn(row: DayScopedRow, weekday: number): HoursSource | null {
+  const setIndex = row.dayHours.sets.findIndex((s) => s.weekdays.includes(weekday));
+  const set = row.dayHours.sets[setIndex];
+  if (set) return { hours: hoursFields(set), setIndex };
+  return row.weekdays.length === 0 || row.weekdays.includes(weekday)
+    ? { hours: hoursFields(row), setIndex: null }
+    : null;
+}
+
+/** The hours the row has on `weekday` (0 = Sunday), or `null` when it does not run then. */
+export function hoursOn(row: DayScopedRow, weekday: number): ServiceHours | null {
+  return hoursSourceOn(row, weekday)?.hours ?? null;
 }
 
 function toResolved(
