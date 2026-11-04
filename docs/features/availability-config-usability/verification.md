@@ -3,429 +3,571 @@ stage: verify
 run: feature:availability-config-usability
 date: 2026-11-04
 assumptions:
-  - "E2E harness substitution: Auth0 E2E credentials do not exist locally, so every Playwright run used the throwaway harness /tmp/acu-e2e/run-e2e.sh: a synthetic OIDC session written to the gitignored e2e/.auth/user.json, CI's non-secret VITE_* env, and `--project chromium --no-deps` (the real auth.setup.ts skipped). Every e2e line below is labelled: local run, synthetic OIDC session (auth.setup.ts skipped; no Auth0 E2E creds locally). The API is mocked by the specs' own fixtures, so none of it touches the real reservations service."
-  - "Postgres recipe: one fresh throwaway container `acu-pg-test` (postgres:15 with a `rls_owner` role and `rls_scratch` database, the CI rls-integration job's recipe in .github/workflows/ci.yml) on host port 55439, because 5432 is another stack's. The migration dry-run job in CI uses postgres:16-alpine; this run used postgres:15 for the whole Postgres evidence. The container was removed at the end (`docker rm -f acu-pg-test`)."
-  - "'Default worker count' for the flake check is the repo's playwright.config.ts value, `workers: 1`. The parallel case was added by this stage as `--workers=4 --retries=0` over all 14 availability specs, because a single spec file always runs in one worker."
-  - "Interaction counts and screenshots were produced by throwaway specs placed in apps/hospitality/e2e for the run and deleted before the commit (counts: a copy of availability-interaction-guards.spec.ts with a console.log of each count; screenshots: Playwright page.screenshot into /tmp/acu-e2e/shots/, outside the repo). The tree was clean after each run."
-  - "Locale parity is judged by `pnpm check:i18n-catalogs` (scripts/check-i18n-catalogs.mjs), the repo's actual key-parity check. The breakdown named `locales.test.ts`, which tests locale resolution and does not compare catalogs."
-  - "`pnpm lint` and `pnpm typecheck` were run twice: once as the plain root command (turbo replayed 12 and 19 cached tasks) and once with `--force` (0 cached). The `--force` numbers are the evidence."
-  - "Criteria list: the 13 PRD success criteria plus 11 grouped breakdown Accept sets (E1 to E11) that no PRD criterion covers, grouped by milestone and by the checks the assignment lists. Anything not run is NOT RUN, with a reason, in the criterion and in Not verified."
-  - "Rescoped E9 (this re-verification): the criterion is judged on whether this run introduced or worsened the Go to date Escape flake, not on whether the test never fails. No statistical test was run. 'Comparable rate' means the failure counts on this branch and on origin/main sit in the same low range with overlapping run-to-run spread, and the code under test is unchanged against the merge base. The origin/main numbers (58 of 60 passed) are the fix loop's, quoted from commit 8b550f8bc's Notes; this stage did not re-run origin/main."
-  - "The harness changes into apps/hospitality, so a shell glob `e2e/availability-*.spec.ts` handed to it from the repo root expanded to nothing and the first attempt printed `Error: No tests found.` and ran no tests. The 14 spec files were passed as an explicit list instead (`ls e2e/availability-*.spec.ts` run inside apps/hospitality). That failed attempt is not evidence of anything."
-  - "`availability-locale.spec.ts` and `locale-sweep.spec.ts` were run in one harness invocation (one summed count of 128); `availability-locale.spec.ts` also ran inside the 14-file availability run. `booking-widget-availability.spec.ts` does not match `availability-*.spec.ts` and was not run."
-  - "Criteria not named in the re-run list keep their 6092bd7af evidence. `git diff --stat 6092bd7af..HEAD` shows only es-MX.json (+1), fr-CA.json (+1) and breakdown.md (+10), so no engine, service, component or e2e code changed. The package and service suites (engine, types, reservations on Postgres, agent), the destructive-migration and enum-drift checks and the screenshots were therefore not re-run."
-  - "The Spanish and French `_many` strings were judged for correctness only by the fix loop's reasoning in the breakdown Notes (they repeat the `_other` wording); no native speaker reviewed them. `pnpm check:i18n-catalogs` checks keys, placeholders and plural-form presence, not wording."
+  - "Fresh pass: every check below was run by this stage at HEAD b46a22fcdd36b38c73697fde94e7ab47e3c89908 (node v22.22.3). Nothing is carried from the 6092bd7af or 8b550f8bc passes. The code under test changed since those passes (the Review fix loop, commits 716319fd1 to b46a22fcd in packages/types, packages/availability, services/reservations, services/agent (a comment) and apps/hospitality), so the whole list was re-run."
+  - "E2E harness substitution: Auth0 E2E credentials do not exist locally, so every Playwright run used the throwaway harness /tmp/acu-e2e/run-e2e.sh: a synthetic OIDC session written to the gitignored e2e/.auth/user.json, CI's non-secret VITE_* env, and `--project chromium --no-deps` (the real auth.setup.ts skipped). Every e2e line below is labelled: local run, synthetic OIDC session (auth.setup.ts skipped; no Auth0 E2E creds locally). The API is mocked by the specs' own fixtures, so none of it touches the real reservations service. Nothing was listening on :3002 before any run."
+  - "Postgres image: one fresh throwaway container `acu-pg-test`, image postgres:15 (sha256:572491f762282374c71da12903261f2a2bce92affe5843241e45703c08b6866a), POSTGRES_USER/PASSWORD/DB test, host port 55439 (5432 belongs to another stack), with CI's rls-integration recipe: `CREATE ROLE rls_owner LOGIN PASSWORD 'rls_owner_ci_pw' CREATEDB CREATEROLE; CREATE DATABASE rls_scratch OWNER rls_owner;`, then `db:migrate:deploy` as rls_owner. CI's Migration Dry-Run job uses postgres:16-alpine; this run did not, so that job's image is not exercised here. The container was removed (`docker rm -f acu-pg-test`; `docker ps -a` lists no container of that name). No other container was touched."
+  - "'Default workers' for the e2e runs is the repo's playwright.config.ts value (workers: 1). The flake repeat run used `--workers=4 --retries=0`, the command of the fix loop's two-tree measurement."
+  - "Interaction counts and screenshots came from throwaway specs placed in apps/hospitality/e2e (a copy of availability-interaction-guards.spec.ts with a console.log of each count; a screenshot spec writing to /tmp/acu-e2e/shots-final/). Both were deleted before the commit. The guard's mutated-bound proof edited the DEMO_WEEK_VIA_SCHEDULES_COUNT constant to 18 and restored it with `git checkout -- <that file>` inside the worktree; porcelain was empty afterwards."
+  - "Locale parity is judged by `pnpm check:i18n-catalogs`, the repo's real key-parity check (the breakdown's `locales.test.ts` does not compare catalogs)."
+  - "Criteria list: the 13 PRD success criteria; 11 grouped breakdown Accept sets (E1 to E11) as in the earlier passes, plus E12 (CLI checks and the drift lane); the 2 Verify fix-loop items; and the 12 Review fix-loop items (3 majors, 9 minors), each with its own Accept. Anything not run is NOT RUN, with a reason, in its criterion and in Not verified."
+  - "The first `pack --check` attempt passed absolute directories to `mbe pack`, which writes the absolute path into the `<codebase path=...>` attribute; that reported `packages/types/llms.txt is out of sync` only because of my invocation. I ran `pack` once on that directory to see the diff (the single changed line was that attribute), reverted both files with `git checkout --` in the worktree, and re-ran all 22 directories with the repo-relative path CI's `pnpm regen` uses. Only the second run is evidence; it is not a drift."
+  - "The Spanish and French `closedDays_many` wording was judged by the fix loop's reasoning, not by a native speaker; `check:i18n-catalogs` checks keys, placeholders and plural-form presence only."
 ---
 
 # Verification: One regular week that can differ by day
 
 ## Summary
 
-Re-verification at 8b550f8bc (the fix loop), after the 6092bd7af verdict of 20 PASS, 2 FAIL, 2 NOT RUN. 24 criteria: 22 PASS, 2 NOT RUN, and 1 known pre-existing open risk. This is not an unqualified pass.
+Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criteria: **37 PASS, 2 NOT RUN, 0 FAIL**, and one known pre-existing open risk. This is not an unqualified pass.
 
-- **PRD 10 Copy in three locales: now PASS** on a fresh run: `pnpm check:i18n-catalogs` prints `PASS: Every translation catalog matches its en-US keys, placeholders and plural forms.`
-- **E9 Flake check: rescoped and now PASS for the question it asks** (did this run introduce or worsen the flake?): no. It is **not a pass of the test**. The test "Escape on Go to date puts focus back on the menu button" still fails intermittently with `--workers=4 --retries=0`: 4 of 60 on this branch in this stage's re-run (56 passed, 4 failed, all four desktop), 1 of 60 on this branch and 2 of 60 on origin/main (106eaaf9c) in the fix loop's runs. `GoToDateDialog.tsx` and `AvailabilityToolbar.tsx` are unchanged against the merge base and the test body is unchanged. **The flake is a known pre-existing open risk. It is unfixed, uninvestigated, and its cause is [INFERENCE].** The origin/main figure is the fix loop's, not re-measured here.
-- **NOT RUN (2):** the PRD's Owner-only human-timed five-minute walkthrough (Owner post-release check, never claimed by an agent), and **E11**, the real Auth0 `auth.setup.ts` e2e login, which runs only in CI because no Auth0 E2E creds exist locally.
-- **Unknown beyond those two:** CI-only jobs, a full-stack browser run against the real service, an Owner apply of the collapse script, the correctness of the new es-MX and fr-CA wording beyond key parity, and the flake's cause were not examined (see Not verified).
-- **Evidence basis:** only PRD 10, E9 and the re-run block below are fresh in this stage. Every other criterion is marked "evidence from 6092bd7af, unaffected by 8b550f8bc (catalog strings only)": `git diff --stat 6092bd7af..HEAD` shows no code change. Every e2e line is local run, synthetic OIDC session (auth.setup.ts skipped; no Auth0 E2E creds locally), with API calls mocked.
+- **NOT RUN (2):** the PRD's Owner-only human-timed five-minute walkthrough (PRD 12: an Owner post-release check, never claimed by an agent) and **E11**, the real Auth0 `auth.setup.ts` e2e login (CI only; no Auth0 E2E creds exist locally).
+- **Known pre-existing open risk (not a FAIL of this run, not a pass of the test):** the e2e `Escape on Go to date puts focus back on the menu button` still fails intermittently under `--workers=4 --retries=0`. This stage's run at HEAD: 59 passed, 1 failed of 60 (desktop, fr-CA, `expect(locator).toBeHidden() failed`). The fix loop's two-tree numbers (8b550f8bc Notes): this branch 59/60, origin/main 58/60. `GoToDateDialog.tsx` and the test are unchanged by this run. Its cause is unknown and unfixed; it was not re-measured on origin/main here. E9 is a PASS only for the question "did this run introduce it?".
+- **Unknown (not examined):** CI-only jobs (Migration Dry-Run on postgres:16-alpine, the `services/agent` Docker build, visual-regression workflows, Lighthouse, mutation testing, `pnpm regen --check --git-only`, `pnpm size:check`), a full-stack browser run against the real service (every e2e mocks the API), an Owner apply of the collapse script on a real database, the es-MX and fr-CA wording of `closedDays_many` beyond key parity, a screen-reader or keyboard pass, dark mode, and browsers other than Chromium.
+- **Evidence basis:** every PASS rests on output this stage produced at HEAD. Every e2e line is a local run, synthetic OIDC session (auth.setup.ts skipped; no Auth0 E2E creds locally). The interaction counts are agent stand-in evidence (counts of Playwright actions), not human time.
 
 ## Criteria & evidence
 
-### Re-run at 8b550f8bc (fresh in this stage)
-
-- Check: what changed since the 6092bd7af verdict, then the checks the fix loop's change can touch, run again.
-- Evidence:
-  ```
-  $ git diff --stat 6092bd7af..HEAD
-   apps/hospitality/src/i18n/catalogs/es-MX.json            |  1 +
-   apps/hospitality/src/i18n/catalogs/fr-CA.json            |  1 +
-   docs/features/availability-config-usability/breakdown.md | 10 ++++++++++
-   3 files changed, 12 insertions(+)
-
-  $ pnpm check:i18n-catalogs
-  PASS: Every translation catalog matches its en-US keys, placeholders and plural forms.
-
-  $ pnpm --filter @mbe/hospitality test
-   Test Files  383 passed (383)
-        Tests  5230 passed (5230)
-
-  $ pnpm --filter @mbe/hospitality typecheck
-  > tsc --noEmit -p tsconfig.test.json && tsc --noEmit -p tsconfig.e2e.json
-  (exit 0)
-
-  $ pnpm --filter @mbe/hospitality lint
-  ✖ 232 problems (0 errors, 232 warnings)
-  (exit 0; the same 232 warnings as at 6092bd7af)
-
-  local run, synthetic OIDC session (auth.setup.ts skipped; no Auth0 E2E creds locally)
-  $ run-e2e.sh e2e/availability-locale.spec.ts e2e/locale-sweep.spec.ts
-    128 passed (4.3m)
-  $ run-e2e.sh <the 14 e2e/availability-*.spec.ts>   (config default, workers: 1)
-    158 passed (9.8m)
-  ```
-  The new `closedDays_many` strings are catalog data only: the 6092bd7af code is otherwise unchanged. The unit and e2e counts equal the 6092bd7af counts (5230; 158), so the fix loop broke nothing the suites see.
-- Result: PASS
-
 ### PRD 1. Varied week in quick setup
 
-- Check: ran `availability-demo-week.spec.ts` through the harness (the demo week from an empty venue, entirely in quick setup; the spec has no Schedules-tab step; `grep` of its assertions shows only quick-setup controls and the strip).
+- Check: the demo-week e2e (lunch Mon–Fri, dinner Tue–Sun closing later Fri–Sat, brunch Sat–Sun, from an empty venue, entirely in quick setup; its steps use only quick-setup controls and the strip, no Schedules tab) ran inside the full availability run below.
 - Evidence (local run, synthetic OIDC session; auth.setup.ts skipped; no Auth0 E2E creds locally):
   ```
-  [chromium] › e2e/availability-demo-week.spec.ts:63:3 › The demo week (PRD: the demo runs as written) › a Manager enters a varied week in quick setup, watches the strip, and the saved week reads the same everywhere
-  ...
-  158 passed (9.8m)      <- all 14 availability-*.spec.ts, default workers
+  $ run-e2e.sh <the 14 e2e/availability-*.spec.ts> e2e/locale-sweep.spec.ts      (default workers: 1; 3002 free before)
+    284 passed (14.1m)
+  e2e/availability-demo-week.spec.ts:63  The demo week (PRD: the demo runs as written) › a Manager enters a varied week in quick setup, watches the strip, and the saved week reads the same everywhere
   ```
-- Result: PASS — evidence from 6092bd7af, unaffected by 8b550f8bc (catalog strings only)
+  The line reporter prints one summary line, not each test, so the demo-week test's pass is inside the 284, with 0 failed.
+- Result: PASS
 
 ### PRD 2. Per-weekday result
 
-- Check: the same demo-week e2e (calendar cells, day drawer and guest preview per weekday), plus engine and route tests.
+- Check: engine, route and component tests by name, plus the demo-week e2e (calendar, day drawer, guest preview per weekday).
 - Evidence:
   ```
-  availability-demo-week.spec.ts: 1 passed (in the 158 passed above)
-  week-spans.test.ts | weekSpans gives Friday and Saturday later last times than Thursday, and no dinner on Monday
-  service-days.test.ts | resolveDay with day scope resolves a row with no scope exactly as before on every weekday
-  availability-config.test.ts | availability config routes PUT /config ... (varied week save)
-  @mbe/availability: Test Files 20 passed (20); Tests 339 passed (339)
+  $ vitest run --reporter=verbose (selected, @mbe/availability)
+  week-spans.test.ts > weekSpans > gives Friday and Saturday later last times than Thursday, and no dinner on Monday
+  service-days.test.ts > resolveDay with day scope > resolves a row with no scope exactly as before on every weekday
+  service-days.test.ts > resolveDay with day scope > runs a row scoped to Mon–Fri under a wider assignment on those days only
+  service-days.test.ts > resolveDay with day scope > gives a set's hours on the days it claims with the base elsewhere
+  Test Files  5 passed (5) / Tests  19 passed | 57 skipped (76)
+  $ pnpm --filter @mbe/availability test      Test Files  20 passed (20) / Tests  340 passed (340)
   ```
-  Limit: the e2e's calendar, drawer and preview answers come from `e2e/helpers/engine-days-mock.ts`, which runs the same pure engine over the config the test saved. The real service's builders sit behind Prisma and were exercised by the reservations suite, not by the browser.
-- Result: PASS — evidence from 6092bd7af, unaffected by 8b550f8bc (catalog strings only)
+  Limit: the e2e's calendar, drawer and preview answers come from `e2e/helpers/engine-days-mock.ts`, which runs the same pure engine over the config the test saved. The real service's day builders were exercised by the reservations suite on Postgres, not by a browser against the real service.
+- Result: PASS
 
 ### PRD 3. One regular week
 
-- Check: component test on a migrated-venue fixture, plus the migrated-venue e2e.
+- Check: component tests on a migrated-venue fixture and the migrated-venue e2e.
 - Evidence:
   ```
-  AvailabilityPage.regularWeek.test.tsx | AvailabilityPage on a migrated venue > reads a collapsed venue as one regular week, with no day-named schedule and no Schedules tab
-  AvailabilityScheduleControls.test.tsx | Schedules tab > is absent when every schedule is a regular week, superseded versions included
-  [chromium] › e2e/availability-migrated-venue.spec.ts:68:3 › A migrated venue › reads as one regular week, with no day-named schedule and no Schedules tab
-  [chromium] › e2e/availability-migrated-venue.spec.ts:81:3 › A migrated venue › a venue not yet collapsed still has its Schedules tab
-  apps/hospitality: <testsuites tests="5230" failures="0" errors="0">, 383 test suites, 0 suites with skipped>0
+  $ pnpm --filter @mbe/hospitality test      Test Files  383 passed (383) / Tests  5238 passed (5238)
+  AvailabilityPage.regularWeek.test.tsx > AvailabilityPage on a migrated venue > reads a collapsed venue as one regular week, with no day-named schedule and no Schedules tab   (in the 5238; file listed in the selected run: 18 passed | 71 skipped, 5 files)
+  e2e/availability-migrated-venue.spec.ts:68  A migrated venue › reads as one regular week, with no day-named schedule and no Schedules tab   (in the 284 passed, 0 failed)
+  e2e/availability-migrated-venue.spec.ts:81  A migrated venue › a venue not yet collapsed still has its Schedules tab
   ```
-- Result: PASS — evidence from 6092bd7af, unaffected by 8b550f8bc (catalog strings only)
+- Result: PASS
 
 ### PRD 4. Change regular week, one day
 
-- Check: `availability-one-weekday.spec.ts` (the demo week, then Lunch closes earlier on Wednesday only) and the builder unit test.
+- Check: `availability-one-weekday.spec.ts` (demo week, then one weekday's hours changed; the other six unchanged, the Schedules tab absent, History names the weekday) in the 284-pass run, plus the builder unit tests and the drawer tests by name.
 - Evidence:
   ```
-  [chromium] › e2e/availability-one-weekday.spec.ts:18:3 › Change one weekday of the regular week › Lunch closes earlier on Wednesday only   (in 158 passed)
-  buildRegularWeekChanges test | Change regular week by weekday > a no-end change of one weekday's hours leaves the other six unchanged and names no schedule
+  e2e/availability-one-weekday.spec.ts:18  Change one weekday of the regular week › Lunch closes earlier on Wednesday only   (in 284 passed)
+  ChangeRegularWeekDrawer.test.tsx > on a varied week > needs only a start date to save with no end, and asks for no name
+  ChangeRegularWeekDrawer.test.tsx > on a varied week > pre-fills each service's base hours as the hours most of its days share
+  AvailabilityHistoryDrawer.test.tsx > words a Friday-only regular-week change with Fri and the start date, and shows the summary of an unknown code
   ```
-  The spec asserts the other six weekdays equal their earlier text, the Schedules tab has count 0, and History reads "Changed regular week from <date>: Wed". It also observed the save upserts two schedules, both kind "regular" named "Regular week" (the new regular version and the end-dated superseded one); no schedule the Manager names, no assignment shown.
-- Result: PASS — evidence from 6092bd7af, unaffected by 8b550f8bc (catalog strings only)
+- Result: PASS
 
 ### PRD 5. Strip is live and honest
 
-- Check: demo-week e2e (Friday's close moves the strip's Friday last slot before save, same URL, no preview request; Monday no dinner; strip equals the guest preview) and `RegularWeekStrip.test.tsx`.
+- Check: `RegularWeekStrip.test.tsx` by name; the demo-week e2e (Friday's last slot moves before any save, same URL; strip equals guest preview after save; Monday no dinner); the strip read off the browser at HEAD in the visual check (E10).
 - Evidence:
   ```
-  RegularWeekStrip.test.tsx | moves Friday's last time as the close is edited, with no request but the tables read
-  RegularWeekStrip.test.tsx | shows no dinner on Monday for the demo week
-  RegularWeekStrip.test.tsx | shows the typed hours when the tables read fails, with Check again
-  e2e demo week asserts (lines 117-148): Friday "Dinner 5:00 PM – 9:15 PM" -> "Dinner 5:00 PM – 11:15 PM"; Saturday likewise; Thursday unchanged;
-    expect(page).toHaveURL(/\/availability$/); expect(watched).toEqual(GUEST_LINES); expect(asked).toEqual([]); expect(state.savedBody()).toBeNull()
+  RegularWeekStrip.test.tsx > RegularWeekStrip > moves Friday's last time as the close is edited, with no request but the tables read
+  RegularWeekStrip.test.tsx > RegularWeekStrip > shows no dinner on Monday for the demo week
+  RegularWeekStrip.test.tsx > RegularWeekStrip > lists the seven weekdays Monday first with each service's first and last time
+  strip at 1280x720 and 375x812 (inner text read from the browser):
+   MONDAY   "Lunch 11:30 AM – 1:45 PM" / "Not offered: Dinner, Brunch"
+   THURSDAY "Lunch 11:30 AM – 1:45 PM" / "Dinner 5:00 PM – 9:15 PM"
+   FRIDAY   "Lunch 11:30 AM – 1:45 PM" / "Dinner 5:00 PM – 11:15 PM"
+   SATURDAY "Brunch 10:00 AM – 1:15 PM" / "Dinner 5:00 PM – 11:15 PM"
   ```
-  Screenshot, 1280x720 tall viewport: the strip reads "MONDAY ... Lunch 11:30 AM – 1:45 PM / Not offered: Dinner, Brunch", "FRIDAY ... Dinner 5:00 PM – 11:15 PM", "SATURDAY Brunch 10:00 AM – 1:15 PM / Dinner 5:00 PM – 11:15 PM", "SUNDAY ... Dinner 5:00 PM – 9:15 PM".
-- Result: PASS — evidence from 6092bd7af, unaffected by 8b550f8bc (catalog strings only)
+- Result: PASS
 
 ### PRD 6. Uniform week no slower
 
-- Check: measured count of the uniform bistro week through the interaction wrapper (throwaway copy of the guards spec with the count printed) and `availability-quick-setup.spec.ts`.
-- Evidence (local run, synthetic OIDC session; agent stand-in evidence only):
+- Check: the guard spec counted by a throwaway copy with a console.log (local run, synthetic OIDC session; auth.setup.ts skipped; no Auth0 E2E creds locally); `availability-quick-setup.spec.ts` ran inside the 284.
+- Evidence:
   ```
-  COUNT bistro=5 baseline=5
-  3 passed (14.6s)
-  availability-quick-setup.spec.ts: 3 tests passed in the 158 (a Manager sets the bistro week from an empty venue ...; a service shorter than the lead seats at its opening ...; invalid input sends nothing ...)
+  COUNT uniform bistro = 5 bound 5        (UNIFORM_BISTRO_BASELINE = 5; assertion toBeLessThanOrEqual)
+  6 passed (27.7s)      (the throwaway copy plus the committed guard spec, 3 tests each)
   ```
-- Result: PASS — evidence from 6092bd7af, unaffected by 8b550f8bc (catalog strings only)
+  Agent stand-in evidence: the count is Playwright actions, not human time.
+- Result: PASS
 
 ### PRD 7. Varied week faster than today
 
-- Check: same measured run, the demo week counted on one fixture through quick setup alone and through quick setup then the Schedules tab's New schedule.
-- Evidence (agent stand-in evidence only; the Owner's human-timed walkthrough is not claimed):
+- Check: same run; quick setup alone against quick setup plus the Schedules tab's New schedule, one wrapper, one spec.
+- Evidence:
   ```
-  COUNT varied quickSetup=18 schedulesTabPath=26
+  COUNT demo quick-setup=18 via-schedules=26 bound=26      (18 < 26)
   ```
-  The spec also asserts both saves carry the same Dinner row (base Tue–Thu and Sun, a set on Fri–Sat).
-- Result: PASS — evidence from 6092bd7af, unaffected by 8b550f8bc (catalog strings only)
+  Agent stand-in evidence only (stated in the spec header).
+- Result: PASS
 
 ### PRD 8. Large setup no slower
 
-- Check: measured count of the four-service large fixture through the wrapper.
-- Evidence (agent stand-in evidence only):
+- Check: same run, the four-service large fixture.
+- Evidence:
   ```
-  COUNT large=13 baseline=13
+  COUNT large multi-service = 13 bound 13      (LARGE_SETUP_BASELINE = 13; toBeLessThanOrEqual)
   ```
-  A guard (13 <= 13), not a re-timed 15-minute bar.
-- Result: PASS — evidence from 6092bd7af, unaffected by 8b550f8bc (catalog strings only)
+  A guard, not a re-timed 15-minute bar.
+- Result: PASS
 
 ### PRD 9. Interactions keep working
 
-- Check: History/Undo, Tonight and the agent's availability chat tools each have a test on a varied week; all run fresh in `services/reservations` and `services/agent`.
+- Check: History/Undo, Tonight and the agent's availability chat tools, each on a varied week, by name.
 - Evidence:
   ```
-  availability-config-api.test.ts | regular_week_changed detail and day scope on the wire parses an old History inverse (rows without the two fields) with no scope
-  availability-changes.test.ts | availability history routes POST /changes/:changeId/revert reverts and returns the new version and the revert's change id
-  tonight-command.test.ts | Tonight on a varied week judges a Host's pause against the weekday's own hours: Sunday's online-only Dinner is the close
-  tonight-command.test.ts | Tonight on a varied week lets a Host pause online on the weekday that still takes phone bookings
-  gen-agent-availability-tools.test.ts | availability chat tools change_tonight_availability on a varied week reads the same times on the day Brunch runs as that day's own hours
-  services/reservations: Test Files 234 passed (234); Tests 3960 passed (3960)
-  services/agent (@mbe/agent-service): Test Files 53 passed (53); Tests 1028 passed (1028)
-  availability-tonight-decisions.spec.ts: 3 passed (in the 158)
+  availability-config-api.test.ts > parses an old History inverse row (without the two fields) as no scope
+  availability-changes.test.ts > availability history routes > POST /changes/:changeId/revert > reverts and returns the new version and the revert's change id
+  tonight-command.test.ts > Tonight on a varied week > judges a Host's pause against the weekday's own hours: Sunday's online-only Dinner is the close
+  tonight-command.test.ts > Tonight on a varied week > lets a Host pause online on the weekday that still takes phone bookings
+  tonight-command.test.ts > Tonight on a varied week > is gone the next service day, leaving the varied week's schedule untouched
+  gen-agent-availability-tools.test.ts > change_tonight_availability > on a varied week > reads the same times on the day Brunch runs as that day's own hours
+  gen-agent-closure-tools.test.ts > set_special_hours > on a varied week > seeds a Friday from the rows that run Friday, with Friday's hours
+  $ pnpm --filter @mbe/agent-service test      Test Files  53 passed (53) / Tests  1028 passed (1028)
   ```
-- Result: PASS — evidence from 6092bd7af, unaffected by 8b550f8bc (catalog strings only)
+  The e2e `availability-tonight-decisions.spec.ts` is in the 284 passed.
+- Result: PASS
 
 ### PRD 10. Copy in three locales
 
-- Check: `pnpm check:i18n-catalogs` (the repo's key-parity check) re-run fresh on 8b550f8bc; the hospitality unit suite (includes `locales.test.ts`); `availability-locale.spec.ts` and `locale-sweep.spec.ts` through the harness. At 6092bd7af the same check failed on `closedDays_many` missing in es-MX and fr-CA; 8b550f8bc added both (`git diff --stat 6092bd7af..HEAD`: es-MX.json +1, fr-CA.json +1).
-- Evidence (this stage, fresh):
+- Check: `pnpm check:i18n-catalogs`, plus the locale e2e files in the 284 run.
+- Evidence:
   ```
-  > node scripts/check-i18n-catalogs.mjs
+  $ pnpm check:i18n-catalogs
   PASS: Every translation catalog matches its en-US keys, placeholders and plural forms.
-
-  apps/hospitality unit suite: Test Files  383 passed (383); Tests  5230 passed (5230)
-
-  local run, synthetic OIDC session (auth.setup.ts skipped; no Auth0 E2E creds locally)
-  e2e/availability-locale.spec.ts + e2e/locale-sweep.spec.ts:  128 passed (4.3m)
-  e2e/availability-*.spec.ts (14 files): 158 passed (9.8m)   <- includes availability-locale.spec.ts in es-MX and fr-CA
+  284 passed (14.1m)      (includes availability-locale.spec.ts and locale-sweep.spec.ts)
   ```
-  The previous FAIL output (6092bd7af, for the record): `availabilitySchedules.regularWeek.closedDays_many: missing plural form` in es-MX.json and fr-CA.json. Limit: the parity check proves the keys, placeholders and plural forms exist; the fix loop's wording ("{{days}} quedan cerrados." and "{{days}} sont fermés.", repeating `_other`) was reasoned, not reviewed by a native speaker (see assumptions).
+  Wording correctness beyond key parity is not claimed (see Not verified).
 - Result: PASS
 
 ### PRD 11. No regression
 
-- Check: every existing availability suite, fresh: engine incl. property tests, types, reservations on real Postgres, agent, the hospitality unit suite, all 14 `availability-*.spec.ts`, root lint and typecheck.
+- Check: every existing availability suite, the property tests, and every `e2e/availability-*.spec.ts`.
 - Evidence:
   ```
-  @mbe/availability   Test Files 20 passed (20)  Tests 339 passed (339)
-  slots.property.test.ts (6 tests): never lists a slot outside the resolved day; never lists an available slot that judge rejects; never accepts an online start the listing does not offer; legacy configs agree with the pre-change functions (oracle)
-  @mbe/types          Test Files 29 passed (29)  Tests 494 passed (494)
-  @mbe/agent-service  Test Files 53 passed (53)  Tests 1028 passed (1028)
-  apps/hospitality    <testsuites tests="5230" failures="0" errors="0">; 383 suites
-  e2e availability-*.spec.ts (14 files, default workers=1)   158 passed (9.8m)
+  @mbe/types:        Test Files  29 passed (29)   Tests  494 passed (494)
+  @mbe/availability: Test Files  20 passed (20)   Tests  340 passed (340)
+  @mbe/agent-service: Test Files 53 passed (53)   Tests  1028 passed (1028)
+  @mbe/hospitality:  Test Files  383 passed (383)  Tests  5238 passed (5238)
+  services/reservations (DATABASE_URL set, fresh Postgres): Test Files  234 passed (234)   Tests  3965 passed (3965)
+  $ node scripts/assert-vitest-ran.mjs /tmp/acu-e2e/res-final.json
+  Suites ran for real: 3965/3965 tests passed, 0 skipped.
+  slots.property.test.ts > engine correctness (property) > never lists a slot outside the resolved day
+  slots.property.test.ts > engine correctness (property) > never lists an available slot that judge rejects
+  slots.property.test.ts > engine correctness (property) > never accepts an online start the listing does not offer
+  slots.property.test.ts > engine correctness (property) > judges every instant inside a closure as hard
+  slots.property.test.ts > legacy configs agree with the pre-change functions (oracle) > resolves the same schedule and services on every date
+  slots.property.test.ts > legacy configs agree with the pre-change functions (oracle) > reports the same schedule-service issues, in the same order
+  day-named-schedules.test.ts > collapseDayNamedSchedules (property) > never changes what any weekday resolves to
+  service-days.test.ts > encodeWeek and decodeWeek > round-trips: decodeWeek(encodeWeek(w, days), days) equals w, and re-encoding returns identical rows
+  e2e: 284 passed (14.1m)      (14 availability-*.spec.ts + locale-sweep.spec.ts, default workers)
   ```
-  Per-spec counts in that run: close 8, dead-ends 20, demo-week 1, draft 36, interaction-baselines 2, interaction-guards 3, locale 2, migrated-venue 2, one-weekday 1, phone 35, quick-setup 3, regular-week 31, step-two-refusals 11, tonight-decisions 3 (sum 158). A 15th spec the wrapper item names, `e2e/interaction-counter.spec.ts`, ran too: `3 passed (1.9s)`.
-  The suite is green at the repo's default config. A flake appeared under parallel load (E9): the test passes alone and at default workers.
-- Result: PASS — evidence from 6092bd7af, unaffected by 8b550f8bc (catalog strings only); the E9 item it pointed at is rescoped and decided under E9 below. Fresh re-run at 8b550f8bc of the hospitality unit suite and the 14 availability specs: see "Re-run at 8b550f8bc"
+  Reservations integration files, read from the JSON report: `19 integration files, 286 tests: 286 passed, 0 not passed; pending 0, failed 0, todo 0` (rls-route-sweep 144, rls-venue-resolution 30, rls-isolation 20, closure-notice-refund 15, events 12, closure-reopen-date 12, lapsed-guest-cron.rls 12, rls-app-reservations 7, rls-owner-enforcement 7, series-edit-carry 5, availability-undo-order 4, closure-impact 4, availability-conflict 3, venue-share-lock 3, availability-day-scope 2, availability-snapshot 2, jobs/integration 2, collapse-day-named-schedules.integration 1, availability-conflict-series 1). The earlier pass counted 18 files at one point and 19 at another; this run counts 19 from the report.
+- Result: PASS
 
 ### PRD 12. Owner-only, never claimed by an agent: human-timed five-minute walkthrough
 
-- Check: none run. The walkthrough is the Owner's post-release check; no stage claims it.
-- Evidence: not run. The interaction counts (PRD 6 to 8) are agent stand-in counts of Playwright actions, not time, and not a person.
-- Result: NOT RUN (Owner-only)
+- Check: none run. It is an Owner post-release check; no stage claims it.
+- Evidence: not run.
+- Result: NOT RUN (Owner-only, by design)
 
 ### PRD 13. The demo runs as written
 
-- Check: the scripted e2e that follows the demo step by step (empty venue, Manager, lunch Mon–Fri, dinner Tue–Sun, later close Fri–Sat, strip beside the form, Monday no dinner, save).
+- Check: `availability-demo-week.spec.ts` follows the PRD's demo step by step; the strip read at HEAD in the visual check (E10).
 - Evidence (local run, synthetic OIDC session; auth.setup.ts skipped; no Auth0 E2E creds locally):
   ```
-  [chromium] › e2e/availability-demo-week.spec.ts:63:3 › The demo week (PRD: the demo runs as written) › a Manager enters a varied week in quick setup, watches the strip, and the saved week reads the same everywhere
-  158 passed (9.8m)
+  284 passed (14.1m)      (e2e/availability-demo-week.spec.ts:63 in it)
+  strip after the demo week was entered: Monday "Lunch 11:30 AM – 1:45 PM / Not offered: Dinner, Brunch"; Friday and Saturday dinner "5:00 PM – 11:15 PM"; Thursday and Sunday dinner "5:00 PM – 9:15 PM"
   ```
-  I also looked at the real surface in screenshots (see E10): the strip sits to the right of the form at 1280x720 and Monday shows no dinner. No person followed the demo; this is the scripted-e2e route the criterion allows.
-- Result: PASS — evidence from 6092bd7af, unaffected by 8b550f8bc (catalog strings only)
+  A scripted e2e on mocked API responses, not a person.
+- Result: PASS
 
 ### E1. Engine: day scope, validation, encode/decode, projection, week spans, property tests (Milestone 1)
 
-- Check: `pnpm --filter @mbe/availability test`, `pnpm --filter @mbe/types test`.
+- Check: `pnpm --filter @mbe/types test`, `pnpm --filter @mbe/availability test`.
 - Evidence:
   ```
-  @mbe/availability: Test Files 20 passed (20)  Tests 339 passed (339)
-  @mbe/types:        Test Files 29 passed (29)  Tests 494 passed (494)
-  service-days.test.ts | encodeWeek and decodeWeek round-trips: decodeWeek(encodeWeek(w, days), days) equals w, and re-encoding returns identical rows
-  service-days.test.ts | encodeWeek and decodeWeek encodes the demo week to one row per service with the later close as one set
-  validate-config.test.ts | validateConfig per weekday reports a weekday in two sets as weekday_clash at the later set
-  legacy-projection.test.ts | projectLegacyOperatingHours with day scope projects the demo week per weekday: Monday has no dinner window
-  week-spans.test.ts | weekSpans gives noTableFits, not a missing service, when no active table fits the party
-  availability-config.test.ts | ScheduleServiceSchema day scope rejects a dayHours version other than 1
+  @mbe/types:        Test Files  29 passed (29)   Tests  494 passed (494)
+  @mbe/availability: Test Files  20 passed (20)   Tests  340 passed (340)
+  service-days.test.ts > encodeWeek and decodeWeek > encodes the demo week to one row per service with the later close as one set
+  service-days.test.ts > encodeWeek and decodeWeek > round-trips: decodeWeek(encodeWeek(w, days), days) equals w, and re-encoding returns identical rows
+  validate-config.test.ts > validateConfig per weekday > reports a weekday in two sets as weekday_clash at the later set
+  validate-config.test.ts > validateConfig per weekday > reports a weekday in a set and in an explicit base as weekday_clash
+  legacy-projection.test.ts > projectLegacyOperatingHours with day scope > projects the demo week per weekday: Monday has no dinner window
+  legacy-projection.test.ts > projectLegacyOperatingHours with day scope > projects a config of unscoped rows identically to the pre-change function
+  week-spans.test.ts > weekSpans > gives Friday and Saturday later last times than Thursday, and no dinner on Monday
   ```
-- Result: PASS — evidence from 6092bd7af, unaffected by 8b550f8bc (catalog strings only)
+- Result: PASS
 
 ### E2. Prisma migration add_schedule_service_day_scope
 
-- Check: `node scripts/check-destructive-migrations.js`; `prisma migrate deploy` on the fresh container; the columns; `rls-force-coverage`; `prisma-enum-drift.mjs`; the unique constraint.
+- Check: `node scripts/check-destructive-migrations.js`; `db:migrate:deploy` as `rls_owner` on the fresh container (twice); the columns; `rls-force-coverage`; `prisma-enum-drift.mjs`.
 - Evidence:
   ```
+  $ node scripts/check-destructive-migrations.js
   Checking 1 new migration file(s) for destructive operations...
-  PASS: No unapproved destructive migrations found.      (exit 0)
-  44 migrations found in prisma/migrations ... All migrations have been successfully applied.   (fresh database; second deploy: "No pending migrations to apply.")
+  PASS: No unapproved destructive migrations found.        (DESTR_EXIT=0)
+  $ pnpm --filter @mbe/reservations-service db:migrate:deploy
+    └─ 20261103120000_add_schedule_service_day_scope/
+      └─ migration.sql
+  All migrations have been successfully applied.           (DEPLOY_EXIT=0)
+  (second deploy) No pending migrations to apply.
   select count(*) from _prisma_migrations -> 44
-  schedule_services: weekdays | integer[] | ARRAY[]::integer[] ; day_hours | jsonb | not null | '{"sets": [], "version": 1}'::jsonb
-  migration.sql: ALTER TABLE "schedule_services" ADD COLUMN "weekdays" INTEGER[] DEFAULT ARRAY[]::INTEGER[], ADD COLUMN "day_hours" JSONB NOT NULL DEFAULT '{"version":1,"sets":[]}';
-  rls-force-coverage.test.ts: 22 tests passed (in the reservations run)
-  node scripts/prisma-enum-drift.mjs: exit 0, no output
-  schema.prisma:626:  @@unique([scheduleId, venueServiceId])
+  weekdays  | integer[] | ARRAY[]::integer[]
+  day_hours | jsonb     | not null | '{"sets": [], "version": 1}'::jsonb
+  rls-force-coverage.test.ts: 22 passed (in the reservations run)
+  $ node scripts/prisma-enum-drift.mjs   (ENUM_EXIT=0, no output)
   ```
-- Result: PASS — evidence from 6092bd7af, unaffected by 8b550f8bc (catalog strings only)
+- Result: PASS
 
 ### E3. Reservations store, save path, audit detail and the Postgres integration tests (Milestone 2)
 
-- Check: the full `services/reservations` suite against the fresh Postgres, with `DATABASE_URL` set, JSON reporter, then `scripts/assert-vitest-ran.mjs`.
+- Check: the full `services/reservations` suite against the fresh Postgres, with `DATABASE_URL` set and the JSON reporter, then `scripts/assert-vitest-ran.mjs`; the day-scope integration tests by name.
 - Evidence:
   ```
    Test Files  234 passed (234)
-        Tests  3960 passed (3960)
-  JSON report written to /tmp/acu-e2e/res-results.json
-  Suites ran for real: 3960/3960 tests passed, 0 skipped.
-  19 *integration* files in the report, 286 tests: 286 passed, 0 not passed; total pending 0, failed 0, todo 0.
-  availability-day-scope.integration.test.ts: reads a row inserted without the two columns as no scope; writes a varied week through the store and reads it back byte-equal
-  rls-route-sweep.integration.test.ts: 144 tests; rls-isolation 20; rls-owner-enforcement 7; collapse-day-named-schedules.integration 1
+        Tests  3965 passed (3965)
+  Suites ran for real: 3965/3965 tests passed, 0 skipped.
+  19 integration files, 286 tests: 286 ran and passed, 0 skipped (pending 0, failed 0, todo 0).
+  availability-day-scope.integration.test.ts > schedule service day scope (real Postgres) > reads a row inserted without the two columns as no scope
+  availability-day-scope.integration.test.ts > schedule service day scope (real Postgres) > writes a varied week through the store and reads it back byte-equal
+  availability-config.test.ts (routes): 37 passed;  services/availability-config.test.ts: 32 passed;  tonight-command.test.ts: 37 passed
   ```
   Integration tests ran for real: 286 ran, 0 skipped.
-- Result: PASS — evidence from 6092bd7af, unaffected by 8b550f8bc (catalog strings only)
+- Result: PASS
 
 ### E4. Legacy migration emits one regular week; collapse function and script (Milestone 3)
 
-- Check: the same reservations and engine suites (golden migration oracle, backfill, collapse unit and integration).
+- Check: golden, backfill, collapse unit and integration, from the same reservations run; the collapse property test from the engine run.
 - Evidence:
   ```
-  availability-migration.golden.test.ts (22 golden tests passed): legacy -> availability rows: slots are identical before and after seed: The Grand Bistro in America/New_York from 2026-03-02 ...
-  backfill-availability.test.ts | runBackfill backfills a venue whose days differ as one regular schedule with day sets
-  day-named-schedules.test.ts | collapseDayNamedSchedules (property) never changes what any weekday resolves to
-  collapse-day-named-schedules.integration.test.ts | (real Postgres) keeps every weekday's hours, archives the folded schedule and stays carried over
+  availability-migration.golden.test.ts: 22 passed
+  backfill-availability.test.ts: 2 passed
+  collapse-day-named-schedules.test.ts: 8 passed
+  collapse-day-named-schedules.integration.test.ts > collapse-day-named-schedules (real Postgres) > keeps every weekday's hours, archives the folded schedule and stays carried over   (1 passed)
+  day-named-schedules.test.ts > collapseDayNamedSchedules (property) > never changes what any weekday resolves to
   ```
   The collapse script was exercised only against the mocked client and the throwaway database; an apply on a real database is an Owner step (see Not verified).
-- Result: PASS — evidence from 6092bd7af, unaffected by 8b550f8bc (catalog strings only)
+- Result: PASS
 
 ### E5. Quick-setup draft, form, strip in quick setup and wizard, guest-facing lines (Milestone 4, unit level)
 
-- Check: the full `apps/hospitality` unit suite (`pnpm exec vitest run`, junit report).
+- Check: the full `apps/hospitality` unit suite, plus named tests.
 - Evidence:
   ```
-  <testsuites name="vitest tests" tests="5230" failures="0" errors="0">; 383 <testsuite> elements; 0 suites with skipped>0
-  quick-setup-draft.test.ts | writes a uniform draft as the rows it always wrote: no scope, no sets
-  quick-setup-draft.test.ts | projects a varied week to each weekday's earliest open and latest close
-  QuickSetupForm.test.tsx | different hours on some days > puts a later close on Friday and Saturday into one set of the draft
-  QuickSetupHoursStep.test.tsx | sends each weekday's earliest open to latest close for a varied week
-  AvailabilityCalendar.test.tsx | prints the first and last time a guest can book, not the close
-  AvailabilityGuestPreview.test.tsx | prints the first and last time a guest can book, not the close
+  Test Files  383 passed (383)   Tests  5238 passed (5238)
+  quick-setup-draft.test.ts > with days and blocks > encodes the demo week to the rows of the demo-week fixture
+  quick-setup-draft.test.ts > with days and blocks > round-trips through draftFromConfig
+  quick-setup-draft.test.ts > with days and blocks > projects a varied week to each weekday's earliest open and latest close
+  RegularWeekStrip.test.tsx (3 named tests above, PRD 5)
   ```
-- Result: PASS — evidence from 6092bd7af, unaffected by 8b550f8bc (catalog strings only)
+- Result: PASS
 
 ### E6. Change regular week, day drawer scope and nudge, Schedules tab, New/Edit schedule rows, Compare, History line, migrated test (Milestone 5, unit level)
 
-- Check: the same hospitality suite.
+- Check: the same hospitality suite; named tests; e2e dead-ends and draft specs in the 284 run.
 - Evidence:
   ```
-  ChangeRegularWeekDrawer.test.tsx | on a varied week > the Applies to line and the impact count follow the days the services run
-  AvailabilityDayEditor.test.tsx | every regular Friday: changes that weekday of the regular week in place
-  AvailabilityScheduleControls.test.tsx | Schedules tab > lists a schedule saved before this change with kind alternate
-  ScheduleEditorDrawer.varied.test.tsx | saves one service Mon–Fri with different Friday hours, and Edit schedule reopens the same rows
-  CompareServices.varied.test.tsx | marks a scoped row with its base hours and + different hours, and the link opens Edit schedule
-  AvailabilityHistoryDrawer.test.tsx | words a Friday-only regular-week change with Fri and the start date, and shows the summary of an unknown code
-  regular-week-line.test.ts | says Dinner closes later on Fri and Sat
-  AvailabilityMigrationBanner.test.tsx | tells a migrated venue its hours were carried over and nothing changed for guests
-  availability-dead-ends.spec.ts: 20 passed (the "Choose a start date to save." case is in it)
+  ChangeRegularWeekDrawer.test.tsx > on a varied week > the Applies to line and the impact count follow the days the services run
+  ChangeRegularWeekDrawer.test.tsx > on a varied week > a period still needs a name, in the period's words
+  regular-week-line.test.ts > regularWeekLine > says Dinner closes later on Fri and Sat
+  regular-week-line.test.ts > regularWeekLine > reads the demo week as each service's days, Monday first
+  AvailabilityHistoryDrawer.test.tsx > words a Friday-only regular-week change with Fri and the start date, and shows the summary of an unknown code
+  Test Files  383 passed (383)   Tests  5238 passed (5238)
+  284 passed (14.1m)      (availability-dead-ends, availability-draft, availability-regular-week, availability-phone specs inside)
   ```
-- Result: PASS — evidence from 6092bd7af, unaffected by 8b550f8bc (catalog strings only)
+- Result: PASS
 
 ### E7. Interaction counter wrapper (Milestone 1)
 
-- Check: `e2e/interaction-counter.spec.ts` through the harness.
+- Check: `e2e/availability-interaction-baselines.spec.ts` in the 284 run (the wrapper's own tests), and the guard run above.
 - Evidence (local run, synthetic OIDC session; auth.setup.ts skipped; no Auth0 E2E creds locally):
   ```
-  [1/3] interaction counter › a click, a fill, a check, an uncheck and a press each count 1
-  [2/3] interaction counter › a combobox opened then chosen counts 2
-  [3/3] interaction counter › goto, expect and waitFor count 0
-    3 passed (1.9s)
+  284 passed (14.1m)      (availability-interaction-baselines.spec.ts in it; 0 failed)
+  COUNT uniform bistro = 5 bound 5 / COUNT large = 13 bound 13 / quick-setup=18 via-schedules=26
   ```
-- Result: PASS — evidence from 6092bd7af, unaffected by 8b550f8bc (catalog strings only)
+  Not run on its own, so the three wrapper-test names are not quoted.
+- Result: PASS
 
 ### E8. Install, lint, typecheck
 
-- Check: `pnpm install --frozen-lockfile`; `pnpm lint --force`; `pnpm typecheck --force` (node v22.22.3).
+- Check: `pnpm install --frozen-lockfile`; `pnpm typecheck --force`; `pnpm lint --force` (node v22.22.3).
 - Evidence:
   ```
-  Done in 3.1s     (pnpm install --frozen-lockfile; the shell's `echo EXIT=$?` printed the exit of the following `tail`, so the install's own exit code was not captured; the lockfile was accepted and the postinstall prisma generate ran)
-  pnpm typecheck --force:   Tasks: 45 successful, 45 total / Cached: 0 cached, 45 total   (exit 0)
-  pnpm lint --force:        Tasks: 45 successful, 45 total / Cached: 0 cached, 45 total   (exit 0)
-    @mbe/hospitality:lint: ✖ 232 problems (0 errors, 232 warnings)
+  $ pnpm install --frozen-lockfile
+  services/reservations postinstall: ✔ Generated Prisma Client (v7.10.1) ...
+  Done in 3.4s      (INSTALL_EXIT=0, taken from PIPESTATUS)
+  $ pnpm typecheck --force     Tasks: 45 successful, 45 total / Cached: 0 cached, 45 total   (TC_EXIT=0)
+  $ pnpm lint --force          Tasks: 45 successful, 45 total / Cached: 0 cached, 45 total   (LINT_EXIT=0)
+    @mbe/hospitality:lint: ✖ 230 problems (0 errors, 230 warnings)
     @mattbutlerengineering/rialto:lint: ✖ 182 problems (0 errors, 182 warnings); @mbe/gen 108; @mbe/rialto-web 165; @mbe/auth 2 (all 0 errors)
   ```
-  Lint is green with warnings only. Whether those 232 hospitality warnings predate this run was not examined.
-- Result: PASS — evidence from 6092bd7af, unaffected by 8b550f8bc (catalog strings only)
+  Lint is green with warnings only. Hospitality's count fell from 232 (earlier pass) to 230; whether the remaining 230 predate this run was not examined.
+- Result: PASS
 
-### E9. Flake check, rescoped: did this run introduce or worsen the "Escape on Go to date puts focus back on the menu button" flake?
+### E9. Flake check: did this run introduce or worsen the "Escape on Go to date puts focus back on the menu button" flake?
 
-- Check: the question that matters for shipping is whether this run introduced or worsened the flake, not whether the test never fails. Three pieces of evidence: (1) the fix loop's two-tree numbers from commit 8b550f8bc's Notes, (2) this stage's re-run of the same command on this branch, (3) whether the code under test differs from the merge base. The 6092bd7af evidence stays as the original finding: 1 failure in a 14-spec `--workers=4 --retries=0` run (`expect(dialog).toBeHidden()` at line 382 Received: visible, after `keyboard.press("Escape")` at line 381), while the spec passed alone, at default workers (31 passed), and 12 of 12 under `--repeat-each=3`.
-- Evidence (1), quoted from 8b550f8bc's breakdown Notes (the fix loop's run, not re-measured here):
+- Check: (1) the fix loop's two-tree numbers (8b550f8bc Notes, breakdown.md line 253), (2) this stage's re-run of the same command at HEAD, (3) whether the 284-pass default-workers run saw it.
+- Evidence (1), quoted from the breakdown Notes (not re-measured here): `This branch: 59 passed, 1 failed (desktop, fr-CA; expect(dialog).toBeHidden() Received: visible ...). origin/main (106eaaf9c ...): 58 passed, 2 failed (both desktop, en-US, same assertion shape).`
+- Evidence (2), this stage, HEAD, nothing on :3002 beforehand (local run, synthetic OIDC session; auth.setup.ts skipped; no Auth0 E2E creds locally):
   ```
-  Command: `run-e2e.sh e2e/availability-regular-week.spec.ts --grep "Escape on Go to date" --repeat-each=15 --workers=4 --retries=0`; the grep matches four variants (desktop and phone, en-US and fr-CA), so 60 runs per tree. Local run, synthetic OIDC session (auth.setup.ts skipped; no Auth0 E2E creds locally). This branch: 59 passed, 1 failed (desktop, fr-CA; `expect(dialog).toBeHidden()` Received: visible, the same assertion Verify saw). origin/main (106eaaf9c, detached worktree, bootstrapped, removed afterwards; the test exists there): 58 passed, 2 failed (both desktop, en-US, same assertion shape). Both trees fail the desktop variant at about the same low rate (1/60 and 2/60), so this run did not cause it. Smell left for a later run: after Escape the Go to date dialog is occasionally still visible on the desktop variant (a close-animation race is the likely cause; [INFERENCE], not investigated).
+  $ run-e2e.sh e2e/availability-regular-week.spec.ts --grep "Escape on Go to date" --repeat-each=15 --workers=4 --retries=0
+    1) [chromium] › e2e/availability-regular-week.spec.ts:366:5 › navigation and day-drawer controls (#7981) › Escape on Go to date puts focus back on the menu button (desktop, fr-CA)
+       Error: expect(locator).toBeHidden() failed
+    1 failed
+    59 passed (1.1m)
   ```
-- Evidence (2), this stage, the same command on this branch at 8b550f8bc (local run, synthetic OIDC session; auth.setup.ts skipped; no Auth0 E2E creds locally; nothing listening on :3002 beforehand):
-  ```
-  4 failed
-    [chromium] › e2e/availability-regular-week.spec.ts:366:5 › navigation and day-drawer controls (#7981) › Escape on Go to date puts focus back on the menu button (desktop, en-US)
-    [chromium] › e2e/availability-regular-week.spec.ts:366:5 › navigation and day-drawer controls (#7981) › Escape on Go to date puts focus back on the menu button (desktop, fr-CA)
-    [chromium] › e2e/availability-regular-week.spec.ts:366:5 › navigation and day-drawer controls (#7981) › Escape on Go to date puts focus back on the menu button (desktop, fr-CA)
-    [chromium] › e2e/availability-regular-week.spec.ts:366:5 › navigation and day-drawer controls (#7981) › Escape on Go to date puts focus back on the menu button (desktop, en-US)
-  56 passed (1.2m)
-      383 |       await expect(more).toBeFocused();
-    at .../apps/hospitality/e2e/availability-regular-week.spec.ts:382:28
-  ```
-  Same assertion (line 382), all four failures on the desktop variant, none on phone, both locales.
-- Evidence (3), code under test against the merge base (`git merge-base HEAD origin/main` = 106eaaf9c, the tree the fix loop measured):
-  ```
-  $ git diff --stat origin/main...HEAD -- apps/hospitality/src/components/availability/GoToDateDialog.tsx apps/hospitality/src/components/availability/AvailabilityToolbar.tsx
-  (no output: both files identical to the merge base)
-  $ git diff 106eaaf9c HEAD -U0 -- apps/hospitality/e2e/availability-regular-week.spec.ts | grep '^@@'
-  hunks at lines 92, 98, 115, 121, 139, 216, 258, 284 and 605; the Escape test is lines 366-384, so none touches it
-  ```
-- Reading: the dialog, its toolbar and the test body are the merge base's. The failure rate on this branch across the two runs is 1 of 60 and 4 of 60 (5 of 120); origin/main was 2 of 60 in the fix loop's run. Run-to-run spread on one tree (1 to 4 of 60) overlaps the other tree's figure, and the machine's load differs between runs, so these counts cannot rank the trees; they show the same intermittent failure in the same variant on both, at a low rate on both. This run did not introduce it and, on the code evidence, cannot have worsened it. No statistical test was run, and origin/main was not re-measured in this stage.
-- Result: PASS for the rescoped question (this run neither introduced nor worsened the flake). **Not a pass of the test:** "Escape on Go to date puts focus back on the menu button (desktop)" remains a known pre-existing open risk, failing intermittently under `--workers=4 --retries=0` (4 of 60 in this stage's run), with an uninvestigated cause.
+- Evidence (3): the default-workers run (workers: 1) of the same spec file inside the 284 had 0 failed.
+- Reading: the failure shape is the same as in the fix loop's runs (desktop, `toBeHidden`), at 1 of 60 here against 1 of 60 (branch) and 2 of 60 (origin/main) there; the earlier Verify pass saw 4 of 60 on this branch. These counts cannot rank the trees; the dialog, toolbar and test are the merge base's. The cause is uninvestigated and [INFERENCE] only.
+- Result: PASS for the rescoped question (this run neither introduced nor worsened it). **Not a pass of the test:** it remains a pre-existing open risk (OPEN).
 
 ### E10. Visual check of the real surface
 
-- Check: Playwright screenshots through the same harness session and mocked API, saved to `/tmp/acu-e2e/shots/` (outside the repo), at 1280x720 and 375x812; I opened and looked at each of these: quick setup with the demo week and the strip (`1280x720-01`, `-15`, `-16-demo-tall`, `375x812-13`, `-15`, `-16`), a different-hours block (`1280x720-03`, `375x812-03`), Change regular week editing Wednesday (`1280x720-21`, `-22`, `375x812-20`, `-21`), the calendar's regular-week line (`1280x720-06`, `-23`, `375x812-06`, `-23`).
-- Evidence (text read off the screenshots, then what I saw):
+- Check: Playwright screenshots through the harness's session and mocked API, saved to `/tmp/acu-e2e/shots-final/` (outside the repo) at 1280x720 and 375x812 after the Review fix loop (including Minor 9's a11y changes): `NNNxNNN-01-quick-setup-viewport`, `-02-quick-setup-full`, `-03-strip`, `-04-different-hours-block`, `-05-service-row-dinner`, `-06-after-remove-service` (12 PNG). I opened each of `1280x720-02, -03, -05, -06` and `375x812-01, -02, -03, -05`.
+- Evidence (text read from the DOM at the same time, then what I saw):
   ```
-  /tmp/acu-e2e/shots/: 40 PNG files (20 per viewport, 1280x720-NN-*.png and 375x812-NN-*.png); throwaway specs deleted, git status --porcelain empty
-  strip  MONDAY    "Lunch 11:30 AM – 1:45 PM" / "Not offered: Dinner, Brunch"
-  strip  FRIDAY    "Lunch 11:30 AM – 1:45 PM" / "Dinner 5:00 PM – 11:15 PM" / "Not offered: Brunch"
-  strip  SATURDAY  "Brunch 10:00 AM – 1:15 PM" / "Dinner 5:00 PM – 11:15 PM" / "Not offered: Lunch"
-  strip  SUNDAY    "Brunch 10:00 AM – 1:15 PM" / "Dinner 5:00 PM – 9:15 PM"
-  block  "Dinner: different hours"  Fri, Sat ticked; Opens 5:00 PM; Last seating 11:15 PM; Closes 12:00 AM; "Closes 12:00 AM the next day"
-  drawer "Change regular week"  "Lunch: different hours", Wed ticked, Closes 1:00 PM; footer "Choose a start date to save." then "Save hours from Nov 4"
-  line   "Regular week: Lunch Mon–Fri · Dinner Tue–Sun, later Fri–Sat · Brunch Sat–Sun"
-  line   (after the Wednesday change) "Regular week: Lunch Mon–Fri, earlier Wed · Dinner Tue–Sun, later Fri–Sat · Brunch Sat–Sun"
+  strip (both widths) MONDAY "Lunch 11:30 AM – 1:45 PM" / "Not offered: Dinner, Brunch"; FRIDAY "Lunch ..." / "Dinner 5:00 PM – 11:15 PM"; SATURDAY "Brunch 10:00 AM – 1:15 PM" / "Dinner 5:00 PM – 11:15 PM"; SUNDAY "Brunch ..." / "Dinner 5:00 PM – 9:15 PM"
+  ADD aria-expanded=null count=3        (the "Different hours on some days" buttons carry no aria-expanded)
+  LIVE ["Service 3 added ","Monday, Tuesday, Wednesday, Thursday, Friday updated"]
+  FOCUS after remove: INPUT  Dinner      (removing service 3 puts focus in the previous service's name input, not on body)
   ```
   What I saw:
-  - Quick setup, 1280x720: the form fills the left column and the "Guest preview" strip (party select, then one block per weekday, Monday first) sits on the right at the same height as the form. Monday reads "Lunch 11:30 AM – 1:45 PM / Not offered: Dinner, Brunch"; Friday and Saturday dinner end "11:15 PM", Thursday and Sunday "9:15 PM". Rows are legible, with no clipped or overlapping text. The strip is about 1,125 px tall, so at 720 px only about Monday to Tuesday show without scrolling; with a 1500 px tall viewport all seven days show.
-  - Quick setup, 375x812: one column, the strip below the form (as designed); rows legible at 375 px and nothing runs off the card; Saturday and Sunday are further down.
-  - Different-hours block ("Dinner: different hours"): Tue to Sun checkboxes with Fri and Sat ticked, Opens 5:00 PM, Last seating 11:15 PM, Closes 12:00 AM, "Closes 12:00 AM the next day", "Remove these hours". Fits at both widths; the weekday checkboxes wrap to two rows at 375 px.
-  - Change regular week, Wednesday: block "Lunch: different hours" with Wed ticked and Closes 1:00 PM; the footer reads "Choose a start date to save." until a start is picked, then "Save hours from Nov 4". After saving, the calendar line reads "Regular week: Lunch Mon–Fri, earlier Wed · Dinner Tue–Sun, later Fri–Sat · Brunch Sat–Sun" and Wednesday's cell shows "Lunch 11:30 AM–12:15 PM".
-  - Calendar line, before the change: "Regular week: Lunch Mon–Fri · Dinner Tue–Sun, later Fri–Sat · Brunch Sat–Sun" with a Details disclosure listing each weekday ("MONDAY Lunch 11:30 AM – 1:45 PM", "SATURDAY Brunch 10:00 AM – 1:15 PM · Dinner 5:00 PM – 11:15 PM"). No per-day schedule or assignment is listed.
-  - Observations, none blocking a criterion:
-    - O1. "Different days for this service", "Different hours on some days", "Use the shared days" and "Remove service N" render as small low-contrast text with no border; they read as captions, not buttons. When a service has its own days, "Different days for this service" and "Use the shared days" are both visible, stacked, with a large gap between them.
-    - O2. The "Ending" field's placeholder "No end — this becomes" is cut at the field edge (no ellipsis) in the Change regular week drawer at 375 px and at 1280 px; the full wording appears in the line under it ("No end — this becomes the new regular week").
-    - O3. At 375 px in the calendar's Details table the Monday row's short value sits to the right of its label while every other weekday's value wraps below its label; the rows do not align.
-    - O4. The "Bookings are open ..." and "Regular week changed from Nov 4" toasts overlap the header (and the drawer title if the drawer is opened while the toast shows); transient.
-    - O5. In the month grid, Monday cells (one service) show no count line and other days show "2 services". `day-summary.ts` shows a count only from 2 services (its comment: "or `null` when the count is not worth showing"), so this is by design, not a defect.
-  - Could not check: a screen reader or keyboard pass on the real surface; pixel-level contrast measurement; dark mode; a venue with many services (long strip) or with tables loaded (party check against real tables); the strip's "Updated" tag animation and the `prefers-reduced-motion` path; the Safari and Firefox engines (Chromium only); screenshots caught the popovers mid-fade in the first capture, so I re-took the Change regular week shots after waiting. Full-page screenshots do not capture the app's inner scroller, so the strip was captured with a tall viewport instead.
-- Result: PASS (observations O1 to O4 listed under Failures as non-blocking findings for Review) — evidence from 6092bd7af, unaffected by 8b550f8bc (catalog strings only)
+  - 1280x720: the form fills the left column; the "Guest preview" panel (title, "First and last time a guest can book.", a Party select showing 2, then one block per weekday, Monday first) sits on the right. Each row has a small "Updated" tag where its times changed (Monday to Friday; Saturday and Sunday untagged). Text is legible, with no clipping or overlap. After the remove, the Dinner name field shows a visible gold focus ring (`6-after-remove-service`).
+  - 375x812: one column; the strip sits below the form (as designed); rows are legible and nothing runs off the card.
+  - Service row (Dinner): "Different days for this service", "Use the shared days", "Different hours on some days" and "Remove service 3" render as small grey captions without a border, still reading as captions rather than buttons; the "Dinner runs on" shortcut buttons (Weekdays, Weekends, Every day) and the weekday checkboxes have visible state. "Dinner: different hours" shows Fri and Sat ticked, Opens 5:00 PM, Last seating 11:15 PM, Closes 12:00 AM, "Closes 12:00 AM the next day" and "Remove these hours".
+  - Observation (Playwright, not the UI): the app scrolls inside its own container, so my `fullPage` and element screenshots (`-02`, `-04`, `-05`, `-06` at 375) are cropped or contain blank bands; they were readable only in part. The `-01` viewport shot and the DOM text were the reliable sources.
+  - Carried over, not re-looked at: the earlier pass's non-blocking observations O1 (low-affordance caption buttons; still true in these shots, above), O2 to O4 (clipped Ending placeholder, a Details row misalignment at 375, toast over the header) were not re-checked in this pass.
+  - Could not check: a screen reader or keyboard pass, contrast measurement, dark mode, many-service strips, a tables-loaded party check, `prefers-reduced-motion`, other browser engines.
+- Result: PASS
 
 ### E11. Real Auth0 `auth.setup.ts` e2e login
 
 - Check: none run locally: E2E_AUTH0_* creds exist only in CI.
-- Evidence: not run. All e2e evidence above used the synthetic OIDC session, which skips `auth.setup.ts` entirely, so the real login path is a limitation of this verification, not a pass.
+- Evidence: not run. All e2e evidence above used the synthetic OIDC session, which skips `auth.setup.ts`, so the real login path is a limitation of this verification, not a pass.
 - Result: NOT RUN (CI-only)
+
+### E12. CLI checks and the drift lane
+
+- Check: `pnpm --filter @mbe/cli build && ... start check-adr && ... start check-deps`; `pnpm graph`, `pnpm generate:dep-graph`, `git diff --exit-code` on the two generated files; `mbe pack <dir> --check` for each of the 22 tracked `llms.txt` directories.
+- Evidence:
+  ```
+  @mbe/cli build (tsc): BUILD=0
+  Checking codebase against 1 active ADRs...
+  ✅ No architectural violations detected.        (ADR=0)
+  ✅ All external dependencies are consistent across the monorepo.   (DEPS=0)
+  Generated dependency graph with 30 packages → docs/architecture/dependency-graph.md     (GRAPH=0)
+  Generated dependency graph: 30 nodes, 93 edges → infrastructure/worker/dep-graph.json   (GEN=0)
+  $ git diff --exit-code docs/architecture/dependency-graph.md infrastructure/worker/dep-graph.json
+  DIFF_EXIT=0
+  $ pnpm --filter @mbe/cli start pack <dir> --check     for apps/gen, apps/hospitality, apps/marketing, apps/rialto-web, infrastructure/pulumi, ., packages/{agent-core,api-client,auth,config,database,gh-client,rialto-catalog,rialto,sentry,service-bootstrap,types,ui-quality-capture}, services/{agent,reservations,users}, tools/cli
+  22 of 22: exit 0, "<dir>/llms.txt is in sync."
+  ```
+  No drift. (The first attempt with absolute paths is explained in the assumptions; it is not evidence.)
+- Result: PASS
+
+### Verify fix loop: es-MX and fr-CA plural forms for closedDays
+
+- Check: `pnpm check:i18n-catalogs` at HEAD.
+- Evidence:
+  ```
+  PASS: Every translation catalog matches its en-US keys, placeholders and plural forms.
+  ```
+  Correctness of the Spanish and French strings beyond plural-form presence is not claimed.
+- Result: PASS
+
+### Verify fix loop: Go to date Escape flake classified
+
+- Check: the classification and both-tree evidence are recorded in the breakdown Notes (breakdown.md line 253: this branch 59/60, origin/main 58/60); the test body is unchanged since the merge base; this stage's run is in E9.
+- Evidence (this stage, HEAD):
+  ```
+  $ git diff --stat origin/main...HEAD -- apps/hospitality/src/components/availability/GoToDateDialog.tsx apps/hospitality/src/components/availability/AvailabilityToolbar.tsx
+  (no output: both files identical to the merge base)
+  $ git diff 106eaaf9c HEAD -U0 -- apps/hospitality/e2e/availability-regular-week.spec.ts | grep '^@@'
+  hunks at lines 92, 98, 115, 121, 139, 216, 258, 284 and 605; the Escape test starts at line 366, so none touches it
+  breakdown.md:253  "Go to date Escape flake, classified PRE-EXISTING (surgical scope: the test is unchanged)."
+  ```
+  The classification is recorded; the flake itself is not fixed and is not claimed fixed.
+- Result: PASS (the Accept is the classification, not a fix)
+
+### Review major 1: a stale client erases a varied week
+
+- Check: the route test, the schema tests, and the full suites.
+- Evidence:
+  ```
+  $ vitest run availability-config.test.ts -t "stale client"   (services/reservations)
+   ✓ availability config routes > PUT /config > refuses a row that omits the two fields, so a stale client cannot erase a varied week
+   Tests  1 passed | 36 skipped (37)
+  $ vitest run availability-config-api.test.ts -t "PUT body row|old History inverse"   (packages/types)
+   ✓ regular_week_changed detail and day scope on the wire > parses an old History inverse row (without the two fields) as no scope
+   ✓ regular_week_changed detail and day scope on the wire > requires both new fields on a PUT body row, naming the missing one
+   Tests  2 passed | 40 skipped (42)
+  ```
+  The Accept's "store is never called" and "400 naming the field" are what the route test's name states; I did not open the assertions line by line. Stored rows still parse (the old-inverse test above; the reservations full run, 3965 passed, reads rows without the fields in the integration test).
+- Result: PASS
+
+### Review major 2: per-set seating and booking types flattened
+
+- Check: the set-seating preservation tests, by name.
+- Evidence:
+  ```
+  $ vitest run schedule-changes.test.ts -t "own seating and booking types"   (apps/hospitality)
+   ✓ an hour set's own seating and booking types > Change regular week keeps the set's seating and booking types when only the base hours change
+   ✓ an hour set's own seating and booking types > Edit schedule keeps the set's seating and booking types through a rename
+   Tests  2 passed | 28 skipped (30)
+  ```
+- Result: PASS
+
+### Review major 3: duplicating a schedule makes an all-week winner
+
+- Check: the duplicate-schedule seeding test, by name.
+- Evidence:
+  ```
+  $ vitest run ScheduleDrawers.test.tsx -t "only a Use schedule rule runs"   (apps/hospitality)
+   ✓ schedule drawers > Schedules tab > a copy of a schedule only a Use schedule rule runs needs days before it can save (it would otherwise win every day)
+   Tests  1 passed | 23 skipped (24)
+  ```
+  The test name covers "needs days before it can save"; the "regular week unchanged on every day" leg and "no undated all-week assignment written" leg were not separately confirmed by me beyond the test passing.
+- Result: PASS
+
+### Review minor 1: Edit schedule drops a service whose own days are outside the schedule's days
+
+- Check: the named test.
+- Evidence:
+  ```
+   ✓ quick setup draft > flags a service whose own days all fall outside the days the schedule is used on
+   Tests  1 passed | 38 skipped (39)
+  ```
+  The Accept's alternative (`validateDraft` refuses with an issue) is the leg this test names; the drawer's Save wiring (b36b46c44) is covered by the hospitality suite passing, not by a separate named test here.
+- Result: PASS
+
+### Review minor 2: the collapse script's `replaced` log omits created rows
+
+- Check: the named test; `reference.md`.
+- Evidence:
+  ```
+   ✓ collapseVenue > logs the ids of the rows a collapse creates, so the log can be rolled back from
+  services/reservations/docs/reference.md:670: ... Every `would_collapse` / `collapsed` line carries the rows it replaced and the ids of the rows it created (`created`): keep the log, it is the backup. Rollback is manual: restore the replaced rows, delete the created ones (archived schedules can be unarchived).
+  ```
+- Result: PASS
+
+### Review minor 3: the collapse script's `refused` check compares issue sets
+
+- Check: the named tests.
+- Evidence:
+  ```
+   ✓ introducedIssues > reports an issue the collapse adds even when it also fixes one (equal counts)
+   ✓ introducedIssues > reports nothing when the collapse only keeps or removes issues
+   Tests  3 passed | 5 skipped (8)      (with the minor 2 test)
+  ```
+- Result: PASS
+
+### Review minor 4: `encodeWeek` is canonical over `bookingTypes` and `fixed` seating order
+
+- Check: the named test.
+- Evidence:
+  ```
+   ✓ encodeWeek canonical form > groups days whose bookingTypes or fixed seating differ only in order
+   Tests  1 passed | 23 skipped (24)
+  ```
+- Result: PASS
+
+### Review minor 5: the "varied week faster than today" guard can fail
+
+- Check: the guard compares against the constant `DEMO_WEEK_VIA_SCHEDULES_COUNT = 26`; I ran the spec with the constant mutated to 18, watched it fail, restored it and re-ran.
+- Evidence (local run, synthetic OIDC session; auth.setup.ts skipped; no Auth0 E2E creds locally):
+  ```
+  mutated (DEMO_WEEK_VIA_SCHEDULES_COUNT = 18):
+    Error: expect(received).toBeLessThan(expected)
+    Expected: < 18
+    Received:   18
+    > 103 |     expect(quickSetup.count()).toBeLessThan(DEMO_WEEK_VIA_SCHEDULES_COUNT);
+    1 failed / 2 passed (22.6s)
+  restored (git checkout -- the constant's file; porcelain empty):
+    3 passed (14.6s)
+  ```
+  This is a fresh re-run of the proof, not a citation of 8cdbf9577.
+- Result: PASS
+
+### Review minor 7: the calendar's regular-week line agrees with Details after a dated Change regular week
+
+- Check: the named test.
+- Evidence:
+  ```
+   ✓ regularWeekLine > reads the week in force today, not a dated Change regular week that starts later
+   Tests  1 passed | 5 skipped (6)
+  ```
+  The line's agreement with Details in a browser was not looked at.
+- Result: PASS
+
+### Review minor 8: the lint warning at `ScheduleEditorDrawer.tsx:130`
+
+- Check: `eslint` on the file; the root `lint --force` above.
+- Evidence:
+  ```
+  $ pnpm exec eslint src/components/availability/ScheduleEditorDrawer.tsx     (apps/hospitality)
+  (no output)   ESLINT_EXIT=0
+  @mbe/hospitality:lint: ✖ 230 problems (0 errors, 230 warnings)      (232 before the fix loop)
+  ```
+  The RED half of the Accept (the warning as it was) was not re-created; the earlier count of 232 against today's 230 is consistent with two warnings gone.
+- Result: PASS
+
+### Review minor 9: accessibility in the new service row
+
+- Check: the three component tests by name, and the same behaviours read from the browser (E10).
+- Evidence:
+  ```
+   ✓ QuickSetupForm removing a service > moves focus to the previous service's name instead of dropping it to the page
+   ✓ QuickSetupForm different hours on some days > does not mark the add button expanded: a click adds another block, it never collapses
+   ✓ QuickSetupForm different hours on some days > changes the live region's DOM when the same announcement repeats
+   Tests  3 passed | 11 skipped (14)
+  browser: ADD aria-expanded=null; FOCUS after remove: INPUT  Dinner
+  ```
+- Result: PASS
+
+### Review minor 14: the agent tool's comment states what `serviceDayMinute` reads
+
+- Check: read the comment at `services/agent/src/routes/gen-agent-availability-tools.ts` and ran the agent suite.
+- Evidence:
+  ```
+  132:  // Every schedule's rows that run on `date`'s weekday, each with that weekday's hours, over all
+  133:  // venue services (archived ones too): not only the schedule that covers `date`. Pre-existing; a
+  134:  // holiday schedule opening earlier than the regular day moves the cutoff for every date.
+  @mbe/agent-service: Test Files  53 passed (53) / Tests  1028 passed (1028)
+  ```
+- Result: PASS
 
 ## Failures
 
-1. **PRD "Copy in three locales"**: failed at 6092bd7af, fixed by 8b550f8bc, PASS on a fresh `pnpm check:i18n-catalogs` in this stage. No open failure remains. The lesson stands for the next PRD and breakdown: the criterion named "the locale-parity check" and the breakdown pointed it at `locales.test.ts`, which does not compare catalogs; point it at `pnpm check:i18n-catalogs`.
-2. **E9 flake, pre-existing and OPEN** (not a FAIL of this run; routes to the Owner or a later run): `Escape on Go to date puts focus back on the menu button (desktop)` fails intermittently under `--workers=4 --retries=0` on this branch and on origin/main alike (this branch 1/60 and 4/60; origin/main 2/60). `expect(dialog).toBeHidden()` at line 382 sees the dialog still visible after 5000 ms. This run did not introduce or worsen it, but it is unfixed and its cause (an Escape/close race) is [INFERENCE]. Needs a decision: fix the test or the dialog's Escape wiring in its own change, or accept the flake knowingly. CI with retries may hide it.
-3. **Non-blocking visual observations** (for Review; no criterion fails on them; from 6092bd7af): O1 low-affordance ghost buttons and the stacked "Different days for this service" / "Use the shared days" pair; O2 clipped "Ending" placeholder; O3 the Monday row misalignment in the phone Details table; O4 toast overlapping the header and the drawer title.
+none. No criterion failed at HEAD, and the drift lane showed no drift.
+
+Open and not failing this run (routes to the Owner or a later run, not to Implement): the **Go to date Escape flake** (E9): `Escape on Go to date puts focus back on the menu button (desktop)` fails intermittently under `--workers=4 --retries=0` (1 of 60 here; 1 of 60 on this branch and 2 of 60 on origin/main in the fix loop). Cause unknown and uninvestigated.
+
+Non-blocking observation for Review: the service-row caption buttons ("Different days for this service", "Use the shared days", "Different hours on some days", "Remove service N") read as low-contrast captions without a border (earlier O1; still visible in the HEAD shots).
 
 ## Not verified
 
-- **Owner-only human-timed five-minute walkthrough** (PRD criterion 12): not run, by design.
-- **Real Auth0 e2e login (`auth.setup.ts`)**: CI-only; not run (E11).
-- **A full-stack browser run**: every e2e used mocked API responses; the calendar, day drawer and guest preview in the demo e2e come from `engine-days-mock.ts` running the same pure engine as the service, so PRD 2's e2e leg is not independent of the engine. The service's own builders were exercised by the reservations suite, not by a browser against the real service and database.
-- **CI-only jobs**: the CI Migration Dry-Run job (postgres:16-alpine; this run used postgres:15), the Docker build of `services/agent` (the breakdown notes its Dockerfile changed), the visual-regression workflows (`apps-visual`, `rialto-visual`), Lighthouse, mutation testing and the e2e screenshots workflow. None was run here.
+- **Owner-only human-timed five-minute walkthrough** (PRD 12): not run, by design.
+- **Real Auth0 e2e login (`auth.setup.ts`)** (E11): CI-only; not run.
+- **A full-stack browser run**: every e2e mocks the API; the calendar, day drawer and guest preview in the demo e2e come from `engine-days-mock.ts` running the same pure engine as the service, so PRD 2's e2e leg is not independent of the engine. The service's own builders were exercised by the reservations suite, not by a browser.
+- **CI-only jobs**: the Migration Dry-Run job (postgres:16-alpine; this run used postgres:15), the `services/agent` Docker build, visual-regression workflows, Lighthouse, mutation testing, `pnpm regen --check --git-only` and `pnpm size:check`. None was run here.
 - **Collapse script apply on a real database**: the Owner's step; only the mocked-client unit tests and the throwaway Postgres were used.
-- **Whether the 232 hospitality lint warnings predate this run**: not examined (the count is unchanged between 6092bd7af and 8b550f8bc). **Whether the "Escape on Go to date" flake exists on `origin/main`:** shown only by the fix loop's run (2 of 60), not re-measured in this stage; its cause was not investigated.
+- **Whether the 230 hospitality lint warnings predate this run**: not examined. **Whether the Go to date Escape flake exists on `origin/main`**: shown only by the fix loop's run (2 of 60), not re-measured here; its cause was not investigated.
 - **Correctness of the es-MX and fr-CA `closedDays_many` wording** beyond key, placeholder and plural-form presence: no native-speaker review.
-- **Everything marked "evidence from 6092bd7af"** was not re-run in this stage; it rests on the diff showing catalog strings only. The engine, types, reservations (Postgres) and agent suites, the migration checks and the screenshots were not re-run.
-- **Accessibility, dark mode, other browsers, many-service strips and tables-loaded party checks** on the real surface (see E10).
-- **Interaction counts** are counts of Playwright actions on one fixture (agent stand-in evidence), not human time; the PRD 12 walkthrough is the only time-based criterion and it was not run.
+- **Route-test internals for Review major 1 and 3**: I ran the named tests and quoted their titles; I did not read every assertion against the Accept's sub-claims.
+- **Visual**: accessibility with a screen reader or keyboard, dark mode, other browsers, many-service strips, tables-loaded party checks; some full-page and element screenshots at 375 px were cropped by the app's inner scroll container (E10).
+- **Interaction counts** are counts of Playwright actions on one fixture (agent stand-in evidence), not human time.
