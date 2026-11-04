@@ -98,7 +98,9 @@ export function AvailabilityAgenda(props: AvailabilityAgendaProps) {
               ) : (
                 <span className={styles.details} aria-hidden="true">
                   <span className={styles.label}>{view.label} </span>
-                  {view.count && <span className={styles.meta}>{view.count} </span>}
+                  {view.servicesSummary && (
+                    <span className={styles.meta}>{view.servicesSummary} </span>
+                  )}
                   {view.bands.map((b) => (
                     <span key={b.key} className={styles.band}>
                       {b.text}{" "}

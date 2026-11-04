@@ -1982,7 +1982,7 @@
         label: string | null;
         tone: DayTone | null;
         bands: readonly ClosureBandText[];
-        count: string | null;
+        servicesSummary: string | null;
         services: readonly ServiceLineText[];
       }
     </item>
