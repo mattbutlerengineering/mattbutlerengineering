@@ -94,14 +94,14 @@ describe("floorPlanService", () => {
       await floorPlanService.list(1, 10, "venue-1");
 
       expect(prisma.floorPlan.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { venueId: "venue-1" } })
+        expect.objectContaining({ where: { archivedAt: null, venueId: "venue-1" } })
       );
     });
   });
 
   describe("getById", () => {
     it("returns floor plan with tables", async () => {
-      vi.mocked(prisma.floorPlan.findUnique).mockResolvedValueOnce(makePrismaFloorPlan() as never);
+      vi.mocked(prisma.floorPlan.findFirst).mockResolvedValueOnce(makePrismaFloorPlan() as never);
 
       const result = await floorPlanService.getById("fp-1");
 
@@ -110,7 +110,7 @@ describe("floorPlanService", () => {
     });
 
     it("returns null when not found", async () => {
-      vi.mocked(prisma.floorPlan.findUnique).mockResolvedValueOnce(null as never);
+      vi.mocked(prisma.floorPlan.findFirst).mockResolvedValueOnce(null as never);
 
       expect(await floorPlanService.getById("missing")).toBeNull();
     });
@@ -182,7 +182,7 @@ describe("floorPlanService", () => {
 
   describe("clone", () => {
     it("returns null when source floor plan not found", async () => {
-      vi.mocked(prisma.floorPlan.findUnique).mockResolvedValueOnce(null as never);
+      vi.mocked(prisma.floorPlan.findFirst).mockResolvedValueOnce(null as never);
 
       expect(await floorPlanService.clone("missing")).toBeNull();
     });
@@ -190,7 +190,7 @@ describe("floorPlanService", () => {
     it("clones floor plan with tables in a transaction", async () => {
       const createMany = vi.fn().mockResolvedValue({ count: 1 });
       const source = makePrismaFloorPlan();
-      vi.mocked(prisma.floorPlan.findUnique).mockResolvedValueOnce(source as never);
+      vi.mocked(prisma.floorPlan.findFirst).mockResolvedValueOnce(source as never);
 
       vi.mocked(prisma.floorPlan.findMany).mockResolvedValueOnce([] as never);
 
@@ -230,7 +230,7 @@ describe("floorPlanService", () => {
     it("handles name collisions by appending copy number", async () => {
       const createMany = vi.fn().mockResolvedValue({ count: 1 });
       const source = makePrismaFloorPlan();
-      vi.mocked(prisma.floorPlan.findUnique).mockResolvedValueOnce(source as never);
+      vi.mocked(prisma.floorPlan.findFirst).mockResolvedValueOnce(source as never);
 
       vi.mocked(prisma.floorPlan.findMany).mockResolvedValueOnce([
         { name: "Copy of Main Floor" },
@@ -290,23 +290,110 @@ describe("floorPlanService", () => {
   });
 
   describe("delete", () => {
-    it("deletes tables then floor plan", async () => {
-      vi.mocked(prisma.table.deleteMany).mockResolvedValueOnce({ count: 2 } as never);
-      vi.mocked(prisma.floorPlan.delete).mockResolvedValueOnce(undefined as never);
+    /** A transaction client for `delete`: the locked plan row, its tables, its history. */
+    function deleteTx(opts: {
+      plan?: { isActive: boolean; archivedAt: Date | null };
+      tables?: Array<{ id: string; name: string }>;
+      venueNames?: string[];
+      history?: number;
+      upcoming?: number;
+    }) {
+      const tables = opts.tables ?? [{ id: "t-1", name: "T1" }];
+      const tx = {
+        $executeRaw: vi.fn().mockResolvedValue(0),
+        $executeRawUnsafe: vi.fn().mockResolvedValue(0),
+        $queryRaw: vi.fn().mockResolvedValue(opts.plan ? [opts.plan] : []),
+        floorPlan: { delete: vi.fn(), update: vi.fn() },
+        table: {
+          findMany: vi
+            .fn()
+            .mockResolvedValueOnce(tables)
+            .mockResolvedValueOnce((opts.venueNames ?? []).map((name) => ({ name }))),
+          deleteMany: vi.fn(),
+          update: vi.fn(),
+        },
+        reservation: {
+          count: vi
+            .fn()
+            .mockResolvedValueOnce(opts.upcoming ?? 0)
+            .mockResolvedValueOnce(opts.history ?? 0),
+        },
+        reservationHold: { count: vi.fn().mockResolvedValue(0) },
+      };
+      vi.mocked(prisma.floorPlan.findFirst).mockResolvedValueOnce({ venueId: "venue-1" } as never);
+      vi.mocked(prisma.$transaction).mockImplementationOnce(
+        async (fn: (tx: any) => Promise<unknown>) => fn(tx)
+      );
+      return tx;
+    }
 
-      const result = await floorPlanService.delete("fp-1");
+    const inactive = { isActive: false, archivedAt: null };
 
-      expect(result).toBe(true);
-      expect(prisma.table.deleteMany).toHaveBeenCalledWith({
-        where: { floorPlanId: "fp-1" },
+    it("is not_found when the plan does not exist or is archived", async () => {
+      vi.mocked(prisma.floorPlan.findFirst).mockResolvedValueOnce(null as never);
+
+      expect(await floorPlanService.delete("missing")).toBe("not_found");
+      expect(prisma.floorPlan.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: "missing", archivedAt: null } })
+      );
+    });
+
+    it("refuses the active plan without touching anything", async () => {
+      const tx = deleteTx({ plan: { isActive: true, archivedAt: null } });
+
+      expect(await floorPlanService.delete("fp-1")).toBe("active");
+      expect(tx.table.deleteMany).not.toHaveBeenCalled();
+      expect(tx.floorPlan.update).not.toHaveBeenCalled();
+    });
+
+    it("refuses a plan whose tables still have an upcoming booking", async () => {
+      const tx = deleteTx({ plan: inactive, upcoming: 1, history: 1 });
+
+      expect(await floorPlanService.delete("fp-1")).toBe("has_upcoming");
+      expect(tx.reservation.count).toHaveBeenCalledWith({
+        where: {
+          tableId: { in: ["t-1"] },
+          status: { notIn: ["CANCELLED", "NO_SHOW", "COMPLETED"] },
+          endTime: { gt: expect.any(Date) },
+        },
+      });
+      expect(tx.table.update).not.toHaveBeenCalled();
+      expect(tx.floorPlan.update).not.toHaveBeenCalled();
+    });
+
+    it("hard-deletes tables then the plan when nothing was ever booked", async () => {
+      const tx = deleteTx({ plan: inactive });
+
+      expect(await floorPlanService.delete("fp-1")).toBe("deleted");
+      expect(tx.table.deleteMany).toHaveBeenCalledWith({ where: { floorPlanId: "fp-1" } });
+      expect(tx.floorPlan.delete).toHaveBeenCalledWith({ where: { id: "fp-1" } });
+    });
+
+    it("archives a plan with history, freeing its table names", async () => {
+      const tx = deleteTx({
+        plan: inactive,
+        tables: [{ id: "t-1", name: "T1" }],
+        venueNames: ["T1", "T1 (archived)"],
+        history: 1,
+      });
+
+      expect(await floorPlanService.delete("fp-1")).toBe("archived");
+      expect(tx.table.deleteMany).not.toHaveBeenCalled();
+      expect(tx.table.update).toHaveBeenCalledWith({
+        where: { id: "t-1" },
+        data: { name: "T1 (archived 2)", isActive: false },
+      });
+      expect(tx.floorPlan.update).toHaveBeenCalledWith({
+        where: { id: "fp-1" },
+        data: { archivedAt: expect.any(Date) },
       });
     });
 
-    it("returns false for P2025", async () => {
-      vi.mocked(prisma.table.deleteMany).mockResolvedValueOnce({ count: 0 } as never);
-      vi.mocked(prisma.floorPlan.delete).mockRejectedValueOnce({ code: "P2025" } as never);
+    it("is in_use, not a raw error, when a booking lands mid-delete", async () => {
+      const tx = deleteTx({ plan: inactive });
+      tx.table.deleteMany.mockRejectedValueOnce({ code: "P2003" });
 
-      expect(await floorPlanService.delete("missing")).toBe(false);
+      expect(await floorPlanService.delete("fp-1")).toBe("in_use");
     });
   });
 

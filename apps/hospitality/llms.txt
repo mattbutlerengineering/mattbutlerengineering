@@ -3830,6 +3830,9 @@
     <item priority="high">
       export const useActivateFloorPlan: unknown;
     </item>
+    <item priority="high">
+      export const useDeleteFloorPlan: unknown;
+    </item>
     <item priority="low">
       interface BulkUpdatePositionsPayload {
         floorPlanId: string;
